@@ -94,9 +94,8 @@
   /* ── Bottom nav ── */
   .bottom-nav {
     @apply fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md
-           backdrop-blur-md
            flex items-center justify-around;
-    background: rgba(255,255,255,0.97);
+    background: #ffffff;
     height: calc(4.5rem + var(--safe-bottom));
     padding-bottom: calc(var(--safe-bottom) + 6px);
     padding-top: 4px;
@@ -111,11 +110,7 @@
     gap: 2px;
   }
 
-  @keyframes navBreathe {
-    0%, 100% { transform: translateY(0px)  scale(1);    }
-    50%       { transform: translateY(-1px) scale(1.03); }
-  }
-  .nav-breathe { animation: navBreathe 3.5s ease-in-out infinite; }
+  .nav-breathe {}
 
   .nav-item.active { }
   .nav-item:not(.active) { }
