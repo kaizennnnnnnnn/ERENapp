@@ -78,22 +78,30 @@ export default function HomePage() {
     const dstX = barRect.left  + barRect.width  * (xpPct / 100)
     const dstY = barRect.top   + barRect.height / 2
 
-    const items = ['✦', '★', '✨', '⭐', '💫']
-    const newP: XpParticle[] = Array.from({ length: 14 }, (_, i) => {
-      const px = srcX + (Math.random() - 0.5) * 50
-      const py = srcY + (Math.random() - 0.5) * 40
-      return {
-        id:    particleIdRef.current++,
-        x:     px,
-        y:     py,
-        tx:    dstX - px,
-        ty:    dstY - py,
-        text:  i < 3 ? `+${gained}XP` : items[Math.floor(Math.random() * items.length)],
-        delay: i * 60,
-      }
-    })
-    setXpParticles(p => [...p, ...newP])
-    setTimeout(() => setXpParticles([]), 1400)
+    const items = ['✦', '★', '✨', '⭐', '💫', '·', '•']
+
+    function makeWave(count: number, baseDelay: number, labelCount: number): XpParticle[] {
+      return Array.from({ length: count }, (_, i) => {
+        const px = srcX + (Math.random() - 0.5) * 70
+        const py = srcY + (Math.random() - 0.5) * 60
+        return {
+          id:    particleIdRef.current++,
+          x:     px,
+          y:     py,
+          tx:    dstX - px,
+          ty:    dstY - py,
+          text:  i < labelCount ? `+${gained}XP` : items[Math.floor(Math.random() * items.length)],
+          delay: baseDelay + i * 90,
+        }
+      })
+    }
+
+    // Wave 1 immediately, wave 2 after 600ms, wave 3 after 1300ms
+    const wave1 = makeWave(16, 0, 3)
+    const wave2 = makeWave(12, 600, 1)
+    const wave3 = makeWave(8,  1300, 0)
+    setXpParticles(p => [...p, ...wave1, ...wave2, ...wave3])
+    setTimeout(() => setXpParticles([]), 4200)
   }, [xp]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [moods, setMoods]               = useState<DailyMood[]>([])
@@ -254,7 +262,7 @@ export default function HomePage() {
             color: '#A78BFA',
             whiteSpace: 'nowrap',
             animationDelay: `${p.delay}ms`,
-            animation: 'flyToBar 1.1s ease-in forwards',
+            animation: 'flyToBar 1.8s ease-in forwards',
             ...({ '--tx': `${p.tx}px`, '--ty': `${p.ty}px` } as React.CSSProperties),
           }}>
           {p.text}
