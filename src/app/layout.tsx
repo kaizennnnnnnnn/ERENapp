@@ -5,7 +5,10 @@ export const metadata: Metadata = {
   title: 'Pocket Eren 🐱',
   description: 'Take care of Eren together — your virtual Ragdoll companion',
   manifest: '/manifest.json',
-  icons: { icon: '/favicon.ico' },
+  icons: {
+    icon: '/ErenIcon.png',
+    apple: '/ErenIcon.png',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
