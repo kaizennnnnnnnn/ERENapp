@@ -2,7 +2,6 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { ChevronLeft } from 'lucide-react'
-import PixelEren from '@/components/PixelEren'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { cn } from '@/lib/utils'
@@ -541,7 +540,7 @@ export default function WashScene({ onClose }: Props) {
 
       {/* ══ PIXEL EREN in tub ════════════════════════════════════════════ */}
       <div className={cn('absolute transition-all duration-500', done ? 'bottom-[32%]' : 'bottom-[30%]', 'left-[35%]')}>
-        <PixelEren mood={erenMood} size={8} animate />
+        <img src="/EREN.png" alt="Eren" draggable={false} style={{ width: 130, height: 130, objectFit: 'contain', imageRendering: 'pixelated' }} />
       </div>
 
       {/* ══ SHOWER HEAD (draggable when soap done) ═══════════════════════ */}

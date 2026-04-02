@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { ChevronLeft, ShoppingCart, Package } from 'lucide-react'
-import PixelEren from '@/components/PixelEren'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { cn } from '@/lib/utils'
@@ -342,7 +341,7 @@ export default function FeedScene({ onClose }: Props) {
 
       {/* ══ EREN ══ */}
       <div className={cn('absolute z-20 transition-all duration-500', eatAnim ? 'bottom-[49%]' : 'bottom-[47%]')} style={{ left: '50%' }}>
-        <PixelEren mood={mood} size={8} animate />
+        <img src="/EREN.png" alt="Eren" draggable={false} style={{ width: 130, height: 130, objectFit: 'contain', imageRendering: 'pixelated' }} />
       </div>
 
       {/* ══ UI ══ */}

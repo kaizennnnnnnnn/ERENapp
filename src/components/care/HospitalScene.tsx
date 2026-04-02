@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { ChevronLeft } from 'lucide-react'
-import PixelEren from '@/components/PixelEren'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { cn } from '@/lib/utils'
@@ -123,11 +122,7 @@ export default function HospitalScene({ onClose }: Props) {
       <div className={cn(
         'absolute transition-all duration-500 bottom-[32%] left-[38%]',
       )}>
-        <PixelEren
-          mood={medGiven ? 'happy' : 'angry'}
-          size={8}
-          animate
-        />
+        <img src="/EREN.png" alt="Eren" draggable={false} style={{ width: 130, height: 130, objectFit: 'contain', imageRendering: 'pixelated' }} />
       </div>
 
       {/* ── Cone of shame when sick, removed after medicine ── */}

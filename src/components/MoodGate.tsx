@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { UserMood, ErenMood } from '@/types'
 import { MOOD_CONFIGS } from '@/types'
-import PixelEren from '@/components/PixelEren'
 import { cn } from '@/lib/utils'
 
 // Maps user mood → Eren's reaction mood
@@ -78,7 +77,7 @@ export default function MoodGate({ userId, userName, onDone }: Props) {
       {/* Eren — reacts to the selected mood */}
       <div className="flex flex-col items-center mb-6 relative z-10">
         <div className={cn('mb-3 transition-all duration-300', animating ? 'scale-110' : 'animate-float')}>
-          <PixelEren mood={erenMood} size={9} animate />
+          <img src="/EREN.png" alt="Eren" draggable={false} style={{ width: 150, height: 150, objectFit: 'contain', imageRendering: 'pixelated' }} />
         </div>
         {/* Pixel speech bubble */}
         <div className="relative">
@@ -126,8 +125,8 @@ export default function MoodGate({ userId, userName, onDone }: Props) {
               }
             >
               {/* Pixel Eren face */}
-              <div className="flex-shrink-0 overflow-hidden" style={{ width: 40, height: 22 }}>
-                <PixelEren mood={MOOD_TO_EREN[key]} size={2} animate={false} />
+              <div className="flex-shrink-0" style={{ width: 32, height: 32 }}>
+                <img src="/EREN.png" alt="Eren" draggable={false} style={{ width: 32, height: 32, objectFit: 'contain', imageRendering: 'pixelated' }} />
               </div>
               <span className="text-sm font-semibold text-gray-700 flex-1 text-left">{cfg.label}</span>
               {selected === key && <span className="text-[#FF6B9D]">▶</span>}

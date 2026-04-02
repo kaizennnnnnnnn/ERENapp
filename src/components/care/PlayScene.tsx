@@ -2,7 +2,6 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { ChevronLeft } from 'lucide-react'
-import PixelEren from '@/components/PixelEren'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { cn } from '@/lib/utils'
@@ -308,7 +307,7 @@ export default function PlayScene({ onClose }: Props) {
       {/* ══ EREN ══ */}
       <div className={cn('absolute z-10 transition-all duration-500', lookDir === 'right' ? 'left-[28%]' : 'left-[52%]')}
         style={{ bottom: '40%', transform: lookDir === 'left' ? 'scaleX(-1)' : 'scaleX(1)' }}>
-        <PixelEren mood={mood} size={8} animate />
+        <img src="/EREN.png" alt="Eren" draggable={false} style={{ width: 130, height: 130, objectFit: 'contain', imageRendering: 'pixelated' }} />
       </div>
 
       {/* ══ UI ══ */}

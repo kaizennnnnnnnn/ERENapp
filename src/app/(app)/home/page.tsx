@@ -8,8 +8,6 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTimeTracking } from '@/hooks/useTimeTracking'
-import PixelEren from '@/components/PixelEren'
-import PixelErenLoading from '@/components/PixelErenLoading'
 import PixelIcon from '@/components/PixelIcon'
 import StatBar from '@/components/StatBar'
 import MoodGate from '@/components/MoodGate'
@@ -127,7 +125,7 @@ export default function HomePage() {
       <div className="min-h-screen flex flex-col items-center justify-center gap-5 bg-gradient-to-b from-pink-50 to-[#FDF6FF] relative overflow-hidden">
         <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #C084FC 1px, transparent 1px)', backgroundSize: '18px 18px' }} />
         <div className="animate-float relative z-10">
-          <PixelErenLoading size={9} />
+          <img src="/EREN.png" alt="Eren" draggable={false} style={{ width: 150, height: 150, objectFit: 'contain', imageRendering: 'pixelated' }} />
         </div>
         <p className="font-pixel text-gray-400 animate-pulse-soft relative z-10" style={{ fontSize: 8 }}>
           LOADING EREN<span className="animate-cursor">_</span>
@@ -140,7 +138,7 @@ export default function HomePage() {
   if (!profile?.household_id) {
     return (
       <div className="page-scroll flex flex-col items-center justify-center min-h-[80vh] gap-4">
-        <PixelEren mood="idle" size={6} animate={false} />
+        <img src="/EREN.png" alt="Eren" draggable={false} style={{ width: 100, height: 100, objectFit: 'contain', imageRendering: 'pixelated' }} />
         <p className="font-bold text-gray-700">No household found</p>
         <div className="card w-full text-xs font-mono text-gray-600 break-all">
           update public.profiles set household_id = (select id from public.households limit 1) where id = &apos;{user?.id}&apos;;
@@ -171,7 +169,7 @@ export default function HomePage() {
       <div className="min-h-screen flex flex-col items-center justify-center gap-5 bg-gradient-to-b from-pink-50 to-[#FDF6FF] relative overflow-hidden">
         <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #C084FC 1px, transparent 1px)', backgroundSize: '18px 18px' }} />
         <div className="animate-float relative z-10">
-          <PixelErenLoading size={9} />
+          <img src="/EREN.png" alt="Eren" draggable={false} style={{ width: 150, height: 150, objectFit: 'contain', imageRendering: 'pixelated' }} />
         </div>
         <p className="font-pixel text-gray-400 animate-pulse-soft relative z-10" style={{ fontSize: 8 }}>
           LOADING EREN<span className="animate-cursor">_</span>

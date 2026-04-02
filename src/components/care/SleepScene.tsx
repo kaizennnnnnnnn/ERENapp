@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { ChevronLeft } from 'lucide-react'
-import PixelEren from '@/components/PixelEren'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { cn } from '@/lib/utils'
@@ -314,7 +313,7 @@ export default function SleepScene({ onClose }: Props) {
 
       {/* ══ EREN ══ */}
       <div className={cn('absolute z-10 transition-all duration-700', tuckedIn ? 'bottom-[46%]' : 'bottom-[44%]')} style={{ left: '36%' }}>
-        <PixelEren mood={tuckedIn ? 'sleepy' : isSleepy ? 'sleepy' : 'idle'} size={8} animate />
+        <img src="/EREN.png" alt="Eren" draggable={false} style={{ width: 130, height: 130, objectFit: 'contain', imageRendering: 'pixelated' }} />
       </div>
 
       {/* ══ ZZZs ══ */}
