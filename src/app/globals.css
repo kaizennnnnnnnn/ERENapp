@@ -1,0 +1,221 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  html {
+    @apply bg-[#FDF6FF];
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  body {
+    @apply text-[#1F1F2E] antialiased;
+    overscroll-behavior: none;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@layer components {
+  /* ── Mobile app container ── */
+  .app-container {
+    @apply max-w-md mx-auto min-h-screen relative;
+  }
+
+  /* ── Page scroll area (above bottom nav) ── */
+  .page-scroll {
+    @apply pb-24 pt-4 px-4 overflow-y-auto;
+    min-height: calc(100dvh - 4rem);
+  }
+
+  /* ── Cards ── */
+  .card {
+    @apply bg-white rounded-2xl shadow-card p-4;
+    border: 2px solid rgba(167,139,250,0.10);
+  }
+
+  .card-pink {
+    @apply bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl shadow-card p-4;
+    border: 2px solid rgba(255,107,157,0.13);
+  }
+
+  /* Pixel-style card with hard shadow */
+  .card-pixel {
+    @apply bg-white p-4;
+    border: 2px solid #E8D8F0;
+    border-radius: 4px;
+    box-shadow: 4px 4px 0 #E0CCF0;
+  }
+
+  /* ── Buttons ── */
+  .btn-primary {
+    @apply bg-[#FF6B9D] text-white font-semibold rounded-2xl px-6 py-3
+           shadow-pink active:scale-95 transition-all duration-150
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-[#FF6B9D] border border-pink-200 font-semibold rounded-2xl px-6 py-3
+           active:scale-95 transition-all duration-150;
+  }
+
+  .btn-ghost {
+    @apply text-[#1F1F2E] font-medium rounded-2xl px-4 py-2
+           hover:bg-gray-50 active:scale-95 transition-all duration-150;
+  }
+
+  /* Pixel-style button */
+  .btn-pixel {
+    @apply font-pixel text-white active:translate-y-[2px] active:shadow-none transition-all duration-75 select-none;
+    border-radius: 3px;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.25);
+  }
+
+  /* ── Care action buttons ── */
+  .care-btn {
+    @apply flex flex-col items-center justify-center gap-2 rounded-2xl p-4
+           bg-white shadow-card active:scale-95 transition-all duration-150 select-none;
+  }
+
+  /* ── Stat bar wrapper ── */
+  .stat-row {
+    @apply flex items-center gap-3 mb-4;
+  }
+
+  /* ── Bottom nav ── */
+  .bottom-nav {
+    @apply fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md
+           backdrop-blur-md
+           flex items-center justify-around;
+    background: rgba(255,255,255,0.97);
+    height: calc(4.5rem + var(--safe-bottom));
+    padding-bottom: calc(var(--safe-bottom) + 6px);
+    padding-top: 4px;
+    padding-left: 4px;
+    padding-right: 4px;
+    border-top: 2px solid #F0E0FF;
+    box-shadow: 0 -2px 0 #E8D4FF, 0 -8px 24px rgba(200,160,255,0.12);
+  }
+
+  .nav-item {
+    @apply relative flex flex-col items-center cursor-pointer select-none;
+    gap: 2px;
+  }
+
+  @keyframes navBreathe {
+    0%, 100% { transform: translateY(0px)  scale(1);    }
+    50%       { transform: translateY(-1px) scale(1.03); }
+  }
+  .nav-breathe { animation: navBreathe 3.5s ease-in-out infinite; }
+
+  .nav-item.active { }
+  .nav-item:not(.active) { }
+
+  /* ── Pixel art canvas wrapper ── */
+  .pixel-stage {
+    @apply relative flex items-center justify-center;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+
+  /* ── Input ── */
+  .input {
+    @apply w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3
+           focus:outline-none focus:border-[#A78BFA] focus:ring-2 focus:ring-purple-100
+           transition-all duration-150 text-base;
+  }
+
+  /* ── Pixel badge / chip ── */
+  .pixel-chip {
+    @apply font-pixel inline-flex items-center gap-1 px-2 py-1 text-white;
+    font-size: 7px;
+    border-radius: 3px;
+    box-shadow: 0 2px 0 rgba(0,0,0,0.2);
+    letter-spacing: 0.02em;
+  }
+}
+
+/* ── Pixel art rendering ── */
+.pixel-art {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* ── Scrollbar hide ── */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── Heartbeat for low stats ── */
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  15%        { transform: scale(1.15); }
+  30%        { transform: scale(1); }
+  45%        { transform: scale(1.08); }
+}
+.animate-heartbeat { animation: heartbeat 1.2s ease-in-out infinite; }
+
+/* ── Sparkle ── */
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+  50%       { opacity: 1; transform: scale(1) rotate(180deg); }
+}
+.animate-sparkle { animation: sparkle 1.5s ease-in-out infinite; }
+
+/* ── Pixel pop (scale in with steps) ── */
+@keyframes pixelPop {
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.15); opacity: 1; }
+  80%  { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+.animate-pixel-pop { animation: pixelPop 0.35s steps(6, end) both; }
+
+/* ── Twinkle for stars ── */
+@keyframes twinkle {
+  0%, 100% { opacity: 1;   transform: scale(1);    }
+  50%       { opacity: 0.3; transform: scale(0.7);  }
+}
+
+/* ── Fall (water drops) ── */
+@keyframes fall {
+  0%   { transform: translateY(0);    opacity: 1; }
+  100% { transform: translateY(24px); opacity: 0; }
+}
+
+/* ── Pixel cursor blink ── */
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+.animate-cursor { animation: cursorBlink 1s steps(1) infinite; }
+
+/* ── Game animations ── */
+@keyframes rise {
+  0%   { transform: translateY(0);      opacity: 0.8; }
+  100% { transform: translateY(-340px); opacity: 0; }
+}
+@keyframes fishWobble {
+  0%, 100% { transform: translate(-50%,-50%) rotate(-8deg); }
+  50%       { transform: translate(-50%,-50%) rotate(8deg); }
+}
+@keyframes floatUp {
+  0%   { transform: translate(-50%,-180%); opacity: 1; }
+  100% { transform: translate(-50%,-280%); opacity: 0; }
+}
+@keyframes splashOut {
+  0%   { transform: translate(-50%,-50%) scale(0.5); opacity: 1; }
+  100% { transform: translate(-50%,-50%) scale(1.5); opacity: 0; }
+}
+@keyframes flicker {
+  0%, 100% { transform: scaleX(1)   scaleY(1);   opacity: 1;    }
+  50%       { transform: scaleX(0.8) scaleY(1.1); opacity: 0.85; }
+}

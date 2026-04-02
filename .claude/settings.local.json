@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \":*)",
+      "Bash(npm cache:*)",
+      "Bash(xargs grep:*)",
+      "Bash(node \"c:/Users/Lenovo/OneDrive/Desktop/WEBSITES/ERENapp/gen_eren.js\")"
+    ]
+  }
+}
