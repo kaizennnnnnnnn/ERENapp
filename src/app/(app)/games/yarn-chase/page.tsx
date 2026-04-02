@@ -326,8 +326,8 @@ export default function YarnChaseGame() {
     const s = stateRef.current
     s.running = false; cancelAnimationFrame(s.animId); clearInterval(s.timerInterval)
     setGameState('finished')
-    if (user?.id && profile?.household_id && s.score > 2) {
-      supabase.from('game_scores').insert({ user_id: user.id, game_type: 'yarn_chase', score: s.score })
+    if (user?.id && s.score > 0) {
+      supabase.from('game_scores').insert({ user_id: user.id, game_type: 'yarn_chase', score: s.score }).then(({ error }) => { if (error) console.error('score save error:', error) })
       applyAction(user.id, 'play')
     }
   }

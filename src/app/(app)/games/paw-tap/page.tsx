@@ -88,8 +88,8 @@ export default function PawTapGame() {
     setGameState('finished')
     setFish([])
 
-    if (user?.id && profile?.household_id && scoreRef.current > 3) {
-      supabase.from('game_scores').insert({ user_id: user.id, game_type: 'paw_tap', score: scoreRef.current })
+    if (user?.id && scoreRef.current > 0) {
+      supabase.from('game_scores').insert({ user_id: user.id, game_type: 'paw_tap', score: scoreRef.current }).then(({ error }) => { if (error) console.error('score save error:', error) })
       applyAction(user.id, 'play')
     }
   }

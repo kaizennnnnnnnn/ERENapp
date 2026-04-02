@@ -264,8 +264,8 @@ export default function CatchMouseGame() {
     clearInterval(s.timerInterval)
     setGameState('finished')
 
-    if (user?.id && profile?.household_id) {
-      supabase.from('game_scores').insert({ user_id: user.id, game_type: 'catch_mouse', score: s.score })
+    if (user?.id && s.score > 0) {
+      supabase.from('game_scores').insert({ user_id: user.id, game_type: 'catch_mouse', score: s.score }).then(({ error }) => { if (error) console.error('score save error:', error) })
       if (s.score > 5) applyAction(user.id, 'play')
     }
   }

@@ -78,10 +78,13 @@ export default function GamesPage() {
       const userIds = resolvedProfiles.map((p: Profile) => p.id)
 
       // 2. All game scores for those users
-      const { data: scores } = await supabase
+      const { data: scores, error: scoresError } = await supabase
         .from('game_scores')
         .select('user_id, game_type, score')
         .in('user_id', userIds)
+
+      console.log('[leaderboard] userIds:', userIds)
+      console.log('[leaderboard] scores:', scores, 'error:', scoresError)
 
       // 3. Compute best per player per game
       const bestMap: Record<string, Partial<Record<GameType, number>>> = {}
