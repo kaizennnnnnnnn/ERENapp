@@ -173,7 +173,7 @@ export default function HomePage() {
     )
   }
 
-  const mood = (stats.mood ?? 'idle') as Parameters<typeof PixelEren>[0]['mood']
+  const mood = (stats.mood ?? 'idle') as string
   const todayStr = format(new Date(), 'yyyy-MM-dd')
   const partnerTodayMood = moods.find(m => m.user_id === partnerProfile?.id && m.date === todayStr)
 
