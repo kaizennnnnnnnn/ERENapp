@@ -254,7 +254,7 @@ export default function HomePage() {
           <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-3 h-2 bg-white/90"
             style={{ clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)', filter: 'drop-shadow(0 -1px 0 #F0D8FF)' }} />
           <p className="text-xs text-gray-600 font-medium">
-            {MOOD_GREETINGS[mood] ?? MOOD_GREETINGS.idle}
+            {MOOD_GREETINGS[mood as string] ?? MOOD_GREETINGS.idle}
           </p>
         </div>
       </div>
