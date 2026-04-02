@@ -16,9 +16,11 @@ import { STAT_CONFIGS } from '@/types'
 import type { DailyMood, Profile, UserMood } from '@/types'
 import { MOOD_CONFIGS } from '@/types'
 import { useCare } from '@/contexts/CareContext'
+import { useTasks } from '@/contexts/TaskContext'
 import { format } from 'date-fns'
 import { Bell, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import TaskPanel from '@/components/TaskPanel'
 
 const MOOD_GREETINGS: Record<string, string> = {
   happy:   "Eren is so happy to see you!",
@@ -125,7 +127,7 @@ export default function HomePage() {
       <div className="min-h-screen flex flex-col items-center justify-center gap-5 bg-gradient-to-b from-pink-50 to-[#FDF6FF] relative overflow-hidden">
         <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #C084FC 1px, transparent 1px)', backgroundSize: '18px 18px' }} />
         <div className="animate-float relative z-10">
-          <img src="/EREN.png" alt="Eren" draggable={false} style={{ width: 150, height: 150, objectFit: 'contain', imageRendering: 'pixelated' }} />
+          <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 150, height: 150, objectFit: 'contain', imageRendering: 'pixelated' }} />
         </div>
         <p className="font-pixel text-gray-400 animate-pulse-soft relative z-10" style={{ fontSize: 8 }}>
           LOADING EREN<span className="animate-cursor">_</span>
@@ -138,7 +140,7 @@ export default function HomePage() {
   if (!profile?.household_id) {
     return (
       <div className="page-scroll flex flex-col items-center justify-center min-h-[80vh] gap-4">
-        <img src="/EREN.png" alt="Eren" draggable={false} style={{ width: 100, height: 100, objectFit: 'contain', imageRendering: 'pixelated' }} />
+        <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 100, height: 100, objectFit: 'contain', imageRendering: 'pixelated' }} />
         <p className="font-bold text-gray-700">No household found</p>
         <div className="card w-full text-xs font-mono text-gray-600 break-all">
           update public.profiles set household_id = (select id from public.households limit 1) where id = &apos;{user?.id}&apos;;
@@ -169,7 +171,7 @@ export default function HomePage() {
       <div className="min-h-screen flex flex-col items-center justify-center gap-5 bg-gradient-to-b from-pink-50 to-[#FDF6FF] relative overflow-hidden">
         <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #C084FC 1px, transparent 1px)', backgroundSize: '18px 18px' }} />
         <div className="animate-float relative z-10">
-          <img src="/EREN.png" alt="Eren" draggable={false} style={{ width: 150, height: 150, objectFit: 'contain', imageRendering: 'pixelated' }} />
+          <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 150, height: 150, objectFit: 'contain', imageRendering: 'pixelated' }} />
         </div>
         <p className="font-pixel text-gray-400 animate-pulse-soft relative z-10" style={{ fontSize: 8 }}>
           LOADING EREN<span className="animate-cursor">_</span>
@@ -182,6 +184,7 @@ export default function HomePage() {
   const todayStr = format(new Date(), 'yyyy-MM-dd')
   const partnerTodayMood = moods.find(m => m.user_id === partnerProfile?.id && m.date === todayStr)
 
+
   return (
     <div className="page-scroll">
       {/* ── Toast ── */}
@@ -191,6 +194,9 @@ export default function HomePage() {
           {toast}
         </div>
       )}
+
+      {/* ── TaskPanel (XP bar + quests) ── */}
+      <TaskPanel />
 
       {/* ── Header ── */}
       <div className="flex items-center justify-end gap-2 mb-4">
@@ -295,7 +301,7 @@ export default function HomePage() {
           filter: mood === 'angry' ? 'hue-rotate(340deg) saturate(1.3)' : mood === 'sleepy' ? 'brightness(0.85)' : 'none',
         }}>
           <img
-            src="/EREN.png"
+            src="/erenGood.png"
             alt="Eren"
             draggable={false}
             style={{ width: 170, height: 170, objectFit: 'contain', imageRendering: 'pixelated' }}
@@ -343,6 +349,7 @@ export default function HomePage() {
           />
         </div>
       )}
+
     </div>
   )
 }

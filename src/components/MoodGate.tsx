@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { UserMood, ErenMood } from '@/types'
 import { MOOD_CONFIGS } from '@/types'
 import { cn } from '@/lib/utils'
+import { useTasks } from '@/contexts/TaskContext'
 
 // Maps user mood → Eren's reaction mood
 const MOOD_TO_EREN: Record<UserMood, ErenMood> = {
@@ -32,6 +33,7 @@ interface Props {
 
 export default function MoodGate({ userId, userName, onDone }: Props) {
   const supabase = createClient()
+  const { completeTask } = useTasks()
   const [selected, setSelected]   = useState<UserMood | null>(null)
   const [animating, setAnimating] = useState(false)
   const [erenMood, setErenMood]   = useState<ErenMood>('happy')
@@ -54,6 +56,7 @@ export default function MoodGate({ userId, userName, onDone }: Props) {
 
     // Cache locally so navigating back never re-shows the gate
     localStorage.setItem(`pocket_eren_mood_${userId}_${today}`, mood)
+    completeTask('daily_mood')
     onDone(mood)
   }
 
@@ -77,7 +80,7 @@ export default function MoodGate({ userId, userName, onDone }: Props) {
       {/* Eren — reacts to the selected mood */}
       <div className="flex flex-col items-center mb-6 relative z-10">
         <div className={cn('mb-3 transition-all duration-300', animating ? 'scale-110' : 'animate-float')}>
-          <img src="/EREN.png" alt="Eren" draggable={false} style={{ width: 150, height: 150, objectFit: 'contain', imageRendering: 'pixelated' }} />
+          <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 150, height: 150, objectFit: 'contain', imageRendering: 'pixelated' }} />
         </div>
         {/* Pixel speech bubble */}
         <div className="relative">
@@ -126,7 +129,7 @@ export default function MoodGate({ userId, userName, onDone }: Props) {
             >
               {/* Pixel Eren face */}
               <div className="flex-shrink-0" style={{ width: 32, height: 32 }}>
-                <img src="/EREN.png" alt="Eren" draggable={false} style={{ width: 32, height: 32, objectFit: 'contain', imageRendering: 'pixelated' }} />
+                <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 32, height: 32, objectFit: 'contain', imageRendering: 'pixelated' }} />
               </div>
               <span className="text-sm font-semibold text-gray-700 flex-1 text-left">{cfg.label}</span>
               {selected === key && <span className="text-[#FF6B9D]">▶</span>}

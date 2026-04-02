@@ -10,12 +10,17 @@ import { NextResponse } from 'next/server'
 import { clampStat, computeErenMood, shouldBecomeSick } from '@/lib/utils'
 
 // How much each stat decays per hour
-const DECAY = {
-  hunger:        -4,   // gets hungry over time
-  happiness:     -2,   // needs interaction
-  energy:        -1,   // slowly drains
-  sleep_quality: -2,   // needs rest
-  cleanliness:   -3,   // gets dirty over time (every ~33 hours fully dirty)
+// hunger:       full depletion ~25h
+// happiness:    full depletion ~50h
+// energy:       full depletion ~33h
+// sleep_quality:full depletion ~40h
+// cleanliness:  full depletion ~67h (~3 days)
+const DECAY_PER_HOUR = {
+  hunger:        -4,
+  happiness:     -2,
+  energy:        -3,
+  sleep_quality: -2.5,
+  cleanliness:   -1.5,
 }
 
 export async function GET(request: Request) {
@@ -36,13 +41,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Failed to load stats' }, { status: 500 })
   }
 
-  // Decay each household
+  // Decay each household based on hours elapsed since last decay
   const updates = allStats.map(async stat => {
-    const newHappiness    = clampStat(stat.happiness    + DECAY.happiness)
-    const newHunger       = clampStat(stat.hunger       + DECAY.hunger)
-    const newEnergy       = clampStat(stat.energy       + DECAY.energy)
-    const newSleep        = clampStat(stat.sleep_quality + DECAY.sleep_quality)
-    const newCleanliness  = clampStat((stat.cleanliness ?? 100) + DECAY.cleanliness)
+    const lastDecay = stat.last_decay_at ? new Date(stat.last_decay_at) : new Date(stat.updated_at)
+    const hoursElapsed = Math.min(24, (Date.now() - lastDecay.getTime()) / 3600000)
+
+    const newHappiness    = clampStat(stat.happiness    + DECAY_PER_HOUR.happiness    * hoursElapsed)
+    const newHunger       = clampStat(stat.hunger       + DECAY_PER_HOUR.hunger       * hoursElapsed)
+    const newEnergy       = clampStat(stat.energy       + DECAY_PER_HOUR.energy       * hoursElapsed)
+    const newSleep        = clampStat(stat.sleep_quality + DECAY_PER_HOUR.sleep_quality * hoursElapsed)
+    const newCleanliness  = clampStat((stat.cleanliness ?? 100) + DECAY_PER_HOUR.cleanliness * hoursElapsed)
 
     // Become sick if bad conditions persist (unless already sick)
     const newIsSick = stat.is_sick
@@ -67,6 +75,7 @@ export async function GET(request: Request) {
         cleanliness:   newCleanliness,
         is_sick:       newIsSick,
         mood:          newMood,
+        last_decay_at: new Date().toISOString(),
         updated_at:    new Date().toISOString(),
       })
       .eq('id', stat.id)

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ChevronLeft, ShoppingCart, Package } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
+import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import type { FoodInventory } from '@/types'
 
@@ -21,6 +22,7 @@ const SHOP_ITEMS = [
 export default function FeedScene({ onClose }: Props) {
   const { user, profile } = useAuth()
   const { stats, feedWithFood, spendCoins, saveFoodInventory } = useErenStats(profile?.household_id ?? null)
+  const { completeTask } = useTasks()
 
   const [tab, setTab] = useState<'shop' | 'fridge'>('shop')
   const [buying, setBuying] = useState<string | null>(null)
@@ -62,6 +64,7 @@ export default function FeedScene({ onClose }: Props) {
     setTimeout(() => setEatAnim(false), 2000)
     showToast(result.message, result.success)
     setFeeding(null)
+    if (result.success) completeTask('daily_feed')
   }
 
   return (
@@ -341,7 +344,7 @@ export default function FeedScene({ onClose }: Props) {
 
       {/* ══ EREN ══ */}
       <div className={cn('absolute z-20 transition-all duration-500', eatAnim ? 'bottom-[49%]' : 'bottom-[47%]')} style={{ left: '50%' }}>
-        <img src="/EREN.png" alt="Eren" draggable={false} style={{ width: 130, height: 130, objectFit: 'contain', imageRendering: 'pixelated' }} />
+        <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 130, height: 130, objectFit: 'contain', imageRendering: 'pixelated' }} />
       </div>
 
       {/* ══ UI ══ */}

@@ -122,7 +122,7 @@ export default function HospitalScene({ onClose }: Props) {
       <div className={cn(
         'absolute transition-all duration-500 bottom-[32%] left-[38%]',
       )}>
-        <img src="/EREN.png" alt="Eren" draggable={false} style={{ width: 130, height: 130, objectFit: 'contain', imageRendering: 'pixelated' }} />
+        <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 130, height: 130, objectFit: 'contain', imageRendering: 'pixelated' }} />
       </div>
 
       {/* ── Cone of shame when sick, removed after medicine ── */}

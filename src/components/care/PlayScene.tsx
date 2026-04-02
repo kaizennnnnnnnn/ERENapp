@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
+import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 
 interface Props { onClose: () => void }
@@ -12,6 +13,7 @@ interface BallPos { x: number; y: number }
 export default function PlayScene({ onClose }: Props) {
   const { user, profile } = useAuth()
   const { stats, applyAction } = useErenStats(profile?.household_id ?? null)
+  const { completeTask } = useTasks()
 
   const [ballPos,      setBallPos]      = useState<BallPos>({ x: 50, y: 44 })
   const [throwCount,   setThrowCount]   = useState(0)
@@ -67,6 +69,7 @@ export default function PlayScene({ onClose }: Props) {
     setSaving(false)
     setDone(true)
     setToast(result.message)
+    if (result.success) completeTask('daily_play')
     setTimeout(() => setToast(null), 2500)
   }
 
@@ -307,7 +310,7 @@ export default function PlayScene({ onClose }: Props) {
       {/* ══ EREN ══ */}
       <div className={cn('absolute z-10 transition-all duration-500', lookDir === 'right' ? 'left-[28%]' : 'left-[52%]')}
         style={{ bottom: '40%', transform: lookDir === 'left' ? 'scaleX(-1)' : 'scaleX(1)' }}>
-        <img src="/EREN.png" alt="Eren" draggable={false} style={{ width: 130, height: 130, objectFit: 'contain', imageRendering: 'pixelated' }} />
+        <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 130, height: 130, objectFit: 'contain', imageRendering: 'pixelated' }} />
       </div>
 
       {/* ══ UI ══ */}

@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
+import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 
 interface Props { onClose: () => void }
@@ -12,6 +13,7 @@ interface Bubble { id: number; x: number; y: number; size: number }
 export default function WashScene({ onClose }: Props) {
   const { user, profile } = useAuth()
   const { stats, applyAction } = useErenStats(profile?.household_id ?? null)
+  const { completeTask } = useTasks()
 
   const sceneRef  = useRef<HTMLDivElement>(null)
   const soapRef   = useRef<HTMLDivElement>(null)
@@ -62,7 +64,7 @@ export default function WashScene({ onClose }: Props) {
       setSoapPos({ x: px, y: py })
       if (px > 28 && px < 72 && py > 22 && py < 66) {
         setCoverage(c => {
-          const next = Math.min(100, c + 1.8)
+          const next = Math.min(100, c + 0.7)
           if (next >= 60 && !showShowerRef.current) {
             showShowerRef.current = true
             setShowShower(true)
@@ -103,14 +105,20 @@ export default function WashScene({ onClose }: Props) {
   }
 
   async function finishWash() {
-    if (!user?.id || doneRef.current || saving) return
+    if (!user?.id || doneRef.current) return
     doneRef.current = true
     setDone(true)
     setSaving(true)
-    const result = await applyAction(user.id, 'wash')
-    setSaving(false)
-    setToast(result.message)
-    setTimeout(() => setToast(null), 3000)
+    try {
+      const result = await applyAction(user.id, 'wash')
+      setToast(result.message)
+      if (result.success) completeTask('daily_wash')
+    } catch {
+      setToast('Something went wrong')
+    } finally {
+      setSaving(false)
+      setTimeout(() => setToast(null), 3000)
+    }
   }
 
   const erenMood = done ? 'happy' : dragSoap ? 'angry' : dragShower ? 'angry' : cleanliness < 40 ? 'angry' : 'idle'
@@ -540,7 +548,7 @@ export default function WashScene({ onClose }: Props) {
 
       {/* ══ PIXEL EREN in tub ════════════════════════════════════════════ */}
       <div className={cn('absolute transition-all duration-500', done ? 'bottom-[32%]' : 'bottom-[30%]', 'left-[35%]')}>
-        <img src="/EREN.png" alt="Eren" draggable={false} style={{ width: 130, height: 130, objectFit: 'contain', imageRendering: 'pixelated' }} />
+        <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 130, height: 130, objectFit: 'contain', imageRendering: 'pixelated' }} />
       </div>
 
       {/* ══ SHOWER HEAD (draggable when soap done) ═══════════════════════ */}

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
+import { useTasks } from '@/contexts/TaskContext'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
 
 const GAME_DURATION  = 30
@@ -36,7 +37,8 @@ export default function YarnChaseGame() {
   const router   = useRouter()
   const supabase = createClient()
   const { user, profile } = useAuth()
-  const { applyAction } = useErenStats(profile?.household_id ?? null)
+  const { applyAction, addCoins } = useErenStats(profile?.household_id ?? null)
+  const { completeTask } = useTasks()
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const stateRef  = useRef({
@@ -328,6 +330,8 @@ export default function YarnChaseGame() {
     setGameState('finished')
     if (user?.id && s.score > 0) {
       supabase.from('game_scores').insert({ user_id: user.id, game_type: 'yarn_chase', score: s.score }).then(({ error }) => { if (error) console.error('score save error:', error) })
+      addCoins(Math.floor(s.score / 2))
+      completeTask('daily_game')
       applyAction(user.id, 'play')
     }
   }

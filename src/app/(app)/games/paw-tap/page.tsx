@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
+import { useTasks } from '@/contexts/TaskContext'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
 
 const GAME_DURATION  = 15
@@ -26,7 +27,8 @@ export default function PawTapGame() {
   const router   = useRouter()
   const supabase = createClient()
   const { user, profile } = useAuth()
-  const { applyAction } = useErenStats(profile?.household_id ?? null)
+  const { applyAction, addCoins } = useErenStats(profile?.household_id ?? null)
+  const { completeTask } = useTasks()
 
   const [gameState, setGameState] = useState<'idle' | 'running' | 'finished'>('idle')
   const [score, setScore]         = useState(0)
@@ -90,6 +92,8 @@ export default function PawTapGame() {
 
     if (user?.id && scoreRef.current > 0) {
       supabase.from('game_scores').insert({ user_id: user.id, game_type: 'paw_tap', score: scoreRef.current }).then(({ error }) => { if (error) console.error('score save error:', error) })
+      addCoins(scoreRef.current)
+      completeTask('daily_game')
       applyAction(user.id, 'play')
     }
   }

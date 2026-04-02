@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
+import { useTasks } from '@/contexts/TaskContext'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
 
 const MOUSE_SPEED_INIT = 2.2
@@ -17,7 +18,8 @@ export default function CatchMouseGame() {
   const router   = useRouter()
   const supabase = createClient()
   const { user, profile } = useAuth()
-  const { applyAction } = useErenStats(profile?.household_id ?? null)
+  const { applyAction, addCoins } = useErenStats(profile?.household_id ?? null)
+  const { completeTask } = useTasks()
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const stateRef  = useRef({
@@ -266,6 +268,9 @@ export default function CatchMouseGame() {
 
     if (user?.id && s.score > 0) {
       supabase.from('game_scores').insert({ user_id: user.id, game_type: 'catch_mouse', score: s.score }).then(({ error }) => { if (error) console.error('score save error:', error) })
+      const coinsEarned = Math.floor(s.score / 2)
+      if (coinsEarned > 0) addCoins(coinsEarned)
+      completeTask('daily_game')
       if (s.score > 5) applyAction(user.id, 'play')
     }
   }

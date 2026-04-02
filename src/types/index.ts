@@ -21,8 +21,36 @@ export interface Profile {
   name: string
   avatar_url: string | null
   household_id: string | null
+  xp: number
+  level: number
   created_at: string
   updated_at: string
+}
+
+export type TaskId =
+  | 'daily_mood' | 'daily_feed' | 'daily_play' | 'daily_sleep' | 'daily_wash' | 'daily_game'
+  | 'weekly_all_care' | 'weekly_all_games' | 'weekly_high_score' | 'weekly_mood_5' | 'weekly_no_sick'
+
+export type TaskPeriod = 'daily' | 'weekly'
+
+export interface TaskDef {
+  id: TaskId
+  period: TaskPeriod
+  title: string
+  desc: string
+  icon: string
+  coins: number
+  xp: number
+}
+
+export interface TaskCompletion {
+  id: string
+  user_id: string
+  task_id: TaskId
+  period_key: string
+  coins_earned: number
+  xp_earned: number
+  completed_at: string
 }
 
 export type FoodInventory = {

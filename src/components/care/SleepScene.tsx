@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
+import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 
 interface Props { onClose: () => void }
@@ -11,6 +12,7 @@ interface Props { onClose: () => void }
 export default function SleepScene({ onClose }: Props) {
   const { user, profile } = useAuth()
   const { stats, applyAction } = useErenStats(profile?.household_id ?? null)
+  const { completeTask } = useTasks()
 
   const [tuckedIn, setTuckedIn] = useState(false)
   const [tucking,  setTucking]  = useState(false)
@@ -27,6 +29,7 @@ export default function SleepScene({ onClose }: Props) {
     setTucking(false)
     setTuckedIn(true)
     setToast(result.message)
+    if (result.success) completeTask('daily_sleep')
     setTimeout(() => setToast(null), 3000)
   }
 
@@ -313,7 +316,7 @@ export default function SleepScene({ onClose }: Props) {
 
       {/* ══ EREN ══ */}
       <div className={cn('absolute z-10 transition-all duration-700', tuckedIn ? 'bottom-[46%]' : 'bottom-[44%]')} style={{ left: '36%' }}>
-        <img src="/EREN.png" alt="Eren" draggable={false} style={{ width: 130, height: 130, objectFit: 'contain', imageRendering: 'pixelated' }} />
+        <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 130, height: 130, objectFit: 'contain', imageRendering: 'pixelated' }} />
       </div>
 
       {/* ══ ZZZs ══ */}
