@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
@@ -17,10 +17,13 @@ import type { DailyMood, Profile, UserMood } from '@/types'
 import { MOOD_CONFIGS } from '@/types'
 import { useCare } from '@/contexts/CareContext'
 import { useTasks } from '@/contexts/TaskContext'
+import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 import { format } from 'date-fns'
 import { Bell, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import TaskPanel from '@/components/TaskPanel'
+
+interface XpParticle { id: number; x: number; y: number; tx: number; ty: number; text: string; delay: number }
 
 const MOOD_GREETINGS: Record<string, string> = {
   happy:   "Eren is so happy to see you!",
@@ -46,7 +49,52 @@ export default function HomePage() {
   const { user, profile, loading: authLoading } = useAuth()
   const { stats, loading } = useErenStats(profile?.household_id ?? null)
   const { setIsSick } = useCare()
+  const { xp, level } = useTasks()
   useTimeTracking(user?.id ?? null)
+
+  // XP bar
+  const xpIntoLevel = xp - totalXpForLevel(level)
+  const xpNeeded    = xpForNextLevel(level)
+  const xpPct       = Math.min(100, Math.round((xpIntoLevel / xpNeeded) * 100))
+  const xpBarRef    = useRef<HTMLDivElement>(null)
+  const prevXpRef   = useRef(xp)
+  const particleIdRef = useRef(0)
+  const [xpParticles, setXpParticles] = useState<XpParticle[]>([])
+
+  // Spawn particles from Eren → XP bar on XP gain
+  useEffect(() => {
+    if (xp <= prevXpRef.current) { prevXpRef.current = xp; return }
+    const gained = xp - prevXpRef.current
+    prevXpRef.current = xp
+
+    const erenEl = document.getElementById('eren-img')
+    const barEl  = xpBarRef.current
+    if (!erenEl || !barEl) return
+
+    const erenRect = erenEl.getBoundingClientRect()
+    const barRect  = barEl.getBoundingClientRect()
+    const srcX = erenRect.left + erenRect.width / 2
+    const srcY = erenRect.top  + erenRect.height * 0.25
+    const dstX = barRect.left  + barRect.width  * (xpPct / 100)
+    const dstY = barRect.top   + barRect.height / 2
+
+    const items = ['✦', '★', '✨', '⭐', '💫']
+    const newP: XpParticle[] = Array.from({ length: 14 }, (_, i) => {
+      const px = srcX + (Math.random() - 0.5) * 50
+      const py = srcY + (Math.random() - 0.5) * 40
+      return {
+        id:    particleIdRef.current++,
+        x:     px,
+        y:     py,
+        tx:    dstX - px,
+        ty:    dstY - py,
+        text:  i < 3 ? `+${gained}XP` : items[Math.floor(Math.random() * items.length)],
+        delay: i * 60,
+      }
+    })
+    setXpParticles(p => [...p, ...newP])
+    setTimeout(() => setXpParticles([]), 1400)
+  }, [xp]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [moods, setMoods]               = useState<DailyMood[]>([])
   const [partnerProfile, setPartnerProfile] = useState<Profile | null>(null)
@@ -195,22 +243,53 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ── TaskPanel (XP bar + quests) ── */}
-      <TaskPanel />
+      {/* ── XP particles flying Eren → bar ── */}
+      {xpParticles.map(p => (
+        <div key={p.id}
+          className="fixed pointer-events-none z-50 font-pixel"
+          style={{
+            left: p.x,
+            top:  p.y,
+            fontSize: p.text.length > 2 ? 7 : 13,
+            color: '#A78BFA',
+            whiteSpace: 'nowrap',
+            animationDelay: `${p.delay}ms`,
+            animation: 'flyToBar 1.1s ease-in forwards',
+            ['--tx' as string]: `${p.tx}px`,
+            ['--ty' as string]: `${p.ty}px`,
+          }}>
+          {p.text}
+        </div>
+      ))}
 
-      {/* ── Header ── */}
-      <div className="flex items-center justify-end gap-2 mb-4">
-        {/* Pixel coin counter */}
-        <div className="flex items-center gap-1.5 px-3 h-9"
-          style={{ background: 'linear-gradient(135deg, #FFF3C0, #FFE680)', borderRadius: 3, border: '2px solid #F5C842', boxShadow: '2px 2px 0 #C8A020' }}>
+      {/* ── Header: XP bar + coins + bell ── */}
+      <div className="flex items-center gap-2 mb-3">
+        {/* Compact level + XP bar */}
+        <div ref={xpBarRef} className="flex-1 flex items-center gap-1.5 px-2.5 h-9"
+          style={{ background: 'linear-gradient(135deg, #F5F0FF, #EDE8FF)', borderRadius: 6, border: '2px solid #D8C8F8', boxShadow: '2px 2px 0 #C8B0F0' }}>
+          <span className="font-pixel text-purple-600 flex-shrink-0" style={{ fontSize: 7 }}>Lv.{level}</span>
+          <div className="flex-1 h-2 rounded-full overflow-hidden relative" style={{ background: '#D8CEF0' }}>
+            <div className="h-full rounded-full transition-all duration-700"
+              style={{ width: `${xpPct}%`, background: 'linear-gradient(90deg, #A78BFA, #7C3AED)' }} />
+            <div className="absolute inset-0 rounded-full" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 60%)' }} />
+          </div>
+          <span className="font-pixel text-purple-400 flex-shrink-0" style={{ fontSize: 6 }}>{xpIntoLevel}/{xpNeeded}</span>
+        </div>
+        {/* Coins */}
+        <div className="flex items-center gap-1 px-2.5 h-9"
+          style={{ background: 'linear-gradient(135deg, #FFF3C0, #FFE680)', borderRadius: 6, border: '2px solid #F5C842', boxShadow: '2px 2px 0 #C8A020' }}>
           <span className="text-sm">🪙</span>
           <span className="font-pixel text-amber-700" style={{ fontSize: 9 }}>{stats.coins ?? 0}</span>
         </div>
-        <button className="w-9 h-9 bg-white shadow-card flex items-center justify-center"
-          style={{ borderRadius: 3, border: '2px solid #E8D8F0', boxShadow: '2px 2px 0 #D8C8E8' }}>
-          <Bell size={18} className="text-purple-300" />
+        {/* Bell */}
+        <button className="w-9 h-9 bg-white flex items-center justify-center"
+          style={{ borderRadius: 6, border: '2px solid #E8D8F0', boxShadow: '2px 2px 0 #D8C8E8' }}>
+          <Bell size={16} className="text-purple-300" />
         </button>
       </div>
+
+      {/* ── Quests ── */}
+      <TaskPanel />
 
       {/* ── Stats ── */}
       <div className="card mb-4">
@@ -301,6 +380,7 @@ export default function HomePage() {
           filter: mood === 'angry' ? 'hue-rotate(340deg) saturate(1.3)' : mood === 'sleepy' ? 'brightness(0.85)' : 'none',
         }}>
           <img
+            id="eren-img"
             src="/erenGood.png"
             alt="Eren"
             draggable={false}

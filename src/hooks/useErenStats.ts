@@ -49,11 +49,11 @@ export function useErenStats(householdId: string | null) {
     const newSick = action === 'medicine' ? false : shouldBecomeSick({ cleanliness: newCl, sleep_quality: newS, weight: newW })
     const newMood = computeErenMood({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, cleanliness: newCl })
     setStats(prev => prev ? { ...prev, happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, weight: newW, cleanliness: newCl, is_sick: newSick, mood: newMood } : prev)
-    const [su, ii] = await Promise.all([
+    const [su] = await Promise.all([
       supabase.from('eren_stats').update({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, weight: newW, cleanliness: newCl, is_sick: newSick, mood: newMood, updated_at: new Date().toISOString() }).eq('household_id', householdId),
       supabase.from('interactions').insert({ household_id: householdId, user_id: userId, action_type: action, happiness_delta: cfg.deltas.happiness ?? 0, hunger_delta: cfg.deltas.hunger ?? 0, energy_delta: cfg.deltas.energy ?? 0, sleep_delta: cfg.deltas.sleep_quality ?? 0, weight_delta: cfg.deltas.weight ?? 0 }),
     ])
-    if (su.error || ii.error) { await fetchStats(); return { success: false, message: 'Failed to save' } }
+    if (su.error) { await fetchStats(); return { success: false, message: 'Failed to save' } }
     return { success: true, message: `${cfg.emoji} ${cfg.label} done!` }
   }, [stats, householdId, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps
 
