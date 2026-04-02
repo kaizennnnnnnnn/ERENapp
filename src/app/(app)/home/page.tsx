@@ -255,8 +255,7 @@ export default function HomePage() {
             whiteSpace: 'nowrap',
             animationDelay: `${p.delay}ms`,
             animation: 'flyToBar 1.1s ease-in forwards',
-            ['--tx' as string]: `${p.tx}px`,
-            ['--ty' as string]: `${p.ty}px`,
+            ...({ '--tx': `${p.tx}px`, '--ty': `${p.ty}px` } as React.CSSProperties),
           }}>
           {p.text}
         </div>
