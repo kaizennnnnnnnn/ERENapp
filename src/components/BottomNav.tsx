@@ -81,7 +81,7 @@ export default function BottomNav() {
                 alt={label}
                 width={38}
                 height={38}
-                style={{ imageRendering: 'pixelated', opacity: active ? 1 : 0.55, objectFit: 'contain', display: 'block' }}
+                style={{ imageRendering: 'pixelated', opacity: 1, objectFit: 'contain', display: 'block', transform: active ? 'scale(1.12)' : 'scale(1)', transition: 'transform 0.15s' }}
               />
               {active && <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-3 h-[3px] rounded-full bg-[#FF6B9D]" />}
             </div>
@@ -118,7 +118,7 @@ export default function BottomNav() {
                 alt={label}
                 width={38}
                 height={38}
-                style={{ imageRendering: 'pixelated', opacity: active ? 1 : 0.55, objectFit: 'contain', display: 'block' }}
+                style={{ imageRendering: 'pixelated', opacity: 1, objectFit: 'contain', display: 'block', transform: active ? 'scale(1.12)' : 'scale(1)', transition: 'transform 0.15s' }}
               />
               {active && <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-3 h-[3px] rounded-full bg-[#FF6B9D]" />}
             </div>

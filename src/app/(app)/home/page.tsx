@@ -70,6 +70,11 @@ export default function HomePage() {
     if (!authLoading && !user) router.replace('/auth/login')
   }, [user, authLoading, router])
 
+  // If auth done but no household — unblock moodChecked so loading screen clears
+  useEffect(() => {
+    if (!authLoading && !profile?.household_id) setMoodChecked(true)
+  }, [authLoading, profile?.household_id]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Sync is_sick into CareContext so BottomNav can show Hospital button
   useEffect(() => {
     if (stats) setIsSick(stats.is_sick ?? false)
@@ -223,61 +228,86 @@ export default function HomePage() {
         ))}
       </div>
 
-      {/* ── Pixel Eren stage ── */}
-      <div className="card-pink mb-4 flex flex-col items-center py-6 relative overflow-hidden">
-        {/* Pixel dot grid background */}
-        <div className="absolute inset-0 pointer-events-none opacity-20" style={{
-          backgroundImage: 'radial-gradient(circle, #C084FC 1px, transparent 1px)',
-          backgroundSize: '16px 16px',
-        }} />
+      {/* ── Eren's Room ── */}
+      <div className="mb-4 relative overflow-hidden" style={{ borderRadius: 8, border: '3px solid #C8A878', boxShadow: '4px 4px 0 #A07850', height: 320 }}>
 
-        {/* Corner pixel stars */}
-        <span className="absolute top-3 left-4 text-yellow-300 text-lg pointer-events-none" style={{ fontFamily: 'monospace', animation: 'twinkle 2.2s ease-in-out infinite' }}>✦</span>
-        <span className="absolute top-3 right-4 text-pink-300 text-sm pointer-events-none"  style={{ fontFamily: 'monospace', animation: 'twinkle 1.8s ease-in-out infinite 0.6s' }}>✦</span>
-        <span className="absolute bottom-3 left-6 text-purple-300 text-xs pointer-events-none" style={{ fontFamily: 'monospace', animation: 'twinkle 2.5s ease-in-out infinite 1.1s' }}>✦</span>
-        <span className="absolute bottom-3 right-6 text-yellow-200 text-base pointer-events-none" style={{ fontFamily: 'monospace', animation: 'twinkle 2s ease-in-out infinite 0.3s' }}>✦</span>
+        {/* === WALL (top 60%) === */}
+        <div className="absolute inset-x-0 top-0" style={{ height: '62%', background: '#F0E6D0' }}>
+          <div className="absolute inset-0" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 28px, rgba(210,180,140,0.2) 28px, rgba(210,180,140,0.2) 30px)' }} />
+          {/* Crown molding */}
+          <div className="absolute top-0 left-0 right-0 h-3" style={{ background: '#D4B896', borderBottom: '2px solid #B89060' }} />
 
-        {mood === 'happy' && (
-          <>
-            <Sparkles size={14} className="absolute top-5 left-10 text-yellow-400 animate-sparkle" />
-            <Sparkles size={10} className="absolute top-9 right-10 text-pink-400 animate-sparkle" style={{ animationDelay: '0.7s' }} />
-          </>
-        )}
+          {/* Window center */}
+          <div className="absolute" style={{ top: 18, left: '50%', transform: 'translateX(-50%)', width: 86, height: 68, border: '3px solid #7A5030' }}>
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, #87CEEB, #B8E0FF)' }} />
+            <div className="absolute" style={{ top: 0, bottom: 0, left: '50%', width: 3, background: '#7A5030', transform: 'translateX(-50%)', zIndex: 2 }} />
+            <div className="absolute" style={{ left: 0, right: 0, top: '50%', height: 3, background: '#7A5030', transform: 'translateY(-50%)', zIndex: 2 }} />
+            <div className="absolute" style={{ top: 8, left: 5, width: 18, height: 8, background: 'white', borderRadius: 4, opacity: 0.85, zIndex: 1 }} />
+            <div className="absolute" style={{ top: 10, right: 6, width: 14, height: 7, background: 'white', borderRadius: 3, opacity: 0.8, zIndex: 1 }} />
+          </div>
+          {/* Window sill */}
+          <div className="absolute" style={{ top: 86, left: '50%', transform: 'translateX(-50%)', width: 98, height: 5, background: '#7A5030' }} />
 
-        {/* EREN pixel name badge */}
-        <div className="relative mb-3 flex items-center gap-2">
-          <span className="pixel-chip" style={{ background: 'linear-gradient(135deg, #FF6B9D, #C084FC)' }}>
-            ★ EREN ★
-          </span>
-          <span className="font-pixel text-gray-400" style={{ fontSize: 7 }}>{stats.weight?.toFixed(1) ?? '—'} kg</span>
+          {/* Shelf + books left */}
+          <div className="absolute" style={{ top: 28, left: 10, width: 54, height: 5, background: '#A07850', border: '2px solid #7A5030' }} />
+          <div className="absolute" style={{ top: 12, left: 12, width: 10, height: 18, background: '#E8705A', border: '2px solid #C05040' }} />
+          <div className="absolute" style={{ top: 12, left: 24, width: 8, height: 18, background: '#70B870', border: '2px solid #508850' }} />
+          <div className="absolute" style={{ top: 14, left: 34, width: 10, height: 16, background: '#F0C040', border: '2px solid #C09020' }} />
+
+          {/* Plant right */}
+          <div className="absolute" style={{ bottom: 0, right: 14 }}>
+            <div style={{ width: 22, height: 18, background: '#C87840', border: '2px solid #A05830', borderRadius: '0 0 4px 4px', margin: '0 auto' }} />
+            <div className="absolute" style={{ bottom: 16, left: '50%', transform: 'translateX(-50%)', width: 18, height: 22, background: '#50A850', border: '2px solid #308030', borderRadius: '10px 10px 2px 2px' }} />
+            <div className="absolute" style={{ bottom: 22, left: -2, width: 14, height: 12, background: '#60B860', border: '2px solid #408040', borderRadius: '6px 2px 2px 6px', transform: 'rotate(-25deg)' }} />
+            <div className="absolute" style={{ bottom: 22, right: -2, width: 14, height: 12, background: '#60B860', border: '2px solid #408040', borderRadius: '2px 6px 6px 2px', transform: 'rotate(25deg)' }} />
+          </div>
+
+          {/* Name badge */}
+          <div className="absolute" style={{ top: 10, right: 10 }}>
+            <span className="pixel-chip" style={{ background: 'linear-gradient(135deg, #FF6B9D, #C084FC)', fontSize: 6 }}>★ EREN ★</span>
+          </div>
+
+          {mood === 'happy' && (
+            <>
+              <Sparkles size={11} className="absolute text-yellow-400 animate-sparkle" style={{ top: 95, left: 28 }} />
+              <Sparkles size={9}  className="absolute text-pink-400  animate-sparkle" style={{ top: 75, right: 60, animationDelay: '0.7s' }} />
+            </>
+          )}
         </div>
 
-        <div className={cn(
-          'transition-transform duration-300',
-          mood === 'happy'   && 'animate-float',
-          mood === 'playful' && 'animate-bounce-soft',
-          mood === 'idle'    && 'animate-breath',
-          mood === 'sleepy'  && 'animate-sway',
-        )}
-          style={{ filter: mood === 'angry' ? 'hue-rotate(340deg) saturate(1.3)' : mood === 'sleepy' ? 'brightness(0.88)' : 'none' }}
-        >
+        {/* === FLOOR (bottom 38%) === */}
+        <div className="absolute inset-x-0 bottom-0" style={{
+          height: '38%',
+          background: '#C8A060',
+          backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 32px, rgba(0,0,0,0.07) 32px, rgba(0,0,0,0.07) 34px)',
+          borderTop: '3px solid #A07840',
+        }} />
+
+        {/* Rug on floor */}
+        <div className="absolute" style={{ bottom: 28, left: '50%', transform: 'translateX(-50%)', width: 150, height: 50, background: '#C03050', border: '3px solid #902040', borderRadius: 4, zIndex: 1 }}>
+          <div className="absolute inset-2" style={{ border: '2px solid #E05070', borderRadius: 2 }} />
+        </div>
+
+        {/* === EREN centered, no animation === */}
+        <div className="absolute" style={{
+          bottom: 18,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 2,
+          filter: mood === 'angry' ? 'hue-rotate(340deg) saturate(1.3)' : mood === 'sleepy' ? 'brightness(0.85)' : 'none',
+        }}>
           <img
-            src="/erenHOME.png"
+            src="/EREN.png"
             alt="Eren"
             draggable={false}
-            style={{ width: 210, height: 210, objectFit: 'contain', imageRendering: 'pixelated' }}
+            style={{ width: 170, height: 170, objectFit: 'contain', imageRendering: 'pixelated' }}
           />
         </div>
 
-        {/* Speech bubble */}
-        <div className="relative mt-3 px-4 py-2 bg-white/90 shadow-sm max-w-xs text-center"
-          style={{ borderRadius: 4, border: '2px solid #F0D8FF', boxShadow: '2px 2px 0 #E0CCFF' }}>
-          {/* Bubble tail */}
-          <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-3 h-2 bg-white/90"
-            style={{ clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)', filter: 'drop-shadow(0 -1px 0 #F0D8FF)' }} />
-          <p className="text-xs text-gray-600 font-medium">
-            {MOOD_GREETINGS[mood as string] ?? MOOD_GREETINGS.idle}
-          </p>
+        {/* Speech bubble top-right */}
+        <div className="absolute" style={{ bottom: 160, left: '55%', zIndex: 3, background: 'white', borderRadius: 4, border: '2px solid #F0D8FF', boxShadow: '2px 2px 0 #E0CCFF', padding: '4px 10px', whiteSpace: 'nowrap' }}>
+          <p className="text-xs text-gray-600 font-medium">{MOOD_GREETINGS[mood as string] ?? MOOD_GREETINGS.idle}</p>
+          <div className="absolute" style={{ bottom: -6, left: 10, width: 8, height: 6, background: 'white', clipPath: 'polygon(0% 0%, 100% 0%, 50% 100%)', borderBottom: 'none' }} />
         </div>
       </div>
 
