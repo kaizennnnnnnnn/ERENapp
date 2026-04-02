@@ -22,6 +22,8 @@ import { format } from 'date-fns'
 import { Bell, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import TaskPanel from '@/components/TaskPanel'
+import ReminderSheet from '@/components/ReminderSheet'
+import { registerSW, scheduleAll } from '@/lib/reminders'
 
 interface XpParticle { id: number; x: number; y: number; tx: number; ty: number; text: string; delay: number }
 
@@ -60,6 +62,11 @@ export default function HomePage() {
   const prevXpRef   = useRef(xp)
   const particleIdRef = useRef(0)
   const [xpParticles, setXpParticles] = useState<XpParticle[]>([])
+
+  // Register SW + reschedule reminders on mount
+  useEffect(() => {
+    registerSW().then(() => scheduleAll())
+  }, [])
 
   // Spawn particles from Eren → XP bar on XP gain
   useEffect(() => {
@@ -109,6 +116,7 @@ export default function HomePage() {
   const [todayMood, setTodayMood]       = useState<UserMood | null>(null)
   const [moodChecked, setMoodChecked]   = useState(false) // have we checked DB yet?
   const [toast, setToast]               = useState<string | null>(null)
+  const [showReminders, setShowReminders] = useState(false)
 
   // Fast localStorage check — skips gate immediately if already submitted today
   useEffect(() => {
@@ -289,11 +297,14 @@ export default function HomePage() {
           <span className="font-pixel text-amber-700" style={{ fontSize: 9 }}>{stats.coins ?? 0}</span>
         </div>
         {/* Bell */}
-        <button className="w-9 h-9 bg-white flex items-center justify-center"
+        <button onClick={() => setShowReminders(true)}
+          className="w-9 h-9 bg-white flex items-center justify-center active:scale-90 transition-transform"
           style={{ borderRadius: 6, border: '2px solid #E8D8F0', boxShadow: '2px 2px 0 #D8C8E8' }}>
-          <Bell size={16} className="text-purple-300" />
+          <Bell size={16} className="text-purple-400" />
         </button>
       </div>
+
+      {showReminders && <ReminderSheet onClose={() => setShowReminders(false)} />}
 
       {/* ── Quests ── */}
       <TaskPanel />
