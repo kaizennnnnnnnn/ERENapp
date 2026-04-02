@@ -203,6 +203,26 @@ export default function HomePage() {
         </button>
       </div>
 
+      {/* ── Stats ── */}
+      <div className="card mb-4">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="pixel-chip" style={{ background: 'linear-gradient(135deg, #A78BFA, #7C3AED)' }}>STATS</span>
+          <div className="flex-1 h-px" style={{ background: 'repeating-linear-gradient(90deg, #E0D0F8 0px, #E0D0F8 4px, transparent 4px, transparent 8px)' }} />
+          <span className="text-xs text-gray-400">♥ Eren</span>
+        </div>
+        {STAT_CONFIGS.map(cfg => (
+          <StatBar
+            key={cfg.key}
+            label={cfg.label}
+            icon={cfg.icon}
+            value={stats[cfg.key] ?? 0}
+            color={cfg.color}
+            bgColor={cfg.bgColor}
+            pixelIcon={<PixelIcon icon={STAT_PIXEL_ICONS[cfg.key]} size={3} />}
+          />
+        ))}
+      </div>
+
       {/* ── Pixel Eren stage ── */}
       <div className="card-pink mb-4 flex flex-col items-center py-6 relative overflow-hidden">
         {/* Pixel dot grid background */}
@@ -242,10 +262,10 @@ export default function HomePage() {
           style={{ filter: mood === 'angry' ? 'hue-rotate(340deg) saturate(1.3)' : mood === 'sleepy' ? 'brightness(0.88)' : 'none' }}
         >
           <img
-            src="/erenSticker.png"
+            src="/erenHOME.png"
             alt="Eren"
             draggable={false}
-            style={{ width: 160, height: 160, objectFit: 'contain', imageRendering: 'pixelated' }}
+            style={{ width: 210, height: 210, objectFit: 'contain', imageRendering: 'pixelated' }}
           />
         </div>
 
@@ -259,26 +279,6 @@ export default function HomePage() {
             {MOOD_GREETINGS[mood as string] ?? MOOD_GREETINGS.idle}
           </p>
         </div>
-      </div>
-
-      {/* ── Stats ── */}
-      <div className="card mb-4">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="pixel-chip" style={{ background: 'linear-gradient(135deg, #A78BFA, #7C3AED)' }}>STATS</span>
-          <div className="flex-1 h-px" style={{ background: 'repeating-linear-gradient(90deg, #E0D0F8 0px, #E0D0F8 4px, transparent 4px, transparent 8px)' }} />
-          <span className="text-xs text-gray-400">♥ Eren</span>
-        </div>
-        {STAT_CONFIGS.map(cfg => (
-          <StatBar
-            key={cfg.key}
-            label={cfg.label}
-            icon={cfg.icon}
-            value={stats[cfg.key] ?? 0}
-            color={cfg.color}
-            bgColor={cfg.bgColor}
-            pixelIcon={<PixelIcon icon={STAT_PIXEL_ICONS[cfg.key]} size={3} />}
-          />
-        ))}
       </div>
 
       {/* ── Partner status ── */}
