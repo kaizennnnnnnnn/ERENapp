@@ -22,8 +22,8 @@ const SHOP_ITEMS = [
 function FoodIcon({ id, color }: { id: string; color: string }) {
   if (id === 'kibble') return (
     <div style={{ width: 32, height: 32, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 28, height: 14, borderRadius: '3px 3px 50% 50%', background: `linear-gradient(180deg, ${color}DD, ${color}88)`, border: `2px solid ${color}` }}>
-        {[0,1,2,3].map(k => <div key={k} style={{ position: 'absolute', bottom: 3, left: 4 + k * 5, width: 3, height: 3, borderRadius: '50%', background: `${color}99` }} />)}
+      <div style={{ width: 28, height: 14, borderRadius: '3px 3px 50% 50%', background: `linear-gradient(180deg, ${color}DD, ${color}88)`, border: `2px solid ${color}`, position: 'relative' }}>
+        {[0,1,2,3].map(k => <div key={k} style={{ position: 'absolute', bottom: 2, left: 3 + k * 5, width: 3, height: 3, borderRadius: '50%', background: `${color}99` }} />)}
       </div>
     </div>
   )
