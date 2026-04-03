@@ -129,7 +129,7 @@ export default function FeedScene({ onClose }: Props) {
       {/* ══ EREN ══ */}
       <div className={cn('absolute z-20 transition-all duration-300', eatAnim ? 'bottom-[14%]' : 'bottom-[10%]')}
         style={{ left: '50%', transform: 'translateX(-50%)' }}>
-        <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 140, height: 140, objectFit: 'contain', imageRendering: 'pixelated' }} />
+        <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 180, height: 180, objectFit: 'contain', imageRendering: 'pixelated' }} />
       </div>
 
       {/* ══ UI ══ */}
