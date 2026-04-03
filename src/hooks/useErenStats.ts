@@ -34,15 +34,20 @@ export function useErenStats(householdId: string | null) {
     // Calculate how many hours have passed since last decay and apply it now,
     // so stats go down even when no cron ran.
     const raw = data as ErenStats & { last_decay_at?: string }
-    const lastDecayStr = raw.last_decay_at ?? raw.updated_at
-    const hoursElapsed = Math.min(48, (Date.now() - new Date(lastDecayStr).getTime()) / 3_600_000)
 
-    if (hoursElapsed >= 0.1) {
-      const newHunger      = clampStat(raw.hunger        + DECAY_PER_HOUR.hunger        * hoursElapsed)
-      const newHappiness   = clampStat(raw.happiness     + DECAY_PER_HOUR.happiness     * hoursElapsed)
-      const newEnergy      = clampStat(raw.energy        + DECAY_PER_HOUR.energy        * hoursElapsed)
-      const newSleep       = clampStat(raw.sleep_quality + DECAY_PER_HOUR.sleep_quality * hoursElapsed)
-      const newCleanliness = clampStat((raw.cleanliness ?? 100) + DECAY_PER_HOUR.cleanliness * hoursElapsed)
+    // Use last_decay_at if it exists, otherwise updated_at, cap at 12h to avoid huge jumps
+    const lastDecayStr = raw.last_decay_at ?? raw.updated_at
+    const hoursElapsed = Math.min(12, (Date.now() - new Date(lastDecayStr).getTime()) / 3_600_000)
+
+    if (hoursElapsed >= 0.25) {
+      // Round to 1 decimal to avoid floating point strings like 67.124911111...
+      const round1 = (n: number) => Math.round(n * 10) / 10
+
+      const newHunger      = round1(clampStat(raw.hunger        + DECAY_PER_HOUR.hunger        * hoursElapsed))
+      const newHappiness   = round1(clampStat(raw.happiness     + DECAY_PER_HOUR.happiness     * hoursElapsed))
+      const newEnergy      = round1(clampStat(raw.energy        + DECAY_PER_HOUR.energy        * hoursElapsed))
+      const newSleep       = round1(clampStat(raw.sleep_quality + DECAY_PER_HOUR.sleep_quality * hoursElapsed))
+      const newCleanliness = round1(clampStat((raw.cleanliness ?? 100) + DECAY_PER_HOUR.cleanliness * hoursElapsed))
       const newIsSick = raw.is_sick ? true : shouldBecomeSick({ cleanliness: newCleanliness, sleep_quality: newSleep, weight: raw.weight ?? 4 })
       const newMood = computeErenMood({ happiness: newHappiness, hunger: newHunger, energy: newEnergy, sleep_quality: newSleep, cleanliness: newCleanliness })
 
@@ -58,8 +63,8 @@ export function useErenStats(householdId: string | null) {
       }
       setStats(decayed)
 
-      // Save to DB in background (don't await — don't block UI)
-      supabase.from('eren_stats').update({
+      // Save to DB — await so we know if it succeeds
+      const { error: saveErr } = await supabase.from('eren_stats').update({
         hunger:        newHunger,
         happiness:     newHappiness,
         energy:        newEnergy,
@@ -70,6 +75,9 @@ export function useErenStats(householdId: string | null) {
         last_decay_at: new Date().toISOString(),
         updated_at:    new Date().toISOString(),
       }).eq('household_id', householdId)
+
+      // If save failed (e.g. last_decay_at column missing), log it
+      if (saveErr) console.warn('Decay save failed:', saveErr.message)
     } else {
       setStats(raw)
     }
