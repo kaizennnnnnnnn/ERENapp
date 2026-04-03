@@ -119,9 +119,11 @@ export default function MemoriesPage() {
       {/* ── Add memory modal ── */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-md p-6 shadow-2xl"
-            style={{ background: 'linear-gradient(180deg, #FFF8FF, #FFF0FF)', borderRadius: '8px 8px 0 0', borderTop: '3px solid #F0D0FF', boxShadow: '0 -4px 0 #E0B8FF' }}>
-            <div className="flex items-center justify-between mb-4">
+          <div className="w-full max-w-md shadow-2xl flex flex-col"
+            style={{ background: 'linear-gradient(180deg, #FFF8FF, #FFF0FF)', borderRadius: '8px 8px 0 0', borderTop: '3px solid #F0D0FF', boxShadow: '0 -4px 0 #E0B8FF', maxHeight: '90dvh' }}>
+
+            {/* Header — fixed */}
+            <div className="flex items-center justify-between px-6 pt-5 pb-3 flex-shrink-0">
               <span className="pixel-chip" style={{ background: 'linear-gradient(135deg, #FF6B9D, #C084FC)' }}>+ NEW MEMORY</span>
               <button onClick={() => { setShowAdd(false); setImagePreview(null); setText('') }}
                 style={{ background: '#F5F0FF', borderRadius: 3, border: '2px solid #DDD0F0', padding: '4px 6px' }}>
@@ -129,45 +131,49 @@ export default function MemoriesPage() {
               </button>
             </div>
 
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className={cn('w-full h-40 mb-4 flex items-center justify-center cursor-pointer overflow-hidden transition-all')}
-              style={imagePreview
-                ? { borderRadius: 4, border: '2px solid #FF6B9D', boxShadow: '3px 3px 0 #CC3366' }
-                : { borderRadius: 4, border: '2px dashed #DDD0F0', background: '#FBF8FF' }
-              }
-            >
-              {imagePreview ? (
-                <img src={imagePreview} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <div className="flex flex-col items-center gap-2 text-gray-400">
-                  <Camera size={28} />
-                  <span className="font-pixel text-purple-300" style={{ fontSize: 7 }}>TAP TO ADD PHOTO</span>
-                </div>
-              )}
+            {/* Scrollable content */}
+            <div className="overflow-y-auto px-6 flex-1 min-h-0">
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className={cn('w-full h-40 mb-4 flex items-center justify-center cursor-pointer overflow-hidden transition-all')}
+                style={imagePreview
+                  ? { borderRadius: 4, border: '2px solid #FF6B9D', boxShadow: '3px 3px 0 #CC3366' }
+                  : { borderRadius: 4, border: '2px dashed #DDD0F0', background: '#FBF8FF' }
+                }
+              >
+                {imagePreview ? (
+                  <img src={imagePreview} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="flex flex-col items-center gap-2 text-gray-400">
+                    <Camera size={28} />
+                    <span className="font-pixel text-purple-300" style={{ fontSize: 7 }}>TAP TO ADD PHOTO</span>
+                  </div>
+                )}
+              </div>
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+
+              <textarea
+                className="input resize-none"
+                rows={3}
+                placeholder="Write a little note about this moment..."
+                value={text}
+                onChange={e => setText(e.target.value)}
+              />
             </div>
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
 
-            <textarea
-              className="input resize-none mb-4"
-              rows={3}
-              placeholder="Write a little note about this moment… 🐾"
-              value={text}
-              onChange={e => setText(e.target.value)}
-            />
-
-            <div className="flex gap-3">
+            {/* Buttons — always visible at bottom */}
+            <div className="flex gap-3 px-6 py-4 flex-shrink-0" style={{ borderTop: '1px solid #F0E0FF' }}>
               <button onClick={() => { setShowAdd(false); setImagePreview(null); setText('') }}
-                className="flex-1 py-2.5 transition-all active:translate-y-[1px]"
-                style={{ background: '#F5F0FF', borderRadius: 3, border: '2px solid #DDD0F0', boxShadow: '2px 2px 0 #C8B8E8', color: '#7C3AED', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
+                className="flex-1 py-3 transition-all active:translate-y-[1px]"
+                style={{ background: '#F5F0FF', borderRadius: 3, border: '2px solid #DDD0F0', boxShadow: '0 3px 0 #C8B8E8', color: '#7C3AED', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                 CANCEL
               </button>
               <button
                 onClick={handleSave}
                 disabled={saving || (!text.trim() && !imageFile)}
-                className="flex-1 py-2.5 text-white transition-all active:translate-y-[1px] disabled:opacity-40"
-                style={{ background: 'linear-gradient(135deg, #FF6B9D, #C084FC)', borderRadius: 3, border: '2px solid #CC3366', boxShadow: '2px 2px 0 #991A4A', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
-                {saving ? 'SAVING…' : 'SAVE ♥'}
+                className="flex-1 py-3 text-white transition-all active:translate-y-[1px] disabled:opacity-40"
+                style={{ background: 'linear-gradient(135deg, #FF6B9D, #C084FC)', borderRadius: 3, border: '2px solid #CC3366', boxShadow: '0 3px 0 #991A4A', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
+                {saving ? 'SAVING...' : 'SAVE  ♥'}
               </button>
             </div>
           </div>
