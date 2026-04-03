@@ -174,7 +174,7 @@ export default function SleepScene({ onClose }: Props) {
               <div style={{ position: 'absolute', bottom: 0, left: 1, width: 10, height: 8, background: 'linear-gradient(180deg, #C06040, #9A4020)', borderRadius: '2px 2px 3px 3px', border: '1px solid #803010' }} />
               <div style={{ position: 'absolute', bottom: 6, left: 0, right: 0, height: 3, background: '#D07050', borderRadius: 1, border: '1px solid #A04020' }} />
               {[[-2,-12,30],[0,-15,-10],[2,-12,15]].map(([lx,ly,rot], i) => (
-                <div key={i} style={{ position: 'absolute', bottom: 8, left: 6 + lx, width: 7, height: 10, background: 'linear-gradient(180deg, #48C038, #309020)', borderRadius: '50% 50% 30% 70%', border: '1px solid #208010', transform: `rotate(${rot}deg)`, transformOrigin: 'bottom center' }} />
+                <div key={i} style={{ position: 'absolute', bottom: 8, left: 2 + lx, width: 7, height: 10, background: 'linear-gradient(180deg, #48C038, #309020)', borderRadius: '50% 50% 30% 70%', border: '1px solid #208010', transform: `rotate(${rot}deg)`, transformOrigin: 'bottom center' }} />
               ))}
             </div>
           </div>
@@ -199,6 +199,26 @@ export default function SleepScene({ onClose }: Props) {
         </div>
       </div>
 
+      {/* ══ WALL PICTURE FRAME ══ */}
+      <div className="absolute pointer-events-none" style={{ top: '18%', right: '8%', width: 56, height: 46 }}>
+        {/* Outer frame */}
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #4A3060, #2E1A48)', borderRadius: 3, padding: 4, boxShadow: '2px 3px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(200,150,255,0.15)' }}>
+          {/* Canvas */}
+          <div className="w-full h-full" style={{ background: 'linear-gradient(160deg, #0A0618 0%, #150A28 100%)', borderRadius: 1, overflow: 'hidden', position: 'relative' }}>
+            {/* Moon landscape */}
+            <div style={{ position: 'absolute', top: 4, right: 8, width: 12, height: 12, borderRadius: '50%', background: 'radial-gradient(circle at 42% 42%, #FFF0A0, #E8C840)', boxShadow: '0 0 8px 3px rgba(240,200,60,0.2)' }} />
+            {/* Reflection on water */}
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '45%', background: 'linear-gradient(180deg, #1A1040, #0A0820)' }}>
+              <div style={{ position: 'absolute', top: 2, left: '50%', transform: 'translateX(-50%)', width: 3, height: '60%', background: 'rgba(240,200,60,0.2)', borderRadius: 2 }} />
+            </div>
+            {/* Silhouette hills */}
+            <div style={{ position: 'absolute', bottom: '40%', left: 0, right: 0, height: 12, background: '#08041A', borderRadius: '50% 50% 0 0' }} />
+          </div>
+          {/* Frame inner bevel */}
+          <div style={{ position: 'absolute', inset: 3, border: '1px solid rgba(160,100,255,0.15)', borderRadius: 1, pointerEvents: 'none' }} />
+        </div>
+      </div>
+
       {/* ══ NIGHTSTAND — right ══ */}
       <div className="absolute pointer-events-none" style={{ right: 8, bottom: '44%', width: 58, height: 62 }}>
         {/* Nightstand body */}
@@ -212,18 +232,30 @@ export default function SleepScene({ onClose }: Props) {
           {[15,40,65,88].map(y => <div key={y} className="absolute left-2 right-2" style={{ top: `${y}%`, height: 1, background: 'rgba(255,200,120,0.06)' }} />)}
         </div>
         {/* Lamp on nightstand */}
-        <div className="absolute" style={{ bottom: '100%', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div className="absolute" style={{ bottom: '100%', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column-reverse', alignItems: 'center' }}>
           {/* Lamp base */}
-          <div style={{ width: 20, height: 5, borderRadius: '50%', background: 'linear-gradient(180deg, #5A4030, #3A2010)', marginBottom: -1 }} />
+          <div style={{ width: 20, height: 5, borderRadius: '50%', background: 'linear-gradient(180deg, #5A4030, #3A2010)', marginTop: -1 }} />
           {/* Lamp neck */}
           <div style={{ width: 3, height: 16, background: 'linear-gradient(180deg, #6A5040, #4A3020)' }} />
           {/* Lamp shade */}
-          <div style={{ width: 36, height: 22, borderRadius: '4px 4px 60% 60%', background: tuckedIn ? 'linear-gradient(180deg, #FFE898 0%, #E8A828 80%, #D89018 100%)' : 'linear-gradient(180deg, #4A3020 0%, #2A1808 100%)', border: '2px solid #1A0C04', transition: 'background 1s ease', boxShadow: tuckedIn ? '0 8px 24px 10px rgba(255,180,30,0.35), inset 0 2px 4px rgba(255,240,120,0.2)' : 'none', position: 'relative' }}>
+          <div style={{ width: 36, height: 22, borderRadius: '60% 60% 4px 4px', background: !tuckedIn ? 'linear-gradient(180deg, #FFE898 0%, #E8A828 80%, #D89018 100%)' : 'linear-gradient(180deg, #4A3020 0%, #2A1808 100%)', border: '2px solid #1A0C04', transition: 'background 1s ease', boxShadow: !tuckedIn ? '0 8px 24px 10px rgba(255,180,30,0.35), inset 0 2px 4px rgba(255,240,120,0.2)' : 'none', position: 'relative' }}>
             {/* Shade bottom glow */}
-            {tuckedIn && <div style={{ position: 'absolute', bottom: -1, left: 4, right: 4, height: 3, borderRadius: '0 0 50% 50%', background: 'rgba(255,200,60,0.6)' }} />}
+            {!tuckedIn && <div style={{ position: 'absolute', bottom: -1, left: 4, right: 4, height: 3, borderRadius: '0 0 50% 50%', background: 'rgba(255,200,60,0.6)' }} />}
           </div>
           {/* Light cone when on */}
-          {tuckedIn && <div style={{ width: 0, height: 0, borderLeft: '24px solid transparent', borderRight: '24px solid transparent', borderTop: '20px solid rgba(255,210,80,0.08)' }} />}
+          {!tuckedIn && <div style={{ width: 0, height: 0, borderLeft: '24px solid transparent', borderRight: '24px solid transparent', borderTop: '20px solid rgba(255,210,80,0.08)' }} />}
+        </div>
+        {/* Lamp cord going down to floor */}
+        <div className="absolute" style={{ bottom: 0, left: '50%', marginLeft: -0.5, width: 1, height: 'calc(100% + 28px)', background: 'rgba(30,10,5,0.5)', borderRadius: 1, pointerEvents: 'none' }} />
+        {/* Mini clock on nightstand */}
+        <div className="absolute" style={{ bottom: 'calc(100% + 28px)', left: '50%', transform: 'translateX(-50%)', width: 14, height: 14 }}>
+          <div style={{ width: 14, height: 14, borderRadius: '50%', background: 'radial-gradient(circle at 38% 35%, #2E2050, #1A1030)', border: '1.5px solid #3C2870', boxShadow: '0 0 6px 2px rgba(100,80,200,0.15)' }}>
+            <div style={{ position: 'absolute', top: '50%', left: '50%', width: 1, height: 4, background: '#A090D8', transformOrigin: 'bottom', transform: 'translate(-50%, -100%) rotate(-30deg)', borderRadius: 1 }} />
+            <div style={{ position: 'absolute', top: '50%', left: '50%', width: 1, height: 3, background: '#C0B0F0', transformOrigin: 'bottom', transform: 'translate(-50%, -100%) rotate(90deg)', borderRadius: 1 }} />
+            <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 2, height: 2, borderRadius: '50%', background: '#A090D8' }} />
+            </div>
+          </div>
         </div>
         {/* Items on nightstand top — CSS water glass + phone */}
         {/* Small glass of water */}
@@ -269,10 +301,25 @@ export default function SleepScene({ onClose }: Props) {
         <div className="absolute top-0 left-0 right-0" style={{ height: 1.5, background: 'rgba(80,50,20,0.3)' }} />
       </div>
 
-      {/* ══ RUG under bed ══ */}
-      <div className="absolute pointer-events-none" style={{ bottom: '43.5%', left: '12%', right: '12%', height: 20, borderRadius: '50%' }}>
-        <div className="absolute inset-0 rounded-full" style={{ background: 'linear-gradient(135deg, #2E1A68 0%, #1E1048 100%)', border: '2px solid #3C2A78', opacity: 0.9 }} />
-        <div className="absolute inset-2 rounded-full" style={{ border: '1px solid #4A3488', opacity: 0.6 }} />
+      {/* ══ RUG — bedside, with fringe ══ */}
+      <div className="absolute pointer-events-none" style={{ bottom: '43.5%', left: '6%', width: '38%', height: 18 }}>
+        {/* Rug body */}
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #3A1A78 0%, #2A0E58 50%, #3E2080 100%)', borderRadius: 4, border: '1px solid #5A3A90', opacity: 0.92 }}>
+          {/* Rug pattern stripes */}
+          {[20,40,60,80].map(p => <div key={p} className="absolute top-0 bottom-0" style={{ left: `${p}%`, width: 2, background: 'rgba(180,140,255,0.18)' }} />)}
+          {/* Center diamond */}
+          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%) rotate(45deg)', width: 8, height: 8, background: 'rgba(180,140,255,0.2)', border: '1px solid rgba(200,160,255,0.25)' }} />
+          {/* Inner border */}
+          <div style={{ position: 'absolute', inset: 2, border: '1px solid rgba(180,140,255,0.2)', borderRadius: 2 }} />
+        </div>
+        {/* Left fringe */}
+        {Array.from({ length: 6 }).map((_, fi) => (
+          <div key={fi} style={{ position: 'absolute', left: `${fi * 17 + 3}%`, bottom: -4, width: 2, height: 5, background: '#5A3A90', borderRadius: 2, opacity: 0.7 }} />
+        ))}
+        {/* Right fringe */}
+        {Array.from({ length: 6 }).map((_, fi) => (
+          <div key={fi} style={{ position: 'absolute', left: `${fi * 17 + 3}%`, top: -4, width: 2, height: 5, background: '#5A3A90', borderRadius: 2, opacity: 0.7 }} />
+        ))}
       </div>
 
       {/* Lamp glow on floor */}

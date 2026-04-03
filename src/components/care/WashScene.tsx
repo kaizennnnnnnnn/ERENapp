@@ -256,7 +256,7 @@ export default function WashScene({ onClose }: Props) {
               <div style={{ position: 'absolute', top: -1, left: -1, right: -1, height: 3, background: '#C06040', borderRadius: 1 }} />
             </div>
             {[[-2,-7,20],[0,-10,-10],[2,-7,12]].map(([lx,ly,rot], i) => (
-              <div key={i} style={{ position: 'absolute', bottom: 7, left: 4 + lx, width: 7, height: 9, background: 'linear-gradient(180deg, #50C040, #38A028)', borderRadius: '50% 50% 30% 70%', border: '1px solid #289018', transform: `rotate(${rot}deg)`, transformOrigin: 'bottom center' }} />
+              <div key={i} style={{ position: 'absolute', bottom: 7, left: 0 + lx, width: 7, height: 9, background: 'linear-gradient(180deg, #50C040, #38A028)', borderRadius: '50% 50% 30% 70%', border: '1px solid #289018', transform: `rotate(${rot}deg)`, transformOrigin: 'bottom center' }} />
             ))}
           </div>
           {/* Light beam */}
@@ -429,7 +429,7 @@ export default function WashScene({ onClose }: Props) {
           </div>
           {/* Plant leaves */}
           {[[-6,-16,35],[-2,-22,-10],[4,-18,15],[8,-14,-25]].map(([lx,ly,rot], li) => (
-            <div key={li} style={{ position: 'absolute', bottom: 14, left: 14 + lx, width: 14, height: 22, background: 'linear-gradient(180deg, #50C040, #38A028)', borderRadius: '50% 50% 30% 70%', border: '1px solid #289818', transform: `rotate(${rot}deg)`, transformOrigin: 'bottom center' }} />
+            <div key={li} style={{ position: 'absolute', bottom: 14, left: 4 + lx, width: 14, height: 22, background: 'linear-gradient(180deg, #50C040, #38A028)', borderRadius: '50% 50% 30% 70%', border: '1px solid #289818', transform: `rotate(${rot}deg)`, transformOrigin: 'bottom center' }} />
           ))}
         </div>
 
@@ -448,16 +448,51 @@ export default function WashScene({ onClose }: Props) {
           </div>
         </div>
 
+        {/* ══ SOAP DISH on tub edge ── */}
+        <div className="absolute" style={{ bottom: '35%', left: '28%', width: 22, height: 8 }}>
+          {/* Ceramic dish */}
+          <div style={{ width: 22, height: 6, background: 'linear-gradient(180deg, #F8F8F8, #E8E8E8)', borderRadius: '3px 3px 5px 5px', border: '1px solid #D0D0D0', boxShadow: '0 2px 3px rgba(0,0,0,0.1)' }}>
+            {/* Dish drain lines */}
+            {[0,1,2].map(li => <div key={li} style={{ position: 'absolute', top: 2, left: `${li * 33 + 10}%`, width: 1, height: '40%', background: 'rgba(160,160,160,0.4)' }} />)}
+          </div>
+          {/* Bar of soap on dish */}
+          <div style={{ position: 'absolute', top: -5, left: 4, width: 14, height: 7, background: 'linear-gradient(135deg, #F0E0FF, #D8C8F8)', borderRadius: '3px 3px 2px 2px', border: '1px solid #C0B0E8', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
+            <div style={{ position: 'absolute', top: 2, left: 3, width: 6, height: 1.5, background: 'rgba(255,255,255,0.5)', borderRadius: 1 }} />
+          </div>
+        </div>
+
+        {/* ══ TOWEL RING on wall (right side below towel rack) ── */}
+        <div className="absolute" style={{ right: '2%', top: '52%', width: 28 }}>
+          {/* Wall mount */}
+          <div style={{ position: 'absolute', right: 0, top: 8, width: 6, height: 16, background: 'linear-gradient(180deg, #D8D8D8, #B8B8B8)', borderRadius: 2, border: '1px solid #A0A0A0' }} />
+          {/* Chrome ring */}
+          <div style={{ width: 20, height: 20, borderRadius: '50%', border: '3px solid #C8C8C8', background: 'transparent', position: 'relative', boxShadow: '1px 1px 4px rgba(0,0,0,0.15)' }}>
+            <div style={{ position: 'absolute', top: '15%', left: '15%', right: '15%', bottom: '15%', borderRadius: '50%', border: '1px solid rgba(200,200,200,0.4)' }} />
+          </div>
+          {/* Hand towel on ring */}
+          <div style={{ position: 'absolute', top: 14, left: 3, width: 16, height: 28, background: 'linear-gradient(180deg, #E0F8F8, #C8EEF0)', borderRadius: '0 0 4px 4px', boxShadow: '1px 2px 4px rgba(0,0,0,0.1)' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: '#78C8CC', opacity: 0.7 }} />
+            {[1,2,3].map(k => <div key={k} style={{ position: 'absolute', left: 0, right: 0, top: `${k * 25}%`, height: '8%', background: k % 2 === 0 ? '#78C8CC' : 'transparent', opacity: 0.25 }} />)}
+          </div>
+        </div>
+
         {/* ══ BATH MAT in front of tub ── */}
-        <div className="absolute" style={{ bottom: '20%', left: '20%', right: '20%', height: 12, borderRadius: 6, overflow: 'hidden' }}>
-          {['#A8D8F0','#FFFFFF','#C8B8F8','#FFFFFF','#A8D8F0'].map((c, i) => (
-            <div key={i} className="absolute top-0 bottom-0" style={{ left: `${i * 20}%`, width: '20%', background: c }} />
+        <div className="absolute" style={{ bottom: '20%', left: '20%', right: '20%', height: 14, borderRadius: 7, overflow: 'visible' }}>
+          {/* Mat body with stripes */}
+          <div className="absolute inset-0" style={{ borderRadius: 7, overflow: 'hidden' }}>
+            {['#A8D8F0','#FFFFFF','#C8B8F8','#FFFFFF','#A8D8F0'].map((c, i) => (
+              <div key={i} className="absolute top-0 bottom-0" style={{ left: `${i * 20}%`, width: '20%', background: c }} />
+            ))}
+          </div>
+          {/* Mat tufts / fringe bottom */}
+          {Array.from({ length: 10 }).map((_, fi) => (
+            <div key={fi} style={{ position: 'absolute', bottom: -5, left: `${fi * 10 + 2}%`, width: 2.5, height: 6, background: '#A8D8F0', borderRadius: 2, opacity: 0.8 }} />
           ))}
-          {/* Mat tufts / fringe */}
-          {Array.from({ length: 8 }).map((_, fi) => (
-            <div key={fi} style={{ position: 'absolute', bottom: -3, left: `${fi * 13 + 3}%`, width: 2, height: 5, background: '#A8D8F0', borderRadius: 2 }} />
+          {/* Mat tufts top */}
+          {Array.from({ length: 10 }).map((_, fi) => (
+            <div key={fi} style={{ position: 'absolute', top: -5, left: `${fi * 10 + 2}%`, width: 2.5, height: 6, background: '#A8D8F0', borderRadius: 2, opacity: 0.8 }} />
           ))}
-          <div className="absolute inset-0 rounded-full" style={{ border: '1px solid rgba(100,160,200,0.3)' }} />
+          <div className="absolute inset-0" style={{ borderRadius: 7, border: '1px solid rgba(100,160,200,0.3)' }} />
         </div>
 
         {/* ══ CLAWFOOT BATHTUB — centered, detailed ── */}
@@ -560,6 +595,26 @@ export default function WashScene({ onClose }: Props) {
               <div className="absolute bottom-0 right-1" style={{ width: 6, height: 6, background: 'linear-gradient(180deg, #D8B830, #B09020)', borderRadius: '0 0 4px 0', border: '1px solid #9A7810' }} />
             </div>
           ))}
+        </div>
+
+        {/* ══ TOILET — right corner ── */}
+        <div className="absolute" style={{ bottom: '42%', right: '1%', width: 46 }}>
+          {/* Tank */}
+          <div style={{ width: 36, height: 28, background: 'linear-gradient(180deg, #F2F8FC, #E0EEF8)', borderRadius: '4px 4px 2px 2px', border: '1.5px solid #B8D0E0', margin: '0 auto', position: 'relative', boxShadow: '1px 1px 4px rgba(0,0,0,0.1)' }}>
+            {/* Tank lid */}
+            <div style={{ position: 'absolute', top: -5, left: -2, right: -2, height: 6, background: 'linear-gradient(180deg, #F8FCFF, #E8F4FA)', borderRadius: 4, border: '1px solid #C0D8E8' }} />
+            {/* Flush button */}
+            <div style={{ position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)', width: 10, height: 7, borderRadius: 4, background: 'linear-gradient(180deg, #E4EEF8, #C8DCF0)', border: '1px solid #A8C0D8' }} />
+            {/* Water line */}
+            <div style={{ position: 'absolute', bottom: 4, left: 4, right: 4, height: 1, background: 'rgba(130,180,220,0.35)' }} />
+          </div>
+          {/* Bowl top */}
+          <div style={{ width: 46, height: 10, background: 'linear-gradient(180deg, #F2F8FC, #E0EEF8)', borderRadius: '50%', border: '1.5px solid #B8D0E0', margin: '0 auto', boxShadow: '0 2px 4px rgba(0,0,0,0.08)' }} />
+          {/* Bowl body */}
+          <div style={{ width: 40, height: 22, background: 'linear-gradient(180deg, #EEF6FC, #DCE8F4)', borderRadius: '0 0 20px 20px', border: '1.5px solid #B8D0E0', borderTop: 'none', margin: '0 auto', position: 'relative', boxShadow: 'inset 0 4px 8px rgba(100,160,200,0.1)' }}>
+            {/* Water in bowl */}
+            <div style={{ position: 'absolute', bottom: 4, left: 8, right: 8, height: 8, borderRadius: '0 0 12px 12px', background: 'rgba(160,210,240,0.3)', borderTop: '1px solid rgba(120,190,230,0.3)' }} />
+          </div>
         </div>
 
         {/* ── Floor shadow at wall base ── */}

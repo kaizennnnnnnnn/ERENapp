@@ -136,6 +136,20 @@ export default function FeedScene({ onClose }: Props) {
       {/* ══ CEILING TRIM ══ */}
       <div className="absolute top-0 left-0 right-0" style={{ height: 6, background: 'linear-gradient(180deg, #E8D098 0%, #D4BC78 100%)', boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }} />
 
+      {/* ══ RECESSED CEILING LIGHTS ══ */}
+      {[28, 50, 72].map(pct => (
+        <div key={pct} className="absolute pointer-events-none" style={{ top: 6, left: `${pct}%`, transform: 'translateX(-50%)', width: 44, height: 10 }}>
+          <div style={{ width: '100%', height: '100%', background: 'linear-gradient(180deg, #D8CCA0, #C8B880)', borderRadius: '0 0 3px 3px', border: '1px solid #B8A868', borderTop: 'none', position: 'relative' }}>
+            {/* Light panel inset */}
+            <div style={{ position: 'absolute', inset: '2px 4px', background: 'linear-gradient(180deg, #FFF8E0, #FFE898)', borderRadius: 2, boxShadow: '0 4px 18px 6px rgba(255,230,120,0.28)' }}>
+              <div style={{ position: 'absolute', inset: 1, background: 'rgba(255,255,255,0.3)', borderRadius: 1 }} />
+            </div>
+          </div>
+          {/* Downward glow cone */}
+          <div style={{ position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '28px solid transparent', borderRight: '28px solid transparent', borderTop: '30px solid rgba(255,230,120,0.07)' }} />
+        </div>
+      ))}
+
       {/* ══ FLOOR — warm checkerboard tiles ══ */}
       <div className="absolute left-0 right-0 bottom-0" style={{ height: '45%' }}>
         {Array.from({ length: 20 }).map((_, i) => {
@@ -280,6 +294,19 @@ export default function FeedScene({ onClose }: Props) {
         </div>
         {/* Sill */}
         <div className="absolute bottom-0 left-0 right-0" style={{ height: 9, background: 'linear-gradient(180deg, #B07830, #8A5A18)', borderRadius: '0 0 3px 3px', boxShadow: '0 3px 6px rgba(0,0,0,0.2)' }} />
+        {/* Curtain valance rod */}
+        <div className="absolute" style={{ top: -5, left: -18, right: -18, height: 5, background: 'linear-gradient(180deg, #C09040, #9A7020)', borderRadius: 3, boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+          {/* Rod end caps */}
+          <div style={{ position: 'absolute', left: -3, top: -2, width: 6, height: 9, borderRadius: '50%', background: 'radial-gradient(circle at 35% 35%, #F0C840, #B09020)', border: '1px solid #907010' }} />
+          <div style={{ position: 'absolute', right: -3, top: -2, width: 6, height: 9, borderRadius: '50%', background: 'radial-gradient(circle at 35% 35%, #F0C840, #B09020)', border: '1px solid #907010' }} />
+        </div>
+        {/* Valance fabric swag */}
+        <div className="absolute pointer-events-none" style={{ top: 0, left: -16, right: -16, height: 18, overflow: 'visible' }}>
+          <svg width="100%" height="18" viewBox="0 0 156 18" preserveAspectRatio="none">
+            <path d="M0,2 Q20,14 40,6 Q60,0 78,10 Q96,18 116,6 Q136,0 156,4" stroke="none" fill="#D86030" opacity="0.88" />
+            <path d="M0,2 Q20,14 40,6 Q60,0 78,10 Q96,18 116,6 Q136,0 156,4 L156,0 L0,0 Z" fill="#E87040" opacity="0.4" />
+          </svg>
+        </div>
         {/* Curtains */}
         <div className="absolute -left-5 top-0 bottom-0 w-7 rounded-r-xl" style={{ background: 'linear-gradient(160deg, #E87040 0%, #C85020 70%, #B04018 100%)', opacity: 0.9, boxShadow: '2px 0 6px rgba(0,0,0,0.15)' }}>
           {[0.2,0.45,0.7].map(y => <div key={y} className="absolute left-0 right-0" style={{ top: `${y*100}%`, height: 2, background: 'rgba(0,0,0,0.08)' }} />)}
@@ -293,7 +320,7 @@ export default function FeedScene({ onClose }: Props) {
             <div style={{ position: 'absolute', top: -2, left: -1, right: -1, height: 3, background: '#D07050', borderRadius: 1 }} />
           </div>
           {[[-2,-8,25],[0,-12,-15],[3,-7,10]].map(([lx,ly,rot], i) => (
-            <div key={i} style={{ position: 'absolute', bottom: 9, left: 7 + lx, width: 8, height: 11, background: 'linear-gradient(180deg, #60D050, #42B030)', borderRadius: '50% 50% 30% 70%', border: '1px solid #30A020', transform: `rotate(${rot}deg)`, transformOrigin: 'bottom center' }} />
+            <div key={i} style={{ position: 'absolute', bottom: 9, left: 3 + lx, width: 8, height: 11, background: 'linear-gradient(180deg, #60D050, #42B030)', borderRadius: '50% 50% 30% 70%', border: '1px solid #30A020', transform: `rotate(${rot}deg)`, transformOrigin: 'bottom center' }} />
           ))}
         </div>
         <div className="absolute" style={{ bottom: 0, left: -16, width: 14 }}>
@@ -301,7 +328,7 @@ export default function FeedScene({ onClose }: Props) {
             <div style={{ position: 'absolute', top: -2, left: -1, right: -1, height: 3, background: '#D07050', borderRadius: 1 }} />
           </div>
           {[[-2,-7,20],[1,-11,-10],[3,-6,12]].map(([lx,ly,rot], i) => (
-            <div key={i} style={{ position: 'absolute', bottom: 8, left: 7 + lx, width: 7, height: 10, background: 'linear-gradient(180deg, #50C040, #38A028)', borderRadius: '50% 50% 30% 70%', border: '1px solid #28921A', transform: `rotate(${rot}deg)`, transformOrigin: 'bottom center' }} />
+            <div key={i} style={{ position: 'absolute', bottom: 8, left: 2 + lx, width: 7, height: 10, background: 'linear-gradient(180deg, #50C040, #38A028)', borderRadius: '50% 50% 30% 70%', border: '1px solid #28921A', transform: `rotate(${rot}deg)`, transformOrigin: 'bottom center' }} />
           ))}
         </div>
       </div>
@@ -370,6 +397,41 @@ export default function FeedScene({ onClose }: Props) {
         </div>
         {/* Fridge door handle highlight */}
         <div className="absolute left-0 top-0 bottom-0" style={{ width: 4, background: 'linear-gradient(90deg, rgba(255,255,255,0.25), transparent)' }} />
+      </div>
+
+      {/* ══ KITCHEN SINK (right side of counter) ══ */}
+      <div className="absolute pointer-events-none" style={{ bottom: '52%', right: '2%', width: 68 }}>
+        {/* Sink counter extension */}
+        <div style={{ height: 6, background: 'linear-gradient(180deg, #E8DEB8, #D0C698)', borderTop: '3px solid #EEE4C0', borderRadius: '2px 2px 0 0' }} />
+        {/* Stainless steel basin */}
+        <div style={{ height: 28, background: 'linear-gradient(135deg, #D8DCDC 0%, #B8C0C0 40%, #C8D0D0 100%)', border: '2px solid #A0ACAC', borderTop: 'none', borderRadius: '0 0 6px 6px', position: 'relative', boxShadow: 'inset 0 3px 8px rgba(0,0,0,0.12)' }}>
+          {/* Inner basin shadow */}
+          <div style={{ position: 'absolute', inset: 4, borderRadius: '0 0 4px 4px', background: 'radial-gradient(ellipse at center bottom, rgba(80,100,100,0.1) 0%, transparent 60%)' }} />
+          {/* Rim gloss */}
+          <div style={{ position: 'absolute', top: 0, left: 4, right: 4, height: 2, background: 'rgba(255,255,255,0.55)', borderRadius: 2 }} />
+          {/* Drain */}
+          <div style={{ position: 'absolute', bottom: 5, left: '50%', transform: 'translateX(-50%)', width: 12, height: 6, borderRadius: '50%', background: '#909898', border: '1px solid #707878' }}>
+            {[0,1,2].map(li => <div key={li} style={{ position: 'absolute', top: '40%', left: `${22 + li * 20}%`, width: 1.5, height: '20%', background: '#606868' }} />)}
+          </div>
+          {/* Chrome faucet */}
+          <div style={{ position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)', width: 20, height: 16 }}>
+            {/* Base */}
+            <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 14, height: 5, background: 'linear-gradient(180deg, #E0E0E0, #B8B8B8)', borderRadius: '3px 3px 2px 2px', border: '1px solid #A0A0A0' }} />
+            {/* Neck */}
+            <div style={{ position: 'absolute', bottom: 4, left: '50%', transform: 'translateX(-50%)', width: 4, height: 12, background: 'linear-gradient(90deg, #D0D0D0, #F0F0F0, #D0D0D0)', borderRadius: 2 }} />
+            {/* Spout arc */}
+            <div style={{ position: 'absolute', bottom: 10, left: 0, right: 0, height: 5, borderRadius: '4px 4px 0 0', borderTop: '3px solid #D0D0D0', borderLeft: '3px solid #D0D0D0', borderRight: 'none', borderBottom: 'none' }} />
+          </div>
+          {/* Soap dispenser */}
+          <div style={{ position: 'absolute', top: -18, right: 6, width: 9, height: 18 }}>
+            <div style={{ width: 9, height: 14, background: 'linear-gradient(180deg, #F0E0C8, #D8C0A0)', borderRadius: '3px 3px 2px 2px', border: '1px solid #C0A080' }} />
+            <div style={{ width: 3, height: 5, background: '#C0A080', margin: '0 auto', borderRadius: '2px 2px 0 0', marginTop: -2 }} />
+          </div>
+          {/* Sponge */}
+          <div style={{ position: 'absolute', top: 5, right: 6, width: 14, height: 9, background: 'linear-gradient(180deg, #90D860, #68B840)', borderRadius: 3, border: '1px solid #509028' }}>
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 4, background: '#F8E060', borderRadius: '0 0 3px 3px', border: '1px solid #D0B820', borderTop: 'none' }} />
+          </div>
+        </div>
       </div>
 
       {/* ══ ITEMS ON COUNTER ══ */}

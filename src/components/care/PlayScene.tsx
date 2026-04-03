@@ -83,8 +83,25 @@ export default function PlayScene({ onClose }: Props) {
 
       {/* ══ WALL — soft lilac with subtle paint texture ══ */}
       <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, #EDE4FF 0%, #E0D4FF 60%, #D8CCFF 100%)' }} />
+      {/* Wallpaper texture — paw prints pattern on upper wall */}
+      <div className="absolute pointer-events-none" style={{ top: 0, left: 0, right: 0, height: '62%', opacity: 0.07 }}>
+        {Array.from({ length: 24 }).map((_, i) => {
+          const col = i % 6, row = Math.floor(i / 6)
+          const offsetX = (row % 2) * (100 / 12)
+          return (
+            <div key={i} className="absolute" style={{ left: `${col * (100 / 6) + offsetX}%`, top: `${row * 26}%`, width: 14, height: 14 }}>
+              {/* Paw print: main pad */}
+              <div style={{ position: 'absolute', bottom: 0, left: 3, width: 8, height: 6, borderRadius: '50%', background: '#6040A0' }} />
+              {/* Toe beans */}
+              {[[-2,0],[3,0],[0,-4],[5,-4]].map(([px,py], k) => (
+                <div key={k} style={{ position: 'absolute', left: 3 + px, bottom: 5 + (-py), width: 3.5, height: 3, borderRadius: '50%', background: '#6040A0' }} />
+              ))}
+            </div>
+          )
+        })}
+      </div>
       {/* Wall texture dots */}
-      <div className="absolute inset-0 pointer-events-none opacity-15" style={{ backgroundImage: 'radial-gradient(circle, #9060C0 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+      <div className="absolute inset-0 pointer-events-none opacity-10" style={{ backgroundImage: 'radial-gradient(circle, #9060C0 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
       {/* Ambient light from window */}
       <div className="absolute pointer-events-none" style={{ top: 0, left: '5%', width: 160, height: 250, background: 'radial-gradient(ellipse at 20% 0%, rgba(200,180,255,0.35) 0%, transparent 70%)' }} />
 
@@ -165,7 +182,7 @@ export default function PlayScene({ onClose }: Props) {
             <div style={{ position: 'absolute', top: -2, left: -1, right: -1, height: 3, background: '#E08060', borderRadius: 1 }} />
           </div>
           {[[-3,-6,35],[0,-10,-15],[3,-6,15]].map(([lx,ly,rot], i) => (
-            <div key={i} style={{ position: 'absolute', bottom: 8, left: 7 + lx, width: 9, height: 13, background: 'linear-gradient(180deg, #52C040, #3AA028)', borderRadius: '50% 50% 30% 70%', border: '1px solid #2A9818', transform: `rotate(${rot}deg)`, transformOrigin: 'bottom center' }} />
+            <div key={i} style={{ position: 'absolute', bottom: 8, left: 2 + lx, width: 9, height: 13, background: 'linear-gradient(180deg, #52C040, #3AA028)', borderRadius: '50% 50% 30% 70%', border: '1px solid #2A9818', transform: `rotate(${rot}deg)`, transformOrigin: 'bottom center' }} />
           ))}
         </div>
       </div>

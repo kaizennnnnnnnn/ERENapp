@@ -105,6 +105,40 @@ export default function HospitalScene({ onClose }: Props) {
         <div className="absolute bottom-0 left-0 right-0" style={{ height: 8, background: 'linear-gradient(180deg, #CCD0DC, #B0B4C4)', borderRadius: '0 0 3px 3px', boxShadow: '0 2px 4px rgba(0,0,0,0.12)' }} />
       </div>
 
+      {/* ══ WALL CLOCK ══ */}
+      <div className="absolute pointer-events-none" style={{ top: '8%', left: '22%' }}>
+        <div className="relative" style={{ width: 30, height: 30 }}>
+          <div className="absolute inset-0 rounded-full" style={{ background: 'radial-gradient(circle at 38% 35%, #FAFCFF, #ECF0FC)', border: '3px solid #9AA8D4', boxShadow: '0 2px 6px rgba(0,0,0,0.15)' }} />
+          <div className="absolute" style={{ top: '50%', left: '50%', width: 1.5, height: 9, background: '#3A4068', transformOrigin: 'bottom', transform: 'translate(-50%, -100%) rotate(30deg)' }} />
+          <div className="absolute" style={{ top: '50%', left: '50%', width: 1, height: 7, background: '#6A7090', transformOrigin: 'bottom', transform: 'translate(-50%, -100%) rotate(135deg)' }} />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div style={{ width: 3, height: 3, borderRadius: '50%', background: '#3A4068' }} />
+          </div>
+        </div>
+      </div>
+
+      {/* ══ DIPLOMA / CERTIFICATE FRAME ══ */}
+      <div className="absolute pointer-events-none" style={{ top: '8%', left: '26%', width: 60, height: 46 }}>
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #C8B888, #A89868)', borderRadius: 3, padding: 3, boxShadow: '2px 2px 6px rgba(0,0,0,0.2)' }}>
+          <div className="w-full h-full" style={{ background: '#FFFEF8', borderRadius: 1, position: 'relative' }}>
+            {/* Certificate header bar */}
+            <div style={{ height: 7, background: 'linear-gradient(90deg, #1A3888, #3060B8)', borderRadius: '1px 1px 0 0' }}>
+              <div style={{ position: 'absolute', top: 2, left: 4, width: '40%', height: 2, background: 'rgba(255,255,255,0.4)', borderRadius: 1 }} />
+            </div>
+            {/* Seal circle */}
+            <div style={{ position: 'absolute', bottom: 5, left: 5, width: 14, height: 14, borderRadius: '50%', background: 'radial-gradient(circle at 38% 38%, #F5D840, #C8A018)', border: '1px solid #A07810', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
+              <div style={{ position: 'absolute', inset: 2, borderRadius: '50%', border: '1px solid rgba(255,200,40,0.5)' }} />
+            </div>
+            {/* Text lines */}
+            {[12, 18, 24, 30].map(t => (
+              <div key={t} style={{ position: 'absolute', top: t, left: 8, right: 6, height: 1.5, background: 'rgba(80,90,120,0.2)', borderRadius: 1 }} />
+            ))}
+            {/* Signature line */}
+            <div style={{ position: 'absolute', bottom: 8, right: 5, width: 28, height: 1, background: 'rgba(80,90,120,0.4)' }} />
+          </div>
+        </div>
+      </div>
+
       {/* ══ MEDICAL CROSS (framed on wall) ══ */}
       <div className="absolute pointer-events-none" style={{ top: '7%', left: '50%', transform: 'translateX(-50%)' }}>
         <div className="relative" style={{ width: 56, height: 56 }}>
@@ -112,6 +146,34 @@ export default function HospitalScene({ onClose }: Props) {
           <div className="absolute" style={{ top: '50%', left: '14%', right: '14%', height: 13, transform: 'translateY(-50%)', background: 'linear-gradient(180deg, #E22828, #C01414)', borderRadius: 3, boxShadow: 'inset 0 1px 2px rgba(255,120,120,0.3)' }} />
           <div className="absolute" style={{ left: '50%', top: '14%', bottom: '14%', width: 13, transform: 'translateX(-50%)', background: 'linear-gradient(180deg, #E22828, #C01414)', borderRadius: 3, boxShadow: 'inset 1px 0 2px rgba(255,120,120,0.3)' }} />
           <div className="absolute inset-0 rounded-full" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.18) 0%, transparent 55%)' }} />
+        </div>
+      </div>
+
+      {/* ══ ANATOMICAL CHART (left wall, below window) ══ */}
+      <div className="absolute pointer-events-none" style={{ top: '20%', left: '4%', width: 54, height: 72 }}>
+        <div className="absolute inset-0" style={{ background: '#A8B0C4', borderRadius: 2, padding: 3, boxShadow: '2px 3px 6px rgba(0,0,0,0.15)' }}>
+          <div className="w-full h-full" style={{ background: '#F9FBFF', borderRadius: 1, position: 'relative' }}>
+            {/* Title bar */}
+            <div style={{ height: 9, background: 'linear-gradient(90deg, #1A4A6C, #2468A0)', borderRadius: '1px 1px 0 0' }}>
+              <div style={{ position: 'absolute', top: 3, left: 4, width: '50%', height: 2, background: 'rgba(255,255,255,0.45)', borderRadius: 1 }} />
+            </div>
+            {/* Cat outline diagram */}
+            <div style={{ position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)', width: 30, height: 30 }}>
+              {/* Body ellipse */}
+              <div style={{ position: 'absolute', top: 10, left: 2, width: 26, height: 18, borderRadius: '50%', border: '1.5px solid #4A6080', background: 'rgba(200,215,235,0.2)' }} />
+              {/* Head */}
+              <div style={{ position: 'absolute', top: 2, left: 7, width: 14, height: 12, borderRadius: '50%', border: '1.5px solid #4A6080', background: 'rgba(200,215,235,0.2)' }} />
+              {/* Ears */}
+              <div style={{ position: 'absolute', top: 0, left: 8, width: 0, height: 0, borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderBottom: '7px solid #4A6080' }} />
+              <div style={{ position: 'absolute', top: 0, right: 8, width: 0, height: 0, borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderBottom: '7px solid #4A6080' }} />
+              {/* Spine indicator line */}
+              <div style={{ position: 'absolute', top: 12, left: 14, right: 3, height: 1, background: 'rgba(220,60,60,0.6)', borderRadius: 1 }} />
+            </div>
+            {/* Label lines */}
+            {[48, 55, 62].map(t => (
+              <div key={t} style={{ position: 'absolute', top: t, left: 4, right: 4, height: 1.5, background: 'rgba(80,90,120,0.18)', borderRadius: 1 }} />
+            ))}
+          </div>
         </div>
       </div>
 
@@ -193,6 +255,11 @@ export default function HospitalScene({ onClose }: Props) {
           </div>
           {/* Door handle */}
           <div style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', width: 4, height: 22, background: 'linear-gradient(180deg, #D0D4E0, #A8B0C0)', borderRadius: 3, border: '1px solid #909AB0', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+          {/* Lock */}
+          <div style={{ position: 'absolute', right: 4, top: '38%', width: 8, height: 10, borderRadius: 2, background: 'linear-gradient(180deg, #D4D8E8, #B0B4C4)', border: '1px solid #8890A8', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>
+            <div style={{ position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)', width: 4, height: 4, borderRadius: '50%', background: '#8890A8', border: '1px solid #6870A0' }} />
+            <div style={{ position: 'absolute', top: -4, left: '50%', transform: 'translateX(-50%)', width: 4, height: 5, borderRadius: '2px 2px 0 0', border: '1.5px solid #8890A8', borderBottom: 'none', background: 'transparent' }} />
+          </div>
         </div>
       </div>
 
@@ -241,6 +308,43 @@ export default function HospitalScene({ onClose }: Props) {
         {[14, 198].map(lx => (
           <div key={lx} style={{ position: 'absolute', bottom: -20, left: lx, width: 8, height: 22, background: 'linear-gradient(180deg, #C0C4D4, #A4A8BC)', borderRadius: '0 0 3px 3px', border: '1px solid #8C90A8' }} />
         ))}
+      </div>
+
+      {/* ══ MEDICAL TRASH BIN ══ */}
+      <div className="absolute pointer-events-none" style={{ bottom: 'calc(42% + 0px)', left: '4%', width: 28 }}>
+        {/* Lid */}
+        <div style={{ height: 6, background: 'linear-gradient(180deg, #E85050, #C83030)', borderRadius: '4px 4px 1px 1px', border: '1px solid #A01818', boxShadow: '0 1px 3px rgba(0,0,0,0.15)', position: 'relative' }}>
+          {/* Biohazard / cross on lid */}
+          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 8, height: 4 }}>
+            <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 2, transform: 'translateY(-50%)', background: 'rgba(255,200,200,0.7)', borderRadius: 1 }} />
+            <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 2, transform: 'translateX(-50%)', background: 'rgba(255,200,200,0.7)', borderRadius: 1 }} />
+          </div>
+        </div>
+        {/* Bin body */}
+        <div style={{ height: 30, background: 'linear-gradient(180deg, #F0F0F0, #E0E0E0)', border: '1px solid #C0C0C8', borderTop: 'none', borderRadius: '0 0 4px 4px', position: 'relative', boxShadow: '1px 2px 4px rgba(0,0,0,0.1)' }}>
+          {/* Biohazard symbol on body */}
+          <div style={{ position: 'absolute', top: 4, left: '50%', transform: 'translateX(-50%)', width: 14, height: 14, borderRadius: '50%', border: '1.5px solid #E83030', opacity: 0.55 }}>
+            <div style={{ position: 'absolute', top: '50%', left: '20%', right: '20%', height: 2, transform: 'translateY(-50%)', background: '#E83030', borderRadius: 1 }} />
+          </div>
+          {/* Red bag showing at top */}
+          <div style={{ position: 'absolute', top: 0, left: 4, right: 4, height: 6, background: 'rgba(220,50,50,0.15)', borderRadius: '0 0 2px 2px' }} />
+        </div>
+      </div>
+
+      {/* ══ PATIENT SCALE ══ */}
+      <div className="absolute pointer-events-none" style={{ bottom: 'calc(42% + 0px)', right: '4%', width: 38 }}>
+        {/* Scale platform */}
+        <div style={{ height: 5, background: 'linear-gradient(180deg, #D8DCE8, #B8BCC8)', borderRadius: '3px 3px 0 0', border: '1px solid #A0A4B4', boxShadow: '0 1px 3px rgba(0,0,0,0.12)' }}>
+          {/* Foot grip lines */}
+          {[0,1,2,3,4].map(k => <div key={k} style={{ position: 'absolute', top: 1, left: `${k * 20 + 4}%`, width: 1.5, height: '60%', background: 'rgba(120,128,160,0.3)' }} />)}
+        </div>
+        {/* Scale base/body */}
+        <div style={{ height: 14, background: 'linear-gradient(180deg, #E8ECF4, #D0D4E0)', border: '1px solid #A4A8B8', borderTop: 'none', borderRadius: '0 0 3px 3px', position: 'relative' }}>
+          {/* Digital readout */}
+          <div style={{ position: 'absolute', top: 3, left: '50%', transform: 'translateX(-50%)', width: 22, height: 8, background: '#1A2030', borderRadius: 2, border: '1px solid #383C50' }}>
+            <div style={{ position: 'absolute', top: 2, left: 3, width: 12, height: 3, background: 'rgba(80,180,80,0.7)', borderRadius: 1 }} />
+          </div>
+        </div>
       </div>
 
       {/* ══ EREN on table ══ */}
