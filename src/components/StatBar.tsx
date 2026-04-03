@@ -28,7 +28,7 @@ const COLOR_MAP: Record<string, [string, string]> = {
 }
 
 export default function StatBar({ label, icon, value, color, bgColor, animate = true, pixelIcon }: Props) {
-  const clamped = Math.max(0, Math.min(100, value))
+  const clamped = Math.round(Math.max(0, Math.min(100, value)))
   const isLow = clamped < 30
   const isCritical = clamped < 15
   const litCount = Math.round((clamped / 100) * SEGMENTS)
