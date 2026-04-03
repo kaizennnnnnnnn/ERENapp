@@ -159,12 +159,19 @@ export default function SleepScene({ onClose }: Props) {
               </div>
             ))}
           </div>
-          {/* Row 2 — books + stuffed animal */}
+          {/* Row 2 — books + stuffed bear */}
           <div className="absolute flex items-end gap-[1px] left-1.5" style={{ top: 35, height: 26 }}>
             {[{w:7,h:18,c:'#98FB98'},{w:6,h:16,c:'#FF9EC8'},{w:8,h:20,c:'#C084FC'},{w:6,h:14,c:'#6BAED6'}].map((b, i) => (
               <div key={i} style={{ width: b.w, height: b.h, background: `linear-gradient(180deg, ${b.c} 0%, ${b.c}BB 100%)`, borderRadius: '2px 2px 0 0', alignSelf: 'flex-end', boxShadow: 'inset -1px 0 1px rgba(0,0,0,0.2)' }} />
             ))}
-            <div style={{ alignSelf: 'flex-end', lineHeight: 1, fontSize: 11 }}>🧸</div>
+            {/* Mini bear */}
+            <div style={{ alignSelf: 'flex-end', position: 'relative', width: 11, height: 13 }}>
+              <div style={{ width: 11, height: 9, borderRadius: '50%', background: 'linear-gradient(180deg, #E8C090, #D4A870)', border: '1px solid #C09050' }} />
+              <div style={{ position: 'absolute', top: -3, left: 0, width: 4, height: 4, borderRadius: '50%', background: '#E8C090', border: '1px solid #C09050' }} />
+              <div style={{ position: 'absolute', top: -3, right: 0, width: 4, height: 4, borderRadius: '50%', background: '#E8C090', border: '1px solid #C09050' }} />
+              <div style={{ position: 'absolute', top: 3, left: '50%', transform: 'translateX(-50%)', width: 4, height: 3, borderRadius: '50%', background: '#D4A060' }} />
+              <div style={{ width: 11, height: 4, background: '#D4A870', borderRadius: '0 0 3px 3px', border: '1px solid #C09050', borderTop: 'none' }} />
+            </div>
           </div>
           {/* Row 3 — books */}
           <div className="absolute flex items-end gap-[1px] left-1.5" style={{ top: 67, height: 26 }}>
@@ -172,20 +179,36 @@ export default function SleepScene({ onClose }: Props) {
               <div key={i} style={{ width: b.w, height: b.h, background: `linear-gradient(180deg, ${b.c} 0%, ${b.c}BB 100%)`, borderRadius: '2px 2px 0 0', alignSelf: 'flex-end', boxShadow: 'inset -1px 0 1px rgba(0,0,0,0.2)' }} />
             ))}
           </div>
-          {/* Row 4 — books + plant */}
+          {/* Row 4 — books + plant pot */}
           <div className="absolute flex items-end gap-[1px] left-1.5" style={{ top: 99, height: 26 }}>
             {[{w:7,h:22,c:'#A78BFA'},{w:9,h:18,c:'#FF9E5C'},{w:6,h:24,c:'#98FB98'}].map((b, i) => (
               <div key={i} style={{ width: b.w, height: b.h, background: `linear-gradient(180deg, ${b.c} 0%, ${b.c}BB 100%)`, borderRadius: '2px 2px 0 0', alignSelf: 'flex-end', boxShadow: 'inset -1px 0 1px rgba(0,0,0,0.2)' }} />
             ))}
-            <div style={{ alignSelf: 'flex-end', lineHeight: 1, fontSize: 11 }}>🪴</div>
-          </div>
-          {/* Bottom row — box + items */}
-          <div className="absolute flex items-end gap-[1px] left-1.5" style={{ top: 131, height: 26 }}>
-            <div style={{ width: 14, height: 18, background: '#4A3020', border: '1px solid #6A4030', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ fontSize: 9 }}>📦</div>
+            {/* Mini plant pot */}
+            <div style={{ alignSelf: 'flex-end', position: 'relative', width: 12, height: 18 }}>
+              <div style={{ position: 'absolute', bottom: 0, left: 1, width: 10, height: 8, background: 'linear-gradient(180deg, #C06040, #9A4020)', borderRadius: '2px 2px 3px 3px', border: '1px solid #803010' }} />
+              <div style={{ position: 'absolute', bottom: 6, left: 0, right: 0, height: 3, background: '#D07050', borderRadius: 1, border: '1px solid #A04020' }} />
+              {[[-2,-12,30],[0,-15,-10],[2,-12,15]].map(([lx,ly,rot], i) => (
+                <div key={i} style={{ position: 'absolute', bottom: 8, left: 6 + lx, width: 7, height: 10, background: 'linear-gradient(180deg, #48C038, #309020)', borderRadius: '50% 50% 30% 70%', border: '1px solid #208010', transform: `rotate(${rot}deg)`, transformOrigin: 'bottom center' }} />
+              ))}
             </div>
-            <div style={{ alignSelf: 'flex-end', lineHeight: 1, fontSize: 10 }}>⭐</div>
-            <div style={{ alignSelf: 'flex-end', lineHeight: 1, fontSize: 10 }}>🌙</div>
+          </div>
+          {/* Bottom row — storage box + CSS star + crescent */}
+          <div className="absolute flex items-end gap-[1px] left-1.5" style={{ top: 131, height: 26 }}>
+            {/* Storage box */}
+            <div style={{ width: 14, height: 18, background: 'linear-gradient(180deg, #5A3828, #3A2010)', border: '1px solid #6A4030', borderRadius: 2 }}>
+              <div style={{ width: '100%', height: 5, background: '#6A4030', borderRadius: '1px 1px 0 0', borderBottom: '1px solid #3A2010' }} />
+            </div>
+            {/* 4-point star */}
+            <div style={{ alignSelf: 'flex-end', marginBottom: 2, position: 'relative', width: 9, height: 9 }}>
+              <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 3, transform: 'translateY(-50%)', background: '#F5C820', borderRadius: 2 }} />
+              <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 3, transform: 'translateX(-50%)', background: '#F5C820', borderRadius: 2 }} />
+            </div>
+            {/* Crescent moon */}
+            <div style={{ alignSelf: 'flex-end', marginBottom: 2, position: 'relative', width: 10, height: 10 }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#C8B040' }} />
+              <div style={{ position: 'absolute', top: 1, right: -1, width: 8, height: 8, borderRadius: '50%', background: '#2A1A40' }} />
+            </div>
           </div>
         </div>
       </div>
@@ -216,12 +239,22 @@ export default function SleepScene({ onClose }: Props) {
           {/* Light cone when on */}
           {tuckedIn && <div style={{ width: 0, height: 0, borderLeft: '24px solid transparent', borderRight: '24px solid transparent', borderTop: '20px solid rgba(255,210,80,0.08)' }} />}
         </div>
-        {/* Items on nightstand top */}
-        <div className="absolute" style={{ bottom: 'calc(100% + 30px)', right: 4 }}>
-          <span style={{ fontSize: 10 }}>💧</span>
+        {/* Items on nightstand top — CSS water glass + phone */}
+        {/* Small glass of water */}
+        <div className="absolute" style={{ bottom: 'calc(100% + 28px)', right: 6, width: 8, height: 12 }}>
+          <div style={{ width: 8, height: 10, background: 'linear-gradient(180deg, rgba(160,220,255,0.4), rgba(120,190,240,0.55))', borderRadius: '1px 1px 3px 3px', border: '1px solid #80B8D8' }}>
+            <div style={{ position: 'absolute', top: 2, left: 1, width: 3, height: 1.5, background: 'rgba(255,255,255,0.6)', borderRadius: 2 }} />
+          </div>
+          <div style={{ width: 10, height: 2, background: '#80B8D8', borderRadius: 1, marginLeft: -1, marginTop: 0 }} />
         </div>
-        <div className="absolute" style={{ bottom: 'calc(100% + 28px)', left: 4 }}>
-          <span style={{ fontSize: 10 }}>📱</span>
+        {/* Phone */}
+        <div className="absolute" style={{ bottom: 'calc(100% + 28px)', left: 6, width: 8, height: 12 }}>
+          <div style={{ width: 8, height: 12, background: 'linear-gradient(180deg, #2A2A3A, #1A1A2A)', borderRadius: 2, border: '1px solid #4A4A5A' }}>
+            <div style={{ position: 'absolute', top: 1, left: 1, right: 1, bottom: 2, background: 'linear-gradient(135deg, #1A2040, #0A1030)', borderRadius: 1 }}>
+              <div style={{ position: 'absolute', inset: 1, background: 'rgba(100,120,200,0.2)', borderRadius: 1 }} />
+            </div>
+            <div style={{ position: 'absolute', bottom: 0.5, left: '50%', transform: 'translateX(-50%)', width: 3, height: 1, borderRadius: 1, background: '#4A4A5A' }} />
+          </div>
         </div>
       </div>
 
@@ -287,8 +320,11 @@ export default function SleepScene({ onClose }: Props) {
           <div className="absolute top-2.5 left-12 w-18 h-10 rounded-2xl" style={{ width: 68, height: 38, background: 'linear-gradient(135deg, #FFFFFF 0%, #F4EEF8 100%)', border: '2px solid #E0D0F0', boxShadow: '0 2px 5px rgba(100,60,160,0.15)' }}>
             <div style={{ position: 'absolute', top: 6, left: 6, right: 6, height: 1.5, background: 'rgba(180,140,220,0.3)', borderRadius: 2 }} />
             <div style={{ position: 'absolute', top: 10, left: 6, width: 30, height: 1.5, background: 'rgba(180,140,220,0.2)', borderRadius: 2 }} />
-            {/* Flower embroidery */}
-            <div style={{ position: 'absolute', bottom: 4, right: 6, fontSize: 9 }}>🌸</div>
+            {/* Small embroidery cross-stitch */}
+            <div style={{ position: 'absolute', bottom: 4, right: 6, width: 8, height: 8 }}>
+              <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 1.5, transform: 'translateY(-50%)', background: 'rgba(200,140,200,0.5)', borderRadius: 1 }} />
+              <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 1.5, transform: 'translateX(-50%)', background: 'rgba(200,140,200,0.5)', borderRadius: 1 }} />
+            </div>
           </div>
           {/* Blanket — expands when tucked */}
           <div className={cn('absolute right-2 top-2 transition-all duration-1000')}
@@ -309,9 +345,15 @@ export default function SleepScene({ onClose }: Props) {
         <div style={{ width: '90%', height: 4, borderRadius: '50%', background: 'rgba(0,0,0,0.35)', margin: '2px auto 0' }} />
       </div>
 
-      {/* Slippers on floor */}
+      {/* Slippers on floor — CSS */}
       <div className="absolute pointer-events-none" style={{ bottom: '44.5%', right: '12%' }}>
-        <span style={{ fontSize: 16 }}>🥿</span>
+        <div style={{ display: 'flex', gap: 3 }}>
+          {[1, -1].map((flip, i) => (
+            <div key={i} style={{ width: 16, height: 9, background: 'linear-gradient(180deg, #C090E0, #9060C0)', borderRadius: flip > 0 ? '8px 4px 4px 8px' : '4px 8px 8px 4px', border: '1px solid #7040A0', boxShadow: '0 2px 3px rgba(80,20,140,0.3)', transform: flip < 0 ? 'scaleX(-1)' : 'none' }}>
+              <div style={{ position: 'absolute', top: 1, left: 3, width: 6, height: 3, borderRadius: '3px 3px 0 0', background: 'rgba(255,255,255,0.2)' }} />
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ══ EREN ══ */}
@@ -334,8 +376,24 @@ export default function SleepScene({ onClose }: Props) {
       {/* Dream cloud when deeply sleeping */}
       {tuckedIn && (
         <div className="absolute pointer-events-none" style={{ bottom: '72%', left: '40%', animation: 'float 5s ease-in-out infinite' }}>
-          <div style={{ width: 60, height: 28, borderRadius: 20, background: 'rgba(160,150,240,0.15)', border: '1px solid rgba(180,170,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: 11, opacity: 0.7 }}>🐾 🐟 ✨</span>
+          <div style={{ width: 60, height: 28, borderRadius: 20, background: 'rgba(160,150,240,0.15)', border: '1px solid rgba(180,170,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            {/* CSS fish */}
+            <div style={{ position: 'relative', width: 12, height: 8, opacity: 0.65 }}>
+              <div style={{ width: 9, height: 7, borderRadius: '50% 40% 40% 50%', background: '#6BAED6' }} />
+              <div style={{ position: 'absolute', right: -3, top: 0, width: 0, height: 0, borderTop: '4px solid transparent', borderBottom: '4px solid transparent', borderLeft: '5px solid #4A90BC' }} />
+            </div>
+            {/* CSS paw */}
+            <div style={{ position: 'relative', width: 9, height: 9, opacity: 0.6 }}>
+              <div style={{ width: 5, height: 4, borderRadius: '50%', background: '#C0A0E0', margin: '0 auto' }} />
+              {[[-3,1],[3,1],[-1.5,4],[1.5,4]].map(([px,py], k) => (
+                <div key={k} style={{ position: 'absolute', left: 4.5 + px, top: py, width: 2.5, height: 2, borderRadius: '50%', background: '#C0A0E0' }} />
+              ))}
+            </div>
+            {/* CSS 4-star */}
+            <div style={{ position: 'relative', width: 9, height: 9, opacity: 0.55 }}>
+              <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 2, transform: 'translateY(-50%)', background: '#F5E060', borderRadius: 1 }} />
+              <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 2, transform: 'translateX(-50%)', background: '#F5E060', borderRadius: 1 }} />
+            </div>
           </div>
         </div>
       )}
@@ -358,7 +416,7 @@ export default function SleepScene({ onClose }: Props) {
         {/* Sleep quality — pixel bar */}
         <div className="w-full max-w-xs">
           <div className="flex justify-between items-center mb-1.5">
-            <span className="font-pixel text-indigo-300" style={{ fontSize: 7 }}>💤 SLEEP QUALITY</span>
+            <span className="font-pixel text-indigo-300" style={{ fontSize: 7 }}>SLEEP QUALITY</span>
             <span className="font-pixel text-indigo-300" style={{ fontSize: 7 }}>{sleepVal}</span>
           </div>
           <div className="flex gap-[3px]">
@@ -376,7 +434,7 @@ export default function SleepScene({ onClose }: Props) {
               ? { background: '#4F46E5', borderRadius: 3, border: '2px solid #6366F1', fontFamily: '"Press Start 2P"', fontSize: 8 }
               : { background: 'linear-gradient(135deg, #6366F1, #4F46E5)', borderRadius: 3, border: '2px solid #3730A3', boxShadow: '0 3px 0 #2D2A7A', fontFamily: '"Press Start 2P"', fontSize: 8 }
           }>
-          {tuckedIn ? '🌙 SLEEPING SOUNDLY...' : tucking ? 'TUCKING IN...' : 'TUCK IN 💤'}
+          {tuckedIn ? 'SLEEPING SOUNDLY...' : tucking ? 'TUCKING IN...' : 'TUCK IN'}
         </button>
       </div>
     </div>

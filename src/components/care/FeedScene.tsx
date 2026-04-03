@@ -11,13 +11,66 @@ import type { FoodInventory } from '@/types'
 interface Props { onClose: () => void }
 
 const SHOP_ITEMS = [
-  { id: 'kibble' as const, name: 'Kibble',    emoji: '🥣', price: 5,  hungerD: 15, happyD: 3,  weightD: 0.03, desc: 'Daily dry food',    color: '#F5C842' },
-  { id: 'fish'   as const, name: 'Fish',       emoji: '🐟', price: 12, hungerD: 25, happyD: 12, weightD: 0.05, desc: "Eren's favourite!", color: '#6BAED6' },
-  { id: 'treat'  as const, name: 'Cat Treat',  emoji: '🍬', price: 8,  hungerD: 8,  happyD: 20, weightD: 0.01, desc: 'Sweet & crunchy',   color: '#FF6B9D' },
-  { id: 'tuna'   as const, name: 'Tuna Can',   emoji: '🥫', price: 18, hungerD: 30, happyD: 15, weightD: 0.06, desc: 'Premium quality',   color: '#E8A020' },
-  { id: 'steak'  as const, name: 'Steak',      emoji: '🥩', price: 30, hungerD: 40, happyD: 25, weightD: 0.10, desc: 'Luxury cut 🔥',      color: '#CC3333' },
-  { id: 'cream'  as const, name: 'Cream',      emoji: '🍦', price: 10, hungerD: 10, happyD: 30, weightD: 0.02, desc: 'Sweet treat',       color: '#A78BFA' },
+  { id: 'kibble' as const, name: 'Kibble',    price: 5,  hungerD: 15, happyD: 3,  weightD: 0.03, desc: 'Daily dry food',    color: '#F5C842' },
+  { id: 'fish'   as const, name: 'Fish',      price: 12, hungerD: 25, happyD: 12, weightD: 0.05, desc: "Eren's favourite!", color: '#6BAED6' },
+  { id: 'treat'  as const, name: 'Cat Treat', price: 8,  hungerD: 8,  happyD: 20, weightD: 0.01, desc: 'Sweet & crunchy',   color: '#FF6B9D' },
+  { id: 'tuna'   as const, name: 'Tuna Can',  price: 18, hungerD: 30, happyD: 15, weightD: 0.06, desc: 'Premium quality',   color: '#E8A020' },
+  { id: 'steak'  as const, name: 'Steak',     price: 30, hungerD: 40, happyD: 25, weightD: 0.10, desc: 'Luxury cut',        color: '#CC3333' },
+  { id: 'cream'  as const, name: 'Cream',     price: 10, hungerD: 10, happyD: 30, weightD: 0.02, desc: 'Sweet treat',       color: '#A78BFA' },
 ]
+
+function FoodIcon({ id, color }: { id: string; color: string }) {
+  if (id === 'kibble') return (
+    <div style={{ width: 32, height: 32, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 28, height: 14, borderRadius: '3px 3px 50% 50%', background: `linear-gradient(180deg, ${color}DD, ${color}88)`, border: `2px solid ${color}` }}>
+        {[0,1,2,3].map(k => <div key={k} style={{ position: 'absolute', bottom: 3, left: 4 + k * 5, width: 3, height: 3, borderRadius: '50%', background: `${color}99` }} />)}
+      </div>
+    </div>
+  )
+  if (id === 'fish') return (
+    <div style={{ width: 32, height: 32, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 20, height: 14, borderRadius: '50% 40% 40% 50%', background: `linear-gradient(135deg, ${color}EE, ${color}88)`, border: `1.5px solid ${color}` }} />
+      <div style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', width: 0, height: 0, borderTop: '7px solid transparent', borderBottom: '7px solid transparent', borderLeft: `10px solid ${color}BB` }} />
+      <div style={{ position: 'absolute', left: 8, top: '35%', width: 3, height: 3, borderRadius: '50%', background: '#1A1A2A' }} />
+    </div>
+  )
+  if (id === 'treat') return (
+    <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 18, height: 18, borderRadius: '4px', background: `linear-gradient(135deg, ${color}EE, ${color}77)`, border: `1.5px solid ${color}`, transform: 'rotate(15deg)', position: 'relative' }}>
+        <div style={{ position: 'absolute', top: 3, left: 3, right: 3, bottom: 3, borderRadius: 2, border: `1px solid ${color}55` }} />
+      </div>
+    </div>
+  )
+  if (id === 'tuna') return (
+    <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ position: 'relative', width: 26, height: 18 }}>
+        <div style={{ width: '100%', height: '80%', marginTop: 2, background: `linear-gradient(180deg, ${color}DD, ${color}88)`, borderRadius: 3, border: `1.5px solid ${color}`, position: 'relative' }}>
+          <div style={{ position: 'absolute', top: 1, left: 3, right: 3, height: 2, background: 'rgba(255,255,255,0.3)', borderRadius: 2 }} />
+        </div>
+        <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 18, height: 4, background: `${color}CC`, borderRadius: '2px 2px 0 0', border: `1px solid ${color}` }} />
+      </div>
+    </div>
+  )
+  if (id === 'steak') return (
+    <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 26, height: 18, background: `linear-gradient(135deg, ${color}EE, ${color}88)`, borderRadius: '40% 50% 45% 55%', border: `1.5px solid ${color}`, position: 'relative' }}>
+        <div style={{ position: 'absolute', top: 4, left: 4, right: 4, height: 2, background: 'rgba(255,200,180,0.4)', borderRadius: 2 }} />
+        <div style={{ position: 'absolute', top: 8, left: 6, right: 6, height: 2, background: 'rgba(255,200,180,0.3)', borderRadius: 2 }} />
+      </div>
+    </div>
+  )
+  // cream
+  return (
+    <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      <div style={{ position: 'relative', width: 20 }}>
+        <div style={{ width: 20, height: 10, borderRadius: '50% 50% 0 0', background: `linear-gradient(180deg, white, ${color}55)`, border: `1.5px solid ${color}`, borderBottom: 'none' }} />
+        <div style={{ width: 20, height: 12, background: `linear-gradient(180deg, ${color}CC, ${color}88)`, borderRadius: '2px 2px 4px 4px', border: `1.5px solid ${color}` }}>
+          <div style={{ position: 'absolute', top: 1, left: 3, right: 3, height: 2, background: 'rgba(255,255,255,0.35)', borderRadius: 2 }} />
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function FeedScene({ onClose }: Props) {
   const { user, profile } = useAuth()
@@ -47,9 +100,9 @@ export default function FeedScene({ onClose }: Props) {
     if (ok) {
       const newInv = { ...inventory, [item.id]: (inventory[item.id] ?? 0) + 1 }
       await saveFoodInventory(newInv)
-      showToast(`Bought ${item.name}! Check the fridge 🧊`)
+      showToast(`Bought ${item.name}! Check the fridge`)
     } else {
-      showToast('Not enough coins! 🪙', false)
+      showToast('Not enough coins!', false)
     }
     setBuying(null)
   }
@@ -232,9 +285,23 @@ export default function FeedScene({ onClose }: Props) {
         <div className="absolute -right-5 top-0 bottom-0 w-7 rounded-l-xl" style={{ background: 'linear-gradient(200deg, #E87040 0%, #C85020 70%, #B04018 100%)', opacity: 0.9, boxShadow: '-2px 0 6px rgba(0,0,0,0.15)' }}>
           {[0.2,0.45,0.7].map(y => <div key={y} className="absolute left-0 right-0" style={{ top: `${y*100}%`, height: 2, background: 'rgba(0,0,0,0.08)' }} />)}
         </div>
-        {/* Herb pot on sill */}
-        <span className="absolute text-sm" style={{ bottom: 2, right: -14 }}>🌿</span>
-        <span className="absolute text-sm" style={{ bottom: 2, left: -14 }}>🪴</span>
+        {/* Herb pots on sill — CSS */}
+        <div className="absolute" style={{ bottom: 0, right: -16, width: 14 }}>
+          <div style={{ width: 10, height: 9, background: 'linear-gradient(180deg, #C06040, #9A4020)', borderRadius: '2px 2px 4px 4px', border: '1px solid #803010', margin: '0 auto', position: 'relative' }}>
+            <div style={{ position: 'absolute', top: -2, left: -1, right: -1, height: 3, background: '#D07050', borderRadius: 1 }} />
+          </div>
+          {[[-2,-8,25],[0,-12,-15],[3,-7,10]].map(([lx,ly,rot], i) => (
+            <div key={i} style={{ position: 'absolute', bottom: 9, left: 7 + lx, width: 8, height: 11, background: 'linear-gradient(180deg, #60D050, #42B030)', borderRadius: '50% 50% 30% 70%', border: '1px solid #30A020', transform: `rotate(${rot}deg)`, transformOrigin: 'bottom center' }} />
+          ))}
+        </div>
+        <div className="absolute" style={{ bottom: 0, left: -16, width: 14 }}>
+          <div style={{ width: 10, height: 8, background: 'linear-gradient(180deg, #C06040, #9A4020)', borderRadius: '2px 2px 4px 4px', border: '1px solid #803010', margin: '0 auto', position: 'relative' }}>
+            <div style={{ position: 'absolute', top: -2, left: -1, right: -1, height: 3, background: '#D07050', borderRadius: 1 }} />
+          </div>
+          {[[-2,-7,20],[1,-11,-10],[3,-6,12]].map(([lx,ly,rot], i) => (
+            <div key={i} style={{ position: 'absolute', bottom: 8, left: 7 + lx, width: 7, height: 10, background: 'linear-gradient(180deg, #50C040, #38A028)', borderRadius: '50% 50% 30% 70%', border: '1px solid #28921A', transform: `rotate(${rot}deg)`, transformOrigin: 'bottom center' }} />
+          ))}
+        </div>
       </div>
 
       {/* ══ PENDANT LAMP ══ */}
@@ -281,8 +348,13 @@ export default function FeedScene({ onClose }: Props) {
         {/* Freezer compartment */}
         <div className="absolute left-0 right-0 top-0" style={{ height: '36%', background: 'linear-gradient(180deg, #E4E0D8, #D8D4CC)', borderBottom: '2px solid #B8B4AC', borderRadius: '4px 4px 0 0' }}>
           <div className="absolute" style={{ top: 9, right: 8, width: 5, height: 20, background: 'linear-gradient(180deg, #C8C4BC, #A8A4A0)', borderRadius: 3, boxShadow: 'inset 1px 0 1px rgba(255,255,255,0.3)' }} />
-          <div className="text-center mt-3 text-base">❄️</div>
-          <div className="absolute bottom-2 left-4 text-xs">🧊</div>
+          {/* CSS snowflake */}
+          <div className="absolute" style={{ top: 8, left: '50%', transform: 'translateX(-50%)', width: 18, height: 18 }}>
+            <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 2, transform: 'translateY(-50%)', background: '#88C4E8', borderRadius: 1 }} />
+            <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 2, transform: 'translateX(-50%)', background: '#88C4E8', borderRadius: 1 }} />
+            <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 2, transform: 'translateY(-50%) rotate(45deg)', background: 'rgba(136,196,232,0.65)', borderRadius: 1 }} />
+            <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 2, transform: 'translateX(-50%) rotate(45deg)', background: 'rgba(136,196,232,0.65)', borderRadius: 1 }} />
+          </div>
         </div>
         {/* Main fridge section */}
         <div className="absolute left-0 right-0" style={{ top: '36%', bottom: 0 }}>
@@ -291,27 +363,74 @@ export default function FeedScene({ onClose }: Props) {
           {[28, 52, 74].map(y => (
             <div key={y} className="absolute left-1 right-1" style={{ top: `${y}%`, height: 2, background: 'linear-gradient(180deg, #C0C0B8, #B0B0A8)', borderRadius: 1 }} />
           ))}
-          <div className="absolute text-sm" style={{ top: '5%', left: 4 }}>🥛</div>
-          <div className="absolute text-sm" style={{ top: '32%', left: 4 }}>🥚</div>
-          <div className="absolute text-sm" style={{ top: '56%', right: 4 }}>🧀</div>
-          <div className="absolute text-sm" style={{ top: '56%', left: 4 }}>🥬</div>
+          {/* CSS milk carton */}
+          <div className="absolute" style={{ top: '4%', left: 3 }}>
+            <div style={{ width: 12, height: 18, position: 'relative' }}>
+              <div style={{ width: 12, height: 14, background: 'linear-gradient(180deg, #F8F4EC, #EEE8DC)', border: '1px solid #D8CEB8', borderRadius: '1px 1px 2px 2px' }}>
+                <div style={{ position: 'absolute', top: 2, left: 2, right: 2, height: 2, background: '#D88030', borderRadius: 1 }} />
+              </div>
+              <div style={{ width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderBottom: '4px solid #EEE8DC' }} />
+            </div>
+          </div>
+          {/* CSS egg */}
+          <div className="absolute" style={{ top: '31%', left: 4 }}>
+            <div style={{ width: 10, height: 13, borderRadius: '50% 50% 50% 50% / 60% 60% 40% 40%', background: 'linear-gradient(135deg, #FFFAE8, #F5EAD0)', border: '1px solid #E0D0A8' }} />
+          </div>
+          {/* CSS cheese wedge */}
+          <div className="absolute" style={{ top: '55%', right: 5 }}>
+            <div style={{ width: 14, height: 12, background: 'linear-gradient(135deg, #F8E040, #E0C020)', clipPath: 'polygon(0% 100%, 100% 100%, 60% 0%)', border: '1px solid #C8A818', position: 'relative' }}>
+              {[0,1].map(k => <div key={k} style={{ position: 'absolute', top: `${k*40+30}%`, left: `${k*20+15}%`, width: 4, height: 4, borderRadius: '50%', background: 'rgba(200,160,10,0.4)' }} />)}
+            </div>
+          </div>
+          {/* CSS lettuce leaf */}
+          <div className="absolute" style={{ top: '55%', left: 4 }}>
+            <div style={{ width: 12, height: 14, background: 'linear-gradient(135deg, #68D040, #48B020)', borderRadius: '50% 30% 60% 30%', border: '1px solid #38A010' }} />
+          </div>
         </div>
         {/* Fridge door handle highlight */}
         <div className="absolute left-0 top-0 bottom-0" style={{ width: 4, background: 'linear-gradient(90deg, rgba(255,255,255,0.25), transparent)' }} />
       </div>
 
       {/* ══ ITEMS ON COUNTER ══ */}
-      {/* Fruit bowl */}
+      {/* Fruit bowl — CSS fruits */}
       <div className="absolute" style={{ bottom: '53.5%', left: '24%' }}>
         <div className="relative">
-          <div style={{ width: 36, height: 10, borderRadius: '0 0 50% 50%', background: 'linear-gradient(180deg, #E8C878, #C8A848)', border: '2px solid #A88838' }} />
-          <span style={{ position: 'absolute', top: -10, left: 0, fontSize: 14 }}>🍎</span>
-          <span style={{ position: 'absolute', top: -10, left: 12, fontSize: 13 }}>🍊</span>
-          <span style={{ position: 'absolute', top: -12, left: 22, fontSize: 12 }}>🍋</span>
+          {/* Bowl */}
+          <div style={{ width: 40, height: 11, borderRadius: '0 0 50% 50%', background: 'linear-gradient(180deg, #E8C878, #C8A848)', border: '2px solid #A88838' }} />
+          {/* CSS apple */}
+          <div style={{ position: 'absolute', top: -13, left: 1 }}>
+            <div style={{ width: 12, height: 11, borderRadius: '50% 50% 48% 48%', background: 'linear-gradient(135deg, #F05040, #C83020)', border: '1px solid #A82010' }} />
+            <div style={{ position: 'absolute', top: -3, left: '50%', transform: 'translateX(-50%)', width: 2, height: 4, background: '#5A3010', borderRadius: 1 }} />
+          </div>
+          {/* CSS orange */}
+          <div style={{ position: 'absolute', top: -12, left: 13 }}>
+            <div style={{ width: 12, height: 11, borderRadius: '50%', background: 'radial-gradient(circle at 38%, #FF9840, #E07020)', border: '1px solid #C05810' }} />
+          </div>
+          {/* CSS lemon */}
+          <div style={{ position: 'absolute', top: -12, left: 26 }}>
+            <div style={{ width: 12, height: 10, borderRadius: '50%', background: 'radial-gradient(circle at 38%, #FFF060, #E8D020)', border: '1px solid #C0A818', transform: 'scaleX(1.2)' }} />
+          </div>
         </div>
       </div>
-      {/* Teapot */}
-      <div className="absolute text-2xl" style={{ bottom: '53.5%', left: '40%' }}>🫖</div>
+      {/* CSS Teapot */}
+      <div className="absolute" style={{ bottom: '53.5%', left: '40%' }}>
+        <div style={{ position: 'relative', width: 34, height: 28 }}>
+          {/* Body */}
+          <div style={{ position: 'absolute', bottom: 0, left: 4, width: 24, height: 20, background: 'linear-gradient(135deg, #C88060, #A05030)', borderRadius: '40% 40% 45% 45%', border: '1.5px solid #884020' }} />
+          {/* Spout */}
+          <div style={{ position: 'absolute', bottom: 10, right: 0, width: 10, height: 7, background: 'linear-gradient(135deg, #C88060, #A05030)', borderRadius: '3px 6px 3px 0', border: '1.5px solid #884020', transform: 'rotate(-10deg)', transformOrigin: 'left center' }} />
+          {/* Handle */}
+          <div style={{ position: 'absolute', bottom: 8, left: 0, width: 5, height: 14, borderRadius: '50%', border: '3px solid #A05030', borderRight: 'none', borderTop: 'none' }} />
+          {/* Lid */}
+          <div style={{ position: 'absolute', bottom: 18, left: 9, width: 16, height: 6, background: 'linear-gradient(135deg, #D89070, #B06040)', borderRadius: '4px 4px 0 0', border: '1.5px solid #884020' }}>
+            <div style={{ position: 'absolute', top: -4, left: '50%', transform: 'translateX(-50%)', width: 5, height: 5, borderRadius: '50%', background: '#C07850', border: '1px solid #884020' }} />
+          </div>
+          {/* Steam */}
+          {[0, 1].map(k => (
+            <div key={k} style={{ position: 'absolute', bottom: 28, left: 12 + k * 6, width: 2, height: 8, background: 'linear-gradient(180deg, transparent, rgba(200,160,120,0.4), transparent)', borderRadius: 4 }} />
+          ))}
+        </div>
+      </div>
       {/* Cutting board */}
       <div className="absolute" style={{ bottom: '52.8%', left: '54%', width: 32, height: 10, background: 'linear-gradient(180deg, #C89850, #A87830)', borderRadius: 2, border: '1px solid #906828' }} />
 
@@ -355,7 +474,8 @@ export default function FeedScene({ onClose }: Props) {
 
       <div className="absolute top-4 right-4 z-50 flex items-center gap-1.5 px-3 py-1.5"
         style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)', borderRadius: 3, border: '2px solid #F5C842', boxShadow: '2px 2px 0 #C8A020' }}>
-        <span className="text-sm">🪙</span>
+        {/* CSS coin */}
+        <div style={{ width: 12, height: 12, borderRadius: '50%', background: 'radial-gradient(circle at 38% 35%, #FFE878, #D4A818)', border: '1.5px solid #B08810', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
         <span className="font-pixel text-amber-700" style={{ fontSize: 9 }}>{coins}</span>
       </div>
 
@@ -394,14 +514,17 @@ export default function FeedScene({ onClose }: Props) {
                   <div key={item.id} className={cn('p-3 transition-all', !canAfford && 'opacity-55')}
                     style={{ background: `linear-gradient(135deg, ${item.color}28 0%, ${item.color}10 100%)`, borderRadius: 3, border: `2px solid ${item.color}55`, boxShadow: `2px 2px 0 ${item.color}33` }}>
                     <div className="flex items-start justify-between mb-1">
-                      <span className="text-2xl">{item.emoji}</span>
-                      <span className="font-pixel text-amber-600 px-1.5 py-0.5" style={{ fontSize: 7, background: '#FFF3C0', borderRadius: 2, border: '1px solid #F5C842' }}>🪙{item.price}</span>
+                      <FoodIcon id={item.id} color={item.color} />
+                      <div className="flex items-center gap-0.5 px-1.5 py-0.5" style={{ background: '#FFF3C0', borderRadius: 2, border: '1px solid #F5C842' }}>
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'radial-gradient(circle at 38% 35%, #FFE878, #D4A818)', border: '1px solid #B08810' }} />
+                        <span className="font-pixel text-amber-600" style={{ fontSize: 7 }}>{item.price}</span>
+                      </div>
                     </div>
                     <p className="text-xs font-bold text-gray-800">{item.name}</p>
                     <p className="text-[10px] text-gray-400 mb-1.5">{item.desc}</p>
                     <div className="flex gap-2 text-[9px] text-gray-500 mb-2">
-                      <span>🍗+{item.hungerD}</span>
-                      <span>💕+{item.happyD}</span>
+                      <span>HGR +{item.hungerD}</span>
+                      <span>JOY +{item.happyD}</span>
                     </div>
                     <button onClick={() => handleBuy(item)} disabled={!canAfford || buying === item.id}
                       className="w-full py-1.5 text-white transition-all active:translate-y-[1px] disabled:opacity-40"
@@ -419,7 +542,10 @@ export default function FeedScene({ onClose }: Props) {
           <div className="overflow-y-auto px-3 py-1" style={{ height: 'calc(100% - 52px)' }}>
             {fridgeItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
-                <span className="text-4xl animate-float">🧊</span>
+                {/* CSS ice cube */}
+                <div className="animate-float" style={{ width: 36, height: 36, background: 'linear-gradient(135deg, #D8F0FF, #A8D8F8)', borderRadius: 6, border: '2px solid #88C4E8', boxShadow: 'inset 2px 2px 4px rgba(255,255,255,0.6), 0 3px 8px rgba(100,180,230,0.3)' }}>
+                  <div style={{ position: 'absolute', top: 5, left: 5, width: 10, height: 6, background: 'rgba(255,255,255,0.45)', borderRadius: '50%', transform: 'rotate(-20deg)' }} />
+                </div>
                 <p className="font-pixel text-gray-500" style={{ fontSize: 8 }}>FRIDGE EMPTY!</p>
                 <button onClick={() => setTab('shop')} className="px-4 py-2 text-white active:translate-y-[1px]"
                   style={{ background: '#F5C842', borderRadius: 3, border: '2px solid #C88018', boxShadow: '0 2px 0 #A06010', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
@@ -431,11 +557,11 @@ export default function FeedScene({ onClose }: Props) {
                 {fridgeItems.map(item => (
                   <div key={item.id} className="flex items-center gap-3 p-3"
                     style={{ background: `linear-gradient(135deg, ${item.color}22 0%, white 100%)`, borderRadius: 3, border: `2px solid ${item.color}44`, boxShadow: `2px 2px 0 ${item.color}22` }}>
-                    <span className="text-3xl">{item.emoji}</span>
+                    <FoodIcon id={item.id} color={item.color} />
                     <div className="flex-1">
                       <p className="text-xs font-bold text-gray-800">{item.name}</p>
                       <div className="flex gap-2 text-[9px] text-gray-500 mt-0.5">
-                        <span>🍗+{item.hungerD}</span><span>💕+{item.happyD}</span>
+                        <span>HGR +{item.hungerD}</span><span>JOY +{item.happyD}</span>
                       </div>
                     </div>
                     <div className="flex flex-col items-center gap-1">
@@ -443,7 +569,7 @@ export default function FeedScene({ onClose }: Props) {
                       <button onClick={() => handleFeed(item)} disabled={!!feeding}
                         className="px-3 py-1.5 text-white active:translate-y-[1px]"
                         style={{ background: item.color, borderRadius: 2, border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 2px 0 rgba(0,0,0,0.15)', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
-                        {feeding === item.id ? '😸' : 'FEED'}
+                        {feeding === item.id ? '...' : 'FEED'}
                       </button>
                     </div>
                   </div>

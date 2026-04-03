@@ -159,8 +159,15 @@ export default function PlayScene({ onClose }: Props) {
         <div className="absolute -right-4 top-0 bottom-0 w-6 rounded-l-xl" style={{ background: 'linear-gradient(200deg, #C884FC, #9060D8)', opacity: 0.85, boxShadow: '-2px 0 5px rgba(0,0,0,0.15)' }}>
           {[0.3,0.6].map(y => <div key={y} className="absolute left-0 right-0" style={{ top: `${y*100}%`, height: 1.5, background: 'rgba(0,0,0,0.1)' }} />)}
         </div>
-        {/* Sill flower */}
-        <span className="absolute text-base" style={{ bottom: -2, right: -14 }}>🌸</span>
+        {/* Sill flower pot */}
+        <div className="absolute" style={{ bottom: -4, right: -16, width: 14 }}>
+          <div style={{ width: 10, height: 8, background: 'linear-gradient(180deg, #D07050, #B05030)', borderRadius: '2px 2px 4px 4px', border: '1px solid #904020', margin: '0 auto', position: 'relative' }}>
+            <div style={{ position: 'absolute', top: -2, left: -1, right: -1, height: 3, background: '#E08060', borderRadius: 1 }} />
+          </div>
+          {[[-3,-6,35],[0,-10,-15],[3,-6,15]].map(([lx,ly,rot], i) => (
+            <div key={i} style={{ position: 'absolute', bottom: 8, left: 7 + lx, width: 9, height: 13, background: 'linear-gradient(180deg, #52C040, #3AA028)', borderRadius: '50% 50% 30% 70%', border: '1px solid #2A9818', transform: `rotate(${rot}deg)`, transformOrigin: 'bottom center' }} />
+          ))}
+        </div>
       </div>
 
       {/* ══ WALL ART — right side ══ */}
@@ -194,15 +201,29 @@ export default function PlayScene({ onClose }: Props) {
         {/* Brackets */}
         <div style={{ position: 'absolute', top: 7, left: 6, width: 4, height: 14, background: '#9878C0', borderRadius: '0 0 2px 2px' }} />
         <div style={{ position: 'absolute', top: 7, right: 6, width: 4, height: 14, background: '#9878C0', borderRadius: '0 0 2px 2px' }} />
-        {/* Items on shelf */}
-        <div style={{ position: 'absolute', top: -18, left: 4 }}>
-          <span style={{ fontSize: 13 }}>🏆</span>
+        {/* Items on shelf — CSS trophy, star, ribbon */}
+        <div style={{ position: 'absolute', top: -22, left: 4 }}>
+          {/* Trophy */}
+          <div style={{ width: 12, height: 18, position: 'relative' }}>
+            <div style={{ width: 10, height: 11, background: 'linear-gradient(180deg, #F5D040, #D4A818)', borderRadius: '3px 3px 1px 1px', border: '1px solid #B08810', margin: '0 auto' }} />
+            <div style={{ width: 6, height: 3, background: '#C89810', margin: '0 auto', borderRadius: 1 }} />
+            <div style={{ width: 12, height: 3, background: 'linear-gradient(180deg, #F5D040, #D4A818)', borderRadius: 2, border: '1px solid #B08810' }} />
+          </div>
         </div>
-        <div style={{ position: 'absolute', top: -16, left: 26 }}>
-          <span style={{ fontSize: 11 }}>⭐</span>
+        <div style={{ position: 'absolute', top: -18, left: 28 }}>
+          {/* 4-point star */}
+          <div style={{ position: 'relative', width: 11, height: 11 }}>
+            <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 3, transform: 'translateY(-50%)', background: '#F5C820', borderRadius: 2 }} />
+            <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 3, transform: 'translateX(-50%)', background: '#F5C820', borderRadius: 2 }} />
+          </div>
         </div>
-        <div style={{ position: 'absolute', top: -16, right: 4 }}>
-          <span style={{ fontSize: 12 }}>🎀</span>
+        <div style={{ position: 'absolute', top: -17, right: 3 }}>
+          {/* Ribbon bow */}
+          <div style={{ position: 'relative', width: 13, height: 10 }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, width: 6, height: 6, background: '#FF6B9D', borderRadius: '50% 0 50% 50%', border: '1px solid #E04078' }} />
+            <div style={{ position: 'absolute', top: 0, right: 0, width: 6, height: 6, background: '#FF6B9D', borderRadius: '0 50% 50% 50%', border: '1px solid #E04078' }} />
+            <div style={{ position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%,-50%)', width: 4, height: 4, borderRadius: '50%', background: '#FF9EC8' }} />
+          </div>
         </div>
       </div>
 
@@ -223,12 +244,16 @@ export default function PlayScene({ onClose }: Props) {
         {/* Top hammock / cozy hole */}
         <div className="absolute" style={{ bottom: 90, left: '50%', transform: 'translateX(-50%)', width: 36, height: 28, borderRadius: '50%', background: 'linear-gradient(180deg, #C884FC, #9060D8)', border: '3px solid #7030B0', boxShadow: 'inset 0 4px 8px rgba(0,0,0,0.2)' }}>
           <div style={{ position: 'absolute', inset: 4, borderRadius: '50%', background: 'linear-gradient(180deg, #2A1A40, #1A1030)' }} />
-          <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-55%)', fontSize: 10 }}>😴</span>
         </div>
-        {/* Dangling toy */}
+        {/* Dangling toy — feather wand */}
         <div className="absolute pointer-events-none" style={{ bottom: '86%', right: 2 }}>
-          <div style={{ width: 1, height: 14, background: '#C090E0', margin: '0 auto' }} />
-          <span style={{ fontSize: 10 }}>🐭</span>
+          <div style={{ width: 1, height: 16, background: '#C090E0', margin: '0 auto' }} />
+          {/* Small feather fluff */}
+          <div style={{ position: 'relative', width: 10, height: 10, marginLeft: -4 }}>
+            <div style={{ position: 'absolute', top: 0, left: 3, width: 4, height: 10, background: 'linear-gradient(180deg, #FF9EC8, #FF6B9D)', borderRadius: '50% 50% 30% 30%', border: '1px solid #E04070' }} />
+            <div style={{ position: 'absolute', top: 2, left: 0, width: 4, height: 8, background: 'linear-gradient(180deg, #FFC0D8, #FF88B8)', borderRadius: '50% 30% 50% 30%', transform: 'rotate(-25deg)' }} />
+            <div style={{ position: 'absolute', top: 2, right: 0, width: 4, height: 8, background: 'linear-gradient(180deg, #FFC0D8, #FF88B8)', borderRadius: '30% 50% 30% 50%', transform: 'rotate(25deg)' }} />
+          </div>
         </div>
       </div>
 
@@ -251,11 +276,21 @@ export default function PlayScene({ onClose }: Props) {
         <div className="absolute" style={{ top: -20, left: 0, right: 0, height: 22, background: 'linear-gradient(180deg, #E86850 0%, #C84030 100%)', border: '2px solid #901010', borderRadius: '4px 4px 0 0', transformOrigin: 'bottom center', transform: 'rotate(-35deg)', transformBox: 'fill-box', boxShadow: '0 -2px 5px rgba(0,0,0,0.2)' }}>
           <div style={{ position: 'absolute', top: 4, left: 8, right: 8, height: 2, background: 'rgba(255,200,160,0.4)', borderRadius: 2 }} />
         </div>
-        {/* Toys spilling out */}
-        <div className="absolute flex gap-0.5 items-end" style={{ top: -12, left: 4, right: 4, justifyContent: 'center' }}>
-          <span style={{ fontSize: 13 }}>🎾</span>
-          <span style={{ fontSize: 12 }}>🧸</span>
-          <span style={{ fontSize: 11 }}>🪀</span>
+        {/* Toys spilling out — CSS ball, bear, yo-yo */}
+        <div className="absolute flex gap-1 items-end" style={{ top: -14, left: 4, right: 4, justifyContent: 'center' }}>
+          {/* Small ball */}
+          <div style={{ width: 12, height: 12, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%, #FF9EC8, #FF6B9D 55%, #CC3366)', border: '1px solid #AA1144', boxShadow: '0 2px 4px rgba(180,20,80,0.3)' }} />
+          {/* Mini bear head */}
+          <div style={{ position: 'relative', width: 12, height: 14, marginBottom: 0 }}>
+            <div style={{ width: 12, height: 10, borderRadius: '50%', background: 'linear-gradient(180deg, #E8C090, #D4A870)', border: '1px solid #C09050' }} />
+            <div style={{ position: 'absolute', top: -3, left: 0, width: 5, height: 5, borderRadius: '50%', background: '#E8C090', border: '1px solid #C09050' }} />
+            <div style={{ position: 'absolute', top: -3, right: 0, width: 5, height: 5, borderRadius: '50%', background: '#E8C090', border: '1px solid #C09050' }} />
+            <div style={{ position: 'absolute', top: 3, left: '50%', transform: 'translateX(-50%)', width: 5, height: 4, borderRadius: '50%', background: '#D4A060' }} />
+          </div>
+          {/* Yo-yo */}
+          <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%, #A8D4F8, #6BAED6)', border: '1px solid #4A8AB8' }}>
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 4, height: 4, borderRadius: '50%', background: '#4A8AB8' }} />
+          </div>
         </div>
       </div>
 
@@ -272,13 +307,35 @@ export default function PlayScene({ onClose }: Props) {
       </div>
 
       {/* ══ SCATTERED TOYS ══ */}
-      <div className="absolute pointer-events-none text-base" style={{ bottom: '39%', left: '63%', transform: 'rotate(15deg)' }}>🧶</div>
-      <div className="absolute pointer-events-none text-base" style={{ bottom: '39%', left: '16%', transform: 'rotate(-10deg)' }}>⭐</div>
-      <div className="absolute pointer-events-none text-sm" style={{ bottom: '39.5%', left: '75%', transform: 'rotate(20deg)' }}>🎈</div>
-      {/* Chalk paw prints on floor */}
-      {[[22,62],[34,68],[46,64],[58,70]].map(([l,b], i) => (
-        <div key={i} className="absolute pointer-events-none" style={{ left: `${l}%`, bottom: `${b - 38 + 38}%`, opacity: 0.15 }}>
-          <div style={{ fontSize: 10, transform: `rotate(${i * 15}deg)` }}>🐾</div>
+      {/* Yarn ball */}
+      <div className="absolute pointer-events-none" style={{ bottom: '39%', left: '63%', transform: 'rotate(15deg)' }}>
+        <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'radial-gradient(circle at 38% 35%, #FF9EC8, #E05888)', border: '1px solid #C04070', position: 'relative' }}>
+          <div style={{ position: 'absolute', top: '20%', left: '10%', right: '10%', height: 1.5, background: 'rgba(255,200,220,0.5)', borderRadius: 2, transform: 'rotate(-15deg)' }} />
+          <div style={{ position: 'absolute', top: '45%', left: '5%', right: '5%', height: 1.5, background: 'rgba(255,200,220,0.4)', borderRadius: 2, transform: 'rotate(10deg)' }} />
+          <div style={{ position: 'absolute', top: '68%', left: '15%', right: '15%', height: 1.5, background: 'rgba(255,200,220,0.4)', borderRadius: 2 }} />
+        </div>
+      </div>
+      {/* Small rubber ball */}
+      <div className="absolute pointer-events-none" style={{ bottom: '39%', left: '16%', transform: 'rotate(-10deg)' }}>
+        <div style={{ width: 14, height: 14, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%, #A8E060, #78C030)', border: '1px solid #589018', boxShadow: '0 2px 4px rgba(60,140,0,0.3)' }} />
+      </div>
+      {/* Balloon */}
+      <div className="absolute pointer-events-none" style={{ bottom: '39.5%', left: '75%', transform: 'rotate(20deg)' }}>
+        <div style={{ position: 'relative', width: 14, height: 18 }}>
+          <div style={{ width: 14, height: 16, borderRadius: '50% 50% 45% 45%', background: 'radial-gradient(circle at 35% 30%, #C8A0F8, #9060D8)', border: '1px solid #7040B8', boxShadow: '0 3px 6px rgba(100,40,200,0.3)' }} />
+          <div style={{ position: 'absolute', bottom: -1, left: '50%', transform: 'translateX(-50%)', width: 2, height: 4, background: '#9060D8', borderRadius: 1 }} />
+          <div style={{ position: 'absolute', top: '18%', left: '20%', width: 3, height: 4, background: 'rgba(255,255,255,0.35)', borderRadius: '50%' }} />
+        </div>
+      </div>
+      {/* Paw prints on floor — CSS circles */}
+      {[[22,39],[34,39.5],[46,39],[58,39.5]].map(([l,b], i) => (
+        <div key={i} className="absolute pointer-events-none" style={{ left: `${l}%`, bottom: `${b}%`, opacity: 0.14, transform: `rotate(${i * 12}deg)` }}>
+          <div style={{ position: 'relative', width: 12, height: 12 }}>
+            <div style={{ width: 6, height: 5, borderRadius: '50%', background: '#8060A0', margin: '0 auto' }} />
+            {[[-4,1],[4,1],[-2,5],[2,5]].map(([px,py], k) => (
+              <div key={k} style={{ position: 'absolute', left: 6 + px, top: py, width: 3, height: 2.5, borderRadius: '50%', background: '#8060A0' }} />
+            ))}
+          </div>
         </div>
       ))}
 
@@ -330,7 +387,7 @@ export default function PlayScene({ onClose }: Props) {
       {throwCount === 0 && !done && (
         <div className="absolute top-14 left-1/2 -translate-x-1/2 z-40 px-3 py-1.5 pointer-events-none animate-pulse-soft"
           style={{ background: 'rgba(255,255,255,0.85)', borderRadius: 3, border: '2px solid #C0A0E8', boxShadow: '2px 2px 0 rgba(150,100,220,0.2)', fontFamily: '"Press Start 2P"', fontSize: 7, color: '#7C3AED' }}>
-          TAP TO THROW THE BALL! 🎾
+          TAP TO THROW THE BALL!
         </div>
       )}
 
@@ -339,7 +396,7 @@ export default function PlayScene({ onClose }: Props) {
         {/* Energy bar — pixel segments */}
         <div className="w-full max-w-xs">
           <div className="flex justify-between items-center mb-1.5">
-            <span className="font-pixel text-purple-600" style={{ fontSize: 7 }}>⚡ ENERGY</span>
+            <span className="font-pixel text-purple-600" style={{ fontSize: 7 }}>ENERGY</span>
             <span className="font-pixel text-purple-600" style={{ fontSize: 7 }}>{energy}</span>
           </div>
           <div className="flex gap-[3px]">
@@ -366,7 +423,7 @@ export default function PlayScene({ onClose }: Props) {
                 ? { background: '#D0C8E8', borderRadius: 3, border: '2px solid #B0A8D0', fontFamily: '"Press Start 2P"', fontSize: 8, color: '#9090B0' }
                 : { background: 'linear-gradient(135deg, #C084FC, #A855F7)', borderRadius: 3, border: '2px solid #7C3AED', boxShadow: '0 3px 0 #5B21B6', fontFamily: '"Press Start 2P"', fontSize: 8 }
           }>
-          {done ? '✓ GREAT SESSION!' : saving ? 'SAVING...' : 'DONE PLAYING 🎾'}
+          {done ? 'GREAT SESSION!' : saving ? 'SAVING...' : 'DONE PLAYING'}
         </button>
       </div>
     </div>

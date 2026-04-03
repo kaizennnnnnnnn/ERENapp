@@ -250,7 +250,15 @@ export default function WashScene({ onClose }: Props) {
             {/* Flame */}
             <div style={{ position: 'absolute', top: -4, left: 2, width: 2, height: 5, background: 'linear-gradient(180deg, #FFE060, #FF9020)', borderRadius: '50% 50% 0 0', animation: 'flicker 1s ease-in-out infinite' }} />
           </div>
-          <div className="absolute" style={{ bottom: -2, right: 8, fontSize: 12 }}>🌿</div>
+          {/* Small CSS plant on sill */}
+          <div className="absolute" style={{ bottom: -2, right: 8 }}>
+            <div style={{ width: 8, height: 7, background: 'linear-gradient(180deg, #B05030, #8A3818)', borderRadius: '1px 1px 3px 3px', border: '1px solid #6A2810', position: 'relative' }}>
+              <div style={{ position: 'absolute', top: -1, left: -1, right: -1, height: 3, background: '#C06040', borderRadius: 1 }} />
+            </div>
+            {[[-2,-7,20],[0,-10,-10],[2,-7,12]].map(([lx,ly,rot], i) => (
+              <div key={i} style={{ position: 'absolute', bottom: 7, left: 4 + lx, width: 7, height: 9, background: 'linear-gradient(180deg, #50C040, #38A028)', borderRadius: '50% 50% 30% 70%', border: '1px solid #289018', transform: `rotate(${rot}deg)`, transformOrigin: 'bottom center' }} />
+            ))}
+          </div>
           {/* Light beam */}
           <div className="absolute -right-10 top-0 bottom-0" style={{ width: 36, background: 'linear-gradient(90deg, rgba(220,245,255,0.35) 0%, transparent 100%)' }} />
         </div>
@@ -291,11 +299,11 @@ export default function WashScene({ onClose }: Props) {
           {/* Bottles */}
           <div className="flex gap-1 mt-1 px-1">
             {[
-              { h: 32, bg: '#FF6B9D', cap: '#E03080', label: '💆', w: 11 },
-              { h: 26, bg: '#6BAED6', cap: '#4090BC', label: '🫧', w: 10 },
-              { h: 30, bg: '#A78BFA', cap: '#7C55D8', label: '✨', w: 11 },
-              { h: 22, bg: '#68D89A', cap: '#40B870', label: '🌿', w: 9 },
-              { h: 28, bg: '#FFB840', cap: '#E0901A', label: '🍊', w: 10 },
+              { h: 32, bg: '#FF6B9D', cap: '#E03080', w: 11 },
+              { h: 26, bg: '#6BAED6', cap: '#4090BC', w: 10 },
+              { h: 30, bg: '#A78BFA', cap: '#7C55D8', w: 11 },
+              { h: 22, bg: '#68D89A', cap: '#40B870', w: 9 },
+              { h: 28, bg: '#FFB840', cap: '#E0901A', w: 10 },
             ].map((b, i) => (
               <div key={i} className="relative flex-shrink-0"
                 style={{ width: b.w, height: b.h }}>
@@ -305,9 +313,10 @@ export default function WashScene({ onClose }: Props) {
                 <div style={{ width: b.w - 4, height: 4, background: b.bg, margin: '0 auto', borderLeft: `1px solid ${b.bg}88`, borderRight: `1px solid ${b.bg}88` }} />
                 {/* Body */}
                 <div className="relative" style={{ width: b.w, height: b.h - 12, background: `linear-gradient(180deg, ${b.bg}EE, ${b.bg}AA)`, borderRadius: '2px 2px 4px 4px', border: `1px solid ${b.bg}66` }}>
-                  {/* Label area */}
-                  <div className="absolute inset-x-0.5 inset-y-1" style={{ background: 'rgba(255,255,255,0.25)', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ fontSize: 7 }}>{b.label}</span>
+                  {/* Label stripe */}
+                  <div className="absolute inset-x-0.5 inset-y-1" style={{ background: 'rgba(255,255,255,0.2)', borderRadius: 2 }}>
+                    <div style={{ position: 'absolute', top: '30%', left: 2, right: 2, height: 1.5, background: 'rgba(255,255,255,0.5)', borderRadius: 1 }} />
+                    <div style={{ position: 'absolute', top: '55%', left: 2, right: 2, height: 1.5, background: 'rgba(255,255,255,0.35)', borderRadius: 1 }} />
                   </div>
                   {/* Highlight streak */}
                   <div className="absolute left-1" style={{ top: 2, width: 2, height: '50%', background: 'rgba(255,255,255,0.45)', borderRadius: 2 }} />
@@ -389,15 +398,22 @@ export default function WashScene({ onClose }: Props) {
         <div className="absolute" style={{ bottom: '27%', right: '8%', width: 32 }}>
           {/* Stool top */}
           <div style={{ height: 6, background: 'linear-gradient(180deg, #E8D0B8, #D0B898)', borderRadius: 2, border: '1px solid #C0A080', boxShadow: '1px 1px 3px rgba(0,0,0,0.12)' }}>
-            {/* Wood grain */}
             <div style={{ position: 'absolute', top: 2, left: 3, width: 12, height: 1, background: 'rgba(160,100,50,0.2)' }} />
           </div>
           {/* Stool legs */}
           {[4, 22].map(lx => (
             <div key={lx} style={{ position: 'absolute', top: 6, left: lx, width: 3, height: 12, background: 'linear-gradient(180deg, #C8A878, #A08858)', borderRadius: '0 0 2px 2px' }} />
           ))}
-          {/* Items on stool */}
-          <div style={{ position: 'absolute', top: -10, left: 2, fontSize: 12 }}>🕯️</div>
+          {/* CSS candle on stool */}
+          <div style={{ position: 'absolute', top: -16, left: 8, width: 10 }}>
+            <div style={{ width: 8, height: 12, background: 'linear-gradient(180deg, #FFF8D0, #FFE060)', borderRadius: '2px 2px 1px 1px', border: '1px solid #E0C040', margin: '0 auto', position: 'relative' }}>
+              <div style={{ position: 'absolute', top: 2, left: 2, width: 3, height: '60%', background: 'rgba(255,255,220,0.5)', borderRadius: 2 }} />
+            </div>
+            {/* Flame */}
+            <div style={{ width: 4, height: 7, background: 'linear-gradient(180deg, #FFF080, #FF9020)', borderRadius: '50% 50% 0 0', margin: '0 auto', boxShadow: '0 0 5px 2px rgba(255,180,40,0.5)' }} />
+            {/* Wick */}
+            <div style={{ width: 1.5, height: 3, background: '#4A3010', margin: '0 auto', borderRadius: 1, marginTop: -2 }} />
+          </div>
         </div>
 
         {/* ══ PLANT in corner ── */}
@@ -415,8 +431,20 @@ export default function WashScene({ onClose }: Props) {
           ))}
         </div>
 
-        {/* ══ RUBBER DUCK on floor ── */}
-        <div className="absolute text-2xl" style={{ bottom: '21%', right: '17%', filter: 'drop-shadow(1px 2px 2px rgba(0,0,0,0.2))' }}>🦆</div>
+        {/* ══ RUBBER DUCK on floor — CSS ── */}
+        <div className="absolute" style={{ bottom: '21%', right: '17%' }}>
+          <div style={{ position: 'relative', width: 26, height: 22 }}>
+            {/* Body */}
+            <div style={{ position: 'absolute', bottom: 0, left: 0, width: 24, height: 14, borderRadius: '50%', background: 'radial-gradient(circle at 38% 38%, #FFE878, #F5C820)', border: '1.5px solid #D4A010', boxShadow: '0 2px 4px rgba(0,0,0,0.18)' }} />
+            {/* Head */}
+            <div style={{ position: 'absolute', top: 0, right: 2, width: 14, height: 14, borderRadius: '50%', background: 'radial-gradient(circle at 38% 35%, #FFE878, #F5C820)', border: '1.5px solid #D4A010' }}>
+              {/* Eye */}
+              <div style={{ position: 'absolute', top: 4, left: 3, width: 3, height: 3, borderRadius: '50%', background: '#1A1A2A' }} />
+              {/* Beak */}
+              <div style={{ position: 'absolute', bottom: 3, right: -3, width: 6, height: 4, background: 'linear-gradient(90deg, #E87030, #C05010)', borderRadius: '2px 3px 3px 1px' }} />
+            </div>
+          </div>
+        </div>
 
         {/* ══ BATH MAT in front of tub ── */}
         <div className="absolute" style={{ bottom: '20%', left: '20%', right: '20%', height: 12, borderRadius: 6, overflow: 'hidden' }}>
@@ -461,9 +489,13 @@ export default function WashScene({ onClose }: Props) {
                   style={{ bottom: 5 + k * 2, left: `${10 + k * 11}%`, width: 8 + k * 2, height: 8 + k * 2, background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.75), rgba(180,220,255,0.4))', border: '1px solid rgba(160,210,255,0.5)', boxShadow: 'inset 1px 1px 2px rgba(255,255,255,0.6)' }} />
               ))}
 
-              {/* Bath bomb heart if coverage just started */}
+              {/* Bath bomb — CSS sphere */}
               {coverage > 5 && coverage < 40 && (
-                <div className="absolute" style={{ bottom: 16, right: '20%', fontSize: 14 }}>💖</div>
+                <div className="absolute" style={{ bottom: 16, right: '20%', width: 16, height: 16 }}>
+                  <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%, #FF9EC8, #E05888)', border: '1px solid #C04070', boxShadow: '0 0 6px rgba(255,100,160,0.5)' }}>
+                    <div style={{ position: 'absolute', top: 3, left: 3, width: 5, height: 3, borderRadius: '50%', background: 'rgba(255,255,255,0.4)' }} />
+                  </div>
+                </div>
               )}
 
               {/* Steam when shower active */}
@@ -495,9 +527,22 @@ export default function WashScene({ onClose }: Props) {
 
             {/* Bath tray/caddy over tub */}
             <div className="absolute" style={{ top: 8, left: '18%', right: '18%', height: 5, background: 'linear-gradient(180deg, #E8D0B8, #C8B090)', borderRadius: 3, border: '1px solid #B89068', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-              {/* Items on tray */}
-              <div style={{ position: 'absolute', top: -8, left: '10%', fontSize: 10 }}>📖</div>
-              <div style={{ position: 'absolute', top: -9, right: '15%', fontSize: 8 }}>🧴</div>
+              {/* CSS book on tray */}
+              <div style={{ position: 'absolute', top: -10, left: '10%', width: 14, height: 10 }}>
+                <div style={{ width: 14, height: 10, background: 'linear-gradient(135deg, #6080E0, #4060C0)', borderRadius: '1px 2px 2px 1px', border: '1px solid #3050A8', position: 'relative' }}>
+                  <div style={{ position: 'absolute', top: 0, bottom: 0, left: 2, width: 2, background: '#3050A8', borderRadius: '1px 0 0 1px' }} />
+                  <div style={{ position: 'absolute', top: 2, left: 5, right: 2, height: 1, background: 'rgba(255,255,255,0.4)', borderRadius: 1 }} />
+                  <div style={{ position: 'absolute', top: 5, left: 5, right: 2, height: 1, background: 'rgba(255,255,255,0.3)', borderRadius: 1 }} />
+                </div>
+              </div>
+              {/* CSS small bottle on tray */}
+              <div style={{ position: 'absolute', top: -12, right: '15%', width: 8, height: 12 }}>
+                <div style={{ width: 5, height: 3, background: '#C8E840', borderRadius: '1px 1px 0 0', margin: '0 auto', border: '1px solid #A8C020' }} />
+                <div style={{ width: 3, height: 2, background: '#D0F040', margin: '0 auto' }} />
+                <div style={{ width: 8, height: 8, background: 'linear-gradient(180deg, #D0F040, #A8C820)', borderRadius: '1px 1px 3px 3px', border: '1px solid #90B010' }}>
+                  <div style={{ position: 'absolute', top: 1, left: 1, width: 2, height: '50%', background: 'rgba(255,255,255,0.4)', borderRadius: 1 }} />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -585,7 +630,7 @@ export default function WashScene({ onClose }: Props) {
         </div>
         {showShower && coverage >= 50 && (
           <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap font-pixel text-sky-600" style={{ fontSize: 6 }}>
-            {coverage <= 15 ? 'DONE SOON! 💧' : 'DRAG TO RINSE!'}
+            {coverage <= 15 ? 'DONE SOON!' : 'DRAG TO RINSE!'}
           </div>
         )}
       </div>
@@ -626,7 +671,7 @@ export default function WashScene({ onClose }: Props) {
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50">
         <span className="font-pixel text-sky-700 px-3 py-1.5"
           style={{ background: 'linear-gradient(135deg, #E8F8FF, #D0EEFF)', borderRadius: 3, border: '2px solid #A8D4F0', boxShadow: '2px 2px 0 #88B8D8', fontSize: 7 }}>
-          🛁 BATHROOM
+          BATHROOM
         </span>
       </div>
 
@@ -645,7 +690,7 @@ export default function WashScene({ onClose }: Props) {
             style={{ background: 'linear-gradient(180deg, #1A2A38, #1A2A38)', borderRadius: 4, border: '2px solid #3A5A70', boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', padding: '10px 12px' }}>
             {/* Soap coverage */}
             <div className="flex items-center justify-between mb-1.5">
-              <span className="font-pixel text-sky-300" style={{ fontSize: 6 }}>🧼 SOAP</span>
+              <span className="font-pixel text-sky-300" style={{ fontSize: 6 }}>SOAP</span>
               <span className="font-pixel text-sky-400" style={{ fontSize: 6 }}>{Math.round(coverage)}%</span>
             </div>
             <div className="flex gap-0.5 mb-2.5">
@@ -667,7 +712,7 @@ export default function WashScene({ onClose }: Props) {
             {coverage >= 60 && (
               <>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-pixel text-sky-300" style={{ fontSize: 6 }}>💧 RINSE</span>
+                  <span className="font-pixel text-sky-300" style={{ fontSize: 6 }}>RINSE</span>
                   <span className="font-pixel text-sky-400" style={{ fontSize: 6 }}>{Math.max(0, Math.round(100 - coverage))}%</span>
                 </div>
                 <div className="flex gap-0.5">
@@ -697,7 +742,7 @@ export default function WashScene({ onClose }: Props) {
         {done && (
           <div className="w-full max-w-xs pointer-events-auto text-center py-3 active:translate-y-[2px] transition-transform"
             style={{ background: 'linear-gradient(135deg, #50D890, #30C070)', borderRadius: 3, border: '2px solid #20A050', boxShadow: '0 4px 0 #108030', fontFamily: '"Press Start 2P"', fontSize: 8, color: 'white', letterSpacing: 0.5 }}>
-            ✓ SQUEAKY CLEAN! 🐱✨
+            SQUEAKY CLEAN!
           </div>
         )}
       </div>
