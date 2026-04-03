@@ -24,10 +24,13 @@ const DECAY_PER_HOUR = {
 }
 
 export async function GET(request: Request) {
-  // Protect the endpoint — only callable by Vercel Cron or your own secret
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Protect with CRON_SECRET if set, otherwise allow (Vercel cron calls without secret if not configured)
+  const secret = process.env.CRON_SECRET
+  if (secret) {
+    const authHeader = request.headers.get('authorization')
+    if (authHeader !== `Bearer ${secret}`) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
   }
 
   const supabase = await createClient()
