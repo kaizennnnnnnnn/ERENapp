@@ -13,10 +13,10 @@ const MAIN_NAV = [
 ]
 
 const CARE_ACTIONS = [
-  { key: 'feed'  as const, icon: UtensilsCrossed, label: 'Feed',  color: '#F5A820' },
-  { key: 'play'  as const, icon: Dices,           label: 'Play',  color: '#FF6B9D' },
-  { key: 'sleep' as const, icon: BedDouble,        label: 'Sleep', color: '#818CF8' },
-  { key: 'wash'  as const, icon: Bath,             label: 'Wash',  color: '#38BDF8' },
+  { key: 'feed'  as const, icon: UtensilsCrossed, label: 'Feed',  color: '#F5A820', grad: ['#FFF3D0','#FFE090'], border: '#F5C842', shadow: '#D4920E', iconColor: '#C07010' },
+  { key: 'play'  as const, icon: Dices,           label: 'Play',  color: '#FF6B9D', grad: ['#FFE8F2','#FFD0E8'], border: '#FF9DC0', shadow: '#E04880', iconColor: '#D03070' },
+  { key: 'sleep' as const, icon: BedDouble,        label: 'Sleep', color: '#818CF8', grad: ['#EEF0FF','#DDE0FF'], border: '#A8B0FA', shadow: '#5058D0', iconColor: '#4850C8' },
+  { key: 'wash'  as const, icon: Bath,             label: 'Wash',  color: '#38BDF8', grad: ['#E0F8FF','#C8F0FF'], border: '#70D8FA', shadow: '#0898D8', iconColor: '#0880B8' },
 ]
 
 export default function BottomNav() {
@@ -29,28 +29,42 @@ export default function BottomNav() {
   if (careMode) {
     return (
       <nav className="bottom-nav z-50">
+        {/* Back button */}
         <button onClick={exitCareMode} className="nav-item active:scale-90 transition-transform duration-100">
-          <div className="flex items-center justify-center w-10 h-10"
-            style={{ background: 'linear-gradient(135deg, #F0E8FF, #E0D0F8)', borderRadius: 8, border: '2px solid #C8B0E8', boxShadow: '0 3px 0 #A880D0' }}>
-            <ChevronLeft size={20} strokeWidth={2.5} style={{ color: '#9060C0' }} />
+          <div className="flex flex-col items-center gap-0.5">
+            <div className="flex items-center justify-center w-11 h-11 relative"
+              style={{ background: 'linear-gradient(160deg, #F5EEFF 0%, #E8D8FC 100%)', borderRadius: 14, border: '2px solid #C8A8F0', boxShadow: '0 4px 0 #A070D0, inset 0 1px 0 rgba(255,255,255,0.7)' }}>
+              {/* shine */}
+              <div style={{ position: 'absolute', top: 3, left: 4, right: 4, height: 5, background: 'rgba(255,255,255,0.5)', borderRadius: 6 }} />
+              <ChevronLeft size={20} strokeWidth={2.5} style={{ color: '#8040C0', filter: 'drop-shadow(0 1px 1px rgba(120,40,200,0.2))' }} />
+            </div>
           </div>
         </button>
 
-        {CARE_ACTIONS.map(({ key, icon: Icon, color }) => (
+        {CARE_ACTIONS.map(({ key, icon: Icon, label, grad, border, shadow, iconColor }) => (
           <button key={key} onClick={() => openScene(key)}
             className="nav-item active:scale-90 transition-transform duration-100">
-            <div className="flex items-center justify-center w-11 h-11"
-              style={{ background: 'white', borderRadius: 8, border: `2px solid ${color}50`, boxShadow: `0 3px 0 ${color}40` }}>
-              <Icon size={22} strokeWidth={2} style={{ color }} />
+            <div className="flex flex-col items-center gap-0.5">
+              <div className="flex items-center justify-center w-11 h-11 relative"
+                style={{ background: `linear-gradient(160deg, ${grad[0]} 0%, ${grad[1]} 100%)`, borderRadius: 14, border: `2px solid ${border}`, boxShadow: `0 4px 0 ${shadow}, inset 0 1px 0 rgba(255,255,255,0.8)` }}>
+                {/* gloss shine */}
+                <div style={{ position: 'absolute', top: 3, left: 4, right: 4, height: 5, background: 'rgba(255,255,255,0.55)', borderRadius: 6 }} />
+                <Icon size={22} strokeWidth={2.2} style={{ color: iconColor, filter: `drop-shadow(0 1px 2px ${border}88)`, position: 'relative', zIndex: 1 }} />
+              </div>
+              <span style={{ fontFamily: '"Press Start 2P"', fontSize: 5, color: iconColor, letterSpacing: 0 }}>{label}</span>
             </div>
           </button>
         ))}
 
         {isSick && (
           <button onClick={() => openScene('hospital')} className="nav-item active:scale-90 transition-transform duration-100">
-            <div className="flex items-center justify-center w-11 h-11"
-              style={{ background: 'white', borderRadius: 8, border: '2px solid #FCA5A550', boxShadow: '0 3px 0 #F8707040' }}>
-              <Stethoscope size={22} strokeWidth={2} className="text-red-400" />
+            <div className="flex flex-col items-center gap-0.5">
+              <div className="flex items-center justify-center w-11 h-11 relative"
+                style={{ background: 'linear-gradient(160deg, #FFF0F0 0%, #FFD8D8 100%)', borderRadius: 14, border: '2px solid #F08080', boxShadow: '0 4px 0 #C83030, inset 0 1px 0 rgba(255,255,255,0.8)' }}>
+                <div style={{ position: 'absolute', top: 3, left: 4, right: 4, height: 5, background: 'rgba(255,255,255,0.55)', borderRadius: 6 }} />
+                <Stethoscope size={22} strokeWidth={2.2} style={{ color: '#C02020', filter: 'drop-shadow(0 1px 2px rgba(200,50,50,0.3))', position: 'relative', zIndex: 1 }} />
+              </div>
+              <span style={{ fontFamily: '"Press Start 2P"', fontSize: 5, color: '#C02020' }}>Vet</span>
             </div>
           </button>
         )}
