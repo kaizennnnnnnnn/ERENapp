@@ -139,6 +139,7 @@ export default function HomePage() {
     if (!profile?.household_id || !user?.id) return
 
     async function load() {
+      try {
       const today   = new Date()
       const todayStr = format(today, 'yyyy-MM-dd')
       const monthStart = format(new Date(today.getFullYear(), today.getMonth(), 1), 'yyyy-MM-dd')
@@ -165,6 +166,10 @@ export default function HomePage() {
         .single()
 
       if (partner) setPartnerProfile(partner)
+      } catch {
+        // network/supabase error — unblock mood gate
+        setMoodChecked(true)
+      }
     }
 
     load()

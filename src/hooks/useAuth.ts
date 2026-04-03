@@ -13,17 +13,22 @@ export function useAuth() {
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      if (user) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single()
-        setProfile(data)
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        setUser(user)
+        if (user) {
+          const { data } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single()
+          setProfile(data)
+        }
+      } catch {
+        // network/supabase error — unblock the app
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
     load()
 
