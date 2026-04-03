@@ -8,11 +8,9 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTimeTracking } from '@/hooks/useTimeTracking'
-import PixelIcon from '@/components/PixelIcon'
-import StatBar from '@/components/StatBar'
+import StatsColumns from '@/components/StatsColumns'
 import MoodGate from '@/components/MoodGate'
 import MoodCalendar from '@/components/MoodCalendar'
-import { STAT_CONFIGS } from '@/types'
 import type { DailyMood, Profile, UserMood } from '@/types'
 import { MOOD_CONFIGS } from '@/types'
 import { useCare } from '@/contexts/CareContext'
@@ -36,14 +34,6 @@ const MOOD_GREETINGS: Record<string, string> = {
   angry:   "Eren is not amused. Fix that!",
 }
 
-// Pixel icon per stat
-const STAT_PIXEL_ICONS: Record<string, React.ComponentProps<typeof PixelIcon>['icon']> = {
-  happiness:     'heart',
-  hunger:        'food',
-  energy:        'lightning',
-  sleep_quality: 'zzz',
-  cleanliness:   'droplet',
-}
 
 export default function HomePage() {
   const router   = useRouter()
@@ -310,24 +300,7 @@ export default function HomePage() {
       <TaskPanel />
 
       {/* ── Stats ── */}
-      <div className="card mb-4">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="pixel-chip" style={{ background: 'linear-gradient(135deg, #A78BFA, #7C3AED)' }}>STATS</span>
-          <div className="flex-1 h-px" style={{ background: 'repeating-linear-gradient(90deg, #E0D0F8 0px, #E0D0F8 4px, transparent 4px, transparent 8px)' }} />
-          <span className="text-xs text-gray-400">♥ Eren</span>
-        </div>
-        {STAT_CONFIGS.map(cfg => (
-          <StatBar
-            key={cfg.key}
-            label={cfg.label}
-            icon={cfg.icon}
-            value={stats[cfg.key] ?? 0}
-            color={cfg.color}
-            bgColor={cfg.bgColor}
-            pixelIcon={<PixelIcon icon={STAT_PIXEL_ICONS[cfg.key]} size={3} />}
-          />
-        ))}
-      </div>
+      <StatsColumns stats={stats} />
 
       {/* ── Eren's Room ── */}
       <div className="mb-4 relative overflow-hidden" style={{ borderRadius: 8, border: '3px solid #C8A878', boxShadow: '4px 4px 0 #A07850', height: 320 }}>
