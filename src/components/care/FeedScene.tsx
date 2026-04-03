@@ -126,33 +126,10 @@ export default function FeedScene({ onClose }: Props) {
       {/* ══ BACKGROUND IMAGE ══ */}
       <img src="/kitchen.png" alt="" className="absolute inset-0 w-full h-full" style={{ objectFit: 'cover', objectPosition: 'center' }} draggable={false} />
 
-      {/* ══ FOOD BOWL ══ */}
-      <div className="absolute z-10" style={{ bottom: '18%', left: '50%', transform: 'translateX(-50%)' }}>
-        {/* Placemat */}
-        <div className="pointer-events-none" style={{ position: 'absolute', bottom: -4, left: '50%', transform: 'translateX(-50%)', width: 80, height: 8, borderRadius: '50%', background: 'linear-gradient(180deg, #F0C8E8, #E0A8D0)', border: '2px solid #D090C0', opacity: 0.85 }}>
-          {[0.25,0.5,0.75].map((p,i) => <div key={i} style={{ position: 'absolute', top: 1, bottom: 1, left: `${p*100}%`, width: 1, background: 'rgba(180,100,160,0.3)' }} />)}
-        </div>
-        {/* Bowl shadow */}
-        <div style={{ position: 'absolute', bottom: -3, left: '10%', right: '10%', height: 4, borderRadius: '50%', background: 'rgba(0,0,0,0.12)' }} />
-        <div style={{ width: 56, height: 22, borderRadius: '4px 4px 50% 50%', background: 'linear-gradient(180deg, #F5CC68 0%, #E49028 60%, #C87018 100%)', border: '3px solid #A85C10', boxShadow: '0 3px 8px rgba(0,0,0,0.2), inset 0 2px 4px rgba(255,220,100,0.3)', position: 'relative' }}>
-          <div style={{ position: 'absolute', top: 2, left: 8, right: 8, height: 3, borderRadius: 4, background: 'rgba(255,240,160,0.5)' }} />
-          {eatAnim && (
-            <div className="absolute inset-1 flex gap-0.5 items-end justify-center">
-              {Array.from({ length: 6 }).map((_,k) => (
-                <div key={k} style={{ width: 5, height: 4 + (k % 2) * 2, borderRadius: '50%', background: k % 2 === 0 ? '#8B4513' : '#A05A20' }} />
-              ))}
-            </div>
-          )}
-        </div>
-        {/* Water bowl */}
-        <div style={{ marginTop: 3, width: 34, height: 14, borderRadius: '3px 3px 50% 50%', background: 'linear-gradient(180deg, #A8D8F8 0%, #78B8E8 100%)', border: '2px solid #5898C8', boxShadow: '0 2px 5px rgba(0,0,0,0.15)', position: 'relative' }}>
-          <div style={{ position: 'absolute', top: 2, left: 5, width: 12, height: 2, borderRadius: 2, background: 'rgba(255,255,255,0.6)' }} />
-        </div>
-      </div>
-
       {/* ══ EREN ══ */}
-      <div className={cn('absolute z-20 transition-all duration-500', eatAnim ? 'bottom-[49%]' : 'bottom-[47%]')} style={{ left: '50%' }}>
-        <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 130, height: 130, objectFit: 'contain', imageRendering: 'pixelated' }} />
+      <div className={cn('absolute z-20 transition-all duration-300', eatAnim ? 'bottom-[14%]' : 'bottom-[10%]')}
+        style={{ left: '50%', transform: 'translateX(-50%)' }}>
+        <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 140, height: 140, objectFit: 'contain', imageRendering: 'pixelated' }} />
       </div>
 
       {/* ══ UI ══ */}
