@@ -291,13 +291,8 @@ export default function WashScene({ onClose }: Props) {
 
         {/* ══ SHAMPOO SHELF — on wall above tub, left-center ── */}
         <div className="absolute" style={{ top: '24%', left: '2%', width: 72 }}>
-          {/* Shelf brackets */}
-          <div className="absolute" style={{ left: 4, bottom: 0, width: 4, height: 12, background: 'linear-gradient(180deg, #90B8CC, #70A0B8)', borderRadius: '0 0 2px 0' }} />
-          <div className="absolute" style={{ right: 4, bottom: 0, width: 4, height: 12, background: 'linear-gradient(180deg, #90B8CC, #70A0B8)', borderRadius: '0 0 2px 0' }} />
-          {/* Shelf board */}
-          <div className="w-full" style={{ height: 5, background: 'linear-gradient(180deg, #B8D4E4 0%, #90B8CC 100%)', borderRadius: 2, boxShadow: '0 2px 4px rgba(0,0,0,0.15), inset 0 1px 1px rgba(255,255,255,0.4)' }} />
-          {/* Bottles */}
-          <div className="flex gap-1 mt-1 px-1">
+          {/* Bottles sit on top of shelf */}
+          <div className="flex gap-1 px-1 items-end">
             {[
               { h: 32, bg: '#FF6B9D', cap: '#E03080', w: 11 },
               { h: 26, bg: '#6BAED6', cap: '#4090BC', w: 10 },
@@ -324,9 +319,16 @@ export default function WashScene({ onClose }: Props) {
               </div>
             ))}
             {/* Loofah */}
-            <div style={{ width: 14, height: 20, background: 'radial-gradient(circle at 40% 40%, #FFE8A0, #E8C870)', borderRadius: 5, border: '1px solid #D4B040', marginTop: 4, boxShadow: 'inset 0 1px 3px rgba(255,255,255,0.4)' }}>
+            <div style={{ width: 14, height: 20, background: 'radial-gradient(circle at 40% 40%, #FFE8A0, #E8C870)', borderRadius: 5, border: '1px solid #D4B040', boxShadow: 'inset 0 1px 3px rgba(255,255,255,0.4)', position: 'relative' }}>
               <div style={{ position: 'absolute', top: 8, left: 2, right: 2, height: 2, background: 'rgba(0,0,0,0.1)', borderRadius: 2 }} />
             </div>
+          </div>
+          {/* Shelf board — bottles rest on this */}
+          <div className="w-full" style={{ height: 5, background: 'linear-gradient(180deg, #B8D4E4 0%, #90B8CC 100%)', borderRadius: 2, boxShadow: '0 2px 4px rgba(0,0,0,0.15), inset 0 1px 1px rgba(255,255,255,0.4)' }} />
+          {/* Shelf brackets hang below the board */}
+          <div style={{ position: 'relative', height: 12 }}>
+            <div className="absolute" style={{ left: 4, top: 0, width: 4, height: 12, background: 'linear-gradient(180deg, #90B8CC, #70A0B8)', borderRadius: '0 0 2px 0' }} />
+            <div className="absolute" style={{ right: 4, top: 0, width: 4, height: 12, background: 'linear-gradient(180deg, #90B8CC, #70A0B8)', borderRadius: '0 0 2px 2px' }} />
           </div>
         </div>
 
@@ -546,8 +548,8 @@ export default function WashScene({ onClose }: Props) {
             </div>
           </div>
 
-          {/* 4 ornate gold claw feet */}
-          {[14, 46, 80, 114].map((lx, i) => (
+          {/* 4 ornate gold claw feet — 2 at each end */}
+          {[10, 30, 192, 212].map((lx, i) => (
             <div key={i} className="absolute" style={{ bottom: -16, left: lx, width: 18, height: 18 }}>
               <div style={{ width: 10, height: 14, background: 'linear-gradient(180deg, #ECD040, #C8A020)', borderRadius: '0 0 5px 5px', border: '1px solid #A07810', marginLeft: 4, boxShadow: '0 2px 4px rgba(0,0,0,0.2)', position: 'relative' }}>
                 {/* Highlight */}

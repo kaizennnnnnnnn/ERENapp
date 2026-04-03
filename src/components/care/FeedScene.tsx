@@ -213,10 +213,12 @@ export default function FeedScene({ onClose }: Props) {
               </div>
             </div>
           </div>
-          {/* Control knobs */}
-          {[10,25,40].map(x => (
-            <div key={x} className="absolute" style={{ top: -8, left: x, width: 8, height: 8, borderRadius: '50%', background: 'radial-gradient(circle at 35% 35%, #E0D8C8, #B0A888)', border: '1px solid #9A9070', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
-          ))}
+          {/* Control panel strip */}
+          <div className="absolute left-0 right-0" style={{ top: 0, height: 10, background: 'linear-gradient(180deg, #D4CCBC, #C4BCA8)', borderRadius: '3px 3px 0 0', borderBottom: '1px solid #A09880' }}>
+            {[10,25,40].map(x => (
+              <div key={x} className="absolute" style={{ top: 1, left: x, width: 8, height: 8, borderRadius: '50%', background: 'radial-gradient(circle at 35% 35%, #E0D8C8, #B0A888)', border: '1px solid #9A9070', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+            ))}
+          </div>
         </div>
         {/* Range hood */}
         <div className="absolute" style={{ bottom: '100%', left: -4, right: -4, height: 20, background: 'linear-gradient(180deg, #C8C0B0, #B0A890)', borderRadius: '4px 4px 0 0', border: '1px solid #A09080', boxShadow: '0 -2px 6px rgba(0,0,0,0.1)' }}>
@@ -309,7 +311,7 @@ export default function FeedScene({ onClose }: Props) {
         {/* Cord */}
         <div style={{ width: 2, height: 36, background: 'linear-gradient(180deg, #5A3808, #7A5020)' }} />
         {/* Shade */}
-        <div style={{ width: 54, height: 34, borderRadius: '4px 4px 50% 50%', background: 'linear-gradient(180deg, #E8A020 0%, #C07010 70%, #A85C08 100%)', border: '2px solid #8B5010', boxShadow: '0 10px 32px 12px rgba(245,190,50,0.35), inset 0 2px 4px rgba(255,220,100,0.3)' }}>
+        <div style={{ width: 54, height: 34, borderRadius: '50% 50% 4px 4px', background: 'linear-gradient(180deg, #A85C08 0%, #C07010 30%, #E8A020 100%)', border: '2px solid #8B5010', boxShadow: '0 10px 32px 12px rgba(245,190,50,0.35), inset 0 2px 4px rgba(255,220,100,0.3)' }}>
           {/* Shade highlight */}
           <div style={{ position: 'absolute', top: 4, left: 8, width: 14, height: 4, borderRadius: 4, background: 'rgba(255,230,140,0.4)' }} />
         </div>
@@ -363,29 +365,8 @@ export default function FeedScene({ onClose }: Props) {
           {[28, 52, 74].map(y => (
             <div key={y} className="absolute left-1 right-1" style={{ top: `${y}%`, height: 2, background: 'linear-gradient(180deg, #C0C0B8, #B0B0A8)', borderRadius: 1 }} />
           ))}
-          {/* CSS milk carton */}
-          <div className="absolute" style={{ top: '4%', left: 3 }}>
-            <div style={{ width: 12, height: 18, position: 'relative' }}>
-              <div style={{ width: 12, height: 14, background: 'linear-gradient(180deg, #F8F4EC, #EEE8DC)', border: '1px solid #D8CEB8', borderRadius: '1px 1px 2px 2px' }}>
-                <div style={{ position: 'absolute', top: 2, left: 2, right: 2, height: 2, background: '#D88030', borderRadius: 1 }} />
-              </div>
-              <div style={{ width: 0, height: 0, borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderBottom: '4px solid #EEE8DC' }} />
-            </div>
-          </div>
-          {/* CSS egg */}
-          <div className="absolute" style={{ top: '31%', left: 4 }}>
-            <div style={{ width: 10, height: 13, borderRadius: '50% 50% 50% 50% / 60% 60% 40% 40%', background: 'linear-gradient(135deg, #FFFAE8, #F5EAD0)', border: '1px solid #E0D0A8' }} />
-          </div>
-          {/* CSS cheese wedge */}
-          <div className="absolute" style={{ top: '55%', right: 5 }}>
-            <div style={{ width: 14, height: 12, background: 'linear-gradient(135deg, #F8E040, #E0C020)', clipPath: 'polygon(0% 100%, 100% 100%, 60% 0%)', border: '1px solid #C8A818', position: 'relative' }}>
-              {[0,1].map(k => <div key={k} style={{ position: 'absolute', top: `${k*40+30}%`, left: `${k*20+15}%`, width: 4, height: 4, borderRadius: '50%', background: 'rgba(200,160,10,0.4)' }} />)}
-            </div>
-          </div>
-          {/* CSS lettuce leaf */}
-          <div className="absolute" style={{ top: '55%', left: 4 }}>
-            <div style={{ width: 12, height: 14, background: 'linear-gradient(135deg, #68D040, #48B020)', borderRadius: '50% 30% 60% 30%', border: '1px solid #38A010' }} />
-          </div>
+          {/* Door seal line */}
+          <div className="absolute" style={{ top: '10%', left: 3, right: 3, bottom: '10%', border: '1px solid rgba(180,176,168,0.4)', borderRadius: 2 }} />
         </div>
         {/* Fridge door handle highlight */}
         <div className="absolute left-0 top-0 bottom-0" style={{ width: 4, background: 'linear-gradient(90deg, rgba(255,255,255,0.25), transparent)' }} />

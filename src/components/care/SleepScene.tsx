@@ -57,22 +57,7 @@ export default function SleepScene({ onClose }: Props) {
       {/* Shooting star */}
       <div className="absolute pointer-events-none" style={{ top: '12%', left: '60%', width: 60, height: 1.5, background: 'linear-gradient(90deg, rgba(255,255,200,0.9), transparent)', borderRadius: 2, transform: 'rotate(-30deg)', animation: 'float 4s ease-in-out 2s infinite', opacity: 0.7 }} />
 
-      {/* ══ MOON ══ */}
-      <div className="absolute pointer-events-none" style={{ top: '2%', right: '7%', width: 58, height: 58 }}>
-        {/* Moon glow */}
-        <div className="absolute" style={{ inset: -12, borderRadius: '50%', background: 'radial-gradient(circle, rgba(240,215,80,0.12) 0%, transparent 70%)' }} />
-        {/* Moon body */}
-        <div className="absolute inset-0 rounded-full" style={{ background: 'radial-gradient(circle at 42% 42%, #FFF8C8, #F0D870 60%, #D8B840 100%)', boxShadow: '0 0 28px 8px rgba(240,210,80,0.25)' }}>
-          {/* Moon craters */}
-          <div style={{ position: 'absolute', top: '20%', left: '25%', width: 8, height: 8, borderRadius: '50%', background: 'rgba(180,140,30,0.25)', border: '1px solid rgba(160,120,20,0.2)' }} />
-          <div style={{ position: 'absolute', top: '50%', left: '45%', width: 5, height: 5, borderRadius: '50%', background: 'rgba(180,140,30,0.2)' }} />
-          <div style={{ position: 'absolute', top: '65%', left: '20%', width: 7, height: 7, borderRadius: '50%', background: 'rgba(180,140,30,0.18)' }} />
-          {/* Highlight */}
-          <div style={{ position: 'absolute', top: '15%', left: '60%', width: 14, height: 10, borderRadius: '50%', background: 'rgba(255,255,220,0.35)', transform: 'rotate(-30deg)' }} />
-        </div>
-        {/* Shadow to make crescent */}
-        <div className="absolute rounded-full" style={{ top: 5, right: -2, width: 46, height: 46, background: '#060418' }} />
-      </div>
+      {/* Moon removed — only visible through window, not floating on the wall */}
 
       {/* ══ FAIRY LIGHTS ══ */}
       <div className="absolute left-0 right-0 pointer-events-none" style={{ top: 0 }}>
@@ -204,10 +189,11 @@ export default function SleepScene({ onClose }: Props) {
               <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 3, transform: 'translateY(-50%)', background: '#F5C820', borderRadius: 2 }} />
               <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 3, transform: 'translateX(-50%)', background: '#F5C820', borderRadius: 2 }} />
             </div>
-            {/* Crescent moon */}
-            <div style={{ alignSelf: 'flex-end', marginBottom: 2, position: 'relative', width: 10, height: 10 }}>
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#C8B040' }} />
-              <div style={{ position: 'absolute', top: 1, right: -1, width: 8, height: 8, borderRadius: '50%', background: '#2A1A40' }} />
+            {/* Small candle */}
+            <div style={{ alignSelf: 'flex-end', marginBottom: 2, position: 'relative', width: 8, height: 16 }}>
+              <div style={{ position: 'absolute', bottom: 0, width: 8, height: 10, background: 'linear-gradient(180deg, #FFF8DC, #F0E0B0)', borderRadius: '1px 1px 2px 2px', border: '1px solid #D8C888' }} />
+              <div style={{ position: 'absolute', bottom: 9, left: '50%', transform: 'translateX(-50%)', width: 1.5, height: 3, background: '#4A3010', borderRadius: 1 }} />
+              <div style={{ position: 'absolute', bottom: 11, left: '50%', transform: 'translateX(-50%)', width: 4, height: 5, background: 'linear-gradient(180deg, #FFF060, #FF9020)', borderRadius: '50% 50% 0 0', boxShadow: '0 0 4px 2px rgba(255,200,40,0.5)' }} />
             </div>
           </div>
         </div>
