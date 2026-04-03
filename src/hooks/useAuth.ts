@@ -12,6 +12,9 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Hard timeout — never hang longer than 6s
+    const timeout = setTimeout(() => setLoading(false), 6000)
+
     async function load() {
       try {
         const { data: { user } } = await supabase.auth.getUser()
@@ -27,6 +30,7 @@ export function useAuth() {
       } catch {
         // network/supabase error — unblock the app
       } finally {
+        clearTimeout(timeout)
         setLoading(false)
       }
     }

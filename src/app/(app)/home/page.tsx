@@ -138,41 +138,46 @@ export default function HomePage() {
   useEffect(() => {
     if (!profile?.household_id || !user?.id) return
 
+    // Hard timeout — never hang longer than 6s
+    const timeout = setTimeout(() => setMoodChecked(true), 6000)
+
     async function load() {
       try {
-      const today   = new Date()
-      const todayStr = format(today, 'yyyy-MM-dd')
-      const monthStart = format(new Date(today.getFullYear(), today.getMonth(), 1), 'yyyy-MM-dd')
+        const today      = new Date()
+        const todayStr   = format(today, 'yyyy-MM-dd')
+        const monthStart = format(new Date(today.getFullYear(), today.getMonth(), 1), 'yyyy-MM-dd')
 
-      const { data: moodsData } = await supabase
-        .from('daily_moods')
-        .select('*, profile:profiles(name, avatar_url)')
-        .gte('date', monthStart)
-        .order('date', { ascending: false })
+        const { data: moodsData } = await supabase
+          .from('daily_moods')
+          .select('*, profile:profiles(name, avatar_url)')
+          .gte('date', monthStart)
+          .order('date', { ascending: false })
 
-      if (moodsData) {
-        setMoods(moodsData)
-        const mine = moodsData.find(m => m.user_id === user!.id && m.date === todayStr)
-        if (mine) setTodayMood(mine.mood as UserMood)
-      }
-      setMoodChecked(true)
+        if (moodsData) {
+          setMoods(moodsData)
+          const mine = moodsData.find(m => m.user_id === user!.id && m.date === todayStr)
+          if (mine) setTodayMood(mine.mood as UserMood)
+        }
 
-      const { data: partner } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('household_id', profile!.household_id!)
-        .neq('id', user!.id)
-        .limit(1)
-        .single()
+        const { data: partner } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('household_id', profile!.household_id!)
+          .neq('id', user!.id)
+          .limit(1)
+          .single()
 
-      if (partner) setPartnerProfile(partner)
+        if (partner) setPartnerProfile(partner)
       } catch {
         // network/supabase error — unblock mood gate
+      } finally {
+        clearTimeout(timeout)
         setMoodChecked(true)
       }
     }
 
     load()
+    return () => clearTimeout(timeout)
   }, [profile?.household_id, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function showToast(msg: string) {
