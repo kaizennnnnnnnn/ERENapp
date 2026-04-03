@@ -125,8 +125,8 @@ Open [http://localhost:3000](http://localhost:3000)
 git init
 git add .
 git commit -m "Initial commit: Pocket Eren"
-git remote add origin https://github.com/YOUR_USERNAME/pocket-eren.git
-git push -u origin main
+git remote add origin https://github.com/kaizennnnnnnnn/ERENapp.git
+git push -u origin main![alt text](image.png)
 ```
 
 ### 6b. Import to Vercel

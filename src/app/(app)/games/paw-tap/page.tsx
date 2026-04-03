@@ -27,8 +27,8 @@ export default function PawTapGame() {
   const router   = useRouter()
   const supabase = createClient()
   const { user, profile } = useAuth()
-  const { applyAction, addCoins } = useErenStats(profile?.household_id ?? null)
-  const { completeTask } = useTasks()
+  const { applyAction } = useErenStats(profile?.household_id ?? null)
+  const { completeTask, addCoins } = useTasks()
 
   const [gameState, setGameState] = useState<'idle' | 'running' | 'finished'>('idle')
   const [score, setScore]         = useState(0)

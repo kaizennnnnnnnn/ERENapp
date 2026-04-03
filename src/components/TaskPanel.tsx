@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useTasks } from '@/contexts/TaskContext'
 import { TASK_DEFS, getDailyKey, getWeeklyKey } from '@/lib/tasks'
+import type { TaskId } from '@/types'
 
 export default function TaskPanel() {
-  const { completedIds } = useTasks()
+  const { completedIds, taskProgress } = useTasks()
   const [tab, setTab] = useState<'daily' | 'weekly'>('daily')
   const [open, setOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -88,7 +89,10 @@ export default function TaskPanel() {
         {/* Task list */}
         <div className="overflow-y-auto flex-1 p-4 flex flex-col gap-3">
           {tasks.map(task => {
-            const isDone = completedIds.has(`${task.id}:${key}`)
+            const isDone    = completedIds.has(`${task.id}:${key}`)
+            const progress  = task.maxProgress ? (taskProgress.get(task.id as TaskId) ?? 0) : null
+            const pct       = progress !== null && task.maxProgress ? Math.min(1, progress / task.maxProgress) : null
+
             return (
               <div key={task.id}
                 className="flex items-center gap-3 px-3 py-3 transition-all"
@@ -110,6 +114,18 @@ export default function TaskPanel() {
                     {task.title}
                   </p>
                   <p className="text-[10px] text-gray-400 mt-1 leading-snug">{task.desc}</p>
+                  {/* Progress bar for weekly tasks with maxProgress */}
+                  {pct !== null && !isDone && (
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: '#EDE8FF' }}>
+                        <div className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${pct * 100}%`, background: 'linear-gradient(90deg, #A78BFA, #7C3AED)' }} />
+                      </div>
+                      <span className="font-pixel text-purple-500 flex-shrink-0" style={{ fontSize: 6 }}>
+                        {progress}/{task.maxProgress}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 {isDone ? (
                   <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center"

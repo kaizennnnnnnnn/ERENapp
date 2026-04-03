@@ -37,8 +37,8 @@ export default function YarnChaseGame() {
   const router   = useRouter()
   const supabase = createClient()
   const { user, profile } = useAuth()
-  const { applyAction, addCoins } = useErenStats(profile?.household_id ?? null)
-  const { completeTask } = useTasks()
+  const { applyAction } = useErenStats(profile?.household_id ?? null)
+  const { completeTask, addCoins } = useTasks()
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const stateRef  = useRef({

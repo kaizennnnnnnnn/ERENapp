@@ -21,7 +21,7 @@ import { Bell, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import TaskPanel from '@/components/TaskPanel'
 import ReminderSheet from '@/components/ReminderSheet'
-import { registerSW, scheduleAll } from '@/lib/reminders'
+import { registerSW } from '@/lib/reminders'
 
 interface XpParticle { id: number; x: number; y: number; tx: number; ty: number; text: string; delay: number }
 
@@ -41,7 +41,7 @@ export default function HomePage() {
   const { user, profile, loading: authLoading } = useAuth()
   const { stats, loading } = useErenStats(profile?.household_id ?? null)
   const { setIsSick } = useCare()
-  const { xp, level } = useTasks()
+  const { xp, level, coins: userCoins } = useTasks()
   useTimeTracking(user?.id ?? null)
 
   // XP bar
@@ -55,7 +55,7 @@ export default function HomePage() {
 
   // Register SW + reschedule reminders on mount
   useEffect(() => {
-    registerSW().then(() => scheduleAll())
+    registerSW()
   }, [])
 
   // Spawn particles from Eren → XP bar on XP gain
@@ -284,7 +284,7 @@ export default function HomePage() {
         <div className="flex items-center gap-1 px-2.5 h-9"
           style={{ background: 'linear-gradient(135deg, #FFF3C0, #FFE680)', borderRadius: 6, border: '2px solid #F5C842', boxShadow: '2px 2px 0 #C8A020' }}>
           <span className="text-sm">🪙</span>
-          <span className="font-pixel text-amber-700" style={{ fontSize: 9 }}>{stats.coins ?? 0}</span>
+          <span className="font-pixel text-amber-700" style={{ fontSize: 9 }}>{userCoins}</span>
         </div>
         {/* Bell */}
         <button onClick={() => setShowReminders(true)}

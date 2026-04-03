@@ -23,6 +23,7 @@ export interface Profile {
   household_id: string | null
   xp: number
   level: number
+  coins: number
   created_at: string
   updated_at: string
 }
@@ -41,6 +42,7 @@ export interface TaskDef {
   icon: string
   coins: number
   xp: number
+  maxProgress?: number  // if set, weekly task tracks incremental progress
 }
 
 export interface TaskCompletion {
