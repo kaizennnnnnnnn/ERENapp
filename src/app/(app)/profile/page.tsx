@@ -6,9 +6,11 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
-import type { Profile, TimeSpent } from '@/types'
-import { formatDuration, cn } from '@/lib/utils'
-import { Copy, LogOut, Check, Clock, Trophy, Cat } from 'lucide-react'
+import type { Profile, DailyMood } from '@/types'
+import { formatDuration } from '@/lib/utils'
+import { Copy, LogOut, Check, Trophy, Cat } from 'lucide-react'
+import MoodCalendar from '@/components/MoodCalendar'
+import { format } from 'date-fns'
 
 export default function ProfilePage() {
   const router   = useRouter()
@@ -23,6 +25,7 @@ export default function ProfilePage() {
   const [editName, setEditName]       = useState('')
   const [savingName, setSavingName]   = useState(false)
   const [nameEditing, setNameEditing] = useState(false)
+  const [moods, setMoods]             = useState<DailyMood[]>([])
 
   useEffect(() => {
     if (!profile?.household_id || !user?.id) return
@@ -35,6 +38,11 @@ export default function ProfilePage() {
         if (!data) return
         setMySeconds(data.reduce((sum, s) => sum + (s.duration_seconds ?? 0), 0))
       })
+    // Load moods for calendar
+    const today = new Date()
+    const monthStart = format(new Date(today.getFullYear(), today.getMonth(), 1), 'yyyy-MM-dd')
+    supabase.from('daily_moods').select('*, profile:profiles(name, avatar_url)').gte('date', monthStart).order('date', { ascending: false })
+      .then(({ data }) => { if (data) setMoods(data) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.household_id, user?.id])
 
@@ -225,6 +233,13 @@ export default function ProfilePage() {
               {copied ? <Check size={20} className="text-white" /> : <Copy size={20} className="text-white" />}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ── Mood calendar ── */}
+      {moods.length > 0 && user && (
+        <div className="mb-4">
+          <MoodCalendar moods={moods} userId={user.id} partnerName={partner?.name} />
         </div>
       )}
 
