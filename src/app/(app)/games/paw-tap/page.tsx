@@ -1,12 +1,11 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
-import { ChevronLeft, RefreshCw } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 
 const GAME_DURATION  = 15
 const FISH_POSITIONS = [
@@ -24,7 +23,6 @@ interface Bubble { id: number; x: number; animDuration: number; delay: number; s
 const FISH_EMOJIS = ['🐟', '🐠', '🐡', '🦐', '🦑']
 
 export default function PawTapGame() {
-  const router   = useRouter()
   const supabase = createClient()
   const { user, profile } = useAuth()
   const { applyAction } = useErenStats(profile?.household_id ?? null)
@@ -129,12 +127,6 @@ export default function PawTapGame() {
     <div className="page-scroll">
       {/* ── Header ── */}
       <div className="flex items-center gap-3 mb-4">
-        <button onClick={() => router.back()}
-          className="flex items-center gap-1 px-3 py-2 active:translate-y-[1px] transition-transform"
-          style={{ background: 'linear-gradient(135deg, #FFF8FF, #F0E8FF)', borderRadius: 3, border: '2px solid #D8C0F0', boxShadow: '0 3px 0 #C0A0E0' }}>
-          <ChevronLeft size={14} className="text-purple-500" />
-          <span className="font-pixel text-purple-500" style={{ fontSize: 6 }}>BACK</span>
-        </button>
         <span className="pixel-chip" style={{ background: 'linear-gradient(135deg, #6BAED6, #3A88B8)' }}>🐾 PAW TAP!</span>
       </div>
 
@@ -302,11 +294,6 @@ export default function PawTapGame() {
                 </p>
                 {score > 3 && <p className="font-pixel text-[#FF6B9D] mb-4" style={{ fontSize: 6 }}>EREN IS THRILLED! ♥</p>}
                 <div className="flex gap-3 mt-1">
-                  <button onClick={() => router.back()}
-                    className="px-4 py-2 active:translate-y-[1px] transition-transform"
-                    style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 3, border: '2px solid rgba(255,255,255,0.3)', boxShadow: '2px 2px 0 rgba(0,0,0,0.2)', fontFamily: '"Press Start 2P"', fontSize: 7, color: 'white' }}>
-                    BACK
-                  </button>
                   <button onClick={startGame}
                     className="px-4 py-2 text-white active:translate-y-[1px] transition-transform flex items-center gap-2"
                     style={{ background: 'linear-gradient(135deg, #4EAADC, #2A88C0)', borderRadius: 3, border: '2px solid #1A70A8', boxShadow: '2px 2px 0 #105888', fontFamily: '"Press Start 2P"', fontSize: 7 }}>

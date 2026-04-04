@@ -1,13 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import type { Reminder, ReminderType, RepeatInterval } from '@/types'
 import { formatRelativeTime, cn } from '@/lib/utils'
 import {
-  ChevronLeft, Plus, X, Check, Bell, Trash2,
+  Plus, X, Check, Bell, Trash2,
   Syringe, Scissors, Gamepad2, UtensilsCrossed, Stethoscope
 } from 'lucide-react'
 
@@ -29,7 +28,6 @@ const REPEAT_OPTIONS: { value: RepeatInterval; label: string }[] = [
 ]
 
 export default function RemindersPage() {
-  const router   = useRouter()
   const supabase = createClient()
   const { user, profile } = useAuth()
 
@@ -150,9 +148,6 @@ export default function RemindersPage() {
     <div className="page-scroll">
       {/* Header */}
       <div className="flex items-center gap-3 mb-1">
-        <button onClick={() => router.back()} className="btn-ghost p-2">
-          <ChevronLeft size={24} />
-        </button>
         <h1 className="text-2xl font-bold text-[#1F1F2E]">Reminders</h1>
         <div className="flex-1" />
         <button

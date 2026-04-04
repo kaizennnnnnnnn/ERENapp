@@ -4,10 +4,10 @@ import { useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useCare } from '@/contexts/CareContext'
 
-// Pages reachable by left/right swipe from /home
-// swipe left  → /games
-// swipe right → opens feed care scene (then swipe within CareSceneHost)
-const LEFT_OF_HOME  = '/games'
+// Swipe order: games ← home → care rooms
+//              memories ↔ profile navigated the same way
+// Full left-right order for non-home pages:
+const PAGE_ORDER = ['/games', '/home', '/memories', '/profile']
 
 export default function PageSwiper({ children }: { children: React.ReactNode }) {
   const router   = useRouter()
@@ -28,20 +28,17 @@ export default function PageSwiper({ children }: { children: React.ReactNode }) 
     const dy = touchStartY.current - e.changedTouches[0].clientY
     if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return
 
-    const onHome = pathname === '/home'
-
-    if (onHome) {
-      if (dx > 0) openScene('feed')           // swipe left  → care rooms
-      else        router.push(LEFT_OF_HOME)   // swipe right → games
-      return
-    }
-
-    // Other pages: /games ↔ /memories ↔ /profile
-    const PAGE_ORDER = ['/games', '/memories', '/profile']
     const idx = PAGE_ORDER.findIndex(p => pathname === p || pathname.startsWith(p + '/'))
     if (idx === -1) return
-    if (dx > 0 && idx < PAGE_ORDER.length - 1) router.push(PAGE_ORDER[idx + 1])
-    else if (dx < 0 && idx > 0)                router.push(PAGE_ORDER[idx - 1])
+
+    if (dx > 0) {
+      // swipe left → go right in order
+      if (pathname === '/home') openScene('feed')               // home → care rooms
+      else if (idx < PAGE_ORDER.length - 1) router.push(PAGE_ORDER[idx + 1])
+    } else {
+      // swipe right → go left in order
+      if (idx > 0) router.push(PAGE_ORDER[idx - 1])
+    }
   }
 
   return (

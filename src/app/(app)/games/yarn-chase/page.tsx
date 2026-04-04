@@ -1,12 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
-import { ChevronLeft, RefreshCw } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 
 const GAME_DURATION  = 30
 const TREAT_COUNT    = 3
@@ -34,7 +33,6 @@ function randomTreat(W: number, H: number, existing: Treat[]): Treat {
 }
 
 export default function YarnChaseGame() {
-  const router   = useRouter()
   const supabase = createClient()
   const { user, profile } = useAuth()
   const { applyAction } = useErenStats(profile?.household_id ?? null)
@@ -349,12 +347,6 @@ export default function YarnChaseGame() {
     <div className="page-scroll">
       {/* ── Header ── */}
       <div className="flex items-center gap-3 mb-4">
-        <button onClick={() => router.back()}
-          className="flex items-center gap-1 px-3 py-2 active:translate-y-[1px] transition-transform"
-          style={{ background: 'linear-gradient(135deg, #FFF8FF, #F0E8FF)', borderRadius: 3, border: '2px solid #D8C0F0', boxShadow: '0 3px 0 #C0A0E0' }}>
-          <ChevronLeft size={14} className="text-purple-500" />
-          <span className="font-pixel text-purple-500" style={{ fontSize: 6 }}>BACK</span>
-        </button>
         <span className="pixel-chip" style={{ background: 'linear-gradient(135deg, #FF6B9D, #C084FC)' }}>🧶 YARN CHASE</span>
       </div>
 
@@ -417,11 +409,6 @@ export default function YarnChaseGame() {
                 </p>
                 {score > 2 && <p className="font-pixel text-[#FF6B9D] mb-4" style={{ fontSize: 6 }}>EREN IS HAPPY! ♥</p>}
                 <div className="flex gap-3 mt-1">
-                  <button onClick={() => router.back()}
-                    className="px-4 py-2 active:translate-y-[1px] transition-transform"
-                    style={{ background: '#F5F0FF', borderRadius: 3, border: '2px solid #D8C0F0', boxShadow: '2px 2px 0 #C0A8E8', fontFamily: '"Press Start 2P"', fontSize: 7, color: '#7C3AED' }}>
-                    BACK
-                  </button>
                   <button onClick={startGame}
                     className="px-4 py-2 text-white active:translate-y-[1px] transition-transform flex items-center gap-2"
                     style={{ background: 'linear-gradient(135deg, #FF6B9D, #C084FC)', borderRadius: 3, border: '2px solid #CC3366', boxShadow: '2px 2px 0 #991A4A', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
