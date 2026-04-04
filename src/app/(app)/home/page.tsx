@@ -299,7 +299,7 @@ export default function HomePage() {
           {/* Row 2: Mini stat bars */}
           <div className="flex gap-1.5">
             {MINI_STATS.map(({ key, icon, color }) => {
-              const raw = (stats as Record<string, unknown>)[key]
+              const raw = (stats as unknown as Record<string, unknown>)[key]
               const val = Math.round(Math.max(0, Math.min(100, (typeof raw === 'number' ? raw : 0))))
               const barColor = val >= 60 ? color : val >= 30 ? '#facc15' : '#f87171'
               return (
