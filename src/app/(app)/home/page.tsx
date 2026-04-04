@@ -15,7 +15,8 @@ import { useCare } from '@/contexts/CareContext'
 import { useTasks } from '@/contexts/TaskContext'
 import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 import { format } from 'date-fns'
-import { Bell, Sparkles } from 'lucide-react'
+import Link from 'next/link'
+import { Bell, Sparkles, Image, User } from 'lucide-react'
 import TaskPanel from '@/components/TaskPanel'
 import ReminderSheet from '@/components/ReminderSheet'
 import { registerSW } from '@/lib/reminders'
@@ -316,6 +317,22 @@ export default function HomePage() {
 
           {/* Row 3: Quests */}
           <TaskPanel />
+        </div>
+
+        {/* ── Floating: Memories + Profile (bottom-right, above nav) ── */}
+        <div className="absolute right-3 z-10 flex flex-col gap-2" style={{ bottom: 90 }}>
+          <Link href="/memories"
+            className="flex items-center gap-1.5 active:scale-90 transition-transform px-3 py-2"
+            style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', borderRadius: 8, border: '1px solid rgba(255,150,200,0.4)' }}>
+            <Image size={14} style={{ color: '#FF9DC0' }} />
+            <span className="font-pixel" style={{ fontSize: 6, color: '#FF9DC0' }}>PICS</span>
+          </Link>
+          <Link href="/profile"
+            className="flex items-center gap-1.5 active:scale-90 transition-transform px-3 py-2"
+            style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', borderRadius: 8, border: '1px solid rgba(167,139,250,0.4)' }}>
+            <User size={14} style={{ color: '#A78BFA' }} />
+            <span className="font-pixel" style={{ fontSize: 6, color: '#A78BFA' }}>PROFILE</span>
+          </Link>
         </div>
       </div>
     </>

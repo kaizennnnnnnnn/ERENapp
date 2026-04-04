@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
-import { ChevronLeft } from 'lucide-react'
+import Link from 'next/link'
+import { ChevronLeft, Gamepad2 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
@@ -96,6 +97,14 @@ export default function PlayScene({ onClose }: Props) {
         style={{ background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(8px)', borderRadius: 3, border: '2px solid rgba(160,120,230,0.4)', boxShadow: '2px 2px 0 rgba(120,80,200,0.2)', padding: 8 }}>
         <ChevronLeft size={20} className="text-purple-700" />
       </button>
+
+      {/* Games link */}
+      <Link href="/games" onClick={e => e.stopPropagation()}
+        className="absolute top-4 right-4 z-50 flex items-center gap-1.5 active:scale-95 transition-transform"
+        style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)', borderRadius: 3, border: '2px solid rgba(160,120,230,0.4)', boxShadow: '2px 2px 0 rgba(120,80,200,0.2)', padding: '7px 10px' }}>
+        <Gamepad2 size={14} className="text-purple-600" />
+        <span className="font-pixel text-purple-600" style={{ fontSize: 6 }}>GAMES</span>
+      </Link>
 
       {toast && (
         <div className="absolute top-14 left-1/2 -translate-x-1/2 z-50 text-white px-4 py-2 animate-float whitespace-nowrap"
