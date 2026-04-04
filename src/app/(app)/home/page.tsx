@@ -251,13 +251,13 @@ export default function HomePage() {
         }} />
 
         {/* Rug */}
-        <div className="absolute" style={{ bottom: 90, left: '50%', transform: 'translateX(-50%)', width: 180, height: 60, background: '#C03050', border: '3px solid #902040', borderRadius: 4, zIndex: 1 }}>
+        <div className="absolute" style={{ bottom: 80, left: '50%', transform: 'translateX(-50%)', width: 180, height: 60, background: '#C03050', border: '3px solid #902040', borderRadius: 4, zIndex: 1 }}>
           <div className="absolute inset-2" style={{ border: '2px solid #E05070', borderRadius: 2 }} />
         </div>
 
         {/* === EREN === */}
         <div className="absolute" style={{
-          bottom: 90, left: '50%', transform: 'translateX(-50%)', zIndex: 2,
+          bottom: 80, left: '50%', transform: 'translateX(-50%)', zIndex: 2,
           filter: mood === 'angry' ? 'hue-rotate(340deg) saturate(1.3)' : mood === 'sleepy' ? 'brightness(0.85)' : 'none',
         }}>
           <img id="eren-img" src="/erenGood.png" alt="Eren" draggable={false}
@@ -265,7 +265,7 @@ export default function HomePage() {
         </div>
 
         {/* Speech bubble */}
-        <div className="absolute" style={{ bottom: 250, left: '55%', zIndex: 3, background: 'white', borderRadius: 4, border: '2px solid #F0D8FF', boxShadow: '2px 2px 0 #E0CCFF', padding: '4px 10px', whiteSpace: 'nowrap' }}>
+        <div className="absolute" style={{ bottom: 240, left: '55%', zIndex: 3, background: 'white', borderRadius: 4, border: '2px solid #F0D8FF', boxShadow: '2px 2px 0 #E0CCFF', padding: '4px 10px', whiteSpace: 'nowrap' }}>
           <p className="text-xs text-gray-600 font-medium">{MOOD_GREETINGS[mood] ?? MOOD_GREETINGS.idle}</p>
           <div className="absolute" style={{ bottom: -6, left: 10, width: 8, height: 6, background: 'white', clipPath: 'polygon(0% 0%, 100% 0%, 50% 100%)' }} />
         </div>
@@ -273,7 +273,7 @@ export default function HomePage() {
         {/* ══ HUD OVERLAY (top of room) ══ */}
         <div className="absolute top-0 left-0 right-0 z-10 px-3 pt-3 flex flex-col gap-2">
 
-          {/* Row 1: XP bar + Coins + Bell */}
+          {/* Row 1: XP bar + Coins + Bell + Pics + Profile */}
           <div className="flex items-center gap-2">
             <div ref={xpBarRef} className="flex-1 flex items-center gap-1.5 px-2.5 h-9"
               style={{ background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(8px)', borderRadius: 8, border: '1px solid rgba(167,139,250,0.35)' }}>
@@ -295,6 +295,16 @@ export default function HomePage() {
               style={{ background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(8px)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)' }}>
               <Bell size={16} className="text-white/80" />
             </button>
+            <Link href="/memories"
+              className="w-9 h-9 flex items-center justify-center active:scale-90 transition-transform"
+              style={{ background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(8px)', borderRadius: 8, border: '1px solid rgba(255,150,200,0.3)' }}>
+              <Image size={16} style={{ color: '#FF9DC0' }} />
+            </Link>
+            <Link href="/profile"
+              className="w-9 h-9 flex items-center justify-center active:scale-90 transition-transform"
+              style={{ background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(8px)', borderRadius: 8, border: '1px solid rgba(167,139,250,0.3)' }}>
+              <User size={16} style={{ color: '#A78BFA' }} />
+            </Link>
           </div>
 
           {/* Row 2: Mini stat bars */}
@@ -319,21 +329,6 @@ export default function HomePage() {
           <TaskPanel />
         </div>
 
-        {/* ── Floating: Memories + Profile (bottom-right, above nav) ── */}
-        <div className="absolute right-3 z-10 flex flex-col gap-2" style={{ bottom: 90 }}>
-          <Link href="/memories"
-            className="flex items-center gap-1.5 active:scale-90 transition-transform px-3 py-2"
-            style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', borderRadius: 8, border: '1px solid rgba(255,150,200,0.4)' }}>
-            <Image size={14} style={{ color: '#FF9DC0' }} />
-            <span className="font-pixel" style={{ fontSize: 6, color: '#FF9DC0' }}>PICS</span>
-          </Link>
-          <Link href="/profile"
-            className="flex items-center gap-1.5 active:scale-90 transition-transform px-3 py-2"
-            style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', borderRadius: 8, border: '1px solid rgba(167,139,250,0.4)' }}>
-            <User size={14} style={{ color: '#A78BFA' }} />
-            <span className="font-pixel" style={{ fontSize: 6, color: '#A78BFA' }}>PROFILE</span>
-          </Link>
-        </div>
       </div>
     </>
   )

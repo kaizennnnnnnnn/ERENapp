@@ -1,17 +1,16 @@
 import { CareProvider } from '@/contexts/CareContext'
 import { TaskProvider } from '@/contexts/TaskContext'
-import BottomNav from '@/components/BottomNav'
 import CareSceneHost from '@/components/care/CareSceneHost'
+import PageSwiper from '@/components/PageSwiper'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <CareProvider>
       <TaskProvider>
-        <div className="relative">
+        <PageSwiper>
           <main>{children}</main>
           <CareSceneHost />
-          <BottomNav />
-        </div>
+        </PageSwiper>
       </TaskProvider>
     </CareProvider>
   )

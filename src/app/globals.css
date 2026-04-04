@@ -33,8 +33,8 @@
 
   /* ── Page scroll area (above bottom nav) ── */
   .page-scroll {
-    @apply pb-24 pt-4 px-4 overflow-y-auto;
-    min-height: calc(100dvh - 4rem);
+    @apply pb-8 pt-4 px-4 overflow-y-auto;
+    min-height: 100dvh;
   }
 
   /* ── Cards ── */
