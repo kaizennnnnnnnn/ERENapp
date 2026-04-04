@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { useCare, type CareScene } from '@/contexts/CareContext'
 import FeedScene from './FeedScene'
 import PlayScene from './PlayScene'
@@ -26,6 +26,14 @@ const SCENE_COLORS: Record<CareScene, string> = {
   hospital: '#F87171',
 }
 
+// Background images per scene — null means CSS-only (no preload needed)
+const SCENE_IMAGES: Partial<Record<CareScene, string>> = {
+  feed:  '/kitchen.png',
+  play:  '/playroom.png',
+  sleep: '/bedroom.png',
+  wash:  '/bathroom.png',
+}
+
 export default function CareSceneHost() {
   const { activeScene, isSick, openScene, closeScene } = useCare()
 
@@ -33,8 +41,25 @@ export default function CareSceneHost() {
 
   const touchStartX = useRef(0)
   const touchStartY = useRef(0)
-  const [slideDir, setSlideDir]   = useState<'left' | 'right' | null>(null)
-  const [animKey,  setAnimKey]    = useState(0)
+  const [slideDir, setSlideDir] = useState<'left' | 'right' | null>(null)
+  const [animKey,  setAnimKey]  = useState(0)
+  const [ready,    setReady]    = useState(false)
+
+  // Preload background image before revealing the scene
+  useEffect(() => {
+    if (!activeScene) return
+    const src = SCENE_IMAGES[activeScene]
+    if (!src) {
+      // CSS-only scene — show immediately
+      setReady(true)
+      return
+    }
+    setReady(false)
+    const img = new Image()
+    img.onload  = () => setReady(true)
+    img.onerror = () => setReady(true) // show anyway on error
+    img.src = src
+  }, [activeScene])
 
   if (!activeScene) return null
 
@@ -57,7 +82,6 @@ export default function CareSceneHost() {
   function onTouchEnd(e: React.TouchEvent) {
     const dx = touchStartX.current - e.changedTouches[0].clientX
     const dy = touchStartY.current - e.changedTouches[0].clientY
-    // Only trigger if horizontal swipe dominates and exceeds 55px
     if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.5) return
     navigate(dx > 0 ? 'left' : 'right')
   }
@@ -79,16 +103,28 @@ export default function CareSceneHost() {
           from { transform: translateX(-100%); opacity: 0.6; }
           to   { transform: translateX(0);     opacity: 1;   }
         }
+        @keyframes fadeInDown {
+          from { opacity: 0; transform: translateY(-6px); }
+          to   { opacity: 1; transform: translateY(0);    }
+        }
       `}</style>
 
-      {/* Swipe wrapper */}
-      {/* Solid backdrop — prevents home screen showing through during swipe */}
+      {/* Solid backdrop */}
       <div className="fixed inset-0 z-40 bg-black" />
 
+      {/* Loading spinner — shown while image preloads */}
+      {!ready && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div style={{ width: 36, height: 36, border: '3px solid rgba(255,255,255,0.15)', borderTop: '3px solid rgba(255,255,255,0.8)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      )}
+
+      {/* Scene — hidden until image is ready */}
       <div
         key={animKey}
         className="fixed inset-0 z-40"
-        style={animStyle}
+        style={{ ...animStyle, opacity: ready ? 1 : 0 }}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
@@ -99,36 +135,32 @@ export default function CareSceneHost() {
         {activeScene === 'hospital' && <HospitalScene {...props} />}
       </div>
 
-      {/* Scene indicator dots */}
-      <div className="fixed bottom-4 left-1/2 z-50 flex items-center gap-2 px-3 py-1.5"
-        style={{ transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.35)', borderRadius: 20, backdropFilter: 'blur(6px)', pointerEvents: 'none' }}>
-        {scenes.map((s, i) => (
-          <div key={s} style={{
-            width:  i === currentIdx ? 18 : 7,
-            height: 7,
-            borderRadius: 4,
-            background: i === currentIdx ? SCENE_COLORS[s] : 'rgba(255,255,255,0.4)',
-            transition: 'all 0.25s ease',
-            boxShadow: i === currentIdx ? `0 0 6px 2px ${SCENE_COLORS[s]}88` : 'none',
-          }} />
-        ))}
-      </div>
+      {/* Dot indicators */}
+      {ready && (
+        <div className="fixed bottom-4 left-1/2 z-50 flex items-center gap-2 px-3 py-1.5"
+          style={{ transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.35)', borderRadius: 20, backdropFilter: 'blur(6px)', pointerEvents: 'none' }}>
+          {scenes.map((s, i) => (
+            <div key={s} style={{
+              width:  i === currentIdx ? 18 : 7,
+              height: 7,
+              borderRadius: 4,
+              background: i === currentIdx ? SCENE_COLORS[s] : 'rgba(255,255,255,0.4)',
+              transition: 'all 0.25s ease',
+              boxShadow: i === currentIdx ? `0 0 6px 2px ${SCENE_COLORS[s]}88` : 'none',
+            }} />
+          ))}
+        </div>
+      )}
 
       {/* Room name label */}
-      <div className="fixed top-16 left-1/2 z-50 pointer-events-none"
-        style={{ transform: 'translateX(-50%)' }}>
-        <span key={activeScene} className="font-pixel text-white px-3 py-1"
-          style={{ fontSize: 7, background: 'rgba(0,0,0,0.4)', borderRadius: 10, backdropFilter: 'blur(4px)', animation: 'fadeInDown 0.3s ease both' }}>
-          {SCENE_LABELS[activeScene]}
-        </span>
-      </div>
-
-      <style>{`
-        @keyframes fadeInDown {
-          from { opacity: 0; transform: translateY(-6px); }
-          to   { opacity: 1; transform: translateY(0);    }
-        }
-      `}</style>
+      {ready && (
+        <div className="fixed top-16 left-1/2 z-50 pointer-events-none" style={{ transform: 'translateX(-50%)' }}>
+          <span key={activeScene} className="font-pixel text-white px-3 py-1"
+            style={{ fontSize: 7, background: 'rgba(0,0,0,0.4)', borderRadius: 10, backdropFilter: 'blur(4px)', animation: 'fadeInDown 0.3s ease both' }}>
+            {SCENE_LABELS[activeScene]}
+          </span>
+        </div>
+      )}
     </>
   )
 }
