@@ -14,6 +14,7 @@ interface TaskContextValue {
   taskProgress: Map<TaskId, number>  // weekly task id → current progress count
   completeTask: (taskId: TaskId) => Promise<{ coins: number; xp: number; levelUp: boolean } | null>
   addCoins: (amount: number) => Promise<void>
+  spendCoins: (amount: number) => Promise<boolean>
   coins: number
   xp: number
   level: number
@@ -99,6 +100,16 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     await supabase.from('profiles').update({ coins: next }).eq('id', user.id)
   }, [user?.id, coins]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Spend coins (returns false if insufficient) ──────────────────────────
+  const spendCoins = useCallback(async (amount: number): Promise<boolean> => {
+    if (!user?.id || coins < amount) return false
+    const next = coins - amount
+    setCoins(next)
+    const { error } = await supabase.from('profiles').update({ coins: next }).eq('id', user.id)
+    if (error) { setCoins(coins); return false }
+    return true
+  }, [user?.id, coins]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Complete a task ──────────────────────────────────────────────────────
   const completeTask = useCallback(async (taskId: TaskId): Promise<{ coins: number; xp: number; levelUp: boolean } | null> => {
     if (!user?.id) return null
@@ -182,7 +193,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   }, [user?.id, completedIds, coins, xp, level]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <TaskContext.Provider value={{ completedIds, taskProgress, completeTask, addCoins, coins, xp, level, loading }}>
+    <TaskContext.Provider value={{ completedIds, taskProgress, completeTask, addCoins, spendCoins, coins, xp, level, loading }}>
       {children}
     </TaskContext.Provider>
   )

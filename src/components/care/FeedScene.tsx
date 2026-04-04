@@ -74,8 +74,8 @@ function FoodIcon({ id, color }: { id: string; color: string }) {
 
 export default function FeedScene({ onClose }: Props) {
   const { user, profile } = useAuth()
-  const { stats, feedWithFood, spendCoins, saveFoodInventory } = useErenStats(profile?.household_id ?? null)
-  const { completeTask } = useTasks()
+  const { stats, feedWithFood, saveFoodInventory } = useErenStats(profile?.household_id ?? null)
+  const { completeTask, coins, spendCoins } = useTasks()
 
   const [tab, setTab] = useState<'shop' | 'fridge' | null>(null)
   const [buying, setBuying] = useState<string | null>(null)
@@ -83,7 +83,6 @@ export default function FeedScene({ onClose }: Props) {
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
   const [eatAnim, setEatAnim] = useState(false)
 
-  const coins = stats?.coins ?? 0
   const inventory: FoodInventory = stats?.food_inventory ?? {}
   const fridgeItems = SHOP_ITEMS.filter(i => (inventory[i.id] ?? 0) > 0)
   const mood = eatAnim ? 'happy' : (stats?.hunger ?? 100) < 40 ? 'hungry' : 'idle'
