@@ -45,20 +45,26 @@ export default function CareSceneHost() {
   const [animKey,  setAnimKey]  = useState(0)
   const [ready,    setReady]    = useState(false)
 
-  // Preload background image before revealing the scene
+  // Preload background + Eren simultaneously before revealing the scene
   useEffect(() => {
     if (!activeScene) return
-    const src = SCENE_IMAGES[activeScene]
-    if (!src) {
-      // CSS-only scene — show immediately
-      setReady(true)
-      return
-    }
+    const bgSrc = SCENE_IMAGES[activeScene]
     setReady(false)
-    const img = new Image()
-    img.onload  = () => setReady(true)
-    img.onerror = () => setReady(true) // show anyway on error
-    img.src = src
+
+    const toLoad = ['/erenGood.png', ...(bgSrc ? [bgSrc] : [])]
+    let loaded = 0
+
+    function onDone() {
+      loaded++
+      if (loaded >= toLoad.length) setReady(true)
+    }
+
+    toLoad.forEach(src => {
+      const img = new Image()
+      img.onload  = onDone
+      img.onerror = onDone
+      img.src     = src
+    })
   }, [activeScene])
 
   if (!activeScene) return null
