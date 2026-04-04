@@ -40,7 +40,7 @@ export default function SleepScene({ onClose }: Props) {
       <img src="/bedroom.png" alt="" className="absolute inset-0 w-full h-full" style={{ objectFit: "cover", objectPosition: "center" }} draggable={false} />
 
       {/* ══ EREN ══ */}
-      <div className={cn('absolute z-10 transition-all duration-700', tuckedIn ? 'bottom-[12%]' : 'bottom-[10%]')}
+      <div className={cn('absolute z-10 transition-all duration-700', tuckedIn ? 'bottom-[24%]' : 'bottom-[22%]')}
         style={{ left: '50%', transform: 'translateX(-50%)' }}>
         <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 200, height: 200, objectFit: 'contain', imageRendering: 'pixelated' }} />
       </div>
