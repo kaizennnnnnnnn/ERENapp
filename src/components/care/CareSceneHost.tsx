@@ -82,6 +82,9 @@ export default function CareSceneHost() {
       `}</style>
 
       {/* Swipe wrapper */}
+      {/* Solid backdrop — prevents home screen showing through during swipe */}
+      <div className="fixed inset-0 z-40 bg-black" />
+
       <div
         key={animKey}
         className="fixed inset-0 z-40"
