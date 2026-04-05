@@ -8,7 +8,7 @@ import SleepScene from './SleepScene'
 import WashScene from './WashScene'
 import HospitalScene from './HospitalScene'
 
-const SCENE_ORDER: CareScene[] = ['feed', 'play', 'sleep', 'wash', 'hospital']
+const LOOP_SCENES: CareScene[] = ['feed', 'play', 'sleep', 'wash']
 
 const SCENE_LABELS: Record<CareScene, string> = {
   feed:     'Kitchen',
@@ -35,15 +35,15 @@ const SCENE_IMAGES: Partial<Record<CareScene, string>> = {
 }
 
 export default function CareSceneHost() {
-  const { activeScene, isSick, openScene, closeScene } = useCare()
+  const { activeScene, openScene, closeScene } = useCare()
 
-  const scenes = isSick ? SCENE_ORDER : SCENE_ORDER.filter(s => s !== 'hospital')
-
-  const touchStartX = useRef(0)
+const touchStartX = useRef(0)
   const touchStartY = useRef(0)
   const [slideDir, setSlideDir] = useState<'left' | 'right' | null>(null)
   const [animKey,  setAnimKey]  = useState(0)
   const [ready,    setReady]    = useState(false)
+
+  const loopIdx = LOOP_SCENES.indexOf(activeScene as CareScene)
 
   // Preload background + Eren simultaneously before revealing the scene
   useEffect(() => {
@@ -69,15 +69,16 @@ export default function CareSceneHost() {
 
   if (!activeScene) return null
 
-  const currentIdx = scenes.indexOf(activeScene)
 
   function navigate(dir: 'left' | 'right') {
-    const nextIdx = dir === 'left'
-      ? (currentIdx + 1) % scenes.length
-      : (currentIdx - 1 + scenes.length) % scenes.length
-    setSlideDir(dir)
-    setAnimKey(k => k + 1)
-    openScene(scenes[nextIdx])
+    if (loopIdx === -1) return // hospital — no swipe nav
+    if (dir === 'left') {
+      if (loopIdx === LOOP_SCENES.length - 1) { closeScene(); return } // bathroom → home
+      setSlideDir('left'); setAnimKey(k => k + 1); openScene(LOOP_SCENES[loopIdx + 1])
+    } else {
+      if (loopIdx === 0) { closeScene(); return } // kitchen → home
+      setSlideDir('right'); setAnimKey(k => k + 1); openScene(LOOP_SCENES[loopIdx - 1])
+    }
   }
 
   function onTouchStart(e: React.TouchEvent) {
@@ -145,14 +146,14 @@ export default function CareSceneHost() {
       {ready && (
         <div className="fixed bottom-4 left-1/2 z-50 flex items-center gap-2 px-3 py-1.5"
           style={{ transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.35)', borderRadius: 20, backdropFilter: 'blur(6px)', pointerEvents: 'none' }}>
-          {scenes.map((s, i) => (
+          {LOOP_SCENES.map((s, i) => (
             <div key={s} style={{
-              width:  i === currentIdx ? 18 : 7,
+              width:  i === loopIdx ? 18 : 7,
               height: 7,
               borderRadius: 4,
-              background: i === currentIdx ? SCENE_COLORS[s] : 'rgba(255,255,255,0.4)',
+              background: i === loopIdx ? SCENE_COLORS[s] : 'rgba(255,255,255,0.4)',
               transition: 'all 0.25s ease',
-              boxShadow: i === currentIdx ? `0 0 6px 2px ${SCENE_COLORS[s]}88` : 'none',
+              boxShadow: i === loopIdx ? `0 0 6px 2px ${SCENE_COLORS[s]}88` : 'none',
             }} />
           ))}
         </div>
