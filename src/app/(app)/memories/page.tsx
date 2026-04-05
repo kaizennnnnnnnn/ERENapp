@@ -7,10 +7,12 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import type { Memory } from '@/types'
 import { formatDate, cn } from '@/lib/utils'
-import { Camera, Heart, Plus, Trash2, X } from 'lucide-react'
+import { Camera, Heart, Plus, Trash2, X, ChevronLeft } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 
 export default function MemoriesPage() {
+  const router = useRouter()
   const supabase = createClient()
   const { user, profile } = useAuth()
 
@@ -104,7 +106,13 @@ export default function MemoriesPage() {
   return (
     <div className="page-scroll">
       <div className="flex items-center justify-between mb-1">
-        <span className="pixel-chip" style={{ background: 'linear-gradient(135deg, #FF6B9D, #F5C842)' }}>📸 MEMORIES</span>
+        <div className="flex items-center gap-2">
+          <button onClick={() => router.back()} className="flex items-center justify-center active:scale-90 transition-transform"
+            style={{ width: 32, height: 32, background: 'linear-gradient(135deg, #FFF8FF, #F0E8FF)', borderRadius: 8, border: '2px solid #D8C0F0', boxShadow: '0 2px 0 #C0A0E0' }}>
+            <ChevronLeft size={16} className="text-purple-500" />
+          </button>
+          <span className="pixel-chip" style={{ background: 'linear-gradient(135deg, #FF6B9D, #F5C842)' }}>📸 MEMORIES</span>
+        </div>
         <button
           onClick={() => setShowAdd(true)}
           className="flex items-center gap-1.5 px-3 py-2 text-white transition-all active:translate-y-[2px]"

@@ -4,6 +4,8 @@ export const dynamic = 'force-dynamic'
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { ChevronLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import type { GameType, Profile } from '@/types'
@@ -53,6 +55,7 @@ interface PlayerScores {
 }
 
 export default function GamesPage() {
+  const router = useRouter()
   const { user, profile } = useAuth()
   const supabase = createClient()
 
@@ -116,6 +119,10 @@ export default function GamesPage() {
     <div className="page-scroll">
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-1">
+        <button onClick={() => router.back()} className="flex items-center justify-center active:scale-90 transition-transform"
+          style={{ width: 32, height: 32, background: 'linear-gradient(135deg, #FFF8FF, #F0E8FF)', borderRadius: 8, border: '2px solid #D8C0F0', boxShadow: '0 2px 0 #C0A0E0' }}>
+          <ChevronLeft size={16} className="text-purple-500" />
+        </button>
         <span className="pixel-chip" style={{ background: 'linear-gradient(135deg, #F5C842, #E8A020)' }}>🎮 GAMES</span>
       </div>
       <p className="text-sm text-gray-500 mb-5">Play with Eren &amp; earn happiness! ♥</p>
