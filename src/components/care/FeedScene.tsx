@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronLeft, ShoppingCart, Package } from 'lucide-react'
+import { ShoppingCart, Package } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
@@ -132,10 +132,6 @@ export default function FeedScene({ onClose }: Props) {
       </div>
 
       {/* ══ UI ══ */}
-      <button onClick={onClose} className="absolute top-4 left-4 z-50 active:scale-95"
-        style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)', borderRadius: 3, border: '2px solid rgba(255,200,100,0.4)', boxShadow: '2px 2px 0 rgba(180,140,40,0.2)', padding: 8 }}>
-        <ChevronLeft size={20} className="text-amber-800" />
-      </button>
 
       <div className="absolute top-4 right-4 z-50 flex items-center gap-1.5 px-3 py-1.5"
         style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)', borderRadius: 3, border: '2px solid #F5C842', boxShadow: '2px 2px 0 #C8A020' }}>

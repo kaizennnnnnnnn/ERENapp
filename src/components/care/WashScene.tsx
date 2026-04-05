@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
-import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
@@ -225,12 +224,6 @@ export default function WashScene({ onClose }: Props) {
         )}
       </div>
 
-      {/* ══ PIXEL BACK BUTTON ════════════════════════════════════════════ */}
-      <button onClick={onClose} className="absolute top-4 left-4 z-50 flex items-center gap-1.5 active:translate-y-[2px] transition-transform"
-        style={{ background: 'linear-gradient(135deg, #FFF8FF, #F0E8FF)', borderRadius: 3, border: '2px solid #D8C0F0', boxShadow: '0 3px 0 #C0A0E0', padding: '6px 10px' }}>
-        <ChevronLeft size={14} className="text-purple-500" />
-        <span className="font-pixel text-purple-500" style={{ fontSize: 6 }}>BACK</span>
-      </button>
 
       {/* ══ PIXEL SCENE LABEL ════════════════════════════════════════════ */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50">

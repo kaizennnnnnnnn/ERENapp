@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { cn } from '@/lib/utils'
@@ -374,11 +373,6 @@ export default function HospitalScene({ onClose }: Props) {
         </div>
       )}
 
-      {/* ══ BACK BUTTON ══ */}
-      <button onClick={onClose} className="absolute top-4 left-4 z-50 active:scale-95"
-        style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)', borderRadius: 3, border: '2px solid rgba(170,180,210,0.45)', boxShadow: '2px 2px 0 rgba(130,140,175,0.18)', padding: 8 }}>
-        <ChevronLeft size={20} className="text-slate-600" />
-      </button>
 
       {/* ══ SCENE LABEL ══ */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50">

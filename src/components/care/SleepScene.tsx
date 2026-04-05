@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
@@ -83,10 +82,6 @@ export default function SleepScene({ onClose }: Props) {
       )}
 
       {/* ══ UI ══ */}
-      <button onClick={onClose} className="absolute top-4 left-4 z-50 active:scale-95"
-        style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)', borderRadius: 3, border: '2px solid rgba(200,180,255,0.2)', boxShadow: '2px 2px 0 rgba(0,0,0,0.3)', padding: 8 }}>
-        <ChevronLeft size={20} className="text-indigo-200" />
-      </button>
 
       {toast && (
         <div className="absolute top-14 left-1/2 -translate-x-1/2 z-50 text-white px-4 py-2 animate-float whitespace-nowrap"

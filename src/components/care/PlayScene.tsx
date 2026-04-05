@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, Gamepad2 } from 'lucide-react'
+import { Gamepad2 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
@@ -92,12 +92,6 @@ export default function PlayScene({ onClose }: Props) {
       </div>
 
       {/* ══ UI ══ */}
-      <button onClick={(e) => { e.stopPropagation(); onClose() }}
-        className="absolute top-4 left-4 z-50 active:scale-95"
-        style={{ background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(8px)', borderRadius: 3, border: '2px solid rgba(160,120,230,0.4)', boxShadow: '2px 2px 0 rgba(120,80,200,0.2)', padding: 8 }}>
-        <ChevronLeft size={20} className="text-purple-700" />
-      </button>
-
       {/* Games link */}
       <Link href="/games" onClick={e => e.stopPropagation()}
         className="absolute top-4 right-4 z-50 flex items-center gap-1.5 active:scale-95 transition-transform"
