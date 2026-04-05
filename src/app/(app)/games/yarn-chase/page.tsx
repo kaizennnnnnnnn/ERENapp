@@ -1,11 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, ChevronLeft } from 'lucide-react'
 
 const GAME_DURATION  = 30
 const TREAT_COUNT    = 3
@@ -33,6 +34,7 @@ function randomTreat(W: number, H: number, existing: Treat[]): Treat {
 }
 
 export default function YarnChaseGame() {
+  const router = useRouter()
   const supabase = createClient()
   const { user, profile } = useAuth()
   const { applyAction } = useErenStats(profile?.household_id ?? null)
@@ -346,7 +348,11 @@ export default function YarnChaseGame() {
   return (
     <div className="page-scroll">
       {/* ── Header ── */}
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-2 mb-4">
+        <button onClick={() => router.back()} className="flex items-center justify-center active:scale-90 transition-transform flex-shrink-0"
+          style={{ width: 32, height: 32, background: 'linear-gradient(135deg, #FFF8FF, #F0E8FF)', borderRadius: 8, border: '2px solid #D8C0F0', boxShadow: '0 2px 0 #C0A0E0' }}>
+          <ChevronLeft size={16} className="text-purple-500" />
+        </button>
         <span className="pixel-chip" style={{ background: 'linear-gradient(135deg, #FF6B9D, #C084FC)' }}>🧶 YARN CHASE</span>
       </div>
 

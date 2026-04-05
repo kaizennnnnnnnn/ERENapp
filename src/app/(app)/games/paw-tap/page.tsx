@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, ChevronLeft } from 'lucide-react'
 
 const GAME_DURATION  = 15
 const FISH_POSITIONS = [
@@ -23,6 +24,7 @@ interface Bubble { id: number; x: number; animDuration: number; delay: number; s
 const FISH_EMOJIS = ['🐟', '🐠', '🐡', '🦐', '🦑']
 
 export default function PawTapGame() {
+  const router = useRouter()
   const supabase = createClient()
   const { user, profile } = useAuth()
   const { applyAction } = useErenStats(profile?.household_id ?? null)
@@ -126,7 +128,11 @@ export default function PawTapGame() {
   return (
     <div className="page-scroll">
       {/* ── Header ── */}
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-2 mb-4">
+        <button onClick={() => router.back()} className="flex items-center justify-center active:scale-90 transition-transform flex-shrink-0"
+          style={{ width: 32, height: 32, background: 'linear-gradient(135deg, #FFF8FF, #F0E8FF)', borderRadius: 8, border: '2px solid #D8C0F0', boxShadow: '0 2px 0 #C0A0E0' }}>
+          <ChevronLeft size={16} className="text-purple-500" />
+        </button>
         <span className="pixel-chip" style={{ background: 'linear-gradient(135deg, #6BAED6, #3A88B8)' }}>🐾 PAW TAP!</span>
       </div>
 
