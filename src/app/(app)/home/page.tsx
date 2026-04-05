@@ -119,7 +119,7 @@ export default function HomePage() {
     const srcs = ['/livingRoom.png', '/erenGood.png']
     let loaded = 0
     srcs.forEach(src => {
-      const img = new Image()
+      const img = new window.Image()
       img.onload = img.onerror = () => { loaded++; if (loaded >= srcs.length) setRoomReady(true) }
       img.src = src
     })
