@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useLayoutEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
@@ -87,10 +87,11 @@ export default function HomePage() {
     setTimeout(() => setXpParticles([]), 4200)
   }, [xp]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [todayMood, setTodayMood]     = useState<UserMood | null>(null)
-  const [moodChecked, setMoodChecked] = useState(false)
-  const [toast, setToast]             = useState<string | null>(null)
+  const [todayMood, setTodayMood]         = useState<UserMood | null>(null)
+  const [moodChecked, setMoodChecked]     = useState(false)
+  const [toast, setToast]                 = useState<string | null>(null)
   const [showReminders, setShowReminders] = useState(false)
+  const [roomReady, setRoomReady]         = useState(false)
 
   // Fast localStorage check
   useEffect(() => {
@@ -111,6 +112,18 @@ export default function HomePage() {
   useEffect(() => {
     if (stats) setIsSick(stats.is_sick ?? false)
   }, [stats?.is_sick]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Preload background + Eren before showing the room
+  useLayoutEffect(() => { setRoomReady(false) }, [])
+  useEffect(() => {
+    const srcs = ['/livingRoom.png', '/erenGood.png']
+    let loaded = 0
+    srcs.forEach(src => {
+      const img = new Image()
+      img.onload = img.onerror = () => { loaded++; if (loaded >= srcs.length) setRoomReady(true) }
+      img.src = src
+    })
+  }, [])
 
   // Load today's mood
   useEffect(() => {
@@ -175,7 +188,7 @@ export default function HomePage() {
     )
   }
 
-  if (loading || !stats) return LoadingScreen
+  if (loading || !stats || !roomReady) return LoadingScreen
 
   const mood = (stats.mood ?? 'idle') as string
 
