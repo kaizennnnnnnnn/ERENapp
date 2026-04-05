@@ -39,9 +39,10 @@ export default function CareSceneHost() {
 
 const touchStartX = useRef(0)
   const touchStartY = useRef(0)
-  const [slideDir, setSlideDir] = useState<'left' | 'right' | null>(null)
+  const [slideDir, setSlideDir] = useState<'left' | 'right'>('left')
   const [animKey,  setAnimKey]  = useState(0)
   const [ready,    setReady]    = useState(false)
+  const prevSceneRef = useRef<string | null>(null)
 
   const loopIdx = LOOP_SCENES.indexOf(activeScene as CareScene)
 
@@ -56,10 +57,19 @@ const touchStartX = useRef(0)
     const bgSrc = SCENE_IMAGES[activeScene]
     const toLoad = ['/erenGood.png', ...(bgSrc ? [bgSrc] : [])]
     let loaded = 0
+    const isFirstEntry = prevSceneRef.current === null
 
     function onDone() {
       loaded++
-      if (loaded >= toLoad.length) setReady(true)
+      if (loaded >= toLoad.length) {
+        // Slide in from right when entering from home (first entry)
+        if (isFirstEntry) {
+          setSlideDir('left')
+          setAnimKey(k => k + 1)
+        }
+        prevSceneRef.current = activeScene
+        setReady(true)
+      }
     }
 
     toLoad.forEach(src => {
@@ -68,6 +78,11 @@ const touchStartX = useRef(0)
       img.onerror = onDone
       img.src     = src
     })
+  }, [activeScene])
+
+  // Reset prevScene when scene is closed
+  useEffect(() => {
+    if (!activeScene) prevSceneRef.current = null
   }, [activeScene])
 
   if (!activeScene) return null
