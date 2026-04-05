@@ -54,7 +54,6 @@ const touchStartX = useRef(0)
   useEffect(() => {
     if (!activeScene) return
     const bgSrc = SCENE_IMAGES[activeScene]
-
     const toLoad = ['/erenGood.png', ...(bgSrc ? [bgSrc] : [])]
     let loaded = 0
 
@@ -64,7 +63,7 @@ const touchStartX = useRef(0)
     }
 
     toLoad.forEach(src => {
-      const img = new Image()
+      const img = new window.Image()
       img.onload  = onDone
       img.onerror = onDone
       img.src     = src
