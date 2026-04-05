@@ -94,7 +94,7 @@ export default function PlayScene({ onClose }: Props) {
 
       {/* ══ UI ══ */}
       {/* Games link */}
-      <button onClick={e => { e.stopPropagation(); onClose(); router.push('/games') }}
+      <button onClick={e => { e.stopPropagation(); router.push('/games'); setTimeout(onClose, 400) }}
         className="absolute top-4 right-4 z-50 flex items-center gap-1.5 active:scale-95 transition-transform"
         style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)', borderRadius: 3, border: '2px solid rgba(160,120,230,0.4)', boxShadow: '2px 2px 0 rgba(120,80,200,0.2)', padding: '7px 10px' }}>
         <Gamepad2 size={14} className="text-purple-600" />
