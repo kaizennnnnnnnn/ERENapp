@@ -113,7 +113,7 @@ export function useErenStats(householdId: string | null) {
       supabase.from('eren_stats').update({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, weight: newW, cleanliness: newCl, is_sick: newSick, mood: newMood, updated_at: new Date().toISOString() }).eq('household_id', householdId),
       supabase.from('interactions').insert({ household_id: householdId, user_id: userId, action_type: action, happiness_delta: cfg.deltas.happiness ?? 0, hunger_delta: cfg.deltas.hunger ?? 0, energy_delta: cfg.deltas.energy ?? 0, sleep_delta: cfg.deltas.sleep_quality ?? 0, weight_delta: cfg.deltas.weight ?? 0 }),
     ])
-    if (su.error) { await fetchStats(); return { success: false, message: 'Failed to save' } }
+    if (su.error) { await fetchStats(); return { success: false, message: su.error.message } }
     return { success: true, message: `${cfg.emoji} ${cfg.label} done!` }
   }, [stats, householdId, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps
 
