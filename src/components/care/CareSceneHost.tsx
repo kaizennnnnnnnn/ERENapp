@@ -146,10 +146,12 @@ const touchStartX = useRef(0)
         {activeScene === 'hospital' && <HospitalScene {...props} />}
       </div>
 
-      {/* Dot indicators */}
+      {/* Dot indicators — home dot + care room dots */}
       {ready && (
         <div className="fixed bottom-4 left-1/2 z-50 flex items-center gap-2 px-3 py-1.5"
           style={{ transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.35)', borderRadius: 20, backdropFilter: 'blur(6px)', pointerEvents: 'none' }}>
+          {/* Home dot (always dim when in a care scene) */}
+          <div style={{ width: 7, height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.4)', transition: 'all 0.25s ease' }} />
           {LOOP_SCENES.map((s, i) => (
             <div key={s} style={{
               width:  i === loopIdx ? 18 : 7,

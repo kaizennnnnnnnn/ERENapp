@@ -329,6 +329,17 @@ export default function HomePage() {
           <TaskPanel />
         </div>
 
+        {/* Dot indicators — home active + 4 care room dots */}
+        <div className="absolute bottom-4 left-1/2 z-10 flex items-center gap-2 px-3 py-1.5"
+          style={{ transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.35)', borderRadius: 20, backdropFilter: 'blur(6px)', pointerEvents: 'none' }}>
+          {/* Home dot — active */}
+          <div style={{ width: 18, height: 7, borderRadius: 4, background: '#FF6B9D', boxShadow: '0 0 6px 2px #FF6B9D88', transition: 'all 0.25s ease' }} />
+          {/* Care room dots */}
+          {['feed','play','sleep','wash'].map(s => (
+            <div key={s} style={{ width: 7, height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.4)', transition: 'all 0.25s ease' }} />
+          ))}
+        </div>
+
       </div>
     </>
   )
