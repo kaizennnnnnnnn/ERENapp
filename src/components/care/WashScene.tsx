@@ -80,7 +80,7 @@ export default function WashScene({ onClose }: Props) {
     if (dragShowerRef.current && !doneRef.current) {
       setShowerPos({ x: px, y: py })
       if (px > 22 && px < 78 && py > 55 && py < 95) {
-        setCoverage(c => Math.max(0, c - 2.5))
+        setCoverage(c => Math.max(0, c - 0.6))
         setBubbles(bs => bs.slice(0, Math.max(0, bs.length - 3)))
       }
     }
@@ -134,17 +134,6 @@ export default function WashScene({ onClose }: Props) {
     >
       {/* ══ BACKGROUND IMAGE ══ */}
       <img src="/bathroom.png" alt="" className="absolute inset-0 w-full h-full" style={{ objectFit: 'cover', objectPosition: 'center' }} draggable={false} />
-
-      {/* ══ WATER DROPS from shower ═══════════════════════════════════════ */}
-      {dragShower && (
-        <div className="absolute pointer-events-none overflow-hidden"
-          style={{ left: `${showerPos.x}%`, top: `${showerPos.y}%`, transform: 'translateX(-50%)', width: 60, height: 120 }}>
-          {[-18,-10,-3,4,12,20].map((ox, i) => (
-            <div key={i} className="absolute rounded-full bg-sky-400/80"
-              style={{ left: 30 + ox, top: 24, width: 2, height: 18, animation: `fall 0.5s linear ${i * 0.06}s infinite` }} />
-          ))}
-        </div>
-      )}
 
       {/* ══ PIXEL EREN ════════════════════════════════════════════════════ */}
       <div className={cn('absolute transition-all duration-500', done ? 'bottom-[12%]' : 'bottom-[10%]')}

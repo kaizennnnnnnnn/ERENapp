@@ -92,6 +92,16 @@ export default function PlayScene({ onClose }: Props) {
         <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 200, height: 200, objectFit: 'contain', imageRendering: 'pixelated' }} />
       </div>
 
+      {/* ══ BALL TRAIL ══ */}
+      {trailDots.map((dot, i) => (
+        <div key={dot.id} className="absolute pointer-events-none rounded-full"
+          style={{ left: `${dot.x}%`, top: `${dot.y}%`, width: 10, height: 10, transform: 'translate(-50%,-50%)', background: '#FF6B9D', opacity: (i + 1) / trailDots.length * 0.45 }} />
+      ))}
+
+      {/* ══ BALL ══ */}
+      <div className="absolute pointer-events-none z-20"
+        style={{ left: `${ballPos.x}%`, top: `${ballPos.y}%`, transform: 'translate(-50%,-50%)', width: 22, height: 22, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%, #FF9EC8, #FF3E80)', border: '2px solid #CC1A55', boxShadow: '2px 2px 0 rgba(0,0,0,0.25), inset 1px 1px 3px rgba(255,255,255,0.5)' }} />
+
       {/* ══ UI ══ */}
       {/* Games link */}
       <button onClick={e => { e.stopPropagation(); router.push('/games'); setTimeout(onClose, 400) }}
