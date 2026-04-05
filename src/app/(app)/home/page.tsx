@@ -204,68 +204,27 @@ export default function HomePage() {
       {/* ══ FULL SCREEN ROOM ══ */}
       <div className="fixed inset-0" style={{ zIndex: 0 }}>
 
-        {/* === WALL (top 60%) === */}
-        <div className="absolute inset-x-0 top-0" style={{ height: '60%', background: '#F0E6D0' }}>
-          <div className="absolute inset-0" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 28px, rgba(210,180,140,0.2) 28px, rgba(210,180,140,0.2) 30px)' }} />
-          {/* Crown molding */}
-          <div className="absolute top-0 left-0 right-0 h-3" style={{ background: '#D4B896', borderBottom: '2px solid #B89060' }} />
+        {/* Background image */}
+        <img src="/livingRoom.png" alt="" className="absolute inset-0 w-full h-full" style={{ objectFit: 'cover', objectPosition: 'center' }} draggable={false} />
 
-          {/* Window center */}
-          <div className="absolute" style={{ top: 90, left: '50%', transform: 'translateX(-50%)', width: 90, height: 72, border: '3px solid #7A5030' }}>
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, #87CEEB, #B8E0FF)' }} />
-            <div className="absolute" style={{ top: 0, bottom: 0, left: '50%', width: 3, background: '#7A5030', transform: 'translateX(-50%)', zIndex: 2 }} />
-            <div className="absolute" style={{ left: 0, right: 0, top: '50%', height: 3, background: '#7A5030', transform: 'translateY(-50%)', zIndex: 2 }} />
-            <div className="absolute" style={{ top: 8, left: 5, width: 20, height: 9, background: 'white', borderRadius: 4, opacity: 0.85, zIndex: 1 }} />
-            <div className="absolute" style={{ top: 10, right: 7, width: 15, height: 8, background: 'white', borderRadius: 3, opacity: 0.8, zIndex: 1 }} />
-          </div>
-          {/* Window sill */}
-          <div className="absolute" style={{ top: 162, left: '50%', transform: 'translateX(-50%)', width: 104, height: 6, background: '#7A5030' }} />
-
-          {/* Shelf + books left */}
-          <div className="absolute" style={{ top: 110, left: 12, width: 58, height: 5, background: '#A07850', border: '2px solid #7A5030' }} />
-          <div className="absolute" style={{ top: 92, left: 14, width: 10, height: 20, background: '#E8705A', border: '2px solid #C05040' }} />
-          <div className="absolute" style={{ top: 92, left: 26, width: 8, height: 20, background: '#70B870', border: '2px solid #508850' }} />
-          <div className="absolute" style={{ top: 94, left: 36, width: 10, height: 18, background: '#F0C040', border: '2px solid #C09020' }} />
-
-          {/* Plant right */}
-          <div className="absolute" style={{ bottom: 0, right: 16 }}>
-            <div style={{ width: 24, height: 20, background: '#C87840', border: '2px solid #A05830', borderRadius: '0 0 4px 4px', margin: '0 auto' }} />
-            <div className="absolute" style={{ bottom: 18, left: '50%', transform: 'translateX(-50%)', width: 20, height: 24, background: '#50A850', border: '2px solid #308030', borderRadius: '10px 10px 2px 2px' }} />
-            <div className="absolute" style={{ bottom: 24, left: 0, width: 15, height: 13, background: '#60B860', border: '2px solid #408040', borderRadius: '6px 2px 2px 6px', transform: 'rotate(-25deg)' }} />
-            <div className="absolute" style={{ bottom: 24, right: 0, width: 15, height: 13, background: '#60B860', border: '2px solid #408040', borderRadius: '2px 6px 6px 2px', transform: 'rotate(25deg)' }} />
-          </div>
-
-          {mood === 'happy' && (
-            <>
-              <Sparkles size={11} className="absolute text-yellow-400 animate-sparkle" style={{ bottom: 20, left: 30 }} />
-              <Sparkles size={9}  className="absolute text-pink-400  animate-sparkle" style={{ bottom: 40, right: 80, animationDelay: '0.7s' }} />
-            </>
-          )}
-        </div>
-
-        {/* === FLOOR (bottom 40%) === */}
-        <div className="absolute inset-x-0 bottom-0" style={{
-          height: '40%', background: '#C8A060',
-          backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 32px, rgba(0,0,0,0.07) 32px, rgba(0,0,0,0.07) 34px)',
-          borderTop: '3px solid #A07840',
-        }} />
-
-        {/* Rug */}
-        <div className="absolute" style={{ bottom: 80, left: '50%', transform: 'translateX(-50%)', width: 180, height: 60, background: '#C03050', border: '3px solid #902040', borderRadius: 4, zIndex: 1 }}>
-          <div className="absolute inset-2" style={{ border: '2px solid #E05070', borderRadius: 2 }} />
-        </div>
+        {mood === 'happy' && (
+          <>
+            <Sparkles size={11} className="absolute text-yellow-400 animate-sparkle" style={{ top: '30%', left: '10%', zIndex: 2 }} />
+            <Sparkles size={9}  className="absolute text-pink-400  animate-sparkle" style={{ top: '25%', right: '15%', zIndex: 2, animationDelay: '0.7s' }} />
+          </>
+        )}
 
         {/* === EREN === */}
         <div className="absolute" style={{
-          bottom: 80, left: '50%', transform: 'translateX(-50%)', zIndex: 2,
+          bottom: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 2,
           filter: mood === 'angry' ? 'hue-rotate(340deg) saturate(1.3)' : mood === 'sleepy' ? 'brightness(0.85)' : 'none',
         }}>
           <img id="eren-img" src="/erenGood.png" alt="Eren" draggable={false}
-            style={{ width: 170, height: 170, objectFit: 'contain', imageRendering: 'pixelated' }} />
+            style={{ width: 200, height: 200, objectFit: 'contain', imageRendering: 'pixelated' }} />
         </div>
 
         {/* Speech bubble */}
-        <div className="absolute" style={{ bottom: 240, left: '55%', zIndex: 3, background: 'white', borderRadius: 4, border: '2px solid #F0D8FF', boxShadow: '2px 2px 0 #E0CCFF', padding: '4px 10px', whiteSpace: 'nowrap' }}>
+        <div className="absolute" style={{ bottom: '32%', left: '55%', zIndex: 3, background: 'white', borderRadius: 4, border: '2px solid #F0D8FF', boxShadow: '2px 2px 0 #E0CCFF', padding: '4px 10px', whiteSpace: 'nowrap' }}>
           <p className="text-xs text-gray-600 font-medium">{MOOD_GREETINGS[mood] ?? MOOD_GREETINGS.idle}</p>
           <div className="absolute" style={{ bottom: -6, left: 10, width: 8, height: 6, background: 'white', clipPath: 'polygon(0% 0%, 100% 0%, 50% 100%)' }} />
         </div>
