@@ -122,11 +122,16 @@ const touchStartX = useRef(0)
       {/* Solid backdrop */}
       <div className="fixed inset-0 z-40 bg-black" />
 
-      {/* Loading spinner — shown while image preloads */}
+      {/* Custom loading screen — shown while images preload */}
       {!ready && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div style={{ width: 36, height: 36, border: '3px solid rgba(255,255,255,0.15)', borderTop: '3px solid rgba(255,255,255,0.8)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5 bg-gradient-to-b from-pink-50 to-[#FDF6FF]">
+          <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #C084FC 1px, transparent 1px)', backgroundSize: '18px 18px' }} />
+          <div className="relative z-10 animate-float">
+            <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 150, height: 150, objectFit: 'contain', imageRendering: 'pixelated' }} />
+          </div>
+          <p className="font-pixel text-gray-400 animate-pulse-soft relative z-10" style={{ fontSize: 8 }}>
+            LOADING<span className="animate-cursor">_</span>
+          </p>
         </div>
       )}
 
