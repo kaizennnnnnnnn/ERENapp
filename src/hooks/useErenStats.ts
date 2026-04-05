@@ -40,14 +40,14 @@ export function useErenStats(householdId: string | null) {
     const hoursElapsed = Math.min(12, (Date.now() - new Date(lastDecayStr).getTime()) / 3_600_000)
 
     if (hoursElapsed >= 0.25) {
-      // Round to 1 decimal to avoid floating point strings like 67.124911111...
-      const round1 = (n: number) => Math.round(n * 10) / 10
+      const ri = (n: number) => Math.round(clampStat(n)) // integer columns
+      const rf = (n: number) => Math.round(clampStat(n) * 10) / 10 // numeric columns
 
-      const newHunger      = round1(clampStat(raw.hunger        + DECAY_PER_HOUR.hunger        * hoursElapsed))
-      const newHappiness   = round1(clampStat(raw.happiness     + DECAY_PER_HOUR.happiness     * hoursElapsed))
-      const newEnergy      = round1(clampStat(raw.energy        + DECAY_PER_HOUR.energy        * hoursElapsed))
-      const newSleep       = round1(clampStat(raw.sleep_quality + DECAY_PER_HOUR.sleep_quality * hoursElapsed))
-      const newCleanliness = round1(clampStat((raw.cleanliness ?? 100) + DECAY_PER_HOUR.cleanliness * hoursElapsed))
+      const newHunger      = ri(raw.hunger        + DECAY_PER_HOUR.hunger        * hoursElapsed)
+      const newHappiness   = ri(raw.happiness     + DECAY_PER_HOUR.happiness     * hoursElapsed)
+      const newEnergy      = ri(raw.energy        + DECAY_PER_HOUR.energy        * hoursElapsed)
+      const newSleep       = ri(raw.sleep_quality + DECAY_PER_HOUR.sleep_quality * hoursElapsed)
+      const newCleanliness = rf((raw.cleanliness ?? 100) + DECAY_PER_HOUR.cleanliness * hoursElapsed)
       const newIsSick = raw.is_sick ? true : shouldBecomeSick({ cleanliness: newCleanliness, sleep_quality: newSleep, weight: raw.weight ?? 4 })
       const newMood = computeErenMood({ happiness: newHappiness, hunger: newHunger, energy: newEnergy, sleep_quality: newSleep, cleanliness: newCleanliness })
 
@@ -100,11 +100,11 @@ export function useErenStats(householdId: string | null) {
   const applyAction = useCallback(async (userId: string, action: ActionType): Promise<{ success: boolean; message: string }> => {
     if (!stats || !householdId) return { success: false, message: 'No stats loaded' }
     const cfg = ACTION_CONFIGS[action]
-    const newH  = clampStat(stats.happiness    + (cfg.deltas.happiness    ?? 0))
-    const newHu = clampStat(stats.hunger       + (cfg.deltas.hunger       ?? 0))
-    const newE  = clampStat(stats.energy       + (cfg.deltas.energy       ?? 0))
-    const newS  = clampStat(stats.sleep_quality + (cfg.deltas.sleep_quality ?? 0))
-    const newW  = Math.max(2, Math.min(10, stats.weight + (cfg.deltas.weight ?? 0)))
+    const newH  = Math.round(clampStat(stats.happiness    + (cfg.deltas.happiness    ?? 0)))
+    const newHu = Math.round(clampStat(stats.hunger       + (cfg.deltas.hunger       ?? 0)))
+    const newE  = Math.round(clampStat(stats.energy       + (cfg.deltas.energy       ?? 0)))
+    const newS  = Math.round(clampStat(stats.sleep_quality + (cfg.deltas.sleep_quality ?? 0)))
+    const newW  = Math.round(Math.max(2, Math.min(10, stats.weight + (cfg.deltas.weight ?? 0))) * 100) / 100
     const newCl = clampStat((stats.cleanliness ?? 100) + (cfg.deltas.cleanliness ?? 0))
     const newSick = action === 'medicine' ? false : shouldBecomeSick({ cleanliness: newCl, sleep_quality: newS, weight: newW })
     const newMood = computeErenMood({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, cleanliness: newCl })
@@ -119,9 +119,9 @@ export function useErenStats(householdId: string | null) {
 
   const feedWithFood = useCallback(async (userId: string, hungerD: number, happyD: number, weightD: number): Promise<{ success: boolean; message: string }> => {
     if (!stats || !householdId) return { success: false, message: 'No stats loaded' }
-    const newH  = clampStat(stats.happiness + happyD)
-    const newHu = clampStat(stats.hunger    + hungerD)
-    const newW  = Math.max(2, Math.min(10, stats.weight + weightD))
+    const newH  = Math.round(clampStat(stats.happiness + happyD))
+    const newHu = Math.round(clampStat(stats.hunger    + hungerD))
+    const newW  = Math.round(Math.max(2, Math.min(10, stats.weight + weightD)) * 100) / 100
     const newMood = computeErenMood({ happiness: newH, hunger: newHu, energy: stats.energy, sleep_quality: stats.sleep_quality, cleanliness: stats.cleanliness ?? 100 })
     setStats(prev => prev ? { ...prev, happiness: newH, hunger: newHu, weight: newW, mood: newMood } : prev)
     const [su, ii] = await Promise.all([
