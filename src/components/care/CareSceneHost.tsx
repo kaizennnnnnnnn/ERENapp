@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useLayoutEffect } from 'react'
 import { useCare, type CareScene } from '@/contexts/CareContext'
 import FeedScene from './FeedScene'
 import PlayScene from './PlayScene'
@@ -45,11 +45,15 @@ const touchStartX = useRef(0)
 
   const loopIdx = LOOP_SCENES.indexOf(activeScene as CareScene)
 
+  // Reset ready synchronously before paint so the old scene never flashes through
+  useLayoutEffect(() => {
+    setReady(false)
+  }, [activeScene])
+
   // Preload background + Eren simultaneously before revealing the scene
   useEffect(() => {
     if (!activeScene) return
     const bgSrc = SCENE_IMAGES[activeScene]
-    setReady(false)
 
     const toLoad = ['/erenGood.png', ...(bgSrc ? [bgSrc] : [])]
     let loaded = 0
