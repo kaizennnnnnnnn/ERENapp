@@ -130,20 +130,22 @@ const touchStartX = useRef(0)
         </div>
       )}
 
-      {/* Scene — hidden until image is ready */}
-      <div
-        key={animKey}
-        className="fixed inset-0 z-40"
-        style={{ ...animStyle, opacity: ready ? 1 : 0 }}
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-      >
-        {activeScene === 'feed'     && <FeedScene     {...props} />}
-        {activeScene === 'play'     && <PlayScene     {...props} />}
-        {activeScene === 'sleep'    && <SleepScene    {...props} />}
-        {activeScene === 'wash'     && <WashScene     {...props} />}
-        {activeScene === 'hospital' && <HospitalScene {...props} />}
-      </div>
+      {/* Scene — not mounted at all until both images are loaded */}
+      {ready && (
+        <div
+          key={animKey}
+          className="fixed inset-0 z-40"
+          style={animStyle}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+        >
+          {activeScene === 'feed'     && <FeedScene     {...props} />}
+          {activeScene === 'play'     && <PlayScene     {...props} />}
+          {activeScene === 'sleep'    && <SleepScene    {...props} />}
+          {activeScene === 'wash'     && <WashScene     {...props} />}
+          {activeScene === 'hospital' && <HospitalScene {...props} />}
+        </div>
+      )}
 
       {/* Dot indicators — home dot + care room dots */}
       {ready && (
