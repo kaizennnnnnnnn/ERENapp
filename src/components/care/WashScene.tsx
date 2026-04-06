@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
@@ -14,38 +14,45 @@ export default function WashScene({ onClose }: Props) {
   const { stats, applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
 
-  const sceneRef  = useRef<HTMLDivElement>(null)
-  const soapRef   = useRef<HTMLDivElement>(null)
-  const showerRef = useRef<HTMLDivElement>(null)
+  const sceneRef   = useRef<HTMLDivElement>(null)
+  const soapRef    = useRef<HTMLDivElement>(null)
+  const showerRef  = useRef<HTMLDivElement>(null)
 
-  // Soap drag
-  const [soapPos,       setSoapPos]       = useState({ x: 12, y: 62 })
-  const [dragSoap,      setDragSoap]      = useState(false)
-  const [coverage,      setCoverage]      = useState(0)
-  const [bubbles,       setBubbles]       = useState<Bubble[]>([])
-  const bubbleId = useRef(0)
+  // Positions stored in refs — updated directly on DOM, no re-render
+  const soapPosRef   = useRef({ x: 12, y: 62 })
+  const showerPosRef = useRef({ x: 75, y: 30 })
 
-  // Shower drag
-  const [showerPos,    setShowerPos]    = useState({ x: 75, y: 30 })
-  const [dragShower,   setDragShower]   = useState(false)
-  const [showShower,   setShowShower]   = useState(false)
+  const [dragSoap,   setDragSoap]   = useState(false)
+  const [dragShower, setDragShower] = useState(false)
+  const [coverage,   setCoverage]   = useState(0)
+  const [bubbles,    setBubbles]    = useState<Bubble[]>([])
+  const [showShower, setShowShower] = useState(false)
+  const [done,       setDone]       = useState(false)
+  const [saving,     setSaving]     = useState(false)
+  const [toast,      setToast]      = useState<string | null>(null)
 
-  // State
-  const [done, setDone]     = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [toast, setToast]   = useState<string | null>(null)
-  const rinseCovRef = useRef(coverage)
-  rinseCovRef.current = coverage
-
-  // Refs so onPointerMove never reads stale closure values
-  const dragSoapRef    = useRef(false)
-  const dragShowerRef  = useRef(false)
-  const doneRef        = useRef(false)
-  const showShowerRef  = useRef(false)
+  const bubbleId      = useRef(0)
+  const dragSoapRef   = useRef(false)
+  const dragShowerRef = useRef(false)
+  const doneRef       = useRef(false)
+  const showShowerRef = useRef(false)
+  const coverageRef   = useRef(0)
 
   const cleanliness = stats?.cleanliness ?? 100
 
-  // ── Soap pointer handlers ───────────────────────────────────────────────
+  // Apply initial positions to DOM
+  useEffect(() => {
+    if (soapRef.current) {
+      soapRef.current.style.left = `${soapPosRef.current.x}%`
+      soapRef.current.style.top  = `${soapPosRef.current.y}%`
+    }
+    if (showerRef.current) {
+      showerRef.current.style.left = `${showerPosRef.current.x}%`
+      showerRef.current.style.top  = `${showerPosRef.current.y}%`
+    }
+  }, [])
+
+  // ── Soap pointer handlers ─────────────────────────────────────────────────
   function onSoapDown(e: React.PointerEvent) {
     if (doneRef.current) return
     e.currentTarget.setPointerCapture(e.pointerId)
@@ -60,10 +67,16 @@ export default function WashScene({ onClose }: Props) {
     const py = ((e.clientY - rect.top)  / rect.height) * 100
 
     if (dragSoapRef.current && !doneRef.current) {
-      setSoapPos({ x: px, y: py })
+      // Move soap directly via DOM — no re-render
+      soapPosRef.current = { x: px, y: py }
+      if (soapRef.current) {
+        soapRef.current.style.left = `${px}%`
+        soapRef.current.style.top  = `${py}%`
+      }
       if (px > 22 && px < 78 && py > 55 && py < 95) {
         setCoverage(c => {
           const next = Math.min(100, c + 1.5)
+          coverageRef.current = next
           if (next >= 95 && !showShowerRef.current) {
             showShowerRef.current = true
             setShowShower(true)
@@ -78,13 +91,22 @@ export default function WashScene({ onClose }: Props) {
     }
 
     if (dragShowerRef.current && !doneRef.current) {
-      setShowerPos({ x: px, y: py })
+      // Move shower directly via DOM — no re-render
+      showerPosRef.current = { x: px, y: py }
+      if (showerRef.current) {
+        showerRef.current.style.left = `${px}%`
+        showerRef.current.style.top  = `${py}%`
+      }
       if (px > 22 && px < 78 && py > 55 && py < 95) {
-        setCoverage(c => Math.max(0, c - 0.6))
+        setCoverage(c => {
+          const next = Math.max(0, c - 0.6)
+          coverageRef.current = next
+          return next
+        })
         setBubbles(bs => bs.slice(0, Math.max(0, bs.length - 3)))
       }
     }
-  }, []) // stable — reads only refs
+  }, [])
 
   function onSoapUp() {
     dragSoapRef.current = false
@@ -92,15 +114,16 @@ export default function WashScene({ onClose }: Props) {
   }
 
   function onShowerDown(e: React.PointerEvent) {
-    if (doneRef.current || rinseCovRef.current < 80) return
+    if (doneRef.current || coverageRef.current < 80) return
     e.currentTarget.setPointerCapture(e.pointerId)
     dragShowerRef.current = true
     setDragShower(true)
   }
+
   function onShowerUp() {
     dragShowerRef.current = false
     setDragShower(false)
-    if (rinseCovRef.current <= 10 && !doneRef.current) finishWash()
+    if (coverageRef.current <= 10 && !doneRef.current) finishWash()
   }
 
   async function finishWash() {
@@ -119,8 +142,6 @@ export default function WashScene({ onClose }: Props) {
       setTimeout(() => setToast(null), 3000)
     }
   }
-
-  const erenMood = done ? 'happy' : dragSoap ? 'angry' : dragShower ? 'angry' : cleanliness < 40 ? 'angry' : 'idle'
 
   const SOAP_SEGMENTS = 12
   const soapFilled  = Math.round((coverage / 100) * SOAP_SEGMENTS)
@@ -141,37 +162,32 @@ export default function WashScene({ onClose }: Props) {
         <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 200, height: 200, objectFit: 'contain', imageRendering: 'pixelated' }} />
       </div>
 
-      {/* ══ SOAP SUDS — renders ON TOP of Eren ═══════════════════════════ */}
+      {/* ══ SOAP SUDS ═════════════════════════════════════════════════════ */}
       <div className="absolute inset-0 pointer-events-none z-20">
         {bubbles.map(b => (
           <div key={b.id} className="absolute rounded-full"
-            style={{ left: `${b.x}%`, top: `${b.y}%`, width: b.size, height: b.size, transform: 'translate(-50%,-50%)', background: 'radial-gradient(circle at 35% 35%, rgba(255,255,255,0.95), rgba(200,230,255,0.6))', border: '1px solid rgba(150,200,255,0.5)', boxShadow: 'inset 1px 1px 2px rgba(255,255,255,0.8)', transition: 'opacity 1s', opacity: 0.85 }} />
+            style={{ left: `${b.x}%`, top: `${b.y}%`, width: b.size, height: b.size, transform: 'translate(-50%,-50%)', background: 'radial-gradient(circle at 35% 35%, rgba(255,255,255,0.95), rgba(200,230,255,0.6))', border: '1px solid rgba(150,200,255,0.5)', boxShadow: 'inset 1px 1px 2px rgba(255,255,255,0.8)', opacity: 0.85 }} />
         ))}
       </div>
 
-      {/* ══ SHOWER HEAD (draggable when soap done) ═══════════════════════ */}
+      {/* ══ SHOWER HEAD ═══════════════════════════════════════════════════ */}
       <div
         ref={showerRef}
-        className={cn('absolute z-30 transition-all', showShower ? 'opacity-100' : 'opacity-0 pointer-events-none', dragShower ? 'cursor-grabbing' : 'cursor-grab')}
-        style={{ left: `${showerPos.x}%`, top: `${showerPos.y}%`, transform: 'translate(-50%, -50%)', touchAction: 'none' }}
+        className={cn('absolute z-30', showShower ? 'opacity-100' : 'opacity-0 pointer-events-none', dragShower ? 'cursor-grabbing' : 'cursor-grab')}
+        style={{ left: '75%', top: '30%', transform: 'translate(-50%, -50%)', touchAction: 'none' }}
         onPointerDown={onShowerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onShowerUp}
       >
-        {/* Hose pipe */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-7" style={{ background: 'linear-gradient(180deg, #9ECAE1, #6BAED6)', borderRadius: 3 }} />
-        {/* Head body */}
         <div className="relative mt-6 flex items-center justify-center"
           style={{ width: 44, height: 18, background: 'linear-gradient(135deg, #AADDF0, #70B8D8)', borderRadius: '4px 4px 10px 10px', border: '2px solid #4A9AB8', boxShadow: '1px 2px 0 #3080A0, inset 0 1px 2px rgba(255,255,255,0.4)' }}>
-          {/* Nozzle row */}
           <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5">
             {[0,1,2,3,4].map(ni => (
               <div key={ni} className="rounded-full" style={{ width: 3, height: 3, background: 'rgba(30,80,120,0.5)' }} />
             ))}
           </div>
-          {/* Highlight */}
           <div style={{ position: 'absolute', top: 2, left: 4, width: 14, height: 3, background: 'rgba(255,255,255,0.45)', borderRadius: 3 }} />
-          {/* Water streams */}
           {dragShower && (
             <div className="absolute top-full left-1/2 -translate-x-1/2 flex gap-1 pointer-events-none" style={{ marginTop: 2 }}>
               {[0,3,7,11,15].map((ox, si) => (
@@ -188,11 +204,11 @@ export default function WashScene({ onClose }: Props) {
         )}
       </div>
 
-      {/* ══ SOAP BAR (draggable) ══════════════════════════════════════════ */}
+      {/* ══ SOAP BAR ══════════════════════════════════════════════════════ */}
       <div
         ref={soapRef}
         className={cn('absolute z-30', dragSoap ? 'cursor-grabbing scale-110' : 'cursor-grab', done && 'opacity-30 pointer-events-none')}
-        style={{ left: `${soapPos.x}%`, top: `${soapPos.y}%`, transform: 'translate(-50%,-50%)', transition: dragSoap ? 'none' : 'all 0.2s', touchAction: 'none' }}
+        style={{ left: '12%', top: '62%', transform: 'translate(-50%,-50%)', touchAction: 'none' }}
         onPointerDown={onSoapDown}
         onPointerMove={onPointerMove}
         onPointerUp={onSoapUp}
@@ -203,7 +219,6 @@ export default function WashScene({ onClose }: Props) {
           <div className="flex gap-1 mt-0.5">
             {[0,1,2,3].map(k => <div key={k} className="rounded-full" style={{ width: 4, height: 4, background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.4)' }} />)}
           </div>
-          {/* Highlight streak */}
           <div style={{ position: 'absolute', top: 4, left: 5, width: 12, height: 3, background: 'rgba(255,255,255,0.4)', borderRadius: 3 }} />
         </div>
         {!dragSoap && !showShower && (
@@ -213,8 +228,7 @@ export default function WashScene({ onClose }: Props) {
         )}
       </div>
 
-
-      {/* ══ PIXEL SCENE LABEL ════════════════════════════════════════════ */}
+      {/* ══ SCENE LABEL ══════════════════════════════════════════════════ */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50">
         <span className="font-pixel text-sky-700 px-3 py-1.5"
           style={{ background: 'linear-gradient(135deg, #E8F8FF, #D0EEFF)', borderRadius: 3, border: '2px solid #A8D4F0', boxShadow: '2px 2px 0 #88B8D8', fontSize: 7 }}>
@@ -230,12 +244,11 @@ export default function WashScene({ onClose }: Props) {
         </div>
       )}
 
-      {/* ══ PIXEL PROGRESS BARS + DONE ═══════════════════════════════════ */}
+      {/* ══ PROGRESS BARS ════════════════════════════════════════════════ */}
       <div className="absolute bottom-4 inset-x-0 px-5 flex flex-col gap-2 items-center pointer-events-none">
         {!done && (
           <div className="w-full max-w-xs pointer-events-none"
-            style={{ background: 'linear-gradient(180deg, #1A2A38, #1A2A38)', borderRadius: 4, border: '2px solid #3A5A70', boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', padding: '10px 12px' }}>
-            {/* Soap coverage */}
+            style={{ background: '#1A2A38', borderRadius: 4, border: '2px solid #3A5A70', boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', padding: '10px 12px' }}>
             <div className="flex items-center justify-between mb-1.5">
               <span className="font-pixel text-sky-300" style={{ fontSize: 6 }}>SOAP</span>
               <span className="font-pixel text-sky-400" style={{ fontSize: 6 }}>{Math.round(coverage)}%</span>
@@ -255,7 +268,6 @@ export default function WashScene({ onClose }: Props) {
                 )
               })}
             </div>
-            {/* Rinse progress */}
             {showShower && (
               <>
                 <div className="flex items-center justify-between mb-1.5">
@@ -285,7 +297,6 @@ export default function WashScene({ onClose }: Props) {
             {saving && <p className="font-pixel text-sky-400 text-center mt-2 animate-pulse" style={{ fontSize: 6 }}>SAVING...</p>}
           </div>
         )}
-
         {done && (
           <div className="w-full max-w-xs pointer-events-auto text-center py-3 active:translate-y-[2px] transition-transform"
             style={{ background: 'linear-gradient(135deg, #50D890, #30C070)', borderRadius: 3, border: '2px solid #20A050', boxShadow: '0 4px 0 #108030', fontFamily: '"Press Start 2P"', fontSize: 8, color: 'white', letterSpacing: 0.5 }}>
@@ -298,10 +309,6 @@ export default function WashScene({ onClose }: Props) {
         @keyframes fall {
           from { transform: translateY(-4px); opacity: 1; }
           to   { transform: translateY(40px); opacity: 0; }
-        }
-        @keyframes flicker {
-          0%, 100% { transform: scaleX(1) scaleY(1); opacity: 1; }
-          50% { transform: scaleX(0.8) scaleY(1.1); opacity: 0.85; }
         }
       `}</style>
     </div>
