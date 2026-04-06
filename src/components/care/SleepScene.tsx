@@ -38,6 +38,24 @@ export default function SleepScene({ onClose }: Props) {
       {/* ══ BACKGROUND IMAGE ══ */}
       <img src="/bedroom.png" alt="" className="absolute inset-0 w-full h-full" style={{ objectFit: "cover", objectPosition: "center" }} draggable={false} />
 
+      {/* ══ STAR GLOWS ══ */}
+      {[
+        { x: '48%', y: '17%', d: '0s'   },
+        { x: '57%', y: '15%', d: '1.2s' },
+        { x: '44%', y: '27%', d: '0.6s' },
+        { x: '54%', y: '31%', d: '1.8s' },
+        { x: '62%', y: '24%', d: '0.3s' },
+        { x: '50%', y: '43%', d: '1.5s' },
+        { x: '60%', y: '40%', d: '0.9s' },
+      ].map((s, i) => (
+        <div key={i} className="absolute pointer-events-none z-[1]" style={{
+          left: s.x, top: s.y,
+          width: 0, height: 0,
+          boxShadow: '0 0 4px 2px rgba(210,230,255,0.95), 0 0 10px 4px rgba(180,210,255,0.5)',
+          animation: `starTwinkle 3s ease-in-out ${s.d} infinite`,
+        }} />
+      ))}
+
       {/* ══ MOON GLOW ══ */}
       <div className="absolute pointer-events-none z-[1]" style={{
         left: '60%', top: '33%',
@@ -50,6 +68,10 @@ export default function SleepScene({ onClose }: Props) {
         @keyframes moonGlow {
           0%, 100% { opacity: 0.6; }
           50%       { opacity: 1;  }
+        }
+        @keyframes starTwinkle {
+          0%, 100% { opacity: 1;   }
+          50%       { opacity: 0.1; }
         }
       `}</style>
 
