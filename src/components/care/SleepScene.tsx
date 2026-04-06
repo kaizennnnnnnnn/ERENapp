@@ -40,18 +40,18 @@ export default function SleepScene({ onClose }: Props) {
 
       {/* ══ STAR GLOWS ══ */}
       {[
-        { x: '48%', y: '17%', d: '0s'   },
-        { x: '57%', y: '15%', d: '1.2s' },
-        { x: '44%', y: '27%', d: '0.6s' },
+        { x: '48%', y: '35%', d: '0s'   },
+        { x: '57%', y: '38%', d: '1.2s' },
+        { x: '44%', y: '41%', d: '0.6s' },
         { x: '54%', y: '31%', d: '1.8s' },
-        { x: '62%', y: '24%', d: '0.3s' },
+        { x: '62%', y: '34%', d: '0.3s' },
         { x: '50%', y: '43%', d: '1.5s' },
         { x: '60%', y: '40%', d: '0.9s' },
       ].map((s, i) => (
         <div key={i} className="absolute pointer-events-none z-[1]" style={{
           left: s.x, top: s.y,
           width: 0, height: 0,
-          boxShadow: '0 0 4px 2px rgba(210,230,255,0.95), 0 0 10px 4px rgba(180,210,255,0.5)',
+          boxShadow: '0 0 2px 1.5px rgba(210,230,255,1), 0 0 5px 2.5px rgba(190,215,255,0.8)',
           animation: `starTwinkle 3s ease-in-out ${s.d} infinite`,
         }} />
       ))}
