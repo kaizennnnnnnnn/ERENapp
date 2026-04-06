@@ -67,30 +67,33 @@ export default function SleepScene({ onClose }: Props) {
           }} />
         ))}
 
-        {/* Stars — strictly inside visible sky (clear of curtains and frame) */}
+        {/* Stars — inside visible sky only (clear of curtains and wooden frame) */}
         {[
-          /* upper arch — x:42-64%, y:13-21% */
-          { x: '44%', y: '14%', d: '0s'   },
-          { x: '50%', y: '13%', d: '0.6s' },
-          { x: '56%', y: '14%', d: '1.2s' },
-          { x: '62%', y: '15%', d: '0.3s' },
-          { x: '47%', y: '18%', d: '1.7s' },
-          { x: '53%', y: '17%', d: '0.9s' },
-          { x: '59%', y: '18%', d: '0.4s' },
-          /* middle sky — x:44-65%, y:22-36% (left curtain ends ~x:43%) */
-          { x: '45%', y: '24%', d: '1.9s' },
-          { x: '51%', y: '23%', d: '0.2s' },
-          { x: '57%', y: '25%', d: '1.1s' },
-          { x: '64%', y: '23%', d: '0.5s' },
-          { x: '46%', y: '31%', d: '1.6s' },
-          { x: '52%', y: '33%', d: '0.8s' },
-          { x: '58%', y: '30%', d: '2.1s' },
-          { x: '64%', y: '33%', d: '1.3s' },
-          /* lower sky — x:47-63%, y:37-51% (left curtain thicker here) */
-          { x: '48%', y: '40%', d: '0.4s' },
-          { x: '54%', y: '43%', d: '1.8s' },
-          { x: '60%', y: '41%', d: '0.1s' },
-          { x: '63%', y: '46%', d: '1.0s' },
+          /* upper arch x:43-64%, y:14-21% */
+          { x: '44%', y: '16%', d: '0s'   },
+          { x: '50%', y: '14%', d: '0.6s' },
+          { x: '56%', y: '15%', d: '1.2s' },
+          { x: '62%', y: '16%', d: '0.3s' },
+          { x: '48%', y: '19%', d: '1.7s' },
+          { x: '54%', y: '18%', d: '0.9s' },
+          { x: '60%', y: '19%', d: '0.4s' },
+          { x: '65%', y: '17%', d: '1.5s' },
+          /* middle sky x:43-63%, y:22-36% */
+          { x: '43%', y: '25%', d: '1.9s' },
+          { x: '49%', y: '24%', d: '0.2s' },
+          { x: '55%', y: '26%', d: '1.1s' },
+          { x: '62%', y: '24%', d: '0.5s' },
+          { x: '45%', y: '32%', d: '1.6s' },
+          { x: '51%', y: '34%', d: '0.8s' },
+          { x: '57%', y: '31%', d: '2.1s' },
+          { x: '62%', y: '34%', d: '1.3s' },
+          /* lower sky x:44-62%, y:37-51% */
+          { x: '44%', y: '41%', d: '0.4s' },
+          { x: '50%', y: '44%', d: '1.8s' },
+          { x: '57%', y: '42%', d: '0.1s' },
+          { x: '62%', y: '45%', d: '1.0s' },
+          { x: '47%', y: '49%', d: '2.2s' },
+          { x: '55%', y: '50%', d: '0.7s' },
         ].map((s, i) => (
           <div key={`star-${i}`} className="absolute rounded-full" style={{
             left: s.x, top: s.y,
@@ -102,9 +105,9 @@ export default function SleepScene({ onClose }: Props) {
           }} />
         ))}
 
-        {/* Moon glow — crescent right-center of window */}
+        {/* Moon glow — crescent, right portion of window */}
         <div className="absolute" style={{
-          left: '62%', top: '33%',
+          left: '62%', top: '35%',
           width: 20, height: 20,
           transform: 'translate(-50%,-50%)',
           borderRadius: '50%',
@@ -112,9 +115,9 @@ export default function SleepScene({ onClose }: Props) {
           animation: 'moonGlow 5s ease-in-out infinite',
         }} />
 
-        {/* Bedside lamp — warm pool on nightstand */}
+        {/* Bedside lamp — warm glow on nightstand (center-right of room) */}
         <div className="absolute" style={{
-          left: '56%', top: '61%',
+          left: '47%', top: '63%',
           width: 80, height: 55,
           transform: 'translate(-50%,-50%)',
           borderRadius: '50%',
