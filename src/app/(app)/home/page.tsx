@@ -286,10 +286,10 @@ export default function HomePage() {
               const val = Math.round(Math.max(0, Math.min(100, (typeof raw === 'number' ? raw : 0))))
               const barColor = val >= 60 ? color : val >= 30 ? '#facc15' : '#f87171'
               return (
-                <div key={key} className="flex-1 flex items-center gap-1 px-1.5 py-1"
+                <div key={key} className="flex-1 flex items-center gap-1 px-2 py-1.5"
                   style={{ background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(6px)', borderRadius: 6, border: '1px solid rgba(255,255,255,0.12)' }}>
-                  <span style={{ fontSize: 10, lineHeight: 1, flexShrink: 0 }}>{icon}</span>
-                  <div className="flex-1 overflow-hidden" style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.15)' }}>
+                  <span style={{ fontSize: 12, lineHeight: 1, flexShrink: 0 }}>{icon}</span>
+                  <div className="flex-1 overflow-hidden" style={{ height: 7, borderRadius: 3, background: 'rgba(255,255,255,0.15)' }}>
                     <div style={{ width: `${val}%`, height: '100%', borderRadius: 3, background: barColor, transition: 'width 0.5s' }} />
                   </div>
                 </div>
