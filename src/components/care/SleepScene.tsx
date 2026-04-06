@@ -41,21 +41,21 @@ export default function SleepScene({ onClose }: Props) {
       {/* ══ BEDROOM LIGHT EFFECTS ══ */}
       <div className="absolute inset-0 pointer-events-none z-[1]">
 
-        {/* String lights — main strand left→right across ceiling */}
+        {/* String lights — main arc across ceiling */}
         {[
-          { x: '7%',  y: '10%', d: '0s'   },
-          { x: '16%', y: '7%',  d: '0.4s' },
-          { x: '26%', y: '5%',  d: '0.9s' },
-          { x: '36%', y: '5%',  d: '0.2s' },
-          { x: '46%', y: '5%',  d: '1.2s' },
-          { x: '56%', y: '5%',  d: '0.6s' },
-          { x: '65%', y: '5%',  d: '1.5s' },
-          { x: '74%', y: '6%',  d: '0.3s' },
-          { x: '82%', y: '7%',  d: '1.0s' },
-          { x: '90%', y: '9%',  d: '0.7s' },
-          /* right-side drop */
-          { x: '93%', y: '14%', d: '1.3s' },
-          { x: '93%', y: '20%', d: '0.5s' },
+          { x: '8%',  y: '10%', d: '0s'   },
+          { x: '17%', y: '8%',  d: '0.4s' },
+          { x: '27%', y: '7%',  d: '0.8s' },
+          { x: '37%', y: '7%',  d: '0.2s' },
+          { x: '47%', y: '7%',  d: '1.1s' },
+          { x: '57%', y: '7%',  d: '0.6s' },
+          { x: '66%', y: '7%',  d: '1.4s' },
+          { x: '75%', y: '8%',  d: '0.3s' },
+          { x: '83%', y: '9%',  d: '1.0s' },
+          { x: '91%', y: '11%', d: '0.7s' },
+          /* right wall drop */
+          { x: '92%', y: '17%', d: '1.3s' },
+          { x: '91%', y: '24%', d: '0.5s' },
         ].map((l, i) => (
           <div key={`bulb-${i}`} className="absolute rounded-full" style={{
             left: l.x, top: l.y,
@@ -67,33 +67,30 @@ export default function SleepScene({ onClose }: Props) {
           }} />
         ))}
 
-        {/* Stars visible through arched window */}
+        {/* Stars — strictly inside visible sky (clear of curtains and frame) */}
         {[
-          /* upper arch area */
-          { x: '43%', y: '14%', d: '0s'   },
-          { x: '49%', y: '12%', d: '0.6s' },
-          { x: '55%', y: '13%', d: '1.2s' },
-          { x: '61%', y: '14%', d: '0.3s' },
-          { x: '46%', y: '17%', d: '1.7s' },
-          { x: '52%', y: '16%', d: '0.9s' },
-          { x: '58%', y: '17%', d: '0.4s' },
-          { x: '65%', y: '16%', d: '1.4s' },
-          /* middle window */
-          { x: '38%', y: '23%', d: '0.7s' },
-          { x: '44%', y: '25%', d: '1.9s' },
-          { x: '50%', y: '22%', d: '0.2s' },
-          { x: '56%', y: '24%', d: '1.1s' },
-          { x: '67%', y: '22%', d: '0.5s' },
-          { x: '41%', y: '31%', d: '1.6s' },
-          { x: '48%', y: '33%', d: '0.8s' },
-          { x: '55%', y: '30%', d: '2.1s' },
-          { x: '64%', y: '32%', d: '1.3s' },
-          /* lower sky */
-          { x: '39%', y: '40%', d: '0.4s' },
-          { x: '46%', y: '43%', d: '1.8s' },
-          { x: '53%', y: '41%', d: '0.1s' },
-          { x: '61%', y: '44%', d: '1.0s' },
-          { x: '67%', y: '41%', d: '0.6s' },
+          /* upper arch — x:42-64%, y:13-21% */
+          { x: '44%', y: '14%', d: '0s'   },
+          { x: '50%', y: '13%', d: '0.6s' },
+          { x: '56%', y: '14%', d: '1.2s' },
+          { x: '62%', y: '15%', d: '0.3s' },
+          { x: '47%', y: '18%', d: '1.7s' },
+          { x: '53%', y: '17%', d: '0.9s' },
+          { x: '59%', y: '18%', d: '0.4s' },
+          /* middle sky — x:44-65%, y:22-36% (left curtain ends ~x:43%) */
+          { x: '45%', y: '24%', d: '1.9s' },
+          { x: '51%', y: '23%', d: '0.2s' },
+          { x: '57%', y: '25%', d: '1.1s' },
+          { x: '64%', y: '23%', d: '0.5s' },
+          { x: '46%', y: '31%', d: '1.6s' },
+          { x: '52%', y: '33%', d: '0.8s' },
+          { x: '58%', y: '30%', d: '2.1s' },
+          { x: '64%', y: '33%', d: '1.3s' },
+          /* lower sky — x:47-63%, y:37-51% (left curtain thicker here) */
+          { x: '48%', y: '40%', d: '0.4s' },
+          { x: '54%', y: '43%', d: '1.8s' },
+          { x: '60%', y: '41%', d: '0.1s' },
+          { x: '63%', y: '46%', d: '1.0s' },
         ].map((s, i) => (
           <div key={`star-${i}`} className="absolute rounded-full" style={{
             left: s.x, top: s.y,
@@ -105,9 +102,9 @@ export default function SleepScene({ onClose }: Props) {
           }} />
         ))}
 
-        {/* Moon glow — crescent, right-center of window */}
+        {/* Moon glow — crescent right-center of window */}
         <div className="absolute" style={{
-          left: '63%', top: '32%',
+          left: '62%', top: '33%',
           width: 20, height: 20,
           transform: 'translate(-50%,-50%)',
           borderRadius: '50%',
@@ -115,9 +112,9 @@ export default function SleepScene({ onClose }: Props) {
           animation: 'moonGlow 5s ease-in-out infinite',
         }} />
 
-        {/* Bedside lamp — warm orange pool on nightstand */}
+        {/* Bedside lamp — warm pool on nightstand */}
         <div className="absolute" style={{
-          left: '53%', top: '63%',
+          left: '56%', top: '61%',
           width: 80, height: 55,
           transform: 'translate(-50%,-50%)',
           borderRadius: '50%',
