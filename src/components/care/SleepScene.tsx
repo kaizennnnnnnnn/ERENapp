@@ -41,74 +41,88 @@ export default function SleepScene({ onClose }: Props) {
       {/* ══ BEDROOM LIGHT EFFECTS ══ */}
       <div className="absolute inset-0 pointer-events-none z-[1]">
 
-        {/* String lights across the top */}
+        {/* String lights — main strand left→right across ceiling */}
         {[
-          { x: '12%', y: '7%',  d: '0s'   },
-          { x: '22%', y: '5%',  d: '0.3s' },
-          { x: '32%', y: '5%',  d: '0.7s' },
-          { x: '42%', y: '5%',  d: '1.1s' },
-          { x: '52%', y: '5%',  d: '0.5s' },
-          { x: '62%', y: '5%',  d: '0.9s' },
-          { x: '72%', y: '6%',  d: '0.2s' },
-          { x: '81%', y: '7%',  d: '1.4s' },
-          { x: '89%', y: '8%',  d: '0.6s' },
+          { x: '7%',  y: '10%', d: '0s'   },
+          { x: '16%', y: '7%',  d: '0.4s' },
+          { x: '26%', y: '5%',  d: '0.9s' },
+          { x: '36%', y: '5%',  d: '0.2s' },
+          { x: '46%', y: '5%',  d: '1.2s' },
+          { x: '56%', y: '5%',  d: '0.6s' },
+          { x: '65%', y: '5%',  d: '1.5s' },
+          { x: '74%', y: '6%',  d: '0.3s' },
+          { x: '82%', y: '7%',  d: '1.0s' },
+          { x: '90%', y: '9%',  d: '0.7s' },
+          /* right-side drop */
+          { x: '93%', y: '14%', d: '1.3s' },
+          { x: '93%', y: '20%', d: '0.5s' },
         ].map((l, i) => (
-          <div key={`light-${i}`} className="absolute rounded-full" style={{
-            left: l.x, top: l.y, width: 5, height: 5,
+          <div key={`bulb-${i}`} className="absolute rounded-full" style={{
+            left: l.x, top: l.y,
+            width: 5, height: 5,
             transform: 'translate(-50%,-50%)',
             background: '#ffe090',
-            boxShadow: '0 0 6px 3px rgba(255,220,100,0.85), 0 0 14px 6px rgba(255,200,60,0.4)',
+            boxShadow: '0 0 5px 3px rgba(255,220,100,0.9), 0 0 12px 5px rgba(255,200,60,0.45)',
             animation: `bulbPulse 2.8s ease-in-out ${l.d} infinite`,
           }} />
         ))}
 
-        {/* Stars in the sky through the window */}
+        {/* Stars visible through arched window */}
         {[
-          { x: '42%', y: '15%', d: '0s'   },
-          { x: '47%', y: '12%', d: '0.5s' },
-          { x: '53%', y: '14%', d: '1.1s' },
-          { x: '58%', y: '12%', d: '0.3s' },
-          { x: '44%', y: '21%', d: '0.8s' },
-          { x: '50%', y: '19%', d: '1.5s' },
-          { x: '56%', y: '20%', d: '0.6s' },
-          { x: '62%', y: '17%', d: '1.8s' },
-          { x: '40%', y: '28%', d: '0.2s' },
-          { x: '48%', y: '30%', d: '1.2s' },
-          { x: '55%', y: '27%', d: '0.9s' },
-          { x: '43%', y: '36%', d: '1.6s' },
-          { x: '51%', y: '38%', d: '0.4s' },
-          { x: '60%', y: '34%', d: '2.0s' },
-          { x: '46%', y: '44%', d: '1.0s' },
-          { x: '57%', y: '45%', d: '0.7s' },
+          /* upper arch area */
+          { x: '43%', y: '14%', d: '0s'   },
+          { x: '49%', y: '12%', d: '0.6s' },
+          { x: '55%', y: '13%', d: '1.2s' },
+          { x: '61%', y: '14%', d: '0.3s' },
+          { x: '46%', y: '17%', d: '1.7s' },
+          { x: '52%', y: '16%', d: '0.9s' },
+          { x: '58%', y: '17%', d: '0.4s' },
+          { x: '65%', y: '16%', d: '1.4s' },
+          /* middle window */
+          { x: '38%', y: '23%', d: '0.7s' },
+          { x: '44%', y: '25%', d: '1.9s' },
+          { x: '50%', y: '22%', d: '0.2s' },
+          { x: '56%', y: '24%', d: '1.1s' },
+          { x: '67%', y: '22%', d: '0.5s' },
+          { x: '41%', y: '31%', d: '1.6s' },
+          { x: '48%', y: '33%', d: '0.8s' },
+          { x: '55%', y: '30%', d: '2.1s' },
+          { x: '64%', y: '32%', d: '1.3s' },
+          /* lower sky */
+          { x: '39%', y: '40%', d: '0.4s' },
+          { x: '46%', y: '43%', d: '1.8s' },
+          { x: '53%', y: '41%', d: '0.1s' },
+          { x: '61%', y: '44%', d: '1.0s' },
+          { x: '67%', y: '41%', d: '0.6s' },
         ].map((s, i) => (
           <div key={`star-${i}`} className="absolute rounded-full" style={{
-            left: s.x, top: s.y, width: 2, height: 2,
+            left: s.x, top: s.y,
+            width: 2, height: 2,
             transform: 'translate(-50%,-50%)',
-            background: '#ddeeff',
-            boxShadow: '0 0 3px 2px rgba(200,220,255,0.9), 0 0 7px 3px rgba(170,200,255,0.5)',
+            background: '#e8f0ff',
+            boxShadow: '0 0 3px 2px rgba(210,225,255,0.95), 0 0 7px 3px rgba(180,200,255,0.5)',
             animation: `starTwinkle 3s ease-in-out ${s.d} infinite`,
           }} />
         ))}
 
-        {/* Moon glow */}
+        {/* Moon glow — crescent, right-center of window */}
         <div className="absolute" style={{
-          left: '64%', top: '27%',
-          width: 22, height: 22,
+          left: '63%', top: '32%',
+          width: 20, height: 20,
           transform: 'translate(-50%,-50%)',
           borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(255,250,210,0.4) 0%, transparent 70%)',
-          boxShadow: '0 0 12px 6px rgba(255,245,180,0.35), 0 0 28px 12px rgba(240,230,150,0.15)',
+          boxShadow: '0 0 10px 5px rgba(255,248,200,0.45), 0 0 24px 10px rgba(240,230,160,0.2)',
           animation: 'moonGlow 5s ease-in-out infinite',
         }} />
 
-        {/* Bedside lamp warm glow */}
+        {/* Bedside lamp — warm orange pool on nightstand */}
         <div className="absolute" style={{
-          left: '55%', top: '62%',
-          width: 70, height: 50,
+          left: '53%', top: '63%',
+          width: 80, height: 55,
           transform: 'translate(-50%,-50%)',
           borderRadius: '50%',
-          background: 'radial-gradient(ellipse, rgba(255,200,80,0.28) 0%, transparent 70%)',
-          boxShadow: '0 0 20px 10px rgba(255,190,70,0.2)',
+          background: 'radial-gradient(ellipse, rgba(255,195,70,0.32) 0%, transparent 70%)',
+          boxShadow: '0 0 18px 8px rgba(255,185,60,0.22)',
           animation: 'lampGlow 3.5s ease-in-out infinite',
         }} />
       </div>
@@ -116,19 +130,19 @@ export default function SleepScene({ onClose }: Props) {
       <style jsx>{`
         @keyframes starTwinkle {
           0%, 100% { opacity: 1;    transform: translate(-50%,-50%) scale(1);   }
-          50%       { opacity: 0.2; transform: translate(-50%,-50%) scale(0.4); }
+          50%       { opacity: 0.15; transform: translate(-50%,-50%) scale(0.4); }
         }
         @keyframes moonGlow {
-          0%, 100% { opacity: 0.65; }
-          50%       { opacity: 1;   }
+          0%, 100% { opacity: 0.6; }
+          50%       { opacity: 1;  }
         }
         @keyframes lampGlow {
-          0%, 100% { opacity: 0.7; }
-          50%       { opacity: 1;  }
+          0%, 100% { opacity: 0.75; }
+          50%       { opacity: 1;   }
         }
         @keyframes bulbPulse {
-          0%, 100% { opacity: 0.8; }
-          50%       { opacity: 1;  }
+          0%, 100% { opacity: 0.85; }
+          50%       { opacity: 1;   }
         }
       `}</style>
 
