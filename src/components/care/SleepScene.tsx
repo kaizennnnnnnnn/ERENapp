@@ -40,7 +40,7 @@ export default function SleepScene({ onClose }: Props) {
 
       {/* ══ STAR GLOWS ══ */}
       {[
-        { x: '53%', y: '14%', d: '2.0s' },
+        { x: '53%', y: '19%', d: '2.0s' },
         { x: '43%', y: '35%', d: '0s'   },
         { x: '38%', y: '36%', d: '1.1s' },
         { x: '67%', y: '41%', d: '0.7s' },
