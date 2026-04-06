@@ -40,7 +40,7 @@ export default function SleepScene({ onClose }: Props) {
 
       {/* ══ MOON GLOW ══ */}
       <div className="absolute pointer-events-none z-[1]" style={{
-        left: '57%', top: '35%',
+        left: '59%', top: '32%',
         width: 20, height: 20,
         transform: 'translate(-50%,-50%)',
         borderRadius: '50%',
