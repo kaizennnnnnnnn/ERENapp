@@ -38,6 +38,61 @@ export default function SleepScene({ onClose }: Props) {
       {/* ══ BACKGROUND IMAGE ══ */}
       <img src="/bedroom.png" alt="" className="absolute inset-0 w-full h-full" style={{ objectFit: "cover", objectPosition: "center" }} draggable={false} />
 
+      {/* ══ STAR GLOWS ══ */}
+      <div className="absolute inset-0 pointer-events-none z-[1]">
+        {[
+          { x: '18%', y: '8%',  s: 3, d: '0s'    },
+          { x: '28%', y: '5%',  s: 2, d: '0.4s'  },
+          { x: '35%', y: '11%', s: 4, d: '0.9s'  },
+          { x: '22%', y: '15%', s: 2, d: '1.3s'  },
+          { x: '42%', y: '7%',  s: 3, d: '0.6s'  },
+          { x: '12%', y: '13%', s: 2, d: '1.7s'  },
+          { x: '48%', y: '13%', s: 2, d: '2.1s'  },
+        ].map((star, i) => (
+          <div key={i} className="absolute rounded-full" style={{
+            left: star.x, top: star.y,
+            width: star.s, height: star.s,
+            background: '#fff',
+            boxShadow: `0 0 ${star.s * 2}px ${star.s}px rgba(200,220,255,0.9), 0 0 ${star.s * 5}px ${star.s * 2}px rgba(160,180,255,0.5)`,
+            animation: `starTwinkle 2.5s ease-in-out ${star.d} infinite`,
+          }} />
+        ))}
+
+        {/* Moon glow */}
+        <div className="absolute rounded-full" style={{
+          right: '12%', top: '4%',
+          width: 28, height: 28,
+          background: 'radial-gradient(circle, rgba(255,245,200,0.35) 0%, transparent 70%)',
+          boxShadow: '0 0 18px 10px rgba(255,240,180,0.25), 0 0 40px 20px rgba(255,230,150,0.12)',
+          animation: 'moonGlow 4s ease-in-out infinite',
+        }} />
+
+        {/* Bedroom lamp / light glow */}
+        <div className="absolute rounded-full" style={{
+          left: '72%', top: '38%',
+          width: 60, height: 40,
+          background: 'radial-gradient(ellipse, rgba(255,220,120,0.22) 0%, transparent 70%)',
+          boxShadow: '0 0 30px 15px rgba(255,210,100,0.18)',
+          animation: 'lampGlow 3s ease-in-out infinite',
+          transform: 'translateX(-50%)',
+        }} />
+      </div>
+
+      <style jsx>{`
+        @keyframes starTwinkle {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50%       { opacity: 0.25; transform: scale(0.5); }
+        }
+        @keyframes moonGlow {
+          0%, 100% { opacity: 0.7; }
+          50%       { opacity: 1; }
+        }
+        @keyframes lampGlow {
+          0%, 100% { opacity: 0.7; }
+          50%       { opacity: 1.0; }
+        }
+      `}</style>
+
       {/* ══ EREN ══ */}
       <div className={cn('absolute z-10 transition-all duration-700', tuckedIn ? 'bottom-[16%]' : 'bottom-[14%]')}
         style={{ left: '50%', transform: 'translateX(-50%)' }}>
