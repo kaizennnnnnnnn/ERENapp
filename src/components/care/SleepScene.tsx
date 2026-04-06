@@ -38,111 +38,20 @@ export default function SleepScene({ onClose }: Props) {
       {/* ══ BACKGROUND IMAGE ══ */}
       <img src="/bedroom.png" alt="" className="absolute inset-0 w-full h-full" style={{ objectFit: "cover", objectPosition: "center" }} draggable={false} />
 
-      {/* ══ BEDROOM LIGHT EFFECTS ══ */}
-      <div className="absolute inset-0 pointer-events-none z-[1]">
-
-        {/* String lights — main arc across ceiling */}
-        {[
-          { x: '8%',  y: '10%', d: '0s'   },
-          { x: '17%', y: '8%',  d: '0.4s' },
-          { x: '27%', y: '7%',  d: '0.8s' },
-          { x: '37%', y: '7%',  d: '0.2s' },
-          { x: '47%', y: '7%',  d: '1.1s' },
-          { x: '57%', y: '7%',  d: '0.6s' },
-          { x: '66%', y: '7%',  d: '1.4s' },
-          { x: '75%', y: '8%',  d: '0.3s' },
-          { x: '83%', y: '9%',  d: '1.0s' },
-          { x: '91%', y: '11%', d: '0.7s' },
-          /* right wall drop */
-          { x: '92%', y: '17%', d: '1.3s' },
-          { x: '91%', y: '24%', d: '0.5s' },
-        ].map((l, i) => (
-          <div key={`bulb-${i}`} className="absolute rounded-full" style={{
-            left: l.x, top: l.y,
-            width: 5, height: 5,
-            transform: 'translate(-50%,-50%)',
-            background: '#ffe090',
-            boxShadow: '0 0 5px 3px rgba(255,220,100,0.9), 0 0 12px 5px rgba(255,200,60,0.45)',
-            animation: `bulbPulse 2.8s ease-in-out ${l.d} infinite`,
-          }} />
-        ))}
-
-        {/* Stars — inside visible sky only (clear of curtains and wooden frame) */}
-        {[
-          /* upper arch x:43-64%, y:14-21% */
-          { x: '44%', y: '16%', d: '0s'   },
-          { x: '50%', y: '14%', d: '0.6s' },
-          { x: '56%', y: '15%', d: '1.2s' },
-          { x: '62%', y: '16%', d: '0.3s' },
-          { x: '48%', y: '19%', d: '1.7s' },
-          { x: '54%', y: '18%', d: '0.9s' },
-          { x: '60%', y: '19%', d: '0.4s' },
-          { x: '65%', y: '17%', d: '1.5s' },
-          /* middle sky x:43-63%, y:22-36% */
-          { x: '43%', y: '25%', d: '1.9s' },
-          { x: '49%', y: '24%', d: '0.2s' },
-          { x: '55%', y: '26%', d: '1.1s' },
-          { x: '62%', y: '24%', d: '0.5s' },
-          { x: '45%', y: '32%', d: '1.6s' },
-          { x: '51%', y: '34%', d: '0.8s' },
-          { x: '57%', y: '31%', d: '2.1s' },
-          { x: '62%', y: '34%', d: '1.3s' },
-          /* lower sky x:44-62%, y:37-51% */
-          { x: '44%', y: '41%', d: '0.4s' },
-          { x: '50%', y: '44%', d: '1.8s' },
-          { x: '57%', y: '42%', d: '0.1s' },
-          { x: '62%', y: '45%', d: '1.0s' },
-          { x: '47%', y: '49%', d: '2.2s' },
-          { x: '55%', y: '50%', d: '0.7s' },
-        ].map((s, i) => (
-          <div key={`star-${i}`} className="absolute rounded-full" style={{
-            left: s.x, top: s.y,
-            width: 2, height: 2,
-            transform: 'translate(-50%,-50%)',
-            background: '#e8f0ff',
-            boxShadow: '0 0 3px 2px rgba(210,225,255,0.95), 0 0 7px 3px rgba(180,200,255,0.5)',
-            animation: `starTwinkle 3s ease-in-out ${s.d} infinite`,
-          }} />
-        ))}
-
-        {/* Moon glow — crescent, right portion of window */}
-        <div className="absolute" style={{
-          left: '62%', top: '35%',
-          width: 20, height: 20,
-          transform: 'translate(-50%,-50%)',
-          borderRadius: '50%',
-          boxShadow: '0 0 10px 5px rgba(255,248,200,0.45), 0 0 24px 10px rgba(240,230,160,0.2)',
-          animation: 'moonGlow 5s ease-in-out infinite',
-        }} />
-
-        {/* Bedside lamp — warm glow on nightstand (center-right of room) */}
-        <div className="absolute" style={{
-          left: '47%', top: '63%',
-          width: 80, height: 55,
-          transform: 'translate(-50%,-50%)',
-          borderRadius: '50%',
-          background: 'radial-gradient(ellipse, rgba(255,195,70,0.32) 0%, transparent 70%)',
-          boxShadow: '0 0 18px 8px rgba(255,185,60,0.22)',
-          animation: 'lampGlow 3.5s ease-in-out infinite',
-        }} />
-      </div>
+      {/* ══ MOON GLOW ══ */}
+      <div className="absolute pointer-events-none z-[1]" style={{
+        left: '57%', top: '35%',
+        width: 20, height: 20,
+        transform: 'translate(-50%,-50%)',
+        borderRadius: '50%',
+        boxShadow: '0 0 10px 5px rgba(255,248,200,0.45), 0 0 24px 10px rgba(240,230,160,0.2)',
+        animation: 'moonGlow 5s ease-in-out infinite',
+      }} />
 
       <style jsx>{`
-        @keyframes starTwinkle {
-          0%, 100% { opacity: 1;    transform: translate(-50%,-50%) scale(1);   }
-          50%       { opacity: 0.15; transform: translate(-50%,-50%) scale(0.4); }
-        }
         @keyframes moonGlow {
           0%, 100% { opacity: 0.6; }
           50%       { opacity: 1;  }
-        }
-        @keyframes lampGlow {
-          0%, 100% { opacity: 0.75; }
-          50%       { opacity: 1;   }
-        }
-        @keyframes bulbPulse {
-          0%, 100% { opacity: 0.85; }
-          50%       { opacity: 1;   }
         }
       `}</style>
 
