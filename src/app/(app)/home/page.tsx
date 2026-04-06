@@ -16,7 +16,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 import { format } from 'date-fns'
 import Link from 'next/link'
-import { Bell, Sparkles, Image, User } from 'lucide-react'
+import { Bell, Sparkles, Image, User, Gamepad2 } from 'lucide-react'
 import TaskPanel from '@/components/TaskPanel'
 import ReminderSheet from '@/components/ReminderSheet'
 import { registerSW } from '@/lib/reminders'
@@ -271,6 +271,11 @@ export default function HomePage() {
               className="w-9 h-9 flex items-center justify-center active:scale-90 transition-transform"
               style={{ background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(8px)', borderRadius: 8, border: '1px solid rgba(255,150,200,0.3)' }}>
               <Image size={16} style={{ color: '#FF9DC0' }} />
+            </Link>
+            <Link href="/games"
+              className="w-9 h-9 flex items-center justify-center active:scale-90 transition-transform"
+              style={{ background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(8px)', borderRadius: 8, border: '1px solid rgba(245,200,66,0.3)' }}>
+              <Gamepad2 size={16} style={{ color: '#F5C842' }} />
             </Link>
             <Link href="/profile"
               className="w-9 h-9 flex items-center justify-center active:scale-90 transition-transform"
