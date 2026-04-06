@@ -40,11 +40,12 @@ export default function SleepScene({ onClose }: Props) {
 
       {/* ══ MOON GLOW ══ */}
       <div className="absolute pointer-events-none z-[1]" style={{
-        left: '59%', top: '32%',
-        width: 20, height: 20,
+        left: '59%', top: '34%',
+        width: 12, height: 12,
         transform: 'translate(-50%,-50%)',
         borderRadius: '50%',
-        boxShadow: '0 0 10px 5px rgba(255,248,200,0.45), 0 0 24px 10px rgba(240,230,160,0.2)',
+        background: 'rgba(255,252,220,0.6)',
+        boxShadow: '0 0 8px 5px rgba(255,250,200,0.9), 0 0 20px 10px rgba(255,240,160,0.6), 0 0 40px 18px rgba(240,225,130,0.3)',
         animation: 'moonGlow 5s ease-in-out infinite',
       }} />
 
