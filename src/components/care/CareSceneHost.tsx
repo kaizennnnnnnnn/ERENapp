@@ -7,14 +7,16 @@ import PlayScene from './PlayScene'
 import SleepScene from './SleepScene'
 import WashScene from './WashScene'
 import HospitalScene from './HospitalScene'
+import VetScene from './VetScene'
 
-const LOOP_SCENES: CareScene[] = ['feed', 'play', 'sleep', 'wash']
+const LOOP_SCENES: CareScene[] = ['feed', 'play', 'sleep', 'wash', 'vet']
 
 const SCENE_LABELS: Record<CareScene, string> = {
   feed:     'Kitchen',
   play:     'Playroom',
   sleep:    'Bedroom',
   wash:     'Bathroom',
+  vet:      'Vet Office',
   hospital: 'Vet Clinic',
 }
 
@@ -23,6 +25,7 @@ const SCENE_COLORS: Record<CareScene, string> = {
   play:     '#FF6B9D',
   sleep:    '#818CF8',
   wash:     '#38BDF8',
+  vet:      '#34D399',
   hospital: '#F87171',
 }
 
@@ -163,6 +166,7 @@ const touchStartX = useRef(0)
           {activeScene === 'play'     && <PlayScene     {...props} />}
           {activeScene === 'sleep'    && <SleepScene    {...props} />}
           {activeScene === 'wash'     && <WashScene     {...props} />}
+          {activeScene === 'vet'      && <VetScene      {...props} />}
           {activeScene === 'hospital' && <HospitalScene {...props} />}
         </div>
       )}

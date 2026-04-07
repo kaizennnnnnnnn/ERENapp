@@ -307,7 +307,7 @@ export default function HomePage() {
           {/* Home dot — active */}
           <div style={{ width: 18, height: 7, borderRadius: 4, background: '#FF6B9D', boxShadow: '0 0 6px 2px #FF6B9D88', transition: 'all 0.25s ease' }} />
           {/* Care room dots */}
-          {['feed','play','sleep','wash'].map(s => (
+          {['feed','play','sleep','wash','vet'].map(s => (
             <div key={s} style={{ width: 7, height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.4)', transition: 'all 0.25s ease' }} />
           ))}
         </div>
