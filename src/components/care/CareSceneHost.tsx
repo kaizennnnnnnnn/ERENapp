@@ -8,8 +8,9 @@ import SleepScene from './SleepScene'
 import WashScene from './WashScene'
 import HospitalScene from './HospitalScene'
 import VetScene from './VetScene'
+import SchoolScene from './SchoolScene'
 
-const LOOP_SCENES: CareScene[] = ['feed', 'play', 'sleep', 'wash', 'vet']
+const LOOP_SCENES: CareScene[] = ['feed', 'play', 'sleep', 'wash', 'vet', 'school']
 
 const SCENE_LABELS: Record<CareScene, string> = {
   feed:     'Kitchen',
@@ -17,6 +18,7 @@ const SCENE_LABELS: Record<CareScene, string> = {
   sleep:    'Bedroom',
   wash:     'Bathroom',
   vet:      'Vet Office',
+  school:   'Serbian Class',
   hospital: 'Vet Clinic',
 }
 
@@ -26,6 +28,7 @@ const SCENE_COLORS: Record<CareScene, string> = {
   sleep:    '#818CF8',
   wash:     '#38BDF8',
   vet:      '#34D399',
+  school:   '#F59E0B',
   hospital: '#F87171',
 }
 
@@ -35,6 +38,8 @@ const SCENE_IMAGES: Partial<Record<CareScene, string>> = {
   play:  '/playroom.png',
   sleep: '/bedroom.png',
   wash:  '/bathroom.png',
+  vet:    '/vetBACK.png',
+  school: '/schoolBACK.png',
 }
 
 export default function CareSceneHost() {
@@ -167,6 +172,7 @@ const touchStartX = useRef(0)
           {activeScene === 'sleep'    && <SleepScene    {...props} />}
           {activeScene === 'wash'     && <WashScene     {...props} />}
           {activeScene === 'vet'      && <VetScene      {...props} />}
+          {activeScene === 'school'   && <SchoolScene   {...props} />}
           {activeScene === 'hospital' && <HospitalScene {...props} />}
         </div>
       )}
