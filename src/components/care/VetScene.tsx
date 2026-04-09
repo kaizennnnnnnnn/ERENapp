@@ -61,7 +61,7 @@ export default function VetScene({ onClose }: Props) {
       <img src="/vetBACK.png" alt="" className="absolute inset-0 w-full h-full" style={{ objectFit: 'cover', objectPosition: 'center' }} draggable={false} />
 
       {/* ══ EREN ══ */}
-      <div className={cn('absolute z-10 transition-all duration-500', checkDone ? 'bottom-[16%]' : 'bottom-[14%]')}
+      <div className={cn('absolute z-10 transition-all duration-500', checkDone ? 'bottom-[6%]' : 'bottom-[4%]')}
         style={{ left: '50%', transform: 'translateX(-50%)' }}>
         <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 200, height: 200, objectFit: 'contain', imageRendering: 'pixelated' }} />
       </div>

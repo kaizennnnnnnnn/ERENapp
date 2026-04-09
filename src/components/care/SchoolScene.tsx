@@ -85,6 +85,11 @@ export default function SchoolScene({ onClose }: Props) {
       {/* ══ DARK OVERLAY for readability ══ */}
       <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.35)' }} />
 
+      {/* ══ EREN (teacher) ══ */}
+      <div className="absolute z-[2]" style={{ bottom: '8%', left: '50%', transform: 'translateX(-50%)' }}>
+        <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 180, height: 180, objectFit: 'contain', imageRendering: 'pixelated' }} />
+      </div>
+
       {/* ══ CONTENT ══ */}
       <div className="relative z-10 flex-1 flex flex-col overflow-hidden">
 
