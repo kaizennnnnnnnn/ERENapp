@@ -29,7 +29,7 @@ export default function SchoolScene({ onClose }: Props) {
     setCompleted(prev => {
       const next = new Set(prev)
       next.add(id)
-      localStorage.setItem('eren_serbian_completed', JSON.stringify([...next]))
+      localStorage.setItem('eren_serbian_completed', JSON.stringify(Array.from(next)))
       return next
     })
   }
