@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useEffect, useLayoutEffect } from 'react'
+import { useRef, useState, useEffect, useLayoutEffect, useCallback } from 'react'
 import { useCare, type CareScene } from '@/contexts/CareContext'
 import FeedScene from './FeedScene'
 import PlayScene from './PlayScene'
@@ -32,12 +32,11 @@ const SCENE_COLORS: Record<CareScene, string> = {
   hospital: '#F87171',
 }
 
-// Background images per scene — null means CSS-only (no preload needed)
 const SCENE_IMAGES: Partial<Record<CareScene, string>> = {
-  feed:  '/kitchen.png',
-  play:  '/playroom.png',
-  sleep: '/bedroom.png',
-  wash:  '/bathroom.png',
+  feed:   '/kitchen.png',
+  play:   '/playroom.png',
+  sleep:  '/bedroom.png',
+  wash:   '/bathroom.png',
   vet:    '/vetBACK.png',
   school: '/schoolBACK.png',
 }
@@ -45,21 +44,24 @@ const SCENE_IMAGES: Partial<Record<CareScene, string>> = {
 export default function CareSceneHost() {
   const { activeScene, openScene, closeScene } = useCare()
 
-const touchStartX = useRef(0)
+  const touchStartX = useRef(0)
   const touchStartY = useRef(0)
+  const touchStartTime = useRef(0)
+  const isDragging = useRef(false)
+  const sceneContainerRef = useRef<HTMLDivElement>(null)
+
   const [slideDir, setSlideDir] = useState<'left' | 'right'>('left')
   const [animKey,  setAnimKey]  = useState(0)
   const [ready,    setReady]    = useState(false)
+  const [dragX,    setDragX]    = useState(0)
   const prevSceneRef = useRef<string | null>(null)
 
   const loopIdx = LOOP_SCENES.indexOf(activeScene as CareScene)
 
-  // Reset ready synchronously before paint so the old scene never flashes through
   useLayoutEffect(() => {
     setReady(false)
   }, [activeScene])
 
-  // Preload background + Eren simultaneously before revealing the scene
   useEffect(() => {
     if (!activeScene) return
     const bgSrc = SCENE_IMAGES[activeScene]
@@ -70,7 +72,6 @@ const touchStartX = useRef(0)
     function onDone() {
       loaded++
       if (loaded >= toLoad.length) {
-        // Slide in from right when entering from home (first entry)
         if (isFirstEntry) {
           setSlideDir('left')
           setAnimKey(k => k + 1)
@@ -88,21 +89,19 @@ const touchStartX = useRef(0)
     })
   }, [activeScene])
 
-  // Reset prevScene when scene is closed
   useEffect(() => {
     if (!activeScene) prevSceneRef.current = null
   }, [activeScene])
 
   if (!activeScene) return null
 
-
   function navigate(dir: 'left' | 'right') {
-    if (loopIdx === -1) return // hospital — no swipe nav
+    if (loopIdx === -1) return
     if (dir === 'left') {
-      if (loopIdx === LOOP_SCENES.length - 1) { closeScene(); return } // bathroom → home
+      if (loopIdx === LOOP_SCENES.length - 1) { closeScene(); return }
       setSlideDir('left'); setAnimKey(k => k + 1); openScene(LOOP_SCENES[loopIdx + 1])
     } else {
-      if (loopIdx === 0) { closeScene(); return } // kitchen → home
+      if (loopIdx === 0) { closeScene(); return }
       setSlideDir('right'); setAnimKey(k => k + 1); openScene(LOOP_SCENES[loopIdx - 1])
     }
   }
@@ -110,18 +109,57 @@ const touchStartX = useRef(0)
   function onTouchStart(e: React.TouchEvent) {
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
+    touchStartTime.current = Date.now()
+    isDragging.current = false
+    setDragX(0)
+  }
+
+  function onTouchMove(e: React.TouchEvent) {
+    const dx = e.touches[0].clientX - touchStartX.current
+    const dy = e.touches[0].clientY - touchStartY.current
+
+    // Only start horizontal drag if clearly horizontal
+    if (!isDragging.current) {
+      if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+        isDragging.current = true
+      } else {
+        return
+      }
+    }
+
+    // Rubber-band: dampen if dragging past first/last room
+    const atStart = loopIdx === 0 && dx > 0
+    const atEnd   = loopIdx === LOOP_SCENES.length - 1 && dx < 0
+    if (atStart || atEnd) {
+      setDragX(dx * 0.25) // rubber-band resistance
+    } else {
+      setDragX(dx)
+    }
   }
 
   function onTouchEnd(e: React.TouchEvent) {
     const dx = touchStartX.current - e.changedTouches[0].clientX
     const dy = touchStartY.current - e.changedTouches[0].clientY
-    if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.5) return
-    navigate(dx > 0 ? 'left' : 'right')
+    const elapsed = Date.now() - touchStartTime.current
+    const velocity = Math.abs(dx) / elapsed // px/ms
+
+    setDragX(0)
+
+    if (!isDragging.current) return
+    isDragging.current = false
+
+    // Trigger nav if swiped far enough (>20% screen) or fast enough (>0.4 px/ms)
+    const threshold = window.innerWidth * 0.2
+    if (Math.abs(dx) > threshold || velocity > 0.4) {
+      if (Math.abs(dx) > Math.abs(dy) * 1.2) {
+        navigate(dx > 0 ? 'left' : 'right')
+      }
+    }
   }
 
-  const animStyle: React.CSSProperties = slideDir ? {
-    animation: `slideIn${slideDir === 'left' ? 'Right' : 'Left'} 0.28s cubic-bezier(0.25,0.46,0.45,0.94) both`,
-  } : {}
+  const animStyle: React.CSSProperties = dragX !== 0
+    ? { transform: `translateX(${dragX}px)`, transition: 'none' }
+    : { animation: `slideIn${slideDir === 'left' ? 'Right' : 'Left'} 0.4s cubic-bezier(0.32, 0.72, 0, 1) both` }
 
   const props = { onClose: closeScene }
 
@@ -129,12 +167,12 @@ const touchStartX = useRef(0)
     <>
       <style>{`
         @keyframes slideInRight {
-          from { transform: translateX(100%); opacity: 0.6; }
-          to   { transform: translateX(0);    opacity: 1;   }
+          from { transform: translateX(100%); }
+          to   { transform: translateX(0);    }
         }
         @keyframes slideInLeft {
-          from { transform: translateX(-100%); opacity: 0.6; }
-          to   { transform: translateX(0);     opacity: 1;   }
+          from { transform: translateX(-100%); }
+          to   { transform: translateX(0);     }
         }
         @keyframes fadeInDown {
           from { opacity: 0; transform: translateY(-6px); }
@@ -145,7 +183,7 @@ const touchStartX = useRef(0)
       {/* Solid backdrop */}
       <div className="fixed inset-0 z-40 bg-black" />
 
-      {/* Custom loading screen — shown while images preload */}
+      {/* Custom loading screen */}
       {!ready && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5 bg-gradient-to-b from-pink-50 to-[#FDF6FF]">
           <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #C084FC 1px, transparent 1px)', backgroundSize: '18px 18px' }} />
@@ -158,13 +196,15 @@ const touchStartX = useRef(0)
         </div>
       )}
 
-      {/* Scene — not mounted at all until both images are loaded */}
+      {/* Scene */}
       {ready && (
         <div
+          ref={sceneContainerRef}
           key={animKey}
           className="fixed inset-0 z-40"
           style={animStyle}
           onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
         >
           {activeScene === 'feed'     && <FeedScene     {...props} />}
@@ -177,19 +217,18 @@ const touchStartX = useRef(0)
         </div>
       )}
 
-      {/* Dot indicators — home dot + care room dots */}
+      {/* Dot indicators */}
       {ready && (
         <div className="fixed bottom-4 left-1/2 z-50 flex items-center gap-2 px-3 py-1.5"
           style={{ transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.35)', borderRadius: 20, backdropFilter: 'blur(6px)', pointerEvents: 'none' }}>
-          {/* Home dot (always dim when in a care scene) */}
-          <div style={{ width: 7, height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.4)', transition: 'all 0.25s ease' }} />
+          <div style={{ width: 7, height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.4)', transition: 'all 0.3s ease' }} />
           {LOOP_SCENES.map((s, i) => (
             <div key={s} style={{
               width:  i === loopIdx ? 18 : 7,
               height: 7,
               borderRadius: 4,
               background: i === loopIdx ? SCENE_COLORS[s] : 'rgba(255,255,255,0.4)',
-              transition: 'all 0.25s ease',
+              transition: 'all 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
               boxShadow: i === loopIdx ? `0 0 6px 2px ${SCENE_COLORS[s]}88` : 'none',
             }} />
           ))}
