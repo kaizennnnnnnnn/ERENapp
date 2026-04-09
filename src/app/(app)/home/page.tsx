@@ -244,7 +244,7 @@ export default function HomePage() {
             whiteSpace: 'nowrap',
             textShadow: `0 0 6px ${p.glow}, 0 0 12px ${p.glow}`,
             animationDelay: `${p.delay}ms`,
-            animation: `xpSparkle ${p.duration}s cubic-bezier(0.22, 0.61, 0.36, 1) forwards`,
+            animation: `xpSparkle ${p.duration}s cubic-bezier(0.4, 0, 0.2, 1) forwards`,
             ...({ '--tx': `${p.tx}px`, '--ty': `${p.ty}px` } as React.CSSProperties),
           }}>
           {p.text}
