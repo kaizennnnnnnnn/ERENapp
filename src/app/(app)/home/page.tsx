@@ -21,7 +21,11 @@ import TaskPanel from '@/components/TaskPanel'
 import ReminderSheet from '@/components/ReminderSheet'
 import { registerSW } from '@/lib/reminders'
 
-interface XpParticle { id: number; x: number; y: number; tx: number; ty: number; text: string; delay: number }
+interface XpParticle {
+  id: number; x: number; y: number; tx: number; ty: number
+  text: string; delay: number; duration: number
+  size: number; color: string; glow: string
+}
 
 const MOOD_GREETINGS: Record<string, string> = {
   happy:   'Eren is so happy today!',
@@ -60,7 +64,7 @@ export default function HomePage() {
 
   useEffect(() => { registerSW() }, [])
 
-  // XP particles Eren → bar
+  // XP sparkle particles Eren → bar
   useEffect(() => {
     if (xp <= prevXpRef.current) { prevXpRef.current = xp; return }
     const gained = xp - prevXpRef.current
@@ -70,21 +74,56 @@ export default function HomePage() {
     if (!erenEl || !barEl) return
     const erenRect = erenEl.getBoundingClientRect()
     const barRect  = barEl.getBoundingClientRect()
-    const srcX = erenRect.left + erenRect.width  / 2
-    const srcY = erenRect.top  + erenRect.height * 0.25
-    const dstX = barRect.left  + barRect.width   * (xpPct / 100)
-    const dstY = barRect.top   + barRect.height  / 2
-    const items = ['✦', '★', '✨', '⭐', '💫', '·', '•']
-    function makeWave(count: number, baseDelay: number, labelCount: number): XpParticle[] {
-      return Array.from({ length: count }, (_, i) => {
-        const px = srcX + (Math.random() - 0.5) * 70
-        const py = srcY + (Math.random() - 0.5) * 60
-        return { id: particleIdRef.current++, x: px, y: py, tx: dstX - px, ty: dstY - py,
-          text: i < labelCount ? `+${gained}XP` : items[Math.floor(Math.random() * items.length)], delay: baseDelay + i * 90 }
-      })
+    const srcX = erenRect.left + erenRect.width / 2
+    const srcY = erenRect.top  + erenRect.height * 0.2
+    const dstX = barRect.left  + barRect.width * (xpPct / 100)
+    const dstY = barRect.top   + barRect.height / 2
+
+    // Scale particle count and duration based on XP gained
+    const intensity = Math.min(1, gained / 50) // 0-1 based on XP (50+ = max)
+    const waveCount = Math.max(2, Math.round(2 + intensity * 5)) // 2-7 waves
+    const particlesPerWave = Math.max(4, Math.round(4 + intensity * 8)) // 4-12 per wave
+    const totalDuration = Math.round(1500 + intensity * 3000) // 1.5s - 4.5s
+    const waveInterval = Math.round(totalDuration / (waveCount + 1))
+
+    const sparkleEmojis = ['✦', '✧', '⬥', '◆']
+    const colors = ['#C084FC', '#A78BFA', '#7C3AED', '#E9D5FF', '#F0ABFC', '#FBBF24', '#FDE68A']
+    const glows  = ['rgba(192,132,252,0.8)', 'rgba(167,139,250,0.7)', 'rgba(124,58,237,0.6)', 'rgba(251,191,36,0.7)']
+
+    const allParticles: XpParticle[] = []
+
+    for (let w = 0; w < waveCount; w++) {
+      const baseDelay = w * waveInterval
+      const count = w === 0 ? particlesPerWave + 2 : particlesPerWave
+
+      for (let i = 0; i < count; i++) {
+        const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.8
+        const spread = 30 + Math.random() * 50
+        const px = srcX + Math.cos(angle) * spread
+        const py = srcY + Math.sin(angle) * spread * 0.6 - Math.random() * 30
+
+        const isLabel = w === 0 && i < 1
+        const color = colors[Math.floor(Math.random() * colors.length)]
+        const glow = glows[Math.floor(Math.random() * glows.length)]
+        const dur = 1.2 + Math.random() * 0.8 // 1.2-2s flight time
+
+        allParticles.push({
+          id: particleIdRef.current++,
+          x: px, y: py,
+          tx: dstX - px + (Math.random() - 0.5) * 20,
+          ty: dstY - py,
+          text: isLabel ? `+${gained}` : sparkleEmojis[Math.floor(Math.random() * sparkleEmojis.length)],
+          delay: baseDelay + i * (40 + Math.random() * 30),
+          duration: dur,
+          size: isLabel ? 9 : 6 + Math.random() * 8,
+          color: isLabel ? '#FBBF24' : color,
+          glow,
+        })
+      }
     }
-    setXpParticles(p => [...p, ...makeWave(16, 0, 3), ...makeWave(12, 600, 1), ...makeWave(8, 1300, 0)])
-    setTimeout(() => setXpParticles([]), 4200)
+
+    setXpParticles(p => [...p, ...allParticles])
+    setTimeout(() => setXpParticles([]), totalDuration + 2500)
   }, [xp]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [todayMood, setTodayMood]         = useState<UserMood | null>(null)
@@ -195,12 +234,19 @@ export default function HomePage() {
 
   return (
     <>
-      {/* ── XP particles ── */}
+      {/* ── XP sparkle particles ── */}
       {xpParticles.map(p => (
         <div key={p.id} className="fixed pointer-events-none z-50 font-pixel"
-          style={{ left: p.x, top: p.y, fontSize: p.text.length > 2 ? 7 : 13, color: '#A78BFA', whiteSpace: 'nowrap',
-            animationDelay: `${p.delay}ms`, animation: 'flyToBar 1.8s ease-in forwards',
-            ...({ '--tx': `${p.tx}px`, '--ty': `${p.ty}px` } as React.CSSProperties) }}>
+          style={{
+            left: p.x, top: p.y,
+            fontSize: p.size,
+            color: p.color,
+            whiteSpace: 'nowrap',
+            textShadow: `0 0 6px ${p.glow}, 0 0 12px ${p.glow}`,
+            animationDelay: `${p.delay}ms`,
+            animation: `xpSparkle ${p.duration}s cubic-bezier(0.22, 0.61, 0.36, 1) forwards`,
+            ...({ '--tx': `${p.tx}px`, '--ty': `${p.ty}px` } as React.CSSProperties),
+          }}>
           {p.text}
         </div>
       ))}
