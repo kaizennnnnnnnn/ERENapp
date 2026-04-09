@@ -16,7 +16,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 import { format } from 'date-fns'
 import Link from 'next/link'
-import { Bell, Sparkles, Image, User } from 'lucide-react'
+import { Bell, Sparkles, Image, User, DoorOpen } from 'lucide-react'
 import TaskPanel from '@/components/TaskPanel'
 import ReminderSheet from '@/components/ReminderSheet'
 import { registerSW } from '@/lib/reminders'
@@ -45,7 +45,7 @@ export default function HomePage() {
   const supabase = createClient()
   const { user, profile, loading: authLoading } = useAuth()
   const { stats, loading } = useErenStats(profile?.household_id ?? null)
-  const { setIsSick } = useCare()
+  const { setIsSick, openScene } = useCare()
   const { xp, level, coins: userCoins } = useTasks()
   useTimeTracking(user?.id ?? null)
 
@@ -91,6 +91,7 @@ export default function HomePage() {
   const [moodChecked, setMoodChecked]     = useState(false)
   const [toast, setToast]                 = useState<string | null>(null)
   const [showReminders, setShowReminders] = useState(false)
+  const [showRooms, setShowRooms]         = useState(false)
   const [roomReady, setRoomReady]         = useState(false)
 
   // Fast localStorage check
@@ -277,6 +278,36 @@ export default function HomePage() {
               style={{ background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(8px)', borderRadius: 8, border: '1px solid rgba(167,139,250,0.3)' }}>
               <User size={16} style={{ color: '#A78BFA' }} />
             </Link>
+            <div className="relative">
+              <button onClick={() => setShowRooms(r => !r)}
+                className="w-9 h-9 flex items-center justify-center active:scale-90 transition-transform"
+                style={{ background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(8px)', borderRadius: 8, border: '1px solid rgba(52,211,153,0.4)' }}>
+                <DoorOpen size={16} style={{ color: '#34D399' }} />
+              </button>
+              {showRooms && (
+                <>
+                  <div className="fixed inset-0 z-20" onClick={() => setShowRooms(false)} />
+                  <div className="absolute right-0 top-11 z-30 flex flex-col gap-1 p-2"
+                    style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(12px)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', minWidth: 140 }}>
+                    {([
+                      { id: 'feed',   label: 'Kitchen',   icon: '🍗', color: '#F5C842' },
+                      { id: 'play',   label: 'Playroom',  icon: '🧶', color: '#FF6B9D' },
+                      { id: 'sleep',  label: 'Bedroom',   icon: '💤', color: '#818CF8' },
+                      { id: 'wash',   label: 'Bathroom',  icon: '🛁', color: '#38BDF8' },
+                      { id: 'vet',    label: 'Vet Office', icon: '💊', color: '#34D399' },
+                      { id: 'school', label: 'Serbian Class', icon: '📖', color: '#F59E0B' },
+                    ] as const).map(room => (
+                      <button key={room.id} onClick={() => { setShowRooms(false); openScene(room.id) }}
+                        className="flex items-center gap-2 px-3 py-2 active:scale-95 transition-transform"
+                        style={{ borderRadius: 6, background: 'rgba(255,255,255,0.06)' }}>
+                        <span style={{ fontSize: 14 }}>{room.icon}</span>
+                        <span className="font-pixel text-white" style={{ fontSize: 7 }}>{room.label.toUpperCase()}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Row 2: Mini stat bars */}
