@@ -105,22 +105,22 @@ export default function PlayScene({ onClose }: Props) {
       {/* ══ UI ══ */}
       {/* Games link */}
       <button onClick={e => { e.stopPropagation(); router.push('/games'); setTimeout(onClose, 400) }}
-        className="absolute top-4 right-4 z-50 flex items-center gap-1.5 active:scale-95 transition-transform"
-        style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)', borderRadius: 3, border: '2px solid rgba(160,120,230,0.4)', boxShadow: '2px 2px 0 rgba(120,80,200,0.2)', padding: '7px 10px' }}>
+        className="absolute right-4 z-50 flex items-center gap-1.5 active:scale-95 transition-transform"
+        style={{ top: 110, background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)', borderRadius: 3, border: '2px solid rgba(160,120,230,0.4)', boxShadow: '2px 2px 0 rgba(120,80,200,0.2)', padding: '7px 10px' }}>
         <Gamepad2 size={14} className="text-purple-600" />
         <span className="font-pixel text-purple-600" style={{ fontSize: 6 }}>GAMES</span>
       </button>
 
       {toast && (
-        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-50 text-white px-4 py-2 animate-float whitespace-nowrap"
-          style={{ background: '#1F1F2E', borderRadius: 3, border: '2px solid #3A3A5E', boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
+        <div className="absolute left-1/2 -translate-x-1/2 z-50 text-white px-4 py-2 animate-float whitespace-nowrap"
+          style={{ top: 145, background: '#1F1F2E', borderRadius: 3, border: '2px solid #3A3A5E', boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
           {toast}
         </div>
       )}
 
       {throwCount === 0 && !done && (
-        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-40 px-3 py-1.5 pointer-events-none animate-pulse-soft"
-          style={{ background: 'rgba(255,255,255,0.85)', borderRadius: 3, border: '2px solid #C0A0E8', boxShadow: '2px 2px 0 rgba(150,100,220,0.2)', fontFamily: '"Press Start 2P"', fontSize: 7, color: '#7C3AED' }}>
+        <div className="absolute left-1/2 -translate-x-1/2 z-40 px-3 py-1.5 pointer-events-none animate-pulse-soft"
+          style={{ top: 145, background: 'rgba(255,255,255,0.85)', borderRadius: 3, border: '2px solid #C0A0E8', boxShadow: '2px 2px 0 rgba(150,100,220,0.2)', fontFamily: '"Press Start 2P"', fontSize: 7, color: '#7C3AED' }}>
           TAP TO THROW THE BALL!
         </div>
       )}

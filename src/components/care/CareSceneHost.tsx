@@ -235,9 +235,9 @@ export default function CareSceneHost() {
         </div>
       )}
 
-      {/* Room name label */}
+      {/* Room name label — below stats header */}
       {ready && (
-        <div className="fixed top-16 left-1/2 z-50 pointer-events-none" style={{ transform: 'translateX(-50%)' }}>
+        <div className="fixed left-1/2 z-[55] pointer-events-none" style={{ top: 108, transform: 'translateX(-50%)' }}>
           <span key={activeScene} className="font-pixel text-white px-3 py-1"
             style={{ fontSize: 7, background: 'rgba(0,0,0,0.4)', borderRadius: 10, backdropFilter: 'blur(4px)', animation: 'fadeInDown 0.3s ease both' }}>
             {SCENE_LABELS[activeScene]}

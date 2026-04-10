@@ -375,7 +375,7 @@ export default function HospitalScene({ onClose }: Props) {
 
 
       {/* ══ SCENE LABEL ══ */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50">
+      <div className="absolute left-1/2 -translate-x-1/2 z-50" style={{ top: 110 }}>
         <span className="font-pixel text-slate-600 px-3 py-1.5"
           style={{ background: 'rgba(255,255,255,0.92)', borderRadius: 3, border: '2px solid rgba(170,180,210,0.45)', boxShadow: '2px 2px 0 rgba(130,140,175,0.18)', fontSize: 7 }}>
           VET CLINIC

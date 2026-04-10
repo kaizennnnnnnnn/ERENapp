@@ -229,7 +229,7 @@ export default function WashScene({ onClose }: Props) {
       </div>
 
       {/* ══ SCENE LABEL ══════════════════════════════════════════════════ */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50">
+      <div className="absolute left-1/2 -translate-x-1/2 z-50" style={{ top: 110 }}>
         <span className="font-pixel text-sky-700 px-3 py-1.5"
           style={{ background: 'linear-gradient(135deg, #E8F8FF, #D0EEFF)', borderRadius: 3, border: '2px solid #A8D4F0', boxShadow: '2px 2px 0 #88B8D8', fontSize: 7 }}>
           BATHROOM

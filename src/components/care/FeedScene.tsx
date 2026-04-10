@@ -133,16 +133,16 @@ export default function FeedScene({ onClose }: Props) {
 
       {/* ══ UI ══ */}
 
-      <div className="absolute top-4 right-4 z-50 flex items-center gap-1.5 px-3 py-1.5"
-        style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)', borderRadius: 3, border: '2px solid #F5C842', boxShadow: '2px 2px 0 #C8A020' }}>
+      <div className="absolute right-4 z-50 flex items-center gap-1.5 px-3 py-1.5"
+        style={{ top: 110, background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)', borderRadius: 3, border: '2px solid #F5C842', boxShadow: '2px 2px 0 #C8A020' }}>
         {/* CSS coin */}
         <div style={{ width: 12, height: 12, borderRadius: '50%', background: 'radial-gradient(circle at 38% 35%, #FFE878, #D4A818)', border: '1.5px solid #B08810', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
         <span className="font-pixel text-amber-700" style={{ fontSize: 9 }}>{coins}</span>
       </div>
 
       {toast && (
-        <div className={cn('absolute top-14 left-1/2 -translate-x-1/2 z-50 text-white px-4 py-2 animate-float whitespace-nowrap', toast.ok ? '' : '')}
-          style={{ background: toast.ok ? '#1F1F2E' : '#CC2222', borderRadius: 3, border: `2px solid ${toast.ok ? '#3A3A5E' : '#AA1111'}`, boxShadow: `3px 3px 0 ${toast.ok ? 'rgba(0,0,0,0.4)' : '#880000'}`, fontFamily: '"Press Start 2P"', fontSize: 7 }}>
+        <div className={cn('absolute left-1/2 -translate-x-1/2 z-50 text-white px-4 py-2 animate-float whitespace-nowrap', toast.ok ? '' : '')}
+          style={{ top: 145, background: toast.ok ? '#1F1F2E' : '#CC2222', borderRadius: 3, border: `2px solid ${toast.ok ? '#3A3A5E' : '#AA1111'}`, boxShadow: `3px 3px 0 ${toast.ok ? 'rgba(0,0,0,0.4)' : '#880000'}`, fontFamily: '"Press Start 2P"', fontSize: 7 }}>
           {toast.msg}
         </div>
       )}
