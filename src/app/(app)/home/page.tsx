@@ -36,13 +36,6 @@ const MOOD_GREETINGS: Record<string, string> = {
   angry:   'Eren is not amused.',
 }
 
-const MINI_STATS = [
-  { key: 'happiness',     icon: '💕', color: '#f472b6' },
-  { key: 'hunger',        icon: '🍗', color: '#fbbf24' },
-  { key: 'energy',        icon: '⚡', color: '#34d399' },
-  { key: 'sleep_quality', icon: '💤', color: '#818cf8' },
-  { key: 'cleanliness',   icon: '🛁', color: '#38bdf8' },
-] as const
 
 export default function HomePage() {
   const router   = useRouter()
@@ -50,14 +43,13 @@ export default function HomePage() {
   const { user, profile, loading: authLoading } = useAuth()
   const { stats, loading } = useErenStats(profile?.household_id ?? null)
   const { setIsSick, openScene } = useCare()
-  const { xp, level, coins: userCoins } = useTasks()
+  const { xp, level } = useTasks()
   useTimeTracking(user?.id ?? null)
 
   // XP bar
   const xpIntoLevel = xp - totalXpForLevel(level)
   const xpNeeded    = xpForNextLevel(level)
   const xpPct       = Math.min(100, Math.round((xpIntoLevel / xpNeeded) * 100))
-  const xpBarRef    = useRef<HTMLDivElement>(null)
   const prevXpRef   = useRef(xp)
   const particleIdRef = useRef(0)
   const [xpParticles, setXpParticles] = useState<XpParticle[]>([])
@@ -70,7 +62,7 @@ export default function HomePage() {
     const gained = xp - prevXpRef.current
     prevXpRef.current = xp
     const erenEl = document.getElementById('eren-img')
-    const barEl  = xpBarRef.current
+    const barEl  = document.getElementById('stats-xp-bar')
     if (!erenEl || !barEl) return
     const erenRect = erenEl.getBoundingClientRect()
     const barRect  = barEl.getBoundingClientRect()
@@ -289,52 +281,37 @@ export default function HomePage() {
           <div className="absolute" style={{ bottom: -6, left: 10, width: 8, height: 6, background: 'white', clipPath: 'polygon(0% 0%, 100% 0%, 50% 100%)' }} />
         </div>
 
-        {/* ══ HUD OVERLAY (top of room) ══ */}
-        <div className="absolute top-0 left-0 right-0 z-10 px-3 pt-3 flex flex-col gap-2">
+        {/* ══ HUD OVERLAY (below shared stats header) ══ */}
+        <div className="absolute left-0 right-0 z-10 px-3 flex flex-col gap-2" style={{ top: 100 }}>
 
-          {/* Row 1: XP bar + Coins + Bell + Pics + Profile */}
-          <div className="flex items-center gap-2">
-            <div ref={xpBarRef} className="flex-1 flex items-center gap-1.5 px-2.5 h-9"
-              style={{ background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(8px)', borderRadius: 8, border: '1px solid rgba(167,139,250,0.35)' }}>
-              <span className="font-pixel text-purple-300 flex-shrink-0" style={{ fontSize: 7 }}>Lv.{level}</span>
-              <div className="flex-1 h-2 rounded-full overflow-hidden relative" style={{ background: 'rgba(255,255,255,0.15)' }}>
-                <div className="h-full rounded-full transition-all duration-700"
-                  style={{ width: `${xpPct}%`, background: 'linear-gradient(90deg, #A78BFA, #7C3AED)' }} />
-                <div className="absolute inset-0 rounded-full" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.25) 0%, transparent 60%)' }} />
-              </div>
-              <span className="font-pixel text-purple-300 flex-shrink-0" style={{ fontSize: 6 }}>{xpIntoLevel}/{xpNeeded}</span>
-            </div>
-            <div className="flex items-center gap-1 px-2.5 h-9"
-              style={{ background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(8px)', borderRadius: 8, border: '1px solid rgba(245,200,66,0.4)' }}>
-              <span style={{ fontSize: 14 }}>🪙</span>
-              <span className="font-pixel text-yellow-300" style={{ fontSize: 9 }}>{userCoins}</span>
-            </div>
+          {/* Nav buttons row */}
+          <div className="flex items-center justify-end gap-2">
             <button onClick={() => setShowReminders(true)}
-              className="w-9 h-9 flex items-center justify-center active:scale-90 transition-transform"
-              style={{ background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(8px)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)' }}>
-              <Bell size={16} className="text-white/80" />
+              className="w-10 h-10 flex items-center justify-center active:scale-90 transition-transform"
+              style={{ background: 'rgba(15,10,30,0.55)', backdropFilter: 'blur(12px)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.15)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
+              <Bell size={17} className="text-white/80" />
             </button>
             <Link href="/memories"
-              className="w-9 h-9 flex items-center justify-center active:scale-90 transition-transform"
-              style={{ background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(8px)', borderRadius: 8, border: '1px solid rgba(255,150,200,0.3)' }}>
-              <Image size={16} style={{ color: '#FF9DC0' }} />
+              className="w-10 h-10 flex items-center justify-center active:scale-90 transition-transform"
+              style={{ background: 'rgba(15,10,30,0.55)', backdropFilter: 'blur(12px)', borderRadius: 12, border: '1px solid rgba(255,150,200,0.25)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
+              <Image size={17} style={{ color: '#FF9DC0' }} />
             </Link>
             <Link href="/profile"
-              className="w-9 h-9 flex items-center justify-center active:scale-90 transition-transform"
-              style={{ background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(8px)', borderRadius: 8, border: '1px solid rgba(167,139,250,0.3)' }}>
-              <User size={16} style={{ color: '#A78BFA' }} />
+              className="w-10 h-10 flex items-center justify-center active:scale-90 transition-transform"
+              style={{ background: 'rgba(15,10,30,0.55)', backdropFilter: 'blur(12px)', borderRadius: 12, border: '1px solid rgba(167,139,250,0.25)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
+              <User size={17} style={{ color: '#A78BFA' }} />
             </Link>
             <div className="relative">
               <button onClick={() => setShowRooms(r => !r)}
-                className="w-9 h-9 flex items-center justify-center active:scale-90 transition-transform"
-                style={{ background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(8px)', borderRadius: 8, border: '1px solid rgba(52,211,153,0.4)' }}>
-                <DoorOpen size={16} style={{ color: '#34D399' }} />
+                className="w-10 h-10 flex items-center justify-center active:scale-90 transition-transform"
+                style={{ background: 'rgba(15,10,30,0.55)', backdropFilter: 'blur(12px)', borderRadius: 12, border: '1px solid rgba(52,211,153,0.3)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
+                <DoorOpen size={17} style={{ color: '#34D399' }} />
               </button>
               {showRooms && (
                 <>
                   <div className="fixed inset-0 z-20" onClick={() => setShowRooms(false)} />
-                  <div className="absolute right-0 top-11 z-30 flex flex-col gap-1 p-2"
-                    style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(12px)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', minWidth: 140 }}>
+                  <div className="absolute right-0 top-12 z-30 flex flex-col gap-1 p-2"
+                    style={{ background: 'rgba(10,5,25,0.85)', backdropFilter: 'blur(16px)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.12)', minWidth: 150, boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
                     {([
                       { id: 'feed',   label: 'Kitchen',   icon: '🍗', color: '#F5C842' },
                       { id: 'play',   label: 'Playroom',  icon: '🧶', color: '#FF6B9D' },
@@ -345,8 +322,8 @@ export default function HomePage() {
                     ] as const).map(room => (
                       <button key={room.id} onClick={() => { setShowRooms(false); openScene(room.id) }}
                         className="flex items-center gap-2 px-3 py-2 active:scale-95 transition-transform"
-                        style={{ borderRadius: 6, background: 'rgba(255,255,255,0.06)' }}>
-                        <span style={{ fontSize: 14 }}>{room.icon}</span>
+                        style={{ borderRadius: 8, background: 'rgba(255,255,255,0.06)' }}>
+                        <span style={{ fontSize: 15 }}>{room.icon}</span>
                         <span className="font-pixel text-white" style={{ fontSize: 7 }}>{room.label.toUpperCase()}</span>
                       </button>
                     ))}
@@ -356,25 +333,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Row 2: Mini stat bars */}
-          <div className="flex gap-1.5">
-            {MINI_STATS.map(({ key, icon, color }) => {
-              const raw = (stats as unknown as Record<string, unknown>)[key]
-              const val = Math.round(Math.max(0, Math.min(100, (typeof raw === 'number' ? raw : 0))))
-              const barColor = val >= 60 ? color : val >= 30 ? '#facc15' : '#f87171'
-              return (
-                <div key={key} className="flex-1 flex items-center gap-1 px-2 py-1.5"
-                  style={{ background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(6px)', borderRadius: 6, border: '1px solid rgba(255,255,255,0.12)' }}>
-                  <span style={{ fontSize: 12, lineHeight: 1, flexShrink: 0 }}>{icon}</span>
-                  <div className="flex-1 overflow-hidden" style={{ height: 7, borderRadius: 3, background: 'rgba(255,255,255,0.15)' }}>
-                    <div style={{ width: `${val}%`, height: '100%', borderRadius: 3, background: barColor, transition: 'width 0.5s' }} />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Row 3: Quests */}
+          {/* Quests */}
           <TaskPanel />
         </div>
 
