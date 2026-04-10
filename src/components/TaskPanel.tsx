@@ -6,7 +6,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { TASK_DEFS, getDailyKey, getWeeklyKey } from '@/lib/tasks'
 import type { TaskId } from '@/types'
 
-export default function TaskPanel() {
+export default function TaskPanel({ compact = false }: { compact?: boolean }) {
   const { completedIds, taskProgress } = useTasks()
   const [tab, setTab] = useState<'daily' | 'weekly'>('daily')
   const [open, setOpen] = useState(false)
@@ -154,46 +154,66 @@ export default function TaskPanel() {
       {modal}
 
       {/* Quest button */}
-      <button
-        onClick={() => setOpen(true)}
-        className="w-full mb-3 flex items-center gap-2 px-3 py-2 active:scale-[0.98] transition-transform"
-        style={{
-          background: 'white',
-          borderRadius: 8,
-          border: '2px solid #D8C8F8',
-          boxShadow: '3px 3px 0 #C8B0F0',
-        }}
-      >
-        <span style={{ fontSize: 16 }}>📋</span>
-        <div className="flex-1 text-left">
-          <p className="font-pixel text-purple-700" style={{ fontSize: 7 }}>QUESTS</p>
-          <p className="text-[9px] text-gray-400 mt-0.5">{dailyDone}/{dailyTasks.length} daily · {weeklyDone}/{weeklyTasks.length} weekly</p>
-        </div>
-        {/* Progress rings */}
-        <div className="flex items-center gap-1">
-          <div className="relative w-7 h-7">
-            <svg width="28" height="28" viewBox="0 0 32 32" className="-rotate-90">
-              <circle cx="16" cy="16" r="12" fill="none" stroke="#EDE8FF" strokeWidth="3" />
-              <circle cx="16" cy="16" r="12" fill="none" stroke="#F5C842" strokeWidth="3"
-                strokeDasharray={`${2 * Math.PI * 12}`}
-                strokeDashoffset={`${2 * Math.PI * 12 * (1 - dailyDone / dailyTasks.length)}`}
-                style={{ transition: 'stroke-dashoffset 0.5s' }} />
-            </svg>
-            <span className="absolute inset-0 flex items-center justify-center font-pixel text-amber-600" style={{ fontSize: 6 }}>{dailyDone}</span>
+      {compact ? (
+        <button
+          onClick={() => setOpen(true)}
+          className="w-full flex items-center gap-1.5 px-2.5 h-10 active:scale-[0.97] transition-transform"
+          style={{
+            background: 'rgba(15,10,30,0.55)',
+            backdropFilter: 'blur(12px)',
+            borderRadius: 12,
+            border: '1px solid rgba(167,139,250,0.25)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+          }}
+        >
+          <span style={{ fontSize: 13 }}>📋</span>
+          <span className="font-pixel text-purple-300 truncate" style={{ fontSize: 6 }}>
+            {dailyDone}/{dailyTasks.length}d · {weeklyDone}/{weeklyTasks.length}w
+          </span>
+          <span className="font-pixel text-purple-400/60 ml-auto" style={{ fontSize: 8 }}>▶</span>
+        </button>
+      ) : (
+        <button
+          onClick={() => setOpen(true)}
+          className="w-full mb-3 flex items-center gap-2 px-3 py-2 active:scale-[0.98] transition-transform"
+          style={{
+            background: 'white',
+            borderRadius: 8,
+            border: '2px solid #D8C8F8',
+            boxShadow: '3px 3px 0 #C8B0F0',
+          }}
+        >
+          <span style={{ fontSize: 16 }}>📋</span>
+          <div className="flex-1 text-left">
+            <p className="font-pixel text-purple-700" style={{ fontSize: 7 }}>QUESTS</p>
+            <p className="text-[9px] text-gray-400 mt-0.5">{dailyDone}/{dailyTasks.length} daily · {weeklyDone}/{weeklyTasks.length} weekly</p>
           </div>
-          <div className="relative w-7 h-7">
-            <svg width="28" height="28" viewBox="0 0 32 32" className="-rotate-90">
-              <circle cx="16" cy="16" r="12" fill="none" stroke="#EDE8FF" strokeWidth="3" />
-              <circle cx="16" cy="16" r="12" fill="none" stroke="#A78BFA" strokeWidth="3"
-                strokeDasharray={`${2 * Math.PI * 12}`}
-                strokeDashoffset={`${2 * Math.PI * 12 * (1 - weeklyDone / weeklyTasks.length)}`}
-                style={{ transition: 'stroke-dashoffset 0.5s' }} />
-            </svg>
-            <span className="absolute inset-0 flex items-center justify-center font-pixel text-purple-600" style={{ fontSize: 6 }}>{weeklyDone}</span>
+          {/* Progress rings */}
+          <div className="flex items-center gap-1">
+            <div className="relative w-7 h-7">
+              <svg width="28" height="28" viewBox="0 0 32 32" className="-rotate-90">
+                <circle cx="16" cy="16" r="12" fill="none" stroke="#EDE8FF" strokeWidth="3" />
+                <circle cx="16" cy="16" r="12" fill="none" stroke="#F5C842" strokeWidth="3"
+                  strokeDasharray={`${2 * Math.PI * 12}`}
+                  strokeDashoffset={`${2 * Math.PI * 12 * (1 - dailyDone / dailyTasks.length)}`}
+                  style={{ transition: 'stroke-dashoffset 0.5s' }} />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center font-pixel text-amber-600" style={{ fontSize: 6 }}>{dailyDone}</span>
+            </div>
+            <div className="relative w-7 h-7">
+              <svg width="28" height="28" viewBox="0 0 32 32" className="-rotate-90">
+                <circle cx="16" cy="16" r="12" fill="none" stroke="#EDE8FF" strokeWidth="3" />
+                <circle cx="16" cy="16" r="12" fill="none" stroke="#A78BFA" strokeWidth="3"
+                  strokeDasharray={`${2 * Math.PI * 12}`}
+                  strokeDashoffset={`${2 * Math.PI * 12 * (1 - weeklyDone / weeklyTasks.length)}`}
+                  style={{ transition: 'stroke-dashoffset 0.5s' }} />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center font-pixel text-purple-600" style={{ fontSize: 6 }}>{weeklyDone}</span>
+            </div>
+            <span className="font-pixel text-purple-400" style={{ fontSize: 9 }}>▶</span>
           </div>
-          <span className="font-pixel text-purple-400" style={{ fontSize: 9 }}>▶</span>
-        </div>
-      </button>
+        </button>
+      )}
     </>
   )
 }

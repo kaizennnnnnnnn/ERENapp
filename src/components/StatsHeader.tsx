@@ -26,8 +26,9 @@ export default function StatsHeader() {
     <div className="w-full px-3 pt-3 pb-2 flex flex-col gap-2"
       style={{
         pointerEvents: 'auto',
-        background: 'linear-gradient(180deg, rgba(10,5,25,0.6) 0%, rgba(10,5,25,0.3) 80%, transparent 100%)',
-        backdropFilter: 'blur(8px)',
+        background: 'linear-gradient(180deg, rgba(18,10,35,0.92) 0%, rgba(18,10,35,0.85) 75%, rgba(18,10,35,0.5) 100%)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
       }}>
 
       {/* ── Row 1: Level badge + XP bar + Coins ── */}

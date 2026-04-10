@@ -282,26 +282,32 @@ export default function HomePage() {
         </div>
 
         {/* ══ HUD OVERLAY (below shared stats header) ══ */}
-        <div className="absolute left-0 right-0 z-10 px-3 flex flex-col gap-2" style={{ top: 100 }}>
+        <div className="absolute left-0 right-0 z-10 px-3" style={{ top: 100 }}>
 
-          {/* Nav buttons row */}
-          <div className="flex items-center justify-end gap-2">
+          {/* Quests (compact) + Nav buttons — single row */}
+          <div className="flex items-center gap-2">
+            {/* Quests — takes remaining space */}
+            <div className="flex-1 min-w-0">
+              <TaskPanel compact />
+            </div>
+
+            {/* Nav buttons */}
             <button onClick={() => setShowReminders(true)}
-              className="w-10 h-10 flex items-center justify-center active:scale-90 transition-transform"
+              className="w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
               style={{ background: 'rgba(15,10,30,0.55)', backdropFilter: 'blur(12px)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.15)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
               <Bell size={17} className="text-white/80" />
             </button>
             <Link href="/memories"
-              className="w-10 h-10 flex items-center justify-center active:scale-90 transition-transform"
+              className="w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
               style={{ background: 'rgba(15,10,30,0.55)', backdropFilter: 'blur(12px)', borderRadius: 12, border: '1px solid rgba(255,150,200,0.25)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
               <Image size={17} style={{ color: '#FF9DC0' }} />
             </Link>
             <Link href="/profile"
-              className="w-10 h-10 flex items-center justify-center active:scale-90 transition-transform"
+              className="w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
               style={{ background: 'rgba(15,10,30,0.55)', backdropFilter: 'blur(12px)', borderRadius: 12, border: '1px solid rgba(167,139,250,0.25)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
               <User size={17} style={{ color: '#A78BFA' }} />
             </Link>
-            <div className="relative">
+            <div className="relative flex-shrink-0">
               <button onClick={() => setShowRooms(r => !r)}
                 className="w-10 h-10 flex items-center justify-center active:scale-90 transition-transform"
                 style={{ background: 'rgba(15,10,30,0.55)', backdropFilter: 'blur(12px)', borderRadius: 12, border: '1px solid rgba(52,211,153,0.3)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
@@ -332,9 +338,6 @@ export default function HomePage() {
               )}
             </div>
           </div>
-
-          {/* Quests */}
-          <TaskPanel />
         </div>
 
         {/* Dot indicators — home active + 4 care room dots */}
