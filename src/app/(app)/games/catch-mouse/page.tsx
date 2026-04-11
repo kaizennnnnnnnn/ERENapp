@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
+import { useCare } from '@/contexts/CareContext'
 import { RefreshCw, ChevronLeft } from 'lucide-react'
 
 const MOUSE_SPEED_INIT = 2.2
@@ -18,6 +19,8 @@ export default function CatchMouseGame() {
   const router = useRouter()
   const supabase = createClient()
   const { user, profile } = useAuth()
+  const { setHideStats } = useCare()
+  useEffect(() => { setHideStats(false) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask, addCoins } = useTasks()
 

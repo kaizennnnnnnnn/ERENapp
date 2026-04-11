@@ -9,6 +9,8 @@ interface CareContextValue {
   activeScene: CareScene | null
   isSick: boolean
   setIsSick: (v: boolean) => void
+  hideStats: boolean
+  setHideStats: (v: boolean) => void
   enterCareMode: () => void
   exitCareMode: () => void
   openScene: (scene: CareScene) => void
@@ -21,6 +23,7 @@ export function CareProvider({ children }: { children: ReactNode }) {
   const [careMode, setCareMode] = useState(false)
   const [activeScene, setActiveScene] = useState<CareScene | null>(null)
   const [isSick, setIsSick] = useState(false)
+  const [hideStats, setHideStats] = useState(true)
 
   return (
     <CareContext.Provider value={{
@@ -28,6 +31,8 @@ export function CareProvider({ children }: { children: ReactNode }) {
       activeScene,
       isSick,
       setIsSick,
+      hideStats,
+      setHideStats,
       enterCareMode: () => setCareMode(true),
       exitCareMode: () => { setCareMode(false); setActiveScene(null) },
       openScene: (s) => setActiveScene(s),

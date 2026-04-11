@@ -9,6 +9,7 @@ import {
   Plus, X, Check, Bell, Trash2,
   Syringe, Scissors, Gamepad2, UtensilsCrossed, Stethoscope
 } from 'lucide-react'
+import { useCare } from '@/contexts/CareContext'
 
 const TYPE_CONFIG: Record<ReminderType, { label: string; emoji: string; color: string }> = {
   feed:     { label: 'Feed Eren',      emoji: '🍗', color: 'bg-amber-100 text-amber-700'  },
@@ -30,6 +31,8 @@ const REPEAT_OPTIONS: { value: RepeatInterval; label: string }[] = [
 export default function RemindersPage() {
   const supabase = createClient()
   const { user, profile } = useAuth()
+  const { setHideStats } = useCare()
+  useEffect(() => { setHideStats(false) }, [setHideStats])
 
   const [reminders, setReminders]     = useState<Reminder[]>([])
   const [loading, setLoading]         = useState(true)

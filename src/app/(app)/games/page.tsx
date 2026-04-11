@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
+import { useCare } from '@/contexts/CareContext'
 import type { GameType, Profile } from '@/types'
 
 const GAMES = [
@@ -57,6 +58,8 @@ interface PlayerScores {
 export default function GamesPage() {
   const router = useRouter()
   const { user, profile } = useAuth()
+  const { setHideStats } = useCare()
+  useEffect(() => { setHideStats(false) }, [setHideStats])
   const supabase = createClient()
 
   // Per-user best scores (for the game card "BEST" badge — only current user)

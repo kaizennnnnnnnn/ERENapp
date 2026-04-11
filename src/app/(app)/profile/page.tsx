@@ -11,11 +11,14 @@ import { formatDuration } from '@/lib/utils'
 import { Copy, LogOut, Check, Trophy, Cat } from 'lucide-react'
 import MoodCalendar from '@/components/MoodCalendar'
 import { format } from 'date-fns'
+import { useCare } from '@/contexts/CareContext'
 
 export default function ProfilePage() {
   const router   = useRouter()
   const supabase = createClient()
   const { user, profile, loading, signOut } = useAuth()
+  const { setHideStats } = useCare()
+  useEffect(() => { setHideStats(false) }, [setHideStats])
 
   const [partner, setPartner]         = useState<Profile | null>(null)
   const [inviteCode, setInviteCode]   = useState<string | null>(null)

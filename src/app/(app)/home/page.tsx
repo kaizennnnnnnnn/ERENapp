@@ -42,7 +42,7 @@ export default function HomePage() {
   const supabase = createClient()
   const { user, profile, loading: authLoading } = useAuth()
   const { stats, loading } = useErenStats(profile?.household_id ?? null)
-  const { setIsSick, openScene } = useCare()
+  const { setIsSick, openScene, setHideStats } = useCare()
   const { xp, level } = useTasks()
   useTimeTracking(user?.id ?? null)
 
@@ -124,6 +124,12 @@ export default function HomePage() {
   const [showReminders, setShowReminders] = useState(false)
   const [showRooms, setShowRooms]         = useState(false)
   const [roomReady, setRoomReady]         = useState(false)
+
+  // Show stats header only when room is fully loaded & mood selected
+  useEffect(() => {
+    const ready = !authLoading && !!todayMood && !loading && !!stats && roomReady
+    setHideStats(!ready)
+  }, [authLoading, todayMood, loading, stats, roomReady, setHideStats])
 
   // Fast localStorage check
   useEffect(() => {

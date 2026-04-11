@@ -3,6 +3,7 @@
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
+import { useCare } from '@/contexts/CareContext'
 import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 
 const MINI_STATS = [
@@ -17,10 +18,13 @@ export default function StatsHeader() {
   const { profile } = useAuth()
   const { stats } = useErenStats(profile?.household_id ?? null)
   const { xp, level, coins } = useTasks()
+  const { hideStats } = useCare()
 
   const xpIntoLevel = xp - totalXpForLevel(level)
   const xpNeeded    = xpForNextLevel(level)
   const xpPct       = Math.min(100, Math.round((xpIntoLevel / xpNeeded) * 100))
+
+  if (hideStats) return null
 
   return (
     <div className="w-full px-3 pt-3 pb-2 flex flex-col gap-2"

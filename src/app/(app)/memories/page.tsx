@@ -10,11 +10,14 @@ import { formatDate, cn } from '@/lib/utils'
 import { Camera, Heart, Plus, Trash2, X, ChevronLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { useCare } from '@/contexts/CareContext'
 
 export default function MemoriesPage() {
   const router = useRouter()
   const supabase = createClient()
   const { user, profile } = useAuth()
+  const { setHideStats } = useCare()
+  useEffect(() => { setHideStats(false) }, [setHideStats])
 
   const [memories, setMemories]   = useState<Memory[]>([])
   const [loading, setLoading]     = useState(true)
