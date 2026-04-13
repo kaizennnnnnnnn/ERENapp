@@ -86,7 +86,7 @@ export default function SleepScene({ onClose }: Props) {
 
       {/* ══ ZZZs ══ */}
       {tuckedIn && (
-        <div className="absolute pointer-events-none z-20" style={{ bottom: '65%', left: '60%' }}>
+        <div className="absolute pointer-events-none z-20" style={{ bottom: '40%', left: '58%' }}>
           {[{z:'z',s:10,d:0},{z:'z',s:14,d:0.5},{z:'Z',s:18,d:1.0}].map((zz, i) => (
             <span key={i} className="absolute font-bold select-none"
               style={{ fontSize: zz.s, left: i * 16, top: -i * 16, color: '#A5B4FC', opacity: 0.9, fontFamily: '"Press Start 2P"', animation: `float ${1.2 + i * 0.4}s ease-in-out ${zz.d}s infinite` }}>
@@ -98,7 +98,7 @@ export default function SleepScene({ onClose }: Props) {
 
       {/* Dream cloud when deeply sleeping */}
       {tuckedIn && (
-        <div className="absolute pointer-events-none" style={{ bottom: '72%', left: '40%', animation: 'float 5s ease-in-out infinite' }}>
+        <div className="absolute pointer-events-none" style={{ bottom: '44%', left: '40%', animation: 'float 5s ease-in-out infinite' }}>
           <div style={{ width: 60, height: 28, borderRadius: 20, background: 'rgba(160,150,240,0.15)', border: '1px solid rgba(180,170,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             {/* CSS fish */}
             <div style={{ position: 'relative', width: 12, height: 8, opacity: 0.65 }}>
