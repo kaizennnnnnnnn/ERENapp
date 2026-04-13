@@ -52,6 +52,9 @@ export default function WashScene({ onClose }: Props) {
     }
   }, [])
 
+  // Stop touch events from bubbling to CareSceneHost swipe handler
+  function stopTouchBubble(e: React.TouchEvent) { e.stopPropagation() }
+
   // ── Soap pointer handlers ─────────────────────────────────────────────────
   function onSoapDown(e: React.PointerEvent) {
     if (doneRef.current) return
@@ -178,6 +181,9 @@ export default function WashScene({ onClose }: Props) {
         onPointerDown={onShowerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onShowerUp}
+        onTouchStart={stopTouchBubble}
+        onTouchMove={stopTouchBubble}
+        onTouchEnd={stopTouchBubble}
       >
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-7" style={{ background: 'linear-gradient(180deg, #9ECAE1, #6BAED6)', borderRadius: 3 }} />
         <div className="relative mt-6 flex items-center justify-center"
@@ -212,6 +218,9 @@ export default function WashScene({ onClose }: Props) {
         onPointerDown={onSoapDown}
         onPointerMove={onPointerMove}
         onPointerUp={onSoapUp}
+        onTouchStart={stopTouchBubble}
+        onTouchMove={stopTouchBubble}
+        onTouchEnd={stopTouchBubble}
       >
         <div className="flex flex-col items-center justify-center"
           style={{ width: 48, height: 30, background: 'linear-gradient(135deg, #FFE4F2 0%, #FF9EC8 45%, #FF6B9D 100%)', borderRadius: 4, border: '2px solid #CC4080', boxShadow: '2px 3px 0 #991A5A' }}>
