@@ -268,12 +268,12 @@ export default function SchoolScene({ onClose }: Props) {
         {/* ── RESULTS ───────────────────────────────────────────────────── */}
         {phase === 'results' && (
           <div className="flex-1 flex flex-col items-center justify-center px-6 pt-14 pb-24 gap-4">
-            <div className="text-4xl mb-2">{score === lesson.quiz.length ? '🌟' : score >= 2 ? '👏' : '📚'}</div>
+            <div className="text-4xl mb-2">{score === lesson.quiz.length ? '🌟' : score >= 3 ? '👏' : '📚'}</div>
             <p className="font-pixel text-white" style={{ fontSize: 12 }}>
               {score}/{lesson.quiz.length}
             </p>
             <p className="font-pixel text-amber-300" style={{ fontSize: 7 }}>
-              {score === lesson.quiz.length ? 'PERFECT SCORE!' : score >= 2 ? 'GREAT JOB!' : 'KEEP PRACTICING!'}
+              {score === lesson.quiz.length ? 'PERFECT SCORE!' : score >= 3 ? 'GREAT JOB!' : 'KEEP PRACTICING!'}
             </p>
             <p className="font-pixel text-white/50" style={{ fontSize: 6 }}>LESSON COMPLETE!</p>
 

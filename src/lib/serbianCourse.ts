@@ -49,6 +49,8 @@ export const SERBIAN_COURSE: Lesson[] = [
       { question: 'How do you say "Hello" in Serbian?', options: ['Ćao', 'Zdravo', 'Hvala', 'Molim'], answer: 1 },
       { question: 'What does "Hvala" mean?', options: ['Hello', 'Goodbye', 'Thank you', 'Sorry'], answer: 2 },
       { question: '"Dobro jutro" means...', options: ['Good night', 'Good morning', 'Good evening', 'Goodbye'], answer: 1 },
+      { question: '"Laku noć" means...', options: ['Good morning', 'Good day', 'Good evening', 'Good night'], answer: 3 },
+      { question: 'How do you say "Goodbye"?', options: ['Zdravo', 'Ćao', 'Doviđenja', 'Hvala'], answer: 2 },
     ],
   },
   {
@@ -76,6 +78,8 @@ export const SERBIAN_COURSE: Lesson[] = [
       { question: 'How do you say "My name is..." in Serbian?', options: ['Ja sam...', 'Zovem se...', 'Imam...', 'Idem...'], answer: 1 },
       { question: '"Kako se zoveš?" means...', options: ['How are you?', 'Where are you?', 'What is your name?', 'Who are you?'], answer: 2 },
       { question: '"Drago mi je" means...', options: ['I am sorry', 'Nice to meet you', 'Thank you', 'See you later'], answer: 1 },
+      { question: 'What does "Ja" mean?', options: ['You', 'He', 'I', 'We'], answer: 2 },
+      { question: '"Odakle si?" means...', options: ['How old are you?', 'Where are you from?', 'What do you do?', 'Where do you live?'], answer: 1 },
     ],
   },
   {
@@ -105,6 +109,8 @@ export const SERBIAN_COURSE: Lesson[] = [
       { question: 'What is "Three" in Serbian?', options: ['Dva', 'Tri', 'Četiri', 'Pet'], answer: 1 },
       { question: '"Sedam" means...', options: ['Six', 'Seven', 'Eight', 'Nine'], answer: 1 },
       { question: 'How do you say "Ten"?', options: ['Devet', 'Deset', 'Osam', 'Sedam'], answer: 1 },
+      { question: '"Pet" means...', options: ['Three', 'Four', 'Five', 'Six'], answer: 2 },
+      { question: 'What is "One" in Serbian?', options: ['Jedan', 'Dva', 'Tri', 'Deset'], answer: 0 },
     ],
   },
   {
@@ -132,6 +138,8 @@ export const SERBIAN_COURSE: Lesson[] = [
       { question: '"Crvena" means...', options: ['Blue', 'Green', 'Red', 'Yellow'], answer: 2 },
       { question: 'How do you say "White"?', options: ['Crna', 'Bela', 'Plava', 'Žuta'], answer: 1 },
       { question: '"Zelena" is which color?', options: ['Green', 'Yellow', 'Orange', 'Purple'], answer: 0 },
+      { question: 'What does "Crna" mean?', options: ['White', 'Red', 'Black', 'Blue'], answer: 2 },
+      { question: '"Ljubičasta" means...', options: ['Orange', 'Yellow', 'Green', 'Purple'], answer: 3 },
     ],
   },
   {
@@ -159,6 +167,8 @@ export const SERBIAN_COURSE: Lesson[] = [
       { question: '"Sestra" means...', options: ['Brother', 'Sister', 'Mother', 'Father'], answer: 1 },
       { question: 'How do you say "Dad"?', options: ['Mama', 'Baba', 'Tata', 'Deda'], answer: 2 },
       { question: '"Baba" means...', options: ['Baby', 'Grandmother', 'Aunt', 'Sister'], answer: 1 },
+      { question: 'What does "Dete" mean?', options: ['Family', 'Child', 'Grandfather', 'Brother'], answer: 1 },
+      { question: 'How do you say "Brother"?', options: ['Sestra', 'Deda', 'Brat', 'Porodica'], answer: 2 },
     ],
   },
   {
@@ -186,6 +196,8 @@ export const SERBIAN_COURSE: Lesson[] = [
       { question: 'How do you say "Cat" in Serbian?', options: ['Pas', 'Mačka', 'Miš', 'Zec'], answer: 1 },
       { question: '"Riba" means...', options: ['Bird', 'Dog', 'Fish', 'Horse'], answer: 2 },
       { question: '"Zec" is a...', options: ['Mouse', 'Cow', 'Horse', 'Rabbit'], answer: 3 },
+      { question: 'What does "Ptica" mean?', options: ['Fish', 'Bird', 'Dog', 'Cat'], answer: 1 },
+      { question: 'How do you say "Horse"?', options: ['Krava', 'Miš', 'Konj', 'Pas'], answer: 2 },
     ],
   },
   {
@@ -213,6 +225,8 @@ export const SERBIAN_COURSE: Lesson[] = [
       { question: '"Voda" means...', options: ['Milk', 'Water', 'Coffee', 'Tea'], answer: 1 },
       { question: 'How do you say "Bread"?', options: ['Meso', 'Sir', 'Hleb', 'Jabuka'], answer: 2 },
       { question: '"Kafa" is...', options: ['Tea', 'Coffee', 'Milk', 'Juice'], answer: 1 },
+      { question: 'What does "Sir" mean?', options: ['Bread', 'Meat', 'Apple', 'Cheese'], answer: 3 },
+      { question: '"Čaj" means...', options: ['Coffee', 'Water', 'Tea', 'Milk'], answer: 2 },
     ],
   },
   {
@@ -240,6 +254,8 @@ export const SERBIAN_COURSE: Lesson[] = [
       { question: '"Glava" means...', options: ['Hand', 'Head', 'Heart', 'Eye'], answer: 1 },
       { question: 'How do you say "Heart"?', options: ['Srce', 'Oko', 'Nos', 'Uvo'], answer: 0 },
       { question: '"Ruka" is...', options: ['Leg', 'Nose', 'Hand / Arm', 'Ear'], answer: 2 },
+      { question: 'What does "Oko" mean?', options: ['Ear', 'Mouth', 'Nose', 'Eye'], answer: 3 },
+      { question: '"Usta" means...', options: ['Mouth', 'Ear', 'Head', 'Leg'], answer: 0 },
     ],
   },
   {
@@ -267,6 +283,8 @@ export const SERBIAN_COURSE: Lesson[] = [
       { question: '"Sreda" is which day?', options: ['Monday', 'Tuesday', 'Wednesday', 'Thursday'], answer: 2 },
       { question: 'How do you say "Friday"?', options: ['Petak', 'Subota', 'Nedelja', 'Utorak'], answer: 0 },
       { question: '"Nedelja" means...', options: ['Saturday', 'Sunday', 'Week', 'Month'], answer: 1 },
+      { question: 'What does "Ponedeljak" mean?', options: ['Monday', 'Thursday', 'Sunday', 'Tuesday'], answer: 0 },
+      { question: '"Subota" is...', options: ['Friday', 'Saturday', 'Sunday', 'Wednesday'], answer: 1 },
     ],
   },
   {
@@ -294,6 +312,8 @@ export const SERBIAN_COURSE: Lesson[] = [
       { question: '"Kiša" means...', options: ['Snow', 'Rain', 'Wind', 'Sun'], answer: 1 },
       { question: 'How do you say "Cold"?', options: ['Toplo', 'Lepo', 'Hladno', 'Oblačno'], answer: 2 },
       { question: '"Sunce" is...', options: ['Moon', 'Star', 'Cloud', 'Sun'], answer: 3 },
+      { question: 'What does "Toplo" mean?', options: ['Cold', 'Warm', 'Cloudy', 'Windy'], answer: 1 },
+      { question: '"Sneg" means...', options: ['Rain', 'Wind', 'Snow', 'Sun'], answer: 2 },
     ],
   },
   {
@@ -321,6 +341,8 @@ export const SERBIAN_COURSE: Lesson[] = [
       { question: '"Krevet" means...', options: ['Chair', 'Table', 'Bed', 'Door'], answer: 2 },
       { question: 'How do you say "Window"?', options: ['Vrata', 'Prozor', 'Sto', 'Soba'], answer: 1 },
       { question: '"Kuća" is...', options: ['Kitchen', 'Room', 'House', 'Chair'], answer: 2 },
+      { question: 'What does "Stolica" mean?', options: ['Table', 'Door', 'Bed', 'Chair'], answer: 3 },
+      { question: '"Vrata" means...', options: ['Window', 'Room', 'Door', 'Kitchen'], answer: 2 },
     ],
   },
   {
@@ -348,6 +370,8 @@ export const SERBIAN_COURSE: Lesson[] = [
       { question: '"Jesti" means...', options: ['To drink', 'To eat', 'To sleep', 'To go'], answer: 1 },
       { question: 'How do you say "To love"?', options: ['Imati', 'Voleti', 'Raditi', 'Biti'], answer: 1 },
       { question: '"Spavati" means...', options: ['To work', 'To go', 'To sleep', 'To have'], answer: 2 },
+      { question: 'What does "Ići" mean?', options: ['To be', 'To eat', 'To go', 'To work'], answer: 2 },
+      { question: '"Piti" means...', options: ['To eat', 'To drink', 'To love', 'To sleep'], answer: 1 },
     ],
   },
   {
@@ -375,6 +399,8 @@ export const SERBIAN_COURSE: Lesson[] = [
       { question: '"Srećan" means...', options: ['Sad', 'Happy', 'Angry', 'Tired'], answer: 1 },
       { question: 'How do you say "Hungry"?', options: ['Žedan', 'Umoran', 'Gladan', 'Ljut'], answer: 2 },
       { question: '"Umoran" means...', options: ['Excited', 'Scared', 'Thirsty', 'Tired'], answer: 3 },
+      { question: 'What does "Ljut" mean?', options: ['Happy', 'Sad', 'Angry', 'Hungry'], answer: 2 },
+      { question: '"Uplašen" means...', options: ['Excited', 'Scared', 'Tired', 'Thirsty'], answer: 1 },
     ],
   },
   {
@@ -402,6 +428,8 @@ export const SERBIAN_COURSE: Lesson[] = [
       { question: '"Koliko?" means...', options: ['Where?', 'When?', 'How much?', 'Why?'], answer: 2 },
       { question: 'How do you say "Expensive"?', options: ['Jeftino', 'Skupo', 'Cena', 'Novac'], answer: 1 },
       { question: '"Molim" means...', options: ['Thank you', 'Sorry', 'Please', 'Hello'], answer: 2 },
+      { question: 'What does "Jeftino" mean?', options: ['Expensive', 'Cheap', 'Money', 'Price'], answer: 1 },
+      { question: '"Račun" means...', options: ['Money', 'Store', 'Price', 'Bill / Check'], answer: 3 },
     ],
   },
   {
@@ -429,6 +457,8 @@ export const SERBIAN_COURSE: Lesson[] = [
       { question: '"Razumem" means...', options: ['I speak', 'I understand', 'I know', 'I want'], answer: 1 },
       { question: 'How do you say "No"?', options: ['Da', 'Ne', 'Ni', 'Nu'], answer: 1 },
       { question: '"Izvini" means...', options: ['Thank you', 'Please', 'Sorry', 'Hello'], answer: 2 },
+      { question: 'What does "Da" mean?', options: ['No', 'Maybe', 'Yes', 'Please'], answer: 2 },
+      { question: '"Pomozite!" means...', options: ['Stop!', 'Help!', 'Wait!', 'Run!'], answer: 1 },
     ],
   },
 ]
