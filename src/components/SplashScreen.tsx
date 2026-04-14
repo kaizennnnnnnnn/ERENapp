@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
-// Chibi gacha-style pixel Eren (18 wide x 20 tall)
-// Big head, huge blue eyes, tiny body, stubby paws — Ragdoll colors
-const SPRITE = [
+// ── Chibi Eren sprite frames (18 wide) ──
+// K=outline M=dark_fur C=cream E=blue_eye P=pupil W=white N=pink S=grey .=transparent
+
+// Frame 1: idle, eyes open, tail right
+const F_IDLE1 = [
   '..KK..........KK..',
   '.KMMK........KMMK.',
   'KMMNK........KNMMK',
@@ -17,14 +19,110 @@ const SPRITE = [
   '.KCCCCCCCNNCCCCCCK',
   '.KCCCCCCCKKCCCCCCK',
   '..KCCCCCCCCCCCCCCK',
-  '...KKKCCCCCCCCKKK.',
+  '...KKKCCCCCCKKK...',
   '....KCCCWWCCCCCK..',
   '....KCCWWWWCCCK...',
   '....KCCCCCCCCCCK..',
   '...KKCSSCCCCSSCCK.',
-  '...K.KK.....KK.K.',
+  '...K.KK.....KK..K.',
   '..........KMMMMK..',
   '...........KMMK...',
+]
+
+// Frame 2: idle, eyes open, tail up
+const F_IDLE2 = [
+  '..KK..........KK..',
+  '.KMMK........KMMK.',
+  'KMMNK........KNMMK',
+  'KMMCCCCCCCCCCCCMMK',
+  'KMCCCCCCCCCCCCCCMK',
+  'KCCCCCCCCCCCCCCCCK',
+  'KCCCEEPCCCCCEEPCCK',
+  'KCCCEWPCCCCCEWPCCK',
+  'KCCCEEPCCCCCEEPCCK',
+  '.KCCCCCCCNNCCCCCCK',
+  '.KCCCCCCCKKCCCCCCK',
+  '..KCCCCCCCCCCCCCCK',
+  '...KKKCCCCCCKKK...',
+  '....KCCCWWCCCCK...',
+  '....KCCWWWWCCCK...',
+  '....KCCCCCCCCCCK..',
+  '...KKCSSCCCCSSCCK.',
+  '...K.KK.....KK..K.',
+  '...........KMMK...',
+  '..........KMMMMK..',
+]
+
+// Frame 3: blink (eyes closed)
+const F_BLINK = [
+  '..KK..........KK..',
+  '.KMMK........KMMK.',
+  'KMMNK........KNMMK',
+  'KMMCCCCCCCCCCCCMMK',
+  'KMCCCCCCCCCCCCCCMK',
+  'KCCCCCCCCCCCCCCCCK',
+  'KCCCCCCCCCCCCCCCCK',
+  'KCCCKKKCCCCCKKKCCCK',
+  'KCCCCCCCCCCCCCCCCK',
+  '.KCCCCCCCNNCCCCCCK',
+  '.KCCCCCCCKKCCCCCCK',
+  '..KCCCCCCCCCCCCCCK',
+  '...KKKCCCCCCKKK...',
+  '....KCCCWWCCCCK...',
+  '....KCCWWWWCCCK...',
+  '....KCCCCCCCCCCK..',
+  '...KKCSSCCCCSSCCK.',
+  '...K.KK.....KK..K.',
+  '..........KMMMMK..',
+  '...........KMMK...',
+]
+
+// Frame 4: squish down (bounce bottom)
+const F_SQUISH = [
+  '..................',
+  '..KK..........KK..',
+  '.KMMK........KMMK.',
+  'KMMNK........KNMMK',
+  'KMMCCCCCCCCCCCCMMK',
+  'KMCCCCCCCCCCCCCCMK',
+  'KCCCCCCCCCCCCCCCCK',
+  'KCCCEEPCCCCCEEPCCK',
+  'KCCCEWPCCCCCEWPCCK',
+  'KCCCEEPCCCCCEEPCCK',
+  '.KCCCCCCCNNCCCCCCK',
+  '.KCCCCCCCKKCCCCCCK',
+  '..KCCCCCCCCCCCCCK.',
+  '...KKKCCCCCCKKKK..',
+  '...KCCCWWWWCCCK...',
+  '...KCCCCCCCCCCCK..',
+  '..KKCSSCCCCSSCCKK.',
+  '..K.KK......KK.K..',
+  '.........KMMMMK...',
+  '..........KMMK....',
+]
+
+// Frame 5: stretch up (bounce top)
+const F_STRETCH = [
+  '..KK..........KK..',
+  '.KMMK........KMMK.',
+  'KMMNK........KNMMK',
+  'KMMCCCCCCCCCCCCMMK',
+  'KMCCCCCCCCCCCCCCMK',
+  'KCCCCCCCCCCCCCCCCK',
+  'KCCCEEPCCCCCEEPCCK',
+  'KCCCEWPCCCCCEWPCCK',
+  'KCCCEEPCCCCCEEPCCK',
+  '.KCCCCCCCNNCCCCCCK',
+  '.KCCCCCCCKKCCCCCCK',
+  '..KCCCCCCCCCCCCCCK',
+  '...KKKCCCCCCKKK...',
+  '....KCCCWWCCCCK...',
+  '....KCCWWWWCCCK...',
+  '....KCCCCCCCCCCK..',
+  '....KCCCCCCCCCCK..',
+  '...KKCSSCCCCSSCCK.',
+  '...K.KK.....KK..K.',
+  '..........KMMMMK..',
 ]
 
 const PAL: Record<string, string> = {
@@ -34,17 +132,35 @@ const PAL: Record<string, string> = {
   C: '#F5F3EF',
   E: '#4898D4',
   P: '#1A1A2E',
-  p: '#1A1A2E',
   W: '#FFFFFF',
-  w: '#FFFFFF',
   N: '#F28898',
   S: '#D0CCC4',
 }
 
-function ChibiEren({ px = 4 }: { px?: number }) {
+// Animation sequence: idle1, idle1, idle2, idle2, idle1, blink, idle1, squish, stretch, idle1...
+const SEQUENCE = [
+  { frame: F_IDLE1, dur: 300 },
+  { frame: F_IDLE1, dur: 300 },
+  { frame: F_IDLE2, dur: 300 },
+  { frame: F_IDLE2, dur: 300 },
+  { frame: F_IDLE1, dur: 300 },
+  { frame: F_IDLE1, dur: 400 },
+  { frame: F_BLINK, dur: 100 },
+  { frame: F_IDLE1, dur: 100 },
+  { frame: F_BLINK, dur: 100 },
+  { frame: F_IDLE1, dur: 400 },
+  { frame: F_SQUISH, dur: 150 },
+  { frame: F_STRETCH, dur: 150 },
+  { frame: F_IDLE1, dur: 200 },
+  { frame: F_SQUISH, dur: 120 },
+  { frame: F_STRETCH, dur: 120 },
+  { frame: F_IDLE1, dur: 350 },
+]
+
+function SpriteRenderer({ frame, px }: { frame: string[]; px: number }) {
   return (
-    <div style={{ lineHeight: 0 }}>
-      {SPRITE.map((row, y) => (
+    <div style={{ lineHeight: 0, imageRendering: 'pixelated' }}>
+      {frame.map((row, y) => (
         <div key={y} style={{ display: 'flex', height: px }}>
           {row.split('').map((ch, x) => (
             <div key={x} style={{ width: px, height: px, background: PAL[ch] ?? 'transparent' }} />
@@ -57,9 +173,12 @@ function ChibiEren({ px = 4 }: { px?: number }) {
 
 export default function SplashScreen() {
   const [phase, setPhase] = useState<'playing' | 'fading' | 'done'>('playing')
+  const [frameIdx, setFrameIdx] = useState(0)
+  const timerRef = useRef<ReturnType<typeof setTimeout>>()
 
+  // Fade out after delay
   useEffect(() => {
-    const timer = setTimeout(() => setPhase('fading'), 2400)
+    const timer = setTimeout(() => setPhase('fading'), 2800)
     return () => clearTimeout(timer)
   }, [])
 
@@ -69,6 +188,19 @@ export default function SplashScreen() {
       return () => clearTimeout(timer)
     }
   }, [phase])
+
+  // Sprite animation loop
+  useEffect(() => {
+    function tick() {
+      setFrameIdx(i => {
+        const next = (i + 1) % SEQUENCE.length
+        timerRef.current = setTimeout(tick, SEQUENCE[next].dur)
+        return next
+      })
+    }
+    timerRef.current = setTimeout(tick, SEQUENCE[0].dur)
+    return () => clearTimeout(timerRef.current)
+  }, [])
 
   if (phase === 'done') return null
 
@@ -81,11 +213,8 @@ export default function SplashScreen() {
         transition: 'opacity 0.4s ease-out',
       }}
     >
-      <div style={{
-        animation: 'splBob 1.6s ease-in-out infinite',
-        filter: 'drop-shadow(0 0 10px rgba(167,139,250,0.15))',
-      }}>
-        <ChibiEren px={5} />
+      <div style={{ filter: 'drop-shadow(0 0 10px rgba(167,139,250,0.15))' }}>
+        <SpriteRenderer frame={SEQUENCE[frameIdx].frame} px={5} />
       </div>
 
       <h1 className="font-pixel text-white" style={{ fontSize: 11, letterSpacing: 2, opacity: 0.85 }}>
@@ -102,10 +231,6 @@ export default function SplashScreen() {
       </div>
 
       <style jsx>{`
-        @keyframes splBob {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-4px); }
-        }
         @keyframes splDot {
           0%, 100% { opacity: 0.2; }
           50% { opacity: 1; }
