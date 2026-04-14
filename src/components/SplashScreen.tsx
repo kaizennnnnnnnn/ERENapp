@@ -2,6 +2,59 @@
 
 import { useState, useEffect } from 'react'
 
+// Chibi gacha-style pixel Eren (18 wide x 20 tall)
+// Big head, huge blue eyes, tiny body, stubby paws — Ragdoll colors
+const SPRITE = [
+  '..KK..........KK..',
+  '.KMMK........KMMK.',
+  'KMMNK........KNMMK',
+  'KMMCCCCCCCCCCCCMMK',
+  'KMCCCCCCCCCCCCCCMK',
+  'KCCCCCCCCCCCCCCCCK',
+  'KCCCEEPCCCCCEEPCCK',
+  'KCCCEWPCCCCCEWPCCK',
+  'KCCCEEPCCCCCEEPCCK',
+  '.KCCCCCCCNNCCCCCCK',
+  '.KCCCCCCCKKCCCCCCK',
+  '..KCCCCCCCCCCCCCCK',
+  '...KKKCCCCCCCCKKK.',
+  '....KCCCWWCCCCCK..',
+  '....KCCWWWWCCCK...',
+  '....KCCCCCCCCCCK..',
+  '...KKCSSCCCCSSCCK.',
+  '...K.KK.....KK.K.',
+  '..........KMMMMK..',
+  '...........KMMK...',
+]
+
+const PAL: Record<string, string> = {
+  '.': 'transparent',
+  K: '#2A2030',
+  M: '#7E7272',
+  C: '#F5F3EF',
+  E: '#4898D4',
+  P: '#1A1A2E',
+  p: '#1A1A2E',
+  W: '#FFFFFF',
+  w: '#FFFFFF',
+  N: '#F28898',
+  S: '#D0CCC4',
+}
+
+function ChibiEren({ px = 4 }: { px?: number }) {
+  return (
+    <div style={{ lineHeight: 0 }}>
+      {SPRITE.map((row, y) => (
+        <div key={y} style={{ display: 'flex', height: px }}>
+          {row.split('').map((ch, x) => (
+            <div key={x} style={{ width: px, height: px, background: PAL[ch] ?? 'transparent' }} />
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function SplashScreen() {
   const [phase, setPhase] = useState<'playing' | 'fading' | 'done'>('playing')
 
@@ -28,22 +81,17 @@ export default function SplashScreen() {
         transition: 'opacity 0.4s ease-out',
       }}
     >
-      {/* Small pixel Eren */}
-      <div style={{ animation: 'splBob 1.6s ease-in-out infinite' }}>
-        <img
-          src="/erenGood.png"
-          alt="Eren"
-          draggable={false}
-          style={{ width: 80, height: 80, objectFit: 'contain', imageRendering: 'pixelated' }}
-        />
+      <div style={{
+        animation: 'splBob 1.6s ease-in-out infinite',
+        filter: 'drop-shadow(0 0 10px rgba(167,139,250,0.15))',
+      }}>
+        <ChibiEren px={5} />
       </div>
 
-      {/* Title */}
       <h1 className="font-pixel text-white" style={{ fontSize: 11, letterSpacing: 2, opacity: 0.85 }}>
         POCKET EREN
       </h1>
 
-      {/* Dots */}
       <div className="flex items-center gap-1.5">
         {[0, 1, 2].map(i => (
           <div key={i} className="rounded-full" style={{
