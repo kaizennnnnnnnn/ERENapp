@@ -16,10 +16,14 @@ import { useTasks } from '@/contexts/TaskContext'
 import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 import { format } from 'date-fns'
 import Link from 'next/link'
-import { Bell, Sparkles, Image, User, DoorOpen } from 'lucide-react'
+import { Bell, Sparkles, Image, User, DoorOpen, Gift, Heart } from 'lucide-react'
 import TaskPanel from '@/components/TaskPanel'
 import ReminderSheet from '@/components/ReminderSheet'
 import { registerSW } from '@/lib/reminders'
+import { useCouple } from '@/hooks/useCouple'
+import { useFortune } from '@/hooks/useFortune'
+import FortunePopup from '@/components/fortune/FortunePopup'
+import ErenMessagePopup from '@/components/couple/ErenMessagePopup'
 
 interface XpParticle {
   id: number; x: number; y: number; tx: number; ty: number
@@ -45,6 +49,9 @@ export default function HomePage() {
   const { setIsSick, openScene, setHideStats } = useCare()
   const { xp, level } = useTasks()
   useTimeTracking(user?.id ?? null)
+  const { canClaim: fortuneAvailable } = useFortune()
+  const { newMessage, dismissPopup, unreadCount } = useCouple()
+  const [showFortune, setShowFortune] = useState(false)
 
   // XP bar
   const xpIntoLevel = xp - totalXpForLevel(level)
@@ -258,6 +265,8 @@ export default function HomePage() {
       )}
 
       {showReminders && <ReminderSheet onClose={() => setShowReminders(false)} />}
+      {showFortune && <FortunePopup onClose={() => setShowFortune(false)} />}
+      {newMessage && <ErenMessagePopup message={newMessage} onDismiss={dismissPopup} />}
 
       {/* ══ FULL SCREEN ROOM ══ */}
       <div className="fixed inset-0" style={{ zIndex: 0 }}>
@@ -298,16 +307,33 @@ export default function HomePage() {
             </div>
 
             {/* Nav buttons */}
+            {fortuneAvailable && (
+              <button onClick={() => setShowFortune(true)}
+                className="w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
+                style={{ background: 'rgba(15,10,30,0.55)', backdropFilter: 'blur(12px)', borderRadius: 12, border: '1px solid rgba(245,158,11,0.35)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)', animation: 'pulse 2s ease-in-out infinite' }}>
+                <Gift size={17} style={{ color: '#FBBF24' }} />
+              </button>
+            )}
+            <Link href="/gacha"
+              className="w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
+              style={{ background: 'rgba(15,10,30,0.55)', backdropFilter: 'blur(12px)', borderRadius: 12, border: '1px solid rgba(124,58,237,0.35)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
+              <span style={{ fontSize: 16 }}>🎰</span>
+            </Link>
+            <Link href="/couple" className="relative w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
+              style={{ background: 'rgba(15,10,30,0.55)', backdropFilter: 'blur(12px)', borderRadius: 12, border: '1px solid rgba(255,107,157,0.3)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
+              <Heart size={17} style={{ color: '#FF6B9D' }} />
+              {unreadCount > 0 && (
+                <div className="absolute -top-1 -right-1 flex items-center justify-center"
+                  style={{ width: 16, height: 16, borderRadius: '50%', background: '#FF6B9D', border: '2px solid rgba(15,10,30,0.55)' }}>
+                  <span className="font-pixel text-white" style={{ fontSize: 5 }}>{unreadCount}</span>
+                </div>
+              )}
+            </Link>
             <button onClick={() => setShowReminders(true)}
               className="w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
               style={{ background: 'rgba(15,10,30,0.55)', backdropFilter: 'blur(12px)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.15)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
               <Bell size={17} className="text-white/80" />
             </button>
-            <Link href="/memories"
-              className="w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
-              style={{ background: 'rgba(15,10,30,0.55)', backdropFilter: 'blur(12px)', borderRadius: 12, border: '1px solid rgba(255,150,200,0.25)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
-              <Image size={17} style={{ color: '#FF9DC0' }} />
-            </Link>
             <Link href="/profile"
               className="w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
               style={{ background: 'rgba(15,10,30,0.55)', backdropFilter: 'blur(12px)', borderRadius: 12, border: '1px solid rgba(167,139,250,0.25)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>

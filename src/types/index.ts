@@ -160,6 +160,80 @@ export interface GameScore {
   created_at: string
 }
 
+// ─── Gacha system ────────────────────────────────────────────────────────────
+
+export type GachaRarity = 'common' | 'rare' | 'epic' | 'legendary'
+export type GachaCategory = 'outfit' | 'decoration' | 'background' | 'recipe' | 'emote' | 'frame'
+
+export interface GachaItemDef {
+  id: string
+  name: string
+  category: GachaCategory
+  rarity: GachaRarity
+  icon: string
+  description: string
+}
+
+export interface GachaBannerDef {
+  id: string
+  name: string
+  description: string
+  icon: string
+  featuredItems: string[]
+  permanent: boolean
+  bgGradient: [string, string]
+}
+
+export interface UserInventoryItem {
+  id: string
+  user_id: string
+  item_id: string
+  quantity: number
+  equipped: boolean
+  obtained_at: string
+}
+
+export interface UserGachaState {
+  user_id: string
+  stardust: number
+  pulls_since_epic: number
+  pulls_since_legendary: number
+  total_pulls: number
+  last_free_fortune: string | null
+}
+
+export interface GachaPullResult {
+  item: GachaItemDef
+  isNew: boolean
+  stardustGained: number
+  isPity: boolean
+}
+
+// ─── Couple features ─────────────────────────────────────────────────────────
+
+export interface JournalMessage {
+  id: string
+  household_id: string
+  sender_id: string
+  message: string
+  is_read: boolean
+  created_at: string
+  profile?: Profile
+}
+
+// ─── Daily fortune ───────────────────────────────────────────────────────────
+
+export interface FortuneGiftDef {
+  id: string
+  name: string
+  icon: string
+  rarity: GachaRarity
+  description: string
+  coinValue?: number
+  stardustValue?: number
+  gachaTickets?: number
+}
+
 // ─── UI helpers ──────────────────────────────────────────────────────────────
 
 export interface StatConfig {
