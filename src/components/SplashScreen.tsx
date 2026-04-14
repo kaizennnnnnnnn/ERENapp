@@ -28,43 +28,14 @@ export default function SplashScreen() {
         transition: 'opacity 0.4s ease-out',
       }}
     >
-      {/* Tiny Eren — small, simple, looping */}
+      {/* Small pixel Eren */}
       <div style={{ animation: 'splBob 1.6s ease-in-out infinite' }}>
-        <svg width="48" height="52" viewBox="0 0 48 52" fill="none">
-          {/* Tail */}
-          <path d="M38 36 Q46 32 45 26" stroke="#8B7B6B" strokeWidth="3.5" strokeLinecap="round" fill="none" />
-          {/* Body */}
-          <ellipse cx="24" cy="38" rx="14" ry="12" fill="#F0EDE8" />
-          {/* Chest */}
-          <ellipse cx="24" cy="36" rx="8" ry="6" fill="white" opacity="0.5" />
-          {/* Head */}
-          <ellipse cx="24" cy="22" rx="14" ry="12" fill="#F0EDE8" />
-          {/* Left ear */}
-          <path d="M13 17 L8 4 L20 14 Z" fill="#8B7B6B" />
-          <path d="M14 15 L11 7 L19 14 Z" fill="#E8B0B8" opacity="0.4" />
-          {/* Right ear */}
-          <path d="M35 17 L40 4 L28 14 Z" fill="#8B7B6B" />
-          <path d="M34 15 L37 7 L29 14 Z" fill="#E8B0B8" opacity="0.4" />
-          {/* Eyes */}
-          <ellipse cx="18" cy="21" rx="3" ry="3.2" fill="#4898D4" />
-          <ellipse cx="30" cy="21" rx="3" ry="3.2" fill="#4898D4" />
-          <circle cx="18" cy="21" r="1.5" fill="#1A1A2E" />
-          <circle cx="30" cy="21" r="1.5" fill="#1A1A2E" />
-          <circle cx="19.2" cy="19.8" r="1" fill="white" opacity="0.85" />
-          <circle cx="31.2" cy="19.8" r="1" fill="white" opacity="0.85" />
-          {/* Blink lids */}
-          <ellipse cx="18" cy="21" rx="3.5" ry="3.5" fill="#F0EDE8"
-            style={{ transformOrigin: '18px 21px', animation: 'splBlink 3.5s ease-in-out infinite' }} />
-          <ellipse cx="30" cy="21" rx="3.5" ry="3.5" fill="#F0EDE8"
-            style={{ transformOrigin: '30px 21px', animation: 'splBlink 3.5s ease-in-out infinite' }} />
-          {/* Nose */}
-          <path d="M22.5 25.5 L24 27.5 L25.5 25.5 Z" fill="#F28898" />
-          {/* Mouth */}
-          <path d="M21.5 28 Q24 30 26.5 28" stroke="#C0B8B0" strokeWidth="0.7" fill="none" strokeLinecap="round" />
-          {/* Paws */}
-          <ellipse cx="18" cy="47" rx="5" ry="3" fill="#F0EDE8" />
-          <ellipse cx="30" cy="47" rx="5" ry="3" fill="#F0EDE8" />
-        </svg>
+        <img
+          src="/erenGood.png"
+          alt="Eren"
+          draggable={false}
+          style={{ width: 80, height: 80, objectFit: 'contain', imageRendering: 'pixelated' }}
+        />
       </div>
 
       {/* Title */}
@@ -86,10 +57,6 @@ export default function SplashScreen() {
         @keyframes splBob {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-4px); }
-        }
-        @keyframes splBlink {
-          0%, 36%, 42%, 100% { transform: scaleY(0); }
-          38%, 40% { transform: scaleY(1); }
         }
         @keyframes splDot {
           0%, 100% { opacity: 0.2; }
