@@ -2,127 +2,199 @@
 
 import { useState, useEffect, useRef } from 'react'
 
-// ── Chibi Eren sprite frames (18 wide) ──
-// K=outline M=dark_fur C=cream E=blue_eye P=pupil W=white N=pink S=grey .=transparent
+// 20 wide x 20 tall — smaller head, bigger body, more action
+// K=outline M=dark O=mid_grey C=cream E=blue P=pupil W=white N=pink S=grey_paw .=transparent
 
-// Frame 1: idle, eyes open, tail right
-const F_IDLE1 = [
-  '..KK..........KK..',
-  '.KMMK........KMMK.',
-  'KMMNK........KNMMK',
-  'KMMCCCCCCCCCCCCMMK',
-  'KMCCCCCCCCCCCCCCMK',
-  'KCCCCCCCCCCCCCCCCK',
-  'KCCCEEPCCCCCEEPCCK',
-  'KCCCEWPCCCCCEWPCCK',
-  'KCCCEEPCCCCCEEPCCK',
-  '.KCCCCCCCNNCCCCCCK',
-  '.KCCCCCCCKKCCCCCCK',
-  '..KCCCCCCCCCCCCCCK',
-  '...KKKCCCCCCKKK...',
-  '....KCCCWWCCCCCK..',
-  '....KCCWWWWCCCK...',
-  '....KCCCCCCCCCCK..',
-  '...KKCSSCCCCSSCCK.',
-  '...K.KK.....KK..K.',
-  '..........KMMMMK..',
-  '...........KMMK...',
-]
-
-// Frame 2: idle, eyes open, tail up
-const F_IDLE2 = [
-  '..KK..........KK..',
-  '.KMMK........KMMK.',
-  'KMMNK........KNMMK',
-  'KMMCCCCCCCCCCCCMMK',
-  'KMCCCCCCCCCCCCCCMK',
-  'KCCCCCCCCCCCCCCCCK',
-  'KCCCEEPCCCCCEEPCCK',
-  'KCCCEWPCCCCCEWPCCK',
-  'KCCCEEPCCCCCEEPCCK',
-  '.KCCCCCCCNNCCCCCCK',
-  '.KCCCCCCCKKCCCCCCK',
-  '..KCCCCCCCCCCCCCCK',
-  '...KKKCCCCCCKKK...',
-  '....KCCCWWCCCCK...',
-  '....KCCWWWWCCCK...',
-  '....KCCCCCCCCCCK..',
-  '...KKCSSCCCCSSCCK.',
-  '...K.KK.....KK..K.',
-  '...........KMMK...',
-  '..........KMMMMK..',
-]
-
-// Frame 3: blink (eyes closed)
-const F_BLINK = [
-  '..KK..........KK..',
-  '.KMMK........KMMK.',
-  'KMMNK........KNMMK',
-  'KMMCCCCCCCCCCCCMMK',
-  'KMCCCCCCCCCCCCCCMK',
-  'KCCCCCCCCCCCCCCCCK',
-  'KCCCCCCCCCCCCCCCCK',
-  'KCCCKKKCCCCCKKKCCCK',
-  'KCCCCCCCCCCCCCCCCK',
-  '.KCCCCCCCNNCCCCCCK',
-  '.KCCCCCCCKKCCCCCCK',
-  '..KCCCCCCCCCCCCCCK',
-  '...KKKCCCCCCKKK...',
-  '....KCCCWWCCCCK...',
-  '....KCCWWWWCCCK...',
-  '....KCCCCCCCCCCK..',
-  '...KKCSSCCCCSSCCK.',
-  '...K.KK.....KK..K.',
-  '..........KMMMMK..',
-  '...........KMMK...',
-]
-
-// Frame 4: squish down (bounce bottom)
-const F_SQUISH = [
-  '..................',
-  '..KK..........KK..',
-  '.KMMK........KMMK.',
-  'KMMNK........KNMMK',
-  'KMMCCCCCCCCCCCCMMK',
-  'KMCCCCCCCCCCCCCCMK',
-  'KCCCCCCCCCCCCCCCCK',
-  'KCCCEEPCCCCCEEPCCK',
-  'KCCCEWPCCCCCEWPCCK',
-  'KCCCEEPCCCCCEEPCCK',
-  '.KCCCCCCCNNCCCCCCK',
-  '.KCCCCCCCKKCCCCCCK',
-  '..KCCCCCCCCCCCCCK.',
-  '...KKKCCCCCCKKKK..',
-  '...KCCCWWWWCCCK...',
+// Sitting idle, tail right, looking forward
+const IDLE_R = [
+  '.KK..........KK...',
+  'KMMK........KMMK..',
+  'KMCKK......KKCMK..',
+  'KMCCCCCCCCCCCCMK..',
+  'KCCCCCCCCCCCCCCCK.',
+  'KCCEEPCCCCEEPCCK..',
+  'KCCEWPCCCCEWPCCK..',
+  'KCCCCCCCNNCCCCK...',
+  '.KCCCCCKKCCCCK....',
+  '..KKCCCCCCCCKKK...',
+  '...KCCCCCCCCCCK...',
+  '...KCWCCCCCCWCK...',
+  '...KCCCCCCCCCCCK..',
   '...KCCCCCCCCCCCK..',
   '..KKCSSCCCCSSCCKK.',
   '..K.KK......KK.K..',
-  '.........KMMMMK...',
-  '..........KMMK....',
+  '.............KMMMK',
+  '..............KMK.',
+  '....................',
+  '....................',
 ]
 
-// Frame 5: stretch up (bounce top)
-const F_STRETCH = [
-  '..KK..........KK..',
-  '.KMMK........KMMK.',
-  'KMMNK........KNMMK',
-  'KMMCCCCCCCCCCCCMMK',
-  'KMCCCCCCCCCCCCCCMK',
-  'KCCCCCCCCCCCCCCCCK',
-  'KCCCEEPCCCCCEEPCCK',
-  'KCCCEWPCCCCCEWPCCK',
-  'KCCCEEPCCCCCEEPCCK',
-  '.KCCCCCCCNNCCCCCCK',
-  '.KCCCCCCCKKCCCCCCK',
-  '..KCCCCCCCCCCCCCCK',
-  '...KKKCCCCCCKKK...',
-  '....KCCCWWCCCCK...',
-  '....KCCWWWWCCCK...',
-  '....KCCCCCCCCCCK..',
-  '....KCCCCCCCCCCK..',
-  '...KKCSSCCCCSSCCK.',
-  '...K.KK.....KK..K.',
-  '..........KMMMMK..',
+// Sitting idle, tail up
+const IDLE_L = [
+  '.KK..........KK...',
+  'KMMK........KMMK..',
+  'KMCKK......KKCMK..',
+  'KMCCCCCCCCCCCCMK..',
+  'KCCCCCCCCCCCCCCCK.',
+  'KCCEEPCCCCEEPCCK..',
+  'KCCEWPCCCCEWPCCK..',
+  'KCCCCCCCNNCCCCK...',
+  '.KCCCCCKKCCCCK....',
+  '..KKCCCCCCCCKKK...',
+  '...KCCCCCCCCCCK...',
+  '...KCWCCCCCCWCK...',
+  '...KCCCCCCCCCCCK..',
+  '...KCCCCCCCCCCCK..',
+  '..KKCSSCCCCSSCCKK.',
+  '..K.KK......KK.K..',
+  '..............KMK.',
+  '.............KMMMK',
+  '....................',
+  '....................',
+]
+
+// Blink
+const BLINK = [
+  '.KK..........KK...',
+  'KMMK........KMMK..',
+  'KMCKK......KKCMK..',
+  'KMCCCCCCCCCCCCMK..',
+  'KCCCCCCCCCCCCCCCK.',
+  'KCCCCCCCCCCCCCCK..',
+  'KCCKKKCCCKKKCCCK..',
+  'KCCCCCCCNNCCCCK...',
+  '.KCCCCCKKCCCCK....',
+  '..KKCCCCCCCCKKK...',
+  '...KCCCCCCCCCCK...',
+  '...KCWCCCCCCWCK...',
+  '...KCCCCCCCCCCCK..',
+  '...KCCCCCCCCCCCK..',
+  '..KKCSSCCCCSSCCKK.',
+  '..K.KK......KK.K..',
+  '.............KMMMK',
+  '..............KMK.',
+  '....................',
+  '....................',
+]
+
+// Look right (eyes shifted)
+const LOOK_R = [
+  '.KK..........KK...',
+  'KMMK........KMMK..',
+  'KMCKK......KKCMK..',
+  'KMCCCCCCCCCCCCMK..',
+  'KCCCCCCCCCCCCCCCK.',
+  'KCCCEEPCCCCEEPCCK.',
+  'KCCCCWPCCCCEWPCCK.',
+  'KCCCCCCCNNCCCCK...',
+  '.KCCCCCKKCCCCK....',
+  '..KKCCCCCCCCKKK...',
+  '...KCCCCCCCCCCK...',
+  '...KCWCCCCCCWCK...',
+  '...KCCCCCCCCCCCK..',
+  '...KCCCCCCCCCCCK..',
+  '..KKCSSCCCCSSCCKK.',
+  '..K.KK......KK.K..',
+  '.............KMMMK',
+  '..............KMK.',
+  '....................',
+  '....................',
+]
+
+// Look left (eyes shifted)
+const LOOK_L = [
+  '.KK..........KK...',
+  'KMMK........KMMK..',
+  'KMCKK......KKCMK..',
+  'KMCCCCCCCCCCCCMK..',
+  'KCCCCCCCCCCCCCCCK.',
+  'KCCEEPCCCCEEPCCK..',
+  'KCCEWPCCCCWPCCK...',
+  'KCCCCCCCNNCCCCK...',
+  '.KCCCCCKKCCCCK....',
+  '..KKCCCCCCCCKKK...',
+  '...KCCCCCCCCCCK...',
+  '...KCWCCCCCCWCK...',
+  '...KCCCCCCCCCCCK..',
+  '...KCCCCCCCCCCCK..',
+  '..KKCSSCCCCSSCCKK.',
+  '..K.KK......KK.K..',
+  '.............KMMMK',
+  '..............KMK.',
+  '....................',
+  '....................',
+]
+
+// Paw up (licking / waving)
+const PAW_UP = [
+  '.KK..........KK...',
+  'KMMK........KMMK..',
+  'KMCKK......KKCMK..',
+  'KMCCCCCCCCCCCCMK..',
+  'KCCCCCCCCCCCCCCCK.',
+  'KCCEEPCCCCEEPCCK..',
+  'KCCEWPCCCCEWPCCK..',
+  'KCCCCCCCNNCCCCK...',
+  '.KCCCCCKKCCCCK....',
+  '..KKCCCCCCCCKKK...',
+  '..KCSK.CCCCCCCK...',
+  '..KSK..CWCCWCK....',
+  '..KK...CCCCCCCK...',
+  '.......CCCCCCCK...',
+  '......KKCSSCCKK...',
+  '......K.KK..KK.K..',
+  '.............KMMMK',
+  '..............KMK.',
+  '....................',
+  '....................',
+]
+
+// Hop up
+const HOP_UP = [
+  '....................',
+  '.KK..........KK...',
+  'KMMK........KMMK..',
+  'KMCKK......KKCMK..',
+  'KMCCCCCCCCCCCCMK..',
+  'KCCCCCCCCCCCCCCCK.',
+  'KCCEEPCCCCEEPCCK..',
+  'KCCEWPCCCCEWPCCK..',
+  'KCCCCCCCNNCCCCK...',
+  '.KCCCCCKKCCCCK....',
+  '..KKCCCCCCCCKKK...',
+  '...KCCCCCCCCCCK...',
+  '...KCWCCCCCCWCK...',
+  '...KCCCCCCCCCCCK..',
+  '...KCCCCCCCCCCCK..',
+  '..KKCSSCCCCSSCCKK.',
+  '..K.KK......KK.K..',
+  '.............KMMMK',
+  '..............KMK.',
+  '....................',
+]
+
+// Hop down (squish)
+const HOP_DN = [
+  '....................',
+  '....................',
+  '.KK..........KK...',
+  'KMMK........KMMK..',
+  'KMCKK......KKCMK..',
+  'KMCCCCCCCCCCCCMK..',
+  'KCCCCCCCCCCCCCCCK.',
+  'KCCEEPCCCCEEPCCK..',
+  'KCCEWPCCCCEWPCCK..',
+  'KCCCCCCCNNCCCCK...',
+  '.KCCCCCKKCCCCK....',
+  '..KKCCCCCCCCKKK...',
+  '..KCCCCCCCCCCCK...',
+  '..KCWCCCCCCCCWCK..',
+  '..KCCCCCCCCCCCCCK.',
+  '.KKCSSSCCCCSSSCCKK',
+  '.K.KK........KK.K.',
+  '............KMMMK.',
+  '.............KMK..',
+  '....................',
 ]
 
 const PAL: Record<string, string> = {
@@ -137,29 +209,51 @@ const PAL: Record<string, string> = {
   S: '#D0CCC4',
 }
 
-// Animation sequence: idle1, idle1, idle2, idle2, idle1, blink, idle1, squish, stretch, idle1...
 const SEQUENCE = [
-  { frame: F_IDLE1, dur: 300 },
-  { frame: F_IDLE1, dur: 300 },
-  { frame: F_IDLE2, dur: 300 },
-  { frame: F_IDLE2, dur: 300 },
-  { frame: F_IDLE1, dur: 300 },
-  { frame: F_IDLE1, dur: 400 },
-  { frame: F_BLINK, dur: 100 },
-  { frame: F_IDLE1, dur: 100 },
-  { frame: F_BLINK, dur: 100 },
-  { frame: F_IDLE1, dur: 400 },
-  { frame: F_SQUISH, dur: 150 },
-  { frame: F_STRETCH, dur: 150 },
-  { frame: F_IDLE1, dur: 200 },
-  { frame: F_SQUISH, dur: 120 },
-  { frame: F_STRETCH, dur: 120 },
-  { frame: F_IDLE1, dur: 350 },
+  // Idle with tail sway
+  { f: IDLE_R, d: 350 },
+  { f: IDLE_L, d: 350 },
+  { f: IDLE_R, d: 350 },
+  { f: IDLE_L, d: 300 },
+  // Blink
+  { f: BLINK,  d: 80  },
+  { f: IDLE_R, d: 80  },
+  { f: BLINK,  d: 80  },
+  { f: IDLE_R, d: 300 },
+  // Look around
+  { f: LOOK_R, d: 300 },
+  { f: LOOK_R, d: 250 },
+  { f: IDLE_R, d: 150 },
+  { f: LOOK_L, d: 300 },
+  { f: LOOK_L, d: 250 },
+  { f: IDLE_R, d: 200 },
+  // Blink
+  { f: BLINK,  d: 80  },
+  { f: IDLE_R, d: 300 },
+  // Paw lick
+  { f: PAW_UP, d: 250 },
+  { f: IDLE_R, d: 120 },
+  { f: PAW_UP, d: 250 },
+  { f: IDLE_R, d: 120 },
+  { f: PAW_UP, d: 200 },
+  { f: IDLE_R, d: 300 },
+  // Little hop
+  { f: HOP_UP, d: 130 },
+  { f: IDLE_R, d: 100 },
+  { f: HOP_DN, d: 130 },
+  { f: IDLE_R, d: 200 },
+  { f: HOP_UP, d: 130 },
+  { f: IDLE_R, d: 100 },
+  { f: HOP_DN, d: 130 },
+  { f: IDLE_R, d: 400 },
+  // Tail sway back to start
+  { f: IDLE_L, d: 300 },
+  { f: IDLE_R, d: 300 },
 ]
 
-function SpriteRenderer({ frame, px }: { frame: string[]; px: number }) {
+function Sprite({ frame, px }: { frame: string[]; px: number }) {
   return (
-    <div style={{ lineHeight: 0, imageRendering: 'pixelated' }}>
+    <div style={{ lineHeight: 0 }}>
       {frame.map((row, y) => (
         <div key={y} style={{ display: 'flex', height: px }}>
           {row.split('').map((ch, x) => (
@@ -173,33 +267,31 @@ function SpriteRenderer({ frame, px }: { frame: string[]; px: number }) {
 
 export default function SplashScreen() {
   const [phase, setPhase] = useState<'playing' | 'fading' | 'done'>('playing')
-  const [frameIdx, setFrameIdx] = useState(0)
-  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const [fi, setFi] = useState(0)
+  const ref = useRef<ReturnType<typeof setTimeout>>()
 
-  // Fade out after delay
   useEffect(() => {
-    const timer = setTimeout(() => setPhase('fading'), 2800)
-    return () => clearTimeout(timer)
+    const t = setTimeout(() => setPhase('fading'), 3200)
+    return () => clearTimeout(t)
   }, [])
 
   useEffect(() => {
     if (phase === 'fading') {
-      const timer = setTimeout(() => setPhase('done'), 400)
-      return () => clearTimeout(timer)
+      const t = setTimeout(() => setPhase('done'), 400)
+      return () => clearTimeout(t)
     }
   }, [phase])
 
-  // Sprite animation loop
   useEffect(() => {
     function tick() {
-      setFrameIdx(i => {
+      setFi(i => {
         const next = (i + 1) % SEQUENCE.length
-        timerRef.current = setTimeout(tick, SEQUENCE[next].dur)
+        ref.current = setTimeout(tick, SEQUENCE[next].d)
         return next
       })
     }
-    timerRef.current = setTimeout(tick, SEQUENCE[0].dur)
-    return () => clearTimeout(timerRef.current)
+    ref.current = setTimeout(tick, SEQUENCE[0].d)
+    return () => clearTimeout(ref.current)
   }, [])
 
   if (phase === 'done') return null
@@ -214,7 +306,7 @@ export default function SplashScreen() {
       }}
     >
       <div style={{ filter: 'drop-shadow(0 0 10px rgba(167,139,250,0.15))' }}>
-        <SpriteRenderer frame={SEQUENCE[frameIdx].frame} px={5} />
+        <Sprite frame={SEQUENCE[fi].f} px={4} />
       </div>
 
       <h1 className="font-pixel text-white" style={{ fontSize: 11, letterSpacing: 2, opacity: 0.85 }}>
