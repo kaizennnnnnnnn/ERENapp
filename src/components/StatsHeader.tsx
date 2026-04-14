@@ -18,13 +18,13 @@ export default function StatsHeader() {
   const { profile } = useAuth()
   const { stats } = useErenStats(profile?.household_id ?? null)
   const { xp, level, coins } = useTasks()
-  const { hideStats } = useCare()
+  const { hideStats, activeScene } = useCare()
 
   const xpIntoLevel = xp - totalXpForLevel(level)
   const xpNeeded    = xpForNextLevel(level)
   const xpPct       = Math.min(100, Math.round((xpIntoLevel / xpNeeded) * 100))
 
-  if (hideStats) return null
+  if (hideStats || activeScene === 'school') return null
 
   return (
     <div className="w-full px-3 pt-3 pb-2 flex flex-col gap-2"
