@@ -20,7 +20,7 @@ import { Bell, Sparkles, Image, User, DoorOpen, Gift, Heart } from 'lucide-react
 import TaskPanel from '@/components/TaskPanel'
 import ReminderSheet from '@/components/ReminderSheet'
 import { registerSW } from '@/lib/reminders'
-import { checkStatNotifications, requestNotificationPermission } from '@/lib/statNotifications'
+import { checkStatNotifications, requestNotificationPermission, notifyPartnerAction, notifyPartnerMessage } from '@/lib/statNotifications'
 import { useCouple } from '@/hooks/useCouple'
 import { useFortune } from '@/hooks/useFortune'
 import { useInventory } from '@/hooks/useInventory'
@@ -75,6 +75,41 @@ export default function HomePage() {
   useEffect(() => {
     if (stats) checkStatNotifications(stats)
   }, [stats])
+
+  // Realtime: notify when partner does an action or sends a message
+  useEffect(() => {
+    if (!profile?.household_id || !user?.id) return
+    const partnerName = (() => { try { return localStorage.getItem(`eren_partner_name_${user.id}`) ?? 'Your partner' } catch { return 'Your partner' } })()
+
+    // Cache partner name for notifications
+    supabase.from('profiles').select('name').eq('household_id', profile.household_id).neq('id', user.id).single()
+      .then(({ data }) => { if (data?.name) localStorage.setItem(`eren_partner_name_${user.id}`, data.name) })
+
+    const ch = supabase.channel(`home_notifs_${user.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'interactions',
+        filter: `household_id=eq.${profile.household_id}`,
+      }, payload => {
+        const row = payload.new as { user_id: string; action_type: string }
+        if (row.user_id !== user.id) {
+          const name = localStorage.getItem(`eren_partner_name_${user.id}`) ?? partnerName
+          notifyPartnerAction(name, row.action_type)
+        }
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'couple_journal',
+        filter: `household_id=eq.${profile.household_id}`,
+      }, payload => {
+        const row = payload.new as { sender_id: string }
+        if (row.sender_id !== user.id) {
+          const name = localStorage.getItem(`eren_partner_name_${user.id}`) ?? partnerName
+          notifyPartnerMessage(name)
+        }
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(ch) }
+  }, [profile?.household_id, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // XP sparkle particles Eren → bar
   useEffect(() => {

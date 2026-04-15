@@ -99,6 +99,32 @@ export function checkStatNotifications(stats: ErenStats) {
   if (changed) saveNotifState(state)
 }
 
+// ── Partner action notifications ─────────────────────────────────────────────
+
+const ACTION_LABELS: Record<string, { icon: string; verb: string }> = {
+  feed:     { icon: '🍗', verb: 'fed Eren' },
+  play:     { icon: '🧶', verb: 'played with Eren' },
+  sleep:    { icon: '💤', verb: 'put Eren to sleep' },
+  wash:     { icon: '🛁', verb: 'gave Eren a bath' },
+  medicine: { icon: '💊', verb: 'gave Eren medicine' },
+}
+
+export function notifyPartnerAction(partnerName: string, actionType: string) {
+  const action = ACTION_LABELS[actionType]
+  if (!action) return
+  sendNotification(
+    `${action.icon} Pocket Eren`,
+    `${partnerName} ${action.verb}!`,
+  )
+}
+
+export function notifyPartnerMessage(partnerName: string) {
+  sendNotification(
+    '💌 Pocket Eren',
+    `${partnerName} sent you a message through Eren!`,
+  )
+}
+
 export async function requestNotificationPermission(): Promise<boolean> {
   if (!('Notification' in window)) return false
   if (Notification.permission === 'granted') return true
