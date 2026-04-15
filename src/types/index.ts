@@ -268,7 +268,7 @@ export const ACTION_CONFIGS: Record<ActionType, {
   deltas: Partial<Pick<ErenStats, 'happiness' | 'hunger' | 'energy' | 'sleep_quality' | 'cleanliness'>> & { weight?: number }
   cooldownMs: number
 }> = {
-  feed:     { label: 'Feed Eren',    icon: '🍗', emoji: '🍗', color: 'bg-amber-400',   deltas: { hunger: 25, happiness: 5, energy: 5, weight: 0.05 },         cooldownMs: 3600000  },
+  feed:     { label: 'Feed Eren',    icon: '🍗', emoji: '🍗', color: 'bg-amber-400',   deltas: { hunger: 25, happiness: 2, energy: 5, weight: 0.05 },         cooldownMs: 3600000  },
   play:     { label: 'Play',         icon: '🧶', emoji: '🎾', color: 'bg-pink-400',    deltas: { happiness: 20, energy: -15, hunger: -10 },                   cooldownMs: 1800000  },
   sleep:    { label: 'Put to sleep', icon: '💤', emoji: '😴', color: 'bg-indigo-400',  deltas: { sleep_quality: 30, energy: 25, hunger: -5 },                  cooldownMs: 28800000 },
   wash:     { label: 'Wash Eren',    icon: '🛁', emoji: '🛁', color: 'bg-sky-400',     deltas: { cleanliness: 60, happiness: 5 },                              cooldownMs: 43200000 },
