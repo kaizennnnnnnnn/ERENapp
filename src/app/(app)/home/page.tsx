@@ -20,6 +20,7 @@ import { Bell, Sparkles, Image, User, DoorOpen, Gift, Heart } from 'lucide-react
 import TaskPanel from '@/components/TaskPanel'
 import ReminderSheet from '@/components/ReminderSheet'
 import { registerSW } from '@/lib/reminders'
+import { checkStatNotifications, requestNotificationPermission } from '@/lib/statNotifications'
 import { useCouple } from '@/hooks/useCouple'
 import { useFortune } from '@/hooks/useFortune'
 import { useInventory } from '@/hooks/useInventory'
@@ -68,7 +69,12 @@ export default function HomePage() {
   const particleIdRef = useRef(0)
   const [xpParticles, setXpParticles] = useState<XpParticle[]>([])
 
-  useEffect(() => { registerSW() }, [])
+  useEffect(() => { registerSW(); requestNotificationPermission() }, [])
+
+  // Check stat notifications whenever stats change
+  useEffect(() => {
+    if (stats) checkStatNotifications(stats)
+  }, [stats])
 
   // XP sparkle particles Eren → bar
   useEffect(() => {

@@ -54,9 +54,11 @@ export function useGacha() {
         gacha_tickets: ((state as unknown as Record<string, number>).gacha_tickets ?? 0) - 1,
       }).eq('user_id', user.id)
     } else {
-      if (coins < PULL_COST_SINGLE) return null
-      const ok = await spendCoins(PULL_COST_SINGLE)
-      if (!ok) return null
+      if (PULL_COST_SINGLE > 0) {
+        if (coins < PULL_COST_SINGLE) return null
+        const ok = await spendCoins(PULL_COST_SINGLE)
+        if (!ok) return null
+      }
     }
 
     setPulling(true)
@@ -110,9 +112,11 @@ export function useGacha() {
   // ── Ten-pull ──
   const pullTen = useCallback(async (bannerId: string): Promise<GachaPullResult[] | null> => {
     if (!user?.id || !state || pulling) return null
-    if (coins < PULL_COST_TEN) return null
-    const ok = await spendCoins(PULL_COST_TEN)
-    if (!ok) return null
+    if (PULL_COST_TEN > 0) {
+      if (coins < PULL_COST_TEN) return null
+      const ok = await spendCoins(PULL_COST_TEN)
+      if (!ok) return null
+    }
 
     setPulling(true)
     const results: GachaPullResult[] = []

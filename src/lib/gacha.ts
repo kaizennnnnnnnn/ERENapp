@@ -4,8 +4,8 @@ import type { GachaItemDef, GachaBannerDef, GachaRarity, GachaCategory, OutfitSl
 // GACHA SYSTEM — Eren's Capsule Machine
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export const PULL_COST_SINGLE = 50
-export const PULL_COST_TEN    = 450  // 10% discount
+export const PULL_COST_SINGLE = 0   // TODO: restore to 50
+export const PULL_COST_TEN    = 0   // TODO: restore to 450
 
 export const PITY_EPIC      = 30   // guaranteed Epic+ every 30 pulls
 export const PITY_LEGENDARY  = 100  // guaranteed Legendary every 100 pulls
