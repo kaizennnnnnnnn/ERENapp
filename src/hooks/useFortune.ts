@@ -37,7 +37,14 @@ export function useFortune() {
 
   const claimFortune = useCallback(async (): Promise<FortuneGiftDef | null> => {
     if (!user?.id || !canClaim || claiming) return null
+    setCanClaim(false) // Immediately prevent double-claim
     setClaiming(true)
+
+    // Ensure gacha state row exists (upsert)
+    await supabase.from('user_gacha_state').upsert({
+      user_id: user.id,
+      last_free_fortune: new Date().toISOString(),
+    }, { onConflict: 'user_id' })
 
     const gift = rollFortuneGift()
 
@@ -47,22 +54,16 @@ export function useFortune() {
     }
 
     if (gift.stardustValue) {
-      await supabase.rpc('increment_stardust', { uid: user.id, amount: gift.stardustValue }).then(({ error }) => {
-        // Fallback if rpc doesn't exist — direct update
-        if (error) {
-          supabase.from('user_gacha_state')
-            .select('stardust')
-            .eq('user_id', user.id)
-            .single()
-            .then(({ data }) => {
-              if (data) {
-                supabase.from('user_gacha_state')
-                  .update({ stardust: data.stardust + (gift.stardustValue ?? 0) })
-                  .eq('user_id', user.id)
-              }
-            })
-        }
-      })
+      const { data } = await supabase
+        .from('user_gacha_state')
+        .select('stardust')
+        .eq('user_id', user.id)
+        .single()
+      if (data) {
+        await supabase.from('user_gacha_state')
+          .update({ stardust: (data.stardust ?? 0) + (gift.stardustValue ?? 0) })
+          .eq('user_id', user.id)
+      }
     }
 
     if (gift.gachaTickets) {
@@ -73,7 +74,7 @@ export function useFortune() {
         .single()
       if (data) {
         await supabase.from('user_gacha_state')
-          .update({ gacha_tickets: (data.gacha_tickets ?? 0) + gift.gachaTickets })
+          .update({ gacha_tickets: ((data as Record<string, number>).gacha_tickets ?? 0) + gift.gachaTickets })
           .eq('user_id', user.id)
       }
     }
@@ -94,12 +95,6 @@ export function useFortune() {
       }
     }
 
-    // Mark fortune as claimed today
-    await supabase.from('user_gacha_state')
-      .update({ last_free_fortune: new Date().toISOString() })
-      .eq('user_id', user.id)
-
-    setCanClaim(false)
     setClaiming(false)
     setLastGift(gift)
     return gift
