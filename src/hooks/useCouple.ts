@@ -18,7 +18,6 @@ export function useCouple() {
   const [newMessage, setNewMessage] = useState<JournalMessage | null>(null) // for popup
   const [loading, setLoading] = useState(true)
   const channelRef = useRef<string>(`couple_${Date.now()}`)
-  const clearedRef = useRef(false) // tracks if user dismissed/read — prevents fetchAll from restoring count
 
   // ── Load partner, love meter, anniversary, journal ──
   const fetchAll = useCallback(async () => {
@@ -68,10 +67,10 @@ export function useCouple() {
       .limit(50)
     if (msgs) {
       setJournal(msgs)
-      // Only set unread count from DB if user hasn't already cleared it this session
-      if (!clearedRef.current) {
-        setUnreadCount(msgs.filter((m: JournalMessage) => m.sender_id !== user.id && !m.is_read).length)
-      }
+      // Count messages from partner that arrived AFTER the last time user read
+      const lastReadTs = localStorage.getItem(`eren_journal_read_${user.id}`) ?? '1970-01-01'
+      const unread = msgs.filter((m: JournalMessage) => m.sender_id !== user.id && m.created_at > lastReadTs).length
+      setUnreadCount(unread)
     }
 
     setLoading(false)
@@ -92,8 +91,6 @@ export function useCouple() {
       }, payload => {
         const msg = payload.new as JournalMessage
         if (msg.sender_id !== user.id) {
-          // Partner sent a message! Show popup
-          clearedRef.current = false // new message = badge should show again
           setNewMessage(msg)
           setUnreadCount(c => c + 1)
         }
@@ -114,36 +111,21 @@ export function useCouple() {
     })
   }, [user?.id, profile?.household_id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Mark messages as read ──
-  const markAllRead = useCallback(async () => {
-    if (!user?.id || !profile?.household_id) return
-    const { error } = await supabase
-      .from('couple_journal')
-      .update({ is_read: true })
-      .eq('household_id', profile.household_id)
-      .neq('sender_id', user.id)
-      .eq('is_read', false)
-    if (!error) {
-      setJournal(prev => prev.map(m => m.sender_id !== user.id ? { ...m, is_read: true } : m))
-      setUnreadCount(0)
-      clearedRef.current = true
-    }
-  }, [user?.id, profile?.household_id]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Clear popup + mark ALL unread as read ──
-  const dismissPopup = useCallback(async () => {
-    setNewMessage(null)
+  // ── Mark all as read (saves timestamp to localStorage) ──
+  const markAllRead = useCallback(() => {
+    if (!user?.id) return
+    localStorage.setItem(`eren_journal_read_${user.id}`, new Date().toISOString())
     setUnreadCount(0)
-    clearedRef.current = true
-    if (!user?.id || !profile?.household_id) return
-    await supabase
-      .from('couple_journal')
-      .update({ is_read: true })
-      .eq('household_id', profile.household_id)
-      .neq('sender_id', user.id)
-      .eq('is_read', false)
     setJournal(prev => prev.map(m => m.sender_id !== user.id ? { ...m, is_read: true } : m))
-  }, [user?.id, profile?.household_id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id])
+
+  // ── Clear popup + mark all as read ──
+  const dismissPopup = useCallback(() => {
+    setNewMessage(null)
+    if (!user?.id) return
+    localStorage.setItem(`eren_journal_read_${user.id}`, new Date().toISOString())
+    setUnreadCount(0)
+  }, [user?.id])
 
   return {
     partner, loveMeter, anniversary, journal, unreadCount,
