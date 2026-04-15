@@ -124,18 +124,19 @@ export function useCouple() {
     }
   }, [user?.id, profile?.household_id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Clear popup + mark that message read ──
+  // ── Clear popup + mark ALL unread as read ──
   const dismissPopup = useCallback(async () => {
-    if (newMessage && user?.id) {
-      await supabase
-        .from('couple_journal')
-        .update({ is_read: true })
-        .eq('id', newMessage.id)
-      setJournal(prev => prev.map(m => m.id === newMessage.id ? { ...m, is_read: true } : m))
-      setUnreadCount(c => Math.max(0, c - 1))
-    }
     setNewMessage(null)
-  }, [newMessage, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!user?.id || !profile?.household_id) return
+    await supabase
+      .from('couple_journal')
+      .update({ is_read: true })
+      .eq('household_id', profile.household_id)
+      .neq('sender_id', user.id)
+      .eq('is_read', false)
+    setJournal(prev => prev.map(m => m.sender_id !== user.id ? { ...m, is_read: true } : m))
+    setUnreadCount(0)
+  }, [user?.id, profile?.household_id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     partner, loveMeter, anniversary, journal, unreadCount,
