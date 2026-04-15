@@ -12,12 +12,13 @@ import { GACHA_ITEMS, RARITY_COLORS, getCategoryLabel, CATEGORY_ICONS, getItemsB
 import { FORTUNE_GIFTS } from '@/lib/fortune'
 import type { GachaCategory, GachaItemDef } from '@/types'
 
-const CATEGORIES: GachaCategory[] = ['outfit', 'decoration', 'background', 'recipe', 'emote', 'frame']
+const CATEGORIES: GachaCategory[] = ['outfit', 'decoration', 'background', 'recipe', 'emote', 'frame', 'consumable']
 
 export default function CollectionPage() {
   const router = useRouter()
   const { setHideStats } = useCare()
-  const { inventory, ownsItem, getEquipped, equipItem, unequipItem, collectionPct, ownedCount, totalItems } = useInventory()
+  const { inventory, ownsItem, getQuantity, getEquipped, equipItem, unequipItem, useItem, collectionPct, ownedCount, totalItems } = useInventory()
+  const [useToast, setUseToast] = useState<string | null>(null)
   useEffect(() => { setHideStats(false) }, [setHideStats])
 
   const [tab, setTab] = useState<GachaCategory>('outfit')
@@ -31,6 +32,14 @@ export default function CollectionPage() {
 
   return (
     <div className="page-scroll">
+      {/* Use toast */}
+      {useToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 text-white px-4 py-2.5 whitespace-nowrap"
+          style={{ background: '#1F1F2E', borderRadius: 3, border: '2px solid #3A3A5E', boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
+          {useToast}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
         <button onClick={() => router.back()} className="flex items-center justify-center active:scale-90 transition-transform"
@@ -90,6 +99,9 @@ export default function CollectionPage() {
               {isEquipped && (
                 <span className="font-pixel text-green-600" style={{ fontSize: 5 }}>EQUIPPED</span>
               )}
+              {owned && item.category === 'consumable' && (
+                <span className="font-pixel text-gray-500" style={{ fontSize: 5 }}>x{getQuantity(item.id)}</span>
+              )}
             </button>
           )
         })}
@@ -108,9 +120,9 @@ export default function CollectionPage() {
             <p className="font-pixel" style={{ fontSize: 6, color: RARITY_COLORS[selected.rarity].text }}>{selected.rarity.toUpperCase()}</p>
             <p className="text-xs text-gray-500 text-center">{selected.description}</p>
 
-            {/* Equip/unequip for outfit, background, frame */}
-            {['outfit', 'background', 'frame'].includes(selected.category) && (
-              equippedItem?.id === selected.id ? (
+            {/* Equip/unequip for outfit, background, frame, decoration */}
+            {['outfit', 'background', 'frame', 'decoration'].includes(selected.category) && (
+              equippedItem?.id === selected.id || inventory.find(i => i.item_id === selected.id)?.equipped ? (
                 <button onClick={() => { unequipItem(selected.id); setSelected(null) }}
                   className="w-full py-2 text-white active:translate-y-[1px]"
                   style={{ background: '#6B7280', borderRadius: 3, border: '2px solid #4B5563', boxShadow: '0 2px 0 #374151', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
@@ -123,6 +135,25 @@ export default function CollectionPage() {
                   EQUIP
                 </button>
               )
+            )}
+
+            {/* Use consumable */}
+            {selected.category === 'consumable' && (
+              <>
+                <p className="font-pixel text-gray-500" style={{ fontSize: 6 }}>
+                  OWNED: {getQuantity(selected.id)}
+                </p>
+                <button onClick={async () => {
+                  const result = await useItem(selected.id)
+                  setSelected(null)
+                  if (result.success) { setUseToast(result.message); setTimeout(() => setUseToast(null), 2500) }
+                }}
+                  disabled={getQuantity(selected.id) <= 0}
+                  className="w-full py-2 text-white active:translate-y-[1px] disabled:opacity-40"
+                  style={{ background: 'linear-gradient(135deg, #22C55E, #16A34A)', borderRadius: 3, border: '2px solid #15803D', boxShadow: '0 2px 0 #166534', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
+                  USE ITEM
+                </button>
+              </>
             )}
 
             <button onClick={() => setSelected(null)} className="font-pixel text-gray-400" style={{ fontSize: 6 }}>CLOSE</button>

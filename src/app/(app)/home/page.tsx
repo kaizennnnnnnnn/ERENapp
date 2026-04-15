@@ -22,6 +22,8 @@ import ReminderSheet from '@/components/ReminderSheet'
 import { registerSW } from '@/lib/reminders'
 import { useCouple } from '@/hooks/useCouple'
 import { useFortune } from '@/hooks/useFortune'
+import { useInventory } from '@/hooks/useInventory'
+import { GACHA_ITEMS } from '@/lib/gacha'
 import FortunePopup from '@/components/fortune/FortunePopup'
 import ErenMessagePopup from '@/components/couple/ErenMessagePopup'
 
@@ -51,6 +53,11 @@ export default function HomePage() {
   useTimeTracking(user?.id ?? null)
   const { canClaim: fortuneAvailable } = useFortune()
   const { newMessage, dismissPopup, unreadCount } = useCouple()
+  const { inventory } = useInventory()
+
+  // Get equipped items for display
+  const equippedOutfits = inventory.filter(i => i.equipped).map(i => GACHA_ITEMS.find(g => g.id === i.item_id)).filter(Boolean)
+  const equippedDecos = inventory.filter(i => i.equipped && GACHA_ITEMS.find(g => g.id === i.item_id)?.category === 'decoration').map(i => GACHA_ITEMS.find(g => g.id === i.item_id)!)
   const [showFortune, setShowFortune] = useState(false)
 
   // XP bar
@@ -281,13 +288,40 @@ export default function HomePage() {
           </>
         )}
 
+        {/* === ROOM DECORATIONS (from gacha) === */}
+        {equippedDecos.map(deco => deco.roomPos && (
+          <div key={deco.id} className="absolute pointer-events-none" style={{
+            bottom: `${deco.roomPos.bottom}%`, left: `${deco.roomPos.left}%`,
+            transform: 'translateX(-50%)',
+            fontSize: deco.roomPos.size, lineHeight: 1, zIndex: 1,
+            filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.3))',
+          }}>
+            {deco.icon}
+          </div>
+        ))}
+
         {/* === EREN === */}
         <div className="absolute" style={{
           bottom: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 2,
           filter: mood === 'angry' ? 'hue-rotate(340deg) saturate(1.3)' : mood === 'sleepy' ? 'brightness(0.85)' : 'none',
         }}>
-          <img id="eren-img" src="/erenGood.png" alt="Eren" draggable={false}
-            style={{ width: 200, height: 200, objectFit: 'contain', imageRendering: 'pixelated' }} />
+          <div className="relative" style={{ width: 200, height: 200 }}>
+            <img id="eren-img" src="/erenGood.png" alt="Eren" draggable={false}
+              style={{ width: 200, height: 200, objectFit: 'contain', imageRendering: 'pixelated' }} />
+
+            {/* Outfit overlays */}
+            {equippedOutfits.map(item => item?.pos && item.slot && (
+              <div key={item.id} className="absolute pointer-events-none" style={{
+                top: `${item.pos.top}%`, left: `${item.pos.left}%`,
+                transform: 'translate(-50%, -50%)',
+                fontSize: item.pos.size, lineHeight: 1,
+                zIndex: item.slot === 'hat' ? 10 : item.slot === 'eyes' ? 9 : 8,
+                filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
+              }}>
+                {item.icon}
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Speech bubble */}

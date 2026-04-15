@@ -163,7 +163,8 @@ export interface GameScore {
 // ─── Gacha system ────────────────────────────────────────────────────────────
 
 export type GachaRarity = 'common' | 'rare' | 'epic' | 'legendary'
-export type GachaCategory = 'outfit' | 'decoration' | 'background' | 'recipe' | 'emote' | 'frame'
+export type GachaCategory = 'outfit' | 'decoration' | 'background' | 'recipe' | 'emote' | 'frame' | 'consumable'
+export type OutfitSlot = 'hat' | 'eyes' | 'neck'
 
 export interface GachaItemDef {
   id: string
@@ -172,6 +173,13 @@ export interface GachaItemDef {
   rarity: GachaRarity
   icon: string
   description: string
+  // Outfit positioning (% relative to Eren's 200x200 container)
+  slot?: OutfitSlot
+  pos?: { top: number; left: number; size: number }
+  // Decoration positioning (% relative to room)
+  roomPos?: { bottom: number; left: number; size: number }
+  // Consumable buff
+  buff?: { stat: string; amount: number; duration?: string }
 }
 
 export interface GachaBannerDef {
