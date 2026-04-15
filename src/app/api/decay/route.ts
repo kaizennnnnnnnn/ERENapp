@@ -4,7 +4,7 @@
  * Slowly decreases Eren's stats and sends push notifications
  * when stats drop below warning (50%) or critical (10%) thresholds.
  */
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { clampStat, computeErenMood, shouldBecomeSick } from '@/lib/utils'
 import { sendPush, getStatNotifications } from '@/lib/serverPush'
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     }
   }
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const { data: allStats, error } = await supabase
     .from('eren_stats')
