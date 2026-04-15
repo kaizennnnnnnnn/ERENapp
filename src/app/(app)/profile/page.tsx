@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import type { Profile, DailyMood } from '@/types'
 import { formatDuration } from '@/lib/utils'
-import { Copy, LogOut, Check, Trophy, Cat } from 'lucide-react'
+import { Copy, LogOut, Check, Trophy, Cat, ChevronLeft } from 'lucide-react'
 import MoodCalendar from '@/components/MoodCalendar'
 import { format } from 'date-fns'
 import { useCare } from '@/contexts/CareContext'
@@ -95,6 +95,10 @@ export default function ProfilePage() {
     <div className="page-scroll">
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
+        <button onClick={() => router.push('/home')} className="flex items-center justify-center active:scale-90 transition-transform"
+          style={{ width: 32, height: 32, background: 'linear-gradient(135deg, #FFF8FF, #F0E8FF)', borderRadius: 8, border: '2px solid #D8C0F0', boxShadow: '0 2px 0 #C0A0E0' }}>
+          <ChevronLeft size={16} className="text-purple-500" />
+        </button>
         <span className="pixel-chip" style={{ background: 'linear-gradient(135deg, #A78BFA, #7C3AED)' }}>👤 PROFILE</span>
       </div>
       <p className="text-sm text-gray-500 mb-5">You &amp; your household 🏠</p>
