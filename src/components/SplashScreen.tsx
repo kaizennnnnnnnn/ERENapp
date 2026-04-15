@@ -236,16 +236,39 @@ const SEQUENCE = [
 ]
 
 function Sprite({ frame, px }: { frame: string[]; px: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const cols = frame[0]?.length ?? 0
+  const rows = frame.length
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    // Use device pixel ratio for sharp rendering
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = cols * px * dpr
+    canvas.height = rows * px * dpr
+    ctx.scale(dpr, dpr)
+
+    ctx.clearRect(0, 0, cols * px, rows * px)
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < frame[y].length; x++) {
+        const color = PAL[frame[y][x]]
+        if (color && color !== 'transparent') {
+          ctx.fillStyle = color
+          ctx.fillRect(x * px, y * px, px, px)
+        }
+      }
+    }
+  }, [frame, px, cols, rows])
+
   return (
-    <div style={{ lineHeight: 0 }}>
-      {frame.map((row, y) => (
-        <div key={y} style={{ display: 'flex', height: px }}>
-          {row.split('').map((ch, x) => (
-            <div key={x} style={{ width: px, height: px, background: PAL[ch] ?? 'transparent' }} />
-          ))}
-        </div>
-      ))}
-    </div>
+    <canvas
+      ref={canvasRef}
+      style={{ width: cols * px, height: rows * px, imageRendering: 'pixelated' }}
+    />
   )
 }
 
