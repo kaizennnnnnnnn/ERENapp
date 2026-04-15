@@ -40,12 +40,31 @@ self.addEventListener('message', ({ data }) => {
   }
 })
 
+// ── Web Push from server (background notifications) ──
+self.addEventListener('push', event => {
+  if (!event.data) return
+  let data
+  try { data = event.data.json() } catch { data = { title: '🐱 Pocket Eren', body: event.data.text() } }
+  const title = data.title || '🐱 Pocket Eren'
+  const options = {
+    body: data.body || '',
+    icon: '/ErenIcon.png',
+    badge: '/ErenIcon.png',
+    tag: data.tag || 'eren-push',
+    renotify: true,
+    vibrate: [200, 100, 200],
+    data: { url: data.url || '/' },
+  }
+  event.waitUntil(self.registration.showNotification(title, options))
+})
+
 self.addEventListener('notificationclick', event => {
   event.notification.close()
+  const url = event.notification.data?.url || '/'
   event.waitUntil(
     self.clients.matchAll({ type: 'window' }).then(clients => {
-      if (clients.length) return clients[0].focus()
-      return self.clients.openWindow('/')
+      if (clients.length) { clients[0].navigate(url); return clients[0].focus() }
+      return self.clients.openWindow(url)
     })
   )
 })

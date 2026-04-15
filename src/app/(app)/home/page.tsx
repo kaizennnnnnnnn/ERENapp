@@ -21,6 +21,7 @@ import TaskPanel from '@/components/TaskPanel'
 import ReminderSheet from '@/components/ReminderSheet'
 import { registerSW } from '@/lib/reminders'
 import { checkStatNotifications, requestNotificationPermission, notifyPartnerAction, notifyPartnerMessage } from '@/lib/statNotifications'
+import { subscribeToPush } from '@/lib/pushSubscription'
 import { useCouple } from '@/hooks/useCouple'
 import { useFortune } from '@/hooks/useFortune'
 import { useInventory } from '@/hooks/useInventory'
@@ -69,7 +70,14 @@ export default function HomePage() {
   const particleIdRef = useRef(0)
   const [xpParticles, setXpParticles] = useState<XpParticle[]>([])
 
-  useEffect(() => { registerSW(); requestNotificationPermission() }, [])
+  useEffect(() => {
+    registerSW()
+    requestNotificationPermission().then(granted => {
+      if (granted && user?.id && profile?.household_id) {
+        subscribeToPush(user.id, profile.household_id)
+      }
+    })
+  }, [user?.id, profile?.household_id])
 
   // Check stat notifications whenever stats change
   useEffect(() => {

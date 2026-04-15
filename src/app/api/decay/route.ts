@@ -1,20 +1,14 @@
 /**
  * GET /api/decay
  * Call this from a Vercel Cron Job (vercel.json) every hour.
- * Slowly decreases Eren's stats to simulate real time passing.
- *
- * Vercel cron schedule: "0 * * * *"  (every hour)
+ * Slowly decreases Eren's stats and sends push notifications
+ * when stats drop below warning (50%) or critical (10%) thresholds.
  */
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { clampStat, computeErenMood, shouldBecomeSick } from '@/lib/utils'
+import { sendPush, getStatNotifications } from '@/lib/serverPush'
 
-// How much each stat decays per hour
-// hunger:       full depletion ~25h
-// happiness:    full depletion ~50h
-// energy:       full depletion ~33h
-// sleep_quality:full depletion ~40h
-// cleanliness:  full depletion ~67h (~3 days)
 const DECAY_PER_HOUR = {
   hunger:        -4,
   happiness:     -2,
@@ -24,7 +18,6 @@ const DECAY_PER_HOUR = {
 }
 
 export async function GET(request: Request) {
-  // Protect with CRON_SECRET if set, otherwise allow (Vercel cron calls without secret if not configured)
   const secret = process.env.CRON_SECRET
   if (secret) {
     const authHeader = request.headers.get('authorization')
@@ -35,7 +28,6 @@ export async function GET(request: Request) {
 
   const supabase = await createClient()
 
-  // Load all active households' stats
   const { data: allStats, error } = await supabase
     .from('eren_stats')
     .select('*')
@@ -44,20 +36,30 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Failed to load stats' }, { status: 500 })
   }
 
-  // Decay each household based on hours elapsed since last decay
+  let pushesSent = 0
+
   const updates = allStats.map(async stat => {
     const lastDecay = stat.last_decay_at ? new Date(stat.last_decay_at) : new Date(stat.updated_at)
     const hoursElapsed = Math.min(24, (Date.now() - lastDecay.getTime()) / 3600000)
 
-    const newHappiness    = clampStat(stat.happiness    + DECAY_PER_HOUR.happiness    * hoursElapsed)
-    const newHunger       = clampStat(stat.hunger       + DECAY_PER_HOUR.hunger       * hoursElapsed)
-    const newEnergy       = clampStat(stat.energy       + DECAY_PER_HOUR.energy       * hoursElapsed)
-    const newSleep        = clampStat(stat.sleep_quality + DECAY_PER_HOUR.sleep_quality * hoursElapsed)
-    const newCleanliness  = clampStat((stat.cleanliness ?? 100) + DECAY_PER_HOUR.cleanliness * hoursElapsed)
+    // Save old values for notification comparison
+    const oldStats = {
+      happiness:     stat.happiness,
+      hunger:        stat.hunger,
+      energy:        stat.energy,
+      sleep_quality: stat.sleep_quality,
+      cleanliness:   stat.cleanliness ?? 100,
+      is_sick:       stat.is_sick,
+    }
 
-    // Become sick if bad conditions persist (unless already sick)
+    const newHappiness   = clampStat(stat.happiness    + DECAY_PER_HOUR.happiness    * hoursElapsed)
+    const newHunger      = clampStat(stat.hunger       + DECAY_PER_HOUR.hunger       * hoursElapsed)
+    const newEnergy      = clampStat(stat.energy       + DECAY_PER_HOUR.energy       * hoursElapsed)
+    const newSleep       = clampStat(stat.sleep_quality + DECAY_PER_HOUR.sleep_quality * hoursElapsed)
+    const newCleanliness = clampStat((stat.cleanliness ?? 100) + DECAY_PER_HOUR.cleanliness * hoursElapsed)
+
     const newIsSick = stat.is_sick
-      ? true  // once sick, stay sick until medicine is given
+      ? true
       : shouldBecomeSick({ cleanliness: newCleanliness, sleep_quality: newSleep, weight: stat.weight ?? 4 })
 
     const newMood = computeErenMood({
@@ -68,7 +70,8 @@ export async function GET(request: Request) {
       cleanliness:   newCleanliness,
     })
 
-    return supabase
+    // Update stats
+    await supabase
       .from('eren_stats')
       .update({
         happiness:     newHappiness,
@@ -82,6 +85,44 @@ export async function GET(request: Request) {
         updated_at:    new Date().toISOString(),
       })
       .eq('id', stat.id)
+
+    // ── Check for notification triggers ──
+    const newStats = {
+      happiness: newHappiness, hunger: newHunger, energy: newEnergy,
+      sleep_quality: newSleep, cleanliness: newCleanliness, is_sick: newIsSick,
+    }
+
+    const notifs = getStatNotifications(oldStats, newStats)
+    if (notifs.length === 0) return
+
+    // Get all push subscriptions for this household
+    const { data: subs } = await supabase
+      .from('push_subscriptions')
+      .select('*')
+      .eq('household_id', stat.household_id)
+
+    if (!subs || subs.length === 0) return
+
+    // Send notifications to all subscribed devices
+    const expired: string[] = []
+
+    for (const notif of notifs) {
+      for (const sub of subs) {
+        const ok = await sendPush(
+          { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
+          notif.title,
+          notif.body,
+          notif.tag,
+        )
+        if (!ok) expired.push(sub.id)
+        else pushesSent++
+      }
+    }
+
+    // Clean up expired subscriptions
+    if (expired.length > 0) {
+      await supabase.from('push_subscriptions').delete().in('id', expired)
+    }
   })
 
   await Promise.all(updates)
@@ -89,6 +130,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     ok: true,
     processed: allStats.length,
+    pushesSent,
     timestamp: new Date().toISOString(),
   })
 }
