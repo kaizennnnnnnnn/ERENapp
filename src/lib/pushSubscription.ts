@@ -35,7 +35,7 @@ export async function subscribeToPush(userId: string, householdId: string): Prom
 
     // Save to Supabase
     const supabase = createClient()
-    await supabase.from('push_subscriptions').upsert({
+    const { error } = await supabase.from('push_subscriptions').upsert({
       user_id: userId,
       household_id: householdId,
       endpoint: subJson.endpoint,
@@ -43,6 +43,12 @@ export async function subscribeToPush(userId: string, householdId: string): Prom
       auth: subJson.keys.auth ?? '',
     }, { onConflict: 'user_id,endpoint' })
 
+    if (error) {
+      console.warn('Push subscription save failed:', error.message)
+      return false
+    }
+
+    console.log('Push subscription saved successfully')
     return true
   } catch (err) {
     console.warn('Push subscription failed:', err)
