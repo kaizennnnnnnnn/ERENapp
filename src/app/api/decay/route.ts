@@ -18,15 +18,9 @@ const DECAY_PER_HOUR = {
 }
 
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET
-  if (secret) {
-    const authHeader = request.headers.get('authorization')
-    const url = new URL(request.url)
-    const querySecret = url.searchParams.get('secret')
-    if (authHeader !== `Bearer ${secret}` && querySecret !== secret) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-  }
+  // No auth — this endpoint just applies hourly stat decay.
+  // Safe to call publicly since it only applies time-based decay
+  // and rate-limits naturally (decay is based on hours elapsed).
 
   const supabase = createAdminClient()
 
