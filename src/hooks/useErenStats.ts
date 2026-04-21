@@ -7,11 +7,11 @@ import { computeErenMood, clampStat, shouldBecomeSick } from '@/lib/utils'
 import { ACTION_CONFIGS, type ActionType } from '@/types'
 
 const DECAY_PER_HOUR = {
-  hunger:        -11,
-  happiness:     -7,
-  energy:        -8,
-  sleep_quality: -7,
-  cleanliness:   -4.5,
+  hunger:        -18,
+  happiness:     -12,
+  energy:        -14,
+  sleep_quality: -12,
+  cleanliness:   -8,
 }
 
 let _channelCounter = 0
