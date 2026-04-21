@@ -63,11 +63,13 @@ export function shouldBecomeSick(stats: {
   sleep_quality: number
   weight: number
 }): boolean {
-  return (
-    stats.cleanliness < 15 ||
-    stats.sleep_quality < 10 ||
-    stats.weight > 7.5
-  )
+  // Require MULTIPLE bad conditions at extreme levels, not just one
+  const bad = [
+    stats.cleanliness < 5,
+    stats.sleep_quality < 5,
+    stats.weight > 8,
+  ].filter(Boolean).length
+  return bad >= 2
 }
 
 export function generateInviteCode(): string {
