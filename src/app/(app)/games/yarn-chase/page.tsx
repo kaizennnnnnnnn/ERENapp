@@ -15,9 +15,10 @@ const CAT_SPEED_BASE = 2.0
 const CAT_SPEED_MAX  = 4.2
 const COLLECT_RADIUS = 30  // how close cat must get to a treat
 
-const TREAT_EMOJIS = ['🐟', '⭐', '🦐', '🍤', '🐠', '🌸', '🎀']
+const TREAT_EMOJIS = ['🐟', '🦐', '🍤', '🐠', '🌸', '🎀']
+const BONUS_EMOJIS = ['⭐', '💎']
 
-interface Treat    { id: number; x: number; y: number; emoji: string }
+interface Treat    { id: number; x: number; y: number; emoji: string; bonus: boolean; lifeTicks?: number }
 interface PawPrint { x: number; y: number; angle: number; alpha: number }
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; color: string }
 
@@ -28,10 +29,16 @@ function randomTreat(W: number, H: number, existing: Treat[]): Treat {
   do {
     x = 40 + Math.random() * (W - 80)
     y = 36 + Math.random() * (H - 100)
-    // Keep away from other treats
     ok = existing.every(t => Math.hypot(t.x - x, t.y - y) > 60)
   } while (!ok)
-  return { id: nextTreatId++, x, y, emoji: TREAT_EMOJIS[Math.floor(Math.random() * TREAT_EMOJIS.length)] }
+  // 15% chance of bonus treat (worth 3 points, disappears after a few seconds)
+  const isBonus = Math.random() < 0.15
+  return {
+    id: nextTreatId++, x, y,
+    emoji: isBonus ? BONUS_EMOJIS[Math.floor(Math.random() * BONUS_EMOJIS.length)] : TREAT_EMOJIS[Math.floor(Math.random() * TREAT_EMOJIS.length)],
+    bonus: isBonus,
+    lifeTicks: isBonus ? 240 : undefined, // ~4 seconds at 60fps
+  }
 }
 
 export default function YarnChaseGame() {
@@ -125,20 +132,27 @@ export default function YarnChaseGame() {
   // ── Treat token ───────────────────────────────────────────────────────────
   function drawTreat(ctx: CanvasRenderingContext2D, treat: Treat, pulse: number) {
     const glow = 10 + Math.sin(pulse) * 4
-    // Glow ring
+    const bonusFlash = treat.bonus && treat.lifeTicks !== undefined && treat.lifeTicks < 90 // flash when about to expire
+    const isHidden = bonusFlash && Math.floor(pulse * 4) % 2 === 0
+    if (isHidden) return
+
+    const accent = treat.bonus ? '#FFD700' : '#FFD700'
+    const radius = treat.bonus ? 17 : 14
+
     ctx.save()
-    ctx.globalAlpha = 0.25 + Math.sin(pulse) * 0.1
-    ctx.fillStyle = '#FFD700'
-    ctx.beginPath(); ctx.arc(treat.x, treat.y, glow + 6, 0, Math.PI * 2); ctx.fill()
+    // Outer glow (bigger and yellow for bonus)
+    ctx.globalAlpha = 0.3 + Math.sin(pulse) * 0.15
+    ctx.fillStyle = accent
+    ctx.beginPath(); ctx.arc(treat.x, treat.y, glow + (treat.bonus ? 12 : 6), 0, Math.PI * 2); ctx.fill()
     ctx.globalAlpha = 1
     // Badge bg
-    ctx.fillStyle = 'rgba(255,255,255,0.9)'
-    ctx.beginPath(); ctx.arc(treat.x, treat.y, 14, 0, Math.PI * 2); ctx.fill()
-    ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 2
-    ctx.beginPath(); ctx.arc(treat.x, treat.y, 14, 0, Math.PI * 2); ctx.stroke()
+    ctx.fillStyle = treat.bonus ? 'rgba(255,245,180,0.95)' : 'rgba(255,255,255,0.9)'
+    ctx.beginPath(); ctx.arc(treat.x, treat.y, radius, 0, Math.PI * 2); ctx.fill()
+    ctx.strokeStyle = accent; ctx.lineWidth = treat.bonus ? 3 : 2
+    ctx.beginPath(); ctx.arc(treat.x, treat.y, radius, 0, Math.PI * 2); ctx.stroke()
     ctx.restore()
     // Emoji
-    ctx.font = '14px serif'
+    ctx.font = treat.bonus ? '18px serif' : '14px serif'
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
     ctx.fillText(treat.emoji, treat.x, treat.y)
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'
@@ -261,19 +275,27 @@ export default function YarnChaseGame() {
     // Rotate yarn
     s.yarnAngle += 0.04
 
-    // Check cat vs treats
+    // Check cat vs treats, tick down bonus treat lifespans
     s.treats = s.treats.filter(t => {
       const td = Math.hypot(t.x - s.cat.x, t.y - s.cat.y)
       if (td < COLLECT_RADIUS) {
-        s.score += 1
+        const points = t.bonus ? 3 : 1
+        s.score += points
         setScore(s.score)
-        // Particle burst at treat position
-        const colors = ['#FFD700', '#FF6B9D', '#A78BFA', '#4ECDC4']
-        for (let i = 0; i < 10; i++) {
+        const colors = t.bonus
+          ? ['#FFD700', '#FFA500', '#FFFACD', '#FFFFFF']
+          : ['#FFD700', '#FF6B9D', '#A78BFA', '#4ECDC4']
+        const count = t.bonus ? 18 : 10
+        for (let i = 0; i < count; i++) {
           const angle = Math.random() * Math.PI * 2, spd = 2 + Math.random() * 3
           s.particles.push({ x: t.x, y: t.y, vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd, life: 1, color: colors[Math.floor(Math.random() * colors.length)] })
         }
-        return false // remove collected treat
+        return false
+      }
+      // Bonus treats expire over time
+      if (t.bonus && t.lifeTicks !== undefined) {
+        t.lifeTicks--
+        if (t.lifeTicks <= 0) return false
       }
       return true
     })

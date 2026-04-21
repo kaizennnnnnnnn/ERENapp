@@ -40,70 +40,68 @@ export default function CatchMouseGame() {
   const [gameState, setGameState] = useState<'idle' | 'running' | 'finished'>('idle')
 
   // ── Draw helpers ─────────────────────────────────────────────────────────
+  // Colors: K=outline G=darkgrey M=grey L=lightgrey W=white P=pink E=eye .=transparent
+  // 14 wide x 11 tall — chibi mouse with big head, round body, curled tail
+  const MOUSE_SPRITE = [
+    '..KK......KK..',
+    '.KGGK....KGGK.',
+    '.KGPK....KGPK.',
+    '.KGGKKKKKGGK..',
+    'KGGGGGGGGGGGK.',
+    'KGEKGGGGGGKEK.',  // eyes row
+    'KGGKGPPGGGKGKK',  // nose + tail start
+    'KGGGGGGGGGKKGK',
+    '.KLLLLLLLLK.KK',  // belly
+    '..KKKKKKKK....',
+    '...KKK..KKK...',  // little feet
+  ]
+  const MOUSE_PAL: Record<string, string> = {
+    '.': 'transparent',
+    K: '#1A1A2E',     // dark outline
+    G: '#8B7D6B',     // body fur (warm grey-brown)
+    M: '#A89980',     // mid tone
+    L: '#E8D8C0',     // belly/light
+    W: '#FFFFFF',
+    P: '#F4A6B8',     // pink (ear inner, nose)
+    E: '#1A1A2E',     // eye
+  }
+
   function drawPixelMouse(ctx: CanvasRenderingContext2D, mx: number, my: number, facingLeft: boolean) {
-    const px = 6
+    const px = 5
+    const cols = MOUSE_SPRITE[0].length
+    const rows = MOUSE_SPRITE.length
+    const ox = Math.round(mx) - Math.round((cols * px) / 2)
+    const oy = Math.round(my) - Math.round((rows * px) / 2)
 
-    // Offset so sprite is centered on (mx, my)
-    // Sprite is 10 cols wide × 6 rows tall  →  center at col 4.5, row 3
-    const ox = Math.round(mx) - Math.round(4.5 * px)
-    const oy = Math.round(my) - Math.round(3 * px)
-
-    // Mirror horizontally when facing left
     ctx.save()
     if (facingLeft) {
+      // Mirror around the sprite center
       ctx.translate(Math.round(mx) * 2, 0)
       ctx.scale(-1, 1)
     }
 
-    type Pixel = [number, number, string]
-    const pixels: Pixel[] = [
-      // ── ears ──
-      [1, 0, '#8B5E3C'], [3, 0, '#8B5E3C'],
-      [1, 1, '#C4866A'], [3, 1, '#C4866A'],
-      // ── head ──
-      [0, 2, '#C49A72'], [1, 2, '#C49A72'], [2, 2, '#C49A72'], [3, 2, '#C49A72'], [4, 2, '#C49A72'],
-      [0, 3, '#C49A72'], [1, 3, '#F9EDD5'], [2, 3, '#F9EDD5'], [3, 3, '#F9EDD5'], [4, 3, '#C49A72'],
-      [0, 4, '#C49A72'], [1, 4, '#F9EDD5'], [2, 4, '#F9EDD5'], [3, 4, '#F9EDD5'], [4, 4, '#C49A72'],
-      [0, 5, '#C49A72'], [1, 5, '#C49A72'], [2, 5, '#C49A72'], [3, 5, '#C49A72'], [4, 5, '#C49A72'],
-      // ── eye (left side when facing right) ──
-      [1, 3, '#1A1A2E'], [3, 3, '#1A1A2E'],
-      // ── eye shine ──
-      [1, 3, '#000000'], [3, 3, '#000000'],
-      // ── nose ──
-      [2, 4, '#FF6B9D'],
-      // ── whiskers (left side) ──
-      // ── tail going right ──
-      [5, 4, '#C49A72'], [6, 4, '#C49A72'], [7, 3, '#C49A72'], [8, 2, '#C49A72'], [9, 1, '#C49A72'],
-    ]
+    // Shadow under mouse
+    ctx.fillStyle = 'rgba(0,0,0,0.15)'
+    ctx.beginPath()
+    ctx.ellipse(Math.round(mx), oy + rows * px + 2, cols * px * 0.45, 3, 0, 0, Math.PI * 2)
+    ctx.fill()
 
-    // Body fill first
-    const body: Pixel[] = [
-      [0,2,'#C49A72'],[1,2,'#D4AA82'],[2,2,'#D4AA82'],[3,2,'#D4AA82'],[4,2,'#C49A72'],
-      [0,3,'#C49A72'],[1,3,'#F0DEC0'],[2,3,'#F0DEC0'],[3,3,'#F0DEC0'],[4,3,'#C49A72'],
-      [0,4,'#C49A72'],[1,4,'#F0DEC0'],[2,4,'#F0DEC0'],[3,4,'#F0DEC0'],[4,4,'#C49A72'],
-      [0,5,'#C49A72'],[1,5,'#C49A72'],[2,5,'#C49A72'],[3,5,'#C49A72'],[4,5,'#C49A72'],
-      // ears
-      [1,0,'#9B6844'],[3,0,'#9B6844'],
-      [1,1,'#D4907A'],[3,1,'#D4907A'],
-      // eyes
-      [1,3,'#1A1A2E'],[3,3,'#1A1A2E'],
-      // eye shine
-      [1,3,'#1A1A2E'],[3,3,'#1A1A2E'],
-      // nose
-      [2,4,'#FF6B9D'],
-      // tail
-      [5,4,'#C49A72'],[6,3,'#C49A72'],[7,2,'#C49A72'],[8,1,'#C49A72'],[9,0,'#C49A72'],
-    ]
+    // Draw sprite pixel by pixel
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const ch = MOUSE_SPRITE[y][x]
+        const color = MOUSE_PAL[ch]
+        if (color && color !== 'transparent') {
+          ctx.fillStyle = color
+          ctx.fillRect(ox + x * px, oy + y * px, px, px)
+        }
+      }
+    }
 
-    body.forEach(([dx, dy, color]) => {
-      ctx.fillStyle = color
-      ctx.fillRect(ox + dx * px, oy + dy * px, px, px)
-    })
-
-    // Eye shine (bright 1px in top-left of each eye pixel)
-    ctx.fillStyle = 'rgba(255,255,255,0.7)'
-    ctx.fillRect(ox + 1 * px + 1, oy + 3 * px + 1, 2, 2)
-    ctx.fillRect(ox + 3 * px + 1, oy + 3 * px + 1, 2, 2)
+    // Eye shine (white dots on eyes at positions [2,5] and [10,5])
+    ctx.fillStyle = '#FFFFFF'
+    ctx.fillRect(ox + 2 * px + 1, oy + 5 * px + 1, 2, 2)
+    ctx.fillRect(ox + 10 * px + 1, oy + 5 * px + 1, 2, 2)
 
     ctx.restore()
   }

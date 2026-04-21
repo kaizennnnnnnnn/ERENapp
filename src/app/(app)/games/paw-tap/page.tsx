@@ -9,20 +9,28 @@ import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { RefreshCw, ChevronLeft } from 'lucide-react'
 
-const GAME_DURATION  = 15
+const GAME_DURATION  = 20
 const FISH_POSITIONS = [
   { x: '14%', y: '22%' }, { x: '58%', y: '14%' },
   { x: '76%', y: '52%' }, { x: '18%', y: '62%' },
   { x: '44%', y: '38%' }, { x: '80%', y: '72%' },
   { x: '8%',  y: '76%' }, { x: '54%', y: '66%' },
   { x: '34%', y: '54%' }, { x: '66%', y: '30%' },
+  { x: '24%', y: '42%' }, { x: '72%', y: '20%' },
+  { x: '90%', y: '40%' }, { x: '50%', y: '80%' },
 ]
 
-interface Fish { id: number; x: string; y: string; visible: boolean; caught: boolean; emoji: string }
-interface Splash { id: number; x: string; y: string }
+type FishKind = 'good' | 'bonus' | 'danger'
+interface Fish { id: number; x: string; y: string; visible: boolean; caught: boolean; emoji: string; kind: FishKind; points: number }
+interface Splash { id: number; x: string; y: string; color: string }
 interface Bubble { id: number; x: number; animDuration: number; delay: number; size: number }
 
-const FISH_EMOJIS = ['🐟', '🐠', '🐡', '🦐', '🦑']
+// Good fish — 1 point each
+const GOOD_FISH  = ['🐟', '🐠', '🦐']
+// Bonus fish — rare, worth 3 points
+const BONUS_FISH = ['⭐', '🦑']
+// Dangerous fish — tap them and lose 2 points!
+const DANGER_FISH = ['🪼', '🦈', '🐙']
 
 export default function PawTapGame() {
   const router = useRouter()
@@ -58,13 +66,34 @@ export default function PawTapGame() {
 
   function spawnFish() {
     const pos = FISH_POSITIONS[Math.floor(Math.random() * FISH_POSITIONS.length)]
-    const emoji = FISH_EMOJIS[Math.floor(Math.random() * FISH_EMOJIS.length)]
-    const newFish: Fish = { id: Date.now(), ...pos, visible: true, caught: false, emoji }
-    setFish(prev => [...prev.slice(-6), newFish])
+
+    // Decide kind: 70% good, 12% bonus, 18% danger
+    const roll = Math.random()
+    let kind: FishKind = 'good'
+    let emoji = ''
+    let points = 1
+    let lifespan = 2000
+
+    if (roll < 0.18) {
+      kind = 'danger'
+      emoji = DANGER_FISH[Math.floor(Math.random() * DANGER_FISH.length)]
+      points = -2
+      lifespan = 2400 // they linger a bit longer to tempt you
+    } else if (roll < 0.30) {
+      kind = 'bonus'
+      emoji = BONUS_FISH[Math.floor(Math.random() * BONUS_FISH.length)]
+      points = 3
+      lifespan = 1600 // bonus fish are fast to catch
+    } else {
+      emoji = GOOD_FISH[Math.floor(Math.random() * GOOD_FISH.length)]
+    }
+
+    const newFish: Fish = { id: Date.now() + Math.random(), ...pos, visible: true, caught: false, emoji, kind, points }
+    setFish(prev => [...prev.slice(-8), newFish])
 
     setTimeout(() => {
       setFish(prev => prev.map(f => f.id === newFish.id && !f.caught ? { ...f, visible: false } : f))
-    }, 2200)
+    }, lifespan)
   }
 
   function startGame() {
@@ -83,7 +112,8 @@ export default function PawTapGame() {
       })
     }, 1000)
 
-    fishTimerRef.current = setInterval(spawnFish, 750)
+    fishTimerRef.current = setInterval(spawnFish, 450)
+    spawnFish()
     spawnFish()
   }
 
@@ -102,22 +132,43 @@ export default function PawTapGame() {
     }
   }
 
-  function catchFish(fishId: number, x: string, y: string) {
-    setFish(prev => prev.map(f => f.id === fishId ? { ...f, visible: false, caught: true } : f))
-    scoreRef.current += 1
-    comboRef.current += 1
+  function catchFish(f: Fish) {
+    setFish(prev => prev.map(fi => fi.id === f.id ? { ...fi, visible: false, caught: true } : fi))
+
+    const isDanger = f.kind === 'danger'
+
+    if (isDanger) {
+      // Lose points, break combo
+      scoreRef.current = Math.max(0, scoreRef.current + f.points)
+      comboRef.current = 0
+    } else {
+      // Score + combo bonus every 5 catches
+      const comboBonus = comboRef.current > 0 && comboRef.current % 5 === 4 ? 2 : 0
+      scoreRef.current += f.points + comboBonus
+      comboRef.current += 1
+    }
+
     setScore(scoreRef.current)
     setPawFlash(true)
     setTimeout(() => setPawFlash(false), 150)
 
-    // Splash effect
+    // Splash effect — color varies by kind
     const sid = splashIdRef.current++
-    setSplashes(prev => [...prev, { id: sid, x, y }])
+    const splashColor = isDanger ? '#FF4444' : f.kind === 'bonus' ? '#FFD700' : '#FFFFFF'
+    setSplashes(prev => [...prev, { id: sid, x: f.x, y: f.y, color: splashColor }])
     setTimeout(() => setSplashes(prev => prev.filter(s => s.id !== sid)), 600)
 
-    const combo = comboRef.current
-    const text = combo >= 7 ? '🔥 COMBO ×' + combo : combo >= 4 ? '⚡ ×' + combo : '+1'
-    setComboText({ id: Date.now(), text, x, y })
+    // Floating text
+    let text = ''
+    if (isDanger) {
+      text = `${f.points}`
+    } else if (f.kind === 'bonus') {
+      text = `+${f.points} BONUS!`
+    } else {
+      const combo = comboRef.current
+      text = combo >= 10 ? `🔥 ×${combo}` : combo >= 5 ? `⚡ ×${combo}` : `+${f.points}`
+    }
+    setComboText({ id: Date.now(), text, x: f.x, y: f.y })
     setTimeout(() => setComboText(null), 700)
   }
 
@@ -157,7 +208,7 @@ export default function PawTapGame() {
       {/* ── Timer bar ── */}
       {gameState === 'running' && (
         <div className="mb-3 flex gap-0.5">
-          {Array.from({ length: 15 }).map((_, i) => {
+          {Array.from({ length: GAME_DURATION }).map((_, i) => {
             const lit = i < timeLeft
             return (
               <div key={i} style={{
@@ -225,36 +276,69 @@ export default function PawTapGame() {
         </div>
 
         {/* Fish targets */}
-        {gameState === 'running' && fish.map(f =>
-          f.visible ? (
+        {gameState === 'running' && fish.map(f => {
+          if (!f.visible) return null
+          const isDanger = f.kind === 'danger'
+          const isBonus = f.kind === 'bonus'
+          return (
             <button
               key={f.id}
-              onClick={() => catchFish(f.id, f.x, f.y)}
+              onClick={() => catchFish(f)}
               className="absolute transform -translate-x-1/2 -translate-y-1/2 transition-transform duration-100 active:scale-125"
-              style={{ left: f.x, top: f.y, fontSize: 28, lineHeight: 1, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))', animation: 'fishWobble 1.2s ease-in-out infinite' }}
+              style={{
+                left: f.x, top: f.y,
+                fontSize: isBonus ? 34 : 28,
+                lineHeight: 1,
+                filter: isDanger
+                  ? 'drop-shadow(0 0 6px rgba(255,50,50,0.8)) drop-shadow(0 2px 4px rgba(0,0,0,0.4))'
+                  : isBonus
+                  ? 'drop-shadow(0 0 8px rgba(255,215,0,0.9)) drop-shadow(0 2px 4px rgba(0,0,0,0.4))'
+                  : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
+                animation: isDanger
+                  ? 'dangerPulse 0.5s ease-in-out infinite'
+                  : isBonus
+                  ? 'bonusShine 0.8s ease-in-out infinite'
+                  : 'fishWobble 1.2s ease-in-out infinite',
+              }}
             >
               {f.emoji}
             </button>
-          ) : null
-        )}
+          )
+        })}
 
         {/* Splash effects */}
         {splashes.map(s => (
           <div key={s.id}
             className="absolute pointer-events-none"
             style={{ left: s.x, top: s.y, transform: 'translate(-50%,-50%)', animation: 'splashOut 0.5s ease-out forwards' }}>
-            {['💧','💦','✨'].map((em, ei) => (
-              <span key={ei} style={{ position: 'absolute', fontSize: 14, transform: `rotate(${ei * 120}deg) translateY(-20px)`, animation: `splashFly 0.5s ease-out forwards`, animationDelay: `${ei * 50}ms` }}>{em}</span>
+            {[0, 1, 2, 3, 4, 5].map(ei => (
+              <span key={ei} style={{
+                position: 'absolute',
+                width: 4, height: 4,
+                borderRadius: '50%',
+                background: s.color,
+                boxShadow: `0 0 4px ${s.color}`,
+                transform: `rotate(${ei * 60}deg) translateY(-22px)`,
+                animation: 'splashFly 0.5s ease-out forwards',
+                animationDelay: `${ei * 30}ms`,
+              }} />
             ))}
           </div>
         ))}
 
-        {/* Combo text */}
+        {/* Combo / damage text */}
         {comboText && (
           <div
             key={comboText.id}
             className="absolute pointer-events-none font-pixel"
-            style={{ left: comboText.x, top: comboText.y, transform: 'translate(-50%, -180%)', color: '#FFD700', fontSize: 8, textShadow: '1px 1px 0 rgba(0,0,0,0.5)', animation: 'floatUp 0.7s ease-out forwards' }}>
+            style={{
+              left: comboText.x, top: comboText.y,
+              transform: 'translate(-50%, -180%)',
+              color: comboText.text.startsWith('-') ? '#FF4444' : comboText.text.includes('BONUS') ? '#FFD700' : comboText.text.includes('×') ? '#FF9D00' : '#FFD700',
+              fontSize: comboText.text.includes('BONUS') || comboText.text.includes('×') ? 9 : 8,
+              textShadow: '1px 1px 0 rgba(0,0,0,0.5)',
+              animation: 'floatUp 0.7s ease-out forwards',
+            }}>
             {comboText.text}
           </div>
         )}
@@ -284,9 +368,23 @@ export default function PawTapGame() {
               <>
                 <div className="text-5xl mb-3 animate-float">🐟</div>
                 <p className="font-pixel text-white mb-1" style={{ fontSize: 9 }}>PAW TAP!</p>
-                <p className="text-xs text-sky-200 mb-5 text-center px-8 leading-relaxed">
-                  Tap the fish before they swim away in {GAME_DURATION} seconds!
+                <p className="text-xs text-sky-200 mb-2 text-center px-8 leading-relaxed">
+                  Tap fish to catch them in {GAME_DURATION} seconds!
                 </p>
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="text-center">
+                    <div style={{ fontSize: 20 }}>🐟</div>
+                    <p className="font-pixel text-sky-200" style={{ fontSize: 5 }}>+1</p>
+                  </div>
+                  <div className="text-center">
+                    <div style={{ fontSize: 20, filter: 'drop-shadow(0 0 4px #FFD700)' }}>⭐</div>
+                    <p className="font-pixel text-yellow-300" style={{ fontSize: 5 }}>+3</p>
+                  </div>
+                  <div className="text-center">
+                    <div style={{ fontSize: 20, filter: 'drop-shadow(0 0 4px #FF4444)' }}>🪼</div>
+                    <p className="font-pixel text-red-400" style={{ fontSize: 5 }}>-2!</p>
+                  </div>
+                </div>
                 <button onClick={startGame}
                   className="px-8 py-3 text-white active:translate-y-[2px] transition-transform"
                   style={{ background: 'linear-gradient(135deg, #4EAADC, #2A88C0)', borderRadius: 3, border: '2px solid #1A70A8', boxShadow: '0 4px 0 #105888', fontFamily: '"Press Start 2P"', fontSize: 8 }}>
@@ -300,9 +398,9 @@ export default function PawTapGame() {
                 <p className="font-pixel text-[#FFD700] mb-1" style={{ fontSize: 11 }}>{score}</p>
                 <p className="font-pixel text-sky-200 mb-3" style={{ fontSize: 7 }}>FISH CAUGHT!</p>
                 <p className="font-pixel text-sky-300 mb-1" style={{ fontSize: 6 }}>
-                  {score >= 20 ? '★ PAW MASTER! ★' : score >= 12 ? '★ NICE CATCH! ★' : 'KEEP PRACTICING!'}
+                  {score >= 60 ? '★ LEGENDARY ANGLER! ★' : score >= 40 ? '★ PAW MASTER! ★' : score >= 20 ? '★ NICE CATCH! ★' : 'KEEP PRACTICING!'}
                 </p>
-                {score > 3 && <p className="font-pixel text-[#FF6B9D] mb-4" style={{ fontSize: 6 }}>EREN IS THRILLED! ♥</p>}
+                {score > 5 && <p className="font-pixel text-[#FF6B9D] mb-4" style={{ fontSize: 6 }}>EREN IS THRILLED! ♥</p>}
                 <div className="flex gap-3 mt-1">
                   <button onClick={startGame}
                     className="px-4 py-2 text-white active:translate-y-[1px] transition-transform flex items-center gap-2"
@@ -328,6 +426,14 @@ export default function PawTapGame() {
         @keyframes fishWobble {
           0%, 100% { transform: translate(-50%,-50%) rotate(-8deg); }
           50%       { transform: translate(-50%,-50%) rotate(8deg); }
+        }
+        @keyframes dangerPulse {
+          0%, 100% { transform: translate(-50%,-50%) scale(1) rotate(-3deg); }
+          50%       { transform: translate(-50%,-50%) scale(1.15) rotate(3deg); }
+        }
+        @keyframes bonusShine {
+          0%, 100% { transform: translate(-50%,-50%) scale(1) rotate(-10deg); }
+          50%       { transform: translate(-50%,-50%) scale(1.2) rotate(10deg); }
         }
         @keyframes floatUp {
           0%   { transform: translate(-50%,-180%); opacity: 1; }
