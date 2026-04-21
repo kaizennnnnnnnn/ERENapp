@@ -274,6 +274,7 @@ export default function CatchMouseGame() {
       const coinsEarned = Math.floor(s.score / 2)
       if (coinsEarned > 0) addCoins(coinsEarned)
       completeTask('daily_game')
+      if (s.score >= 30) completeTask('weekly_high_score')
       if (s.score > 5) applyAction(user.id, 'play')
     }
   }

@@ -335,6 +335,7 @@ export default function YarnChaseGame() {
       supabase.from('game_scores').insert({ user_id: user.id, game_type: 'yarn_chase', score: s.score }).then(({ error }) => { if (error) console.error('score save error:', error) })
       addCoins(Math.floor(s.score / 2))
       completeTask('daily_game')
+      if (s.score >= 30) completeTask('weekly_high_score')
       applyAction(user.id, 'play')
     }
   }

@@ -97,6 +97,7 @@ export default function PawTapGame() {
       supabase.from('game_scores').insert({ user_id: user.id, game_type: 'paw_tap', score: scoreRef.current }).then(({ error }) => { if (error) console.error('score save error:', error) })
       addCoins(scoreRef.current)
       completeTask('daily_game')
+      if (scoreRef.current >= 30) completeTask('weekly_high_score')
       applyAction(user.id, 'play')
     }
   }

@@ -12,7 +12,7 @@ export const TASK_DEFS: TaskDef[] = [
   // ── Weekly ─────────────────────────────────────────────────────────────────
   { id: 'weekly_all_care',   period: 'weekly', title: 'Full Care Week',   desc: 'Do all 4 care types this week',         icon: '⭐', coins: 60, xp: 100, maxProgress: 4 },
   { id: 'weekly_all_games',  period: 'weekly', title: 'Game Master',      desc: 'Play 3 game sessions this week',        icon: '🏆', coins: 50, xp: 80,  maxProgress: 3 },
-  { id: 'weekly_high_score', period: 'weekly', title: 'High Scorer',      desc: 'Score 10+ in any game this week',       icon: '👑', coins: 40, xp: 60  },
+  { id: 'weekly_high_score', period: 'weekly', title: 'High Scorer',      desc: 'Score 30+ in any game this week',       icon: '👑', coins: 40, xp: 60  },
   { id: 'weekly_mood_5',     period: 'weekly', title: 'Mood Tracker',     desc: 'Log your mood 5 days this week',        icon: '📅', coins: 40, xp: 70,  maxProgress: 5 },
   { id: 'weekly_no_sick',    period: 'weekly', title: 'Healthy Guardian', desc: 'Keep Eren from getting sick this week', icon: '💪', coins: 50, xp: 90  },
 ]
