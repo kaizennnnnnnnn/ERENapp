@@ -54,9 +54,14 @@ export async function GET(request: Request) {
     const newSleep       = clampStat(stat.sleep_quality + DECAY_PER_HOUR.sleep_quality * hoursElapsed)
     const newCleanliness = clampStat((stat.cleanliness ?? 100) + DECAY_PER_HOUR.cleanliness * hoursElapsed)
 
+    // Passive weight loss (metabolism) — cat naturally loses weight over time
+    // Loses more if underfed, keeps weight if well-fed
+    const weightLossRate = stat.hunger < 40 ? -0.04 : -0.02
+    const newWeight = Math.max(2, Math.min(10, (stat.weight ?? 4) + weightLossRate * hoursElapsed))
+
     const newIsSick = stat.is_sick
       ? true
-      : shouldBecomeSick({ cleanliness: newCleanliness, sleep_quality: newSleep, weight: stat.weight ?? 4 })
+      : shouldBecomeSick({ cleanliness: newCleanliness, sleep_quality: newSleep, weight: newWeight })
 
     const newMood = computeErenMood({
       happiness:     newHappiness,
@@ -75,6 +80,7 @@ export async function GET(request: Request) {
         energy:        newEnergy,
         sleep_quality: newSleep,
         cleanliness:   newCleanliness,
+        weight:        Math.round(newWeight * 100) / 100,
         is_sick:       newIsSick,
         mood:          newMood,
         last_decay_at: new Date().toISOString(),
