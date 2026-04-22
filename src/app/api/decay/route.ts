@@ -35,8 +35,19 @@ export async function GET(request: Request) {
   let pushesSent = 0
 
   const updates = allStats.map(async stat => {
-    const lastDecay = stat.last_decay_at ? new Date(stat.last_decay_at) : new Date(stat.updated_at)
-    const hoursElapsed = Math.min(24, (Date.now() - lastDecay.getTime()) / 3600000)
+    // If last_decay_at is missing or old, just set to now and skip decay this run.
+    // Cron runs hourly, so we should never apply more than ~1 hour of decay at a time.
+    // Capping higher caused stats to zero out when last_decay_at was stale.
+    const lastDecay = stat.last_decay_at ? new Date(stat.last_decay_at) : null
+    if (!lastDecay) {
+      // Initialize last_decay_at to now, apply zero decay this run
+      await supabase.from('eren_stats').update({
+        last_decay_at: new Date().toISOString(),
+      }).eq('id', stat.id)
+      return
+    }
+    const hoursElapsed = Math.min(1.5, (Date.now() - lastDecay.getTime()) / 3600000)
+    if (hoursElapsed < 0.5) return // skip — not enough time passed
 
     // Save old values for notification comparison
     const oldStats = {
