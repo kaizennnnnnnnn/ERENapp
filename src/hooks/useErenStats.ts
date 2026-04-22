@@ -7,11 +7,11 @@ import { computeErenMood, clampStat, shouldBecomeSick } from '@/lib/utils'
 import { ACTION_CONFIGS, type ActionType } from '@/types'
 
 const DECAY_PER_HOUR = {
-  hunger:        -18,
-  happiness:     -12,
-  energy:        -14,
-  sleep_quality: -12,
-  cleanliness:   -8,
+  hunger:        -5,
+  happiness:     -3,
+  energy:        -4,
+  sleep_quality: -3,
+  cleanliness:   -2,
 }
 
 let _channelCounter = 0
@@ -110,7 +110,7 @@ export function useErenStats(householdId: string | null) {
     const newMood = computeErenMood({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, cleanliness: newCl })
     setStats(prev => prev ? { ...prev, happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, weight: newW, cleanliness: newCl, is_sick: newSick, mood: newMood } : prev)
     const [su] = await Promise.all([
-      supabase.from('eren_stats').update({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, weight: newW, cleanliness: newCl, is_sick: newSick, mood: newMood, updated_at: new Date().toISOString() }).eq('household_id', householdId),
+      supabase.from('eren_stats').update({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, weight: newW, cleanliness: newCl, is_sick: newSick, mood: newMood, last_decay_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('household_id', householdId),
       supabase.from('interactions').insert({ household_id: householdId, user_id: userId, action_type: action, happiness_delta: cfg.deltas.happiness ?? 0, hunger_delta: cfg.deltas.hunger ?? 0, energy_delta: cfg.deltas.energy ?? 0, sleep_delta: cfg.deltas.sleep_quality ?? 0, weight_delta: cfg.deltas.weight ?? 0 }),
     ])
     if (su.error) { await fetchStats(); return { success: false, message: su.error.message } }
@@ -125,7 +125,7 @@ export function useErenStats(householdId: string | null) {
     const newMood = computeErenMood({ happiness: newH, hunger: newHu, energy: stats.energy, sleep_quality: stats.sleep_quality, cleanliness: stats.cleanliness ?? 100 })
     setStats(prev => prev ? { ...prev, happiness: newH, hunger: newHu, weight: newW, mood: newMood } : prev)
     const [su, ii] = await Promise.all([
-      supabase.from('eren_stats').update({ happiness: newH, hunger: newHu, weight: newW, mood: newMood, updated_at: new Date().toISOString() }).eq('household_id', householdId),
+      supabase.from('eren_stats').update({ happiness: newH, hunger: newHu, weight: newW, mood: newMood, last_decay_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('household_id', householdId),
       supabase.from('interactions').insert({ household_id: householdId, user_id: userId, action_type: 'feed', happiness_delta: happyD, hunger_delta: hungerD, energy_delta: 0, sleep_delta: 0, weight_delta: weightD }),
     ])
     if (su.error || ii.error) { await fetchStats(); return { success: false, message: 'Failed' } }
