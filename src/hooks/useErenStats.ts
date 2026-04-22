@@ -6,13 +6,7 @@ import type { ErenStats, FoodInventory } from '@/types'
 import { computeErenMood, clampStat, shouldBecomeSick } from '@/lib/utils'
 import { ACTION_CONFIGS, type ActionType } from '@/types'
 
-const DECAY_PER_HOUR = {
-  hunger:        -5,
-  happiness:     -3,
-  energy:        -4,
-  sleep_quality: -3,
-  cleanliness:   -2,
-}
+// Decay is handled server-side by /api/decay (cron). Client never applies decay.
 
 let _channelCounter = 0
 
@@ -30,58 +24,10 @@ export function useErenStats(householdId: string | null) {
       .from('eren_stats').select('*').eq('household_id', householdId).single()
     if (error) { setError(error.message); setLoading(false); return }
 
-    // ── Apply offline decay ──────────────────────────────────────────────
-    // Calculate how many hours have passed since last decay and apply it now,
-    // so stats go down even when no cron ran.
-    const raw = data as ErenStats & { last_decay_at?: string }
-
-    // Use last_decay_at if it exists, otherwise updated_at, cap at 12h to avoid huge jumps
-    const lastDecayStr = raw.last_decay_at ?? raw.updated_at
-    const hoursElapsed = Math.min(12, (Date.now() - new Date(lastDecayStr).getTime()) / 3_600_000)
-
-    if (hoursElapsed >= 0.25) {
-      const ri = (n: number) => Math.round(clampStat(n)) // integer columns
-      const rf = (n: number) => Math.round(clampStat(n) * 10) / 10 // numeric columns
-
-      const newHunger      = ri(raw.hunger        + DECAY_PER_HOUR.hunger        * hoursElapsed)
-      const newHappiness   = ri(raw.happiness     + DECAY_PER_HOUR.happiness     * hoursElapsed)
-      const newEnergy      = ri(raw.energy        + DECAY_PER_HOUR.energy        * hoursElapsed)
-      const newSleep       = ri(raw.sleep_quality + DECAY_PER_HOUR.sleep_quality * hoursElapsed)
-      const newCleanliness = rf((raw.cleanliness ?? 100) + DECAY_PER_HOUR.cleanliness * hoursElapsed)
-      const newIsSick = raw.is_sick ? true : shouldBecomeSick({ cleanliness: newCleanliness, sleep_quality: newSleep, weight: raw.weight ?? 4 })
-      const newMood = computeErenMood({ happiness: newHappiness, hunger: newHunger, energy: newEnergy, sleep_quality: newSleep, cleanliness: newCleanliness })
-
-      const decayed: ErenStats = {
-        ...raw,
-        hunger:        newHunger,
-        happiness:     newHappiness,
-        energy:        newEnergy,
-        sleep_quality: newSleep,
-        cleanliness:   newCleanliness,
-        is_sick:       newIsSick,
-        mood:          newMood,
-      }
-      setStats(decayed)
-
-      // Save to DB — await so we know if it succeeds
-      const { error: saveErr } = await supabase.from('eren_stats').update({
-        hunger:        newHunger,
-        happiness:     newHappiness,
-        energy:        newEnergy,
-        sleep_quality: newSleep,
-        cleanliness:   newCleanliness,
-        is_sick:       newIsSick,
-        mood:          newMood,
-        last_decay_at: new Date().toISOString(),
-        updated_at:    new Date().toISOString(),
-      }).eq('household_id', householdId)
-
-      // If save failed (e.g. last_decay_at column missing), log it
-      if (saveErr) console.warn('Decay save failed:', saveErr.message)
-    } else {
-      setStats(raw)
-    }
-
+    // Just display whatever's in the DB. The server cron (/api/decay) is the
+    // single source of truth for decay — NEVER decay client-side. Doing both
+    // caused stats to zero out on every page reload.
+    setStats(data as ErenStats)
     setLoading(false)
   }, [householdId]) // eslint-disable-line react-hooks/exhaustive-deps
 
