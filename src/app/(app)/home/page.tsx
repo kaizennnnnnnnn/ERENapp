@@ -16,7 +16,8 @@ import { useTasks } from '@/contexts/TaskContext'
 import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 import { format } from 'date-fns'
 import Link from 'next/link'
-import { Bell, Sparkles, Image, User, DoorOpen, Gift, Heart } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
+import { IconGift, IconCapsule, IconHeart, IconBell, IconPerson, IconDoor } from '@/components/PixelIcons'
 import TaskPanel from '@/components/TaskPanel'
 import ReminderSheet from '@/components/ReminderSheet'
 import { registerSW } from '@/lib/reminders'
@@ -397,44 +398,44 @@ export default function HomePage() {
               <TaskPanel compact />
             </div>
 
-            {/* Nav buttons */}
+            {/* Nav buttons — pixel game style */}
             {fortuneAvailable && (
               <button onClick={() => setShowFortune(true)}
                 className="w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
-                style={{ background: 'rgba(15,10,30,0.55)', backdropFilter: 'blur(12px)', borderRadius: 12, border: '1px solid rgba(245,158,11,0.35)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)', animation: 'pulse 2s ease-in-out infinite' }}>
-                <Gift size={17} style={{ color: '#FBBF24' }} />
+                style={{ background: 'rgba(8,5,20,0.8)', border: '2px solid rgba(245,158,11,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(251,191,36,0.2)', animation: 'pulse 2s ease-in-out infinite' }}>
+                <IconGift size={22} />
               </button>
             )}
             <Link href="/gacha"
               className="w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
-              style={{ background: 'rgba(15,10,30,0.55)', backdropFilter: 'blur(12px)', borderRadius: 12, border: '1px solid rgba(124,58,237,0.35)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
-              <span style={{ fontSize: 16 }}>🎰</span>
+              style={{ background: 'rgba(8,5,20,0.8)', border: '2px solid rgba(124,58,237,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(167,139,250,0.2)' }}>
+              <IconCapsule size={22} />
             </Link>
             <Link href="/couple" className="relative w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
-              style={{ background: 'rgba(15,10,30,0.55)', backdropFilter: 'blur(12px)', borderRadius: 12, border: '1px solid rgba(255,107,157,0.3)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
-              <Heart size={17} style={{ color: '#FF6B9D' }} />
+              style={{ background: 'rgba(8,5,20,0.8)', border: '2px solid rgba(255,107,157,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,107,157,0.2)' }}>
+              <IconHeart size={22} />
               {unreadCount > 0 && (
                 <div className="absolute -top-1 -right-1 flex items-center justify-center"
-                  style={{ width: 16, height: 16, borderRadius: '50%', background: '#FF6B9D', border: '2px solid rgba(15,10,30,0.55)' }}>
+                  style={{ width: 16, height: 16, background: '#FF1D5E', border: '2px solid rgba(8,5,20,0.9)' }}>
                   <span className="font-pixel text-white" style={{ fontSize: 5 }}>{unreadCount}</span>
                 </div>
               )}
             </Link>
             <button onClick={() => setShowReminders(true)}
               className="w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
-              style={{ background: 'rgba(15,10,30,0.55)', backdropFilter: 'blur(12px)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.15)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
-              <Bell size={17} className="text-white/80" />
+              style={{ background: 'rgba(8,5,20,0.8)', border: '2px solid rgba(255,215,0,0.35)', boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,215,0,0.15)' }}>
+              <IconBell size={22} />
             </button>
             <Link href="/profile"
               className="w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
-              style={{ background: 'rgba(15,10,30,0.55)', backdropFilter: 'blur(12px)', borderRadius: 12, border: '1px solid rgba(167,139,250,0.25)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
-              <User size={17} style={{ color: '#A78BFA' }} />
+              style={{ background: 'rgba(8,5,20,0.8)', border: '2px solid rgba(167,139,250,0.4)', boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(167,139,250,0.2)' }}>
+              <IconPerson size={22} />
             </Link>
             <div className="relative flex-shrink-0">
               <button onClick={() => setShowRooms(r => !r)}
                 className="w-10 h-10 flex items-center justify-center active:scale-90 transition-transform"
-                style={{ background: 'rgba(15,10,30,0.55)', backdropFilter: 'blur(12px)', borderRadius: 12, border: '1px solid rgba(52,211,153,0.3)', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
-                <DoorOpen size={17} style={{ color: '#34D399' }} />
+                style={{ background: 'rgba(8,5,20,0.8)', border: '2px solid rgba(107,65,33,0.6)', boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(200,150,100,0.2)' }}>
+                <IconDoor size={22} />
               </button>
               {showRooms && (
                 <>

@@ -5,13 +5,14 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
+import { IconHeart, IconMeat, IconLightning, IconMoon, IconDrop, IconCoin } from './PixelIcons'
 
 const MINI_STATS = [
-  { key: 'happiness',     icon: '💕', label: 'HAPPY', color: '#f472b6', glow: 'rgba(244,114,182,0.4)' },
-  { key: 'hunger',        icon: '🍗', label: 'FOOD',  color: '#fbbf24', glow: 'rgba(251,191,36,0.4)' },
-  { key: 'energy',        icon: '⚡', label: 'ENERGY',color: '#34d399', glow: 'rgba(52,211,153,0.4)' },
-  { key: 'sleep_quality', icon: '💤', label: 'SLEEP', color: '#818cf8', glow: 'rgba(129,140,248,0.4)' },
-  { key: 'cleanliness',   icon: '🛁', label: 'CLEAN', color: '#38bdf8', glow: 'rgba(56,189,248,0.4)' },
+  { key: 'happiness',     Icon: IconHeart,     color: '#f472b6', glow: 'rgba(244,114,182,0.4)' },
+  { key: 'hunger',        Icon: IconMeat,      color: '#fbbf24', glow: 'rgba(251,191,36,0.4)' },
+  { key: 'energy',        Icon: IconLightning, color: '#34d399', glow: 'rgba(52,211,153,0.4)' },
+  { key: 'sleep_quality', Icon: IconMoon,      color: '#818cf8', glow: 'rgba(129,140,248,0.4)' },
+  { key: 'cleanliness',   Icon: IconDrop,      color: '#38bdf8', glow: 'rgba(56,189,248,0.4)' },
 ] as const
 
 export default function StatsHeader() {
@@ -30,7 +31,7 @@ export default function StatsHeader() {
     <div className="w-full px-3 pt-3 pb-2 flex flex-col gap-2"
       style={{
         pointerEvents: 'auto',
-        background: 'linear-gradient(180deg, rgba(18,10,35,0.92) 0%, rgba(18,10,35,0.85) 75%, rgba(18,10,35,0.5) 100%)',
+        background: 'linear-gradient(180deg, rgba(18,10,35,0.94) 0%, rgba(18,10,35,0.88) 75%, rgba(18,10,35,0.5) 100%)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
       }}>
@@ -38,78 +39,93 @@ export default function StatsHeader() {
       {/* ── Row 1: Level badge + XP bar + Coins ── */}
       <div className="flex items-center gap-2">
 
-        {/* Level badge */}
-        <div className="flex-shrink-0 flex items-center justify-center"
+        {/* Level badge — pixel card style */}
+        <div className="flex-shrink-0 flex items-center justify-center relative"
           style={{
-            width: 40, height: 40, borderRadius: 12,
-            background: 'linear-gradient(135deg, #7C3AED, #A78BFA)',
-            border: '2px solid rgba(167,139,250,0.6)',
-            boxShadow: '0 0 12px rgba(124,58,237,0.35), inset 0 1px 0 rgba(255,255,255,0.2)',
+            width: 40, height: 40,
+            background: 'linear-gradient(135deg, #A78BFA 0%, #7C3AED 100%)',
+            border: '2px solid #4C1D95',
+            boxShadow: '0 2px 0 #3B1674, inset 0 2px 0 rgba(255,255,255,0.25), inset 0 -2px 0 rgba(0,0,0,0.15)',
+            imageRendering: 'pixelated',
           }}>
-          <span className="font-pixel text-white" style={{ fontSize: 10, textShadow: '0 0 8px rgba(255,255,255,0.5)' }}>{level}</span>
+          <span className="font-pixel text-white" style={{
+            fontSize: 13,
+            textShadow: '1px 1px 0 #3B1674',
+            letterSpacing: -1,
+          }}>{level}</span>
         </div>
 
-        {/* XP bar */}
-        <div id="stats-xp-bar" className="flex-1 flex flex-col justify-center px-3 h-10"
+        {/* XP bar — pixel-style segmented */}
+        <div id="stats-xp-bar" className="flex-1 flex flex-col justify-center px-2.5 h-10 relative"
           style={{
-            background: 'rgba(15,10,30,0.55)',
-            backdropFilter: 'blur(12px)',
-            borderRadius: 12,
-            border: '1px solid rgba(167,139,250,0.25)',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05)',
+            background: 'rgba(8,5,20,0.75)',
+            border: '2px solid rgba(167,139,250,0.35)',
+            boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(167,139,250,0.15)',
           }}>
           <div className="flex items-center justify-between mb-1">
-            <span className="font-pixel text-purple-300/80" style={{ fontSize: 6 }}>XP</span>
-            <span className="font-pixel text-purple-300/60" style={{ fontSize: 5.5 }}>{xpIntoLevel}/{xpNeeded}</span>
+            <span className="font-pixel" style={{ fontSize: 6, color: '#C4B5FD', letterSpacing: 1 }}>XP</span>
+            <span className="font-pixel" style={{ fontSize: 5.5, color: '#A78BFA' }}>{xpIntoLevel}/{xpNeeded}</span>
           </div>
-          <div className="w-full overflow-hidden relative" style={{ height: 6, borderRadius: 4, background: 'rgba(255,255,255,0.08)' }}>
-            <div className="h-full rounded-full transition-all duration-700 ease-out"
-              style={{
-                width: `${xpPct}%`,
-                background: 'linear-gradient(90deg, #7C3AED, #A78BFA, #C084FC)',
-                boxShadow: '0 0 8px rgba(167,139,250,0.5)',
-              }} />
-            <div className="absolute inset-0 rounded-full" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.2) 0%, transparent 50%)' }} />
+          {/* XP bar — chunky pixel style with segments */}
+          <div className="w-full relative overflow-hidden" style={{
+            height: 7,
+            background: '#0F0820',
+            border: '1px solid rgba(167,139,250,0.25)',
+          }}>
+            <div className="h-full transition-all duration-700 ease-out" style={{
+              width: `${xpPct}%`,
+              background: 'linear-gradient(180deg, #C084FC 0%, #A78BFA 50%, #7C3AED 100%)',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4), inset 0 -1px 0 rgba(0,0,0,0.3)',
+            }} />
+            {/* Pixel stripes overlay */}
+            <div className="absolute inset-0 pointer-events-none" style={{
+              backgroundImage: 'repeating-linear-gradient(90deg, transparent 0 6px, rgba(255,255,255,0.08) 6px 7px)',
+            }} />
           </div>
         </div>
 
-        {/* Coins */}
-        <div className="flex-shrink-0 flex items-center gap-1.5 px-3 h-10"
+        {/* Coins — pixel card */}
+        <div className="flex-shrink-0 flex items-center gap-1.5 px-2.5 h-10"
           style={{
-            background: 'rgba(15,10,30,0.55)',
-            backdropFilter: 'blur(12px)',
-            borderRadius: 12,
-            border: '1px solid rgba(251,191,36,0.25)',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05)',
+            background: 'rgba(8,5,20,0.75)',
+            border: '2px solid rgba(251,191,36,0.35)',
+            boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(251,191,36,0.15)',
           }}>
-          <span style={{ fontSize: 16 }}>🪙</span>
-          <span className="font-pixel text-yellow-300" style={{ fontSize: 10, textShadow: '0 0 6px rgba(251,191,36,0.4)' }}>{coins}</span>
+          <IconCoin size={18} />
+          <span className="font-pixel" style={{
+            fontSize: 10,
+            color: '#FDE68A',
+            textShadow: '1px 1px 0 #7A4F00',
+            letterSpacing: -0.5,
+          }}>{coins}</span>
         </div>
       </div>
 
-      {/* ── Row 2: Care stat pills ── */}
+      {/* ── Row 2: Care stat pills with pixel icons ── */}
       <div className="flex gap-1.5">
-        {MINI_STATS.map(({ key, icon, color, glow }) => {
+        {MINI_STATS.map(({ key, Icon, color, glow }) => {
           const raw = stats ? (stats as unknown as Record<string, unknown>)[key] : 0
           const val = Math.round(Math.max(0, Math.min(100, (typeof raw === 'number' ? raw : 0))))
           const barColor = val >= 60 ? color : val >= 30 ? '#facc15' : '#f87171'
-          const barGlow  = val >= 60 ? glow  : val >= 30 ? 'rgba(250,204,21,0.3)' : 'rgba(248,113,113,0.3)'
+          const barGlow  = val >= 60 ? glow  : val >= 30 ? 'rgba(250,204,21,0.4)' : 'rgba(248,113,113,0.4)'
 
           return (
-            <div key={key} className="flex-1 flex items-center gap-1 px-2 py-2"
+            <div key={key} className="flex-1 flex items-center gap-1.5 px-1.5 py-1.5"
               style={{
-                background: 'rgba(15,10,30,0.50)',
-                backdropFilter: 'blur(10px)',
-                borderRadius: 10,
-                border: `1px solid ${color}20`,
-                boxShadow: `0 2px 6px rgba(0,0,0,0.15)`,
+                background: 'rgba(8,5,20,0.7)',
+                border: `2px solid ${color}33`,
+                boxShadow: `0 2px 0 rgba(0,0,0,0.35), inset 0 1px 0 ${color}15`,
               }}>
-              <span style={{ fontSize: 13, lineHeight: 1, flexShrink: 0 }}>{icon}</span>
-              <div className="flex-1 overflow-hidden" style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.1)' }}>
+              <Icon size={14} />
+              <div className="flex-1 relative overflow-hidden" style={{
+                height: 6,
+                background: '#0F0820',
+                border: '1px solid rgba(255,255,255,0.1)',
+              }}>
                 <div style={{
-                  width: `${val}%`, height: '100%', borderRadius: 3,
-                  background: barColor,
-                  boxShadow: `0 0 6px ${barGlow}`,
+                  width: `${val}%`, height: '100%',
+                  background: `linear-gradient(180deg, ${barColor} 0%, ${barColor} 50%, rgba(0,0,0,0.2) 100%)`,
+                  boxShadow: `0 0 4px ${barGlow}, inset 0 1px 0 rgba(255,255,255,0.3)`,
                   transition: 'width 0.6s ease-out',
                 }} />
               </div>
