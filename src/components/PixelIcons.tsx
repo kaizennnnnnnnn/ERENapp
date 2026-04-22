@@ -7,12 +7,10 @@
 
 interface IconProps {
   size?: number
-  className?: string
 }
 
-const PX = 12 // grid size
+const PX = 12
 
-// Helper: builds an SVG from a pixel grid
 function drawPixels(grid: string[], palette: Record<string, string>, size: number) {
   const rects: React.ReactElement[] = []
   for (let y = 0; y < grid.length; y++) {
@@ -31,238 +29,238 @@ function drawPixels(grid: string[], palette: Record<string, string>, size: numbe
   )
 }
 
-// ── HEART (happiness) ──
+// ── HEART (happiness) ──────────────────────────────────────────────────────
 export function IconHeart({ size = 20 }: IconProps) {
   const grid = [
     '............',
-    '.KK....KK...',
-    'KPPKK.KPPK..',
-    'KPPPPKPPPK..',
-    'KPPPPPPPPK..',
-    'KPPPWPPPPK..',
-    '.KPPPPPPK...',
-    '..KPPPPK....',
-    '...KPPK.....',
-    '....KK......',
-    '............',
+    '..KKK..KKK..',
+    '.KPPPKKPPPK.',
+    'KPPPPPPPPPK.',
+    'KPWPPPPPPPK.',
+    'KPPPPPPPPPK.',
+    '.KPPPPPPPK..',
+    '..KPPPPPK...',
+    '...KPPPK....',
+    '....KPK.....',
+    '.....K......',
     '............',
   ]
   return drawPixels(grid, {
-    K: '#9B1D4A', P: '#FF5C94', W: '#FFB3CF',
+    K: '#8B1538', P: '#FF4D7D', W: '#FFC0D0',
   }, size)
 }
 
-// ── MEAT / HUNGER ──
+// ── DRUMSTICK (hunger) ─────────────────────────────────────────────────────
 export function IconMeat({ size = 20 }: IconProps) {
   const grid = [
-    '............',
-    '......KK....',
-    '.....KBBK...',
-    '...KKBBBBK..',
-    '..KBBBBBBBK.',
-    '.KBRRRRRRBK.',
-    '.KRRWWRRRRBK',
-    '.KRRRRRRRRBK',
-    '..KRRRRRRBK.',
-    '...KKRRRBK..',
-    '.....KKKK...',
-    '............',
+    '...KKKK.....',
+    '..KBBBBK....',
+    '..KBLBBK....',
+    '..KBBBBK....',
+    '...KKBK.....',
+    '....KBK.....',
+    '...KMMMK....',
+    '..KRRRRRK...',
+    '.KRRRRRRRK..',
+    '.KRRRRRRRK..',
+    '..KRRRRRK...',
+    '...KKKKK....',
   ]
   return drawPixels(grid, {
-    K: '#4A2818', B: '#8B5A2B', R: '#D4804A', W: '#F4B978',
+    K: '#3A2010', B: '#F5E6C8', L: '#FFFAEB', M: '#6B3410', R: '#C8733A',
   }, size)
 }
 
-// ── LIGHTNING (energy) ──
+// ── LIGHTNING (energy) ─────────────────────────────────────────────────────
 export function IconLightning({ size = 20 }: IconProps) {
   const grid = [
-    '............',
     '......KKK...',
     '.....KYYYK..',
     '....KYYYK...',
-    '...KYYYK....',
-    '..KYYYYYK...',
     '...KYYYYK...',
-    '....KYYK....',
-    '...KYYK.....',
+    '..KYYYYYK...',
+    '.KYYYYYKKK..',
+    '.KYYYKKK....',
     '..KYYK......',
     '..KYK.......',
-    '..KK........',
+    '.KYK........',
+    '.KK.........',
+    '............',
   ]
   return drawPixels(grid, {
     K: '#8B6400', Y: '#FFD700',
   }, size)
 }
 
-// ── MOON (sleep) ──
+// ── MOON (sleep) ───────────────────────────────────────────────────────────
 export function IconMoon({ size = 20 }: IconProps) {
   const grid = [
     '............',
     '....KKKK....',
-    '..KKSSSSKK..',
-    '..KSSSKKKK..',
-    '.KSSSKK.....',
+    '..KKSSSSK...',
+    '.KSSSKKKK...',
     '.KSSSK......',
     '.KSSSK......',
-    '.KSSSKK.....',
-    '..KSSSKKKK..',
-    '..KKSSSSKK..',
-    '....KKKK....',
+    '.KSSSK......',
+    '.KSSSKKKK...',
+    '..KSSSSSK...',
+    '...KKKKK....',
+    '............',
     '............',
   ]
   return drawPixels(grid, {
-    K: '#3B3A8E', S: '#A5B4FC',
+    K: '#312E81', S: '#C4B5FD',
   }, size)
 }
 
-// ── WATER DROP (cleanliness) ──
+// ── WATER DROP (cleanliness) ───────────────────────────────────────────────
 export function IconDrop({ size = 20 }: IconProps) {
   const grid = [
-    '............',
-    '.....KK.....',
-    '.....BBK....',
-    '....KBBBK...',
-    '....KBBCBK..',
-    '...KBBBBBBK.',
-    '...KBBBBBBK.',
-    '...KBBCCBBK.',
-    '...KBBBBBBK.',
-    '....KBBBBK..',
-    '.....KKKK...',
-    '............',
-  ]
-  return drawPixels(grid, {
-    K: '#0C4A6E', B: '#38BDF8', C: '#BAE6FD',
-  }, size)
-}
-
-// ── COIN ──
-export function IconCoin({ size = 20 }: IconProps) {
-  const grid = [
-    '............',
-    '...KKKKKK...',
-    '..KYYYYYYK..',
-    '.KYLYYYYGK..',
-    '.KYYYYYYYGK.',
-    '.KYYKKKYYGK.',
-    '.KYYKKYYYGK.',
-    '.KYYKKKYYGK.',
-    '.KYYYYYYYGK.',
-    '.KYGGGGGGK..',
+    '.....K......',
+    '.....K......',
+    '....KBK.....',
+    '....KBK.....',
+    '...KBBBK....',
+    '..KBBCBBK...',
+    '..KBBBBBK...',
+    '.KBBBBBBBK..',
+    '.KBBCCBBBK..',
+    '.KBBBBBBBK..',
     '..KKKKKKK...',
     '............',
   ]
   return drawPixels(grid, {
-    K: '#7A4F00', Y: '#FFD700', L: '#FFF4A3', G: '#C89800',
+    K: '#075985', B: '#38BDF8', C: '#E0F7FF',
   }, size)
 }
 
-// ── GIFT BOX ──
+// ── COIN ───────────────────────────────────────────────────────────────────
+export function IconCoin({ size = 20 }: IconProps) {
+  const grid = [
+    '...KKKKKK...',
+    '..KYLLLLYK..',
+    '.KYLLYYLYGK.',
+    'KYLLYYYLYYGK',
+    'KYLYYYYYYGGK',
+    'KYYYYKYYYYGK',
+    'KYYYYYYYYYGK',
+    'KYGGGGGGGGGK',
+    '.KGGGGGGGGK.',
+    '..KGGGGGGGK.',
+    '...KKKKKK...',
+    '............',
+  ]
+  return drawPixels(grid, {
+    K: '#7A4F00', Y: '#FFD700', L: '#FFF4A3', G: '#B88400',
+  }, size)
+}
+
+// ── GIFT BOX ───────────────────────────────────────────────────────────────
 export function IconGift({ size = 20 }: IconProps) {
   const grid = [
     '............',
-    '...KKK..KKK.',
-    '..KPPK.KPPK.',
-    '..KPPPKPPPK.',
+    '..K.K..K.K..',
+    '..PKPPPPKP..',
+    '..KPPPPPPK..',
+    '.KKKKRKKKKK.',
+    '.KBBBRBBBBK.',
+    '.KBBBRBBBBK.',
+    '.KRRRKRRRRK.',
+    '.KBBBRBBBBK.',
+    '.KBBBRBBBBK.',
     '.KKKKKKKKKK.',
-    '.KRRRKKKRRK.',
-    '.KRRRKKKRRK.',
-    '.KRRRKKKRRK.',
-    '.KRRRKKKRRK.',
-    '.KKKKKKKKKK.',
-    '............',
     '............',
   ]
   return drawPixels(grid, {
-    K: '#3B1D1D', R: '#FF5C94', P: '#FFD700',
+    K: '#2A1040', B: '#A78BFA', P: '#FFD700', R: '#FF4D7D',
   }, size)
 }
 
-// ── CAPSULE (gacha machine) ──
+// ── CAPSULE / GACHA ────────────────────────────────────────────────────────
 export function IconCapsule({ size = 20 }: IconProps) {
   const grid = [
     '............',
-    '...KKKKKK...',
-    '..KPPPPPPK..',
-    '.KPWPPPPPPK.',
+    '..KKKKKKKK..',
     '.KPPPPPPPPK.',
-    '.KKKKKKKKKK.',
+    'KPPWWPPPPPPK',
+    'KPPPPPPPPPPK',
+    'KPPPPPPPPPPK',
+    'KKKKKKKKKKKK',
+    'KVVVVVVVVVVK',
+    'KVVVVVVVWWVK',
+    'KVVVVVVVVVVK',
     '.KVVVVVVVVK.',
-    '.KVVWVVVVVK.',
-    '.KVVVVVVVVK.',
-    '.KKKKKKKKKK.',
-    '............',
-    '............',
+    '..KKKKKKKK..',
   ]
   return drawPixels(grid, {
-    K: '#3B0D5E', P: '#FF6B9D', W: '#FFD6E5', V: '#A78BFA',
+    K: '#1F0D40', P: '#FF6B9D', W: '#FFFFFF', V: '#A78BFA',
   }, size)
 }
 
-// ── BELL ──
+// ── BELL ───────────────────────────────────────────────────────────────────
 export function IconBell({ size = 20 }: IconProps) {
   const grid = [
-    '............',
+    '.....KK.....',
     '.....KK.....',
     '....KYYK....',
     '...KYYYYK...',
-    '...KYYYYK...',
-    '..KYYYYYYK..',
     '..KYYYYYYK..',
     '.KYYYYYYYYK.',
-    '.KKKKKKKKKK.',
+    '.KYYYYYYYYK.',
+    '.KYYYYYYYYK.',
+    'KYYYYYYYYYYK',
+    'KKKKKKKKKKKK',
+    '....KKKK....',
     '.....KK.....',
-    '.....KK.....',
-    '............',
   ]
   return drawPixels(grid, {
     K: '#7A4F00', Y: '#FFD700',
   }, size)
 }
 
-// ── PERSON ──
+// ── PERSON ─────────────────────────────────────────────────────────────────
 export function IconPerson({ size = 20 }: IconProps) {
   const grid = [
-    '............',
     '....KKKK....',
     '...KSSSSK...',
     '...KSSSSK...',
     '...KSSSSK...',
     '....KKKK....',
-    '..KKKKKKKK..',
+    '.....KK.....',
+    '...KKKKKK...',
+    '..KPPPPPPK..',
     '.KPPPPPPPPK.',
     '.KPPPPPPPPK.',
     '.KPPPPPPPPK.',
-    '.KKKKKKKKKK.',
-    '............',
+    '.KK......KK.',
   ]
   return drawPixels(grid, {
-    K: '#3B1D5E', S: '#F5C89A', P: '#A78BFA',
+    K: '#2A1040', S: '#F5C89A', P: '#A78BFA',
   }, size)
 }
 
-// ── DOOR ──
+// ── DOOR ───────────────────────────────────────────────────────────────────
 export function IconDoor({ size = 20 }: IconProps) {
   const grid = [
     '............',
-    '..KKKKKKKK..',
+    '.KKKKKKKKKK.',
     '.KBBBBBBBBK.',
-    '.KBLLLLLLBK.',
-    '.KBLLLLLLBK.',
-    '.KBLLYLLLBK.',
-    '.KBLLLLLLBK.',
-    '.KBLLLLLLBK.',
-    '.KBLLLLLLBK.',
+    '.KBWWWWWWBK.',
+    '.KBWKWWWWBK.',
+    '.KBWWWWWWBK.',
+    '.KBWWWWWYBK.',
+    '.KBWWWWWYBK.',
+    '.KBWWWWWWBK.',
+    '.KBWWWWWWBK.',
     '.KBBBBBBBBK.',
     '.KKKKKKKKKK.',
-    '............',
   ]
   return drawPixels(grid, {
-    K: '#2A1F0C', B: '#6B3F1F', L: '#A87A4A', Y: '#FFD700',
+    K: '#1A1000', B: '#5A3000', W: '#B88440', Y: '#FFD700',
   }, size)
 }
 
-// ── QUESTS (scroll) ──
+// ── QUESTS (scroll) ────────────────────────────────────────────────────────
 export function IconScroll({ size = 20 }: IconProps) {
   const grid = [
     '............',
@@ -283,7 +281,7 @@ export function IconScroll({ size = 20 }: IconProps) {
   }, size)
 }
 
-// ── PHOTOS (image icon) ──
+// ── PHOTOS ─────────────────────────────────────────────────────────────────
 export function IconPhoto({ size = 20 }: IconProps) {
   const grid = [
     '............',
@@ -304,13 +302,13 @@ export function IconPhoto({ size = 20 }: IconProps) {
   }, size)
 }
 
-// ── PAW PRINT ──
+// ── PAW ────────────────────────────────────────────────────────────────────
 export function IconPaw({ size = 20 }: IconProps) {
   const grid = [
     '............',
-    '..KK..KK.KK.',
-    '.KPPK.KPK.PK',
-    '.KPPKKPPK.KK',
+    '..KK..KK....',
+    '.KPPK.KPK...',
+    '.KPPKKPPK...',
     '..KK..KK....',
     '....KKKKK...',
     '...KPPPPPK..',
