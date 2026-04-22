@@ -8,10 +8,14 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import type { Profile, DailyMood } from '@/types'
 import { formatDuration } from '@/lib/utils'
-import { Copy, LogOut, Check, Trophy, Cat, ChevronLeft } from 'lucide-react'
+import { Copy, LogOut, Check, ChevronLeft } from 'lucide-react'
 import MoodCalendar from '@/components/MoodCalendar'
 import { format } from 'date-fns'
 import { useCare } from '@/contexts/CareContext'
+import {
+  IconPerson, IconHouse, IconHeart, IconClock, IconCatFace, IconPencil,
+  IconCrown, IconHeartDuo,
+} from '@/components/PixelIcons'
 
 export default function ProfilePage() {
   const router   = useRouter()
@@ -41,7 +45,6 @@ export default function ProfilePage() {
         if (!data) return
         setMySeconds(data.reduce((sum, s) => sum + (s.duration_seconds ?? 0), 0))
       })
-    // Load moods for calendar
     const today = new Date()
     const monthStart = format(new Date(today.getFullYear(), today.getMonth(), 1), 'yyyy-MM-dd')
     supabase.from('daily_moods').select('*, profile:profiles(name, avatar_url)').gte('date', monthStart).order('date', { ascending: false })
@@ -99,18 +102,28 @@ export default function ProfilePage() {
           style={{ width: 32, height: 32, background: 'linear-gradient(135deg, #FFF8FF, #F0E8FF)', borderRadius: 8, border: '2px solid #D8C0F0', boxShadow: '0 2px 0 #C0A0E0' }}>
           <ChevronLeft size={16} className="text-purple-500" />
         </button>
-        <span className="pixel-chip" style={{ background: 'linear-gradient(135deg, #A78BFA, #7C3AED)' }}>👤 PROFILE</span>
+        <span className="pixel-chip inline-flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, #A78BFA, #7C3AED)', paddingLeft: 6 }}>
+          <IconPerson size={14} />
+          <span>PROFILE</span>
+        </span>
       </div>
-      <p className="text-sm text-gray-500 mb-5">You &amp; your household 🏠</p>
+      <p className="text-sm text-gray-500 mb-5 flex items-center gap-1.5">
+        You &amp; your household
+        <IconHouse size={14} />
+      </p>
 
       {/* ── My profile ── */}
-      <div className="mb-4 p-4"
-        style={{ background: 'linear-gradient(135deg, #FFF0F7, #F8F0FF)', borderRadius: 4, border: '2px solid #F0D0FF', boxShadow: '3px 3px 0 #E0B8FF' }}>
-        <div className="flex items-center gap-4">
+      <div className="mb-4 p-4 relative overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, #FFF0F7, #F8F0FF)', borderRadius: 4, border: '3px solid #F0D0FF', boxShadow: '4px 4px 0 #E0B8FF' }}>
+        <div className="absolute inset-0 opacity-[0.06] pointer-events-none"
+          style={{ backgroundImage: 'radial-gradient(circle, #A78BFA 1.2px, transparent 1.2px)', backgroundSize: '14px 14px' }} />
+
+        <div className="relative flex items-center gap-4">
           {/* Pixel avatar */}
-          <div className="flex-shrink-0 w-16 h-16 flex items-center justify-center text-2xl font-bold text-white"
+          <div className="flex-shrink-0 w-16 h-16 flex items-center justify-center text-2xl font-bold text-white relative"
             style={{ background: 'linear-gradient(135deg, #FF6B9D, #A78BFA)', borderRadius: 4, border: '3px solid #CC3366', boxShadow: '3px 3px 0 #A020A0' }}>
-            {initials}
+            <div style={{ position: 'absolute', inset: 2, border: '1px dashed rgba(255,255,255,0.35)', borderRadius: 2 }} />
+            <span className="relative">{initials}</span>
           </div>
           <div className="flex-1 min-w-0">
             {nameEditing ? (
@@ -128,8 +141,11 @@ export default function ProfilePage() {
               </div>
             ) : (
               <button onClick={() => { setEditName(profile.name); setNameEditing(true) }} className="text-left">
-                <p className="font-pixel text-gray-800 leading-tight mb-1" style={{ fontSize: 10 }}>{profile.name}</p>
-                <p className="text-[10px] text-purple-400">tap to edit name ✏️</p>
+                <p className="font-pixel text-gray-800 leading-tight mb-1" style={{ fontSize: 11 }}>{profile.name}</p>
+                <p className="text-[10px] text-purple-400 flex items-center gap-1">
+                  tap to edit name
+                  <IconPencil size={10} />
+                </p>
               </button>
             )}
             <p className="text-xs text-gray-400 mt-1 truncate">{user?.email}</p>
@@ -140,18 +156,25 @@ export default function ProfilePage() {
       {/* ── Partner card ── */}
       {partner && (
         <div className="mb-4 p-4"
-          style={{ background: 'linear-gradient(135deg, #F0F0FF, #E8E0FF)', borderRadius: 4, border: '2px solid #D8D0F8', boxShadow: '3px 3px 0 #C0B0F0' }}>
+          style={{ background: 'linear-gradient(135deg, #F0F0FF, #E8E0FF)', borderRadius: 4, border: '3px solid #D8D0F8', boxShadow: '4px 4px 0 #C0B0F0' }}>
           <div className="flex items-center gap-2 mb-3">
-            <span className="pixel-chip" style={{ background: 'linear-gradient(135deg, #C084FC, #A060E0)' }}>♥ PARTNER</span>
+            <span className="pixel-chip inline-flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, #C084FC, #A060E0)', paddingLeft: 6 }}>
+              <IconHeart size={12} />
+              <span>PARTNER</span>
+            </span>
           </div>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 flex-shrink-0 flex items-center justify-center text-lg font-bold text-purple-600"
+            <div className="w-12 h-12 flex-shrink-0 flex items-center justify-center text-lg font-bold text-purple-600 relative"
               style={{ background: 'linear-gradient(135deg, #E8D8FF, #D8C8F8)', borderRadius: 3, border: '2px solid #C0A8F0', boxShadow: '2px 2px 0 #B090E0' }}>
-              {partner.name.charAt(0).toUpperCase()}
+              <div style={{ position: 'absolute', inset: 2, border: '1px dashed rgba(124,58,237,0.18)', borderRadius: 2 }} />
+              <span className="relative">{partner.name.charAt(0).toUpperCase()}</span>
             </div>
-            <div>
-              <p className="font-pixel text-gray-700 leading-tight" style={{ fontSize: 9 }}>{partner.name}</p>
-              <p className="text-xs text-purple-400 mt-0.5">Eren&apos;s other human 💕</p>
+            <div className="flex-1">
+              <p className="font-pixel text-gray-700 leading-tight" style={{ fontSize: 10 }}>{partner.name}</p>
+              <p className="text-xs text-purple-400 mt-0.5 flex items-center gap-1">
+                Eren&apos;s other human
+                <IconHeartDuo size={12} />
+              </p>
             </div>
           </div>
         </div>
@@ -159,43 +182,47 @@ export default function ProfilePage() {
 
       {/* ── Time with Eren ── */}
       <div className="mb-4 p-4"
-        style={{ background: 'white', borderRadius: 4, border: '2px solid #F0D8FF', boxShadow: '3px 3px 0 #E0C8F0' }}>
+        style={{ background: 'white', borderRadius: 4, border: '3px solid #F0D8FF', boxShadow: '4px 4px 0 #E0C8F0' }}>
         <div className="flex items-center gap-2 mb-4">
-          <span className="pixel-chip" style={{ background: 'linear-gradient(135deg, #F5C842, #E8A020)' }}>⏱ TIME</span>
+          <span className="pixel-chip inline-flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, #F5C842, #E8A020)', paddingLeft: 6 }}>
+            <IconClock size={12} />
+            <span>TIME</span>
+          </span>
           <span className="text-xs text-gray-400">with Eren</span>
         </div>
 
         <div className="space-y-4">
           <div>
-            <div className="flex justify-between text-xs mb-1.5">
-              <span className="font-medium text-gray-700 flex items-center gap-1">
-                <Cat size={12} className="text-[#FF6B9D]" /> {profile.name}
+            <div className="flex justify-between items-center mb-1.5">
+              <span className="flex items-center gap-1.5">
+                <IconCatFace size={16} />
+                <span className="font-medium text-gray-700 text-xs">{profile.name}</span>
               </span>
-              <span className="font-pixel text-[#FF6B9D]" style={{ fontSize: 7 }}>{formatDuration(mySeconds)}</span>
+              <span className="font-pixel text-[#FF6B9D]" style={{ fontSize: 8 }}>{formatDuration(mySeconds)}</span>
             </div>
-            {/* Pixel time bar */}
             <div className="flex gap-[3px]">
               {Array.from({ length: 12 }).map((_, i) => {
                 const pct = totalSeconds > 0 ? (mySeconds / totalSeconds) : 0
                 const lit = i < Math.round(pct * 12)
-                return <div key={i} className="flex-1" style={{ height: 8, borderRadius: 2, background: lit ? '#FF6B9D' : '#FFE0EE', boxShadow: lit ? '0 1px 0 rgba(0,0,0,0.12)' : 'none' }} />
+                return <div key={i} className="flex-1" style={{ height: 10, borderRadius: 2, background: lit ? '#FF6B9D' : '#FFE0EE', boxShadow: lit ? '0 1px 0 rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.35)' : 'inset 0 1px 0 rgba(0,0,0,0.05)' }} />
               })}
             </div>
           </div>
 
           {partner && (
             <div>
-              <div className="flex justify-between text-xs mb-1.5">
-                <span className="font-medium text-gray-700 flex items-center gap-1">
-                  <Cat size={12} className="text-[#A78BFA]" /> {partner.name}
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="flex items-center gap-1.5">
+                  <IconCatFace size={16} />
+                  <span className="font-medium text-gray-700 text-xs">{partner.name}</span>
                 </span>
-                <span className="font-pixel text-[#A78BFA]" style={{ fontSize: 7 }}>{formatDuration(partnerSeconds)}</span>
+                <span className="font-pixel text-[#A78BFA]" style={{ fontSize: 8 }}>{formatDuration(partnerSeconds)}</span>
               </div>
               <div className="flex gap-[3px]">
                 {Array.from({ length: 12 }).map((_, i) => {
                   const pct = totalSeconds > 0 ? (partnerSeconds / totalSeconds) : 0
                   const lit = i < Math.round(pct * 12)
-                  return <div key={i} className="flex-1" style={{ height: 8, borderRadius: 2, background: lit ? '#A78BFA' : '#EDE8FF', boxShadow: lit ? '0 1px 0 rgba(0,0,0,0.12)' : 'none' }} />
+                  return <div key={i} className="flex-1" style={{ height: 10, borderRadius: 2, background: lit ? '#A78BFA' : '#EDE8FF', boxShadow: lit ? '0 1px 0 rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.35)' : 'inset 0 1px 0 rgba(0,0,0,0.05)' }} />
                 })}
               </div>
             </div>
@@ -204,22 +231,28 @@ export default function ProfilePage() {
 
         {mySeconds > partnerSeconds ? (
           <div className="mt-3 flex items-center gap-1.5">
-            <Trophy size={12} className="text-yellow-500" />
+            <IconCrown size={14} />
             <span className="font-pixel text-yellow-600" style={{ fontSize: 7 }}>YOU SPEND THE MOST TIME!</span>
           </div>
         ) : partnerSeconds > mySeconds && partner ? (
-          <p className="font-pixel text-purple-400 mt-3" style={{ fontSize: 7 }}>
-            {partner.name.toUpperCase()} IS AHEAD — CATCH UP! 😄
-          </p>
+          <div className="mt-3 flex items-center gap-1.5">
+            <IconCrown size={14} />
+            <span className="font-pixel text-purple-500" style={{ fontSize: 7 }}>
+              {partner.name.toUpperCase()} IS AHEAD — CATCH UP!
+            </span>
+          </div>
         ) : null}
       </div>
 
       {/* ── Invite code ── */}
       {inviteCode && (
         <div className="mb-4 p-4"
-          style={{ background: 'white', borderRadius: 4, border: '2px solid #F0D8FF', boxShadow: '3px 3px 0 #E0C8F0' }}>
+          style={{ background: 'white', borderRadius: 4, border: '3px solid #F0D8FF', boxShadow: '4px 4px 0 #E0C8F0' }}>
           <div className="flex items-center gap-2 mb-1">
-            <span className="pixel-chip" style={{ background: 'linear-gradient(135deg, #6BAED6, #4A90C0)' }}>🏠 INVITE</span>
+            <span className="pixel-chip inline-flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, #6BAED6, #4A90C0)', paddingLeft: 6 }}>
+              <IconHouse size={12} />
+              <span>INVITE</span>
+            </span>
           </div>
           <p className="text-xs text-gray-400 mb-3">Share with your partner to join</p>
           <div className="flex items-center gap-2">
@@ -261,7 +294,9 @@ export default function ProfilePage() {
 
       <div className="flex items-center justify-center gap-2 mt-6 pb-2">
         <div className="h-px w-8" style={{ background: 'repeating-linear-gradient(90deg, #DDD0F8 0px, #DDD0F8 3px, transparent 3px, transparent 6px)' }} />
-        <p className="font-pixel text-gray-300 text-center" style={{ fontSize: 6 }}>EREN v1.0 · MADE WITH ♥</p>
+        <p className="font-pixel text-gray-300 text-center flex items-center gap-1" style={{ fontSize: 6 }}>
+          EREN v1.0 · MADE WITH <IconHeart size={8} />
+        </p>
         <div className="h-px w-8" style={{ background: 'repeating-linear-gradient(90deg, #DDD0F8 0px, #DDD0F8 3px, transparent 3px, transparent 6px)' }} />
       </div>
     </div>
