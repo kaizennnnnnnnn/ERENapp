@@ -317,7 +317,7 @@ export default function SplashScreen() {
       </div>
 
       <h1 className="font-pixel text-white" style={{ fontSize: 11, letterSpacing: 2, opacity: 0.85 }}>
-        POCKET EREN
+        EREN
       </h1>
 
       <div className="flex items-center gap-1.5">

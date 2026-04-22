@@ -1,4 +1,4 @@
-// Pocket Eren – reminder service worker
+// Eren – reminder service worker
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()))
 
@@ -15,7 +15,7 @@ self.addEventListener('message', ({ data }) => {
     if (delay < 0) return
 
     const t = setTimeout(() => {
-      self.registration.showNotification('🐱 Pocket Eren', {
+      self.registration.showNotification('🐱 Eren', {
         body: data.text,
         icon: '/ErenIcon.png',
         badge: '/ErenIcon.png',
@@ -44,8 +44,8 @@ self.addEventListener('message', ({ data }) => {
 self.addEventListener('push', event => {
   if (!event.data) return
   let data
-  try { data = event.data.json() } catch { data = { title: '🐱 Pocket Eren', body: event.data.text() } }
-  const title = data.title || '🐱 Pocket Eren'
+  try { data = event.data.json() } catch { data = { title: '🐱 Eren', body: event.data.text() } }
+  const title = data.title || '🐱 Eren'
   const options = {
     body: data.body || '',
     icon: '/ErenIcon.png',

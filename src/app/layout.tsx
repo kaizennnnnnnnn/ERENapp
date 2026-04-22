@@ -3,7 +3,7 @@ import './globals.css'
 import SplashScreen from '@/components/SplashScreen'
 
 export const metadata: Metadata = {
-  title: 'Pocket Eren 🐱',
+  title: 'Eren',
   description: 'Take care of Eren together — your virtual Ragdoll companion',
   manifest: '/manifest.json',
   icons: {
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Pocket Eren',
+    title: 'Eren',
   },
 }
 

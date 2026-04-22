@@ -88,17 +88,17 @@ export function getStatNotifications(oldStats: OldStatValues, newStats: StatValu
 
     // Warning transition
     if (newLevel === 'warning' && oldLevel === 'ok') {
-      notifs.push({ title: `${alert.icon} Pocket Eren`, body: alert.warningMsg, tag: `stat-${alert.key}-warn` })
+      notifs.push({ title: `${alert.icon} Eren`, body: alert.warningMsg, tag: `stat-${alert.key}-warn` })
     }
     // Critical transition
     if (newLevel === 'critical' && oldLevel !== 'critical') {
-      notifs.push({ title: `${alert.icon} Pocket Eren`, body: alert.criticalMsg, tag: `stat-${alert.key}-crit` })
+      notifs.push({ title: `${alert.icon} Eren`, body: alert.criticalMsg, tag: `stat-${alert.key}-crit` })
     }
   }
 
   // Sickness
   if (newStats.is_sick && !oldStats.is_sick) {
-    notifs.push({ title: '💊 Pocket Eren', body: 'Eren is sick! Take him to the vet!', tag: 'stat-sick' })
+    notifs.push({ title: '💊 Eren', body: 'Eren is sick! Take him to the vet!', tag: 'stat-sick' })
   }
 
   return notifs

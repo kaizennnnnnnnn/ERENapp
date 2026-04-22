@@ -51,7 +51,7 @@ export default function LoginPage() {
         <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-[#FF6B9D] to-[#A78BFA] flex items-center justify-center shadow-pink">
           <Cat className="w-10 h-10 text-white" strokeWidth={1.5} />
         </div>
-        <h1 className="text-3xl font-bold text-[#1F1F2E]">Pocket Eren</h1>
+        <h1 className="text-3xl font-bold text-[#1F1F2E]">Eren</h1>
         <p className="text-gray-500 text-sm text-center">Welcome back! Eren is waiting for you 🐾</p>
       </div>
 

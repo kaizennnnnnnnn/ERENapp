@@ -261,7 +261,7 @@ export default function ProfilePage() {
 
       <div className="flex items-center justify-center gap-2 mt-6 pb-2">
         <div className="h-px w-8" style={{ background: 'repeating-linear-gradient(90deg, #DDD0F8 0px, #DDD0F8 3px, transparent 3px, transparent 6px)' }} />
-        <p className="font-pixel text-gray-300 text-center" style={{ fontSize: 6 }}>POCKET EREN v1.0 · MADE WITH ♥</p>
+        <p className="font-pixel text-gray-300 text-center" style={{ fontSize: 6 }}>EREN v1.0 · MADE WITH ♥</p>
         <div className="h-px w-8" style={{ background: 'repeating-linear-gradient(90deg, #DDD0F8 0px, #DDD0F8 3px, transparent 3px, transparent 6px)' }} />
       </div>
     </div>

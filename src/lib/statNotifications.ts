@@ -70,11 +70,11 @@ export function checkStatNotifications(stats: ErenStats) {
 
     // Only notify on transitions (getting worse) AND if cooldown has passed
     if (newLevel === 'warning' && prev.level === 'ok' && cooledDown) {
-      sendNotification(`${alert.icon} Pocket Eren`, alert.warningMsg, `stat-${alert.key}`)
+      sendNotification(`${alert.icon} Eren`, alert.warningMsg, `stat-${alert.key}`)
       state[alert.key] = { level: 'warning', notifiedAt: now }
       changed = true
     } else if (newLevel === 'critical' && prev.level !== 'critical' && cooledDown) {
-      sendNotification(`${alert.icon} Pocket Eren`, alert.criticalMsg, `stat-${alert.key}`)
+      sendNotification(`${alert.icon} Eren`, alert.criticalMsg, `stat-${alert.key}`)
       state[alert.key] = { level: 'critical', notifiedAt: now }
       changed = true
     } else if (newLevel !== prev.level) {
@@ -89,7 +89,7 @@ export function checkStatNotifications(stats: ErenStats) {
   const sickCooled = now - sickPrev.notifiedAt > COOLDOWN_MS
 
   if (stats.is_sick && sickPrev.level !== 'critical' && sickCooled) {
-    sendNotification('💊 Pocket Eren', 'Eren is sick! Take him to the vet!', 'stat-sick')
+    sendNotification('💊 Eren', 'Eren is sick! Take him to the vet!', 'stat-sick')
     state['is_sick'] = { level: 'critical', notifiedAt: now }
     changed = true
   } else if (!stats.is_sick && sickPrev.level !== 'ok') {
@@ -113,11 +113,11 @@ const ACTION_LABELS: Record<string, { icon: string; verb: string }> = {
 export function notifyPartnerAction(partnerName: string, actionType: string) {
   const action = ACTION_LABELS[actionType]
   if (!action) return
-  sendNotification(`${action.icon} Pocket Eren`, `${partnerName} ${action.verb}!`, `partner-${actionType}`)
+  sendNotification(`${action.icon} Eren`, `${partnerName} ${action.verb}!`, `partner-${actionType}`)
 }
 
 export function notifyPartnerMessage(partnerName: string) {
-  sendNotification('💌 Pocket Eren', `${partnerName} sent you a message through Eren!`, 'partner-msg')
+  sendNotification('💌 Eren', `${partnerName} sent you a message through Eren!`, 'partner-msg')
 }
 
 export async function requestNotificationPermission(): Promise<boolean> {

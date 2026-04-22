@@ -139,7 +139,7 @@ export default function MoodGate({ userId, userName, onDone }: Props) {
 
         <div className="mt-7 flex items-center gap-2">
           <div className="h-px w-8" style={{ background: 'repeating-linear-gradient(90deg, #DDD0F8 0px, #DDD0F8 3px, transparent 3px, transparent 6px)' }} />
-          <p className="font-pixel text-gray-300" style={{ fontSize: 6 }}>POCKET EREN · ONCE A DAY</p>
+          <p className="font-pixel text-gray-300" style={{ fontSize: 6 }}>EREN · ONCE A DAY</p>
           <div className="h-px w-8" style={{ background: 'repeating-linear-gradient(90deg, #DDD0F8 0px, #DDD0F8 3px, transparent 3px, transparent 6px)' }} />
         </div>
       </div>
