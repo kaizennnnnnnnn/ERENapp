@@ -39,35 +39,34 @@ export default function CatchMouseGame() {
   const [timeLeft, setTimeLeft]   = useState(GAME_DURATION)
   const [gameState, setGameState] = useState<'idle' | 'running' | 'finished'>('idle')
 
-  // ── Draw helpers ─────────────────────────────────────────────────────────
-  // Colors: K=outline G=darkgrey M=grey L=lightgrey W=white P=pink E=eye .=transparent
-  // 14 wide x 11 tall — chibi mouse with big head, round body, curled tail
+  // ── Chibi pixel mouse (front-view, 17 wide × 12 tall) ─────────────────────
+  // K=outline G=fur P=pink(ear/nose) L=belly E=eye M=tail .=transparent
   const MOUSE_SPRITE = [
-    '..KK......KK..',
-    '.KGGK....KGGK.',
-    '.KGPK....KGPK.',
-    '.KGGKKKKKGGK..',
-    'KGGGGGGGGGGGK.',
-    'KGEKGGGGGGKEK.',  // eyes row
-    'KGGKGPPGGGKGKK',  // nose + tail start
-    'KGGGGGGGGGKKGK',
-    '.KLLLLLLLLK.KK',  // belly
-    '..KKKKKKKK....',
-    '...KKK..KKK...',  // little feet
+    '..KK......KK.....',
+    '.KGGK....KGGK....',
+    '.KGPK....KPGK....',
+    'KKGGKKKKKKGGKK...',
+    'KGGGGGGGGGGGGGK..',
+    'KGGGEGGGGGEGGGK..',
+    'KGGGGGGGGGGGGGK..',
+    'KGGGGGGPPGGGGGK..',
+    '.KKGGGGGGGGGGKK.M',
+    '..KKLLLLLLLLKK.MM',
+    '.KLLLLLLLLLLLLK.M',
+    '..KK.KKK..KKK.K..',
   ]
   const MOUSE_PAL: Record<string, string> = {
     '.': 'transparent',
     K: '#1A1A2E',     // dark outline
-    G: '#8B7D6B',     // body fur (warm grey-brown)
-    M: '#A89980',     // mid tone
-    L: '#E8D8C0',     // belly/light
-    W: '#FFFFFF',
+    G: '#9B8B76',     // body fur (warm grey-brown)
+    L: '#F0E0C8',     // belly/light
     P: '#F4A6B8',     // pink (ear inner, nose)
-    E: '#1A1A2E',     // eye
+    E: '#1A1A2E',     // eye (same as outline)
+    M: '#7A6B58',     // tail (slightly darker than body)
   }
 
   function drawPixelMouse(ctx: CanvasRenderingContext2D, mx: number, my: number, facingLeft: boolean) {
-    const px = 5
+    const px = 4
     const cols = MOUSE_SPRITE[0].length
     const rows = MOUSE_SPRITE.length
     const ox = Math.round(mx) - Math.round((cols * px) / 2)
@@ -75,18 +74,17 @@ export default function CatchMouseGame() {
 
     ctx.save()
     if (facingLeft) {
-      // Mirror around the sprite center
       ctx.translate(Math.round(mx) * 2, 0)
       ctx.scale(-1, 1)
     }
 
-    // Shadow under mouse
-    ctx.fillStyle = 'rgba(0,0,0,0.15)'
+    // Soft shadow under mouse
+    ctx.fillStyle = 'rgba(0,0,0,0.18)'
     ctx.beginPath()
-    ctx.ellipse(Math.round(mx), oy + rows * px + 2, cols * px * 0.45, 3, 0, 0, Math.PI * 2)
+    ctx.ellipse(Math.round(mx), oy + rows * px + 1, cols * px * 0.35, 3, 0, 0, Math.PI * 2)
     ctx.fill()
 
-    // Draw sprite pixel by pixel
+    // Draw sprite
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const ch = MOUSE_SPRITE[y][x]
@@ -98,10 +96,10 @@ export default function CatchMouseGame() {
       }
     }
 
-    // Eye shine (white dots on eyes at positions [2,5] and [10,5])
+    // White eye shine on both eyes (row 5, cols 4 and 10)
     ctx.fillStyle = '#FFFFFF'
-    ctx.fillRect(ox + 2 * px + 1, oy + 5 * px + 1, 2, 2)
-    ctx.fillRect(ox + 10 * px + 1, oy + 5 * px + 1, 2, 2)
+    ctx.fillRect(ox + 4 * px + 1, oy + 5 * px + 1, 1, 1)
+    ctx.fillRect(ox + 10 * px + 1, oy + 5 * px + 1, 1, 1)
 
     ctx.restore()
   }

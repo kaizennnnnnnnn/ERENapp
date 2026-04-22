@@ -78,6 +78,31 @@ export function useCouple() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
+  // Re-fetch on window focus + listen for read-timestamp changes
+  useEffect(() => {
+    if (!user?.id) return
+    const recount = () => {
+      const lastReadTs = localStorage.getItem(`eren_journal_read_${user.id}`) ?? '1970-01-01'
+      setJournal(prev => {
+        const unread = prev.filter(m => m.sender_id !== user.id && m.created_at > lastReadTs).length
+        setUnreadCount(unread)
+        return prev
+      })
+    }
+    const onFocus = () => recount()
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === `eren_journal_read_${user.id}`) recount()
+    }
+    window.addEventListener('focus', onFocus)
+    window.addEventListener('storage', onStorage)
+    const interval = setInterval(recount, 3000)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      window.removeEventListener('storage', onStorage)
+      clearInterval(interval)
+    }
+  }, [user?.id])
+
   // ── Realtime: listen for new journal messages ──
   useEffect(() => {
     if (!profile?.household_id || !user?.id) return
