@@ -10,11 +10,11 @@ import { clampStat, computeErenMood, shouldBecomeSick } from '@/lib/utils'
 import { sendPush, getStatNotifications } from '@/lib/serverPush'
 
 const DECAY_PER_HOUR = {
-  hunger:        -5,
-  happiness:     -3,
-  energy:        -4,
-  sleep_quality: -3,
-  cleanliness:   -2,
+  hunger:        -6,    // empties in ~17h, needs feeding ~3x/day
+  happiness:     -4,    // empties in 25h, needs play 2x/day
+  energy:        -5,    // empties in 20h, needs sleep 2x/day
+  sleep_quality: -4,    // empties in 25h, needs sleep 2x/day
+  cleanliness:   -2.5,  // empties in ~40h, bath every other day
 }
 
 export async function GET(request: Request) {
