@@ -36,7 +36,7 @@ export default function SleepScene({ onClose }: Props) {
     <div className="fixed inset-0 z-40 flex flex-col overflow-hidden">
 
       {/* ══ BACKGROUND IMAGE ══ */}
-      <img src="/bedroom.png" alt="" className="absolute inset-0 w-full h-full" style={{ objectFit: "cover", objectPosition: "center" }} draggable={false} />
+      <div className="absolute inset-0" style={{ backgroundImage: 'url(/bedroom.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
       {/* ══ STAR GLOWS ══ */}
       {[

@@ -23,6 +23,13 @@
   * {
     box-sizing: border-box;
   }
+
+  /* Disable long-press "save image" menu on mobile */
+  img {
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+    user-select: none;
+  }
 }
 
 @layer components {

@@ -157,7 +157,7 @@ export default function WashScene({ onClose }: Props) {
       style={{ touchAction: 'none' }}
     >
       {/* ══ BACKGROUND IMAGE ══ */}
-      <img src="/bathroom.png" alt="" className="absolute inset-0 w-full h-full" style={{ objectFit: 'cover', objectPosition: 'center' }} draggable={false} />
+      <div className="absolute inset-0" style={{ backgroundImage: 'url(/bathroom.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
       {/* ══ PIXEL EREN ════════════════════════════════════════════════════ */}
       <div className={cn('absolute transition-all duration-500', done ? 'bottom-[12%]' : 'bottom-[10%]')}

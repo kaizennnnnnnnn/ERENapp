@@ -123,7 +123,7 @@ export default function FeedScene({ onClose }: Props) {
     <div className="fixed inset-0 z-40 overflow-hidden select-none">
 
       {/* ══ BACKGROUND IMAGE ══ */}
-      <img src="/kitchen.png" alt="" className="absolute inset-0 w-full h-full" style={{ objectFit: 'cover', objectPosition: 'center' }} draggable={false} />
+      <div className="absolute inset-0" style={{ backgroundImage: 'url(/kitchen.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
       {/* ══ EREN ══ */}
       <div className={cn('absolute z-20 transition-all duration-300', eatAnim ? 'bottom-[14%]' : 'bottom-[10%]')}

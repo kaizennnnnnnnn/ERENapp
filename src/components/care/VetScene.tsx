@@ -58,7 +58,7 @@ export default function VetScene({ onClose }: Props) {
     <div className="fixed inset-0 z-40 flex flex-col overflow-hidden">
 
       {/* ══ BACKGROUND IMAGE ══ */}
-      <img src="/vetBACK.png" alt="" className="absolute inset-0 w-full h-full" style={{ objectFit: 'cover', objectPosition: 'center' }} draggable={false} />
+      <div className="absolute inset-0" style={{ backgroundImage: 'url(/vetBACK.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
       {/* ══ EREN ══ */}
       <div className={cn('absolute z-10 transition-all duration-500', checkDone ? 'bottom-[6%]' : 'bottom-[4%]')}

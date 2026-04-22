@@ -80,7 +80,7 @@ export default function SchoolScene({ onClose }: Props) {
     <div className="fixed inset-0 z-40 flex flex-col overflow-hidden">
 
       {/* ══ BACKGROUND ══ */}
-      <img src="/schoolBACK.png" alt="" className="absolute inset-0 w-full h-full" style={{ objectFit: 'cover', objectPosition: 'center' }} draggable={false} />
+      <div className="absolute inset-0" style={{ backgroundImage: 'url(/schoolBACK.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
       {/* ══ DARK OVERLAY for readability ══ */}
       <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.35)' }} />

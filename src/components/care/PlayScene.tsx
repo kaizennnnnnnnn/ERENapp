@@ -84,7 +84,7 @@ export default function PlayScene({ onClose }: Props) {
       onClick={handleThrow}>
 
       {/* ══ BACKGROUND IMAGE ══ */}
-      <img src="/playroom.png" alt="" className="absolute inset-0 w-full h-full" style={{ objectFit: "cover", objectPosition: "center" }} draggable={false} />
+      <div className="absolute inset-0" style={{ backgroundImage: 'url(/playroom.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
             {/* ══ EREN ══ */}
       <div className={cn('absolute z-10 transition-all duration-500')}

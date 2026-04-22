@@ -328,7 +328,15 @@ export default function HomePage() {
       <div className="fixed inset-0" style={{ zIndex: 0 }}>
 
         {/* Background image */}
-        <img src="/livingRoom.png" alt="" className="absolute inset-0 w-full h-full" style={{ objectFit: 'cover', objectPosition: 'center' }} draggable={false} />
+        <div className="absolute inset-0" style={{
+          backgroundImage: 'url(/livingRoom.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          WebkitTouchCallout: 'none',
+          WebkitUserSelect: 'none',
+          userSelect: 'none',
+          pointerEvents: 'none',
+        }} />
 
         {mood === 'happy' && (
           <>
