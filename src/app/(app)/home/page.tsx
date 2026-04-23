@@ -497,14 +497,35 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Dot indicators — home active + 4 care room dots */}
-        <div className="absolute bottom-4 left-1/2 z-10 flex items-center gap-2 px-3 py-1.5"
-          style={{ transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.35)', borderRadius: 20, backdropFilter: 'blur(6px)', pointerEvents: 'none' }}>
+        {/* Dot indicators — clickable room nav */}
+        <div className="absolute bottom-4 left-1/2 z-10 flex items-center gap-0.5 px-2 py-0.5"
+          style={{ transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.35)', borderRadius: 20, backdropFilter: 'blur(6px)' }}>
           {/* Home dot — active */}
-          <div style={{ width: 18, height: 7, borderRadius: 4, background: '#FF6B9D', boxShadow: '0 0 6px 2px #FF6B9D88', transition: 'all 0.25s ease' }} />
-          {/* Care room dots */}
-          {['feed','play','sleep','wash','vet','school'].map(s => (
-            <div key={s} style={{ width: 7, height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.4)', transition: 'all 0.25s ease' }} />
+          <div style={{ padding: '8px 4px', lineHeight: 0 }}>
+            <div style={{ width: 18, height: 7, borderRadius: 4, background: '#FF6B9D', boxShadow: '0 0 6px 2px #FF6B9D88', transition: 'all 0.25s ease' }} />
+          </div>
+          {/* Care room dots — clickable */}
+          {([
+            { id: 'feed',   color: '#F5C842' },
+            { id: 'play',   color: '#FF6B9D' },
+            { id: 'sleep',  color: '#818CF8' },
+            { id: 'wash',   color: '#38BDF8' },
+            { id: 'vet',    color: '#34D399' },
+            { id: 'school', color: '#F59E0B' },
+          ] as const).map(r => (
+            <button
+              key={r.id}
+              onClick={() => openScene(r.id)}
+              aria-label={`Open ${r.id}`}
+              className="active:scale-90 transition-transform"
+              style={{ padding: '8px 4px', lineHeight: 0, background: 'transparent' }}>
+              <div style={{
+                width: 7, height: 7, borderRadius: 4,
+                background: 'rgba(255,255,255,0.4)',
+                boxShadow: `0 0 4px ${r.color}44`,
+                transition: 'all 0.15s ease',
+              }} />
+            </button>
           ))}
         </div>
 

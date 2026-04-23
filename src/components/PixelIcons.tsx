@@ -176,24 +176,24 @@ export function IconGift({ size = 20 }: IconProps) {
   }, size)
 }
 
-// ── CAPSULE / GACHA ────────────────────────────────────────────────────────
+// ── TREASURE CHEST (gacha / capsule) ──────────────────────────────────────
 export function IconCapsule({ size = 20 }: IconProps) {
   const grid = [
     '............',
     '..KKKKKKKK..',
-    '.KPPPPPPPPK.',
-    'KPPWWPPPPPPK',
-    'KPPPPPPPPPPK',
-    'KPPPPPPPPPPK',
+    '.KDDDDDDDDK.',
+    '.KDMMMMMMDK.',
+    '.KDMSSSSMDK.',
+    'KKKKKKYYKKKK',
+    'KDDDDDYYDDDK',
+    'KDMSSSYYSSMK',
+    'KDMSSSSSSSMK',
+    'KDMMMMMMMMDK',
+    'KDDDDDDDDDDK',
     'KKKKKKKKKKKK',
-    'KVVVVVVVVVVK',
-    'KVVVVVVVWWVK',
-    'KVVVVVVVVVVK',
-    '.KVVVVVVVVK.',
-    '..KKKKKKKK..',
   ]
   return drawPixels(grid, {
-    K: '#1F0D40', P: '#FF6B9D', W: '#FFFFFF', V: '#A78BFA',
+    K: '#2A1005', D: '#8B4513', M: '#B87830', S: '#6B3410', Y: '#FFD700',
   }, size)
 }
 
@@ -242,21 +242,21 @@ export function IconPerson({ size = 20 }: IconProps) {
 // ── DOOR ───────────────────────────────────────────────────────────────────
 export function IconDoor({ size = 20 }: IconProps) {
   const grid = [
-    '............',
-    '.KKKKKKKKKK.',
-    '.KBBBBBBBBK.',
-    '.KBWWWWWWBK.',
-    '.KBWKWWWWBK.',
-    '.KBWWWWWWBK.',
-    '.KBWWWWWYBK.',
-    '.KBWWWWWYBK.',
-    '.KBWWWWWWBK.',
-    '.KBWWWWWWBK.',
-    '.KBBBBBBBBK.',
-    '.KKKKKKKKKK.',
+    '...KKKKKK...',
+    '..KDDDDDDK..',
+    '.KDMMMMMMDK.',
+    'KDMLLLLLLMDK',
+    'KDMLSSSSLMDK',
+    'KDMLSSSSLMDK',
+    'KDMLLLLLLMDK',
+    'KDMLSSSSLMDK',
+    'KDMLSSSSLYDK',
+    'KDMLLLLLLMDK',
+    'KDDDDDDDDDDK',
+    'KKKKKKKKKKKK',
   ]
   return drawPixels(grid, {
-    K: '#1A1000', B: '#5A3000', W: '#B88440', Y: '#FFD700',
+    K: '#1A0A00', D: '#4A2008', M: '#8B4513', L: '#B87830', S: '#6B3410', Y: '#FFD700',
   }, size)
 }
 
