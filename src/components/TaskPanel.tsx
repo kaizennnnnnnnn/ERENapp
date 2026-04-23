@@ -4,7 +4,29 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useTasks } from '@/contexts/TaskContext'
 import { TASK_DEFS, getDailyKey, getWeeklyKey } from '@/lib/tasks'
-import type { TaskId } from '@/types'
+import type { TaskId, TaskDef } from '@/types'
+import {
+  IconScroll, IconLightning, IconClock, IconCoin, IconHeart,
+  IconMeat, IconYarn, IconMoonZ, IconBath, IconController,
+  IconStar, IconCrown,
+} from './PixelIcons'
+
+function TaskIcon({ task, size = 22 }: { task: TaskDef; size?: number }) {
+  switch (task.id) {
+    case 'daily_mood':        return <IconHeart size={size} />
+    case 'daily_feed':        return <IconMeat size={size} />
+    case 'daily_play':        return <IconYarn size={size} />
+    case 'daily_sleep':       return <IconMoonZ size={size} />
+    case 'daily_wash':        return <IconBath size={size} />
+    case 'daily_game':        return <IconController size={size} />
+    case 'weekly_all_care':   return <IconStar size={size} />
+    case 'weekly_all_games':  return <IconCrown size={size} />
+    case 'weekly_high_score': return <IconCrown size={size} />
+    case 'weekly_mood_5':     return <IconClock size={size} />
+    case 'weekly_no_sick':    return <IconHeart size={size} />
+    default:                  return <IconScroll size={size} />
+  }
+}
 
 export default function TaskPanel({ compact = false }: { compact?: boolean }) {
   const { completedIds, taskProgress } = useTasks()
@@ -53,7 +75,7 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '2px solid #EDE8FF' }}>
           <div className="flex items-center gap-2">
-            <span style={{ fontSize: 20 }}>📋</span>
+            <IconScroll size={20} />
             <span className="font-pixel text-purple-700" style={{ fontSize: 9 }}>QUESTS</span>
           </div>
           <button
@@ -61,29 +83,35 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
             className="w-8 h-8 flex items-center justify-center active:scale-90 transition-transform"
             style={{ borderRadius: 6, border: '2px solid #E0D0F8', background: 'white' }}
           >
-            <span className="font-pixel text-purple-400" style={{ fontSize: 9 }}>✕</span>
+            <span className="font-pixel text-purple-400" style={{ fontSize: 9 }}>X</span>
           </button>
         </div>
 
         {/* Tabs */}
         <div className="flex" style={{ borderBottom: '2px solid #EDE8FF' }}>
-          {(['daily', 'weekly'] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              className="flex-1 py-3 font-pixel transition-all"
-              style={{
-                fontSize: 8,
-                background: tab === t
-                  ? (t === 'daily' ? 'linear-gradient(135deg, #FFF8D0, #FFF0A0)' : 'linear-gradient(135deg, #F0E8FF, #E8D8FF)')
-                  : 'white',
-                color: tab === t ? (t === 'daily' ? '#B07800' : '#6030B0') : '#A0A0C0',
-                borderBottom: tab === t ? `3px solid ${t === 'daily' ? '#F5C842' : '#A78BFA'}` : 'none',
-              }}>
-              {t === 'daily' ? '⚡ DAILY' : '📅 WEEKLY'}
-              <span className="ml-2" style={{ color: tab === t ? 'inherit' : '#C0C0D8' }}>
-                {t === 'daily' ? `${dailyDone}/${dailyTasks.length}` : `${weeklyDone}/${weeklyTasks.length}`}
-              </span>
-            </button>
-          ))}
+          {(['daily', 'weekly'] as const).map(t => {
+            const active = tab === t
+            const done = t === 'daily' ? dailyDone : weeklyDone
+            const total = t === 'daily' ? dailyTasks.length : weeklyTasks.length
+            return (
+              <button key={t} onClick={() => setTab(t)}
+                className="flex-1 py-3 flex items-center justify-center gap-1.5 font-pixel transition-all"
+                style={{
+                  fontSize: 8,
+                  background: active
+                    ? (t === 'daily' ? 'linear-gradient(135deg, #FFF8D0, #FFF0A0)' : 'linear-gradient(135deg, #F0E8FF, #E8D8FF)')
+                    : 'white',
+                  color: active ? (t === 'daily' ? '#B07800' : '#6030B0') : '#A0A0C0',
+                  borderBottom: active ? `3px solid ${t === 'daily' ? '#F5C842' : '#A78BFA'}` : 'none',
+                }}>
+                {t === 'daily' ? <IconLightning size={14} /> : <IconClock size={14} />}
+                <span>{t === 'daily' ? 'DAILY' : 'WEEKLY'}</span>
+                <span className="ml-1" style={{ color: active ? 'inherit' : '#C0C0D8' }}>
+                  {done}/{total}
+                </span>
+              </button>
+            )
+          })}
         </div>
 
         {/* Task list */}
@@ -104,7 +132,15 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
                   border: `2px solid ${isDone ? '#86EFAC' : '#EDE8FF'}`,
                   boxShadow: isDone ? 'none' : '2px 2px 0 #EDE8FF',
                 }}>
-                <span style={{ fontSize: 24, opacity: isDone ? 0.45 : 1 }}>{task.icon}</span>
+                <div className="flex-shrink-0 flex items-center justify-center"
+                  style={{
+                    width: 36, height: 36, borderRadius: 6,
+                    background: isDone ? 'rgba(134,239,172,0.2)' : 'linear-gradient(135deg, #F8F4FF, #EDE8FF)',
+                    border: `1px solid ${isDone ? '#86EFAC' : '#E0D0F8'}`,
+                    opacity: isDone ? 0.5 : 1,
+                  }}>
+                  <TaskIcon task={task} size={24} />
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-pixel" style={{
                     fontSize: 7,
@@ -114,7 +150,6 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
                     {task.title}
                   </p>
                   <p className="text-[10px] text-gray-400 mt-1 leading-snug">{task.desc}</p>
-                  {/* Progress bar for weekly tasks with maxProgress */}
                   {pct !== null && !isDone && (
                     <div className="flex items-center gap-1.5 mt-1.5">
                       <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: '#EDE8FF' }}>
@@ -134,14 +169,16 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
                   </div>
                 ) : (
                   <div className="flex-shrink-0 flex flex-col items-end gap-1">
-                    <span className="font-pixel text-amber-500" style={{ fontSize: 7 }}>+{task.coins}🪙</span>
+                    <span className="font-pixel text-amber-500 inline-flex items-center gap-1" style={{ fontSize: 7 }}>
+                      +{task.coins}
+                      <IconCoin size={10} />
+                    </span>
                     <span className="font-pixel text-purple-400" style={{ fontSize: 7 }}>+{task.xp}XP</span>
                   </div>
                 )}
               </div>
             )
           })}
-          {/* bottom padding for safe area */}
           <div style={{ height: 16 }} />
         </div>
       </div>
@@ -157,20 +194,52 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
       {compact ? (
         <button
           onClick={() => setOpen(true)}
-          className="w-full flex items-center gap-1.5 px-2.5 h-10 active:scale-[0.97] transition-transform"
+          className="w-full flex items-center gap-2 pl-1.5 pr-2 h-10 active:scale-[0.97] transition-transform relative overflow-hidden"
           style={{
-            background: 'rgba(15,10,30,0.55)',
+            background: 'linear-gradient(180deg, rgba(28,18,56,0.92) 0%, rgba(12,6,26,0.95) 100%)',
             backdropFilter: 'blur(12px)',
-            borderRadius: 12,
-            border: '1px solid rgba(167,139,250,0.25)',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+            borderRadius: 8,
+            border: '2px solid rgba(167,139,250,0.45)',
+            boxShadow: '0 3px 0 rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.1), 0 0 12px rgba(124,58,237,0.12)',
           }}
         >
-          <span style={{ fontSize: 13 }}>📋</span>
-          <span className="font-pixel text-purple-300 truncate" style={{ fontSize: 6 }}>
-            {dailyDone}/{dailyTasks.length}d · {weeklyDone}/{weeklyTasks.length}w
-          </span>
-          <span className="font-pixel text-purple-400/60 ml-auto" style={{ fontSize: 8 }}>▶</span>
+          {/* Scroll icon in bevelled tile */}
+          <div className="flex-shrink-0 flex items-center justify-center relative"
+            style={{
+              width: 28, height: 28,
+              background: 'linear-gradient(135deg, rgba(167,139,250,0.22), rgba(124,58,237,0.12))',
+              border: '1px solid rgba(167,139,250,0.5)',
+              borderRadius: 5,
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.14)',
+            }}>
+            <IconScroll size={20} />
+          </div>
+
+          {/* Counter pills */}
+          <div className="flex items-center gap-1 min-w-0">
+            <div className="flex items-center gap-1 px-1.5 py-0.5 flex-shrink-0"
+              style={{
+                background: 'linear-gradient(180deg, rgba(245,200,66,0.22), rgba(232,160,32,0.12))',
+                border: '1px solid rgba(245,200,66,0.55)',
+                borderRadius: 3,
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12)',
+              }}>
+              <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#F5C842', boxShadow: '0 0 5px #F5C842' }} />
+              <span className="font-pixel text-amber-200" style={{ fontSize: 6, letterSpacing: 0.5 }}>{dailyDone}/{dailyTasks.length}</span>
+            </div>
+            <div className="flex items-center gap-1 px-1.5 py-0.5 flex-shrink-0"
+              style={{
+                background: 'linear-gradient(180deg, rgba(167,139,250,0.22), rgba(124,58,237,0.12))',
+                border: '1px solid rgba(167,139,250,0.55)',
+                borderRadius: 3,
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12)',
+              }}>
+              <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#A78BFA', boxShadow: '0 0 5px #A78BFA' }} />
+              <span className="font-pixel text-purple-200" style={{ fontSize: 6, letterSpacing: 0.5 }}>{weeklyDone}/{weeklyTasks.length}</span>
+            </div>
+          </div>
+
+          <span className="font-pixel text-purple-300/70 ml-auto flex-shrink-0" style={{ fontSize: 8 }}>▶</span>
         </button>
       ) : (
         <button
@@ -183,12 +252,11 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
             boxShadow: '3px 3px 0 #C8B0F0',
           }}
         >
-          <span style={{ fontSize: 16 }}>📋</span>
+          <IconScroll size={20} />
           <div className="flex-1 text-left">
             <p className="font-pixel text-purple-700" style={{ fontSize: 7 }}>QUESTS</p>
             <p className="text-[9px] text-gray-400 mt-0.5">{dailyDone}/{dailyTasks.length} daily · {weeklyDone}/{weeklyTasks.length} weekly</p>
           </div>
-          {/* Progress rings */}
           <div className="flex items-center gap-1">
             <div className="relative w-7 h-7">
               <svg width="28" height="28" viewBox="0 0 32 32" className="-rotate-90">

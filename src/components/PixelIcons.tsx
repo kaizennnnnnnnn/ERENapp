@@ -53,21 +53,21 @@ export function IconHeart({ size = 20 }: IconProps) {
 // ── DRUMSTICK (hunger) ─────────────────────────────────────────────────────
 export function IconMeat({ size = 20 }: IconProps) {
   const grid = [
-    '...KKKK.....',
-    '..KBBBBK....',
-    '..KBLBBK....',
-    '..KBBBBK....',
-    '...KKBK.....',
-    '....KBK.....',
-    '...KMMMK....',
-    '..KRRRRRK...',
-    '.KRRRRRRRK..',
-    '.KRRRRRRRK..',
-    '..KRRRRRK...',
-    '...KKKKK....',
+    '.....KK.....',
+    '....KWLK....',
+    '....KWWK....',
+    '....KWWK....',
+    '...KWWWWK...',
+    '..KRRRRRRK..',
+    '.KRMMLLMMRK.',
+    'KRMMLLLMMMRK',
+    'KRMMMMMMMMRK',
+    'KRMMMMMMMMRK',
+    '.KRMMMMMMRK.',
+    '..KKRRRRKK..',
   ]
   return drawPixels(grid, {
-    K: '#3A2010', B: '#F5E6C8', L: '#FFFAEB', M: '#6B3410', R: '#C8733A',
+    K: '#2A1005', W: '#FFF3D8', L: '#FFFEF4', R: '#7A3A10', M: '#C87038',
   }, size)
 }
 
@@ -722,25 +722,9 @@ export function IconPill({ size = 20 }: IconProps) {
   }, size)
 }
 
-// ── DRUMSTICK (kitchen) ───────────────────────────────────────────────────
+// ── DRUMSTICK (kitchen) — alias of IconMeat ─────────────────────────────
 export function IconDrumstick({ size = 20 }: IconProps) {
-  const grid = [
-    '.....KKKKK..',
-    '....KBBBBBK.',
-    '....KBLBBBK.',
-    '....KBBBBBK.',
-    '.....KKBKK..',
-    '......KBK...',
-    '....KKBBBK..',
-    '...KRRRRRRK.',
-    '..KRROORRRK.',
-    '.KRROOORRRK.',
-    '.KRRRRRRRRK.',
-    '..KKKKKKKK..',
-  ]
-  return drawPixels(grid, {
-    K: '#2A1010', B: '#F5E6C8', L: '#FFFAEB', R: '#C87038', O: '#E89050',
-  }, size)
+  return IconMeat({ size })
 }
 
 // ── MOON Z (bedroom / sleep) ──────────────────────────────────────────────
