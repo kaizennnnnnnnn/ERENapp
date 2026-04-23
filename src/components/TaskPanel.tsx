@@ -194,7 +194,7 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
       {compact ? (
         <button
           onClick={() => setOpen(true)}
-          className="w-full flex items-center gap-2 pl-1.5 pr-2 h-10 active:scale-[0.97] transition-transform relative overflow-hidden"
+          className="w-full flex items-center gap-1 px-1.5 h-10 active:scale-[0.97] transition-transform relative"
           style={{
             background: 'linear-gradient(180deg, rgba(28,18,56,0.92) 0%, rgba(12,6,26,0.95) 100%)',
             backdropFilter: 'blur(12px)',
@@ -203,40 +203,15 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
             boxShadow: '0 3px 0 rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.1), 0 0 12px rgba(124,58,237,0.12)',
           }}
         >
-          {/* Scroll icon in bevelled tile */}
-          <div className="flex-shrink-0 flex items-center justify-center relative"
-            style={{
-              width: 28, height: 28,
-              background: 'linear-gradient(135deg, rgba(167,139,250,0.22), rgba(124,58,237,0.12))',
-              border: '1px solid rgba(167,139,250,0.5)',
-              borderRadius: 5,
-              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.14)',
-            }}>
-            <IconScroll size={20} />
-          </div>
+          <IconScroll size={18} />
 
-          {/* Counter pills */}
-          <div className="flex items-center gap-1 min-w-0">
-            <div className="flex items-center gap-1 px-1.5 py-0.5 flex-shrink-0"
-              style={{
-                background: 'linear-gradient(180deg, rgba(245,200,66,0.22), rgba(232,160,32,0.12))',
-                border: '1px solid rgba(245,200,66,0.55)',
-                borderRadius: 3,
-                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12)',
-              }}>
-              <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#F5C842', boxShadow: '0 0 5px #F5C842' }} />
-              <span className="font-pixel text-amber-200" style={{ fontSize: 6, letterSpacing: 0.5 }}>{dailyDone}/{dailyTasks.length}</span>
-            </div>
-            <div className="flex items-center gap-1 px-1.5 py-0.5 flex-shrink-0"
-              style={{
-                background: 'linear-gradient(180deg, rgba(167,139,250,0.22), rgba(124,58,237,0.12))',
-                border: '1px solid rgba(167,139,250,0.55)',
-                borderRadius: 3,
-                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12)',
-              }}>
-              <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#A78BFA', boxShadow: '0 0 5px #A78BFA' }} />
-              <span className="font-pixel text-purple-200" style={{ fontSize: 6, letterSpacing: 0.5 }}>{weeklyDone}/{weeklyTasks.length}</span>
-            </div>
+          {/* Inline counter — dots + numbers, no pill */}
+          <div className="flex items-center gap-0.5 min-w-0">
+            <div className="flex-shrink-0" style={{ width: 5, height: 5, borderRadius: '50%', background: '#F5C842', boxShadow: '0 0 4px #F5C842' }} />
+            <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: '#FFD760', letterSpacing: 0.5 }}>{dailyDone}/{dailyTasks.length}</span>
+            <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: '#5A408A', margin: '0 1px' }}>·</span>
+            <div className="flex-shrink-0" style={{ width: 5, height: 5, borderRadius: '50%', background: '#A78BFA', boxShadow: '0 0 4px #A78BFA' }} />
+            <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: '#D0BFFF', letterSpacing: 0.5 }}>{weeklyDone}/{weeklyTasks.length}</span>
           </div>
 
           <span className="font-pixel text-purple-300/70 ml-auto flex-shrink-0" style={{ fontSize: 8 }}>▶</span>
