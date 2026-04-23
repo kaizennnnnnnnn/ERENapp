@@ -6,7 +6,27 @@ import type { ErenStats, FoodInventory } from '@/types'
 import { computeErenMood, clampStat, shouldBecomeSick } from '@/lib/utils'
 import { ACTION_CONFIGS, type ActionType } from '@/types'
 
-// Decay is handled server-side by /api/decay (cron). Client never applies decay.
+// Decay is applied by /api/decay. The endpoint is safe to call publicly and
+// has its own 30-min cooldown (skips if <0.5h since last_decay_at). Vercel
+// Hobby blocks hourly cron, so the client pings it on app open + every 30min
+// while the tab is open + when the tab becomes visible.
+let _decaySchedulerStarted = false
+let _lastDecayPing = 0
+function pingDecay() {
+  const now = Date.now()
+  if (now - _lastDecayPing < 10 * 60 * 1000) return // 10-min client throttle
+  _lastDecayPing = now
+  fetch('/api/decay', { method: 'GET', cache: 'no-store' }).catch(() => {})
+}
+function startDecayScheduler() {
+  if (typeof window === 'undefined' || _decaySchedulerStarted) return
+  _decaySchedulerStarted = true
+  pingDecay()
+  setInterval(pingDecay, 30 * 60 * 1000)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') pingDecay()
+  })
+}
 
 let _channelCounter = 0
 
@@ -32,6 +52,11 @@ export function useErenStats(householdId: string | null) {
   }, [householdId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchStats() }, [fetchStats])
+
+  useEffect(() => {
+    if (!householdId) return
+    startDecayScheduler()
+  }, [householdId])
 
   useEffect(() => {
     if (!householdId) return
