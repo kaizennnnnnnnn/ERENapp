@@ -78,6 +78,7 @@ export interface ErenStats {
   food_inventory: FoodInventory
   mood: ErenMood
   updated_at: string
+  last_decay_at?: string | null
 }
 
 export interface Interaction {
