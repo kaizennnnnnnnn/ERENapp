@@ -54,20 +54,21 @@ export function IconHeart({ size = 20 }: IconProps) {
 export function IconMeat({ size = 20 }: IconProps) {
   const grid = [
     '.....KK.....',
-    '....KWLK....',
+    '....KWWK....',
+    '...KWLLWK...',
     '....KWWK....',
     '....KWWK....',
     '...KWWWWK...',
-    '..KRRRRRRK..',
-    '.KRMMLLMMRK.',
-    'KRMMLLLMMMRK',
-    'KRMMMMMMMMRK',
+    '..KKRRRRKK..',
+    '.KRMSSSSMRK.',
+    'KRMMSSSMMMRK',
     'KRMMMMMMMMRK',
     '.KRMMMMMMRK.',
     '..KKRRRRKK..',
   ]
   return drawPixels(grid, {
-    K: '#2A1005', W: '#FFF3D8', L: '#FFFEF4', R: '#7A3A10', M: '#C87038',
+    K: '#1A0A00', W: '#FFF0D0', L: '#FFFEF4',
+    R: '#5A1F08', M: '#A85020', S: '#E89038',
   }, size)
 }
 

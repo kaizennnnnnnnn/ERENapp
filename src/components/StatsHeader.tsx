@@ -39,63 +39,104 @@ export default function StatsHeader() {
       {/* ── Row 1: Level badge + XP bar + Coins ── */}
       <div className="flex items-center gap-2">
 
-        {/* Level badge — pixel card style */}
-        <div className="flex-shrink-0 flex items-center justify-center relative"
+        {/* Level badge — pixel card with gold rivet corners */}
+        <div className="flex-shrink-0 relative"
           style={{
             width: 40, height: 40,
-            background: 'linear-gradient(135deg, #A78BFA 0%, #7C3AED 100%)',
+            background: 'linear-gradient(135deg, #D8B4FE 0%, #A78BFA 35%, #7C3AED 100%)',
             border: '2px solid #4C1D95',
-            boxShadow: '0 2px 0 #3B1674, inset 0 2px 0 rgba(255,255,255,0.25), inset 0 -2px 0 rgba(0,0,0,0.15)',
+            boxShadow: '0 3px 0 #2E0F5C, inset 0 2px 0 rgba(255,255,255,0.35), inset 0 -2px 0 rgba(0,0,0,0.2), 0 0 8px rgba(167,139,250,0.35)',
             imageRendering: 'pixelated',
           }}>
-          <span className="font-pixel text-white" style={{
-            fontSize: 13,
-            textShadow: '1px 1px 0 #3B1674',
-            letterSpacing: -1,
-          }}>{level}</span>
+          {/* Gold rivet corners */}
+          <div style={{ position: 'absolute', top: 2, left: 2, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 2px #FFD700' }} />
+          <div style={{ position: 'absolute', top: 2, right: 2, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 2px #FFD700' }} />
+          <div style={{ position: 'absolute', bottom: 2, left: 2, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 2px #FFD700' }} />
+          <div style={{ position: 'absolute', bottom: 2, right: 2, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 2px #FFD700' }} />
+
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="font-pixel" style={{ fontSize: 4, color: '#FFD760', letterSpacing: 1.5, lineHeight: 1, marginBottom: 2, textShadow: '1px 1px 0 #3B1674' }}>LVL</span>
+            <span className="font-pixel text-white" style={{
+              fontSize: 14,
+              textShadow: '1px 1px 0 #3B1674, 0 0 4px rgba(255,255,255,0.4)',
+              letterSpacing: -0.5,
+              lineHeight: 1,
+            }}>{level}</span>
+          </div>
         </div>
 
-        {/* XP bar — pixel-style segmented */}
+        {/* XP bar — premium segmented with glowing tip */}
         <div id="stats-xp-bar" className="flex-1 flex flex-col justify-center px-2.5 h-10 relative"
           style={{
-            background: 'rgba(8,5,20,0.75)',
-            border: '2px solid rgba(167,139,250,0.35)',
-            boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(167,139,250,0.15)',
+            background: 'linear-gradient(180deg, rgba(14,8,30,0.92) 0%, rgba(24,14,46,0.92) 100%)',
+            border: '2px solid rgba(167,139,250,0.5)',
+            boxShadow: '0 3px 0 rgba(0,0,0,0.45), inset 0 1px 0 rgba(167,139,250,0.22), 0 0 10px rgba(124,58,237,0.18)',
           }}>
+          {/* Corner ticks */}
+          <div style={{ position: 'absolute', top: 1, left: 1, width: 3, height: 3, background: 'rgba(167,139,250,0.6)' }} />
+          <div style={{ position: 'absolute', top: 1, right: 1, width: 3, height: 3, background: 'rgba(167,139,250,0.6)' }} />
+
           <div className="flex items-center justify-between mb-1">
-            <span className="font-pixel" style={{ fontSize: 6, color: '#C4B5FD', letterSpacing: 1 }}>XP</span>
-            <span className="font-pixel" style={{ fontSize: 5.5, color: '#A78BFA' }}>{xpIntoLevel}/{xpNeeded}</span>
+            <div className="flex items-center gap-1">
+              <div style={{ width: 4, height: 4, background: '#FFD700', boxShadow: '0 0 4px #FFD70099' }} />
+              <span className="font-pixel" style={{ fontSize: 7, color: '#F5F0FF', letterSpacing: 2, textShadow: '1px 1px 0 #2E0F5C, 0 0 4px rgba(167,139,250,0.6)' }}>XP</span>
+            </div>
+            <span className="font-pixel" style={{ fontSize: 6.5, color: '#FFD760', textShadow: '1px 1px 0 rgba(0,0,0,0.6)', letterSpacing: 0.5 }}>
+              {xpIntoLevel}<span style={{ color: '#8060A8' }}>/</span>{xpNeeded}
+            </span>
           </div>
-          {/* XP bar — chunky pixel style with segments */}
+
+          {/* XP progress bar — thicker with glowing tip */}
           <div className="w-full relative overflow-hidden" style={{
-            height: 7,
-            background: '#0F0820',
-            border: '1px solid rgba(167,139,250,0.25)',
+            height: 10,
+            background: 'linear-gradient(180deg, #030108 0%, #0F0820 100%)',
+            border: '1px solid rgba(167,139,250,0.35)',
+            boxShadow: 'inset 0 2px 3px rgba(0,0,0,0.7), inset 0 -1px 0 rgba(167,139,250,0.15)',
           }}>
-            <div className="h-full transition-all duration-700 ease-out" style={{
+            {/* Filled portion */}
+            <div className="h-full transition-all duration-700 ease-out relative" style={{
               width: `${xpPct}%`,
-              background: 'linear-gradient(180deg, #C084FC 0%, #A78BFA 50%, #7C3AED 100%)',
-              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4), inset 0 -1px 0 rgba(0,0,0,0.3)',
-            }} />
-            {/* Pixel stripes overlay */}
+              background: 'linear-gradient(180deg, #F0DDFF 0%, #C084FC 18%, #A78BFA 45%, #7C3AED 78%, #4C1D95 100%)',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 0 rgba(0,0,0,0.35)',
+            }}>
+              {/* Glowing leading edge */}
+              {xpPct > 2 && xpPct < 100 && (
+                <div style={{
+                  position: 'absolute', right: 0, top: 0, bottom: 0, width: 2,
+                  background: 'linear-gradient(180deg, #FFFFFF, #E5C8FF)',
+                  boxShadow: '0 0 6px #D8B4FE, 0 0 10px rgba(167,139,250,0.8)',
+                }} />
+              )}
+            </div>
+
+            {/* Segmented notches every 10% */}
             <div className="absolute inset-0 pointer-events-none" style={{
-              backgroundImage: 'repeating-linear-gradient(90deg, transparent 0 6px, rgba(255,255,255,0.08) 6px 7px)',
+              backgroundImage: 'repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), rgba(0,0,0,0.4) calc(10% - 1px) 10%)',
+            }} />
+
+            {/* Top scanline shine */}
+            <div className="absolute inset-x-0 top-0 pointer-events-none" style={{
+              height: 2,
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.12), transparent)',
             }} />
           </div>
         </div>
 
         {/* Coins — pixel card */}
-        <div className="flex-shrink-0 flex items-center gap-1.5 px-2.5 h-10"
+        <div className="flex-shrink-0 flex items-center gap-1.5 px-2.5 h-10 relative"
           style={{
-            background: 'rgba(8,5,20,0.75)',
-            border: '2px solid rgba(251,191,36,0.35)',
-            boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(251,191,36,0.15)',
+            background: 'linear-gradient(180deg, rgba(14,8,30,0.92) 0%, rgba(24,14,46,0.92) 100%)',
+            border: '2px solid rgba(251,191,36,0.5)',
+            boxShadow: '0 3px 0 rgba(0,0,0,0.45), inset 0 1px 0 rgba(251,191,36,0.22), 0 0 8px rgba(245,158,11,0.2)',
           }}>
+          {/* Corner ticks */}
+          <div style={{ position: 'absolute', top: 1, left: 1, width: 3, height: 3, background: 'rgba(251,191,36,0.6)' }} />
+          <div style={{ position: 'absolute', top: 1, right: 1, width: 3, height: 3, background: 'rgba(251,191,36,0.6)' }} />
           <IconCoin size={18} />
           <span className="font-pixel" style={{
             fontSize: 10,
             color: '#FDE68A',
-            textShadow: '1px 1px 0 #7A4F00',
+            textShadow: '1px 1px 0 #7A4F00, 0 0 4px rgba(253,224,71,0.5)',
             letterSpacing: -0.5,
           }}>{coins}</span>
         </div>
