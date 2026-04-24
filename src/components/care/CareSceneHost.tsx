@@ -9,6 +9,7 @@ import WashScene from './WashScene'
 import HospitalScene from './HospitalScene'
 import VetScene from './VetScene'
 import SchoolScene from './SchoolScene'
+import AnimatedEren from '@/components/AnimatedEren'
 
 const LOOP_SCENES: CareScene[] = ['feed', 'play', 'sleep', 'wash', 'vet', 'school']
 
@@ -183,16 +184,27 @@ export default function CareSceneHost() {
       {/* Solid backdrop */}
       <div className="fixed inset-0 z-40 bg-black" />
 
-      {/* Custom loading screen */}
+      {/* Custom loading screen — animated Eren, same style as app splash */}
       {!ready && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5 bg-gradient-to-b from-pink-50 to-[#FDF6FF]">
           <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #C084FC 1px, transparent 1px)', backgroundSize: '18px 18px' }} />
-          <div className="relative z-10 animate-float">
-            <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 150, height: 150, objectFit: 'contain', imageRendering: 'pixelated' }} />
+          <div className="relative z-10">
+            <AnimatedEren px={5} />
           </div>
-          <p className="font-pixel text-gray-400 animate-pulse-soft relative z-10" style={{ fontSize: 8 }}>
-            LOADING<span className="animate-cursor">_</span>
-          </p>
+          <div className="flex items-center gap-1.5 relative z-10">
+            {[0,1,2].map(i => (
+              <div key={i} className="rounded-full" style={{
+                width: 5, height: 5, background: '#A78BFA',
+                animation: `splDot 1s ease-in-out ${i * 0.15}s infinite`,
+              }} />
+            ))}
+          </div>
+          <style jsx>{`
+            @keyframes splDot {
+              0%, 100% { opacity: 0.2; }
+              50% { opacity: 1; }
+            }
+          `}</style>
         </div>
       )}
 

@@ -68,8 +68,8 @@ export function useCouple() {
     if (msgs) {
       setJournal(msgs)
       // Count messages from partner that arrived AFTER the last time user read
-      const lastReadTs = localStorage.getItem(`eren_journal_read_${user.id}`) ?? '1970-01-01'
-      const unread = msgs.filter((m: JournalMessage) => m.sender_id !== user.id && m.created_at > lastReadTs).length
+      const lastReadMs = new Date(localStorage.getItem(`eren_journal_read_${user.id}`) ?? 0).getTime()
+      const unread = msgs.filter((m: JournalMessage) => m.sender_id !== user.id && new Date(m.created_at).getTime() > lastReadMs).length
       setUnreadCount(unread)
     }
 
@@ -82,9 +82,9 @@ export function useCouple() {
   useEffect(() => {
     if (!user?.id) return
     const recount = () => {
-      const lastReadTs = localStorage.getItem(`eren_journal_read_${user.id}`) ?? '1970-01-01'
+      const lastReadMs = new Date(localStorage.getItem(`eren_journal_read_${user.id}`) ?? 0).getTime()
       setJournal(prev => {
-        const unread = prev.filter(m => m.sender_id !== user.id && m.created_at > lastReadTs).length
+        const unread = prev.filter(m => m.sender_id !== user.id && new Date(m.created_at).getTime() > lastReadMs).length
         setUnreadCount(unread)
         return prev
       })
@@ -93,12 +93,15 @@ export function useCouple() {
     const onStorage = (e: StorageEvent) => {
       if (e.key === `eren_journal_read_${user.id}`) recount()
     }
+    const onMarkedRead = () => recount()
     window.addEventListener('focus', onFocus)
     window.addEventListener('storage', onStorage)
+    window.addEventListener('eren:journal-read', onMarkedRead)
     const interval = setInterval(recount, 3000)
     return () => {
       window.removeEventListener('focus', onFocus)
       window.removeEventListener('storage', onStorage)
+      window.removeEventListener('eren:journal-read', onMarkedRead)
       clearInterval(interval)
     }
   }, [user?.id])
@@ -116,8 +119,12 @@ export function useCouple() {
       }, payload => {
         const msg = payload.new as JournalMessage
         if (msg.sender_id !== user.id) {
-          setNewMessage(msg)
-          setUnreadCount(c => c + 1)
+          // Only count if the incoming message is newer than our read marker
+          const lastReadMs = new Date(localStorage.getItem(`eren_journal_read_${user.id}`) ?? 0).getTime()
+          if (new Date(msg.created_at).getTime() > lastReadMs) {
+            setNewMessage(msg)
+            setUnreadCount(c => c + 1)
+          }
         }
         setJournal(prev => [msg, ...prev])
       })
@@ -139,17 +146,23 @@ export function useCouple() {
   // ── Mark all as read (saves timestamp to localStorage) ──
   const markAllRead = useCallback(() => {
     if (!user?.id) return
-    localStorage.setItem(`eren_journal_read_${user.id}`, new Date().toISOString())
+    // Stamp slightly in the future so lexicographic comparisons can't leave
+    // an edge-case unread message from the same millisecond.
+    localStorage.setItem(`eren_journal_read_${user.id}`, new Date(Date.now() + 1000).toISOString())
     setUnreadCount(0)
     setJournal(prev => prev.map(m => m.sender_id !== user.id ? { ...m, is_read: true } : m))
+    // Notify other useCouple instances in the same tab — storage events
+    // don't fire in the tab that did the write.
+    try { window.dispatchEvent(new Event('eren:journal-read')) } catch { /* ignore */ }
   }, [user?.id])
 
   // ── Clear popup + mark all as read ──
   const dismissPopup = useCallback(() => {
     setNewMessage(null)
     if (!user?.id) return
-    localStorage.setItem(`eren_journal_read_${user.id}`, new Date().toISOString())
+    localStorage.setItem(`eren_journal_read_${user.id}`, new Date(Date.now() + 1000).toISOString())
     setUnreadCount(0)
+    try { window.dispatchEvent(new Event('eren:journal-read')) } catch { /* ignore */ }
   }, [user?.id])
 
   return {

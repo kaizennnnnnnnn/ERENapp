@@ -2,11 +2,11 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Gamepad2 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
+import { IconController, IconStar } from '@/components/PixelIcons'
 
 interface Props { onClose: () => void }
 interface BallPos { x: number; y: number }
@@ -103,12 +103,58 @@ export default function PlayScene({ onClose }: Props) {
         style={{ left: `${ballPos.x}%`, top: `${ballPos.y}%`, transform: 'translate(-50%,-50%)', width: 22, height: 22, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%, #FF9EC8, #FF3E80)', border: '2px solid #CC1A55', boxShadow: '2px 2px 0 rgba(0,0,0,0.25), inset 1px 1px 3px rgba(255,255,255,0.5)' }} />
 
       {/* ══ UI ══ */}
-      {/* Games link */}
+      {/* Games link — premium pixel arcade button */}
       <button onClick={e => { e.stopPropagation(); router.push('/games'); setTimeout(onClose, 400) }}
-        className="absolute right-4 z-50 flex items-center gap-1.5 active:scale-95 transition-transform"
-        style={{ top: 110, background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)', borderRadius: 3, border: '2px solid rgba(160,120,230,0.4)', boxShadow: '2px 2px 0 rgba(120,80,200,0.2)', padding: '7px 10px' }}>
-        <Gamepad2 size={14} className="text-purple-600" />
-        <span className="font-pixel text-purple-600" style={{ fontSize: 6 }}>GAMES</span>
+        className="absolute right-4 z-50 active:translate-y-[2px] transition-transform group"
+        style={{ top: 110 }}>
+        <div className="relative flex items-center gap-2 px-3 py-2 overflow-hidden"
+          style={{
+            background: 'linear-gradient(180deg, #A855F7 0%, #7C3AED 55%, #5B21B6 100%)',
+            borderRadius: 4,
+            border: '2px solid #4C1D95',
+            boxShadow: '0 4px 0 #2E0F5C, inset 0 1px 0 rgba(255,255,255,0.45), 0 0 12px rgba(167,139,250,0.55)',
+          }}>
+          {/* Corner rivets */}
+          <div style={{ position: 'absolute', top: 2, left: 2, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 2px #FFD700' }} />
+          <div style={{ position: 'absolute', top: 2, right: 2, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 2px #FFD700' }} />
+          <div style={{ position: 'absolute', bottom: 2, left: 2, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 2px #FFD700' }} />
+          <div style={{ position: 'absolute', bottom: 2, right: 2, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 2px #FFD700' }} />
+
+          {/* Sweeping shine overlay */}
+          <div className="absolute inset-0 pointer-events-none" style={{
+            background: 'linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.38) 50%, transparent 62%)',
+            animation: 'gamesShine 2.6s ease-in-out infinite',
+          }} />
+
+          {/* Icon tile */}
+          <div className="relative flex items-center justify-center"
+            style={{
+              width: 22, height: 22,
+              background: 'linear-gradient(135deg, rgba(0,0,0,0.25), rgba(0,0,0,0.15))',
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: 3,
+            }}>
+            <IconController size={16} />
+          </div>
+
+          <div className="relative flex items-center gap-1">
+            <span className="font-pixel text-white" style={{ fontSize: 8, letterSpacing: 1, textShadow: '1px 1px 0 #2E0F5C' }}>GAMES</span>
+            <div style={{ animation: 'gamesStar 1.4s ease-in-out infinite' }}>
+              <IconStar size={10} />
+            </div>
+          </div>
+        </div>
+
+        <style jsx>{`
+          @keyframes gamesShine {
+            0%, 30% { transform: translateX(-120%); }
+            60%, 100% { transform: translateX(120%); }
+          }
+          @keyframes gamesStar {
+            0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
+            50%      { transform: scale(1.25) rotate(15deg); opacity: 0.75; }
+          }
+        `}</style>
       </button>
 
       {toast && (
