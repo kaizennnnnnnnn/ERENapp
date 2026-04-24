@@ -21,7 +21,7 @@ const STAT_ALERTS: StatAlert[] = [
 ]
 
 const STORAGE_KEY = 'eren_stat_notifs_v2'
-const COOLDOWN_MS = 30 * 60 * 1000 // 30 min — don't re-notify for same level within this window
+const COOLDOWN_MS = 2 * 60 * 60 * 1000 // 2 hours — don't re-notify for same level within this window
 
 interface NotifRecord {
   level: 'ok' | 'warning' | 'critical'

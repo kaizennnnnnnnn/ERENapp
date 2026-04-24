@@ -17,6 +17,11 @@ const DECAY_PER_HOUR = {
   cleanliness:   -4,    // empties in 25h
 }
 
+// Don't re-fire the same push tag for 2 hours even if the condition still
+// holds — otherwise the cron spams the user every time a tick crosses a
+// threshold.
+const NOTIFY_COOLDOWN_MS = 2 * 60 * 60 * 1000
+
 export async function GET(request: Request) {
   // No auth — this endpoint just applies hourly stat decay.
   // Safe to call publicly since it only applies time-based decay
@@ -105,7 +110,17 @@ export async function GET(request: Request) {
       sleep_quality: newSleep, cleanliness: newCleanliness, is_sick: newIsSick,
     }
 
-    const notifs = getStatNotifications(oldStats, newStats)
+    const allNotifs = getStatNotifications(oldStats, newStats)
+    if (allNotifs.length === 0) return
+
+    // Apply per-tag cooldown so we don't re-fire the same alert every cron
+    // tick. last_notified_at is a jsonb { [tag]: iso_timestamp }.
+    const now = Date.now()
+    const lastNotified = (stat.last_notified_at ?? {}) as Record<string, string>
+    const notifs = allNotifs.filter(n => {
+      const prev = lastNotified[n.tag] ? new Date(lastNotified[n.tag]).getTime() : 0
+      return now - prev > NOTIFY_COOLDOWN_MS
+    })
     if (notifs.length === 0) return
 
     // Get all push subscriptions for this household
@@ -131,6 +146,13 @@ export async function GET(request: Request) {
         else pushesSent++
       }
     }
+
+    // Persist the cooldown timestamps for every tag we just attempted.
+    const updatedNotified: Record<string, string> = { ...lastNotified }
+    for (const n of notifs) updatedNotified[n.tag] = new Date(now).toISOString()
+    await supabase.from('eren_stats').update({
+      last_notified_at: updatedNotified,
+    }).eq('id', stat.id)
 
     // Clean up expired subscriptions
     if (expired.length > 0) {
