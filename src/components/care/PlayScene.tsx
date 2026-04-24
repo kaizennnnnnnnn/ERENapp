@@ -17,7 +17,7 @@ export default function PlayScene({ onClose }: Props) {
   const { stats, applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
 
-  const [ballPos,      setBallPos]      = useState<BallPos>({ x: 50, y: 44 })
+  const [ballPos,      setBallPos]      = useState<BallPos>({ x: 50, y: 78 })
   const [throwCount,   setThrowCount]   = useState(0)
   const [done,         setDone]         = useState(false)
   const [saving,       setSaving]       = useState(false)
@@ -35,8 +35,8 @@ export default function PlayScene({ onClose }: Props) {
     const step = () => {
       x += dvx; y += dvy; dvy += 0.45
       if (x <= 3 || x >= 97) { dvx *= -0.75; x = x <= 3 ? 3 : 97 }
-      if (y >= 60)            { dvy *= -0.65; y = 60; dvx *= 0.88 }
-      if (y <= 5)             { dvy *= -0.8;  y = 5 }
+      if (y >= 84)            { dvy *= -0.65; y = 84; dvx *= 0.88 }
+      if (y <= 20)            { dvy *= -0.8;  y = 20 }
       setBallPos({ x, y })
       setTrailDots(ts => [...ts.slice(-8), { id: trailId.current++, x, y }])
       if (Math.sqrt(dvx * dvx + dvy * dvy) > 0.35) {
@@ -166,7 +166,7 @@ export default function PlayScene({ onClose }: Props) {
 
       {throwCount === 0 && !done && (
         <div className="absolute left-1/2 -translate-x-1/2 z-40 px-3 py-1.5 pointer-events-none animate-pulse-soft"
-          style={{ top: 145, background: 'rgba(255,255,255,0.85)', borderRadius: 3, border: '2px solid #C0A0E8', boxShadow: '2px 2px 0 rgba(150,100,220,0.2)', fontFamily: '"Press Start 2P"', fontSize: 7, color: '#7C3AED' }}>
+          style={{ top: 190, background: 'rgba(255,255,255,0.85)', borderRadius: 3, border: '2px solid #C0A0E8', boxShadow: '2px 2px 0 rgba(150,100,220,0.2)', fontFamily: '"Press Start 2P"', fontSize: 7, color: '#7C3AED' }}>
           TAP TO THROW THE BALL!
         </div>
       )}
