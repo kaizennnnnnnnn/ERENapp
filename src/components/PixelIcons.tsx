@@ -303,20 +303,20 @@ export function IconPhoto({ size = 20 }: IconProps) {
   }, size)
 }
 
-// ── PAW ────────────────────────────────────────────────────────────────────
+// ── PAW (3 toes) ───────────────────────────────────────────────────────────
 export function IconPaw({ size = 20 }: IconProps) {
   const grid = [
     '............',
-    '..KK..KK....',
-    '.KPPK.KPK...',
-    '.KPPKKPPK...',
-    '..KK..KK....',
-    '....KKKKK...',
-    '...KPPPPPK..',
-    '..KPPPPPPPK.',
-    '..KPPPPPPPK.',
-    '..KPPPPPPPK.',
-    '...KKKKKKK..',
+    '.KK..KK..KK.',
+    'KPK.KPK.KPK.',
+    'KPK.KPK.KPK.',
+    '.KK..KK..KK.',
+    '...KKKKKK...',
+    '..KPPPPPPK..',
+    '.KPPPPPPPPK.',
+    '.KPPPPPPPPK.',
+    '..KPPPPPPK..',
+    '...KKKKKK...',
     '............',
   ]
   return drawPixels(grid, {

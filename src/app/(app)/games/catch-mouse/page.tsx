@@ -8,6 +8,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { RefreshCw, ChevronLeft } from 'lucide-react'
+import { IconMouse, IconStar, IconCrown, IconCoin } from '@/components/PixelIcons'
 
 const MOUSE_SPEED_INIT = 2.2
 const GAME_DURATION    = 30
@@ -39,34 +40,34 @@ export default function CatchMouseGame() {
   const [timeLeft, setTimeLeft]   = useState(GAME_DURATION)
   const [gameState, setGameState] = useState<'idle' | 'running' | 'finished'>('idle')
 
-  // ── Chibi pixel mouse (front-view, 17 wide × 12 tall) ─────────────────────
-  // K=outline G=fur P=pink(ear/nose) L=belly E=eye M=tail .=transparent
+  // ── Chibi pixel mouse — smaller, rounder, cuter (14×11) ───────────────────
+  // K=outline G=fur P=pink(ear/nose) L=belly E=eye W=white_shine M=tail
   const MOUSE_SPRITE = [
-    '..KK......KK.....',
-    '.KGGK....KGGK....',
-    '.KGPK....KPGK....',
-    'KKGGKKKKKKGGKK...',
-    'KGGGGGGGGGGGGGK..',
-    'KGGGEGGGGGEGGGK..',
-    'KGGGGGGGGGGGGGK..',
-    'KGGGGGGPPGGGGGK..',
-    '.KKGGGGGGGGGGKK.M',
-    '..KKLLLLLLLLKK.MM',
-    '.KLLLLLLLLLLLLK.M',
-    '..KK.KKK..KKK.K..',
+    '...KK....KK...',   // 0 ear tips
+    '..KGPK..KPGK..',   // 1 ears w/ pink inside
+    '..KGGKKKKGGK..',   // 2 ear base / head top
+    '.KGGGGGGGGGGK.',   // 3 head
+    'KGGGGGGGGGGGGK',   // 4 head wide
+    'KGGEEGGGGEEGGK',   // 5 big eyes
+    'KGGEWGGGGEWGGK',   // 6 eye shines
+    'KGGGGPPPPGGGGK',   // 7 nose
+    'KGGGGGGGGGGGGK',   // 8 cheek
+    '.KLLLLLLLLLLK.',   // 9 belly
+    '..KKKK..KKKK.M',   // 10 feet + tail stub
   ]
   const MOUSE_PAL: Record<string, string> = {
     '.': 'transparent',
     K: '#1A1A2E',     // dark outline
-    G: '#9B8B76',     // body fur (warm grey-brown)
-    L: '#F0E0C8',     // belly/light
-    P: '#F4A6B8',     // pink (ear inner, nose)
-    E: '#1A1A2E',     // eye (same as outline)
-    M: '#7A6B58',     // tail (slightly darker than body)
+    G: '#B8A890',     // body fur (softer, lighter warm grey for cuter look)
+    L: '#FAEED6',     // belly/light (warmer cream)
+    P: '#FFB0C0',     // pink (ear inner + nose)
+    E: '#1A1A2E',     // eye (dark)
+    W: '#FFFFFF',     // eye shine
+    M: '#8C7F6C',     // tail (slightly darker than body)
   }
 
   function drawPixelMouse(ctx: CanvasRenderingContext2D, mx: number, my: number, facingLeft: boolean) {
-    const px = 4
+    const px = 3  // smaller cell size
     const cols = MOUSE_SPRITE[0].length
     const rows = MOUSE_SPRITE.length
     const ox = Math.round(mx) - Math.round((cols * px) / 2)
@@ -79,9 +80,9 @@ export default function CatchMouseGame() {
     }
 
     // Soft shadow under mouse
-    ctx.fillStyle = 'rgba(0,0,0,0.18)'
+    ctx.fillStyle = 'rgba(0,0,0,0.2)'
     ctx.beginPath()
-    ctx.ellipse(Math.round(mx), oy + rows * px + 1, cols * px * 0.35, 3, 0, 0, Math.PI * 2)
+    ctx.ellipse(Math.round(mx), oy + rows * px + 2, cols * px * 0.3, 3, 0, 0, Math.PI * 2)
     ctx.fill()
 
     // Draw sprite
@@ -96,19 +97,14 @@ export default function CatchMouseGame() {
       }
     }
 
-    // White eye shine on both eyes (row 5, cols 4 and 10)
-    ctx.fillStyle = '#FFFFFF'
-    ctx.fillRect(ox + 4 * px + 1, oy + 5 * px + 1, 1, 1)
-    ctx.fillRect(ox + 10 * px + 1, oy + 5 * px + 1, 1, 1)
-
     ctx.restore()
   }
 
   function spawnParticles(x: number, y: number) {
     const colors = ['#FF6B9D', '#FFD700', '#A78BFA', '#4ECDC4', '#FF8C42']
-    const newParticles: Particle[] = Array.from({ length: 12 }, () => {
+    const newParticles: Particle[] = Array.from({ length: 14 }, () => {
       const angle = Math.random() * Math.PI * 2
-      const speed = 2 + Math.random() * 3
+      const speed = 2 + Math.random() * 3.5
       return {
         x, y,
         vx: Math.cos(angle) * speed,
@@ -146,10 +142,8 @@ export default function CatchMouseGame() {
     // Floor
     ctx.fillStyle = '#E8D8C8'
     ctx.fillRect(0, H - 50, W, 50)
-    // Floor highlight
     ctx.fillStyle = '#F0E4D4'
     ctx.fillRect(0, H - 50, W, 3)
-    // Floor wood lines
     ctx.strokeStyle = '#D4C4A8'
     ctx.lineWidth = 1
     for (let wx = 0; wx < W; wx += 60) {
@@ -162,12 +156,10 @@ export default function CatchMouseGame() {
     // Baseboard
     ctx.fillStyle = '#D0C0B0'
     ctx.fillRect(0, H - 54, W, 4)
-
-    // Wall/floor divide pixel line
     ctx.fillStyle = '#C0B0A0'
     ctx.fillRect(0, H - 50, W, 2)
 
-    // Mouse holes (corners near floor)
+    // Mouse holes
     ;[[16, H - 50], [W - 50, H - 50]].forEach(([hx, hy]) => {
       ctx.fillStyle = '#2A1A0E'
       ctx.beginPath()
@@ -184,7 +176,7 @@ export default function CatchMouseGame() {
     stateRef.current.particles.forEach(p => {
       p.x += p.vx
       p.y += p.vy
-      p.vy += 0.15 // gravity
+      p.vy += 0.15
       p.life -= 0.05
       ctx.globalAlpha = p.life
       ctx.fillStyle = p.color
@@ -195,18 +187,9 @@ export default function CatchMouseGame() {
     // ── Pixel mouse ──
     const facingLeft = mouse.vx < 0
     drawPixelMouse(ctx, Math.round(mouse.x), Math.round(mouse.y), facingLeft)
-
-    // ── Pixel score badge (canvas-drawn) ──
-    ctx.fillStyle = 'rgba(30,20,50,0.85)'
-    ctx.fillRect(8, 8, 90, 22)
-    ctx.fillStyle = '#FF6B9D'
-    ctx.fillRect(8, 8, 90, 2)
-    ctx.fillStyle = '#FFFFFF'
-    ctx.font = '7px "Press Start 2P", monospace'
-    ctx.fillText(`SCORE: ${stateRef.current.score}`, 14, 23)
   }, [])
 
-  // ── Tick (game loop) ──────────────────────────────────────────────────────
+  // ── Tick ──────────────────────────────────────────────────────────────────
   const tick = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -217,13 +200,11 @@ export default function CatchMouseGame() {
     mouse.x += mouse.vx * speedMult
     mouse.y += mouse.vy * speedMult
 
-    // Bounce off walls (keep above floor)
     if (mouse.x < 22 || mouse.x > W - 22) mouse.vx *= -1
     if (mouse.y < 22 || mouse.y > H - 60) mouse.vy *= -1
     mouse.x = Math.max(22, Math.min(W - 22, mouse.x))
     mouse.y = Math.max(22, Math.min(H - 60, mouse.y))
 
-    // Random direction nudge
     if (Math.random() < 0.025) {
       mouse.vx += (Math.random() - 0.5) * 2
       mouse.vy += (Math.random() - 0.5) * 2
@@ -294,14 +275,12 @@ export default function CatchMouseGame() {
 
     const { mouse } = stateRef.current
     const dist = Math.sqrt((tx - mouse.x) ** 2 + (ty - mouse.y) ** 2)
-    if (dist < 44) {
+    if (dist < 38) {  // slightly tighter hitbox to match smaller sprite
       stateRef.current.score += 1
       setScore(stateRef.current.score)
       spawnParticles(mouse.x, mouse.y)
-      // Teleport mouse away
       stateRef.current.mouse.x = 60 + Math.random() * (canvas.width - 120)
       stateRef.current.mouse.y = 40 + Math.random() * (canvas.height - 120)
-      // Boost speed
       stateRef.current.mouse.vx = (Math.random() > 0.5 ? 1 : -1) * (MOUSE_SPEED_INIT + Math.random() * 2)
       stateRef.current.mouse.vy = (Math.random() > 0.5 ? 1 : -1) * (MOUSE_SPEED_INIT + Math.random() * 2)
     }
@@ -317,6 +296,7 @@ export default function CatchMouseGame() {
   useEffect(() => { if (gameState === 'idle') draw() }, [gameState, draw])
 
   const timeWarning = timeLeft <= 10
+  const timePct = (timeLeft / GAME_DURATION) * 100
 
   return (
     <div className="page-scroll">
@@ -326,21 +306,73 @@ export default function CatchMouseGame() {
           style={{ width: 32, height: 32, background: 'linear-gradient(135deg, #FFF8FF, #F0E8FF)', borderRadius: 8, border: '2px solid #D8C0F0', boxShadow: '0 2px 0 #C0A0E0' }}>
           <ChevronLeft size={16} className="text-purple-500" />
         </button>
-        <span className="pixel-chip" style={{ background: 'linear-gradient(135deg, #F5C842, #E8A020)' }}>🐭 CATCH THE MOUSE</span>
+        <span className="pixel-chip inline-flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, #F5C842, #E8A020)', paddingLeft: 6 }}>
+          <IconMouse size={14} />
+          <span>CATCH THE MOUSE</span>
+        </span>
       </div>
 
-      {/* ── HUD ── */}
-      <div className="flex gap-3 mb-3">
-        <div className="flex-1 flex flex-col items-center py-2.5"
-          style={{ background: 'linear-gradient(135deg, #FFF8FF, #F5EEFF)', borderRadius: 3, border: '2px solid #E0D0F8', boxShadow: '2px 2px 0 #C8B0E8' }}>
-          <span className="font-pixel text-purple-400" style={{ fontSize: 6 }}>SCORE</span>
-          <span className="font-pixel text-[#FF6B9D] mt-1" style={{ fontSize: 16 }}>{score}</span>
+      {/* ── Premium HUD ── */}
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div className="relative overflow-hidden py-3 px-3"
+          style={{
+            background: 'linear-gradient(180deg, #2D1659 0%, #180736 100%)',
+            borderRadius: 4,
+            border: '2px solid #A78BFA',
+            boxShadow: '0 3px 0 #4C1D95, inset 0 1px 0 rgba(255,255,255,0.18), 0 0 10px rgba(167,139,250,0.25)',
+          }}>
+          <div style={{ position: 'absolute', top: 2, left: 2, width: 3, height: 3, background: '#FFD700' }} />
+          <div style={{ position: 'absolute', top: 2, right: 2, width: 3, height: 3, background: '#FFD700' }} />
+          <div style={{ position: 'absolute', bottom: 2, left: 2, width: 3, height: 3, background: '#FFD700' }} />
+          <div style={{ position: 'absolute', bottom: 2, right: 2, width: 3, height: 3, background: '#FFD700' }} />
+          <div className="flex items-center gap-1 mb-1">
+            <IconStar size={10} />
+            <span className="font-pixel text-purple-300" style={{ fontSize: 6, letterSpacing: 2 }}>SCORE</span>
+          </div>
+          <span className="font-pixel text-white" style={{ fontSize: 22, textShadow: '2px 2px 0 #4C1D95, 0 0 6px rgba(167,139,250,0.6)', letterSpacing: -0.5 }}>{score}</span>
         </div>
-        <div className={`flex-1 flex flex-col items-center py-2.5 ${timeWarning ? 'animate-heartbeat' : ''}`}
-          style={{ background: timeWarning ? 'linear-gradient(135deg, #FFF0F0, #FFE0E0)' : 'linear-gradient(135deg, #FFF8FF, #F5EEFF)', borderRadius: 3, border: `2px solid ${timeWarning ? '#FFB0B0' : '#E0D0F8'}`, boxShadow: `2px 2px 0 ${timeWarning ? '#FF9090' : '#C8B0E8'}` }}>
-          <span className="font-pixel text-purple-400" style={{ fontSize: 6 }}>TIME</span>
-          <span className={`font-pixel mt-1 ${timeWarning ? 'text-red-500' : 'text-gray-700'}`} style={{ fontSize: 16 }}>{timeLeft}s</span>
+
+        <div className="relative overflow-hidden py-3 px-3"
+          style={{
+            background: timeWarning
+              ? 'linear-gradient(180deg, #5A1A1A 0%, #3A0808 100%)'
+              : 'linear-gradient(180deg, #2D1659 0%, #180736 100%)',
+            borderRadius: 4,
+            border: timeWarning ? '2px solid #F87171' : '2px solid #A78BFA',
+            boxShadow: timeWarning ? '0 3px 0 #7A1A1A, 0 0 10px rgba(248,113,113,0.4)' : '0 3px 0 #4C1D95, 0 0 10px rgba(167,139,250,0.25)',
+            animation: timeWarning && gameState === 'running' ? 'timerPulse 0.6s ease-in-out infinite' : 'none',
+          }}>
+          <div style={{ position: 'absolute', top: 2, left: 2, width: 3, height: 3, background: timeWarning ? '#FCA5A5' : '#FFD700' }} />
+          <div style={{ position: 'absolute', top: 2, right: 2, width: 3, height: 3, background: timeWarning ? '#FCA5A5' : '#FFD700' }} />
+          <div style={{ position: 'absolute', bottom: 2, left: 2, width: 3, height: 3, background: timeWarning ? '#FCA5A5' : '#FFD700' }} />
+          <div style={{ position: 'absolute', bottom: 2, right: 2, width: 3, height: 3, background: timeWarning ? '#FCA5A5' : '#FFD700' }} />
+          <div className="flex items-center gap-1 mb-1">
+            <span className="font-pixel" style={{ fontSize: 6, letterSpacing: 2, color: timeWarning ? '#FCA5A5' : '#C4B5FD' }}>TIME</span>
+          </div>
+          <span className="font-pixel" style={{ fontSize: 22, color: timeWarning ? '#FFA0A0' : '#FFFFFF', textShadow: timeWarning ? '2px 2px 0 #7A1A1A' : '2px 2px 0 #4C1D95', letterSpacing: -0.5 }}>{timeLeft}s</span>
         </div>
+      </div>
+
+      {/* Time progress bar */}
+      <div className="mb-3 relative overflow-hidden" style={{
+        height: 8,
+        background: '#0F0820',
+        border: '1px solid rgba(167,139,250,0.3)',
+        borderRadius: 2,
+        boxShadow: 'inset 0 2px 3px rgba(0,0,0,0.6)',
+      }}>
+        <div style={{
+          height: '100%',
+          width: `${timePct}%`,
+          background: timeWarning
+            ? 'linear-gradient(180deg, #FFA0A0 0%, #DC2626 100%)'
+            : 'linear-gradient(180deg, #C084FC 0%, #7C3AED 100%)',
+          transition: 'width 0.9s linear, background 0.3s',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4)',
+        }} />
+        <div className="absolute inset-0 pointer-events-none" style={{
+          backgroundImage: 'repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), rgba(0,0,0,0.3) calc(10% - 1px) 10%)',
+        }} />
       </div>
 
       {/* ── Canvas ── */}
@@ -359,31 +391,38 @@ export default function CatchMouseGame() {
         {/* ── Overlays ── */}
         {gameState !== 'running' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center backdrop-blur-sm"
-            style={{ background: 'rgba(253,246,255,0.88)' }}>
+            style={{ background: 'rgba(253,246,255,0.92)' }}>
             {gameState === 'idle' && (
               <>
-                <div className="text-5xl mb-3 animate-float">🐭</div>
-                <p className="font-pixel text-gray-700 mb-1" style={{ fontSize: 9 }}>CATCH THE MOUSE!</p>
+                <div className="mb-3" style={{ animation: 'mouseBob 1.2s ease-in-out infinite', transform: 'scale(3)' }}>
+                  <IconMouse size={20} />
+                </div>
+                <p className="font-pixel text-gray-700 mb-1" style={{ fontSize: 10, letterSpacing: 1 }}>CATCH THE MOUSE!</p>
                 <p className="text-xs text-gray-500 mb-5 text-center px-8 leading-relaxed">
-                  Tap/click the pixel mouse as fast as you can in {GAME_DURATION} seconds
+                  Tap / click the pixel mouse as fast as you can in {GAME_DURATION} seconds
                 </p>
                 <button onClick={startGame}
                   className="px-8 py-3 text-white active:translate-y-[2px] transition-transform"
-                  style={{ background: 'linear-gradient(135deg, #FF6B9D, #C084FC)', borderRadius: 3, border: '2px solid #CC3366', boxShadow: '0 4px 0 #991A4A', fontFamily: '"Press Start 2P"', fontSize: 8 }}>
+                  style={{ background: 'linear-gradient(135deg, #FF6B9D, #C084FC)', borderRadius: 3, border: '2px solid #CC3366', boxShadow: '0 4px 0 #991A4A, 0 0 12px rgba(255,107,157,0.45)', fontFamily: '"Press Start 2P"', fontSize: 9, letterSpacing: 2 }}>
                   ▶ START
                 </button>
               </>
             )}
             {gameState === 'finished' && (
               <>
-                <div className="text-4xl mb-2">🎉</div>
-                <p className="font-pixel text-[#FF6B9D] mb-1" style={{ fontSize: 11 }}>{score}</p>
-                <p className="font-pixel text-gray-600 mb-3" style={{ fontSize: 7 }}>MICE CAUGHT!</p>
+                <div className="mb-2">
+                  <IconCrown size={28} />
+                </div>
+                <p className="font-pixel text-[#FF6B9D] mb-1" style={{ fontSize: 22, textShadow: '2px 2px 0 rgba(204,51,102,0.3)' }}>{score}</p>
+                <p className="font-pixel text-gray-600 mb-3" style={{ fontSize: 7, letterSpacing: 2 }}>MICE CAUGHT</p>
                 <p className="font-pixel text-gray-500 mb-1" style={{ fontSize: 6 }}>
                   {score >= 15 ? '★ AMAZING! ★' : score >= 8 ? '★ GREAT JOB! ★' : 'GOOD EFFORT!'}
                 </p>
                 {score > 5 && (
-                  <p className="font-pixel text-[#FF6B9D] mb-4" style={{ fontSize: 6 }}>EREN IS HAPPY! ♥</p>
+                  <div className="flex items-center gap-1 mb-4" style={{ color: '#A16207' }}>
+                    <IconCoin size={12} />
+                    <span className="font-pixel" style={{ fontSize: 7 }}>+{Math.floor(score / 2)} coins</span>
+                  </div>
                 )}
                 <div className="flex gap-3 mt-1">
                   <button onClick={startGame}
@@ -401,6 +440,17 @@ export default function CatchMouseGame() {
       <p className="font-pixel text-gray-400 text-center" style={{ fontSize: 6 }}>
         TAP / CLICK THE MOUSE TO CATCH IT!
       </p>
+
+      <style jsx>{`
+        @keyframes timerPulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.03); }
+        }
+        @keyframes mouseBob {
+          0%, 100% { transform: scale(3) translateY(0); }
+          50% { transform: scale(3) translateY(-4px); }
+        }
+      `}</style>
     </div>
   )
 }

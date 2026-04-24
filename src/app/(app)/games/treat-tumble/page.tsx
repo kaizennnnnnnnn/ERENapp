@@ -9,39 +9,47 @@ import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
 import {
-  IconMeat, IconFish, IconHeart, IconStar, IconCrown, IconCoin,
+  IconMeat, IconFish, IconHeart, IconStar, IconCrown, IconCoin, IconBook,
 } from '@/components/PixelIcons'
 
 // ── Config ───────────────────────────────────────────────────────────────────
 const GAME_DURATION = 45
 const START_LIVES   = 3
-const START_SPAWN_MS = 900
-const MIN_SPAWN_MS   = 320
-const SPAWN_RAMP_PER_SEC = 12
-const ITEM_BASE_SPEED = 140   // px/sec at start
-const ITEM_SPEED_PER_SEC = 4  // ramp up per second of game time
-const EREN_WIDTH  = 64
-const ITEM_SIZE   = 32
+const MAX_LIVES     = 5
+const START_SPAWN_MS = 820
+const MIN_SPAWN_MS   = 220
+const SPAWN_RAMP_PER_SEC = 18          // was 12 — steeper ramp
+const ITEM_BASE_SPEED = 160             // was 140
+const ITEM_SPEED_PER_SEC = 8            // was 4 — faster climb
+const EREN_WIDTH  = 72
+const ITEM_SIZE   = 34
 
-type ItemKind = 'kibble' | 'fish' | 'cream' | 'golden' | 'shoe' | 'bomb' | 'heart'
+type ItemKind = 'kibble' | 'fish' | 'cream' | 'golden' | 'heart'
+  | 'shoe' | 'bomb' | 'spider' | 'hairball' | 'thunder'
 
 interface ItemMeta {
   label: string
-  points: number       // negative for bad
-  life: number         // change to lives (usually 0 or -1)
-  rarity: number       // weight for random spawn
+  points: number
+  life: number
+  rarity: number   // weight
   Icon: React.FC<{ size?: number }>
   tint: string
+  danger: boolean
 }
 
 const ITEMS: Record<ItemKind, ItemMeta> = {
-  kibble: { label: 'Kibble', points: 1,  life: 0,  rarity: 45, Icon: KibbleIcon, tint: '#F5C842' },
-  fish:   { label: 'Fish',   points: 3,  life: 0,  rarity: 25, Icon: IconFish,   tint: '#6BAED6' },
-  cream:  { label: 'Cream',  points: 5,  life: 0,  rarity: 12, Icon: CreamIcon,  tint: '#E9D5FF' },
-  golden: { label: 'Golden', points: 10, life: 0,  rarity: 5,  Icon: IconStar,   tint: '#FFD700' },
-  heart:  { label: 'Heart',  points: 0,  life: 1,  rarity: 4,  Icon: IconHeart,  tint: '#FF6B9D' },
-  shoe:   { label: 'Shoe',   points: -4, life: -1, rarity: 6,  Icon: ShoeIcon,   tint: '#8B5A2B' },
-  bomb:   { label: 'Bomb',   points: -6, life: -1, rarity: 3,  Icon: BombIcon,   tint: '#DC2626' },
+  // Good items
+  kibble:   { label: 'Kibble',   points: 1,  life: 0,  rarity: 38, Icon: KibbleIcon,   tint: '#F5C842', danger: false },
+  fish:     { label: 'Fish',     points: 3,  life: 0,  rarity: 22, Icon: IconFish,     tint: '#6BAED6', danger: false },
+  cream:    { label: 'Cream',    points: 5,  life: 0,  rarity: 10, Icon: CreamIcon,    tint: '#E9D5FF', danger: false },
+  golden:   { label: 'Golden',   points: 10, life: 0,  rarity: 4,  Icon: IconStar,     tint: '#FFD700', danger: false },
+  heart:    { label: 'Heart',    points: 0,  life: 1,  rarity: 3,  Icon: IconHeart,    tint: '#FF6B9D', danger: false },
+  // Dangers — weighted so roughly 25% of spawns are bad
+  shoe:     { label: 'Shoe',     points: -4, life: -1, rarity: 7,  Icon: ShoeIcon,     tint: '#8B5A2B', danger: true },
+  bomb:     { label: 'Bomb',     points: -6, life: -1, rarity: 4,  Icon: BombIcon,     tint: '#DC2626', danger: true },
+  spider:   { label: 'Spider',   points: -5, life: -1, rarity: 5,  Icon: SpiderIcon,   tint: '#4B0082', danger: true },
+  hairball: { label: 'Hairball', points: -3, life: 0,  rarity: 5,  Icon: HairballIcon, tint: '#6B4423', danger: true },
+  thunder:  { label: 'Thunder',  points: -8, life: -1, rarity: 2,  Icon: ThunderIcon,  tint: '#FBBF24', danger: true },
 }
 
 const KINDS = Object.keys(ITEMS) as ItemKind[]
@@ -59,16 +67,17 @@ function pickKind(): ItemKind {
 
 interface FallingItem {
   id: number
-  x: number          // px from center of scene
-  y: number          // px from top
+  x: number
+  y: number
   kind: ItemKind
   caught: boolean
   missed: boolean
+  wobble: number // starting rotation phase
 }
 
 interface FloatText { id: number; x: number; y: number; text: string; color: string; t0: number }
 
-// Simple pixel icons specific to this game
+// ── Pixel-art icons specific to this game ────────────────────────────────────
 function KibbleIcon({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
@@ -110,43 +119,127 @@ function BombIcon({ size = 20 }: { size?: number }) {
     </svg>
   )
 }
-
-// Eren pixel icon — simple sitting cat
-function ErenPaw({ size = 56 }: { size?: number }) {
+function SpiderIcon({ size = 20 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 18 18" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      {/* ears */}
-      <rect x="3" y="2" width="2" height="2" fill="#2A2030" />
-      <rect x="13" y="2" width="2" height="2" fill="#2A2030" />
-      <rect x="3" y="4" width="2" height="1" fill="#7E7272" />
-      <rect x="13" y="4" width="2" height="1" fill="#7E7272" />
-      {/* head */}
-      <rect x="3" y="4" width="12" height="6" fill="#F5F3EF" />
-      <rect x="3" y="4" width="1" height="1" fill="#2A2030" />
-      <rect x="14" y="4" width="1" height="1" fill="#2A2030" />
-      <rect x="2" y="5" width="1" height="5" fill="#2A2030" />
-      <rect x="15" y="5" width="1" height="5" fill="#2A2030" />
-      <rect x="3" y="10" width="12" height="1" fill="#2A2030" />
-      {/* eyes */}
-      <rect x="5" y="6" width="2" height="2" fill="#4898D4" />
-      <rect x="6" y="6" width="1" height="2" fill="#1A1A2E" />
-      <rect x="11" y="6" width="2" height="2" fill="#4898D4" />
-      <rect x="12" y="6" width="1" height="2" fill="#1A1A2E" />
-      {/* nose + mouth */}
-      <rect x="8" y="8" width="2" height="1" fill="#F28898" />
-      <rect x="8" y="9" width="2" height="1" fill="#2A2030" />
+    <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
+      {/* legs */}
+      <rect x="0" y="4" width="1" height="1" fill="#1A1A1A" />
+      <rect x="1" y="5" width="1" height="1" fill="#1A1A1A" />
+      <rect x="2" y="6" width="1" height="1" fill="#1A1A1A" />
+      <rect x="0" y="8" width="1" height="1" fill="#1A1A1A" />
+      <rect x="1" y="7" width="1" height="1" fill="#1A1A1A" />
+      <rect x="11" y="4" width="1" height="1" fill="#1A1A1A" />
+      <rect x="10" y="5" width="1" height="1" fill="#1A1A1A" />
+      <rect x="9" y="6" width="1" height="1" fill="#1A1A1A" />
+      <rect x="11" y="8" width="1" height="1" fill="#1A1A1A" />
+      <rect x="10" y="7" width="1" height="1" fill="#1A1A1A" />
       {/* body */}
-      <rect x="4" y="11" width="10" height="5" fill="#F5F3EF" />
-      <rect x="3" y="12" width="1" height="4" fill="#2A2030" />
-      <rect x="14" y="12" width="1" height="4" fill="#2A2030" />
-      <rect x="4" y="16" width="10" height="1" fill="#2A2030" />
-      {/* paws */}
-      <rect x="5" y="15" width="2" height="1" fill="#D0CCC4" />
-      <rect x="11" y="15" width="2" height="1" fill="#D0CCC4" />
+      <rect x="3" y="4" width="6" height="5" fill="#1A1A1A" />
+      <rect x="4" y="3" width="4" height="1" fill="#1A1A1A" />
+      {/* eyes */}
+      <rect x="4" y="5" width="1" height="1" fill="#DC2626" />
+      <rect x="7" y="5" width="1" height="1" fill="#DC2626" />
+    </svg>
+  )
+}
+function HairballIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
+      <rect x="3" y="2" width="6" height="2" fill="#6B4423" />
+      <rect x="2" y="3" width="8" height="6" fill="#6B4423" />
+      <rect x="3" y="9" width="6" height="1" fill="#6B4423" />
+      {/* hair strands */}
+      <rect x="1" y="4" width="1" height="1" fill="#4A2810" />
+      <rect x="10" y="5" width="1" height="1" fill="#4A2810" />
+      <rect x="4" y="1" width="1" height="1" fill="#4A2810" />
+      <rect x="8" y="1" width="1" height="1" fill="#4A2810" />
+      <rect x="5" y="10" width="1" height="1" fill="#4A2810" />
+      {/* highlight */}
+      <rect x="4" y="4" width="1" height="1" fill="#9B6B3B" />
+    </svg>
+  )
+}
+function ThunderIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
+      {/* cloud */}
+      <rect x="2" y="2" width="7" height="3" fill="#6B7280" />
+      <rect x="1" y="3" width="9" height="2" fill="#6B7280" />
+      <rect x="1" y="3" width="9" height="1" fill="#9CA3AF" />
+      {/* bolt */}
+      <rect x="6" y="5" width="2" height="2" fill="#FBBF24" />
+      <rect x="5" y="6" width="2" height="2" fill="#FBBF24" />
+      <rect x="6" y="8" width="1" height="2" fill="#FBBF24" />
+      <rect x="4" y="8" width="2" height="1" fill="#FBBF24" />
+      <rect x="5" y="9" width="1" height="1" fill="#F59E0B" />
     </svg>
   )
 }
 
+// ── New Eren sprite — bigger, more detailed Ragdoll face ─────────────────────
+function ErenSprite({ size = 72 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 22 22" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
+      {/* ears */}
+      <rect x="3" y="2" width="3" height="1" fill="#4A2E1A" />
+      <rect x="16" y="2" width="3" height="1" fill="#4A2E1A" />
+      <rect x="3" y="3" width="3" height="2" fill="#9B7A5C" />
+      <rect x="16" y="3" width="3" height="2" fill="#9B7A5C" />
+      <rect x="4" y="4" width="1" height="1" fill="#F4B0B8" />
+      <rect x="17" y="4" width="1" height="1" fill="#F4B0B8" />
+      {/* head — ragdoll cream */}
+      <rect x="5" y="3" width="12" height="1" fill="#4A2E1A" />
+      <rect x="4" y="4" width="14" height="1" fill="#4A2E1A" />
+      <rect x="3" y="5" width="16" height="1" fill="#4A2E1A" />
+      <rect x="4" y="5" width="14" height="1" fill="#F9EDD5" />
+      <rect x="3" y="6" width="1" height="6" fill="#4A2E1A" />
+      <rect x="18" y="6" width="1" height="6" fill="#4A2E1A" />
+      <rect x="4" y="6" width="14" height="6" fill="#F9EDD5" />
+      {/* brown mask (Ragdoll points) around eyes */}
+      <rect x="5" y="6" width="3" height="2" fill="#D4B896" />
+      <rect x="14" y="6" width="3" height="2" fill="#D4B896" />
+      {/* big blue eyes */}
+      <rect x="6" y="7" width="2" height="2" fill="#6BAED6" />
+      <rect x="7" y="7" width="1" height="1" fill="#FFFFFF" />
+      <rect x="6" y="8" width="1" height="1" fill="#1A1A2E" />
+      <rect x="14" y="7" width="2" height="2" fill="#6BAED6" />
+      <rect x="14" y="7" width="1" height="1" fill="#FFFFFF" />
+      <rect x="15" y="8" width="1" height="1" fill="#1A1A2E" />
+      {/* nose */}
+      <rect x="10" y="9" width="2" height="1" fill="#F48B9B" />
+      <rect x="10" y="10" width="2" height="1" fill="#4A2E1A" />
+      {/* mouth */}
+      <rect x="9" y="11" width="1" height="1" fill="#4A2E1A" />
+      <rect x="12" y="11" width="1" height="1" fill="#4A2E1A" />
+      {/* muzzle */}
+      <rect x="10" y="11" width="2" height="1" fill="#F9EDD5" />
+      {/* chin fluff */}
+      <rect x="4" y="12" width="14" height="1" fill="#4A2E1A" />
+      <rect x="5" y="12" width="12" height="1" fill="#F9EDD5" />
+      {/* body */}
+      <rect x="4" y="13" width="14" height="1" fill="#4A2E1A" />
+      <rect x="3" y="14" width="1" height="5" fill="#4A2E1A" />
+      <rect x="18" y="14" width="1" height="5" fill="#4A2E1A" />
+      <rect x="4" y="14" width="14" height="5" fill="#F9EDD5" />
+      {/* body shading */}
+      <rect x="5" y="14" width="2" height="1" fill="#E5D9BE" />
+      <rect x="15" y="14" width="2" height="1" fill="#E5D9BE" />
+      <rect x="4" y="19" width="14" height="1" fill="#4A2E1A" />
+      {/* paws */}
+      <rect x="5" y="19" width="2" height="1" fill="#D4B896" />
+      <rect x="15" y="19" width="2" height="1" fill="#D4B896" />
+      <rect x="5" y="20" width="3" height="1" fill="#4A2E1A" />
+      <rect x="14" y="20" width="3" height="1" fill="#4A2E1A" />
+      {/* whiskers */}
+      <rect x="1" y="9" width="3" height="1" fill="rgba(255,255,255,0.6)" />
+      <rect x="18" y="9" width="3" height="1" fill="rgba(255,255,255,0.6)" />
+      <rect x="1" y="11" width="3" height="1" fill="rgba(255,255,255,0.6)" />
+      <rect x="18" y="11" width="3" height="1" fill="rgba(255,255,255,0.6)" />
+    </svg>
+  )
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
 export default function TreatTumbleGame() {
   const router = useRouter()
   const supabase = createClient()
@@ -162,11 +255,13 @@ export default function TreatTumbleGame() {
   const [score, setScore] = useState(0)
   const [lives, setLives] = useState(START_LIVES)
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION)
-  const [erenX, setErenX] = useState(50) // percent 0-100
+  const [erenX, setErenX] = useState(50)
   const [items, setItems] = useState<FallingItem[]>([])
   const [floats, setFloats] = useState<FloatText[]>([])
   const [shake, setShake] = useState(false)
+  const [hurtFlash, setHurtFlash] = useState(false)
   const [savedOnce, setSavedOnce] = useState(false)
+  const [scoreBump, setScoreBump] = useState(0) // for scale pop on score change
 
   const itemId  = useRef(0)
   const floatId = useRef(0)
@@ -222,11 +317,18 @@ export default function TreatTumbleGame() {
         score: Math.max(0, score),
       })
       await applyAction(user.id, 'play')
-      await addCoins(Math.min(30, Math.max(0, Math.floor(score / 6))))
+      await addCoins(Math.min(40, Math.max(0, Math.floor(score / 5))))
       completeTask('daily_game')
       if (score >= 30) completeTask('weekly_high_score')
     })()
   }, [gameState, savedOnce, user?.id, score]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Score bump animation ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (scoreBump === 0) return
+    const id = setTimeout(() => setScoreBump(0), 260)
+    return () => clearTimeout(id)
+  }, [scoreBump])
 
   // ── Main game loop ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -253,61 +355,68 @@ export default function TreatTumbleGame() {
           kind,
           caught: false,
           missed: false,
+          wobble: Math.random() * Math.PI * 2,
         }])
       }
 
       // Advance items
       const erenCX = (erenXRef.current / 100) * rect.width
-      const catchY = rect.height - 96 // where Eren is
+      const catchY = rect.height - 110
 
       setItems(prev => {
         const updated: FallingItem[] = []
         let dLives = 0
         let dScore = 0
+        let hurt = false
         const newFloats: FloatText[] = []
 
         for (const it of prev) {
           if (it.caught || it.missed) continue
           const ny = it.y + speed * (elapsed / 1000)
 
-          // Check catch box
           const dx = Math.abs(it.x - erenCX)
-          if (ny >= catchY && ny <= catchY + ITEM_SIZE + 14 && dx <= EREN_WIDTH / 2 + ITEM_SIZE / 2 - 4) {
+          if (ny >= catchY && ny <= catchY + ITEM_SIZE + 18 && dx <= EREN_WIDTH / 2 + ITEM_SIZE / 2 - 4) {
             const meta = ITEMS[it.kind]
             dScore += meta.points
-            if (meta.life < 0) dLives += meta.life
+            if (meta.life < 0) { dLives += meta.life; hurt = true }
             else if (meta.life > 0) dLives += meta.life
             newFloats.push({
               id: floatId.current++,
               x: it.x, y: catchY - 10,
-              text: meta.points > 0 ? `+${meta.points}` : meta.points < 0 ? `${meta.points}` : meta.life > 0 ? '+♥' : '',
+              text: meta.points > 0
+                ? `+${meta.points}`
+                : meta.points < 0 ? `${meta.points}` : meta.life > 0 ? '+♥' : '',
               color: meta.points > 0 ? '#FDE68A' : meta.points < 0 ? '#FCA5A5' : '#FF6B9D',
               t0: t,
             })
             continue
           }
 
-          // Missed (past bottom)
-          if (ny > rect.height + 10) {
-            continue
-          }
-
+          if (ny > rect.height + 10) continue
           updated.push({ ...it, y: ny })
         }
 
-        if (dScore !== 0) setScore(s => Math.max(0, s + dScore))
+        if (dScore !== 0) {
+          setScore(s => {
+            const next = Math.max(0, s + dScore)
+            if (dScore > 0) setScoreBump(1)
+            return next
+          })
+        }
         if (dLives !== 0) {
-          const newLives = Math.max(0, Math.min(5, livesRef.current + dLives))
+          const newLives = Math.max(0, Math.min(MAX_LIVES, livesRef.current + dLives))
           livesRef.current = newLives
           setLives(newLives)
           if (dLives < 0) {
             setShake(true)
-            setTimeout(() => setShake(false), 260)
+            setHurtFlash(true)
+            setTimeout(() => setShake(false), 280)
+            setTimeout(() => setHurtFlash(false), 220)
           }
           if (newLives === 0) setGameState('finished')
         }
         if (newFloats.length > 0) {
-          setFloats(prev => [...prev, ...newFloats].slice(-20))
+          setFloats(prev => [...prev, ...newFloats].slice(-22))
         }
         return updated
       })
@@ -351,18 +460,30 @@ export default function TreatTumbleGame() {
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
+  const timeWarning = timeLeft <= 10
+  const lowLives = lives <= 1
+  const timePct = (timeLeft / GAME_DURATION) * 100
+
   return (
     <div className="fixed inset-0 z-40 overflow-hidden select-none"
       style={{
         background: 'linear-gradient(180deg, #FEF3C7 0%, #FDE68A 40%, #FBBF24 100%)',
         touchAction: 'none',
-        animation: shake ? 'sceneShake 0.26s linear' : 'none',
+        animation: shake ? 'sceneShake 0.28s linear' : 'none',
       }}
       ref={sceneRef}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}>
+
+      {/* Red hurt flash */}
+      {hurtFlash && (
+        <div className="absolute inset-0 pointer-events-none z-40" style={{
+          background: 'radial-gradient(circle at center, rgba(220,38,38,0.35) 0%, rgba(220,38,38,0.08) 55%, transparent 80%)',
+          animation: 'hurtFade 0.22s ease-out forwards',
+        }} />
+      )}
 
       {/* Drifting clouds */}
       <div className="absolute inset-0 pointer-events-none opacity-70" style={{
@@ -372,7 +493,7 @@ export default function TreatTumbleGame() {
 
       {/* Grass floor */}
       <div className="absolute bottom-0 inset-x-0 pointer-events-none" style={{
-        height: 64,
+        height: 72,
         background: 'linear-gradient(180deg, #4ADE80 0%, #16A34A 60%, #166534 100%)',
         borderTop: '3px solid #14532D',
       }}>
@@ -386,88 +507,131 @@ export default function TreatTumbleGame() {
       <div className="absolute top-0 inset-x-0 pt-3 px-3 z-30 flex items-center gap-2">
         <button onClick={() => router.back()}
           className="flex items-center justify-center active:scale-90 transition-transform"
-          style={{ width: 34, height: 34, background: 'rgba(255,255,255,0.7)', borderRadius: 6, border: '2px solid #D97706', boxShadow: '0 2px 0 #B45309' }}>
+          style={{ width: 34, height: 34, background: 'rgba(255,255,255,0.9)', borderRadius: 6, border: '2px solid #D97706', boxShadow: '0 2px 0 #B45309' }}>
           <ChevronLeft size={18} className="text-amber-700" />
         </button>
         <div className="flex-1 flex items-center justify-center">
-          <span className="font-pixel text-amber-900 px-3 py-1.5"
-            style={{ background: 'rgba(255,255,255,0.85)', border: '2px solid #D97706', borderRadius: 4, boxShadow: '0 2px 0 #B45309', fontSize: 7, letterSpacing: 1.5 }}>
+          <span className="font-pixel text-amber-900 px-3 py-1.5 inline-flex items-center gap-1.5"
+            style={{ background: 'rgba(255,255,255,0.92)', border: '2px solid #D97706', borderRadius: 4, boxShadow: '0 2px 0 #B45309', fontSize: 7, letterSpacing: 1.5 }}>
+            <IconMeat size={12} />
             TREAT TUMBLE
           </span>
         </div>
         <div style={{ width: 34 }} />
       </div>
 
-      {/* HUD row */}
-      <div className="absolute top-14 inset-x-0 px-3 z-20 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1 px-2 py-1"
-          style={{ background: 'rgba(255,255,255,0.9)', border: '2px solid #D97706', borderRadius: 4, boxShadow: '0 2px 0 #B45309' }}>
-          <IconStar size={12} />
-          <span className="font-pixel text-amber-700" style={{ fontSize: 9, letterSpacing: 1 }}>{score}</span>
-        </div>
-        {/* Lives */}
-        <div className="flex items-center gap-0.5 px-2 py-1"
-          style={{ background: 'rgba(255,255,255,0.9)', border: '2px solid #DB2777', borderRadius: 4, boxShadow: '0 2px 0 #9D174D' }}>
-          {Array.from({ length: START_LIVES + 1 }).map((_, i) => (
-            <div key={i} style={{ opacity: i < lives ? 1 : 0.18, transition: 'opacity 0.2s', transform: i < lives ? 'scale(1)' : 'scale(0.85)' }}>
-              <IconHeart size={12} />
+      {/* ══ PREMIUM HUD ═════════════════════════════════════════════════════ */}
+      {gameState !== 'idle' && (
+        <div className="absolute top-14 inset-x-0 px-3 z-20">
+          {/* Big score banner */}
+          <div className="mb-2 relative overflow-hidden py-2.5 px-3"
+            style={{
+              background: 'linear-gradient(180deg, rgba(120,53,15,0.92) 0%, rgba(69,26,3,0.95) 100%)',
+              border: '3px solid #F59E0B',
+              borderRadius: 5,
+              boxShadow: '0 4px 0 #92400E, inset 0 1px 0 rgba(255,255,255,0.25), 0 0 14px rgba(245,158,11,0.4)',
+            }}>
+            {/* Corner rivets */}
+            <div style={{ position: 'absolute', top: 3, left: 3, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 3px #FFD700' }} />
+            <div style={{ position: 'absolute', top: 3, right: 3, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 3px #FFD700' }} />
+            <div style={{ position: 'absolute', bottom: 3, left: 3, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 3px #FFD700' }} />
+            <div style={{ position: 'absolute', bottom: 3, right: 3, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 3px #FFD700' }} />
+
+            <div className="flex items-center justify-between gap-3">
+              {/* Score */}
+              <div className="flex items-center gap-1.5">
+                <IconStar size={14} />
+                <span className="font-pixel" style={{ fontSize: 6, color: '#FCD34D', letterSpacing: 2 }}>SCORE</span>
+                <span className="font-pixel" style={{
+                  fontSize: 16,
+                  color: '#FFFFFF',
+                  textShadow: '2px 2px 0 #92400E, 0 0 6px rgba(251,191,36,0.7)',
+                  letterSpacing: 1,
+                  transform: scoreBump ? 'scale(1.22)' : 'scale(1)',
+                  transition: 'transform 0.16s cubic-bezier(0.34,1.56,0.64,1)',
+                  display: 'inline-block',
+                }}>{Math.max(0, score)}</span>
+              </div>
+
+              {/* Lives */}
+              <div className="flex items-center gap-1">
+                {Array.from({ length: MAX_LIVES }).map((_, i) => (
+                  <div key={i} style={{
+                    opacity: i < lives ? 1 : 0.2,
+                    transform: i < lives ? 'scale(1)' : 'scale(0.8)',
+                    transition: 'opacity 0.25s, transform 0.25s',
+                    filter: i < lives && lowLives && gameState === 'running' ? 'drop-shadow(0 0 4px rgba(255,107,157,0.9))' : 'none',
+                    animation: i < lives && lowLives && gameState === 'running' ? 'heartBeat 0.6s ease-in-out infinite' : 'none',
+                  }}>
+                    <IconHeart size={14} />
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
+
+            {/* Time progress bar */}
+            <div className="mt-2 relative overflow-hidden" style={{
+              height: 6,
+              background: 'rgba(0,0,0,0.5)',
+              border: '1px solid rgba(245,158,11,0.4)',
+              borderRadius: 2,
+              boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.5)',
+            }}>
+              <div style={{
+                height: '100%',
+                width: `${timePct}%`,
+                background: timeWarning
+                  ? 'linear-gradient(180deg, #FCA5A5 0%, #DC2626 100%)'
+                  : 'linear-gradient(180deg, #FDE68A 0%, #F59E0B 100%)',
+                transition: 'width 0.9s linear, background 0.3s',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4)',
+              }} />
+              <div className="absolute inset-0 pointer-events-none" style={{
+                backgroundImage: 'repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), rgba(0,0,0,0.35) calc(10% - 1px) 10%)',
+              }} />
+            </div>
+            <div className="flex items-center justify-between mt-1">
+              <span className="font-pixel" style={{ fontSize: 5, letterSpacing: 2, color: '#FCD34D' }}>TIME</span>
+              <span className="font-pixel" style={{
+                fontSize: 7,
+                color: timeWarning ? '#FCA5A5' : '#FDE68A',
+                animation: timeWarning && gameState === 'running' ? 'timerPulse 0.6s ease-in-out infinite' : 'none',
+              }}>{String(Math.floor(timeLeft / 60))}:{String(timeLeft % 60).padStart(2, '0')}</span>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-1 px-2 py-1"
-          style={{ background: timeLeft <= 10 ? 'rgba(255,220,220,0.95)' : 'rgba(255,255,255,0.9)', border: timeLeft <= 10 ? '2px solid #DC2626' : '2px solid #D97706', borderRadius: 4, boxShadow: '0 2px 0 #B45309', animation: timeLeft <= 10 && gameState === 'running' ? 'timerPulse 0.6s ease-in-out infinite' : 'none' }}>
-          <span className="font-pixel" style={{ fontSize: 9, color: timeLeft <= 10 ? '#991B1B' : '#92400E', letterSpacing: 1 }}>
-            {String(Math.floor(timeLeft / 60))}:{String(timeLeft % 60).padStart(2, '0')}
-          </span>
-        </div>
-      </div>
+      )}
 
       {/* ── Idle intro ──────────────────────────────────────────────────────── */}
       {gameState === 'idle' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-30 px-6">
-          <div className="px-6 py-6 max-w-[330px] text-center"
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-30 px-6 pt-10 overflow-y-auto">
+          <div className="px-5 py-5 max-w-[330px] text-center"
             style={{ background: 'rgba(255,255,255,0.95)', border: '3px solid #D97706', borderRadius: 6, boxShadow: '0 5px 0 #B45309, 0 0 20px rgba(251,191,36,0.5)' }}>
             <div className="flex items-center justify-center gap-2 mb-3">
               <IconStar size={18} />
               <p className="font-pixel text-amber-800" style={{ fontSize: 10, letterSpacing: 2 }}>TREAT TUMBLE</p>
               <IconStar size={18} />
             </div>
-            <p className="text-xs text-amber-900 leading-relaxed mb-4">
-              <strong>Drag anywhere</strong> to move Eren along the grass.
-              Catch the good treats, <span className="text-red-700">dodge shoes and bombs</span>,
-              and grab hearts for extra lives.
+            <p className="text-xs text-amber-900 leading-relaxed mb-3">
+              <strong>Drag</strong> to move Eren. Catch treats,
+              <span className="text-red-700"> dodge dangers</span>, grab hearts for lives.
+              <span className="font-pixel text-amber-700" style={{ fontSize: 6 }}> It gets FASTER.</span>
             </p>
-            <div className="grid grid-cols-4 gap-2 mb-4 text-[10px]">
-              <div className="flex flex-col items-center gap-1 p-2" style={{ background: 'rgba(245,200,66,0.15)', border: '1px solid #F5C842', borderRadius: 3 }}>
-                <KibbleIcon size={20} />
-                <span className="font-pixel text-amber-700" style={{ fontSize: 6 }}>+1</span>
-              </div>
-              <div className="flex flex-col items-center gap-1 p-2" style={{ background: 'rgba(107,174,214,0.15)', border: '1px solid #6BAED6', borderRadius: 3 }}>
-                <IconFish size={20} />
-                <span className="font-pixel text-sky-700" style={{ fontSize: 6 }}>+3</span>
-              </div>
-              <div className="flex flex-col items-center gap-1 p-2" style={{ background: 'rgba(167,139,250,0.15)', border: '1px solid #A78BFA', borderRadius: 3 }}>
-                <CreamIcon size={20} />
-                <span className="font-pixel text-purple-700" style={{ fontSize: 6 }}>+5</span>
-              </div>
-              <div className="flex flex-col items-center gap-1 p-2" style={{ background: 'rgba(255,215,0,0.2)', border: '1px solid #FFD700', borderRadius: 3 }}>
-                <IconStar size={20} />
-                <span className="font-pixel text-amber-700" style={{ fontSize: 6 }}>+10</span>
-              </div>
+            <p className="font-pixel text-amber-700 mb-2" style={{ fontSize: 6, letterSpacing: 1 }}>✦ GOODS ✦</p>
+            <div className="grid grid-cols-5 gap-1.5 mb-3 text-[10px]">
+              <LegendTile Icon={KibbleIcon} tint="#F5C842" pts="+1" />
+              <LegendTile Icon={IconFish}   tint="#6BAED6" pts="+3" />
+              <LegendTile Icon={CreamIcon}  tint="#A78BFA" pts="+5" />
+              <LegendTile Icon={IconStar}   tint="#FFD700" pts="+10" />
+              <LegendTile Icon={IconHeart}  tint="#FF6B9D" pts="+♥" />
             </div>
-            <div className="grid grid-cols-3 gap-2 text-[10px]">
-              <div className="flex flex-col items-center gap-1 p-2" style={{ background: 'rgba(220,38,38,0.12)', border: '1px solid #DC2626', borderRadius: 3 }}>
-                <ShoeIcon size={20} />
-                <span className="font-pixel text-red-700" style={{ fontSize: 6 }}>-4 · −♥</span>
-              </div>
-              <div className="flex flex-col items-center gap-1 p-2" style={{ background: 'rgba(220,38,38,0.12)', border: '1px solid #DC2626', borderRadius: 3 }}>
-                <BombIcon size={20} />
-                <span className="font-pixel text-red-700" style={{ fontSize: 6 }}>-6 · −♥</span>
-              </div>
-              <div className="flex flex-col items-center gap-1 p-2" style={{ background: 'rgba(255,107,157,0.15)', border: '1px solid #FF6B9D', borderRadius: 3 }}>
-                <IconHeart size={20} />
-                <span className="font-pixel text-pink-700" style={{ fontSize: 6 }}>+♥ LIFE</span>
-              </div>
+            <p className="font-pixel text-red-700 mb-2" style={{ fontSize: 6, letterSpacing: 1 }}>⚠ DANGERS ⚠</p>
+            <div className="grid grid-cols-5 gap-1.5 text-[10px]">
+              <LegendTile Icon={HairballIcon} tint="#6B4423" pts="-3" danger />
+              <LegendTile Icon={ShoeIcon}     tint="#8B5A2B" pts="-4" danger />
+              <LegendTile Icon={SpiderIcon}   tint="#4B0082" pts="-5" danger />
+              <LegendTile Icon={BombIcon}     tint="#DC2626" pts="-6" danger />
+              <LegendTile Icon={ThunderIcon}  tint="#FBBF24" pts="-8" danger />
             </div>
           </div>
           <button onClick={start}
@@ -487,6 +651,7 @@ export default function TreatTumbleGame() {
       {/* ── Falling items ───────────────────────────────────────────────────── */}
       {gameState !== 'idle' && items.map(it => {
         const meta = ITEMS[it.kind]
+        const danger = meta.danger
         return (
           <div key={it.id} className="absolute pointer-events-none z-10"
             style={{
@@ -494,26 +659,55 @@ export default function TreatTumbleGame() {
               top: it.y - ITEM_SIZE / 2,
               width: ITEM_SIZE,
               height: ITEM_SIZE,
-              animation: 'itemSpin 1.4s linear infinite',
-              filter: `drop-shadow(0 3px 0 rgba(0,0,0,0.25)) drop-shadow(0 0 6px ${meta.tint}55)`,
+              animation: danger ? 'dangerWobble 0.45s ease-in-out infinite' : 'itemSpin 1.4s linear infinite',
+              filter: danger
+                ? `drop-shadow(0 0 8px rgba(220,38,38,0.95)) drop-shadow(0 2px 4px rgba(0,0,0,0.4))`
+                : `drop-shadow(0 3px 0 rgba(0,0,0,0.25)) drop-shadow(0 0 6px ${meta.tint}55)`,
             }}>
+            {/* Danger warning ring */}
+            {danger && (
+              <>
+                <div className="absolute pointer-events-none" style={{
+                  left: '50%', top: '50%',
+                  width: ITEM_SIZE + 14, height: ITEM_SIZE + 14,
+                  marginLeft: -(ITEM_SIZE + 14) / 2, marginTop: -(ITEM_SIZE + 14) / 2,
+                  borderRadius: '50%',
+                  border: '2px dashed #DC2626',
+                  animation: 'dangerRing 0.6s linear infinite',
+                  opacity: 0.85,
+                }} />
+                <div className="absolute font-pixel text-white" style={{
+                  top: -14, left: '50%', transform: 'translateX(-50%)',
+                  fontSize: 10,
+                  background: '#DC2626',
+                  border: '2px solid #7F1D1D',
+                  borderRadius: 3,
+                  padding: '0 4px',
+                  boxShadow: '0 2px 0 #7F1D1D',
+                  letterSpacing: 1,
+                  animation: 'dangerBadge 0.5s ease-in-out infinite',
+                }}>!</div>
+              </>
+            )}
             <meta.Icon size={ITEM_SIZE} />
           </div>
         )
       })}
 
-      {/* ── Eren ────────────────────────────────────────────────────────────── */}
+      {/* ── Eren (new sprite) ───────────────────────────────────────────────── */}
       {gameState !== 'idle' && (
         <div className="absolute pointer-events-none z-20"
           style={{
             left: `${erenX}%`,
-            bottom: 36,
+            bottom: 48,
             transform: 'translateX(-50%)',
             transition: dragging.current ? 'none' : 'left 0.08s ease-out',
-            filter: shake ? 'drop-shadow(0 0 8px rgba(220,38,38,0.8))' : 'drop-shadow(0 4px 0 rgba(0,0,0,0.2))',
+            filter: hurtFlash
+              ? 'drop-shadow(0 0 10px rgba(220,38,38,1)) drop-shadow(0 0 16px rgba(220,38,38,0.6))'
+              : 'drop-shadow(0 5px 0 rgba(0,0,0,0.25)) drop-shadow(0 0 8px rgba(255,255,255,0.25))',
             animation: 'erenBob 0.7s ease-in-out infinite',
           }}>
-          <ErenPaw size={EREN_WIDTH} />
+          <ErenSprite size={EREN_WIDTH} />
         </div>
       )}
 
@@ -521,9 +715,9 @@ export default function TreatTumbleGame() {
       {floats.map(f => (
         <div key={f.id} className="absolute z-30 pointer-events-none font-pixel" style={{
           left: f.x, top: f.y, transform: 'translateX(-50%)',
-          color: f.color, fontSize: 12, letterSpacing: 1,
-          textShadow: '2px 2px 0 rgba(0,0,0,0.5)',
-          animation: 'floatUp 0.85s ease-out forwards',
+          color: f.color, fontSize: 13, letterSpacing: 1,
+          textShadow: '2px 2px 0 rgba(0,0,0,0.6)',
+          animation: 'floatUp 0.95s ease-out forwards',
         }}>
           {f.text}
         </div>
@@ -532,7 +726,7 @@ export default function TreatTumbleGame() {
       {/* ── Finish overlay ─────────────────────────────────────────────────── */}
       {gameState === 'finished' && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 p-6"
-          style={{ background: 'rgba(60,25,0,0.6)', backdropFilter: 'blur(4px)' }}>
+          style={{ background: 'rgba(60,25,0,0.65)', backdropFilter: 'blur(4px)' }}>
           <div className="px-6 py-6 max-w-[340px] w-full text-center relative"
             style={{ background: 'linear-gradient(180deg, #FFF8E0 0%, #FFF0C0 100%)', border: '3px solid #D97706', borderRadius: 6, boxShadow: '0 5px 0 #B45309, 0 0 24px rgba(251,191,36,0.6)' }}>
             <div className="flex justify-center mb-3">
@@ -546,7 +740,7 @@ export default function TreatTumbleGame() {
             </p>
             <div className="flex items-center justify-center gap-1 mb-4" style={{ color: '#A16207' }}>
               <IconCoin size={14} />
-              <span className="font-pixel" style={{ fontSize: 8 }}>+{Math.min(30, Math.max(0, Math.floor(score / 6)))} coins</span>
+              <span className="font-pixel" style={{ fontSize: 8 }}>+{Math.min(40, Math.max(0, Math.floor(score / 5)))} coins</span>
             </div>
             <div className="flex gap-2 justify-center">
               <button onClick={start}
@@ -575,25 +769,60 @@ export default function TreatTumbleGame() {
           50%  { transform: rotate(8deg); }
           to   { transform: rotate(-8deg); }
         }
+        @keyframes dangerWobble {
+          0%, 100% { transform: rotate(-6deg) scale(1); }
+          50%      { transform: rotate(6deg) scale(1.08); }
+        }
         @keyframes erenBob {
           0%, 100% { transform: translateX(-50%) translateY(0); }
-          50%      { transform: translateX(-50%) translateY(-4px); }
+          50%      { transform: translateX(-50%) translateY(-5px); }
         }
         @keyframes floatUp {
           0%   { transform: translateX(-50%) translateY(0); opacity: 1; }
-          100% { transform: translateX(-50%) translateY(-40px); opacity: 0; }
+          100% { transform: translateX(-50%) translateY(-46px); opacity: 0; }
         }
         @keyframes timerPulse {
           0%, 100% { transform: scale(1); }
-          50%      { transform: scale(1.05); }
+          50%      { transform: scale(1.08); }
         }
         @keyframes sceneShake {
           0%, 100% { transform: translateX(0); }
-          25%      { transform: translateX(-5px); }
-          50%      { transform: translateX(5px); }
-          75%      { transform: translateX(-3px); }
+          20%      { transform: translateX(-6px); }
+          45%      { transform: translateX(6px); }
+          70%      { transform: translateX(-4px); }
+        }
+        @keyframes hurtFade {
+          from { opacity: 1; }
+          to   { opacity: 0; }
+        }
+        @keyframes heartBeat {
+          0%, 100% { transform: scale(1); }
+          50%      { transform: scale(1.18); }
+        }
+        @keyframes dangerRing {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
+        @keyframes dangerBadge {
+          0%, 100% { transform: translateX(-50%) scale(1); }
+          50%      { transform: translateX(-50%) scale(1.18); }
         }
       `}</style>
+    </div>
+  )
+}
+
+// ── Small legend tile used in intro ─────────────────────────────────────────
+function LegendTile({ Icon, tint, pts, danger }: { Icon: React.FC<{ size?: number }>, tint: string, pts: string, danger?: boolean }) {
+  return (
+    <div className="flex flex-col items-center gap-1 p-1.5"
+      style={{
+        background: danger ? 'rgba(220,38,38,0.1)' : `${tint}22`,
+        border: `1px solid ${danger ? '#DC2626' : tint}`,
+        borderRadius: 3,
+      }}>
+      <Icon size={22} />
+      <span className="font-pixel" style={{ fontSize: 6, color: danger ? '#991B1B' : '#92400E' }}>{pts}</span>
     </div>
   )
 }

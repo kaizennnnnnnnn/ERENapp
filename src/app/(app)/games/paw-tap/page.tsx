@@ -280,6 +280,55 @@ export default function PawTapGame() {
           if (!f.visible) return null
           const isDanger = f.kind === 'danger'
           const isBonus = f.kind === 'bonus'
+          if (isDanger) {
+            return (
+              <div key={f.id} className="absolute" style={{ left: f.x, top: f.y, transform: 'translate(-50%, -50%)' }}>
+                {/* Pulsing red warning ring */}
+                <div className="absolute left-1/2 top-1/2 pointer-events-none" style={{
+                  width: 58, height: 58,
+                  marginLeft: -29, marginTop: -29,
+                  borderRadius: '50%',
+                  border: '3px solid #FF2020',
+                  boxShadow: '0 0 14px rgba(255,32,32,0.85), inset 0 0 10px rgba(255,32,32,0.5)',
+                  animation: 'dangerRing 0.55s ease-in-out infinite',
+                }} />
+                {/* Inner red glow fill */}
+                <div className="absolute left-1/2 top-1/2 pointer-events-none" style={{
+                  width: 48, height: 48,
+                  marginLeft: -24, marginTop: -24,
+                  borderRadius: '50%',
+                  background: 'radial-gradient(circle, rgba(255,50,50,0.45) 0%, rgba(255,50,50,0.15) 55%, transparent 80%)',
+                  animation: 'dangerGlow 0.8s ease-in-out infinite',
+                }} />
+                {/* Danger sign marker */}
+                <div className="absolute pointer-events-none font-pixel" style={{
+                  top: -26, left: '50%', transform: 'translateX(-50%)',
+                  fontSize: 12,
+                  color: '#FFFFFF',
+                  background: '#DC2626',
+                  border: '2px solid #7F1D1D',
+                  borderRadius: 3,
+                  padding: '1px 5px',
+                  boxShadow: '0 2px 0 #7F1D1D, 0 0 6px rgba(220,38,38,0.8)',
+                  letterSpacing: 1,
+                  animation: 'dangerBadge 0.5s ease-in-out infinite',
+                }}>!</div>
+                <button
+                  onClick={() => catchFish(f)}
+                  className="relative active:scale-125 transition-transform duration-100"
+                  style={{
+                    fontSize: 30,
+                    lineHeight: 1,
+                    filter: 'drop-shadow(0 0 8px rgba(255,20,20,1)) drop-shadow(0 2px 4px rgba(0,0,0,0.5))',
+                    animation: 'dangerPulse 0.45s ease-in-out infinite',
+                    background: 'transparent',
+                  }}
+                >
+                  {f.emoji}
+                </button>
+              </div>
+            )
+          }
           return (
             <button
               key={f.id}
@@ -289,14 +338,10 @@ export default function PawTapGame() {
                 left: f.x, top: f.y,
                 fontSize: isBonus ? 34 : 28,
                 lineHeight: 1,
-                filter: isDanger
-                  ? 'drop-shadow(0 0 6px rgba(255,50,50,0.8)) drop-shadow(0 2px 4px rgba(0,0,0,0.4))'
-                  : isBonus
+                filter: isBonus
                   ? 'drop-shadow(0 0 8px rgba(255,215,0,0.9)) drop-shadow(0 2px 4px rgba(0,0,0,0.4))'
                   : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
-                animation: isDanger
-                  ? 'dangerPulse 0.5s ease-in-out infinite'
-                  : isBonus
+                animation: isBonus
                   ? 'bonusShine 0.8s ease-in-out infinite'
                   : 'fishWobble 1.2s ease-in-out infinite',
               }}
@@ -428,8 +473,20 @@ export default function PawTapGame() {
           50%       { transform: translate(-50%,-50%) rotate(8deg); }
         }
         @keyframes dangerPulse {
-          0%, 100% { transform: translate(-50%,-50%) scale(1) rotate(-3deg); }
-          50%       { transform: translate(-50%,-50%) scale(1.15) rotate(3deg); }
+          0%, 100% { transform: scale(1) rotate(-4deg); }
+          50%       { transform: scale(1.18) rotate(4deg); }
+        }
+        @keyframes dangerRing {
+          0%, 100% { opacity: 0.9; transform: scale(1); }
+          50%       { opacity: 0.55; transform: scale(1.12); }
+        }
+        @keyframes dangerGlow {
+          0%, 100% { opacity: 0.7; transform: scale(1); }
+          50%       { opacity: 1;   transform: scale(1.2); }
+        }
+        @keyframes dangerBadge {
+          0%, 100% { transform: translateX(-50%) translateY(0) scale(1); }
+          50%       { transform: translateX(-50%) translateY(-2px) scale(1.1); }
         }
         @keyframes bonusShine {
           0%, 100% { transform: translate(-50%,-50%) scale(1) rotate(-10deg); }
