@@ -78,7 +78,7 @@ export default function WashScene({ onClose }: Props) {
       }
       if (px > 22 && px < 78 && py > 55 && py < 95) {
         setCoverage(c => {
-          const next = Math.min(100, c + 1.5)
+          const next = Math.min(100, c + 0.7)
           coverageRef.current = next
           if (next >= 95 && !showShowerRef.current) {
             showShowerRef.current = true
@@ -102,11 +102,11 @@ export default function WashScene({ onClose }: Props) {
       }
       if (px > 22 && px < 78 && py > 55 && py < 95) {
         setCoverage(c => {
-          const next = Math.max(0, c - 0.6)
+          const next = Math.max(0, c - 0.3)
           coverageRef.current = next
           return next
         })
-        setBubbles(bs => bs.slice(0, Math.max(0, bs.length - 3)))
+        setBubbles(bs => bs.slice(0, Math.max(0, bs.length - 1)))
       }
     }
   }, [])
@@ -160,7 +160,7 @@ export default function WashScene({ onClose }: Props) {
       <div className="absolute inset-0" style={{ backgroundImage: 'url(/bathroom.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
       {/* ══ TAP DRIP ══════════════════════════════════════════════════════ */}
-      <div className="absolute pointer-events-none" style={{ left: 'calc(50% + 2px)', top: 'calc(50% + 8px)', zIndex: 15 }}>
+      <div className="absolute pointer-events-none" style={{ left: 'calc(50% + 2px)', top: 'calc(50% + 10px)', zIndex: 15 }}>
         <div className="tap-drop" />
         <div className="tap-splash" />
       </div>
@@ -346,14 +346,14 @@ export default function WashScene({ onClose }: Props) {
         @keyframes tapDrop {
           0%   { transform: translateY(-3px) scale(0.6, 0.4); opacity: 0; }
           5%   { transform: translateY(0) scale(1, 1); opacity: 1; }
-          22%  { transform: translateY(calc(4vh + 6px)) scale(0.85, 1.3); opacity: 1; }
-          23%, 100% { transform: translateY(calc(4vh + 6px)) scale(1, 1); opacity: 0; }
+          24%  { transform: translateY(calc(4vh + 8px)) scale(0.85, 1.3); opacity: 1; }
+          25%, 100% { transform: translateY(calc(4vh + 8px)) scale(1, 1); opacity: 0; }
         }
 
         .tap-splash {
           position: absolute;
           left: 0;
-          top: calc(4vh + 6px);
+          top: calc(4vh + 8px);
           margin-left: -6px;
           width: 12px;
           height: 2px;
@@ -363,10 +363,10 @@ export default function WashScene({ onClose }: Props) {
           animation: tapSplash 1.6s linear infinite;
         }
         @keyframes tapSplash {
-          0%, 22%  { opacity: 0; transform: scale(0.3); }
-          23%      { opacity: 0.95; transform: scale(1); }
-          28%      { opacity: 0.95; transform: scale(1.4); }
-          29%, 100% { opacity: 0; transform: scale(1); }
+          0%, 24%  { opacity: 0; transform: scale(0.3); }
+          25%      { opacity: 0.95; transform: scale(1); }
+          30%      { opacity: 0.95; transform: scale(1.4); }
+          31%, 100% { opacity: 0; transform: scale(1); }
         }
       `}</style>
     </div>
