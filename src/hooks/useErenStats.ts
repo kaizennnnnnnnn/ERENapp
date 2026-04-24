@@ -25,29 +25,9 @@ const DECAY_PER_HOUR = {
 const DECAY_CAP_HOURS = 12 // cap per run — a 3-day absence shouldn't instantly zero stats
 const DECAY_MIN_SAVE_HOURS = 0.05 // ~3 min — below this, don't bother writing to DB
 
-// Post to /api/notify-stats so push notifications fire when a threshold is
-// crossed. Fire-and-forget — errors here shouldn't block stat updates.
-function fireThresholdPush(householdId: string, oldStats: ErenStats, newStats: ErenStats) {
-  const payload = {
-    household_id: householdId,
-    oldStats: {
-      happiness: oldStats.happiness, hunger: oldStats.hunger, energy: oldStats.energy,
-      sleep_quality: oldStats.sleep_quality, cleanliness: oldStats.cleanliness ?? 100,
-      is_sick: oldStats.is_sick,
-    },
-    newStats: {
-      happiness: newStats.happiness, hunger: newStats.hunger, energy: newStats.energy,
-      sleep_quality: newStats.sleep_quality, cleanliness: newStats.cleanliness ?? 100,
-      is_sick: newStats.is_sick,
-    },
-  }
-  fetch('/api/notify-stats', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-    cache: 'no-store',
-  }).catch(() => {})
-}
+// Intentionally no client-initiated push. Threshold push notifications are
+// fired only by the server-side /api/decay cron, so opening the app doesn't
+// trigger a push for stats the user is about to see in person.
 
 type DecayResult = {
   happiness: number
@@ -161,9 +141,6 @@ export function useErenStats(householdId: string | null) {
       last_decay_at: decayed.last_decay_at,
       updated_at: new Date().toISOString(),
     }).eq('household_id', householdId)
-
-    // Push a threshold-crossing notification if any stat just crossed 50/10.
-    fireThresholdPush(householdId, raw, decayed)
   }, [householdId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchStats() }, [fetchStats])

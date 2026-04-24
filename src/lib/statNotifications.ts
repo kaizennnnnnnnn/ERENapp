@@ -41,6 +41,9 @@ function saveNotifState(state: Record<string, NotifRecord>) {
 
 async function sendNotification(title: string, body: string, tag: string) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return
+  // Skip when the app is in the foreground — the user can see the stats
+  // drop on-screen, and a system toast on top of the open app is noisy.
+  if (typeof document !== 'undefined' && document.visibilityState === 'visible') return
   try {
     const reg = await navigator.serviceWorker?.ready
     if (reg) {

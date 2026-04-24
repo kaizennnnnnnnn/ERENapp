@@ -50,25 +50,25 @@ export function IconHeart({ size = 20 }: IconProps) {
   }, size)
 }
 
-// ── DRUMSTICK (hunger) — held at an angle, bone off to the upper-right ────
+// ── DRUMSTICK (hunger) — horizontal, meat on the left, bone to the right ──
 export function IconMeat({ size = 20 }: IconProps) {
   const grid = [
-    '.........KKK',
-    '........KWWK',
-    '.......KWLK.',
-    '......KWWK..',
-    '.....KWWK...',
-    '....KWWKK...',
-    '...KKRRRRKK.',
-    '..KRMSSSMMRK',
-    '.KRMMSSSMMRK',
-    '.KRMMMMMMMRK',
-    '.KRMMMMMMMRK',
-    '..KKRRRRRKK.',
+    '............',
+    '..KKKKK.....',
+    '.KMSSSSMK...',
+    'KMMSSSSMMK..',
+    'KMMSSSMMKKKK',
+    'KMMMMMMMKWLK',
+    'KMSSMMMMKWWK',
+    'KMMMMMMMKKKK',
+    'KMMSSMMMMK..',
+    '.KMSSSMMMK..',
+    '..KKKKKKK...',
+    '............',
   ]
   return drawPixels(grid, {
     K: '#1A0A00', W: '#FFF0D0', L: '#FFFEF4',
-    R: '#5A1F08', M: '#A85020', S: '#E89038',
+    M: '#A85020', S: '#E89038',
   }, size)
 }
 
