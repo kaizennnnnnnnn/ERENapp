@@ -11,7 +11,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useCare } from '@/contexts/CareContext'
 import {
   IconController, IconMouse, IconYarn, IconPaw, IconFish,
-  IconStar, IconCrown, IconHeart,
+  IconStar, IconCrown, IconHeart, IconMeat,
 } from '@/components/PixelIcons'
 import type { GameType, Profile } from '@/types'
 
@@ -64,6 +64,30 @@ const GAMES: GameMeta[] = [
     accent: '#3A88B8',
     Icon: IconPaw,
     preview: [IconFish, IconFish, IconPaw],
+  },
+  {
+    id: 'memory_match' as GameType,
+    href: '/games/memory-match',
+    title: 'PURR-FECT MEMORY',
+    desc: 'Flip cards, match pairs, chain combos!',
+    bg: 'linear-gradient(135deg, #F3E8FF, #E9D5FF)',
+    border: '#A78BFA',
+    shadow: '#7C3AED',
+    accent: '#7C3AED',
+    Icon: IconStar,
+    preview: [IconYarn, IconHeart, IconStar],
+  },
+  {
+    id: 'treat_tumble' as GameType,
+    href: '/games/treat-tumble',
+    title: 'TREAT TUMBLE',
+    desc: 'Drag Eren to catch treats, dodge junk!',
+    bg: 'linear-gradient(135deg, #FFF8D0, #FFE8A0)',
+    border: '#F59E0B',
+    shadow: '#B45309',
+    accent: '#B45309',
+    Icon: IconMeat,
+    preview: [IconFish, IconStar, IconMeat],
   },
 ]
 
