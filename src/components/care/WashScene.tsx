@@ -160,7 +160,7 @@ export default function WashScene({ onClose }: Props) {
       <div className="absolute inset-0" style={{ backgroundImage: 'url(/bathroom.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
       {/* ══ TAP DRIP ══════════════════════════════════════════════════════ */}
-      <div className="absolute pointer-events-none" style={{ left: '50%', top: 'calc(50% + 4px)', zIndex: 15 }}>
+      <div className="absolute pointer-events-none" style={{ left: '50%', top: 'calc(50% + 6px)', zIndex: 15 }}>
         <div className="tap-drop" />
         <div className="tap-splash" />
       </div>
@@ -346,14 +346,14 @@ export default function WashScene({ onClose }: Props) {
         @keyframes tapDrop {
           0%   { transform: translateY(-3px) scale(0.6, 0.4); opacity: 0; }
           5%   { transform: translateY(0) scale(1, 1); opacity: 1; }
-          18%  { transform: translateY(4vh) scale(0.85, 1.3); opacity: 1; }
-          19%, 100% { transform: translateY(4vh) scale(1, 1); opacity: 0; }
+          22%  { transform: translateY(calc(4vh + 4px)) scale(0.85, 1.3); opacity: 1; }
+          23%, 100% { transform: translateY(calc(4vh + 4px)) scale(1, 1); opacity: 0; }
         }
 
         .tap-splash {
           position: absolute;
           left: 0;
-          top: 4vh;
+          top: calc(4vh + 4px);
           margin-left: -6px;
           width: 12px;
           height: 2px;
@@ -363,10 +363,10 @@ export default function WashScene({ onClose }: Props) {
           animation: tapSplash 1.6s linear infinite;
         }
         @keyframes tapSplash {
-          0%, 18%  { opacity: 0; transform: scale(0.3); }
-          19%      { opacity: 0.95; transform: scale(1); }
-          24%      { opacity: 0.95; transform: scale(1.4); }
-          25%, 100% { opacity: 0; transform: scale(1); }
+          0%, 22%  { opacity: 0; transform: scale(0.3); }
+          23%      { opacity: 0.95; transform: scale(1); }
+          28%      { opacity: 0.95; transform: scale(1.4); }
+          29%, 100% { opacity: 0; transform: scale(1); }
         }
       `}</style>
     </div>
