@@ -21,7 +21,7 @@ const STAT_ALERTS: StatAlert[] = [
 ]
 
 const STORAGE_KEY = 'eren_stat_notifs_v2'
-const COOLDOWN_MS = 4 * 60 * 60 * 1000 // 4 hours — don't re-notify for same level within this window
+const COOLDOWN_MS = 30 * 60 * 1000 // 30 min — don't re-notify for same level within this window
 
 interface NotifRecord {
   level: 'ok' | 'warning' | 'critical'
@@ -68,18 +68,22 @@ export function checkStatNotifications(stats: ErenStats) {
 
     const cooledDown = now - prev.notifiedAt > COOLDOWN_MS
 
-    // Only notify on transitions (getting worse) AND if cooldown has passed
-    if (newLevel === 'warning' && prev.level === 'ok' && cooledDown) {
-      sendNotification(`${alert.icon} Eren`, alert.warningMsg, `stat-${alert.key}`)
-      state[alert.key] = { level: 'warning', notifiedAt: now }
-      changed = true
-    } else if (newLevel === 'critical' && prev.level !== 'critical' && cooledDown) {
+    // Fire critical any time we're in critical and cooldown has passed
+    if (newLevel === 'critical' && cooledDown) {
       sendNotification(`${alert.icon} Eren`, alert.criticalMsg, `stat-${alert.key}`)
       state[alert.key] = { level: 'critical', notifiedAt: now }
       changed = true
-    } else if (newLevel !== prev.level) {
-      // Level changed (e.g. got better) — update without notifying
-      state[alert.key] = { level: newLevel, notifiedAt: prev.notifiedAt }
+    }
+    // Fire warning when in warning and cooldown passed — don't refire if we
+    // just fired critical (prev.level === 'critical' covers the bounce case)
+    else if (newLevel === 'warning' && prev.level !== 'critical' && cooledDown) {
+      sendNotification(`${alert.icon} Eren`, alert.warningMsg, `stat-${alert.key}`)
+      state[alert.key] = { level: 'warning', notifiedAt: now }
+      changed = true
+    }
+    // Cleared back to ok — update state silently so the next drop re-notifies
+    else if (newLevel === 'ok' && prev.level !== 'ok') {
+      state[alert.key] = { level: 'ok', notifiedAt: 0 }
       changed = true
     }
   }
