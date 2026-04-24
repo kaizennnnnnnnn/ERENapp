@@ -24,6 +24,7 @@ export interface Profile {
   xp: number
   level: number
   coins: number
+  claimed_level?: number
   created_at: string
   updated_at: string
 }

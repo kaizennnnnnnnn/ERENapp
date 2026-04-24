@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
@@ -39,8 +40,9 @@ export default function StatsHeader() {
       {/* ── Row 1: Level badge + XP bar + Coins ── */}
       <div className="flex items-center gap-2">
 
-        {/* Level badge — pixel card with gold rivet corners */}
-        <div className="flex-shrink-0 relative"
+        {/* Level badge — pixel card with gold rivet corners (tap → /rewards) */}
+        <Link href="/rewards" aria-label="Open reward road"
+          className="flex-shrink-0 relative block active:translate-y-[1px] transition-transform"
           style={{
             width: 40, height: 40,
             background: 'linear-gradient(135deg, #D8B4FE 0%, #A78BFA 35%, #7C3AED 100%)',
@@ -63,7 +65,7 @@ export default function StatsHeader() {
               lineHeight: 1,
             }}>{level}</span>
           </div>
-        </div>
+        </Link>
 
         {/* XP bar — premium segmented with glowing tip */}
         <div id="stats-xp-bar" className="flex-1 flex flex-col justify-center px-2.5 h-10 relative"
