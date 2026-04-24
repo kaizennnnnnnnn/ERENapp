@@ -160,7 +160,7 @@ export default function WashScene({ onClose }: Props) {
       <div className="absolute inset-0" style={{ backgroundImage: 'url(/bathroom.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
       {/* ══ TAP DRIP ══════════════════════════════════════════════════════ */}
-      <div className="absolute pointer-events-none" style={{ left: '50%', top: 'calc(50% + 2px)', zIndex: 15 }}>
+      <div className="absolute pointer-events-none" style={{ left: '50%', top: 'calc(50% + 4px)', zIndex: 15 }}>
         <div className="tap-drop" />
         <div className="tap-splash" />
       </div>
@@ -339,34 +339,34 @@ export default function WashScene({ onClose }: Props) {
             0 0 3px rgba(110,180,230,0.7),
             inset 1px 1px 0 rgba(255,255,255,0.7),
             inset -1px -1px 0 rgba(70,140,190,0.25);
-          animation: tapDrop 2s cubic-bezier(0.45, 0, 0.85, 0.4) infinite;
+          animation: tapDrop 1.6s cubic-bezier(0.45, 0, 0.85, 0.4) infinite;
           transform-origin: top center;
           opacity: 0;
         }
         @keyframes tapDrop {
           0%   { transform: translateY(-3px) scale(0.6, 0.4); opacity: 0; }
-          4%   { transform: translateY(0) scale(1, 1); opacity: 1; }
-          30%  { transform: translateY(11vh) scale(0.85, 1.3); opacity: 1; }
-          31%, 100% { transform: translateY(11vh) scale(1, 1); opacity: 0; }
+          5%   { transform: translateY(0) scale(1, 1); opacity: 1; }
+          18%  { transform: translateY(4vh) scale(0.85, 1.3); opacity: 1; }
+          19%, 100% { transform: translateY(4vh) scale(1, 1); opacity: 0; }
         }
 
         .tap-splash {
           position: absolute;
           left: 0;
-          top: 11vh;
+          top: 4vh;
           margin-left: -6px;
           width: 12px;
           height: 2px;
           border-radius: 50%;
           background: radial-gradient(ellipse at center, rgba(150,205,235,0.85) 0%, rgba(110,180,230,0.35) 55%, rgba(110,180,230,0) 80%);
           opacity: 0;
-          animation: tapSplash 2s linear infinite;
+          animation: tapSplash 1.6s linear infinite;
         }
         @keyframes tapSplash {
-          0%, 30%  { opacity: 0; transform: scale(0.3); }
-          31%      { opacity: 0.95; transform: scale(1); }
-          38%      { opacity: 0.95; transform: scale(1.4); }
-          39%, 100% { opacity: 0; transform: scale(1); }
+          0%, 18%  { opacity: 0; transform: scale(0.3); }
+          19%      { opacity: 0.95; transform: scale(1); }
+          24%      { opacity: 0.95; transform: scale(1.4); }
+          25%, 100% { opacity: 0; transform: scale(1); }
         }
       `}</style>
     </div>
