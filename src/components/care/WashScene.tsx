@@ -160,7 +160,7 @@ export default function WashScene({ onClose }: Props) {
       <div className="absolute inset-0" style={{ backgroundImage: 'url(/bathroom.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
       {/* ══ TAP DRIP ══════════════════════════════════════════════════════ */}
-      <div className="absolute pointer-events-none" style={{ left: '50%', top: 'calc(50% + 6px)', zIndex: 15 }}>
+      <div className="absolute pointer-events-none" style={{ left: 'calc(50% + 2px)', top: 'calc(50% + 8px)', zIndex: 15 }}>
         <div className="tap-drop" />
         <div className="tap-splash" />
       </div>
@@ -346,14 +346,14 @@ export default function WashScene({ onClose }: Props) {
         @keyframes tapDrop {
           0%   { transform: translateY(-3px) scale(0.6, 0.4); opacity: 0; }
           5%   { transform: translateY(0) scale(1, 1); opacity: 1; }
-          22%  { transform: translateY(calc(4vh + 4px)) scale(0.85, 1.3); opacity: 1; }
-          23%, 100% { transform: translateY(calc(4vh + 4px)) scale(1, 1); opacity: 0; }
+          22%  { transform: translateY(calc(4vh + 6px)) scale(0.85, 1.3); opacity: 1; }
+          23%, 100% { transform: translateY(calc(4vh + 6px)) scale(1, 1); opacity: 0; }
         }
 
         .tap-splash {
           position: absolute;
           left: 0;
-          top: calc(4vh + 4px);
+          top: calc(4vh + 6px);
           margin-left: -6px;
           width: 12px;
           height: 2px;
