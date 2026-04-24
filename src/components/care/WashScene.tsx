@@ -160,9 +160,8 @@ export default function WashScene({ onClose }: Props) {
       <div className="absolute inset-0" style={{ backgroundImage: 'url(/bathroom.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
       {/* ══ TAP DRIP ══════════════════════════════════════════════════════ */}
-      <div className="absolute pointer-events-none" style={{ left: 'calc(50% + 2px)', top: 'calc(50% + 10px)', zIndex: 15 }}>
+      <div className="absolute pointer-events-none" style={{ left: 'calc(50% + 2px)', top: 'calc(50% + 11px)', zIndex: 15 }}>
         <div className="tap-drop" />
-        <div className="tap-splash" />
       </div>
 
       {/* ══ PIXEL EREN ════════════════════════════════════════════════════ */}
@@ -346,27 +345,8 @@ export default function WashScene({ onClose }: Props) {
         @keyframes tapDrop {
           0%   { transform: translateY(-3px) scale(0.6, 0.4); opacity: 0; }
           5%   { transform: translateY(0) scale(1, 1); opacity: 1; }
-          24%  { transform: translateY(calc(4vh + 8px)) scale(0.85, 1.3); opacity: 1; }
-          25%, 100% { transform: translateY(calc(4vh + 8px)) scale(1, 1); opacity: 0; }
-        }
-
-        .tap-splash {
-          position: absolute;
-          left: 0;
-          top: calc(4vh + 8px);
-          margin-left: -6px;
-          width: 12px;
-          height: 2px;
-          border-radius: 50%;
-          background: radial-gradient(ellipse at center, rgba(150,205,235,0.85) 0%, rgba(110,180,230,0.35) 55%, rgba(110,180,230,0) 80%);
-          opacity: 0;
-          animation: tapSplash 1.6s linear infinite;
-        }
-        @keyframes tapSplash {
-          0%, 24%  { opacity: 0; transform: scale(0.3); }
-          25%      { opacity: 0.95; transform: scale(1); }
-          30%      { opacity: 0.95; transform: scale(1.4); }
-          31%, 100% { opacity: 0; transform: scale(1); }
+          24%  { transform: translateY(calc(4vh + 9px)) scale(0.85, 1.3); opacity: 1; }
+          25%, 100% { transform: translateY(calc(4vh + 9px)) scale(1, 1); opacity: 0; }
         }
       `}</style>
     </div>
