@@ -159,6 +159,12 @@ export default function WashScene({ onClose }: Props) {
       {/* ══ BACKGROUND IMAGE ══ */}
       <div className="absolute inset-0" style={{ backgroundImage: 'url(/bathroom.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
+      {/* ══ TAP DRIP ══════════════════════════════════════════════════════ */}
+      <div className="absolute pointer-events-none" style={{ left: '50%', top: '50%', zIndex: 15 }}>
+        <div className="tap-drop" />
+        <div className="tap-splash" />
+      </div>
+
       {/* ══ PIXEL EREN ════════════════════════════════════════════════════ */}
       <div className={cn('absolute transition-all duration-500', done ? 'bottom-[12%]' : 'bottom-[10%]')}
         style={{ left: '50%', transform: 'translateX(-50%)' }}>
@@ -318,6 +324,49 @@ export default function WashScene({ onClose }: Props) {
         @keyframes fall {
           from { transform: translateY(-4px); opacity: 1; }
           to   { transform: translateY(40px); opacity: 0; }
+        }
+
+        .tap-drop {
+          position: absolute;
+          left: 0;
+          top: 0;
+          margin-left: -2px;
+          width: 4px;
+          height: 6px;
+          background: linear-gradient(180deg, rgba(200,230,245,0.85) 0%, rgba(110,180,225,0.98) 100%);
+          border-radius: 50% 50% 55% 55% / 35% 35% 85% 85%;
+          box-shadow:
+            0 0 3px rgba(110,180,230,0.7),
+            inset 1px 1px 0 rgba(255,255,255,0.7),
+            inset -1px -1px 0 rgba(70,140,190,0.25);
+          animation: tapDrop 2.6s cubic-bezier(0.45, 0, 0.85, 0.4) infinite;
+          transform-origin: top center;
+        }
+        @keyframes tapDrop {
+          0%   { transform: translateY(-3px) scale(0.6, 0.4); opacity: 0; }
+          6%   { transform: translateY(0) scale(1, 1); opacity: 1; }
+          25%  { transform: translateY(3vh) scale(0.9, 1.15); opacity: 1; }
+          80%  { transform: translateY(11vh) scale(0.85, 1.3); opacity: 1; }
+          86%  { transform: translateY(11.5vh) scale(1.4, 0.25); opacity: 0.9; }
+          92%, 100% { transform: translateY(11.5vh) scale(1.4, 0.25); opacity: 0; }
+        }
+
+        .tap-splash {
+          position: absolute;
+          left: 0;
+          top: 11.5vh;
+          margin-left: -6px;
+          width: 12px;
+          height: 2px;
+          border-radius: 50%;
+          background: radial-gradient(ellipse at center, rgba(150,205,235,0.85) 0%, rgba(110,180,230,0.35) 55%, rgba(110,180,230,0) 80%);
+          opacity: 0;
+          animation: tapSplash 2.6s ease-out infinite;
+        }
+        @keyframes tapSplash {
+          0%, 82%  { opacity: 0; transform: scale(0.3); }
+          86%      { opacity: 0.95; transform: scale(1); }
+          100%     { opacity: 0; transform: scale(1.8); }
         }
       `}</style>
     </div>
