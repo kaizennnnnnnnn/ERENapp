@@ -160,7 +160,7 @@ export default function WashScene({ onClose }: Props) {
       <div className="absolute inset-0" style={{ backgroundImage: 'url(/bathroom.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
       {/* ══ TAP DRIP ══════════════════════════════════════════════════════ */}
-      <div className="absolute pointer-events-none" style={{ left: 'calc(50% + 2px)', top: 'calc(50% + 12px)', zIndex: 15 }}>
+      <div className="absolute pointer-events-none" style={{ left: 'calc(50% + 2px)', top: 'calc(50% + 14px)', zIndex: 15 }}>
         <div className="tap-drop" />
       </div>
 
