@@ -17,7 +17,7 @@ export default function PlayScene({ onClose }: Props) {
   const { stats, applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
 
-  const [ballPos,      setBallPos]      = useState<BallPos>({ x: 50, y: 78 })
+  const [ballPos,      setBallPos]      = useState<BallPos>({ x: 50, y: 84 })
   const [throwCount,   setThrowCount]   = useState(0)
   const [done,         setDone]         = useState(false)
   const [saving,       setSaving]       = useState(false)
@@ -35,7 +35,7 @@ export default function PlayScene({ onClose }: Props) {
     const step = () => {
       x += dvx; y += dvy; dvy += 0.45
       if (x <= 3 || x >= 97) { dvx *= -0.75; x = x <= 3 ? 3 : 97 }
-      if (y >= 84)            { dvy *= -0.65; y = 84; dvx *= 0.88 }
+      if (y >= 88)            { dvy *= -0.65; y = 88; dvx *= 0.88 }
       if (y <= 20)            { dvy *= -0.8;  y = 20 }
       setBallPos({ x, y })
       setTrailDots(ts => [...ts.slice(-8), { id: trailId.current++, x, y }])

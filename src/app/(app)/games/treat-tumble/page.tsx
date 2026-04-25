@@ -16,11 +16,11 @@ import {
 const GAME_DURATION = 45
 const START_LIVES   = 3
 const MAX_LIVES     = 5
-const START_SPAWN_MS = 820
-const MIN_SPAWN_MS   = 220
-const SPAWN_RAMP_PER_SEC = 18          // was 12 — steeper ramp
-const ITEM_BASE_SPEED = 160             // was 140
-const ITEM_SPEED_PER_SEC = 8            // was 4 — faster climb
+const START_SPAWN_MS = 760
+const MIN_SPAWN_MS   = 170
+const SPAWN_RAMP_PER_SEC = 24          // was 18 — even steeper
+const ITEM_BASE_SPEED = 175             // was 160
+const ITEM_SPEED_PER_SEC = 12           // was 8 — climbs faster
 const EREN_WIDTH  = 72
 const ITEM_SIZE   = 34
 
@@ -176,7 +176,7 @@ function ThunderIcon({ size = 20 }: { size?: number }) {
   )
 }
 
-// ── New Eren sprite — bigger, more detailed Ragdoll face ─────────────────────
+// ── Eren sprite — Ragdoll, smiling, rosy cheeks, happy eyes ───────────────────
 function ErenSprite({ size = 72 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 22 22" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
@@ -198,24 +198,29 @@ function ErenSprite({ size = 72 }: { size?: number }) {
       {/* brown mask (Ragdoll points) around eyes */}
       <rect x="5" y="6" width="3" height="2" fill="#D4B896" />
       <rect x="14" y="6" width="3" height="2" fill="#D4B896" />
-      {/* big blue eyes */}
+      {/* eyes — bigger highlights to read as cheerful */}
       <rect x="6" y="7" width="2" height="2" fill="#6BAED6" />
-      <rect x="7" y="7" width="1" height="1" fill="#FFFFFF" />
-      <rect x="6" y="8" width="1" height="1" fill="#1A1A2E" />
+      <rect x="6" y="7" width="1" height="1" fill="#FFFFFF" />
+      <rect x="7" y="8" width="1" height="1" fill="#1A1A2E" />
       <rect x="14" y="7" width="2" height="2" fill="#6BAED6" />
       <rect x="14" y="7" width="1" height="1" fill="#FFFFFF" />
       <rect x="15" y="8" width="1" height="1" fill="#1A1A2E" />
+      {/* rosy cheeks */}
+      <rect x="5" y="9" width="2" height="1" fill="#F4B0B8" />
+      <rect x="15" y="9" width="2" height="1" fill="#F4B0B8" />
       {/* nose */}
       <rect x="10" y="9" width="2" height="1" fill="#F48B9B" />
       <rect x="10" y="10" width="2" height="1" fill="#4A2E1A" />
-      {/* mouth */}
+      {/* mouth — upturned smile :3 */}
       <rect x="9" y="11" width="1" height="1" fill="#4A2E1A" />
       <rect x="12" y="11" width="1" height="1" fill="#4A2E1A" />
-      {/* muzzle */}
+      <rect x="10" y="12" width="2" height="1" fill="#4A2E1A" />
+      {/* muzzle around the smile */}
       <rect x="10" y="11" width="2" height="1" fill="#F9EDD5" />
       {/* chin fluff */}
       <rect x="4" y="12" width="14" height="1" fill="#4A2E1A" />
-      <rect x="5" y="12" width="12" height="1" fill="#F9EDD5" />
+      <rect x="5" y="12" width="5" height="1" fill="#F9EDD5" />
+      <rect x="12" y="12" width="5" height="1" fill="#F9EDD5" />
       {/* body */}
       <rect x="4" y="13" width="14" height="1" fill="#4A2E1A" />
       <rect x="3" y="14" width="1" height="5" fill="#4A2E1A" />
@@ -230,11 +235,11 @@ function ErenSprite({ size = 72 }: { size?: number }) {
       <rect x="15" y="19" width="2" height="1" fill="#D4B896" />
       <rect x="5" y="20" width="3" height="1" fill="#4A2E1A" />
       <rect x="14" y="20" width="3" height="1" fill="#4A2E1A" />
-      {/* whiskers */}
-      <rect x="1" y="9" width="3" height="1" fill="rgba(255,255,255,0.6)" />
-      <rect x="18" y="9" width="3" height="1" fill="rgba(255,255,255,0.6)" />
-      <rect x="1" y="11" width="3" height="1" fill="rgba(255,255,255,0.6)" />
-      <rect x="18" y="11" width="3" height="1" fill="rgba(255,255,255,0.6)" />
+      {/* whiskers — tilted up to support smile */}
+      <rect x="1" y="9" width="3" height="1" fill="rgba(255,255,255,0.65)" />
+      <rect x="18" y="9" width="3" height="1" fill="rgba(255,255,255,0.65)" />
+      <rect x="2" y="11" width="2" height="1" fill="rgba(255,255,255,0.55)" />
+      <rect x="18" y="11" width="2" height="1" fill="rgba(255,255,255,0.55)" />
     </svg>
   )
 }
@@ -553,19 +558,33 @@ export default function TreatTumbleGame() {
                 }}>{Math.max(0, score)}</span>
               </div>
 
-              {/* Lives */}
-              <div className="flex items-center gap-1">
-                {Array.from({ length: MAX_LIVES }).map((_, i) => (
-                  <div key={i} style={{
-                    opacity: i < lives ? 1 : 0.2,
-                    transform: i < lives ? 'scale(1)' : 'scale(0.8)',
-                    transition: 'opacity 0.25s, transform 0.25s',
-                    filter: i < lives && lowLives && gameState === 'running' ? 'drop-shadow(0 0 4px rgba(255,107,157,0.9))' : 'none',
-                    animation: i < lives && lowLives && gameState === 'running' ? 'heartBeat 0.6s ease-in-out infinite' : 'none',
-                  }}>
-                    <IconHeart size={14} />
-                  </div>
-                ))}
+              {/* Lives — large, labelled */}
+              <div className="flex items-center gap-1.5 px-2 py-1"
+                style={{
+                  background: lowLives ? 'rgba(220,38,38,0.4)' : 'rgba(0,0,0,0.45)',
+                  border: lowLives ? '2px solid #FCA5A5' : '2px solid rgba(245,158,11,0.5)',
+                  borderRadius: 4,
+                  boxShadow: lowLives ? '0 2px 0 rgba(0,0,0,0.4), 0 0 8px rgba(248,113,113,0.55)' : '0 2px 0 rgba(0,0,0,0.4)',
+                  transition: 'all 0.25s',
+                }}>
+                <span className="font-pixel" style={{
+                  fontSize: 6, letterSpacing: 2,
+                  color: lowLives ? '#FFE4E4' : '#FCD34D',
+                  textShadow: '1px 1px 0 rgba(0,0,0,0.5)',
+                }}>HP</span>
+                <div className="flex items-center gap-0.5">
+                  {Array.from({ length: MAX_LIVES }).map((_, i) => (
+                    <div key={i} style={{
+                      opacity: i < lives ? 1 : 0.18,
+                      transform: i < lives ? 'scale(1)' : 'scale(0.75)',
+                      transition: 'opacity 0.25s, transform 0.25s',
+                      filter: i < lives && lowLives && gameState === 'running' ? 'drop-shadow(0 0 5px rgba(255,107,157,1))' : 'none',
+                      animation: i < lives && lowLives && gameState === 'running' ? 'heartBeat 0.55s ease-in-out infinite' : 'none',
+                    }}>
+                      <IconHeart size={18} />
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -648,7 +667,7 @@ export default function TreatTumbleGame() {
         </div>
       )}
 
-      {/* ── Falling items ───────────────────────────────────────────────────── */}
+      {/* ── Falling items — dangers blend in, only a faint glow gives them away */}
       {gameState !== 'idle' && items.map(it => {
         const meta = ITEMS[it.kind]
         const danger = meta.danger
@@ -659,42 +678,17 @@ export default function TreatTumbleGame() {
               top: it.y - ITEM_SIZE / 2,
               width: ITEM_SIZE,
               height: ITEM_SIZE,
-              animation: danger ? 'dangerWobble 0.45s ease-in-out infinite' : 'itemSpin 1.4s linear infinite',
+              animation: 'itemSpin 1.4s linear infinite',
               filter: danger
-                ? `drop-shadow(0 0 8px rgba(220,38,38,0.95)) drop-shadow(0 2px 4px rgba(0,0,0,0.4))`
+                ? `drop-shadow(0 3px 0 rgba(0,0,0,0.3)) drop-shadow(0 0 4px rgba(180,30,30,0.35))`
                 : `drop-shadow(0 3px 0 rgba(0,0,0,0.25)) drop-shadow(0 0 6px ${meta.tint}55)`,
             }}>
-            {/* Danger warning ring */}
-            {danger && (
-              <>
-                <div className="absolute pointer-events-none" style={{
-                  left: '50%', top: '50%',
-                  width: ITEM_SIZE + 14, height: ITEM_SIZE + 14,
-                  marginLeft: -(ITEM_SIZE + 14) / 2, marginTop: -(ITEM_SIZE + 14) / 2,
-                  borderRadius: '50%',
-                  border: '2px dashed #DC2626',
-                  animation: 'dangerRing 0.6s linear infinite',
-                  opacity: 0.85,
-                }} />
-                <div className="absolute font-pixel text-white" style={{
-                  top: -14, left: '50%', transform: 'translateX(-50%)',
-                  fontSize: 10,
-                  background: '#DC2626',
-                  border: '2px solid #7F1D1D',
-                  borderRadius: 3,
-                  padding: '0 4px',
-                  boxShadow: '0 2px 0 #7F1D1D',
-                  letterSpacing: 1,
-                  animation: 'dangerBadge 0.5s ease-in-out infinite',
-                }}>!</div>
-              </>
-            )}
             <meta.Icon size={ITEM_SIZE} />
           </div>
         )
       })}
 
-      {/* ── Eren (new sprite) ───────────────────────────────────────────────── */}
+      {/* ── Eren (new sprite) + floating HP bar ─────────────────────────────── */}
       {gameState !== 'idle' && (
         <div className="absolute pointer-events-none z-20"
           style={{
@@ -707,6 +701,27 @@ export default function TreatTumbleGame() {
               : 'drop-shadow(0 5px 0 rgba(0,0,0,0.25)) drop-shadow(0 0 8px rgba(255,255,255,0.25))',
             animation: 'erenBob 0.7s ease-in-out infinite',
           }}>
+          {/* Floating HP indicator above head */}
+          <div className="flex items-center justify-center gap-0.5 mb-1"
+            style={{
+              padding: '2px 5px',
+              background: 'rgba(0,0,0,0.55)',
+              border: lowLives ? '2px solid #FCA5A5' : '2px solid rgba(255,255,255,0.45)',
+              borderRadius: 3,
+              boxShadow: lowLives ? '0 1px 0 rgba(0,0,0,0.45), 0 0 6px rgba(248,113,113,0.7)' : '0 1px 0 rgba(0,0,0,0.45)',
+              animation: lowLives ? 'heartBeat 0.5s ease-in-out infinite' : 'none',
+            }}>
+            {Array.from({ length: MAX_LIVES }).map((_, i) => (
+              <div key={i} style={{
+                opacity: i < lives ? 1 : 0.15,
+                transform: i < lives ? 'scale(1)' : 'scale(0.7)',
+                transition: 'opacity 0.25s, transform 0.25s',
+              }}>
+                <IconHeart size={10} />
+              </div>
+            ))}
+          </div>
+
           <ErenSprite size={EREN_WIDTH} />
         </div>
       )}
@@ -769,10 +784,6 @@ export default function TreatTumbleGame() {
           50%  { transform: rotate(8deg); }
           to   { transform: rotate(-8deg); }
         }
-        @keyframes dangerWobble {
-          0%, 100% { transform: rotate(-6deg) scale(1); }
-          50%      { transform: rotate(6deg) scale(1.08); }
-        }
         @keyframes erenBob {
           0%, 100% { transform: translateX(-50%) translateY(0); }
           50%      { transform: translateX(-50%) translateY(-5px); }
@@ -798,14 +809,6 @@ export default function TreatTumbleGame() {
         @keyframes heartBeat {
           0%, 100% { transform: scale(1); }
           50%      { transform: scale(1.18); }
-        }
-        @keyframes dangerRing {
-          from { transform: rotate(0deg); }
-          to   { transform: rotate(360deg); }
-        }
-        @keyframes dangerBadge {
-          0%, 100% { transform: translateX(-50%) scale(1); }
-          50%      { transform: translateX(-50%) scale(1.18); }
         }
       `}</style>
     </div>

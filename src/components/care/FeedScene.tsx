@@ -125,6 +125,13 @@ export default function FeedScene({ onClose }: Props) {
       {/* ══ BACKGROUND IMAGE ══ */}
       <div className="absolute inset-0" style={{ backgroundImage: 'url(/kitchen.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
+      {/* ══ KETTLE STEAM ══ */}
+      <div className="absolute pointer-events-none" style={{ left: '25%', top: '47%', zIndex: 5 }}>
+        <div className="kettle-puff kettle-puff-a" />
+        <div className="kettle-puff kettle-puff-b" />
+        <div className="kettle-puff kettle-puff-c" />
+      </div>
+
       {/* ══ EREN ══ */}
       <div className={cn('absolute z-20 transition-all duration-300', eatAnim ? 'bottom-[14%]' : 'bottom-[10%]')}
         style={{ left: '50%', transform: 'translateX(-50%)' }}>
@@ -252,6 +259,31 @@ export default function FeedScene({ onClose }: Props) {
           )}
         </div>
       )}
+
+      <style jsx>{`
+        .kettle-puff {
+          position: absolute;
+          left: 0;
+          top: 0;
+          margin-left: -4px;
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.95), rgba(220,225,230,0.55));
+          opacity: 0;
+          filter: blur(0.6px);
+        }
+        .kettle-puff-a { animation: kettleRise 3.2s ease-out 0s    infinite; }
+        .kettle-puff-b { animation: kettleRise 3.2s ease-out 1.05s infinite; }
+        .kettle-puff-c { animation: kettleRise 3.2s ease-out 2.1s  infinite; }
+        @keyframes kettleRise {
+          0%   { transform: translate(0, 0) scale(0.5);   opacity: 0; }
+          12%  { transform: translate(0, -2px) scale(0.8); opacity: 0.85; }
+          50%  { transform: translate(-3px, -22px) scale(1.1); opacity: 0.6; }
+          80%  { transform: translate(2px, -38px) scale(1.3); opacity: 0.25; }
+          100% { transform: translate(-1px, -50px) scale(1.45); opacity: 0; }
+        }
+      `}</style>
     </div>
   )
 }
