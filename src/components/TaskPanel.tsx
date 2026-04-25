@@ -10,6 +10,7 @@ import {
   IconMeat, IconYarn, IconMoonZ, IconBath, IconController,
   IconStar, IconCrown,
 } from './PixelIcons'
+import { playSound } from '@/lib/sounds'
 
 function TaskIcon({ task, size = 22 }: { task: TaskDef; size?: number }) {
   switch (task.id) {
@@ -52,7 +53,7 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
       <div
         className="absolute inset-0"
         style={{ background: 'rgba(30,10,60,0.45)' }}
-        onClick={() => setOpen(false)}
+        onClick={() => { playSound('ui_modal_close'); setOpen(false) }}
       />
 
       {/* Sheet */}
@@ -79,7 +80,7 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
             <span className="font-pixel text-purple-700" style={{ fontSize: 9 }}>QUESTS</span>
           </div>
           <button
-            onClick={() => setOpen(false)}
+            onClick={() => { playSound('ui_modal_close'); setOpen(false) }}
             className="w-8 h-8 flex items-center justify-center active:scale-90 transition-transform"
             style={{ borderRadius: 6, border: '2px solid #E0D0F8', background: 'white' }}
           >
@@ -193,7 +194,7 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
       {/* Quest button */}
       {compact ? (
         <button
-          onClick={() => setOpen(true)}
+          onClick={() => { playSound('ui_modal_open'); setOpen(true) }}
           className="w-full flex items-center gap-1 px-1.5 h-10 active:scale-[0.97] transition-transform relative"
           style={{
             background: 'linear-gradient(180deg, rgba(28,18,56,0.92) 0%, rgba(12,6,26,0.95) 100%)',
@@ -218,7 +219,7 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
         </button>
       ) : (
         <button
-          onClick={() => setOpen(true)}
+          onClick={() => { playSound('ui_modal_open'); setOpen(true) }}
           className="w-full mb-3 flex items-center gap-2 px-3 py-2 active:scale-[0.98] transition-transform"
           style={{
             background: 'white',

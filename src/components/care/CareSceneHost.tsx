@@ -10,6 +10,7 @@ import HospitalScene from './HospitalScene'
 import VetScene from './VetScene'
 import SchoolScene from './SchoolScene'
 import AnimatedEren from '@/components/AnimatedEren'
+import { playSound } from '@/lib/sounds'
 
 const LOOP_SCENES: CareScene[] = ['feed', 'play', 'sleep', 'wash', 'vet', 'school']
 
@@ -100,9 +101,11 @@ export default function CareSceneHost() {
     if (loopIdx === -1) return
     if (dir === 'left') {
       if (loopIdx === LOOP_SCENES.length - 1) { closeScene(); return }
+      playSound('ui_swipe_room')
       setSlideDir('left'); setAnimKey(k => k + 1); openScene(LOOP_SCENES[loopIdx + 1])
     } else {
       if (loopIdx === 0) { closeScene(); return }
+      playSound('ui_swipe_room')
       setSlideDir('right'); setAnimKey(k => k + 1); openScene(LOOP_SCENES[loopIdx - 1])
     }
   }
