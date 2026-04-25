@@ -26,6 +26,14 @@ export const SOUNDS = {
 
 export type SoundName = keyof typeof SOUNDS
 
+// Per-sound volume scaler in [0, 1]. Lets us quiet down individual
+// effects relative to the global volume (e.g. the modal open/close
+// chimes are louder than the rest after re-generation).
+const VOLUME_SCALE: Partial<Record<SoundName, number>> = {
+  ui_modal_open:  0.45,
+  ui_modal_close: 0.45,
+}
+
 const cache = new Map<SoundName, HTMLAudioElement>()
 let globalVolume = 0.55
 let muted = false
@@ -46,7 +54,8 @@ export function playSound(name: SoundName, opts: { volume?: number } = {}) {
   try {
     const base = getBase(name)
     const a = base.cloneNode(true) as HTMLAudioElement
-    a.volume = Math.max(0, Math.min(1, opts.volume ?? globalVolume))
+    const scale = VOLUME_SCALE[name] ?? 1
+    a.volume = Math.max(0, Math.min(1, (opts.volume ?? globalVolume) * scale))
     a.play().catch(() => { /* autoplay rejected — ignore */ })
   } catch {
     /* ignore */
