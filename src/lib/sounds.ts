@@ -14,9 +14,13 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const SOUNDS = {
-  // UI / navigation
-  ui_tap:               '/sounds/ui/ui_tap.mp3',
-  ui_back:              '/sounds/ui/ui_back.mp3',
+  // UI / navigation.
+  // ui_tap / ui_back deliberately point at the modal open/close chimes
+  // — the user wants every button across the app to share that single
+  // tone pair, so each callsite gets the same audio without having to
+  // rewrite every onClick handler.
+  ui_tap:               '/sounds/ui/ui_modal_open.mp3',
+  ui_back:              '/sounds/ui/ui_modal_close.mp3',
   ui_modal_open:        '/sounds/ui/ui_modal_open.mp3',
   ui_modal_close:       '/sounds/ui/ui_modal_close.mp3',
   ui_swipe_room:        '/sounds/ui/ui_swipe_room.mp3',
@@ -27,9 +31,12 @@ export const SOUNDS = {
 export type SoundName = keyof typeof SOUNDS
 
 // Per-sound volume scaler in [0, 1]. Lets us quiet down individual
-// effects relative to the global volume (e.g. the modal open/close
-// chimes are louder than the rest after re-generation).
+// effects relative to the global volume. The four button chimes share
+// the same audio + same scale so taps, back, modal open and modal
+// close all sit at the same level.
 const VOLUME_SCALE: Partial<Record<SoundName, number>> = {
+  ui_tap:         0.45,
+  ui_back:        0.45,
   ui_modal_open:  0.45,
   ui_modal_close: 0.45,
 }
