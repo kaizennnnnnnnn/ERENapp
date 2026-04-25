@@ -25,9 +25,21 @@ const DECAY_PER_HOUR = {
 const DECAY_CAP_HOURS = 12 // cap per run — a 3-day absence shouldn't instantly zero stats
 const DECAY_MIN_SAVE_HOURS = 0.05 // ~3 min — below this, don't bother writing to DB
 
-// Intentionally no client-initiated push. Threshold push notifications are
-// fired only by the server-side /api/decay cron, so opening the app doesn't
-// trigger a push for stats the user is about to see in person.
+// Client-initiated push ping. Only fires when the app is in the background
+// (document.visibilityState !== 'visible'), so users with the app open in
+// the foreground don't get a system toast for stats they already see on
+// screen. /api/notify-stats applies the same 2h per-tag cooldown that the
+// server cron uses, so this is safe to call freely.
+function maybeFireBackgroundPush(householdId: string) {
+  if (typeof document === 'undefined') return
+  if (document.visibilityState === 'visible') return
+  fetch('/api/notify-stats', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ household_id: householdId }),
+    cache: 'no-store',
+  }).catch(() => {})
+}
 
 type DecayResult = {
   happiness: number
@@ -141,6 +153,12 @@ export function useErenStats(householdId: string | null) {
       last_decay_at: decayed.last_decay_at,
       updated_at: new Date().toISOString(),
     }).eq('household_id', householdId)
+
+    // If the client just decayed across a threshold while the tab is in
+    // the background, ping the server so it can fire a push (cooldown-
+    // throttled). When the tab is visible we skip — user is looking at
+    // the bars dropping in real time, no push needed.
+    maybeFireBackgroundPush(householdId)
   }, [householdId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchStats() }, [fetchStats])

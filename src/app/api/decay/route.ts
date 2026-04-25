@@ -40,22 +40,16 @@ export async function GET(request: Request) {
   let pushesSent = 0
 
   const updates = allStats.map(async stat => {
-    // If last_decay_at is missing or old, just set to now and skip decay this run.
-    // Cron runs hourly, so we should never apply more than ~1 hour of decay at a time.
-    // Capping higher caused stats to zero out when last_decay_at was stale.
+    // If last_decay_at is missing, set to now and skip decay this run (but
+    // we still let the notification block below evaluate current state).
     const lastDecay = stat.last_decay_at ? new Date(stat.last_decay_at) : null
     if (!lastDecay) {
-      // Initialize last_decay_at to now, apply zero decay this run
       await supabase.from('eren_stats').update({
         last_decay_at: new Date().toISOString(),
       }).eq('id', stat.id)
-      return
     }
-    const hoursElapsed = Math.min(1.5, (Date.now() - lastDecay.getTime()) / 3600000)
-    if (hoursElapsed < 0.5) return // skip — not enough time passed
 
-    // Save old values for notification comparison
-    const oldStats = {
+    let currentStats = {
       happiness:     stat.happiness,
       hunger:        stat.hunger,
       energy:        stat.energy,
@@ -64,53 +58,57 @@ export async function GET(request: Request) {
       is_sick:       stat.is_sick,
     }
 
-    const newHappiness   = clampStat(stat.happiness    + DECAY_PER_HOUR.happiness    * hoursElapsed)
-    const newHunger      = clampStat(stat.hunger       + DECAY_PER_HOUR.hunger       * hoursElapsed)
-    const newEnergy      = clampStat(stat.energy       + DECAY_PER_HOUR.energy       * hoursElapsed)
-    const newSleep       = clampStat(stat.sleep_quality + DECAY_PER_HOUR.sleep_quality * hoursElapsed)
-    const newCleanliness = clampStat((stat.cleanliness ?? 100) + DECAY_PER_HOUR.cleanliness * hoursElapsed)
+    const hoursElapsed = lastDecay
+      ? Math.min(1.5, (Date.now() - lastDecay.getTime()) / 3600000)
+      : 0
 
-    // Passive weight loss (metabolism) — cat naturally loses weight over time
-    // Loses more if underfed, keeps weight if well-fed
-    const weightLossRate = stat.hunger < 40 ? -0.04 : -0.02
-    const newWeight = Math.max(2, Math.min(10, (stat.weight ?? 4) + weightLossRate * hoursElapsed))
+    // ── Decay block — only run if enough time has passed since last_decay_at.
+    if (hoursElapsed >= 0.5) {
+      const newHappiness   = clampStat(stat.happiness    + DECAY_PER_HOUR.happiness    * hoursElapsed)
+      const newHunger      = clampStat(stat.hunger       + DECAY_PER_HOUR.hunger       * hoursElapsed)
+      const newEnergy      = clampStat(stat.energy       + DECAY_PER_HOUR.energy       * hoursElapsed)
+      const newSleep       = clampStat(stat.sleep_quality + DECAY_PER_HOUR.sleep_quality * hoursElapsed)
+      const newCleanliness = clampStat((stat.cleanliness ?? 100) + DECAY_PER_HOUR.cleanliness * hoursElapsed)
 
-    const newIsSick = stat.is_sick
-      ? true
-      : shouldBecomeSick({ cleanliness: newCleanliness, sleep_quality: newSleep, weight: newWeight })
+      const weightLossRate = stat.hunger < 40 ? -0.04 : -0.02
+      const newWeight = Math.max(2, Math.min(10, (stat.weight ?? 4) + weightLossRate * hoursElapsed))
 
-    const newMood = computeErenMood({
-      happiness:     newHappiness,
-      hunger:        newHunger,
-      energy:        newEnergy,
-      sleep_quality: newSleep,
-      cleanliness:   newCleanliness,
-    })
+      const newIsSick = stat.is_sick
+        ? true
+        : shouldBecomeSick({ cleanliness: newCleanliness, sleep_quality: newSleep, weight: newWeight })
 
-    // Update stats
-    await supabase
-      .from('eren_stats')
-      .update({
-        happiness:     newHappiness,
-        hunger:        newHunger,
-        energy:        newEnergy,
-        sleep_quality: newSleep,
-        cleanliness:   newCleanliness,
-        weight:        Math.round(newWeight * 100) / 100,
-        is_sick:       newIsSick,
-        mood:          newMood,
-        last_decay_at: new Date().toISOString(),
-        updated_at:    new Date().toISOString(),
+      const newMood = computeErenMood({
+        happiness: newHappiness, hunger: newHunger, energy: newEnergy,
+        sleep_quality: newSleep, cleanliness: newCleanliness,
       })
-      .eq('id', stat.id)
 
-    // ── Check for notification triggers ──
-    const newStats = {
-      happiness: newHappiness, hunger: newHunger, energy: newEnergy,
-      sleep_quality: newSleep, cleanliness: newCleanliness, is_sick: newIsSick,
+      await supabase
+        .from('eren_stats')
+        .update({
+          happiness:     newHappiness,
+          hunger:        newHunger,
+          energy:        newEnergy,
+          sleep_quality: newSleep,
+          cleanliness:   newCleanliness,
+          weight:        Math.round(newWeight * 100) / 100,
+          is_sick:       newIsSick,
+          mood:          newMood,
+          last_decay_at: new Date().toISOString(),
+          updated_at:    new Date().toISOString(),
+        })
+        .eq('id', stat.id)
+
+      currentStats = {
+        happiness: newHappiness, hunger: newHunger, energy: newEnergy,
+        sleep_quality: newSleep, cleanliness: newCleanliness, is_sick: newIsSick,
+      }
     }
 
-    const allNotifs = getStatNotifications(oldStats, newStats)
+    // ── Notification block — ALWAYS runs, regardless of whether decay was
+    // applied this tick. State-based: if a stat is currently in warning/
+    // critical, the corresponding tag is a candidate. The cooldown filter
+    // below stops us from re-firing within 2h.
+    const allNotifs = getStatNotifications(currentStats)
     if (allNotifs.length === 0) return
 
     // Apply per-tag cooldown so we don't re-fire the same alert every cron

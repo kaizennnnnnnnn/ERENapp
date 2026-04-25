@@ -73,31 +73,30 @@ const STAT_ALERTS: StatAlert[] = [
 ]
 
 /**
- * Compare old vs new stats and return notifications to send.
- * Only triggers on transitions: ok→warning, ok/warning→critical
+ * Return every applicable notification based on the CURRENT stat values.
+ * State-based (not transition-based): if a stat is at/below the threshold
+ * right now, the corresponding notification is a candidate. The caller is
+ * expected to apply the per-tag cooldown (eren_stats.last_notified_at) to
+ * decide which ones actually go out — that combo means we never miss a
+ * threshold the client crossed before the server saw it, and we never
+ * spam the user because cooldown blocks the same tag for 2h.
  */
-export function getStatNotifications(oldStats: OldStatValues, newStats: StatValues): { title: string; body: string; tag: string }[] {
+export function getStatNotifications(stats: StatValues, _legacy?: OldStatValues): { title: string; body: string; tag: string }[] {
+  // _legacy kept so older callers still type-check; ignored at runtime.
+  void _legacy
+
   const notifs: { title: string; body: string; tag: string }[] = []
 
   for (const alert of STAT_ALERTS) {
-    const oldVal = oldStats[alert.key]
-    const newVal = newStats[alert.key]
-
-    const oldLevel = oldVal <= 10 ? 'critical' : oldVal <= 50 ? 'warning' : 'ok'
-    const newLevel = newVal <= 10 ? 'critical' : newVal <= 50 ? 'warning' : 'ok'
-
-    // Warning transition
-    if (newLevel === 'warning' && oldLevel === 'ok') {
-      notifs.push({ title: `${alert.icon} Eren`, body: alert.warningMsg, tag: `stat-${alert.key}-warn` })
-    }
-    // Critical transition
-    if (newLevel === 'critical' && oldLevel !== 'critical') {
+    const val = stats[alert.key]
+    if (val <= 10) {
       notifs.push({ title: `${alert.icon} Eren`, body: alert.criticalMsg, tag: `stat-${alert.key}-crit` })
+    } else if (val <= 50) {
+      notifs.push({ title: `${alert.icon} Eren`, body: alert.warningMsg, tag: `stat-${alert.key}-warn` })
     }
   }
 
-  // Sickness
-  if (newStats.is_sick && !oldStats.is_sick) {
+  if (stats.is_sick) {
     notifs.push({ title: '💊 Eren', body: 'Eren is sick! Take him to the vet!', tag: 'stat-sick' })
   }
 
