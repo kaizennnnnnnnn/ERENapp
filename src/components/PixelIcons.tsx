@@ -50,18 +50,18 @@ export function IconHeart({ size = 20 }: IconProps) {
   }, size)
 }
 
-// ── DRUMSTICK (hunger) — horizontal, meat on the left, bone to the right ──
+// ── DRUMSTICK (hunger) — horizontal, bone with rounded knob on the right ──
 export function IconMeat({ size = 20 }: IconProps) {
   const grid = [
     '............',
     '..KKKKK.....',
     '.KMSSSSMK...',
-    'KMMSSSSMMK..',
+    'KMMSSSSMMK.K',
     'KMMSSSMMKKKK',
     'KMMMMMMMKWLK',
-    'KMSSMMMMKWWK',
+    'KMSSMMMMKWLK',
     'KMMMMMMMKKKK',
-    'KMMSSMMMMK..',
+    'KMMSSMMMMK.K',
     '.KMSSSMMMK..',
     '..KKKKKKK...',
     '............',
