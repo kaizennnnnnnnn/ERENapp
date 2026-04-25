@@ -190,7 +190,7 @@ export default function CareSceneHost() {
           className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5"
           style={{ background: '#0F0A1E' }}
         >
-          <AnimatedEren px={5} />
+          <AnimatedEren px={4} />
           <div className="flex items-center gap-1.5">
             {[0, 1, 2].map(i => (
               <div key={i} className="rounded-full" style={{

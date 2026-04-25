@@ -125,8 +125,8 @@ export default function FeedScene({ onClose }: Props) {
       {/* ══ BACKGROUND IMAGE ══ */}
       <div className="absolute inset-0" style={{ backgroundImage: 'url(/kitchen.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
-      {/* ══ KETTLE STEAM ══ */}
-      <div className="absolute pointer-events-none" style={{ left: '25%', top: '47%', zIndex: 5 }}>
+      {/* ══ KETTLE STEAM — rises from the spout (kettle ≈ 31% x, 46% y) ══ */}
+      <div className="absolute pointer-events-none" style={{ left: '31%', top: '46%', zIndex: 5 }}>
         <div className="kettle-puff kettle-puff-a" />
         <div className="kettle-puff kettle-puff-b" />
         <div className="kettle-puff kettle-puff-c" />
