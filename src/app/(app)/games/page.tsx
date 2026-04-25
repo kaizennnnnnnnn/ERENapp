@@ -13,6 +13,7 @@ import {
   IconController, IconMouse, IconYarn, IconPaw, IconFish,
   IconStar, IconCrown, IconHeart, IconMeat,
 } from '@/components/PixelIcons'
+import { playSound } from '@/lib/sounds'
 import type { GameType, Profile } from '@/types'
 
 type GameMeta = {
@@ -152,7 +153,7 @@ export default function GamesPage() {
     <div className="page-scroll">
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-1">
-        <button onClick={() => router.back()} className="flex items-center justify-center active:scale-90 transition-transform"
+        <button onClick={() => { playSound('ui_back'); router.back() }} className="flex items-center justify-center active:scale-90 transition-transform"
           style={{ width: 32, height: 32, background: 'linear-gradient(135deg, #FFF8FF, #F0E8FF)', borderRadius: 8, border: '2px solid #D8C0F0', boxShadow: '0 2px 0 #C0A0E0' }}>
           <ChevronLeft size={16} className="text-purple-500" />
         </button>
@@ -169,7 +170,7 @@ export default function GamesPage() {
       {/* ── Game cards ── */}
       <div className="flex flex-col gap-4 mb-6">
         {GAMES.map(game => (
-          <Link key={game.id} href={game.href}>
+          <Link key={game.id} href={game.href} onClick={() => playSound('ui_tap')}>
             <div
               className="active:translate-y-[2px] transition-all duration-100 cursor-pointer overflow-hidden relative"
               style={{ background: game.bg, borderRadius: 4, border: `3px solid ${game.border}`, boxShadow: `4px 4px 0 ${game.shadow}` }}>

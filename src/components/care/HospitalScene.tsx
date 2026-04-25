@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { cn } from '@/lib/utils'
+import { playSound } from '@/lib/sounds'
 
 interface Props { onClose: () => void }
 
@@ -425,7 +426,7 @@ export default function HospitalScene({ onClose }: Props) {
           )}
         </div>
 
-        <button onClick={giveMedicine} disabled={giving || medGiven}
+        <button onClick={() => { playSound('ui_tap'); giveMedicine() }} disabled={giving || medGiven}
           className="w-full max-w-xs py-3 text-white transition-all active:translate-y-[2px] disabled:opacity-50"
           style={medGiven
             ? { background: 'linear-gradient(135deg, #38A850, #24884A)', borderRadius: 3, border: '2px solid #187038', boxShadow: '0 3px 0 #0E5028', fontFamily: '"Press Start 2P"', fontSize: 8 }

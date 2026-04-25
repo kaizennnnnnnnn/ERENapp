@@ -11,6 +11,7 @@ import { ChevronLeft, RefreshCw } from 'lucide-react'
 import {
   IconMeat, IconFish, IconHeart, IconStar, IconCrown, IconCoin, IconBook,
 } from '@/components/PixelIcons'
+import { playSound } from '@/lib/sounds'
 
 // ── Config ───────────────────────────────────────────────────────────────────
 const GAME_DURATION = 45
@@ -510,7 +511,7 @@ export default function TreatTumbleGame() {
 
       {/* Header */}
       <div className="absolute top-0 inset-x-0 pt-3 px-3 z-30 flex items-center gap-2">
-        <button onClick={() => router.back()}
+        <button onClick={() => { playSound('ui_back'); router.back() }}
           className="flex items-center justify-center active:scale-90 transition-transform"
           style={{ width: 34, height: 34, background: 'rgba(255,255,255,0.9)', borderRadius: 6, border: '2px solid #D97706', boxShadow: '0 2px 0 #B45309' }}>
           <ChevronLeft size={18} className="text-amber-700" />
@@ -653,7 +654,7 @@ export default function TreatTumbleGame() {
               <LegendTile Icon={ThunderIcon}  tint="#FBBF24" pts="-8" danger />
             </div>
           </div>
-          <button onClick={start}
+          <button onClick={() => { playSound('ui_tap'); start() }}
             className="px-8 py-3 text-white active:translate-y-[2px] transition-transform"
             style={{
               background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
@@ -758,13 +759,13 @@ export default function TreatTumbleGame() {
               <span className="font-pixel" style={{ fontSize: 8 }}>+{Math.min(40, Math.max(0, Math.floor(score / 5)))} coins</span>
             </div>
             <div className="flex gap-2 justify-center">
-              <button onClick={start}
+              <button onClick={() => { playSound('ui_tap'); start() }}
                 className="flex items-center gap-1.5 px-4 py-2 text-white active:translate-y-[2px] transition-transform"
                 style={{ background: 'linear-gradient(135deg, #F59E0B, #D97706)', border: '2px solid #B45309', borderRadius: 3, boxShadow: '0 3px 0 #92400E', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                 <RefreshCw size={12} />
                 AGAIN
               </button>
-              <button onClick={() => router.push('/games')}
+              <button onClick={() => { playSound('ui_back'); router.push('/games') }}
                 className="px-4 py-2 text-amber-900 active:translate-y-[2px] transition-transform"
                 style={{ background: 'rgba(255,255,255,0.9)', border: '2px solid #D97706', borderRadius: 3, boxShadow: '0 3px 0 #B45309', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                 BACK

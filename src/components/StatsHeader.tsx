@@ -7,6 +7,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 import { IconHeart, IconMeat, IconLightning, IconMoon, IconDrop, IconCoin } from './PixelIcons'
+import { playSound } from '@/lib/sounds'
 
 const MINI_STATS = [
   { key: 'happiness',     Icon: IconHeart,     color: '#f472b6', glow: 'rgba(244,114,182,0.4)' },
@@ -41,7 +42,7 @@ export default function StatsHeader() {
       <div className="flex items-center gap-2">
 
         {/* Level badge — pixel card with gold rivet corners (tap → /rewards) */}
-        <Link href="/rewards" aria-label="Open reward road"
+        <Link href="/rewards" aria-label="Open reward road" onClick={() => playSound('ui_tap')}
           className="flex-shrink-0 relative block active:translate-y-[1px] transition-transform"
           style={{
             width: 40, height: 40,

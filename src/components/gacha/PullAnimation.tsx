@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import type { GachaPullResult } from '@/types'
 import { RARITY_COLORS } from '@/lib/gacha'
+import { playSound } from '@/lib/sounds'
 
 interface Props {
   results: GachaPullResult[]
@@ -56,7 +57,7 @@ export default function PullAnimation({ results, onDone }: Props) {
 
       {/* Reveal phase */}
       {phase === 'reveal' && showItem && (
-        <button onClick={nextItem} className="flex flex-col items-center gap-4 active:scale-95 transition-transform w-full max-w-xs px-6">
+        <button onClick={() => { playSound('ui_tap'); nextItem() }} className="flex flex-col items-center gap-4 active:scale-95 transition-transform w-full max-w-xs px-6">
           {/* Rarity burst */}
           <div className="relative flex items-center justify-center" style={{ width: 120, height: 120 }}>
             <div className="absolute inset-0 rounded-full" style={{
@@ -113,7 +114,7 @@ export default function PullAnimation({ results, onDone }: Props) {
 
       {/* Skip button for multi-pull */}
       {phase === 'reveal' && results.length > 1 && currentIdx < results.length - 1 && (
-        <button onClick={onDone}
+        <button onClick={() => { playSound('ui_modal_close'); onDone() }}
           className="absolute bottom-8 font-pixel text-white/30 active:text-white/60"
           style={{ fontSize: 6 }}>
           SKIP ALL

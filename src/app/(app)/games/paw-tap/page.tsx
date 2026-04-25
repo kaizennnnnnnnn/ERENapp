@@ -8,6 +8,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { RefreshCw, ChevronLeft } from 'lucide-react'
+import { playSound } from '@/lib/sounds'
 
 const GAME_DURATION  = 20
 const FISH_POSITIONS = [
@@ -184,7 +185,7 @@ export default function PawTapGame() {
     <div className="page-scroll">
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-4">
-        <button onClick={() => router.back()} className="flex items-center justify-center active:scale-90 transition-transform flex-shrink-0"
+        <button onClick={() => { playSound('ui_back'); router.back() }} className="flex items-center justify-center active:scale-90 transition-transform flex-shrink-0"
           style={{ width: 32, height: 32, background: 'linear-gradient(135deg, #FFF8FF, #F0E8FF)', borderRadius: 8, border: '2px solid #D8C0F0', boxShadow: '0 2px 0 #C0A0E0' }}>
           <ChevronLeft size={16} className="text-purple-500" />
         </button>
@@ -430,7 +431,7 @@ export default function PawTapGame() {
                     <p className="font-pixel text-red-400" style={{ fontSize: 5 }}>-2!</p>
                   </div>
                 </div>
-                <button onClick={startGame}
+                <button onClick={() => { playSound('ui_tap'); startGame() }}
                   className="px-8 py-3 text-white active:translate-y-[2px] transition-transform"
                   style={{ background: 'linear-gradient(135deg, #4EAADC, #2A88C0)', borderRadius: 3, border: '2px solid #1A70A8', boxShadow: '0 4px 0 #105888', fontFamily: '"Press Start 2P"', fontSize: 8 }}>
                   ▶ DIVE IN!
@@ -447,7 +448,7 @@ export default function PawTapGame() {
                 </p>
                 {score > 5 && <p className="font-pixel text-[#FF6B9D] mb-4" style={{ fontSize: 6 }}>EREN IS THRILLED! ♥</p>}
                 <div className="flex gap-3 mt-1">
-                  <button onClick={startGame}
+                  <button onClick={() => { playSound('ui_tap'); startGame() }}
                     className="px-4 py-2 text-white active:translate-y-[1px] transition-transform flex items-center gap-2"
                     style={{ background: 'linear-gradient(135deg, #4EAADC, #2A88C0)', borderRadius: 3, border: '2px solid #1A70A8', boxShadow: '2px 2px 0 #105888', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                     <RefreshCw size={10} /> RETRY

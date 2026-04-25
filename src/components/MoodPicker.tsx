@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { UserMood } from '@/types'
 import { MOOD_CONFIGS } from '@/types'
 import { cn } from '@/lib/utils'
+import { playSound } from '@/lib/sounds'
 
 interface Props {
   userId: string
@@ -43,7 +44,7 @@ export default function MoodPicker({ userId, existing, onSave }: Props) {
           ([key, cfg]) => (
             <button
               key={key}
-              onClick={() => handleSelect(key)}
+              onClick={() => { playSound('ui_tap'); handleSelect(key) }}
               disabled={saving}
               className={cn(
                 'flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 transition-all duration-150 active:scale-95',

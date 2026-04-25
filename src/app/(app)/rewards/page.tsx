@@ -14,6 +14,7 @@ import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 import {
   IconCoin, IconSparkles, IconTicket, IconMeat, IconFish, IconStar, IconCrown,
 } from '@/components/PixelIcons'
+import { playSound } from '@/lib/sounds'
 
 // ── Reward icon dispatcher ───────────────────────────────────────────────────
 function RewardIcon({ r, size = 28 }: { r: LevelReward; size?: number }) {
@@ -253,7 +254,7 @@ export default function RewardsPage() {
         background: 'linear-gradient(180deg, rgba(12,6,26,0.95) 0%, rgba(12,6,26,0.6) 100%)',
         borderBottom: '2px solid rgba(167,139,250,0.3)',
       }}>
-        <button onClick={() => router.back()}
+        <button onClick={() => { playSound('ui_back'); router.back() }}
           className="flex items-center justify-center active:scale-90 transition-transform"
           style={{ width: 34, height: 34, background: 'rgba(255,255,255,0.08)', borderRadius: 6, border: '2px solid rgba(167,139,250,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
           <ChevronLeft size={18} className="text-purple-200" />
@@ -310,7 +311,7 @@ export default function RewardsPage() {
         </div>
 
         {canClaim ? (
-          <button onClick={claimNext} disabled={claiming}
+          <button onClick={() => { playSound('ui_tap'); claimNext() }} disabled={claiming}
             className="w-full py-2 text-white active:translate-y-[2px] transition-transform disabled:opacity-60 relative overflow-hidden"
             style={{
               background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 55%, #92400E 100%)',

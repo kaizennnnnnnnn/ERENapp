@@ -6,6 +6,7 @@ import type { UserMood, ErenMood } from '@/types'
 import { MOOD_CONFIGS } from '@/types'
 import { cn } from '@/lib/utils'
 import { useTasks } from '@/contexts/TaskContext'
+import { playSound } from '@/lib/sounds'
 
 // Maps user mood → Eren's reaction mood
 const MOOD_TO_EREN: Record<UserMood, ErenMood> = {
@@ -118,7 +119,7 @@ export default function MoodGate({ userId, userName, onDone }: Props) {
           {(Object.entries(MOOD_CONFIGS) as [UserMood, typeof MOOD_CONFIGS[UserMood]][]).map(([key, cfg]) => (
             <button
               key={key}
-              onClick={() => handleSelect(key)}
+              onClick={() => { playSound('ui_tap'); handleSelect(key) }}
               className={cn(
                 'flex items-center gap-4 px-4 py-2.5 transition-all duration-150 active:translate-y-[2px]',
               )}

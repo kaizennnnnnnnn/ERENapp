@@ -16,6 +16,7 @@ import {
   IconSlots, IconCoin, IconSparkles, IconTicket, IconDress,
   IconHouse, IconBook, IconStar,
 } from '@/components/PixelIcons'
+import { playSound } from '@/lib/sounds'
 
 const BANNER_ICONS: Record<string, React.FC<{ size?: number }>> = {
   standard: IconSlots,
@@ -59,7 +60,7 @@ export default function GachaPage() {
 
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
-        <button onClick={() => router.back()} className="flex items-center justify-center active:scale-90 transition-transform"
+        <button onClick={() => { playSound('ui_back'); router.back() }} className="flex items-center justify-center active:scale-90 transition-transform"
           style={{ width: 32, height: 32, background: 'linear-gradient(135deg, #FFF8FF, #F0E8FF)', borderRadius: 8, border: '2px solid #D8C0F0', boxShadow: '0 2px 0 #C0A0E0' }}>
           <ChevronLeft size={16} className="text-purple-500" />
         </button>
@@ -97,7 +98,7 @@ export default function GachaPage() {
           const Icon = BANNER_ICONS[b.id] ?? IconSlots
           const active = selectedBanner === b.id
           return (
-            <button key={b.id} onClick={() => setSelectedBanner(b.id)}
+            <button key={b.id} onClick={() => { playSound('ui_tap'); setSelectedBanner(b.id) }}
               className="flex-shrink-0 flex flex-col items-center gap-1.5 px-4 py-3 active:scale-95 transition-all relative"
               style={{
                 minWidth: 108,
@@ -170,14 +171,14 @@ export default function GachaPage() {
 
           {/* Pull buttons */}
           <div className="flex gap-3">
-            <button onClick={handleSingle} disabled={pulling || (coins < PULL_COST_SINGLE && tickets <= 0)}
+            <button onClick={() => { playSound('ui_tap'); handleSingle() }} disabled={pulling || (coins < PULL_COST_SINGLE && tickets <= 0)}
               className="flex-1 py-3 text-white active:translate-y-[2px] transition-transform disabled:opacity-40"
               style={{ background: 'linear-gradient(135deg, #7C3AED, #A78BFA)', borderRadius: 3, border: '2px solid #5B21B6', boxShadow: '0 3px 0 #4C1D95', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
               PULL x1
               <br />
               <span style={{ fontSize: 6, opacity: 0.7 }}>{PULL_COST_SINGLE} coins</span>
             </button>
-            <button onClick={handleTen} disabled={pulling || coins < PULL_COST_TEN}
+            <button onClick={() => { playSound('ui_tap'); handleTen() }} disabled={pulling || coins < PULL_COST_TEN}
               className="flex-1 py-3 text-white active:translate-y-[2px] transition-transform disabled:opacity-40"
               style={{ background: 'linear-gradient(135deg, #F59E0B, #FBBF24)', borderRadius: 3, border: '2px solid #B45309', boxShadow: '0 3px 0 #92400E', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
               PULL x10
@@ -189,7 +190,7 @@ export default function GachaPage() {
       </div>
 
       {/* Collection link */}
-      <button onClick={() => router.push('/gacha/collection')}
+      <button onClick={() => { playSound('ui_tap'); router.push('/gacha/collection') }}
         className="w-full flex items-center justify-between p-3 active:scale-[0.98] transition-transform mb-4"
         style={{ background: 'linear-gradient(135deg, #FFF8FF, #F5EEFF)', borderRadius: 4, border: '2px solid #D8C0F0', boxShadow: '3px 3px 0 #C8B0E8' }}>
         <div className="flex items-center gap-3">

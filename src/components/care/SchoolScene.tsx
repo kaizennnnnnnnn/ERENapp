@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { SERBIAN_COURSE, getTodaysLesson, type Lesson, type Word } from '@/lib/serbianCourse'
+import { playSound } from '@/lib/sounds'
 
 interface Props { onClose: () => void }
 
@@ -105,7 +106,7 @@ export default function SchoolScene({ onClose }: Props) {
               </div>
               <p className="font-pixel text-white mb-1" style={{ fontSize: 9 }}>{todaysLesson.title}</p>
               <p className="text-xs text-amber-200/80 mb-3">{todaysLesson.description}</p>
-              <button onClick={() => startLesson(todaysLesson)}
+              <button onClick={() => { playSound('ui_tap'); startLesson(todaysLesson) }}
                 className="w-full py-2.5 text-white active:translate-y-[1px] transition-transform"
                 style={{ background: 'linear-gradient(135deg, #F59E0B, #D97706)', borderRadius: 3, border: '2px solid #B45309', boxShadow: '0 3px 0 #92400E', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                 {completed.has(todaysLesson.id) ? 'REVIEW' : 'START LESSON'}
@@ -115,7 +116,7 @@ export default function SchoolScene({ onClose }: Props) {
             {/* Progress */}
             <div className="flex items-center justify-between mb-3 px-1">
               <span className="font-pixel text-white/70" style={{ fontSize: 6 }}>PROGRESS: {progress}</span>
-              <button onClick={() => setShowAll(!showAll)} className="font-pixel text-amber-400" style={{ fontSize: 6 }}>
+              <button onClick={() => { playSound('ui_tap'); setShowAll(!showAll) }} className="font-pixel text-amber-400" style={{ fontSize: 6 }}>
                 {showAll ? 'HIDE ALL' : 'ALL LESSONS'}
               </button>
             </div>
@@ -161,7 +162,7 @@ export default function SchoolScene({ onClose }: Props) {
             </p>
 
             {/* Card */}
-            <button onClick={() => setFlipped(!flipped)}
+            <button onClick={() => { playSound('ui_tap'); setFlipped(!flipped) }}
               className="w-full max-w-xs transition-transform active:scale-95"
               style={{ perspective: 800 }}>
               <div className="relative w-full" style={{ minHeight: 180 }}>
@@ -187,12 +188,12 @@ export default function SchoolScene({ onClose }: Props) {
 
             {/* Nav */}
             <div className="flex gap-4 mt-5">
-              <button onClick={prevCard} disabled={cardIdx === 0}
+              <button onClick={() => { playSound('ui_tap'); prevCard() }} disabled={cardIdx === 0}
                 className="px-5 py-2 font-pixel text-white disabled:opacity-30 active:translate-y-[1px]"
                 style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 3, border: '1px solid rgba(255,255,255,0.2)', fontSize: 7 }}>
                 PREV
               </button>
-              <button onClick={nextCard}
+              <button onClick={() => { playSound('ui_tap'); nextCard() }}
                 className="px-5 py-2 font-pixel text-white active:translate-y-[1px]"
                 style={{ background: 'linear-gradient(135deg, #F59E0B, #D97706)', borderRadius: 3, border: '2px solid #B45309', boxShadow: '0 2px 0 #92400E', fontSize: 7 }}>
                 {cardIdx === lesson.words.length - 1 ? 'SENTENCES' : 'NEXT'}
@@ -213,7 +214,7 @@ export default function SchoolScene({ onClose }: Props) {
                 </div>
               ))}
             </div>
-            <button onClick={() => { setPhase('quiz'); setQuizIdx(0); setSelected(null); setScore(0) }}
+            <button onClick={() => { playSound('ui_tap'); setPhase('quiz'); setQuizIdx(0); setSelected(null); setScore(0) }}
               className="mt-3 px-8 py-2.5 text-white active:translate-y-[1px] transition-transform"
               style={{ background: 'linear-gradient(135deg, #F59E0B, #D97706)', borderRadius: 3, border: '2px solid #B45309', boxShadow: '0 3px 0 #92400E', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
               START QUIZ
@@ -278,12 +279,12 @@ export default function SchoolScene({ onClose }: Props) {
             <p className="font-pixel text-white/50" style={{ fontSize: 6 }}>LESSON COMPLETE!</p>
 
             <div className="flex gap-3 mt-4">
-              <button onClick={() => startLesson(lesson)}
+              <button onClick={() => { playSound('ui_tap'); startLesson(lesson) }}
                 className="px-5 py-2.5 text-white active:translate-y-[1px]"
                 style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 3, border: '1px solid rgba(255,255,255,0.25)', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                 RETRY
               </button>
-              <button onClick={() => setPhase('menu')}
+              <button onClick={() => { playSound('ui_back'); setPhase('menu') }}
                 className="px-5 py-2.5 text-white active:translate-y-[1px]"
                 style={{ background: 'linear-gradient(135deg, #F59E0B, #D97706)', borderRadius: 3, border: '2px solid #B45309', boxShadow: '0 2px 0 #92400E', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                 ALL LESSONS

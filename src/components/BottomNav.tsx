@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { UtensilsCrossed, Dices, BedDouble, Bath, Stethoscope } from 'lucide-react'
 import { useCare } from '@/contexts/CareContext'
+import { playSound } from '@/lib/sounds'
 
 const CARE_ACTIONS = [
   { key: 'feed'  as const, icon: UtensilsCrossed, label: 'Feed',  grad: ['#FFF3D0','#FFE090'] as [string,string], border: '#F5C842', shadow: '#D4920E', iconColor: '#C07010' },
@@ -24,7 +25,7 @@ export default function BottomNav() {
     <nav className="bottom-nav z-50">
 
       {/* Home */}
-      <Link href="/home" className="nav-item active:scale-90 transition-transform duration-100">
+      <Link href="/home" onClick={() => playSound('ui_tap')} className="nav-item active:scale-90 transition-transform duration-100">
         <div className="relative">
           <img src="/keyHome.png" alt="Home" width={38} height={38}
             style={{ imageRendering: 'pixelated', objectFit: 'contain', display: 'block',
@@ -35,7 +36,7 @@ export default function BottomNav() {
 
       {/* Care action buttons — directly open scenes */}
       {CARE_ACTIONS.map(({ key, icon: Icon, label, grad, border, shadow, iconColor }) => (
-        <button key={key} onClick={() => openScene(key)}
+        <button key={key} onClick={() => { playSound('ui_tap'); openScene(key) }}
           className="nav-item active:scale-90 transition-transform duration-100">
           <div className="flex flex-col items-center gap-0.5">
             <div className="flex items-center justify-center w-11 h-11 relative"
@@ -50,7 +51,7 @@ export default function BottomNav() {
 
       {/* Hospital — only when sick */}
       {isSick && (
-        <button onClick={() => openScene('hospital')} className="nav-item active:scale-90 transition-transform duration-100">
+        <button onClick={() => { playSound('ui_tap'); openScene('hospital') }} className="nav-item active:scale-90 transition-transform duration-100">
           <div className="flex flex-col items-center gap-0.5">
             <div className="flex items-center justify-center w-11 h-11 relative"
               style={{ background: 'linear-gradient(160deg, #FFF0F0 0%, #FFD8D8 100%)', borderRadius: 14, border: '2px solid #F08080', boxShadow: '0 4px 0 #C83030, inset 0 1px 0 rgba(255,255,255,0.8)' }}>

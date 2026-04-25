@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { FortuneGiftDef } from '@/types'
 import { RARITY_COLORS } from '@/lib/gacha'
 import { useFortune } from '@/hooks/useFortune'
+import { playSound } from '@/lib/sounds'
 
 interface Props {
   onClose: () => void
@@ -45,7 +46,7 @@ export default function FortunePopup({ onClose }: Props) {
               <p className="text-xs text-white/60">Eren has a gift for you!</p>
             </div>
             {canClaim ? (
-              <button onClick={handleClaim}
+              <button onClick={() => { playSound('ui_tap'); handleClaim() }}
                 className="w-full py-3 text-white active:translate-y-[2px] transition-transform"
                 style={{ background: 'linear-gradient(135deg, #F59E0B, #D97706)', borderRadius: 3, border: '2px solid #B45309', boxShadow: '0 3px 0 #92400E', fontFamily: '"Press Start 2P"', fontSize: 8 }}>
                 OPEN GIFT
@@ -53,7 +54,7 @@ export default function FortunePopup({ onClose }: Props) {
             ) : (
               <p className="font-pixel text-white/40" style={{ fontSize: 7 }}>ALREADY CLAIMED TODAY</p>
             )}
-            <button onClick={onClose} className="font-pixel text-white/30" style={{ fontSize: 6 }}>CLOSE</button>
+            <button onClick={() => { playSound('ui_modal_close'); onClose() }} className="font-pixel text-white/30" style={{ fontSize: 6 }}>CLOSE</button>
           </>
         )}
 
@@ -76,7 +77,7 @@ export default function FortunePopup({ onClose }: Props) {
 
         {/* Reveal */}
         {phase === 'reveal' && gift && colors && (
-          <button onClick={onClose} className="flex flex-col items-center gap-4 active:scale-95 transition-transform">
+          <button onClick={() => { playSound('ui_modal_close'); onClose() }} className="flex flex-col items-center gap-4 active:scale-95 transition-transform">
             <div className="relative flex items-center justify-center" style={{ width: 110, height: 110 }}>
               <div className="absolute inset-0 rounded-full" style={{
                 background: `radial-gradient(circle, ${colors.glow} 0%, transparent 70%)`,

@@ -9,6 +9,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { RefreshCw, ChevronLeft } from 'lucide-react'
 import { IconMouse, IconStar, IconCrown, IconCoin } from '@/components/PixelIcons'
+import { playSound } from '@/lib/sounds'
 
 const MOUSE_SPEED_INIT = 2.2
 const GAME_DURATION    = 30
@@ -302,7 +303,7 @@ export default function CatchMouseGame() {
     <div className="page-scroll">
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-4">
-        <button onClick={() => router.back()} className="flex items-center justify-center active:scale-90 transition-transform flex-shrink-0"
+        <button onClick={() => { playSound('ui_back'); router.back() }} className="flex items-center justify-center active:scale-90 transition-transform flex-shrink-0"
           style={{ width: 32, height: 32, background: 'linear-gradient(135deg, #FFF8FF, #F0E8FF)', borderRadius: 8, border: '2px solid #D8C0F0', boxShadow: '0 2px 0 #C0A0E0' }}>
           <ChevronLeft size={16} className="text-purple-500" />
         </button>
@@ -401,7 +402,7 @@ export default function CatchMouseGame() {
                 <p className="text-xs text-gray-500 mb-5 text-center px-8 leading-relaxed">
                   Tap / click the pixel mouse as fast as you can in {GAME_DURATION} seconds
                 </p>
-                <button onClick={startGame}
+                <button onClick={() => { playSound('ui_tap'); startGame() }}
                   className="px-8 py-3 text-white active:translate-y-[2px] transition-transform"
                   style={{ background: 'linear-gradient(135deg, #FF6B9D, #C084FC)', borderRadius: 3, border: '2px solid #CC3366', boxShadow: '0 4px 0 #991A4A, 0 0 12px rgba(255,107,157,0.45)', fontFamily: '"Press Start 2P"', fontSize: 9, letterSpacing: 2 }}>
                   ▶ START
@@ -425,7 +426,7 @@ export default function CatchMouseGame() {
                   </div>
                 )}
                 <div className="flex gap-3 mt-1">
-                  <button onClick={startGame}
+                  <button onClick={() => { playSound('ui_tap'); startGame() }}
                     className="px-4 py-2 text-white active:translate-y-[1px] transition-transform flex items-center gap-2"
                     style={{ background: 'linear-gradient(135deg, #FF6B9D, #C084FC)', borderRadius: 3, border: '2px solid #CC3366', boxShadow: '2px 2px 0 #991A4A', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                     <RefreshCw size={10} /> RETRY

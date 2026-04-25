@@ -1,6 +1,7 @@
 'use client'
 
 import type { JournalMessage } from '@/types'
+import { playSound } from '@/lib/sounds'
 
 interface Props {
   message: JournalMessage
@@ -10,7 +11,7 @@ interface Props {
 export default function ErenMessagePopup({ message, onDismiss }: Props) {
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
-      <button onClick={onDismiss} className="mx-6 w-full max-w-xs flex flex-col items-center gap-3 active:scale-95 transition-transform">
+      <button onClick={() => { playSound('ui_modal_close'); onDismiss() }} className="mx-6 w-full max-w-xs flex flex-col items-center gap-3 active:scale-95 transition-transform">
         {/* Eren with letter */}
         <div className="relative" style={{ animation: 'erenDeliver 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both' }}>
           <img src="/erenGood.png" alt="Eren" draggable={false}

@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
+import { playSound } from '@/lib/sounds'
 
 interface Props { onClose: () => void }
 
@@ -145,7 +146,7 @@ export default function SleepScene({ onClose }: Props) {
           </div>
         </div>
 
-        <button onClick={handleTuckIn} disabled={tucking || tuckedIn}
+        <button onClick={() => { playSound('ui_tap'); handleTuckIn() }} disabled={tucking || tuckedIn}
           className="w-full max-w-xs py-3 text-white transition-all active:translate-y-[2px] disabled:opacity-50"
           style={tuckedIn
             ? { background: '#312E81', borderRadius: 3, border: '2px solid #4338CA', boxShadow: '0 2px 0 #2D3748', fontFamily: '"Press Start 2P"', fontSize: 8 }

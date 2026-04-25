@@ -12,6 +12,7 @@ import {
   IconYarn, IconFish, IconPaw, IconMouse, IconHeart, IconStar,
   IconCrown, IconCoin,
 } from '@/components/PixelIcons'
+import { playSound } from '@/lib/sounds'
 
 // ── Game config ──────────────────────────────────────────────────────────────
 const GAME_DURATION = 60 // seconds
@@ -253,7 +254,7 @@ export default function MemoryMatchGame() {
 
       {/* Header */}
       <div className="absolute top-0 inset-x-0 pt-3 px-3 z-30 flex items-center gap-2">
-        <button onClick={() => router.back()}
+        <button onClick={() => { playSound('ui_back'); router.back() }}
           className="flex items-center justify-center active:scale-90 transition-transform"
           style={{ width: 34, height: 34, background: 'rgba(255,255,255,0.1)', borderRadius: 6, border: '2px solid rgba(167,139,250,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
           <ChevronLeft size={18} className="text-purple-200" />
@@ -333,7 +334,7 @@ export default function MemoryMatchGame() {
             </p>
           </div>
 
-          <button onClick={start}
+          <button onClick={() => { playSound('ui_tap'); start() }}
             className="px-8 py-3 text-white active:translate-y-[2px] transition-transform"
             style={{
               background: 'linear-gradient(135deg, #EC4899 0%, #C026D3 50%, #9333EA 100%)',
@@ -510,13 +511,13 @@ export default function MemoryMatchGame() {
             </div>
 
             <div className="flex gap-2 justify-center">
-              <button onClick={start}
+              <button onClick={() => { playSound('ui_tap'); start() }}
                 className="flex items-center gap-1.5 px-4 py-2 text-white active:translate-y-[2px] transition-transform"
                 style={{ background: 'linear-gradient(135deg, #A78BFA, #7C3AED)', border: '2px solid #5B21B6', borderRadius: 3, boxShadow: '0 3px 0 #4C1D95', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                 <RefreshCw size={12} />
                 AGAIN
               </button>
-              <button onClick={() => router.push('/games')}
+              <button onClick={() => { playSound('ui_back'); router.push('/games') }}
                 className="px-4 py-2 text-white active:translate-y-[2px] transition-transform"
                 style={{ background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(167,139,250,0.5)', borderRadius: 3, boxShadow: '0 3px 0 rgba(0,0,0,0.3)', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                 BACK

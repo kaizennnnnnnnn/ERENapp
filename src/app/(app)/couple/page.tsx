@@ -12,6 +12,7 @@ import { format } from 'date-fns'
 import {
   IconHeartDuo, IconSwords, IconEnvelope, IconCrown, IconPaw, IconHeart, IconStar,
 } from '@/components/PixelIcons'
+import { playSound } from '@/lib/sounds'
 
 export default function CouplePage() {
   const router = useRouter()
@@ -44,7 +45,7 @@ export default function CouplePage() {
     <div className="page-scroll">
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
-        <button onClick={() => router.back()} className="flex items-center justify-center active:scale-90 transition-transform"
+        <button onClick={() => { playSound('ui_back'); router.back() }} className="flex items-center justify-center active:scale-90 transition-transform"
           style={{ width: 32, height: 32, background: 'linear-gradient(135deg, #FFF8FF, #F0E8FF)', borderRadius: 8, border: '2px solid #D8C0F0', boxShadow: '0 2px 0 #C0A0E0' }}>
           <ChevronLeft size={16} className="text-purple-500" />
         </button>
@@ -177,7 +178,7 @@ export default function CouplePage() {
             onKeyDown={e => e.key === 'Enter' && handleSend()}
             maxLength={500}
           />
-          <button onClick={handleSend} disabled={!msg.trim() || sending}
+          <button onClick={() => { playSound('ui_tap'); handleSend() }} disabled={!msg.trim() || sending}
             className="flex items-center justify-center active:translate-y-[2px] transition-all disabled:opacity-40"
             style={{ width: 42, height: 42, background: 'linear-gradient(135deg, #C084FC, #A060E0)', borderRadius: 4, border: '2px solid #7C3AED', boxShadow: '0 3px 0 #5B21B6' }}>
             <Send size={16} className="text-white" />

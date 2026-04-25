@@ -7,6 +7,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import { IconController, IconStar } from '@/components/PixelIcons'
+import { playSound } from '@/lib/sounds'
 
 interface Props { onClose: () => void }
 interface BallPos { x: number; y: number }
@@ -104,7 +105,7 @@ export default function PlayScene({ onClose }: Props) {
 
       {/* ══ UI ══ */}
       {/* Games link — premium pixel arcade button */}
-      <button onClick={e => { e.stopPropagation(); router.push('/games'); setTimeout(onClose, 400) }}
+      <button onClick={e => { e.stopPropagation(); playSound('ui_tap'); router.push('/games'); setTimeout(onClose, 400) }}
         className="absolute right-4 z-50 active:translate-y-[2px] transition-transform group"
         style={{ top: 110 }}>
         <div className="relative flex items-center gap-2 px-3 py-2 overflow-hidden"
@@ -193,7 +194,7 @@ export default function PlayScene({ onClose }: Props) {
           )}
         </div>
 
-        <button onClick={handleDone} disabled={throwCount < 1 || done || saving}
+        <button onClick={() => { playSound('ui_tap'); handleDone() }} disabled={throwCount < 1 || done || saving}
           className="w-full max-w-xs py-3 text-white transition-all active:translate-y-[2px] disabled:opacity-40"
           style={done
             ? { background: '#4ade80', borderRadius: 3, border: '2px solid #16a34a', boxShadow: '0 3px 0 #15803d', fontFamily: '"Press Start 2P"', fontSize: 8 }

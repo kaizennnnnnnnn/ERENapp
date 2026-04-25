@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
+import { playSound } from '@/lib/sounds'
 
 interface Props { onClose: () => void }
 
@@ -113,7 +114,7 @@ export default function VetScene({ onClose }: Props) {
 
         {/* Buttons */}
         {!checkDone ? (
-          <button onClick={doCheckup} disabled={checking}
+          <button onClick={() => { playSound('ui_tap'); doCheckup() }} disabled={checking}
             className="w-full max-w-xs py-3 text-white transition-all active:translate-y-[2px] disabled:opacity-50"
             style={checking
               ? { background: '#388E3C', borderRadius: 3, border: '2px solid #2E7D32', fontFamily: '"Press Start 2P"', fontSize: 8 }
@@ -122,7 +123,7 @@ export default function VetScene({ onClose }: Props) {
             {checking ? 'EXAMINING...' : 'CHECK UP'}
           </button>
         ) : !healthy && !medGiven ? (
-          <button onClick={giveMedicine} disabled={giving}
+          <button onClick={() => { playSound('ui_tap'); giveMedicine() }} disabled={giving}
             className="w-full max-w-xs py-3 text-white transition-all active:translate-y-[2px] disabled:opacity-50"
             style={giving
               ? { background: '#7B1FA2', borderRadius: 3, border: '2px solid #6A1B9A', fontFamily: '"Press Start 2P"', fontSize: 8 }

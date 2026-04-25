@@ -18,6 +18,7 @@ import { format } from 'date-fns'
 import Link from 'next/link'
 import { Sparkles } from 'lucide-react'
 import { IconGift, IconCapsule, IconHeart, IconBell, IconPerson, IconDoor, IconDrumstick, IconYarn, IconMoonZ, IconBath, IconPill, IconBook } from '@/components/PixelIcons'
+import { playSound } from '@/lib/sounds'
 import TaskPanel from '@/components/TaskPanel'
 import ReminderSheet from '@/components/ReminderSheet'
 import { registerSW } from '@/lib/reminders'
@@ -400,18 +401,18 @@ export default function HomePage() {
 
             {/* Nav buttons — pixel game style */}
             {fortuneAvailable && (
-              <button onClick={() => setShowFortune(true)}
+              <button onClick={() => { playSound('ui_modal_open'); setShowFortune(true) }}
                 className="w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
                 style={{ background: 'rgba(8,5,20,0.8)', border: '2px solid rgba(245,158,11,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(251,191,36,0.2)', animation: 'pulse 2s ease-in-out infinite' }}>
                 <IconGift size={22} />
               </button>
             )}
-            <Link href="/gacha"
+            <Link href="/gacha" onClick={() => playSound('ui_tap')}
               className="w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
               style={{ background: 'rgba(8,5,20,0.8)', border: '2px solid rgba(124,58,237,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(167,139,250,0.2)' }}>
               <IconCapsule size={22} />
             </Link>
-            <Link href="/couple" className="relative w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
+            <Link href="/couple" onClick={() => playSound('ui_tap')} className="relative w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
               style={{ background: 'rgba(8,5,20,0.8)', border: '2px solid rgba(255,107,157,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,107,157,0.2)' }}>
               <IconHeart size={22} />
               {unreadCount > 0 && (
@@ -421,18 +422,18 @@ export default function HomePage() {
                 </div>
               )}
             </Link>
-            <button onClick={() => setShowReminders(true)}
+            <button onClick={() => { playSound('ui_modal_open'); setShowReminders(true) }}
               className="w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
               style={{ background: 'rgba(8,5,20,0.8)', border: '2px solid rgba(255,215,0,0.35)', boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,215,0,0.15)' }}>
               <IconBell size={22} />
             </button>
-            <Link href="/profile"
+            <Link href="/profile" onClick={() => playSound('ui_tap')}
               className="w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
               style={{ background: 'rgba(8,5,20,0.8)', border: '2px solid rgba(167,139,250,0.4)', boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(167,139,250,0.2)' }}>
               <IconPerson size={22} />
             </Link>
             <div className="relative flex-shrink-0">
-              <button onClick={() => setShowRooms(r => !r)}
+              <button onClick={() => { playSound(showRooms ? 'ui_modal_close' : 'ui_modal_open'); setShowRooms(r => !r) }}
                 className="w-10 h-10 flex items-center justify-center active:scale-90 transition-transform"
                 style={{ background: 'rgba(8,5,20,0.8)', border: '2px solid rgba(107,65,33,0.6)', boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(200,150,100,0.2)' }}>
                 <IconDoor size={22} />
@@ -468,7 +469,7 @@ export default function HomePage() {
                       { id: 'vet',    label: 'Vet Office',    Icon: IconPill,      color: '#34D399', rgb: '52,211,153' },
                       { id: 'school', label: 'Serbian Class', Icon: IconBook,      color: '#F59E0B', rgb: '245,158,11' },
                     ] as const).map(room => (
-                      <button key={room.id} onClick={() => { setShowRooms(false); openScene(room.id) }}
+                      <button key={room.id} onClick={() => { playSound('ui_tap'); setShowRooms(false); openScene(room.id) }}
                         className="flex items-center gap-2.5 px-3 py-2 active:scale-95 transition-transform relative"
                         style={{
                           borderRadius: 4,
@@ -515,7 +516,7 @@ export default function HomePage() {
           ] as const).map(r => (
             <button
               key={r.id}
-              onClick={() => openScene(r.id)}
+              onClick={() => { playSound('ui_tap'); openScene(r.id) }}
               aria-label={`Open ${r.id}`}
               className="active:scale-90 transition-transform"
               style={{ padding: '8px 4px', lineHeight: 0, background: 'transparent' }}>

@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ':*)",
+      "Bash(layout\\\\.tsx\")",
+      "Bash(npx web-push:*)",
+      "Bash(npx -y web-push generate-vapid-keys --json)",
+      "Bash(git commit -m ' *)",
+      "Bash(rm -rf \"src/app/api/push-test\")"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\Lenovo\\OneDrive\\Desktop\\Eren-Obsidian"
+    ]
+  }
+}

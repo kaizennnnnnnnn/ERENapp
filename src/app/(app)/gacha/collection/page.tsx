@@ -11,6 +11,7 @@ import { useCare } from '@/contexts/CareContext'
 import { GACHA_ITEMS, RARITY_COLORS, getCategoryLabel, CATEGORY_ICONS, getItemsByCategory } from '@/lib/gacha'
 import { FORTUNE_GIFTS } from '@/lib/fortune'
 import type { GachaCategory, GachaItemDef } from '@/types'
+import { playSound } from '@/lib/sounds'
 
 const CATEGORIES: GachaCategory[] = ['outfit', 'decoration', 'background', 'recipe', 'emote', 'frame', 'consumable']
 
@@ -42,7 +43,7 @@ export default function CollectionPage() {
 
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
-        <button onClick={() => router.back()} className="flex items-center justify-center active:scale-90 transition-transform"
+        <button onClick={() => { playSound('ui_back'); router.back() }} className="flex items-center justify-center active:scale-90 transition-transform"
           style={{ width: 32, height: 32, background: 'linear-gradient(135deg, #FFF8FF, #F0E8FF)', borderRadius: 8, border: '2px solid #D8C0F0', boxShadow: '0 2px 0 #C0A0E0' }}>
           <ChevronLeft size={16} className="text-purple-500" />
         </button>
@@ -61,7 +62,7 @@ export default function CollectionPage() {
       {/* Category tabs */}
       <div className="flex gap-1 mb-4 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
         {CATEGORIES.map(cat => (
-          <button key={cat} onClick={() => { setTab(cat); setSelected(null) }}
+          <button key={cat} onClick={() => { playSound('ui_tap'); setTab(cat); setSelected(null) }}
             className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 transition-all"
             style={{
               background: tab === cat ? 'linear-gradient(135deg, #7C3AED, #A78BFA)' : 'white',
@@ -83,7 +84,7 @@ export default function CollectionPage() {
           const colors = RARITY_COLORS[item.rarity]
           const isEquipped = equippedItem?.id === item.id
           return (
-            <button key={item.id} onClick={() => owned ? setSelected(item) : undefined}
+            <button key={item.id} onClick={() => { if (owned) { playSound('ui_modal_open'); setSelected(item) } }}
               className="flex flex-col items-center gap-1 p-2 transition-all active:scale-95"
               style={{
                 background: owned ? colors.bg : '#F0F0F0',
@@ -123,13 +124,13 @@ export default function CollectionPage() {
             {/* Equip/unequip for outfit, background, frame, decoration */}
             {['outfit', 'background', 'frame', 'decoration'].includes(selected.category) && (
               equippedItem?.id === selected.id || inventory.find(i => i.item_id === selected.id)?.equipped ? (
-                <button onClick={() => { unequipItem(selected.id); setSelected(null) }}
+                <button onClick={() => { playSound('ui_tap'); unequipItem(selected.id); setSelected(null) }}
                   className="w-full py-2 text-white active:translate-y-[1px]"
                   style={{ background: '#6B7280', borderRadius: 3, border: '2px solid #4B5563', boxShadow: '0 2px 0 #374151', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                   UNEQUIP
                 </button>
               ) : (
-                <button onClick={() => { equipItem(selected.id); setSelected(null) }}
+                <button onClick={() => { playSound('ui_tap'); equipItem(selected.id); setSelected(null) }}
                   className="w-full py-2 text-white active:translate-y-[1px]"
                   style={{ background: 'linear-gradient(135deg, #7C3AED, #A78BFA)', borderRadius: 3, border: '2px solid #5B21B6', boxShadow: '0 2px 0 #4C1D95', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                   EQUIP
@@ -144,6 +145,7 @@ export default function CollectionPage() {
                   OWNED: {getQuantity(selected.id)}
                 </p>
                 <button onClick={async () => {
+                  playSound('ui_tap')
                   const result = await useItem(selected.id)
                   setSelected(null)
                   if (result.success) { setUseToast(result.message); setTimeout(() => setUseToast(null), 2500) }
@@ -156,7 +158,7 @@ export default function CollectionPage() {
               </>
             )}
 
-            <button onClick={() => setSelected(null)} className="font-pixel text-gray-400" style={{ fontSize: 6 }}>CLOSE</button>
+            <button onClick={() => { playSound('ui_modal_close'); setSelected(null) }} className="font-pixel text-gray-400" style={{ fontSize: 6 }}>CLOSE</button>
           </div>
         </div>
       )}

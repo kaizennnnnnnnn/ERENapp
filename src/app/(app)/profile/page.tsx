@@ -16,6 +16,7 @@ import {
   IconPerson, IconHouse, IconHeart, IconClock, IconCatFace, IconPencil,
   IconCrown, IconHeartDuo,
 } from '@/components/PixelIcons'
+import { playSound } from '@/lib/sounds'
 
 export default function ProfilePage() {
   const router   = useRouter()
@@ -98,7 +99,7 @@ export default function ProfilePage() {
     <div className="page-scroll">
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
-        <button onClick={() => router.push('/home')} className="flex items-center justify-center active:scale-90 transition-transform"
+        <button onClick={() => { playSound('ui_back'); router.push('/home') }} className="flex items-center justify-center active:scale-90 transition-transform"
           style={{ width: 32, height: 32, background: 'linear-gradient(135deg, #FFF8FF, #F0E8FF)', borderRadius: 8, border: '2px solid #D8C0F0', boxShadow: '0 2px 0 #C0A0E0' }}>
           <ChevronLeft size={16} className="text-purple-500" />
         </button>
@@ -135,12 +136,12 @@ export default function ProfilePage() {
                   onKeyDown={e => e.key === 'Enter' && saveName()}
                   autoFocus
                 />
-                <button onClick={saveName} disabled={savingName} className="btn-primary px-3 py-1.5 text-sm">
+                <button onClick={() => { playSound('ui_tap'); saveName() }} disabled={savingName} className="btn-primary px-3 py-1.5 text-sm">
                   {savingName ? '…' : 'Save'}
                 </button>
               </div>
             ) : (
-              <button onClick={() => { setEditName(profile.name); setNameEditing(true) }} className="text-left">
+              <button onClick={() => { playSound('ui_tap'); setEditName(profile.name); setNameEditing(true) }} className="text-left">
                 <p className="font-pixel text-gray-800 leading-tight mb-1" style={{ fontSize: 11 }}>{profile.name}</p>
                 <p className="text-[10px] text-purple-400 flex items-center gap-1">
                   tap to edit name
@@ -263,7 +264,7 @@ export default function ProfilePage() {
               </p>
             </div>
             <button
-              onClick={copyInviteCode}
+              onClick={() => { playSound('ui_tap'); copyInviteCode() }}
               className="w-12 h-12 flex items-center justify-center transition-all active:translate-y-[2px]"
               style={copied
                 ? { background: '#4ade80', borderRadius: 3, border: '2px solid #16a34a', boxShadow: '0 2px 0 #15803d' }
@@ -285,7 +286,7 @@ export default function ProfilePage() {
 
       {/* ── Sign out ── */}
       <button
-        onClick={handleSignOut}
+        onClick={() => { playSound('ui_tap'); handleSignOut() }}
         className="w-full flex items-center justify-center gap-2 py-3 transition-all active:translate-y-[2px]"
         style={{ background: '#FFF0F0', borderRadius: 3, border: '2px solid #FFCCCC', boxShadow: '2px 2px 0 #FFB0B0', color: '#CC4444' }}>
         <LogOut size={16} />

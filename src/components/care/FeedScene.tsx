@@ -7,6 +7,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import type { FoodInventory } from '@/types'
+import { playSound } from '@/lib/sounds'
 
 interface Props { onClose: () => void }
 
@@ -150,14 +151,14 @@ export default function FeedScene({ onClose }: Props) {
       {/* ══ FLOATING ACTION BUTTONS ══ */}
       <div className="absolute bottom-6 left-0 right-0 z-30 flex justify-center gap-4">
         {/* Shop button */}
-        <button onClick={() => setTab(tab === 'shop' ? null : 'shop')}
+        <button onClick={() => { playSound(tab === 'shop' ? 'ui_modal_close' : 'ui_modal_open'); setTab(tab === 'shop' ? null : 'shop') }}
           className="flex items-center gap-2 px-5 py-3 text-white active:scale-95 transition-transform"
           style={{ background: tab === 'shop' ? 'linear-gradient(135deg, #E8A020, #C07010)' : 'linear-gradient(135deg, #F5C842, #E8A020)', borderRadius: 14, border: '2px solid #C88018', boxShadow: tab === 'shop' ? '0 2px 0 #904800' : '0 4px 0 #A06010, inset 0 1px 0 rgba(255,255,255,0.3)', fontFamily: '"Press Start 2P"', fontSize: 8 }}>
           <ShoppingCart size={14} />
           SHOP
         </button>
         {/* Fridge button */}
-        <button onClick={() => setTab(tab === 'fridge' ? null : 'fridge')}
+        <button onClick={() => { playSound(tab === 'fridge' ? 'ui_modal_close' : 'ui_modal_open'); setTab(tab === 'fridge' ? null : 'fridge') }}
           className="flex items-center gap-2 px-5 py-3 active:scale-95 transition-transform"
           style={{ background: tab === 'fridge' ? 'linear-gradient(135deg, #60A8D0, #3880B0)' : 'linear-gradient(135deg, #A8D8F8, #78B8E8)', borderRadius: 14, border: '2px solid #5898C8', boxShadow: tab === 'fridge' ? '0 2px 0 #205880' : '0 4px 0 #3870A8, inset 0 1px 0 rgba(255,255,255,0.4)', fontFamily: '"Press Start 2P"', fontSize: 8, color: tab === 'fridge' ? 'white' : '#1A5A8A' }}>
           <Package size={14} />
@@ -175,7 +176,7 @@ export default function FeedScene({ onClose }: Props) {
             <span className="font-pixel text-amber-700 flex items-center gap-2" style={{ fontSize: 9 }}>
               {tab === 'shop' ? <><ShoppingCart size={12} /> SHOP</> : <><Package size={12} /> FRIDGE</>}
             </span>
-            <button onClick={() => setTab(null)}
+            <button onClick={() => { playSound('ui_modal_close'); setTab(null) }}
               className="active:scale-90 transition-transform"
               style={{ background: '#F5EDD0', borderRadius: 8, border: '2px solid #E8C870', padding: '3px 8px', fontFamily: '"Press Start 2P"', fontSize: 8, color: '#A07020' }}>
               ✕
@@ -205,7 +206,7 @@ export default function FeedScene({ onClose }: Props) {
                         <span>HGR +{item.hungerD}</span>
                         <span>JOY +{item.happyD}</span>
                       </div>
-                      <button onClick={() => handleBuy(item)} disabled={!canAfford || buying === item.id}
+                      <button onClick={() => { playSound('ui_tap'); handleBuy(item) }} disabled={!canAfford || buying === item.id}
                         className="w-full py-1.5 text-white transition-all active:translate-y-[1px] disabled:opacity-40"
                         style={{ background: canAfford ? item.color : '#ccc', borderRadius: 2, border: `1px solid ${canAfford ? 'rgba(0,0,0,0.15)' : '#bbb'}`, boxShadow: canAfford ? `0 2px 0 rgba(0,0,0,0.18)` : 'none', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                         {buying === item.id ? '...' : canAfford ? 'BUY' : 'BROKE'}
@@ -226,7 +227,7 @@ export default function FeedScene({ onClose }: Props) {
                     <div style={{ position: 'absolute', top: 5, left: 5, width: 10, height: 6, background: 'rgba(255,255,255,0.45)', borderRadius: '50%', transform: 'rotate(-20deg)' }} />
                   </div>
                   <p className="font-pixel text-gray-500" style={{ fontSize: 8 }}>FRIDGE EMPTY!</p>
-                  <button onClick={() => setTab('shop')} className="px-4 py-2 text-white active:translate-y-[1px]"
+                  <button onClick={() => { playSound('ui_tap'); setTab('shop') }} className="px-4 py-2 text-white active:translate-y-[1px]"
                     style={{ background: '#F5C842', borderRadius: 3, border: '2px solid #C88018', boxShadow: '0 2px 0 #A06010', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                     GO SHOP →
                   </button>
@@ -245,7 +246,7 @@ export default function FeedScene({ onClose }: Props) {
                       </div>
                       <div className="flex flex-col items-center gap-1">
                         <span className="font-pixel text-gray-500 w-6 h-6 flex items-center justify-center" style={{ fontSize: 8, background: '#F0F0F0', borderRadius: 2, border: '1px solid #DDD' }}>{inventory[item.id] ?? 0}</span>
-                        <button onClick={() => handleFeed(item)} disabled={!!feeding}
+                        <button onClick={() => { playSound('ui_tap'); handleFeed(item) }} disabled={!!feeding}
                           className="px-3 py-1.5 text-white active:translate-y-[1px]"
                           style={{ background: item.color, borderRadius: 2, border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 2px 0 rgba(0,0,0,0.15)', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                           {feeding === item.id ? '...' : 'FEED'}

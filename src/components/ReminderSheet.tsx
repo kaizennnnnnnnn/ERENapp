@@ -9,6 +9,7 @@ import {
   getReminders, createReminder, updateReminder, deleteReminder,
   scheduleAll, nextFireAt,
 } from '@/lib/reminders'
+import { playSound } from '@/lib/sounds'
 
 interface Props { onClose: () => void }
 
@@ -107,7 +108,7 @@ export default function ReminderSheet({ onClose }: Props) {
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
-      <div className="absolute inset-0" style={{ background: 'rgba(20,5,40,0.5)' }} onClick={onClose} />
+      <div className="absolute inset-0" style={{ background: 'rgba(20,5,40,0.5)' }} onClick={() => { playSound('ui_modal_close'); onClose() }} />
 
       <div className="relative max-w-md w-full mx-auto flex flex-col overflow-hidden"
         style={{ background: '#FDFAFF', borderRadius: '20px 20px 0 0', border: '2px solid #D8C8F8', borderBottom: 'none', maxHeight: '88vh', animation: 'slideUp 0.28s cubic-bezier(0.34,1.56,0.64,1)' }}>
@@ -124,12 +125,12 @@ export default function ReminderSheet({ onClose }: Props) {
             <span className="font-pixel text-purple-700" style={{ fontSize: 9 }}>REMINDERS</span>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowForm(f => !f)}
+            <button onClick={() => { playSound('ui_tap'); setShowForm(f => !f) }}
               className="flex items-center gap-1 px-3 h-8 active:scale-95 transition-transform"
               style={{ background: showForm ? '#EDE8FF' : 'linear-gradient(135deg, #A78BFA, #7C3AED)', borderRadius: 6, border: '2px solid #C8B0F0' }}>
               <span className="font-pixel" style={{ fontSize: 7, color: showForm ? '#6030B0' : 'white' }}>{showForm ? 'CANCEL' : '+ ADD'}</span>
             </button>
-            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center active:scale-90 transition-transform"
+            <button onClick={() => { playSound('ui_modal_close'); onClose() }} className="w-8 h-8 flex items-center justify-center active:scale-90 transition-transform"
               style={{ borderRadius: 6, border: '2px solid #E0D0F8', background: 'white' }}>
               <span className="font-pixel text-purple-400" style={{ fontSize: 9 }}>✕</span>
             </button>
@@ -145,7 +146,7 @@ export default function ReminderSheet({ onClose }: Props) {
               <p className="font-pixel text-amber-700" style={{ fontSize: 7 }}>Notifications off</p>
               <p className="text-[9px] text-amber-600 mt-0.5">Enable to receive reminders</p>
             </div>
-            <button onClick={requestPermission}
+            <button onClick={() => { playSound('ui_tap'); requestPermission() }}
               className="px-3 h-7 active:scale-95 transition-transform"
               style={{ background: 'linear-gradient(135deg, #F5C842, #E8A020)', borderRadius: 5, border: '2px solid #C8A020' }}>
               <span className="font-pixel text-white" style={{ fontSize: 6 }}>ENABLE</span>
@@ -170,7 +171,7 @@ export default function ReminderSheet({ onClose }: Props) {
               <p className="font-pixel text-purple-500 mb-1.5" style={{ fontSize: 6 }}>REPEAT</p>
               <div className="flex gap-2">
                 {(['daily', 'weekly', 'once'] as const).map(t => (
-                  <button key={t} onClick={() => setType(t)}
+                  <button key={t} onClick={() => { playSound('ui_tap'); setType(t) }}
                     className="flex-1 py-2 font-pixel active:scale-95 transition-transform"
                     style={{ fontSize: 6, borderRadius: 6, border: `2px solid ${type === t ? '#A78BFA' : '#EDE8FF'}`, background: type === t ? 'linear-gradient(135deg, #F0E8FF, #E0D0FF)' : 'white', color: type === t ? '#6030B0' : '#A0A0C0' }}>
                     {typeLabel[t]}
@@ -191,7 +192,7 @@ export default function ReminderSheet({ onClose }: Props) {
                 <p className="font-pixel text-purple-500 mb-1.5" style={{ fontSize: 6 }}>DAYS</p>
                 <div className="flex gap-1.5">
                   {DAY_LABELS.map((d, i) => (
-                    <button key={i} onClick={() => toggleDay(i)}
+                    <button key={i} onClick={() => { playSound('ui_tap'); toggleDay(i) }}
                       className="flex-1 py-2 font-pixel active:scale-95 transition-transform"
                       style={{ fontSize: 6, borderRadius: 6, border: `2px solid ${weekDays.includes(i) ? '#A78BFA' : '#EDE8FF'}`, background: weekDays.includes(i) ? 'linear-gradient(135deg, #A78BFA, #7C3AED)' : 'white', color: weekDays.includes(i) ? 'white' : '#A0A0C0' }}>
                       {d}
@@ -212,7 +213,7 @@ export default function ReminderSheet({ onClose }: Props) {
 
             {/* Private toggle */}
             <div className="flex items-center gap-3">
-              <button onClick={() => setIsPrivate(p => !p)}
+              <button onClick={() => { playSound('ui_tap'); setIsPrivate(p => !p) }}
                 className="w-10 h-6 relative active:scale-95 transition-transform flex-shrink-0"
                 style={{ borderRadius: 12, background: isPrivate ? 'linear-gradient(90deg, #A78BFA, #7C3AED)' : '#E0D8F0', border: '2px solid #C8B0F0' }}>
                 <div className="absolute top-0.5 h-4 w-4"
@@ -224,7 +225,7 @@ export default function ReminderSheet({ onClose }: Props) {
               </div>
             </div>
 
-            <button onClick={handleSave}
+            <button onClick={() => { playSound('ui_tap'); handleSave() }}
               className="w-full py-3 font-pixel active:scale-[0.98] transition-transform"
               style={{ borderRadius: 8, background: text.trim() ? 'linear-gradient(135deg, #A78BFA, #7C3AED)' : '#E0D8F0', color: text.trim() ? 'white' : '#C0B8D8', border: '2px solid #C8B0F0', boxShadow: text.trim() ? '3px 3px 0 #9060D0' : 'none', fontSize: 8 }}>
               SAVE REMINDER
@@ -271,7 +272,7 @@ export default function ReminderSheet({ onClose }: Props) {
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {/* Toggle — only own reminders */}
                   {isOwn && (
-                    <button onClick={() => handleToggle(r.id)}
+                    <button onClick={() => { playSound('ui_tap'); handleToggle(r.id) }}
                       className="w-10 h-6 relative active:scale-95 transition-transform"
                       style={{ borderRadius: 12, background: r.active ? 'linear-gradient(90deg, #A78BFA, #7C3AED)' : '#E0D8F0', border: '2px solid #C8B0F0' }}>
                       <div className="absolute top-0.5 h-4 w-4"
@@ -279,7 +280,7 @@ export default function ReminderSheet({ onClose }: Props) {
                     </button>
                   )}
                   {isOwn && (
-                    <button onClick={() => handleDelete(r.id)}
+                    <button onClick={() => { playSound('ui_tap'); handleDelete(r.id) }}
                       className="w-7 h-7 flex items-center justify-center active:scale-90 transition-transform"
                       style={{ borderRadius: 6, border: '2px solid #FFC0C0', background: '#FFF0F0' }}>
                       <span style={{ fontSize: 12 }}>🗑</span>
