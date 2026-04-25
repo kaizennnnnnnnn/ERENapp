@@ -3,6 +3,7 @@
 import { useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import { useCare } from '@/contexts/CareContext'
+import { playSound } from '@/lib/sounds'
 
 export default function PageSwiper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -30,7 +31,7 @@ export default function PageSwiper({ children }: { children: React.ReactNode }) 
     // Trigger on 20% screen width or fast flick
     const threshold = window.innerWidth * 0.2
     if ((Math.abs(dx) > threshold || velocity > 0.4) && Math.abs(dx) > Math.abs(dy) * 1.2) {
-      if (dx > 0) openScene('feed')
+      if (dx > 0) { playSound('ui_swipe_room'); openScene('feed') }
     }
   }
 
