@@ -6,7 +6,8 @@
       "Bash(npx web-push:*)",
       "Bash(npx -y web-push generate-vapid-keys --json)",
       "Bash(git commit -m ' *)",
-      "Bash(rm -rf \"src/app/api/push-test\")"
+      "Bash(rm -rf \"src/app/api/push-test\")",
+      "Bash(git commit *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Lenovo\\OneDrive\\Desktop\\Eren-Obsidian"

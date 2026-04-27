@@ -100,11 +100,11 @@ export default function CareSceneHost() {
   function navigate(dir: 'left' | 'right') {
     if (loopIdx === -1) return
     if (dir === 'left') {
-      if (loopIdx === LOOP_SCENES.length - 1) { closeScene(); return }
+      if (loopIdx === LOOP_SCENES.length - 1) { playSound('ui_swipe_room'); closeScene(); return }
       playSound('ui_swipe_room')
       setSlideDir('left'); setAnimKey(k => k + 1); openScene(LOOP_SCENES[loopIdx + 1])
     } else {
-      if (loopIdx === 0) { closeScene(); return }
+      if (loopIdx === 0) { playSound('ui_swipe_room'); closeScene(); return }
       playSound('ui_swipe_room')
       setSlideDir('right'); setAnimKey(k => k + 1); openScene(LOOP_SCENES[loopIdx - 1])
     }
