@@ -126,11 +126,28 @@ export default function FeedScene({ onClose }: Props) {
       {/* ══ BACKGROUND IMAGE ══ */}
       <div className="absolute inset-0" style={{ backgroundImage: 'url(/kitchen.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
-      {/* ══ KETTLE STEAM — rises from the spout (kettle ≈ 31% x, 46% y) ══ */}
-      <div className="absolute pointer-events-none" style={{ left: '31%', top: '46%', zIndex: 5 }}>
-        <div className="kettle-puff kettle-puff-a" />
-        <div className="kettle-puff kettle-puff-b" />
-        <div className="kettle-puff kettle-puff-c" />
+      {/* ══ KETTLE STEAM ══
+        The kettle sits on the left burner of the stove. In the source kitchen.png
+        (768×1376), the spout opening lands at roughly (142, 727) — about 18.5% x,
+        52.8% y. The bg renders with `cover/center`, so to keep smoke pinned to the
+        spout across viewports we use an aspect-ratio wrapper that mirrors the
+        image's covered rect; percentages inside it map directly to image space. */}
+      <div className="absolute pointer-events-none overflow-hidden" style={{ inset: 0, zIndex: 5 }}>
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          minWidth: '100%',
+          minHeight: '100%',
+          aspectRatio: '768 / 1376',
+        }}>
+          <div className="absolute" style={{ left: '18.5%', top: '52.8%' }}>
+            <div className="kettle-puff kettle-puff-a" />
+            <div className="kettle-puff kettle-puff-b" />
+            <div className="kettle-puff kettle-puff-c" />
+          </div>
+        </div>
       </div>
 
       {/* ══ EREN ══ */}
