@@ -12,6 +12,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPush, getStatNotifications } from '@/lib/serverPush'
 import { NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 interface StatValues {
   happiness: number
   hunger: number

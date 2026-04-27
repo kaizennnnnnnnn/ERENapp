@@ -9,6 +9,13 @@ import { NextResponse } from 'next/server'
 import { clampStat, computeErenMood, shouldBecomeSick } from '@/lib/utils'
 import { sendPush, getStatNotifications } from '@/lib/serverPush'
 
+// Critical: GET route handlers are statically cached by Next.js / Vercel by
+// default. Without this opt-out the first response gets memoized and every
+// subsequent ping (the client scheduler, pg_cron, anything) returns the same
+// JSON without re-running — so decay stops advancing and push never fires.
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 const DECAY_PER_HOUR = {
   hunger:        -10,   // empties in 10h
   happiness:     -7,    // empties in ~14h
