@@ -20,6 +20,7 @@ import { Sparkles } from 'lucide-react'
 import { IconGift, IconCapsule, IconHeart, IconBell, IconPerson, IconDoor, IconDrumstick, IconYarn, IconMoonZ, IconBath, IconPill, IconBook } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import TaskPanel from '@/components/TaskPanel'
+import AnalogClock from '@/components/AnalogClock'
 import ReminderSheet from '@/components/ReminderSheet'
 import { registerSW } from '@/lib/reminders'
 import { checkStatNotifications, requestNotificationPermission, notifyPartnerAction, notifyPartnerMessage } from '@/lib/statNotifications'
@@ -339,6 +340,27 @@ export default function HomePage() {
           userSelect: 'none',
           pointerEvents: 'none',
         }} />
+
+        {/* ══ ANALOG CLOCK on the shelf ══
+          Replaces the decorative wheel-ornament baked into livingRoom.png. The
+          ornament face is centered at ~(17%, 14%) of the 768×1376 source with
+          a ~13% diameter; the aspect-ratio wrapper here mirrors how the bg is
+          covered, so % coords map to image space across phone aspect ratios. */}
+        <div className="absolute pointer-events-none overflow-hidden" style={{ inset: 0, zIndex: 1 }}>
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            minWidth: '100%',
+            minHeight: '100%',
+            aspectRatio: '768 / 1376',
+          }}>
+            <div style={{ position: 'absolute', left: '17%', top: '14%', width: '14%', aspectRatio: '1 / 1', transform: 'translate(-50%, -50%)' }}>
+              <AnalogClock size="100%" mode="real" />
+            </div>
+          </div>
+        </div>
 
         {mood === 'happy' && (
           <>
