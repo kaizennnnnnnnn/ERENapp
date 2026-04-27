@@ -345,8 +345,8 @@ export default function WashScene({ onClose }: Props) {
         @keyframes tapDrop {
           0%   { transform: translateY(-3px) scale(0.6, 0.4); opacity: 0; }
           5%   { transform: translateY(0) scale(1, 1); opacity: 1; }
-          24%  { transform: translateY(calc(4vh + 8px)) scale(0.85, 1.3); opacity: 1; }
-          25%, 100% { transform: translateY(calc(4vh + 8px)) scale(1, 1); opacity: 0; }
+          24%  { transform: translateY(calc(4vh + 7px)) scale(0.85, 1.3); opacity: 1; }
+          25%, 100% { transform: translateY(calc(4vh + 7px)) scale(1, 1); opacity: 0; }
         }
       `}</style>
     </div>
