@@ -148,6 +148,7 @@ export default function FlappyErenGame() {
   const lastFizzRef  = useRef(0)
   const lastFrameRef = useRef(0)
   const startTimeRef = useRef(0)
+  const flapTimeRef  = useRef<number>(-Infinity)
   const rafRef       = useRef<number>(0)
 
   const [, forceRender] = useReducer((n: number) => n + 1, 0)
@@ -195,8 +196,37 @@ export default function FlappyErenGame() {
     if (stateRef.current === 'idle') { startGame(); return }
     if (stateRef.current !== 'running') return
     vyRef.current = FLAP_V
+    flapTimeRef.current = performance.now()
     spawnFlapBurst()
     playSound('ui_tap')
+  }
+
+  // ─── Squash/stretch + swing on each flap. Returns instantaneous scale and a
+  // small extra rotation kick on top of the vy-based tilt; combines with the
+  // outer rotation so the can+Eren feel like they got punched upward by the
+  // can's explosion. 0 → 1 over 360 ms after a flap; outside that range the
+  // sprite renders at its natural pose.
+  function getFlapImpact(now: number): { sx: number; sy: number; r: number } {
+    const t = (now - flapTimeRef.current) / 360
+    if (!isFinite(t) || t <= 0 || t >= 1) return { sx: 1, sy: 1, r: 0 }
+    let sx = 1, sy = 1, r = 0
+    if (t < 0.35) {
+      const u = t / 0.35
+      sx = 0.82 + 0.30 * u   // narrow on impact, then snap back
+      sy = 1.22 - 0.32 * u
+      r  = -14 + 20 * u
+    } else if (t < 0.7) {
+      const u = (t - 0.35) / 0.35
+      sx = 1.12 - 0.16 * u
+      sy = 0.90 + 0.14 * u
+      r  = 6 - 9 * u
+    } else {
+      const u = (t - 0.7) / 0.3
+      sx = 0.96 + 0.04 * u
+      sy = 1.04 - 0.04 * u
+      r  = -3 + 3 * u
+    }
+    return { sx, sy, r }
   }
 
   function aabbHits(): boolean {
@@ -423,19 +453,29 @@ export default function FlappyErenGame() {
           <PipePair key={p.id} pipe={p} fieldH={fieldDims.h} theme={currentTheme} />
         ))}
 
-        {/* Eren on can */}
-        <div style={{
-          position: 'absolute',
-          left: PLAYER_X,
-          top: yRef.current,
-          width: EREN_W,
-          height: EREN_H,
-          transform: `rotate(${angleRef.current}deg)`,
-          transformOrigin: '50% 65%',
-          willChange: 'transform, top',
-        }}>
-          <ErenOnCan />
-        </div>
+        {/* Eren on can — outer wrapper handles position; inner wrapper applies
+            the flap squash/stretch + swing kick on top of the vy-based tilt. */}
+        {(() => {
+          const impact = getFlapImpact(performance.now())
+          return (
+            <div style={{
+              position: 'absolute',
+              left: PLAYER_X,
+              top: yRef.current,
+              width: EREN_W,
+              height: EREN_H,
+              willChange: 'transform, top',
+            }}>
+              <div style={{
+                width: '100%', height: '100%',
+                transform: `rotate(${angleRef.current + impact.r}deg) scale(${impact.sx}, ${impact.sy})`,
+                transformOrigin: '50% 70%',
+              }}>
+                <ErenOnCan />
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Fizz particles */}
         {particlesRef.current.map(p => (
@@ -612,125 +652,143 @@ function Cloud({ x, y, scale = 1 }: { x: string; y: string; scale?: number }) {
 function ErenOnCan() {
   return (
     <svg width={EREN_W} height={EREN_H} viewBox="0 0 44 64" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      {/* ═══ EREN CHIBI (rewards-style proportions) — anchored at top, centered ═══ */}
+      {/* ═══ EREN CHIBI — clean Ragdoll, forward gaze ═══ */}
       <g transform="translate(11, 0)">
         {/* ears */}
-        <rect x="3" y="2"  width="3" height="1" fill="#4A2E1A" />
+        <rect x="3"  y="2" width="3" height="1" fill="#4A2E1A" />
         <rect x="16" y="2" width="3" height="1" fill="#4A2E1A" />
-        <rect x="3" y="3"  width="3" height="2" fill="#9B7A5C" />
+        <rect x="3"  y="3" width="3" height="2" fill="#9B7A5C" />
         <rect x="16" y="3" width="3" height="2" fill="#9B7A5C" />
-        <rect x="4" y="4"  width="1" height="1" fill="#F4B0B8" />
+        <rect x="4"  y="4" width="1" height="1" fill="#F4B0B8" />
         <rect x="17" y="4" width="1" height="1" fill="#F4B0B8" />
-        {/* head outline + face */}
-        <rect x="5" y="3"  width="12" height="1" fill="#4A2E1A" />
-        <rect x="4" y="4"  width="14" height="1" fill="#4A2E1A" />
-        <rect x="3" y="5"  width="16" height="1" fill="#4A2E1A" />
-        <rect x="4" y="5"  width="14" height="1" fill="#F9EDD5" />
-        <rect x="3" y="6"  width="1"  height="6" fill="#4A2E1A" />
+        {/* head outline */}
+        <rect x="5"  y="3" width="12" height="1" fill="#4A2E1A" />
+        <rect x="4"  y="4" width="14" height="1" fill="#4A2E1A" />
+        <rect x="3"  y="5" width="16" height="1" fill="#4A2E1A" />
+        <rect x="3"  y="6" width="1"  height="6" fill="#4A2E1A" />
         <rect x="18" y="6" width="1"  height="6" fill="#4A2E1A" />
-        <rect x="4" y="6"  width="14" height="6" fill="#F9EDD5" />
-        {/* Ragdoll mask */}
-        <rect x="5" y="6"  width="3" height="2" fill="#D4B896" />
-        <rect x="14" y="6" width="3" height="2" fill="#D4B896" />
-        {/* eyes — natural cat gaze (pupil low, highlight upper) */}
-        <rect x="6" y="7"  width="2" height="2" fill="#6BAED6" />
-        <rect x="7" y="7"  width="1" height="1" fill="#FFFFFF" />
-        <rect x="6" y="8"  width="1" height="1" fill="#1A1A2E" />
+        {/* head fill — pure cream */}
+        <rect x="4"  y="5" width="14" height="1" fill="#F9EDD5" />
+        <rect x="4"  y="6" width="14" height="6" fill="#F9EDD5" />
+        {/* eyes — wide and excited (the can is exploding under him) */}
+        <rect x="6"  y="7" width="2" height="2" fill="#6BAED6" />
         <rect x="14" y="7" width="2" height="2" fill="#6BAED6" />
-        <rect x="14" y="7" width="1" height="1" fill="#FFFFFF" />
-        <rect x="15" y="8" width="1" height="1" fill="#1A1A2E" />
-        {/* cheeks */}
-        <rect x="5" y="9"  width="1" height="1" fill="#FFB6C8" />
-        <rect x="16" y="9" width="1" height="1" fill="#FFB6C8" />
+        <rect x="6"  y="7" width="1" height="1" fill="#FFFFFF" />
+        <rect x="15" y="7" width="1" height="1" fill="#FFFFFF" />
+        <rect x="7"  y="8" width="1" height="1" fill="#1A1A2E" />
+        <rect x="14" y="8" width="1" height="1" fill="#1A1A2E" />
+        {/* cheeks below eyes */}
+        <rect x="4"  y="10" width="2" height="1" fill="#FFB6C8" />
+        <rect x="16" y="10" width="2" height="1" fill="#FFB6C8" />
         {/* nose */}
         <rect x="10" y="9"  width="2" height="1" fill="#F48B9B" />
         <rect x="10" y="10" width="2" height="1" fill="#4A2E1A" />
-        {/* mouth corners + smile bottom */}
+        {/* open little mouth — wind-in-fur look */}
         <rect x="9"  y="11" width="1" height="1" fill="#4A2E1A" />
         <rect x="12" y="11" width="1" height="1" fill="#4A2E1A" />
+        <rect x="10" y="11" width="2" height="1" fill="#FF6B9D" />
         {/* chin */}
-        <rect x="4" y="12" width="14" height="1" fill="#4A2E1A" />
-        <rect x="5" y="12" width="12" height="1" fill="#F9EDD5" />
-        {/* smile bottom — drawn after chin so the V shows on cream */}
-        <rect x="10" y="12" width="2" height="1" fill="#4A2E1A" />
-        {/* body — narrow torso, paws extending forward to grip the can rim */}
-        <rect x="4" y="13" width="14" height="1" fill="#4A2E1A" />
-        <rect x="3" y="14" width="1"  height="5" fill="#4A2E1A" />
-        <rect x="18" y="14" width="1" height="5" fill="#4A2E1A" />
-        <rect x="4" y="14" width="14" height="5" fill="#F9EDD5" />
-        <rect x="4" y="19" width="14" height="1" fill="#4A2E1A" />
-        {/* paws gripping the can rim */}
-        <rect x="4" y="20" width="3" height="2" fill="#D4B896" />
-        <rect x="4" y="20" width="1" height="2" fill="#4A2E1A" />
-        <rect x="15" y="20" width="3" height="2" fill="#D4B896" />
-        <rect x="17" y="20" width="1" height="2" fill="#4A2E1A" />
+        <rect x="4"  y="12" width="14" height="1" fill="#4A2E1A" />
+        <rect x="5"  y="12" width="12" height="1" fill="#F9EDD5" />
+        {/* body — narrower than head for chibi proportions */}
+        <rect x="6"  y="13" width="10" height="1" fill="#4A2E1A" />
+        <rect x="5"  y="14" width="1"  height="6" fill="#4A2E1A" />
+        <rect x="16" y="14" width="1"  height="6" fill="#4A2E1A" />
+        <rect x="6"  y="14" width="10" height="6" fill="#F9EDD5" />
+        <rect x="6"  y="20" width="10" height="1" fill="#4A2E1A" />
+        {/* paws gripping the can rim — extend outward + downward */}
+        <rect x="3"  y="18" width="3" height="2" fill="#D4B896" />
+        <rect x="2"  y="18" width="1" height="2" fill="#4A2E1A" />
+        <rect x="3"  y="20" width="3" height="1" fill="#4A2E1A" />
+        <rect x="16" y="18" width="3" height="2" fill="#D4B896" />
+        <rect x="19" y="18" width="1" height="2" fill="#4A2E1A" />
+        <rect x="16" y="20" width="3" height="1" fill="#4A2E1A" />
+        {/* wind whiskers (one extra fluff line per cheek for motion) */}
+        <rect x="0"  y="9"  width="3" height="1" fill="rgba(255,255,255,0.55)" />
+        <rect x="19" y="9"  width="3" height="1" fill="rgba(255,255,255,0.55)" />
       </g>
 
-      {/* ═══ HIGH-DETAIL ENERGY CAN (16w × 30h, centered at x=14..30) ═══ */}
-      {/* Top opening — black ring with silver lid hint */}
+      {/* ═══ HIGH-DETAIL ENERGY CAN (16w × 30h, centered x=14..30) ═══ */}
+      {/* outer rim shadow at top (gives the can a "rolled lip") */}
+      <rect x="14" y="21" width="16" height="1" fill="#3A3A3A" />
+      {/* black opening line */}
       <rect x="14" y="22" width="16" height="1" fill="#0A0A0A" />
+      {/* lid silver wedge — tiny dimple where you'd pull the tab */}
       <rect x="15" y="23" width="14" height="1" fill="#3A3A3A" />
+      <rect x="20" y="23" width="4"  height="1" fill="#1A1A1A" />
       <rect x="14" y="23" width="1"  height="1" fill="#0A0A0A" />
       <rect x="29" y="23" width="1"  height="1" fill="#0A0A0A" />
 
-      {/* Top metallic ring */}
+      {/* Top metallic ring (silver highlight + dark line beneath) */}
       <rect x="14" y="24" width="16" height="2" fill="#525252" />
-      <rect x="15" y="24" width="14" height="1" fill="#9CA3AF" />
+      <rect x="15" y="24" width="14" height="1" fill="#D1D5DB" />
+      <rect x="15" y="25" width="14" height="1" fill="#525252" />
       <rect x="14" y="25" width="1"  height="1" fill="#0A0A0A" />
       <rect x="29" y="25" width="1"  height="1" fill="#0A0A0A" />
-      <rect x="15" y="25" width="14" height="1" fill="#3A3A3A" />
+
+      {/* dark lip just under the ring */}
+      <rect x="14" y="26" width="16" height="1" fill="#000000" />
 
       {/* Body base black */}
-      <rect x="14" y="26" width="16" height="26" fill="#0F0F0F" />
+      <rect x="14" y="27" width="16" height="24" fill="#0F0F0F" />
 
-      {/* Left highlight strip (subtle vertical sheen) */}
-      <rect x="15" y="26" width="2" height="26" fill="#262626" />
-      <rect x="15" y="26" width="1" height="26" fill="#3A3A3A" />
+      {/* Left vertical highlight column (sheen) */}
+      <rect x="15" y="27" width="2" height="24" fill="#262626" />
+      <rect x="15" y="27" width="1" height="24" fill="#3A3A3A" />
+      <rect x="16" y="29" width="1" height="14" fill="#525252" />
+      {/* tiny moving-light glint */}
+      <rect x="17" y="32" width="1" height="2" fill="#7A7A7A" />
 
-      {/* Right shadow strip */}
-      <rect x="27" y="26" width="2" height="26" fill="#1A1A1A" />
-      <rect x="28" y="26" width="1" height="26" fill="#000000" />
+      {/* Right vertical shadow column */}
+      <rect x="27" y="27" width="2" height="24" fill="#1A1A1A" />
+      <rect x="28" y="27" width="1" height="24" fill="#000000" />
 
       {/* Outer left/right black borders */}
-      <rect x="14" y="26" width="1"  height="26" fill="#0A0A0A" />
-      <rect x="29" y="26" width="1"  height="26" fill="#0A0A0A" />
+      <rect x="14" y="27" width="1"  height="24" fill="#0A0A0A" />
+      <rect x="29" y="27" width="1"  height="24" fill="#0A0A0A" />
 
-      {/* Claw-mark logo — three vertical lime streaks with bright tips */}
+      {/* Claw-mark logo — three lime streaks with brighter cores + tip glints */}
       <rect x="18" y="32" width="2"  height="14" fill="#10B981" />
       <rect x="18" y="32" width="1"  height="14" fill="#34D399" />
+      <rect x="19" y="33" width="1"  height="3"  fill="#A3F0C0" />
       <rect x="18" y="31" width="2"  height="1"  fill="#A3F0C0" />
       <rect x="18" y="46" width="2"  height="1"  fill="#A3F0C0" />
 
       <rect x="22" y="34" width="2"  height="11" fill="#10B981" />
       <rect x="22" y="34" width="1"  height="11" fill="#34D399" />
+      <rect x="23" y="35" width="1"  height="3"  fill="#A3F0C0" />
       <rect x="22" y="33" width="2"  height="1"  fill="#A3F0C0" />
       <rect x="22" y="45" width="2"  height="1"  fill="#A3F0C0" />
 
       <rect x="26" y="32" width="2"  height="14" fill="#10B981" />
       <rect x="26" y="32" width="1"  height="14" fill="#34D399" />
+      <rect x="27" y="33" width="1"  height="3"  fill="#A3F0C0" />
       <rect x="26" y="31" width="2"  height="1"  fill="#A3F0C0" />
       <rect x="26" y="46" width="2"  height="1"  fill="#A3F0C0" />
 
-      {/* Tiny 'EE' badge between logo and bottom */}
-      <rect x="20" y="49" width="1" height="2" fill="#A3F0C0" />
-      <rect x="21" y="49" width="2" height="1" fill="#A3F0C0" />
-      <rect x="21" y="50" width="1" height="1" fill="#A3F0C0" />
-      <rect x="24" y="49" width="1" height="2" fill="#A3F0C0" />
-      <rect x="25" y="49" width="2" height="1" fill="#A3F0C0" />
-      <rect x="25" y="50" width="1" height="1" fill="#A3F0C0" />
+      {/* "EE" pixel badge below the claws */}
+      <rect x="20" y="48" width="1" height="3" fill="#A3F0C0" />
+      <rect x="21" y="48" width="2" height="1" fill="#A3F0C0" />
+      <rect x="21" y="49" width="1" height="1" fill="#A3F0C0" />
+      <rect x="21" y="50" width="2" height="1" fill="#A3F0C0" />
+      <rect x="24" y="48" width="1" height="3" fill="#A3F0C0" />
+      <rect x="25" y="48" width="2" height="1" fill="#A3F0C0" />
+      <rect x="25" y="49" width="1" height="1" fill="#A3F0C0" />
+      <rect x="25" y="50" width="2" height="1" fill="#A3F0C0" />
 
       {/* Bottom metallic ring */}
-      <rect x="14" y="52" width="16" height="2" fill="#525252" />
-      <rect x="15" y="52" width="14" height="1" fill="#9CA3AF" />
-      <rect x="15" y="53" width="14" height="1" fill="#3A3A3A" />
-      <rect x="14" y="54" width="16" height="1" fill="#0A0A0A" />
+      <rect x="14" y="51" width="16" height="2" fill="#525252" />
+      <rect x="15" y="51" width="14" height="1" fill="#D1D5DB" />
+      <rect x="15" y="52" width="14" height="1" fill="#525252" />
+      <rect x="14" y="53" width="16" height="1" fill="#0A0A0A" />
 
-      {/* Fizz mouth — explosive opening at the bottom of the can */}
-      <rect x="17" y="55" width="10" height="2" fill="#A3F0C0" />
-      <rect x="18" y="56" width="8"  height="1" fill="#FFFFFF" />
-      <rect x="19" y="57" width="6"  height="1" fill="#10B981" opacity="0.7" />
-      <rect x="20" y="58" width="4"  height="1" fill="#34D399" opacity="0.5" />
-      <rect x="21" y="59" width="2"  height="1" fill="#FFFFFF" opacity="0.5" />
+      {/* Fizz mouth — explosive opening at the bottom */}
+      <rect x="17" y="54" width="10" height="2" fill="#A3F0C0" />
+      <rect x="18" y="55" width="8"  height="1" fill="#FFFFFF" />
+      <rect x="18" y="56" width="8"  height="1" fill="#10B981" />
+      <rect x="19" y="57" width="6"  height="1" fill="#34D399" opacity="0.85" />
+      <rect x="20" y="58" width="4"  height="1" fill="#FFFFFF" opacity="0.6" />
+      <rect x="21" y="59" width="2"  height="1" fill="#A3F0C0" opacity="0.6" />
     </svg>
   )
 }
