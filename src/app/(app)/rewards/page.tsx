@@ -105,23 +105,27 @@ function ErenChibi({ size = 56, hop = false }: { size?: number; hop?: boolean })
         {/* Ragdoll brown mask */}
         <rect x="5" y="6" width="3" height="2" fill="#D4B896" />
         <rect x="14" y="6" width="3" height="2" fill="#D4B896" />
-        {/* eyes */}
+        {/* eyes — happy curve (closed-ish, upward arc) */}
         <rect x="6" y="7" width="2" height="2" fill="#6BAED6" />
         <rect x="7" y="7" width="1" height="1" fill="#FFFFFF" />
-        <rect x="6" y="8" width="1" height="1" fill="#1A1A2E" />
+        <rect x="6" y="7" width="1" height="1" fill="#1A1A2E" />
         <rect x="14" y="7" width="2" height="2" fill="#6BAED6" />
         <rect x="14" y="7" width="1" height="1" fill="#FFFFFF" />
-        <rect x="15" y="8" width="1" height="1" fill="#1A1A2E" />
+        <rect x="15" y="7" width="1" height="1" fill="#1A1A2E" />
+        {/* rosy cheeks */}
+        <rect x="5" y="9" width="1" height="1" fill="#FFB6C8" />
+        <rect x="16" y="9" width="1" height="1" fill="#FFB6C8" />
         {/* nose */}
         <rect x="10" y="9" width="2" height="1" fill="#F48B9B" />
         <rect x="10" y="10" width="2" height="1" fill="#4A2E1A" />
-        {/* mouth */}
+        {/* mouth — happy :3 corners */}
         <rect x="9" y="11" width="1" height="1" fill="#4A2E1A" />
         <rect x="12" y="11" width="1" height="1" fill="#4A2E1A" />
-        <rect x="10" y="11" width="2" height="1" fill="#F9EDD5" />
         {/* chin */}
         <rect x="4" y="12" width="14" height="1" fill="#4A2E1A" />
         <rect x="5" y="12" width="12" height="1" fill="#F9EDD5" />
+        {/* smile bottom — drawn after chin so the V shape is visible on the cream */}
+        <rect x="10" y="12" width="2" height="1" fill="#4A2E1A" />
         {/* body */}
         <rect x="4" y="13" width="14" height="1" fill="#4A2E1A" />
         <rect x="3" y="14" width="1" height="5" fill="#4A2E1A" />
@@ -148,9 +152,14 @@ export default function RewardsPage() {
   const router = useRouter()
   const supabase = createClient()
   const { user, profile } = useAuth()
-  const { xp, level, addCoins } = useTasks()
+  const { addCoins } = useTasks()
   const { setHideStats } = useCare()
   useEffect(() => { setHideStats(false) }, [setHideStats])
+
+  // Read level/xp directly from profile to avoid the TaskContext sync race
+  // that was flashing "level 1" on every entry while profile loaded.
+  const level = profile?.level ?? 1
+  const xp    = profile?.xp ?? 0
 
   const [claimedLevel, setClaimedLevel] = useState<number>(0)
   const [claiming, setClaiming] = useState(false)
@@ -177,57 +186,78 @@ export default function RewardsPage() {
       })
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Auto-scroll to current level on first load ────────────────────────────
+  // ── Auto-scroll to current level once profile is loaded ───────────────────
   useEffect(() => {
+    if (!profile) return
     const t = setTimeout(() => {
       currentNodeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }, 260)
     return () => clearTimeout(t)
-  }, [])
+  }, [profile])
 
-  // ── Claim next level reward ────────────────────────────────────────────────
-  const nextClaimable = claimedLevel + 1
-  const canClaim = nextClaimable <= level && nextClaimable <= MAX_LEVEL
+  // ── Claim a contiguous run of rewards: from claimedLevel+1 up to `target` ─
+  // Click on any claimable node calls claimUpTo(idx); Claim All calls
+  // claimUpTo(level). Aggregates DB writes into one update per kind.
+  const cap = Math.min(level, MAX_LEVEL)
+  const claimableCount = Math.max(0, cap - claimedLevel)
+  const canClaimAny    = claimableCount > 0
 
-  async function claimNext() {
-    if (!user?.id || !profile?.household_id || !canClaim || claiming) return
-    const reward = LEVEL_REWARDS[nextClaimable - 1]
-    if (!reward) return
+  async function claimUpTo(target: number) {
+    if (!user?.id || !profile?.household_id || claiming) return
+    if (target <= claimedLevel || target > level || target > MAX_LEVEL) return
 
     setClaiming(true)
     try {
-      // Grant the reward
-      if (reward.kind === 'coins') {
-        await addCoins(reward.amount)
-      } else if (reward.kind === 'stardust') {
-        // Fetch current stardust and update
-        const { data } = await supabase.from('user_gacha_state').select('stardust').eq('user_id', user.id).single()
-        const cur = data?.stardust ?? 0
-        // Try to update; insert if missing
-        const { error } = await supabase.from('user_gacha_state').update({ stardust: cur + reward.amount }).eq('user_id', user.id)
-        if (error) {
-          await supabase.from('user_gacha_state').insert({ user_id: user.id, stardust: reward.amount, pulls_since_epic: 0, pulls_since_legendary: 0, total_pulls: 0 })
+      // Aggregate every reward in [claimedLevel+1 .. target]
+      let totalCoins = 0, totalStardust = 0, totalTickets = 0
+      const foodToAdd: Record<string, number> = {}
+
+      for (let lvl = claimedLevel + 1; lvl <= target; lvl++) {
+        const reward = LEVEL_REWARDS[lvl - 1]
+        if (!reward) continue
+        if (reward.kind === 'coins')         totalCoins    += reward.amount
+        else if (reward.kind === 'stardust') totalStardust += reward.amount
+        else if (reward.kind === 'tickets')  totalTickets  += reward.amount
+        else if (reward.kind === 'food' && reward.food) {
+          foodToAdd[reward.food] = (foodToAdd[reward.food] ?? 0) + reward.amount
         }
-      } else if (reward.kind === 'tickets') {
-        const { data } = await supabase.from('user_gacha_state').select('gacha_tickets').eq('user_id', user.id).single()
-        const cur = (data as Record<string, number> | null)?.gacha_tickets ?? 0
-        const { error } = await supabase.from('user_gacha_state').update({ gacha_tickets: cur + reward.amount }).eq('user_id', user.id)
+      }
+
+      if (totalCoins > 0) await addCoins(totalCoins)
+
+      if (totalStardust > 0 || totalTickets > 0) {
+        const { data } = await supabase.from('user_gacha_state').select('stardust, gacha_tickets').eq('user_id', user.id).single()
+        const curS = data?.stardust ?? 0
+        const curT = (data as Record<string, number> | null)?.gacha_tickets ?? 0
+        const updates: Record<string, number> = {}
+        if (totalStardust > 0) updates.stardust       = curS + totalStardust
+        if (totalTickets  > 0) updates.gacha_tickets  = curT + totalTickets
+        const { error } = await supabase.from('user_gacha_state').update(updates).eq('user_id', user.id)
         if (error) {
-          await supabase.from('user_gacha_state').insert({ user_id: user.id, stardust: 0, gacha_tickets: reward.amount, pulls_since_epic: 0, pulls_since_legendary: 0, total_pulls: 0 })
+          await supabase.from('user_gacha_state').insert({
+            user_id: user.id,
+            stardust: totalStardust,
+            gacha_tickets: totalTickets,
+            pulls_since_epic: 0, pulls_since_legendary: 0, total_pulls: 0,
+          })
         }
-      } else if (reward.kind === 'food' && reward.food) {
-        // Update eren_stats.food_inventory
+      }
+
+      if (Object.keys(foodToAdd).length > 0) {
         const { data: stats } = await supabase.from('eren_stats').select('food_inventory').eq('household_id', profile.household_id).single()
         const inv = (stats?.food_inventory ?? {}) as Record<string, number>
-        inv[reward.food] = (inv[reward.food] ?? 0) + reward.amount
+        for (const [f, n] of Object.entries(foodToAdd)) inv[f] = (inv[f] ?? 0) + n
         await supabase.from('eren_stats').update({ food_inventory: inv }).eq('household_id', profile.household_id)
       }
 
-      // Bump claimed_level
-      await supabase.from('profiles').update({ claimed_level: nextClaimable }).eq('id', user.id)
-      setClaimedLevel(nextClaimable)
+      const claimedCount = target - claimedLevel
+      await supabase.from('profiles').update({ claimed_level: target }).eq('id', user.id)
+      setClaimedLevel(target)
       setFanfare(f => f + 1)
-      setToast({ msg: `Level ${nextClaimable} claimed!`, reward })
+      setToast({
+        msg: claimedCount === 1 ? `Level ${target} claimed!` : `Claimed ${claimedCount} rewards!`,
+        reward: LEVEL_REWARDS[target - 1],
+      })
       setTimeout(() => setToast(null), 2400)
     } finally {
       setClaiming(false)
@@ -236,6 +266,21 @@ export default function RewardsPage() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   const nodes = useMemo(() => LEVEL_REWARDS, [])
+
+  // Don't render the road until the profile is loaded — otherwise the level
+  // pill, "current node" anchor, and auto-scroll all snap to the default
+  // level=1 for a moment before the real value lands.
+  if (!user || !profile) {
+    return (
+      <div className="fixed inset-0 z-40 flex items-center justify-center" style={{
+        background: 'radial-gradient(ellipse at top, #2D1659 0%, #1A0A33 55%, #0F0620 100%)',
+      }}>
+        <p className="font-pixel text-purple-200 animate-pulse" style={{ fontSize: 8, letterSpacing: 2 }}>
+          LOADING REWARDS...
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col overflow-hidden" style={{
@@ -310,8 +355,8 @@ export default function RewardsPage() {
           </div>
         </div>
 
-        {canClaim ? (
-          <button onClick={() => { playSound('ui_tap'); claimNext() }} disabled={claiming}
+        {canClaimAny ? (
+          <button onClick={() => { playSound('ui_tap'); claimUpTo(cap) }} disabled={claiming}
             className="w-full py-2 text-white active:translate-y-[2px] transition-transform disabled:opacity-60 relative overflow-hidden"
             style={{
               background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 55%, #92400E 100%)',
@@ -326,7 +371,9 @@ export default function RewardsPage() {
               background: 'linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.3) 50%, transparent 60%)',
               animation: 'claimShine 2.2s ease-in-out infinite',
             }} />
-            <span className="relative">{claiming ? 'CLAIMING…' : `CLAIM LVL ${nextClaimable}`}</span>
+            <span className="relative">
+              {claiming ? 'CLAIMING…' : `CLAIM ALL (${claimableCount})`}
+            </span>
           </button>
         ) : (
           <div className="w-full py-2 text-center"
@@ -338,7 +385,7 @@ export default function RewardsPage() {
             }}>
             {claimedLevel >= MAX_LEVEL
               ? 'ALL 100 REWARDS CLAIMED ★'
-              : `REACH LVL ${nextClaimable} TO UNLOCK NEXT REWARD`}
+              : `REACH LVL ${claimedLevel + 1} TO UNLOCK NEXT REWARD`}
           </div>
         )}
       </div>
@@ -375,8 +422,11 @@ export default function RewardsPage() {
                     }} />
                   )}
 
-                  {/* Node card */}
-                  <div className="relative flex items-center gap-2.5 p-2.5"
+                  {/* Node card — claimable nodes are tap-to-claim */}
+                  <div
+                    role={claimable ? 'button' : undefined}
+                    onClick={claimable && !claiming ? () => { playSound('ui_tap'); claimUpTo(idx) } : undefined}
+                    className="relative flex items-center gap-2.5 p-2.5 transition-transform"
                     style={{
                       background: locked ? 'rgba(255,255,255,0.06)' : tint.bg,
                       border: `3px solid ${locked ? 'rgba(167,139,250,0.3)' : tint.border}`,
@@ -391,7 +441,12 @@ export default function RewardsPage() {
                       minWidth: 190, maxWidth: 220,
                       opacity: locked ? 0.62 : 1,
                       animation: claimable ? 'nodePulse 1.4s ease-in-out infinite' : 'none',
-                    }}>
+                      cursor: claimable && !claiming ? 'pointer' : 'default',
+                    }}
+                    onPointerDown={claimable && !claiming ? e => { e.currentTarget.style.transform = 'translateY(2px)' } : undefined}
+                    onPointerUp={claimable && !claiming ? e => { e.currentTarget.style.transform = '' } : undefined}
+                    onPointerLeave={claimable && !claiming ? e => { e.currentTarget.style.transform = '' } : undefined}
+                  >
                     {/* Rivets */}
                     {!locked && (
                       <>
