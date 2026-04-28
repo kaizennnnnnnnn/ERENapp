@@ -143,7 +143,7 @@ export default function FeedScene({ onClose }: Props) {
           minHeight: '100%',
           aspectRatio: '768 / 1376',
         }}>
-          <div className="absolute" style={{ left: '18.5%', top: 'calc(52.8% + 20px)' }}>
+          <div className="absolute" style={{ left: 'calc(18.5% + 10px)', top: 'calc(52.8% + 15px)' }}>
             <div className="kettle-puff kettle-puff-a" />
             <div className="kettle-puff kettle-puff-b" />
             <div className="kettle-puff kettle-puff-c" />
