@@ -7,7 +7,7 @@ export type UserMood = 'good' | 'mid' | 'sad' | 'angry' | 'tired'
 export type ActionType = 'feed' | 'play' | 'sleep' | 'wash' | 'medicine'
 export type ReminderType = 'feed' | 'litter' | 'medicine' | 'vet' | 'groom' | 'play' | 'custom'
 export type RepeatInterval = 'once' | 'daily' | 'weekly' | 'monthly'
-export type GameType = 'catch_mouse' | 'yarn_chase' | 'paw_tap' | 'memory_match' | 'treat_tumble' | 'flappy_eren' | 'tic_tac_toe'
+export type GameType = 'catch_mouse' | 'yarn_chase' | 'paw_tap' | 'memory_match' | 'treat_tumble' | 'flappy_eren' | 'tic_tac_toe' | 'eren_stack' | 'yarn_pop' | 'eren_says' | 'pawket_pinball' | 'lane_runner'
 
 export interface Household {
   id: string
