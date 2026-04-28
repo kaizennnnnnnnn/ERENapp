@@ -90,6 +90,30 @@ const GAMES: GameMeta[] = [
     Icon: IconMeat,
     preview: [IconFish, IconStar, IconMeat],
   },
+  {
+    id: 'flappy_eren' as GameType,
+    href: '/games/flappy-eren',
+    title: 'FIZZY EREN',
+    desc: 'Tap to fizz! Dodge pipes, ride the can.',
+    bg: 'linear-gradient(135deg, #E8FFF0, #C8F4D8)',
+    border: '#10B981',
+    shadow: '#047857',
+    accent: '#047857',
+    Icon: IconStar,
+    preview: [IconStar, IconHeart, IconStar],
+  },
+  {
+    id: 'tic_tac_toe' as GameType,
+    href: '/games/tic-tac-toe',
+    title: 'X & O VS EREN',
+    desc: "Beat Eren — he plans every move.",
+    bg: 'linear-gradient(135deg, #FFE0F0, #FFC8E8)',
+    border: '#EC4899',
+    shadow: '#9D174D',
+    accent: '#9D174D',
+    Icon: IconCrown,
+    preview: [IconHeart, IconStar, IconCrown],
+  },
 ]
 
 interface PlayerScores {
