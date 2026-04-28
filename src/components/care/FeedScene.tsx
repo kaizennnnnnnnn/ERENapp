@@ -152,7 +152,7 @@ export default function FeedScene({ onClose }: Props) {
           {/* Wall clock on the back wall — replaces the pixel clock baked into
             kitchen.png. Center at ~(49%, 23.4%) of the source, ~10% diameter. */}
           <div style={{ position: 'absolute', left: 'calc(51% - 1px)', top: '23.4%', width: '13%', aspectRatio: '1 / 1', transform: 'translate(-50%, -50%)' }}>
-            <AnalogClock size="100%" mode="real" />
+            <AnalogClock size="100%" mode="real" pixelated />
           </div>
         </div>
       </div>

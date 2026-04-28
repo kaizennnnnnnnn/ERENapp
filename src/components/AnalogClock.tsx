@@ -7,9 +7,12 @@ interface Props {
   size?: number | string
   /** 'real' = wall-clock time. 'loop30' = sped-up so the second hand cycles every 30s. */
   mode?: 'real' | 'loop30'
+  /** Crisp-edge rendering — jagged silhouettes on circles so the clock reads
+   *  as pixel art instead of a smooth photoreal piece. */
+  pixelated?: boolean
 }
 
-export default function AnalogClock({ size = 80, mode = 'real' }: Props) {
+export default function AnalogClock({ size = 80, mode = 'real', pixelated = false }: Props) {
   const hourRef   = useRef<SVGGElement>(null)
   const minuteRef = useRef<SVGGElement>(null)
   const secondRef = useRef<SVGGElement>(null)
@@ -65,7 +68,12 @@ export default function AnalogClock({ size = 80, mode = 'real' }: Props) {
 
   return (
     <svg width={size} height={size} viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"
-      style={{ filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))', display: 'block' }}>
+      shapeRendering={pixelated ? 'crispEdges' : undefined}
+      style={{
+        filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))',
+        display: 'block',
+        imageRendering: pixelated ? 'pixelated' : undefined,
+      }}>
       <defs>
         <radialGradient id={`face-${uid}`} cx="50%" cy="40%" r="62%">
           <stop offset="0%"   stopColor="#FFFAF0" />

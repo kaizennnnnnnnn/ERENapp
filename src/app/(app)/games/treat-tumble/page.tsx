@@ -25,8 +25,8 @@ const ITEM_SPEED_PER_SEC = 12           // was 8 — climbs faster
 const EREN_WIDTH  = 72
 const ITEM_SIZE   = 34
 
-type ItemKind = 'kibble' | 'fish' | 'cream' | 'golden' | 'heart'
-  | 'shoe' | 'bomb' | 'spider' | 'hairball' | 'thunder'
+type ItemKind = 'kibble' | 'fish' | 'cream' | 'golden' | 'heart' | 'cookie' | 'milk'
+  | 'bomb' | 'spider' | 'knife' | 'fire' | 'skull'
 
 interface ItemMeta {
   label: string
@@ -39,18 +39,22 @@ interface ItemMeta {
 }
 
 const ITEMS: Record<ItemKind, ItemMeta> = {
-  // Good items
-  kibble:   { label: 'Kibble',   points: 1,  life: 0,  rarity: 38, Icon: KibbleIcon,   tint: '#F5C842', danger: false },
-  fish:     { label: 'Fish',     points: 3,  life: 0,  rarity: 22, Icon: IconFish,     tint: '#6BAED6', danger: false },
-  cream:    { label: 'Cream',    points: 5,  life: 0,  rarity: 10, Icon: CreamIcon,    tint: '#E9D5FF', danger: false },
+  // Good items — five originals plus cookie + milk for more friendly variety.
+  kibble:   { label: 'Kibble',   points: 1,  life: 0,  rarity: 32, Icon: KibbleIcon,   tint: '#F5C842', danger: false },
+  fish:     { label: 'Fish',     points: 3,  life: 0,  rarity: 18, Icon: IconFish,     tint: '#6BAED6', danger: false },
+  cookie:   { label: 'Cookie',   points: 2,  life: 0,  rarity: 16, Icon: CookieIcon,   tint: '#A06030', danger: false },
+  milk:     { label: 'Milk',     points: 2,  life: 0,  rarity: 12, Icon: MilkIcon,     tint: '#FFFFFF', danger: false },
+  cream:    { label: 'Cream',    points: 5,  life: 0,  rarity: 9,  Icon: CreamIcon,    tint: '#E9D5FF', danger: false },
   golden:   { label: 'Golden',   points: 10, life: 0,  rarity: 4,  Icon: IconStar,     tint: '#FFD700', danger: false },
   heart:    { label: 'Heart',    points: 0,  life: 1,  rarity: 3,  Icon: IconHeart,    tint: '#FF6B9D', danger: false },
-  // Dangers — weighted so roughly 25% of spawns are bad
-  shoe:     { label: 'Shoe',     points: -4, life: -1, rarity: 7,  Icon: ShoeIcon,     tint: '#8B5A2B', danger: true },
-  bomb:     { label: 'Bomb',     points: -6, life: -1, rarity: 4,  Icon: BombIcon,     tint: '#DC2626', danger: true },
+  // Dangers — only items that *look* dangerous. Spider + bomb stay; knife,
+  // fire, skull replace the previous shoe/hairball/thunder which read as
+  // random clutter rather than threats.
   spider:   { label: 'Spider',   points: -5, life: -1, rarity: 5,  Icon: SpiderIcon,   tint: '#4B0082', danger: true },
-  hairball: { label: 'Hairball', points: -3, life: 0,  rarity: 5,  Icon: HairballIcon, tint: '#6B4423', danger: true },
-  thunder:  { label: 'Thunder',  points: -8, life: -1, rarity: 2,  Icon: ThunderIcon,  tint: '#FBBF24', danger: true },
+  bomb:     { label: 'Bomb',     points: -6, life: -1, rarity: 4,  Icon: BombIcon,     tint: '#DC2626', danger: true },
+  knife:    { label: 'Knife',    points: -5, life: -1, rarity: 5,  Icon: KnifeIcon,    tint: '#9CA3AF', danger: true },
+  fire:     { label: 'Fire',     points: -4, life: -1, rarity: 5,  Icon: FireIcon,     tint: '#F97316', danger: true },
+  skull:    { label: 'Skull',    points: -8, life: -1, rarity: 3,  Icon: SkullIcon,    tint: '#E5E7EB', danger: true },
 }
 
 const KINDS = Object.keys(ITEMS) as ItemKind[]
@@ -98,13 +102,48 @@ function CreamIcon({ size = 20 }: { size?: number }) {
     </svg>
   )
 }
-function ShoeIcon({ size = 20 }: { size?: number }) {
+function CookieIcon({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      <rect x="1" y="6" width="10" height="3" fill="#8B5A2B" />
-      <rect x="2" y="4" width="6" height="2" fill="#A0732A" />
-      <rect x="1" y="9" width="10" height="1" fill="#4A2810" />
-      <rect x="3" y="5" width="1" height="1" fill="#FFFFFF" />
+      {/* outer crust */}
+      <rect x="3" y="1" width="6" height="1" fill="#7A4A1A" />
+      <rect x="2" y="2" width="8" height="1" fill="#7A4A1A" />
+      <rect x="1" y="3" width="10" height="6" fill="#7A4A1A" />
+      <rect x="2" y="9" width="8" height="1" fill="#7A4A1A" />
+      <rect x="3" y="10" width="6" height="1" fill="#7A4A1A" />
+      {/* dough */}
+      <rect x="3" y="2" width="6" height="1" fill="#C0824A" />
+      <rect x="2" y="3" width="8" height="6" fill="#C0824A" />
+      <rect x="3" y="9" width="6" height="1" fill="#C0824A" />
+      {/* highlight */}
+      <rect x="3" y="3" width="2" height="1" fill="#E0AC72" />
+      {/* chocolate chips */}
+      <rect x="4" y="4" width="2" height="1" fill="#3A1A05" />
+      <rect x="4" y="5" width="1" height="1" fill="#3A1A05" />
+      <rect x="7" y="3" width="1" height="2" fill="#3A1A05" />
+      <rect x="7" y="6" width="2" height="2" fill="#3A1A05" />
+      <rect x="3" y="7" width="2" height="1" fill="#3A1A05" />
+    </svg>
+  )
+}
+function MilkIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
+      {/* roof */}
+      <rect x="4" y="0" width="4" height="1" fill="#9CA3AF" />
+      <rect x="3" y="1" width="6" height="1" fill="#D1D5DB" />
+      {/* carton body */}
+      <rect x="2" y="2" width="8" height="9" fill="#FFFFFF" />
+      <rect x="2" y="2" width="1" height="9" fill="#E5E7EB" />
+      <rect x="9" y="2" width="1" height="9" fill="#9CA3AF" />
+      <rect x="2" y="11" width="8" height="1" fill="#6B7280" />
+      {/* M for milk + small drop */}
+      <rect x="3" y="4" width="1" height="3" fill="#3B82F6" />
+      <rect x="4" y="5" width="1" height="1" fill="#3B82F6" />
+      <rect x="5" y="6" width="1" height="1" fill="#3B82F6" />
+      <rect x="6" y="5" width="1" height="1" fill="#3B82F6" />
+      <rect x="7" y="4" width="1" height="3" fill="#3B82F6" />
+      <rect x="4" y="8" width="4" height="1" fill="#60A5FA" />
     </svg>
   )
 }
@@ -143,36 +182,84 @@ function SpiderIcon({ size = 20 }: { size?: number }) {
     </svg>
   )
 }
-function HairballIcon({ size = 20 }: { size?: number }) {
+// ─── Knife — silver blade with brown handle, tip up. Reads as sharp ──────────
+function KnifeIcon({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      <rect x="3" y="2" width="6" height="2" fill="#6B4423" />
-      <rect x="2" y="3" width="8" height="6" fill="#6B4423" />
-      <rect x="3" y="9" width="6" height="1" fill="#6B4423" />
-      {/* hair strands */}
-      <rect x="1" y="4" width="1" height="1" fill="#4A2810" />
-      <rect x="10" y="5" width="1" height="1" fill="#4A2810" />
-      <rect x="4" y="1" width="1" height="1" fill="#4A2810" />
-      <rect x="8" y="1" width="1" height="1" fill="#4A2810" />
-      <rect x="5" y="10" width="1" height="1" fill="#4A2810" />
-      {/* highlight */}
-      <rect x="4" y="4" width="1" height="1" fill="#9B6B3B" />
+      {/* tip */}
+      <rect x="5" y="0" width="2" height="1" fill="#E5E7EB" />
+      {/* blade — light edge + dark spine */}
+      <rect x="4" y="1" width="3" height="1" fill="#D1D5DB" />
+      <rect x="4" y="2" width="3" height="1" fill="#D1D5DB" />
+      <rect x="4" y="3" width="3" height="1" fill="#D1D5DB" />
+      <rect x="4" y="4" width="3" height="1" fill="#D1D5DB" />
+      <rect x="4" y="5" width="3" height="1" fill="#D1D5DB" />
+      {/* spine shadow */}
+      <rect x="6" y="1" width="1" height="5" fill="#9CA3AF" />
+      {/* edge highlight */}
+      <rect x="4" y="1" width="1" height="5" fill="#FFFFFF" />
+      {/* bolster */}
+      <rect x="3" y="6" width="5" height="1" fill="#525252" />
+      {/* handle */}
+      <rect x="4" y="7" width="3" height="4" fill="#7A4A1A" />
+      <rect x="4" y="7" width="1" height="4" fill="#A06A30" />
+      <rect x="6" y="7" width="1" height="4" fill="#4A2810" />
+      <rect x="3" y="11" width="5" height="1" fill="#3A1A05" />
     </svg>
   )
 }
-function ThunderIcon({ size = 20 }: { size?: number }) {
+// ─── Fire — orange/yellow flame with hot white core ──────────────────────────
+function FireIcon({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      {/* cloud */}
-      <rect x="2" y="2" width="7" height="3" fill="#6B7280" />
-      <rect x="1" y="3" width="9" height="2" fill="#6B7280" />
-      <rect x="1" y="3" width="9" height="1" fill="#9CA3AF" />
-      {/* bolt */}
-      <rect x="6" y="5" width="2" height="2" fill="#FBBF24" />
-      <rect x="5" y="6" width="2" height="2" fill="#FBBF24" />
-      <rect x="6" y="8" width="1" height="2" fill="#FBBF24" />
-      <rect x="4" y="8" width="2" height="1" fill="#FBBF24" />
-      <rect x="5" y="9" width="1" height="1" fill="#F59E0B" />
+      {/* outer flame (orange) */}
+      <rect x="5" y="0" width="2" height="1" fill="#F97316" />
+      <rect x="4" y="1" width="4" height="1" fill="#F97316" />
+      <rect x="3" y="2" width="6" height="1" fill="#F97316" />
+      <rect x="2" y="3" width="8" height="2" fill="#F97316" />
+      <rect x="2" y="5" width="8" height="3" fill="#F97316" />
+      <rect x="3" y="8" width="6" height="2" fill="#F97316" />
+      <rect x="4" y="10" width="4" height="1" fill="#DC2626" />
+      {/* mid flame (yellow) */}
+      <rect x="5" y="2" width="2" height="1" fill="#FBBF24" />
+      <rect x="4" y="3" width="4" height="2" fill="#FBBF24" />
+      <rect x="3" y="5" width="6" height="2" fill="#FBBF24" />
+      <rect x="4" y="7" width="4" height="2" fill="#FBBF24" />
+      {/* hot core (white-yellow) */}
+      <rect x="5" y="4" width="2" height="2" fill="#FEF3C7" />
+      <rect x="5" y="6" width="2" height="2" fill="#FEF3C7" />
+      {/* dark base */}
+      <rect x="5" y="11" width="2" height="1" fill="#7A2A1A" />
+    </svg>
+  )
+}
+// ─── Skull — pure death icon, white bone with dark sockets ───────────────────
+function SkullIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
+      {/* cranium top */}
+      <rect x="3" y="1" width="6" height="1" fill="#E5E7EB" />
+      <rect x="2" y="2" width="8" height="1" fill="#E5E7EB" />
+      <rect x="2" y="3" width="8" height="4" fill="#E5E7EB" />
+      {/* skull shading */}
+      <rect x="2" y="2" width="1" height="5" fill="#FFFFFF" />
+      <rect x="9" y="2" width="1" height="5" fill="#9CA3AF" />
+      {/* eye sockets */}
+      <rect x="3" y="4" width="2" height="2" fill="#0F0F0F" />
+      <rect x="7" y="4" width="2" height="2" fill="#0F0F0F" />
+      <rect x="3" y="4" width="1" height="1" fill="#3A3A3A" />
+      <rect x="7" y="4" width="1" height="1" fill="#3A3A3A" />
+      {/* nose */}
+      <rect x="5" y="6" width="2" height="1" fill="#0F0F0F" />
+      {/* jaw */}
+      <rect x="3" y="7" width="6" height="1" fill="#E5E7EB" />
+      <rect x="3" y="8" width="1" height="2" fill="#E5E7EB" />
+      <rect x="8" y="8" width="1" height="2" fill="#E5E7EB" />
+      <rect x="4" y="8" width="4" height="1" fill="#0F0F0F" />
+      <rect x="4" y="9" width="1" height="1" fill="#E5E7EB" />
+      <rect x="6" y="9" width="1" height="1" fill="#E5E7EB" />
+      <rect x="5" y="9" width="1" height="1" fill="#0F0F0F" />
+      <rect x="7" y="9" width="1" height="1" fill="#0F0F0F" />
     </svg>
   )
 }
@@ -638,8 +725,10 @@ export default function TreatTumbleGame() {
               <span className="font-pixel text-amber-700" style={{ fontSize: 6 }}> It gets FASTER.</span>
             </p>
             <p className="font-pixel text-amber-700 mb-2" style={{ fontSize: 6, letterSpacing: 1 }}>✦ GOODS ✦</p>
-            <div className="grid grid-cols-5 gap-1.5 mb-3 text-[10px]">
+            <div className="grid grid-cols-7 gap-1.5 mb-3 text-[10px]">
               <LegendTile Icon={KibbleIcon} tint="#F5C842" pts="+1" />
+              <LegendTile Icon={CookieIcon} tint="#A06030" pts="+2" />
+              <LegendTile Icon={MilkIcon}   tint="#FFFFFF" pts="+2" />
               <LegendTile Icon={IconFish}   tint="#6BAED6" pts="+3" />
               <LegendTile Icon={CreamIcon}  tint="#A78BFA" pts="+5" />
               <LegendTile Icon={IconStar}   tint="#FFD700" pts="+10" />
@@ -647,11 +736,11 @@ export default function TreatTumbleGame() {
             </div>
             <p className="font-pixel text-red-700 mb-2" style={{ fontSize: 6, letterSpacing: 1 }}>⚠ DANGERS ⚠</p>
             <div className="grid grid-cols-5 gap-1.5 text-[10px]">
-              <LegendTile Icon={HairballIcon} tint="#6B4423" pts="-3" danger />
-              <LegendTile Icon={ShoeIcon}     tint="#8B5A2B" pts="-4" danger />
-              <LegendTile Icon={SpiderIcon}   tint="#4B0082" pts="-5" danger />
-              <LegendTile Icon={BombIcon}     tint="#DC2626" pts="-6" danger />
-              <LegendTile Icon={ThunderIcon}  tint="#FBBF24" pts="-8" danger />
+              <LegendTile Icon={FireIcon}   tint="#F97316" pts="-4" danger />
+              <LegendTile Icon={KnifeIcon}  tint="#9CA3AF" pts="-5" danger />
+              <LegendTile Icon={SpiderIcon} tint="#4B0082" pts="-5" danger />
+              <LegendTile Icon={BombIcon}   tint="#DC2626" pts="-6" danger />
+              <LegendTile Icon={SkullIcon}  tint="#E5E7EB" pts="-8" danger />
             </div>
           </div>
           <button onClick={() => { playSound('ui_tap'); start() }}
