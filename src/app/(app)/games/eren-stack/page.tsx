@@ -55,7 +55,7 @@ export default function ErenStackGame() {
   const supabase = createClient()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
-  useEffect(() => { setHideStats(false) }, [setHideStats])
+  useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask, addCoins } = useTasks()
 
@@ -158,6 +158,9 @@ export default function ErenStackGame() {
   }
 
   function dropPiece() {
+    // Idle: tapping anywhere on the field starts the game (the "TAP TO START"
+    // overlay has pointer-events:none so it forwards taps here).
+    if (stateRef.current === 'idle') { startGame(); return }
     if (stateRef.current !== 'running' || !currentRef.current) return
     const top = towerRef.current[towerRef.current.length - 1]
     const cur = currentRef.current
@@ -274,7 +277,6 @@ export default function ErenStackGame() {
       <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0 relative z-30" style={{
         background: 'rgba(0,0,0,0.55)',
         borderBottom: '2px solid rgba(255,255,255,0.18)',
-        marginTop: 100,
       }}>
         <button onClick={() => { playSound('ui_back'); router.back() }}
           className="flex items-center justify-center active:scale-90 transition-transform"

@@ -67,7 +67,7 @@ export default function ErenSaysGame() {
   const supabase = createClient()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
-  useEffect(() => { setHideStats(false) }, [setHideStats])
+  useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask, addCoins } = useTasks()
 
@@ -168,7 +168,6 @@ export default function ErenSaysGame() {
   return (
     <div className="fixed inset-0 z-40 flex flex-col" style={{
       background: 'radial-gradient(ellipse at top, #2D1659 0%, #1A0A33 55%, #0F0620 100%)',
-      paddingTop: 100,
     }}>
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{

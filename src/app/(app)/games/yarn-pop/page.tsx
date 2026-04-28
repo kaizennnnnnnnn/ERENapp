@@ -135,7 +135,7 @@ export default function YarnPopGame() {
   const supabase = createClient()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
-  useEffect(() => { setHideStats(false) }, [setHideStats])
+  useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask, addCoins } = useTasks()
 
@@ -304,7 +304,6 @@ export default function YarnPopGame() {
   return (
     <div className="fixed inset-0 z-40 flex flex-col" style={{
       background: 'radial-gradient(ellipse at top, #500A38 0%, #2C0623 55%, #170210 100%)',
-      paddingTop: 100,
     }}>
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{

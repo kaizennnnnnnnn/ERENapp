@@ -64,7 +64,7 @@ export default function TicTacToePage() {
   const supabase = createClient()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
-  useEffect(() => { setHideStats(false) }, [setHideStats])
+  useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask, addCoins } = useTasks()
 
@@ -177,9 +177,6 @@ export default function TicTacToePage() {
   return (
     <div className="fixed inset-0 z-40 flex flex-col" style={{
       background: 'radial-gradient(ellipse at top, #2D1659 0%, #1A0A33 55%, #0F0620 100%)',
-      // Stats header is fixed at top:0 with z above this page's z-40, so push
-      // every child below ~100px to avoid covering Eren and the back button.
-      paddingTop: 100,
     }}>
 
       {/* Header */}

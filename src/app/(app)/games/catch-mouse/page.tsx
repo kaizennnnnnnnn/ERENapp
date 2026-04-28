@@ -22,7 +22,7 @@ export default function CatchMouseGame() {
   const supabase = createClient()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
-  useEffect(() => { setHideStats(false) }, [setHideStats])
+  useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask, addCoins } = useTasks()
 

@@ -34,20 +34,15 @@ interface FlipperCfg {
   activeDeg: number
 }
 
+// Clean rectangular table with two angled drain walls funnelling toward the
+// flipper pivots. No inward spurs — earlier "lane guide" walls trapped the
+// ball in the corner between spur and drain wall.
 const WALLS: Segment[] = [
-  // top
-  { x1: 4,     y1: 4,        x2: W-4,   y2: 4 },
-  // left
-  { x1: 4,     y1: 4,        x2: 4,     y2: H-110 },
-  // right
-  { x1: W-4,   y1: 4,        x2: W-4,   y2: H-110 },
-  // angled drain walls — leave gap in middle for the ball to fall through
-  { x1: 4,     y1: H-110,    x2: W*0.32, y2: H-58 },
-  { x1: W-4,   y1: H-110,    x2: W*0.68, y2: H-58 },
-  // small "lane guide" walls just above each flipper's outer edge so the ball
-  // can't sneak between flipper and outer wall.
-  { x1: W*0.16, y1: H-130,   x2: W*0.10, y2: H-90 },
-  { x1: W-W*0.16, y1: H-130, x2: W-W*0.10, y2: H-90 },
+  { x1: 4,     y1: 4,        x2: W-4,    y2: 4 },        // top
+  { x1: 4,     y1: 4,        x2: 4,      y2: H-110 },    // left
+  { x1: W-4,   y1: 4,        x2: W-4,    y2: H-110 },    // right
+  { x1: 4,     y1: H-110,    x2: W*0.32, y2: H-58 },     // left angled drain
+  { x1: W-4,   y1: H-110,    x2: W*0.68, y2: H-58 },     // right angled drain
 ]
 
 const FLIPPERS: FlipperCfg[] = [
@@ -101,7 +96,7 @@ export default function PawketPinballGame() {
   const supabase = createClient()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
-  useEffect(() => { setHideStats(false) }, [setHideStats])
+  useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask, addCoins } = useTasks()
 
@@ -392,7 +387,7 @@ export default function PawketPinballGame() {
   const now = performance.now()
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col" style={{ background: '#0F0A1E', paddingTop: 100 }}>
+    <div className="fixed inset-0 z-40 flex flex-col" style={{ background: '#0F0A1E' }}>
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{
         background: 'rgba(0,0,0,0.55)',
