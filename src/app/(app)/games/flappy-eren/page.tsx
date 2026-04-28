@@ -11,23 +11,98 @@ import { useCare } from '@/contexts/CareContext'
 import { playSound } from '@/lib/sounds'
 
 // ─── Tuning ───────────────────────────────────────────────────────────────────
-const GRAVITY        = 1700  // px/s²
-const FLAP_V         = -440  // instantaneous up burst on tap
+const GRAVITY        = 1700
+const FLAP_V         = -440
 const PIPE_W         = 60
 const PIPE_GAP       = 175
-const PIPE_INTERVAL  = 1500  // ms between pipe spawns
-const SPEED_BASE     = 215   // px/s scroll
-const SPEED_MAX      = 320
-const EREN_W         = 48
+const PIPE_INTERVAL  = 1500
+const SPEED_BASE     = 200
+const SPEED_MAX      = 360
+// Speed ramp: per-second time pressure + small per-pipe bonus.
+const TIME_ACCEL     = 1.7   // px/s added per second elapsed
+const SCORE_ACCEL    = 1.2   // px/s added per pipe passed
+const EREN_W         = 44
 const EREN_H         = 64
 const PLAYER_X       = 80
-const FIZZ_INTERVAL  = 60    // ms between trail puffs
+const FIZZ_INTERVAL  = 60
+const THEME_EVERY    = 8     // pipes between environment swaps
 
 interface Pipe { id: number; x: number; gapY: number; passed: boolean }
 interface Particle { id: number; x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; alpha: number; color: string }
 
 let _pid = 0
 const newId = () => ++_pid
+
+// ─── Environments ────────────────────────────────────────────────────────────
+interface Theme {
+  name: 'day' | 'sunset' | 'night' | 'forest' | 'desert'
+  sky: string
+  ground: string
+  groundBorder: string
+  pipeMid: string   // gradient color used for pipe body
+  pipeShadow: string
+  cloudOpacity: number
+  starOpacity: number
+  pipeColor1: string
+  pipeColor2: string
+  pipeColor3: string
+}
+
+const THEMES: Theme[] = [
+  {
+    name: 'day',
+    sky: 'linear-gradient(180deg, #5BACEC 0%, #8FCCEF 50%, #C5E2EA 75%, #FCE7B4 100%)',
+    ground: 'repeating-linear-gradient(90deg, #16a34a 0 8px, #15803d 8px 16px)',
+    groundBorder: '#052e16',
+    pipeMid: '#22c55e', pipeShadow: '#064e3b',
+    pipeColor1: '#14a052', pipeColor2: '#16a34a', pipeColor3: '#22c55e',
+    cloudOpacity: 1, starOpacity: 0,
+  },
+  {
+    name: 'sunset',
+    sky: 'linear-gradient(180deg, #FF6F47 0%, #FF9966 30%, #FFB888 55%, #FFD7B5 80%, #FFE9C9 100%)',
+    ground: 'repeating-linear-gradient(90deg, #B45309 0 8px, #92400E 8px 16px)',
+    groundBorder: '#451A03',
+    pipeMid: '#F59E0B', pipeShadow: '#78350F',
+    pipeColor1: '#D97706', pipeColor2: '#F59E0B', pipeColor3: '#FBBF24',
+    cloudOpacity: 0.85, starOpacity: 0,
+  },
+  {
+    name: 'night',
+    sky: 'linear-gradient(180deg, #0A0F2A 0%, #1A1A4E 45%, #2D1B5E 80%, #4C1D95 100%)',
+    ground: 'repeating-linear-gradient(90deg, #1F2937 0 8px, #111827 8px 16px)',
+    groundBorder: '#030712',
+    pipeMid: '#7C3AED', pipeShadow: '#2E0F5C',
+    pipeColor1: '#5B21B6', pipeColor2: '#7C3AED', pipeColor3: '#A78BFA',
+    cloudOpacity: 0, starOpacity: 1,
+  },
+  {
+    name: 'forest',
+    sky: 'linear-gradient(180deg, #064E3B 0%, #15803D 35%, #4ADE80 70%, #BBF7D0 100%)',
+    ground: 'repeating-linear-gradient(90deg, #052e16 0 8px, #022c22 8px 16px)',
+    groundBorder: '#021810',
+    pipeMid: '#92400E', pipeShadow: '#451A03', // brown trunk-like pipes
+    pipeColor1: '#78350F', pipeColor2: '#92400E', pipeColor3: '#B45309',
+    cloudOpacity: 0.45, starOpacity: 0,
+  },
+  {
+    name: 'desert',
+    sky: 'linear-gradient(180deg, #FCD34D 0%, #FCA5A5 35%, #FECACA 65%, #FEF3C7 100%)',
+    ground: 'repeating-linear-gradient(90deg, #D97706 0 8px, #92400E 8px 16px)',
+    groundBorder: '#451A03',
+    pipeMid: '#A16207', pipeShadow: '#451A03', // sandstone-style
+    pipeColor1: '#854D0E', pipeColor2: '#A16207', pipeColor3: '#CA8A04',
+    cloudOpacity: 0.6, starOpacity: 0,
+  },
+]
+
+// Pre-baked star positions so they don't jitter between renders.
+const STAR_POSITIONS = Array.from({ length: 38 }, () => ({
+  left: `${Math.random() * 100}%`,
+  top: `${Math.random() * 60}%`,
+  size: 1 + Math.random() * 2,
+  delay: `${Math.random() * 3}s`,
+}))
 
 export default function FlappyErenGame() {
   const router = useRouter()
@@ -52,9 +127,14 @@ export default function FlappyErenGame() {
     return () => { clearTimeout(t); window.removeEventListener('resize', measure) }
   }, [])
 
-  const [state, setState]       = useState<'idle' | 'running' | 'gameover'>('idle')
-  const [score, setScore]       = useState(0)
+  const [state, setState]         = useState<'idle' | 'running' | 'gameover'>('idle')
+  const [score, setScore]         = useState(0)
   const [bestScore, setBestScore] = useState(0)
+
+  // Theme is derived from score so the crossfade is automatic when score
+  // crosses a multiple of THEME_EVERY.
+  const themeIndex   = Math.floor(score / THEME_EVERY) % THEMES.length
+  const currentTheme = THEMES[themeIndex]
 
   const stateRef     = useRef<'idle' | 'running' | 'gameover'>('idle')
   const yRef         = useRef(0)
@@ -67,6 +147,7 @@ export default function FlappyErenGame() {
   const lastPipeRef  = useRef(0)
   const lastFizzRef  = useRef(0)
   const lastFrameRef = useRef(0)
+  const startTimeRef = useRef(0)
   const rafRef       = useRef<number>(0)
 
   const [, forceRender] = useReducer((n: number) => n + 1, 0)
@@ -80,7 +161,7 @@ export default function FlappyErenGame() {
 
   function spawnFizzPuff() {
     const px = PLAYER_X + EREN_W / 2 - 4 + (Math.random() - 0.5) * 8
-    const py = yRef.current + EREN_H - 6
+    const py = yRef.current + EREN_H - 4
     particlesRef.current.push({
       id: newId(),
       x: px, y: py,
@@ -94,9 +175,9 @@ export default function FlappyErenGame() {
   }
 
   function spawnFlapBurst() {
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 14; i++) {
       const px = PLAYER_X + EREN_W / 2 - 4 + (Math.random() - 0.5) * 14
-      const py = yRef.current + EREN_H - 6
+      const py = yRef.current + EREN_H - 4
       particlesRef.current.push({
         id: newId(),
         x: px, y: py,
@@ -124,7 +205,6 @@ export default function FlappyErenGame() {
     if (ey < -8) return true
     if (ey + EREN_H > fieldDims.h - 12) return true
 
-    // shrink hitbox slightly so it feels generous
     const hbX = ex + 6
     const hbW = EREN_W - 12
     const hbY = ey + 6
@@ -147,7 +227,12 @@ export default function FlappyErenGame() {
     yRef.current  += vyRef.current * dt
     angleRef.current = Math.max(-30, Math.min(70, vyRef.current * 0.085))
 
-    speedRef.current = Math.min(SPEED_MAX, SPEED_BASE + scoreRef.current * 4)
+    // Time-based speed ramp + small score bonus, clamped to MAX.
+    const elapsed = (now - startTimeRef.current) / 1000
+    speedRef.current = Math.min(
+      SPEED_MAX,
+      SPEED_BASE + elapsed * TIME_ACCEL + scoreRef.current * SCORE_ACCEL,
+    )
     for (const p of pipesRef.current) p.x -= speedRef.current * dt
 
     if (now - lastPipeRef.current > PIPE_INTERVAL) {
@@ -193,9 +278,11 @@ export default function FlappyErenGame() {
     particlesRef.current = []
     speedRef.current = SPEED_BASE
     scoreRef.current = 0
-    lastPipeRef.current = performance.now() - PIPE_INTERVAL + 500 // first pipe in ~0.5s
-    lastFizzRef.current = performance.now()
-    lastFrameRef.current = performance.now()
+    const now = performance.now()
+    lastPipeRef.current = now - PIPE_INTERVAL + 500
+    lastFizzRef.current = now
+    lastFrameRef.current = now
+    startTimeRef.current = now
     setScore(0)
     stateRef.current = 'running'
     setState('running')
@@ -244,13 +331,12 @@ export default function FlappyErenGame() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col" style={{
-      background: 'linear-gradient(180deg, #5BACEC 0%, #8FCCEF 50%, #C5E2EA 75%, #FCE7B4 100%)',
-    }}>
+    <div className="fixed inset-0 z-40 flex flex-col" style={{ background: '#0F0A1E' }}>
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{
-        background: 'rgba(0,0,0,0.25)',
-        borderBottom: '2px solid rgba(255,255,255,0.25)',
+      <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0 relative z-30" style={{
+        background: 'rgba(0,0,0,0.55)',
+        borderBottom: '2px solid rgba(255,255,255,0.18)',
+        marginTop: 100, // clear the global stats header
       }}>
         <button onClick={() => { playSound('ui_back'); router.back() }}
           className="flex items-center justify-center active:scale-90 transition-transform"
@@ -266,6 +352,10 @@ export default function FlappyErenGame() {
           style={{ background: 'rgba(0,0,0,0.4)', border: '2px solid rgba(255,255,255,0.4)', borderRadius: 4, fontSize: 8, color: '#FDE68A' }}>
           BEST {bestScore}
         </div>
+        <div className="ml-1 px-2 py-1.5 font-pixel"
+          style={{ background: 'rgba(0,0,0,0.4)', border: '2px solid rgba(255,255,255,0.3)', borderRadius: 4, fontSize: 6, color: '#A3F0C0', letterSpacing: 1.5, textTransform: 'uppercase' }}>
+          {currentTheme.name}
+        </div>
       </div>
 
       {/* Field */}
@@ -273,16 +363,64 @@ export default function FlappyErenGame() {
         className="relative flex-1 overflow-hidden select-none"
         style={{ touchAction: 'none', cursor: 'pointer' }}>
 
-        {/* Pixel clouds (parallax-ish) */}
-        <Cloud x="12%"  y="14%" scale={1.0} />
-        <Cloud x="68%"  y="22%" scale={0.8} />
-        <Cloud x="35%"  y="46%" scale={1.2} />
-        <Cloud x="86%"  y="60%" scale={0.7} />
-        <Cloud x="6%"   y="70%" scale={0.9} />
+        {/* Stacked sky layers — only the active one is fully opaque, others
+            fade out. Result: smooth crossfade when themeIndex changes. */}
+        {THEMES.map((t, i) => (
+          <div key={`sky-${t.name}`} style={{
+            position: 'absolute', inset: 0,
+            background: t.sky,
+            opacity: i === themeIndex ? 1 : 0,
+            transition: 'opacity 1.4s ease',
+            pointerEvents: 'none',
+          }} />
+        ))}
+
+        {/* Stars (visible only in night) */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          opacity: currentTheme.starOpacity,
+          transition: 'opacity 1.4s ease',
+          pointerEvents: 'none',
+        }}>
+          {STAR_POSITIONS.map((s, i) => (
+            <div key={i} style={{
+              position: 'absolute',
+              left: s.left, top: s.top,
+              width: s.size, height: s.size,
+              background: '#FFFFFF',
+              borderRadius: '50%',
+              boxShadow: '0 0 4px rgba(255,255,255,0.7)',
+              animation: `twinkle 2.4s ease-in-out ${s.delay} infinite`,
+            }} />
+          ))}
+          {/* Moon */}
+          <div style={{
+            position: 'absolute',
+            top: '12%', right: '14%',
+            width: 28, height: 28,
+            background: 'radial-gradient(circle at 35% 35%, #FFFFFF, #E5E7EB 60%, #9CA3AF 100%)',
+            borderRadius: '50%',
+            boxShadow: '0 0 18px rgba(255,255,255,0.4)',
+          }} />
+        </div>
+
+        {/* Clouds (faded out at night) */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          opacity: currentTheme.cloudOpacity,
+          transition: 'opacity 1.4s ease',
+          pointerEvents: 'none',
+        }}>
+          <Cloud x="12%"  y="14%" scale={1.0} />
+          <Cloud x="68%"  y="22%" scale={0.8} />
+          <Cloud x="35%"  y="46%" scale={1.2} />
+          <Cloud x="86%"  y="60%" scale={0.7} />
+          <Cloud x="6%"   y="70%" scale={0.9} />
+        </div>
 
         {/* Pipes */}
         {pipesRef.current.map(p => (
-          <PipePair key={p.id} pipe={p} fieldH={fieldDims.h} />
+          <PipePair key={p.id} pipe={p} fieldH={fieldDims.h} theme={currentTheme} />
         ))}
 
         {/* Eren on can */}
@@ -299,7 +437,7 @@ export default function FlappyErenGame() {
           <ErenOnCan />
         </div>
 
-        {/* Fizz particles — drawn after Eren so they layer on top of his back */}
+        {/* Fizz particles */}
         {particlesRef.current.map(p => (
           <div key={p.id} style={{
             position: 'absolute',
@@ -313,10 +451,19 @@ export default function FlappyErenGame() {
           }} />
         ))}
 
-        {/* Ground */}
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 12, background: 'repeating-linear-gradient(90deg, #16a34a 0 8px, #15803d 8px 16px)', borderTop: '3px solid #052e16' }} />
+        {/* Ground — also crossfades */}
+        {THEMES.map((t, i) => (
+          <div key={`ground-${t.name}`} style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            height: 12,
+            background: t.ground,
+            borderTop: `3px solid ${t.groundBorder}`,
+            opacity: i === themeIndex ? 1 : 0,
+            transition: 'opacity 1.4s ease',
+          }} />
+        ))}
 
-        {/* Score (floating) */}
+        {/* Score */}
         {state !== 'idle' && (
           <div className="absolute font-pixel pointer-events-none" style={{
             top: 24,
@@ -395,47 +542,52 @@ export default function FlappyErenGame() {
           0%   { transform: scale(0.7); opacity: 0; }
           100% { transform: scale(1);   opacity: 1; }
         }
+        @keyframes twinkle {
+          0%, 100% { opacity: 0.35; }
+          50%      { opacity: 1; }
+        }
       `}</style>
     </div>
   )
 }
 
 // ─── Pipe pair ────────────────────────────────────────────────────────────────
-function PipePair({ pipe, fieldH }: { pipe: Pipe; fieldH: number }) {
+function PipePair({ pipe, fieldH, theme }: { pipe: Pipe; fieldH: number; theme: Theme }) {
+  const grad = `linear-gradient(90deg, ${theme.pipeColor1} 0%, ${theme.pipeColor2} 30%, ${theme.pipeColor3} 50%, ${theme.pipeColor2} 70%, ${theme.pipeColor1} 100%)`
   return (
     <>
-      {/* Top pipe body */}
       <div style={{
         position: 'absolute',
         left: pipe.x, top: 0, width: PIPE_W, height: pipe.gapY,
-        background: 'linear-gradient(90deg, #14a052 0%, #16a34a 30%, #22c55e 50%, #16a34a 70%, #14a052 100%)',
-        borderLeft: '3px solid #064e3b',
-        borderRight: '3px solid #064e3b',
+        background: grad,
+        borderLeft: `3px solid ${theme.pipeShadow}`,
+        borderRight: `3px solid ${theme.pipeShadow}`,
+        transition: 'background 1.4s ease, border-color 1.4s ease',
       }} />
-      {/* Top pipe lip */}
       <div style={{
         position: 'absolute',
         left: pipe.x - 5, top: pipe.gapY - 14, width: PIPE_W + 10, height: 14,
-        background: 'linear-gradient(90deg, #14a052 0%, #16a34a 30%, #22c55e 50%, #16a34a 70%, #14a052 100%)',
-        border: '3px solid #064e3b',
+        background: grad,
+        border: `3px solid ${theme.pipeShadow}`,
+        transition: 'background 1.4s ease, border-color 1.4s ease',
       }} />
-      {/* Bottom pipe body */}
       <div style={{
         position: 'absolute',
         left: pipe.x,
         top: pipe.gapY + PIPE_GAP,
         width: PIPE_W,
         height: Math.max(0, fieldH - pipe.gapY - PIPE_GAP - 12),
-        background: 'linear-gradient(90deg, #14a052 0%, #16a34a 30%, #22c55e 50%, #16a34a 70%, #14a052 100%)',
-        borderLeft: '3px solid #064e3b',
-        borderRight: '3px solid #064e3b',
+        background: grad,
+        borderLeft: `3px solid ${theme.pipeShadow}`,
+        borderRight: `3px solid ${theme.pipeShadow}`,
+        transition: 'background 1.4s ease, border-color 1.4s ease',
       }} />
-      {/* Bottom pipe lip */}
       <div style={{
         position: 'absolute',
         left: pipe.x - 5, top: pipe.gapY + PIPE_GAP, width: PIPE_W + 10, height: 14,
-        background: 'linear-gradient(90deg, #14a052 0%, #16a34a 30%, #22c55e 50%, #16a34a 70%, #14a052 100%)',
-        border: '3px solid #064e3b',
+        background: grad,
+        border: `3px solid ${theme.pipeShadow}`,
+        transition: 'background 1.4s ease, border-color 1.4s ease',
       }} />
     </>
   )
@@ -456,74 +608,129 @@ function Cloud({ x, y, scale = 1 }: { x: string; y: string; scale?: number }) {
   )
 }
 
-// ─── Eren riding the energy can ──────────────────────────────────────────────
+// ─── Eren on a high-detail energy can ─────────────────────────────────────────
 function ErenOnCan() {
   return (
-    <svg width={EREN_W} height={EREN_H} viewBox="0 0 48 64" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      {/* ─── Eren chibi head/body (top) ─── */}
-      {/* ears */}
-      <rect x="13" y="0" width="3" height="2" fill="#4A2E1A" />
-      <rect x="32" y="0" width="3" height="2" fill="#4A2E1A" />
-      <rect x="13" y="2" width="3" height="2" fill="#9B7A5C" />
-      <rect x="32" y="2" width="3" height="2" fill="#9B7A5C" />
-      <rect x="14" y="3" width="1" height="1" fill="#F4B0B8" />
-      <rect x="33" y="3" width="1" height="1" fill="#F4B0B8" />
-      {/* head outline + face */}
-      <rect x="13" y="2" width="22" height="2" fill="#4A2E1A" />
-      <rect x="11" y="4" width="26" height="2" fill="#4A2E1A" />
-      <rect x="11" y="6" width="2"  height="14" fill="#4A2E1A" />
-      <rect x="35" y="6" width="2"  height="14" fill="#4A2E1A" />
-      <rect x="13" y="20" width="22" height="2" fill="#4A2E1A" />
-      <rect x="13" y="4"  width="22" height="2" fill="#F9EDD5" />
-      <rect x="13" y="6"  width="22" height="14" fill="#F9EDD5" />
-      {/* Ragdoll mask */}
-      <rect x="14" y="6" width="5" height="3" fill="#D4B896" />
-      <rect x="29" y="6" width="5" height="3" fill="#D4B896" />
-      {/* eyes — wide-eyed thrill */}
-      <rect x="16" y="9"  width="4" height="4" fill="#6BAED6" />
-      <rect x="28" y="9"  width="4" height="4" fill="#6BAED6" />
-      <rect x="17" y="10" width="2" height="2" fill="#1A1A2E" />
-      <rect x="29" y="10" width="2" height="2" fill="#1A1A2E" />
-      <rect x="18" y="10" width="1" height="1" fill="#FFFFFF" />
-      <rect x="30" y="10" width="1" height="1" fill="#FFFFFF" />
-      {/* nose */}
-      <rect x="22" y="14" width="4" height="2" fill="#F48B9B" />
-      <rect x="22" y="16" width="4" height="1" fill="#4A2E1A" />
-      {/* smile */}
-      <rect x="20" y="17" width="2" height="1" fill="#4A2E1A" />
-      <rect x="26" y="17" width="2" height="1" fill="#4A2E1A" />
-      <rect x="22" y="18" width="4" height="1" fill="#4A2E1A" />
-      {/* paws gripping the can */}
-      <rect x="11" y="22" width="4" height="3" fill="#F9EDD5" />
-      <rect x="11" y="22" width="1" height="3" fill="#4A2E1A" />
-      <rect x="33" y="22" width="4" height="3" fill="#F9EDD5" />
-      <rect x="36" y="22" width="1" height="3" fill="#4A2E1A" />
+    <svg width={EREN_W} height={EREN_H} viewBox="0 0 44 64" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
+      {/* ═══ EREN CHIBI (rewards-style proportions) — anchored at top, centered ═══ */}
+      <g transform="translate(11, 0)">
+        {/* ears */}
+        <rect x="3" y="2"  width="3" height="1" fill="#4A2E1A" />
+        <rect x="16" y="2" width="3" height="1" fill="#4A2E1A" />
+        <rect x="3" y="3"  width="3" height="2" fill="#9B7A5C" />
+        <rect x="16" y="3" width="3" height="2" fill="#9B7A5C" />
+        <rect x="4" y="4"  width="1" height="1" fill="#F4B0B8" />
+        <rect x="17" y="4" width="1" height="1" fill="#F4B0B8" />
+        {/* head outline + face */}
+        <rect x="5" y="3"  width="12" height="1" fill="#4A2E1A" />
+        <rect x="4" y="4"  width="14" height="1" fill="#4A2E1A" />
+        <rect x="3" y="5"  width="16" height="1" fill="#4A2E1A" />
+        <rect x="4" y="5"  width="14" height="1" fill="#F9EDD5" />
+        <rect x="3" y="6"  width="1"  height="6" fill="#4A2E1A" />
+        <rect x="18" y="6" width="1"  height="6" fill="#4A2E1A" />
+        <rect x="4" y="6"  width="14" height="6" fill="#F9EDD5" />
+        {/* Ragdoll mask */}
+        <rect x="5" y="6"  width="3" height="2" fill="#D4B896" />
+        <rect x="14" y="6" width="3" height="2" fill="#D4B896" />
+        {/* eyes — natural cat gaze (pupil low, highlight upper) */}
+        <rect x="6" y="7"  width="2" height="2" fill="#6BAED6" />
+        <rect x="7" y="7"  width="1" height="1" fill="#FFFFFF" />
+        <rect x="6" y="8"  width="1" height="1" fill="#1A1A2E" />
+        <rect x="14" y="7" width="2" height="2" fill="#6BAED6" />
+        <rect x="14" y="7" width="1" height="1" fill="#FFFFFF" />
+        <rect x="15" y="8" width="1" height="1" fill="#1A1A2E" />
+        {/* cheeks */}
+        <rect x="5" y="9"  width="1" height="1" fill="#FFB6C8" />
+        <rect x="16" y="9" width="1" height="1" fill="#FFB6C8" />
+        {/* nose */}
+        <rect x="10" y="9"  width="2" height="1" fill="#F48B9B" />
+        <rect x="10" y="10" width="2" height="1" fill="#4A2E1A" />
+        {/* mouth corners + smile bottom */}
+        <rect x="9"  y="11" width="1" height="1" fill="#4A2E1A" />
+        <rect x="12" y="11" width="1" height="1" fill="#4A2E1A" />
+        {/* chin */}
+        <rect x="4" y="12" width="14" height="1" fill="#4A2E1A" />
+        <rect x="5" y="12" width="12" height="1" fill="#F9EDD5" />
+        {/* smile bottom — drawn after chin so the V shows on cream */}
+        <rect x="10" y="12" width="2" height="1" fill="#4A2E1A" />
+        {/* body — narrow torso, paws extending forward to grip the can rim */}
+        <rect x="4" y="13" width="14" height="1" fill="#4A2E1A" />
+        <rect x="3" y="14" width="1"  height="5" fill="#4A2E1A" />
+        <rect x="18" y="14" width="1" height="5" fill="#4A2E1A" />
+        <rect x="4" y="14" width="14" height="5" fill="#F9EDD5" />
+        <rect x="4" y="19" width="14" height="1" fill="#4A2E1A" />
+        {/* paws gripping the can rim */}
+        <rect x="4" y="20" width="3" height="2" fill="#D4B896" />
+        <rect x="4" y="20" width="1" height="2" fill="#4A2E1A" />
+        <rect x="15" y="20" width="3" height="2" fill="#D4B896" />
+        <rect x="17" y="20" width="1" height="2" fill="#4A2E1A" />
+      </g>
 
-      {/* ─── Energy can ─── */}
-      {/* top rim */}
-      <rect x="14" y="22" width="20" height="2" fill="#3A3A3A" />
-      <rect x="15" y="23" width="18" height="1" fill="#5A5A5A" />
-      {/* body */}
-      <rect x="14" y="24" width="20" height="32" fill="#0F0F0F" />
-      {/* highlights / shadow */}
-      <rect x="15" y="25" width="2"  height="29" fill="#262626" />
-      <rect x="31" y="25" width="2"  height="29" fill="#1A1A1A" />
-      <rect x="32" y="25" width="1"  height="29" fill="#000000" />
-      {/* M-style claw mark in green */}
-      <rect x="18" y="30" width="2" height="14" fill="#10B981" />
-      <rect x="19" y="29" width="1" height="2"  fill="#A3F0C0" />
-      <rect x="22" y="32" width="2" height="10" fill="#10B981" />
-      <rect x="22" y="31" width="1" height="1"  fill="#A3F0C0" />
-      <rect x="26" y="32" width="2" height="10" fill="#10B981" />
-      <rect x="26" y="31" width="1" height="1"  fill="#A3F0C0" />
-      <rect x="30" y="30" width="2" height="14" fill="#10B981" />
-      <rect x="30" y="29" width="1" height="2"  fill="#A3F0C0" />
-      {/* bottom rim */}
-      <rect x="14" y="56" width="20" height="2" fill="#3A3A3A" />
-      <rect x="15" y="57" width="18" height="1" fill="#1A1A1A" />
-      {/* fizz mouth at bottom (the "exploding" bit) */}
-      <rect x="18" y="58" width="12" height="2" fill="#A3F0C0" />
-      <rect x="20" y="60" width="8"  height="2" fill="#10B981" opacity="0.6" />
+      {/* ═══ HIGH-DETAIL ENERGY CAN (16w × 30h, centered at x=14..30) ═══ */}
+      {/* Top opening — black ring with silver lid hint */}
+      <rect x="14" y="22" width="16" height="1" fill="#0A0A0A" />
+      <rect x="15" y="23" width="14" height="1" fill="#3A3A3A" />
+      <rect x="14" y="23" width="1"  height="1" fill="#0A0A0A" />
+      <rect x="29" y="23" width="1"  height="1" fill="#0A0A0A" />
+
+      {/* Top metallic ring */}
+      <rect x="14" y="24" width="16" height="2" fill="#525252" />
+      <rect x="15" y="24" width="14" height="1" fill="#9CA3AF" />
+      <rect x="14" y="25" width="1"  height="1" fill="#0A0A0A" />
+      <rect x="29" y="25" width="1"  height="1" fill="#0A0A0A" />
+      <rect x="15" y="25" width="14" height="1" fill="#3A3A3A" />
+
+      {/* Body base black */}
+      <rect x="14" y="26" width="16" height="26" fill="#0F0F0F" />
+
+      {/* Left highlight strip (subtle vertical sheen) */}
+      <rect x="15" y="26" width="2" height="26" fill="#262626" />
+      <rect x="15" y="26" width="1" height="26" fill="#3A3A3A" />
+
+      {/* Right shadow strip */}
+      <rect x="27" y="26" width="2" height="26" fill="#1A1A1A" />
+      <rect x="28" y="26" width="1" height="26" fill="#000000" />
+
+      {/* Outer left/right black borders */}
+      <rect x="14" y="26" width="1"  height="26" fill="#0A0A0A" />
+      <rect x="29" y="26" width="1"  height="26" fill="#0A0A0A" />
+
+      {/* Claw-mark logo — three vertical lime streaks with bright tips */}
+      <rect x="18" y="32" width="2"  height="14" fill="#10B981" />
+      <rect x="18" y="32" width="1"  height="14" fill="#34D399" />
+      <rect x="18" y="31" width="2"  height="1"  fill="#A3F0C0" />
+      <rect x="18" y="46" width="2"  height="1"  fill="#A3F0C0" />
+
+      <rect x="22" y="34" width="2"  height="11" fill="#10B981" />
+      <rect x="22" y="34" width="1"  height="11" fill="#34D399" />
+      <rect x="22" y="33" width="2"  height="1"  fill="#A3F0C0" />
+      <rect x="22" y="45" width="2"  height="1"  fill="#A3F0C0" />
+
+      <rect x="26" y="32" width="2"  height="14" fill="#10B981" />
+      <rect x="26" y="32" width="1"  height="14" fill="#34D399" />
+      <rect x="26" y="31" width="2"  height="1"  fill="#A3F0C0" />
+      <rect x="26" y="46" width="2"  height="1"  fill="#A3F0C0" />
+
+      {/* Tiny 'EE' badge between logo and bottom */}
+      <rect x="20" y="49" width="1" height="2" fill="#A3F0C0" />
+      <rect x="21" y="49" width="2" height="1" fill="#A3F0C0" />
+      <rect x="21" y="50" width="1" height="1" fill="#A3F0C0" />
+      <rect x="24" y="49" width="1" height="2" fill="#A3F0C0" />
+      <rect x="25" y="49" width="2" height="1" fill="#A3F0C0" />
+      <rect x="25" y="50" width="1" height="1" fill="#A3F0C0" />
+
+      {/* Bottom metallic ring */}
+      <rect x="14" y="52" width="16" height="2" fill="#525252" />
+      <rect x="15" y="52" width="14" height="1" fill="#9CA3AF" />
+      <rect x="15" y="53" width="14" height="1" fill="#3A3A3A" />
+      <rect x="14" y="54" width="16" height="1" fill="#0A0A0A" />
+
+      {/* Fizz mouth — explosive opening at the bottom of the can */}
+      <rect x="17" y="55" width="10" height="2" fill="#A3F0C0" />
+      <rect x="18" y="56" width="8"  height="1" fill="#FFFFFF" />
+      <rect x="19" y="57" width="6"  height="1" fill="#10B981" opacity="0.7" />
+      <rect x="20" y="58" width="4"  height="1" fill="#34D399" opacity="0.5" />
+      <rect x="21" y="59" width="2"  height="1" fill="#FFFFFF" opacity="0.5" />
     </svg>
   )
 }
