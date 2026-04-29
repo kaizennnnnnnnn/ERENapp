@@ -472,3 +472,158 @@ export function getTodaysLesson(): Lesson {
 export function getLessonById(id: number): Lesson | undefined {
   return SERBIAN_COURSE.find(l => l.id === id)
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DUOLINGO-STYLE COURSE STRUCTURE
+// Lessons grouped into themed Units. Each lesson generates a varied set of
+// short exercises (translate-mc, match-pairs, word-order, quiz) — that's the
+// core of the Duolingo learning loop: tiny chunks, mixed types, immediate
+// feedback. Unlock progression: lesson N+1 unlocks when N is completed.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export interface Unit {
+  id: string
+  title: string
+  titleSr: string
+  description: string
+  color: string       // hex used for the unit banner + node accent
+  edgeColor: string   // darker shade
+  lessonIds: number[]
+}
+
+export const SERBIAN_UNITS: Unit[] = [
+  {
+    id: 'basics', title: 'Basics', titleSr: 'Osnove',
+    description: 'Greetings, names, numbers, colors.',
+    color: '#A78BFA', edgeColor: '#4C1D95',
+    lessonIds: [1, 2, 3, 4],
+  },
+  {
+    id: 'people', title: 'People', titleSr: 'Ljudi',
+    description: 'Family, body, emotions.',
+    color: '#F472B6', edgeColor: '#9D174D',
+    lessonIds: [5, 8, 13],
+  },
+  {
+    id: 'world', title: 'Nature', titleSr: 'Priroda',
+    description: 'Animals and weather.',
+    color: '#34D399', edgeColor: '#065F46',
+    lessonIds: [6, 10],
+  },
+  {
+    id: 'daily', title: 'Daily Life', titleSr: 'Svaki dan',
+    description: 'Food, home, shopping.',
+    color: '#FB923C', edgeColor: '#9A3412',
+    lessonIds: [7, 11, 14],
+  },
+  {
+    id: 'talk', title: 'Talking', titleSr: 'Razgovor',
+    description: 'Days, verbs, useful phrases.',
+    color: '#60A5FA', edgeColor: '#1E40AF',
+    lessonIds: [9, 12, 15],
+  },
+]
+
+// Flat ordered list of every lesson id in unlock order — used to compute
+// "is lesson N unlocked" by checking whether the previous one was completed.
+export const ORDERED_LESSON_IDS: number[] = SERBIAN_UNITS.flatMap(u => u.lessonIds)
+
+// ─── Exercise types for the lesson player ────────────────────────────────────
+
+export type Exercise =
+  | { kind: 'mc'; promptLang: 'sr' | 'en'; prompt: string; answer: string; options: string[]; pronunciation?: string }
+  | { kind: 'pairs'; pairs: { sr: string; en: string }[] }
+  | { kind: 'order'; english: string; sr: string; tiles: string[] }
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = arr.slice()
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
+/**
+ * Build a varied lesson session from the lesson's vocabulary, sentences, and
+ * existing quiz items. Returns a shuffled list of ~12-15 exercises. Distractor
+ * options pull from OTHER lessons too so the choices feel fresh, not just
+ * neighbours from the same word list.
+ */
+export function buildExercises(lesson: Lesson): Exercise[] {
+  const list: Exercise[] = []
+  const words = lesson.words
+
+  const allOtherSr = SERBIAN_COURSE
+    .filter(l => l.id !== lesson.id)
+    .flatMap(l => l.words.map(w => w.serbian))
+  const allOtherEn = SERBIAN_COURSE
+    .filter(l => l.id !== lesson.id)
+    .flatMap(l => l.words.map(w => w.english))
+
+  // 1) Match pairs (always first — gentle warmup)
+  if (words.length >= 4) {
+    const subset = shuffle(words).slice(0, Math.min(5, words.length))
+    list.push({ kind: 'pairs', pairs: subset.map(w => ({ sr: w.serbian, en: w.english })) })
+  }
+
+  // 2) Translate sr → en for ~half the words
+  const srToEnPicks = shuffle(words).slice(0, Math.min(4, words.length))
+  for (const w of srToEnPicks) {
+    const sameLessonDistractors = shuffle(words.filter(x => x.serbian !== w.serbian).map(x => x.english))
+    const externalDistractors = shuffle(allOtherEn.filter(e => e !== w.english))
+    const distractors = shuffle([...sameLessonDistractors, ...externalDistractors]).slice(0, 3)
+    list.push({
+      kind: 'mc', promptLang: 'sr', prompt: w.serbian, answer: w.english,
+      options: shuffle([w.english, ...distractors]),
+      pronunciation: w.pronunciation,
+    })
+  }
+
+  // 3) Translate en → sr (the harder direction — fewer of these)
+  const enToSrPicks = shuffle(words).slice(0, Math.min(3, words.length))
+  for (const w of enToSrPicks) {
+    const sameLessonDistractors = shuffle(words.filter(x => x.serbian !== w.serbian).map(x => x.serbian))
+    const externalDistractors = shuffle(allOtherSr.filter(s => s !== w.serbian))
+    const distractors = shuffle([...sameLessonDistractors, ...externalDistractors]).slice(0, 3)
+    list.push({
+      kind: 'mc', promptLang: 'en', prompt: w.english, answer: w.serbian,
+      options: shuffle([w.serbian, ...distractors]),
+    })
+  }
+
+  // 4) Word order from sentences
+  for (const s of lesson.sentences) {
+    const cleanWords = s.serbian
+      .split(/\s+/)
+      .map(w => w.replace(/[.,!?]+$/g, ''))   // strip terminal punctuation
+      .filter(Boolean)
+    if (cleanWords.length < 2) continue
+    const distractorPool = allOtherSr
+      .filter(d => !cleanWords.includes(d))
+      .filter(d => !d.includes(' ')) // single tokens only
+    const distractors = shuffle(distractorPool).slice(0, Math.min(2, Math.max(1, 4 - cleanWords.length)))
+    list.push({
+      kind: 'order',
+      english: s.english,
+      sr: cleanWords.join(' '),
+      tiles: shuffle([...cleanWords, ...distractors]),
+    })
+  }
+
+  // 5) Existing quiz items — well-curated, keep them
+  for (const q of lesson.quiz) {
+    list.push({
+      kind: 'mc',
+      promptLang: 'en',
+      prompt: q.question,
+      answer: q.options[q.answer],
+      options: q.options.slice(),
+    })
+  }
+
+  // Light shuffle — but keep the pairs-first warmup if present.
+  const head = list.find(e => e.kind === 'pairs')
+  const rest = shuffle(list.filter(e => e !== head))
+  return head ? [head, ...rest] : rest
+}
