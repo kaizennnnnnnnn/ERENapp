@@ -260,7 +260,7 @@ export default function TicTacToePage() {
             sprites are different shapes so we swap whole components rather
             than try to bend the front-facing chibi into a side pose. */}
         {canKnocked
-          ? <ErenSideLapping size={96} />
+          ? <ErenSideLapping size={78} />
           : <ErenChibi size={64} hop={false} thinking={turn === 'O' && status === 'playing' && thinking} />
         }
         <div className="relative" style={{ minWidth: 130 }}>
@@ -433,27 +433,28 @@ export default function TicTacToePage() {
           0%, 100% { transform: translateY(0)    scale(1);   opacity: 0.85; }
           50%      { transform: translateY(-1px) scale(1.4); opacity: 1; }
         }
-        /* Whole-body bob: head dips down on the lick, raises on retract.
-           Synced to erenLickFull so the body lowers exactly when the tongue
-           is fully extended into the puddle. */
+        /* Whole-body bob: head dips on the lick, lifts on retract. The
+           timing matches erenLickFull so the body lowers as the tongue
+           extends and rises as it pulls back. Slowed down to 0.85s for a
+           gentle, content lapping rhythm rather than a frantic snake-flick. */
         @keyframes erenLapBob {
           0%, 100% { transform: translateY(0); }
           45%, 60% { transform: translateY(2px); }
         }
-        /* Tongue extends from a tiny stub (curled inside mouth) to full
-           length, holds briefly, then snaps back. transformOrigin is set on
-           the group to the mouth corner so the scale grows leftward. The
-           min scale is 0.15 (≈1px in pixel art) so the tongue tip stays
-           barely visible at the mouth between licks instead of vanishing. */
+        /* Short tongue flick — extends from a small at-rest stub to full
+           length and back. Min scale 0.4 keeps the tongue tip always
+           visible at the mouth (no flicker on/off), max scale 1 is just a
+           3-viewBox-unit length (~9px) so it reads as a quick lap, not a
+           snake strike. */
         @keyframes erenLickFull {
-          0%, 100% { transform: scaleX(0.15); }
-          40%, 60% { transform: scaleX(1); }
+          0%, 100% { transform: scaleX(0.4); }
+          45%, 60% { transform: scaleX(1); }
         }
-        /* Tail twitches happily — small back-and-forth rotation about its
-           base where it joins the body. */
+        /* Tail flick — gentle, slower than the lick so they don't sync up
+           in a creepy mechanical way. */
         @keyframes erenTailTwitch {
-          0%, 100% { transform: rotate(-4deg); }
-          50%      { transform: rotate(8deg); }
+          0%, 100% { transform: rotate(-3deg); }
+          50%      { transform: rotate(6deg); }
         }
         /* Eye blinks occasionally as he focuses on the puddle. */
         @keyframes erenLapBlink {
@@ -685,173 +686,136 @@ function ErenChibi({ size = 64, hop = false, thinking = false }: { size?: number
 }
 
 // ─── Eren in profile, hunched over and lapping the spilled drink ────────────
-// This is a SEPARATE sprite from ErenChibi: a side view with the head pointing
-// LEFT toward the puddle, ears up, tail curled, four legs visible, and an
-// animated tongue that actually exits from his mouth. The whole sprite bobs
-// gently while the tongue extends and retracts and the tail flicks — three
-// independent CSS animations, all phase-locked to a ~0.6s lap cycle.
+// Side view: head pointing LEFT toward the puddle, ears up, tail curled, two
+// legs visible (clean side silhouette — the four-leg version read as creepy).
+// The tongue is short — a real cat lick is a quick flick, not a snake-strike,
+// so it spans only 3 viewBox units (≈9px on screen). The animation cycle is
+// gentler too: 0.85s instead of 0.55s.
 //
-// ViewBox is 32 × 18 with N=3 integer scaling at size=96 → 96 × 54 px on
-// screen, which keeps every pixel crisp. The mouth sits at viewBox x≈1, y≈11
-// so when this sprite sits to the right of the 100×72 knocked-can sprite the
-// tongue (which extends into negative-x via overflow:visible) lands in the
-// puddle. Math: at size=96 the viewBox→px scale is 3×, mouth screen-y is
-// 11×3=33px from sprite top, sprite is 54px tall → mouth is 21px from sprite
-// bottom; the puddle (cy=56 in 100×72 can sprite, marginBottom:-2) sits at
-// 16-2=14px from baseline — so the tongue tip needs to drop ~7px over its
-// reach which is what the natural extend animation does.
-function ErenSideLapping({ size = 96 }: { size?: number }) {
-  // Integer-scaled height for crisp pixels.
-  const height = Math.round(size * 18 / 32)
+// ViewBox 26×16 at size=78 gives a 3× integer scale → 78×48px sprite. The
+// mouth sits at viewBox (0–1, 11), so at the chosen layout (cat overlapping
+// the can sprite by ~10px on the left) the mouth lands right at the puddle's
+// right edge and the short tongue dips cleanly into the lime puddle.
+function ErenSideLapping({ size = 78 }: { size?: number }) {
+  const height = Math.round(size * 16 / 26)
   return (
     <div style={{
       width: size,
       height,
-      animation: 'erenLapBob 0.6s ease-in-out infinite',
+      // Pull him slightly left so his snout reaches into the puddle area
+      // without needing an unnaturally long tongue.
+      marginLeft: -10,
+      animation: 'erenLapBob 0.85s ease-in-out infinite',
     }}>
       <svg
-        viewBox="0 0 32 18"
+        viewBox="0 0 26 16"
         width="100%"
         height="100%"
         shapeRendering="crispEdges"
         style={{ imageRendering: 'pixelated', overflow: 'visible' }}
       >
-        {/* ─── TAIL ────────────────────────────────────────────────────────
-            Curls up from the rear of the body, twitching about its base
-            (where it meets the back). Drawn first so the body covers the
-            base seam. */}
-        <g style={{ transformOrigin: '24px 8px', animation: 'erenTailTwitch 0.7s ease-in-out infinite' }}>
-          {/* tip */}
-          <rect x="26" y="0" width="2" height="1" fill="#4A2E1A" />
-          {/* upper curl outline */}
-          <rect x="25" y="1" width="1" height="1" fill="#4A2E1A" />
-          <rect x="28" y="1" width="1" height="1" fill="#4A2E1A" />
-          <rect x="25" y="2" width="1" height="1" fill="#4A2E1A" />
-          <rect x="28" y="2" width="1" height="1" fill="#4A2E1A" />
-          {/* upper curl fill */}
-          <rect x="26" y="1" width="2" height="2" fill="#F9EDD5" />
-          {/* lower segment outline */}
-          <rect x="25" y="3" width="1" height="3" fill="#4A2E1A" />
-          <rect x="27" y="3" width="1" height="1" fill="#4A2E1A" />
-          <rect x="28" y="3" width="1" height="3" fill="#4A2E1A" />
-          {/* lower segment fill */}
-          <rect x="26" y="3" width="1" height="3" fill="#F9EDD5" />
-          <rect x="27" y="4" width="1" height="2" fill="#F9EDD5" />
-          {/* base joining body */}
-          <rect x="25" y="6" width="4" height="1" fill="#4A2E1A" />
-          <rect x="26" y="5" width="2" height="1" fill="#F9EDD5" />
+        {/* ─── TAIL — curled up at the rear, twitches happily ─────────── */}
+        <g style={{ transformOrigin: '20px 6px', animation: 'erenTailTwitch 1.1s ease-in-out infinite' }}>
+          {/* tail tip */}
+          <rect x="22" y="0" width="2" height="1" fill="#4A2E1A" />
+          <rect x="21" y="1" width="1" height="1" fill="#4A2E1A" />
+          <rect x="24" y="1" width="1" height="1" fill="#4A2E1A" />
+          <rect x="22" y="1" width="2" height="1" fill="#F9EDD5" />
+          {/* upper curl */}
+          <rect x="21" y="2" width="1" height="2" fill="#4A2E1A" />
+          <rect x="24" y="2" width="1" height="2" fill="#4A2E1A" />
+          <rect x="22" y="2" width="2" height="2" fill="#F9EDD5" />
+          {/* base into back */}
+          <rect x="21" y="4" width="4" height="1" fill="#4A2E1A" />
+          <rect x="22" y="4" width="2" height="1" fill="#F9EDD5" />
         </g>
 
-        {/* ─── CREAM SILHOUETTE (head + body + snout + ears bases) ────────
-            Painted before outlines so the perimeter strokes draw on top
-            cleanly. */}
-        {/* Body block (right portion — back is the highest line) */}
-        <rect x="11" y="5" width="14" height="6" fill="#F9EDD5" />
-        {/* Head block (left portion, slightly shorter than body) */}
-        <rect x="3"  y="5" width="9"  height="7" fill="#F9EDD5" />
-        {/* Snout poking out further left */}
-        <rect x="0"  y="8" width="3"  height="3" fill="#F9EDD5" />
-        {/* Ear bases blending into head top */}
-        <rect x="4"  y="4" width="2"  height="1" fill="#F9EDD5" />
-        <rect x="8"  y="4" width="2"  height="1" fill="#F9EDD5" />
+        {/* ─── BODY + HEAD CREAM SILHOUETTE ──────────────────────────── */}
+        {/* Body block (right) — back arches up at the top */}
+        <rect x="9"  y="5" width="12" height="6" fill="#F9EDD5" />
+        {/* Head block (left), slightly taller than body for the lapping pose */}
+        <rect x="2"  y="5" width="8"  height="7" fill="#F9EDD5" />
+        {/* Snout — narrow, pokes out further left */}
+        <rect x="0"  y="8" width="2"  height="3" fill="#F9EDD5" />
+        {/* Ear bases */}
+        <rect x="3"  y="4" width="2" height="1" fill="#F9EDD5" />
+        <rect x="6"  y="4" width="2" height="1" fill="#F9EDD5" />
 
-        {/* ─── EARS ─────────────────────────────────────────────────────── */}
-        {/* Front ear (closer to viewer, slightly forward) */}
-        <rect x="4" y="2" width="2" height="1" fill="#4A2E1A" />
-        <rect x="3" y="3" width="1" height="1" fill="#4A2E1A" />
-        <rect x="6" y="3" width="1" height="1" fill="#4A2E1A" />
-        <rect x="4" y="3" width="2" height="1" fill="#FFB6C8" />
+        {/* ─── EARS ─────────────────────────────────────────────────── */}
+        {/* Front ear */}
+        <rect x="3" y="2" width="2" height="1" fill="#4A2E1A" />
+        <rect x="2" y="3" width="1" height="1" fill="#4A2E1A" />
+        <rect x="5" y="3" width="1" height="1" fill="#4A2E1A" />
+        <rect x="3" y="3" width="2" height="1" fill="#FFB6C8" />
         {/* Back ear */}
-        <rect x="8" y="2" width="2" height="1" fill="#4A2E1A" />
-        <rect x="7" y="3" width="1" height="1" fill="#4A2E1A" />
-        <rect x="10" y="3" width="1" height="1" fill="#4A2E1A" />
-        <rect x="8" y="3" width="2" height="1" fill="#FFB6C8" />
+        <rect x="6" y="2" width="2" height="1" fill="#4A2E1A" />
+        <rect x="5" y="3" width="1" height="1" fill="#4A2E1A" />
+        <rect x="8" y="3" width="1" height="1" fill="#4A2E1A" />
+        <rect x="6" y="3" width="2" height="1" fill="#FFB6C8" />
 
-        {/* ─── HEAD + BODY OUTLINES ──────────────────────────────────────
-            Drawn after fill so they cap the silhouette cleanly. */}
-        {/* Top of head between/around ears */}
-        <rect x="3" y="4" width="1" height="1" fill="#4A2E1A" />   {/* left of front ear */}
-        <rect x="6" y="4" width="2" height="1" fill="#4A2E1A" />   {/* between ears */}
-        <rect x="10" y="4" width="2" height="1" fill="#4A2E1A" />  {/* right of back ear, into back */}
-        {/* Back ridge — slight slope down toward tail */}
-        <rect x="12" y="4" width="13" height="1" fill="#4A2E1A" />
-        {/* Body right edge */}
-        <rect x="25" y="5" width="1" height="6" fill="#4A2E1A" />
-        {/* Belly underline (across whole sprite from snout to rear) */}
-        <rect x="2" y="11" width="23" height="1" fill="#4A2E1A" />
-        {/* Head left edge — descending into snout */}
-        <rect x="2" y="5" width="1" height="3" fill="#4A2E1A" />   {/* head left side */}
-        <rect x="1" y="7" width="1" height="1" fill="#4A2E1A" />   {/* upper snout transition */}
-        <rect x="0" y="8" width="1" height="3" fill="#4A2E1A" />   {/* snout left edge */}
-        <rect x="1" y="11" width="1" height="1" fill="#4A2E1A" />  {/* snout bottom-left */}
-        {/* Re-fill head/snout interior to overwrite any outline pixels we
-            painted accidentally over fillable areas. */}
-        <rect x="3" y="5" width="9" height="7" fill="#F9EDD5" />
-        <rect x="1" y="8" width="2" height="3" fill="#F9EDD5" />
-        {/* Body re-fill so outline strokes don't bleed into the cream */}
-        <rect x="11" y="5" width="14" height="6" fill="#F9EDD5" />
+        {/* ─── HEAD + BODY OUTLINES ─────────────────────────────────── */}
+        {/* Top of head — slots between/around ears */}
+        <rect x="2"  y="4" width="1" height="1" fill="#4A2E1A" />
+        <rect x="5"  y="4" width="1" height="1" fill="#4A2E1A" />
+        <rect x="8"  y="4" width="1" height="1" fill="#4A2E1A" />
+        {/* Back ridge */}
+        <rect x="9"  y="4" width="12" height="1" fill="#4A2E1A" />
+        {/* Body right edge (curving down to belly) */}
+        <rect x="21" y="5" width="1"  height="6" fill="#4A2E1A" />
+        {/* Belly underline — connects snout bottom to body bottom */}
+        <rect x="2"  y="11" width="19" height="1" fill="#4A2E1A" />
+        {/* Head left side */}
+        <rect x="1"  y="5" width="1" height="3" fill="#4A2E1A" />
+        {/* Snout outline (top, left edge, bottom) */}
+        <rect x="1"  y="7" width="1" height="1" fill="#4A2E1A" />
+        <rect x="0"  y="8" width="1" height="3" fill="#4A2E1A" />
+        <rect x="1"  y="11" width="1" height="1" fill="#4A2E1A" />
 
-        {/* ─── FACE FEATURES ─────────────────────────────────────────────
-            Eye is a separate group so we can blink it via scaleY. */}
-        <g style={{ transformOrigin: '7px 7.5px', animation: 'erenLapBlink 4.2s ease-in-out infinite' }}>
-          <rect x="6" y="7" width="2" height="2" fill="#6BAED6" />     {/* iris */}
-          <rect x="6" y="7" width="1" height="1" fill="#FFFFFF" />     {/* shine */}
-          <rect x="7" y="8" width="1" height="1" fill="#1A1A2E" />     {/* pupil */}
+        {/* ─── FACE FEATURES — bigger eye for cuter read ────────────── */}
+        {/* Eye blinks every few seconds */}
+        <g style={{ transformOrigin: '6px 7px', animation: 'erenLapBlink 4.5s ease-in-out infinite' }}>
+          <rect x="5" y="6" width="2" height="2" fill="#6BAED6" />     {/* iris */}
+          <rect x="5" y="6" width="1" height="1" fill="#FFFFFF" />     {/* shine */}
+          <rect x="6" y="7" width="1" height="1" fill="#1A1A2E" />     {/* pupil */}
         </g>
-        {/* Nose — pink dot at snout tip */}
+        {/* Nose — small pink at snout tip */}
         <rect x="1" y="9" width="1" height="1" fill="#F4B0B8" />
-        {/* Mouth — open, the tongue exits from this row */}
+        {/* Mouth — opens at front-bottom of snout. The tongue exits from
+            here. Drawn AFTER the snout outline so the dark mouth row reads
+            as an actual opening. */}
         <rect x="0" y="10" width="2" height="1" fill="#4A2E1A" />
-        {/* Cheek blush behind the eye, on the cream cheek area */}
+        {/* Cheek blush */}
         <rect x="3" y="9" width="2" height="1" fill="#FFB6C8" />
 
-        {/* ─── LEGS — 4 visible (near pair clear, far pair a touch shaded) ─ */}
-        {/* Front-near leg */}
-        <rect x="5" y="11" width="1" height="6" fill="#4A2E1A" />     {/* left outline */}
-        <rect x="7" y="11" width="1" height="6" fill="#4A2E1A" />     {/* right outline */}
-        <rect x="6" y="11" width="1" height="5" fill="#F9EDD5" />     {/* fur */}
-        <rect x="5" y="17" width="3" height="1" fill="#4A2E1A" />     {/* paw bottom */}
-        <rect x="6" y="16" width="1" height="1" fill="#F4B0B8" />     {/* paw pad pink */}
-        {/* Front-far leg (offset back, slightly shaded) */}
-        <rect x="9"  y="12" width="1" height="5" fill="#4A2E1A" />
-        <rect x="11" y="12" width="1" height="5" fill="#4A2E1A" />
-        <rect x="10" y="12" width="1" height="4" fill="#D4B896" />
-        <rect x="9"  y="17" width="3" height="1" fill="#4A2E1A" />
-        {/* Back-near leg */}
-        <rect x="18" y="11" width="1" height="6" fill="#4A2E1A" />
-        <rect x="20" y="11" width="1" height="6" fill="#4A2E1A" />
-        <rect x="19" y="11" width="1" height="5" fill="#F9EDD5" />
-        <rect x="18" y="17" width="3" height="1" fill="#4A2E1A" />
-        <rect x="19" y="16" width="1" height="1" fill="#F4B0B8" />
-        {/* Back-far leg */}
-        <rect x="22" y="12" width="1" height="5" fill="#4A2E1A" />
-        <rect x="24" y="12" width="1" height="5" fill="#4A2E1A" />
-        <rect x="23" y="12" width="1" height="4" fill="#D4B896" />
-        <rect x="22" y="17" width="3" height="1" fill="#4A2E1A" />
+        {/* ─── LEGS — only the near pair, profile-clean ─────────────── */}
+        {/* Front leg */}
+        <rect x="4" y="11" width="1" height="4" fill="#4A2E1A" />     {/* outline left */}
+        <rect x="6" y="11" width="1" height="4" fill="#4A2E1A" />     {/* outline right */}
+        <rect x="5" y="11" width="1" height="3" fill="#F9EDD5" />     {/* fur */}
+        <rect x="4" y="15" width="3" height="1" fill="#4A2E1A" />     {/* paw bottom */}
+        <rect x="5" y="14" width="1" height="1" fill="#F4B0B8" />     {/* paw pad */}
+        {/* Back leg */}
+        <rect x="15" y="11" width="1" height="4" fill="#4A2E1A" />
+        <rect x="17" y="11" width="1" height="4" fill="#4A2E1A" />
+        <rect x="16" y="11" width="1" height="3" fill="#F9EDD5" />
+        <rect x="15" y="15" width="3" height="1" fill="#4A2E1A" />
+        <rect x="16" y="14" width="1" height="1" fill="#F4B0B8" />
 
-        {/* ─── BODY SHADING — subtle belly shadow for dimension ─────────── */}
-        <rect x="3"  y="10" width="9"  height="1" fill="#E9D9BC" opacity="0.45" />
-        <rect x="11" y="10" width="14" height="1" fill="#E9D9BC" opacity="0.45" />
+        {/* ─── BODY SHADING — soft belly shadow for dimension ──────── */}
+        <rect x="2"  y="10" width="8"  height="1" fill="#E9D9BC" opacity="0.5" />
+        <rect x="9"  y="10" width="12" height="1" fill="#E9D9BC" opacity="0.5" />
 
-        {/* ─── TONGUE ─────────────────────────────────────────────────────
-            Anchored to the right end (the mouth) and animated via scaleX so
-            it telescopes outward and back. Painted last so it sits on top
-            of everything; the SVG has overflow:visible so negative-x pixels
-            still render and reach into the puddle on the can sprite to the
-            left. The slight downward slope on the lower edge gives it a
-            cat-tongue scoop look. */}
+        {/* ─── TONGUE — short flick, anchored at the mouth corner ──── */}
         <g style={{
           transformOrigin: '1px 11px',
-          animation: 'erenLickFull 0.55s cubic-bezier(0.4,0,0.6,1) infinite',
+          animation: 'erenLickFull 0.85s ease-in-out infinite',
         }}>
-          {/* Base body of tongue */}
-          <rect x="-7" y="10" width="8" height="2" fill="#EC4899" />
-          {/* Highlight along top edge */}
-          <rect x="-7" y="10" width="8" height="1" fill="#F48B9B" />
-          {/* Lighter tip */}
-          <rect x="-7" y="10" width="2" height="2" fill="#FBCFE8" />
-          {/* Tiny scoop curl at the tip — a single dark pixel for definition */}
-          <rect x="-7" y="11" width="1" height="1" fill="#DB2777" />
+          {/* Base body — a 3×2 stub of pink, ~9px on screen */}
+          <rect x="-2" y="10" width="3" height="2" fill="#EC4899" />
+          {/* Top highlight row */}
+          <rect x="-2" y="10" width="3" height="1" fill="#F48B9B" />
+          {/* Tip lightest pixel — gives the lick a "scoop" silhouette */}
+          <rect x="-2" y="10" width="1" height="2" fill="#FBCFE8" />
         </g>
       </svg>
     </div>
