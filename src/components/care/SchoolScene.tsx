@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronLeft, X, Heart } from 'lucide-react'
+import { ChevronLeft, X, Heart, Volume2, Flame, Zap } from 'lucide-react'
 import {
-  SERBIAN_COURSE, SERBIAN_UNITS, ORDERED_LESSON_IDS,
-  buildExercises, getLessonById,
-  type Lesson, type Exercise, type Unit,
+  SERBIAN_UNITS, ORDERED_LESSON_IDS,
+  buildExercises, buildReviewExercises, getLessonById, getStrugglingWords,
+  type Lesson, type Exercise, type Unit, type WordStats, type WordStat,
 } from '@/lib/serbianCourse'
 import { useAuth } from '@/hooks/useAuth'
 import { useTasks } from '@/contexts/TaskContext'
@@ -15,16 +15,77 @@ import { IconCrown, IconStar, IconBook } from '@/components/PixelIcons'
 interface Props { onClose: () => void }
 
 const HEARTS_MAX = 5
-const XP_PER_LESSON = 10  // base XP awarded on lesson complete
+const XP_PER_LESSON = 10
 
 const PROGRESS_KEY = (uid: string) => `eren_serbian_progress_${uid}`
+const STATS_KEY    = (uid: string) => `eren_serbian_stats_${uid}`
 
 interface SerbianProgress {
-  completed: number[]      // lesson ids completed at least once
-  perfect: number[]        // lesson ids completed with no hearts lost (used for crown UI)
+  completed: number[]
+  perfect: number[]
   totalXp: number
+  // Streak fields — added v2; old saves missing these fall back to 0/'' below.
+  streak?: number
+  longestStreak?: number
+  lastDate?: string         // YYYY-MM-DD of most recent completion
 }
-const EMPTY_PROGRESS: SerbianProgress = { completed: [], perfect: [], totalXp: 0 }
+const EMPTY_PROGRESS: SerbianProgress = {
+  completed: [], perfect: [], totalXp: 0,
+  streak: 0, longestStreak: 0, lastDate: '',
+}
+
+// ─── Date helpers (local-time keys) ─────────────────────────────────────────
+function dateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+function todayKey(): string { return dateKey(new Date()) }
+function yesterdayKey(): string {
+  const d = new Date(); d.setDate(d.getDate() - 1); return dateKey(d)
+}
+
+// ─── Web Speech TTS — best effort, gracefully no-ops when unsupported ──────
+let _voicesLoaded = false
+function ensureVoicesLoaded() {
+  if (_voicesLoaded || typeof window === 'undefined' || !('speechSynthesis' in window)) return
+  // Voices load async on most browsers; a getVoices() call may return empty
+  // until 'voiceschanged' fires. Touching it once kicks the load.
+  window.speechSynthesis.getVoices()
+  window.speechSynthesis.addEventListener('voiceschanged', () => { _voicesLoaded = true }, { once: true })
+}
+export function speakSerbian(text: string) {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
+  ensureVoicesLoaded()
+  try {
+    window.speechSynthesis.cancel()  // stop anything in progress
+    const u = new SpeechSynthesisUtterance(text)
+    u.lang = 'sr-RS'
+    u.rate = 0.85
+    u.pitch = 1
+    // Pick a Serbian voice if available; else let the browser fall back via lang.
+    const voices = window.speechSynthesis.getVoices()
+    const sr = voices.find(v => v.lang.toLowerCase().startsWith('sr'))
+      ?? voices.find(v => v.lang.toLowerCase().startsWith('hr'))   // Croatian — close enough
+    if (sr) u.voice = sr
+    window.speechSynthesis.speak(u)
+  } catch { /* ignore */ }
+}
+
+function SpeakerButton({ text, size = 30 }: { text: string; size?: number }) {
+  return (
+    <button onClick={e => { e.stopPropagation(); speakSerbian(text) }}
+      className="active:scale-90 transition-transform inline-flex items-center justify-center"
+      style={{
+        width: size, height: size,
+        background: 'rgba(245,158,11,0.18)',
+        border: '2px solid #F59E0B',
+        borderRadius: '50%',
+        boxShadow: '0 2px 0 #B45309',
+        flexShrink: 0,
+      }}>
+      <Volume2 size={Math.round(size * 0.46)} className="text-amber-700" />
+    </button>
+  )
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Lightweight Web Audio tone helper (correct/wrong/level-up)
@@ -57,22 +118,35 @@ function playFanfare() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+interface Session {
+  title: string
+  exercises: Exercise[]
+  lessonId: number | null   // null for review sessions (no progress to save)
+}
+
 export default function SchoolScene({ onClose }: Props) {
   const { user } = useAuth()
   const { addCoins, completeTask } = useTasks()
 
-  const [phase, setPhase]               = useState<'map' | 'lesson' | 'complete'>('map')
-  const [activeLesson, setActiveLesson] = useState<Lesson | null>(null)
-  const [progress, setProgress]         = useState<SerbianProgress>(EMPTY_PROGRESS)
-  const [lastXp, setLastXp]             = useState(0)
+  const [phase, setPhase]       = useState<'map' | 'play' | 'complete'>('map')
+  const [session, setSession]   = useState<Session | null>(null)
+  const [progress, setProgress] = useState<SerbianProgress>(EMPTY_PROGRESS)
+  const [stats, setStats]       = useState<WordStats>({})
+  const [lastXp, setLastXp]     = useState(0)
+  const [streakIncreased, setStreakIncreased] = useState(false)
 
-  // Load progress (per user, localStorage)
+  // ─── Load progress + stats ─────────────────────────────────────────────
   useEffect(() => {
     if (!user?.id) return
     try {
       const raw = localStorage.getItem(PROGRESS_KEY(user.id))
-      if (raw) setProgress(JSON.parse(raw))
+      if (raw) setProgress({ ...EMPTY_PROGRESS, ...JSON.parse(raw) })
     } catch { /* ignore */ }
+    try {
+      const rawS = localStorage.getItem(STATS_KEY(user.id))
+      if (rawS) setStats(JSON.parse(rawS))
+    } catch { /* ignore */ }
+    ensureVoicesLoaded()
   }, [user?.id])
 
   function saveProgress(next: SerbianProgress) {
@@ -82,49 +156,132 @@ export default function SchoolScene({ onClose }: Props) {
     }
   }
 
-  function startLesson(l: Lesson) {
-    setActiveLesson(l)
-    setPhase('lesson')
+  function saveStats(next: WordStats) {
+    setStats(next)
+    if (user?.id) {
+      try { localStorage.setItem(STATS_KEY(user.id), JSON.stringify(next)) } catch { /* ignore */ }
+    }
   }
 
-  function exitLesson() {
-    setActiveLesson(null)
+  // Per-word tracker called by the lesson player on each MC answer.
+  function trackWord(srKey: string, en: string, lessonId: number, correct: boolean) {
+    setStats(prev => {
+      const cur = prev[srKey] ?? { sr: srKey, en, lessonId, attempts: 0, correct: 0 }
+      const next: WordStat = {
+        ...cur,
+        attempts: cur.attempts + 1,
+        correct: cur.correct + (correct ? 1 : 0),
+        lastWrongAt: correct ? cur.lastWrongAt : Date.now(),
+      }
+      const merged = { ...prev, [srKey]: next }
+      if (user?.id) {
+        try { localStorage.setItem(STATS_KEY(user.id), JSON.stringify(merged)) } catch { /* ignore */ }
+      }
+      return merged
+    })
+  }
+
+  function startLesson(l: Lesson) {
+    setSession({ title: l.title, exercises: buildExercises(l), lessonId: l.id })
+    setPhase('play')
+  }
+
+  function startReview() {
+    const exs = buildReviewExercises(stats)
+    if (exs.length === 0) return
+    setSession({ title: 'Practice', exercises: exs, lessonId: null })
+    setPhase('play')
+  }
+
+  function exitSession() {
+    setSession(null)
     setPhase('map')
   }
 
-  function finishLesson(perfect: boolean) {
-    if (!activeLesson) return
-    const id = activeLesson.id
-    const earnedXp = perfect ? XP_PER_LESSON + 5 : XP_PER_LESSON
-    setLastXp(earnedXp)
-    const next: SerbianProgress = {
-      completed: progress.completed.includes(id) ? progress.completed : [...progress.completed, id],
-      perfect: perfect && !progress.perfect.includes(id) ? [...progress.perfect, id] : progress.perfect,
-      totalXp: progress.totalXp + earnedXp,
+  // Apply a streak update for "today", returns the next progress.
+  function bumpStreak(prev: SerbianProgress): { next: SerbianProgress; increased: boolean } {
+    const today = todayKey()
+    const yest = yesterdayKey()
+    const prevStreak = prev.streak ?? 0
+    const prevLongest = prev.longestStreak ?? 0
+    const last = prev.lastDate ?? ''
+    let streak = prevStreak
+    let increased = false
+    if (last === today) {
+      // already counted a lesson today — no change
+    } else if (last === yest) {
+      streak = prevStreak + 1
+      increased = true
+    } else {
+      streak = 1
+      increased = true
     }
-    saveProgress(next)
-    addCoins(perfect ? 12 : 6)
-    // Serbian lessons count as the daily play task — they're enriching activity.
-    completeTask('daily_play')
+    const longestStreak = Math.max(prevLongest, streak)
+    return {
+      next: { ...prev, streak, longestStreak, lastDate: today },
+      increased,
+    }
+  }
+
+  function finishSession(perfect: boolean) {
+    if (!session) return
+
+    if (session.lessonId !== null) {
+      // Real lesson — bump XP, completion, streak.
+      const id = session.lessonId
+      const earnedXp = perfect ? XP_PER_LESSON + 5 : XP_PER_LESSON
+      setLastXp(earnedXp)
+      const base: SerbianProgress = {
+        ...progress,
+        completed: progress.completed.includes(id) ? progress.completed : [...progress.completed, id],
+        perfect: perfect && !progress.perfect.includes(id) ? [...progress.perfect, id] : progress.perfect,
+        totalXp: progress.totalXp + earnedXp,
+      }
+      const { next, increased } = bumpStreak(base)
+      saveProgress(next)
+      setStreakIncreased(increased)
+      addCoins(perfect ? 12 : 6)
+      completeTask('daily_play')
+    } else {
+      // Review session — smaller reward, still bumps streak.
+      setLastXp(5)
+      const { next, increased } = bumpStreak({ ...progress, totalXp: progress.totalXp + 5 })
+      saveProgress(next)
+      setStreakIncreased(increased)
+      addCoins(3)
+    }
+
     setPhase('complete')
     playFanfare()
   }
 
-  function backToMap() {
-    setActiveLesson(null)
-    setPhase('map')
+  if (phase === 'play' && session) {
+    return (
+      <LessonPlayer
+        title={session.title}
+        exercises={session.exercises}
+        onExit={exitSession}
+        onFinish={finishSession}
+        onWordResult={(srKey, en, correct) => {
+          if (session.lessonId !== null) trackWord(srKey, en, session.lessonId, correct)
+          else {
+            // Review: keep tracking but lessonId from existing stat (don't overwrite)
+            const cur = stats[srKey]
+            if (cur) trackWord(srKey, en, cur.lessonId, correct)
+          }
+        }}
+      />
+    )
   }
 
-  if (phase === 'lesson' && activeLesson) {
-    return <LessonPlayer lesson={activeLesson} onExit={exitLesson} onFinish={finishLesson} />
-  }
-
-  if (phase === 'complete' && activeLesson) {
+  if (phase === 'complete' && session) {
     return (
       <CompleteScreen
-        lesson={activeLesson}
+        title={session.title}
         xp={lastXp}
-        onContinue={backToMap}
+        streak={progress.streak ?? 0}
+        streakIncreased={streakIncreased}
+        onContinue={() => { setSession(null); setPhase('map'); setStreakIncreased(false) }}
       />
     )
   }
@@ -132,7 +289,9 @@ export default function SchoolScene({ onClose }: Props) {
   return (
     <CourseMap
       progress={progress}
+      strugglingCount={getStrugglingWords(stats).length}
       onLessonTap={startLesson}
+      onPracticeTap={startReview}
       onClose={onClose}
     />
   )
@@ -141,9 +300,11 @@ export default function SchoolScene({ onClose }: Props) {
 // ═══════════════════════════════════════════════════════════════════════════
 // COURSE MAP — vertical scroll of units, each with a zigzag of lesson nodes
 // ═══════════════════════════════════════════════════════════════════════════
-function CourseMap({ progress, onLessonTap, onClose }: {
+function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onClose }: {
   progress: SerbianProgress
+  strugglingCount: number
   onLessonTap: (l: Lesson) => void
+  onPracticeTap: () => void
   onClose: () => void
 }) {
   // A lesson is unlocked if it's the first one OR the previous (in order) is completed.
@@ -178,10 +339,17 @@ function CourseMap({ progress, onLessonTap, onClose }: {
             SRPSKI
           </span>
         </div>
-        <div className="flex items-center gap-1 px-2 py-1.5 font-pixel"
-          style={{ background: 'rgba(0,0,0,0.45)', border: '2px solid #FBBF24', borderRadius: 4, fontSize: 7, color: '#FDE68A', boxShadow: '0 2px 0 #78350F' }}>
-          <IconStar size={10} />
-          {progress.totalXp} XP
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 px-2 py-1.5 font-pixel"
+            style={{ background: 'rgba(0,0,0,0.45)', border: '2px solid #F97316', borderRadius: 4, fontSize: 7, color: '#FED7AA', boxShadow: '0 2px 0 #7C2D12' }}>
+            <Flame size={11} className="text-orange-400" />
+            {progress.streak ?? 0}
+          </div>
+          <div className="flex items-center gap-1 px-2 py-1.5 font-pixel"
+            style={{ background: 'rgba(0,0,0,0.45)', border: '2px solid #FBBF24', borderRadius: 4, fontSize: 7, color: '#FDE68A', boxShadow: '0 2px 0 #78350F' }}>
+            <IconStar size={10} />
+            {progress.totalXp}
+          </div>
         </div>
       </div>
 
@@ -210,6 +378,39 @@ function CourseMap({ progress, onLessonTap, onClose }: {
 
       {/* ─── Scrollable units ─── */}
       <div className="flex-1 overflow-y-auto pb-12 pt-3">
+        {/* Practice tile — only shows when there are struggling words */}
+        {strugglingCount > 0 && (
+          <button onClick={() => { playSound('ui_tap'); onPracticeTap() }}
+            className="block w-[calc(100%-32px)] mx-4 mb-4 px-4 py-3 active:translate-y-[2px] transition-transform text-left"
+            style={{
+              background: 'linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%)',
+              borderRadius: 5,
+              border: '3px solid #B45309',
+              boxShadow: '0 4px 0 #92400E, inset 0 1px 0 rgba(255,255,255,0.4), 0 0 14px rgba(251,191,36,0.5)',
+            }}>
+            <div className="flex items-center gap-3">
+              <div style={{
+                width: 42, height: 42,
+                background: 'rgba(0,0,0,0.25)',
+                borderRadius: '50%',
+                border: '2px solid rgba(255,255,255,0.4)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Zap size={22} className="text-white" fill="currentColor" />
+              </div>
+              <div className="flex-1">
+                <div className="font-pixel text-white" style={{ fontSize: 10, letterSpacing: 1.5, textShadow: '1px 1px 0 #92400E' }}>
+                  PRACTICE
+                </div>
+                <div className="font-pixel mt-0.5" style={{ fontSize: 6, color: 'rgba(255,255,255,0.85)', letterSpacing: 1 }}>
+                  {strugglingCount} {strugglingCount === 1 ? 'word' : 'words'} to review
+                </div>
+              </div>
+              <span className="font-pixel text-white" style={{ fontSize: 14 }}>▶</span>
+            </div>
+          </button>
+        )}
+
         {SERBIAN_UNITS.map((unit, ui) => (
           <UnitSection key={unit.id}
             unit={unit}
@@ -344,14 +545,16 @@ function UnitSection({ unit, unitIndex, progress, isUnlocked, onLessonTap }: {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LESSON PLAYER — Duolingo-style: hearts, progress, exercise rotation
+// Accepts a session (title + exercise list) — works for normal lessons OR
+// review sessions built from struggling words.
 // ═══════════════════════════════════════════════════════════════════════════
-function LessonPlayer({ lesson, onExit, onFinish }: {
-  lesson: Lesson
+function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
+  title: string
+  exercises: Exercise[]
   onExit: () => void
   onFinish: (perfect: boolean) => void
+  onWordResult?: (srKey: string, en: string, correct: boolean) => void
 }) {
-  // Build exercises once per mount.
-  const exercises = useMemo(() => buildExercises(lesson), [lesson])
   const [idx, setIdx] = useState(0)
   const [hearts, setHearts] = useState(HEARTS_MAX)
   const [feedback, setFeedback] = useState<null | { ok: boolean; correctText?: string }>(null)
@@ -364,9 +567,21 @@ function LessonPlayer({ lesson, onExit, onFinish }: {
   const progressPct = Math.min(100, Math.round((idx / total) * 100))
 
   function handleAnswer(ok: boolean, correctText?: string) {
+    // Track per-word stats for MC exercises that are tied to a Serbian word.
+    if (ex && ex.kind === 'mc' && ex.srKey && onWordResult) {
+      const en = ex.promptLang === 'sr' ? ex.answer : ex.prompt
+      onWordResult(ex.srKey, en, ok)
+    }
     if (ok) {
       playCorrect()
       setFeedback({ ok: true })
+      // Speak the Serbian answer/prompt as positive reinforcement.
+      if (ex && ex.kind === 'mc') {
+        const sr = ex.promptLang === 'sr' ? ex.prompt : ex.answer
+        if (sr) setTimeout(() => speakSerbian(sr), 120)
+      } else if (ex && ex.kind === 'order') {
+        setTimeout(() => speakSerbian(ex.sr), 120)
+      }
     } else {
       playWrong()
       heartsLostRef.current++
@@ -581,14 +796,17 @@ function MCExercise({ ex, disabled, onAnswer }: {
       </p>
       <div className="my-6 px-5 py-5 text-center"
         style={{ background: 'white', border: '2px solid #FED7AA', borderRadius: 6, boxShadow: '0 3px 0 #FDBA74' }}>
-        <p className={ex.promptLang === 'sr' ? 'font-pixel' : ''}
-          style={{
-            fontSize: ex.promptLang === 'sr' ? 16 : 14,
-            color: '#7C2D12', letterSpacing: ex.promptLang === 'sr' ? 1.5 : 0,
-            lineHeight: 1.4,
-          }}>
-          {ex.prompt}
-        </p>
+        <div className="flex items-center justify-center gap-3">
+          {ex.promptLang === 'sr' && <SpeakerButton text={ex.prompt} size={32} />}
+          <p className={ex.promptLang === 'sr' ? 'font-pixel' : ''}
+            style={{
+              fontSize: ex.promptLang === 'sr' ? 16 : 14,
+              color: '#7C2D12', letterSpacing: ex.promptLang === 'sr' ? 1.5 : 0,
+              lineHeight: 1.4,
+            }}>
+            {ex.prompt}
+          </p>
+        </div>
         {ex.pronunciation && (
           <p className="text-xs italic mt-2" style={{ color: '#A16207' }}>
             /{ex.pronunciation}/
@@ -701,7 +919,12 @@ function PairsExercise({ ex, disabled, onAnswer }: {
             return (
               <button key={`sr-${i}`}
                 disabled={disabled || isMatched}
-                onClick={() => { if (!isMatched && pickedSr === null) setPickedSr(i); else if (pickedSr === i) setPickedSr(null) }}
+                onClick={() => {
+                  if (isMatched) return
+                  speakSerbian(ex.pairs[i].sr)
+                  if (pickedSr === null) setPickedSr(i)
+                  else if (pickedSr === i) setPickedSr(null)
+                }}
                 className="px-2 py-3 active:scale-95 transition-all"
                 style={{
                   background: isMatched ? '#D1FAE5' : isWrong ? '#FEE2E2' : isPicked ? '#FFEDD5' : 'white',
@@ -858,9 +1081,15 @@ function OrderExercise({ ex, disabled, onAnswer }: {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// COMPLETE SCREEN — confetti + XP award
+// COMPLETE SCREEN — confetti + XP award + streak chip
 // ═══════════════════════════════════════════════════════════════════════════
-function CompleteScreen({ lesson, xp, onContinue }: { lesson: Lesson; xp: number; onContinue: () => void }) {
+function CompleteScreen({ title, xp, streak, streakIncreased, onContinue }: {
+  title: string
+  xp: number
+  streak: number
+  streakIncreased: boolean
+  onContinue: () => void
+}) {
   return (
     <div className="fixed inset-0 z-40 flex flex-col items-center justify-center px-6"
       style={{ background: 'linear-gradient(180deg, #FCD34D 0%, #F59E0B 100%)' }}>
@@ -889,8 +1118,25 @@ function CompleteScreen({ lesson, xp, onContinue }: { lesson: Lesson; xp: number
         <IconCrown size={48} />
         <p className="font-pixel" style={{ fontSize: 12, letterSpacing: 2, color: '#7C2D12' }}>LESSON COMPLETE</p>
         <p className="font-pixel" style={{ fontSize: 8, color: '#A16207', letterSpacing: 1 }}>
-          {lesson.title.toUpperCase()}
+          {title.toUpperCase()}
         </p>
+
+        {streakIncreased && (
+          <div className="mt-1 px-3 py-1.5 inline-flex items-center gap-1.5"
+            style={{
+              background: 'linear-gradient(135deg, #FB923C 0%, #DC2626 100%)',
+              border: '2px solid #7C2D12',
+              borderRadius: 4,
+              boxShadow: '0 3px 0 #7C2D12',
+              animation: 'srStreakPop 0.6s 0.25s cubic-bezier(0.34,1.56,0.64,1) both',
+            }}>
+            <Flame size={14} className="text-yellow-200" fill="currentColor" />
+            <span className="font-pixel text-white" style={{ fontSize: 8, letterSpacing: 1 }}>
+              {streak} DAY STREAK!
+            </span>
+          </div>
+        )}
+
         <div className="flex items-center gap-3 mt-2">
           <div className="px-4 py-2 flex flex-col items-center"
             style={{ background: 'rgba(245,158,11,0.15)', border: '2px solid #F59E0B', borderRadius: 4 }}>
@@ -924,6 +1170,10 @@ function CompleteScreen({ lesson, xp, onContinue }: { lesson: Lesson; xp: number
         @keyframes srConfetti {
           0%   { transform: translateY(-30px) rotate(0deg); }
           100% { transform: translateY(110vh) rotate(720deg); }
+        }
+        @keyframes srStreakPop {
+          0%   { transform: scale(0.4); opacity: 0; }
+          100% { transform: scale(1);   opacity: 1; }
         }
       `}</style>
     </div>

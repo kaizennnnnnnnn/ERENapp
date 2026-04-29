@@ -531,9 +531,21 @@ export const ORDERED_LESSON_IDS: number[] = SERBIAN_UNITS.flatMap(u => u.lessonI
 // ─── Exercise types for the lesson player ────────────────────────────────────
 
 export type Exercise =
-  | { kind: 'mc'; promptLang: 'sr' | 'en'; prompt: string; answer: string; options: string[]; pronunciation?: string }
+  | { kind: 'mc'; promptLang: 'sr' | 'en'; prompt: string; answer: string; options: string[]; pronunciation?: string; srKey?: string }
   | { kind: 'pairs'; pairs: { sr: string; en: string }[] }
   | { kind: 'order'; english: string; sr: string; tiles: string[] }
+
+// Per-Serbian-word stats used by the review-queue builder.
+export interface WordStat {
+  sr: string
+  en: string
+  lessonId: number
+  attempts: number
+  correct: number
+  lastWrongAt?: number   // performance.now-style ms — informational
+}
+
+export type WordStats = Record<string, WordStat>   // keyed by sr word
 
 function shuffle<T>(arr: T[]): T[] {
   const a = arr.slice()
@@ -577,6 +589,7 @@ export function buildExercises(lesson: Lesson): Exercise[] {
       kind: 'mc', promptLang: 'sr', prompt: w.serbian, answer: w.english,
       options: shuffle([w.english, ...distractors]),
       pronunciation: w.pronunciation,
+      srKey: w.serbian,
     })
   }
 
@@ -589,6 +602,7 @@ export function buildExercises(lesson: Lesson): Exercise[] {
     list.push({
       kind: 'mc', promptLang: 'en', prompt: w.english, answer: w.serbian,
       options: shuffle([w.serbian, ...distractors]),
+      srKey: w.serbian,
     })
   }
 
@@ -626,4 +640,55 @@ export function buildExercises(lesson: Lesson): Exercise[] {
   const head = list.find(e => e.kind === 'pairs')
   const rest = shuffle(list.filter(e => e !== head))
   return head ? [head, ...rest] : rest
+}
+
+// ─── Review queue ───────────────────────────────────────────────────────────
+// A word is "struggling" if its correct rate is below 80% AND it's been seen
+// at least twice — or it was answered wrong any time in the last 30 minutes.
+// Sort by lowest-correct-rate first so the toughest words come up first.
+export function getStrugglingWords(stats: WordStats, now: number = Date.now()): WordStat[] {
+  const RECENT_WRONG_MS = 30 * 60 * 1000
+  return Object.values(stats)
+    .filter(s => {
+      if (s.attempts === 0) return false
+      const rate = s.correct / s.attempts
+      const recentWrong = s.lastWrongAt && (now - s.lastWrongAt) < RECENT_WRONG_MS
+      return (rate < 0.8 && s.attempts >= 2) || recentWrong
+    })
+    .sort((a, b) => (a.correct / a.attempts) - (b.correct / b.attempts))
+}
+
+/**
+ * Build a review session from the player's struggle list. Each word becomes
+ * one or two MC exercises (sr→en and en→sr) with distractors drawn from the
+ * full course vocabulary so the choices feel novel. Returns an empty array
+ * if there's nothing to practise.
+ */
+export function buildReviewExercises(stats: WordStats, max = 8): Exercise[] {
+  const struggling = getStrugglingWords(stats).slice(0, max)
+  if (struggling.length === 0) return []
+
+  const allSr = SERBIAN_COURSE.flatMap(l => l.words.map(w => w.serbian))
+  const allEn = SERBIAN_COURSE.flatMap(l => l.words.map(w => w.english))
+  const list: Exercise[] = []
+
+  for (const s of struggling) {
+    const wrongRate = 1 - s.correct / s.attempts
+    // sr → en — always
+    list.push({
+      kind: 'mc', promptLang: 'sr', prompt: s.sr, answer: s.en,
+      options: shuffle([s.en, ...shuffle(allEn.filter(e => e !== s.en)).slice(0, 3)]),
+      srKey: s.sr,
+    })
+    // en → sr — only for the truly struggled words (more difficult direction)
+    if (wrongRate > 0.4) {
+      list.push({
+        kind: 'mc', promptLang: 'en', prompt: s.en, answer: s.sr,
+        options: shuffle([s.sr, ...shuffle(allSr.filter(x => x !== s.sr)).slice(0, 3)]),
+        srKey: s.sr,
+      })
+    }
+  }
+
+  return shuffle(list)
 }
