@@ -16,13 +16,17 @@ const W = 320
 const H = 540
 const BALL_R = 9
 
-// Tuning
-const GRAVITY      = 1100   // px/s²
-const FRICTION     = 0.998
-const FLIPPER_LERP = 18     // higher = snappier flip
-const FLIPPER_KICK = 320    // velocity boost from a rotating flipper
-const BUMPER_KICK  = 280    // outward boost from a bumper hit
-const RESTITUTION  = 0.92
+// Tuning. Earlier values let the ball gain energy on every bumper hit and
+// retain too much on wall reflections, so it bounced forever even without
+// flipper input. Heavier gravity + lower restitution + much smaller bumper
+// kick puts the ball on a real fall curve; the player has to actively keep
+// it alive.
+const GRAVITY      = 1500   // px/s²    was 1100
+const FRICTION     = 0.99   //          was 0.998 (more air drag)
+const FLIPPER_LERP = 20     //          was 18 (slightly snappier)
+const FLIPPER_KICK = 280    //          was 320
+const BUMPER_KICK  = 140    //          was 280 — halved
+const RESTITUTION  = 0.78   //          was 0.92 — wall bounces lose more energy
 
 interface Segment { x1: number; y1: number; x2: number; y2: number }
 interface Bumper  { x: number; y: number; r: number; score: number; flashUntil: number; tone: number }
@@ -34,28 +38,34 @@ interface FlipperCfg {
   activeDeg: number
 }
 
-// Clean rectangular table with two angled drain walls funnelling toward the
-// flipper pivots. No inward spurs — earlier "lane guide" walls trapped the
-// ball in the corner between spur and drain wall.
+// Side walls run further down (to H-90) so the lower table is open. The
+// drain rails are shorter + steeper than before — they only span the last
+// ~32 px vertically, leaving the central play area uncluttered.
 const WALLS: Segment[] = [
   { x1: 4,     y1: 4,        x2: W-4,    y2: 4 },        // top
-  { x1: 4,     y1: 4,        x2: 4,      y2: H-110 },    // left
-  { x1: W-4,   y1: 4,        x2: W-4,    y2: H-110 },    // right
-  { x1: 4,     y1: H-110,    x2: W*0.32, y2: H-58 },     // left angled drain
-  { x1: W-4,   y1: H-110,    x2: W*0.68, y2: H-58 },     // right angled drain
+  { x1: 4,     y1: 4,        x2: 4,      y2: H-90 },     // left
+  { x1: W-4,   y1: 4,        x2: W-4,    y2: H-90 },     // right
+  { x1: 4,     y1: H-90,     x2: W*0.32, y2: H-58 },     // left angled drain (shorter)
+  { x1: W-4,   y1: H-90,     x2: W*0.68, y2: H-58 },     // right angled drain (shorter)
 ]
 
+// Flipper length 48 (was 56). Combined with pivots at W*0.32/W*0.68 this
+// leaves a ~28 px gap between the flipper tips at rest — wide enough for the
+// 18 px ball to drain, narrow enough to be coverable when both flippers
+// flip up actively.
 const FLIPPERS: FlipperCfg[] = [
-  { side: 'L', pivotX: W*0.32, pivotY: H-58, length: 56, restDeg: 25,  activeDeg: -28 },
-  { side: 'R', pivotX: W*0.68, pivotY: H-58, length: 56, restDeg: 155, activeDeg: 208 },
+  { side: 'L', pivotX: W*0.32, pivotY: H-58, length: 48, restDeg: 25,  activeDeg: -32 },
+  { side: 'R', pivotX: W*0.68, pivotY: H-58, length: 48, restDeg: 155, activeDeg: 212 },
 ]
 
 interface MutBumper { x: number; y: number; r: number; score: number; flashUntil: number; tone: number }
+// Smaller bumpers + the bottom one moved up so it doesn't sit as a permanent
+// trampoline in the centre of the field.
 const BUMPERS_INIT = (): MutBumper[] => [
-  { x: W*0.30, y: H*0.28, r: 22, score: 100, flashUntil: 0, tone: 523 },
-  { x: W*0.70, y: H*0.28, r: 22, score: 100, flashUntil: 0, tone: 587 },
-  { x: W*0.50, y: H*0.18, r: 16, score: 150, flashUntil: 0, tone: 659 },
-  { x: W*0.50, y: H*0.46, r: 26, score: 250, flashUntil: 0, tone: 783 },
+  { x: W*0.30, y: H*0.28, r: 18, score: 100, flashUntil: 0, tone: 523 },
+  { x: W*0.70, y: H*0.28, r: 18, score: 100, flashUntil: 0, tone: 587 },
+  { x: W*0.50, y: H*0.16, r: 14, score: 200, flashUntil: 0, tone: 659 },
+  { x: W*0.50, y: H*0.42, r: 18, score: 250, flashUntil: 0, tone: 783 },
 ]
 
 interface FlipperState { cfg: FlipperCfg; angle: number; target: number; held: boolean }
