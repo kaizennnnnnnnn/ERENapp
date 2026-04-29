@@ -359,44 +359,68 @@ function ErenChibi({ size = 68, blink = false, fail = false }: { size?: number; 
       <rect x="18" y="6" width="1" height="6" fill="#4A2E1A" />
       <rect x="4" y="5" width="14" height="1" fill="#F9EDD5" />
       <rect x="4" y="6" width="14" height="6" fill="#F9EDD5" />
-      {/* eyes */}
-      {blink ? (
+      {/* eyes — three distinct states. Earlier the "fail" face still drew
+          normal eyes which clashed with the frown; now fail switches to a
+          squinted >_< pair which reads cleanly as "oh no" at this resolution. */}
+      {fail ? (
         <>
-          <rect x="6" y="8" width="2" height="1" fill="#4A2E1A" />
+          {/* left eye \ */}
+          <rect x="6" y="7" width="1" height="1" fill="#4A2E1A" />
+          <rect x="7" y="8" width="1" height="1" fill="#4A2E1A" />
+          {/* right eye / */}
+          <rect x="14" y="8" width="1" height="1" fill="#4A2E1A" />
+          <rect x="15" y="7" width="1" height="1" fill="#4A2E1A" />
+        </>
+      ) : blink ? (
+        <>
+          <rect x="6"  y="8" width="2" height="1" fill="#4A2E1A" />
           <rect x="14" y="8" width="2" height="1" fill="#4A2E1A" />
         </>
       ) : (
         <>
-          <rect x="6" y="7" width="2" height="2" fill="#6BAED6" />
+          <rect x="6"  y="7" width="2" height="2" fill="#6BAED6" />
           <rect x="14" y="7" width="2" height="2" fill="#6BAED6" />
-          <rect x="6" y="7" width="1" height="1" fill="#FFFFFF" />
+          <rect x="6"  y="7" width="1" height="1" fill="#FFFFFF" />
           <rect x="15" y="7" width="1" height="1" fill="#FFFFFF" />
-          <rect x="7" y="8" width="1" height="1" fill="#1A1A2E" />
+          <rect x="7"  y="8" width="1" height="1" fill="#1A1A2E" />
           <rect x="14" y="8" width="1" height="1" fill="#1A1A2E" />
         </>
       )}
-      {/* cheeks */}
-      <rect x="4" y="10" width="2" height="1" fill="#FFB6C8" />
-      <rect x="16" y="10" width="2" height="1" fill="#FFB6C8" />
+
+      {/* cheeks — moved up to y=9 so they sit beside the eyes (where actual
+          cheeks are) instead of clashing with the dark nose-bottom on y=10. */}
+      <rect x="5"  y="9" width="1" height="1" fill="#FFB6C8" />
+      <rect x="16" y="9" width="1" height="1" fill="#FFB6C8" />
+
       {/* nose */}
       <rect x="10" y="9"  width="2" height="1" fill="#F48B9B" />
       <rect x="10" y="10" width="2" height="1" fill="#4A2E1A" />
-      {/* mouth — smile or frown */}
-      {fail ? (
+
+      {/* mouth corners (only on the happy face) */}
+      {!fail && (
         <>
-          <rect x="9" y="12" width="1" height="1" fill="#4A2E1A" />
-          <rect x="12" y="12" width="1" height="1" fill="#4A2E1A" />
-          <rect x="10" y="11" width="2" height="1" fill="#4A2E1A" />
-        </>
-      ) : (
-        <>
-          <rect x="9" y="11" width="1" height="1" fill="#4A2E1A" />
+          <rect x="9"  y="11" width="1" height="1" fill="#4A2E1A" />
           <rect x="12" y="11" width="1" height="1" fill="#4A2E1A" />
         </>
       )}
+
+      {/* chin */}
       <rect x="4" y="12" width="14" height="1" fill="#4A2E1A" />
       <rect x="5" y="12" width="12" height="1" fill="#F9EDD5" />
-      {!fail && <rect x="10" y="12" width="2" height="1" fill="#4A2E1A" />}
+
+      {/* mouth bottom — drawn AFTER the chin so it actually shows on the cream.
+          Old code put fail-frown corners at y=12 underneath the chin where
+          they got overwritten; this draws either the smile V or the gasp "o"
+          on top, so the expression is visible. */}
+      {fail ? (
+        // small "o" gasp — 2×2 dark square
+        <>
+          <rect x="10" y="11" width="2" height="1" fill="#4A2E1A" />
+          <rect x="10" y="12" width="2" height="1" fill="#4A2E1A" />
+        </>
+      ) : (
+        <rect x="10" y="12" width="2" height="1" fill="#4A2E1A" />
+      )}
       {/* body */}
       <rect x="6" y="13" width="10" height="1" fill="#4A2E1A" />
       <rect x="5" y="14" width="1" height="5" fill="#4A2E1A" />

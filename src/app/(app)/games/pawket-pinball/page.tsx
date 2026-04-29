@@ -16,18 +16,20 @@ const W = 320
 const H = 540
 const BALL_R = 9
 
-// Tuning. Balance pass: gravity dialled back a bit (was overcorrected) and
-// bumper kick raised so a bumper hit reads as "punchy" again. Restitution
-// stays low enough that a free-bouncing ball still bleeds energy and drains.
-const GRAVITY      = 1250   // px/s²    was 1500 (overcorrected) → 1250
-const FRICTION     = 0.992  //          was 0.99 (slightly less drag)
-const FLIPPER_LERP = 20
-const FLIPPER_KICK = 300    //          was 280
-const BUMPER_KICK  = 240    //          was 140 — bumper hits are punchy again
-const RESTITUTION  = 0.80   //          was 0.78
+// Tuning. Major balance pass after user feedback: flipper kick was way too
+// weak (ball couldn't reach mid-field). Drain hole was too narrow to feel
+// like a real risk. New numbers send the ball cleanly to the upper bumpers
+// on a clean flip, with a wider drain hole and slingshots adding chaos.
+const GRAVITY      = 1280
+const FRICTION     = 0.993
+const FLIPPER_LERP = 22
+const FLIPPER_KICK = 720    //          was 300 — clean hit now reaches upper bumpers
+const BUMPER_KICK  = 280    //          was 240
+const SLING_KICK   = 380    // extra kick from slingshot walls (above flippers)
+const RESTITUTION  = 0.82
 
 interface Segment { x1: number; y1: number; x2: number; y2: number }
-interface Bumper  { x: number; y: number; r: number; score: number; flashUntil: number; tone: number }
+interface Bumper  { x: number; y: number; r: number; score: number; flashUntil: number; tone: number; isKicker?: boolean }
 interface FlipperCfg {
   side: 'L' | 'R'
   pivotX: number; pivotY: number
@@ -36,34 +38,48 @@ interface FlipperCfg {
   activeDeg: number
 }
 
-// Side walls run further down (to H-90) so the lower table is open. The
-// drain rails are shorter + steeper than before — they only span the last
-// ~32 px vertically, leaving the central play area uncluttered.
+// Outer table walls.
 const WALLS: Segment[] = [
   { x1: 4,     y1: 4,        x2: W-4,    y2: 4 },        // top
   { x1: 4,     y1: 4,        x2: 4,      y2: H-90 },     // left
   { x1: W-4,   y1: 4,        x2: W-4,    y2: H-90 },     // right
-  { x1: 4,     y1: H-90,     x2: W*0.32, y2: H-58 },     // left angled drain (shorter)
-  { x1: W-4,   y1: H-90,     x2: W*0.68, y2: H-58 },     // right angled drain (shorter)
+  { x1: 4,     y1: H-90,     x2: W*0.30, y2: H-58 },     // left angled drain
+  { x1: W-4,   y1: H-90,     x2: W*0.70, y2: H-58 },     // right angled drain
 ]
 
-// Flipper length 48 (was 56). Combined with pivots at W*0.32/W*0.68 this
-// leaves a ~28 px gap between the flipper tips at rest — wide enough for the
-// 18 px ball to drain, narrow enough to be coverable when both flippers
-// flip up actively.
+// Slingshots — angled walls just above the flipper area on the inner side.
+// These are real pinball slingshots: ball hitting them gets a strong outward
+// kick (perpendicular to the wall, into the field), keeping the ball alive
+// when it's heading down toward the drain. Treated as walls for collision
+// but with a stronger push (SLING_KICK).
+const SLINGSHOTS: Segment[] = [
+  { x1: W*0.16, y1: H-118, x2: W*0.30, y2: H-72 },   // left slingshot (inner edge)
+  { x1: W*0.84, y1: H-118, x2: W*0.70, y2: H-72 },   // right slingshot (inner edge)
+]
+
+// Flipper length 40 (was 48). Combined with pivots at W*0.30/W*0.70 this
+// opens the rest gap to ~50 px — a real drain that the ball can actually
+// fall through. The wider hole pairs with the much stronger flipper kick
+// so the player has to actively keep the ball alive.
 const FLIPPERS: FlipperCfg[] = [
-  { side: 'L', pivotX: W*0.32, pivotY: H-58, length: 48, restDeg: 25,  activeDeg: -32 },
-  { side: 'R', pivotX: W*0.68, pivotY: H-58, length: 48, restDeg: 155, activeDeg: 212 },
+  { side: 'L', pivotX: W*0.30, pivotY: H-58, length: 40, restDeg: 28,  activeDeg: -34 },
+  { side: 'R', pivotX: W*0.70, pivotY: H-58, length: 40, restDeg: 152, activeDeg: 214 },
 ]
 
-interface MutBumper { x: number; y: number; r: number; score: number; flashUntil: number; tone: number }
-// Smaller bumpers — outer pair compact, centre top tiny, bottom-centre
-// shrunk further so it's a real target instead of a wall.
+interface MutBumper { x: number; y: number; r: number; score: number; flashUntil: number; tone: number; isKicker?: boolean }
+// Six bumpers now (was 4) — the original quartet plus two small "kicker"
+// pop bumpers tucked above the slingshots. They give the upper-mid area
+// the busy, lively feel of a real pinball table.
 const BUMPERS_INIT = (): MutBumper[] => [
-  { x: W*0.30, y: H*0.28, r: 14, score: 100, flashUntil: 0, tone: 523 },
-  { x: W*0.70, y: H*0.28, r: 14, score: 100, flashUntil: 0, tone: 587 },
-  { x: W*0.50, y: H*0.16, r: 11, score: 200, flashUntil: 0, tone: 659 },
-  { x: W*0.50, y: H*0.42, r: 14, score: 250, flashUntil: 0, tone: 783 },
+  // Upper main bumpers
+  { x: W*0.30, y: H*0.26, r: 15, score: 100, flashUntil: 0, tone: 523 },
+  { x: W*0.70, y: H*0.26, r: 15, score: 100, flashUntil: 0, tone: 587 },
+  { x: W*0.50, y: H*0.14, r: 12, score: 200, flashUntil: 0, tone: 659 },
+  // Mid bumper
+  { x: W*0.50, y: H*0.40, r: 16, score: 300, flashUntil: 0, tone: 784 },
+  // Lower kicker pop bumpers — pink, smaller, score less
+  { x: W*0.20, y: H*0.62, r: 11, score: 80,  flashUntil: 0, tone: 880, isKicker: true },
+  { x: W*0.80, y: H*0.62, r: 11, score: 80,  flashUntil: 0, tone: 932, isKicker: true },
 ]
 
 interface FlipperState { cfg: FlipperCfg; angle: number; target: number; held: boolean }
@@ -238,6 +254,28 @@ export default function PawketPinballGame() {
 
     // Walls
     for (const w of WALLS) collideSegment(ball, w, false)
+
+    // Slingshots — same shape as walls but post-collision we apply an extra
+    // outward impulse perpendicular to the segment (toward the field
+    // centre). Big audible bonk + score reward.
+    for (const sl of SLINGSHOTS) {
+      if (collideSegment(ball, sl, false)) {
+        // Re-derive the inward normal and add SLING_KICK along it.
+        const dx = sl.x2 - sl.x1
+        const dy = sl.y2 - sl.y1
+        const len = Math.sqrt(dx*dx + dy*dy) || 1
+        // Normal that points toward field centre — flip if it's pointing the
+        // wrong way (away from W/2).
+        let nx = -dy / len
+        let ny =  dx / len
+        const midX = (sl.x1 + sl.x2) / 2
+        if ((W / 2 - midX) * nx < 0) { nx = -nx; ny = -ny }
+        ball.vx += nx * SLING_KICK
+        ball.vy += ny * SLING_KICK
+        tone(660, 0.16, 0.14)
+        handleHit(50, { x: midX, y: (sl.y1 + sl.y2) / 2 }, 'slingshot')
+      }
+    }
 
     // Bumpers
     for (const b of bumpersRef.current) {
@@ -481,6 +519,16 @@ export default function PawketPinballGame() {
                 <stop offset="0" stopColor="#FFFFFF" />
                 <stop offset="1" stopColor="#FDE68A" />
               </radialGradient>
+              <radialGradient id="ppKicker" cx="0.35" cy="0.3" r="0.7">
+                <stop offset="0" stopColor="#FBCFE8" />
+                <stop offset="0.5" stopColor="#A78BFA" />
+                <stop offset="1" stopColor="#4C1D95" />
+              </radialGradient>
+              <linearGradient id="ppSling" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stopColor="#7C3AED" />
+                <stop offset="0.5" stopColor="#A78BFA" />
+                <stop offset="1" stopColor="#7C3AED" />
+              </linearGradient>
               <radialGradient id="ppBall" cx="0.3" cy="0.3" r="0.7">
                 <stop offset="0" stopColor="#FFFFFF" />
                 <stop offset="0.5" stopColor="#D1D5DB" />
@@ -491,17 +539,49 @@ export default function PawketPinballGame() {
             {/* lane glow */}
             <rect x="0" y="0" width={W} height={H} fill="url(#ppLane)" />
 
+            {/* Slingshots — drawn as filled triangles so they look like proper
+                pinball slingshot rubber. Bright pulse when hit. */}
+            {SLINGSHOTS.map((sl, i) => {
+              const baseX = sl.x1 < W / 2 ? 4 : W - 4
+              return (
+                <g key={`sling-${i}`}>
+                  <polygon
+                    points={`${sl.x1},${sl.y1} ${sl.x2},${sl.y2} ${baseX},${sl.y2}`}
+                    fill="url(#ppSling)"
+                    stroke="#1E1B4B" strokeWidth="2"
+                    style={{ filter: 'drop-shadow(0 0 8px rgba(167,139,250,0.55))' }} />
+                  {/* Inner highlight stripe */}
+                  <line x1={sl.x1} y1={sl.y1} x2={sl.x2} y2={sl.y2}
+                    stroke="#FBBF24" strokeWidth="3" strokeLinecap="round"
+                    style={{ filter: 'drop-shadow(0 0 6px rgba(251,191,36,0.6))' }} />
+                </g>
+              )
+            })}
+
             {/* Bumpers */}
             {bumpersRef.current.map((b, i) => {
               const flashing = b.flashUntil > now
+              const fill = flashing
+                ? 'url(#ppBumperFlash)'
+                : b.isKicker
+                  ? 'url(#ppKicker)'
+                  : i === 3
+                    ? 'url(#ppBumperBig)'
+                    : 'url(#ppBumper)'
               return (
                 <g key={i}>
                   <circle cx={b.x} cy={b.y} r={b.r}
-                    fill={flashing ? 'url(#ppBumperFlash)' : (i === 3 ? 'url(#ppBumperBig)' : 'url(#ppBumper)')}
+                    fill={fill}
                     stroke="#1A1A2E" strokeWidth="2"
-                    style={{ filter: flashing ? 'drop-shadow(0 0 14px #FDE68A)' : 'drop-shadow(0 2px 0 rgba(0,0,0,0.5))' }} />
+                    style={{ filter: flashing ? 'drop-shadow(0 0 14px #FDE68A)' : `drop-shadow(0 2px 0 rgba(0,0,0,0.5)) drop-shadow(0 0 ${b.isKicker ? 8 : 6}px ${b.isKicker ? 'rgba(167,139,250,0.5)' : 'rgba(236,72,153,0.4)'})` }} />
                   <circle cx={b.x - b.r * 0.3} cy={b.y - b.r * 0.3} r={b.r * 0.25}
-                    fill="rgba(255,255,255,0.5)" />
+                    fill="rgba(255,255,255,0.55)" />
+                  {/* Score number on the bumper */}
+                  <text x={b.x} y={b.y + 3} textAnchor="middle"
+                    fontFamily='"Press Start 2P"' fontSize="6" fill="rgba(255,255,255,0.85)"
+                    style={{ pointerEvents: 'none' }}>
+                    {b.score}
+                  </text>
                 </g>
               )
             })}
@@ -510,12 +590,16 @@ export default function PawketPinballGame() {
             {WALLS.map((w, i) => (
               <line key={i} x1={w.x1} y1={w.y1} x2={w.x2} y2={w.y2}
                 stroke="#FBBF24" strokeWidth="4" strokeLinecap="round"
-                opacity="0.85"
+                opacity="0.9"
                 style={{ filter: 'drop-shadow(0 0 4px rgba(251,191,36,0.5))' }} />
             ))}
 
-            {/* Drain hole indicator */}
-            <rect x={W*0.32} y={H-58} width={W*0.36} height="6" fill="rgba(220,38,38,0.4)" />
+            {/* Drain hole indicator — wider now (matches new flipper geometry) */}
+            <rect x={W*0.30 + 36} y={H-58} width={W*0.40 - 72} height="8" fill="rgba(220,38,38,0.45)" />
+            <text x={W/2} y={H-30} textAnchor="middle"
+              fontFamily='"Press Start 2P"' fontSize="6" fill="rgba(252,165,165,0.55)" letterSpacing="2">
+              DRAIN
+            </text>
 
             {/* Flippers */}
             {flippersRef.current.map((f, i) => {

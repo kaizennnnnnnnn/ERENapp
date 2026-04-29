@@ -357,6 +357,10 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
     return progress.completed.includes(prev)
   }
 
+  // The single "next up" lesson — first id in unlock order that the player
+  // hasn't completed. Gets the hero halo + sparkles + START chevron.
+  const nextUpId = ORDERED_LESSON_IDS.find(id => !progress.completed.includes(id))
+
   const totalCompleted = progress.completed.length
   const totalLessons = ORDERED_LESSON_IDS.length
 
@@ -547,6 +551,7 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
                   unitIndex={ui}
                   progress={progress}
                   isUnlocked={isUnlocked}
+                  nextUpId={nextUpId}
                   onLessonTap={onLessonTap}
                 />
               ))}
@@ -634,11 +639,12 @@ function SectionBanner({ section, index, done, total }: {
   )
 }
 
-function UnitSection({ unit, unitIndex, progress, isUnlocked, onLessonTap }: {
+function UnitSection({ unit, unitIndex, progress, isUnlocked, nextUpId, onLessonTap }: {
   unit: Unit
   unitIndex: number
   progress: SerbianProgress
   isUnlocked: (id: number) => boolean
+  nextUpId: number | undefined   // the single "next up" lesson — gets the hero animation
   onLessonTap: (l: Lesson) => void
 }) {
   const lessons = unit.lessonIds.map(id => getLessonById(id)!).filter(Boolean)
@@ -685,9 +691,10 @@ function UnitSection({ unit, unitIndex, progress, isUnlocked, onLessonTap }: {
           const completed = progress.completed.includes(l.id)
           const perfect = progress.perfect.includes(l.id)
           const unlocked = isUnlocked(l.id)
+          const isNextUp = l.id === nextUpId
           const offset = li % 2 === 0 ? -38 : 38
           return (
-            <div key={l.id} className="flex flex-col items-center" style={{ marginLeft: offset }}>
+            <div key={l.id} className="relative flex flex-col items-center" style={{ marginLeft: offset }}>
               {li > 0 && (
                 <div style={{
                   width: 4, height: 24,
@@ -699,6 +706,47 @@ function UnitSection({ unit, unitIndex, progress, isUnlocked, onLessonTap }: {
                   boxShadow: completed ? `0 0 6px ${unit.color}88` : 'none',
                 }} />
               )}
+
+              {/* Hero halo for the next-up node — three layered animated rings,
+                  four orbiting gold sparkles, and a "▶ START" chevron beneath
+                  to make it unmistakeable that this is the lesson to play. */}
+              {isNextUp && (
+                <>
+                  <div className="absolute pointer-events-none" style={{
+                    top: li > 0 ? 28 : 0,
+                    width: 84, height: 84,
+                    borderRadius: '50%',
+                    boxShadow: `0 0 0 6px rgba(251,191,36,0.18), 0 0 36px rgba(251,191,36,0.6), 0 0 14px ${unit.color}DD`,
+                    animation: 'srHeroPulse 1.6s ease-in-out infinite',
+                  }} />
+                  <div className="absolute pointer-events-none" style={{
+                    top: li > 0 ? 24 : -4,
+                    width: 92, height: 92,
+                    borderRadius: '50%',
+                    border: '2px dashed rgba(251,191,36,0.7)',
+                    animation: 'srHeroRotate 8s linear infinite',
+                  }} />
+                  <div className="absolute pointer-events-none" style={{
+                    top: li > 0 ? 16 : -12,
+                    width: 108, height: 108,
+                    animation: 'srHeroOrbit 5s linear infinite',
+                  }}>
+                    {[0, 90, 180, 270].map(deg => (
+                      <div key={deg} style={{
+                        position: 'absolute',
+                        top: '50%', left: '50%',
+                        transform: `rotate(${deg}deg) translate(54px) rotate(${-deg}deg)`,
+                        marginLeft: -3, marginTop: -3,
+                        width: 6, height: 6,
+                        background: 'radial-gradient(circle, #FFFAF0 0%, #FBBF24 60%, transparent 100%)',
+                        borderRadius: '50%',
+                        boxShadow: '0 0 8px #FBBF24, 0 0 14px rgba(251,191,36,0.5)',
+                      }} />
+                    ))}
+                  </div>
+                </>
+              )}
+
               <button
                 onClick={() => { if (unlocked) { playSound('ui_tap'); onLessonTap(l) } }}
                 disabled={!unlocked}
@@ -715,13 +763,17 @@ function UnitSection({ unit, unitIndex, progress, isUnlocked, onLessonTap }: {
                         0 6px 0 ${unit.edgeColor},
                         inset 0 2px 0 rgba(255,255,255,0.35),
                         inset 0 -2px 0 rgba(0,0,0,0.3),
-                        0 0 18px ${unit.color}AA,
-                        0 0 6px rgba(251,191,36,0.5)
+                        0 0 ${isNextUp ? '32' : '18'}px ${unit.color}AA,
+                        0 0 ${isNextUp ? '14' : '6'}px rgba(251,191,36,${isNextUp ? '0.85' : '0.5'})
                       `
                     : '0 3px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(167,139,250,0.15)',
                   opacity: unlocked ? 1 : 0.5,
                   cursor: unlocked ? 'pointer' : 'default',
-                  animation: unlocked && !completed ? 'srNodePulse 1.7s ease-in-out infinite' : 'none',
+                  animation: isNextUp
+                    ? 'srHeroBounce 1.6s ease-in-out infinite'
+                    : unlocked && !completed
+                      ? 'srNodePulse 1.7s ease-in-out infinite'
+                      : 'none',
                 }}>
                 {/* Inner ring */}
                 <div className="absolute inset-2 rounded-full flex flex-col items-center justify-center"
@@ -767,12 +819,30 @@ function UnitSection({ unit, unitIndex, progress, isUnlocked, onLessonTap }: {
                 )}
               </button>
               <div className="font-pixel mt-2 text-center" style={{
-                fontSize: 6, color: unlocked ? '#FDE68A' : 'rgba(196,181,253,0.5)',
+                fontSize: isNextUp ? 7 : 6,
+                color: isNextUp ? '#FDE68A' : unlocked ? '#FDE68A' : 'rgba(196,181,253,0.5)',
                 letterSpacing: 1.5, maxWidth: 120, lineHeight: 1.6,
-                textShadow: unlocked ? '1px 1px 0 rgba(0,0,0,0.6)' : 'none',
+                textShadow: isNextUp
+                  ? '1px 1px 0 rgba(0,0,0,0.7), 0 0 8px rgba(251,191,36,0.6)'
+                  : unlocked ? '1px 1px 0 rgba(0,0,0,0.6)' : 'none',
               }}>
                 {l.title.toUpperCase()}
               </div>
+              {isNextUp && (
+                <div className="font-pixel mt-1 px-2 py-1 inline-flex items-center gap-1"
+                  style={{
+                    background: 'linear-gradient(180deg, #FCD34D 0%, #F59E0B 60%, #B45309 100%)',
+                    border: '1.5px solid #78350F',
+                    borderRadius: 4,
+                    boxShadow: '0 3px 0 #78350F, 0 0 12px rgba(251,191,36,0.55)',
+                    fontSize: 6, letterSpacing: 1.5,
+                    color: '#FFFAF0',
+                    textShadow: '0 1px 0 rgba(120,53,15,0.6)',
+                    animation: 'srHeroChevron 1.4s ease-in-out infinite',
+                  }}>
+                  ▶ START
+                </div>
+              )}
             </div>
           )
         })}
@@ -790,6 +860,26 @@ function UnitSection({ unit, unitIndex, progress, isUnlocked, onLessonTap }: {
         @keyframes srStarDrift {
           from { background-position: 0 0, 22px 28px; }
           to   { background-position: 200px 0, 222px 28px; }
+        }
+        @keyframes srHeroBounce {
+          0%, 100% { transform: scale(1)    translateY(0); }
+          50%      { transform: scale(1.06) translateY(-3px); }
+        }
+        @keyframes srHeroPulse {
+          0%, 100% { opacity: 0.55; transform: scale(1); }
+          50%      { opacity: 1;    transform: scale(1.06); }
+        }
+        @keyframes srHeroRotate {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
+        @keyframes srHeroOrbit {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
+        @keyframes srHeroChevron {
+          0%, 100% { transform: translateY(0); }
+          50%      { transform: translateY(-2px); }
         }
       `}</style>
     </div>
