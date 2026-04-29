@@ -234,14 +234,13 @@ export default function TicTacToePage() {
         </div>
       </div>
 
-      {/* Eren + can + thought bubble */}
-      <div className="flex items-end justify-center gap-2 pt-4 px-4 flex-shrink-0">
-        <div style={{ position: 'relative' }}>
-          <ErenChibi size={64} hop={false} thinking={turn === 'O' && status === 'playing' && thinking} />
-        </div>
-        {/* Energy can — easter egg. Tap once per match to spill it; Eren
-            gets distracted and starts misplaying. Subtle pulse hint while
-            it's still standing tells the player it's interactive. */}
+      {/* Can + Eren + thought bubble — order matters now: the can sits to the
+          LEFT of Eren so the bubble's left-pointing tail unambiguously points
+          at Eren's face, not at the can. When the can spills Eren leans left
+          and starts licking the puddle. */}
+      <div className="flex items-end justify-center gap-3 pt-4 px-4 flex-shrink-0">
+        {/* Energy can — bigger, more presence. Tap once per match to spill it.
+            Subtle wobble hint while standing tells the player it's tappable. */}
         <button onClick={knockCan}
           disabled={canKnocked || status !== 'playing'}
           aria-label={canKnocked ? 'Spilled energy drink' : 'Knock over the energy drink'}
@@ -250,12 +249,40 @@ export default function TicTacToePage() {
             background: 'transparent',
             border: 'none',
             padding: 0,
-            marginBottom: -4,
+            marginBottom: -2,
             cursor: canKnocked || status !== 'playing' ? 'default' : 'pointer',
             animation: !canKnocked && status === 'playing' ? 'tttCanWobble 2.6s ease-in-out infinite' : undefined,
           }}>
           <CanSprite knocked={canKnocked} />
         </button>
+        {/* Eren — leans toward the spill when the can is knocked, with a
+            tongue licking the puddle on a loop. */}
+        <div style={{ position: 'relative', width: 64, height: 64 }}>
+          <div style={{
+            transition: 'transform 0.45s cubic-bezier(0.34,1.56,0.64,1)',
+            transform: canKnocked
+              ? 'rotate(-22deg) translate(-10px, 6px)'
+              : 'rotate(0) translate(0)',
+            transformOrigin: '50% 95%',
+          }}>
+            <ErenChibi size={64} hop={false} thinking={turn === 'O' && status === 'playing' && thinking} />
+          </div>
+          {/* Tongue extending from Eren's mouth toward the puddle, lapping.
+              Sits OUTSIDE the rotated chibi container so its rest position
+              stays anchored to the puddle as Eren's head tilts. */}
+          {canKnocked && (
+            <div className="absolute pointer-events-none" aria-hidden style={{
+              bottom: '24%',
+              left: '-22px',
+              width: 22, height: 4,
+              background: 'linear-gradient(90deg, #DB2777 0%, #F48B9B 60%, #FBCFE8 100%)',
+              borderRadius: '60% 90% 90% 60%',
+              boxShadow: '0 1px 0 rgba(0,0,0,0.4), 0 0 6px rgba(236,72,153,0.6)',
+              transformOrigin: '100% 50%',
+              animation: 'tttLick 0.55s ease-in-out infinite',
+            }} />
+          )}
+        </div>
         <div className="relative" style={{ minWidth: 130 }}>
           <div style={{
             background: 'rgba(255,255,255,0.95)',
@@ -408,14 +435,27 @@ export default function TicTacToePage() {
           94%        { transform: rotate(3deg); }
         }
         @keyframes tttSpillRipple {
-          0%   { transform: scale(0.4); opacity: 0; }
-          50%  { transform: scale(1);   opacity: 0.85; }
-          100% { transform: scale(1.05); opacity: 0.85; }
+          0%   { transform: scale(0.2); opacity: 0; }
+          40%  { transform: scale(0.85); opacity: 0.95; }
+          100% { transform: scale(1.0); opacity: 1; }
+        }
+        @keyframes tttSpillPulse {
+          0%, 100% { opacity: 0.9; }
+          50%      { opacity: 1; }
         }
         @keyframes tttDrip {
-          0%, 100% { transform: translateY(0); opacity: 0; }
-          30%      { transform: translateY(0); opacity: 0.9; }
-          90%      { transform: translateY(8px); opacity: 0; }
+          0%   { transform: translateY(-2px); opacity: 0; }
+          25%  { transform: translateY(0);    opacity: 1; }
+          75%  { transform: translateY(10px); opacity: 0.6; }
+          100% { transform: translateY(14px); opacity: 0; }
+        }
+        @keyframes tttBubble {
+          0%, 100% { transform: translateY(0)    scale(1);   opacity: 0.85; }
+          50%      { transform: translateY(-1px) scale(1.4); opacity: 1; }
+        }
+        @keyframes tttLick {
+          0%, 100% { transform: rotate(28deg) scaleX(0.35); }
+          45%, 55% { transform: rotate(8deg)  scaleX(1); }
         }
       `}</style>
     </div>
@@ -427,24 +467,70 @@ export default function TicTacToePage() {
 // edges so it sits in the same visual register as the X and O.
 function CanSprite({ knocked }: { knocked: boolean }) {
   if (knocked) {
+    // Big knocked-over composition — viewBox is 100×72, rendered 1:1 so the
+    // pixel art stays crisp. The can lies horizontally with its mouth pointing
+    // RIGHT toward Eren, and the lime puddle pools on the right side of the
+    // sprite — abutting Eren's left edge so his tongue can dip in.
     return (
-      <svg width="60" height="48" viewBox="0 0 60 48" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-        {/* Spilled puddle — drawn first so the can lies on top of it */}
-        <ellipse cx="32" cy="42" rx="24" ry="3.5" fill="#0F5C44" opacity="0.65" />
-        <ellipse cx="32" cy="41" rx="22" ry="3" fill="#10B981" style={{ animation: 'tttSpillRipple 0.4s ease-out both' }} />
-        <ellipse cx="34" cy="42.5" rx="14" ry="2" fill="#A3F0C0" opacity="0.85" />
-        <ellipse cx="38" cy="43" rx="6" ry="1.2" fill="#FFFFFF" opacity="0.6" />
-        {/* Slow drip from can mouth */}
-        <circle cx="14" cy="32" r="1.4" fill="#10B981" style={{ animation: 'tttDrip 1.4s ease-in-out infinite' }} />
-        {/* Knocked-over can — rotated -75° about its centre */}
-        <g transform="translate(4 6) rotate(-75 26 18)">
+      <svg width="100" height="72" viewBox="0 0 100 72" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated', overflow: 'visible' }}>
+        {/* ── Puddle — many layers for dramatic depth ───────────────────── */}
+        {/* Outer wet halo seeping into the floor */}
+        <ellipse cx="62" cy="60" rx="40" ry="7" fill="#064E3B" opacity="0.4" />
+        {/* Main puddle body — pulsing slightly so it reads as wet/active */}
+        <g style={{ animation: 'tttSpillPulse 1.6s ease-in-out infinite' }}>
+          <ellipse cx="62" cy="58" rx="36" ry="6"   fill="#065F46" />
+          <ellipse cx="62" cy="57" rx="34" ry="5.5" fill="#0F5C44" />
+        </g>
+        {/* The bright lime layer — animates in with a ripple on first paint */}
+        <g style={{ transformOrigin: '62px 56px', animation: 'tttSpillRipple 0.55s cubic-bezier(0.34,1.56,0.64,1) both' }}>
+          <ellipse cx="62" cy="56" rx="32" ry="5"   fill="#10B981" />
+          <ellipse cx="64" cy="55.5" rx="26" ry="4" fill="#34D399" />
+          <ellipse cx="68" cy="55" rx="18" ry="2.5" fill="#A3F0C0" />
+          <ellipse cx="72" cy="54.5" rx="9" ry="1.2" fill="#FFFFFF" opacity="0.75" />
+        </g>
+
+        {/* Splash specks scattered around the puddle's edge */}
+        <rect x="22" y="55" width="2" height="2" fill="#10B981" />
+        <rect x="20" y="58" width="1" height="1" fill="#34D399" />
+        <rect x="26" y="61" width="2" height="1" fill="#10B981" />
+        <rect x="94" y="56" width="2" height="2" fill="#10B981" />
+        <rect x="98" y="58" width="1" height="1" fill="#A3F0C0" />
+        <rect x="90" y="62" width="2" height="1" fill="#10B981" />
+        <rect x="56" y="63" width="2" height="1" fill="#10B981" />
+        <rect x="74" y="63" width="1" height="1" fill="#34D399" />
+
+        {/* Floating bubbles in the puddle — life signs */}
+        <circle cx="48" cy="56" r="1.4" fill="#FFFFFF" opacity="0.9"
+          style={{ animation: 'tttBubble 1.4s ease-in-out infinite' }} />
+        <circle cx="80" cy="56" r="1.1" fill="#FFFFFF" opacity="0.75"
+          style={{ animation: 'tttBubble 1.7s ease-in-out 0.4s infinite' }} />
+        <circle cx="88" cy="57" r="0.9" fill="#FFFFFF" opacity="0.65"
+          style={{ animation: 'tttBubble 1.2s ease-in-out 0.7s infinite' }} />
+        <circle cx="60" cy="57" r="0.8" fill="#A3F0C0" opacity="0.85"
+          style={{ animation: 'tttBubble 1.5s ease-in-out 0.2s infinite' }} />
+        <circle cx="70" cy="58" r="0.7" fill="#FFFFFF" opacity="0.7"
+          style={{ animation: 'tttBubble 1.3s ease-in-out 0.9s infinite' }} />
+
+        {/* Drip stream from the can mouth — staggered for a continuous trickle */}
+        <circle cx="46" cy="40" r="1.6" fill="#10B981"
+          style={{ animation: 'tttDrip 1.0s ease-in-out infinite' }} />
+        <circle cx="48" cy="44" r="1.3" fill="#34D399"
+          style={{ animation: 'tttDrip 1.0s ease-in-out 0.35s infinite' }} />
+        <circle cx="47" cy="48" r="1.0" fill="#A3F0C0"
+          style={{ animation: 'tttDrip 1.0s ease-in-out 0.7s infinite' }} />
+
+        {/* Knocked-over can — rotated +90° about its center so the mouth
+            points right; placed on the left half of the sprite. */}
+        <g transform="translate(15 10) rotate(90 11 21)">
           <CanBody />
         </g>
       </svg>
     )
   }
+  // Upright can — bigger now (32×60 from 22×42) so it reads as a proper prop
+  // next to the chibi instead of a small icon.
   return (
-    <svg width="22" height="42" viewBox="0 0 22 42" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
+    <svg width="32" height="60" viewBox="0 0 22 42" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
       <CanBody />
     </svg>
   )
