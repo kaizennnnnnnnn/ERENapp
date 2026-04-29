@@ -12,6 +12,7 @@ import { useCare } from '@/contexts/CareContext'
 import {
   IconController, IconMouse, IconYarn, IconPaw, IconFish,
   IconStar, IconCrown, IconHeart, IconMeat, IconCoin, IconSparkles,
+  IconScroll, IconLightning, IconSwords, IconHouse, IconCatFace,
 } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import type { GameType, Profile } from '@/types'
@@ -63,8 +64,8 @@ const GAMES: GameMeta[] = [
     border: '#6BAED6',
     shadow: '#3A88B8',
     accent: '#3A88B8',
-    Icon: IconPaw,
-    preview: [IconFish, IconFish, IconPaw],
+    Icon: IconFish,
+    preview: [IconFish, IconPaw, IconStar],
   },
   {
     id: 'memory_match' as GameType,
@@ -75,8 +76,8 @@ const GAMES: GameMeta[] = [
     border: '#A78BFA',
     shadow: '#7C3AED',
     accent: '#7C3AED',
-    Icon: IconStar,
-    preview: [IconYarn, IconHeart, IconStar],
+    Icon: IconScroll,
+    preview: [IconScroll, IconHeart, IconStar],
   },
   {
     id: 'treat_tumble' as GameType,
@@ -99,8 +100,8 @@ const GAMES: GameMeta[] = [
     border: '#10B981',
     shadow: '#047857',
     accent: '#047857',
-    Icon: IconStar,
-    preview: [IconStar, IconHeart, IconStar],
+    Icon: IconLightning,
+    preview: [IconLightning, IconStar, IconHeart],
   },
   {
     id: 'tic_tac_toe' as GameType,
@@ -111,8 +112,8 @@ const GAMES: GameMeta[] = [
     border: '#EC4899',
     shadow: '#9D174D',
     accent: '#9D174D',
-    Icon: IconCrown,
-    preview: [IconHeart, IconStar, IconCrown],
+    Icon: IconSwords,
+    preview: [IconSwords, IconCrown, IconHeart],
   },
   {
     id: 'eren_stack' as GameType,
@@ -123,8 +124,8 @@ const GAMES: GameMeta[] = [
     border: '#3B82F6',
     shadow: '#1D4ED8',
     accent: '#1D4ED8',
-    Icon: IconCrown,
-    preview: [IconCrown, IconStar, IconCrown],
+    Icon: IconHouse,
+    preview: [IconHouse, IconCrown, IconStar],
   },
   {
     id: 'yarn_pop' as GameType,
@@ -135,8 +136,8 @@ const GAMES: GameMeta[] = [
     border: '#EC4899',
     shadow: '#9D174D',
     accent: '#9D174D',
-    Icon: IconYarn,
-    preview: [IconYarn, IconHeart, IconStar],
+    Icon: IconHeart,
+    preview: [IconHeart, IconYarn, IconStar],
   },
   {
     id: 'eren_says' as GameType,
@@ -147,8 +148,8 @@ const GAMES: GameMeta[] = [
     border: '#7C3AED',
     shadow: '#4C1D95',
     accent: '#4C1D95',
-    Icon: IconPaw,
-    preview: [IconPaw, IconStar, IconPaw],
+    Icon: IconCatFace,
+    preview: [IconCatFace, IconPaw, IconStar],
   },
   {
     id: 'pawket_pinball' as GameType,

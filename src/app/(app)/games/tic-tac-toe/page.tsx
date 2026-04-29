@@ -77,6 +77,11 @@ export default function TicTacToePage() {
   const [wins, setWins]     = useState(0)
   const [losses, setLosses] = useState(0)
   const [draws, setDraws]   = useState(0)
+  // Easter-egg state — the energy can sitting next to Eren. Once a match,
+  // the player can tap it to knock it over; while it's spilled Eren is
+  // distracted and picks a random move instead of running minimax. Resets
+  // each new match so it's a one-shot tactical option per round.
+  const [canKnocked, setCanKnocked] = useState(false)
   const matchSavedRef = useRef(false)
 
   // ─── Player move ────────────────────────────────────────────────────────────
@@ -101,17 +106,26 @@ export default function TicTacToePage() {
     if (turn !== 'O' || status !== 'playing') return
     setThinking(true)
 
-    // Catty thinking phrases — picked at random per move so it feels alive,
-    // then cycles through a few different ones during the 950 ms thought.
-    const phraseSets = [
-      ['purr…',    'i see it…',  'got it!'],
-      ['*tail flick*', 'tricky…',  'pounce!'],
-      ['hmm purr',  'mrrp…',      'paw it!'],
-      ['watch this','*ears up*',  'nya~'],
-      ['sniff…',    'aha!',       'this one'],
-      ['*licks paw*','meow?',     'gotcha'],
+    // Two phrase pools — focused vs distracted. When the energy can is
+    // spilled Eren mutters about the mess instead of his usual catty
+    // strategy chatter, which is the visual cue that he's about to misplay.
+    const focusedSets = [
+      ['purr…',        'i see it…',  'got it!'],
+      ['*tail flick*', 'tricky…',    'pounce!'],
+      ['hmm purr',     'mrrp…',      'paw it!'],
+      ['watch this',   '*ears up*',  'nya~'],
+      ['sniff…',       'aha!',       'this one'],
+      ['*licks paw*',  'meow?',      'gotcha'],
     ]
-    const phrases = phraseSets[Math.floor(Math.random() * phraseSets.length)]
+    const distractedSets = [
+      ['spilllll…',     'where was i?', 'uhh…'],
+      ['*sniffs spill*','huh?',          '…oops'],
+      ['my drink!',     '*paws at it*', 'nooo'],
+      ['oh no',         '*confused*',    'whatever'],
+    ]
+    const phrases = (canKnocked ? distractedSets : focusedSets)[
+      Math.floor(Math.random() * (canKnocked ? distractedSets.length : focusedSets.length))
+    ]
     let pi = 0
     setThinkText(phrases[0])
     const phraseTick = setInterval(() => {
@@ -121,7 +135,16 @@ export default function TicTacToePage() {
 
     const t = setTimeout(() => {
       clearInterval(phraseTick)
-      const { move } = minimax(board, 'O')
+      let move: number
+      if (canKnocked) {
+        // Distracted — pick a random empty cell instead of running minimax.
+        // Player wins because Eren stops blocking + stops attacking.
+        const empties: number[] = []
+        board.forEach((c, i) => { if (c === null) empties.push(i) })
+        move = empties.length > 0 ? empties[Math.floor(Math.random() * empties.length)] : -1
+      } else {
+        move = minimax(board, 'O').move
+      }
       if (move < 0) { setThinking(false); return }
       const next = board.slice()
       next[move] = 'O'
@@ -136,7 +159,7 @@ export default function TicTacToePage() {
     }, 950)
 
     return () => { clearInterval(phraseTick); clearTimeout(t) }
-  }, [turn, status, board])
+  }, [turn, status, board, canKnocked])
 
   // ─── Match end ──────────────────────────────────────────────────────────────
   function finishMatch(result: Exclude<Status, 'playing'>, line: number[] | null, finalBoard: Cell[]) {
@@ -170,7 +193,14 @@ export default function TicTacToePage() {
     setStatus('playing')
     setWinLine(null)
     setThinking(false)
+    setCanKnocked(false)   // reset the easter egg — one knock per match
     matchSavedRef.current = false
+  }
+
+  function knockCan() {
+    if (canKnocked || status !== 'playing') return
+    setCanKnocked(true)
+    playSound('ui_back')   // glug/spill cue
   }
 
   // ─── Render ─────────────────────────────────────────────────────────────────
@@ -204,11 +234,28 @@ export default function TicTacToePage() {
         </div>
       </div>
 
-      {/* Eren + thought bubble */}
-      <div className="flex items-end justify-center gap-3 pt-4 px-4 flex-shrink-0">
+      {/* Eren + can + thought bubble */}
+      <div className="flex items-end justify-center gap-2 pt-4 px-4 flex-shrink-0">
         <div style={{ position: 'relative' }}>
           <ErenChibi size={64} hop={false} thinking={turn === 'O' && status === 'playing' && thinking} />
         </div>
+        {/* Energy can — easter egg. Tap once per match to spill it; Eren
+            gets distracted and starts misplaying. Subtle pulse hint while
+            it's still standing tells the player it's interactive. */}
+        <button onClick={knockCan}
+          disabled={canKnocked || status !== 'playing'}
+          aria-label={canKnocked ? 'Spilled energy drink' : 'Knock over the energy drink'}
+          className="active:scale-90 transition-transform"
+          style={{
+            background: 'transparent',
+            border: 'none',
+            padding: 0,
+            marginBottom: -4,
+            cursor: canKnocked || status !== 'playing' ? 'default' : 'pointer',
+            animation: !canKnocked && status === 'playing' ? 'tttCanWobble 2.6s ease-in-out infinite' : undefined,
+          }}>
+          <CanSprite knocked={canKnocked} />
+        </button>
         <div className="relative" style={{ minWidth: 130 }}>
           <div style={{
             background: 'rgba(255,255,255,0.95)',
@@ -355,8 +402,92 @@ export default function TicTacToePage() {
           0%, 100% { transform: translateY(0); }
           50%      { transform: translateY(-2px); }
         }
+        @keyframes tttCanWobble {
+          0%, 100%   { transform: rotate(0deg); }
+          92%, 96%   { transform: rotate(-3deg); }
+          94%        { transform: rotate(3deg); }
+        }
+        @keyframes tttSpillRipple {
+          0%   { transform: scale(0.4); opacity: 0; }
+          50%  { transform: scale(1);   opacity: 0.85; }
+          100% { transform: scale(1.05); opacity: 0.85; }
+        }
+        @keyframes tttDrip {
+          0%, 100% { transform: translateY(0); opacity: 0; }
+          30%      { transform: translateY(0); opacity: 0.9; }
+          90%      { transform: translateY(8px); opacity: 0; }
+        }
       `}</style>
     </div>
+  )
+}
+
+// ─── Energy can — easter-egg sprite. Upright (clickable) or knocked over
+// (spilling lime puddle, no longer interactive). Pixel art with crisp
+// edges so it sits in the same visual register as the X and O.
+function CanSprite({ knocked }: { knocked: boolean }) {
+  if (knocked) {
+    return (
+      <svg width="60" height="48" viewBox="0 0 60 48" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
+        {/* Spilled puddle — drawn first so the can lies on top of it */}
+        <ellipse cx="32" cy="42" rx="24" ry="3.5" fill="#0F5C44" opacity="0.65" />
+        <ellipse cx="32" cy="41" rx="22" ry="3" fill="#10B981" style={{ animation: 'tttSpillRipple 0.4s ease-out both' }} />
+        <ellipse cx="34" cy="42.5" rx="14" ry="2" fill="#A3F0C0" opacity="0.85" />
+        <ellipse cx="38" cy="43" rx="6" ry="1.2" fill="#FFFFFF" opacity="0.6" />
+        {/* Slow drip from can mouth */}
+        <circle cx="14" cy="32" r="1.4" fill="#10B981" style={{ animation: 'tttDrip 1.4s ease-in-out infinite' }} />
+        {/* Knocked-over can — rotated -75° about its centre */}
+        <g transform="translate(4 6) rotate(-75 26 18)">
+          <CanBody />
+        </g>
+      </svg>
+    )
+  }
+  return (
+    <svg width="22" height="42" viewBox="0 0 22 42" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
+      <CanBody />
+    </svg>
+  )
+}
+
+// Body of the can — same pixels for upright + knocked-over.
+function CanBody() {
+  return (
+    <g>
+      {/* Pull tab */}
+      <rect x="9" y="0" width="4" height="2" fill="#9CA3AF" />
+      <rect x="9" y="0" width="1" height="2" fill="#D1D5DB" />
+      {/* Top metallic ring */}
+      <rect x="2" y="2" width="18" height="2" fill="#525252" />
+      <rect x="3" y="2" width="16" height="1" fill="#D1D5DB" />
+      <rect x="3" y="3" width="16" height="1" fill="#525252" />
+      <rect x="2" y="3" width="1" height="1" fill="#0A0A0A" />
+      <rect x="19" y="3" width="1" height="1" fill="#0A0A0A" />
+      <rect x="2" y="4" width="18" height="1" fill="#0A0A0A" />
+      {/* Body — black with vertical sheen */}
+      <rect x="2" y="5" width="18" height="32" fill="#0F0F0F" />
+      <rect x="3" y="5" width="2" height="32" fill="#262626" />
+      <rect x="3" y="5" width="1" height="32" fill="#3A3A3A" />
+      <rect x="17" y="5" width="2" height="32" fill="#1A1A1A" />
+      <rect x="18" y="5" width="1" height="32" fill="#000000" />
+      <rect x="2" y="5" width="1" height="32" fill="#0A0A0A" />
+      <rect x="19" y="5" width="1" height="32" fill="#0A0A0A" />
+      {/* Lime claw-mark accents */}
+      <rect x="6"  y="11" width="2" height="14" fill="#10B981" />
+      <rect x="6"  y="11" width="1" height="14" fill="#34D399" />
+      <rect x="6"  y="10" width="2" height="1"  fill="#A3F0C0" />
+      <rect x="10" y="13" width="2" height="11" fill="#10B981" />
+      <rect x="10" y="13" width="1" height="11" fill="#34D399" />
+      <rect x="10" y="12" width="2" height="1"  fill="#A3F0C0" />
+      <rect x="14" y="11" width="2" height="14" fill="#10B981" />
+      <rect x="14" y="11" width="1" height="14" fill="#34D399" />
+      <rect x="14" y="10" width="2" height="1"  fill="#A3F0C0" />
+      {/* Bottom metallic ring */}
+      <rect x="2" y="37" width="18" height="2" fill="#525252" />
+      <rect x="3" y="37" width="16" height="1" fill="#9CA3AF" />
+      <rect x="3" y="38" width="16" height="1" fill="#525252" />
+      <rect x="2" y="39" width="18" height="1" fill="#0A0A0A" />
+    </g>
   )
 }
 
