@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, X, Heart, Volume2, Flame, Zap } from 'lucide-react'
 import {
-  SERBIAN_UNITS, ORDERED_LESSON_IDS,
-  buildExercises, buildReviewExercises, getLessonById, getStrugglingWords,
-  type Lesson, type Exercise, type Unit, type WordStats, type WordStat,
+  SERBIAN_UNITS, SERBIAN_SECTIONS, ORDERED_LESSON_IDS,
+  buildExercises, buildReviewExercises, getLessonById, getUnitById, getStrugglingWords,
+  type Lesson, type Exercise, type Unit, type Section, type WordStats, type WordStat,
 } from '@/lib/serbianCourse'
 import { useAuth } from '@/hooks/useAuth'
 import { useTasks } from '@/contexts/TaskContext'
@@ -529,15 +529,106 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
           </button>
         )}
 
-        {SERBIAN_UNITS.map((unit, ui) => (
-          <UnitSection key={unit.id}
-            unit={unit}
-            unitIndex={ui}
-            progress={progress}
-            isUnlocked={isUnlocked}
-            onLessonTap={onLessonTap}
-          />
-        ))}
+        {SERBIAN_SECTIONS.map((section, si) => {
+          const units = section.unitIds.map(uid => getUnitById(uid)!).filter(Boolean)
+          const sectionLessons = units.flatMap(u => u.lessonIds)
+          const sectionDone = sectionLessons.filter(id => progress.completed.includes(id)).length
+          return (
+            <div key={section.id} className="mb-2">
+              <SectionBanner
+                section={section}
+                index={si}
+                done={sectionDone}
+                total={sectionLessons.length}
+              />
+              {units.map((unit, ui) => (
+                <UnitSection key={unit.id}
+                  unit={unit}
+                  unitIndex={ui}
+                  progress={progress}
+                  isUnlocked={isUnlocked}
+                  onLessonTap={onLessonTap}
+                />
+              ))}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ─── Section banner — large, above each cluster of units ────────────────────
+function SectionBanner({ section, index, done, total }: {
+  section: Section
+  index: number
+  done: number
+  total: number
+}) {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0
+  return (
+    <div className="relative mx-4 mb-5 mt-3 px-5 py-4 overflow-hidden" style={{
+      background: `linear-gradient(135deg, ${section.themeColor} 0%, ${section.themeEdge} 100%)`,
+      border: '3px solid #FBBF24',
+      borderRadius: 8,
+      boxShadow: `
+        0 6px 0 ${section.themeEdge},
+        inset 0 2px 0 rgba(255,255,255,0.35),
+        inset 0 -2px 0 rgba(0,0,0,0.3),
+        0 0 28px ${section.themeColor}66
+      `,
+    }}>
+      {/* Gold corner pixels — section banners get bigger ones than units */}
+      <div style={{ position: 'absolute', top: 4, left: 4, width: 5, height: 5, background: '#FDE68A', boxShadow: '0 0 5px #FDE68A' }} />
+      <div style={{ position: 'absolute', top: 4, right: 4, width: 5, height: 5, background: '#FDE68A', boxShadow: '0 0 5px #FDE68A' }} />
+      <div style={{ position: 'absolute', bottom: 4, left: 4, width: 5, height: 5, background: '#FDE68A', boxShadow: '0 0 5px #FDE68A' }} />
+      <div style={{ position: 'absolute', bottom: 4, right: 4, width: 5, height: 5, background: '#FDE68A', boxShadow: '0 0 5px #FDE68A' }} />
+
+      {/* Subtle scanlines for academy feel */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 3px)',
+      }} />
+
+      <div className="relative flex items-center justify-between">
+        <div>
+          <div className="font-pixel" style={{ fontSize: 6, letterSpacing: 2, color: 'rgba(255,255,255,0.85)', textShadow: `1px 1px 0 ${section.themeEdge}` }}>
+            SECTION {index + 1}
+          </div>
+          <div className="font-pixel mt-1" style={{
+            fontSize: 14, letterSpacing: 2,
+            color: '#FFFFFF',
+            textShadow: `1px 1px 0 ${section.themeEdge}, 0 0 10px rgba(255,255,255,0.3)`,
+          }}>
+            {section.title.toUpperCase()}
+          </div>
+          <div className="font-pixel mt-1.5" style={{ fontSize: 6, letterSpacing: 1.2, color: 'rgba(255,255,255,0.8)', fontStyle: 'italic' }}>
+            {section.titleSr}
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <div className="font-pixel" style={{ fontSize: 6, letterSpacing: 1.5, color: 'rgba(255,255,255,0.7)' }}>
+            PROGRESS
+          </div>
+          <div className="font-pixel" style={{ fontSize: 12, color: '#FFFFFF', textShadow: `1px 1px 0 ${section.themeEdge}` }}>
+            {done}/{total}
+          </div>
+        </div>
+      </div>
+
+      <div className="relative mt-3" style={{
+        height: 6,
+        background: 'rgba(0,0,0,0.4)',
+        borderRadius: 3,
+        border: '1px solid rgba(0,0,0,0.3)',
+        overflow: 'hidden',
+      }}>
+        <div style={{
+          width: `${pct}%`,
+          height: '100%',
+          background: 'linear-gradient(90deg, #FDE68A, #F59E0B)',
+          transition: 'width 0.6s ease',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5)',
+        }} />
       </div>
     </div>
   )
