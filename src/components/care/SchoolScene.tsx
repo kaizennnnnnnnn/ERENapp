@@ -820,10 +820,14 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
   const progressPct = Math.min(100, Math.round((idx / total) * 100))
 
   function handleAnswer(ok: boolean, correctText?: string) {
-    // Track per-word stats for MC exercises that are tied to a Serbian word.
-    if (ex && ex.kind === 'mc' && ex.srKey && onWordResult) {
-      const en = ex.promptLang === 'sr' ? ex.answer : ex.prompt
-      onWordResult(ex.srKey, en, ok)
+    // Track per-word stats for any exercise tied to a Serbian word.
+    if (ex && onWordResult) {
+      if (ex.kind === 'mc' && ex.srKey) {
+        const en = ex.promptLang === 'sr' ? ex.answer : ex.prompt
+        onWordResult(ex.srKey, en, ok)
+      } else if (ex.kind === 'listen') {
+        onWordResult(ex.sr, ex.en, ok)
+      }
     }
     if (ok) {
       playCorrect()
@@ -835,6 +839,7 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
       } else if (ex && ex.kind === 'order') {
         setTimeout(() => speakSerbian(ex.sr), 120)
       }
+      // Listen: don't re-speak — they just heard it. Still play correct chime.
     } else {
       playWrong()
       heartsLostRef.current++
@@ -1021,8 +1026,9 @@ function ExerciseSurface({ exercise, disabled, onAnswer }: {
   disabled: boolean
   onAnswer: (ok: boolean, correctText?: string) => void
 }) {
-  if (exercise.kind === 'mc')    return <MCExercise    ex={exercise} disabled={disabled} onAnswer={onAnswer} />
-  if (exercise.kind === 'pairs') return <PairsExercise ex={exercise} disabled={disabled} onAnswer={onAnswer} />
+  if (exercise.kind === 'mc')     return <MCExercise     ex={exercise} disabled={disabled} onAnswer={onAnswer} />
+  if (exercise.kind === 'pairs')  return <PairsExercise  ex={exercise} disabled={disabled} onAnswer={onAnswer} />
+  if (exercise.kind === 'listen') return <ListenExercise ex={exercise} disabled={disabled} onAnswer={onAnswer} />
   return <OrderExercise ex={exercise} disabled={disabled} onAnswer={onAnswer} />
 }
 
@@ -1318,6 +1324,100 @@ function OrderExercise({ ex, disabled, onAnswer }: {
       <div className="mt-auto pt-5">
         <button onClick={handleSubmit}
           disabled={disabled || submitted || answer.length === 0}
+          className="w-full py-3 text-white active:translate-y-[2px] transition-transform disabled:opacity-50"
+          style={{
+            background: 'linear-gradient(135deg, #16A34A 0%, #15803D 100%)',
+            border: '2px solid #052e16',
+            borderRadius: 4,
+            boxShadow: '0 4px 0 #052e16',
+            fontFamily: '"Press Start 2P"', fontSize: 10, letterSpacing: 1.5,
+          }}>
+          CHECK
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Listen exercise — TTS plays the Serbian word; pick the spelling ──────
+function ListenExercise({ ex, disabled, onAnswer }: {
+  ex: Extract<Exercise, { kind: 'listen' }>
+  disabled: boolean
+  onAnswer: (ok: boolean, correctText?: string) => void
+}) {
+  const [selected, setSelected] = useState<string | null>(null)
+  const [submitted, setSubmitted] = useState(false)
+
+  // Auto-play once on mount + a short repeat so first-render speech-synth
+  // queue race in some browsers doesn't drop the utterance silently.
+  useEffect(() => {
+    speakSerbian(ex.sr)
+    const t = setTimeout(() => { /* nudges some engines */ }, 50)
+    return () => clearTimeout(t)
+  }, [ex])
+
+  function handleSubmit() {
+    if (selected === null || submitted) return
+    setSubmitted(true)
+    onAnswer(selected === ex.sr, ex.sr)
+  }
+
+  return (
+    <div className="flex-1 flex flex-col px-5 py-6 overflow-y-auto">
+      <p className="font-pixel" style={{ fontSize: 7, color: '#9A3412', letterSpacing: 2 }}>
+        TAP WHAT YOU HEAR
+      </p>
+
+      {/* Big speaker hero */}
+      <div className="my-6 flex items-center justify-center">
+        <button onClick={() => speakSerbian(ex.sr)}
+          className="active:scale-95 transition-transform inline-flex items-center justify-center"
+          style={{
+            width: 110, height: 110,
+            background: 'linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%)',
+            border: '4px solid #92400E',
+            borderRadius: '50%',
+            boxShadow: '0 6px 0 #78350F, inset 0 2px 0 rgba(255,255,255,0.45), 0 0 24px rgba(251,191,36,0.55)',
+          }}>
+          <Volume2 size={56} className="text-white" style={{ filter: 'drop-shadow(0 2px 0 rgba(0,0,0,0.4))' }} />
+        </button>
+      </div>
+      <p className="text-center text-xs italic mb-2" style={{ color: '#A16207' }}>
+        Tap the speaker to hear it again
+      </p>
+
+      <div className="grid grid-cols-2 gap-2 mt-2">
+        {ex.options.map(opt => {
+          const isSel = selected === opt
+          const isCorrect = submitted && opt === ex.sr
+          const isWrongPick = submitted && isSel && opt !== ex.sr
+          return (
+            <button key={opt}
+              disabled={disabled || submitted}
+              onClick={() => { setSelected(opt); speakSerbian(opt) }}
+              className="px-3 py-3 active:scale-95 transition-transform"
+              style={{
+                background: isCorrect ? '#D1FAE5' : isWrongPick ? '#FEE2E2' : isSel ? '#FFEDD5' : 'white',
+                border: `2px solid ${isCorrect ? '#10B981' : isWrongPick ? '#DC2626' : isSel ? '#F59E0B' : '#FED7AA'}`,
+                borderRadius: 5,
+                boxShadow: `0 3px 0 ${isCorrect ? '#065F46' : isWrongPick ? '#7F1D1D' : isSel ? '#B45309' : '#FDBA74'}`,
+                color: '#7C2D12',
+                fontFamily: '"Press Start 2P"',
+                fontSize: 10,
+                letterSpacing: 0.8,
+                lineHeight: 1.4,
+                minHeight: 56,
+                cursor: disabled || submitted ? 'default' : 'pointer',
+              }}>
+              {opt}
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="mt-auto pt-5">
+        <button onClick={handleSubmit}
+          disabled={disabled || submitted || selected === null}
           className="w-full py-3 text-white active:translate-y-[2px] transition-transform disabled:opacity-50"
           style={{
             background: 'linear-gradient(135deg, #16A34A 0%, #15803D 100%)',

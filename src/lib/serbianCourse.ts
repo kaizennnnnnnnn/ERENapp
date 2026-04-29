@@ -962,6 +962,268 @@ export const SERBIAN_COURSE: Lesson[] = [
     q('"U redu" means...', ['Stop', 'Okay', 'Sorry', 'Goodbye'], 1),
     q('Reply to "thanks":', ['Doviđenja', 'Nema problema / U redu', 'Da', 'Ne'], 1),
   ]),
+
+  // ════════════════════════════════════════════════════════════════════════
+  // SECTION 5 · GOING OUT (Izlazak)
+  // ════════════════════════════════════════════════════════════════════════
+
+  // ─── UNIT: Time (Vreme) ───
+  L('What Time?', 'Koliko je sati?', 'time', [
+    w('Sat', 'Сат', 'Hour / Clock', 'saht'),
+    w('Koliko je sati?', 'Колико је сати?', 'What time is it?', 'KOH-lee-koh yeh SAH-tee'),
+  ], [
+    s('Koliko je sati?', 'What time is it?'),
+    s('Šest sati.', 'Six o\'clock.'),
+  ], [
+    q('"Sat" means...', ['Hour / Clock', 'Year', 'Week', 'Minute'], 0),
+    q('Asking the time:', ['Kako se zoveš?', 'Koliko je sati?', 'Odakle si?', 'Kako si?'], 1),
+    q('"Šest sati" means...', ['Six years', 'Six o\'clock', 'Six days', 'Six months'], 1),
+  ]),
+  L('Minute & Second', 'Minut i Sekunda', 'time', [
+    w('Minut', 'Минут', 'Minute', 'MEE-noot'),
+    w('Sekunda', 'Секунда', 'Second', 'SEH-koon-dah'),
+  ], [
+    s('Sačekaj minut.', 'Wait a minute.'),
+    s('Pet sekundi.', 'Five seconds.'),
+  ], [
+    q('"Minut" means...', ['Hour', 'Minute', 'Second', 'Day'], 1),
+    q('"Sekunda" means...', ['Minute', 'Second', 'Hour', 'Year'], 1),
+    q('60 seconds make a...', ['Sat', 'Minut', 'Dan', 'Sekunda'], 1),
+  ]),
+  L('Now & Later', 'Sada i Kasnije', 'time', [
+    w('Sada', 'Сада', 'Now', 'SAH-dah'),
+    w('Kasnije', 'Касније', 'Later', 'KAH-snee-yeh'),
+  ], [
+    s('Idemo sada.', 'Let\'s go now.'),
+    s('Vidimo se kasnije.', 'See you later.'),
+  ], [
+    q('"Sada" means...', ['Later', 'Now', 'Soon', 'Then'], 1),
+    q('"Kasnije" means...', ['Now', 'Later', 'Yesterday', 'Today'], 1),
+    q('Opposite of "sada":', ['Danas', 'Kasnije', 'Sutra', 'Juče'], 1),
+  ]),
+  L('Early & Late', 'Rano i Kasno', 'time', [
+    w('Rano', 'Рано', 'Early', 'RAH-noh'),
+    w('Kasno', 'Касно', 'Late', 'KAHS-noh'),
+  ], [
+    s('Ustajem rano.', 'I get up early.'),
+    s('Kasno je.', 'It is late.'),
+  ], [
+    q('"Rano" means...', ['Late', 'Early', 'Soon', 'Now'], 1),
+    q('"Kasno" means...', ['Early', 'Late', 'Soon', 'Then'], 1),
+    q('Going to bed at midnight is...', ['Rano', 'Kasno', 'Sada', 'Sutra'], 1),
+  ]),
+
+  // ─── UNIT: Around Town (Po gradu) ───
+  L('Directions', 'Pravac', 'town', [
+    w('Levo', 'Лево', 'Left', 'LEH-voh'),
+    w('Desno', 'Десно', 'Right', 'DEHS-noh'),
+    w('Pravo', 'Право', 'Straight', 'PRAH-voh'),
+  ], [
+    s('Idi levo.', 'Go left.'),
+    s('Pravo, pa desno.', 'Straight, then right.'),
+  ], [
+    q('"Levo" means...', ['Right', 'Left', 'Up', 'Down'], 1),
+    q('"Desno" means...', ['Left', 'Right', 'Front', 'Back'], 1),
+    q('"Pravo" means...', ['Straight', 'Around', 'Up', 'Stop'], 0),
+  ]),
+  L('Places', 'Mesta', 'town', [
+    w('Park', 'Парк', 'Park', 'pahrk'),
+    w('Škola', 'Школа', 'School', 'SHKOH-lah'),
+    w('Bolnica', 'Болница', 'Hospital', 'BOHL-nee-tsah'),
+  ], [
+    s('Idem u park.', 'I am going to the park.'),
+    s('Škola je velika.', 'The school is big.'),
+  ], [
+    q('"Park" means...', ['Park', 'Office', 'Garden', 'Yard'], 0),
+    q('"Škola" means...', ['House', 'School', 'Hospital', 'Church'], 1),
+    q('"Bolnica" means...', ['Bank', 'School', 'Hospital', 'Library'], 2),
+  ]),
+  L('Transport', 'Prevoz', 'town', [
+    w('Auto', 'Ауто', 'Car', 'OW-toh'),
+    w('Autobus', 'Аутобус', 'Bus', 'OW-toh-boos'),
+    w('Voz', 'Воз', 'Train', 'voz'),
+  ], [
+    s('Crveni auto.', 'A red car.'),
+    s('Voz dolazi.', 'The train is coming.'),
+  ], [
+    q('"Auto" means...', ['Bike', 'Bus', 'Car', 'Truck'], 2),
+    q('"Autobus" means...', ['Train', 'Bus', 'Plane', 'Boat'], 1),
+    q('"Voz" means...', ['Car', 'Bus', 'Train', 'Bike'], 2),
+  ]),
+  L('Where?', 'Gde?', 'town', [
+    w('Gde', 'Где', 'Where', 'gdeh'),
+    w('Ovde', 'Овде', 'Here', 'OHV-deh'),
+    w('Tamo', 'Тамо', 'There', 'TAH-moh'),
+  ], [
+    s('Gde si?', 'Where are you?'),
+    s('Tamo je park.', 'The park is there.'),
+  ], [
+    q('"Gde" means...', ['When', 'Where', 'Why', 'How'], 1),
+    q('"Ovde" means...', ['There', 'Here', 'Where', 'Inside'], 1),
+    q('"Tamo" means...', ['Here', 'There', 'Now', 'Then'], 1),
+  ]),
+
+  // ─── UNIT: At the Café (U kafiću) ───
+  L('Order', 'Naručivanje', 'cafe', [
+    w('Naručiti', 'Наручити', 'To order', 'nah-ROO-chee-tee'),
+    w('Želim', 'Желим', 'I want', 'ZHEH-leem'),
+  ], [
+    s('Želim kafu, molim.', 'I want a coffee, please.'),
+    s('Šta želite?', 'What would you like?'),
+  ], [
+    q('"Naručiti" means...', ['To eat', 'To order', 'To pay', 'To leave'], 1),
+    q('"Želim" means...', ['I have', 'I love', 'I want', 'I see'], 2),
+    q('To order food say...', ['Doviđenja', 'Želim...', 'Hvala', 'Da'], 1),
+  ]),
+  L('Menu', 'Jelovnik', 'cafe', [
+    w('Jelovnik', 'Јеловник', 'Menu', 'YEH-lov-neek'),
+    w('Konobar', 'Конобар', 'Waiter', 'KOH-noh-bahr'),
+  ], [
+    s('Jelovnik, molim.', 'The menu, please.'),
+    s('Konobar dolazi.', 'The waiter is coming.'),
+  ], [
+    q('"Jelovnik" means...', ['Bill', 'Menu', 'Tip', 'Plate'], 1),
+    q('"Konobar" means...', ['Cook', 'Waiter', 'Owner', 'Customer'], 1),
+    q('Ask for the menu:', ['Račun, molim', 'Jelovnik, molim', 'Voda, molim', 'Hvala'], 1),
+  ]),
+  L('Polite Forms', 'Učtivo obraćanje', 'cafe', [
+    w('Molim vas', 'Молим вас', 'Please (formal)', 'MOH-leem vahs'),
+    w('Hvala vam', 'Хвала вам', 'Thank you (formal)', 'HVAH-lah vahm'),
+  ], [
+    s('Molim vas, čaj.', 'Please, tea.'),
+    s('Hvala vam puno!', 'Thank you very much!'),
+  ], [
+    q('"Molim vas" is...', ['Casual please', 'Formal please', 'Sorry', 'Hello'], 1),
+    q('"Hvala vam" is...', ['Casual thanks', 'Formal thanks', 'Greeting', 'Apology'], 1),
+    q('Used with strangers / elders:', ['Molim te', 'Molim vas', 'Hej', 'Ćao'], 1),
+  ]),
+  L('Pay', 'Plaćanje', 'cafe', [
+    w('Platiti', 'Платити', 'To pay', 'PLAH-tee-tee'),
+    w('Kartica', 'Картица', 'Card', 'KAR-tee-tsah'),
+    w('Gotovina', 'Готовина', 'Cash', 'goh-TOH-vee-nah'),
+  ], [
+    s('Mogu li da platim?', 'Can I pay?'),
+    s('Karticom ili gotovinom?', 'By card or cash?'),
+  ], [
+    q('"Platiti" means...', ['To pay', 'To eat', 'To leave', 'To order'], 0),
+    q('"Kartica" means...', ['Cash', 'Card', 'Bill', 'Receipt'], 1),
+    q('"Gotovina" means...', ['Card', 'Cash', 'Tip', 'Coin'], 1),
+  ]),
+
+  // ─── UNIT: Bigger Numbers (Veći brojevi) ───
+  L('11-13', '11-13', 'numbers-big', [
+    w('Jedanaest', 'Једанаест', '11', 'YEH-dah-nah-est'),
+    w('Dvanaest', 'Дванаест', '12', 'DVAH-nah-est'),
+    w('Trinaest', 'Тринаест', '13', 'TREE-nah-est'),
+  ], [
+    s('Imam dvanaest godina.', 'I am twelve years old.'),
+    s('Trinaest mačaka!', 'Thirteen cats!'),
+  ], [
+    q('"Jedanaest" is...', ['10', '11', '12', '13'], 1),
+    q('"Dvanaest" is...', ['11', '12', '13', '14'], 1),
+    q('"Trinaest" is...', ['12', '13', '14', '15'], 1),
+  ]),
+  L('14-17', '14-17', 'numbers-big', [
+    w('Četrnaest', 'Четрнаест', '14', 'CHEH-tur-nah-est'),
+    w('Petnaest', 'Петнаест', '15', 'PET-nah-est'),
+    w('Šesnaest', 'Шеснаест', '16', 'SHES-nah-est'),
+    w('Sedamnaest', 'Седамнаест', '17', 'SEH-dahm-nah-est'),
+  ], [
+    s('Petnaest minuta.', 'Fifteen minutes.'),
+    s('Sedamnaest godina.', 'Seventeen years.'),
+  ], [
+    q('"Petnaest" is...', ['14', '15', '16', '17'], 1),
+    q('"Šesnaest" is...', ['15', '16', '17', '18'], 1),
+    q('"Sedamnaest" is...', ['16', '17', '18', '19'], 1),
+  ]),
+  L('20-50', '20-50', 'numbers-big', [
+    w('Dvadeset', 'Двадесет', '20', 'DVAH-deh-seht'),
+    w('Trideset', 'Тридесет', '30', 'TREE-deh-seht'),
+    w('Pedeset', 'Педесет', '50', 'PEH-deh-seht'),
+  ], [
+    s('Dvadeset prijatelja.', 'Twenty friends.'),
+    s('Pedeset eura.', 'Fifty euros.'),
+  ], [
+    q('"Dvadeset" is...', ['10', '15', '20', '25'], 2),
+    q('"Trideset" is...', ['20', '30', '40', '50'], 1),
+    q('"Pedeset" is...', ['40', '50', '60', '70'], 1),
+  ]),
+  L('100 & 1000', '100 i 1000', 'numbers-big', [
+    w('Sto', 'Сто', '100', 'stoh'),
+    w('Hiljada', 'Хиљада', '1000', 'HEE-lyah-dah'),
+  ], [
+    s('Sto eura.', 'A hundred euros.'),
+    s('Hiljada zvezda.', 'A thousand stars.'),
+  ], [
+    q('"Sto" as a number is...', ['10', '50', '100', '1000'], 2),
+    q('"Hiljada" is...', ['100', '500', '1000', '10000'], 2),
+    q('A hundred is...', ['Pet', 'Sto', 'Hiljada', 'Deset'], 1),
+  ]),
+
+  // ─── UNIT: Conjugations (Konjugacije) ───
+  L('To Be · Singular', 'Biti — jednina', 'conjug', [
+    w('Ja sam', 'Ја сам', 'I am', 'yah sahm'),
+    w('Ti si', 'Ти си', 'You are', 'tee see'),
+    w('On je', 'Он је', 'He is', 'ohn yeh'),
+  ], [
+    s('Ja sam Eren.', 'I am Eren.'),
+    s('Ti si lep.', 'You are nice.'),
+    s('On je mačak.', 'He is a cat.'),
+  ], [
+    q('"Ja sam" means...', ['I have', 'I am', 'I go', 'I want'], 1),
+    q('"Ti si" means...', ['I am', 'You are', 'He is', 'We are'], 1),
+    q('"On je" means...', ['She is', 'He is', 'It is', 'They are'], 1),
+  ]),
+  L('To Be · Plural', 'Biti — množina', 'conjug', [
+    w('Mi smo', 'Ми смо', 'We are', 'mee smoh'),
+    w('Vi ste', 'Ви сте', 'You all are', 'vee steh'),
+    w('Oni su', 'Они су', 'They are', 'OH-nee soo'),
+  ], [
+    s('Mi smo prijatelji.', 'We are friends.'),
+    s('Oni su mačke.', 'They are cats.'),
+  ], [
+    q('"Mi smo" means...', ['I am', 'You are', 'We are', 'They are'], 2),
+    q('"Vi ste" means...', ['I am', 'You all are', 'They are', 'We are'], 1),
+    q('"Oni su" means...', ['They are', 'We are', 'You are', 'He is'], 0),
+  ]),
+  L('To Have', 'Imati', 'conjug', [
+    w('Imam', 'Имам', 'I have', 'EE-mahm'),
+    w('Imaš', 'Имаш', 'You have', 'EE-mash'),
+    w('Ima', 'Има', 'He / She has', 'EE-mah'),
+  ], [
+    s('Imam mačku.', 'I have a cat.'),
+    s('Imaš li vode?', 'Do you have water?'),
+    s('Eren ima ribu.', 'Eren has a fish.'),
+  ], [
+    q('"Imam" means...', ['I am', 'I have', 'I want', 'I go'], 1),
+    q('"Imaš" means...', ['I have', 'You have', 'They have', 'We have'], 1),
+    q('"Ima" goes with...', ['Ja', 'Ti', 'On / Ona', 'Mi'], 2),
+  ]),
+  L('To Want', 'Hteti', 'conjug', [
+    w('Hoću', 'Хоћу', 'I want', 'HOH-choo'),
+    w('Hoćeš', 'Хоћеш', 'You want', 'HOH-chesh'),
+    w('Hoće', 'Хоће', 'He / She wants', 'HOH-cheh'),
+  ], [
+    s('Hoću mleko.', 'I want milk.'),
+    s('Hoćeš li čaj?', 'Do you want tea?'),
+  ], [
+    q('"Hoću" means...', ['I have', 'I want', 'I love', 'I am'], 1),
+    q('"Hoćeš" goes with...', ['Ja', 'Ti', 'On', 'Mi'], 1),
+    q('"Hoće" means...', ['I want', 'You want', 'He/She wants', 'They want'], 2),
+  ]),
+  L('To Go', 'Ići', 'conjug', [
+    w('Idem', 'Идем', 'I go', 'EE-dem'),
+    w('Ideš', 'Идеш', 'You go', 'EE-desh'),
+    w('Ide', 'Иде', 'He / She goes', 'EE-deh'),
+  ], [
+    s('Idem u park.', 'I am going to the park.'),
+    s('Kuda ideš?', 'Where are you going?'),
+    s('Eren ide kući.', 'Eren is going home.'),
+  ], [
+    q('"Idem" means...', ['I have', 'I go', 'I want', 'I see'], 1),
+    q('"Ideš" goes with...', ['Ja', 'Ti', 'On', 'Mi'], 1),
+    q('"Ide" means...', ['I go', 'You go', 'He/She goes', 'They go'], 2),
+  ]),
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1012,6 +1274,12 @@ export const SERBIAN_UNITS: Unit[] = [
   { id: 'u-emo',     title: 'Emotions',        titleSr: 'Emocije',     description: 'Happy, sad, tired.',      color: '#FB7185', edgeColor: '#9F1239', lessonIds: [65, 66, 67, 68] },
   { id: 'u-shop',    title: 'Shopping',        titleSr: 'Kupovina',    description: 'Store and prices.',       color: '#FBBF24', edgeColor: '#B45309', lessonIds: [69, 70, 71] },
   { id: 'u-phr',     title: 'Phrases',         titleSr: 'Fraze',       description: 'Useful expressions.',     color: '#22D3EE', edgeColor: '#0E7490', lessonIds: [72, 73, 74, 75] },
+  // Section 5
+  { id: 'u-time',    title: 'Telling Time',    titleSr: 'Vreme',       description: 'Hours, minutes, now & later.', color: '#FACC15', edgeColor: '#854D0E', lessonIds: [76, 77, 78, 79] },
+  { id: 'u-town',    title: 'Around Town',     titleSr: 'Po gradu',    description: 'Directions and places.',  color: '#22C55E', edgeColor: '#14532D', lessonIds: [80, 81, 82, 83] },
+  { id: 'u-cafe',    title: 'At the Café',     titleSr: 'U kafiću',    description: 'Order, pay, be polite.',  color: '#F59E0B', edgeColor: '#7C2D12', lessonIds: [84, 85, 86, 87] },
+  { id: 'u-bigNum',  title: 'Bigger Numbers',  titleSr: 'Veći brojevi',description: '11 to 1000.',             color: '#06B6D4', edgeColor: '#155E75', lessonIds: [88, 89, 90, 91] },
+  { id: 'u-conjug',  title: 'Conjugations',    titleSr: 'Konjugacije', description: 'Verbs across persons.',   color: '#EF4444', edgeColor: '#7F1D1D', lessonIds: [92, 93, 94, 95, 96] },
 ]
 
 export const SERBIAN_SECTIONS: Section[] = [
@@ -1038,6 +1306,12 @@ export const SERBIAN_SECTIONS: Section[] = [
     description: 'Home, days, verbs, emotions, shopping, phrases.',
     themeColor: '#EC4899', themeEdge: '#831843',
     unitIds: ['u-home', 'u-days', 'u-verbs', 'u-emo', 'u-shop', 'u-phr'],
+  },
+  {
+    id: 'sec-5', title: 'Going Out', titleSr: 'Izlazak',
+    description: 'Time, navigation, café manners, big numbers, verb forms.',
+    themeColor: '#FACC15', themeEdge: '#854D0E',
+    unitIds: ['u-time', 'u-town', 'u-cafe', 'u-bigNum', 'u-conjug'],
   },
 ]
 
@@ -1071,6 +1345,10 @@ export type Exercise =
   | { kind: 'mc'; promptLang: 'sr' | 'en'; prompt: string; answer: string; options: string[]; pronunciation?: string; srKey?: string }
   | { kind: 'pairs'; pairs: { sr: string; en: string }[] }
   | { kind: 'order'; english: string; sr: string; tiles: string[] }
+  // Listen — TTS plays the Serbian word, the player picks the matching written
+  // Serbian form from 4 options. Tests phoneme recognition specifically (a
+  // skill the other exercise types don't really exercise).
+  | { kind: 'listen'; sr: string; en: string; options: string[]; pronunciation?: string }
 
 export interface WordStat {
   sr: string
@@ -1130,6 +1408,22 @@ export function buildExercises(lesson: Lesson): Exercise[] {
       kind: 'mc', promptLang: 'en', prompt: wd.english, answer: wd.serbian,
       options: shuffle([wd.serbian, ...distractors]),
       srKey: wd.serbian,
+    })
+  }
+
+  // Listen exercises — pick 1-2 single-token words (phrases like "Ja sam"
+  // can also work but read more like a sentence). Distractors are other
+  // Serbian forms with similar length so it tests audible recognition,
+  // not just spelling distinctness.
+  const listenWords = words.filter(wd => !wd.serbian.includes(' '))
+  for (const wd of shuffle(listenWords).slice(0, Math.min(2, listenWords.length))) {
+    const distractors = shuffle(allOtherSr.filter(s2 => s2 !== wd.serbian && !s2.includes(' '))).slice(0, 3)
+    list.push({
+      kind: 'listen',
+      sr: wd.serbian,
+      en: wd.english,
+      options: shuffle([wd.serbian, ...distractors]),
+      pronunciation: wd.pronunciation,
     })
   }
 
