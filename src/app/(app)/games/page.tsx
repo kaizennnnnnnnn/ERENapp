@@ -234,67 +234,167 @@ export default function GamesPage() {
   )
 
   return (
-    <div className="page-scroll">
-      {/* ── Header ── */}
-      <div className="flex items-center gap-2 mb-1">
-        <button onClick={() => { playSound('ui_back'); router.back() }} className="flex items-center justify-center active:scale-90 transition-transform"
-          style={{ width: 32, height: 32, background: 'linear-gradient(135deg, #FFF8FF, #F0E8FF)', borderRadius: 8, border: '2px solid #D8C0F0', boxShadow: '0 2px 0 #C0A0E0' }}>
-          <ChevronLeft size={16} className="text-purple-500" />
+    <div className="page-scroll relative" style={{
+      background: 'radial-gradient(ellipse at top, #2C1659 0%, #170B33 55%, #08051C 100%)',
+      minHeight: '100vh',
+      marginLeft: -16, marginRight: -16, marginTop: -16,
+      paddingLeft: 16, paddingRight: 16, paddingTop: 16, paddingBottom: 24,
+    }}>
+      {/* Drifting starfield + scanlines for the academy / arcade vibe */}
+      <div className="absolute inset-0 pointer-events-none opacity-50" style={{
+        backgroundImage: 'radial-gradient(circle, #FBBF24 1px, transparent 1px), radial-gradient(circle, #A78BFA 1px, transparent 1px)',
+        backgroundSize: '38px 38px, 56px 56px',
+        backgroundPosition: '0 0, 22px 28px',
+        animation: 'gpStarDrift 32s linear infinite',
+      }} />
+      <div className="absolute inset-0 pointer-events-none" style={{
+        background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.18) 3px, rgba(0,0,0,0.18) 4px)',
+        zIndex: 1,
+      }} />
+
+      {/* ── Glass header ── */}
+      <div className="relative z-20 flex items-center gap-2 mb-2 px-2 py-2.5 -mx-2" style={{
+        background: 'linear-gradient(180deg, rgba(20,8,40,0.85) 0%, rgba(20,8,40,0.55) 100%)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        borderRadius: 8,
+        border: '1px solid rgba(251,191,36,0.4)',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+      }}>
+        <button onClick={() => { playSound('ui_back'); router.back() }}
+          className="flex items-center justify-center active:scale-90 transition-transform"
+          style={{
+            width: 34, height: 34,
+            background: 'rgba(255,255,255,0.08)',
+            border: '1px solid rgba(167,139,250,0.5)',
+            borderRadius: 8,
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12)',
+          }}>
+          <ChevronLeft size={18} className="text-purple-200" />
         </button>
-        <span className="pixel-chip inline-flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, #F5C842, #E8A020)', paddingLeft: 6 }}>
+        <span className="font-pixel inline-flex items-center gap-2 px-3 py-1.5"
+          style={{
+            background: 'linear-gradient(180deg, rgba(20,8,40,0.7), rgba(0,0,0,0.5))',
+            border: '1.5px solid #FBBF24',
+            borderRadius: 6,
+            fontSize: 10, letterSpacing: 2.5,
+            color: '#FDE68A',
+            textShadow: '1px 1px 0 rgba(0,0,0,0.6), 0 0 8px rgba(251,191,36,0.4)',
+            boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(251,191,36,0.25)',
+          }}>
           <IconController size={14} />
-          <span>GAMES</span>
+          ARCADE
+        </span>
+        <div className="flex-1" />
+        <span className="font-pixel inline-flex items-center gap-1.5 px-2 py-1.5"
+          style={{
+            background: 'rgba(0,0,0,0.4)',
+            border: '1px solid rgba(244,114,182,0.5)',
+            borderRadius: 5,
+            fontSize: 6, letterSpacing: 1.4,
+            color: '#FBCFE8',
+          }}>
+          <IconHeart size={11} />
+          PLAY EARNS XP
         </span>
       </div>
-      <p className="text-sm text-gray-500 mb-5 flex items-center gap-1.5">
-        Play with Eren &amp; earn happiness
-        <IconHeart size={12} />
-      </p>
 
-      {/* ── Game cards ── */}
-      <div className="flex flex-col gap-4 mb-6">
-        {GAMES.map(game => (
-          <Link key={game.id} href={game.href} onClick={() => playSound('ui_tap')}>
-            <div
-              className="active:translate-y-[2px] transition-all duration-100 cursor-pointer overflow-hidden relative"
-              style={{ background: game.bg, borderRadius: 4, border: `3px solid ${game.border}`, boxShadow: `4px 4px 0 ${game.shadow}` }}>
-              {/* Corner pixel notches */}
-              <div style={{ position: 'absolute', top: 0, left: 0, width: 4, height: 4, background: game.shadow, opacity: 0.5 }} />
-              <div style={{ position: 'absolute', top: 0, right: 0, width: 4, height: 4, background: game.shadow, opacity: 0.5 }} />
+      {/* ── Premium game cards ── */}
+      <div className="relative z-10 flex flex-col gap-3 mb-7 mt-4">
+        {GAMES.map(game => {
+          const myBest = myScores[game.id]
+          return (
+            <Link key={game.id} href={game.href} onClick={() => playSound('ui_tap')}>
+              <div
+                className="relative overflow-hidden active:translate-y-[2px] transition-all"
+                style={{
+                  background: `linear-gradient(135deg, rgba(20,10,40,0.85) 0%, rgba(8,4,22,0.95) 100%)`,
+                  borderRadius: 10,
+                  border: `1.5px solid ${game.border}AA`,
+                  boxShadow: `
+                    0 6px 22px rgba(0,0,0,0.55),
+                    inset 0 1px 0 rgba(255,255,255,0.08),
+                    inset 0 -1px 0 rgba(0,0,0,0.4),
+                    0 0 18px ${game.border}33
+                  `,
+                }}>
+                {/* Theme color glow strip on the left */}
+                <div style={{
+                  position: 'absolute', top: 0, bottom: 0, left: 0, width: 4,
+                  background: `linear-gradient(180deg, ${game.border}, ${game.shadow})`,
+                  boxShadow: `0 0 12px ${game.border}88`,
+                }} />
+                {/* Subtle radial color haze in the icon area */}
+                <div style={{
+                  position: 'absolute', top: 4, left: 14, width: 80, height: 80,
+                  background: `radial-gradient(circle, ${game.border}55 0%, transparent 70%)`,
+                  pointerEvents: 'none',
+                }} />
+                {/* Corner gold rivets */}
+                <div style={{ position: 'absolute', top: 6, right: 6, width: 4, height: 4, background: '#FBBF24', opacity: 0.85, boxShadow: '0 0 4px rgba(251,191,36,0.6)' }} />
+                <div style={{ position: 'absolute', bottom: 6, right: 6, width: 4, height: 4, background: '#FBBF24', opacity: 0.85, boxShadow: '0 0 4px rgba(251,191,36,0.6)' }} />
 
-              <div className="flex items-center gap-4 p-4">
-                {/* Icon tile with double border */}
-                <div className="flex-shrink-0 flex items-center justify-center relative"
-                  style={{ width: 60, height: 60, background: 'rgba(255,255,255,0.8)', borderRadius: 4, border: `3px solid ${game.border}`, boxShadow: `3px 3px 0 ${game.shadow}` }}>
-                  <div style={{ position: 'absolute', inset: 3, border: `1px dashed ${game.border}55`, borderRadius: 2 }} />
-                  <game.Icon size={36} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-pixel text-gray-800 mb-1" style={{ fontSize: 8 }}>{game.title}</p>
-                  <p className="text-xs text-gray-600 leading-snug mb-2">{game.desc}</p>
-                  <div className="flex gap-1.5 items-center">
-                    {game.preview.map((Preview, i) => (
-                      <div key={i} style={{ opacity: 0.55 + i * 0.15 }}>
-                        <Preview size={14} />
+                <div className="relative flex items-center gap-4 p-4 pl-5">
+                  {/* Icon tile — embossed coin look */}
+                  <div className="flex-shrink-0 flex items-center justify-center relative"
+                    style={{
+                      width: 64, height: 64,
+                      background: `radial-gradient(circle at 35% 30%, ${game.border}DD 0%, ${game.shadow} 75%)`,
+                      borderRadius: 10,
+                      border: `1.5px solid #FBBF24`,
+                      boxShadow: `
+                        inset 0 2px 0 rgba(255,255,255,0.35),
+                        inset 0 -2px 0 rgba(0,0,0,0.3),
+                        0 4px 12px ${game.border}66,
+                        0 0 0 3px rgba(251,191,36,0.15)
+                      `,
+                    }}>
+                    <div className="absolute inset-1.5 rounded-md flex items-center justify-center"
+                      style={{ background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                      <game.Icon size={32} />
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-pixel mb-1.5" style={{
+                      fontSize: 9,
+                      color: '#FDE68A',
+                      letterSpacing: 1.5,
+                      textShadow: `0 1px 0 rgba(0,0,0,0.6), 0 0 6px ${game.border}55`,
+                    }}>
+                      {game.title}
+                    </p>
+                    <p className="text-xs leading-snug mb-2" style={{ color: '#C4B5FD', letterSpacing: 0.2 }}>
+                      {game.desc}
+                    </p>
+                    <div className="flex gap-1.5 items-center" style={{ opacity: 0.85 }}>
+                      {game.preview.map((Preview, i) => (
+                        <div key={i} style={{ opacity: 0.7 + i * 0.1 }}>
+                          <Preview size={13} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
+                    {myBest !== undefined && (
+                      <div className="flex flex-col items-center px-2.5 py-1"
+                        style={{
+                          background: 'linear-gradient(180deg, rgba(120,53,15,0.55), rgba(67,20,7,0.7))',
+                          border: '1px solid #FBBF24',
+                          borderRadius: 5,
+                          minWidth: 46,
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.4), inset 0 1px 0 rgba(251,191,36,0.3)',
+                        }}>
+                        <span className="font-pixel" style={{ fontSize: 5, letterSpacing: 1.5, color: 'rgba(253,230,138,0.7)' }}>BEST</span>
+                        <span className="font-pixel" style={{ fontSize: 11, color: '#FDE68A', textShadow: '0 1px 0 rgba(0,0,0,0.5)' }}>{myBest}</span>
                       </div>
-                    ))}
+                    )}
+                    <span className="font-pixel" style={{ fontSize: 12, color: game.border, textShadow: `0 0 6px ${game.border}99` }}>▶</span>
                   </div>
                 </div>
-                <div className="flex-shrink-0 flex flex-col items-end gap-2">
-                  {myScores[game.id] !== undefined && (
-                    <div className="flex flex-col items-center px-2 py-1"
-                      style={{ background: 'rgba(255,255,255,0.85)', borderRadius: 3, border: `1px solid ${game.border}`, minWidth: 40, boxShadow: `1px 1px 0 ${game.shadow}55` }}>
-                      <span className="font-pixel text-gray-500" style={{ fontSize: 5, letterSpacing: 1 }}>BEST</span>
-                      <span className="font-pixel" style={{ fontSize: 9, color: game.accent }}>{myScores[game.id]}</span>
-                    </div>
-                  )}
-                  <span className="font-pixel text-gray-400" style={{ fontSize: 10 }}>▶</span>
-                </div>
               </div>
-              <div style={{ height: 4, background: `linear-gradient(90deg, ${game.border}, ${game.shadow})`, opacity: 0.6 }} />
-            </div>
-          </Link>
-        ))}
+            </Link>
+          )
+        })}
       </div>
 
       {/* ══ LEADERBOARD ═══════════════════════════════════════════════════ */}
@@ -528,18 +628,37 @@ export default function GamesPage() {
         </div>
       </div>
 
-      {/* ── Happiness banner ── */}
-      <div className="mt-4 p-3 relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #F0E8FF, #E8D8FF)', borderRadius: 4, border: '2px solid #D8C8F8', boxShadow: '3px 3px 0 #C8B0F0' }}>
-        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #9060D0 1px, transparent 1px)', backgroundSize: '12px 12px' }} />
-        <div className="flex items-center justify-center gap-2 relative z-10">
+      {/* ── Happiness banner — premium dark with gold trim ── */}
+      <div className="relative z-10 mt-4 p-3 overflow-hidden"
+        style={{
+          background: 'linear-gradient(180deg, rgba(76,29,149,0.55) 0%, rgba(46,15,92,0.75) 100%)',
+          borderRadius: 6,
+          border: '1.5px solid rgba(251,191,36,0.5)',
+          boxShadow: '0 6px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(251,191,36,0.2), 0 0 18px rgba(167,139,250,0.18)',
+        }}>
+        <div className="absolute inset-0 opacity-25 pointer-events-none" style={{
+          backgroundImage: 'radial-gradient(circle, rgba(251,191,36,0.6) 1px, transparent 1px)',
+          backgroundSize: '14px 14px',
+        }} />
+        <div className="flex items-center justify-center gap-2 relative">
           <IconStar size={14} />
-          <p className="font-pixel text-purple-700 text-center" style={{ fontSize: 7, lineHeight: 2 }}>
+          <p className="font-pixel text-center" style={{
+            fontSize: 7, lineHeight: 2, letterSpacing: 1.5,
+            color: '#FDE68A',
+            textShadow: '0 1px 0 rgba(0,0,0,0.5), 0 0 8px rgba(251,191,36,0.4)',
+          }}>
             PLAYING RAISES EREN&apos;S HAPPINESS
           </p>
           <IconStar size={14} />
         </div>
       </div>
+
+      <style jsx global>{`
+        @keyframes gpStarDrift {
+          from { background-position: 0 0, 22px 28px; }
+          to   { background-position: 200px 0, 222px 28px; }
+        }
+      `}</style>
     </div>
   )
 }
