@@ -45,27 +45,69 @@ function yesterdayKey(): string {
 
 // ─── Web Speech TTS — best effort, gracefully no-ops when unsupported ──────
 let _voicesLoaded = false
+let _bestVoice: SpeechSynthesisVoice | null | undefined = undefined  // cache; null means searched & nothing found
 function ensureVoicesLoaded() {
   if (_voicesLoaded || typeof window === 'undefined' || !('speechSynthesis' in window)) return
-  // Voices load async on most browsers; a getVoices() call may return empty
-  // until 'voiceschanged' fires. Touching it once kicks the load.
   window.speechSynthesis.getVoices()
-  window.speechSynthesis.addEventListener('voiceschanged', () => { _voicesLoaded = true }, { once: true })
+  window.speechSynthesis.addEventListener('voiceschanged', () => { _voicesLoaded = true; _bestVoice = undefined }, { once: true })
 }
+
+// Score voices to pick the most natural-sounding one available. Modern
+// browsers expose "Natural" / "Neural" / "Wavenet" / "Online" cloud voices
+// that sound dramatically better than the default robotic ones; we boost
+// those by name. Cloud (`!localService`) voices generally outclass local.
+function scoreVoice(v: SpeechSynthesisVoice): number {
+  const name = v.name.toLowerCase()
+  let s = 0
+  if (!v.localService) s += 100
+  if (name.includes('natural')) s += 80
+  if (name.includes('neural'))  s += 80
+  if (name.includes('wavenet')) s += 80
+  if (name.includes('online'))  s += 50
+  if (name.includes('premium')) s += 60
+  if (name.includes('enhanced'))s += 40
+  if (name.includes('multilingual')) s += 30
+  if (name.includes('google'))     s += 20
+  if (name.includes('microsoft'))  s += 20
+  // Female Serbian voices ('Sonia', 'Branka', 'Marina') tend to sound more
+  // natural in Serbian; bias slightly toward those when present.
+  if (/(sonia|branka|marina|nataša|jelena)/i.test(name)) s += 15
+  if (v.lang.toLowerCase() === 'sr-rs') s += 10
+  return s
+}
+
+function pickBestVoice(): SpeechSynthesisVoice | null {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null
+  if (_bestVoice !== undefined) return _bestVoice
+  const all = window.speechSynthesis.getVoices()
+  if (all.length === 0) return null   // not loaded yet — try again next call
+  const candidates = all.filter(v => {
+    const lang = v.lang.toLowerCase()
+    return lang.startsWith('sr') || lang.startsWith('hr') || lang.startsWith('bs')
+  })
+  if (candidates.length === 0) {
+    _bestVoice = null
+    return null
+  }
+  candidates.sort((a, b) => scoreVoice(b) - scoreVoice(a))
+  _bestVoice = candidates[0]
+  return _bestVoice
+}
+
 export function speakSerbian(text: string) {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
   ensureVoicesLoaded()
   try {
-    window.speechSynthesis.cancel()  // stop anything in progress
+    window.speechSynthesis.cancel()
     const u = new SpeechSynthesisUtterance(text)
     u.lang = 'sr-RS'
-    u.rate = 0.85
-    u.pitch = 1
-    // Pick a Serbian voice if available; else let the browser fall back via lang.
-    const voices = window.speechSynthesis.getVoices()
-    const sr = voices.find(v => v.lang.toLowerCase().startsWith('sr'))
-      ?? voices.find(v => v.lang.toLowerCase().startsWith('hr'))   // Croatian — close enough
-    if (sr) u.voice = sr
+    // 0.92 rate + 1.05 pitch lands closer to a natural cadence than the
+    // sluggish 0.85/1.0 default — feels less like a screen reader.
+    u.rate = 0.92
+    u.pitch = 1.05
+    u.volume = 1.0
+    const v = pickBestVoice()
+    if (v) u.voice = v
     window.speechSynthesis.speak(u)
   } catch { /* ignore */ }
 }
@@ -319,34 +361,70 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
   const totalLessons = ORDERED_LESSON_IDS.length
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col" style={{
-      background: 'linear-gradient(180deg, #FFE9D6 0%, #FFC9A8 60%, #FFB088 100%)',
+    <div className="fixed inset-0 z-40 flex flex-col overflow-hidden" style={{
+      background: 'radial-gradient(ellipse at top, #2C1659 0%, #170B33 50%, #08051C 100%)',
     }}>
-      {/* ─── Header ─── */}
-      <div className="flex items-center gap-2 px-3 pt-3 pb-2 flex-shrink-0" style={{
-        background: 'rgba(120,53,15,0.18)',
-        borderBottom: '2px solid rgba(154,52,18,0.35)',
+      {/* Star field overlay — subtle, behind everything */}
+      <div className="absolute inset-0 pointer-events-none opacity-50" style={{
+        backgroundImage: 'radial-gradient(circle, #FBBF24 1px, transparent 1px), radial-gradient(circle, #A78BFA 1px, transparent 1px)',
+        backgroundSize: '38px 38px, 56px 56px',
+        backgroundPosition: '0 0, 22px 28px',
+        animation: 'srStarDrift 32s linear infinite',
+      }} />
+      {/* CRT-style scanlines for that vintage academy feel */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.18) 3px, rgba(0,0,0,0.18) 4px)',
+        zIndex: 1,
+      }} />
+
+      {/* ─── Header (glass) ─── */}
+      <div className="relative z-20 flex items-center gap-2 px-3 pt-3 pb-2.5 flex-shrink-0" style={{
+        background: 'linear-gradient(180deg, rgba(20,8,40,0.85) 0%, rgba(20,8,40,0.55) 100%)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        borderBottom: '2px solid rgba(251,191,36,0.45)',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
       }}>
         <button onClick={() => { playSound('ui_back'); onClose() }}
           className="flex items-center justify-center active:scale-90 transition-transform"
-          style={{ width: 32, height: 32, background: 'rgba(255,255,255,0.85)', borderRadius: 6, border: '2px solid #B45309', boxShadow: '0 2px 0 #92400E' }}>
-          <ChevronLeft size={16} className="text-amber-800" />
+          style={{ width: 34, height: 34, background: 'rgba(255,255,255,0.08)', borderRadius: 6, border: '2px solid rgba(251,191,36,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1)' }}>
+          <ChevronLeft size={18} className="text-amber-200" />
         </button>
         <div className="flex-1 flex items-center justify-center gap-2">
           <IconBook size={14} />
-          <span className="font-pixel text-amber-900 px-2.5 py-1.5"
-            style={{ background: 'rgba(255,255,255,0.92)', border: '2px solid #B45309', borderRadius: 4, fontSize: 8, letterSpacing: 2, boxShadow: '0 2px 0 #92400E' }}>
+          <span className="font-pixel px-3 py-1.5 inline-flex items-center gap-1.5"
+            style={{
+              background: 'linear-gradient(180deg, rgba(20,8,40,0.7), rgba(0,0,0,0.5))',
+              border: '2px solid #FBBF24',
+              borderRadius: 4,
+              fontSize: 9, letterSpacing: 2.5,
+              color: '#FDE68A',
+              textShadow: '1px 1px 0 rgba(0,0,0,0.6), 0 0 8px rgba(251,191,36,0.4)',
+              boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(251,191,36,0.25)',
+            }}>
             SRPSKI
           </span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="flex items-center gap-1 px-2 py-1.5 font-pixel"
-            style={{ background: 'rgba(0,0,0,0.45)', border: '2px solid #F97316', borderRadius: 4, fontSize: 7, color: '#FED7AA', boxShadow: '0 2px 0 #7C2D12' }}>
-            <Flame size={11} className="text-orange-400" />
+            style={{
+              background: 'linear-gradient(180deg, rgba(154,52,18,0.55), rgba(67,20,7,0.7))',
+              border: '2px solid #FB923C',
+              borderRadius: 4,
+              fontSize: 8, color: '#FED7AA',
+              boxShadow: '0 2px 0 #7C2D12, inset 0 1px 0 rgba(251,146,60,0.3), 0 0 8px rgba(251,146,60,0.4)',
+            }}>
+            <Flame size={11} className="text-orange-300" fill="currentColor" />
             {progress.streak ?? 0}
           </div>
           <div className="flex items-center gap-1 px-2 py-1.5 font-pixel"
-            style={{ background: 'rgba(0,0,0,0.45)', border: '2px solid #FBBF24', borderRadius: 4, fontSize: 7, color: '#FDE68A', boxShadow: '0 2px 0 #78350F' }}>
+            style={{
+              background: 'linear-gradient(180deg, rgba(120,53,15,0.55), rgba(67,20,7,0.7))',
+              border: '2px solid #FBBF24',
+              borderRadius: 4,
+              fontSize: 8, color: '#FDE68A',
+              boxShadow: '0 2px 0 #78350F, inset 0 1px 0 rgba(251,191,36,0.3), 0 0 8px rgba(251,191,36,0.4)',
+            }}>
             <IconStar size={10} />
             {progress.totalXp}
           </div>
@@ -354,59 +432,99 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
       </div>
 
       {/* ─── Sub-stats bar ─── */}
-      <div className="px-3 py-2 flex items-center gap-3 flex-shrink-0" style={{ background: 'rgba(255,255,255,0.4)', borderBottom: '1px solid rgba(154,52,18,0.25)' }}>
-        <span className="font-pixel text-amber-900" style={{ fontSize: 6, letterSpacing: 1.5 }}>
+      <div className="relative z-20 px-3 py-2.5 flex items-center gap-3 flex-shrink-0" style={{
+        background: 'rgba(15,8,30,0.6)',
+        backdropFilter: 'blur(6px)',
+        WebkitBackdropFilter: 'blur(6px)',
+        borderBottom: '1px solid rgba(251,191,36,0.2)',
+      }}>
+        <span className="font-pixel" style={{ fontSize: 6, letterSpacing: 1.8, color: '#A78BFA' }}>
           {totalCompleted}/{totalLessons} LESSONS
         </span>
         <div className="flex-1 relative" style={{
-          height: 6, background: 'rgba(154,52,18,0.3)',
-          borderRadius: 3, border: '1px solid rgba(154,52,18,0.35)',
+          height: 8, background: 'rgba(0,0,0,0.55)',
+          borderRadius: 4, border: '1px solid rgba(251,191,36,0.4)',
+          boxShadow: 'inset 0 2px 3px rgba(0,0,0,0.6)',
         }}>
           <div style={{
             width: `${(totalCompleted / totalLessons) * 100}%`,
             height: '100%',
-            background: 'linear-gradient(90deg, #F59E0B, #B45309)',
+            background: 'linear-gradient(180deg, #FDE68A 0%, #F59E0B 50%, #B45309 100%)',
             borderRadius: 3,
             transition: 'width 0.6s ease',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), 0 0 6px rgba(251,191,36,0.5)',
           }} />
         </div>
-        <div className="flex items-center gap-1 font-pixel" style={{ fontSize: 6, color: '#FDE68A', background: '#7C2D12', padding: '2px 6px', borderRadius: 3, border: '1px solid #451A03' }}>
-          <IconCrown size={8} />
+        <div className="flex items-center gap-1 font-pixel px-2 py-1"
+          style={{
+            fontSize: 7, color: '#FDE68A',
+            background: 'linear-gradient(180deg, rgba(120,53,15,0.6), rgba(67,20,7,0.8))',
+            borderRadius: 3, border: '2px solid #FBBF24',
+            boxShadow: '0 2px 0 rgba(0,0,0,0.4), 0 0 6px rgba(251,191,36,0.3)',
+          }}>
+          <IconCrown size={9} />
           {progress.perfect.length}
         </div>
       </div>
 
       {/* ─── Scrollable units ─── */}
-      <div className="flex-1 overflow-y-auto pb-12 pt-3">
-        {/* Practice tile — only shows when there are struggling words */}
+      <div className="relative z-10 flex-1 overflow-y-auto pb-12 pt-4">
+        {/* Practice tile — premium shimmer treatment */}
         {strugglingCount > 0 && (
           <button onClick={() => { playSound('ui_tap'); onPracticeTap() }}
-            className="block w-[calc(100%-32px)] mx-4 mb-4 px-4 py-3 active:translate-y-[2px] transition-transform text-left"
+            className="block relative overflow-hidden w-[calc(100%-32px)] mx-4 mb-5 px-4 py-3.5 active:translate-y-[2px] transition-transform text-left"
             style={{
-              background: 'linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%)',
-              borderRadius: 5,
-              border: '3px solid #B45309',
-              boxShadow: '0 4px 0 #92400E, inset 0 1px 0 rgba(255,255,255,0.4), 0 0 14px rgba(251,191,36,0.5)',
+              background: 'linear-gradient(135deg, #FCD34D 0%, #FBBF24 35%, #F59E0B 65%, #D97706 100%)',
+              borderRadius: 6,
+              border: '3px solid #92400E',
+              boxShadow: `
+                0 5px 0 #78350F,
+                inset 0 2px 0 rgba(255,255,255,0.45),
+                inset 0 -2px 0 rgba(120,53,15,0.4),
+                0 0 28px rgba(251,191,36,0.55)
+              `,
             }}>
-            <div className="flex items-center gap-3">
+            {/* Animated shine sweep */}
+            <div className="absolute inset-0 pointer-events-none" style={{
+              background: 'linear-gradient(115deg, transparent 35%, rgba(255,255,255,0.55) 50%, transparent 65%)',
+              animation: 'srShineSweep 2.6s ease-in-out infinite',
+            }} />
+            {/* Corner gold rivets */}
+            <div style={{ position: 'absolute', top: 4, left: 4, width: 4, height: 4, background: '#FEF3C7', boxShadow: '0 0 4px #FEF3C7' }} />
+            <div style={{ position: 'absolute', top: 4, right: 4, width: 4, height: 4, background: '#FEF3C7', boxShadow: '0 0 4px #FEF3C7' }} />
+            <div style={{ position: 'absolute', bottom: 4, left: 4, width: 4, height: 4, background: '#FEF3C7', boxShadow: '0 0 4px #FEF3C7' }} />
+            <div style={{ position: 'absolute', bottom: 4, right: 4, width: 4, height: 4, background: '#FEF3C7', boxShadow: '0 0 4px #FEF3C7' }} />
+
+            <div className="relative flex items-center gap-3">
               <div style={{
-                width: 42, height: 42,
-                background: 'rgba(0,0,0,0.25)',
+                width: 46, height: 46,
+                background: 'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.4), rgba(120,53,15,0.5) 70%)',
                 borderRadius: '50%',
-                border: '2px solid rgba(255,255,255,0.4)',
+                border: '3px solid #FEF3C7',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6), 0 2px 6px rgba(0,0,0,0.3)',
               }}>
-                <Zap size={22} className="text-white" fill="currentColor" />
+                <Zap size={24} className="text-white" fill="currentColor" style={{ filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.4))' }} />
               </div>
               <div className="flex-1">
-                <div className="font-pixel text-white" style={{ fontSize: 10, letterSpacing: 1.5, textShadow: '1px 1px 0 #92400E' }}>
+                <div className="font-pixel" style={{
+                  fontSize: 11, letterSpacing: 2,
+                  color: '#FFFAF0',
+                  textShadow: '1px 1px 0 #92400E, 0 0 6px rgba(255,250,240,0.4)',
+                }}>
                   PRACTICE
                 </div>
-                <div className="font-pixel mt-0.5" style={{ fontSize: 6, color: 'rgba(255,255,255,0.85)', letterSpacing: 1 }}>
+                <div className="font-pixel mt-1" style={{
+                  fontSize: 6, color: 'rgba(255,251,235,0.9)', letterSpacing: 1.2,
+                  textShadow: '1px 1px 0 rgba(120,53,15,0.6)',
+                }}>
                   {strugglingCount} {strugglingCount === 1 ? 'word' : 'words'} to review
                 </div>
               </div>
-              <span className="font-pixel text-white" style={{ fontSize: 14 }}>▶</span>
+              <span className="font-pixel" style={{
+                fontSize: 16, color: '#FFFAF0',
+                textShadow: '1px 1px 0 #92400E',
+              }}>▶</span>
             </div>
           </button>
         )}
@@ -435,27 +553,36 @@ function UnitSection({ unit, unitIndex, progress, isUnlocked, onLessonTap }: {
   const lessons = unit.lessonIds.map(id => getLessonById(id)!).filter(Boolean)
 
   return (
-    <div className="mb-8 px-4">
+    <div className="mb-9 px-4">
       {/* Unit banner */}
-      <div className="mb-4 px-4 py-3 flex items-center justify-between" style={{
-        background: `linear-gradient(135deg, ${unit.color}, ${unit.edgeColor})`,
-        borderRadius: 5,
+      <div className="relative overflow-hidden mb-5 px-4 py-3.5 flex items-center justify-between" style={{
+        background: `linear-gradient(135deg, ${unit.color} 0%, ${unit.edgeColor} 100%)`,
+        borderRadius: 6,
         border: `3px solid ${unit.edgeColor}`,
-        boxShadow: `0 4px 0 ${unit.edgeColor}, inset 0 1px 0 rgba(255,255,255,0.3)`,
+        boxShadow: `0 5px 0 ${unit.edgeColor}, inset 0 2px 0 rgba(255,255,255,0.32), inset 0 -2px 0 rgba(0,0,0,0.25), 0 0 22px ${unit.color}55`,
       }}>
-        <div>
-          <div className="font-pixel text-white" style={{ fontSize: 6, letterSpacing: 2, opacity: 0.85 }}>
+        {/* gold corner rivets */}
+        <div style={{ position: 'absolute', top: 4, left: 4, width: 3, height: 3, background: '#FBBF24', opacity: 0.85 }} />
+        <div style={{ position: 'absolute', top: 4, right: 4, width: 3, height: 3, background: '#FBBF24', opacity: 0.85 }} />
+        <div style={{ position: 'absolute', bottom: 4, left: 4, width: 3, height: 3, background: '#FBBF24', opacity: 0.85 }} />
+        <div style={{ position: 'absolute', bottom: 4, right: 4, width: 3, height: 3, background: '#FBBF24', opacity: 0.85 }} />
+
+        <div className="relative">
+          <div className="font-pixel text-white" style={{ fontSize: 6, letterSpacing: 2, opacity: 0.9, textShadow: `1px 1px 0 ${unit.edgeColor}` }}>
             UNIT {unitIndex + 1}
           </div>
-          <div className="font-pixel text-white" style={{ fontSize: 11, letterSpacing: 1.5, textShadow: `1px 1px 0 ${unit.edgeColor}` }}>
+          <div className="font-pixel text-white mt-0.5" style={{ fontSize: 12, letterSpacing: 1.8, textShadow: `1px 1px 0 ${unit.edgeColor}, 0 0 8px rgba(255,255,255,0.25)` }}>
             {unit.title.toUpperCase()}
           </div>
-          <div className="font-pixel" style={{ fontSize: 6, color: 'rgba(255,255,255,0.85)', letterSpacing: 1, marginTop: 2 }}>
+          <div className="font-pixel mt-1" style={{ fontSize: 6, color: 'rgba(255,255,255,0.85)', letterSpacing: 1.2, fontStyle: 'italic' }}>
             {unit.titleSr}
           </div>
         </div>
-        <div className="text-right">
-          <div className="font-pixel text-white" style={{ fontSize: 8, opacity: 0.85 }}>
+        <div className="relative flex flex-col items-end">
+          <div className="font-pixel" style={{ fontSize: 6, letterSpacing: 1.5, color: 'rgba(255,255,255,0.7)' }}>
+            DONE
+          </div>
+          <div className="font-pixel text-white" style={{ fontSize: 14, textShadow: `1px 1px 0 ${unit.edgeColor}` }}>
             {lessons.filter(l => progress.completed.includes(l.id)).length}/{lessons.length}
           </div>
         </div>
@@ -467,16 +594,18 @@ function UnitSection({ unit, unitIndex, progress, isUnlocked, onLessonTap }: {
           const completed = progress.completed.includes(l.id)
           const perfect = progress.perfect.includes(l.id)
           const unlocked = isUnlocked(l.id)
-          const offset = li % 2 === 0 ? -36 : 36   // zigzag
+          const offset = li % 2 === 0 ? -38 : 38
           return (
             <div key={l.id} className="flex flex-col items-center" style={{ marginLeft: offset }}>
               {li > 0 && (
                 <div style={{
-                  width: 3, height: 22,
+                  width: 4, height: 24,
                   background: completed
                     ? `linear-gradient(180deg, ${unit.color}, ${unit.edgeColor})`
-                    : 'repeating-linear-gradient(180deg, rgba(154,52,18,0.4) 0 4px, transparent 4px 8px)',
+                    : 'repeating-linear-gradient(180deg, rgba(167,139,250,0.4) 0 4px, transparent 4px 8px)',
                   marginBottom: 4,
+                  borderRadius: 2,
+                  boxShadow: completed ? `0 0 6px ${unit.color}88` : 'none',
                 }} />
               )}
               <button
@@ -484,47 +613,72 @@ function UnitSection({ unit, unitIndex, progress, isUnlocked, onLessonTap }: {
                 disabled={!unlocked}
                 className="relative active:scale-95 transition-transform"
                 style={{
-                  width: 78, height: 78,
+                  width: 84, height: 84,
                   background: unlocked
-                    ? `linear-gradient(135deg, ${unit.color}, ${unit.edgeColor})`
-                    : 'rgba(120,53,15,0.25)',
-                  border: `4px solid ${unlocked ? unit.edgeColor : 'rgba(120,53,15,0.5)'}`,
+                    ? `radial-gradient(circle at 35% 30%, ${unit.color}EE, ${unit.edgeColor} 75%)`
+                    : 'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.06), rgba(167,139,250,0.12) 75%)',
+                  border: `4px solid ${unlocked ? '#FBBF24' : 'rgba(167,139,250,0.35)'}`,
                   borderRadius: '50%',
                   boxShadow: unlocked
-                    ? `0 5px 0 ${unit.edgeColor}, 0 0 14px ${unit.color}88`
-                    : '0 3px 0 rgba(120,53,15,0.3)',
-                  opacity: unlocked ? 1 : 0.55,
+                    ? `
+                        0 6px 0 ${unit.edgeColor},
+                        inset 0 2px 0 rgba(255,255,255,0.35),
+                        inset 0 -2px 0 rgba(0,0,0,0.3),
+                        0 0 18px ${unit.color}AA,
+                        0 0 6px rgba(251,191,36,0.5)
+                      `
+                    : '0 3px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(167,139,250,0.15)',
+                  opacity: unlocked ? 1 : 0.5,
                   cursor: unlocked ? 'pointer' : 'default',
-                  animation: unlocked && !completed ? 'srNodePulse 1.6s ease-in-out infinite' : 'none',
+                  animation: unlocked && !completed ? 'srNodePulse 1.7s ease-in-out infinite' : 'none',
                 }}>
-                {/* Inner content */}
+                {/* Inner ring */}
                 <div className="absolute inset-2 rounded-full flex flex-col items-center justify-center"
-                  style={{ background: 'rgba(0,0,0,0.18)' }}>
+                  style={{
+                    background: unlocked ? 'rgba(0,0,0,0.32)' : 'rgba(0,0,0,0.4)',
+                    border: unlocked ? '1px solid rgba(255,255,255,0.18)' : '1px solid rgba(167,139,250,0.18)',
+                    boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.4)',
+                  }}>
                   {unlocked
                     ? completed
-                      ? <IconCrown size={28} />
-                      : <span className="font-pixel text-white" style={{ fontSize: 10, textShadow: '1px 1px 0 rgba(0,0,0,0.6)' }}>{l.id}</span>
-                    : <span style={{ fontSize: 18, opacity: 0.7 }}>🔒</span>
+                      ? <IconCrown size={32} />
+                      : (
+                        <span className="font-pixel text-white" style={{
+                          fontSize: 14, textShadow: '1px 1px 0 rgba(0,0,0,0.7), 0 0 6px rgba(255,255,255,0.3)',
+                        }}>{l.id}</span>
+                      )
+                    : (
+                      <svg width="22" height="22" viewBox="0 0 10 11" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated', opacity: 0.7 }}>
+                        <rect x="3" y="0" width="4" height="1" fill="#C4B5FD" />
+                        <rect x="2" y="1" width="1" height="3" fill="#C4B5FD" />
+                        <rect x="7" y="1" width="1" height="3" fill="#C4B5FD" />
+                        <rect x="1" y="4" width="8" height="6" fill="#A78BFA" />
+                        <rect x="1" y="4" width="8" height="1" fill="#C4B5FD" />
+                        <rect x="4" y="6" width="2" height="2" fill="#2E0F5C" />
+                        <rect x="4" y="8" width="2" height="1" fill="#2E0F5C" />
+                      </svg>
+                    )
                   }
                 </div>
-                {/* Perfect star */}
+                {/* Perfect star — gold badge top-right */}
                 {perfect && (
                   <div className="absolute" style={{
-                    top: -6, right: -6,
-                    width: 22, height: 22,
-                    background: 'radial-gradient(circle, #FDE68A, #F59E0B)',
+                    top: -8, right: -8,
+                    width: 26, height: 26,
+                    background: 'radial-gradient(circle at 35% 30%, #FFFAF0, #FBBF24 60%, #B45309 100%)',
                     borderRadius: '50%',
                     border: '2px solid #92400E',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: '0 0 8px rgba(253,224,71,0.8)',
+                    boxShadow: '0 0 12px rgba(253,224,71,0.85), 0 2px 0 rgba(0,0,0,0.4)',
                   }}>
-                    <IconStar size={12} />
+                    <IconStar size={14} />
                   </div>
                 )}
               </button>
-              <div className="font-pixel mt-1.5 text-center" style={{
-                fontSize: 6, color: unlocked ? '#7C2D12' : 'rgba(120,53,15,0.5)',
-                letterSpacing: 1, maxWidth: 110, lineHeight: 1.5,
+              <div className="font-pixel mt-2 text-center" style={{
+                fontSize: 6, color: unlocked ? '#FDE68A' : 'rgba(196,181,253,0.5)',
+                letterSpacing: 1.5, maxWidth: 120, lineHeight: 1.6,
+                textShadow: unlocked ? '1px 1px 0 rgba(0,0,0,0.6)' : 'none',
               }}>
                 {l.title.toUpperCase()}
               </div>
@@ -536,7 +690,15 @@ function UnitSection({ unit, unitIndex, progress, isUnlocked, onLessonTap }: {
       <style jsx global>{`
         @keyframes srNodePulse {
           0%, 100% { transform: scale(1); }
-          50%      { transform: scale(1.04); }
+          50%      { transform: scale(1.05); }
+        }
+        @keyframes srShineSweep {
+          0%, 30%   { transform: translateX(-130%); }
+          70%, 100% { transform: translateX(130%); }
+        }
+        @keyframes srStarDrift {
+          from { background-position: 0 0, 22px 28px; }
+          to   { background-position: 200px 0, 222px 28px; }
         }
       `}</style>
     </div>
