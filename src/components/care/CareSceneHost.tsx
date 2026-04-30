@@ -58,6 +58,18 @@ export default function CareSceneHost() {
   const [dragX,    setDragX]    = useState(0)
   const prevSceneRef = useRef<string | null>(null)
 
+  // Room-name label visibility — only show during swipes / scene changes,
+  // not while the user is just standing in a room. flashLabel() pops it
+  // open and starts a 1.4-s timer to fade it back out.
+  const [labelVisible, setLabelVisible] = useState(false)
+  const labelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const flashLabel = () => {
+    setLabelVisible(true)
+    if (labelTimerRef.current) clearTimeout(labelTimerRef.current)
+    labelTimerRef.current = setTimeout(() => setLabelVisible(false), 1400)
+  }
+  useEffect(() => () => { if (labelTimerRef.current) clearTimeout(labelTimerRef.current) }, [])
+
   const loopIdx = LOOP_SCENES.indexOf(activeScene as CareScene)
 
   useLayoutEffect(() => {
@@ -99,6 +111,7 @@ export default function CareSceneHost() {
 
   function navigate(dir: 'left' | 'right') {
     if (loopIdx === -1) return
+    flashLabel()
     if (dir === 'left') {
       if (loopIdx === LOOP_SCENES.length - 1) { playSound('ui_swipe_room'); closeScene(); return }
       playSound('ui_swipe_room')
@@ -126,6 +139,7 @@ export default function CareSceneHost() {
     if (!isDragging.current) {
       if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) {
         isDragging.current = true
+        flashLabel()
       } else {
         return
       }
@@ -250,9 +264,17 @@ export default function CareSceneHost() {
         </div>
       )}
 
-      {/* Room name label — below stats header */}
+      {/* Room name label — only visible during swipes / scene changes, not
+          when the user is just standing in a room. Fades in fast and out
+          gently 1.4s after the last interaction. */}
       {ready && (
-        <div className="fixed left-1/2 z-[55] pointer-events-none" style={{ top: 108, transform: 'translateX(-50%)' }}>
+        <div className="fixed left-1/2 z-[55] pointer-events-none"
+          style={{
+            top: 'calc(var(--safe-top) + 108px)',
+            transform: 'translateX(-50%)',
+            opacity: labelVisible ? 1 : 0,
+            transition: 'opacity 0.3s ease',
+          }}>
           <span key={activeScene} className="font-pixel text-white px-3 py-1"
             style={{ fontSize: 7, background: 'rgba(0,0,0,0.4)', borderRadius: 10, backdropFilter: 'blur(4px)', animation: 'fadeInDown 0.3s ease both' }}>
             {SCENE_LABELS[activeScene]}

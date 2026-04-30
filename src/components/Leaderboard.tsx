@@ -1,12 +1,11 @@
 'use client'
 
-// ─── Leaderboard modal ────────────────────────────────────────────────────
-// Self-contained household leaderboard. Pulls every player in the current
-// household, joins their best score per game, and renders a head-to-head
-// scoreboard with totals and a "winning" call-out. Used as a modal opened
-// from the playroom (PlayScene). The styling matches the original
-// dark-CRT leaderboard that used to live inline on the /games page.
-// ─────────────────────────────────────────────────────────────────────────
+// ─── Leaderboard modal ─────────────────────────────────────────────────────
+// Premium dark/CRT scoreboard for the household. Each game gets one tight
+// row: icon · name · score-box · score-box. Winner is highlighted with a
+// gold border + subtle crown chip; ties show a yellow chip; missing scores
+// show a dash. Sticky header (with X) stays put while the body scrolls,
+// and a big CLOSE button at the bottom makes the exit unmissable.
 
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
@@ -20,10 +19,6 @@ import {
 import { playSound } from '@/lib/sounds'
 import type { GameType, Profile } from '@/types'
 
-// Minimal list — id + title + icon are all the leaderboard needs. Kept in
-// sync with the GAMES list in the /games page (one source of truth would
-// be nicer, but the games page also holds layout-specific colour metadata
-// and gravity-defying duplication felt worse than this 11-line stub).
 const GAMES: Array<{ id: GameType; title: string; Icon: React.FC<{ size?: number }> }> = [
   { id: 'catch_mouse',  title: 'CATCH THE MOUSE',  Icon: IconMouse },
   { id: 'paw_tap',      title: 'PAW TAP!',         Icon: IconFish },
@@ -44,25 +39,102 @@ interface PlayerScores {
 
 interface Props { onClose: () => void }
 
+// ── Score-box atom ─────────────────────────────────────────────────────────
+function ScoreBox({ score, winner, side, big }: {
+  score: number
+  winner: boolean
+  side: 'me' | 'them'
+  big?: boolean
+}) {
+  const empty = score === 0
+  const meColors = {
+    bg:    'linear-gradient(135deg, #3A1A30 0%, #5A1A3A 100%)',
+    border:'#FF4080',
+    text:  '#FF9EC8',
+  }
+  const themColors = {
+    bg:    'linear-gradient(135deg, #1A1A40 0%, #1A305A 100%)',
+    border:'#4A90BC',
+    text:  '#88C8F0',
+  }
+  const c = side === 'me' ? meColors : themColors
+  return (
+    <div style={{
+      width: big ? 64 : 56,
+      height: big ? 32 : 28,
+      background: empty ? 'rgba(255,255,255,0.04)' : winner ? c.bg : 'rgba(255,255,255,0.04)',
+      border: `${winner ? 2 : 1}px solid ${empty ? '#2A1A50' : winner ? '#FFD700' : c.border}`,
+      borderRadius: 4,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      flexShrink: 0,
+      boxShadow: winner ? `0 0 8px rgba(255,215,0,0.45), inset 0 1px 0 rgba(255,255,255,0.12)` : 'inset 0 1px 0 rgba(255,255,255,0.05)',
+    }}>
+      <span className="font-pixel" style={{
+        fontSize: big ? 11 : 10,
+        color: empty ? '#3A2A60' : winner ? '#FFD700' : c.text,
+        textShadow: winner ? '0 0 4px rgba(255,215,0,0.6)' : 'none',
+        letterSpacing: 0.5,
+      }}>
+        {empty ? '—' : score}
+      </span>
+    </div>
+  )
+}
+
+// ── Avatar disc ────────────────────────────────────────────────────────────
+function AvatarDisc({ letter, side, label, big }: {
+  letter: string
+  side: 'me' | 'them'
+  label: string
+  big?: boolean
+}) {
+  const sizes = big ? { w: 36, h: 36, fs: 14 } : { w: 32, h: 32, fs: 12 }
+  const meBg    = 'linear-gradient(135deg, #FF6B9D, #C084FC)'
+  const themBg  = 'linear-gradient(135deg, #6BAED6, #3A88C8)'
+  const meBorder = '#FF4080'; const meShadow = '0 2px 0 #991A4A'
+  const themBorder = '#4A90BC'; const themShadow = '0 2px 0 #205888'
+  return (
+    <div className="flex flex-col items-center gap-1" style={{ width: 64 }}>
+      <div className="flex items-center justify-center font-pixel"
+        style={{
+          width: sizes.w, height: sizes.h, borderRadius: 4,
+          background: side === 'me' ? meBg : themBg,
+          border: `2px solid ${side === 'me' ? meBorder : themBorder}`,
+          boxShadow: side === 'me' ? meShadow : themShadow,
+          fontSize: sizes.fs, color: 'white',
+          textShadow: '1px 1px 0 rgba(0,0,0,0.4)',
+        }}>
+        {letter}
+      </div>
+      <span className="font-pixel" style={{
+        fontSize: 6,
+        color: side === 'me' ? '#FF9EC8' : '#88C8F0',
+        letterSpacing: 1,
+        maxWidth: 64, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>
+        {label}
+      </span>
+    </div>
+  )
+}
+
 export default function Leaderboard({ onClose }: Props) {
   const { user, profile } = useAuth()
   const supabase = createClient()
   const [players, setPlayers] = useState<PlayerScores[]>([])
-  const [boardLoading, setBoardLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!user?.id || !profile) return
-
     async function load() {
       const profilesQuery = profile!.household_id
         ? supabase.from('profiles').select('*').eq('household_id', profile!.household_id)
         : supabase.from('profiles').select('*').eq('id', user!.id)
 
       const { data: profiles } = await profilesQuery
-      const resolvedProfiles: Profile[] = profiles?.length ? profiles : [profile!]
+      const resolved: Profile[] = profiles?.length ? profiles : [profile!]
 
-      const userIds = resolvedProfiles.map((p: Profile) => p.id)
-
+      const userIds = resolved.map((p: Profile) => p.id)
       const { data: scores } = await supabase
         .from('game_scores')
         .select('user_id, game_type, score')
@@ -71,279 +143,238 @@ export default function Leaderboard({ onClose }: Props) {
       const bestMap: Record<string, Partial<Record<GameType, number>>> = {}
       scores?.forEach((s: { user_id: string; game_type: GameType; score: number }) => {
         if (!bestMap[s.user_id]) bestMap[s.user_id] = {}
-        const current = bestMap[s.user_id][s.game_type] ?? 0
-        if (s.score > current) bestMap[s.user_id][s.game_type] = s.score
+        const cur = bestMap[s.user_id][s.game_type] ?? 0
+        if (s.score > cur) bestMap[s.user_id][s.game_type] = s.score
       })
 
-      setPlayers(resolvedProfiles.map((p: Profile) => ({ profile: p, best: bestMap[p.id] ?? {} })))
-      setBoardLoading(false)
+      setPlayers(resolved.map((p: Profile) => ({ profile: p, best: bestMap[p.id] ?? {} })))
+      setLoading(false)
     }
-
     load()
   }, [user?.id, profile?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const sortedPlayers = [...players].sort((a, b) =>
+  // Sorted: me first, partner second.
+  const sorted = [...players].sort((a, b) =>
     a.profile.id === user?.id ? -1 : b.profile.id === user?.id ? 1 : 0
   )
+  const me      = sorted[0]
+  const partner = sorted[1]
 
-  const totals = sortedPlayers.map(p =>
-    GAMES.reduce((sum, g) => sum + (p.best[g.id] ?? 0), 0)
-  )
+  const totals = sorted.map(p => GAMES.reduce((s, g) => s + (p.best[g.id] ?? 0), 0))
+  const myTotal      = totals[0] ?? 0
+  const partnerTotal = totals[1] ?? 0
+  const winnerSide: 'me' | 'them' | 'tie' | 'solo' = !partner ? 'solo'
+    : myTotal === partnerTotal ? 'tie'
+    : myTotal > partnerTotal ? 'me' : 'them'
 
   function handleClose() {
     playSound('ui_back')
     onClose()
   }
 
+  const meLetter = me?.profile.name?.[0]?.toUpperCase() ?? '?'
+  const partnerLetter = partner?.profile.name?.[0]?.toUpperCase() ?? '?'
+  const partnerLabel = partner?.profile.name?.split(' ')[0]?.toUpperCase() ?? 'P2'
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ animation: 'lbFade 0.2s ease-out forwards' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3" style={{ animation: 'lbFade 0.2s ease-out forwards' }}>
       {/* Backdrop */}
       <div className="absolute inset-0" onClick={handleClose}
-        style={{ background: 'rgba(8,5,18,0.78)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' }} />
+        style={{ background: 'rgba(8,5,18,0.82)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }} />
 
       {/* Panel */}
-      <div className="relative overflow-hidden flex flex-col"
+      <div className="relative flex flex-col"
         style={{
-          width: 'min(92vw, 420px)',
-          maxHeight: '88vh',
-          background: 'linear-gradient(180deg, #0E0E2C 0%, #1A1A3E 100%)',
-          borderRadius: 6,
-          border: '3px solid #3A2A60',
-          boxShadow: '4px 4px 0 #1A0A40, 0 0 32px rgba(167,139,250,0.45)',
+          width: 'min(94vw, 440px)',
+          maxHeight: 'calc(100vh - 24px - var(--safe-top))',
+          background: 'linear-gradient(180deg, #150930 0%, #0B061C 100%)',
+          borderRadius: 8,
+          border: '3px solid #4C1D95',
+          boxShadow: '0 8px 0 #2E0F5C, 0 0 32px rgba(167,139,250,0.55)',
           animation: 'lbPop 0.32s cubic-bezier(0.34,1.56,0.64,1) both',
+          overflow: 'hidden',
         }}>
 
-        {/* Scanline overlay */}
+        {/* CRT scanline overlay (over everything inside panel) */}
         <div className="absolute inset-0 pointer-events-none" style={{
-          background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.08) 3px, rgba(0,0,0,0.08) 4px)',
-          zIndex: 1,
+          background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.10) 3px, rgba(0,0,0,0.10) 4px)',
+          zIndex: 30,
         }} />
-        {/* CRT vignette */}
-        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.5) 100%)', zIndex: 1 }} />
-        {/* Corner pixels */}
-        <div style={{ position: 'absolute', top: 4, left: 4, width: 6, height: 6, border: '1px solid #FFD700', opacity: 0.6, zIndex: 2 }} />
-        <div style={{ position: 'absolute', top: 4, right: 4, width: 6, height: 6, border: '1px solid #FFD700', opacity: 0.6, zIndex: 2 }} />
-        <div style={{ position: 'absolute', bottom: 4, left: 4, width: 6, height: 6, border: '1px solid #FFD700', opacity: 0.6, zIndex: 2 }} />
-        <div style={{ position: 'absolute', bottom: 4, right: 4, width: 6, height: 6, border: '1px solid #FFD700', opacity: 0.6, zIndex: 2 }} />
+        {/* Vignette */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background: 'radial-gradient(ellipse at center, transparent 65%, rgba(0,0,0,0.55) 100%)',
+          zIndex: 30,
+        }} />
 
-        {/* Close button */}
-        <button onClick={handleClose}
-          className="absolute top-3 right-3 z-20 flex items-center justify-center active:scale-90 transition-transform"
+        {/* ─── HEADER (sticky top, with close X) ──────────────────────────── */}
+        <div className="relative flex items-center px-4 py-3 flex-shrink-0"
           style={{
-            width: 28, height: 28,
-            background: 'rgba(0,0,0,0.5)',
-            border: '2px solid rgba(255,215,0,0.55)',
-            borderRadius: 5,
-            boxShadow: '0 2px 0 rgba(0,0,0,0.4)',
+            background: 'linear-gradient(180deg, rgba(76,29,149,0.5) 0%, rgba(46,15,92,0.4) 100%)',
+            borderBottom: '2px solid rgba(251,191,36,0.55)',
+            zIndex: 20,
           }}>
-          <X size={14} className="text-yellow-300" />
-        </button>
+          {/* Corner gold pixels */}
+          <div style={{ position: 'absolute', top: 4, left: 4, width: 4, height: 4, background: '#FFD700' }} />
+          <div style={{ position: 'absolute', top: 4, right: 4, width: 4, height: 4, background: '#FFD700' }} />
 
-        {/* Scrollable content */}
-        <div className="relative z-10 p-4 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
-          {/* Title */}
-          <div className="flex flex-col items-center mb-4">
-            <div className="flex items-center gap-3 mb-1">
-              <div style={{ animation: 'twinkle 1.5s ease-in-out infinite' }}>
-                <IconStar size={14} />
-              </div>
-              <span className="font-pixel" style={{ fontSize: 11, color: '#FFD700', letterSpacing: 3, textShadow: '0 0 8px rgba(255,215,0,0.5)' }}>HIGH SCORES</span>
-              <div style={{ animation: 'twinkle 1.5s ease-in-out 0.75s infinite' }}>
-                <IconStar size={14} />
-              </div>
+          {/* Spacer for centring */}
+          <div style={{ width: 32 }} />
+
+          <div className="flex-1 flex flex-col items-center gap-0.5">
+            <div className="flex items-center gap-2">
+              <IconStar size={12} />
+              <span className="font-pixel" style={{
+                fontSize: 11, color: '#FFD700', letterSpacing: 3,
+                textShadow: '0 0 8px rgba(255,215,0,0.55)',
+              }}>HIGH SCORES</span>
+              <IconStar size={12} />
             </div>
-            <div className="font-pixel" style={{ fontSize: 6, color: '#A080C0', letterSpacing: 1 }}>HOUSEHOLD LEADERBOARD</div>
-            <div className="w-full mt-3" style={{ borderTop: '1px dashed #3A2A60' }} />
+            <div className="font-pixel" style={{ fontSize: 5, color: '#A080C0', letterSpacing: 1.5 }}>HOUSEHOLD LEADERBOARD</div>
           </div>
 
-          {boardLoading ? (
-            <p className="font-pixel text-center py-8" style={{ fontSize: 6, color: '#6A50A0', letterSpacing: 2 }}>LOADING...</p>
-          ) : sortedPlayers.length < 2 ? (
-            <>
-              <div className="grid mb-3" style={{ gridTemplateColumns: '1fr 80px 80px', gap: 4 }}>
-                <div />
-                <div className="flex flex-col items-center gap-0.5">
-                  <div className="flex items-center justify-center font-pixel"
-                    style={{ width: 28, height: 28, borderRadius: 3, background: 'linear-gradient(135deg, #FF6B9D, #C084FC)', border: '2px solid #FF4080', boxShadow: '0 2px 0 #991A4A', fontSize: 10, color: 'white' }}>
-                    {sortedPlayers[0]?.profile.name?.[0]?.toUpperCase() ?? '?'}
-                  </div>
-                  <span className="font-pixel" style={{ fontSize: 6, color: '#FF9EC8' }}>YOU</span>
-                </div>
-                <div className="flex flex-col items-center gap-0.5">
-                  <div className="flex items-center justify-center"
-                    style={{ width: 28, height: 28, borderRadius: 3, background: 'rgba(255,255,255,0.05)', border: '2px dashed #3A2A60', fontSize: 12, color: '#3A2A60' }}>
-                    ?
-                  </div>
-                  <span className="font-pixel" style={{ fontSize: 6, color: '#3A2A60' }}>P2</span>
-                </div>
-              </div>
+          {/* Close X — large, obvious, gold-ringed */}
+          <button onClick={handleClose} aria-label="Close leaderboard"
+            className="flex items-center justify-center active:scale-90 transition-transform"
+            style={{
+              width: 32, height: 32,
+              background: 'rgba(0,0,0,0.55)',
+              border: '2px solid #FBBF24',
+              borderRadius: 5,
+              boxShadow: '0 2px 0 rgba(0,0,0,0.5), 0 0 8px rgba(251,191,36,0.4)',
+              flexShrink: 0,
+            }}>
+            <X size={16} className="text-yellow-300" strokeWidth={3} />
+          </button>
+        </div>
 
-              {GAMES.map(game => {
-                const myScore = sortedPlayers[0]?.best[game.id] ?? 0
-                return (
-                  <div key={game.id} className="mb-3">
-                    <div className="flex items-center gap-1.5 mb-1.5">
-                      <game.Icon size={14} />
-                      <span className="font-pixel" style={{ fontSize: 6, color: '#8060A8' }}>{game.title}</span>
-                    </div>
-                    <div className="grid" style={{ gridTemplateColumns: '1fr 80px 80px', gap: 4, alignItems: 'center' }}>
-                      <div />
-                      <div className="flex flex-col items-center gap-1">
-                        <div className="flex items-center justify-center"
-                          style={{ width: 72, height: 28, background: myScore > 0 ? 'linear-gradient(135deg, #3A1A30, #5A1A3A)' : 'rgba(255,255,255,0.04)', borderRadius: 3, border: `1px solid ${myScore > 0 ? '#FF4080' : '#2A1A50'}` }}>
-                          <span className="font-pixel" style={{ fontSize: myScore === 0 ? 8 : 11, color: myScore === 0 ? '#3A2A60' : '#FF9EC8' }}>
-                            {myScore === 0 ? '—' : myScore}
-                          </span>
-                        </div>
-                        {myScore > 0 && (
-                          <div style={{ width: 72, height: 4, background: '#1A1040', borderRadius: 2, overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: '100%', background: 'linear-gradient(90deg, #FF6B9D, #FF4080)', borderRadius: 2 }} />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-center"
-                        style={{ width: 72, height: 28, borderRadius: 3, border: '1px dashed #2A1A50' }}>
-                        <span className="font-pixel" style={{ fontSize: 8, color: '#2A1A50' }}>—</span>
-                      </div>
-                    </div>
-                    <div className="mt-2" style={{ borderTop: '1px dashed #2A1A50' }} />
-                  </div>
-                )
-              })}
-
-              <div className="mt-2 py-2 px-3 flex items-center justify-center"
-                style={{ background: 'rgba(160,120,255,0.06)', borderRadius: 3, border: '1px dashed #3A2A60' }}>
-                <span className="font-pixel" style={{ fontSize: 5, color: '#5A408A', lineHeight: 2, textAlign: 'center' }}>
-                  INVITE A PARTNER TO COMPETE!
-                </span>
-              </div>
-            </>
+        {/* ─── BODY (scrollable) ──────────────────────────────────────────── */}
+        <div className="relative flex-1 overflow-y-auto px-4 pt-3 pb-4" style={{ scrollbarWidth: 'thin' }}>
+          {loading ? (
+            <p className="font-pixel text-center py-10" style={{ fontSize: 7, color: '#6A50A0', letterSpacing: 2 }}>
+              LOADING...
+            </p>
           ) : (
             <>
-              <div className="grid mb-3" style={{ gridTemplateColumns: '1fr 80px 80px', gap: 4 }}>
-                <div />
-                {sortedPlayers.map((p, pi) => (
-                  <div key={p.profile.id} className="flex flex-col items-center gap-0.5">
+              {/* Avatars row */}
+              <div className="flex items-center mb-3">
+                <div className="flex-1" />
+                <AvatarDisc letter={meLetter} side="me" label="YOU" />
+                <div style={{ width: 8 }} />
+                {partner ? (
+                  <AvatarDisc letter={partnerLetter} side="them" label={partnerLabel} />
+                ) : (
+                  <div className="flex flex-col items-center gap-1" style={{ width: 64 }}>
                     <div className="flex items-center justify-center font-pixel"
-                      style={{ width: 28, height: 28, borderRadius: 3, background: pi === 0 ? 'linear-gradient(135deg, #FF6B9D, #C084FC)' : 'linear-gradient(135deg, #6BAED6, #3A88C8)', border: pi === 0 ? '2px solid #FF4080' : '2px solid #4A90BC', boxShadow: pi === 0 ? '0 2px 0 #991A4A' : '0 2px 0 #205888', fontSize: 10, color: 'white' }}>
-                      {p.profile.name?.[0]?.toUpperCase() ?? '?'}
+                      style={{ width: 32, height: 32, borderRadius: 4, background: 'rgba(255,255,255,0.04)', border: '2px dashed #3A2A60', fontSize: 14, color: '#3A2A60' }}>
+                      ?
                     </div>
-                    <span className="font-pixel text-center" style={{ fontSize: 6, color: pi === 0 ? '#FF9EC8' : '#88C8F0', maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {p.profile.id === user?.id ? 'YOU' : p.profile.name?.split(' ')[0]?.toUpperCase() ?? 'P2'}
-                    </span>
+                    <span className="font-pixel" style={{ fontSize: 6, color: '#3A2A60' }}>P2</span>
                   </div>
-                ))}
+                )}
               </div>
 
+              <div className="mb-3" style={{ borderTop: '1px dashed #3A2A60' }} />
+
+              {/* Game rows — single line each: icon + name + score boxes */}
               {GAMES.map(game => {
-                const s0 = sortedPlayers[0].best[game.id] ?? 0
-                const s1 = sortedPlayers[1].best[game.id] ?? 0
-                const p0wins = s0 > s1
-                const p1wins = s1 > s0
-                const tied   = s0 === s1 && s0 > 0
-
+                const s0 = me?.best[game.id] ?? 0
+                const s1 = partner?.best[game.id] ?? 0
+                const meWins   = !!partner && s0 > s1 && s0 > 0
+                const themWins = !!partner && s1 > s0 && s1 > 0
+                const tied     = !!partner && s0 === s1 && s0 > 0
                 return (
-                  <div key={game.id} className="mb-3">
-                    <div className="flex items-center gap-1.5 mb-1.5">
+                  <div key={game.id} className="flex items-center mb-2 py-1.5 px-2"
+                    style={{
+                      background: 'rgba(255,255,255,0.025)',
+                      border: '1px solid rgba(167,139,250,0.12)',
+                      borderRadius: 4,
+                    }}>
+                    <div className="flex-shrink-0 mr-2" style={{ width: 18, display: 'flex', justifyContent: 'center' }}>
                       <game.Icon size={14} />
-                      <span className="font-pixel" style={{ fontSize: 6, color: '#8060A8' }}>{game.title}</span>
-                      {tied && <span className="font-pixel" style={{ fontSize: 5, color: '#FFD700' }}>TIE!</span>}
                     </div>
-
-                    <div className="grid" style={{ gridTemplateColumns: '1fr 80px 80px', gap: 4, alignItems: 'center' }}>
-                      <div />
-                      {[
-                        { score: s0, wins: p0wins, idx: 0 },
-                        { score: s1, wins: p1wins, idx: 1 },
-                      ].map(({ score, wins, idx }) => (
-                        <div key={idx} className="flex flex-col items-center gap-1">
-                          <div className="relative flex items-center justify-center"
-                            style={{ width: 72, height: 28, background: wins ? (idx === 0 ? 'linear-gradient(135deg, #3A1A30, #5A1A3A)' : 'linear-gradient(135deg, #1A1A40, #1A305A)') : 'rgba(255,255,255,0.04)', borderRadius: 3, border: `1px solid ${wins ? (idx === 0 ? '#FF4080' : '#4A90BC') : '#2A1A50'}` }}>
-                            {wins && (
-                              <div style={{ position: 'absolute', top: -10, right: -4, lineHeight: 0 }}>
-                                <IconCrown size={14} />
-                              </div>
-                            )}
-                            <span className="font-pixel" style={{ fontSize: score === 0 ? 8 : 11, color: score === 0 ? '#3A2A60' : wins ? (idx === 0 ? '#FF9EC8' : '#88C8F0') : '#7A60A8' }}>
-                              {score === 0 ? '—' : score}
-                            </span>
-                          </div>
-                          {(s0 > 0 || s1 > 0) && (
-                            <div style={{ width: 72, height: 4, background: '#1A1040', borderRadius: 2, overflow: 'hidden' }}>
-                              <div style={{
-                                height: '100%',
-                                width: `${Math.max(s0, s1) > 0 ? (score / Math.max(s0, s1)) * 100 : 0}%`,
-                                background: wins ? (idx === 0 ? 'linear-gradient(90deg, #FF6B9D, #FF4080)' : 'linear-gradient(90deg, #6BAED6, #4A90BC)') : '#3A2A60',
-                                borderRadius: 2,
-                                transition: 'width 0.6s ease',
-                              }} />
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-2" style={{ borderTop: '1px dashed #2A1A50' }} />
+                    <span className="flex-1 font-pixel truncate"
+                      style={{ fontSize: 6, color: '#A080C0', letterSpacing: 0.8 }}>
+                      {game.title}
+                      {tied && (
+                        <span className="font-pixel ml-2 px-1 py-0.5"
+                          style={{ fontSize: 5, color: '#FFD700', background: 'rgba(255,215,0,0.12)', border: '1px solid rgba(255,215,0,0.5)', borderRadius: 2, letterSpacing: 1 }}>
+                          TIE
+                        </span>
+                      )}
+                    </span>
+                    <ScoreBox score={s0} winner={meWins}   side="me" />
+                    <div style={{ width: 6 }} />
+                    <ScoreBox score={s1} winner={themWins} side="them" />
                   </div>
                 )
               })}
 
-              <div className="mt-1">
-                <div className="grid" style={{ gridTemplateColumns: '1fr 80px 80px', gap: 4, alignItems: 'center' }}>
-                  <div className="flex items-center gap-1">
-                    <IconCrown size={12} />
-                    <span className="font-pixel" style={{ fontSize: 6, color: '#FFD700' }}>TOTAL</span>
-                  </div>
-                  {sortedPlayers.map((p, pi) => {
-                    const total = totals[pi]
-                    const isTopTotal = total > totals[1 - pi]
-                    return (
-                      <div key={p.profile.id} className="flex flex-col items-center gap-1">
-                        <div className="relative flex items-center justify-center"
-                          style={{ width: 72, height: 30, background: isTopTotal ? (pi === 0 ? 'linear-gradient(135deg, #3A1A10, #5A2A00)' : 'linear-gradient(135deg, #0A1A30, #0A2840)') : 'rgba(255,255,255,0.04)', borderRadius: 3, border: `2px solid ${isTopTotal ? '#FFD700' : '#2A1A50'}`, boxShadow: isTopTotal ? `0 0 8px ${pi === 0 ? 'rgba(255,180,0,0.4)' : 'rgba(100,180,255,0.3)'}` : 'none' }}>
-                          {isTopTotal && (
-                            <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', lineHeight: 0 }}>
-                              <IconCrown size={16} />
-                            </div>
-                          )}
-                          <span className="font-pixel" style={{ fontSize: 12, color: isTopTotal ? '#FFD700' : '#4A3870' }}>
-                            {total}
-                          </span>
-                        </div>
-                        <div style={{ width: 72, height: 4, background: '#1A1040', borderRadius: 2, overflow: 'hidden' }}>
-                          <div style={{
-                            height: '100%',
-                            width: `${Math.max(...totals) > 0 ? (total / Math.max(...totals)) * 100 : 0}%`,
-                            background: isTopTotal ? 'linear-gradient(90deg, #FFD700, #FFA020)' : '#3A2A60',
-                            borderRadius: 2,
-                          }} />
-                        </div>
-                      </div>
-                    )
-                  })}
+              {/* Total row */}
+              <div className="flex items-center mt-3 pt-3 px-2"
+                style={{ borderTop: '2px solid #FFD700' }}>
+                <div className="flex-shrink-0 mr-2" style={{ width: 18, display: 'flex', justifyContent: 'center' }}>
+                  <IconCrown size={14} />
                 </div>
+                <span className="flex-1 font-pixel" style={{ fontSize: 8, color: '#FFD700', letterSpacing: 2 }}>TOTAL</span>
+                <ScoreBox score={myTotal}      winner={winnerSide === 'me'}   side="me"   big />
+                <div style={{ width: 6 }} />
+                <ScoreBox score={partnerTotal} winner={winnerSide === 'them'} side="them" big />
               </div>
 
-              {totals[0] !== totals[1] && (
-                <div className="mt-4 py-2 px-3 flex items-center justify-center gap-2"
-                  style={{ background: 'rgba(255,215,0,0.08)', borderRadius: 3, border: '1px dashed #FFD700' }}>
-                  <IconCrown size={16} />
-                  <span className="font-pixel" style={{ fontSize: 6, color: '#FFD700', letterSpacing: 1 }}>
-                    {(totals[0] > totals[1] ? sortedPlayers[0] : sortedPlayers[1]).profile.id === user?.id
-                      ? 'YOU ARE WINNING!'
-                      : `${(totals[0] > totals[1] ? sortedPlayers[0] : sortedPlayers[1]).profile.name?.split(' ')[0]?.toUpperCase()} IS WINNING!`
-                    }
+              {/* Winner / tie / invite banner */}
+              {winnerSide === 'solo' && (
+                <div className="mt-4 py-2 px-3 flex items-center justify-center"
+                  style={{ background: 'rgba(160,120,255,0.08)', borderRadius: 4, border: '1px dashed #3A2A60' }}>
+                  <span className="font-pixel" style={{ fontSize: 6, color: '#5A408A', lineHeight: 1.8, letterSpacing: 1, textAlign: 'center' }}>
+                    INVITE A PARTNER TO COMPETE!
                   </span>
-                  <IconCrown size={16} />
                 </div>
               )}
-              {totals[0] === totals[1] && totals[0] > 0 && (
+              {winnerSide === 'tie' && (
                 <div className="mt-4 py-2 px-3 flex items-center justify-center gap-2"
-                  style={{ background: 'rgba(160,120,255,0.08)', borderRadius: 3, border: '1px dashed #A080C0' }}>
-                  <span className="font-pixel" style={{ fontSize: 6, color: '#C0A0F0' }}>IT&apos;S A TIE!</span>
+                  style={{ background: 'rgba(160,120,255,0.10)', borderRadius: 4, border: '1px dashed #A080C0' }}>
+                  <span className="font-pixel" style={{ fontSize: 7, color: '#C0A0F0', letterSpacing: 2 }}>IT&apos;S A TIE!</span>
+                </div>
+              )}
+              {(winnerSide === 'me' || winnerSide === 'them') && (
+                <div className="mt-4 py-2.5 px-3 flex items-center justify-center gap-2"
+                  style={{
+                    background: 'linear-gradient(180deg, rgba(255,215,0,0.18) 0%, rgba(255,180,0,0.10) 100%)',
+                    borderRadius: 4,
+                    border: '2px solid #FFD700',
+                    boxShadow: '0 0 12px rgba(255,215,0,0.35), inset 0 1px 0 rgba(255,255,255,0.15)',
+                  }}>
+                  <IconCrown size={14} />
+                  <span className="font-pixel" style={{ fontSize: 7, color: '#FFD700', letterSpacing: 2, textShadow: '0 0 6px rgba(255,215,0,0.6)' }}>
+                    {winnerSide === 'me' ? 'YOU ARE WINNING!' : `${partnerLabel} IS WINNING!`}
+                  </span>
+                  <IconCrown size={14} />
                 </div>
               )}
             </>
           )}
+        </div>
+
+        {/* ─── FOOTER (sticky bottom, prominent CLOSE) ────────────────────── */}
+        <div className="relative flex-shrink-0 px-4 py-3"
+          style={{
+            background: 'linear-gradient(0deg, rgba(76,29,149,0.5) 0%, rgba(46,15,92,0.4) 100%)',
+            borderTop: '2px solid rgba(167,139,250,0.5)',
+            zIndex: 20,
+          }}>
+          <button onClick={handleClose}
+            className="w-full active:translate-y-[2px] transition-transform flex items-center justify-center gap-2 py-2.5"
+            style={{
+              background: 'linear-gradient(180deg, #A78BFA 0%, #7C3AED 60%, #4C1D95 100%)',
+              border: '2px solid #4C1D95',
+              borderRadius: 4,
+              boxShadow: '0 4px 0 #2E0F5C, inset 0 1px 0 rgba(255,255,255,0.35)',
+            }}>
+            <X size={14} className="text-white" strokeWidth={3} />
+            <span className="font-pixel text-white" style={{ fontSize: 9, letterSpacing: 2, textShadow: '1px 1px 0 #2E0F5C' }}>
+              CLOSE
+            </span>
+          </button>
         </div>
       </div>
 
