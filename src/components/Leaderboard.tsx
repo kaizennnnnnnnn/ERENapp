@@ -177,23 +177,42 @@ export default function Leaderboard({ onClose }: Props) {
   const partnerLabel = partner?.profile.name?.split(' ')[0]?.toUpperCase() ?? 'P2'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3" style={{ animation: 'lbFade 0.2s ease-out forwards' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-3"
+      style={{
+        // Pad the centring container by the iOS safe area so the panel
+        // can't get vertically-centered into the status bar.
+        paddingTop:    'calc(var(--safe-top) + 12px)',
+        paddingBottom: '12px',
+        animation: 'lbFade 0.2s ease-out forwards',
+      }}>
       {/* Backdrop */}
       <div className="absolute inset-0" onClick={handleClose}
-        style={{ background: 'rgba(8,5,18,0.82)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }} />
+        style={{ background: 'rgba(8,5,18,0.85)', backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)' }} />
 
       {/* Panel */}
       <div className="relative flex flex-col"
         style={{
           width: 'min(94vw, 440px)',
-          maxHeight: 'calc(100vh - 24px - var(--safe-top))',
-          background: 'linear-gradient(180deg, #150930 0%, #0B061C 100%)',
+          maxHeight: '100%',
+          background: 'linear-gradient(180deg, #1A0A40 0%, #0B061C 100%)',
           borderRadius: 8,
           border: '3px solid #4C1D95',
-          boxShadow: '0 8px 0 #2E0F5C, 0 0 32px rgba(167,139,250,0.55)',
+          boxShadow: '0 8px 0 #2E0F5C, 0 0 36px rgba(167,139,250,0.6), 0 0 80px rgba(251,191,36,0.18)',
           animation: 'lbPop 0.32s cubic-bezier(0.34,1.56,0.64,1) both',
           overflow: 'hidden',
         }}>
+
+        {/* Drifting starfield background — adds the "magical" vibe.
+            Two layered gradients animated horizontally; sits behind all
+            content but in front of the panel's solid bg. */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          backgroundImage: 'radial-gradient(circle, #FBBF24 1px, transparent 1.5px), radial-gradient(circle, #A78BFA 1px, transparent 1.5px)',
+          backgroundSize: '38px 38px, 56px 56px',
+          backgroundPosition: '0 0, 22px 28px',
+          opacity: 0.35,
+          animation: 'lbStars 28s linear infinite',
+          zIndex: 1,
+        }} />
 
         {/* CRT scanline overlay (over everything inside panel) */}
         <div className="absolute inset-0 pointer-events-none" style={{
@@ -255,25 +274,64 @@ export default function Leaderboard({ onClose }: Props) {
             </p>
           ) : (
             <>
-              {/* Avatars row */}
-              <div className="flex items-center mb-3">
-                <div className="flex-1" />
-                <AvatarDisc letter={meLetter} side="me" label="YOU" />
-                <div style={{ width: 8 }} />
-                {partner ? (
-                  <AvatarDisc letter={partnerLetter} side="them" label={partnerLabel} />
-                ) : (
-                  <div className="flex flex-col items-center gap-1" style={{ width: 64 }}>
-                    <div className="flex items-center justify-center font-pixel"
-                      style={{ width: 32, height: 32, borderRadius: 4, background: 'rgba(255,255,255,0.04)', border: '2px dashed #3A2A60', fontSize: 14, color: '#3A2A60' }}>
-                      ?
+              {/* Avatars row — head-to-head with a glowing VS divider. The
+                  current leader gets a hovering crown that bobs gently. */}
+              <div className="flex items-center justify-center gap-3 mb-1 relative" style={{ minHeight: 64 }}>
+                <div className="relative">
+                  {winnerSide === 'me' && (
+                    <div className="absolute pointer-events-none" style={{
+                      left: '50%', top: -16,
+                      transform: 'translateX(-50%)',
+                      animation: 'lbCrownBob 1.6s ease-in-out infinite',
+                      filter: 'drop-shadow(0 0 6px rgba(255,215,0,0.85))',
+                    }}>
+                      <IconCrown size={18} />
                     </div>
-                    <span className="font-pixel" style={{ fontSize: 6, color: '#3A2A60' }}>P2</span>
+                  )}
+                  <AvatarDisc letter={meLetter} side="me" label="YOU" big={winnerSide === 'me'} />
+                </div>
+
+                {/* VS divider — only when there's a partner */}
+                {partner && (
+                  <div className="flex flex-col items-center" style={{ width: 36 }}>
+                    <span className="font-pixel" style={{
+                      fontSize: 14, letterSpacing: 2, color: '#FFD700',
+                      textShadow: '0 0 8px rgba(255,215,0,0.7), 0 1px 0 rgba(0,0,0,0.6)',
+                      animation: 'lbVsPulse 1.8s ease-in-out infinite',
+                    }}>VS</span>
+                    <div style={{ width: 30, height: 1, background: 'linear-gradient(90deg, transparent, #FFD700, transparent)', marginTop: 3 }} />
                   </div>
                 )}
+
+                <div className="relative">
+                  {winnerSide === 'them' && (
+                    <div className="absolute pointer-events-none" style={{
+                      left: '50%', top: -16,
+                      transform: 'translateX(-50%)',
+                      animation: 'lbCrownBob 1.6s ease-in-out infinite',
+                      filter: 'drop-shadow(0 0 6px rgba(255,215,0,0.85))',
+                    }}>
+                      <IconCrown size={18} />
+                    </div>
+                  )}
+                  {partner ? (
+                    <AvatarDisc letter={partnerLetter} side="them" label={partnerLabel} big={winnerSide === 'them'} />
+                  ) : (
+                    <div className="flex flex-col items-center gap-1" style={{ width: 64 }}>
+                      <div className="flex items-center justify-center font-pixel"
+                        style={{ width: 32, height: 32, borderRadius: 4, background: 'rgba(255,255,255,0.04)', border: '2px dashed #3A2A60', fontSize: 14, color: '#3A2A60' }}>
+                        ?
+                      </div>
+                      <span className="font-pixel" style={{ fontSize: 6, color: '#3A2A60' }}>P2</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="mb-3" style={{ borderTop: '1px dashed #3A2A60' }} />
+              <div className="mb-3 mt-2" style={{
+                borderTop: '1px solid transparent',
+                borderImage: 'linear-gradient(90deg, transparent, rgba(255,215,0,0.7), transparent) 1',
+              }} />
 
               {/* Game rows — single line each: icon + name + score boxes */}
               {GAMES.map(game => {
@@ -337,18 +395,39 @@ export default function Leaderboard({ onClose }: Props) {
                 </div>
               )}
               {(winnerSide === 'me' || winnerSide === 'them') && (
-                <div className="mt-4 py-2.5 px-3 flex items-center justify-center gap-2"
+                <div className="mt-4 relative overflow-hidden"
                   style={{
-                    background: 'linear-gradient(180deg, rgba(255,215,0,0.18) 0%, rgba(255,180,0,0.10) 100%)',
                     borderRadius: 4,
+                    background: 'linear-gradient(180deg, rgba(255,215,0,0.22) 0%, rgba(255,140,40,0.10) 100%)',
                     border: '2px solid #FFD700',
-                    boxShadow: '0 0 12px rgba(255,215,0,0.35), inset 0 1px 0 rgba(255,255,255,0.15)',
+                    boxShadow: '0 0 16px rgba(255,215,0,0.5), inset 0 1px 0 rgba(255,255,255,0.2), 0 0 30px rgba(251,191,36,0.25)',
+                    animation: 'lbWinnerPulse 2.2s ease-in-out infinite',
                   }}>
-                  <IconCrown size={14} />
-                  <span className="font-pixel" style={{ fontSize: 7, color: '#FFD700', letterSpacing: 2, textShadow: '0 0 6px rgba(255,215,0,0.6)' }}>
-                    {winnerSide === 'me' ? 'YOU ARE WINNING!' : `${partnerLabel} IS WINNING!`}
-                  </span>
-                  <IconCrown size={14} />
+                  {/* Sweeping shine across the banner */}
+                  <div className="absolute inset-0 pointer-events-none" style={{
+                    background: 'linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.45) 50%, transparent 62%)',
+                    animation: 'lbWinnerShine 3.4s ease-in-out infinite',
+                  }} />
+                  {/* Corner gold pixels */}
+                  <div style={{ position: 'absolute', top: 3, left: 3, width: 4, height: 4, background: '#FFFFFF', boxShadow: '0 0 4px #FFD700' }} />
+                  <div style={{ position: 'absolute', top: 3, right: 3, width: 4, height: 4, background: '#FFFFFF', boxShadow: '0 0 4px #FFD700' }} />
+                  <div style={{ position: 'absolute', bottom: 3, left: 3, width: 4, height: 4, background: '#FFFFFF', boxShadow: '0 0 4px #FFD700' }} />
+                  <div style={{ position: 'absolute', bottom: 3, right: 3, width: 4, height: 4, background: '#FFFFFF', boxShadow: '0 0 4px #FFD700' }} />
+
+                  <div className="relative py-3 px-3 flex items-center justify-center gap-3">
+                    <div style={{ animation: 'lbCrownTwinkle 1.4s ease-in-out infinite' }}>
+                      <IconCrown size={16} />
+                    </div>
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className="font-pixel" style={{ fontSize: 5, color: '#FDE68A', letterSpacing: 3, opacity: 0.85 }}>★ CHAMPION ★</span>
+                      <span className="font-pixel" style={{ fontSize: 9, color: '#FFD700', letterSpacing: 2.5, textShadow: '0 0 8px rgba(255,215,0,0.8), 0 1px 0 rgba(0,0,0,0.5)' }}>
+                        {winnerSide === 'me' ? 'YOU ARE WINNING!' : `${partnerLabel} IS WINNING!`}
+                      </span>
+                    </div>
+                    <div style={{ animation: 'lbCrownTwinkle 1.4s ease-in-out 0.7s infinite' }}>
+                      <IconCrown size={16} />
+                    </div>
+                  </div>
                 </div>
               )}
             </>
@@ -386,6 +465,36 @@ export default function Leaderboard({ onClose }: Props) {
         @keyframes lbPop {
           0%   { transform: scale(0.85); opacity: 0; }
           100% { transform: scale(1);    opacity: 1; }
+        }
+        /* Drifting starfield in the panel background */
+        @keyframes lbStars {
+          from { background-position: 0 0, 22px 28px; }
+          to   { background-position: 200px 0, 222px 28px; }
+        }
+        /* VS divider — subtle pulse so the head-to-head feels alive */
+        @keyframes lbVsPulse {
+          0%, 100% { transform: scale(1);    text-shadow: 0 0 6px rgba(255,215,0,0.5); }
+          50%      { transform: scale(1.18); text-shadow: 0 0 14px rgba(255,215,0,0.9); }
+        }
+        /* Crown bobbing above the leader's avatar */
+        @keyframes lbCrownBob {
+          0%, 100% { transform: translateX(-50%) translateY(0); }
+          50%      { transform: translateX(-50%) translateY(-3px); }
+        }
+        /* Twinkling crowns on the winner banner */
+        @keyframes lbCrownTwinkle {
+          0%, 100% { transform: scale(1)    rotate(-4deg); opacity: 1;   }
+          50%      { transform: scale(1.18) rotate(6deg);  opacity: 0.85; }
+        }
+        /* Winner banner halo pulse */
+        @keyframes lbWinnerPulse {
+          0%, 100% { box-shadow: 0 0 16px rgba(255,215,0,0.5),  inset 0 1px 0 rgba(255,255,255,0.2), 0 0 30px rgba(251,191,36,0.25); }
+          50%      { box-shadow: 0 0 24px rgba(255,215,0,0.75), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 50px rgba(251,191,36,0.4); }
+        }
+        /* Sweeping shine across the winner banner */
+        @keyframes lbWinnerShine {
+          0%, 25%   { transform: translateX(-130%); }
+          70%, 100% { transform: translateX(130%); }
         }
       `}</style>
     </div>
