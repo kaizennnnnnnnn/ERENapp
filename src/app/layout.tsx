@@ -15,6 +15,13 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
     title: 'Eren',
   },
+  // Spec-compliant equivalent of apple-mobile-web-app-capable. Apple
+  // deprecated the prefixed version; emitting both keeps iOS happy AND
+  // silences the "[Deprecation] meta apple-mobile-web-app-capable" warning
+  // that browsers now log on every page load.
+  other: {
+    'mobile-web-app-capable': 'yes',
+  },
 }
 
 export const viewport: Viewport = {
