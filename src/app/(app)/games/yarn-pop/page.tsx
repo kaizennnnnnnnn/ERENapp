@@ -648,73 +648,98 @@ function PawTile() {
   )
 }
 
-// 2 — SARDINE. Side-view fish with belly highlight, eye, mouth, tail fin.
+// 2 — SARDINE. Slimmer body (4 cells tall instead of 6) on a mint-green
+// background so the blue body actually contrasts against the tile rather
+// than melting into a blue-on-blue blob.
 function SardineTile() {
   return (
-    <div style={bg('#60A5FA', '#1E40AF')}>
+    <div style={bg('#A7F3D0', '#047857')}>
       <svg width="74%" height="74%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-        {/* Body silhouette */}
-        <rect x="2" y="4" width="6" height="4" fill="#1E3A8A" />
-        <rect x="3" y="3" width="4" height="6" fill="#1E3A8A" />
-        {/* Body fill (lighter blue) */}
-        <rect x="2" y="5" width="6" height="2" fill="#3B82F6" />
-        <rect x="3" y="4" width="4" height="4" fill="#3B82F6" />
-        {/* Belly highlight (cream-ish, lower band) */}
-        <rect x="2" y="7" width="6" height="1" fill="#A0CCE5" />
-        <rect x="3" y="8" width="4" height="1" fill="#A0CCE5" />
-        {/* Top sheen */}
-        <rect x="3" y="3" width="4" height="1" fill="#93C5FD" />
-        {/* Eye — white iris + dark pupil */}
-        <rect x="5" y="5" width="2" height="2" fill="#FFFFFF" />
+        {/* Slim body silhouette (5 wide × 4 tall) */}
+        <rect x="3" y="3" width="5" height="1" fill="#1E40AF" />     {/* top stripe */}
+        <rect x="2" y="4" width="1" height="3" fill="#1E40AF" />     {/* left edge */}
+        <rect x="8" y="4" width="1" height="3" fill="#1E40AF" />     {/* right edge before tail */}
+        <rect x="3" y="7" width="5" height="1" fill="#1E40AF" />     {/* bottom stripe */}
+
+        {/* Body fill (mid blue) */}
+        <rect x="3" y="4" width="5" height="3" fill="#3B82F6" />
+
+        {/* Top sheen — lightest blue on the upper third */}
+        <rect x="3" y="4" width="4" height="1" fill="#93C5FD" />
+
+        {/* Belly highlight — cream band low on the body */}
+        <rect x="3" y="6" width="4" height="1" fill="#DBEAFE" />
+
+        {/* Eye — small white iris + dark pupil */}
+        <rect x="5" y="5" width="2" height="1" fill="#FFFFFF" />
         <rect x="6" y="5" width="1" height="1" fill="#1A1A2E" />
+
         {/* Tiny mouth at the front */}
-        <rect x="2" y="6" width="1" height="1" fill="#1E1B4B" />
-        {/* Tail fin */}
-        <rect x="8" y="4" width="1" height="4" fill="#1E40AF" />
+        <rect x="2" y="5" width="1" height="1" fill="#1E1B4B" />
+
+        {/* Tail fin — V-shape opening to the right */}
         <rect x="9" y="3" width="1" height="2" fill="#1E40AF" />
-        <rect x="9" y="7" width="1" height="2" fill="#1E40AF" />
-        <rect x="9" y="5" width="1" height="2" fill="#1E3A8A" />
-        {/* Top fin */}
+        <rect x="9" y="6" width="1" height="2" fill="#1E40AF" />
+        <rect x="9" y="5" width="1" height="1" fill="#1E3A8A" />
+
+        {/* Top dorsal fin */}
         <rect x="4" y="2" width="2" height="1" fill="#1E40AF" />
       </svg>
     </div>
   )
 }
 
-// 3 — DONUT. Pink-frosted ring with a hole, sprinkles, and a gloss
-// highlight. Drawn on a pink background — different shades distinguish
-// frosting (vibrant pink) from background (softer pink).
+// 3 — DONUT. Pink-frosted ring with a clear hole. Built as a true ring —
+// the body is split into top, left, right and bottom segments around a
+// 2×2 hole, and the frosting only paints over the dough (NOT the hole),
+// so the hole stays clearly visible instead of getting buried under pink.
 function DonutTile() {
   return (
     <div style={bg('#F9A8D4', '#9D174D')}>
       <svg width="74%" height="74%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-        {/* Donut ring outline (dark brown) */}
+        {/* Outer outline (dark brown ring around the donut) */}
         <rect x="3" y="2" width="6" height="1" fill="#7C2D12" />
         <rect x="2" y="3" width="1" height="6" fill="#7C2D12" />
         <rect x="9" y="3" width="1" height="6" fill="#7C2D12" />
         <rect x="3" y="9" width="6" height="1" fill="#7C2D12" />
-        {/* Donut body (golden tan) — peeking on the lower half */}
-        <rect x="3" y="3" width="6" height="6" fill="#D97706" />
-        <rect x="3" y="8" width="6" height="1" fill="#92400E" />
-        {/* Hole in centre */}
-        <rect x="5" y="5" width="2" height="2" fill="#7C2D12" />
-        <rect x="5" y="5" width="2" height="1" fill="#451A03" />
-        {/* Pink frosting on top half — slightly drippy lower edge */}
-        <rect x="3" y="3" width="6" height="3" fill="#EC4899" />
-        <rect x="3" y="6" width="2" height="1" fill="#EC4899" />
-        <rect x="7" y="6" width="2" height="1" fill="#EC4899" />
-        <rect x="3" y="7" width="1" height="1" fill="#EC4899" />
-        <rect x="8" y="7" width="1" height="1" fill="#EC4899" />
-        {/* Frosting top highlight */}
+
+        {/* Inner outline (dark brown ring around the hole) */}
+        <rect x="5" y="4" width="2" height="1" fill="#7C2D12" />
+        <rect x="4" y="5" width="1" height="2" fill="#7C2D12" />
+        <rect x="7" y="5" width="1" height="2" fill="#7C2D12" />
+        <rect x="5" y="7" width="2" height="1" fill="#7C2D12" />
+
+        {/* Dough body — RING shape (no fill in the centre 2×2) */}
+        <rect x="3" y="3" width="6" height="2" fill="#D97706" />     {/* top */}
+        <rect x="3" y="5" width="2" height="2" fill="#D97706" />     {/* left flank */}
+        <rect x="7" y="5" width="2" height="2" fill="#D97706" />     {/* right flank */}
+        <rect x="3" y="7" width="6" height="2" fill="#D97706" />     {/* bottom */}
+
+        {/* Inside the hole — slightly darker pink (suggests depth so the
+            hole reads as a hole, not a flat patch the same colour as bg). */}
+        <rect x="5" y="5" width="2" height="2" fill="#9D174D" opacity="0.45" />
+
+        {/* Pink frosting — same ring shape, only on the dough (NOT in
+            the hole). Slight drips reaching down into the lower half. */}
+        <rect x="3" y="3" width="6" height="2" fill="#EC4899" />     {/* top of frosting */}
+        <rect x="3" y="5" width="2" height="1" fill="#EC4899" />     {/* left at hole row */}
+        <rect x="7" y="5" width="2" height="1" fill="#EC4899" />     {/* right at hole row */}
+        <rect x="3" y="6" width="1" height="1" fill="#EC4899" />     {/* drip left */}
+        <rect x="8" y="6" width="1" height="1" fill="#EC4899" />     {/* drip right */}
+        <rect x="3" y="7" width="1" height="1" fill="#EC4899" opacity="0.7" />
+        <rect x="8" y="7" width="1" height="1" fill="#EC4899" opacity="0.7" />
+
+        {/* Frosting top-left highlight */}
         <rect x="3" y="3" width="3" height="1" fill="#FBCFE8" />
         <rect x="3" y="4" width="1" height="1" fill="#FBCFE8" />
-        {/* Sprinkles — multi-coloured dots on the frosting */}
+
+        {/* Sprinkles — multi-coloured dots on the dough/frosting (none
+            in the hole or on the hole edge so the hole stays clean). */}
         <rect x="4" y="3" width="1" height="1" fill="#FFFFFF" />
         <rect x="7" y="3" width="1" height="1" fill="#10B981" />
         <rect x="6" y="4" width="1" height="1" fill="#FBBF24" />
-        <rect x="3" y="5" width="1" height="1" fill="#3B82F6" />
-        <rect x="8" y="5" width="1" height="1" fill="#FFFFFF" />
-        <rect x="4" y="6" width="1" height="1" fill="#FBBF24" />
+        <rect x="3" y="6" width="1" height="1" fill="#3B82F6" opacity="0" />
+        <rect x="5" y="3" width="1" height="1" fill="#3B82F6" />
       </svg>
     </div>
   )
@@ -752,33 +777,45 @@ function CookieTile() {
   )
 }
 
-// 5 — EGG. Cream-coloured oval, a tiny shine top-left, soft shadow on
-// the lower-right. Background is a warm desaturated yellow.
+// 5 — FRIED EGG. White irregular blob with a yellow yolk in the centre.
+// Sky-blue background ("breakfast plate") so the white reads cleanly
+// against it instead of blending into a yellow shell-vs-yellow-bg
+// muddle. Body has a slightly wavy edge for that fried-egg silhouette.
 function EggTile() {
   return (
-    <div style={bg('#FDE68A', '#92400E')}>
-      <svg width="74%" height="74%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-        {/* Egg outline */}
-        <rect x="4" y="2" width="4" height="1" fill="#92400E" />
-        <rect x="3" y="3" width="1" height="1" fill="#92400E" />
-        <rect x="8" y="3" width="1" height="1" fill="#92400E" />
-        <rect x="2" y="4" width="1" height="5" fill="#92400E" />
-        <rect x="9" y="4" width="1" height="5" fill="#92400E" />
-        <rect x="3" y="9" width="1" height="1" fill="#92400E" />
-        <rect x="8" y="9" width="1" height="1" fill="#92400E" />
-        <rect x="4" y="10" width="4" height="1" fill="#92400E" />
-        {/* Egg fill — cream */}
-        <rect x="4" y="3" width="4" height="1" fill="#FFFBEB" />
-        <rect x="3" y="4" width="6" height="5" fill="#FFFBEB" />
-        <rect x="4" y="9" width="4" height="1" fill="#FFFBEB" />
-        {/* Top-left highlight (white shine) */}
-        <rect x="4" y="3" width="2" height="1" fill="#FFFFFF" />
-        <rect x="3" y="4" width="1" height="2" fill="#FFFFFF" />
-        <rect x="4" y="4" width="1" height="1" fill="#FFFFFF" />
-        {/* Lower-right soft shadow */}
-        <rect x="7" y="7" width="2" height="2" fill="#FCD34D" opacity="0.55" />
-        <rect x="8" y="5" width="1" height="2" fill="#FCD34D" opacity="0.45" />
-        <rect x="6" y="9" width="2" height="1" fill="#FCD34D" opacity="0.4" />
+    <div style={bg('#BAE6FD', '#0369A1')}>
+      <svg width="78%" height="78%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
+        {/* Egg-white blob — wavy bumpy outline */}
+        <rect x="3" y="2" width="6" height="1" fill="#FFFFFF" />     {/* top edge */}
+        <rect x="2" y="3" width="2" height="1" fill="#FFFFFF" />     {/* upper-left bump */}
+        <rect x="8" y="3" width="2" height="1" fill="#FFFFFF" />     {/* upper-right bump */}
+        <rect x="1" y="4" width="10" height="4" fill="#FFFFFF" />    {/* main body */}
+        <rect x="2" y="8" width="8" height="1" fill="#FFFFFF" />     {/* lower band */}
+        <rect x="3" y="9" width="2" height="1" fill="#FFFFFF" />     {/* lower-left bump */}
+        <rect x="7" y="9" width="2" height="1" fill="#FFFFFF" />     {/* lower-right bump */}
+        <rect x="5" y="9" width="2" height="1" fill="#FFFFFF" />     {/* lower-mid */}
+
+        {/* Subtle cooked-edge tint on the rim (warm cream, not gold) */}
+        <rect x="3" y="2" width="6" height="1" fill="#FEF3C7" opacity="0.7" />
+        <rect x="1" y="4" width="1" height="4" fill="#FEF3C7" opacity="0.7" />
+        <rect x="10" y="4" width="1" height="4" fill="#FEF3C7" opacity="0.7" />
+        <rect x="3" y="9" width="2" height="1" fill="#FEF3C7" opacity="0.7" />
+        <rect x="7" y="9" width="2" height="1" fill="#FEF3C7" opacity="0.7" />
+
+        {/* Yolk — round 4×4 dome, slightly off-centre for that cooked feel */}
+        <rect x="5" y="4" width="2" height="1" fill="#F59E0B" />     {/* top edge */}
+        <rect x="4" y="5" width="4" height="2" fill="#F59E0B" />     {/* main yolk */}
+        <rect x="5" y="7" width="2" height="1" fill="#F59E0B" />     {/* bottom edge */}
+
+        {/* Yolk inner fill — brighter yellow */}
+        <rect x="5" y="5" width="2" height="2" fill="#FBBF24" />
+
+        {/* Yolk top-left shine — the wet-yolk highlight */}
+        <rect x="5" y="5" width="1" height="1" fill="#FDE68A" />
+        <rect x="4" y="5" width="1" height="1" fill="#FDE68A" />
+
+        {/* Yolk bottom shadow — gives the dome 3D feel */}
+        <rect x="6" y="6" width="2" height="1" fill="#D97706" opacity="0.55" />
       </svg>
     </div>
   )
