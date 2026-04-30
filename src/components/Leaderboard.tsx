@@ -14,7 +14,7 @@ import { useAuth } from '@/hooks/useAuth'
 import {
   IconStar, IconCrown,
   IconMouse, IconFish, IconScroll, IconMeat, IconLightning,
-  IconSwords, IconHouse, IconHeart, IconCatFace, IconCoin,
+  IconSwords, IconHouse, IconHeart, IconCatFace, IconCoin, IconSparkles,
 } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import type { GameType, Profile } from '@/types'
@@ -30,6 +30,7 @@ const GAMES: Array<{ id: GameType; title: string; Icon: React.FC<{ size?: number
   { id: 'yarn_pop',     title: 'YARN POP',         Icon: IconHeart },
   { id: 'eren_says',    title: 'EREN SAYS',        Icon: IconCatFace },
   { id: 'lane_runner',  title: 'LANE RUNNER',      Icon: IconCoin },
+  { id: 'paw_doku',     title: 'PAW DOKU',         Icon: IconSparkles },
 ]
 
 interface PlayerScores {

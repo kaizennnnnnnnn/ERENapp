@@ -11,7 +11,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useCare } from '@/contexts/CareContext'
 import {
   IconController, IconMouse, IconYarn, IconPaw, IconFish,
-  IconStar, IconCrown, IconHeart, IconMeat, IconCoin,
+  IconStar, IconCrown, IconHeart, IconMeat, IconCoin, IconSparkles,
   IconScroll, IconLightning, IconSwords, IconHouse, IconCatFace,
 } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
@@ -150,6 +150,18 @@ const GAMES: GameMeta[] = [
     accent: '#166534',
     Icon: IconCoin,
     preview: [IconCoin, IconStar, IconCoin],
+  },
+  {
+    id: 'paw_doku' as GameType,
+    href: '/games/paw-doku',
+    title: 'PAW DOKU',
+    desc: 'Drop blocks. Clear lines. Chain combos.',
+    bg: 'linear-gradient(135deg, #F3E8FF, #E9D5FF)',
+    border: '#A78BFA',
+    shadow: '#4C1D95',
+    accent: '#4C1D95',
+    Icon: IconSparkles,
+    preview: [IconSparkles, IconHeart, IconStar],
   },
 ]
 
