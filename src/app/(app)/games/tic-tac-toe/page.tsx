@@ -371,6 +371,18 @@ export default function TicTacToePage() {
               <RefreshCw size={10} />
               AGAIN
             </button>
+            <button onClick={() => { playSound('ui_back'); router.back() }}
+              className="px-3 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-1.5"
+              style={{
+                background: 'rgba(0,0,0,0.55)',
+                border: '2px solid rgba(255,255,255,0.4)',
+                borderRadius: 3,
+                fontFamily: '"Press Start 2P"',
+                fontSize: 7,
+                letterSpacing: 1.5,
+              }}>
+              EXIT
+            </button>
           </div>
         </div>
       )}

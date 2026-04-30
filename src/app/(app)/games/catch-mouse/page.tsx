@@ -431,6 +431,11 @@ export default function CatchMouseGame() {
                     style={{ background: 'linear-gradient(135deg, #FF6B9D, #C084FC)', borderRadius: 3, border: '2px solid #CC3366', boxShadow: '2px 2px 0 #991A4A', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                     <RefreshCw size={10} /> RETRY
                   </button>
+                  <button onClick={() => { playSound('ui_back'); router.back() }}
+                    className="px-4 py-2 text-white active:translate-y-[1px] transition-transform"
+                    style={{ background: 'linear-gradient(135deg, #475569, #1F2937)', borderRadius: 3, border: '2px solid #0F172A', boxShadow: '2px 2px 0 #0F172A', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
+                    EXIT
+                  </button>
                 </div>
               </>
             )}

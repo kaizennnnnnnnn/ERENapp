@@ -410,17 +410,30 @@ export default function LaneRunnerGame() {
                 </div>
               </div>
               <span className="font-pixel" style={{ fontSize: 6, color: '#9CA3AF', marginTop: 4 }}>BEST {bestScore}</span>
-              <button onClick={() => { playSound('ui_tap'); reset() }}
-                className="mt-2 px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-                style={{
-                  background: 'linear-gradient(135deg, #16A34A 0%, #166534 100%)',
-                  border: '2px solid #052e16',
-                  borderRadius: 3,
-                  boxShadow: '0 4px 0 #052e16',
-                  fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5,
-                }}>
-                <RefreshCw size={11} /> AGAIN
-              </button>
+              <div className="flex items-center gap-2 mt-2">
+                <button onClick={() => { playSound('ui_tap'); reset() }}
+                  className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
+                  style={{
+                    background: 'linear-gradient(135deg, #16A34A 0%, #166534 100%)',
+                    border: '2px solid #052e16',
+                    borderRadius: 3,
+                    boxShadow: '0 4px 0 #052e16',
+                    fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5,
+                  }}>
+                  <RefreshCw size={11} /> AGAIN
+                </button>
+                <button onClick={() => { playSound('ui_back'); router.back() }}
+                  className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
+                  style={{
+                    background: 'linear-gradient(135deg, #475569 0%, #1F2937 100%)',
+                    border: '2px solid #0F172A',
+                    borderRadius: 3,
+                    boxShadow: '0 4px 0 #0F172A',
+                    fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5,
+                  }}>
+                  EXIT
+                </button>
+              </div>
             </div>
           </div>
         )}

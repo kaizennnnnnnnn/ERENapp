@@ -22,14 +22,16 @@ import { playSound } from '@/lib/sounds'
 import { IconStar, IconSparkles } from '@/components/PixelIcons'
 
 // ─── Tunables ───────────────────────────────────────────────────────────────
-const GRID_SIZE       = 8
-const CELL_PX         = 38       // grid cell pixel size (drives container width)
+const GRID_SIZE       = 9        // 9×9 sudoku-style grid
+const SUB_SIZE        = 3        // 3×3 sub-blocks clear when fully filled
+const CELL_PX         = 34       // grid cell pixel size (drives container width)
 const CELL_GAP        = 3
-const TRAY_CELL_PX    = 20       // smaller cells while sitting in the tray
+const TRAY_CELL_PX    = 18       // smaller cells while sitting in the tray
 const TRAY_CELL_GAP   = 2
 const DRAG_LIFT       = 56       // px the dragged block floats above the finger
 const SCORE_PER_CELL  = 10
-const SCORE_PER_LINE  = 100      // base; multi-line earns combo bonus
+const SCORE_PER_LINE  = 100      // base for any cleared row / col / sub-block
+                                 // multi-clear earns combo bonus
 
 // Width/height of the grid (in CSS px)
 const GRID_PX = GRID_SIZE * CELL_PX + (GRID_SIZE - 1) * CELL_GAP
@@ -37,19 +39,25 @@ const GRID_PX = GRID_SIZE * CELL_PX + (GRID_SIZE - 1) * CELL_GAP
 // ─── Block shape templates ──────────────────────────────────────────────────
 // Each template is a 2-D matrix of 0/1 indicating filled cells. The shape is
 // rendered at whatever cell size the host wants (tray vs grid vs drag ghost).
+// Shape pool. The 3×3 square has been removed (too big — would fill an
+// entire sub-block in one move). The 1×1 single is duplicated three times
+// so it spawns more often (it's the most useful "rescue" piece for filling
+// awkward gaps). The 2×2 square is the biggest pure square here.
 const SHAPES: number[][][] = [
-  // Singles & lines
+  // Singles (weighted higher — 3 entries)
   [[1]],
+  [[1]],
+  [[1]],
+  // Lines
   [[1,1]], [[1],[1]],
   [[1,1,1]], [[1],[1],[1]],
   [[1,1,1,1]], [[1],[1],[1],[1]],
   [[1,1,1,1,1]], [[1],[1],[1],[1],[1]],
-  // Squares
+  // Squares (only 2×2 — 3×3 was removed per design)
   [[1,1],[1,1]],
-  [[1,1,1],[1,1,1],[1,1,1]],
   // L / J corners (small)
   [[1,1],[1,0]], [[1,1],[0,1]], [[1,0],[1,1]], [[0,1],[1,1]],
-  // L / J (3x2)
+  // L / J (3×2)
   [[1,0],[1,0],[1,1]],
   [[0,1],[0,1],[1,1]],
   [[1,1],[1,0],[1,0]],
@@ -156,10 +164,39 @@ function findClearedLines(grid: Grid): { rows: number[]; cols: number[] } {
   return { rows, cols }
 }
 
-function markClearing(grid: Grid, rows: number[], cols: number[]): Grid {
+// Sudoku-style: find any 3×3 sub-block whose every cell is filled.
+function findClearedSubBlocks(grid: Grid): Array<{ r: number; c: number }> {
+  const blocks: Array<{ r: number; c: number }> = []
+  for (let br = 0; br < GRID_SIZE; br += SUB_SIZE) {
+    for (let bc = 0; bc < GRID_SIZE; bc += SUB_SIZE) {
+      let full = true
+      for (let r = br; r < br + SUB_SIZE && full; r++) {
+        for (let c = bc; c < bc + SUB_SIZE && full; c++) {
+          if (grid[r][c] === null) full = false
+        }
+      }
+      if (full) blocks.push({ r: br, c: bc })
+    }
+  }
+  return blocks
+}
+
+function markClearing(
+  grid: Grid,
+  rows: number[],
+  cols: number[],
+  subs: Array<{ r: number; c: number }>,
+): Grid {
   const ng = gridCopy(grid)
   rows.forEach(r => { for (let c = 0; c < GRID_SIZE; c++) if (ng[r][c]) ng[r][c]!.clearing = true })
   cols.forEach(c => { for (let r = 0; r < GRID_SIZE; r++) if (ng[r][c]) ng[r][c]!.clearing = true })
+  subs.forEach(({ r, c }) => {
+    for (let dr = 0; dr < SUB_SIZE; dr++) {
+      for (let dc = 0; dc < SUB_SIZE; dc++) {
+        if (ng[r + dr][c + dc]) ng[r + dr][c + dc]!.clearing = true
+      }
+    }
+  })
   return ng
 }
 
@@ -167,6 +204,18 @@ function clearLines(grid: Grid, rows: number[], cols: number[]): Grid {
   const ng = gridCopy(grid)
   rows.forEach(r => { ng[r] = Array(GRID_SIZE).fill(null) })
   cols.forEach(c => { for (let r = 0; r < GRID_SIZE; r++) ng[r][c] = null })
+  return ng
+}
+
+function clearSubBlocks(grid: Grid, subs: Array<{ r: number; c: number }>): Grid {
+  const ng = gridCopy(grid)
+  subs.forEach(({ r, c }) => {
+    for (let dr = 0; dr < SUB_SIZE; dr++) {
+      for (let dc = 0; dc < SUB_SIZE; dc++) {
+        ng[r + dr][c + dc] = null
+      }
+    }
+  })
   return ng
 }
 
@@ -342,28 +391,31 @@ export default function PawDokuGame() {
     let gained = placedCells * SCORE_PER_CELL
     playSound('ui_modal_close')
 
-    // Detect line clears
+    // Detect every kind of clear: full rows, full columns, full 3×3
+    // sub-blocks. They're all batched and counted together for combo.
     const { rows, cols } = findClearedLines(g)
-    const totalLines = rows.length + cols.length
+    const subs = findClearedSubBlocks(g)
+    const totalClears = rows.length + cols.length + subs.length
 
-    if (totalLines > 0) {
+    if (totalClears > 0) {
       // Show clearing flash, then nuke the cells next frame
-      g = markClearing(g, rows, cols)
+      g = markClearing(g, rows, cols, subs)
       setGrid(g)
-      // Score: base + escalating bonus per simultaneous line
-      const lineBonus = totalLines * SCORE_PER_LINE
-      const comboMult = totalLines >= 2 ? totalLines : 1
+      // Score: base + escalating bonus per simultaneous clear
+      const lineBonus = totalClears * SCORE_PER_LINE
+      const comboMult = totalClears >= 2 ? totalClears : 1
       gained += lineBonus * comboMult
-      setCombo(totalLines)
+      setCombo(totalClears)
       setTimeout(() => setCombo(0), 850)
 
       flashFloater(
-        totalLines >= 2 ? `${gained}  COMBO x${totalLines}!` : `+${gained}`,
-        totalLines >= 3 ? '#FBBF24' : totalLines === 2 ? '#FBCFE8' : '#A3F0C0'
+        totalClears >= 2 ? `${gained}  COMBO x${totalClears}!` : `+${gained}`,
+        totalClears >= 3 ? '#FBBF24' : totalClears === 2 ? '#FBCFE8' : '#A3F0C0'
       )
 
       setTimeout(() => {
-        const cleared = clearLines(g, rows, cols)
+        let cleared = clearLines(g, rows, cols)
+        cleared = clearSubBlocks(cleared, subs)
         setGrid(cleared)
         afterPlace(cleared, draggedIdx, gained)
       }, 280)
@@ -495,6 +547,31 @@ export default function PawDokuGame() {
             )
           })}
 
+          {/* Sudoku-style 3×3 sub-block divider lines. Two horizontals at
+              row 3 and row 6, two verticals at col 3 and col 6 — sit on top
+              of the cells via z-index so the boundaries stay visible even
+              when cells are filled. */}
+          {[1, 2].map(i => (
+            <div key={`h-${i}`} className="absolute pointer-events-none" style={{
+              left: 0, right: 0,
+              top: i * SUB_SIZE * (CELL_PX + CELL_GAP) - CELL_GAP - 0.5,
+              height: 2,
+              background: 'rgba(251,191,36,0.55)',
+              boxShadow: '0 0 6px rgba(251,191,36,0.5)',
+              zIndex: 2,
+            }} />
+          ))}
+          {[1, 2].map(i => (
+            <div key={`v-${i}`} className="absolute pointer-events-none" style={{
+              top: 0, bottom: 0,
+              left: i * SUB_SIZE * (CELL_PX + CELL_GAP) - CELL_GAP - 0.5,
+              width: 2,
+              background: 'rgba(251,191,36,0.55)',
+              boxShadow: '0 0 6px rgba(251,191,36,0.5)',
+              zIndex: 2,
+            }} />
+          ))}
+
           {/* Tiny gold rivet corners on the grid frame */}
           <div style={{ position: 'absolute', top: 4, left: 4, width: 4, height: 4, background: '#FBBF24' }} />
           <div style={{ position: 'absolute', top: 4, right: 4, width: 4, height: 4, background: '#FBBF24' }} />
@@ -561,8 +638,8 @@ export default function PawDokuGame() {
               filter: 'drop-shadow(0 0 6px rgba(253,230,138,0.5))' }}>PAW DOKU</p>
             <div className="font-pixel text-center" style={{ fontSize: 6, color: '#C4B5FD', letterSpacing: 1, lineHeight: 1.8 }}>
               <p>DRAG BLOCKS ONTO THE GRID</p>
-              <p>FILL A ROW OR COLUMN TO CLEAR IT</p>
-              <p style={{ color: '#FBBF24' }}>MULTI-LINE CLEARS = COMBO BONUS</p>
+              <p>FILL A ROW · COL · OR 3X3 BLOCK</p>
+              <p style={{ color: '#FBBF24' }}>MULTI-CLEARS = COMBO BONUS</p>
             </div>
             <button onClick={() => { playSound('ui_tap'); startGame() }}
               className="mt-1 px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
@@ -603,17 +680,30 @@ export default function PawDokuGame() {
                 <span className="font-pixel" style={{ fontSize: 22, color: '#FDE68A' }}>{bestScore}</span>
               </div>
             </div>
-            <button onClick={() => { playSound('ui_tap'); startGame() }}
-              className="mt-3 px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-              style={{
-                background: 'linear-gradient(135deg, #A78BFA 0%, #7C3AED 100%)',
-                border: '2px solid #4C1D95',
-                borderRadius: 3,
-                boxShadow: '0 4px 0 #4C1D95',
-                fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5,
-              }}>
-              <RefreshCw size={11} /> AGAIN
-            </button>
+            <div className="flex items-center gap-2 mt-3">
+              <button onClick={() => { playSound('ui_tap'); startGame() }}
+                className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
+                style={{
+                  background: 'linear-gradient(135deg, #A78BFA 0%, #7C3AED 100%)',
+                  border: '2px solid #4C1D95',
+                  borderRadius: 3,
+                  boxShadow: '0 4px 0 #4C1D95',
+                  fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5,
+                }}>
+                <RefreshCw size={11} /> AGAIN
+              </button>
+              <button onClick={() => { playSound('ui_back'); router.back() }}
+                className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
+                style={{
+                  background: 'linear-gradient(135deg, #475569 0%, #1F2937 100%)',
+                  border: '2px solid #0F172A',
+                  borderRadius: 3,
+                  boxShadow: '0 4px 0 #0F172A',
+                  fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5,
+                }}>
+                EXIT
+              </button>
+            </div>
           </div>
         </div>
       )}
