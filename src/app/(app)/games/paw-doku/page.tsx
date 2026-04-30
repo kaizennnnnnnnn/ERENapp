@@ -263,7 +263,9 @@ export default function PawDokuGame() {
   const [tray,      setTray]      = useState<(Block | null)[]>(() => [null, null, null])
   const [score,     setScore]     = useState(0)
   const [bestScore, setBest]      = useState(0)
-  const [combo,     setCombo]     = useState(0)
+  const [combo,     setCombo]     = useState(0)            // # of clears in this placement
+  const [streak,    setStreak]    = useState(0)            // # of consecutive placements that cleared
+  const [gridFlash, setGridFlash] = useState(0)            // re-keys the grid-wide flash overlay
   const [floater,   setFloater]   = useState<{ id: number; text: string; color: string } | null>(null)
   const savedRef = useRef(false)
 
@@ -351,6 +353,7 @@ export default function PawDokuGame() {
     setTray(nextTray())
     setScore(0)
     setCombo(0)
+    setStreak(0)
     setPhase('playing')
     savedRef.current = false
     setDraggedIdx(null)
@@ -412,20 +415,44 @@ export default function PawDokuGame() {
     const totalClears = rows.length + cols.length + subs.length
 
     if (totalClears > 0) {
-      // Show clearing flash, then nuke the cells next frame
-      g = markClearing(g, rows, cols, subs)
-      setGrid(g)
       // Score: base + escalating bonus per simultaneous clear
       const lineBonus = totalClears * SCORE_PER_LINE
       const comboMult = totalClears >= 2 ? totalClears : 1
       gained += lineBonus * comboMult
+
+      // Streak bonus — consecutive placements that cleared. The first
+      // clear in a streak (newStreak === 1) adds nothing extra; from
+      // newStreak === 2 onward we add 50% of the gained-so-far per
+      // streak level beyond the first. So x2 streak → +50%, x3 → +100%,
+      // x4 → +150%.
+      const newStreak = streak + 1
+      if (newStreak >= 2) {
+        const streakBonus = Math.floor(gained * 0.5 * (newStreak - 1))
+        gained += streakBonus
+      }
+      setStreak(newStreak)
+
+      // Show clearing flash, then nuke the cells next frame
+      g = markClearing(g, rows, cols, subs)
+      setGrid(g)
       setCombo(totalClears)
+      setGridFlash(f => f + 1)
       setTimeout(() => setCombo(0), 850)
 
-      flashFloater(
-        totalClears >= 2 ? `${gained}  COMBO x${totalClears}!` : `+${gained}`,
-        totalClears >= 3 ? '#FBBF24' : totalClears === 2 ? '#FBCFE8' : '#A3F0C0'
-      )
+      // Floater colour: gold for x3+ clears, pink for streaks ≥ 2,
+      // mint for the regular case.
+      const floaterColor = totalClears >= 3 ? '#FBBF24'
+                         : newStreak >= 2   ? '#FF9EC8'
+                         : totalClears >= 2 ? '#FBCFE8'
+                                            : '#A3F0C0'
+      const floaterText = totalClears >= 2 && newStreak >= 2
+                          ? `${gained}  x${totalClears} · STREAK x${newStreak}!`
+                          : totalClears >= 2
+                            ? `${gained}  COMBO x${totalClears}!`
+                            : newStreak >= 2
+                              ? `${gained}  STREAK x${newStreak}!`
+                              : `+${gained}`
+      flashFloater(floaterText, floaterColor)
 
       setTimeout(() => {
         let cleared = clearLines(g, rows, cols)
@@ -434,6 +461,8 @@ export default function PawDokuGame() {
         afterPlace(cleared, draggedIdx, gained)
       }, 280)
     } else {
+      // No clear — reset the streak.
+      setStreak(0)
       setGrid(g)
       flashFloater(`+${gained}`, '#A3F0C0')
       afterPlace(g, draggedIdx, gained)
@@ -501,17 +530,37 @@ export default function PawDokuGame() {
           <div className="font-pixel" style={{ fontSize: 6, color: '#C4B5FD', letterSpacing: 2 }}>SCORE</div>
           <div className="font-pixel" style={{ fontSize: 22, color: '#FFFFFF', textShadow: '2px 2px 0 #2E0F5C', letterSpacing: 1 }}>{score}</div>
         </div>
-        {combo > 1 && (
-          <div className="font-pixel" style={{
-            background: 'rgba(0,0,0,0.5)',
-            border: '2px solid #FBBF24',
-            borderRadius: 3,
-            padding: '4px 10px',
-            fontSize: 9, color: '#FBBF24', letterSpacing: 2,
-            boxShadow: '0 0 14px rgba(251,191,36,0.5)',
-            animation: 'pdCombo 0.6s ease-out',
-          }}>
-            COMBO x{combo}
+        {/* Combo / streak HUD pill — combo (multi-clear in one drop) takes
+            precedence; streak shows when the player has chained clears
+            across multiple drops. */}
+        {(combo > 1 || streak > 1) && (
+          <div className="flex items-center gap-1.5">
+            {combo > 1 && (
+              <div key={`combo-${combo}`} className="font-pixel" style={{
+                background: 'rgba(0,0,0,0.5)',
+                border: '2px solid #FBBF24',
+                borderRadius: 3,
+                padding: '4px 10px',
+                fontSize: 9, color: '#FBBF24', letterSpacing: 2,
+                boxShadow: '0 0 14px rgba(251,191,36,0.5)',
+                animation: 'pdCombo 0.6s ease-out',
+              }}>
+                COMBO x{combo}
+              </div>
+            )}
+            {streak > 1 && (
+              <div key={`streak-${streak}`} className="font-pixel" style={{
+                background: 'linear-gradient(135deg, #DB2777, #831843)',
+                border: '2px solid #FFD700',
+                borderRadius: 3,
+                padding: '4px 10px',
+                fontSize: 9, color: '#FFFFFF', letterSpacing: 2,
+                boxShadow: '0 0 14px rgba(236,72,153,0.55), 0 0 20px rgba(255,215,0,0.35)',
+                animation: 'pdStreak 0.55s ease-out',
+              }}>
+                STREAK x{streak}
+              </div>
+            )}
           </div>
         )}
         <div className="text-right">
@@ -591,6 +640,18 @@ export default function PawDokuGame() {
           <div style={{ position: 'absolute', top: 4, right: 4, width: 4, height: 4, background: '#FBBF24' }} />
           <div style={{ position: 'absolute', bottom: 4, left: 4, width: 4, height: 4, background: '#FBBF24' }} />
           <div style={{ position: 'absolute', bottom: 4, right: 4, width: 4, height: 4, background: '#FBBF24' }} />
+
+          {/* Grid-wide clear flash — re-keyed on every clear so the
+              animation re-fires for back-to-back placements. Sits on top
+              of cells so it briefly washes the whole board white-gold. */}
+          {gridFlash > 0 && (
+            <div key={gridFlash} className="absolute inset-0 pointer-events-none" style={{
+              background: 'radial-gradient(ellipse at center, rgba(253,230,138,0.55) 0%, rgba(244,114,182,0.25) 40%, transparent 75%)',
+              animation: 'pdGridFlash 0.45s ease-out forwards',
+              zIndex: 5,
+              borderRadius: 6,
+            }} />
+          )}
         </div>
 
         {/* Floater */}
@@ -609,21 +670,27 @@ export default function PawDokuGame() {
         )}
       </div>
 
-      {/* Tray */}
+      {/* Tray — pointerDown sits on the WHOLE slot div so the player can
+          tap anywhere in the 1/3-screen-wide cell, not just on a filled
+          pixel of the small block sprite. Big mobile-friendly grab zone. */}
       <div className="flex-shrink-0 px-3 pb-4 pt-2 flex items-center justify-around" style={{ minHeight: 120 }}>
         {tray.map((block, idx) => (
-          <div key={idx} className="flex items-center justify-center"
-            style={{ flex: 1, minHeight: 110 }}>
+          <div key={idx}
+            onPointerDown={block ? e => handleBlockPointerDown(e, idx) : undefined}
+            className="flex items-center justify-center"
+            style={{
+              flex: 1, minHeight: 110,
+              touchAction: 'none',
+              cursor: block ? 'grab' : 'default',
+            }}>
             {block && (
-              <div onPointerDown={e => handleBlockPointerDown(e, idx)}
-                className="cursor-grab"
-                style={{
-                  touchAction: 'none',
-                  opacity: draggedIdx === idx ? 0.25 : 1,
-                  transition: 'opacity 0.15s, transform 0.15s',
-                  transform: draggedIdx === idx ? 'scale(0.9)' : 'scale(1)',
-                  filter: 'drop-shadow(0 3px 0 rgba(0,0,0,0.4))',
-                }}>
+              <div style={{
+                opacity: draggedIdx === idx ? 0.25 : 1,
+                transition: 'opacity 0.15s, transform 0.15s',
+                transform: draggedIdx === idx ? 'scale(0.9)' : 'scale(1)',
+                filter: 'drop-shadow(0 3px 0 rgba(0,0,0,0.4))',
+                pointerEvents: 'none',
+              }}>
                 <BlockSprite shape={block.shape} color={block.color} cellSize={TRAY_CELL_PX} cellGap={TRAY_CELL_GAP} />
               </div>
             )}
@@ -737,10 +804,27 @@ export default function PawDokuGame() {
           25%  { opacity: 1; transform: translateY(-6px) scale(1.1); }
           100% { opacity: 0; transform: translateY(-30px) scale(0.95); }
         }
+        /* Cell destruction — punchier than a plain scale-fade. Cells
+           briefly flash white-bright, scale up while rotating, then
+           collapse to nothing as they blur out. Together with the
+           grid-wide flash it sells the "boom" of a clear. */
         @keyframes pdClear {
-          0%   { transform: scale(1);    opacity: 1; filter: brightness(1.0); }
-          40%  { transform: scale(1.18); opacity: 1; filter: brightness(1.6); }
-          100% { transform: scale(0);    opacity: 0; filter: brightness(2.0); }
+          0%   { transform: scale(1)    rotate(0deg);  opacity: 1; filter: brightness(1.0)  blur(0); }
+          25%  { transform: scale(1.32) rotate(-8deg); opacity: 1; filter: brightness(2.6)  blur(0); }
+          55%  { transform: scale(1.12) rotate(10deg); opacity: 0.85; filter: brightness(2.2) blur(1px); }
+          100% { transform: scale(0)    rotate(22deg); opacity: 0; filter: brightness(3.0) blur(3px); }
+        }
+        /* Grid-wide flash overlay that pulses on every clear */
+        @keyframes pdGridFlash {
+          0%   { opacity: 0; transform: scale(0.94); }
+          25%  { opacity: 1; transform: scale(1.04); }
+          100% { opacity: 0; transform: scale(1.12); }
+        }
+        /* Streak HUD pill bounce-in */
+        @keyframes pdStreak {
+          0%   { transform: scale(0.6) rotate(-4deg); opacity: 0; }
+          45%  { transform: scale(1.25) rotate(3deg); opacity: 1; }
+          100% { transform: scale(1)    rotate(0deg);  opacity: 1; }
         }
       `}</style>
       {/* keep imports referenced */}
