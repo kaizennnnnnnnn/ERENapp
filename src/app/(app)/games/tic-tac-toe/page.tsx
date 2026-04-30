@@ -448,12 +448,12 @@ export default function TicTacToePage() {
           80%  { transform: rotate(-6deg); }
           100% { transform: rotate(-10deg); }
         }
-        /* Ear flick — both ears twitch in unison every ~5s (alert
-           micro-motion). Only a 1-px lift, kept rare so it reads as
-           reaction not animation noise. */
+        /* Ear sway — slow continuous tiny rotation about the head, no
+           translateY jump. ±0.6° is barely perceptible per frame but
+           reads as gentle "alive" motion at glance distance. */
         @keyframes erenEarFlick {
-          0%, 88%, 100% { transform: translateY(0); }
-          92%, 96%      { transform: translateY(-1px); }
+          0%, 100% { transform: rotate(-0.6deg); }
+          50%      { transform: rotate(0.6deg); }
         }
         /* Eye blink — every 5.5s for a natural rhythm. */
         @keyframes erenLapBlink {
@@ -677,22 +677,24 @@ function ErenSideLapping({ size = 72 }: { size?: number }) {
         shapeRendering="crispEdges"
         style={{ imageRendering: 'pixelated', overflow: 'visible' }}
       >
-        {/* ─── TAIL — fat S-curl, anchored at the body's rear, wiggles
-            with a punchy asymmetric flick. transformOrigin sits at the
-            base of the tail so the tip swings further than the root. */}
+        {/* ─── TAIL — gray fur with brown outline, fat S-curl that
+            wiggles with a punchy asymmetric flick. transformOrigin sits
+            at the base so the tip swings further than the root. */}
         <g style={{ transformOrigin: '15px 4px', animation: 'erenTailWiggle 1.4s ease-in-out infinite' }}>
           {/* tip */}
           <rect x="15" y="0" width="2" height="1" fill="#4A2E1A" />
           <rect x="14" y="1" width="1" height="1" fill="#4A2E1A" />
           <rect x="17" y="1" width="1" height="1" fill="#4A2E1A" />
-          <rect x="15" y="1" width="2" height="1" fill="#F9EDD5" />
+          <rect x="15" y="1" width="2" height="1" fill="#9CA3AF" />
           {/* mid curl */}
           <rect x="14" y="2" width="1" height="2" fill="#4A2E1A" />
           <rect x="17" y="2" width="1" height="2" fill="#4A2E1A" />
-          <rect x="15" y="2" width="2" height="2" fill="#F9EDD5" />
+          <rect x="15" y="2" width="2" height="2" fill="#9CA3AF" />
           {/* base into body */}
           <rect x="13" y="4" width="4" height="1" fill="#4A2E1A" />
-          <rect x="14" y="4" width="2" height="1" fill="#F9EDD5" />
+          <rect x="14" y="4" width="2" height="1" fill="#9CA3AF" />
+          {/* subtle lighter-gray highlight along the inner curve */}
+          <rect x="15" y="1" width="1" height="3" fill="#D1D5DB" />
         </g>
 
         {/* ─── CREAM SILHOUETTE — head + snout + body ─────────────── */}
@@ -706,9 +708,10 @@ function ErenSideLapping({ size = 72 }: { size?: number }) {
         <rect x="3" y="2" width="2" height="1" fill="#F9EDD5" />
         <rect x="6" y="2" width="2" height="1" fill="#F9EDD5" />
 
-        {/* ─── EARS — wrap in a group so they can do tiny periodic
-            flicks (alert pose) without affecting the rest of the body. */}
-        <g style={{ transformOrigin: '5px 2px', animation: 'erenEarFlick 4.8s ease-in-out infinite' }}>
+        {/* ─── EARS — grouped so they can do a tiny continuous sway.
+            (Earlier translateY-jump version read as a startled twitch;
+            this is a soft constant breathing motion instead.) */}
+        <g style={{ transformOrigin: '5px 2px', animation: 'erenEarFlick 3.4s ease-in-out infinite' }}>
           {/* Front ear */}
           <rect x="3" y="0" width="2" height="1" fill="#4A2E1A" />
           <rect x="2" y="1" width="1" height="1" fill="#4A2E1A" />
