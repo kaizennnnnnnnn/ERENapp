@@ -40,23 +40,35 @@ const GRID_PX = GRID_SIZE * CELL_PX + (GRID_SIZE - 1) * CELL_GAP
 // Each template is a 2-D matrix of 0/1 indicating filled cells. The shape is
 // rendered at whatever cell size the host wants (tray vs grid vs drag ghost).
 // Shape pool. The 3×3 square has been removed (too big — would fill an
-// entire sub-block in one move). The 1×1 single is duplicated three times
-// so it spawns more often (it's the most useful "rescue" piece for filling
-// awkward gaps). The 2×2 square is the biggest pure square here.
+// entire sub-block in one move). The 1×1 single is duplicated 3× so it
+// spawns reliably as a rescue piece. Vertical lines are duplicated 2× —
+// the original pool had 1 entry per length and players reported never
+// seeing them, so they now match horizontals on weight. 2×3 + 3×2 full
+// rectangles added per feedback ("almost-3×3").
 const SHAPES: number[][][] = [
-  // Singles (weighted higher — 3 entries)
-  [[1]],
-  [[1]],
-  [[1]],
-  // Lines
-  [[1,1]], [[1],[1]],
-  [[1,1,1]], [[1],[1],[1]],
-  [[1,1,1,1]], [[1],[1],[1],[1]],
-  [[1,1,1,1,1]], [[1],[1],[1],[1],[1]],
-  // Squares (only 2×2 — 3×3 was removed per design)
+  // Singles (3 entries)
+  [[1]], [[1]], [[1]],
+
+  // Horizontal lines (one entry each)
+  [[1,1]],
+  [[1,1,1]],
+  [[1,1,1,1]],
+  [[1,1,1,1,1]],
+
+  // Vertical lines (two entries each — bumped weight)
+  [[1],[1]],             [[1],[1]],
+  [[1],[1],[1]],         [[1],[1],[1]],
+  [[1],[1],[1],[1]],     [[1],[1],[1],[1]],
+  [[1],[1],[1],[1],[1]], [[1],[1],[1],[1],[1]],
+
+  // Squares & rectangles (the new 2×3 + 3×2 are the "almost-3×3" pieces)
   [[1,1],[1,1]],
-  // L / J corners (small)
+  [[1,1,1],[1,1,1]],
+  [[1,1],[1,1],[1,1]],
+
+  // L / J corners (small 2×2 with one corner empty)
   [[1,1],[1,0]], [[1,1],[0,1]], [[1,0],[1,1]], [[0,1],[1,1]],
+
   // L / J (3×2)
   [[1,0],[1,0],[1,1]],
   [[0,1],[0,1],[1,1]],
@@ -66,11 +78,13 @@ const SHAPES: number[][][] = [
   [[1,1,1],[0,0,1]],
   [[1,0,0],[1,1,1]],
   [[0,0,1],[1,1,1]],
+
   // T pieces
   [[1,1,1],[0,1,0]],
   [[0,1,0],[1,1,1]],
   [[0,1],[1,1],[0,1]],
   [[1,0],[1,1],[1,0]],
+
   // S / Z
   [[0,1,1],[1,1,0]],
   [[1,1,0],[0,1,1]],
