@@ -7,6 +7,7 @@
 @layer base {
   :root {
     --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-top:    env(safe-area-inset-top, 0px);
   }
 
   html {
@@ -41,8 +42,17 @@
   /* ── Page scroll area (above bottom nav) ── */
   .page-scroll {
     @apply pb-8 px-4 overflow-y-auto;
-    padding-top: 108px;
+    /* StatsHeader is 108px tall; add the iOS safe-area on top so the
+       first row of content clears the (now safe-area-padded) header. */
+    padding-top: calc(108px + var(--safe-top));
     min-height: 100dvh;
+  }
+
+  /* ── Mini-game shell — full-screen overlay that reserves the iOS
+        safe-area at the top so the back button doesn't slide under
+        the status bar in PWA mode. Apply alongside `fixed inset-0`. ── */
+  .game-shell {
+    padding-top: var(--safe-top);
   }
 
   /* ── Cards ── */

@@ -23,6 +23,9 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   themeColor: '#FDF6FF',
+  // viewport-fit: cover makes env(safe-area-inset-*) actually return real
+  // values on iOS PWA — without it the inset env() values are zero.
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

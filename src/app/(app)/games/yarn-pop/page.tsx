@@ -304,7 +304,7 @@ export default function YarnPopGame() {
   }, [phase]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col" style={{
+    <div className="fixed inset-0 z-40 flex flex-col game-shell" style={{
       background: 'radial-gradient(ellipse at top, #500A38 0%, #2C0623 55%, #170210 100%)',
     }}>
       {/* Header */}

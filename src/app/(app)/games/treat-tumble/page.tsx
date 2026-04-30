@@ -558,7 +558,7 @@ export default function TreatTumbleGame() {
   const timePct = (timeLeft / GAME_DURATION) * 100
 
   return (
-    <div className="fixed inset-0 z-40 overflow-hidden select-none"
+    <div className="fixed inset-0 z-40 overflow-hidden select-none game-shell"
       style={{
         background: 'linear-gradient(180deg, #FEF3C7 0%, #FDE68A 40%, #FBBF24 100%)',
         touchAction: 'none',

@@ -30,9 +30,12 @@ export default function StatsHeader() {
   if (hideStats || activeScene === 'school') return null
 
   return (
-    <div className="w-full px-3 pt-3 pb-2 flex flex-col gap-2"
+    <div className="w-full px-3 pb-2 flex flex-col gap-2"
       style={{
         pointerEvents: 'auto',
+        // Reserve the iOS PWA safe-area at the top, then add the
+        // 12-px breathing room the design originally used (pt-3).
+        paddingTop: 'calc(var(--safe-top) + 12px)',
         background: 'linear-gradient(180deg, rgba(18,10,35,0.94) 0%, rgba(18,10,35,0.88) 75%, rgba(18,10,35,0.5) 100%)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',

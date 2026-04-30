@@ -238,7 +238,7 @@ export default function MemoryMatchGame() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-40 overflow-hidden select-none"
+    <div className="fixed inset-0 z-40 overflow-hidden select-none game-shell"
       style={{
         background: 'linear-gradient(180deg, #1A0A33 0%, #2D1659 45%, #4C1D95 100%)',
         touchAction: 'none',

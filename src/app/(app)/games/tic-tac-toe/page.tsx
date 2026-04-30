@@ -205,7 +205,7 @@ export default function TicTacToePage() {
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-40 flex flex-col" style={{
+    <div className="fixed inset-0 z-40 flex flex-col game-shell" style={{
       background: 'radial-gradient(ellipse at top, #2D1659 0%, #1A0A33 55%, #0F0620 100%)',
     }}>
 

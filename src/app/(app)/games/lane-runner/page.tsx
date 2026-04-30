@@ -262,7 +262,7 @@ export default function LaneRunnerGame() {
   }, [])
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col" style={{ background: '#0F0A1E' }}>
+    <div className="fixed inset-0 z-40 flex flex-col game-shell" style={{ background: '#0F0A1E' }}>
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0 relative z-30" style={{
         background: 'rgba(0,0,0,0.55)',

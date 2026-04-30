@@ -157,7 +157,10 @@ export default function GamesPage() {
   const router = useRouter()
   const { user } = useAuth()
   const { setHideStats } = useCare()
-  useEffect(() => { setHideStats(false) }, [setHideStats])
+  // Hide the persistent StatsHeader on the games page — the page has its
+  // own glass header with a back button, and the StatsHeader was covering
+  // it in iOS PWA mode. Stats are still visible on /home and /care scenes.
+  useEffect(() => { setHideStats(true) }, [setHideStats])
   const supabase = createClient()
 
   // Just my own personal-bests for the per-card score chip — the full
@@ -187,7 +190,10 @@ export default function GamesPage() {
       background: 'radial-gradient(ellipse at top, #2C1659 0%, #170B33 55%, #08051C 100%)',
       minHeight: '100vh',
       marginLeft: -16, marginRight: -16, marginTop: -16,
-      paddingLeft: 16, paddingRight: 16, paddingTop: 16, paddingBottom: 24,
+      paddingLeft: 16, paddingRight: 16,
+      // StatsHeader is hidden on this page; only reserve the iOS PWA
+      // safe-area at the top so the back button isn't under the status bar.
+      paddingTop: 'calc(var(--safe-top) + 12px)', paddingBottom: 24,
     }}>
       {/* Drifting starfield + scanlines for the academy / arcade vibe */}
       <div className="absolute inset-0 pointer-events-none opacity-50" style={{
