@@ -44,18 +44,6 @@ const GAMES: GameMeta[] = [
     preview: [IconMouse, IconStar, IconStar],
   },
   {
-    id: 'yarn_chase' as GameType,
-    href: '/games/yarn-chase',
-    title: 'YARN CHASE',
-    desc: 'Drag the yarn — let Eren chase it!',
-    bg: 'linear-gradient(135deg, #FFF0F8, #FFE0F0)',
-    border: '#FF6B9D',
-    shadow: '#CC3366',
-    accent: '#CC3366',
-    Icon: IconYarn,
-    preview: [IconYarn, IconHeart, IconPaw],
-  },
-  {
     id: 'paw_tap' as GameType,
     href: '/games/paw-tap',
     title: 'PAW TAP!',
