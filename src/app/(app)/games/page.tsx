@@ -152,18 +152,6 @@ const GAMES: GameMeta[] = [
     preview: [IconCatFace, IconPaw, IconStar],
   },
   {
-    id: 'pawket_pinball' as GameType,
-    href: '/games/pawket-pinball',
-    title: 'PAWKET PINBALL',
-    desc: 'Bumpers, flippers, total chaos.',
-    bg: 'linear-gradient(135deg, #E0E7FF, #C7D2FE)',
-    border: '#4F46E5',
-    shadow: '#312E81',
-    accent: '#312E81',
-    Icon: IconSparkles,
-    preview: [IconStar, IconSparkles, IconStar],
-  },
-  {
     id: 'lane_runner' as GameType,
     href: '/games/lane-runner',
     title: 'LANE RUNNER',
