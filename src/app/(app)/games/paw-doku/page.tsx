@@ -27,7 +27,7 @@ const CELL_PX         = 38       // grid cell pixel size (drives container width
 const CELL_GAP        = 3
 const TRAY_CELL_PX    = 20       // smaller cells while sitting in the tray
 const TRAY_CELL_GAP   = 2
-const DRAG_LIFT       = 90       // px the dragged block floats above the finger
+const DRAG_LIFT       = 56       // px the dragged block floats above the finger
 const SCORE_PER_CELL  = 10
 const SCORE_PER_LINE  = 100      // base; multi-line earns combo bonus
 
@@ -209,10 +209,11 @@ export default function PawDokuGame() {
   const [dragPos,    setDragPos]    = useState({ x: 0, y: 0 })
   const gridRef = useRef<HTMLDivElement>(null)
 
-  // Compute the would-place cell from current pointer position. The dragged
-  // block is rendered with its bottom-centre tracking the pointer minus
-  // DRAG_LIFT — so the player can see what's about to land.
-  function hoverCell(): { r: number; c: number } | null {
+  // Compute the would-place cell from a given pointer position. Defaults
+  // to the live `dragPos` state for render-time previews; the drop handler
+  // calls this with `dragPosRef.current` so it sees the latest position
+  // even when invoked from a stale-closured event listener.
+  function hoverCell(pos: { x: number; y: number } = dragPos): { r: number; c: number } | null {
     if (draggedIdx === null) return null
     const block = tray[draggedIdx]
     if (!block || !gridRef.current) return null
@@ -222,8 +223,8 @@ export default function PawDokuGame() {
     // Block top-left in viewport coords:
     const blockW = cols * CELL_PX + (cols - 1) * CELL_GAP
     const blockH = rows * CELL_PX + (rows - 1) * CELL_GAP
-    const tlX = dragPos.x - blockW / 2
-    const tlY = dragPos.y - blockH - DRAG_LIFT
+    const tlX = pos.x - blockW / 2
+    const tlY = pos.y - blockH - DRAG_LIFT
     // Snap to nearest grid cell
     const c = Math.round((tlX - rect.left) / stride)
     const r = Math.round((tlY - rect.top)  / stride)
@@ -256,19 +257,31 @@ export default function PawDokuGame() {
   })()
 
   // ── Window-level pointer move/up while dragging ──
+  // The window listeners are registered ONCE per drag (deps: [draggedIdx])
+  // so they don't bind every render. But that means they close over a stale
+  // `handleDrop`. We dodge that by storing the always-current handleDrop in
+  // a ref and invoking that ref from the listener — `handleDropRef.current`
+  // is reassigned on every render so it sees the latest dragPos / tray /
+  // grid state. Same goes for the move handler updating the position ref.
+  const dragPosRef     = useRef({ x: 0, y: 0 })
+  const handleDropRef  = useRef<() => void>(() => {})
+
   useEffect(() => {
     if (draggedIdx === null) return
-    function onMove(e: PointerEvent) { setDragPos({ x: e.clientX, y: e.clientY }) }
-    function onUp() { handleDrop() }
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup',   onUp)
+    function onMove(e: PointerEvent) {
+      dragPosRef.current = { x: e.clientX, y: e.clientY }
+      setDragPos({ x: e.clientX, y: e.clientY })
+    }
+    function onUp() { handleDropRef.current() }
+    window.addEventListener('pointermove',   onMove)
+    window.addEventListener('pointerup',     onUp)
     window.addEventListener('pointercancel', onUp)
     return () => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup',   onUp)
+      window.removeEventListener('pointermove',   onMove)
+      window.removeEventListener('pointerup',     onUp)
       window.removeEventListener('pointercancel', onUp)
     }
-  }, [draggedIdx]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [draggedIdx])
 
   function startGame() {
     setGrid(makeEmptyGrid())
@@ -300,6 +313,7 @@ export default function PawDokuGame() {
     e.preventDefault()
     setDraggedIdx(idx)
     setDragPos({ x: e.clientX, y: e.clientY })
+    dragPosRef.current = { x: e.clientX, y: e.clientY }
   }
 
   function flashFloater(text: string, color: string) {
@@ -312,7 +326,9 @@ export default function PawDokuGame() {
     if (draggedIdx === null) { setDraggedIdx(null); return }
     const block = tray[draggedIdx]
     if (!block) { setDraggedIdx(null); return }
-    const target = hoverCell()
+    // Use the ref so we read the LATEST pointer position, not a stale
+    // closure value from when the window listener was registered.
+    const target = hoverCell(dragPosRef.current)
     if (!target || !canPlace(grid, block.shape, target.r, target.c)) {
       // Bounce back
       setDraggedIdx(null)
@@ -378,6 +394,11 @@ export default function PawDokuGame() {
       setTimeout(endGame, 280)
     }
   }
+
+  // Keep the ref pointed at the latest handleDrop closure on every render
+  // so the window-attached pointerup listener calls THIS render's version
+  // (which sees current tray, grid, dragPos via dragPosRef).
+  handleDropRef.current = handleDrop
 
   // ─── Render ───────────────────────────────────────────────────────────────
   const draggedBlock = draggedIdx !== null ? tray[draggedIdx] : null
