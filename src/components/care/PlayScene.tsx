@@ -6,8 +6,9 @@ import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
-import { IconController, IconStar } from '@/components/PixelIcons'
+import { IconController, IconStar, IconCrown } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
+import Leaderboard from '@/components/Leaderboard'
 
 interface Props { onClose: () => void }
 interface BallPos { x: number; y: number }
@@ -26,6 +27,7 @@ export default function PlayScene({ onClose }: Props) {
   const [lookDir,      setLookDir]      = useState<'left'|'right'>('right')
   const [ballMoving,   setBallMoving]   = useState(false)
   const [trailDots,    setTrailDots]    = useState<{id:number;x:number;y:number}[]>([])
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
   const sceneRef = useRef<HTMLDivElement>(null)
   const animRef  = useRef<ReturnType<typeof requestAnimationFrame> | null>(null)
   const trailId  = useRef(0)
@@ -104,6 +106,38 @@ export default function PlayScene({ onClose }: Props) {
         style={{ left: `${ballPos.x}%`, top: `${ballPos.y}%`, transform: 'translate(-50%,-50%)', width: 22, height: 22, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%, #FF9EC8, #FF3E80)', border: '2px solid #CC1A55', boxShadow: '2px 2px 0 rgba(0,0,0,0.25), inset 1px 1px 3px rgba(255,255,255,0.5)' }} />
 
       {/* ══ UI ══ */}
+      {/* Leaderboard button — opens the household high-scores modal.
+          Sits just above the GAMES button so they read as a paired set. */}
+      <button onClick={e => { e.stopPropagation(); playSound('ui_tap'); setShowLeaderboard(true) }}
+        className="absolute right-4 z-50 active:translate-y-[2px] transition-transform"
+        style={{ top: 60 }}>
+        <div className="relative flex items-center gap-2 px-3 py-2 overflow-hidden"
+          style={{
+            background: 'linear-gradient(180deg, #FBBF24 0%, #F59E0B 55%, #B45309 100%)',
+            borderRadius: 4,
+            border: '2px solid #78350F',
+            boxShadow: '0 4px 0 #451A03, inset 0 1px 0 rgba(255,255,255,0.45), 0 0 12px rgba(251,191,36,0.55)',
+          }}>
+          {/* Corner rivets */}
+          <div style={{ position: 'absolute', top: 2, left: 2, width: 3, height: 3, background: '#FFFFFF', boxShadow: '0 0 2px #FFFFFF' }} />
+          <div style={{ position: 'absolute', top: 2, right: 2, width: 3, height: 3, background: '#FFFFFF', boxShadow: '0 0 2px #FFFFFF' }} />
+          <div style={{ position: 'absolute', bottom: 2, left: 2, width: 3, height: 3, background: '#FFFFFF', boxShadow: '0 0 2px #FFFFFF' }} />
+          <div style={{ position: 'absolute', bottom: 2, right: 2, width: 3, height: 3, background: '#FFFFFF', boxShadow: '0 0 2px #FFFFFF' }} />
+          <div className="relative flex items-center justify-center"
+            style={{
+              width: 22, height: 22,
+              background: 'linear-gradient(135deg, rgba(0,0,0,0.25), rgba(0,0,0,0.15))',
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: 3,
+            }}>
+            <IconCrown size={14} />
+          </div>
+          <span className="font-pixel text-white" style={{ fontSize: 8, letterSpacing: 1, textShadow: '1px 1px 0 #78350F' }}>
+            HIGH SCORES
+          </span>
+        </div>
+      </button>
+
       {/* Games link — premium pixel arcade button */}
       <button onClick={e => { e.stopPropagation(); playSound('ui_tap'); router.push('/games'); setTimeout(onClose, 400) }}
         className="absolute right-4 z-50 active:translate-y-[2px] transition-transform group"
@@ -207,6 +241,14 @@ export default function PlayScene({ onClose }: Props) {
           {done ? 'GREAT SESSION!' : saving ? 'SAVING...' : 'DONE PLAYING'}
         </button>
       </div>
+
+      {/* Leaderboard modal — opened via the HIGH SCORES button. Wrapped in
+          a stop-propagation div so taps inside don't fire ball-throws. */}
+      {showLeaderboard && (
+        <div onClick={e => e.stopPropagation()}>
+          <Leaderboard onClose={() => setShowLeaderboard(false)} />
+        </div>
+      )}
     </div>
   )
 }
