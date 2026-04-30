@@ -14,7 +14,9 @@ import { IconStar } from '@/components/PixelIcons'
 const ROWS = 8
 const COLS = 6
 const STARTING_MOVES = 30
-const N_TYPES = 6
+// 5 tile types: paw, sardine, donut, cookie, egg. Reduced from 6 — fewer
+// types makes spontaneous matches easier and keeps the board reading clean.
+const N_TYPES = 5
 
 interface Tile {
   id: number
@@ -368,7 +370,7 @@ export default function YarnPopGame() {
                 <button key={tile.id}
                   onClick={() => handleTileTap(r, c)}
                   disabled={processing}
-                  className="absolute flex items-center justify-center active:scale-95 transition-transform"
+                  className="absolute flex items-center justify-center active:scale-95"
                   style={{
                     left:  `${(c / COLS) * 100}%`,
                     top:   `${(r / ROWS) * 100}%`,
@@ -376,18 +378,48 @@ export default function YarnPopGame() {
                     height: `${100 / ROWS}%`,
                     padding: 2,
                     cursor: processing ? 'default' : 'pointer',
-                    transition: 'left 0.18s, top 0.28s ease-out, opacity 0.25s, transform 0.18s',
-                    opacity: tile.matched ? 0 : 1,
-                    transform: tile.matched ? 'scale(0.5)' : 'scale(1)',
-                    zIndex: selected && selected.r === r && selected.c === c ? 5 : 1,
+                    transition: 'left 0.18s, top 0.28s ease-out',
+                    zIndex: tile.matched ? 6 : selected && selected.r === r && selected.c === c ? 5 : 1,
                   }}>
+                  {/* Sparkle burst — radial flash that grows out from the
+                      tile centre when it's matched. Sits on top via z-index
+                      and is the visible "pop" of the cell clearing. */}
+                  {tile.matched && (
+                    <div className="absolute pointer-events-none" style={{
+                      inset: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <div style={{
+                        width: '90%', height: '90%',
+                        borderRadius: '50%',
+                        background: 'radial-gradient(circle, rgba(253,230,138,0.95) 0%, rgba(252,165,165,0.6) 40%, transparent 70%)',
+                        animation: 'yp-burst 0.42s ease-out forwards',
+                      }} />
+                      {/* Four directional spark dots */}
+                      {[0, 1, 2, 3].map(i => (
+                        <div key={i} style={{
+                          position: 'absolute',
+                          width: 4, height: 4,
+                          borderRadius: '50%',
+                          background: '#FDE68A',
+                          boxShadow: '0 0 6px #FDE68A',
+                          animation: `yp-spark-${i} 0.42s ease-out forwards`,
+                        }} />
+                      ))}
+                    </div>
+                  )}
                   <div style={{
                     width: '100%', height: '100%',
                     boxShadow: selected && selected.r === r && selected.c === c
                       ? '0 0 0 3px #FDE68A, 0 0 14px rgba(253,230,138,0.8)'
                       : 'none',
-                    borderRadius: 5,
+                    borderRadius: 6,
                     transition: 'box-shadow 0.15s',
+                    // The pop keyframe overshoots before vanishing — the
+                    // tile briefly puffs to 1.18× then collapses to 0.
+                    animation: tile.matched
+                      ? 'yp-tile-pop 0.42s cubic-bezier(0.34,1.56,0.64,1) forwards'
+                      : undefined,
                   }}>
                     <TileVisual type={tile.type} />
                   </div>
@@ -408,6 +440,21 @@ export default function YarnPopGame() {
                 animation: 'yp-floater 0.9s ease-out forwards',
               }}>
               {floater.text}
+            </div>
+          )}
+
+          {/* Big-combo screen flash — fires whenever the cascade reaches
+              x4 or higher. Overlays a quick warm wash + ring pulse over the
+              whole board so the chain feels rewarding without being
+              intrusive. The unique key forces a re-mount per combo so the
+              animation re-plays for each consecutive cascade. */}
+          {combo >= 4 && (
+            <div key={`bigcombo-${combo}`} className="absolute inset-0 pointer-events-none"
+              style={{ overflow: 'hidden', borderRadius: 4 }}>
+              <div className="absolute inset-0" style={{
+                background: 'radial-gradient(circle at 50% 50%, rgba(253,230,138,0.55), rgba(244,114,182,0.25) 50%, transparent 80%)',
+                animation: 'yp-flash 0.6s ease-out forwards',
+              }} />
             </div>
           )}
         </div>
@@ -481,122 +528,257 @@ export default function YarnPopGame() {
           0%   { transform: scale(0.7); opacity: 0; }
           100% { transform: scale(1);   opacity: 1; }
         }
+        /* Combo counter — bigger, more punchy than before. Includes a
+           glow flash so big chains read as a "moment". */
         @keyframes yp-combo {
-          0%   { transform: scale(0.6); opacity: 0; }
-          50%  { transform: scale(1.15); opacity: 1; }
-          100% { transform: scale(1);   opacity: 1; }
+          0%   { transform: scale(0.5); opacity: 0; filter: drop-shadow(0 0 0 #FDE68A); }
+          35%  { transform: scale(1.35); opacity: 1; filter: drop-shadow(0 0 14px #FDE68A); }
+          70%  { transform: scale(0.95); }
+          100% { transform: scale(1);   opacity: 1; filter: drop-shadow(0 0 6px #FDE68A); }
         }
         @keyframes yp-floater {
           0%   { opacity: 1; transform: translateX(-50%) translateY(0); }
           100% { opacity: 0; transform: translateX(-50%) translateY(-22px); }
+        }
+        /* Tile clear pop — overshoots up briefly, then collapses to zero.
+           Runs in tandem with yp-burst (radial flash) and yp-spark-N (the
+           four directional dots). */
+        @keyframes yp-tile-pop {
+          0%   { transform: scale(1);    opacity: 1; }
+          25%  { transform: scale(1.18); opacity: 1; }
+          100% { transform: scale(0);    opacity: 0; }
+        }
+        /* Radial flash that fans out from the cell centre on a match. */
+        @keyframes yp-burst {
+          0%   { transform: scale(0.2); opacity: 0; }
+          30%  { transform: scale(1.0); opacity: 1; }
+          100% { transform: scale(1.7); opacity: 0; }
+        }
+        /* Four directional spark dots — fly outward and fade. The four
+           keyframes share timing but differ in translate direction so the
+           dots scatter NE/NW/SE/SW. */
+        @keyframes yp-spark-0 {
+          0%   { transform: translate(0, 0)       scale(1);   opacity: 1; }
+          100% { transform: translate(14px, -14px) scale(0.4); opacity: 0; }
+        }
+        @keyframes yp-spark-1 {
+          0%   { transform: translate(0, 0)        scale(1);   opacity: 1; }
+          100% { transform: translate(-14px, -14px) scale(0.4); opacity: 0; }
+        }
+        @keyframes yp-spark-2 {
+          0%   { transform: translate(0, 0)       scale(1);   opacity: 1; }
+          100% { transform: translate(14px, 14px) scale(0.4); opacity: 0; }
+        }
+        @keyframes yp-spark-3 {
+          0%   { transform: translate(0, 0)        scale(1);   opacity: 1; }
+          100% { transform: translate(-14px, 14px) scale(0.4); opacity: 0; }
+        }
+        /* Big-combo screen wash — fades in fast, drops out gentler. */
+        @keyframes yp-flash {
+          0%   { opacity: 0; }
+          25%  { opacity: 1; }
+          100% { opacity: 0; }
         }
       `}</style>
     </div>
   )
 }
 
-// ─── Tile visuals — six bold pixel-art types ────────────────────────────────
+// ─── Tile visuals — five high-detail pixel-art types ───────────────────────
+// Type indices match the icon order:
+//   0 PAW · 1 SARDINE · 2 DONUT · 3 COOKIE · 4 EGG
 function TileVisual({ type }: { type: number }) {
   switch (type) {
-    case 0: return <YarnTile />
-    case 1: return <FishTile />
-    case 2: return <PawTile />
-    case 3: return <StarTile />
-    case 4: return <KibbleTile />
-    default: return <HeartTile />
+    case 0: return <PawTile />
+    case 1: return <SardineTile />
+    case 2: return <DonutTile />
+    case 3: return <CookieTile />
+    default: return <EggTile />
   }
 }
 
-function bg(color: string) {
+// Tile background — radial highlight + diagonal gradient, with inset
+// bevel shadows for a candy-button feel. Each tile colour pair (main +
+// dark accent) keeps the type instantly distinguishable across the board.
+function bg(main: string, dark: string) {
   return {
     width: '100%', height: '100%',
-    background: `linear-gradient(135deg, ${color}DD, ${color}88)`,
-    border: '2px solid rgba(0,0,0,0.4)',
-    borderRadius: 4,
-    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4), 0 2px 0 rgba(0,0,0,0.3)',
+    background: `radial-gradient(circle at 30% 25%, ${main} 0%, ${dark} 110%)`,
+    border: `2px solid ${dark}`,
+    borderRadius: 6,
+    boxShadow:
+      'inset 0 2px 1px rgba(255,255,255,0.45), ' +
+      'inset 0 -2px 1px rgba(0,0,0,0.3), ' +
+      '0 2px 0 rgba(0,0,0,0.5)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
+    position: 'relative',
   } as const
 }
 
-function YarnTile() {
-  return (
-    <div style={bg('#F472B6')}>
-      <svg width="68%" height="68%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-        <rect x="3" y="2" width="6" height="1" fill="#F9A8D4" />
-        <rect x="2" y="3" width="8" height="6" fill="#F9A8D4" />
-        <rect x="3" y="9" width="6" height="1" fill="#F9A8D4" />
-        <rect x="3" y="3" width="6" height="1" fill="#F472B6" />
-        <rect x="2" y="5" width="8" height="1" fill="#F472B6" />
-        <rect x="3" y="7" width="6" height="1" fill="#F472B6" />
-        <rect x="6" y="2" width="1" height="8" fill="#9D174D" />
-      </svg>
-    </div>
-  )
-}
-function FishTile() {
-  return (
-    <div style={bg('#6BAED6')}>
-      <svg width="68%" height="68%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-        <rect x="2" y="4" width="6" height="4" fill="#6BAED6" />
-        <rect x="3" y="3" width="4" height="6" fill="#6BAED6" />
-        <rect x="3" y="3" width="4" height="1" fill="#A0CCE5" />
-        <rect x="8" y="4" width="1" height="4" fill="#3A88B8" />
-        <rect x="9" y="3" width="1" height="2" fill="#3A88B8" />
-        <rect x="9" y="7" width="1" height="2" fill="#3A88B8" />
-        <rect x="4" y="5" width="1" height="1" fill="#1A1A2E" />
-      </svg>
-    </div>
-  )
-}
+// 1 — PAW. Three toe-pads + a main pad, white with pink centres for cute
+// contrast against the lavender background.
 function PawTile() {
   return (
-    <div style={bg('#A78BFA')}>
-      <svg width="68%" height="68%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-        <rect x="4" y="6" width="4" height="3" fill="#DDD6FE" />
-        <rect x="3" y="7" width="6" height="2" fill="#DDD6FE" />
-        <rect x="2" y="3" width="2" height="2" fill="#DDD6FE" />
-        <rect x="5" y="2" width="2" height="2" fill="#DDD6FE" />
-        <rect x="8" y="3" width="2" height="2" fill="#DDD6FE" />
-        <rect x="3" y="5" width="2" height="1" fill="#DDD6FE" />
+    <div style={bg('#C4B5FD', '#6D28D9')}>
+      <svg width="74%" height="74%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
+        {/* 3 toe pads — left, centre, right */}
+        <rect x="2" y="2" width="2" height="2" fill="#FFFFFF" />
+        <rect x="2" y="2" width="1" height="1" fill="#FBCFE8" />
+        <rect x="3" y="3" width="1" height="1" fill="#F472B6" opacity="0.5" />
+
+        <rect x="5" y="1" width="2" height="2" fill="#FFFFFF" />
+        <rect x="5" y="1" width="1" height="1" fill="#FBCFE8" />
+        <rect x="6" y="2" width="1" height="1" fill="#F472B6" opacity="0.5" />
+
+        <rect x="8" y="2" width="2" height="2" fill="#FFFFFF" />
+        <rect x="8" y="2" width="1" height="1" fill="#FBCFE8" />
+        <rect x="9" y="3" width="1" height="1" fill="#F472B6" opacity="0.5" />
+
+        {/* Main pad — rounded shape via three rows */}
+        <rect x="4" y="6" width="4" height="1" fill="#FFFFFF" />
+        <rect x="3" y="7" width="6" height="3" fill="#FFFFFF" />
+        <rect x="4" y="10" width="4" height="1" fill="#FFFFFF" />
+        {/* Highlight along top-left of main pad */}
+        <rect x="3" y="7" width="3" height="1" fill="#FBCFE8" />
+        <rect x="4" y="6" width="2" height="1" fill="#FBCFE8" />
+        {/* Pink centre detail */}
+        <rect x="5" y="8" width="2" height="1" fill="#F472B6" opacity="0.5" />
       </svg>
     </div>
   )
 }
-function StarTile() {
+
+// 2 — SARDINE. Side-view fish with belly highlight, eye, mouth, tail fin.
+function SardineTile() {
   return (
-    <div style={bg('#FBBF24')}>
-      <svg width="68%" height="68%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-        <rect x="5" y="1" width="2" height="2" fill="#FEF3C7" />
-        <rect x="4" y="3" width="4" height="2" fill="#FEF3C7" />
-        <rect x="2" y="4" width="8" height="2" fill="#FEF3C7" />
-        <rect x="3" y="6" width="6" height="2" fill="#FEF3C7" />
-        <rect x="3" y="8" width="2" height="2" fill="#FEF3C7" />
-        <rect x="7" y="8" width="2" height="2" fill="#FEF3C7" />
+    <div style={bg('#60A5FA', '#1E40AF')}>
+      <svg width="74%" height="74%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
+        {/* Body silhouette */}
+        <rect x="2" y="4" width="6" height="4" fill="#1E3A8A" />
+        <rect x="3" y="3" width="4" height="6" fill="#1E3A8A" />
+        {/* Body fill (lighter blue) */}
+        <rect x="2" y="5" width="6" height="2" fill="#3B82F6" />
+        <rect x="3" y="4" width="4" height="4" fill="#3B82F6" />
+        {/* Belly highlight (cream-ish, lower band) */}
+        <rect x="2" y="7" width="6" height="1" fill="#A0CCE5" />
+        <rect x="3" y="8" width="4" height="1" fill="#A0CCE5" />
+        {/* Top sheen */}
+        <rect x="3" y="3" width="4" height="1" fill="#93C5FD" />
+        {/* Eye — white iris + dark pupil */}
+        <rect x="5" y="5" width="2" height="2" fill="#FFFFFF" />
+        <rect x="6" y="5" width="1" height="1" fill="#1A1A2E" />
+        {/* Tiny mouth at the front */}
+        <rect x="2" y="6" width="1" height="1" fill="#1E1B4B" />
+        {/* Tail fin */}
+        <rect x="8" y="4" width="1" height="4" fill="#1E40AF" />
+        <rect x="9" y="3" width="1" height="2" fill="#1E40AF" />
+        <rect x="9" y="7" width="1" height="2" fill="#1E40AF" />
+        <rect x="9" y="5" width="1" height="2" fill="#1E3A8A" />
+        {/* Top fin */}
+        <rect x="4" y="2" width="2" height="1" fill="#1E40AF" />
       </svg>
     </div>
   )
 }
-function KibbleTile() {
+
+// 3 — DONUT. Pink-frosted ring with a hole, sprinkles, and a gloss
+// highlight. Drawn on a pink background — different shades distinguish
+// frosting (vibrant pink) from background (softer pink).
+function DonutTile() {
   return (
-    <div style={bg('#FB923C')}>
-      <svg width="68%" height="68%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-        <rect x="3" y="3" width="6" height="6" fill="#FED7AA" />
-        <rect x="4" y="4" width="4" height="4" fill="#FB923C" />
-        <rect x="4" y="4" width="1" height="1" fill="#FFEDD5" />
+    <div style={bg('#F9A8D4', '#9D174D')}>
+      <svg width="74%" height="74%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
+        {/* Donut ring outline (dark brown) */}
+        <rect x="3" y="2" width="6" height="1" fill="#7C2D12" />
+        <rect x="2" y="3" width="1" height="6" fill="#7C2D12" />
+        <rect x="9" y="3" width="1" height="6" fill="#7C2D12" />
+        <rect x="3" y="9" width="6" height="1" fill="#7C2D12" />
+        {/* Donut body (golden tan) — peeking on the lower half */}
+        <rect x="3" y="3" width="6" height="6" fill="#D97706" />
+        <rect x="3" y="8" width="6" height="1" fill="#92400E" />
+        {/* Hole in centre */}
+        <rect x="5" y="5" width="2" height="2" fill="#7C2D12" />
+        <rect x="5" y="5" width="2" height="1" fill="#451A03" />
+        {/* Pink frosting on top half — slightly drippy lower edge */}
+        <rect x="3" y="3" width="6" height="3" fill="#EC4899" />
+        <rect x="3" y="6" width="2" height="1" fill="#EC4899" />
+        <rect x="7" y="6" width="2" height="1" fill="#EC4899" />
+        <rect x="3" y="7" width="1" height="1" fill="#EC4899" />
+        <rect x="8" y="7" width="1" height="1" fill="#EC4899" />
+        {/* Frosting top highlight */}
+        <rect x="3" y="3" width="3" height="1" fill="#FBCFE8" />
+        <rect x="3" y="4" width="1" height="1" fill="#FBCFE8" />
+        {/* Sprinkles — multi-coloured dots on the frosting */}
+        <rect x="4" y="3" width="1" height="1" fill="#FFFFFF" />
+        <rect x="7" y="3" width="1" height="1" fill="#10B981" />
+        <rect x="6" y="4" width="1" height="1" fill="#FBBF24" />
+        <rect x="3" y="5" width="1" height="1" fill="#3B82F6" />
+        <rect x="8" y="5" width="1" height="1" fill="#FFFFFF" />
+        <rect x="4" y="6" width="1" height="1" fill="#FBBF24" />
       </svg>
     </div>
   )
 }
-function HeartTile() {
+
+// 4 — COOKIE. Round chocolate-chip cookie. Brown body + 4 chips + crumbly
+// edge texture. Background is a darker brown so the cookie pops.
+function CookieTile() {
   return (
-    <div style={bg('#F87171')}>
-      <svg width="68%" height="68%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-        <rect x="2" y="3" width="3" height="2" fill="#FCA5A5" />
-        <rect x="7" y="3" width="3" height="2" fill="#FCA5A5" />
-        <rect x="2" y="5" width="8" height="2" fill="#FCA5A5" />
-        <rect x="3" y="7" width="6" height="2" fill="#FCA5A5" />
-        <rect x="4" y="9" width="4" height="1" fill="#FCA5A5" />
-        <rect x="5" y="10" width="2" height="1" fill="#FCA5A5" />
+    <div style={bg('#FBBF24', '#78350F')}>
+      <svg width="74%" height="74%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
+        {/* Cookie outline (round-ish) */}
+        <rect x="3" y="2" width="6" height="1" fill="#7C2D12" />
+        <rect x="2" y="3" width="1" height="6" fill="#7C2D12" />
+        <rect x="9" y="3" width="1" height="6" fill="#7C2D12" />
+        <rect x="3" y="9" width="6" height="1" fill="#7C2D12" />
+        {/* Cookie body — warm tan, two shading layers */}
+        <rect x="3" y="3" width="6" height="6" fill="#D97706" />
+        <rect x="3" y="3" width="6" height="2" fill="#F59E0B" />
+        <rect x="3" y="3" width="3" height="1" fill="#FBBF24" />
+        {/* Bottom shadow */}
+        <rect x="3" y="8" width="6" height="1" fill="#92400E" />
+        {/* Chocolate chips (4 dots) */}
+        <rect x="4" y="4" width="1" height="1" fill="#451A03" />
+        <rect x="6" y="3" width="1" height="1" fill="#451A03" />
+        <rect x="7" y="6" width="1" height="1" fill="#451A03" />
+        <rect x="4" y="7" width="1" height="1" fill="#451A03" />
+        {/* Chip highlights */}
+        <rect x="4" y="4" width="1" height="1" fill="#7C2D12" opacity="0.7" />
+        {/* Texture flecks */}
+        <rect x="6" y="5" width="1" height="1" fill="#92400E" opacity="0.6" />
+        <rect x="3" y="6" width="1" height="1" fill="#92400E" opacity="0.5" />
+      </svg>
+    </div>
+  )
+}
+
+// 5 — EGG. Cream-coloured oval, a tiny shine top-left, soft shadow on
+// the lower-right. Background is a warm desaturated yellow.
+function EggTile() {
+  return (
+    <div style={bg('#FDE68A', '#92400E')}>
+      <svg width="74%" height="74%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
+        {/* Egg outline */}
+        <rect x="4" y="2" width="4" height="1" fill="#92400E" />
+        <rect x="3" y="3" width="1" height="1" fill="#92400E" />
+        <rect x="8" y="3" width="1" height="1" fill="#92400E" />
+        <rect x="2" y="4" width="1" height="5" fill="#92400E" />
+        <rect x="9" y="4" width="1" height="5" fill="#92400E" />
+        <rect x="3" y="9" width="1" height="1" fill="#92400E" />
+        <rect x="8" y="9" width="1" height="1" fill="#92400E" />
+        <rect x="4" y="10" width="4" height="1" fill="#92400E" />
+        {/* Egg fill — cream */}
+        <rect x="4" y="3" width="4" height="1" fill="#FFFBEB" />
+        <rect x="3" y="4" width="6" height="5" fill="#FFFBEB" />
+        <rect x="4" y="9" width="4" height="1" fill="#FFFBEB" />
+        {/* Top-left highlight (white shine) */}
+        <rect x="4" y="3" width="2" height="1" fill="#FFFFFF" />
+        <rect x="3" y="4" width="1" height="2" fill="#FFFFFF" />
+        <rect x="4" y="4" width="1" height="1" fill="#FFFFFF" />
+        {/* Lower-right soft shadow */}
+        <rect x="7" y="7" width="2" height="2" fill="#FCD34D" opacity="0.55" />
+        <rect x="8" y="5" width="1" height="2" fill="#FCD34D" opacity="0.45" />
+        <rect x="6" y="9" width="2" height="1" fill="#FCD34D" opacity="0.4" />
       </svg>
     </div>
   )
