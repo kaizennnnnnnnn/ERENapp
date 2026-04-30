@@ -107,10 +107,11 @@ export default function PlayScene({ onClose }: Props) {
 
       {/* ══ UI ══ */}
       {/* Leaderboard button — opens the household high-scores modal.
-          Sits just above the GAMES button so they read as a paired set. */}
+          Top is calculated from the StatsHeader bottom (108px + iOS
+          safe-top) so it isn't buried behind the persistent stats. */}
       <button onClick={e => { e.stopPropagation(); playSound('ui_tap'); setShowLeaderboard(true) }}
         className="absolute right-4 z-50 active:translate-y-[2px] transition-transform"
-        style={{ top: 60 }}>
+        style={{ top: 'calc(var(--safe-top) + 116px)' }}>
         <div className="relative flex items-center gap-2 px-3 py-2 overflow-hidden"
           style={{
             background: 'linear-gradient(180deg, #FBBF24 0%, #F59E0B 55%, #B45309 100%)',
@@ -138,10 +139,11 @@ export default function PlayScene({ onClose }: Props) {
         </div>
       </button>
 
-      {/* Games link — premium pixel arcade button */}
+      {/* Games link — premium pixel arcade button. Sits ~52 px below
+          the leaderboard button so the two stack as a clear pair. */}
       <button onClick={e => { e.stopPropagation(); playSound('ui_tap'); router.push('/games'); setTimeout(onClose, 400) }}
         className="absolute right-4 z-50 active:translate-y-[2px] transition-transform group"
-        style={{ top: 110 }}>
+        style={{ top: 'calc(var(--safe-top) + 168px)' }}>
         <div className="relative flex items-center gap-2 px-3 py-2 overflow-hidden"
           style={{
             background: 'linear-gradient(180deg, #A855F7 0%, #7C3AED 55%, #5B21B6 100%)',
@@ -194,14 +196,14 @@ export default function PlayScene({ onClose }: Props) {
 
       {toast && (
         <div className="absolute left-1/2 -translate-x-1/2 z-50 text-white px-4 py-2 animate-float whitespace-nowrap"
-          style={{ top: 145, background: '#1F1F2E', borderRadius: 3, border: '2px solid #3A3A5E', boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
+          style={{ top: 'calc(var(--safe-top) + 232px)', background: '#1F1F2E', borderRadius: 3, border: '2px solid #3A3A5E', boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
           {toast}
         </div>
       )}
 
       {throwCount === 0 && !done && (
         <div className="absolute left-1/2 -translate-x-1/2 z-40 px-3 py-1.5 pointer-events-none animate-pulse-soft"
-          style={{ top: 190, background: 'rgba(255,255,255,0.85)', borderRadius: 3, border: '2px solid #C0A0E8', boxShadow: '2px 2px 0 rgba(150,100,220,0.2)', fontFamily: '"Press Start 2P"', fontSize: 7, color: '#7C3AED' }}>
+          style={{ top: 'calc(var(--safe-top) + 280px)', background: 'rgba(255,255,255,0.85)', borderRadius: 3, border: '2px solid #C0A0E8', boxShadow: '2px 2px 0 rgba(150,100,220,0.2)', fontFamily: '"Press Start 2P"', fontSize: 7, color: '#7C3AED' }}>
           TAP TO THROW THE BALL!
         </div>
       )}
