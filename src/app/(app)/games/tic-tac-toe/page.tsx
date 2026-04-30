@@ -436,11 +436,24 @@ export default function TicTacToePage() {
           0%, 8%, 22%, 100% { transform: scaleX(0); }
           12%, 18%          { transform: scaleX(1); }
         }
-        /* Tail sway — slow gentle drift, deliberately out of phase with
-           the lick so the motions don't feel locked together. */
-        @keyframes erenTailTwitch {
-          0%, 100% { transform: rotate(-2deg); }
-          50%      { transform: rotate(3deg); }
+        /* Tail wiggle — punchy asymmetric flick. Real cats don't sway
+           sinusoidally; they flick fast in one direction and recover.
+           1.4s cycle with five pose keys gives a lively back-and-forth
+           that feels alive instead of metronome-like. */
+        @keyframes erenTailWiggle {
+          0%   { transform: rotate(-10deg); }
+          20%  { transform: rotate(8deg); }
+          40%  { transform: rotate(-4deg); }
+          60%  { transform: rotate(14deg); }
+          80%  { transform: rotate(-6deg); }
+          100% { transform: rotate(-10deg); }
+        }
+        /* Ear flick — both ears twitch in unison every ~5s (alert
+           micro-motion). Only a 1-px lift, kept rare so it reads as
+           reaction not animation noise. */
+        @keyframes erenEarFlick {
+          0%, 88%, 100% { transform: translateY(0); }
+          92%, 96%      { transform: translateY(-1px); }
         }
         /* Eye blink — every 5.5s for a natural rhythm. */
         @keyframes erenLapBlink {
@@ -639,47 +652,52 @@ function ErenChibi({ size = 64, hop = false, thinking = false }: { size?: number
 }
 
 // ─── Eren in profile, peeking at the spill ─────────────────────────────────
-// A cuter, smaller chibi side-profile. Compact body, sleepy eye, tiny tongue
-// that flicks out once every ~2.4s and stays curled the rest of the time —
-// the rapid-flick version read as creepy.
+// Compact chibi side-profile. Body shrunk from 10 cells wide to 6 so the
+// silhouette reads less stretched-out, plus a livelier tail wiggle that
+// goes back-and-forth in an asymmetric pattern (real cats flick, not
+// metronome). Sleepy ^_^ squint kept; tiny tongue flick still on a slow
+// 2.4s cycle.
 //
-// ViewBox 22×12 at size=72 → 3.27× scale (slightly fuzzy at the boundary
-// but the overall silhouette stays clean because we use crispEdges for the
-// inner pixels). The mouth sits at viewBox (0, 8); paired with marginLeft:
-// -8 the snout poke and a 2-cell tongue land on the puddle's right edge.
+// ViewBox 18×12 at size=72 → exact 4× integer scale, so every pixel is
+// crisp. Mouth at viewBox (0, 8); marginLeft:-16 lands the 2-cell tongue
+// right at the puddle's right edge on the can sprite to the left.
 function ErenSideLapping({ size = 72 }: { size?: number }) {
-  const height = Math.round(size * 12 / 22)
+  const height = Math.round(size * 12 / 18)
   return (
     <div style={{
       width: size,
       height,
-      // Eats most of the gap so a *short* tongue can reach the puddle
-      // without making him look like he's striking from far away.
       marginLeft: -16,
       animation: 'erenLapBob 2.4s ease-in-out infinite',
     }}>
       <svg
-        viewBox="0 0 22 12"
+        viewBox="0 0 18 12"
         width="100%"
         height="100%"
         shapeRendering="crispEdges"
         style={{ imageRendering: 'pixelated', overflow: 'visible' }}
       >
-        {/* ─── TAIL — small upward curl, gentle sway ─────────────────── */}
-        <g style={{ transformOrigin: '18px 4px', animation: 'erenTailTwitch 2.6s ease-in-out infinite' }}>
-          <rect x="20" y="0" width="1" height="1" fill="#4A2E1A" />
-          <rect x="19" y="1" width="1" height="1" fill="#4A2E1A" />
-          <rect x="20" y="1" width="1" height="1" fill="#F9EDD5" />
-          <rect x="18" y="2" width="1" height="1" fill="#4A2E1A" />
-          <rect x="20" y="2" width="1" height="1" fill="#4A2E1A" />
-          <rect x="19" y="2" width="1" height="1" fill="#F9EDD5" />
-          <rect x="18" y="3" width="3" height="1" fill="#4A2E1A" />
-          <rect x="19" y="3" width="2" height="1" fill="#F9EDD5" />
+        {/* ─── TAIL — fat S-curl, anchored at the body's rear, wiggles
+            with a punchy asymmetric flick. transformOrigin sits at the
+            base of the tail so the tip swings further than the root. */}
+        <g style={{ transformOrigin: '15px 4px', animation: 'erenTailWiggle 1.4s ease-in-out infinite' }}>
+          {/* tip */}
+          <rect x="15" y="0" width="2" height="1" fill="#4A2E1A" />
+          <rect x="14" y="1" width="1" height="1" fill="#4A2E1A" />
+          <rect x="17" y="1" width="1" height="1" fill="#4A2E1A" />
+          <rect x="15" y="1" width="2" height="1" fill="#F9EDD5" />
+          {/* mid curl */}
+          <rect x="14" y="2" width="1" height="2" fill="#4A2E1A" />
+          <rect x="17" y="2" width="1" height="2" fill="#4A2E1A" />
+          <rect x="15" y="2" width="2" height="2" fill="#F9EDD5" />
+          {/* base into body */}
+          <rect x="13" y="4" width="4" height="1" fill="#4A2E1A" />
+          <rect x="14" y="4" width="2" height="1" fill="#F9EDD5" />
         </g>
 
-        {/* ─── CREAM SILHOUETTE — head + snout + body, all one blob ── */}
-        {/* Body — round-ish block on the right */}
-        <rect x="9" y="3" width="10" height="6" fill="#F9EDD5" />
+        {/* ─── CREAM SILHOUETTE — head + snout + body ─────────────── */}
+        {/* Body — narrower (6 wide) so the cat reads compact */}
+        <rect x="9" y="3" width="6" height="6" fill="#F9EDD5" />
         {/* Head — left side */}
         <rect x="2" y="3" width="8" height="6" fill="#F9EDD5" />
         {/* Snout — short stub poking out left */}
@@ -688,38 +706,40 @@ function ErenSideLapping({ size = 72 }: { size?: number }) {
         <rect x="3" y="2" width="2" height="1" fill="#F9EDD5" />
         <rect x="6" y="2" width="2" height="1" fill="#F9EDD5" />
 
-        {/* ─── EARS ─────────────────────────────────────────────────── */}
-        {/* Front ear */}
-        <rect x="3" y="0" width="2" height="1" fill="#4A2E1A" />
-        <rect x="2" y="1" width="1" height="1" fill="#4A2E1A" />
-        <rect x="5" y="1" width="1" height="1" fill="#4A2E1A" />
-        <rect x="3" y="1" width="2" height="1" fill="#FFB6C8" />
-        {/* Back ear */}
-        <rect x="6" y="0" width="2" height="1" fill="#4A2E1A" />
-        <rect x="5" y="1" width="1" height="1" fill="#4A2E1A" />
-        <rect x="8" y="1" width="1" height="1" fill="#4A2E1A" />
-        <rect x="6" y="1" width="2" height="1" fill="#FFB6C8" />
+        {/* ─── EARS — wrap in a group so they can do tiny periodic
+            flicks (alert pose) without affecting the rest of the body. */}
+        <g style={{ transformOrigin: '5px 2px', animation: 'erenEarFlick 4.8s ease-in-out infinite' }}>
+          {/* Front ear */}
+          <rect x="3" y="0" width="2" height="1" fill="#4A2E1A" />
+          <rect x="2" y="1" width="1" height="1" fill="#4A2E1A" />
+          <rect x="5" y="1" width="1" height="1" fill="#4A2E1A" />
+          <rect x="3" y="1" width="2" height="1" fill="#FFB6C8" />
+          {/* Back ear */}
+          <rect x="6" y="0" width="2" height="1" fill="#4A2E1A" />
+          <rect x="5" y="1" width="1" height="1" fill="#4A2E1A" />
+          <rect x="8" y="1" width="1" height="1" fill="#4A2E1A" />
+          <rect x="6" y="1" width="2" height="1" fill="#FFB6C8" />
+        </g>
 
         {/* ─── OUTLINES around silhouette ─────────────────────────── */}
         {/* Head top — between/around ears */}
         <rect x="2" y="2" width="1" height="1" fill="#4A2E1A" />
         <rect x="5" y="2" width="1" height="1" fill="#4A2E1A" />
         <rect x="8" y="2" width="1" height="1" fill="#4A2E1A" />
-        {/* Back top */}
-        <rect x="9"  y="2" width="10" height="1" fill="#4A2E1A" />
+        {/* Back top — shorter now (6 wide instead of 10) */}
+        <rect x="9"  y="2" width="6" height="1" fill="#4A2E1A" />
         {/* Body right edge */}
-        <rect x="19" y="3" width="1"  height="6" fill="#4A2E1A" />
+        <rect x="15" y="3" width="1"  height="6" fill="#4A2E1A" />
         {/* Head left edge */}
         <rect x="1"  y="3" width="1"  height="3" fill="#4A2E1A" />
         {/* Snout — left edge + corners */}
         <rect x="1"  y="5" width="1"  height="1" fill="#4A2E1A" />
         <rect x="0"  y="6" width="1"  height="2" fill="#4A2E1A" />
         <rect x="0"  y="8" width="2"  height="1" fill="#4A2E1A" />
-        {/* Belly */}
-        <rect x="2"  y="9" width="17" height="1" fill="#4A2E1A" />
+        {/* Belly — shorter span now (head left to body right) */}
+        <rect x="2"  y="9" width="13" height="1" fill="#4A2E1A" />
 
         {/* ─── FACE FEATURES — sleepy content squint ───────────────── */}
-        {/* Eye — a single 2×1 happy squint (^_^ vibe), no harsh dark dot */}
         <g style={{ transformOrigin: '5px 5.5px', animation: 'erenLapBlink 5.5s ease-in-out infinite' }}>
           <rect x="4" y="5" width="2" height="1" fill="#1A1A2E" />
           <rect x="3" y="5" width="1" height="1" fill="#4A2E1A" />
@@ -732,17 +752,19 @@ function ErenSideLapping({ size = 72 }: { size?: number }) {
         {/* Cheek blush */}
         <rect x="2" y="7" width="2" height="1" fill="#FFB6C8" />
 
-        {/* ─── LEGS — 2 stubby visible legs ──────────────────────── */}
+        {/* ─── LEGS — 2 stubby visible legs (back leg shifted left to
+            stay inside the smaller body) ───────────────────────────── */}
         {/* Front leg */}
         <rect x="4" y="9"  width="1" height="2" fill="#4A2E1A" />
         <rect x="6" y="9"  width="1" height="2" fill="#4A2E1A" />
         <rect x="5" y="9"  width="1" height="2" fill="#F9EDD5" />
         <rect x="4" y="11" width="3" height="1" fill="#4A2E1A" />
-        {/* Back leg */}
-        <rect x="14" y="9"  width="1" height="2" fill="#4A2E1A" />
-        <rect x="16" y="9"  width="1" height="2" fill="#4A2E1A" />
-        <rect x="15" y="9"  width="1" height="2" fill="#F9EDD5" />
-        <rect x="14" y="11" width="3" height="1" fill="#4A2E1A" />
+        {/* Back leg — moved from x=14 to x=11 so it sits under the new
+            shorter body. */}
+        <rect x="11" y="9"  width="1" height="2" fill="#4A2E1A" />
+        <rect x="13" y="9"  width="1" height="2" fill="#4A2E1A" />
+        <rect x="12" y="9"  width="1" height="2" fill="#F9EDD5" />
+        <rect x="11" y="11" width="3" height="1" fill="#4A2E1A" />
 
         {/* ─── TONGUE — tiny flick, dwells hidden most of the cycle ─ */}
         <g style={{
