@@ -265,9 +265,13 @@ export default function PawDokuGame() {
   const [bestScore, setBest]      = useState(0)
   const [combo,     setCombo]     = useState(0)            // # of clears in this placement
   const [streak,    setStreak]    = useState(0)            // # of consecutive placements that cleared
+  // Grace period: a placement that doesn't clear costs ONE grace.
+  // Streak only resets after 3 consecutive no-clear placements.
+  const [streakMisses, setStreakMisses] = useState(0)
   const [gridFlash, setGridFlash] = useState(0)            // re-keys the grid-wide flash overlay
   const [floater,   setFloater]   = useState<{ id: number; text: string; color: string } | null>(null)
   const savedRef = useRef(false)
+  const STREAK_GRACE = 3
 
   // ── Drag state ──
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null)
@@ -354,6 +358,7 @@ export default function PawDokuGame() {
     setScore(0)
     setCombo(0)
     setStreak(0)
+    setStreakMisses(0)
     setPhase('playing')
     savedRef.current = false
     setDraggedIdx(null)
@@ -424,13 +429,15 @@ export default function PawDokuGame() {
       // clear in a streak (newStreak === 1) adds nothing extra; from
       // newStreak === 2 onward we add 50% of the gained-so-far per
       // streak level beyond the first. So x2 streak → +50%, x3 → +100%,
-      // x4 → +150%.
+      // x4 → +150%. Hitting a clear ALSO resets the no-clear grace
+      // counter back to 0.
       const newStreak = streak + 1
       if (newStreak >= 2) {
         const streakBonus = Math.floor(gained * 0.5 * (newStreak - 1))
         gained += streakBonus
       }
       setStreak(newStreak)
+      setStreakMisses(0)
 
       // Show clearing flash, then nuke the cells next frame
       g = markClearing(g, rows, cols, subs)
@@ -461,8 +468,16 @@ export default function PawDokuGame() {
         afterPlace(cleared, draggedIdx, gained)
       }, 280)
     } else {
-      // No clear — reset the streak.
-      setStreak(0)
+      // No clear. Use up one of the streak's grace placements before
+      // actually resetting — gives the player some breathing room
+      // (place 1-2 setup pieces without losing the multiplier).
+      const newMisses = streakMisses + 1
+      if (newMisses >= STREAK_GRACE) {
+        setStreak(0)
+        setStreakMisses(0)
+      } else {
+        setStreakMisses(newMisses)
+      }
       setGrid(g)
       flashFloater(`+${gained}`, '#A3F0C0')
       afterPlace(g, draggedIdx, gained)
@@ -641,16 +656,35 @@ export default function PawDokuGame() {
           <div style={{ position: 'absolute', bottom: 4, left: 4, width: 4, height: 4, background: '#FBBF24' }} />
           <div style={{ position: 'absolute', bottom: 4, right: 4, width: 4, height: 4, background: '#FBBF24' }} />
 
-          {/* Grid-wide clear flash — re-keyed on every clear so the
-              animation re-fires for back-to-back placements. Sits on top
-              of cells so it briefly washes the whole board white-gold. */}
+          {/* Grid-wide clear effects — re-keyed on every clear so the
+              animations re-fire for back-to-back placements. Three
+              layered effects: a hue-cycling radial wash, an expanding
+              shockwave ring, and a counter-rotating second wash for
+              extra chaos. */}
           {gridFlash > 0 && (
-            <div key={gridFlash} className="absolute inset-0 pointer-events-none" style={{
-              background: 'radial-gradient(ellipse at center, rgba(253,230,138,0.55) 0%, rgba(244,114,182,0.25) 40%, transparent 75%)',
-              animation: 'pdGridFlash 0.45s ease-out forwards',
-              zIndex: 5,
-              borderRadius: 6,
-            }} />
+            <>
+              <div key={`flash-${gridFlash}`} className="absolute inset-0 pointer-events-none" style={{
+                background: 'radial-gradient(ellipse at center, rgba(253,230,138,0.65) 0%, rgba(244,114,182,0.32) 40%, transparent 75%)',
+                animation: 'pdGridFlash 0.55s ease-out forwards',
+                zIndex: 5,
+                borderRadius: 6,
+                mixBlendMode: 'screen',
+              }} />
+              <div key={`flash2-${gridFlash}`} className="absolute inset-0 pointer-events-none" style={{
+                background: 'radial-gradient(ellipse at center, rgba(167,139,250,0.5) 0%, rgba(96,165,250,0.2) 40%, transparent 80%)',
+                animation: 'pdGridFlash2 0.55s ease-out forwards',
+                zIndex: 5,
+                borderRadius: 6,
+                mixBlendMode: 'screen',
+              }} />
+              <div key={`shock-${gridFlash}`} className="absolute pointer-events-none" style={{
+                left: '50%', top: '50%',
+                transform: 'translate(-50%, -50%)',
+                animation: 'pdShockwave 0.55s ease-out forwards',
+                zIndex: 6,
+                borderRadius: '50%',
+              }} />
+            </>
           )}
         </div>
 
@@ -804,21 +838,43 @@ export default function PawDokuGame() {
           25%  { opacity: 1; transform: translateY(-6px) scale(1.1); }
           100% { opacity: 0; transform: translateY(-30px) scale(0.95); }
         }
-        /* Cell destruction — punchier than a plain scale-fade. Cells
-           briefly flash white-bright, scale up while rotating, then
-           collapse to nothing as they blur out. Together with the
-           grid-wide flash it sells the "boom" of a clear. */
+        /* Cell destruction — over-the-top. Cells flash to ultra-bright,
+           hue-cycle through the entire spectrum, scale up to 1.55× while
+           rotating ±18°, then collapse to scale-0 with a 5-px blur and a
+           45° spin. With six possible block colours this looks like a
+           rainbow firework when a row clears. */
         @keyframes pdClear {
-          0%   { transform: scale(1)    rotate(0deg);  opacity: 1; filter: brightness(1.0)  blur(0); }
-          25%  { transform: scale(1.32) rotate(-8deg); opacity: 1; filter: brightness(2.6)  blur(0); }
-          55%  { transform: scale(1.12) rotate(10deg); opacity: 0.85; filter: brightness(2.2) blur(1px); }
-          100% { transform: scale(0)    rotate(22deg); opacity: 0; filter: brightness(3.0) blur(3px); }
+          0%   { transform: scale(1)    rotate(0deg);   opacity: 1;    filter: brightness(1.0) hue-rotate(0deg)   blur(0); }
+          18%  { transform: scale(1.45) rotate(-14deg); opacity: 1;    filter: brightness(3.0) hue-rotate(60deg)  blur(0); }
+          40%  { transform: scale(1.55) rotate(18deg);  opacity: 1;    filter: brightness(2.8) hue-rotate(180deg) blur(1px); }
+          65%  { transform: scale(1.05) rotate(-10deg); opacity: 0.7;  filter: brightness(2.4) hue-rotate(280deg) blur(3px); }
+          100% { transform: scale(0)    rotate(45deg);  opacity: 0;    filter: brightness(4.0) hue-rotate(360deg) blur(5px); }
         }
-        /* Grid-wide flash overlay that pulses on every clear */
+        /* Primary grid-wide flash — gold/pink wash that hue-cycles. */
         @keyframes pdGridFlash {
-          0%   { opacity: 0; transform: scale(0.94); }
-          25%  { opacity: 1; transform: scale(1.04); }
-          100% { opacity: 0; transform: scale(1.12); }
+          0%   { opacity: 0;   transform: scale(0.86); filter: hue-rotate(0deg)   brightness(1); }
+          22%  { opacity: 1;   transform: scale(1.06); filter: hue-rotate(60deg)  brightness(1.6); }
+          55%  { opacity: 0.7; transform: scale(1.14); filter: hue-rotate(200deg) brightness(1.7); }
+          100% { opacity: 0;   transform: scale(1.28); filter: hue-rotate(360deg) brightness(2); }
+        }
+        /* Counter-rotating second flash for layered chaos */
+        @keyframes pdGridFlash2 {
+          0%   { opacity: 0;   transform: scale(1.20) rotate(0deg);    }
+          30%  { opacity: 0.8; transform: scale(1.04) rotate(-15deg);  }
+          70%  { opacity: 0.4; transform: scale(0.98) rotate(10deg);   }
+          100% { opacity: 0;   transform: scale(0.85) rotate(-5deg);   }
+        }
+        /* Expanding shockwave ring radiating from the centre of the grid */
+        @keyframes pdShockwave {
+          0%   { width: 0;     height: 0;     opacity: 1;
+                 border: 4px solid rgba(255,215,0,0.9);
+                 box-shadow: 0 0 24px rgba(255,215,0,0.7), inset 0 0 12px rgba(255,255,255,0.6); }
+          60%  { width: 280px; height: 280px; opacity: 0.65;
+                 border: 3px solid rgba(244,114,182,0.7);
+                 box-shadow: 0 0 32px rgba(244,114,182,0.5), inset 0 0 8px rgba(255,255,255,0.3); }
+          100% { width: 460px; height: 460px; opacity: 0;
+                 border: 1px solid rgba(167,139,250,0.0);
+                 box-shadow: 0 0 0 rgba(167,139,250,0.0); }
         }
         /* Streak HUD pill bounce-in */
         @keyframes pdStreak {
