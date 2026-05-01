@@ -26,7 +26,7 @@ const EREN_WIDTH  = 72
 const ITEM_SIZE   = 34
 
 type ItemKind = 'kibble' | 'fish' | 'cream' | 'golden' | 'heart' | 'cookie' | 'milk'
-  | 'bomb' | 'spider' | 'knife' | 'fire' | 'skull'
+  | 'bomb' | 'spider' | 'knife' | 'trap' | 'skull'
 
 interface ItemMeta {
   label: string
@@ -47,13 +47,13 @@ const ITEMS: Record<ItemKind, ItemMeta> = {
   cream:    { label: 'Cream',    points: 5,  life: 0,  rarity: 9,  Icon: CreamIcon,    tint: '#E9D5FF', danger: false },
   golden:   { label: 'Golden',   points: 10, life: 0,  rarity: 4,  Icon: IconStar,     tint: '#FFD700', danger: false },
   heart:    { label: 'Heart',    points: 0,  life: 1,  rarity: 3,  Icon: IconHeart,    tint: '#FF6B9D', danger: false },
-  // Dangers — only items that *look* dangerous. Spider + bomb stay; knife,
-  // fire, skull replace the previous shoe/hairball/thunder which read as
-  // random clutter rather than threats.
+  // Dangers — items that read as actual threats. The previous "fire"
+  // entry looked like a friendly candle flame, so it's been swapped for
+  // a sprung mousetrap — recognisably dangerous AND thematic for a cat.
   spider:   { label: 'Spider',   points: -5, life: -1, rarity: 5,  Icon: SpiderIcon,   tint: '#4B0082', danger: true },
   bomb:     { label: 'Bomb',     points: -6, life: -1, rarity: 4,  Icon: BombIcon,     tint: '#DC2626', danger: true },
   knife:    { label: 'Knife',    points: -5, life: -1, rarity: 5,  Icon: KnifeIcon,    tint: '#9CA3AF', danger: true },
-  fire:     { label: 'Fire',     points: -4, life: -1, rarity: 5,  Icon: FireIcon,     tint: '#F97316', danger: true },
+  trap:     { label: 'Trap',     points: -5, life: -1, rarity: 5,  Icon: TrapIcon,     tint: '#7C2D12', danger: true },
   skull:    { label: 'Skull',    points: -8, life: -1, rarity: 3,  Icon: SkullIcon,    tint: '#E5E7EB', danger: true },
 }
 
@@ -208,28 +208,35 @@ function KnifeIcon({ size = 20 }: { size?: number }) {
     </svg>
   )
 }
-// ─── Fire — orange/yellow flame with hot white core ──────────────────────────
-function FireIcon({ size = 20 }: { size?: number }) {
+// ─── Mousetrap — wooden base + sprung metal bar + red trigger plate ────────
+function TrapIcon({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      {/* outer flame (orange) */}
-      <rect x="5" y="0" width="2" height="1" fill="#F97316" />
-      <rect x="4" y="1" width="4" height="1" fill="#F97316" />
-      <rect x="3" y="2" width="6" height="1" fill="#F97316" />
-      <rect x="2" y="3" width="8" height="2" fill="#F97316" />
-      <rect x="2" y="5" width="8" height="3" fill="#F97316" />
-      <rect x="3" y="8" width="6" height="2" fill="#F97316" />
-      <rect x="4" y="10" width="4" height="1" fill="#DC2626" />
-      {/* mid flame (yellow) */}
-      <rect x="5" y="2" width="2" height="1" fill="#FBBF24" />
-      <rect x="4" y="3" width="4" height="2" fill="#FBBF24" />
-      <rect x="3" y="5" width="6" height="2" fill="#FBBF24" />
-      <rect x="4" y="7" width="4" height="2" fill="#FBBF24" />
-      {/* hot core (white-yellow) */}
-      <rect x="5" y="4" width="2" height="2" fill="#FEF3C7" />
-      <rect x="5" y="6" width="2" height="2" fill="#FEF3C7" />
-      {/* dark base */}
-      <rect x="5" y="11" width="2" height="1" fill="#7A2A1A" />
+      {/* Sprung metal bar across the top */}
+      <rect x="2" y="1" width="8" height="1" fill="#374151" />
+      <rect x="2" y="2" width="8" height="1" fill="#6B7280" />
+      <rect x="2" y="2" width="8" height="1" fill="#9CA3AF" opacity="0.4" />
+      {/* Side rails / spring posts */}
+      <rect x="1" y="1" width="1" height="3" fill="#374151" />
+      <rect x="10" y="1" width="1" height="3" fill="#374151" />
+      <rect x="1" y="2" width="1" height="1" fill="#6B7280" />
+      <rect x="10" y="2" width="1" height="1" fill="#6B7280" />
+      {/* Wooden base — dark border + lighter centre with grain */}
+      <rect x="0" y="4" width="12" height="1" fill="#451A03" />
+      <rect x="0" y="5" width="12" height="6" fill="#7C2D12" />
+      <rect x="0" y="11" width="12" height="1" fill="#451A03" />
+      <rect x="0" y="5" width="12" height="1" fill="#92400E" />     {/* top highlight */}
+      <rect x="0" y="10" width="12" height="1" fill="#5A1A0A" />    {/* bottom shadow */}
+      {/* Wood grain flecks */}
+      <rect x="1" y="7" width="1" height="1" fill="#5A1A0A" />
+      <rect x="9" y="8" width="1" height="1" fill="#5A1A0A" />
+      <rect x="2" y="9" width="1" height="1" fill="#5A1A0A" />
+      <rect x="10" y="6" width="1" height="1" fill="#5A1A0A" />
+      {/* Red trigger plate (the "bait" pad) */}
+      <rect x="3" y="6" width="6" height="3" fill="#991B1B" />     {/* outline */}
+      <rect x="3" y="6" width="6" height="1" fill="#DC2626" />     {/* highlight */}
+      <rect x="4" y="7" width="4" height="1" fill="#EF4444" />
+      <rect x="4" y="8" width="4" height="1" fill="#7F1D1D" />     {/* shadow */}
     </svg>
   )
 }
@@ -709,50 +716,131 @@ export default function TreatTumbleGame() {
         </div>
       )}
 
-      {/* ── Idle intro ──────────────────────────────────────────────────────── */}
+      {/* ── Idle intro — premium amber plaque with rivets, sweep shine,
+            and grouped goods/dangers panels ──────────────────────────── */}
       {gameState === 'idle' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-30 px-6 pt-10 overflow-y-auto">
-          <div className="px-5 py-5 max-w-[330px] text-center"
-            style={{ background: 'rgba(255,255,255,0.95)', border: '3px solid #D97706', borderRadius: 6, boxShadow: '0 5px 0 #B45309, 0 0 20px rgba(251,191,36,0.5)' }}>
-            <div className="flex items-center justify-center gap-2 mb-3">
-              <IconStar size={18} />
-              <p className="font-pixel text-amber-800" style={{ fontSize: 10, letterSpacing: 2 }}>TREAT TUMBLE</p>
-              <IconStar size={18} />
+        <div className="absolute inset-0 flex flex-col items-center justify-start z-30 px-4 pt-12 pb-6 overflow-y-auto">
+          {/* Drifting sparkle field behind the plaque */}
+          <div className="absolute inset-0 pointer-events-none" style={{
+            backgroundImage: 'radial-gradient(circle, rgba(251,191,36,0.55) 1px, transparent 1.5px), radial-gradient(circle, rgba(252,211,77,0.4) 1px, transparent 1.5px)',
+            backgroundSize: '38px 38px, 56px 56px',
+            backgroundPosition: '0 0, 22px 28px',
+            animation: 'ttStarDrift 32s linear infinite',
+            opacity: 0.55,
+          }} />
+
+          {/* Plaque */}
+          <div className="relative px-5 py-5 w-full max-w-[340px] z-10" style={{
+            background: 'linear-gradient(180deg, #FEF3C7 0%, #FDE68A 50%, #F59E0B 100%)',
+            border: '3px solid #7C2D12',
+            borderRadius: 8,
+            boxShadow: '0 8px 0 #5A1A0A, 0 0 28px rgba(251,191,36,0.55), inset 0 2px 0 rgba(255,255,255,0.55), inset 0 -3px 0 rgba(120,53,15,0.3)',
+            overflow: 'hidden',
+          }}>
+            {/* Gold rivets at all 4 corners */}
+            <div style={{ position: 'absolute', top: 6, left: 6, width: 6, height: 6, background: '#FFD700', borderRadius: 1, boxShadow: '0 0 4px rgba(255,215,0,0.9), inset 0 1px 0 rgba(255,255,255,0.6)' }} />
+            <div style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, background: '#FFD700', borderRadius: 1, boxShadow: '0 0 4px rgba(255,215,0,0.9), inset 0 1px 0 rgba(255,255,255,0.6)' }} />
+            <div style={{ position: 'absolute', bottom: 6, left: 6, width: 6, height: 6, background: '#FFD700', borderRadius: 1, boxShadow: '0 0 4px rgba(255,215,0,0.9), inset 0 1px 0 rgba(255,255,255,0.6)' }} />
+            <div style={{ position: 'absolute', bottom: 6, right: 6, width: 6, height: 6, background: '#FFD700', borderRadius: 1, boxShadow: '0 0 4px rgba(255,215,0,0.9), inset 0 1px 0 rgba(255,255,255,0.6)' }} />
+
+            {/* Sweep shine across the plaque */}
+            <div className="absolute inset-0 pointer-events-none" style={{
+              background: 'linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.55) 50%, transparent 62%)',
+              animation: 'ttPlaqueShine 3.6s ease-in-out infinite',
+            }} />
+
+            {/* Title with twinkling stars */}
+            <div className="flex items-center justify-center gap-2 mb-2 relative">
+              <div style={{ animation: 'twinkle 1.5s ease-in-out infinite', filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.7))' }}>
+                <IconStar size={16} />
+              </div>
+              <p className="font-pixel" style={{
+                fontSize: 12, letterSpacing: 3, color: '#7C2D12',
+                textShadow: '0 1px 0 rgba(255,255,255,0.7), 0 2px 0 rgba(120,53,15,0.4)',
+              }}>TREAT TUMBLE</p>
+              <div style={{ animation: 'twinkle 1.5s ease-in-out 0.75s infinite', filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.7))' }}>
+                <IconStar size={16} />
+              </div>
             </div>
-            <p className="text-xs text-amber-900 leading-relaxed mb-3">
-              <strong>Drag</strong> to move Eren. Catch treats,
-              <span className="text-red-700"> dodge dangers</span>, grab hearts for lives.
-              <span className="font-pixel text-amber-700" style={{ fontSize: 6 }}> It gets FASTER.</span>
+
+            {/* Decorative divider */}
+            <div className="mb-3 mx-auto" style={{
+              width: '85%',
+              height: 2,
+              background: 'linear-gradient(90deg, transparent, #B45309, #FBBF24, #B45309, transparent)',
+              boxShadow: '0 1px 0 rgba(255,255,255,0.5)',
+            }} />
+
+            {/* Description */}
+            <p className="font-pixel text-center mb-3" style={{
+              fontSize: 6, lineHeight: 1.9, letterSpacing: 1, color: '#7C2D12',
+            }}>
+              DRAG TO MOVE EREN<br/>
+              CATCH TREATS · DODGE DANGERS<br/>
+              HEARTS GIVE LIVES<br/>
+              <span style={{ color: '#B91C1C', fontSize: 5 }}>⚡ IT GETS FASTER ⚡</span>
             </p>
-            <p className="font-pixel text-amber-700 mb-2" style={{ fontSize: 6, letterSpacing: 1 }}>✦ GOODS ✦</p>
-            <div className="grid grid-cols-7 gap-1.5 mb-3 text-[10px]">
-              <LegendTile Icon={KibbleIcon} tint="#F5C842" pts="+1" />
-              <LegendTile Icon={CookieIcon} tint="#A06030" pts="+2" />
-              <LegendTile Icon={MilkIcon}   tint="#FFFFFF" pts="+2" />
-              <LegendTile Icon={IconFish}   tint="#6BAED6" pts="+3" />
-              <LegendTile Icon={CreamIcon}  tint="#A78BFA" pts="+5" />
-              <LegendTile Icon={IconStar}   tint="#FFD700" pts="+10" />
-              <LegendTile Icon={IconHeart}  tint="#FF6B9D" pts="+♥" />
+
+            {/* GOODS panel — green-tinted card */}
+            <div className="mb-2.5 relative px-2 pt-2 pb-2.5" style={{
+              background: 'linear-gradient(180deg, rgba(187,247,208,0.6) 0%, rgba(134,239,172,0.4) 100%)',
+              border: '2px solid #15803D',
+              borderRadius: 4,
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.55), 0 2px 0 rgba(21,128,61,0.35)',
+            }}>
+              <p className="font-pixel mb-2 text-center" style={{
+                fontSize: 7, letterSpacing: 2.5, color: '#14532D',
+                textShadow: '0 1px 0 rgba(255,255,255,0.6)',
+              }}>★ GOODS ★</p>
+              <div className="grid grid-cols-7 gap-1">
+                <LegendTile Icon={KibbleIcon} tint="#F5C842" pts="+1" />
+                <LegendTile Icon={CookieIcon} tint="#A06030" pts="+2" />
+                <LegendTile Icon={MilkIcon}   tint="#FFFFFF" pts="+2" />
+                <LegendTile Icon={IconFish}   tint="#6BAED6" pts="+3" />
+                <LegendTile Icon={CreamIcon}  tint="#A78BFA" pts="+5" />
+                <LegendTile Icon={IconStar}   tint="#FFD700" pts="+10" />
+                <LegendTile Icon={IconHeart}  tint="#FF6B9D" pts="+♥" />
+              </div>
             </div>
-            <p className="font-pixel text-red-700 mb-2" style={{ fontSize: 6, letterSpacing: 1 }}>⚠ DANGERS ⚠</p>
-            <div className="grid grid-cols-5 gap-1.5 text-[10px]">
-              <LegendTile Icon={FireIcon}   tint="#F97316" pts="-4" danger />
-              <LegendTile Icon={KnifeIcon}  tint="#9CA3AF" pts="-5" danger />
-              <LegendTile Icon={SpiderIcon} tint="#4B0082" pts="-5" danger />
-              <LegendTile Icon={BombIcon}   tint="#DC2626" pts="-6" danger />
-              <LegendTile Icon={SkullIcon}  tint="#E5E7EB" pts="-8" danger />
+
+            {/* DANGERS panel — red-tinted card */}
+            <div className="relative px-2 pt-2 pb-2.5" style={{
+              background: 'linear-gradient(180deg, rgba(254,202,202,0.6) 0%, rgba(248,113,113,0.4) 100%)',
+              border: '2px solid #B91C1C',
+              borderRadius: 4,
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.55), 0 2px 0 rgba(185,28,28,0.35)',
+            }}>
+              <p className="font-pixel mb-2 text-center" style={{
+                fontSize: 7, letterSpacing: 2.5, color: '#7F1D1D',
+                textShadow: '0 1px 0 rgba(255,255,255,0.6)',
+              }}>⚠ DANGERS ⚠</p>
+              <div className="grid grid-cols-5 gap-1">
+                <LegendTile Icon={TrapIcon}   tint="#7C2D12" pts="-5" danger />
+                <LegendTile Icon={KnifeIcon}  tint="#9CA3AF" pts="-5" danger />
+                <LegendTile Icon={SpiderIcon} tint="#4B0082" pts="-5" danger />
+                <LegendTile Icon={BombIcon}   tint="#DC2626" pts="-6" danger />
+                <LegendTile Icon={SkullIcon}  tint="#E5E7EB" pts="-8" danger />
+              </div>
             </div>
           </div>
+
+          {/* Premium START button */}
           <button onClick={() => { playSound('ui_tap'); start() }}
-            className="px-8 py-3 text-white active:translate-y-[2px] transition-transform"
+            className="relative mt-5 px-8 py-3 text-white active:translate-y-[2px] transition-transform z-10 overflow-hidden"
             style={{
-              background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
-              border: '3px solid #B45309',
+              background: 'linear-gradient(180deg, #F59E0B 0%, #D97706 50%, #B45309 100%)',
+              border: '3px solid #7C2D12',
               borderRadius: 4,
-              boxShadow: '0 5px 0 #92400E, inset 0 1px 0 rgba(255,255,255,0.35), 0 0 14px rgba(245,158,11,0.5)',
-              fontFamily: '"Press Start 2P"', fontSize: 10, letterSpacing: 2,
+              boxShadow: '0 6px 0 #5A1A0A, inset 0 2px 0 rgba(255,255,255,0.4), 0 0 22px rgba(251,191,36,0.65)',
+              fontFamily: '"Press Start 2P"', fontSize: 11, letterSpacing: 2,
+              textShadow: '0 2px 0 #5A1A0A',
             }}>
             ▶ START
+            {/* Sweeping shine across the button */}
+            <div className="absolute inset-0 pointer-events-none" style={{
+              background: 'linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.5) 50%, transparent 62%)',
+              animation: 'ttPlaqueShine 2.4s ease-in-out infinite',
+            }} />
           </button>
         </div>
       )}
@@ -900,6 +988,16 @@ export default function TreatTumbleGame() {
           0%, 100% { transform: scale(1); }
           50%      { transform: scale(1.18); }
         }
+        /* Slow drifting sparkle field behind the start plaque */
+        @keyframes ttStarDrift {
+          from { background-position: 0 0, 22px 28px; }
+          to   { background-position: 200px 0, 222px 28px; }
+        }
+        /* Sweeping shine across the plaque + start button */
+        @keyframes ttPlaqueShine {
+          0%, 30%   { transform: translateX(-130%); }
+          70%, 100% { transform: translateX(130%); }
+        }
       `}</style>
     </div>
   )
@@ -908,14 +1006,23 @@ export default function TreatTumbleGame() {
 // ── Small legend tile used in intro ─────────────────────────────────────────
 function LegendTile({ Icon, tint, pts, danger }: { Icon: React.FC<{ size?: number }>, tint: string, pts: string, danger?: boolean }) {
   return (
-    <div className="flex flex-col items-center gap-1 p-1.5"
+    <div className="flex flex-col items-center gap-0.5 py-1.5 px-1 relative"
       style={{
-        background: danger ? 'rgba(220,38,38,0.1)' : `${tint}22`,
-        border: `1px solid ${danger ? '#DC2626' : tint}`,
-        borderRadius: 3,
+        // Subtle gradient + soft inner highlight gives each tile depth.
+        background: danger
+          ? 'linear-gradient(180deg, rgba(255,255,255,0.6), rgba(254,202,202,0.35))'
+          : 'linear-gradient(180deg, rgba(255,255,255,0.7), rgba(255,255,255,0.25))',
+        border: `1.5px solid ${danger ? '#B91C1C' : tint}`,
+        borderRadius: 4,
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 0 rgba(0,0,0,0.18)',
       }}>
-      <Icon size={22} />
-      <span className="font-pixel" style={{ fontSize: 6, color: danger ? '#991B1B' : '#92400E' }}>{pts}</span>
+      <Icon size={20} />
+      <span className="font-pixel" style={{
+        fontSize: 6,
+        color: danger ? '#7F1D1D' : '#7C2D12',
+        letterSpacing: 0.5,
+        textShadow: '0 1px 0 rgba(255,255,255,0.5)',
+      }}>{pts}</span>
     </div>
   )
 }
