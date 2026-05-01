@@ -165,6 +165,383 @@ const GAMES: GameMeta[] = [
   },
 ]
 
+// ─── Per-game mini scenes ───────────────────────────────────────────────────
+// Each game card shows a custom 48×48 pixel-art scene instead of a single
+// generic icon. The scenes are a couple of related elements arranged so
+// each card reads at a glance as that specific game.
+function GameScene({ id, size = 48 }: { id: GameType; size?: number }) {
+  switch (id) {
+    case 'catch_mouse':  return <CatchMouseScene  size={size} />
+    case 'paw_tap':      return <PawTapScene      size={size} />
+    case 'memory_match': return <MemoryScene      size={size} />
+    case 'treat_tumble': return <TreatTumbleScene size={size} />
+    case 'flappy_eren':  return <FlappyScene      size={size} />
+    case 'tic_tac_toe':  return <TicTacToeScene   size={size} />
+    case 'eren_stack':   return <StackScene       size={size} />
+    case 'yarn_pop':     return <YarnPopScene     size={size} />
+    case 'eren_says':    return <SaysScene        size={size} />
+    case 'lane_runner':  return <LaneRunnerScene  size={size} />
+    case 'paw_doku':     return <PawDokuScene     size={size} />
+  }
+}
+
+function svgProps(size: number) {
+  return {
+    width: size, height: size, viewBox: '0 0 48 48',
+    shapeRendering: 'crispEdges' as const,
+    style: { imageRendering: 'pixelated' as const },
+  }
+}
+
+// CATCH MOUSE — gray mouse + cheese with motion dust
+function CatchMouseScene({ size }: { size: number }) {
+  return (
+    <svg {...svgProps(size)}>
+      {/* Cheese */}
+      <rect x="32" y="22" width="12" height="2" fill="#FDE68A" />
+      <rect x="32" y="24" width="12" height="6" fill="#FCD34D" />
+      <rect x="32" y="30" width="12" height="2" fill="#92400E" />
+      <rect x="34" y="25" width="2" height="2" fill="#92400E" />
+      <rect x="38" y="27" width="2" height="2" fill="#92400E" />
+      {/* Mouse body */}
+      <rect x="14" y="22" width="2" height="2" fill="#FBCFE8" />     {/* ear */}
+      <rect x="20" y="22" width="2" height="2" fill="#FBCFE8" />     {/* ear */}
+      <rect x="13" y="24" width="2" height="2" fill="#9CA3AF" />
+      <rect x="21" y="24" width="2" height="2" fill="#9CA3AF" />
+      <rect x="13" y="24" width="10" height="6" fill="#9CA3AF" />
+      <rect x="13" y="24" width="10" height="2" fill="#D1D5DB" />    {/* highlight */}
+      <rect x="15" y="26" width="2" height="2" fill="#1F2937" />     {/* eye */}
+      <rect x="22" y="27" width="2" height="2" fill="#FBCFE8" />     {/* nose */}
+      {/* Tail */}
+      <rect x="11" y="28" width="2" height="1" fill="#F472B6" />
+      <rect x="9"  y="29" width="2" height="1" fill="#F472B6" />
+      <rect x="7"  y="30" width="2" height="1" fill="#F472B6" />
+      {/* Motion dust */}
+      <rect x="4" y="32" width="3" height="2" fill="#9CA3AF" opacity="0.5" />
+      <rect x="0" y="34" width="3" height="2" fill="#9CA3AF" opacity="0.3" />
+    </svg>
+  )
+}
+
+// PAW TAP — fish leaping out of water with bubbles
+function PawTapScene({ size }: { size: number }) {
+  return (
+    <svg {...svgProps(size)}>
+      {/* Water surface */}
+      <rect x="0"  y="38" width="48" height="2" fill="#1E40AF" />
+      <rect x="0"  y="36" width="48" height="2" fill="#3B82F6" opacity="0.6" />
+      {/* Fish body */}
+      <rect x="14" y="14" width="20" height="12" fill="#3B82F6" />
+      <rect x="14" y="14" width="20" height="3"  fill="#93C5FD" />     {/* highlight */}
+      <rect x="14" y="22" width="20" height="3"  fill="#1E40AF" />     {/* shadow */}
+      <rect x="13" y="16" width="1"  height="8"  fill="#1E40AF" />     {/* mouth */}
+      <rect x="20" y="17" width="3"  height="3"  fill="#FFFFFF" />     {/* eye */}
+      <rect x="22" y="17" width="1"  height="2"  fill="#1F2937" />
+      {/* Tail fin */}
+      <rect x="34" y="14" width="3"  height="3"  fill="#1E40AF" />
+      <rect x="37" y="11" width="3"  height="4"  fill="#1E40AF" />
+      <rect x="34" y="22" width="3"  height="3"  fill="#1E40AF" />
+      <rect x="37" y="24" width="3"  height="4"  fill="#1E40AF" />
+      {/* Bubbles */}
+      <rect x="6"  y="20" width="3" height="3" fill="#BFDBFE" opacity="0.85" />
+      <rect x="3"  y="26" width="2" height="2" fill="#BFDBFE" opacity="0.7" />
+      <rect x="40" y="6"  width="3" height="3" fill="#BFDBFE" opacity="0.65" />
+    </svg>
+  )
+}
+
+// MEMORY MATCH — three cards, the centre one flipped showing a heart
+function MemoryScene({ size }: { size: number }) {
+  return (
+    <svg {...svgProps(size)}>
+      {/* Card 1 — face down with star back */}
+      <rect x="2"  y="10" width="14" height="22" fill="#5B21B6" />
+      <rect x="2"  y="10" width="14" height="3"  fill="#7C3AED" />
+      <rect x="2"  y="29" width="14" height="3"  fill="#3B0764" />
+      <rect x="6"  y="18" width="6"  height="6"  fill="#FBBF24" />
+      <rect x="7"  y="17" width="4"  height="1"  fill="#FBBF24" />
+      <rect x="7"  y="24" width="4"  height="1"  fill="#FBBF24" />
+      {/* Card 2 — face up with HEART (the match) */}
+      <rect x="17" y="10" width="14" height="22" fill="#FFFFFF" />
+      <rect x="17" y="10" width="14" height="3"  fill="#FBCFE8" />
+      <rect x="17" y="29" width="14" height="3"  fill="#FCE7F3" />
+      <rect x="20" y="16" width="4"  height="3"  fill="#EC4899" />
+      <rect x="24" y="16" width="4"  height="3"  fill="#EC4899" />
+      <rect x="19" y="19" width="10" height="3"  fill="#EC4899" />
+      <rect x="20" y="22" width="8"  height="2"  fill="#EC4899" />
+      <rect x="22" y="24" width="4"  height="2"  fill="#EC4899" />
+      {/* Card 3 — face down */}
+      <rect x="32" y="10" width="14" height="22" fill="#5B21B6" />
+      <rect x="32" y="10" width="14" height="3"  fill="#7C3AED" />
+      <rect x="32" y="29" width="14" height="3"  fill="#3B0764" />
+      <rect x="36" y="18" width="6"  height="6"  fill="#FBBF24" />
+      {/* Sparkle */}
+      <rect x="38" y="4" width="1" height="3" fill="#FFFFFF" />
+      <rect x="37" y="5" width="3" height="1" fill="#FFFFFF" />
+    </svg>
+  )
+}
+
+// TREAT TUMBLE — kibble + cookie + heart falling on a paw
+function TreatTumbleScene({ size }: { size: number }) {
+  return (
+    <svg {...svgProps(size)}>
+      {/* Kibble */}
+      <rect x="6"  y="6"  width="6" height="6" fill="#D4892A" />
+      <rect x="7"  y="7"  width="4" height="4" fill="#F5C842" />
+      <rect x="7"  y="7"  width="1" height="1" fill="#FFF4A3" />
+      {/* Cookie */}
+      <rect x="20" y="2"  width="8" height="8" fill="#92400E" />
+      <rect x="21" y="3"  width="6" height="6" fill="#D97706" />
+      <rect x="22" y="4"  width="2" height="2" fill="#451A03" />
+      <rect x="25" y="6"  width="2" height="2" fill="#451A03" />
+      {/* Heart */}
+      <rect x="34" y="10" width="3" height="2" fill="#EC4899" />
+      <rect x="38" y="10" width="3" height="2" fill="#EC4899" />
+      <rect x="33" y="12" width="9" height="3" fill="#EC4899" />
+      <rect x="34" y="15" width="7" height="2" fill="#EC4899" />
+      <rect x="36" y="17" width="3" height="2" fill="#EC4899" />
+      {/* Motion lines */}
+      <rect x="10" y="14" width="1" height="3" fill="#FBBF24" opacity="0.5" />
+      <rect x="24" y="12" width="1" height="3" fill="#FBBF24" opacity="0.5" />
+      {/* Paw at the bottom — main pad + 3 toe pads */}
+      <rect x="14" y="36" width="3" height="3" fill="#FFFFFF" />
+      <rect x="22" y="34" width="3" height="3" fill="#FFFFFF" />
+      <rect x="30" y="36" width="3" height="3" fill="#FFFFFF" />
+      <rect x="16" y="40" width="16" height="6" fill="#FFFFFF" />
+      <rect x="14" y="42" width="20" height="4" fill="#FFFFFF" />
+      <rect x="20" y="42" width="8" height="2"  fill="#F472B6" opacity="0.5" />
+    </svg>
+  )
+}
+
+// FIZZY EREN — energy can with lightning bolt + ears
+function FlappyScene({ size }: { size: number }) {
+  return (
+    <svg {...svgProps(size)}>
+      {/* Cat ears at top */}
+      <rect x="10" y="2"  width="4" height="2" fill="#4A2E1A" />
+      <rect x="9"  y="4"  width="6" height="3" fill="#9B7A5C" />
+      <rect x="11" y="5"  width="2" height="1" fill="#FBCFE8" />
+      <rect x="34" y="2"  width="4" height="2" fill="#4A2E1A" />
+      <rect x="33" y="4"  width="6" height="3" fill="#9B7A5C" />
+      <rect x="35" y="5"  width="2" height="1" fill="#FBCFE8" />
+      {/* Lightning bolt big behind */}
+      <rect x="20" y="6"  width="6" height="3"  fill="#FBBF24" opacity="0.4" />
+      <rect x="18" y="9"  width="8" height="3"  fill="#FBBF24" opacity="0.4" />
+      <rect x="22" y="12" width="8" height="3"  fill="#FBBF24" opacity="0.4" />
+      {/* Energy can — vertical, dark with lime */}
+      <rect x="18" y="14" width="12" height="3" fill="#525252" />
+      <rect x="18" y="17" width="12" height="22" fill="#0F0F0F" />
+      <rect x="18" y="39" width="12" height="3" fill="#525252" />
+      {/* Lime stripes */}
+      <rect x="20" y="20" width="2" height="14" fill="#10B981" />
+      <rect x="23" y="22" width="2" height="12" fill="#10B981" />
+      <rect x="26" y="20" width="2" height="14" fill="#10B981" />
+      {/* Pull tab */}
+      <rect x="22" y="11" width="4" height="3" fill="#9CA3AF" />
+      {/* Lightning bolt small */}
+      <rect x="32" y="22" width="3" height="2" fill="#FDE68A" />
+      <rect x="30" y="24" width="5" height="2" fill="#FBBF24" />
+      <rect x="33" y="26" width="3" height="2" fill="#FDE68A" />
+    </svg>
+  )
+}
+
+// TIC TAC TOE — 3×3 grid with a winning X / O move drawn
+function TicTacToeScene({ size }: { size: number }) {
+  return (
+    <svg {...svgProps(size)}>
+      {/* Grid lines */}
+      <rect x="18" y="6"  width="2"  height="36" fill="#A78BFA" />
+      <rect x="28" y="6"  width="2"  height="36" fill="#A78BFA" />
+      <rect x="6"  y="18" width="36" height="2"  fill="#A78BFA" />
+      <rect x="6"  y="28" width="36" height="2"  fill="#A78BFA" />
+      {/* X (top-left) — pink */}
+      <rect x="9"  y="9"  width="2" height="2" fill="#FF6B9D" />
+      <rect x="11" y="11" width="2" height="2" fill="#FF6B9D" />
+      <rect x="13" y="13" width="2" height="2" fill="#FF6B9D" />
+      <rect x="15" y="9"  width="2" height="2" fill="#FF6B9D" />
+      <rect x="13" y="11" width="2" height="2" fill="#FF6B9D" />
+      <rect x="9"  y="15" width="2" height="2" fill="#FF6B9D" />
+      {/* O (centre) — purple */}
+      <rect x="22" y="20" width="4" height="2" fill="#A78BFA" />
+      <rect x="22" y="26" width="4" height="2" fill="#A78BFA" />
+      <rect x="20" y="22" width="2" height="4" fill="#A78BFA" />
+      <rect x="26" y="22" width="2" height="4" fill="#A78BFA" />
+      {/* X (bottom-right) — pink */}
+      <rect x="33" y="33" width="2" height="2" fill="#FF6B9D" />
+      <rect x="35" y="35" width="2" height="2" fill="#FF6B9D" />
+      <rect x="37" y="37" width="2" height="2" fill="#FF6B9D" />
+      <rect x="39" y="33" width="2" height="2" fill="#FF6B9D" />
+      <rect x="37" y="35" width="2" height="2" fill="#FF6B9D" />
+      <rect x="33" y="39" width="2" height="2" fill="#FF6B9D" />
+    </svg>
+  )
+}
+
+// EREN STACK — tower of stacked blocks with a crown on top
+function StackScene({ size }: { size: number }) {
+  return (
+    <svg {...svgProps(size)}>
+      {/* Crown */}
+      <rect x="18" y="2"  width="2" height="3" fill="#FBBF24" />
+      <rect x="22" y="0"  width="2" height="5" fill="#FBBF24" />
+      <rect x="26" y="2"  width="2" height="3" fill="#FBBF24" />
+      <rect x="16" y="5"  width="14" height="3" fill="#FBBF24" />
+      <rect x="16" y="5"  width="14" height="1" fill="#FDE68A" />
+      <rect x="20" y="6"  width="2" height="1" fill="#DC2626" />
+      <rect x="24" y="6"  width="2" height="1" fill="#DC2626" />
+      {/* Stacked blocks — different colours, shrinking up */}
+      <rect x="6"  y="34" width="36" height="8" fill="#3B82F6" />
+      <rect x="6"  y="34" width="36" height="2" fill="#93C5FD" />
+      <rect x="6"  y="40" width="36" height="2" fill="#1E40AF" />
+      <rect x="9"  y="26" width="30" height="8" fill="#10B981" />
+      <rect x="9"  y="26" width="30" height="2" fill="#A7F3D0" />
+      <rect x="9"  y="32" width="30" height="2" fill="#047857" />
+      <rect x="13" y="18" width="22" height="8" fill="#EC4899" />
+      <rect x="13" y="18" width="22" height="2" fill="#FBCFE8" />
+      <rect x="13" y="24" width="22" height="2" fill="#9D174D" />
+      <rect x="16" y="10" width="16" height="8" fill="#FBBF24" />
+      <rect x="16" y="10" width="16" height="2" fill="#FDE68A" />
+      <rect x="16" y="16" width="16" height="2" fill="#92400E" />
+    </svg>
+  )
+}
+
+// YARN POP — 3×3 colourful tiles with three matching ones lit
+function YarnPopScene({ size }: { size: number }) {
+  const C = (x: number, y: number, hue: string, glow = false) => (
+    <g>
+      <rect x={x} y={y} width="12" height="12" fill={hue} />
+      <rect x={x} y={y} width="12" height="3"  fill="#FFFFFF" opacity="0.4" />
+      <rect x={x} y={y+9} width="12" height="3" fill="#000000" opacity="0.25" />
+      {glow && <rect x={x-1} y={y-1} width="14" height="14" fill="none" stroke="#FFD700" strokeWidth="1.5" />}
+    </g>
+  )
+  return (
+    <svg {...svgProps(size)}>
+      {C(4,  4,  '#EC4899', true)}
+      {C(18, 4,  '#A78BFA')}
+      {C(32, 4,  '#EC4899', true)}
+      {C(4,  18, '#FBBF24')}
+      {C(18, 18, '#EC4899', true)}
+      {C(32, 18, '#34D399')}
+      {C(4,  32, '#60A5FA')}
+      {C(18, 32, '#FBBF24')}
+      {C(32, 32, '#A78BFA')}
+      {/* Sparkles around the matched line */}
+      <rect x="0"  y="8"  width="2" height="2" fill="#FFD700" />
+      <rect x="44" y="8"  width="2" height="2" fill="#FFD700" />
+      <rect x="22" y="0"  width="2" height="2" fill="#FFD700" />
+    </svg>
+  )
+}
+
+// EREN SAYS — 4 colourful pads in a 2×2 grid, one lit with a sparkle
+function SaysScene({ size }: { size: number }) {
+  return (
+    <svg {...svgProps(size)}>
+      {/* Top-left pad — green, lit */}
+      <rect x="4"  y="4"  width="18" height="18" fill="#10B981" />
+      <rect x="4"  y="4"  width="18" height="4"  fill="#A7F3D0" />
+      <rect x="4"  y="18" width="18" height="4"  fill="#047857" />
+      <rect x="2"  y="2"  width="22" height="22" fill="none" stroke="#FFD700" strokeWidth="1.5" />
+      {/* Top-right pad — red */}
+      <rect x="26" y="4"  width="18" height="18" fill="#7F1D1D" />
+      <rect x="26" y="4"  width="18" height="4"  fill="#DC2626" opacity="0.5" />
+      {/* Bottom-left pad — yellow */}
+      <rect x="4"  y="26" width="18" height="18" fill="#7C5A0E" />
+      <rect x="4"  y="26" width="18" height="4"  fill="#FBBF24" opacity="0.5" />
+      {/* Bottom-right pad — blue */}
+      <rect x="26" y="26" width="18" height="18" fill="#1E3A8A" />
+      <rect x="26" y="26" width="18" height="4"  fill="#3B82F6" opacity="0.5" />
+      {/* Centre sparkle on the lit pad */}
+      <rect x="11" y="11" width="4" height="4"  fill="#FFFFFF" />
+      <rect x="12" y="9"  width="2" height="2"  fill="#FFFFFF" />
+      <rect x="12" y="15" width="2" height="2"  fill="#FFFFFF" />
+      <rect x="9"  y="12" width="2" height="2"  fill="#FFFFFF" />
+      <rect x="15" y="12" width="2" height="2"  fill="#FFFFFF" />
+    </svg>
+  )
+}
+
+// LANE RUNNER — 3 lanes with cat in the middle + obstacle ahead
+function LaneRunnerScene({ size }: { size: number }) {
+  return (
+    <svg {...svgProps(size)}>
+      {/* Road background */}
+      <rect x="0"  y="0"  width="48" height="48" fill="#15803D" />
+      {/* 3 lanes — slightly darker stripes */}
+      <rect x="4"  y="0"  width="14" height="48" fill="#166534" />
+      <rect x="30" y="0"  width="14" height="48" fill="#166534" />
+      {/* Lane dividers */}
+      <rect x="18" y="2"  width="2" height="6" fill="#FBBF24" />
+      <rect x="18" y="14" width="2" height="6" fill="#FBBF24" />
+      <rect x="18" y="26" width="2" height="6" fill="#FBBF24" />
+      <rect x="18" y="38" width="2" height="6" fill="#FBBF24" />
+      <rect x="28" y="2"  width="2" height="6" fill="#FBBF24" />
+      <rect x="28" y="14" width="2" height="6" fill="#FBBF24" />
+      <rect x="28" y="26" width="2" height="6" fill="#FBBF24" />
+      <rect x="28" y="38" width="2" height="6" fill="#FBBF24" />
+      {/* Coin in front lane */}
+      <rect x="22" y="6"  width="4" height="4" fill="#FBBF24" />
+      <rect x="21" y="7"  width="6" height="2" fill="#FBBF24" />
+      <rect x="22" y="6"  width="2" height="2" fill="#FDE68A" />
+      {/* Cat (back) — chibi silhouette in middle lane */}
+      <rect x="20" y="22" width="2" height="2" fill="#4A2E1A" />     {/* ear */}
+      <rect x="26" y="22" width="2" height="2" fill="#4A2E1A" />     {/* ear */}
+      <rect x="20" y="24" width="8" height="8" fill="#F9EDD5" />     {/* head */}
+      <rect x="20" y="24" width="8" height="2" fill="#4A2E1A" />     {/* outline */}
+      <rect x="22" y="27" width="1" height="2" fill="#1F2937" />     {/* eye */}
+      <rect x="25" y="27" width="1" height="2" fill="#1F2937" />     {/* eye */}
+      <rect x="22" y="32" width="4" height="6" fill="#F9EDD5" />     {/* body */}
+      <rect x="22" y="32" width="4" height="1" fill="#4A2E1A" />
+      <rect x="22" y="38" width="4" height="1" fill="#4A2E1A" />
+    </svg>
+  )
+}
+
+// PAW DOKU — 9-cell sudoku grid with several blocks placed
+function PawDokuScene({ size }: { size: number }) {
+  // 3×3 of 3×3 cells. Cell size 4, gap 1.
+  const filled: Array<[number, number, string]> = [
+    [0, 0, '#EC4899'], [1, 0, '#EC4899'], [2, 0, '#EC4899'],   // top row of TL block
+    [0, 1, '#EC4899'],                                         // partial fill TL
+    [4, 4, '#A78BFA'], [5, 4, '#A78BFA'], [4, 5, '#A78BFA'], [5, 5, '#A78BFA'],  // 2x2 in centre
+    [7, 7, '#FBBF24'], [8, 7, '#FBBF24'], [7, 8, '#FBBF24'], [8, 8, '#FBBF24'],  // 2x2 BR
+    [0, 6, '#34D399'], [1, 6, '#34D399'], [2, 6, '#34D399'],   // line BL
+    [6, 0, '#60A5FA'], [7, 0, '#60A5FA'],                      // line TR
+  ]
+  const cell = 4
+  const gap = 1
+  const offset = 4
+  return (
+    <svg {...svgProps(size)}>
+      {/* Cells */}
+      {Array.from({ length: 81 }).map((_, i) => {
+        const r = Math.floor(i / 9)
+        const c = i % 9
+        const f = filled.find(([fc, fr]) => fc === c && fr === r)
+        return (
+          <rect key={i}
+            x={offset + c * (cell + gap)}
+            y={offset + r * (cell + gap)}
+            width={cell} height={cell}
+            fill={f ? f[2] : 'rgba(167,139,250,0.18)'}
+            stroke={f ? 'rgba(0,0,0,0.4)' : 'none'}
+            strokeWidth={f ? 0.5 : 0} />
+        )
+      })}
+      {/* 3×3 sub-block dividers */}
+      <line x1={offset + 3 * (cell+gap) - 0.5} y1={offset - 1} x2={offset + 3 * (cell+gap) - 0.5} y2={offset + 9 * (cell+gap) - 1} stroke="#FBBF24" strokeWidth="1" opacity="0.7" />
+      <line x1={offset + 6 * (cell+gap) - 0.5} y1={offset - 1} x2={offset + 6 * (cell+gap) - 0.5} y2={offset + 9 * (cell+gap) - 1} stroke="#FBBF24" strokeWidth="1" opacity="0.7" />
+      <line x1={offset - 1} y1={offset + 3 * (cell+gap) - 0.5} x2={offset + 9 * (cell+gap) - 1} y2={offset + 3 * (cell+gap) - 0.5} stroke="#FBBF24" strokeWidth="1" opacity="0.7" />
+      <line x1={offset - 1} y1={offset + 6 * (cell+gap) - 0.5} x2={offset + 9 * (cell+gap) - 1} y2={offset + 6 * (cell+gap) - 0.5} stroke="#FBBF24" strokeWidth="1" opacity="0.7" />
+    </svg>
+  )
+}
+
 export default function GamesPage() {
   const router = useRouter()
   const { user } = useAuth()
@@ -268,7 +645,7 @@ export default function GamesPage() {
 
       {/* ── Premium game cards ── */}
       <div className="relative z-10 flex flex-col gap-3 mb-7 mt-4">
-        {GAMES.map(game => {
+        {GAMES.map((game, gameIdx) => {
           const myBest = myScores[game.id]
           return (
             <Link key={game.id} href={game.href} onClick={() => playSound('ui_tap')}>
@@ -301,25 +678,47 @@ export default function GamesPage() {
                 <div style={{ position: 'absolute', top: 6, right: 6, width: 4, height: 4, background: '#FBBF24', opacity: 0.85, boxShadow: '0 0 4px rgba(251,191,36,0.6)' }} />
                 <div style={{ position: 'absolute', bottom: 6, right: 6, width: 4, height: 4, background: '#FBBF24', opacity: 0.85, boxShadow: '0 0 4px rgba(251,191,36,0.6)' }} />
 
+                {/* Sweeping diagonal shine — staggered across cards via
+                    the per-card gameIdx so they don't all flash in sync. */}
+                <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ borderRadius: 10 }}>
+                  <div className="absolute inset-0" style={{
+                    background: 'linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.18) 50%, transparent 62%)',
+                    animation: `gpCardShine 5.6s ease-in-out infinite`,
+                    animationDelay: `${(gameIdx * 0.4) % 5.6}s`,
+                  }} />
+                </div>
+
                 <div className="relative flex items-center gap-4 p-4 pl-5">
-                  {/* Icon tile — embossed coin look */}
+                  {/* Icon tile — bigger now, with a custom mini-scene per
+                      game inside an embossed gold-rimmed coin. */}
                   <div className="flex-shrink-0 flex items-center justify-center relative"
                     style={{
-                      width: 64, height: 64,
+                      width: 76, height: 76,
                       background: `radial-gradient(circle at 35% 30%, ${game.border}DD 0%, ${game.shadow} 75%)`,
-                      borderRadius: 10,
-                      border: `1.5px solid #FBBF24`,
+                      borderRadius: 12,
+                      border: `2px solid #FBBF24`,
                       boxShadow: `
-                        inset 0 2px 0 rgba(255,255,255,0.35),
-                        inset 0 -2px 0 rgba(0,0,0,0.3),
-                        0 4px 12px ${game.border}66,
-                        0 0 0 3px rgba(251,191,36,0.15)
+                        inset 0 2px 0 rgba(255,255,255,0.4),
+                        inset 0 -2px 0 rgba(0,0,0,0.32),
+                        0 4px 14px ${game.border}66,
+                        0 0 0 3px rgba(251,191,36,0.18),
+                        0 0 12px ${game.border}55
                       `,
                     }}>
-                    <div className="absolute inset-1.5 rounded-md flex items-center justify-center"
-                      style={{ background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.12)' }}>
-                      <game.Icon size={32} />
+                    {/* Inner panel — slightly inset, holds the scene */}
+                    <div className="absolute inset-1.5 flex items-center justify-center overflow-hidden"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(0,0,0,0.32), rgba(0,0,0,0.12))',
+                        border: '1px solid rgba(255,255,255,0.18)',
+                        borderRadius: 8,
+                      }}>
+                      <GameScene id={game.id} size={56} />
                     </div>
+                    {/* Tiny gold rivet at each corner of the coin */}
+                    <div style={{ position: 'absolute', top: 3, left: 3, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 3px #FFD700' }} />
+                    <div style={{ position: 'absolute', top: 3, right: 3, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 3px #FFD700' }} />
+                    <div style={{ position: 'absolute', bottom: 3, left: 3, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 3px #FFD700' }} />
+                    <div style={{ position: 'absolute', bottom: 3, right: 3, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 3px #FFD700' }} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-pixel mb-1.5" style={{
@@ -396,6 +795,13 @@ export default function GamesPage() {
         @keyframes gpStarDrift {
           from { background-position: 0 0, 22px 28px; }
           to   { background-position: 200px 0, 222px 28px; }
+        }
+        /* Sweeping shine that crosses each card. Long pause between
+           sweeps + per-card animationDelay so the row reads as
+           sparkling rather than synchronised. */
+        @keyframes gpCardShine {
+          0%, 18%   { transform: translateX(-130%); }
+          26%, 100% { transform: translateX(130%); }
         }
       `}</style>
     </div>
