@@ -390,15 +390,15 @@ export default function HomePage() {
         </div>
 
         {/* ══ HUD OVERLAY (below shared stats header) ══ */}
-        <div className="absolute left-0 right-0 z-10 px-3" style={{ top: 100 }}>
+        <div className="absolute left-0 right-0 z-10 px-3 flex flex-col gap-2" style={{ top: 100 }}>
 
-          {/* Quests (compact) + Nav buttons — single row */}
-          <div className="flex items-center gap-2">
-            {/* Quests — takes remaining space */}
-            <div className="flex-1 min-w-0">
-              <TaskPanel compact />
-            </div>
+          {/* Quest panel — full-width on its own row so its label and the
+              daily/weekly counters don't get squeezed by the action
+              buttons. */}
+          <TaskPanel compact />
 
+          {/* Nav buttons — separate row below, right-aligned */}
+          <div className="flex items-center justify-end gap-2">
             {/* Nav buttons — pixel game style */}
             {fortuneAvailable && (
               <button onClick={() => { playSound('ui_modal_open'); setShowFortune(true) }}
