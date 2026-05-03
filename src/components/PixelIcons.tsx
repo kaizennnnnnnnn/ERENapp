@@ -790,3 +790,26 @@ export function IconHeartDuo({ size = 20 }: IconProps) {
     K: '#8B1538', P: '#FF4D7D', W: '#FFC0D0',
   }, size)
 }
+
+// ── CAKE — pink-frosted layered cake with a candle on top ────────────────
+export function IconCake({ size = 20 }: IconProps) {
+  const grid = [
+    '......F.....',   // F = candle flame
+    '......T.....',   // T = candle wick / stem
+    '...PPPPPP...',   // P = pink frosting top
+    '..PWPPPWPP..',   // W = white frosting highlight
+    '.BBBBBBBBBB.',   // B = cake body (brown)
+    '.BDDDDDDDDB.',   // D = cream filling layer
+    '.BBBBBBBBBB.',
+    '.BDDDDDDDDB.',
+    '.BBBBBBBBBB.',
+    '.KKKKKKKKKK.',   // K = base / plate
+    '............',
+    '............',
+  ]
+  return drawPixels(grid, {
+    F: '#FBBF24', T: '#7C2D12',
+    P: '#EC4899', W: '#FBCFE8',
+    B: '#92400E', D: '#FDE68A', K: '#525252',
+  }, size)
+}

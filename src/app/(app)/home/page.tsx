@@ -17,7 +17,7 @@ import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 import { format } from 'date-fns'
 import Link from 'next/link'
 import { Sparkles } from 'lucide-react'
-import { IconGift, IconCapsule, IconHeart, IconBell, IconPerson, IconDoor, IconDrumstick, IconYarn, IconMoonZ, IconBath, IconPill, IconBook } from '@/components/PixelIcons'
+import { IconGift, IconCapsule, IconHeart, IconBell, IconPerson, IconDoor, IconDrumstick, IconYarn, IconMoonZ, IconBath, IconPill, IconBook, IconCake } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import TaskPanel from '@/components/TaskPanel'
 import ReminderSheet from '@/components/ReminderSheet'
@@ -412,6 +412,11 @@ export default function HomePage() {
               style={{ background: 'rgba(8,5,20,0.8)', border: '2px solid rgba(124,58,237,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(167,139,250,0.2)' }}>
               <IconCapsule size={22} />
             </Link>
+            <Link href="/bakery" onClick={() => playSound('ui_tap')}
+              className="w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
+              style={{ background: 'rgba(8,5,20,0.8)', border: '2px solid rgba(251,191,36,0.55)', boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(251,191,36,0.25)' }}>
+              <IconCake size={22} />
+            </Link>
             <Link href="/couple" onClick={() => playSound('ui_tap')} className="relative w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
               style={{ background: 'rgba(8,5,20,0.8)', border: '2px solid rgba(255,107,157,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,107,157,0.2)' }}>
               <IconHeart size={22} />
@@ -468,8 +473,19 @@ export default function HomePage() {
                       { id: 'wash',   label: 'Bathroom',      Icon: IconBath,      color: '#38BDF8', rgb: '56,189,248' },
                       { id: 'vet',    label: 'Vet Office',    Icon: IconPill,      color: '#34D399', rgb: '52,211,153' },
                       { id: 'school', label: 'Serbian Class', Icon: IconBook,      color: '#F59E0B', rgb: '245,158,11' },
+                      // Bakery is a top-level route, not a care scene — `href`
+                      // routes via router.push instead of openScene().
+                      { id: 'bakery', label: 'Eren’s Bakery', Icon: IconCake, color: '#FBBF24', rgb: '251,191,36', href: '/bakery' },
                     ] as const).map(room => (
-                      <button key={room.id} onClick={() => { playSound('ui_tap'); setShowRooms(false); openScene(room.id) }}
+                      <button key={room.id} onClick={() => {
+                        playSound('ui_tap')
+                        setShowRooms(false)
+                        if ('href' in room && room.href) {
+                          router.push(room.href)
+                        } else {
+                          openScene(room.id as Exclude<typeof room.id, 'bakery'>)
+                        }
+                      }}
                         className="flex items-center gap-2.5 px-3 py-2 active:scale-95 transition-transform relative"
                         style={{
                           borderRadius: 4,
