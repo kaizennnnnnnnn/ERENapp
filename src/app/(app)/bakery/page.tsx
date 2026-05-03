@@ -113,68 +113,121 @@ export default function BakeryPage() {
         opacity: 0.55,
       }} />
 
-      {/* Main scene area: counter + Eren behind it */}
-      <div className="relative flex-shrink-0 flex flex-col items-center justify-end pt-4 pb-2"
-        style={{ minHeight: 220 }}>
-        {/* Wall back-panel — bakery interior */}
-        <div className="absolute inset-x-0 top-0 bottom-12" style={{
-          background: 'linear-gradient(180deg, rgba(254,226,226,0.7) 0%, rgba(252,231,243,0.5) 100%)',
+      {/* Main scene area — Eren stands BEHIND the counter so only his
+          head + ears poke up over the wood. The counter is z-20 and
+          drawn AFTER Eren's image (which is z-10), so it physically
+          covers his lower body. */}
+      <div className="relative flex-shrink-0" style={{ height: 240 }}>
+        {/* Wall back-panel — bakery interior wallpaper. Stops at the top
+            of the counter so the counter sits flush against it. */}
+        <div className="absolute inset-x-0 top-0 z-0" style={{
+          bottom: 95,
+          background: 'linear-gradient(180deg, rgba(254,226,226,0.85) 0%, rgba(252,231,243,0.6) 100%)',
+          borderBottom: '2px solid rgba(120,53,15,0.18)',
         }} />
 
-        {/* Decorative wall items (a tiny cake on each side, behind Eren) */}
-        <div className="absolute" style={{ top: 18, left: '14%', filter: 'drop-shadow(0 2px 0 rgba(120,53,15,0.3))' }}>
-          <IconCake size={28} />
-        </div>
-        <div className="absolute" style={{ top: 22, right: '14%', filter: 'drop-shadow(0 2px 0 rgba(120,53,15,0.3))' }}>
-          <IconHeart size={20} />
-        </div>
-        <div className="absolute" style={{ top: 12, left: '50%', transform: 'translateX(-50%)' }}>
+        {/* Decorations on the wall — sign + cake silhouettes */}
+        <div className="absolute z-10" style={{ top: 14, left: '50%', transform: 'translateX(-50%)' }}>
           <span className="font-pixel" style={{
-            fontSize: 7, letterSpacing: 3, color: '#7C2D12',
+            fontSize: 8, letterSpacing: 3, color: '#7C2D12',
             textShadow: '0 1px 0 rgba(255,255,255,0.7), 0 0 6px rgba(251,191,36,0.4)',
           }}>★ FRESHLY BAKED ★</span>
         </div>
+        <div className="absolute z-10" style={{ top: 38, left: '14%', filter: 'drop-shadow(0 2px 0 rgba(120,53,15,0.3))' }}>
+          <IconCake size={26} />
+        </div>
+        <div className="absolute z-10" style={{ top: 42, right: '14%', filter: 'drop-shadow(0 2px 0 rgba(120,53,15,0.3))' }}>
+          <IconHeart size={18} />
+        </div>
 
-        {/* Eren behind the counter */}
-        <div className="relative z-10 mb-2" style={{ animation: 'bkErenBob 2.4s ease-in-out infinite' }}>
+        {/* Eren — full sprite, but bottom-anchored so his lower body is
+            hidden behind the counter (z-20). Only head + ears poke over.
+            Big size (150 px) means the visible portion above counter top
+            (~50–55 px) is exactly the head region of the sitting-cat
+            sprite. The bobbing animation makes the head gently rise/fall
+            above the counter line. */}
+        <div className="absolute z-10" style={{
+          bottom: 38,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          animation: 'bkErenBob 2.6s ease-in-out infinite',
+        }}>
           <img src="/erenGood.png" alt="Eren" draggable={false}
             style={{
-              width: 110, height: 110, objectFit: 'contain', imageRendering: 'pixelated',
-              filter: 'drop-shadow(0 4px 6px rgba(120,53,15,0.4)) drop-shadow(0 0 10px rgba(251,191,36,0.3))',
+              width: 150, height: 150, objectFit: 'contain', imageRendering: 'pixelated',
+              filter: 'drop-shadow(0 -2px 4px rgba(120,53,15,0.4)) drop-shadow(0 0 10px rgba(251,191,36,0.3))',
             }} />
         </div>
 
-        {/* The counter */}
-        <div className="relative z-10 w-full" style={{ height: 28 }}>
-          <div className="absolute inset-x-2 inset-y-0" style={{
-            background: 'linear-gradient(180deg, #92400E 0%, #78350F 50%, #5A1A0A 100%)',
+        {/* THE COUNTER — z-20 so it overlays Eren's body. Tall (95 px)
+            with a wooden countertop, paneled front, and a subtle stripe
+            of cake silhouettes along the front face for shop-window
+            flavour. */}
+        <div className="absolute z-20" style={{ bottom: 0, left: 0, right: 0, height: 95 }}>
+          {/* Counter top — lighter wooden plank */}
+          <div className="absolute" style={{
+            top: 0, left: 6, right: 6, height: 14,
+            background: 'linear-gradient(180deg, #B45309 0%, #92400E 100%)',
             border: '2px solid #451A03',
-            borderRadius: 4,
-            boxShadow: '0 4px 0 #451A03, inset 0 2px 0 rgba(255,255,255,0.18)',
+            borderBottom: 'none',
+            borderRadius: '4px 4px 0 0',
+            boxShadow: 'inset 0 2px 0 rgba(255,255,255,0.35)',
+          }} />
+          {/* Counter front — darker wood with two raised panels */}
+          <div className="absolute" style={{
+            top: 14, left: 6, right: 6, bottom: 0,
+            background: 'linear-gradient(180deg, #78350F 0%, #5A1A0A 100%)',
+            border: '2px solid #451A03',
+            borderTop: 'none',
+            borderRadius: '0 0 4px 4px',
+            boxShadow: '0 4px 0 #2C0A03, inset 0 1px 0 rgba(255,255,255,0.08)',
           }}>
-            {/* Wood grain flecks */}
-            <div style={{ position: 'absolute', top: 4, left: '20%', width: 12, height: 2, background: '#5A1A0A', opacity: 0.5 }} />
-            <div style={{ position: 'absolute', top: 12, right: '25%', width: 18, height: 2, background: '#5A1A0A', opacity: 0.5 }} />
-            <div style={{ position: 'absolute', top: 8, left: '60%', width: 8, height: 2, background: '#5A1A0A', opacity: 0.5 }} />
+            {/* Decorative panel inserts on the counter front */}
+            <div className="absolute" style={{
+              top: 10, bottom: 10, left: 14, width: '36%',
+              background: 'rgba(251,191,36,0.08)',
+              border: '1px solid rgba(251,191,36,0.35)',
+              borderRadius: 3,
+            }} />
+            <div className="absolute" style={{
+              top: 10, bottom: 10, right: 14, width: '36%',
+              background: 'rgba(251,191,36,0.08)',
+              border: '1px solid rgba(251,191,36,0.35)',
+              borderRadius: 3,
+            }} />
+            {/* Tiny cakes lined up inside one of the panels */}
+            <div className="absolute flex items-center gap-1.5" style={{
+              top: '50%', left: '18%', transform: 'translateY(-50%)',
+            }}>
+              <IconCake size={14} />
+              <IconCake size={14} />
+              <IconCake size={14} />
+            </div>
+            {/* Gold rivet at each corner of the counter */}
+            <div style={{ position: 'absolute', top: 4, left: 4, width: 3, height: 3, background: '#FBBF24' }} />
+            <div style={{ position: 'absolute', top: 4, right: 4, width: 3, height: 3, background: '#FBBF24' }} />
+            <div style={{ position: 'absolute', bottom: 4, left: 4, width: 3, height: 3, background: '#FBBF24' }} />
+            <div style={{ position: 'absolute', bottom: 4, right: 4, width: 3, height: 3, background: '#FBBF24' }} />
           </div>
         </div>
 
-        {/* Sell-animation overlay (flies a cake from the tapped tile up to
-            Eren and pops a SOLD! stamp). Lives in the scene area so the
-            cake clearly travels TO Eren. */}
+        {/* Sell-animation overlay — z-30 so it floats over the counter
+            AND Eren. The bought cake appears at Eren's head level (his
+            paws, narratively), shows off briefly, then fades up and
+            away as if handed to the player off-screen. */}
         {fx && (
-          <div className="absolute inset-0 pointer-events-none z-20">
+          <div className="absolute inset-0 pointer-events-none z-30">
             <div key={fx.id} className="absolute"
               style={{
-                left: '50%', bottom: 50,
+                left: '50%', bottom: 105,
                 transform: 'translateX(-50%)',
                 animation: 'bkCakeFly 1.6s cubic-bezier(0.34,1.56,0.64,1) forwards',
               }}>
-              <CakeSprite cake={fx.cake} size={54} />
+              <CakeSprite cake={fx.cake} size={56} />
             </div>
             <div key={`stamp-${fx.id}`} className="absolute"
               style={{
-                left: '50%', top: '40%',
+                left: '50%', top: '38%',
                 transform: 'translate(-50%, -50%)',
                 animation: 'bkStampPop 1.6s ease-out forwards',
               }}>
@@ -192,11 +245,11 @@ export default function BakeryPage() {
                 SOLD!
               </div>
             </div>
-            {/* Coin sparks flying out */}
+            {/* Coin sparks flying out from where Eren's head is */}
             {[0, 1, 2, 3, 4].map(i => (
               <div key={`coin-${fx.id}-${i}`} className="absolute"
                 style={{
-                  left: '50%', bottom: 70,
+                  left: '50%', bottom: 110,
                   transform: 'translateX(-50%)',
                   animation: `bkCoinFly${i} 1.4s ease-out forwards`,
                 }}>
@@ -315,12 +368,17 @@ export default function BakeryPage() {
           0%, 100% { transform: translateY(0); }
           50%      { transform: translateY(-3px); }
         }
+        /* Eren picks up the cake (it appears at his head height), shows
+           it off with a small bob, then it floats up and away as if
+           handed to the player off-screen. Travels mostly upward — the
+           starting point is already at Eren's "paws" (above counter). */
         @keyframes bkCakeFly {
-          0%   { transform: translateX(-50%) translateY(40px) scale(0.6) rotate(-5deg); opacity: 0; }
-          15%  { transform: translateX(-50%) translateY(0)    scale(1)   rotate(0deg);  opacity: 1; }
-          55%  { transform: translateX(-50%) translateY(-90px) scale(1.1) rotate(8deg); opacity: 1; }
-          80%  { transform: translateX(-50%) translateY(-130px) scale(0.95) rotate(-4deg); opacity: 0.85; }
-          100% { transform: translateX(-50%) translateY(-150px) scale(0.4) rotate(0deg); opacity: 0; }
+          0%   { transform: translateX(-50%) translateY(20px) scale(0.5) rotate(-8deg); opacity: 0; }
+          18%  { transform: translateX(-50%) translateY(0)    scale(1.1) rotate(0deg);  opacity: 1; }
+          35%  { transform: translateX(-50%) translateY(-8px) scale(1.0) rotate(4deg);  opacity: 1; }
+          55%  { transform: translateX(-50%) translateY(-4px) scale(1.05) rotate(-2deg); opacity: 1; }
+          80%  { transform: translateX(-50%) translateY(-50px) scale(0.85) rotate(8deg); opacity: 0.7; }
+          100% { transform: translateX(-50%) translateY(-110px) scale(0.4) rotate(14deg); opacity: 0; }
         }
         @keyframes bkStampPop {
           0%   { transform: translate(-50%, -50%) rotate(-8deg) scale(0); opacity: 0; }
