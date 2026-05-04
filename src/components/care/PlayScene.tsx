@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { IconController, IconStar, IconCrown } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import Leaderboard from '@/components/Leaderboard'
+import BlinkingEren from '@/components/BlinkingEren'
 
 interface Props { onClose: () => void }
 interface BallPos { x: number; y: number }
@@ -92,7 +93,7 @@ export default function PlayScene({ onClose }: Props) {
             {/* ══ EREN ══ */}
       <div className={cn('absolute z-10 transition-all duration-500')}
         style={{ bottom: '10%', left: '50%', transform: `translateX(-50%) scaleX(${lookDir === 'left' ? -1 : 1})` }}>
-        <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 200, height: 200, objectFit: 'contain', imageRendering: 'pixelated' }} />
+        <BlinkingEren size={200} />
       </div>
 
       {/* ══ BALL TRAIL ══ */}

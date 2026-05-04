@@ -20,6 +20,7 @@ import { Sparkles } from 'lucide-react'
 import { IconGift, IconCapsule, IconHeart, IconBell, IconPerson, IconDoor, IconDrumstick, IconYarn, IconMoonZ, IconBath, IconPill, IconBook, IconCake } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import TaskPanel from '@/components/TaskPanel'
+import BlinkingEren from '@/components/BlinkingEren'
 import ReminderSheet from '@/components/ReminderSheet'
 import { registerSW } from '@/lib/reminders'
 import { checkStatNotifications, requestNotificationPermission, notifyPartnerAction, notifyPartnerMessage } from '@/lib/statNotifications'
@@ -365,8 +366,7 @@ export default function HomePage() {
           filter: mood === 'angry' ? 'hue-rotate(340deg) saturate(1.3)' : mood === 'sleepy' ? 'brightness(0.85)' : 'none',
         }}>
           <div className="relative" style={{ width: 200, height: 200 }}>
-            <img id="eren-img" src="/erenGood.png" alt="Eren" draggable={false}
-              style={{ width: 200, height: 200, objectFit: 'contain', imageRendering: 'pixelated' }} />
+            <BlinkingEren id="eren-img" size={200} />
 
             {/* Outfit overlays */}
             {equippedOutfits.map(item => item?.pos && item.slot && (

@@ -6,6 +6,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
+import BlinkingEren from '@/components/BlinkingEren'
 
 interface Props { onClose: () => void }
 
@@ -64,7 +65,7 @@ export default function VetScene({ onClose }: Props) {
       {/* ══ EREN ══ */}
       <div className={cn('absolute z-10 transition-all duration-500', checkDone ? 'bottom-[6%]' : 'bottom-[4%]')}
         style={{ left: '50%', transform: 'translateX(-50%)' }}>
-        <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 200, height: 200, objectFit: 'contain', imageRendering: 'pixelated' }} />
+        <BlinkingEren size={200} />
       </div>
 
       {/* ══ STETHOSCOPE ANIM when checking ══ */}
