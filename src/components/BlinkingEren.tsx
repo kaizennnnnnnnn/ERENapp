@@ -22,7 +22,7 @@ export default function BlinkingEren({
 }: Props) {
   const lid: React.CSSProperties = {
     position: 'absolute',
-    width: '5%',
+    width: '6%',
     height: '3%',
     background: '#6B6B6B',
     borderRadius: 1,
@@ -47,17 +47,18 @@ export default function BlinkingEren({
           imageRendering: 'pixelated',
         }} />
 
-      {/* Left eyelid — centered on left eye (~38% horizontal). */}
+      {/* Left eyelid — recentered ~1% toward middle now that the lid is
+          6% wide. New center 39%, left = 36%. */}
       <div style={{
         ...lid,
-        left: '35.5%', top: '32%',
+        left: '36%', top: '32%',
         animation: 'erenBlink 5s infinite',
       }} />
-      {/* Right eyelid — centered on right eye (~62% horizontal). Tiny
-          stagger so the two eyes don't blink in perfect lockstep. */}
+      {/* Right eyelid — mirror of the left, centered at 61%. Tiny stagger
+          so the two eyes don't blink in perfect lockstep. */}
       <div style={{
         ...lid,
-        left: '59.5%', top: '32%',
+        left: '58%', top: '32%',
         animation: 'erenBlink 5s 0.03s infinite',
       }} />
 
