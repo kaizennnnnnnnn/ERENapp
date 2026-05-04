@@ -390,36 +390,39 @@ export default function HomePage() {
         </div>
 
         {/* ══ HUD OVERLAY (below shared stats header) ══ */}
-        <div className="absolute left-0 right-0 z-10 px-3 flex flex-col gap-2" style={{ top: 100 }}>
+        <div className="absolute left-0 right-0 z-10 px-3" style={{ top: 100 }}>
 
-          {/* Quest panel — full-width on its own row so its label and the
-              daily/weekly counters don't get squeezed by the action
-              buttons. */}
-          <TaskPanel compact />
+          {/* Quest panel + nav buttons share a single row again. The
+              buttons are 34 px wide with a 4-px gap (instead of 40 / 8)
+              so the row holds the panel + 7 buttons (8 when fortune is
+              available) without truncating. */}
+          <div className="flex items-center gap-1">
+            {/* Quests — flexes to take remaining space */}
+            <div className="flex-1 min-w-0">
+              <TaskPanel compact />
+            </div>
 
-          {/* Nav buttons — separate row below, right-aligned */}
-          <div className="flex items-center justify-end gap-2">
             {/* Nav buttons — pixel game style */}
             {fortuneAvailable && (
               <button onClick={() => { playSound('ui_modal_open'); setShowFortune(true) }}
-                className="w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
+                className="w-8 h-8 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
                 style={{ background: 'rgba(8,5,20,0.8)', border: '2px solid rgba(245,158,11,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(251,191,36,0.2)', animation: 'pulse 2s ease-in-out infinite' }}>
-                <IconGift size={22} />
+                <IconGift size={18} />
               </button>
             )}
             <Link href="/gacha" onClick={() => playSound('ui_tap')}
-              className="w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
+              className="w-8 h-8 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
               style={{ background: 'rgba(8,5,20,0.8)', border: '2px solid rgba(124,58,237,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(167,139,250,0.2)' }}>
-              <IconCapsule size={22} />
+              <IconCapsule size={18} />
             </Link>
             <Link href="/bakery" onClick={() => playSound('ui_tap')}
-              className="w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
+              className="w-8 h-8 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
               style={{ background: 'rgba(8,5,20,0.8)', border: '2px solid rgba(251,191,36,0.55)', boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(251,191,36,0.25)' }}>
-              <IconCake size={22} />
+              <IconCake size={18} />
             </Link>
-            <Link href="/couple" onClick={() => playSound('ui_tap')} className="relative w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
+            <Link href="/couple" onClick={() => playSound('ui_tap')} className="relative w-8 h-8 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
               style={{ background: 'rgba(8,5,20,0.8)', border: '2px solid rgba(255,107,157,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,107,157,0.2)' }}>
-              <IconHeart size={22} />
+              <IconHeart size={18} />
               {unreadCount > 0 && (
                 <div className="absolute -top-1 -right-1 flex items-center justify-center"
                   style={{ width: 16, height: 16, background: '#FF1D5E', border: '2px solid rgba(8,5,20,0.9)' }}>
@@ -428,20 +431,20 @@ export default function HomePage() {
               )}
             </Link>
             <button onClick={() => { playSound('ui_modal_open'); setShowReminders(true) }}
-              className="w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
+              className="w-8 h-8 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
               style={{ background: 'rgba(8,5,20,0.8)', border: '2px solid rgba(255,215,0,0.35)', boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,215,0,0.15)' }}>
-              <IconBell size={22} />
+              <IconBell size={18} />
             </button>
             <Link href="/profile" onClick={() => playSound('ui_tap')}
-              className="w-10 h-10 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
+              className="w-8 h-8 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
               style={{ background: 'rgba(8,5,20,0.8)', border: '2px solid rgba(167,139,250,0.4)', boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(167,139,250,0.2)' }}>
-              <IconPerson size={22} />
+              <IconPerson size={18} />
             </Link>
             <div className="relative flex-shrink-0">
               <button onClick={() => { playSound(showRooms ? 'ui_modal_close' : 'ui_modal_open'); setShowRooms(r => !r) }}
                 className="w-10 h-10 flex items-center justify-center active:scale-90 transition-transform"
                 style={{ background: 'rgba(8,5,20,0.8)', border: '2px solid rgba(107,65,33,0.6)', boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(200,150,100,0.2)' }}>
-                <IconDoor size={22} />
+                <IconDoor size={18} />
               </button>
               {showRooms && (
                 <>
