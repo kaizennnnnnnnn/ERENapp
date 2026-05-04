@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useTasks } from '@/contexts/TaskContext'
 import { playSound } from '@/lib/sounds'
 import { IconCrown, IconStar, IconBook } from '@/components/PixelIcons'
+import AnimatedEren from '@/components/AnimatedEren'
 
 interface Props { onClose: () => void }
 
@@ -1042,13 +1043,11 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
         {!outOfHearts && ex && !feedback && (
           <div className="absolute pointer-events-none z-10" style={{
             left: 8, bottom: 8,
-            width: 56, height: 56,
             animation: 'srErenIdle 2.6s ease-in-out infinite',
             filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.4)) drop-shadow(0 0 8px rgba(251,191,36,0.25))',
             opacity: 0.85,
           }}>
-            <img src="/erenGood.png" alt="" draggable={false}
-              style={{ width: '100%', height: '100%', objectFit: 'contain', imageRendering: 'pixelated' }} />
+            <AnimatedEren px={2} />
           </div>
         )}
 
@@ -1109,17 +1108,16 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
                     ? '0 0 14px rgba(16,185,129,0.7), inset 0 1px 0 rgba(255,255,255,0.4)'
                     : '0 0 14px rgba(220,38,38,0.7), inset 0 1px 0 rgba(255,255,255,0.4)',
                 }} />
-                <img src="/erenGood.png" alt="Eren" draggable={false}
-                  style={{
-                    position: 'absolute', inset: 0,
-                    width: '100%', height: '100%',
-                    objectFit: 'contain',
-                    imageRendering: 'pixelated',
-                    animation: feedback.ok ? 'srErenHappy 0.6s ease-out' : 'srErenSad 0.6s ease-out',
-                    filter: feedback.ok
-                      ? 'drop-shadow(0 0 6px rgba(167,243,208,0.8))'
-                      : 'brightness(0.85) drop-shadow(0 0 6px rgba(252,165,165,0.7))',
-                  }} />
+                <div style={{
+                  position: 'absolute', inset: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  animation: feedback.ok ? 'srErenHappy 0.6s ease-out' : 'srErenSad 0.6s ease-out',
+                  filter: feedback.ok
+                    ? 'drop-shadow(0 0 6px rgba(167,243,208,0.8))'
+                    : 'brightness(0.85) drop-shadow(0 0 6px rgba(252,165,165,0.7))',
+                }}>
+                  <AnimatedEren px={2} />
+                </div>
                 {/* Mood marker — sparkle on correct, water-drop tear on wrong */}
                 {feedback.ok ? (
                   <span className="absolute font-pixel" style={{
@@ -1785,12 +1783,13 @@ function CompleteScreen({ title, xp, streak, streakIncreased, onContinue }: {
           }}>
             <IconCrown size={32} />
           </div>
-          <img src="/erenGood.png" alt="Eren" draggable={false}
-            style={{
-              width: 110, height: 110, objectFit: 'contain', imageRendering: 'pixelated',
-              animation: 'srErenCelebrate 0.8s ease-in-out infinite',
-              filter: 'drop-shadow(0 4px 8px rgba(120,53,15,0.4)) drop-shadow(0 0 12px rgba(251,191,36,0.55))',
-            }} />
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            animation: 'srErenCelebrate 0.8s ease-in-out infinite',
+            filter: 'drop-shadow(0 4px 8px rgba(120,53,15,0.4)) drop-shadow(0 0 12px rgba(251,191,36,0.55))',
+          }}>
+            <AnimatedEren px={5} />
+          </div>
           {/* Twinkling sparkles around him */}
           {[
             { top: 4,   left: -10, delay: 0,    size: 12 },
