@@ -20,7 +20,7 @@ import { Sparkles } from 'lucide-react'
 import { IconGift, IconCapsule, IconHeart, IconBell, IconPerson, IconDoor, IconDrumstick, IconYarn, IconMoonZ, IconBath, IconPill, IconBook, IconCake } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import TaskPanel from '@/components/TaskPanel'
-import AnimatedEren from '@/components/AnimatedEren'
+import BlinkingEren from '@/components/BlinkingEren'
 import ReminderSheet from '@/components/ReminderSheet'
 import { registerSW } from '@/lib/reminders'
 import { checkStatNotifications, requestNotificationPermission, notifyPartnerAction, notifyPartnerMessage } from '@/lib/statNotifications'
@@ -365,22 +365,21 @@ export default function HomePage() {
           bottom: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 2,
           filter: mood === 'angry' ? 'hue-rotate(340deg) saturate(1.3)' : mood === 'sleepy' ? 'brightness(0.85)' : 'none',
         }}>
-          <div id="eren-img" className="relative flex items-center justify-center" style={{ width: 200, height: 200 }}>
-            <AnimatedEren px={9} />
+          <BlinkingEren id="eren-img" size={200} />
 
-            {/* Outfit overlays */}
-            {equippedOutfits.map(item => item?.pos && item.slot && (
-              <div key={item.id} className="absolute pointer-events-none" style={{
-                top: `${item.pos.top}%`, left: `${item.pos.left}%`,
-                transform: 'translate(-50%, -50%)',
-                fontSize: item.pos.size, lineHeight: 1,
-                zIndex: item.slot === 'hat' ? 10 : item.slot === 'eyes' ? 9 : 8,
-                filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
-              }}>
-                {item.icon}
-              </div>
-            ))}
-          </div>
+          {/* Outfit overlays — % positions are relative to the parent
+              absolute div, which is sized by BlinkingEren (200×200). */}
+          {equippedOutfits.map(item => item?.pos && item.slot && (
+            <div key={item.id} className="absolute pointer-events-none" style={{
+              top: `${item.pos.top}%`, left: `${item.pos.left}%`,
+              transform: 'translate(-50%, -50%)',
+              fontSize: item.pos.size, lineHeight: 1,
+              zIndex: item.slot === 'hat' ? 10 : item.slot === 'eyes' ? 9 : 8,
+              filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
+            }}>
+              {item.icon}
+            </div>
+          ))}
         </div>
 
         {/* Speech bubble */}

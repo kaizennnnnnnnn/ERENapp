@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
-import AnimatedEren from '@/components/AnimatedEren'
+import BlinkingEren from '@/components/BlinkingEren'
 
 interface Props { onClose: () => void }
 interface Bubble { id: number; x: number; y: number; size: number }
@@ -168,7 +168,7 @@ export default function WashScene({ onClose }: Props) {
       {/* ══ PIXEL EREN ════════════════════════════════════════════════════ */}
       <div className={cn('absolute transition-all duration-500', done ? 'bottom-[12%]' : 'bottom-[10%]')}
         style={{ left: '50%', transform: 'translateX(-50%)' }}>
-        <AnimatedEren px={9} />
+        <BlinkingEren size={200} />
       </div>
 
       {/* ══ SOAP SUDS ═════════════════════════════════════════════════════ */}

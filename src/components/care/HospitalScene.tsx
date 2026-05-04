@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
-import AnimatedEren from '@/components/AnimatedEren'
+import BlinkingEren from '@/components/BlinkingEren'
 
 interface Props { onClose: () => void }
 
@@ -350,7 +350,7 @@ export default function HospitalScene({ onClose }: Props) {
 
       {/* ══ EREN on table ══ */}
       <div className={cn('absolute z-10 transition-all duration-500', 'bottom-[46%] left-[38%]')}>
-        <AnimatedEren px={6} />
+        <BlinkingEren size={130} />
       </div>
 
       {/* ══ CONE OF SHAME ══ */}

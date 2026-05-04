@@ -6,7 +6,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
-import AnimatedEren from '@/components/AnimatedEren'
+import BlinkingEren from '@/components/BlinkingEren'
 
 interface Props { onClose: () => void }
 
@@ -83,7 +83,7 @@ export default function SleepScene({ onClose }: Props) {
       {/* ══ EREN ══ */}
       <div className={cn('absolute z-10 transition-all duration-700', tuckedIn ? 'bottom-[16%]' : 'bottom-[14%]')}
         style={{ left: '50%', transform: 'translateX(-50%)' }}>
-        <AnimatedEren px={9} />
+        <BlinkingEren size={200} />
       </div>
 
       {/* ══ ZZZs ══ */}
