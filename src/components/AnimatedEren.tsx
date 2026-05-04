@@ -52,7 +52,7 @@ const BLINK = [
   'KMCCCCCCCCCCCCMK......',
   'KCCCCCCCCCCCCCCCK.....',
   'KCCCCCCCCCCCCCCK......',
-  'KCCKKKCCCKKKCCCK......',
+  'KCCCGCCCCCCGCCCK......',
   'KCCCCCCCNNCCCCK.......',
   '.KCCCCCKKCCCCK........',
   '..KKCCCCCCCCKKK.......',
@@ -176,6 +176,7 @@ const PAL: Record<string, string> = {
   W: '#FFFFFF',
   N: '#F28898',
   S: '#D0CCC4',
+  G: '#6B6B6B',
 }
 
 const SEQUENCE = [
