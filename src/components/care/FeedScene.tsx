@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import type { FoodInventory } from '@/types'
 import { playSound } from '@/lib/sounds'
 import AnalogClock from '@/components/AnalogClock'
-import BlinkingEren from '@/components/BlinkingEren'
+import AnimatedEren from '@/components/AnimatedEren'
 
 interface Props { onClose: () => void }
 
@@ -161,7 +161,7 @@ export default function FeedScene({ onClose }: Props) {
       {/* ══ EREN ══ */}
       <div className={cn('absolute z-20 transition-all duration-300', eatAnim ? 'bottom-[14%]' : 'bottom-[10%]')}
         style={{ left: '50%', transform: 'translateX(-50%)' }}>
-        <BlinkingEren size={210} />
+        <AnimatedEren px={10} />
       </div>
 
       {/* ══ UI ══ */}
