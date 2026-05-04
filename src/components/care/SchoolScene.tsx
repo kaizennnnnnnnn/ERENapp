@@ -1076,9 +1076,9 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
             left: 8, bottom: 8,
             animation: 'srErenIdle 2.6s ease-in-out infinite',
             filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.4)) drop-shadow(0 0 8px rgba(251,191,36,0.25))',
-            opacity: 0.85,
+            opacity: 0.9,
           }}>
-            <AnimatedEren px={2} />
+            <AnimatedEren px={4} />
           </div>
         )}
 
@@ -1296,7 +1296,7 @@ function MCExercise({ ex, disabled, onAnswer }: {
   }
 
   return (
-    <div className="relative z-10 flex-1 flex flex-col px-5 py-6 overflow-y-auto">
+    <div className="relative z-10 flex-1 flex flex-col px-5 py-6 overflow-y-auto scrollbar-hide">
       <p className="font-pixel" style={{ fontSize: 7, color: '#FBBF24', letterSpacing: 2.5, textShadow: '0 1px 0 rgba(0,0,0,0.4)' }}>
         {ex.promptLang === 'sr' ? 'TRANSLATE TO ENGLISH' : 'PICK THE TRANSLATION'}
       </p>
@@ -1468,7 +1468,7 @@ function PairsExercise({ ex, disabled, onAnswer }: {
   }
 
   return (
-    <div className="relative z-10 flex-1 flex flex-col px-5 py-6 overflow-y-auto">
+    <div className="relative z-10 flex-1 flex flex-col px-5 py-6 overflow-y-auto scrollbar-hide">
       <p className="font-pixel" style={{ fontSize: 7, color: '#FBBF24', letterSpacing: 2.5, textShadow: '0 1px 0 rgba(0,0,0,0.4)' }}>
         TAP MATCHING PAIRS
       </p>
@@ -1560,7 +1560,7 @@ function OrderExercise({ ex, disabled, onAnswer }: {
   }
 
   return (
-    <div className="relative z-10 flex-1 flex flex-col px-5 py-6 overflow-y-auto">
+    <div className="relative z-10 flex-1 flex flex-col px-5 py-6 overflow-y-auto scrollbar-hide">
       <p className="font-pixel" style={{ fontSize: 7, color: '#FBBF24', letterSpacing: 2.5, textShadow: '0 1px 0 rgba(0,0,0,0.4)' }}>
         TRANSLATE TO SERBIAN
       </p>
@@ -1676,7 +1676,7 @@ function ListenExercise({ ex, disabled, onAnswer }: {
   }
 
   return (
-    <div className="relative z-10 flex-1 flex flex-col px-5 py-6 overflow-y-auto">
+    <div className="relative z-10 flex-1 flex flex-col px-5 py-6 overflow-y-auto scrollbar-hide">
       <p className="font-pixel" style={{ fontSize: 7, color: '#FBBF24', letterSpacing: 2.5, textShadow: '0 1px 0 rgba(0,0,0,0.4)' }}>
         TAP WHAT YOU HEAR
       </p>
