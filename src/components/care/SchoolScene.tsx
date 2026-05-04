@@ -1025,7 +1025,7 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
       </div>
 
       {/* ─── Exercise area ─── */}
-      <div className="flex-1 overflow-hidden flex flex-col">
+      <div className="flex-1 overflow-hidden flex flex-col relative">
         {!outOfHearts && ex && (
           <ExerciseSurface
             key={`${idx}`}
@@ -1033,6 +1033,23 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
             disabled={feedback !== null}
             onAnswer={handleAnswer}
           />
+        )}
+
+        {/* Persistent teacher mascot — small Eren tucked in the bottom-left
+            of the exercise area. Stays out of the way of the prompt and
+            options, just present so the lesson always has him. Hides while
+            the feedback drawer is up (drawer has its own bigger Eren). */}
+        {!outOfHearts && ex && !feedback && (
+          <div className="absolute pointer-events-none z-10" style={{
+            left: 8, bottom: 8,
+            width: 56, height: 56,
+            animation: 'srErenIdle 2.6s ease-in-out infinite',
+            filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.4)) drop-shadow(0 0 8px rgba(251,191,36,0.25))',
+            opacity: 0.85,
+          }}>
+            <img src="/erenGood.png" alt="" draggable={false}
+              style={{ width: '100%', height: '100%', objectFit: 'contain', imageRendering: 'pixelated' }} />
+          </div>
         )}
 
         {outOfHearts && (
@@ -1077,21 +1094,50 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
         }}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div style={{
-                width: 36, height: 36,
-                background: feedback.ok
-                  ? 'radial-gradient(circle at 35% 30%, #A7F3D0, #10B981 70%)'
-                  : 'radial-gradient(circle at 35% 30%, #FCA5A5, #DC2626 70%)',
-                borderRadius: '50%',
-                border: `2px solid ${feedback.ok ? '#A7F3D0' : '#FCA5A5'}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'white', fontWeight: 'bold', fontSize: 18,
-                boxShadow: feedback.ok
-                  ? '0 0 14px rgba(16,185,129,0.7), inset 0 1px 0 rgba(255,255,255,0.4)'
-                  : '0 0 14px rgba(220,38,38,0.7), inset 0 1px 0 rgba(255,255,255,0.4)',
-                textShadow: '0 1px 0 rgba(0,0,0,0.5)',
-              }}>
-                {feedback.ok ? '✓' : '✗'}
+              {/* Eren the teacher — Duolingo-style mascot. Bobs happily on
+                  correct, slumps slightly on wrong. The coloured ring
+                  around him doubles as the success/fail status colour. */}
+              <div className="relative" style={{ width: 56, height: 56 }}>
+                <div style={{
+                  position: 'absolute', inset: 0,
+                  borderRadius: '50%',
+                  background: feedback.ok
+                    ? 'radial-gradient(circle at 35% 30%, #A7F3D0, #10B981 75%)'
+                    : 'radial-gradient(circle at 35% 30%, #FCA5A5, #DC2626 75%)',
+                  border: `2px solid ${feedback.ok ? '#6EE7B7' : '#F87171'}`,
+                  boxShadow: feedback.ok
+                    ? '0 0 14px rgba(16,185,129,0.7), inset 0 1px 0 rgba(255,255,255,0.4)'
+                    : '0 0 14px rgba(220,38,38,0.7), inset 0 1px 0 rgba(255,255,255,0.4)',
+                }} />
+                <img src="/erenGood.png" alt="Eren" draggable={false}
+                  style={{
+                    position: 'absolute', inset: 0,
+                    width: '100%', height: '100%',
+                    objectFit: 'contain',
+                    imageRendering: 'pixelated',
+                    animation: feedback.ok ? 'srErenHappy 0.6s ease-out' : 'srErenSad 0.6s ease-out',
+                    filter: feedback.ok
+                      ? 'drop-shadow(0 0 6px rgba(167,243,208,0.8))'
+                      : 'brightness(0.85) drop-shadow(0 0 6px rgba(252,165,165,0.7))',
+                  }} />
+                {/* Mood marker — sparkle on correct, water-drop tear on wrong */}
+                {feedback.ok ? (
+                  <span className="absolute font-pixel" style={{
+                    top: -6, right: -2, fontSize: 14,
+                    animation: 'srSparkle 0.6s ease-out',
+                    filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.8))',
+                    color: '#FBBF24',
+                  }}>✦</span>
+                ) : (
+                  <span className="absolute" style={{
+                    top: 14, right: 10,
+                    width: 5, height: 7,
+                    background: '#67E8F9',
+                    borderRadius: '50% 50% 50% 50% / 30% 30% 70% 70%',
+                    boxShadow: '0 0 4px rgba(103,232,249,0.85)',
+                    animation: 'srTear 0.6s ease-out',
+                  }} />
+                )}
               </div>
               <div>
                 <div className="font-pixel" style={{
@@ -1100,11 +1146,11 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
                   letterSpacing: 2,
                   textShadow: '0 1px 0 rgba(0,0,0,0.4)',
                 }}>
-                  {feedback.ok ? 'GREAT!' : 'NOT QUITE'}
+                  {feedback.ok ? 'EREN: GREAT!' : 'EREN: TRY AGAIN'}
                 </div>
                 {!feedback.ok && feedback.correctText && (
                   <div className="text-xs mt-1" style={{ color: '#FECACA' }}>
-                    Answer: <strong style={{ color: '#FFFFFF' }}>{feedback.correctText}</strong>
+                    The answer is <strong style={{ color: '#FFFFFF' }}>{feedback.correctText}</strong>
                   </div>
                 )}
               </div>
@@ -1156,6 +1202,36 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
         @keyframes srFbSlide {
           0%   { transform: translateY(20px); opacity: 0; }
           100% { transform: translateY(0);    opacity: 1; }
+        }
+        /* Persistent corner-mascot bobbing while the player works on the
+           current exercise. Slow + small so it doesn't pull focus. */
+        @keyframes srErenIdle {
+          0%, 100% { transform: translateY(0)   rotate(0deg); }
+          50%      { transform: translateY(-3px) rotate(-2deg); }
+        }
+        /* Reaction inside the feedback drawer — happy hop on correct,
+           gentle slump on wrong. */
+        @keyframes srErenHappy {
+          0%   { transform: translateY(0)    scale(1); }
+          30%  { transform: translateY(-8px) scale(1.1); }
+          60%  { transform: translateY(0)    scale(0.96); }
+          100% { transform: translateY(0)    scale(1); }
+        }
+        @keyframes srErenSad {
+          0%, 100% { transform: translateY(0)   rotate(0deg); }
+          30%      { transform: translateY(2px) rotate(-3deg); }
+          70%      { transform: translateY(2px) rotate(3deg); }
+        }
+        /* Mood markers — gold sparkle on correct, blue tear on wrong */
+        @keyframes srSparkle {
+          0%   { transform: scale(0)    rotate(0deg);   opacity: 0; }
+          40%  { transform: scale(1.4)  rotate(180deg); opacity: 1; }
+          100% { transform: scale(1)    rotate(360deg); opacity: 1; }
+        }
+        @keyframes srTear {
+          0%   { transform: translateY(-6px) scale(0); opacity: 0; }
+          30%  { transform: translateY(0)    scale(1); opacity: 1; }
+          100% { transform: translateY(8px)  scale(0.6); opacity: 0; }
         }
       `}</style>
     </div>
@@ -1698,7 +1774,40 @@ function CompleteScreen({ title, xp, streak, streakIncreased, onContinue }: {
           boxShadow: '0 6px 0 #92400E, 0 0 30px rgba(253,224,71,0.6)',
           animation: 'srFinishPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both',
         }}>
-        <IconCrown size={48} />
+        {/* Eren the teacher — celebrating the lesson finish. The crown
+            floats above his head; he hops to the rhythm of the streak. */}
+        <div className="relative" style={{ width: 110, height: 110, marginTop: -8 }}>
+          <div className="absolute" style={{
+            top: -8, left: '50%',
+            transform: 'translateX(-50%)',
+            animation: 'srCrownBob 1.4s ease-in-out infinite',
+            filter: 'drop-shadow(0 0 6px rgba(255,215,0,0.85))',
+          }}>
+            <IconCrown size={32} />
+          </div>
+          <img src="/erenGood.png" alt="Eren" draggable={false}
+            style={{
+              width: 110, height: 110, objectFit: 'contain', imageRendering: 'pixelated',
+              animation: 'srErenCelebrate 0.8s ease-in-out infinite',
+              filter: 'drop-shadow(0 4px 8px rgba(120,53,15,0.4)) drop-shadow(0 0 12px rgba(251,191,36,0.55))',
+            }} />
+          {/* Twinkling sparkles around him */}
+          {[
+            { top: 4,   left: -10, delay: 0,    size: 12 },
+            { top: 26,  right: -6, delay: 0.3,  size: 10 },
+            { top: 70,  left: -4,  delay: 0.6,  size: 11 },
+            { top: 56,  right: -10, delay: 0.9, size: 13 },
+          ].map((s, i) => (
+            <span key={i} className="absolute font-pixel pointer-events-none"
+              style={{
+                ...s,
+                fontSize: s.size,
+                color: '#FBBF24',
+                animation: `srSparkleLoop 1.6s ease-in-out ${s.delay}s infinite`,
+                filter: 'drop-shadow(0 0 4px rgba(251,191,36,0.7))',
+              }}>✦</span>
+          ))}
+        </div>
         <p className="font-pixel" style={{ fontSize: 12, letterSpacing: 2, color: '#7C2D12' }}>LESSON COMPLETE</p>
         <p className="font-pixel" style={{ fontSize: 8, color: '#A16207', letterSpacing: 1 }}>
           {title.toUpperCase()}
@@ -1757,6 +1866,23 @@ function CompleteScreen({ title, xp, streak, streakIncreased, onContinue }: {
         @keyframes srStreakPop {
           0%   { transform: scale(0.4); opacity: 0; }
           100% { transform: scale(1);   opacity: 1; }
+        }
+        /* Eren happy-hops at the top of the complete screen. */
+        @keyframes srErenCelebrate {
+          0%, 100% { transform: translateY(0)    scale(1); }
+          25%      { transform: translateY(-6px) scale(1.06) rotate(-3deg); }
+          50%      { transform: translateY(0)    scale(1)    rotate(0deg); }
+          75%      { transform: translateY(-4px) scale(1.04) rotate(3deg); }
+        }
+        /* Crown floats above his head. */
+        @keyframes srCrownBob {
+          0%, 100% { transform: translateX(-50%) translateY(0)    rotate(-3deg); }
+          50%      { transform: translateX(-50%) translateY(-4px) rotate(3deg); }
+        }
+        /* Sparkles around the celebrating cat. */
+        @keyframes srSparkleLoop {
+          0%, 100% { transform: scale(0.6) rotate(0deg);   opacity: 0.4; }
+          50%      { transform: scale(1.2) rotate(180deg); opacity: 1;   }
         }
       `}</style>
     </div>
