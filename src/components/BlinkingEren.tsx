@@ -47,18 +47,18 @@ export default function BlinkingEren({
           imageRendering: 'pixelated',
         }} />
 
-      {/* Left eyelid — recentered ~1% toward middle now that the lid is
-          6% wide. New center 39%, left = 36%. */}
+      {/* Left eyelid — pulled 1.5% closer to center. New center 40.5%,
+          left = 37.5%. */}
       <div style={{
         ...lid,
-        left: '36%', top: '32%',
+        left: '37.5%', top: '32%',
         animation: 'erenBlink 5s infinite',
       }} />
-      {/* Right eyelid — mirror of the left, centered at 61%. Tiny stagger
-          so the two eyes don't blink in perfect lockstep. */}
+      {/* Right eyelid — mirror of the left, centered at 59.5%. Tiny
+          stagger so the two eyes don't blink in perfect lockstep. */}
       <div style={{
         ...lid,
-        left: '58%', top: '32%',
+        left: '56.5%', top: '32%',
         animation: 'erenBlink 5s 0.03s infinite',
       }} />
 
