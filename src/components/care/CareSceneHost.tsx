@@ -246,8 +246,10 @@ export default function CareSceneHost() {
         </div>
       )}
 
-      {/* Dot indicators */}
-      {ready && (
+      {/* Dot indicators — hidden on the Serbian lesson screen, which has
+          its own Duolingo-style top progress bar and doesn't need the
+          generic room-nav dots cluttering the bottom. */}
+      {ready && activeScene !== 'school' && (
         <div className="fixed bottom-4 left-1/2 z-50 flex items-center gap-2 px-3 py-1.5"
           style={{ transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.35)', borderRadius: 20, backdropFilter: 'blur(6px)', pointerEvents: 'none' }}>
           <div style={{ width: 7, height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.4)', transition: 'all 0.3s ease' }} />
