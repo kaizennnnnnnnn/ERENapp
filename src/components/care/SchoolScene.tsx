@@ -53,27 +53,51 @@ function ensureVoicesLoaded() {
   window.speechSynthesis.addEventListener('voiceschanged', () => { _voicesLoaded = true; _bestVoice = undefined }, { once: true })
 }
 
-// Score voices to pick the most natural-sounding one available. Modern
-// browsers expose "Natural" / "Neural" / "Wavenet" / "Online" cloud voices
-// that sound dramatically better than the default robotic ones; we boost
-// those by name. Cloud (`!localService`) voices generally outclass local.
+// Score voices to pick the clearest-sounding one available. Croatian voices
+// (hr-HR) are generally the cleanest default option across platforms — on
+// iOS, "Lana" / "Sara" ship out of the box and sound dramatically better
+// than the default Serbian "Milena Compact" (which is a low-bitrate
+// download). Croatian and Serbian (Latin script) pronunciation is nearly
+// identical for everyday vocabulary, so this is a quality upgrade with no
+// linguistic cost. We still allow Serbian / Bosnian voices and pick the
+// best one if it's higher quality than what Croatian offers.
 function scoreVoice(v: SpeechSynthesisVoice): number {
   const name = v.name.toLowerCase()
+  const lang = v.lang.toLowerCase()
   let s = 0
+
+  // Quality boosts — neural / cloud voices always outclass the local
+  // robotic ones.
   if (!v.localService) s += 100
   if (name.includes('natural')) s += 80
   if (name.includes('neural'))  s += 80
   if (name.includes('wavenet')) s += 80
-  if (name.includes('online'))  s += 50
   if (name.includes('premium')) s += 60
+  if (name.includes('online'))  s += 50
   if (name.includes('enhanced'))s += 40
+  if (name.includes('siri'))    s += 35
   if (name.includes('multilingual')) s += 30
   if (name.includes('google'))     s += 20
   if (name.includes('microsoft'))  s += 20
-  // Female Serbian voices ('Sonia', 'Branka', 'Marina') tend to sound more
-  // natural in Serbian; bias slightly toward those when present.
-  if (/(sonia|branka|marina|nataša|jelena)/i.test(name)) s += 15
-  if (v.lang.toLowerCase() === 'sr-rs') s += 10
+
+  // Quality penalties — these explicitly mark low-bitrate / fallback
+  // voices that sound robotic. iOS "Milena Compact" is the worst
+  // offender.
+  if (name.includes('compact')) s -= 60
+  if (name.includes('lite'))    s -= 50
+  if (/\blow\b/.test(name))     s -= 30
+  if (name.includes('eloquence')) s -= 40
+
+  // Specific known-good voices by name (across platforms).
+  if (/(lana|sara|sonia|branka|marina|nataša|jelena|milena)/i.test(name)) s += 15
+
+  // Language preference: Croatian first (best default voice availability),
+  // then Serbian, then Bosnian. Slovenian as last-resort Slavic neighbor.
+  if (lang.startsWith('hr')) s += 30
+  else if (lang.startsWith('sr')) s += 20
+  else if (lang.startsWith('bs')) s += 15
+  else if (lang.startsWith('sl')) s += 5
+
   return s
 }
 
@@ -84,7 +108,7 @@ function pickBestVoice(): SpeechSynthesisVoice | null {
   if (all.length === 0) return null   // not loaded yet — try again next call
   const candidates = all.filter(v => {
     const lang = v.lang.toLowerCase()
-    return lang.startsWith('sr') || lang.startsWith('hr') || lang.startsWith('bs')
+    return lang.startsWith('sr') || lang.startsWith('hr') || lang.startsWith('bs') || lang.startsWith('sl')
   })
   if (candidates.length === 0) {
     _bestVoice = null
@@ -101,14 +125,21 @@ export function speakSerbian(text: string) {
   try {
     window.speechSynthesis.cancel()
     const u = new SpeechSynthesisUtterance(text)
-    u.lang = 'sr-RS'
-    // 0.92 rate + 1.05 pitch lands closer to a natural cadence than the
-    // sluggish 0.85/1.0 default — feels less like a screen reader.
-    u.rate = 0.92
+    const v = pickBestVoice()
+    // Match the utterance lang to the picked voice — declaring sr-RS while
+    // assigning a Croatian voice can cause some browsers (notably iOS
+    // Safari) to ignore the voice override and fall back to a default.
+    if (v) {
+      u.voice = v
+      u.lang = v.lang
+    } else {
+      u.lang = 'hr-HR'   // best-availability fallback
+    }
+    // 0.88 reads noticeably clearer than 0.92 — gives the synthesizer a
+    // beat per syllable, important for learners trying to mimic.
+    u.rate = 0.88
     u.pitch = 1.05
     u.volume = 1.0
-    const v = pickBestVoice()
-    if (v) u.voice = v
     window.speechSynthesis.speak(u)
   } catch { /* ignore */ }
 }
