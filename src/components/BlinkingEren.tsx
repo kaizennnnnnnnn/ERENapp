@@ -50,14 +50,14 @@ export default function BlinkingEren({
       {/* Left eyelid — left = 39% (1 px closer to center vs prior 38.5%). */}
       <div style={{
         ...lid,
-        left: '39%', top: '32%',
+        left: '39%', top: '32.5%',
         animation: 'erenBlink 5s infinite',
       }} />
       {/* Right eyelid — mirror of the left. Tiny stagger so the two
           eyes don't blink in perfect lockstep. */}
       <div style={{
         ...lid,
-        left: '55%', top: '32%',
+        left: '55%', top: '32.5%',
         animation: 'erenBlink 5s 0.03s infinite',
       }} />
 
