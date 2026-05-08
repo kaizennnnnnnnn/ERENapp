@@ -402,6 +402,19 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
       // indigo so the whole page reads less heavy.
       background: 'radial-gradient(ellipse at top, #4338CA 0%, #1E1B4B 45%, #0F0B2E 100%)',
     }}>
+      {/* Ambient atmosphere — two large soft colour blobs at opposing
+          corners give the page depth without competing with content. */}
+      <div className="absolute pointer-events-none" style={{
+        top: -80, right: -60, width: 320, height: 320,
+        background: 'radial-gradient(circle, rgba(244,114,182,0.35) 0%, rgba(244,114,182,0) 70%)',
+        filter: 'blur(2px)',
+      }} />
+      <div className="absolute pointer-events-none" style={{
+        bottom: -100, left: -80, width: 360, height: 360,
+        background: 'radial-gradient(circle, rgba(251,191,36,0.25) 0%, rgba(251,191,36,0) 70%)',
+        filter: 'blur(2px)',
+      }} />
+
       {/* Star field overlay — subtle, behind everything */}
       <div className="absolute inset-0 pointer-events-none opacity-40" style={{
         backgroundImage: 'radial-gradient(circle, #FBBF24 1px, transparent 1px), radial-gradient(circle, #C4B5FD 1px, transparent 1px)',
@@ -411,7 +424,7 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
       }} />
       {/* CRT-style scanlines — toned down so they don't dominate the page */}
       <div className="absolute inset-0 pointer-events-none" style={{
-        background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.10) 3px, rgba(0,0,0,0.10) 4px)',
+        background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.08) 3px, rgba(0,0,0,0.08) 4px)',
         zIndex: 1,
       }} />
 
@@ -507,60 +520,53 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
 
       {/* ─── Scrollable units ─── */}
       <div className="relative z-10 flex-1 overflow-y-auto pb-12 pt-4">
-        {/* Practice tile — premium shimmer treatment */}
+        {/* Practice tile — softened. The 5-px hard pixel-shadow plus
+            inset light/dark strokes plus 4 rivets read as a "loud"
+            element. Now it's a smooth gold pill with a single inset
+            sheen + an animated shine sweep — premium feel, less shouty. */}
         {strugglingCount > 0 && (
           <button onClick={() => { playSound('ui_tap'); onPracticeTap() }}
-            className="block relative overflow-hidden w-[calc(100%-32px)] mx-4 mb-5 px-4 py-3.5 active:translate-y-[2px] transition-transform text-left"
+            className="block relative overflow-hidden w-[calc(100%-32px)] mx-4 mb-5 px-4 py-3 active:translate-y-[2px] transition-transform text-left"
             style={{
               background: 'linear-gradient(135deg, #FCD34D 0%, #FBBF24 35%, #F59E0B 65%, #D97706 100%)',
-              borderRadius: 6,
-              border: '3px solid #92400E',
-              boxShadow: `
-                0 5px 0 #78350F,
-                inset 0 2px 0 rgba(255,255,255,0.45),
-                inset 0 -2px 0 rgba(120,53,15,0.4),
-                0 0 28px rgba(251,191,36,0.55)
-              `,
+              borderRadius: 12,
+              border: '1px solid rgba(120,53,15,0.6)',
+              boxShadow: '0 6px 18px rgba(180,83,9,0.55), inset 0 1px 0 rgba(255,255,255,0.5), 0 0 22px rgba(251,191,36,0.35)',
             }}>
             {/* Animated shine sweep */}
             <div className="absolute inset-0 pointer-events-none" style={{
-              background: 'linear-gradient(115deg, transparent 35%, rgba(255,255,255,0.55) 50%, transparent 65%)',
+              background: 'linear-gradient(115deg, transparent 35%, rgba(255,255,255,0.5) 50%, transparent 65%)',
               animation: 'srShineSweep 2.6s ease-in-out infinite',
             }} />
-            {/* Corner gold rivets */}
-            <div style={{ position: 'absolute', top: 4, left: 4, width: 4, height: 4, background: '#FEF3C7', boxShadow: '0 0 4px #FEF3C7' }} />
-            <div style={{ position: 'absolute', top: 4, right: 4, width: 4, height: 4, background: '#FEF3C7', boxShadow: '0 0 4px #FEF3C7' }} />
-            <div style={{ position: 'absolute', bottom: 4, left: 4, width: 4, height: 4, background: '#FEF3C7', boxShadow: '0 0 4px #FEF3C7' }} />
-            <div style={{ position: 'absolute', bottom: 4, right: 4, width: 4, height: 4, background: '#FEF3C7', boxShadow: '0 0 4px #FEF3C7' }} />
 
             <div className="relative flex items-center gap-3">
               <div style={{
-                width: 46, height: 46,
-                background: 'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.4), rgba(120,53,15,0.5) 70%)',
-                borderRadius: '50%',
-                border: '3px solid #FEF3C7',
+                width: 42, height: 42,
+                background: 'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.45), rgba(120,53,15,0.5) 70%)',
+                borderRadius: 10,
+                border: '1.5px solid rgba(255,250,240,0.8)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6), 0 2px 6px rgba(0,0,0,0.3)',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.55), 0 2px 6px rgba(0,0,0,0.25)',
               }}>
-                <Zap size={24} className="text-white" fill="currentColor" style={{ filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.4))' }} />
+                <Zap size={22} className="text-white" fill="currentColor" style={{ filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.35))' }} />
               </div>
-              <div className="flex-1">
-                <div className="font-pixel" style={{
+              <div className="flex-1 min-w-0">
+                <div className="font-pixel truncate" style={{
                   fontSize: 11, letterSpacing: 2,
                   color: '#FFFAF0',
-                  textShadow: '1px 1px 0 #92400E, 0 0 6px rgba(255,250,240,0.4)',
+                  textShadow: '1px 1px 0 #92400E, 0 0 6px rgba(255,250,240,0.35)',
                 }}>
                   PRACTICE
                 </div>
-                <div className="font-pixel mt-1" style={{
-                  fontSize: 6, color: 'rgba(255,251,235,0.9)', letterSpacing: 1.2,
-                  textShadow: '1px 1px 0 rgba(120,53,15,0.6)',
+                <div className="font-pixel mt-1 truncate" style={{
+                  fontSize: 6, color: 'rgba(255,251,235,0.92)', letterSpacing: 1.2,
+                  textShadow: '1px 1px 0 rgba(120,53,15,0.55)',
                 }}>
                   {strugglingCount} {strugglingCount === 1 ? 'word' : 'words'} to review
                 </div>
               </div>
               <span className="font-pixel" style={{
-                fontSize: 16, color: '#FFFAF0',
+                fontSize: 14, color: '#FFFAF0',
                 textShadow: '1px 1px 0 #92400E',
               }}>▶</span>
             </div>
@@ -598,6 +604,7 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
 }
 
 // ─── Section banner — large, above each cluster of units ────────────────────
+const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
 function SectionBanner({ section, index, done, total }: {
   section: Section
   index: number
@@ -606,59 +613,68 @@ function SectionBanner({ section, index, done, total }: {
 }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
   return (
-    <div className="relative mx-4 mb-5 mt-3 px-5 py-4 overflow-hidden" style={{
-      background: `linear-gradient(135deg, ${section.themeColor} 0%, ${section.themeEdge} 100%)`,
-      border: '3px solid #FBBF24',
-      borderRadius: 8,
-      boxShadow: `
-        0 6px 0 ${section.themeEdge},
-        inset 0 2px 0 rgba(255,255,255,0.35),
-        inset 0 -2px 0 rgba(0,0,0,0.3),
-        0 0 28px ${section.themeColor}66
-      `,
+    <div className="relative mx-4 mb-5 mt-3 px-4 py-3.5 overflow-hidden" style={{
+      // Single soft theme gradient — no hard pixel-shadow, no inset,
+      // no scanlines (the page already has them). The chrome here was
+      // competing with the lesson nodes; this reads as a quiet header.
+      background: `linear-gradient(135deg, ${section.themeColor}EE 0%, ${section.themeEdge} 100%)`,
+      borderRadius: 12,
+      border: '1px solid rgba(251,191,36,0.55)',
+      boxShadow: `0 4px 18px ${section.themeColor}55, inset 0 1px 0 rgba(255,255,255,0.22)`,
     }}>
-      {/* Gold corner pixels — section banners get bigger ones than units */}
-      <div style={{ position: 'absolute', top: 4, left: 4, width: 5, height: 5, background: '#FDE68A', boxShadow: '0 0 5px #FDE68A' }} />
-      <div style={{ position: 'absolute', top: 4, right: 4, width: 5, height: 5, background: '#FDE68A', boxShadow: '0 0 5px #FDE68A' }} />
-      <div style={{ position: 'absolute', bottom: 4, left: 4, width: 5, height: 5, background: '#FDE68A', boxShadow: '0 0 5px #FDE68A' }} />
-      <div style={{ position: 'absolute', bottom: 4, right: 4, width: 5, height: 5, background: '#FDE68A', boxShadow: '0 0 5px #FDE68A' }} />
-
-      {/* Subtle scanlines for academy feel */}
-      <div className="absolute inset-0 pointer-events-none" style={{
-        background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 3px)',
+      {/* Top sheen — subtle gloss to suggest a printed-foil sticker */}
+      <div className="absolute inset-x-0 top-0 pointer-events-none" style={{
+        height: 22,
+        background: 'linear-gradient(180deg, rgba(255,255,255,0.18), transparent)',
+        borderRadius: '12px 12px 0 0',
       }} />
 
-      <div className="relative flex items-center justify-between">
-        <div>
-          <div className="font-pixel" style={{ fontSize: 6, letterSpacing: 2, color: 'rgba(255,255,255,0.85)', textShadow: `1px 1px 0 ${section.themeEdge}` }}>
-            SECTION {index + 1}
+      <div className="relative flex items-center gap-3">
+        {/* Roman numeral badge — gives each section a clear identity */}
+        <div className="flex-shrink-0 flex items-center justify-center font-pixel" style={{
+          width: 38, height: 38,
+          background: 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.55) 100%)',
+          border: '1.5px solid rgba(251,191,36,0.7)',
+          borderRadius: 8,
+          fontSize: ROMAN_NUMERALS[index]?.length > 2 ? 7 : 11,
+          color: '#FDE68A',
+          letterSpacing: 1,
+          textShadow: '0 1px 0 rgba(0,0,0,0.7), 0 0 8px rgba(251,191,36,0.55)',
+          boxShadow: 'inset 0 1px 0 rgba(251,191,36,0.25), 0 2px 6px rgba(0,0,0,0.35)',
+        }}>
+          {ROMAN_NUMERALS[index] ?? (index + 1)}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="font-pixel" style={{ fontSize: 5.5, letterSpacing: 1.8, color: 'rgba(255,255,255,0.7)' }}>
+            SECTION
           </div>
-          <div className="font-pixel mt-1" style={{
-            fontSize: 14, letterSpacing: 2,
+          <div className="font-pixel mt-0.5 truncate" style={{
+            fontSize: 12, letterSpacing: 1.5,
             color: '#FFFFFF',
-            textShadow: `1px 1px 0 ${section.themeEdge}, 0 0 10px rgba(255,255,255,0.3)`,
+            textShadow: `1px 1px 0 ${section.themeEdge}, 0 0 8px rgba(255,255,255,0.18)`,
           }}>
             {section.title.toUpperCase()}
           </div>
-          <div className="font-pixel mt-1.5" style={{ fontSize: 6, letterSpacing: 1.2, color: 'rgba(255,255,255,0.8)', fontStyle: 'italic' }}>
+          <div className="font-pixel mt-0.5 truncate" style={{ fontSize: 6, letterSpacing: 1, color: 'rgba(255,255,255,0.7)', fontStyle: 'italic' }}>
             {section.titleSr}
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <div className="font-pixel" style={{ fontSize: 6, letterSpacing: 1.5, color: 'rgba(255,255,255,0.7)' }}>
-            PROGRESS
-          </div>
+
+        <div className="flex-shrink-0 text-right">
           <div className="font-pixel" style={{ fontSize: 12, color: '#FFFFFF', textShadow: `1px 1px 0 ${section.themeEdge}` }}>
-            {done}/{total}
+            {done}<span style={{ color: 'rgba(255,255,255,0.5)' }}>/{total}</span>
+          </div>
+          <div className="font-pixel mt-0.5" style={{ fontSize: 5.5, letterSpacing: 1.5, color: 'rgba(255,255,255,0.55)' }}>
+            {pct}%
           </div>
         </div>
       </div>
 
-      <div className="relative mt-3" style={{
-        height: 6,
+      <div className="relative mt-2.5" style={{
+        height: 5,
         background: 'rgba(0,0,0,0.4)',
         borderRadius: 3,
-        border: '1px solid rgba(0,0,0,0.3)',
         overflow: 'hidden',
       }}>
         <div style={{
@@ -666,7 +682,7 @@ function SectionBanner({ section, index, done, total }: {
           height: '100%',
           background: 'linear-gradient(90deg, #FDE68A, #F59E0B)',
           transition: 'width 0.6s ease',
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5)',
+          boxShadow: '0 0 6px rgba(251,191,36,0.5)',
         }} />
       </div>
     </div>
@@ -685,36 +701,53 @@ function UnitSection({ unit, unitIndex, progress, isUnlocked, nextUpId, onLesson
 
   return (
     <div className="mb-9 px-4">
-      {/* Unit banner */}
-      <div className="relative overflow-hidden mb-5 px-4 py-3.5 flex items-center justify-between" style={{
-        background: `linear-gradient(135deg, ${unit.color} 0%, ${unit.edgeColor} 100%)`,
-        borderRadius: 6,
-        border: `3px solid ${unit.edgeColor}`,
-        boxShadow: `0 5px 0 ${unit.edgeColor}, inset 0 2px 0 rgba(255,255,255,0.32), inset 0 -2px 0 rgba(0,0,0,0.25), 0 0 22px ${unit.color}55`,
+      {/* Unit banner — calmer than before. The hard pixel drop-shadow
+          and quad rivets were fighting the section banner above and the
+          lesson nodes below. Now it's a glassy strip with a small
+          unit-number chip on the left. */}
+      <div className="relative overflow-hidden mb-5 px-3.5 py-3 flex items-center gap-3" style={{
+        background: `linear-gradient(135deg, ${unit.color}DD 0%, ${unit.edgeColor} 100%)`,
+        borderRadius: 10,
+        border: '1px solid rgba(255,255,255,0.18)',
+        boxShadow: `0 3px 14px ${unit.color}44, inset 0 1px 0 rgba(255,255,255,0.22)`,
       }}>
-        {/* gold corner rivets */}
-        <div style={{ position: 'absolute', top: 4, left: 4, width: 3, height: 3, background: '#FBBF24', opacity: 0.85 }} />
-        <div style={{ position: 'absolute', top: 4, right: 4, width: 3, height: 3, background: '#FBBF24', opacity: 0.85 }} />
-        <div style={{ position: 'absolute', bottom: 4, left: 4, width: 3, height: 3, background: '#FBBF24', opacity: 0.85 }} />
-        <div style={{ position: 'absolute', bottom: 4, right: 4, width: 3, height: 3, background: '#FBBF24', opacity: 0.85 }} />
+        {/* Top sheen */}
+        <div className="absolute inset-x-0 top-0 pointer-events-none" style={{
+          height: 18,
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.16), transparent)',
+          borderRadius: '10px 10px 0 0',
+        }} />
 
-        <div className="relative">
-          <div className="font-pixel text-white" style={{ fontSize: 6, letterSpacing: 2, opacity: 0.9, textShadow: `1px 1px 0 ${unit.edgeColor}` }}>
-            UNIT {unitIndex + 1}
+        {/* Unit number chip */}
+        <div className="flex-shrink-0 flex items-center justify-center font-pixel" style={{
+          width: 30, height: 30,
+          background: 'linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.5) 100%)',
+          border: '1px solid rgba(255,255,255,0.35)',
+          borderRadius: 6,
+          fontSize: 10, color: '#FFFFFF',
+          textShadow: '0 1px 0 rgba(0,0,0,0.7)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.18)',
+        }}>
+          {unitIndex + 1}
+        </div>
+
+        <div className="relative flex-1 min-w-0">
+          <div className="font-pixel" style={{ fontSize: 5.5, letterSpacing: 1.8, color: 'rgba(255,255,255,0.7)' }}>
+            UNIT
           </div>
-          <div className="font-pixel text-white mt-0.5" style={{ fontSize: 12, letterSpacing: 1.8, textShadow: `1px 1px 0 ${unit.edgeColor}, 0 0 8px rgba(255,255,255,0.25)` }}>
+          <div className="font-pixel text-white mt-0.5 truncate" style={{ fontSize: 11, letterSpacing: 1.5, textShadow: `1px 1px 0 ${unit.edgeColor}` }}>
             {unit.title.toUpperCase()}
           </div>
-          <div className="font-pixel mt-1" style={{ fontSize: 6, color: 'rgba(255,255,255,0.85)', letterSpacing: 1.2, fontStyle: 'italic' }}>
+          <div className="font-pixel mt-0.5 truncate" style={{ fontSize: 5.5, color: 'rgba(255,255,255,0.75)', letterSpacing: 1, fontStyle: 'italic' }}>
             {unit.titleSr}
           </div>
         </div>
-        <div className="relative flex flex-col items-end">
-          <div className="font-pixel" style={{ fontSize: 6, letterSpacing: 1.5, color: 'rgba(255,255,255,0.7)' }}>
-            DONE
+        <div className="relative flex-shrink-0 text-right">
+          <div className="font-pixel text-white" style={{ fontSize: 12, textShadow: `1px 1px 0 ${unit.edgeColor}` }}>
+            {lessons.filter(l => progress.completed.includes(l.id)).length}<span style={{ color: 'rgba(255,255,255,0.55)' }}>/{lessons.length}</span>
           </div>
-          <div className="font-pixel text-white" style={{ fontSize: 14, textShadow: `1px 1px 0 ${unit.edgeColor}` }}>
-            {lessons.filter(l => progress.completed.includes(l.id)).length}/{lessons.length}
+          <div className="font-pixel mt-0.5" style={{ fontSize: 5.5, letterSpacing: 1.5, color: 'rgba(255,255,255,0.6)' }}>
+            DONE
           </div>
         </div>
       </div>
