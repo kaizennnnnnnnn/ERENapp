@@ -10,7 +10,7 @@ import {
 import { useAuth } from '@/hooks/useAuth'
 import { useTasks } from '@/contexts/TaskContext'
 import { playSound } from '@/lib/sounds'
-import { IconCrown, IconStar, IconBook } from '@/components/PixelIcons'
+import { IconCrown, IconStar, IconBook, IconPaw, IconPerson, IconHouse, IconClock, IconTicket } from '@/components/PixelIcons'
 import AnimatedEren from '@/components/AnimatedEren'
 
 interface Props { onClose: () => void }
@@ -604,7 +604,15 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
 }
 
 // ─── Section banner — large, above each cluster of units ────────────────────
-const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
+// Each section gets its own pixel-art icon so the banners are distinguishable
+// at a glance instead of all looking like the same coloured rectangle.
+const SECTION_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
+  'sec-1': IconPaw,      // Starting Out — first paw-step
+  'sec-2': IconPerson,   // Numbers & People — people
+  'sec-3': IconHouse,    // World Around You — home/world
+  'sec-4': IconClock,    // Daily Life — daily routine
+  'sec-5': IconTicket,   // Going Out — event/outing ticket
+}
 function SectionBanner({ section, index, done, total }: {
   section: Section
   index: number
@@ -612,6 +620,7 @@ function SectionBanner({ section, index, done, total }: {
   total: number
 }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
+  const Icon = SECTION_ICONS[section.id] ?? IconBook
   return (
     <div className="relative mx-4 mb-5 mt-3 px-4 py-3.5 overflow-hidden" style={{
       // Single soft theme gradient — no hard pixel-shadow, no inset,
@@ -630,24 +639,21 @@ function SectionBanner({ section, index, done, total }: {
       }} />
 
       <div className="relative flex items-center gap-3">
-        {/* Roman numeral badge — gives each section a clear identity */}
-        <div className="flex-shrink-0 flex items-center justify-center font-pixel" style={{
-          width: 38, height: 38,
-          background: 'linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.55) 100%)',
-          border: '1.5px solid rgba(251,191,36,0.7)',
-          borderRadius: 8,
-          fontSize: ROMAN_NUMERALS[index]?.length > 2 ? 7 : 11,
-          color: '#FDE68A',
-          letterSpacing: 1,
-          textShadow: '0 1px 0 rgba(0,0,0,0.7), 0 0 8px rgba(251,191,36,0.55)',
-          boxShadow: 'inset 0 1px 0 rgba(251,191,36,0.25), 0 2px 6px rgba(0,0,0,0.35)',
+        {/* Per-section icon badge — pixel art with a soft section-coloured
+            glow ring so each banner has its own personality. */}
+        <div className="flex-shrink-0 flex items-center justify-center" style={{
+          width: 44, height: 44,
+          background: `radial-gradient(circle at 35% 30%, ${section.themeColor}55, rgba(0,0,0,0.5) 75%)`,
+          border: '1.5px solid rgba(251,191,36,0.75)',
+          borderRadius: 10,
+          boxShadow: `inset 0 1px 0 rgba(251,191,36,0.3), 0 2px 6px rgba(0,0,0,0.35), 0 0 12px ${section.themeColor}66`,
         }}>
-          {ROMAN_NUMERALS[index] ?? (index + 1)}
+          <Icon size={22} />
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="font-pixel" style={{ fontSize: 5.5, letterSpacing: 1.8, color: 'rgba(255,255,255,0.7)' }}>
-            SECTION
+            SECTION {index + 1}
           </div>
           <div className="font-pixel mt-0.5 truncate" style={{
             fontSize: 12, letterSpacing: 1.5,
@@ -797,7 +803,7 @@ function UnitSection({ unit, unitIndex, progress, isUnlocked, nextUpId, onLesson
                     filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.55)) drop-shadow(0 0 10px rgba(251,191,36,0.4))',
                   } as React.CSSProperties}>
                     <div style={{ animation: 'srHeroPoke 2.4s ease-in-out infinite' }}>
-                      <AnimatedEren px={3} />
+                      <AnimatedEren px={4} />
                     </div>
                   </div>
                 </>
