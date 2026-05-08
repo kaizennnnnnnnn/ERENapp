@@ -398,18 +398,20 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col overflow-hidden" style={{
-      background: 'radial-gradient(ellipse at top, #2C1659 0%, #170B33 50%, #08051C 100%)',
+      // Lighter, cleaner sky — pulled the deep purple up to a softer
+      // indigo so the whole page reads less heavy.
+      background: 'radial-gradient(ellipse at top, #4338CA 0%, #1E1B4B 45%, #0F0B2E 100%)',
     }}>
       {/* Star field overlay — subtle, behind everything */}
-      <div className="absolute inset-0 pointer-events-none opacity-50" style={{
-        backgroundImage: 'radial-gradient(circle, #FBBF24 1px, transparent 1px), radial-gradient(circle, #A78BFA 1px, transparent 1px)',
+      <div className="absolute inset-0 pointer-events-none opacity-40" style={{
+        backgroundImage: 'radial-gradient(circle, #FBBF24 1px, transparent 1px), radial-gradient(circle, #C4B5FD 1px, transparent 1px)',
         backgroundSize: '38px 38px, 56px 56px',
         backgroundPosition: '0 0, 22px 28px',
         animation: 'srStarDrift 32s linear infinite',
       }} />
-      {/* CRT-style scanlines for that vintage academy feel */}
+      {/* CRT-style scanlines — toned down so they don't dominate the page */}
       <div className="absolute inset-0 pointer-events-none" style={{
-        background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.18) 3px, rgba(0,0,0,0.18) 4px)',
+        background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.10) 3px, rgba(0,0,0,0.10) 4px)',
         zIndex: 1,
       }} />
 
@@ -739,42 +741,31 @@ function UnitSection({ unit, unitIndex, progress, isUnlocked, nextUpId, onLesson
                 }} />
               )}
 
-              {/* Hero halo for the next-up node — three layered animated rings,
-                  four orbiting gold sparkles, and a "▶ START" chevron beneath
-                  to make it unmistakeable that this is the lesson to play. */}
+              {/* Next-up cue — a single soft pulsing halo behind the node and
+                  an animated Eren peeking out next to it. The earlier
+                  treatment (three layered rings + four orbiting sparkles)
+                  was visually noisy; this is calmer but still unmistakable. */}
               {isNextUp && (
                 <>
                   <div className="absolute pointer-events-none" style={{
                     top: li > 0 ? 28 : 0,
                     width: 84, height: 84,
                     borderRadius: '50%',
-                    boxShadow: `0 0 0 6px rgba(251,191,36,0.18), 0 0 36px rgba(251,191,36,0.6), 0 0 14px ${unit.color}DD`,
-                    animation: 'srHeroPulse 1.6s ease-in-out infinite',
+                    boxShadow: `0 0 0 4px rgba(251,191,36,0.22), 0 0 28px rgba(251,191,36,0.55), 0 0 12px ${unit.color}CC`,
+                    animation: 'srHeroPulse 1.7s ease-in-out infinite',
                   }} />
-                  <div className="absolute pointer-events-none" style={{
-                    top: li > 0 ? 24 : -4,
-                    width: 92, height: 92,
-                    borderRadius: '50%',
-                    border: '2px dashed rgba(251,191,36,0.7)',
-                    animation: 'srHeroRotate 8s linear infinite',
-                  }} />
-                  <div className="absolute pointer-events-none" style={{
-                    top: li > 0 ? 16 : -12,
-                    width: 108, height: 108,
-                    animation: 'srHeroOrbit 5s linear infinite',
-                  }}>
-                    {[0, 90, 180, 270].map(deg => (
-                      <div key={deg} style={{
-                        position: 'absolute',
-                        top: '50%', left: '50%',
-                        transform: `rotate(${deg}deg) translate(54px) rotate(${-deg}deg)`,
-                        marginLeft: -3, marginTop: -3,
-                        width: 6, height: 6,
-                        background: 'radial-gradient(circle, #FFFAF0 0%, #FBBF24 60%, transparent 100%)',
-                        borderRadius: '50%',
-                        boxShadow: '0 0 8px #FBBF24, 0 0 14px rgba(251,191,36,0.5)',
-                      }} />
-                    ))}
+                  {/* Eren mascot — peeks from whichever side has more room
+                      (the zigzag offset alternates each row). Outer div
+                      handles position + horizontal flip, inner div bobs. */}
+                  <div className="absolute pointer-events-none z-[2]" style={{
+                    top: li > 0 ? 30 : 2,
+                    [offset < 0 ? 'left' : 'right']: -78,
+                    transform: offset < 0 ? 'scaleX(-1)' : 'none',
+                    filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.55)) drop-shadow(0 0 10px rgba(251,191,36,0.4))',
+                  } as React.CSSProperties}>
+                    <div style={{ animation: 'srHeroPoke 2.4s ease-in-out infinite' }}>
+                      <AnimatedEren px={3} />
+                    </div>
                   </div>
                 </>
               )}
@@ -901,13 +892,11 @@ function UnitSection({ unit, unitIndex, progress, isUnlocked, nextUpId, onLesson
           0%, 100% { opacity: 0.55; transform: scale(1); }
           50%      { opacity: 1;    transform: scale(1.06); }
         }
-        @keyframes srHeroRotate {
-          from { transform: rotate(0deg); }
-          to   { transform: rotate(360deg); }
-        }
-        @keyframes srHeroOrbit {
-          from { transform: rotate(0deg); }
-          to   { transform: rotate(360deg); }
+        /* Eren-mascot peek — gentle bob; horizontal flip is handled by
+           the outer wrapper so this stays orientation-agnostic. */
+        @keyframes srHeroPoke {
+          0%, 100% { transform: translateY(0); }
+          50%      { transform: translateY(-2px); }
         }
         @keyframes srHeroChevron {
           0%, 100% { transform: translateY(0); }
