@@ -23,7 +23,7 @@ export default function BlinkingEren({
   const lid: React.CSSProperties = {
     position: 'absolute',
     width: '6%',
-    height: '5%',
+    height: '5.5%',
     background: '#6B6B6B',
     borderRadius: 1,
     transform: 'scaleY(0)',
