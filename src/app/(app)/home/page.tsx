@@ -389,7 +389,7 @@ export default function HomePage() {
         </div>
 
         {/* ══ HUD OVERLAY (below shared stats header) ══ */}
-        <div className="absolute left-0 right-0 z-10 px-3" style={{ top: 100 }}>
+        <div className="absolute left-0 right-0 z-10 px-3" style={{ top: 'calc(var(--safe-top) + 124px)' }}>
 
           {/* Quest panel + nav buttons share a single row again. The
               buttons are 34 px wide with a 4-px gap (instead of 40 / 8)
