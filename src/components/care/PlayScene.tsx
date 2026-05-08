@@ -108,11 +108,11 @@ export default function PlayScene({ onClose }: Props) {
 
       {/* ══ UI ══ */}
       {/* Leaderboard button — opens the household high-scores modal.
-          Top is calculated from the StatsHeader bottom (108px + iOS
+          Top is calculated from the StatsHeader bottom (120px + iOS
           safe-top) so it isn't buried behind the persistent stats. */}
       <button onClick={e => { e.stopPropagation(); playSound('ui_tap'); setShowLeaderboard(true) }}
         className="absolute right-4 z-50 active:translate-y-[2px] transition-transform"
-        style={{ top: 'calc(var(--safe-top) + 116px)' }}>
+        style={{ top: 'calc(var(--safe-top) + 128px)' }}>
         <div className="relative flex items-center gap-2 px-3 py-2 overflow-hidden"
           style={{
             background: 'linear-gradient(180deg, #FBBF24 0%, #F59E0B 55%, #B45309 100%)',

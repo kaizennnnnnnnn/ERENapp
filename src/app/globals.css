@@ -42,9 +42,9 @@
   /* ── Page scroll area (above bottom nav) ── */
   .page-scroll {
     @apply pb-8 px-4 overflow-y-auto;
-    /* StatsHeader is 108px tall; add the iOS safe-area on top so the
+    /* StatsHeader is 120px tall; add the iOS safe-area on top so the
        first row of content clears the (now safe-area-padded) header. */
-    padding-top: calc(108px + var(--safe-top));
+    padding-top: calc(120px + var(--safe-top));
     min-height: 100dvh;
   }
 
@@ -175,6 +175,12 @@
   45%        { transform: scale(1.08); }
 }
 .animate-heartbeat { animation: heartbeat 1.2s ease-in-out infinite; }
+
+/* ── Obsidian gauge water surface wave ── */
+@keyframes obsidian-wave {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-6px); }
+}
 
 /* ── Sparkle ── */
 @keyframes sparkle {

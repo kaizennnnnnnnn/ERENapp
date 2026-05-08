@@ -272,7 +272,7 @@ export default function CareSceneHost() {
       {ready && (
         <div className="fixed left-1/2 z-[55] pointer-events-none"
           style={{
-            top: 'calc(var(--safe-top) + 108px)',
+            top: 'calc(var(--safe-top) + 120px)',
             transform: 'translateX(-50%)',
             opacity: labelVisible ? 1 : 0,
             transition: 'opacity 0.3s ease',
