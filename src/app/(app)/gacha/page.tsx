@@ -20,7 +20,7 @@ import { playSound } from '@/lib/sounds'
 import {
   PINK, PINK_HI, PINK_LO,
   OBSIDIAN_FACE, OBSIDIAN_BTN,
-  Rivets, ObsidianChip, pinkText,
+  Rivets, ObsidianChip, pinkText, accentA,
 } from '@/components/obsidian'
 
 const BANNER_ICONS: Record<string, React.FC<{ size?: number }>> = {
@@ -125,9 +125,9 @@ export default function GachaPage() {
               style={{
                 minWidth: 108,
                 ...OBSIDIAN_BTN,
-                border: `1px solid ${active ? `${PINK}cc` : `${PINK}33`}`,
+                border: `1px solid ${active ? `${accentA(0.8)}` : `${accentA(0.2)}`}`,
                 boxShadow: active
-                  ? `0 0 0 1px ${PINK}55, 0 4px 14px ${PINK}44, inset 0 1px 0 rgba(255,255,255,0.08)`
+                  ? `0 0 0 1px ${accentA(0.33)}, 0 4px 14px ${accentA(0.27)}, inset 0 1px 0 rgba(255,255,255,0.08)`
                   : OBSIDIAN_BTN.boxShadow as string,
               }}>
               {active && <Rivets inset={3} size={3} />}
@@ -146,7 +146,7 @@ export default function GachaPage() {
                 fontSize: 6,
                 letterSpacing: 0.5, lineHeight: 1.4,
                 color: active ? PINK_HI : '#7A6A75',
-                textShadow: active ? `0 0 3px ${PINK}66` : 'none',
+                textShadow: active ? `0 0 3px ${accentA(0.4)}` : 'none',
               }}>
                 {b.name.toUpperCase()}
               </span>
@@ -169,8 +169,8 @@ export default function GachaPage() {
                 width: 32, height: 32,
                 background: 'linear-gradient(180deg, #1a1a20, #0a0a0c)',
                 borderRadius: 3,
-                border: `1px solid ${PINK}88`,
-                boxShadow: `inset 0 1px 0 rgba(255,255,255,0.06), 0 0 6px ${PINK}33`,
+                border: `1px solid ${accentA(0.53)}`,
+                boxShadow: `inset 0 1px 0 rgba(255,255,255,0.06), 0 0 6px ${accentA(0.2)}`,
               }}>
               <SelectedIcon size={22} />
             </div>
@@ -239,7 +239,7 @@ export default function GachaPage() {
               width: 36, height: 36,
               background: 'linear-gradient(180deg, #1a1a20, #0a0a0c)',
               borderRadius: 3,
-              border: `1px solid ${PINK}55`,
+              border: `1px solid ${accentA(0.33)}`,
               boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
             }}>
             <IconBook size={24} />
@@ -250,7 +250,7 @@ export default function GachaPage() {
               <div style={{
                 width: 60, height: 4,
                 background: '#0a0a0c',
-                border: `1px solid ${PINK}33`,
+                border: `1px solid ${accentA(0.2)}`,
                 overflow: 'hidden',
               }}>
                 <div style={{

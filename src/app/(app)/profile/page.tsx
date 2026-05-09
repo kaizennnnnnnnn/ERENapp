@@ -14,14 +14,15 @@ import { format } from 'date-fns'
 import { useCare } from '@/contexts/CareContext'
 import {
   IconPerson, IconHouse, IconHeart, IconClock, IconCatFace, IconPencil,
-  IconCrown, IconHeartDuo,
+  IconCrown, IconHeartDuo, IconStar,
 } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import {
   PINK, PINK_HI, PINK_LO,
   OBSIDIAN_FACE, OBSIDIAN_BTN, OBSIDIAN_ORB,
-  Rivets, ObsidianChip, pinkText,
+  Rivets, ObsidianChip, pinkText, accentA, accentLoA,
 } from '@/components/obsidian'
+import { useTheme, THEMES } from '@/contexts/ThemeContext'
 
 export default function ProfilePage() {
   const router   = useRouter()
@@ -105,7 +106,7 @@ export default function ProfilePage() {
   if (loading || !profile) {
     return (
       <div className="page-scroll flex items-center justify-center min-h-[60vh]" style={pageStyle}>
-        <span className="font-pixel animate-pulse-soft" style={{ fontSize: 8, color: PINK_HI, textShadow: `0 0 4px ${PINK}66` }}>
+        <span className="font-pixel animate-pulse-soft" style={{ fontSize: 8, color: PINK_HI, textShadow: `0 0 4px ${accentA(0.4)}` }}>
           LOADING<span className="animate-cursor">_</span>
         </span>
       </div>
@@ -114,6 +115,7 @@ export default function ProfilePage() {
 
   const initials = profile.name.charAt(0).toUpperCase()
   const totalSeconds = mySeconds + partnerSeconds
+  const { theme, setTheme } = useTheme()
 
   return (
     <div className="page-scroll" style={pageStyle}>
@@ -224,7 +226,7 @@ export default function ProfilePage() {
                 <IconCatFace size={16} />
                 <span className="font-medium text-xs" style={{ color: PINK_HI }}>{profile.name}</span>
               </span>
-              <span className="font-pixel" style={{ fontSize: 8, color: PINK_HI, textShadow: `0 0 3px ${PINK}66` }}>{formatDuration(mySeconds)}</span>
+              <span className="font-pixel" style={{ fontSize: 8, color: PINK_HI, textShadow: `0 0 3px ${accentA(0.4)}` }}>{formatDuration(mySeconds)}</span>
             </div>
             <div className="flex gap-[3px]">
               {Array.from({ length: 12 }).map((_, i) => {
@@ -235,7 +237,7 @@ export default function ProfilePage() {
                   background: lit
                     ? `linear-gradient(180deg, ${PINK_HI}, ${PINK} 60%, ${PINK_LO})`
                     : '#0a0a0c',
-                  border: `1px solid ${lit ? `${PINK_LO}88` : `${PINK}22`}`,
+                  border: `1px solid ${lit ? `${accentLoA(0.53)}` : `${accentA(0.13)}`}`,
                   boxShadow: lit ? 'inset 0 1px 0 rgba(255,255,255,0.3)' : 'inset 0 1px 2px rgba(0,0,0,0.6)',
                 }} />
               })}
@@ -299,7 +301,7 @@ export default function ProfilePage() {
             <div className="flex-1 flex items-center justify-center py-3 relative"
               style={{
                 ...OBSIDIAN_BTN,
-                border: `1px dashed ${PINK}88`,
+                border: `1px dashed ${accentA(0.53)}`,
               }}>
               <p className="font-pixel tracking-[0.25em]" style={{ fontSize: 13, ...pinkText }}>
                 {inviteCode}
@@ -329,6 +331,50 @@ export default function ProfilePage() {
         </div>
       )}
 
+      {/* ── Theme switcher ── */}
+      <div className="mb-4 p-4 relative" style={OBSIDIAN_FACE}>
+        <Rivets inset={4} size={3} />
+        <div className="flex items-center gap-2 mb-3">
+          <ObsidianChip accentRgb="245,200,66">
+            <IconStar size={12} />
+            <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>THEME</span>
+          </ObsidianChip>
+        </div>
+        <p className="text-xs mb-3" style={{ color: '#7A6A75' }}>Pick the accent for the whole app</p>
+        <div className="flex gap-2">
+          {THEMES.map(t => {
+            const active = theme === t.key
+            return (
+              <button
+                key={t.key}
+                onClick={() => { playSound('ui_tap'); setTheme(t.key) }}
+                className="flex-1 flex flex-col items-center gap-2 p-3 active:translate-y-[1px] transition-transform relative"
+                style={{
+                  ...OBSIDIAN_BTN,
+                  border: `1px solid ${active ? t.swatch : 'rgba(255,255,255,0.08)'}`,
+                  boxShadow: active
+                    ? `0 0 0 1px ${t.swatch}55, 0 0 12px ${t.swatch}55, inset 0 1px 0 rgba(255,255,255,0.07)`
+                    : OBSIDIAN_BTN.boxShadow as string,
+                }}
+              >
+                {active && <Rivets inset={2} size={2} />}
+                {/* Swatch — small obsidian orb tinted with the theme color */}
+                <div style={{
+                  width: 28, height: 28, borderRadius: '50%',
+                  background: `radial-gradient(circle at 35% 28%, ${t.swatchHi}, ${t.swatch} 60%, ${t.swatchLo})`,
+                  boxShadow: `0 0 0 1.5px ${t.swatch}, 0 0 0 3px #000, 0 0 0 4px ${t.swatch}55, 0 2px 6px ${t.swatch}88`,
+                }} />
+                <span className="font-pixel" style={{
+                  fontSize: 7, letterSpacing: 1,
+                  color: active ? t.swatchHi : '#7A6A75',
+                  textShadow: active ? `0 0 3px ${t.swatch}66` : 'none',
+                }}>{t.label.toUpperCase()}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
       {/* ── Sign out ── */}
       <button
         onClick={() => { playSound('ui_tap'); handleSignOut() }}
@@ -343,11 +389,11 @@ export default function ProfilePage() {
       </button>
 
       <div className="flex items-center justify-center gap-2 mt-6 pb-2">
-        <div className="h-px w-8" style={{ background: `repeating-linear-gradient(90deg, ${PINK}33 0px, ${PINK}33 3px, transparent 3px, transparent 6px)` }} />
+        <div className="h-px w-8" style={{ background: `repeating-linear-gradient(90deg, ${accentA(0.2)} 0px, ${accentA(0.2)} 3px, transparent 3px, transparent 6px)` }} />
         <p className="font-pixel text-center flex items-center gap-1" style={{ fontSize: 6, color: '#5A4A55' }}>
           EREN v1.0 · MADE WITH <IconHeart size={8} />
         </p>
-        <div className="h-px w-8" style={{ background: `repeating-linear-gradient(90deg, ${PINK}33 0px, ${PINK}33 3px, transparent 3px, transparent 6px)` }} />
+        <div className="h-px w-8" style={{ background: `repeating-linear-gradient(90deg, ${accentA(0.2)} 0px, ${accentA(0.2)} 3px, transparent 3px, transparent 6px)` }} />
       </div>
     </div>
   )

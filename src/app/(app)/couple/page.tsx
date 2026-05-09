@@ -16,7 +16,7 @@ import { playSound } from '@/lib/sounds'
 import {
   PINK, PINK_HI, PINK_LO,
   OBSIDIAN_FACE, OBSIDIAN_BTN, OBSIDIAN_ORB,
-  Rivets, ObsidianChip, pinkText,
+  Rivets, ObsidianChip, pinkText, accentA,
 } from '@/components/obsidian'
 
 export default function CouplePage() {
@@ -56,7 +56,7 @@ export default function CouplePage() {
   if (loading) {
     return (
       <div className="page-scroll flex items-center justify-center min-h-[60vh]" style={pageStyle}>
-        <span className="font-pixel animate-pulse-soft" style={{ fontSize: 8, color: PINK_HI, textShadow: `0 0 4px ${PINK}66` }}>
+        <span className="font-pixel animate-pulse-soft" style={{ fontSize: 8, color: PINK_HI, textShadow: `0 0 4px ${accentA(0.4)}` }}>
           LOADING<span className="animate-cursor">_</span>
         </span>
       </div>
@@ -87,7 +87,7 @@ export default function CouplePage() {
           {/* Subtle hairline gold accent across the top */}
           <div aria-hidden style={{
             position: 'absolute', top: 0, left: '15%', right: '15%', height: 1,
-            background: `linear-gradient(90deg, transparent, ${PINK}66, transparent)`,
+            background: `linear-gradient(90deg, transparent, ${accentA(0.4)}, transparent)`,
           }} />
           {/* Soft starfield */}
           <div className="absolute inset-0 opacity-[0.06] pointer-events-none"
@@ -96,7 +96,7 @@ export default function CouplePage() {
           <div className="relative">
             <div className="flex items-center justify-center gap-2 mb-2">
               <IconHeart size={10} />
-              <p className="font-pixel" style={{ fontSize: 6, letterSpacing: 2.5, color: PINK_HI, textShadow: `0 0 3px ${PINK}66` }}>TOGETHER FOR</p>
+              <p className="font-pixel" style={{ fontSize: 6, letterSpacing: 2.5, color: PINK_HI, textShadow: `0 0 3px ${accentA(0.4)}` }}>TOGETHER FOR</p>
               <IconHeart size={10} />
             </div>
             <p className="font-pixel" style={{ fontSize: 36, lineHeight: 1, ...pinkText, marginBottom: 4 }}>{anniversary.days}</p>
@@ -182,7 +182,7 @@ export default function CouplePage() {
 
             {/* Competition bar — gold gradient on each side, neutral split */}
             <div className="flex h-3 overflow-hidden" style={{
-              border: `1px solid ${PINK}66`,
+              border: `1px solid ${accentA(0.4)}`,
               background: '#000',
               boxShadow: `inset 0 1px 3px rgba(0,0,0,0.9)`,
             }}>
@@ -238,7 +238,7 @@ export default function CouplePage() {
             className="flex items-center justify-center active:translate-y-[1px] transition-all disabled:opacity-40 relative"
             style={{ width: 42, height: 42, ...OBSIDIAN_BTN }}>
             <Rivets inset={2} />
-            <Send size={16} style={{ color: PINK_HI, filter: `drop-shadow(0 0 3px ${PINK}aa)` }} />
+            <Send size={16} style={{ color: PINK_HI, filter: `drop-shadow(0 0 3px ${accentA(0.67)})` }} />
           </button>
         </div>
 
@@ -268,7 +268,7 @@ export default function CouplePage() {
                   // Subtle border tint difference so "me" vs partner reads at
                   // a glance — purple-bright vs cool lavender — alongside the
                   // mirrored bottom border-radius.
-                  borderColor: isMe ? `${PINK}77` : '#C4B5FD55',
+                  borderColor: isMe ? `${accentA(0.47)}` : '#C4B5FD55',
                   borderRadius: isMe ? '6px 6px 2px 6px' : '6px 6px 6px 2px',
                 }}>
                   <p className="text-sm" style={{ color: '#E8E0D0' }}>{m.message}</p>

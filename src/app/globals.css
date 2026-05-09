@@ -8,6 +8,40 @@
   :root {
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     --safe-top:    env(safe-area-inset-top, 0px);
+
+    /* Accent palette — driven by ThemeProvider (data-theme on <body>).
+       Default to pink; ThemeProvider may overwrite at runtime. */
+    --accent:        #EC4899;
+    --accent-hi:     #F9A8D4;
+    --accent-lo:     #831843;
+    --accent-rgb:    236, 72, 153;
+    --accent-hi-rgb: 249, 168, 212;
+    --accent-lo-rgb: 131, 24, 71;
+  }
+
+  body[data-theme="pink"] {
+    --accent:        #EC4899;
+    --accent-hi:     #F9A8D4;
+    --accent-lo:     #831843;
+    --accent-rgb:    236, 72, 153;
+    --accent-hi-rgb: 249, 168, 212;
+    --accent-lo-rgb: 131, 24, 71;
+  }
+  body[data-theme="gold"] {
+    --accent:        #D4AF37;
+    --accent-hi:     #F2D77A;
+    --accent-lo:     #7A5C18;
+    --accent-rgb:    212, 175, 55;
+    --accent-hi-rgb: 242, 215, 122;
+    --accent-lo-rgb: 122, 92, 24;
+  }
+  body[data-theme="purple"] {
+    --accent:        #A78BFA;
+    --accent-hi:     #E9D5FF;
+    --accent-lo:     #5B21B6;
+    --accent-rgb:    167, 139, 250;
+    --accent-hi-rgb: 233, 213, 255;
+    --accent-lo-rgb: 91, 33, 182;
   }
 
   html {

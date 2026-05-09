@@ -11,7 +11,7 @@ import {
   IconStar, IconCrown,
 } from './PixelIcons'
 import { playSound } from '@/lib/sounds'
-import { PINK, PINK_HI, PINK_LO, OBSIDIAN_BTN, Rivets, pinkText } from './obsidian'
+import { PINK, PINK_HI, PINK_LO, OBSIDIAN_BTN, Rivets, pinkText, accentA } from './obsidian'
 
 function TaskIcon({ task, size = 22 }: { task: TaskDef; size?: number }) {
   switch (task.id) {
@@ -71,7 +71,7 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
         style={{
           background: 'linear-gradient(180deg, #131317 0%, #050507 100%)',
           borderRadius: '14px 14px 0 0',
-          border: `1px solid ${PINK}66`,
+          border: `1px solid ${accentA(0.4)}`,
           borderBottom: 'none',
           boxShadow: `0 -10px 30px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)`,
           maxHeight: '82vh',
@@ -85,13 +85,13 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
           <div style={{
             width: 44, height: 4, borderRadius: 2,
             background: `linear-gradient(90deg, ${PINK_LO}, ${PINK}, ${PINK_LO})`,
-            boxShadow: `0 0 6px ${PINK}66`,
+            boxShadow: `0 0 6px ${accentA(0.4)}`,
           }} />
         </div>
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3"
-          style={{ borderBottom: `1px solid ${PINK}33` }}>
+          style={{ borderBottom: `1px solid ${accentA(0.2)}` }}>
           <div className="flex items-center gap-2">
             <IconScroll size={20} />
             <span className="font-pixel" style={{ fontSize: 9, letterSpacing: 1.5, ...pinkText }}>QUESTS</span>
@@ -107,7 +107,7 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
         </div>
 
         {/* Tabs */}
-        <div className="flex" style={{ borderBottom: `1px solid ${PINK}33` }}>
+        <div className="flex" style={{ borderBottom: `1px solid ${accentA(0.2)}` }}>
           {(['daily', 'weekly'] as const).map(t => {
             const active = tab === t
             const done = t === 'daily' ? dailyDone : weeklyDone
@@ -154,7 +154,7 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
                   background: isDone
                     ? 'linear-gradient(180deg, rgba(34,197,94,0.10) 0%, rgba(34,197,94,0.04) 100%)'
                     : 'linear-gradient(180deg, #131317 0%, #050507 100%)',
-                  border: `1px solid ${isDone ? `${DONE_GREEN}55` : `${PINK}33`}`,
+                  border: `1px solid ${isDone ? `${DONE_GREEN}55` : `${accentA(0.2)}`}`,
                   boxShadow: isDone
                     ? 'inset 0 1px 0 rgba(255,255,255,0.06)'
                     : 'inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.4)',
@@ -163,7 +163,7 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
                   style={{
                     width: 36, height: 36, borderRadius: 4,
                     background: 'linear-gradient(180deg, #1a1a20 0%, #0a0a0c 100%)',
-                    border: `1px solid ${isDone ? `${DONE_GREEN}66` : `${PINK}55`}`,
+                    border: `1px solid ${isDone ? `${DONE_GREEN}66` : `${accentA(0.33)}`}`,
                     boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
                     opacity: isDone ? 0.55 : 1,
                   }}>
@@ -174,7 +174,7 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
                     fontSize: 7, letterSpacing: 0.5,
                     color: isDone ? DONE_GREEN : PINK_HI,
                     textDecoration: isDone ? 'line-through' : 'none',
-                    textShadow: isDone ? 'none' : `0 0 3px ${PINK}33`,
+                    textShadow: isDone ? 'none' : `0 0 3px ${accentA(0.2)}`,
                   }}>
                     {task.title}
                   </p>
@@ -183,7 +183,7 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
                     <div className="flex items-center gap-1.5 mt-1.5">
                       <div className="flex-1 h-1.5 overflow-hidden" style={{
                         background: '#0a0a0c',
-                        boxShadow: `inset 0 1px 2px rgba(0,0,0,0.8), inset 0 0 0 1px ${PINK}22`,
+                        boxShadow: `inset 0 1px 2px rgba(0,0,0,0.8), inset 0 0 0 1px ${accentA(0.13)}`,
                       }}>
                         <div className="h-full transition-all duration-500"
                           style={{

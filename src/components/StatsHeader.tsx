@@ -11,7 +11,7 @@ import { MAX_LEVEL } from '@/lib/levelRewards'
 import { createClient } from '@/lib/supabase/client'
 import { IconHeart, IconMeat, IconLightning, IconMoon, IconDrop, IconCoin } from './PixelIcons'
 import { playSound } from '@/lib/sounds'
-import { PINK, PINK_HI, PINK_LO, OBSIDIAN_FACE, Rivets } from './obsidian'
+import { PINK, PINK_HI, PINK_LO, OBSIDIAN_FACE, Rivets, accentA } from './obsidian'
 
 type StatKey = 'happiness' | 'hunger' | 'energy' | 'sleep_quality' | 'cleanliness'
 
@@ -48,7 +48,7 @@ function ObsidianGauge({ def, value }: { def: GaugeDef; value: number }) {
   const ringGlow =
     tier === 'low' ? 'rgba(248,113,113,0.5)' :
     tier === 'mid' ? 'rgba(242,215,122,0.4)' :
-    `${PINK}66`
+    `${accentA(0.4)}`
 
   return (
     <div style={{
@@ -71,9 +71,9 @@ function ObsidianGauge({ def, value }: { def: GaugeDef; value: number }) {
           borderRadius: '50%',
           background: '#000',
           boxShadow: [
-            `inset 0 0 0 1.5px ${PINK}88`,
+            `inset 0 0 0 1.5px ${accentA(0.53)}`,
             'inset 0 0 0 3px #000',
-            `inset 0 0 0 4px ${PINK}33`,
+            `inset 0 0 0 4px ${accentA(0.2)}`,
             `0 0 8px ${ringGlow}`,
             '0 0 0 2px rgba(0,0,0,0.4)',
           ].join(','),
@@ -147,7 +147,7 @@ function ObsidianGauge({ def, value }: { def: GaugeDef; value: number }) {
       <span className="font-pixel" style={{
         fontSize: 7, lineHeight: 1,
         color: tier === 'low' ? '#ff8c8c' : PINK_HI,
-        textShadow: tier === 'low' ? '0 0 4px rgba(248,113,113,0.6)' : `0 0 3px ${PINK}55`,
+        textShadow: tier === 'low' ? '0 0 4px rgba(248,113,113,0.6)' : `0 0 3px ${accentA(0.33)}`,
       }}>{v}</span>
     </div>
   )
@@ -216,7 +216,7 @@ export default function StatsHeader() {
           position: 'absolute',
           left: 16, right: 16, top: 'calc(var(--safe-top) + 1px)',
           height: 1,
-          background: `linear-gradient(90deg, transparent, ${PINK}88, transparent)`,
+          background: `linear-gradient(90deg, transparent, ${accentA(0.53)}, transparent)`,
           pointerEvents: 'none',
         }}
       />
@@ -238,7 +238,7 @@ export default function StatsHeader() {
             boxShadow: [
               `0 0 0 1.5px ${PINK}`,
               '0 0 0 3px #000',
-              `0 0 0 4px ${PINK}66`,
+              `0 0 0 4px ${accentA(0.4)}`,
               '0 4px 14px rgba(0,0,0,0.7)',
               'inset 0 1px 0 rgba(255,255,255,0.15)',
             ].join(','),
@@ -265,14 +265,14 @@ export default function StatsHeader() {
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <span className="font-pixel" style={{
               fontSize: 4.5, color: PINK, letterSpacing: 1.5, lineHeight: 1, marginBottom: 2,
-              textShadow: `0 0 3px ${PINK}88`,
+              textShadow: `0 0 3px ${accentA(0.53)}`,
             }}>LVL</span>
             <span style={{
               fontFamily: '"Press Start 2P", monospace',
               fontSize: 13, lineHeight: 1, letterSpacing: -0.5,
               background: `linear-gradient(180deg, ${PINK_HI} 0%, ${PINK} 50%, ${PINK_LO} 100%)`,
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-              filter: `drop-shadow(0 0 2px ${PINK}66)`,
+              filter: `drop-shadow(0 0 2px ${accentA(0.4)})`,
             }}>{level}</span>
           </div>
 
@@ -287,7 +287,7 @@ export default function StatsHeader() {
                 minWidth: 16, height: 16, padding: '0 3px',
                 background: `linear-gradient(180deg, ${PINK_HI}, ${PINK} 60%, ${PINK_LO})`,
                 border: '2px solid #050507',
-                boxShadow: `0 0 6px ${PINK}aa, inset 0 1px 0 rgba(255,255,255,0.3)`,
+                boxShadow: `0 0 6px ${accentA(0.67)}, inset 0 1px 0 rgba(255,255,255,0.3)`,
                 fontSize: 6,
                 color: '#fff',
                 textShadow: '0 1px 0 rgba(0,0,0,0.5)',
@@ -321,7 +321,7 @@ export default function StatsHeader() {
               }} />
               <span className="font-pixel" style={{
                 fontSize: 7, color: PINK_HI, letterSpacing: 2.5,
-                textShadow: `0 0 3px ${PINK}66`,
+                textShadow: `0 0 3px ${accentA(0.4)}`,
               }}>XP</span>
             </div>
             <span className="font-pixel" style={{ fontSize: 7, color: PINK_HI }}>
@@ -332,7 +332,7 @@ export default function StatsHeader() {
           <div style={{
             height: 8, position: 'relative', overflow: 'hidden',
             background: '#000',
-            boxShadow: `inset 0 1px 3px rgba(0,0,0,0.9), inset 0 0 0 1px ${PINK}33`,
+            boxShadow: `inset 0 1px 3px rgba(0,0,0,0.9), inset 0 0 0 1px ${accentA(0.2)}`,
           }}>
             <div style={{
               width: `${xpPct}%`, height: '100%', position: 'relative',
@@ -371,7 +371,7 @@ export default function StatsHeader() {
           }}
         >
           <Rivets inset={3} />
-          <div style={{ filter: `drop-shadow(0 0 3px ${PINK}66)` }}>
+          <div style={{ filter: `drop-shadow(0 0 3px ${accentA(0.4)})` }}>
             <IconCoin size={16} />
           </div>
           <span style={{
