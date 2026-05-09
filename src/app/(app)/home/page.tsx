@@ -31,6 +31,7 @@ import { useInventory } from '@/hooks/useInventory'
 import { GACHA_ITEMS } from '@/lib/gacha'
 import FortunePopup from '@/components/fortune/FortunePopup'
 import ErenMessagePopup from '@/components/couple/ErenMessagePopup'
+import { OBSIDIAN_BTN, Rivets } from '@/components/obsidian'
 
 interface XpParticle {
   id: number; x: number; y: number; tx: number; ty: number
@@ -45,38 +46,6 @@ const MOOD_GREETINGS: Record<string, string> = {
   sleepy:  'Eren is sleepy... shhh',
   playful: 'Wanna play? Let\'s go!',
   angry:   'Eren is not amused.',
-}
-
-// ── Obsidian nav-button chrome (matches StatsHeader vibe) ──
-const OBSIDIAN_BTN: React.CSSProperties = {
-  background: 'linear-gradient(180deg, #131317 0%, #050507 100%)',
-  border: '1px solid rgba(212,175,55,0.55)',
-  boxShadow: [
-    '0 3px 10px rgba(0,0,0,0.55)',
-    'inset 0 1px 0 rgba(255,255,255,0.07)',
-    'inset 0 -1px 0 rgba(0,0,0,0.6)',
-    'inset 0 0 0 1px rgba(255,255,255,0.02)',
-  ].join(','),
-  borderRadius: 4,
-}
-
-function ObsidianRivets({ inset = 2 }: { inset?: number }) {
-  const dot: React.CSSProperties = {
-    position: 'absolute',
-    width: 2,
-    height: 2,
-    background: 'radial-gradient(circle at 30% 30%, #F2D77A, #D4AF37 60%, #7A5C18)',
-    boxShadow: '0 0 2px rgba(212,175,55,0.7)',
-    pointerEvents: 'none',
-  }
-  return (
-    <>
-      <span style={{ ...dot, top: inset, left: inset }} />
-      <span style={{ ...dot, top: inset, right: inset }} />
-      <span style={{ ...dot, bottom: inset, left: inset }} />
-      <span style={{ ...dot, bottom: inset, right: inset }} />
-    </>
-  )
 }
 
 
@@ -433,25 +402,25 @@ export default function HomePage() {
               <button onClick={() => { playSound('ui_modal_open'); setShowFortune(true) }}
                 className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
                 style={{ ...OBSIDIAN_BTN, animation: 'pulse 2s ease-in-out infinite' }}>
-                <ObsidianRivets />
+                <Rivets inset={2} size={2} />
                 <IconGift size={18} />
               </button>
             )}
             <Link href="/gacha" onClick={() => playSound('ui_tap')}
               className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
               style={OBSIDIAN_BTN}>
-              <ObsidianRivets />
+              <Rivets inset={2} size={2} />
               <IconCapsule size={18} />
             </Link>
             <Link href="/bakery" onClick={() => playSound('ui_tap')}
               className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
               style={OBSIDIAN_BTN}>
-              <ObsidianRivets />
+              <Rivets inset={2} size={2} />
               <IconCake size={18} />
             </Link>
             <Link href="/couple" onClick={() => playSound('ui_tap')} className="relative w-8 h-8 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
               style={OBSIDIAN_BTN}>
-              <ObsidianRivets />
+              <Rivets inset={2} size={2} />
               <IconHeart size={18} />
               {unreadCount > 0 && (
                 <div className="absolute -top-1 -right-1 flex items-center justify-center"
@@ -463,20 +432,20 @@ export default function HomePage() {
             <button onClick={() => { playSound('ui_modal_open'); setShowReminders(true) }}
               className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
               style={OBSIDIAN_BTN}>
-              <ObsidianRivets />
+              <Rivets inset={2} size={2} />
               <IconBell size={18} />
             </button>
             <Link href="/profile" onClick={() => playSound('ui_tap')}
               className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
               style={OBSIDIAN_BTN}>
-              <ObsidianRivets />
+              <Rivets inset={2} size={2} />
               <IconPerson size={18} />
             </Link>
             <div className="relative flex-shrink-0">
               <button onClick={() => { playSound(showRooms ? 'ui_modal_close' : 'ui_modal_open'); setShowRooms(r => !r) }}
                 className="w-10 h-10 relative flex items-center justify-center active:scale-90 transition-transform"
                 style={OBSIDIAN_BTN}>
-                <ObsidianRivets inset={3} />
+                <Rivets inset={3} size={2} />
                 <IconDoor size={18} />
               </button>
               {showRooms && (
