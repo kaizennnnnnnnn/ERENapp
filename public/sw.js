@@ -18,7 +18,9 @@ self.addEventListener('message', ({ data }) => {
       self.registration.showNotification('🐱 Eren', {
         body: data.text,
         icon: '/ErenIcon.png',
-        badge: '/ErenIcon.png',
+        // Android masks the small status-bar icon to a flat tint — pass the
+        // monochrome silhouette so it renders as a cat instead of a black box.
+        badge: '/ErenBadge.png',
         tag: data.id,
         renotify: true,
         vibrate: [200, 100, 200],
@@ -49,7 +51,8 @@ self.addEventListener('push', event => {
   const options = {
     body: data.body || '',
     icon: '/ErenIcon.png',
-    badge: '/ErenIcon.png',
+    // Monochrome silhouette for the Android status-bar small icon.
+    badge: '/ErenBadge.png',
     tag: data.tag || 'eren-push',
     renotify: true,
     vibrate: [200, 100, 200],
