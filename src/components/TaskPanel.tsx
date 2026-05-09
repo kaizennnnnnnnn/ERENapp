@@ -11,7 +11,7 @@ import {
   IconStar, IconCrown,
 } from './PixelIcons'
 import { playSound } from '@/lib/sounds'
-import { PURPLE, PURPLE_HI, PURPLE_LO, OBSIDIAN_BTN, Rivets, purpleText } from './obsidian'
+import { PINK, PINK_HI, PINK_LO, OBSIDIAN_BTN, Rivets, pinkText } from './obsidian'
 
 function TaskIcon({ task, size = 22 }: { task: TaskDef; size?: number }) {
   switch (task.id) {
@@ -33,7 +33,7 @@ function TaskIcon({ task, size = 22 }: { task: TaskDef; size?: number }) {
 // ── Tier colors used for the daily/weekly counters (semantic tags inside
 // the panel — chrome around them is always purple obsidian). ──
 const DAILY_DOT  = '#F5C842'   // amber — "today's urgent"
-const WEEKLY_DOT = PURPLE      // mid purple — "longer arc"
+const WEEKLY_DOT = '#A78BFA' // lavender — "longer arc" (kept distinct from the pink chrome)
 
 const DONE_GREEN     = '#86EFAC'
 const DONE_GREEN_DEEP= '#22C55E'
@@ -71,7 +71,7 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
         style={{
           background: 'linear-gradient(180deg, #131317 0%, #050507 100%)',
           borderRadius: '14px 14px 0 0',
-          border: `1px solid ${PURPLE}66`,
+          border: `1px solid ${PINK}66`,
           borderBottom: 'none',
           boxShadow: `0 -10px 30px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)`,
           maxHeight: '82vh',
@@ -84,17 +84,17 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
         <div className="flex justify-center pt-3 pb-1">
           <div style={{
             width: 44, height: 4, borderRadius: 2,
-            background: `linear-gradient(90deg, ${PURPLE_LO}, ${PURPLE}, ${PURPLE_LO})`,
-            boxShadow: `0 0 6px ${PURPLE}66`,
+            background: `linear-gradient(90deg, ${PINK_LO}, ${PINK}, ${PINK_LO})`,
+            boxShadow: `0 0 6px ${PINK}66`,
           }} />
         </div>
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3"
-          style={{ borderBottom: `1px solid ${PURPLE}33` }}>
+          style={{ borderBottom: `1px solid ${PINK}33` }}>
           <div className="flex items-center gap-2">
             <IconScroll size={20} />
-            <span className="font-pixel" style={{ fontSize: 9, letterSpacing: 1.5, ...purpleText }}>QUESTS</span>
+            <span className="font-pixel" style={{ fontSize: 9, letterSpacing: 1.5, ...pinkText }}>QUESTS</span>
           </div>
           <button
             onClick={() => { playSound('ui_modal_close'); setOpen(false) }}
@@ -102,17 +102,17 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
             style={OBSIDIAN_BTN}
           >
             <Rivets inset={2} size={2} />
-            <span className="font-pixel" style={{ fontSize: 9, color: PURPLE_HI }}>X</span>
+            <span className="font-pixel" style={{ fontSize: 9, color: PINK_HI }}>X</span>
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex" style={{ borderBottom: `1px solid ${PURPLE}33` }}>
+        <div className="flex" style={{ borderBottom: `1px solid ${PINK}33` }}>
           {(['daily', 'weekly'] as const).map(t => {
             const active = tab === t
             const done = t === 'daily' ? dailyDone : weeklyDone
             const total = t === 'daily' ? dailyTasks.length : weeklyTasks.length
-            const accent = t === 'daily' ? DAILY_DOT : PURPLE
+            const accent = t === 'daily' ? DAILY_DOT : WEEKLY_DOT
             return (
               <button key={t} onClick={() => setTab(t)}
                 className="flex-1 py-3 flex items-center justify-center gap-1.5 font-pixel transition-all relative"
@@ -121,7 +121,7 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
                   background: active
                     ? 'linear-gradient(180deg, rgba(167,139,250,0.10), rgba(167,139,250,0))'
                     : 'transparent',
-                  color: active ? PURPLE_HI : '#7A6F8C',
+                  color: active ? PINK_HI : '#7A6F8C',
                   borderBottom: active ? `2px solid ${accent}` : '2px solid transparent',
                   boxShadow: active ? `inset 0 1px 0 rgba(255,255,255,0.06)` : 'none',
                 }}>
@@ -154,7 +154,7 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
                   background: isDone
                     ? 'linear-gradient(180deg, rgba(34,197,94,0.10) 0%, rgba(34,197,94,0.04) 100%)'
                     : 'linear-gradient(180deg, #131317 0%, #050507 100%)',
-                  border: `1px solid ${isDone ? `${DONE_GREEN}55` : `${PURPLE}33`}`,
+                  border: `1px solid ${isDone ? `${DONE_GREEN}55` : `${PINK}33`}`,
                   boxShadow: isDone
                     ? 'inset 0 1px 0 rgba(255,255,255,0.06)'
                     : 'inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.4)',
@@ -163,7 +163,7 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
                   style={{
                     width: 36, height: 36, borderRadius: 4,
                     background: 'linear-gradient(180deg, #1a1a20 0%, #0a0a0c 100%)',
-                    border: `1px solid ${isDone ? `${DONE_GREEN}66` : `${PURPLE}55`}`,
+                    border: `1px solid ${isDone ? `${DONE_GREEN}66` : `${PINK}55`}`,
                     boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
                     opacity: isDone ? 0.55 : 1,
                   }}>
@@ -172,9 +172,9 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
                 <div className="flex-1 min-w-0">
                   <p className="font-pixel" style={{
                     fontSize: 7, letterSpacing: 0.5,
-                    color: isDone ? DONE_GREEN : PURPLE_HI,
+                    color: isDone ? DONE_GREEN : PINK_HI,
                     textDecoration: isDone ? 'line-through' : 'none',
-                    textShadow: isDone ? 'none' : `0 0 3px ${PURPLE}33`,
+                    textShadow: isDone ? 'none' : `0 0 3px ${PINK}33`,
                   }}>
                     {task.title}
                   </p>
@@ -183,16 +183,16 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
                     <div className="flex items-center gap-1.5 mt-1.5">
                       <div className="flex-1 h-1.5 overflow-hidden" style={{
                         background: '#0a0a0c',
-                        boxShadow: `inset 0 1px 2px rgba(0,0,0,0.8), inset 0 0 0 1px ${PURPLE}22`,
+                        boxShadow: `inset 0 1px 2px rgba(0,0,0,0.8), inset 0 0 0 1px ${PINK}22`,
                       }}>
                         <div className="h-full transition-all duration-500"
                           style={{
                             width: `${pct * 100}%`,
-                            background: `linear-gradient(90deg, ${PURPLE_HI}, ${PURPLE} 60%, ${PURPLE_LO})`,
+                            background: `linear-gradient(90deg, ${PINK_HI}, ${PINK} 60%, ${PINK_LO})`,
                             boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4)',
                           }} />
                       </div>
-                      <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: PURPLE_HI }}>
+                      <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: PINK_HI }}>
                         {progress}/{task.maxProgress}
                       </span>
                     </div>
@@ -212,7 +212,7 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
                       +{task.coins}
                       <IconCoin size={10} />
                     </span>
-                    <span className="font-pixel" style={{ fontSize: 7, color: PURPLE_HI }}>+{task.xp}XP</span>
+                    <span className="font-pixel" style={{ fontSize: 7, color: PINK_HI }}>+{task.xp}XP</span>
                   </div>
                 )}
               </div>
@@ -246,15 +246,15 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
               background: DAILY_DOT, boxShadow: `0 0 4px ${DAILY_DOT}`,
             }} />
             <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: '#FFD760', letterSpacing: 0.5 }}>{dailyDone}/{dailyTasks.length}</span>
-            <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: PURPLE_LO, margin: '0 1px' }}>·</span>
+            <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: PINK_LO, margin: '0 1px' }}>·</span>
             <div className="flex-shrink-0" style={{
               width: 5, height: 5, borderRadius: '50%',
               background: WEEKLY_DOT, boxShadow: `0 0 4px ${WEEKLY_DOT}`,
             }} />
-            <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: PURPLE_HI, letterSpacing: 0.5 }}>{weeklyDone}/{weeklyTasks.length}</span>
+            <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: PINK_HI, letterSpacing: 0.5 }}>{weeklyDone}/{weeklyTasks.length}</span>
           </div>
 
-          <span className="font-pixel ml-auto flex-shrink-0" style={{ fontSize: 8, color: PURPLE_HI, opacity: 0.7 }}>▶</span>
+          <span className="font-pixel ml-auto flex-shrink-0" style={{ fontSize: 8, color: PINK_HI, opacity: 0.7 }}>▶</span>
         </button>
       ) : (
         <button
@@ -265,7 +265,7 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
           <Rivets inset={3} size={3} />
           <IconScroll size={20} />
           <div className="flex-1 text-left">
-            <p className="font-pixel" style={{ fontSize: 7, letterSpacing: 1, ...purpleText }}>QUESTS</p>
+            <p className="font-pixel" style={{ fontSize: 7, letterSpacing: 1, ...pinkText }}>QUESTS</p>
             <p className="text-[9px] mt-0.5" style={{ color: '#7A6F8C' }}>
               {dailyDone}/{dailyTasks.length} daily · {weeklyDone}/{weeklyTasks.length} weekly
             </p>
@@ -289,9 +289,9 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
                   strokeDashoffset={`${2 * Math.PI * 12 * (1 - weeklyDone / weeklyTasks.length)}`}
                   style={{ transition: 'stroke-dashoffset 0.5s', filter: `drop-shadow(0 0 2px ${WEEKLY_DOT}88)` }} />
               </svg>
-              <span className="absolute inset-0 flex items-center justify-center font-pixel" style={{ fontSize: 6, color: PURPLE_HI }}>{weeklyDone}</span>
+              <span className="absolute inset-0 flex items-center justify-center font-pixel" style={{ fontSize: 6, color: PINK_HI }}>{weeklyDone}</span>
             </div>
-            <span className="font-pixel" style={{ fontSize: 9, color: PURPLE_HI, opacity: 0.8 }}>▶</span>
+            <span className="font-pixel" style={{ fontSize: 9, color: PINK_HI, opacity: 0.8 }}>▶</span>
           </div>
         </button>
       )}

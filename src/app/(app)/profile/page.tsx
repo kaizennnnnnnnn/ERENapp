@@ -17,13 +17,22 @@ import {
   IconCrown, IconHeartDuo,
 } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
+import {
+  PINK, PINK_HI, PINK_LO,
+  OBSIDIAN_FACE, OBSIDIAN_BTN, OBSIDIAN_ORB,
+  Rivets, ObsidianChip, pinkText,
+} from '@/components/obsidian'
 
 export default function ProfilePage() {
   const router   = useRouter()
   const supabase = createClient()
   const { user, profile, loading, signOut } = useAuth()
   const { setHideStats } = useCare()
-  useEffect(() => { setHideStats(false) }, [setHideStats])
+  // Hide the persistent StatsHeader on this subpage; restore on unmount.
+  useEffect(() => {
+    setHideStats(true)
+    return () => setHideStats(false)
+  }, [setHideStats])
 
   const [partner, setPartner]         = useState<Profile | null>(null)
   const [inviteCode, setInviteCode]   = useState<string | null>(null)
@@ -84,10 +93,21 @@ export default function ProfilePage() {
     router.push('/auth/login')
   }
 
+  // Dark page surface — overrides the page-scroll's 120 px top padding
+  // since the StatsHeader is hidden here.
+  const pageStyle: React.CSSProperties = {
+    background: 'radial-gradient(ellipse at top, #1f0f18 0%, #0a0a0c 60%, #050507 100%)',
+    minHeight: '100vh',
+    color: '#F0E0E8',
+    paddingTop: 'calc(var(--safe-top) + 16px)',
+  }
+
   if (loading || !profile) {
     return (
-      <div className="page-scroll flex items-center justify-center min-h-[60vh]">
-        <span className="font-pixel text-pink-300 animate-pulse-soft" style={{ fontSize: 8 }}>LOADING<span className="animate-cursor">_</span></span>
+      <div className="page-scroll flex items-center justify-center min-h-[60vh]" style={pageStyle}>
+        <span className="font-pixel animate-pulse-soft" style={{ fontSize: 8, color: PINK_HI, textShadow: `0 0 4px ${PINK}66` }}>
+          LOADING<span className="animate-cursor">_</span>
+        </span>
       </div>
     )
   }
@@ -96,83 +116,88 @@ export default function ProfilePage() {
   const totalSeconds = mySeconds + partnerSeconds
 
   return (
-    <div className="page-scroll">
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-1">
-        <button onClick={() => { playSound('ui_back'); router.push('/home') }} className="flex items-center justify-center active:scale-90 transition-transform"
-          style={{ width: 32, height: 32, background: 'linear-gradient(135deg, #FFF8FF, #F0E8FF)', borderRadius: 8, border: '2px solid #D8C0F0', boxShadow: '0 2px 0 #C0A0E0' }}>
-          <ChevronLeft size={16} className="text-purple-500" />
+    <div className="page-scroll" style={pageStyle}>
+      {/* ── Header ── */}
+      <div className="flex items-center gap-2 mb-2">
+        <button onClick={() => { playSound('ui_back'); router.push('/home') }}
+          className="flex items-center justify-center active:translate-y-[1px] transition-transform relative"
+          style={{ width: 32, height: 32, ...OBSIDIAN_BTN }}>
+          <Rivets inset={2} size={2} />
+          <ChevronLeft size={16} style={{ color: PINK_HI }} />
         </button>
-        <span className="pixel-chip inline-flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, #A78BFA, #7C3AED)', paddingLeft: 6 }}>
+        <ObsidianChip accentRgb="236,72,153">
           <IconPerson size={14} />
-          <span>PROFILE</span>
-        </span>
+          <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>PROFILE</span>
+        </ObsidianChip>
       </div>
-      <p className="text-sm text-gray-500 mb-5 flex items-center gap-1.5">
+      <p className="text-sm mb-5 flex items-center gap-1.5" style={{ color: '#9A8090' }}>
         You &amp; your household
         <IconHouse size={14} />
       </p>
 
       {/* ── My profile ── */}
-      <div className="mb-4 p-4 relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #FFF0F7, #F8F0FF)', borderRadius: 4, border: '3px solid #F0D0FF', boxShadow: '4px 4px 0 #E0B8FF' }}>
+      <div className="mb-4 p-4 relative overflow-hidden" style={OBSIDIAN_FACE}>
+        <Rivets inset={4} size={3} />
         <div className="absolute inset-0 opacity-[0.06] pointer-events-none"
-          style={{ backgroundImage: 'radial-gradient(circle, #A78BFA 1.2px, transparent 1.2px)', backgroundSize: '14px 14px' }} />
+          style={{ backgroundImage: `radial-gradient(circle, ${PINK} 1.2px, transparent 1.2px)`, backgroundSize: '14px 14px' }} />
 
         <div className="relative flex items-center gap-4">
-          {/* Pixel avatar */}
-          <div className="flex-shrink-0 w-16 h-16 flex items-center justify-center text-2xl font-bold text-white relative"
-            style={{ background: 'linear-gradient(135deg, #FF6B9D, #A78BFA)', borderRadius: 4, border: '3px solid #CC3366', boxShadow: '3px 3px 0 #A020A0' }}>
-            <div style={{ position: 'absolute', inset: 2, border: '1px dashed rgba(255,255,255,0.35)', borderRadius: 2 }} />
-            <span className="relative">{initials}</span>
+          {/* Avatar — obsidian orb with pink ring */}
+          <div className="flex-shrink-0 w-16 h-16 flex items-center justify-center relative" style={OBSIDIAN_ORB}>
+            <span className="font-pixel" style={{ fontSize: 22, ...pinkText }}>{initials}</span>
           </div>
           <div className="flex-1 min-w-0">
             {nameEditing ? (
               <div className="flex gap-2">
                 <input
-                  className="input py-1.5 text-sm"
+                  className="flex-1 px-3 py-1.5 text-sm bg-transparent outline-none relative"
+                  style={{
+                    ...OBSIDIAN_BTN,
+                    color: '#F0E0E8',
+                  }}
                   value={editName}
                   onChange={e => setEditName(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && saveName()}
                   autoFocus
                 />
-                <button onClick={() => { playSound('ui_tap'); saveName() }} disabled={savingName} className="btn-primary px-3 py-1.5 text-sm">
-                  {savingName ? '…' : 'Save'}
+                <button onClick={() => { playSound('ui_tap'); saveName() }} disabled={savingName}
+                  className="px-3 py-1.5 text-sm relative"
+                  style={OBSIDIAN_BTN}>
+                  <Rivets inset={2} size={2} />
+                  <span className="font-pixel" style={{ fontSize: 7, ...pinkText }}>{savingName ? '...' : 'SAVE'}</span>
                 </button>
               </div>
             ) : (
               <button onClick={() => { playSound('ui_tap'); setEditName(profile.name); setNameEditing(true) }} className="text-left">
-                <p className="font-pixel text-gray-800 leading-tight mb-1" style={{ fontSize: 11 }}>{profile.name}</p>
-                <p className="text-[10px] text-purple-400 flex items-center gap-1">
+                <p className="font-pixel leading-tight mb-1" style={{ fontSize: 11, ...pinkText }}>{profile.name}</p>
+                <p className="text-[10px] flex items-center gap-1" style={{ color: PINK_HI, opacity: 0.7 }}>
                   tap to edit name
                   <IconPencil size={10} />
                 </p>
               </button>
             )}
-            <p className="text-xs text-gray-400 mt-1 truncate">{user?.email}</p>
+            <p className="text-xs mt-1 truncate" style={{ color: '#7A6A75' }}>{user?.email}</p>
           </div>
         </div>
       </div>
 
       {/* ── Partner card ── */}
       {partner && (
-        <div className="mb-4 p-4"
-          style={{ background: 'linear-gradient(135deg, #F0F0FF, #E8E0FF)', borderRadius: 4, border: '3px solid #D8D0F8', boxShadow: '4px 4px 0 #C0B0F0' }}>
+        <div className="mb-4 p-4 relative" style={OBSIDIAN_FACE}>
+          <Rivets inset={4} size={3} />
           <div className="flex items-center gap-2 mb-3">
-            <span className="pixel-chip inline-flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, #C084FC, #A060E0)', paddingLeft: 6 }}>
+            <ObsidianChip accentRgb="167,139,250">
               <IconHeart size={12} />
-              <span>PARTNER</span>
-            </span>
+              <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>PARTNER</span>
+            </ObsidianChip>
           </div>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 flex-shrink-0 flex items-center justify-center text-lg font-bold text-purple-600 relative"
-              style={{ background: 'linear-gradient(135deg, #E8D8FF, #D8C8F8)', borderRadius: 3, border: '2px solid #C0A8F0', boxShadow: '2px 2px 0 #B090E0' }}>
-              <div style={{ position: 'absolute', inset: 2, border: '1px dashed rgba(124,58,237,0.18)', borderRadius: 2 }} />
-              <span className="relative">{partner.name.charAt(0).toUpperCase()}</span>
+            <div className="w-12 h-12 flex-shrink-0 flex items-center justify-center relative" style={OBSIDIAN_ORB}>
+              <span className="font-pixel" style={{ fontSize: 16, ...pinkText }}>{partner.name.charAt(0).toUpperCase()}</span>
             </div>
             <div className="flex-1">
-              <p className="font-pixel text-gray-700 leading-tight" style={{ fontSize: 10 }}>{partner.name}</p>
-              <p className="text-xs text-purple-400 mt-0.5 flex items-center gap-1">
+              <p className="font-pixel leading-tight" style={{ fontSize: 10, color: PINK_HI }}>{partner.name}</p>
+              <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: '#9A8090' }}>
                 Eren&apos;s other human
                 <IconHeartDuo size={12} />
               </p>
@@ -182,14 +207,14 @@ export default function ProfilePage() {
       )}
 
       {/* ── Time with Eren ── */}
-      <div className="mb-4 p-4"
-        style={{ background: 'white', borderRadius: 4, border: '3px solid #F0D8FF', boxShadow: '4px 4px 0 #E0C8F0' }}>
+      <div className="mb-4 p-4 relative" style={OBSIDIAN_FACE}>
+        <Rivets inset={4} size={3} />
         <div className="flex items-center gap-2 mb-4">
-          <span className="pixel-chip inline-flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, #F5C842, #E8A020)', paddingLeft: 6 }}>
+          <ObsidianChip accentRgb="245,200,66">
             <IconClock size={12} />
-            <span>TIME</span>
-          </span>
-          <span className="text-xs text-gray-400">with Eren</span>
+            <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>TIME</span>
+          </ObsidianChip>
+          <span className="text-xs" style={{ color: '#7A6A75' }}>with Eren</span>
         </div>
 
         <div className="space-y-4">
@@ -197,15 +222,22 @@ export default function ProfilePage() {
             <div className="flex justify-between items-center mb-1.5">
               <span className="flex items-center gap-1.5">
                 <IconCatFace size={16} />
-                <span className="font-medium text-gray-700 text-xs">{profile.name}</span>
+                <span className="font-medium text-xs" style={{ color: PINK_HI }}>{profile.name}</span>
               </span>
-              <span className="font-pixel text-[#FF6B9D]" style={{ fontSize: 8 }}>{formatDuration(mySeconds)}</span>
+              <span className="font-pixel" style={{ fontSize: 8, color: PINK_HI, textShadow: `0 0 3px ${PINK}66` }}>{formatDuration(mySeconds)}</span>
             </div>
             <div className="flex gap-[3px]">
               {Array.from({ length: 12 }).map((_, i) => {
                 const pct = totalSeconds > 0 ? (mySeconds / totalSeconds) : 0
                 const lit = i < Math.round(pct * 12)
-                return <div key={i} className="flex-1" style={{ height: 10, borderRadius: 2, background: lit ? '#FF6B9D' : '#FFE0EE', boxShadow: lit ? '0 1px 0 rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.35)' : 'inset 0 1px 0 rgba(0,0,0,0.05)' }} />
+                return <div key={i} className="flex-1" style={{
+                  height: 10,
+                  background: lit
+                    ? `linear-gradient(180deg, ${PINK_HI}, ${PINK} 60%, ${PINK_LO})`
+                    : '#0a0a0c',
+                  border: `1px solid ${lit ? `${PINK_LO}88` : `${PINK}22`}`,
+                  boxShadow: lit ? 'inset 0 1px 0 rgba(255,255,255,0.3)' : 'inset 0 1px 2px rgba(0,0,0,0.6)',
+                }} />
               })}
             </div>
           </div>
@@ -215,15 +247,22 @@ export default function ProfilePage() {
               <div className="flex justify-between items-center mb-1.5">
                 <span className="flex items-center gap-1.5">
                   <IconCatFace size={16} />
-                  <span className="font-medium text-gray-700 text-xs">{partner.name}</span>
+                  <span className="font-medium text-xs" style={{ color: '#C4B5FD' }}>{partner.name}</span>
                 </span>
-                <span className="font-pixel text-[#A78BFA]" style={{ fontSize: 8 }}>{formatDuration(partnerSeconds)}</span>
+                <span className="font-pixel" style={{ fontSize: 8, color: '#C4B5FD', textShadow: '0 0 3px rgba(167,139,250,0.5)' }}>{formatDuration(partnerSeconds)}</span>
               </div>
               <div className="flex gap-[3px]">
                 {Array.from({ length: 12 }).map((_, i) => {
                   const pct = totalSeconds > 0 ? (partnerSeconds / totalSeconds) : 0
                   const lit = i < Math.round(pct * 12)
-                  return <div key={i} className="flex-1" style={{ height: 10, borderRadius: 2, background: lit ? '#A78BFA' : '#EDE8FF', boxShadow: lit ? '0 1px 0 rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.35)' : 'inset 0 1px 0 rgba(0,0,0,0.05)' }} />
+                  return <div key={i} className="flex-1" style={{
+                    height: 10,
+                    background: lit
+                      ? 'linear-gradient(180deg, #E9D5FF, #A78BFA 60%, #5B21B6)'
+                      : '#0a0a0c',
+                    border: `1px solid ${lit ? '#5B21B688' : 'rgba(167,139,250,0.13)'}`,
+                    boxShadow: lit ? 'inset 0 1px 0 rgba(255,255,255,0.3)' : 'inset 0 1px 2px rgba(0,0,0,0.6)',
+                  }} />
                 })}
               </div>
             </div>
@@ -233,12 +272,12 @@ export default function ProfilePage() {
         {mySeconds > partnerSeconds ? (
           <div className="mt-3 flex items-center gap-1.5">
             <IconCrown size={14} />
-            <span className="font-pixel text-yellow-600" style={{ fontSize: 7 }}>YOU SPEND THE MOST TIME!</span>
+            <span className="font-pixel" style={{ fontSize: 7, color: '#F5C842', textShadow: '0 0 3px rgba(245,200,66,0.5)' }}>YOU SPEND THE MOST TIME!</span>
           </div>
         ) : partnerSeconds > mySeconds && partner ? (
           <div className="mt-3 flex items-center gap-1.5">
             <IconCrown size={14} />
-            <span className="font-pixel text-purple-500" style={{ fontSize: 7 }}>
+            <span className="font-pixel" style={{ fontSize: 7, color: '#C4B5FD' }}>
               {partner.name.toUpperCase()} IS AHEAD — CATCH UP!
             </span>
           </div>
@@ -247,37 +286,43 @@ export default function ProfilePage() {
 
       {/* ── Invite code ── */}
       {inviteCode && (
-        <div className="mb-4 p-4"
-          style={{ background: 'white', borderRadius: 4, border: '3px solid #F0D8FF', boxShadow: '4px 4px 0 #E0C8F0' }}>
+        <div className="mb-4 p-4 relative" style={OBSIDIAN_FACE}>
+          <Rivets inset={4} size={3} />
           <div className="flex items-center gap-2 mb-1">
-            <span className="pixel-chip inline-flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, #6BAED6, #4A90C0)', paddingLeft: 6 }}>
+            <ObsidianChip accentRgb="107,174,214">
               <IconHouse size={12} />
-              <span>INVITE</span>
-            </span>
+              <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>INVITE</span>
+            </ObsidianChip>
           </div>
-          <p className="text-xs text-gray-400 mb-3">Share with your partner to join</p>
+          <p className="text-xs mb-3" style={{ color: '#7A6A75' }}>Share with your partner to join</p>
           <div className="flex items-center gap-2">
-            <div className="flex-1 flex items-center justify-center py-3"
-              style={{ background: '#F8F4FF', borderRadius: 3, border: '2px dashed #D8C8F0' }}>
-              <p className="font-pixel text-[#1F1F2E] tracking-[0.25em]" style={{ fontSize: 13 }}>
+            <div className="flex-1 flex items-center justify-center py-3 relative"
+              style={{
+                ...OBSIDIAN_BTN,
+                border: `1px dashed ${PINK}88`,
+              }}>
+              <p className="font-pixel tracking-[0.25em]" style={{ fontSize: 13, ...pinkText }}>
                 {inviteCode}
               </p>
             </div>
             <button
               onClick={() => { playSound('ui_tap'); copyInviteCode() }}
-              className="w-12 h-12 flex items-center justify-center transition-all active:translate-y-[2px]"
+              className="w-12 h-12 flex items-center justify-center transition-all active:translate-y-[1px] relative"
               style={copied
-                ? { background: '#4ade80', borderRadius: 3, border: '2px solid #16a34a', boxShadow: '0 2px 0 #15803d' }
-                : { background: '#FF6B9D', borderRadius: 3, border: '2px solid #CC3366', boxShadow: '0 2px 0 #991A4A' }
+                ? { ...OBSIDIAN_BTN, border: '1px solid #4ade8088' }
+                : OBSIDIAN_BTN
               }
             >
-              {copied ? <Check size={20} className="text-white" /> : <Copy size={20} className="text-white" />}
+              <Rivets inset={2} size={2} />
+              {copied
+                ? <Check size={20} style={{ color: '#4ade80' }} />
+                : <Copy size={20} style={{ color: PINK_HI }} />}
             </button>
           </div>
         </div>
       )}
 
-      {/* ── Mood calendar ── */}
+      {/* ── Mood calendar (component leaves its own styling) ── */}
       {moods.length > 0 && user && (
         <div className="mb-4">
           <MoodCalendar moods={moods} userId={user.id} partnerName={partner?.name} />
@@ -287,18 +332,22 @@ export default function ProfilePage() {
       {/* ── Sign out ── */}
       <button
         onClick={() => { playSound('ui_tap'); handleSignOut() }}
-        className="w-full flex items-center justify-center gap-2 py-3 transition-all active:translate-y-[2px]"
-        style={{ background: '#FFF0F0', borderRadius: 3, border: '2px solid #FFCCCC', boxShadow: '2px 2px 0 #FFB0B0', color: '#CC4444' }}>
-        <LogOut size={16} />
-        <span className="font-pixel" style={{ fontSize: 8 }}>SIGN OUT</span>
+        className="w-full flex items-center justify-center gap-2 py-3 transition-all active:translate-y-[1px] relative"
+        style={{
+          ...OBSIDIAN_BTN,
+          border: '1px solid rgba(248,113,113,0.5)',
+        }}>
+        <Rivets inset={3} size={3} />
+        <LogOut size={16} style={{ color: '#fca5a5' }} />
+        <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, color: '#fca5a5', textShadow: '0 0 3px rgba(248,113,113,0.4)' }}>SIGN OUT</span>
       </button>
 
       <div className="flex items-center justify-center gap-2 mt-6 pb-2">
-        <div className="h-px w-8" style={{ background: 'repeating-linear-gradient(90deg, #DDD0F8 0px, #DDD0F8 3px, transparent 3px, transparent 6px)' }} />
-        <p className="font-pixel text-gray-300 text-center flex items-center gap-1" style={{ fontSize: 6 }}>
+        <div className="h-px w-8" style={{ background: `repeating-linear-gradient(90deg, ${PINK}33 0px, ${PINK}33 3px, transparent 3px, transparent 6px)` }} />
+        <p className="font-pixel text-center flex items-center gap-1" style={{ fontSize: 6, color: '#5A4A55' }}>
           EREN v1.0 · MADE WITH <IconHeart size={8} />
         </p>
-        <div className="h-px w-8" style={{ background: 'repeating-linear-gradient(90deg, #DDD0F8 0px, #DDD0F8 3px, transparent 3px, transparent 6px)' }} />
+        <div className="h-px w-8" style={{ background: `repeating-linear-gradient(90deg, ${PINK}33 0px, ${PINK}33 3px, transparent 3px, transparent 6px)` }} />
       </div>
     </div>
   )

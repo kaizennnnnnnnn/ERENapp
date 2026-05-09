@@ -1,21 +1,21 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// OBSIDIAN CHROME — shared building blocks for the dark/purple HUD theme.
+// OBSIDIAN CHROME — shared building blocks for the dark/pink HUD theme.
 // Single source of truth for the panel face, button chrome, rivet pixels,
 // and gradient text used across StatsHeader, home, couple, etc.
 // ═══════════════════════════════════════════════════════════════════════════
 import type { CSSProperties, ReactNode } from 'react'
 
 // ── Palette ──
-export const PURPLE    = '#A78BFA'   // mid lavender — primary accent
-export const PURPLE_HI = '#E9D5FF'   // pale highlight
-export const PURPLE_LO = '#5B21B6'   // deep shadow
+export const PINK    = '#EC4899'   // vivid pink — primary accent (Tailwind pink-500)
+export const PINK_HI = '#F9A8D4'   // pale highlight (pink-300)
+export const PINK_LO = '#831843'   // deep magenta shadow (pink-900)
 
-// Gradient text fill ("liquid amethyst" — used for headline numbers/labels).
-export const purpleText: CSSProperties = {
-  background: `linear-gradient(180deg, ${PURPLE_HI} 0%, ${PURPLE} 50%, ${PURPLE_LO} 100%)`,
+// Gradient text fill ("liquid rose" — used for headline numbers/labels).
+export const pinkText: CSSProperties = {
+  background: `linear-gradient(180deg, ${PINK_HI} 0%, ${PINK} 50%, ${PINK_LO} 100%)`,
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
-  filter: `drop-shadow(0 0 2px ${PURPLE}55)`,
+  filter: `drop-shadow(0 0 2px ${PINK}55)`,
 }
 
 // ── Surfaces ──
@@ -23,7 +23,7 @@ export const purpleText: CSSProperties = {
 /** Card / panel face — large surfaces (anniversary card, gauge wells, etc.) */
 export const OBSIDIAN_FACE: CSSProperties = {
   background: 'linear-gradient(180deg, #131317 0%, #050507 100%)',
-  border: `1px solid ${PURPLE}55`,
+  border: `1px solid ${PINK}55`,
   boxShadow: [
     '0 4px 14px rgba(0,0,0,0.6)',
     'inset 0 1px 0 rgba(255,255,255,0.06)',
@@ -36,7 +36,7 @@ export const OBSIDIAN_FACE: CSSProperties = {
 /** Smaller / interactive chrome — nav buttons, send button, chips. */
 export const OBSIDIAN_BTN: CSSProperties = {
   background: 'linear-gradient(180deg, #131317 0%, #050507 100%)',
-  border: `1px solid ${PURPLE}88`,
+  border: `1px solid ${PINK}88`,
   boxShadow: [
     '0 3px 10px rgba(0,0,0,0.55)',
     'inset 0 1px 0 rgba(255,255,255,0.07)',
@@ -50,9 +50,9 @@ export const OBSIDIAN_ORB: CSSProperties = {
   borderRadius: '50%',
   background: 'radial-gradient(circle at 35% 28%, #2a2a2e 0%, #0a0a0c 50%, #000 100%)',
   boxShadow: [
-    `0 0 0 1.5px ${PURPLE}`,
+    `0 0 0 1.5px ${PINK}`,
     '0 0 0 3px #000',
-    `0 0 0 4px ${PURPLE}55`,
+    `0 0 0 4px ${PINK}55`,
     '0 4px 14px rgba(0,0,0,0.7)',
     'inset 0 1px 0 rgba(255,255,255,0.15)',
   ].join(','),
@@ -60,14 +60,14 @@ export const OBSIDIAN_ORB: CSSProperties = {
 
 // ── Components ──
 
-/** Four corner rivets (3×3 px each, purple radial-gradient gem look). */
+/** Four corner rivets (3×3 px each, pink radial-gradient gem look). */
 export function Rivets({ inset = 3, size = 3 }: { inset?: number; size?: number }) {
   const dot: CSSProperties = {
     position: 'absolute',
     width: size,
     height: size,
-    background: `radial-gradient(circle at 30% 30%, ${PURPLE_HI}, ${PURPLE} 60%, ${PURPLE_LO})`,
-    boxShadow: `0 0 3px ${PURPLE}aa`,
+    background: `radial-gradient(circle at 30% 30%, ${PINK_HI}, ${PINK} 60%, ${PINK_LO})`,
+    boxShadow: `0 0 3px ${PINK}aa`,
     pointerEvents: 'none',
   }
   return (

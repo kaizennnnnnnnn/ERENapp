@@ -50,25 +50,29 @@ export function IconHeart({ size = 20 }: IconProps) {
   }, size)
 }
 
-// ── DRUMSTICK (hunger) — horizontal, bone with chunky condyle knuckle ──
+// ── DRUMSTICK (hunger) — vertical, meaty top + bone handle below ──
 export function IconMeat({ size = 20 }: IconProps) {
   const grid = [
     '............',
-    '..KKKKK.....',
-    '.KMSSSSMK...',
-    'KMMSSSSMMKKK',
-    'KMMSSSMMKWWK',
-    'KMMMMMMMKWLK',
-    'KMSSMMMMKWLK',
-    'KMMMMMMMKWWK',
-    'KMMSSMMMMKKK',
-    '.KMSSSMMMK..',
-    '..KKKKKKK...',
-    '............',
+    '....KKKK....',
+    '...KSSSSK...',
+    '..KSLSSSMK..',
+    '..KSWLSSSK..',
+    '..KSSSSSMK..',
+    '...KMSSSMK..',
+    '....KMMMK...',
+    '.....KBK....',
+    '....KBBBK...',
+    '...KWBLBWK..',
+    '....KKKK....',
   ]
   return drawPixels(grid, {
-    K: '#1A0A00', W: '#FFF0D0', L: '#FFFEF4',
-    M: '#A85020', S: '#E89038',
+    K: '#1A0A00', // outline
+    M: '#7A3812', // meat shadow
+    S: '#D17A30', // meat
+    L: '#FFD89A', // meat highlight
+    B: '#E8D5A8', // bone
+    W: '#FFFEF4', // bone highlight
   }, size)
 }
 

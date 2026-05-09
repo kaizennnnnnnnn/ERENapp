@@ -8,7 +8,7 @@ import { useCare } from '@/contexts/CareContext'
 import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 import { IconHeart, IconMeat, IconLightning, IconMoon, IconDrop, IconCoin } from './PixelIcons'
 import { playSound } from '@/lib/sounds'
-import { PURPLE, PURPLE_HI, PURPLE_LO, OBSIDIAN_FACE, Rivets } from './obsidian'
+import { PINK, PINK_HI, PINK_LO, OBSIDIAN_FACE, Rivets } from './obsidian'
 
 type StatKey = 'happiness' | 'hunger' | 'energy' | 'sleep_quality' | 'cleanliness'
 
@@ -28,7 +28,7 @@ const GAUGES: GaugeDef[] = [
 
 // Local panel-face helper that lets us tweak the border tint per panel
 // (gauge wells use a quieter purple than the headline XP/coins panels).
-const obsidianFace = (borderColor: string = PURPLE + '55'): React.CSSProperties => ({
+const obsidianFace = (borderColor: string = PINK + '55'): React.CSSProperties => ({
   ...OBSIDIAN_FACE,
   border: `1px solid ${borderColor}`,
 })
@@ -45,7 +45,7 @@ function ObsidianGauge({ def, value }: { def: GaugeDef; value: number }) {
   const ringGlow =
     tier === 'low' ? 'rgba(248,113,113,0.5)' :
     tier === 'mid' ? 'rgba(242,215,122,0.4)' :
-    `${PURPLE}66`
+    `${PINK}66`
 
   return (
     <div style={{
@@ -56,7 +56,7 @@ function ObsidianGauge({ def, value }: { def: GaugeDef; value: number }) {
       flexDirection: 'column',
       alignItems: 'center',
       gap: 3,
-      ...obsidianFace(PURPLE + '33'),
+      ...obsidianFace(PINK + '33'),
     }}>
       <Rivets inset={2} />
 
@@ -68,9 +68,9 @@ function ObsidianGauge({ def, value }: { def: GaugeDef; value: number }) {
           borderRadius: '50%',
           background: '#000',
           boxShadow: [
-            `inset 0 0 0 1.5px ${PURPLE}88`,
+            `inset 0 0 0 1.5px ${PINK}88`,
             'inset 0 0 0 3px #000',
-            `inset 0 0 0 4px ${PURPLE}33`,
+            `inset 0 0 0 4px ${PINK}33`,
             `0 0 8px ${ringGlow}`,
             '0 0 0 2px rgba(0,0,0,0.4)',
           ].join(','),
@@ -134,8 +134,8 @@ function ObsidianGauge({ def, value }: { def: GaugeDef; value: number }) {
             <div key={i} style={{
               width: 3,
               height: i === 2 ? 3 : 2,
-              background: lit ? PURPLE : '#2a2a2e',
-              boxShadow: lit ? `0 0 2px ${PURPLE}` : 'none',
+              background: lit ? PINK : '#2a2a2e',
+              boxShadow: lit ? `0 0 2px ${PINK}` : 'none',
             }} />
           )
         })}
@@ -143,8 +143,8 @@ function ObsidianGauge({ def, value }: { def: GaugeDef; value: number }) {
 
       <span className="font-pixel" style={{
         fontSize: 7, lineHeight: 1,
-        color: tier === 'low' ? '#ff8c8c' : PURPLE_HI,
-        textShadow: tier === 'low' ? '0 0 4px rgba(248,113,113,0.6)' : `0 0 3px ${PURPLE}55`,
+        color: tier === 'low' ? '#ff8c8c' : PINK_HI,
+        textShadow: tier === 'low' ? '0 0 4px rgba(248,113,113,0.6)' : `0 0 3px ${PINK}55`,
       }}>{v}</span>
     </div>
   )
@@ -178,14 +178,14 @@ export default function StatsHeader() {
         position: 'relative',
       }}
     >
-      {/* Hairline purple accent across the top */}
+      {/* Hairline pink accent across the top */}
       <div
         aria-hidden
         style={{
           position: 'absolute',
           left: 16, right: 16, top: 'calc(var(--safe-top) + 1px)',
           height: 1,
-          background: `linear-gradient(90deg, transparent, ${PURPLE}88, transparent)`,
+          background: `linear-gradient(90deg, transparent, ${PINK}88, transparent)`,
           pointerEvents: 'none',
         }}
       />
@@ -203,9 +203,9 @@ export default function StatsHeader() {
             borderRadius: '50%',
             background: 'radial-gradient(circle at 35% 28%, #2a2a2e 0%, #0a0a0c 50%, #000 100%)',
             boxShadow: [
-              `0 0 0 1.5px ${PURPLE}`,
+              `0 0 0 1.5px ${PINK}`,
               '0 0 0 3px #000',
-              `0 0 0 4px ${PURPLE}66`,
+              `0 0 0 4px ${PINK}66`,
               '0 4px 14px rgba(0,0,0,0.7)',
               'inset 0 1px 0 rgba(255,255,255,0.15)',
             ].join(','),
@@ -222,24 +222,24 @@ export default function StatsHeader() {
               <div key={i} style={{
                 position: 'absolute',
                 left: x - 1, top: y - 1, width: 2, height: 2,
-                background: PURPLE,
+                background: PINK,
                 opacity: major ? 1 : 0.4,
-                boxShadow: major ? `0 0 3px ${PURPLE}` : 'none',
+                boxShadow: major ? `0 0 3px ${PINK}` : 'none',
               }} />
             )
           })}
 
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <span className="font-pixel" style={{
-              fontSize: 4.5, color: PURPLE, letterSpacing: 1.5, lineHeight: 1, marginBottom: 2,
-              textShadow: `0 0 3px ${PURPLE}88`,
+              fontSize: 4.5, color: PINK, letterSpacing: 1.5, lineHeight: 1, marginBottom: 2,
+              textShadow: `0 0 3px ${PINK}88`,
             }}>LVL</span>
             <span style={{
               fontFamily: '"Press Start 2P", monospace',
               fontSize: 13, lineHeight: 1, letterSpacing: -0.5,
-              background: `linear-gradient(180deg, ${PURPLE_HI} 0%, ${PURPLE} 50%, ${PURPLE_LO} 100%)`,
+              background: `linear-gradient(180deg, ${PINK_HI} 0%, ${PINK} 50%, ${PINK_LO} 100%)`,
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-              filter: `drop-shadow(0 0 2px ${PURPLE}66)`,
+              filter: `drop-shadow(0 0 2px ${PINK}66)`,
             }}>{level}</span>
           </div>
         </Link>
@@ -252,35 +252,35 @@ export default function StatsHeader() {
             height: 40,
             padding: '5px 10px',
             gap: 3,
-            ...obsidianFace(PURPLE + '55'),
+            ...obsidianFace(PINK + '55'),
           }}
         >
           <Rivets inset={3} />
           <div className="flex items-center justify-between">
             <div className="flex items-center" style={{ gap: 4 }}>
               <div style={{
-                width: 5, height: 5, background: PURPLE,
-                boxShadow: `0 0 4px ${PURPLE}`,
+                width: 5, height: 5, background: PINK,
+                boxShadow: `0 0 4px ${PINK}`,
                 transform: 'rotate(45deg)',
               }} />
               <span className="font-pixel" style={{
-                fontSize: 7, color: PURPLE_HI, letterSpacing: 2.5,
-                textShadow: `0 0 3px ${PURPLE}66`,
+                fontSize: 7, color: PINK_HI, letterSpacing: 2.5,
+                textShadow: `0 0 3px ${PINK}66`,
               }}>XP</span>
             </div>
-            <span className="font-pixel" style={{ fontSize: 7, color: PURPLE_HI }}>
-              {xpIntoLevel}<span style={{ color: PURPLE_LO, margin: '0 1px' }}>/</span>{xpNeeded}
+            <span className="font-pixel" style={{ fontSize: 7, color: PINK_HI }}>
+              {xpIntoLevel}<span style={{ color: PINK_LO, margin: '0 1px' }}>/</span>{xpNeeded}
             </span>
           </div>
 
           <div style={{
             height: 8, position: 'relative', overflow: 'hidden',
             background: '#000',
-            boxShadow: `inset 0 1px 3px rgba(0,0,0,0.9), inset 0 0 0 1px ${PURPLE}33`,
+            boxShadow: `inset 0 1px 3px rgba(0,0,0,0.9), inset 0 0 0 1px ${PINK}33`,
           }}>
             <div style={{
               width: `${xpPct}%`, height: '100%', position: 'relative',
-              background: `linear-gradient(180deg, ${PURPLE_HI} 0%, ${PURPLE} 40%, ${PURPLE_LO} 100%)`,
+              background: `linear-gradient(180deg, ${PINK_HI} 0%, ${PINK} 40%, ${PINK_LO} 100%)`,
               boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.4)',
               transition: 'width 700ms ease-out',
             }}>
@@ -288,7 +288,7 @@ export default function StatsHeader() {
                 <div style={{
                   position: 'absolute', right: 0, top: 0, bottom: 0, width: 1.5,
                   background: '#fff',
-                  boxShadow: `0 0 6px ${PURPLE_HI}, 0 0 10px ${PURPLE}`,
+                  boxShadow: `0 0 6px ${PINK_HI}, 0 0 10px ${PINK}`,
                 }} />
               )}
             </div>
@@ -311,17 +311,17 @@ export default function StatsHeader() {
             height: 40,
             padding: '0 10px',
             gap: 5,
-            ...obsidianFace(PURPLE + '55'),
+            ...obsidianFace(PINK + '55'),
           }}
         >
           <Rivets inset={3} />
-          <div style={{ filter: `drop-shadow(0 0 3px ${PURPLE}66)` }}>
+          <div style={{ filter: `drop-shadow(0 0 3px ${PINK}66)` }}>
             <IconCoin size={16} />
           </div>
           <span style={{
             fontFamily: '"Press Start 2P", monospace',
             fontSize: 10, lineHeight: 1,
-            background: `linear-gradient(180deg, ${PURPLE_HI} 0%, ${PURPLE} 60%, ${PURPLE_LO} 100%)`,
+            background: `linear-gradient(180deg, ${PINK_HI} 0%, ${PINK} 60%, ${PINK_LO} 100%)`,
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.8))',
           }}>{coins.toLocaleString()}</span>
