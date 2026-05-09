@@ -25,71 +25,57 @@ const SIZE = 96 // export resolution; Android will downsample to 24dp
       const ctx = c.getContext('2d')
       ctx.fillStyle = '#FFFFFF'
 
-      // ── Eren is a Ragdoll: pointy ears, big chubby cheek tufts that
-      //    flare wider than the head, narrower chin/forehead. We draw the
-      //    ruff/cheek puffs as two side ellipses overlapping a flatter
-      //    main head, then ears, then carve eye + nose cutouts. ──
+      // ── Plain cartoon cat head: round face, two triangle ears, eye/
+      //    nose/mouth carved out so they show through as background. ──
 
-      // Cheek puffs / ruff — give the lower face the classic Ragdoll flare.
+      // Round head.
       ctx.beginPath()
-      ctx.ellipse(18, 60, 12, 16, 0, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.beginPath()
-      ctx.ellipse(78, 60, 12, 16, 0, 0, Math.PI * 2)
+      ctx.arc(48, 56, 30, 0, Math.PI * 2)
       ctx.fill()
 
-      // Main head — narrower at the top, slightly wider through the
-      // cheekbones, tapered chin. Drawn as a closed Bezier path.
+      // Two ears — straight-up isoceles triangles, anchored on the head.
       ctx.beginPath()
-      ctx.moveTo(28, 36)                                  // upper-left
-      ctx.bezierCurveTo(28, 30, 36, 28, 48, 28)           // top arc
-      ctx.bezierCurveTo(60, 28, 68, 30, 68, 36)           // top-right
-      ctx.bezierCurveTo(74, 44, 76, 56, 72, 66)           // right cheek
-      ctx.bezierCurveTo(66, 80, 56, 84, 48, 84)           // chin right
-      ctx.bezierCurveTo(40, 84, 30, 80, 24, 66)           // chin left
-      ctx.bezierCurveTo(20, 56, 22, 44, 28, 36)           // back to start
-      ctx.closePath()
-      ctx.fill()
-
-      // Ears — chunky triangles, leaning slightly outward (Ragdoll style).
-      // A small inner notch makes the ears feel tufted instead of flat.
-      ctx.beginPath()
-      ctx.moveTo(18, 38)
-      ctx.lineTo(24, 8)
-      ctx.lineTo(40, 32)
+      ctx.moveTo(22, 38)
+      ctx.lineTo(28, 10)
+      ctx.lineTo(42, 32)
       ctx.closePath()
       ctx.fill()
 
       ctx.beginPath()
-      ctx.moveTo(78, 38)
-      ctx.lineTo(72, 8)
-      ctx.lineTo(56, 32)
+      ctx.moveTo(74, 38)
+      ctx.lineTo(68, 10)
+      ctx.lineTo(54, 32)
       ctx.closePath()
       ctx.fill()
 
-      // ── Carve cutouts to give the silhouette face features. ──
+      // ── Carve face cutouts — eyes, nose, mouth show through. ──
       ctx.globalCompositeOperation = 'destination-out'
 
-      // Big almond eyes — Eren's most recognizable feature.
+      // Two round eyes.
       ctx.beginPath()
-      ctx.ellipse(36, 52, 6, 8, 0, 0, Math.PI * 2)
+      ctx.arc(38, 52, 5, 0, Math.PI * 2)
       ctx.fill()
       ctx.beginPath()
-      ctx.ellipse(60, 52, 6, 8, 0, 0, Math.PI * 2)
+      ctx.arc(58, 52, 5, 0, Math.PI * 2)
       ctx.fill()
 
-      // Triangular nose.
+      // Tiny triangle nose.
       ctx.beginPath()
-      ctx.moveTo(44, 64)
-      ctx.lineTo(52, 64)
-      ctx.lineTo(48, 70)
+      ctx.moveTo(45, 64)
+      ctx.lineTo(51, 64)
+      ctx.lineTo(48, 68)
       ctx.closePath()
       ctx.fill()
 
-      // Mouth — inverted Y under the nose.
-      ctx.fillRect(47, 71, 2, 4)
-      ctx.fillRect(42, 74, 6, 2)
-      ctx.fillRect(48, 74, 6, 2)
+      // Mouth — small "w" curve made from two arcs.
+      ctx.lineWidth = 2
+      ctx.strokeStyle = '#000'
+      ctx.beginPath()
+      ctx.arc(44, 70, 4, 0, Math.PI)         // left curve
+      ctx.stroke()
+      ctx.beginPath()
+      ctx.arc(52, 70, 4, 0, Math.PI)         // right curve
+      ctx.stroke()
 
       ctx.globalCompositeOperation = 'source-over'
     </script>
