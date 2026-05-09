@@ -103,5 +103,13 @@ export async function scheduleAll(reminders: Reminder[]): Promise<void> {
 
 export async function registerSW(): Promise<void> {
   if (!('serviceWorker' in navigator)) return
-  try { await navigator.serviceWorker.register('/sw.js') } catch (e) { console.warn('SW:', e) }
+  try {
+    // updateViaCache:'none' forces the browser to skip the HTTP cache when
+    // checking /sw.js for updates. Without this, an old SW (with the old
+    // notification badge baked in) can stick around for days on a PWA that
+    // the user has installed to their home screen.
+    const reg = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
+    // Eagerly poke the browser to re-check the SW on every app open.
+    reg.update().catch(() => { /* best-effort */ })
+  } catch (e) { console.warn('SW:', e) }
 }

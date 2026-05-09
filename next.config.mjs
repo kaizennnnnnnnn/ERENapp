@@ -13,6 +13,20 @@ const nextConfig = {
       },
     ],
   },
+  async headers() {
+    return [
+      {
+        // The service worker MUST never be served from any cache layer —
+        // otherwise icon/payload changes can sit on the user's phone for
+        // days. Pair with updateViaCache:'none' on the registration.
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate' },
+          { key: 'Service-Worker-Allowed', value: '/' },
+        ],
+      },
+    ]
+  },
 }
 
 export default nextConfig

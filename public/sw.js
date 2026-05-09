@@ -1,4 +1,8 @@
 // Eren – reminder service worker
+// Bump this string whenever you change badge/icon assets so the browser is
+// guaranteed to detect a byte difference and replace any old SW running on
+// the user's installed PWA. Pairs with no-store headers on /sw.js.
+const SW_VERSION = 'v3-monochrome-badge-2026-05-09'
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()))
 
