@@ -28,28 +28,29 @@ const SIZE = 96 // export resolution; Android will downsample to 24dp
       // ── Plain cartoon cat head: round face, two triangle ears, eye/
       //    nose/mouth carved out so they show through as background. ──
 
-      // Round head.
+      // Head — ellipse, wider than tall, so the face reads as a flatter
+      // cat head instead of a perfect circle.
       ctx.beginPath()
-      ctx.arc(48, 56, 30, 0, Math.PI * 2)
+      ctx.ellipse(48, 54, 32, 26, 0, 0, Math.PI * 2)
       ctx.fill()
 
-      // ── Ears — pointed but rounded, like a real cat (not razor-sharp).
-      //    Outer + inner edges go straight up, then a quadratic curve
-      //    rounds over the apex so the tip reads as a soft point. ──
+      // ── Ears — pointed but rounded. Outer + inner edges climb up,
+      //    then a quadratic curve softens the apex. Anchored to the
+      //    new flatter head curve. ──
       // Left ear
       ctx.beginPath()
-      ctx.moveTo(22, 38)
-      ctx.lineTo(24, 18)
-      ctx.quadraticCurveTo(28, 8, 32, 18)
+      ctx.moveTo(24, 38)
+      ctx.lineTo(26, 18)
+      ctx.quadraticCurveTo(30, 8, 34, 18)
       ctx.lineTo(42, 32)
       ctx.closePath()
       ctx.fill()
 
       // Right ear
       ctx.beginPath()
-      ctx.moveTo(74, 38)
-      ctx.lineTo(72, 18)
-      ctx.quadraticCurveTo(68, 8, 64, 18)
+      ctx.moveTo(72, 38)
+      ctx.lineTo(70, 18)
+      ctx.quadraticCurveTo(66, 8, 62, 18)
       ctx.lineTo(54, 32)
       ctx.closePath()
       ctx.fill()
@@ -57,24 +58,17 @@ const SIZE = 96 // export resolution; Android will downsample to 24dp
       // ── Carve face cutouts — eyes, nose, mouth show through. ──
       ctx.globalCompositeOperation = 'destination-out'
 
-      // ── Cat-eye almonds: pointed at both corners, fatter through the
-      //    middle, with a small upward tilt at the OUTER corner for the
-      //    classic feline lean. Two quadratic curves (top + bottom)
-      //    meet at the sharp corner points. ──
-      // Left eye — outer corner (44,49), inner corner (32,53).
+      // ── Eyes: vertical ovals tilted slightly outward — taller than
+      //    they are wide, so they read as alert open cat eyes (the
+      //    vertical bias is what makes them feline at a glance). ──
+      // Left eye
       ctx.beginPath()
-      ctx.moveTo(44, 49)                     // outer corner, lifted
-      ctx.quadraticCurveTo(38, 44, 32, 53)   // top arc → inner corner
-      ctx.quadraticCurveTo(38, 58, 44, 49)   // bottom arc back to outer
-      ctx.closePath()
+      ctx.ellipse(38, 54, 4.5, 6.5, -0.25, 0, Math.PI * 2)
       ctx.fill()
 
-      // Right eye — mirror.
+      // Right eye — mirror tilt
       ctx.beginPath()
-      ctx.moveTo(52, 53)                     // inner corner
-      ctx.quadraticCurveTo(58, 44, 64, 49)   // top arc → outer corner (lifted)
-      ctx.quadraticCurveTo(58, 58, 52, 53)   // bottom arc back to inner
-      ctx.closePath()
+      ctx.ellipse(58, 54, 4.5, 6.5, 0.25, 0, Math.PI * 2)
       ctx.fill()
 
       // Tiny triangle nose.
@@ -94,6 +88,7 @@ const SIZE = 96 // export resolution; Android will downsample to 24dp
       ctx.beginPath()
       ctx.arc(52, 70, 4, 0, Math.PI)         // right curve
       ctx.stroke()
+      ctx.lineWidth = 1
 
       ctx.globalCompositeOperation = 'source-over'
     </script>
