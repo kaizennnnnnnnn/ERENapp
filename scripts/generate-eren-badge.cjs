@@ -57,12 +57,24 @@ const SIZE = 96 // export resolution; Android will downsample to 24dp
       // ── Carve face cutouts — eyes, nose, mouth show through. ──
       ctx.globalCompositeOperation = 'destination-out'
 
-      // Two round eyes.
+      // ── Cat-eye almonds: pointed at both corners, fatter through the
+      //    middle, with a small upward tilt at the OUTER corner for the
+      //    classic feline lean. Two quadratic curves (top + bottom)
+      //    meet at the sharp corner points. ──
+      // Left eye — outer corner (44,49), inner corner (32,53).
       ctx.beginPath()
-      ctx.arc(38, 52, 5, 0, Math.PI * 2)
+      ctx.moveTo(44, 49)                     // outer corner, lifted
+      ctx.quadraticCurveTo(38, 44, 32, 53)   // top arc → inner corner
+      ctx.quadraticCurveTo(38, 58, 44, 49)   // bottom arc back to outer
+      ctx.closePath()
       ctx.fill()
+
+      // Right eye — mirror.
       ctx.beginPath()
-      ctx.arc(58, 52, 5, 0, Math.PI * 2)
+      ctx.moveTo(52, 53)                     // inner corner
+      ctx.quadraticCurveTo(58, 44, 64, 49)   // top arc → outer corner (lifted)
+      ctx.quadraticCurveTo(58, 58, 52, 53)   // bottom arc back to inner
+      ctx.closePath()
       ctx.fill()
 
       // Tiny triangle nose.
