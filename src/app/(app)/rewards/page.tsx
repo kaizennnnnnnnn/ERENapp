@@ -154,7 +154,12 @@ export default function RewardsPage() {
   const { user, profile } = useAuth()
   const { addCoins } = useTasks()
   const { setHideStats } = useCare()
-  useEffect(() => { setHideStats(false) }, [setHideStats])
+  // The reward road has its own header — hide the persistent StatsHeader
+  // while we're here and put it back on unmount.
+  useEffect(() => {
+    setHideStats(true)
+    return () => setHideStats(false)
+  }, [setHideStats])
 
   // Read level/xp directly from profile to avoid the TaskContext sync race
   // that was flashing "level 1" on every entry while profile loaded.
@@ -253,6 +258,8 @@ export default function RewardsPage() {
       const claimedCount = target - claimedLevel
       await supabase.from('profiles').update({ claimed_level: target }).eq('id', user.id)
       setClaimedLevel(target)
+      // Tell the StatsHeader (and any other listener) the badge count changed.
+      try { window.dispatchEvent(new Event('eren:rewards-claimed')) } catch { /* ignore */ }
       setFanfare(f => f + 1)
       setToast({
         msg: claimedCount === 1 ? `Level ${target} claimed!` : `Claimed ${claimedCount} rewards!`,

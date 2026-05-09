@@ -1,11 +1,14 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
+import { MAX_LEVEL } from '@/lib/levelRewards'
+import { createClient } from '@/lib/supabase/client'
 import { IconHeart, IconMeat, IconLightning, IconMoon, IconDrop, IconCoin } from './PixelIcons'
 import { playSound } from '@/lib/sounds'
 import { PINK, PINK_HI, PINK_LO, OBSIDIAN_FACE, Rivets } from './obsidian'
@@ -151,14 +154,42 @@ function ObsidianGauge({ def, value }: { def: GaugeDef; value: number }) {
 }
 
 export default function StatsHeader() {
-  const { profile } = useAuth()
+  const { user, profile } = useAuth()
   const { stats } = useErenStats(profile?.household_id ?? null)
   const { xp, level, coins } = useTasks()
-  const { hideStats, activeScene } = useCare()
+  const { hideStats, activeScene, closeScene } = useCare()
 
   const xpIntoLevel = xp - totalXpForLevel(level)
   const xpNeeded    = xpForNextLevel(level)
   const xpPct       = Math.min(100, Math.round((xpIntoLevel / xpNeeded) * 100))
+
+  // ── Unclaimed reward count badge ──
+  // Pulled separately from useAuth's profile because the value is mutated on
+  // /rewards (claim) and we want it in sync without forcing a profile refetch
+  // there. Listens for an `eren:rewards-claimed` window event the rewards
+  // page dispatches after a successful claim.
+  const [claimedLevel, setClaimedLevel] = useState<number>(0)
+  useEffect(() => {
+    if (!user?.id) return
+    const supabase = createClient()
+    let cancelled = false
+    const fetchClaimed = () => {
+      supabase.from('profiles').select('claimed_level').eq('id', user.id).single()
+        .then(({ data }) => {
+          if (cancelled) return
+          if (data && typeof data.claimed_level === 'number') setClaimedLevel(data.claimed_level)
+        })
+    }
+    fetchClaimed()
+    const onClaimed = () => fetchClaimed()
+    window.addEventListener('eren:rewards-claimed', onClaimed)
+    return () => {
+      cancelled = true
+      window.removeEventListener('eren:rewards-claimed', onClaimed)
+    }
+  }, [user?.id])
+
+  const unclaimedRewards = Math.max(0, Math.min(level, MAX_LEVEL) - claimedLevel)
 
   if (hideStats || activeScene === 'school') return null
 
@@ -192,11 +223,13 @@ export default function StatsHeader() {
 
       {/* ── Row 1: Level orb + XP + Coins ── */}
       <div className="flex items-center" style={{ gap: 6 }}>
-        {/* Level orb (tap → /rewards) */}
+        {/* Level orb (tap → /rewards). Closes any active care scene first
+            so the kitchen/play/etc. overlay (also fixed inset-0 z-40) doesn't
+            sit on top of the rewards page. */}
         <Link
           href="/rewards"
           aria-label="Open reward road"
-          onClick={() => playSound('ui_tap')}
+          onClick={() => { closeScene(); playSound('ui_tap') }}
           className="flex-shrink-0 relative block active:translate-y-[1px] transition-transform"
           style={{
             width: 40, height: 40,
@@ -242,6 +275,29 @@ export default function StatsHeader() {
               filter: `drop-shadow(0 0 2px ${PINK}66)`,
             }}>{level}</span>
           </div>
+
+          {/* Unclaimed reward count badge — same shape as the unread-message
+              badge on the home heart button. Sits at the top-right of the orb. */}
+          {unclaimedRewards > 0 && (
+            <div
+              aria-label={`${unclaimedRewards} unclaimed rewards`}
+              className="absolute flex items-center justify-center font-pixel"
+              style={{
+                top: -3, right: -3,
+                minWidth: 16, height: 16, padding: '0 3px',
+                background: `linear-gradient(180deg, ${PINK_HI}, ${PINK} 60%, ${PINK_LO})`,
+                border: '2px solid #050507',
+                boxShadow: `0 0 6px ${PINK}aa, inset 0 1px 0 rgba(255,255,255,0.3)`,
+                fontSize: 6,
+                color: '#fff',
+                textShadow: '0 1px 0 rgba(0,0,0,0.5)',
+                letterSpacing: 0,
+                lineHeight: 1,
+              }}
+            >
+              {unclaimedRewards > 99 ? '99+' : unclaimedRewards}
+            </div>
+          )}
         </Link>
 
         {/* XP panel */}
