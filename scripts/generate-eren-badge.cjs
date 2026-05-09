@@ -33,17 +33,23 @@ const SIZE = 96 // export resolution; Android will downsample to 24dp
       ctx.arc(48, 56, 30, 0, Math.PI * 2)
       ctx.fill()
 
-      // Two ears — straight-up isoceles triangles, anchored on the head.
+      // ── Ears — pointed but rounded, like a real cat (not razor-sharp).
+      //    Outer + inner edges go straight up, then a quadratic curve
+      //    rounds over the apex so the tip reads as a soft point. ──
+      // Left ear
       ctx.beginPath()
       ctx.moveTo(22, 38)
-      ctx.lineTo(28, 10)
+      ctx.lineTo(24, 18)
+      ctx.quadraticCurveTo(28, 8, 32, 18)
       ctx.lineTo(42, 32)
       ctx.closePath()
       ctx.fill()
 
+      // Right ear
       ctx.beginPath()
       ctx.moveTo(74, 38)
-      ctx.lineTo(68, 10)
+      ctx.lineTo(72, 18)
+      ctx.quadraticCurveTo(68, 8, 64, 18)
       ctx.lineTo(54, 32)
       ctx.closePath()
       ctx.fill()
