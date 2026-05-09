@@ -136,12 +136,27 @@ export function useCouple() {
   // ── Send message ──
   const sendMessage = useCallback(async (text: string) => {
     if (!user?.id || !profile?.household_id || !text.trim()) return
+    const trimmed = text.trim()
     await supabase.from('couple_journal').insert({
       household_id: profile.household_id,
       sender_id: user.id,
-      message: text.trim(),
+      message: trimmed,
     })
-  }, [user?.id, profile?.household_id]) // eslint-disable-line react-hooks/exhaustive-deps
+    // Fire-and-forget web-push to the partner. Works even when their PWA is
+    // fully closed; the in-app realtime channel only fires when their tab is
+    // alive, so this is the only path that covers a backgrounded-and-killed
+    // app on iOS/Android.
+    fetch('/api/notify-message', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        household_id: profile.household_id,
+        sender_id: user.id,
+        sender_name: profile.name ?? '',
+        message: trimmed,
+      }),
+    }).catch(() => { /* best-effort */ })
+  }, [user?.id, profile?.household_id, profile?.name]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Mark all as read (saves timestamp to localStorage) ──
   const markAllRead = useCallback(() => {

@@ -23,7 +23,7 @@ import TaskPanel from '@/components/TaskPanel'
 import BlinkingEren from '@/components/BlinkingEren'
 import ReminderSheet from '@/components/ReminderSheet'
 import { registerSW } from '@/lib/reminders'
-import { checkStatNotifications, requestNotificationPermission, notifyPartnerAction, notifyPartnerMessage } from '@/lib/statNotifications'
+import { checkStatNotifications, requestNotificationPermission, notifyPartnerAction } from '@/lib/statNotifications'
 import { subscribeToPush } from '@/lib/pushSubscription'
 import { useCouple } from '@/hooks/useCouple'
 import { useFortune } from '@/hooks/useFortune'
@@ -128,6 +128,11 @@ export default function HomePage() {
     supabase.from('profiles').select('name').eq('household_id', profile.household_id).neq('id', user.id).single()
       .then(({ data }) => { if (data?.name) localStorage.setItem(`eren_partner_name_${user.id}`, data.name) })
 
+    // Note: partner-message notifications come from /api/notify-message via
+    // server-side web push (fired from useCouple.sendMessage). That path also
+    // works when the recipient's PWA is fully closed; the in-app realtime
+    // channel only delivers when the tab is alive, so we don't duplicate it
+    // here.
     const ch = supabase.channel(`home_notifs_${user.id}`)
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'interactions',
@@ -137,16 +142,6 @@ export default function HomePage() {
         if (row.user_id !== user.id) {
           const name = localStorage.getItem(`eren_partner_name_${user.id}`) ?? partnerName
           notifyPartnerAction(name, row.action_type)
-        }
-      })
-      .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'couple_journal',
-        filter: `household_id=eq.${profile.household_id}`,
-      }, payload => {
-        const row = payload.new as { sender_id: string }
-        if (row.sender_id !== user.id) {
-          const name = localStorage.getItem(`eren_partner_name_${user.id}`) ?? partnerName
-          notifyPartnerMessage(name)
         }
       })
       .subscribe()

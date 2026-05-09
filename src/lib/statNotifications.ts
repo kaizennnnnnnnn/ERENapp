@@ -123,10 +123,6 @@ export function notifyPartnerAction(partnerName: string, actionType: string) {
   sendNotification(`${action.icon} Eren`, `${partnerName} ${action.verb}!`, `partner-${actionType}`)
 }
 
-export function notifyPartnerMessage(partnerName: string) {
-  sendNotification('💌 Eren', `${partnerName} sent you a message through Eren!`, 'partner-msg')
-}
-
 export async function requestNotificationPermission(): Promise<boolean> {
   if (!('Notification' in window)) return false
   if (Notification.permission === 'granted') return true

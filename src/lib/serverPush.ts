@@ -18,14 +18,14 @@ interface PushSub {
   auth: string
 }
 
-export async function sendPush(sub: PushSub, title: string, body: string, tag?: string): Promise<boolean> {
+export async function sendPush(sub: PushSub, title: string, body: string, tag?: string, url?: string): Promise<boolean> {
   try {
     await webpush.sendNotification(
       {
         endpoint: sub.endpoint,
         keys: { p256dh: sub.p256dh, auth: sub.auth },
       },
-      JSON.stringify({ title, body, tag: tag ?? 'eren-stat', url: '/home' }),
+      JSON.stringify({ title, body, tag: tag ?? 'eren-stat', url: url ?? '/home' }),
     )
     return true
   } catch (err: unknown) {
