@@ -8,6 +8,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import type { FoodInventory } from '@/types'
 import { playSound } from '@/lib/sounds'
+import AnalogClock from '@/components/AnalogClock'
 import BlinkingEren from '@/components/BlinkingEren'
 
 interface Props { onClose: () => void }
@@ -127,10 +128,35 @@ export default function FeedScene({ onClose }: Props) {
       {/* ══ BACKGROUND IMAGE ══ */}
       <div className="absolute inset-0" style={{ backgroundImage: 'url(/kitchen.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
-      {/* The previous kitchen layout had a JS-rendered analog clock + animated
-          kettle-steam pinned to the old stove/clock positions. The new image
-          ships with its own baked-in wall clock and no kettle on the stove,
-          so those overlays were removed. */}
+      {/* ══ KETTLE STEAM ══
+        The kettle sits on the left burner of the stove. In the source kitchen.png
+        (768×1376), the spout opening lands at roughly (142, 727) — about 18.5% x,
+        52.8% y. The bg renders with `cover/center`, so to keep smoke pinned to the
+        spout across viewports we use an aspect-ratio wrapper that mirrors the
+        image's covered rect; percentages inside it map directly to image space. */}
+      <div className="absolute pointer-events-none overflow-hidden" style={{ inset: 0, zIndex: 5 }}>
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          minWidth: '100%',
+          minHeight: '100%',
+          aspectRatio: '768 / 1376',
+        }}>
+          <div className="absolute" style={{ left: 'calc(18.5% + 13px)', top: 'calc(52.8% + 4px)' }}>
+            <div className="kettle-puff kettle-puff-a" />
+            <div className="kettle-puff kettle-puff-b" />
+            <div className="kettle-puff kettle-puff-c" />
+          </div>
+
+          {/* Wall clock on the back wall — replaces the pixel clock baked into
+            kitchen.png. Center at ~(49%, 23.4%) of the source, ~10% diameter. */}
+          <div style={{ position: 'absolute', left: 'calc(51% - 1px)', top: '23.4%', width: '13%', aspectRatio: '1 / 1', transform: 'translate(-50%, -50%)' }}>
+            <AnalogClock size="100%" mode="real" pixelated />
+          </div>
+        </div>
+      </div>
 
       {/* ══ EREN ══ */}
       <div className={cn('absolute z-20 transition-all duration-300', eatAnim ? 'bottom-[14%]' : 'bottom-[10%]')}
@@ -260,6 +286,30 @@ export default function FeedScene({ onClose }: Props) {
         </div>
       )}
 
+      <style jsx>{`
+        .kettle-puff {
+          position: absolute;
+          left: 0;
+          top: 0;
+          margin-left: -4px;
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.95), rgba(220,225,230,0.55));
+          opacity: 0;
+          filter: blur(0.6px);
+        }
+        .kettle-puff-a { animation: kettleRise 3.2s ease-out 0s    infinite; }
+        .kettle-puff-b { animation: kettleRise 3.2s ease-out 1.05s infinite; }
+        .kettle-puff-c { animation: kettleRise 3.2s ease-out 2.1s  infinite; }
+        @keyframes kettleRise {
+          0%   { transform: translate(0, 0) scale(0.5);   opacity: 0; }
+          12%  { transform: translate(0, -2px) scale(0.8); opacity: 0.85; }
+          50%  { transform: translate(-3px, -22px) scale(1.1); opacity: 0.6; }
+          80%  { transform: translate(2px, -38px) scale(1.3); opacity: 0.25; }
+          100% { transform: translate(-1px, -50px) scale(1.45); opacity: 0; }
+        }
+      `}</style>
     </div>
   )
 }
