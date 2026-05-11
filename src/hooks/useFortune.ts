@@ -112,14 +112,15 @@ export function useFortune() {
       }
     }
 
-    // If it's a decorative keepsake, add to inventory
+    // If it's a decorative keepsake, add to inventory. maybeSingle so a
+    // brand-new item (0 rows) doesn't 406.
     if (!gift.coinValue && !gift.stardustValue && !gift.gachaTickets) {
       const { data: existing } = await supabase
         .from('user_inventory')
         .select('id, quantity')
         .eq('user_id', user.id)
         .eq('item_id', gift.id)
-        .single()
+        .maybeSingle()
 
       if (existing) {
         await supabase.from('user_inventory').update({ quantity: existing.quantity + 1 }).eq('id', existing.id)

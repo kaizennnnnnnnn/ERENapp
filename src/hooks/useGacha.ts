@@ -69,13 +69,14 @@ export function useGacha() {
     const isPity = (rarity === 'epic' && state.pulls_since_epic >= 29) ||
                    (rarity === 'legendary' && state.pulls_since_legendary >= 99)
 
-    // Check if user already owns this item
+    // Check if user already owns this item. maybeSingle() returns null on
+    // 0 rows instead of erroring with 406 like single() does.
     const { data: existing } = await supabase
       .from('user_inventory')
       .select('id, quantity')
       .eq('user_id', user.id)
       .eq('item_id', item.id)
-      .single()
+      .maybeSingle()
 
     const isNew = !existing
     let stardustGained = 0
@@ -138,13 +139,13 @@ export function useGacha() {
       if (rarity === 'epic' || rarity === 'legendary') pse = 0; else pse++
       if (rarity === 'legendary') psl = 0; else psl++
 
-      // Inventory
+      // Inventory — maybeSingle so a brand-new item (0 rows) doesn't 406.
       const { data: existing } = await supabase
         .from('user_inventory')
         .select('id, quantity')
         .eq('user_id', user.id)
         .eq('item_id', item.id)
-        .single()
+        .maybeSingle()
 
       const isNew = !existing
       let stardustGained = 0
