@@ -23,6 +23,7 @@ import {
   Rivets, ObsidianChip, pinkText, accentA, accentLoA,
 } from '@/components/obsidian'
 import { useTheme, THEMES } from '@/contexts/ThemeContext'
+import PageLoader from '@/components/PageLoader'
 
 export default function ProfilePage() {
   const router   = useRouter()
@@ -103,15 +104,7 @@ export default function ProfilePage() {
     paddingTop: 'calc(var(--safe-top) + 16px)',
   }
 
-  if (loading || !profile) {
-    return (
-      <div className="page-scroll flex items-center justify-center min-h-[60vh]" style={pageStyle}>
-        <span className="font-pixel animate-pulse-soft" style={{ fontSize: 8, color: PINK_HI, textShadow: `0 0 4px ${accentA(0.4)}` }}>
-          LOADING<span className="animate-cursor">_</span>
-        </span>
-      </div>
-    )
-  }
+  if (loading || !profile) return <PageLoader label="LOADING PROFILE" />
 
   const initials = profile.name.charAt(0).toUpperCase()
   const totalSeconds = mySeconds + partnerSeconds

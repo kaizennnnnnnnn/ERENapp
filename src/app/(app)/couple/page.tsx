@@ -18,6 +18,7 @@ import {
   OBSIDIAN_FACE, OBSIDIAN_BTN, OBSIDIAN_ORB,
   Rivets, ObsidianChip, pinkText, accentA,
 } from '@/components/obsidian'
+import PageLoader from '@/components/PageLoader'
 
 export default function CouplePage() {
   const router = useRouter()
@@ -53,15 +54,7 @@ export default function CouplePage() {
     paddingTop: 'calc(var(--safe-top) + 16px)',
   }
 
-  if (loading) {
-    return (
-      <div className="page-scroll flex items-center justify-center min-h-[60vh]" style={pageStyle}>
-        <span className="font-pixel animate-pulse-soft" style={{ fontSize: 8, color: PINK_HI, textShadow: `0 0 4px ${accentA(0.4)}` }}>
-          LOADING<span className="animate-cursor">_</span>
-        </span>
-      </div>
-    )
-  }
+  if (loading) return <PageLoader label="LOADING" />
 
   return (
     <div className="page-scroll" style={pageStyle}>

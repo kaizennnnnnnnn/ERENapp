@@ -21,6 +21,7 @@ import { IconGift, IconCapsule, IconHeart, IconBell, IconPerson, IconDoor, IconD
 import { playSound } from '@/lib/sounds'
 import TaskPanel from '@/components/TaskPanel'
 import BlinkingEren from '@/components/BlinkingEren'
+import PageLoader from '@/components/PageLoader'
 import ReminderSheet from '@/components/ReminderSheet'
 import { registerSW } from '@/lib/reminders'
 import { checkStatNotifications, requestNotificationPermission, notifyPartnerAction } from '@/lib/statNotifications'
@@ -250,17 +251,7 @@ export default function HomePage() {
   }
 
   // ── Loading ──
-  const LoadingScreen = (
-    <div className="fixed inset-0 flex flex-col items-center justify-center gap-5 bg-gradient-to-b from-pink-50 to-[#FDF6FF]">
-      <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #C084FC 1px, transparent 1px)', backgroundSize: '18px 18px' }} />
-      <div className="animate-float relative z-10">
-        <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 150, height: 150, objectFit: 'contain', imageRendering: 'pixelated' }} />
-      </div>
-      <p className="font-pixel text-gray-400 animate-pulse-soft relative z-10" style={{ fontSize: 8 }}>
-        LOADING EREN<span className="animate-cursor">_</span>
-      </p>
-    </div>
-  )
+  const LoadingScreen = <PageLoader label="LOADING EREN" />
 
   if (authLoading || !moodChecked) return LoadingScreen
 

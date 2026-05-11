@@ -18,6 +18,7 @@ import {
 } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import type { GameType, Profile } from '@/types'
+import AnimatedEren from '@/components/AnimatedEren'
 
 const GAMES: Array<{ id: GameType; title: string; Icon: React.FC<{ size?: number }> }> = [
   { id: 'catch_mouse',  title: 'CATCH THE MOUSE',  Icon: IconMouse },
@@ -270,9 +271,28 @@ export default function Leaderboard({ onClose }: Props) {
         {/* ─── BODY (scrollable) ──────────────────────────────────────────── */}
         <div className="relative flex-1 overflow-y-auto px-4 pt-3 pb-4" style={{ scrollbarWidth: 'thin' }}>
           {loading ? (
-            <p className="font-pixel text-center py-10" style={{ fontSize: 7, color: '#6A50A0', letterSpacing: 2 }}>
-              LOADING...
-            </p>
+            <div className="flex flex-col items-center justify-center gap-4 py-10">
+              <AnimatedEren px={3} />
+              <p className="font-pixel" style={{ fontSize: 7, color: '#FBBF24', letterSpacing: 2, textShadow: '0 0 4px rgba(251,191,36,0.5)' }}>
+                LOADING
+              </p>
+              <div className="flex items-center gap-1.5">
+                {[0, 1, 2].map(i => (
+                  <span key={i} style={{
+                    display: 'block', width: 4, height: 4, borderRadius: '50%',
+                    background: '#FBBF24',
+                    boxShadow: '0 0 4px #FBBF24',
+                    animation: `lbDot 1s ease-in-out ${i * 0.15}s infinite`,
+                  }} />
+                ))}
+              </div>
+              <style jsx>{`
+                @keyframes lbDot {
+                  0%, 100% { opacity: 0.2; transform: scale(0.85); }
+                  50%       { opacity: 1;    transform: scale(1.1);  }
+                }
+              `}</style>
+            </div>
           ) : (
             <>
               {/* Avatars row — head-to-head with a glowing VS divider. The

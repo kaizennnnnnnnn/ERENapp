@@ -14,6 +14,7 @@ import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 import {
   IconCoin, IconSparkles, IconTicket, IconMeat, IconFish, IconStar, IconCrown,
 } from '@/components/PixelIcons'
+import PageLoader from '@/components/PageLoader'
 import { playSound } from '@/lib/sounds'
 
 // ── Reward icon dispatcher ───────────────────────────────────────────────────
@@ -277,17 +278,7 @@ export default function RewardsPage() {
   // Don't render the road until the profile is loaded — otherwise the level
   // pill, "current node" anchor, and auto-scroll all snap to the default
   // level=1 for a moment before the real value lands.
-  if (!user || !profile) {
-    return (
-      <div className="fixed inset-0 z-40 flex items-center justify-center" style={{
-        background: 'radial-gradient(ellipse at top, #2D1659 0%, #1A0A33 55%, #0F0620 100%)',
-      }}>
-        <p className="font-pixel text-purple-200 animate-pulse" style={{ fontSize: 8, letterSpacing: 2 }}>
-          LOADING REWARDS...
-        </p>
-      </div>
-    )
-  }
+  if (!user || !profile) return <PageLoader label="LOADING REWARDS" />
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col overflow-hidden" style={{
