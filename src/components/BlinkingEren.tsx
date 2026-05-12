@@ -7,6 +7,7 @@
 // every 5 s for a natural-looking blink.
 
 import React from 'react'
+import { useIsDark } from '@/hooks/useIsDark'
 
 interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   size?: number
@@ -20,6 +21,11 @@ export default function BlinkingEren({
   alt = 'Eren',
   ...imgProps
 }: Props) {
+  const isDark = useIsDark()
+  // Drop brightness and a touch of saturation at night so the sprite
+  // doesn't look weirdly lit-up against the dark room backgrounds.
+  // Applied to the wrapper so the eyelid overlays darken in lockstep.
+  const nightFilter = isDark ? 'brightness(0.7) saturate(0.85)' : undefined
   const lid: React.CSSProperties = {
     position: 'absolute',
     width: '6%',
@@ -37,6 +43,8 @@ export default function BlinkingEren({
         width: size,
         height: size,
         display: 'inline-block',
+        filter: nightFilter,
+        transition: 'filter 800ms ease',
         ...style,
       }}>
       <img src="/erenGood.png" alt={alt} draggable={false}
