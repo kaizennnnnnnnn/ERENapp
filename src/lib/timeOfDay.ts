@@ -15,14 +15,18 @@ function fromJulian(j: number): Date {
 // Standard "sunrise equation". Returns local-clock decimal hours for
 // sunrise and sunset at the given date/coords. 'polar-night' = sun never
 // rises that day, 'polar-day' = sun never sets.
+//
+// lon is east-positive (JS / geolocation convention). The textbook
+// formula uses west-positive longitude, so the sign is flipped in the
+// two lines that fold longitude into the day number.
 function sunTimes(
   date: Date,
   lat: number,
   lon: number,
 ): { sunrise: number; sunset: number } | 'polar-night' | 'polar-day' {
   const J      = toJulian(date) - 2451545
-  const n      = Math.round(J - 0.0009 - lon / 360)
-  const Jstar  = 2451545 + 0.0009 + lon / 360 + n
+  const n      = Math.round(J - 0.0009 + lon / 360)
+  const Jstar  = 2451545 + 0.0009 - lon / 360 + n
   const M      = (357.5291 + 0.98560028 * (Jstar - 2451545)) % 360
   const Mrad   = M * RAD
   const C      = 1.9148 * Math.sin(Mrad) + 0.02 * Math.sin(2 * Mrad) + 0.0003 * Math.sin(3 * Mrad)
