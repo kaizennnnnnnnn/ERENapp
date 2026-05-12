@@ -10,6 +10,7 @@ import type { FoodInventory } from '@/types'
 import { playSound } from '@/lib/sounds'
 import AnalogClock from '@/components/AnalogClock'
 import BlinkingEren from '@/components/BlinkingEren'
+import { useIsDark } from '@/hooks/useIsDark'
 
 interface Props { onClose: () => void }
 
@@ -79,6 +80,7 @@ export default function FeedScene({ onClose }: Props) {
   const { user, profile } = useAuth()
   const { stats, feedWithFood, saveFoodInventory } = useErenStats(profile?.household_id ?? null)
   const { completeTask, coins, spendCoins } = useTasks()
+  const isDark = useIsDark()
 
   const [tab, setTab] = useState<'shop' | 'fridge' | null>(null)
   const [buying, setBuying] = useState<string | null>(null)
@@ -126,7 +128,7 @@ export default function FeedScene({ onClose }: Props) {
     <div className="fixed inset-0 z-40 overflow-hidden select-none">
 
       {/* ══ BACKGROUND IMAGE ══ */}
-      <div className="absolute inset-0" style={{ backgroundImage: 'url(/kitchen.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
+      <div className="absolute inset-0" style={{ backgroundImage: `url(${isDark ? '/KitchenDark.png' : '/kitchen.png'})`, backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
       {/* ══ KETTLE STEAM ══
         The kettle sits on the left burner of the stove. In the source kitchen.png

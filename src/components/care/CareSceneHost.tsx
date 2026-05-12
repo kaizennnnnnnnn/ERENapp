@@ -44,7 +44,7 @@ const SCENE_IMAGES_DAY: Partial<Record<CareScene, string>> = {
   school: '/schoolBACK.png',
 }
 const SCENE_IMAGES_DARK: Partial<Record<CareScene, string>> = {
-  feed:   '/kitchen.png',
+  feed:   '/KitchenDark.png',
   play:   '/play.png',
   sleep:  '/bedroom.png',
   wash:   '/BathroomDark.png',
