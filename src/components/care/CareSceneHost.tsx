@@ -11,6 +11,7 @@ import VetScene from './VetScene'
 import SchoolScene from './SchoolScene'
 import AnimatedEren from '@/components/AnimatedEren'
 import { playSound } from '@/lib/sounds'
+import { useIsDark } from '@/hooks/useIsDark'
 
 const LOOP_SCENES: CareScene[] = ['feed', 'play', 'sleep', 'wash', 'vet', 'school']
 
@@ -34,7 +35,7 @@ const SCENE_COLORS: Record<CareScene, string> = {
   hospital: '#F87171',
 }
 
-const SCENE_IMAGES: Partial<Record<CareScene, string>> = {
+const SCENE_IMAGES_DAY: Partial<Record<CareScene, string>> = {
   feed:   '/kitchen.png',
   play:   '/playroom.png',
   sleep:  '/bedroom.png',
@@ -42,9 +43,18 @@ const SCENE_IMAGES: Partial<Record<CareScene, string>> = {
   vet:    '/vetBACK.png',
   school: '/schoolBACK.png',
 }
+const SCENE_IMAGES_DARK: Partial<Record<CareScene, string>> = {
+  feed:   '/kitchen.png',
+  play:   '/play.png',
+  sleep:  '/bedroom.png',
+  wash:   '/BathroomDark.png',
+  vet:    '/wetDark.png',
+  school: '/schoolBACK.png',
+}
 
 export default function CareSceneHost() {
   const { activeScene, openScene, closeScene } = useCare()
+  const isDark = useIsDark()
 
   const touchStartX = useRef(0)
   const touchStartY = useRef(0)
@@ -78,7 +88,7 @@ export default function CareSceneHost() {
 
   useEffect(() => {
     if (!activeScene) return
-    const bgSrc = SCENE_IMAGES[activeScene]
+    const bgSrc = (isDark ? SCENE_IMAGES_DARK : SCENE_IMAGES_DAY)[activeScene]
     const toLoad = ['/erenGood.png', ...(bgSrc ? [bgSrc] : [])]
     let loaded = 0
     const isFirstEntry = prevSceneRef.current === null
@@ -101,7 +111,7 @@ export default function CareSceneHost() {
       img.onerror = onDone
       img.src     = src
     })
-  }, [activeScene])
+  }, [activeScene, isDark])
 
   useEffect(() => {
     if (!activeScene) prevSceneRef.current = null

@@ -33,6 +33,7 @@ import { GACHA_ITEMS } from '@/lib/gacha'
 import FortunePopup from '@/components/fortune/FortunePopup'
 import ErenMessagePopup from '@/components/couple/ErenMessagePopup'
 import { OBSIDIAN_BTN, Rivets } from '@/components/obsidian'
+import { useIsDark } from '@/hooks/useIsDark'
 
 interface XpParticle {
   id: number; x: number; y: number; tx: number; ty: number
@@ -61,6 +62,7 @@ export default function HomePage() {
   const { canClaim: fortuneAvailable } = useFortune()
   const { newMessage, dismissPopup, unreadCount } = useCouple()
   const { inventory } = useInventory()
+  const isDark = useIsDark()
 
   // Get equipped items for display
   const equippedOutfits = inventory.filter(i => i.equipped).map(i => GACHA_ITEMS.find(g => g.id === i.item_id)).filter(Boolean)
@@ -217,14 +219,16 @@ export default function HomePage() {
   // Preload background + Eren before showing the room
   useLayoutEffect(() => { setRoomReady(false) }, [])
   useEffect(() => {
-    const srcs = ['/livingRoom.png', '/erenGood.png']
+    const bg = isDark ? '/HomePage.png' : '/livingRoom.png'
+    const srcs = [bg, '/erenGood.png']
     let loaded = 0
+    setRoomReady(false)
     srcs.forEach(src => {
       const img = new window.Image()
       img.onload = img.onerror = () => { loaded++; if (loaded >= srcs.length) setRoomReady(true) }
       img.src = src
     })
-  }, [])
+  }, [isDark])
 
   // Load today's mood
   useEffect(() => {
@@ -319,7 +323,7 @@ export default function HomePage() {
 
         {/* Background image */}
         <div className="absolute inset-0" style={{
-          backgroundImage: 'url(/livingRoom.png)',
+          backgroundImage: `url(${isDark ? '/HomePage.png' : '/livingRoom.png'})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           WebkitTouchCallout: 'none',

@@ -10,6 +10,7 @@ import { IconController, IconStar, IconCrown } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import Leaderboard from '@/components/Leaderboard'
 import BlinkingEren from '@/components/BlinkingEren'
+import { useIsDark } from '@/hooks/useIsDark'
 
 interface Props { onClose: () => void }
 interface BallPos { x: number; y: number }
@@ -29,6 +30,7 @@ export default function PlayScene({ onClose }: Props) {
   const [ballMoving,   setBallMoving]   = useState(false)
   const [trailDots,    setTrailDots]    = useState<{id:number;x:number;y:number}[]>([])
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const isDark = useIsDark()
   const sceneRef = useRef<HTMLDivElement>(null)
   const animRef  = useRef<ReturnType<typeof requestAnimationFrame> | null>(null)
   const trailId  = useRef(0)
@@ -88,7 +90,7 @@ export default function PlayScene({ onClose }: Props) {
       onClick={handleThrow}>
 
       {/* ══ BACKGROUND IMAGE ══ */}
-      <div className="absolute inset-0" style={{ backgroundImage: 'url(/playroom.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
+      <div className="absolute inset-0" style={{ backgroundImage: `url(${isDark ? '/play.png' : '/playroom.png'})`, backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
             {/* ══ EREN ══ */}
       <div className={cn('absolute z-10 transition-all duration-500')}

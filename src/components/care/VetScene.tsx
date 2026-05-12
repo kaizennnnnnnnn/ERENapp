@@ -7,6 +7,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
 import BlinkingEren from '@/components/BlinkingEren'
+import { useIsDark } from '@/hooks/useIsDark'
 
 interface Props { onClose: () => void }
 
@@ -20,6 +21,7 @@ export default function VetScene({ onClose }: Props) {
   const [medGiven,  setMedGiven]  = useState(false)
   const [giving,    setGiving]    = useState(false)
   const [toast,     setToast]     = useState<string | null>(null)
+  const isDark = useIsDark()
 
   const isSick       = stats?.is_sick ?? false
   const cleanliness  = stats?.cleanliness ?? 100
@@ -60,7 +62,7 @@ export default function VetScene({ onClose }: Props) {
     <div className="fixed inset-0 z-40 flex flex-col overflow-hidden">
 
       {/* ══ BACKGROUND IMAGE ══ */}
-      <div className="absolute inset-0" style={{ backgroundImage: 'url(/vetBACK.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
+      <div className="absolute inset-0" style={{ backgroundImage: `url(${isDark ? '/wetDark.png' : '/vetBACK.png'})`, backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
       {/* ══ EREN ══ */}
       <div className={cn('absolute z-10 transition-all duration-500', checkDone ? 'bottom-[6%]' : 'bottom-[4%]')}

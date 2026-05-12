@@ -6,6 +6,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import BlinkingEren from '@/components/BlinkingEren'
+import { useIsDark } from '@/hooks/useIsDark'
 
 interface Props { onClose: () => void }
 interface Bubble { id: number; x: number; y: number; size: number }
@@ -40,6 +41,7 @@ export default function WashScene({ onClose }: Props) {
   const coverageRef   = useRef(0)
 
   const cleanliness = stats?.cleanliness ?? 100
+  const isDark = useIsDark()
 
   // Apply initial positions to DOM
   useEffect(() => {
@@ -158,7 +160,7 @@ export default function WashScene({ onClose }: Props) {
       style={{ touchAction: 'none' }}
     >
       {/* ══ BACKGROUND IMAGE ══ */}
-      <div className="absolute inset-0" style={{ backgroundImage: 'url(/bathroom.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
+      <div className="absolute inset-0" style={{ backgroundImage: `url(${isDark ? '/BathroomDark.png' : '/bathroom.png'})`, backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
       {/* ══ TAP DRIP ══════════════════════════════════════════════════════ */}
       <div className="absolute pointer-events-none" style={{ left: 'calc(50% + 2px)', top: 'calc(50% + 14px)', zIndex: 15 }}>
