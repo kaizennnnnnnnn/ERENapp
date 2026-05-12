@@ -1,10 +1,7 @@
-// Sun-position math + timezone fallback for "is it dark outside" detection.
-// Used to swap room backgrounds between day and night variants.
-//
-// Resolution order (handled in useIsDark):
-//   1. Cached browser geolocation         → precise to ~1 min
-//   2. IANA timezone city lookup          → precise to ~30 min
-//   3. Northern-hemisphere month table    → only if Intl is missing
+// Sun-position math for the "is it dark outside" room-background swap.
+// Coords are derived from the browser's IANA timezone (see tzCoords) —
+// accurate to ~30 min, no permission prompt. Falls back to a northern-
+// hemisphere monthly table only if Intl is unavailable.
 
 const RAD = Math.PI / 180
 
