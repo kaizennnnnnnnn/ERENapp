@@ -41,13 +41,6 @@ export default function PageLoader({ label = 'LOADING', inline = false }: Props)
           }} />
         ))}
       </div>
-
-      <style jsx>{`
-        @keyframes pageLoadDot {
-          0%, 100% { opacity: 0.2; transform: scale(0.85); }
-          50%       { opacity: 1;    transform: scale(1.1);  }
-        }
-      `}</style>
     </div>
   )
 }

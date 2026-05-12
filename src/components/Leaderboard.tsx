@@ -282,16 +282,10 @@ export default function Leaderboard({ onClose }: Props) {
                     display: 'block', width: 4, height: 4, borderRadius: '50%',
                     background: '#FBBF24',
                     boxShadow: '0 0 4px #FBBF24',
-                    animation: `lbDot 1s ease-in-out ${i * 0.15}s infinite`,
+                    animation: `pageLoadDot 1s ease-in-out ${i * 0.15}s infinite`,
                   }} />
                 ))}
               </div>
-              <style jsx>{`
-                @keyframes lbDot {
-                  0%, 100% { opacity: 0.2; transform: scale(0.85); }
-                  50%       { opacity: 1;    transform: scale(1.1);  }
-                }
-              `}</style>
             </div>
           ) : (
             <>
