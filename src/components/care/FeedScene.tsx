@@ -146,15 +146,26 @@ export default function FeedScene({ onClose }: Props) {
           minHeight: '100%',
           aspectRatio: '768 / 1376',
         }}>
-          <div className="absolute" style={{ left: 'calc(18.5% - 5px)', top: 'calc(52.8% + 13px)' }}>
+          <div className="absolute" style={{
+            left: `calc(18.5% - ${isDark ? 7 : 5}px)`,
+            top:  `calc(52.8% + ${isDark ? 14 : 13}px)`,
+          }}>
             <div className="kettle-puff kettle-puff-a" />
             <div className="kettle-puff kettle-puff-b" />
             <div className="kettle-puff kettle-puff-c" />
           </div>
 
           {/* Wall clock on the back wall — replaces the pixel clock baked into
-            kitchen.png. Center at ~(49%, 23.4%) of the source, ~10% diameter. */}
-          <div style={{ position: 'absolute', left: 'calc(51% - 1px)', top: '23.4%', width: '15%', aspectRatio: '1 / 1', transform: 'translate(-50%, -50%)' }}>
+            kitchen.png. Center at ~(49%, 23.4%) of the source, ~10% diameter.
+            At night, dim it so it doesn't glow against KitchenDark. */}
+          <div style={{
+            position: 'absolute',
+            left: 'calc(51% - 1px)', top: '23.4%',
+            width: '15%', aspectRatio: '1 / 1',
+            transform: 'translate(-50%, -50%)',
+            filter: isDark ? 'brightness(0.55) saturate(0.8)' : undefined,
+            transition: 'filter 800ms ease',
+          }}>
             <AnalogClock size="100%" mode="real" pixelated />
           </div>
         </div>
