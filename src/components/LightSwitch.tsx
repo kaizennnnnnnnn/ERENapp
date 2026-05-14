@@ -39,16 +39,18 @@ export default function LightSwitch({
       {/* ─── Visible light source + cone (only while on) ─── */}
       {on && (
         <>
-          {/* Ceiling lamp — bright warm bulb so the player can see where
-              the light is coming from. */}
+          {/* Ceiling lamp — small, dim warm bulb. Visible enough to read
+              as "this is where the light is coming from" but quiet enough
+              not to draw the eye away from Eren. */}
           <div className="absolute pointer-events-none" style={{
             top: lampTop,
             left: targetLeft,
             transform: 'translate(-50%, -50%)',
-            width: 14, height: 14,
+            width: 9, height: 9,
             borderRadius: '50%',
-            background: 'radial-gradient(circle, #FFFBE0 0%, #FFE38A 40%, #D89030 85%, transparent 100%)',
-            boxShadow: '0 0 14px rgba(255,232,160,0.9), 0 0 32px rgba(255,210,120,0.55), 0 0 60px rgba(255,200,100,0.3)',
+            background: 'radial-gradient(circle, #FFF1B8 0%, #EAC470 55%, #9E6428 90%, transparent 100%)',
+            boxShadow: '0 0 7px rgba(255,232,160,0.5), 0 0 16px rgba(255,210,120,0.25), 0 0 32px rgba(255,200,100,0.12)',
+            opacity: 0.85,
             zIndex: 12,
             animation: 'lsHaloPulse 4s ease-in-out infinite',
           }} />
