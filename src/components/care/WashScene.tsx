@@ -169,7 +169,7 @@ export default function WashScene({ onClose }: Props) {
         flame div + glow that softly flickers via the candleFlame keyframe
         in globals.css. */}
       {isDark && (
-        <div className="absolute pointer-events-none" style={{ left: '76%', top: '63%', zIndex: 12 }}>
+        <div className="absolute pointer-events-none" style={{ left: 'calc(76% + 15px)', top: 'calc(63% - 5px)', zIndex: 12 }}>
           {/* Outer warm halo on the wall behind the candle */}
           <div style={{
             position: 'absolute',
