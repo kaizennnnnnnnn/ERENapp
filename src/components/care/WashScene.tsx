@@ -163,9 +163,15 @@ export default function WashScene({ onClose }: Props) {
       <div className="absolute inset-0" style={{ backgroundImage: `url(${isDark ? '/BathroomDark.png' : '/bathroom.png'})`, backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
       {/* ══ TAP DRIP ══════════════════════════════════════════════════════
-        At night the tap sits 3px lower in BathroomDark.png, so the whole
-        drip animation (spawn + vanish) shifts down by the same amount. */}
-      <div className="absolute pointer-events-none" style={{ left: 'calc(50% + 2px)', top: `calc(50% + ${isDark ? 19 : 14}px)`, zIndex: 15 }}>
+        At night the tap sits lower in BathroomDark.png, so spawn point
+        drops; vanish point pulls *up* though, since the night sink is
+        shallower. --tap-drop-distance overrides the keyframe end value. */}
+      <div className="absolute pointer-events-none" style={{
+        left: 'calc(50% + 2px)',
+        top: `calc(50% + ${isDark ? 21 : 14}px)`,
+        zIndex: 15,
+        ...(isDark ? { ['--tap-drop-distance' as string]: 'calc(4vh + 3px)' } : {}),
+      } as React.CSSProperties}>
         <div className="tap-drop" />
       </div>
 
@@ -350,8 +356,8 @@ export default function WashScene({ onClose }: Props) {
         @keyframes tapDrop {
           0%   { transform: translateY(-3px) scale(0.6, 0.4); opacity: 0; }
           5%   { transform: translateY(0) scale(1, 1); opacity: 1; }
-          24%  { transform: translateY(calc(4vh + 7px)) scale(0.85, 1.3); opacity: 1; }
-          25%, 100% { transform: translateY(calc(4vh + 7px)) scale(1, 1); opacity: 0; }
+          24%  { transform: translateY(var(--tap-drop-distance, calc(4vh + 7px))) scale(0.85, 1.3); opacity: 1; }
+          25%, 100% { transform: translateY(var(--tap-drop-distance, calc(4vh + 7px))) scale(1, 1); opacity: 0; }
         }
       `}</style>
     </div>
