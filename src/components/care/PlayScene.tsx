@@ -256,7 +256,9 @@ export default function PlayScene({ onClose }: Props) {
         </div>
       )}
 
-      <LightSwitch targetBottom="10%" targetLeft="50%" />
+      {/* Switch on the left to clear the SCORES/leaderboard buttons stacked
+          on the right side of the playroom. */}
+      <LightSwitch side="left" targetBottom="10%" targetLeft="50%" />
     </div>
   )
 }
