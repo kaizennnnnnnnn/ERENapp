@@ -162,8 +162,10 @@ export default function WashScene({ onClose }: Props) {
       {/* ══ BACKGROUND IMAGE ══ */}
       <div className="absolute inset-0" style={{ backgroundImage: `url(${isDark ? '/BathroomDark.png' : '/bathroom.png'})`, backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
-      {/* ══ TAP DRIP ══════════════════════════════════════════════════════ */}
-      <div className="absolute pointer-events-none" style={{ left: 'calc(50% + 2px)', top: 'calc(50% + 14px)', zIndex: 15 }}>
+      {/* ══ TAP DRIP ══════════════════════════════════════════════════════
+        At night the tap sits 3px lower in BathroomDark.png, so the whole
+        drip animation (spawn + vanish) shifts down by the same amount. */}
+      <div className="absolute pointer-events-none" style={{ left: 'calc(50% + 2px)', top: `calc(50% + ${isDark ? 17 : 14}px)`, zIndex: 15 }}>
         <div className="tap-drop" />
       </div>
 
