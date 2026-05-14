@@ -368,7 +368,9 @@
   55%      { opacity: 1.04; }
   80%      { opacity: 0.94; }
 }
+/* Opacity-only so it composes with whatever transform the halo element
+   already has (different rooms pass different target offsets). */
 @keyframes lsHaloPulse {
-  0%, 100% { opacity: 1;    transform: translate(-50%, 38%) scale(1);    }
-  50%      { opacity: 0.85; transform: translate(-50%, 38%) scale(1.06); }
+  0%, 100% { opacity: 1;    }
+  50%      { opacity: 0.82; }
 }
