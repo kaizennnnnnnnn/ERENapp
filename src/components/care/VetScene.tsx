@@ -7,6 +7,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
 import BlinkingEren from '@/components/BlinkingEren'
+import LightSwitch from '@/components/LightSwitch'
 import { useIsDark } from '@/hooks/useIsDark'
 
 interface Props { onClose: () => void }
@@ -148,6 +149,8 @@ export default function VetScene({ onClose }: Props) {
           50%       { transform: scale(1.15) rotate(5deg); }
         }
       `}</style>
+
+      <LightSwitch targetBottom="6%" targetLeft="50%" />
     </div>
   )
 }

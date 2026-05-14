@@ -6,6 +6,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import BlinkingEren from '@/components/BlinkingEren'
+import LightSwitch from '@/components/LightSwitch'
 import { useIsDark } from '@/hooks/useIsDark'
 
 interface Props { onClose: () => void }
@@ -161,6 +162,36 @@ export default function WashScene({ onClose }: Props) {
     >
       {/* ══ BACKGROUND IMAGE ══ */}
       <div className="absolute inset-0" style={{ backgroundImage: `url(${isDark ? '/BathroomDark.png' : '/bathroom.png'})`, backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
+
+      {/* ══ CANDLE FLAME (night only) ═════════════════════════════════════
+        The candle sits on the small stool to the right of the bathtub in
+        BathroomDark.png — roughly (76%, 63%) of the source. Overlay a tiny
+        flame div + glow that softly flickers via the candleFlame keyframe
+        in globals.css. */}
+      {isDark && (
+        <div className="absolute pointer-events-none" style={{ left: '76%', top: '63%', zIndex: 12 }}>
+          {/* Outer warm halo on the wall behind the candle */}
+          <div style={{
+            position: 'absolute',
+            left: '50%', top: '50%',
+            width: 36, height: 36,
+            transform: 'translate(-50%, -50%)',
+            background: 'radial-gradient(circle, rgba(255,180,80,0.35) 0%, rgba(255,160,60,0.12) 50%, transparent 80%)',
+            mixBlendMode: 'screen',
+          }} />
+          {/* The flame itself */}
+          <div style={{
+            position: 'absolute',
+            left: 0,
+            width: 6, height: 9,
+            background: 'radial-gradient(ellipse at 50% 75%, #FFF2B0 0%, #FFCC55 30%, #FF8020 65%, #B83820 90%, transparent 100%)',
+            borderRadius: '50% 50% 35% 35% / 60% 60% 40% 40%',
+            boxShadow: '0 0 6px rgba(255,180,60,0.8), 0 0 14px rgba(255,140,40,0.45)',
+            transformOrigin: '50% 100%',
+            animation: 'candleFlame 1.6s ease-in-out infinite',
+          }} />
+        </div>
+      )}
 
       {/* ══ TAP DRIP ══════════════════════════════════════════════════════
         At night the tap sits lower in BathroomDark.png, so spawn point
@@ -360,6 +391,8 @@ export default function WashScene({ onClose }: Props) {
           25%, 100% { transform: translateY(var(--tap-drop-distance, calc(4vh + 7px))) scale(1, 1); opacity: 0; }
         }
       `}</style>
+
+      <LightSwitch targetBottom="12%" targetLeft="50%" />
     </div>
   )
 }

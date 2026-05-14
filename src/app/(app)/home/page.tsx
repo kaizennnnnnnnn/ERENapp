@@ -34,6 +34,7 @@ import FortunePopup from '@/components/fortune/FortunePopup'
 import ErenMessagePopup from '@/components/couple/ErenMessagePopup'
 import { OBSIDIAN_BTN, Rivets } from '@/components/obsidian'
 import { useIsDark } from '@/hooks/useIsDark'
+import LightSwitch from '@/components/LightSwitch'
 
 interface XpParticle {
   id: number; x: number; y: number; tx: number; ty: number
@@ -546,6 +547,9 @@ export default function HomePage() {
           ))}
         </div>
 
+        {/* switchTop pushed below the home HUD/nav row so it doesn't sit
+            on top of the quest panel + nav buttons. */}
+        <LightSwitch switchTop="24%" targetBottom="10%" targetLeft="50%" />
       </div>
     </>
   )

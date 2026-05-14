@@ -10,6 +10,7 @@ import { IconController, IconStar, IconCrown } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import Leaderboard from '@/components/Leaderboard'
 import BlinkingEren from '@/components/BlinkingEren'
+import LightSwitch from '@/components/LightSwitch'
 import { useIsDark } from '@/hooks/useIsDark'
 
 interface Props { onClose: () => void }
@@ -254,6 +255,8 @@ export default function PlayScene({ onClose }: Props) {
           <Leaderboard onClose={() => setShowLeaderboard(false)} />
         </div>
       )}
+
+      <LightSwitch targetBottom="10%" targetLeft="50%" />
     </div>
   )
 }

@@ -10,6 +10,7 @@ import type { FoodInventory } from '@/types'
 import { playSound } from '@/lib/sounds'
 import AnalogClock from '@/components/AnalogClock'
 import BlinkingEren from '@/components/BlinkingEren'
+import LightSwitch from '@/components/LightSwitch'
 import { useIsDark } from '@/hooks/useIsDark'
 
 interface Props { onClose: () => void }
@@ -323,6 +324,8 @@ export default function FeedScene({ onClose }: Props) {
           100% { transform: translate(-1px, -50px) scale(1.45); opacity: 0; }
         }
       `}</style>
+
+      <LightSwitch targetBottom="12%" targetLeft="50%" />
     </div>
   )
 }

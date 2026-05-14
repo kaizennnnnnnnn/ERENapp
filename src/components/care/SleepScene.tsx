@@ -7,6 +7,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
 import BlinkingEren from '@/components/BlinkingEren'
+import LightSwitch from '@/components/LightSwitch'
 
 interface Props { onClose: () => void }
 
@@ -158,6 +159,8 @@ export default function SleepScene({ onClose }: Props) {
           {tuckedIn ? 'SLEEPING SOUNDLY...' : tucking ? 'TUCKING IN...' : 'TUCK IN'}
         </button>
       </div>
+
+      <LightSwitch targetBottom="16%" targetLeft="50%" />
     </div>
   )
 }
