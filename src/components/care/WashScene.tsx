@@ -165,7 +165,7 @@ export default function WashScene({ onClose }: Props) {
       {/* ══ TAP DRIP ══════════════════════════════════════════════════════
         At night the tap sits 3px lower in BathroomDark.png, so the whole
         drip animation (spawn + vanish) shifts down by the same amount. */}
-      <div className="absolute pointer-events-none" style={{ left: 'calc(50% + 2px)', top: `calc(50% + ${isDark ? 17 : 14}px)`, zIndex: 15 }}>
+      <div className="absolute pointer-events-none" style={{ left: 'calc(50% + 2px)', top: `calc(50% + ${isDark ? 19 : 14}px)`, zIndex: 15 }}>
         <div className="tap-drop" />
       </div>
 
