@@ -168,7 +168,7 @@ export default function WashScene({ onClose }: Props) {
         shallower. --tap-drop-distance overrides the keyframe end value. */}
       <div className="absolute pointer-events-none" style={{
         left: 'calc(50% + 2px)',
-        top: `calc(50% + ${isDark ? 21 : 14}px)`,
+        top: `calc(50% + ${isDark ? 23 : 14}px)`,
         zIndex: 15,
         ...(isDark ? { ['--tap-drop-distance' as string]: 'calc(4vh + 3px)' } : {}),
       } as React.CSSProperties}>
