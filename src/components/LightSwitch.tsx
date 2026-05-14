@@ -1,12 +1,11 @@
 'use client'
 
 // ─── LightSwitch ──────────────────────────────────────────────────────────
-// A night-only wall switch in the corner of a room. Tapping it lights a
-// ceiling lamp + a soft warm cone down to Eren so he stops fading into
-// the dark backdrop. The lamp itself is visible (small glowing circle at
-// the top of the scene) so the player can see where the light is coming
-// from. Cone edges are blurred so the beam reads as directional but
-// never harsh. Keyframes live in globals.css.
+// A night-only wall switch in the corner of a room. Looks like a classic
+// pixel-art wall toggle: cream faceplate, two screws, dark recessed slot,
+// gold lever that snaps between up (off) and down (on). Tapping it lights
+// a visible ceiling lamp + a soft warm cone down onto Eren so the source
+// of the light is obvious and never reads as just "Eren glows".
 
 import { useState } from 'react'
 import { useIsDark } from '@/hooks/useIsDark'
@@ -26,7 +25,7 @@ interface Props {
 
 export default function LightSwitch({
   side         = 'right',
-  switchTop    = '14%',
+  switchTop    = '22%',
   lampTop      = '7%',
   targetLeft   = '50%',
   targetBottom = '14%',
@@ -40,8 +39,8 @@ export default function LightSwitch({
       {/* ─── Visible light source + cone (only while on) ─── */}
       {on && (
         <>
-          {/* The ceiling lamp itself — a bright warm bulb so you can see
-              where the light is coming from instead of just "Eren glows". */}
+          {/* Ceiling lamp — bright warm bulb so the player can see where
+              the light is coming from. */}
           <div className="absolute pointer-events-none" style={{
             top: lampTop,
             left: targetLeft,
@@ -54,9 +53,8 @@ export default function LightSwitch({
             animation: 'lsHaloPulse 4s ease-in-out infinite',
           }} />
 
-          {/* Soft directional cone from lamp down to Eren. Trapezoid clip
-              gives the directional shape; filter: blur() softens the
-              edges so it doesn't read as a hard spotlight. */}
+          {/* Soft directional cone — trapezoid shape blurred to avoid the
+              hard spotlight look. */}
           <div className="absolute pointer-events-none" style={{
             top: lampTop,
             bottom: targetBottom,
@@ -71,7 +69,7 @@ export default function LightSwitch({
             animation: 'lsHaloPulse 4s ease-in-out infinite',
           }} />
 
-          {/* Wide soft pool at Eren's feet. */}
+          {/* Soft pool at Eren's feet. */}
           <div className="absolute pointer-events-none" style={{
             left: targetLeft,
             bottom: targetBottom,
@@ -85,8 +83,7 @@ export default function LightSwitch({
         </>
       )}
 
-      {/* ─── Wall switch button — bigger + stronger accent glow so it
-          reads against any wall tone. ─── */}
+      {/* ─── Wall switch ─── */}
       <button
         onClick={(e) => { e.stopPropagation(); setOn(o => !o); playSound('ui_modal_open') }}
         className="absolute"
@@ -94,31 +91,65 @@ export default function LightSwitch({
           top: switchTop,
           [side]: 12,
           zIndex: 28,
-          width: 38, height: 52,
+          width: 38, height: 58,
           padding: 0,
-          background: 'linear-gradient(180deg, #2A201E 0%, #14100E 100%)',
-          border: '2px solid rgba(var(--accent-rgb), 0.9)',
-          borderRadius: 6,
-          boxShadow: '0 4px 0 rgba(0,0,0,0.55), 0 0 0 1px rgba(0,0,0,0.6), 0 0 14px rgba(var(--accent-rgb), 0.6), inset 0 1px 0 rgba(255,255,255,0.08)',
+          // Cream wall plate — reads as a clearly visible faceplate against
+          // any room's wall tone.
+          background: 'linear-gradient(180deg, #F0E6D0 0%, #D6C6A2 100%)',
+          border: '2px solid #2A1810',
+          borderRadius: 4,
+          boxShadow: '0 4px 0 rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.6), 0 0 14px rgba(var(--accent-rgb), 0.55), inset 0 1px 0 rgba(255,255,255,0.55), inset 0 -1px 0 rgba(0,0,0,0.18)',
           cursor: 'pointer',
         }}
         aria-label={on ? 'Turn light off' : 'Turn light on'}
       >
-        {/* Toggle lever */}
+        {/* Top mounting screw */}
         <div style={{
-          width: 16, height: 26,
-          margin: '5px auto 0',
-          background: on
-            ? 'linear-gradient(180deg, #FFEAA0 0%, #C8A040 100%)'
-            : 'linear-gradient(180deg, #4A4440 0%, #221E1A 100%)',
-          borderRadius: 2,
-          border: '1px solid #0A0608',
-          boxShadow: on
-            ? '0 0 12px rgba(255,232,160,0.85), inset 0 1px 0 rgba(255,255,255,0.45)'
-            : 'inset 0 1px 0 rgba(255,255,255,0.08)',
-          transform: on ? 'translateY(12px)' : 'translateY(0)',
-          transition: 'transform 130ms ease, background 200ms ease, box-shadow 200ms ease',
-        }} />
+          position: 'absolute', top: 3, left: '50%', transform: 'translateX(-50%)',
+          width: 5, height: 5, borderRadius: '50%',
+          background: 'radial-gradient(circle at 35% 35%, #999 0%, #555 55%, #222 100%)',
+          boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.5)',
+        }}>
+          {/* Slot line on the screw */}
+          <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 1, transform: 'translateY(-50%) rotate(35deg)', background: 'rgba(0,0,0,0.6)' }} />
+        </div>
+
+        {/* Recessed dark slot the lever rides in */}
+        <div style={{
+          position: 'absolute', top: 12, bottom: 12, left: 9, right: 9,
+          background: 'linear-gradient(180deg, #1A0F0A 0%, #08040A 100%)',
+          borderRadius: 3,
+          border: '1px solid #050204',
+          boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.7)',
+        }}>
+          {/* Toggle lever */}
+          <div style={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            transform: `translate(-50%, ${on ? '8px' : '-8px'})`,
+            width: 12, height: 16,
+            background: on
+              ? 'linear-gradient(180deg, #FFEAA0 0%, #E0B850 50%, #B88830 100%)'
+              : 'linear-gradient(180deg, #6E6258 0%, #322820 100%)',
+            borderRadius: 2,
+            border: '1px solid #0A0608',
+            boxShadow: on
+              ? '0 0 10px rgba(255,232,160,0.85), inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.4)'
+              : 'inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(0,0,0,0.4)',
+            transition: 'transform 130ms ease, background 200ms ease, box-shadow 200ms ease',
+          }} />
+        </div>
+
+        {/* Bottom mounting screw */}
+        <div style={{
+          position: 'absolute', bottom: 3, left: '50%', transform: 'translateX(-50%)',
+          width: 5, height: 5, borderRadius: '50%',
+          background: 'radial-gradient(circle at 35% 35%, #999 0%, #555 55%, #222 100%)',
+          boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.5)',
+        }}>
+          <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 1, transform: 'translateY(-50%) rotate(-25deg)', background: 'rgba(0,0,0,0.6)' }} />
+        </div>
       </button>
     </>
   )

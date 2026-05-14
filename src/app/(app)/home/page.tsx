@@ -549,7 +549,7 @@ export default function HomePage() {
 
         {/* switchTop pushed below the home HUD/nav row so it doesn't sit
             on top of the quest panel + nav buttons. */}
-        <LightSwitch switchTop="24%" targetBottom="10%" targetLeft="50%" />
+        <LightSwitch switchTop="30%" targetBottom="10%" targetLeft="50%" />
       </div>
     </>
   )
