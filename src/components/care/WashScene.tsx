@@ -43,7 +43,9 @@ export default function WashScene({ onClose }: Props) {
 
   const cleanliness = stats?.cleanliness ?? 100
   const isDark = useIsDark()
-  const isSleeping = stats?.is_sleeping ?? false
+  // Default to true while stats load — keeps Eren hidden until the fetch
+  // confirms he's awake, otherwise he flashes for ~200 ms on every swipe.
+  const isSleeping = stats?.is_sleeping ?? true
 
   // Apply initial positions to DOM
   useEffect(() => {

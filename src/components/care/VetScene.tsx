@@ -24,7 +24,9 @@ export default function VetScene({ onClose }: Props) {
   const [toast,     setToast]     = useState<string | null>(null)
   const isDark = useIsDark()
 
-  const isSleeping   = stats?.is_sleeping ?? false
+  // Default to true while stats load — keeps Eren hidden until the fetch
+  // confirms he's awake, otherwise he flashes for ~200 ms on every swipe.
+  const isSleeping   = stats?.is_sleeping ?? true
   const isSick       = stats?.is_sick ?? false
   const cleanliness  = stats?.cleanliness ?? 100
   const sleepQuality = stats?.sleep_quality ?? 100

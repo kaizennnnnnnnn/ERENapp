@@ -92,7 +92,9 @@ export default function FeedScene({ onClose }: Props) {
   const inventory: FoodInventory = stats?.food_inventory ?? {}
   const fridgeItems = SHOP_ITEMS.filter(i => (inventory[i.id] ?? 0) > 0)
   const mood = eatAnim ? 'happy' : (stats?.hunger ?? 100) < 40 ? 'hungry' : 'idle'
-  const isSleeping = stats?.is_sleeping ?? false
+  // Default to true while stats are still loading so Eren doesn't flash
+  // visible for a split second before the fetch returns `is_sleeping: true`.
+  const isSleeping = stats?.is_sleeping ?? true
 
   function showToast(msg: string, ok = true) {
     setToast({ msg, ok })
