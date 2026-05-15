@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ShoppingCart, Package } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
@@ -92,14 +92,17 @@ export default function FeedScene({ onClose }: Props) {
   const inventory: FoodInventory = stats?.food_inventory ?? {}
   const fridgeItems = SHOP_ITEMS.filter(i => (inventory[i.id] ?? 0) > 0)
   const mood = eatAnim ? 'happy' : (stats?.hunger ?? 100) < 40 ? 'hungry' : 'idle'
+  const isSleeping = stats?.is_sleeping ?? false
 
   function showToast(msg: string, ok = true) {
     setToast({ msg, ok })
     setTimeout(() => setToast(null), 2200)
   }
 
+  useEffect(() => { if (isSleeping) setTab(null) }, [isSleeping])
+
   async function handleBuy(item: typeof SHOP_ITEMS[number]) {
-    if (buying || coins < item.price) return
+    if (isSleeping || buying || coins < item.price) return
     setBuying(item.id)
     const ok = await spendCoins(item.price)
     if (ok) {
@@ -113,7 +116,7 @@ export default function FeedScene({ onClose }: Props) {
   }
 
   async function handleFeed(item: typeof SHOP_ITEMS[number]) {
-    if (!user?.id || feeding) return
+    if (!user?.id || feeding || isSleeping) return
     setFeeding(item.id)
     const newInv = { ...inventory, [item.id]: Math.max(0, (inventory[item.id] ?? 0) - 1) }
     await saveFoodInventory(newInv)
@@ -172,11 +175,13 @@ export default function FeedScene({ onClose }: Props) {
         </div>
       </div>
 
-      {/* ══ EREN ══ */}
-      <div className={cn('absolute z-20 transition-all duration-300', eatAnim ? 'bottom-[14%]' : 'bottom-[10%]')}
-        style={{ left: '50%', transform: 'translateX(-50%)' }}>
-        <BlinkingEren size={210} />
-      </div>
+      {/* ══ EREN ══ (hidden while sleeping in the bedroom) */}
+      {!isSleeping && (
+        <div className={cn('absolute z-20 transition-all duration-300', eatAnim ? 'bottom-[14%]' : 'bottom-[10%]')}
+          style={{ left: '50%', transform: 'translateX(-50%)' }}>
+          <BlinkingEren size={210} />
+        </div>
+      )}
 
       {/* ══ UI ══ */}
 
@@ -191,14 +196,16 @@ export default function FeedScene({ onClose }: Props) {
       <div className="absolute bottom-6 left-0 right-0 z-30 flex justify-center gap-4">
         {/* Shop button */}
         <button onClick={() => { playSound(tab === 'shop' ? 'ui_modal_close' : 'ui_modal_open'); setTab(tab === 'shop' ? null : 'shop') }}
-          className="flex items-center gap-2 px-5 py-3 text-white active:scale-95 transition-transform"
+          disabled={isSleeping}
+          className="flex items-center gap-2 px-5 py-3 text-white active:scale-95 transition-transform disabled:opacity-40 disabled:active:scale-100"
           style={{ background: tab === 'shop' ? 'linear-gradient(135deg, #E8A020, #C07010)' : 'linear-gradient(135deg, #F5C842, #E8A020)', borderRadius: 14, border: '2px solid #C88018', boxShadow: tab === 'shop' ? '0 2px 0 #904800' : '0 4px 0 #A06010, inset 0 1px 0 rgba(255,255,255,0.3)', fontFamily: '"Press Start 2P"', fontSize: 8 }}>
           <ShoppingCart size={14} />
           SHOP
         </button>
         {/* Fridge button */}
         <button onClick={() => { playSound(tab === 'fridge' ? 'ui_modal_close' : 'ui_modal_open'); setTab(tab === 'fridge' ? null : 'fridge') }}
-          className="flex items-center gap-2 px-5 py-3 active:scale-95 transition-transform"
+          disabled={isSleeping}
+          className="flex items-center gap-2 px-5 py-3 active:scale-95 transition-transform disabled:opacity-40 disabled:active:scale-100"
           style={{ background: tab === 'fridge' ? 'linear-gradient(135deg, #60A8D0, #3880B0)' : 'linear-gradient(135deg, #A8D8F8, #78B8E8)', borderRadius: 14, border: '2px solid #5898C8', boxShadow: tab === 'fridge' ? '0 2px 0 #205880' : '0 4px 0 #3870A8, inset 0 1px 0 rgba(255,255,255,0.4)', fontFamily: '"Press Start 2P"', fontSize: 8, color: tab === 'fridge' ? 'white' : '#1A5A8A' }}>
           <Package size={14} />
           FRIDGE{fridgeItems.length > 0 && ` (${fridgeItems.reduce((s, i) => s + (inventory[i.id] ?? 0), 0)})`}

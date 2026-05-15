@@ -13,25 +13,35 @@ interface Props { onClose: () => void }
 
 export default function SleepScene({ onClose }: Props) {
   const { user, profile } = useAuth()
-  const { stats, applyAction } = useErenStats(profile?.household_id ?? null)
+  const { stats, applyAction, wakeUp } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
 
-  const [tuckedIn, setTuckedIn] = useState(false)
-  const [tucking,  setTucking]  = useState(false)
-  const [toast,    setToast]    = useState<string | null>(null)
+  const [tucking, setTucking] = useState(false)
+  const [waking,  setWaking]  = useState(false)
+  const [toast,   setToast]   = useState<string | null>(null)
 
+  const tuckedIn  = stats?.is_sleeping ?? false
   const sleepVal  = stats?.sleep_quality ?? 100
   const isSleepy  = sleepVal < 50
+  const busy      = tucking || waking
 
   async function handleTuckIn() {
-    if (!user?.id || tucking || tuckedIn) return
+    if (!user?.id || busy) return
     setTucking(true)
     await new Promise(r => setTimeout(r, 700))
     const result = await applyAction(user.id, 'sleep')
     setTucking(false)
-    setTuckedIn(true)
     setToast(result.message)
     if (result.success) completeTask('daily_sleep')
+    setTimeout(() => setToast(null), 3000)
+  }
+
+  async function handleWakeUp() {
+    if (busy) return
+    setWaking(true)
+    const result = await wakeUp()
+    setWaking(false)
+    setToast(result.message)
     setTimeout(() => setToast(null), 3000)
   }
 
@@ -148,15 +158,17 @@ export default function SleepScene({ onClose }: Props) {
           </div>
         </div>
 
-        <button onClick={() => { playSound('ui_tap'); handleTuckIn() }} disabled={tucking || tuckedIn}
+        <button onClick={() => { playSound('ui_tap'); tuckedIn ? handleWakeUp() : handleTuckIn() }} disabled={busy}
           className="w-full max-w-xs py-3 text-white transition-all active:translate-y-[2px] disabled:opacity-50"
-          style={tuckedIn
-            ? { background: '#312E81', borderRadius: 3, border: '2px solid #4338CA', boxShadow: '0 2px 0 #2D3748', fontFamily: '"Press Start 2P"', fontSize: 8 }
-            : tucking
-              ? { background: '#4F46E5', borderRadius: 3, border: '2px solid #6366F1', fontFamily: '"Press Start 2P"', fontSize: 8 }
-              : { background: 'linear-gradient(135deg, #6366F1, #4F46E5)', borderRadius: 3, border: '2px solid #3730A3', boxShadow: '0 3px 0 #2D2A7A', fontFamily: '"Press Start 2P"', fontSize: 8 }
+          style={waking
+            ? { background: '#D97706', borderRadius: 3, border: '2px solid #F59E0B', fontFamily: '"Press Start 2P"', fontSize: 8 }
+            : tuckedIn
+              ? { background: 'linear-gradient(135deg, #F59E0B, #D97706)', borderRadius: 3, border: '2px solid #92400E', boxShadow: '0 3px 0 #78350F', fontFamily: '"Press Start 2P"', fontSize: 8 }
+              : tucking
+                ? { background: '#4F46E5', borderRadius: 3, border: '2px solid #6366F1', fontFamily: '"Press Start 2P"', fontSize: 8 }
+                : { background: 'linear-gradient(135deg, #6366F1, #4F46E5)', borderRadius: 3, border: '2px solid #3730A3', boxShadow: '0 3px 0 #2D2A7A', fontFamily: '"Press Start 2P"', fontSize: 8 }
           }>
-          {tuckedIn ? 'SLEEPING SOUNDLY...' : tucking ? 'TUCKING IN...' : 'TUCK IN'}
+          {waking ? 'WAKING UP...' : tuckedIn ? 'WAKE UP' : tucking ? 'TUCKING IN...' : 'TUCK IN'}
         </button>
       </div>
 

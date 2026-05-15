@@ -56,8 +56,10 @@ export default function PlayScene({ onClose }: Props) {
     animRef.current = requestAnimationFrame(step)
   }, [])
 
+  const isSleeping = stats?.is_sleeping ?? false
+
   function handleThrow(e: React.MouseEvent<HTMLDivElement>) {
-    if (done) return
+    if (done || isSleeping) return
     const rect = sceneRef.current?.getBoundingClientRect()
     if (!rect) return
     const cx = ((e.clientX - rect.left) / rect.width)  * 100
@@ -72,7 +74,7 @@ export default function PlayScene({ onClose }: Props) {
   }
 
   async function handleDone() {
-    if (!user?.id || saving || throwCount < 1) return
+    if (!user?.id || saving || throwCount < 1 || isSleeping) return
     setSaving(true)
     const result = await applyAction(user.id, 'play')
     setSaving(false)
@@ -93,21 +95,25 @@ export default function PlayScene({ onClose }: Props) {
       {/* ══ BACKGROUND IMAGE ══ */}
       <div className="absolute inset-0" style={{ backgroundImage: `url(${isDark ? '/play.png' : '/playroom.png'})`, backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
-            {/* ══ EREN ══ */}
-      <div className={cn('absolute z-10 transition-all duration-500')}
-        style={{ bottom: '10%', left: '50%', transform: `translateX(-50%) scaleX(${lookDir === 'left' ? -1 : 1})` }}>
-        <BlinkingEren size={200} />
-      </div>
+            {/* ══ EREN ══ (hidden while sleeping in the bedroom) */}
+      {!isSleeping && (
+        <div className={cn('absolute z-10 transition-all duration-500')}
+          style={{ bottom: '10%', left: '50%', transform: `translateX(-50%) scaleX(${lookDir === 'left' ? -1 : 1})` }}>
+          <BlinkingEren size={200} />
+        </div>
+      )}
 
       {/* ══ BALL TRAIL ══ */}
-      {trailDots.map((dot, i) => (
+      {!isSleeping && trailDots.map((dot, i) => (
         <div key={dot.id} className="absolute pointer-events-none rounded-full"
           style={{ left: `${dot.x}%`, top: `${dot.y}%`, width: 10, height: 10, transform: 'translate(-50%,-50%)', background: '#FF6B9D', opacity: (i + 1) / trailDots.length * 0.45 }} />
       ))}
 
       {/* ══ BALL ══ */}
-      <div className="absolute pointer-events-none z-20"
-        style={{ left: `${ballPos.x}%`, top: `${ballPos.y}%`, transform: 'translate(-50%,-50%)', width: 22, height: 22, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%, #FF9EC8, #FF3E80)', border: '2px solid #CC1A55', boxShadow: '2px 2px 0 rgba(0,0,0,0.25), inset 1px 1px 3px rgba(255,255,255,0.5)' }} />
+      {!isSleeping && (
+        <div className="absolute pointer-events-none z-20"
+          style={{ left: `${ballPos.x}%`, top: `${ballPos.y}%`, transform: 'translate(-50%,-50%)', width: 22, height: 22, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%, #FF9EC8, #FF3E80)', border: '2px solid #CC1A55', boxShadow: '2px 2px 0 rgba(0,0,0,0.25), inset 1px 1px 3px rgba(255,255,255,0.5)' }} />
+      )}
 
       {/* ══ UI ══ */}
       {/* Leaderboard button — opens the household high-scores modal.
@@ -234,7 +240,7 @@ export default function PlayScene({ onClose }: Props) {
           )}
         </div>
 
-        <button onClick={() => { playSound('ui_tap'); handleDone() }} disabled={throwCount < 1 || done || saving}
+        <button onClick={() => { playSound('ui_tap'); handleDone() }} disabled={throwCount < 1 || done || saving || isSleeping}
           className="w-full max-w-xs py-3 text-white transition-all active:translate-y-[2px] disabled:opacity-40"
           style={done
             ? { background: '#4ade80', borderRadius: 3, border: '2px solid #16a34a', boxShadow: '0 3px 0 #15803d', fontFamily: '"Press Start 2P"', fontSize: 8 }

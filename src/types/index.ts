@@ -80,6 +80,7 @@ export interface ErenStats {
   mood: ErenMood
   updated_at: string
   last_decay_at?: string | null
+  is_sleeping: boolean
 }
 
 export interface Interaction {

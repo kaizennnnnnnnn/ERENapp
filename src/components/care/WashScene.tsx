@@ -43,6 +43,7 @@ export default function WashScene({ onClose }: Props) {
 
   const cleanliness = stats?.cleanliness ?? 100
   const isDark = useIsDark()
+  const isSleeping = stats?.is_sleeping ?? false
 
   // Apply initial positions to DOM
   useEffect(() => {
@@ -61,7 +62,7 @@ export default function WashScene({ onClose }: Props) {
 
   // ── Soap pointer handlers ─────────────────────────────────────────────────
   function onSoapDown(e: React.PointerEvent) {
-    if (doneRef.current) return
+    if (doneRef.current || isSleeping) return
     e.currentTarget.setPointerCapture(e.pointerId)
     dragSoapRef.current = true
     setDragSoap(true)
@@ -121,7 +122,7 @@ export default function WashScene({ onClose }: Props) {
   }
 
   function onShowerDown(e: React.PointerEvent) {
-    if (doneRef.current || coverageRef.current < 80) return
+    if (doneRef.current || isSleeping || coverageRef.current < 80) return
     e.currentTarget.setPointerCapture(e.pointerId)
     dragShowerRef.current = true
     setDragShower(true)
@@ -207,10 +208,13 @@ export default function WashScene({ onClose }: Props) {
       </div>
 
       {/* ══ PIXEL EREN ════════════════════════════════════════════════════ */}
-      <div className={cn('absolute transition-all duration-500', done ? 'bottom-[12%]' : 'bottom-[10%]')}
-        style={{ left: '50%', transform: 'translateX(-50%)' }}>
-        <BlinkingEren size={200} />
-      </div>
+      {/* Hidden while sleeping in the bedroom. */}
+      {!isSleeping && (
+        <div className={cn('absolute transition-all duration-500', done ? 'bottom-[12%]' : 'bottom-[10%]')}
+          style={{ left: '50%', transform: 'translateX(-50%)' }}>
+          <BlinkingEren size={200} />
+        </div>
+      )}
 
       {/* ══ SOAP SUDS ═════════════════════════════════════════════════════ */}
       <div className="absolute inset-0 pointer-events-none z-20">
@@ -223,7 +227,7 @@ export default function WashScene({ onClose }: Props) {
       {/* ══ SHOWER HEAD ═══════════════════════════════════════════════════ */}
       <div
         ref={showerRef}
-        className={cn('absolute z-30', showShower ? 'opacity-100' : 'opacity-0 pointer-events-none', dragShower ? 'cursor-grabbing' : 'cursor-grab')}
+        className={cn('absolute z-30', (isSleeping || !showShower) ? 'opacity-0 pointer-events-none' : 'opacity-100', dragShower ? 'cursor-grabbing' : 'cursor-grab')}
         style={{ left: '75%', top: '30%', transform: 'translate(-50%, -50%)', touchAction: 'none' }}
         onPointerDown={onShowerDown}
         onPointerMove={onPointerMove}
@@ -260,7 +264,7 @@ export default function WashScene({ onClose }: Props) {
       {/* ══ SOAP BAR ══════════════════════════════════════════════════════ */}
       <div
         ref={soapRef}
-        className={cn('absolute z-30', dragSoap ? 'cursor-grabbing scale-110' : 'cursor-grab', done && 'opacity-30 pointer-events-none')}
+        className={cn('absolute z-30', dragSoap ? 'cursor-grabbing scale-110' : 'cursor-grab', (done || isSleeping) && 'opacity-0 pointer-events-none')}
         style={{ left: '12%', top: '62%', transform: 'translate(-50%,-50%)', touchAction: 'none' }}
         onPointerDown={onSoapDown}
         onPointerMove={onPointerMove}

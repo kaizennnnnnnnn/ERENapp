@@ -352,33 +352,37 @@ export default function HomePage() {
           </div>
         ))}
 
-        {/* === EREN === */}
-        <div className="absolute" style={{
-          bottom: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 2,
-          filter: mood === 'angry' ? 'hue-rotate(340deg) saturate(1.3)' : mood === 'sleepy' ? 'brightness(0.85)' : 'none',
-        }}>
-          <BlinkingEren id="eren-img" size={200} />
-
-          {/* Outfit overlays — % positions are relative to the parent
-              absolute div, which is sized by BlinkingEren (200×200). */}
-          {equippedOutfits.map(item => item?.pos && item.slot && (
-            <div key={item.id} className="absolute pointer-events-none" style={{
-              top: `${item.pos.top}%`, left: `${item.pos.left}%`,
-              transform: 'translate(-50%, -50%)',
-              fontSize: item.pos.size, lineHeight: 1,
-              zIndex: item.slot === 'hat' ? 10 : item.slot === 'eyes' ? 9 : 8,
-              filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
+        {/* === EREN === (hidden while sleeping in the bedroom) */}
+        {!stats.is_sleeping && (
+          <>
+            <div className="absolute" style={{
+              bottom: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 2,
+              filter: mood === 'angry' ? 'hue-rotate(340deg) saturate(1.3)' : mood === 'sleepy' ? 'brightness(0.85)' : 'none',
             }}>
-              {item.icon}
-            </div>
-          ))}
-        </div>
+              <BlinkingEren id="eren-img" size={200} />
 
-        {/* Speech bubble */}
-        <div className="absolute" style={{ bottom: '32%', left: '55%', zIndex: 3, background: 'white', borderRadius: 4, border: '2px solid #F0D8FF', boxShadow: '2px 2px 0 #E0CCFF', padding: '4px 10px', whiteSpace: 'nowrap' }}>
-          <p className="text-xs text-gray-600 font-medium">{MOOD_GREETINGS[mood] ?? MOOD_GREETINGS.idle}</p>
-          <div className="absolute" style={{ bottom: -6, left: 10, width: 8, height: 6, background: 'white', clipPath: 'polygon(0% 0%, 100% 0%, 50% 100%)' }} />
-        </div>
+              {/* Outfit overlays — % positions are relative to the parent
+                  absolute div, which is sized by BlinkingEren (200×200). */}
+              {equippedOutfits.map(item => item?.pos && item.slot && (
+                <div key={item.id} className="absolute pointer-events-none" style={{
+                  top: `${item.pos.top}%`, left: `${item.pos.left}%`,
+                  transform: 'translate(-50%, -50%)',
+                  fontSize: item.pos.size, lineHeight: 1,
+                  zIndex: item.slot === 'hat' ? 10 : item.slot === 'eyes' ? 9 : 8,
+                  filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
+                }}>
+                  {item.icon}
+                </div>
+              ))}
+            </div>
+
+            {/* Speech bubble */}
+            <div className="absolute" style={{ bottom: '32%', left: '55%', zIndex: 3, background: 'white', borderRadius: 4, border: '2px solid #F0D8FF', boxShadow: '2px 2px 0 #E0CCFF', padding: '4px 10px', whiteSpace: 'nowrap' }}>
+              <p className="text-xs text-gray-600 font-medium">{MOOD_GREETINGS[mood] ?? MOOD_GREETINGS.idle}</p>
+              <div className="absolute" style={{ bottom: -6, left: 10, width: 8, height: 6, background: 'white', clipPath: 'polygon(0% 0%, 100% 0%, 50% 100%)' }} />
+            </div>
+          </>
+        )}
 
         {/* ══ HUD OVERLAY (below shared stats header) ══ */}
         <div className="absolute left-0 right-0 z-10 px-3" style={{ top: 'calc(var(--safe-top) + 124px)' }}>

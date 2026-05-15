@@ -24,6 +24,7 @@ export default function VetScene({ onClose }: Props) {
   const [toast,     setToast]     = useState<string | null>(null)
   const isDark = useIsDark()
 
+  const isSleeping   = stats?.is_sleeping ?? false
   const isSick       = stats?.is_sick ?? false
   const cleanliness  = stats?.cleanliness ?? 100
   const sleepQuality = stats?.sleep_quality ?? 100
@@ -40,7 +41,7 @@ export default function VetScene({ onClose }: Props) {
   const healthy = issues.length === 0
 
   async function doCheckup() {
-    if (checking || checkDone) return
+    if (checking || checkDone || isSleeping) return
     setChecking(true)
     await new Promise(r => setTimeout(r, 1200))
     setChecking(false)
@@ -48,7 +49,7 @@ export default function VetScene({ onClose }: Props) {
   }
 
   async function giveMedicine() {
-    if (!user?.id || giving || medGiven) return
+    if (!user?.id || giving || medGiven || isSleeping) return
     setGiving(true)
     await new Promise(r => setTimeout(r, 800))
     const result = await applyAction(user.id, 'medicine')
@@ -65,11 +66,13 @@ export default function VetScene({ onClose }: Props) {
       {/* ══ BACKGROUND IMAGE ══ */}
       <div className="absolute inset-0" style={{ backgroundImage: `url(${isDark ? '/wetDark.png' : '/vetBACK.png'})`, backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
-      {/* ══ EREN ══ */}
-      <div className={cn('absolute z-10 transition-all duration-500', checkDone ? 'bottom-[6%]' : 'bottom-[4%]')}
-        style={{ left: '50%', transform: 'translateX(-50%)' }}>
-        <BlinkingEren size={200} />
-      </div>
+      {/* ══ EREN ══ (hidden while sleeping in the bedroom) */}
+      {!isSleeping && (
+        <div className={cn('absolute z-10 transition-all duration-500', checkDone ? 'bottom-[6%]' : 'bottom-[4%]')}
+          style={{ left: '50%', transform: 'translateX(-50%)' }}>
+          <BlinkingEren size={200} />
+        </div>
+      )}
 
       {/* ══ STETHOSCOPE ANIM when checking ══ */}
       {checking && (
@@ -118,7 +121,7 @@ export default function VetScene({ onClose }: Props) {
 
         {/* Buttons */}
         {!checkDone ? (
-          <button onClick={() => { playSound('ui_tap'); doCheckup() }} disabled={checking}
+          <button onClick={() => { playSound('ui_tap'); doCheckup() }} disabled={checking || isSleeping}
             className="w-full max-w-xs py-3 text-white transition-all active:translate-y-[2px] disabled:opacity-50"
             style={checking
               ? { background: '#388E3C', borderRadius: 3, border: '2px solid #2E7D32', fontFamily: '"Press Start 2P"', fontSize: 8 }
@@ -127,7 +130,7 @@ export default function VetScene({ onClose }: Props) {
             {checking ? 'EXAMINING...' : 'CHECK UP'}
           </button>
         ) : !healthy && !medGiven ? (
-          <button onClick={() => { playSound('ui_tap'); giveMedicine() }} disabled={giving}
+          <button onClick={() => { playSound('ui_tap'); giveMedicine() }} disabled={giving || isSleeping}
             className="w-full max-w-xs py-3 text-white transition-all active:translate-y-[2px] disabled:opacity-50"
             style={giving
               ? { background: '#7B1FA2', borderRadius: 3, border: '2px solid #6A1B9A', fontFamily: '"Press Start 2P"', fontSize: 8 }

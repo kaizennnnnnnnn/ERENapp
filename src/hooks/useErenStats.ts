@@ -201,13 +201,22 @@ export function useErenStats(householdId: string | null) {
     const newCl = clampStat((base.cleanliness ?? 100) + (cfg.deltas.cleanliness ?? 0))
     const newSick = action === 'medicine' ? false : shouldBecomeSick({ cleanliness: newCl, sleep_quality: newS, weight: newW })
     const newMood = computeErenMood({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, cleanliness: newCl })
-    setStats(prev => prev ? { ...prev, happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, weight: newW, cleanliness: newCl, is_sick: newSick, mood: newMood } : prev)
+    const sleepingFlag = action === 'sleep' ? true : base.is_sleeping
+    setStats(prev => prev ? { ...prev, happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, weight: newW, cleanliness: newCl, is_sick: newSick, mood: newMood, is_sleeping: sleepingFlag } : prev)
     const [su] = await Promise.all([
-      supabase.from('eren_stats').update({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, weight: newW, cleanliness: newCl, is_sick: newSick, mood: newMood, last_decay_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('household_id', householdId),
+      supabase.from('eren_stats').update({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, weight: newW, cleanliness: newCl, is_sick: newSick, mood: newMood, is_sleeping: sleepingFlag, last_decay_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('household_id', householdId),
       supabase.from('interactions').insert({ household_id: householdId, user_id: userId, action_type: action, happiness_delta: cfg.deltas.happiness ?? 0, hunger_delta: cfg.deltas.hunger ?? 0, energy_delta: cfg.deltas.energy ?? 0, sleep_delta: cfg.deltas.sleep_quality ?? 0, weight_delta: cfg.deltas.weight ?? 0 }),
     ])
     if (su.error) { await fetchStats(); return { success: false, message: su.error.message } }
     return { success: true, message: `${cfg.emoji} ${cfg.label} done!` }
+  }, [stats, householdId, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const wakeUp = useCallback(async (): Promise<{ success: boolean; message: string }> => {
+    if (!stats || !householdId) return { success: false, message: 'No stats loaded' }
+    setStats(prev => prev ? { ...prev, is_sleeping: false } : prev)
+    const { error } = await supabase.from('eren_stats').update({ is_sleeping: false, updated_at: new Date().toISOString() }).eq('household_id', householdId)
+    if (error) { await fetchStats(); return { success: false, message: error.message } }
+    return { success: true, message: 'Eren is awake!' }
   }, [stats, householdId, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const feedWithFood = useCallback(async (userId: string, hungerD: number, happyD: number, weightD: number): Promise<{ success: boolean; message: string }> => {
@@ -255,5 +264,5 @@ export function useErenStats(householdId: string | null) {
     await supabase.from('eren_stats').update({ food_inventory: inv }).eq('household_id', householdId)
   }, [householdId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { stats, loading, error, applyAction, feedWithFood, spendCoins, addCoins, saveFoodInventory, refetch: fetchStats }
+  return { stats, loading, error, applyAction, feedWithFood, spendCoins, addCoins, saveFoodInventory, wakeUp, refetch: fetchStats }
 }
