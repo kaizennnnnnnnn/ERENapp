@@ -596,11 +596,14 @@ export default function GamesPage() {
         zIndex: 1,
       }} />
 
-      {/* ── Glass header ── */}
-      <div className="relative z-20 flex items-center gap-2 mb-2 px-2 py-2.5 -mx-2" style={{
-        background: 'linear-gradient(180deg, rgba(20,8,40,0.85) 0%, rgba(20,8,40,0.55) 100%)',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
+      {/* ── Glass header ── (sticky: pinned to the top of the scroll while
+          the cards scroll past underneath) */}
+      <div className="z-20 flex items-center gap-2 mb-2 px-2 py-2.5 -mx-2" style={{
+        position: 'sticky',
+        top: 'var(--safe-top, 0px)',
+        background: 'linear-gradient(180deg, rgba(20,8,40,0.92) 0%, rgba(20,8,40,0.75) 100%)',
+        backdropFilter: 'blur(14px)',
+        WebkitBackdropFilter: 'blur(14px)',
         borderRadius: 8,
         border: '1px solid rgba(251,191,36,0.4)',
         boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
