@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
-import { useErenStats } from '@/hooks/useErenStats'
+import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import { IconController, IconStar, IconCrown } from '@/components/PixelIcons'
@@ -56,9 +56,8 @@ export default function PlayScene({ onClose }: Props) {
     animRef.current = requestAnimationFrame(step)
   }, [])
 
-  // Default to true while stats load — keeps Eren hidden until the fetch
-  // confirms he's awake, otherwise he flashes for ~200 ms on every swipe.
-  const isSleeping = stats?.is_sleeping ?? true
+  // Cache fallback so Eren renders synchronously with the right state.
+  const isSleeping = stats?.is_sleeping ?? getCachedIsSleeping() ?? true
 
   function handleThrow(e: React.MouseEvent<HTMLDivElement>) {
     if (done || isSleeping) return

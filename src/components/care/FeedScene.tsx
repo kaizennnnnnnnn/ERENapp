@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { ShoppingCart, Package } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
-import { useErenStats } from '@/hooks/useErenStats'
+import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import type { FoodInventory } from '@/types'
@@ -92,9 +92,11 @@ export default function FeedScene({ onClose }: Props) {
   const inventory: FoodInventory = stats?.food_inventory ?? {}
   const fridgeItems = SHOP_ITEMS.filter(i => (inventory[i.id] ?? 0) > 0)
   const mood = eatAnim ? 'happy' : (stats?.hunger ?? 100) < 40 ? 'hungry' : 'idle'
-  // Default to true while stats are still loading so Eren doesn't flash
-  // visible for a split second before the fetch returns `is_sleeping: true`.
-  const isSleeping = stats?.is_sleeping ?? true
+  // Fall back to the module-level cache (set by any prior useErenStats
+  // fetch this tab session) so Eren doesn't flash visible-then-hidden,
+  // and doesn't pop in after waking up either. Only when nothing has
+  // been fetched yet do we conservatively default to sleeping.
+  const isSleeping = stats?.is_sleeping ?? getCachedIsSleeping() ?? true
 
   function showToast(msg: string, ok = true) {
     setToast({ msg, ok })

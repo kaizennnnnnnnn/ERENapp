@@ -87,6 +87,14 @@ function startDecayScheduler() {
 
 let _channelCounter = 0
 
+// Cached across scene swipes: every new scene mounts a fresh useErenStats
+// instance and refetches, leaving `stats` null for ~200 ms. Scenes read this
+// cache synchronously on mount so Eren doesn't flash or pop in. Kept in
+// module scope (persists for the tab session); refreshed whenever any hook
+// instance receives a stats update.
+let _cachedIsSleeping: boolean | null = null
+export function getCachedIsSleeping(): boolean | null { return _cachedIsSleeping }
+
 export function useErenStats(householdId: string | null) {
   const supabase = createClient()
   const channelSuffix = useRef(`${++_channelCounter}`)
@@ -162,6 +170,13 @@ export function useErenStats(householdId: string | null) {
   }, [householdId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchStats() }, [fetchStats])
+
+  // Keep the shared sleeping cache in sync with this hook's stats.
+  useEffect(() => {
+    if (stats?.is_sleeping !== undefined && stats.is_sleeping !== null) {
+      _cachedIsSleeping = stats.is_sleeping
+    }
+  }, [stats?.is_sleeping])
 
   // Periodic decay tick while the tab is open + on visibility + server ping.
   useEffect(() => {

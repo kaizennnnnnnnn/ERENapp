@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { useErenStats } from '@/hooks/useErenStats'
+import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
@@ -24,9 +24,8 @@ export default function VetScene({ onClose }: Props) {
   const [toast,     setToast]     = useState<string | null>(null)
   const isDark = useIsDark()
 
-  // Default to true while stats load — keeps Eren hidden until the fetch
-  // confirms he's awake, otherwise he flashes for ~200 ms on every swipe.
-  const isSleeping   = stats?.is_sleeping ?? true
+  // Cache fallback so Eren renders synchronously with the right state.
+  const isSleeping   = stats?.is_sleeping ?? getCachedIsSleeping() ?? true
   const isSick       = stats?.is_sick ?? false
   const cleanliness  = stats?.cleanliness ?? 100
   const sleepQuality = stats?.sleep_quality ?? 100
