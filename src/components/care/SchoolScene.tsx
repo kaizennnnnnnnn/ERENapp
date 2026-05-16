@@ -980,100 +980,173 @@ function V4Path({ section, progress, isUnlocked, nextUpId, onLessonTap, onClose 
       }}>
         {units.map((unit, ui) => {
           const lessons = unit.lessonIds.map(id => getLessonById(id)!).filter(Boolean)
+          const unitDone = lessons.filter(l => progress.completed.includes(l.id)).length
           return (
-            <div key={unit.id} style={{ marginBottom: 26 }}>
+            <div key={unit.id} style={{ marginBottom: 24 }}>
+              {/* Unit headline — typewriter caption + handwritten X/Y */}
               <div style={{
-                fontFamily: HAND_FONT, fontWeight: 700, fontSize: 22, color: INK,
-                display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap',
+                display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8,
               }}>
-                <span style={{ fontFamily: TYPE_FONT, fontSize: 11, color: INK_SOFT, letterSpacing: 2 }}>
-                  {String(ui + 1).padStart(2, '0')}.
-                </span>
-                <span>{unit.title}</span>
-                <span style={{
-                  fontFamily: HAND_FONT, fontSize: 16, color: PEN_RED,
+                <div style={{
+                  fontFamily: TYPE_FONT, fontSize: 11, letterSpacing: 2, color: INK_SOFT,
+                }}>
+                  UNIT {ui + 1} — {unit.title.toUpperCase()}
+                </div>
+                <div style={{
+                  fontFamily: HAND_FONT, fontSize: 18, color: PEN_RED,
                   transform: 'rotate(-2deg)', display: 'inline-block',
-                }}>— {unit.titleSr}</span>
+                }}>
+                  {unitDone}/{lessons.length}
+                </div>
               </div>
               <div style={{
-                height: 2, background: INK_SOFT, opacity: 0.25,
-                marginTop: 4, marginBottom: 14,
+                height: 2, background: INK,
+                marginTop: 4, marginBottom: 10,
+                width: '60%',
               }} />
 
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              {/* Numbered checkbox list */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {lessons.map((l, li) => {
                   const completed = progress.completed.includes(l.id)
                   const perfect = progress.perfect.includes(l.id)
                   const unlocked = isUnlocked(l.id)
                   const isNextUp = l.id === nextUpId
-                  const offset = li % 2 === 0 ? -30 : 30
-                  return (
-                    <div key={l.id} style={{
-                      position: 'relative', display: 'flex',
-                      flexDirection: 'column', alignItems: 'center',
-                      marginLeft: offset,
-                    }}>
-                      {li > 0 && (
-                        <svg width="40" height="22" viewBox="0 0 40 22" style={{ marginBottom: 2 }}>
-                          <path d="M 20 0 C 14 8, 26 14, 20 22"
-                            stroke={completed ? PEN_RED : PENCIL}
-                            strokeWidth="2"
-                            strokeDasharray={completed ? '0' : '3 4'}
-                            fill="none"
-                            strokeLinecap="round" />
-                        </svg>
-                      )}
 
-                      <button
-                        onClick={() => { if (unlocked) { playSound('ui_tap'); onLessonTap(l) } }}
-                        disabled={!unlocked}
-                        className="active:scale-95 transition-transform"
-                        style={{
-                          width: 64, height: 64,
-                          background: completed ? PEN_RED : unlocked ? PAPER : PAPER_DK,
-                          border: `2.5px solid ${unlocked ? INK : PENCIL}`,
-                          borderRadius: '50%',
-                          color: completed ? PAPER : INK,
-                          boxShadow: unlocked
-                            ? `0 4px 0 ${INK}, 0 0 0 ${isNextUp ? '4px' : '0px'} rgba(178,34,34,0.25)`
-                            : `0 3px 0 ${PENCIL}`,
-                          cursor: unlocked ? 'pointer' : 'default',
-                          fontFamily: HAND_FONT, fontWeight: 700, fontSize: 26,
-                          position: 'relative',
-                          animation: isNextUp ? 'srNextUpBob 1.8s ease-in-out infinite' : 'none',
-                          opacity: unlocked ? 1 : 0.6,
-                          padding: 0,
-                        }}>
-                        {unlocked
-                          ? completed
-                            ? (perfect ? '★' : '✓')
-                            : l.id
-                          : '🔒'}
-                        {perfect && !completed && (
-                          <span style={{
-                            position: 'absolute', top: -10, right: -10,
-                            fontFamily: HAND_FONT, fontSize: 22, color: PEN_RED,
-                            transform: 'rotate(-12deg)',
-                          }}>★</span>
-                        )}
-                      </button>
-                      <div style={{
-                        fontFamily: HAND_FONT, fontSize: isNextUp ? 20 : 18,
-                        color: isNextUp ? PEN_RED : unlocked ? INK : PENCIL,
-                        marginTop: 4,
-                        textAlign: 'center', lineHeight: 1.1,
-                        maxWidth: 160,
-                        transform: isNextUp ? 'rotate(-1deg)' : 'none',
+                  const numberColor = unlocked ? INK : PENCIL
+                  const titleColor = unlocked ? INK : PENCIL
+                  const subtitleColor = unlocked ? PEN_RED : PENCIL
+                  const boxStroke = unlocked ? INK : PENCIL
+
+                  return (
+                    <button
+                      key={l.id}
+                      onClick={() => { if (unlocked) { playSound('ui_tap'); onLessonTap(l) } }}
+                      disabled={!unlocked}
+                      className="relative active:translate-x-[1px] transition-transform text-left"
+                      style={{
+                        background: 'transparent',
+                        border: 'none', padding: '6px 0 6px',
+                        cursor: unlocked ? 'pointer' : 'default',
+                        opacity: unlocked ? 1 : 0.7,
                       }}>
-                        {l.title}
+                      <div style={{
+                        display: 'flex', alignItems: 'flex-start', gap: 10,
+                        position: 'relative',
+                      }}>
+                        {/* Number */}
+                        <span style={{
+                          fontFamily: HAND_FONT, fontWeight: 700, fontSize: 22,
+                          color: numberColor,
+                          minWidth: 22, lineHeight: 1.1,
+                        }}>
+                          {li + 1}.
+                        </span>
+
+                        {/* Hand-drawn checkbox (SVG so we can sketch it) */}
+                        <span style={{
+                          position: 'relative', width: 26, height: 26,
+                          flexShrink: 0, marginTop: 2,
+                        }}>
+                          <svg width="26" height="26" viewBox="0 0 26 26" style={{ overflow: 'visible' }}>
+                            <path
+                              d="M 2.5 3 L 23.5 2.5 L 24 23 L 2 23.5 Z"
+                              fill="none"
+                              stroke={boxStroke}
+                              strokeWidth={unlocked ? 2 : 1.5}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeDasharray={unlocked ? '0' : '3 3'}
+                            />
+                            {completed && (
+                              <path
+                                d="M 5 13 L 11 19 L 22 5"
+                                fill="none"
+                                stroke={PEN_RED}
+                                strokeWidth="2.6"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            )}
+                          </svg>
+                        </span>
+
+                        {/* Titles stack */}
+                        <span style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{
+                            fontFamily: HAND_FONT, fontWeight: 700, fontSize: 24,
+                            color: titleColor,
+                            lineHeight: 1.05,
+                            display: 'inline-block',
+                            position: 'relative',
+                          }}>
+                            {l.title.toLowerCase()}
+                            {completed && (
+                              <span style={{
+                                position: 'absolute',
+                                left: -2, right: -2,
+                                top: '52%',
+                                height: 2,
+                                background: PEN_RED,
+                                transform: 'rotate(-1deg)',
+                                pointerEvents: 'none',
+                              }} />
+                            )}
+                          </span>
+                          {perfect && (
+                            <span style={{
+                              fontFamily: HAND_FONT, fontSize: 20, color: PEN_RED,
+                              marginLeft: 6, transform: 'rotate(-8deg)',
+                              display: 'inline-block', lineHeight: 1,
+                            }}>★</span>
+                          )}
+                          <span style={{
+                            display: 'block',
+                            fontFamily: HAND_FONT, fontSize: 16,
+                            color: subtitleColor,
+                            marginTop: -2,
+                            lineHeight: 1.1,
+                            opacity: unlocked ? 1 : 0.75,
+                          }}>
+                            = {l.titleSr.toLowerCase()}
+                          </span>
+                        </span>
+
+                        {/* Next-up: hand-drawn red oval encircling row + Eren peeking */}
+                        {isNextUp && (
+                          <>
+                            <svg
+                              width="100%" height="100%"
+                              viewBox="0 0 320 70"
+                              preserveAspectRatio="none"
+                              style={{
+                                position: 'absolute',
+                                left: -10, top: -8, right: -10, bottom: -8,
+                                width: 'calc(100% + 20px)', height: 'calc(100% + 16px)',
+                                pointerEvents: 'none',
+                                animation: 'srNextUpBob 1.8s ease-in-out infinite',
+                              }}>
+                              <path
+                                d="M 30 12 C 60 4, 240 2, 295 14 C 312 26, 308 56, 270 60 C 200 70, 90 68, 30 58 C 8 52, 6 22, 30 12 Z"
+                                fill="none"
+                                stroke={PEN_RED}
+                                strokeWidth="2.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                            <span style={{
+                              position: 'absolute',
+                              right: -52, top: -4,
+                              filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.25))',
+                              pointerEvents: 'none',
+                            }}>
+                              <AnimatedEren px={2} />
+                            </span>
+                          </>
+                        )}
                       </div>
-                      {isNextUp && (
-                        <div style={{
-                          fontFamily: HAND_FONT, fontSize: 16, color: PEN_RED,
-                          transform: 'rotate(-3deg)', marginTop: 2,
-                        }}>← počni ovdje!</div>
-                      )}
-                    </div>
+                    </button>
                   )
                 })}
               </div>
