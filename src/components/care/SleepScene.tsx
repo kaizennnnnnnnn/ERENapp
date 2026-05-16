@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { useErenStats } from '@/hooks/useErenStats'
+import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
@@ -20,7 +20,10 @@ export default function SleepScene({ onClose }: Props) {
   const [waking,  setWaking]  = useState(false)
   const [toast,   setToast]   = useState<string | null>(null)
 
-  const tuckedIn  = stats?.is_sleeping ?? false
+  // Fall back to the module-level cache so the button reads WAKE UP
+  // immediately on swipe-in; otherwise it flashes TUCK IN for ~200 ms
+  // while useErenStats refetches.
+  const tuckedIn  = stats?.is_sleeping ?? getCachedIsSleeping() ?? false
   const sleepVal  = stats?.sleep_quality ?? 100
   const isSleepy  = sleepVal < 50
   const busy      = tucking || waking
