@@ -1,22 +1,73 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronLeft, X, Heart, Volume2, Flame, Zap } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ChevronLeft, Volume2, Flame } from 'lucide-react'
 import {
-  SERBIAN_UNITS, SERBIAN_SECTIONS, ORDERED_LESSON_IDS,
+  SERBIAN_SECTIONS, ORDERED_LESSON_IDS,
   buildExercises, buildReviewExercises, getLessonById, getUnitById, getStrugglingWords,
-  type Lesson, type Exercise, type Unit, type Section, type WordStats, type WordStat,
+  type Lesson, type Exercise, type Section, type WordStats, type WordStat,
 } from '@/lib/serbianCourse'
 import { useAuth } from '@/hooks/useAuth'
 import { useTasks } from '@/contexts/TaskContext'
 import { playSound } from '@/lib/sounds'
-import { IconCrown, IconStar, IconBook, IconPaw, IconPerson, IconHouse, IconClock, IconTicket } from '@/components/PixelIcons'
+import { IconStar } from '@/components/PixelIcons'
 import AnimatedEren from '@/components/AnimatedEren'
 
 interface Props { onClose: () => void }
 
 const HEARTS_MAX = 5
 const XP_PER_LESSON = 10
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PAPER & KRAFT DESIGN TOKENS — the Serbian section uses a stationery
+// aesthetic. Each section is a kraft pocket notebook; lessons are pages of
+// lined paper; exercises are handwritten translations on a working sheet.
+// ═══════════════════════════════════════════════════════════════════════════
+const PAPER       = '#f6efdc'
+const PAPER_DK    = '#e8dcb0'
+const PAPER_LINES = 'rgba(127,163,197,0.30)'
+const INK         = '#1f160a'
+const INK_SOFT    = '#6a5a44'
+const PEN_RED     = '#b22222'
+const PEN_RED_DK  = '#7a1014'
+const PENCIL      = '#9a8a72'
+const KRAFT_HI    = '#d4b483'
+const KRAFT_MD    = '#b8945c'
+const KRAFT_LO    = '#8a6a3d'
+
+const HAND_FONT  = '"Caveat", "Comic Sans MS", cursive'
+const TYPE_FONT  = '"Special Elite", "Courier New", monospace'
+const STAMP_FONT = '"Oswald", "Arial Narrow", sans-serif'
+const SERIF_FONT = '"Cormorant Garamond", "Georgia", serif'
+
+// Worn edge — physical paper feel for kraft covers / pages.
+function PhysicalEdges({ pageColor = '#f4ead2' }: { pageColor?: string }) {
+  return (
+    <>
+      <div style={{
+        position: 'absolute', left: 0, top: 0, bottom: 0, width: 22,
+        background: 'linear-gradient(90deg, rgba(60,30,10,0.55) 0%, transparent 100%)',
+        pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute', left: 4, right: 0, bottom: 0, height: 3,
+        background: pageColor, opacity: 0.85,
+        boxShadow: `0 1px 0 rgba(0,0,0,0.25), 0 -1px 0 ${pageColor}`,
+        pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute', right: 0, top: 0, bottom: 0, width: 3,
+        background: pageColor, opacity: 0.6,
+        pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute', left: 0, right: 0, top: 0, height: 2,
+        background: pageColor, opacity: 0.6,
+        pointerEvents: 'none',
+      }} />
+    </>
+  )
+}
 
 const PROGRESS_KEY = (uid: string) => `eren_serbian_progress_${uid}`
 const STATS_KEY    = (uid: string) => `eren_serbian_stats_${uid}`
@@ -53,21 +104,10 @@ function ensureVoicesLoaded() {
   window.speechSynthesis.addEventListener('voiceschanged', () => { _voicesLoaded = true; _bestVoice = undefined }, { once: true })
 }
 
-// Score voices to pick the clearest-sounding one available. Croatian voices
-// (hr-HR) are generally the cleanest default option across platforms — on
-// iOS, "Lana" / "Sara" ship out of the box and sound dramatically better
-// than the default Serbian "Milena Compact" (which is a low-bitrate
-// download). Croatian and Serbian (Latin script) pronunciation is nearly
-// identical for everyday vocabulary, so this is a quality upgrade with no
-// linguistic cost. We still allow Serbian / Bosnian voices and pick the
-// best one if it's higher quality than what Croatian offers.
 function scoreVoice(v: SpeechSynthesisVoice): number {
   const name = v.name.toLowerCase()
   const lang = v.lang.toLowerCase()
   let s = 0
-
-  // Quality boosts — neural / cloud voices always outclass the local
-  // robotic ones.
   if (!v.localService) s += 100
   if (name.includes('natural')) s += 80
   if (name.includes('neural'))  s += 80
@@ -79,25 +119,15 @@ function scoreVoice(v: SpeechSynthesisVoice): number {
   if (name.includes('multilingual')) s += 30
   if (name.includes('google'))     s += 20
   if (name.includes('microsoft'))  s += 20
-
-  // Quality penalties — these explicitly mark low-bitrate / fallback
-  // voices that sound robotic. iOS "Milena Compact" is the worst
-  // offender.
   if (name.includes('compact')) s -= 60
   if (name.includes('lite'))    s -= 50
   if (/\blow\b/.test(name))     s -= 30
   if (name.includes('eloquence')) s -= 40
-
-  // Specific known-good voices by name (across platforms).
   if (/(lana|sara|sonia|branka|marina|nataša|jelena|milena)/i.test(name)) s += 15
-
-  // Language preference: Croatian first (best default voice availability),
-  // then Serbian, then Bosnian. Slovenian as last-resort Slavic neighbor.
   if (lang.startsWith('hr')) s += 30
   else if (lang.startsWith('sr')) s += 20
   else if (lang.startsWith('bs')) s += 15
   else if (lang.startsWith('sl')) s += 5
-
   return s
 }
 
@@ -105,15 +135,12 @@ function pickBestVoice(): SpeechSynthesisVoice | null {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null
   if (_bestVoice !== undefined) return _bestVoice
   const all = window.speechSynthesis.getVoices()
-  if (all.length === 0) return null   // not loaded yet — try again next call
+  if (all.length === 0) return null
   const candidates = all.filter(v => {
     const lang = v.lang.toLowerCase()
     return lang.startsWith('sr') || lang.startsWith('hr') || lang.startsWith('bs') || lang.startsWith('sl')
   })
-  if (candidates.length === 0) {
-    _bestVoice = null
-    return null
-  }
+  if (candidates.length === 0) { _bestVoice = null; return null }
   candidates.sort((a, b) => scoreVoice(b) - scoreVoice(a))
   _bestVoice = candidates[0]
   return _bestVoice
@@ -126,17 +153,7 @@ export function speakSerbian(text: string) {
     window.speechSynthesis.cancel()
     const u = new SpeechSynthesisUtterance(text)
     const v = pickBestVoice()
-    // Match the utterance lang to the picked voice — declaring sr-RS while
-    // assigning a Croatian voice can cause some browsers (notably iOS
-    // Safari) to ignore the voice override and fall back to a default.
-    if (v) {
-      u.voice = v
-      u.lang = v.lang
-    } else {
-      u.lang = 'hr-HR'   // best-availability fallback
-    }
-    // 0.88 reads noticeably clearer than 0.92 — gives the synthesizer a
-    // beat per syllable, important for learners trying to mimic.
+    if (v) { u.voice = v; u.lang = v.lang } else { u.lang = 'hr-HR' }
     u.rate = 0.88
     u.pitch = 1.05
     u.volume = 1.0
@@ -144,19 +161,20 @@ export function speakSerbian(text: string) {
   } catch { /* ignore */ }
 }
 
+// Paper-friendly speaker pip — a small inked circle.
 function SpeakerButton({ text, size = 30 }: { text: string; size?: number }) {
   return (
     <button onClick={e => { e.stopPropagation(); speakSerbian(text) }}
       className="active:scale-90 transition-transform inline-flex items-center justify-center"
       style={{
         width: size, height: size,
-        background: 'rgba(245,158,11,0.18)',
-        border: '2px solid #F59E0B',
+        background: PAPER,
+        border: `2px solid ${INK}`,
         borderRadius: '50%',
-        boxShadow: '0 2px 0 #B45309',
+        boxShadow: `0 3px 0 ${INK}`,
         flexShrink: 0,
       }}>
-      <Volume2 size={Math.round(size * 0.46)} className="text-amber-700" />
+      <Volume2 size={Math.round(size * 0.46)} style={{ color: INK }} />
     </button>
   )
 }
@@ -209,7 +227,6 @@ export default function SchoolScene({ onClose }: Props) {
   const [lastXp, setLastXp]     = useState(0)
   const [streakIncreased, setStreakIncreased] = useState(false)
 
-  // ─── Load progress + stats ─────────────────────────────────────────────
   useEffect(() => {
     if (!user?.id) return
     try {
@@ -230,14 +247,6 @@ export default function SchoolScene({ onClose }: Props) {
     }
   }
 
-  function saveStats(next: WordStats) {
-    setStats(next)
-    if (user?.id) {
-      try { localStorage.setItem(STATS_KEY(user.id), JSON.stringify(next)) } catch { /* ignore */ }
-    }
-  }
-
-  // Per-word tracker called by the lesson player on each MC answer.
   function trackWord(srKey: string, en: string, lessonId: number, correct: boolean) {
     setStats(prev => {
       const cur = prev[srKey] ?? { sr: srKey, en, lessonId, attempts: 0, correct: 0 }
@@ -272,7 +281,6 @@ export default function SchoolScene({ onClose }: Props) {
     setPhase('map')
   }
 
-  // Apply a streak update for "today", returns the next progress.
   function bumpStreak(prev: SerbianProgress): { next: SerbianProgress; increased: boolean } {
     const today = todayKey()
     const yest = yesterdayKey()
@@ -281,27 +289,17 @@ export default function SchoolScene({ onClose }: Props) {
     const last = prev.lastDate ?? ''
     let streak = prevStreak
     let increased = false
-    if (last === today) {
-      // already counted a lesson today — no change
-    } else if (last === yest) {
-      streak = prevStreak + 1
-      increased = true
-    } else {
-      streak = 1
-      increased = true
-    }
+    if (last === today) { /* already counted */ }
+    else if (last === yest) { streak = prevStreak + 1; increased = true }
+    else { streak = 1; increased = true }
     const longestStreak = Math.max(prevLongest, streak)
-    return {
-      next: { ...prev, streak, longestStreak, lastDate: today },
-      increased,
-    }
+    return { next: { ...prev, streak, longestStreak, lastDate: today }, increased }
   }
 
   function finishSession(perfect: boolean) {
     if (!session) return
 
     if (session.lessonId !== null) {
-      // Real lesson — bump XP, completion, streak.
       const id = session.lessonId
       const earnedXp = perfect ? XP_PER_LESSON + 5 : XP_PER_LESSON
       setLastXp(earnedXp)
@@ -317,7 +315,6 @@ export default function SchoolScene({ onClose }: Props) {
       addCoins(perfect ? 12 : 6)
       completeTask('daily_play')
     } else {
-      // Review session — smaller reward, still bumps streak.
       setLastXp(5)
       const { next, increased } = bumpStreak({ ...progress, totalXp: progress.totalXp + 5 })
       saveProgress(next)
@@ -339,7 +336,6 @@ export default function SchoolScene({ onClose }: Props) {
         onWordResult={(srKey, en, correct) => {
           if (session.lessonId !== null) trackWord(srKey, en, session.lessonId, correct)
           else {
-            // Review: keep tracking but lessonId from existing stat (don't overwrite)
             const cur = stats[srKey]
             if (cur) trackWord(srKey, en, cur.lessonId, correct)
           }
@@ -372,7 +368,9 @@ export default function SchoolScene({ onClose }: Props) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// COURSE MAP — vertical scroll of units, each with a zigzag of lesson nodes
+// COURSE MAP — kraft notebook shelf. Each section is a closed pocket
+// notebook; tap one to fly into a fullscreen view that flips the cover
+// open and reveals its V4 lesson path on lined paper.
 // ═══════════════════════════════════════════════════════════════════════════
 function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onClose }: {
   progress: SerbianProgress
@@ -381,7 +379,8 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
   onPracticeTap: () => void
   onClose: () => void
 }) {
-  // A lesson is unlocked if it's the first one OR the previous (in order) is completed.
+  const [openSectionId, setOpenSectionId] = useState<string | null>(null)
+
   function isUnlocked(lessonId: number): boolean {
     const idx = ORDERED_LESSON_IDS.indexOf(lessonId)
     if (idx <= 0) return true
@@ -389,186 +388,133 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
     return progress.completed.includes(prev)
   }
 
-  // The single "next up" lesson — first id in unlock order that the player
-  // hasn't completed. Gets the hero halo + sparkles + START chevron.
   const nextUpId = ORDERED_LESSON_IDS.find(id => !progress.completed.includes(id))
-
   const totalCompleted = progress.completed.length
   const totalLessons = ORDERED_LESSON_IDS.length
 
+  const openSection = openSectionId
+    ? SERBIAN_SECTIONS.find(s => s.id === openSectionId) ?? null
+    : null
+
   return (
     <div className="fixed inset-0 z-40 flex flex-col overflow-hidden" style={{
-      // Lighter, cleaner sky — pulled the deep purple up to a softer
-      // indigo so the whole page reads less heavy.
-      background: 'radial-gradient(ellipse at top, #4338CA 0%, #1E1B4B 45%, #0F0B2E 100%)',
+      background: `radial-gradient(ellipse at center, ${PAPER_DK} 0%, #aea692 100%)`,
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
     }}>
-      {/* Ambient atmosphere — two large soft colour blobs at opposing
-          corners give the page depth without competing with content. */}
-      <div className="absolute pointer-events-none" style={{
-        top: -80, right: -60, width: 320, height: 320,
-        background: 'radial-gradient(circle, rgba(244,114,182,0.35) 0%, rgba(244,114,182,0) 70%)',
-        filter: 'blur(2px)',
-      }} />
-      <div className="absolute pointer-events-none" style={{
-        bottom: -100, left: -80, width: 360, height: 360,
-        background: 'radial-gradient(circle, rgba(251,191,36,0.25) 0%, rgba(251,191,36,0) 70%)',
-        filter: 'blur(2px)',
-      }} />
-
-      {/* Star field overlay — subtle, behind everything */}
-      <div className="absolute inset-0 pointer-events-none opacity-40" style={{
-        backgroundImage: 'radial-gradient(circle, #FBBF24 1px, transparent 1px), radial-gradient(circle, #C4B5FD 1px, transparent 1px)',
-        backgroundSize: '38px 38px, 56px 56px',
-        backgroundPosition: '0 0, 22px 28px',
-        animation: 'srStarDrift 32s linear infinite',
-      }} />
-      {/* CRT-style scanlines — toned down so they don't dominate the page */}
       <div className="absolute inset-0 pointer-events-none" style={{
-        background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.08) 3px, rgba(0,0,0,0.08) 4px)',
-        zIndex: 1,
+        backgroundImage: `
+          radial-gradient(circle at 22% 18%, rgba(0,0,0,0.06), transparent 40%),
+          radial-gradient(circle at 78% 82%, rgba(0,0,0,0.08), transparent 50%),
+          repeating-linear-gradient(92deg, rgba(0,0,0,0.025) 0 1px, transparent 1px 3px)`,
       }} />
 
-      {/* ─── Header (glass) ─── */}
+      {/* ─── Header ─── */}
       <div className="relative z-20 flex items-center gap-2 px-3 pt-3 pb-2.5 flex-shrink-0" style={{
-        background: 'linear-gradient(180deg, rgba(20,8,40,0.85) 0%, rgba(20,8,40,0.55) 100%)',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
-        borderBottom: '2px solid rgba(251,191,36,0.45)',
-        boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+        background: `linear-gradient(180deg, ${KRAFT_MD} 0%, ${KRAFT_LO} 100%)`,
+        borderBottom: `2px solid ${INK}`,
+        boxShadow: '0 3px 0 rgba(0,0,0,0.18)',
       }}>
         <button onClick={() => { playSound('ui_back'); onClose() }}
           className="flex items-center justify-center active:scale-90 transition-transform"
-          style={{ width: 34, height: 34, background: 'rgba(255,255,255,0.08)', borderRadius: 6, border: '2px solid rgba(251,191,36,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1)' }}>
-          <ChevronLeft size={18} className="text-amber-200" />
+          style={{
+            width: 34, height: 34, background: PAPER,
+            borderRadius: 4, border: `2px solid ${INK}`,
+            boxShadow: '0 2px 0 rgba(0,0,0,0.4)',
+          }}>
+          <ChevronLeft size={18} style={{ color: INK }} />
         </button>
-        <div className="flex-1 flex items-center justify-center gap-2">
-          <IconBook size={14} />
-          <span className="font-pixel px-3 py-1.5 inline-flex items-center gap-1.5"
-            style={{
-              background: 'linear-gradient(180deg, rgba(20,8,40,0.7), rgba(0,0,0,0.5))',
-              border: '2px solid #FBBF24',
-              borderRadius: 4,
-              fontSize: 9, letterSpacing: 2.5,
-              color: '#FDE68A',
-              textShadow: '1px 1px 0 rgba(0,0,0,0.6), 0 0 8px rgba(251,191,36,0.4)',
-              boxShadow: '0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(251,191,36,0.25)',
-            }}>
-            SRPSKI
-          </span>
+        <div className="flex-1 flex items-center justify-center">
+          <span style={{
+            fontFamily: STAMP_FONT, fontWeight: 700,
+            fontSize: 14, letterSpacing: 4, textTransform: 'uppercase',
+            color: PAPER, padding: '6px 14px',
+            border: `2.5px solid ${PAPER}`, borderRadius: 2,
+            background: 'rgba(0,0,0,0.18)',
+            textShadow: '0 1px 0 rgba(0,0,0,0.35)',
+            transform: 'rotate(-1deg)', display: 'inline-block',
+          }}>Srpski · Notes</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-1 px-2 py-1.5 font-pixel"
-            style={{
-              background: 'linear-gradient(180deg, rgba(154,52,18,0.55), rgba(67,20,7,0.7))',
-              border: '2px solid #FB923C',
-              borderRadius: 4,
-              fontSize: 8, color: '#FED7AA',
-              boxShadow: '0 2px 0 #7C2D12, inset 0 1px 0 rgba(251,146,60,0.3), 0 0 8px rgba(251,146,60,0.4)',
-            }}>
-            <Flame size={11} className="text-orange-300" fill="currentColor" />
+          <div className="flex items-center gap-1 px-2 py-1.5" style={{
+            background: PAPER, borderRadius: 4,
+            border: `2px solid ${INK}`,
+            boxShadow: '0 2px 0 rgba(0,0,0,0.35)',
+            fontFamily: TYPE_FONT, fontSize: 11, color: INK,
+          }}>
+            <Flame size={12} style={{ color: PEN_RED }} fill="currentColor" />
             {progress.streak ?? 0}
           </div>
-          <div className="flex items-center gap-1 px-2 py-1.5 font-pixel"
-            style={{
-              background: 'linear-gradient(180deg, rgba(120,53,15,0.55), rgba(67,20,7,0.7))',
-              border: '2px solid #FBBF24',
-              borderRadius: 4,
-              fontSize: 8, color: '#FDE68A',
-              boxShadow: '0 2px 0 #78350F, inset 0 1px 0 rgba(251,191,36,0.3), 0 0 8px rgba(251,191,36,0.4)',
-            }}>
+          <div className="flex items-center gap-1 px-2 py-1.5" style={{
+            background: PAPER, borderRadius: 4,
+            border: `2px solid ${INK}`,
+            boxShadow: '0 2px 0 rgba(0,0,0,0.35)',
+            fontFamily: TYPE_FONT, fontSize: 11, color: INK,
+          }}>
             <IconStar size={10} />
             {progress.totalXp}
           </div>
         </div>
       </div>
 
-      {/* ─── Sub-stats bar ─── */}
-      <div className="relative z-20 px-3 py-2.5 flex items-center gap-3 flex-shrink-0" style={{
-        background: 'rgba(15,8,30,0.6)',
-        backdropFilter: 'blur(6px)',
-        WebkitBackdropFilter: 'blur(6px)',
-        borderBottom: '1px solid rgba(251,191,36,0.2)',
+      {/* ─── Progress strip ─── */}
+      <div className="relative z-20 px-4 py-2.5 flex items-center gap-3 flex-shrink-0" style={{
+        background: PAPER,
+        borderBottom: `1px dashed ${INK_SOFT}`,
       }}>
-        <span className="font-pixel" style={{ fontSize: 6, letterSpacing: 1.8, color: '#A78BFA' }}>
-          {totalCompleted}/{totalLessons} LESSONS
+        <span style={{ fontFamily: TYPE_FONT, fontSize: 9, letterSpacing: 2, color: INK_SOFT }}>
+          LEKCIJE · {totalCompleted}/{totalLessons}
         </span>
         <div className="flex-1 relative" style={{
-          height: 8, background: 'rgba(0,0,0,0.55)',
-          borderRadius: 4, border: '1px solid rgba(251,191,36,0.4)',
-          boxShadow: 'inset 0 2px 3px rgba(0,0,0,0.6)',
+          height: 8, background: PAPER_DK,
+          borderRadius: 4, border: `1px solid ${INK_SOFT}55`,
+          overflow: 'hidden',
         }}>
           <div style={{
             width: `${(totalCompleted / totalLessons) * 100}%`,
-            height: '100%',
-            background: 'linear-gradient(180deg, #FDE68A 0%, #F59E0B 50%, #B45309 100%)',
-            borderRadius: 3,
+            height: '100%', background: PEN_RED,
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4)',
             transition: 'width 0.6s ease',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), 0 0 6px rgba(251,191,36,0.5)',
           }} />
         </div>
-        <div className="flex items-center gap-1 font-pixel px-2 py-1"
-          style={{
-            fontSize: 7, color: '#FDE68A',
-            background: 'linear-gradient(180deg, rgba(120,53,15,0.6), rgba(67,20,7,0.8))',
-            borderRadius: 3, border: '2px solid #FBBF24',
-            boxShadow: '0 2px 0 rgba(0,0,0,0.4), 0 0 6px rgba(251,191,36,0.3)',
-          }}>
-          <IconCrown size={9} />
-          {progress.perfect.length}
+        <div style={{ fontFamily: TYPE_FONT, fontSize: 9, letterSpacing: 2, color: INK_SOFT }}>
+          ★ {progress.perfect.length}
         </div>
       </div>
 
-      {/* ─── Scrollable units ─── */}
-      <div className="relative z-10 flex-1 overflow-y-auto pb-12 pt-4">
-        {/* Practice tile — softened. The 5-px hard pixel-shadow plus
-            inset light/dark strokes plus 4 rivets read as a "loud"
-            element. Now it's a smooth gold pill with a single inset
-            sheen + an animated shine sweep — premium feel, less shouty. */}
+      {/* ─── Notebook shelf ─── */}
+      <div className="relative z-10 flex-1 overflow-y-auto px-4 pt-5 pb-12 flex flex-col gap-7">
         {strugglingCount > 0 && (
           <button onClick={() => { playSound('ui_tap'); onPracticeTap() }}
-            className="block relative overflow-hidden w-[calc(100%-32px)] mx-4 mb-5 px-4 py-3 active:translate-y-[2px] transition-transform text-left"
+            className="relative active:translate-y-[1px] transition-transform text-left mx-auto"
             style={{
-              background: 'linear-gradient(135deg, #FCD34D 0%, #FBBF24 35%, #F59E0B 65%, #D97706 100%)',
-              borderRadius: 12,
-              border: '1px solid rgba(120,53,15,0.6)',
-              boxShadow: '0 6px 18px rgba(180,83,9,0.55), inset 0 1px 0 rgba(255,255,255,0.5), 0 0 22px rgba(251,191,36,0.35)',
+              width: '100%', maxWidth: 380,
+              background: '#fff7c2',
+              padding: '14px 16px 14px',
+              border: `1px dashed ${INK_SOFT}`,
+              boxShadow: '0 4px 0 rgba(0,0,0,0.18), 0 8px 18px rgba(0,0,0,0.12)',
+              transform: 'rotate(-1deg)',
             }}>
-            {/* Animated shine sweep */}
-            <div className="absolute inset-0 pointer-events-none" style={{
-              background: 'linear-gradient(115deg, transparent 35%, rgba(255,255,255,0.5) 50%, transparent 65%)',
-              animation: 'srShineSweep 2.6s ease-in-out infinite',
+            <div style={{
+              position: 'absolute', top: -8, left: '50%', transform: 'translateX(-50%) rotate(-3deg)',
+              width: 70, height: 16,
+              background: 'rgba(252, 240, 140, 0.85)',
+              border: '1px solid rgba(0,0,0,0.08)',
+              boxShadow: '0 1px 1px rgba(0,0,0,0.1)',
             }} />
-
-            <div className="relative flex items-center gap-3">
-              <div style={{
-                width: 42, height: 42,
-                background: 'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.45), rgba(120,53,15,0.5) 70%)',
-                borderRadius: 10,
-                border: '1.5px solid rgba(255,250,240,0.8)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.55), 0 2px 6px rgba(0,0,0,0.25)',
-              }}>
-                <Zap size={22} className="text-white" fill="currentColor" style={{ filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.35))' }} />
-              </div>
+            <div className="flex items-center gap-3">
+              <span style={{
+                fontFamily: HAND_FONT, fontWeight: 700, fontSize: 22,
+                color: PEN_RED, transform: 'rotate(-2deg)', display: 'inline-block',
+              }}>~ vežbaj!</span>
               <div className="flex-1 min-w-0">
-                <div className="font-pixel truncate" style={{
-                  fontSize: 11, letterSpacing: 2,
-                  color: '#FFFAF0',
-                  textShadow: '1px 1px 0 #92400E, 0 0 6px rgba(255,250,240,0.35)',
-                }}>
-                  PRACTICE
-                </div>
-                <div className="font-pixel mt-1 truncate" style={{
-                  fontSize: 6, color: 'rgba(255,251,235,0.92)', letterSpacing: 1.2,
-                  textShadow: '1px 1px 0 rgba(120,53,15,0.55)',
-                }}>
+                <div style={{ fontFamily: HAND_FONT, fontWeight: 700, fontSize: 18, color: INK }}>
                   {strugglingCount} {strugglingCount === 1 ? 'word' : 'words'} to review
                 </div>
+                <div style={{ fontFamily: TYPE_FONT, fontSize: 9, letterSpacing: 2, color: INK_SOFT }}>
+                  PRACTICE · MIX
+                </div>
               </div>
-              <span className="font-pixel" style={{
-                fontSize: 14, color: '#FFFAF0',
-                textShadow: '1px 1px 0 #92400E',
-              }}>▶</span>
+              <span style={{ fontFamily: HAND_FONT, fontSize: 28, color: PEN_RED }}>→</span>
             </div>
           </button>
         )}
@@ -578,378 +524,613 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
           const sectionLessons = units.flatMap(u => u.lessonIds)
           const sectionDone = sectionLessons.filter(id => progress.completed.includes(id)).length
           return (
-            <div key={section.id} className="mb-2">
-              <SectionBanner
-                section={section}
-                index={si}
-                done={sectionDone}
-                total={sectionLessons.length}
-              />
-              {units.map((unit, ui) => (
-                <UnitSection key={unit.id}
-                  unit={unit}
-                  unitIndex={ui}
-                  progress={progress}
-                  isUnlocked={isUnlocked}
-                  nextUpId={nextUpId}
-                  onLessonTap={onLessonTap}
-                />
-              ))}
-            </div>
+            <KraftSectionCover
+              key={section.id}
+              section={section}
+              sectionIndex={si + 1}
+              done={sectionDone}
+              total={sectionLessons.length}
+              onOpen={() => { playSound('ui_tap'); setOpenSectionId(section.id) }}
+            />
           )
         })}
       </div>
-    </div>
-  )
-}
 
-// ─── Section banner — large, above each cluster of units ────────────────────
-// Each section gets its own pixel-art icon so the banners are distinguishable
-// at a glance instead of all looking like the same coloured rectangle.
-const SECTION_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
-  'sec-1': IconPaw,      // Starting Out — first paw-step
-  'sec-2': IconPerson,   // Numbers & People — people
-  'sec-3': IconHouse,    // World Around You — home/world
-  'sec-4': IconClock,    // Daily Life — daily routine
-  'sec-5': IconTicket,   // Going Out — event/outing ticket
-}
-function SectionBanner({ section, index, done, total }: {
-  section: Section
-  index: number
-  done: number
-  total: number
-}) {
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0
-  const Icon = SECTION_ICONS[section.id] ?? IconBook
-  return (
-    <div className="relative mx-4 mb-5 mt-3 px-4 py-3.5 overflow-hidden" style={{
-      // Single soft theme gradient — no hard pixel-shadow, no inset,
-      // no scanlines (the page already has them). The chrome here was
-      // competing with the lesson nodes; this reads as a quiet header.
-      background: `linear-gradient(135deg, ${section.themeColor}EE 0%, ${section.themeEdge} 100%)`,
-      borderRadius: 12,
-      border: '1px solid rgba(251,191,36,0.55)',
-      boxShadow: `0 4px 18px ${section.themeColor}55, inset 0 1px 0 rgba(255,255,255,0.22)`,
-    }}>
-      {/* Top sheen — subtle gloss to suggest a printed-foil sticker */}
-      <div className="absolute inset-x-0 top-0 pointer-events-none" style={{
-        height: 22,
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.18), transparent)',
-        borderRadius: '12px 12px 0 0',
-      }} />
-
-      <div className="relative flex items-center gap-3">
-        {/* Per-section icon badge — pixel art with a soft section-coloured
-            glow ring so each banner has its own personality. */}
-        <div className="flex-shrink-0 flex items-center justify-center" style={{
-          width: 44, height: 44,
-          background: `radial-gradient(circle at 35% 30%, ${section.themeColor}55, rgba(0,0,0,0.5) 75%)`,
-          border: '1.5px solid rgba(251,191,36,0.75)',
-          borderRadius: 10,
-          boxShadow: `inset 0 1px 0 rgba(251,191,36,0.3), 0 2px 6px rgba(0,0,0,0.35), 0 0 12px ${section.themeColor}66`,
-        }}>
-          <Icon size={22} />
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="font-pixel" style={{ fontSize: 5.5, letterSpacing: 1.8, color: 'rgba(255,255,255,0.7)' }}>
-            SECTION {index + 1}
-          </div>
-          <div className="font-pixel mt-0.5 truncate" style={{
-            fontSize: 12, letterSpacing: 1.5,
-            color: '#FFFFFF',
-            textShadow: `1px 1px 0 ${section.themeEdge}, 0 0 8px rgba(255,255,255,0.18)`,
-          }}>
-            {section.title.toUpperCase()}
-          </div>
-          <div className="font-pixel mt-0.5 truncate" style={{ fontSize: 6, letterSpacing: 1, color: 'rgba(255,255,255,0.7)', fontStyle: 'italic' }}>
-            {section.titleSr}
-          </div>
-        </div>
-
-        <div className="flex-shrink-0 text-right">
-          <div className="font-pixel" style={{ fontSize: 12, color: '#FFFFFF', textShadow: `1px 1px 0 ${section.themeEdge}` }}>
-            {done}<span style={{ color: 'rgba(255,255,255,0.5)' }}>/{total}</span>
-          </div>
-          <div className="font-pixel mt-0.5" style={{ fontSize: 5.5, letterSpacing: 1.5, color: 'rgba(255,255,255,0.55)' }}>
-            {pct}%
-          </div>
-        </div>
-      </div>
-
-      <div className="relative mt-2.5" style={{
-        height: 5,
-        background: 'rgba(0,0,0,0.4)',
-        borderRadius: 3,
-        overflow: 'hidden',
-      }}>
-        <div style={{
-          width: `${pct}%`,
-          height: '100%',
-          background: 'linear-gradient(90deg, #FDE68A, #F59E0B)',
-          transition: 'width 0.6s ease',
-          boxShadow: '0 0 6px rgba(251,191,36,0.5)',
-        }} />
-      </div>
-    </div>
-  )
-}
-
-function UnitSection({ unit, unitIndex, progress, isUnlocked, nextUpId, onLessonTap }: {
-  unit: Unit
-  unitIndex: number
-  progress: SerbianProgress
-  isUnlocked: (id: number) => boolean
-  nextUpId: number | undefined   // the single "next up" lesson — gets the hero animation
-  onLessonTap: (l: Lesson) => void
-}) {
-  const lessons = unit.lessonIds.map(id => getLessonById(id)!).filter(Boolean)
-
-  return (
-    <div className="mb-9 px-4">
-      {/* Unit banner — calmer than before. The hard pixel drop-shadow
-          and quad rivets were fighting the section banner above and the
-          lesson nodes below. Now it's a glassy strip with a small
-          unit-number chip on the left. */}
-      <div className="relative overflow-hidden mb-5 px-3.5 py-3 flex items-center gap-3" style={{
-        background: `linear-gradient(135deg, ${unit.color}DD 0%, ${unit.edgeColor} 100%)`,
-        borderRadius: 10,
-        border: '1px solid rgba(255,255,255,0.18)',
-        boxShadow: `0 3px 14px ${unit.color}44, inset 0 1px 0 rgba(255,255,255,0.22)`,
-      }}>
-        {/* Top sheen */}
-        <div className="absolute inset-x-0 top-0 pointer-events-none" style={{
-          height: 18,
-          background: 'linear-gradient(180deg, rgba(255,255,255,0.16), transparent)',
-          borderRadius: '10px 10px 0 0',
-        }} />
-
-        {/* Unit number chip */}
-        <div className="flex-shrink-0 flex items-center justify-center font-pixel" style={{
-          width: 30, height: 30,
-          background: 'linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.5) 100%)',
-          border: '1px solid rgba(255,255,255,0.35)',
-          borderRadius: 6,
-          fontSize: 10, color: '#FFFFFF',
-          textShadow: '0 1px 0 rgba(0,0,0,0.7)',
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.18)',
-        }}>
-          {unitIndex + 1}
-        </div>
-
-        <div className="relative flex-1 min-w-0">
-          <div className="font-pixel" style={{ fontSize: 5.5, letterSpacing: 1.8, color: 'rgba(255,255,255,0.7)' }}>
-            UNIT
-          </div>
-          <div className="font-pixel text-white mt-0.5 truncate" style={{ fontSize: 11, letterSpacing: 1.5, textShadow: `1px 1px 0 ${unit.edgeColor}` }}>
-            {unit.title.toUpperCase()}
-          </div>
-          <div className="font-pixel mt-0.5 truncate" style={{ fontSize: 5.5, color: 'rgba(255,255,255,0.75)', letterSpacing: 1, fontStyle: 'italic' }}>
-            {unit.titleSr}
-          </div>
-        </div>
-        <div className="relative flex-shrink-0 text-right">
-          <div className="font-pixel text-white" style={{ fontSize: 12, textShadow: `1px 1px 0 ${unit.edgeColor}` }}>
-            {lessons.filter(l => progress.completed.includes(l.id)).length}<span style={{ color: 'rgba(255,255,255,0.55)' }}>/{lessons.length}</span>
-          </div>
-          <div className="font-pixel mt-0.5" style={{ fontSize: 5.5, letterSpacing: 1.5, color: 'rgba(255,255,255,0.6)' }}>
-            DONE
-          </div>
-        </div>
-      </div>
-
-      {/* Zigzag of lesson nodes */}
-      <div className="flex flex-col items-center gap-1">
-        {lessons.map((l, li) => {
-          const completed = progress.completed.includes(l.id)
-          const perfect = progress.perfect.includes(l.id)
-          const unlocked = isUnlocked(l.id)
-          const isNextUp = l.id === nextUpId
-          const offset = li % 2 === 0 ? -38 : 38
-          return (
-            <div key={l.id} className="relative flex flex-col items-center" style={{ marginLeft: offset }}>
-              {li > 0 && (
-                <div style={{
-                  width: 4, height: 24,
-                  background: completed
-                    ? `linear-gradient(180deg, ${unit.color}, ${unit.edgeColor})`
-                    : 'repeating-linear-gradient(180deg, rgba(167,139,250,0.4) 0 4px, transparent 4px 8px)',
-                  marginBottom: 4,
-                  borderRadius: 2,
-                  boxShadow: completed ? `0 0 6px ${unit.color}88` : 'none',
-                }} />
-              )}
-
-              {/* Next-up cue — a single soft pulsing halo behind the node and
-                  an animated Eren peeking out next to it. The earlier
-                  treatment (three layered rings + four orbiting sparkles)
-                  was visually noisy; this is calmer but still unmistakable. */}
-              {isNextUp && (
-                <>
-                  <div className="absolute pointer-events-none" style={{
-                    top: li > 0 ? 28 : 0,
-                    width: 84, height: 84,
-                    borderRadius: '50%',
-                    boxShadow: `0 0 0 4px rgba(251,191,36,0.22), 0 0 28px rgba(251,191,36,0.55), 0 0 12px ${unit.color}CC`,
-                    animation: 'srHeroPulse 1.7s ease-in-out infinite',
-                  }} />
-                  {/* Eren mascot — peeks from whichever side has more room
-                      (the zigzag offset alternates each row). Outer div
-                      handles position + horizontal flip, inner div bobs. */}
-                  <div className="absolute pointer-events-none z-[2]" style={{
-                    top: li > 0 ? 30 : 2,
-                    [offset < 0 ? 'left' : 'right']: -78,
-                    transform: offset < 0 ? 'scaleX(-1)' : 'none',
-                    filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.55)) drop-shadow(0 0 10px rgba(251,191,36,0.4))',
-                  } as React.CSSProperties}>
-                    <div style={{ animation: 'srHeroPoke 2.4s ease-in-out infinite' }}>
-                      <AnimatedEren px={4} />
-                    </div>
-                  </div>
-                </>
-              )}
-
-              <button
-                onClick={() => { if (unlocked) { playSound('ui_tap'); onLessonTap(l) } }}
-                disabled={!unlocked}
-                className="relative active:scale-95 transition-transform"
-                style={{
-                  width: 84, height: 84,
-                  background: unlocked
-                    ? `radial-gradient(circle at 35% 30%, ${unit.color}EE, ${unit.edgeColor} 75%)`
-                    : 'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.06), rgba(167,139,250,0.12) 75%)',
-                  border: `4px solid ${unlocked ? '#FBBF24' : 'rgba(167,139,250,0.35)'}`,
-                  borderRadius: '50%',
-                  boxShadow: unlocked
-                    ? `
-                        0 6px 0 ${unit.edgeColor},
-                        inset 0 2px 0 rgba(255,255,255,0.35),
-                        inset 0 -2px 0 rgba(0,0,0,0.3),
-                        0 0 ${isNextUp ? '32' : '18'}px ${unit.color}AA,
-                        0 0 ${isNextUp ? '14' : '6'}px rgba(251,191,36,${isNextUp ? '0.85' : '0.5'})
-                      `
-                    : '0 3px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(167,139,250,0.15)',
-                  opacity: unlocked ? 1 : 0.5,
-                  cursor: unlocked ? 'pointer' : 'default',
-                  animation: isNextUp
-                    ? 'srHeroBounce 1.6s ease-in-out infinite'
-                    : unlocked && !completed
-                      ? 'srNodePulse 1.7s ease-in-out infinite'
-                      : 'none',
-                }}>
-                {/* Inner ring */}
-                <div className="absolute inset-2 rounded-full flex flex-col items-center justify-center"
-                  style={{
-                    background: unlocked ? 'rgba(0,0,0,0.32)' : 'rgba(0,0,0,0.4)',
-                    border: unlocked ? '1px solid rgba(255,255,255,0.18)' : '1px solid rgba(167,139,250,0.18)',
-                    boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.4)',
-                  }}>
-                  {unlocked
-                    ? completed
-                      ? <IconCrown size={32} />
-                      : (
-                        <span className="font-pixel text-white" style={{
-                          fontSize: 14, textShadow: '1px 1px 0 rgba(0,0,0,0.7), 0 0 6px rgba(255,255,255,0.3)',
-                        }}>{l.id}</span>
-                      )
-                    : (
-                      <svg width="22" height="22" viewBox="0 0 10 11" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated', opacity: 0.7 }}>
-                        <rect x="3" y="0" width="4" height="1" fill="#C4B5FD" />
-                        <rect x="2" y="1" width="1" height="3" fill="#C4B5FD" />
-                        <rect x="7" y="1" width="1" height="3" fill="#C4B5FD" />
-                        <rect x="1" y="4" width="8" height="6" fill="#A78BFA" />
-                        <rect x="1" y="4" width="8" height="1" fill="#C4B5FD" />
-                        <rect x="4" y="6" width="2" height="2" fill="#2E0F5C" />
-                        <rect x="4" y="8" width="2" height="1" fill="#2E0F5C" />
-                      </svg>
-                    )
-                  }
-                </div>
-                {/* Perfect star — gold badge top-right */}
-                {perfect && (
-                  <div className="absolute" style={{
-                    top: -8, right: -8,
-                    width: 26, height: 26,
-                    background: 'radial-gradient(circle at 35% 30%, #FFFAF0, #FBBF24 60%, #B45309 100%)',
-                    borderRadius: '50%',
-                    border: '2px solid #92400E',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: '0 0 12px rgba(253,224,71,0.85), 0 2px 0 rgba(0,0,0,0.4)',
-                  }}>
-                    <IconStar size={14} />
-                  </div>
-                )}
-              </button>
-              <div className="font-pixel mt-2 text-center" style={{
-                fontSize: isNextUp ? 7 : 6,
-                color: isNextUp ? '#FDE68A' : unlocked ? '#FDE68A' : 'rgba(196,181,253,0.5)',
-                letterSpacing: 1.5, maxWidth: 120, lineHeight: 1.6,
-                textShadow: isNextUp
-                  ? '1px 1px 0 rgba(0,0,0,0.7), 0 0 8px rgba(251,191,36,0.6)'
-                  : unlocked ? '1px 1px 0 rgba(0,0,0,0.6)' : 'none',
-              }}>
-                {l.title.toUpperCase()}
-              </div>
-              {isNextUp && (
-                <div className="font-pixel mt-1 px-2 py-1 inline-flex items-center gap-1"
-                  style={{
-                    background: 'linear-gradient(180deg, #FCD34D 0%, #F59E0B 60%, #B45309 100%)',
-                    border: '1.5px solid #78350F',
-                    borderRadius: 4,
-                    boxShadow: '0 3px 0 #78350F, 0 0 12px rgba(251,191,36,0.55)',
-                    fontSize: 6, letterSpacing: 1.5,
-                    color: '#FFFAF0',
-                    textShadow: '0 1px 0 rgba(120,53,15,0.6)',
-                    animation: 'srHeroChevron 1.4s ease-in-out infinite',
-                  }}>
-                  ▶ START
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
+      {/* ─── Opened notebook overlay ─── */}
+      {openSection && (() => {
+        const units = openSection.unitIds.map(uid => getUnitById(uid)!).filter(Boolean)
+        const sectionLessons = units.flatMap(u => u.lessonIds)
+        const sectionDone = sectionLessons.filter(id => progress.completed.includes(id)).length
+        const idx = SERBIAN_SECTIONS.findIndex(s => s.id === openSection.id) + 1
+        return (
+          <OpenNotebookView
+            section={openSection}
+            sectionIndex={idx}
+            done={sectionDone}
+            total={sectionLessons.length}
+            progress={progress}
+            isUnlocked={isUnlocked}
+            nextUpId={nextUpId}
+            onLessonTap={(l) => { setOpenSectionId(null); onLessonTap(l) }}
+            onClose={() => setOpenSectionId(null)}
+          />
+        )
+      })()}
 
       <style jsx global>{`
-        @keyframes srNodePulse {
-          0%, 100% { transform: scale(1); }
-          50%      { transform: scale(1.05); }
+        @keyframes srNotebookFadeIn {
+          0%   { opacity: 0; }
+          100% { opacity: 1; }
         }
-        @keyframes srShineSweep {
-          0%, 30%   { transform: translateX(-130%); }
-          70%, 100% { transform: translateX(130%); }
+        @keyframes srNextUpBob {
+          0%, 100% { transform: translateY(0)    rotate(-2deg); }
+          50%      { transform: translateY(-3px) rotate(2deg); }
         }
-        @keyframes srStarDrift {
-          from { background-position: 0 0, 22px 28px; }
-          to   { background-position: 200px 0, 222px 28px; }
+        @keyframes srHandWiggle {
+          0%, 100% { transform: rotate(-2deg); }
+          50%      { transform: rotate(2deg); }
         }
-        @keyframes srHeroBounce {
-          0%, 100% { transform: scale(1)    translateY(0); }
-          50%      { transform: scale(1.06) translateY(-3px); }
-        }
-        @keyframes srHeroPulse {
-          0%, 100% { opacity: 0.55; transform: scale(1); }
-          50%      { opacity: 1;    transform: scale(1.06); }
-        }
-        /* Eren-mascot peek — gentle bob; horizontal flip is handled by
-           the outer wrapper so this stays orientation-agnostic. */
-        @keyframes srHeroPoke {
-          0%, 100% { transform: translateY(0); }
-          50%      { transform: translateY(-2px); }
-        }
-        @keyframes srHeroChevron {
-          0%, 100% { transform: translateY(0); }
-          50%      { transform: translateY(-2px); }
+        @keyframes srSheetIn {
+          0%   { transform: translateY(8px) rotate(0.5deg); opacity: 0; }
+          100% { transform: translateY(0) rotate(0deg); opacity: 1; }
         }
       `}</style>
     </div>
   )
 }
 
+// ─── Closed kraft notebook — section card in the shelf ─────────────────────
+function KraftSectionCover({ section, sectionIndex, done, total, onOpen }: {
+  section: Section
+  sectionIndex: number
+  done: number
+  total: number
+  onOpen: () => void
+}) {
+  return (
+    <button onClick={onOpen}
+      className="block w-full text-left active:translate-y-[2px] transition-transform mx-auto"
+      style={{
+        maxWidth: 420,
+        height: 250,
+        position: 'relative',
+        background: `radial-gradient(ellipse at 30% 18%, ${KRAFT_HI} 0%, ${KRAFT_MD} 50%, ${KRAFT_LO} 100%)`,
+        color: '#2a1d10',
+        fontFamily: TYPE_FONT,
+        overflow: 'hidden',
+        boxShadow: '0 8px 0 rgba(0,0,0,0.22), 0 18px 26px rgba(0,0,0,0.25)',
+        borderRadius: 2,
+      }}>
+      <div style={{
+        position: 'absolute', inset: 0, opacity: 0.55, pointerEvents: 'none',
+        backgroundImage: `
+          radial-gradient(circle at 18% 28%, rgba(60,40,20,0.35) 0px, transparent 1.2px),
+          radial-gradient(circle at 72% 60%, rgba(60,40,20,0.4) 0px, transparent 1.5px),
+          radial-gradient(circle at 40% 80%, rgba(255,255,255,0.15) 0px, transparent 1px),
+          radial-gradient(circle at 90% 22%, rgba(60,40,20,0.3) 0px, transparent 1.4px)`,
+        backgroundSize: '8px 8px, 11px 11px, 6px 6px, 14px 14px',
+      }} />
+      <PhysicalEdges />
+      {[55, 125, 195].map((y, i) => (
+        <div key={i} style={{
+          position: 'absolute', left: 8, top: y, width: 10, height: 3,
+          background: 'linear-gradient(180deg, #d6d4cf, #8a8884)',
+          boxShadow: '0 1px 0 rgba(0,0,0,0.4)',
+          borderRadius: 1,
+        }} />
+      ))}
+
+      <div style={{
+        position: 'absolute', top: 14, left: 28, right: 14,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+      }}>
+        <div style={{ fontWeight: 700, fontSize: 9, letterSpacing: 2.5, color: '#2a1d10' }}>
+          EREN · POCKET
+        </div>
+        <div style={{ fontSize: 8, letterSpacing: 2, opacity: 0.75 }}>
+          NO. {String(sectionIndex).padStart(3, '0')}
+        </div>
+      </div>
+
+      <div style={{
+        position: 'absolute', left: 28, right: 14, top: 64,
+        textAlign: 'center',
+      }}>
+        <div style={{
+          fontFamily: STAMP_FONT, fontWeight: 700,
+          fontSize: 22, letterSpacing: 1.5, textTransform: 'uppercase',
+          color: '#2a1d10',
+          padding: '8px 6px',
+          border: '2.5px solid #2a1d10',
+          borderRadius: 2,
+          display: 'inline-block',
+          transform: 'rotate(-2deg)',
+          background: 'rgba(255,255,255,0.04)',
+          boxShadow: '0 1px 0 rgba(255,255,255,0.2)',
+          textShadow: '0.5px 0 0 rgba(0,0,0,0.4)',
+        }}>{section.title}</div>
+        <div style={{
+          fontFamily: HAND_FONT, fontSize: 22,
+          marginTop: 4, color: PEN_RED,
+          transform: 'rotate(-1deg)', display: 'inline-block',
+        }}>~ {section.titleSr} ~</div>
+      </div>
+
+      <div style={{
+        position: 'absolute', left: 28, right: 14, bottom: 14,
+        fontSize: 8, letterSpacing: 1.5, color: '#2a1d10',
+        borderTop: '1.5px solid #2a1d10', paddingTop: 6,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+          <span>I.</span><span>SECTION {sectionIndex} of {SERBIAN_SECTIONS.length}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+          <span>II.</span><span>{done} / {total} LESSONS DONE</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+          <span>III.</span><span>SRPSKI · A1</span>
+        </div>
+      </div>
+
+      <div style={{
+        position: 'absolute', left: 28, bottom: 88,
+        filter: 'sepia(0.9) saturate(0.6) brightness(0.7)',
+        opacity: 0.85,
+        pointerEvents: 'none',
+      }}>
+        <AnimatedEren px={2} />
+      </div>
+
+      <div style={{
+        position: 'absolute', right: 14, bottom: 92,
+        transform: 'rotate(-8deg)',
+        border: `2px solid ${PEN_RED}`,
+        color: PEN_RED,
+        padding: '3px 6px 4px',
+        fontFamily: STAMP_FONT, fontSize: 8, letterSpacing: 1.5,
+        fontWeight: 700,
+        opacity: 0.9,
+        background: 'rgba(138,58,16,0.05)',
+      }}>OPEN ▸</div>
+    </button>
+  )
+}
+
+// ─── Open notebook overlay — fullscreen 3D book that flips open ────────────
+function OpenNotebookView({ section, sectionIndex, done, total, progress,
+  isUnlocked, nextUpId, onLessonTap, onClose }: {
+  section: Section
+  sectionIndex: number
+  done: number
+  total: number
+  progress: SerbianProgress
+  isUnlocked: (id: number) => boolean
+  nextUpId: number | undefined
+  onLessonTap: (l: Lesson) => void
+  onClose: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setOpen(true), 80)
+    return () => clearTimeout(t)
+  }, [])
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{
+      animation: 'srNotebookFadeIn 0.25s ease-out',
+      background: 'radial-gradient(ellipse at center, #d8d2c2 0%, #aea692 100%)',
+      perspective: '2200px', perspectiveOrigin: '50% 50%',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
+    }}>
+      <div className="absolute inset-0 pointer-events-none" style={{
+        backgroundImage: `
+          radial-gradient(circle at 22% 18%, rgba(0,0,0,0.06), transparent 40%),
+          radial-gradient(circle at 78% 82%, rgba(0,0,0,0.08), transparent 50%),
+          repeating-linear-gradient(92deg, rgba(0,0,0,0.025) 0 1px, transparent 1px 3px)`,
+      }} />
+
+      <div className="absolute inset-0 flex items-center justify-center" style={{ padding: '24px 12px 36px' }}>
+        <div style={{
+          position: 'relative',
+          width: '100%', maxWidth: 460,
+          height: '100%',
+          transformStyle: 'preserve-3d',
+        }}>
+          <div style={{
+            position: 'absolute', left: '6%', right: '6%', bottom: -12, height: 22,
+            background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.45), transparent 70%)',
+            filter: 'blur(4px)',
+          }} />
+
+          {/* INSIDE PAGE — V4Path */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: PAPER,
+            boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.15)',
+            overflow: 'hidden',
+          }}>
+            <V4Path
+              section={section}
+              progress={progress}
+              isUnlocked={isUnlocked}
+              nextUpId={nextUpId}
+              onLessonTap={onLessonTap}
+              onClose={onClose}
+            />
+          </div>
+
+          {/* COVER — flips on mount */}
+          <div
+            onClick={() => setOpen(o => !o)}
+            style={{
+              position: 'absolute', inset: 0, cursor: 'pointer',
+              transformOrigin: 'left center',
+              transformStyle: 'preserve-3d',
+              transform: open ? 'rotateY(-168deg)' : 'rotateY(0deg)',
+              transition: 'transform 1.05s cubic-bezier(0.55, 0.05, 0.25, 1)',
+              willChange: 'transform',
+              zIndex: open ? 1 : 3,
+              pointerEvents: open ? 'none' : 'auto',
+            }}>
+            {/* FRONT (kraft cover) */}
+            <div style={{
+              position: 'absolute', inset: 0,
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
+              transform: 'translateZ(0.1px)',
+              overflow: 'hidden',
+              boxShadow: open
+                ? '0 12px 28px rgba(0,0,0,0.35)'
+                : '0 6px 16px rgba(0,0,0,0.28), 0 1px 0 rgba(255,255,255,0.06) inset',
+              background: `radial-gradient(ellipse at 30% 18%, ${KRAFT_HI} 0%, ${KRAFT_MD} 50%, ${KRAFT_LO} 100%)`,
+              fontFamily: TYPE_FONT, color: '#2a1d10',
+            }}>
+              <div style={{
+                position: 'absolute', inset: 0, opacity: 0.55, pointerEvents: 'none',
+                backgroundImage: `
+                  radial-gradient(circle at 18% 28%, rgba(60,40,20,0.35) 0px, transparent 1.2px),
+                  radial-gradient(circle at 72% 60%, rgba(60,40,20,0.4) 0px, transparent 1.5px),
+                  radial-gradient(circle at 40% 80%, rgba(255,255,255,0.15) 0px, transparent 1px),
+                  radial-gradient(circle at 90% 22%, rgba(60,40,20,0.3) 0px, transparent 1.4px)`,
+                backgroundSize: '8px 8px, 11px 11px, 6px 6px, 14px 14px',
+              }} />
+              <PhysicalEdges />
+              {['12%', '46%', '80%'].map((y, i) => (
+                <div key={i} style={{
+                  position: 'absolute', left: 10, top: y, width: 12, height: 3,
+                  background: 'linear-gradient(180deg, #d6d4cf, #8a8884)',
+                  boxShadow: '0 1px 0 rgba(0,0,0,0.4)',
+                  borderRadius: 1,
+                }} />
+              ))}
+              <div style={{
+                position: 'absolute', top: 32, left: 36, right: 24,
+                display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+              }}>
+                <div style={{ fontWeight: 700, fontSize: 11, letterSpacing: 3 }}>EREN · POCKET</div>
+                <div style={{ fontSize: 9, letterSpacing: 2, opacity: 0.75 }}>
+                  NO. {String(sectionIndex).padStart(3, '0')}
+                </div>
+              </div>
+              <div style={{
+                position: 'absolute', left: 30, right: 16, top: '30%',
+                textAlign: 'center',
+              }}>
+                <div style={{
+                  fontFamily: STAMP_FONT, fontWeight: 700,
+                  fontSize: 28, letterSpacing: 2, textTransform: 'uppercase',
+                  color: '#2a1d10',
+                  padding: '12px 6px',
+                  border: '2.5px solid #2a1d10',
+                  borderRadius: 2,
+                  display: 'inline-block',
+                  transform: 'rotate(-2deg)',
+                  background: 'rgba(255,255,255,0.04)',
+                  textShadow: '0.5px 0 0 rgba(0,0,0,0.4)',
+                }}>{section.title}</div>
+                <div style={{
+                  fontFamily: HAND_FONT, fontSize: 26,
+                  marginTop: 10, color: PEN_RED,
+                  transform: 'rotate(-1deg)', display: 'inline-block',
+                }}>~ {section.titleSr} ~</div>
+              </div>
+              <div style={{
+                position: 'absolute', left: 36, right: 24, bottom: 80,
+                fontSize: 9, letterSpacing: 1.5, color: '#2a1d10',
+                borderTop: '1.5px solid #2a1d10', paddingTop: 8,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
+                  <span>I.</span><span>SECTION {sectionIndex} of {SERBIAN_SECTIONS.length}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
+                  <span>II.</span><span>{done} / {total} LESSONS DONE</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
+                  <span>III.</span><span>STUDENT · EREN</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
+                  <span>IV.</span><span>BEOGRAD · MMXXV</span>
+                </div>
+              </div>
+              <div style={{
+                position: 'absolute', right: 18, bottom: 24,
+                transform: 'rotate(-8deg)',
+                border: `2px solid ${PEN_RED}`,
+                color: PEN_RED,
+                padding: '4px 8px 5px',
+                fontFamily: STAMP_FONT, fontSize: 9, letterSpacing: 2,
+                fontWeight: 700,
+                opacity: 0.85,
+                background: 'rgba(138,58,16,0.05)',
+              }}>SRPSKI · A1</div>
+              <div style={{
+                position: 'absolute', left: 36, bottom: 30,
+                display: 'flex', alignItems: 'center', gap: 6,
+                filter: 'sepia(0.9) saturate(0.6) brightness(0.7)',
+                pointerEvents: 'none',
+              }}>
+                <AnimatedEren px={3} />
+                <span style={{ fontSize: 8, letterSpacing: 2, opacity: 0.75, color: '#2a1d10' }}>MASCOT</span>
+              </div>
+            </div>
+            {/* BACK (ex libris) */}
+            <div style={{
+              position: 'absolute', inset: 0,
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
+              transform: 'rotateY(180deg) translateZ(0.1px)',
+              background: `
+                repeating-linear-gradient(180deg, transparent 0 31px, ${PAPER_LINES} 31px 32px),
+                linear-gradient(180deg, #efe5c5, #e0d3a8)`,
+              boxShadow: 'inset 0 0 60px rgba(80,60,20,0.15)',
+            }}>
+              <div style={{
+                position: 'absolute', top: 80, left: 24, right: 24,
+                fontFamily: SERIF_FONT,
+                textAlign: 'center', color: '#3a2a18',
+              }}>
+                <div style={{ fontFamily: TYPE_FONT, fontSize: 10, letterSpacing: 4, opacity: 0.7 }}>EX LIBRIS</div>
+                <div style={{ fontFamily: HAND_FONT, fontWeight: 700, fontSize: 36, marginTop: 8 }}>Eren</div>
+                <div style={{ height: 1, background: '#3a2a18', opacity: 0.4, margin: '14px auto 0', width: 80 }} />
+                <div style={{ fontFamily: HAND_FONT, fontSize: 22, marginTop: 14, opacity: 0.85 }}>
+                  Sveska br. {sectionIndex}
+                </div>
+                <div style={{ fontFamily: TYPE_FONT, fontSize: 9, letterSpacing: 2, marginTop: 20, opacity: 0.55 }}>
+                  IF FOUND, RETURN TO OWNER
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* close-the-book button */}
+          <button
+            onClick={(e) => { e.stopPropagation(); playSound('ui_back'); onClose() }}
+            style={{
+              position: 'absolute', top: 10, right: 10, zIndex: 5,
+              background: 'rgba(0,0,0,0.55)', color: '#fff',
+              border: 'none', borderRadius: 999, padding: '6px 10px',
+              fontFamily: TYPE_FONT, fontSize: 10, letterSpacing: 1.5,
+              cursor: 'pointer', backdropFilter: 'blur(6px)',
+            }}>× shelf</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── V4 Path — lesson list on lined paper inside the open notebook ─────────
+function V4Path({ section, progress, isUnlocked, nextUpId, onLessonTap, onClose }: {
+  section: Section
+  progress: SerbianProgress
+  isUnlocked: (id: number) => boolean
+  nextUpId: number | undefined
+  onLessonTap: (l: Lesson) => void
+  onClose: () => void
+}) {
+  const units = section.unitIds.map(uid => getUnitById(uid)!).filter(Boolean)
+  return (
+    <div style={{
+      position: 'absolute', inset: 0,
+      background: `
+        repeating-linear-gradient(180deg, transparent 0 27px, ${PAPER_LINES} 27px 28px),
+        ${PAPER}`,
+      overflow: 'hidden',
+    }}>
+      <div style={{
+        position: 'absolute', left: 44, top: 0, bottom: 0, width: 1.5,
+        background: 'rgba(178,34,34,0.55)',
+      }} />
+      {['8%', '42%', '78%'].map((y, i) => (
+        <div key={i} style={{
+          position: 'absolute', left: 14, top: y,
+          width: 14, height: 14, borderRadius: '50%',
+          background: 'rgba(0,0,0,0.18)',
+          boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.35)',
+        }} />
+      ))}
+
+      <button
+        onClick={onClose}
+        style={{
+          position: 'absolute', top: 10, right: 14, zIndex: 5,
+          background: 'transparent', border: 'none', padding: '4px 6px',
+          fontFamily: HAND_FONT, fontSize: 22, color: INK_SOFT,
+          cursor: 'pointer',
+        }}>× zatvori</button>
+
+      <div style={{ position: 'absolute', top: 18, left: 60, right: 90 }}>
+        <div style={{ fontFamily: TYPE_FONT, fontSize: 9, letterSpacing: 3, color: INK_SOFT, opacity: 0.8 }}>
+          SVESKA · LEKCIJE
+        </div>
+        <div style={{ fontFamily: HAND_FONT, fontWeight: 700, fontSize: 28, color: INK, lineHeight: 1.05 }}>
+          {section.title}
+        </div>
+        <div style={{
+          fontFamily: HAND_FONT, fontSize: 20, color: PEN_RED,
+          transform: 'rotate(-1deg)', display: 'inline-block', marginTop: 2,
+        }}>
+          ~ {section.titleSr} ~
+        </div>
+      </div>
+
+      <div style={{
+        position: 'absolute', left: 56, right: 16,
+        top: 112, bottom: 18,
+        overflowY: 'auto',
+        paddingRight: 8,
+      }}>
+        {units.map((unit, ui) => {
+          const lessons = unit.lessonIds.map(id => getLessonById(id)!).filter(Boolean)
+          return (
+            <div key={unit.id} style={{ marginBottom: 26 }}>
+              <div style={{
+                fontFamily: HAND_FONT, fontWeight: 700, fontSize: 22, color: INK,
+                display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap',
+              }}>
+                <span style={{ fontFamily: TYPE_FONT, fontSize: 11, color: INK_SOFT, letterSpacing: 2 }}>
+                  {String(ui + 1).padStart(2, '0')}.
+                </span>
+                <span>{unit.title}</span>
+                <span style={{
+                  fontFamily: HAND_FONT, fontSize: 16, color: PEN_RED,
+                  transform: 'rotate(-2deg)', display: 'inline-block',
+                }}>— {unit.titleSr}</span>
+              </div>
+              <div style={{
+                height: 2, background: INK_SOFT, opacity: 0.25,
+                marginTop: 4, marginBottom: 14,
+              }} />
+
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                {lessons.map((l, li) => {
+                  const completed = progress.completed.includes(l.id)
+                  const perfect = progress.perfect.includes(l.id)
+                  const unlocked = isUnlocked(l.id)
+                  const isNextUp = l.id === nextUpId
+                  const offset = li % 2 === 0 ? -30 : 30
+                  return (
+                    <div key={l.id} style={{
+                      position: 'relative', display: 'flex',
+                      flexDirection: 'column', alignItems: 'center',
+                      marginLeft: offset,
+                    }}>
+                      {li > 0 && (
+                        <svg width="40" height="22" viewBox="0 0 40 22" style={{ marginBottom: 2 }}>
+                          <path d="M 20 0 C 14 8, 26 14, 20 22"
+                            stroke={completed ? PEN_RED : PENCIL}
+                            strokeWidth="2"
+                            strokeDasharray={completed ? '0' : '3 4'}
+                            fill="none"
+                            strokeLinecap="round" />
+                        </svg>
+                      )}
+
+                      <button
+                        onClick={() => { if (unlocked) { playSound('ui_tap'); onLessonTap(l) } }}
+                        disabled={!unlocked}
+                        className="active:scale-95 transition-transform"
+                        style={{
+                          width: 64, height: 64,
+                          background: completed ? PEN_RED : unlocked ? PAPER : PAPER_DK,
+                          border: `2.5px solid ${unlocked ? INK : PENCIL}`,
+                          borderRadius: '50%',
+                          color: completed ? PAPER : INK,
+                          boxShadow: unlocked
+                            ? `0 4px 0 ${INK}, 0 0 0 ${isNextUp ? '4px' : '0px'} rgba(178,34,34,0.25)`
+                            : `0 3px 0 ${PENCIL}`,
+                          cursor: unlocked ? 'pointer' : 'default',
+                          fontFamily: HAND_FONT, fontWeight: 700, fontSize: 26,
+                          position: 'relative',
+                          animation: isNextUp ? 'srNextUpBob 1.8s ease-in-out infinite' : 'none',
+                          opacity: unlocked ? 1 : 0.6,
+                          padding: 0,
+                        }}>
+                        {unlocked
+                          ? completed
+                            ? (perfect ? '★' : '✓')
+                            : l.id
+                          : '🔒'}
+                        {perfect && !completed && (
+                          <span style={{
+                            position: 'absolute', top: -10, right: -10,
+                            fontFamily: HAND_FONT, fontSize: 22, color: PEN_RED,
+                            transform: 'rotate(-12deg)',
+                          }}>★</span>
+                        )}
+                      </button>
+                      <div style={{
+                        fontFamily: HAND_FONT, fontSize: isNextUp ? 20 : 18,
+                        color: isNextUp ? PEN_RED : unlocked ? INK : PENCIL,
+                        marginTop: 4,
+                        textAlign: 'center', lineHeight: 1.1,
+                        maxWidth: 160,
+                        transform: isNextUp ? 'rotate(-1deg)' : 'none',
+                      }}>
+                        {l.title}
+                      </div>
+                      {isNextUp && (
+                        <div style={{
+                          fontFamily: HAND_FONT, fontSize: 16, color: PEN_RED,
+                          transform: 'rotate(-3deg)', marginTop: 2,
+                        }}>← počni ovdje!</div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+
+        {/* Eren mascot at the bottom of the page */}
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          marginTop: 8, marginBottom: 4,
+        }}>
+          <AnimatedEren px={3} />
+          <div style={{
+            fontFamily: HAND_FONT, fontSize: 18, color: PEN_RED,
+            transform: 'rotate(-2deg)', marginTop: -4,
+          }}>idemo!</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
-// LESSON PLAYER — Duolingo-style: hearts, progress, exercise rotation
-// Accepts a session (title + exercise list) — works for normal lessons OR
-// review sessions built from struggling words.
+// PAPER PRIMITIVE — every exercise renders on this.
+// ═══════════════════════════════════════════════════════════════════════════
+function Paper({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative z-10 flex-1 overflow-hidden" style={{
+      background: `
+        repeating-linear-gradient(180deg, transparent 0 27px, ${PAPER_LINES} 27px 28px),
+        ${PAPER}`,
+      animation: 'srSheetIn 0.28s ease-out',
+    }}>
+      {/* red margin */}
+      <div style={{
+        position: 'absolute', left: 44, top: 0, bottom: 0, width: 1.5,
+        background: 'rgba(178,34,34,0.55)',
+      }} />
+      {/* hole punches */}
+      {['12%', '50%', '88%'].map((y, i) => (
+        <div key={i} style={{
+          position: 'absolute', left: 14, top: y,
+          width: 14, height: 14, borderRadius: '50%',
+          background: 'rgba(0,0,0,0.18)',
+          boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.35)',
+        }} />
+      ))}
+      {children}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LESSON PLAYER — paper-themed top bar, hearts as hand-drawn ♥, red-pen
+// progress bar, feedback drawer styled like a note pinned to the page.
 // ═══════════════════════════════════════════════════════════════════════════
 function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
   title: string
@@ -966,11 +1147,10 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
   const [requeuedCount, setRequeuedCount] = useState(0)
 
   const ex = exercises[idx]
-  const total = exercises.length + requeuedCount  // wrong answers requeue; total grows
+  const total = exercises.length + requeuedCount
   const progressPct = Math.min(100, Math.round((idx / total) * 100))
 
   function handleAnswer(ok: boolean, correctText?: string) {
-    // Track per-word stats for any exercise tied to a Serbian word.
     if (ex && onWordResult) {
       if (ex.kind === 'mc' && ex.srKey) {
         const en = ex.promptLang === 'sr' ? ex.answer : ex.prompt
@@ -982,14 +1162,12 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
     if (ok) {
       playCorrect()
       setFeedback({ ok: true })
-      // Speak the Serbian answer/prompt as positive reinforcement.
       if (ex && ex.kind === 'mc') {
         const sr = ex.promptLang === 'sr' ? ex.prompt : ex.answer
         if (sr) setTimeout(() => speakSerbian(sr), 120)
       } else if (ex && ex.kind === 'order') {
         setTimeout(() => speakSerbian(ex.sr), 120)
       }
-      // Listen: don't re-speak — they just heard it. Still play correct chime.
     } else {
       playWrong()
       heartsLostRef.current++
@@ -1002,85 +1180,69 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
     const wasOk = feedback?.ok
     setFeedback(null)
     if (!wasOk) {
-      // Requeue the failed exercise toward the end so the player sees it again.
       setRequeuedCount(c => c + 1)
     }
     if (idx + 1 >= exercises.length) {
-      // Done — no more exercises to show.
       const perfect = heartsLostRef.current === 0
-      // Out-of-hearts case: hearts is zero, treat as fail-restart.
-      if (hearts <= 0 && !wasOk) {
-        // Hearts ran out on the just-handled wrong answer; show no-hearts screen
-        return
-      }
+      if (hearts <= 0 && !wasOk) return
       onFinish(perfect)
       return
     }
     setIdx(i => i + 1)
   }
 
-  // If hearts hit 0 mid-lesson, show the "no hearts" screen instead.
   const outOfHearts = hearts <= 0
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col overflow-hidden" style={{
-      background: 'radial-gradient(ellipse at top, #2A1B5C 0%, #170B33 55%, #08051C 100%)',
+      background: `radial-gradient(ellipse at center, ${PAPER_DK} 0%, #aea692 100%)`,
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
     }}>
-      {/* Subtle starfield + scanlines so the lesson player matches the map */}
-      <div className="absolute inset-0 pointer-events-none opacity-30" style={{
-        backgroundImage: 'radial-gradient(circle, #FBBF24 1px, transparent 1px), radial-gradient(circle, #A78BFA 1px, transparent 1px)',
-        backgroundSize: '52px 52px, 76px 76px',
-        backgroundPosition: '0 0, 28px 36px',
-      }} />
       <div className="absolute inset-0 pointer-events-none" style={{
-        background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.14) 3px, rgba(0,0,0,0.14) 4px)',
+        backgroundImage: `
+          radial-gradient(circle at 22% 18%, rgba(0,0,0,0.06), transparent 40%),
+          radial-gradient(circle at 78% 82%, rgba(0,0,0,0.08), transparent 50%),
+          repeating-linear-gradient(92deg, rgba(0,0,0,0.025) 0 1px, transparent 1px 3px)`,
       }} />
 
-      {/* ─── Glass top bar ─── */}
-      <div className="relative z-20 flex items-center gap-3 px-3 py-3 flex-shrink-0" style={{
-        background: 'linear-gradient(180deg, rgba(20,8,40,0.85) 0%, rgba(20,8,40,0.55) 100%)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(251,191,36,0.4)',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+      {/* ─── Top bar — typewriter tab on kraft strip ─── */}
+      <div className="relative z-20 flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{
+        background: `linear-gradient(180deg, ${KRAFT_MD} 0%, ${KRAFT_LO} 100%)`,
+        borderBottom: `2px solid ${INK}`,
+        boxShadow: '0 3px 0 rgba(0,0,0,0.18)',
       }}>
         <button onClick={() => setExitConfirm(true)}
-          className="flex items-center justify-center active:scale-90 transition-transform"
+          className="active:scale-90 transition-transform"
           style={{
-            width: 32, height: 32,
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.18)',
-            borderRadius: 8,
-          }}>
-          <X size={18} className="text-amber-100" />
-        </button>
-        {/* Progress bar — gold on inset shadow */}
+            background: PAPER, border: `2px solid ${INK}`,
+            borderRadius: 4, padding: '4px 10px 5px',
+            fontFamily: HAND_FONT, fontSize: 20, color: INK_SOFT,
+            boxShadow: '0 2px 0 rgba(0,0,0,0.35)',
+            lineHeight: 1,
+          }}>× zatvori</button>
+
         <div className="flex-1 relative" style={{
-          height: 12,
-          background: 'rgba(0,0,0,0.55)',
-          borderRadius: 6,
-          border: '1px solid rgba(251,191,36,0.4)',
-          boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.6)',
-          overflow: 'hidden',
+          height: 10, background: PAPER_DK,
+          border: `1.5px solid ${INK}`,
+          borderRadius: 4, overflow: 'hidden',
+          boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.25)',
         }}>
           <div style={{
             width: `${progressPct}%`,
-            height: '100%',
-            background: 'linear-gradient(180deg, #FEF3C7 0%, #FBBF24 35%, #F59E0B 70%, #B45309 100%)',
-            borderRadius: 5,
+            height: '100%', background: PEN_RED,
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4)',
             transition: 'width 0.5s cubic-bezier(0.34,1.56,0.64,1)',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), 0 0 8px rgba(251,191,36,0.55)',
           }} />
         </div>
-        {/* Hearts pill */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1.5" style={{
-          background: 'linear-gradient(180deg, rgba(127,29,29,0.55) 0%, rgba(67,9,9,0.7) 100%)',
-          border: '1px solid rgba(252,165,165,0.6)',
-          borderRadius: 6,
-          boxShadow: 'inset 0 1px 0 rgba(252,165,165,0.25), 0 0 8px rgba(252,165,165,0.3)',
-        }}>
-          <Heart size={13} className="text-rose-300 fill-rose-400" style={{ filter: 'drop-shadow(0 0 4px rgba(252,165,165,0.6))' }} />
-          <span className="font-pixel" style={{ fontSize: 9, color: '#FECACA', textShadow: '0 1px 0 rgba(0,0,0,0.4)' }}>{hearts}</span>
+        <div style={{ display: 'flex', gap: 3 }}>
+          {[1,2,3,4,5].map(i => (
+            <span key={i} style={{
+              fontFamily: HAND_FONT, fontSize: 22,
+              color: i <= hearts ? PEN_RED : PENCIL,
+              transform: `rotate(${(i-3)*5}deg)`, display: 'inline-block',
+              lineHeight: 1,
+            }}>♥</span>
+          ))}
         </div>
       </div>
 
@@ -1095,138 +1257,100 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
           />
         )}
 
-        {/* Persistent teacher mascot — small Eren tucked in the bottom-left
-            of the exercise area. Stays out of the way of the prompt and
-            options, just present so the lesson always has him. Hides while
-            the feedback drawer is up (drawer has its own bigger Eren). */}
-        {!outOfHearts && ex && !feedback && (
-          <div className="absolute pointer-events-none z-10" style={{
-            left: 8, bottom: 8,
-            animation: 'srErenIdle 2.6s ease-in-out infinite',
-            filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.4)) drop-shadow(0 0 8px rgba(251,191,36,0.25))',
-            opacity: 0.9,
-          }}>
-            <AnimatedEren px={4} />
-          </div>
-        )}
-
         {outOfHearts && (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 text-center">
-            <div className="font-pixel" style={{ fontSize: 28 }}>💔</div>
-            <p className="font-pixel" style={{ fontSize: 12, color: '#9F1239', letterSpacing: 2 }}>OUT OF HEARTS</p>
-            <p className="text-amber-900 text-sm leading-relaxed max-w-[280px]">
-              Don&apos;t worry — try this lesson again. Mistakes are part of learning!
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 text-center" style={{
+            background: PAPER,
+          }}>
+            <div style={{
+              fontFamily: HAND_FONT, fontWeight: 700, fontSize: 56,
+              color: PEN_RED, transform: 'rotate(-3deg)',
+            }}>♥ × 0</div>
+            <p style={{
+              fontFamily: TYPE_FONT, fontSize: 11, letterSpacing: 2,
+              color: INK_SOFT,
+            }}>OUT OF HEARTS</p>
+            <p style={{
+              fontFamily: HAND_FONT, fontSize: 22, color: INK,
+              maxWidth: 280, lineHeight: 1.15,
+            }}>
+              Don&apos;t worry — try again. Mistakes are part of learning!
             </p>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <button onClick={onExit}
-                className="px-5 py-2 active:translate-y-[2px] transition-transform"
-                style={{ background: 'white', border: '2px solid #FDBA74', borderRadius: 4, boxShadow: '0 3px 0 #C2410C', fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5, color: '#9A3412' }}>
-                BACK
-              </button>
+                style={{
+                  background: PAPER, border: `2px solid ${INK}`,
+                  borderRadius: 4, padding: '8px 14px 10px',
+                  fontFamily: HAND_FONT, fontWeight: 700, fontSize: 22, color: INK,
+                  boxShadow: `0 4px 0 ${INK}`,
+                }}>back</button>
               <button onClick={() => {
-                  // Reset lesson
                   setIdx(0); setHearts(HEARTS_MAX); heartsLostRef.current = 0; setRequeuedCount(0); setFeedback(null)
                 }}
-                className="px-5 py-2 text-white active:translate-y-[2px] transition-transform"
-                style={{ background: 'linear-gradient(135deg, #F59E0B, #B45309)', border: '2px solid #92400E', borderRadius: 4, boxShadow: '0 3px 0 #78350F', fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5 }}>
-                RETRY
-              </button>
+                style={{
+                  background: PEN_RED, border: `2px solid ${PEN_RED_DK}`,
+                  borderRadius: 4, padding: '8px 14px 10px',
+                  fontFamily: HAND_FONT, fontWeight: 700, fontSize: 22, color: PAPER,
+                  boxShadow: `0 4px 0 ${PEN_RED_DK}`,
+                }}>try again</button>
             </div>
           </div>
         )}
       </div>
 
-      {/* ─── Feedback drawer — premium glass with bright color cue ─── */}
+      {/* ─── Feedback drawer — looks like a note pinned to the page ─── */}
       {feedback && !outOfHearts && (
         <div className="relative z-30 flex-shrink-0 px-4 py-4" style={{
-          background: feedback.ok
-            ? 'linear-gradient(180deg, rgba(6,95,70,0.92) 0%, rgba(2,44,34,0.96) 100%)'
-            : 'linear-gradient(180deg, rgba(127,29,29,0.92) 0%, rgba(67,9,9,0.96) 100%)',
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          borderTop: `2px solid ${feedback.ok ? '#10B981' : '#DC2626'}`,
-          boxShadow: feedback.ok
-            ? '0 -8px 24px rgba(16,185,129,0.35), inset 0 1px 0 rgba(167,243,208,0.25)'
-            : '0 -8px 24px rgba(220,38,38,0.35), inset 0 1px 0 rgba(252,165,165,0.25)',
+          background: feedback.ok ? '#e8f5dd' : '#fde7e1',
+          borderTop: `2px solid ${feedback.ok ? '#2e6b1d' : PEN_RED_DK}`,
+          boxShadow: '0 -6px 18px rgba(0,0,0,0.15)',
           animation: 'srFbSlide 0.28s cubic-bezier(0.34,1.56,0.64,1)',
         }}>
+          {/* paperclip tape */}
+          <div style={{
+            position: 'absolute', top: -10, left: '40%',
+            width: 70, height: 16,
+            background: 'rgba(252,240,140,0.85)',
+            border: '1px solid rgba(0,0,0,0.1)',
+            transform: 'rotate(-2deg)',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.12)',
+          }} />
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              {/* Eren the teacher — Duolingo-style mascot. Bobs happily on
-                  correct, slumps slightly on wrong. The coloured ring
-                  around him doubles as the success/fail status colour. */}
-              <div className="relative" style={{ width: 56, height: 56 }}>
-                <div style={{
-                  position: 'absolute', inset: 0,
-                  borderRadius: '50%',
-                  background: feedback.ok
-                    ? 'radial-gradient(circle at 35% 30%, #A7F3D0, #10B981 75%)'
-                    : 'radial-gradient(circle at 35% 30%, #FCA5A5, #DC2626 75%)',
-                  border: `2px solid ${feedback.ok ? '#6EE7B7' : '#F87171'}`,
-                  boxShadow: feedback.ok
-                    ? '0 0 14px rgba(16,185,129,0.7), inset 0 1px 0 rgba(255,255,255,0.4)'
-                    : '0 0 14px rgba(220,38,38,0.7), inset 0 1px 0 rgba(255,255,255,0.4)',
-                }} />
-                <div style={{
-                  position: 'absolute', inset: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  animation: feedback.ok ? 'srErenHappy 0.6s ease-out' : 'srErenSad 0.6s ease-out',
-                  filter: feedback.ok
-                    ? 'drop-shadow(0 0 6px rgba(167,243,208,0.8))'
-                    : 'brightness(0.85) drop-shadow(0 0 6px rgba(252,165,165,0.7))',
-                }}>
-                  <AnimatedEren px={2} />
-                </div>
-                {/* Mood marker — sparkle on correct, water-drop tear on wrong */}
-                {feedback.ok ? (
-                  <span className="absolute font-pixel" style={{
-                    top: -6, right: -2, fontSize: 14,
-                    animation: 'srSparkle 0.6s ease-out',
-                    filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.8))',
-                    color: '#FBBF24',
-                  }}>✦</span>
-                ) : (
-                  <span className="absolute" style={{
-                    top: 14, right: 10,
-                    width: 5, height: 7,
-                    background: '#67E8F9',
-                    borderRadius: '50% 50% 50% 50% / 30% 30% 70% 70%',
-                    boxShadow: '0 0 4px rgba(103,232,249,0.85)',
-                    animation: 'srTear 0.6s ease-out',
-                  }} />
-                )}
+              <div style={{ filter: feedback.ok ? 'none' : 'grayscale(0.4) brightness(0.95)' }}>
+                <AnimatedEren px={3} />
               </div>
               <div>
-                <div className="font-pixel" style={{
-                  fontSize: 11,
-                  color: feedback.ok ? '#A7F3D0' : '#FCA5A5',
-                  letterSpacing: 2,
-                  textShadow: '0 1px 0 rgba(0,0,0,0.4)',
+                <div style={{
+                  fontFamily: HAND_FONT, fontWeight: 700, fontSize: 24,
+                  color: feedback.ok ? '#2e6b1d' : PEN_RED,
+                  transform: 'rotate(-1deg)', display: 'inline-block',
+                  lineHeight: 1.05,
                 }}>
-                  {feedback.ok ? 'EREN: GREAT!' : 'EREN: TRY AGAIN'}
+                  {feedback.ok ? 'odlično!' : 'pokušaj opet'}
                 </div>
                 {!feedback.ok && feedback.correctText && (
-                  <div className="text-xs mt-1" style={{ color: '#FECACA' }}>
-                    The answer is <strong style={{ color: '#FFFFFF' }}>{feedback.correctText}</strong>
+                  <div style={{
+                    fontFamily: HAND_FONT, fontSize: 18, color: INK,
+                    marginTop: 2,
+                  }}>
+                    answer: <strong style={{ color: PEN_RED }}>{feedback.correctText}</strong>
                   </div>
                 )}
               </div>
             </div>
             <button onClick={continueNext}
-              className="px-5 py-2.5 text-white active:translate-y-[1px] transition-all"
+              className="active:translate-y-[1px]"
               style={{
-                background: feedback.ok
-                  ? 'linear-gradient(180deg, #6EE7B7 0%, #10B981 50%, #047857 100%)'
-                  : 'linear-gradient(180deg, #FCA5A5 0%, #DC2626 50%, #7F1D1D 100%)',
-                border: `1.5px solid ${feedback.ok ? '#022C22' : '#450A0A'}`,
-                borderRadius: 8,
-                boxShadow: feedback.ok
-                  ? '0 5px 14px rgba(16,185,129,0.55), inset 0 1px 0 rgba(255,255,255,0.45)'
-                  : '0 5px 14px rgba(220,38,38,0.55), inset 0 1px 0 rgba(255,255,255,0.45)',
-                fontFamily: '"Press Start 2P"', fontSize: 9, letterSpacing: 1.8,
-                textShadow: '0 1px 0 rgba(0,0,0,0.4)',
+                background: feedback.ok ? '#3a8228' : PEN_RED,
+                color: PAPER,
+                border: `2px solid ${feedback.ok ? '#1f4a14' : PEN_RED_DK}`,
+                borderRadius: 4,
+                padding: '8px 16px 10px',
+                fontFamily: HAND_FONT, fontWeight: 700, fontSize: 22, letterSpacing: 1,
+                boxShadow: `0 4px 0 ${feedback.ok ? '#1f4a14' : PEN_RED_DK}`,
+                transform: 'rotate(-0.5deg)',
               }}>
-              CONTINUE
+              dalje →
             </button>
           </div>
         </div>
@@ -1236,20 +1360,35 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
       {exitConfirm && (
         <div className="absolute inset-0 z-50 flex items-center justify-center px-6" style={{ background: 'rgba(0,0,0,0.5)' }}>
           <div className="flex flex-col items-center gap-3 px-5 py-5 max-w-[320px] text-center"
-            style={{ background: 'white', border: '3px solid #B45309', borderRadius: 6, boxShadow: '0 5px 0 #92400E' }}>
-            <p className="font-pixel" style={{ fontSize: 10, color: '#7C2D12', letterSpacing: 1.5 }}>QUIT LESSON?</p>
-            <p className="text-sm text-amber-900">You&apos;ll lose your progress on this lesson.</p>
+            style={{
+              background: PAPER, border: `2px solid ${INK}`,
+              boxShadow: `0 6px 0 ${INK}, 0 14px 24px rgba(0,0,0,0.25)`,
+              borderRadius: 4,
+              transform: 'rotate(-1deg)',
+            }}>
+            <p style={{ fontFamily: HAND_FONT, fontWeight: 700, fontSize: 30, color: INK }}>
+              quit lesson?
+            </p>
+            <p style={{ fontFamily: HAND_FONT, fontSize: 20, color: INK_SOFT, lineHeight: 1.15 }}>
+              You&apos;ll lose your progress on this page.
+            </p>
             <div className="flex gap-2 mt-1">
               <button onClick={() => setExitConfirm(false)}
-                className="px-4 py-2 active:translate-y-[2px]"
-                style={{ background: '#F59E0B', color: 'white', border: '2px solid #92400E', borderRadius: 4, boxShadow: '0 3px 0 #78350F', fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5 }}>
-                KEEP GOING
-              </button>
+                style={{
+                  background: PEN_RED, color: PAPER,
+                  border: `2px solid ${PEN_RED_DK}`, borderRadius: 4,
+                  padding: '8px 14px 10px',
+                  fontFamily: HAND_FONT, fontWeight: 700, fontSize: 20,
+                  boxShadow: `0 4px 0 ${PEN_RED_DK}`,
+                }}>keep going</button>
               <button onClick={() => { setExitConfirm(false); onExit() }}
-                className="px-4 py-2 active:translate-y-[2px]"
-                style={{ background: 'white', color: '#7C2D12', border: '2px solid #B45309', borderRadius: 4, boxShadow: '0 3px 0 #92400E', fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5 }}>
-                QUIT
-              </button>
+                style={{
+                  background: PAPER, color: INK,
+                  border: `2px solid ${INK}`, borderRadius: 4,
+                  padding: '8px 14px 10px',
+                  fontFamily: HAND_FONT, fontWeight: 700, fontSize: 20,
+                  boxShadow: `0 4px 0 ${INK}`,
+                }}>quit</button>
             </div>
           </div>
         </div>
@@ -1259,36 +1398,6 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
         @keyframes srFbSlide {
           0%   { transform: translateY(20px); opacity: 0; }
           100% { transform: translateY(0);    opacity: 1; }
-        }
-        /* Persistent corner-mascot bobbing while the player works on the
-           current exercise. Slow + small so it doesn't pull focus. */
-        @keyframes srErenIdle {
-          0%, 100% { transform: translateY(0)   rotate(0deg); }
-          50%      { transform: translateY(-3px) rotate(-2deg); }
-        }
-        /* Reaction inside the feedback drawer — happy hop on correct,
-           gentle slump on wrong. */
-        @keyframes srErenHappy {
-          0%   { transform: translateY(0)    scale(1); }
-          30%  { transform: translateY(-8px) scale(1.1); }
-          60%  { transform: translateY(0)    scale(0.96); }
-          100% { transform: translateY(0)    scale(1); }
-        }
-        @keyframes srErenSad {
-          0%, 100% { transform: translateY(0)   rotate(0deg); }
-          30%      { transform: translateY(2px) rotate(-3deg); }
-          70%      { transform: translateY(2px) rotate(3deg); }
-        }
-        /* Mood markers — gold sparkle on correct, blue tear on wrong */
-        @keyframes srSparkle {
-          0%   { transform: scale(0)    rotate(0deg);   opacity: 0; }
-          40%  { transform: scale(1.4)  rotate(180deg); opacity: 1; }
-          100% { transform: scale(1)    rotate(360deg); opacity: 1; }
-        }
-        @keyframes srTear {
-          0%   { transform: translateY(-6px) scale(0); opacity: 0; }
-          30%  { transform: translateY(0)    scale(1); opacity: 1; }
-          100% { transform: translateY(8px)  scale(0.6); opacity: 0; }
         }
       `}</style>
     </div>
@@ -1307,7 +1416,28 @@ function ExerciseSurface({ exercise, disabled, onAnswer }: {
   return <OrderExercise ex={exercise} disabled={disabled} onAnswer={onAnswer} />
 }
 
-// ─── Multiple choice translate ─────────────────────────────────────────────
+// ─── Shared "provjeri ✓" red-pen submit button ─────────────────────────────
+function CheckButton({ disabled, onClick, label = 'provjeri ✓' }: {
+  disabled?: boolean
+  onClick: () => void
+  label?: string
+}) {
+  return (
+    <button onClick={onClick} disabled={disabled}
+      className="active:translate-y-[2px] transition-all disabled:opacity-40"
+      style={{
+        width: '100%', padding: '12px 0 14px',
+        background: PEN_RED, color: '#fff8e8',
+        border: `2px solid ${PEN_RED_DK}`,
+        fontFamily: HAND_FONT, fontWeight: 700, fontSize: 26, letterSpacing: 1.5,
+        boxShadow: `0 4px 0 ${PEN_RED_DK}, 0 8px 18px rgba(0,0,0,0.15)`,
+        borderRadius: 4,
+        transform: 'rotate(-0.6deg)',
+      }}>{label}</button>
+  )
+}
+
+// ─── Multiple choice translate — paper aesthetic ───────────────────────────
 function MCExercise({ ex, disabled, onAnswer }: {
   ex: Extract<Exercise, { kind: 'mc' }>
   disabled: boolean
@@ -1319,135 +1449,111 @@ function MCExercise({ ex, disabled, onAnswer }: {
   function handleSubmit() {
     if (selected === null || submitted) return
     setSubmitted(true)
-    const ok = selected === ex.answer
-    onAnswer(ok, ex.answer)
+    onAnswer(selected === ex.answer, ex.answer)
   }
 
   return (
-    <div className="relative z-10 flex-1 flex flex-col px-5 py-6 overflow-y-auto scrollbar-hide">
-      <p className="font-pixel" style={{ fontSize: 7, color: '#FBBF24', letterSpacing: 2.5, textShadow: '0 1px 0 rgba(0,0,0,0.4)' }}>
-        {ex.promptLang === 'sr' ? 'TRANSLATE TO ENGLISH' : 'PICK THE TRANSLATION'}
-      </p>
-
-      {/* Premium prompt card — warm parchment over dark */}
-      <div className="relative my-6 px-5 py-6 text-center overflow-hidden"
-        style={{
-          background: 'linear-gradient(180deg, #FFFBF0 0%, #FFF4D6 100%)',
-          border: '1px solid #FCD34D',
-          borderRadius: 10,
-          boxShadow: '0 12px 30px rgba(0,0,0,0.45), 0 2px 0 rgba(255,255,255,0.65) inset, 0 -2px 0 rgba(180,83,9,0.18) inset, 0 0 0 4px rgba(251,191,36,0.18)',
-        }}>
-        {/* Gold corner ticks */}
-        <div style={{ position: 'absolute', top: 6, left: 6, width: 4, height: 4, background: '#F59E0B', opacity: 0.85 }} />
-        <div style={{ position: 'absolute', top: 6, right: 6, width: 4, height: 4, background: '#F59E0B', opacity: 0.85 }} />
-        <div style={{ position: 'absolute', bottom: 6, left: 6, width: 4, height: 4, background: '#F59E0B', opacity: 0.85 }} />
-        <div style={{ position: 'absolute', bottom: 6, right: 6, width: 4, height: 4, background: '#F59E0B', opacity: 0.85 }} />
-
-        <div className="flex items-center justify-center gap-3">
-          {ex.promptLang === 'sr' && <SpeakerButton text={ex.prompt} size={36} />}
-          <p className={ex.promptLang === 'sr' ? 'font-pixel' : ''}
-            style={{
-              fontSize: ex.promptLang === 'sr' ? 18 : 15,
-              color: '#3F1D08',
-              letterSpacing: ex.promptLang === 'sr' ? 1.5 : 0,
-              lineHeight: 1.4,
-              fontWeight: ex.promptLang === 'sr' ? undefined : 600,
-              textShadow: ex.promptLang === 'sr' ? '0 1px 0 rgba(255,255,255,0.5)' : 'none',
-            }}>
-            {ex.prompt}
-          </p>
+    <Paper>
+      <div style={{ position: 'absolute', top: 18, left: 60, right: 18 }}>
+        <div style={{ fontFamily: TYPE_FONT, fontSize: 10, letterSpacing: 3, color: INK_SOFT, opacity: 0.8 }}>
+          PREVEDI · TRANSLATE
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+          {ex.promptLang === 'sr' && <SpeakerButton text={ex.prompt} size={34} />}
+          <div style={{
+            fontFamily: HAND_FONT, fontWeight: 700,
+            fontSize: ex.prompt.length > 18 ? 28 : 34,
+            color: INK, lineHeight: 1.05,
+          }}>&quot;{ex.prompt}&quot;</div>
         </div>
         {ex.pronunciation && (
-          <p className="text-xs italic mt-2.5" style={{ color: '#92400E', letterSpacing: 0.5 }}>
-            /{ex.pronunciation}/
-          </p>
+          <div style={{
+            fontFamily: TYPE_FONT, fontSize: 11, color: INK_SOFT,
+            marginTop: 4, fontStyle: 'italic',
+          }}>/{ex.pronunciation}/</div>
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2.5 mt-2">
-        {ex.options.map(opt => {
-          const isSel = selected === opt
-          const isCorrect = submitted && opt === ex.answer
-          const isWrongPick = submitted && isSel && opt !== ex.answer
-          return (
-            <button key={opt}
-              disabled={disabled || submitted}
-              onClick={() => setSelected(opt)}
-              className="px-3 py-3 active:translate-y-[1px] transition-all text-left"
-              style={{
-                background: isCorrect
-                  ? 'linear-gradient(180deg, #D1FAE5 0%, #A7F3D0 100%)'
-                  : isWrongPick
-                    ? 'linear-gradient(180deg, #FEE2E2 0%, #FCA5A5 100%)'
-                    : isSel
-                      ? 'linear-gradient(180deg, #FFFAF0 0%, #FDE68A 100%)'
-                      : 'linear-gradient(180deg, #FFFBF0 0%, #FFF4D6 100%)',
-                border: `1.5px solid ${isCorrect ? '#10B981' : isWrongPick ? '#DC2626' : isSel ? '#F59E0B' : 'rgba(251,191,36,0.35)'}`,
-                borderRadius: 8,
-                boxShadow: isCorrect
-                  ? '0 4px 12px rgba(16,185,129,0.4), inset 0 1px 0 rgba(255,255,255,0.6)'
-                  : isWrongPick
-                    ? '0 4px 12px rgba(220,38,38,0.4), inset 0 1px 0 rgba(255,255,255,0.6)'
-                    : isSel
-                      ? '0 4px 14px rgba(245,158,11,0.45), inset 0 1px 0 rgba(255,255,255,0.7)'
-                      : '0 6px 14px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.55)',
-                color: '#3F1D08',
-                fontFamily: ex.promptLang === 'sr' ? undefined : '"Press Start 2P"',
-                fontSize: ex.promptLang === 'sr' ? 14 : 8,
-                fontWeight: ex.promptLang === 'sr' ? 600 : undefined,
-                lineHeight: 1.45,
-                minHeight: 60,
-                cursor: disabled || submitted ? 'default' : 'pointer',
-                transform: isSel && !submitted ? 'translateY(-1px)' : 'none',
-              }}>
-              {opt}
-            </button>
-          )
-        })}
+      <div style={{
+        position: 'absolute', top: 170, left: 56, right: 18, bottom: 100,
+        overflowY: 'auto', paddingRight: 4,
+      }}>
+        <div style={{ fontFamily: TYPE_FONT, fontSize: 9, letterSpacing: 3, color: INK_SOFT, opacity: 0.6, marginBottom: 10 }}>
+          {ex.promptLang === 'sr' ? 'PICK THE TRANSLATION' : 'PICK THE SERBIAN'}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {ex.options.map((opt, i) => {
+            const isSel = selected === opt
+            const isCorrect = submitted && opt === ex.answer
+            const isWrongPick = submitted && isSel && opt !== ex.answer
+            const rot = [-2, 1.5, -1, 2.5][i % 4]
+            return (
+              <button key={opt}
+                disabled={disabled || submitted}
+                onClick={() => setSelected(opt)}
+                className="active:translate-y-[1px] transition-all"
+                style={{
+                  padding: '10px 12px 12px',
+                  background: isCorrect
+                    ? '#e8f5dd'
+                    : isWrongPick
+                      ? '#fde7e1'
+                      : isSel
+                        ? '#fff7c2'
+                        : '#fffbe6',
+                  transform: `rotate(${rot}deg)`,
+                  border: `${isSel || isCorrect || isWrongPick ? 2 : 1}px ${isSel || isCorrect || isWrongPick ? 'solid' : 'dashed'} ${
+                    isCorrect ? '#2e6b1d' : isWrongPick ? PEN_RED : isSel ? PEN_RED : 'rgba(0,0,0,0.25)'
+                  }`,
+                  boxShadow: isCorrect
+                    ? '0 4px 0 rgba(46,107,29,0.55), 0 6px 12px rgba(0,0,0,0.1)'
+                    : isWrongPick
+                      ? `0 4px 0 ${PEN_RED_DK}, 0 6px 12px rgba(0,0,0,0.1)`
+                      : isSel
+                        ? `0 4px 0 ${PEN_RED}, 0 6px 12px rgba(0,0,0,0.1)`
+                        : '0 3px 0 rgba(0,0,0,0.18), 0 6px 10px rgba(0,0,0,0.08)',
+                  fontFamily: HAND_FONT, fontWeight: 700,
+                  fontSize: ex.promptLang === 'sr' ? 22 : 22,
+                  color: INK,
+                  textAlign: 'center',
+                  minHeight: 60,
+                  cursor: disabled || submitted ? 'default' : 'pointer',
+                }}>
+                {opt}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
-      <div className="mt-auto pt-5">
-        <button onClick={handleSubmit}
+      <div style={{ position: 'absolute', left: 56, right: 18, bottom: 24 }}>
+        <CheckButton
           disabled={disabled || submitted || selected === null}
-          className="w-full py-3.5 text-white active:translate-y-[2px] transition-all disabled:opacity-40 relative overflow-hidden"
-          style={{
-            background: 'linear-gradient(180deg, #FCD34D 0%, #F59E0B 50%, #B45309 100%)',
-            border: '1.5px solid #78350F',
-            borderRadius: 8,
-            boxShadow: selected === null || submitted
-              ? '0 4px 12px rgba(0,0,0,0.4)'
-              : '0 6px 18px rgba(245,158,11,0.55), inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -1px 0 rgba(120,53,15,0.4), 0 0 22px rgba(251,191,36,0.4)',
-            fontFamily: '"Press Start 2P"', fontSize: 10, letterSpacing: 2,
-            textShadow: '0 1px 0 rgba(120,53,15,0.6)',
-          }}>
-          CHECK
-        </button>
+          onClick={handleSubmit}
+        />
       </div>
-    </div>
+    </Paper>
   )
 }
 
-// ─── Match pairs ──────────────────────────────────────────────────────────
+// ─── Match pairs — paper aesthetic ─────────────────────────────────────────
 function PairsExercise({ ex, disabled, onAnswer }: {
   ex: Extract<Exercise, { kind: 'pairs' }>
   disabled: boolean
   onAnswer: (ok: boolean, correctText?: string) => void
 }) {
-  // Stable randomised orderings for each column
   const [srOrder] = useState(() => ex.pairs.map((_, i) => i).sort(() => Math.random() - 0.5))
   const [enOrder] = useState(() => ex.pairs.map((_, i) => i).sort(() => Math.random() - 0.5))
 
   const [pickedSr, setPickedSr] = useState<number | null>(null)
   const [pickedEn, setPickedEn] = useState<number | null>(null)
-  const [matched, setMatched] = useState<number[]>([])  // pair indices that are matched
+  const [matched, setMatched] = useState<number[]>([])
   const [wrongFlash, setWrongFlash] = useState<{ sr: number; en: number } | null>(null)
   const finishedRef = useRef(false)
 
-  // When a sr and en are both picked, evaluate.
   useEffect(() => {
     if (pickedSr !== null && pickedEn !== null) {
       if (pickedSr === pickedEn) {
-        // Match!
         playCorrect()
         const matchedIdx = pickedSr
         setMatched(m => [...m, matchedIdx])
@@ -1457,7 +1563,6 @@ function PairsExercise({ ex, disabled, onAnswer }: {
           setTimeout(() => onAnswer(true), 380)
         }
       } else {
-        // Wrong pair — brief red flash, then deselect.
         playWrong()
         setWrongFlash({ sr: pickedSr, en: pickedEn })
         setTimeout(() => {
@@ -1468,102 +1573,108 @@ function PairsExercise({ ex, disabled, onAnswer }: {
     }
   }, [pickedSr, pickedEn]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  function pairBtnStyle(state: { isMatched: boolean; isPicked: boolean; isWrong: boolean }) {
+  function tileStyle(state: { isMatched: boolean; isPicked: boolean; isWrong: boolean }, rot: number) {
     const { isMatched, isPicked, isWrong } = state
     return {
+      padding: '8px 10px 10px',
       background: isMatched
-        ? 'linear-gradient(180deg, #D1FAE5 0%, #A7F3D0 100%)'
+        ? '#e8f5dd'
         : isWrong
-          ? 'linear-gradient(180deg, #FEE2E2 0%, #FCA5A5 100%)'
+          ? '#fde7e1'
           : isPicked
-            ? 'linear-gradient(180deg, #FFFAF0 0%, #FDE68A 100%)'
-            : 'linear-gradient(180deg, #FFFBF0 0%, #FFF4D6 100%)',
-      border: `1.5px solid ${isMatched ? '#10B981' : isWrong ? '#DC2626' : isPicked ? '#F59E0B' : 'rgba(251,191,36,0.35)'}`,
-      borderRadius: 8,
+            ? '#fff7c2'
+            : '#fffbe6',
+      border: `${isMatched || isWrong || isPicked ? 2 : 1}px ${isMatched || isWrong || isPicked ? 'solid' : 'dashed'} ${
+        isMatched ? '#2e6b1d' : isWrong ? PEN_RED : isPicked ? PEN_RED : 'rgba(0,0,0,0.25)'
+      }`,
       boxShadow: isMatched
-        ? '0 3px 10px rgba(16,185,129,0.4), inset 0 1px 0 rgba(255,255,255,0.6)'
+        ? '0 3px 0 rgba(46,107,29,0.55)'
         : isWrong
-          ? '0 3px 10px rgba(220,38,38,0.4), inset 0 1px 0 rgba(255,255,255,0.6)'
+          ? `0 3px 0 ${PEN_RED_DK}`
           : isPicked
-            ? '0 4px 14px rgba(245,158,11,0.5), inset 0 1px 0 rgba(255,255,255,0.7)'
-            : '0 5px 12px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.55)',
-      color: '#3F1D08',
-      lineHeight: 1.4,
-      opacity: isMatched ? 0.6 : 1,
+            ? `0 4px 0 ${PEN_RED}`
+            : '0 3px 0 rgba(0,0,0,0.18), 0 6px 10px rgba(0,0,0,0.08)',
+      fontFamily: HAND_FONT, fontWeight: 700, fontSize: 22,
+      color: INK, textAlign: 'center' as const,
+      transform: `rotate(${rot}deg)`,
+      opacity: isMatched ? 0.55 : 1,
       cursor: isMatched ? 'default' : 'pointer',
-      minHeight: 52,
-    } as const
+      minHeight: 50,
+      lineHeight: 1.1,
+    }
   }
 
   return (
-    <div className="relative z-10 flex-1 flex flex-col px-5 py-6 overflow-y-auto scrollbar-hide">
-      <p className="font-pixel" style={{ fontSize: 7, color: '#FBBF24', letterSpacing: 2.5, textShadow: '0 1px 0 rgba(0,0,0,0.4)' }}>
-        TAP MATCHING PAIRS
-      </p>
-      <p className="text-xs mt-1.5 font-pixel" style={{ fontSize: 6, color: 'rgba(253,230,138,0.7)', letterSpacing: 1.2 }}>
-        {matched.length}/{ex.pairs.length} matched
-      </p>
-      <div className="grid grid-cols-2 gap-3 mt-5">
-        {/* Serbian column */}
-        <div className="flex flex-col gap-2.5">
-          {srOrder.map(i => {
-            const isMatched = matched.includes(i)
-            const isPicked  = pickedSr === i
-            const isWrong   = wrongFlash?.sr === i
-            return (
-              <button key={`sr-${i}`}
-                disabled={disabled || isMatched}
-                onClick={() => {
-                  if (isMatched) return
-                  speakSerbian(ex.pairs[i].sr)
-                  if (pickedSr === null) setPickedSr(i)
-                  else if (pickedSr === i) setPickedSr(null)
-                }}
-                className="px-2 py-3 active:translate-y-[1px] transition-all"
-                style={{
-                  ...pairBtnStyle({ isMatched, isPicked, isWrong }),
-                  fontFamily: '"Press Start 2P"', fontSize: 9,
-                  letterSpacing: 1,
-                  transform: isPicked && !isMatched ? 'translateY(-1px)' : 'none',
-                }}>
-                {ex.pairs[i].sr}
-              </button>
-            )
-          })}
+    <Paper>
+      <div style={{ position: 'absolute', top: 18, left: 60, right: 18 }}>
+        <div style={{ fontFamily: TYPE_FONT, fontSize: 10, letterSpacing: 3, color: INK_SOFT, opacity: 0.8 }}>
+          POVEŽI · MATCH PAIRS
         </div>
-        {/* English column */}
-        <div className="flex flex-col gap-2.5">
-          {enOrder.map(i => {
-            const isMatched = matched.includes(i)
-            const isPicked  = pickedEn === i
-            const isWrong   = wrongFlash?.en === i
-            return (
-              <button key={`en-${i}`}
-                disabled={disabled || isMatched}
-                onClick={() => { if (!isMatched && pickedEn === null) setPickedEn(i); else if (pickedEn === i) setPickedEn(null) }}
-                className="px-2 py-3 active:translate-y-[1px] transition-all"
-                style={{
-                  ...pairBtnStyle({ isMatched, isPicked, isWrong }),
-                  fontSize: 14, fontWeight: 600,
-                  transform: isPicked && !isMatched ? 'translateY(-1px)' : 'none',
-                }}>
-                {ex.pairs[i].en}
-              </button>
-            )
-          })}
+        <div style={{
+          fontFamily: HAND_FONT, fontWeight: 700, fontSize: 28,
+          color: INK, marginTop: 4,
+        }}>
+          {matched.length}<span style={{ color: INK_SOFT }}>/{ex.pairs.length}</span>
+          <span style={{ fontSize: 18, color: PEN_RED, marginLeft: 8, transform: 'rotate(-2deg)', display: 'inline-block' }}>matched</span>
         </div>
       </div>
-    </div>
+
+      <div style={{
+        position: 'absolute', top: 110, left: 56, right: 18, bottom: 24,
+        overflowY: 'auto', paddingRight: 4,
+      }}>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-3">
+            {srOrder.map((i, pos) => {
+              const isMatched = matched.includes(i)
+              const isPicked  = pickedSr === i
+              const isWrong   = wrongFlash?.sr === i
+              const rot = [-2.5, 1.5, -1, 2][pos % 4]
+              return (
+                <button key={`sr-${i}`}
+                  disabled={disabled || isMatched}
+                  onClick={() => {
+                    if (isMatched) return
+                    speakSerbian(ex.pairs[i].sr)
+                    if (pickedSr === null) setPickedSr(i)
+                    else if (pickedSr === i) setPickedSr(null)
+                  }}
+                  className="active:translate-y-[1px]"
+                  style={tileStyle({ isMatched, isPicked, isWrong }, rot)}>
+                  {ex.pairs[i].sr}
+                </button>
+              )
+            })}
+          </div>
+          <div className="flex flex-col gap-3">
+            {enOrder.map((i, pos) => {
+              const isMatched = matched.includes(i)
+              const isPicked  = pickedEn === i
+              const isWrong   = wrongFlash?.en === i
+              const rot = [2, -1.5, 2.5, -2][pos % 4]
+              return (
+                <button key={`en-${i}`}
+                  disabled={disabled || isMatched}
+                  onClick={() => { if (!isMatched && pickedEn === null) setPickedEn(i); else if (pickedEn === i) setPickedEn(null) }}
+                  className="active:translate-y-[1px]"
+                  style={tileStyle({ isMatched, isPicked, isWrong }, rot)}>
+                  {ex.pairs[i].en}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </Paper>
   )
 }
 
-// ─── Word order ────────────────────────────────────────────────────────────
+// ─── Word order — torn-paper tile bank + handwritten answer line ───────────
 function OrderExercise({ ex, disabled, onAnswer }: {
   ex: Extract<Exercise, { kind: 'order' }>
   disabled: boolean
   onAnswer: (ok: boolean, correctText?: string) => void
 }) {
-  // Each tile gets a stable id (index in ex.tiles).
   const [bank, setBank]       = useState<number[]>(() => ex.tiles.map((_, i) => i))
   const [answer, setAnswer]   = useState<number[]>([])
   const [submitted, setSubmitted] = useState(false)
@@ -1578,109 +1689,98 @@ function OrderExercise({ ex, disabled, onAnswer }: {
     setAnswer(a => a.filter(x => x !== i))
     setBank(b => [...b, i])
   }
-
   function handleSubmit() {
     if (submitted) return
     setSubmitted(true)
     const built = answer.map(i => ex.tiles[i]).join(' ')
-    const ok = built.trim().toLowerCase() === ex.sr.trim().toLowerCase()
-    onAnswer(ok, ex.sr)
+    onAnswer(built.trim().toLowerCase() === ex.sr.trim().toLowerCase(), ex.sr)
   }
 
   return (
-    <div className="relative z-10 flex-1 flex flex-col px-5 py-6 overflow-y-auto scrollbar-hide">
-      <p className="font-pixel" style={{ fontSize: 7, color: '#FBBF24', letterSpacing: 2.5, textShadow: '0 1px 0 rgba(0,0,0,0.4)' }}>
-        TRANSLATE TO SERBIAN
-      </p>
-
-      {/* Premium English prompt card */}
-      <div className="relative my-5 px-5 py-5 text-center overflow-hidden"
-        style={{
-          background: 'linear-gradient(180deg, #FFFBF0 0%, #FFF4D6 100%)',
-          border: '1px solid #FCD34D',
-          borderRadius: 10,
-          boxShadow: '0 12px 30px rgba(0,0,0,0.45), inset 0 2px 0 rgba(255,255,255,0.65), inset 0 -2px 0 rgba(180,83,9,0.18), 0 0 0 4px rgba(251,191,36,0.18)',
-        }}>
-        <div style={{ position: 'absolute', top: 6, left: 6, width: 4, height: 4, background: '#F59E0B', opacity: 0.85 }} />
-        <div style={{ position: 'absolute', top: 6, right: 6, width: 4, height: 4, background: '#F59E0B', opacity: 0.85 }} />
-        <div style={{ position: 'absolute', bottom: 6, left: 6, width: 4, height: 4, background: '#F59E0B', opacity: 0.85 }} />
-        <div style={{ position: 'absolute', bottom: 6, right: 6, width: 4, height: 4, background: '#F59E0B', opacity: 0.85 }} />
-        <p style={{ fontSize: 16, color: '#3F1D08', lineHeight: 1.4, fontWeight: 600, textShadow: '0 1px 0 rgba(255,255,255,0.5)' }}>{ex.english}</p>
+    <Paper>
+      <div style={{ position: 'absolute', top: 18, left: 60, right: 18 }}>
+        <div style={{ fontFamily: TYPE_FONT, fontSize: 10, letterSpacing: 3, color: INK_SOFT, opacity: 0.8 }}>
+          PREVEDI · TRANSLATE
+        </div>
+        <div style={{
+          fontFamily: HAND_FONT, fontWeight: 700, fontSize: 32,
+          color: INK, lineHeight: 1.05, marginTop: 6,
+        }}>&quot;{ex.english}&quot;</div>
       </div>
 
-      {/* Answer slot — dashed gold over a darker glass surface */}
-      <div className="min-h-[68px] py-3 px-3 mb-3 flex flex-wrap gap-2 items-center"
-        style={{
-          background: 'linear-gradient(180deg, rgba(15,8,30,0.6) 0%, rgba(15,8,30,0.4) 100%)',
-          border: '1.5px dashed #FBBF24',
-          borderRadius: 8,
-          boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.4)',
-        }}>
+      {/* Answer line — handwritten on the rule */}
+      <div style={{
+        position: 'absolute', top: 130, left: 56, right: 18,
+        minHeight: 80,
+        borderBottom: `2px solid ${INK}`,
+        paddingBottom: 8,
+        display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end',
+      }}>
         {answer.length === 0 && (
-          <span className="font-pixel" style={{ fontSize: 7, color: 'rgba(251,191,36,0.5)', letterSpacing: 1.5 }}>
-            TAP WORDS BELOW
-          </span>
+          <span style={{
+            fontFamily: HAND_FONT, fontSize: 22, color: PENCIL,
+            transform: 'rotate(-2deg)', display: 'inline-block',
+          }}>tap words below…</span>
         )}
-        {answer.map(i => (
+        {answer.map((i, pos) => (
           <button key={`ans-${i}`}
             onClick={() => pickFromAnswer(i)}
             disabled={submitted}
-            className="px-3.5 py-2 active:translate-y-[1px] transition-all"
             style={{
-              background: 'linear-gradient(180deg, #FFFAF0 0%, #FDE68A 100%)',
-              color: '#3F1D08',
-              border: '1.5px solid #F59E0B',
-              borderRadius: 7,
-              boxShadow: '0 4px 10px rgba(245,158,11,0.5), inset 0 1px 0 rgba(255,255,255,0.7)',
-              fontFamily: '"Press Start 2P"', fontSize: 9, letterSpacing: 0.5,
+              padding: '4px 12px 6px',
+              background: '#fff7c2',
+              border: `1px dashed rgba(0,0,0,0.25)`,
+              fontFamily: HAND_FONT, fontWeight: 700, fontSize: 26,
+              color: INK,
+              transform: `rotate(${[-2, 1, -1, 2, -1.5, 1.5][pos % 6]}deg)`,
+              boxShadow: '0 2px 0 rgba(0,0,0,0.15), 0 4px 8px rgba(0,0,0,0.08)',
+              cursor: submitted ? 'default' : 'pointer',
             }}>
             {ex.tiles[i]}
           </button>
         ))}
       </div>
 
-      {/* Tile bank */}
-      <div className="flex flex-wrap gap-2">
-        {bank.map(i => (
-          <button key={`bank-${i}`}
-            onClick={() => pickFromBank(i)}
-            disabled={submitted || disabled}
-            className="px-3.5 py-2 active:translate-y-[1px] transition-all"
-            style={{
-              background: 'linear-gradient(180deg, #FFFBF0 0%, #FFF4D6 100%)',
-              color: '#3F1D08',
-              border: '1.5px solid rgba(251,191,36,0.4)',
-              borderRadius: 7,
-              boxShadow: '0 5px 12px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.6)',
-              fontFamily: '"Press Start 2P"', fontSize: 9, letterSpacing: 0.5,
-            }}>
-            {ex.tiles[i]}
-          </button>
-        ))}
+      {/* Bank */}
+      <div style={{
+        position: 'absolute', top: 250, left: 56, right: 18, bottom: 100,
+        overflowY: 'auto', paddingRight: 4,
+      }}>
+        <div style={{ fontFamily: TYPE_FONT, fontSize: 9, letterSpacing: 3, color: INK_SOFT, opacity: 0.6, marginBottom: 8 }}>
+          WORD BANK
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+          {bank.map((i, pos) => (
+            <button key={`bank-${i}`}
+              onClick={() => pickFromBank(i)}
+              disabled={submitted || disabled}
+              style={{
+                padding: '6px 14px 8px',
+                background: pos === 0 ? '#fff7c2' : '#fffbe6',
+                transform: `rotate(${[-3, 2, -1, 4, -2, 1, 3, -1.5][pos % 8]}deg)`,
+                boxShadow: '0 2px 0 rgba(0,0,0,0.15), 0 6px 10px rgba(0,0,0,0.08)',
+                border: '1px dashed rgba(0,0,0,0.25)',
+                fontFamily: HAND_FONT, fontSize: 26, color: INK,
+                fontWeight: 700,
+                cursor: submitted || disabled ? 'default' : 'pointer',
+              }}>
+              {ex.tiles[i]}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="mt-auto pt-5">
-        <button onClick={handleSubmit}
+      <div style={{ position: 'absolute', left: 56, right: 18, bottom: 24 }}>
+        <CheckButton
           disabled={disabled || submitted || answer.length === 0}
-          className="w-full py-3.5 text-white active:translate-y-[2px] transition-all disabled:opacity-40"
-          style={{
-            background: 'linear-gradient(180deg, #FCD34D 0%, #F59E0B 50%, #B45309 100%)',
-            border: '1.5px solid #78350F',
-            borderRadius: 8,
-            boxShadow: answer.length === 0 || submitted
-              ? '0 4px 12px rgba(0,0,0,0.4)'
-              : '0 6px 18px rgba(245,158,11,0.55), inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -1px 0 rgba(120,53,15,0.4), 0 0 22px rgba(251,191,36,0.4)',
-            fontFamily: '"Press Start 2P"', fontSize: 10, letterSpacing: 2,
-            textShadow: '0 1px 0 rgba(120,53,15,0.6)',
-          }}>
-          CHECK
-        </button>
+          onClick={handleSubmit}
+        />
       </div>
-    </div>
+    </Paper>
   )
 }
 
-// ─── Listen exercise — TTS plays the Serbian word; pick the spelling ──────
+// ─── Listen — paper aesthetic, big paper-stamp speaker hero ────────────────
 function ListenExercise({ ex, disabled, onAnswer }: {
   ex: Extract<Exercise, { kind: 'listen' }>
   disabled: boolean
@@ -1689,12 +1789,8 @@ function ListenExercise({ ex, disabled, onAnswer }: {
   const [selected, setSelected] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
 
-  // Auto-play once on mount + a short repeat so first-render speech-synth
-  // queue race in some browsers doesn't drop the utterance silently.
   useEffect(() => {
     speakSerbian(ex.sr)
-    const t = setTimeout(() => { /* nudges some engines */ }, 50)
-    return () => clearTimeout(t)
   }, [ex])
 
   function handleSubmit() {
@@ -1704,100 +1800,101 @@ function ListenExercise({ ex, disabled, onAnswer }: {
   }
 
   return (
-    <div className="relative z-10 flex-1 flex flex-col px-5 py-6 overflow-y-auto scrollbar-hide">
-      <p className="font-pixel" style={{ fontSize: 7, color: '#FBBF24', letterSpacing: 2.5, textShadow: '0 1px 0 rgba(0,0,0,0.4)' }}>
-        TAP WHAT YOU HEAR
-      </p>
+    <Paper>
+      <div style={{ position: 'absolute', top: 18, left: 60, right: 18 }}>
+        <div style={{ fontFamily: TYPE_FONT, fontSize: 10, letterSpacing: 3, color: INK_SOFT, opacity: 0.8 }}>
+          SLUŠAJ · LISTEN
+        </div>
+        <div style={{
+          fontFamily: HAND_FONT, fontWeight: 700, fontSize: 28,
+          color: INK, marginTop: 4,
+        }}>What do you hear?</div>
+      </div>
 
-      {/* Speaker hero — domed coin treatment */}
-      <div className="my-7 flex items-center justify-center">
+      <div style={{
+        position: 'absolute', top: 110, left: 0, right: 0,
+        display: 'flex', justifyContent: 'center',
+      }}>
         <button onClick={() => speakSerbian(ex.sr)}
-          className="active:translate-y-[2px] transition-all inline-flex items-center justify-center relative"
+          className="active:translate-y-[2px] transition-all"
           style={{
-            width: 124, height: 124,
-            background: 'radial-gradient(circle at 35% 30%, #FEF3C7 0%, #FBBF24 35%, #B45309 90%)',
-            border: '3px solid #FCD34D',
+            width: 110, height: 110,
+            background: PAPER,
+            border: `3px solid ${INK}`,
             borderRadius: '50%',
-            boxShadow: `
-              0 8px 0 #78350F,
-              inset 0 3px 0 rgba(255,255,255,0.55),
-              inset 0 -3px 0 rgba(120,53,15,0.4),
-              0 0 32px rgba(251,191,36,0.7),
-              0 0 0 6px rgba(251,191,36,0.18)
-            `,
+            boxShadow: `0 6px 0 ${INK}, 0 12px 24px rgba(0,0,0,0.18)`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-          <Volume2 size={62} className="text-white" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
+          <Volume2 size={56} style={{ color: INK }} />
         </button>
       </div>
-      <p className="text-center font-pixel mb-2" style={{ fontSize: 6, color: 'rgba(253,230,138,0.65)', letterSpacing: 1.4 }}>
-        TAP TO HEAR AGAIN
-      </p>
+      <div style={{
+        position: 'absolute', top: 230, left: 0, right: 0,
+        textAlign: 'center',
+        fontFamily: HAND_FONT, fontSize: 18, color: PEN_RED,
+        transform: 'rotate(-2deg)',
+      }}>tap to replay</div>
 
-      <div className="grid grid-cols-2 gap-2.5 mt-3">
-        {ex.options.map(opt => {
-          const isSel = selected === opt
-          const isCorrect = submitted && opt === ex.sr
-          const isWrongPick = submitted && isSel && opt !== ex.sr
-          return (
-            <button key={opt}
-              disabled={disabled || submitted}
-              onClick={() => { setSelected(opt); speakSerbian(opt) }}
-              className="px-3 py-3 active:translate-y-[1px] transition-all"
-              style={{
-                background: isCorrect
-                  ? 'linear-gradient(180deg, #D1FAE5 0%, #A7F3D0 100%)'
-                  : isWrongPick
-                    ? 'linear-gradient(180deg, #FEE2E2 0%, #FCA5A5 100%)'
-                    : isSel
-                      ? 'linear-gradient(180deg, #FFFAF0 0%, #FDE68A 100%)'
-                      : 'linear-gradient(180deg, #FFFBF0 0%, #FFF4D6 100%)',
-                border: `1.5px solid ${isCorrect ? '#10B981' : isWrongPick ? '#DC2626' : isSel ? '#F59E0B' : 'rgba(251,191,36,0.35)'}`,
-                borderRadius: 8,
-                boxShadow: isCorrect
-                  ? '0 4px 12px rgba(16,185,129,0.4), inset 0 1px 0 rgba(255,255,255,0.6)'
-                  : isWrongPick
-                    ? '0 4px 12px rgba(220,38,38,0.4), inset 0 1px 0 rgba(255,255,255,0.6)'
-                    : isSel
-                      ? '0 4px 14px rgba(245,158,11,0.5), inset 0 1px 0 rgba(255,255,255,0.7)'
-                      : '0 5px 14px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.55)',
-                color: '#3F1D08',
-                fontFamily: '"Press Start 2P"',
-                fontSize: 10,
-                letterSpacing: 0.8,
-                lineHeight: 1.4,
-                minHeight: 60,
-                cursor: disabled || submitted ? 'default' : 'pointer',
-                transform: isSel && !submitted ? 'translateY(-1px)' : 'none',
-              }}>
-              {opt}
-            </button>
-          )
-        })}
+      <div style={{
+        position: 'absolute', top: 270, left: 56, right: 18, bottom: 100,
+        overflowY: 'auto', paddingRight: 4,
+      }}>
+        <div className="grid grid-cols-2 gap-3">
+          {ex.options.map((opt, i) => {
+            const isSel = selected === opt
+            const isCorrect = submitted && opt === ex.sr
+            const isWrongPick = submitted && isSel && opt !== ex.sr
+            const rot = [-2, 1.5, -1, 2.5][i % 4]
+            return (
+              <button key={opt}
+                disabled={disabled || submitted}
+                onClick={() => { setSelected(opt); speakSerbian(opt) }}
+                className="active:translate-y-[1px]"
+                style={{
+                  padding: '10px 12px 12px',
+                  background: isCorrect
+                    ? '#e8f5dd'
+                    : isWrongPick
+                      ? '#fde7e1'
+                      : isSel
+                        ? '#fff7c2'
+                        : '#fffbe6',
+                  transform: `rotate(${rot}deg)`,
+                  border: `${isSel || isCorrect || isWrongPick ? 2 : 1}px ${isSel || isCorrect || isWrongPick ? 'solid' : 'dashed'} ${
+                    isCorrect ? '#2e6b1d' : isWrongPick ? PEN_RED : isSel ? PEN_RED : 'rgba(0,0,0,0.25)'
+                  }`,
+                  boxShadow: isCorrect
+                    ? '0 4px 0 rgba(46,107,29,0.55)'
+                    : isWrongPick
+                      ? `0 4px 0 ${PEN_RED_DK}`
+                      : isSel
+                        ? `0 4px 0 ${PEN_RED}`
+                        : '0 3px 0 rgba(0,0,0,0.18), 0 6px 10px rgba(0,0,0,0.08)',
+                  fontFamily: HAND_FONT, fontWeight: 700, fontSize: 22,
+                  color: INK,
+                  textAlign: 'center',
+                  minHeight: 60,
+                  cursor: disabled || submitted ? 'default' : 'pointer',
+                }}>
+                {opt}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
-      <div className="mt-auto pt-5">
-        <button onClick={handleSubmit}
+      <div style={{ position: 'absolute', left: 56, right: 18, bottom: 24 }}>
+        <CheckButton
           disabled={disabled || submitted || selected === null}
-          className="w-full py-3.5 text-white active:translate-y-[2px] transition-all disabled:opacity-40"
-          style={{
-            background: 'linear-gradient(180deg, #FCD34D 0%, #F59E0B 50%, #B45309 100%)',
-            border: '1.5px solid #78350F',
-            borderRadius: 8,
-            boxShadow: selected === null || submitted
-              ? '0 4px 12px rgba(0,0,0,0.4)'
-              : '0 6px 18px rgba(245,158,11,0.55), inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -1px 0 rgba(120,53,15,0.4), 0 0 22px rgba(251,191,36,0.4)',
-            fontFamily: '"Press Start 2P"', fontSize: 10, letterSpacing: 2,
-            textShadow: '0 1px 0 rgba(120,53,15,0.6)',
-          }}>
-          CHECK
-        </button>
+          onClick={handleSubmit}
+        />
       </div>
-    </div>
+    </Paper>
   )
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// COMPLETE SCREEN — confetti + XP award + streak chip
+// COMPLETE SCREEN — paper page with a red "savršeno!" stamp and gold confetti
 // ═══════════════════════════════════════════════════════════════════════════
 function CompleteScreen({ title, xp, streak, streakIncreased, onContinue }: {
   title: string
@@ -1808,16 +1905,18 @@ function CompleteScreen({ title, xp, streak, streakIncreased, onContinue }: {
 }) {
   return (
     <div className="fixed inset-0 z-40 flex flex-col items-center justify-center px-6"
-      style={{ background: 'linear-gradient(180deg, #FCD34D 0%, #F59E0B 100%)' }}>
-      {/* Confetti */}
+      style={{
+        background: `radial-gradient(ellipse at center, ${PAPER_DK} 0%, #aea692 100%)`,
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
+      }}>
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {Array.from({ length: 32 }).map((_, i) => (
+        {Array.from({ length: 28 }).map((_, i) => (
           <div key={i} style={{
             position: 'absolute',
             left: `${(i * 13) % 100}%`,
             top: -20,
             width: 6, height: 10,
-            background: ['#EC4899', '#A78BFA', '#34D399', '#FBBF24', '#60A5FA'][i % 5],
+            background: [PEN_RED, '#FBBF24', '#3a8228', INK, KRAFT_MD][i % 5],
             animation: `srConfetti ${1.5 + (i % 5) * 0.4}s linear ${(i * 0.05)}s infinite`,
           }} />
         ))}
@@ -1825,122 +1924,120 @@ function CompleteScreen({ title, xp, streak, streakIncreased, onContinue }: {
 
       <div className="relative flex flex-col items-center gap-3 px-6 py-6 max-w-[340px] text-center"
         style={{
-          background: 'white',
-          border: '4px solid #B45309',
-          borderRadius: 8,
-          boxShadow: '0 6px 0 #92400E, 0 0 30px rgba(253,224,71,0.6)',
+          background: PAPER,
+          border: `2px solid ${INK}`,
+          boxShadow: `0 6px 0 ${INK}, 0 14px 24px rgba(0,0,0,0.25)`,
+          borderRadius: 4,
+          transform: 'rotate(-1deg)',
           animation: 'srFinishPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both',
         }}>
-        {/* Eren the teacher — celebrating the lesson finish. The crown
-            floats above his head; he hops to the rhythm of the streak. */}
-        <div className="relative" style={{ width: 110, height: 110, marginTop: -8 }}>
-          <div className="absolute" style={{
-            top: -8, left: '50%',
-            transform: 'translateX(-50%)',
-            animation: 'srCrownBob 1.4s ease-in-out infinite',
-            filter: 'drop-shadow(0 0 6px rgba(255,215,0,0.85))',
-          }}>
-            <IconCrown size={32} />
-          </div>
+        {/* paperclip tape */}
+        <div style={{
+          position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%) rotate(-3deg)',
+          width: 80, height: 16,
+          background: 'rgba(252,240,140,0.85)',
+          border: '1px solid rgba(0,0,0,0.1)',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.12)',
+        }} />
+
+        <div style={{ width: 110, height: 110, marginTop: -8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
             animation: 'srErenCelebrate 0.8s ease-in-out infinite',
-            filter: 'drop-shadow(0 4px 8px rgba(120,53,15,0.4)) drop-shadow(0 0 12px rgba(251,191,36,0.55))',
+            filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.18))',
           }}>
             <AnimatedEren px={5} />
           </div>
-          {/* Twinkling sparkles around him */}
-          {[
-            { top: 4,   left: -10, delay: 0,    size: 12 },
-            { top: 26,  right: -6, delay: 0.3,  size: 10 },
-            { top: 70,  left: -4,  delay: 0.6,  size: 11 },
-            { top: 56,  right: -10, delay: 0.9, size: 13 },
-          ].map((s, i) => (
-            <span key={i} className="absolute font-pixel pointer-events-none"
-              style={{
-                ...s,
-                fontSize: s.size,
-                color: '#FBBF24',
-                animation: `srSparkleLoop 1.6s ease-in-out ${s.delay}s infinite`,
-                filter: 'drop-shadow(0 0 4px rgba(251,191,36,0.7))',
-              }}>✦</span>
-          ))}
         </div>
-        <p className="font-pixel" style={{ fontSize: 12, letterSpacing: 2, color: '#7C2D12' }}>LESSON COMPLETE</p>
-        <p className="font-pixel" style={{ fontSize: 8, color: '#A16207', letterSpacing: 1 }}>
-          {title.toUpperCase()}
-        </p>
+
+        <div style={{
+          fontFamily: STAMP_FONT, fontWeight: 700,
+          fontSize: 18, letterSpacing: 2, textTransform: 'uppercase',
+          color: PEN_RED,
+          padding: '6px 14px',
+          border: `2.5px solid ${PEN_RED}`,
+          borderRadius: 2,
+          display: 'inline-block',
+          transform: 'rotate(-2deg)',
+          background: 'rgba(178,34,34,0.05)',
+        }}>SAVRŠENO</div>
+
+        <div style={{ fontFamily: HAND_FONT, fontWeight: 700, fontSize: 28, color: INK, lineHeight: 1.05 }}>
+          {title}
+        </div>
+        <div style={{ fontFamily: TYPE_FONT, fontSize: 9, letterSpacing: 2, color: INK_SOFT }}>
+          LESSON · COMPLETE
+        </div>
 
         {streakIncreased && (
           <div className="mt-1 px-3 py-1.5 inline-flex items-center gap-1.5"
             style={{
-              background: 'linear-gradient(135deg, #FB923C 0%, #DC2626 100%)',
-              border: '2px solid #7C2D12',
+              background: PEN_RED,
+              border: `2px solid ${PEN_RED_DK}`,
               borderRadius: 4,
-              boxShadow: '0 3px 0 #7C2D12',
+              boxShadow: `0 3px 0 ${PEN_RED_DK}`,
               animation: 'srStreakPop 0.6s 0.25s cubic-bezier(0.34,1.56,0.64,1) both',
+              transform: 'rotate(-2deg)',
             }}>
-            <Flame size={14} className="text-yellow-200" fill="currentColor" />
-            <span className="font-pixel text-white" style={{ fontSize: 8, letterSpacing: 1 }}>
-              {streak} DAY STREAK!
+            <Flame size={14} style={{ color: '#FFE4B0' }} fill="currentColor" />
+            <span style={{ fontFamily: HAND_FONT, fontWeight: 700, fontSize: 20, color: '#FFE4B0', letterSpacing: 0.5 }}>
+              {streak} day streak!
             </span>
           </div>
         )}
 
         <div className="flex items-center gap-3 mt-2">
           <div className="px-4 py-2 flex flex-col items-center"
-            style={{ background: 'rgba(245,158,11,0.15)', border: '2px solid #F59E0B', borderRadius: 4 }}>
-            <span className="font-pixel" style={{ fontSize: 6, color: '#7C2D12', letterSpacing: 1.5 }}>XP</span>
-            <span className="font-pixel" style={{ fontSize: 18, color: '#9A3412' }}>+{xp}</span>
+            style={{
+              background: '#fff7c2', border: `1px dashed ${INK_SOFT}`,
+              transform: 'rotate(-2deg)',
+              boxShadow: '0 3px 0 rgba(0,0,0,0.15)',
+            }}>
+            <span style={{ fontFamily: TYPE_FONT, fontSize: 8, letterSpacing: 2, color: INK_SOFT }}>XP</span>
+            <span style={{ fontFamily: HAND_FONT, fontWeight: 700, fontSize: 28, color: PEN_RED }}>+{xp}</span>
           </div>
           <div className="px-4 py-2 flex flex-col items-center"
-            style={{ background: 'rgba(167,139,250,0.15)', border: '2px solid #A78BFA', borderRadius: 4 }}>
-            <span className="font-pixel" style={{ fontSize: 6, color: '#4C1D95', letterSpacing: 1.5 }}>COINS</span>
-            <span className="font-pixel" style={{ fontSize: 18, color: '#4C1D95' }}>+6</span>
+            style={{
+              background: '#fffbe6', border: `1px dashed ${INK_SOFT}`,
+              transform: 'rotate(2deg)',
+              boxShadow: '0 3px 0 rgba(0,0,0,0.15)',
+            }}>
+            <span style={{ fontFamily: TYPE_FONT, fontSize: 8, letterSpacing: 2, color: INK_SOFT }}>COINS</span>
+            <span style={{ fontFamily: HAND_FONT, fontWeight: 700, fontSize: 28, color: INK }}>+6</span>
           </div>
         </div>
         <button onClick={() => { playSound('ui_tap'); onContinue() }}
-          className="mt-3 px-6 py-3 text-white active:translate-y-[2px] transition-transform"
+          className="mt-3 active:translate-y-[2px] transition-transform"
           style={{
-            background: 'linear-gradient(135deg, #16A34A 0%, #15803D 100%)',
-            border: '2px solid #052e16',
+            background: PEN_RED, color: PAPER,
+            border: `2px solid ${PEN_RED_DK}`,
             borderRadius: 4,
-            boxShadow: '0 4px 0 #052e16',
-            fontFamily: '"Press Start 2P"', fontSize: 10, letterSpacing: 1.5,
+            padding: '12px 26px 14px',
+            fontFamily: HAND_FONT, fontWeight: 700, fontSize: 24, letterSpacing: 1,
+            boxShadow: `0 4px 0 ${PEN_RED_DK}`,
+            transform: 'rotate(-0.6deg)',
           }}>
-          CONTINUE
+          dalje →
         </button>
       </div>
 
       <style jsx global>{`
         @keyframes srFinishPop {
-          0%   { transform: scale(0.6); opacity: 0; }
-          100% { transform: scale(1);   opacity: 1; }
+          0%   { transform: scale(0.6) rotate(-1deg); opacity: 0; }
+          100% { transform: scale(1)   rotate(-1deg); opacity: 1; }
         }
         @keyframes srConfetti {
           0%   { transform: translateY(-30px) rotate(0deg); }
           100% { transform: translateY(110vh) rotate(720deg); }
         }
         @keyframes srStreakPop {
-          0%   { transform: scale(0.4); opacity: 0; }
-          100% { transform: scale(1);   opacity: 1; }
+          0%   { transform: scale(0.4) rotate(-2deg); opacity: 0; }
+          100% { transform: scale(1)   rotate(-2deg); opacity: 1; }
         }
-        /* Eren happy-hops at the top of the complete screen. */
         @keyframes srErenCelebrate {
           0%, 100% { transform: translateY(0)    scale(1); }
           25%      { transform: translateY(-6px) scale(1.06) rotate(-3deg); }
           50%      { transform: translateY(0)    scale(1)    rotate(0deg); }
           75%      { transform: translateY(-4px) scale(1.04) rotate(3deg); }
-        }
-        /* Crown floats above his head. */
-        @keyframes srCrownBob {
-          0%, 100% { transform: translateX(-50%) translateY(0)    rotate(-3deg); }
-          50%      { transform: translateX(-50%) translateY(-4px) rotate(3deg); }
-        }
-        /* Sparkles around the celebrating cat. */
-        @keyframes srSparkleLoop {
-          0%, 100% { transform: scale(0.6) rotate(0deg);   opacity: 0.4; }
-          50%      { transform: scale(1.2) rotate(180deg); opacity: 1;   }
         }
       `}</style>
     </div>
