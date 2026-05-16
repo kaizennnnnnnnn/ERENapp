@@ -482,7 +482,7 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
       </div>
 
       {/* ─── Notebook shelf ─── */}
-      <div className="relative z-10 flex-1 overflow-y-auto px-4 pt-5 pb-12 flex flex-col gap-7">
+      <div className="relative z-10 flex-1 overflow-y-auto px-4 pt-5 pb-12 flex flex-col gap-5">
         {strugglingCount > 0 && (
           <button onClick={() => { playSound('ui_tap'); onPracticeTap() }}
             className="relative active:translate-y-[1px] transition-transform text-left mx-auto"
@@ -519,21 +519,23 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
           </button>
         )}
 
-        {SERBIAN_SECTIONS.map((section, si) => {
-          const units = section.unitIds.map(uid => getUnitById(uid)!).filter(Boolean)
-          const sectionLessons = units.flatMap(u => u.lessonIds)
-          const sectionDone = sectionLessons.filter(id => progress.completed.includes(id)).length
-          return (
-            <KraftSectionCover
-              key={section.id}
-              section={section}
-              sectionIndex={si + 1}
-              done={sectionDone}
-              total={sectionLessons.length}
-              onOpen={() => { playSound('ui_tap'); setOpenSectionId(section.id) }}
-            />
-          )
-        })}
+        <div className="grid grid-cols-2 gap-3.5 sm:gap-4">
+          {SERBIAN_SECTIONS.map((section, si) => {
+            const units = section.unitIds.map(uid => getUnitById(uid)!).filter(Boolean)
+            const sectionLessons = units.flatMap(u => u.lessonIds)
+            const sectionDone = sectionLessons.filter(id => progress.completed.includes(id)).length
+            return (
+              <KraftSectionCover
+                key={section.id}
+                section={section}
+                sectionIndex={si + 1}
+                done={sectionDone}
+                total={sectionLessons.length}
+                onOpen={() => { playSound('ui_tap'); setOpenSectionId(section.id) }}
+              />
+            )
+          })}
+        </div>
       </div>
 
       {/* ─── Opened notebook overlay ─── */}
@@ -579,7 +581,7 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
   )
 }
 
-// ─── Closed kraft notebook — section card in the shelf ─────────────────────
+// ─── Closed kraft notebook — compact portrait card in the 2-col shelf ─────
 function KraftSectionCover({ section, sectionIndex, done, total, onOpen }: {
   section: Section
   sectionIndex: number
@@ -587,20 +589,23 @@ function KraftSectionCover({ section, sectionIndex, done, total, onOpen }: {
   total: number
   onOpen: () => void
 }) {
+  // Tiny inline rotation jitter so the grid feels like real notebooks on a desk.
+  const rot = [-1.2, 0.8, -0.6, 1.4, -1.0][(sectionIndex - 1) % 5]
   return (
     <button onClick={onOpen}
-      className="block w-full text-left active:translate-y-[2px] transition-transform mx-auto"
+      className="block w-full text-left active:translate-y-[2px] transition-transform"
       style={{
-        maxWidth: 420,
-        height: 250,
         position: 'relative',
+        aspectRatio: '3 / 4',
         background: `radial-gradient(ellipse at 30% 18%, ${KRAFT_HI} 0%, ${KRAFT_MD} 50%, ${KRAFT_LO} 100%)`,
         color: '#2a1d10',
         fontFamily: TYPE_FONT,
         overflow: 'hidden',
-        boxShadow: '0 8px 0 rgba(0,0,0,0.22), 0 18px 26px rgba(0,0,0,0.25)',
+        boxShadow: '0 6px 0 rgba(0,0,0,0.22), 0 12px 18px rgba(0,0,0,0.22)',
         borderRadius: 2,
+        transform: `rotate(${rot}deg)`,
       }}>
+      {/* kraft speckle */}
       <div style={{
         position: 'absolute', inset: 0, opacity: 0.55, pointerEvents: 'none',
         backgroundImage: `
@@ -608,86 +613,80 @@ function KraftSectionCover({ section, sectionIndex, done, total, onOpen }: {
           radial-gradient(circle at 72% 60%, rgba(60,40,20,0.4) 0px, transparent 1.5px),
           radial-gradient(circle at 40% 80%, rgba(255,255,255,0.15) 0px, transparent 1px),
           radial-gradient(circle at 90% 22%, rgba(60,40,20,0.3) 0px, transparent 1.4px)`,
-        backgroundSize: '8px 8px, 11px 11px, 6px 6px, 14px 14px',
+        backgroundSize: '6px 6px, 9px 9px, 5px 5px, 11px 11px',
       }} />
       <PhysicalEdges />
-      {[55, 125, 195].map((y, i) => (
+      {/* mini spine staples */}
+      {['18%', '52%', '84%'].map((y, i) => (
         <div key={i} style={{
-          position: 'absolute', left: 8, top: y, width: 10, height: 3,
+          position: 'absolute', left: 5, top: y, width: 7, height: 2,
           background: 'linear-gradient(180deg, #d6d4cf, #8a8884)',
           boxShadow: '0 1px 0 rgba(0,0,0,0.4)',
           borderRadius: 1,
         }} />
       ))}
 
+      {/* Top brand strip */}
       <div style={{
-        position: 'absolute', top: 14, left: 28, right: 14,
+        position: 'absolute', top: 8, left: 16, right: 8,
         display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+        fontSize: 6.5, letterSpacing: 1.5, fontWeight: 700,
       }}>
-        <div style={{ fontWeight: 700, fontSize: 9, letterSpacing: 2.5, color: '#2a1d10' }}>
-          EREN · POCKET
-        </div>
-        <div style={{ fontSize: 8, letterSpacing: 2, opacity: 0.75 }}>
-          NO. {String(sectionIndex).padStart(3, '0')}
-        </div>
+        <span>EREN · POCKET</span>
+        <span style={{ opacity: 0.75 }}>NO. {String(sectionIndex).padStart(3, '0')}</span>
       </div>
 
+      {/* Stamp title block — flex column so spec list never collides */}
       <div style={{
-        position: 'absolute', left: 28, right: 14, top: 64,
+        position: 'absolute', inset: '20px 8px 8px 16px',
+        display: 'flex', flexDirection: 'column',
+        justifyContent: 'center', alignItems: 'center',
         textAlign: 'center',
       }}>
         <div style={{
           fontFamily: STAMP_FONT, fontWeight: 700,
-          fontSize: 22, letterSpacing: 1.5, textTransform: 'uppercase',
+          fontSize: 13, letterSpacing: 0.8, textTransform: 'uppercase',
           color: '#2a1d10',
-          padding: '8px 6px',
-          border: '2.5px solid #2a1d10',
+          padding: '5px 7px',
+          border: '2px solid #2a1d10',
           borderRadius: 2,
           display: 'inline-block',
           transform: 'rotate(-2deg)',
           background: 'rgba(255,255,255,0.04)',
-          boxShadow: '0 1px 0 rgba(255,255,255,0.2)',
           textShadow: '0.5px 0 0 rgba(0,0,0,0.4)',
+          lineHeight: 1.05,
+          maxWidth: '100%',
         }}>{section.title}</div>
         <div style={{
-          fontFamily: HAND_FONT, fontSize: 22,
-          marginTop: 4, color: PEN_RED,
+          fontFamily: HAND_FONT, fontSize: 16,
+          marginTop: 3, color: PEN_RED,
           transform: 'rotate(-1deg)', display: 'inline-block',
+          lineHeight: 1,
         }}>~ {section.titleSr} ~</div>
       </div>
 
+      {/* Spec list — bottom strip */}
       <div style={{
-        position: 'absolute', left: 28, right: 14, bottom: 14,
-        fontSize: 8, letterSpacing: 1.5, color: '#2a1d10',
-        borderTop: '1.5px solid #2a1d10', paddingTop: 6,
+        position: 'absolute', left: 16, right: 8, bottom: 8,
+        fontSize: 6.5, letterSpacing: 1, color: '#2a1d10',
+        borderTop: '1px solid #2a1d10', paddingTop: 4,
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-          <span>I.</span><span>SECTION {sectionIndex} of {SERBIAN_SECTIONS.length}</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span>I.</span><span>SEC {sectionIndex}/{SERBIAN_SECTIONS.length}</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-          <span>II.</span><span>{done} / {total} LESSONS DONE</span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-          <span>III.</span><span>SRPSKI · A1</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 1 }}>
+          <span>II.</span><span>{done}/{total} DONE</span>
         </div>
       </div>
 
+      {/* OPEN stamp top-right corner */}
       <div style={{
-        position: 'absolute', left: 28, bottom: 88,
-        filter: 'sepia(0.9) saturate(0.6) brightness(0.7)',
-        opacity: 0.85,
-        pointerEvents: 'none',
-      }}>
-        <AnimatedEren px={2} />
-      </div>
-
-      <div style={{
-        position: 'absolute', right: 14, bottom: 92,
+        position: 'absolute', right: 6, top: 22,
         transform: 'rotate(-8deg)',
-        border: `2px solid ${PEN_RED}`,
+        border: `1.5px solid ${PEN_RED}`,
         color: PEN_RED,
-        padding: '3px 6px 4px',
-        fontFamily: STAMP_FONT, fontSize: 8, letterSpacing: 1.5,
+        padding: '2px 4px 3px',
+        fontFamily: STAMP_FONT, fontSize: 6.5, letterSpacing: 1,
         fontWeight: 700,
         opacity: 0.9,
         background: 'rgba(138,58,16,0.05)',
