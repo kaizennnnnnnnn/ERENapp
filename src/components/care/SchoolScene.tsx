@@ -12,7 +12,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { playSound } from '@/lib/sounds'
 import { IconStar } from '@/components/PixelIcons'
 import AnimatedEren from '@/components/AnimatedEren'
-import SketchEren from '@/components/SketchEren'
+import SketchEren, { type SketchErenState } from '@/components/SketchEren'
 
 interface Props { onClose: () => void }
 
@@ -1271,6 +1271,17 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
 
   const outOfHearts = hearts <= 0
 
+  // ─── Reactive Sketch-Pen Eren state for the persistent companion ───
+  // Sits in the bottom-right of the exercise page and switches every time
+  // the learner submits an answer. Stays as "thinking" while a question
+  // is in progress so it always reads as alive.
+  const lessonErenState: SketchErenState =
+    feedback === null
+      ? (correctRun >= 3 ? 'streak' : 'thinking')
+      : feedback.ok
+        ? (correctRun >= 3 ? 'streak' : correctRun === 2 ? 'cheer' : 'happy')
+        : (hearts <= 1 ? 'cry' : 'sad')
+
   return (
     <div className="fixed inset-0 z-40 flex flex-col overflow-hidden" style={{
       background: `radial-gradient(ellipse at center, ${PAPER_DK} 0%, #aea692 100%)`,
@@ -1335,6 +1346,17 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
           />
         )}
 
+        {/* ─── Persistent Sketch-Pen Eren — sits on the paper, reacts live ─── */}
+        {!outOfHearts && (
+          <div style={{
+            position: 'absolute', bottom: 8, right: 10,
+            zIndex: 5, pointerEvents: 'none',
+            filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.18))',
+          }}>
+            <SketchEren state={lessonErenState} size={108} transparent noSpeech />
+          </div>
+        )}
+
         {outOfHearts && (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 text-center" style={{
             background: PAPER,
@@ -1396,37 +1418,22 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
             boxShadow: '0 2px 4px rgba(0,0,0,0.12)',
           }} />
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div style={{ width: 84, height: 92, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <SketchEren
-                  state={
-                    feedback.ok
-                      ? (correctRun >= 3 ? 'streak' : correctRun === 2 ? 'cheer' : 'happy')
-                      : (hearts <= 1 ? 'cry' : 'sad')
-                  }
-                  size={84}
-                  transparent
-                  noSpeech
-                />
+            <div className="flex flex-col gap-1">
+              <div style={{
+                fontFamily: HAND_FONT, fontWeight: 700, fontSize: 24,
+                color: feedback.ok ? '#2e6b1d' : PEN_RED,
+                transform: 'rotate(-1deg)', display: 'inline-block',
+                lineHeight: 1.05,
+              }}>
+                {feedback.ok ? 'odlično!' : 'pokušaj opet'}
               </div>
-              <div>
+              {!feedback.ok && feedback.correctText && (
                 <div style={{
-                  fontFamily: HAND_FONT, fontWeight: 700, fontSize: 24,
-                  color: feedback.ok ? '#2e6b1d' : PEN_RED,
-                  transform: 'rotate(-1deg)', display: 'inline-block',
-                  lineHeight: 1.05,
+                  fontFamily: HAND_FONT, fontSize: 18, color: INK,
                 }}>
-                  {feedback.ok ? 'odlično!' : 'pokušaj opet'}
+                  answer: <strong style={{ color: PEN_RED }}>{feedback.correctText}</strong>
                 </div>
-                {!feedback.ok && feedback.correctText && (
-                  <div style={{
-                    fontFamily: HAND_FONT, fontSize: 18, color: INK,
-                    marginTop: 2,
-                  }}>
-                    answer: <strong style={{ color: PEN_RED }}>{feedback.correctText}</strong>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
             <button onClick={continueNext}
               className="active:translate-y-[1px]"
