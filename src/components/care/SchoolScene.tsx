@@ -1346,14 +1346,18 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
           />
         )}
 
-        {/* ─── Persistent Sketch-Pen Eren — sits on the paper, reacts live ─── */}
+        {/* ─── Persistent Sketch-Pen Eren — bottom-middle of the paper, reacts
+            live to every answer. z-index sits above Paper (which is z-10) so
+            he's visible on the lined sheet; he ducks behind the feedback
+            drawer (z-30) so the answer text takes the stage when needed. */}
         {!outOfHearts && (
           <div style={{
-            position: 'absolute', bottom: 8, right: 10,
-            zIndex: 5, pointerEvents: 'none',
+            position: 'absolute', bottom: 6,
+            left: '50%', transform: 'translateX(-50%)',
+            zIndex: 15, pointerEvents: 'none',
             filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.18))',
           }}>
-            <SketchEren state={lessonErenState} size={108} transparent noSpeech />
+            <SketchEren state={lessonErenState} size={130} transparent noSpeech />
           </div>
         )}
 
