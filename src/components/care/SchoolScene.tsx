@@ -1218,9 +1218,78 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
   const [exitConfirm, setExitConfirm] = useState(false)
   const heartsLostRef = useRef(0)
   const [requeuedCount, setRequeuedCount] = useState(0)
-  // Track consecutive-correct count in this lesson so Eren can switch into
-  // a "streak" reaction once the learner stacks 3+ right answers in a row.
-  const [correctRun, setCorrectRun] = useState(0)
+
+  // ─── Reactive Sketch-Pen Eren state machine ──────────────────────────
+  // Tracks running tallies of right/wrong answers so each submission can
+  // roll a context-appropriate reaction from the 26-state set. The state
+  // is *decided* in `handleAnswer` (one random pick per submission), not
+  // recomputed every render — otherwise re-renders would re-roll the
+  // animation while the feedback drawer is open.
+  const correctRunRef = useRef(0)
+  const wrongRunRef = useRef(0)
+  const totalCorrectRef = useRef(0)
+  const totalWrongRef = useRef(0)
+  const [lessonErenState, setLessonErenState] = useState<SketchErenState>('wave')
+
+  function pickFrom<T>(pool: T[]): T {
+    return pool[Math.floor(Math.random() * pool.length)]
+  }
+
+  function pickReaction(ok: boolean, heartsAfter: number): SketchErenState {
+    if (ok) {
+      totalCorrectRef.current += 1
+      const newRun = correctRunRef.current + 1
+
+      // First-ever correct in the lesson → the simple, expected "happy".
+      if (totalCorrectRef.current === 1) return 'happy'
+
+      // The answer that just *enters* a streak (third in a row) — big
+      // "we did it!" moment. Distinct from the on-going streak look.
+      if (newRun === 3) return pickFrom<SketchErenState>(['eureka', 'cheer', 'wow'])
+
+      // Already mid-streak: lean heavily on the fire-crown 'streak' state
+      // but occasionally surprise with flex / magic / rocket so it isn't
+      // visually frozen.
+      if (newRun >= 4) {
+        return pickFrom<SketchErenState>([
+          'streak', 'streak', 'streak',
+          'flex', 'magic', 'rocket',
+        ])
+      }
+
+      // 2nd correct (post-1st or recovering after wrong): playful variety.
+      return pickFrom<SketchErenState>([
+        'happy', 'wink', 'love', 'cheer',
+        'dance', 'wow', 'magic', 'eureka',
+      ])
+    } else {
+      totalWrongRef.current += 1
+      const wasOnStreak = correctRunRef.current >= 3
+      const newWrongRun = wrongRunRef.current + 1
+
+      // First-ever wrong → simple, expected "sad".
+      if (totalWrongRef.current === 1) return 'sad'
+
+      // Out of hearts after this mistake — the dedicated out-of-hearts
+      // screen already renders a big cry Eren, but the floating one
+      // should also read as devastated for the brief moment before that
+      // screen takes over.
+      if (heartsAfter <= 0) return 'cry'
+
+      // Just lost a 3+ correct streak — exaggerated reaction.
+      if (wasOnStreak) {
+        return pickFrom<SketchErenState>(['cry', 'gasp', 'cry', 'shy'])
+      }
+
+      // Two or more wrong in a row — frustration variety.
+      if (newWrongRun >= 2) {
+        return pickFrom<SketchErenState>(['confused', 'shrug', 'sad', 'gasp', 'tired'])
+      }
+
+      // Otherwise — mild disappointment variety.
+      return pickFrom<SketchErenState>(['sad', 'confused', 'gasp', 'shrug'])
+    }
+  }
 
   const ex = exercises[idx]
   const total = exercises.length + requeuedCount
@@ -1237,7 +1306,10 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
     }
     if (ok) {
       playCorrect()
-      setCorrectRun(r => r + 1)
+      const reaction = pickReaction(true, hearts)
+      setLessonErenState(reaction)
+      correctRunRef.current += 1
+      wrongRunRef.current = 0
       setFeedback({ ok: true })
       if (ex && ex.kind === 'mc') {
         const sr = ex.promptLang === 'sr' ? ex.prompt : ex.answer
@@ -1248,8 +1320,12 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
     } else {
       playWrong()
       heartsLostRef.current++
-      setHearts(h => Math.max(0, h - 1))
-      setCorrectRun(0)
+      const heartsAfter = Math.max(0, hearts - 1)
+      setHearts(heartsAfter)
+      const reaction = pickReaction(false, heartsAfter)
+      setLessonErenState(reaction)
+      wrongRunRef.current += 1
+      correctRunRef.current = 0
       setFeedback({ ok: false, correctText })
     }
   }
@@ -1267,20 +1343,17 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
       return
     }
     setIdx(i => i + 1)
+    // Between questions — quiet, attentive look. Listening if still on a
+    // streak (so the fire crown gives way to a calm "tuned-in" pose);
+    // pondering otherwise. The variety here keeps long lessons from
+    // feeling like the same idle pose every time.
+    const idlePool: SketchErenState[] = correctRunRef.current >= 3
+      ? ['listen', 'thinking', 'idle']
+      : ['thinking', 'idle', 'listen', 'peek']
+    setLessonErenState(pickFrom(idlePool))
   }
 
   const outOfHearts = hearts <= 0
-
-  // ─── Reactive Sketch-Pen Eren state for the persistent companion ───
-  // Sits in the bottom-right of the exercise page and switches every time
-  // the learner submits an answer. Stays as "thinking" while a question
-  // is in progress so it always reads as alive.
-  const lessonErenState: SketchErenState =
-    feedback === null
-      ? (correctRun >= 3 ? 'streak' : 'thinking')
-      : feedback.ok
-        ? (correctRun >= 3 ? 'streak' : correctRun === 2 ? 'cheer' : 'happy')
-        : (hearts <= 1 ? 'cry' : 'sad')
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col overflow-hidden" style={{
@@ -1391,7 +1464,10 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
                   boxShadow: `0 4px 0 ${INK}`,
                 }}>back</button>
               <button onClick={() => {
-                  setIdx(0); setHearts(HEARTS_MAX); heartsLostRef.current = 0; setRequeuedCount(0); setFeedback(null); setCorrectRun(0)
+                  setIdx(0); setHearts(HEARTS_MAX); heartsLostRef.current = 0; setRequeuedCount(0); setFeedback(null)
+                  correctRunRef.current = 0; wrongRunRef.current = 0
+                  totalCorrectRef.current = 0; totalWrongRef.current = 0
+                  setLessonErenState('wave')
                 }}
                 style={{
                   background: PEN_RED, border: `2px solid ${PEN_RED_DK}`,
