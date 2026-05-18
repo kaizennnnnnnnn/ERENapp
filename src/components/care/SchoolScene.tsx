@@ -1245,15 +1245,17 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
 
       // The answer that just *enters* a streak (third in a row) — big
       // "we did it!" moment. Distinct from the on-going streak look.
-      if (newRun === 3) return pickFrom<SketchErenState>(['eureka', 'cheer', 'wow'])
+      if (newRun === 3) return pickFrom<SketchErenState>(['eureka', 'cheer', 'wow', 'magic', 'love'])
 
-      // Already mid-streak: lean heavily on the fire-crown 'streak' state
-      // but occasionally surprise with flex / magic / rocket so it isn't
-      // visually frozen.
+      // Already mid-streak: 'streak' (fire crown) is still featured but
+      // shares the spotlight with magic / love / wink / flex / rocket / wow /
+      // eureka / dance so it doesn't feel like the same fire crown every time.
+      // Streak weighted ~25%, magic ~17%, the rest ~8% each.
       if (newRun >= 4) {
         return pickFrom<SketchErenState>([
           'streak', 'streak', 'streak',
-          'flex', 'magic', 'rocket',
+          'magic',  'magic',
+          'love', 'wink', 'flex', 'rocket', 'wow', 'eureka', 'dance',
         ])
       }
 
