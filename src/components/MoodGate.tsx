@@ -7,6 +7,20 @@ import { MOOD_CONFIGS } from '@/types'
 import { cn } from '@/lib/utils'
 import { useTasks } from '@/contexts/TaskContext'
 import { playSound } from '@/lib/sounds'
+import SketchEren, { type SketchErenState } from '@/components/SketchEren'
+
+// Each user mood maps to two Sketch-Pen Eren states:
+//   • pill    — the small preview inside the mood button (always-on idle of that vibe)
+//   • picked  — the bigger Eren shown above the speech bubble once selected
+// Both are pulled from the 26-state Sketch Pen set so the reactions read
+// as the same animated cat from the design exploration.
+const MOOD_SKETCH: Record<UserMood, { pill: SketchErenState; picked: SketchErenState }> = {
+  good:  { pill: 'happy',    picked: 'cheer' },
+  mid:   { pill: 'idle',     picked: 'wave' },
+  sad:   { pill: 'sad',      picked: 'cry' },
+  angry: { pill: 'streak',   picked: 'flex' },
+  tired: { pill: 'sleeping', picked: 'tired' },
+}
 
 // Maps user mood → Eren's reaction mood
 const MOOD_TO_EREN: Record<UserMood, ErenMood> = {
@@ -114,12 +128,17 @@ export default function MoodGate({ userId, userName, onDone }: Props) {
           pointerEvents: 'none',
         }} />
 
-        <div className={cn('mb-3 transition-all duration-300 relative', animating ? 'scale-110' : 'animate-float')}>
-          <img src="/erenGood.png" alt="Eren" draggable={false}
-            style={{
-              width: 150, height: 150, objectFit: 'contain', imageRendering: 'pixelated',
-              filter: 'drop-shadow(0 6px 8px rgba(91,33,182,0.35)) drop-shadow(0 0 12px rgba(251,191,36,0.3))',
-            }} />
+        <div className={cn('mb-3 transition-all duration-300 relative', animating ? 'scale-110' : 'animate-float')}
+          style={{
+            width: 150, height: 165,
+            filter: 'drop-shadow(0 6px 8px rgba(91,33,182,0.35)) drop-shadow(0 0 12px rgba(251,191,36,0.3))',
+          }}>
+          <SketchEren
+            state={selected ? MOOD_SKETCH[selected].picked : 'wave'}
+            size={150}
+            transparent
+            noSpeech
+          />
         </div>
 
         {/* Speech bubble — premium with gold rivets + thick pink shadow */}
@@ -206,16 +225,16 @@ export default function MoodGate({ userId, userName, onDone }: Props) {
                   boxShadow: `0 0 10px ${t.glow}`,
                 }} />
 
-                {/* Icon tile — animated Eren expressing this mood */}
+                {/* Icon tile — Sketch-Pen Eren state for this mood */}
                 <div className="flex-shrink-0 flex items-center justify-center relative ml-1.5 overflow-hidden"
                   style={{
-                    width: 38, height: 38,
+                    width: 42, height: 42,
                     background: `radial-gradient(circle at 35% 30%, ${t.light}, ${t.main}40)`,
                     border: `2px solid ${t.main}`,
                     borderRadius: 6,
                     boxShadow: `inset 0 1px 0 rgba(255,255,255,0.55), 0 0 8px ${t.glow}`,
                   }}>
-                  <MoodEren mood={key} />
+                  <SketchEren state={MOOD_SKETCH[key].pill} size={42} transparent noSpeech />
                 </div>
 
                 <div className="flex-1 text-left">
@@ -275,116 +294,3 @@ function getTimeOfDay() {
   return 'evening'
 }
 
-// ─── Per-mood mini Eren ────────────────────────────────────────────────────
-// Each pill shows a small animated /erenGood.png with mood-specific motion
-// + tiny CSS overlays (hearts, Z's, tear, steam, sway) that read the mood
-// at a glance. No emojis — every cue is drawn or animated.
-function MoodEren({ mood }: { mood: UserMood }) {
-  return (
-    <div className="relative" style={{ width: 28, height: 28 }}>
-      <img src="/erenGood.png" alt="" draggable={false}
-        style={{
-          width: '100%', height: '100%',
-          objectFit: 'contain', imageRendering: 'pixelated',
-          animation: `mg-${mood} 1.8s ease-in-out infinite`,
-          transformOrigin: '50% 70%',
-        }} />
-
-      {mood === 'good' && (
-        <>
-          <span className="absolute font-pixel" style={{
-            top: 1, left: 2, fontSize: 9, color: '#EC4899',
-            filter: 'drop-shadow(0 0 2px rgba(244,114,182,0.7))',
-            animation: 'mgFloatUp 1.6s ease-out infinite',
-          }}>♥</span>
-          <span className="absolute" style={{
-            top: 0, right: 0, fontSize: 7, color: '#FBBF24',
-            filter: 'drop-shadow(0 0 2px rgba(251,191,36,0.7))',
-            animation: 'mgFloatUp 1.4s ease-out infinite 0.5s',
-          }}>✦</span>
-        </>
-      )}
-
-      {mood === 'tired' && [
-        { delay: 0,   left: 18, size: 6 },
-        { delay: 0.6, left: 22, size: 8 },
-        { delay: 1.2, left: 18, size: 10 },
-      ].map((z, i) => (
-        <span key={i} className="absolute font-pixel"
-          style={{
-            top: 1, left: z.left, fontSize: z.size,
-            color: '#A78BFA', fontWeight: 700,
-            filter: 'drop-shadow(0 0 2px rgba(167,139,250,0.7))',
-            animation: `mgFloatUp 1.8s ease-out infinite ${z.delay}s`,
-          }}>z</span>
-      ))}
-
-      {mood === 'sad' && (
-        <span className="absolute" style={{
-          top: 14, left: 9,
-          width: 2, height: 4,
-          background: 'linear-gradient(180deg, #93C5FD, #2563EB)',
-          borderRadius: '50% 50% 50% 50% / 30% 30% 70% 70%',
-          animation: 'mgTear 1.6s ease-in infinite',
-          opacity: 0,
-        }} />
-      )}
-
-      {mood === 'angry' && (
-        <>
-          <span className="absolute" style={{
-            top: 0, left: 4, width: 3, height: 3, borderRadius: '50%',
-            background: 'rgba(239,68,68,0.45)',
-            animation: 'mgSteam 1.2s ease-out infinite',
-          }} />
-          <span className="absolute" style={{
-            top: 1, right: 3, width: 2, height: 2, borderRadius: '50%',
-            background: 'rgba(239,68,68,0.4)',
-            animation: 'mgSteam 1.2s ease-out infinite 0.5s',
-          }} />
-        </>
-      )}
-
-      <style jsx>{`
-        @keyframes mg-good {
-          0%, 100% { transform: translateY(0)    rotate(0); }
-          50%      { transform: translateY(-2px) rotate(-3deg); }
-        }
-        @keyframes mg-mid {
-          0%, 100% { transform: rotate(-2deg); }
-          50%      { transform: rotate( 2deg); }
-        }
-        @keyframes mg-sad {
-          0%, 100% { transform: translateY(0)    rotate(0); }
-          50%      { transform: translateY(0.5px) rotate(-4deg); }
-        }
-        @keyframes mg-angry {
-          0%, 100% { transform: translateX(0); }
-          15%      { transform: translateX(-1px); }
-          30%      { transform: translateX( 1px); }
-          45%      { transform: translateX(-1px); }
-          60%      { transform: translateX( 1px); }
-          75%      { transform: translateX(0); }
-        }
-        @keyframes mg-tired {
-          0%, 100% { transform: scale(1, 1)       translateY(0); }
-          50%      { transform: scale(1.02, 0.98) translateY(0.5px); }
-        }
-        @keyframes mgFloatUp {
-          0%   { transform: translateY(0)    scale(0.8); opacity: 0; }
-          25%  { opacity: 1; }
-          100% { transform: translateY(-10px) scale(1.1); opacity: 0; }
-        }
-        @keyframes mgTear {
-          0%   { transform: translateY(0); opacity: 0; }
-          15%  { opacity: 1; }
-          100% { transform: translateY(8px); opacity: 0; }
-        }
-        @keyframes mgSteam {
-          0%   { transform: translateY(0)    scale(0.8); opacity: 0.7; }
-          100% { transform: translateY(-5px) scale(1.4); opacity: 0; }
-        }
-      `}</style>
-    </div>
-  )
-}

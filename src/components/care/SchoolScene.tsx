@@ -12,6 +12,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { playSound } from '@/lib/sounds'
 import { IconStar } from '@/components/PixelIcons'
 import AnimatedEren from '@/components/AnimatedEren'
+import SketchEren from '@/components/SketchEren'
 
 interface Props { onClose: () => void }
 
@@ -1217,6 +1218,9 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
   const [exitConfirm, setExitConfirm] = useState(false)
   const heartsLostRef = useRef(0)
   const [requeuedCount, setRequeuedCount] = useState(0)
+  // Track consecutive-correct count in this lesson so Eren can switch into
+  // a "streak" reaction once the learner stacks 3+ right answers in a row.
+  const [correctRun, setCorrectRun] = useState(0)
 
   const ex = exercises[idx]
   const total = exercises.length + requeuedCount
@@ -1233,6 +1237,7 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
     }
     if (ok) {
       playCorrect()
+      setCorrectRun(r => r + 1)
       setFeedback({ ok: true })
       if (ex && ex.kind === 'mc') {
         const sr = ex.promptLang === 'sr' ? ex.prompt : ex.answer
@@ -1244,6 +1249,7 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
       playWrong()
       heartsLostRef.current++
       setHearts(h => Math.max(0, h - 1))
+      setCorrectRun(0)
       setFeedback({ ok: false, correctText })
     }
   }
@@ -1333,6 +1339,9 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
           <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 text-center" style={{
             background: PAPER,
           }}>
+            <div style={{ width: 140, height: 154 }}>
+              <SketchEren state="cry" size={140} transparent noSpeech />
+            </div>
             <div style={{
               fontFamily: HAND_FONT, fontWeight: 700, fontSize: 56,
               color: PEN_RED, transform: 'rotate(-3deg)',
@@ -1356,7 +1365,7 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
                   boxShadow: `0 4px 0 ${INK}`,
                 }}>back</button>
               <button onClick={() => {
-                  setIdx(0); setHearts(HEARTS_MAX); heartsLostRef.current = 0; setRequeuedCount(0); setFeedback(null)
+                  setIdx(0); setHearts(HEARTS_MAX); heartsLostRef.current = 0; setRequeuedCount(0); setFeedback(null); setCorrectRun(0)
                 }}
                 style={{
                   background: PEN_RED, border: `2px solid ${PEN_RED_DK}`,
@@ -1388,8 +1397,17 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
           }} />
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div style={{ filter: feedback.ok ? 'none' : 'grayscale(0.4) brightness(0.95)' }}>
-                <AnimatedEren px={3} />
+              <div style={{ width: 84, height: 92, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <SketchEren
+                  state={
+                    feedback.ok
+                      ? (correctRun >= 3 ? 'streak' : correctRun === 2 ? 'cheer' : 'happy')
+                      : (hearts <= 1 ? 'cry' : 'sad')
+                  }
+                  size={84}
+                  transparent
+                  noSpeech
+                />
               </div>
               <div>
                 <div style={{
@@ -2012,13 +2030,8 @@ function CompleteScreen({ title, xp, streak, streakIncreased, onContinue }: {
           boxShadow: '0 2px 4px rgba(0,0,0,0.12)',
         }} />
 
-        <div style={{ width: 110, height: 110, marginTop: -8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{
-            animation: 'srErenCelebrate 0.8s ease-in-out infinite',
-            filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.18))',
-          }}>
-            <AnimatedEren px={5} />
-          </div>
+        <div style={{ width: 130, height: 144, marginTop: -8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <SketchEren state="grad" size={130} transparent noSpeech />
         </div>
 
         <div style={{
