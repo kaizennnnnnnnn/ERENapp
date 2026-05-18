@@ -1419,20 +1419,27 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
           />
         )}
 
-        {/* ─── Persistent Sketch-Pen Eren — bottom-middle of the paper, reacts
-            live to every answer. z-index sits above Paper (which is z-10) so
-            he's visible on the lined sheet; he ducks behind the feedback
-            drawer (z-30) so the answer text takes the stage when needed. */}
-        {!outOfHearts && (
-          <div style={{
-            position: 'absolute', bottom: 6,
-            left: '50%', transform: 'translateX(-50%)',
-            zIndex: 15, pointerEvents: 'none',
-            filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.18))',
-          }}>
-            <SketchEren state={lessonErenState} size={130} transparent noSpeech />
-          </div>
-        )}
+        {/* ─── Persistent Sketch-Pen Eren — reacts live to every answer.
+            z-index sits above Paper (which is z-10) so he's visible on the
+            lined sheet; he ducks behind the feedback drawer (z-30) so the
+            answer text takes the stage. He moves UP and shrinks when the
+            current exercise has a CheckButton at the bottom (mc/order/listen
+            — Pairs auto-completes and has no button), so he never sits on
+            top of the submit button. */}
+        {!outOfHearts && ex && (() => {
+          const hasButton = ex.kind === 'mc' || ex.kind === 'order' || ex.kind === 'listen'
+          return (
+            <div style={{
+              position: 'absolute',
+              bottom: hasButton ? 96 : 6,
+              left: '50%', transform: 'translateX(-50%)',
+              zIndex: 15, pointerEvents: 'none',
+              filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.18))',
+            }}>
+              <SketchEren state={lessonErenState} size={hasButton ? 92 : 130} transparent noSpeech />
+            </div>
+          )
+        })()}
 
         {outOfHearts && (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 text-center" style={{
@@ -1652,7 +1659,7 @@ function MCExercise({ ex, disabled, onAnswer }: {
       </div>
 
       <div style={{
-        position: 'absolute', top: 170, left: 56, right: 18, bottom: 100,
+        position: 'absolute', top: 170, left: 56, right: 18, bottom: 200,
         overflowY: 'auto', paddingRight: 4,
       }}>
         <div style={{ fontFamily: TYPE_FONT, fontSize: 9, letterSpacing: 3, color: INK_SOFT, opacity: 0.6, marginBottom: 10 }}>
@@ -1920,7 +1927,7 @@ function OrderExercise({ ex, disabled, onAnswer }: {
 
       {/* Bank */}
       <div style={{
-        position: 'absolute', top: 250, left: 56, right: 18, bottom: 100,
+        position: 'absolute', top: 250, left: 56, right: 18, bottom: 200,
         overflowY: 'auto', paddingRight: 4,
       }}>
         <div style={{ fontFamily: TYPE_FONT, fontSize: 9, letterSpacing: 3, color: INK_SOFT, opacity: 0.6, marginBottom: 8 }}>
@@ -2013,7 +2020,7 @@ function ListenExercise({ ex, disabled, onAnswer }: {
       }}>tap to replay</div>
 
       <div style={{
-        position: 'absolute', top: 270, left: 56, right: 18, bottom: 100,
+        position: 'absolute', top: 270, left: 56, right: 18, bottom: 200,
         overflowY: 'auto', paddingRight: 4,
       }}>
         <div className="grid grid-cols-2 gap-3">
