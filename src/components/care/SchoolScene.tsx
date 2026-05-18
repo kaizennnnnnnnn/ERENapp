@@ -1330,6 +1330,22 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
     }
   }
 
+  // Mid-exercise reaction — used by sub-step exercises like PairsExercise
+  // that don't go through the full `handleAnswer` for each interaction.
+  // Updates Eren's state and the streak refs without touching hearts,
+  // the feedback drawer, or sounds (the exercise handles those itself).
+  function microReact(ok: boolean) {
+    const reaction = pickReaction(ok, hearts)
+    setLessonErenState(reaction)
+    if (ok) {
+      correctRunRef.current += 1
+      wrongRunRef.current = 0
+    } else {
+      wrongRunRef.current += 1
+      correctRunRef.current = 0
+    }
+  }
+
   function continueNext() {
     const wasOk = feedback?.ok
     setFeedback(null)
@@ -1416,6 +1432,7 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
             exercise={ex}
             disabled={feedback !== null}
             onAnswer={handleAnswer}
+            onMicroReact={microReact}
           />
         )}
 
@@ -1589,13 +1606,18 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
 }
 
 // ─── Exercise renderer dispatch ────────────────────────────────────────────
-function ExerciseSurface({ exercise, disabled, onAnswer }: {
+// `onMicroReact` is fired by exercises that have meaningful sub-steps before
+// the final submission — e.g. each pair-match in PairsExercise — so the
+// floating lesson Eren can switch reactions mid-exercise instead of staying
+// frozen until the whole exercise resolves.
+function ExerciseSurface({ exercise, disabled, onAnswer, onMicroReact }: {
   exercise: Exercise
   disabled: boolean
   onAnswer: (ok: boolean, correctText?: string) => void
+  onMicroReact?: (ok: boolean) => void
 }) {
   if (exercise.kind === 'mc')     return <MCExercise     ex={exercise} disabled={disabled} onAnswer={onAnswer} />
-  if (exercise.kind === 'pairs')  return <PairsExercise  ex={exercise} disabled={disabled} onAnswer={onAnswer} />
+  if (exercise.kind === 'pairs')  return <PairsExercise  ex={exercise} disabled={disabled} onAnswer={onAnswer} onMicroReact={onMicroReact} />
   if (exercise.kind === 'listen') return <ListenExercise ex={exercise} disabled={disabled} onAnswer={onAnswer} />
   return <OrderExercise ex={exercise} disabled={disabled} onAnswer={onAnswer} />
 }
@@ -1721,10 +1743,11 @@ function MCExercise({ ex, disabled, onAnswer }: {
 }
 
 // ─── Match pairs — paper aesthetic ─────────────────────────────────────────
-function PairsExercise({ ex, disabled, onAnswer }: {
+function PairsExercise({ ex, disabled, onAnswer, onMicroReact }: {
   ex: Extract<Exercise, { kind: 'pairs' }>
   disabled: boolean
   onAnswer: (ok: boolean, correctText?: string) => void
+  onMicroReact?: (ok: boolean) => void
 }) {
   const [srOrder] = useState(() => ex.pairs.map((_, i) => i).sort(() => Math.random() - 0.5))
   const [enOrder] = useState(() => ex.pairs.map((_, i) => i).sort(() => Math.random() - 0.5))
@@ -1742,13 +1765,18 @@ function PairsExercise({ ex, disabled, onAnswer }: {
         const matchedIdx = pickedSr
         setMatched(m => [...m, matchedIdx])
         setPickedSr(null); setPickedEn(null)
-        if (matched.length + 1 === ex.pairs.length && !finishedRef.current) {
+        // Per-pair reaction — skipped on the final pair because
+        // onAnswer(true) below will trigger the full lesson reaction.
+        const isLast = matched.length + 1 === ex.pairs.length
+        if (!isLast) onMicroReact?.(true)
+        if (isLast && !finishedRef.current) {
           finishedRef.current = true
           setTimeout(() => onAnswer(true), 380)
         }
       } else {
         playWrong()
         setWrongFlash({ sr: pickedSr, en: pickedEn })
+        onMicroReact?.(false)
         setTimeout(() => {
           setWrongFlash(null)
           setPickedSr(null); setPickedEn(null)
