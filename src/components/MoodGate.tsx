@@ -15,11 +15,11 @@ import SketchEren, { type SketchErenState } from '@/components/SketchEren'
 // Both are pulled from the 26-state Sketch Pen set so the reactions read
 // as the same animated cat from the design exploration.
 const MOOD_SKETCH: Record<UserMood, { pill: SketchErenState; picked: SketchErenState }> = {
-  good:  { pill: 'happy',    picked: 'cheer' },
-  mid:   { pill: 'idle',     picked: 'wave' },
+  good:  { pill: 'happy',    picked: 'party' },
+  mid:   { pill: 'chill',    picked: 'wave' },
   sad:   { pill: 'sad',      picked: 'cry' },
-  angry: { pill: 'streak',   picked: 'flex' },
-  tired: { pill: 'sleeping', picked: 'tired' },
+  angry: { pill: 'angry',    picked: 'angry' },
+  tired: { pill: 'sleeping', picked: 'yawn' },
 }
 
 // Maps user mood → Eren's reaction mood

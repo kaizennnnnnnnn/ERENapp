@@ -1,8 +1,8 @@
 'use client'
 
-// Sketch-pen animated Eren — 26 reactive states for Serbian lessons and
-// the daily mood gate. Ported from the design file `Sketch Pen Only.html`
-// (eren-sketch-plus.jsx). All 26 states reuse the same head/body geometry;
+// Sketch-pen animated Eren — 41 reactive states for Serbian lessons and
+// the daily mood gate. Ported from the latest design file
+// (eren-sketch-plus.jsx). All states reuse the same head/body geometry;
 // only the eyes/mouth/extras/transform change.
 
 import { useId } from 'react'
@@ -13,11 +13,17 @@ export type SketchErenState =
   | 'tired' | 'dance' | 'wink' | 'point' | 'peek'
   | 'shy' | 'wow' | 'cry' | 'magic' | 'listen'
   | 'eureka' | 'shrug' | 'flex' | 'gasp' | 'grad' | 'rocket'
+  // ── new states added in the second design pass ──
+  | 'nom' | 'bow' | 'focus' | 'chill' | 'trophy'
+  | 'kiss' | 'angry' | 'proud' | 'meditate' | 'sick'
+  | 'read' | 'pet' | 'party' | 'yawn' | 'silly'
 
 export const SKETCH_EREN_STATES: SketchErenState[] = [
   'idle','happy','sad','thinking','sleeping','wave','cheer','love',
   'confused','streak','tired','dance','wink','point','peek','shy',
   'wow','cry','magic','listen','eureka','shrug','flex','gasp','grad','rocket',
+  'nom','bow','focus','chill','trophy','kiss','angry','proud',
+  'meditate','sick','read','pet','party','yawn','silly',
 ]
 
 const INK = '#1c1c1c'
@@ -187,6 +193,143 @@ export default function SketchEren({
                 </g>
               )}
 
+              {/* CHILL — sunglasses */}
+              {state === 'chill' && (
+                <g className="sk-shades">
+                  <path d="M 88 100 Q 100 92, 112 100" stroke={INK} strokeWidth={2.2} fill="none" strokeLinecap="round" />
+                  <path d="M 50 92 L 90 90 Q 92 106, 78 112 Q 60 114, 52 106 Z"
+                    fill="#1c1c1c" stroke={INK} strokeWidth={2.2} strokeLinejoin="round" />
+                  <path d="M 110 90 L 150 92 Q 148 106, 140 110 Q 122 114, 108 106 Z"
+                    fill="#1c1c1c" stroke={INK} strokeWidth={2.2} strokeLinejoin="round" />
+                  <path d="M 58 96 L 70 100" stroke="#fff" strokeWidth={1.8} strokeLinecap="round" opacity={0.7} />
+                  <path d="M 118 96 L 130 100" stroke="#fff" strokeWidth={1.8} strokeLinecap="round" opacity={0.7} />
+                  <path d="M 50 96 L 38 92 M 150 96 L 162 92" stroke={INK} strokeWidth={2} strokeLinecap="round" />
+                </g>
+              )}
+
+              {/* FOCUS — target reticle floating to the right */}
+              {state === 'focus' && (
+                <g className="sk-reticle">
+                  <circle cx="170" cy="40" r="14" fill="none" stroke="#c8252c" strokeWidth={2} />
+                  <circle cx="170" cy="40" r="7" fill="none" stroke="#c8252c" strokeWidth={1.6} />
+                  <circle cx="170" cy="40" r="1.6" fill="#c8252c" />
+                  <path d="M 150 40 L 158 40 M 182 40 L 190 40 M 170 20 L 170 28 M 170 52 L 170 60"
+                    stroke="#c8252c" strokeWidth={1.6} strokeLinecap="round" />
+                </g>
+              )}
+              {state === 'focus' && (
+                <g stroke={INK} strokeWidth={2.2} strokeLinecap="round" fill="none">
+                  <path d="M 60 84 L 80 88" />
+                  <path d="M 140 84 L 120 88" />
+                </g>
+              )}
+
+              {/* NOM — fish treat held to mouth */}
+              {state === 'nom' && (
+                <g className="sk-treat">
+                  <path d="M 108 144 Q 108 134, 128 132 Q 150 132, 156 144 Q 150 156, 128 156 Q 108 154, 108 144 Z"
+                    fill="#f3956a" stroke={INK} strokeWidth={2.2} strokeLinejoin="round" />
+                  <path d="M 156 144 L 172 132 Q 168 144, 172 156 Z"
+                    fill="#f3956a" stroke={INK} strokeWidth={2.2} strokeLinejoin="round" />
+                  <path d="M 128 132 Q 134 124, 142 132 Z"
+                    fill="#f3956a" stroke={INK} strokeWidth={1.8} strokeLinejoin="round" />
+                  <path d="M 138 156 Q 142 162, 146 156 Z"
+                    fill="#f3956a" stroke={INK} strokeWidth={1.6} strokeLinejoin="round" />
+                  <path d="M 124 138 Q 122 144, 124 150" stroke={INK} strokeWidth={1.2} fill="none" strokeLinecap="round" />
+                  <circle cx="118" cy="142" r={2.4} fill={INK} />
+                  <circle cx="118.6" cy="141.3" r={0.7} fill="#fff" />
+                  <path d="M 116 150 Q 130 154, 148 150" stroke="#fff" strokeWidth={1.4} fill="none" opacity={0.6} strokeLinecap="round" />
+                </g>
+              )}
+
+              {/* BOW — motion arcs framing the bow */}
+              {state === 'bow' && (
+                <g stroke={INK} strokeWidth={1.4} strokeLinecap="round" fill="none" opacity={0.55} className="sk-bow-arc">
+                  <path d="M 24 56 Q 14 80, 26 100" />
+                  <path d="M 176 56 Q 186 80, 174 100" />
+                </g>
+              )}
+
+              {/* PARTY — cone hat with stripes + pom-pom */}
+              {state === 'party' && (
+                <g className="sk-party-hat">
+                  <path d="M 100 8 L 70 64 Q 100 56, 130 64 Z"
+                    fill="#3a85e0" stroke={INK} strokeWidth={2.4} strokeLinejoin="round" />
+                  <path d="M 78 50 Q 89 46, 100 50 Q 111 54, 122 50"
+                    stroke="#ffd24a" strokeWidth={2.4} fill="none" strokeLinecap="round" />
+                  <path d="M 84 36 Q 92 33, 100 36 Q 108 39, 116 36"
+                    stroke="#e63a6b" strokeWidth={2.2} fill="none" strokeLinecap="round" />
+                  <circle cx="100" cy="8" r={6} fill="#ffd24a" stroke={INK} strokeWidth={1.8} />
+                  <path d="M 100 2 L 100 -2 M 96 4 L 94 1 M 104 4 L 106 1 M 95 9 L 91 9 M 105 9 L 109 9"
+                    stroke={INK} strokeWidth={1.2} strokeLinecap="round" />
+                  <path d="M 68 64 Q 100 60, 132 64 Q 100 70, 68 64 Z"
+                    fill="#ffd24a" stroke={INK} strokeWidth={1.8} strokeLinejoin="round" />
+                </g>
+              )}
+
+              {/* KISS — soft single cheek blush */}
+              {state === 'kiss' && (
+                <g>
+                  <ellipse cx="56" cy="120" rx="11" ry="5" fill="#ff8a9a" opacity={0.65} />
+                  <ellipse cx="144" cy="120" rx="11" ry="5" fill="#ff8a9a" opacity={0.65} />
+                </g>
+              )}
+
+              {/* PET — happy cheek blush */}
+              {state === 'pet' && (
+                <g>
+                  <circle cx="48" cy="120" r={5} fill="#ffb4b4" opacity={0.7} />
+                  <circle cx="152" cy="120" r={5} fill="#ffb4b4" opacity={0.7} />
+                </g>
+              )}
+
+              {/* SICK — fever cheeks + sweat drop on forehead */}
+              {state === 'sick' && (
+                <g>
+                  <ellipse cx="52" cy="120" rx="10" ry="5" fill="#d65555" opacity={0.45} />
+                  <ellipse cx="148" cy="120" rx="10" ry="5" fill="#d65555" opacity={0.45} />
+                  <path d="M 80 60 Q 76 70, 80 78 Q 84 70, 80 60 Z"
+                    fill="#7eb2d8" stroke={INK} strokeWidth={1.4} className="sk-drop" />
+                </g>
+              )}
+
+              {/* MEDITATE — golden halo above head */}
+              {state === 'meditate' && (
+                <g className="sk-halo">
+                  <ellipse cx="100" cy="14" rx="44" ry="9" fill="none" stroke="#ffd24a" strokeWidth={3} />
+                  <ellipse cx="100" cy="14" rx="44" ry="9" fill="none" stroke="#fff7c2" strokeWidth={1.4} opacity={0.7} />
+                </g>
+              )}
+
+              {/* ANGRY — steam puffs above + anger mark on temple */}
+              {state === 'angry' && (
+                <g className="sk-steam">
+                  <path d="M 36 14 Q 30 6, 36 0 Q 44 6, 38 14 Z"
+                    fill="#d6d4cf" stroke={INK} strokeWidth={1.6} strokeLinejoin="round" />
+                  <path d="M 60 6 Q 54 -4, 62 -10 Q 70 -2, 62 8 Z"
+                    fill="#d6d4cf" stroke={INK} strokeWidth={1.6} strokeLinejoin="round" />
+                  <g transform="translate(160 36)">
+                    <path d="M 0 0 L 8 -4 L 4 4 L 12 0 L 4 8 L 8 0 Z"
+                      fill="#c8252c" stroke={INK} strokeWidth={1.4} strokeLinejoin="round" />
+                  </g>
+                </g>
+              )}
+
+              {/* SICK — thermometer (drawn through head group so it animates with the mouth area) */}
+              {state === 'sick' && (
+                <g className="sk-thermo">
+                  <circle cx="116" cy="138" r={5.5} fill="#e84a4a" stroke={INK} strokeWidth={1.8} />
+                  <rect x="120" y="135" width="38" height="6" rx={2} fill="#fdf8e6" stroke={INK} strokeWidth={1.8} />
+                  <rect x="120" y="136.4" width="14" height="3.2" fill="#e84a4a" opacity={0.9} />
+                  <g stroke={INK} strokeWidth={1} opacity={0.6} strokeLinecap="round">
+                    <path d="M 138 134.5 L 138 137" />
+                    <path d="M 144 134.5 L 144 137" />
+                    <path d="M 150 134.5 L 150 137" />
+                  </g>
+                  <circle cx="158" cy="138" r={2.4} fill="#fdf8e6" stroke={INK} strokeWidth={1.6} />
+                </g>
+              )}
+
               <SkEyes state={state} />
               <path d={NOSE} fill={PINK} stroke={INK} strokeWidth={1.8} strokeLinejoin="round" />
               <SkMouth state={state} />
@@ -323,6 +466,101 @@ export default function SketchEren({
                 <ellipse cx="126" cy="90" rx="3.4" ry="4" fill={PINK} opacity={0.8} stroke={INK} strokeWidth={1.3} />
                 <ellipse cx="136" cy="94" rx="3.4" ry="4" fill={PINK} opacity={0.8} stroke={INK} strokeWidth={1.3} />
                 <ellipse cx="126" cy="108" rx="6" ry="5" fill={PINK} opacity={0.55} stroke={INK} strokeWidth={1.3} />
+              </g>
+            )}
+
+            {/* ── NEW STATES — accessories on top of body ── */}
+            {state === 'trophy' && (
+              <g className="sk-trophy-grp">
+                {/* arms holding handles */}
+                <path d="M 50 152 Q 40 130, 56 116 Q 64 110, 76 116 L 84 130 Q 74 134, 68 138 Q 60 144, 60 156 Z"
+                  fill="#fff" stroke={INK} strokeWidth={2.2} strokeLinejoin="round" />
+                <path d="M 150 152 Q 160 130, 144 116 Q 136 110, 124 116 L 116 130 Q 126 134, 132 138 Q 140 144, 140 156 Z"
+                  fill="#fff" stroke={INK} strokeWidth={2.2} strokeLinejoin="round" />
+                <g className="sk-trophy">
+                  <path d="M 72 108 Q 60 108, 60 122 Q 60 132, 72 130"
+                    stroke={INK} strokeWidth={2.4} fill="none" strokeLinecap="round" />
+                  <path d="M 128 108 Q 140 108, 140 122 Q 140 132, 128 130"
+                    stroke={INK} strokeWidth={2.4} fill="none" strokeLinecap="round" />
+                  <path d="M 72 100 L 128 100 Q 126 134, 100 138 Q 74 134, 72 100 Z"
+                    fill="#ffd24a" stroke={INK} strokeWidth={2.4} strokeLinejoin="round" />
+                  <path d="M 80 108 Q 82 122, 92 130" stroke="#fff" strokeWidth={2} fill="none" strokeLinecap="round" opacity={0.7} />
+                  <text x="100" y="124" textAnchor="middle" fontSize={18}
+                    fontFamily='"Caveat", cursive' fill={INK} fontWeight={700}>1</text>
+                  <rect x="92" y="138" width={16} height={8} fill="#ffd24a" stroke={INK} strokeWidth={2} />
+                  <path d="M 80 146 L 120 146 L 116 156 L 84 156 Z"
+                    fill="#ffd24a" stroke={INK} strokeWidth={2.4} strokeLinejoin="round" />
+                </g>
+              </g>
+            )}
+
+            {state === 'kiss' && (
+              <g className="sk-paw-kiss">
+                <path d="M 50 156 Q 42 138, 54 124 Q 64 116, 78 122 L 86 134 Q 76 140, 70 146 Q 60 152, 56 158 Z"
+                  fill="#fff" stroke={INK} strokeWidth={2.4} strokeLinejoin="round" />
+                <ellipse cx="80" cy="128" rx="11" ry="9" fill="#fff" stroke={INK} strokeWidth={2.4} />
+                <ellipse cx="72" cy="123" rx="2.4" ry="2.8" fill={PINK} opacity={0.8} stroke={INK} strokeWidth={1.2} />
+                <ellipse cx="80" cy="120" rx="2.4" ry="2.8" fill={PINK} opacity={0.8} stroke={INK} strokeWidth={1.2} />
+                <ellipse cx="88" cy="123" rx="2.4" ry="2.8" fill={PINK} opacity={0.8} stroke={INK} strokeWidth={1.2} />
+                <ellipse cx="80" cy="132" rx="5" ry="3.5" fill={PINK} opacity={0.55} stroke={INK} strokeWidth={1.2} />
+              </g>
+            )}
+
+            {state === 'pet' && (
+              <g className="sk-pet-hand">
+                <rect x="64" y="-18" width={72} height={12} rx={3}
+                  fill="#3a85e0" stroke={INK} strokeWidth={2} />
+                <path d="M 66 -6 Q 52 -6, 52 12 Q 52 38, 76 44 Q 100 48, 124 44 Q 148 38, 148 12 Q 148 -6, 134 -6 Z"
+                  fill="#f4d28a" stroke={INK} strokeWidth={2.4} strokeLinejoin="round" />
+                <path d="M 80 40 Q 81 44, 80 47" stroke={INK} strokeWidth={1.4} fill="none" strokeLinecap="round" opacity={0.55} />
+                <path d="M 100 42 Q 100 46, 100 49" stroke={INK} strokeWidth={1.4} fill="none" strokeLinecap="round" opacity={0.55} />
+                <path d="M 120 40 Q 119 44, 120 47" stroke={INK} strokeWidth={1.4} fill="none" strokeLinecap="round" opacity={0.55} />
+              </g>
+            )}
+
+            {state === 'read' && (
+              <g className="sk-book">
+                <path d="M 40 178 Q 100 168, 160 178 L 160 214 Q 100 204, 40 214 Z"
+                  fill="#fdf6e0" stroke={INK} strokeWidth={2.4} strokeLinejoin="round" />
+                <path d="M 100 172 L 100 208" stroke={INK} strokeWidth={2.2} />
+                <g stroke={INK} strokeWidth={1.2} strokeLinecap="round" opacity={0.7}>
+                  <path d="M 50 184 L 92 184" />
+                  <path d="M 50 190 L 88 191" />
+                  <path d="M 50 196 L 90 197" />
+                  <path d="M 50 202 L 80 204" />
+                </g>
+                <g stroke={INK} strokeWidth={1.2} strokeLinecap="round" opacity={0.7}>
+                  <path d="M 108 184 L 150 184" />
+                  <path d="M 108 190 L 152 191" />
+                  <path d="M 108 196 L 148 197" />
+                  <path d="M 108 202 L 144 204" />
+                </g>
+                <ellipse cx="42" cy="180" rx="10" ry="7" fill="#fff" stroke={INK} strokeWidth={2.2} />
+                <ellipse cx="158" cy="180" rx="10" ry="7" fill="#fff" stroke={INK} strokeWidth={2.2} />
+              </g>
+            )}
+
+            {state === 'proud' && (
+              <g className="sk-medal">
+                <path d="M 86 150 L 100 178 L 114 150 Z"
+                  fill="#3a85e0" stroke={INK} strokeWidth={2} strokeLinejoin="round" />
+                <path d="M 86 150 L 100 178 L 92 154 Z"
+                  fill="#1d5fa3" stroke={INK} strokeWidth={1} strokeLinejoin="round" opacity={0.6} />
+                <circle cx="100" cy="186" r={14} fill="#ffd24a" stroke={INK} strokeWidth={2.4} />
+                <circle cx="100" cy="186" r={10} fill="none" stroke={INK} strokeWidth={1} opacity={0.6} />
+                <text x="100" y="192" textAnchor="middle" fontSize={14}
+                  fontFamily='"Caveat", cursive' fill={INK} fontWeight={700}>★</text>
+              </g>
+            )}
+
+            {state === 'meditate' && (
+              <g className="sk-lotus">
+                <ellipse cx="100" cy="218" rx="68" ry="6" fill="#9d6ee0" stroke={INK} strokeWidth={2} opacity={0.4} />
+                <ellipse cx="100" cy="216" rx="60" ry="4" fill="#9d6ee0" stroke={INK} strokeWidth={1.6} opacity={0.7} />
+                <ellipse cx="58" cy="202" rx="12" ry="6" fill="#fff" stroke={INK} strokeWidth={2.2} />
+                <ellipse cx="142" cy="202" rx="12" ry="6" fill="#fff" stroke={INK} strokeWidth={2.2} />
+                <path d="M 50 202 Q 54 198, 58 202 Q 62 198, 66 202" stroke={INK} strokeWidth={1.2} fill="none" />
+                <path d="M 134 202 Q 138 198, 142 202 Q 146 198, 150 202" stroke={INK} strokeWidth={1.2} fill="none" />
               </g>
             )}
           </g>
@@ -588,6 +826,143 @@ function SkEyes({ state }: { state: SketchErenState }) {
       </g>
     )
   }
+  // ── new state eyes ──
+  if (state === 'chill') return null // hidden under sunglasses
+  if (state === 'trophy') {
+    return (
+      <g>
+        <ellipse className="sk-eye-shape" cx={EYE_L.cx} cy={EYE_L.cy} rx={13} ry={17} fill={BLUE} stroke={INK} strokeWidth={2.2} />
+        <ellipse className="sk-eye-shape" cx={EYE_R.cx} cy={EYE_R.cy} rx={13} ry={17} fill={BLUE} stroke={INK} strokeWidth={2.2} />
+        <ellipse cx={EYE_L.cx} cy={EYE_L.cy + 1} rx={2.2} ry={8} fill={INK} />
+        <ellipse cx={EYE_R.cx} cy={EYE_R.cy + 1} rx={2.2} ry={8} fill={INK} />
+        <circle cx={EYE_L.cx + 4} cy={EYE_L.cy - 5} r={3.5} fill="#fff" />
+        <circle cx={EYE_R.cx + 4} cy={EYE_R.cy - 5} r={3.5} fill="#fff" />
+        <path d="M 64 92 L 64 88 M 62 90 L 66 90" stroke="#ffd24a" strokeWidth={1.4} strokeLinecap="round" />
+        <path d="M 132 92 L 132 88 M 130 90 L 134 90" stroke="#ffd24a" strokeWidth={1.4} strokeLinecap="round" />
+      </g>
+    )
+  }
+  if (state === 'kiss') {
+    return (
+      <g stroke={INK} strokeWidth={2.8} fill="none" strokeLinecap="round">
+        <path d="M 60 100 Q 74 92, 88 100" />
+        <path d="M 112 100 Q 126 92, 140 100" />
+      </g>
+    )
+  }
+  if (state === 'angry') {
+    return (
+      <g>
+        <circle cx={EYE_L.cx} cy={EYE_L.cy + 2} r={9} fill="#fff" stroke={INK} strokeWidth={2.2} />
+        <circle cx={EYE_R.cx} cy={EYE_R.cy + 2} r={9} fill="#fff" stroke={INK} strokeWidth={2.2} />
+        <circle cx={EYE_L.cx + 1} cy={EYE_L.cy + 4} r={2.6} fill={INK} />
+        <circle cx={EYE_R.cx - 1} cy={EYE_R.cy + 4} r={2.6} fill={INK} />
+        <path d="M 56 84 L 88 96" stroke={INK} strokeWidth={3} strokeLinecap="round" />
+        <path d="M 144 84 L 112 96" stroke={INK} strokeWidth={3} strokeLinecap="round" />
+      </g>
+    )
+  }
+  if (state === 'proud') {
+    return (
+      <g stroke={INK} strokeWidth={3} fill="none" strokeLinecap="round">
+        <path d="M 58 100 Q 74 86, 90 100" />
+        <path d="M 110 100 Q 126 86, 142 100" />
+      </g>
+    )
+  }
+  if (state === 'meditate') {
+    return (
+      <g stroke={INK} strokeWidth={2.4} fill="none" strokeLinecap="round">
+        <path d="M 62 100 L 86 100" />
+        <path d="M 114 100 L 138 100" />
+      </g>
+    )
+  }
+  if (state === 'sick') {
+    return (
+      <g>
+        <path d="M 62 98 Q 74 94, 86 98" stroke={INK} strokeWidth={2.4} fill="none" strokeLinecap="round" />
+        <path d="M 114 98 Q 126 94, 138 98" stroke={INK} strokeWidth={2.4} fill="none" strokeLinecap="round" />
+        <path d="M 62 98 Q 74 108, 86 98" stroke={INK} strokeWidth={2} fill="#7eb2d8" opacity={0.5} />
+        <path d="M 114 98 Q 126 108, 138 98" stroke={INK} strokeWidth={2} fill="#7eb2d8" opacity={0.5} />
+        <circle cx={EYE_L.cx} cy={100} r={2} fill={INK} />
+        <circle cx={EYE_R.cx} cy={100} r={2} fill={INK} />
+      </g>
+    )
+  }
+  if (state === 'read') {
+    return (
+      <g>
+        <g stroke={INK} strokeWidth={2} fill="none" strokeLinecap="round">
+          <circle cx={EYE_L.cx} cy={EYE_L.cy + 2} r={13} fill="#fff" opacity={0.6} />
+          <circle cx={EYE_R.cx} cy={EYE_R.cy + 2} r={13} fill="#fff" opacity={0.6} />
+          <path d="M 87 100 L 113 100" />
+          <path d="M 61 96 L 54 92 M 139 96 L 146 92" />
+        </g>
+        <ellipse cx={EYE_L.cx} cy={EYE_L.cy + 6} rx={2.4} ry={4} fill={INK} />
+        <ellipse cx={EYE_R.cx} cy={EYE_R.cy + 6} rx={2.4} ry={4} fill={INK} />
+      </g>
+    )
+  }
+  if (state === 'pet') {
+    return (
+      <g stroke={INK} strokeWidth={3} fill="none" strokeLinecap="round">
+        <path d="M 58 96 Q 74 110, 90 96" />
+        <path d="M 110 96 Q 126 110, 142 96" />
+      </g>
+    )
+  }
+  if (state === 'nom') {
+    return (
+      <g stroke={INK} strokeWidth={3} fill="none" strokeLinecap="round">
+        <path d="M 64 100 Q 74 92, 84 100" />
+        <path d="M 116 100 Q 126 92, 136 100" />
+      </g>
+    )
+  }
+  if (state === 'bow') {
+    return (
+      <g stroke={INK} strokeWidth={2.8} fill="none" strokeLinecap="round">
+        <path d="M 64 102 Q 74 96, 84 102" />
+        <path d="M 116 102 Q 126 96, 136 102" />
+      </g>
+    )
+  }
+  if (state === 'focus') {
+    return (
+      <g>
+        <path d="M 56 100 L 86 100" stroke={INK} strokeWidth={4} strokeLinecap="round" />
+        <path d="M 114 100 L 144 100" stroke={INK} strokeWidth={4} strokeLinecap="round" />
+        <circle cx={74} cy={100} r={2} fill="#c8252c" />
+        <circle cx={126} cy={100} r={2} fill="#c8252c" />
+      </g>
+    )
+  }
+  if (state === 'party') {
+    return (
+      <g stroke={INK} strokeWidth={3} fill="none" strokeLinecap="round">
+        <path d="M 58 102 Q 74 88, 90 102" />
+        <path d="M 110 102 Q 126 88, 142 102" />
+      </g>
+    )
+  }
+  if (state === 'yawn') {
+    return (
+      <g>
+        <path d="M 60 102 Q 74 96, 88 102" stroke={INK} strokeWidth={2.6} fill="none" strokeLinecap="round" />
+        <path d="M 112 102 Q 126 96, 140 102" stroke={INK} strokeWidth={2.6} fill="none" strokeLinecap="round" />
+        <circle cx="58" cy="106" r={2} fill={BLUE} stroke={INK} strokeWidth={1} opacity={0.9} />
+      </g>
+    )
+  }
+  if (state === 'silly') {
+    return (
+      <g stroke={INK} strokeWidth={2.8} fill="none" strokeLinecap="round">
+        <path d="M 60 104 Q 74 92, 88 104" />
+        <path d="M 112 104 Q 126 92, 140 104" />
+      </g>
+    )
+  }
   // idle, wave, dance — default almond eyes (with blink for idle only)
   return (
     <g>
@@ -690,6 +1065,87 @@ function SkMouth({ state }: { state: SketchErenState }) {
       <g>
         <path d="M 86 130 Q 100 142, 114 130" stroke={INK} strokeWidth={2.2} fill="#fff" strokeLinejoin="round" />
         <path d="M 90 132 L 110 132" stroke={INK} strokeWidth={1.4} />
+      </g>
+    )
+  }
+  // ── new state mouths ──
+  if (state === 'chill') {
+    return <path d="M 86 132 Q 96 142, 112 138 Q 108 142, 102 142" stroke={INK} strokeWidth={2.2} fill="none" strokeLinecap="round" />
+  }
+  if (state === 'trophy') {
+    return <path d="M 82 132 Q 100 150, 118 132 Q 110 142, 100 142 Q 90 142, 82 132 Z"
+      fill="#c8252c" stroke={INK} strokeWidth={2} strokeLinejoin="round" />
+  }
+  if (state === 'kiss') {
+    return (
+      <g>
+        <path d="M 94 134 Q 100 128, 106 134 Q 100 142, 94 134 Z"
+          fill="#e63a6b" stroke={INK} strokeWidth={2} strokeLinejoin="round" />
+        <path d="M 97 132 Q 100 130, 103 132" stroke="#fff" strokeWidth={1} fill="none" opacity={0.7} />
+      </g>
+    )
+  }
+  if (state === 'angry') {
+    return (
+      <g>
+        <path d="M 84 138 Q 100 128, 116 138 Q 110 144, 100 144 Q 90 144, 84 138 Z"
+          fill="#3a1a18" stroke={INK} strokeWidth={2} strokeLinejoin="round" />
+        <path d="M 92 138 L 92 142 M 100 138 L 100 142 M 108 138 L 108 142"
+          stroke="#fff" strokeWidth={1.4} />
+      </g>
+    )
+  }
+  if (state === 'proud') {
+    return <path d="M 84 134 Q 100 144, 116 134" stroke={INK} strokeWidth={2.4} fill="none" strokeLinecap="round" />
+  }
+  if (state === 'meditate') {
+    return <path d="M 92 134 Q 100 138, 108 134" stroke={INK} strokeWidth={2} fill="none" strokeLinecap="round" />
+  }
+  if (state === 'sick') {
+    return <path d="M 88 138 Q 94 134, 100 138 Q 106 142, 112 138" stroke={INK} strokeWidth={2} fill="none" strokeLinecap="round" />
+  }
+  if (state === 'read') {
+    return <path d="M 94 138 L 106 138" stroke={INK} strokeWidth={2} fill="none" strokeLinecap="round" />
+  }
+  if (state === 'pet') {
+    return <path d="M 84 132 Q 100 148, 116 132 Q 108 144, 100 144 Q 92 144, 84 132 Z"
+      fill="#c8252c" stroke={INK} strokeWidth={2} strokeLinejoin="round" />
+  }
+  if (state === 'nom') {
+    return <path d="M 96 140 Q 102 144, 110 140" stroke={INK} strokeWidth={2} fill="none" strokeLinecap="round" />
+  }
+  if (state === 'bow') {
+    return <path d="M 92 134 Q 100 140, 108 134" stroke={INK} strokeWidth={2} fill="none" strokeLinecap="round" />
+  }
+  if (state === 'focus') {
+    return <path d="M 90 138 L 110 138" stroke={INK} strokeWidth={2.4} fill="none" strokeLinecap="round" />
+  }
+  if (state === 'party') {
+    return (
+      <g>
+        <path d="M 84 130 Q 100 150, 116 130 Q 108 146, 100 146 Q 92 146, 84 130 Z"
+          fill="#c8252c" stroke={INK} strokeWidth={2.2} strokeLinejoin="round" />
+        <path d="M 94 140 Q 100 148, 106 140 Q 100 144, 94 140 Z"
+          fill="#e89aae" stroke={INK} strokeWidth={1.2} strokeLinejoin="round" />
+      </g>
+    )
+  }
+  if (state === 'yawn') {
+    return (
+      <g>
+        <ellipse cx="100" cy="140" rx="14" ry="12" fill="#3a1a1a" stroke={INK} strokeWidth={2.2} />
+        <ellipse cx="100" cy="146" rx="9" ry="5" fill="#e89aae" stroke={INK} strokeWidth={1.4} />
+      </g>
+    )
+  }
+  if (state === 'silly') {
+    return (
+      <g>
+        <path d="M 92 134 Q 100 138, 108 134 L 108 150 Q 108 158, 100 158 Q 92 158, 92 150 Z"
+          fill="#e89aae" stroke={INK} strokeWidth={2.2} strokeLinejoin="round" />
+        <path d="M 100 140 L 100 154" stroke={INK} strokeWidth={1} fill="none" opacity={0.4} />
+        <path d="M 86 132 Q 100 140, 114 132"
+          stroke={INK} strokeWidth={2.4} fill="none" strokeLinecap="round" />
       </g>
     )
   }
@@ -966,6 +1422,212 @@ function SkExtras({ state }: { state: SketchErenState }) {
       </g>
     )
   }
+  // ── new state extras ──
+  if (state === 'chill') {
+    return (
+      <g fill={INK} fontFamily='"Caveat", cursive' fontSize={22} className="sk-fx-pop">
+        <text x="22" y="42" transform="rotate(-8 22 42)">♪</text>
+        <text x="178" y="50" transform="rotate(10 178 50)">♫</text>
+      </g>
+    )
+  }
+  if (state === 'nom') {
+    return (
+      <g>
+        <g fill="#a37444" stroke={INK} strokeWidth={0.8} className="sk-crumbs">
+          <circle cx="172" cy="148" r={2} />
+          <circle cx="176" cy="158" r={1.5} />
+          <circle cx="165" cy="160" r={1.8} />
+        </g>
+        <text x="20" y="40" fontSize={22} fontFamily='"Caveat", cursive' fill={INK}
+          className="sk-pop-text" transform="rotate(-6 20 40)">mmm…</text>
+      </g>
+    )
+  }
+  if (state === 'bow') {
+    return (
+      <g>
+        <text x="14" y="30" fontSize={20} fontFamily='"Caveat", cursive' fill="#1d8a5a"
+          className="sk-pop-text" transform="rotate(-8 14 30)">hvala</text>
+      </g>
+    )
+  }
+  if (state === 'focus') {
+    return (
+      <g>
+        <path d="M 36 70 Q 32 78, 36 86 Q 40 78, 36 70 Z"
+          fill="#7eb2d8" stroke={INK} strokeWidth={1.4} className="sk-drop" />
+      </g>
+    )
+  }
+  if (state === 'trophy') {
+    return (
+      <g>
+        <g stroke="#ffd24a" strokeWidth={2.2} strokeLinecap="round" fill="none" className="sk-rays-pulse-grp">
+          <path d="M 30 100 L 18 96" />
+          <path d="M 170 100 L 182 96" />
+          <path d="M 100 60 L 100 48" />
+          <path d="M 60 70 L 52 60" />
+          <path d="M 140 70 L 148 60" />
+        </g>
+        {[[28, 40], [172, 42], [40, 12], [160, 14]].map(([x, y], i) => (
+          <g key={i} className="sk-mag-spark" style={{ animationDelay: `${i * 0.14}s` }}>
+            <path d={`M ${x} ${y - 4} L ${x + 1.4} ${y - 1} L ${x + 4} ${y} L ${x + 1.4} ${y + 1} L ${x} ${y + 4} L ${x - 1.4} ${y + 1} L ${x - 4} ${y} L ${x - 1.4} ${y - 1} Z`}
+              fill="#ffd24a" stroke={INK} strokeWidth={0.8} />
+          </g>
+        ))}
+        <text x="100" y="22" textAnchor="middle" fontSize={20} fontFamily='"Caveat", cursive'
+          fill="#c8252c" className="sk-pop-text" stroke={INK} strokeWidth={0.4}>#1!</text>
+      </g>
+    )
+  }
+  if (state === 'kiss') {
+    return (
+      <g>
+        <g className="sk-kiss-heart">
+          <path d="M 130 130 C 122 124, 120 116, 126 114 C 130 112, 132 116, 132 117 C 132 116, 134 112, 138 114 C 144 116, 142 124, 134 130 Z"
+            fill="#e63a6b" stroke={INK} strokeWidth={1.4} strokeLinejoin="round" />
+          <path d="M 128 118 Q 130 116, 132 117" stroke="#fff" strokeWidth={1} fill="none" opacity={0.9} />
+        </g>
+        <g className="sk-kiss-heart" style={{ animationDelay: '0.7s' }}>
+          <path d="M 150 90 C 142 84, 140 76, 146 74 C 150 72, 152 76, 152 77 C 152 76, 154 72, 158 74 C 164 76, 162 84, 154 90 Z"
+            fill="#e63a6b" stroke={INK} strokeWidth={1.2} strokeLinejoin="round" />
+        </g>
+        <text x="22" y="40" fontSize={20} fontFamily='"Caveat", cursive' fill="#e63a6b"
+          className="sk-pop-text" stroke={INK} strokeWidth={0.4} transform="rotate(-8 22 40)">mwah!</text>
+      </g>
+    )
+  }
+  if (state === 'angry') {
+    return (
+      <g>
+        <g className="sk-steam-rise">
+          <path d="M 80 -10 Q 76 -20, 82 -26 Q 88 -20, 84 -10 Z"
+            fill="#d6d4cf" stroke={INK} strokeWidth={1.4} strokeLinejoin="round" />
+        </g>
+        <text x="20" y="40" fontSize={22} fontFamily='"Caveat", cursive' fill="#c8252c"
+          className="sk-pop-text" stroke={INK} strokeWidth={0.5} transform="rotate(-8 20 40)">grrr!</text>
+      </g>
+    )
+  }
+  if (state === 'proud') {
+    return (
+      <g>
+        <g stroke="#ffd24a" strokeWidth={1.6} strokeLinecap="round" fill="none" className="sk-rays-pulse-grp">
+          <path d="M 78 174 L 70 170" />
+          <path d="M 122 174 L 130 170" />
+          <path d="M 80 198 L 70 200" />
+          <path d="M 120 198 L 130 200" />
+        </g>
+        <text x="100" y="24" textAnchor="middle" fontSize={18} fontFamily='"Caveat", cursive'
+          fill="#1d8a5a" className="sk-pop-text" stroke={INK} strokeWidth={0.3}>bravo!</text>
+      </g>
+    )
+  }
+  if (state === 'meditate') {
+    return (
+      <g>
+        <g stroke="#9d6ee0" strokeWidth={1.4} fill="none" opacity={0.6} className="sk-breath-ring">
+          <ellipse cx="100" cy="14" rx="58" ry="14" />
+        </g>
+        <g stroke="#9d6ee0" strokeWidth={1.2} fill="none" opacity={0.4} className="sk-breath-ring" style={{ animationDelay: '0.6s' }}>
+          <ellipse cx="100" cy="14" rx="68" ry="18" />
+        </g>
+        <g fill="#9d6ee0" stroke={INK} strokeWidth={1.2} opacity={0.8}>
+          <ellipse cx="60" cy="218" rx="8" ry="3" transform="rotate(-20 60 218)" />
+          <ellipse cx="140" cy="218" rx="8" ry="3" transform="rotate(20 140 218)" />
+          <ellipse cx="40" cy="220" rx="6" ry="2.5" transform="rotate(-35 40 220)" />
+          <ellipse cx="160" cy="220" rx="6" ry="2.5" transform="rotate(35 160 220)" />
+        </g>
+        <text x="22" y="40" fontSize={22} fontFamily='"Caveat", cursive' fill="#9d6ee0"
+          className="sk-pop-text" stroke={INK} strokeWidth={0.3}>om…</text>
+      </g>
+    )
+  }
+  if (state === 'sick') {
+    return (
+      <g>
+        <g className="sk-yawn-aura" stroke={INK} strokeWidth={1.4} fill="#bcd6a4" opacity={0.7}>
+          <ellipse cx="36" cy="50" rx="10" ry="5" />
+          <ellipse cx="170" cy="56" rx="9" ry="4.5" />
+        </g>
+        <text x="22" y="40" fontSize={20} fontFamily='"Caveat", cursive' fill="#6e8c4a"
+          className="sk-pop-text" stroke={INK} strokeWidth={0.4} transform="rotate(-6 22 40)">uhh…</text>
+      </g>
+    )
+  }
+  if (state === 'read') {
+    return (
+      <g>
+        <g stroke={INK} strokeWidth={1.4} strokeLinecap="round" fill="none" opacity={0.5}>
+          <path d="M 22 50 L 30 50" />
+          <path d="M 22 58 L 32 58" />
+          <path d="M 170 50 L 178 50" />
+          <path d="M 168 58 L 178 58" />
+        </g>
+        <text x="180" y="174" fontSize={16} fontFamily='"Caveat", cursive' fill={INK}
+          className="sk-pop-text" transform="rotate(-8 180 174)">…</text>
+      </g>
+    )
+  }
+  if (state === 'pet') {
+    return (
+      <g>
+        {[[40, 80], [160, 86], [28, 140], [172, 142]].map(([x, y], i) => (
+          <path key={i}
+            d={`M ${x} ${y + 5} C ${x - 6} ${y}, ${x - 6} ${y - 4}, ${x - 2.5} ${y - 4} C ${x} ${y - 4}, ${x} ${y - 1}, ${x} ${y - 1} C ${x} ${y - 1}, ${x} ${y - 4}, ${x + 2.5} ${y - 4} C ${x + 6} ${y - 4}, ${x + 6} ${y}, ${x} ${y + 5} Z`}
+            fill="#e63a6b" stroke={INK} strokeWidth={1.1}
+            className="sk-heart" style={{ animationDelay: `${i * 0.22}s` }} />
+        ))}
+        <g stroke={INK} strokeWidth={1.4} strokeLinecap="round" fill="none" opacity={0.5} className="sk-purr">
+          <path d="M 18 130 Q 24 132, 30 130" />
+          <path d="M 16 138 Q 24 140, 32 138" />
+          <path d="M 170 130 Q 176 132, 182 130" />
+          <path d="M 168 138 Q 176 140, 184 138" />
+        </g>
+      </g>
+    )
+  }
+  if (state === 'party') {
+    const confetti: [number, number, string][] = [
+      [28, 50, '#e63a6b'], [44, 30, '#ffd24a'], [60, 60, '#3a85e0'],
+      [156, 30, '#e63a6b'], [172, 56, '#ffd24a'], [184, 32, '#3a85e0'],
+      [22, 110, '#ffd24a'], [180, 110, '#e63a6b'],
+    ]
+    return (
+      <g className="sk-confetti">
+        {confetti.map(([x, y, c], i) => (
+          <rect key={i} x={x} y={y} width={5} height={3} rx={0.5}
+            fill={c} stroke={INK} strokeWidth={0.8}
+            transform={`rotate(${(i * 47) % 90 - 30} ${x + 2} ${y + 1})`}
+            style={{ animationDelay: `${(i * 0.13) % 1}s` }} />
+        ))}
+        <path d="M 14 24 Q 24 36, 18 50" stroke="#e63a6b" strokeWidth={1.6} fill="none" strokeLinecap="round" />
+        <path d="M 186 24 Q 176 36, 182 50" stroke="#3a85e0" strokeWidth={1.6} fill="none" strokeLinecap="round" />
+      </g>
+    )
+  }
+  if (state === 'yawn') {
+    return (
+      <g className="sk-yawn-puff">
+        <ellipse cx="170" cy="100" rx="10" ry="6" fill="#fff" stroke={INK} strokeWidth={1.6} opacity={0.85} />
+        <ellipse cx="182" cy="94" rx="6" ry="4" fill="#fff" stroke={INK} strokeWidth={1.4} opacity={0.7} />
+        <ellipse cx="188" cy="86" rx="3.5" ry="2.5" fill="#fff" stroke={INK} strokeWidth={1.2} opacity={0.55} />
+      </g>
+    )
+  }
+  if (state === 'silly') {
+    return (
+      <g className="sk-silly-wiggle" stroke={INK} strokeWidth={1.6} fill="none" strokeLinecap="round" opacity={0.7}>
+        <path d="M 18 70 Q 24 74, 18 78" />
+        <path d="M 14 86 Q 20 90, 14 94" />
+        <path d="M 182 70 Q 176 74, 182 78" />
+        <path d="M 186 86 Q 180 90, 186 94" />
+        <path d="M 30 40 L 30 48 M 26 44 L 34 44" stroke="#ffd24a" strokeWidth={2} />
+        <path d="M 170 40 L 170 48 M 166 44 L 174 44" stroke="#ffd24a" strokeWidth={2} />
+      </g>
+    )
+  }
   return null
 }
 
@@ -993,6 +1655,21 @@ function SkSpeech({ state }: { state: SketchErenState }) {
     gasp:     { t: 'jao!',     c: '#c8252c' },
     grad:     { t: 'završeno!',c: '#1d8a5a' },
     rocket:   { t: 'idemo!',   c: '#ff6a2c' },
+    nom:      { t: 'njam!',    c: '#a37444' },
+    bow:      { t: 'hvala…',   c: '#1d8a5a' },
+    focus:    { t: 'fokus',    c: '#c8252c' },
+    chill:    { t: 'cool',     c: '#3a85e0' },
+    trophy:   { t: 'pobeda!',  c: '#c8252c' },
+    kiss:     { t: 'muah',     c: '#e63a6b' },
+    angry:    { t: 'grrr!',    c: '#c8252c' },
+    proud:    { t: 'ponosan',  c: '#1d8a5a' },
+    meditate: { t: 'mir…',     c: '#9d6ee0' },
+    sick:     { t: 'bolesan…', c: '#6e8c4a' },
+    read:     { t: 'čitam…',   c: INK },
+    pet:      { t: 'prr~',     c: '#e63a6b' },
+    party:    { t: 'žurka!',   c: '#e63a6b' },
+    yawn:     { t: 'haaa…',    c: '#7a8aa8' },
+    silly:    { t: ':P',       c: '#e63a6b' },
   }
   const entry = map[state]
   if (!entry) return null
@@ -1217,6 +1894,141 @@ function SketchPlusStyles() {
       .eren-sk-gasp    .sk-tail { animation: sk-tail-wag 0.9s ease-in-out infinite; }
       .eren-sk-grad    .sk-tail { animation: sk-tail-wag 0.6s ease-in-out infinite; }
       .eren-sk-rocket  .sk-tail { animation: sk-tail-flick 0.2s ease-in-out infinite; }
+
+      /* NOM — head wiggles chewing, crumbs bounce */
+      .eren-sk-nom .sk-head { animation: sk-nom-chew 0.32s ease-in-out infinite; transform-origin: 50% 90%; }
+      @keyframes sk-nom-chew { 0%,100% { transform: rotate(-2deg) translateY(0); } 50% { transform: rotate(2deg) translateY(-1px); } }
+      .sk-treat { animation: sk-nom-chew 0.32s ease-in-out infinite; transform-origin: 100px 144px; transform-box: view-box; }
+      .sk-crumbs { animation: sk-crumbs-bounce 0.6s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+      @keyframes sk-crumbs-bounce { 0% { opacity: 0; transform: translateY(-2px); } 40% { opacity: 1; } 100% { opacity: 0; transform: translateY(8px); } }
+      .eren-sk-nom .sk-tail { animation: sk-tail-flick 0.5s ease-in-out infinite; }
+
+      /* BOW — crouches forward + head dips */
+      .eren-sk-bow .sk-body { animation: sk-bow-down 2.2s ease-in-out infinite; transform-origin: 50% 100%; }
+      @keyframes sk-bow-down { 0%, 100% { transform: translateY(0) scaleY(1); } 35%, 60% { transform: translateY(10px) scaleY(0.9); } }
+      .eren-sk-bow .sk-head { animation: sk-bow-tilt 2.2s ease-in-out infinite; transform-origin: 50% 100%; }
+      @keyframes sk-bow-tilt { 0%, 100% { transform: translateY(0) rotate(0); } 35%, 60% { transform: translateY(22px) rotate(-6deg) scale(0.94); } }
+      .sk-bow-arc { animation: sk-bow-arc-fade 2.2s ease-in-out infinite; }
+      @keyframes sk-bow-arc-fade { 0%, 25%, 70%, 100% { opacity: 0; } 35%, 60% { opacity: 0.6; } }
+
+      /* FOCUS — reticle floats then snaps */
+      .sk-reticle { animation: sk-reticle-lock 2.2s ease-in-out infinite; transform-origin: 170px 40px; transform-box: view-box; }
+      @keyframes sk-reticle-lock {
+        0%   { transform: translate(8px, -6px) scale(1.2); opacity: 0.4; }
+        40%  { transform: translate(0,0) scale(1); opacity: 1; }
+        60%  { transform: translate(0,0) scale(1); opacity: 1; }
+        100% { transform: translate(-6px, 8px) scale(1.15); opacity: 0.3; }
+      }
+      .eren-sk-focus .sk-tail { animation: sk-tail-flick 0.35s ease-in-out infinite; }
+
+      /* CHILL — gentle head sway, sunglasses shine pulse */
+      .eren-sk-chill .sk-head { animation: sk-chill-bob 2.4s ease-in-out infinite; transform-origin: 50% 90%; }
+      @keyframes sk-chill-bob { 0%,100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
+      .eren-sk-chill .sk-tail { animation: sk-tail-wag 1.6s ease-in-out infinite; }
+      .sk-shades { animation: sk-shades-shine 2.4s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+      @keyframes sk-shades-shine { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.15); } }
+
+      /* TROPHY — held high, sparkle pulses */
+      .eren-sk-trophy .sk-body { animation: sk-cheer-bounce 0.6s cubic-bezier(.6,-0.2,.4,1.6) infinite; transform-origin: 50% 100%; }
+      .sk-trophy-grp { animation: sk-trophy-hold 1.6s ease-in-out infinite; transform-origin: 100px 130px; transform-box: view-box; }
+      @keyframes sk-trophy-hold { 0%,100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-6px) rotate(2deg); } }
+      .sk-rays-pulse-grp { animation: sk-rays-pulse 0.9s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+      .eren-sk-trophy .sk-tail { animation: sk-tail-flick 0.35s ease-in-out infinite; }
+
+      /* KISS — head tilt, heart floats away */
+      .eren-sk-kiss .sk-head { animation: sk-kiss-tilt 1.6s ease-in-out infinite; transform-origin: 50% 90%; }
+      @keyframes sk-kiss-tilt { 0%,100% { transform: rotate(-4deg); } 50% { transform: rotate(2deg); } }
+      .sk-paw-kiss { animation: sk-kiss-paw 1.6s ease-in-out infinite; transform-origin: 80px 138px; transform-box: view-box; }
+      @keyframes sk-kiss-paw {
+        0% { transform: translate(0, 4px); opacity: 0.85; }
+        30% { transform: translate(0,0); opacity: 1; }
+        100% { transform: translate(0,0); opacity: 1; }
+      }
+      .sk-kiss-heart { animation: sk-kiss-float 2.2s ease-in-out infinite; transform-origin: center; transform-box: fill-box; opacity: 0; }
+      @keyframes sk-kiss-float {
+        0% { opacity: 0; transform: translate(0,8px) scale(0.5); }
+        20% { opacity: 1; transform: translate(0,0) scale(1); }
+        70% { opacity: 1; transform: translate(20px,-30px) scale(1.1); }
+        100% { opacity: 0; transform: translate(40px,-60px) scale(0.9); }
+      }
+      .eren-sk-kiss .sk-tail { animation: sk-tail-wag 0.9s ease-in-out infinite; }
+
+      /* ANGRY — fast shake + steam puff */
+      .eren-sk-angry .sk-body { animation: sk-angry-shake 0.16s ease-in-out infinite; }
+      @keyframes sk-angry-shake { 0%,100% { transform: translate(-1px,1px); } 50% { transform: translate(1px,-1px); } }
+      .sk-steam { animation: sk-steam-puff 1.2s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+      .sk-steam-rise { animation: sk-steam-rise 1.4s ease-out infinite; transform-origin: center; transform-box: fill-box; }
+      @keyframes sk-steam-puff { 0%,100% { transform: scale(0.92); opacity: 0.85; } 50% { transform: scale(1.1); opacity: 1; } }
+      @keyframes sk-steam-rise { 0% { opacity: 0; transform: translateY(20px) scale(0.6); } 30% { opacity: 0.9; } 100% { opacity: 0; transform: translateY(-20px) scale(1.3); } }
+      .eren-sk-angry .sk-tail { animation: sk-tail-flick 0.2s ease-in-out infinite; }
+
+      /* PROUD — slow chest puff */
+      .eren-sk-proud .sk-body { animation: sk-proud-puff 3s ease-in-out infinite; transform-origin: 50% 100%; }
+      @keyframes sk-proud-puff { 0%,100% { transform: scale(1,1); } 50% { transform: scale(1.05,1.05) translateY(-2px); } }
+      .sk-medal { animation: sk-medal-shine 2s ease-in-out infinite; transform-origin: 100px 186px; transform-box: view-box; }
+      @keyframes sk-medal-shine { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.2); } }
+      .eren-sk-proud .sk-tail { animation: sk-tail-wag 1.4s ease-in-out infinite; }
+
+      /* MEDITATE — very still, halo glow, breath rings expand */
+      .eren-sk-meditate .sk-body { animation: sk-meditate-breath 5s ease-in-out infinite; transform-origin: 50% 100%; }
+      @keyframes sk-meditate-breath { 0%,100% { transform: scale(1,1); } 50% { transform: scale(1.025, 0.985); } }
+      .sk-halo { animation: sk-halo-glow 3.2s ease-in-out infinite; transform-origin: 100px 14px; transform-box: view-box; }
+      @keyframes sk-halo-glow { 0%,100% { opacity: 0.85; transform: scale(1); } 50% { opacity: 1; transform: scale(1.06); } }
+      .sk-breath-ring { animation: sk-breath-ring 3.2s ease-out infinite; transform-origin: 100px 14px; transform-box: view-box; opacity: 0; }
+      @keyframes sk-breath-ring { 0% { opacity: 0; transform: scale(0.8); } 40% { opacity: 0.6; } 100% { opacity: 0; transform: scale(1.4); } }
+      .eren-sk-meditate .sk-tail { animation: sk-tail-sleep 5s ease-in-out infinite; }
+
+      /* SICK — droop + shivers, thermometer wobbles */
+      .eren-sk-sick .sk-body { animation: sk-sick-shiver 0.32s ease-in-out infinite; transform-origin: 50% 100%; }
+      @keyframes sk-sick-shiver { 0%,100% { transform: translateX(-0.7px) translateY(0); } 50% { transform: translateX(0.7px) translateY(1px); } }
+      .eren-sk-sick .sk-head { animation: sk-sick-droop 3.4s ease-in-out infinite; transform-origin: 50% 95%; }
+      @keyframes sk-sick-droop { 0%,100% { transform: rotate(-2deg) translateY(0); } 50% { transform: rotate(3deg) translateY(2px); } }
+      .sk-thermo { animation: sk-thermo-wobble 3.4s ease-in-out infinite; transform-origin: 116px 138px; transform-box: view-box; }
+      @keyframes sk-thermo-wobble { 0%,100% { transform: rotate(-3deg); } 50% { transform: rotate(4deg); } }
+      .eren-sk-sick .sk-tail { animation: sk-tail-droop 3.4s ease-in-out infinite; }
+
+      /* READ — head dips toward book */
+      .eren-sk-read .sk-head { animation: sk-read-bob 2.4s ease-in-out infinite; transform-origin: 50% 90%; }
+      @keyframes sk-read-bob { 0%,100% { transform: rotate(-4deg) translateY(1px); } 50% { transform: rotate(2deg) translateY(-1px); } }
+      .sk-book { animation: sk-book-hold 2.4s ease-in-out infinite; transform-origin: 100px 196px; transform-box: view-box; }
+      @keyframes sk-book-hold { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-1px); } }
+      .eren-sk-read .sk-tail { animation: sk-tail-wag 2.4s ease-in-out infinite; }
+
+      /* PET — head pushes up into hand, hand presses down */
+      .eren-sk-pet .sk-head { animation: sk-pet-push 1.2s ease-in-out infinite; transform-origin: 50% 100%; }
+      @keyframes sk-pet-push { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+      .sk-pet-hand { animation: sk-pet-hand 1.2s ease-in-out infinite; transform-origin: 100px 0px; transform-box: view-box; }
+      @keyframes sk-pet-hand { 0%,100% { transform: translateY(8px); } 50% { transform: translateY(20px); } }
+      .sk-purr { animation: sk-purr-flick 0.5s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+      @keyframes sk-purr-flick { 0%,100% { opacity: 0.35; transform: translateX(-1px); } 50% { opacity: 0.8; transform: translateX(1px); } }
+      .eren-sk-pet .sk-tail { animation: sk-tail-flick 0.6s ease-in-out infinite; }
+
+      /* PARTY — bouncy head + tilting hat + confetti drift */
+      .eren-sk-party .sk-head { animation: sk-party-bounce 0.5s ease-in-out infinite; transform-origin: 50% 95%; }
+      @keyframes sk-party-bounce { 0%,100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-3px) rotate(3deg); } }
+      .eren-sk-party .sk-body { animation: sk-party-bop 0.5s ease-in-out infinite; transform-origin: 50% 100%; }
+      @keyframes sk-party-bop { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+      .sk-party-hat { animation: sk-party-hat 0.5s ease-in-out infinite; transform-origin: 100px 64px; transform-box: view-box; }
+      @keyframes sk-party-hat { 0%,100% { transform: rotate(-4deg); } 50% { transform: rotate(5deg); } }
+      .eren-sk-party .sk-tail { animation: sk-tail-flick 0.3s ease-in-out infinite; }
+
+      /* YAWN — slow chest rise, head tilts back, puff drifts */
+      .eren-sk-yawn .sk-body { animation: sk-yawn-breathe 2.6s ease-in-out infinite; transform-origin: 50% 100%; }
+      @keyframes sk-yawn-breathe { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(1.05); } }
+      .eren-sk-yawn .sk-head { animation: sk-yawn-tilt 2.6s ease-in-out infinite; transform-origin: 50% 100%; }
+      @keyframes sk-yawn-tilt { 0%,100% { transform: rotate(0deg) translateY(0); } 50% { transform: rotate(-4deg) translateY(-2px); } }
+      .sk-yawn-puff { animation: sk-yawn-puff-rise 2.6s ease-in-out infinite; transform-origin: 170px 100px; transform-box: view-box; }
+      @keyframes sk-yawn-puff-rise { 0%,30% { opacity: 0; transform: translate(0,0); } 60% { opacity: 1; } 100% { opacity: 0; transform: translate(8px,-8px); } }
+      .eren-sk-yawn .sk-tail { animation: sk-tail-droop 3.4s ease-in-out infinite; }
+
+      /* SILLY — quick side-to-side wiggle */
+      .eren-sk-silly .sk-head { animation: sk-silly-wig 0.5s ease-in-out infinite; transform-origin: 50% 95%; }
+      @keyframes sk-silly-wig { 0%,100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+      .eren-sk-silly .sk-body { animation: sk-silly-bop 0.5s ease-in-out infinite; transform-origin: 50% 100%; }
+      @keyframes sk-silly-bop { 0%,100% { transform: translateX(-1px); } 50% { transform: translateX(1px); } }
+      .sk-silly-wiggle { animation: sk-silly-shimmer 0.5s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+      @keyframes sk-silly-shimmer { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+      .eren-sk-silly .sk-tail { animation: sk-tail-flick 0.32s ease-in-out infinite; }
     `}</style>
   )
 }
