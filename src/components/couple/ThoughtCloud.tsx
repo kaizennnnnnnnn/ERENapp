@@ -93,7 +93,7 @@ export default function ThoughtCloud() {
           style={{ background: 'transparent', border: 'none', padding: 0 }}
           aria-label="Open Eren's thought"
         >
-          <PixelCloud width={64} dots />
+          <PixelCloud width={44} dots />
         </button>
         <TrailingPuffs />
       </CloudAnchor>
@@ -121,7 +121,7 @@ export default function ThoughtCloud() {
               style={{ background: 'transparent', border: 'none', padding: 0 }}
               aria-label="Send a message"
             >
-              <PixelCloud width={58} tint="#A78BFA" glyph="MSG" />
+              <PixelCloud width={42} tint="#A78BFA" glyph="MSG" />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); playSound('ui_tap'); setMode('gift') }}
@@ -129,7 +129,7 @@ export default function ThoughtCloud() {
               style={{ background: 'transparent', border: 'none', padding: 0 }}
               aria-label="Send a gift"
             >
-              <PixelCloud width={58} tint="#F5C842" glyph="GIFT" />
+              <PixelCloud width={42} tint="#F5C842" glyph="GIFT" />
             </button>
           </div>
           <TrailingPuffs />
@@ -428,7 +428,10 @@ function CloudAnchor({ children, zIndex }: { children: React.ReactNode; zIndex: 
       className="fixed pointer-events-none"
       style={{
         bottom: CLOUD_BOTTOM,
-        left: '50%',
+        // Shifted right of Eren's head — the cloud now peeks out from his
+        // right side rather than floating directly above him. translateX
+        // keeps the element anchored to that offset point.
+        left: '68%',
         transform: 'translateX(-50%)',
         zIndex,
         animation: 'tcDrift 3.6s ease-in-out infinite',
