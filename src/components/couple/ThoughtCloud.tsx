@@ -1,15 +1,17 @@
 'use client'
 
-// Floating thought-cloud that sits next to Eren on the home screen. Idle
-// state shows three pulsing dots ("Eren is thinking of you"). Click it and
-// it expands into two smaller clouds:
-//   • Message cloud — small text input. Sends a journal message to the
-//     partner; they see "Eren has a message for you" via ErenMessagePopup.
-//   • Gift cloud — picks one food from YOUR personal fridge pile and sends
-//     it as a gift; qty is moved from your pile → partner's pile, and a
-//     journal row with `gift_item` is created so the popup can show it.
+// Comic-book thinking cloud that floats above Eren on the home screen.
+// Three interaction states:
 //
-// All persistence is delegated to hooks (useCouple.sendMessage,
+//   1. 'idle'    — a single small cloud with three pulsing dots and two
+//                  trailing puffs leading down to Eren's head. Looks like
+//                  he's thinking of someone.
+//   2. 'split'   — tap the idle cloud and it splits in place into two
+//                  smaller side-by-side clouds: ✉ message and 🎁 gift.
+//   3. 'message' — opens the message composer modal.
+//   4. 'gift'    — opens the gift picker modal.
+//
+// All persistence delegates to hooks (useCouple.sendMessage,
 // useErenStats.giftFood). This component is presentation + orchestration.
 
 import { useEffect, useState } from 'react'
@@ -30,28 +32,26 @@ const FOOD_META: Record<FoodKey, { name: string; color: string }> = {
 
 const FOOD_ORDER: FoodKey[] = ['kibble', 'fish', 'treat', 'tuna', 'steak', 'cream']
 
+type Mode = 'idle' | 'split' | 'message' | 'gift'
+
 export default function ThoughtCloud() {
   const { user, profile } = useAuth()
   const { partner, sendMessage } = useCouple()
   const { stats, giftFood } = useErenStats(profile?.household_id ?? null)
 
-  const [open, setOpen] = useState(false)
+  const [mode, setMode] = useState<Mode>('idle')
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
-  const [activePane, setActivePane] = useState<'message' | 'gift'>('message')
 
-  // Toast auto-clears after 2.4s
   useEffect(() => {
     if (!toast) return
     const t = setTimeout(() => setToast(null), 2400)
     return () => clearTimeout(t)
   }, [toast])
 
-  // My personal pile only — gifts can't be sent from the legacy shared pool.
   const myPile: FoodInventory = (user?.id && stats?.food_by_user?.[user.id]) || {}
   const giftableKeys: FoodKey[] = FOOD_ORDER.filter(k => (myPile[k] ?? 0) > 0)
-
   const noPartner = !partner
 
   async function handleSendMessage() {
@@ -61,7 +61,7 @@ export default function ThoughtCloud() {
     setText('')
     setToast('Eren will deliver it 💌')
     setSending(false)
-    setTimeout(() => setOpen(false), 700)
+    setTimeout(() => setMode('idle'), 700)
   }
 
   async function handleSendGift(key: FoodKey) {
@@ -76,73 +76,103 @@ export default function ThoughtCloud() {
     await sendMessage('', { key, qty: 1 })
     setToast(`Sent ${FOOD_META[key].name} 🎁`)
     setSending(false)
-    setTimeout(() => setOpen(false), 800)
+    setTimeout(() => setMode('idle'), 800)
   }
 
-  // ─── Floating idle cloud ─────────────────────────────────────────────
-  if (!open) {
+  // ═══════════════════════════════════════════════════════════════════
+  // STATE 1 — idle: single small cloud above Eren
+  // ═══════════════════════════════════════════════════════════════════
+  if (mode === 'idle') {
     return (
-      <button
-        onClick={() => { playSound('ui_modal_open'); setOpen(true) }}
-        className="absolute z-[6] active:scale-95 transition-transform"
-        style={{
-          // Sits to the upper-right of Eren, drifting gently.
-          bottom: '28%', right: '14%',
-          animation: 'tcDrift 3.2s ease-in-out infinite',
-          // Reset the inherited button styling — this is a custom shape.
-          background: 'transparent', border: 'none', padding: 0,
-        }}
-        aria-label="Eren is thinking — open message"
-      >
-        <CloudShape size={64}>
-          <div className="flex items-center justify-center gap-[3px] h-full">
-            <Dot delay={0} />
-            <Dot delay={0.18} />
-            <Dot delay={0.36} />
-          </div>
-        </CloudShape>
-        {/* trailing puffs leading down toward Eren */}
-        <CloudPuff size={12} style={{ position: 'absolute', bottom: -6, left: '32%' }} />
-        <CloudPuff size={7}  style={{ position: 'absolute', bottom: -14, left: '24%' }} />
-        <style jsx>{`
-          @keyframes tcDrift {
-            0%, 100% { transform: translateY(0); }
-            50%      { transform: translateY(-4px); }
-          }
-        `}</style>
-      </button>
+      <CloudAnchor>
+        <button
+          onClick={() => { playSound('ui_modal_open'); setMode('split') }}
+          className="active:scale-95 transition-transform"
+          style={{ background: 'transparent', border: 'none', padding: 0 }}
+          aria-label="Open Eren's thought"
+        >
+          <ThinkBubble size={48}>
+            <div className="flex items-center justify-center gap-[3px] h-full">
+              <Dot delay={0} />
+              <Dot delay={0.18} />
+              <Dot delay={0.36} />
+            </div>
+          </ThinkBubble>
+        </button>
+      </CloudAnchor>
     )
   }
 
-  // ─── Expanded — two smaller clouds side-by-side ──────────────────────
+  // ═══════════════════════════════════════════════════════════════════
+  // STATE 2 — split: two side-by-side mini clouds
+  // ═══════════════════════════════════════════════════════════════════
+  if (mode === 'split') {
+    return (
+      <>
+        {/* tap-anywhere-else dismisses */}
+        <div className="fixed inset-0 z-[5]" onClick={() => { playSound('ui_modal_close'); setMode('idle') }} />
+
+        <CloudAnchor>
+          <div className="flex items-center gap-3" style={{ animation: 'tcSplitIn 0.32s cubic-bezier(0.34,1.56,0.64,1) both' }}>
+            <button
+              onClick={() => { playSound('ui_tap'); setMode('message') }}
+              className="active:scale-95 transition-transform"
+              style={{ background: 'transparent', border: 'none', padding: 0 }}
+              aria-label="Send a message"
+            >
+              <ThinkBubble size={52} tint="#A78BFA">
+                <span style={{ fontSize: 22 }}>✉</span>
+              </ThinkBubble>
+            </button>
+            <button
+              onClick={() => { playSound('ui_tap'); setMode('gift') }}
+              className="active:scale-95 transition-transform"
+              style={{ background: 'transparent', border: 'none', padding: 0 }}
+              aria-label="Send a gift"
+            >
+              <ThinkBubble size={52} tint="#F5C842">
+                <span style={{ fontSize: 20 }}>🎁</span>
+              </ThinkBubble>
+            </button>
+          </div>
+        </CloudAnchor>
+
+        <style jsx global>{`
+          @keyframes tcSplitIn {
+            0%   { transform: scale(0.4); opacity: 0; }
+            60%  { transform: scale(1.08); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+          }
+        `}</style>
+      </>
+    )
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // STATE 3 / 4 — composer modal (message or gift)
+  // ═══════════════════════════════════════════════════════════════════
+  const tint = mode === 'message' ? '#A78BFA' : '#F5C842'
   return (
     <>
-      {/* Backdrop — taps outside dismiss */}
       <div
         className="fixed inset-0 z-[60]"
         style={{ background: 'rgba(0,0,0,0.35)' }}
-        onClick={() => { playSound('ui_modal_close'); setOpen(false) }}
+        onClick={() => { playSound('ui_modal_close'); setMode('idle') }}
       />
 
       <div
-        className="fixed left-1/2 z-[61] flex flex-col items-center gap-3 px-3"
-        style={{ top: '18%', transform: 'translateX(-50%)', width: 'min(92vw, 380px)' }}
+        className="fixed left-1/2 z-[61] flex flex-col items-center gap-2 px-3"
+        style={{ top: '20%', transform: 'translateX(-50%)', width: 'min(92vw, 360px)' }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Tabs above the cloud — message / gift toggle */}
-        <div className="flex gap-2 mb-1">
-          <TabButton active={activePane === 'message'} onClick={() => setActivePane('message')} label="MESSAGE" color="#A78BFA" />
-          <TabButton active={activePane === 'gift'}    onClick={() => setActivePane('gift')}    label="GIFT"    color="#F5C842" />
-        </div>
-
-        <CloudShape size={null} fullWidth>
+        <ThinkBubble size={null} fullWidth tint={tint}>
           {noPartner ? (
             <div className="px-4 py-5 text-center">
               <p className="text-sm text-gray-600">
                 Invite your partner first so Eren can deliver this.
               </p>
             </div>
-          ) : activePane === 'message' ? (
+          ) : mode === 'message' ? (
             <div className="px-4 py-3 flex flex-col gap-2">
               <p className="font-pixel text-purple-500 text-center" style={{ fontSize: 6 }}>
                 EREN WILL DELIVER THIS TO {partner?.name?.toUpperCase().split(' ')[0] ?? 'THEM'}
@@ -153,6 +183,7 @@ export default function ThoughtCloud() {
                 placeholder="thinking of you…"
                 maxLength={200}
                 rows={3}
+                autoFocus
                 className="w-full p-2 text-sm text-gray-700 resize-none focus:outline-none"
                 style={{
                   background: '#FFF',
@@ -184,7 +215,7 @@ export default function ThoughtCloud() {
               </p>
               {giftableKeys.length === 0 ? (
                 <p className="text-center text-xs text-gray-500 py-3">
-                  Your fridge is empty. Buy something in the Kitchen shop first!
+                  Your fridge is empty. Buy something in the Kitchen first!
                 </p>
               ) : (
                 <div className="grid grid-cols-3 gap-2">
@@ -218,7 +249,7 @@ export default function ThoughtCloud() {
               )}
             </div>
           )}
-        </CloudShape>
+        </ThinkBubble>
 
         {toast && (
           <div className="px-3 py-1.5 text-white text-xs"
@@ -237,65 +268,78 @@ export default function ThoughtCloud() {
 
 // ─── Sub-components ──────────────────────────────────────────────────────
 
+// CloudAnchor positions its child directly above Eren on the home screen.
+// Eren sits at bottom: 10% with a ~200 px sprite, so its top edge lands
+// around bottom: 38-42 % depending on viewport height. This anchors the
+// thought to that band, centered horizontally.
+function CloudAnchor({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="absolute z-[4] pointer-events-none"
+      style={{
+        bottom: '44%',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        animation: 'tcDrift 3.6s ease-in-out infinite',
+      }}
+    >
+      {/* trailing puffs leading down to Eren's head — a comic "thinking" tell */}
+      <div className="absolute" style={{ left: '50%', bottom: -12, transform: 'translateX(-50%)' }}>
+        <Puff size={12} />
+      </div>
+      <div className="absolute" style={{ left: '50%', bottom: -22, transform: 'translateX(-220%)' }}>
+        <Puff size={7} />
+      </div>
+
+      <div className="relative pointer-events-auto">
+        {children}
+      </div>
+
+      <style jsx>{`
+        @keyframes tcDrift {
+          0%, 100% { transform: translate(-50%, 0); }
+          50%      { transform: translate(-50%, -4px); }
+        }
+      `}</style>
+    </div>
+  )
+}
+
 function Dot({ delay }: { delay: number }) {
   return (
     <span
       className="inline-block rounded-full"
       style={{
-        width: 6, height: 6,
+        width: 5, height: 5,
         background: '#7C3AED',
-        animation: `tcDotPulse 1.1s ease-in-out infinite`,
+        animation: 'tcDotPulse 1.1s ease-in-out infinite',
         animationDelay: `${delay}s`,
       }}
     />
   )
 }
 
-function TabButton({ active, onClick, label, color }: {
-  active: boolean
-  onClick: () => void
-  label: string
-  color: string
-}) {
-  return (
-    <button
-      onClick={() => { playSound('ui_tap'); onClick() }}
-      className="px-3 py-1.5 transition-all active:translate-y-[1px]"
-      style={{
-        background: active ? color : '#FFF',
-        color: active ? '#FFF' : color,
-        border: `2px solid ${color}`,
-        borderRadius: 4,
-        boxShadow: active ? `0 2px 0 ${color}AA` : `0 2px 0 ${color}55`,
-        fontFamily: '"Press Start 2P"',
-        fontSize: 7,
-        letterSpacing: 1,
-      }}>
-      {label}
-    </button>
-  )
-}
-
-function CloudPuff({ size, style }: { size: number; style?: React.CSSProperties }) {
+function Puff({ size }: { size: number }) {
   return (
     <div
       style={{
         width: size, height: size,
         borderRadius: '50%',
-        background: 'linear-gradient(180deg, #FFFFFF 0%, #F5F0FF 100%)',
-        border: '2px solid #E0CCFF',
-        boxShadow: '1px 1px 0 #D0BBE8',
-        ...style,
+        background: '#FFFFFF',
+        border: '2px solid #D8C8F0',
+        boxShadow: '1px 1px 0 #BFA8E0',
       }}
     />
   )
 }
 
-// A cloud-shaped container — three soft "bumps" on top via radial gradients
-// + a rounded pill body. Either fixed-size (idle bubble) or fluid (expanded).
-function CloudShape({ size, fullWidth, children }: {
+// Comic-book "thinking" cloud — a rounded body with three soft bumps on top
+// to give the cartoon-cloud silhouette. Size fixed (idle/split) or fluid
+// (composer pane).
+function ThinkBubble({ size, fullWidth, tint = '#D8C8F0', children }: {
   size: number | null
   fullWidth?: boolean
+  tint?: string
   children: React.ReactNode
 }) {
   return (
@@ -303,50 +347,46 @@ function CloudShape({ size, fullWidth, children }: {
       style={{
         position: 'relative',
         width: fullWidth ? '100%' : size ?? 'auto',
-        minHeight: size ?? undefined,
+        height: size ?? 'auto',
         background: '#FFFFFF',
-        border: '2.5px solid #E0CCFF',
+        border: `2.5px solid ${tint}`,
         borderRadius: 22,
-        boxShadow: '3px 3px 0 #D0BBE8, 0 6px 18px rgba(120,90,200,0.18)',
+        boxShadow: `3px 3px 0 ${tint}AA, 0 6px 18px rgba(120,90,200,0.18)`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         padding: size ? 0 : undefined,
-        display: 'flex', alignItems: 'stretch', justifyContent: 'stretch',
       }}
     >
-      {/* Top puff bumps for the cartoon-cloud silhouette */}
-      <div style={{
-        position: 'absolute',
-        top: -8, left: '18%',
+      {/* Top puffs — three bumps for the cartoon cloud silhouette */}
+      <span style={{
+        position: 'absolute', top: -8, left: '18%',
+        width: 14, height: 14,
+        background: '#FFFFFF',
+        border: `2.5px solid ${tint}`,
+        borderRadius: '50%',
+        zIndex: -1,
+      }} />
+      <span style={{
+        position: 'absolute', top: -12, left: '44%',
         width: 18, height: 18,
         background: '#FFFFFF',
-        border: '2.5px solid #E0CCFF',
+        border: `2.5px solid ${tint}`,
         borderRadius: '50%',
         zIndex: -1,
       }} />
-      <div style={{
-        position: 'absolute',
-        top: -14, left: '42%',
-        width: 22, height: 22,
+      <span style={{
+        position: 'absolute', top: -8, right: '20%',
+        width: 12, height: 12,
         background: '#FFFFFF',
-        border: '2.5px solid #E0CCFF',
+        border: `2.5px solid ${tint}`,
         borderRadius: '50%',
         zIndex: -1,
       }} />
-      <div style={{
-        position: 'absolute',
-        top: -10, right: '20%',
-        width: 16, height: 16,
-        background: '#FFFFFF',
-        border: '2.5px solid #E0CCFF',
-        borderRadius: '50%',
-        zIndex: -1,
-      }} />
-      <div style={{
-        flex: 1,
-        width: '100%',
-        minHeight: size ?? undefined,
-      }}>
+      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {children}
       </div>
+
       <style jsx global>{`
         @keyframes tcDotPulse {
           0%, 100% { transform: translateY(0) scale(1);   opacity: 0.55; }

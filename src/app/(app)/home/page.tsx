@@ -43,16 +43,6 @@ interface XpParticle {
   size: number; color: string; glow: string
 }
 
-const MOOD_GREETINGS: Record<string, string> = {
-  happy:   'Eren is so happy today!',
-  idle:    'Eren is chilling...',
-  hungry:  'Feed me, hooman!',
-  sleepy:  'Eren is sleepy... shhh',
-  playful: 'Wanna play? Let\'s go!',
-  angry:   'Eren is not amused.',
-}
-
-
 export default function HomePage() {
   const router   = useRouter()
   const supabase = createClient()
@@ -382,11 +372,6 @@ export default function HomePage() {
               ))}
             </div>
 
-            {/* Speech bubble */}
-            <div className="absolute" style={{ bottom: '32%', left: '55%', zIndex: 3, background: 'white', borderRadius: 4, border: '2px solid #F0D8FF', boxShadow: '2px 2px 0 #E0CCFF', padding: '4px 10px', whiteSpace: 'nowrap' }}>
-              <p className="text-xs text-gray-600 font-medium">{MOOD_GREETINGS[mood] ?? MOOD_GREETINGS.idle}</p>
-              <div className="absolute" style={{ bottom: -6, left: 10, width: 8, height: 6, background: 'white', clipPath: 'polygon(0% 0%, 100% 0%, 50% 100%)' }} />
-            </div>
           </>
         )}
 
