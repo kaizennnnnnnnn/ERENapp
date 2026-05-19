@@ -1,15 +1,14 @@
 'use client'
 
 // Comic-book thinking cloud that floats above Eren on the home screen.
-// Three interaction states:
+// Four interaction states:
 //
-//   1. 'idle'    — a single small cloud with three pulsing dots and two
-//                  trailing puffs leading down to Eren's head. Looks like
-//                  he's thinking of someone.
-//   2. 'split'   — tap the idle cloud and it splits in place into two
-//                  smaller side-by-side clouds: ✉ message and 🎁 gift.
-//   3. 'message' — opens the message composer modal.
-//   4. 'gift'    — opens the gift picker modal.
+//   1. 'idle'    — a small scalloped cloud with three pulsing dots and two
+//                  trailing puffs leading down to Eren's head. Tap to open.
+//   2. 'split'   — the cloud splits in place into two side-by-side mini
+//                  clouds: ✉ message / 🎁 gift. Pick one.
+//   3. 'message' — full message composer modal.
+//   4. 'gift'    — full gift picker modal.
 //
 // All persistence delegates to hooks (useCouple.sendMessage,
 // useErenStats.giftFood). This component is presentation + orchestration.
@@ -33,6 +32,17 @@ const FOOD_META: Record<FoodKey, { name: string; color: string }> = {
 const FOOD_ORDER: FoodKey[] = ['kibble', 'fish', 'treat', 'tuna', 'steak', 'cream']
 
 type Mode = 'idle' | 'split' | 'message' | 'gift'
+
+// The visual band where the cloud floats — % from the bottom of the viewport.
+// Eren sits at bottom: 10 % with a 200 px sprite, so his head is roughly at
+// bottom: 36-40 % depending on viewport height. We sit the cloud just above
+// his head (lower number = closer to him).
+const CLOUD_BOTTOM = '40%'
+
+// z-index stack: split overlay sits above the room HUD but below full modals.
+const Z_BACKDROP = 55
+const Z_CLOUD = 56
+const Z_MODAL = 61
 
 export default function ThoughtCloud() {
   const { user, profile } = useAuth()
@@ -84,14 +94,14 @@ export default function ThoughtCloud() {
   // ═══════════════════════════════════════════════════════════════════
   if (mode === 'idle') {
     return (
-      <CloudAnchor>
+      <CloudAnchor zIndex={4}>
         <button
           onClick={() => { playSound('ui_modal_open'); setMode('split') }}
-          className="active:scale-95 transition-transform"
+          className="active:scale-95 transition-transform pointer-events-auto"
           style={{ background: 'transparent', border: 'none', padding: 0 }}
           aria-label="Open Eren's thought"
         >
-          <ThinkBubble size={48}>
+          <ThinkBubble width={72} height={44}>
             <div className="flex items-center justify-center gap-[3px] h-full">
               <Dot delay={0} />
               <Dot delay={0.18} />
@@ -99,42 +109,53 @@ export default function ThoughtCloud() {
             </div>
           </ThinkBubble>
         </button>
+        <TrailingPuffs />
       </CloudAnchor>
     )
   }
 
   // ═══════════════════════════════════════════════════════════════════
   // STATE 2 — split: two side-by-side mini clouds
+  //
+  // The backdrop sits at Z_BACKDROP; the cloud at Z_CLOUD (one higher) so
+  // clicks on the message/gift buttons reach them instead of the backdrop.
   // ═══════════════════════════════════════════════════════════════════
   if (mode === 'split') {
     return (
       <>
-        {/* tap-anywhere-else dismisses */}
-        <div className="fixed inset-0 z-[5]" onClick={() => { playSound('ui_modal_close'); setMode('idle') }} />
+        <div
+          className="fixed inset-0"
+          style={{ zIndex: Z_BACKDROP, background: 'rgba(0,0,0,0.18)' }}
+          onClick={() => { playSound('ui_modal_close'); setMode('idle') }}
+        />
 
-        <CloudAnchor>
-          <div className="flex items-center gap-3" style={{ animation: 'tcSplitIn 0.32s cubic-bezier(0.34,1.56,0.64,1) both' }}>
+        <CloudAnchor zIndex={Z_CLOUD}>
+          <div
+            className="flex items-center gap-3"
+            style={{ animation: 'tcSplitIn 0.32s cubic-bezier(0.34,1.56,0.64,1) both' }}
+          >
             <button
-              onClick={() => { playSound('ui_tap'); setMode('message') }}
-              className="active:scale-95 transition-transform"
+              onClick={(e) => { e.stopPropagation(); playSound('ui_tap'); setMode('message') }}
+              className="active:scale-95 transition-transform pointer-events-auto"
               style={{ background: 'transparent', border: 'none', padding: 0 }}
               aria-label="Send a message"
             >
-              <ThinkBubble size={52} tint="#A78BFA">
+              <ThinkBubble width={64} height={56} tint="#A78BFA">
                 <span style={{ fontSize: 22 }}>✉</span>
               </ThinkBubble>
             </button>
             <button
-              onClick={() => { playSound('ui_tap'); setMode('gift') }}
-              className="active:scale-95 transition-transform"
+              onClick={(e) => { e.stopPropagation(); playSound('ui_tap'); setMode('gift') }}
+              className="active:scale-95 transition-transform pointer-events-auto"
               style={{ background: 'transparent', border: 'none', padding: 0 }}
               aria-label="Send a gift"
             >
-              <ThinkBubble size={52} tint="#F5C842">
+              <ThinkBubble width={64} height={56} tint="#F5C842">
                 <span style={{ fontSize: 20 }}>🎁</span>
               </ThinkBubble>
             </button>
           </div>
+          <TrailingPuffs />
         </CloudAnchor>
 
         <style jsx global>{`
@@ -155,17 +176,17 @@ export default function ThoughtCloud() {
   return (
     <>
       <div
-        className="fixed inset-0 z-[60]"
-        style={{ background: 'rgba(0,0,0,0.35)' }}
+        className="fixed inset-0"
+        style={{ zIndex: Z_MODAL - 1, background: 'rgba(0,0,0,0.35)' }}
         onClick={() => { playSound('ui_modal_close'); setMode('idle') }}
       />
 
       <div
-        className="fixed left-1/2 z-[61] flex flex-col items-center gap-2 px-3"
-        style={{ top: '20%', transform: 'translateX(-50%)', width: 'min(92vw, 360px)' }}
+        className="fixed left-1/2 flex flex-col items-center gap-2 px-3"
+        style={{ top: '20%', transform: 'translateX(-50%)', width: 'min(92vw, 360px)', zIndex: Z_MODAL }}
         onClick={e => e.stopPropagation()}
       >
-        <ThinkBubble size={null} fullWidth tint={tint}>
+        <ThinkBubble width={null} height={null} fullWidth tint={tint}>
           {noPartner ? (
             <div className="px-4 py-5 text-center">
               <p className="text-sm text-gray-600">
@@ -173,7 +194,7 @@ export default function ThoughtCloud() {
               </p>
             </div>
           ) : mode === 'message' ? (
-            <div className="px-4 py-3 flex flex-col gap-2">
+            <div className="px-4 py-3 flex flex-col gap-2 w-full">
               <p className="font-pixel text-purple-500 text-center" style={{ fontSize: 6 }}>
                 EREN WILL DELIVER THIS TO {partner?.name?.toUpperCase().split(' ')[0] ?? 'THEM'}
               </p>
@@ -209,7 +230,7 @@ export default function ThoughtCloud() {
               </button>
             </div>
           ) : (
-            <div className="px-3 py-3 flex flex-col gap-2">
+            <div className="px-3 py-3 flex flex-col gap-2 w-full">
               <p className="font-pixel text-amber-600 text-center" style={{ fontSize: 6 }}>
                 PICK FROM YOUR FRIDGE
               </p>
@@ -268,33 +289,21 @@ export default function ThoughtCloud() {
 
 // ─── Sub-components ──────────────────────────────────────────────────────
 
-// CloudAnchor positions its child directly above Eren on the home screen.
-// Eren sits at bottom: 10% with a ~200 px sprite, so its top edge lands
-// around bottom: 38-42 % depending on viewport height. This anchors the
-// thought to that band, centered horizontally.
-function CloudAnchor({ children }: { children: React.ReactNode }) {
+// CloudAnchor centers its child horizontally just above Eren. Fixed-position
+// so it stays visible above any overlays the parent might add.
+function CloudAnchor({ children, zIndex }: { children: React.ReactNode; zIndex: number }) {
   return (
     <div
-      className="absolute z-[4] pointer-events-none"
+      className="fixed pointer-events-none"
       style={{
-        bottom: '44%',
+        bottom: CLOUD_BOTTOM,
         left: '50%',
         transform: 'translateX(-50%)',
+        zIndex,
         animation: 'tcDrift 3.6s ease-in-out infinite',
       }}
     >
-      {/* trailing puffs leading down to Eren's head — a comic "thinking" tell */}
-      <div className="absolute" style={{ left: '50%', bottom: -12, transform: 'translateX(-50%)' }}>
-        <Puff size={12} />
-      </div>
-      <div className="absolute" style={{ left: '50%', bottom: -22, transform: 'translateX(-220%)' }}>
-        <Puff size={7} />
-      </div>
-
-      <div className="relative pointer-events-auto">
-        {children}
-      </div>
-
+      {children}
       <style jsx>{`
         @keyframes tcDrift {
           0%, 100% { transform: translate(-50%, 0); }
@@ -302,6 +311,21 @@ function CloudAnchor({ children }: { children: React.ReactNode }) {
         }
       `}</style>
     </div>
+  )
+}
+
+// Two trailing puffs that lead down toward Eren's head — the visual cue
+// that makes the cloud read as "thinking" instead of "speaking".
+function TrailingPuffs() {
+  return (
+    <>
+      <div className="absolute" style={{ left: '50%', bottom: -14, transform: 'translateX(-50%)' }}>
+        <Puff size={11} />
+      </div>
+      <div className="absolute" style={{ left: '50%', bottom: -26, transform: 'translateX(-180%)' }}>
+        <Puff size={6} />
+      </div>
+    </>
   )
 }
 
@@ -333,57 +357,48 @@ function Puff({ size }: { size: number }) {
   )
 }
 
-// Comic-book "thinking" cloud — a rounded body with three soft bumps on top
-// to give the cartoon-cloud silhouette. Size fixed (idle/split) or fluid
-// (composer pane).
-function ThinkBubble({ size, fullWidth, tint = '#D8C8F0', children }: {
-  size: number | null
+// Scalloped comic-cloud bubble. Eight outer puffs (3 top, 1 each side, 3
+// bottom-corners + bottom edge) give the fluffy silhouette. The body is a
+// rounded pill that can be sized fixed (idle / split) or fluid (composer).
+function ThinkBubble({ width, height, fullWidth, tint = '#D8C8F0', children }: {
+  width: number | null
+  height: number | null
   fullWidth?: boolean
   tint?: string
   children: React.ReactNode
 }) {
+  const FILL = '#FFFFFF'
+  const stroke = tint
   return (
     <div
       style={{
         position: 'relative',
-        width: fullWidth ? '100%' : size ?? 'auto',
-        height: size ?? 'auto',
-        background: '#FFFFFF',
-        border: `2.5px solid ${tint}`,
-        borderRadius: 22,
-        boxShadow: `3px 3px 0 ${tint}AA, 0 6px 18px rgba(120,90,200,0.18)`,
+        width: fullWidth ? '100%' : width ?? 'auto',
+        height: height ?? 'auto',
+        background: FILL,
+        border: `2.5px solid ${stroke}`,
+        borderRadius: 28,
+        boxShadow: `3px 3px 0 ${stroke}AA, 0 6px 18px rgba(120,90,200,0.18)`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: size ? 0 : undefined,
+        padding: width ? 0 : undefined,
       }}
     >
-      {/* Top puffs — three bumps for the cartoon cloud silhouette */}
-      <span style={{
-        position: 'absolute', top: -8, left: '18%',
-        width: 14, height: 14,
-        background: '#FFFFFF',
-        border: `2.5px solid ${tint}`,
-        borderRadius: '50%',
-        zIndex: -1,
-      }} />
-      <span style={{
-        position: 'absolute', top: -12, left: '44%',
-        width: 18, height: 18,
-        background: '#FFFFFF',
-        border: `2.5px solid ${tint}`,
-        borderRadius: '50%',
-        zIndex: -1,
-      }} />
-      <span style={{
-        position: 'absolute', top: -8, right: '20%',
-        width: 12, height: 12,
-        background: '#FFFFFF',
-        border: `2.5px solid ${tint}`,
-        borderRadius: '50%',
-        zIndex: -1,
-      }} />
-      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {/* TOP — three bumps */}
+      <Bump style={{ top: -10, left: '14%', width: 16, height: 16 }} fill={FILL} stroke={stroke} />
+      <Bump style={{ top: -14, left: '40%', width: 22, height: 22 }} fill={FILL} stroke={stroke} />
+      <Bump style={{ top: -10, right: '14%', width: 16, height: 16 }} fill={FILL} stroke={stroke} />
+
+      {/* SIDES — one bump each */}
+      <Bump style={{ left: -8, top: '38%', width: 14, height: 14 }} fill={FILL} stroke={stroke} />
+      <Bump style={{ right: -8, top: '38%', width: 14, height: 14 }} fill={FILL} stroke={stroke} />
+
+      {/* BOTTOM — two small bumps so the underside also looks fluffy */}
+      <Bump style={{ bottom: -8, left: '22%', width: 13, height: 13 }} fill={FILL} stroke={stroke} />
+      <Bump style={{ bottom: -8, right: '22%', width: 13, height: 13 }} fill={FILL} stroke={stroke} />
+
+      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
         {children}
       </div>
 
@@ -394,5 +409,20 @@ function ThinkBubble({ size, fullWidth, tint = '#D8C8F0', children }: {
         }
       `}</style>
     </div>
+  )
+}
+
+function Bump({ style, fill, stroke }: { style: React.CSSProperties; fill: string; stroke: string }) {
+  return (
+    <span
+      style={{
+        position: 'absolute',
+        background: fill,
+        border: `2.5px solid ${stroke}`,
+        borderRadius: '50%',
+        zIndex: 0,
+        ...style,
+      }}
+    />
   )
 }
