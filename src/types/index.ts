@@ -77,11 +77,19 @@ export interface ErenStats {
   is_sick: boolean
   coins: number
   food_inventory: FoodInventory
+  // Per-user fridge piles, keyed by user id. New shop buys land here under
+  // the buyer's id; gifts move qty from sender pile → recipient pile. The
+  // shared `food_inventory` column remains as a legacy pool either user can
+  // still draw from until empty.
+  food_by_user?: Record<string, FoodInventory>
   mood: ErenMood
   updated_at: string
   last_decay_at?: string | null
   is_sleeping: boolean
 }
+
+export type FoodKey = 'kibble' | 'fish' | 'treat' | 'tuna' | 'steak' | 'cream'
+export interface GiftItem { key: FoodKey; qty: number }
 
 export interface Interaction {
   id: string
@@ -229,6 +237,9 @@ export interface JournalMessage {
   message: string
   is_read: boolean
   created_at: string
+  // Optional food gift attached to the message. When present, the qty was
+  // already moved from sender → recipient at send time (see useErenStats).
+  gift_item?: GiftItem | null
   profile?: Profile
 }
 

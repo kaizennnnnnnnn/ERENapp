@@ -1,11 +1,20 @@
 'use client'
 
-import type { JournalMessage } from '@/types'
+import type { JournalMessage, FoodKey } from '@/types'
 import { playSound } from '@/lib/sounds'
 
 interface Props {
   message: JournalMessage
   onDismiss: () => void
+}
+
+const FOOD_META: Record<FoodKey, { name: string; color: string }> = {
+  kibble: { name: 'Kibble',    color: '#F5C842' },
+  fish:   { name: 'Fish',      color: '#6BAED6' },
+  treat:  { name: 'Cat Treat', color: '#FF6B9D' },
+  tuna:   { name: 'Tuna Can',  color: '#E8A020' },
+  steak:  { name: 'Steak',     color: '#CC3333' },
+  cream:  { name: 'Cream',     color: '#A78BFA' },
 }
 
 export default function ErenMessagePopup({ message, onDismiss }: Props) {
@@ -32,8 +41,30 @@ export default function ErenMessagePopup({ message, onDismiss }: Props) {
           <div className="absolute -top-1 left-1/2 -translate-x-1/2"
             style={{ width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderBottom: '7px solid white' }} />
 
-          <p className="font-pixel text-pink-400 mb-2 text-center" style={{ fontSize: 6 }}>EREN DELIVERED A MESSAGE!</p>
-          <p className="text-sm text-gray-700 text-center leading-relaxed">{message.message}</p>
+          <p className="font-pixel text-pink-400 mb-2 text-center" style={{ fontSize: 6 }}>
+            {message.gift_item ? 'EREN BROUGHT A GIFT!' : 'EREN DELIVERED A MESSAGE!'}
+          </p>
+          {message.message && (
+            <p className="text-sm text-gray-700 text-center leading-relaxed">{message.message}</p>
+          )}
+          {message.gift_item && FOOD_META[message.gift_item.key] && (
+            <div className="mt-2 flex items-center justify-center gap-2 px-3 py-2"
+              style={{
+                background: `${FOOD_META[message.gift_item.key].color}22`,
+                border: `2px dashed ${FOOD_META[message.gift_item.key].color}88`,
+                borderRadius: 6,
+              }}>
+              <div style={{
+                width: 18, height: 18, borderRadius: '50%',
+                background: FOOD_META[message.gift_item.key].color,
+                border: '1.5px solid rgba(0,0,0,0.2)',
+              }} />
+              <span className="text-xs font-bold" style={{ color: FOOD_META[message.gift_item.key].color }}>
+                +{message.gift_item.qty} {FOOD_META[message.gift_item.key].name}
+              </span>
+              <span className="text-[10px] text-gray-500">→ your fridge</span>
+            </div>
+          )}
           <p className="text-[10px] text-gray-400 text-center mt-2">from your partner 💕</p>
         </div>
 

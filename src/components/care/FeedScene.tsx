@@ -79,7 +79,7 @@ function FoodIcon({ id, color }: { id: string; color: string }) {
 
 export default function FeedScene({ onClose }: Props) {
   const { user, profile } = useAuth()
-  const { stats, feedWithFood, saveFoodInventory } = useErenStats(profile?.household_id ?? null)
+  const { stats, feedWithFood, addToMyFood, consumeMyFood } = useErenStats(profile?.household_id ?? null)
   const { completeTask, coins, spendCoins } = useTasks()
   const isDark = useIsDark()
 
@@ -89,7 +89,20 @@ export default function FeedScene({ onClose }: Props) {
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
   const [eatAnim, setEatAnim] = useState(false)
 
-  const inventory: FoodInventory = stats?.food_inventory ?? {}
+  // "Your fridge" = the user's personal pile + the legacy shared pool. Buys
+  // add to the personal pile only; feeds drain personal first, then shared.
+  // Each user's personal pile is independent (the partner's is invisible
+  // here — they have their own fridge view in their own session).
+  const myPile: FoodInventory = (user?.id && stats?.food_by_user?.[user.id]) || {}
+  const sharedPile: FoodInventory = stats?.food_inventory ?? {}
+  const inventory: FoodInventory = {
+    kibble: (myPile.kibble ?? 0) + (sharedPile.kibble ?? 0),
+    fish:   (myPile.fish ?? 0)   + (sharedPile.fish ?? 0),
+    treat:  (myPile.treat ?? 0)  + (sharedPile.treat ?? 0),
+    tuna:   (myPile.tuna ?? 0)   + (sharedPile.tuna ?? 0),
+    steak:  (myPile.steak ?? 0)  + (sharedPile.steak ?? 0),
+    cream:  (myPile.cream ?? 0)  + (sharedPile.cream ?? 0),
+  }
   const fridgeItems = SHOP_ITEMS.filter(i => (inventory[i.id] ?? 0) > 0)
   const mood = eatAnim ? 'happy' : (stats?.hunger ?? 100) < 40 ? 'hungry' : 'idle'
   // Fall back to the module-level cache (set by any prior useErenStats
@@ -106,13 +119,12 @@ export default function FeedScene({ onClose }: Props) {
   useEffect(() => { if (isSleeping) setTab(null) }, [isSleeping])
 
   async function handleBuy(item: typeof SHOP_ITEMS[number]) {
-    if (isSleeping || buying || coins < item.price) return
+    if (!user?.id || isSleeping || buying || coins < item.price) return
     setBuying(item.id)
     const ok = await spendCoins(item.price)
     if (ok) {
-      const newInv = { ...inventory, [item.id]: (inventory[item.id] ?? 0) + 1 }
-      await saveFoodInventory(newInv)
-      showToast(`Bought ${item.name}! Check the fridge`)
+      await addToMyFood(user.id, item.id)
+      showToast(`Bought ${item.name}! In your fridge`)
     } else {
       showToast('Not enough coins!', false)
     }
@@ -122,8 +134,12 @@ export default function FeedScene({ onClose }: Props) {
   async function handleFeed(item: typeof SHOP_ITEMS[number]) {
     if (!user?.id || feeding || isSleeping) return
     setFeeding(item.id)
-    const newInv = { ...inventory, [item.id]: Math.max(0, (inventory[item.id] ?? 0) - 1) }
-    await saveFoodInventory(newInv)
+    const consumed = await consumeMyFood(user.id, item.id)
+    if (!consumed) {
+      showToast(`No ${item.name} in your fridge`, false)
+      setFeeding(null)
+      return
+    }
     const result = await feedWithFood(user.id, item.hungerD, item.happyD, item.weightD)
     setEatAnim(true)
     setTimeout(() => setEatAnim(false), 2000)

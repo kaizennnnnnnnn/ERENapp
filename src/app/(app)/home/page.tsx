@@ -32,6 +32,7 @@ import { useInventory } from '@/hooks/useInventory'
 import { GACHA_ITEMS } from '@/lib/gacha'
 import FortunePopup from '@/components/fortune/FortunePopup'
 import ErenMessagePopup from '@/components/couple/ErenMessagePopup'
+import ThoughtCloud from '@/components/couple/ThoughtCloud'
 import { OBSIDIAN_BTN, Rivets } from '@/components/obsidian'
 import { useIsDark } from '@/hooks/useIsDark'
 import LightSwitch from '@/components/LightSwitch'
@@ -355,6 +356,11 @@ export default function HomePage() {
         {/* === EREN === (hidden while sleeping in the bedroom) */}
         {!stats.is_sleeping && (
           <>
+            {/* Floating thought cloud — Eren wants to deliver a message or gift
+                to the partner. Tapping it expands into the message + gift
+                composer. Hidden while asleep since the whole Eren is. */}
+            <ThoughtCloud />
+
             <div className="absolute" style={{
               bottom: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 2,
               filter: mood === 'angry' ? 'hue-rotate(340deg) saturate(1.3)' : mood === 'sleepy' ? 'brightness(0.85)' : 'none',

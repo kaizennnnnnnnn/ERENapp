@@ -279,5 +279,72 @@ export function useErenStats(householdId: string | null) {
     await supabase.from('eren_stats').update({ food_inventory: inv }).eq('household_id', householdId)
   }, [householdId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { stats, loading, error, applyAction, feedWithFood, spendCoins, addCoins, saveFoodInventory, wakeUp, refetch: fetchStats }
+  // ── Per-user fridge helpers ─────────────────────────────────────────────
+  // The shared `food_inventory` column stays as a legacy pool either user can
+  // still draw from. `food_by_user` holds per-user piles keyed by user id.
+  const saveFoodByUser = useCallback(async (next: Record<string, FoodInventory>): Promise<void> => {
+    if (!householdId) return
+    setStats(prev => prev ? { ...prev, food_by_user: next } : prev)
+    await supabase.from('eren_stats').update({ food_by_user: next }).eq('household_id', householdId)
+  }, [householdId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Adds 1 of `key` to the buyer's personal pile.
+  const addToMyFood = useCallback(async (userId: string, key: keyof FoodInventory): Promise<void> => {
+    if (!stats) return
+    const byUser = { ...(stats.food_by_user ?? {}) }
+    const mine = { ...(byUser[userId] ?? {}) }
+    mine[key] = (mine[key] ?? 0) + 1
+    byUser[userId] = mine
+    await saveFoodByUser(byUser)
+  }, [stats, saveFoodByUser])
+
+  // Consumes 1 of `key` for feeding. Tries the user's personal pile first;
+  // falls back to the shared legacy pool. Returns true if anything was
+  // consumed.
+  const consumeMyFood = useCallback(async (userId: string, key: keyof FoodInventory): Promise<boolean> => {
+    if (!stats) return false
+    const byUser = { ...(stats.food_by_user ?? {}) }
+    const mine = { ...(byUser[userId] ?? {}) }
+    if ((mine[key] ?? 0) > 0) {
+      mine[key] = (mine[key] ?? 0) - 1
+      byUser[userId] = mine
+      await saveFoodByUser(byUser)
+      return true
+    }
+    // Legacy shared pool fallback
+    const shared = { ...(stats.food_inventory ?? {}) }
+    if ((shared[key] ?? 0) > 0) {
+      shared[key] = (shared[key] ?? 0) - 1
+      await saveFoodInventory(shared)
+      return true
+    }
+    return false
+  }, [stats, saveFoodByUser, saveFoodInventory])
+
+  // Moves 1 of `key` from sender's pile to recipient's pile. Returns true on
+  // success (sender had stock), false otherwise.
+  const giftFood = useCallback(async (
+    fromUserId: string,
+    toUserId: string,
+    key: keyof FoodInventory,
+  ): Promise<boolean> => {
+    if (!stats) return false
+    const byUser = { ...(stats.food_by_user ?? {}) }
+    const sender = { ...(byUser[fromUserId] ?? {}) }
+    if ((sender[key] ?? 0) <= 0) return false
+    sender[key] = (sender[key] ?? 0) - 1
+    const recipient = { ...(byUser[toUserId] ?? {}) }
+    recipient[key] = (recipient[key] ?? 0) + 1
+    byUser[fromUserId] = sender
+    byUser[toUserId] = recipient
+    await saveFoodByUser(byUser)
+    return true
+  }, [stats, saveFoodByUser])
+
+  return {
+    stats, loading, error, applyAction, feedWithFood,
+    spendCoins, addCoins, saveFoodInventory,
+    addToMyFood, consumeMyFood, giftFood,
+    wakeUp, refetch: fetchStats,
+  }
 }

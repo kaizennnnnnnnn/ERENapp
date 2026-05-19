@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from './useAuth'
-import type { Profile, JournalMessage, Interaction } from '@/types'
+import type { Profile, JournalMessage, Interaction, GiftItem } from '@/types'
 import { computeLoveMeter, getAnniversaryInfo, type LoveMeterResult, type AnniversaryInfo } from '@/lib/couple'
 
 export function useCouple() {
@@ -133,14 +133,20 @@ export function useCouple() {
     return () => { supabase.removeChannel(ch) }
   }, [profile?.household_id, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Send message ──
-  const sendMessage = useCallback(async (text: string) => {
-    if (!user?.id || !profile?.household_id || !text.trim()) return
+  // ── Send message (with optional food-gift attachment) ──
+  // `gift` is moved from sender's per-user food pile → partner's pile BEFORE
+  // calling this, so by the time the row lands, both fridges are already
+  // consistent. The journal row just records the attachment for display.
+  // An empty message body is allowed when a gift is attached.
+  const sendMessage = useCallback(async (text: string, gift?: GiftItem | null) => {
+    if (!user?.id || !profile?.household_id) return
     const trimmed = text.trim()
+    if (!trimmed && !gift) return
     await supabase.from('couple_journal').insert({
       household_id: profile.household_id,
       sender_id: user.id,
       message: trimmed,
+      gift_item: gift ?? null,
     })
     // Fire-and-forget web-push to the partner. Works even when their PWA is
     // fully closed; the in-app realtime channel only fires when their tab is
@@ -153,7 +159,7 @@ export function useCouple() {
         household_id: profile.household_id,
         sender_id: user.id,
         sender_name: profile.name ?? '',
-        message: trimmed,
+        message: trimmed || (gift ? `sent a ${gift.key}!` : ''),
       }),
     }).catch(() => { /* best-effort */ })
   }, [user?.id, profile?.household_id, profile?.name]) // eslint-disable-line react-hooks/exhaustive-deps
