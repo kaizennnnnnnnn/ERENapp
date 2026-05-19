@@ -279,18 +279,18 @@ export default function ThoughtCloud() {
 // `width` sets the rendered width in CSS pixels; height is derived from the
 // grid aspect ratio. Tweaking the grid here changes every instance.
 // ────────────────────────────────────────────────────────────────────
-// 17 cols × 8 rows. Three distinct top bumps + a single rounded body so the
-// silhouette unmistakably reads as a cloud (not a pillow / blob). Inset
-// outline cells at the corners curl the shape inward by one cell per row.
+// 13 cols × 6 rows. Three narrow bumps with shared walls make each puff
+// clearly read as a separate cloud lobe at small sizes. The bottom outline
+// curls in by one cell per row, giving a rounded under-belly. Smaller than
+// the previous 17×8 grid so the cloud sits as a delicate thought icon
+// rather than a big banner over Eren.
 const CLOUD_GRID: string[] = [
-  '..###..###..###..',
-  '.#ooo##ooo##ooo#.',
-  '#ooooooooooooooo#',
-  '#ooooooooooooooo#',
-  '#oooDoooDoooDooo#',
-  '#ooooooooooooooo#',
-  '.#ooooooooooooo#.',
-  '..#############..',
+  '.###.###.###.',
+  '#ooo#ooo#ooo#',
+  '#ooooooooooo#',
+  '#ooDooDooDoo#',
+  '.#ooooooooo#.',
+  '..#########..',
 ]
 
 function PixelCloud({
@@ -390,27 +390,21 @@ function PixelCloud({
         />
       ))}
 
-      {/* Tab glyph in the centre (for split state). 'MSG' shows two
-          stacked horizontal lines; 'GIFT' shows a small square with a
-          plus sign on top — both drawn as cells. */}
+      {/* Tab glyph in the centre — fits in the 2-row interior of the new
+          smaller cloud. MSG = two stacked horizontal stripes (envelope/
+          paper). GIFT = a small ribbon-dot above a solid present box. */}
       {glyph === 'MSG' && (
         <g fill={tint}>
-          {/* envelope-ish: rectangle with diagonal lines */}
-          <rect x={cell * 5}  y={cell * 4} width={cell * 7} height={cell * 1} />
-          <rect x={cell * 5}  y={cell * 5} width={cell * 1} height={cell * 1} />
-          <rect x={cell * 11} y={cell * 5} width={cell * 1} height={cell * 1} />
-          <rect x={cell * 6}  y={cell * 5} width={cell * 1} height={cell * 1} />
-          <rect x={cell * 10} y={cell * 5} width={cell * 1} height={cell * 1} />
+          <rect x={cell * 3} y={cell * 2} width={cell * 7} height={cell} />
+          <rect x={cell * 3} y={cell * 3} width={cell * 7} height={cell} />
         </g>
       )}
       {glyph === 'GIFT' && (
         <g fill={tint}>
-          {/* box + ribbon */}
-          <rect x={cell * 7}  y={cell * 3} width={cell * 1} height={cell * 1} />
-          <rect x={cell * 9}  y={cell * 3} width={cell * 1} height={cell * 1} />
-          <rect x={cell * 6}  y={cell * 4} width={cell * 5} height={cell * 1} />
-          <rect x={cell * 6}  y={cell * 5} width={cell * 5} height={cell * 1} />
-          <rect x={cell * 8}  y={cell * 4} width={cell * 1} height={cell * 2} />
+          {/* small ribbon dot on top of the box */}
+          <rect x={cell * 6} y={cell * 1} width={cell} height={cell} />
+          {/* present box body */}
+          <rect x={cell * 4} y={cell * 2} width={cell * 5} height={cell * 2} />
         </g>
       )}
 
@@ -461,21 +455,21 @@ function TrailingPuffs() {
         className="absolute"
         style={{
           left: '50%',
-          bottom: -14,
+          bottom: -10,
           transform: 'translateX(-50%)',
-          width: 12, height: 12,
+          width: 8, height: 8,
           background: '#FFFFFF',
           border: '2px solid #7C3AED',
-          boxShadow: '2px 2px 0 rgba(0,0,0,0.18)',
+          boxShadow: '1px 1px 0 rgba(0,0,0,0.18)',
           imageRendering: 'pixelated',
         }}
       />
       <div
         className="absolute"
         style={{
-          left: 'calc(50% - 18px)',
-          bottom: -28,
-          width: 7, height: 7,
+          left: 'calc(50% - 14px)',
+          bottom: -20,
+          width: 5, height: 5,
           background: '#FFFFFF',
           border: '2px solid #7C3AED',
           boxShadow: '1px 1px 0 rgba(0,0,0,0.18)',
