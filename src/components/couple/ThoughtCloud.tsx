@@ -1,17 +1,17 @@
 'use client'
 
-// Comic-book thinking cloud that floats above Eren on the home screen.
-// Four interaction states:
+// Pixel-art thinking cloud that floats above Eren on the home screen.
+// Drawn as a low-resolution SVG cell grid with shape-rendering: crispEdges
+// so it matches the rest of the pixel UI instead of looking like a smooth
+// vector bubble.
 //
-//   1. 'idle'    — a small scalloped cloud with three pulsing dots and two
-//                  trailing puffs leading down to Eren's head. Tap to open.
-//   2. 'split'   — the cloud splits in place into two side-by-side mini
-//                  clouds: ✉ message / 🎁 gift. Pick one.
+// Four interaction states:
+//   1. 'idle'    — single small pixel cloud with three pulsing dots and two
+//                  trailing puffs leading down to Eren's head.
+//   2. 'split'   — the cloud splits into two side-by-side mini clouds
+//                  (✉ message / 🎁 gift). Pick one.
 //   3. 'message' — full message composer modal.
 //   4. 'gift'    — full gift picker modal.
-//
-// All persistence delegates to hooks (useCouple.sendMessage,
-// useErenStats.giftFood). This component is presentation + orchestration.
 
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
@@ -33,13 +33,7 @@ const FOOD_ORDER: FoodKey[] = ['kibble', 'fish', 'treat', 'tuna', 'steak', 'crea
 
 type Mode = 'idle' | 'split' | 'message' | 'gift'
 
-// The visual band where the cloud floats — % from the bottom of the viewport.
-// Eren sits at bottom: 10 % with a 200 px sprite, so his head is roughly at
-// bottom: 36-40 % depending on viewport height. We sit the cloud just above
-// his head (lower number = closer to him).
 const CLOUD_BOTTOM = '40%'
-
-// z-index stack: split overlay sits above the room HUD but below full modals.
 const Z_BACKDROP = 55
 const Z_CLOUD = 56
 const Z_MODAL = 61
@@ -69,7 +63,7 @@ export default function ThoughtCloud() {
     setSending(true)
     await sendMessage(text.trim(), null)
     setText('')
-    setToast('Eren will deliver it 💌')
+    setToast('Eren will deliver it')
     setSending(false)
     setTimeout(() => setMode('idle'), 700)
   }
@@ -84,14 +78,12 @@ export default function ThoughtCloud() {
       return
     }
     await sendMessage('', { key, qty: 1 })
-    setToast(`Sent ${FOOD_META[key].name} 🎁`)
+    setToast(`Sent ${FOOD_META[key].name}`)
     setSending(false)
     setTimeout(() => setMode('idle'), 800)
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // STATE 1 — idle: single small cloud above Eren
-  // ═══════════════════════════════════════════════════════════════════
+  // ── idle: single pixel cloud ──────────────────────────────────────
   if (mode === 'idle') {
     return (
       <CloudAnchor zIndex={4}>
@@ -101,25 +93,14 @@ export default function ThoughtCloud() {
           style={{ background: 'transparent', border: 'none', padding: 0 }}
           aria-label="Open Eren's thought"
         >
-          <ThinkBubble width={72} height={44}>
-            <div className="flex items-center justify-center gap-[3px] h-full">
-              <Dot delay={0} />
-              <Dot delay={0.18} />
-              <Dot delay={0.36} />
-            </div>
-          </ThinkBubble>
+          <PixelCloud width={56} dots />
         </button>
         <TrailingPuffs />
       </CloudAnchor>
     )
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // STATE 2 — split: two side-by-side mini clouds
-  //
-  // The backdrop sits at Z_BACKDROP; the cloud at Z_CLOUD (one higher) so
-  // clicks on the message/gift buttons reach them instead of the backdrop.
-  // ═══════════════════════════════════════════════════════════════════
+  // ── split: two side-by-side mini pixel clouds ─────────────────────
   if (mode === 'split') {
     return (
       <>
@@ -131,7 +112,7 @@ export default function ThoughtCloud() {
 
         <CloudAnchor zIndex={Z_CLOUD}>
           <div
-            className="flex items-center gap-3"
+            className="flex items-center gap-2"
             style={{ animation: 'tcSplitIn 0.32s cubic-bezier(0.34,1.56,0.64,1) both' }}
           >
             <button
@@ -140,9 +121,7 @@ export default function ThoughtCloud() {
               style={{ background: 'transparent', border: 'none', padding: 0 }}
               aria-label="Send a message"
             >
-              <ThinkBubble width={64} height={56} tint="#A78BFA">
-                <span style={{ fontSize: 22 }}>✉</span>
-              </ThinkBubble>
+              <PixelCloud width={52} tint="#A78BFA" glyph="MSG" />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); playSound('ui_tap'); setMode('gift') }}
@@ -150,9 +129,7 @@ export default function ThoughtCloud() {
               style={{ background: 'transparent', border: 'none', padding: 0 }}
               aria-label="Send a gift"
             >
-              <ThinkBubble width={64} height={56} tint="#F5C842">
-                <span style={{ fontSize: 20 }}>🎁</span>
-              </ThinkBubble>
+              <PixelCloud width={52} tint="#F5C842" glyph="GIFT" />
             </button>
           </div>
           <TrailingPuffs />
@@ -169,9 +146,7 @@ export default function ThoughtCloud() {
     )
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // STATE 3 / 4 — composer modal (message or gift)
-  // ═══════════════════════════════════════════════════════════════════
+  // ── composer modals (message / gift) ──────────────────────────────
   const tint = mode === 'message' ? '#A78BFA' : '#F5C842'
   return (
     <>
@@ -186,7 +161,16 @@ export default function ThoughtCloud() {
         style={{ top: '20%', transform: 'translateX(-50%)', width: 'min(92vw, 360px)', zIndex: Z_MODAL }}
         onClick={e => e.stopPropagation()}
       >
-        <ThinkBubble width={null} height={null} fullWidth tint={tint}>
+        <div
+          style={{
+            width: '100%',
+            background: '#FFFFFF',
+            border: `3px solid ${tint}`,
+            // Hard pixel-style shadow, no blur.
+            boxShadow: `4px 4px 0 ${tint}AA`,
+            imageRendering: 'pixelated',
+          }}
+        >
           {noPartner ? (
             <div className="px-4 py-5 text-center">
               <p className="text-sm text-gray-600">
@@ -209,7 +193,6 @@ export default function ThoughtCloud() {
                 style={{
                   background: '#FFF',
                   border: '2px dashed #E0CCFF',
-                  borderRadius: 6,
                   fontFamily: 'inherit',
                 }}
               />
@@ -218,15 +201,14 @@ export default function ThoughtCloud() {
                 disabled={!text.trim() || sending}
                 className="self-end px-4 py-2 text-white active:translate-y-[1px] disabled:opacity-40"
                 style={{
-                  background: 'linear-gradient(135deg, #C084FC, #A78BFA)',
-                  borderRadius: 4,
+                  background: '#A78BFA',
                   border: '2px solid #7C3AED',
-                  boxShadow: '0 2px 0 #5B21B6',
+                  boxShadow: '0 3px 0 #5B21B6',
                   fontFamily: '"Press Start 2P"',
                   fontSize: 7,
                 }}
               >
-                {sending ? '...' : 'SEND ✉'}
+                {sending ? '...' : 'SEND'}
               </button>
             </div>
           ) : (
@@ -252,17 +234,16 @@ export default function ThoughtCloud() {
                         style={{
                           background: `${meta.color}18`,
                           border: `2px solid ${meta.color}66`,
-                          borderRadius: 6,
                           boxShadow: `2px 2px 0 ${meta.color}44`,
                         }}
                       >
                         <div style={{
-                          width: 22, height: 22, borderRadius: '50%',
-                          background: `radial-gradient(circle at 35% 30%, ${meta.color}, ${meta.color}88)`,
+                          width: 18, height: 18,
+                          background: meta.color,
                           border: `2px solid ${meta.color}`,
                         }} />
                         <span className="text-[10px] font-bold" style={{ color: meta.color }}>{meta.name}</span>
-                        <span className="text-[9px] text-gray-500">×{qty}</span>
+                        <span className="text-[9px] text-gray-500">x{qty}</span>
                       </button>
                     )
                   })}
@@ -270,14 +251,14 @@ export default function ThoughtCloud() {
               )}
             </div>
           )}
-        </ThinkBubble>
+        </div>
 
         {toast && (
-          <div className="px-3 py-1.5 text-white text-xs"
+          <div className="px-3 py-1.5 text-white font-pixel"
             style={{
               background: '#1F1F2E',
-              borderRadius: 4,
               boxShadow: '2px 2px 0 rgba(0,0,0,0.4)',
+              fontSize: 7,
             }}>
             {toast}
           </div>
@@ -287,10 +268,164 @@ export default function ThoughtCloud() {
   )
 }
 
-// ─── Sub-components ──────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────
+// PixelCloud — low-res SVG cell grid rendered with crispEdges.
+//
+// The cloud is described as a 17 × 9 grid of cells. Each cell can be one
+// of:  '.' empty, '#' outline (dark stroke), 'o' fill (white), 'D' dot
+// hotspot (pulsing accent). The grid maps to SVG <rect> elements with
+// shape-rendering="crispEdges" so it always scales as crisp pixels.
+//
+// `width` sets the rendered width in CSS pixels; height is derived from the
+// grid aspect ratio. Tweaking the grid here changes every instance.
+// ────────────────────────────────────────────────────────────────────
+const CLOUD_GRID: string[] = [
+  '..####...####....',
+  '.#oooo###oooo#...',
+  '#oooooooooooooo#.',
+  '#ooooooDoooooooo#',
+  '#oooDoooooooDooo#',
+  '#oooooooooooooo#.',
+  '.#oooooooooooo#..',
+  '..############...',
+  '.................',
+]
 
-// CloudAnchor centers its child horizontally just above Eren. Fixed-position
-// so it stays visible above any overlays the parent might add.
+function PixelCloud({
+  width,
+  tint = '#7C3AED',
+  dots = false,
+  glyph,
+}: {
+  width: number
+  tint?: string
+  dots?: boolean
+  glyph?: 'MSG' | 'GIFT'
+}) {
+  const cols = CLOUD_GRID[0].length
+  const rows = CLOUD_GRID.length
+  const cell = 4 // viewBox units per cell
+  const w = cols * cell
+  const h = rows * cell
+  const height = Math.round((width * h) / w)
+
+  // Find the dot positions (cells flagged 'D' in the grid).
+  const dotCells: Array<[number, number]> = []
+  if (dots) {
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (CLOUD_GRID[r][c] === 'D') dotCells.push([c, r])
+      }
+    }
+  }
+
+  return (
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${w} ${h}`}
+      shapeRendering="crispEdges"
+      style={{ display: 'block', imageRendering: 'pixelated' }}
+    >
+      {/* Hard pixel drop shadow — one cell offset down-right, behind fills. */}
+      {CLOUD_GRID.flatMap((row, r) =>
+        row.split('').map((ch, c) =>
+          ch === '#' || ch === 'o' || ch === 'D' ? (
+            <rect
+              key={`sh-${r}-${c}`}
+              x={c * cell + 2}
+              y={r * cell + 2}
+              width={cell}
+              height={cell}
+              fill="rgba(0,0,0,0.18)"
+            />
+          ) : null
+        )
+      )}
+
+      {/* Fills (white cloud body). */}
+      {CLOUD_GRID.flatMap((row, r) =>
+        row.split('').map((ch, c) =>
+          ch === 'o' || ch === 'D' ? (
+            <rect
+              key={`fl-${r}-${c}`}
+              x={c * cell}
+              y={r * cell}
+              width={cell}
+              height={cell}
+              fill="#FFFFFF"
+            />
+          ) : null
+        )
+      )}
+
+      {/* Outline cells. */}
+      {CLOUD_GRID.flatMap((row, r) =>
+        row.split('').map((ch, c) =>
+          ch === '#' ? (
+            <rect
+              key={`ol-${r}-${c}`}
+              x={c * cell}
+              y={r * cell}
+              width={cell}
+              height={cell}
+              fill={tint}
+            />
+          ) : null
+        )
+      )}
+
+      {/* Three pulsing dots inside the cloud. */}
+      {dots && dotCells.map(([c, r], i) => (
+        <rect
+          key={`dot-${i}`}
+          x={c * cell}
+          y={r * cell}
+          width={cell}
+          height={cell}
+          fill={tint}
+          style={{ animation: `tcDotBlink 1.2s steps(2) infinite`, animationDelay: `${i * 0.18}s` }}
+        />
+      ))}
+
+      {/* Tab glyph in the centre (for split state). 'MSG' shows two
+          stacked horizontal lines; 'GIFT' shows a small square with a
+          plus sign on top — both drawn as cells. */}
+      {glyph === 'MSG' && (
+        <g fill={tint}>
+          {/* envelope-ish: rectangle with diagonal lines */}
+          <rect x={cell * 5}  y={cell * 4} width={cell * 7} height={cell * 1} />
+          <rect x={cell * 5}  y={cell * 5} width={cell * 1} height={cell * 1} />
+          <rect x={cell * 11} y={cell * 5} width={cell * 1} height={cell * 1} />
+          <rect x={cell * 6}  y={cell * 5} width={cell * 1} height={cell * 1} />
+          <rect x={cell * 10} y={cell * 5} width={cell * 1} height={cell * 1} />
+        </g>
+      )}
+      {glyph === 'GIFT' && (
+        <g fill={tint}>
+          {/* box + ribbon */}
+          <rect x={cell * 7}  y={cell * 3} width={cell * 1} height={cell * 1} />
+          <rect x={cell * 9}  y={cell * 3} width={cell * 1} height={cell * 1} />
+          <rect x={cell * 6}  y={cell * 4} width={cell * 5} height={cell * 1} />
+          <rect x={cell * 6}  y={cell * 5} width={cell * 5} height={cell * 1} />
+          <rect x={cell * 8}  y={cell * 4} width={cell * 1} height={cell * 2} />
+        </g>
+      )}
+
+      <style>{`
+        @keyframes tcDotBlink {
+          0%, 49%   { opacity: 0.25; }
+          50%, 100% { opacity: 1; }
+        }
+      `}</style>
+    </svg>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────
+// CloudAnchor — fixed-positioned wrapper that sits the cloud just
+// above Eren on the home screen.
+// ────────────────────────────────────────────────────────────────────
 function CloudAnchor({ children, zIndex }: { children: React.ReactNode; zIndex: number }) {
   return (
     <div
@@ -307,122 +442,40 @@ function CloudAnchor({ children, zIndex }: { children: React.ReactNode; zIndex: 
       <style jsx>{`
         @keyframes tcDrift {
           0%, 100% { transform: translate(-50%, 0); }
-          50%      { transform: translate(-50%, -4px); }
+          50%      { transform: translate(-50%, -3px); }
         }
       `}</style>
     </div>
   )
 }
 
-// Two trailing puffs that lead down toward Eren's head — the visual cue
-// that makes the cloud read as "thinking" instead of "speaking".
+// Two trailing pixel puffs leading down to Eren — the comic "thinking" tell.
 function TrailingPuffs() {
   return (
     <>
-      <div className="absolute" style={{ left: '50%', bottom: -14, transform: 'translateX(-50%)' }}>
-        <Puff size={11} />
-      </div>
-      <div className="absolute" style={{ left: '50%', bottom: -26, transform: 'translateX(-180%)' }}>
-        <Puff size={6} />
-      </div>
+      <div
+        className="absolute"
+        style={{
+          left: '50%',
+          bottom: -10,
+          transform: 'translateX(-50%)',
+          width: 8, height: 8,
+          background: '#FFFFFF',
+          border: '2px solid #7C3AED',
+          imageRendering: 'pixelated',
+        }}
+      />
+      <div
+        className="absolute"
+        style={{
+          left: 'calc(50% - 14px)',
+          bottom: -22,
+          width: 5, height: 5,
+          background: '#FFFFFF',
+          border: '2px solid #7C3AED',
+          imageRendering: 'pixelated',
+        }}
+      />
     </>
-  )
-}
-
-function Dot({ delay }: { delay: number }) {
-  return (
-    <span
-      className="inline-block rounded-full"
-      style={{
-        width: 5, height: 5,
-        background: '#7C3AED',
-        animation: 'tcDotPulse 1.1s ease-in-out infinite',
-        animationDelay: `${delay}s`,
-      }}
-    />
-  )
-}
-
-function Puff({ size }: { size: number }) {
-  return (
-    <div
-      style={{
-        width: size, height: size,
-        borderRadius: '50%',
-        background: '#FFFFFF',
-        border: '2px solid #D8C8F0',
-        boxShadow: '1px 1px 0 #BFA8E0',
-      }}
-    />
-  )
-}
-
-// Scalloped comic-cloud bubble. Eight outer puffs (3 top, 1 each side, 3
-// bottom-corners + bottom edge) give the fluffy silhouette. The body is a
-// rounded pill that can be sized fixed (idle / split) or fluid (composer).
-function ThinkBubble({ width, height, fullWidth, tint = '#D8C8F0', children }: {
-  width: number | null
-  height: number | null
-  fullWidth?: boolean
-  tint?: string
-  children: React.ReactNode
-}) {
-  const FILL = '#FFFFFF'
-  const stroke = tint
-  return (
-    <div
-      style={{
-        position: 'relative',
-        width: fullWidth ? '100%' : width ?? 'auto',
-        height: height ?? 'auto',
-        background: FILL,
-        border: `2.5px solid ${stroke}`,
-        borderRadius: 28,
-        boxShadow: `3px 3px 0 ${stroke}AA, 0 6px 18px rgba(120,90,200,0.18)`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: width ? 0 : undefined,
-      }}
-    >
-      {/* TOP — three bumps */}
-      <Bump style={{ top: -10, left: '14%', width: 16, height: 16 }} fill={FILL} stroke={stroke} />
-      <Bump style={{ top: -14, left: '40%', width: 22, height: 22 }} fill={FILL} stroke={stroke} />
-      <Bump style={{ top: -10, right: '14%', width: 16, height: 16 }} fill={FILL} stroke={stroke} />
-
-      {/* SIDES — one bump each */}
-      <Bump style={{ left: -8, top: '38%', width: 14, height: 14 }} fill={FILL} stroke={stroke} />
-      <Bump style={{ right: -8, top: '38%', width: 14, height: 14 }} fill={FILL} stroke={stroke} />
-
-      {/* BOTTOM — two small bumps so the underside also looks fluffy */}
-      <Bump style={{ bottom: -8, left: '22%', width: 13, height: 13 }} fill={FILL} stroke={stroke} />
-      <Bump style={{ bottom: -8, right: '22%', width: 13, height: 13 }} fill={FILL} stroke={stroke} />
-
-      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
-        {children}
-      </div>
-
-      <style jsx global>{`
-        @keyframes tcDotPulse {
-          0%, 100% { transform: translateY(0) scale(1);   opacity: 0.55; }
-          50%      { transform: translateY(-2px) scale(1.2); opacity: 1; }
-        }
-      `}</style>
-    </div>
-  )
-}
-
-function Bump({ style, fill, stroke }: { style: React.CSSProperties; fill: string; stroke: string }) {
-  return (
-    <span
-      style={{
-        position: 'absolute',
-        background: fill,
-        border: `2.5px solid ${stroke}`,
-        borderRadius: '50%',
-        zIndex: 0,
-        ...style,
-      }}
-    />
   )
 }
