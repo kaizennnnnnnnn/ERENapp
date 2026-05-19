@@ -33,7 +33,7 @@ const FOOD_ORDER: FoodKey[] = ['kibble', 'fish', 'treat', 'tuna', 'steak', 'crea
 
 type Mode = 'idle' | 'split' | 'message' | 'gift'
 
-const CLOUD_BOTTOM = '40%'
+const CLOUD_BOTTOM = '35%'
 const Z_BACKDROP = 55
 const Z_CLOUD = 56
 const Z_MODAL = 61
@@ -93,7 +93,7 @@ export default function ThoughtCloud() {
           style={{ background: 'transparent', border: 'none', padding: 0 }}
           aria-label="Open Eren's thought"
         >
-          <PixelCloud width={56} dots />
+          <PixelCloud width={64} dots />
         </button>
         <TrailingPuffs />
       </CloudAnchor>
@@ -121,7 +121,7 @@ export default function ThoughtCloud() {
               style={{ background: 'transparent', border: 'none', padding: 0 }}
               aria-label="Send a message"
             >
-              <PixelCloud width={52} tint="#A78BFA" glyph="MSG" />
+              <PixelCloud width={58} tint="#A78BFA" glyph="MSG" />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); playSound('ui_tap'); setMode('gift') }}
@@ -129,7 +129,7 @@ export default function ThoughtCloud() {
               style={{ background: 'transparent', border: 'none', padding: 0 }}
               aria-label="Send a gift"
             >
-              <PixelCloud width={52} tint="#F5C842" glyph="GIFT" />
+              <PixelCloud width={58} tint="#F5C842" glyph="GIFT" />
             </button>
           </div>
           <TrailingPuffs />
@@ -279,16 +279,18 @@ export default function ThoughtCloud() {
 // `width` sets the rendered width in CSS pixels; height is derived from the
 // grid aspect ratio. Tweaking the grid here changes every instance.
 // ────────────────────────────────────────────────────────────────────
+// 17 cols × 8 rows. Three distinct top bumps + a single rounded body so the
+// silhouette unmistakably reads as a cloud (not a pillow / blob). Inset
+// outline cells at the corners curl the shape inward by one cell per row.
 const CLOUD_GRID: string[] = [
-  '..####...####....',
-  '.#oooo###oooo#...',
-  '#oooooooooooooo#.',
-  '#ooooooDoooooooo#',
-  '#oooDoooooooDooo#',
-  '#oooooooooooooo#.',
-  '.#oooooooooooo#..',
-  '..############...',
-  '.................',
+  '..###..###..###..',
+  '.#ooo##ooo##ooo#.',
+  '#ooooooooooooooo#',
+  '#ooooooooooooooo#',
+  '#oooDoooDoooDooo#',
+  '#ooooooooooooooo#',
+  '.#ooooooooooooo#.',
+  '..#############..',
 ]
 
 function PixelCloud({
@@ -450,6 +452,8 @@ function CloudAnchor({ children, zIndex }: { children: React.ReactNode; zIndex: 
 }
 
 // Two trailing pixel puffs leading down to Eren — the comic "thinking" tell.
+// Sized + spaced so they bridge the gap between the cloud body and Eren's
+// head, making the whole thing read as one connected illustration.
 function TrailingPuffs() {
   return (
     <>
@@ -457,22 +461,24 @@ function TrailingPuffs() {
         className="absolute"
         style={{
           left: '50%',
-          bottom: -10,
+          bottom: -14,
           transform: 'translateX(-50%)',
-          width: 8, height: 8,
+          width: 12, height: 12,
           background: '#FFFFFF',
           border: '2px solid #7C3AED',
+          boxShadow: '2px 2px 0 rgba(0,0,0,0.18)',
           imageRendering: 'pixelated',
         }}
       />
       <div
         className="absolute"
         style={{
-          left: 'calc(50% - 14px)',
-          bottom: -22,
-          width: 5, height: 5,
+          left: 'calc(50% - 18px)',
+          bottom: -28,
+          width: 7, height: 7,
           background: '#FFFFFF',
           border: '2px solid #7C3AED',
+          boxShadow: '1px 1px 0 rgba(0,0,0,0.18)',
           imageRendering: 'pixelated',
         }}
       />
