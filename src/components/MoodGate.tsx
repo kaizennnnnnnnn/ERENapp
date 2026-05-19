@@ -225,15 +225,9 @@ export default function MoodGate({ userId, userName, onDone }: Props) {
                   boxShadow: `0 0 10px ${t.glow}`,
                 }} />
 
-                {/* Icon tile — Sketch-Pen Eren state for this mood */}
-                <div className="flex-shrink-0 flex items-center justify-center relative ml-1.5 overflow-hidden"
-                  style={{
-                    width: 42, height: 42,
-                    background: `radial-gradient(circle at 35% 30%, ${t.light}, ${t.main}40)`,
-                    border: `2px solid ${t.main}`,
-                    borderRadius: 6,
-                    boxShadow: `inset 0 1px 0 rgba(255,255,255,0.55), 0 0 8px ${t.glow}`,
-                  }}>
+                {/* Sketch-Pen Eren state for this mood — no frame, sits flat on the pill */}
+                <div className="flex-shrink-0 flex items-center justify-center relative ml-1.5"
+                  style={{ width: 42, height: 42 }}>
                   <SketchEren state={MOOD_SKETCH[key].pill} size={42} transparent noSpeech />
                 </div>
 
