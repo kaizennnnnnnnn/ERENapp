@@ -33,7 +33,7 @@ const FOOD_ORDER: FoodKey[] = ['kibble', 'fish', 'treat', 'tuna', 'steak', 'crea
 
 type Mode = 'idle' | 'split' | 'message' | 'gift'
 
-const CLOUD_BOTTOM = '35%'
+const CLOUD_BOTTOM = '30%'
 const Z_BACKDROP = 55
 const Z_CLOUD = 56
 const Z_MODAL = 61
@@ -93,7 +93,7 @@ export default function ThoughtCloud() {
           style={{ background: 'transparent', border: 'none', padding: 0 }}
           aria-label="Open Eren's thought"
         >
-          <PixelCloud width={44} dots />
+          <PixelCloud width={56} dots />
         </button>
         <TrailingPuffs />
       </CloudAnchor>
@@ -121,7 +121,7 @@ export default function ThoughtCloud() {
               style={{ background: 'transparent', border: 'none', padding: 0 }}
               aria-label="Send a message"
             >
-              <PixelCloud width={42} tint="#A78BFA" glyph="MSG" />
+              <PixelCloud width={52} tint="#A78BFA" glyph="MSG" />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); playSound('ui_tap'); setMode('gift') }}
@@ -129,7 +129,7 @@ export default function ThoughtCloud() {
               style={{ background: 'transparent', border: 'none', padding: 0 }}
               aria-label="Send a gift"
             >
-              <PixelCloud width={42} tint="#F5C842" glyph="GIFT" />
+              <PixelCloud width={52} tint="#F5C842" glyph="GIFT" />
             </button>
           </div>
           <TrailingPuffs />
