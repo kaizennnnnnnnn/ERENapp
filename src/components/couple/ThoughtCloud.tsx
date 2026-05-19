@@ -279,18 +279,19 @@ export default function ThoughtCloud() {
 // `width` sets the rendered width in CSS pixels; height is derived from the
 // grid aspect ratio. Tweaking the grid here changes every instance.
 // ────────────────────────────────────────────────────────────────────
-// 13 cols × 6 rows. Three narrow bumps with shared walls make each puff
-// clearly read as a separate cloud lobe at small sizes. The bottom outline
-// curls in by one cell per row, giving a rounded under-belly. Smaller than
-// the previous 17×8 grid so the cloud sits as a delicate thought icon
-// rather than a big banner over Eren.
+// 14 cols × 7 rows. Symmetric puff silhouette — bumps on BOTH the top
+// and bottom edges so the shape reads as a real fluffy cloud, not as
+// castle battlements with a flat base. Two top puffs + two bottom puffs
+// offset against each other, plus side curls. Three dots sit on the
+// widest row through the middle.
 const CLOUD_GRID: string[] = [
-  '.###.###.###.',
-  '#ooo#ooo#ooo#',
-  '#ooooooooooo#',
-  '#ooDooDooDoo#',
-  '.#ooooooooo#.',
-  '..#########..',
+  '....##..##....',
+  '..##oo##oo##..',
+  '.#oooooooooo#.',
+  '#ooDoooDoooDo#',
+  '.#oooooooooo#.',
+  '..##oo##oo##..',
+  '....##..##....',
 ]
 
 function PixelCloud({
@@ -390,22 +391,19 @@ function PixelCloud({
         />
       ))}
 
-      {/* Tab glyph in the centre — fits in the 2-row interior of the new
-          smaller cloud. MSG = two stacked horizontal stripes (envelope/
-          paper). GIFT = a small ribbon-dot above a solid present box. */}
-      {glyph === 'MSG' && (
-        <g fill={tint}>
-          <rect x={cell * 3} y={cell * 2} width={cell * 7} height={cell} />
-          <rect x={cell * 3} y={cell * 3} width={cell * 7} height={cell} />
-        </g>
-      )}
-      {glyph === 'GIFT' && (
-        <g fill={tint}>
-          {/* small ribbon dot on top of the box */}
-          <rect x={cell * 6} y={cell * 1} width={cell} height={cell} />
-          {/* present box body */}
-          <rect x={cell * 4} y={cell * 2} width={cell * 5} height={cell * 2} />
-        </g>
+      {/* Tab glyph — actual emoji centred in the cloud. The color emoji
+          font handles the rendering, so even though the cloud itself is
+          pixel art the icon inside is immediately recognisable. */}
+      {glyph && (
+        <text
+          x={7 * cell}
+          y={4.4 * cell}
+          textAnchor="middle"
+          fontSize={cell * 4}
+          style={{ pointerEvents: 'none' }}
+        >
+          {glyph === 'MSG' ? '💌' : '🎁'}
+        </text>
       )}
 
       <style>{`
