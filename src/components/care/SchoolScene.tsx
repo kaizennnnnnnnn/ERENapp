@@ -1013,6 +1013,9 @@ function V4Path({ section, progress, isUnlocked, nextUpId, onLessonTap, onClose 
                   const perfect = progress.perfect.includes(l.id)
                   const unlocked = isUnlocked(l.id)
                   const isNextUp = l.id === nextUpId
+                  const isLastInUnit = li === lessons.length - 1
+                  const hasMoreUnits = ui < units.length - 1
+                  const showMoreArrow = isLastInUnit && hasMoreUnits && !isNextUp
 
                   const numberColor = unlocked ? INK : PENCIL
                   const titleColor = unlocked ? INK : PENCIL
@@ -1125,7 +1128,7 @@ function V4Path({ section, progress, isUnlocked, nextUpId, onLessonTap, onClose 
                                 left: -10, top: -8, right: -10, bottom: -8,
                                 width: 'calc(100% + 20px)', height: 'calc(100% + 16px)',
                                 pointerEvents: 'none',
-                                animation: 'srNextUpBob 1.8s ease-in-out infinite',
+                                transform: 'rotate(-1deg)',
                               }}>
                               <path
                                 d="M 30 12 C 60 4, 240 2, 295 14 C 312 26, 308 56, 270 60 C 200 70, 90 68, 30 58 C 8 52, 6 22, 30 12 Z"
@@ -1145,6 +1148,36 @@ function V4Path({ section, progress, isUnlocked, nextUpId, onLessonTap, onClose 
                               <AnimatedEren px={2} />
                             </span>
                           </>
+                        )}
+
+                        {/* "More units below" — hand-drawn red down arrow */}
+                        {showMoreArrow && (
+                          <svg
+                            width="34" height="44"
+                            viewBox="0 0 34 44"
+                            style={{
+                              position: 'absolute',
+                              right: -4, top: '50%',
+                              transform: 'translateY(-50%) rotate(4deg)',
+                              pointerEvents: 'none',
+                            }}>
+                            <path
+                              d="M 17 3 C 16 12, 18 22, 17 33"
+                              fill="none"
+                              stroke={PEN_RED}
+                              strokeWidth="2.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                            <path
+                              d="M 8 28 L 17 38 L 26 28"
+                              fill="none"
+                              stroke={PEN_RED}
+                              strokeWidth="2.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
                         )}
                       </div>
                     </button>
