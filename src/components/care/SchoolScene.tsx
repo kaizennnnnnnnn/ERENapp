@@ -1121,17 +1121,17 @@ function V4Path({ section, progress, isUnlocked, nextUpId, onLessonTap, onClose 
                           <>
                             <svg
                               width="100%" height="100%"
-                              viewBox="0 0 320 70"
+                              viewBox="0 0 320 80"
                               preserveAspectRatio="none"
                               style={{
                                 position: 'absolute',
-                                left: -10, top: -8, right: -10, bottom: -8,
-                                width: 'calc(100% + 20px)', height: 'calc(100% + 16px)',
+                                left: -8, top: -14, right: -8, bottom: -12,
+                                width: 'calc(100% + 16px)', height: 'calc(100% + 26px)',
                                 pointerEvents: 'none',
                                 transform: 'rotate(-1deg)',
                               }}>
                               <path
-                                d="M 30 12 C 60 4, 240 2, 295 14 C 312 26, 308 56, 270 60 C 200 70, 90 68, 30 58 C 8 52, 6 22, 30 12 Z"
+                                d="M 22 14 C 60 4, 240 2, 300 16 C 316 30, 312 66, 272 72 C 200 80, 90 78, 26 68 C 6 60, 4 24, 22 14 Z"
                                 fill="none"
                                 stroke={PEN_RED}
                                 strokeWidth="2.8"
@@ -1141,7 +1141,7 @@ function V4Path({ section, progress, isUnlocked, nextUpId, onLessonTap, onClose 
                             </svg>
                             <span style={{
                               position: 'absolute',
-                              right: -52, top: -4,
+                              right: 2, top: -34,
                               filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.25))',
                               pointerEvents: 'none',
                             }}>
