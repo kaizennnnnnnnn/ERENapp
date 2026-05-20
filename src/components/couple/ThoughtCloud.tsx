@@ -328,7 +328,16 @@ function PixelCloud({
       height={height}
       viewBox={`0 0 ${w} ${h}`}
       shapeRendering="crispEdges"
-      style={{ display: 'block', imageRendering: 'pixelated' }}
+      style={{
+        display: 'block',
+        imageRendering: 'pixelated',
+        // Squash-and-stretch the silhouette itself so the cloud puffs
+        // breathe instead of staying rigid while it drifts.
+        transformOrigin: '50% 60%',
+        animation: dots
+          ? 'tcCloudBreathe 2.2s ease-in-out infinite'
+          : 'tcCloudBreatheSm 2.4s ease-in-out infinite',
+      }}
     >
       {/* Hard pixel drop shadow — one cell offset down-right, behind fills. */}
       {CLOUD_GRID.flatMap((row, r) =>
@@ -410,6 +419,18 @@ function PixelCloud({
         @keyframes tcDotBlink {
           0%, 49%   { opacity: 0.25; }
           50%, 100% { opacity: 1; }
+        }
+        @keyframes tcCloudBreathe {
+          0%   { transform: scale(1, 1)         skewX(0deg); }
+          25%  { transform: scale(1.06, 0.95)   skewX(-1.5deg); }
+          50%  { transform: scale(1.02, 1.04)   skewX(0deg); }
+          75%  { transform: scale(0.97, 1.03)   skewX(1.5deg); }
+          100% { transform: scale(1, 1)         skewX(0deg); }
+        }
+        @keyframes tcCloudBreatheSm {
+          0%   { transform: scale(1, 1)         skewX(0deg); }
+          50%  { transform: scale(1.05, 0.96)   skewX(-1deg); }
+          100% { transform: scale(1, 1)         skewX(0deg); }
         }
       `}</style>
     </svg>
