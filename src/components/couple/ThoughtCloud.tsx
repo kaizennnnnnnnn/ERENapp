@@ -93,7 +93,7 @@ export default function ThoughtCloud() {
           style={{ background: 'transparent', border: 'none', padding: 0 }}
           aria-label="Open Eren's thought"
         >
-          <PixelCloud width={56} dots />
+          <PixelCloud width={64} dots />
         </button>
         <TrailingPuffs />
       </CloudAnchor>
@@ -432,14 +432,17 @@ function CloudAnchor({ children, zIndex }: { children: React.ReactNode; zIndex: 
         left: '68%',
         transform: 'translateX(-50%)',
         zIndex,
-        animation: 'tcDrift 3.6s ease-in-out infinite',
+        animation: 'tcDrift 2.6s ease-in-out infinite',
       }}
     >
       {children}
       <style jsx>{`
         @keyframes tcDrift {
-          0%, 100% { transform: translate(-50%, 0); }
-          50%      { transform: translate(-50%, -3px); }
+          0%   { transform: translate(-50%, 0)    rotate(-1.5deg); }
+          25%  { transform: translate(-48%, -5px) rotate(0.8deg); }
+          50%  { transform: translate(-50%, -7px) rotate(1.5deg); }
+          75%  { transform: translate(-52%, -4px) rotate(-0.6deg); }
+          100% { transform: translate(-50%, 0)    rotate(-1.5deg); }
         }
       `}</style>
     </div>
