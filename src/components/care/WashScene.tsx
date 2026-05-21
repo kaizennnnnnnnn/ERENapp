@@ -10,7 +10,10 @@ import LightSwitch from '@/components/LightSwitch'
 import { useIsDark } from '@/hooks/useIsDark'
 
 interface Props { onClose: () => void }
-interface Bubble { id: number; x: number; y: number; size: number }
+// `c` = coverage % at the time this bubble was created. Used to fade
+// each bubble out individually as the rinse progresses past its
+// creation moment (newest/topmost bubbles wash off first).
+interface Bubble { id: number; x: number; y: number; size: number; c: number }
 
 export default function WashScene({ onClose }: Props) {
   const { user, profile } = useAuth()
@@ -93,7 +96,10 @@ export default function WashScene({ onClose }: Props) {
           return next
         })
         setBubbles(bs => {
-          const next = [...bs, { id: bubbleId.current++, x: px, y: py, size: 14 + Math.random() * 12 }]
+          // Stamp the bubble with the coverage AT creation so the rinse
+          // can fade it out individually based on how far past its
+          // creation moment we've drained the soap.
+          const next = [...bs, { id: bubbleId.current++, x: px, y: py, size: 14 + Math.random() * 12, c: coverageRef.current }]
           return next.slice(-40)
         })
       }
@@ -107,12 +113,15 @@ export default function WashScene({ onClose }: Props) {
         showerRef.current.style.top  = `${py}%`
       }
       if (px > 22 && px < 78 && py > 55 && py < 95) {
+        // Only drain coverage — bubbles fade out automatically in the
+        // render layer based on each bubble's creation coverage vs the
+        // current coverage. We don't pop them from the array, which is
+        // what made them disappear instantly before.
         setCoverage(c => {
           const next = Math.max(0, c - 0.3)
           coverageRef.current = next
           return next
         })
-        setBubbles(bs => bs.slice(0, Math.max(0, bs.length - 1)))
       }
     }
   }, [])
@@ -217,12 +226,31 @@ export default function WashScene({ onClose }: Props) {
         </div>
       )}
 
-      {/* ══ SOAP SUDS ═════════════════════════════════════════════════════ */}
+      {/* ══ SOAP SUDS ═════════════════════════════════════════════════════
+        Each bubble fades from 1 → 0 as the current coverage drops
+        between its creation coverage and a small anchor near the
+        finish threshold. Effect: bubbles wash off individually,
+        newest-on-top first, and all are gone before the rinse
+        completes (`coverage` ≤ 5). */}
       <div className="absolute inset-0 pointer-events-none z-20">
-        {bubbles.map(b => (
-          <div key={b.id} className="absolute rounded-full"
-            style={{ left: `${b.x}%`, top: `${b.y}%`, width: b.size, height: b.size, transform: 'translate(-50%,-50%)', background: 'radial-gradient(circle at 35% 35%, rgba(255,255,255,0.95), rgba(200,230,255,0.6))', border: '1px solid rgba(150,200,255,0.5)', boxShadow: 'inset 1px 1px 2px rgba(255,255,255,0.8)', opacity: 0.85 }} />
-        ))}
+        {bubbles.map(b => {
+          const FADE_ANCHOR = 5
+          const range = Math.max(15, b.c - FADE_ANCHOR)
+          const op = Math.max(0, Math.min(1, (coverage - FADE_ANCHOR) / range)) * 0.85
+          if (op <= 0.01) return null
+          return (
+            <div key={b.id} className="absolute rounded-full"
+              style={{
+                left: `${b.x}%`, top: `${b.y}%`, width: b.size, height: b.size,
+                transform: 'translate(-50%,-50%)',
+                background: 'radial-gradient(circle at 35% 35%, rgba(255,255,255,0.95), rgba(200,230,255,0.6))',
+                border: '1px solid rgba(150,200,255,0.5)',
+                boxShadow: 'inset 1px 1px 2px rgba(255,255,255,0.8)',
+                opacity: op,
+                transition: 'opacity 0.25s linear',
+              }} />
+          )
+        })}
       </div>
 
       {/* ══ SHOWER HEAD ═══════════════════════════════════════════════════ */}
