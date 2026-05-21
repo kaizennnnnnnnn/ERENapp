@@ -583,6 +583,12 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
 }
 
 // ─── Closed kraft notebook — compact portrait card in the 2-col shelf ─────
+//
+// Pixel-art reskin: flat kraft fill (no radial gradient), hard offset
+// shadow (no blur), sharp corners, a section-colored washi-tape strip,
+// pixel rivets in the inner corners, a pixel paw-print stamp where the
+// OPEN badge used to live, and a row of pixel dots showing lesson
+// completion in place of the typed "X/Y DONE" line.
 function KraftSectionCover({ section, sectionIndex, done, total, onOpen }: {
   section: Section
   sectionIndex: number
@@ -592,106 +598,186 @@ function KraftSectionCover({ section, sectionIndex, done, total, onOpen }: {
 }) {
   // Tiny inline rotation jitter so the grid feels like real notebooks on a desk.
   const rot = [-1.2, 0.8, -0.6, 1.4, -1.0][(sectionIndex - 1) % 5]
+  // Section accent — a different pixel-pastel per section so each cover
+  // reads at a glance. Matches the food-shop palette so the whole app
+  // shares one set of pastels.
+  const ACCENTS = ['#FF6B9D', '#6BAED6', '#A8D88A', '#F5C842', '#A78BFA']
+  const accent = ACCENTS[(sectionIndex - 1) % ACCENTS.length]
+  // Pixel-dot completion strip — at most 12 dots so a section with many
+  // lessons still fits two rows of six.
+  const DOT_COUNT = Math.min(12, Math.max(4, total))
+  const filledDots = total === 0 ? 0 : Math.round((done / total) * DOT_COUNT)
+
   return (
     <button onClick={onOpen}
       className="block w-full text-left active:translate-y-[2px] transition-transform"
       style={{
         position: 'relative',
         aspectRatio: '3 / 4',
-        background: `radial-gradient(ellipse at 30% 18%, ${KRAFT_HI} 0%, ${KRAFT_MD} 50%, ${KRAFT_LO} 100%)`,
+        background: KRAFT_MD,
         color: '#2a1d10',
         fontFamily: TYPE_FONT,
         overflow: 'hidden',
-        boxShadow: '0 6px 0 rgba(0,0,0,0.22), 0 12px 18px rgba(0,0,0,0.22)',
-        borderRadius: 2,
+        // Hard pixel drop shadow, no blur — matches PixelCloud / StatsHeader.
+        boxShadow: `4px 4px 0 ${INK}, 4px 4px 0 1px rgba(0,0,0,0.25)`,
+        border: `2px solid ${INK}`,
+        borderRadius: 0,
         transform: `rotate(${rot}deg)`,
+        imageRendering: 'pixelated',
       }}>
-      {/* kraft speckle */}
-      <div style={{
-        position: 'absolute', inset: 0, opacity: 0.55, pointerEvents: 'none',
-        backgroundImage: `
-          radial-gradient(circle at 18% 28%, rgba(60,40,20,0.35) 0px, transparent 1.2px),
-          radial-gradient(circle at 72% 60%, rgba(60,40,20,0.4) 0px, transparent 1.5px),
-          radial-gradient(circle at 40% 80%, rgba(255,255,255,0.15) 0px, transparent 1px),
-          radial-gradient(circle at 90% 22%, rgba(60,40,20,0.3) 0px, transparent 1.4px)`,
-        backgroundSize: '6px 6px, 9px 9px, 5px 5px, 11px 11px',
-      }} />
-      <PhysicalEdges />
-      {/* mini spine staples */}
-      {['18%', '52%', '84%'].map((y, i) => (
+      {/* pixel kraft speckle — crispEdges so the dots stay sharp */}
+      <svg
+        width="100%" height="100%"
+        viewBox="0 0 30 40" preserveAspectRatio="none"
+        shapeRendering="crispEdges"
+        style={{ position: 'absolute', inset: 0, opacity: 0.45, pointerEvents: 'none' }}
+      >
+        {Array.from({ length: 70 }).map((_, i) => {
+          // Deterministic pseudo-random scatter keyed off the section
+          // index so each cover gets the same texture every render.
+          const seed = (i * 1103515245 + sectionIndex * 12345) & 0x7fffffff
+          const x = seed % 30
+          const y = (seed >> 5) % 40
+          const dark = (seed >> 10) & 1
+          return (
+            <rect key={i}
+              x={x} y={y} width={1} height={1}
+              fill={dark ? 'rgba(60,40,20,0.55)' : 'rgba(255,250,235,0.35)'} />
+          )
+        })}
+      </svg>
+
+      {/* Pixel rivets — gold corner studs like reward panels */}
+      {[
+        { left: 4, top: 4 }, { right: 4, top: 4 },
+        { left: 4, bottom: 4 }, { right: 4, bottom: 4 },
+      ].map((p, i) => (
         <div key={i} style={{
-          position: 'absolute', left: 5, top: y, width: 7, height: 2,
-          background: 'linear-gradient(180deg, #d6d4cf, #8a8884)',
-          boxShadow: '0 1px 0 rgba(0,0,0,0.4)',
-          borderRadius: 1,
+          position: 'absolute', ...p, width: 3, height: 3,
+          background: '#F5C842',
+          boxShadow: `1px 1px 0 ${INK}`,
         }} />
       ))}
 
+      {/* Pixel staples down the spine — chunky 3-pixel rectangles */}
+      {['16%', '48%', '80%'].map((y, i) => (
+        <div key={i} style={{ position: 'absolute', left: 7, top: y }}>
+          <div style={{
+            width: 8, height: 3,
+            background: '#d6d4cf',
+            boxShadow: `0 2px 0 #6a6864, 1px 0 0 ${INK}, -1px 0 0 ${INK}`,
+          }} />
+        </div>
+      ))}
+
+      {/* Section-colored washi-tape strip at the top-left corner —
+          adds the pop of color and the "stickered scrapbook" feel.
+          Slightly rotated. */}
+      <div style={{
+        position: 'absolute', top: 14, left: -12,
+        width: 56, height: 12,
+        background: accent,
+        border: `2px solid ${INK}`,
+        boxShadow: `2px 2px 0 rgba(0,0,0,0.3)`,
+        transform: 'rotate(-12deg)',
+        zIndex: 2,
+      }}>
+        {/* Tiny pixel torn-edge marks */}
+        <div style={{
+          position: 'absolute', left: 2, right: 2, top: 1, height: 1,
+          background: 'rgba(255,255,255,0.55)',
+        }} />
+      </div>
+
       {/* Top brand strip */}
       <div style={{
-        position: 'absolute', top: 8, left: 16, right: 8,
+        position: 'absolute', top: 8, left: 18, right: 8,
         display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
         fontSize: 6.5, letterSpacing: 1.5, fontWeight: 700,
+        zIndex: 1,
       }}>
         <span>EREN · POCKET</span>
         <span style={{ opacity: 0.75 }}>NO. {String(sectionIndex).padStart(3, '0')}</span>
       </div>
 
-      {/* Stamp title block — flex column so spec list never collides */}
+      {/* Stamp title block — flex column so progress strip never collides */}
       <div style={{
-        position: 'absolute', inset: '20px 8px 8px 16px',
+        position: 'absolute', inset: '22px 10px 36px 14px',
         display: 'flex', flexDirection: 'column',
         justifyContent: 'center', alignItems: 'center',
         textAlign: 'center',
       }}>
         <div style={{
           fontFamily: STAMP_FONT, fontWeight: 700,
-          fontSize: 13, letterSpacing: 0.8, textTransform: 'uppercase',
-          color: '#2a1d10',
-          padding: '5px 7px',
-          border: '2px solid #2a1d10',
-          borderRadius: 2,
+          fontSize: 12, letterSpacing: 0.8, textTransform: 'uppercase',
+          color: INK,
+          padding: '4px 7px',
+          border: `2px solid ${INK}`,
+          borderRadius: 0,
           display: 'inline-block',
           transform: 'rotate(-2deg)',
-          background: 'rgba(255,255,255,0.04)',
-          textShadow: '0.5px 0 0 rgba(0,0,0,0.4)',
+          background: '#fffaee',
+          boxShadow: `2px 2px 0 rgba(0,0,0,0.35)`,
           lineHeight: 1.05,
           maxWidth: '100%',
         }}>{section.title}</div>
         <div style={{
           fontFamily: HAND_FONT, fontSize: 16,
-          marginTop: 3, color: PEN_RED,
+          marginTop: 5, color: PEN_RED,
           transform: 'rotate(-1deg)', display: 'inline-block',
           lineHeight: 1,
         }}>~ {section.titleSr} ~</div>
       </div>
 
-      {/* Spec list — bottom strip */}
+      {/* Pixel-dot progress strip — bottom */}
       <div style={{
-        position: 'absolute', left: 16, right: 8, bottom: 8,
-        fontSize: 6.5, letterSpacing: 1, color: '#2a1d10',
-        borderTop: '1px solid #2a1d10', paddingTop: 4,
+        position: 'absolute', left: 14, right: 10, bottom: 9,
+        display: 'flex', flexDirection: 'column', gap: 3,
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span>I.</span><span>SEC {sectionIndex}/{SERBIAN_SECTIONS.length}</span>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between',
+          fontSize: 6.5, letterSpacing: 1, color: INK,
+          fontFamily: TYPE_FONT,
+        }}>
+          <span>SEC {sectionIndex}/{SERBIAN_SECTIONS.length}</span>
+          <span>{done}/{total}</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 1 }}>
-          <span>II.</span><span>{done}/{total} DONE</span>
+        <div style={{ display: 'flex', gap: 2 }}>
+          {Array.from({ length: DOT_COUNT }).map((_, i) => {
+            const lit = i < filledDots
+            return (
+              <div key={i} style={{
+                flex: 1, height: 4,
+                background: lit ? accent : 'rgba(0,0,0,0.18)',
+                border: `1px solid ${lit ? INK : 'rgba(0,0,0,0.35)'}`,
+                boxShadow: lit ? `1px 1px 0 rgba(0,0,0,0.35)` : 'none',
+              }} />
+            )
+          })}
         </div>
       </div>
 
-      {/* OPEN stamp top-right corner */}
+      {/* Pixel paw-print stamp where OPEN used to be — chunky 6×6 cell
+          grid drawn with crispEdges so it sits like a sticker. */}
       <div style={{
-        position: 'absolute', right: 6, top: 22,
+        position: 'absolute', right: 6, top: 26,
         transform: 'rotate(-8deg)',
-        border: `1.5px solid ${PEN_RED}`,
-        color: PEN_RED,
-        padding: '2px 4px 3px',
-        fontFamily: STAMP_FONT, fontSize: 6.5, letterSpacing: 1,
-        fontWeight: 700,
-        opacity: 0.9,
-        background: 'rgba(138,58,16,0.05)',
-      }}>OPEN ▸</div>
+        padding: 3,
+        border: `2px solid ${PEN_RED}`,
+        background: '#fff8e8',
+        boxShadow: `2px 2px 0 rgba(0,0,0,0.3)`,
+      }}>
+        <svg width="16" height="14" viewBox="0 0 8 7" shapeRendering="crispEdges">
+          {/* main pad */}
+          <rect x="2" y="3" width="4" height="3" fill={PEN_RED} />
+          <rect x="3" y="6" width="2" height="1" fill={PEN_RED} />
+          {/* toe beans */}
+          <rect x="1" y="1" width="1" height="2" fill={PEN_RED} />
+          <rect x="3" y="0" width="1" height="2" fill={PEN_RED} />
+          <rect x="4" y="0" width="1" height="2" fill={PEN_RED} />
+          <rect x="6" y="1" width="1" height="2" fill={PEN_RED} />
+        </svg>
+      </div>
     </button>
   )
 }
