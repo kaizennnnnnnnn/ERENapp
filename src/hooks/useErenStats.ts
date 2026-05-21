@@ -196,7 +196,38 @@ export function useErenStats(householdId: string | null) {
     const ch = supabase
       .channel(`eren_stats:${householdId}:${channelSuffix.current}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'eren_stats', filter: `household_id=eq.${householdId}` },
-        payload => { setStats(payload.new as ErenStats) })
+        payload => {
+          const newRow = payload.new as ErenStats
+          setStats(prev => {
+            if (!prev) return newRow
+            // Realtime broadcasts the ENTIRE row on every update, including
+            // columns that weren't actually changed. A buy/gift only writes
+            // `food_by_user`, but the broadcast still carries pre-decay
+            // happiness/hunger/etc. from whatever snapshot the DB currently
+            // holds — which may be older than what we already decayed
+            // locally. Blindly replacing stats would visually re-fill the
+            // bars until the next real decay/feed write catches up.
+            //
+            // Stat-touching writes (feed/play/wash/sleep/medicine and the
+            // decay tick) always bump last_decay_at forward. So we accept
+            // the full row only when its last_decay_at is strictly newer
+            // than ours; otherwise we keep our stat values and merge in
+            // just the non-stat columns the write actually changed.
+            const newDecay = new Date(newRow.last_decay_at ?? 0).getTime()
+            const oldDecay = new Date(prev.last_decay_at ?? 0).getTime()
+            if (newDecay > oldDecay) return newRow
+            return {
+              ...prev,
+              food_by_user:   newRow.food_by_user,
+              food_inventory: newRow.food_inventory,
+              coins:          newRow.coins,
+              is_sleeping:    newRow.is_sleeping,
+              is_sick:        newRow.is_sick,
+              mood:           newRow.mood,
+              weight:         newRow.weight,
+            }
+          })
+        })
       .subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [householdId]) // eslint-disable-line react-hooks/exhaustive-deps
