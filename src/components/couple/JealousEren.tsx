@@ -19,15 +19,22 @@ const DELTA_FLOOR    = 2                   // partner must lead by ≥ this many
 const VISIBLE_MS     = 7000                // how long the bubble stays
 const Z_INDEX        = 45                  // sits below modals (popups are 70+)
 
-// Message bank — `{p}` gets replaced with the partner's first name.
-// Kept playful, never accusatory.
+// Message bank.
+//   {p} → the partner's first name (the one who out-cared today)
+//   {u} → the viewer's own first name
+// Kept gender-neutral so the bubble reads the same for either
+// partner, and playful — never accusatory.
 const LINES = [
-  '{p} loves me more today, she fed me more times…',
+  '{p} loves me more today… {p} fed me more times.',
   'I think {p} is my favourite today!',
   '{p} took the best care of me — so cozy.',
-  '{p} spoils me, I love when she does it.',
+  '{p} spoils me, I love when {p} does it.',
   '{p} gave me extra attention today, lucky me!',
   'shhh… {p} cares for me a little extra today.',
+  'sorry {u}, but {p} kinda won today…',
+  'don\'t tell {u}, but {p} is my favourite right now.',
+  '{u}, {p} really showed up for me today!',
+  '{p} stole my heart today, sorry {u}…',
 ]
 
 export default function JealousEren() {
@@ -75,8 +82,16 @@ export default function JealousEren() {
       // that didn't fire can be rolled again later.
       try { localStorage.setItem(key, new Date().toISOString()) } catch { /* ignore */ }
 
-      const firstName = (partner!.name ?? '').split(' ')[0] || 'they'
-      const text = LINES[Math.floor(Math.random() * LINES.length)].replace('{p}', firstName)
+      // Pull both first names so the line can address you by name AND
+      // mention the partner — different from each side. If a name is
+      // missing for any reason, fall back to "they"/"you" so the
+      // sentence still reads naturally.
+      const partnerFirst = (partner!.name ?? '').split(' ')[0] || 'they'
+      const userFirst    = (profile!.name ?? '').split(' ')[0] || 'you'
+      const template = LINES[Math.floor(Math.random() * LINES.length)]
+      const text = template
+        .replaceAll('{p}', partnerFirst)
+        .replaceAll('{u}', userFirst)
       setLine(text)
 
       playSound('ui_modal_open')
