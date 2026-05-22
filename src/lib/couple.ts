@@ -5,8 +5,9 @@ import type { Interaction } from '@/types'
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // ── Love Meter (competition!) ────────────────────────────────────────────────
-// Scores based on care interactions in the last 30 days.
-// Each action type has a point value.
+// Scores based on care interactions during the CURRENT calendar week
+// (Monday 00:00 → Sunday 23:59 local). The window resets every
+// Monday so each week is a fresh race rather than a 30-day grind.
 
 const ACTION_POINTS: Record<string, number> = {
   feed: 3,
@@ -21,6 +22,34 @@ export interface LoveMeterResult {
   user2: { id: string; name: string; score: number; pct: number }
   total: number
   leader: string | null  // user_id of the leader, null if tied
+  /** ISO time the week window started — useful for the countdown UI. */
+  weekStart: string
+}
+
+/** Local Monday 00:00 of the week containing `now`. */
+export function startOfWeek(now: Date = new Date()): Date {
+  const d = new Date(now)
+  const day = d.getDay() // 0=Sun … 6=Sat
+  // Anchor on Monday: day=1 → diff=0, day=0/Sun → diff=-6 (last Mon)
+  const diff = day === 0 ? -6 : 1 - day
+  d.setDate(d.getDate() + diff)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+/** Time remaining until the next weekly reset (next Monday 00:00). */
+export function timeUntilWeekReset(now: Date = new Date()): {
+  days: number; hours: number; minutes: number; ms: number
+} {
+  const next = startOfWeek(now)
+  next.setDate(next.getDate() + 7)
+  const ms = next.getTime() - now.getTime()
+  return {
+    days:    Math.floor(ms / 86400000),
+    hours:   Math.floor((ms % 86400000) / 3600000),
+    minutes: Math.floor((ms % 3600000) / 60000),
+    ms,
+  }
 }
 
 export function computeLoveMeter(
@@ -28,8 +57,8 @@ export function computeLoveMeter(
   user1Id: string, user1Name: string,
   user2Id: string, user2Name: string,
 ): LoveMeterResult {
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString()
-  const recent = interactions.filter(i => i.created_at >= thirtyDaysAgo)
+  const weekStart = startOfWeek().toISOString()
+  const recent = interactions.filter(i => i.created_at >= weekStart)
 
   let s1 = 0, s2 = 0
   for (const i of recent) {
@@ -44,6 +73,7 @@ export function computeLoveMeter(
     user2: { id: user2Id, name: user2Name, score: s2, pct: Math.round((s2 / total) * 100) },
     total: s1 + s2,
     leader: s1 > s2 ? user1Id : s2 > s1 ? user2Id : null,
+    weekStart,
   }
 }
 

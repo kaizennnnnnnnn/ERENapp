@@ -2,7 +2,8 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { timeUntilWeekReset } from '@/lib/couple'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, Send } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
@@ -35,6 +36,33 @@ export default function CouplePage() {
 
   const [msg, setMsg] = useState('')
   const [sending, setSending] = useState(false)
+
+  // Live countdown to next Monday 00:00 — re-renders every 60s so the
+  // "resets in 2d 14h" label stays current without polling Supabase.
+  const [reset, setReset] = useState(() => timeUntilWeekReset())
+  useEffect(() => {
+    const t = setInterval(() => setReset(timeUntilWeekReset()), 60 * 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  // Pulse the score numbers when they change. Keyed off the score
+  // value so an in-session care action visibly bumps the digit
+  // before the bar finishes its width transition.
+  const prevS1 = useRef<number>(0)
+  const prevS2 = useRef<number>(0)
+  const [pulse1, setPulse1] = useState(0)
+  const [pulse2, setPulse2] = useState(0)
+  useEffect(() => {
+    if (!loveMeter) return
+    if (loveMeter.user1.score !== prevS1.current) {
+      prevS1.current = loveMeter.user1.score
+      setPulse1(p => p + 1)
+    }
+    if (loveMeter.user2.score !== prevS2.current) {
+      prevS2.current = loveMeter.user2.score
+      setPulse2(p => p + 1)
+    }
+  }, [loveMeter?.user1.score, loveMeter?.user2.score]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSend() {
     if (!msg.trim() || sending) return
@@ -111,7 +139,16 @@ export default function CouplePage() {
       )}
 
       {/* ── Love Meter (Care Battle) ── */}
-      {loveMeter && partner && (
+      {loveMeter && partner && (() => {
+        const u1Leading = loveMeter.leader === loveMeter.user1.id
+        const u2Leading = loveMeter.leader === loveMeter.user2.id
+        const diff = Math.abs(loveMeter.user1.score - loveMeter.user2.score)
+        const leaderName = u1Leading
+          ? (loveMeter.user1.id === user?.id ? 'YOU' : loveMeter.user1.name.split(' ')[0].toUpperCase())
+          : u2Leading
+            ? (loveMeter.user2.id === user?.id ? 'YOU' : loveMeter.user2.name.split(' ')[0].toUpperCase())
+            : null
+        return (
         <div className="mb-4 p-4 relative overflow-hidden" style={OBSIDIAN_FACE}>
           <Rivets inset={4} />
           {/* Battle-y diagonal scanlines */}
@@ -124,7 +161,9 @@ export default function CouplePage() {
                 <IconSwords size={14} />
                 <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>CARE BATTLE</span>
               </ObsidianChip>
-              <span className="text-[10px]" style={{ color: '#7A6A50' }}>Last 30 days</span>
+              <span className="font-pixel" style={{ fontSize: 6, color: '#9A8A60', letterSpacing: 1 }}>
+                THIS WEEK · RESETS IN {reset.days}D {reset.hours}H
+              </span>
             </div>
 
             {/* VS display */}
@@ -134,16 +173,20 @@ export default function CouplePage() {
                 <p className="font-pixel mb-1" style={{ fontSize: 7, letterSpacing: 1.5, color: PINK_HI, opacity: 0.85 }}>
                   {loveMeter.user1.id === user?.id ? 'YOU' : loveMeter.user1.name.split(' ')[0].toUpperCase()}
                 </p>
-                <p className="font-pixel" style={{
-                  fontSize: 26, lineHeight: 1,
-                  ...(loveMeter.leader === loveMeter.user1.id
-                    ? pinkText
-                    : { color: '#5A5A5A' }),
-                }}>
+                <p
+                  key={`u1-${pulse1}`}
+                  className="font-pixel"
+                  style={{
+                    fontSize: 26, lineHeight: 1,
+                    animation: 'cbPopScore 0.4s cubic-bezier(0.34,1.56,0.64,1) both',
+                    ...(u1Leading ? pinkText : { color: '#5A5A5A' }),
+                  }}>
                   {loveMeter.user1.score}
                 </p>
-                {loveMeter.leader === loveMeter.user1.id && (
-                  <div className="flex justify-center mt-1"><IconCrown size={18} /></div>
+                {u1Leading && (
+                  <div className="flex justify-center mt-1" style={{ animation: 'cbCrownBob 1.8s ease-in-out infinite' }}>
+                    <IconCrown size={18} />
+                  </div>
                 )}
               </div>
 
@@ -159,50 +202,148 @@ export default function CouplePage() {
                 <p className="font-pixel mb-1" style={{ fontSize: 7, letterSpacing: 1.5, color: PINK_HI, opacity: 0.85 }}>
                   {loveMeter.user2.id === user?.id ? 'YOU' : loveMeter.user2.name.split(' ')[0].toUpperCase()}
                 </p>
-                <p className="font-pixel" style={{
-                  fontSize: 26, lineHeight: 1,
-                  ...(loveMeter.leader === loveMeter.user2.id
-                    ? pinkText
-                    : { color: '#5A5A5A' }),
-                }}>
+                <p
+                  key={`u2-${pulse2}`}
+                  className="font-pixel"
+                  style={{
+                    fontSize: 26, lineHeight: 1,
+                    animation: 'cbPopScore 0.4s cubic-bezier(0.34,1.56,0.64,1) both',
+                    ...(u2Leading ? pinkText : { color: '#5A5A5A' }),
+                  }}>
                   {loveMeter.user2.score}
                 </p>
-                {loveMeter.leader === loveMeter.user2.id && (
-                  <div className="flex justify-center mt-1"><IconCrown size={18} /></div>
+                {u2Leading && (
+                  <div className="flex justify-center mt-1" style={{ animation: 'cbCrownBob 1.8s ease-in-out infinite' }}>
+                    <IconCrown size={18} />
+                  </div>
                 )}
               </div>
             </div>
 
-            {/* Competition bar — gold gradient on each side, neutral split */}
-            <div className="flex h-3 overflow-hidden" style={{
-              border: `1px solid ${accentA(0.4)}`,
-              background: '#000',
-              boxShadow: `inset 0 1px 3px rgba(0,0,0,0.9)`,
+            {/* Competition bar — taller, animated flow on each side,
+                glowing split-line at the boundary, pulse on the
+                leader's section. */}
+            <div className="relative h-6 overflow-hidden" style={{
+              border: `2px solid ${accentA(0.6)}`,
+              background: 'linear-gradient(180deg, #000 0%, #050507 100%)',
+              boxShadow: `inset 0 2px 4px rgba(0,0,0,0.95), 0 0 12px ${accentA(0.4)}`,
             }}>
-              <div style={{
-                width: `${loveMeter.user1.pct}%`,
-                background: `linear-gradient(90deg, #FF6B9D 0%, ${PINK} 100%)`,
-                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4)',
-                transition: 'width 0.5s',
+              {/* User 1 section */}
+              <div className="absolute left-0 top-0 h-full"
+                style={{
+                  width: `${loveMeter.user1.pct}%`,
+                  background: 'linear-gradient(180deg, #FF8DB8 0%, #FF4D87 50%, #C8265F 100%)',
+                  boxShadow: u1Leading
+                    ? 'inset 0 2px 0 rgba(255,255,255,0.45), inset 0 -2px 0 rgba(0,0,0,0.4), 0 0 12px rgba(255,109,157,0.7)'
+                    : 'inset 0 2px 0 rgba(255,255,255,0.25), inset 0 -2px 0 rgba(0,0,0,0.4)',
+                  transition: 'width 700ms cubic-bezier(0.34,1.4,0.55,1)',
+                  animation: u1Leading ? 'cbBarPulseL 1.6s ease-in-out infinite' : undefined,
+                }}>
+                {/* Flowing diagonal streaks moving toward the split */}
+                <div className="absolute inset-0" style={{
+                  backgroundImage: 'repeating-linear-gradient(-45deg, transparent 0 5px, rgba(255,255,255,0.22) 5px 7px)',
+                  backgroundSize: '11px 11px',
+                  animation: 'cbFlowR 1.1s linear infinite',
+                  mixBlendMode: 'screen',
+                }} />
+              </div>
+              {/* User 2 section */}
+              <div className="absolute top-0 h-full"
+                style={{
+                  left: `${loveMeter.user1.pct}%`,
+                  width: `${loveMeter.user2.pct}%`,
+                  background: 'linear-gradient(180deg, #C9B4FF 0%, #8A6CFF 50%, #5C2FE0 100%)',
+                  boxShadow: u2Leading
+                    ? 'inset 0 2px 0 rgba(255,255,255,0.45), inset 0 -2px 0 rgba(0,0,0,0.4), 0 0 12px rgba(167,139,250,0.7)'
+                    : 'inset 0 2px 0 rgba(255,255,255,0.25), inset 0 -2px 0 rgba(0,0,0,0.4)',
+                  transition: 'left 700ms cubic-bezier(0.34,1.4,0.55,1), width 700ms cubic-bezier(0.34,1.4,0.55,1)',
+                  animation: u2Leading ? 'cbBarPulseR 1.6s ease-in-out infinite' : undefined,
+                }}>
+                {/* Streaks flow the other way so the two halves visibly
+                    press against each other at the split. */}
+                <div className="absolute inset-0" style={{
+                  backgroundImage: 'repeating-linear-gradient(45deg, transparent 0 5px, rgba(255,255,255,0.22) 5px 7px)',
+                  backgroundSize: '11px 11px',
+                  animation: 'cbFlowL 1.1s linear infinite',
+                  mixBlendMode: 'screen',
+                }} />
+              </div>
+              {/* Glowing split-line */}
+              <div className="absolute top-0 bottom-0" style={{
+                left: `${loveMeter.user1.pct}%`,
+                width: 2,
+                background: '#fff',
+                boxShadow: '0 0 6px #fff, 0 0 14px rgba(255,255,255,0.7)',
+                transform: 'translateX(-1px)',
+                transition: 'left 700ms cubic-bezier(0.34,1.4,0.55,1)',
               }} />
-              <div style={{
-                width: `${loveMeter.user2.pct}%`,
-                background: `linear-gradient(90deg, ${PINK} 0%, #A78BFA 100%)`,
-                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4)',
-                transition: 'width 0.5s',
-              }} />
-            </div>
-            <div className="flex justify-between mt-1.5">
-              <span className="font-pixel" style={{ fontSize: 7, color: '#FF6B9D' }}>{loveMeter.user1.pct}%</span>
-              <span className="font-pixel" style={{ fontSize: 7, color: '#A78BFA' }}>{loveMeter.user2.pct}%</span>
             </div>
 
+            <div className="flex justify-between mt-1.5">
+              <span className="font-pixel" style={{
+                fontSize: 7, color: '#FF6B9D',
+                textShadow: u1Leading ? '0 0 6px rgba(255,107,157,0.7)' : 'none',
+              }}>{loveMeter.user1.pct}%</span>
+              <span className="font-pixel" style={{
+                fontSize: 7, color: '#A78BFA',
+                textShadow: u2Leading ? '0 0 6px rgba(167,139,250,0.7)' : 'none',
+              }}>{loveMeter.user2.pct}%</span>
+            </div>
+
+            {/* Verdict line */}
+            {leaderName && diff > 0 && (
+              <div className="flex items-center justify-center gap-1.5 mt-3 px-3 py-1.5 relative"
+                style={{
+                  ...OBSIDIAN_BTN,
+                  width: 'fit-content',
+                  margin: '12px auto 0',
+                }}>
+                <IconCrown size={11} />
+                <span className="font-pixel" style={{
+                  fontSize: 7, letterSpacing: 1.5, ...pinkText,
+                }}>
+                  {leaderName} LEADS BY {diff}
+                </span>
+              </div>
+            )}
+
             {!loveMeter.leader && (
-              <p className="text-center text-xs mt-2" style={{ color: '#7A6A50' }}>It&apos;s a tie!</p>
+              <p className="text-center font-pixel mt-3" style={{ fontSize: 7, color: PINK_LO, letterSpacing: 1.5 }}>
+                IT&apos;S A TIE!
+              </p>
             )}
           </div>
+
+          <style jsx>{`
+            @keyframes cbFlowR {
+              from { background-position: 0 0; }
+              to   { background-position: 11px 0; }
+            }
+            @keyframes cbFlowL {
+              from { background-position: 0 0; }
+              to   { background-position: -11px 0; }
+            }
+            @keyframes cbBarPulseL {
+              0%, 100% { filter: brightness(1); }
+              50%      { filter: brightness(1.18); }
+            }
+            @keyframes cbBarPulseR {
+              0%, 100% { filter: brightness(1); }
+              50%      { filter: brightness(1.18); }
+            }
+            @keyframes cbPopScore {
+              0%   { transform: scale(0.6); opacity: 0.4; }
+              60%  { transform: scale(1.18); opacity: 1; }
+              100% { transform: scale(1); opacity: 1; }
+            }
+            @keyframes cbCrownBob {
+              0%, 100% { transform: translateY(0)    rotate(-2deg); }
+              50%      { transform: translateY(-2px) rotate(2deg); }
+            }
+          `}</style>
         </div>
-      )}
+        )
+      })()}
 
       {/* ── Shared Journal ── */}
       <div className="mb-4">

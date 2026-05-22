@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from './useAuth'
 import type { Profile, JournalMessage, Interaction, GiftItem } from '@/types'
-import { computeLoveMeter, getAnniversaryInfo, type LoveMeterResult, type AnniversaryInfo } from '@/lib/couple'
+import { computeLoveMeter, getAnniversaryInfo, startOfWeek, type LoveMeterResult, type AnniversaryInfo } from '@/lib/couple'
 
 export function useCouple() {
   const supabase = createClient()
@@ -42,13 +42,16 @@ export function useCouple() {
       setAnniversary(getAnniversaryInfo(household.created_at))
     }
 
-    // Love meter — get interactions for last 30 days
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString()
+    // Love meter — interactions since Monday 00:00. The window is
+    // weekly so the scoreboard resets every Monday automatically: a
+    // partner can come back from behind without staring down a
+    // 30-day deficit.
+    const weekStart = startOfWeek().toISOString()
     const { data: interactions } = await supabase
       .from('interactions')
       .select('*')
       .eq('household_id', profile.household_id)
-      .gte('created_at', thirtyDaysAgo)
+      .gte('created_at', weekStart)
 
     if (interactions && p) {
       setLoveMeter(computeLoveMeter(
