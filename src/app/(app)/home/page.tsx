@@ -68,6 +68,12 @@ export default function HomePage() {
   const prevXpRef   = useRef(xp)
   const particleIdRef = useRef(0)
   const [xpParticles, setXpParticles] = useState<XpParticle[]>([])
+  // Gate the XP-sparkle animation behind a short post-auth delay so the
+  // initial 0 → loaded transition doesn't fire fake sparkles "topping
+  // up" the bar on every app open. Real in-session gains (task done,
+  // game finished) animate normally because they happen well after
+  // this settles.
+  const [xpAnimReady, setXpAnimReady] = useState(false)
 
   useEffect(() => {
     registerSW()
@@ -113,8 +119,23 @@ export default function HomePage() {
     return () => { supabase.removeChannel(ch) }
   }, [profile?.household_id, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Once auth has finished and the profile has had a moment to load,
+  // unlock the XP particle animation. Anything that happens before
+  // this is treated as initial state hydration, not a real XP gain.
+  useEffect(() => {
+    if (authLoading) return
+    const t = setTimeout(() => setXpAnimReady(true), 1000)
+    return () => clearTimeout(t)
+  }, [authLoading])
+
   // XP sparkle particles Eren → bar
   useEffect(() => {
+    if (!xpAnimReady) {
+      // Silently sync the ref so the first real gain animates from the
+      // correct baseline rather than from 0.
+      prevXpRef.current = xp
+      return
+    }
     if (xp <= prevXpRef.current) { prevXpRef.current = xp; return }
     const gained = xp - prevXpRef.current
     prevXpRef.current = xp
@@ -173,7 +194,7 @@ export default function HomePage() {
 
     setXpParticles(p => [...p, ...allParticles])
     setTimeout(() => setXpParticles([]), totalDuration + 2500)
-  }, [xp]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [xp, xpAnimReady]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [todayMood, setTodayMood]         = useState<UserMood | null>(null)
   const [moodChecked, setMoodChecked]     = useState(false)
