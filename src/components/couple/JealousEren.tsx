@@ -1,11 +1,11 @@
 'use client'
 
 // JealousEren — a very-rare floating speech bubble that pops above
-// Eren when the partner has clearly out-cared the current user today.
-// He whispers something like "I think Amina loves me more — she
-// feeds me more!". Fires at most once every six hours per user,
-// and even when eligible only ~12% of app opens, so it stays a
-// surprise instead of a nag.
+// Eren when one partner has clearly out-cared the other today. It's
+// the same line for both viewers: it names whoever is in the lead so
+// the partners get a shared "leaderboard" moment. Fires at most once
+// every six hours per device and even then only ~12% of opens, so it
+// stays a surprise instead of a nag.
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -19,22 +19,21 @@ const DELTA_FLOOR    = 2                   // partner must lead by ≥ this many
 const VISIBLE_MS     = 7000                // how long the bubble stays
 const Z_INDEX        = 45                  // sits below modals (popups are 70+)
 
-// Message bank.
-//   {p} → the partner's first name (the one who out-cared today)
-//   {u} → the viewer's own first name
-// Kept gender-neutral so the bubble reads the same for either
-// partner, and playful — never accusatory.
+// Message bank. `{leader}` is the name of whichever partner did more
+// care today — the SAME name for both viewers, since it's a shared
+// leaderboard moment, not a personal callout. Gender-neutral wording
+// so the line reads cleanly for any name.
 const LINES = [
-  '{p} loves me more today… {p} fed me more times.',
-  'I think {p} is my favourite today!',
-  '{p} took the best care of me — so cozy.',
-  '{p} spoils me, I love when {p} does it.',
-  '{p} gave me extra attention today, lucky me!',
-  'shhh… {p} cares for me a little extra today.',
-  'sorry {u}, but {p} kinda won today…',
-  'don\'t tell {u}, but {p} is my favourite right now.',
-  '{u}, {p} really showed up for me today!',
-  '{p} stole my heart today, sorry {u}…',
+  '{leader} is winning the love-leaderboard today!',
+  '{leader} is doing the most for me today.',
+  '{leader} fed me more — kinda crushing it.',
+  '{leader} is taking the lead in caring for me!',
+  '{leader} is in first place today, no contest.',
+  '{leader} is racking up the points today!',
+  'today\'s MVP is {leader}!',
+  '{leader} is spoiling me the most today.',
+  '{leader} is currently my favourite human, just saying.',
+  '{leader} is winning the day — keep up!',
 ]
 
 export default function JealousEren() {
@@ -75,24 +74,22 @@ export default function JealousEren() {
         if (row.user_id === user!.id) mine++
         else if (row.user_id === partner!.id) theirs++
       }
-      // Only triggers when partner is clearly ahead today.
-      if (theirs - mine < DELTA_FLOOR) return
+      // Trigger whenever EITHER partner is clearly ahead today.
+      // Both viewers see the same line naming whoever leads, so it
+      // reads as a shared scoreboard moment rather than a personal
+      // jab.
+      const diff = Math.abs(mine - theirs)
+      if (diff < DELTA_FLOOR) return
+
+      const leaderProfile = mine > theirs ? profile! : partner!
+      const leaderFirst = (leaderProfile.name ?? '').split(' ')[0] || 'they'
 
       // Stamp the cooldown only when we actually show — so a roll
       // that didn't fire can be rolled again later.
       try { localStorage.setItem(key, new Date().toISOString()) } catch { /* ignore */ }
 
-      // Pull both first names so the line can address you by name AND
-      // mention the partner — different from each side. If a name is
-      // missing for any reason, fall back to "they"/"you" so the
-      // sentence still reads naturally.
-      const partnerFirst = (partner!.name ?? '').split(' ')[0] || 'they'
-      const userFirst    = (profile!.name ?? '').split(' ')[0] || 'you'
       const template = LINES[Math.floor(Math.random() * LINES.length)]
-      const text = template
-        .replaceAll('{p}', partnerFirst)
-        .replaceAll('{u}', userFirst)
-      setLine(text)
+      setLine(template.replaceAll('{leader}', leaderFirst))
 
       playSound('ui_modal_open')
       setTimeout(() => { if (!cancelled) setLine(null) }, VISIBLE_MS)
