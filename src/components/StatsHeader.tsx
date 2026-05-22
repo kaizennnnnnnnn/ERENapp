@@ -11,7 +11,7 @@ import { MAX_LEVEL } from '@/lib/levelRewards'
 import { createClient } from '@/lib/supabase/client'
 import { IconHeart, IconMeat, IconLightning, IconMoon, IconDrop, IconCoin } from './PixelIcons'
 import { playSound } from '@/lib/sounds'
-import { PINK, PINK_HI, PINK_LO, OBSIDIAN_FACE, accentA } from './obsidian'
+import { PINK, PINK_HI, PINK_LO, OBSIDIAN_FACE, Rivets, accentA } from './obsidian'
 
 type StatKey = 'happiness' | 'hunger' | 'energy' | 'sleep_quality' | 'cleanliness'
 
@@ -50,12 +50,6 @@ function ObsidianGauge({ def, value }: { def: GaugeDef; value: number }) {
     tier === 'mid' ? 'rgba(242,215,122,0.4)' :
     `${accentA(0.4)}`
 
-  // Tiny pixel-mood emoji that shifts with the tier — replaces the
-  // old 5-dot indicator with something on-theme and recognisable at
-  // a glance instead of a row of pink dots.
-  const moodIcon = tier === 'low' ? '˃︿˂' : tier === 'mid' ? '•‿•' : '◕‿◕'
-  const moodColor = tier === 'low' ? '#ff8c8c' : tier === 'mid' ? '#F2D77A' : PINK_HI
-
   return (
     <div style={{
       flex: 1,
@@ -67,6 +61,8 @@ function ObsidianGauge({ def, value }: { def: GaugeDef; value: number }) {
       gap: 3,
       ...obsidianFace(PINK + '33'),
     }}>
+      <Rivets inset={2} />
+
       {/* Outer obsidian ring around the gauge */}
       <div
         className={isCrit ? 'animate-heartbeat' : ''}
@@ -133,22 +129,26 @@ function ObsidianGauge({ def, value }: { def: GaugeDef; value: number }) {
         }} />
       </div>
 
-      {/* Value row — number + a tiny pixel mood face that mirrors the
-          stat tier. Replaces the old 5-dot indicator entirely. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 3, lineHeight: 1 }}>
-        <span className="font-pixel" style={{
-          fontSize: 7, lineHeight: 1,
-          color: tier === 'low' ? '#ff8c8c' : PINK_HI,
-          textShadow: tier === 'low' ? '0 0 4px rgba(248,113,113,0.6)' : `0 0 3px ${accentA(0.33)}`,
-        }}>{v}</span>
-        <span aria-hidden style={{
-          fontFamily: 'system-ui, -apple-system, sans-serif',
-          fontSize: 6, lineHeight: 1, letterSpacing: -0.5,
-          color: moodColor,
-          opacity: 0.85,
-          textShadow: `0 0 3px ${moodColor}55`,
-        }}>{moodIcon}</span>
+      {/* 5-dot tier indicator */}
+      <div style={{ display: 'flex', gap: 1, alignItems: 'center', height: 3 }}>
+        {Array.from({ length: 5 }).map((_, i) => {
+          const lit = i < Math.round(v / 20)
+          return (
+            <div key={i} style={{
+              width: 3,
+              height: i === 2 ? 3 : 2,
+              background: lit ? PINK : '#2a2a2e',
+              boxShadow: lit ? `0 0 2px ${PINK}` : 'none',
+            }} />
+          )
+        })}
       </div>
+
+      <span className="font-pixel" style={{
+        fontSize: 7, lineHeight: 1,
+        color: tier === 'low' ? '#ff8c8c' : PINK_HI,
+        textShadow: tier === 'low' ? '0 0 4px rgba(248,113,113,0.6)' : `0 0 3px ${accentA(0.33)}`,
+      }}>{v}</span>
     </div>
   )
 }
@@ -311,18 +311,14 @@ export default function StatsHeader() {
             ...obsidianFace(PINK + '55'),
           }}
         >
+          <Rivets inset={3} />
           <div className="flex items-center justify-between">
             <div className="flex items-center" style={{ gap: 4 }}>
-              {/* Pixel sparkle replaces the lone diamond stud — same
-                  size but reads as a charm instead of a stat dot. */}
-              <svg width="7" height="7" viewBox="0 0 7 7" shapeRendering="crispEdges" aria-hidden>
-                <rect x="3" y="0" width="1" height="7" fill={PINK} />
-                <rect x="0" y="3" width="7" height="1" fill={PINK} />
-                <rect x="2" y="2" width="1" height="1" fill={PINK_HI} />
-                <rect x="4" y="2" width="1" height="1" fill={PINK_HI} />
-                <rect x="2" y="4" width="1" height="1" fill={PINK_HI} />
-                <rect x="4" y="4" width="1" height="1" fill={PINK_HI} />
-              </svg>
+              <div style={{
+                width: 5, height: 5, background: PINK,
+                boxShadow: `0 0 4px ${PINK}`,
+                transform: 'rotate(45deg)',
+              }} />
               <span className="font-pixel" style={{
                 fontSize: 7, color: PINK_HI, letterSpacing: 2.5,
                 textShadow: `0 0 3px ${accentA(0.4)}`,
@@ -374,6 +370,7 @@ export default function StatsHeader() {
             ...obsidianFace(PINK + '55'),
           }}
         >
+          <Rivets inset={3} />
           <div style={{ filter: `drop-shadow(0 0 3px ${accentA(0.4)})` }}>
             <IconCoin size={16} />
           </div>
