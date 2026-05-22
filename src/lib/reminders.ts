@@ -14,6 +14,73 @@ export interface Reminder {
   created_at: string
 }
 
+// One row of reminder_fires — a logged firing event the user may have
+// missed if their phone was off. The client merges these into the
+// ReminderSheet so nothing gets silently lost.
+export interface ReminderFire {
+  id: string
+  reminder_id: string
+  household_id: string
+  user_id: string | null
+  text: string
+  fired_at: string
+  dismissed_by: string[]
+}
+
+export async function getRecentFires(
+  supabase: SupabaseClient,
+  householdId: string,
+  userId: string,
+): Promise<ReminderFire[]> {
+  // Last 48 h is the window we surface as "missed" — anything older
+  // is clutter, the user will have already seen it on next login.
+  const cutoff = new Date(Date.now() - 48 * 3600 * 1000).toISOString()
+  const { data } = await supabase
+    .from('reminder_fires')
+    .select('*')
+    .eq('household_id', householdId)
+    .gte('fired_at', cutoff)
+    .order('fired_at', { ascending: false })
+    .limit(40)
+  if (!data) return []
+  // Filter out private fires that aren't ours, and anything we've
+  // already dismissed.
+  return (data as ReminderFire[]).filter(f =>
+    (f.user_id === null || f.user_id === userId) &&
+    !(f.dismissed_by ?? []).includes(userId)
+  )
+}
+
+export async function dismissFire(
+  supabase: SupabaseClient,
+  fireId: string,
+  userId: string,
+): Promise<void> {
+  const { data: cur } = await supabase
+    .from('reminder_fires')
+    .select('dismissed_by')
+    .eq('id', fireId)
+    .single()
+  if (!cur) return
+  const arr = (cur.dismissed_by ?? []) as string[]
+  if (arr.includes(userId)) return
+  await supabase.from('reminder_fires')
+    .update({ dismissed_by: [...arr, userId] })
+    .eq('id', fireId)
+}
+
+// Client-side safety-net ping. Fire-and-forget. The server cron is the
+// primary scheduler, but pinging on tab focus catches any minute the
+// cron skipped (or any minute the user opened the app right after).
+let _lastFirePing = 0
+export function pingFireReminders(): void {
+  if (typeof window === 'undefined') return
+  const now = Date.now()
+  if (now - _lastFirePing < 60 * 1000) return  // at most once a minute
+  _lastFirePing = now
+  fetch('/api/fire-reminders', { method: 'GET', cache: 'no-store' }).catch(() => {})
+}
+
 // ── CRUD ─────────────────────────────────────────────────────────────────────
 
 export async function getReminders(

@@ -23,7 +23,7 @@ import TaskPanel from '@/components/TaskPanel'
 import BlinkingEren from '@/components/BlinkingEren'
 import PageLoader from '@/components/PageLoader'
 import ReminderSheet from '@/components/ReminderSheet'
-import { registerSW } from '@/lib/reminders'
+import { registerSW, pingFireReminders } from '@/lib/reminders'
 import { checkStatNotifications, requestNotificationPermission, notifyPartnerAction } from '@/lib/statNotifications'
 import { subscribeToPush } from '@/lib/pushSubscription'
 import { useCouple } from '@/hooks/useCouple'
@@ -83,6 +83,22 @@ export default function HomePage() {
       }
     })
   }, [user?.id, profile?.household_id])
+
+  // Safety-net ping for /api/fire-reminders. The Supabase pg_cron is
+  // the primary scheduler, but pinging on mount + tab focus catches
+  // any minute the cron skipped — and means a phone coming back
+  // online still picks up its current-minute reminder.
+  useEffect(() => {
+    pingFireReminders()
+    const onVis = () => { if (document.visibilityState === 'visible') pingFireReminders() }
+    const onFocus = () => pingFireReminders()
+    document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [])
 
   // Check stat notifications whenever stats change
   useEffect(() => {
