@@ -17,7 +17,13 @@ const ACTION_LABELS: Record<string, string> = {
   medicine: 'MEDICINE',
 }
 
-const Z_POP = 12
+// Care scenes (FeedScene, PlayScene, etc.) render full-screen at
+// z-40, so the pop has to sit ABOVE them or it appears to "not
+// fire" — the realtime event lands but the bubble renders
+// underneath the scene overlay. Modals/popups (ErenMessagePopup,
+// FortunePopup) are z-70, so 55 keeps the pop above scenes and
+// below blocking modals.
+const Z_POP = 55
 
 interface Snapshot {
   signal: DailyActionSignal

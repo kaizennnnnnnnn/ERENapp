@@ -398,12 +398,11 @@ export default function HomePage() {
                 surprise. */}
             <JealousEren />
 
-            {/* Persistent daily care-battle HUD above Eren, plus the
-                ephemeral pop-up that floats over his head every time
-                an action lands. The HUD opens a detail sheet on tap
-                with the prize info and time-to-reset. */}
+            {/* Persistent daily care-battle HUD above Eren. The HUD
+                opens a detail sheet on tap with the prize info and
+                time-to-reset. Lives inside the awake block since it
+                anchors visually to Eren's head. */}
             <DailyBattleHUD />
-            <DailyBattlePop />
 
             <div className="absolute" style={{
               bottom: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 2,
@@ -428,6 +427,16 @@ export default function HomePage() {
 
           </>
         )}
+
+        {/* DailyBattlePop lives OUTSIDE the !is_sleeping block so it
+            still mounts during the sleep action's optimistic update.
+            Without this, the sleep action would unmount the pop a
+            split-second before the realtime INSERT arrives and the
+            animation would silently never fire for sleep. The pop is
+            at z-55 so it appears above care-scene overlays (z-40) as
+            well, which is why feed/play/wash also visibly trigger it
+            from inside their scenes. */}
+        <DailyBattlePop />
 
         {/* ══ HUD OVERLAY (below shared stats header) ══ */}
         <div className="absolute left-0 right-0 z-10 px-3" style={{ top: 'calc(var(--safe-top) + 124px)' }}>
