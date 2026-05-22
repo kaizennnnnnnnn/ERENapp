@@ -103,6 +103,11 @@ export interface Interaction {
   weight_delta: number
   note: string | null
   created_at: string
+  // True when the relevant stat was actually low at action time.
+  // False = action still recorded, but skipped by the daily battle
+  // scoreboard + action pop so spamming a maxed stat doesn't farm
+  // points.
+  useful?: boolean
   // joined
   profile?: Profile
 }

@@ -204,7 +204,9 @@ export default function DailyBattleSheet({ battle, onClose }: Props) {
         </p>
       </div>
 
-      <style jsx>{`
+      {/* Plain <style> so keyframe names stay un-hashed and the
+          inline `animation: '...'` references actually resolve. */}
+      <style>{`
         @keyframes dbsSlide {
           0%   { transform: translateY(60px); opacity: 0; }
           100% { transform: translateY(0); opacity: 1; }

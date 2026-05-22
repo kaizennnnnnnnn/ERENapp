@@ -69,14 +69,19 @@ export function useDailyBattle(): DailyBattleState {
   const fetchToday = useCallback(async () => {
     if (!profile?.household_id || !user?.id) return
     const sinceIso = startOfDay().toISOString()
+    // Only count rows the server marked as useful — i.e. the
+    // relevant stat was actually low at action time. Wasted actions
+    // (feeding when full, washing when clean) inserted with
+    // useful=false don't score.
     const { data } = await supabase
       .from('interactions')
-      .select('user_id, action_type')
+      .select('user_id, action_type, useful')
       .eq('household_id', profile.household_id)
       .gte('created_at', sinceIso)
+      .or('useful.is.null,useful.eq.true')
 
     let me = 0, them = 0, count = 0
-    for (const i of (data ?? []) as Pick<Interaction, 'user_id' | 'action_type'>[]) {
+    for (const i of (data ?? []) as Pick<Interaction, 'user_id' | 'action_type' | 'useful'>[]) {
       const pts = ACTION_POINTS[i.action_type] ?? 1
       if (i.user_id === user.id) me += pts
       else if (i.user_id === partner?.id) them += pts
@@ -101,6 +106,9 @@ export function useDailyBattle(): DailyBattleState {
         const row = payload.new as Interaction
         // Ignore anything that didn't happen today (e.g. backfilled rows).
         if (new Date(row.created_at) < startOfDay()) return
+        // Skip wasted actions — the daily battle only counts (and
+        // animates) when the relevant stat was actually low.
+        if (row.useful === false) return
         const pts = ACTION_POINTS[row.action_type] ?? 1
         const isMe = row.user_id === user.id
         if (isMe) setMyScore(s => s + pts)

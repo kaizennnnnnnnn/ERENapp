@@ -137,7 +137,13 @@ export default function DailyBattlePop() {
         borderTop: `7px solid ${accent}`,
       }} />
 
-      <style jsx>{`
+      {/* Plain <style> (not styled-jsx) so the keyframe name stays
+          un-hashed — inline `animation: 'dbPopFloat ...'` resolves
+          correctly. Under styled-jsx the keyframe gets scoped and
+          the inline reference silently misses, causing the pop to
+          render with its starting (opacity:0) state and look like
+          nothing happened. */}
+      <style>{`
         @keyframes dbPopFloat {
           0%   { transform: translateX(-50%) translateY(18px) scale(0.5); opacity: 0; }
           15%  { transform: translateX(-50%) translateY(-6px) scale(1.08); opacity: 1; }

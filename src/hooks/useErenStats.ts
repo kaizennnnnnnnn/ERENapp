@@ -22,6 +22,25 @@ const DECAY_PER_HOUR = {
   sleep_quality: -7,
   cleanliness:   -4,
 }
+
+// Daily-battle gate: an action only counts toward the per-day
+// scoreboard / floating bar when the relevant stat is BELOW this
+// value (or, for medicine, when Eren is actually sick). Feeding at
+// 92 / washing at 95 still inserts the row for history, but
+// `useful: false` keeps the partner-competition meter from being
+// gamed by spamming maxed stats.
+const USEFUL_THRESHOLD = 90
+
+function isUsefulAction(action: ActionType, before: ErenStats): boolean {
+  switch (action) {
+    case 'feed':     return before.hunger        < USEFUL_THRESHOLD
+    case 'play':     return before.happiness     < USEFUL_THRESHOLD
+    case 'sleep':    return before.energy        < USEFUL_THRESHOLD
+    case 'wash':     return (before.cleanliness ?? 100) < USEFUL_THRESHOLD
+    case 'medicine': return !!before.is_sick
+    default:         return true
+  }
+}
 const DECAY_CAP_HOURS = 12 // cap per run — a 3-day absence shouldn't instantly zero stats
 const DECAY_MIN_SAVE_HOURS = 0.05 // ~3 min — below this, don't bother writing to DB
 
@@ -249,9 +268,10 @@ export function useErenStats(householdId: string | null) {
     const newMood = computeErenMood({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, cleanliness: newCl })
     const sleepingFlag = action === 'sleep' ? true : base.is_sleeping
     setStats(prev => prev ? { ...prev, happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, weight: newW, cleanliness: newCl, is_sick: newSick, mood: newMood, is_sleeping: sleepingFlag } : prev)
+    const useful = isUsefulAction(action, base)
     const [su] = await Promise.all([
       supabase.from('eren_stats').update({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, weight: newW, cleanliness: newCl, is_sick: newSick, mood: newMood, is_sleeping: sleepingFlag, last_decay_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('household_id', householdId),
-      supabase.from('interactions').insert({ household_id: householdId, user_id: userId, action_type: action, happiness_delta: cfg.deltas.happiness ?? 0, hunger_delta: cfg.deltas.hunger ?? 0, energy_delta: cfg.deltas.energy ?? 0, sleep_delta: cfg.deltas.sleep_quality ?? 0, weight_delta: cfg.deltas.weight ?? 0 }),
+      supabase.from('interactions').insert({ household_id: householdId, user_id: userId, action_type: action, happiness_delta: cfg.deltas.happiness ?? 0, hunger_delta: cfg.deltas.hunger ?? 0, energy_delta: cfg.deltas.energy ?? 0, sleep_delta: cfg.deltas.sleep_quality ?? 0, weight_delta: cfg.deltas.weight ?? 0, useful }),
     ])
     if (su.error) { await fetchStats(); return { success: false, message: su.error.message } }
     return { success: true, message: `${cfg.emoji} ${cfg.label} done!` }
@@ -278,9 +298,12 @@ export function useErenStats(householdId: string | null) {
     const newW  = Math.round(Math.max(2, Math.min(10, base.weight + weightD)) * 100) / 100
     const newMood = computeErenMood({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, cleanliness: newCl })
     setStats(prev => prev ? { ...prev, happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, cleanliness: newCl, weight: newW, mood: newMood } : prev)
+    // Feeding only counts toward the daily battle when Eren is
+    // actually hungry — at 90+ he's full and the action is wasted.
+    const useful = base.hunger < USEFUL_THRESHOLD
     const [su, ii] = await Promise.all([
       supabase.from('eren_stats').update({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, cleanliness: newCl, weight: newW, mood: newMood, last_decay_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('household_id', householdId),
-      supabase.from('interactions').insert({ household_id: householdId, user_id: userId, action_type: 'feed', happiness_delta: happyD, hunger_delta: hungerD, energy_delta: 0, sleep_delta: 0, weight_delta: weightD }),
+      supabase.from('interactions').insert({ household_id: householdId, user_id: userId, action_type: 'feed', happiness_delta: happyD, hunger_delta: hungerD, energy_delta: 0, sleep_delta: 0, weight_delta: weightD, useful }),
     ])
     if (su.error || ii.error) { await fetchStats(); return { success: false, message: 'Failed' } }
     return { success: true, message: 'Eren is eating!' }
