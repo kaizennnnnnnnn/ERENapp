@@ -630,38 +630,89 @@ function KraftSectionCover({ section, sectionIndex, done, total, onOpen }: {
         width="100%" height="100%"
         viewBox="0 0 30 40" preserveAspectRatio="none"
         shapeRendering="crispEdges"
-        style={{ position: 'absolute', inset: 0, opacity: 0.45, pointerEvents: 'none' }}
+        style={{ position: 'absolute', inset: 0, opacity: 0.5, pointerEvents: 'none' }}
       >
-        {Array.from({ length: 70 }).map((_, i) => {
+        {Array.from({ length: 110 }).map((_, i) => {
           // Deterministic pseudo-random scatter keyed off the section
           // index so each cover gets the same texture every render.
           const seed = (i * 1103515245 + sectionIndex * 12345) & 0x7fffffff
           const x = seed % 30
           const y = (seed >> 5) % 40
-          const dark = (seed >> 10) & 1
+          const kind = (seed >> 10) & 3 // 0..3
+          const fill =
+            kind === 0 ? 'rgba(60,40,20,0.55)' :
+            kind === 1 ? 'rgba(60,40,20,0.3)' :
+            kind === 2 ? 'rgba(255,250,235,0.35)' :
+                         'rgba(255,250,235,0.18)'
           return (
             <rect key={i}
-              x={x} y={y} width={1} height={1}
-              fill={dark ? 'rgba(60,40,20,0.55)' : 'rgba(255,250,235,0.35)'} />
+              x={x} y={y} width={1} height={1} fill={fill} />
           )
         })}
       </svg>
 
+      {/* Lined page edges peeking out from the right side — gives the
+          cover a "thick notebook with many pages" feel. Repeating
+          stripes alternate cream paper / shadow line so it reads
+          chunky and pixel-art rather than like a printed gradient. */}
+      <div style={{
+        position: 'absolute', right: 0, top: 5, bottom: 5,
+        width: 5,
+        background: 'repeating-linear-gradient(180deg, #fff5dc 0 3px, rgba(0,0,0,0.28) 3px 4px)',
+        borderLeft: `1px solid ${INK}`,
+        zIndex: 1,
+      }} />
+
+      {/* Section-colored bookmark ribbon hanging from the top. The
+          V-cut at the bottom is two stacked triangles so it stays
+          pixel-clean instead of antialiased. */}
+      <div style={{
+        position: 'absolute', top: 0, right: '28%',
+        width: 7, height: 28,
+        background: accent,
+        borderLeft: `1px solid ${INK}`,
+        borderRight: `1px solid ${INK}`,
+        borderBottom: `1px solid ${INK}`,
+        boxShadow: `1px 1px 0 rgba(0,0,0,0.25)`,
+        zIndex: 3,
+      }}>
+        {/* Pixel highlight stripe */}
+        <div style={{
+          position: 'absolute', left: 1, top: 2, width: 1, height: 18,
+          background: 'rgba(255,255,255,0.45)',
+        }} />
+        {/* V-cut bottom */}
+        <div style={{
+          position: 'absolute', bottom: -5, left: -1, width: 0, height: 0,
+          borderLeft: '4px solid transparent',
+          borderRight: '4px solid transparent',
+          borderTop: `5px solid ${accent}`,
+        }} />
+        <div style={{
+          position: 'absolute', bottom: -3, left: 0, width: 0, height: 0,
+          borderLeft: '4px solid transparent',
+          borderRight: '4px solid transparent',
+          borderTop: `4px solid ${INK}`,
+          opacity: 0.4,
+        }} />
+      </div>
+
       {/* Pixel rivets — gold corner studs like reward panels */}
       {[
-        { left: 4, top: 4 }, { right: 4, top: 4 },
-        { left: 4, bottom: 4 }, { right: 4, bottom: 4 },
+        { left: 4, top: 4 }, { right: 9, top: 4 },
+        { left: 4, bottom: 4 }, { right: 9, bottom: 4 },
       ].map((p, i) => (
         <div key={i} style={{
           position: 'absolute', ...p, width: 3, height: 3,
           background: '#F5C842',
           boxShadow: `1px 1px 0 ${INK}`,
+          zIndex: 2,
         }} />
       ))}
 
       {/* Pixel staples down the spine — chunky 3-pixel rectangles */}
       {['16%', '48%', '80%'].map((y, i) => (
-        <div key={i} style={{ position: 'absolute', left: 7, top: y }}>
+        <div key={i} style={{ position: 'absolute', left: 7, top: y, zIndex: 2 }}>
           <div style={{
             width: 8, height: 3,
             background: '#d6d4cf',
@@ -687,6 +738,44 @@ function KraftSectionCover({ section, sectionIndex, done, total, onOpen }: {
           position: 'absolute', left: 2, right: 2, top: 1, height: 1,
           background: 'rgba(255,255,255,0.55)',
         }} />
+      </div>
+
+      {/* Pixel doodle: small accent star tucked between the subtitle
+          and the progress strip — adds a sparkle in the safe zone. */}
+      <div style={{
+        position: 'absolute',
+        right: `${20 + (sectionIndex * 11) % 14}%`,
+        bottom: `${30 + (sectionIndex * 3) % 6}%`,
+        transform: `rotate(${-12 + sectionIndex * 5}deg)`,
+        zIndex: 1, pointerEvents: 'none',
+      }}>
+        <svg width="10" height="10" viewBox="0 0 5 5" shapeRendering="crispEdges">
+          <rect x="2" y="0" width="1" height="5" fill={accent} />
+          <rect x="0" y="2" width="5" height="1" fill={accent} />
+          <rect x="1" y="1" width="1" height="1" fill={accent} />
+          <rect x="3" y="1" width="1" height="1" fill={accent} />
+          <rect x="1" y="3" width="1" height="1" fill={accent} />
+          <rect x="3" y="3" width="1" height="1" fill={accent} />
+          <rect x="2" y="2" width="1" height="1" fill="#fffaee" />
+        </svg>
+      </div>
+
+      {/* Pixel doodle: pen-red heart on the opposite side, also in the
+          gap below the subtitle so the title never gets covered. */}
+      <div style={{
+        position: 'absolute',
+        left: `${22 + (sectionIndex * 9) % 12}%`,
+        bottom: `${28 + (sectionIndex * 4) % 5}%`,
+        transform: `rotate(${8 - sectionIndex * 4}deg)`,
+        zIndex: 1, pointerEvents: 'none',
+      }}>
+        <svg width="10" height="9" viewBox="0 0 5 4" shapeRendering="crispEdges">
+          <rect x="0" y="0" width="2" height="1" fill={PEN_RED} />
+          <rect x="3" y="0" width="2" height="1" fill={PEN_RED} />
+          <rect x="0" y="1" width="5" height="2" fill={PEN_RED} />
+          <rect x="1" y="3" width="3" height="1" fill={PEN_RED} />
+          <rect x="1" y="0" width="1" height="1" fill="rgba(255,255,255,0.5)" />
+        </svg>
       </div>
 
       {/* Top brand strip */}
@@ -757,8 +846,10 @@ function KraftSectionCover({ section, sectionIndex, done, total, onOpen }: {
         </div>
       </div>
 
-      {/* Pixel paw-print stamp where OPEN used to be — chunky 6×6 cell
-          grid drawn with crispEdges so it sits like a sticker. */}
+      {/* Pixel Eren-face stamp where OPEN used to be — replaces the
+          plain paw print with the cat himself, peeking from a stamped
+          ID-card frame. Section accent shows in the inner ears so the
+          stamp picks up the cover's colour too. */}
       <div style={{
         position: 'absolute', right: 6, top: 26,
         transform: 'rotate(-8deg)',
@@ -766,16 +857,33 @@ function KraftSectionCover({ section, sectionIndex, done, total, onOpen }: {
         border: `2px solid ${PEN_RED}`,
         background: '#fff8e8',
         boxShadow: `2px 2px 0 rgba(0,0,0,0.3)`,
+        zIndex: 2,
       }}>
-        <svg width="16" height="14" viewBox="0 0 8 7" shapeRendering="crispEdges">
-          {/* main pad */}
-          <rect x="2" y="3" width="4" height="3" fill={PEN_RED} />
-          <rect x="3" y="6" width="2" height="1" fill={PEN_RED} />
-          {/* toe beans */}
-          <rect x="1" y="1" width="1" height="2" fill={PEN_RED} />
-          <rect x="3" y="0" width="1" height="2" fill={PEN_RED} />
-          <rect x="4" y="0" width="1" height="2" fill={PEN_RED} />
-          <rect x="6" y="1" width="1" height="2" fill={PEN_RED} />
+        <svg width="18" height="16" viewBox="0 0 12 11" shapeRendering="crispEdges">
+          {/* ears outer */}
+          <rect x="1" y="0" width="2" height="2" fill={PEN_RED} />
+          <rect x="9" y="0" width="2" height="2" fill={PEN_RED} />
+          <rect x="2" y="0" width="1" height="1" fill={PEN_RED} />
+          {/* ears inner — accent color so the stamp picks up the
+              section's pastel */}
+          <rect x="2" y="1" width="1" height="1" fill={accent} />
+          <rect x="9" y="1" width="1" height="1" fill={accent} />
+          {/* head silhouette (pen-red outline) */}
+          <rect x="1" y="2" width="10" height="6" fill={PEN_RED} />
+          {/* eyes — knocked out of the silhouette as paper-colour
+              squares so the face reads even at this size */}
+          <rect x="3" y="4" width="2" height="2" fill="#fff8e8" />
+          <rect x="7" y="4" width="2" height="2" fill="#fff8e8" />
+          {/* nose */}
+          <rect x="5" y="6" width="2" height="1" fill="#fff8e8" />
+          {/* chin tuft / mouth */}
+          <rect x="4" y="8" width="4" height="1" fill={PEN_RED} />
+          <rect x="5" y="9" width="2" height="1" fill={PEN_RED} />
+          {/* whiskers */}
+          <rect x="0" y="6" width="1" height="1" fill={PEN_RED} />
+          <rect x="11" y="6" width="1" height="1" fill={PEN_RED} />
+          <rect x="0" y="7" width="1" height="1" fill={PEN_RED} />
+          <rect x="11" y="7" width="1" height="1" fill={PEN_RED} />
         </svg>
       </div>
     </button>
