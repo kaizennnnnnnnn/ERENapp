@@ -58,11 +58,16 @@ export function useCouple() {
       ))
     }
 
-    // Journal messages
+    // Journal messages.
+    //
+    // Eren-delivered messages (via_eren = true) are filtered out here so
+    // they never appear in the heart-button journal — they're a separate
+    // channel that fires the ErenMessagePopup once and disappears.
     const { data: msgs } = await supabase
       .from('couple_journal')
       .select('*, profile:profiles!sender_id(*)')
       .eq('household_id', profile.household_id)
+      .or('via_eren.is.null,via_eren.eq.false')
       .order('created_at', { ascending: false })
       .limit(50)
     if (msgs) {
@@ -119,6 +124,16 @@ export function useCouple() {
       }, payload => {
         const msg = payload.new as JournalMessage
         if (msg.sender_id !== user.id) {
+          // Eren-delivered messages get the popup only — never the
+          // heart-button counter or the journal list. Regular messages
+          // go through both channels.
+          if (msg.via_eren) {
+            const lastReadMs = new Date(localStorage.getItem(`eren_journal_read_${user.id}`) ?? 0).getTime()
+            if (new Date(msg.created_at).getTime() > lastReadMs) {
+              setNewMessage(msg)
+            }
+            return
+          }
           // Only count if the incoming message is newer than our read marker
           const lastReadMs = new Date(localStorage.getItem(`eren_journal_read_${user.id}`) ?? 0).getTime()
           if (new Date(msg.created_at).getTime() > lastReadMs) {
@@ -138,7 +153,13 @@ export function useCouple() {
   // calling this, so by the time the row lands, both fridges are already
   // consistent. The journal row just records the attachment for display.
   // An empty message body is allowed when a gift is attached.
-  const sendMessage = useCallback(async (text: string, gift?: GiftItem | null) => {
+  //
+  // `viaEren` flag: when true, the message was sent through the
+  // home-screen ThoughtCloud. The row is stamped with via_eren=true so
+  // both the journal filter and the realtime handler route it to the
+  // ErenMessagePopup only — and the push notification hides the body
+  // and just says "Eren has a message for you".
+  const sendMessage = useCallback(async (text: string, gift?: GiftItem | null, viaEren = false) => {
     if (!user?.id || !profile?.household_id) return
     const trimmed = text.trim()
     if (!trimmed && !gift) return
@@ -147,6 +168,7 @@ export function useCouple() {
       sender_id: user.id,
       message: trimmed,
       gift_item: gift ?? null,
+      via_eren: viaEren,
     })
     // Fire-and-forget web-push to the partner. Works even when their PWA is
     // fully closed; the in-app realtime channel only fires when their tab is
@@ -160,6 +182,7 @@ export function useCouple() {
         sender_id: user.id,
         sender_name: profile.name ?? '',
         message: trimmed || (gift ? `sent a ${gift.key}!` : ''),
+        via_eren: viaEren,
       }),
     }).catch(() => { /* best-effort */ })
   }, [user?.id, profile?.household_id, profile?.name]) // eslint-disable-line react-hooks/exhaustive-deps

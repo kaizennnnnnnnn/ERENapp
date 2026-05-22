@@ -240,6 +240,12 @@ export interface JournalMessage {
   // Optional food gift attached to the message. When present, the qty was
   // already moved from sender → recipient at send time (see useErenStats).
   gift_item?: GiftItem | null
+  // True when the message was sent via the home-screen ThoughtCloud
+  // ("Eren has a message"). These messages only ever surface through
+  // the ErenMessagePopup and are filtered out of the heart-button
+  // journal list. The accompanying push notification also hides the
+  // actual body text for these.
+  via_eren?: boolean
   profile?: Profile
 }
 

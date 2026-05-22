@@ -61,7 +61,10 @@ export default function ThoughtCloud() {
   async function handleSendMessage() {
     if (!text.trim() || sending) return
     setSending(true)
-    await sendMessage(text.trim(), null)
+    // viaEren=true so the partner gets the dedicated popup + the
+    // "Eren has a message for you" push notification, and the row is
+    // kept out of the heart-button journal list.
+    await sendMessage(text.trim(), null, true)
     setText('')
     setToast('Eren will deliver it')
     setSending(false)
@@ -77,7 +80,7 @@ export default function ThoughtCloud() {
       setSending(false)
       return
     }
-    await sendMessage('', { key, qty: 1 })
+    await sendMessage('', { key, qty: 1 }, true)
     setToast(`Sent ${FOOD_META[key].name}`)
     setSending(false)
     setTimeout(() => setMode('idle'), 800)

@@ -23,13 +23,14 @@ interface Body {
   sender_id?: string
   sender_name?: string
   message?: string
+  via_eren?: boolean
 }
 
 export async function POST(request: Request) {
   let body: Body
   try { body = await request.json() } catch { return NextResponse.json({ error: 'bad json' }, { status: 400 }) }
 
-  const { household_id, sender_id, sender_name, message } = body
+  const { household_id, sender_id, sender_name, message, via_eren } = body
   if (!household_id || !sender_id) {
     return NextResponse.json({ error: 'missing household_id or sender_id' }, { status: 400 })
   }
@@ -47,7 +48,13 @@ export async function POST(request: Request) {
   }
 
   const name = (sender_name?.trim() || 'Your partner').slice(0, 32)
-  const snippet = (message?.trim() || 'sent you a message through Eren').slice(0, 140)
+  // Eren-delivered messages hide the actual body text so the partner
+  // has to open the app to read it — keeps the surprise. Regular
+  // partner messages show the snippet as before.
+  const title = via_eren ? '💌 Eren' : `💌 ${name}`
+  const snippet = via_eren
+    ? 'Eren has a message for you — open to see it!'
+    : (message?.trim() || 'sent you a message through Eren').slice(0, 140)
 
   const expired: string[] = []
   let sent = 0
@@ -55,7 +62,7 @@ export async function POST(request: Request) {
   for (const sub of subs) {
     const ok = await sendPush(
       { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
-      `💌 ${name}`,
+      title,
       snippet,
       'partner-msg',
       '/couple',
