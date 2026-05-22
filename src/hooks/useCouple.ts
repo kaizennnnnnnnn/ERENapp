@@ -6,6 +6,11 @@ import { useAuth } from './useAuth'
 import type { Profile, JournalMessage, Interaction, GiftItem } from '@/types'
 import { computeLoveMeter, getAnniversaryInfo, startOfWeek, type LoveMeterResult, type AnniversaryInfo } from '@/lib/couple'
 
+// Module-level counter so every useCouple instance picks a unique
+// realtime channel name even when several mount in the same React
+// commit (very common — the home page alone has ~5 consumers).
+let _coupleChannelCounter = 0
+
 export function useCouple() {
   const supabase = createClient()
   const { user, profile } = useAuth()
@@ -17,7 +22,15 @@ export function useCouple() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [newMessage, setNewMessage] = useState<JournalMessage | null>(null) // for popup
   const [loading, setLoading] = useState(true)
-  const channelRef = useRef<string>(`couple_${Date.now()}`)
+  // Per-instance channel name. useCouple is currently instantiated by
+  // 5+ components on the home screen (page, ThoughtCloud, JealousEren,
+  // DailyBattleHUD/Pop via useDailyBattle). Date.now() alone collides
+  // when several instances mount in the same React commit, which
+  // Supabase rejects with "cannot add `postgres_changes` callbacks
+  // after `subscribe()`" because the second instance gets the
+  // already-subscribed channel back. The counter + random suffix
+  // guarantees uniqueness.
+  const channelRef = useRef<string>(`couple_${++_coupleChannelCounter}_${Math.random().toString(36).slice(2, 8)}`)
 
   // ── Load partner, love meter, anniversary, journal ──
   const fetchAll = useCallback(async () => {
