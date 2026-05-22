@@ -33,6 +33,7 @@ import { GACHA_ITEMS } from '@/lib/gacha'
 import FortunePopup from '@/components/fortune/FortunePopup'
 import ErenMessagePopup from '@/components/couple/ErenMessagePopup'
 import ThoughtCloud from '@/components/couple/ThoughtCloud'
+import JealousEren from '@/components/couple/JealousEren'
 import { OBSIDIAN_BTN, Rivets } from '@/components/obsidian'
 import { useIsDark } from '@/hooks/useIsDark'
 import LightSwitch from '@/components/LightSwitch'
@@ -387,6 +388,13 @@ export default function HomePage() {
                 to the partner. Tapping it expands into the message + gift
                 composer. Hidden while asleep since the whole Eren is. */}
             <ThoughtCloud />
+
+            {/* Very rare jealous whisper — if the partner has clearly
+                taken more care of Eren today, he occasionally lets it
+                slip in a small speech bubble. Self-gated to ~12% of
+                eligible opens and a 6h cooldown so it stays a
+                surprise. */}
+            <JealousEren />
 
             <div className="absolute" style={{
               bottom: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 2,
