@@ -34,6 +34,8 @@ import FortunePopup from '@/components/fortune/FortunePopup'
 import ErenMessagePopup from '@/components/couple/ErenMessagePopup'
 import ThoughtCloud from '@/components/couple/ThoughtCloud'
 import JealousEren from '@/components/couple/JealousEren'
+import DailyBattleHUD from '@/components/couple/DailyBattleHUD'
+import DailyBattlePop from '@/components/couple/DailyBattlePop'
 import { OBSIDIAN_BTN, Rivets } from '@/components/obsidian'
 import { useIsDark } from '@/hooks/useIsDark'
 import LightSwitch from '@/components/LightSwitch'
@@ -395,6 +397,13 @@ export default function HomePage() {
                 eligible opens and a 6h cooldown so it stays a
                 surprise. */}
             <JealousEren />
+
+            {/* Persistent daily care-battle HUD above Eren, plus the
+                ephemeral pop-up that floats over his head every time
+                an action lands. The HUD opens a detail sheet on tap
+                with the prize info and time-to-reset. */}
+            <DailyBattleHUD />
+            <DailyBattlePop />
 
             <div className="absolute" style={{
               bottom: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 2,
