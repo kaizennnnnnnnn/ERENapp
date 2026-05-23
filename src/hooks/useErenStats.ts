@@ -41,6 +41,25 @@ function isUsefulAction(action: ActionType, before: ErenStats): boolean {
     default:         return true
   }
 }
+
+// Insert into interactions, retrying without the `useful` column if
+// the DB hasn't been migrated yet. Without this fallback every care
+// action would silently fail with 400 ("column \"useful\" does not
+// exist") on installs that haven't applied
+// migration_interactions_useful.sql. The Eren-stats update itself
+// goes through unaffected.
+async function insertInteraction(
+  supabase: ReturnType<typeof createClient>,
+  data: Record<string, unknown>,
+): Promise<void> {
+  const first = await supabase.from('interactions').insert(data)
+  if (!first.error) return
+  if (first.error.message?.toLowerCase().includes('useful')) {
+    const { useful: _omit, ...rest } = data
+    void _omit
+    await supabase.from('interactions').insert(rest)
+  }
+}
 const DECAY_CAP_HOURS = 12 // cap per run — a 3-day absence shouldn't instantly zero stats
 const DECAY_MIN_SAVE_HOURS = 0.05 // ~3 min — below this, don't bother writing to DB
 
@@ -271,7 +290,7 @@ export function useErenStats(householdId: string | null) {
     const useful = isUsefulAction(action, base)
     const [su] = await Promise.all([
       supabase.from('eren_stats').update({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, weight: newW, cleanliness: newCl, is_sick: newSick, mood: newMood, is_sleeping: sleepingFlag, last_decay_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('household_id', householdId),
-      supabase.from('interactions').insert({ household_id: householdId, user_id: userId, action_type: action, happiness_delta: cfg.deltas.happiness ?? 0, hunger_delta: cfg.deltas.hunger ?? 0, energy_delta: cfg.deltas.energy ?? 0, sleep_delta: cfg.deltas.sleep_quality ?? 0, weight_delta: cfg.deltas.weight ?? 0, useful }),
+      insertInteraction(supabase, { household_id: householdId, user_id: userId, action_type: action, happiness_delta: cfg.deltas.happiness ?? 0, hunger_delta: cfg.deltas.hunger ?? 0, energy_delta: cfg.deltas.energy ?? 0, sleep_delta: cfg.deltas.sleep_quality ?? 0, weight_delta: cfg.deltas.weight ?? 0, useful }),
     ])
     if (su.error) { await fetchStats(); return { success: false, message: su.error.message } }
     return { success: true, message: `${cfg.emoji} ${cfg.label} done!` }
@@ -301,11 +320,11 @@ export function useErenStats(householdId: string | null) {
     // Feeding only counts toward the daily battle when Eren is
     // actually hungry — at 90+ he's full and the action is wasted.
     const useful = base.hunger < USEFUL_THRESHOLD
-    const [su, ii] = await Promise.all([
+    const [su] = await Promise.all([
       supabase.from('eren_stats').update({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, cleanliness: newCl, weight: newW, mood: newMood, last_decay_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('household_id', householdId),
-      supabase.from('interactions').insert({ household_id: householdId, user_id: userId, action_type: 'feed', happiness_delta: happyD, hunger_delta: hungerD, energy_delta: 0, sleep_delta: 0, weight_delta: weightD, useful }),
+      insertInteraction(supabase, { household_id: householdId, user_id: userId, action_type: 'feed', happiness_delta: happyD, hunger_delta: hungerD, energy_delta: 0, sleep_delta: 0, weight_delta: weightD, useful }),
     ])
-    if (su.error || ii.error) { await fetchStats(); return { success: false, message: 'Failed' } }
+    if (su.error) { await fetchStats(); return { success: false, message: 'Failed' } }
     return { success: true, message: 'Eren is eating!' }
   }, [stats, householdId, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps
 
