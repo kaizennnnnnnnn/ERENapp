@@ -77,9 +77,19 @@ async function detectUsefulSupported(
   const cached = readUsefulCache()
   if (cached !== undefined) { _usefulSupported = cached; return cached }
   if (_usefulProbe) return _usefulProbe
+  // Sample a single interactions row with select('*') and check
+  // whether `useful` is a key on it. select('*') never 400s on a
+  // missing column (it just returns the columns that DO exist), so
+  // this probe is silent in the network panel. If the household has
+  // no rows yet we conservatively report unsupported and let the
+  // 24h cache expire — the migration will be picked up on the next
+  // probe once any row exists.
   _usefulProbe = (async () => {
-    const { error } = await supabase.from('interactions').select('useful').limit(1)
-    const supported = !error
+    const { data, error } = await supabase
+      .from('interactions')
+      .select('*')
+      .limit(1)
+    const supported = !error && !!data && data.length > 0 && 'useful' in (data[0] as Record<string, unknown>)
     _usefulSupported = supported
     writeUsefulCache(supported)
     return supported
