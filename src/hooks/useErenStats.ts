@@ -42,23 +42,73 @@ function isUsefulAction(action: ActionType, before: ErenStats): boolean {
   }
 }
 
-// Insert into interactions, retrying without the `useful` column if
-// the DB hasn't been migrated yet. Without this fallback every care
-// action would silently fail with 400 ("column \"useful\" does not
-// exist") on installs that haven't applied
-// migration_interactions_useful.sql. The Eren-stats update itself
-// goes through unaffected.
+// Detect once whether the interactions.useful column exists, then
+// cache the answer in localStorage for 24h. Without this every care
+// action would 400 on its first insert attempt (then retry without
+// the column and succeed) — the retry works, but the failed first
+// attempt still shows up as a red 400 in the browser console. The
+// probe runs at most once per day per device.
+const USEFUL_CACHE_KEY = 'eren_useful_col_supported'
+const USEFUL_CACHE_TTL_MS = 24 * 60 * 60 * 1000
+
+let _usefulSupported: boolean | undefined
+let _usefulProbe: Promise<boolean> | null = null
+
+function readUsefulCache(): boolean | undefined {
+  if (typeof window === 'undefined') return undefined
+  try {
+    const raw = localStorage.getItem(USEFUL_CACHE_KEY)
+    if (!raw) return undefined
+    const parsed = JSON.parse(raw) as { v: boolean; t: number }
+    if (Date.now() - parsed.t > USEFUL_CACHE_TTL_MS) return undefined
+    return parsed.v
+  } catch { return undefined }
+}
+function writeUsefulCache(v: boolean) {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(USEFUL_CACHE_KEY, JSON.stringify({ v, t: Date.now() }))
+  } catch { /* ignore */ }
+}
+async function detectUsefulSupported(
+  supabase: ReturnType<typeof createClient>,
+): Promise<boolean> {
+  if (_usefulSupported !== undefined) return _usefulSupported
+  const cached = readUsefulCache()
+  if (cached !== undefined) { _usefulSupported = cached; return cached }
+  if (_usefulProbe) return _usefulProbe
+  _usefulProbe = (async () => {
+    const { error } = await supabase.from('interactions').select('useful').limit(1)
+    const supported = !error
+    _usefulSupported = supported
+    writeUsefulCache(supported)
+    return supported
+  })()
+  return _usefulProbe
+}
+
+// Insert into interactions. Strips `useful` upfront when the column
+// isn't supported (detected once per session) so the network tab
+// stays clean instead of logging a 400 on every care action.
 async function insertInteraction(
   supabase: ReturnType<typeof createClient>,
   data: Record<string, unknown>,
 ): Promise<void> {
-  const first = await supabase.from('interactions').insert(data)
-  if (!first.error) return
-  if (first.error.message?.toLowerCase().includes('useful')) {
-    const { useful: _omit, ...rest } = data
-    void _omit
-    await supabase.from('interactions').insert(rest)
+  const supported = await detectUsefulSupported(supabase)
+  if (supported) {
+    const r = await supabase.from('interactions').insert(data)
+    if (!r.error) return
+    // Safety net: schema cache may have lied. Strip and retry.
+    if (r.error.message?.toLowerCase().includes('useful')) {
+      _usefulSupported = false
+      writeUsefulCache(false)
+    } else {
+      return
+    }
   }
+  const { useful: _omit, ...rest } = data
+  void _omit
+  await supabase.from('interactions').insert(rest)
 }
 const DECAY_CAP_HOURS = 12 // cap per run — a 3-day absence shouldn't instantly zero stats
 const DECAY_MIN_SAVE_HOURS = 0.05 // ~3 min — below this, don't bother writing to DB
