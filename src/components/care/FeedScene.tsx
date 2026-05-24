@@ -220,9 +220,10 @@ export default function FeedScene({ onClose }: Props) {
   // Drag-to-feed state
   const [dragItem, setDragItem] = useState<typeof SHOP_ITEMS[number] | null>(null)
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null)
+  const [dragging, setDragging] = useState(false)
   const [nearEren, setNearEren] = useState(false)
   const dragStartPos = useRef<{ x: number; y: number } | null>(null)
-  const isDragging = useRef(false)
+  const foodRef = useRef<HTMLDivElement>(null)
 
   const erenZone = useCallback((x: number, y: number) => {
     const cx = window.innerWidth / 2
@@ -231,33 +232,42 @@ export default function FeedScene({ onClose }: Props) {
     return Math.sqrt(dx * dx + dy * dy) < 90
   }, [])
 
+  // Attach touchmove with {passive:false} so preventDefault works
+  useEffect(() => {
+    const el = foodRef.current
+    if (!el) return
+    function handleMove(e: TouchEvent) {
+      if (!dragItem) return
+      e.preventDefault()
+      const t = e.touches[0]
+      if (dragStartPos.current) {
+        const dx = Math.abs(t.clientX - dragStartPos.current.x)
+        const dy = Math.abs(t.clientY - dragStartPos.current.y)
+        if (dx > 8 || dy > 8) setDragging(true)
+      }
+      setDragPos({ x: t.clientX, y: t.clientY })
+      setNearEren(erenZone(t.clientX, t.clientY))
+    }
+    el.addEventListener('touchmove', handleMove, { passive: false })
+    return () => el.removeEventListener('touchmove', handleMove)
+  })
+
   function onDragStart(item: typeof SHOP_ITEMS[number], e: React.TouchEvent) {
     if (feeding || isSleeping) return
     const t = e.touches[0]
     dragStartPos.current = { x: t.clientX, y: t.clientY }
-    isDragging.current = false
+    setDragging(false)
     setDragItem(item)
     setDragPos({ x: t.clientX, y: t.clientY })
   }
-  function onDragMove(e: React.TouchEvent) {
-    if (!dragItem) return
-    const t = e.touches[0]
-    if (dragStartPos.current) {
-      const dx = Math.abs(t.clientX - dragStartPos.current.x)
-      const dy = Math.abs(t.clientY - dragStartPos.current.y)
-      if (dx > 8 || dy > 8) isDragging.current = true
-    }
-    setDragPos({ x: t.clientX, y: t.clientY })
-    setNearEren(erenZone(t.clientX, t.clientY))
-  }
   function onDragEnd() {
-    if (dragItem && isDragging.current && nearEren) {
+    if (dragItem && dragging && nearEren) {
       handleFeed(dragItem)
     }
     setDragItem(null)
     setDragPos(null)
+    setDragging(false)
     setNearEren(false)
-    isDragging.current = false
     dragStartPos.current = null
   }
 
@@ -391,7 +401,7 @@ export default function FeedScene({ onClose }: Props) {
       )}
 
       {/* ══ DRAG GHOST — follows finger while dragging food ══ */}
-      {dragItem && dragPos && isDragging.current && (
+      {dragItem && dragPos && dragging && (
         <div className="fixed pointer-events-none z-[60]" style={{
           left: dragPos.x - 24, top: dragPos.y - 24,
         }}>
@@ -460,9 +470,8 @@ export default function FeedScene({ onClose }: Props) {
                   }}>◂</button>
 
                 {/* Food item — draggable */}
-                <div
+                <div ref={foodRef}
                   onTouchStart={e => onDragStart(item, e)}
-                  onTouchMove={onDragMove}
                   onTouchEnd={onDragEnd}
                   style={{ position: 'relative', touchAction: 'none' }}>
                   <div style={{
@@ -474,7 +483,7 @@ export default function FeedScene({ onClose }: Props) {
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
                     <div style={{
-                      opacity: (dragItem?.id === item.id && isDragging.current) ? 0.15 : 1,
+                      opacity: (dragItem?.id === item.id && dragging) ? 0.15 : 1,
                       transition: 'opacity 0.15s ease',
                     }}>
                       <FoodIcon id={item.id} color={item.color} />
