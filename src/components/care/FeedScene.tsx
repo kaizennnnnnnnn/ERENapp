@@ -16,12 +16,18 @@ import { useIsDark } from '@/hooks/useIsDark'
 interface Props { onClose: () => void }
 
 const SHOP_ITEMS = [
-  { id: 'kibble' as const, name: 'Kibble',    price: 5,  hungerD: 15, happyD: 3,  weightD: 0.03, desc: 'Daily dry food',    color: '#F5C842' },
-  { id: 'fish'   as const, name: 'Fish',      price: 12, hungerD: 25, happyD: 12, weightD: 0.05, desc: "Eren's favourite!", color: '#6BAED6' },
-  { id: 'treat'  as const, name: 'Cat Treat', price: 8,  hungerD: 8,  happyD: 20, weightD: 0.01, desc: 'Sweet & crunchy',   color: '#FF6B9D' },
-  { id: 'tuna'   as const, name: 'Tuna Can',  price: 18, hungerD: 30, happyD: 15, weightD: 0.06, desc: 'Premium quality',   color: '#E8A020' },
-  { id: 'steak'  as const, name: 'Steak',     price: 30, hungerD: 40, happyD: 25, weightD: 0.10, desc: 'Luxury cut',        color: '#CC3333' },
-  { id: 'cream'  as const, name: 'Cream',     price: 10, hungerD: 10, happyD: 30, weightD: 0.02, desc: 'Sweet treat',       color: '#A78BFA' },
+  { id: 'kibble' as const, name: 'Kibble',    price: 5,  hungerD: 15, happyD: 3,  weightD: 0.03, desc: 'Daily dry food',    color: '#F5C842', cat: 'dry'   },
+  { id: 'fish'   as const, name: 'Fish',      price: 12, hungerD: 25, happyD: 12, weightD: 0.05, desc: "Eren's favourite!", color: '#6BAED6', cat: 'fish'  },
+  { id: 'treat'  as const, name: 'Cat Treat', price: 8,  hungerD: 8,  happyD: 20, weightD: 0.01, desc: 'Sweet & crunchy',   color: '#FF6B9D', cat: 'dry'   },
+  { id: 'tuna'   as const, name: 'Tuna Can',  price: 18, hungerD: 30, happyD: 15, weightD: 0.06, desc: 'Premium quality',   color: '#E8A020', cat: 'fish'  },
+  { id: 'steak'  as const, name: 'Steak',     price: 30, hungerD: 40, happyD: 25, weightD: 0.10, desc: 'Luxury cut',        color: '#CC3333', cat: 'meat'  },
+  { id: 'cream'  as const, name: 'Cream',     price: 10, hungerD: 10, happyD: 30, weightD: 0.02, desc: 'Sweet treat',       color: '#A78BFA', cat: 'meat'  },
+]
+
+const FRIDGE_CATEGORIES = [
+  { id: 'dry',  label: 'DRY',  color: '#F5C842' },
+  { id: 'fish', label: 'FISH', color: '#6BAED6' },
+  { id: 'meat', label: 'MEAT', color: '#CC3333' },
 ]
 
 function FoodIcon({ id, color }: { id: string; color: string }) {
@@ -84,6 +90,7 @@ export default function FeedScene({ onClose }: Props) {
   const isDark = useIsDark()
 
   const [tab, setTab] = useState<'shop' | 'fridge' | null>(null)
+  const [fridgeCat, setFridgeCat] = useState<string | null>(null)
   const [buying, setBuying] = useState<string | null>(null)
   const [feeding, setFeeding] = useState<string | null>(null)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
@@ -212,35 +219,119 @@ export default function FeedScene({ onClose }: Props) {
         </div>
       )}
 
+      {/* ══ FRIDGE FOOD ROW — appears above buttons when a category is picked ══ */}
+      {tab === 'fridge' && fridgeCat && (() => {
+        const catItems = SHOP_ITEMS.filter(i => i.cat === fridgeCat && (inventory[i.id] ?? 0) > 0)
+        if (catItems.length === 0) return null
+        return (
+          <div className="absolute bottom-[108px] left-0 right-0 z-30 px-3"
+            style={{ pointerEvents: 'auto' }}>
+            <div className="flex gap-3 overflow-x-auto py-2 px-1 justify-center"
+              style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+              {catItems.flatMap(item => {
+                const qty = inventory[item.id] ?? 0
+                return Array.from({ length: qty }).map((_, idx) => (
+                  <button key={`${item.id}-${idx}`}
+                    onClick={() => { playSound('ui_tap'); handleFeed(item) }}
+                    disabled={!!feeding}
+                    className="flex-shrink-0 active:scale-90 transition-transform disabled:opacity-50"
+                    style={{ position: 'relative' }}>
+                    <div style={{
+                      width: 48, height: 48,
+                      background: `radial-gradient(circle at 40% 35%, ${item.color}30, ${item.color}10)`,
+                      borderRadius: 8,
+                      border: `2px solid ${item.color}66`,
+                      boxShadow: `2px 2px 0 ${item.color}33`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <FoodIcon id={item.id} color={item.color} />
+                    </div>
+                    {feeding === item.id && (
+                      <div className="absolute inset-0 flex items-center justify-center" style={{
+                        background: 'rgba(255,255,255,0.6)', borderRadius: 8,
+                      }}>
+                        <span className="font-pixel" style={{ fontSize: 6, color: item.color }}>...</span>
+                      </div>
+                    )}
+                  </button>
+                ))
+              })}
+            </div>
+            <style>{`
+              .overflow-x-auto::-webkit-scrollbar { display: none; }
+            `}</style>
+          </div>
+        )
+      })()}
+
       {/* ══ FLOATING ACTION BUTTONS ══ */}
-      <div className="absolute bottom-6 left-0 right-0 z-30 flex justify-center gap-4">
-        {/* Shop button */}
-        <button onClick={() => { playSound(tab === 'shop' ? 'ui_modal_close' : 'ui_modal_open'); setTab(tab === 'shop' ? null : 'shop') }}
-          disabled={isSleeping}
-          className="flex items-center gap-2 px-5 py-3 text-white active:scale-95 transition-transform disabled:opacity-40 disabled:active:scale-100"
-          style={{ background: tab === 'shop' ? 'linear-gradient(135deg, #E8A020, #C07010)' : 'linear-gradient(135deg, #F5C842, #E8A020)', borderRadius: 14, border: '2px solid #C88018', boxShadow: tab === 'shop' ? '0 2px 0 #904800' : '0 4px 0 #A06010, inset 0 1px 0 rgba(255,255,255,0.3)', fontFamily: '"Press Start 2P"', fontSize: 8 }}>
-          <ShoppingCart size={14} />
-          SHOP
-        </button>
-        {/* Fridge button */}
-        <button onClick={() => { playSound(tab === 'fridge' ? 'ui_modal_close' : 'ui_modal_open'); setTab(tab === 'fridge' ? null : 'fridge') }}
-          disabled={isSleeping}
-          className="flex items-center gap-2 px-5 py-3 active:scale-95 transition-transform disabled:opacity-40 disabled:active:scale-100"
-          style={{ background: tab === 'fridge' ? 'linear-gradient(135deg, #60A8D0, #3880B0)' : 'linear-gradient(135deg, #A8D8F8, #78B8E8)', borderRadius: 14, border: '2px solid #5898C8', boxShadow: tab === 'fridge' ? '0 2px 0 #205880' : '0 4px 0 #3870A8, inset 0 1px 0 rgba(255,255,255,0.4)', fontFamily: '"Press Start 2P"', fontSize: 8, color: tab === 'fridge' ? 'white' : '#1A5A8A' }}>
-          <Package size={14} />
-          FRIDGE{fridgeItems.length > 0 && ` (${fridgeItems.reduce((s, i) => s + (inventory[i.id] ?? 0), 0)})`}
-        </button>
+      <div className="absolute bottom-6 left-0 right-0 z-30">
+        <div className="flex justify-center gap-4">
+          {/* Shop button */}
+          <button onClick={() => { playSound(tab === 'shop' ? 'ui_modal_close' : 'ui_modal_open'); setTab(tab === 'shop' ? null : 'shop'); setFridgeCat(null) }}
+            disabled={isSleeping}
+            className="flex items-center gap-2 px-5 py-3 text-white active:scale-95 transition-transform disabled:opacity-40 disabled:active:scale-100"
+            style={{ background: tab === 'shop' ? 'linear-gradient(135deg, #E8A020, #C07010)' : 'linear-gradient(135deg, #F5C842, #E8A020)', borderRadius: 14, border: '2px solid #C88018', boxShadow: tab === 'shop' ? '0 2px 0 #904800' : '0 4px 0 #A06010, inset 0 1px 0 rgba(255,255,255,0.3)', fontFamily: '"Press Start 2P"', fontSize: 8 }}>
+            <ShoppingCart size={14} />
+            SHOP
+          </button>
+          {/* Fridge button */}
+          <button onClick={() => {
+            if (tab === 'fridge') { playSound('ui_modal_close'); setTab(null); setFridgeCat(null) }
+            else { playSound('ui_modal_open'); setTab('fridge'); setFridgeCat(null) }
+          }}
+            disabled={isSleeping}
+            className="flex items-center gap-2 px-5 py-3 active:scale-95 transition-transform disabled:opacity-40 disabled:active:scale-100"
+            style={{ background: tab === 'fridge' ? 'linear-gradient(135deg, #60A8D0, #3880B0)' : 'linear-gradient(135deg, #A8D8F8, #78B8E8)', borderRadius: 14, border: '2px solid #5898C8', boxShadow: tab === 'fridge' ? '0 2px 0 #205880' : '0 4px 0 #3870A8, inset 0 1px 0 rgba(255,255,255,0.4)', fontFamily: '"Press Start 2P"', fontSize: 8, color: tab === 'fridge' ? 'white' : '#1A5A8A' }}>
+            <Package size={14} />
+            FRIDGE
+          </button>
+        </div>
+
+        {/* Fridge category pills — appear right below the buttons */}
+        {tab === 'fridge' && (
+          <div className="flex justify-center gap-2 mt-3">
+            {fridgeItems.length === 0 ? (
+              <button onClick={() => { playSound('ui_tap'); setTab('shop') }}
+                className="px-4 py-2 text-white active:translate-y-[1px]"
+                style={{ background: '#F5C842', borderRadius: 8, border: '2px solid #C88018', boxShadow: '0 2px 0 #A06010', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
+                EMPTY · GO SHOP
+              </button>
+            ) : (
+              FRIDGE_CATEGORIES.map(c => {
+                const catCount = SHOP_ITEMS.filter(i => i.cat === c.id).reduce((s, i) => s + (inventory[i.id] ?? 0), 0)
+                if (catCount === 0) return null
+                const active = fridgeCat === c.id
+                return (
+                  <button key={c.id}
+                    onClick={() => { playSound('ui_tap'); setFridgeCat(active ? null : c.id) }}
+                    className="px-3 py-2 active:scale-95 transition-transform"
+                    style={{
+                      background: active ? c.color : 'rgba(255,255,255,0.85)',
+                      color: active ? '#fff' : c.color,
+                      borderRadius: 8,
+                      border: `2px solid ${c.color}`,
+                      boxShadow: active ? `0 2px 0 rgba(0,0,0,0.2), 0 0 8px ${c.color}44` : `0 2px 0 ${c.color}33`,
+                      fontFamily: '"Press Start 2P"', fontSize: 7,
+                    }}>
+                    {c.label} ({catCount})
+                  </button>
+                )
+              })
+            )}
+          </div>
+        )}
       </div>
 
-      {/* ══ SLIDE-UP DRAWER ══ */}
-      {tab !== null && (
+      {/* ══ SLIDE-UP DRAWER — shop only ══ */}
+      {tab === 'shop' && (
         <div className="absolute bottom-0 left-0 right-0 z-40 flex flex-col"
           style={{ height: '52%', background: 'linear-gradient(180deg, #FFFBF0 0%, #FFF8E8 100%)', borderRadius: '16px 16px 0 0', borderTop: '3px solid #F5C842', boxShadow: '0 -4px 0 #E8A020' }}>
 
           {/* Drawer header */}
           <div className="flex items-center justify-between px-4 pt-3 pb-2 flex-shrink-0">
             <span className="font-pixel text-amber-700 flex items-center gap-2" style={{ fontSize: 9 }}>
-              {tab === 'shop' ? <><ShoppingCart size={12} /> SHOP</> : <><Package size={12} /> FRIDGE</>}
+              <ShoppingCart size={12} /> SHOP
             </span>
             <button onClick={() => { playSound('ui_modal_close'); setTab(null) }}
               className="active:scale-90 transition-transform"
@@ -250,80 +341,36 @@ export default function FeedScene({ onClose }: Props) {
           </div>
           <div style={{ height: 2, background: 'linear-gradient(90deg, transparent, #F5C842, transparent)', marginBottom: 4 }} />
 
-          {/* Shop content */}
-          {tab === 'shop' && (
-            <div className="overflow-y-auto px-3 py-1 flex-1">
-              <div className="grid grid-cols-2 gap-2">
-                {SHOP_ITEMS.map(item => {
-                  const canAfford = coins >= item.price
-                  return (
-                    <div key={item.id} className={cn('p-3 transition-all', !canAfford && 'opacity-55')}
-                      style={{ background: `linear-gradient(135deg, ${item.color}28 0%, ${item.color}10 100%)`, borderRadius: 3, border: `2px solid ${item.color}55`, boxShadow: `2px 2px 0 ${item.color}33` }}>
-                      <div className="flex items-start justify-between mb-1">
-                        <FoodIcon id={item.id} color={item.color} />
-                        <div className="flex items-center gap-0.5 px-1.5 py-0.5" style={{ background: '#FFF3C0', borderRadius: 2, border: '1px solid #F5C842' }}>
-                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'radial-gradient(circle at 38% 35%, #FFE878, #D4A818)', border: '1px solid #B08810' }} />
-                          <span className="font-pixel text-amber-600" style={{ fontSize: 7 }}>{item.price}</span>
-                        </div>
-                      </div>
-                      <p className="text-xs font-bold text-gray-800">{item.name}</p>
-                      <p className="text-[10px] text-gray-400 mb-1.5">{item.desc}</p>
-                      <div className="flex gap-2 text-[9px] text-gray-500 mb-2">
-                        <span>HGR +{item.hungerD}</span>
-                        <span>JOY +{item.happyD}</span>
-                      </div>
-                      <button onClick={() => { playSound('ui_tap'); handleBuy(item) }} disabled={!canAfford || buying === item.id}
-                        className="w-full py-1.5 text-white transition-all active:translate-y-[1px] disabled:opacity-40"
-                        style={{ background: canAfford ? item.color : '#ccc', borderRadius: 2, border: `1px solid ${canAfford ? 'rgba(0,0,0,0.15)' : '#bbb'}`, boxShadow: canAfford ? `0 2px 0 rgba(0,0,0,0.18)` : 'none', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
-                        {buying === item.id ? '...' : canAfford ? 'BUY' : 'BROKE'}
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Fridge content */}
-          {tab === 'fridge' && (
-            <div className="overflow-y-auto px-3 py-1 flex-1">
-              {fridgeItems.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
-                  <div className="animate-float" style={{ width: 36, height: 36, background: 'linear-gradient(135deg, #D8F0FF, #A8D8F8)', borderRadius: 6, border: '2px solid #88C4E8', boxShadow: 'inset 2px 2px 4px rgba(255,255,255,0.6), 0 3px 8px rgba(100,180,230,0.3)', position: 'relative' }}>
-                    <div style={{ position: 'absolute', top: 5, left: 5, width: 10, height: 6, background: 'rgba(255,255,255,0.45)', borderRadius: '50%', transform: 'rotate(-20deg)' }} />
-                  </div>
-                  <p className="font-pixel text-gray-500" style={{ fontSize: 8 }}>FRIDGE EMPTY!</p>
-                  <button onClick={() => { playSound('ui_tap'); setTab('shop') }} className="px-4 py-2 text-white active:translate-y-[1px]"
-                    style={{ background: '#F5C842', borderRadius: 3, border: '2px solid #C88018', boxShadow: '0 2px 0 #A06010', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
-                    GO SHOP →
-                  </button>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {fridgeItems.map(item => (
-                    <div key={item.id} className="flex items-center gap-3 p-3"
-                      style={{ background: `linear-gradient(135deg, ${item.color}22 0%, white 100%)`, borderRadius: 3, border: `2px solid ${item.color}44`, boxShadow: `2px 2px 0 ${item.color}22` }}>
+          <div className="overflow-y-auto px-3 py-1 flex-1">
+            <div className="grid grid-cols-2 gap-2">
+              {SHOP_ITEMS.map(item => {
+                const canAfford = coins >= item.price
+                return (
+                  <div key={item.id} className={cn('p-3 transition-all', !canAfford && 'opacity-55')}
+                    style={{ background: `linear-gradient(135deg, ${item.color}28 0%, ${item.color}10 100%)`, borderRadius: 3, border: `2px solid ${item.color}55`, boxShadow: `2px 2px 0 ${item.color}33` }}>
+                    <div className="flex items-start justify-between mb-1">
                       <FoodIcon id={item.id} color={item.color} />
-                      <div className="flex-1">
-                        <p className="text-xs font-bold text-gray-800">{item.name}</p>
-                        <div className="flex gap-2 text-[9px] text-gray-500 mt-0.5">
-                          <span>HGR +{item.hungerD}</span><span>JOY +{item.happyD}</span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-center gap-1">
-                        <span className="font-pixel text-gray-500 w-6 h-6 flex items-center justify-center" style={{ fontSize: 8, background: '#F0F0F0', borderRadius: 2, border: '1px solid #DDD' }}>{inventory[item.id] ?? 0}</span>
-                        <button onClick={() => { playSound('ui_tap'); handleFeed(item) }} disabled={!!feeding}
-                          className="px-3 py-1.5 text-white active:translate-y-[1px]"
-                          style={{ background: item.color, borderRadius: 2, border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 2px 0 rgba(0,0,0,0.15)', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
-                          {feeding === item.id ? '...' : 'FEED'}
-                        </button>
+                      <div className="flex items-center gap-0.5 px-1.5 py-0.5" style={{ background: '#FFF3C0', borderRadius: 2, border: '1px solid #F5C842' }}>
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'radial-gradient(circle at 38% 35%, #FFE878, #D4A818)', border: '1px solid #B08810' }} />
+                        <span className="font-pixel text-amber-600" style={{ fontSize: 7 }}>{item.price}</span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <p className="text-xs font-bold text-gray-800">{item.name}</p>
+                    <p className="text-[10px] text-gray-400 mb-1.5">{item.desc}</p>
+                    <div className="flex gap-2 text-[9px] text-gray-500 mb-2">
+                      <span>HGR +{item.hungerD}</span>
+                      <span>JOY +{item.happyD}</span>
+                    </div>
+                    <button onClick={() => { playSound('ui_tap'); handleBuy(item) }} disabled={!canAfford || buying === item.id}
+                      className="w-full py-1.5 text-white transition-all active:translate-y-[1px] disabled:opacity-40"
+                      style={{ background: canAfford ? item.color : '#ccc', borderRadius: 2, border: `1px solid ${canAfford ? 'rgba(0,0,0,0.15)' : '#bbb'}`, boxShadow: canAfford ? `0 2px 0 rgba(0,0,0,0.18)` : 'none', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
+                      {buying === item.id ? '...' : canAfford ? 'BUY' : 'BROKE'}
+                    </button>
+                  </div>
+                )
+              })}
             </div>
-          )}
+          </div>
         </div>
       )}
 
