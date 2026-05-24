@@ -740,43 +740,9 @@ function KraftSectionCover({ section, sectionIndex, done, total, onOpen }: {
         }} />
       </div>
 
-      {/* Pixel doodle: small accent star tucked between the subtitle
-          and the progress strip — adds a sparkle in the safe zone. */}
-      <div style={{
-        position: 'absolute',
-        right: `${20 + (sectionIndex * 11) % 14}%`,
-        bottom: `${30 + (sectionIndex * 3) % 6}%`,
-        transform: `rotate(${-12 + sectionIndex * 5}deg)`,
-        zIndex: 1, pointerEvents: 'none',
-      }}>
-        <svg width="10" height="10" viewBox="0 0 5 5" shapeRendering="crispEdges">
-          <rect x="2" y="0" width="1" height="5" fill={accent} />
-          <rect x="0" y="2" width="5" height="1" fill={accent} />
-          <rect x="1" y="1" width="1" height="1" fill={accent} />
-          <rect x="3" y="1" width="1" height="1" fill={accent} />
-          <rect x="1" y="3" width="1" height="1" fill={accent} />
-          <rect x="3" y="3" width="1" height="1" fill={accent} />
-          <rect x="2" y="2" width="1" height="1" fill="#fffaee" />
-        </svg>
-      </div>
-
-      {/* Pixel doodle: pen-red heart on the opposite side, also in the
-          gap below the subtitle so the title never gets covered. */}
-      <div style={{
-        position: 'absolute',
-        left: `${22 + (sectionIndex * 9) % 12}%`,
-        bottom: `${28 + (sectionIndex * 4) % 5}%`,
-        transform: `rotate(${8 - sectionIndex * 4}deg)`,
-        zIndex: 1, pointerEvents: 'none',
-      }}>
-        <svg width="10" height="9" viewBox="0 0 5 4" shapeRendering="crispEdges">
-          <rect x="0" y="0" width="2" height="1" fill={PEN_RED} />
-          <rect x="3" y="0" width="2" height="1" fill={PEN_RED} />
-          <rect x="0" y="1" width="5" height="2" fill={PEN_RED} />
-          <rect x="1" y="3" width="3" height="1" fill={PEN_RED} />
-          <rect x="1" y="0" width="1" height="1" fill="rgba(255,255,255,0.5)" />
-        </svg>
-      </div>
+      {/* Pixel doodle stickers — each cover gets two from a rotating
+          pool so no two notebooks look the same. */}
+      <CoverDoodles sectionIndex={sectionIndex} accent={accent} />
 
       {/* Top brand strip */}
       <div style={{
@@ -2486,5 +2452,205 @@ function CompleteScreen({ title, xp, streak, streakIncreased, onContinue }: {
         }
       `}</style>
     </div>
+  )
+}
+
+// ── Pixel doodle stickers for notebook covers ──────────────────────────
+// Each is a tiny SVG drawn on a pixel grid. The pool rotates by
+// sectionIndex so every cover gets a unique pair.
+
+function PixelFrog() {
+  return (
+    <svg width="16" height="14" viewBox="0 0 10 9" shapeRendering="crispEdges">
+      {/* eyes */}
+      <rect x="1" y="0" width="2" height="2" fill="#4CAF50" />
+      <rect x="7" y="0" width="2" height="2" fill="#4CAF50" />
+      <rect x="1" y="0" width="1" height="1" fill="#fff" />
+      <rect x="2" y="0" width="1" height="1" fill="#222" />
+      <rect x="7" y="0" width="1" height="1" fill="#fff" />
+      <rect x="8" y="0" width="1" height="1" fill="#222" />
+      {/* head */}
+      <rect x="0" y="2" width="10" height="5" fill="#4CAF50" />
+      <rect x="1" y="2" width="8" height="1" fill="#66BB6A" />
+      {/* mouth */}
+      <rect x="3" y="5" width="4" height="1" fill="#2E7D32" />
+      {/* cheeks */}
+      <rect x="0" y="4" width="2" height="2" fill="#E8A0BF" opacity="0.5" />
+      <rect x="8" y="4" width="2" height="2" fill="#E8A0BF" opacity="0.5" />
+      {/* chin */}
+      <rect x="1" y="7" width="8" height="1" fill="#4CAF50" />
+      <rect x="2" y="8" width="6" height="1" fill="#4CAF50" />
+    </svg>
+  )
+}
+
+function PixelCatFace({ color }: { color: string }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 9 9" shapeRendering="crispEdges">
+      {/* ears */}
+      <rect x="0" y="0" width="2" height="2" fill={color} />
+      <rect x="7" y="0" width="2" height="2" fill={color} />
+      <rect x="1" y="1" width="1" height="1" fill="#FFB6C1" />
+      <rect x="7" y="1" width="1" height="1" fill="#FFB6C1" />
+      {/* head */}
+      <rect x="0" y="2" width="9" height="5" fill={color} />
+      {/* eyes */}
+      <rect x="2" y="3" width="1" height="2" fill="#222" />
+      <rect x="6" y="3" width="1" height="2" fill="#222" />
+      <rect x="2" y="3" width="1" height="1" fill="#fff" />
+      <rect x="6" y="3" width="1" height="1" fill="#fff" />
+      {/* nose */}
+      <rect x="4" y="5" width="1" height="1" fill="#FFB6C1" />
+      {/* mouth */}
+      <rect x="3" y="6" width="1" height="1" fill={color === '#888' ? '#666' : '#c19870'} />
+      <rect x="5" y="6" width="1" height="1" fill={color === '#888' ? '#666' : '#c19870'} />
+      {/* whiskers */}
+      <rect x="0" y="5" width="1" height="1" fill={color} opacity="0.6" />
+      <rect x="8" y="5" width="1" height="1" fill={color} opacity="0.6" />
+      {/* chin */}
+      <rect x="1" y="7" width="7" height="1" fill={color} />
+      <rect x="3" y="8" width="3" height="1" fill={color} />
+    </svg>
+  )
+}
+
+function PixelPegasus() {
+  return (
+    <svg width="20" height="16" viewBox="0 0 13 10" shapeRendering="crispEdges">
+      {/* wing */}
+      <rect x="4" y="0" width="1" height="1" fill="#B3D4FC" />
+      <rect x="3" y="1" width="3" height="1" fill="#B3D4FC" />
+      <rect x="2" y="2" width="4" height="1" fill="#90C2FF" />
+      <rect x="3" y="3" width="3" height="1" fill="#B3D4FC" />
+      {/* body */}
+      <rect x="3" y="4" width="7" height="3" fill="#fff" />
+      <rect x="4" y="4" width="5" height="1" fill="#f0f0f0" />
+      {/* head */}
+      <rect x="9" y="2" width="3" height="3" fill="#fff" />
+      <rect x="11" y="3" width="1" height="1" fill="#222" />
+      <rect x="12" y="4" width="1" height="1" fill="#FFB6C1" />
+      {/* horn */}
+      <rect x="10" y="0" width="1" height="2" fill="#FFD700" />
+      <rect x="11" y="1" width="1" height="1" fill="#FFF176" />
+      {/* mane */}
+      <rect x="9" y="5" width="1" height="1" fill="#E1BEE7" />
+      <rect x="8" y="2" width="1" height="2" fill="#E1BEE7" />
+      {/* legs */}
+      <rect x="4" y="7" width="1" height="2" fill="#fff" />
+      <rect x="6" y="7" width="1" height="2" fill="#fff" />
+      <rect x="8" y="7" width="1" height="2" fill="#fff" />
+      {/* hooves */}
+      <rect x="4" y="9" width="1" height="1" fill="#888" />
+      <rect x="6" y="9" width="1" height="1" fill="#888" />
+      <rect x="8" y="9" width="1" height="1" fill="#888" />
+      {/* tail */}
+      <rect x="2" y="5" width="1" height="1" fill="#E1BEE7" />
+      <rect x="1" y="6" width="1" height="1" fill="#E1BEE7" />
+      <rect x="0" y="7" width="1" height="1" fill="#E1BEE7" />
+    </svg>
+  )
+}
+
+function PixelPikachu() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 9 9" shapeRendering="crispEdges">
+      {/* ears */}
+      <rect x="0" y="0" width="1" height="3" fill="#222" />
+      <rect x="1" y="1" width="1" height="2" fill="#FFD600" />
+      <rect x="8" y="0" width="1" height="3" fill="#222" />
+      <rect x="7" y="1" width="1" height="2" fill="#FFD600" />
+      {/* head */}
+      <rect x="1" y="3" width="7" height="4" fill="#FFD600" />
+      <rect x="2" y="3" width="5" height="1" fill="#FFE54C" />
+      {/* eyes */}
+      <rect x="2" y="4" width="1" height="1" fill="#222" />
+      <rect x="6" y="4" width="1" height="1" fill="#222" />
+      {/* cheeks */}
+      <rect x="1" y="5" width="1" height="1" fill="#FF5252" />
+      <rect x="7" y="5" width="1" height="1" fill="#FF5252" />
+      {/* mouth */}
+      <rect x="4" y="6" width="1" height="1" fill="#B8860B" />
+      {/* chin */}
+      <rect x="2" y="7" width="5" height="1" fill="#FFD600" />
+      <rect x="3" y="8" width="3" height="1" fill="#FFD600" />
+    </svg>
+  )
+}
+
+function PixelStar({ color }: { color: string }) {
+  return (
+    <svg width="10" height="10" viewBox="0 0 5 5" shapeRendering="crispEdges">
+      <rect x="2" y="0" width="1" height="5" fill={color} />
+      <rect x="0" y="2" width="5" height="1" fill={color} />
+      <rect x="1" y="1" width="1" height="1" fill={color} />
+      <rect x="3" y="1" width="1" height="1" fill={color} />
+      <rect x="1" y="3" width="1" height="1" fill={color} />
+      <rect x="3" y="3" width="1" height="1" fill={color} />
+      <rect x="2" y="2" width="1" height="1" fill="#fffaee" />
+    </svg>
+  )
+}
+
+function PixelHeart({ color }: { color: string }) {
+  return (
+    <svg width="10" height="9" viewBox="0 0 5 4" shapeRendering="crispEdges">
+      <rect x="0" y="0" width="2" height="1" fill={color} />
+      <rect x="3" y="0" width="2" height="1" fill={color} />
+      <rect x="0" y="1" width="5" height="2" fill={color} />
+      <rect x="1" y="3" width="3" height="1" fill={color} />
+      <rect x="1" y="0" width="1" height="1" fill="rgba(255,255,255,0.5)" />
+    </svg>
+  )
+}
+
+// Doodle pool — each entry carries a side preference so two stickers
+// don't pile on the same corner.
+const DOODLE_POOL: {
+  id: string
+  render: (accent: string) => React.ReactNode
+  side: 'left' | 'right'
+}[] = [
+  { id: 'frog',     render: ()      => <PixelFrog />,                    side: 'right' },
+  { id: 'pikachu',  render: ()      => <PixelPikachu />,                 side: 'left'  },
+  { id: 'cat-grey', render: ()      => <PixelCatFace color="#888" />,    side: 'right' },
+  { id: 'pegasus',  render: ()      => <PixelPegasus />,                 side: 'left'  },
+  { id: 'cat-org',  render: ()      => <PixelCatFace color="#E8A87C" />, side: 'right' },
+  { id: 'star',     render: (a: string) => <PixelStar color={a} />,     side: 'left'  },
+  { id: 'heart',    render: ()      => <PixelHeart color={PEN_RED} />,   side: 'right' },
+  { id: 'pika2',    render: ()      => <PixelPikachu />,                 side: 'right' },
+  { id: 'cat-blk',  render: ()      => <PixelCatFace color="#333" />,    side: 'left'  },
+  { id: 'frog2',    render: ()      => <PixelFrog />,                    side: 'left'  },
+]
+
+function CoverDoodles({ sectionIndex, accent }: { sectionIndex: number; accent: string }) {
+  const i = (sectionIndex - 1) % DOODLE_POOL.length
+  const j = (sectionIndex + 3) % DOODLE_POOL.length
+  const d1 = DOODLE_POOL[i]
+  const d2 = DOODLE_POOL[j === i ? (j + 1) % DOODLE_POOL.length : j]
+
+  const pos1 = d1.side === 'right'
+    ? { right: `${16 + (sectionIndex * 7) % 12}%`, bottom: `${30 + (sectionIndex * 3) % 6}%` }
+    : { left:  `${18 + (sectionIndex * 5) % 10}%`, bottom: `${28 + (sectionIndex * 4) % 5}%` }
+  const pos2 = d2.side === 'right'
+    ? { right: `${14 + (sectionIndex * 5) % 10}%`, bottom: `${24 + (sectionIndex * 2) % 5}%` }
+    : { left:  `${20 + (sectionIndex * 7) % 10}%`, bottom: `${32 + (sectionIndex * 3) % 5}%` }
+
+  return (
+    <>
+      <div style={{
+        position: 'absolute', ...pos1,
+        transform: `rotate(${-10 + sectionIndex * 4}deg)`,
+        zIndex: 1, pointerEvents: 'none', opacity: 0.85,
+      }}>
+        {d1.render(accent)}
+      </div>
+      <div style={{
+        position: 'absolute', ...pos2,
+        transform: `rotate(${6 - sectionIndex * 3}deg)`,
+        zIndex: 1, pointerEvents: 'none', opacity: 0.85,
+      }}>
+        {d2.render(accent)}
+      </div>
+    </>
   )
 }
