@@ -16,70 +16,187 @@ import { useIsDark } from '@/hooks/useIsDark'
 interface Props { onClose: () => void }
 
 const SHOP_ITEMS = [
-  { id: 'kibble' as const, name: 'Kibble',    price: 5,  hungerD: 15, happyD: 3,  weightD: 0.03, desc: 'Daily dry food',    color: '#F5C842', cat: 'dry'   },
-  { id: 'fish'   as const, name: 'Fish',      price: 12, hungerD: 25, happyD: 12, weightD: 0.05, desc: "Eren's favourite!", color: '#6BAED6', cat: 'fish'  },
-  { id: 'treat'  as const, name: 'Cat Treat', price: 8,  hungerD: 8,  happyD: 20, weightD: 0.01, desc: 'Sweet & crunchy',   color: '#FF6B9D', cat: 'dry'   },
-  { id: 'tuna'   as const, name: 'Tuna Can',  price: 18, hungerD: 30, happyD: 15, weightD: 0.06, desc: 'Premium quality',   color: '#E8A020', cat: 'fish'  },
-  { id: 'steak'  as const, name: 'Steak',     price: 30, hungerD: 40, happyD: 25, weightD: 0.10, desc: 'Luxury cut',        color: '#CC3333', cat: 'meat'  },
-  { id: 'cream'  as const, name: 'Cream',     price: 10, hungerD: 10, happyD: 30, weightD: 0.02, desc: 'Sweet treat',       color: '#A78BFA', cat: 'meat'  },
+  // Dry
+  { id: 'kibble'  as const, name: 'Kibble',     price: 5,  hungerD: 15, happyD: 3,  weightD: 0.03, desc: 'Daily dry food',     color: '#D4A44A', cat: 'dry'     },
+  { id: 'treat'   as const, name: 'Cat Treat',  price: 8,  hungerD: 8,  happyD: 20, weightD: 0.01, desc: 'Sweet & crunchy',    color: '#FF6B9D', cat: 'dry'     },
+  { id: 'biscuit' as const, name: 'Biscuit',    price: 6,  hungerD: 12, happyD: 5,  weightD: 0.02, desc: 'Crunchy snack',      color: '#C8956A', cat: 'dry'     },
+  // Seafood
+  { id: 'fish'    as const, name: 'Fish',        price: 12, hungerD: 25, happyD: 12, weightD: 0.05, desc: "Eren's favourite!",  color: '#5BA3D9', cat: 'seafood' },
+  { id: 'tuna'    as const, name: 'Tuna Can',   price: 18, hungerD: 30, happyD: 15, weightD: 0.06, desc: 'Premium quality',    color: '#E8A020', cat: 'seafood' },
+  { id: 'shrimp'  as const, name: 'Shrimp',     price: 15, hungerD: 20, happyD: 18, weightD: 0.03, desc: 'Pink & tasty',       color: '#F0836A', cat: 'seafood' },
+  { id: 'salmon'  as const, name: 'Salmon',     price: 22, hungerD: 35, happyD: 20, weightD: 0.07, desc: 'Rich & flaky',       color: '#E8735A', cat: 'seafood' },
+  { id: 'sardine' as const, name: 'Sardine',    price: 10, hungerD: 18, happyD: 8,  weightD: 0.04, desc: 'Tiny & oily',        color: '#7BAFC8', cat: 'seafood' },
+  { id: 'sushi'   as const, name: 'Sushi',      price: 25, hungerD: 28, happyD: 28, weightD: 0.04, desc: 'Fancy roll',         color: '#2D9B6A', cat: 'seafood' },
+  // Meat
+  { id: 'steak'   as const, name: 'Steak',      price: 30, hungerD: 40, happyD: 25, weightD: 0.10, desc: 'Luxury cut',         color: '#CC3333', cat: 'meat'    },
+  { id: 'chicken' as const, name: 'Chicken',    price: 14, hungerD: 28, happyD: 10, weightD: 0.06, desc: 'Juicy drumstick',    color: '#E8B44A', cat: 'meat'    },
+  { id: 'sausage' as const, name: 'Sausage',    price: 12, hungerD: 22, happyD: 8,  weightD: 0.05, desc: 'Smoky & meaty',      color: '#A0522D', cat: 'meat'    },
+  // Dairy
+  { id: 'cream'   as const, name: 'Cream',      price: 10, hungerD: 10, happyD: 30, weightD: 0.02, desc: 'Sweet treat',        color: '#A78BFA', cat: 'dairy'   },
+  { id: 'milk'    as const, name: 'Milk',       price: 6,  hungerD: 12, happyD: 15, weightD: 0.02, desc: 'Fresh & cold',       color: '#E8E4E0', cat: 'dairy'   },
+  { id: 'cheese'  as const, name: 'Cheese',     price: 10, hungerD: 14, happyD: 16, weightD: 0.03, desc: 'Aged cheddar',       color: '#F5C842', cat: 'dairy'   },
+  { id: 'yogurt'  as const, name: 'Yogurt',     price: 8,  hungerD: 10, happyD: 18, weightD: 0.01, desc: 'Creamy & smooth',    color: '#FFB6C1', cat: 'dairy'   },
+  // Special
+  { id: 'cake'    as const, name: 'Cake',       price: 35, hungerD: 15, happyD: 40, weightD: 0.08, desc: 'Birthday special',   color: '#FF85A2', cat: 'special' },
+  { id: 'egg'     as const, name: 'Egg',        price: 4,  hungerD: 16, happyD: 4,  weightD: 0.03, desc: 'Simple & nutritious',color: '#F5E6C8', cat: 'special' },
 ]
 
 const FRIDGE_CATEGORIES = [
-  { id: 'dry',  label: 'DRY',  color: '#F5C842' },
-  { id: 'fish', label: 'FISH', color: '#6BAED6' },
-  { id: 'meat', label: 'MEAT', color: '#CC3333' },
+  { id: 'dry',     label: 'DRY',     color: '#D4A44A' },
+  { id: 'seafood', label: 'SEAFOOD', color: '#5BA3D9' },
+  { id: 'meat',    label: 'MEAT',    color: '#CC3333' },
+  { id: 'dairy',   label: 'DAIRY',   color: '#A78BFA' },
+  { id: 'special', label: 'SPECIAL', color: '#FF85A2' },
 ]
 
-function FoodIcon({ id, color }: { id: string; color: string }) {
+function FoodIcon({ id }: { id: string; color?: string }) {
+  const S = 32
+  const V = '0 0 10 10'
+  const base: React.CSSProperties = { imageRendering: 'pixelated' }
+  const r = (x: number, y: number, w: number, h: number, f: string) =>
+    <rect x={x} y={y} width={w} height={h} fill={f} />
+
   if (id === 'kibble') return (
-    <div style={{ width: 32, height: 32, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 28, height: 14, borderRadius: '3px 3px 50% 50%', background: `linear-gradient(180deg, ${color}DD, ${color}88)`, border: `2px solid ${color}`, position: 'relative' }}>
-        {[0,1,2,3].map(k => <div key={k} style={{ position: 'absolute', bottom: 2, left: 3 + k * 5, width: 3, height: 3, borderRadius: '50%', background: `${color}99` }} />)}
-      </div>
-    </div>
-  )
-  if (id === 'fish') return (
-    <div style={{ width: 32, height: 32, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 20, height: 14, borderRadius: '50% 40% 40% 50%', background: `linear-gradient(135deg, ${color}EE, ${color}88)`, border: `1.5px solid ${color}` }} />
-      <div style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', width: 0, height: 0, borderTop: '7px solid transparent', borderBottom: '7px solid transparent', borderLeft: `10px solid ${color}BB` }} />
-      <div style={{ position: 'absolute', left: 8, top: '35%', width: 3, height: 3, borderRadius: '50%', background: '#1A1A2A' }} />
-    </div>
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(2,4,6,4,'#C8956A')}{r(2,3,6,1,'#D4A44A')}{r(3,2,4,1,'#D4A44A')}
+      {r(3,5,1,1,'#A0724A')}{r(5,5,1,1,'#A0724A')}{r(7,6,1,1,'#A0724A')}
+      {r(3,7,1,1,'#B08050')}{r(6,4,1,1,'#B08050')}
+      {r(2,8,6,1,'#A06830')}{r(3,3,1,1,'rgba(255,255,255,0.3)')}
+    </svg>
   )
   if (id === 'treat') return (
-    <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 18, height: 18, borderRadius: '4px', background: `linear-gradient(135deg, ${color}EE, ${color}77)`, border: `1.5px solid ${color}`, transform: 'rotate(15deg)', position: 'relative' }}>
-        <div style={{ position: 'absolute', top: 3, left: 3, right: 3, bottom: 3, borderRadius: 2, border: `1px solid ${color}55` }} />
-      </div>
-    </div>
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(3,2,4,1,'#FF85A2')}{r(2,3,6,4,'#FF6B9D')}{r(3,7,4,1,'#FF6B9D')}
+      {r(4,4,2,2,'#FFB6CC')}{r(3,3,1,1,'rgba(255,255,255,0.4)')}
+      {r(2,3,1,4,'#E05580')}{r(8,3,0,0,'transparent')}
+    </svg>
+  )
+  if (id === 'biscuit') return (
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(2,3,6,4,'#D4A060')}{r(3,2,4,1,'#D4A060')}{r(3,7,4,1,'#C89050')}
+      {r(3,4,1,1,'#B07838')}{r(6,5,1,1,'#B07838')}{r(4,6,1,1,'#B07838')}
+      {r(3,3,1,1,'rgba(255,255,255,0.35)')}{r(5,3,1,1,'rgba(255,255,255,0.25)')}
+    </svg>
+  )
+  if (id === 'fish') return (
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(2,4,5,3,'#5BA3D9')}{r(3,3,3,1,'#6BB5E8')}{r(3,7,3,1,'#4A8ABB')}
+      {r(7,3,1,2,'#4A8ABB')}{r(7,6,1,2,'#4A8ABB')}{r(8,4,1,1,'#4A8ABB')}
+      {r(8,6,1,1,'#4A8ABB')}{r(3,4,1,1,'#222')}{r(3,4,1,1,'#fff')}
+      {r(4,5,1,1,'#222')}{r(2,5,1,1,'#6BB5E8')}
+      {r(5,5,1,1,'#74C0F0')}{r(4,4,1,1,'#74C0F0')}
+    </svg>
   )
   if (id === 'tuna') return (
-    <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ position: 'relative', width: 26, height: 18 }}>
-        <div style={{ width: '100%', height: '80%', marginTop: 2, background: `linear-gradient(180deg, ${color}DD, ${color}88)`, borderRadius: 3, border: `1.5px solid ${color}`, position: 'relative' }}>
-          <div style={{ position: 'absolute', top: 1, left: 3, right: 3, height: 2, background: 'rgba(255,255,255,0.3)', borderRadius: 2 }} />
-        </div>
-        <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 18, height: 4, background: `${color}CC`, borderRadius: '2px 2px 0 0', border: `1px solid ${color}` }} />
-      </div>
-    </div>
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(2,4,6,4,'#D4D4D0')}{r(2,3,6,1,'#E0E0DC')}{r(3,2,4,1,'#C8C8C4')}
+      {r(2,8,6,1,'#B0B0AC')}{r(3,5,4,2,'#E8A020')}{r(4,4,2,1,'#F0B040')}
+      {r(3,4,1,1,'rgba(255,255,255,0.4)')}{r(4,7,2,1,'#C88818')}
+    </svg>
+  )
+  if (id === 'shrimp') return (
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(4,2,2,1,'#F0836A')}{r(3,3,3,1,'#F0836A')}{r(3,4,4,1,'#E86A50')}
+      {r(4,5,3,1,'#E86A50')}{r(5,6,2,1,'#F09080')}{r(5,7,3,1,'#FFB0A0')}
+      {r(4,3,1,1,'rgba(255,255,255,0.3)')}{r(6,5,1,1,'#D05A40')}
+      {r(3,5,1,1,'#F8A088')}{r(2,4,1,1,'#F8A088')}
+    </svg>
+  )
+  if (id === 'salmon') return (
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(2,3,6,4,'#E8735A')}{r(3,2,4,1,'#F08868')}{r(2,7,6,1,'#C85A42')}
+      {r(3,4,2,1,'#FFB0A0')}{r(6,5,1,1,'#FFB0A0')}{r(4,6,2,1,'#FFB0A0')}
+      {r(3,3,1,1,'rgba(255,255,255,0.4)')}{r(5,3,1,1,'rgba(255,255,255,0.25)')}
+    </svg>
+  )
+  if (id === 'sardine') return (
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(1,4,6,2,'#7BAFC8')}{r(2,3,4,1,'#8EC4D8')}{r(2,6,4,1,'#6A98B0')}
+      {r(7,4,1,1,'#6A98B0')}{r(7,5,1,1,'#6A98B0')}{r(8,4,1,2,'#5888A0')}
+      {r(2,4,1,1,'#fff')}{r(3,5,1,1,'#222')}
+      {r(4,4,1,1,'#A0D0E8')}
+    </svg>
+  )
+  if (id === 'sushi') return (
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(2,4,6,3,'#fff')}{r(2,3,6,1,'#E8735A')}{r(3,2,4,1,'#F08060')}
+      {r(2,7,6,1,'#1A1A2A')}{r(3,5,4,1,'#E8E4E0')}
+      {r(3,3,1,1,'rgba(255,255,255,0.3)')}{r(2,8,6,1,'#2D9B6A')}
+      {r(3,8,4,1,'#3AB87A')}
+    </svg>
   )
   if (id === 'steak') return (
-    <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 26, height: 18, background: `linear-gradient(135deg, ${color}EE, ${color}88)`, borderRadius: '40% 50% 45% 55%', border: `1.5px solid ${color}`, position: 'relative' }}>
-        <div style={{ position: 'absolute', top: 4, left: 4, right: 4, height: 2, background: 'rgba(255,200,180,0.4)', borderRadius: 2 }} />
-        <div style={{ position: 'absolute', top: 8, left: 6, right: 6, height: 2, background: 'rgba(255,200,180,0.3)', borderRadius: 2 }} />
-      </div>
-    </div>
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(2,3,6,5,'#CC3333')}{r(3,2,4,1,'#DD4444')}{r(2,8,6,1,'#993322')}
+      {r(3,4,1,2,'#FF8888')}{r(5,5,2,1,'#FF8888')}{r(4,7,1,1,'#FF8888')}
+      {r(3,3,1,1,'rgba(255,255,255,0.3)')}{r(7,4,1,1,'#B02828')}
+    </svg>
   )
-  // cream
+  if (id === 'chicken') return (
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(3,2,4,5,'#E8B44A')}{r(2,4,1,3,'#E8B44A')}{r(7,4,1,3,'#D4A030')}
+      {r(4,7,2,2,'#C89030')}{r(3,3,1,2,'#F5D070')}
+      {r(5,3,1,1,'#F5D070')}{r(3,2,1,1,'rgba(255,255,255,0.3)')}
+      {r(4,9,2,1,'#A07020')}
+    </svg>
+  )
+  if (id === 'sausage') return (
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(2,4,6,2,'#A0522D')}{r(3,3,4,1,'#B8633A')}{r(3,6,4,1,'#8B4020')}
+      {r(1,4,1,2,'#C87850')}{r(8,4,1,2,'#8B4020')}
+      {r(3,4,1,1,'#D09060')}{r(5,4,1,1,'#D09060')}{r(7,5,1,1,'#D09060')}
+    </svg>
+  )
+  if (id === 'cream') return (
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(3,5,4,3,'#A78BFA')}{r(2,6,1,2,'#A78BFA')}{r(7,6,1,2,'#A78BFA')}
+      {r(3,8,4,1,'#8B6BDA')}{r(3,3,4,2,'#fff')}{r(4,2,2,1,'#fff')}
+      {r(3,3,1,1,'rgba(200,180,255,0.4)')}{r(5,4,1,1,'rgba(200,180,255,0.3)')}
+    </svg>
+  )
+  if (id === 'milk') return (
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(3,3,4,5,'#E8E4E0')}{r(4,2,2,1,'#D0CCC8')}{r(3,8,4,1,'#C8C4C0')}
+      {r(4,1,2,1,'#5BA3D9')}{r(3,2,1,1,'#D8D4D0')}{r(6,2,1,1,'#D8D4D0')}
+      {r(4,4,1,2,'rgba(255,255,255,0.5)')}{r(5,5,1,1,'rgba(255,255,255,0.3)')}
+    </svg>
+  )
+  if (id === 'cheese') return (
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(1,4,7,4,'#F5C842')}{r(1,3,5,1,'#F5D060')}{r(8,7,1,1,'#F5C842')}
+      {r(6,3,1,1,'#F5D060')}{r(7,4,1,2,'#E8B830')}{r(8,5,1,2,'#E8B830')}
+      {r(3,5,2,2,'#E8B020')}{r(5,6,1,1,'#E8B020')}
+      {r(2,4,1,1,'rgba(255,255,255,0.3)')}{r(1,8,7,1,'#D4A020')}
+    </svg>
+  )
+  if (id === 'yogurt') return (
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(3,4,4,4,'#FFB6C1')}{r(2,5,1,3,'#FFB6C1')}{r(7,5,1,3,'#FFB6C1')}
+      {r(3,3,4,1,'#E8A0B0')}{r(4,2,2,1,'#C8C4C0')}{r(3,2,1,1,'#D8D4D0')}
+      {r(6,2,1,1,'#D8D4D0')}{r(3,8,4,1,'#E898A8')}
+      {r(4,5,2,1,'rgba(255,255,255,0.4)')}{r(4,4,1,1,'rgba(255,255,255,0.3)')}
+    </svg>
+  )
+  if (id === 'cake') return (
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(2,5,6,3,'#FF85A2')}{r(2,4,6,1,'#FFB0C4')}{r(3,3,4,1,'#FFD0DD')}
+      {r(2,8,6,1,'#D86080')}{r(4,1,1,2,'#F5C842')}{r(4,0,1,1,'#FF8800')}
+      {r(3,5,1,1,'#FFD0DD')}{r(6,6,1,1,'#FFD0DD')}
+      {r(5,1,1,2,'#F5C842')}{r(5,0,1,1,'#FF8800')}
+    </svg>
+  )
+  if (id === 'egg') return (
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(3,2,4,2,'#F5E6C8')}{r(2,4,6,3,'#F5E6C8')}{r(3,7,4,1,'#E8D8B0')}
+      {r(4,4,2,2,'#F5C842')}{r(3,3,1,1,'rgba(255,255,255,0.4)')}
+      {r(5,3,1,1,'rgba(255,255,255,0.25)')}{r(2,7,1,0,'transparent')}
+    </svg>
+  )
+  // fallback
   return (
-    <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-      <div style={{ position: 'relative', width: 20 }}>
-        <div style={{ width: 20, height: 10, borderRadius: '50% 50% 0 0', background: `linear-gradient(180deg, white, ${color}55)`, border: `1.5px solid ${color}`, borderBottom: 'none' }} />
-        <div style={{ width: 20, height: 12, background: `linear-gradient(180deg, ${color}CC, ${color}88)`, borderRadius: '2px 2px 4px 4px', border: `1.5px solid ${color}` }}>
-          <div style={{ position: 'absolute', top: 1, left: 3, right: 3, height: 2, background: 'rgba(255,255,255,0.35)', borderRadius: 2 }} />
-        </div>
-      </div>
-    </div>
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(3,3,4,4,'#aaa')}{r(4,4,2,2,'#888')}
+    </svg>
   )
 }
 
@@ -102,14 +219,9 @@ export default function FeedScene({ onClose }: Props) {
   // here — they have their own fridge view in their own session).
   const myPile: FoodInventory = (user?.id && stats?.food_by_user?.[user.id]) || {}
   const sharedPile: FoodInventory = stats?.food_inventory ?? {}
-  const inventory: FoodInventory = {
-    kibble: (myPile.kibble ?? 0) + (sharedPile.kibble ?? 0),
-    fish:   (myPile.fish ?? 0)   + (sharedPile.fish ?? 0),
-    treat:  (myPile.treat ?? 0)  + (sharedPile.treat ?? 0),
-    tuna:   (myPile.tuna ?? 0)   + (sharedPile.tuna ?? 0),
-    steak:  (myPile.steak ?? 0)  + (sharedPile.steak ?? 0),
-    cream:  (myPile.cream ?? 0)  + (sharedPile.cream ?? 0),
-  }
+  const inventory: FoodInventory = Object.fromEntries(
+    SHOP_ITEMS.map(i => [i.id, (myPile[i.id] ?? 0) + (sharedPile[i.id] ?? 0)])
+  ) as FoodInventory
   const fridgeItems = SHOP_ITEMS.filter(i => (inventory[i.id] ?? 0) > 0)
   const mood = eatAnim ? 'happy' : (stats?.hunger ?? 100) < 40 ? 'hungry' : 'idle'
   // Fall back to the module-level cache (set by any prior useErenStats

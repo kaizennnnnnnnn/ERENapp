@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 export type LevelRewardKind = 'coins' | 'stardust' | 'tickets' | 'food'
-export type FoodKind = 'kibble' | 'fish' | 'treat' | 'tuna' | 'steak' | 'cream'
+export type FoodKind = 'kibble' | 'fish' | 'treat' | 'tuna' | 'steak' | 'cream' | 'biscuit' | 'shrimp' | 'salmon' | 'chicken' | 'sausage' | 'milk' | 'cheese' | 'yogurt' | 'cake' | 'sushi' | 'sardine' | 'egg'
 
 export interface LevelReward {
   level: number
@@ -57,7 +57,7 @@ const OVERRIDES: Record<number, Omit<LevelReward, 'level'>> = {
   100: { kind: 'tickets', amount: 15,                label: '15× LEGENDARY TICKETS ★', isMilestone: true, isMega: true },
 }
 
-const FOOD_ROTATION: FoodKind[] = ['kibble', 'fish', 'treat', 'tuna', 'steak', 'cream']
+const FOOD_ROTATION: FoodKind[] = ['kibble', 'fish', 'treat', 'biscuit', 'tuna', 'shrimp', 'chicken', 'milk', 'cheese', 'sardine', 'egg', 'salmon', 'cream', 'sausage', 'yogurt', 'sushi', 'steak', 'cake']
 
 function generateReward(level: number): LevelReward {
   if (level in OVERRIDES) return { level, ...OVERRIDES[level] }

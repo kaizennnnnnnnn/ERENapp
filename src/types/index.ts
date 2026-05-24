@@ -63,6 +63,18 @@ export type FoodInventory = {
   tuna?: number
   steak?: number
   cream?: number
+  biscuit?: number
+  shrimp?: number
+  salmon?: number
+  chicken?: number
+  sausage?: number
+  milk?: number
+  cheese?: number
+  yogurt?: number
+  cake?: number
+  sushi?: number
+  sardine?: number
+  egg?: number
 }
 
 export interface ErenStats {
@@ -88,7 +100,7 @@ export interface ErenStats {
   is_sleeping: boolean
 }
 
-export type FoodKey = 'kibble' | 'fish' | 'treat' | 'tuna' | 'steak' | 'cream'
+export type FoodKey = 'kibble' | 'fish' | 'treat' | 'tuna' | 'steak' | 'cream' | 'biscuit' | 'shrimp' | 'salmon' | 'chicken' | 'sausage' | 'milk' | 'cheese' | 'yogurt' | 'cake' | 'sushi' | 'sardine' | 'egg'
 export interface GiftItem { key: FoodKey; qty: number }
 
 export interface Interaction {

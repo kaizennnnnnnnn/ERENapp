@@ -21,15 +21,27 @@ import { playSound } from '@/lib/sounds'
 import type { FoodInventory, FoodKey } from '@/types'
 
 const FOOD_META: Record<FoodKey, { name: string; color: string }> = {
-  kibble: { name: 'Kibble',    color: '#F5C842' },
-  fish:   { name: 'Fish',      color: '#6BAED6' },
-  treat:  { name: 'Cat Treat', color: '#FF6B9D' },
-  tuna:   { name: 'Tuna Can',  color: '#E8A020' },
-  steak:  { name: 'Steak',     color: '#CC3333' },
-  cream:  { name: 'Cream',     color: '#A78BFA' },
+  kibble:  { name: 'Kibble',    color: '#D4A44A' },
+  fish:    { name: 'Fish',      color: '#5BA3D9' },
+  treat:   { name: 'Cat Treat', color: '#FF6B9D' },
+  tuna:    { name: 'Tuna Can',  color: '#E8A020' },
+  steak:   { name: 'Steak',     color: '#CC3333' },
+  cream:   { name: 'Cream',     color: '#A78BFA' },
+  biscuit: { name: 'Biscuit',   color: '#C8956A' },
+  shrimp:  { name: 'Shrimp',    color: '#F0836A' },
+  salmon:  { name: 'Salmon',    color: '#E8735A' },
+  chicken: { name: 'Chicken',   color: '#E8B44A' },
+  sausage: { name: 'Sausage',   color: '#A0522D' },
+  milk:    { name: 'Milk',      color: '#E8E4E0' },
+  cheese:  { name: 'Cheese',    color: '#F5C842' },
+  yogurt:  { name: 'Yogurt',    color: '#FFB6C1' },
+  cake:    { name: 'Cake',      color: '#FF85A2' },
+  sushi:   { name: 'Sushi',     color: '#2D9B6A' },
+  sardine: { name: 'Sardine',   color: '#7BAFC8' },
+  egg:     { name: 'Egg',       color: '#F5E6C8' },
 }
 
-const FOOD_ORDER: FoodKey[] = ['kibble', 'fish', 'treat', 'tuna', 'steak', 'cream']
+const FOOD_ORDER: FoodKey[] = ['kibble', 'fish', 'treat', 'tuna', 'steak', 'cream', 'biscuit', 'shrimp', 'salmon', 'chicken', 'sausage', 'milk', 'cheese', 'yogurt', 'cake', 'sushi', 'sardine', 'egg']
 
 type Mode = 'idle' | 'split' | 'message' | 'gift'
 

@@ -9,67 +9,41 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
-import { LEVEL_REWARDS, MAX_LEVEL, type LevelReward, type FoodKind } from '@/lib/levelRewards'
+import { LEVEL_REWARDS, MAX_LEVEL, type LevelReward } from '@/lib/levelRewards'
 import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 import {
-  IconCoin, IconSparkles, IconTicket, IconMeat, IconFish, IconStar, IconCrown,
+  IconCoin, IconSparkles, IconTicket, IconStar, IconCrown,
 } from '@/components/PixelIcons'
 import PageLoader from '@/components/PageLoader'
 import { playSound } from '@/lib/sounds'
+
+// ── Food color map for reward icons ──────────────────────────────────────────
+const FOOD_COLORS: Record<string, string> = {
+  kibble: '#D4A44A', fish: '#5BA3D9', treat: '#FF6B9D', tuna: '#E8A020',
+  steak: '#CC3333', cream: '#A78BFA', biscuit: '#C8956A', shrimp: '#F0836A',
+  salmon: '#E8735A', chicken: '#E8B44A', sausage: '#A0522D', milk: '#E8E4E0',
+  cheese: '#F5C842', yogurt: '#FFB6C1', cake: '#FF85A2', sushi: '#2D9B6A',
+  sardine: '#7BAFC8', egg: '#F5E6C8',
+}
+
+function FoodRewardIcon({ food, size = 24 }: { food?: string; size?: number }) {
+  const c = FOOD_COLORS[food ?? ''] ?? '#aaa'
+  return (
+    <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
+      <rect x="2" y="3" width="8" height="6" fill={c} />
+      <rect x="3" y="2" width="6" height="1" fill={c} opacity={0.7} />
+      <rect x="3" y="9" width="6" height="1" fill={c} opacity={0.5} />
+      <rect x="3" y="4" width="2" height="1" fill="rgba(255,255,255,0.4)" />
+    </svg>
+  )
+}
 
 // ── Reward icon dispatcher ───────────────────────────────────────────────────
 function RewardIcon({ r, size = 28 }: { r: LevelReward; size?: number }) {
   if (r.kind === 'coins')    return <IconCoin size={size} />
   if (r.kind === 'stardust') return <IconSparkles size={size} />
   if (r.kind === 'tickets')  return <IconTicket size={size} />
-  // food — render per-kind pixel
-  switch (r.food) {
-    case 'kibble': return <Kibble size={size} />
-    case 'fish':   return <IconFish size={size} />
-    case 'treat':  return <Treat size={size} />
-    case 'tuna':   return <Tuna size={size} />
-    case 'steak':  return <IconMeat size={size} />
-    case 'cream':  return <Cream size={size} />
-    default:       return <IconCoin size={size} />
-  }
-}
-
-// ── Tiny SVG food icons (local — don't leak into global icons) ───────────────
-function Kibble({ size = 24 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      <rect x="3" y="3" width="6" height="6" fill="#D4892A" />
-      <rect x="4" y="4" width="4" height="4" fill="#F5C842" />
-      <rect x="4" y="4" width="1" height="1" fill="#FFF4A3" />
-    </svg>
-  )
-}
-function Treat({ size = 24 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      <rect x="3" y="3" width="6" height="6" fill="#FF6B9D" transform="rotate(20 6 6)" />
-      <rect x="4" y="4" width="4" height="4" fill="#FFB0C8" transform="rotate(20 6 6)" />
-    </svg>
-  )
-}
-function Tuna({ size = 24 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      <rect x="1" y="3" width="10" height="7" fill="#4A8BC8" />
-      <rect x="1" y="3" width="10" height="1" fill="#FFFFFF" />
-      <rect x="1" y="9" width="10" height="1" fill="#2A5A88" />
-      <rect x="4" y="1" width="4" height="2" fill="#6BA0D8" />
-    </svg>
-  )
-}
-function Cream({ size = 24 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      <rect x="3" y="2" width="6" height="2" fill="#FFFFFF" />
-      <rect x="2" y="4" width="8" height="6" fill="#E9D5FF" />
-      <rect x="3" y="10" width="6" height="1" fill="#A78BFA" />
-    </svg>
-  )
+  return <FoodRewardIcon food={r.food} size={size} />
 }
 
 // ── Node tint by reward kind ─────────────────────────────────────────────────
