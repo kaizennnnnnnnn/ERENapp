@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { ShoppingCart, Package } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
@@ -213,6 +213,50 @@ export default function FeedScene({ onClose }: Props) {
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
   const [eatAnim, setEatAnim] = useState(false)
 
+  // Drag-to-feed state
+  const [dragItem, setDragItem] = useState<typeof SHOP_ITEMS[number] | null>(null)
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null)
+  const [nearEren, setNearEren] = useState(false)
+  const dragStartPos = useRef<{ x: number; y: number } | null>(null)
+  const isDragging = useRef(false)
+
+  const erenZone = useCallback((x: number, y: number) => {
+    const cx = window.innerWidth / 2
+    const cy = window.innerHeight * 0.78
+    const dx = x - cx, dy = y - cy
+    return Math.sqrt(dx * dx + dy * dy) < 90
+  }, [])
+
+  function onDragStart(item: typeof SHOP_ITEMS[number], e: React.TouchEvent) {
+    if (feeding || isSleeping) return
+    const t = e.touches[0]
+    dragStartPos.current = { x: t.clientX, y: t.clientY }
+    isDragging.current = false
+    setDragItem(item)
+    setDragPos({ x: t.clientX, y: t.clientY })
+  }
+  function onDragMove(e: React.TouchEvent) {
+    if (!dragItem) return
+    const t = e.touches[0]
+    if (dragStartPos.current) {
+      const dx = Math.abs(t.clientX - dragStartPos.current.x)
+      const dy = Math.abs(t.clientY - dragStartPos.current.y)
+      if (dx > 8 || dy > 8) isDragging.current = true
+    }
+    setDragPos({ x: t.clientX, y: t.clientY })
+    setNearEren(erenZone(t.clientX, t.clientY))
+  }
+  function onDragEnd() {
+    if (dragItem && isDragging.current && nearEren) {
+      handleFeed(dragItem)
+    }
+    setDragItem(null)
+    setDragPos(null)
+    setNearEren(false)
+    isDragging.current = false
+    dragStartPos.current = null
+  }
+
   // "Your fridge" = the user's personal pile + the legacy shared pool. Buys
   // add to the personal pile only; feeds drain personal first, then shared.
   // Each user's personal pile is independent (the partner's is invisible
@@ -331,6 +375,37 @@ export default function FeedScene({ onClose }: Props) {
         </div>
       )}
 
+      {/* ══ DRAG GHOST — follows finger while dragging food ══ */}
+      {dragItem && dragPos && isDragging.current && (
+        <div className="fixed pointer-events-none z-[60]" style={{
+          left: dragPos.x - 24, top: dragPos.y - 24,
+        }}>
+          <div style={{
+            width: 48, height: 48,
+            background: `radial-gradient(circle, ${dragItem.color}40, ${dragItem.color}15)`,
+            borderRadius: 12,
+            border: `2px solid ${dragItem.color}`,
+            boxShadow: `0 0 12px ${dragItem.color}66`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transform: 'scale(1.15)',
+          }}>
+            <FoodIcon id={dragItem.id} color={dragItem.color} />
+          </div>
+        </div>
+      )}
+
+      {/* ══ EREN GLOW — highlights when food is dragged near ══ */}
+      {nearEren && dragItem && (
+        <div className="fixed pointer-events-none z-[19]" style={{
+          left: '50%', bottom: '10%',
+          transform: 'translateX(-50%)',
+          width: 220, height: 220,
+          borderRadius: '50%',
+          background: `radial-gradient(circle, ${dragItem.color}30 0%, transparent 70%)`,
+          animation: 'erenGlow 0.6s ease-in-out infinite alternate',
+        }} />
+      )}
+
       {/* ══ BOTTOM BAR — Shop (center), Fridge or food row (left) ══ */}
       <div className="absolute bottom-6 left-0 right-0 z-30 px-4">
         <div className="flex items-end gap-3">
@@ -360,33 +435,38 @@ export default function FeedScene({ onClose }: Props) {
                   </button>
                   <div className="flex gap-2 overflow-x-auto"
                     style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
-                    {catItems.flatMap(item => {
+                    {catItems.map(item => {
                       const qty = inventory[item.id] ?? 0
-                      return Array.from({ length: qty }).map((_, idx) => (
-                        <button key={`${item.id}-${idx}`}
-                          onClick={() => { playSound('ui_tap'); handleFeed(item) }}
-                          disabled={!!feeding}
-                          className="flex-shrink-0 active:scale-90 transition-transform disabled:opacity-50"
-                          style={{ position: 'relative' }}>
+                      return (
+                        <div key={item.id}
+                          onTouchStart={e => onDragStart(item, e)}
+                          onTouchMove={onDragMove}
+                          onTouchEnd={onDragEnd}
+                          className="flex-shrink-0"
+                          style={{ position: 'relative', touchAction: 'none' }}>
                           <div style={{
-                            width: 44, height: 44,
+                            width: 48, height: 48,
                             background: `radial-gradient(circle at 40% 35%, ${item.color}30, ${item.color}10)`,
                             borderRadius: 10,
                             border: `2px solid ${item.color}88`,
                             boxShadow: `2px 2px 0 ${item.color}44`,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            opacity: (dragItem?.id === item.id && isDragging.current) ? 0.4 : 1,
                           }}>
                             <FoodIcon id={item.id} color={item.color} />
                           </div>
-                          {feeding === item.id && (
-                            <div className="absolute inset-0 flex items-center justify-center" style={{
-                              background: 'rgba(255,255,255,0.6)', borderRadius: 10,
-                            }}>
-                              <span className="font-pixel" style={{ fontSize: 6, color: item.color }}>...</span>
-                            </div>
-                          )}
-                        </button>
-                      ))
+                          <span className="font-pixel absolute" style={{
+                            top: -4, right: -4,
+                            minWidth: 16, height: 16,
+                            background: item.color, color: '#fff',
+                            borderRadius: 8, fontSize: 7,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            border: '1.5px solid rgba(0,0,0,0.2)',
+                            boxShadow: '1px 1px 0 rgba(0,0,0,0.2)',
+                            padding: '0 3px',
+                          }}>{qty}</span>
+                        </div>
+                      )
                     })}
                   </div>
                   <style>{`.overflow-x-auto::-webkit-scrollbar { display: none; }`}</style>
@@ -546,6 +626,10 @@ export default function FeedScene({ onClose }: Props) {
           50%  { transform: translate(-3px, -22px) scale(1.1); opacity: 0.6; }
           80%  { transform: translate(2px, -38px) scale(1.3); opacity: 0.25; }
           100% { transform: translate(-1px, -50px) scale(1.45); opacity: 0; }
+        }
+        @keyframes erenGlow {
+          from { opacity: 0.5; transform: translateX(-50%) scale(0.95); }
+          to   { opacity: 1;   transform: translateX(-50%) scale(1.05); }
         }
       `}</style>
 
