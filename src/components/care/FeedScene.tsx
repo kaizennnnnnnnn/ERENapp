@@ -208,6 +208,7 @@ export default function FeedScene({ onClose }: Props) {
 
   const [tab, setTab] = useState<'shop' | 'fridge' | null>(null)
   const [fridgeCat, setFridgeCat] = useState<string | null>(null)
+  const [foodIdx, setFoodIdx] = useState(0)
   const [buying, setBuying] = useState<string | null>(null)
   const [feeding, setFeeding] = useState<string | null>(null)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
@@ -406,89 +407,106 @@ export default function FeedScene({ onClose }: Props) {
         }} />
       )}
 
-      {/* ══ BOTTOM BAR — Shop (center), Fridge or food row (left) ══ */}
+      {/* ══ BOTTOM BAR — Fridge (left), Food center, Shop (right) ══ */}
       <div className="absolute bottom-6 left-0 right-0 z-30 px-4">
-        <div className="flex items-end gap-3">
+        <div className="flex items-end justify-between">
 
-          {/* LEFT: fridge button OR selected food row */}
-          <div className="flex-1 flex items-end" style={{ minHeight: 48 }}>
-            {fridgeCat ? (() => {
-              const catItems = SHOP_ITEMS.filter(i => i.cat === fridgeCat && (inventory[i.id] ?? 0) > 0)
-              if (catItems.length === 0) {
-                return (
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => { playSound('ui_tap'); setFridgeCat(null) }}
-                      className="active:scale-90 transition-transform"
-                      style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(0,0,0,0.3)', border: '2px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '"Press Start 2P"', fontSize: 8, color: '#fff' }}>
-                      ✕
-                    </button>
-                    <span className="font-pixel" style={{ fontSize: 6, color: 'rgba(255,255,255,0.7)' }}>EMPTY</span>
+          {/* LEFT: Fridge button */}
+          <button onClick={() => { if (!isSleeping) { playSound('ui_modal_open'); setTab('fridge') } }}
+            disabled={isSleeping}
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 active:scale-95 transition-transform disabled:opacity-40"
+            style={{ background: 'linear-gradient(135deg, #A8D8F8, #78B8E8)', borderRadius: 12, border: '2px solid #5898C8', boxShadow: '0 3px 0 #3870A8, inset 0 1px 0 rgba(255,255,255,0.4)', fontFamily: '"Press Start 2P"', fontSize: 7, color: '#1A5A8A' }}>
+            <Package size={12} />
+            FRIDGE
+          </button>
+
+          {/* CENTER: Current food with arrows */}
+          {(() => {
+            const catItems = fridgeCat
+              ? SHOP_ITEMS.filter(i => i.cat === fridgeCat && (inventory[i.id] ?? 0) > 0)
+              : []
+            const idx = Math.min(foodIdx, catItems.length - 1)
+            const item = catItems[idx]
+            if (!item) return (
+              <div className="flex-1 flex justify-center">
+                <span className="font-pixel" style={{ fontSize: 6, color: 'rgba(255,255,255,0.4)', letterSpacing: 1 }}>
+                  {fridgeCat ? 'EMPTY' : 'PICK CATEGORY'}
+                </span>
+              </div>
+            )
+            const qty = inventory[item.id] ?? 0
+            const hasLeft = idx > 0
+            const hasRight = idx < catItems.length - 1
+            return (
+              <div className="flex items-center gap-2">
+                {/* Left arrow */}
+                <button onClick={() => { if (hasLeft) { playSound('ui_tap'); setFoodIdx(idx - 1) } }}
+                  className="active:scale-90 transition-transform"
+                  style={{
+                    width: 24, height: 24, borderRadius: 6,
+                    background: hasLeft ? 'rgba(255,255,255,0.15)' : 'transparent',
+                    border: hasLeft ? '1.5px solid rgba(255,255,255,0.25)' : '1.5px solid transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontFamily: '"Press Start 2P"', fontSize: 8,
+                    color: hasLeft ? '#fff' : 'rgba(255,255,255,0.15)',
+                  }}>◂</button>
+
+                {/* Food item — draggable */}
+                <div
+                  onTouchStart={e => onDragStart(item, e)}
+                  onTouchMove={onDragMove}
+                  onTouchEnd={onDragEnd}
+                  style={{ position: 'relative', touchAction: 'none' }}>
+                  <div style={{
+                    width: 56, height: 56,
+                    background: `radial-gradient(circle at 40% 35%, ${item.color}30, ${item.color}10)`,
+                    borderRadius: 12,
+                    border: `2px solid ${item.color}88`,
+                    boxShadow: `2px 2px 0 ${item.color}44, 0 0 10px ${item.color}22`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    opacity: (dragItem?.id === item.id && isDragging.current) ? 0.3 : 1,
+                    transition: 'opacity 0.15s ease',
+                  }}>
+                    <FoodIcon id={item.id} color={item.color} />
                   </div>
-                )
-              }
-              return (
-                <div className="flex items-center gap-2">
-                  <button onClick={() => { playSound('ui_tap'); setFridgeCat(null) }}
-                    className="flex-shrink-0 active:scale-90 transition-transform"
-                    style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(0,0,0,0.3)', border: '2px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '"Press Start 2P"', fontSize: 8, color: '#fff' }}>
-                    ✕
-                  </button>
-                  <div className="flex gap-2 overflow-x-auto"
-                    style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
-                    {catItems.map(item => {
-                      const qty = inventory[item.id] ?? 0
-                      return (
-                        <div key={item.id}
-                          onTouchStart={e => onDragStart(item, e)}
-                          onTouchMove={onDragMove}
-                          onTouchEnd={onDragEnd}
-                          className="flex-shrink-0"
-                          style={{ position: 'relative', touchAction: 'none' }}>
-                          <div style={{
-                            width: 48, height: 48,
-                            background: `radial-gradient(circle at 40% 35%, ${item.color}30, ${item.color}10)`,
-                            borderRadius: 10,
-                            border: `2px solid ${item.color}88`,
-                            boxShadow: `2px 2px 0 ${item.color}44`,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            opacity: (dragItem?.id === item.id && isDragging.current) ? 0.4 : 1,
-                          }}>
-                            <FoodIcon id={item.id} color={item.color} />
-                          </div>
-                          <span className="font-pixel absolute" style={{
-                            top: -4, right: -4,
-                            minWidth: 16, height: 16,
-                            background: item.color, color: '#fff',
-                            borderRadius: 8, fontSize: 7,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            border: '1.5px solid rgba(0,0,0,0.2)',
-                            boxShadow: '1px 1px 0 rgba(0,0,0,0.2)',
-                            padding: '0 3px',
-                          }}>{qty}</span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                  <style>{`.overflow-x-auto::-webkit-scrollbar { display: none; }`}</style>
+                  {/* Qty badge */}
+                  <span className="font-pixel absolute" style={{
+                    top: -5, right: -5,
+                    minWidth: 18, height: 18,
+                    background: item.color, color: '#fff',
+                    borderRadius: 9, fontSize: 7,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    border: '1.5px solid rgba(0,0,0,0.2)',
+                    boxShadow: '1px 1px 0 rgba(0,0,0,0.25)',
+                    padding: '0 4px',
+                  }}>{qty}</span>
+                  {/* Name */}
+                  <p className="font-pixel text-center mt-1" style={{
+                    fontSize: 5, color: 'rgba(255,255,255,0.7)', letterSpacing: 0.5,
+                  }}>{item.name.toUpperCase()}</p>
                 </div>
-              )
-            })() : (
-              <button onClick={() => { if (!isSleeping) { playSound('ui_modal_open'); setTab('fridge') } }}
-                disabled={isSleeping}
-                className="flex items-center gap-2 px-4 py-3 active:scale-95 transition-transform disabled:opacity-40"
-                style={{ background: 'linear-gradient(135deg, #A8D8F8, #78B8E8)', borderRadius: 14, border: '2px solid #5898C8', boxShadow: '0 4px 0 #3870A8, inset 0 1px 0 rgba(255,255,255,0.4)', fontFamily: '"Press Start 2P"', fontSize: 8, color: '#1A5A8A' }}>
-                <Package size={14} />
-                FRIDGE
-              </button>
-            )}
-          </div>
+
+                {/* Right arrow */}
+                <button onClick={() => { if (hasRight) { playSound('ui_tap'); setFoodIdx(idx + 1) } }}
+                  className="active:scale-90 transition-transform"
+                  style={{
+                    width: 24, height: 24, borderRadius: 6,
+                    background: hasRight ? 'rgba(255,255,255,0.15)' : 'transparent',
+                    border: hasRight ? '1.5px solid rgba(255,255,255,0.25)' : '1.5px solid transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontFamily: '"Press Start 2P"', fontSize: 8,
+                    color: hasRight ? '#fff' : 'rgba(255,255,255,0.15)',
+                  }}>▸</button>
+              </div>
+            )
+          })()}
 
           {/* RIGHT: Shop button */}
           <button onClick={() => { playSound(tab === 'shop' ? 'ui_modal_close' : 'ui_modal_open'); setTab(tab === 'shop' ? null : 'shop') }}
             disabled={isSleeping}
-            className="flex-shrink-0 flex items-center gap-2 px-5 py-3 text-white active:scale-95 transition-transform disabled:opacity-40 disabled:active:scale-100"
-            style={{ background: tab === 'shop' ? 'linear-gradient(135deg, #E8A020, #C07010)' : 'linear-gradient(135deg, #F5C842, #E8A020)', borderRadius: 14, border: '2px solid #C88018', boxShadow: tab === 'shop' ? '0 2px 0 #904800' : '0 4px 0 #A06010, inset 0 1px 0 rgba(255,255,255,0.3)', fontFamily: '"Press Start 2P"', fontSize: 8 }}>
-            <ShoppingCart size={14} />
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-white active:scale-95 transition-transform disabled:opacity-40"
+            style={{ background: tab === 'shop' ? 'linear-gradient(135deg, #E8A020, #C07010)' : 'linear-gradient(135deg, #F5C842, #E8A020)', borderRadius: 12, border: '2px solid #C88018', boxShadow: tab === 'shop' ? '0 2px 0 #904800' : '0 3px 0 #A06010, inset 0 1px 0 rgba(255,255,255,0.3)', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
+            <ShoppingCart size={12} />
             SHOP
           </button>
         </div>
@@ -520,7 +538,7 @@ export default function FeedScene({ onClose }: Props) {
                   if (catCount === 0) return null
                   return (
                     <button key={c.id}
-                      onClick={() => { playSound('ui_tap'); setFridgeCat(c.id); setTab(null) }}
+                      onClick={() => { playSound('ui_tap'); setFridgeCat(c.id); setFoodIdx(0); setTab(null) }}
                       className="flex items-center gap-4 px-5 py-4 active:scale-95 transition-transform w-full"
                       style={{
                         background: `linear-gradient(135deg, ${c.color}20, ${c.color}08)`,
