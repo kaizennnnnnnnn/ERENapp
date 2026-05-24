@@ -825,31 +825,41 @@ function KraftSectionCover({ section, sectionIndex, done, total, onOpen }: {
         boxShadow: `2px 2px 0 rgba(0,0,0,0.3)`,
         zIndex: 2,
       }}>
-        <svg width="18" height="16" viewBox="0 0 12 11" shapeRendering="crispEdges">
-          {/* ears outer */}
-          <rect x="1" y="0" width="2" height="2" fill={PEN_RED} />
-          <rect x="9" y="0" width="2" height="2" fill={PEN_RED} />
-          <rect x="2" y="0" width="1" height="1" fill={PEN_RED} />
-          {/* ears inner — accent color so the stamp picks up the
-              section's pastel */}
+        <svg width="20" height="18" viewBox="0 0 11 10" shapeRendering="crispEdges">
+          {/* pointy ears */}
+          <rect x="1" y="0" width="1" height="1" fill={PEN_RED} />
+          <rect x="9" y="0" width="1" height="1" fill={PEN_RED} />
+          <rect x="1" y="1" width="2" height="1" fill={PEN_RED} />
+          <rect x="8" y="1" width="2" height="1" fill={PEN_RED} />
+          {/* ear insides */}
           <rect x="2" y="1" width="1" height="1" fill={accent} />
-          <rect x="9" y="1" width="1" height="1" fill={accent} />
-          {/* head silhouette (pen-red outline) */}
-          <rect x="1" y="2" width="10" height="6" fill={PEN_RED} />
-          {/* eyes — knocked out of the silhouette as paper-colour
-              squares so the face reads even at this size */}
-          <rect x="3" y="4" width="2" height="2" fill="#fff8e8" />
-          <rect x="7" y="4" width="2" height="2" fill="#fff8e8" />
-          {/* nose */}
-          <rect x="5" y="6" width="2" height="1" fill="#fff8e8" />
-          {/* chin tuft / mouth */}
-          <rect x="4" y="8" width="4" height="1" fill={PEN_RED} />
-          <rect x="5" y="9" width="2" height="1" fill={PEN_RED} />
+          <rect x="8" y="1" width="1" height="1" fill={accent} />
+          {/* round head */}
+          <rect x="1" y="2" width="9" height="5" fill="#fff8e8" />
+          <rect x="2" y="7" width="7" height="1" fill="#fff8e8" />
+          {/* head outline */}
+          <rect x="0" y="2" width="1" height="5" fill={PEN_RED} />
+          <rect x="10" y="2" width="1" height="5" fill={PEN_RED} />
+          <rect x="1" y="7" width="1" height="1" fill={PEN_RED} />
+          <rect x="9" y="7" width="1" height="1" fill={PEN_RED} />
+          <rect x="2" y="8" width="7" height="1" fill={PEN_RED} />
+          {/* eyes — small filled dots */}
+          <rect x="3" y="4" width="1" height="1" fill={PEN_RED} />
+          <rect x="7" y="4" width="1" height="1" fill={PEN_RED} />
+          {/* nose — tiny pink triangle */}
+          <rect x="5" y="5" width="1" height="1" fill={accent} />
+          {/* mouth — w shape */}
+          <rect x="4" y="6" width="1" height="1" fill={PEN_RED} />
+          <rect x="6" y="6" width="1" height="1" fill={PEN_RED} />
+          <rect x="5" y="6" width="1" height="1" fill="#fff8e8" />
           {/* whiskers */}
-          <rect x="0" y="6" width="1" height="1" fill={PEN_RED} />
-          <rect x="11" y="6" width="1" height="1" fill={PEN_RED} />
-          <rect x="0" y="7" width="1" height="1" fill={PEN_RED} />
-          <rect x="11" y="7" width="1" height="1" fill={PEN_RED} />
+          <rect x="0" y="5" width="1" height="1" fill={PEN_RED} opacity="0.5" />
+          <rect x="10" y="5" width="1" height="1" fill={PEN_RED} opacity="0.5" />
+          <rect x="1" y="4" width="1" height="1" fill={PEN_RED} opacity="0.4" />
+          <rect x="9" y="4" width="1" height="1" fill={PEN_RED} opacity="0.4" />
+          {/* chin */}
+          <rect x="3" y="8" width="5" height="1" fill="#fff8e8" />
+          <rect x="4" y="9" width="3" height="1" fill={PEN_RED} />
         </svg>
       </div>
     </button>
