@@ -248,6 +248,7 @@ export default function FeedScene({ onClose }: Props) {
       const item = currentItemRef.current
       if (!item) return
       e.preventDefault()
+      e.stopPropagation()
       const t = e.touches[0]
       const d = dragRef.current
       d.item = item; d.startPos = { x: t.clientX, y: t.clientY }
@@ -349,7 +350,7 @@ export default function FeedScene({ onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-40 overflow-hidden select-none">
+    <div className="fixed inset-0 z-40 overflow-hidden select-none" style={{ touchAction: 'none' }}>
 
       {/* ══ BACKGROUND IMAGE ══ */}
       <div className="absolute inset-0" style={{ backgroundImage: `url(${isDark ? '/KitchenDark.png' : '/kitchen.png'})`, backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
@@ -412,22 +413,14 @@ export default function FeedScene({ onClose }: Props) {
         </div>
       )}
 
-      {/* ══ DRAG GHOST — follows finger while dragging food ══ */}
+      {/* ══ DRAG GHOST — just the food icon, no frame ══ */}
       {dragRef.current.item && dragRef.current.pos && dragRef.current.active && (
         <div className="fixed pointer-events-none z-[60]" style={{
-          left: dragRef.current.pos.x - 24, top: dragRef.current.pos.y - 24,
+          left: dragRef.current.pos.x - 20, top: dragRef.current.pos.y - 20,
+          filter: `drop-shadow(0 2px 6px ${dragRef.current.item.color}88)`,
+          transform: 'scale(1.3)',
         }}>
-          <div style={{
-            width: 48, height: 48,
-            background: `radial-gradient(circle, ${dragRef.current.item.color}40, ${dragRef.current.item.color}15)`,
-            borderRadius: 12,
-            border: `2px solid ${dragRef.current.item.color}`,
-            boxShadow: `0 0 12px ${dragRef.current.item.color}66`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            transform: 'scale(1.15)',
-          }}>
-            <FoodIcon id={dragRef.current.item.id} color={dragRef.current.item.color} />
-          </div>
+          <FoodIcon id={dragRef.current.item.id} color={dragRef.current.item.color} />
         </div>
       )}
 
