@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useRef, useLayoutEffect } from 'react'
+import { useEffect, useState, useRef, useLayoutEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
@@ -51,7 +51,7 @@ export default function HomePage() {
   const supabase = createClient()
   const { user, profile, loading: authLoading } = useAuth()
   const { stats, loading } = useErenStats(profile?.household_id ?? null)
-  const { setIsSick, openScene, setHideStats } = useCare()
+  const { setIsSick, openScene, setHideStats, activeScene } = useCare()
   const { xp, level } = useTasks()
   useTimeTracking(user?.id ?? null)
   const { canClaim: fortuneAvailable } = useFortune()
@@ -63,6 +63,17 @@ export default function HomePage() {
   const equippedOutfits = inventory.filter(i => i.equipped).map(i => GACHA_ITEMS.find(g => g.id === i.item_id)).filter(Boolean)
   const equippedDecos = inventory.filter(i => i.equipped && GACHA_ITEMS.find(g => g.id === i.item_id)?.category === 'decoration').map(i => GACHA_ITEMS.find(g => g.id === i.item_id)!)
   const [showFortune, setShowFortune] = useState(false)
+  const [dotsVisible, setDotsVisible] = useState(false)
+  const dotsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const swipeTouchX = useRef(0)
+
+  const flashDots = useCallback(() => {
+    setDotsVisible(true)
+    if (dotsTimer.current) clearTimeout(dotsTimer.current)
+    dotsTimer.current = setTimeout(() => setDotsVisible(false), 2000)
+  }, [])
+
+  useEffect(() => { if (activeScene) flashDots() }, [activeScene, flashDots])
 
   // XP bar
   const xpIntoLevel = xp - totalXpForLevel(level)
@@ -351,7 +362,12 @@ export default function HomePage() {
       {newMessage && <ErenMessagePopup message={newMessage} onDismiss={dismissPopup} />}
 
       {/* ══ FULL SCREEN ROOM ══ */}
-      <div className="fixed inset-0" style={{ zIndex: 0 }}>
+      <div className="fixed inset-0" style={{ zIndex: 0 }}
+        onTouchStart={e => { swipeTouchX.current = e.touches[0].clientX }}
+        onTouchMove={e => {
+          const dx = Math.abs(e.touches[0].clientX - swipeTouchX.current)
+          if (dx > 20 && !dotsVisible) flashDots()
+        }}>
 
         {/* Background image */}
         <div className="absolute inset-0" style={{
@@ -565,9 +581,15 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Dot indicators — clickable room nav */}
+        {/* Dot indicators — only visible during swipe / scene transition */}
         <div className="absolute bottom-4 left-1/2 z-10 flex items-center gap-0.5 px-2 py-0.5"
-          style={{ transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.35)', borderRadius: 20, backdropFilter: 'blur(6px)' }}>
+          style={{
+            transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.35)',
+            borderRadius: 20, backdropFilter: 'blur(6px)',
+            opacity: dotsVisible ? 1 : 0,
+            transition: 'opacity 0.3s ease',
+            pointerEvents: dotsVisible ? 'auto' : 'none',
+          }}>
           {/* Home dot — active */}
           <div style={{ padding: '8px 4px', lineHeight: 0 }}>
             <div style={{ width: 18, height: 7, borderRadius: 4, background: '#FF6B9D', boxShadow: '0 0 6px 2px #FF6B9D88', transition: 'all 0.25s ease' }} />
