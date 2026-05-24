@@ -13,11 +13,11 @@ import { useCouple } from './useCouple'
 import type { Interaction } from '@/types'
 
 const ACTION_POINTS: Record<string, number> = {
-  feed: 3,
-  play: 4,
-  sleep: 2,
-  wash: 3,
-  medicine: 5,
+  feed: 1,
+  play: 1,
+  sleep: 1,
+  wash: 1,
+  medicine: 1,
 }
 
 export interface DailyActionSignal {

@@ -82,6 +82,19 @@ export default function DailyBattleHUD() {
             transform: 'translateX(-0.5px)',
             transition: 'left 700ms cubic-bezier(0.34,1.4,0.55,1)',
           }} />
+          {/* Name initials on each side */}
+          <span className="font-pixel" style={{
+            position: 'absolute', left: 3, top: '50%', transform: 'translateY(-50%)',
+            fontSize: 5, color: '#fff', lineHeight: 1,
+            textShadow: '0 0 3px rgba(0,0,0,0.8)',
+            zIndex: 1,
+          }}>{battle.myName[0]}</span>
+          <span className="font-pixel" style={{
+            position: 'absolute', right: 3, top: '50%', transform: 'translateY(-50%)',
+            fontSize: 5, color: '#fff', lineHeight: 1,
+            textShadow: '0 0 3px rgba(0,0,0,0.8)',
+            zIndex: 1,
+          }}>{battle.partnerName[0]}</span>
         </div>
 
         <style>{`
