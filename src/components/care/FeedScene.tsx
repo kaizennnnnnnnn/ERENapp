@@ -217,13 +217,19 @@ export default function FeedScene({ onClose }: Props) {
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
   const [eatAnim, setEatAnim] = useState(false)
 
-  // Drag-to-feed state
-  const [dragItem, setDragItem] = useState<typeof SHOP_ITEMS[number] | null>(null)
-  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null)
-  const [dragging, setDragging] = useState(false)
-  const [nearEren, setNearEren] = useState(false)
-  const dragStartPos = useRef<{ x: number; y: number } | null>(null)
-  const foodRef = useRef<HTMLDivElement>(null)
+  // Drag-to-feed state — all stored in refs so document-level listeners
+  // see current values without re-registering on every render.
+  const [dragRender, setDragRender] = useState(0)
+  const dragRef = useRef<{
+    item: typeof SHOP_ITEMS[number] | null
+    pos: { x: number; y: number } | null
+    startPos: { x: number; y: number } | null
+    active: boolean
+    near: boolean
+  }>({ item: null, pos: null, startPos: null, active: false, near: false })
+  const tick = () => setDragRender(n => n + 1)
+  // suppress unused warning — dragRender is read implicitly via tick()
+  void dragRender
 
   const erenZone = useCallback((x: number, y: number) => {
     const cx = window.innerWidth / 2
@@ -232,43 +238,39 @@ export default function FeedScene({ onClose }: Props) {
     return Math.sqrt(dx * dx + dy * dy) < 90
   }, [])
 
-  // Attach touchmove with {passive:false} so preventDefault works
-  useEffect(() => {
-    const el = foodRef.current
-    if (!el) return
-    function handleMove(e: TouchEvent) {
-      if (!dragItem) return
-      e.preventDefault()
-      const t = e.touches[0]
-      if (dragStartPos.current) {
-        const dx = Math.abs(t.clientX - dragStartPos.current.x)
-        const dy = Math.abs(t.clientY - dragStartPos.current.y)
-        if (dx > 8 || dy > 8) setDragging(true)
-      }
-      setDragPos({ x: t.clientX, y: t.clientY })
-      setNearEren(erenZone(t.clientX, t.clientY))
-    }
-    el.addEventListener('touchmove', handleMove, { passive: false })
-    return () => el.removeEventListener('touchmove', handleMove)
-  })
-
   function onDragStart(item: typeof SHOP_ITEMS[number], e: React.TouchEvent) {
     if (feeding || isSleeping) return
+    e.preventDefault()
     const t = e.touches[0]
-    dragStartPos.current = { x: t.clientX, y: t.clientY }
-    setDragging(false)
-    setDragItem(item)
-    setDragPos({ x: t.clientX, y: t.clientY })
-  }
-  function onDragEnd() {
-    if (dragItem && dragging && nearEren) {
-      handleFeed(dragItem)
+    const d = dragRef.current
+    d.item = item; d.startPos = { x: t.clientX, y: t.clientY }
+    d.pos = { x: t.clientX, y: t.clientY }; d.active = false; d.near = false
+    tick()
+
+    function onMove(ev: TouchEvent) {
+      ev.preventDefault()
+      const t2 = ev.touches[0]
+      const d2 = dragRef.current
+      if (d2.startPos) {
+        const dx = Math.abs(t2.clientX - d2.startPos.x)
+        const dy = Math.abs(t2.clientY - d2.startPos.y)
+        if (dx > 6 || dy > 6) d2.active = true
+      }
+      d2.pos = { x: t2.clientX, y: t2.clientY }
+      d2.near = erenZone(t2.clientX, t2.clientY)
+      tick()
     }
-    setDragItem(null)
-    setDragPos(null)
-    setDragging(false)
-    setNearEren(false)
-    dragStartPos.current = null
+    function onEnd() {
+      document.removeEventListener('touchmove', onMove)
+      document.removeEventListener('touchend', onEnd)
+      const d2 = dragRef.current
+      if (d2.item && d2.active && d2.near) handleFeed(d2.item)
+      d2.item = null; d2.pos = null; d2.startPos = null
+      d2.active = false; d2.near = false
+      tick()
+    }
+    document.addEventListener('touchmove', onMove, { passive: false })
+    document.addEventListener('touchend', onEnd)
   }
 
   // "Your fridge" = the user's personal pile + the legacy shared pool. Buys
@@ -401,32 +403,32 @@ export default function FeedScene({ onClose }: Props) {
       )}
 
       {/* ══ DRAG GHOST — follows finger while dragging food ══ */}
-      {dragItem && dragPos && dragging && (
+      {dragRef.current.item && dragRef.current.pos && dragRef.current.active && (
         <div className="fixed pointer-events-none z-[60]" style={{
-          left: dragPos.x - 24, top: dragPos.y - 24,
+          left: dragRef.current.pos.x - 24, top: dragRef.current.pos.y - 24,
         }}>
           <div style={{
             width: 48, height: 48,
-            background: `radial-gradient(circle, ${dragItem.color}40, ${dragItem.color}15)`,
+            background: `radial-gradient(circle, ${dragRef.current.item.color}40, ${dragRef.current.item.color}15)`,
             borderRadius: 12,
-            border: `2px solid ${dragItem.color}`,
-            boxShadow: `0 0 12px ${dragItem.color}66`,
+            border: `2px solid ${dragRef.current.item.color}`,
+            boxShadow: `0 0 12px ${dragRef.current.item.color}66`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             transform: 'scale(1.15)',
           }}>
-            <FoodIcon id={dragItem.id} color={dragItem.color} />
+            <FoodIcon id={dragRef.current.item.id} color={dragRef.current.item.color} />
           </div>
         </div>
       )}
 
       {/* ══ EREN GLOW — highlights when food is dragged near ══ */}
-      {nearEren && dragItem && (
+      {dragRef.current.near && dragRef.current.item && (
         <div className="fixed pointer-events-none z-[19]" style={{
           left: '50%', bottom: '10%',
           transform: 'translateX(-50%)',
           width: 220, height: 220,
           borderRadius: '50%',
-          background: `radial-gradient(circle, ${dragItem.color}30 0%, transparent 70%)`,
+          background: `radial-gradient(circle, ${dragRef.current.item.color}30 0%, transparent 70%)`,
           animation: 'erenGlow 0.6s ease-in-out infinite alternate',
         }} />
       )}
@@ -470,9 +472,8 @@ export default function FeedScene({ onClose }: Props) {
                   }}>◂</button>
 
                 {/* Food item — draggable */}
-                <div ref={foodRef}
+                <div
                   onTouchStart={e => onDragStart(item, e)}
-                  onTouchEnd={onDragEnd}
                   style={{ position: 'relative', touchAction: 'none' }}>
                   <div style={{
                     width: 56, height: 56,
@@ -483,7 +484,7 @@ export default function FeedScene({ onClose }: Props) {
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
                     <div style={{
-                      opacity: (dragItem?.id === item.id && dragging) ? 0.15 : 1,
+                      opacity: (dragRef.current.item?.id === item.id && dragRef.current.active) ? 0.15 : 1,
                       transition: 'opacity 0.15s ease',
                     }}>
                       <FoodIcon id={item.id} color={item.color} />
