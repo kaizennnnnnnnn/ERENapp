@@ -472,10 +472,13 @@ export default function FeedScene({ onClose }: Props) {
                     border: `2px solid ${item.color}88`,
                     boxShadow: `2px 2px 0 ${item.color}44, 0 0 10px ${item.color}22`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    opacity: (dragItem?.id === item.id && isDragging.current) ? 0.3 : 1,
-                    transition: 'opacity 0.15s ease',
                   }}>
-                    <FoodIcon id={item.id} color={item.color} />
+                    <div style={{
+                      opacity: (dragItem?.id === item.id && isDragging.current) ? 0.15 : 1,
+                      transition: 'opacity 0.15s ease',
+                    }}>
+                      <FoodIcon id={item.id} color={item.color} />
+                    </div>
                   </div>
                   {/* Qty badge */}
                   <span className="font-pixel absolute" style={{
