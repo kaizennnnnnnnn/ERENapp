@@ -9,17 +9,65 @@ import { useTasks } from '@/contexts/TaskContext'
 import { playSound } from '@/lib/sounds'
 import SketchEren, { type SketchErenState } from '@/components/SketchEren'
 
-// Each user mood maps to two Sketch-Pen Eren states:
-//   • pill    — the small preview inside the mood button (always-on idle of that vibe)
-//   • picked  — the bigger Eren shown above the speech bubble once selected
-// Both are pulled from the 26-state Sketch Pen set so the reactions read
-// as the same animated cat from the design exploration.
-const MOOD_SKETCH: Record<UserMood, { pill: SketchErenState; picked: SketchErenState }> = {
-  good:  { pill: 'happy',    picked: 'party' },
-  mid:   { pill: 'chill',    picked: 'wave' },
-  sad:   { pill: 'sad',      picked: 'cry' },
-  angry: { pill: 'angry',    picked: 'angry' },
-  tired: { pill: 'sleeping', picked: 'yawn' },
+// Each user mood maps to a pill animation (small preview inside the button)
+// and a pool of picked animations + speech lines. One is chosen at random
+// each time so the reaction feels fresh.
+const MOOD_SKETCH_PILL: Record<UserMood, SketchErenState> = {
+  good:  'happy',
+  mid:   'chill',
+  sad:   'sad',
+  angry: 'angry',
+  tired: 'sleeping',
+}
+
+const MOOD_REACTIONS: Record<UserMood, { picked: SketchErenState; line: string }[]> = {
+  good: [
+    { picked: 'party',  line: 'Purrrfect!' },
+    { picked: 'cheer',  line: 'Yay! Let\'s go!' },
+    { picked: 'dance',  line: 'Happy dance time!' },
+    { picked: 'love',   line: 'Eren loves you!' },
+    { picked: 'proud',  line: 'That\'s the spirit!' },
+    { picked: 'kiss',   line: 'Mwah! Great day!' },
+    { picked: 'trophy', line: 'You\'re a champion!' },
+    { picked: 'flex',   line: 'Feeling strong!' },
+  ],
+  mid: [
+    { picked: 'wave',     line: 'Eren is here for you!' },
+    { picked: 'chill',    line: 'Just vibin\' today' },
+    { picked: 'shrug',    line: 'Meh, we got this' },
+    { picked: 'wink',     line: 'Could be worse!' },
+    { picked: 'nom',      line: 'Snack break?' },
+    { picked: 'listen',   line: 'Eren\'s listening...' },
+    { picked: 'meditate', line: 'Stay calm, stay cool' },
+  ],
+  sad: [
+    { picked: 'cry',  line: 'Come cuddle with Eren' },
+    { picked: 'sad',  line: 'Eren feels it too...' },
+    { picked: 'pet',  line: 'Soft pats for you' },
+    { picked: 'love', line: 'Eren loves you always' },
+    { picked: 'bow',  line: 'It\'s okay to be sad' },
+    { picked: 'shy',  line: 'Eren\'s here, promise' },
+  ],
+  angry: [
+    { picked: 'angry', line: 'Eren is grumpy too!' },
+    { picked: 'flex',  line: 'RAWR! Let it out!' },
+    { picked: 'gasp',  line: 'Who made you mad?!' },
+    { picked: 'wow',   line: 'Oh no... deep breaths!' },
+    { picked: 'proud', line: 'Anger is power, rawr!' },
+    { picked: 'silly', line: 'Hiss! Then laugh it off' },
+  ],
+  tired: [
+    { picked: 'yawn',     line: 'Nap time together' },
+    { picked: 'sleeping', line: 'Zzz... five more mins' },
+    { picked: 'tired',    line: 'Eren is sleepy too...' },
+    { picked: 'meditate', line: 'Rest your eyes...' },
+    { picked: 'chill',    line: 'Take it easy today' },
+    { picked: 'nom',      line: 'Coffee? Tea? Milk?' },
+  ],
+}
+
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)]
 }
 
 // Maps user mood → Eren's reaction mood
@@ -29,15 +77,6 @@ const MOOD_TO_EREN: Record<UserMood, ErenMood> = {
   sad:   'hungry',
   angry: 'angry',
   tired: 'sleepy',
-}
-
-// Eren's speech bubble reaction after selection
-const MOOD_REACTION: Record<UserMood, string> = {
-  good:  'Purrrfect!',
-  mid:   'Eren is here for you!',
-  sad:   'Come cuddle with Eren',
-  angry: 'Eren is grumpy too!',
-  tired: 'Nap time together',
 }
 
 // Per-mood theme palette — each pill gets its own gradient + glow.
@@ -61,12 +100,15 @@ export default function MoodGate({ userId, userName, onDone }: Props) {
   const supabase = createClient()
   const { completeTask } = useTasks()
   const [selected, setSelected]   = useState<UserMood | null>(null)
+  const [reaction, setReaction]   = useState<{ picked: SketchErenState; line: string } | null>(null)
   const [animating, setAnimating] = useState(false)
   const [, setErenMood]   = useState<ErenMood>('happy')
 
   async function handleSelect(mood: UserMood) {
     if (animating) return
+    const r = pickRandom(MOOD_REACTIONS[mood])
     setSelected(mood)
+    setReaction(r)
     setErenMood(MOOD_TO_EREN[mood])
     setAnimating(true)
 
@@ -134,7 +176,7 @@ export default function MoodGate({ userId, userName, onDone }: Props) {
             filter: 'drop-shadow(0 6px 8px rgba(91,33,182,0.35)) drop-shadow(0 0 12px rgba(251,191,36,0.3))',
           }}>
           <SketchEren
-            state={selected ? MOOD_SKETCH[selected].picked : 'wave'}
+            state={reaction ? reaction.picked : 'wave'}
             size={150}
             transparent
             noSpeech
@@ -155,9 +197,9 @@ export default function MoodGate({ userId, userName, onDone }: Props) {
             <div style={{ position: 'absolute', top: 3, right: 3, width: 3, height: 3, background: '#FBBF24', boxShadow: '0 0 3px #FBBF24' }} />
             <div style={{ position: 'absolute', bottom: 3, left: 3, width: 3, height: 3, background: '#FBBF24', boxShadow: '0 0 3px #FBBF24' }} />
             <div style={{ position: 'absolute', bottom: 3, right: 3, width: 3, height: 3, background: '#FBBF24', boxShadow: '0 0 3px #FBBF24' }} />
-            {animating ? (
+            {animating && reaction ? (
               <p className="text-sm font-semibold text-[#DB2777]" style={{ animation: 'cursorBlink 0.8s steps(1) infinite' }}>
-                {MOOD_REACTION[selected!]}
+                {reaction.line}
               </p>
             ) : (
               <p className="text-sm font-medium text-gray-700">
@@ -228,7 +270,7 @@ export default function MoodGate({ userId, userName, onDone }: Props) {
                 {/* Sketch-Pen Eren state for this mood — no frame, sits flat on the pill */}
                 <div className="flex-shrink-0 flex items-center justify-center relative ml-1.5"
                   style={{ width: 42, height: 42 }}>
-                  <SketchEren state={MOOD_SKETCH[key].pill} size={42} transparent noSpeech />
+                  <SketchEren state={MOOD_SKETCH_PILL[key]} size={42} transparent noSpeech />
                 </div>
 
                 <div className="flex-1 text-left">

@@ -817,3 +817,24 @@ export function IconCake({ size = 20 }: IconProps) {
     B: '#92400E', D: '#FDE68A', K: '#525252',
   }, size)
 }
+
+// ── FLY (stinky indicator) ────────────────────────────────────────────────
+export function IconFly({ size = 20 }: IconProps) {
+  const grid = [
+    '............',
+    '..WW....WW..',
+    '.WWWW..WWWW.',
+    '..WW.KK.WW..',
+    '....KKKK....',
+    '...KGKKGK...',
+    '...KKKKKK...',
+    '....KKKK....',
+    '.....KK.....',
+    '............',
+    '............',
+    '............',
+  ]
+  return drawPixels(grid, {
+    K: '#2D2D2D', G: '#556B2F', W: 'rgba(200,220,255,0.7)',
+  }, size)
+}

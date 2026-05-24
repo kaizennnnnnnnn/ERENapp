@@ -2,6 +2,7 @@ import { CareProvider } from '@/contexts/CareContext'
 import { TaskProvider } from '@/contexts/TaskContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import CareSceneHost from '@/components/care/CareSceneHost'
+import DailyBattlePop from '@/components/couple/DailyBattlePop'
 import PageSwiper from '@/components/PageSwiper'
 import StatsHeader from '@/components/StatsHeader'
 import AppFrame from '@/components/AppFrame'
@@ -17,6 +18,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
             <main>{children}</main>
             <CareSceneHost />
+            <DailyBattlePop />
             <AppFrame />
           </PageSwiper>
         </TaskProvider>
