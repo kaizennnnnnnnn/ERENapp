@@ -247,7 +247,7 @@ export default function FeedScene({ onClose }: Props) {
     function handleStart(e: TouchEvent) {
       const item = currentItemRef.current
       if (!item) return
-      e.preventDefault()
+      if (e.cancelable) e.preventDefault()
       e.stopPropagation()
       const t = e.touches[0]
       const d = dragRef.current
@@ -256,7 +256,7 @@ export default function FeedScene({ onClose }: Props) {
       tick()
 
       function onMove(ev: TouchEvent) {
-        ev.preventDefault()
+        if (ev.cancelable) ev.preventDefault()
         const t2 = ev.touches[0]
         const d2 = dragRef.current
         if (d2.startPos) {
