@@ -228,8 +228,9 @@ export default function FeedScene({ onClose }: Props) {
     near: boolean
   }>({ item: null, pos: null, startPos: null, active: false, near: false })
   const tick = () => setDragRender(n => n + 1)
-  // suppress unused warning — dragRender is read implicitly via tick()
   void dragRender
+  const foodElRef = useRef<HTMLDivElement>(null)
+  const currentItemRef = useRef<typeof SHOP_ITEMS[number] | null>(null)
 
   const erenZone = useCallback((x: number, y: number) => {
     const cx = window.innerWidth / 2
@@ -238,40 +239,49 @@ export default function FeedScene({ onClose }: Props) {
     return Math.sqrt(dx * dx + dy * dy) < 90
   }, [])
 
-  function onDragStart(item: typeof SHOP_ITEMS[number], e: React.TouchEvent) {
-    if (feeding || isSleeping) return
-    e.preventDefault()
-    const t = e.touches[0]
-    const d = dragRef.current
-    d.item = item; d.startPos = { x: t.clientX, y: t.clientY }
-    d.pos = { x: t.clientX, y: t.clientY }; d.active = false; d.near = false
-    tick()
+  // Native touchstart on the food element — passive:false so
+  // preventDefault actually stops the browser from scrolling.
+  useEffect(() => {
+    const el = foodElRef.current
+    if (!el) return
+    function handleStart(e: TouchEvent) {
+      const item = currentItemRef.current
+      if (!item) return
+      e.preventDefault()
+      const t = e.touches[0]
+      const d = dragRef.current
+      d.item = item; d.startPos = { x: t.clientX, y: t.clientY }
+      d.pos = { x: t.clientX, y: t.clientY }; d.active = false; d.near = false
+      tick()
 
-    function onMove(ev: TouchEvent) {
-      ev.preventDefault()
-      const t2 = ev.touches[0]
-      const d2 = dragRef.current
-      if (d2.startPos) {
-        const dx = Math.abs(t2.clientX - d2.startPos.x)
-        const dy = Math.abs(t2.clientY - d2.startPos.y)
-        if (dx > 6 || dy > 6) d2.active = true
+      function onMove(ev: TouchEvent) {
+        ev.preventDefault()
+        const t2 = ev.touches[0]
+        const d2 = dragRef.current
+        if (d2.startPos) {
+          const dx = Math.abs(t2.clientX - d2.startPos.x)
+          const dy = Math.abs(t2.clientY - d2.startPos.y)
+          if (dx > 6 || dy > 6) d2.active = true
+        }
+        d2.pos = { x: t2.clientX, y: t2.clientY }
+        d2.near = erenZone(t2.clientX, t2.clientY)
+        tick()
       }
-      d2.pos = { x: t2.clientX, y: t2.clientY }
-      d2.near = erenZone(t2.clientX, t2.clientY)
-      tick()
+      function onEnd() {
+        document.removeEventListener('touchmove', onMove)
+        document.removeEventListener('touchend', onEnd)
+        const d2 = dragRef.current
+        if (d2.item && d2.active && d2.near) handleFeed(d2.item)
+        d2.item = null; d2.pos = null; d2.startPos = null
+        d2.active = false; d2.near = false
+        tick()
+      }
+      document.addEventListener('touchmove', onMove, { passive: false })
+      document.addEventListener('touchend', onEnd)
     }
-    function onEnd() {
-      document.removeEventListener('touchmove', onMove)
-      document.removeEventListener('touchend', onEnd)
-      const d2 = dragRef.current
-      if (d2.item && d2.active && d2.near) handleFeed(d2.item)
-      d2.item = null; d2.pos = null; d2.startPos = null
-      d2.active = false; d2.near = false
-      tick()
-    }
-    document.addEventListener('touchmove', onMove, { passive: false })
-    document.addEventListener('touchend', onEnd)
-  }
+    el.addEventListener('touchstart', handleStart, { passive: false })
+    return () => el.removeEventListener('touchstart', handleStart)
+  }) // eslint-disable-line react-hooks/exhaustive-deps
 
   // "Your fridge" = the user's personal pile + the legacy shared pool. Buys
   // add to the personal pile only; feeds drain personal first, then shared.
@@ -471,9 +481,11 @@ export default function FeedScene({ onClose }: Props) {
                     color: hasLeft ? '#fff' : 'rgba(255,255,255,0.15)',
                   }}>◂</button>
 
-                {/* Food item — draggable */}
-                <div
-                  onTouchStart={e => onDragStart(item, e)}
+                {/* Food item — draggable. currentItemRef lets the native
+                    touchstart listener (attached via useEffect) know which
+                    food to drag without going through React's passive handler. */}
+                {(() => { currentItemRef.current = item; return null })()}
+                <div ref={foodElRef}
                   style={{ position: 'relative', touchAction: 'none' }}>
                   <div style={{
                     width: 56, height: 56,
