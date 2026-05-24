@@ -207,7 +207,10 @@ export default function FeedScene({ onClose }: Props) {
   const isDark = useIsDark()
 
   const [tab, setTab] = useState<'shop' | 'fridge' | null>(null)
-  const [fridgeCat, setFridgeCat] = useState<string | null>(null)
+  const [fridgeCat, setFridgeCat] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('eren_fridge_cat') || null
+    return null
+  })
   const [foodIdx, setFoodIdx] = useState(0)
   const [buying, setBuying] = useState<string | null>(null)
   const [feeding, setFeeding] = useState<string | null>(null)
@@ -268,6 +271,17 @@ export default function FeedScene({ onClose }: Props) {
     SHOP_ITEMS.map(i => [i.id, (myPile[i.id] ?? 0) + (sharedPile[i.id] ?? 0)])
   ) as FoodInventory
   const fridgeItems = SHOP_ITEMS.filter(i => (inventory[i.id] ?? 0) > 0)
+
+  // Auto-pick a category if none saved or if saved one is now empty
+  useEffect(() => {
+    if (fridgeItems.length === 0) return
+    const hasCatItems = fridgeCat && SHOP_ITEMS.some(i => i.cat === fridgeCat && (inventory[i.id] ?? 0) > 0)
+    if (!hasCatItems) {
+      const first = FRIDGE_CATEGORIES.find(c => SHOP_ITEMS.some(i => i.cat === c.id && (inventory[i.id] ?? 0) > 0))
+      if (first) { setFridgeCat(first.id); setFoodIdx(0); localStorage.setItem('eren_fridge_cat', first.id) }
+    }
+  }, [fridgeItems.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const mood = eatAnim ? 'happy' : (stats?.hunger ?? 100) < 40 ? 'hungry' : 'idle'
   // Fall back to the module-level cache (set by any prior useErenStats
   // fetch this tab session) so Eren doesn't flash visible-then-hidden,
@@ -427,13 +441,7 @@ export default function FeedScene({ onClose }: Props) {
               : []
             const idx = Math.min(foodIdx, catItems.length - 1)
             const item = catItems[idx]
-            if (!item) return (
-              <div className="flex-1 flex justify-center">
-                <span className="font-pixel" style={{ fontSize: 6, color: 'rgba(255,255,255,0.4)', letterSpacing: 1 }}>
-                  {fridgeCat ? 'EMPTY' : 'PICK CATEGORY'}
-                </span>
-              </div>
-            )
+            if (!item) return <div className="flex-1" />
             const qty = inventory[item.id] ?? 0
             const hasLeft = idx > 0
             const hasRight = idx < catItems.length - 1
@@ -538,7 +546,7 @@ export default function FeedScene({ onClose }: Props) {
                   if (catCount === 0) return null
                   return (
                     <button key={c.id}
-                      onClick={() => { playSound('ui_tap'); setFridgeCat(c.id); setFoodIdx(0); setTab(null) }}
+                      onClick={() => { playSound('ui_tap'); setFridgeCat(c.id); setFoodIdx(0); localStorage.setItem('eren_fridge_cat', c.id); setTab(null) }}
                       className="flex items-center gap-4 px-5 py-4 active:scale-95 transition-transform w-full"
                       style={{
                         background: `linear-gradient(135deg, ${c.color}20, ${c.color}08)`,
