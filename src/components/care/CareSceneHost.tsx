@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect, useLayoutEffect, useCallback } from 'react'
 import { useCare, type CareScene } from '@/contexts/CareContext'
-import FeedScene from './FeedScene'
+import FeedScene, { __foodDragActive } from './FeedScene'
 import PlayScene from './PlayScene'
 import SleepScene from './SleepScene'
 import WashScene from './WashScene'
@@ -134,6 +134,7 @@ export default function CareSceneHost() {
   }
 
   function onTouchStart(e: React.TouchEvent) {
+    if (__foodDragActive) return
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
     touchStartTime.current = Date.now()
@@ -142,6 +143,7 @@ export default function CareSceneHost() {
   }
 
   function onTouchMove(e: React.TouchEvent) {
+    if (__foodDragActive) return
     const dx = e.touches[0].clientX - touchStartX.current
     const dy = e.touches[0].clientY - touchStartY.current
 
@@ -166,6 +168,7 @@ export default function CareSceneHost() {
   }
 
   function onTouchEnd(e: React.TouchEvent) {
+    if (__foodDragActive) { setDragX(0); return }
     const dx = touchStartX.current - e.changedTouches[0].clientX
     const dy = touchStartY.current - e.changedTouches[0].clientY
     const elapsed = Date.now() - touchStartTime.current

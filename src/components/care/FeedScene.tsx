@@ -1,5 +1,9 @@
 'use client'
 
+// Module-level flag so CareSceneHost can skip its swipe handler
+// while the user is dragging food onto Eren.
+export let __foodDragActive = false
+
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { ShoppingCart, Package } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
@@ -253,6 +257,7 @@ export default function FeedScene({ onClose }: Props) {
       const d = dragRef.current
       d.item = item; d.startPos = { x: t.clientX, y: t.clientY }
       d.pos = { x: t.clientX, y: t.clientY }; d.active = false; d.near = false
+      __foodDragActive = true
       tick()
 
       function onMove(ev: TouchEvent) {
@@ -276,6 +281,7 @@ export default function FeedScene({ onClose }: Props) {
         if (d2.item && d2.active && d2.near) handleFeed(d2.item)
         d2.item = null; d2.pos = null; d2.startPos = null
         d2.active = false; d2.near = false
+        __foodDragActive = false
         tick()
       }
       document.addEventListener('touchmove', onMove, { passive: false })
