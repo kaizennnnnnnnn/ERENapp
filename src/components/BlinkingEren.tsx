@@ -44,7 +44,6 @@ export default function BlinkingEren({
         height: size,
         display: 'inline-block',
         filter: nightFilter,
-        transition: 'filter 800ms ease',
         ...style,
       }}>
       <img src="/erenGood.png" alt={alt} draggable={false}

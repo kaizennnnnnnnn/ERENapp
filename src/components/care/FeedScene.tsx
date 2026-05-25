@@ -306,7 +306,7 @@ export default function FeedScene({ onClose }: Props) {
     }
   }, [fridgeItems.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const mood = eatAnim ? 'happy' : (stats?.hunger ?? 100) < 40 ? 'hungry' : 'idle'
+  void eatAnim
   // Fall back to the module-level cache (set by any prior useErenStats
   // fetch this tab session) so Eren doesn't flash visible-then-hidden,
   // and doesn't pop in after waking up either. Only when nothing has
