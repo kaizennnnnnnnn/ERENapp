@@ -247,7 +247,7 @@ export default function FeedScene({ onClose }: Props) {
     function handleStart(e: TouchEvent) {
       const item = currentItemRef.current
       if (!item) return
-      e.preventDefault()
+      if (e.cancelable) e.preventDefault()
       e.stopImmediatePropagation()
       const t = e.touches[0]
       const d = dragRef.current
@@ -399,7 +399,7 @@ export default function FeedScene({ onClose }: Props) {
 
       {/* ══ EREN ══ (hidden while sleeping in the bedroom) */}
       {!isSleeping && (
-        <div className={cn('absolute z-20 transition-all duration-300', eatAnim ? 'bottom-[14%]' : 'bottom-[10%]')}
+        <div className="absolute z-20 bottom-[10%]"
           style={{ left: '50%', transform: 'translateX(-50%)' }}>
           <BlinkingEren size={210} />
         </div>
