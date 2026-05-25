@@ -54,26 +54,26 @@ export default function BlinkingEren({
           imageRendering: 'pixelated',
         }} />
 
-      {/* Left eyelid — left = 39% (1 px closer to center vs prior 38.5%). */}
+      {/* Left eyelid */}
       <div style={{
         ...lid,
         left: '39%', top: '32.5%',
-        animation: 'erenBlink 5s infinite',
+        animation: 'erenBlink 3s infinite',
       }} />
-      {/* Right eyelid — mirror of the left. Tiny stagger so the two
-          eyes don't blink in perfect lockstep. */}
+      {/* Right eyelid — tiny stagger so they're not perfectly synced */}
       <div style={{
         ...lid,
         left: '55%', top: '32.5%',
-        animation: 'erenBlink 5s 0.03s infinite',
+        animation: 'erenBlink 3s 0.03s infinite',
       }} />
 
       <style jsx global>{`
         @keyframes erenBlink {
-          0%, 96%   { transform: scaleY(0); }
-          97%       { transform: scaleY(1); }
-          98.5%     { transform: scaleY(1); }
-          100%      { transform: scaleY(0); }
+          0%, 90%   { transform: scaleY(0); }
+          92%       { transform: scaleY(1); }
+          94%       { transform: scaleY(0); }
+          96%       { transform: scaleY(1); }
+          98%       { transform: scaleY(0); }
         }
       `}</style>
     </div>
