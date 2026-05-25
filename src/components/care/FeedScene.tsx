@@ -4,7 +4,7 @@
 // while the user is dragging food onto Eren.
 export let __foodDragActive = false
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { ShoppingCart, Package } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
@@ -219,7 +219,6 @@ export default function FeedScene({ onClose }: Props) {
   const [buying, setBuying] = useState<string | null>(null)
   const [feeding, setFeeding] = useState<string | null>(null)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
-  const [eatAnim, setEatAnim] = useState(false)
 
   // Drag-to-feed state — all stored in refs so document-level listeners
   // see current values without re-registering on every render.
@@ -312,12 +311,19 @@ export default function FeedScene({ onClose }: Props) {
     }
   }, [fridgeItems.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  void eatAnim
   // Fall back to the module-level cache (set by any prior useErenStats
   // fetch this tab session) so Eren doesn't flash visible-then-hidden,
   // and doesn't pop in after waking up either. Only when nothing has
   // been fetched yet do we conservatively default to sleeping.
   const isSleeping = stats?.is_sleeping ?? getCachedIsSleeping() ?? true
+
+  // Memoize Eren so stat changes from feeding don't re-render the sprite.
+  const erenElement = useMemo(() => (
+    <div className="absolute z-20 bottom-[10%]"
+      style={{ left: '50%', transform: 'translateX(-50%)' }}>
+      <BlinkingEren size={210} />
+    </div>
+  ), []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function showToast(msg: string, ok = true) {
     setToast({ msg, ok })
@@ -349,8 +355,6 @@ export default function FeedScene({ onClose }: Props) {
       return
     }
     const result = await feedWithFood(user.id, item.hungerD, item.happyD, item.weightD)
-    setEatAnim(true)
-    setTimeout(() => setEatAnim(false), 2000)
     showToast(result.message, result.success)
     setFeeding(null)
     if (result.success) completeTask('daily_feed')
@@ -404,12 +408,7 @@ export default function FeedScene({ onClose }: Props) {
       </div>
 
       {/* ══ EREN ══ (hidden while sleeping in the bedroom) */}
-      {!isSleeping && (
-        <div className="absolute z-20 bottom-[10%]"
-          style={{ left: '50%', transform: 'translateX(-50%)' }}>
-          <BlinkingEren size={210} />
-        </div>
-      )}
+      {!isSleeping && erenElement}
 
       {/* ══ UI ══ */}
 
@@ -431,17 +430,18 @@ export default function FeedScene({ onClose }: Props) {
         </div>
       )}
 
-      {/* ══ EREN GLOW — highlights when food is dragged near ══ */}
-      {dragRef.current.near && dragRef.current.item && (
-        <div className="fixed pointer-events-none z-[19]" style={{
-          left: '50%', bottom: '10%',
-          transform: 'translateX(-50%)',
-          width: 220, height: 220,
-          borderRadius: '50%',
-          background: `radial-gradient(circle, ${dragRef.current.item.color}30 0%, transparent 70%)`,
-          animation: 'erenGlow 0.6s ease-in-out infinite alternate',
-        }} />
-      )}
+      {/* ══ EREN GLOW — always mounted, opacity toggles to avoid DOM churn ══ */}
+      <div className="fixed pointer-events-none z-[19]" style={{
+        left: '50%', bottom: '10%',
+        transform: 'translateX(-50%)',
+        width: 220, height: 220,
+        borderRadius: '50%',
+        background: dragRef.current.near && dragRef.current.item
+          ? `radial-gradient(circle, ${dragRef.current.item.color}30 0%, transparent 70%)`
+          : 'transparent',
+        opacity: dragRef.current.near ? 1 : 0,
+        transition: 'opacity 0.2s ease',
+      }} />
 
       {/* ══ BOTTOM BAR — Fridge (left), Food center, Shop (right) ══ */}
       <div className="absolute bottom-6 left-0 right-0 z-30 px-4">
