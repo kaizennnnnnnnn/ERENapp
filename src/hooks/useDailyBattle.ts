@@ -10,7 +10,22 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from './useAuth'
 import { useCouple } from './useCouple'
-import type { Interaction } from '@/types'
+import { useErenStats } from './useErenStats'
+import type { Interaction, ErenStats } from '@/types'
+
+const USEFUL_THRESHOLD = 90
+
+function isUsefulByStats(action: string, stats: ErenStats | null): boolean {
+  if (!stats) return true
+  switch (action) {
+    case 'feed':     return stats.hunger        < USEFUL_THRESHOLD
+    case 'play':     return stats.happiness     < USEFUL_THRESHOLD
+    case 'sleep':    return stats.energy        < USEFUL_THRESHOLD
+    case 'wash':     return (stats.cleanliness ?? 100) < USEFUL_THRESHOLD
+    case 'medicine': return !!stats.is_sick
+    default:         return true
+  }
+}
 
 const ACTION_POINTS: Record<string, number> = {
   feed: 1,
@@ -57,6 +72,7 @@ export function useDailyBattle(): DailyBattleState {
   const supabase = createClient()
   const { user, profile } = useAuth()
   const { partner } = useCouple()
+  const { stats } = useErenStats(profile?.household_id ?? null)
 
   const [myScore, setMyScore]         = useState(0)
   const [partnerScore, setPartnerScore] = useState(0)
@@ -65,6 +81,8 @@ export function useDailyBattle(): DailyBattleState {
   const [lastAction, setLastAction]   = useState<DailyActionSignal | null>(null)
 
   const channelSuffix = useRef(`db_${++_channelCounter}`)
+  const statsRef = useRef(stats)
+  statsRef.current = stats
 
   const fetchToday = useCallback(async () => {
     if (!profile?.household_id || !user?.id) return
@@ -107,9 +125,11 @@ export function useDailyBattle(): DailyBattleState {
         const row = payload.new as Interaction
         // Ignore anything that didn't happen today (e.g. backfilled rows).
         if (new Date(row.created_at) < startOfDay()) return
-        // Skip wasted actions — the daily battle only counts (and
-        // animates) when the relevant stat was actually low.
+        // Skip wasted actions — the daily battle only counts when the
+        // relevant stat was actually low. If the useful column exists
+        // trust it; otherwise fall back to checking current stats.
         if (row.useful === false) return
+        if (row.useful === undefined && !isUsefulByStats(row.action_type, statsRef.current)) return
         const pts = ACTION_POINTS[row.action_type] ?? 1
         const isMe = row.user_id === user.id
         if (isMe) setMyScore(s => s + pts)
