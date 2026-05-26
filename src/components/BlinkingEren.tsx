@@ -58,22 +58,24 @@ export default function BlinkingEren({
       <div style={{
         ...lid,
         left: '39%', top: '32.5%',
-        animation: 'erenBlink 3s infinite',
+        animation: 'erenBlink 6s infinite',
       }} />
       {/* Right eyelid — tiny stagger so they're not perfectly synced */}
       <div style={{
         ...lid,
         left: '55%', top: '32.5%',
-        animation: 'erenBlink 3s 0.03s infinite',
+        animation: 'erenBlink 6s 0.03s infinite',
       }} />
 
       <style jsx global>{`
         @keyframes erenBlink {
-          0%, 90%   { transform: scaleY(0); }
-          92%       { transform: scaleY(1); }
-          94%       { transform: scaleY(0); }
-          96%       { transform: scaleY(1); }
-          98%       { transform: scaleY(0); }
+          0%, 28%   { transform: scaleY(0); }
+          30%       { transform: scaleY(1); }
+          32%       { transform: scaleY(0); }
+          60%, 62%  { transform: scaleY(0); }
+          64%       { transform: scaleY(1); }
+          66%       { transform: scaleY(0); }
+          100%      { transform: scaleY(0); }
         }
       `}</style>
     </div>
