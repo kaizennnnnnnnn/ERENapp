@@ -238,7 +238,7 @@ export default function MoodGate({ userId, userName, onDone }: Props) {
           </p>
         </div>
 
-        <div className="flex flex-col gap-2.5 w-full max-w-xs">
+        <div className="flex flex-col gap-3 w-full max-w-xs">
           {(Object.entries(MOOD_CONFIGS) as [UserMood, typeof MOOD_CONFIGS[UserMood]][]).map(([key, cfg]) => {
             const t = MOOD_THEME[key]
             const isSelected = selected === key
@@ -247,19 +247,26 @@ export default function MoodGate({ userId, userName, onDone }: Props) {
                 key={key}
                 onClick={() => { playSound('ui_tap'); handleSelect(key) }}
                 className={cn(
-                  'relative flex items-center gap-3 px-3 py-2.5 transition-all duration-150 active:translate-y-[2px] overflow-hidden',
+                  'relative flex items-center gap-3 px-3 py-3 transition-all duration-150 active:translate-y-[2px] overflow-hidden',
                 )}
                 style={{
                   background: isSelected
-                    ? `linear-gradient(135deg, ${t.light} 0%, #FFFFFF 100%)`
-                    : 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.7) 100%)',
+                    ? `linear-gradient(135deg, ${t.light} 0%, ${t.main}22 100%)`
+                    : `linear-gradient(135deg, ${t.light} 0%, ${t.main}15 60%, ${t.light}80 100%)`,
                   borderRadius: 6,
-                  border: `2px solid ${isSelected ? t.main : `${t.main}60`}`,
+                  border: `2.5px solid ${isSelected ? t.main : t.main}`,
                   boxShadow: isSelected
-                    ? `4px 4px 0 ${t.dark}, 0 0 16px ${t.glow}`
-                    : `3px 3px 0 ${t.dark}40, 0 0 8px ${t.glow}, inset 0 1px 0 rgba(255,255,255,0.7)`,
+                    ? `4px 4px 0 ${t.dark}, 0 0 18px ${t.glow}`
+                    : `3px 3px 0 ${t.dark}, 0 0 6px ${t.glow}`,
                 }}
               >
+                {/* Pixel dither overlay */}
+                <div className="absolute inset-0 pointer-events-none" style={{
+                  backgroundImage: `radial-gradient(circle, ${t.main}18 1px, transparent 1px)`,
+                  backgroundSize: '6px 6px',
+                  opacity: isSelected ? 0.8 : 0.5,
+                }} />
+
                 {/* Theme-coloured strip down the left edge */}
                 <div style={{
                   position: 'absolute', top: 0, bottom: 0, left: 0, width: 5,
@@ -267,7 +274,19 @@ export default function MoodGate({ userId, userName, onDone }: Props) {
                   boxShadow: `0 0 10px ${t.glow}`,
                 }} />
 
-                {/* Sketch-Pen Eren state for this mood — no frame, sits flat on the pill */}
+                {/* Gold corner rivets */}
+                <div style={{ position: 'absolute', top: 3, left: 8, width: 3, height: 3, background: '#FBBF24', boxShadow: '0 0 3px #FBBF24' }} />
+                <div style={{ position: 'absolute', top: 3, right: 3, width: 3, height: 3, background: '#FBBF24', boxShadow: '0 0 3px #FBBF24' }} />
+                <div style={{ position: 'absolute', bottom: 3, left: 8, width: 3, height: 3, background: '#FBBF24', boxShadow: '0 0 3px #FBBF24' }} />
+                <div style={{ position: 'absolute', bottom: 3, right: 3, width: 3, height: 3, background: '#FBBF24', boxShadow: '0 0 3px #FBBF24' }} />
+
+                {/* Inner top highlight — retro screen shine */}
+                <div className="absolute pointer-events-none" style={{
+                  top: 0, left: 6, right: 0, height: 2,
+                  background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.6) 30%, rgba(255,255,255,0.6) 70%, transparent)`,
+                }} />
+
+                {/* Sketch-Pen Eren state for this mood */}
                 <div className="flex-shrink-0 flex items-center justify-center relative ml-1.5"
                   style={{ width: 42, height: 42 }}>
                   <SketchEren state={MOOD_SKETCH_PILL[key]} size={42} transparent noSpeech />
@@ -278,7 +297,7 @@ export default function MoodGate({ userId, userName, onDone }: Props) {
                     fontSize: 9,
                     color: t.text,
                     letterSpacing: 1.5,
-                    textShadow: '0 1px 0 rgba(255,255,255,0.6)',
+                    textShadow: `0 1px 0 rgba(255,255,255,0.7), 0 0 8px ${t.glow}`,
                   }}>
                     {cfg.label.toUpperCase()}
                   </span>
