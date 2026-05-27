@@ -36,6 +36,7 @@ import ErenMessagePopup from '@/components/couple/ErenMessagePopup'
 import ThoughtCloud from '@/components/couple/ThoughtCloud'
 import JealousEren from '@/components/couple/JealousEren'
 import DailyBattleHUD from '@/components/couple/DailyBattleHUD'
+import ErenIdleLayer from '@/components/ErenIdleLayer'
 import { OBSIDIAN_BTN, Rivets } from '@/components/obsidian'
 import { useIsDark } from '@/hooks/useIsDark'
 import LightSwitch from '@/components/LightSwitch'
@@ -424,22 +425,24 @@ export default function HomePage() {
               bottom: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 2,
               filter: mood === 'angry' ? 'hue-rotate(340deg) saturate(1.3)' : mood === 'sleepy' ? 'brightness(0.85)' : 'none',
             }}>
-              <BlinkingEren id="eren-img" size={200} />
-              <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
+              <ErenIdleLayer>
+                <BlinkingEren id="eren-img" size={200} />
+                <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
 
-              {/* Outfit overlays — % positions are relative to the parent
-                  absolute div, which is sized by BlinkingEren (200×200). */}
-              {equippedOutfits.map(item => item?.pos && item.slot && (
-                <div key={item.id} className="absolute pointer-events-none" style={{
-                  top: `${item.pos.top}%`, left: `${item.pos.left}%`,
-                  transform: 'translate(-50%, -50%)',
-                  fontSize: item.pos.size, lineHeight: 1,
-                  zIndex: item.slot === 'hat' ? 10 : item.slot === 'eyes' ? 9 : 8,
-                  filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
-                }}>
-                  {item.icon}
-                </div>
-              ))}
+                {/* Outfit overlays — % positions are relative to the parent
+                    absolute div, which is sized by BlinkingEren (200×200). */}
+                {equippedOutfits.map(item => item?.pos && item.slot && (
+                  <div key={item.id} className="absolute pointer-events-none" style={{
+                    top: `${item.pos.top}%`, left: `${item.pos.left}%`,
+                    transform: 'translate(-50%, -50%)',
+                    fontSize: item.pos.size, lineHeight: 1,
+                    zIndex: item.slot === 'hat' ? 10 : item.slot === 'eyes' ? 9 : 8,
+                    filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
+                  }}>
+                    {item.icon}
+                  </div>
+                ))}
+              </ErenIdleLayer>
             </div>
 
           </>
