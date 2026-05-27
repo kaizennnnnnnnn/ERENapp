@@ -9,7 +9,7 @@ import { useCare } from '@/contexts/CareContext'
 import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 import { MAX_LEVEL } from '@/lib/levelRewards'
 import { createClient } from '@/lib/supabase/client'
-import { IconHeart, IconMeat, IconLightning, IconMoon, IconDrop, IconCoin } from './PixelIcons'
+import { IconHeart, IconMeat, IconLightning, IconMoon, IconDrop, IconCoin, IconFire } from './PixelIcons'
 import { playSound } from '@/lib/sounds'
 import { PINK, PINK_HI, PINK_LO, OBSIDIAN_FACE, Rivets, accentA } from './obsidian'
 
@@ -156,7 +156,7 @@ function ObsidianGauge({ def, value }: { def: GaugeDef; value: number }) {
 export default function StatsHeader() {
   const { user, profile } = useAuth()
   const { stats } = useErenStats(profile?.household_id ?? null)
-  const { xp, level, coins } = useTasks()
+  const { xp, level, coins, streak } = useTasks()
   const { hideStats, activeScene, closeScene } = useCare()
 
   const xpIntoLevel = xp - totalXpForLevel(level)
@@ -359,6 +359,33 @@ export default function StatsHeader() {
             />
           </div>
         </div>
+
+        {/* Streak chip — only visible when streak > 0 */}
+        {streak.current > 0 && (
+          <div
+            className="flex-shrink-0 relative flex items-center"
+            style={{
+              height: 40,
+              padding: '0 8px',
+              gap: 4,
+              ...obsidianFace(streak.current >= 7 ? 'rgba(255,107,0,0.35)' : PINK + '55'),
+            }}
+          >
+            <Rivets inset={3} />
+            <div style={{ filter: streak.current >= 7 ? 'drop-shadow(0 0 4px rgba(255,107,0,0.6))' : `drop-shadow(0 0 3px ${accentA(0.4)})` }}>
+              <IconFire size={16} />
+            </div>
+            <span style={{
+              fontFamily: '"Press Start 2P", monospace',
+              fontSize: 10, lineHeight: 1,
+              background: streak.current >= 7
+                ? 'linear-gradient(180deg, #FFD700 0%, #FF6B00 60%, #CC3300 100%)'
+                : `linear-gradient(180deg, ${PINK_HI} 0%, ${PINK} 60%, ${PINK_LO} 100%)`,
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+              filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.8))',
+            }}>{streak.current}</span>
+          </div>
+        )}
 
         {/* Coins chip */}
         <div

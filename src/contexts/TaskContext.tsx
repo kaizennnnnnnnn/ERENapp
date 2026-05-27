@@ -6,8 +6,13 @@ import {
   TASK_DEFS, getDailyKey, getWeeklyKey, xpForNextLevel, totalXpForLevel,
   PROGRESS_MAP, CARE_TASK_IDS, getWeekDailyKeys,
 } from '@/lib/tasks'
-import type { TaskId } from '@/types'
+import type { TaskId, StreakData, AchievementMap, ErenStats, GameType } from '@/types'
 import { useAuth } from '@/hooks/useAuth'
+import {
+  updateStreak, STREAK_MILESTONE_COINS,
+  checkAchievements, type AchievementContext, type AchievementTrigger, type AchievementDef,
+} from '@/lib/achievements'
+import { format } from 'date-fns'
 
 interface TaskContextValue {
   completedIds: Set<string>          // "taskId:periodKey"
@@ -19,6 +24,9 @@ interface TaskContextValue {
   xp: number
   level: number
   loading: boolean
+  streak: StreakData
+  achievements: AchievementMap
+  checkAchievementsFor: (trigger: AchievementTrigger, extra?: Partial<AchievementContext>) => Promise<void>
 }
 
 const TaskContext = createContext<TaskContextValue | null>(null)
@@ -33,6 +41,8 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   const [level, setLevel] = useState(1)
   const [coins, setCoins] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [streak, setStreak] = useState<StreakData>({ current: 0, best: 0, lastDate: null })
+  const [achievements, setAchievements] = useState<AchievementMap>({})
 
   // ── Load completions + compute weekly progress ──────────────────────────
   useEffect(() => {
@@ -83,14 +93,16 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     load()
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Sync XP + level + coins from profile ────────────────────────────────
+  // ── Sync XP + level + coins + streak + achievements from profile ─────────
   useEffect(() => {
     if (profile) {
       setXp(profile.xp ?? 0)
       setLevel(profile.level ?? 1)
       setCoins(profile.coins ?? 0)
+      setStreak(profile.streak ?? { current: 0, best: 0, lastDate: null })
+      setAchievements(profile.achievements ?? {})
     }
-  }, [profile?.xp, profile?.level, profile?.coins]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profile?.xp, profile?.level, profile?.coins, profile?.streak, profile?.achievements]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Add coins to user profile ────────────────────────────────────────────
   const addCoins = useCallback(async (amount: number): Promise<void> => {
@@ -109,6 +121,49 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     if (error) { setCoins(coins); return false }
     return true
   }, [user?.id, coins]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Shared helper: run achievement checks + persist unlocks ──────────────
+  const runAchievementCheck = useCallback(async (
+    trigger: AchievementTrigger,
+    ctx: AchievementContext,
+    currentCoins: number,
+  ) => {
+    const unlocked = await checkAchievements(trigger, ctx, supabase)
+    if (unlocked.length === 0) return currentCoins
+
+    const now = new Date().toISOString()
+    const updated = { ...ctx.achievements }
+    let achCoins = 0
+    for (const a of unlocked) { updated[a.id] = now; achCoins += a.coins }
+
+    setAchievements(updated)
+    const nextCoins = currentCoins + achCoins
+    setCoins(nextCoins)
+    await supabase.from('profiles').update({ achievements: updated, coins: nextCoins }).eq('id', ctx.userId)
+
+    window.dispatchEvent(new CustomEvent<{ achievements: AchievementDef[] }>('eren:achievement-unlocked', {
+      detail: { achievements: unlocked },
+    }))
+    return nextCoins
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Public: trigger achievement check from outside (games, battles) ─────
+  const checkAchievementsFor = useCallback(async (
+    trigger: AchievementTrigger,
+    extra?: Partial<AchievementContext>,
+  ) => {
+    if (!user?.id) return
+    const ctx: AchievementContext = {
+      userId: user.id,
+      completedIds,
+      stats: null,
+      level,
+      streak,
+      achievements,
+      ...extra,
+    }
+    await runAchievementCheck(trigger, ctx, coins)
+  }, [user?.id, completedIds, level, streak, achievements, coins, runAchievementCheck])
 
   // ── Complete a task ──────────────────────────────────────────────────────
   const completeTask = useCallback(async (taskId: TaskId): Promise<{ coins: number; xp: number; levelUp: boolean } | null> => {
@@ -129,10 +184,10 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     if (error) return null
 
     // 2. Update coins + XP on profile
-    const newCoins = coins + def.coins
-    const newXp    = xp + def.xp
-    let newLevel   = level
-    let levelUp    = false
+    let newCoins = coins + def.coins
+    const newXp  = xp + def.xp
+    let newLevel = level
+    let levelUp  = false
 
     while (true) {
       const xpInLevel = newXp - totalXpForLevel(newLevel)
@@ -140,13 +195,37 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       else break
     }
 
+    // 3. Streak update on first daily task of the day
+    let newStreak = streak
+    if (def.period === 'daily') {
+      const todayStr = format(new Date(), 'yyyy-MM-dd')
+      const result = updateStreak(streak, todayStr)
+      if (result.changed) {
+        newStreak = result.streak
+        setStreak(newStreak)
+
+        let bonusCoins = 0
+        for (const m of result.milestonesHit) bonusCoins += STREAK_MILESTONE_COINS[m] ?? 0
+        if (bonusCoins > 0) {
+          newCoins += bonusCoins
+          window.dispatchEvent(new CustomEvent('eren:streak-milestone', {
+            detail: { milestones: result.milestonesHit, coins: bonusCoins, streak: newStreak.current },
+          }))
+        }
+
+        await supabase.from('profiles').update({ streak: newStreak }).eq('id', user.id)
+      }
+    }
+
     await supabase.from('profiles').update({ coins: newCoins, xp: newXp, level: newLevel }).eq('id', user.id)
     setCoins(newCoins)
     setXp(newXp)
     setLevel(newLevel)
-    setCompletedIds(prev => { const s = new Set(prev); s.add(key); return s })
+    const nextCompleted = new Set(completedIds)
+    nextCompleted.add(key)
+    setCompletedIds(nextCompleted)
 
-    // 3. Update weekly progress if this daily task contributes to a weekly one
+    // 4. Update weekly progress if this daily task contributes to a weekly one
     if (def.period === 'daily') {
       const weeklyTaskId = PROGRESS_MAP[taskId]
       if (weeklyTaskId) {
@@ -157,16 +236,10 @@ export function TaskProvider({ children }: { children: ReactNode }) {
           const next = new Map(prev)
           const weeklyComps = prev.get(weeklyTaskId) ?? 0
 
-          // For weekly_all_care: count distinct care types — don't double-count same type
           let newCount = weeklyComps
           if (weeklyTaskId === 'weekly_all_care') {
             const alreadyCounted = (prev.get('weekly_all_care') ?? 0)
-            // Only increment if this care type wasn't counted yet
-            // Check by re-querying — for now optimistically increment if not at max
             const typeDone = completedIds.has(`${taskId}:${getDailyKey()}`)
-            // If this is the FIRST time completing this care type today (brand new task completion),
-            // and we haven't already counted it this week from a previous day...
-            // Since we just inserted the completion, if the count is below max, increment
             if (!typeDone && alreadyCounted < (weeklyDef.maxProgress ?? 4)) {
               newCount = alreadyCounted + 1
             }
@@ -177,10 +250,8 @@ export function TaskProvider({ children }: { children: ReactNode }) {
 
           next.set(weeklyTaskId, newCount)
 
-          // Auto-complete weekly task when progress reaches max
           const max = weeklyDef.maxProgress ?? 0
           if (max > 0 && newCount >= max && !completedIds.has(`${weeklyTaskId}:${weeklyKey}`)) {
-            // Fire and forget — auto-complete the weekly task
             setTimeout(() => completeTask(weeklyTaskId), 300)
           }
 
@@ -189,11 +260,37 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    // 5. Achievement checks (fire-and-forget to not block the return)
+    const achCtx: AchievementContext = {
+      userId: user.id,
+      completedIds: nextCompleted,
+      stats: null,
+      level: newLevel,
+      streak: newStreak,
+      achievements,
+    }
+
+    const trigger: AchievementTrigger | null =
+      (CARE_TASK_IDS as string[]).includes(taskId) ? 'care'
+      : taskId === 'daily_game' ? 'game'
+      : taskId === 'daily_mood' ? 'mood'
+      : null
+
+    if (trigger) {
+      runAchievementCheck(trigger, achCtx, newCoins).catch(() => {})
+    }
+    if (newStreak !== streak) {
+      runAchievementCheck('streak', { ...achCtx, achievements: { ...achievements } }, newCoins).catch(() => {})
+    }
+    if (levelUp) {
+      runAchievementCheck('level', { ...achCtx, level: newLevel }, newCoins).catch(() => {})
+    }
+
     return { coins: def.coins, xp: def.xp, levelUp }
-  }, [user?.id, completedIds, coins, xp, level]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, completedIds, coins, xp, level, streak, achievements, runAchievementCheck]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <TaskContext.Provider value={{ completedIds, taskProgress, completeTask, addCoins, spendCoins, coins, xp, level, loading }}>
+    <TaskContext.Provider value={{ completedIds, taskProgress, completeTask, addCoins, spendCoins, coins, xp, level, loading, streak, achievements, checkAchievementsFor }}>
       {children}
     </TaskContext.Provider>
   )

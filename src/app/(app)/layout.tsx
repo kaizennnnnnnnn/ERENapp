@@ -6,6 +6,7 @@ import DailyBattlePop from '@/components/couple/DailyBattlePop'
 import PageSwiper from '@/components/PageSwiper'
 import StatsHeader from '@/components/StatsHeader'
 import AppFrame from '@/components/AppFrame'
+import AchievementToast from '@/components/AchievementToast'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -19,6 +20,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <main>{children}</main>
             <CareSceneHost />
             <DailyBattlePop />
+            <AchievementToast />
             <AppFrame />
           </PageSwiper>
         </TaskProvider>

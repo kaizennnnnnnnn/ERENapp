@@ -16,6 +16,21 @@ export interface Household {
   created_at: string
 }
 
+export interface StreakData {
+  current: number
+  best: number
+  lastDate: string | null
+}
+
+export type AchievementId =
+  | 'first_care' | 'care_100' | 'all_care_day' | 'clean_sweep'
+  | 'streak_7' | 'streak_30' | 'streak_100'
+  | 'first_game' | 'high_score_50' | 'all_games'
+  | 'level_10' | 'level_25' | 'level_50'
+  | 'battle_win' | 'mood_7'
+
+export type AchievementMap = Partial<Record<AchievementId, string>>
+
 export interface Profile {
   id: string
   name: string
@@ -25,6 +40,8 @@ export interface Profile {
   level: number
   coins: number
   claimed_level?: number
+  streak?: StreakData
+  achievements?: AchievementMap
   created_at: string
   updated_at: string
 }

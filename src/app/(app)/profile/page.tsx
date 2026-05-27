@@ -14,8 +14,11 @@ import { format } from 'date-fns'
 import { useCare } from '@/contexts/CareContext'
 import {
   IconPerson, IconHouse, IconHeart, IconClock, IconCatFace, IconPencil,
-  IconCrown, IconHeartDuo, IconStar,
+  IconCrown, IconHeartDuo, IconStar, IconTrophy, IconFire, IconLock,
+  IconPaw, IconController, IconSwords, IconMoon,
 } from '@/components/PixelIcons'
+import { useTasks } from '@/contexts/TaskContext'
+import { ACHIEVEMENT_DEFS, type AchievementDef } from '@/lib/achievements'
 import { playSound } from '@/lib/sounds'
 import {
   PINK, PINK_HI, PINK_LO,
@@ -24,6 +27,21 @@ import {
 } from '@/components/obsidian'
 import { useTheme, THEMES } from '@/contexts/ThemeContext'
 import PageLoader from '@/components/PageLoader'
+
+function AchievementIcon({ iconName, size }: { iconName: AchievementDef['icon']; size: number }) {
+  switch (iconName) {
+    case 'trophy':     return <IconTrophy size={size} />
+    case 'fire':       return <IconFire size={size} />
+    case 'star':       return <IconStar size={size} />
+    case 'crown':      return <IconCrown size={size} />
+    case 'heart':      return <IconHeart size={size} />
+    case 'paw':        return <IconPaw size={size} />
+    case 'controller': return <IconController size={size} />
+    case 'swords':     return <IconSwords size={size} />
+    case 'moon':       return <IconMoon size={size} />
+    default:           return <IconLock size={size} />
+  }
+}
 
 export default function ProfilePage() {
   const router   = useRouter()
@@ -104,11 +122,14 @@ export default function ProfilePage() {
     paddingTop: 'calc(var(--safe-top) + 16px)',
   }
 
+  const { achievements, streak } = useTasks()
+
   if (loading || !profile) return <PageLoader label="LOADING PROFILE" />
 
   const initials = profile.name.charAt(0).toUpperCase()
   const totalSeconds = mySeconds + partnerSeconds
   const { theme, setTheme } = useTheme()
+  const unlockedCount = Object.keys(achievements).length
 
   return (
     <div className="page-scroll" style={pageStyle}>
@@ -277,6 +298,79 @@ export default function ProfilePage() {
             </span>
           </div>
         ) : null}
+      </div>
+
+      {/* ── Achievements ── */}
+      <div className="mb-4 p-4 relative" style={OBSIDIAN_FACE}>
+        <Rivets inset={4} size={3} />
+        <div className="flex items-center gap-2 mb-3">
+          <ObsidianChip accentRgb="251,191,36">
+            <IconTrophy size={12} />
+            <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>ACHIEVEMENTS</span>
+          </ObsidianChip>
+          <span className="text-xs" style={{ color: '#7A6A75' }}>
+            {unlockedCount}/{ACHIEVEMENT_DEFS.length}
+          </span>
+        </div>
+
+        {streak.best > 0 && (
+          <div className="flex items-center gap-2 mb-3 px-2 py-1.5 relative" style={{
+            ...OBSIDIAN_BTN,
+            border: '1px solid rgba(255,107,0,0.3)',
+          }}>
+            <IconFire size={14} />
+            <span className="font-pixel" style={{ fontSize: 6, color: '#FF6B00', letterSpacing: 1 }}>
+              BEST STREAK: {streak.best} DAYS
+            </span>
+            {streak.current > 0 && (
+              <span className="font-pixel ml-auto" style={{ fontSize: 6, color: '#FFD700', letterSpacing: 1 }}>
+                NOW: {streak.current}
+              </span>
+            )}
+          </div>
+        )}
+
+        <div className="grid grid-cols-3 gap-2">
+          {ACHIEVEMENT_DEFS.map(def => {
+            const unlocked = !!achievements[def.id]
+            return (
+              <div
+                key={def.id}
+                className="flex flex-col items-center gap-1.5 p-2.5 relative"
+                style={{
+                  ...OBSIDIAN_BTN,
+                  opacity: unlocked ? 1 : 0.4,
+                  border: unlocked
+                    ? '1px solid rgba(251,191,36,0.5)'
+                    : '1px solid rgba(255,255,255,0.08)',
+                  boxShadow: unlocked
+                    ? `0 0 8px rgba(251,191,36,0.2), ${OBSIDIAN_BTN.boxShadow}`
+                    : OBSIDIAN_BTN.boxShadow as string,
+                }}
+              >
+                {unlocked && <Rivets inset={2} size={2} />}
+                <div style={{
+                  filter: unlocked
+                    ? 'drop-shadow(0 0 4px rgba(251,191,36,0.5))'
+                    : 'grayscale(1) brightness(0.4)',
+                }}>
+                  <AchievementIcon iconName={def.icon} size={22} />
+                </div>
+                <span className="font-pixel text-center" style={{
+                  fontSize: 5, lineHeight: 1.3, letterSpacing: 0.5,
+                  color: unlocked ? '#FDE68A' : '#5A4A55',
+                }}>
+                  {unlocked ? def.title.toUpperCase() : '???'}
+                </span>
+                {unlocked && (
+                  <span className="font-pixel" style={{ fontSize: 4, color: '#7A6A75' }}>
+                    +{def.coins}
+                  </span>
+                )}
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {/* ── Invite code ── */}

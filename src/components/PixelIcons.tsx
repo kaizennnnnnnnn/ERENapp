@@ -818,6 +818,69 @@ export function IconCake({ size = 20 }: IconProps) {
   }, size)
 }
 
+// ── FIRE (streak) ────────────────────────────────────────────────────────
+export function IconFire({ size = 20 }: IconProps) {
+  const grid = [
+    '............',
+    '.....KK.....',
+    '....KOOK....',
+    '....KOOOK...',
+    '...KOOYOK...',
+    '...KOYYYOK..',
+    '..KOYYYYOK..',
+    '..KOYRRYOK..',
+    '..KORRRROK..',
+    '...KORRROK..',
+    '...KKKKKKK..',
+    '............',
+  ]
+  return drawPixels(grid, {
+    K: '#7A2000', O: '#FF6B00', Y: '#FFD700', R: '#FF3300',
+  }, size)
+}
+
+// ── TROPHY (achievements) ────────────────────────────────────────────────
+export function IconTrophy({ size = 20 }: IconProps) {
+  const grid = [
+    '............',
+    '.KKKKKKKKKK.',
+    'KKYYYYYYYKKK',
+    'KLYYYYYYYRLK',
+    'KKYYYYYYYKKK',
+    '.KYYYYYYYK..',
+    '..KYYYYYK...',
+    '...KYYYK....',
+    '....KYK.....',
+    '....KYK.....',
+    '...KKKKKK...',
+    '..KYYYYYYK..',
+  ]
+  return drawPixels(grid, {
+    K: '#7A4F00', Y: '#FFD700', L: '#FFF4A3', R: '#B88400',
+  }, size)
+}
+
+// ── LOCK (locked achievement) ────────────────────────────────────────────
+export function IconLock({ size = 20 }: IconProps) {
+  const grid = [
+    '............',
+    '....KKKK....',
+    '...KGGGKK...',
+    '...KG..GK...',
+    '...KG..GK...',
+    '..KKKKKKKK..',
+    '..KSSSSSSSK.',
+    '..KSSWWSSK..',
+    '..KSSYYSSKK.',
+    '..KSSSSSSK..',
+    '..KKKKKKKK..',
+    '............',
+  ]
+  return drawPixels(grid, {
+    K: '#3A3A4A', G: '#6A6A7A', S: '#8A8A9A', W: '#FFD700', Y: '#B88400',
+  }, size)
+}
+
 // ── FLY (stinky indicator) ────────────────────────────────────────────────
 export function IconFly({ size = 20 }: IconProps) {
   const grid = [
