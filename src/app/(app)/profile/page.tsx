@@ -15,10 +15,10 @@ import { useCare } from '@/contexts/CareContext'
 import {
   IconPerson, IconHouse, IconHeart, IconClock, IconCatFace, IconPencil,
   IconCrown, IconHeartDuo, IconStar, IconTrophy, IconFire, IconLock,
-  IconPaw, IconController, IconSwords, IconMoon,
+  IconPaw, IconController, IconSwords, IconMoon, IconCoin,
 } from '@/components/PixelIcons'
 import { useTasks } from '@/contexts/TaskContext'
-import { ACHIEVEMENT_DEFS, type AchievementDef } from '@/lib/achievements'
+import { ACHIEVEMENT_DEFS, RARITY_COLORS, type AchievementDef } from '@/lib/achievements'
 import { playSound } from '@/lib/sounds'
 import {
   PINK, PINK_HI, PINK_LO,
@@ -303,14 +303,28 @@ export default function ProfilePage() {
       {/* ── Achievements ── */}
       <div className="mb-4 p-4 relative" style={OBSIDIAN_FACE}>
         <Rivets inset={4} size={3} />
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-1">
           <ObsidianChip accentRgb="251,191,36">
             <IconTrophy size={12} />
             <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>ACHIEVEMENTS</span>
           </ObsidianChip>
-          <span className="text-xs" style={{ color: '#7A6A75' }}>
-            {unlockedCount}/{ACHIEVEMENT_DEFS.length}
+          <span className="font-pixel" style={{ fontSize: 7, color: '#7A6A75' }}>
+            {unlockedCount}<span style={{ opacity: 0.5 }}>/</span>{ACHIEVEMENT_DEFS.length}
           </span>
+        </div>
+
+        {/* Progress bar showing overall unlock progress */}
+        <div className="mb-3 mt-2" style={{
+          height: 6, background: '#0a0a0c', overflow: 'hidden',
+          boxShadow: `inset 0 1px 2px rgba(0,0,0,0.8), inset 0 0 0 1px ${accentA(0.13)}`,
+        }}>
+          <div style={{
+            width: `${Math.round((unlockedCount / ACHIEVEMENT_DEFS.length) * 100)}%`,
+            height: '100%',
+            background: 'linear-gradient(90deg, #FBBF24, #F59E0B 60%, #D97706)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4)',
+            transition: 'width 700ms ease-out',
+          }} />
         </div>
 
         {streak.best > 0 && (
@@ -320,7 +334,7 @@ export default function ProfilePage() {
           }}>
             <IconFire size={14} />
             <span className="font-pixel" style={{ fontSize: 6, color: '#FF6B00', letterSpacing: 1 }}>
-              BEST STREAK: {streak.best} DAYS
+              BEST: {streak.best}
             </span>
             {streak.current > 0 && (
               <span className="font-pixel ml-auto" style={{ fontSize: 6, color: '#FFD700', letterSpacing: 1 }}>
@@ -330,43 +344,78 @@ export default function ProfilePage() {
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="flex flex-col gap-2">
           {ACHIEVEMENT_DEFS.map(def => {
             const unlocked = !!achievements[def.id]
+            const rc = RARITY_COLORS[def.rarity]
             return (
               <div
                 key={def.id}
-                className="flex flex-col items-center gap-1.5 p-2.5 relative"
+                className="flex items-center gap-3 px-3 py-2.5 relative"
                 style={{
                   ...OBSIDIAN_BTN,
-                  opacity: unlocked ? 1 : 0.4,
-                  border: unlocked
-                    ? '1px solid rgba(251,191,36,0.5)'
-                    : '1px solid rgba(255,255,255,0.08)',
+                  border: unlocked ? `1.5px solid ${rc.border}` : '1px solid rgba(255,255,255,0.06)',
                   boxShadow: unlocked
-                    ? `0 0 8px rgba(251,191,36,0.2), ${OBSIDIAN_BTN.boxShadow}`
+                    ? `0 0 10px ${rc.glow}, ${OBSIDIAN_BTN.boxShadow}`
                     : OBSIDIAN_BTN.boxShadow as string,
+                  background: unlocked
+                    ? `linear-gradient(135deg, ${rc.bg} 0%, #050507 100%)`
+                    : OBSIDIAN_BTN.background as string,
                 }}
               >
                 {unlocked && <Rivets inset={2} size={2} />}
-                <div style={{
+
+                {/* Icon */}
+                <div className="flex-shrink-0" style={{
+                  width: 30, height: 30,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
                   filter: unlocked
-                    ? 'drop-shadow(0 0 4px rgba(251,191,36,0.5))'
-                    : 'grayscale(1) brightness(0.4)',
+                    ? `drop-shadow(0 0 5px ${rc.glow})`
+                    : 'grayscale(1) brightness(0.3)',
                 }}>
-                  <AchievementIcon iconName={def.icon} size={22} />
+                  {unlocked
+                    ? <AchievementIcon iconName={def.icon} size={24} />
+                    : <IconLock size={20} />}
                 </div>
-                <span className="font-pixel text-center" style={{
-                  fontSize: 5, lineHeight: 1.3, letterSpacing: 0.5,
-                  color: unlocked ? '#FDE68A' : '#5A4A55',
-                }}>
-                  {unlocked ? def.title.toUpperCase() : '???'}
-                </span>
-                {unlocked && (
-                  <span className="font-pixel" style={{ fontSize: 4, color: '#7A6A75' }}>
-                    +{def.coins}
+
+                {/* Text */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-pixel" style={{
+                      fontSize: 7, letterSpacing: 1, lineHeight: 1.2,
+                      color: unlocked ? rc.text : '#5A4A55',
+                    }}>
+                      {unlocked ? def.title.toUpperCase() : def.description.toUpperCase()}
+                    </span>
+                  </div>
+                  {unlocked && (
+                    <span className="font-pixel" style={{
+                      fontSize: 5, color: '#7A6A75', letterSpacing: 0.5,
+                    }}>
+                      {def.description}
+                    </span>
+                  )}
+                </div>
+
+                {/* Reward / rarity badge */}
+                <div className="flex-shrink-0 flex flex-col items-end gap-1">
+                  <span className="font-pixel" style={{
+                    fontSize: 5, letterSpacing: 1,
+                    color: unlocked ? rc.text : '#3A3040',
+                    textTransform: 'uppercase',
+                  }}>
+                    {def.rarity}
                   </span>
-                )}
+                  <div className="flex items-center gap-1">
+                    <IconCoin size={8} />
+                    <span className="font-pixel" style={{
+                      fontSize: 6,
+                      color: unlocked ? '#FFD700' : '#3A3040',
+                    }}>
+                      {unlocked ? `+${def.coins}` : def.coins}
+                    </span>
+                  </div>
+                </div>
               </div>
             )
           })}

@@ -38,6 +38,8 @@ export function updateStreak(
 
 export type AchievementTrigger = 'care' | 'game' | 'level' | 'streak' | 'battle' | 'mood' | 'mount'
 
+export type AchievementRarity = 'common' | 'rare' | 'epic' | 'legendary'
+
 export interface AchievementDef {
   id: AchievementId
   title: string
@@ -45,29 +47,37 @@ export interface AchievementDef {
   icon: 'trophy' | 'fire' | 'star' | 'crown' | 'heart' | 'paw' | 'controller' | 'swords' | 'moon'
   triggers: AchievementTrigger[]
   coins: number
+  rarity: AchievementRarity
+}
+
+export const RARITY_COLORS: Record<AchievementRarity, { border: string; glow: string; text: string; bg: string }> = {
+  common:    { border: 'rgba(160,160,170,0.5)', glow: 'rgba(160,160,170,0.2)', text: '#B0B0BA', bg: 'rgba(160,160,170,0.06)' },
+  rare:      { border: 'rgba(96,165,250,0.5)',  glow: 'rgba(96,165,250,0.25)', text: '#93C5FD', bg: 'rgba(96,165,250,0.06)' },
+  epic:      { border: 'rgba(192,132,252,0.5)', glow: 'rgba(192,132,252,0.3)', text: '#D8B4FE', bg: 'rgba(192,132,252,0.06)' },
+  legendary: { border: 'rgba(251,191,36,0.6)',  glow: 'rgba(251,191,36,0.35)', text: '#FDE68A', bg: 'rgba(251,191,36,0.08)' },
 }
 
 export const ACHIEVEMENT_DEFS: AchievementDef[] = [
   // Care
-  { id: 'first_care',    title: 'First Steps',        description: 'Complete your first care action',  icon: 'paw',        triggers: ['care'],           coins: 10  },
-  { id: 'care_100',      title: 'Devoted Caretaker',   description: 'Complete 100 care actions',        icon: 'heart',      triggers: ['care', 'mount'],  coins: 200 },
-  { id: 'all_care_day',  title: 'Perfect Day',         description: 'Do all 4 care types in one day',   icon: 'star',       triggers: ['care'],           coins: 50  },
-  { id: 'clean_sweep',   title: 'Clean Sweep',         description: 'Get all stats above 80',           icon: 'star',       triggers: ['care'],           coins: 75  },
+  { id: 'first_care',    title: 'First Steps',        description: 'Complete your first care action',  icon: 'paw',        triggers: ['care'],           coins: 10,  rarity: 'common'    },
+  { id: 'all_care_day',  title: 'Perfect Day',         description: 'Do all 4 care types in one day',   icon: 'star',       triggers: ['care'],           coins: 50,  rarity: 'rare'      },
+  { id: 'clean_sweep',   title: 'Clean Sweep',         description: 'Get all stats above 80',           icon: 'heart',      triggers: ['care'],           coins: 75,  rarity: 'rare'      },
+  { id: 'care_100',      title: 'Devoted Caretaker',   description: 'Complete 100 care actions',        icon: 'trophy',     triggers: ['care', 'mount'],  coins: 200, rarity: 'epic'      },
   // Streaks
-  { id: 'streak_7',      title: 'Week Warrior',        description: '7-day streak',                     icon: 'fire',       triggers: ['streak'],         coins: 50  },
-  { id: 'streak_30',     title: 'Month Maven',         description: '30-day streak',                    icon: 'fire',       triggers: ['streak'],         coins: 150 },
-  { id: 'streak_100',    title: 'Century Club',         description: '100-day streak',                   icon: 'fire',       triggers: ['streak'],         coins: 500 },
+  { id: 'streak_7',      title: 'Week Warrior',        description: '7-day streak',                     icon: 'fire',       triggers: ['streak'],         coins: 50,  rarity: 'rare'      },
+  { id: 'streak_30',     title: 'Month Maven',         description: '30-day streak',                    icon: 'fire',       triggers: ['streak'],         coins: 150, rarity: 'epic'      },
+  { id: 'streak_100',    title: 'Century Club',         description: '100-day streak',                   icon: 'fire',       triggers: ['streak'],         coins: 500, rarity: 'legendary' },
   // Games
-  { id: 'first_game',    title: 'Player One',          description: 'Play your first mini-game',        icon: 'controller', triggers: ['game'],           coins: 10  },
-  { id: 'high_score_50', title: 'Score Master',         description: 'Score 50+ in any game',            icon: 'crown',      triggers: ['game'],           coins: 100 },
-  { id: 'all_games',     title: 'Arcade King',          description: 'Play every game type',             icon: 'trophy',     triggers: ['game', 'mount'],  coins: 200 },
+  { id: 'first_game',    title: 'Player One',          description: 'Play your first mini-game',        icon: 'controller', triggers: ['game'],           coins: 10,  rarity: 'common'    },
+  { id: 'high_score_50', title: 'Score Master',         description: 'Score 50+ in any game',            icon: 'crown',      triggers: ['game'],           coins: 100, rarity: 'rare'      },
+  { id: 'all_games',     title: 'Arcade King',          description: 'Play every game type',             icon: 'trophy',     triggers: ['game', 'mount'],  coins: 200, rarity: 'epic'      },
   // Levels
-  { id: 'level_10',      title: 'Rising Star',          description: 'Reach level 10',                   icon: 'star',       triggers: ['level', 'mount'], coins: 50  },
-  { id: 'level_25',      title: 'Veteran',              description: 'Reach level 25',                   icon: 'trophy',     triggers: ['level', 'mount'], coins: 100 },
-  { id: 'level_50',      title: 'Legend',                description: 'Reach level 50',                   icon: 'crown',      triggers: ['level', 'mount'], coins: 300 },
+  { id: 'level_10',      title: 'Rising Star',          description: 'Reach level 10',                   icon: 'star',       triggers: ['level', 'mount'], coins: 50,  rarity: 'rare'      },
+  { id: 'level_25',      title: 'Veteran',              description: 'Reach level 25',                   icon: 'trophy',     triggers: ['level', 'mount'], coins: 100, rarity: 'epic'      },
+  { id: 'level_50',      title: 'Legend',                description: 'Reach level 50',                   icon: 'crown',      triggers: ['level', 'mount'], coins: 300, rarity: 'legendary' },
   // Social
-  { id: 'battle_win',    title: 'Champion',             description: 'Win a daily battle',               icon: 'swords',     triggers: ['battle'],         coins: 75  },
-  { id: 'mood_7',        title: 'In Touch',             description: 'Log mood 7 days in a row',         icon: 'moon',       triggers: ['mood', 'mount'],  coins: 75  },
+  { id: 'battle_win',    title: 'Champion',             description: 'Win a daily battle',               icon: 'swords',     triggers: ['battle'],         coins: 75,  rarity: 'rare'      },
+  { id: 'mood_7',        title: 'In Touch',             description: 'Log mood 7 days in a row',         icon: 'moon',       triggers: ['mood', 'mount'],  coins: 75,  rarity: 'rare'      },
 ]
 
 // ─── Achievement context (passed to checkers) ─────────────────────────────────

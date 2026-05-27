@@ -104,6 +104,24 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     }
   }, [profile?.xp, profile?.level, profile?.coins, profile?.streak, profile?.achievements]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Retroactive achievement check on mount ───────────────────────────────
+  // Catches achievements the user already qualifies for (e.g. level-based
+  // ones for existing high-level users who got the feature after leveling).
+  useEffect(() => {
+    if (!user?.id || loading || !profile) return
+    const currentAch = profile.achievements ?? {}
+    const currentStreak = profile.streak ?? { current: 0, best: 0, lastDate: null }
+    const ctx: AchievementContext = {
+      userId: user.id,
+      completedIds,
+      stats: null,
+      level: profile.level ?? 1,
+      streak: currentStreak,
+      achievements: { ...currentAch },
+    }
+    runAchievementCheck('mount', ctx, profile.coins ?? 0).catch(() => {})
+  }, [user?.id, loading]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Add coins to user profile ────────────────────────────────────────────
   const addCoins = useCallback(async (amount: number): Promise<void> => {
     if (!user?.id) return
@@ -123,6 +141,8 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   }, [user?.id, coins]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Shared helper: run achievement checks + persist unlocks ──────────────
+  // Mutates ctx.achievements so sequential calls within the same batch see
+  // freshly-unlocked IDs and don't double-fire.
   const runAchievementCheck = useCallback(async (
     trigger: AchievementTrigger,
     ctx: AchievementContext,
@@ -132,14 +152,13 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     if (unlocked.length === 0) return currentCoins
 
     const now = new Date().toISOString()
-    const updated = { ...ctx.achievements }
     let achCoins = 0
-    for (const a of unlocked) { updated[a.id] = now; achCoins += a.coins }
+    for (const a of unlocked) { ctx.achievements[a.id] = now; achCoins += a.coins }
 
-    setAchievements(updated)
+    setAchievements({ ...ctx.achievements })
     const nextCoins = currentCoins + achCoins
     setCoins(nextCoins)
-    await supabase.from('profiles').update({ achievements: updated, coins: nextCoins }).eq('id', ctx.userId)
+    await supabase.from('profiles').update({ achievements: ctx.achievements, coins: nextCoins }).eq('id', ctx.userId)
 
     window.dispatchEvent(new CustomEvent<{ achievements: AchievementDef[] }>('eren:achievement-unlocked', {
       detail: { achievements: unlocked },
@@ -197,27 +216,28 @@ export function TaskProvider({ children }: { children: ReactNode }) {
 
     // 3. Streak update on first daily task of the day
     let newStreak = streak
+    const profilePatch: Record<string, unknown> = { coins: newCoins, xp: newXp, level: newLevel }
     if (def.period === 'daily') {
       const todayStr = format(new Date(), 'yyyy-MM-dd')
       const result = updateStreak(streak, todayStr)
       if (result.changed) {
         newStreak = result.streak
         setStreak(newStreak)
+        profilePatch.streak = newStreak
 
         let bonusCoins = 0
         for (const m of result.milestonesHit) bonusCoins += STREAK_MILESTONE_COINS[m] ?? 0
         if (bonusCoins > 0) {
           newCoins += bonusCoins
+          profilePatch.coins = newCoins
           window.dispatchEvent(new CustomEvent('eren:streak-milestone', {
             detail: { milestones: result.milestonesHit, coins: bonusCoins, streak: newStreak.current },
           }))
         }
-
-        await supabase.from('profiles').update({ streak: newStreak }).eq('id', user.id)
       }
     }
 
-    await supabase.from('profiles').update({ coins: newCoins, xp: newXp, level: newLevel }).eq('id', user.id)
+    await supabase.from('profiles').update(profilePatch).eq('id', user.id)
     setCoins(newCoins)
     setXp(newXp)
     setLevel(newLevel)
@@ -260,30 +280,32 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // 5. Achievement checks (fire-and-forget to not block the return)
-    const achCtx: AchievementContext = {
-      userId: user.id,
-      completedIds: nextCompleted,
-      stats: null,
-      level: newLevel,
-      streak: newStreak,
-      achievements,
-    }
+    // 5. Achievement checks — collect all triggers, run once sequentially
+    const triggers: AchievementTrigger[] = []
+    if ((CARE_TASK_IDS as string[]).includes(taskId)) triggers.push('care')
+    else if (taskId === 'daily_game') triggers.push('game')
+    else if (taskId === 'daily_mood') triggers.push('mood')
+    if (newStreak !== streak) triggers.push('streak')
+    if (levelUp) triggers.push('level')
 
-    const trigger: AchievementTrigger | null =
-      (CARE_TASK_IDS as string[]).includes(taskId) ? 'care'
-      : taskId === 'daily_game' ? 'game'
-      : taskId === 'daily_mood' ? 'mood'
-      : null
-
-    if (trigger) {
-      runAchievementCheck(trigger, achCtx, newCoins).catch(() => {})
-    }
-    if (newStreak !== streak) {
-      runAchievementCheck('streak', { ...achCtx, achievements: { ...achievements } }, newCoins).catch(() => {})
-    }
-    if (levelUp) {
-      runAchievementCheck('level', { ...achCtx, level: newLevel }, newCoins).catch(() => {})
+    if (triggers.length > 0) {
+      ;(async () => {
+        let currentAch = { ...achievements }
+        let currentCoins = newCoins
+        const achCtx: AchievementContext = {
+          userId: user.id,
+          completedIds: nextCompleted,
+          stats: null,
+          level: newLevel,
+          streak: newStreak,
+          achievements: currentAch,
+        }
+        for (const t of triggers) {
+          achCtx.achievements = currentAch
+          currentCoins = await runAchievementCheck(t, achCtx, currentCoins)
+          currentAch = { ...achCtx.achievements }
+        }
+      })().catch(() => {})
     }
 
     return { coins: def.coins, xp: def.xp, levelUp }

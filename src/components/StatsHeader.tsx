@@ -360,32 +360,40 @@ export default function StatsHeader() {
           </div>
         </div>
 
-        {/* Streak chip — only visible when streak > 0 */}
-        {streak.current > 0 && (
-          <div
-            className="flex-shrink-0 relative flex items-center"
-            style={{
-              height: 40,
-              padding: '0 8px',
-              gap: 4,
-              ...obsidianFace(streak.current >= 7 ? 'rgba(255,107,0,0.35)' : PINK + '55'),
-            }}
-          >
-            <Rivets inset={3} />
-            <div style={{ filter: streak.current >= 7 ? 'drop-shadow(0 0 4px rgba(255,107,0,0.6))' : `drop-shadow(0 0 3px ${accentA(0.4)})` }}>
-              <IconFire size={16} />
-            </div>
-            <span style={{
-              fontFamily: '"Press Start 2P", monospace',
-              fontSize: 10, lineHeight: 1,
-              background: streak.current >= 7
-                ? 'linear-gradient(180deg, #FFD700 0%, #FF6B00 60%, #CC3300 100%)'
-                : `linear-gradient(180deg, ${PINK_HI} 0%, ${PINK} 60%, ${PINK_LO} 100%)`,
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-              filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.8))',
-            }}>{streak.current}</span>
+        {/* Streak chip — always visible; grayed when inactive */}
+        <div
+          className="flex-shrink-0 relative flex items-center"
+          style={{
+            height: 40,
+            padding: '0 8px',
+            gap: 4,
+            ...obsidianFace(
+              streak.current >= 7 ? 'rgba(255,107,0,0.35)'
+              : streak.current > 0 ? PINK + '55'
+              : 'rgba(255,255,255,0.08)'
+            ),
+          }}
+        >
+          <Rivets inset={3} />
+          <div style={{
+            filter: streak.current >= 7 ? 'drop-shadow(0 0 4px rgba(255,107,0,0.6))'
+              : streak.current > 0 ? `drop-shadow(0 0 3px ${accentA(0.4)})`
+              : 'grayscale(0.8) brightness(0.4)',
+          }}>
+            <IconFire size={16} />
           </div>
-        )}
+          <span style={{
+            fontFamily: '"Press Start 2P", monospace',
+            fontSize: 10, lineHeight: 1,
+            background: streak.current >= 7
+              ? 'linear-gradient(180deg, #FFD700 0%, #FF6B00 60%, #CC3300 100%)'
+              : streak.current > 0
+                ? `linear-gradient(180deg, ${PINK_HI} 0%, ${PINK} 60%, ${PINK_LO} 100%)`
+                : 'linear-gradient(180deg, #4A4A52 0%, #2A2A32 100%)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.8))',
+          }}>{streak.current}</span>
+        </div>
 
         {/* Coins chip */}
         <div
