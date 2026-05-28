@@ -91,8 +91,8 @@ export default function BlinkingEren({
           100%      { transform: scaleY(0); }
         }
         @keyframes erenBreathe {
-          0%, 100% { transform: scaleY(1) translateY(0); }
-          50%      { transform: scaleY(1.012) translateY(-1px); }
+          0%, 100% { transform: translateY(0); }
+          50%      { transform: translateY(-2px); }
         }
       `}</style>
     </div>
