@@ -80,12 +80,10 @@ export default function ErenIdleLayer({ children, disabled }: Props) {
 
   return (
     <div className="relative">
-      {/* Eren container with breathing + idle animation */}
+      {/* Eren container — random idle animation overlay. Breathing lives
+          inside BlinkingEren so it's shared across every room. */}
       <div style={{
-        animation: [
-          'erenBreathe 4s ease-in-out infinite',
-          anim ? `${ANIM_STYLE[anim]} ${ANIM_DURATION[anim]}ms ease-in-out` : '',
-        ].filter(Boolean).join(', '),
+        animation: anim ? `${ANIM_STYLE[anim]} ${ANIM_DURATION[anim]}ms ease-in-out` : undefined,
         transformOrigin: 'bottom center',
       }}>
         {children}
@@ -126,17 +124,13 @@ export default function ErenIdleLayer({ children, disabled }: Props) {
       ))}
 
       <style jsx global>{`
-        @keyframes erenBreathe {
-          0%, 100% { transform: scaleY(1) translateY(0); }
-          50%      { transform: scaleY(1.012) translateY(-1px); }
-        }
         @keyframes erenIdleLookLeft {
           0%, 100% { transform: translateX(0); }
-          20%, 80% { transform: translateX(-4px) rotate(-2deg); }
+          20%, 80% { transform: translateX(-1.5px) rotate(-1deg); }
         }
         @keyframes erenIdleLookRight {
           0%, 100% { transform: translateX(0); }
-          20%, 80% { transform: translateX(4px) rotate(2deg); }
+          20%, 80% { transform: translateX(1.5px) rotate(1deg); }
         }
         @keyframes erenIdleHop {
           0%, 100% { transform: translateY(0); }

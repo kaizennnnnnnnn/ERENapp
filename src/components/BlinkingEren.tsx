@@ -12,6 +12,9 @@ import { useIsDark } from '@/hooks/useIsDark'
 interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   size?: number
   className?: string
+  // Subtle idle breathing sway. On by default so Eren feels alive in every
+  // room; pass false where a perfectly static sprite is wanted.
+  breathe?: boolean
 }
 
 export default function BlinkingEren({
@@ -19,6 +22,7 @@ export default function BlinkingEren({
   className = '',
   style,
   alt = 'Eren',
+  breathe = true,
   ...imgProps
 }: Props) {
   const isDark = useIsDark()
@@ -46,26 +50,35 @@ export default function BlinkingEren({
         filter: nightFilter,
         ...style,
       }}>
-      <img src="/erenGood.png" alt={alt} draggable={false}
-        {...imgProps}
-        style={{
-          width: '100%', height: '100%',
-          objectFit: 'contain',
-          imageRendering: 'pixelated',
-        }} />
+      {/* Breathing wrapper — gentle scaleY sway anchored at the feet so
+          the eyelids and outfits move in lockstep with the body. */}
+      <div style={{
+        position: 'relative',
+        width: '100%', height: '100%',
+        transformOrigin: 'bottom center',
+        animation: breathe ? 'erenBreathe 4s ease-in-out infinite' : undefined,
+      }}>
+        <img src="/erenGood.png" alt={alt} draggable={false}
+          {...imgProps}
+          style={{
+            width: '100%', height: '100%',
+            objectFit: 'contain',
+            imageRendering: 'pixelated',
+          }} />
 
-      {/* Left eyelid */}
-      <div style={{
-        ...lid,
-        left: '39%', top: '32.5%',
-        animation: 'erenBlink 6s infinite',
-      }} />
-      {/* Right eyelid — tiny stagger so they're not perfectly synced */}
-      <div style={{
-        ...lid,
-        left: '55%', top: '32.5%',
-        animation: 'erenBlink 6s 0.03s infinite',
-      }} />
+        {/* Left eyelid */}
+        <div style={{
+          ...lid,
+          left: '39%', top: '32.5%',
+          animation: 'erenBlink 6s infinite',
+        }} />
+        {/* Right eyelid — tiny stagger so they're not perfectly synced */}
+        <div style={{
+          ...lid,
+          left: '55%', top: '32.5%',
+          animation: 'erenBlink 6s 0.03s infinite',
+        }} />
+      </div>
 
       <style jsx global>{`
         @keyframes erenBlink {
@@ -76,6 +89,10 @@ export default function BlinkingEren({
           64%       { transform: scaleY(1); }
           66%       { transform: scaleY(0); }
           100%      { transform: scaleY(0); }
+        }
+        @keyframes erenBreathe {
+          0%, 100% { transform: scaleY(1) translateY(0); }
+          50%      { transform: scaleY(1.012) translateY(-1px); }
         }
       `}</style>
     </div>
