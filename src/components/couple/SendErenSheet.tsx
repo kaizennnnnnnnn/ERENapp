@@ -82,7 +82,7 @@ export default function SendErenSheet({ partnerName, onSend, onClose }: Props) {
               EREN IS ON HIS WAY!
             </p>
             <p className="text-xs text-center" style={{ color: '#9a8aa8' }}>
-              {partnerName.split(' ')[0]} will get your {sentLabel.toLowerCase()} soon
+              {partnerName.split(' ')[0]} is going to love this
             </p>
           </div>
         ) : (

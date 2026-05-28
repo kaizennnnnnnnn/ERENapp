@@ -11,10 +11,10 @@ export interface NudgeDef {
 }
 
 export const NUDGE_DEFS: NudgeDef[] = [
-  { id: 'hug',   label: 'Hug',      state: 'love', message: 'Eren brought you a big warm hug!' },
-  { id: 'kiss',  label: 'Kiss',     state: 'kiss', message: 'Eren delivered a sweet little kiss!' },
-  { id: 'miss',  label: 'Miss You', state: 'shy',  message: 'Someone misses you a whole lot!' },
-  { id: 'think', label: 'Thinking', state: 'wink', message: "You're on someone's mind right now!" },
+  { id: 'loveyou', label: 'I Love You', state: 'love', message: 'Eren came over to say I love you!' },
+  { id: 'kiss',    label: 'Kiss',       state: 'kiss', message: 'Eren delivered a sweet little kiss!' },
+  { id: 'miss',    label: 'Miss You',   state: 'shy',  message: 'Someone misses you a whole lot!' },
+  { id: 'think',   label: 'Thinking',   state: 'wink', message: "You're on someone's mind right now!" },
 ]
 
 // Light anti-spam: minimum gap between nudges, per user.
