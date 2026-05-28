@@ -20,12 +20,14 @@ import {
   Rivets, ObsidianChip, pinkText, accentA,
 } from '@/components/obsidian'
 import PageLoader from '@/components/PageLoader'
+import SendErenSheet from '@/components/couple/SendErenSheet'
 
 export default function CouplePage() {
   const router = useRouter()
   const { user } = useAuth()
   const { setHideStats } = useCare()
-  const { partner, loveMeter, anniversary, journal, sendMessage, markAllRead, loading } = useCouple()
+  const { partner, loveMeter, anniversary, journal, sendMessage, sendNudge, markAllRead, loading } = useCouple()
+  const [showSend, setShowSend] = useState(false)
   // Hide the persistent StatsHeader on this subpage and put it back on
   // unmount, so the user gets the full screen for the couple panel.
   useEffect(() => {
@@ -136,6 +138,33 @@ export default function CouplePage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* ── Send Eren nudge ── */}
+      {partner && (
+        <button
+          onClick={() => { playSound('ui_modal_open'); setShowSend(true) }}
+          className="w-full mb-4 px-4 py-3 flex items-center gap-3 relative active:translate-y-[1px] transition-transform"
+          style={{
+            ...OBSIDIAN_FACE,
+            border: '1.5px solid rgba(255,107,157,0.45)',
+            boxShadow: `0 0 14px rgba(255,107,157,0.25), ${OBSIDIAN_FACE.boxShadow}`,
+          }}
+        >
+          <Rivets inset={4} />
+          <div className="flex-shrink-0" style={{ filter: 'drop-shadow(0 0 5px rgba(255,107,157,0.5))' }}>
+            <IconHeartDuo size={22} />
+          </div>
+          <div className="flex-1 text-left">
+            <span className="font-pixel block" style={{ fontSize: 8, letterSpacing: 1, ...pinkText }}>
+              SEND EREN TO {partner.name.split(' ')[0].toUpperCase()}
+            </span>
+            <span className="text-xs" style={{ color: '#9A8C70' }}>
+              A hug, a kiss, or a little hello
+            </span>
+          </div>
+          <span className="font-pixel flex-shrink-0" style={{ fontSize: 11, color: PINK, textShadow: `0 0 6px ${accentA(0.6)}` }}>▶</span>
+        </button>
       )}
 
       {/* ── Love Meter (Care Battle) ── */}
@@ -415,6 +444,14 @@ export default function CouplePage() {
           })}
         </div>
       </div>
+
+      {showSend && partner && (
+        <SendErenSheet
+          partnerName={partner.name}
+          onSend={sendNudge}
+          onClose={() => setShowSend(false)}
+        />
+      )}
     </div>
   )
 }

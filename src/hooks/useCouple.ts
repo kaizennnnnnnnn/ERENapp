@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from './useAuth'
 import type { Profile, JournalMessage, Interaction, GiftItem } from '@/types'
 import { computeLoveMeter, getAnniversaryInfo, startOfWeek, type LoveMeterResult, type AnniversaryInfo } from '@/lib/couple'
+import { NUDGE_COOLDOWN_MS, type NudgeDef } from '@/lib/nudges'
 
 // Module-level counter so every useCouple instance picks a unique
 // realtime channel name even when several mount in the same React
@@ -203,6 +204,44 @@ export function useCouple() {
     }).catch(() => { /* best-effort */ })
   }, [user?.id, profile?.household_id, profile?.name]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Send an Eren nudge (one-tap affectionate gesture) ──
+  // Inserts a via_eren journal row carrying the SketchEren pose so the
+  // recipient popup shows Eren striking that pose. Unlike sendMessage, the
+  // push is sent with via_eren=false so the sweet line is *shown* in the
+  // notification ("💌 {sender}: ...") rather than hidden. The DB via_eren
+  // flag still routes it to the popup only (out of the journal list).
+  // Returns false if a send was attempted inside the cooldown window.
+  const sendNudge = useCallback(async (nudge: NudgeDef): Promise<boolean> => {
+    if (!user?.id || !profile?.household_id) return false
+
+    const lastKey = `eren_nudge_last_${user.id}`
+    const last = Number(localStorage.getItem(lastKey) ?? 0)
+    if (Date.now() - last < NUDGE_COOLDOWN_MS) return false
+    localStorage.setItem(lastKey, String(Date.now()))
+
+    await supabase.from('couple_journal').insert({
+      household_id: profile.household_id,
+      sender_id: user.id,
+      message: nudge.message,
+      via_eren: true,
+      eren_state: nudge.state,
+    })
+
+    fetch('/api/notify-message', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        household_id: profile.household_id,
+        sender_id: user.id,
+        sender_name: profile.name ?? '',
+        message: nudge.message,
+        via_eren: false,
+      }),
+    }).catch(() => { /* best-effort */ })
+
+    return true
+  }, [user?.id, profile?.household_id, profile?.name]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Mark all as read (saves timestamp to localStorage) ──
   const markAllRead = useCallback(() => {
     if (!user?.id) return
@@ -228,7 +267,7 @@ export function useCouple() {
   return {
     partner, loveMeter, anniversary, journal, unreadCount,
     newMessage, dismissPopup,
-    sendMessage, markAllRead, loading,
+    sendMessage, sendNudge, markAllRead, loading,
     refetch: fetchAll,
   }
 }

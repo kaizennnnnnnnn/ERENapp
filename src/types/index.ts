@@ -280,6 +280,10 @@ export interface JournalMessage {
   // journal list. The accompanying push notification also hides the
   // actual body text for these.
   via_eren?: boolean
+  // SketchEren pose for a "Send Eren" nudge (e.g. 'kiss', 'love'). When set,
+  // the recipient popup renders Eren in this pose instead of the static
+  // sprite. Absent for ordinary ThoughtCloud messages.
+  eren_state?: string
   profile?: Profile
 }
 
