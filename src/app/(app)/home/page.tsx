@@ -37,6 +37,7 @@ import ThoughtCloud from '@/components/couple/ThoughtCloud'
 import JealousEren from '@/components/couple/JealousEren'
 import DailyBattleHUD from '@/components/couple/DailyBattleHUD'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
+import SendErenSheet from '@/components/couple/SendErenSheet'
 import { OBSIDIAN_BTN, Rivets } from '@/components/obsidian'
 import { useIsDark } from '@/hooks/useIsDark'
 import LightSwitch from '@/components/LightSwitch'
@@ -56,7 +57,7 @@ export default function HomePage() {
   const { xp, level } = useTasks()
   useTimeTracking(user?.id ?? null)
   const { canClaim: fortuneAvailable } = useFortune()
-  const { newMessage, dismissPopup, unreadCount } = useCouple()
+  const { newMessage, dismissPopup, unreadCount, partner, sendNudge } = useCouple()
   const { inventory } = useInventory()
   const isDark = useIsDark()
 
@@ -232,6 +233,7 @@ export default function HomePage() {
   const [toast, setToast]                 = useState<string | null>(null)
   const [showReminders, setShowReminders] = useState(false)
   const [showRooms, setShowRooms]         = useState(false)
+  const [showSendEren, setShowSendEren]   = useState(false)
   const [roomReady, setRoomReady]         = useState(false)
 
   // Show stats header only when room is fully loaded & mood selected
@@ -361,6 +363,13 @@ export default function HomePage() {
       {showReminders && <ReminderSheet onClose={() => setShowReminders(false)} />}
       {showFortune && <FortunePopup onClose={() => setShowFortune(false)} />}
       {newMessage && <ErenMessagePopup message={newMessage} onDismiss={dismissPopup} />}
+      {showSendEren && partner && (
+        <SendErenSheet
+          partnerName={partner.name}
+          onSend={sendNudge}
+          onClose={() => setShowSendEren(false)}
+        />
+      )}
 
       {/* ══ FULL SCREEN ROOM ══ */}
       <div className="fixed inset-0" style={{ zIndex: 0 }}
@@ -444,6 +453,33 @@ export default function HomePage() {
                 ))}
               </ErenIdleLayer>
             </div>
+
+            {/* Little heart by Eren's side — quick "Send Eren" to your
+                partner. Only shown when paired. */}
+            {partner && (
+              <button
+                onClick={() => { playSound('ui_modal_open'); setShowSendEren(true) }}
+                aria-label={`Send Eren to ${partner.name}`}
+                className="absolute active:scale-90 transition-transform"
+                style={{ bottom: '22%', left: '23%', zIndex: 3 }}
+              >
+                <div className="relative flex items-center justify-center" style={{
+                  width: 38, height: 38, borderRadius: '50%',
+                  background: 'radial-gradient(circle at 35% 28%, #2a1620 0%, #0a0a0c 60%, #000 100%)',
+                  border: '1.5px solid rgba(255,107,157,0.5)',
+                  boxShadow: '0 0 12px rgba(255,107,157,0.4), 0 3px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)',
+                  animation: 'sendErenPulse 2.2s ease-in-out infinite',
+                }}>
+                  <IconHeart size={18} />
+                </div>
+              </button>
+            )}
+            <style jsx global>{`
+              @keyframes sendErenPulse {
+                0%, 100% { transform: scale(1);    box-shadow: 0 0 12px rgba(255,107,157,0.4), 0 3px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1); }
+                50%      { transform: scale(1.08); box-shadow: 0 0 18px rgba(255,107,157,0.65), 0 3px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1); }
+              }
+            `}</style>
 
           </>
         )}
