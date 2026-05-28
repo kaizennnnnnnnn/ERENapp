@@ -240,6 +240,24 @@
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* ── Eren sprite: eye-blink + idle breathing ──
+   Defined globally (not per-component) so the animation references in
+   BlinkingEren resolve in every room reliably. Breathing is a pure
+   translateY so the pixelated sprite is never resampled (no seam lines). */
+@keyframes erenBlink {
+  0%, 28%   { transform: scaleY(0); }
+  30%       { transform: scaleY(1); }
+  32%       { transform: scaleY(0); }
+  60%, 62%  { transform: scaleY(0); }
+  64%       { transform: scaleY(1); }
+  66%       { transform: scaleY(0); }
+  100%      { transform: scaleY(0); }
+}
+@keyframes erenBreathe {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+
 /* ── Heartbeat for low stats ── */
 @keyframes heartbeat {
   0%, 100% { transform: scale(1); }

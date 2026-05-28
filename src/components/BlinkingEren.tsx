@@ -79,22 +79,6 @@ export default function BlinkingEren({
           animation: 'erenBlink 6s 0.03s infinite',
         }} />
       </div>
-
-      <style jsx global>{`
-        @keyframes erenBlink {
-          0%, 28%   { transform: scaleY(0); }
-          30%       { transform: scaleY(1); }
-          32%       { transform: scaleY(0); }
-          60%, 62%  { transform: scaleY(0); }
-          64%       { transform: scaleY(1); }
-          66%       { transform: scaleY(0); }
-          100%      { transform: scaleY(0); }
-        }
-        @keyframes erenBreathe {
-          0%, 100% { transform: translateY(0); }
-          50%      { transform: translateY(-2px); }
-        }
-      `}</style>
     </div>
   )
 }
