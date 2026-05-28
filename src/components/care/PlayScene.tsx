@@ -10,6 +10,7 @@ import { IconController, IconStar, IconCrown } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import Leaderboard from '@/components/Leaderboard'
 import BlinkingEren from '@/components/BlinkingEren'
+import ErenIdleLayer from '@/components/ErenIdleLayer'
 import LightSwitch from '@/components/LightSwitch'
 import { useIsDark } from '@/hooks/useIsDark'
 
@@ -100,7 +101,9 @@ export default function PlayScene({ onClose }: Props) {
       {!isSleeping && (
         <div className={cn('absolute z-10 transition-all duration-500')}
           style={{ bottom: '10%', left: '50%', transform: `translateX(-50%) scaleX(${lookDir === 'left' ? -1 : 1})` }}>
-          <BlinkingEren size={200} />
+          <ErenIdleLayer>
+            <BlinkingEren size={200} />
+          </ErenIdleLayer>
         </div>
       )}
 

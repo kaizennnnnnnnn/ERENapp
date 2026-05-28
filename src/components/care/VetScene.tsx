@@ -7,6 +7,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
 import BlinkingEren from '@/components/BlinkingEren'
+import ErenIdleLayer from '@/components/ErenIdleLayer'
 import LightSwitch from '@/components/LightSwitch'
 import { useIsDark } from '@/hooks/useIsDark'
 
@@ -71,7 +72,9 @@ export default function VetScene({ onClose }: Props) {
       {!isSleeping && (
         <div className={cn('absolute z-10 transition-all duration-500', checkDone ? 'bottom-[6%]' : 'bottom-[4%]')}
           style={{ left: '50%', transform: 'translateX(-50%)' }}>
-          <BlinkingEren size={200} />
+          <ErenIdleLayer>
+            <BlinkingEren size={200} />
+          </ErenIdleLayer>
         </div>
       )}
 

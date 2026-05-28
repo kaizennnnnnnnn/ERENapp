@@ -7,6 +7,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
 import BlinkingEren from '@/components/BlinkingEren'
+import ErenIdleLayer from '@/components/ErenIdleLayer'
 import LightSwitch from '@/components/LightSwitch'
 
 interface Props { onClose: () => void }
@@ -97,7 +98,9 @@ export default function SleepScene({ onClose }: Props) {
       {/* ══ EREN ══ */}
       <div className={cn('absolute z-10 transition-all duration-700', tuckedIn ? 'bottom-[16%]' : 'bottom-[14%]')}
         style={{ left: '50%', transform: 'translateX(-50%)' }}>
-        <BlinkingEren size={200} />
+        <ErenIdleLayer disabled={tuckedIn}>
+          <BlinkingEren size={200} />
+        </ErenIdleLayer>
       </div>
 
       {/* ══ ZZZs ══ */}

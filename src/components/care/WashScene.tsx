@@ -6,6 +6,7 @@ import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import BlinkingEren from '@/components/BlinkingEren'
+import ErenIdleLayer from '@/components/ErenIdleLayer'
 import LightSwitch from '@/components/LightSwitch'
 import { useIsDark } from '@/hooks/useIsDark'
 
@@ -222,7 +223,9 @@ export default function WashScene({ onClose }: Props) {
       {!isSleeping && (
         <div className={cn('absolute transition-all duration-500', done ? 'bottom-[12%]' : 'bottom-[10%]')}
           style={{ left: '50%', transform: 'translateX(-50%)' }}>
-          <BlinkingEren size={200} />
+          <ErenIdleLayer>
+            <BlinkingEren size={200} />
+          </ErenIdleLayer>
         </div>
       )}
 

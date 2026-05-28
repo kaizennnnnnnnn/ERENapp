@@ -14,6 +14,7 @@ import type { FoodInventory } from '@/types'
 import { playSound } from '@/lib/sounds'
 import AnalogClock from '@/components/AnalogClock'
 import BlinkingEren from '@/components/BlinkingEren'
+import ErenIdleLayer from '@/components/ErenIdleLayer'
 import LightSwitch from '@/components/LightSwitch'
 import { useIsDark } from '@/hooks/useIsDark'
 
@@ -321,7 +322,9 @@ export default function FeedScene({ onClose }: Props) {
   const erenElement = useMemo(() => (
     <div className="absolute z-20 bottom-[10%]"
       style={{ left: '50%', transform: 'translateX(-50%)' }}>
-      <BlinkingEren size={210} />
+      <ErenIdleLayer>
+        <BlinkingEren size={210} />
+      </ErenIdleLayer>
     </div>
   ), []) // eslint-disable-line react-hooks/exhaustive-deps
 
