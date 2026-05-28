@@ -10,12 +10,14 @@ export interface NudgeDef {
   message: string
 }
 
+// Messages are written in the SENDER's voice — these are the words YOU are
+// sending; Eren only delivers them. The popup + push attribute them to you.
 export const NUDGE_DEFS: NudgeDef[] = [
-  { id: 'loveyou', label: 'I Love You', state: 'love', message: 'Eren came over to say I love you!' },
-  { id: 'kiss',    label: 'Kiss',       state: 'kiss', message: 'Eren delivered a sweet little kiss!' },
-  { id: 'miss',    label: 'Miss You',   state: 'shy',  message: 'Someone misses you a whole lot!' },
-  { id: 'think',   label: 'Thinking',   state: 'wink', message: "You're on someone's mind right now!" },
+  { id: 'loveyou', label: 'I Love You', state: 'love', message: 'I love you so much!' },
+  { id: 'kiss',    label: 'Kiss',       state: 'kiss', message: 'Sending you a big kiss!' },
+  { id: 'miss',    label: 'Miss You',   state: 'shy',  message: 'I miss you so much!' },
+  { id: 'think',   label: 'Thinking',   state: 'wink', message: "I'm thinking about you right now!" },
 ]
 
 // Light anti-spam: minimum gap between nudges, per user.
-export const NUDGE_COOLDOWN_MS = 20_000
+export const NUDGE_COOLDOWN_MS = 6_000

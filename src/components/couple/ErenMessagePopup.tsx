@@ -78,7 +78,7 @@ export default function ErenMessagePopup({ message, onDismiss }: Props) {
             style={{ width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderBottom: '7px solid white' }} />
 
           <p className="font-pixel text-pink-400 mb-2 text-center" style={{ fontSize: 6 }}>
-            {message.gift_item ? 'EREN BROUGHT A GIFT!' : isNudge ? 'EREN HAS A NUDGE FOR YOU!' : 'EREN DELIVERED A MESSAGE!'}
+            {message.gift_item ? 'EREN BROUGHT A GIFT!' : isNudge ? 'EREN BROUGHT YOU A MESSAGE!' : 'EREN DELIVERED A MESSAGE!'}
           </p>
           {message.message && (
             <p className="text-sm text-gray-700 text-center leading-relaxed">{message.message}</p>

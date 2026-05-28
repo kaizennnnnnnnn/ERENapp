@@ -217,15 +217,19 @@ export function useCouple() {
     const lastKey = `eren_nudge_last_${user.id}`
     const last = Number(localStorage.getItem(lastKey) ?? 0)
     if (Date.now() - last < NUDGE_COOLDOWN_MS) return false
-    localStorage.setItem(lastKey, String(Date.now()))
 
-    await supabase.from('couple_journal').insert({
+    // Insert first; only arm the cooldown once it actually lands so a
+    // failed send (e.g. transient network) doesn't lock the user out.
+    const { error } = await supabase.from('couple_journal').insert({
       household_id: profile.household_id,
       sender_id: user.id,
       message: nudge.message,
       via_eren: true,
       eren_state: nudge.state,
     })
+    if (error) return false
+
+    localStorage.setItem(lastKey, String(Date.now()))
 
     fetch('/api/notify-message', {
       method: 'POST',
