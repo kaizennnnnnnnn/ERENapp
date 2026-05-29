@@ -21,12 +21,15 @@ import {
 } from '@/components/obsidian'
 import PageLoader from '@/components/PageLoader'
 import SendErenSheet from '@/components/couple/SendErenSheet'
+import SketchEren from '@/components/SketchEren'
+import { MOOD_SKETCH, MOOD_THEME, LOW_MOODS } from '@/lib/moods'
+import { MOOD_CONFIGS } from '@/types'
 
 export default function CouplePage() {
   const router = useRouter()
   const { user } = useAuth()
   const { setHideStats } = useCare()
-  const { partner, loveMeter, anniversary, journal, sendMessage, sendNudge, markAllRead, loading } = useCouple()
+  const { partner, loveMeter, anniversary, journal, partnerMood, partnerMoodWeek, sendMessage, sendNudge, markAllRead, loading } = useCouple()
   const [showSend, setShowSend] = useState(false)
   // Hide the persistent StatsHeader on this subpage and put it back on
   // unmount, so the user gets the full screen for the couple panel.
@@ -166,6 +169,85 @@ export default function CouplePage() {
           <span className="font-pixel flex-shrink-0" style={{ fontSize: 11, color: PINK, textShadow: `0 0 6px ${accentA(0.6)}` }}>▶</span>
         </button>
       )}
+
+      {/* ── Partner mood today ── */}
+      {partner && (() => {
+        const first = partner.name.split(' ')[0]
+        const theme = partnerMood ? MOOD_THEME[partnerMood] : null
+        const isLow = partnerMood ? LOW_MOODS.includes(partnerMood) : false
+        return (
+          <div className="mb-4 p-4 relative" style={OBSIDIAN_FACE}>
+            <Rivets inset={4} />
+            <div className="flex items-center gap-2 mb-3">
+              <ObsidianChip accentRgb="255,107,157">
+                <IconHeart size={12} />
+                <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>
+                  {first.toUpperCase()} TODAY
+                </span>
+              </ObsidianChip>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex-shrink-0" style={{
+                width: 64, height: 64,
+                filter: theme ? `drop-shadow(0 0 6px ${theme.glow})` : 'grayscale(0.5) brightness(0.7)',
+              }}>
+                <SketchEren state={partnerMood ? MOOD_SKETCH[partnerMood] : 'idle'} size={64} transparent noSpeech />
+              </div>
+              <div className="flex-1 min-w-0">
+                {partnerMood ? (
+                  <p className="font-pixel" style={{ fontSize: 9, lineHeight: 1.5, color: theme!.main, textShadow: `0 0 6px ${theme!.glow}` }}>
+                    {first} is feeling {MOOD_CONFIGS[partnerMood].label.toLowerCase()} today
+                  </p>
+                ) : (
+                  <p className="text-sm" style={{ color: '#9A8C70' }}>
+                    {first} hasn&apos;t checked in yet today
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* 7-day strip */}
+            <div className="flex justify-between mt-4">
+              {partnerMoodWeek.map(d => {
+                const dt = MOOD_THEME[d.mood ?? 'good']
+                return (
+                  <div key={d.date} className="flex flex-col items-center gap-1">
+                    <div style={{
+                      width: 14, height: 14, borderRadius: '50%',
+                      background: d.mood ? `linear-gradient(180deg, ${dt.main}, ${dt.dark})` : '#1a1a22',
+                      border: `1px solid ${d.mood ? dt.dark : 'rgba(255,255,255,0.08)'}`,
+                      boxShadow: d.mood ? `0 0 5px ${dt.glow}` : 'inset 0 1px 2px rgba(0,0,0,0.6)',
+                    }} />
+                    <span className="font-pixel" style={{ fontSize: 6, color: '#7A6A50' }}>
+                      {format(new Date(d.date + 'T12:00:00'), 'EEEEE')}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Response CTA */}
+            {partnerMood && (
+              <button
+                onClick={() => { playSound('ui_modal_open'); setShowSend(true) }}
+                className="w-full mt-4 px-4 py-2.5 flex items-center justify-center gap-2 relative active:translate-y-[1px] transition-transform"
+                style={{
+                  ...OBSIDIAN_BTN,
+                  border: isLow ? '1.5px solid rgba(255,107,157,0.5)' : `1px solid ${accentA(0.3)}`,
+                  boxShadow: isLow ? `0 0 12px rgba(255,107,157,0.25), ${OBSIDIAN_BTN.boxShadow}` : OBSIDIAN_BTN.boxShadow as string,
+                }}
+              >
+                <IconHeart size={12} />
+                <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 1, ...pinkText }}>
+                  {isLow ? `SEND ${first.toUpperCase()} SOME LOVE` : 'SEND A LITTLE LOVE'}
+                </span>
+                <span className="font-pixel" style={{ fontSize: 9, color: PINK }}>▶</span>
+              </button>
+            )}
+          </div>
+        )
+      })()}
 
       {/* ── Love Meter (Care Battle) ── */}
       {loveMeter && partner && (() => {

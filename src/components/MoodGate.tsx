@@ -8,18 +8,12 @@ import { cn } from '@/lib/utils'
 import { useTasks } from '@/contexts/TaskContext'
 import { playSound } from '@/lib/sounds'
 import SketchEren, { type SketchErenState } from '@/components/SketchEren'
+import { MOOD_SKETCH as MOOD_SKETCH_PILL, MOOD_THEME, PUSH_MOODS } from '@/lib/moods'
 
-// Each user mood maps to a pill animation (small preview inside the button)
-// and a pool of picked animations + speech lines. One is chosen at random
-// each time so the reaction feels fresh.
-const MOOD_SKETCH_PILL: Record<UserMood, SketchErenState> = {
-  good:  'happy',
-  mid:   'chill',
-  sad:   'sad',
-  angry: 'angry',
-  tired: 'sleeping',
-}
-
+// Each user mood maps to a pool of picked animations + speech lines. One is
+// chosen at random each time so the reaction feels fresh. The mood→pill pose
+// (MOOD_SKETCH_PILL) and the per-mood palette (MOOD_THEME) come from
+// @/lib/moods so the couple-page partner card stays in sync.
 const MOOD_REACTIONS: Record<UserMood, { picked: SketchErenState; line: string }[]> = {
   good: [
     { picked: 'party',  line: 'Purrrfect!' },
@@ -79,24 +73,14 @@ const MOOD_TO_EREN: Record<UserMood, ErenMood> = {
   tired: 'sleepy',
 }
 
-// Per-mood theme palette — each pill gets its own gradient + glow.
-const MOOD_THEME: Record<UserMood, {
-  main: string; dark: string; light: string; text: string; glow: string;
-}> = {
-  good:  { main: '#10B981', dark: '#047857', light: '#D1FAE5', text: '#064E3B', glow: 'rgba(16,185,129,0.45)' },
-  mid:   { main: '#F59E0B', dark: '#B45309', light: '#FEF3C7', text: '#78350F', glow: 'rgba(245,158,11,0.45)' },
-  sad:   { main: '#3B82F6', dark: '#1E40AF', light: '#DBEAFE', text: '#1E3A8A', glow: 'rgba(59,130,246,0.45)' },
-  angry: { main: '#EF4444', dark: '#991B1B', light: '#FEE2E2', text: '#7F1D1D', glow: 'rgba(239,68,68,0.45)' },
-  tired: { main: '#A78BFA', dark: '#5B21B6', light: '#EDE9FE', text: '#3B0764', glow: 'rgba(167,139,250,0.45)' },
-}
-
 interface Props {
   userId: string
   userName: string
+  householdId: string | null
   onDone: (mood: UserMood) => void
 }
 
-export default function MoodGate({ userId, userName, onDone }: Props) {
+export default function MoodGate({ userId, userName, householdId, onDone }: Props) {
   const supabase = createClient()
   const { completeTask } = useTasks()
   const [selected, setSelected]   = useState<UserMood | null>(null)
@@ -125,6 +109,17 @@ export default function MoodGate({ userId, userName, onDone }: Props) {
     // Cache locally so navigating back never re-shows the gate
     localStorage.setItem(`pocket_eren_mood_${userId}_${today}`, mood)
     completeTask('daily_mood')
+
+    // Low-mood alert: let the partner know they might want to send some love.
+    // Fire-and-forget; the endpoint respects the partner's opt-in.
+    if (householdId && PUSH_MOODS.includes(mood)) {
+      fetch('/api/notify-mood', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ household_id: householdId, sender_id: userId, sender_name: userName, mood }),
+      }).catch(() => { /* best-effort */ })
+    }
+
     onDone(mood)
   }
 

@@ -63,6 +63,18 @@ export default function ProfilePage() {
   const [savingName, setSavingName]   = useState(false)
   const [nameEditing, setNameEditing] = useState(false)
   const [moods, setMoods]             = useState<DailyMood[]>([])
+  const [moodAlerts, setMoodAlerts]   = useState(true)
+
+  useEffect(() => {
+    if (profile) setMoodAlerts(profile.mood_alert_optin ?? true)
+  }, [profile?.mood_alert_optin]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function toggleMoodAlerts() {
+    if (!user?.id) return
+    const next = !moodAlerts
+    setMoodAlerts(next)
+    await supabase.from('profiles').update({ mood_alert_optin: next }).eq('id', user.id)
+  }
 
   useEffect(() => {
     if (!profile?.household_id || !user?.id) return
@@ -464,6 +476,46 @@ export default function ProfilePage() {
       {moods.length > 0 && user && (
         <div className="mb-4">
           <MoodCalendar moods={moods} userId={user.id} partnerName={partner?.name} />
+        </div>
+      )}
+
+      {/* ── Mood alerts ── */}
+      {partner && (
+        <div className="mb-4 p-4 relative" style={OBSIDIAN_FACE}>
+          <Rivets inset={4} size={3} />
+          <div className="flex items-center gap-2 mb-3">
+            <ObsidianChip accentRgb="255,107,157">
+              <IconHeart size={12} />
+              <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>MOOD ALERTS</span>
+            </ObsidianChip>
+          </div>
+          <div className="flex items-center gap-3">
+            <p className="flex-1 text-xs" style={{ color: '#9A8090', lineHeight: 1.5 }}>
+              Notify me when {partner.name.split(' ')[0]} is having a tough day
+            </p>
+            <button
+              onClick={() => { playSound('ui_tap'); toggleMoodAlerts() }}
+              role="switch"
+              aria-checked={moodAlerts}
+              className="flex-shrink-0 relative active:translate-y-[1px] transition-transform"
+              style={{
+                width: 44, height: 24, borderRadius: 12,
+                background: moodAlerts
+                  ? `linear-gradient(180deg, ${PINK_HI}, ${PINK} 60%, ${PINK_LO})`
+                  : 'linear-gradient(180deg, #2a2a32, #14141a)',
+                border: `1px solid ${moodAlerts ? accentA(0.6) : 'rgba(255,255,255,0.1)'}`,
+                boxShadow: moodAlerts ? `0 0 8px ${accentA(0.45)}, inset 0 1px 0 rgba(255,255,255,0.25)` : 'inset 0 1px 2px rgba(0,0,0,0.6)',
+              }}
+            >
+              <div style={{
+                position: 'absolute', top: 2, left: moodAlerts ? 22 : 2,
+                width: 18, height: 18, borderRadius: '50%',
+                background: '#fff',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.5)',
+                transition: 'left 160ms ease-out',
+              }} />
+            </button>
+          </div>
         </div>
       )}
 

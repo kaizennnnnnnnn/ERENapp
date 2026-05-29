@@ -42,6 +42,8 @@ export interface Profile {
   claimed_level?: number
   streak?: StreakData
   achievements?: AchievementMap
+  // Recipient opt-in: receive a push when the partner logs a low mood.
+  mood_alert_optin?: boolean
   created_at: string
   updated_at: string
 }

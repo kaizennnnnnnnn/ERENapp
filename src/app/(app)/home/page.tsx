@@ -38,6 +38,7 @@ import JealousEren from '@/components/couple/JealousEren'
 import DailyBattleHUD from '@/components/couple/DailyBattleHUD'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
 import SendErenSheet from '@/components/couple/SendErenSheet'
+import { MOOD_THEME, LOW_MOODS } from '@/lib/moods'
 import { OBSIDIAN_BTN, Rivets } from '@/components/obsidian'
 import { useIsDark } from '@/hooks/useIsDark'
 import LightSwitch from '@/components/LightSwitch'
@@ -57,7 +58,7 @@ export default function HomePage() {
   const { xp, level } = useTasks()
   useTimeTracking(user?.id ?? null)
   const { canClaim: fortuneAvailable } = useFortune()
-  const { newMessage, dismissPopup, unreadCount, partner, sendNudge } = useCouple()
+  const { newMessage, dismissPopup, unreadCount, partner, sendNudge, partnerMood } = useCouple()
   const { inventory } = useInventory()
   const isDark = useIsDark()
 
@@ -319,6 +320,7 @@ export default function HomePage() {
       <MoodGate
         userId={user!.id}
         userName={profile?.name ?? 'friend'}
+        householdId={profile?.household_id ?? null}
         onDone={mood => {
           const todayStr = format(new Date(), 'yyyy-MM-dd')
           localStorage.setItem(`pocket_eren_mood_${user!.id}_${todayStr}`, mood)
@@ -471,6 +473,16 @@ export default function HomePage() {
                   animation: 'sendErenPulse 2.2s ease-in-out infinite',
                 }}>
                   <IconHeart size={18} />
+                  {/* Mood hint — small dot when partner is feeling low */}
+                  {partnerMood && LOW_MOODS.includes(partnerMood) && (
+                    <div className="absolute" style={{
+                      top: -2, right: -2,
+                      width: 12, height: 12, borderRadius: '50%',
+                      background: `linear-gradient(180deg, ${MOOD_THEME[partnerMood].main}, ${MOOD_THEME[partnerMood].dark})`,
+                      border: '2px solid #050507',
+                      boxShadow: `0 0 6px ${MOOD_THEME[partnerMood].glow}`,
+                    }} />
+                  )}
                 </div>
               </button>
             )}

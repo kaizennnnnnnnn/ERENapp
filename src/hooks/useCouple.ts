@@ -3,7 +3,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from './useAuth'
-import type { Profile, JournalMessage, Interaction, GiftItem } from '@/types'
+import type { Profile, JournalMessage, Interaction, GiftItem, UserMood } from '@/types'
+import { format, subDays } from 'date-fns'
 import { computeLoveMeter, getAnniversaryInfo, startOfWeek, type LoveMeterResult, type AnniversaryInfo } from '@/lib/couple'
 import { NUDGE_COOLDOWN_MS, type NudgeDef } from '@/lib/nudges'
 
@@ -22,6 +23,8 @@ export function useCouple() {
   const [journal, setJournal] = useState<JournalMessage[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [newMessage, setNewMessage] = useState<JournalMessage | null>(null) // for popup
+  const [partnerMood, setPartnerMood] = useState<UserMood | null>(null)
+  const [partnerMoodWeek, setPartnerMoodWeek] = useState<{ date: string; mood: UserMood | null }[]>([])
   const [loading, setLoading] = useState(true)
   // Per-instance channel name. useCouple is currently instantiated by
   // 5+ components on the home screen (page, ThoughtCloud, JealousEren,
@@ -45,6 +48,27 @@ export function useCouple() {
       .neq('id', user.id)
     const p = members?.[0] ?? null
     setPartner(p)
+
+    // Partner's recent moods — today's mood + a 7-day strip (gaps = null).
+    if (p) {
+      const todayStr = format(new Date(), 'yyyy-MM-dd')
+      const weekStartStr = format(subDays(new Date(), 6), 'yyyy-MM-dd')
+      const { data: moodRows } = await supabase
+        .from('daily_moods')
+        .select('mood, date')
+        .eq('user_id', p.id)
+        .gte('date', weekStartStr)
+      const byDate = new Map<string, UserMood>((moodRows ?? []).map(m => [m.date, m.mood as UserMood]))
+      const week = Array.from({ length: 7 }, (_, i) => {
+        const d = format(subDays(new Date(), 6 - i), 'yyyy-MM-dd')
+        return { date: d, mood: byDate.get(d) ?? null }
+      })
+      setPartnerMoodWeek(week)
+      setPartnerMood(byDate.get(todayStr) ?? null)
+    } else {
+      setPartnerMoodWeek([])
+      setPartnerMood(null)
+    }
 
     // Anniversary
     const { data: household } = await supabase
@@ -271,6 +295,7 @@ export function useCouple() {
   return {
     partner, loveMeter, anniversary, journal, unreadCount,
     newMessage, dismissPopup,
+    partnerMood, partnerMoodWeek,
     sendMessage, sendNudge, markAllRead, loading,
     refetch: fetchAll,
   }
