@@ -473,14 +473,17 @@ export default function HomePage() {
                   animation: 'sendErenPulse 2.2s ease-in-out infinite',
                 }}>
                   <IconHeart size={18} />
-                  {/* Mood hint — small dot when partner is feeling low */}
-                  {partnerMood && LOW_MOODS.includes(partnerMood) && (
+                  {/* Mood hint — dot shows the partner's mood whenever they've
+                      checked in today; low moods glow stronger to stand out. */}
+                  {partnerMood && (
                     <div className="absolute" style={{
                       top: -2, right: -2,
                       width: 12, height: 12, borderRadius: '50%',
                       background: `linear-gradient(180deg, ${MOOD_THEME[partnerMood].main}, ${MOOD_THEME[partnerMood].dark})`,
                       border: '2px solid #050507',
-                      boxShadow: `0 0 6px ${MOOD_THEME[partnerMood].glow}`,
+                      boxShadow: LOW_MOODS.includes(partnerMood)
+                        ? `0 0 8px ${MOOD_THEME[partnerMood].glow}, 0 0 14px ${MOOD_THEME[partnerMood].glow}`
+                        : `0 0 5px ${MOOD_THEME[partnerMood].glow}`,
                     }} />
                   )}
                 </div>
