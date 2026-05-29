@@ -6,6 +6,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
 import BlinkingEren from '@/components/BlinkingEren'
+import StinkyFlies from '@/components/StinkyFlies'
 
 interface Props { onClose: () => void }
 
@@ -349,8 +350,10 @@ export default function HospitalScene({ onClose }: Props) {
       </div>
 
       {/* ══ EREN on table ══ */}
-      <div className={cn('absolute z-10 transition-all duration-500', 'bottom-[46%] left-[38%]')}>
+      <div className={cn('absolute z-10 transition-all duration-500', 'bottom-[46%] left-[38%]')}
+        style={{ width: 130, height: 130 }}>
         <BlinkingEren size={130} />
+        <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
       </div>
 
       {/* ══ CONE OF SHAME ══ */}

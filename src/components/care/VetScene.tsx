@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
 import BlinkingEren from '@/components/BlinkingEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
+import StinkyFlies from '@/components/StinkyFlies'
 import LightSwitch from '@/components/LightSwitch'
 import { useIsDark } from '@/hooks/useIsDark'
 
@@ -74,6 +75,7 @@ export default function VetScene({ onClose }: Props) {
           style={{ left: '50%', transform: 'translateX(-50%)' }}>
           <ErenIdleLayer>
             <BlinkingEren size={200} />
+            <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
           </ErenIdleLayer>
         </div>
       )}

@@ -15,6 +15,7 @@ import { playSound } from '@/lib/sounds'
 import AnalogClock from '@/components/AnalogClock'
 import BlinkingEren from '@/components/BlinkingEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
+import StinkyFlies from '@/components/StinkyFlies'
 import LightSwitch from '@/components/LightSwitch'
 import { useIsDark } from '@/hooks/useIsDark'
 
@@ -319,14 +320,18 @@ export default function FeedScene({ onClose }: Props) {
   const isSleeping = stats?.is_sleeping ?? getCachedIsSleeping() ?? true
 
   // Memoize Eren so stat changes from feeding don't re-render the sprite.
+  // Cleanliness is in the deps so the flies update — feeding never changes
+  // cleanliness, so this never recomputes mid-feed (no sprite flicker).
+  const cleanliness = stats?.cleanliness ?? 100
   const erenElement = useMemo(() => (
     <div className="absolute z-20 bottom-[10%]"
       style={{ left: '50%', transform: 'translateX(-50%)' }}>
       <ErenIdleLayer>
         <BlinkingEren size={210} />
+        <StinkyFlies cleanliness={cleanliness} />
       </ErenIdleLayer>
     </div>
-  ), []) // eslint-disable-line react-hooks/exhaustive-deps
+  ), [cleanliness]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function showToast(msg: string, ok = true) {
     setToast({ msg, ok })

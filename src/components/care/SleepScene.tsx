@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
 import BlinkingEren from '@/components/BlinkingEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
+import StinkyFlies from '@/components/StinkyFlies'
 import LightSwitch from '@/components/LightSwitch'
 
 interface Props { onClose: () => void }
@@ -100,6 +101,7 @@ export default function SleepScene({ onClose }: Props) {
         style={{ left: '50%', transform: 'translateX(-50%)' }}>
         <ErenIdleLayer disabled={tuckedIn}>
           <BlinkingEren size={200} />
+          <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
         </ErenIdleLayer>
       </div>
 
