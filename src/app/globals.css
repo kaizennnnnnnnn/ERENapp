@@ -254,8 +254,13 @@
   100%      { transform: scaleY(0); }
 }
 @keyframes erenBreathe {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-3px); }
+  /* scaleY from the feet (transform-origin: bottom) so the body stretches
+     up while the feet stay planted — real breathing, not floating. The
+     translateZ(0) keeps it on its own GPU layer so the scale composites
+     smoothly (bilinear) instead of nearest-neighbour re-rasterising the
+     pixels, which is what produced the seam lines. */
+  0%, 100% { transform: scaleY(1)     translateZ(0); }
+  50%      { transform: scaleY(1.022) translateZ(0); }
 }
 
 /* ── Heartbeat for low stats ── */

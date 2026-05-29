@@ -51,11 +51,15 @@ export default function BlinkingEren({
         ...style,
       }}>
       {/* Breathing wrapper — gentle scaleY sway anchored at the feet so
-          the eyelids and outfits move in lockstep with the body. */}
+          the upper body rises while the feet stay planted. willChange +
+          backfaceVisibility force a dedicated GPU layer so the scale is
+          composited smoothly (no pixel-seam lines). */}
       <div style={{
         position: 'relative',
         width: '100%', height: '100%',
         transformOrigin: 'bottom center',
+        willChange: breathe ? 'transform' : undefined,
+        backfaceVisibility: 'hidden',
         animation: breathe ? 'erenBreathe 4s ease-in-out infinite' : undefined,
       }}>
         <img src="/erenGood.png" alt={alt} draggable={false}
