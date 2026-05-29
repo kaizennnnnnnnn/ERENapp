@@ -399,15 +399,80 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col overflow-hidden" style={{
-      background: `radial-gradient(ellipse at center, ${PAPER_DK} 0%, #aea692 100%)`,
+      // Sunlit classroom corkboard — warm honey cork with a soft blue→mint
+      // "window" glow bleeding from the top-right, much livelier than the
+      // old flat tan radial.
+      background: `
+        radial-gradient(120% 90% at 84% 8%, #bfe3f2 0%, #d8ecd0 22%, transparent 46%),
+        radial-gradient(ellipse at 30% 120%, #e9d59a 0%, transparent 60%),
+        linear-gradient(170deg, #f0dca0 0%, #e3c987 55%, #d4b878 100%)`,
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
     }}>
+      {/* Faint diagonal sun rays + warm vignette + fine 7px cork grain */}
       <div className="absolute inset-0 pointer-events-none" style={{
         backgroundImage: `
-          radial-gradient(circle at 22% 18%, rgba(0,0,0,0.06), transparent 40%),
-          radial-gradient(circle at 78% 82%, rgba(0,0,0,0.08), transparent 50%),
-          repeating-linear-gradient(92deg, rgba(0,0,0,0.025) 0 1px, transparent 1px 3px)`,
+          repeating-linear-gradient(118deg, rgba(255,244,200,0.10) 0 2px, transparent 2px 26px),
+          radial-gradient(circle at 20% 16%, rgba(255,236,170,0.18), transparent 42%),
+          radial-gradient(circle at 82% 88%, rgba(94,64,30,0.10), transparent 55%),
+          radial-gradient(circle at 1px 1px, rgba(120,84,40,0.16) 1px, transparent 1.4px)`,
+        backgroundSize: '100% 100%, 100% 100%, 100% 100%, 7px 7px',
       }} />
+
+      {/* Paper sun sticker, bottom-right of the board (clear of the header) */}
+      <div style={{ position: 'absolute', bottom: 16, right: 14, width: 30, height: 30, zIndex: 1, pointerEvents: 'none', opacity: 0.9 }}>
+        <div style={{ position: 'absolute', inset: 7, background: '#F5C842', border: `2px solid ${INK}`, borderRadius: '50%', boxShadow: '2px 2px 0 rgba(0,0,0,0.2)' }} />
+        {[0, 45, 90, 135, 180, 225, 270, 315].map(a => (
+          <div key={a} style={{
+            position: 'absolute', left: 14, top: 14, width: 3, height: 9,
+            background: '#F5C842', border: `1px solid ${INK}`,
+            transform: `rotate(${a}deg) translateY(-13px)`, transformOrigin: 'center',
+          }} />
+        ))}
+      </div>
+
+      {/* Potted plant pinned bottom-left */}
+      <div style={{ position: 'absolute', left: 8, bottom: 10, zIndex: 1, pointerEvents: 'none', opacity: 0.95 }}>
+        <div style={{ position: 'absolute', left: 6, bottom: 8, width: 4, height: 12, background: '#3FA34D', border: `1px solid ${INK}`, transform: 'rotate(-14deg)' }} />
+        <div style={{ position: 'absolute', left: 11, bottom: 9, width: 4, height: 14, background: '#5BC46B', border: `1px solid ${INK}`, transform: 'rotate(12deg)' }} />
+        <div style={{ position: 'absolute', left: 2, bottom: 0, width: 16, height: 9, background: '#C56A3A', border: `2px solid ${INK}`, boxShadow: '2px 2px 0 rgba(0,0,0,0.2)' }} />
+      </div>
+
+      {/* Two colored pushpins tucked in the side margins (below the header) */}
+      {[
+        { top: '64%', left: 5, c: '#FF6B9D' },
+        { top: '40%', right: 6, c: '#6BAED6' },
+      ].map((p, i) => {
+        const { c, ...pos } = p
+        return (
+          <div key={i} style={{
+            position: 'absolute', ...pos, width: 8, height: 8,
+            background: c, border: `2px solid ${INK}`, borderRadius: '50%',
+            boxShadow: '0 3px 0 rgba(0,0,0,0.22)', zIndex: 1, pointerEvents: 'none',
+          }}>
+            <div style={{ position: 'absolute', left: 1, top: 1, width: 2, height: 2, background: 'rgba(255,255,255,0.7)' }} />
+          </div>
+        )
+      })}
+
+      {/* Gentle twinkle sparkles — dust motes in the sunlight (no blur).
+          Range kept below the header so none are wasted behind it. */}
+      <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
+        {Array.from({ length: 8 }).map((_, i) => {
+          const seed = (i * 2654435761) & 0x7fffffff
+          const left = 6 + (seed % 88)
+          const top = 16 + ((seed >> 6) % 40)
+          const dur = 2.4 + ((seed >> 3) % 3)
+          return (
+            <div key={i} style={{
+              position: 'absolute', left: `${left}%`, top: `${top}%`,
+              width: 2, height: 2, background: '#fff7d6',
+              animation: `srTwinkle ${dur}s ease-in-out ${(i % 5) * 0.4}s infinite`,
+            }}>
+              <div style={{ position: 'absolute', left: 1, top: 1, width: 1, height: 1, background: 'rgba(255,255,255,0.7)' }} />
+            </div>
+          )
+        })}
+      </div>
 
       {/* ─── Header ─── */}
       <div className="relative z-20 flex items-center gap-2 px-3 pt-3 pb-2.5 flex-shrink-0" style={{
@@ -577,6 +642,10 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
           0%   { transform: translateY(8px) rotate(0.5deg); opacity: 0; }
           100% { transform: translateY(0) rotate(0deg); opacity: 1; }
         }
+        @keyframes srTwinkle {
+          0%, 100% { opacity: 0.2; transform: scale(0.8); }
+          50%      { opacity: 0.9; transform: scale(1.25); }
+        }
       `}</style>
     </div>
   )
@@ -598,11 +667,20 @@ function KraftSectionCover({ section, sectionIndex, done, total, onOpen }: {
 }) {
   // Tiny inline rotation jitter so the grid feels like real notebooks on a desk.
   const rot = [-1.2, 0.8, -0.6, 1.4, -1.0][(sectionIndex - 1) % 5]
-  // Section accent — a different pixel-pastel per section so each cover
-  // reads at a glance. Matches the food-shop palette so the whole app
-  // shares one set of pastels.
-  const ACCENTS = ['#FF6B9D', '#6BAED6', '#A8D88A', '#F5C842', '#A78BFA']
-  const accent = ACCENTS[(sectionIndex - 1) % ACCENTS.length]
+  // Each notebook gets its OWN matte cover colour (face) with a darker
+  // bottom shade (edge), plus a CONTRASTING washi-tape colour (tape) so the
+  // trim pops against the cover instead of vanishing into a same-hue brown.
+  const COVERS = [
+    { face: '#F58BA6', edge: '#C25E78', tape: '#FFD23F' }, // 1 Starting Out   — coral, yellow tape
+    { face: '#7FB8E6', edge: '#4E86B8', tape: '#FF8C42' }, // 2 Numbers&People  — sky, orange tape
+    { face: '#8FD174', edge: '#5FA049', tape: '#FF6B9D' }, // 3 World Around    — leaf, pink tape
+    { face: '#FFC24D', edge: '#D1922A', tape: '#6BAED6' }, // 4 Daily Life      — marigold, blue tape
+    { face: '#B79CF0', edge: '#8A6CCB', tape: '#8FD174' }, // 5 Going Out       — lavender, green tape
+    { face: '#FF9E6D', edge: '#CE6F40', tape: '#7FB8E6' }, // 6 spare/next      — peach, blue tape
+  ]
+  const cover = COVERS[(sectionIndex - 1) % COVERS.length]
+  // Trim (washi/ribbon/dots/stamp/doodles) all use the contrasting tape hue.
+  const accent = cover.tape
   // Pixel-dot completion strip — at most 12 dots so a section with many
   // lessons still fits two rows of six.
   const DOT_COUNT = Math.min(12, Math.max(4, total))
@@ -614,7 +692,7 @@ function KraftSectionCover({ section, sectionIndex, done, total, onOpen }: {
       style={{
         position: 'relative',
         aspectRatio: '3 / 4',
-        background: KRAFT_MD,
+        background: `linear-gradient(168deg, ${cover.face} 0%, ${cover.face} 62%, ${cover.edge} 100%)`,
         color: '#2a1d10',
         fontFamily: TYPE_FONT,
         overflow: 'hidden',
@@ -630,7 +708,7 @@ function KraftSectionCover({ section, sectionIndex, done, total, onOpen }: {
         width="100%" height="100%"
         viewBox="0 0 30 40" preserveAspectRatio="none"
         shapeRendering="crispEdges"
-        style={{ position: 'absolute', inset: 0, opacity: 0.5, pointerEvents: 'none' }}
+        style={{ position: 'absolute', inset: 0, opacity: 0.35, pointerEvents: 'none' }}
       >
         {Array.from({ length: 110 }).map((_, i) => {
           // Deterministic pseudo-random scatter keyed off the section
@@ -640,10 +718,10 @@ function KraftSectionCover({ section, sectionIndex, done, total, onOpen }: {
           const y = (seed >> 5) % 40
           const kind = (seed >> 10) & 3 // 0..3
           const fill =
-            kind === 0 ? 'rgba(60,40,20,0.55)' :
-            kind === 1 ? 'rgba(60,40,20,0.3)' :
-            kind === 2 ? 'rgba(255,250,235,0.35)' :
-                         'rgba(255,250,235,0.18)'
+            kind === 0 ? 'rgba(0,0,0,0.16)' :
+            kind === 1 ? 'rgba(0,0,0,0.08)' :
+            kind === 2 ? 'rgba(255,255,255,0.40)' :
+                         'rgba(255,255,255,0.20)'
           return (
             <rect key={i}
               x={x} y={y} width={1} height={1} fill={fill} />
@@ -727,7 +805,7 @@ function KraftSectionCover({ section, sectionIndex, done, total, onOpen }: {
       <div style={{
         position: 'absolute', top: 14, left: -12,
         width: 56, height: 12,
-        background: accent,
+        background: `repeating-linear-gradient(45deg, ${accent} 0 4px, rgba(255,255,255,0.65) 4px 7px)`,
         border: `2px solid ${INK}`,
         boxShadow: `2px 2px 0 rgba(0,0,0,0.3)`,
         transform: 'rotate(-12deg)',
@@ -2658,14 +2736,14 @@ function CoverDoodles({ sectionIndex, accent }: { sectionIndex: number; accent: 
       <div style={{
         position: 'absolute', ...pos1,
         transform: `rotate(${-10 + sectionIndex * 4}deg)`,
-        zIndex: 1, pointerEvents: 'none', opacity: 0.85,
+        zIndex: 1, pointerEvents: 'none', opacity: 1,
       }}>
         {d1.render(accent)}
       </div>
       <div style={{
         position: 'absolute', ...pos2,
         transform: `rotate(${6 - sectionIndex * 3}deg)`,
-        zIndex: 1, pointerEvents: 'none', opacity: 0.85,
+        zIndex: 1, pointerEvents: 'none', opacity: 1,
       }}>
         {d2.render(accent)}
       </div>
