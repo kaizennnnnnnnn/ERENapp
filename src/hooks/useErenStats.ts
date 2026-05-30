@@ -105,20 +105,33 @@ async function insertInteraction(
   data: Record<string, unknown>,
 ): Promise<void> {
   const supported = await detectUsefulSupported(supabase)
+  let inserted = false
   if (supported) {
     const r = await supabase.from('interactions').insert(data)
-    if (!r.error) return
+    if (!r.error) inserted = true
     // Safety net: schema cache may have lied. Strip and retry.
-    if (r.error.message?.toLowerCase().includes('useful')) {
+    else if (r.error.message?.toLowerCase().includes('useful')) {
       _usefulSupported = false
       writeUsefulCache(false)
     } else {
       return
     }
   }
-  const { useful: _omit, ...rest } = data
-  void _omit
-  await supabase.from('interactions').insert(rest)
+  if (!inserted) {
+    const { useful: _omit, ...rest } = data
+    void _omit
+    const r = await supabase.from('interactions').insert(rest)
+    if (r.error) return
+  }
+  // Notify the rest of the app a care action just landed — TaskContext
+  // turns this into a server push so the closed-PWA partner still hears it.
+  try {
+    window.dispatchEvent(new CustomEvent('eren:my-action', { detail: {
+      household_id: data.household_id,
+      user_id: data.user_id,
+      action_type: data.action_type,
+    } }))
+  } catch { /* SSR/no-window */ }
 }
 const DECAY_CAP_HOURS = 12 // cap per run — a 3-day absence shouldn't instantly zero stats
 const DECAY_MIN_SAVE_HOURS = 0.05 // ~3 min — below this, don't bother writing to DB

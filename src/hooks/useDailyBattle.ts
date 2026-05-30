@@ -58,6 +58,9 @@ export interface DailyBattleState {
   /** Most recent action — for the pop-up to animate off. */
   lastAction: DailyActionSignal | null
   hasPartner: boolean
+  /** True when the partner has had zero interactions in the last 24h — used
+   *  to hide the scoreboard HUD so a one-sided 100-0 bar doesn't sit there. */
+  partnerDormant: boolean
 }
 
 function startOfDay(): Date {
@@ -79,6 +82,7 @@ export function useDailyBattle(): DailyBattleState {
   const [totalActions, setTotalActions] = useState(0)
   const [loading, setLoading]         = useState(true)
   const [lastAction, setLastAction]   = useState<DailyActionSignal | null>(null)
+  const [partnerDormant, setPartnerDormant] = useState(false)
 
   const channelSuffix = useRef(`db_${++_channelCounter}`)
   const statsRef = useRef(stats)
@@ -109,6 +113,25 @@ export function useDailyBattle(): DailyBattleState {
     setMyScore(me)
     setPartnerScore(them)
     setTotalActions(count)
+
+    // Dormancy check: any partner interaction in the last 24h?
+    if (partner?.id) {
+      if (them > 0) {
+        setPartnerDormant(false)
+      } else {
+        const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+        const { data: recent } = await supabase
+          .from('interactions')
+          .select('id')
+          .eq('user_id', partner.id)
+          .gte('created_at', dayAgo)
+          .limit(1)
+        setPartnerDormant(!recent || recent.length === 0)
+      }
+    } else {
+      setPartnerDormant(false)
+    }
+
     setLoading(false)
   }, [profile?.household_id, user?.id, partner?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -133,7 +156,10 @@ export function useDailyBattle(): DailyBattleState {
         const pts = ACTION_POINTS[row.action_type] ?? 1
         const isMe = row.user_id === user.id
         if (isMe) setMyScore(s => s + pts)
-        else if (row.user_id === partner?.id) setPartnerScore(s => s + pts)
+        else if (row.user_id === partner?.id) {
+          setPartnerScore(s => s + pts)
+          setPartnerDormant(false)
+        }
         setTotalActions(c => c + 1)
         setLastAction({
           userId:   row.user_id,
@@ -181,6 +207,7 @@ export function useDailyBattle(): DailyBattleState {
     leader, total, totalActions,
     lastAction,
     hasPartner: !!partner?.id,
+    partnerDormant,
   }
 }
 

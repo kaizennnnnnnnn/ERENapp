@@ -10,33 +10,122 @@ export const STREAK_MILESTONE_COINS: Record<number, number> = {
   7: 50, 14: 100, 30: 200, 60: 400, 100: 1000,
 }
 
+// Streak protection
+export const FREEZE_REGEN_DAYS = 14
+export const FREEZE_MAX = 2
+export const FREEZE_DEFAULT = 1
+export const STREAK_REPAIR_COST = 500
+export const STREAK_REPAIR_WINDOW_DAYS = 2
+
+function daysBetween(fromStr: string, toStr: string): number {
+  const a = new Date(fromStr + 'T12:00:00').getTime()
+  const b = new Date(toStr + 'T12:00:00').getTime()
+  return Math.round((b - a) / 86400000)
+}
+
+export interface StreakUpdateResult {
+  streak: StreakData
+  changed: boolean
+  milestonesHit: number[]
+  /** True when a freeze token rescued the streak this turn. */
+  freezeUsed: boolean
+  /** True when a real break occurred (streak was reset). */
+  broken: boolean
+}
+
 export function updateStreak(
   current: StreakData | undefined,
   todayStr: string,
-): { streak: StreakData; changed: boolean; milestonesHit: number[] } {
-  const prev = current ?? { current: 0, best: 0, lastDate: null }
-
-  if (prev.lastDate === todayStr) {
-    return { streak: prev, changed: false, milestonesHit: [] }
+): StreakUpdateResult {
+  const prev: StreakData = current ?? {
+    current: 0,
+    best: 0,
+    lastDate: null,
+    freezeTokens: FREEZE_DEFAULT,
+    lastFreezeEarnedAt: todayStr,
   }
 
-  const yesterday = new Date(todayStr + 'T12:00:00')
-  yesterday.setDate(yesterday.getDate() - 1)
-  const yesterdayStr = yesterday.toISOString().slice(0, 10)
+  if (prev.lastDate === todayStr) {
+    return { streak: prev, changed: false, milestonesHit: [], freezeUsed: false, broken: false }
+  }
 
-  const newCurrent = prev.lastDate === yesterdayStr ? prev.current + 1 : 1
+  // Regenerate freeze tokens: +1 every FREEZE_REGEN_DAYS, capped at FREEZE_MAX.
+  // First-time players get FREEZE_DEFAULT and the timestamp is stamped today.
+  let freezeTokens = prev.freezeTokens ?? FREEZE_DEFAULT
+  let lastFreezeEarnedAt = prev.lastFreezeEarnedAt ?? todayStr
+  if (freezeTokens < FREEZE_MAX) {
+    const since = daysBetween(lastFreezeEarnedAt, todayStr)
+    const earned = Math.floor(since / FREEZE_REGEN_DAYS)
+    if (earned > 0) {
+      freezeTokens = Math.min(FREEZE_MAX, freezeTokens + earned)
+      // Advance the timer by exactly the days we credited so the next
+      // freeze doesn't come faster just because the user logged in late.
+      const advanced = new Date(lastFreezeEarnedAt + 'T12:00:00')
+      advanced.setDate(advanced.getDate() + earned * FREEZE_REGEN_DAYS)
+      lastFreezeEarnedAt = advanced.toISOString().slice(0, 10)
+    }
+  }
+
+  let freezeUsed = false
+  let broken = false
+  let newCurrent: number
+
+  if (!prev.lastDate || prev.current === 0) {
+    newCurrent = 1
+  } else {
+    const gap = daysBetween(prev.lastDate, todayStr) // 1 = consecutive
+    if (gap === 1) {
+      newCurrent = prev.current + 1
+    } else if (gap === 2 && freezeTokens > 0) {
+      // Exactly one missed day — burn a freeze to keep the streak alive.
+      freezeUsed = true
+      freezeTokens -= 1
+      newCurrent = prev.current + 1
+    } else {
+      broken = prev.current > 0
+      newCurrent = 1
+    }
+  }
+
   const newBest = Math.max(prev.best, newCurrent)
-
-  const streak: StreakData = { current: newCurrent, best: newBest, lastDate: todayStr }
+  const streak: StreakData = {
+    current: newCurrent,
+    best: newBest,
+    lastDate: todayStr,
+    freezeTokens,
+    lastFreezeEarnedAt,
+    // Capture the repair window. Clear it whenever this isn't a fresh break.
+    priorCurrent: broken ? prev.current : undefined,
+    brokenAt: broken ? todayStr : undefined,
+  }
 
   const milestonesHit = STREAK_MILESTONES.filter(m => newCurrent >= m && prev.current < m)
+  return { streak, changed: true, milestonesHit, freezeUsed, broken }
+}
 
-  return { streak, changed: true, milestonesHit }
+/** Returns true when the user can pay STREAK_REPAIR_COST to restore the prior streak. */
+export function canRepairStreak(streak: StreakData | undefined, todayStr: string): boolean {
+  if (!streak || !streak.brokenAt || !streak.priorCurrent || streak.priorCurrent <= 0) return false
+  const days = daysBetween(streak.brokenAt, todayStr)
+  return days >= 0 && days <= STREAK_REPAIR_WINDOW_DAYS
+}
+
+/** Apply a streak repair. Caller is responsible for coin deduction. */
+export function repairStreak(streak: StreakData, todayStr: string): StreakData {
+  const restored = (streak.priorCurrent ?? 0) + 1 // today already counts as day 1
+  return {
+    ...streak,
+    current: restored,
+    best: Math.max(streak.best, restored),
+    lastDate: todayStr,
+    priorCurrent: undefined,
+    brokenAt: undefined,
+  }
 }
 
 // ─── Achievement definitions ──────────────────────────────────────────────────
 
-export type AchievementTrigger = 'care' | 'game' | 'level' | 'streak' | 'battle' | 'mood' | 'mount'
+export type AchievementTrigger = 'care' | 'game' | 'level' | 'streak' | 'battle' | 'mood' | 'mount' | 'nudge'
 
 export type AchievementRarity = 'common' | 'rare' | 'epic' | 'legendary'
 
@@ -78,6 +167,7 @@ export const ACHIEVEMENT_DEFS: AchievementDef[] = [
   // Social
   { id: 'battle_win',    title: 'Champion',             description: 'Win a daily battle',               icon: 'swords',     triggers: ['battle'],         coins: 75,  rarity: 'rare'      },
   { id: 'mood_7',        title: 'In Touch',             description: 'Log mood 7 days in a row',         icon: 'moon',       triggers: ['mood', 'mount'],  coins: 75,  rarity: 'rare'      },
+  { id: 'first_nudge',   title: 'Love Note',            description: 'Send your first Eren nudge',       icon: 'heart',      triggers: ['nudge'],          coins: 25,  rarity: 'common'    },
 ]
 
 // ─── Achievement context (passed to checkers) ─────────────────────────────────
@@ -179,6 +269,8 @@ const checkers: Record<AchievementId, Checker> = {
   level_50(ctx) { return ctx.level >= 50 },
 
   battle_win(ctx) { return ctx.dailyBattleWon === true },
+
+  first_nudge() { return true },
 
   async mood_7(ctx, supabase) {
     const { data } = await supabase

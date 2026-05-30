@@ -134,7 +134,7 @@ export default function ProfilePage() {
     paddingTop: 'calc(var(--safe-top) + 16px)',
   }
 
-  const { achievements, streak } = useTasks()
+  const { achievements, streak, streakRepairAvailable, streakRepairCost, repairStreak, coins } = useTasks()
 
   if (loading || !profile) return <PageLoader label="LOADING PROFILE" />
 
@@ -349,10 +349,56 @@ export default function ProfilePage() {
               BEST: {streak.best}
             </span>
             {streak.current > 0 && (
-              <span className="font-pixel ml-auto" style={{ fontSize: 6, color: '#FFD700', letterSpacing: 1 }}>
+              <span className="font-pixel" style={{ fontSize: 6, color: '#FFD700', letterSpacing: 1 }}>
                 NOW: {streak.current}
               </span>
             )}
+            {(streak.freezeTokens ?? 0) > 0 && (
+              <span className="font-pixel ml-auto flex items-center gap-1" style={{ fontSize: 6, color: '#93C5FD', letterSpacing: 1 }}>
+                <span style={{ fontSize: 10, lineHeight: 1 }}>❄</span>
+                ×{streak.freezeTokens}
+              </span>
+            )}
+          </div>
+        )}
+
+        {streak.brokenAt && streak.priorCurrent && streak.priorCurrent > 0 && (
+          <div className="mb-3 px-2 py-2 relative" style={{
+            ...OBSIDIAN_BTN,
+            border: '1px solid rgba(255,107,157,0.35)',
+          }}>
+            <div className="flex items-center gap-2 mb-1.5">
+              <IconFire size={12} />
+              <span className="font-pixel" style={{ fontSize: 6, color: '#FF6B9D', letterSpacing: 1 }}>
+                STREAK BROKE — DAY {streak.priorCurrent}
+              </span>
+            </div>
+            <button
+              disabled={!streakRepairAvailable}
+              onClick={async () => {
+                if (!streakRepairAvailable) return
+                playSound('ui_modal_open')
+                const ok = await repairStreak()
+                if (ok) playSound('ui_modal_close')
+              }}
+              className="w-full px-2 py-1.5 flex items-center justify-center gap-1.5"
+              style={{
+                ...OBSIDIAN_BTN,
+                opacity: streakRepairAvailable ? 1 : 0.5,
+                cursor: streakRepairAvailable ? 'pointer' : 'not-allowed',
+                border: '1px solid rgba(251,191,36,0.4)',
+              }}
+            >
+              <IconCoin size={10} />
+              <span className="font-pixel" style={{ fontSize: 6, color: '#FDE68A', letterSpacing: 1 }}>
+                REPAIR · {streakRepairCost}
+              </span>
+              {coins < streakRepairCost && (
+                <span className="font-pixel" style={{ fontSize: 5, color: '#7A6A75', letterSpacing: 0.5 }}>
+                  (NEED {streakRepairCost - coins})
+                </span>
+              )}
+            </button>
           </div>
         )}
 

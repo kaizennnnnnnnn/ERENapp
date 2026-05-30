@@ -20,6 +20,14 @@ export interface StreakData {
   current: number
   best: number
   lastDate: string | null
+  // Freeze tokens auto-spent when the user misses a single day. Regen 1
+  // per 14 days, capped at 2. All optional so existing rows decode fine.
+  freezeTokens?: number
+  lastFreezeEarnedAt?: string | null
+  // Repair window: when a real break is detected, capture what was lost
+  // so the profile page can offer a coin-buyable restore for 48h.
+  priorCurrent?: number
+  brokenAt?: string | null
 }
 
 export type AchievementId =
@@ -28,6 +36,7 @@ export type AchievementId =
   | 'first_game' | 'high_score_50' | 'all_games'
   | 'level_10' | 'level_25' | 'level_50'
   | 'battle_win' | 'mood_7'
+  | 'first_nudge'
 
 export type AchievementMap = Partial<Record<AchievementId, string>>
 
@@ -49,7 +58,7 @@ export interface Profile {
 }
 
 export type TaskId =
-  | 'daily_mood' | 'daily_feed' | 'daily_play' | 'daily_sleep' | 'daily_wash' | 'daily_game'
+  | 'daily_mood' | 'daily_feed' | 'daily_play' | 'daily_sleep' | 'daily_wash' | 'daily_game' | 'daily_nudge'
   | 'weekly_all_care' | 'weekly_all_games' | 'weekly_high_score' | 'weekly_mood_5' | 'weekly_no_sick'
 
 export type TaskPeriod = 'daily' | 'weekly'

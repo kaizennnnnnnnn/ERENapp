@@ -6,7 +6,7 @@ import { useAuth } from './useAuth'
 import type { Profile, JournalMessage, Interaction, GiftItem, UserMood } from '@/types'
 import { format, subDays } from 'date-fns'
 import { computeLoveMeter, getAnniversaryInfo, startOfWeek, type LoveMeterResult, type AnniversaryInfo } from '@/lib/couple'
-import { NUDGE_COOLDOWN_MS, type NudgeDef } from '@/lib/nudges'
+import type { NudgeDef } from '@/lib/nudges'
 
 // Module-level counter so every useCouple instance picks a unique
 // realtime channel name even when several mount in the same React
@@ -234,16 +234,10 @@ export function useCouple() {
   // push is sent with via_eren=false so the sweet line is *shown* in the
   // notification ("💌 {sender}: ...") rather than hidden. The DB via_eren
   // flag still routes it to the popup only (out of the journal list).
-  // Returns false if a send was attempted inside the cooldown window.
+  // No cooldown — spamming nudges is part of the fun.
   const sendNudge = useCallback(async (nudge: NudgeDef): Promise<boolean> => {
     if (!user?.id || !profile?.household_id) return false
 
-    const lastKey = `eren_nudge_last_${user.id}`
-    const last = Number(localStorage.getItem(lastKey) ?? 0)
-    if (Date.now() - last < NUDGE_COOLDOWN_MS) return false
-
-    // Insert first; only arm the cooldown once it actually lands so a
-    // failed send (e.g. transient network) doesn't lock the user out.
     const { error } = await supabase.from('couple_journal').insert({
       household_id: profile.household_id,
       sender_id: user.id,
@@ -252,8 +246,6 @@ export function useCouple() {
       eren_state: nudge.state,
     })
     if (error) return false
-
-    localStorage.setItem(lastKey, String(Date.now()))
 
     fetch('/api/notify-message', {
       method: 'POST',
@@ -266,6 +258,10 @@ export function useCouple() {
         via_eren: false,
       }),
     }).catch(() => { /* best-effort */ })
+
+    // Daily-quest + first-nudge achievement live in TaskContext; signal
+    // both via a window event so we keep useCouple free of TaskContext.
+    try { window.dispatchEvent(new Event('eren:nudge-sent')) } catch { /* ignore */ }
 
     return true
   }, [user?.id, profile?.household_id, profile?.name]) // eslint-disable-line react-hooks/exhaustive-deps

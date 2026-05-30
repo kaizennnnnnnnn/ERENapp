@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth'
 import {
   updateStreak, STREAK_MILESTONE_COINS,
   checkAchievements, type AchievementContext, type AchievementTrigger, type AchievementDef,
+  canRepairStreak, repairStreak as repairStreakData, STREAK_REPAIR_COST,
 } from '@/lib/achievements'
 import { format } from 'date-fns'
 
@@ -27,6 +28,12 @@ interface TaskContextValue {
   streak: StreakData
   achievements: AchievementMap
   checkAchievementsFor: (trigger: AchievementTrigger, extra?: Partial<AchievementContext>) => Promise<void>
+  /** True when the streak just broke and can be repaired for STREAK_REPAIR_COST coins. */
+  streakRepairAvailable: boolean
+  /** Cost in coins to repair the streak. */
+  streakRepairCost: number
+  /** Pay coins and restore the prior streak. Returns true on success. */
+  repairStreak: () => Promise<boolean>
 }
 
 const TaskContext = createContext<TaskContextValue | null>(null)
@@ -234,6 +241,11 @@ export function TaskProvider({ children }: { children: ReactNode }) {
             detail: { milestones: result.milestonesHit, coins: bonusCoins, streak: newStreak.current },
           }))
         }
+        if (result.freezeUsed) {
+          window.dispatchEvent(new CustomEvent('eren:streak-freeze-used', {
+            detail: { streak: newStreak.current, freezesLeft: newStreak.freezeTokens ?? 0 },
+          }))
+        }
       }
     }
 
@@ -311,8 +323,76 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     return { coins: def.coins, xp: def.xp, levelUp }
   }, [user?.id, completedIds, coins, xp, level, streak, achievements, runAchievementCheck]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Streak repair ────────────────────────────────────────────────────────
+  const todayStrNow = format(new Date(), 'yyyy-MM-dd')
+  const streakRepairAvailable = canRepairStreak(streak, todayStrNow) && coins >= STREAK_REPAIR_COST
+
+  const repairStreak = useCallback(async (): Promise<boolean> => {
+    if (!user?.id) return false
+    const todayStr = format(new Date(), 'yyyy-MM-dd')
+    if (!canRepairStreak(streak, todayStr)) return false
+    if (coins < STREAK_REPAIR_COST) return false
+    const restored = repairStreakData(streak, todayStr)
+    const nextCoins = coins - STREAK_REPAIR_COST
+    setStreak(restored)
+    setCoins(nextCoins)
+    const { error } = await supabase.from('profiles')
+      .update({ streak: restored, coins: nextCoins })
+      .eq('id', user.id)
+    if (error) {
+      setStreak(streak); setCoins(coins)
+      return false
+    }
+    window.dispatchEvent(new CustomEvent('eren:streak-repaired', {
+      detail: { streak: restored.current },
+    }))
+    return true
+  }, [user?.id, streak, coins]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Listen for nudge sends: complete the daily quest + check achievement ─
+  useEffect(() => {
+    if (!user?.id) return
+    const onNudge = () => {
+      const key = `daily_nudge:${getDailyKey()}`
+      if (!completedIds.has(key)) {
+        completeTask('daily_nudge').catch(() => {})
+      }
+      checkAchievementsFor('nudge').catch(() => {})
+    }
+    window.addEventListener('eren:nudge-sent', onNudge)
+    return () => window.removeEventListener('eren:nudge-sent', onNudge)
+  }, [user?.id, completedIds, completeTask, checkAchievementsFor])
+
+  // ── Listen for my care actions: fire server push to partner ──────────────
+  // useErenStats dispatches `eren:my-action` after a successful interaction
+  // insert. The push covers the case where the partner's PWA is closed; the
+  // in-app realtime toast already handles open-app coverage.
+  useEffect(() => {
+    if (!user?.id || !profile?.household_id) return
+    const onMyAction = (e: Event) => {
+      const detail = (e as CustomEvent<{ household_id?: string; user_id?: string; action_type?: string }>).detail
+      if (!detail?.action_type) return
+      fetch('/api/notify-action', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          household_id: detail.household_id ?? profile.household_id,
+          sender_id: detail.user_id ?? user.id,
+          sender_name: profile.name ?? '',
+          action_type: detail.action_type,
+        }),
+      }).catch(() => { /* best-effort */ })
+    }
+    window.addEventListener('eren:my-action', onMyAction)
+    return () => window.removeEventListener('eren:my-action', onMyAction)
+  }, [user?.id, profile?.household_id, profile?.name])
+
   return (
-    <TaskContext.Provider value={{ completedIds, taskProgress, completeTask, addCoins, spendCoins, coins, xp, level, loading, streak, achievements, checkAchievementsFor }}>
+    <TaskContext.Provider value={{
+      completedIds, taskProgress, completeTask, addCoins, spendCoins,
+      coins, xp, level, loading, streak, achievements, checkAchievementsFor,
+      streakRepairAvailable, streakRepairCost: STREAK_REPAIR_COST, repairStreak,
+    }}>
       {children}
     </TaskContext.Provider>
   )

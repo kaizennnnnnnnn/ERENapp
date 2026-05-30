@@ -19,5 +19,5 @@ export const NUDGE_DEFS: NudgeDef[] = [
   { id: 'think',   label: 'Thinking',   state: 'wink', message: "I'm thinking about you right now!" },
 ]
 
-// Light anti-spam: minimum gap between nudges, per user.
-export const NUDGE_COOLDOWN_MS = 6_000
+// Nudges are intentionally spammable — the partner-side popup is the
+// fun moment. No cooldown.

@@ -16,7 +16,10 @@ export default function DailyBattleHUD() {
   const battle = useDailyBattle()
   const [open, setOpen] = useState(false)
 
-  if (battle.loading || !battle.hasPartner) return null
+  // Hide the scoreboard entirely when the partner hasn't done anything in
+  // 24h — a one-sided 100-0 bar reads as a lonely call-out rather than a
+  // race. It comes back the moment the partner makes any action.
+  if (battle.loading || !battle.hasPartner || battle.partnerDormant) return null
 
   // Tint stays consistent: viewer's side is always pink, partner is
   // always purple, regardless of who's "user1" in the DB.
