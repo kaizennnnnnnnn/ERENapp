@@ -24,16 +24,17 @@ const Z_INDEX        = 45                  // sits below modals (popups are 70+)
 // leaderboard moment, not a personal callout. Gender-neutral wording
 // so the line reads cleanly for any name.
 const LINES = [
-  '{leader} is winning the love-leaderboard today!',
-  '{leader} is doing the most for me today.',
-  '{leader} fed me more — kinda crushing it.',
-  '{leader} is taking the lead in caring for me!',
-  '{leader} is in first place today, no contest.',
-  '{leader} is racking up the points today!',
   'today\'s MVP is {leader}!',
-  '{leader} is spoiling me the most today.',
   '{leader} is currently my favourite human, just saying.',
-  '{leader} is winning the day — keep up!',
+  'I think {leader} loves me more.',
+  'Do you care about me?',
+  '{leader} fed me more.',
+  '{leader} has more points than you, hehe.',
+  'I guess {leader} cares more about me today.',
+  'I love you both!',
+  'I\'m so happy!',
+  'I\'m watching you (betta feed me), {leader}.',
+  'I think {leader} loves you.',
 ]
 
 export default function JealousEren() {
