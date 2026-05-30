@@ -387,6 +387,24 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('eren:my-action', onMyAction)
   }, [user?.id, profile?.household_id, profile?.name])
 
+  // ── Listen for weekly champion / comeback coin payouts ──────────────────
+  // The Care Battle modules CAS-claim the payout server-side first, then fire
+  // these events with the credited amount. TaskContext owns the coin pool.
+  useEffect(() => {
+    if (!user?.id) return
+    const credit = (e: Event) => {
+      const detail = (e as CustomEvent<{ coins?: number }>).detail
+      const amt = detail?.coins ?? 0
+      if (amt > 0) addCoins(amt).catch(() => {})
+    }
+    window.addEventListener('eren:weekly-payout', credit)
+    window.addEventListener('eren:comeback-payout', credit)
+    return () => {
+      window.removeEventListener('eren:weekly-payout', credit)
+      window.removeEventListener('eren:comeback-payout', credit)
+    }
+  }, [user?.id, addCoins])
+
   return (
     <TaskContext.Provider value={{
       completedIds, taskProgress, completeTask, addCoins, spendCoins,

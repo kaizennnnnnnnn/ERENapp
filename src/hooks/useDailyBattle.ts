@@ -12,6 +12,11 @@ import { useAuth } from './useAuth'
 import { useCouple } from './useCouple'
 import { useErenStats } from './useErenStats'
 import type { Interaction, ErenStats } from '@/types'
+import { format, subDays } from 'date-fns'
+import {
+  isComebackEligible, claimComebackBonus,
+  COMEBACK_BONUS_COINS, type DailyBattleRow,
+} from '@/lib/battleResults'
 
 const USEFUL_THRESHOLD = 90
 
@@ -83,6 +88,13 @@ export function useDailyBattle(): DailyBattleState {
   const [loading, setLoading]         = useState(true)
   const [lastAction, setLastAction]   = useState<DailyActionSignal | null>(null)
   const [partnerDormant, setPartnerDormant] = useState(false)
+  // Yesterday's snapshot row used to detect a comeback (loss yesterday +
+  // ahead today + bonus not yet claimed). null until the first fetch
+  // returns or after the bonus has been claimed.
+  const [yesterdayRow, setYesterdayRow] = useState<DailyBattleRow | null>(null)
+  // Per-session dedupe — even though the DB CAS guards against double-payout,
+  // skip extra round-trips if this tab already fired the attempt.
+  const comebackAttemptedRef = useRef(false)
 
   const channelSuffix = useRef(`db_${++_channelCounter}`)
   const statsRef = useRef(stats)
@@ -137,6 +149,63 @@ export function useDailyBattle(): DailyBattleState {
 
   useEffect(() => { fetchToday() }, [fetchToday])
 
+  // Load yesterday's snapshot. Backfill may not have run yet — null is OK,
+  // the eligibility check short-circuits and we re-fetch on day rollover.
+  useEffect(() => {
+    if (!user?.id) return
+    const yStr = format(subDays(new Date(), 1), 'yyyy-MM-dd')
+    let cancelled = false
+    supabase
+      .from('daily_battle_results')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('date', yStr)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return
+        setYesterdayRow((data as DailyBattleRow | null) ?? null)
+      })
+    return () => { cancelled = true }
+  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Comeback watcher — fires the moment today's score crosses partner's
+  // and only when yesterday's row says we lost & no bonus claimed yet.
+  // DB CAS (comeback_claimed=false) + comebackAttemptedRef de-dupe across
+  // the multiple useDailyBattle instances that the home page mounts.
+  useEffect(() => {
+    if (comebackAttemptedRef.current) return
+    if (!user?.id) return
+    if (!isComebackEligible(yesterdayRow, myScore, partnerScore)) return
+    comebackAttemptedRef.current = true
+    let cancelled = false
+    ;(async () => {
+      const row = yesterdayRow!
+      const won = await claimComebackBonus(supabase, user.id, row.date)
+      if (cancelled) return
+      if (won) {
+        setYesterdayRow({ ...row, comeback_claimed: true })
+        window.dispatchEvent(new CustomEvent('eren:comeback-payout', {
+          detail: { coins: COMEBACK_BONUS_COINS },
+        }))
+        window.dispatchEvent(new CustomEvent('eren:comeback', {
+          detail: { coins: COMEBACK_BONUS_COINS },
+        }))
+      } else {
+        // The other tab/partner-instance beat us. Refetch so the local
+        // state mirrors reality (comeback_claimed=true → no retries).
+        const yStr = format(subDays(new Date(), 1), 'yyyy-MM-dd')
+        const { data } = await supabase
+          .from('daily_battle_results')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('date', yStr)
+          .maybeSingle()
+        if (!cancelled) setYesterdayRow((data as DailyBattleRow | null) ?? null)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [user?.id, myScore, partnerScore, yesterdayRow]) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!profile?.household_id || !user?.id) return
     const ch = supabase
@@ -177,18 +246,31 @@ export function useDailyBattle(): DailyBattleState {
   }, [profile?.household_id, user?.id, partner?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Detect midnight rollover. If the day stamp changes between checks,
-  // refetch from scratch so the bar zeroes out automatically.
+  // refetch from scratch so the bar zeroes out automatically AND reset
+  // the comeback watcher — what was "yesterday" is now 2 days ago.
   const lastDayRef = useRef<string>(new Date().toDateString())
   useEffect(() => {
     const id = setInterval(() => {
       const today = new Date().toDateString()
       if (today !== lastDayRef.current) {
         lastDayRef.current = today
+        comebackAttemptedRef.current = false
+        setYesterdayRow(null)
         fetchToday()
+        if (user?.id) {
+          const yStr = format(subDays(new Date(), 1), 'yyyy-MM-dd')
+          supabase
+            .from('daily_battle_results')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('date', yStr)
+            .maybeSingle()
+            .then(({ data }) => setYesterdayRow((data as DailyBattleRow | null) ?? null))
+        }
       }
     }, 60 * 1000)
     return () => clearInterval(id)
-  }, [fetchToday])
+  }, [fetchToday, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const total = myScore + partnerScore
   const myPct      = total === 0 ? 50 : Math.round((myScore      / total) * 100)

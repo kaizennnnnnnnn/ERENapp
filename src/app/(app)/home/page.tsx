@@ -36,6 +36,7 @@ import ErenMessagePopup from '@/components/couple/ErenMessagePopup'
 import ThoughtCloud from '@/components/couple/ThoughtCloud'
 import JealousEren from '@/components/couple/JealousEren'
 import DailyBattleHUD from '@/components/couple/DailyBattleHUD'
+import ComebackBadge from '@/components/couple/ComebackBadge'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
 import SendErenSheet from '@/components/couple/SendErenSheet'
 import { MOOD_THEME, LOW_MOODS } from '@/lib/moods'
@@ -431,6 +432,11 @@ export default function HomePage() {
                 time-to-reset. Lives inside the awake block since it
                 anchors visually to Eren's head. */}
             <DailyBattleHUD />
+
+            {/* Fires on the rare moment the user pulls ahead today after
+                losing yesterday. Listens to the `eren:comeback` event;
+                useDailyBattle CAS-guards the bonus. */}
+            <ComebackBadge />
 
             <div className="absolute" style={{
               bottom: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 2,

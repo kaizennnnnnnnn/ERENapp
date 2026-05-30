@@ -12,7 +12,10 @@ import { useCare } from '@/contexts/CareContext'
 import { format } from 'date-fns'
 import {
   IconHeartDuo, IconSwords, IconEnvelope, IconCrown, IconPaw, IconHeart, IconStar,
+  IconFire, IconTrophy, IconCoin,
 } from '@/components/PixelIcons'
+import { useTasks } from '@/contexts/TaskContext'
+import WeeklyChampionPopup from '@/components/couple/WeeklyChampionPopup'
 import { playSound } from '@/lib/sounds'
 import {
   PINK, PINK_HI, PINK_LO,
@@ -29,8 +32,18 @@ export default function CouplePage() {
   const router = useRouter()
   const { user } = useAuth()
   const { setHideStats } = useCare()
-  const { partner, loveMeter, anniversary, journal, partnerMood, partnerMoodWeek, sendMessage, sendNudge, markAllRead, loading } = useCouple()
+  const {
+    partner, partnerStreak,
+    loveMeter, anniversary, journal,
+    partnerMood, partnerMoodWeek,
+    lifetimeWLT, weeklyChampion, claimWeeklyChampion,
+    sendMessage, sendNudge, markAllRead, loading,
+  } = useCouple()
+  const { streak: myStreak } = useTasks()
   const [showSend, setShowSend] = useState(false)
+  // Local "user has closed the weekly popup this session" flag — hides
+  // the popup instantly on backdrop tap even before the server ack lands.
+  const [weeklyDismissed, setWeeklyDismissed] = useState(false)
   // Hide the persistent StatsHeader on this subpage and put it back on
   // unmount, so the user gets the full screen for the couple panel.
   useEffect(() => {
@@ -456,6 +469,188 @@ export default function CouplePage() {
         )
       })()}
 
+      {/* ── Lifetime Battle Record (W-L-T) ── */}
+      {lifetimeWLT && partner && (lifetimeWLT.days > 0) && (() => {
+        const first = partner.name.split(' ')[0]
+        const youLead = lifetimeWLT.myWins > lifetimeWLT.partnerWins
+        const partnerLeads = lifetimeWLT.partnerWins > lifetimeWLT.myWins
+        return (
+          <div className="mb-4 p-4 relative overflow-hidden" style={OBSIDIAN_FACE}>
+            <Rivets inset={4} />
+            <div className="flex items-center justify-between mb-3">
+              <ObsidianChip accentRgb="245,200,66">
+                <IconTrophy size={14} />
+                <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>BATTLE RECORD</span>
+              </ObsidianChip>
+              <span className="font-pixel" style={{ fontSize: 6, color: '#9A8A60', letterSpacing: 1 }}>
+                LAST {lifetimeWLT.days} {lifetimeWLT.days === 1 ? 'DAY' : 'DAYS'}
+              </span>
+            </div>
+
+            {/* Triple-column W-L-T */}
+            <div className="flex items-stretch gap-2">
+              {/* My wins */}
+              <div className="flex-1 text-center px-2 py-2 relative" style={{
+                ...OBSIDIAN_BTN,
+                border: youLead ? '1.5px solid rgba(255,107,157,0.5)' : '1px solid rgba(255,255,255,0.06)',
+                boxShadow: youLead
+                  ? `0 0 10px rgba(255,107,157,0.25), ${OBSIDIAN_BTN.boxShadow}`
+                  : OBSIDIAN_BTN.boxShadow as string,
+              }}>
+                <p className="font-pixel" style={{ fontSize: 6, color: PINK_HI, letterSpacing: 1.5, marginBottom: 4 }}>YOU</p>
+                <p className="font-pixel" style={{
+                  fontSize: 22, lineHeight: 1, ...pinkText,
+                  textShadow: youLead ? `0 0 8px ${accentA(0.6)}` : 'none',
+                }}>{lifetimeWLT.myWins}</p>
+                <p className="font-pixel" style={{ fontSize: 5, color: '#7A6A75', letterSpacing: 1, marginTop: 3 }}>WINS</p>
+                {lifetimeWLT.myStreak >= 2 && (
+                  <div className="flex items-center justify-center gap-1 mt-2">
+                    <IconFire size={9} />
+                    <span className="font-pixel" style={{ fontSize: 6, color: '#FF6B00', letterSpacing: 1 }}>
+                      {lifetimeWLT.myStreak}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Ties */}
+              <div className="text-center px-2 py-2" style={{ ...OBSIDIAN_BTN, minWidth: 56 }}>
+                <p className="font-pixel" style={{ fontSize: 6, color: '#9A8A60', letterSpacing: 1.5, marginBottom: 4 }}>TIES</p>
+                <p className="font-pixel" style={{ fontSize: 22, lineHeight: 1, color: '#7A6A75' }}>{lifetimeWLT.ties}</p>
+                <p className="font-pixel" style={{ fontSize: 5, color: '#5A4A55', letterSpacing: 1, marginTop: 3 }}>EVEN</p>
+              </div>
+
+              {/* Partner wins */}
+              <div className="flex-1 text-center px-2 py-2 relative" style={{
+                ...OBSIDIAN_BTN,
+                border: partnerLeads ? '1.5px solid rgba(167,139,250,0.5)' : '1px solid rgba(255,255,255,0.06)',
+                boxShadow: partnerLeads
+                  ? '0 0 10px rgba(167,139,250,0.25), ' + (OBSIDIAN_BTN.boxShadow as string)
+                  : OBSIDIAN_BTN.boxShadow as string,
+              }}>
+                <p className="font-pixel" style={{ fontSize: 6, color: '#C4B5FD', letterSpacing: 1.5, marginBottom: 4 }}>
+                  {first.toUpperCase()}
+                </p>
+                <p className="font-pixel" style={{
+                  fontSize: 22, lineHeight: 1, color: '#D8B4FE',
+                  textShadow: partnerLeads ? '0 0 8px rgba(167,139,250,0.5)' : 'none',
+                }}>{lifetimeWLT.partnerWins}</p>
+                <p className="font-pixel" style={{ fontSize: 5, color: '#7A6A75', letterSpacing: 1, marginTop: 3 }}>WINS</p>
+                {lifetimeWLT.partnerStreak >= 2 && (
+                  <div className="flex items-center justify-center gap-1 mt-2">
+                    <IconFire size={9} />
+                    <span className="font-pixel" style={{ fontSize: 6, color: '#FF6B00', letterSpacing: 1 }}>
+                      {lifetimeWLT.partnerStreak}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Verdict line — only when one side actually leads */}
+            {(youLead || partnerLeads) && (
+              <div className="flex items-center justify-center gap-1.5 mt-3 px-3 py-1.5 relative" style={{
+                ...OBSIDIAN_BTN, width: 'fit-content', margin: '12px auto 0',
+              }}>
+                <IconCrown size={11} />
+                <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 1.5, ...pinkText }}>
+                  {youLead ? 'YOU' : first.toUpperCase()} LEADS BY {Math.abs(lifetimeWLT.myWins - lifetimeWLT.partnerWins)}
+                </span>
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* ── Dual streak: torch-bearer marker on the longer current streak ── */}
+      {partner && ((myStreak.current ?? 0) > 0 || (partnerStreak?.current ?? 0) > 0) && (() => {
+        const first = partner.name.split(' ')[0]
+        const mine = myStreak.current ?? 0
+        const theirs = partnerStreak?.current ?? 0
+        const myBest = myStreak.best ?? 0
+        const theirBest = partnerStreak?.best ?? 0
+        const iLead = mine > theirs
+        const theyLead = theirs > mine
+        return (
+          <div className="mb-4 p-4 relative overflow-hidden" style={OBSIDIAN_FACE}>
+            <Rivets inset={4} />
+            <div className="flex items-center gap-2 mb-3">
+              <ObsidianChip accentRgb="255,107,0">
+                <IconFire size={14} />
+                <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>CARE STREAKS</span>
+              </ObsidianChip>
+            </div>
+
+            <div className="flex items-stretch gap-3">
+              {/* Me */}
+              <div className="flex-1 text-center px-2 py-2 relative" style={{
+                ...OBSIDIAN_BTN,
+                border: iLead ? '1.5px solid rgba(255,107,0,0.45)' : '1px solid rgba(255,255,255,0.06)',
+                boxShadow: iLead
+                  ? '0 0 10px rgba(255,107,0,0.25), ' + (OBSIDIAN_BTN.boxShadow as string)
+                  : OBSIDIAN_BTN.boxShadow as string,
+              }}>
+                {iLead && (
+                  <div className="absolute" style={{ top: -10, left: '50%', transform: 'translateX(-50%)' }}>
+                    <IconCrown size={14} />
+                  </div>
+                )}
+                <p className="font-pixel" style={{ fontSize: 6, color: PINK_HI, letterSpacing: 1.5, marginBottom: 6 }}>YOU</p>
+                <div className="flex items-center justify-center gap-1.5">
+                  <IconFire size={16} />
+                  <span className="font-pixel" style={{
+                    fontSize: 22, lineHeight: 1, color: '#FFB347',
+                    textShadow: iLead ? '0 0 8px rgba(255,107,0,0.6)' : 'none',
+                  }}>{mine}</span>
+                </div>
+                <p className="font-pixel" style={{ fontSize: 5, color: '#7A6A75', letterSpacing: 1, marginTop: 5 }}>
+                  BEST {myBest}
+                </p>
+              </div>
+
+              {/* Partner */}
+              <div className="flex-1 text-center px-2 py-2 relative" style={{
+                ...OBSIDIAN_BTN,
+                border: theyLead ? '1.5px solid rgba(255,107,0,0.45)' : '1px solid rgba(255,255,255,0.06)',
+                boxShadow: theyLead
+                  ? '0 0 10px rgba(255,107,0,0.25), ' + (OBSIDIAN_BTN.boxShadow as string)
+                  : OBSIDIAN_BTN.boxShadow as string,
+              }}>
+                {theyLead && (
+                  <div className="absolute" style={{ top: -10, left: '50%', transform: 'translateX(-50%)' }}>
+                    <IconCrown size={14} />
+                  </div>
+                )}
+                <p className="font-pixel" style={{ fontSize: 6, color: '#C4B5FD', letterSpacing: 1.5, marginBottom: 6 }}>
+                  {first.toUpperCase()}
+                </p>
+                <div className="flex items-center justify-center gap-1.5">
+                  <IconFire size={16} />
+                  <span className="font-pixel" style={{
+                    fontSize: 22, lineHeight: 1, color: '#FFB347',
+                    textShadow: theyLead ? '0 0 8px rgba(255,107,0,0.6)' : 'none',
+                  }}>{theirs}</span>
+                </div>
+                <p className="font-pixel" style={{ fontSize: 5, color: '#7A6A75', letterSpacing: 1, marginTop: 5 }}>
+                  BEST {theirBest}
+                </p>
+              </div>
+            </div>
+
+            {(iLead || theyLead) && (
+              <p className="text-center font-pixel mt-3" style={{ fontSize: 6, color: '#9A8A60', letterSpacing: 1 }}>
+                TORCH-BEARER: {iLead ? 'YOU' : first.toUpperCase()}
+              </p>
+            )}
+            {mine > 0 && theirs > 0 && mine === theirs && (
+              <p className="text-center font-pixel mt-3" style={{ fontSize: 6, color: '#9A8A60', letterSpacing: 1 }}>
+                BOTH ON {mine} — KEEP IT UP!
+              </p>
+            )}
+          </div>
+        )
+      })()}
+
       {/* ── Shared Journal ── */}
       <div className="mb-4">
         <div className="flex items-center gap-2 mb-3">
@@ -532,6 +727,21 @@ export default function CouplePage() {
           partnerName={partner.name}
           onSend={sendNudge}
           onClose={() => setShowSend(false)}
+        />
+      )}
+
+      {/* Weekly Champion popup — fires once per ISO week per user. The
+          local dismissed flag hides it instantly; the server ack call
+          fires fire-and-forget so it doesn't return on next page load. */}
+      {weeklyChampion && !weeklyChampion.acknowledged && !weeklyDismissed && partner && (
+        <WeeklyChampionPopup
+          row={weeklyChampion}
+          partnerFirstName={partner.name.split(' ')[0]}
+          onClaim={claimWeeklyChampion}
+          onClose={() => {
+            setWeeklyDismissed(true)
+            void claimWeeklyChampion()
+          }}
         />
       )}
     </div>

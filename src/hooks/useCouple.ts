@@ -3,10 +3,16 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from './useAuth'
-import type { Profile, JournalMessage, Interaction, GiftItem, UserMood } from '@/types'
+import type { Profile, JournalMessage, Interaction, GiftItem, UserMood, StreakData } from '@/types'
 import { format, subDays } from 'date-fns'
 import { computeLoveMeter, getAnniversaryInfo, startOfWeek, type LoveMeterResult, type AnniversaryInfo } from '@/lib/couple'
 import type { NudgeDef } from '@/lib/nudges'
+import {
+  backfillDailyResults, fetchLifetimeRows, computeLifetimeWLT,
+  ensureLastWeekResult, claimWeeklyPayout, acknowledgeWeeklyResult,
+  WEEKLY_PAYOUT_COINS,
+  type LifetimeWLT, type WeeklyBattleRow,
+} from '@/lib/battleResults'
 
 // Module-level counter so every useCouple instance picks a unique
 // realtime channel name even when several mount in the same React
@@ -18,6 +24,7 @@ export function useCouple() {
   const { user, profile } = useAuth()
 
   const [partner, setPartner] = useState<Profile | null>(null)
+  const [partnerStreak, setPartnerStreak] = useState<StreakData | null>(null)
   const [loveMeter, setLoveMeter] = useState<LoveMeterResult | null>(null)
   const [anniversary, setAnniversary] = useState<AnniversaryInfo | null>(null)
   const [journal, setJournal] = useState<JournalMessage[]>([])
@@ -25,6 +32,8 @@ export function useCouple() {
   const [newMessage, setNewMessage] = useState<JournalMessage | null>(null) // for popup
   const [partnerMood, setPartnerMood] = useState<UserMood | null>(null)
   const [partnerMoodWeek, setPartnerMoodWeek] = useState<{ date: string; mood: UserMood | null }[]>([])
+  const [lifetimeWLT, setLifetimeWLT] = useState<LifetimeWLT | null>(null)
+  const [weeklyChampion, setWeeklyChampion] = useState<WeeklyBattleRow | null>(null)
   const [loading, setLoading] = useState(true)
   // Per-instance channel name. useCouple is currently instantiated by
   // 5+ components on the home screen (page, ThoughtCloud, JealousEren,
@@ -48,6 +57,7 @@ export function useCouple() {
       .neq('id', user.id)
     const p = members?.[0] ?? null
     setPartner(p)
+    setPartnerStreak((p?.streak as StreakData | undefined) ?? null)
 
     // Partner's recent moods — today's mood + a 7-day strip (gaps = null).
     if (p) {
@@ -97,6 +107,25 @@ export function useCouple() {
         user.id, profile.name,
         p.id, p.name,
       ))
+    }
+
+    // Lifetime W-L-T: backfill any missing daily snapshots in the lookback
+    // window, then aggregate. Backfill is idempotent (ignoreDuplicates).
+    if (p) {
+      try {
+        await backfillDailyResults(supabase, profile.household_id, user.id, p.id)
+        const rows = await fetchLifetimeRows(supabase, user.id)
+        setLifetimeWLT(computeLifetimeWLT(rows))
+      } catch { /* ignore — UI hides empty W-L-T */ }
+    }
+
+    // Last week's Care Battle result. Computed once and persisted; if I won
+    // and haven't been paid yet, the consumer surfaces the popup.
+    if (p) {
+      try {
+        const wk = await ensureLastWeekResult(supabase, profile.household_id, user.id, p.id)
+        setWeeklyChampion(wk)
+      } catch { /* ignore */ }
     }
 
     // Journal messages.
@@ -288,10 +317,31 @@ export function useCouple() {
     try { window.dispatchEvent(new Event('eren:journal-read')) } catch { /* ignore */ }
   }, [user?.id])
 
+  // ── Claim the weekly Care Battle payout + dismiss the popup ─────────────
+  // Pays the 100-coin bonus on first successful claim (atomic via CAS on
+  // payout_paid). Always stamps acknowledged=true so the popup never re-fires.
+  const claimWeeklyChampion = useCallback(async (): Promise<boolean> => {
+    if (!user?.id || !weeklyChampion) return false
+    let paid = false
+    if (weeklyChampion.outcome === 'win' && !weeklyChampion.payout_paid) {
+      paid = await claimWeeklyPayout(supabase, user.id, weeklyChampion.iso_week)
+      if (paid) {
+        window.dispatchEvent(new CustomEvent('eren:weekly-payout', {
+          detail: { coins: WEEKLY_PAYOUT_COINS, isoWeek: weeklyChampion.iso_week },
+        }))
+      }
+    }
+    await acknowledgeWeeklyResult(supabase, user.id, weeklyChampion.iso_week)
+    setWeeklyChampion({ ...weeklyChampion, payout_paid: paid || weeklyChampion.payout_paid, acknowledged: true })
+    return paid
+  }, [user?.id, weeklyChampion]) // eslint-disable-line react-hooks/exhaustive-deps
+
   return {
-    partner, loveMeter, anniversary, journal, unreadCount,
+    partner, partnerStreak,
+    loveMeter, anniversary, journal, unreadCount,
     newMessage, dismissPopup,
     partnerMood, partnerMoodWeek,
+    lifetimeWLT, weeklyChampion, claimWeeklyChampion,
     sendMessage, sendNudge, markAllRead, loading,
     refetch: fetchAll,
   }
