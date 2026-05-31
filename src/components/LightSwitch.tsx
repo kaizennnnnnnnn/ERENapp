@@ -21,6 +21,20 @@ interface Props {
   /** Where the light should pool — defaults to Eren's usual standing spot. */
   targetLeft?: string
   targetBottom?: string
+  /**
+   * When true, replaces the small ceiling-lamp dot with a proper glowing
+   * bulb: bigger warm halo, ambient rim, and an animated star-ray burst.
+   * Used in the kitchen where the wall art has a visible bulb fixture
+   * the player expects to actually light up.
+   */
+  dramatic?: boolean
+  /**
+   * Optional independent X/Y for the dramatic bulb effect, when the
+   * in-art bulb isn't directly above Eren. Falls back to lampTop /
+   * targetLeft so simpler rooms don't need to set them.
+   */
+  bulbTop?: string
+  bulbLeft?: string
 }
 
 export default function LightSwitch({
@@ -29,6 +43,9 @@ export default function LightSwitch({
   lampTop      = '7%',
   targetLeft   = '50%',
   targetBottom = '14%',
+  dramatic     = false,
+  bulbTop,
+  bulbLeft,
 }: Props) {
   const isDark = useIsDark()
   const [on, setOn] = useState(false)
@@ -39,21 +56,74 @@ export default function LightSwitch({
       {/* ─── Visible light source + cone (only while on) ─── */}
       {on && (
         <>
-          {/* Ceiling lamp — small, dim warm bulb. Visible enough to read
-              as "this is where the light is coming from" but quiet enough
-              not to draw the eye away from Eren. */}
-          <div className="absolute pointer-events-none" style={{
-            top: lampTop,
-            left: targetLeft,
-            transform: 'translate(-50%, -50%)',
-            width: 9, height: 9,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, #FFF1B8 0%, #EAC470 55%, #9E6428 90%, transparent 100%)',
-            boxShadow: '0 0 7px rgba(255,232,160,0.5), 0 0 16px rgba(255,210,120,0.25), 0 0 32px rgba(255,200,100,0.12)',
-            opacity: 0.85,
-            zIndex: 12,
-            animation: 'lsHaloPulse 4s ease-in-out infinite',
-          }} />
+          {/* Bulb — simple 9px dot by default, or a full glowing bulb with
+              star-rays + halo in dramatic mode (used by the kitchen, where
+              the wall art has a visible bulb fixture). */}
+          {dramatic ? (
+            <>
+              {/* Outer halo — big, soft, pulses with the cone. */}
+              <div className="absolute pointer-events-none" style={{
+                top: bulbTop ?? lampTop,
+                left: bulbLeft ?? targetLeft,
+                transform: 'translate(-50%, -50%)',
+                width: 56, height: 56,
+                borderRadius: '50%',
+                background: 'radial-gradient(circle, rgba(255,228,160,0.55) 0%, rgba(255,210,120,0.30) 35%, rgba(255,200,100,0.10) 65%, transparent 100%)',
+                filter: 'blur(2px)',
+                zIndex: 12,
+                animation: 'lsBulbHalo 2.6s ease-in-out infinite',
+              }} />
+              {/* Animated star-rays — slow rotation so light feels alive. */}
+              <div className="absolute pointer-events-none" style={{
+                top: bulbTop ?? lampTop,
+                left: bulbLeft ?? targetLeft,
+                transform: 'translate(-50%, -50%)',
+                width: 64, height: 64,
+                zIndex: 13,
+                animation: 'lsBulbRays 9s linear infinite',
+              }}>
+                {/* Four crossed rays drawn with conic-gradient so they
+                    feather softly instead of looking like hard spokes. */}
+                <div style={{
+                  position: 'absolute', inset: 0,
+                  background: 'conic-gradient(from 0deg, transparent 0deg, rgba(255,236,180,0.55) 8deg, transparent 22deg, transparent 88deg, rgba(255,236,180,0.55) 98deg, transparent 112deg, transparent 178deg, rgba(255,236,180,0.55) 188deg, transparent 202deg, transparent 268deg, rgba(255,236,180,0.55) 278deg, transparent 292deg, transparent 360deg)',
+                  borderRadius: '50%',
+                  filter: 'blur(3px)',
+                  opacity: 0.7,
+                  WebkitMask: 'radial-gradient(circle, transparent 20%, black 30%, black 90%, transparent 100%)',
+                  mask: 'radial-gradient(circle, transparent 20%, black 30%, black 90%, transparent 100%)',
+                }} />
+              </div>
+              {/* Bulb itself — bright warm core with the same gradient family
+                  but ~2x the previous radius so it reads as a lit bulb. */}
+              <div className="absolute pointer-events-none" style={{
+                top: bulbTop ?? lampTop,
+                left: bulbLeft ?? targetLeft,
+                transform: 'translate(-50%, -50%)',
+                width: 18, height: 18,
+                borderRadius: '50%',
+                background: 'radial-gradient(circle at 40% 38%, #FFF8DC 0%, #FFE8A0 35%, #F0C260 70%, #9E6428 95%, transparent 100%)',
+                boxShadow: '0 0 10px rgba(255,232,160,0.95), 0 0 24px rgba(255,210,120,0.6), 0 0 48px rgba(255,200,100,0.35)',
+                zIndex: 14,
+                animation: 'lsBulbCorePulse 2.6s ease-in-out infinite',
+              }} />
+            </>
+          ) : (
+            /* Original simple lamp dot — unchanged behaviour for non-dramatic
+               rooms so existing scenes keep their current quiet light source. */
+            <div className="absolute pointer-events-none" style={{
+              top: lampTop,
+              left: targetLeft,
+              transform: 'translate(-50%, -50%)',
+              width: 9, height: 9,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, #FFF1B8 0%, #EAC470 55%, #9E6428 90%, transparent 100%)',
+              boxShadow: '0 0 7px rgba(255,232,160,0.5), 0 0 16px rgba(255,210,120,0.25), 0 0 32px rgba(255,200,100,0.12)',
+              opacity: 0.85,
+              zIndex: 12,
+              animation: 'lsHaloPulse 4s ease-in-out infinite',
+            }} />
+          )}
 
           {/* Soft directional cone — trapezoid shape blurred to avoid the
               hard spotlight look. */}

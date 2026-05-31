@@ -761,7 +761,18 @@ export default function FeedScene({ onClose }: Props) {
         }
       `}</style>
 
-      <LightSwitch targetBottom="12%" targetLeft="50%" />
+      {/* Kitchen-only "dramatic" bulb — full glowing fixture with rays
+          instead of the small lamp dot the other rooms use. Position
+          tracks the ceiling-bulb spot in kitchen.png; nudge bulbTop /
+          bulbLeft if it drifts from the in-art fixture. */}
+      <LightSwitch
+        targetBottom="12%"
+        targetLeft="50%"
+        lampTop="13%"
+        dramatic
+        bulbTop="13%"
+        bulbLeft="50%"
+      />
     </div>
   )
 }

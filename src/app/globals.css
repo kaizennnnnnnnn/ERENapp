@@ -398,3 +398,20 @@
   0%, 100% { opacity: 1;    }
   50%      { opacity: 0.82; }
 }
+
+/* Dramatic kitchen-style bulb. The halo breathes and the rays rotate
+   slowly; the core opacity throbs in sync so the whole bulb feels
+   like a single living light source. All three transforms have to
+   re-center because they sit absolute and need the translate(-50%). */
+@keyframes lsBulbHalo {
+  0%, 100% { opacity: 0.85; transform: translate(-50%, -50%) scale(1);    }
+  50%      { opacity: 1;    transform: translate(-50%, -50%) scale(1.08); }
+}
+@keyframes lsBulbRays {
+  from { transform: translate(-50%, -50%) rotate(0deg);   }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+@keyframes lsBulbCorePulse {
+  0%, 100% { opacity: 1;    transform: translate(-50%, -50%) scale(1);    }
+  50%      { opacity: 0.92; transform: translate(-50%, -50%) scale(1.05); }
+}
