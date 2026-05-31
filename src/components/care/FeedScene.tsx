@@ -362,6 +362,9 @@ export default function FeedScene({ onClose }: Props) {
       setFeeding(null)
       return
     }
+    // Eren starts munching the moment the food lands — fire the eating
+    // sound before the network round-trip so playback feels immediate.
+    playSound('care_eat')
     const result = await feedWithFood(user.id, item.hungerD, item.happyD, item.weightD)
     showToast(result.message, result.success)
     setFeeding(null)

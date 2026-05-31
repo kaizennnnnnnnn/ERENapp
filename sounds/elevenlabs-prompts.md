@@ -33,6 +33,12 @@ clip sits at the same playback level.
 | `level_up.mp3` | `jingles_NES13.ogg` (1.05 s) | Level-up moment |
 | `coin_pickup.mp3` | `jingles_NES14.ogg` (0.37 s) | Reward road claim, weekly champion payout, comeback bonus |
 
+### `public/sounds/care/`
+
+| File | Source | Triggered when |
+|---|---|---|
+| `care_eat.mp3` | user-supplied (ElevenLabs cat-eating SFX) | Eren starts eating in FeedScene (per food item) |
+
 ### `public/sounds/gacha/`
 
 | File | Source (Kenney *Music Jingles* — 8-Bit NES set) | Triggered when |

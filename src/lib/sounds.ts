@@ -39,6 +39,9 @@ export const SOUNDS = {
   level_up:             '/sounds/progression/level_up.mp3',
   coin_pickup:          '/sounds/progression/coin_pickup.mp3',
 
+  // Care actions — fired by individual care scenes when Eren acts.
+  care_eat:             '/sounds/care/care_eat.mp3',
+
   // Gacha — rarity-tiered reveal stingers.
   gacha_reveal_common:    '/sounds/gacha/gacha_reveal_common.mp3',
   gacha_reveal_rare:      '/sounds/gacha/gacha_reveal_rare.mp3',
