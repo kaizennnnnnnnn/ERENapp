@@ -66,11 +66,28 @@ export default function AchievementToast() {
       })
     }
 
+    // Quest-complete and level-up don't enqueue a toast (they have their
+    // own existing UI flair), but they should still play the matching
+    // chiptune cue so the player gets audio feedback on those moments.
+    const onQuest = () => playSound('quest_complete')
+    const onLevel = () => playSound('level_up')
+    // Big coin payouts (weekly champion, comeback) — the dedicated popups
+    // already render the celebration; we just chime the coin on top.
+    const onPayout = () => playSound('coin_pickup')
+
     window.addEventListener('eren:achievement-unlocked', onAchievement)
     window.addEventListener('eren:streak-milestone', onStreak)
+    window.addEventListener('eren:quest-complete', onQuest)
+    window.addEventListener('eren:level-up', onLevel)
+    window.addEventListener('eren:weekly-payout', onPayout)
+    window.addEventListener('eren:comeback-payout', onPayout)
     return () => {
       window.removeEventListener('eren:achievement-unlocked', onAchievement)
       window.removeEventListener('eren:streak-milestone', onStreak)
+      window.removeEventListener('eren:quest-complete', onQuest)
+      window.removeEventListener('eren:level-up', onLevel)
+      window.removeEventListener('eren:weekly-payout', onPayout)
+      window.removeEventListener('eren:comeback-payout', onPayout)
     }
   }, [enqueue])
 

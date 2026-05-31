@@ -540,7 +540,7 @@ export default function ProfilePage() {
               Notify me when {partner.name.split(' ')[0]} is having a tough day
             </p>
             <button
-              onClick={() => { playSound('ui_tap'); toggleMoodAlerts() }}
+              onClick={() => { playSound('ui_toggle'); toggleMoodAlerts() }}
               role="switch"
               aria-checked={moodAlerts}
               className="flex-shrink-0 relative active:translate-y-[1px] transition-transform"
@@ -581,7 +581,7 @@ export default function ProfilePage() {
             return (
               <button
                 key={t.key}
-                onClick={() => { playSound('ui_tap'); setTheme(t.key) }}
+                onClick={() => { playSound('ui_toggle'); setTheme(t.key) }}
                 className="flex-1 flex flex-col items-center gap-2 p-3 active:translate-y-[1px] transition-transform relative"
                 style={{
                   ...OBSIDIAN_BTN,

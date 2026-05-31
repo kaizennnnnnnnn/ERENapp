@@ -1,8 +1,30 @@
-# Eren — ElevenLabs Sound Prompts (v2 — tightened)
+# Eren — ElevenLabs Sound Prompts (v3 — wired)
 
 ElevenLabs Sound Effects: one prompt → one sound. Generate each entry
 separately. Keep the duration **slider** at the listed length below —
 the prompt text is already tight enough that the model won't pad.
+
+## ⚡ Generate these first (currently wired in code, falling back to modal chimes)
+
+These eight files unlock all the new SFX in one batch. The app already
+references them; until you drop them in, `lib/sounds.ts` silently
+falls back to `ui_modal_open` / `ui_notification_ping` so nothing breaks.
+
+| Filename | Bucket | Triggered when |
+|---|---|---|
+| `ui_tap.mp3` | `/sounds/ui/` | Any small button tap across the app |
+| `ui_back.mp3` | `/sounds/ui/` | Back arrows + close buttons |
+| `ui_toggle.mp3` | `/sounds/ui/` | LightSwitch, theme picker, mood-alert switch |
+| `ui_select.mp3` | `/sounds/ui/` | List-item picks (reserved — not yet wired) |
+| `quest_complete.mp3` | `/sounds/progression/` | Any daily/weekly task ticked off |
+| `level_up.mp3` | `/sounds/progression/` | Level-up moment |
+| `coin_pickup.mp3` | `/sounds/progression/` | Weekly champion payout, comeback bonus |
+| `gacha_reveal_common.mp3` | `/sounds/gacha/` | Common item reveal during a pull |
+| `gacha_reveal_rare.mp3` | `/sounds/gacha/` | Rare reveal |
+| `gacha_reveal_epic.mp3` | `/sounds/gacha/` | Epic reveal |
+| `gacha_reveal_legendary.mp3` | `/sounds/gacha/` | Legendary reveal |
+
+Bucket directories don't exist yet — make them with `mkdir public/sounds/progression public/sounds/gacha` before dropping the files.
 
 ## Master style cue
 
@@ -24,8 +46,10 @@ the prompt text is already tight enough that the model won't pad.
 
 | Filename | Duration | Prompt |
 |---|---|---|
-| `ui_tap.mp3` | **0.08 s** | A single tiny high-pitched chiptune blip, very short, sharp attack, instant decay, retro 8-bit, mono, dry. |
-| `ui_back.mp3` | **0.15 s** | Two short chiptune blips descending in pitch, mid → low, retro 8-bit, crisp, mono, dry. |
+| `ui_tap.mp3` | **0.07 s** | A single tiny mid-pitch chiptune blip, soft and round (not piercing), instant decay, retro Game Boy, mono, dry. |
+| `ui_back.mp3` | **0.16 s** | Two short chiptune blips descending mid → low, soft and round, retro Game Boy, mono, dry. |
+| `ui_toggle.mp3` | **0.09 s** | A soft pixel "tick": one mid-low chiptune click with a slight resonant tail, like flipping a small switch, retro 8-bit, mono, dry. |
+| `ui_select.mp3` | **0.12 s** | A round chiptune pickup blip, mid-pitch with a tiny rising hint at the end, like selecting a menu item in a Game Boy RPG, mono, dry. |
 | `ui_tab_switch.mp3` | **0.07 s** | A single tiny mid-pitch chiptune click, dull, retro 8-bit, mono, dry. |
 | `ui_modal_open.mp3` | **0.20 s** | Two short chiptune blips ascending in pitch, mid → high, soft and inviting, retro 16-bit, mono, dry. |
 | `ui_modal_close.mp3` | **0.18 s** | Two short chiptune blips descending in pitch, high → mid, soft, retro 16-bit, mono, dry. |

@@ -257,6 +257,20 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     nextCompleted.add(key)
     setCompletedIds(nextCompleted)
 
+    // Audio cues — the AchievementToast component listens for these and
+    // plays the matching SFX. Keep this in TaskContext so any caller that
+    // completes a task gets the sound for free.
+    try {
+      window.dispatchEvent(new CustomEvent('eren:quest-complete', {
+        detail: { taskId, period: def.period, coins: def.coins, xp: def.xp },
+      }))
+      if (levelUp) {
+        window.dispatchEvent(new CustomEvent('eren:level-up', {
+          detail: { level: newLevel },
+        }))
+      }
+    } catch { /* SSR / no-window */ }
+
     // 4. Update weekly progress if this daily task contributes to a weekly one
     if (def.period === 'daily') {
       const weeklyTaskId = PROGRESS_MAP[taskId]

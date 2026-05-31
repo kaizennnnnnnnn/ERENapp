@@ -87,7 +87,7 @@ export default function LightSwitch({
 
       {/* ─── Wall switch ─── */}
       <button
-        onClick={(e) => { e.stopPropagation(); setOn(o => !o); playSound('ui_modal_open') }}
+        onClick={(e) => { e.stopPropagation(); setOn(o => !o); playSound('ui_toggle') }}
         className="absolute"
         style={{
           top: switchTop,

@@ -22,6 +22,21 @@ export default function PullAnimation({ results, onDone }: Props) {
   }, [])
 
   const current = results[currentIdx]
+
+  // Rarity-tiered reveal stinger — fires every time a new item is shown,
+  // including the second-and-later items in a 10-pull. Falls back to
+  // ui_notification_ping for tiers whose files haven't been generated yet.
+  useEffect(() => {
+    if (!showItem || !current) return
+    const map = {
+      common:    'gacha_reveal_common',
+      rare:      'gacha_reveal_rare',
+      epic:      'gacha_reveal_epic',
+      legendary: 'gacha_reveal_legendary',
+    } as const
+    playSound(map[current.item.rarity])
+  }, [showItem, current?.item.rarity]) // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!current) { onDone(); return null }
 
   const colors = RARITY_COLORS[current.item.rarity]
