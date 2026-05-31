@@ -7,7 +7,7 @@
 // a visible ceiling lamp + a soft warm cone down onto Eren so the source
 // of the light is obvious and never reads as just "Eren glows".
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useIsDark } from '@/hooks/useIsDark'
 import { playSound } from '@/lib/sounds'
 
@@ -35,6 +35,28 @@ interface Props {
    */
   bulbTop?: string
   bulbLeft?: string
+  /**
+   * Stable identifier for the room/scene this switch belongs to. When
+   * provided, the on/off state is persisted to localStorage so that
+   * swiping away from a care room and back keeps the light on. The home
+   * page already persists across navigation because it doesn't unmount;
+   * the care rooms unmount on swipe, so each one needs its own key.
+   */
+  persistKey?: string
+}
+
+const PERSIST_PREFIX = 'eren_light_'
+
+function readPersisted(persistKey: string | undefined): boolean {
+  if (!persistKey || typeof window === 'undefined') return false
+  try { return localStorage.getItem(PERSIST_PREFIX + persistKey) === '1' }
+  catch { return false }
+}
+
+function writePersisted(persistKey: string | undefined, value: boolean): void {
+  if (!persistKey || typeof window === 'undefined') return
+  try { localStorage.setItem(PERSIST_PREFIX + persistKey, value ? '1' : '0') }
+  catch { /* quota / privacy mode — fall through */ }
 }
 
 export default function LightSwitch({
@@ -46,9 +68,13 @@ export default function LightSwitch({
   dramatic     = false,
   bulbTop,
   bulbLeft,
+  persistKey,
 }: Props) {
   const isDark = useIsDark()
-  const [on, setOn] = useState(false)
+  // Lazy init from localStorage so the first render already shows the
+  // persisted state — avoids a 1-frame flash of OFF on remount.
+  const [on, setOn] = useState<boolean>(() => readPersisted(persistKey))
+  useEffect(() => { writePersisted(persistKey, on) }, [on, persistKey])
   if (!isDark) return null
 
   return (
@@ -61,14 +87,16 @@ export default function LightSwitch({
               the wall art has a visible bulb fixture). */}
           {dramatic ? (
             <>
-              {/* Outer halo — big, soft, pulses with the cone. */}
+              {/* Outer halo — big, soft, pulses with the cone. Slightly
+                  more saturated than v1 so the bulb reads as actively
+                  emitting rather than ambient. */}
               <div className="absolute pointer-events-none" style={{
                 top: bulbTop ?? lampTop,
                 left: bulbLeft ?? targetLeft,
                 transform: 'translate(-50%, -50%)',
-                width: 56, height: 56,
+                width: 68, height: 68,
                 borderRadius: '50%',
-                background: 'radial-gradient(circle, rgba(255,228,160,0.55) 0%, rgba(255,210,120,0.30) 35%, rgba(255,200,100,0.10) 65%, transparent 100%)',
+                background: 'radial-gradient(circle, rgba(255,232,170,0.78) 0%, rgba(255,216,128,0.46) 35%, rgba(255,204,108,0.18) 65%, transparent 100%)',
                 filter: 'blur(2px)',
                 zIndex: 12,
                 animation: 'lsBulbHalo 2.6s ease-in-out infinite',
@@ -78,7 +106,7 @@ export default function LightSwitch({
                 top: bulbTop ?? lampTop,
                 left: bulbLeft ?? targetLeft,
                 transform: 'translate(-50%, -50%)',
-                width: 64, height: 64,
+                width: 74, height: 74,
                 zIndex: 13,
                 animation: 'lsBulbRays 9s linear infinite',
               }}>
@@ -86,10 +114,10 @@ export default function LightSwitch({
                     feather softly instead of looking like hard spokes. */}
                 <div style={{
                   position: 'absolute', inset: 0,
-                  background: 'conic-gradient(from 0deg, transparent 0deg, rgba(255,236,180,0.55) 8deg, transparent 22deg, transparent 88deg, rgba(255,236,180,0.55) 98deg, transparent 112deg, transparent 178deg, rgba(255,236,180,0.55) 188deg, transparent 202deg, transparent 268deg, rgba(255,236,180,0.55) 278deg, transparent 292deg, transparent 360deg)',
+                  background: 'conic-gradient(from 0deg, transparent 0deg, rgba(255,240,190,0.78) 8deg, transparent 22deg, transparent 88deg, rgba(255,240,190,0.78) 98deg, transparent 112deg, transparent 178deg, rgba(255,240,190,0.78) 188deg, transparent 202deg, transparent 268deg, rgba(255,240,190,0.78) 278deg, transparent 292deg, transparent 360deg)',
                   borderRadius: '50%',
                   filter: 'blur(3px)',
-                  opacity: 0.7,
+                  opacity: 0.88,
                   WebkitMask: 'radial-gradient(circle, transparent 20%, black 30%, black 90%, transparent 100%)',
                   mask: 'radial-gradient(circle, transparent 20%, black 30%, black 90%, transparent 100%)',
                 }} />
@@ -100,10 +128,10 @@ export default function LightSwitch({
                 top: bulbTop ?? lampTop,
                 left: bulbLeft ?? targetLeft,
                 transform: 'translate(-50%, -50%)',
-                width: 18, height: 18,
+                width: 20, height: 20,
                 borderRadius: '50%',
-                background: 'radial-gradient(circle at 40% 38%, #FFF8DC 0%, #FFE8A0 35%, #F0C260 70%, #9E6428 95%, transparent 100%)',
-                boxShadow: '0 0 10px rgba(255,232,160,0.95), 0 0 24px rgba(255,210,120,0.6), 0 0 48px rgba(255,200,100,0.35)',
+                background: 'radial-gradient(circle at 40% 38%, #FFFFFF 0%, #FFF1B8 35%, #F5C870 70%, #A06628 95%, transparent 100%)',
+                boxShadow: '0 0 14px rgba(255,238,180,1), 0 0 30px rgba(255,218,130,0.78), 0 0 60px rgba(255,206,108,0.45)',
                 zIndex: 14,
                 animation: 'lsBulbCorePulse 2.6s ease-in-out infinite',
               }} />

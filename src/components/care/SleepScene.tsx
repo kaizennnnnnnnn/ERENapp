@@ -180,7 +180,7 @@ export default function SleepScene({ onClose }: Props) {
         </button>
       </div>
 
-      <LightSwitch targetBottom="16%" targetLeft="50%" />
+      <LightSwitch targetBottom="16%" targetLeft="50%" persistKey="bedroom" />
     </div>
   )
 }

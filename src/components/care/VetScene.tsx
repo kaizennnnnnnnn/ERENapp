@@ -159,7 +159,7 @@ export default function VetScene({ onClose }: Props) {
         }
       `}</style>
 
-      <LightSwitch targetBottom="6%" targetLeft="50%" />
+      <LightSwitch targetBottom="6%" targetLeft="50%" persistKey="vet" />
     </div>
   )
 }

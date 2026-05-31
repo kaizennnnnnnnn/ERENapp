@@ -430,7 +430,7 @@ export default function WashScene({ onClose }: Props) {
         }
       `}</style>
 
-      <LightSwitch targetBottom="12%" targetLeft="50%" />
+      <LightSwitch targetBottom="12%" targetLeft="50%" persistKey="bathroom" />
     </div>
   )
 }

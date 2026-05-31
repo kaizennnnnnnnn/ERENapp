@@ -270,7 +270,7 @@ export default function PlayScene({ onClose }: Props) {
 
       {/* Switch on the left to clear the SCORES/leaderboard buttons stacked
           on the right side of the playroom. */}
-      <LightSwitch side="left" targetBottom="10%" targetLeft="50%" />
+      <LightSwitch side="left" targetBottom="10%" targetLeft="50%" persistKey="playroom" />
     </div>
   )
 }

@@ -772,6 +772,7 @@ export default function FeedScene({ onClose }: Props) {
         dramatic
         bulbTop="13%"
         bulbLeft="50%"
+        persistKey="kitchen"
       />
     </div>
   )
