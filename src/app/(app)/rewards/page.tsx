@@ -328,7 +328,7 @@ export default function RewardsPage() {
         </div>
 
         {canClaimAny ? (
-          <button onClick={() => { playSound('ui_tap'); claimUpTo(cap) }} disabled={claiming}
+          <button onClick={() => { playSound('coin_pickup'); claimUpTo(cap) }} disabled={claiming}
             className="w-full py-2 text-white active:translate-y-[2px] transition-transform disabled:opacity-60 relative overflow-hidden"
             style={{
               background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 55%, #92400E 100%)',
@@ -397,7 +397,7 @@ export default function RewardsPage() {
                   {/* Node card — claimable nodes are tap-to-claim */}
                   <div
                     role={claimable ? 'button' : undefined}
-                    onClick={claimable && !claiming ? () => { playSound('ui_tap'); claimUpTo(idx) } : undefined}
+                    onClick={claimable && !claiming ? () => { playSound('coin_pickup'); claimUpTo(idx) } : undefined}
                     className="relative flex items-center gap-2.5 p-2.5 transition-transform"
                     style={{
                       background: locked ? 'rgba(255,255,255,0.06)' : tint.bg,

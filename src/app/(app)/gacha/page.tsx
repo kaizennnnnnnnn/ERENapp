@@ -120,7 +120,7 @@ export default function GachaPage() {
           const Icon = BANNER_ICONS[b.id] ?? IconSlots
           const active = selectedBanner === b.id
           return (
-            <button key={b.id} onClick={() => { playSound('ui_tap'); setSelectedBanner(b.id) }}
+            <button key={b.id} onClick={() => { playSound('ui_select'); setSelectedBanner(b.id) }}
               className="flex-shrink-0 flex flex-col items-center gap-1.5 px-4 py-3 active:translate-y-[1px] transition-all relative"
               style={{
                 minWidth: 108,

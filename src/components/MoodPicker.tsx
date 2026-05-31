@@ -44,7 +44,7 @@ export default function MoodPicker({ userId, existing, onSave }: Props) {
           ([key, cfg]) => (
             <button
               key={key}
-              onClick={() => { playSound('ui_tap'); handleSelect(key) }}
+              onClick={() => { playSound('ui_select'); handleSelect(key) }}
               disabled={saving}
               className={cn(
                 'flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 transition-all duration-150 active:scale-95',

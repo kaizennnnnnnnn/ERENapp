@@ -1,30 +1,70 @@
-# Eren — ElevenLabs Sound Prompts (v3 — wired)
+# Eren — Sound Sources (v4 — Kenney CC0 shipped)
+
+The sound bank now ships with **Kenney.nl CC0 chiptune sounds** instead of
+the originally-planned ElevenLabs generations. ElevenLabs prompts below
+are kept as reference + fallback for any slot you want to re-roll later
+in a different style.
+
+## Shipped sounds (Kenney CC0 — drop-in already in `public/sounds/`)
+
+All files were converted OGG → MP3 with EBU R128 loudness normalization
+(`-af loudnorm=I=-14:TP=-1.5:LRA=11 -ar 44100 -ac 1 -b:a 96k`) so every
+clip sits at the same playback level.
+
+### `public/sounds/ui/`
+
+| File | Source (Kenney *Interface Sounds*) | Triggered when |
+|---|---|---|
+| `ui_tap.mp3` | `click_001.ogg` | Any small button tap across the app |
+| `ui_back.mp3` | `back_001.ogg` | Back arrows + close buttons |
+| `ui_toggle.mp3` | `switch_001.ogg` | LightSwitch, theme picker, mood-alert switch |
+| `ui_select.mp3` | `select_001.ogg` | Mood pickers, gacha banner select |
+| `ui_modal_open.mp3` | `open_001.ogg` | Bottom-sheets, detail panels |
+| `ui_modal_close.mp3` | `close_001.ogg` | Closing modals + dismissing popups |
+| `ui_notification_ping.mp3` | `confirmation_001.ogg` | Achievement + streak milestone toasts |
+| `ui_swipe_room.mp3` | *unchanged* (user keep) | Page swipe between care rooms |
+| `ui_loading.mp3` | *unchanged* | Loading screens |
+
+### `public/sounds/progression/`
+
+| File | Source (Kenney *Music Jingles* — 8-Bit NES set) | Triggered when |
+|---|---|---|
+| `quest_complete.mp3` | `jingles_NES09.ogg` (0.44 s) | Any daily/weekly task ticked off |
+| `level_up.mp3` | `jingles_NES13.ogg` (1.05 s) | Level-up moment |
+| `coin_pickup.mp3` | `jingles_NES14.ogg` (0.37 s) | Reward road claim, weekly champion payout, comeback bonus |
+
+### `public/sounds/gacha/`
+
+| File | Source (Kenney *Music Jingles* — 8-Bit NES set) | Triggered when |
+|---|---|---|
+| `gacha_reveal_common.mp3` | `jingles_NES02.ogg` (0.39 s) | Common item reveal in a pull |
+| `gacha_reveal_rare.mp3` | `jingles_NES03.ogg` (0.60 s) | Rare reveal |
+| `gacha_reveal_epic.mp3` | `jingles_NES12.ogg` (0.85 s) | Epic reveal |
+| `gacha_reveal_legendary.mp3` | `jingles_NES00.ogg` (1.76 s) | Legendary reveal |
+
+## How to swap a sound you don't like
+
+1. Download the relevant Kenney pack:
+   - **Interface Sounds**: https://kenney.nl/assets/interface-sounds (UI clicks, switches, ticks)
+   - **Music Jingles**: https://kenney.nl/assets/music-jingles (NES + Hit + Pizzicato + Sax + Steel — 85 jingles total)
+   - **Digital Audio**: https://kenney.nl/assets/digital-audio (laser, phaser, pep, threeTone — good for accent SFX)
+2. Pick a different `.ogg` you like better.
+3. Convert + normalize:
+   ```
+   ffmpeg -y -i source.ogg -af "loudnorm=I=-14:TP=-1.5:LRA=11" \
+     -ar 44100 -ac 1 -b:a 96k public/sounds/<bucket>/<name>.mp3
+   ```
+4. The app reloads with no further code changes.
+
+For non-Kenney sources (your own recordings, ElevenLabs generations,
+freesound.org clips with CC0 license), the same ffmpeg one-liner applies.
+
+---
+# Original ElevenLabs prompts (reference / fallback)
 
 ElevenLabs Sound Effects: one prompt → one sound. Generate each entry
 separately. Keep the duration **slider** at the listed length below —
 the prompt text is already tight enough that the model won't pad.
-
-## ⚡ Generate these first (currently wired in code, falling back to modal chimes)
-
-These eight files unlock all the new SFX in one batch. The app already
-references them; until you drop them in, `lib/sounds.ts` silently
-falls back to `ui_modal_open` / `ui_notification_ping` so nothing breaks.
-
-| Filename | Bucket | Triggered when |
-|---|---|---|
-| `ui_tap.mp3` | `/sounds/ui/` | Any small button tap across the app |
-| `ui_back.mp3` | `/sounds/ui/` | Back arrows + close buttons |
-| `ui_toggle.mp3` | `/sounds/ui/` | LightSwitch, theme picker, mood-alert switch |
-| `ui_select.mp3` | `/sounds/ui/` | List-item picks (reserved — not yet wired) |
-| `quest_complete.mp3` | `/sounds/progression/` | Any daily/weekly task ticked off |
-| `level_up.mp3` | `/sounds/progression/` | Level-up moment |
-| `coin_pickup.mp3` | `/sounds/progression/` | Weekly champion payout, comeback bonus |
-| `gacha_reveal_common.mp3` | `/sounds/gacha/` | Common item reveal during a pull |
-| `gacha_reveal_rare.mp3` | `/sounds/gacha/` | Rare reveal |
-| `gacha_reveal_epic.mp3` | `/sounds/gacha/` | Epic reveal |
-| `gacha_reveal_legendary.mp3` | `/sounds/gacha/` | Legendary reveal |
-
-Bucket directories don't exist yet — make them with `mkdir public/sounds/progression public/sounds/gacha` before dropping the files.
 
 ## Master style cue
 

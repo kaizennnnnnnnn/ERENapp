@@ -240,7 +240,7 @@ export default function MoodGate({ userId, userName, householdId, onDone }: Prop
             return (
               <button
                 key={key}
-                onClick={() => { playSound('ui_tap'); handleSelect(key) }}
+                onClick={() => { playSound('ui_select'); handleSelect(key) }}
                 className={cn(
                   'relative flex items-center gap-3 px-3 py-3 transition-all duration-150 active:translate-y-[2px] overflow-hidden',
                 )}
