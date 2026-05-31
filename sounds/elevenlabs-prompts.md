@@ -20,7 +20,7 @@ clip sits at the same playback level.
 | `ui_toggle.mp3` | `switch_001.ogg` | LightSwitch, theme picker, mood-alert switch |
 | `ui_select.mp3` | `select_001.ogg` | Mood pickers, gacha banner select |
 | `ui_modal_open.mp3` | `confirmation_002.ogg` | Bottom-sheets, detail panels, quest button |
-| `ui_modal_close.mp3` | `minimize_005.ogg` | Closing modals + dismissing popups |
+| `ui_modal_close.mp3` | `pluck_002.ogg` | Closing modals + dismissing popups |
 | `ui_notification_ping.mp3` | `confirmation_001.ogg` | Achievement + streak milestone toasts |
 | `ui_swipe_room.mp3` | *unchanged* (user keep) | Page swipe between care rooms |
 | `ui_loading.mp3` | *unchanged* | Loading screens |
