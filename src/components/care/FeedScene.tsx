@@ -213,6 +213,10 @@ export default function FeedScene({ onClose }: Props) {
   const isDark = useIsDark()
 
   const [tab, setTab] = useState<'shop' | 'fridge' | null>(null)
+  // Active shop category. null = show the category picker; set = show that
+  // category's items. Resets whenever the shop drawer closes so re-opening
+  // always lands on the picker.
+  const [shopCat, setShopCat] = useState<string | null>(null)
   const [fridgeCat, setFridgeCat] = useState<string | null>(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('eren_fridge_cat') || null
     return null
@@ -545,8 +549,13 @@ export default function FeedScene({ onClose }: Props) {
             )
           })()}
 
-          {/* RIGHT: Shop button */}
-          <button onClick={() => { playSound(tab === 'shop' ? 'ui_modal_close' : 'ui_modal_open'); setTab(tab === 'shop' ? null : 'shop') }}
+          {/* RIGHT: Shop button — toggling shut also resets the shop
+              category, so re-opening always lands on the category picker. */}
+          <button onClick={() => {
+            const closing = tab === 'shop'
+            playSound(closing ? 'ui_modal_close' : 'ui_modal_open')
+            if (closing) { setShopCat(null); setTab(null) } else { setTab('shop') }
+          }}
             disabled={isSleeping}
             className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-white active:scale-95 transition-transform disabled:opacity-40"
             style={{ background: tab === 'shop' ? 'linear-gradient(135deg, #E8A020, #C07010)' : 'linear-gradient(135deg, #F5C842, #E8A020)', borderRadius: 12, border: '2px solid #C88018', boxShadow: tab === 'shop' ? '0 2px 0 #904800' : '0 3px 0 #A06010, inset 0 1px 0 rgba(255,255,255,0.3)', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
@@ -615,17 +624,35 @@ export default function FeedScene({ onClose }: Props) {
         </div>
       )}
 
-      {/* ══ SLIDE-UP DRAWER — shop only ══ */}
-      {tab === 'shop' && (
+      {/* ══ SLIDE-UP DRAWER — shop ══ */}
+      {/* Two phases: shopCat=null → category picker; shopCat=<id> → items in
+          that category with a back arrow. Closing the drawer (X or via the
+          bottom-bar shop button) resets shopCat so a fresh open lands on
+          the picker. */}
+      {tab === 'shop' && (() => {
+        const activeCat = shopCat ? FRIDGE_CATEGORIES.find(c => c.id === shopCat) ?? null : null
+        const closeShop = () => { playSound('ui_modal_close'); setShopCat(null); setTab(null) }
+        return (
         <div className="absolute bottom-0 left-0 right-0 z-40 flex flex-col"
           style={{ height: '52%', background: 'linear-gradient(180deg, #FFFBF0 0%, #FFF8E8 100%)', borderRadius: '16px 16px 0 0', borderTop: '3px solid #F5C842', boxShadow: '0 -4px 0 #E8A020' }}>
 
           {/* Drawer header */}
           <div className="flex items-center justify-between px-4 pt-3 pb-2 flex-shrink-0">
-            <span className="font-pixel text-amber-700 flex items-center gap-2" style={{ fontSize: 9 }}>
-              <ShoppingCart size={12} /> SHOP
-            </span>
-            <button onClick={() => { playSound('ui_modal_close'); setTab(null) }}
+            <div className="flex items-center gap-2">
+              {activeCat && (
+                <button onClick={() => { playSound('ui_back'); setShopCat(null) }}
+                  className="active:scale-90 transition-transform"
+                  style={{ background: '#F5EDD0', borderRadius: 6, border: '2px solid #E8C870', padding: '2px 7px', fontFamily: '"Press Start 2P"', fontSize: 8, color: '#A07020' }}
+                  aria-label="Back to categories">
+                  ◂
+                </button>
+              )}
+              <span className="font-pixel text-amber-700 flex items-center gap-2" style={{ fontSize: 9 }}>
+                <ShoppingCart size={12} />
+                {activeCat ? `SHOP · ${activeCat.label}` : 'SHOP'}
+              </span>
+            </div>
+            <button onClick={closeShop}
               className="active:scale-90 transition-transform"
               style={{ background: '#F5EDD0', borderRadius: 8, border: '2px solid #E8C870', padding: '3px 8px', fontFamily: '"Press Start 2P"', fontSize: 8, color: '#A07020' }}>
               ✕
@@ -633,38 +660,77 @@ export default function FeedScene({ onClose }: Props) {
           </div>
           <div style={{ height: 2, background: 'linear-gradient(90deg, transparent, #F5C842, transparent)', marginBottom: 4 }} />
 
-          <div className="overflow-y-auto px-3 py-1 flex-1">
-            <div className="grid grid-cols-2 gap-2">
-              {SHOP_ITEMS.map(item => {
-                const canAfford = coins >= item.price
-                return (
-                  <div key={item.id} className={cn('p-3 transition-all', !canAfford && 'opacity-55')}
-                    style={{ background: `linear-gradient(135deg, ${item.color}28 0%, ${item.color}10 100%)`, borderRadius: 3, border: `2px solid ${item.color}55`, boxShadow: `2px 2px 0 ${item.color}33` }}>
-                    <div className="flex items-start justify-between mb-1">
-                      <FoodIcon id={item.id} color={item.color} />
-                      <div className="flex items-center gap-0.5 px-1.5 py-0.5" style={{ background: '#FFF3C0', borderRadius: 2, border: '1px solid #F5C842' }}>
-                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'radial-gradient(circle at 38% 35%, #FFE878, #D4A818)', border: '1px solid #B08810' }} />
-                        <span className="font-pixel text-amber-600" style={{ fontSize: 7 }}>{item.price}</span>
+          <div className="overflow-y-auto px-3 py-2 flex-1">
+            {!activeCat ? (
+              /* PHASE 1 — category picker. Mirrors the fridge category list:
+                 colored row per category, two preview food icons + count. */
+              <div className="flex flex-col gap-2">
+                {FRIDGE_CATEGORIES.map(c => {
+                  const catItems = SHOP_ITEMS.filter(i => i.cat === c.id)
+                  const previewIcons = catItems.slice(0, 2)
+                  const cheapest = catItems.reduce((min, i) => i.price < min ? i.price : min, Infinity)
+                  return (
+                    <button key={c.id}
+                      onClick={() => { playSound('ui_select'); setShopCat(c.id) }}
+                      className="flex items-center gap-3 px-4 py-3 active:scale-[0.98] transition-transform w-full"
+                      style={{
+                        background: `linear-gradient(135deg, ${c.color}28 0%, ${c.color}10 100%)`,
+                        borderRadius: 6,
+                        border: `2px solid ${c.color}88`,
+                        boxShadow: `2px 2px 0 ${c.color}33`,
+                      }}>
+                      <div className="flex gap-1 flex-shrink-0">
+                        {previewIcons.map(i => (
+                          <FoodIcon key={i.id} id={i.id} color={i.color} />
+                        ))}
                       </div>
-                    </div>
-                    <p className="text-xs font-bold text-gray-800">{item.name}</p>
-                    <p className="text-[10px] text-gray-400 mb-1.5">{item.desc}</p>
-                    <div className="flex gap-2 text-[9px] text-gray-500 mb-2">
-                      <span>HGR +{item.hungerD}</span>
-                      <span>JOY +{item.happyD}</span>
-                    </div>
-                    <button onClick={() => { playSound('ui_tap'); handleBuy(item) }} disabled={!canAfford || buying === item.id}
-                      className="w-full py-1.5 text-white transition-all active:translate-y-[1px] disabled:opacity-40"
-                      style={{ background: canAfford ? item.color : '#ccc', borderRadius: 2, border: `1px solid ${canAfford ? 'rgba(0,0,0,0.15)' : '#bbb'}`, boxShadow: canAfford ? `0 2px 0 rgba(0,0,0,0.18)` : 'none', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
-                      {buying === item.id ? '...' : canAfford ? 'BUY' : 'BROKE'}
+                      <div className="flex-1 text-left">
+                        <span className="font-pixel block" style={{ fontSize: 9, color: c.color, letterSpacing: 1.5 }}>{c.label}</span>
+                        <span className="text-[10px]" style={{ color: '#8A7050' }}>
+                          {catItems.length} item{catItems.length !== 1 ? 's' : ''} · from {cheapest}c
+                        </span>
+                      </div>
+                      <span className="font-pixel" style={{ fontSize: 12, color: c.color }}>▸</span>
                     </button>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            ) : (
+              /* PHASE 2 — items in the active category. Same card layout as
+                 before; just filtered to one category. */
+              <div className="grid grid-cols-2 gap-2">
+                {SHOP_ITEMS.filter(i => i.cat === activeCat.id).map(item => {
+                  const canAfford = coins >= item.price
+                  return (
+                    <div key={item.id} className={cn('p-3 transition-all', !canAfford && 'opacity-55')}
+                      style={{ background: `linear-gradient(135deg, ${item.color}28 0%, ${item.color}10 100%)`, borderRadius: 3, border: `2px solid ${item.color}55`, boxShadow: `2px 2px 0 ${item.color}33` }}>
+                      <div className="flex items-start justify-between mb-1">
+                        <FoodIcon id={item.id} color={item.color} />
+                        <div className="flex items-center gap-0.5 px-1.5 py-0.5" style={{ background: '#FFF3C0', borderRadius: 2, border: '1px solid #F5C842' }}>
+                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'radial-gradient(circle at 38% 35%, #FFE878, #D4A818)', border: '1px solid #B08810' }} />
+                          <span className="font-pixel text-amber-600" style={{ fontSize: 7 }}>{item.price}</span>
+                        </div>
+                      </div>
+                      <p className="text-xs font-bold text-gray-800">{item.name}</p>
+                      <p className="text-[10px] text-gray-400 mb-1.5">{item.desc}</p>
+                      <div className="flex gap-2 text-[9px] text-gray-500 mb-2">
+                        <span>HGR +{item.hungerD}</span>
+                        <span>JOY +{item.happyD}</span>
+                      </div>
+                      <button onClick={() => { playSound('ui_tap'); handleBuy(item) }} disabled={!canAfford || buying === item.id}
+                        className="w-full py-1.5 text-white transition-all active:translate-y-[1px] disabled:opacity-40"
+                        style={{ background: canAfford ? item.color : '#ccc', borderRadius: 2, border: `1px solid ${canAfford ? 'rgba(0,0,0,0.15)' : '#bbb'}`, boxShadow: canAfford ? `0 2px 0 rgba(0,0,0,0.18)` : 'none', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
+                        {buying === item.id ? '...' : canAfford ? 'BUY' : 'BROKE'}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
-      )}
+        )
+      })()}
 
       <style jsx>{`
         .kettle-puff {
