@@ -158,6 +158,11 @@ export function computeLifetimeWLT(rows: DailyBattleRow[]): LifetimeWLT {
 
 // ── I/O: backfill missing daily snapshots ──────────────────────────────────
 
+// In-flight dedup for the same multi-mount reason as ensureLastWeekResult.
+// The home page mounts 5+ useCouple instances at once and each one would
+// otherwise duplicate the interactions fetch + the upsert round-trip.
+const backfillInFlight = new Map<string, Promise<DailyBattleRow[]>>()
+
 /**
  * Insert daily_battle_results rows for any past day in the lookback window
  * where my row is missing AND there was at least one tracked care action.
@@ -172,6 +177,24 @@ export async function backfillDailyResults(
   myId: string,
   partnerId: string,
   daysBack: number = LIFETIME_LOOKBACK_DAYS,
+): Promise<DailyBattleRow[]> {
+  const key = `${householdId}:${myId}:${daysBack}`
+  const existing = backfillInFlight.get(key)
+  if (existing) return existing
+  const promise = doBackfillDailyResults(supabase, householdId, myId, partnerId, daysBack)
+  backfillInFlight.set(key, promise)
+  promise.finally(() => {
+    if (backfillInFlight.get(key) === promise) backfillInFlight.delete(key)
+  })
+  return promise
+}
+
+async function doBackfillDailyResults(
+  supabase: SupabaseClient,
+  householdId: string,
+  myId: string,
+  partnerId: string,
+  daysBack: number,
 ): Promise<DailyBattleRow[]> {
   const targetDates = recentDates(daysBack)
   if (targetDates.length === 0) return []
@@ -260,11 +283,41 @@ export async function fetchLifetimeRows(
 
 // ── I/O: ensure last week's weekly row exists ──────────────────────────────
 
+// Module-level in-flight dedup. The home page mounts 5+ `useCouple`
+// instances on first load (ThoughtCloud, JealousEren, DailyBattleHUD,
+// etc.), and each one calls fetchAll → ensureLastWeekResult. Without
+// this, all of them race a SELECT-then-INSERT and N-1 hit the unique
+// constraint with a 409. With it, the first call wins and the rest
+// await the same promise.
+const ensureLastWeekInFlight = new Map<string, Promise<WeeklyBattleRow | null>>()
+
 /**
  * Returns my weekly_battle_results row for last ISO week, computing + writing
  * it on first call. Returns null if last week had no activity at all.
  */
 export async function ensureLastWeekResult(
+  supabase: SupabaseClient,
+  householdId: string,
+  myId: string,
+  partnerId: string,
+): Promise<WeeklyBattleRow | null> {
+  const { key } = lastIsoWeek()
+  const inFlightKey = `${householdId}:${myId}:${key}`
+  const existing = ensureLastWeekInFlight.get(inFlightKey)
+  if (existing) return existing
+  const promise = doEnsureLastWeekResult(supabase, householdId, myId, partnerId)
+  ensureLastWeekInFlight.set(inFlightKey, promise)
+  // Clear the latch when the work settles so a later refetch (e.g. on
+  // window focus after midnight) can compute again.
+  promise.finally(() => {
+    if (ensureLastWeekInFlight.get(inFlightKey) === promise) {
+      ensureLastWeekInFlight.delete(inFlightKey)
+    }
+  })
+  return promise
+}
+
+async function doEnsureLastWeekResult(
   supabase: SupabaseClient,
   householdId: string,
   myId: string,
@@ -303,23 +356,27 @@ export async function ensureLastWeekResult(
     acknowledged: false,
   }
 
-  // Insert if missing — if a concurrent call beat us, re-fetch.
-  const ins = await supabase
+  // Upsert with ignoreDuplicates — silently no-ops on a race instead of
+  // returning 409, matching the daily-snapshot pattern. If the insert
+  // happened we get the row back; if it was deduped, fall through to a
+  // refetch so we still return the winning instance's data.
+  const { data: inserted } = await supabase
     .from('weekly_battle_results')
-    .insert(row)
+    .upsert([row], {
+      onConflict: 'household_id,user_id,iso_week',
+      ignoreDuplicates: true,
+    })
     .select()
+  if (inserted && inserted.length > 0) return inserted[0] as WeeklyBattleRow
+
+  // Conflict path: the row was just inserted by a sibling. Re-fetch it.
+  const refetch = await supabase
+    .from('weekly_battle_results')
+    .select('*')
+    .eq('user_id', myId)
+    .eq('iso_week', key)
     .maybeSingle()
-  if (ins.data) return ins.data as WeeklyBattleRow
-  if (ins.error?.code === '23505') {
-    const refetch = await supabase
-      .from('weekly_battle_results')
-      .select('*')
-      .eq('user_id', myId)
-      .eq('iso_week', key)
-      .maybeSingle()
-    return (refetch.data as WeeklyBattleRow | null) ?? null
-  }
-  return row // best-effort fallback for the UI
+  return (refetch.data as WeeklyBattleRow | null) ?? row
 }
 
 /**
