@@ -13,6 +13,14 @@ import { IconHeart, IconMeat, IconLightning, IconMoon, IconDrop, IconCoin, IconF
 import { playSound } from '@/lib/sounds'
 import { PINK, PINK_HI, PINK_LO, OBSIDIAN_FACE, Rivets, accentA } from './obsidian'
 
+// Red triplet for the level-up reward badge + XP fill bar — wanted in
+// red instead of the global pink accent so the "progress / rewards" call
+// to action reads as a distinct signal next to the rest of the pink HUD.
+const RED_HI = '#FF7B7B'
+const RED    = '#E53935'
+const RED_LO = '#8E1F1B'
+const redA = (a: number) => `rgba(229,57,53,${a})`
+
 type StatKey = 'happiness' | 'hunger' | 'energy' | 'sleep_quality' | 'cleanliness'
 
 interface GaugeDef {
@@ -277,7 +285,9 @@ export default function StatsHeader() {
           </div>
 
           {/* Unclaimed reward count badge — same shape as the unread-message
-              badge on the home heart button. Sits at the top-right of the orb. */}
+              badge on the home heart button. Sits at the top-right of the orb.
+              Painted red instead of the global pink so the "claim me" signal
+              stands out against the rest of the pink HUD. */}
           {unclaimedRewards > 0 && (
             <div
               aria-label={`${unclaimedRewards} unclaimed rewards`}
@@ -285,9 +295,9 @@ export default function StatsHeader() {
               style={{
                 top: -3, right: -3,
                 minWidth: 16, height: 16, padding: '0 3px',
-                background: `linear-gradient(180deg, ${PINK_HI}, ${PINK} 60%, ${PINK_LO})`,
+                background: `linear-gradient(180deg, ${RED_HI}, ${RED} 60%, ${RED_LO})`,
                 border: '2px solid #050507',
-                boxShadow: `0 0 6px ${accentA(0.67)}, inset 0 1px 0 rgba(255,255,255,0.3)`,
+                boxShadow: `0 0 6px ${redA(0.7)}, inset 0 1px 0 rgba(255,255,255,0.3)`,
                 fontSize: 6,
                 color: '#fff',
                 textShadow: '0 1px 0 rgba(0,0,0,0.5)',
@@ -336,7 +346,9 @@ export default function StatsHeader() {
           }}>
             <div style={{
               width: `${xpPct}%`, height: '100%', position: 'relative',
-              background: `linear-gradient(180deg, ${PINK_HI} 0%, ${PINK} 40%, ${PINK_LO} 100%)`,
+              // Red fill (instead of the pink the rest of the HUD uses)
+              // so the level-up bar reads as a progress / payoff bar.
+              background: `linear-gradient(180deg, ${RED_HI} 0%, ${RED} 40%, ${RED_LO} 100%)`,
               boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.4)',
               transition: 'width 700ms ease-out',
             }}>
@@ -344,7 +356,7 @@ export default function StatsHeader() {
                 <div style={{
                   position: 'absolute', right: 0, top: 0, bottom: 0, width: 1.5,
                   background: '#fff',
-                  boxShadow: `0 0 6px ${PINK_HI}, 0 0 10px ${PINK}`,
+                  boxShadow: `0 0 6px ${RED_HI}, 0 0 10px ${RED}`,
                 }} />
               )}
             </div>
