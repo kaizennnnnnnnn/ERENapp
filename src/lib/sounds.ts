@@ -38,6 +38,7 @@ export const SOUNDS = {
   quest_complete:       '/sounds/progression/quest_complete.mp3',
   level_up:             '/sounds/progression/level_up.mp3',
   coin_pickup:          '/sounds/progression/coin_pickup.mp3',
+  gift_open:            '/sounds/progression/gift_open.mp3',
 
   // Care actions — fired by individual care scenes when Eren acts.
   care_eat:             '/sounds/care/care_eat.mp3',
@@ -64,6 +65,7 @@ const VOLUME_SCALE: Partial<Record<SoundName, number>> = {
   coin_pickup:    0.7,
   quest_complete: 0.7,
   level_up:       0.8,
+  gift_open:      0.85,
 }
 
 // Fallbacks let new sound names ship safely before the audio files land
@@ -77,6 +79,7 @@ const FALLBACK: Partial<Record<SoundName, SoundName>> = {
   quest_complete:         'ui_notification_ping',
   level_up:               'ui_notification_ping',
   coin_pickup:            'ui_notification_ping',
+  gift_open:              'level_up',
   gacha_reveal_common:    'ui_modal_open',
   gacha_reveal_rare:      'ui_notification_ping',
   gacha_reveal_epic:      'ui_notification_ping',

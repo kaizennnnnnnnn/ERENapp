@@ -256,7 +256,7 @@ export default function FortunePopup({ onClose }: Props) {
     // the network call returns instantly. Then lid pops, then full reveal.
     const elapsed = Date.now() - start
     const remaining = Math.max(0, 600 - elapsed)
-    setTimeout(() => setPhase('opening'), remaining)
+    setTimeout(() => { playSound('gift_open'); setPhase('opening') }, remaining)
     setTimeout(() => setPhase('reveal'),  remaining + 700)
   }
 
