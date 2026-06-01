@@ -25,20 +25,12 @@ interface Props {
 }
 
 export default function StinkyFlies({ cleanliness }: Props) {
-  if (cleanliness >= 40) return null
-
-  // More flies as cleanliness drops: 1-2 at 40, 3 at 25, all 5 below 10
-  const flyCount = cleanliness < 10 ? 5
-    : cleanliness < 20 ? 4
-    : cleanliness < 30 ? 3
-    : 2
-
-  const showPuffs = cleanliness < 25
+  if (cleanliness > 0) return null
 
   return (
     <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 5 }}>
       {/* Flies orbit around Eren's head area */}
-      {FLY_PATHS.slice(0, flyCount).map((fly, i) => (
+      {FLY_PATHS.map((fly, i) => (
         <div key={i} className="absolute" style={{
           left: '50%', bottom: '65%',
           animation: `${fly.name} ${fly.dur} ease-in-out infinite`,
@@ -52,8 +44,8 @@ export default function StinkyFlies({ cleanliness }: Props) {
         </div>
       ))}
 
-      {/* Green stink puffs when really dirty */}
-      {showPuffs && PUFF_POSITIONS.map((puff, i) => (
+      {/* Green stink puffs */}
+      {PUFF_POSITIONS.map((puff, i) => (
         <div key={`p${i}`} className="absolute" style={{
           left: puff.left,
           bottom: puff.bottom,
