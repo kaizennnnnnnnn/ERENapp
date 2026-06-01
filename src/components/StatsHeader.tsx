@@ -13,13 +13,18 @@ import { IconHeart, IconMeat, IconLightning, IconMoon, IconDrop, IconCoin, IconF
 import { playSound } from '@/lib/sounds'
 import { PINK, PINK_HI, PINK_LO, OBSIDIAN_FACE, Rivets, accentA } from './obsidian'
 
-// Red triplet for the level-up reward badge + XP fill bar — wanted in
-// red instead of the global pink accent so the "progress / rewards" call
-// to action reads as a distinct signal next to the rest of the pink HUD.
+// Red triplet for the unclaimed-rewards badge — distinct "claim me" signal
+// against the rest of the pink HUD.
 const RED_HI = '#FF7B7B'
 const RED    = '#E53935'
 const RED_LO = '#8E1F1B'
 const redA = (a: number) => `rgba(229,57,53,${a})`
+
+// Green triplet for the XP fill bar — reads as forward progress / leveling
+// up, separate from the red "rewards waiting" signal on the orb.
+const GREEN_HI = '#7BE89E'
+const GREEN    = '#22C55E'
+const GREEN_LO = '#15803D'
 
 type StatKey = 'happiness' | 'hunger' | 'energy' | 'sleep_quality' | 'cleanliness'
 
@@ -346,9 +351,8 @@ export default function StatsHeader() {
           }}>
             <div style={{
               width: `${xpPct}%`, height: '100%', position: 'relative',
-              // Red fill (instead of the pink the rest of the HUD uses)
-              // so the level-up bar reads as a progress / payoff bar.
-              background: `linear-gradient(180deg, ${RED_HI} 0%, ${RED} 40%, ${RED_LO} 100%)`,
+              // Green fill so the level-up bar reads as forward progress.
+              background: `linear-gradient(180deg, ${GREEN_HI} 0%, ${GREEN} 40%, ${GREEN_LO} 100%)`,
               boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.4)',
               transition: 'width 700ms ease-out',
             }}>
@@ -356,7 +360,7 @@ export default function StatsHeader() {
                 <div style={{
                   position: 'absolute', right: 0, top: 0, bottom: 0, width: 1.5,
                   background: '#fff',
-                  boxShadow: `0 0 6px ${RED_HI}, 0 0 10px ${RED}`,
+                  boxShadow: `0 0 6px ${GREEN_HI}, 0 0 10px ${GREEN}`,
                 }} />
               )}
             </div>
