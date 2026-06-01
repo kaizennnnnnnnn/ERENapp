@@ -6,7 +6,7 @@ import { useAuth } from './useAuth'
 import type { Profile, JournalMessage, Interaction, GiftItem, UserMood, StreakData } from '@/types'
 import { format, subDays } from 'date-fns'
 import { computeLoveMeter, getAnniversaryInfo, startOfWeek, type LoveMeterResult, type AnniversaryInfo } from '@/lib/couple'
-import type { NudgeDef } from '@/lib/nudges'
+import { resolveNudgeMessage, type NudgeDef } from '@/lib/nudges'
 import {
   backfillDailyResults, fetchLifetimeRows, computeLifetimeWLT,
   ensureLastWeekResult, claimWeeklyPayout, acknowledgeWeeklyResult,
@@ -267,10 +267,13 @@ export function useCouple() {
   const sendNudge = useCallback(async (nudge: NudgeDef): Promise<boolean> => {
     if (!user?.id || !profile?.household_id) return false
 
+    // The "Thinking" nudge picks its heart emoji from the sender's email.
+    const messageText = resolveNudgeMessage(nudge, user.email)
+
     const { error } = await supabase.from('couple_journal').insert({
       household_id: profile.household_id,
       sender_id: user.id,
-      message: nudge.message,
+      message: messageText,
       via_eren: true,
       eren_state: nudge.state,
     })
@@ -283,7 +286,7 @@ export function useCouple() {
         household_id: profile.household_id,
         sender_id: user.id,
         sender_name: profile.name ?? '',
-        message: nudge.message,
+        message: messageText,
         via_eren: false,
       }),
     }).catch(() => { /* best-effort */ })

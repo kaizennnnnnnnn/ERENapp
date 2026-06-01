@@ -16,8 +16,23 @@ export const NUDGE_DEFS: NudgeDef[] = [
   { id: 'loveyou', label: 'I Love You', state: 'love', message: 'I love you so much!' },
   { id: 'kiss',    label: 'Kiss',       state: 'kiss', message: 'Sending you a big kiss!' },
   { id: 'miss',    label: 'Miss You',   state: 'shy',  message: 'I miss you so much!' },
-  { id: 'think',   label: 'Thinking',   state: 'wink', message: "I'm thinking about you right now!" },
+  { id: 'think',   label: 'Thinking',   state: 'wink', message: "Just I'm thinking about you" },
 ]
+
+// The "Thinking" nudge appends a heart at send time, picked by sender:
+// brown for me, pink for her. The mapping is intentionally hardcoded —
+// this is a two-person household app and the alternative (per-profile
+// heart preference + UI to set it) would be overkill.
+const MY_EMAIL = 'jocaspinjo@gmail.com'
+
+export function resolveNudgeMessage(
+  nudge: NudgeDef,
+  senderEmail: string | null | undefined,
+): string {
+  if (nudge.id !== 'think') return nudge.message
+  const heart = senderEmail === MY_EMAIL ? '🤎' : '💗'
+  return `${nudge.message} ${heart}`
+}
 
 // Nudges are intentionally spammable — the partner-side popup is the
 // fun moment. No cooldown.
