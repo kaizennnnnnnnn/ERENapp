@@ -30,7 +30,7 @@ export function resolveNudgeMessage(
   senderEmail: string | null | undefined,
 ): string {
   if (nudge.id !== 'think') return nudge.message
-  const heart = senderEmail === MY_EMAIL ? '🤎' : '💗'
+  const heart = senderEmail === MY_EMAIL ? '🤎' : '🩷'
   return `${nudge.message} ${heart}`
 }
 
