@@ -262,15 +262,16 @@
   0%, 100% { transform: scaleY(1)     translateZ(0); }
   50%      { transform: scaleY(1.022) translateZ(0); }
 }
-/* Living catchlight — the eye shine is baked into the flat PNG, so we float
-   a tiny bright glint over each eye and drift it a sub-pixel amount with a
-   soft opacity twinkle. Reads as a wet, alive eye instead of a dead sticker.
-   Movements are intentionally tiny (~1px at 200px) so it's felt, not seen. */
+/* Living catchlight — the eye shine is baked into the flat PNG. We sit a
+   matched bright glint exactly on top of that existing highlight and bring
+   it to life with an in-place twinkle (scale + opacity) plus a micro-drift.
+   The drift is far smaller than the glint, so it always stays over the baked
+   pixel — it reads as the SAME shine breathing, never a second dot. */
 @keyframes erenEyeShine {
-  0%, 100% { transform: translate(0, 0);          opacity: 0.85; }
-  30%      { transform: translate(1px, -0.6px);   opacity: 1;    }
-  55%      { transform: translate(0.5px, 0.7px);  opacity: 0.7;  }
-  80%      { transform: translate(-0.6px, 0.3px); opacity: 1;    }
+  0%, 100% { transform: translate(0, 0)           scale(1);    opacity: 0.92; }
+  25%      { transform: translate(0.4px, -0.3px)  scale(1.18); opacity: 1;    }
+  55%      { transform: translate(0.2px, 0.35px)  scale(0.85); opacity: 0.78; }
+  80%      { transform: translate(-0.3px, 0.15px) scale(1.12); opacity: 1;    }
 }
 
 /* ── Heartbeat for low stats ── */
