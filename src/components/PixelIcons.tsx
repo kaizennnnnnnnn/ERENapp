@@ -519,22 +519,25 @@ export function IconSparkles({ size = 20 }: IconProps) {
 
 // ── CONTROLLER (games chip) ───────────────────────────────────────────────
 export function IconController({ size = 20 }: IconProps) {
+  // Gamepad — clearly readable d-pad on the left, two action buttons on the
+  // right, handle bumps at the bottom. Old version had W/K/W/K patterns the
+  // eye couldn't parse below 40px.
   const grid = [
-    '............',
     '............',
     '..KKKKKKKK..',
     '.KPPPPPPPPK.',
-    'KPPWKPPPPPPK',
-    'KPWWWKPPBPPK',
-    'KPPWKPRPBPPK',
-    'KPPPPPPPBBPK',
-    'KPPPPPPRPPPK',
+    'KPPWPPPPRPPK',
+    'KPWWWPPPPPPK',
+    'KPPWPPPPYBPK',
+    'KPPPPPPPPPPK',
+    'KPPPPPPPPPPK',
+    'KPPPPPPPPPPK',
     '.KKKKKKKKKK.',
-    '..KK....KK..',
+    '..KKK..KKK..',
     '............',
   ]
   return drawPixels(grid, {
-    K: '#2A1040', P: '#A78BFA', W: '#FFFFFF', R: '#FF4D7D', B: '#38BDF8',
+    K: '#1A0A2A', P: '#7C5DD4', W: '#FFFFFF', R: '#FF4D7D', B: '#38BDF8', Y: '#FFD700',
   }, size)
 }
 
@@ -666,22 +669,25 @@ export function IconMouse({ size = 20 }: IconProps) {
 
 // ── YARN BALL ─────────────────────────────────────────────────────────────
 export function IconYarn({ size = 20 }: IconProps) {
+  // Yarn ball — bold dark outline + clear diagonal strands that read at
+  // small render sizes. The previous version washed into a pink blob in the
+  // Memory Wall thumbnails; this one keeps strand contrast tight.
   const grid = [
     '............',
+    '....KKKK....',
+    '..KKLPPLKK..',
+    '.KLPDPPDPLK.',
+    'KLPPDPDPPPLK',
+    'KPDPPDPPDPDK',
+    'KPPDPPDPPDPK',
+    'KLPDPDPPDPLK',
+    '.KPPDPDPPPK.',
+    '..KLPPPPLK..',
     '...KKKKKK...',
-    '..KPPPPPPK..',
-    '.KPLPPPPPPK.',
-    'KPLPPDPPPPPK',
-    'KPPPDPPPDPPK',
-    'KPDPPPPDPPPK',
-    'KPPPPDPPPDPK',
-    'KPPDPPPPPPPK',
-    '.KPPPPDPPPK.',
-    '..KPPPPPPK..',
-    '...KKKKKK...',
+    '............',
   ]
   return drawPixels(grid, {
-    K: '#991A4A', P: '#FF6B9D', D: '#CC3366', L: '#FFC8D8',
+    K: '#5A0A28', P: '#FF6B9D', D: '#A8204F', L: '#FFD0DC',
   }, size)
 }
 
@@ -708,43 +714,48 @@ export function IconFish({ size = 20 }: IconProps) {
 
 // ── BATHTUB (bathroom) ────────────────────────────────────────────────────
 export function IconBath({ size = 20 }: IconProps) {
+  // Bathtub with bubbles floating above + water inside. Bubbles give it a
+  // recognisable silhouette at small size; the steam was previously the
+  // only "bath" cue and didn't read.
   const grid = [
-    '.W....W.....',
-    'W.W..W.W....',
-    '.W....W.....',
-    '............',
+    '.O....OO....',
+    'O.O..O..O...',
+    '.O....OO....',
     'KKKKKKKKKKKK',
     'KWWWWWWWWWWK',
-    'KWBBBBBBBBWK',
-    'KWBBBBBBBBWK',
-    'KWBBBBBBBBWK',
+    'KBBOBBBBOBBK',
+    'KBBBBBOBBBBK',
+    'KBOBBBBBBOBK',
+    'KBBBOBBOBBBK',
     'KWWWWWWWWWWK',
-    'KKKKKKKKKKKK',
+    'KK........KK',
     '.K........K.',
   ]
   return drawPixels(grid, {
-    K: '#4A4A5A', W: '#F5F5F8', B: '#6BAED6',
+    K: '#1A3A5A', W: '#E0EEF8', B: '#3B8FC8', O: '#FFFFFF',
   }, size)
 }
 
 // ── PILL (vet / medicine) ─────────────────────────────────────────────────
 export function IconPill({ size = 20 }: IconProps) {
+  // Capsule pill — half coloured, half white, with a clear seam down the
+  // middle. The previous diagonal lozenge read as a smear at thumbnail size.
   const grid = [
-    '...KKKK.....',
-    '..KRRRRK....',
-    '.KRRRRRRKK..',
-    'KRRLRRRRRKK.',
-    'KRLLRRKKWWWK',
-    'KRRRRKKWWWWK',
-    'KRRRKKWWWWWK',
-    '.KKKWWWWWLWK',
-    '..KWWWWWLLWK',
-    '...KWWWWWWK.',
-    '....KKKKKK..',
+    '............',
+    '..KKKKKKKK..',
+    '.KRRRRKWWWK.',
+    'KRRLRRKWWWWK',
+    'KRRRRRKWWWWK',
+    'KRLRRRKWWLWK',
+    'KRRRRRKWWWWK',
+    'KRRRRRKWWLWK',
+    'KRRLRRKWWWWK',
+    '.KRRRRKWWWK.',
+    '..KKKKKKKK..',
     '............',
   ]
   return drawPixels(grid, {
-    K: '#4A0A1A', R: '#FF6B9D', L: '#FFC0D5', W: '#FFF8E8',
+    K: '#4A0A1A', R: '#FF6B9D', L: '#FFC0D5', W: '#FFFEF6',
   }, size)
 }
 
@@ -797,22 +808,26 @@ export function IconStethoscope({ size = 20 }: IconProps) {
 
 // ── HEART CARD (couple US chip) ───────────────────────────────────────────
 export function IconHeartDuo({ size = 20 }: IconProps) {
+  // Two interlocked hearts — brown on the left (Jovan), pink on the right
+  // (her). Matches the heart-color convention used everywhere else in the
+  // app for sender attribution.
   const grid = [
-    '.KK.KK......',
-    'KPPKPPK.....',
-    'KPWPPPK..KK.',
-    'KPPPPPK.KPPK',
-    '.KPPPKK.KWPK',
-    '..KPPKKKKPPK',
-    '...KPKPPPPK.',
-    '....KKPPPK..',
-    '.....KPPK...',
-    '.....KPK....',
-    '......K.....',
+    '.BB....KK...',
+    'BMMBB.KPPK..',
+    'BMLMMBKPWPK.',
+    'BMMMMBKPPPK.',
+    '.BMMBBPPPK..',
+    '..BMBBPPK...',
+    '...BBPPK....',
+    '...BBPK.....',
+    '....BK......',
+    '............',
+    '............',
     '............',
   ]
   return drawPixels(grid, {
-    K: '#8B1538', P: '#FF4D7D', W: '#FFC0D0',
+    B: '#5A3020', M: '#A86040', L: '#E0C0A0',     // brown heart
+    K: '#7A1238', P: '#FF4D7D', W: '#FFC8D8',     // pink heart
   }, size)
 }
 
