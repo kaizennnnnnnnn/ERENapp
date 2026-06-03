@@ -18,6 +18,13 @@ interface PushSub {
   auth: string
 }
 
+/** Sender-tinted heart for push notification copy. Brown for Jovan, pink for
+ *  the partner — matches the in-app convention used by ThoughtCloud / wish
+ *  bubble / memory reactions. */
+export function heartForEmail(email: string | null | undefined): string {
+  return email === 'jocaspinjo@gmail.com' ? '🤎' : '🩷'
+}
+
 export async function sendPush(sub: PushSub, title: string, body: string, tag?: string, url?: string): Promise<boolean> {
   try {
     await webpush.sendNotification(

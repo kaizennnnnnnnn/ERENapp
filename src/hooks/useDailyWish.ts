@@ -337,6 +337,18 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
         detail: { wishId: wish.id, by: opts.userId, coinsPaid: wish.coinReward },
       }))
     } catch { /* ignore */ }
+
+    // Push the granted-state to the partner (PR 9). Idempotent — the route
+    // gates on eren_wishes.granted_pushed_at and stamps it on success.
+    fetch('/api/notify-wish-granted', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        household_id: opts.householdId,
+        period_key:   todayKey,
+        granter_id:   opts.userId,
+      }),
+    }).catch(() => { /* best-effort; the realtime UPDATE still flips the UI */ })
   }, [row, opts.householdId, opts.userId, todayKey, buildActions])
 
   // ── Event listeners for the action stream.

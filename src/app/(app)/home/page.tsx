@@ -50,6 +50,8 @@ import ErenSpeechBubble from '@/components/wish/ErenSpeechBubble'
 import { useFlavorBubble } from '@/hooks/useFlavorBubble'
 import { useCatchupGate } from '@/hooks/useCatchupGate'
 import CatchupCarousel from '@/components/memory/CatchupCarousel'
+import ErenPartyHat from '@/components/couple/ErenPartyHat'
+import { useEventToday } from '@/hooks/useEventToday'
 
 interface XpParticle {
   id: number; x: number; y: number; tx: number; ty: number
@@ -298,6 +300,29 @@ export default function HomePage() {
     leaderName,
     viewerName: profile?.name ?? '',
     partnerName: partner?.name ?? null,
+    quietEren: profile?.quiet_eren_optin === true,
+  })
+
+  // ── Phase 3 PR 10: party-hat event detection. Pull the two household-level
+  // dates once and feed them + both profiles' birthdays into useEventToday.
+  // The hat overlay only mounts when today matches one.
+  const [hhDates, setHhDates] = useState<{ eren_birthday: string | null, couple_anniversary: string | null }>({ eren_birthday: null, couple_anniversary: null })
+  useEffect(() => {
+    if (!profile?.household_id) return
+    void supabase
+      .from('households')
+      .select('eren_birthday, couple_anniversary')
+      .eq('id', profile.household_id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setHhDates({ eren_birthday: data.eren_birthday, couple_anniversary: data.couple_anniversary })
+      })
+  }, [profile?.household_id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const partyReason = useEventToday({
+    erenBirthday:      hhDates.eren_birthday,
+    coupleAnniversary: hhDates.couple_anniversary,
+    myBirthday:        profile?.birthday ?? null,
+    partnerBirthday:   partner?.birthday ?? null,
   })
 
   // Phase 3 PR 8 — backdated catchup carousel. Fires once per profile after
@@ -537,6 +562,18 @@ export default function HomePage() {
                 <ErenIdleLayer>
                   <BlinkingEren id="eren-img" size={200} />
                   <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
+
+                  {partyReason && (
+                    <div style={{
+                      position: 'absolute',
+                      top: -18, left: '50%',
+                      transform: 'translateX(-50%)',
+                      zIndex: 11,
+                      pointerEvents: 'none',
+                    }}>
+                      <ErenPartyHat reason={partyReason} size={64} />
+                    </div>
+                  )}
 
                   {/* Outfit overlays — % positions are relative to the parent
                       absolute div, which is sized by BlinkingEren (200×200). */}

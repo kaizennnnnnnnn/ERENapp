@@ -40,6 +40,11 @@ export interface UseFlavorBubbleOptions {
   leaderName: string | null
   viewerName: string
   partnerName: string | null
+  /** Phase 3 PR 10: when the viewer opted into quiet_eren_optin we double
+   *  the idle cycle (60–90s → 120–180s) so Eren chatters about half as
+   *  often. Memory pushes are silenced server-side; this is the client
+   *  half of the same vibe. */
+  quietEren?: boolean
 }
 
 export interface FlavorBubble {
@@ -130,21 +135,23 @@ export function useFlavorBubble(opts: UseFlavorBubbleOptions): {
     if (rendered) show(rendered)
   }, [renderLine, show])
 
-  // ── Idle cycle: schedules the next bubble 60–90s out, recurses forever.
+  // ── Idle cycle: schedules the next bubble 60–90s out (or 120–180s when
+  // quiet_eren_optin is on), recurses forever.
   useEffect(() => {
     if (!opts.enabled) return
+    const multiplier = opts.quietEren ? 2 : 1
     const tick = () => {
       if (cycleTimerRef.current) clearTimeout(cycleTimerRef.current)
       cycleTimerRef.current = setTimeout(() => {
         pickAndShow('idle-pool')
         tick()
-      }, range(IDLE_CYCLE_MIN_MS, IDLE_CYCLE_MAX_MS))
+      }, range(IDLE_CYCLE_MIN_MS * multiplier, IDLE_CYCLE_MAX_MS * multiplier))
     }
     tick()
     return () => {
       if (cycleTimerRef.current) clearTimeout(cycleTimerRef.current)
     }
-  }, [opts.enabled, pickAndShow])
+  }, [opts.enabled, opts.quietEren, pickAndShow])
 
   // ── gap_24h: fires once on first eligible tick of the session if the last
   // seen stamp is 24h+ old. The stamp updates continuously below, so a normal

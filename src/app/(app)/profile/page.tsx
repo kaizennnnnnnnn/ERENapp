@@ -64,16 +64,84 @@ export default function ProfilePage() {
   const [nameEditing, setNameEditing] = useState(false)
   const [moods, setMoods]             = useState<DailyMood[]>([])
   const [moodAlerts, setMoodAlerts]   = useState(true)
+  // Phase 3 PR 9/10 — per-channel push opt-ins + quiet Eren mode.
+  const [wishPush, setWishPush]       = useState(true)
+  const [memoryPush, setMemoryPush]   = useState(true)
+  const [quietEren, setQuietEren]     = useState(false)
+  // Phase 3 PR 9 — 4-countdown strip. Two profile birthdays + two household
+  // dates (eren_birthday, couple_anniversary).
+  const [myBirthday, setMyBirthday]               = useState<string>('')
+  const [erenBirthday, setErenBirthday]           = useState<string>('')
+  const [coupleAnniversary, setCoupleAnniversary] = useState<string>('')
 
   useEffect(() => {
     if (profile) setMoodAlerts(profile.mood_alert_optin ?? true)
   }, [profile?.mood_alert_optin]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!profile) return
+    setWishPush(profile.wish_push_optin ?? true)
+    setMemoryPush(profile.memory_push_optin ?? true)
+    setQuietEren(profile.quiet_eren_optin ?? false)
+    setMyBirthday(profile.birthday ?? '')
+  }, [profile?.wish_push_optin, profile?.memory_push_optin, profile?.quiet_eren_optin, profile?.birthday]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!profile?.household_id) return
+    void supabase.from('households').select('eren_birthday, couple_anniversary').eq('id', profile.household_id).maybeSingle()
+      .then(({ data }) => {
+        if (!data) return
+        setErenBirthday((data.eren_birthday as string | null) ?? '')
+        setCoupleAnniversary((data.couple_anniversary as string | null) ?? '')
+      })
+  }, [profile?.household_id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function toggleMoodAlerts() {
     if (!user?.id) return
     const next = !moodAlerts
     setMoodAlerts(next)
     await supabase.from('profiles').update({ mood_alert_optin: next }).eq('id', user.id)
+  }
+  async function toggleWishPush() {
+    if (!user?.id) return
+    const next = !wishPush
+    setWishPush(next)
+    await supabase.from('profiles').update({ wish_push_optin: next }).eq('id', user.id)
+  }
+  async function toggleMemoryPush() {
+    if (!user?.id) return
+    const next = !memoryPush
+    setMemoryPush(next)
+    await supabase.from('profiles').update({ memory_push_optin: next }).eq('id', user.id)
+  }
+  async function toggleQuietEren() {
+    if (!user?.id) return
+    const next = !quietEren
+    setQuietEren(next)
+    await supabase.from('profiles').update({ quiet_eren_optin: next }).eq('id', user.id)
+  }
+  async function saveMyBirthday(value: string) {
+    if (!user?.id) return
+    setMyBirthday(value)
+    await supabase.from('profiles').update({ birthday: value || null }).eq('id', user.id)
+  }
+  async function saveErenBirthday(value: string) {
+    if (!profile?.household_id) return
+    setErenBirthday(value)
+    await supabase.from('households').update({ eren_birthday: value || null }).eq('id', profile.household_id)
+  }
+  async function saveCoupleAnniversary(value: string) {
+    if (!profile?.household_id) return
+    setCoupleAnniversary(value)
+    await supabase.from('households').update({ couple_anniversary: value || null }).eq('id', profile.household_id)
+  }
+
+  // Days-until helper for the 4-countdown strip.
+  function daysUntil(mmdd: string | null): number | null {
+    if (!mmdd || mmdd.length < 10) return null
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const tgt = new Date(today.getFullYear(), Number(mmdd.slice(5, 7)) - 1, Number(mmdd.slice(8, 10)))
+    if (tgt < today) tgt.setFullYear(tgt.getFullYear() + 1)
+    return Math.round((tgt.getTime() - today.getTime()) / 86400000)
   }
 
   useEffect(() => {
@@ -564,6 +632,103 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      {/* ── Phase 3 — 4-countdown strip + dates ── */}
+      <div className="mb-4 p-4 relative" style={OBSIDIAN_FACE}>
+        <Rivets inset={4} size={3} />
+        <div className="flex items-center gap-2 mb-3">
+          <ObsidianChip accentRgb="245,200,66">
+            <IconClock size={12} />
+            <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>SPECIAL DAYS</span>
+          </ObsidianChip>
+        </div>
+        <div className="grid grid-cols-4 gap-2 mb-3">
+          {([
+            { label: 'YOU',  date: myBirthday,        emoji: '🤎' },
+            { label: 'HER',  date: partner?.birthday ?? '', emoji: '🩷' },
+            { label: 'EREN', date: erenBirthday,      emoji: '🐾' },
+            { label: 'US',   date: coupleAnniversary, emoji: '💍' },
+          ] as const).map(c => {
+            const days = daysUntil(c.date)
+            return (
+              <div key={c.label} className="flex flex-col items-center gap-1 p-2 relative"
+                style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(245,200,66,0.18)',
+                  borderRadius: 4,
+                }}>
+                <span style={{ fontSize: 14 }}>{c.emoji}</span>
+                <span className="font-pixel" style={{ fontSize: 5, color: '#A78BFA', letterSpacing: 1 }}>{c.label}</span>
+                <span className="font-pixel" style={{
+                  fontSize: 7, color: days !== null ? '#F5C842' : '#5A4A55',
+                  textShadow: days !== null ? '0 0 4px rgba(245,200,66,0.4)' : 'none',
+                }}>
+                  {days === null ? '— —' : days === 0 ? 'TODAY!' : `${days}D`}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+        <div className="grid grid-cols-1 gap-2 text-xs">
+          <label className="flex items-center justify-between gap-3" style={{ color: '#9A8090' }}>
+            <span>Your birthday</span>
+            <input type="date" value={myBirthday} onChange={e => saveMyBirthday(e.target.value)}
+              style={{ background: '#1A1018', color: '#F0E0E8', border: '1px solid rgba(245,200,66,0.3)', padding: '4px 6px', borderRadius: 3, fontSize: 11 }} />
+          </label>
+          <label className="flex items-center justify-between gap-3" style={{ color: '#9A8090' }}>
+            <span>Eren&apos;s birthday</span>
+            <input type="date" value={erenBirthday} onChange={e => saveErenBirthday(e.target.value)}
+              style={{ background: '#1A1018', color: '#F0E0E8', border: '1px solid rgba(245,200,66,0.3)', padding: '4px 6px', borderRadius: 3, fontSize: 11 }} />
+          </label>
+          <label className="flex items-center justify-between gap-3" style={{ color: '#9A8090' }}>
+            <span>Your anniversary</span>
+            <input type="date" value={coupleAnniversary} onChange={e => saveCoupleAnniversary(e.target.value)}
+              style={{ background: '#1A1018', color: '#F0E0E8', border: '1px solid rgba(245,200,66,0.3)', padding: '4px 6px', borderRadius: 3, fontSize: 11 }} />
+          </label>
+        </div>
+      </div>
+
+      {/* ── Phase 3 — Notification opt-ins ── */}
+      <div className="mb-4 p-4 relative" style={OBSIDIAN_FACE}>
+        <Rivets inset={4} size={3} />
+        <div className="flex items-center gap-2 mb-3">
+          <ObsidianChip accentRgb="167,139,250">
+            <IconHeart size={12} />
+            <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>NOTIFICATIONS</span>
+          </ObsidianChip>
+        </div>
+        {([
+          { label: "When the partner grants Eren's wish", value: wishPush,   on: toggleWishPush },
+          { label: 'When new memories land on the wall',  value: memoryPush, on: toggleMemoryPush },
+          { label: 'Quieter Eren — half the chatter, no memory pushes', value: quietEren, on: toggleQuietEren },
+        ] as const).map(row => (
+          <div key={row.label} className="flex items-center gap-3 mb-2">
+            <p className="flex-1 text-xs" style={{ color: '#9A8090', lineHeight: 1.5 }}>{row.label}</p>
+            <button
+              onClick={() => { playSound('ui_toggle'); row.on() }}
+              role="switch"
+              aria-checked={row.value}
+              className="flex-shrink-0 relative active:translate-y-[1px] transition-transform"
+              style={{
+                width: 44, height: 24, borderRadius: 12,
+                background: row.value
+                  ? `linear-gradient(180deg, ${PINK_HI}, ${PINK} 60%, ${PINK_LO})`
+                  : 'linear-gradient(180deg, #2a2a32, #14141a)',
+                border: `1px solid ${row.value ? accentA(0.6) : 'rgba(255,255,255,0.1)'}`,
+                boxShadow: row.value ? `0 0 8px ${accentA(0.45)}, inset 0 1px 0 rgba(255,255,255,0.25)` : 'inset 0 1px 2px rgba(0,0,0,0.6)',
+              }}
+            >
+              <div style={{
+                position: 'absolute', top: 2, left: row.value ? 22 : 2,
+                width: 18, height: 18, borderRadius: '50%',
+                background: '#fff',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.5)',
+                transition: 'left 160ms ease-out',
+              }} />
+            </button>
+          </div>
+        ))}
+      </div>
 
       {/* ── Theme switcher ── */}
       <div className="mb-4 p-4 relative" style={OBSIDIAN_FACE}>

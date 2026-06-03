@@ -53,6 +53,14 @@ export interface Profile {
   achievements?: AchievementMap
   // Recipient opt-in: receive a push when the partner logs a low mood.
   mood_alert_optin?: boolean
+  // Phase 3 PR 9 — push opt-ins per channel.
+  wish_push_optin?: boolean
+  memory_push_optin?: boolean
+  // Phase 3 PR 10 — quiets Eren's flavor bubble (doubles cycle) + silences
+  // server-side memory unlock pushes for the user who opts in.
+  quiet_eren_optin?: boolean
+  birthday?: string | null
+  email?: string
   created_at: string
   updated_at: string
 }
