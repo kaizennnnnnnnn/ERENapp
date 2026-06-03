@@ -45,6 +45,11 @@ const SHOP_ITEMS = [
   // Special
   { id: 'cake'    as const, name: 'Cake',       price: 35, hungerD: 15, happyD: 40, weightD: 0.08, desc: 'Birthday special',   color: '#FF85A2', cat: 'special' },
   { id: 'egg'     as const, name: 'Egg',        price: 4,  hungerD: 16, happyD: 4,  weightD: 0.03, desc: 'Simple & nutritious',color: '#F5E6C8', cat: 'special' },
+  // Sweet (new — referenced by Phase 3 wishes)
+  { id: 'monster'    as const, name: 'Monster Zero',price: 12, hungerD: 5,  happyD: 15, weightD: 0.01, desc: 'Sugar-free buzz',  color: '#1ED760', cat: 'special' },
+  { id: 'donut'      as const, name: 'Donut',       price: 14, hungerD: 12, happyD: 22, weightD: 0.04, desc: 'Pink & sprinkled', color: '#FF8FB0', cat: 'special' },
+  { id: 'cookie'     as const, name: 'Cookie',      price: 7,  hungerD: 8,  happyD: 18, weightD: 0.02, desc: 'Choc-chip warm',   color: '#C89A6B', cat: 'special' },
+  { id: 'jelly_caka' as const, name: 'Jelly Caka',  price: 20, hungerD: 14, happyD: 30, weightD: 0.05, desc: 'Sweet wobble',     color: '#E83A4A', cat: 'special' },
 ]
 
 const FRIDGE_CATEGORIES = [
@@ -196,6 +201,39 @@ function FoodIcon({ id }: { id: string; color?: string }) {
       {r(3,2,4,2,'#F5E6C8')}{r(2,4,6,3,'#F5E6C8')}{r(3,7,4,1,'#E8D8B0')}
       {r(4,4,2,2,'#F5C842')}{r(3,3,1,1,'rgba(255,255,255,0.4)')}
       {r(5,3,1,1,'rgba(255,255,255,0.25)')}{r(2,7,1,0,'transparent')}
+    </svg>
+  )
+  if (id === 'monster') return (
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(3,1,4,8,'#0F0F0F')}{r(3,0,4,1,'#2A2A2A')}{r(3,9,4,1,'#1A1A1A')}
+      {r(4,2,2,2,'#00FF6A')}{r(4,4,1,1,'#00FF6A')}{r(5,4,1,1,'#00FF6A')}
+      {r(3,6,4,1,'#FFFFFF')}{r(4,6,1,1,'#0F0F0F')}{r(5,6,1,1,'#0F0F0F')}
+      {r(3,1,1,3,'rgba(255,255,255,0.15)')}
+    </svg>
+  )
+  if (id === 'donut') return (
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(2,3,6,4,'#C89460')}{r(3,2,4,1,'#C89460')}{r(3,7,4,1,'#A0703D')}
+      {r(4,4,2,2,'#FDF6FF')}
+      {r(2,3,6,1,'#FF8FB0')}{r(3,2,4,1,'#FFB0C8')}
+      {r(3,3,1,1,'#FFD700')}{r(5,2,1,1,'#5BA3D9')}{r(6,3,1,1,'#1ED760')}
+    </svg>
+  )
+  if (id === 'cookie') return (
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(2,3,6,4,'#C89A6B')}{r(3,2,4,1,'#D8AA7B')}{r(3,7,4,1,'#A07A4B')}
+      {r(2,4,1,2,'#B88858')}{r(7,4,1,2,'#B88858')}
+      {r(3,4,1,1,'#4A2A1A')}{r(5,3,1,1,'#4A2A1A')}
+      {r(6,5,1,1,'#4A2A1A')}{r(4,5,1,1,'#4A2A1A')}
+      {r(3,3,1,1,'rgba(255,255,255,0.3)')}
+    </svg>
+  )
+  if (id === 'jelly_caka') return (
+    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
+      {r(2,6,6,2,'#F5E6C8')}{r(2,4,6,2,'#FFB0C8')}{r(2,2,6,2,'#E83A4A')}
+      {r(3,1,4,1,'#FF5060')}{r(2,8,6,1,'#B07840')}
+      {r(2,5,1,1,'#E8909C')}{r(7,5,1,1,'#C89090')}
+      {r(3,2,1,1,'rgba(255,255,255,0.35)')}
     </svg>
   )
   // fallback
@@ -369,6 +407,13 @@ export default function FeedScene({ onClose }: Props) {
     // Eren starts munching the moment the food lands — fire the eating
     // sound before the network round-trip so playback feels immediate.
     playSound('care_eat')
+    // Signal the food key for the Daily Wish system — useDailyWish picks
+    // this up to match food-specific wishes like "i'm craving salmon".
+    try {
+      window.dispatchEvent(new CustomEvent('eren:fed-food', { detail: {
+        food: item.id, user_id: user.id, household_id: profile?.household_id,
+      } }))
+    } catch { /* SSR/no-window */ }
     const result = await feedWithFood(user.id, item.hungerD, item.happyD, item.weightD)
     showToast(result.message, result.success)
     setFeeding(null)

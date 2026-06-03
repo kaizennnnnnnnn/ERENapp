@@ -293,7 +293,12 @@ export function useCouple() {
 
     // Daily-quest + first-nudge achievement live in TaskContext; signal
     // both via a window event so we keep useCouple free of TaskContext.
-    try { window.dispatchEvent(new Event('eren:nudge-sent')) } catch { /* ignore */ }
+    // Phase 3: detail carries the nudge id so useDailyWish can match
+    // nudge-specific wishes (kiss, loveyou). Existing listeners ignore
+    // the detail field — backwards compatible.
+    try {
+      window.dispatchEvent(new CustomEvent('eren:nudge-sent', { detail: { nudgeId: nudge.id } }))
+    } catch { /* ignore */ }
 
     return true
   }, [user?.id, profile?.household_id, profile?.name]) // eslint-disable-line react-hooks/exhaustive-deps
