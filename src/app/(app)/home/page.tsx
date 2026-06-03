@@ -50,8 +50,6 @@ import ErenSpeechBubble from '@/components/wish/ErenSpeechBubble'
 import { useFlavorBubble } from '@/hooks/useFlavorBubble'
 import { useCatchupGate } from '@/hooks/useCatchupGate'
 import CatchupCarousel from '@/components/memory/CatchupCarousel'
-import ErenPartyHat from '@/components/couple/ErenPartyHat'
-import { useEventToday } from '@/hooks/useEventToday'
 
 interface XpParticle {
   id: number; x: number; y: number; tx: number; ty: number
@@ -303,31 +301,6 @@ export default function HomePage() {
     quietEren: profile?.quiet_eren_optin === true,
   })
 
-  // ── Phase 3 PR 10: party-hat event detection. Pull the two household-level
-  // dates once and feed them + both profiles' birthdays into useEventToday.
-  // The hat overlay only mounts when today matches one.
-  const [hhDates, setHhDates] = useState<{ eren_birthday: string | null, couple_anniversary: string | null }>({ eren_birthday: null, couple_anniversary: null })
-  useEffect(() => {
-    if (!profile?.household_id) return
-    void supabase
-      .from('households')
-      .select('eren_birthday, couple_anniversary')
-      .eq('id', profile.household_id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) setHhDates({ eren_birthday: data.eren_birthday, couple_anniversary: data.couple_anniversary })
-      })
-  }, [profile?.household_id]) // eslint-disable-line react-hooks/exhaustive-deps
-  const partyReason = useEventToday({
-    erenBirthday:      hhDates.eren_birthday,
-    coupleAnniversary: hhDates.couple_anniversary,
-    myBirthday:        profile?.birthday ?? null,
-    partnerBirthday:   partner?.birthday ?? null,
-  })
-  // TEMP PREVIEW — forces the party hat on so the user can see it. Revert
-  // this line ("party hat back to normal") to restore date-gated behaviour.
-  const partyReasonForceForPreview = 'eren_birthday' as const
-  void partyReason  // keep the real one wired but unused while previewing
 
   // Phase 3 PR 8 — backdated catchup carousel. Fires once per profile after
   // auth + household resolve; the server endpoint backfills historical
@@ -566,22 +539,6 @@ export default function HomePage() {
                 <ErenIdleLayer>
                   <BlinkingEren id="eren-img" size={200} />
                   <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
-
-                  {partyReasonForceForPreview && (
-                    <div style={{
-                      position: 'absolute',
-                      // Push the hat DOWN so the brim sits on his forehead,
-                      // between/over his ears — not floating above them.
-                      // Eren's head centre is ~47% horizontally per the
-                      // BlinkingEren eye positions.
-                      top: 8, left: '47%',
-                      transform: 'translateX(-50%)',
-                      zIndex: 11,
-                      pointerEvents: 'none',
-                    }}>
-                      <ErenPartyHat reason={partyReasonForceForPreview} size={52} />
-                    </div>
-                  )}
 
                   {/* Outfit overlays — % positions are relative to the parent
                       absolute div, which is sized by BlinkingEren (200×200). */}
