@@ -589,30 +589,63 @@ export function IconEnvelope({ size = 20 }: IconProps) {
 // little pink nose. Palette pulled from SketchEren so the pixel version
 // reads as the same character.
 export function IconCatFace({ size = 20 }: IconProps) {
-  // Eren's face: cream Ragdoll head, brown ears with pink insides, two blue
-  // eyes each with a white catchlight at the outer-top corner (alive, not
-  // cross-eyed like the old grid), a small pink nose and a tidy mouth.
-  // Symmetric across the vertical centre; sits on the dark frame bg, so the
-  // black outline mostly reads as the silhouette edge.
+  // Eren straight from the loading-screen sprite (AnimatedEren's IDLE_R pose),
+  // so the First Mood memory frame shows the very same cat the splash screen
+  // does instead of a bespoke face. The sprite isn't square, so we render it
+  // fit to its content bounds and let the frame centre it.
   const grid = [
-    '.KK......KK.',  // ear tips
-    'KGGK....KGGK',  // ear bodies
-    'KGPGKKKKGPGK',  // pink ear insides (P) + head top
-    'KGGCCCCCCGGK',  // forehead — brown markings fade into cream
-    'KCCLBCCBLCCK',  // eyes — catchlight (L) at each outer-top corner
-    'KCCBBCCBBCCK',  // eyes — blue iris
-    'KCCCCCCCCCCK',  // cheeks
-    'KCCCCPPCCCCK',  // small pink nose
-    'KCCCCKKCCCCK',  // mouth
-    'KCCCCCCCCCCK',  // chin
-    '.KCCCCCCCCK.',  // rounded jaw
-    '..KKKKKKKK..',  // bottom outline
+    '.KK..........KK.......',
+    'KMMK........KMMK......',
+    'KMCKK......KKCMK......',
+    'KMCCCCCCCCCCCCMK......',
+    'KCCCCCCCCCCCCCCCK.....',
+    'KCCEEPCCCCEEPCCK......',
+    'KCCEWPCCCCEWPCCK......',
+    'KCCCCCCCNNCCCCK.......',
+    '.KCCCCCKKCCCCK........',
+    '..KKCCCCCCCCKKK.......',
+    '...KCCCCCCCCCCK..KMMK.',
+    '...KCWCCCCCCWCKKMMMK..',
+    '...KCCCCCCCCCCKMMMK...',
+    '...KCCCCCCCCCCKMMK....',
+    '..KKCSSCCCCSSCKKK.....',
+    '..K.KK......KK.K.....',
   ]
-  return drawPixels(grid, {
-    K: '#1C1C1C', G: '#8A7860', C: '#FBF4DC',
-    B: '#3A8ACB', L: '#FFFFFF',                      // iris + catchlight
-    P: '#E89AAE',                                    // nose + ear inside
-  }, size)
+  const pal: Record<string, string> = {
+    K: '#2A2030', M: '#7E7272', C: '#F5F3EF', E: '#4898D4',
+    P: '#1A1A2E', W: '#FFFFFF', N: '#F28898', S: '#D0CCC4',
+  }
+  // Crop to the drawn pixels so the cat fills the icon box regardless of the
+  // sprite's empty margins, preserving aspect ratio.
+  let minX = Infinity, minY = Infinity, maxX = -1, maxY = -1
+  for (let y = 0; y < grid.length; y++) {
+    for (let x = 0; x < grid[y].length; x++) {
+      if (pal[grid[y][x]]) {
+        if (x < minX) minX = x; if (x > maxX) maxX = x
+        if (y < minY) minY = y; if (y > maxY) maxY = y
+      }
+    }
+  }
+  const w = maxX - minX + 1, h = maxY - minY + 1
+  const scale = size / Math.max(w, h)
+  const rects: React.ReactElement[] = []
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const c = pal[grid[y][x]]
+      if (c) rects.push(<rect key={`${x}-${y}`} x={x} y={y} width={1.02} height={1.02} fill={c} />)
+    }
+  }
+  return (
+    <svg
+      width={Math.round(w * scale)}
+      height={Math.round(h * scale)}
+      viewBox={`${minX} ${minY} ${w} ${h}`}
+      shapeRendering="crispEdges"
+      style={{ imageRendering: 'pixelated' }}
+    >
+      {rects}
+    </svg>
+  )
 }
 
 // ── WISH (4-point star, soft glow palette) — Phase 3 daily wish indicator ──
