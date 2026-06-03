@@ -17,10 +17,12 @@ import { playSound } from '@/lib/sounds'
 import type { Wish } from '@/lib/wishes'
 import { wishHintRoom } from '@/lib/wishes'
 
-// Time the bubble stays visible after a grant before fading out. Long enough
-// to read the "WISH GRANTED" stamp + see the sparkle finish, short enough
-// that the bubble doesn't loiter all day.
-const GRANTED_LINGER_MS = 6000
+// Time the bubble stays visible after a grant before fading out. Two minutes
+// — long enough that the "WISH GRANTED" stamp registers as a real moment of
+// accomplishment, short enough that the above-left anchor frees up for the
+// ambient flavor bubble well before the day is over. The StatsHeader gold
+// chip remains the permanent "granted today" indicator.
+const GRANTED_LINGER_MS = 120000
 
 interface Props {
   wish: Wish

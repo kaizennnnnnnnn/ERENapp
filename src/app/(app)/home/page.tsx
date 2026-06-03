@@ -283,8 +283,10 @@ export default function HomePage() {
   useEffect(() => {
     if (!wish?.wish || wish.status === 'loading') { setWishBubbleVisible(false); return }
     if (wish.status === 'pending') { setWishBubbleVisible(true); return }
+    // Mirror WishCloud's GRANTED_LINGER_MS (2 min) + 500ms grace so flavor
+    // suppression releases right as the bubble unmounts.
     setWishBubbleVisible(true)
-    const t = setTimeout(() => setWishBubbleVisible(false), 6500)
+    const t = setTimeout(() => setWishBubbleVisible(false), 120500)
     return () => clearTimeout(t)
   }, [wish?.status, wish?.wish?.id])
 
