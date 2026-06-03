@@ -274,6 +274,22 @@
   80%      { transform: translate(-0.3px, 0.15px) scale(1.12); opacity: 1;    }
 }
 
+/* HUD gradient number — the gradient (set via --clip-grad) is clipped to the
+   glyph shapes. When a browser can't clip text, this rule is skipped and the
+   number falls back to its solid inline `color` instead of the gradient
+   filling the whole box (which showed up as a stray "cube" where a HUD number
+   should be). IMPORTANT: keep any drop-shadow on a WRAPPER element, never on
+   the .clip-num span itself — a `filter` co-located with background-clip:text
+   breaks the clip in Safari and reintroduces the box. */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .clip-num {
+    background: var(--clip-grad);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
 /* ── Heartbeat for low stats ── */
 @keyframes heartbeat {
   0%, 100% { transform: scale(1); }

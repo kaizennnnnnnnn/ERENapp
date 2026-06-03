@@ -296,13 +296,19 @@ export default function StatsHeader() {
               fontSize: 4.5, color: YELLOW_HI, letterSpacing: 1.5, lineHeight: 1, marginBottom: 2,
               textShadow: `0 0 3px ${yellowA(0.53)}`,
             }}>LVL</span>
-            <span style={{
-              fontFamily: '"Press Start 2P", monospace',
-              fontSize: 13, lineHeight: 1, letterSpacing: -0.5,
-              background: `linear-gradient(180deg, ${SILVER_HI} 0%, ${SILVER} 50%, ${SILVER_LO} 100%)`,
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-              filter: 'drop-shadow(0 0 2px rgba(255,255,255,0.35))',
-            }}>{level}</span>
+            {/* Wrapper carries the drop-shadow so it can't break the number's
+                background-clip:text (Safari quirk → gradient fills the box). */}
+            <div style={{ filter: 'drop-shadow(0 0 2px rgba(255,255,255,0.35))' }}>
+              <span
+                className="clip-num"
+                style={{
+                  fontFamily: '"Press Start 2P", monospace',
+                  fontSize: 13, lineHeight: 1, letterSpacing: -0.5,
+                  color: SILVER_HI,
+                  '--clip-grad': `linear-gradient(180deg, ${SILVER_HI} 0%, ${SILVER} 50%, ${SILVER_LO} 100%)`,
+                } as React.CSSProperties}
+              >{level}</span>
+            </div>
           </div>
 
           {/* Unclaimed reward count badge — same shape as the unread-message
@@ -435,20 +441,25 @@ export default function StatsHeader() {
               }}>
                 <IconFire size={16} />
               </div>
-              <span style={{
-                fontFamily: '"Press Start 2P", monospace',
-                fontSize: 10, lineHeight: 1,
-                // Even the inactive gradient is bright enough to read against
-                // the dark obsidian face — the prior near-black gradient made
-                // "0" invisible during the initial-load window.
-                background: streakNum >= 7
-                  ? 'linear-gradient(180deg, #FFD700 0%, #FF6B00 60%, #CC3300 100%)'
-                  : streakNum > 0
-                    ? `linear-gradient(180deg, ${PINK_HI} 0%, ${PINK} 60%, ${PINK_LO} 100%)`
-                    : 'linear-gradient(180deg, #B0A8B0 0%, #807880 100%)',
-                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.8))',
-              }}>{streakNum}</span>
+              {/* Wrapper carries the drop-shadow so it can't break the number's
+                  background-clip:text (Safari quirk → gradient filled the whole
+                  span as a stray "cube"). The solid `color` is the fallback when
+                  clipping is unavailable; --clip-grad is the gradient on top. */}
+              <div style={{ filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.8))' }}>
+                <span
+                  className="clip-num"
+                  style={{
+                    fontFamily: '"Press Start 2P", monospace',
+                    fontSize: 10, lineHeight: 1,
+                    color: streakNum >= 7 ? '#FFB000' : streakNum > 0 ? PINK : '#9A92A0',
+                    '--clip-grad': streakNum >= 7
+                      ? 'linear-gradient(180deg, #FFD700 0%, #FF6B00 60%, #CC3300 100%)'
+                      : streakNum > 0
+                        ? `linear-gradient(180deg, ${PINK_HI} 0%, ${PINK} 60%, ${PINK_LO} 100%)`
+                        : 'linear-gradient(180deg, #B0A8B0 0%, #807880 100%)',
+                  } as React.CSSProperties}
+                >{streakNum}</span>
+              </div>
             </div>
           )
         })()}
@@ -467,13 +478,17 @@ export default function StatsHeader() {
           <div style={{ filter: `drop-shadow(0 0 3px ${accentA(0.4)})` }}>
             <IconCoin size={16} />
           </div>
-          <span style={{
-            fontFamily: '"Press Start 2P", monospace',
-            fontSize: 10, lineHeight: 1,
-            background: `linear-gradient(180deg, ${GOLD_HI} 0%, ${GOLD} 60%, ${GOLD_LO} 100%)`,
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.8))',
-          }}>{coins.toLocaleString()}</span>
+          <div style={{ filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.8))' }}>
+            <span
+              className="clip-num"
+              style={{
+                fontFamily: '"Press Start 2P", monospace',
+                fontSize: 10, lineHeight: 1,
+                color: GOLD_HI,
+                '--clip-grad': `linear-gradient(180deg, ${GOLD_HI} 0%, ${GOLD} 60%, ${GOLD_LO} 100%)`,
+              } as React.CSSProperties}
+            >{coins.toLocaleString()}</span>
+          </div>
         </div>
       </div>
 
