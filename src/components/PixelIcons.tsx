@@ -589,23 +589,28 @@ export function IconEnvelope({ size = 20 }: IconProps) {
 // little pink nose. Palette pulled from SketchEren so the pixel version
 // reads as the same character.
 export function IconCatFace({ size = 20 }: IconProps) {
+  // Eren's face: cream Ragdoll head, brown ears with pink insides, two blue
+  // eyes each with a white catchlight at the outer-top corner (alive, not
+  // cross-eyed like the old grid), a small pink nose and a tidy mouth.
+  // Symmetric across the vertical centre; sits on the dark frame bg, so the
+  // black outline mostly reads as the silhouette edge.
   const grid = [
-    '.K........K.',
-    'KGK......KGK',
-    'KGGK....KGGK',
-    'KGGPCCCCPGGK',  // pink ear interiors (P) — real cat ears have pink inside
-    'KGCCCCCCCCGK',
-    'KCBBCCCCBBCK',  // eyes pulled inward by one cell so cream surrounds them
-    'KCBLCCCCLBCK',  // single L (white) sparkle inside each iris — alive look
-    'KCCCPPPPCCCK',  // wider nose top
-    'KCCCCPPCCCCK',  // narrowing to V
-    '.KCCKCCKCCK.',  // tiny mouth tucks under the nose
-    '..KCCCCCCK..',
-    '...KKKKKK...',
+    '.KK......KK.',  // ear tips
+    'KGGK....KGGK',  // ear bodies
+    'KGPGKKKKGPGK',  // pink ear insides (P) + head top
+    'KGGCCCCCCGGK',  // forehead — brown markings fade into cream
+    'KCCLBCCBLCCK',  // eyes — catchlight (L) at each outer-top corner
+    'KCCBBCCBBCCK',  // eyes — blue iris
+    'KCCCCCCCCCCK',  // cheeks
+    'KCCCCPPCCCCK',  // small pink nose
+    'KCCCCKKCCCCK',  // mouth
+    'KCCCCCCCCCCK',  // chin
+    '.KCCCCCCCCK.',  // rounded jaw
+    '..KKKKKKKK..',  // bottom outline
   ]
   return drawPixels(grid, {
     K: '#1C1C1C', G: '#8A7860', C: '#FBF4DC',
-    B: '#3A8ACB', L: '#FFFFFF',                      // iris + sparkle
+    B: '#3A8ACB', L: '#FFFFFF',                      // iris + catchlight
     P: '#E89AAE',                                    // nose + ear inside
   }, size)
 }
