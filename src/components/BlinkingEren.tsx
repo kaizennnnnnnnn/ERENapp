@@ -40,19 +40,29 @@ export default function BlinkingEren({
     transformOrigin: 'top',
     pointerEvents: 'none',
   }
+  // Eye-shaped clip mask — sits over each iris (bounds measured off the
+  // sprite) so the glint's twinkle/scale can never spill onto the eyelid or
+  // fur. Ellipse-rounded to follow the eye outline.
+  const eyeMask: React.CSSProperties = {
+    position: 'absolute',
+    overflow: 'hidden',
+    borderRadius: '50%',
+    pointerEvents: 'none',
+  }
   // Animated eye glint — sits directly on top of the catchlight already
-  // painted into the sprite, sized to match it, and twinkles in place
-  // (erenEyeShine) so it looks like that existing shine coming alive rather
-  // than a second dot. Rendered before the eyelids so a blink paints over it.
+  // painted into the sprite and twinkles in place (erenEyeShine) so it looks
+  // like that existing shine coming alive rather than a second dot. Sized as
+  // a share of its eye mask; aspect-ratio keeps it circular. Clipped by the
+  // mask, so it stays inside the eye. Rendered before the eyelids so a blink
+  // paints over it.
   const glint: React.CSSProperties = {
     position: 'absolute',
-    width: '2.2%',
-    height: '2.2%',
+    width: '39%',
+    aspectRatio: '1',
     borderRadius: '50%',
     background:
       'radial-gradient(circle at 42% 38%, #ffffff 0%, #ffffff 30%, rgba(225,240,255,0.78) 54%, rgba(190,220,255,0) 80%)',
     willChange: 'transform, opacity',
-    pointerEvents: 'none',
   }
 
   return (
@@ -84,11 +94,15 @@ export default function BlinkingEren({
             imageRendering: 'pixelated',
           }} />
 
-        {/* Eye glints — centered on the sprite's baked catchlights
-            (measured at 43.2%/55.5% x, 34.1% y) and twinkling together
-            (eyes track as one), so they share one keyframe with no stagger. */}
-        <div style={{ ...glint, left: '42.1%', top: '33%', animation: 'erenEyeShine 5s ease-in-out infinite' }} />
-        <div style={{ ...glint, left: '54.4%', top: '33%', animation: 'erenEyeShine 5s ease-in-out infinite' }} />
+        {/* Eye glints — each clipped to an eye-shaped mask over the iris
+            (measured iris bounds), centered on the baked catchlight inside,
+            twinkling together (eyes track as one) so they share one keyframe. */}
+        <div style={{ ...eyeMask, left: '39.3%', top: '32.8%', width: '5.7%', height: '5.4%' }}>
+          <div style={{ ...glint, left: '49.4%', top: '2.9%', animation: 'erenEyeShine 5s ease-in-out infinite' }} />
+        </div>
+        <div style={{ ...eyeMask, left: '53.8%', top: '32.8%', width: '5.7%', height: '5.4%' }}>
+          <div style={{ ...glint, left: '10.3%', top: '3.3%', animation: 'erenEyeShine 5s ease-in-out infinite' }} />
+        </div>
 
         {/* Left eyelid */}
         <div style={{
