@@ -28,6 +28,17 @@ const GREEN_HI = '#7BE89E'
 const GREEN    = '#22C55E'
 const GREEN_LO = '#15803D'
 
+// Gold triplet for the coins number — matches the gold coin icon beside it.
+const GOLD_HI = '#FFD700'
+const GOLD    = '#FF8C00'
+const GOLD_LO = '#B35900'
+
+// Silver triplet for the level number — neutral, high-contrast white→silver
+// so the level reads as a distinct headline value against the pink HUD.
+const SILVER_HI = '#FFFFFF'
+const SILVER    = '#C8C8D0'
+const SILVER_LO = '#7A7A85'
+
 type StatKey = 'happiness' | 'hunger' | 'energy' | 'sleep_quality' | 'cleanliness'
 
 interface GaugeDef {
@@ -286,9 +297,9 @@ export default function StatsHeader() {
             <span style={{
               fontFamily: '"Press Start 2P", monospace',
               fontSize: 13, lineHeight: 1, letterSpacing: -0.5,
-              background: `linear-gradient(180deg, ${PINK_HI} 0%, ${PINK} 50%, ${PINK_LO} 100%)`,
+              background: `linear-gradient(180deg, ${SILVER_HI} 0%, ${SILVER} 50%, ${SILVER_LO} 100%)`,
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-              filter: `drop-shadow(0 0 2px ${accentA(0.4)})`,
+              filter: 'drop-shadow(0 0 2px rgba(255,255,255,0.35))',
             }}>{level}</span>
           </div>
 
@@ -454,7 +465,7 @@ export default function StatsHeader() {
           <span style={{
             fontFamily: '"Press Start 2P", monospace',
             fontSize: 10, lineHeight: 1,
-            background: `linear-gradient(180deg, ${PINK_HI} 0%, ${PINK} 60%, ${PINK_LO} 100%)`,
+            background: `linear-gradient(180deg, ${GOLD_HI} 0%, ${GOLD} 60%, ${GOLD_LO} 100%)`,
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.8))',
           }}>{coins.toLocaleString()}</span>
