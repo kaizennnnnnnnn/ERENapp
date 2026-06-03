@@ -32,11 +32,15 @@ export default function ErenPartyHat({ reason, size = 64 }: Props) {
       viewBox="0 0 16 16"
       shapeRendering="crispEdges"
       style={{
-        position: 'absolute',
-        // Sits on top of Eren's sprite — overlay caller positions the wrapper.
+        display: 'block',
+        // Caller's wrapper div owns the absolute positioning — if the SVG
+        // itself goes position:absolute, the wrapper collapses to 0 width
+        // and translateX(-50%) has nothing to centre.
         imageRendering: 'pixelated',
         pointerEvents: 'none',
-        animation: 'partyHatBob 1.8s ease-in-out infinite',
+        // Gentler bob — no rotation, smaller travel. The user said the
+        // previous shake was way too much.
+        animation: 'partyHatBob 2.6s ease-in-out infinite',
       }}
     >
       {/* Pom-pom on top */}
@@ -57,8 +61,8 @@ export default function ErenPartyHat({ reason, size = 64 }: Props) {
       <rect x="2" y="11" width="12" height="1" fill={p.brim} />
       <style>{`
         @keyframes partyHatBob {
-          0%, 100% { transform: translateY(0)    rotate(-3deg); }
-          50%      { transform: translateY(-2px) rotate(3deg);  }
+          0%, 100% { transform: translateY(0); }
+          50%      { transform: translateY(-1px); }
         }
       `}</style>
     </svg>

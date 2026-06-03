@@ -570,12 +570,15 @@ export default function HomePage() {
                   {partyReasonForceForPreview && (
                     <div style={{
                       position: 'absolute',
-                      top: -18, left: '50%',
+                      // Eren's eyes sit at ~39%/55% of the sprite width — his
+                      // head centre is around 47%, not 50%. Nudge left so the
+                      // hat actually lands ON his head.
+                      top: -8, left: '47%',
                       transform: 'translateX(-50%)',
                       zIndex: 11,
                       pointerEvents: 'none',
                     }}>
-                      <ErenPartyHat reason={partyReasonForceForPreview} size={64} />
+                      <ErenPartyHat reason={partyReasonForceForPreview} size={56} />
                     </div>
                   )}
 
