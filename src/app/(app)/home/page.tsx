@@ -324,6 +324,10 @@ export default function HomePage() {
     myBirthday:        profile?.birthday ?? null,
     partnerBirthday:   partner?.birthday ?? null,
   })
+  // TEMP PREVIEW — forces the party hat on so the user can see it. Revert
+  // this line ("party hat back to normal") to restore date-gated behaviour.
+  const partyReasonForceForPreview = 'eren_birthday' as const
+  void partyReason  // keep the real one wired but unused while previewing
 
   // Phase 3 PR 8 — backdated catchup carousel. Fires once per profile after
   // auth + household resolve; the server endpoint backfills historical
@@ -563,7 +567,7 @@ export default function HomePage() {
                   <BlinkingEren id="eren-img" size={200} />
                   <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
 
-                  {partyReason && (
+                  {partyReasonForceForPreview && (
                     <div style={{
                       position: 'absolute',
                       top: -18, left: '50%',
@@ -571,7 +575,7 @@ export default function HomePage() {
                       zIndex: 11,
                       pointerEvents: 'none',
                     }}>
-                      <ErenPartyHat reason={partyReason} size={64} />
+                      <ErenPartyHat reason={partyReasonForceForPreview} size={64} />
                     </div>
                   )}
 
