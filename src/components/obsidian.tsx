@@ -71,14 +71,27 @@ export const OBSIDIAN_ORB: CSSProperties = {
 
 // ── Components ──
 
-/** Four corner rivets (3×3 px each, pink radial-gradient gem look). */
-export function Rivets({ inset = 3, size = 3 }: { inset?: number; size?: number }) {
+/** Four corner rivets (3×3 px each, gem look). Defaults to the accent (pink)
+ *  gem; pass `accent` to tint them (e.g. the cyan level/XP cluster). */
+export function Rivets({
+  inset = 3,
+  size = 3,
+  accent,
+}: {
+  inset?: number
+  size?: number
+  accent?: { hi: string; mid: string; lo: string; glow: string }
+}) {
+  const hi   = accent?.hi   ?? PINK_HI
+  const mid  = accent?.mid  ?? PINK
+  const lo   = accent?.lo   ?? PINK_LO
+  const glow = accent?.glow ?? accentA(0.67)
   const dot: CSSProperties = {
     position: 'absolute',
     width: size,
     height: size,
-    background: `radial-gradient(circle at 30% 30%, ${PINK_HI}, ${PINK} 60%, ${PINK_LO})`,
-    boxShadow: `0 0 3px ${accentA(0.67)}`,
+    background: `radial-gradient(circle at 30% 30%, ${hi}, ${mid} 60%, ${lo})`,
+    boxShadow: `0 0 3px ${glow}`,
     pointerEvents: 'none',
   }
   return (

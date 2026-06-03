@@ -22,11 +22,13 @@ const RED    = '#E53935'
 const RED_LO = '#8E1F1B'
 const redA = (a: number) => `rgba(229,57,53,${a})`
 
-// Green triplet for the XP fill bar — reads as forward progress / leveling
-// up, separate from the red "rewards waiting" signal on the orb.
-const GREEN_HI = '#7BE89E'
-const GREEN    = '#22C55E'
-const GREEN_LO = '#15803D'
+// Cyan / ice-blue — shared accent for the level orb ring, the XP fill bar,
+// and the XP readout, so the level/XP cluster reads as one cohesive unit
+// (cool, distinct from the gold coins and the white level number).
+const CYAN_HI = '#7FE9FF'
+const CYAN    = '#1CA5D8'
+const CYAN_LO = '#0C6A8E'
+const cyanA = (a: number) => `rgba(28,165,216,${a})`
 
 // Gold triplet for the coins number — matches the gold coin icon beside it.
 const GOLD_HI = '#FFD700'
@@ -263,9 +265,9 @@ export default function StatsHeader() {
             borderRadius: '50%',
             background: 'radial-gradient(circle at 35% 28%, #2a2a2e 0%, #0a0a0c 50%, #000 100%)',
             boxShadow: [
-              `0 0 0 1.5px ${PINK}`,
+              `0 0 0 1.5px ${CYAN}`,
               '0 0 0 3px #000',
-              `0 0 0 4px ${accentA(0.4)}`,
+              `0 0 0 4px ${cyanA(0.4)}`,
               '0 4px 14px rgba(0,0,0,0.7)',
               'inset 0 1px 0 rgba(255,255,255,0.15)',
             ].join(','),
@@ -282,17 +284,17 @@ export default function StatsHeader() {
               <div key={i} style={{
                 position: 'absolute',
                 left: x - 1, top: y - 1, width: 2, height: 2,
-                background: PINK,
+                background: CYAN,
                 opacity: major ? 1 : 0.4,
-                boxShadow: major ? `0 0 3px ${PINK}` : 'none',
+                boxShadow: major ? `0 0 3px ${CYAN}` : 'none',
               }} />
             )
           })}
 
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <span className="font-pixel" style={{
-              fontSize: 4.5, color: PINK, letterSpacing: 1.5, lineHeight: 1, marginBottom: 2,
-              textShadow: `0 0 3px ${accentA(0.53)}`,
+              fontSize: 4.5, color: CYAN_HI, letterSpacing: 1.5, lineHeight: 1, marginBottom: 2,
+              textShadow: `0 0 3px ${cyanA(0.53)}`,
             }}>LVL</span>
             <span style={{
               fontFamily: '"Press Start 2P", monospace',
@@ -329,7 +331,8 @@ export default function StatsHeader() {
           )}
         </Link>
 
-        {/* XP panel */}
+        {/* XP panel — cyan-framed to match the level orb ring, so the
+            level + XP form one cohesive cluster (streak/coins stay pink/gold). */}
         <div
           id="stats-xp-bar"
           className="flex-1 relative flex flex-col justify-center"
@@ -337,36 +340,37 @@ export default function StatsHeader() {
             height: 40,
             padding: '5px 10px',
             gap: 3,
-            ...obsidianFace(PINK + '55'),
+            ...obsidianFace(CYAN + '55'),
           }}
         >
-          <Rivets inset={3} />
+          <Rivets inset={3} accent={{ hi: CYAN_HI, mid: CYAN, lo: CYAN_LO, glow: cyanA(0.67) }} />
           <div className="flex items-center justify-between">
             <div className="flex items-center" style={{ gap: 4 }}>
               <div style={{
-                width: 5, height: 5, background: PINK,
-                boxShadow: `0 0 4px ${PINK}`,
+                width: 5, height: 5, background: CYAN,
+                boxShadow: `0 0 4px ${CYAN}`,
                 transform: 'rotate(45deg)',
               }} />
               <span className="font-pixel" style={{
-                fontSize: 7, color: PINK_HI, letterSpacing: 2.5,
-                textShadow: `0 0 3px ${accentA(0.4)}`,
+                fontSize: 7, color: CYAN_HI, letterSpacing: 2.5,
+                textShadow: `0 0 3px ${cyanA(0.4)}`,
               }}>XP</span>
             </div>
-            <span className="font-pixel" style={{ fontSize: 7, color: PINK_HI }}>
-              {xpIntoLevel}<span style={{ color: PINK_LO, margin: '0 1px' }}>/</span>{xpNeeded}
+            <span className="font-pixel" style={{ fontSize: 7, color: CYAN_HI }}>
+              {xpIntoLevel}<span style={{ color: CYAN_LO, margin: '0 1px' }}>/</span>{xpNeeded}
             </span>
           </div>
 
           <div style={{
             height: 8, position: 'relative', overflow: 'hidden',
             background: '#000',
-            boxShadow: `inset 0 1px 3px rgba(0,0,0,0.9), inset 0 0 0 1px ${accentA(0.2)}`,
+            boxShadow: `inset 0 1px 3px rgba(0,0,0,0.9), inset 0 0 0 1px ${cyanA(0.2)}`,
           }}>
             <div style={{
               width: `${xpPct}%`, height: '100%', position: 'relative',
-              // Green fill so the level-up bar reads as forward progress.
-              background: `linear-gradient(180deg, ${GREEN_HI} 0%, ${GREEN} 40%, ${GREEN_LO} 100%)`,
+              // Cyan fill — shares the level ring's hue so the level/XP cluster
+              // reads as one unit; still reads as forward progress.
+              background: `linear-gradient(180deg, ${CYAN_HI} 0%, ${CYAN} 40%, ${CYAN_LO} 100%)`,
               boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.4)',
               transition: 'width 700ms ease-out',
             }}>
@@ -374,7 +378,7 @@ export default function StatsHeader() {
                 <div style={{
                   position: 'absolute', right: 0, top: 0, bottom: 0, width: 1.5,
                   background: '#fff',
-                  boxShadow: `0 0 6px ${GREEN_HI}, 0 0 10px ${GREEN}`,
+                  boxShadow: `0 0 6px ${CYAN_HI}, 0 0 10px ${CYAN}`,
                 }} />
               )}
             </div>
