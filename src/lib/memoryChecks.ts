@@ -60,6 +60,25 @@ function todayStartISO(): string {
   return d.toISOString()
 }
 
+/** Fetches the ids of every frame already unlocked for this household so the
+ *  caller can skip them entirely. Without this pre-filter we POST to
+ *  memory_frames for every matching predicate every action — every active
+ *  household quickly piles up dozens of 23505 conflicts per care action,
+ *  which Supabase's fetch returns as visible 409s in DevTools. The CAS is
+ *  still the source of truth; this just keeps the wire quiet. */
+async function fetchUnlockedFrameIds(
+  supabase: SupabaseClient,
+  householdId: string,
+): Promise<Set<string>> {
+  const { data } = await supabase
+    .from('memory_frames')
+    .select('frame_id')
+    .eq('household_id', householdId)
+  const set = new Set<string>()
+  for (const row of (data ?? []) as Array<{ frame_id: string }>) set.add(row.frame_id)
+  return set
+}
+
 async function fetchOnEventCounters(
   supabase: SupabaseClient,
   householdId: string,
@@ -182,8 +201,12 @@ export async function checkOnEventUnlocks(
   evt: UnlockEvent,
 ): Promise<void> {
   let counters: OnEventCounters
+  let already: Set<string>
   try {
-    counters = await fetchOnEventCounters(supabase, evt.householdId)
+    [counters, already] = await Promise.all([
+      fetchOnEventCounters(supabase, evt.householdId),
+      fetchUnlockedFrameIds(supabase, evt.householdId),
+    ])
   } catch (err) {
     if (typeof console !== 'undefined') {
       console.warn('[memoryChecks] fetchOnEventCounters failed', err)
@@ -192,6 +215,7 @@ export async function checkOnEventUnlocks(
   }
 
   for (const frame of MEMORY_FRAMES) {
+    if (already.has(frame.id)) continue
     if (isSweepPredicate(frame.predicate)) continue
     if (!matchesOnEvent(frame.predicate, counters, evt)) continue
     await tryUnlock(supabase, {
@@ -349,8 +373,12 @@ export async function runMemorySweep(
   const streakLen = currentStreakLength(daysWithCare, todayKey)
   const distinctGames = new Set(games.map(g => g.game_type))
   const calendarIds = household ? eligibleCalendarFrames(household, todayKey) : []
+  // Skip frames already unlocked so the sweep doesn't POST 50 conflicts per
+  // tick once a household has accumulated history.
+  const already = await fetchUnlockedFrameIds(supabase, householdId)
 
   for (const frame of MEMORY_FRAMES) {
+    if (already.has(frame.id)) continue
     let eligible = false
     const p = frame.predicate
     switch (p.type) {
