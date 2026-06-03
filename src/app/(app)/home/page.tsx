@@ -17,7 +17,7 @@ import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 import { format } from 'date-fns'
 import Link from 'next/link'
 import { Sparkles } from 'lucide-react'
-import { IconGift, IconCapsule, IconHeart, IconBell, IconPerson, IconDoor, IconDrumstick, IconYarn, IconMoonZ, IconBath, IconPill, IconBook, IconCake } from '@/components/PixelIcons'
+import { IconGift, IconCapsule, IconHeart, IconBell, IconPerson, IconDoor, IconDrumstick, IconYarn, IconMoonZ, IconBath, IconPill, IconBook, IconCake, IconPhoto } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import TaskPanel from '@/components/TaskPanel'
 import BlinkingEren from '@/components/BlinkingEren'
@@ -702,6 +702,7 @@ export default function HomePage() {
                       { id: 'feed',   label: 'Kitchen',       Icon: IconDrumstick, color: '#F5C842', rgb: '245,200,66' },
                       { id: 'play',   label: 'Playroom',      Icon: IconYarn,      color: '#FF6B9D', rgb: '255,107,157' },
                       { id: 'sleep',  label: 'Bedroom',       Icon: IconMoonZ,     color: '#818CF8', rgb: '129,140,248' },
+                      { id: 'memory', label: 'Hallway',       Icon: IconPhoto,     color: '#A78BFA', rgb: '167,139,250' },
                       { id: 'wash',   label: 'Bathroom',      Icon: IconBath,      color: '#38BDF8', rgb: '56,189,248' },
                       { id: 'vet',    label: 'Vet Office',    Icon: IconPill,      color: '#34D399', rgb: '52,211,153' },
                       { id: 'school', label: 'Serbian Class', Icon: IconBook,      color: '#F59E0B', rgb: '245,158,11' },
@@ -764,6 +765,7 @@ export default function HomePage() {
             { id: 'feed',   color: '#F5C842' },
             { id: 'play',   color: '#FF6B9D' },
             { id: 'sleep',  color: '#818CF8' },
+            { id: 'memory', color: '#A78BFA' },
             { id: 'wash',   color: '#38BDF8' },
             { id: 'vet',    color: '#34D399' },
             { id: 'school', color: '#F59E0B' },

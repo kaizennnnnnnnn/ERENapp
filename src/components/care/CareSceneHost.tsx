@@ -9,16 +9,18 @@ import WashScene from './WashScene'
 import HospitalScene from './HospitalScene'
 import VetScene from './VetScene'
 import SchoolScene from './SchoolScene'
+import MemoriesScene from './MemoriesScene'
 import AnimatedEren from '@/components/AnimatedEren'
 import { playSound } from '@/lib/sounds'
 import { useIsDark } from '@/hooks/useIsDark'
 
-const LOOP_SCENES: CareScene[] = ['feed', 'play', 'sleep', 'wash', 'vet', 'school']
+const LOOP_SCENES: CareScene[] = ['feed', 'play', 'sleep', 'memory', 'wash', 'vet', 'school']
 
 const SCENE_LABELS: Record<CareScene, string> = {
   feed:     'Kitchen',
   play:     'Playroom',
   sleep:    'Bedroom',
+  memory:   'Hallway',
   wash:     'Bathroom',
   vet:      'Vet Office',
   school:   'Serbian Class',
@@ -29,6 +31,7 @@ const SCENE_COLORS: Record<CareScene, string> = {
   feed:     '#F5C842',
   play:     '#FF6B9D',
   sleep:    '#818CF8',
+  memory:   '#A78BFA',
   wash:     '#38BDF8',
   vet:      '#34D399',
   school:   '#F59E0B',
@@ -252,6 +255,7 @@ export default function CareSceneHost() {
           {activeScene === 'feed'     && <FeedScene     {...props} />}
           {activeScene === 'play'     && <PlayScene     {...props} />}
           {activeScene === 'sleep'    && <SleepScene    {...props} />}
+          {activeScene === 'memory'   && <MemoriesScene {...props} />}
           {activeScene === 'wash'     && <WashScene     {...props} />}
           {activeScene === 'vet'      && <VetScene      {...props} />}
           {activeScene === 'school'   && <SchoolScene   {...props} />}
