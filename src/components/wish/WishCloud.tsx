@@ -48,22 +48,40 @@ export default function WishCloud({ wish, text, status, grantedByMe, grantedByNa
   // after grant so the bubble doesn't loiter showing stale text all day.
   const [visible, setVisible] = useState(true)
   const lingerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Per-viewer arm time. Once set, the 2-min countdown is locked to this
+  // moment — subsequent tab focus/blur doesn't reset it. Cleared when the
+  // wish refreshes for a new day.
+  const armedAtRef = useRef<number | null>(null)
 
-  // Bump the sparkle + start the linger timer on grant transitions.
+  // Bump the sparkle + arm the linger timer when the page is actually visible.
+  // If she's away when grant lands, we wait — her countdown starts when she
+  // comes back, not when the realtime UPDATE arrived.
   useEffect(() => {
-    if (status === 'granted') {
-      setSparkleKey(k => k + 1)
-      if (lingerTimerRef.current) clearTimeout(lingerTimerRef.current)
-      lingerTimerRef.current = setTimeout(() => setVisible(false), GRANTED_LINGER_MS)
-    } else {
-      // Wish refreshed (new day) — show the bubble again.
+    if (status !== 'granted') {
       setVisible(true)
       if (lingerTimerRef.current) {
         clearTimeout(lingerTimerRef.current)
         lingerTimerRef.current = null
       }
+      armedAtRef.current = null
+      return
     }
+
+    setSparkleKey(k => k + 1)
+
+    const arm = () => {
+      if (armedAtRef.current != null) return        // already armed; don't reset
+      if (document.visibilityState !== 'visible') return
+      armedAtRef.current = Date.now()
+      if (lingerTimerRef.current) clearTimeout(lingerTimerRef.current)
+      lingerTimerRef.current = setTimeout(() => setVisible(false), GRANTED_LINGER_MS)
+    }
+
+    arm()
+    const onVisibility = () => { if (document.visibilityState === 'visible') arm() }
+    document.addEventListener('visibilitychange', onVisibility)
     return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
       if (lingerTimerRef.current) clearTimeout(lingerTimerRef.current)
     }
   }, [status])

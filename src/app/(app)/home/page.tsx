@@ -282,14 +282,33 @@ export default function HomePage() {
   }, [lifetimeWLT, profile?.name, partner?.name])
 
   const [wishBubbleVisible, setWishBubbleVisible] = useState(false)
+  const wishLingerArmedAtRef = useRef<number | null>(null)
   useEffect(() => {
     if (!wish?.wish || wish.status === 'loading') { setWishBubbleVisible(false); return }
-    if (wish.status === 'pending') { setWishBubbleVisible(true); return }
-    // Mirror WishCloud's GRANTED_LINGER_MS (2 min) + 500ms grace so flavor
-    // suppression releases right as the bubble unmounts.
+    if (wish.status === 'pending') {
+      setWishBubbleVisible(true)
+      wishLingerArmedAtRef.current = null
+      return
+    }
+    // 'granted' — mirror WishCloud's per-viewer arm: timer starts the first
+    // time THIS user's tab is actually visible. Otherwise a partner who's
+    // away when the grant lands would never see the bubble at all (the
+    // countdown would tick down in the background).
     setWishBubbleVisible(true)
-    const t = setTimeout(() => setWishBubbleVisible(false), 120500)
-    return () => clearTimeout(t)
+    let t: ReturnType<typeof setTimeout> | null = null
+    const arm = () => {
+      if (wishLingerArmedAtRef.current != null) return
+      if (document.visibilityState !== 'visible') return
+      wishLingerArmedAtRef.current = Date.now()
+      t = setTimeout(() => setWishBubbleVisible(false), 120500)
+    }
+    arm()
+    const onVis = () => { if (document.visibilityState === 'visible') arm() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      document.removeEventListener('visibilitychange', onVis)
+      if (t) clearTimeout(t)
+    }
   }, [wish?.status, wish?.wish?.id])
 
   const { line: flavorLine, dismiss: dismissFlavor } = useFlavorBubble({
