@@ -583,24 +583,28 @@ export function IconEnvelope({ size = 20 }: IconProps) {
   }, size)
 }
 
-// ── CAT FACE ──────────────────────────────────────────────────────────────
+// ── EREN'S FACE ───────────────────────────────────────────────────────────
+// Ragdoll cat — cream body, grey-brown point markings on the ear tips +
+// face mask, big bright blue eyes (the breed's defining feature), and a
+// little pink nose. Palette pulled from SketchEren so the pixel version
+// reads as the same character.
 export function IconCatFace({ size = 20 }: IconProps) {
   const grid = [
-    '.KK......KK.',
-    'KDDK....KDDK',
-    'KDDDKKKKDDDK',
-    'KCCCCCCCCCCK',
-    'KCCMCCCCMCCK',
-    'KCCCCCCCCCCK',
-    'KCKCCCCCCKCK',
-    'KCCCCPPCCCCK',
-    'KCCCKPPKCCCK',
+    '.K........K.',
+    'KGK......KGK',
+    'KGGK....KGGK',
+    'KGGGCCCCGGGK',
+    'KGCCCCCCCCGK',
+    'KBBCCCCCCBBK',
+    'KBBCCCCCCBBK',
+    'KCCCCKPKCCCK',
+    'KCCCCKKKCCCK',
     '.KCCCCCCCCK.',
     '..KCCCCCCK..',
     '...KKKKKK...',
   ]
   return drawPixels(grid, {
-    K: '#2A1A3A', C: '#F5E6D3', D: '#D4B896', M: '#6BAED6', P: '#F48B9B',
+    K: '#1C1C1C', G: '#8A7860', C: '#FBF4DC', B: '#3A8ACB', P: '#E89AAE',
   }, size)
 }
 
