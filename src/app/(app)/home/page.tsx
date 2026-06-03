@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useRef, useLayoutEffect, useCallback } from 'react'
+import { useEffect, useState, useRef, useLayoutEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
@@ -46,6 +46,8 @@ import LightSwitch from '@/components/LightSwitch'
 import { useWish } from '@/contexts/WishContext'
 import WishCloud from '@/components/wish/WishCloud'
 import ErenGrantBurst from '@/components/wish/ErenGrantBurst'
+import ErenSpeechBubble from '@/components/wish/ErenSpeechBubble'
+import { useFlavorBubble } from '@/hooks/useFlavorBubble'
 
 interface XpParticle {
   id: number; x: number; y: number; tx: number; ty: number
@@ -62,7 +64,7 @@ export default function HomePage() {
   const { xp, level } = useTasks()
   useTimeTracking(user?.id ?? null)
   const { canClaim: fortuneAvailable } = useFortune()
-  const { newMessage, dismissPopup, unreadCount, partner, sendNudge, partnerMood } = useCouple()
+  const { newMessage, dismissPopup, unreadCount, partner, sendNudge, partnerMood, lifetimeWLT } = useCouple()
   const { inventory } = useInventory()
   const isDark = useIsDark()
   const wish = useWish()
@@ -263,6 +265,36 @@ export default function HomePage() {
     const ready = !authLoading && !!todayMood && !loading && !!stats && roomReady
     setHideStats(!ready)
   }, [authLoading, todayMood, loading, stats, roomReady, setHideStats])
+
+  // ── Flavor bubble — ambient inner-monologue lines that pop above-left of
+  // Eren. Suppressed whenever the wish bubble is visible (pending or in its
+  // 6.5s post-grant linger) so the two surfaces never overlap. Leader name
+  // mirrors WishContext's W-L-T derivation; lines that need {leader} or
+  // {other} substitute silently and drop themselves when those are null.
+  const leaderName = useMemo<string | null>(() => {
+    const myWins = lifetimeWLT?.myWins ?? 0
+    const partnerWins = lifetimeWLT?.partnerWins ?? 0
+    if (myWins > partnerWins) return profile?.name ?? null
+    if (partnerWins > myWins) return partner?.name ?? null
+    return null
+  }, [lifetimeWLT, profile?.name, partner?.name])
+
+  const [wishBubbleVisible, setWishBubbleVisible] = useState(false)
+  useEffect(() => {
+    if (!wish?.wish || wish.status === 'loading') { setWishBubbleVisible(false); return }
+    if (wish.status === 'pending') { setWishBubbleVisible(true); return }
+    setWishBubbleVisible(true)
+    const t = setTimeout(() => setWishBubbleVisible(false), 6500)
+    return () => clearTimeout(t)
+  }, [wish?.status, wish?.wish?.id])
+
+  const { line: flavorLine, dismiss: dismissFlavor } = useFlavorBubble({
+    enabled: !!stats && !stats.is_sleeping && roomReady && !authLoading,
+    suppressed: wishBubbleVisible,
+    leaderName,
+    viewerName: profile?.name ?? '',
+    partnerName: partner?.name ?? null,
+  })
 
   // Fast localStorage check
   useEffect(() => {
@@ -518,6 +550,14 @@ export default function HomePage() {
             {/* Gold sparkle explosion centered on Eren himself on grant.
                 Listens for `eren:wish-granted` and re-fires per grant. */}
             <ErenGrantBurst />
+
+            {/* Ambient flavor bubble — Eren's inner monologue. Cycles every
+                60–90s, plus contextual triggers (after_positive, gap_24h,
+                duplicate_feed). Suppressed whenever the wish bubble is up so
+                the two surfaces never collide in the same anchor. */}
+            {flavorLine && (
+              <ErenSpeechBubble bubble={flavorLine} onDismiss={dismissFlavor} />
+            )}
 
             {/* Little heart by Eren's side — quick "Send Eren" to your
                 partner. Only shown when paired. */}
