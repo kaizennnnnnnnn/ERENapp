@@ -40,6 +40,20 @@ export default function BlinkingEren({
     transformOrigin: 'top',
     pointerEvents: 'none',
   }
+  // Animated eye glint — a small soft-white dot floated over each eye's
+  // baked-in catchlight. It drifts a sub-pixel amount (erenEyeShine) so the
+  // shine looks wet/alive rather than printed-on. Rendered before the eyelids
+  // so a blink paints right over it.
+  const glint: React.CSSProperties = {
+    position: 'absolute',
+    width: '2.4%',
+    height: '2.4%',
+    borderRadius: '50%',
+    background:
+      'radial-gradient(circle at 40% 35%, #ffffff 0%, rgba(235,245,255,0.9) 42%, rgba(200,225,255,0) 72%)',
+    willChange: 'transform, opacity',
+    pointerEvents: 'none',
+  }
 
   return (
     <div className={`relative ${className}`}
@@ -69,6 +83,11 @@ export default function BlinkingEren({
             objectFit: 'contain',
             imageRendering: 'pixelated',
           }} />
+
+        {/* Eye glints — sit on each eye's catchlight and drift together
+            (eyes track as one), so they share one keyframe with no stagger. */}
+        <div style={{ ...glint, left: '40%', top: '33%', animation: 'erenEyeShine 5s ease-in-out infinite' }} />
+        <div style={{ ...glint, left: '56%', top: '33%', animation: 'erenEyeShine 5s ease-in-out infinite' }} />
 
         {/* Left eyelid */}
         <div style={{

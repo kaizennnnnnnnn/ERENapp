@@ -598,12 +598,12 @@ export default function HomePage() {
                 50%      { transform: scale(1.08); box-shadow: 0 0 18px rgba(255,107,157,0.65), 0 3px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1); }
               }
               @keyframes erenPetWiggle {
-                0%   { transform: rotate(0deg)  scale(1); }
-                15%  { transform: rotate(-5deg) scale(1.06); }
-                35%  { transform: rotate(4deg)  scale(1.04); }
-                55%  { transform: rotate(-3deg) scale(1.05); }
-                75%  { transform: rotate(2deg)  scale(1.02); }
-                100% { transform: rotate(0deg)  scale(1); }
+                0%   { transform: rotate(0deg)    scale(1); }
+                15%  { transform: rotate(-3deg)   scale(1.05); }
+                35%  { transform: rotate(2.5deg)  scale(1.03); }
+                55%  { transform: rotate(-1.8deg) scale(1.04); }
+                75%  { transform: rotate(1.2deg)  scale(1.02); }
+                100% { transform: rotate(0deg)    scale(1); }
               }
             `}</style>
 

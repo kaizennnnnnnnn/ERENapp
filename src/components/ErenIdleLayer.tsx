@@ -147,11 +147,11 @@ export default function ErenIdleLayer({ children, disabled }: Props) {
         }
         @keyframes erenIdleWiggle {
           0%, 100% { transform: rotate(0deg); }
-          15%      { transform: rotate(-3deg); }
-          30%      { transform: rotate(3deg); }
-          45%      { transform: rotate(-2deg); }
-          60%      { transform: rotate(2deg); }
-          75%      { transform: rotate(-1deg); }
+          15%      { transform: rotate(-1.5deg); }
+          30%      { transform: rotate(1.5deg); }
+          45%      { transform: rotate(-1deg); }
+          60%      { transform: rotate(1deg); }
+          75%      { transform: rotate(-0.5deg); }
           90%      { transform: rotate(0deg); }
         }
         @keyframes erenThoughtIn {
