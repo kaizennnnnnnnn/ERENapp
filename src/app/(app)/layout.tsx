@@ -8,6 +8,7 @@ import PageSwiper from '@/components/PageSwiper'
 import StatsHeader from '@/components/StatsHeader'
 import AppFrame from '@/components/AppFrame'
 import AchievementToast from '@/components/AchievementToast'
+import MemoryWatcher from '@/components/memory/MemoryWatcher'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -23,6 +24,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <CareSceneHost />
               <DailyBattlePop />
               <AchievementToast />
+              <MemoryWatcher />
               <AppFrame />
             </PageSwiper>
           </WishProvider>

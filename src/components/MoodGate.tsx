@@ -109,6 +109,9 @@ export default function MoodGate({ userId, userName, householdId, onDone }: Prop
     // Cache locally so navigating back never re-shows the gate
     localStorage.setItem(`pocket_eren_mood_${userId}_${today}`, mood)
     completeTask('daily_mood')
+    // Memory Wall: signal first:mood. Plain Event — the watcher only needs
+    // the trigger, not the payload (MoodGate already owns the value).
+    try { window.dispatchEvent(new Event('eren:mood-logged')) } catch { /* ignore */ }
 
     // Low-mood alert: let the partner know they might want to send some love.
     // Fire-and-forget; the endpoint respects the partner's opt-in.

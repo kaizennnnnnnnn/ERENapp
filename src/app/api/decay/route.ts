@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { clampStat, computeErenMood, shouldBecomeSick } from '@/lib/utils'
 import { sendPush, getStatNotifications } from '@/lib/serverPush'
+import { runMemorySweep } from '@/lib/memoryChecks'
 
 // Critical: GET route handlers are statically cached by Next.js / Vercel by
 // default. Without this opt-out the first response gets memoized and every
@@ -163,6 +164,13 @@ export async function GET(request: Request) {
     if (expired.length > 0) {
       await supabase.from('push_subscriptions').delete().in('id', expired)
     }
+
+    // Memory Wall sweep — date-based + streak + rare frames. Idempotent via
+    // CAS on memory_frames PK, so safe to run every tick. PR 9's notify-memory
+    // cron drains the trigger-queued memory_unlocks rows.
+    try {
+      await runMemorySweep(supabase, stat.household_id)
+    } catch { /* best-effort; sweep swallows its own errors */ }
   })
 
   await Promise.all(updates)
