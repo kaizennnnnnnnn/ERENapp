@@ -593,18 +593,20 @@ export function IconCatFace({ size = 20 }: IconProps) {
     '.K........K.',
     'KGK......KGK',
     'KGGK....KGGK',
-    'KGGGCCCCGGGK',
+    'KGGPCCCCPGGK',  // pink ear interiors (P) — real cat ears have pink inside
     'KGCCCCCCCCGK',
-    'KBBCCCCCCBBK',
-    'KBBCCCCCCBBK',
-    'KCCCCKPKCCCK',
-    'KCCCCKKKCCCK',
-    '.KCCCCCCCCK.',
+    'KCBBCCCCBBCK',  // eyes pulled inward by one cell so cream surrounds them
+    'KCBLCCCCLBCK',  // single L (white) sparkle inside each iris — alive look
+    'KCCCPPPPCCCK',  // wider nose top
+    'KCCCCPPCCCCK',  // narrowing to V
+    '.KCCKCCKCCK.',  // tiny mouth tucks under the nose
     '..KCCCCCCK..',
     '...KKKKKK...',
   ]
   return drawPixels(grid, {
-    K: '#1C1C1C', G: '#8A7860', C: '#FBF4DC', B: '#3A8ACB', P: '#E89AAE',
+    K: '#1C1C1C', G: '#8A7860', C: '#FBF4DC',
+    B: '#3A8ACB', L: '#FFFFFF',                      // iris + sparkle
+    P: '#E89AAE',                                    // nose + ear inside
   }, size)
 }
 
