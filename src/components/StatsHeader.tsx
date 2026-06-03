@@ -22,13 +22,13 @@ const RED    = '#E53935'
 const RED_LO = '#8E1F1B'
 const redA = (a: number) => `rgba(229,57,53,${a})`
 
-// Cyan / ice-blue — shared accent for the level orb ring, the XP fill bar,
-// and the XP readout, so the level/XP cluster reads as one cohesive unit
-// (cool, distinct from the gold coins and the white level number).
-const CYAN_HI = '#7FE9FF'
-const CYAN    = '#1CA5D8'
-const CYAN_LO = '#0C6A8E'
-const cyanA = (a: number) => `rgba(28,165,216,${a})`
+// Warm light yellow — shared accent for the level orb ring, the XP fill bar,
+// and the XP readout, so the level/XP cluster reads as one warm unit. The
+// little dot accents (orb ticks + panel rivets) stay pink for contrast.
+const YELLOW_HI = '#FFF6C8'
+const YELLOW    = '#FFE173'
+const YELLOW_LO = '#E0B84A'
+const yellowA = (a: number) => `rgba(255,225,115,${a})`
 
 // Gold triplet for the coins number — matches the gold coin icon beside it.
 const GOLD_HI = '#FFD700'
@@ -265,9 +265,9 @@ export default function StatsHeader() {
             borderRadius: '50%',
             background: 'radial-gradient(circle at 35% 28%, #2a2a2e 0%, #0a0a0c 50%, #000 100%)',
             boxShadow: [
-              `0 0 0 1.5px ${CYAN}`,
+              `0 0 0 1.5px ${YELLOW}`,
               '0 0 0 3px #000',
-              `0 0 0 4px ${cyanA(0.4)}`,
+              `0 0 0 4px ${yellowA(0.4)}`,
               '0 4px 14px rgba(0,0,0,0.7)',
               'inset 0 1px 0 rgba(255,255,255,0.15)',
             ].join(','),
@@ -284,17 +284,17 @@ export default function StatsHeader() {
               <div key={i} style={{
                 position: 'absolute',
                 left: x - 1, top: y - 1, width: 2, height: 2,
-                background: CYAN,
+                background: PINK,
                 opacity: major ? 1 : 0.4,
-                boxShadow: major ? `0 0 3px ${CYAN}` : 'none',
+                boxShadow: major ? `0 0 3px ${PINK}` : 'none',
               }} />
             )
           })}
 
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <span className="font-pixel" style={{
-              fontSize: 4.5, color: CYAN_HI, letterSpacing: 1.5, lineHeight: 1, marginBottom: 2,
-              textShadow: `0 0 3px ${cyanA(0.53)}`,
+              fontSize: 4.5, color: YELLOW_HI, letterSpacing: 1.5, lineHeight: 1, marginBottom: 2,
+              textShadow: `0 0 3px ${yellowA(0.53)}`,
             }}>LVL</span>
             <span style={{
               fontFamily: '"Press Start 2P", monospace',
@@ -331,8 +331,9 @@ export default function StatsHeader() {
           )}
         </Link>
 
-        {/* XP panel — cyan-framed to match the level orb ring, so the
-            level + XP form one cohesive cluster (streak/coins stay pink/gold). */}
+        {/* XP panel — yellow-framed to match the level orb ring, so the
+            level + XP form one cohesive cluster (streak/coins stay pink/gold).
+            The corner rivets stay pink as little dot accents. */}
         <div
           id="stats-xp-bar"
           className="flex-1 relative flex flex-col justify-center"
@@ -340,37 +341,37 @@ export default function StatsHeader() {
             height: 40,
             padding: '5px 10px',
             gap: 3,
-            ...obsidianFace(CYAN + '55'),
+            ...obsidianFace(YELLOW + '55'),
           }}
         >
-          <Rivets inset={3} accent={{ hi: CYAN_HI, mid: CYAN, lo: CYAN_LO, glow: cyanA(0.67) }} />
+          <Rivets inset={3} />
           <div className="flex items-center justify-between">
             <div className="flex items-center" style={{ gap: 4 }}>
               <div style={{
-                width: 5, height: 5, background: CYAN,
-                boxShadow: `0 0 4px ${CYAN}`,
+                width: 5, height: 5, background: YELLOW,
+                boxShadow: `0 0 4px ${YELLOW}`,
                 transform: 'rotate(45deg)',
               }} />
               <span className="font-pixel" style={{
-                fontSize: 7, color: CYAN_HI, letterSpacing: 2.5,
-                textShadow: `0 0 3px ${cyanA(0.4)}`,
+                fontSize: 7, color: YELLOW_HI, letterSpacing: 2.5,
+                textShadow: `0 0 3px ${yellowA(0.4)}`,
               }}>XP</span>
             </div>
-            <span className="font-pixel" style={{ fontSize: 7, color: CYAN_HI }}>
-              {xpIntoLevel}<span style={{ color: CYAN_LO, margin: '0 1px' }}>/</span>{xpNeeded}
+            <span className="font-pixel" style={{ fontSize: 7, color: YELLOW_HI }}>
+              {xpIntoLevel}<span style={{ color: YELLOW_LO, margin: '0 1px' }}>/</span>{xpNeeded}
             </span>
           </div>
 
           <div style={{
             height: 8, position: 'relative', overflow: 'hidden',
             background: '#000',
-            boxShadow: `inset 0 1px 3px rgba(0,0,0,0.9), inset 0 0 0 1px ${cyanA(0.2)}`,
+            boxShadow: `inset 0 1px 3px rgba(0,0,0,0.9), inset 0 0 0 1px ${yellowA(0.2)}`,
           }}>
             <div style={{
               width: `${xpPct}%`, height: '100%', position: 'relative',
-              // Cyan fill — shares the level ring's hue so the level/XP cluster
-              // reads as one unit; still reads as forward progress.
-              background: `linear-gradient(180deg, ${CYAN_HI} 0%, ${CYAN} 40%, ${CYAN_LO} 100%)`,
+              // Warm-yellow fill — shares the level ring's hue so the level/XP
+              // cluster reads as one unit; still reads as forward progress.
+              background: `linear-gradient(180deg, ${YELLOW_HI} 0%, ${YELLOW} 40%, ${YELLOW_LO} 100%)`,
               boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.4)',
               transition: 'width 700ms ease-out',
             }}>
@@ -378,7 +379,7 @@ export default function StatsHeader() {
                 <div style={{
                   position: 'absolute', right: 0, top: 0, bottom: 0, width: 1.5,
                   background: '#fff',
-                  boxShadow: `0 0 6px ${CYAN_HI}, 0 0 10px ${CYAN}`,
+                  boxShadow: `0 0 6px ${YELLOW_HI}, 0 0 10px ${YELLOW}`,
                 }} />
               )}
             </div>
