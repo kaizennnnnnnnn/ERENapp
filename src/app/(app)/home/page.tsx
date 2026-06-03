@@ -45,6 +45,7 @@ import { useIsDark } from '@/hooks/useIsDark'
 import LightSwitch from '@/components/LightSwitch'
 import { useWish } from '@/contexts/WishContext'
 import WishCloud from '@/components/wish/WishCloud'
+import ErenGrantBurst from '@/components/wish/ErenGrantBurst'
 
 interface XpParticle {
   id: number; x: number; y: number; tx: number; ty: number
@@ -498,7 +499,9 @@ export default function HomePage() {
 
             {/* Daily wish bubble — anchored above-left of Eren, opposite
                 ThoughtCloud's above-right anchor. Pending state shows the
-                wish; granted state shows a gold-tinted sparkle burst. */}
+                wish; granted state shows a gold-tinted sparkle burst then
+                self-hides after a few seconds so the bubble doesn't loiter
+                showing stale text. */}
             {wish?.wish && wish.status !== 'loading' && (
               <WishCloud
                 wish={wish.wish}
@@ -511,6 +514,10 @@ export default function HomePage() {
                 coinsPaid={wish.coinsPaid}
               />
             )}
+
+            {/* Gold sparkle explosion centered on Eren himself on grant.
+                Listens for `eren:wish-granted` and re-fires per grant. */}
+            <ErenGrantBurst />
 
             {/* Little heart by Eren's side — quick "Send Eren" to your
                 partner. Only shown when paired. */}

@@ -11,11 +11,16 @@
 // Pure presentational — caller wires it up with the data from useDailyWish.
 // ═════════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { IconWish } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import type { Wish } from '@/lib/wishes'
 import { wishHintRoom } from '@/lib/wishes'
+
+// Time the bubble stays visible after a grant before fading out. Long enough
+// to read the "WISH GRANTED" stamp + see the sparkle finish, short enough
+// that the bubble doesn't loiter all day.
+const GRANTED_LINGER_MS = 6000
 
 interface Props {
   wish: Wish
@@ -37,13 +42,33 @@ const HINT_ROOM_LABEL: Record<NonNullable<ReturnType<typeof wishHintRoom>>, stri
 export default function WishCloud({ wish, text, status, grantedByMe, grantedByName, coinsPaid }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [sparkleKey, setSparkleKey] = useState(0)
+  // Tracks whether the bubble should still be on-screen. Goes false N seconds
+  // after grant so the bubble doesn't loiter showing stale text all day.
+  const [visible, setVisible] = useState(true)
+  const lingerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Bump the sparkle on grant transitions so the burst animation re-fires.
+  // Bump the sparkle + start the linger timer on grant transitions.
   useEffect(() => {
     if (status === 'granted') {
       setSparkleKey(k => k + 1)
+      if (lingerTimerRef.current) clearTimeout(lingerTimerRef.current)
+      lingerTimerRef.current = setTimeout(() => setVisible(false), GRANTED_LINGER_MS)
+    } else {
+      // Wish refreshed (new day) — show the bubble again.
+      setVisible(true)
+      if (lingerTimerRef.current) {
+        clearTimeout(lingerTimerRef.current)
+        lingerTimerRef.current = null
+      }
+    }
+    return () => {
+      if (lingerTimerRef.current) clearTimeout(lingerTimerRef.current)
     }
   }, [status])
+
+  // Hide the bubble after the linger. The StatsHeader chip keeps the gold
+  // "granted today" state visible permanently for the rest of the day.
+  if (!visible) return null
 
   const hintRoom = wishHintRoom(wish)
   const hintLabel = hintRoom ? HINT_ROOM_LABEL[hintRoom] : null

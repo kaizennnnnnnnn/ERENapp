@@ -316,10 +316,27 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
     })
     if (error || !data?.[0]?.granted) return
 
-    // The realtime UPDATE will repaint row + fire eren:wish-granted; we don't
-    // need to update local state here. Bumping weekGrantedCount eagerly so
-    // the "this week" pill animates without waiting for the next refetch.
+    // Optimistic local-state update — don't wait for the realtime UPDATE to
+    // round-trip. If realtime is slow or the channel is wedged the UI would
+    // sit on the stale "pending" view for seconds; this flips it instantly.
+    const grantedAt = new Date().toISOString()
+    setRow(prev => prev ? {
+      ...prev,
+      granted_at: grantedAt,
+      granted_by: opts.userId!,
+      action_taken: actionTaken,
+      coins_paid: wish.coinReward,
+    } : prev)
     setWeekGrantedCount(c => c + 1)
+
+    // Also dispatch the grant event locally so the Eren sparkle + coin pop
+    // fire immediately. The realtime listener guards against double-firing
+    // by checking `wasGranted` against the row state before the UPDATE.
+    try {
+      window.dispatchEvent(new CustomEvent('eren:wish-granted', {
+        detail: { wishId: wish.id, by: opts.userId, coinsPaid: wish.coinReward },
+      }))
+    } catch { /* ignore */ }
   }, [row, opts.householdId, opts.userId, todayKey, buildActions])
 
   // ── Event listeners for the action stream.
@@ -402,6 +419,15 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
 
   // ── Boot.
   useEffect(() => { void fetchOrSeed() }, [fetchOrSeed])
+
+  // ── Catch-up grant: if the wish row arrived AFTER the user already did
+  // the matching action today (race on first mount, or app reopen after
+  // doing the action), tryGrant once more so we don't sit on a pending
+  // wish forever just because the row loaded a tick late.
+  useEffect(() => {
+    if (!row || row.granted_at) return
+    void tryGrant()
+  }, [row?.wish_id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Resolve the Wish definition + rendered text.
   const wish = useMemo<Wish | null>(() => {
