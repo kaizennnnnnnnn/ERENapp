@@ -10,6 +10,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { playSound } from '@/lib/sounds'
 import { IconCrown, IconStar } from '@/components/PixelIcons'
+import { fireMinigameDone } from '@/lib/minigames'
 
 const PIECE_HEIGHT   = 36
 const PERFECT_TOL    = 4    // px tolerance for "perfect"
@@ -241,6 +242,7 @@ export default function ErenStackGame() {
       savedRef.current = true
       supabase.from('game_scores').insert({ user_id: user.id, game_type: 'eren_stack', score: finalScore })
         .then(({ error }: { error: { message: string } | null }) => { if (error) console.error('eren_stack save:', error) })
+      fireMinigameDone('eren_stack', finalScore)
       addCoins(Math.min(60, finalScore))
       completeTask('daily_game')
       if (finalScore >= 25) completeTask('weekly_high_score')

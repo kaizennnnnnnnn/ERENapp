@@ -12,6 +12,7 @@ import {
   IconMeat, IconFish, IconHeart, IconStar, IconCrown, IconCoin, IconBook,
 } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
+import { fireMinigameDone } from '@/lib/minigames'
 
 // ── Config ───────────────────────────────────────────────────────────────────
 const GAME_DURATION = 45
@@ -416,6 +417,7 @@ export default function TreatTumbleGame() {
         game_type: 'treat_tumble',
         score: Math.max(0, score),
       })
+      fireMinigameDone('treat_tumble', Math.max(0, score))
       await applyAction(user.id, 'play')
       await addCoins(Math.min(40, Math.max(0, Math.floor(score / 5))))
       completeTask('daily_game')

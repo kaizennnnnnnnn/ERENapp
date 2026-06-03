@@ -10,6 +10,7 @@ import { useCare } from '@/contexts/CareContext'
 import { RefreshCw, ChevronLeft } from 'lucide-react'
 import { IconMouse, IconStar, IconCrown, IconCoin } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
+import { fireMinigameDone } from '@/lib/minigames'
 
 const MOUSE_SPEED_INIT = 2.2
 const GAME_DURATION    = 30
@@ -249,6 +250,7 @@ export default function CatchMouseGame() {
 
     if (user?.id && s.score > 0) {
       supabase.from('game_scores').insert({ user_id: user.id, game_type: 'catch_mouse', score: s.score }).then(({ error }) => { if (error) console.error('score save error:', error) })
+      fireMinigameDone('catch_mouse', s.score)
       const coinsEarned = Math.floor(s.score / 2)
       if (coinsEarned > 0) addCoins(coinsEarned)
       completeTask('daily_game')

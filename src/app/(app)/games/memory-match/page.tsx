@@ -12,6 +12,7 @@ import {
   IconYarn, IconFish, IconPaw, IconMouse, IconHeart, IconStar,
   IconCrown, IconCoin,
 } from '@/components/PixelIcons'
+import { fireMinigameDone } from '@/lib/minigames'
 import { playSound } from '@/lib/sounds'
 
 // ── Game config ──────────────────────────────────────────────────────────────
@@ -149,6 +150,7 @@ export default function MemoryMatchGame() {
         game_type: 'memory_match',
         score: finalScore,
       })
+      fireMinigameDone('memory_match', finalScore)
       await applyAction(user.id, 'play')
       await addCoins(Math.min(30, Math.floor(finalScore / 8)))
       completeTask('daily_game')

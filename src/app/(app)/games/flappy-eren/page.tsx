@@ -9,6 +9,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { playSound } from '@/lib/sounds'
+import { fireMinigameDone } from '@/lib/minigames'
 
 // ─── Tuning ───────────────────────────────────────────────────────────────────
 const GRAVITY        = 1700
@@ -329,6 +330,7 @@ export default function FlappyErenGame() {
     if (user?.id && scoreRef.current > 0) {
       supabase.from('game_scores').insert({ user_id: user.id, game_type: 'flappy_eren', score: scoreRef.current })
         .then(({ error }: { error: { message: string } | null }) => { if (error) console.error('flappy score save error:', error) })
+      fireMinigameDone('flappy_eren', scoreRef.current)
       addCoins(scoreRef.current * 2)
       completeTask('daily_game')
       if (scoreRef.current >= 15) completeTask('weekly_high_score')

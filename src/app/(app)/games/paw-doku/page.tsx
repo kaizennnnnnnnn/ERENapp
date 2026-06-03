@@ -20,6 +20,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { playSound } from '@/lib/sounds'
 import { IconStar, IconSparkles } from '@/components/PixelIcons'
+import { fireMinigameDone } from '@/lib/minigames'
 
 // ─── Tunables ───────────────────────────────────────────────────────────────
 const GRID_SIZE       = 9        // 9×9 sudoku-style grid
@@ -371,6 +372,7 @@ export default function PawDokuGame() {
       savedRef.current = true
       supabase.from('game_scores').insert({ user_id: user.id, game_type: 'paw_doku', score })
         .then(({ error }: { error: { message: string } | null }) => { if (error) console.error('paw_doku save:', error) })
+      fireMinigameDone('paw_doku', score)
       addCoins(Math.min(80, Math.floor(score / 60)))
       completeTask('daily_game')
       if (score >= 1500) completeTask('weekly_high_score')

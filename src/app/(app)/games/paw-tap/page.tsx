@@ -9,6 +9,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { RefreshCw, ChevronLeft } from 'lucide-react'
 import { playSound } from '@/lib/sounds'
+import { fireMinigameDone } from '@/lib/minigames'
 
 const GAME_DURATION  = 20
 const FISH_POSITIONS = [
@@ -126,6 +127,7 @@ export default function PawTapGame() {
 
     if (user?.id && scoreRef.current > 0) {
       supabase.from('game_scores').insert({ user_id: user.id, game_type: 'paw_tap', score: scoreRef.current }).then(({ error }) => { if (error) console.error('score save error:', error) })
+      fireMinigameDone('paw_tap', scoreRef.current)
       addCoins(scoreRef.current)
       completeTask('daily_game')
       if (scoreRef.current >= 30) completeTask('weekly_high_score')

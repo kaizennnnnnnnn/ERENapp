@@ -10,6 +10,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { playSound } from '@/lib/sounds'
 import { IconPaw, IconStar } from '@/components/PixelIcons'
+import { fireMinigameDone } from '@/lib/minigames'
 
 // Each pad has its own colour AND audio frequency so the round literally plays
 // a tune. Frequencies are a triad-ish set so wrong sequences sound dissonant.
@@ -147,6 +148,7 @@ export default function ErenSaysGame() {
     savedRef.current = true
     supabase.from('game_scores').insert({ user_id: user.id, game_type: 'eren_says', score: reached })
       .then(({ error }: { error: { message: string } | null }) => { if (error) console.error('eren_says save:', error) })
+    fireMinigameDone('eren_says', reached)
     addCoins(Math.min(40, reached * 2))
     completeTask('daily_game')
     if (reached >= 8) completeTask('weekly_high_score')

@@ -10,6 +10,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { playSound } from '@/lib/sounds'
 import { IconStar } from '@/components/PixelIcons'
+import { fireMinigameDone } from '@/lib/minigames'
 
 const ROWS = 8
 const COLS = 6
@@ -235,6 +236,7 @@ export default function YarnPopGame() {
       savedRef.current = true
       supabase.from('game_scores').insert({ user_id: user.id, game_type: 'yarn_pop', score })
         .then(({ error }: { error: { message: string } | null }) => { if (error) console.error('yarn_pop save:', error) })
+      fireMinigameDone('yarn_pop', score)
       addCoins(Math.min(60, Math.floor(score / 25)))
       completeTask('daily_game')
       if (score >= 600) completeTask('weekly_high_score')

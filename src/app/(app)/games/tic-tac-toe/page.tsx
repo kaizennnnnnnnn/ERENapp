@@ -9,6 +9,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { playSound } from '@/lib/sounds'
+import { fireMinigameDone } from '@/lib/minigames'
 
 // X = player, O = Eren
 type Cell = 'X' | 'O' | null
@@ -177,6 +178,7 @@ export default function TicTacToePage() {
       // surfaces the player's best streak.
       supabase.from('game_scores').insert({ user_id: user.id, game_type: 'tic_tac_toe', score: newWins })
         .then(({ error }: { error: { message: string } | null }) => { if (error) console.error('ttt score save error:', error) })
+      fireMinigameDone('tic_tac_toe', newWins, true)
       addCoins(8)
       completeTask('daily_game')
       if (newWins >= 5) completeTask('weekly_high_score')

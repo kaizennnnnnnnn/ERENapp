@@ -10,6 +10,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { playSound } from '@/lib/sounds'
 import { IconCoin, IconStar } from '@/components/PixelIcons'
+import { fireMinigameDone } from '@/lib/minigames'
 
 const LANES = 3
 const SPEED_BASE = 270
@@ -202,6 +203,7 @@ export default function LaneRunnerGame() {
       savedRef.current = true
       supabase.from('game_scores').insert({ user_id: user.id, game_type: 'lane_runner', score: finalScore })
         .then(({ error }: { error: { message: string } | null }) => { if (error) console.error('lane_runner save:', error) })
+      fireMinigameDone('lane_runner', finalScore)
       addCoins(Math.min(60, Math.floor(finalScore / 8)))
       completeTask('daily_game')
       if (finalScore >= 200) completeTask('weekly_high_score')
