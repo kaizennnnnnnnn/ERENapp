@@ -85,6 +85,15 @@ async function fetchOnEventCounters(
 ): Promise<OnEventCounters> {
   const todayStart = todayStartISO()
 
+  // game_scores has user_id, not household_id — so we need this household's
+  // member ids first to filter the score count. Fetch the profile ids before
+  // the parallel batch.
+  const { data: profileRows } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('household_id', householdId)
+  const memberIds = (profileRows ?? []).map(p => (p as { id: string }).id)
+
   const [interactionsRes, journalRes, gamesRes, householdRes] = await Promise.all([
     supabase.from('interactions')
       .select('user_id, action_type, created_at')
@@ -92,9 +101,11 @@ async function fetchOnEventCounters(
     supabase.from('couple_journal')
       .select('sender_id, via_eren')
       .eq('household_id', householdId),
-    supabase.from('game_scores')
-      .select('id', { count: 'exact', head: true })
-      .eq('household_id', householdId),
+    memberIds.length
+      ? supabase.from('game_scores')
+          .select('id', { count: 'exact', head: true })
+          .in('user_id', memberIds)
+      : Promise.resolve({ count: 0 } as { count: number | null }),
     supabase.from('households')
       .select('wishes_granted_count')
       .eq('id', householdId)
@@ -326,31 +337,34 @@ export async function runMemorySweep(
   let pairedSince: string | null = null
 
   try {
-    const [iRes, gRes, hRes, pRes] = await Promise.all([
+    // Profiles first so we can scope game_scores to this household's members.
+    const { data: profileRows } = await supabase
+      .from('profiles')
+      .select('id, created_at')
+      .eq('household_id', householdId)
+      .order('created_at', { ascending: true })
+    const profiles = (profileRows ?? []) as Array<{ id: string, created_at: string }>
+    if (profiles.length >= 2) pairedSince = profiles[1].created_at
+    const memberIds = profiles.map(p => p.id)
+
+    const [iRes, gRes, hRes] = await Promise.all([
       supabase.from('interactions')
         .select('user_id, action_type, created_at')
         .eq('household_id', householdId)
         .gte('created_at', windowStart),
-      supabase.from('game_scores')
-        .select('game_type')
-        .eq('household_id', householdId),
+      memberIds.length
+        ? supabase.from('game_scores')
+            .select('game_type')
+            .in('user_id', memberIds)
+        : Promise.resolve({ data: [] as Array<{ game_type: string }> }),
       supabase.from('households')
         .select('id, created_at, eren_birthday, couple_anniversary')
         .eq('id', householdId)
         .maybeSingle(),
-      // first_paired = earliest profile.created_at in the household where two
-      // distinct profiles exist. We just need any indicator that two members
-      // are present.
-      supabase.from('profiles')
-        .select('id, created_at')
-        .eq('household_id', householdId)
-        .order('created_at', { ascending: true }),
     ])
     interactions = (iRes.data ?? []) as typeof interactions
     games        = (gRes.data ?? []) as typeof games
     household    = (hRes.data ?? null) as HouseholdSweepRow | null
-    const profiles = (pRes.data ?? []) as Array<{ id: string, created_at: string }>
-    if (profiles.length >= 2) pairedSince = profiles[1].created_at
   } catch (err) {
     if (typeof console !== 'undefined') {
       console.warn('[memoryChecks] sweep fetch failed', householdId, err)

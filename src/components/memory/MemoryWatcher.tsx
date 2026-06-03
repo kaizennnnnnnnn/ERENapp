@@ -14,29 +14,43 @@
 //   eren:message-sent    → couple_journal message inserted (NEW in PR 6)
 //   eren:mood-logged     → MoodGate insert landed (NEW in PR 6)
 //
-// Each event is translated into an UnlockEvent and handed to checkOnEventUnlocks.
-// That function runs every on-event predicate against a fresh counter snapshot
-// and calls tryUnlock per match — the CAS dedupes. No state lives here; this
-// is an event adapter.
+// Events are debounced: a single user action often fires several of these in
+// quick succession (feed → wish-granted → coin-credited), and running a fresh
+// 5-query snapshot per event piles concurrent reads on the auth-token Web
+// Lock, surfacing as "lock not released within 5000ms" warnings. We collapse
+// any burst within 1.2s into a single check and only evaluate the LAST event
+// — the snapshot covers everything that happened up to that point anyway.
 // ═════════════════════════════════════════════════════════════════════════════
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { checkOnEventUnlocks, type UnlockEvent } from '@/lib/memoryChecks'
 
+const BURST_DEBOUNCE_MS = 1200
+
 export default function MemoryWatcher() {
   const supabase = createClient()
   const { user, profile } = useAuth()
+  const pendingEventRef = useRef<UnlockEvent | null>(null)
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!user?.id || !profile?.household_id) return
     const householdId = profile.household_id
     const userId = user.id
 
+    // Collapse a burst of events into one check. Snapshot of the counter
+    // state at fire-time covers every event in the burst, so we lose nothing
+    // by only evaluating against the last one queued.
     const dispatchCheck = (evt: UnlockEvent) => {
-      // Fire-and-forget; the helper swallows its own errors.
-      void checkOnEventUnlocks(supabase, evt)
+      pendingEventRef.current = evt
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+      debounceTimerRef.current = setTimeout(() => {
+        const pending = pendingEventRef.current
+        pendingEventRef.current = null
+        if (pending) void checkOnEventUnlocks(supabase, pending)
+      }, BURST_DEBOUNCE_MS)
     }
 
     const onMyAction = (e: Event) => {
