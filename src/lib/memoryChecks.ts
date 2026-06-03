@@ -150,6 +150,10 @@ async function fetchOnEventCounters(
 /** Returns true if this predicate is evaluated by the sweep instead of the
  *  on-event entry point. */
 function isSweepPredicate(p: Predicate): boolean {
+  // 'seed' is neither on-event nor sweep — only the catchup endpoint touches
+  // it. Returning true here makes the on-event evaluator skip it; the sweep
+  // loop has its own switch that ignores anything not in its case list.
+  if (p.type === 'seed') return true
   return p.type === 'streak' || p.type === 'calendar' || p.type === 'rare'
     || (p.type === 'couple' && (p.kind === 'both_cared_7_streak' || p.kind === 'first_paired'))
 }
@@ -201,6 +205,7 @@ function matchesOnEvent(
     case 'streak':
     case 'calendar':
     case 'rare':
+    case 'seed':
       return false
   }
 }

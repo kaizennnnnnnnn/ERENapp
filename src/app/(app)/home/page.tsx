@@ -48,6 +48,8 @@ import WishCloud from '@/components/wish/WishCloud'
 import ErenGrantBurst from '@/components/wish/ErenGrantBurst'
 import ErenSpeechBubble from '@/components/wish/ErenSpeechBubble'
 import { useFlavorBubble } from '@/hooks/useFlavorBubble'
+import { useCatchupGate } from '@/hooks/useCatchupGate'
+import CatchupCarousel from '@/components/memory/CatchupCarousel'
 
 interface XpParticle {
   id: number; x: number; y: number; tx: number; ty: number
@@ -298,6 +300,16 @@ export default function HomePage() {
     partnerName: partner?.name ?? null,
   })
 
+  // Phase 3 PR 8 — backdated catchup carousel. Fires once per profile after
+  // auth + household resolve; the server endpoint backfills historical
+  // memory_frames timestamps, the client carousel walks the user through the
+  // result. memory_caught_up flips inside the carousel's dismiss handler.
+  const { frames: catchupFrames, dismiss: dismissCatchup } = useCatchupGate({
+    userId:      user?.id ?? null,
+    householdId: profile?.household_id ?? null,
+    ready:       !authLoading && !!todayMood && !!stats && roomReady,
+  })
+
   // Fast localStorage check
   useEffect(() => {
     if (!user?.id) return
@@ -419,12 +431,24 @@ export default function HomePage() {
 
       {showReminders && <ReminderSheet onClose={() => setShowReminders(false)} />}
       {showFortune && <FortunePopup onClose={() => setShowFortune(false)} />}
-      {newMessage && <ErenMessagePopup message={newMessage} onDismiss={dismissPopup} />}
+      {/* Suppress partner-message popup while the catchup carousel is up so
+          an inbound message doesn't mount hidden under z-80 and surprise the
+          user when they dismiss. The realtime subscription buffers it; it'll
+          show up as unread on the couple chip. */}
+      {newMessage && !catchupFrames && <ErenMessagePopup message={newMessage} onDismiss={dismissPopup} />}
       {showSendEren && partner && (
         <SendErenSheet
           partnerName={partner.name}
           onSend={sendNudge}
           onClose={() => setShowSendEren(false)}
+        />
+      )}
+
+      {catchupFrames && (
+        <CatchupCarousel
+          frames={catchupFrames}
+          onOpenHallway={() => openScene('memory')}
+          onClose={dismissCatchup}
         />
       )}
 

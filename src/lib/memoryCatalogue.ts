@@ -28,7 +28,7 @@
 // this catalogue because they don't have a predicate — they're force-inserted.
 // ═════════════════════════════════════════════════════════════════════════════
 
-export type FrameKind = 'first' | 'cumulative' | 'streak' | 'calendar' | 'couple' | 'rare'
+export type FrameKind = 'welcome' | 'first' | 'cumulative' | 'streak' | 'calendar' | 'couple' | 'rare'
 export type Rarity    = 'common' | 'rare' | 'epic'
 
 /** Care action types tracked in the interactions table. */
@@ -73,6 +73,10 @@ export type Predicate =
   | { type: 'couple', kind: 'both_cared_same_day' | 'both_cared_7_streak' | 'nudges_traded_10' | 'nudges_traded_50' | 'first_paired' }
   /** Heavy rare frames evaluated on the sweep. */
   | { type: 'rare', kind: 'all_minigames' | 'all_rooms_in_day' | 'all_foods_in_week' | 'perfect_week' }
+  /** Seed frames inserted unconditionally by the catchup endpoint (PR 8)
+   *  with unlocked_at = household.created_at. Never fire via on-event or
+   *  sweep; both evaluators skip this predicate by design. */
+  | { type: 'seed' }
 
 export interface MemoryFrame {
   id: string
@@ -97,6 +101,13 @@ const ROSE   = { bg: '#3A1A24', accent: '#FF9DBE' }
 // ─── Catalogue (append-only) ─────────────────────────────────────────────────
 
 export const MEMORY_FRAMES: MemoryFrame[] = [
+  // ── Welcome seeds (1) ─ stamped by the catchup endpoint so a brand-new
+  //                       wall always has at least one filled frame.
+  { id: 'welcome-here',   kind: 'welcome', rarity: 'common',
+    title: 'Welcome',     hint: 'the day Eren came home.',
+    art: { icon: 'cake', ...CREAM },
+    predicate: { type: 'seed' } },
+
   // ── Firsts (12) ───────────────────────────────────────────────────────────
   { id: 'first-feed',     kind: 'first', rarity: 'common',
     title: 'First Meal', hint: 'the first time you fed Eren.',
