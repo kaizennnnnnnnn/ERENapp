@@ -43,6 +43,8 @@ import { MOOD_THEME, LOW_MOODS } from '@/lib/moods'
 import { OBSIDIAN_BTN, Rivets } from '@/components/obsidian'
 import { useIsDark } from '@/hooks/useIsDark'
 import LightSwitch from '@/components/LightSwitch'
+import { useWish } from '@/contexts/WishContext'
+import WishCloud from '@/components/wish/WishCloud'
 
 interface XpParticle {
   id: number; x: number; y: number; tx: number; ty: number
@@ -62,6 +64,23 @@ export default function HomePage() {
   const { newMessage, dismissPopup, unreadCount, partner, sendNudge, partnerMood } = useCouple()
   const { inventory } = useInventory()
   const isDark = useIsDark()
+  const wish = useWish()
+
+  // Pet interaction — tap on Eren triggers a wiggle, a purr, and dispatches
+  // eren:pet so the wish system can grant pet-flavoured wishes (mood-pet,
+  // mood-lap). 1.5s cooldown prevents tap-spam from auto-granting.
+  const [wiggleKey, setWiggleKey] = useState(0)
+  const lastPetAtRef = useRef(0)
+  const handlePetEren = useCallback(() => {
+    const now = Date.now()
+    if (now - lastPetAtRef.current < 1500) return
+    lastPetAtRef.current = now
+    setWiggleKey(k => k + 1)
+    playSound('pet_purr')
+    try {
+      window.dispatchEvent(new CustomEvent('eren:pet', { detail: { user_id: user?.id } }))
+    } catch { /* SSR/no-window */ }
+  }, [user?.id])
 
   // Get equipped items for display
   const equippedOutfits = inventory.filter(i => i.equipped).map(i => GACHA_ITEMS.find(g => g.id === i.item_id)).filter(Boolean)
@@ -442,25 +461,56 @@ export default function HomePage() {
               bottom: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 2,
               filter: mood === 'angry' ? 'hue-rotate(340deg) saturate(1.3)' : mood === 'sleepy' ? 'brightness(0.85)' : 'none',
             }}>
-              <ErenIdleLayer>
-                <BlinkingEren id="eren-img" size={200} />
-                <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
+              {/* Tappable wrapper — pet/wiggle/purr lives here. Re-keyed every
+                  pet so the wiggle keyframe restarts. */}
+              <div
+                key={wiggleKey}
+                role="button"
+                aria-label="Pet Eren"
+                onClick={handlePetEren}
+                style={{
+                  cursor: 'pointer',
+                  animation: wiggleKey > 0 ? 'erenPetWiggle 0.55s ease-out' : 'none',
+                  transformOrigin: '50% 90%',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                <ErenIdleLayer>
+                  <BlinkingEren id="eren-img" size={200} />
+                  <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
 
-                {/* Outfit overlays — % positions are relative to the parent
-                    absolute div, which is sized by BlinkingEren (200×200). */}
-                {equippedOutfits.map(item => item?.pos && item.slot && (
-                  <div key={item.id} className="absolute pointer-events-none" style={{
-                    top: `${item.pos.top}%`, left: `${item.pos.left}%`,
-                    transform: 'translate(-50%, -50%)',
-                    fontSize: item.pos.size, lineHeight: 1,
-                    zIndex: item.slot === 'hat' ? 10 : item.slot === 'eyes' ? 9 : 8,
-                    filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
-                  }}>
-                    {item.icon}
-                  </div>
-                ))}
-              </ErenIdleLayer>
+                  {/* Outfit overlays — % positions are relative to the parent
+                      absolute div, which is sized by BlinkingEren (200×200). */}
+                  {equippedOutfits.map(item => item?.pos && item.slot && (
+                    <div key={item.id} className="absolute pointer-events-none" style={{
+                      top: `${item.pos.top}%`, left: `${item.pos.left}%`,
+                      transform: 'translate(-50%, -50%)',
+                      fontSize: item.pos.size, lineHeight: 1,
+                      zIndex: item.slot === 'hat' ? 10 : item.slot === 'eyes' ? 9 : 8,
+                      filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
+                    }}>
+                      {item.icon}
+                    </div>
+                  ))}
+                </ErenIdleLayer>
+              </div>
             </div>
+
+            {/* Daily wish bubble — anchored above-left of Eren, opposite
+                ThoughtCloud's above-right anchor. Pending state shows the
+                wish; granted state shows a gold-tinted sparkle burst. */}
+            {wish?.wish && wish.status !== 'loading' && (
+              <WishCloud
+                wish={wish.wish}
+                text={wish.text}
+                status={wish.status}
+                grantedByMe={!!wish.grantedBy && wish.grantedBy === user?.id}
+                grantedByName={wish.grantedBy === user?.id ? (profile?.name ?? null)
+                  : wish.grantedBy === partner?.id ? (partner?.name ?? null)
+                  : null}
+                coinsPaid={wish.coinsPaid}
+              />
+            )}
 
             {/* Little heart by Eren's side — quick "Send Eren" to your
                 partner. Only shown when paired. */}
@@ -499,6 +549,14 @@ export default function HomePage() {
               @keyframes sendErenPulse {
                 0%, 100% { transform: scale(1);    box-shadow: 0 0 12px rgba(255,107,157,0.4), 0 3px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1); }
                 50%      { transform: scale(1.08); box-shadow: 0 0 18px rgba(255,107,157,0.65), 0 3px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1); }
+              }
+              @keyframes erenPetWiggle {
+                0%   { transform: rotate(0deg)  scale(1); }
+                15%  { transform: rotate(-5deg) scale(1.06); }
+                35%  { transform: rotate(4deg)  scale(1.04); }
+                55%  { transform: rotate(-3deg) scale(1.05); }
+                75%  { transform: rotate(2deg)  scale(1.02); }
+                100% { transform: rotate(0deg)  scale(1); }
               }
             `}</style>
 

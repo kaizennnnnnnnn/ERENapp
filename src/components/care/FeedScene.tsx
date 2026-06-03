@@ -18,6 +18,9 @@ import ErenIdleLayer from '@/components/ErenIdleLayer'
 import StinkyFlies from '@/components/StinkyFlies'
 import LightSwitch from '@/components/LightSwitch'
 import { useIsDark } from '@/hooks/useIsDark'
+import { useWish } from '@/contexts/WishContext'
+import WishHintBanner from '@/components/wish/WishHintBanner'
+import { wishHintRoom } from '@/lib/wishes'
 
 interface Props { onClose: () => void }
 
@@ -249,6 +252,8 @@ export default function FeedScene({ onClose }: Props) {
   const { stats, feedWithFood, addToMyFood, consumeMyFood } = useErenStats(profile?.household_id ?? null)
   const { completeTask, coins, spendCoins } = useTasks()
   const isDark = useIsDark()
+  const wish = useWish()
+  const wishMatchesThisRoom = wish?.wish ? wishHintRoom(wish.wish) === 'feed' : false
 
   const [tab, setTab] = useState<'shop' | 'fridge' | null>(null)
   // Active shop category. null = show the category picker; set = show that
@@ -422,6 +427,15 @@ export default function FeedScene({ onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-40 overflow-hidden select-none" style={{ touchAction: 'none' }}>
+
+      {/* Daily wish hint — only renders when today's wish maps to feeding. */}
+      {wish?.wish && (
+        <WishHintBanner
+          text={wish.text}
+          status={wish.status}
+          matchesThisRoom={wishMatchesThisRoom}
+        />
+      )}
 
       {/* ══ BACKGROUND IMAGE ══ */}
       <div className="absolute inset-0" style={{ backgroundImage: `url(${isDark ? '/KitchenDark.png' : '/kitchen.png'})`, backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />

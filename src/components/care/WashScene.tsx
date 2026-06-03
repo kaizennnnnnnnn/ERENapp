@@ -10,6 +10,9 @@ import ErenIdleLayer from '@/components/ErenIdleLayer'
 import StinkyFlies from '@/components/StinkyFlies'
 import LightSwitch from '@/components/LightSwitch'
 import { useIsDark } from '@/hooks/useIsDark'
+import { useWish } from '@/contexts/WishContext'
+import WishHintBanner from '@/components/wish/WishHintBanner'
+import { wishHintRoom } from '@/lib/wishes'
 
 interface Props { onClose: () => void }
 // `c` = coverage % at the time this bubble was created. Used to fade
@@ -21,6 +24,8 @@ export default function WashScene({ onClose }: Props) {
   const { user, profile } = useAuth()
   const { stats, applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
+  const wish = useWish()
+  const wishMatchesThisRoom = wish?.wish ? wishHintRoom(wish.wish) === 'wash' : false
 
   const sceneRef   = useRef<HTMLDivElement>(null)
   const soapRef    = useRef<HTMLDivElement>(null)
@@ -173,6 +178,9 @@ export default function WashScene({ onClose }: Props) {
       className="fixed inset-0 z-40 overflow-hidden select-none"
       style={{ touchAction: 'none' }}
     >
+      {wish?.wish && (
+        <WishHintBanner text={wish.text} status={wish.status} matchesThisRoom={wishMatchesThisRoom} />
+      )}
       {/* ══ BACKGROUND IMAGE ══ */}
       <div className="absolute inset-0" style={{ backgroundImage: `url(${isDark ? '/BathroomDark.png' : '/bathroom.png'})`, backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 

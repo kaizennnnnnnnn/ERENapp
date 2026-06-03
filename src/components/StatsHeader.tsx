@@ -12,6 +12,8 @@ import { createClient } from '@/lib/supabase/client'
 import { IconHeart, IconMeat, IconLightning, IconMoon, IconDrop, IconCoin, IconFire } from './PixelIcons'
 import { playSound } from '@/lib/sounds'
 import { PINK, PINK_HI, PINK_LO, OBSIDIAN_FACE, Rivets, accentA } from './obsidian'
+import { useWish } from '@/contexts/WishContext'
+import WishChip from '@/components/wish/WishChip'
 
 // Red triplet for the unclaimed-rewards badge — distinct "claim me" signal
 // against the rest of the pink HUD.
@@ -171,6 +173,7 @@ export default function StatsHeader() {
   const { stats } = useErenStats(profile?.household_id ?? null)
   const { xp, level, coins, streak } = useTasks()
   const { hideStats, activeScene, closeScene } = useCare()
+  const wish = useWish()
 
   const xpIntoLevel = xp - totalXpForLevel(level)
   const xpNeeded    = xpForNextLevel(level)
@@ -375,6 +378,17 @@ export default function StatsHeader() {
             />
           </div>
         </div>
+
+        {/* Wish chip — Phase 3. Shows today's wish status + this-week count.
+            Lives left of the streak chip so the rivet-rich obsidian face
+            visually rhymes with the surrounding chips. */}
+        {wish?.wish && wish.status !== 'loading' && (
+          <WishChip
+            text={wish.text}
+            status={wish.status}
+            weekGrantedCount={wish.weekGrantedCount}
+          />
+        )}
 
         {/* Streak chip — always visible; grayed when inactive. We coerce
             the number defensively because the JSONB column can legitimately

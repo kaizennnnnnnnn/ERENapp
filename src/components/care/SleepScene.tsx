@@ -10,6 +10,9 @@ import BlinkingEren from '@/components/BlinkingEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
 import StinkyFlies from '@/components/StinkyFlies'
 import LightSwitch from '@/components/LightSwitch'
+import { useWish } from '@/contexts/WishContext'
+import WishHintBanner from '@/components/wish/WishHintBanner'
+import { wishHintRoom } from '@/lib/wishes'
 
 interface Props { onClose: () => void }
 
@@ -17,6 +20,8 @@ export default function SleepScene({ onClose }: Props) {
   const { user, profile } = useAuth()
   const { stats, applyAction, wakeUp } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
+  const wish = useWish()
+  const wishMatchesThisRoom = wish?.wish ? wishHintRoom(wish.wish) === 'sleep' : false
 
   const [tucking, setTucking] = useState(false)
   const [waking,  setWaking]  = useState(false)
@@ -52,6 +57,10 @@ export default function SleepScene({ onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col overflow-hidden">
+
+      {wish?.wish && (
+        <WishHintBanner text={wish.text} status={wish.status} matchesThisRoom={wishMatchesThisRoom} />
+      )}
 
       {/* ══ BACKGROUND IMAGE ══ */}
       <div className="absolute inset-0" style={{ backgroundImage: 'url(/bedroom.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />

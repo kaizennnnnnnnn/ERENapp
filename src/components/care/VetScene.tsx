@@ -11,6 +11,9 @@ import ErenIdleLayer from '@/components/ErenIdleLayer'
 import StinkyFlies from '@/components/StinkyFlies'
 import LightSwitch from '@/components/LightSwitch'
 import { useIsDark } from '@/hooks/useIsDark'
+import { useWish } from '@/contexts/WishContext'
+import WishHintBanner from '@/components/wish/WishHintBanner'
+import { wishHintRoom } from '@/lib/wishes'
 
 interface Props { onClose: () => void }
 
@@ -25,6 +28,8 @@ export default function VetScene({ onClose }: Props) {
   const [giving,    setGiving]    = useState(false)
   const [toast,     setToast]     = useState<string | null>(null)
   const isDark = useIsDark()
+  const wish = useWish()
+  const wishMatchesThisRoom = wish?.wish ? wishHintRoom(wish.wish) === 'medicine' : false
 
   // Cache fallback so Eren renders synchronously with the right state.
   const isSleeping   = stats?.is_sleeping ?? getCachedIsSleeping() ?? true
@@ -65,6 +70,10 @@ export default function VetScene({ onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col overflow-hidden">
+
+      {wish?.wish && (
+        <WishHintBanner text={wish.text} status={wish.status} matchesThisRoom={wishMatchesThisRoom} />
+      )}
 
       {/* ══ BACKGROUND IMAGE ══ */}
       <div className="absolute inset-0" style={{ backgroundImage: `url(${isDark ? '/wetDark.png' : '/vetBACK.png'})`, backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />

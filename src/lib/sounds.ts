@@ -42,6 +42,9 @@ export const SOUNDS = {
 
   // Care actions — fired by individual care scenes when Eren acts.
   care_eat:             '/sounds/care/care_eat.mp3',
+  // Pet — tap-on-Eren purr sound. Placeholder file path; if missing, the
+  // FALLBACK below routes to care_eat so taps still play SOMETHING.
+  pet_purr:             '/sounds/care/pet_purr.mp3',
 
   // Gacha — rarity-tiered reveal stingers.
   gacha_reveal_common:    '/sounds/gacha/gacha_reveal_common.mp3',
@@ -66,6 +69,7 @@ const VOLUME_SCALE: Partial<Record<SoundName, number>> = {
   quest_complete: 0.7,
   level_up:       0.8,
   gift_open:      0.85,
+  pet_purr:       0.6,
 }
 
 // Fallbacks let new sound names ship safely before the audio files land
@@ -80,6 +84,7 @@ const FALLBACK: Partial<Record<SoundName, SoundName>> = {
   level_up:               'ui_notification_ping',
   coin_pickup:            'ui_notification_ping',
   gift_open:              'level_up',
+  pet_purr:               'care_eat',
   gacha_reveal_common:    'ui_modal_open',
   gacha_reveal_rare:      'ui_notification_ping',
   gacha_reveal_epic:      'ui_notification_ping',

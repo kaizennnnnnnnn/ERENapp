@@ -601,6 +601,27 @@ export function IconCatFace({ size = 20 }: IconProps) {
   }, size)
 }
 
+// ── WISH (4-point star, soft glow palette) — Phase 3 daily wish indicator ──
+export function IconWish({ size = 20 }: IconProps) {
+  const grid = [
+    '............',
+    '.....KK.....',
+    '....KGGK....',
+    '....KGGK....',
+    '.KKKKGGKKKK.',
+    'KGGGGGGGGGK.',
+    'KGGGGWWGGGK.',
+    '.KKKKGGKKKK.',
+    '....KGGK....',
+    '....KGGK....',
+    '.....KK.....',
+    '............',
+  ]
+  return drawPixels(grid, {
+    K: '#8B5A00', G: '#F5C842', W: '#FFF5C8',
+  }, size)
+}
+
 // ── PENCIL (edit) ─────────────────────────────────────────────────────────
 export function IconPencil({ size = 20 }: IconProps) {
   const grid = [
