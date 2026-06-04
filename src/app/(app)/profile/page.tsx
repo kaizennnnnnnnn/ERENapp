@@ -27,6 +27,7 @@ import {
 } from '@/components/obsidian'
 import { useTheme, THEMES } from '@/contexts/ThemeContext'
 import PageLoader from '@/components/PageLoader'
+import { usePageReady } from '@/hooks/usePageReady'
 
 function AchievementIcon({ iconName, size }: { iconName: AchievementDef['icon']; size: number }) {
   switch (iconName) {
@@ -203,6 +204,8 @@ export default function ProfilePage() {
   }
 
   const { achievements, streak, streakRepairAvailable, streakRepairCost, repairStreak, coins } = useTasks()
+
+  usePageReady(!loading && !!profile)
 
   if (loading || !profile) return <PageLoader label="LOADING PROFILE" />
 

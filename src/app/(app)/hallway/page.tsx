@@ -24,6 +24,7 @@ import PageLoader from '@/components/PageLoader'
 import { playSound } from '@/lib/sounds'
 import { useEffect } from 'react'
 import { IconDoor } from '@/components/PixelIcons'
+import { usePageReady } from '@/hooks/usePageReady'
 
 export default function HallwayPage() {
   const router = useRouter()
@@ -41,6 +42,11 @@ export default function HallwayPage() {
     setHideStats(true)
     return () => setHideStats(false)
   }, [setHideStats])
+
+  // Signal the splash that the hallway shell has rendered. The inner wall
+  // can keep streaming after this — the top bar + bg are enough to drop
+  // the splash without a visual gap.
+  usePageReady(!authLoading)
 
   if (authLoading) return <PageLoader label="LOADING THE HALLWAY" />
 

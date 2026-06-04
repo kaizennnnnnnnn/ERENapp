@@ -50,6 +50,7 @@ import ErenSpeechBubble from '@/components/wish/ErenSpeechBubble'
 import { useFlavorBubble } from '@/hooks/useFlavorBubble'
 import { useCatchupGate } from '@/hooks/useCatchupGate'
 import CatchupCarousel from '@/components/memory/CatchupCarousel'
+import { usePageReady } from '@/hooks/usePageReady'
 
 interface XpParticle {
   id: number; x: number; y: number; tx: number; ty: number
@@ -263,10 +264,17 @@ export default function HomePage() {
   const [roomReady, setRoomReady]         = useState(false)
 
   // Show stats header only when room is fully loaded & mood selected
+  const pageReady = !authLoading && !!todayMood && !loading && !!stats && roomReady
   useEffect(() => {
-    const ready = !authLoading && !!todayMood && !loading && !!stats && roomReady
-    setHideStats(!ready)
-  }, [authLoading, todayMood, loading, stats, roomReady, setHideStats])
+    setHideStats(!pageReady)
+  }, [pageReady, setHideStats])
+  // Signal to SplashScreen that home is showing something real (room, mood
+  // gate, or the "no household" fallback). Any of those replaces the loader
+  // and is safe to reveal.
+  const splashCanHide = pageReady
+    || (!authLoading && !profile?.household_id)
+    || (!authLoading && moodChecked && !todayMood)
+  usePageReady(splashCanHide)
 
   // ── Flavor bubble — ambient inner-monologue lines that pop above-left of
   // Eren. Suppressed whenever the wish bubble is visible (pending or in its
@@ -351,18 +359,30 @@ export default function HomePage() {
     if (stats) setIsSick(stats.is_sick ?? false)
   }, [stats?.is_sick]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Preload background + Eren before showing the room
+  // Preload background + Eren before showing the room. Uses img.decode() —
+  // it resolves only when the image is fully decoded and ready to paint,
+  // unlike onload which fires on network completion (and would let
+  // roomReady flip true while the <img> and background-image CSS were
+  // still mid-decode, producing a flash of empty room on first load).
   useLayoutEffect(() => { setRoomReady(false) }, [])
   useEffect(() => {
     const bg = isDark ? '/HomePage.png' : '/livingRoom.png'
     const srcs = [bg, '/erenGood.png']
-    let loaded = 0
+    let cancelled = false
     setRoomReady(false)
-    srcs.forEach(src => {
+    Promise.all(srcs.map(src => {
       const img = new window.Image()
-      img.onload = img.onerror = () => { loaded++; if (loaded >= srcs.length) setRoomReady(true) }
       img.src = src
+      // decode() is the strict guarantee; fall back to a manual onload
+      // resolve so a failure (CORS / unsupported browser) doesn't strand
+      // roomReady at false.
+      return img.decode().catch(() => new Promise<void>(resolve => {
+        img.onload = img.onerror = () => resolve()
+      }))
+    })).then(() => {
+      if (!cancelled) setRoomReady(true)
     })
+    return () => { cancelled = true }
   }, [isDark])
 
   // Load today's mood

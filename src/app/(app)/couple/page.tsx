@@ -23,6 +23,7 @@ import {
   Rivets, ObsidianChip, pinkText, accentA,
 } from '@/components/obsidian'
 import PageLoader from '@/components/PageLoader'
+import { usePageReady } from '@/hooks/usePageReady'
 import SendErenSheet from '@/components/couple/SendErenSheet'
 import SketchEren from '@/components/SketchEren'
 import { MOOD_SKETCH, MOOD_THEME, LOW_MOODS } from '@/lib/moods'
@@ -99,6 +100,8 @@ export default function CouplePage() {
     color: '#E8E0D0',
     paddingTop: 'calc(var(--safe-top) + 16px)',
   }
+
+  usePageReady(!loading)
 
   if (loading) return <PageLoader label="LOADING" />
 

@@ -7,10 +7,12 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Eye, EyeOff, Cat } from 'lucide-react'
+import { usePageReady } from '@/hooks/usePageReady'
 
 export default function LoginPage() {
   const router = useRouter()
   const supabase = createClient()
+  usePageReady(true)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

@@ -15,6 +15,7 @@ import {
   IconCoin, IconSparkles, IconTicket, IconStar, IconCrown,
 } from '@/components/PixelIcons'
 import PageLoader from '@/components/PageLoader'
+import { usePageReady } from '@/hooks/usePageReady'
 import { playSound } from '@/lib/sounds'
 
 // ── Food color map for reward icons ──────────────────────────────────────────
@@ -252,6 +253,8 @@ export default function RewardsPage() {
   // Don't render the road until the profile is loaded — otherwise the level
   // pill, "current node" anchor, and auto-scroll all snap to the default
   // level=1 for a moment before the real value lands.
+  usePageReady(!!user && !!profile)
+
   if (!user || !profile) return <PageLoader label="LOADING REWARDS" />
 
   return (
