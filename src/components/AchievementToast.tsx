@@ -72,8 +72,9 @@ export default function AchievementToast() {
     const onQuest = () => playSound('quest_complete')
     const onLevel = () => playSound('level_up')
     // Big coin payouts (weekly champion, comeback) — the dedicated popups
-    // already render the celebration; we just chime the coin on top.
-    const onPayout = () => playSound('coin_pickup')
+    // already render the celebration; we layer the warm gift-open chime on
+    // top so the payout reads as a real reward, not a tiny coin clink.
+    const onPayout = () => playSound('gift_open')
 
     window.addEventListener('eren:achievement-unlocked', onAchievement)
     window.addEventListener('eren:streak-milestone', onStreak)

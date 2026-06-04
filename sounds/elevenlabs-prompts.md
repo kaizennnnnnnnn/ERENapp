@@ -31,7 +31,8 @@ clip sits at the same playback level.
 |---|---|---|
 | `quest_complete.mp3` | `Steel/jingles_STEEL09.ogg` (0.59 s) | Any daily/weekly task ticked off |
 | `level_up.mp3` | `jingles_NES13.ogg` (1.05 s) | Level-up moment |
-| `coin_pickup.mp3` | `jingles_NES14.ogg` (0.37 s) | Reward road claim, weekly champion payout, comeback bonus |
+| `gift_open.mp3` | user-supplied (warm chime) | Daily fortune reveal, reward road claim, weekly champion payout, comeback bonus |
+| `coin_pickup.mp3` | `jingles_NES14.ogg` (0.37 s) | **Unused** — replaced by `gift_open` for reward-road / payout moments because the NES14 jingle read as a thin "ka-ching" rather than a satisfying payoff. File kept in the bank if you want it back for a different slot. |
 
 ### `public/sounds/care/`
 
