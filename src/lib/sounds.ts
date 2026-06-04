@@ -1,17 +1,26 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// SOUND HELPER — minimal playback layer for UI sound effects.
+// SOUND HELPER — playback layer for every sound effect in the app.
 //
-// Usage:
-//   import { playSound } from '@/lib/sounds'
-//   onClick={() => playSound('ui_tap')}
+// Two backends:
+//   1. mp3 files via HTMLAudioElement — used for shipped UI, progression,
+//      care, and gacha sounds. Files live in /public/sounds/<bucket>/<name>.mp3
+//      and are cached by SoundName below.
+//   2. Web Audio synthesis — used for the 11 mini-games' gameplay SFX. Each
+//      game-key has a chiptune recipe in soundRecipes.ts. We synthesise live
+//      instead of shipping mp3s so every game has its own UNIQUE sound by
+//      construction (different waveform/freq family per game), and so we
+//      never accidentally route a game miss-cue to the Eren-eats fallback
+//      when an mp3 is missing.
 //
-// Files live in /public/sounds/<bucket>/<name>.mp3 and are looked up by the
-// SOUNDS map below. Each call clones the cached <audio> element so rapid
-// successive triggers don't cut each other off (important for tap clicks).
+// playSound() checks SYNTH_RECIPES first; if a recipe exists for the name it
+// fires Web Audio. Otherwise it falls back to the mp3 path + FALLBACK chain.
 //
 // Volume + mute can be controlled per-call or globally via setVolume / setMuted.
 // State is in-memory only — wire it to localStorage if you want it to persist.
 // ═══════════════════════════════════════════════════════════════════════════
+
+import { playSynth } from './soundSynth'
+import { SYNTH_RECIPES } from './soundRecipes'
 
 export const SOUNDS = {
   // UI / navigation — each entry is a distinct semantic moment, so a
@@ -411,12 +420,24 @@ function getBase(name: SoundName): HTMLAudioElement {
 export function playSound(name: SoundName, opts: { volume?: number } = {}) {
   if (muted) return
   if (typeof window === 'undefined') return
+
+  const scale = VOLUME_SCALE[name] ?? 1
+  const finalVolume = Math.max(0, Math.min(1, (opts.volume ?? globalVolume) * scale))
+
+  // Synthesised game SFX win over the mp3 path — guarantees a unique chiptune
+  // tone per game key and prevents the FALLBACK chain (care_eat, pet_purr,
+  // etc.) from ever firing for missing game mp3s.
+  const recipe = SYNTH_RECIPES[name]
+  if (recipe) {
+    playSynth(recipe, finalVolume)
+    return
+  }
+
   try {
     const effective = resolveName(name)
     const base = getBase(effective)
     const a = base.cloneNode(true) as HTMLAudioElement
-    const scale = VOLUME_SCALE[name] ?? 1
-    a.volume = Math.max(0, Math.min(1, (opts.volume ?? globalVolume) * scale))
+    a.volume = finalVolume
     a.play().catch(() => { /* autoplay rejected — ignore */ })
   } catch {
     /* ignore */
@@ -430,10 +451,13 @@ export function setVolume(v: number) {
 export function setMuted(m: boolean) { muted = m }
 export function isMuted() { return muted }
 
-/** Preload every sound so the first play has zero latency. Call once on app boot. */
+/** Preload every mp3-backed sound so the first play has zero latency. Game
+ *  SFX backed by synth recipes are skipped — they don't have files to fetch.
+ *  Call once on app boot. */
 export function preloadSounds() {
   if (typeof window === 'undefined') return
   for (const name of Object.keys(SOUNDS) as SoundName[]) {
+    if (SYNTH_RECIPES[name]) continue
     getBase(name)
   }
 }

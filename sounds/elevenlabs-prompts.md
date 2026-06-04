@@ -241,15 +241,37 @@ These come through the OS, so push them slightly louder than in-app sounds.
 
 ---
 
-## 12. Mini-game gameplay SFX (new wiring)
+## 12. Mini-game gameplay SFX (Web Audio synthesis — primary)
 
-These keys were added to `src/lib/sounds.ts` to wire gameplay-moment audio for
-the 11 mini-games (catch-mouse, paw-tap, memory-match, treat-tumble,
-flappy-eren, tic-tac-toe, eren-stack, yarn-pop, eren-says, lane-runner,
-paw-doku). Each row lists the per-game folder + filename, the duration to
-set on the ElevenLabs slider, the prompt (master cue already appended), and
-the FALLBACK sound that plays in the interim while the real mp3 is being
-generated.
+**These sounds are synthesised live by Web Audio at play-time.** No mp3 files
+are required and the FALLBACK chain entries listed below are unused for game
+SFX (`playSound()` checks `SYNTH_RECIPES` in `src/lib/soundRecipes.ts` first
+and uses it whenever a recipe exists for the name). Each game has its own
+audio personality by construction — different waveform family + frequency
+range — so no two games sound alike and none ever route to `care_eat` /
+`pet_purr` / `ui_*` clicks.
+
+Per-game palette:
+
+| Game | Waveform | Range | Character |
+|---|---|---|---|
+| catch-mouse | triangle | 600–1500 Hz | high squeaky |
+| paw-tap | sine | 280–1175 Hz | deep water plinks |
+| memory-match | triangle + noise | 500–1568 Hz | warm chimes + paper flips |
+| treat-tumble | square | 400–2093 Hz | popcorn pops |
+| flappy-eren | square + sawtooth | 110–1568 Hz | gritty bird sweeps |
+| tic-tac-toe | X=square, O=triangle | 247–1319 Hz | player-distinct halves |
+| eren-stack | sawtooth thud + triangle chime | 110–2349 Hz | two-layer block stack |
+| yarn-pop | square + sine | 440–2093 Hz | bright yarn pops |
+| eren-says | sine | 294–1568 Hz | Simon-style pure pads |
+| lane-runner | highpass noise + square | 95–2349 Hz | race-y sharp whoosh |
+| paw-doku | sine | 247–2093 Hz | clean zen clicks |
+
+**To override a synthesised sound with a real mp3:** remove the entry for
+that key from `SYNTH_RECIPES` in `src/lib/soundRecipes.ts` and drop the mp3
+at the path listed in `SOUNDS` (e.g. `public/sounds/games/catch-mouse/cm_catch.mp3`).
+The ElevenLabs prompts and fallback entries below remain useful reference
+for that workflow.
 
 Master cue (already baked into every prompt below):
 > `8-bit / 16-bit chiptune, retro Game Boy era, mono, dry, clean attack, normalized loudness.`
