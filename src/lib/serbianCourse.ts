@@ -166,7 +166,7 @@ export const SERBIAN_COURSE: Lesson[] = [
     q('"Izvini" means...', ['Hello', 'Sorry', 'Please', 'Thanks'], 1),
     q('"Žao mi je" means...', ['I am happy', 'I am sorry', 'I don\'t know', 'I see'], 1),
     q('Formal "sorry":', ['Izvini', 'Izvinite', 'Hvala', 'Da'], 1),
-    q('After bumping someone, say...', ['Hvala', 'Izvini', 'Da', 'Pardon, izvini'], 3),
+    q('After bumping someone, say...', ['Hvala', 'Izvini', 'Da', 'Molim'], 1),
   ]),
   L('Yes & No', 'Da i Ne', 'manners', [
     w('Da', 'Да', 'Yes', 'dah'),
@@ -1792,16 +1792,83 @@ function shuffle<T>(arr: T[]): T[] {
   return a
 }
 
+// ─── Canonical English meaning ─────────────────────────────────────────────
+// Strips parenthetical disambiguators ("(m)", "(formal)", "(informal)", etc.),
+// drops a leading "to " for verbs, lowercases, and splits multi-meanings on
+// "/" so each canonical part can be compared independently. Used to keep two
+// options that mean the same thing — e.g. "Happy (m)" vs "Happy (f)", "A lot /
+// Many" vs "A lot / Very", "Thank you" vs "Thank you kindly" — from showing
+// up in the same MC question. Without this dedup the user (or even a native
+// speaker) gets stuck because more than one option is genuinely correct.
+function canonEnParts(en: string): string[] {
+  const cleaned = en
+    .toLowerCase()
+    .replace(/\s*\([^)]*\)\s*/g, ' ')
+    .replace(/[.,!?"]/g, '')
+    .trim()
+  return cleaned.split('/').map(p => p.replace(/^to\s+/, '').trim()).filter(Boolean)
+}
+function canonEn(en: string): string {
+  return canonEnParts(en)[0] ?? ''
+}
+
+// Pre-index: Serbian word → canonical English. Lets us dedup two SR
+// distractors that mean the same thing (e.g. "Srećan" and "Srećna" both
+// canonicalize to "happy").
+const _srToEn: Map<string, string> = new Map()
+for (const l of [] as Lesson[]) void l // populated lazily below
+
+function srCanonicalEn(sr: string): string {
+  if (_srToEn.size === 0) {
+    for (const l of SERBIAN_COURSE) {
+      for (const wd of l.words) {
+        if (!_srToEn.has(wd.serbian)) _srToEn.set(wd.serbian, canonEn(wd.english))
+      }
+    }
+  }
+  return _srToEn.get(sr) ?? ''
+}
+
+// Pick up to `n` distractors from `pool` such that none share a canonical
+// meaning with `answer` or with each other. `keyOf` extracts the canonical
+// key for a candidate (the English string itself for EN pools; the cached
+// canonical English of the Serbian word for SR pools).
+function pickDistinct<T>(pool: T[], answer: T, keyOf: (x: T) => string, n: number): T[] {
+  const out: T[] = []
+  const seenKeys = new Set<string>()
+  const ansParts = canonEnParts(String(keyOf(answer)))
+  ansParts.forEach(p => seenKeys.add(p))
+  for (const item of pool) {
+    if (item === answer) continue
+    const parts = canonEnParts(keyOf(item))
+    if (parts.length === 0) continue
+    if (parts.some(p => seenKeys.has(p))) continue
+    parts.forEach(p => seenKeys.add(p))
+    out.push(item)
+    if (out.length >= n) break
+  }
+  return out
+}
+
 export function buildExercises(lesson: Lesson): Exercise[] {
   const list: Exercise[] = []
   const words = lesson.words
 
-  const allOtherSr = SERBIAN_COURSE
-    .filter(l => l.id !== lesson.id)
-    .flatMap(l => l.words.map(wd => wd.serbian))
-  const allOtherEn = SERBIAN_COURSE
-    .filter(l => l.id !== lesson.id)
-    .flatMap(l => l.words.map(wd => wd.english))
+  // Dedup the cross-lesson pools by Serbian word — `Naravno`, `Sutra`,
+  // `Nedelja` etc. legitimately appear in multiple lessons, but seeing the
+  // same Serbian word twice as a distractor is jarring.
+  const seenSr = new Set<string>()
+  const allOtherSr: string[] = []
+  const allOtherEn: string[] = []
+  for (const l of SERBIAN_COURSE) {
+    if (l.id === lesson.id) continue
+    for (const wd of l.words) {
+      if (seenSr.has(wd.serbian)) continue
+      seenSr.add(wd.serbian)
+      allOtherSr.push(wd.serbian)
+      allOtherEn.push(wd.english)
+    }
+  }
 
   if (words.length >= 3) {
     const subset = shuffle(words).slice(0, Math.min(5, words.length))
@@ -1809,9 +1876,9 @@ export function buildExercises(lesson: Lesson): Exercise[] {
   }
 
   for (const wd of shuffle(words)) {
-    const sameLessonDistractors = shuffle(words.filter(x => x.serbian !== wd.serbian).map(x => x.english))
-    const externalDistractors = shuffle(allOtherEn.filter(e => e !== wd.english))
-    const distractors = shuffle([...sameLessonDistractors, ...externalDistractors]).slice(0, 3)
+    const sameLessonEn = words.filter(x => x.serbian !== wd.serbian).map(x => x.english)
+    const pool = shuffle([...sameLessonEn, ...allOtherEn])
+    const distractors = pickDistinct(pool, wd.english, e => e, 3)
     list.push({
       kind: 'mc', promptLang: 'sr', prompt: wd.serbian, answer: wd.english,
       options: shuffle([wd.english, ...distractors]),
@@ -1821,9 +1888,18 @@ export function buildExercises(lesson: Lesson): Exercise[] {
   }
 
   for (const wd of shuffle(words)) {
-    const sameLessonDistractors = shuffle(words.filter(x => x.serbian !== wd.serbian).map(x => x.serbian))
-    const externalDistractors = shuffle(allOtherSr.filter(s2 => s2 !== wd.serbian))
-    const distractors = shuffle([...sameLessonDistractors, ...externalDistractors]).slice(0, 3)
+    const sameLessonSr = words.filter(x => x.serbian !== wd.serbian).map(x => x.serbian)
+    const pool = shuffle([...sameLessonSr, ...allOtherSr])
+    // For SR distractors, the canonical key is the canonical English of that
+    // SR word — so "Srećna" never appears alongside "Srećan" (both → "happy").
+    // The answer itself uses its lesson's English so the canonical compare
+    // works against external SR distractors too.
+    const distractors = pickDistinct(
+      pool,
+      wd.serbian,
+      sr => sr === wd.serbian ? canonEn(wd.english) : srCanonicalEn(sr),
+      3,
+    )
     list.push({
       kind: 'mc', promptLang: 'en', prompt: wd.english, answer: wd.serbian,
       options: shuffle([wd.serbian, ...distractors]),
@@ -1833,7 +1909,13 @@ export function buildExercises(lesson: Lesson): Exercise[] {
 
   const listenWords = words.filter(wd => !wd.serbian.includes(' '))
   for (const wd of shuffle(listenWords).slice(0, Math.min(2, listenWords.length))) {
-    const distractors = shuffle(allOtherSr.filter(s2 => s2 !== wd.serbian && !s2.includes(' '))).slice(0, 3)
+    const pool = shuffle(allOtherSr.filter(s2 => !s2.includes(' ')))
+    const distractors = pickDistinct(
+      pool,
+      wd.serbian,
+      sr => sr === wd.serbian ? canonEn(wd.english) : srCanonicalEn(sr),
+      3,
+    )
     list.push({
       kind: 'listen',
       sr: wd.serbian,
@@ -1890,21 +1972,37 @@ export function buildReviewExercises(stats: WordStats, max = 8): Exercise[] {
   const struggling = getStrugglingWords(stats).slice(0, max)
   if (struggling.length === 0) return []
 
-  const allSr = SERBIAN_COURSE.flatMap(l => l.words.map(wd => wd.serbian))
-  const allEn = SERBIAN_COURSE.flatMap(l => l.words.map(wd => wd.english))
+  // Dedup the pools by Serbian word so the same SR doesn't appear twice as a
+  // distractor across different lessons.
+  const seenSr = new Set<string>()
+  const allSr: string[] = []
+  const allEn: string[] = []
+  for (const l of SERBIAN_COURSE) {
+    for (const wd of l.words) {
+      if (seenSr.has(wd.serbian)) continue
+      seenSr.add(wd.serbian)
+      allSr.push(wd.serbian)
+      allEn.push(wd.english)
+    }
+  }
   const list: Exercise[] = []
 
   for (const sw of struggling) {
     const wrongRate = 1 - sw.correct / sw.attempts
     list.push({
       kind: 'mc', promptLang: 'sr', prompt: sw.sr, answer: sw.en,
-      options: shuffle([sw.en, ...shuffle(allEn.filter(e => e !== sw.en)).slice(0, 3)]),
+      options: shuffle([sw.en, ...pickDistinct(shuffle(allEn), sw.en, e => e, 3)]),
       srKey: sw.sr,
     })
     if (wrongRate > 0.4) {
       list.push({
         kind: 'mc', promptLang: 'en', prompt: sw.en, answer: sw.sr,
-        options: shuffle([sw.sr, ...shuffle(allSr.filter(x => x !== sw.sr)).slice(0, 3)]),
+        options: shuffle([sw.sr, ...pickDistinct(
+          shuffle(allSr),
+          sw.sr,
+          s2 => s2 === sw.sr ? canonEn(sw.en) : srCanonicalEn(s2),
+          3,
+        )]),
         srKey: sw.sr,
       })
     }

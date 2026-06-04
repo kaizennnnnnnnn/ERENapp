@@ -96,6 +96,15 @@ function yesterdayKey(): string {
   const d = new Date(); d.setDate(d.getDate() - 1); return dateKey(d)
 }
 
+// Strip the parenthetical disambiguators baked into the lesson data — "(m)",
+// "(f)", "(pl)", "(formal)", "(masc.)", "(fem.)", etc. They were useful for
+// the catalogue's compare logic but read as noise inside a quiz tile. The
+// internal answer string still carries the annotation, so MC compare uses the
+// raw value; only the displayed label is cleaned.
+function displayOption(opt: string): string {
+  return opt.replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\s{2,}/g, ' ').trim()
+}
+
 // ─── Web Speech TTS — best effort, gracefully no-ops when unsupported ──────
 let _voicesLoaded = false
 let _bestVoice: SpeechSynthesisVoice | null | undefined = undefined  // cache; null means searched & nothing found
@@ -1835,7 +1844,7 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
                 <div style={{
                   fontFamily: HAND_FONT, fontSize: 18, color: INK,
                 }}>
-                  answer: <strong style={{ color: PEN_RED }}>{feedback.correctText}</strong>
+                  answer: <strong style={{ color: PEN_RED }}>{displayOption(feedback.correctText)}</strong>
                 </div>
               )}
             </div>
@@ -1970,7 +1979,7 @@ function MCExercise({ ex, disabled, onAnswer }: {
             fontFamily: HAND_FONT, fontWeight: 700,
             fontSize: ex.prompt.length > 18 ? 28 : 34,
             color: INK, lineHeight: 1.05,
-          }}>&quot;{ex.prompt}&quot;</div>
+          }}>&quot;{displayOption(ex.prompt)}&quot;</div>
         </div>
         {ex.pronunciation && (
           <div style={{
@@ -2025,7 +2034,7 @@ function MCExercise({ ex, disabled, onAnswer }: {
                   minHeight: 60,
                   cursor: disabled || submitted ? 'default' : 'pointer',
                 }}>
-                {opt}
+                {displayOption(opt)}
               </button>
             )
           })}
@@ -2170,7 +2179,7 @@ function PairsExercise({ ex, disabled, onAnswer, onMicroReact }: {
                   onClick={() => { if (!isMatched && pickedEn === null) setPickedEn(i); else if (pickedEn === i) setPickedEn(null) }}
                   className="active:translate-y-[1px]"
                   style={tileStyle({ isMatched, isPicked, isWrong }, rot)}>
-                  {ex.pairs[i].en}
+                  {displayOption(ex.pairs[i].en)}
                 </button>
               )
             })}
@@ -2388,7 +2397,7 @@ function ListenExercise({ ex, disabled, onAnswer }: {
                   minHeight: 60,
                   cursor: disabled || submitted ? 'default' : 'pointer',
                 }}>
-                {opt}
+                {displayOption(opt)}
               </button>
             )
           })}
