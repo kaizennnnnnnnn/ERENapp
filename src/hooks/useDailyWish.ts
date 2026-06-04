@@ -106,6 +106,11 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
   const [row, setRow] = useState<DailyWishRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [weekGrantedCount, setWeekGrantedCount] = useState(0)
+  // Flips true after the interactions catch-up query lands its result. Until
+  // then, tryGrant() would run with empty `cares` refs and matchWish would
+  // return false even when the user has actually done the action today —
+  // leaving the wish stuck on "pending" forever after a fresh app open.
+  const [caughtUp, setCaughtUp] = useState(false)
 
   // ── Session action refs — survive across renders, persist via localStorage.
   // partnerFeeds intentionally stays empty: the interactions table doesn't
@@ -235,29 +240,37 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
 
   // ── Catch-up: when the hook mounts, pull today's interactions so refs
   // reflect anything that happened earlier today before this session began.
+  // Query a 36h window in UTC and filter to "today" in the user's local tz —
+  // a `gte(created_at, todayKey + 'T00:00:00Z')` filter would miss any
+  // interaction logged before UTC midnight on the user's local today (e.g.
+  // a bath at 01:00 local for a user at UTC+3), which is the exact case
+  // that leaves a wish stuck on "pending" all day.
   useEffect(() => {
-    if (!opts.householdId || !opts.userId || !todayKey) return
+    if (!opts.householdId || !opts.userId || !todayKey) { setCaughtUp(false); return }
     let cancelled = false
+    setCaughtUp(false)
     ;(async () => {
-      const start = `${todayKey}T00:00:00Z`
-      const { data: today } = await supabase
+      const cutoff = new Date(Date.now() - 36 * 3600_000).toISOString()
+      const { data: rows } = await supabase
         .from('interactions')
         .select('user_id, action_type, created_at')
         .eq('household_id', opts.householdId)
-        .gte('created_at', start)
-      if (cancelled || !today) return
+        .gte('created_at', cutoff)
+      if (cancelled) return
       const me: Array<'feed'|'play'|'sleep'|'wash'|'medicine'> = []
       const part: Array<'feed'|'play'|'sleep'|'wash'|'medicine'> = []
-      for (const i of today) {
+      for (const i of (rows ?? [])) {
+        if (dateKey(new Date(i.created_at as string), opts.tz) !== todayKey) continue
         const at = i.action_type as 'feed'|'play'|'sleep'|'wash'|'medicine'
         if (i.user_id === opts.userId) me.push(at)
         else part.push(at)
       }
       myCaresRef.current = me
       partnerCaresRef.current = part
+      setCaughtUp(true)
     })()
     return () => { cancelled = true }
-  }, [opts.householdId, opts.userId, todayKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [opts.householdId, opts.userId, todayKey, opts.tz]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Realtime subscription on this household's wish row.
   useEffect(() => {
@@ -435,11 +448,15 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
   // ── Catch-up grant: if the wish row arrived AFTER the user already did
   // the matching action today (race on first mount, or app reopen after
   // doing the action), tryGrant once more so we don't sit on a pending
-  // wish forever just because the row loaded a tick late.
+  // wish forever just because the row loaded a tick late. Gated on
+  // `caughtUp` — without that gate, if the row read returns before the
+  // interactions query, tryGrant runs against empty `cares` refs and
+  // matchWish returns false, leaving a "completed" wish stuck on pending.
   useEffect(() => {
     if (!row || row.granted_at) return
+    if (!caughtUp) return
     void tryGrant()
-  }, [row?.wish_id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [row?.wish_id, caughtUp]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Resolve the Wish definition + rendered text.
   const wish = useMemo<Wish | null>(() => {
