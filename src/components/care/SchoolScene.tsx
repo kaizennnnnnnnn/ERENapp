@@ -32,9 +32,23 @@ const INK_SOFT    = '#6a5a44'
 const PEN_RED     = '#b22222'
 const PEN_RED_DK  = '#7a1014'
 const PENCIL      = '#9a8a72'
-const KRAFT_HI    = '#d4b483'
 const KRAFT_MD    = '#b8945c'
 const KRAFT_LO    = '#8a6a3d'
+
+// Per-section notebook cover palette — face (matte cover), edge (darker
+// bottom shade) and tape (contrasting washi/trim accent). Shared by the
+// closed shelf card AND the open-notebook flip animation so a notebook
+// keeps the same colour the whole way into its lessons.
+const SECTION_COVERS = [
+  { face: '#F58BA6', edge: '#C25E78', tape: '#FFD23F' }, // 1 Starting Out   — coral, yellow tape
+  { face: '#7FB8E6', edge: '#4E86B8', tape: '#FF8C42' }, // 2 Numbers&People  — sky, orange tape
+  { face: '#8FD174', edge: '#5FA049', tape: '#FF6B9D' }, // 3 World Around    — leaf, pink tape
+  { face: '#FFC24D', edge: '#D1922A', tape: '#6BAED6' }, // 4 Daily Life      — marigold, blue tape
+  { face: '#B79CF0', edge: '#8A6CCB', tape: '#8FD174' }, // 5 Going Out       — lavender, green tape
+  { face: '#FF9E6D', edge: '#CE6F40', tape: '#7FB8E6' }, // 6 spare/next      — peach, blue tape
+]
+const sectionCover = (sectionIndex: number) =>
+  SECTION_COVERS[(sectionIndex - 1) % SECTION_COVERS.length]
 
 const HAND_FONT  = '"Caveat", "Comic Sans MS", cursive'
 const TYPE_FONT  = '"Special Elite", "Courier New", monospace'
@@ -676,18 +690,10 @@ function KraftSectionCover({ section, sectionIndex, done, total, onOpen }: {
 }) {
   // Tiny inline rotation jitter so the grid feels like real notebooks on a desk.
   const rot = [-1.2, 0.8, -0.6, 1.4, -1.0][(sectionIndex - 1) % 5]
-  // Each notebook gets its OWN matte cover colour (face) with a darker
-  // bottom shade (edge), plus a CONTRASTING washi-tape colour (tape) so the
-  // trim pops against the cover instead of vanishing into a same-hue brown.
-  const COVERS = [
-    { face: '#F58BA6', edge: '#C25E78', tape: '#FFD23F' }, // 1 Starting Out   — coral, yellow tape
-    { face: '#7FB8E6', edge: '#4E86B8', tape: '#FF8C42' }, // 2 Numbers&People  — sky, orange tape
-    { face: '#8FD174', edge: '#5FA049', tape: '#FF6B9D' }, // 3 World Around    — leaf, pink tape
-    { face: '#FFC24D', edge: '#D1922A', tape: '#6BAED6' }, // 4 Daily Life      — marigold, blue tape
-    { face: '#B79CF0', edge: '#8A6CCB', tape: '#8FD174' }, // 5 Going Out       — lavender, green tape
-    { face: '#FF9E6D', edge: '#CE6F40', tape: '#7FB8E6' }, // 6 spare/next      — peach, blue tape
-  ]
-  const cover = COVERS[(sectionIndex - 1) % COVERS.length]
+  // Each notebook gets its OWN matte cover colour (face) with a darker bottom
+  // shade (edge), plus a CONTRASTING washi-tape colour (tape). Shared with the
+  // open-notebook animation via SECTION_COVERS so the two always match.
+  const cover = sectionCover(sectionIndex)
   // Trim (washi/ribbon/dots/stamp/doodles) all use the contrasting tape hue.
   const accent = cover.tape
   // Pixel-dot completion strip — at most 12 dots so a section with many
@@ -980,6 +986,11 @@ function OpenNotebookView({ section, sectionIndex, done, total, progress,
     return () => clearTimeout(t)
   }, [])
 
+  // Same per-section palette the closed shelf card uses, so the cover that
+  // flips open is the SAME colour as the notebook you tapped — not generic kraft.
+  const cover = sectionCover(sectionIndex)
+  const accent = cover.tape
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{
       animation: 'srNotebookFadeIn 0.25s ease-out',
@@ -1047,16 +1058,20 @@ function OpenNotebookView({ section, sectionIndex, done, total, progress,
               boxShadow: open
                 ? '0 12px 28px rgba(0,0,0,0.35)'
                 : '0 6px 16px rgba(0,0,0,0.28), 0 1px 0 rgba(255,255,255,0.06) inset',
-              background: `radial-gradient(ellipse at 30% 18%, ${KRAFT_HI} 0%, ${KRAFT_MD} 50%, ${KRAFT_LO} 100%)`,
+              // Section cover colour (matches the closed shelf card's gradient)
+              // instead of generic kraft brown.
+              background: `linear-gradient(168deg, ${cover.face} 0%, ${cover.face} 62%, ${cover.edge} 100%)`,
               fontFamily: TYPE_FONT, color: '#2a1d10',
             }}>
+              {/* Neutral grain so the speckle reads as paper texture on any
+                  cover colour (not brown dirt). */}
               <div style={{
-                position: 'absolute', inset: 0, opacity: 0.55, pointerEvents: 'none',
+                position: 'absolute', inset: 0, opacity: 0.5, pointerEvents: 'none',
                 backgroundImage: `
-                  radial-gradient(circle at 18% 28%, rgba(60,40,20,0.35) 0px, transparent 1.2px),
-                  radial-gradient(circle at 72% 60%, rgba(60,40,20,0.4) 0px, transparent 1.5px),
-                  radial-gradient(circle at 40% 80%, rgba(255,255,255,0.15) 0px, transparent 1px),
-                  radial-gradient(circle at 90% 22%, rgba(60,40,20,0.3) 0px, transparent 1.4px)`,
+                  radial-gradient(circle at 18% 28%, rgba(0,0,0,0.18) 0px, transparent 1.2px),
+                  radial-gradient(circle at 72% 60%, rgba(0,0,0,0.22) 0px, transparent 1.5px),
+                  radial-gradient(circle at 40% 80%, rgba(255,255,255,0.30) 0px, transparent 1px),
+                  radial-gradient(circle at 90% 22%, rgba(0,0,0,0.16) 0px, transparent 1.4px)`,
                 backgroundSize: '8px 8px, 11px 11px, 6px 6px, 14px 14px',
               }} />
               <PhysicalEdges />
@@ -1068,9 +1083,22 @@ function OpenNotebookView({ section, sectionIndex, done, total, progress,
                   borderRadius: 1,
                 }} />
               ))}
+              {/* Accent washi-tape strip across the top corner — the same
+                  colored trim signature the closed shelf card has, so the
+                  open cover clearly belongs to that notebook. */}
+              <div style={{
+                position: 'absolute', top: 8, left: -24,
+                width: 128, height: 20,
+                background: `repeating-linear-gradient(45deg, ${accent} 0 7px, rgba(255,255,255,0.7) 7px 12px)`,
+                border: `2px solid ${INK}`,
+                boxShadow: '2px 2px 0 rgba(0,0,0,0.3)',
+                transform: 'rotate(-10deg)',
+                zIndex: 1,
+              }} />
               <div style={{
                 position: 'absolute', top: 32, left: 36, right: 24,
                 display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+                zIndex: 2,
               }}>
                 <div style={{ fontWeight: 700, fontSize: 11, letterSpacing: 3 }}>EREN · POCKET</div>
                 <div style={{ fontSize: 9, letterSpacing: 2, opacity: 0.75 }}>
@@ -1090,8 +1118,10 @@ function OpenNotebookView({ section, sectionIndex, done, total, progress,
                   borderRadius: 2,
                   display: 'inline-block',
                   transform: 'rotate(-2deg)',
-                  background: 'rgba(255,255,255,0.04)',
-                  textShadow: '0.5px 0 0 rgba(0,0,0,0.4)',
+                  // Cream plate (like the closed card) so the title stays
+                  // legible on top of the now-coloured cover.
+                  background: '#fffaee',
+                  boxShadow: '2px 2px 0 rgba(0,0,0,0.35)',
                 }}>{section.title}</div>
                 <div style={{
                   fontFamily: HAND_FONT, fontSize: 26,
