@@ -89,10 +89,28 @@ export default function MemoryMatchGame() {
   const [showFlash, setShowFlash] = useState<{ id: number; type: 'match' | 'miss'; color: string } | null>(null)
   const [savedOnce, setSavedOnce] = useState(false)
   const [confetti, setConfetti] = useState<Array<{ id: number; x: number; y: number; color: string; dx: number; dy: number; rot: number }>>([])
+  // Floating score popups anchored to the matched card midpoint (board %)
+  const [scorePops, setScorePops] = useState<Array<{ id: number; x: number; y: number; color: string; text: string }>>([])
+  // Per-match small particle bursts (sparkles in matched-kind tint)
+  const [miniBursts, setMiniBursts] = useState<Array<{ id: number; x: number; y: number; color: string; dx: number; dy: number }>>([])
+  // Score pulse trigger — increments to retrigger the keyframe animation
+  const [scorePulseKey, setScorePulseKey] = useState(0)
+  // Combo HUD pulse trigger
+  const [comboPulseKey, setComboPulseKey] = useState(0)
+  // Board shake on miss
+  const [boardShakeKey, setBoardShakeKey] = useState(0)
+  // Red vignette flash on miss
+  const [vignetteKey, setVignetteKey] = useState(0)
+  // One-shot timer warning trigger
+  const [warnedTimer, setWarnedTimer] = useState(false)
 
   const selected = useRef<number[]>([])
   const locked   = useRef(false)
   const comboTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const boardRef = useRef<HTMLDivElement | null>(null)
+  const cardRefs = useRef<Array<HTMLButtonElement | null>>([])
+  const popIdRef = useRef(0)
+  const burstIdRef = useRef(0)
 
   // ── Game timer ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -110,12 +128,21 @@ export default function MemoryMatchGame() {
     return () => clearInterval(interval)
   }, [gameState])
 
+  // ── Timer warning one-shot at 10s ──────────────────────────────────────────
+  useEffect(() => {
+    if (gameState === 'running' && timeLeft === 10 && !warnedTimer) {
+      setWarnedTimer(true)
+      playSound('mm_timer_warn')
+    }
+  }, [timeLeft, gameState, warnedTimer])
+
   // ── Check for all-matched ──────────────────────────────────────────────────
   const matchedCount = deck.filter(c => c.matched).length
   useEffect(() => {
     if (gameState === 'running' && matchedCount === deck.length) {
       // All pairs matched — finish
       setGameState('finished')
+      playSound('mm_purrfect')
       // Small confetti burst
       const burst: typeof confetti = []
       const colors = ['#FF6B9D', '#A78BFA', '#F5C842', '#6BAED6', '#4ADE80', '#FFD700']
@@ -169,8 +196,28 @@ export default function MemoryMatchGame() {
     setSavedOnce(false)
     setShowFlash(null)
     setConfetti([])
+    setScorePops([])
+    setMiniBursts([])
+    setWarnedTimer(false)
     selected.current = []
     locked.current = false
+  }
+
+  // ── Compute the matched-card midpoint relative to the board container ─────
+  function cardMidpoint(idxA: number, idxB: number): { x: number; y: number } {
+    const board = boardRef.current
+    const a = cardRefs.current[idxA]
+    const b = cardRefs.current[idxB]
+    if (!board || !a || !b) return { x: 50, y: 50 }
+    const br = board.getBoundingClientRect()
+    const ar = a.getBoundingClientRect()
+    const bbr = b.getBoundingClientRect()
+    const mx = (ar.left + ar.width / 2 + bbr.left + bbr.width / 2) / 2
+    const my = (ar.top + ar.height / 2 + bbr.top + bbr.height / 2) / 2
+    return {
+      x: ((mx - br.left) / br.width) * 100,
+      y: ((my - br.top) / br.height) * 100,
+    }
   }
 
   // ── Handle card tap ────────────────────────────────────────────────────────
@@ -183,15 +230,17 @@ export default function MemoryMatchGame() {
     // Flip up
     setDeck(prev => prev.map((c, i) => i === idx ? { ...c, faceUp: true } : c))
     setFlips(f => f + 1)
+    playSound('mm_card_flip')
     selected.current = [...selected.current, idx]
 
     if (selected.current.length === 2) {
       const [a, b] = selected.current
       const ka = deck[a].kind
       const kb = deck[b].kind
-      if (ka === kb || (idx === b && deck[a].kind === deck[b].kind)) {
+      if (ka === kb) {
         // MATCH
         const kind = deck[a].kind
+        const tint = KIND_META[kind].tint
         locked.current = true
         setTimeout(() => {
           setDeck(prev => prev.map((c, i) =>
@@ -200,14 +249,45 @@ export default function MemoryMatchGame() {
           // combo
           setCombo(prevCombo => {
             const next = prevCombo + 1
+            const gained = MATCH_BASE_POINTS + (next - 1) * COMBO_BONUS_PER
             // score = base + combo bonus
-            setScore(s => s + MATCH_BASE_POINTS + (next - 1) * COMBO_BONUS_PER)
+            setScore(s => s + gained)
+            setScorePulseKey(k => k + 1)
+            // Sound: combo vs first match
+            if (next >= 2) {
+              playSound('mm_combo')
+              setComboPulseKey(k => k + 1)
+            } else {
+              playSound('mm_match')
+            }
+            // Floating score popup at matched-card midpoint
+            const mid = cardMidpoint(a, b)
+            const popId = ++popIdRef.current
+            const text = next >= 2 ? `+${gained} x${next}!` : `+${gained}`
+            setScorePops(prev => [...prev, { id: popId, x: mid.x, y: mid.y, color: tint, text }])
+            setTimeout(() => setScorePops(prev => prev.filter(p => p.id !== popId)), 700)
+            // Per-match mini sparkle burst (6 pixels in tint)
+            const newBursts: Array<{ id: number; x: number; y: number; color: string; dx: number; dy: number }> = []
+            for (let s = 0; s < 6; s++) {
+              const angle = (Math.PI * 2 * s) / 6 + Math.random() * 0.5
+              const r = 30 + Math.random() * 18
+              newBursts.push({
+                id: ++burstIdRef.current,
+                x: mid.x, y: mid.y,
+                color: tint,
+                dx: Math.cos(angle) * r,
+                dy: Math.sin(angle) * r,
+              })
+            }
+            setMiniBursts(prev => [...prev, ...newBursts])
+            const burstIds = newBursts.map(p => p.id)
+            setTimeout(() => setMiniBursts(prev => prev.filter(p => !burstIds.includes(p.id))), 750)
             // reset combo after window
             if (comboTimer.current) clearTimeout(comboTimer.current)
             comboTimer.current = setTimeout(() => setCombo(0), COMBO_WINDOW_MS)
             return next
           })
-          setShowFlash({ id: Date.now(), type: 'match', color: KIND_META[kind].tint })
+          setShowFlash({ id: Date.now(), type: 'match', color: tint })
           setTimeout(() => setShowFlash(null), 700)
           // clear wobble
           setTimeout(() => {
@@ -222,6 +302,9 @@ export default function MemoryMatchGame() {
         setShowFlash({ id: Date.now(), type: 'miss', color: '#F87171' })
         setTimeout(() => setShowFlash(null), 500)
         setCombo(0)
+        playSound('mm_miss')
+        setBoardShakeKey(k => k + 1)
+        setVignetteKey(k => k + 1)
         setTimeout(() => {
           setDeck(prev => prev.map((c, i) =>
             i === a || i === b
@@ -246,12 +329,14 @@ export default function MemoryMatchGame() {
         touchAction: 'none',
       }}>
 
-      {/* Star-field background */}
-      <div className="absolute inset-0 pointer-events-none opacity-50" style={{
+      {/* Star-field background — speeds up + brightens at combo>=3 (you're on fire) */}
+      <div className="absolute inset-0 pointer-events-none" style={{
         backgroundImage: 'radial-gradient(circle, #FFD700 1px, transparent 1px), radial-gradient(circle, #A78BFA 1px, transparent 1px)',
         backgroundSize: '30px 30px, 45px 45px',
         backgroundPosition: '0 0, 15px 22px',
-        animation: 'starDrift 24s linear infinite',
+        animation: `starDrift ${combo >= 3 ? '10s' : '24s'} linear infinite`,
+        opacity: combo >= 3 ? 0.85 : 0.5,
+        transition: 'opacity 0.4s ease',
       }} />
 
       {/* Header */}
@@ -272,10 +357,14 @@ export default function MemoryMatchGame() {
 
       {/* Score & timer bar */}
       <div className="absolute top-14 inset-x-0 px-3 z-20 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1 px-2 py-1"
-          style={{ background: 'rgba(0,0,0,0.5)', border: '2px solid rgba(167,139,250,0.5)', borderRadius: 4, boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
+        <div key={`score-${scorePulseKey}`} className="flex items-center gap-1 px-2 py-1"
+          style={{ background: 'rgba(0,0,0,0.5)', border: '2px solid rgba(167,139,250,0.5)', borderRadius: 4, boxShadow: '0 2px 0 rgba(0,0,0,0.3)',
+            animation: scorePulseKey > 0 ? 'scorePulse 0.28s steps(4, end)' : 'none',
+            transformOrigin: 'center' }}>
           <IconStar size={12} />
-          <span className="font-pixel text-amber-200" style={{ fontSize: 9, textShadow: '1px 1px 0 rgba(0,0,0,0.6)', letterSpacing: 1 }}>{score}</span>
+          <span className="font-pixel" style={{ fontSize: 9, textShadow: '1px 1px 0 rgba(0,0,0,0.6)', letterSpacing: 1,
+            color: scorePulseKey > 0 ? '#FFD760' : '#FDE68A',
+            transition: 'color 0.25s ease' }}>{score}</span>
         </div>
         <div className="flex items-center gap-1 px-2 py-1"
           style={{ background: timeLeft <= 10 ? 'rgba(127,0,0,0.5)' : 'rgba(0,0,0,0.5)',
@@ -286,14 +375,23 @@ export default function MemoryMatchGame() {
             {String(Math.floor(timeLeft / 60)).padStart(1, '0')}:{String(timeLeft % 60).padStart(2, '0')}
           </span>
         </div>
-        <div className="flex items-center gap-1 px-2 py-1"
+        <div key={`combo-${comboPulseKey}`} className="flex items-center gap-1 px-2 py-1 relative"
           style={{
             background: combo >= 2 ? 'linear-gradient(135deg, rgba(255,100,150,0.45), rgba(255,200,40,0.45))' : 'rgba(0,0,0,0.5)',
             border: combo >= 2 ? '2px solid #FFD700' : '2px solid rgba(167,139,250,0.5)',
             borderRadius: 4,
             boxShadow: combo >= 2 ? '0 2px 0 rgba(0,0,0,0.3), 0 0 8px rgba(255,215,0,0.5)' : '0 2px 0 rgba(0,0,0,0.3)',
-            transition: 'all 0.2s ease',
+            transition: 'background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
+            animation: comboPulseKey > 0 ? 'comboPop 0.36s cubic-bezier(0.34,1.56,0.64,1)' : 'none',
+            transformOrigin: 'center',
           }}>
+          {comboPulseKey > 0 && combo >= 2 && (
+            <span aria-hidden className="absolute inset-0 pointer-events-none" style={{
+              borderRadius: 4,
+              boxShadow: '0 0 0 2px #FFD700',
+              animation: 'comboRing 0.42s ease-out',
+            }} />
+          )}
           <span className="font-pixel" style={{ fontSize: 8, color: combo >= 2 ? '#FFF8C8' : '#A0A0C8', letterSpacing: 1 }}>
             COMBO x{combo}
           </span>
@@ -353,10 +451,15 @@ export default function MemoryMatchGame() {
       {/* ── Board ──────────────────────────────────────────────────────────── */}
       {gameState !== 'idle' && (
         <div className="absolute inset-0 flex items-center justify-center pt-24 pb-24 px-4 z-10">
-          <div className="grid gap-2.5" style={{
-            gridTemplateColumns: `repeat(${GRID_COLS}, minmax(0, 1fr))`,
-            gridTemplateRows: `repeat(${GRID_ROWS}, minmax(0, 1fr))`,
-            width: '100%', maxWidth: 340, aspectRatio: `${GRID_COLS}/${GRID_ROWS * 1.2}`,
+          <div
+            ref={boardRef}
+            key={`board-${boardShakeKey}`}
+            className="grid gap-2.5 relative"
+            style={{
+              gridTemplateColumns: `repeat(${GRID_COLS}, minmax(0, 1fr))`,
+              gridTemplateRows: `repeat(${GRID_ROWS}, minmax(0, 1fr))`,
+              width: '100%', maxWidth: 340, aspectRatio: `${GRID_COLS}/${GRID_ROWS * 1.2}`,
+              animation: boardShakeKey > 0 ? 'boardJitter 0.22s linear' : 'none',
           }}>
             {deck.map((card, i) => {
               const meta = KIND_META[card.kind]
@@ -364,6 +467,7 @@ export default function MemoryMatchGame() {
               return (
                 <button
                   key={card.id}
+                  ref={el => { cardRefs.current[i] = el }}
                   onClick={() => tapCard(i)}
                   disabled={gameState !== 'running' || card.matched}
                   style={{
@@ -425,7 +529,21 @@ export default function MemoryMatchGame() {
                       backfaceVisibility: 'hidden',
                       transform: 'rotateY(180deg)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      overflow: 'hidden',
                     }}>
+                      {/* 3-pixel diagonal shine sweep during the flip reveal */}
+                      {showFace && !card.matched && (
+                        <span aria-hidden className="card-shine" style={{
+                          position: 'absolute',
+                          top: 0, left: 0,
+                          width: 3, height: '160%',
+                          background: 'rgba(255,255,255,0.85)',
+                          boxShadow: '4px 0 0 rgba(255,255,255,0.55), 8px 0 0 rgba(255,255,255,0.25)',
+                          transform: 'translateX(-12px) rotate(20deg)',
+                          animation: 'cardShine 0.45s linear 1',
+                          pointerEvents: 'none',
+                        }} />
+                      )}
                       <meta.Icon size={Math.min(46, 38)} />
                       {card.matched && (
                         <div style={{
@@ -443,8 +561,47 @@ export default function MemoryMatchGame() {
                 </button>
               )
             })}
+
+            {/* Floating "+N" / "+N xK!" score popups anchored to matched cards */}
+            {scorePops.map(p => (
+              <div key={p.id} className="absolute pointer-events-none font-pixel" style={{
+                left: `${p.x}%`, top: `${p.y}%`,
+                transform: 'translate(-50%, -50%)',
+                color: p.color,
+                fontSize: 10,
+                letterSpacing: 1,
+                textShadow: '1px 1px 0 rgba(0,0,0,0.7), 0 0 6px rgba(0,0,0,0.5)',
+                animation: 'scorePopRise 0.6s ease-out forwards',
+                zIndex: 25,
+              }}>
+                {p.text}
+              </div>
+            ))}
+
+            {/* Per-match sparkle bursts in the matched-kind tint */}
+            {miniBursts.map(p => (
+              <div key={p.id} className="absolute pointer-events-none" style={{
+                left: `${p.x}%`, top: `${p.y}%`,
+                width: 4, height: 4,
+                background: p.color,
+                imageRendering: 'pixelated',
+                boxShadow: `0 0 0 1px rgba(0,0,0,0.4)`,
+                animation: 'miniBurst 0.7s cubic-bezier(0.2,0.7,0.4,1) forwards',
+                ['--bx' as string]: `${p.dx}px`,
+                ['--by' as string]: `${p.dy}px`,
+                zIndex: 24,
+              } as React.CSSProperties} />
+            ))}
           </div>
         </div>
+      )}
+
+      {/* Red vignette flash on miss — outer-edge only */}
+      {vignetteKey > 0 && (
+        <div key={`vig-${vignetteKey}`} className="absolute inset-0 pointer-events-none z-20" style={{
+          boxShadow: 'inset 0 0 60px 12px rgba(220,38,38,0.55)',
+          animation: 'vignetteFlash 0.32s ease-out forwards',
+        }} />
       )}
 
       {/* Flash overlay (match / miss) */}
@@ -557,6 +714,45 @@ export default function MemoryMatchGame() {
         @keyframes confettiFall {
           0%   { transform: translate(-50%, -50%) rotate(0deg); opacity: 1; }
           100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + 320px)) rotate(var(--rot)); opacity: 0; }
+        }
+        @keyframes scorePulse {
+          0%   { transform: scale(1); }
+          40%  { transform: scale(1.15); }
+          100% { transform: scale(1); }
+        }
+        @keyframes comboPop {
+          0%   { transform: scale(1); }
+          40%  { transform: scale(1.25); }
+          100% { transform: scale(1); }
+        }
+        @keyframes comboRing {
+          0%   { box-shadow: 0 0 0 0 #FFD700; opacity: 1; }
+          100% { box-shadow: 0 0 0 8px rgba(255,215,0,0); opacity: 0; }
+        }
+        @keyframes boardJitter {
+          0%, 100% { transform: translate(0, 0); }
+          20%      { transform: translate(-2px, 1px); }
+          40%      { transform: translate(2px, -1px); }
+          60%      { transform: translate(-2px, -1px); }
+          80%      { transform: translate(2px, 1px); }
+        }
+        @keyframes vignetteFlash {
+          0%   { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        @keyframes cardShine {
+          0%   { transform: translateX(-12px) rotate(20deg); opacity: 0; }
+          25%  { opacity: 1; }
+          100% { transform: translateX(110%) rotate(20deg); opacity: 0; }
+        }
+        @keyframes scorePopRise {
+          0%   { transform: translate(-50%, -50%) scale(0.9); opacity: 0; }
+          15%  { transform: translate(-50%, -55%) scale(1.1); opacity: 1; }
+          100% { transform: translate(-50%, calc(-50% - 40px)) scale(1); opacity: 0; }
+        }
+        @keyframes miniBurst {
+          0%   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+          100% { transform: translate(calc(-50% + var(--bx)), calc(-50% + var(--by))) scale(0.4); opacity: 0; }
         }
       `}</style>
     </div>

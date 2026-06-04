@@ -79,6 +79,11 @@ export default function ErenStackGame() {
   const [bestScore, setBestScore] = useState(0)
   const [perfectStreak, setPerfectStreak] = useState(0)
   const [floater, setFloater]     = useState<{ id: number; text: string; x: number; y: number; color: string } | null>(null)
+  const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; dx: number; dy: number; color: string; kind: 'star' | 'dust' }>>([])
+  const [shakeKey, setShakeKey]   = useState(0)
+  const [missFlash, setMissFlash] = useState(false)
+  const [scorePulse, setScorePulse] = useState<{ id: number; perfect: boolean } | null>(null)
+  const [streakBreak, setStreakBreak] = useState(0)
 
   const stateRef       = useRef<'idle' | 'running' | 'gameover'>('idle')
   const towerRef       = useRef<Block[]>([])
@@ -91,6 +96,11 @@ export default function ErenStackGame() {
   const rafRef         = useRef<number>(0)
   const savedRef       = useRef(false)
   const fallingRef     = useRef<Block[]>([])  // trimmed pieces falling off
+  const scoreRefVal    = useRef(0)            // authoritative score (includes perfect bonus)
+  const prevSkyIdxRef  = useRef(0)
+  const milestonesHitRef = useRef<Set<number>>(new Set())
+  const perfectStreakRef = useRef(0)
+  const cameraOvershootRef = useRef(0)
 
   const [, force] = useReducer((n: number) => n + 1, 0)
 
@@ -116,6 +126,13 @@ export default function ErenStackGame() {
     swingSpeedRef.current = BASE_SWING_SPEED
     setScore(0)
     setPerfectStreak(0)
+    perfectStreakRef.current = 0
+    scoreRefVal.current = 0
+    prevSkyIdxRef.current = 0
+    milestonesHitRef.current = new Set()
+    setParticles([])
+    setMissFlash(false)
+    setScorePulse(null)
     savedRef.current = false
 
     const baseW = fieldDims.w * STARTING_WIDTH
@@ -147,8 +164,13 @@ export default function ErenStackGame() {
       currentRef.current.x = t * range
     }
 
-    // Smoothly lerp camera toward target
-    cameraYRef.current += (cameraTargetRef.current - cameraYRef.current) * Math.min(1, dt * 4)
+    // Smoothly lerp camera toward target with a tiny spring on perfect drops.
+    // Overshoot pulls the camera 6px past the target, then decays — gives that
+    // satisfying "earned" bounce when stacking a perfect.
+    const overshoot = cameraOvershootRef.current
+    const cdiff = (cameraTargetRef.current - overshoot) - cameraYRef.current
+    cameraYRef.current += cdiff * Math.min(1, dt * (overshoot > 0 ? 6 : 4))
+    if (overshoot > 0) cameraOvershootRef.current = Math.max(0, overshoot - dt * 22)
 
     // Update falling trimmed pieces
     for (const f of fallingRef.current) f.y += 600 * dt
@@ -174,6 +196,10 @@ export default function ErenStackGame() {
       // Total miss — game over. Send the whole piece tumbling.
       fallingRef.current.push({ ...cur })
       currentRef.current = null
+      playSound('es_miss')
+      setShakeKey(k => k + 1)
+      setMissFlash(true)
+      setTimeout(() => setMissFlash(false), 200)
       endGame()
       return
     }
@@ -187,9 +213,16 @@ export default function ErenStackGame() {
       // Perfect — no trim. Inherit top's exact width + position.
       lockedX = top.x
       lockedW = top.width
-      setPerfectStreak(s => s + 1)
-      playSound('ui_modal_open')
+      const nextStreak = perfectStreakRef.current + 1
+      perfectStreakRef.current = nextStreak
+      setPerfectStreak(nextStreak)
+      // Escalating chime on odd streaks 3,5,7…, regular perfect ding otherwise.
+      if (nextStreak >= 3 && nextStreak % 2 === 1) playSound('es_perfect_streak')
+      else playSound('es_perfect')
       flashFloater('PERFECT!', cur.x + cur.width / 2, cur.y + 18, '#FDE68A')
+      spawnStarBurst(cur.x + cur.width / 2, cur.y + PIECE_HEIGHT / 2)
+      // Tiny camera overshoot on perfects — makes height feel earned.
+      cameraOvershootRef.current = 7
     } else {
       // Trim to overlap; tumble the cut-off chunk.
       const cutSide: 'left' | 'right' = cur.x > top.x ? 'left' : 'right'
@@ -199,14 +232,43 @@ export default function ErenStackGame() {
       const cutW = cur.width - overlap
       const cutX = cutSide === 'left' ? cur.x : overlapR
       fallingRef.current.push({ ...cur, x: cutX, width: cutW, id: newId() })
+      // Streak-broken feedback: if we were on a real streak (>=2), shake the
+      // badge before it fades out so the loss is acknowledged.
+      if (perfectStreakRef.current >= 2) setStreakBreak(k => k + 1)
+      perfectStreakRef.current = 0
       setPerfectStreak(0)
-      playSound('ui_back')
+      playSound('es_place')
+      // Soft trim whoosh sound + dust puffs at the cut edge.
+      setTimeout(() => playSound('es_trim'), 60)
+      const dustX = cutSide === 'left' ? overlapL : overlapR
+      spawnDustPuff(dustX, cur.y + PIECE_HEIGHT / 2)
     }
 
     const locked: Block = { ...cur, x: lockedX, width: lockedW, y: top.y - PIECE_HEIGHT }
     towerRef.current.push(locked)
 
-    setScore(s => s + (perfect ? 5 : 1))
+    const gained = perfect ? 5 : 1
+    scoreRefVal.current += gained
+    const newScore = scoreRefVal.current
+    setScore(newScore)
+    // Score-number pulse on every placement (gold tint on perfect).
+    setScorePulse({ id: newId(), perfect })
+
+    // Height milestones — triumphant chiptune fanfare at 10/25/50.
+    for (const m of [10, 25, 50]) {
+      if (newScore >= m && !milestonesHitRef.current.has(m)) {
+        milestonesHitRef.current.add(m)
+        setTimeout(() => playSound('es_height_milestone'), 120)
+        break
+      }
+    }
+
+    // Sky-tier change cue (escalates every 12 pieces).
+    const newSkyIdx = Math.min(SKIES.length - 1, Math.floor(newScore / 12))
+    if (newSkyIdx !== prevSkyIdxRef.current) {
+      prevSkyIdxRef.current = newSkyIdx
+      playSound('es_sky_change')
+    }
 
     // Update camera target so the new top sits in upper-third of the screen.
     const desiredScreenY = fieldDims.h * 0.45
@@ -216,13 +278,54 @@ export default function ErenStackGame() {
     swingSpeedRef.current = Math.min(SWING_SPEED_MAX, swingSpeedRef.current * (1 + SWING_SPEED_RAMP))
 
     // Spawn next — same width as locked (or wider if perfect bonus).
-    const nextW = perfect ? Math.min(fieldDims.w * 0.7, lockedW * 1.04) : lockedW
+    // Non-perfect drops apply a tiny per-piece width decay so a player can't
+    // mathematically stay alive forever via slow attrition. ~1% bleed.
+    const nextW = perfect
+      ? Math.min(fieldDims.w * 0.7, lockedW * 1.04)
+      : Math.max(20, lockedW * 0.99)
     spawnNext(nextW, lockedX, locked.y)
 
     if (nextW < 22) {
       // Pieces are too thin to play with — game over.
       setTimeout(endGame, 250)
     }
+  }
+
+  // ─── Particle helpers (gold star burst on perfect, dust puff on trim) ────
+  function spawnStarBurst(x: number, y: number) {
+    const next: Array<{ id: number; x: number; y: number; dx: number; dy: number; color: string; kind: 'star' | 'dust' }> = []
+    for (let i = 0; i < 8; i++) {
+      const ang = (i / 8) * Math.PI * 2 + (Math.random() - 0.5) * 0.3
+      const speed = 30 + Math.random() * 28
+      next.push({
+        id: newId(),
+        x, y,
+        dx: Math.cos(ang) * speed,
+        dy: Math.sin(ang) * speed,
+        color: i % 2 === 0 ? '#FDE68A' : '#FFFFFF',
+        kind: 'star',
+      })
+    }
+    setParticles(p => [...p, ...next])
+    const ids = next.map(n => n.id)
+    setTimeout(() => setParticles(p => p.filter(q => !ids.includes(q.id))), 520)
+  }
+
+  function spawnDustPuff(x: number, y: number) {
+    const next: Array<{ id: number; x: number; y: number; dx: number; dy: number; color: string; kind: 'star' | 'dust' }> = []
+    for (let i = 0; i < 3; i++) {
+      next.push({
+        id: newId(),
+        x, y,
+        dx: (Math.random() - 0.5) * 24,
+        dy: -8 - Math.random() * 14,
+        color: '#E5E7EB',
+        kind: 'dust',
+      })
+    }
+    setParticles(p => [...p, ...next])
+    const ids = next.map(n => n.id)
+    setTimeout(() => setParticles(p => p.filter(q => !ids.includes(q.id))), 420)
   }
 
   function flashFloater(text: string, x: number, y: number, color: string) {
@@ -251,8 +354,9 @@ export default function ErenStackGame() {
   }
 
   function scoreRef(): number {
-    // The score state may lag; compute from tower length and perfectStreak hint.
-    return towerRef.current.length - 1
+    // Authoritative score, including +5 perfect bonuses. Tracked in a ref so it
+    // survives React state batching at endGame time.
+    return scoreRefVal.current
   }
 
   function reset() {
@@ -264,8 +368,16 @@ export default function ErenStackGame() {
     currentRef.current = null
     setScore(0)
     setPerfectStreak(0)
+    perfectStreakRef.current = 0
+    scoreRefVal.current = 0
+    prevSkyIdxRef.current = 0
+    milestonesHitRef.current = new Set()
+    setParticles([])
+    setMissFlash(false)
+    setScorePulse(null)
     cameraYRef.current = 0
     cameraTargetRef.current = 0
+    cameraOvershootRef.current = 0
   }
 
   useEffect(() => () => { cancelAnimationFrame(rafRef.current) }, [])
@@ -296,10 +408,16 @@ export default function ErenStackGame() {
         </div>
       </div>
 
-      {/* Field */}
+      {/* Field. Inner shake host re-keys on miss to retrigger CSS shake without
+          remounting the field (fieldRef stays attached so measure() values
+          survive). */}
       <div ref={fieldRef} onPointerDown={dropPiece}
         className="relative flex-1 overflow-hidden select-none"
         style={{ touchAction: 'none', cursor: 'pointer' }}>
+      <div key={`shake-${shakeKey}`} style={{
+        position: 'absolute', inset: 0,
+        animation: shakeKey > 0 ? 'stk-shake 220ms steps(6, end)' : undefined,
+      }}>
 
         {/* Sky layers — crossfade */}
         {SKIES.map((sky, i) => (
@@ -352,30 +470,59 @@ export default function ErenStackGame() {
           {fallingRef.current.map(f => <Piece key={`f-${f.id}`} block={f} falling />)}
         </div>
 
-        {/* Score (in viewport space, above the tower) */}
+        {/* Score (in viewport space, above the tower). Pulses on every drop;
+            tints gold on perfect. Key re-trigger plays the keyframe. */}
         {phase !== 'idle' && (
-          <div className="absolute font-pixel pointer-events-none" style={{
-            top: 18, left: '50%', transform: 'translateX(-50%)',
-            fontSize: 36, color: 'white',
-            textShadow: '3px 3px 0 #000, 0 0 10px rgba(255,255,255,0.4)',
-            letterSpacing: 2,
-          }}>
+          <div
+            key={`score-${scorePulse?.id ?? 0}`}
+            className="absolute font-pixel pointer-events-none"
+            style={{
+              top: 18, left: '50%', transform: 'translateX(-50%)',
+              fontSize: 36,
+              color: scorePulse?.perfect ? '#FDE68A' : 'white',
+              textShadow: scorePulse?.perfect
+                ? '3px 3px 0 #000, 0 0 12px rgba(253,224,71,0.6)'
+                : '3px 3px 0 #000, 0 0 10px rgba(255,255,255,0.4)',
+              letterSpacing: 2,
+              animation: scorePulse ? 'stk-score-pulse 180ms cubic-bezier(0.34,1.56,0.64,1)' : undefined,
+              transition: 'color 220ms',
+            }}>
             {score}
           </div>
         )}
 
-        {/* Perfect streak badge */}
+        {/* Perfect streak badge — pops in on entry, shakes red on break. */}
         {phase !== 'idle' && perfectStreak >= 2 && (
-          <div className="absolute font-pixel pointer-events-none" style={{
-            top: 64, left: '50%', transform: 'translateX(-50%)',
-            background: 'rgba(0,0,0,0.5)',
-            border: '2px solid #FDE68A',
-            borderRadius: 3,
-            padding: '4px 10px',
-            fontSize: 8, color: '#FDE68A', letterSpacing: 2,
-            boxShadow: '0 0 12px rgba(253,224,71,0.5)',
-          }}>
+          <div
+            key={`streak-${perfectStreak}`}
+            className="absolute font-pixel pointer-events-none" style={{
+              top: 64, left: '50%', transform: 'translateX(-50%)',
+              background: 'rgba(0,0,0,0.5)',
+              border: '2px solid #FDE68A',
+              borderRadius: 3,
+              padding: '4px 10px',
+              fontSize: 8, color: '#FDE68A', letterSpacing: 2,
+              boxShadow: '0 0 12px rgba(253,224,71,0.5)',
+              animation: 'stk-streak-in 220ms cubic-bezier(0.34,1.56,0.64,1)',
+            }}>
             x{perfectStreak} PERFECT
+          </div>
+        )}
+        {/* Streak-broken ghost — brief red flash where the badge was. */}
+        {phase !== 'idle' && streakBreak > 0 && (
+          <div
+            key={`streakbreak-${streakBreak}`}
+            className="absolute font-pixel pointer-events-none" style={{
+              top: 64, left: '50%', transform: 'translateX(-50%)',
+              background: 'rgba(0,0,0,0.5)',
+              border: '2px solid #FCA5A5',
+              borderRadius: 3,
+              padding: '4px 10px',
+              fontSize: 8, color: '#FCA5A5', letterSpacing: 2,
+              boxShadow: '0 0 12px rgba(252,165,165,0.5)',
+              animation: 'stk-streak-break 420ms steps(8, end) forwards',
+            }}>
+            STREAK BROKEN
           </div>
         )}
 
@@ -392,6 +539,39 @@ export default function ErenStackGame() {
           }}>
             {floater.text}
           </div>
+        )}
+
+        {/* Particles (perfect star bursts + trim dust puffs) — drawn in world
+            space so they ride the camera transform like the tower. */}
+        {particles.length > 0 && (
+          <div style={{ position: 'absolute', inset: 0, transform: `translateY(${-cameraYRef.current}px)`, pointerEvents: 'none' }}>
+            {particles.map(p => (
+              <div key={p.id} style={{
+                position: 'absolute',
+                left: p.x, top: p.y,
+                width: p.kind === 'star' ? 3 : 2,
+                height: p.kind === 'star' ? 3 : 2,
+                background: p.color,
+                borderRadius: 1,
+                boxShadow: p.kind === 'star' ? `0 0 0 1px ${p.color}` : undefined,
+                imageRendering: 'pixelated',
+                animation: p.kind === 'star'
+                  ? `stk-burst 500ms steps(10, end) forwards`
+                  : `stk-dust 400ms steps(8, end) forwards`,
+                ['--dx' as string]: `${p.dx}px`,
+                ['--dy' as string]: `${p.dy}px`,
+              } as React.CSSProperties} />
+            ))}
+          </div>
+        )}
+
+        {/* Miss flash — brief red full-screen tint right when endGame fires,
+            so failure registers before the modal arrives. */}
+        {missFlash && (
+          <div className="absolute inset-0 pointer-events-none" style={{
+            background: 'rgba(220, 38, 38, 0.35)',
+            animation: 'stk-miss-flash 200ms steps(4, end) forwards',
+          }} />
         )}
 
         {/* Idle */}
@@ -462,6 +642,7 @@ export default function ErenStackGame() {
           </div>
         )}
       </div>
+      </div>
 
       <style jsx global>{`
         @keyframes stk-pop {
@@ -475,6 +656,58 @@ export default function ErenStackGame() {
         @keyframes stk-twinkle {
           0%, 100% { opacity: 0.35; }
           50%      { opacity: 1; }
+        }
+        /* 220ms field shake on total miss — chunky steps(), no easing, sells
+           the impact without smearing the pixel art. */
+        @keyframes stk-shake {
+          0%   { transform: translate(0, 0); }
+          15%  { transform: translate(-4px, 2px); }
+          30%  { transform: translate(4px, -2px); }
+          45%  { transform: translate(-3px, 0); }
+          60%  { transform: translate(3px, 1px); }
+          80%  { transform: translate(-2px, -1px); }
+          100% { transform: translate(0, 0); }
+        }
+        /* Score number — quick scale-up + snap-back on every placement. */
+        @keyframes stk-score-pulse {
+          0%   { transform: translateX(-50%) scale(1); }
+          45%  { transform: translateX(-50%) scale(1.18); }
+          100% { transform: translateX(-50%) scale(1); }
+        }
+        /* Streak badge entrance — overshoot pop. */
+        @keyframes stk-streak-in {
+          0%   { transform: translateX(-50%) scale(0.6); opacity: 0; }
+          60%  { transform: translateX(-50%) scale(1.15); opacity: 1; }
+          100% { transform: translateX(-50%) scale(1); opacity: 1; }
+        }
+        /* Streak-broken ghost — shake then fade. */
+        @keyframes stk-streak-break {
+          0%   { transform: translateX(-50%) translateX(0); opacity: 1; }
+          25%  { transform: translateX(-50%) translateX(-3px); opacity: 1; }
+          50%  { transform: translateX(-50%) translateX(3px); opacity: 1; }
+          75%  { transform: translateX(-50%) translateX(-2px); opacity: 0.6; }
+          100% { transform: translateX(-50%) translateX(0); opacity: 0; }
+        }
+        /* Star burst on perfect drops — radiate outward, fade out. */
+        @keyframes stk-burst {
+          0%   { transform: translate(0, 0); opacity: 1; }
+          100% { transform: translate(var(--dx, 0), var(--dy, 0)); opacity: 0; }
+        }
+        /* Dust puff on imperfect drops — small upward drift + fade. */
+        @keyframes stk-dust {
+          0%   { transform: translate(0, 0); opacity: 0.9; }
+          100% { transform: translate(var(--dx, 0), var(--dy, 0)); opacity: 0; }
+        }
+        /* Falling trimmed chunk — fade out in the back half of its descent. */
+        @keyframes stk-fall-fade {
+          0%   { opacity: 1; }
+          55%  { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        /* Brief red full-screen tint on game-over. */
+        @keyframes stk-miss-flash {
+          0%   { opacity: 1; }
+          100% { opacity: 0; }
         }
       `}</style>
     </div>
@@ -506,6 +739,9 @@ function Piece({ block, active = false, falling = false }: { block: Block; activ
         : `inset 0 1px 0 rgba(255,255,255,0.4), 0 3px 0 ${palette.edge}`,
       transform: falling ? `rotate(${(block.id * 31) % 90 - 45}deg)` : undefined,
       transition: falling ? 'transform 0.2s' : undefined,
+      // Falling chunks fade out so they feel like they "disintegrate" rather
+      // than coldly slide off the bottom of the field.
+      animation: falling ? 'stk-fall-fade 700ms ease-in forwards' : undefined,
     }}>
       {/* Pixel-art texture rivets/strands per variant */}
       <PieceTexture variant={block.texture} edge={palette.edge} />

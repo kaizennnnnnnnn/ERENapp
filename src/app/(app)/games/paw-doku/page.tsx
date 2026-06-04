@@ -263,6 +263,8 @@ export default function PawDokuGame() {
   const [grid,      setGrid]      = useState<Grid>(makeEmptyGrid)
   const [tray,      setTray]      = useState<(Block | null)[]>(() => [null, null, null])
   const [score,     setScore]     = useState(0)
+  const [displayScore, setDisplayScore] = useState(0)      // count-up score for game-over panel
+  const [scorePulse, setScorePulse] = useState(0)          // re-keys score pulse animation on increment
   const [bestScore, setBest]      = useState(0)
   const [combo,     setCombo]     = useState(0)            // # of clears in this placement
   const [streak,    setStreak]    = useState(0)            // # of consecutive placements that cleared
@@ -270,7 +272,11 @@ export default function PawDokuGame() {
   // Streak only resets after 3 consecutive no-clear placements.
   const [streakMisses, setStreakMisses] = useState(0)
   const [gridFlash, setGridFlash] = useState(0)            // re-keys the grid-wide flash overlay
+  const [gridShake, setGridShake] = useState(0)            // re-keys the invalid-drop grid shake
+  const [trayRefillKey, setTrayRefillKey] = useState(0)    // re-keys tray-refill stagger animation
+  const [vignette, setVignette] = useState(0)              // re-keys the game-over red vignette
   const [floater,   setFloater]   = useState<{ id: number; text: string; color: string } | null>(null)
+  const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; color: string; dx: number; dy: number }>>([])
   const savedRef = useRef(false)
   const STREAK_GRACE = 3
 
@@ -356,7 +362,9 @@ export default function PawDokuGame() {
   function startGame() {
     setGrid(makeEmptyGrid())
     setTray(nextTray())
+    setTrayRefillKey(k => k + 1)
     setScore(0)
+    setDisplayScore(0)
     setCombo(0)
     setStreak(0)
     setStreakMisses(0)
@@ -368,6 +376,24 @@ export default function PawDokuGame() {
   function endGame() {
     setPhase('gameover')
     setBest(b => Math.max(b, score))
+    setVignette(v => v + 1)
+    playSound('pd_gameover')
+
+    // Count-up score animation, 800ms via requestAnimationFrame so the
+    // final tally feels earned. Starts from 0, eases to final score.
+    setDisplayScore(0)
+    const startTs = performance.now()
+    const finalScore = score
+    const duration = 800
+    function step(now: number) {
+      const t = Math.min(1, (now - startTs) / duration)
+      const eased = 1 - Math.pow(1 - t, 3) // ease-out cubic
+      setDisplayScore(Math.round(finalScore * eased))
+      if (t < 1) requestAnimationFrame(step)
+    }
+    if (finalScore > 0) requestAnimationFrame(step)
+    else setDisplayScore(0)
+
     if (!savedRef.current && user?.id && score > 0) {
       savedRef.current = true
       supabase.from('game_scores').insert({ user_id: user.id, game_type: 'paw_doku', score })
@@ -384,9 +410,44 @@ export default function PawDokuGame() {
     if (phase !== 'playing') return
     if (!tray[idx]) return
     e.preventDefault()
+    playSound('pd_pickup')
     setDraggedIdx(idx)
     setDragPos({ x: e.clientX, y: e.clientY })
     dragPosRef.current = { x: e.clientX, y: e.clientY }
+  }
+
+  // Spawn ~10-14 small pixel-square particles per cleared cell, flying
+  // outward with gravity. Particles are scheduled to despawn together
+  // after their 600ms animation completes.
+  function spawnClearParticles(cells: Array<{ r: number; c: number; color: string }>) {
+    if (!gridRef.current) return
+    const rect = gridRef.current.getBoundingClientRect()
+    const newParticles: Array<{ id: number; x: number; y: number; color: string; dx: number; dy: number }> = []
+    cells.forEach(({ r, c, color }) => {
+      const cx = c * (CELL_PX + CELL_GAP) + CELL_PX / 2
+      const cy = r * (CELL_PX + CELL_GAP) + CELL_PX / 2
+      const count = 4 + Math.floor(Math.random() * 3) // 4-6 per cell — keeps total counts sane on big clears
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2
+        const speed = 28 + Math.random() * 38
+        newParticles.push({
+          id: ++_bid,
+          x: cx, y: cy,
+          color,
+          dx: Math.cos(angle) * speed,
+          dy: Math.sin(angle) * speed - 18, // small upward bias before gravity
+        })
+      }
+    })
+    // Cap the particle array so back-to-back clears don't compound a thousand DOM nodes
+    setParticles(prev => [...prev, ...newParticles].slice(-180))
+    const ids = new Set(newParticles.map(p => p.id))
+    setTimeout(() => {
+      setParticles(prev => prev.filter(p => !ids.has(p.id)))
+    }, 650)
+    // Keep `rect` referenced so linters don't flag the unused capture; we use
+    // grid-relative coords above (particles are absolute children of the grid).
+    void rect
   }
 
   function flashFloater(text: string, color: string) {
@@ -403,9 +464,10 @@ export default function PawDokuGame() {
     // closure value from when the window listener was registered.
     const target = hoverCell(dragPosRef.current)
     if (!target || !canPlace(grid, block.shape, target.r, target.c)) {
-      // Bounce back
+      // Bounce back — error buzz + grid shake + brief red border pulse
       setDraggedIdx(null)
-      playSound('ui_modal_open')
+      setGridShake(s => s + 1)
+      playSound('pd_invalid')
       return
     }
 
@@ -413,7 +475,8 @@ export default function PawDokuGame() {
     let g = placeBlock(grid, block, target.r, target.c)
     const placedCells = shapeBox(block.shape).cells
     let gained = placedCells * SCORE_PER_CELL
-    playSound('ui_modal_close')
+    // Sound escalates by event below — pd_place for normal,
+    // pd_line_clear for 1 clear, pd_combo for 2+, pd_streak for chained.
 
     // Detect every kind of clear: full rows, full columns, full 3×3
     // sub-blocks. They're all batched and counted together for combo.
@@ -440,6 +503,28 @@ export default function PawDokuGame() {
       }
       setStreak(newStreak)
       setStreakMisses(0)
+
+      // Auditory escalation — streak takes priority over combo size.
+      if (newStreak >= 2) playSound('pd_streak')
+      else if (totalClears >= 2) playSound('pd_combo')
+      else playSound('pd_line_clear')
+
+      // Spawn cleared-cell particles (uses each cell's palette color)
+      const particleCells: Array<{ r: number; c: number; color: string }> = []
+      const seen = new Set<string>()
+      const addCell = (r: number, c: number) => {
+        const key = `${r},${c}`
+        if (seen.has(key)) return
+        seen.add(key)
+        const cell = g[r][c]
+        if (cell) particleCells.push({ r, c, color: cell.color.main })
+      }
+      rows.forEach(r => { for (let c = 0; c < GRID_SIZE; c++) addCell(r, c) })
+      cols.forEach(c => { for (let r = 0; r < GRID_SIZE; r++) addCell(r, c) })
+      subs.forEach(({ r, c }) => {
+        for (let dr = 0; dr < SUB_SIZE; dr++) for (let dc = 0; dc < SUB_SIZE; dc++) addCell(r + dr, c + dc)
+      })
+      spawnClearParticles(particleCells)
 
       // Show clearing flash, then nuke the cells next frame
       g = markClearing(g, rows, cols, subs)
@@ -473,6 +558,7 @@ export default function PawDokuGame() {
       // No clear. Use up one of the streak's grace placements before
       // actually resetting — gives the player some breathing room
       // (place 1-2 setup pieces without losing the multiplier).
+      playSound('pd_place')
       const newMisses = streakMisses + 1
       if (newMisses >= STREAK_GRACE) {
         setStreak(0)
@@ -488,12 +574,15 @@ export default function PawDokuGame() {
 
   function afterPlace(latestGrid: Grid, idx: number, gained: number) {
     setScore(s => s + gained)
+    setScorePulse(p => p + 1) // re-key the SCORE digit pulse on every increment
 
     // Strip the placed block from the tray; if every slot is now empty,
-    // refill from a fresh batch of three.
+    // refill from a fresh batch of three (and re-key the refill stagger).
     const stripped = [...tray]
     stripped[idx] = null
-    const next = stripped.every(b => b === null) ? nextTray() : stripped
+    const isRefill = stripped.every(b => b === null)
+    const next = isRefill ? nextTray() : stripped
+    if (isRefill) setTrayRefillKey(k => k + 1)
     setTray(next)
     setDraggedIdx(null)
 
@@ -545,7 +634,14 @@ export default function PawDokuGame() {
       <div className="flex items-center justify-between px-4 py-3 flex-shrink-0">
         <div>
           <div className="font-pixel" style={{ fontSize: 6, color: '#C4B5FD', letterSpacing: 2 }}>SCORE</div>
-          <div className="font-pixel" style={{ fontSize: 22, color: '#FFFFFF', textShadow: '2px 2px 0 #2E0F5C', letterSpacing: 1 }}>{score}</div>
+          <div key={`score-${scorePulse}`} className="font-pixel" style={{
+            fontSize: 22, color: '#FFFFFF',
+            textShadow: '2px 2px 0 #2E0F5C',
+            letterSpacing: 1,
+            display: 'inline-block',
+            transformOrigin: 'left center',
+            animation: scorePulse > 0 ? 'pdScorePulse 0.45s ease-out' : undefined,
+          }}>{score}</div>
         </div>
         {/* Combo / streak HUD pill — combo (multi-clear in one drop) takes
             precedence; streak shows when the player has chained clears
@@ -566,7 +662,7 @@ export default function PawDokuGame() {
               </div>
             )}
             {streak > 1 && (
-              <div key={`streak-${streak}`} className="font-pixel" style={{
+              <div key={`streak-${streak}`} className="font-pixel inline-flex items-center gap-1.5" style={{
                 background: 'linear-gradient(135deg, #DB2777, #831843)',
                 border: '2px solid #FFD700',
                 borderRadius: 3,
@@ -575,7 +671,24 @@ export default function PawDokuGame() {
                 boxShadow: '0 0 14px rgba(236,72,153,0.55), 0 0 20px rgba(255,215,0,0.35)',
                 animation: 'pdStreak 0.55s ease-out',
               }}>
-                STREAK x{streak}
+                <span>STREAK x{streak}</span>
+                {/* Grace pips — fills empty as the player burns no-clear
+                    placements. 3 pips for 3 grace slots. When all dim,
+                    next no-clear placement breaks the streak. */}
+                <span className="inline-flex items-center gap-[3px]" aria-hidden>
+                  {[0, 1, 2].map(i => {
+                    const remaining = STREAK_GRACE - streakMisses
+                    const lit = i < remaining
+                    return (
+                      <span key={i} style={{
+                        width: 4, height: 4,
+                        background: lit ? '#FDE68A' : 'rgba(253,230,138,0.18)',
+                        boxShadow: lit ? '0 0 4px rgba(253,230,138,0.9)' : 'none',
+                        borderRadius: 0,
+                      }} />
+                    )
+                  })}
+                </span>
               </div>
             )}
           </div>
@@ -588,6 +701,9 @@ export default function PawDokuGame() {
 
       {/* Grid */}
       <div className="flex-1 flex flex-col items-center justify-center px-3 pb-2 select-none">
+        <div key={`shake-wrap-${gridShake}`} style={{
+          animation: gridShake > 0 ? 'pdGridShake 0.28s steps(6, end)' : undefined,
+        }}>
         <div ref={gridRef}
           className="relative"
           style={{
@@ -658,6 +774,38 @@ export default function PawDokuGame() {
           <div style={{ position: 'absolute', bottom: 4, left: 4, width: 4, height: 4, background: '#FBBF24' }} />
           <div style={{ position: 'absolute', bottom: 4, right: 4, width: 4, height: 4, background: '#FBBF24' }} />
 
+          {/* Invalid-drop red border pulse — re-keyed off gridShake so
+              it co-fires with the wrapper shake. Sits above cells but
+              below particles/flash. */}
+          {gridShake > 0 && (
+            <div key={`red-${gridShake}`} className="absolute inset-0 pointer-events-none" style={{
+              border: '3px solid #F87171',
+              borderRadius: 6,
+              boxShadow: 'inset 0 0 18px rgba(248,113,113,0.55)',
+              animation: 'pdRedPulse 0.32s ease-out forwards',
+              zIndex: 7,
+            }} />
+          )}
+
+          {/* Cleared-cell particles — small pixel squares radiating
+              outward with gravity. Coloured by their source cell's
+              palette `main` so a row of mixed colours fireworks in
+              its own hues. */}
+          {particles.map(p => (
+            <div key={p.id} className="absolute pointer-events-none" style={{
+              left: p.x - 2, top: p.y - 2,
+              width: 4, height: 4,
+              background: p.color,
+              boxShadow: `1px 1px 0 rgba(0,0,0,0.4), 0 0 4px ${p.color}`,
+              imageRendering: 'pixelated',
+              // CSS custom properties so the keyframe can read the per-particle vector
+              ['--pdx' as keyof React.CSSProperties as string]: `${p.dx}px`,
+              ['--pdy' as keyof React.CSSProperties as string]: `${p.dy}px`,
+              animation: 'pdParticle 0.6s cubic-bezier(0.16,0.7,0.4,1) forwards',
+              zIndex: 8,
+            } as React.CSSProperties} />
+          ))}
+
           {/* Grid-wide clear effects — re-keyed on every clear so the
               animations re-fire for back-to-back placements. Three
               layered effects: a hue-cycling radial wash, an expanding
@@ -689,6 +837,7 @@ export default function PawDokuGame() {
             </>
           )}
         </div>
+        </div>
 
         {/* Floater */}
         {floater && (
@@ -713,20 +862,34 @@ export default function PawDokuGame() {
         {tray.map((block, idx) => (
           <div key={idx}
             onPointerDown={block ? e => handleBlockPointerDown(e, idx) : undefined}
-            className="flex items-center justify-center"
+            className="flex items-center justify-center relative"
             style={{
               flex: 1, minHeight: 110,
               touchAction: 'none',
               cursor: block ? 'grab' : 'default',
             }}>
+            {/* Empty-slot placeholder outline — only visible when slot is empty
+                AND any other slot is empty too (mid-round empties). When ALL
+                three are empty we're about to refill, so skip it. */}
+            {!block && !tray.every(b => b === null) && (
+              <div className="pointer-events-none" style={{
+                width: 56, height: 56,
+                border: '2px dashed rgba(167,139,250,0.25)',
+                borderRadius: 4,
+                opacity: 0.7,
+              }} />
+            )}
             {block && (
-              <div style={{
-                opacity: draggedIdx === idx ? 0.25 : 1,
-                transition: 'opacity 0.15s, transform 0.15s',
-                transform: draggedIdx === idx ? 'scale(0.9)' : 'scale(1)',
-                filter: 'drop-shadow(0 3px 0 rgba(0,0,0,0.4))',
-                pointerEvents: 'none',
-              }}>
+              <div
+                key={`tray-${idx}-${trayRefillKey}-${block.id}`}
+                style={{
+                  opacity: draggedIdx === idx ? 0.25 : 1,
+                  transition: 'opacity 0.15s, transform 0.15s',
+                  transform: draggedIdx === idx ? 'scale(0.9)' : 'scale(1)',
+                  filter: 'drop-shadow(0 3px 0 rgba(0,0,0,0.4))',
+                  pointerEvents: 'none',
+                  animation: `pdTrayRefill 0.32s cubic-bezier(0.34,1.56,0.64,1) ${idx * 60}ms both`,
+                }}>
                 <BlockSprite shape={block.shape} color={block.color} cellSize={TRAY_CELL_PX} cellGap={TRAY_CELL_GAP} />
               </div>
             )}
@@ -773,10 +936,19 @@ export default function PawDokuGame() {
         </div>
       )}
 
-      {/* Game over */}
+      {/* Game over — full-screen red vignette + panel pop. Vignette is a
+          radial-gradient overlay that fades over 600ms, timed with the
+          panel mount so "NO MOVES LEFT" reads as catastrophic. */}
       {phase === 'gameover' && (
         <div className="absolute inset-0 z-10 flex items-center justify-center"
           style={{ background: 'rgba(8,5,18,0.7)', backdropFilter: 'blur(2px)' }}>
+          {vignette > 0 && (
+            <div key={`vig-${vignette}`} className="absolute inset-0 pointer-events-none" style={{
+              background: 'radial-gradient(ellipse at center, transparent 30%, rgba(220,38,38,0.55) 100%)',
+              animation: 'pdVignette 0.6s ease-out forwards',
+              mixBlendMode: 'multiply',
+            }} />
+          )}
           <div className="flex flex-col items-center gap-3 px-6 py-5"
             style={{
               background: 'linear-gradient(180deg, #15122A 0%, #0F0A1E 100%)',
@@ -789,7 +961,7 @@ export default function PawDokuGame() {
             <div className="flex items-center gap-4 mt-1">
               <div className="flex flex-col items-center">
                 <span className="font-pixel" style={{ fontSize: 6, color: '#A3F0C0', letterSpacing: 1 }}>SCORE</span>
-                <span className="font-pixel text-white" style={{ fontSize: 22 }}>{score}</span>
+                <span className="font-pixel text-white" style={{ fontSize: 22 }}>{displayScore}</span>
               </div>
               <div style={{ width: 1, height: 28, background: '#3A2A60' }} />
               <div className="flex flex-col items-center">
@@ -883,6 +1055,51 @@ export default function PawDokuGame() {
           0%   { transform: scale(0.6) rotate(-4deg); opacity: 0; }
           45%  { transform: scale(1.25) rotate(3deg); opacity: 1; }
           100% { transform: scale(1)    rotate(0deg);  opacity: 1; }
+        }
+        /* SCORE digits pulse on increment — quick scale + gold textShadow
+           flare so a big combo gain visually pops vs a small placement. */
+        @keyframes pdScorePulse {
+          0%   { transform: scale(1);    text-shadow: 2px 2px 0 #2E0F5C; color: #FFFFFF; }
+          40%  { transform: scale(1.25); text-shadow: 2px 2px 0 #2E0F5C, 0 0 12px rgba(253,230,138,0.95); color: #FDE68A; }
+          100% { transform: scale(1);    text-shadow: 2px 2px 0 #2E0F5C; color: #FFFFFF; }
+        }
+        /* Invalid-drop grid wrapper shake — 6 stepped frames, no easing,
+           keeps the retro feel. */
+        @keyframes pdGridShake {
+          0%   { transform: translateX(0); }
+          16%  { transform: translateX(-7px); }
+          32%  { transform: translateX(6px); }
+          48%  { transform: translateX(-5px); }
+          64%  { transform: translateX(4px); }
+          80%  { transform: translateX(-2px); }
+          100% { transform: translateX(0); }
+        }
+        /* Red border pulse on invalid drop — coordinates with the shake. */
+        @keyframes pdRedPulse {
+          0%   { opacity: 0; }
+          25%  { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        /* Cleared-cell particle: radiates from origin using per-particle
+           CSS vars --pdx / --pdy, with gravity baked into the curve so
+           particles arc and fall. */
+        @keyframes pdParticle {
+          0%   { transform: translate(0, 0) scale(1);   opacity: 1; }
+          70%  { opacity: 0.85; }
+          100% { transform: translate(var(--pdx, 0), calc(var(--pdy, 0) + 40px)) scale(0.4); opacity: 0; }
+        }
+        /* Tray refill: each block scales from 0 with a slight overshoot,
+           staggered 60ms apart via inline animation-delay. */
+        @keyframes pdTrayRefill {
+          0%   { transform: scale(0);    opacity: 0; }
+          70%  { transform: scale(1.15); opacity: 1; }
+          100% { transform: scale(1);    opacity: 1; }
+        }
+        /* Game-over screen-wide red vignette flash, 600ms ease-out. */
+        @keyframes pdVignette {
+          0%   { opacity: 0; }
+          15%  { opacity: 1; }
+          100% { opacity: 0; }
         }
       `}</style>
       {/* keep imports referenced */}

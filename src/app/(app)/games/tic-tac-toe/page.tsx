@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -85,13 +85,28 @@ export default function TicTacToePage() {
   const [canKnocked, setCanKnocked] = useState(false)
   const matchSavedRef = useRef(false)
 
+  // ─── Juice state ─────────────────────────────────────────────────────────
+  // Track which counters just bumped so the score chip can flash them.
+  // Keyed by a render-cycle id so re-flashing the same counter restarts the
+  // animation cleanly.
+  const [flashKey, setFlashKey] = useState<{ kind: 'W' | 'L' | 'D'; id: number } | null>(null)
+  // Per-cell hit-feedback id — bumping it on a placed cell triggers a
+  // one-shot scale flash + sparkle burst keyframe on that specific cell.
+  const [placedCell, setPlacedCell] = useState<{ i: number; mark: 'X' | 'O'; id: number } | null>(null)
+  // Brief screen shake on losses; toggled true for 200ms.
+  const [shake, setShake] = useState(false)
+  // Spill burst — short-lived liquid spray pixels arcing out when the can
+  // tips. Mounted for ~600ms then unmounted to free DOM.
+  const [spillBurst, setSpillBurst] = useState(false)
+
   // ─── Player move ────────────────────────────────────────────────────────────
   function handleCellClick(i: number) {
     if (status !== 'playing' || turn !== 'X' || thinking || board[i] !== null) return
-    playSound('ui_tap')
+    playSound('ttt_place_x')
     const next = board.slice()
     next[i] = 'X'
     setBoard(next)
+    setPlacedCell({ i, mark: 'X', id: Date.now() })
 
     const { winner, line } = checkWin(next)
     if (winner === 'X') {
@@ -134,6 +149,18 @@ export default function TicTacToePage() {
       setThinkText(phrases[pi])
     }, 320)
 
+    // Dynamic think-time — feels less metronomic. Empty board = quick,
+    // mid-game = full ponder, near-finish = quick again. Tied to remaining
+    // empties so the rhythm matches the perceived weight of the move.
+    const emptyCount = board.filter(c => c === null).length
+    const baseDelay =
+      emptyCount >= 8 ? 480 :   // first move — trivial, don't pad
+      emptyCount >= 6 ? 1050 :  // mid-game — long ponder
+      emptyCount >= 3 ? 820 :
+                        520     // last 1-2 cells — forced reply, snappy
+    // Tiny jitter so back-to-back games don't feel identical.
+    const delay = baseDelay + Math.floor(Math.random() * 180) - 90
+
     const t = setTimeout(() => {
       clearInterval(phraseTick)
       let move: number
@@ -144,44 +171,73 @@ export default function TicTacToePage() {
         board.forEach((c, i) => { if (c === null) empties.push(i) })
         move = empties.length > 0 ? empties[Math.floor(Math.random() * empties.length)] : -1
       } else {
-        move = minimax(board, 'O').move
+        // Difficulty ramp — until the player has 2 lifetime wins this
+        // session, Eren's opening move is randomized (~50% chance) on a
+        // mostly-empty board. Full minimax still kicks in by mid-game so
+        // tactical positions stay interesting; this just gives newcomers
+        // a fighting chance instead of a brick wall.
+        const softenedOpener = wins < 2 && emptyCount >= 8 && Math.random() < 0.5
+        if (softenedOpener) {
+          const empties: number[] = []
+          board.forEach((c, i) => { if (c === null) empties.push(i) })
+          move = empties[Math.floor(Math.random() * empties.length)]
+        } else {
+          move = minimax(board, 'O').move
+        }
       }
       if (move < 0) { setThinking(false); return }
       const next = board.slice()
       next[move] = 'O'
       setBoard(next)
       setThinking(false)
-      playSound('ui_modal_close')
+      setPlacedCell({ i: move, mark: 'O', id: Date.now() })
+      playSound('ttt_place_o')
 
       const { winner, line } = checkWin(next)
       if (winner === 'O') { finishMatch('lost', line, next); return }
       if (isFull(next))   { finishMatch('draw', null, next); return }
       setTurn('X')
-    }, 950)
+    }, delay)
 
     return () => { clearInterval(phraseTick); clearTimeout(t) }
-  }, [turn, status, board, canKnocked])
+  }, [turn, status, board, canKnocked, wins])
 
   // ─── Match end ──────────────────────────────────────────────────────────────
   function finishMatch(result: Exclude<Status, 'playing'>, line: number[] | null, finalBoard: Cell[]) {
     setStatus(result)
     setWinLine(line)
 
-    if (result === 'won')  setWins(w => w + 1)
-    if (result === 'lost') setLosses(l => l + 1)
-    if (result === 'draw') setDraws(d => d + 1)
+    // Counter bump + chip flash. flashKey id is fresh per call so retriggers
+    // restart the CSS animation cleanly.
+    const flashId = Date.now()
+    if (result === 'won')  { setWins(w => w + 1);     setFlashKey({ kind: 'W', id: flashId }) }
+    if (result === 'lost') { setLosses(l => l + 1);   setFlashKey({ kind: 'L', id: flashId }) }
+    if (result === 'draw') { setDraws(d => d + 1);    setFlashKey({ kind: 'D', id: flashId }) }
 
-    if (result === 'won' && user?.id && !matchSavedRef.current) {
+    // Result audio + shake for losses.
+    if (result === 'won')  playSound('ttt_win_line')
+    if (result === 'lost') { playSound('ttt_lose'); setShake(true); setTimeout(() => setShake(false), 240) }
+    if (result === 'draw') playSound('ttt_draw')
+
+    // Quest progress fires on every completed match — draws and losses now
+    // also count toward `daily_game` so a player who can only ever draw
+    // still makes progress. Win-only logic still gates the leaderboard
+    // insert + coin reward.
+    if (user?.id && !matchSavedRef.current) {
       matchSavedRef.current = true
-      const newWins = wins + 1
-      // Score = running win streak in this session; the leaderboard's MAX
-      // surfaces the player's best streak.
-      supabase.from('game_scores').insert({ user_id: user.id, game_type: 'tic_tac_toe', score: newWins })
-        .then(({ error }: { error: { message: string } | null }) => { if (error) console.error('ttt score save error:', error) })
-      fireMinigameDone('tic_tac_toe', newWins, true)
-      addCoins(8)
+      const newWins = result === 'won' ? wins + 1 : wins
+      if (result === 'won') {
+        // Score = running win streak in this session; the leaderboard's MAX
+        // surfaces the player's best streak.
+        supabase.from('game_scores').insert({ user_id: user.id, game_type: 'tic_tac_toe', score: newWins })
+          .then(({ error }: { error: { message: string } | null }) => { if (error) console.error('ttt score save error:', error) })
+        addCoins(8)
+        if (newWins >= 5) completeTask('weekly_high_score')
+      }
+      // Daily-game quest progresses on any finished match. fireMinigameDone
+      // still reports the won flag so streak-aware listeners get accurate data.
+      fireMinigameDone('tic_tac_toe', newWins, result === 'won')
       completeTask('daily_game')
-      if (newWins >= 5) completeTask('weekly_high_score')
       applyAction(user.id, 'play')
     }
 
@@ -196,19 +252,25 @@ export default function TicTacToePage() {
     setWinLine(null)
     setThinking(false)
     setCanKnocked(false)   // reset the easter egg — one knock per match
+    setPlacedCell(null)
+    setFlashKey(null)
+    setSpillBurst(false)
     matchSavedRef.current = false
   }
 
   function knockCan() {
     if (canKnocked || status !== 'playing') return
     setCanKnocked(true)
-    playSound('ui_back')   // glug/spill cue
+    setSpillBurst(true)
+    setTimeout(() => setSpillBurst(false), 700)
+    playSound('ttt_can_spill')   // glug/spill cue
   }
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-40 flex flex-col game-shell" style={{
       background: 'radial-gradient(ellipse at top, #2D1659 0%, #1A0A33 55%, #0F0620 100%)',
+      animation: shake ? 'tttShake 0.22s steps(4) 1' : undefined,
     }}>
 
       {/* Header */}
@@ -228,11 +290,29 @@ export default function TicTacToePage() {
         <div className="flex-1" />
         <div className="flex items-center gap-1 px-2 py-1.5 font-pixel"
           style={{ background: 'rgba(0,0,0,0.4)', border: '2px solid rgba(255,255,255,0.3)', borderRadius: 4, fontSize: 7 }}>
-          <span style={{ color: '#FF9EC8' }}>{wins}W</span>
+          <span
+            key={`W-${flashKey?.kind === 'W' ? flashKey.id : 'idle'}`}
+            style={{
+              color: '#FF9EC8',
+              display: 'inline-block',
+              animation: flashKey?.kind === 'W' ? 'tttScoreFlash 0.42s ease-out 1' : undefined,
+            }}>{wins}W</span>
           <span style={{ color: '#9CA3AF' }}>·</span>
-          <span style={{ color: '#A78BFA' }}>{losses}L</span>
+          <span
+            key={`L-${flashKey?.kind === 'L' ? flashKey.id : 'idle'}`}
+            style={{
+              color: '#A78BFA',
+              display: 'inline-block',
+              animation: flashKey?.kind === 'L' ? 'tttScoreFlashL 0.42s ease-out 1' : undefined,
+            }}>{losses}L</span>
           <span style={{ color: '#9CA3AF' }}>·</span>
-          <span style={{ color: '#FDE68A' }}>{draws}D</span>
+          <span
+            key={`D-${flashKey?.kind === 'D' ? flashKey.id : 'idle'}`}
+            style={{
+              color: '#FDE68A',
+              display: 'inline-block',
+              animation: flashKey?.kind === 'D' ? 'tttScoreFlashD 0.42s ease-out 1' : undefined,
+            }}>{draws}D</span>
         </div>
       </div>
 
@@ -240,20 +320,51 @@ export default function TicTacToePage() {
           LEFT of Eren so the bubble's left-pointing tail unambiguously points
           at Eren's face, not at the can. When the can spills Eren leans left
           and starts licking the puddle. */}
-      <div className="flex items-end justify-center gap-3 pt-4 px-4 flex-shrink-0">
+      <div className="flex items-end justify-center gap-3 pt-4 px-4 flex-shrink-0 relative">
+        {/* Spill burst — short-lived liquid spray pixels arcing outward
+            the frame the can tips. Mounted only during the burst window so
+            unused DOM doesn't pile up. */}
+        {spillBurst && (
+          <div className="absolute pointer-events-none" style={{ left: '50%', top: '60%', width: 0, height: 0, zIndex: 5 }}>
+            {[...Array(7)].map((_, i) => {
+              const angle = (i / 7) * Math.PI - Math.PI   // upper hemisphere, leftward bias
+              const dx = Math.cos(angle) * 36
+              const dy = Math.sin(angle) * 26
+              return (
+                <span key={i} style={{
+                  position: 'absolute',
+                  left: -3, top: -3,
+                  width: 4, height: 4,
+                  background: i % 2 === 0 ? '#34D399' : '#A3F0C0',
+                  boxShadow: '0 0 0 1px #064E3B',
+                  // CSS custom props feed the keyframe end position.
+                  ['--tx' as string]: `${dx}px`,
+                  ['--ty' as string]: `${dy}px`,
+                  animation: 'tttSpillSpray 0.55s cubic-bezier(0.25,0.8,0.5,1) forwards',
+                  imageRendering: 'pixelated',
+                } as React.CSSProperties} />
+              )
+            })}
+          </div>
+        )}
         {/* Energy can — bigger, more presence. Tap once per match to spill it.
             Subtle wobble hint while standing tells the player it's tappable. */}
         <button onClick={knockCan}
           disabled={canKnocked || status !== 'playing'}
           aria-label={canKnocked ? 'Spilled energy drink' : 'Knock over the energy drink'}
-          className="active:scale-90 transition-transform"
+          className="active:scale-90 transition-transform relative"
           style={{
             background: 'transparent',
             border: 'none',
             padding: 0,
             marginBottom: -2,
             cursor: canKnocked || status !== 'playing' ? 'default' : 'pointer',
-            animation: !canKnocked && status === 'playing' ? 'tttCanWobble 2.6s ease-in-out infinite' : undefined,
+            animation: spillBurst
+              ? 'tttCanTip 0.45s cubic-bezier(0.34,1.4,0.64,1) forwards'
+              : !canKnocked && status === 'playing'
+                ? 'tttCanWobble 2.6s ease-in-out infinite'
+                : undefined,
+            transformOrigin: 'bottom center',
           }}>
           <CanSprite knocked={canKnocked} />
         </button>
@@ -261,10 +372,32 @@ export default function TicTacToePage() {
             spills he turns around in profile and starts lapping. The two
             sprites are different shapes so we swap whole components rather
             than try to bend the front-facing chibi into a side pose. */}
-        {canKnocked
-          ? <ErenSideLapping size={78} />
-          : <ErenChibi size={64} hop={false} thinking={turn === 'O' && status === 'playing' && thinking} />
-        }
+        <div className="relative" style={{ display: 'inline-block' }}>
+          {/* Exclamation bubble — pops above Eren the frame the can tips,
+              vanishes after ~600ms. Pure pixel-look: hard black bubble
+              border, no soft shadows. */}
+          {spillBurst && (
+            <div className="absolute pointer-events-none font-pixel" style={{
+              top: -14, right: -4,
+              width: 14, height: 14,
+              background: '#FFFFFF',
+              border: '2px solid #1A1A2E',
+              borderRadius: 3,
+              boxShadow: '2px 2px 0 #1A1A2E',
+              color: '#DB2777',
+              fontSize: 9,
+              lineHeight: '10px',
+              textAlign: 'center',
+              paddingTop: 1,
+              zIndex: 6,
+              animation: 'tttExclaim 0.6s cubic-bezier(0.34,1.6,0.64,1) forwards',
+            }}>!</div>
+          )}
+          {canKnocked
+            ? <ErenSideLapping size={78} />
+            : <ErenChibi size={64} hop={false} thinking={turn === 'O' && status === 'playing' && thinking} />
+          }
+        </div>
         <div className="relative" style={{ minWidth: 130 }}>
           <div style={{
             background: 'rgba(255,255,255,0.95)',
@@ -317,6 +450,10 @@ export default function TicTacToePage() {
           }}>
             {board.map((cell, i) => {
               const inWinLine = winLine?.includes(i) ?? false
+              const justPlaced = placedCell?.i === i
+              // Index of this cell within the winning line (0,1,2) so we
+              // can stagger the win-line cell pulse — feels like a sweep.
+              const winIndex = inWinLine && winLine ? winLine.indexOf(i) : -1
               return (
                 <button key={i}
                   onClick={() => handleCellClick(i)}
@@ -332,9 +469,66 @@ export default function TicTacToePage() {
                       ? 'inset 0 0 12px rgba(253,230,138,0.5), 0 0 16px rgba(251,191,36,0.6)'
                       : 'inset 0 1px 0 rgba(255,255,255,0.05)',
                     cursor: status === 'playing' && turn === 'X' && cell === null && !thinking ? 'pointer' : 'default',
+                    animation: inWinLine && winIndex >= 0
+                      ? `tttWinSweep 0.55s cubic-bezier(0.34,1.5,0.64,1) ${winIndex * 0.11}s both`
+                      : undefined,
                   }}>
-                  {cell === 'X' && <PixelX animate winning={inWinLine} />}
-                  {cell === 'O' && <PixelO animate winning={inWinLine} />}
+                  <div
+                    key={`mark-${justPlaced ? placedCell?.id : 'idle'}-${i}`}
+                    style={{
+                      width: '100%', height: '100%',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      animation: justPlaced
+                        ? 'tttCellPop 0.22s cubic-bezier(0.34,1.6,0.64,1) 1'
+                        : undefined,
+                    }}>
+                    {cell === 'X' && <PixelX animate winning={inWinLine} />}
+                    {cell === 'O' && <PixelO animate winning={inWinLine} />}
+                  </div>
+
+                  {/* Sparkle puff — 4 pixel dots radiating out from the
+                      placed mark, ~250ms. Mounted only on the just-placed
+                      cell, keyed by placement id so re-renders don't
+                      replay it on unrelated turns. */}
+                  {justPlaced && placedCell && (
+                    <div key={`puff-${placedCell.id}-${i}`} className="absolute inset-0 pointer-events-none">
+                      {[...Array(4)].map((_, p) => {
+                        const a = (p / 4) * Math.PI * 2 + Math.PI / 4
+                        const dx = Math.cos(a) * 18
+                        const dy = Math.sin(a) * 18
+                        return (
+                          <span key={p} style={{
+                            position: 'absolute',
+                            left: '50%', top: '50%',
+                            width: 3, height: 3,
+                            background: placedCell.mark === 'X' ? '#FF6B9D' : '#A78BFA',
+                            ['--tx' as string]: `${dx}px`,
+                            ['--ty' as string]: `${dy}px`,
+                            animation: 'tttSparkle 0.32s ease-out forwards',
+                            imageRendering: 'pixelated',
+                          } as React.CSSProperties} />
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* Win-cell sparkle pixels — only on cells in the winning
+                      line for player wins. Continuous shimmer at slow rate. */}
+                  {inWinLine && status === 'won' && (
+                    <div className="absolute inset-0 pointer-events-none">
+                      {[...Array(3)].map((_, s) => (
+                        <span key={s} style={{
+                          position: 'absolute',
+                          width: 3, height: 3,
+                          background: '#FDE68A',
+                          left: `${20 + s * 28}%`,
+                          top: `${15 + (s % 2) * 60}%`,
+                          animation: `tttWinSparkle 1.2s ease-in-out ${s * 0.25}s infinite`,
+                          imageRendering: 'pixelated',
+                        }} />
+                      ))}
+                    </div>
+                  )}
                 </button>
               )
             })}
@@ -345,7 +539,13 @@ export default function TicTacToePage() {
       {/* End-of-match overlay */}
       {status !== 'playing' && (
         <div className="absolute inset-0 flex items-end justify-center pb-32 pointer-events-none">
-          <div className="pointer-events-auto px-5 py-3 flex items-center gap-3"
+          {/* Vignette scrim — fades in to ~35% black so the verdict banner
+              pops against the still-visible board behind it. */}
+          <div className="absolute inset-0 pointer-events-none" style={{
+            background: 'radial-gradient(ellipse at center, rgba(0,0,0,0) 30%, rgba(0,0,0,0.45) 100%)',
+            animation: 'tttScrim 0.3s ease-out forwards',
+          }} />
+          <div className="pointer-events-auto px-5 py-3 flex items-center gap-3 relative"
             style={{
               background: status === 'won'
                 ? 'linear-gradient(135deg, #15803D, #16A34A)'
@@ -357,7 +557,33 @@ export default function TicTacToePage() {
               boxShadow: '0 6px 0 rgba(0,0,0,0.45), 0 0 24px rgba(255,255,255,0.2)',
               animation: 'tttPop 0.45s cubic-bezier(0.34,1.56,0.64,1) both',
             }}>
-            <span className="font-pixel text-white" style={{ fontSize: 11, letterSpacing: 2 }}>
+            {/* Sparkle pixels around the banner on a win. Fixed positions
+                relative to the banner so they look hand-placed. */}
+            {status === 'won' && (
+              <>
+                {[
+                  { left: -6, top: -6 },
+                  { right: -6, top: -4 },
+                  { left: -4, bottom: -6 },
+                  { right: -8, bottom: -4 },
+                  { left: '40%', top: -10 },
+                ].map((pos, k) => (
+                  <span key={k} style={{
+                    position: 'absolute',
+                    width: 4, height: 4,
+                    background: '#FDE68A',
+                    boxShadow: '0 0 0 1px #92400E',
+                    animation: `tttBannerSparkle 1.1s ease-in-out ${k * 0.15}s infinite`,
+                    imageRendering: 'pixelated',
+                    ...pos,
+                  }} />
+                ))}
+              </>
+            )}
+            <span className="font-pixel text-white" style={{
+              fontSize: 11, letterSpacing: 2,
+              animation: status === 'won' ? 'tttBannerShimmer 1.6s ease-in-out infinite' : undefined,
+            }}>
               {status === 'won' ? 'YOU WIN!' : status === 'lost' ? 'EREN WINS' : 'TIE!'}
             </span>
             <button onClick={() => { playSound('ui_tap'); newMatch() }}
@@ -473,6 +699,90 @@ export default function TicTacToePage() {
         @keyframes erenLapBlink {
           0%, 92%, 100% { transform: scaleY(1); }
           95%, 98%      { transform: scaleY(0.2); }
+        }
+        /* Screen shake on a loss — choppy 4-step transform, no easing so
+           it reads pixel-arcade rather than smooth. */
+        @keyframes tttShake {
+          0%   { transform: translate(0, 0); }
+          25%  { transform: translate(-3px, 1px); }
+          50%  { transform: translate(2px, -2px); }
+          75%  { transform: translate(-2px, 2px); }
+          100% { transform: translate(0, 0); }
+        }
+        /* Score chip flash — wins flash pink, losses flash purple, draws
+           flash gold. Brief scale 1.15 + color glow then settles back. */
+        @keyframes tttScoreFlash {
+          0%   { transform: scale(1);    text-shadow: none; }
+          40%  { transform: scale(1.18); text-shadow: 0 0 6px #FF9EC8; }
+          100% { transform: scale(1);    text-shadow: none; }
+        }
+        @keyframes tttScoreFlashL {
+          0%   { transform: scale(1);    text-shadow: none; }
+          40%  { transform: scale(1.18); text-shadow: 0 0 6px #A78BFA; }
+          100% { transform: scale(1);    text-shadow: none; }
+        }
+        @keyframes tttScoreFlashD {
+          0%   { transform: scale(1);    text-shadow: none; }
+          40%  { transform: scale(1.18); text-shadow: 0 0 6px #FDE68A; }
+          100% { transform: scale(1);    text-shadow: none; }
+        }
+        /* Cell placement pop — quick scale flash on the placed mark.
+           Spring overshoot so it lands with a tactile bounce. */
+        @keyframes tttCellPop {
+          0%   { transform: scale(0.55); }
+          60%  { transform: scale(1.15); }
+          100% { transform: scale(1); }
+        }
+        /* Per-mark sparkle puff — pixel dot flies out and fades. */
+        @keyframes tttSparkle {
+          0%   { transform: translate(-50%, -50%);                                 opacity: 1; }
+          100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))); opacity: 0; }
+        }
+        /* Win-line cell sweep — each cell pops in turn, staggered by index. */
+        @keyframes tttWinSweep {
+          0%   { transform: scale(1);    filter: brightness(1); }
+          40%  { transform: scale(1.08); filter: brightness(1.5); }
+          100% { transform: scale(1);    filter: brightness(1); }
+        }
+        /* Continuous tiny sparkle pixels on winning cells. */
+        @keyframes tttWinSparkle {
+          0%, 100% { opacity: 0; transform: scale(0.6); }
+          50%      { opacity: 1; transform: scale(1.2); }
+        }
+        /* Banner sparkles on a win — same idea, around the verdict bubble. */
+        @keyframes tttBannerSparkle {
+          0%, 100% { opacity: 0.2; transform: scale(0.7); }
+          50%      { opacity: 1;   transform: scale(1.2); }
+        }
+        /* Subtle text shimmer on the YOU WIN! label — color toggles
+           between white and gold tint. Steps() keeps it chunky. */
+        @keyframes tttBannerShimmer {
+          0%, 100% { color: #FFFFFF; }
+          50%      { color: #FDE68A; }
+        }
+        /* Vignette darken fade-in. */
+        @keyframes tttScrim {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        /* Can-tip lateral kick — leans left over ~250ms, settles. */
+        @keyframes tttCanTip {
+          0%   { transform: rotate(0deg)   translateX(0); }
+          40%  { transform: rotate(-22deg) translateX(-4px); }
+          100% { transform: rotate(0deg)   translateX(0); }
+        }
+        /* Liquid spray arcs — each pixel pixel-flies to its --tx/--ty
+           target while fading. */
+        @keyframes tttSpillSpray {
+          0%   { transform: translate(0, 0)                          scale(1); opacity: 1; }
+          100% { transform: translate(var(--tx), var(--ty)) scale(0.6); opacity: 0; }
+        }
+        /* Exclamation bubble — pops in, holds, fades out. */
+        @keyframes tttExclaim {
+          0%   { transform: scale(0)   translateY(4px); opacity: 0; }
+          30%  { transform: scale(1.2) translateY(0);   opacity: 1; }
+          60%  { transform: scale(1)   translateY(0);   opacity: 1; }
+          100% { transform: scale(1)   translateY(-4px); opacity: 0; }
         }
       `}</style>
     </div>

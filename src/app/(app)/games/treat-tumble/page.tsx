@@ -83,6 +83,13 @@ interface FallingItem {
 
 interface FloatText { id: number; x: number; y: number; text: string; color: string; t0: number }
 
+// Radial particle burst spawned on positive catches.
+interface Particle { id: number; x: number; y: number; dx: number; dy: number; color: string; t0: number; size: number }
+// Heart-shard burst spawned when a life is lost.
+interface Shard { id: number; x: number; y: number; dx: number; dy: number; t0: number }
+// Smoke puff when a missed good treat hits the floor.
+interface Puff { id: number; x: number; y: number; t0: number }
+
 // ── Pixel-art icons specific to this game ────────────────────────────────────
 function KibbleIcon({ size = 20 }: { size?: number }) {
   return (
@@ -340,6 +347,65 @@ function ErenSprite({ size = 72 }: { size?: number }) {
   )
 }
 
+// ── Sad Eren variant — used on the GAME OVER overlay (0 HP) ──────────────────
+function SadErenSprite({ size = 48 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 22 22" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
+      {/* ears — drooped: shorter, slightly lower */}
+      <rect x="3" y="3" width="3" height="1" fill="#4A2E1A" />
+      <rect x="16" y="3" width="3" height="1" fill="#4A2E1A" />
+      <rect x="3" y="4" width="3" height="1" fill="#9B7A5C" />
+      <rect x="16" y="4" width="3" height="1" fill="#9B7A5C" />
+      {/* head */}
+      <rect x="5" y="3" width="12" height="1" fill="#4A2E1A" />
+      <rect x="4" y="4" width="14" height="1" fill="#4A2E1A" />
+      <rect x="3" y="5" width="16" height="1" fill="#4A2E1A" />
+      <rect x="4" y="5" width="14" height="1" fill="#F9EDD5" />
+      <rect x="3" y="6" width="1" height="6" fill="#4A2E1A" />
+      <rect x="18" y="6" width="1" height="6" fill="#4A2E1A" />
+      <rect x="4" y="6" width="14" height="6" fill="#F9EDD5" />
+      {/* mask points */}
+      <rect x="5" y="6" width="3" height="2" fill="#D4B896" />
+      <rect x="14" y="6" width="3" height="2" fill="#D4B896" />
+      {/* sad eyes — closed/squinted with tear */}
+      <rect x="6" y="8" width="2" height="1" fill="#1A1A2E" />
+      <rect x="14" y="8" width="2" height="1" fill="#1A1A2E" />
+      <rect x="6" y="7" width="1" height="1" fill="#1A1A2E" />
+      <rect x="15" y="7" width="1" height="1" fill="#1A1A2E" />
+      {/* tear under right eye */}
+      <rect x="14" y="9" width="1" height="2" fill="#6BAED6" />
+      {/* nose */}
+      <rect x="10" y="9" width="2" height="1" fill="#F48B9B" />
+      <rect x="10" y="10" width="2" height="1" fill="#4A2E1A" />
+      {/* frown — :( downturned */}
+      <rect x="10" y="12" width="2" height="1" fill="#4A2E1A" />
+      <rect x="9" y="13" width="1" height="1" fill="#4A2E1A" />
+      <rect x="12" y="13" width="1" height="1" fill="#4A2E1A" />
+      {/* muzzle */}
+      <rect x="10" y="11" width="2" height="1" fill="#F9EDD5" />
+      {/* chin fluff */}
+      <rect x="4" y="13" width="14" height="1" fill="#4A2E1A" />
+      <rect x="5" y="13" width="5" height="1" fill="#F9EDD5" />
+      <rect x="12" y="13" width="5" height="1" fill="#F9EDD5" />
+      {/* body — slumped */}
+      <rect x="4" y="14" width="14" height="1" fill="#4A2E1A" />
+      <rect x="3" y="15" width="1" height="4" fill="#4A2E1A" />
+      <rect x="18" y="15" width="1" height="4" fill="#4A2E1A" />
+      <rect x="4" y="15" width="14" height="4" fill="#F9EDD5" />
+      <rect x="4" y="19" width="14" height="1" fill="#4A2E1A" />
+      <rect x="5" y="19" width="2" height="1" fill="#D4B896" />
+      <rect x="15" y="19" width="2" height="1" fill="#D4B896" />
+      <rect x="5" y="20" width="3" height="1" fill="#4A2E1A" />
+      <rect x="14" y="20" width="3" height="1" fill="#4A2E1A" />
+      {/* drooping whiskers */}
+      <rect x="1" y="10" width="3" height="1" fill="rgba(255,255,255,0.65)" />
+      <rect x="18" y="10" width="3" height="1" fill="rgba(255,255,255,0.65)" />
+      <rect x="2" y="12" width="2" height="1" fill="rgba(255,255,255,0.55)" />
+      <rect x="18" y="12" width="2" height="1" fill="rgba(255,255,255,0.55)" />
+    </svg>
+  )
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 export default function TreatTumbleGame() {
   const router = useRouter()
@@ -362,16 +428,31 @@ export default function TreatTumbleGame() {
   const [shake, setShake] = useState(false)
   const [hurtFlash, setHurtFlash] = useState(false)
   const [savedOnce, setSavedOnce] = useState(false)
-  const [scoreBump, setScoreBump] = useState(0) // for scale pop on score change
+  // scoreBump: +1 = good pop (gold), -1 = bad pop (red), 0 = idle
+  const [scoreBump, setScoreBump] = useState<0 | 1 | -1>(0)
+  const [erenPop, setErenPop] = useState(false)
+  const [particles, setParticles] = useState<Particle[]>([])
+  const [shards, setShards] = useState<Shard[]>([])
+  const [puffs, setPuffs] = useState<Puff[]>([])
+  const [combo, setCombo] = useState(0)
+  const [bestCombo, setBestCombo] = useState(0)
+  const [comboFlash, setComboFlash] = useState(0) // bump animation when multiplier ticks up
+  // For animated count-up of final score / coin reward on the finish overlay.
+  const [displayedScore, setDisplayedScore] = useState(0)
+  const [displayedCoins, setDisplayedCoins] = useState(0)
 
   const itemId  = useRef(0)
   const floatId = useRef(0)
+  const particleId = useRef(0)
+  const shardId = useRef(0)
+  const puffId = useRef(0)
   const lastSpawn = useRef(0)
   const lastTick  = useRef(0)
   const rafId = useRef<number | null>(null)
   const dragging = useRef(false)
   const erenXRef = useRef(50)
   const livesRef = useRef(START_LIVES)
+  const comboRef = useRef(0)
   const gameStartRef = useRef(0)
 
   // ── Start ──────────────────────────────────────────────────────────────────
@@ -382,6 +463,15 @@ export default function TreatTumbleGame() {
     setTimeLeft(GAME_DURATION)
     setItems([])
     setFloats([])
+    setParticles([])
+    setShards([])
+    setPuffs([])
+    setCombo(0)
+    comboRef.current = 0
+    setBestCombo(0)
+    setComboFlash(0)
+    setDisplayedScore(0)
+    setDisplayedCoins(0)
     setErenX(50)
     erenXRef.current = 50
     setSavedOnce(false)
@@ -407,6 +497,33 @@ export default function TreatTumbleGame() {
     return () => clearInterval(id)
   }, [gameState])
 
+  // ── Round-end jingle when the overlay appears (covers both timeout & 0 HP) ──
+  useEffect(() => {
+    if (gameState === 'finished') playSound('tt_round_end')
+  }, [gameState])
+
+  // ── Count-up tween on final score + coin reward when overlay opens ─────────
+  useEffect(() => {
+    if (gameState !== 'finished') return
+    const target = Math.max(0, score)
+    const coinTarget = Math.min(40, Math.max(0, Math.floor(score / 5)))
+    setDisplayedScore(0)
+    setDisplayedCoins(0)
+    const start = performance.now()
+    const DURATION = 600
+    let raf = 0
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - start) / DURATION)
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - p, 3)
+      setDisplayedScore(Math.round(target * eased))
+      setDisplayedCoins(Math.round(coinTarget * eased))
+      if (p < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [gameState, score])
+
   // ── End-of-game save ───────────────────────────────────────────────────────
   useEffect(() => {
     if (gameState !== 'finished' || savedOnce || !user?.id) return
@@ -428,9 +545,23 @@ export default function TreatTumbleGame() {
   // ── Score bump animation ──────────────────────────────────────────────────
   useEffect(() => {
     if (scoreBump === 0) return
-    const id = setTimeout(() => setScoreBump(0), 260)
+    const id = setTimeout(() => setScoreBump(0), 280)
     return () => clearTimeout(id)
   }, [scoreBump])
+
+  // ── Eren chomp pop reset ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!erenPop) return
+    const id = setTimeout(() => setErenPop(false), 140)
+    return () => clearTimeout(id)
+  }, [erenPop])
+
+  // ── Combo flash reset ─────────────────────────────────────────────────────
+  useEffect(() => {
+    if (comboFlash === 0) return
+    const id = setTimeout(() => setComboFlash(0), 380)
+    return () => clearTimeout(id)
+  }, [comboFlash])
 
   // ── Main game loop ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -469,8 +600,16 @@ export default function TreatTumbleGame() {
         const updated: FallingItem[] = []
         let dLives = 0
         let dScore = 0
-        let hurt = false
+        let comboDelta = 0   // +N good catches, -1 means broken
+        let hadDanger = false
+        let hadGolden = false
+        let hadHeart = false
+        let hadGoodCatch = false
         const newFloats: FloatText[] = []
+        const newParticles: Particle[] = []
+        const newShards: Shard[] = []
+        const newPuffs: Puff[] = []
+        const groundY = rect.height - 72   // top of the grass strip
 
         for (const it of prev) {
           if (it.caught || it.missed) continue
@@ -479,18 +618,64 @@ export default function TreatTumbleGame() {
           const dx = Math.abs(it.x - erenCX)
           if (ny >= catchY && ny <= catchY + ITEM_SIZE + 18 && dx <= EREN_WIDTH / 2 + ITEM_SIZE / 2 - 4) {
             const meta = ITEMS[it.kind]
-            dScore += meta.points
-            if (meta.life < 0) { dLives += meta.life; hurt = true }
+            const isGood = !meta.danger && (meta.points > 0 || meta.life > 0)
+            // Combo multiplier: applies to positive point items, not danger.
+            let pointsAwarded = meta.points
+            const currentMult = comboRef.current >= 10 ? 3 : comboRef.current >= 5 ? 2 : 1
+            if (meta.points > 0 && currentMult > 1) {
+              pointsAwarded = meta.points * currentMult
+            }
+            dScore += pointsAwarded
+            if (meta.life < 0) dLives += meta.life
             else if (meta.life > 0) dLives += meta.life
+            if (meta.danger) { hadDanger = true; comboDelta = -1 }
+            else {
+              hadGoodCatch = true
+              if (it.kind === 'golden') hadGolden = true
+              if (it.kind === 'heart') hadHeart = true
+              if (meta.points > 0) comboDelta = comboDelta < 0 ? comboDelta : comboDelta + 1
+            }
+
             newFloats.push({
               id: floatId.current++,
               x: it.x, y: catchY - 10,
-              text: meta.points > 0
-                ? `+${meta.points}`
-                : meta.points < 0 ? `${meta.points}` : meta.life > 0 ? '+♥' : '',
-              color: meta.points > 0 ? '#FDE68A' : meta.points < 0 ? '#FCA5A5' : '#FF6B9D',
+              text: pointsAwarded > 0
+                ? (currentMult > 1 ? `+${pointsAwarded} x${currentMult}` : `+${pointsAwarded}`)
+                : pointsAwarded < 0 ? `${pointsAwarded}` : meta.life > 0 ? '+♥' : '',
+              color: pointsAwarded > 0 ? (currentMult > 1 ? '#FBBF24' : '#FDE68A') : pointsAwarded < 0 ? '#FCA5A5' : '#FF6B9D',
               t0: t,
             })
+
+            // Particle burst on positive catches (tinted to the item color).
+            if (isGood) {
+              const count = it.kind === 'golden' ? 9 : 6
+              for (let i = 0; i < count; i++) {
+                const ang = (Math.PI * 2 * i) / count + Math.random() * 0.4
+                const speedP = 38 + Math.random() * 26
+                newParticles.push({
+                  id: particleId.current++,
+                  x: it.x,
+                  y: catchY,
+                  dx: Math.cos(ang) * speedP,
+                  dy: Math.sin(ang) * speedP - 18,
+                  color: meta.tint,
+                  size: it.kind === 'golden' ? 4 : 3,
+                  t0: t,
+                })
+              }
+            }
+            continue
+          }
+
+          // Missed good items hitting the floor — smoke puff + small penalty.
+          if (ny >= groundY) {
+            const meta = ITEMS[it.kind]
+            if (!meta.danger && (meta.points > 0 || meta.life > 0)) {
+              newPuffs.push({ id: puffId.current++, x: it.x, y: groundY, t0: t })
+              // Tiny penalty so chasing low-value treats matters; combo breaks.
+              dScore -= 1
+              comboDelta = -1
+            }
             continue
           }
 
@@ -501,12 +686,13 @@ export default function TreatTumbleGame() {
         if (dScore !== 0) {
           setScore(s => {
             const next = Math.max(0, s + dScore)
-            if (dScore > 0) setScoreBump(1)
+            setScoreBump(dScore > 0 ? 1 : -1)
             return next
           })
         }
         if (dLives !== 0) {
-          const newLives = Math.max(0, Math.min(MAX_LIVES, livesRef.current + dLives))
+          const before = livesRef.current
+          const newLives = Math.max(0, Math.min(MAX_LIVES, before + dLives))
           livesRef.current = newLives
           setLives(newLives)
           if (dLives < 0) {
@@ -514,11 +700,67 @@ export default function TreatTumbleGame() {
             setHurtFlash(true)
             setTimeout(() => setShake(false), 280)
             setTimeout(() => setHurtFlash(false), 220)
+            // Spawn heart shards from the slot of the heart that was just lost.
+            // The HUD's heart row sits roughly at the top of the screen.
+            const shardSlotIndex = Math.max(0, before - 1)
+            const shardOriginX = rect.width - 84 + shardSlotIndex * 20
+            const shardOriginY = 110
+            for (let i = 0; i < 4; i++) {
+              const ang = -Math.PI / 2 + (i - 1.5) * 0.55 + (Math.random() - 0.5) * 0.3
+              const v = 60 + Math.random() * 30
+              newShards.push({
+                id: shardId.current++,
+                x: shardOriginX,
+                y: shardOriginY,
+                dx: Math.cos(ang) * v,
+                dy: Math.sin(ang) * v,
+                t0: t,
+              })
+            }
           }
           if (newLives === 0) setGameState('finished')
         }
+
+        // Combo handling: tick up on each consecutive good catch, reset on any
+        // danger or missed positive. Multiplier thresholds: 5 -> x2, 10 -> x3.
+        if (comboDelta !== 0) {
+          if (comboDelta < 0) {
+            comboRef.current = 0
+            setCombo(0)
+          } else {
+            const prevC = comboRef.current
+            const next = prevC + comboDelta
+            comboRef.current = next
+            setCombo(next)
+            setBestCombo(b => Math.max(b, next))
+            // Fire combo-up sound when crossing a multiplier threshold (5 or 10).
+            const prevMult = prevC >= 10 ? 3 : prevC >= 5 ? 2 : 1
+            const nextMult = next >= 10 ? 3 : next >= 5 ? 2 : 1
+            if (nextMult > prevMult) {
+              playSound('tt_combo_up')
+              setComboFlash(nextMult)
+            }
+          }
+        }
+
+        // Pop Eren on any good catch (chomp); play category sounds.
+        if (hadGoodCatch) setErenPop(true)
+        if (hadGolden) playSound('tt_catch_golden')
+        else if (hadHeart) playSound('tt_catch_heart')
+        else if (hadGoodCatch) playSound('tt_catch_good')
+        if (hadDanger) playSound('tt_hit_danger')
+
         if (newFloats.length > 0) {
           setFloats(prev => [...prev, ...newFloats].slice(-22))
+        }
+        if (newParticles.length > 0) {
+          setParticles(prev => [...prev, ...newParticles].slice(-80))
+        }
+        if (newShards.length > 0) {
+          setShards(prev => [...prev, ...newShards].slice(-40))
+        }
+        if (newPuffs.length > 0) {
+          setPuffs(prev => [...prev, ...newPuffs].slice(-20))
         }
         return updated
       })
@@ -538,6 +780,23 @@ export default function TreatTumbleGame() {
     const id = setTimeout(() => setFloats(prev => prev.filter(f => performance.now() - f.t0 < 900)), 700)
     return () => clearTimeout(id)
   }, [floats])
+
+  // ── Cull expired particles / shards / puffs ───────────────────────────────
+  useEffect(() => {
+    if (particles.length === 0) return
+    const id = setTimeout(() => setParticles(prev => prev.filter(p => performance.now() - p.t0 < 480)), 320)
+    return () => clearTimeout(id)
+  }, [particles])
+  useEffect(() => {
+    if (shards.length === 0) return
+    const id = setTimeout(() => setShards(prev => prev.filter(s => performance.now() - s.t0 < 700)), 500)
+    return () => clearTimeout(id)
+  }, [shards])
+  useEffect(() => {
+    if (puffs.length === 0) return
+    const id = setTimeout(() => setPuffs(prev => prev.filter(p => performance.now() - p.t0 < 520)), 380)
+    return () => clearTimeout(id)
+  }, [puffs])
 
   // ── Drag / touch input ────────────────────────────────────────────────────
   function updatePos(clientX: number) {
@@ -646,13 +905,31 @@ export default function TreatTumbleGame() {
                 <span className="font-pixel" style={{ fontSize: 6, color: '#FCD34D', letterSpacing: 2 }}>SCORE</span>
                 <span className="font-pixel" style={{
                   fontSize: 16,
-                  color: '#FFFFFF',
-                  textShadow: '2px 2px 0 #92400E, 0 0 6px rgba(251,191,36,0.7)',
+                  color: scoreBump === -1 ? '#FCA5A5' : '#FFFFFF',
+                  textShadow: scoreBump === -1
+                    ? '2px 2px 0 #7F1D1D, 0 0 6px rgba(220,38,38,0.85)'
+                    : '2px 2px 0 #92400E, 0 0 6px rgba(251,191,36,0.7)',
                   letterSpacing: 1,
-                  transform: scoreBump ? 'scale(1.22)' : 'scale(1)',
-                  transition: 'transform 0.16s cubic-bezier(0.34,1.56,0.64,1)',
+                  transform: scoreBump === 1 ? 'scale(1.22)' : scoreBump === -1 ? 'scale(0.88)' : 'scale(1)',
+                  transition: 'transform 0.16s cubic-bezier(0.34,1.56,0.64,1), color 0.18s, text-shadow 0.18s',
                   display: 'inline-block',
+                  animation: scoreBump === -1 ? 'scoreShake 0.26s linear' : 'none',
                 }}>{Math.max(0, score)}</span>
+                {/* Combo multiplier badge — only visible at x2+ */}
+                {combo >= 5 && (
+                  <span className="font-pixel ml-1 px-1.5 py-0.5" style={{
+                    fontSize: 7,
+                    color: '#451A03',
+                    background: 'linear-gradient(180deg, #FDE68A, #F59E0B)',
+                    border: '2px solid #7C2D12',
+                    borderRadius: 3,
+                    boxShadow: '0 2px 0 #5A1A0A, 0 0 6px rgba(251,191,36,0.7)',
+                    letterSpacing: 1,
+                    transform: comboFlash ? 'scale(1.32)' : 'scale(1)',
+                    transition: 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1)',
+                    display: 'inline-block',
+                  }}>x{combo >= 10 ? 3 : 2}</span>
+                )}
               </div>
 
               {/* Lives — large, labelled */}
@@ -847,7 +1124,7 @@ export default function TreatTumbleGame() {
         </div>
       )}
 
-      {/* ── Falling items — dangers blend in, only a faint glow gives them away */}
+      {/* ── Falling items — dangers pulse a sharper red aura + wobble to stand out */}
       {gameState !== 'idle' && items.map(it => {
         const meta = ITEMS[it.kind]
         const danger = meta.danger
@@ -858,15 +1135,73 @@ export default function TreatTumbleGame() {
               top: it.y - ITEM_SIZE / 2,
               width: ITEM_SIZE,
               height: ITEM_SIZE,
-              animation: 'itemSpin 1.4s linear infinite',
+              animation: danger
+                ? 'itemSpin 1.4s linear infinite, dangerWobble 0.42s ease-in-out infinite'
+                : 'itemSpin 1.4s linear infinite',
+            }}>
+            <div style={{
+              width: '100%', height: '100%',
+              animation: danger ? 'dangerPulse 0.55s ease-in-out infinite' : 'none',
               filter: danger
-                ? `drop-shadow(0 3px 0 rgba(0,0,0,0.3)) drop-shadow(0 0 4px rgba(180,30,30,0.35))`
+                ? `drop-shadow(0 3px 0 rgba(0,0,0,0.35)) drop-shadow(0 0 7px rgba(220,38,38,0.95)) drop-shadow(0 0 12px rgba(220,38,38,0.55))`
                 : `drop-shadow(0 3px 0 rgba(0,0,0,0.25)) drop-shadow(0 0 6px ${meta.tint}55)`,
             }}>
-            <meta.Icon size={ITEM_SIZE} />
+              <meta.Icon size={ITEM_SIZE} />
+            </div>
           </div>
         )
       })}
+
+      {/* ── Particle bursts (positive catches) ──────────────────────────────── */}
+      {particles.map(p => (
+        <div key={p.id} className="absolute pointer-events-none z-30" style={{
+          left: p.x, top: p.y,
+          width: p.size, height: p.size,
+          background: p.color,
+          boxShadow: `0 0 4px ${p.color}`,
+          imageRendering: 'pixelated',
+          // Custom property drives the keyframe translate.
+          ['--dx' as string]: `${p.dx}px`,
+          ['--dy' as string]: `${p.dy}px`,
+          animation: 'ttParticle 420ms cubic-bezier(0.22,1,0.36,1) forwards',
+        } as React.CSSProperties} />
+      ))}
+
+      {/* ── Heart shards when a life is lost ────────────────────────────────── */}
+      {shards.map(s => (
+        <div key={s.id} className="absolute pointer-events-none z-40" style={{
+          left: s.x, top: s.y,
+          width: 4, height: 4,
+          background: '#DC2626',
+          boxShadow: '0 0 3px #FCA5A5',
+          imageRendering: 'pixelated',
+          ['--dx' as string]: `${s.dx}px`,
+          ['--dy' as string]: `${s.dy}px`,
+          animation: 'ttShard 650ms cubic-bezier(0.34,1.06,0.64,1) forwards',
+        } as React.CSSProperties} />
+      ))}
+
+      {/* ── Smoke puffs for missed treats ───────────────────────────────────── */}
+      {puffs.map(p => (
+        <div key={p.id} className="absolute pointer-events-none z-20" style={{
+          left: p.x - 8, top: p.y - 6,
+          width: 16, height: 12,
+          animation: 'ttPuff 500ms ease-out forwards',
+        }}>
+          <div style={{
+            position: 'absolute', left: 2, top: 4, width: 4, height: 4,
+            background: 'rgba(180,180,180,0.85)', boxShadow: '0 0 3px rgba(200,200,200,0.6)',
+          }} />
+          <div style={{
+            position: 'absolute', left: 8, top: 2, width: 4, height: 4,
+            background: 'rgba(210,210,210,0.85)', boxShadow: '0 0 3px rgba(220,220,220,0.6)',
+          }} />
+          <div style={{
+            position: 'absolute', left: 5, top: 7, width: 3, height: 3,
+            background: 'rgba(160,160,160,0.8)',
+          }} />
+        </div>
+      ))}
 
       {/* ── Eren (new sprite) + floating HP bar ─────────────────────────────── */}
       {gameState !== 'idle' && (
@@ -902,7 +1237,13 @@ export default function TreatTumbleGame() {
             ))}
           </div>
 
-          <ErenSprite size={EREN_WIDTH} />
+          <div style={{
+            display: 'inline-block',
+            transformOrigin: '50% 100%',
+            animation: erenPop ? 'erenChomp 140ms cubic-bezier(0.34,1.56,0.64,1)' : 'none',
+          }}>
+            <ErenSprite size={EREN_WIDTH} />
+          </div>
         </div>
       )}
 
@@ -925,17 +1266,33 @@ export default function TreatTumbleGame() {
           <div className="px-6 py-6 max-w-[340px] w-full text-center relative"
             style={{ background: 'linear-gradient(180deg, #FFF8E0 0%, #FFF0C0 100%)', border: '3px solid #D97706', borderRadius: 6, boxShadow: '0 5px 0 #B45309, 0 0 24px rgba(251,191,36,0.6)' }}>
             <div className="flex justify-center mb-3">
-              <IconCrown size={28} />
+              {lives > 0 ? (
+                <IconCrown size={28} />
+              ) : (
+                <div style={{ animation: 'sadBob 1.8s ease-in-out infinite' }}>
+                  <SadErenSprite size={48} />
+                </div>
+              )}
             </div>
             <p className="font-pixel text-amber-800 mb-1" style={{ fontSize: 9, letterSpacing: 2 }}>
               {lives > 0 ? 'TIME UP' : 'GAME OVER'}
             </p>
-            <p className="font-pixel text-amber-900 mb-4" style={{ fontSize: 28, textShadow: '2px 2px 0 rgba(180,83,9,0.35)' }}>
-              {Math.max(0, score)}
+            <p className="font-pixel text-amber-900 mb-4" style={{
+              fontSize: 28,
+              textShadow: '2px 2px 0 rgba(180,83,9,0.35)',
+              display: 'inline-block',
+              transition: 'transform 0.2s',
+            }}>
+              {displayedScore}
             </p>
+            {bestCombo >= 5 && (
+              <p className="font-pixel mb-2" style={{ fontSize: 6, color: '#7C2D12', letterSpacing: 2 }}>
+                BEST COMBO x{bestCombo >= 10 ? 3 : 2} ({bestCombo} CATCHES)
+              </p>
+            )}
             <div className="flex items-center justify-center gap-1 mb-4" style={{ color: '#A16207' }}>
               <IconCoin size={14} />
-              <span className="font-pixel" style={{ fontSize: 8 }}>+{Math.min(40, Math.max(0, Math.floor(score / 5)))} coins</span>
+              <span className="font-pixel" style={{ fontSize: 8 }}>+{displayedCoins} coins</span>
             </div>
             <div className="flex gap-2 justify-center">
               <button onClick={() => { playSound('ui_tap'); start() }}
@@ -999,6 +1356,48 @@ export default function TreatTumbleGame() {
         @keyframes ttPlaqueShine {
           0%, 30%   { transform: translateX(-130%); }
           70%, 100% { transform: translateX(130%); }
+        }
+        /* Quick chomp / squash on positive catch */
+        @keyframes erenChomp {
+          0%   { transform: scale(1, 1); }
+          40%  { transform: scale(1.15, 0.92); }
+          100% { transform: scale(1, 1); }
+        }
+        /* Side-to-side wobble for dangers — small, fast */
+        @keyframes dangerWobble {
+          0%, 100% { translate: -1px 0; }
+          50%      { translate:  1px 0; }
+        }
+        /* Pulsing red aura so dangers read at a glance */
+        @keyframes dangerPulse {
+          0%, 100% { opacity: 0.85; }
+          50%      { opacity: 1; }
+        }
+        /* Radial particle burst — moves toward --dx/--dy and fades */
+        @keyframes ttParticle {
+          0%   { transform: translate(-50%, -50%) translate(0, 0) scale(1); opacity: 1; }
+          100% { transform: translate(-50%, -50%) translate(var(--dx), var(--dy)) scale(0.4); opacity: 0; }
+        }
+        /* Heart shard fly-out with gravity-ish arc */
+        @keyframes ttShard {
+          0%   { transform: translate(-50%, -50%) translate(0, 0) rotate(0deg); opacity: 1; }
+          100% { transform: translate(-50%, -50%) translate(var(--dx), calc(var(--dy) + 28px)) rotate(140deg); opacity: 0; }
+        }
+        /* Smoke puff rising as it fades */
+        @keyframes ttPuff {
+          0%   { transform: translateY(0) scale(0.75); opacity: 0.95; }
+          100% { transform: translateY(-14px) scale(1.4); opacity: 0; }
+        }
+        /* Score shake on negative score change */
+        @keyframes scoreShake {
+          0%, 100% { transform: translateX(0) scale(0.88); }
+          25%      { transform: translateX(-3px) scale(0.88); }
+          75%      { transform: translateX(3px) scale(0.88); }
+        }
+        /* Sad Eren bob — slower, smaller */
+        @keyframes sadBob {
+          0%, 100% { transform: translateY(0); }
+          50%      { transform: translateY(-2px); }
         }
       `}</style>
     </div>

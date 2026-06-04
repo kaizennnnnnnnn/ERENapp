@@ -16,7 +16,10 @@ const MOUSE_SPEED_INIT = 2.2
 const GAME_DURATION    = 30
 
 interface MousePos { x: number; y: number; vx: number; vy: number }
-interface Particle  { x: number; y: number; vx: number; vy: number; life: number; color: string }
+interface Particle  { x: number; y: number; vx: number; vy: number; life: number; color: string; kind?: 'spark' | 'dust' | 'star' | 'confetti' }
+interface ScorePop  { id: number; x: number; y: number; text: string; color: string; born: number }
+interface MissMark  { id: number; x: number; y: number; born: number }
+interface ConfettiPiece { id: number; x: number; vx: number; vy: number; color: string; rot: number; vr: number; born: number }
 
 export default function CatchMouseGame() {
   const router = useRouter()
@@ -41,6 +44,20 @@ export default function CatchMouseGame() {
   const [score, setScore]         = useState(0)
   const [timeLeft, setTimeLeft]   = useState(GAME_DURATION)
   const [gameState, setGameState] = useState<'idle' | 'running' | 'finished'>('idle')
+  const [combo, setCombo]         = useState(0)
+  const [scoreBump, setScoreBump] = useState(0)         // increments each catch to retrigger pulse keyframe
+  const [shakeNonce, setShakeNonce] = useState(0)       // increments on miss to retrigger shake
+  const [scorePops, setScorePops] = useState<ScorePop[]>([])
+  const [missMarks, setMissMarks] = useState<MissMark[]>([])
+  const [finalScoreDisplay, setFinalScoreDisplay] = useState(0)
+  const [confetti, setConfetti]   = useState<ConfettiPiece[]>([])
+  const popIdRef    = useRef(0)
+  const missIdRef   = useRef(0)
+  const confettiIdRef = useRef(0)
+  const warnedRef   = useRef(false)
+  const lastTickSecRef = useRef(0)
+  const peekRef     = useRef({ at: 0, phase: 'idle' as 'idle' | 'peek' | 'dart', side: 0 })
+  const lastFrameRef = useRef(0)
 
   // ── Chibi pixel mouse — smaller, rounder, cuter (14×11) ───────────────────
   // K=outline G=fur P=pink(ear/nose) L=belly E=eye W=white_shine M=tail
@@ -104,7 +121,7 @@ export default function CatchMouseGame() {
 
   function spawnParticles(x: number, y: number) {
     const colors = ['#FF6B9D', '#FFD700', '#A78BFA', '#4ECDC4', '#FF8C42']
-    const newParticles: Particle[] = Array.from({ length: 14 }, () => {
+    const burst: Particle[] = Array.from({ length: 12 }, () => {
       const angle = Math.random() * Math.PI * 2
       const speed = 2 + Math.random() * 3.5
       return {
@@ -113,9 +130,76 @@ export default function CatchMouseGame() {
         vy: Math.sin(angle) * speed,
         life: 1.0,
         color: colors[Math.floor(Math.random() * colors.length)],
+        kind: 'spark' as const,
       }
     })
-    stateRef.current.particles.push(...newParticles)
+    // Starburst — 4 cardinal "+" spikes that fly outward fast and short
+    const stars: Particle[] = [0, 1, 2, 3].map(i => {
+      const a = (i * Math.PI) / 2
+      return {
+        x, y,
+        vx: Math.cos(a) * 5.5,
+        vy: Math.sin(a) * 5.5,
+        life: 0.9,
+        color: '#FFF6B0',
+        kind: 'star' as const,
+      }
+    })
+    // Soft "POOF" dust ring — 8 pale puffs that drift and fade slowly with no gravity
+    const dust: Particle[] = Array.from({ length: 8 }, (_, i) => {
+      const a = (i / 8) * Math.PI * 2
+      return {
+        x, y,
+        vx: Math.cos(a) * 1.2,
+        vy: Math.sin(a) * 1.2 - 0.4,
+        life: 1.0,
+        color: '#F5E6FA',
+        kind: 'dust' as const,
+      }
+    })
+    stateRef.current.particles.push(...burst, ...stars, ...dust)
+  }
+
+  function pushScorePop(x: number, y: number, text: string, color: string) {
+    const id = ++popIdRef.current
+    setScorePops(prev => {
+      // cap to last 8 to avoid runaway lists
+      const next = [...prev, { id, x, y, text, color, born: performance.now() }]
+      return next.length > 8 ? next.slice(next.length - 8) : next
+    })
+    window.setTimeout(() => {
+      setScorePops(prev => prev.filter(p => p.id !== id))
+    }, 850)
+  }
+
+  function pushMissMark(x: number, y: number) {
+    const id = ++missIdRef.current
+    setMissMarks(prev => {
+      const next = [...prev, { id, x, y, born: performance.now() }]
+      return next.length > 6 ? next.slice(next.length - 6) : next
+    })
+    window.setTimeout(() => {
+      setMissMarks(prev => prev.filter(m => m.id !== id))
+    }, 380)
+  }
+
+  function fireConfetti() {
+    const pieces: ConfettiPiece[] = Array.from({ length: 28 }, () => {
+      const id = ++confettiIdRef.current
+      const palette = ['#FFD700', '#FF6B9D', '#A78BFA', '#4ECDC4', '#FF8C42', '#7DD3FC']
+      return {
+        id,
+        x: 50 + Math.random() * 220,
+        vx: (Math.random() - 0.5) * 2.4,
+        vy: -2 - Math.random() * 3,
+        color: palette[Math.floor(Math.random() * palette.length)],
+        rot: Math.random() * 360,
+        vr: (Math.random() - 0.5) * 18,
+        born: performance.now(),
+      }
+    })
+    setConfetti(pieces)
+    window.setTimeout(() => setConfetti([]), 2400)
   }
 
   // ── Draw frame ────────────────────────────────────────────────────────────
@@ -176,19 +260,57 @@ export default function CatchMouseGame() {
     // ── Particles ──
     stateRef.current.particles = particles.filter(p => p.life > 0)
     stateRef.current.particles.forEach(p => {
+      const kind = p.kind ?? 'spark'
       p.x += p.vx
       p.y += p.vy
-      p.vy += 0.15
-      p.life -= 0.05
-      ctx.globalAlpha = p.life
+      if (kind === 'dust') {
+        p.vx *= 0.92
+        p.vy *= 0.92
+        p.life -= 0.045
+      } else if (kind === 'star') {
+        p.vx *= 0.86
+        p.vy *= 0.86
+        p.life -= 0.08
+      } else {
+        p.vy += 0.15
+        p.life -= 0.05
+      }
+      ctx.globalAlpha = Math.max(0, Math.min(1, p.life))
       ctx.fillStyle = p.color
-      ctx.fillRect(Math.round(p.x) - 3, Math.round(p.y) - 3, 6, 6)
+      if (kind === 'dust') {
+        // Soft pale square, slightly larger as it ages
+        const s = 7 + Math.round((1 - p.life) * 4)
+        ctx.fillRect(Math.round(p.x) - Math.round(s / 2), Math.round(p.y) - Math.round(s / 2), s, s)
+      } else if (kind === 'star') {
+        // Pixel "+" starburst
+        const cx = Math.round(p.x), cy = Math.round(p.y)
+        ctx.fillRect(cx - 1, cy - 4, 2, 8)
+        ctx.fillRect(cx - 4, cy - 1, 8, 2)
+      } else {
+        ctx.fillRect(Math.round(p.x) - 3, Math.round(p.y) - 3, 6, 6)
+      }
     })
     ctx.globalAlpha = 1
 
     // ── Pixel mouse ──
     const facingLeft = mouse.vx < 0
     drawPixelMouse(ctx, Math.round(mouse.x), Math.round(mouse.y), facingLeft)
+
+    // ── Time warning vignette + scanline tint (last 10s) ──
+    if (stateRef.current.running && stateRef.current.timeLeft <= 10) {
+      const pulse = 0.55 + 0.45 * Math.sin(performance.now() / 140)
+      // Red vignette gradient (no soft blur — radial pixel feel via alpha steps)
+      const grad = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.7)
+      grad.addColorStop(0, 'rgba(220,38,38,0)')
+      grad.addColorStop(1, `rgba(220,38,38,${0.18 + 0.12 * pulse})`)
+      ctx.fillStyle = grad
+      ctx.fillRect(0, 0, W, H)
+      // Faint red scanlines
+      ctx.fillStyle = 'rgba(248,113,113,0.08)'
+      for (let sy = 0; sy < H; sy += 4) {
+        ctx.fillRect(0, sy, W, 1)
+      }
+    }
   }, [])
 
   // ── Tick ──────────────────────────────────────────────────────────────────
@@ -198,21 +320,52 @@ export default function CatchMouseGame() {
     const { mouse } = stateRef.current
     const W = canvas.width, H = canvas.height
 
-    const speedMult = 1 + stateRef.current.score * 0.07
-    mouse.x += mouse.vx * speedMult
-    mouse.y += mouse.vy * speedMult
+    // Cap difficulty multiplier so the mouse can't clip walls at high scores
+    const speedMult = Math.min(1 + stateRef.current.score * 0.07, 2.2)
+    const peek = peekRef.current
 
-    if (mouse.x < 22 || mouse.x > W - 22) mouse.vx *= -1
-    if (mouse.y < 22 || mouse.y > H - 60) mouse.vy *= -1
-    mouse.x = Math.max(22, Math.min(W - 22, mouse.x))
-    mouse.y = Math.max(22, Math.min(H - 60, mouse.y))
+    if (peek.phase === 'peek') {
+      // Freeze briefly at a hole, then dart out
+      if (performance.now() - peek.at > 300) {
+        peek.phase = 'dart'
+        // Launch toward room interior
+        const dir = peek.side === 0 ? 1 : -1
+        mouse.vx = dir * (MOUSE_SPEED_INIT + 1.2)
+        mouse.vy = -(MOUSE_SPEED_INIT + Math.random() * 0.8)
+      }
+    } else {
+      mouse.x += mouse.vx * speedMult
+      mouse.y += mouse.vy * speedMult
+    }
 
-    if (Math.random() < 0.025) {
+    // Clamp first, then reflect — prevents tunneling at high speedMult
+    if (mouse.x < 22) { mouse.x = 22; if (mouse.vx < 0) mouse.vx *= -1 }
+    else if (mouse.x > W - 22) { mouse.x = W - 22; if (mouse.vx > 0) mouse.vx *= -1 }
+    if (mouse.y < 22) { mouse.y = 22; if (mouse.vy < 0) mouse.vy *= -1 }
+    else if (mouse.y > H - 60) { mouse.y = H - 60; if (mouse.vy > 0) mouse.vy *= -1 }
+
+    if (peek.phase !== 'peek' && Math.random() < 0.025) {
       mouse.vx += (Math.random() - 0.5) * 2
       mouse.vy += (Math.random() - 0.5) * 2
       const spd = Math.sqrt(mouse.vx ** 2 + mouse.vy ** 2)
       if (spd > 5) { mouse.vx = (mouse.vx / spd) * 5; mouse.vy = (mouse.vy / spd) * 5 }
-      if (spd < 1) { mouse.vx = (mouse.vx / spd) * 1; mouse.vy = (mouse.vy / spd) * 1 }
+      if (spd > 0 && spd < 1) { mouse.vx = (mouse.vx / spd) * 1; mouse.vy = (mouse.vy / spd) * 1 }
+    }
+
+    // Occasionally pop the mouse out of a hole for a tense pause + dart
+    if (peek.phase === 'idle' && stateRef.current.score > 0 && Math.random() < 0.0035) {
+      const side = Math.random() < 0.5 ? 0 : 1
+      const hx = side === 0 ? 16 : W - 50
+      const hy = H - 50
+      mouse.x = hx
+      mouse.y = hy - 6
+      mouse.vx = 0
+      mouse.vy = 0
+      peek.phase = 'peek'
+      peek.at = performance.now()
+      peek.side = side
+    } else if (peek.phase === 'dart' && performance.now() - peek.at > 700) {
+      peek.phase = 'idle'
     }
 
     draw()
@@ -231,11 +384,28 @@ export default function CatchMouseGame() {
     setScore(0)
     setTimeLeft(GAME_DURATION)
     setGameState('running')
+    setCombo(0)
+    setScorePops([])
+    setMissMarks([])
+    setConfetti([])
+    setFinalScoreDisplay(0)
+    warnedRef.current = false
+    lastTickSecRef.current = 0
+    peekRef.current = { at: 0, phase: 'idle', side: 0 }
 
     s.timerInterval = setInterval(() => {
       stateRef.current.timeLeft -= 1
       setTimeLeft(stateRef.current.timeLeft)
-      if (stateRef.current.timeLeft <= 0) endGame()
+      const t = stateRef.current.timeLeft
+      if (t === 10 && !warnedRef.current) {
+        warnedRef.current = true
+        playSound('cm_time_warning')
+      }
+      if (t > 0 && t <= 3 && lastTickSecRef.current !== t) {
+        lastTickSecRef.current = t
+        playSound('cm_tick')
+      }
+      if (t <= 0) endGame()
     }, 1000)
 
     requestAnimationFrame(tick)
@@ -247,6 +417,26 @@ export default function CatchMouseGame() {
     cancelAnimationFrame(s.animId)
     clearInterval(s.timerInterval)
     setGameState('finished')
+    playSound('cm_gameover')
+
+    // Count-up animation for final score (0 → s.score over ~700ms)
+    const finalScore = s.score
+    setFinalScoreDisplay(0)
+    if (finalScore > 0) {
+      const startedAt = performance.now()
+      const dur = Math.min(700, 250 + finalScore * 35)
+      const stepFn = () => {
+        const t = Math.min(1, (performance.now() - startedAt) / dur)
+        const eased = 1 - Math.pow(1 - t, 3)
+        setFinalScoreDisplay(Math.round(finalScore * eased))
+        if (t < 1) requestAnimationFrame(stepFn)
+        else setFinalScoreDisplay(finalScore)
+      }
+      requestAnimationFrame(stepFn)
+    }
+    if (finalScore >= 15) {
+      window.setTimeout(() => fireConfetti(), 220)
+    }
 
     if (user?.id && s.score > 0) {
       supabase.from('game_scores').insert({ user_id: user.id, game_type: 'catch_mouse', score: s.score }).then(({ error }) => { if (error) console.error('score save error:', error) })
@@ -280,12 +470,38 @@ export default function CatchMouseGame() {
     const dist = Math.sqrt((tx - mouse.x) ** 2 + (ty - mouse.y) ** 2)
     if (dist < 38) {  // slightly tighter hitbox to match smaller sprite
       stateRef.current.score += 1
-      setScore(stateRef.current.score)
+      const newScore = stateRef.current.score
+      setScore(newScore)
+      setScoreBump(b => b + 1)
       spawnParticles(mouse.x, mouse.y)
+      // Floating "+1" at catch coordinate, in screen-space
+      pushScorePop(cx, cy, '+1', '#FFE05A')
+
+      // Combo logic — every 5th in a row plays the combo chime
+      setCombo(prev => {
+        const next = prev + 1
+        if (next > 0 && next % 5 === 0) {
+          playSound('cm_combo')
+          pushScorePop(cx, cy - 14, `x${next}!`, '#FF6B9D')
+        } else {
+          playSound('cm_catch')
+        }
+        return next
+      })
+
+      // Reset peek state on a catch
+      peekRef.current = { at: 0, phase: 'idle', side: 0 }
+
       stateRef.current.mouse.x = 60 + Math.random() * (canvas.width - 120)
       stateRef.current.mouse.y = 40 + Math.random() * (canvas.height - 120)
       stateRef.current.mouse.vx = (Math.random() > 0.5 ? 1 : -1) * (MOUSE_SPEED_INIT + Math.random() * 2)
       stateRef.current.mouse.vy = (Math.random() > 0.5 ? 1 : -1) * (MOUSE_SPEED_INIT + Math.random() * 2)
+    } else {
+      // MISS — soft thud, screen-space "X" ring, small shake, combo break
+      playSound('cm_miss')
+      pushMissMark(cx, cy)
+      setShakeNonce(n => n + 1)
+      setCombo(0)
     }
   }
 
@@ -332,7 +548,29 @@ export default function CatchMouseGame() {
             <IconStar size={10} />
             <span className="font-pixel text-purple-300" style={{ fontSize: 6, letterSpacing: 2 }}>SCORE</span>
           </div>
-          <span className="font-pixel text-white" style={{ fontSize: 22, textShadow: '2px 2px 0 #4C1D95, 0 0 6px rgba(167,139,250,0.6)', letterSpacing: -0.5 }}>{score}</span>
+          <span
+            key={`s-${scoreBump}`}
+            className="font-pixel text-white inline-block"
+            style={{
+              fontSize: 22,
+              textShadow: '2px 2px 0 #4C1D95, 0 0 6px rgba(167,139,250,0.6)',
+              letterSpacing: -0.5,
+              animation: scoreBump > 0 ? 'scorePulse 260ms cubic-bezier(0.34,1.56,0.64,1)' : 'none',
+              transformOrigin: 'left center',
+            }}
+          >{score}</span>
+          {combo >= 2 && (
+            <span
+              className="font-pixel absolute"
+              style={{
+                right: 8, bottom: 6,
+                fontSize: 7,
+                color: combo >= 5 ? '#FFD700' : '#FF6B9D',
+                textShadow: '1px 1px 0 #4C1D95',
+                letterSpacing: 1,
+              }}
+            >x{combo}</span>
+          )}
         </div>
 
         <div className="relative overflow-hidden py-3 px-3"
@@ -379,8 +617,17 @@ export default function CatchMouseGame() {
       </div>
 
       {/* ── Canvas ── */}
-      <div className="mb-4 relative"
-        style={{ borderRadius: 4, border: '3px solid #D8C0F0', boxShadow: '4px 4px 0 #C0A0E0', overflow: 'hidden' }}>
+      <div
+        key={`shake-${shakeNonce}`}
+        className="mb-4 relative"
+        style={{
+          borderRadius: 4,
+          border: '3px solid #D8C0F0',
+          boxShadow: '4px 4px 0 #C0A0E0',
+          overflow: 'hidden',
+          animation: shakeNonce > 0 ? 'cmShake 200ms steps(6, end)' : 'none',
+        }}
+      >
         <canvas
           ref={canvasRef}
           width={360}
@@ -390,6 +637,42 @@ export default function CatchMouseGame() {
           onClick={handleTap}
           onTouchStart={handleTap}
         />
+
+        {/* Score popups (screen-space, layered over canvas) */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          {scorePops.map(p => (
+            <span
+              key={p.id}
+              className="font-pixel absolute"
+              style={{
+                left: p.x,
+                top: p.y,
+                fontSize: 10,
+                color: p.color,
+                textShadow: '1px 1px 0 #4C1D95',
+                transform: 'translate(-50%, -50%)',
+                animation: 'cmScorePop 820ms ease-out forwards',
+                letterSpacing: 1,
+                whiteSpace: 'nowrap',
+              }}
+            >{p.text}</span>
+          ))}
+          {missMarks.map(m => (
+            <span
+              key={m.id}
+              className="font-pixel absolute"
+              style={{
+                left: m.x,
+                top: m.y,
+                fontSize: 12,
+                color: '#FF4D6D',
+                textShadow: '1px 1px 0 rgba(0,0,0,0.4)',
+                transform: 'translate(-50%, -50%)',
+                animation: 'cmMissMark 380ms steps(4, end) forwards',
+              }}
+            >x</span>
+          ))}
+        </div>
 
         {/* ── Overlays ── */}
         {gameState !== 'running' && (
@@ -413,10 +696,47 @@ export default function CatchMouseGame() {
             )}
             {gameState === 'finished' && (
               <>
-                <div className="mb-2">
+                {/* Confetti shower (only for AMAZING runs) */}
+                {confetti.length > 0 && (
+                  <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                    {confetti.map(c => (
+                      <span
+                        key={c.id}
+                        style={{
+                          position: 'absolute',
+                          left: c.x,
+                          top: -10,
+                          width: 5,
+                          height: 5,
+                          background: c.color,
+                          transform: `rotate(${c.rot}deg)`,
+                          animation: 'cmConfettiFall 2200ms linear forwards',
+                          animationDelay: `${(c.id % 14) * 35}ms`,
+                          imageRendering: 'pixelated',
+                          boxShadow: '1px 1px 0 rgba(0,0,0,0.15)',
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+                <div className="mb-2 relative" style={{ animation: 'cmCrownBob 1.6s ease-in-out infinite' }}>
                   <IconCrown size={28} />
+                  {score >= 15 && (
+                    <>
+                      <span style={{ position: 'absolute', top: -4, left: -6, width: 3, height: 3, background: '#FFF6B0', boxShadow: '0 0 0 1px #FFD700', animation: 'cmSparkle 1.4s ease-in-out infinite', imageRendering: 'pixelated' }} />
+                      <span style={{ position: 'absolute', top: 2, right: -8, width: 3, height: 3, background: '#FFF6B0', boxShadow: '0 0 0 1px #FFD700', animation: 'cmSparkle 1.4s ease-in-out 0.4s infinite', imageRendering: 'pixelated' }} />
+                      <span style={{ position: 'absolute', bottom: -2, left: 2, width: 3, height: 3, background: '#FFF6B0', boxShadow: '0 0 0 1px #FFD700', animation: 'cmSparkle 1.4s ease-in-out 0.8s infinite', imageRendering: 'pixelated' }} />
+                    </>
+                  )}
                 </div>
-                <p className="font-pixel text-[#FF6B9D] mb-1" style={{ fontSize: 22, textShadow: '2px 2px 0 rgba(204,51,102,0.3)' }}>{score}</p>
+                <p
+                  className="font-pixel text-[#FF6B9D] mb-1"
+                  style={{
+                    fontSize: 22,
+                    textShadow: '2px 2px 0 rgba(204,51,102,0.3)',
+                    animation: finalScoreDisplay === score && score > 0 ? 'scorePulse 380ms cubic-bezier(0.34,1.56,0.64,1)' : 'none',
+                  }}
+                >{finalScoreDisplay}</p>
                 <p className="font-pixel text-gray-600 mb-3" style={{ fontSize: 7, letterSpacing: 2 }}>MICE CAUGHT</p>
                 <p className="font-pixel text-gray-500 mb-1" style={{ fontSize: 6 }}>
                   {score >= 15 ? '★ AMAZING! ★' : score >= 8 ? '★ GREAT JOB! ★' : 'GOOD EFFORT!'}
@@ -457,6 +777,41 @@ export default function CatchMouseGame() {
         @keyframes mouseBob {
           0%, 100% { transform: scale(3) translateY(0); }
           50% { transform: scale(3) translateY(-4px); }
+        }
+        @keyframes scorePulse {
+          0%   { transform: scale(1); filter: drop-shadow(0 0 0 rgba(255,215,0,0)); }
+          40%  { transform: scale(1.25); filter: drop-shadow(0 0 4px rgba(255,215,0,0.9)); }
+          100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(255,215,0,0)); }
+        }
+        @keyframes cmShake {
+          0%   { transform: translate(0, 0); }
+          20%  { transform: translate(-3px, 1px); }
+          40%  { transform: translate(2px, -2px); }
+          60%  { transform: translate(-2px, 2px); }
+          80%  { transform: translate(2px, 1px); }
+          100% { transform: translate(0, 0); }
+        }
+        @keyframes cmScorePop {
+          0%   { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+          15%  { transform: translate(-50%, -60%) scale(1.15); opacity: 1; }
+          100% { transform: translate(-50%, -120%) scale(1); opacity: 0; }
+        }
+        @keyframes cmMissMark {
+          0%   { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
+          30%  { transform: translate(-50%, -50%) scale(1.4); opacity: 1; }
+          100% { transform: translate(-50%, -50%) scale(1.6); opacity: 0; }
+        }
+        @keyframes cmCrownBob {
+          0%, 100% { transform: translateY(0); }
+          50%      { transform: translateY(-3px); }
+        }
+        @keyframes cmSparkle {
+          0%, 100% { opacity: 0; transform: scale(0.6); }
+          50%      { opacity: 1; transform: scale(1.2); }
+        }
+        @keyframes cmConfettiFall {
+          0%   { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+          100% { transform: translate(0, 360px) rotate(540deg); opacity: 0; }
         }
       `}</style>
     </div>

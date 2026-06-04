@@ -24,8 +24,9 @@ const FISH_POSITIONS = [
 
 type FishKind = 'good' | 'bonus' | 'danger'
 interface Fish { id: number; x: string; y: string; visible: boolean; caught: boolean; emoji: string; kind: FishKind; points: number }
-interface Splash { id: number; x: string; y: string; color: string }
+interface Splash { id: number; x: string; y: string; color: string; ring: boolean }
 interface Bubble { id: number; x: number; animDuration: number; delay: number; size: number }
+interface StarParticle { id: number; angle: number; distance: number; delay: number }
 
 // Good fish — 1 point each
 const GOOD_FISH  = ['🐟', '🐠', '🦐']
@@ -45,11 +46,18 @@ export default function PawTapGame() {
 
   const [gameState, setGameState] = useState<'idle' | 'running' | 'finished'>('idle')
   const [score, setScore]         = useState(0)
+  const [displayScore, setDisplayScore] = useState(0)
+  const [scorePulse, setScorePulse] = useState<'none' | 'good' | 'bonus'>('none')
+  const [hudFlash, setHudFlash]   = useState<'none' | 'danger' | 'bonus'>('none')
+  const [shake, setShake]         = useState(false)
+  const [bonusZoom, setBonusZoom] = useState(false)
+  const [comboLost, setComboLost] = useState<{ id: number; combo: number } | null>(null)
+  const [stars, setStars]         = useState<StarParticle[]>([])
   const [timeLeft, setTimeLeft]   = useState(GAME_DURATION)
   const [fish, setFish]           = useState<Fish[]>([])
   const [splashes, setSplashes]   = useState<Splash[]>([])
   const [pawFlash, setPawFlash]   = useState(false)
-  const [comboText, setComboText] = useState<{ id: number; text: string; x: string; y: string } | null>(null)
+  const [comboText, setComboText] = useState<{ id: number; text: string; x: string; y: string; tier: 'normal' | 'bonus' | 'combo' | 'fire' | 'damage' } | null>(null)
   const [bubbles]                 = useState<Bubble[]>(() =>
     Array.from({ length: 12 }, (_, i) => ({
       id: i,
@@ -65,65 +73,132 @@ export default function PawTapGame() {
   const fishTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const comboRef = useRef(0)
   const splashIdRef = useRef(0)
+  const timeLeftRef = useRef(GAME_DURATION)
+  const finishedRef = useRef(false)
+  const starIdRef = useRef(0)
 
   function spawnFish() {
     const pos = FISH_POSITIONS[Math.floor(Math.random() * FISH_POSITIONS.length)]
 
-    // Decide kind: 70% good, 12% bonus, 18% danger
+    // Difficulty ramp: bonus probability rises in the final 5 seconds
+    const lateGame = timeLeftRef.current <= 5
     const roll = Math.random()
     let kind: FishKind = 'good'
     let emoji = ''
     let points = 1
     let lifespan = 2000
 
-    if (roll < 0.18) {
+    const dangerCutoff = 0.18
+    const bonusCutoff  = lateGame ? 0.40 : 0.30 // more bonus fish late-game
+
+    if (roll < dangerCutoff) {
       kind = 'danger'
       emoji = DANGER_FISH[Math.floor(Math.random() * DANGER_FISH.length)]
       points = -2
       lifespan = 2400 // they linger a bit longer to tempt you
-    } else if (roll < 0.30) {
+    } else if (roll < bonusCutoff) {
       kind = 'bonus'
       emoji = BONUS_FISH[Math.floor(Math.random() * BONUS_FISH.length)]
       points = 3
-      lifespan = 1600 // bonus fish are fast to catch
+      lifespan = lateGame ? 1300 : 1600
     } else {
       emoji = GOOD_FISH[Math.floor(Math.random() * GOOD_FISH.length)]
+      lifespan = lateGame ? 1700 : 2000
     }
 
     const newFish: Fish = { id: Date.now() + Math.random(), ...pos, visible: true, caught: false, emoji, kind, points }
     setFish(prev => [...prev.slice(-8), newFish])
 
     setTimeout(() => {
-      setFish(prev => prev.map(f => f.id === newFish.id && !f.caught ? { ...f, visible: false } : f))
+      setFish(prev => prev.map(f => {
+        if (f.id === newFish.id && !f.caught && f.visible) {
+          // Fish escaped — play a soft bubble plop only for non-danger fish
+          if (f.kind !== 'danger') playSound('pt_fish_escape')
+          return { ...f, visible: false }
+        }
+        return f
+      }))
     }, lifespan)
+  }
+
+  function rescheduleFishTimer(intervalMs: number) {
+    if (fishTimerRef.current) clearInterval(fishTimerRef.current)
+    fishTimerRef.current = setInterval(spawnFish, intervalMs)
   }
 
   function startGame() {
     scoreRef.current = 0
     comboRef.current = 0
+    finishedRef.current = false
+    timeLeftRef.current = GAME_DURATION
     setScore(0)
+    setDisplayScore(0)
     setTimeLeft(GAME_DURATION)
     setFish([])
     setSplashes([])
+    setStars([])
+    setComboLost(null)
+    setHudFlash('none')
+    setScorePulse('none')
+    setBonusZoom(false)
+    setShake(false)
     setGameState('running')
 
     timerRef.current = setInterval(() => {
       setTimeLeft(t => {
-        if (t <= 1) { endGame(); return 0 }
-        return t - 1
+        const next = t - 1
+        timeLeftRef.current = next
+        // Ramp spawn rate when entering final 5 seconds
+        if (next === 5) rescheduleFishTimer(300)
+        if (next <= 0) { endGame(); return 0 }
+        return next
       })
     }, 1000)
 
-    fishTimerRef.current = setInterval(spawnFish, 450)
+    rescheduleFishTimer(450)
     spawnFish()
     spawnFish()
   }
 
   function endGame() {
+    if (finishedRef.current) return
+    finishedRef.current = true
     clearInterval(timerRef.current!)
     clearInterval(fishTimerRef.current!)
     setGameState('finished')
     setFish([])
+    playSound('pt_game_over')
+
+    // Count-up animation for the Game Over score
+    const finalScore = scoreRef.current
+    if (finalScore > 0) {
+      setDisplayScore(0)
+      const steps = 30
+      const stepMs = 600 / steps
+      let i = 0
+      const countTimer = setInterval(() => {
+        i += 1
+        const v = Math.round((finalScore * i) / steps)
+        setDisplayScore(v)
+        if (i >= steps) {
+          clearInterval(countTimer)
+          setDisplayScore(finalScore)
+        }
+      }, stepMs)
+    } else {
+      setDisplayScore(0)
+    }
+
+    // Legendary tier — spawn 8 gold star pixels around the score
+    if (finalScore >= 60) {
+      const burst: StarParticle[] = Array.from({ length: 8 }, (_, idx) => ({
+        id: starIdRef.current++,
+        angle: (idx / 8) * 360,
+        distance: 42 + Math.random() * 18,
+        delay: idx * 60,
+      }))
+      setStars(burst)
+    }
 
     if (user?.id && scoreRef.current > 0) {
       supabase.from('game_scores').insert({ user_id: user.id, game_type: 'paw_tap', score: scoreRef.current }).then(({ error }) => { if (error) console.error('score save error:', error) })
@@ -139,39 +214,75 @@ export default function PawTapGame() {
     setFish(prev => prev.map(fi => fi.id === f.id ? { ...fi, visible: false, caught: true } : fi))
 
     const isDanger = f.kind === 'danger'
+    const prevCombo = comboRef.current
+    let comboMilestone = false
 
     if (isDanger) {
       // Lose points, break combo
       scoreRef.current = Math.max(0, scoreRef.current + f.points)
       comboRef.current = 0
+      playSound('pt_danger_hit')
+      // Screen shake + global red HUD flash
+      setShake(true)
+      setTimeout(() => setShake(false), 220)
+      setHudFlash('danger')
+      setTimeout(() => setHudFlash('none'), 280)
+      // If they had a streak going, show a "COMBO LOST!" banner
+      if (prevCombo >= 3) {
+        const lostId = Date.now()
+        setComboLost({ id: lostId, combo: prevCombo })
+        setTimeout(() => setComboLost(c => (c && c.id === lostId ? null : c)), 800)
+      }
     } else {
       // Score + combo bonus every 5 catches
-      const comboBonus = comboRef.current > 0 && comboRef.current % 5 === 4 ? 2 : 0
+      comboMilestone = comboRef.current > 0 && comboRef.current % 5 === 4
+      const comboBonus = comboMilestone ? 2 : 0
       scoreRef.current += f.points + comboBonus
       comboRef.current += 1
+      if (f.kind === 'bonus') {
+        playSound('pt_catch_bonus')
+        // Subtle camera zoom-pulse on bonus catch
+        setBonusZoom(true)
+        setTimeout(() => setBonusZoom(false), 200)
+        setHudFlash('bonus')
+        setTimeout(() => setHudFlash('none'), 220)
+      } else {
+        playSound('pt_catch_good')
+      }
+      if (comboMilestone) playSound('pt_combo_milestone')
     }
 
     setScore(scoreRef.current)
+    // HUD score number pulse — gold flash for bonus, regular pop otherwise
+    if (!isDanger) {
+      setScorePulse(f.kind === 'bonus' ? 'bonus' : 'good')
+      setTimeout(() => setScorePulse('none'), 180)
+    }
     setPawFlash(true)
     setTimeout(() => setPawFlash(false), 150)
 
-    // Splash effect — color varies by kind
+    // Splash effect — color varies by kind, ring rendered on non-danger
     const sid = splashIdRef.current++
     const splashColor = isDanger ? '#FF4444' : f.kind === 'bonus' ? '#FFD700' : '#FFFFFF'
-    setSplashes(prev => [...prev, { id: sid, x: f.x, y: f.y, color: splashColor }])
+    setSplashes(prev => [...prev, { id: sid, x: f.x, y: f.y, color: splashColor, ring: !isDanger }])
     setTimeout(() => setSplashes(prev => prev.filter(s => s.id !== sid)), 600)
 
     // Floating text
     let text = ''
+    let tier: 'normal' | 'bonus' | 'combo' | 'fire' | 'damage' = 'normal'
     if (isDanger) {
       text = `${f.points}`
+      tier = 'damage'
     } else if (f.kind === 'bonus') {
       text = `+${f.points} BONUS!`
+      tier = 'bonus'
     } else {
       const combo = comboRef.current
-      text = combo >= 10 ? `🔥 ×${combo}` : combo >= 5 ? `⚡ ×${combo}` : `+${f.points}`
+      if (combo >= 10) { text = `🔥 ×${combo}`; tier = 'fire' }
+      else if (combo >= 5) { text = `⚡ ×${combo}`; tier = 'combo' }
+      else { text = `+${f.points}` }
     }
-    setComboText({ id: Date.now(), text, x: f.x, y: f.y })
+    setComboText({ id: Date.now(), text, x: f.x, y: f.y, tier })
     setTimeout(() => setComboText(null), 700)
   }
 
@@ -197,9 +308,29 @@ export default function PawTapGame() {
       {/* ── HUD ── */}
       <div className="flex gap-3 mb-3">
         <div className="flex-1 flex flex-col items-center py-2.5"
-          style={{ background: 'linear-gradient(135deg, #F0F8FF, #E0EEFF)', borderRadius: 3, border: '2px solid #B8D8F0', boxShadow: '2px 2px 0 #90B8D8' }}>
+          style={{
+            background: hudFlash === 'danger'
+              ? 'linear-gradient(135deg, #FFE0E0, #FFB0B0)'
+              : hudFlash === 'bonus'
+                ? 'linear-gradient(135deg, #FFF6CC, #FFE48A)'
+                : 'linear-gradient(135deg, #F0F8FF, #E0EEFF)',
+            borderRadius: 3,
+            border: `2px solid ${hudFlash === 'danger' ? '#FF6060' : hudFlash === 'bonus' ? '#E0B020' : '#B8D8F0'}`,
+            boxShadow: `2px 2px 0 ${hudFlash === 'danger' ? '#C03030' : hudFlash === 'bonus' ? '#A07810' : '#90B8D8'}`,
+            transition: 'background 0.15s, border-color 0.15s, box-shadow 0.15s',
+          }}>
           <span className="font-pixel text-sky-500" style={{ fontSize: 6 }}>FISH CAUGHT</span>
-          <span className="font-pixel text-[#FF6B9D] mt-1" style={{ fontSize: 16 }}>{score}</span>
+          <span
+            className="font-pixel mt-1"
+            style={{
+              fontSize: 16,
+              color: scorePulse === 'bonus' ? '#FFC000' : '#FF6B9D',
+              display: 'inline-block',
+              animation: scorePulse !== 'none' ? 'scoreBounce 0.18s steps(2, end)' : 'none',
+              textShadow: scorePulse === 'bonus' ? '0 0 6px rgba(255,200,0,0.7)' : 'none',
+            }}>
+            {score}
+          </span>
         </div>
         <div className={`flex-1 flex flex-col items-center py-2.5 ${timeWarning ? 'animate-heartbeat' : ''}`}
           style={{ background: timeWarning ? 'linear-gradient(135deg, #FFF0F0, #FFE0E0)' : 'linear-gradient(135deg, #F0F8FF, #E0EEFF)', borderRadius: 3, border: `2px solid ${timeWarning ? '#FFB0B0' : '#B8D8F0'}`, boxShadow: `2px 2px 0 ${timeWarning ? '#FF9090' : '#90B8D8'}` }}>
@@ -230,10 +361,23 @@ export default function PawTapGame() {
 
       {/* ── Game area ── */}
       <div className="mb-4 relative overflow-hidden select-none"
-        style={{ height: 320, borderRadius: 4, border: '3px solid #88C4E8', boxShadow: '4px 4px 0 #60A8D0' }}>
+        style={{
+          height: 320,
+          borderRadius: 4,
+          border: '3px solid #88C4E8',
+          boxShadow: '4px 4px 0 #60A8D0',
+          animation: shake ? 'aquariumShake 0.22s steps(4, end)' : bonusZoom ? 'bonusZoom 0.2s ease-out' : 'none',
+        }}>
 
         {/* ── Underwater background ── */}
         <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, #A8E0F8 0%, #70C4F0 35%, #50A8E0 70%, #3888C8 100%)' }} />
+
+        {/* Danger vignette on bad hits */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background: 'radial-gradient(ellipse at center, transparent 50%, rgba(200,0,0,0.5) 100%)',
+          opacity: hudFlash === 'danger' ? 1 : 0,
+          transition: 'opacity 0.12s ease-out',
+        }} />
 
         {/* Light rays from surface */}
         {[15, 35, 55, 75].map((rx, ri) => (
@@ -359,6 +503,30 @@ export default function PawTapGame() {
           <div key={s.id}
             className="absolute pointer-events-none"
             style={{ left: s.x, top: s.y, transform: 'translate(-50%,-50%)', animation: 'splashOut 0.5s ease-out forwards' }}>
+            {/* Expanding water-displacement rings (behind the dot burst) */}
+            {s.ring && (
+              <>
+                <span style={{
+                  position: 'absolute',
+                  width: 22, height: 22,
+                  marginLeft: -11, marginTop: -11,
+                  borderRadius: '50%',
+                  border: `2px solid ${s.color}`,
+                  background: 'transparent',
+                  animation: 'splashRing 0.35s ease-out forwards',
+                }} />
+                <span style={{
+                  position: 'absolute',
+                  width: 22, height: 22,
+                  marginLeft: -11, marginTop: -11,
+                  borderRadius: '50%',
+                  border: `2px solid ${s.color}`,
+                  background: 'transparent',
+                  animation: 'splashRing 0.35s ease-out 0.08s forwards',
+                  opacity: 0,
+                }} />
+              </>
+            )}
             {[0, 1, 2, 3, 4, 5].map(ei => (
               <span key={ei} style={{
                 position: 'absolute',
@@ -382,12 +550,51 @@ export default function PawTapGame() {
             style={{
               left: comboText.x, top: comboText.y,
               transform: 'translate(-50%, -180%)',
-              color: comboText.text.startsWith('-') ? '#FF4444' : comboText.text.includes('BONUS') ? '#FFD700' : comboText.text.includes('×') ? '#FF9D00' : '#FFD700',
-              fontSize: comboText.text.includes('BONUS') || comboText.text.includes('×') ? 9 : 8,
-              textShadow: '1px 1px 0 rgba(0,0,0,0.5)',
-              animation: 'floatUp 0.7s ease-out forwards',
+              color: comboText.tier === 'damage'
+                ? '#FF4444'
+                : comboText.tier === 'bonus'
+                  ? '#FFD700'
+                  : comboText.tier === 'fire'
+                    ? '#FF4500'
+                    : comboText.tier === 'combo'
+                      ? '#FF9D00'
+                      : '#FFD700',
+              fontSize: comboText.tier === 'fire' ? 11 : comboText.tier === 'combo' || comboText.tier === 'bonus' ? 9 : 8,
+              textShadow: comboText.tier === 'fire'
+                ? '1px 1px 0 #7A1A00, 0 0 6px rgba(255,80,0,0.7)'
+                : '1px 1px 0 rgba(0,0,0,0.5)',
+              animation: comboText.tier === 'fire'
+                ? 'floatBurst 0.7s cubic-bezier(.2,.9,.3,1) forwards'
+                : 'floatUp 0.7s ease-out forwards',
             }}>
+            {/* Sparkle behind fire combos */}
+            {comboText.tier === 'fire' && (
+              <span aria-hidden style={{
+                position: 'absolute', inset: -4,
+                background: 'radial-gradient(circle, rgba(255,200,80,0.7) 0%, transparent 70%)',
+                zIndex: -1,
+                animation: 'sparklePulse 0.5s ease-out forwards',
+              }} />
+            )}
             {comboText.text}
+          </div>
+        )}
+
+        {/* COMBO LOST! banner — only when streak >=3 was broken */}
+        {comboLost && (
+          <div
+            key={comboLost.id}
+            className="absolute pointer-events-none font-pixel"
+            style={{
+              left: '50%', top: '38%',
+              transform: 'translate(-50%, -50%)',
+              color: '#FF4444',
+              fontSize: 10,
+              letterSpacing: 1,
+              textShadow: '1px 1px 0 #000, 0 0 6px rgba(255,40,40,0.6)',
+              animation: 'comboLost 0.8s ease-out forwards',
+            }}>
+            COMBO LOST! ×{comboLost.combo}
           </div>
         )}
 
@@ -442,8 +649,31 @@ export default function PawTapGame() {
             )}
             {gameState === 'finished' && (
               <>
-                <div className="text-4xl mb-2">🎣</div>
-                <p className="font-pixel text-[#FFD700] mb-1" style={{ fontSize: 11 }}>{score}</p>
+                <div className="text-4xl mb-2" style={{ animation: 'rodWiggle 1.4s ease-in-out infinite' }}>🎣</div>
+                <div className="relative">
+                  {/* Star burst — only for LEGENDARY (60+) */}
+                  {score >= 60 && stars.map(st => (
+                    <span
+                      key={st.id}
+                      aria-hidden
+                      style={{
+                        position: 'absolute',
+                        left: '50%', top: '50%',
+                        width: 6, height: 6,
+                        marginLeft: -3, marginTop: -3,
+                        background: '#FFD700',
+                        boxShadow: '0 0 4px #FFC000, 1px 1px 0 #A06000',
+                        // 4-point pixel star via clip
+                        clipPath: 'polygon(50% 0,60% 40%,100% 50%,60% 60%,50% 100%,40% 60%,0 50%,40% 40%)',
+                        animation: `starBurst 0.9s cubic-bezier(.2,.7,.4,1) ${st.delay}ms forwards`,
+                        ['--sx' as string]: `${Math.cos((st.angle * Math.PI) / 180) * st.distance}px`,
+                        ['--sy' as string]: `${Math.sin((st.angle * Math.PI) / 180) * st.distance}px`,
+                        opacity: 0,
+                      } as React.CSSProperties}
+                    />
+                  ))}
+                  <p className="font-pixel text-[#FFD700] mb-1" style={{ fontSize: 11 }}>{displayScore}</p>
+                </div>
                 <p className="font-pixel text-sky-200 mb-3" style={{ fontSize: 7 }}>FISH CAUGHT!</p>
                 <p className="font-pixel text-sky-300 mb-1" style={{ fontSize: 6 }}>
                   {score >= 60 ? '★ LEGENDARY ANGLER! ★' : score >= 40 ? '★ PAW MASTER! ★' : score >= 20 ? '★ NICE CATCH! ★' : 'KEEP PRACTICING!'}
@@ -511,6 +741,51 @@ export default function PawTapGame() {
         @keyframes splashFly {
           0%   { transform: rotate(var(--r,0deg)) translateY(-10px); opacity: 1; }
           100% { transform: rotate(var(--r,0deg)) translateY(-32px); opacity: 0; }
+        }
+        @keyframes splashRing {
+          0%   { transform: scale(0); opacity: 0.6; }
+          100% { transform: scale(2);   opacity: 0; }
+        }
+        @keyframes aquariumShake {
+          0%   { transform: translate(0, 0); }
+          25%  { transform: translate(-4px, 2px); }
+          50%  { transform: translate(3px, -3px); }
+          75%  { transform: translate(-2px, 4px); }
+          100% { transform: translate(0, 0); }
+        }
+        @keyframes bonusZoom {
+          0%   { transform: scale(1); }
+          40%  { transform: scale(1.04); }
+          100% { transform: scale(1); }
+        }
+        @keyframes scoreBounce {
+          0%   { transform: scale(1); }
+          50%  { transform: scale(1.2); }
+          100% { transform: scale(1); }
+        }
+        @keyframes floatBurst {
+          0%   { transform: translate(-50%, -180%) scale(1.4); opacity: 1; }
+          12%  { transform: translate(-50%, -190%) scale(1.0); opacity: 1; }
+          100% { transform: translate(-50%, -290%) scale(1.0); opacity: 0; }
+        }
+        @keyframes sparklePulse {
+          0%   { opacity: 1; transform: scale(0.6); }
+          100% { opacity: 0; transform: scale(1.6); }
+        }
+        @keyframes comboLost {
+          0%   { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+          25%  { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+          75%  { transform: translate(-50%, -65%) scale(1);    opacity: 1; }
+          100% { transform: translate(-50%, -90%) scale(0.95); opacity: 0; }
+        }
+        @keyframes rodWiggle {
+          0%, 100% { transform: rotate(-6deg); }
+          50%       { transform: rotate(6deg); }
+        }
+        @keyframes starBurst {
+          0%   { transform: translate(0,0) scale(0.4); opacity: 0; }
+          20%  { opacity: 1; }
+          100% { transform: translate(var(--sx,0), var(--sy,0)) scale(1); opacity: 0; }
         }
       `}</style>
     </div>

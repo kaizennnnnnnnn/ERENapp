@@ -21,6 +21,7 @@ const SPAWN_MIN  = 280
 const PLAYER_BOTTOM = 90  // distance from ground line
 const ITEM_SIZE = 46
 const COLLIDE_INSET = 10
+const SPEED_TIERS = [400, 500, SPEED_MAX]
 
 type Variant = 'mouse' | 'vacuum' | 'cucumber' | 'dog' | 'coin' | 'fish'
 
@@ -30,6 +31,35 @@ interface Item {
   y: number
   variant: Variant
   collected?: boolean
+  passed?: boolean       // crossed the player row — used for near-miss detection
+}
+
+interface Popup {
+  id: number
+  x: number
+  y: number
+  text: string
+  color: string
+  born: number
+}
+
+interface Sparkle {
+  id: number
+  x: number
+  y: number
+  dx: number
+  dy: number
+  color: string
+  born: number
+}
+
+interface SpeedStreak {
+  id: number
+  side: 'l' | 'r'
+  y: number
+  vy: number
+  life: number
+  born: number
 }
 
 let _iid = 0
@@ -72,6 +102,13 @@ export default function LaneRunnerGame() {
   const [coins, setCoins]   = useState(0)
   const [bestScore, setBest] = useState(0)
   const [stripeOffset, setStripeOffset] = useState(0)
+  const [streak, setStreak] = useState(0)
+  const [scorePulse, setScorePulse] = useState(0)
+  const [hitFlash, setHitFlash] = useState(0)
+  const [shaking, setShaking] = useState(false)
+  const [parallaxOffset, setParallaxOffset] = useState(0)
+  const [gameOverScore, setGameOverScore] = useState(0)
+  const [isNewBest, setIsNewBest] = useState(false)
 
   const stateRef       = useRef<'idle' | 'running' | 'gameover'>('idle')
   const itemsRef       = useRef<Item[]>([])
@@ -80,13 +117,72 @@ export default function LaneRunnerGame() {
   const lastFrameRef   = useRef(0)
   const startTimeRef   = useRef(0)
   const stripeRef      = useRef(0)
+  const parallaxRef    = useRef(0)
   const rafRef         = useRef<number>(0)
   const distanceRef    = useRef(0)
   const coinsRef       = useRef(0)
   const laneRef        = useRef<0 | 1 | 2>(1)
   const savedRef       = useRef(false)
+  const streakRef      = useRef(0)
+  const lastScoreRef   = useRef(0)
+  const popupsRef      = useRef<Popup[]>([])
+  const sparklesRef    = useRef<Sparkle[]>([])
+  const streaksRef     = useRef<SpeedStreak[]>([])
+  const lastStreakSpawnRef = useRef(0)
+  const speedTierRef   = useRef(0)
+  const bestRef        = useRef(0)
+  const popupIdRef     = useRef(0)
+  const sparkleIdRef   = useRef(0)
+  const streakIdRef    = useRef(0)
 
   const [, force] = useReducer((n: number) => n + 1, 0)
+
+  // Keep bestRef in sync so endGame can detect new-best without stale state
+  useEffect(() => { bestRef.current = bestScore }, [bestScore])
+
+  // Load persisted best from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem('lr_best')
+      if (stored) {
+        const n = parseInt(stored, 10)
+        if (!isNaN(n) && n > 0) { setBest(n); bestRef.current = n }
+      }
+    } catch { /* ignore */ }
+  }, [])
+
+  function spawnPopup(x: number, y: number, text: string, color: string) {
+    popupsRef.current.push({
+      id: ++popupIdRef.current,
+      x, y, text, color,
+      born: performance.now(),
+    })
+  }
+
+  function spawnSparkles(x: number, y: number, color: string, count = 5) {
+    const now = performance.now()
+    for (let i = 0; i < count; i++) {
+      const ang = (Math.PI * 2 * i) / count + Math.random() * 0.4
+      const speed = 60 + Math.random() * 50
+      sparklesRef.current.push({
+        id: ++sparkleIdRef.current,
+        x, y,
+        dx: Math.cos(ang) * speed,
+        dy: Math.sin(ang) * speed,
+        color,
+        born: now,
+      })
+    }
+  }
+
+  function triggerShake() {
+    setShaking(true)
+    setTimeout(() => setShaking(false), 220)
+  }
+
+  function pulseScore() {
+    setScorePulse(p => p + 1)
+  }
 
   function laneToX(l: 0 | 1 | 2) {
     return ((l + 0.5) / LANES) * fieldDims.w
@@ -109,6 +205,38 @@ export default function LaneRunnerGame() {
     const recent = itemsRef.current.filter(i => i.y < 100)
     const usedLanes = new Set(recent.map(i => i.lane))
     const candidates = ([0, 1, 2] as const).filter(l => !usedLanes.has(l))
+
+    // Wall prevention: if we're about to spawn an OBSTACLE and there are
+    // already obstacles in the other two lanes within a vertical band (giving
+    // the player no escape), force a pickup or skip this spawn.
+    if (isObstacle(variant)) {
+      // Look at recent obstacles in a slightly larger band — anything that
+      // hasn't passed the player yet counts toward forming a wall.
+      const recentObstacles = itemsRef.current.filter(
+        i => isObstacle(i.variant) && i.y < 180 && !i.collected
+      )
+      const obstacleLanes = new Set(recentObstacles.map(i => i.lane))
+      // If two lanes already have obstacles in the upper band, the third lane
+      // MUST stay clear (or be a pickup). Force candidate to a safe lane and
+      // convert this spawn into a pickup so player can survive.
+      if (obstacleLanes.size >= 2) {
+        const safeLanes = ([0, 1, 2] as const).filter(l => !obstacleLanes.has(l))
+        if (safeLanes.length > 0) {
+          const safeLane = safeLanes[Math.floor(Math.random() * safeLanes.length)]
+          // Convert to a coin so player has a guaranteed survivable path
+          itemsRef.current.push({
+            id: newId(),
+            lane: safeLane,
+            y: -ITEM_SIZE,
+            variant: 'coin',
+          })
+          return
+        }
+        // No safe lane at all — skip spawn entirely to avoid a wall
+        return
+      }
+    }
+
     const targetLane = (candidates.length > 0
       ? candidates[Math.floor(Math.random() * candidates.length)]
       : Math.floor(Math.random() * 3) as 0 | 1 | 2)
@@ -127,31 +255,96 @@ export default function LaneRunnerGame() {
     lastFrameRef.current = now
 
     const elapsed = (now - startTimeRef.current) / 1000
+    const prevSpeed = speedRef.current
     speedRef.current = Math.min(SPEED_MAX, SPEED_BASE + elapsed * SPEED_RAMP)
+
+    // Speed tier sound — fires when we cross 400 / 500 / SPEED_MAX
+    for (let t = speedTierRef.current; t < SPEED_TIERS.length; t++) {
+      if (prevSpeed < SPEED_TIERS[t] && speedRef.current >= SPEED_TIERS[t]) {
+        playSound('lr_speed_up')
+        speedTierRef.current = t + 1
+        break
+      }
+    }
 
     spawn(now)
 
     // Move items
     for (const it of itemsRef.current) it.y += speedRef.current * dt
 
-    // Scroll the lane stripes for the running illusion
+    // Scroll lane stripes + parallax skyline
     stripeRef.current = (stripeRef.current + speedRef.current * dt) % 40
     setStripeOffset(stripeRef.current)
+    parallaxRef.current = (parallaxRef.current + speedRef.current * dt * 0.45) % 200
+    setParallaxOffset(parallaxRef.current)
+
+    // Spawn speed streaks on the side grass — density scales with speed
+    const speedRatio = (speedRef.current - SPEED_BASE) / (SPEED_MAX - SPEED_BASE)
+    const streakInterval = Math.max(60, 220 - speedRatio * 180)
+    if (now - lastStreakSpawnRef.current > streakInterval) {
+      lastStreakSpawnRef.current = now
+      const side: 'l' | 'r' = Math.random() < 0.5 ? 'l' : 'r'
+      streaksRef.current.push({
+        id: ++streakIdRef.current,
+        side,
+        y: -20,
+        vy: speedRef.current * 1.4,
+        life: 0,
+        born: now,
+      })
+    }
+    // Move streaks
+    for (const s of streaksRef.current) {
+      s.y += s.vy * dt
+      s.life += dt
+    }
+    streaksRef.current = streaksRef.current.filter(s => s.y < fieldDims.h + 40 && s.life < 1.5)
+
+    // Move sparkles + popups (lifetime cleanup)
+    sparklesRef.current = sparklesRef.current.filter(sp => now - sp.born < 600)
+    popupsRef.current = popupsRef.current.filter(p => now - p.born < 800)
 
     // Update distance
     distanceRef.current += speedRef.current * dt * 0.05  // tuned so 1 unit feels like a meter
     const distScore = Math.floor(distanceRef.current)
-    setScore(distScore + coinsRef.current * 5)
+    const newScore = distScore + coinsRef.current * 5
+    if (newScore !== lastScoreRef.current) {
+      // Pulse on every meaningful increment (every 5 points to avoid flutter)
+      if (Math.floor(newScore / 5) !== Math.floor(lastScoreRef.current / 5)) {
+        pulseScore()
+      }
+      lastScoreRef.current = newScore
+      setScore(newScore)
+    }
 
-    // Collision check
+    // Collision + near-miss check
     const playerY = fieldDims.h - PLAYER_BOTTOM
     const playerLane = laneRef.current
     for (const it of itemsRef.current) {
       if (it.collected) continue
+
+      // Near-miss: obstacle in adjacent lane passes player row
+      if (
+        !it.passed &&
+        isObstacle(it.variant) &&
+        it.lane !== playerLane &&
+        Math.abs(it.lane - playerLane) === 1 &&
+        it.y > playerY - ITEM_SIZE / 2 &&
+        it.y < playerY + ITEM_SIZE / 2 + 4
+      ) {
+        it.passed = true
+        playSound('lr_near_miss')
+      }
+
       if (it.lane !== playerLane) continue
       if (Math.abs(it.y - playerY) > ITEM_SIZE / 2 + COLLIDE_INSET) continue
       if (isObstacle(it.variant)) {
-        playSound('ui_back')
+        playSound('lr_crash')
+        triggerShake()
+        setHitFlash(f => f + 1)
+        // Streak ends on crash
+        streakRef.current = 0
+        setStreak(0)
         endGame()
         return
       }
@@ -160,10 +353,35 @@ export default function LaneRunnerGame() {
       const reward = it.variant === 'fish' ? 3 : 1
       coinsRef.current += reward
       setCoins(coinsRef.current)
-      playSound('ui_modal_close')
+      streakRef.current += 1
+      setStreak(streakRef.current)
+      pulseScore()
+
+      const popupX = laneToX(it.lane)
+      const popupY = it.y
+      if (it.variant === 'fish') {
+        playSound('lr_fish_pickup')
+        spawnPopup(popupX, popupY, '+3', '#7DD3FC')
+        spawnSparkles(popupX, popupY, '#7DD3FC', 6)
+      } else {
+        playSound('lr_coin_pickup')
+        spawnPopup(popupX, popupY, '+1', '#FCD34D')
+        spawnSparkles(popupX, popupY, '#FCD34D', 5)
+      }
     }
 
-    // Drop offscreen items + collected
+    // Drop offscreen items + collected. Reset streak if an uncollected pickup passes the player.
+    const playerRowBelow = fieldDims.h - PLAYER_BOTTOM + ITEM_SIZE
+    for (const i of itemsRef.current) {
+      if (!i.collected && !isObstacle(i.variant) && i.y > playerRowBelow && !i.passed) {
+        i.passed = true
+        // Missed a pickup — gently reset streak (do not spam if streak was 0)
+        if (streakRef.current > 0) {
+          streakRef.current = 0
+          setStreak(0)
+        }
+      }
+    }
     itemsRef.current = itemsRef.current.filter(i => !i.collected && i.y < fieldDims.h + ITEM_SIZE)
 
     force()
@@ -172,21 +390,33 @@ export default function LaneRunnerGame() {
 
   function startGame() {
     itemsRef.current = []
+    popupsRef.current = []
+    sparklesRef.current = []
+    streaksRef.current = []
     speedRef.current = SPEED_BASE
     distanceRef.current = 0
     coinsRef.current = 0
     laneRef.current = 1
     savedRef.current = false
+    streakRef.current = 0
+    lastScoreRef.current = 0
+    speedTierRef.current = 0
+    parallaxRef.current = 0
     setLane(1)
     setScore(0)
     setCoins(0)
+    setStreak(0)
     setStripeOffset(0)
+    setParallaxOffset(0)
+    setIsNewBest(false)
+    setGameOverScore(0)
     stripeRef.current = 0
 
     const now = performance.now()
     startTimeRef.current = now
     lastFrameRef.current = now
     lastSpawnRef.current = now - SPAWN_BASE + 400
+    lastStreakSpawnRef.current = now
 
     stateRef.current = 'running'
     setPhase('running')
@@ -198,7 +428,18 @@ export default function LaneRunnerGame() {
     stateRef.current = 'gameover'
     setPhase('gameover')
     const finalScore = Math.floor(distanceRef.current) + coinsRef.current * 5
-    setBest(b => Math.max(b, finalScore))
+    const prevBest = bestRef.current
+    const newBest = Math.max(prevBest, finalScore)
+    setBest(newBest)
+    bestRef.current = newBest
+    setGameOverScore(finalScore)
+    const beatBest = finalScore > prevBest && finalScore > 0
+    setIsNewBest(beatBest)
+    if (beatBest) {
+      try { window.localStorage.setItem('lr_best', String(finalScore)) } catch { /* ignore */ }
+      // Fire new-best fanfare slightly after the crash sound
+      setTimeout(() => playSound('lr_new_best'), 280)
+    }
     if (!savedRef.current && user?.id && finalScore > 0) {
       savedRef.current = true
       supabase.from('game_scores').insert({ user_id: user.id, game_type: 'lane_runner', score: finalScore })
@@ -216,8 +457,13 @@ export default function LaneRunnerGame() {
     stateRef.current = 'idle'
     setPhase('idle')
     itemsRef.current = []
+    popupsRef.current = []
+    sparklesRef.current = []
+    streaksRef.current = []
     setScore(0)
     setCoins(0)
+    setStreak(0)
+    setIsNewBest(false)
   }
 
   useEffect(() => () => { cancelAnimationFrame(rafRef.current) }, [])
@@ -242,7 +488,7 @@ export default function LaneRunnerGame() {
       const dir = dx > 0 ? 1 : -1
       setLane(l => {
         const next = Math.max(0, Math.min(2, l + dir)) as 0 | 1 | 2
-        if (next !== l) playSound('ui_swipe_room')
+        if (next !== l) playSound('lr_lane_swipe')
         return next
       })
     }
@@ -254,9 +500,17 @@ export default function LaneRunnerGame() {
     function onKey(e: KeyboardEvent) {
       if (stateRef.current !== 'running') return
       if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
-        setLane(l => Math.max(0, l - 1) as 0 | 1 | 2)
+        setLane(l => {
+          const next = Math.max(0, l - 1) as 0 | 1 | 2
+          if (next !== l) playSound('lr_lane_swipe')
+          return next
+        })
       } else if (e.code === 'ArrowRight' || e.code === 'KeyD') {
-        setLane(l => Math.min(2, l + 1) as 0 | 1 | 2)
+        setLane(l => {
+          const next = Math.min(2, l + 1) as 0 | 1 | 2
+          if (next !== l) playSound('lr_lane_swipe')
+          return next
+        })
       }
     }
     window.addEventListener('keydown', onKey)
@@ -291,30 +545,158 @@ export default function LaneRunnerGame() {
         className="relative flex-1 overflow-hidden select-none"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
-        style={{ touchAction: 'none' }}>
+        style={{
+          touchAction: 'none',
+          transform: shaking ? undefined : 'none',
+          animation: shaking ? 'lr-shake 0.22s steps(6, end)' : undefined,
+        }}>
 
-        {/* Asphalt + scrolling stripes */}
+        {/* Sky band — sits behind asphalt */}
         <div style={{
-          position: 'absolute', inset: 0,
+          position: 'absolute', left: 0, right: 0, top: 0, height: '32%',
+          background: 'linear-gradient(180deg, #1B1240 0%, #2B1B58 60%, #4B2D7E 100%)',
+          pointerEvents: 'none',
+        }} />
+
+        {/* Parallax skyline — pixel buildings scroll slower than the road */}
+        <div style={{
+          position: 'absolute', left: 0, right: 0, top: '18%', height: '14%',
+          backgroundImage: `repeating-linear-gradient(90deg,
+            transparent 0 6px,
+            #0A0420 6px 10px,
+            #0A0420 10px 22px,
+            transparent 22px 28px,
+            #14092C 28px 50px,
+            transparent 50px 58px,
+            #0A0420 58px 70px,
+            transparent 70px 84px,
+            #14092C 84px 104px,
+            transparent 104px 116px,
+            #0A0420 116px 144px,
+            transparent 144px 156px,
+            #14092C 156px 180px,
+            transparent 180px 200px
+          )`,
+          backgroundPositionX: `${-parallaxOffset * 0.5}px`,
+          backgroundSize: '200px 100%',
+          pointerEvents: 'none',
+          opacity: 0.95,
+        }} />
+
+        {/* Distant city lights — twinkling dots in the skyline strip */}
+        <div style={{
+          position: 'absolute', left: 0, right: 0, top: '22%', height: '8%',
+          backgroundImage: `repeating-linear-gradient(90deg,
+            transparent 0 14px,
+            #FCD34D 14px 16px,
+            transparent 16px 38px,
+            #A78BFA 38px 40px,
+            transparent 40px 70px,
+            #FBBF24 70px 72px,
+            transparent 72px 110px
+          )`,
+          backgroundPositionX: `${-parallaxOffset * 0.5}px`,
+          backgroundSize: '160px 100%',
+          opacity: 0.7,
+          pointerEvents: 'none',
+        }} />
+
+        {/* Horizon line — where sky meets road */}
+        <div style={{
+          position: 'absolute', left: 0, right: 0, top: '32%', height: 2,
+          background: '#000',
+          pointerEvents: 'none',
+          opacity: 0.65,
+        }} />
+
+        {/* Asphalt + scrolling stripes (starts below the sky) */}
+        <div style={{
+          position: 'absolute', left: 0, right: 0, top: '32%', bottom: 0,
           background: 'linear-gradient(180deg, #1F2937 0%, #111827 80%, #030712 100%)',
         }} />
 
-        {/* Side grass margins */}
-        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '6%', background: 'repeating-linear-gradient(0deg, #16a34a 0 12px, #15803d 12px 24px)' }} />
-        <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '6%', background: 'repeating-linear-gradient(0deg, #16a34a 0 12px, #15803d 12px 24px)' }} />
+        {/* Side grass margins (only across road portion) */}
+        <div style={{ position: 'absolute', left: 0, top: '32%', bottom: 0, width: '6%', background: 'repeating-linear-gradient(0deg, #16a34a 0 12px, #15803d 12px 24px)' }} />
+        <div style={{ position: 'absolute', right: 0, top: '32%', bottom: 0, width: '6%', background: 'repeating-linear-gradient(0deg, #16a34a 0 12px, #15803d 12px 24px)' }} />
+
+        {/* Speed streaks — pixel lines on side grass that grow denser with speed */}
+        {streaksRef.current.map(s => (
+          <div key={s.id} style={{
+            position: 'absolute',
+            [s.side === 'l' ? 'left' : 'right']: '1.5%',
+            top: s.y,
+            width: 3,
+            height: 18,
+            background: '#FFFFFF',
+            opacity: 0.55,
+            pointerEvents: 'none',
+            imageRendering: 'pixelated',
+          } as React.CSSProperties} />
+        ))}
+
+        {/* Speed vignette — darkens edges more as you go faster */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          boxShadow: `inset 0 0 ${40 + (speedRef.current - SPEED_BASE) / (SPEED_MAX - SPEED_BASE) * 80}px ${20 + (speedRef.current - SPEED_BASE) / (SPEED_MAX - SPEED_BASE) * 30}px rgba(0,0,0,${0.35 + (speedRef.current - SPEED_BASE) / (SPEED_MAX - SPEED_BASE) * 0.35})`,
+          pointerEvents: 'none',
+        }} />
 
         {/* Lane dividers — 2 dashed lines between 3 lanes, scroll downward */}
         {[1, 2].map(i => (
           <div key={i} style={{
             position: 'absolute',
             left: `${(i / LANES) * 100}%`,
-            top: 0, bottom: 0, width: 4,
+            top: '32%', bottom: 0, width: 4,
             background: `repeating-linear-gradient(180deg, #FCD34D 0 16px, transparent 16px 40px)`,
             backgroundPositionY: `${stripeOffset}px`,
             transform: 'translateX(-50%)',
             opacity: 0.7,
           }} />
         ))}
+
+        {/* Score popups (e.g. "+1", "+3") */}
+        {popupsRef.current.map(p => {
+          const age = (performance.now() - p.born) / 800
+          const drift = age * 28
+          const opacity = Math.max(0, 1 - age)
+          return (
+            <div key={p.id} className="absolute pointer-events-none font-pixel"
+              style={{
+                left: p.x,
+                top: p.y - drift,
+                transform: 'translate(-50%, -50%)',
+                color: p.color,
+                fontSize: 10,
+                letterSpacing: 1,
+                textShadow: '2px 2px 0 #000',
+                opacity,
+              }}>
+              {p.text}
+            </div>
+          )
+        })}
+
+        {/* Sparkle bursts */}
+        {sparklesRef.current.map(sp => {
+          const age = (performance.now() - sp.born) / 600
+          const x = sp.x + sp.dx * age
+          const y = sp.y + sp.dy * age
+          const opacity = Math.max(0, 1 - age)
+          const size = 4 * (1 - age * 0.5)
+          return (
+            <div key={sp.id} className="absolute pointer-events-none"
+              style={{
+                left: x - size / 2,
+                top: y - size / 2,
+                width: size,
+                height: size,
+                background: sp.color,
+                opacity,
+                boxShadow: `0 0 0 1px ${sp.color}`,
+                imageRendering: 'pixelated',
+              }} />
+          )
+        })}
 
         {/* Items */}
         {itemsRef.current.map(it => (
@@ -347,14 +729,39 @@ export default function LaneRunnerGame() {
         {/* HUD */}
         {phase !== 'idle' && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none">
-            <span className="font-pixel" style={{
+            <span key={scorePulse} className="font-pixel" style={{
               fontSize: 28, color: 'white',
               textShadow: '3px 3px 0 #000', letterSpacing: 2,
+              animation: 'lr-score-pulse 0.15s ease-out',
+              display: 'inline-block',
             }}>{score}</span>
             <span className="font-pixel mt-1" style={{ fontSize: 6, color: '#FDE68A', letterSpacing: 1.5 }}>
               {Math.floor(distanceRef.current)}m · ◎ {coins}
             </span>
+            {streak >= 3 && (
+              <span key={`streak-${streak}`} className="font-pixel mt-1.5 px-2 py-0.5" style={{
+                fontSize: 7,
+                color: streak >= 8 ? '#FFFFFF' : '#FDE68A',
+                letterSpacing: 1.5,
+                background: streak >= 8 ? 'linear-gradient(135deg, #DC2626, #F59E0B)' : 'rgba(0,0,0,0.55)',
+                border: `2px solid ${streak >= 8 ? '#FBBF24' : '#FCD34D'}`,
+                borderRadius: 3,
+                boxShadow: `2px 2px 0 rgba(0,0,0,0.4)`,
+                animation: 'lr-streak-pop 0.25s cubic-bezier(0.34,1.56,0.64,1)',
+              }}>
+                x{streak} STREAK
+              </span>
+            )}
           </div>
+        )}
+
+        {/* Hit flash overlay — red wash on crash */}
+        {hitFlash > 0 && (
+          <div key={`flash-${hitFlash}`} className="absolute inset-0 pointer-events-none" style={{
+            background: '#DC2626',
+            animation: 'lr-hit-flash 0.22s ease-out forwards',
+            mixBlendMode: 'screen',
+          }} />
         )}
 
         {/* Idle */}
@@ -394,16 +801,30 @@ export default function LaneRunnerGame() {
             <div className="flex flex-col items-center gap-3 px-6 py-5"
               style={{
                 background: 'linear-gradient(180deg, #15122A 0%, #0F0A1E 100%)',
-                border: '3px solid #16A34A',
+                border: `3px solid ${isNewBest ? '#FBBF24' : '#16A34A'}`,
                 borderRadius: 6,
-                boxShadow: '0 6px 0 #052e16, 0 0 24px rgba(22,163,74,0.4)',
+                boxShadow: isNewBest
+                  ? '0 6px 0 #92400E, 0 0 24px rgba(251,191,36,0.55)'
+                  : '0 6px 0 #052e16, 0 0 24px rgba(22,163,74,0.4)',
                 animation: 'lr-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both',
               }}>
-              <p className="font-pixel" style={{ fontSize: 11, color: '#FCA5A5', letterSpacing: 3 }}>GAME OVER</p>
+              <p className="font-pixel" style={{
+                fontSize: 11, color: '#FCA5A5', letterSpacing: 3,
+                animation: 'lr-shake-text 0.45s steps(8, end)',
+              }}>GAME OVER</p>
+              {isNewBest && (
+                <p className="font-pixel" style={{
+                  fontSize: 8, color: '#FBBF24', letterSpacing: 2,
+                  textShadow: '2px 2px 0 #92400E',
+                  animation: 'lr-new-best-pulse 0.9s ease-in-out infinite',
+                }}>* NEW BEST *</p>
+              )}
               <div className="flex items-center gap-4 mt-1">
                 <div className="flex flex-col items-center">
                   <span className="font-pixel" style={{ fontSize: 6, color: '#A3F0C0', letterSpacing: 1 }}>SCORE</span>
-                  <span className="font-pixel text-white" style={{ fontSize: 22 }}>{score}</span>
+                  <CountUp target={gameOverScore} duration={600} style={{
+                    fontFamily: '"Press Start 2P"', fontSize: 22, color: '#FFFFFF',
+                  }} />
                 </div>
                 <div style={{ width: 1, height: 28, background: '#3A2A60' }} />
                 <div className="flex flex-col items-center">
@@ -450,9 +871,65 @@ export default function LaneRunnerGame() {
           0%   { transform: scale(0.7); opacity: 0; }
           100% { transform: scale(1);   opacity: 1; }
         }
+        @keyframes lr-score-pulse {
+          0%   { transform: scale(1);    color: #FFFFFF; }
+          50%  { transform: scale(1.18); color: #FCD34D; }
+          100% { transform: scale(1);    color: #FFFFFF; }
+        }
+        @keyframes lr-hit-flash {
+          0%   { opacity: 0.7; }
+          100% { opacity: 0;   }
+        }
+        @keyframes lr-shake {
+          0%   { transform: translate(0, 0); }
+          15%  { transform: translate(-4px, 2px); }
+          30%  { transform: translate(4px, -2px); }
+          45%  { transform: translate(-3px, -3px); }
+          60%  { transform: translate(3px, 3px); }
+          75%  { transform: translate(-2px, 1px); }
+          100% { transform: translate(0, 0); }
+        }
+        @keyframes lr-shake-text {
+          0%   { transform: translate(0, 0); }
+          20%  { transform: translate(-2px, 1px); }
+          40%  { transform: translate(2px, -1px); }
+          60%  { transform: translate(-1px, -2px); }
+          80%  { transform: translate(1px, 2px); }
+          100% { transform: translate(0, 0); }
+        }
+        @keyframes lr-streak-pop {
+          0%   { transform: scale(0.5); opacity: 0; }
+          70%  { transform: scale(1.15); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes lr-new-best-pulse {
+          0%, 100% { transform: scale(1);    text-shadow: 2px 2px 0 #92400E; }
+          50%      { transform: scale(1.08); text-shadow: 2px 2px 0 #92400E, 0 0 8px #FBBF24; }
+        }
       `}</style>
     </div>
   )
+}
+
+// ─── Animated count-up score for the game over panel ──────────────────────────
+function CountUp({ target, duration, style }: { target: number; duration: number; style?: React.CSSProperties }) {
+  const [value, setValue] = useState(0)
+  useEffect(() => {
+    if (target <= 0) { setValue(0); return }
+    const start = performance.now()
+    let raf = 0
+    function step(now: number) {
+      const t = Math.min(1, (now - start) / duration)
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - t, 3)
+      setValue(Math.floor(eased * target))
+      if (t < 1) raf = requestAnimationFrame(step)
+      else setValue(target)
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [target, duration])
+  return <span style={style}>{value}</span>
 }
 
 // ─── Item sprites — small, bold silhouettes that read clearly on asphalt ────

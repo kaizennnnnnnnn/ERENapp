@@ -23,6 +23,10 @@ interface Tile {
   id: number
   type: number   // 0..5
   matched?: boolean
+  // Larger burst when this tile was part of a 5+ run.
+  bigMatch?: boolean
+  // Gold-tinted sparks for cascades ≥ 2.
+  goldSpark?: boolean
 }
 
 type Grid = (Tile | null)[][]
@@ -149,9 +153,18 @@ export default function YarnPopGame() {
   const [score, setScore]     = useState(0)
   const [bestScore, setBest]  = useState(0)
   const [combo, setCombo]     = useState(0)
+  // displayCombo lingers after the cascade ends so big chains don't flash
+  // away — the badge holds its final value while it fades out.
+  const [displayCombo, setDisplayCombo] = useState(0)
   const [processing, setProcessing] = useState(false)
   const [floater, setFloater] = useState<{ id: number; text: string; x: number; y: number; color: string } | null>(null)
   const savedRef = useRef(false)
+  // Score pulse — incremented per gain so React re-keys the animated span.
+  const [scorePulse, setScorePulse] = useState(0)
+  // Tiles to wobble after a failed swap (the two adjacent cells).
+  const [shakeKeys, setShakeKeys] = useState<Set<string>>(new Set())
+  // Ending-flourish flag: dims board + sweeps a scanline before gameover.
+  const [ending, setEnding] = useState(false)
 
   function startGame() {
     let g = genGrid()
@@ -161,8 +174,11 @@ export default function YarnPopGame() {
     setMoves(STARTING_MOVES)
     setScore(0)
     setCombo(0)
+    setDisplayCombo(0)
     setSelected(null)
     setProcessing(false)
+    setEnding(false)
+    setShakeKeys(new Set())
     savedRef.current = false
     setPhase('playing')
   }
@@ -172,26 +188,36 @@ export default function YarnPopGame() {
     let g = initialGrid
     let comboLocal = 0
     let totalScore = 0
+    let biggestMatch = 0
 
     while (true) {
       const matches = detectMatches(g)
       if (matches.size === 0) break
       comboLocal++
       setCombo(comboLocal)
+      setDisplayCombo(comboLocal)
+      if (matches.size > biggestMatch) biggestMatch = matches.size
 
-      // Mark matched tiles for fade animation
+      // Mark matched tiles for fade animation. We tag big matches so the
+      // burst visual scales up and tints gold on combos ≥2.
+      const bigMatch = matches.size >= 5
       g = gridCopy(g)
       matches.forEach(k => {
         const [r, c] = k.split(',').map(Number)
-        if (g[r][c]) g[r][c] = { ...g[r][c]!, matched: true }
+        if (g[r][c]) g[r][c] = { ...g[r][c]!, matched: true, bigMatch, goldSpark: comboLocal >= 2 }
       })
       setGrid(g)
-      playSound(comboLocal === 1 ? 'ui_modal_close' : 'ui_modal_open')
+      // Gameplay sound: ascending pop per cascade level. The big-combo sting
+      // fires once when a chain reaches x4 (replacing the screen-wash being
+      // the only feedback). Match-pop continues alongside so x4+ feels rich.
+      playSound('yp_match_pop')
+      if (comboLocal === 4) playSound('yp_big_combo')
 
       // Score: 10 per cell, multiplied by cascade
       const gained = matches.size * 10 * comboLocal
       totalScore += gained
       setScore(s => s + gained)
+      setScorePulse(p => p + 1)
       flashFloater(comboLocal > 1 ? `${gained} · COMBO x${comboLocal}!` : `+${gained}`,
                    comboLocal > 1 ? '#FBBF24' : '#FBCFE8')
 
@@ -216,13 +242,23 @@ export default function YarnPopGame() {
     }
 
     setCombo(0)
+    // Hold the badge value for a beat so big final chains stay readable,
+    // then unmount via the badge's own fade-out animation.
+    if (comboLocal >= 2) {
+      setTimeout(() => setDisplayCombo(0), 850)
+    } else {
+      setDisplayCombo(0)
+    }
     setProcessing(false)
     void totalScore
+    void biggestMatch
 
-    // Check game over
+    // Check game over — kick off the end-of-game flourish immediately so
+    // the board fade + scanline overlap the brief pause before the panel
+    // mounts (the counter no longer sits visibly at 0 for ~half a second).
     if (movesRef.current <= 0) {
-      // small grace pause then end
-      setTimeout(endGame, 250)
+      setEnding(true)
+      setTimeout(endGame, 600)
     }
   }
 
@@ -231,6 +267,7 @@ export default function YarnPopGame() {
 
   function endGame() {
     setPhase('gameover')
+    playSound('yp_gameover')
     setBest(b => Math.max(b, score))
     if (!savedRef.current && user?.id && score > 0) {
       savedRef.current = true
@@ -251,7 +288,7 @@ export default function YarnPopGame() {
   }
 
   async function handleTileTap(r: number, c: number) {
-    if (phase !== 'playing' || processing) return
+    if (phase !== 'playing' || processing || ending) return
     if (!selected) {
       setSelected({ r, c })
       return
@@ -271,20 +308,32 @@ export default function YarnPopGame() {
     setSelected(null)
     let next = doSwap(grid, a, b)
     setGrid(next)
-    playSound('ui_swipe_room')
+    playSound('yp_swap')
 
     await sleep(160)
 
     // Validate match
     if (detectMatches(next).size === 0) {
-      // Revert
+      // Soft rejection cue: shake both tiles, play the no-match buzzer,
+      // then revert the swap. Closes the feedback loop that previously
+      // felt like the input had been eaten.
+      playSound('yp_no_match')
+      const keys = new Set([`${a.r},${a.c}`, `${b.r},${b.c}`])
+      setShakeKeys(keys)
       next = doSwap(next, a, b)
       setGrid(next)
       flashFloater('NO MATCH', '#FCA5A5')
+      setTimeout(() => setShakeKeys(new Set()), 240)
       return
     }
 
-    setMoves(m => m - 1)
+    // Low-moves urgency beep — fires once at exactly 5 and once at 1, AFTER
+    // the move is consumed (so the cue matches the new counter value).
+    setMoves(m => {
+      const nm = m - 1
+      if (nm === 5 || nm === 1) playSound('yp_low_moves')
+      return nm
+    })
     await processCascades(next)
   }
 
@@ -295,6 +344,9 @@ export default function YarnPopGame() {
     setScore(0)
     setSelected(null)
     setProcessing(false)
+    setEnding(false)
+    setDisplayCombo(0)
+    setShakeKeys(new Set())
   }
 
   // Auto-process initial board (in case it has matches from a wonky gen)
@@ -334,24 +386,51 @@ export default function YarnPopGame() {
       <div className="flex items-center justify-between px-4 py-3 flex-shrink-0">
         <div>
           <div className="font-pixel" style={{ fontSize: 6, color: '#FBCFE8', letterSpacing: 2 }}>SCORE</div>
-          <div className="font-pixel" style={{ fontSize: 22, color: '#FFFFFF', textShadow: '2px 2px 0 #831843', letterSpacing: 1 }}>{score}</div>
+          {/* Re-keyed by scorePulse so the keyframe replays on every gain. */}
+          <div key={`score-${scorePulse}`} className="font-pixel" style={{
+            fontSize: 22,
+            color: '#FFFFFF',
+            textShadow: '2px 2px 0 #831843',
+            letterSpacing: 1,
+            display: 'inline-block',
+            transformOrigin: 'left center',
+            animation: scorePulse > 0 ? 'yp-score-pulse 0.25s ease-out' : undefined,
+          }}>{score}</div>
         </div>
-        {combo > 1 && (
-          <div className="font-pixel" style={{
+        {displayCombo > 1 && (
+          <div key={`combo-${displayCombo}`} className="font-pixel" style={{
             background: 'rgba(0,0,0,0.5)',
             border: '2px solid #FBBF24',
             borderRadius: 3,
             padding: '4px 10px',
             fontSize: 9, color: '#FBBF24', letterSpacing: 2,
             boxShadow: '0 0 14px rgba(251,191,36,0.5)',
-            animation: 'yp-combo 0.5s ease-out',
+            // Hold-and-fade: punchy in, then a slower fade out at the end.
+            animation: combo > 0
+              ? 'yp-combo 0.5s ease-out'
+              : 'yp-combo-fade 0.85s ease-out forwards',
           }}>
-            COMBO x{combo}
+            COMBO x{displayCombo}
           </div>
         )}
         <div className="text-right">
           <div className="font-pixel" style={{ fontSize: 6, color: '#FBCFE8', letterSpacing: 2 }}>MOVES</div>
-          <div className="font-pixel" style={{ fontSize: 22, color: moves <= 5 ? '#FCA5A5' : '#FFFFFF', textShadow: '2px 2px 0 #831843', letterSpacing: 1 }}>{moves}</div>
+          <div className="font-pixel" style={{
+            fontSize: 22,
+            color: moves <= 5 ? '#FCA5A5' : '#FFFFFF',
+            textShadow: '2px 2px 0 #831843',
+            letterSpacing: 1,
+            display: 'inline-block',
+            transformOrigin: 'right center',
+            // Slow breathing at ≤5, faster urgent pulse at ≤2. The
+            // animation re-arms via the changing key so each new value
+            // restarts cleanly instead of running forever.
+            animation: moves <= 2 && moves > 0
+              ? 'yp-moves-urgent 0.6s ease-in-out infinite'
+              : moves <= 5 && moves > 0
+                ? 'yp-moves-low 1s ease-in-out infinite'
+                : undefined,
+          }}>{moves}</div>
         </div>
       </div>
 
@@ -365,10 +444,41 @@ export default function YarnPopGame() {
           borderRadius: 6,
           boxShadow: '0 4px 0 #831843, inset 0 1px 0 rgba(255,255,255,0.1), 0 0 30px rgba(244,114,182,0.35)',
           padding: 4,
+          // End-of-game flourish: board dims so the gameover panel reads on
+          // top of a clearly "closed" board, not a still-active one.
+          opacity: ending ? 0.4 : 1,
+          transition: 'opacity 0.5s ease-out',
         }}>
+          {/* Diagonal scanline sweep that telegraphs the end of the round.
+              Mounts once when ending kicks in, fades out with the board. */}
+          {ending && (
+            <div className="absolute inset-0 pointer-events-none" style={{
+              overflow: 'hidden',
+              borderRadius: 4,
+              zIndex: 10,
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: 0, bottom: 0,
+                left: '-40%',
+                width: '40%',
+                background: 'linear-gradient(90deg, transparent 0%, rgba(253,230,138,0.55) 50%, transparent 100%)',
+                transform: 'skewX(-18deg)',
+                animation: 'yp-end-sweep 0.6s ease-out forwards',
+              }} />
+            </div>
+          )}
           <div className="relative w-full h-full">
             {grid.flatMap((row, r) =>
-              row.map((tile, c) => tile ? (
+              row.map((tile, c) => {
+                if (!tile) return null
+                const isShaking = shakeKeys.has(`${r},${c}`)
+                // Big matches (5+) get a larger burst + 8 sparks instead of
+                // 4. Gold spark colour kicks in once the cascade is ≥2.
+                const sparkCount = tile.bigMatch ? 8 : 4
+                const sparkColor = tile.goldSpark ? '#FBBF24' : '#FDE68A'
+                const burstScale = tile.bigMatch ? 1.25 : 1
+                return (
                 <button key={tile.id}
                   onClick={() => handleTileTap(r, c)}
                   disabled={processing}
@@ -382,6 +492,9 @@ export default function YarnPopGame() {
                     cursor: processing ? 'default' : 'pointer',
                     transition: 'left 0.18s, top 0.28s ease-out',
                     zIndex: tile.matched ? 6 : selected && selected.r === r && selected.c === c ? 5 : 1,
+                    // Wobble fires on failed swaps — re-uses the same
+                    // 220ms keyframe for both involved tiles.
+                    animation: isShaking ? 'yp-wobble 0.22s steps(6, end)' : undefined,
                   }}>
                   {/* Sparkle burst — radial flash that grows out from the
                       tile centre when it's matched. Sits on top via z-index
@@ -392,20 +505,22 @@ export default function YarnPopGame() {
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
                       <div style={{
-                        width: '90%', height: '90%',
+                        width: `${90 * burstScale}%`, height: `${90 * burstScale}%`,
                         borderRadius: '50%',
-                        background: 'radial-gradient(circle, rgba(253,230,138,0.95) 0%, rgba(252,165,165,0.6) 40%, transparent 70%)',
+                        background: tile.bigMatch
+                          ? 'radial-gradient(circle, rgba(253,230,138,1) 0%, rgba(251,191,36,0.7) 35%, rgba(244,114,182,0.4) 65%, transparent 80%)'
+                          : 'radial-gradient(circle, rgba(253,230,138,0.95) 0%, rgba(252,165,165,0.6) 40%, transparent 70%)',
                         animation: 'yp-burst 0.42s ease-out forwards',
                       }} />
-                      {/* Four directional spark dots */}
-                      {[0, 1, 2, 3].map(i => (
+                      {/* Directional spark dots — 4 by default, 8 on 5+ matches. */}
+                      {Array.from({ length: sparkCount }).map((_, i) => (
                         <div key={i} style={{
                           position: 'absolute',
                           width: 4, height: 4,
                           borderRadius: '50%',
-                          background: '#FDE68A',
-                          boxShadow: '0 0 6px #FDE68A',
-                          animation: `yp-spark-${i} 0.42s ease-out forwards`,
+                          background: sparkColor,
+                          boxShadow: `0 0 6px ${sparkColor}`,
+                          animation: `yp-spark-${i % 8} 0.42s ease-out forwards`,
                         }} />
                       ))}
                     </div>
@@ -426,7 +541,8 @@ export default function YarnPopGame() {
                     <TileVisual type={tile.type} />
                   </div>
                 </button>
-              ) : null)
+                )
+              })
             )}
           </div>
 
@@ -593,6 +709,63 @@ export default function YarnPopGame() {
           0%   { opacity: 0; }
           25%  { opacity: 1; }
           100% { opacity: 0; }
+        }
+        /* Extra spark dots for big-match (5+) bursts. Spark 0..3 already
+           cover the four corners — 4..7 take the cardinal directions for
+           a denser 8-point sparkle pattern. */
+        @keyframes yp-spark-4 {
+          0%   { transform: translate(0, 0)   scale(1);   opacity: 1; }
+          100% { transform: translate(18px, 0) scale(0.4); opacity: 0; }
+        }
+        @keyframes yp-spark-5 {
+          0%   { transform: translate(0, 0)    scale(1);   opacity: 1; }
+          100% { transform: translate(-18px, 0) scale(0.4); opacity: 0; }
+        }
+        @keyframes yp-spark-6 {
+          0%   { transform: translate(0, 0)    scale(1);   opacity: 1; }
+          100% { transform: translate(0, -18px) scale(0.4); opacity: 0; }
+        }
+        @keyframes yp-spark-7 {
+          0%   { transform: translate(0, 0)   scale(1);   opacity: 1; }
+          100% { transform: translate(0, 18px) scale(0.4); opacity: 0; }
+        }
+        /* Wobble — used on the two tiles in a failed swap. Step-based so
+           the motion feels choppy and retro instead of smooth. */
+        @keyframes yp-wobble {
+          0%   { transform: translateX(0); }
+          20%  { transform: translateX(-3px); }
+          40%  { transform: translateX(3px); }
+          60%  { transform: translateX(-2px); }
+          80%  { transform: translateX(2px); }
+          100% { transform: translateX(0); }
+        }
+        /* Score pulse — fires every time the SCORE value increases.
+           A quick punch + warm gold flash so points feel earned. */
+        @keyframes yp-score-pulse {
+          0%   { transform: scale(1);    color: #FFFFFF; }
+          40%  { transform: scale(1.25); color: #FDE68A; }
+          100% { transform: scale(1);    color: #FFFFFF; }
+        }
+        /* Low-moves breathing — slow at ≤5, faster at ≤2. */
+        @keyframes yp-moves-low {
+          0%, 100% { transform: scale(1);    color: #FCA5A5; }
+          50%      { transform: scale(1.08); color: #FECACA; }
+        }
+        @keyframes yp-moves-urgent {
+          0%, 100% { transform: scale(1);    color: #F87171; }
+          50%      { transform: scale(1.18); color: #FECACA; }
+        }
+        /* Combo badge fade — hold the value, then fade to nothing once
+           the cascade ends. Replays only when combo drops to 0. */
+        @keyframes yp-combo-fade {
+          0%   { transform: scale(1);    opacity: 1; }
+          70%  { transform: scale(1);    opacity: 1; }
+          100% { transform: scale(0.95); opacity: 0; }
+        }
+        /* End-of-round diagonal sweep across the board. */
+        @keyframes yp-end-sweep {
+          0%   { left: -40%; }
+          100% { left: 140%; }
         }
       `}</style>
     </div>

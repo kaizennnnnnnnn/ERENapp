@@ -15,7 +15,8 @@ import { fireMinigameDone } from '@/lib/minigames'
 const GRAVITY        = 1700
 const FLAP_V         = -440
 const PIPE_W         = 60
-const PIPE_GAP       = 175
+const PIPE_GAP_MAX   = 175
+const PIPE_GAP_MIN   = 135   // gap floor — shrinks 1px per pipe until here
 const PIPE_INTERVAL  = 1500
 const SPEED_BASE     = 200
 const SPEED_MAX      = 360
@@ -27,9 +28,12 @@ const EREN_H         = 64
 const PLAYER_X       = 80
 const FIZZ_INTERVAL  = 60
 const THEME_EVERY    = 8     // pipes between environment swaps
+const BEST_KEY       = 'flappy_eren_best'
+const MILESTONES     = [10, 25, 50, 100]
 
-interface Pipe { id: number; x: number; gapY: number; passed: boolean }
+interface Pipe { id: number; x: number; gapY: number; gap: number; passed: boolean }
 interface Particle { id: number; x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; alpha: number; color: string }
+interface ThemeBanner { id: number; name: string; born: number; theme: Theme }
 
 let _pid = 0
 const newId = () => ++_pid
@@ -131,6 +135,31 @@ export default function FlappyErenGame() {
   const [state, setState]         = useState<'idle' | 'running' | 'gameover'>('idle')
   const [score, setScore]         = useState(0)
   const [bestScore, setBestScore] = useState(0)
+  const [displayBest, setDisplayBest] = useState(0)  // counter for animated BEST number on game over
+  const [isNewBest, setIsNewBest] = useState(false)
+  const [scorePulseKey, setScorePulseKey] = useState(0)   // bumped each pipe pass to retrigger CSS animation
+  const [shakeKey, setShakeKey]   = useState(0)
+  const [redFlashKey, setRedFlashKey] = useState(0)
+  const [banner, setBanner]       = useState<ThemeBanner | null>(null)
+  const [milestoneKey, setMilestoneKey] = useState<number | null>(null)
+  const lastThemeIndexRef = useRef(0)
+  const milestonesHitRef  = useRef<Set<number>>(new Set())
+  const prevBestRef = useRef(0)
+
+  // Hydrate persisted best on mount.
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(BEST_KEY)
+      if (stored) {
+        const n = parseInt(stored, 10)
+        if (Number.isFinite(n) && n > 0) {
+          setBestScore(n)
+          setDisplayBest(n)
+          prevBestRef.current = n
+        }
+      }
+    } catch { /* localStorage unavailable */ }
+  }, [])
 
   // Theme is derived from score so the crossfade is automatic when score
   // crosses a multiple of THEME_EVERY.
@@ -155,10 +184,30 @@ export default function FlappyErenGame() {
   const [, forceRender] = useReducer((n: number) => n + 1, 0)
 
   function spawnPipe() {
+    // Gap shrinks ~1px per pipe down to PIPE_GAP_MIN — increases pressure even
+    // after speed caps out.
+    const gap = Math.max(PIPE_GAP_MIN, PIPE_GAP_MAX - scoreRef.current)
     const minMargin = 70
-    const range = Math.max(60, fieldDims.h - PIPE_GAP - minMargin * 2)
+    const range = Math.max(60, fieldDims.h - gap - minMargin * 2)
     const gapY = minMargin + Math.random() * range
-    pipesRef.current.push({ id: newId(), x: fieldDims.w + 20, gapY, passed: false })
+    pipesRef.current.push({ id: newId(), x: fieldDims.w + 20, gapY, gap, passed: false })
+  }
+
+  function spawnScoreBurst(cx: number, cy: number) {
+    for (let i = 0; i < 8; i++) {
+      const a = (Math.PI * 2 * i) / 8 + Math.random() * 0.4
+      const speed = 80 + Math.random() * 90
+      particlesRef.current.push({
+        id: newId(),
+        x: cx, y: cy,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed - 30,
+        life: 0, max: 0.4,
+        size: 4 + Math.random() * 2,
+        alpha: 1,
+        color: i % 2 === 0 ? '#A3F0C0' : '#FFFFFF',
+      })
+    }
   }
 
   function spawnFizzPuff() {
@@ -199,7 +248,7 @@ export default function FlappyErenGame() {
     vyRef.current = FLAP_V
     flapTimeRef.current = performance.now()
     spawnFlapBurst()
-    playSound('ui_tap')
+    playSound('fe_flap')
   }
 
   // ─── Squash/stretch + swing on each flap. Returns instantaneous scale and a
@@ -244,7 +293,7 @@ export default function FlappyErenGame() {
     for (const p of pipesRef.current) {
       if (hbX + hbW < p.x || hbX > p.x + PIPE_W) continue
       if (hbY < p.gapY) return true
-      if (hbY + hbH > p.gapY + PIPE_GAP) return true
+      if (hbY + hbH > p.gapY + p.gap) return true
     }
     return false
   }
@@ -291,7 +340,26 @@ export default function FlappyErenGame() {
         p.passed = true
         scoreRef.current += 1
         setScore(scoreRef.current)
-        playSound('ui_modal_close')
+        setScorePulseKey(k => k + 1)
+        // particle burst at gap center for visible reward
+        spawnScoreBurst(p.x + PIPE_W / 2, p.gapY + p.gap / 2)
+        playSound('fe_pipe_pass')
+
+        // Theme shift announcement — fires on the pipe that crossed the boundary.
+        const newThemeIndex = Math.floor(scoreRef.current / THEME_EVERY) % THEMES.length
+        if (newThemeIndex !== lastThemeIndexRef.current) {
+          lastThemeIndexRef.current = newThemeIndex
+          const t = THEMES[newThemeIndex]
+          setBanner({ id: newId(), name: t.name, born: performance.now(), theme: t })
+          playSound('fe_theme_shift')
+        }
+
+        // Milestones — sub-fanfare on first crossing of 10/25/50/100.
+        if (MILESTONES.includes(scoreRef.current) && !milestonesHitRef.current.has(scoreRef.current)) {
+          milestonesHitRef.current.add(scoreRef.current)
+          setMilestoneKey(scoreRef.current)
+          playSound('fe_milestone_10')
+        }
       }
     }
 
@@ -309,12 +377,17 @@ export default function FlappyErenGame() {
     particlesRef.current = []
     speedRef.current = SPEED_BASE
     scoreRef.current = 0
+    lastThemeIndexRef.current = 0
+    milestonesHitRef.current = new Set()
     const now = performance.now()
     lastPipeRef.current = now - PIPE_INTERVAL + 500
     lastFizzRef.current = now
     lastFrameRef.current = now
     startTimeRef.current = now
     setScore(0)
+    setBanner(null)
+    setMilestoneKey(null)
+    setIsNewBest(false)
     stateRef.current = 'running'
     setState('running')
     rafRef.current = requestAnimationFrame(loop)
@@ -324,17 +397,50 @@ export default function FlappyErenGame() {
     cancelAnimationFrame(rafRef.current)
     stateRef.current = 'gameover'
     setState('gameover')
-    setBestScore(b => Math.max(b, scoreRef.current))
-    playSound('ui_back')
 
-    if (user?.id && scoreRef.current > 0) {
-      supabase.from('game_scores').insert({ user_id: user.id, game_type: 'flappy_eren', score: scoreRef.current })
-        .then(({ error }: { error: { message: string } | null }) => { if (error) console.error('flappy score save error:', error) })
-      fireMinigameDone('flappy_eren', scoreRef.current)
-      addCoins(scoreRef.current * 2)
+    const finalScore = scoreRef.current
+    const oldBest = prevBestRef.current
+    const beatBest = finalScore > oldBest
+    setBestScore(b => Math.max(b, finalScore))
+
+    // Crash feedback — screen shake + red vignette stab.
+    setShakeKey(k => k + 1)
+    setRedFlashKey(k => k + 1)
+    playSound('fe_crash')
+
+    if (beatBest) {
+      setIsNewBest(true)
+      prevBestRef.current = finalScore
+      try { localStorage.setItem(BEST_KEY, String(finalScore)) } catch { /* ignore */ }
+      // Animate BEST number counting up from oldBest → finalScore over ~600ms.
+      const startMs = performance.now()
+      const dur = 600
+      const tick = () => {
+        const t = Math.min(1, (performance.now() - startMs) / dur)
+        const eased = 1 - Math.pow(1 - t, 3)
+        const v = Math.round(oldBest + (finalScore - oldBest) * eased)
+        setDisplayBest(v)
+        if (t < 1) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+      playSound('fe_new_best')
+    } else {
+      setDisplayBest(oldBest)
+    }
+
+    if (user?.id) {
+      // Daily-game credit fires on ANY finished run — even a 0-score one counts
+      // as having played the game today. The score insert + coins still gate
+      // on > 0 since a 0 row is junk data.
       completeTask('daily_game')
-      if (scoreRef.current >= 15) completeTask('weekly_high_score')
       applyAction(user.id, 'play')
+      if (finalScore > 0) {
+        supabase.from('game_scores').insert({ user_id: user.id, game_type: 'flappy_eren', score: finalScore })
+          .then(({ error }: { error: { message: string } | null }) => { if (error) console.error('flappy score save error:', error) })
+        fireMinigameDone('flappy_eren', finalScore)
+        addCoins(finalScore * 2)
+        if (finalScore >= 15) completeTask('weekly_high_score')
+      }
     }
   }
 
@@ -389,10 +495,11 @@ export default function FlappyErenGame() {
         </div>
       </div>
 
-      {/* Field */}
+      {/* Field — wrapper key cycles to retrigger the crash shake animation. */}
       <div ref={fieldRef} onPointerDown={flap}
+        key={`fe-field-${shakeKey}`}
         className="relative flex-1 overflow-hidden select-none"
-        style={{ touchAction: 'none', cursor: 'pointer' }}>
+        style={{ touchAction: 'none', cursor: 'pointer', animation: shakeKey > 0 ? 'feShake 240ms steps(8, end)' : undefined }}>
 
         {/* Stacked sky layers — only the active one is fully opaque, others
             fade out. Result: smooth crossfade when themeIndex changes. */}
@@ -504,19 +611,88 @@ export default function FlappyErenGame() {
           }} />
         ))}
 
-        {/* Score */}
+        {/* Score — outer div handles centering, inner div pulses on each pass. */}
         {state !== 'idle' && (
-          <div className="absolute font-pixel pointer-events-none" style={{
-            top: 24,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            fontSize: 36,
-            color: 'white',
-            textShadow: '3px 3px 0 #064e3b, -1px -1px 0 #064e3b',
-            letterSpacing: 2,
+          <div className="absolute pointer-events-none" style={{
+            top: 24, left: 0, right: 0, display: 'flex', justifyContent: 'center',
           }}>
-            {score}
+            <div
+              key={`fe-score-${scorePulseKey}`}
+              className="font-pixel"
+              style={{
+                fontSize: 36,
+                color: 'white',
+                textShadow: '3px 3px 0 #064e3b, -1px -1px 0 #064e3b',
+                letterSpacing: 2,
+                transformOrigin: 'center center',
+                animation: scorePulseKey > 0 ? 'feScorePulse 220ms cubic-bezier(0.34,1.56,0.64,1)' : undefined,
+              }}>
+              {score}
+            </div>
           </div>
+        )}
+
+        {/* Theme-shift banner — slides in from the top for ~1.2s. */}
+        {banner && state === 'running' && (
+          <div className="absolute pointer-events-none" style={{
+            top: 76, left: 0, right: 0, display: 'flex', justifyContent: 'center',
+          }}>
+            <div
+              key={`fe-banner-${banner.id}`}
+              className="font-pixel"
+              style={{
+                padding: '6px 14px',
+                background: 'rgba(0,0,0,0.65)',
+                border: `2px solid ${banner.theme.pipeColor3}`,
+                borderRadius: 4,
+                boxShadow: `0 3px 0 ${banner.theme.pipeShadow}, 0 0 14px ${banner.theme.pipeColor3}55`,
+                fontSize: 9,
+                letterSpacing: 3,
+                color: banner.theme.pipeColor3,
+                textTransform: 'uppercase',
+                animation: 'feBannerIn 1200ms cubic-bezier(0.22,1,0.36,1) forwards',
+                whiteSpace: 'nowrap',
+              }}
+              onAnimationEnd={() => setBanner(null)}>
+              {banner.name}
+            </div>
+          </div>
+        )}
+
+        {/* Milestone celebration — large arpeggio number flash. */}
+        {milestoneKey && state === 'running' && (
+          <div className="absolute pointer-events-none" style={{
+            top: '32%', left: 0, right: 0, display: 'flex', justifyContent: 'center',
+          }}>
+            <div
+              key={`fe-ms-${milestoneKey}`}
+              className="font-pixel"
+              style={{
+                fontSize: 22,
+                color: '#FDE68A',
+                textShadow: '3px 3px 0 #7C3AED, -1px -1px 0 #064e3b',
+                letterSpacing: 3,
+                animation: 'feMilestone 1100ms cubic-bezier(0.34,1.56,0.64,1) forwards',
+              }}
+              onAnimationEnd={() => setMilestoneKey(null)}
+            >
+              +{milestoneKey}!
+            </div>
+          </div>
+        )}
+
+        {/* Red crash vignette — instant inset glow stab that fades over 240ms. */}
+        {redFlashKey > 0 && (
+          <div
+            key={`fe-red-${redFlashKey}`}
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              boxShadow: 'inset 0 0 80px 12px rgba(220,38,38,0.85)',
+              background: 'radial-gradient(circle at center, transparent 40%, rgba(220,38,38,0.3) 100%)',
+              animation: 'feRedFlash 240ms ease-out forwards',
+              zIndex: 25,
+            }}
+          />
         )}
 
         {/* Idle overlay */}
@@ -548,6 +724,21 @@ export default function FlappyErenGame() {
                 animation: 'goPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both',
               }}>
               <p className="font-pixel" style={{ fontSize: 11, color: '#FCA5A5', letterSpacing: 3 }}>GAME OVER</p>
+              {isNewBest && (
+                <div className="font-pixel" style={{
+                  padding: '4px 10px',
+                  background: 'linear-gradient(90deg, #F59E0B, #FCD34D, #F59E0B)',
+                  border: '2px solid #78350F',
+                  borderRadius: 3,
+                  boxShadow: '0 3px 0 #78350F',
+                  fontSize: 8,
+                  letterSpacing: 2,
+                  color: '#451A03',
+                  animation: 'feNewBestRibbon 900ms cubic-bezier(0.34,1.56,0.64,1)',
+                }}>
+                  NEW BEST!
+                </div>
+              )}
               <div className="flex items-center gap-4 mt-1">
                 <div className="flex flex-col items-center">
                   <span className="font-pixel" style={{ fontSize: 6, color: '#A3F0C0', letterSpacing: 1 }}>SCORE</span>
@@ -556,7 +747,11 @@ export default function FlappyErenGame() {
                 <div style={{ width: 1, height: 28, background: '#3A2A60' }} />
                 <div className="flex flex-col items-center">
                   <span className="font-pixel" style={{ fontSize: 6, color: '#FDE68A', letterSpacing: 1 }}>BEST</span>
-                  <span className="font-pixel" style={{ fontSize: 22, color: '#FDE68A' }}>{bestScore}</span>
+                  <span className="font-pixel" style={{
+                    fontSize: 22,
+                    color: '#FDE68A',
+                    textShadow: isNewBest ? '0 0 8px rgba(253,230,138,0.7)' : undefined,
+                  }}>{displayBest}</span>
                 </div>
               </div>
               <div className="flex items-center gap-2 mt-3">
@@ -600,6 +795,43 @@ export default function FlappyErenGame() {
           0%, 100% { opacity: 0.35; }
           50%      { opacity: 1; }
         }
+        @keyframes feScorePulse {
+          0%   { transform: scale(1);    color: #FFFFFF; }
+          45%  { transform: scale(1.35); color: #A3F0C0; }
+          100% { transform: scale(1);    color: #FFFFFF; }
+        }
+        @keyframes feShake {
+          0%   { transform: translateX(0); }
+          15%  { transform: translateX(-8px); }
+          30%  { transform: translateX(7px); }
+          45%  { transform: translateX(-6px); }
+          60%  { transform: translateX(5px); }
+          75%  { transform: translateX(-3px); }
+          90%  { transform: translateX(2px); }
+          100% { transform: translateX(0); }
+        }
+        @keyframes feRedFlash {
+          0%   { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        @keyframes feBannerIn {
+          0%   { transform: translateY(-32px); opacity: 0; }
+          15%  { transform: translateY(0);     opacity: 1; }
+          80%  { transform: translateY(0);     opacity: 1; }
+          100% { transform: translateY(-12px); opacity: 0; }
+        }
+        @keyframes feMilestone {
+          0%   { transform: scale(0.4); opacity: 0; }
+          25%  { transform: scale(1.2); opacity: 1; }
+          40%  { transform: scale(1);   opacity: 1; }
+          80%  { transform: scale(1);   opacity: 1; }
+          100% { transform: scale(1.1) translateY(-20px); opacity: 0; }
+        }
+        @keyframes feNewBestRibbon {
+          0%   { transform: scale(0) rotate(-10deg); opacity: 0; }
+          60%  { transform: scale(1.15) rotate(2deg); opacity: 1; }
+          100% { transform: scale(1) rotate(0deg);  opacity: 1; }
+        }
       `}</style>
     </div>
   )
@@ -628,9 +860,9 @@ function PipePair({ pipe, fieldH, theme }: { pipe: Pipe; fieldH: number; theme: 
       <div style={{
         position: 'absolute',
         left: pipe.x,
-        top: pipe.gapY + PIPE_GAP,
+        top: pipe.gapY + pipe.gap,
         width: PIPE_W,
-        height: Math.max(0, fieldH - pipe.gapY - PIPE_GAP - 12),
+        height: Math.max(0, fieldH - pipe.gapY - pipe.gap - 12),
         background: grad,
         borderLeft: `3px solid ${theme.pipeShadow}`,
         borderRight: `3px solid ${theme.pipeShadow}`,
@@ -638,7 +870,7 @@ function PipePair({ pipe, fieldH, theme }: { pipe: Pipe; fieldH: number; theme: 
       }} />
       <div style={{
         position: 'absolute',
-        left: pipe.x - 5, top: pipe.gapY + PIPE_GAP, width: PIPE_W + 10, height: 14,
+        left: pipe.x - 5, top: pipe.gapY + pipe.gap, width: PIPE_W + 10, height: 14,
         background: grad,
         border: `3px solid ${theme.pipeShadow}`,
         transition: 'background 1.4s ease, border-color 1.4s ease',
