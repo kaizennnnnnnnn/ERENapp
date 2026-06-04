@@ -531,16 +531,16 @@ export default function MemoryMatchGame() {
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       overflow: 'hidden',
                     }}>
-                      {/* 3-pixel diagonal shine sweep during the flip reveal */}
+                      {/* Diagonal gloss that sweeps once across the card on the
+                          flip reveal, then is gone. `forwards` holds the final
+                          (opacity 0, off-screen) keyframe so it can never linger
+                          as a static white streak the way the old 3px line did. */}
                       {showFace && !card.matched && (
                         <span aria-hidden className="card-shine" style={{
-                          position: 'absolute',
-                          top: 0, left: 0,
-                          width: 3, height: '160%',
-                          background: 'rgba(255,255,255,0.85)',
-                          boxShadow: '4px 0 0 rgba(255,255,255,0.55), 8px 0 0 rgba(255,255,255,0.25)',
-                          transform: 'translateX(-12px) rotate(20deg)',
-                          animation: 'cardShine 0.45s linear 1',
+                          position: 'absolute', inset: 0,
+                          background: 'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.55) 50%, transparent 60%)',
+                          transform: 'translateX(-100%)',
+                          animation: 'cardShine 0.5s ease-out forwards',
                           pointerEvents: 'none',
                         }} />
                       )}
@@ -741,9 +741,9 @@ export default function MemoryMatchGame() {
           100% { opacity: 0; }
         }
         @keyframes cardShine {
-          0%   { transform: translateX(-12px) rotate(20deg); opacity: 0; }
-          25%  { opacity: 1; }
-          100% { transform: translateX(110%) rotate(20deg); opacity: 0; }
+          0%   { transform: translateX(-100%); opacity: 0; }
+          18%  { opacity: 1; }
+          100% { transform: translateX(100%); opacity: 0; }
         }
         @keyframes scorePopRise {
           0%   { transform: translate(-50%, -50%) scale(0.9); opacity: 0; }
