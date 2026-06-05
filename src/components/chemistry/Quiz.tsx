@@ -214,13 +214,18 @@ function Header({ palette, position, length, streak }: {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontFamily: CHEM_FONT,
           fontSize: 10, fontWeight: 800, letterSpacing: 0.5,
-          color: palette.ink,
+          // fg, not ink. The numerals sit over both the grape fill and the
+          // dark cardMuted unfilled section — fg (cream in dark / ink-like
+          // in light) reads on both, ink only reads on the bright fill.
+          color: palette.fg,
         }}>
           {position + 1} / {length}
         </div>
       </div>
 
-      {/* Streak pill */}
+      {/* Streak pill. Active state uses sun yellow which DOES read with ink
+          text; inactive uses card which is dark in dark mode, so ink would
+          disappear — switch to fg in that case. */}
       <div style={{
         background: streakActive ? palette.sun : palette.card,
         border: `2px solid ${palette.ink}`,
@@ -229,7 +234,7 @@ function Header({ palette, position, length, streak }: {
         padding: '4px 10px',
         fontFamily: CHEM_FONT,
         fontSize: 11, fontWeight: 800, letterSpacing: 0.3,
-        color: palette.ink,
+        color: streakActive ? palette.ink : palette.fg,
         whiteSpace: 'nowrap',
       }}>
         {streak}× streak
@@ -274,7 +279,9 @@ function Prompt({ palette, q, picked }: { palette: Palette; q: Question; picked:
         <span style={{
           fontFamily: CHEM_FONT,
           fontSize: 11, fontWeight: 800, letterSpacing: 0.5,
-          color: palette.ink,
+          // Use fg for text — ink is the border/shadow colour (near-black in
+          // dark mode) and disappears against cardMuted (dark plum).
+          color: palette.fg,
           background: palette.cardMuted,
           border: `2px solid ${palette.ink}`,
           borderRadius: 999,
@@ -321,7 +328,9 @@ function Options({ palette, q, picked, onPick }: {
         let bg     = palette.card
         let color  = palette.fg
         let prefixBg    = palette.cardMuted
-        let prefixColor = palette.ink
+        // A/B/C/D letter — use fg, not ink. Ink is near-black in dark mode
+        // and disappears against the dark cardMuted prefix bg.
+        let prefixColor = palette.fg
         let opacity = 1
 
         if (settled) {

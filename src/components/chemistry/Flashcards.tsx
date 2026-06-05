@@ -341,13 +341,16 @@ function ProgressBar({ palette, position, length, streak }: {
           fontFamily: CHEM_FONT,
           fontSize: 12,
           fontWeight: 700,
-          color: palette.ink,
+          // Sits over both the grape fill AND the dark cardMuted unfilled
+          // section — fg reads on both, ink only on the bright fill.
+          color: palette.fg,
         }}>
           {position} / {length}
         </div>
       </div>
 
-      {/* Streak pill */}
+      {/* Streak pill. Active (sun bg) keeps ink text; inactive (card bg)
+          switches to fg because card is dark in dark mode. */}
       <div style={{
         padding: '6px 12px',
         background: streakHot ? palette.sun : palette.card,
@@ -357,7 +360,7 @@ function ProgressBar({ palette, position, length, streak }: {
         fontFamily: CHEM_FONT,
         fontSize: 12,
         fontWeight: 800,
-        color: palette.ink,
+        color: streakHot ? palette.ink : palette.fg,
         whiteSpace: 'nowrap',
         minHeight: 28,
         display: 'flex',
