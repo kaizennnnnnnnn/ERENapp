@@ -18,6 +18,7 @@
 //     iPhone SE and still feel right.
 
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { playSound } from '@/lib/sounds'
 import { ChemistryStoreProvider, useChemistryStore } from '@/lib/chemistry/store'
 import PeriodicTable from './PeriodicTable'
@@ -56,10 +57,16 @@ function OverlayInner({ onClose }: Props) {
   // and must not bubble up to CareSceneHost's room-swipe gesture detector.
   const stop = (e: React.TouchEvent) => e.stopPropagation()
 
-  return (
+  // SSR safety — createPortal needs a real document.
+  if (typeof document === 'undefined') return null
+
+  // PORTAL: we render straight into document.body so the overlay escapes
+  // CareSceneHost's z-40 stacking context. Without this, no z-index on
+  // the overlay can rise above page-level UI like StatsHeader (z-60) —
+  // the overlay would visibly appear under the HUD even with z-9999,
+  // because stacking contexts cap their children's effective z-index.
+  return createPortal(
     <div
-      // z-[80] sits above StatsHeader (z-60) and the CareSceneHost
-      // bottom dots (z-50) so the chemistry takeover actually takes over.
       className="fixed inset-0 z-[80] flex flex-col"
       style={{
         background: '#0A140A',
@@ -179,6 +186,7 @@ function OverlayInner({ onClose }: Props) {
         {mode === 'quiz'       && <Quiz />}
         {mode === 'match'      && <Match />}
       </main>
-    </div>
+    </div>,
+    document.body,
   )
 }
