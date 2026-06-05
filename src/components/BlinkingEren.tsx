@@ -32,7 +32,10 @@ export default function BlinkingEren({
   const nightFilter = isDark ? 'brightness(0.7) saturate(0.85)' : undefined
   const lid: React.CSSProperties = {
     position: 'absolute',
-    width: '6%',
+    // Width widened by 1% (≈2px at size=200) so each lid reaches a touch
+    // further left over the iris — pairs with the left offset shift below
+    // so the extra pixels land on the inner edge of each eye.
+    width: '7%',
     height: '5.5%',
     background: '#6B6B6B',
     borderRadius: 1,
@@ -104,17 +107,20 @@ export default function BlinkingEren({
           <div style={{ ...glint, left: '10.3%', top: '3.3%', animation: 'erenEyeShine 5s ease-in-out infinite' }} />
         </div>
 
-        {/* Left eyelid */}
+        {/* Left eyelid — left edge nudged 1% (≈2px) further left so the
+            widened lid covers the inner corner of the eye cleanly. */}
         <div style={{
           ...lid,
-          left: '39%', top: '32.5%',
+          left: '38%', top: '32.5%',
           animation: 'erenBlink 6s infinite',
         }} />
-        {/* Right eyelid — tiny stagger so they're not perfectly synced */}
+        {/* Right eyelid — same 1% leftward shift, and the prior 0.03s
+            stagger is gone: cats blink with both lids together, and the
+            tiny offset read as "left eye blinks first" on the sticker. */}
         <div style={{
           ...lid,
-          left: '55%', top: '32.5%',
-          animation: 'erenBlink 6s 0.03s infinite',
+          left: '54%', top: '32.5%',
+          animation: 'erenBlink 6s infinite',
         }} />
       </div>
     </div>
