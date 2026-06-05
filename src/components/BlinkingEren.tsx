@@ -9,6 +9,46 @@
 import React from 'react'
 import { useIsDark } from '@/hooks/useIsDark'
 
+// Eye-overlay coordinates, all expressed as percentages of the sprite
+// container. Default values are tuned to erenGood.png. Other sprites (the
+// bedroom's erenSleep.png nightcap pose) override these via the `eyes` prop.
+export interface EyeLayout {
+  // Eyelid rectangle (drops in during blink).
+  lidTop: string
+  lidLeftA: string
+  lidLeftB: string
+  lidWidth: string
+  // Eye-mask = iris bounds. Clips the glint so it can't spill onto fur.
+  maskTop: string
+  maskLeftA: string
+  maskLeftB: string
+  maskW: string
+  maskH: string
+  // Where the glint sits INSIDE the mask. Centered on the baked catchlight
+  // in the sprite's iris, so the animated shine looks like the painted
+  // catchlight coming alive.
+  glintLeftA: string
+  glintLeftB: string
+  glintTopA: string
+  glintTopB: string
+}
+
+const DEFAULT_EYES: EyeLayout = {
+  lidTop:    '32.5%',
+  lidLeftA:  '38%',
+  lidLeftB:  '54%',
+  lidWidth:  '7%',
+  maskTop:   '32.8%',
+  maskLeftA: '39.3%',
+  maskLeftB: '53.8%',
+  maskW:     '5.7%',
+  maskH:     '5.4%',
+  glintLeftA: '49.4%',
+  glintLeftB: '10.3%',
+  glintTopA:  '2.9%',
+  glintTopB:  '3.3%',
+}
+
 interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   size?: number
   className?: string
@@ -19,11 +59,12 @@ interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   // rooms. The bedroom passes `/erenSleep.png` so the cat looks tucked in
   // at night.
   src?: string
-  // Eyelid + eye-glint overlays. Coordinates are tuned to erenGood.png — when
-  // the sticker is a different pose (e.g. erenSleep.png, where the eyes are
-  // closed and sit in different pixel positions), pass false so we don't
-  // paint gray lid rectangles over the wrong part of the face.
+  // Toggle the blink + glint overlays entirely. Default true.
   blink?: boolean
+  // Per-sprite eye-position overrides. Any field omitted falls back to the
+  // erenGood.png defaults above. The bedroom passes a partial override
+  // because erenSleep.png puts the eyes lower and closer together.
+  eyes?: Partial<EyeLayout>
 }
 
 export default function BlinkingEren({
@@ -34,19 +75,18 @@ export default function BlinkingEren({
   breathe = true,
   src = '/erenGood.png',
   blink = true,
+  eyes: eyesOverride,
   ...imgProps
 }: Props) {
   const isDark = useIsDark()
+  const eyes: EyeLayout = { ...DEFAULT_EYES, ...eyesOverride }
   // Drop brightness and a touch of saturation at night so the sprite
   // doesn't look weirdly lit-up against the dark room backgrounds.
   // Applied to the wrapper so the eyelid overlays darken in lockstep.
   const nightFilter = isDark ? 'brightness(0.7) saturate(0.85)' : undefined
   const lid: React.CSSProperties = {
     position: 'absolute',
-    // Width widened by 1% (≈2px at size=200) so each lid reaches a touch
-    // further left over the iris — pairs with the left offset shift below
-    // so the extra pixels land on the inner edge of each eye.
-    width: '7%',
+    width: eyes.lidWidth,
     height: '5.5%',
     background: '#6B6B6B',
     borderRadius: 1,
@@ -54,9 +94,8 @@ export default function BlinkingEren({
     transformOrigin: 'top',
     pointerEvents: 'none',
   }
-  // Eye-shaped clip mask — sits over each iris (bounds measured off the
-  // sprite) so the glint's twinkle/scale can never spill onto the eyelid or
-  // fur. Ellipse-rounded to follow the eye outline.
+  // Eye-shaped clip mask — sits over each iris so the glint's twinkle can
+  // never spill onto the eyelid or fur. Ellipse-rounded to follow the eye.
   const eyeMask: React.CSSProperties = {
     position: 'absolute',
     overflow: 'hidden',
@@ -110,31 +149,20 @@ export default function BlinkingEren({
 
         {blink && (
           <>
-            {/* Eye glints — each clipped to an eye-shaped mask over the iris
-                (measured iris bounds), centered on the baked catchlight inside,
-                twinkling together (eyes track as one) so they share one keyframe. */}
-            <div style={{ ...eyeMask, left: '39.3%', top: '32.8%', width: '5.7%', height: '5.4%' }}>
-              <div style={{ ...glint, left: '49.4%', top: '2.9%', animation: 'erenEyeShine 5s ease-in-out infinite' }} />
+            {/* Eye glints — clipped to an eye-shaped mask over the iris,
+                centered on the baked catchlight inside, twinkling together
+                (eyes track as one) so they share one keyframe. */}
+            <div style={{ ...eyeMask, left: eyes.maskLeftA, top: eyes.maskTop, width: eyes.maskW, height: eyes.maskH }}>
+              <div style={{ ...glint, left: eyes.glintLeftA, top: eyes.glintTopA, animation: 'erenEyeShine 5s ease-in-out infinite' }} />
             </div>
-            <div style={{ ...eyeMask, left: '53.8%', top: '32.8%', width: '5.7%', height: '5.4%' }}>
-              <div style={{ ...glint, left: '10.3%', top: '3.3%', animation: 'erenEyeShine 5s ease-in-out infinite' }} />
+            <div style={{ ...eyeMask, left: eyes.maskLeftB, top: eyes.maskTop, width: eyes.maskW, height: eyes.maskH }}>
+              <div style={{ ...glint, left: eyes.glintLeftB, top: eyes.glintTopB, animation: 'erenEyeShine 5s ease-in-out infinite' }} />
             </div>
 
-            {/* Left eyelid — left edge nudged 1% (≈2px) further left so the
-                widened lid covers the inner corner of the eye cleanly. */}
-            <div style={{
-              ...lid,
-              left: '38%', top: '32.5%',
-              animation: 'erenBlink 6s infinite',
-            }} />
-            {/* Right eyelid — same 1% leftward shift, and the prior 0.03s
-                stagger is gone: cats blink with both lids together, and the
-                tiny offset read as "left eye blinks first" on the sticker. */}
-            <div style={{
-              ...lid,
-              left: '54%', top: '32.5%',
-              animation: 'erenBlink 6s infinite',
-            }} />
+            {/* Both eyelids — same animation start time, no stagger. Cats
+                blink with both lids together. */}
+            <div style={{ ...lid, left: eyes.lidLeftA, top: eyes.lidTop, animation: 'erenBlink 6s infinite' }} />
+            <div style={{ ...lid, left: eyes.lidLeftB, top: eyes.lidTop, animation: 'erenBlink 6s infinite' }} />
           </>
         )}
       </div>

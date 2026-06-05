@@ -109,7 +109,19 @@ export default function SleepScene({ onClose }: Props) {
       <div className={cn('absolute z-10 transition-all duration-700', tuckedIn ? 'bottom-[16%]' : 'bottom-[14%]')}
         style={{ left: '50%', transform: 'translateX(-50%)' }}>
         <ErenIdleLayer disabled={tuckedIn}>
-          <BlinkingEren size={200} src="/erenSleep.png" blink={false} />
+          {/* Bedroom sticker is the nightcap pose — the cap pushes the face
+              down and squeezes the head slightly, so the eyes sit lower and
+              closer together than on erenGood.png. These overrides re-aim
+              the blink + glint overlays at the new eye positions. Tune by
+              eye if the bedroom looks off. */}
+          <BlinkingEren size={200} src="/erenSleep.png" eyes={{
+            lidTop:    '40%',
+            lidLeftA:  '41%',
+            lidLeftB:  '51%',
+            maskTop:   '40.3%',
+            maskLeftA: '42.3%',
+            maskLeftB: '50.8%',
+          }} />
           <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
         </ErenIdleLayer>
       </div>
