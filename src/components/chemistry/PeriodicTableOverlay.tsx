@@ -22,12 +22,16 @@ import { playSound } from '@/lib/sounds'
 import { ChemistryStoreProvider, useChemistryStore } from '@/lib/chemistry/store'
 import PeriodicTable from './PeriodicTable'
 import Flashcards from './Flashcards'
+import Quiz from './Quiz'
+import Match from './Match'
 
-type Mode = 'table' | 'flashcards'
+type Mode = 'table' | 'flashcards' | 'quiz' | 'match'
 
 const MODES: { id: Mode; label: string }[] = [
   { id: 'table',      label: 'TABLE' },
-  { id: 'flashcards', label: 'FLASHCARDS' },
+  { id: 'flashcards', label: 'CARDS' },
+  { id: 'quiz',       label: 'QUIZ' },
+  { id: 'match',      label: 'MATCH' },
 ]
 
 interface Props { onClose: () => void }
@@ -134,8 +138,8 @@ function OverlayInner({ onClose }: Props) {
         </button>
       </header>
 
-      {/* ── Mode tabs ── */}
-      <nav className="relative flex justify-center gap-2 px-4 py-3">
+      {/* ── Mode tabs — wrap on narrow screens, never overflow horizontally ── */}
+      <nav className="relative flex justify-center flex-wrap gap-2 px-3 py-3">
         {MODES.map(m => (
           <button
             key={m.id}
@@ -143,11 +147,11 @@ function OverlayInner({ onClose }: Props) {
             onClick={() => { playSound('ui_tap'); setMode(m.id) }}
             className="active:translate-y-[1px] transition-transform"
             style={{
-              padding: '8px 14px',
-              minHeight: 36,
+              padding: '7px 10px',
+              minHeight: 34,
               fontFamily: '"Press Start 2P", monospace',
-              fontSize: 7,
-              letterSpacing: 1.5,
+              fontSize: 6.5,
+              letterSpacing: 1.2,
               color: mode === m.id ? '#0A140A' : '#BEF264',
               background: mode === m.id ? '#BEF264' : '#1A2E05',
               border: '2px solid #84CC16',
@@ -170,6 +174,8 @@ function OverlayInner({ onClose }: Props) {
       >
         {mode === 'table'      && <PeriodicTable />}
         {mode === 'flashcards' && <Flashcards />}
+        {mode === 'quiz'       && <Quiz />}
+        {mode === 'match'      && <Match />}
       </main>
     </div>
   )
