@@ -17,9 +17,13 @@ interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   breathe?: boolean
   // Sticker image. Defaults to the everyday `/erenGood.png` used in most
   // rooms. The bedroom passes `/erenSleep.png` so the cat looks tucked in
-  // at night — every other behaviour (breathe, blink, eye glints) stays the
-  // same because they're all overlay layers, not part of the sprite.
+  // at night.
   src?: string
+  // Eyelid + eye-glint overlays. Coordinates are tuned to erenGood.png — when
+  // the sticker is a different pose (e.g. erenSleep.png, where the eyes are
+  // closed and sit in different pixel positions), pass false so we don't
+  // paint gray lid rectangles over the wrong part of the face.
+  blink?: boolean
 }
 
 export default function BlinkingEren({
@@ -29,6 +33,7 @@ export default function BlinkingEren({
   alt = 'Eren',
   breathe = true,
   src = '/erenGood.png',
+  blink = true,
   ...imgProps
 }: Props) {
   const isDark = useIsDark()
@@ -103,31 +108,35 @@ export default function BlinkingEren({
             imageRendering: 'pixelated',
           }} />
 
-        {/* Eye glints — each clipped to an eye-shaped mask over the iris
-            (measured iris bounds), centered on the baked catchlight inside,
-            twinkling together (eyes track as one) so they share one keyframe. */}
-        <div style={{ ...eyeMask, left: '39.3%', top: '32.8%', width: '5.7%', height: '5.4%' }}>
-          <div style={{ ...glint, left: '49.4%', top: '2.9%', animation: 'erenEyeShine 5s ease-in-out infinite' }} />
-        </div>
-        <div style={{ ...eyeMask, left: '53.8%', top: '32.8%', width: '5.7%', height: '5.4%' }}>
-          <div style={{ ...glint, left: '10.3%', top: '3.3%', animation: 'erenEyeShine 5s ease-in-out infinite' }} />
-        </div>
+        {blink && (
+          <>
+            {/* Eye glints — each clipped to an eye-shaped mask over the iris
+                (measured iris bounds), centered on the baked catchlight inside,
+                twinkling together (eyes track as one) so they share one keyframe. */}
+            <div style={{ ...eyeMask, left: '39.3%', top: '32.8%', width: '5.7%', height: '5.4%' }}>
+              <div style={{ ...glint, left: '49.4%', top: '2.9%', animation: 'erenEyeShine 5s ease-in-out infinite' }} />
+            </div>
+            <div style={{ ...eyeMask, left: '53.8%', top: '32.8%', width: '5.7%', height: '5.4%' }}>
+              <div style={{ ...glint, left: '10.3%', top: '3.3%', animation: 'erenEyeShine 5s ease-in-out infinite' }} />
+            </div>
 
-        {/* Left eyelid — left edge nudged 1% (≈2px) further left so the
-            widened lid covers the inner corner of the eye cleanly. */}
-        <div style={{
-          ...lid,
-          left: '38%', top: '32.5%',
-          animation: 'erenBlink 6s infinite',
-        }} />
-        {/* Right eyelid — same 1% leftward shift, and the prior 0.03s
-            stagger is gone: cats blink with both lids together, and the
-            tiny offset read as "left eye blinks first" on the sticker. */}
-        <div style={{
-          ...lid,
-          left: '54%', top: '32.5%',
-          animation: 'erenBlink 6s infinite',
-        }} />
+            {/* Left eyelid — left edge nudged 1% (≈2px) further left so the
+                widened lid covers the inner corner of the eye cleanly. */}
+            <div style={{
+              ...lid,
+              left: '38%', top: '32.5%',
+              animation: 'erenBlink 6s infinite',
+            }} />
+            {/* Right eyelid — same 1% leftward shift, and the prior 0.03s
+                stagger is gone: cats blink with both lids together, and the
+                tiny offset read as "left eye blinks first" on the sticker. */}
+            <div style={{
+              ...lid,
+              left: '54%', top: '32.5%',
+              animation: 'erenBlink 6s infinite',
+            }} />
+          </>
+        )}
       </div>
     </div>
   )
