@@ -119,8 +119,8 @@ export default function SleepScene({ onClose }: Props) {
             lidLeftA:  '41%',
             lidLeftB:  '51%',
             maskTop:   '36.3%',
-            maskLeftA: '42.3%',
-            maskLeftB: '50.8%',
+            maskLeftA: '40.3%',
+            maskLeftB: '52.8%',
           }} />
           <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
         </ErenIdleLayer>
