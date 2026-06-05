@@ -1,12 +1,13 @@
 'use client'
 
 // ElementDetail — modal sheet shown when a tile in the PeriodicTable is
-// tapped. Pixel-art card with the element's vitals, fun fact, and name
-// origin. Tap the backdrop or the close button to dismiss.
+// tapped. Neo-brutalism card with ink borders, hard offset shadows, and a
+// category-coloured top slab. Tap backdrop or close button to dismiss.
 
 import { CATEGORY_LABELS, type Element } from '@/lib/chemistry/elements'
 import { CATEGORY_COLORS, STATE_LABELS, readableText } from '@/lib/chemistry/colors'
 import { playSound } from '@/lib/sounds'
+import { useChemistryTheme, neoShadow, CHEM_FONT } from '@/lib/chemistry/theme'
 
 interface Props {
   element: Element
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function ElementDetail({ element, onClose }: Props) {
+  const { palette } = useChemistryTheme()
   const fill = CATEGORY_COLORS[element.category]
   const text = readableText(fill)
 
@@ -27,10 +29,12 @@ export default function ElementDetail({ element, onClose }: Props) {
       // z-[90] keeps the detail card above the overlay it was opened from.
       className="fixed inset-0 z-[90] flex items-center justify-center px-4"
       style={{
-        background: 'rgba(5, 12, 5, 0.78)',
+        // Ink at 60% opacity for the backdrop — works in both themes.
+        background: hexToRgba(palette.ink, 0.6),
         animation: 'elDetailFade 0.18s ease both',
         paddingTop: 'calc(20px + env(safe-area-inset-top, 0px))',
         paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))',
+        fontFamily: CHEM_FONT,
       }}
       onClick={dismiss}
     >
@@ -39,97 +43,138 @@ export default function ElementDetail({ element, onClose }: Props) {
         onClick={e => e.stopPropagation()}
         className="relative w-full overflow-y-auto"
         style={{
-          maxWidth: 320,
+          maxWidth: 340,
           maxHeight: '100%',
-          background: '#10200F',
-          border: '2px solid #84CC16',
-          borderRadius: 4,
-          boxShadow: '4px 4px 0 #050a02',
+          background: palette.card,
+          border: `2px solid ${palette.ink}`,
+          borderRadius: 16,
+          boxShadow: neoShadow(palette.ink, 'lg'),
           animation: 'elDetailPop 0.22s cubic-bezier(0.34,1.56,0.64,1) both',
         }}
       >
-        {/* Close — top-right, 44 × 44 hit target */}
+        {/* Close — top-right, 44 × 44 hit target via padding wrapper */}
         <button
           type="button"
           aria-label="Close element detail"
           onClick={dismiss}
-          className="absolute active:translate-y-[1px] transition-transform"
+          className="absolute neo-press"
           style={{
-            top: 8, right: 8,
-            minWidth: 32, minHeight: 32,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            background: '#1A2E05',
-            border: '2px solid #84CC16',
-            borderRadius: 3,
-            boxShadow: '2px 2px 0 #050a02',
-            color: '#BEF264',
-            fontFamily: '"Press Start 2P", monospace',
-            fontSize: 8,
+            top: 10,
+            right: 10,
+            width: 36,
+            height: 36,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: palette.card,
+            border: `2px solid ${palette.ink}`,
+            borderRadius: 999,
+            boxShadow: neoShadow(palette.ink, 'sm'),
+            color: palette.ink,
+            fontFamily: CHEM_FONT,
+            fontSize: 16,
+            fontWeight: 800,
+            lineHeight: 1,
+            cursor: 'pointer',
+            zIndex: 2,
           }}
         >
-          ✕
+          ×
         </button>
 
-        {/* Symbol slab — category-colored, big symbol + atomic number */}
+        {/* Symbol slab — category-coloured, big symbol + atomic number */}
         <div
           style={{
-            background: fill, color: text,
-            padding: '18px 14px 14px',
-            borderBottom: '2px solid #3F6212',
+            background: fill,
+            color: text,
+            padding: '20px 18px 18px',
+            borderBottom: `2px solid ${palette.ink}`,
+            borderTopLeftRadius: 14,
+            borderTopRightRadius: 14,
           }}
         >
           <div className="flex items-baseline gap-3">
             <span style={{
-              fontFamily: '"Press Start 2P", monospace',
-              fontSize: 24, lineHeight: 1, fontWeight: 700,
+              fontFamily: CHEM_FONT,
+              fontSize: 40,
+              lineHeight: 1,
+              fontWeight: 800,
+              letterSpacing: -0.5,
             }}>
               {element.symbol}
             </span>
             <span style={{
-              fontFamily: '"Press Start 2P", monospace',
-              fontSize: 7, opacity: 0.75, letterSpacing: 1,
+              fontFamily: CHEM_FONT,
+              fontSize: 14,
+              fontWeight: 700,
+              opacity: 0.85,
             }}>
               #{element.atomicNumber}
             </span>
           </div>
           <div style={{
-            marginTop: 6,
-            fontFamily: '"Press Start 2P", monospace',
-            fontSize: 10, letterSpacing: 1,
+            marginTop: 8,
+            fontFamily: CHEM_FONT,
+            fontSize: 22,
+            fontWeight: 800,
+            lineHeight: 1.1,
           }}>
             {element.name}
           </div>
-          <div style={{
-            marginTop: 4,
-            fontFamily: '"Press Start 2P", monospace',
-            fontSize: 6, letterSpacing: 1, opacity: 0.78,
-          }}>
+          <div
+            style={{
+              display: 'inline-block',
+              marginTop: 10,
+              padding: '4px 10px',
+              fontFamily: CHEM_FONT,
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: 0.5,
+              textTransform: 'uppercase',
+              background: palette.card,
+              color: palette.ink,
+              border: `2px solid ${palette.ink}`,
+              borderRadius: 999,
+              boxShadow: neoShadow(palette.ink, 'sm'),
+            }}
+          >
             {CATEGORY_LABELS[element.category]}
           </div>
         </div>
 
-        {/* Vitals grid */}
-        <div className="grid grid-cols-2 gap-2 px-4 py-3" style={{
-          borderBottom: '1px dashed rgba(190,242,100,0.25)',
-        }}>
-          <Stat label="State"  value={STATE_LABELS[element.state]} />
-          <Stat label="Period" value={String(element.period)} />
-          <Stat label="Group"  value={element.group != null ? String(element.group) : '—'} />
-          <Stat label="Mass"   value={element.atomicMass.toString()} />
+        {/* 2x2 vitals grid */}
+        <div
+          className="grid grid-cols-2 gap-3 px-4 py-4"
+          style={{ background: palette.cardMuted }}
+        >
+          <Stat label="State"  value={STATE_LABELS[element.state]} palette={palette} />
+          <Stat label="Period" value={String(element.period)} palette={palette} />
+          <Stat label="Group"  value={element.group != null ? String(element.group) : '—'} palette={palette} />
+          <Stat label="Mass"   value={element.atomicMass.toString()} palette={palette} />
         </div>
 
-        {/* Lore */}
-        <div className="px-4 py-3 space-y-3">
-          {element.funFact && (
-            <Block heading="FUN FACT" body={element.funFact} />
-          )}
-          {element.nameOrigin && (
-            <Block heading="NAME ORIGIN" body={element.nameOrigin} />
-          )}
-          {element.mnemonic && (
-            <Block heading="MNEMONIC" body={element.mnemonic} />
-          )}
-        </div>
+        {/* Lore blocks */}
+        {(element.funFact || element.nameOrigin || element.mnemonic) && (
+          <div
+            className="px-4 py-4 space-y-3"
+            style={{
+              borderTop: `2px solid ${palette.ink}`,
+              background: palette.card,
+              borderBottomLeftRadius: 14,
+              borderBottomRightRadius: 14,
+            }}
+          >
+            {element.funFact && (
+              <Block heading="Fun fact" body={element.funFact} accent={palette.sun} palette={palette} />
+            )}
+            {element.nameOrigin && (
+              <Block heading="Name origin" body={element.nameOrigin} accent={palette.sky} palette={palette} />
+            )}
+            {element.mnemonic && (
+              <Block heading="Mnemonic" body={element.mnemonic} accent={palette.grape} palette={palette} />
+            )}
+          </div>
+        )}
       </div>
 
       <style jsx>{`
@@ -141,29 +186,57 @@ export default function ElementDetail({ element, onClose }: Props) {
           from { opacity: 0; transform: translateY(8px) scale(0.97); }
           to   { opacity: 1; transform: translateY(0) scale(1);    }
         }
+        .neo-press {
+          transition: transform 0.08s ease, box-shadow 0.08s ease;
+        }
+        .neo-press:hover {
+          transform: translate(1px, 1px);
+        }
+        .neo-press:active {
+          transform: translate(2px, 2px);
+          box-shadow: 0 0 0 0 transparent !important;
+        }
       `}</style>
     </div>
   )
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({
+  label,
+  value,
+  palette,
+}: {
+  label: string
+  value: string
+  palette: ReturnType<typeof useChemistryTheme>['palette']
+}) {
   return (
-    <div style={{
-      background: '#1A2E05',
-      border: '1px solid #3F6212',
-      borderRadius: 3,
-      padding: '6px 8px',
-    }}>
+    <div
+      style={{
+        background: palette.card,
+        border: `2px solid ${palette.ink}`,
+        borderRadius: 12,
+        boxShadow: neoShadow(palette.ink, 'sm'),
+        padding: '10px 12px',
+      }}
+    >
       <div style={{
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: 5, letterSpacing: 1, color: '#84CC16', opacity: 0.85,
+        fontFamily: CHEM_FONT,
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+        color: palette.fgMuted,
       }}>
         {label}
       </div>
       <div style={{
-        marginTop: 3,
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: 8, color: '#E8FAD0',
+        marginTop: 4,
+        fontFamily: CHEM_FONT,
+        fontSize: 18,
+        fontWeight: 800,
+        color: palette.fg,
+        lineHeight: 1.1,
       }}>
         {value}
       </div>
@@ -171,21 +244,67 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
-function Block({ heading, body }: { heading: string; body: string }) {
+function Block({
+  heading,
+  body,
+  accent,
+  palette,
+}: {
+  heading: string
+  body: string
+  accent: string
+  palette: ReturnType<typeof useChemistryTheme>['palette']
+}) {
   return (
-    <div>
-      <div style={{
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: 5.5, letterSpacing: 1.5, color: '#BEF264', marginBottom: 4,
-      }}>
+    <div
+      style={{
+        background: palette.cardMuted,
+        border: `2px solid ${palette.ink}`,
+        borderRadius: 12,
+        boxShadow: neoShadow(palette.ink, 'sm'),
+        padding: '12px 14px',
+      }}
+    >
+      <div
+        style={{
+          display: 'inline-block',
+          fontFamily: CHEM_FONT,
+          fontSize: 11,
+          fontWeight: 800,
+          letterSpacing: 0.5,
+          textTransform: 'uppercase',
+          color: palette.ink,
+          background: accent,
+          border: `2px solid ${palette.ink}`,
+          borderRadius: 999,
+          padding: '2px 10px',
+          marginBottom: 8,
+        }}
+      >
         {heading}
       </div>
       <p style={{
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: 6.5, lineHeight: 1.7, color: '#E8FAD0', letterSpacing: 0.3,
+        fontFamily: CHEM_FONT,
+        fontSize: 14,
+        lineHeight: 1.5,
+        fontWeight: 600,
+        color: palette.fg,
+        margin: 0,
       }}>
         {body}
       </p>
     </div>
   )
+}
+
+/** Convert #RRGGBB to an rgba() string with the given alpha. */
+function hexToRgba(hex: string, alpha: number): string {
+  const m = hex.replace('#', '')
+  const full = m.length === 3
+    ? m.split('').map(c => c + c).join('')
+    : m
+  const r = parseInt(full.slice(0, 2), 16)
+  const g = parseInt(full.slice(2, 4), 16)
+  const b = parseInt(full.slice(4, 6), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }

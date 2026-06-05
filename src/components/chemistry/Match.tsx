@@ -13,9 +13,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { elements, type Element } from '@/lib/chemistry/elements'
-import { CATEGORY_COLORS, readableText } from '@/lib/chemistry/colors'
+import { CATEGORY_COLORS } from '@/lib/chemistry/colors'
 import { useChemistryStore, elementCardId } from '@/lib/chemistry/store'
 import { dueDate, isDue, isNew, MASTERED_BOX, type CardState } from '@/lib/chemistry/srs'
+import { useChemistryTheme, neoShadow, CHEM_FONT, type Palette } from '@/lib/chemistry/theme'
 import { playSound } from '@/lib/sounds'
 
 const ROUND_SECONDS  = 60
@@ -83,6 +84,7 @@ function makeRound(els: Element[]): Card[] {
 
 export default function Match() {
   const { hydrated, state, today, rateCard, finishDeck } = useChemistryStore()
+  const { palette } = useChemistryTheme()
   const [cards, setCards] = useState<Card[]>([])
   const [matched, setMatched] = useState<Set<number>>(new Set())
   const [selected, setSelected] = useState<number[]>([])
@@ -206,234 +208,343 @@ export default function Match() {
     return (
       <div className="flex items-center justify-center px-4 py-16">
         <p style={{
-          fontFamily: '"Press Start 2P", monospace',
-          fontSize: 7, color: '#84CC16', letterSpacing: 1, opacity: 0.7,
-        }}>LOADING...</p>
+          fontFamily: CHEM_FONT,
+          fontSize: 14, fontWeight: 600,
+          color: palette.fgMuted, letterSpacing: 0.5,
+        }}>Loading...</p>
       </div>
     )
   }
 
   if (done) {
-    return <Summary pairs={pairs} bestStreak={bestStreak} dailyStreak={state.streak.current} onAgain={reset} />
+    return (
+      <Summary
+        pairs={pairs}
+        bestStreak={bestStreak}
+        dailyStreak={state.streak.current}
+        onAgain={reset}
+        palette={palette}
+      />
+    )
   }
 
   return (
     <div className="flex flex-col items-center gap-4 px-4">
-      <Header timeLeft={timeLeft} pairs={pairs} streak={streak} />
+      <Header timeLeft={timeLeft} pairs={pairs} streak={streak} palette={palette} />
       <Grid
         cards={cards}
         matched={matched}
         selected={selected}
         wrong={wrong}
         onTap={tap}
+        palette={palette}
       />
       {!running && (
         <button
           type="button"
           onClick={() => { playSound('ui_tap'); setRunning(true) }}
-          className="w-full py-3 text-white active:translate-y-[2px] transition-transform"
+          className="neo-press w-full"
           style={{
-            maxWidth: 320,
-            background: 'linear-gradient(135deg, #84CC16, #65A30D)',
-            border: '2px solid #3F6212',
-            borderRadius: 3,
-            boxShadow: '0 3px 0 #1A2E05',
-            fontFamily: '"Press Start 2P"',
-            fontSize: 8, letterSpacing: 1.5,
+            maxWidth: 340,
+            minHeight: 48,
+            padding: '12px 20px',
+            background: palette.grape,
+            color: palette.ink,
+            border: `2px solid ${palette.ink}`,
+            borderRadius: 999,
+            boxShadow: neoShadow(palette.ink, 'md'),
+            fontFamily: CHEM_FONT,
+            fontSize: 16, fontWeight: 800, letterSpacing: 0.5,
+            cursor: 'pointer',
+            transition: 'transform 0.08s ease, box-shadow 0.08s ease',
           }}>
           START · {ROUND_SECONDS}s
         </button>
       )}
+      <style jsx>{`
+        .neo-press:hover {
+          transform: translate(1px, 1px);
+        }
+        .neo-press:active {
+          transform: translate(4px, 4px);
+          box-shadow: 0 0 0 0 ${palette.ink} !important;
+        }
+      `}</style>
     </div>
   )
 }
 
-function Header({ timeLeft, pairs, streak }: { timeLeft: number; pairs: number; streak: number }) {
+function Header({ timeLeft, pairs, streak, palette }: {
+  timeLeft: number; pairs: number; streak: number; palette: Palette
+}) {
   const danger = timeLeft <= 10
+  const flame  = streak >= 5
   return (
-    <div className="grid grid-cols-3 gap-2 w-full" style={{ maxWidth: 320 }}>
-      <Pill label="TIME"    value={`${timeLeft}s`} highlight={danger} />
-      <Pill label="PAIRS"   value={String(pairs)} />
-      <Pill label="STREAK"  value={`${streak}×`} flame={streak >= 5} />
+    <div className="grid grid-cols-3 gap-2 w-full" style={{ maxWidth: 340 }}>
+      <StatCard
+        label="TIME"
+        value={`${timeLeft}s`}
+        palette={palette}
+        accentFg={danger ? palette.red : palette.fg}
+        accentBg={danger ? palette.redLight : palette.card}
+        accentBorder={danger ? palette.red : palette.ink}
+      />
+      <StatCard
+        label="PAIRS"
+        value={String(pairs)}
+        palette={palette}
+        accentFg={palette.fg}
+        accentBg={palette.card}
+        accentBorder={palette.ink}
+      />
+      <StatCard
+        label="STREAK"
+        value={`${streak}×`}
+        palette={palette}
+        accentFg={flame ? palette.sunDark : palette.fg}
+        accentBg={flame ? palette.sunLight : palette.card}
+        accentBorder={flame ? palette.sunDark : palette.ink}
+      />
     </div>
   )
 }
 
-function Pill({ label, value, highlight, flame }: {
-  label: string; value: string; highlight?: boolean; flame?: boolean
+function StatCard({ label, value, palette, accentFg, accentBg, accentBorder }: {
+  label: string; value: string; palette: Palette
+  accentFg: string; accentBg: string; accentBorder: string
 }) {
   return (
     <div style={{
-      background: '#1A2E05',
-      border: `1px solid ${highlight ? '#EF4444' : '#3F6212'}`,
-      borderRadius: 3,
-      padding: '5px 6px',
+      background: accentBg,
+      border: `2px solid ${accentBorder}`,
+      borderRadius: 12,
+      padding: '8px 6px',
       textAlign: 'center',
+      boxShadow: neoShadow(palette.ink, 'sm'),
+      fontFamily: CHEM_FONT,
     }}>
       <div style={{
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: 5, letterSpacing: 1,
-        color: highlight ? '#FCA5A5' : (flame ? '#FBBF24' : '#84CC16'),
-        opacity: 0.85,
+        fontSize: 10, fontWeight: 700, letterSpacing: 1,
+        color: palette.fgMuted,
+        textTransform: 'uppercase',
       }}>{label}</div>
       <div style={{
-        marginTop: 3,
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: 9,
-        color: highlight ? '#FCA5A5' : (flame ? '#FBBF24' : '#E8FAD0'),
-        textShadow: highlight ? '0 0 6px rgba(239,68,68,0.65)'
-                  : (flame ? '0 0 5px rgba(251,191,36,0.55)' : undefined),
+        marginTop: 2,
+        fontSize: 18, fontWeight: 800,
+        color: accentFg,
+        fontVariantNumeric: 'tabular-nums',
       }}>{value}</div>
     </div>
   )
 }
 
-function Grid({ cards, matched, selected, wrong, onTap }: {
-  cards: Card[]; matched: Set<number>; selected: number[]; wrong: number[]; onTap: (i: number) => void
+function Grid({ cards, matched, selected, wrong, onTap, palette }: {
+  cards: Card[]; matched: Set<number>; selected: number[]; wrong: number[]
+  onTap: (i: number) => void; palette: Palette
 }) {
   return (
-    <div className="grid grid-cols-3 gap-1.5 w-full" style={{ maxWidth: 320 }}>
+    <div className="grid grid-cols-3 gap-2 w-full" style={{ maxWidth: 360 }}>
       {cards.map((c, idx) => {
         const isMatched  = matched.has(c.id)
         const isSelected = selected.includes(idx)
         const isWrong    = wrong.includes(idx)
         const accent = CATEGORY_COLORS[c.element.category]
-        const textColor = readableText(accent)
-        let bg = '#1A2E05'
-        let border = '#3F6212'
-        let color = '#E8FAD0'
-        let shadow = '2px 2px 0 #050a02'
+
+        let bg     = palette.card
+        let border = palette.ink
+        let color  = palette.fg
+        let shadow: string = neoShadow(palette.ink, 'sm')
         let opacity = 1
+
         if (isMatched) {
           bg = accent
-          border = 'rgba(0,0,0,0.5)'
-          color = textColor
-          shadow = '0 0 8px rgba(132,204,22,0.4)'
-          opacity = 0.45
+          border = palette.ink
+          color = palette.ink
+          shadow = '0 0 0 0 transparent'
+          opacity = 0.5
         } else if (isWrong) {
-          bg = '#7F1D1D'
-          border = '#EF4444'
-          color = '#FECACA'
-          shadow = '2px 2px 0 #450A0A'
+          bg = palette.red
+          border = palette.red
+          color = palette.ink
+          shadow = neoShadow(palette.ink, 'sm')
         } else if (isSelected) {
-          bg = '#365314'
-          border = '#BEF264'
-          color = '#FFFFFF'
-          shadow = '0 0 8px rgba(190,242,100,0.55)'
+          bg = palette.grape
+          border = palette.ink
+          color = palette.ink
+          shadow = neoShadow(palette.ink, 'sm')
         }
-        const label = c.kind === 'symbol' ? c.element.symbol : c.element.name
-        const fontSize = c.kind === 'symbol' ? 14 : 6.5
+
+        const isSymbol = c.kind === 'symbol'
+        const label = isSymbol ? c.element.symbol : c.element.name
+
         return (
           <button
             key={c.id}
             type="button"
             disabled={isMatched}
             onClick={() => onTap(idx)}
-            className="active:translate-y-[1px] transition-transform"
+            className="match-tile"
             style={{
-              height: 56,
+              minHeight: 60,
               background: bg,
               border: `2px solid ${border}`,
-              borderRadius: 3,
+              borderRadius: 12,
               boxShadow: shadow,
-              fontFamily: '"Press Start 2P", monospace',
-              fontSize,
+              fontFamily: CHEM_FONT,
+              fontSize: isSymbol ? 18 : 12,
+              fontWeight: isSymbol ? 800 : 700,
               color,
-              letterSpacing: c.kind === 'symbol' ? 1 : 0.5,
-              padding: 4,
+              letterSpacing: isSymbol ? 0.5 : 0.2,
+              padding: '6px 4px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               textAlign: 'center',
               wordBreak: 'break-word',
               opacity,
-              lineHeight: c.kind === 'symbol' ? 1 : 1.2,
-              transition: 'opacity 0.3s ease, box-shadow 0.2s ease',
+              lineHeight: isSymbol ? 1 : 1.2,
+              cursor: isMatched ? 'default' : 'pointer',
+              transition: 'transform 0.08s ease, box-shadow 0.08s ease, opacity 0.3s ease',
             }}
           >
             {label}
           </button>
         )
       })}
+      <style jsx>{`
+        .match-tile:not(:disabled):hover {
+          transform: translate(1px, 1px);
+        }
+        .match-tile:not(:disabled):active {
+          transform: translate(4px, 4px);
+          box-shadow: 0 0 0 0 transparent !important;
+        }
+      `}</style>
     </div>
   )
 }
 
-function Summary({ pairs, bestStreak, dailyStreak, onAgain }: {
-  pairs: number; bestStreak: number; dailyStreak: number; onAgain: () => void
+function Summary({ pairs, bestStreak, dailyStreak, onAgain, palette }: {
+  pairs: number; bestStreak: number; dailyStreak: number; onAgain: () => void; palette: Palette
 }) {
   const goldRun = pairs >= 18
   return (
-    <div className="flex flex-col items-center px-4 py-8" style={{ maxWidth: 320, margin: '0 auto' }}>
+    <div className="flex flex-col items-center px-4 py-8" style={{ maxWidth: 340, margin: '0 auto', width: '100%' }}>
       <p style={{
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: 10, letterSpacing: 2, color: '#BEF264',
-        textShadow: '0 0 8px rgba(132,204,22,0.5)',
-        marginBottom: 24,
-      }}>TIME UP</p>
-      <div className="grid grid-cols-2 gap-2 w-full mb-4">
-        <Stat label="PAIRS" value={String(pairs)} highlight={goldRun} />
-        <Stat label="BEST"  value={`${bestStreak}×`} />
-      </div>
-      <div className="w-full mb-6" style={{
-        background: '#10200F',
-        border: '1px solid #3F6212',
-        borderRadius: 3,
-        padding: '8px 10px',
+        fontFamily: CHEM_FONT,
+        fontSize: 14, fontWeight: 700, letterSpacing: 2,
+        color: palette.fgMuted,
+        textTransform: 'uppercase',
+        marginBottom: 12,
+      }}>Time Up</p>
+
+      {/* PAIRS hero */}
+      <div style={{
+        width: '100%',
+        background: goldRun ? palette.sunLight : palette.card,
+        border: `2px solid ${palette.ink}`,
+        borderRadius: 16,
+        boxShadow: neoShadow(palette.ink, 'lg'),
+        padding: '20px 16px',
         textAlign: 'center',
+        marginBottom: 16,
+        fontFamily: CHEM_FONT,
       }}>
         <div style={{
-          fontFamily: '"Press Start 2P", monospace',
-          fontSize: 5.5, letterSpacing: 1, color: '#FBBF24',
-        }}>DAILY STREAK</div>
+          fontSize: 12, fontWeight: 700, letterSpacing: 1.5,
+          color: palette.fgMuted,
+          textTransform: 'uppercase',
+        }}>Pairs</div>
+        <div style={{
+          marginTop: 6,
+          fontSize: 56, fontWeight: 800,
+          color: goldRun ? palette.sunDark : palette.fg,
+          fontVariantNumeric: 'tabular-nums',
+          lineHeight: 1,
+        }}>{pairs}</div>
+      </div>
+
+      {/* BEST streak */}
+      <div style={{
+        width: '100%',
+        background: palette.card,
+        border: `2px solid ${palette.ink}`,
+        borderRadius: 12,
+        boxShadow: neoShadow(palette.ink, 'md'),
+        padding: '12px 14px',
+        marginBottom: 12,
+        fontFamily: CHEM_FONT,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}>
+        <div style={{
+          fontSize: 12, fontWeight: 700, letterSpacing: 1,
+          color: palette.fgMuted,
+          textTransform: 'uppercase',
+        }}>Best Streak</div>
+        <div style={{
+          fontSize: 22, fontWeight: 800,
+          color: palette.fg,
+          fontVariantNumeric: 'tabular-nums',
+        }}>{bestStreak}×</div>
+      </div>
+
+      {/* Daily streak callout */}
+      <div style={{
+        width: '100%',
+        background: palette.sunLight,
+        border: `2px solid ${palette.ink}`,
+        borderRadius: 12,
+        boxShadow: neoShadow(palette.ink, 'md'),
+        padding: '12px 14px',
+        marginBottom: 20,
+        textAlign: 'center',
+        fontFamily: CHEM_FONT,
+      }}>
+        <div style={{
+          fontSize: 11, fontWeight: 700, letterSpacing: 1.5,
+          color: palette.sunDark,
+          textTransform: 'uppercase',
+        }}>Daily Streak</div>
         <div style={{
           marginTop: 4,
-          fontFamily: '"Press Start 2P", monospace',
-          fontSize: 11, color: '#FBBF24',
-          textShadow: dailyStreak >= 3 ? '0 0 6px rgba(251,191,36,0.6)' : undefined,
+          fontSize: 20, fontWeight: 800,
+          color: palette.sunDark,
+          fontVariantNumeric: 'tabular-nums',
         }}>
-          {dailyStreak} {dailyStreak === 1 ? 'DAY' : 'DAYS'}
+          {dailyStreak} {dailyStreak === 1 ? 'day' : 'days'}
         </div>
       </div>
+
       <button
         type="button"
         onClick={onAgain}
-        className="w-full py-3 text-white active:translate-y-[2px] transition-transform"
+        className="neo-press-summary w-full"
         style={{
-          background: 'linear-gradient(135deg, #84CC16, #65A30D)',
-          border: '2px solid #3F6212',
-          borderRadius: 3,
-          boxShadow: '0 3px 0 #1A2E05',
-          fontFamily: '"Press Start 2P"',
-          fontSize: 8, letterSpacing: 1.5,
+          minHeight: 48,
+          padding: '12px 20px',
+          background: palette.grape,
+          color: palette.ink,
+          border: `2px solid ${palette.ink}`,
+          borderRadius: 999,
+          boxShadow: neoShadow(palette.ink, 'md'),
+          fontFamily: CHEM_FONT,
+          fontSize: 16, fontWeight: 800, letterSpacing: 0.5,
+          cursor: 'pointer',
+          transition: 'transform 0.08s ease, box-shadow 0.08s ease',
         }}>
-        PLAY AGAIN
+        Play Again
       </button>
-    </div>
-  )
-}
-
-function Stat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
-  return (
-    <div style={{
-      background: '#1A2E05',
-      border: '1px solid #3F6212',
-      borderRadius: 3,
-      padding: '8px 6px',
-      textAlign: 'center',
-    }}>
-      <div style={{
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: 5, letterSpacing: 1,
-        color: highlight ? '#FBBF24' : '#84CC16', opacity: 0.85,
-      }}>{label}</div>
-      <div style={{
-        marginTop: 4,
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: 11,
-        color: highlight ? '#FBBF24' : '#E8FAD0',
-        textShadow: highlight ? '0 0 6px rgba(251,191,36,0.6)' : undefined,
-      }}>{value}</div>
+      <style jsx>{`
+        .neo-press-summary:hover {
+          transform: translate(1px, 1px);
+        }
+        .neo-press-summary:active {
+          transform: translate(4px, 4px);
+          box-shadow: 0 0 0 0 ${palette.ink} !important;
+        }
+      `}</style>
     </div>
   )
 }

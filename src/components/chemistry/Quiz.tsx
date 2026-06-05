@@ -6,11 +6,18 @@
 // the same store.rateCard the flashcards use, so a perfect quiz round
 // advances the same Leitner boxes as a deck of flashcards. Auto-advances
 // ~1 s after each tap so it stays fast on mobile.
+//
+// Visual layer: AminaChemistry neo-brutalism — cream paper bg, ink
+// borders + hard offset shadows, rounded ui-rounded/Quicksand font, brand
+// trio grape/sky/sun. The category accent shows up as a top stripe on
+// the question card.
 
 import { useEffect, useRef, useState } from 'react'
 import { elements, type Element } from '@/lib/chemistry/elements'
+import { CATEGORY_COLORS } from '@/lib/chemistry/colors'
 import { useChemistryStore, elementCardId } from '@/lib/chemistry/store'
 import { dueDate, isDue, isNew, MASTERED_BOX, type CardState } from '@/lib/chemistry/srs'
+import { useChemistryTheme, neoShadow, CHEM_FONT, type Palette } from '@/lib/chemistry/theme'
 import { playSound } from '@/lib/sounds'
 
 const QUEUE_SIZE = 10
@@ -74,6 +81,7 @@ function makeQuestion(el: Element): Question {
 
 export default function Quiz() {
   const { hydrated, state, today, rateCard, finishDeck } = useChemistryStore()
+  const { palette } = useChemistryTheme()
   const [queue, setQueue] = useState<Element[]>([])
   const [index, setIndex] = useState(0)
   const [questions, setQuestions] = useState<Question[]>([])
@@ -146,15 +154,18 @@ export default function Quiz() {
     return (
       <div className="flex items-center justify-center px-4 py-16">
         <p style={{
-          fontFamily: '"Press Start 2P", monospace',
-          fontSize: 7, color: '#84CC16', letterSpacing: 1, opacity: 0.7,
-        }}>LOADING...</p>
+          fontFamily: CHEM_FONT,
+          fontSize: 13, fontWeight: 600, color: palette.fgMuted, letterSpacing: 0.5,
+        }}>
+          Loading…
+        </p>
       </div>
     )
   }
 
   if (done) {
     return <Summary
+      palette={palette}
       total={queue.length} correct={correct} bestStreak={bestStreak}
       dailyStreak={state.streak.current} onAgain={reset}
     />
@@ -162,81 +173,132 @@ export default function Quiz() {
 
   return (
     <div className="flex flex-col items-center gap-4 px-4">
-      <Header position={index} length={queue.length} streak={streak} />
-      <Prompt q={current!} picked={picked} />
-      <Options q={current!} picked={picked} onPick={pick} />
+      <Header palette={palette} position={index} length={queue.length} streak={streak} />
+      <Prompt palette={palette} q={current!} picked={picked} />
+      <Options palette={palette} q={current!} picked={picked} onPick={pick} />
     </div>
   )
 }
 
-function Header({ position, length, streak }: { position: number; length: number; streak: number }) {
+function Header({ palette, position, length, streak }: {
+  palette: Palette; position: number; length: number; streak: number
+}) {
   const pct = (position / length) * 100
+  const streakActive = streak > 0
   return (
-    <div className="w-full" style={{ maxWidth: 320 }}>
-      <div className="flex justify-between items-center" style={{ marginBottom: 6 }}>
-        <span style={{
-          fontFamily: '"Press Start 2P", monospace',
-          fontSize: 6, letterSpacing: 1, color: '#BEF264',
-        }}>
-          {position + 1} / {length}
-        </span>
-        <span style={{
-          fontFamily: '"Press Start 2P", monospace',
-          fontSize: 6, letterSpacing: 1, color: streak > 0 ? '#FBBF24' : '#84CC16',
-          textShadow: streak >= 5 ? '0 0 6px rgba(251,191,36,0.8)' : undefined,
-        }}>
-          {streak}× STREAK
-        </span>
-      </div>
-      <div style={{
-        height: 6,
-        background: '#1A2E05',
-        border: '1px solid #3F6212',
-        borderRadius: 2,
-        overflow: 'hidden',
-      }}>
+    <div className="w-full flex items-center gap-3" style={{ maxWidth: 340 }}>
+      {/* Progress bar — ink-bordered pill, grape fill */}
+      <div
+        className="flex-1"
+        style={{
+          height: 18,
+          background: palette.cardMuted,
+          border: `2px solid ${palette.ink}`,
+          borderRadius: 999,
+          boxShadow: neoShadow(palette.ink, 'sm'),
+          overflow: 'hidden',
+          position: 'relative',
+        }}
+      >
         <div style={{
           height: '100%',
           width: `${pct}%`,
-          background: 'linear-gradient(90deg, #84CC16, #BEF264)',
+          background: palette.grape,
+          borderRight: pct > 0 && pct < 100 ? `2px solid ${palette.ink}` : 'none',
           transition: 'width 0.3s ease',
         }} />
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: CHEM_FONT,
+          fontSize: 10, fontWeight: 800, letterSpacing: 0.5,
+          color: palette.ink,
+        }}>
+          {position + 1} / {length}
+        </div>
+      </div>
+
+      {/* Streak pill */}
+      <div style={{
+        background: streakActive ? palette.sun : palette.card,
+        border: `2px solid ${palette.ink}`,
+        borderRadius: 999,
+        boxShadow: neoShadow(palette.ink, 'sm'),
+        padding: '4px 10px',
+        fontFamily: CHEM_FONT,
+        fontSize: 11, fontWeight: 800, letterSpacing: 0.3,
+        color: palette.ink,
+        whiteSpace: 'nowrap',
+      }}>
+        {streak}× streak
       </div>
     </div>
   )
 }
 
-function Prompt({ q, picked }: { q: Question; picked: number | null }) {
+function Prompt({ palette, q, picked }: { palette: Palette; q: Question; picked: number | null }) {
   const display = q.type === 'name-from-symbol' ? q.el.symbol : q.el.name
-  const ask     = q.type === 'name-from-symbol' ? 'WHICH ELEMENT?' : 'WHICH SYMBOL?'
+  const ask     = q.type === 'name-from-symbol' ? 'Which element?' : 'Which symbol?'
+  const accent  = CATEGORY_COLORS[q.el.category]
+  const isBigSymbol = q.type === 'name-from-symbol'
+
   return (
     <div
       className="w-full flex flex-col items-center justify-center"
       style={{
-        maxWidth: 320,
-        background: '#10200F',
-        border: '2px solid #84CC16',
-        borderRadius: 4,
-        boxShadow: '4px 4px 0 #050a02',
-        padding: '24px 16px',
+        maxWidth: 340,
+        background: palette.card,
+        border: `2px solid ${palette.ink}`,
+        borderTop: `8px solid ${palette.ink}`,
+        borderRadius: 16,
+        boxShadow: neoShadow(palette.ink, 'md'),
+        padding: '20px 18px 24px',
+        position: 'relative',
+        overflow: 'hidden',
       }}
     >
+      {/* Category accent stripe sitting just under the ink top border */}
       <div style={{
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: 6.5, letterSpacing: 1, color: '#84CC16', opacity: 0.7,
-        marginBottom: 10,
+        position: 'absolute',
+        top: 0, left: 0, right: 0,
+        height: 6,
+        background: accent,
+      }} />
+
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        marginTop: 4, marginBottom: 12,
       }}>
-        #{q.el.atomicNumber} · {ask}
+        <span style={{
+          fontFamily: CHEM_FONT,
+          fontSize: 11, fontWeight: 800, letterSpacing: 0.5,
+          color: palette.ink,
+          background: palette.cardMuted,
+          border: `2px solid ${palette.ink}`,
+          borderRadius: 999,
+          padding: '2px 10px',
+        }}>
+          #{q.el.atomicNumber}
+        </span>
+        <span style={{
+          fontFamily: CHEM_FONT,
+          fontSize: 13, fontWeight: 600, color: palette.fgMuted,
+        }}>
+          {ask}
+        </span>
       </div>
+
       <div style={{
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: q.type === 'name-from-symbol' ? 36 : 18,
+        fontFamily: CHEM_FONT,
+        fontSize: isBigSymbol ? 64 : 28,
+        lineHeight: 1.05,
+        fontWeight: 800,
         color: picked !== null
-          ? (picked === q.correctIdx ? '#BEF264' : '#FCA5A5')
-          : '#BEF264',
-        textShadow: '0 0 10px rgba(132,204,22,0.5)',
-        letterSpacing: q.type === 'name-from-symbol' ? 2 : 1,
+          ? (picked === q.correctIdx ? palette.grapeDark : palette.red)
+          : palette.fg,
+        letterSpacing: isBigSymbol ? 1 : 0.3,
         textAlign: 'center',
+        padding: isBigSymbol ? '12px 0 6px' : '4px 0 6px',
       }}>
         {display}
       </div>
@@ -244,51 +306,98 @@ function Prompt({ q, picked }: { q: Question; picked: number | null }) {
   )
 }
 
-function Options({ q, picked, onPick }: {
-  q: Question; picked: number | null; onPick: (i: number) => void
+function Options({ palette, q, picked, onPick }: {
+  palette: Palette; q: Question; picked: number | null; onPick: (i: number) => void
 }) {
   return (
-    <div className="grid grid-cols-1 gap-2 w-full" style={{ maxWidth: 320 }}>
+    <div className="grid grid-cols-1 gap-3 w-full" style={{ maxWidth: 340 }}>
       {q.options.map((opt, i) => {
-        let bg = '#1A2E05'
-        let border = '#84CC16'
-        let color = '#E8FAD0'
-        let shadow = '0 3px 0 #050a02'
-        if (picked !== null) {
-          if (i === q.correctIdx) {
-            bg = 'linear-gradient(135deg, #84CC16, #65A30D)'
-            border = '#3F6212'
+        const settled = picked !== null
+        const isCorrect = i === q.correctIdx
+        const isPicked  = i === picked
+
+        let bg     = palette.card
+        let color  = palette.fg
+        let prefixBg    = palette.cardMuted
+        let prefixColor = palette.ink
+        let opacity = 1
+
+        if (settled) {
+          if (isCorrect) {
+            bg = palette.green
+            color = palette.ink
+            prefixBg = palette.ink
+            prefixColor = palette.green
+          } else if (isPicked) {
+            bg = palette.red
             color = '#FFFFFF'
-            shadow = '0 3px 0 #1A2E05'
-          } else if (i === picked) {
-            bg = 'linear-gradient(135deg, #EF4444, #B91C1C)'
-            border = '#7F1D1D'
-            color = '#FFFFFF'
-            shadow = '0 3px 0 #450A0A'
+            prefixBg = palette.ink
+            prefixColor = palette.red
           } else {
-            color = 'rgba(232,250,208,0.4)'
+            opacity = 0.5
           }
         }
+
         return (
           <button
             key={i}
             type="button"
-            disabled={picked !== null}
+            disabled={settled}
             onClick={() => onPick(i)}
-            className="py-3 px-4 active:translate-y-[1px] transition-transform"
+            className="active:translate-x-[4px] active:translate-y-[4px]"
             style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              padding: '12px 14px',
+              minHeight: 56,
+              width: '100%',
               background: bg,
-              border: `2px solid ${border}`,
-              borderRadius: 3,
-              boxShadow: shadow,
-              fontFamily: '"Press Start 2P", monospace',
-              fontSize: 8,
-              letterSpacing: 1,
+              border: `2px solid ${palette.ink}`,
+              borderRadius: 12,
+              boxShadow: settled && !isCorrect && !isPicked
+                ? neoShadow(palette.ink, 'sm')
+                : neoShadow(palette.ink, 'md'),
+              fontFamily: CHEM_FONT,
+              fontSize: 15,
+              fontWeight: 700,
               color,
               textAlign: 'left',
+              cursor: settled ? 'default' : 'pointer',
+              opacity,
+              transition: 'transform 0.08s ease, box-shadow 0.08s ease, opacity 0.2s ease',
+            }}
+            onMouseDown={e => {
+              if (settled) return
+              e.currentTarget.style.boxShadow = 'none'
+            }}
+            onMouseUp={e => {
+              if (settled) return
+              e.currentTarget.style.boxShadow = neoShadow(palette.ink, 'md')
+            }}
+            onMouseLeave={e => {
+              if (settled) return
+              e.currentTarget.style.boxShadow = neoShadow(palette.ink, 'md')
             }}
           >
-            {String.fromCharCode(65 + i)} · {opt}
+            <span style={{
+              flexShrink: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 32,
+              height: 32,
+              background: prefixBg,
+              color: prefixColor,
+              border: `2px solid ${palette.ink}`,
+              borderRadius: 8,
+              fontFamily: CHEM_FONT,
+              fontSize: 14,
+              fontWeight: 800,
+            }}>
+              {String.fromCharCode(65 + i)}
+            </span>
+            <span style={{ flex: 1, lineHeight: 1.2 }}>{opt}</span>
           </button>
         )
       })}
@@ -296,84 +405,116 @@ function Options({ q, picked, onPick }: {
   )
 }
 
-function Summary({ total, correct, bestStreak, dailyStreak, onAgain }: {
+function Summary({ palette, total, correct, bestStreak, dailyStreak, onAgain }: {
+  palette: Palette
   total: number; correct: number; bestStreak: number; dailyStreak: number; onAgain: () => void
 }) {
   const pct = Math.round((correct / total) * 100)
   const goldRun = pct >= 90
   return (
-    <div className="flex flex-col items-center px-4 py-8" style={{ maxWidth: 320, margin: '0 auto' }}>
+    <div className="flex flex-col items-center px-4 py-8" style={{ maxWidth: 340, margin: '0 auto' }}>
       <p style={{
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: 10, letterSpacing: 2, color: '#BEF264',
-        textShadow: '0 0 8px rgba(132,204,22,0.5)',
-        marginBottom: 24,
-      }}>QUIZ COMPLETE</p>
-      <div className="grid grid-cols-3 gap-2 w-full mb-4">
-        <Stat label="CORRECT" value={`${correct}/${total}`} />
-        <Stat label="SCORE"   value={`${pct}%`} highlight={goldRun} />
-        <Stat label="BEST"    value={`${bestStreak}×`} />
+        fontFamily: CHEM_FONT,
+        fontSize: 26, fontWeight: 800, letterSpacing: 0.3, color: palette.fg,
+        marginBottom: 6,
+      }}>
+        Quiz complete
+      </p>
+      <p style={{
+        fontFamily: CHEM_FONT,
+        fontSize: 14, fontWeight: 500, color: palette.fgMuted,
+        marginBottom: 22,
+      }}>
+        Nice work — every answer fed your SRS deck.
+      </p>
+
+      <div className="grid grid-cols-3 gap-3 w-full" style={{ marginBottom: 16 }}>
+        <Stat palette={palette} label="Correct" value={`${correct}/${total}`} />
+        <Stat palette={palette} label="Score"   value={`${pct}%`} highlight={goldRun} />
+        <Stat palette={palette} label="Best"    value={`${bestStreak}×`} />
       </div>
-      <div className="w-full mb-6" style={{
-        background: '#10200F',
-        border: '1px solid #3F6212',
-        borderRadius: 3,
-        padding: '8px 10px',
+
+      <div className="w-full" style={{
+        background: palette.sunLight,
+        border: `2px solid ${palette.ink}`,
+        borderRadius: 14,
+        boxShadow: neoShadow(palette.ink, 'md'),
+        padding: '12px 14px',
         textAlign: 'center',
+        marginBottom: 24,
       }}>
         <div style={{
-          fontFamily: '"Press Start 2P", monospace',
-          fontSize: 5.5, letterSpacing: 1, color: '#FBBF24',
-        }}>DAILY STREAK</div>
+          fontFamily: CHEM_FONT,
+          fontSize: 12, fontWeight: 700, letterSpacing: 0.4,
+          color: palette.fgMuted,
+          textTransform: 'uppercase',
+        }}>
+          Daily streak
+        </div>
         <div style={{
           marginTop: 4,
-          fontFamily: '"Press Start 2P", monospace',
-          fontSize: 11, color: '#FBBF24',
-          textShadow: dailyStreak >= 3 ? '0 0 6px rgba(251,191,36,0.6)' : undefined,
+          fontFamily: CHEM_FONT,
+          fontSize: 24, fontWeight: 800,
+          color: palette.ink,
         }}>
-          {dailyStreak} {dailyStreak === 1 ? 'DAY' : 'DAYS'}
+          {dailyStreak} {dailyStreak === 1 ? 'day' : 'days'}
         </div>
       </div>
+
       <button
         type="button"
         onClick={onAgain}
-        className="w-full py-3 text-white active:translate-y-[2px] transition-transform"
+        className="w-full active:translate-x-[4px] active:translate-y-[4px]"
         style={{
-          background: 'linear-gradient(135deg, #84CC16, #65A30D)',
-          border: '2px solid #3F6212',
-          borderRadius: 3,
-          boxShadow: '0 3px 0 #1A2E05',
-          fontFamily: '"Press Start 2P"',
-          fontSize: 8, letterSpacing: 1.5,
-        }}>
-        NEW QUIZ
+          padding: '14px 18px',
+          background: palette.grape,
+          color: palette.ink,
+          border: `2px solid ${palette.ink}`,
+          borderRadius: 999,
+          boxShadow: neoShadow(palette.ink, 'md'),
+          fontFamily: CHEM_FONT,
+          fontSize: 15, fontWeight: 800, letterSpacing: 0.4,
+          cursor: 'pointer',
+          transition: 'transform 0.08s ease, box-shadow 0.08s ease',
+        }}
+        onMouseDown={e => { e.currentTarget.style.boxShadow = 'none' }}
+        onMouseUp={e => { e.currentTarget.style.boxShadow = neoShadow(palette.ink, 'md') }}
+        onMouseLeave={e => { e.currentTarget.style.boxShadow = neoShadow(palette.ink, 'md') }}
+      >
+        New quiz
       </button>
     </div>
   )
 }
 
-function Stat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function Stat({ palette, label, value, highlight }: {
+  palette: Palette; label: string; value: string; highlight?: boolean
+}) {
   return (
     <div style={{
-      background: '#1A2E05',
-      border: '1px solid #3F6212',
-      borderRadius: 3,
-      padding: '8px 6px',
+      background: highlight ? palette.sun : palette.card,
+      border: `2px solid ${palette.ink}`,
+      borderRadius: 12,
+      boxShadow: neoShadow(palette.ink, 'sm'),
+      padding: '10px 6px',
       textAlign: 'center',
     }}>
       <div style={{
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: 5, letterSpacing: 1,
-        color: highlight ? '#FBBF24' : '#84CC16', opacity: 0.85,
-      }}>{label}</div>
+        fontFamily: CHEM_FONT,
+        fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
+        color: highlight ? palette.ink : palette.fgMuted,
+        textTransform: 'uppercase',
+      }}>
+        {label}
+      </div>
       <div style={{
         marginTop: 4,
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: 9,
-        color: highlight ? '#FBBF24' : '#E8FAD0',
-        textShadow: highlight ? '0 0 6px rgba(251,191,36,0.6)' : undefined,
-      }}>{value}</div>
+        fontFamily: CHEM_FONT,
+        fontSize: 18, fontWeight: 800,
+        color: highlight ? palette.ink : palette.fg,
+      }}>
+        {value}
+      </div>
     </div>
   )
 }
-

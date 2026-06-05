@@ -20,6 +20,7 @@ import { CATEGORY_COLORS, STATE_LABELS, readableText } from '@/lib/chemistry/col
 import { useChemistryStore, elementCardId } from '@/lib/chemistry/store'
 import { dueDate, isDue, isNew, MASTERED_BOX, type CardState } from '@/lib/chemistry/srs'
 import { playSound } from '@/lib/sounds'
+import { useChemistryTheme, neoShadow, CHEM_FONT, type Palette } from '@/lib/chemistry/theme'
 
 const DECK_SIZE = 10
 
@@ -82,6 +83,7 @@ function buildDeck(cards: Record<string, CardState>, today: string): Element[] {
 
 export default function Flashcards() {
   const { hydrated, state, today, rateCard, finishDeck, dueCount, newCount } = useChemistryStore()
+  const { palette } = useChemistryTheme()
 
   const [deck, setDeck] = useState<Element[]>([])
   const [index, setIndex] = useState(0)
@@ -144,10 +146,10 @@ export default function Flashcards() {
     return (
       <div className="flex items-center justify-center px-4 py-16">
         <p style={{
-          fontFamily: '"Press Start 2P", monospace',
-          fontSize: 7, color: '#84CC16', letterSpacing: 1, opacity: 0.7,
+          fontFamily: CHEM_FONT,
+          fontSize: 14, color: palette.fgMuted, fontWeight: 600,
         }}>
-          LOADING...
+          Loading…
         </p>
       </div>
     )
@@ -155,6 +157,7 @@ export default function Flashcards() {
 
   if (done) {
     return <DeckSummary
+      palette={palette}
       total={deck.length}
       correct={correct}
       bestStreak={bestStreak}
@@ -167,66 +170,45 @@ export default function Flashcards() {
 
   return (
     <div className="flex flex-col items-center gap-4 px-4">
-      <DueBadge due={dueCount} unseen={newCount} dailyStreak={state.streak.current} />
-      <ProgressBar position={index} length={deck.length} streak={streak} />
+      <DueBadge palette={palette} due={dueCount} unseen={newCount} dailyStreak={state.streak.current} />
+      <ProgressBar palette={palette} position={index} length={deck.length} streak={streak} />
       <FlipCard
+        palette={palette}
         el={current}
         flipped={flipped}
         onFlip={() => { playSound('ui_tap'); setFlipped(f => !f) }}
         box={state.cards[elementCardId(current.atomicNumber)]?.box ?? 0}
       />
       {flipped ? (
-        <div className="grid grid-cols-2 gap-3 w-full" style={{ maxWidth: 320 }}>
-          <button
-            type="button"
+        <div className="grid grid-cols-2 gap-3 w-full" style={{ maxWidth: 340 }}>
+          <NeoButton
+            palette={palette}
             onClick={() => rate(false)}
-            className="py-3 text-white active:translate-y-[2px] transition-transform"
-            style={{
-              background: 'linear-gradient(135deg, #EF4444, #B91C1C)',
-              border: '2px solid #7F1D1D',
-              borderRadius: 3,
-              boxShadow: '0 3px 0 #450A0A',
-              fontFamily: '"Press Start 2P"',
-              fontSize: 8, letterSpacing: 1.5,
-            }}>
-            WRONG
-          </button>
-          <button
-            type="button"
+            bg={palette.red}
+            color={palette.ink}
+            label="Wrong"
+          />
+          <NeoButton
+            palette={palette}
             onClick={() => rate(true)}
-            className="py-3 text-white active:translate-y-[2px] transition-transform"
-            style={{
-              background: 'linear-gradient(135deg, #84CC16, #65A30D)',
-              border: '2px solid #3F6212',
-              borderRadius: 3,
-              boxShadow: '0 3px 0 #1A2E05',
-              fontFamily: '"Press Start 2P"',
-              fontSize: 8, letterSpacing: 1.5,
-            }}>
-            RIGHT
-          </button>
+            bg={palette.green}
+            color={palette.ink}
+            label="Right"
+          />
         </div>
       ) : (
-        <button
-          type="button"
+        <NeoButton
+          palette={palette}
           onClick={() => { playSound('ui_tap'); setFlipped(true) }}
-          className="w-full py-3 text-white active:translate-y-[2px] transition-transform"
-          style={{
-            maxWidth: 320,
-            background: '#1A2E05',
-            border: '2px solid #84CC16',
-            borderRadius: 3,
-            boxShadow: '0 3px 0 #050a02',
-            fontFamily: '"Press Start 2P"',
-            fontSize: 8, letterSpacing: 1.5,
-            color: '#BEF264',
-          }}>
-          FLIP
-        </button>
+          bg={palette.grape}
+          color={palette.ink}
+          label="Flip"
+          fullWidth
+        />
       )}
       <p style={{
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: 6, letterSpacing: 1, color: '#84CC16', opacity: 0.7,
+        fontFamily: CHEM_FONT,
+        fontSize: 12, color: palette.fgMuted, fontWeight: 600,
       }}>
         {index + 1} / {deck.length}
       </p>
@@ -234,38 +216,88 @@ export default function Flashcards() {
   )
 }
 
-function DueBadge({ due, unseen, dailyStreak }: { due: number; unseen: number; dailyStreak: number }) {
+function NeoButton({ palette, onClick, bg, color, label, fullWidth }: {
+  palette: Palette
+  onClick: () => void
+  bg: string
+  color: string
+  label: string
+  fullWidth?: boolean
+}) {
   return (
-    <div className="grid grid-cols-3 gap-2 w-full" style={{ maxWidth: 320 }}>
-      <Pill label="DUE"      value={due} />
-      <Pill label="NEW"      value={unseen} />
-      <Pill label="STREAK"   value={dailyStreak} flame />
+    <button
+      type="button"
+      onClick={onClick}
+      className="neo-press"
+      style={{
+        width: fullWidth ? '100%' : undefined,
+        maxWidth: fullWidth ? 340 : undefined,
+        padding: '14px 20px',
+        background: bg,
+        color,
+        border: `2px solid ${palette.ink}`,
+        borderRadius: 999,
+        boxShadow: neoShadow(palette.ink, 'md'),
+        fontFamily: CHEM_FONT,
+        fontSize: 16,
+        fontWeight: 800,
+        letterSpacing: 0.3,
+        cursor: 'pointer',
+        minHeight: 48,
+        transition: 'transform 0.08s ease, box-shadow 0.08s ease',
+      }}>
+      {label}
+      <style jsx>{`
+        button.neo-press:hover {
+          transform: translate(1px, 1px);
+          box-shadow: 3px 3px 0 0 ${palette.ink};
+        }
+        button.neo-press:active {
+          transform: translate(4px, 4px);
+          box-shadow: 0 0 0 0 ${palette.ink};
+        }
+      `}</style>
+    </button>
+  )
+}
+
+function DueBadge({ palette, due, unseen, dailyStreak }: {
+  palette: Palette; due: number; unseen: number; dailyStreak: number
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-2 w-full" style={{ maxWidth: 340 }}>
+      <Pill palette={palette} label="Due"    value={due} />
+      <Pill palette={palette} label="New"    value={unseen} />
+      <Pill palette={palette} label="Streak" value={dailyStreak} warm={dailyStreak > 0} />
     </div>
   )
 }
 
-function Pill({ label, value, flame }: { label: string; value: number; flame?: boolean }) {
+function Pill({ palette, label, value, warm }: {
+  palette: Palette; label: string; value: number; warm?: boolean
+}) {
   return (
     <div style={{
-      background: '#1A2E05',
-      border: '1px solid #3F6212',
-      borderRadius: 3,
-      padding: '5px 6px',
+      background: warm ? palette.sunLight : palette.card,
+      border: `2px solid ${palette.ink}`,
+      borderRadius: 14,
+      padding: '8px 10px',
       textAlign: 'center',
+      boxShadow: neoShadow(palette.ink, 'sm'),
     }}>
       <div style={{
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: 5, letterSpacing: 1,
-        color: flame ? '#FBBF24' : '#84CC16', opacity: 0.85,
+        fontFamily: CHEM_FONT,
+        fontSize: 11, color: palette.fgMuted, fontWeight: 600,
+        textTransform: 'uppercase', letterSpacing: 0.5,
       }}>
         {label}
       </div>
       <div style={{
-        marginTop: 3,
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: 9,
-        color: flame ? '#FBBF24' : '#E8FAD0',
-        textShadow: flame && value > 0 ? '0 0 5px rgba(251,191,36,0.55)' : undefined,
+        marginTop: 2,
+        fontFamily: CHEM_FONT,
+        fontSize: 20,
+        fontWeight: 800,
+        color: warm ? palette.sunDark : palette.fg,
       }}>
         {value}
       </div>
@@ -273,45 +305,70 @@ function Pill({ label, value, flame }: { label: string; value: number; flame?: b
   )
 }
 
-function ProgressBar({ position, length, streak }: { position: number; length: number; streak: number }) {
+function ProgressBar({ palette, position, length, streak }: {
+  palette: Palette; position: number; length: number; streak: number
+}) {
   const pct = (position / length) * 100
+  const streakHot = streak >= 5
   return (
-    <div className="w-full" style={{ maxWidth: 320 }}>
-      <div className="flex justify-between items-center" style={{ marginBottom: 6 }}>
-        <span style={{
-          fontFamily: '"Press Start 2P", monospace',
-          fontSize: 5.5, letterSpacing: 1, color: '#BEF264',
-        }}>
-          PROGRESS
-        </span>
-        <span style={{
-          fontFamily: '"Press Start 2P", monospace',
-          fontSize: 6, letterSpacing: 1, color: streak > 0 ? '#FBBF24' : '#84CC16',
-          textShadow: streak >= 5 ? '0 0 6px rgba(251,191,36,0.8)' : undefined,
-        }}>
-          {streak}× STREAK
-        </span>
-      </div>
+    <div className="w-full flex items-center gap-2" style={{ maxWidth: 340 }}>
+      {/* Pill progress bar */}
       <div style={{
-        height: 8,
-        background: '#1A2E05',
-        border: '1px solid #3F6212',
-        borderRadius: 2,
+        flex: 1,
+        height: 28,
+        background: palette.card,
+        border: `2px solid ${palette.ink}`,
+        borderRadius: 999,
+        boxShadow: neoShadow(palette.ink, 'sm'),
         overflow: 'hidden',
+        position: 'relative',
       }}>
         <div style={{
-          height: '100%',
+          position: 'absolute',
+          inset: 0,
           width: `${pct}%`,
-          background: 'linear-gradient(90deg, #84CC16, #BEF264)',
+          background: palette.grape,
           transition: 'width 0.3s ease',
         }} />
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: CHEM_FONT,
+          fontSize: 12,
+          fontWeight: 700,
+          color: palette.ink,
+        }}>
+          {position} / {length}
+        </div>
+      </div>
+
+      {/* Streak pill */}
+      <div style={{
+        padding: '6px 12px',
+        background: streakHot ? palette.sun : palette.card,
+        border: `2px solid ${palette.ink}`,
+        borderRadius: 999,
+        boxShadow: neoShadow(palette.ink, 'sm'),
+        fontFamily: CHEM_FONT,
+        fontSize: 12,
+        fontWeight: 800,
+        color: palette.ink,
+        whiteSpace: 'nowrap',
+        minHeight: 28,
+        display: 'flex',
+        alignItems: 'center',
+      }}>
+        {streak}× streak
       </div>
     </div>
   )
 }
 
-function FlipCard({ el, flipped, onFlip, box }: {
-  el: Element; flipped: boolean; onFlip: () => void; box: number
+function FlipCard({ palette, el, flipped, onFlip, box }: {
+  palette: Palette; el: Element; flipped: boolean; onFlip: () => void; box: number
 }) {
   const accent = CATEGORY_COLORS[el.category]
   const accentText = readableText(accent)
@@ -324,10 +381,13 @@ function FlipCard({ el, flipped, onFlip, box }: {
       aria-label="Flip card"
       className="relative block w-full"
       style={{
-        maxWidth: 320,
-        height: 260,
+        maxWidth: 340,
+        height: 300,
         perspective: 1200,
         background: 'transparent',
+        border: 'none',
+        padding: 0,
+        cursor: 'pointer',
       }}
     >
       <div
@@ -344,123 +404,153 @@ function FlipCard({ el, flipped, onFlip, box }: {
           style={{
             backfaceVisibility: 'hidden',
             WebkitBackfaceVisibility: 'hidden',
-            background: '#10200F',
-            border: '2px solid #84CC16',
+            background: palette.card,
+            border: `2px solid ${palette.ink}`,
             borderTop: `6px solid ${accent}`,
-            borderRadius: 4,
-            boxShadow: '4px 4px 0 #050a02',
+            borderRadius: 16,
+            boxShadow: neoShadow(palette.ink, 'lg'),
+            padding: '20px 16px',
           }}
         >
           <div style={{
-            fontFamily: '"Press Start 2P", monospace',
-            fontSize: 7, color: '#84CC16', opacity: 0.7,
-            letterSpacing: 1, marginBottom: 14,
+            fontFamily: CHEM_FONT,
+            fontSize: 14,
+            color: palette.fgMuted,
+            fontWeight: 600,
+            marginBottom: 10,
           }}>
             #{el.atomicNumber}
           </div>
           <div style={{
-            fontFamily: '"Press Start 2P", monospace',
-            fontSize: 48,
-            color: accent,
-            textShadow: `0 0 14px ${accent}66`,
-            letterSpacing: 2,
-            fontWeight: 700,
+            fontFamily: CHEM_FONT,
+            fontSize: 64,
+            color: palette.fg,
+            fontWeight: 800,
+            lineHeight: 1,
           }}>
             {el.symbol}
           </div>
           <div style={{
-            fontFamily: '"Press Start 2P", monospace',
-            fontSize: 6.5, color: '#E8FAD0', opacity: 0.7,
-            letterSpacing: 1, marginTop: 18,
+            fontFamily: CHEM_FONT,
+            fontSize: 14,
+            color: palette.fgMuted,
+            fontWeight: 500,
+            marginTop: 18,
           }}>
-            WHAT ELEMENT?
+            What element is this?
           </div>
         </div>
 
         {/* Back — answer */}
         <div
-          className="absolute inset-0 flex flex-col px-4 py-4"
+          className="absolute inset-0 flex flex-col px-5 py-5"
           style={{
             backfaceVisibility: 'hidden',
             WebkitBackfaceVisibility: 'hidden',
             transform: 'rotateY(180deg)',
-            background: '#10200F',
-            border: '2px solid #84CC16',
+            background: palette.card,
+            border: `2px solid ${palette.ink}`,
             borderTop: `6px solid ${accent}`,
-            borderRadius: 4,
-            boxShadow: '4px 4px 0 #050a02',
+            borderRadius: 16,
+            boxShadow: neoShadow(palette.ink, 'lg'),
           }}
         >
           <div className="flex items-baseline gap-2">
             <span style={{
-              fontFamily: '"Press Start 2P", monospace',
-              fontSize: 18, color: '#BEF264', letterSpacing: 1, fontWeight: 700,
+              fontFamily: CHEM_FONT,
+              fontSize: 28,
+              color: palette.fg,
+              fontWeight: 800,
+              lineHeight: 1,
             }}>
               {el.symbol}
             </span>
             <span style={{
-              fontFamily: '"Press Start 2P", monospace',
-              fontSize: 6, color: '#84CC16', opacity: 0.65,
+              fontFamily: CHEM_FONT,
+              fontSize: 13,
+              color: palette.fgMuted,
+              fontWeight: 600,
             }}>
               #{el.atomicNumber}
             </span>
           </div>
           <div style={{
-            fontFamily: '"Press Start 2P", monospace',
-            fontSize: 11, color: '#E8FAD0', marginTop: 6, letterSpacing: 0.5,
+            fontFamily: CHEM_FONT,
+            fontSize: 22,
+            color: palette.fg,
+            fontWeight: 800,
+            marginTop: 4,
           }}>
             {el.name}
           </div>
-          <div className="flex gap-1.5 mt-3 flex-wrap">
+          <div className="flex gap-2 mt-3 flex-wrap">
             <span style={{
-              padding: '3px 6px',
-              background: accent, color: accentText,
-              border: '1px solid rgba(0,0,0,0.4)', borderRadius: 2,
-              fontFamily: '"Press Start 2P", monospace',
-              fontSize: 5, letterSpacing: 0.5,
+              padding: '4px 10px',
+              background: accent,
+              color: accentText,
+              border: `2px solid ${palette.ink}`,
+              borderRadius: 999,
+              boxShadow: neoShadow(palette.ink, 'sm'),
+              fontFamily: CHEM_FONT,
+              fontSize: 11,
+              fontWeight: 700,
             }}>
               {CATEGORY_LABELS[el.category]}
             </span>
             <span style={{
-              padding: '3px 6px',
-              background: '#1A2E05', color: '#BEF264',
-              border: '1px solid #3F6212', borderRadius: 2,
-              fontFamily: '"Press Start 2P", monospace',
-              fontSize: 5, letterSpacing: 0.5,
+              padding: '4px 10px',
+              background: palette.skyLight,
+              color: palette.fg,
+              border: `2px solid ${palette.ink}`,
+              borderRadius: 999,
+              boxShadow: neoShadow(palette.ink, 'sm'),
+              fontFamily: CHEM_FONT,
+              fontSize: 11,
+              fontWeight: 700,
             }}>
               {STATE_LABELS[el.state]}
             </span>
           </div>
           {el.funFact && (
             <p style={{
-              marginTop: 10, fontFamily: '"Press Start 2P", monospace',
-              fontSize: 6, lineHeight: 1.7, color: '#E8FAD0', opacity: 0.85,
-              letterSpacing: 0.3, overflow: 'hidden',
+              marginTop: 10,
+              fontFamily: CHEM_FONT,
+              fontSize: 12,
+              lineHeight: 1.5,
+              color: palette.fgMuted,
+              fontWeight: 500,
+              overflow: 'hidden',
             }}>
-              {el.funFact.length > 110 ? el.funFact.slice(0, 107) + '…' : el.funFact}
+              {el.funFact.length > 130 ? el.funFact.slice(0, 127) + '…' : el.funFact}
             </p>
           )}
           {/* Mastery bar — silent for new cards (box=0). */}
           {box > 0 && (
-            <div className="mt-auto pt-2">
+            <div className="mt-auto pt-3">
               <div style={{
-                fontFamily: '"Press Start 2P", monospace',
-                fontSize: 4.5, letterSpacing: 1, color: '#84CC16', opacity: 0.75,
-                marginBottom: 3,
+                fontFamily: CHEM_FONT,
+                fontSize: 10,
+                fontWeight: 700,
+                color: palette.fgMuted,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+                marginBottom: 5,
               }}>
-                MASTERY · BOX {box}/{MASTERED_BOX}
+                Mastery · Box {box}/{MASTERED_BOX}
               </div>
               <div style={{
-                height: 5,
-                background: '#1A2E05',
-                border: '1px solid #3F6212',
-                borderRadius: 2,
+                height: 14,
+                background: palette.cardMuted,
+                border: `2px solid ${palette.ink}`,
+                borderRadius: 999,
                 overflow: 'hidden',
+                position: 'relative',
               }}>
                 <div style={{
-                  height: '100%',
+                  position: 'absolute',
+                  inset: 0,
                   width: `${masteryPct}%`,
-                  background: box >= MASTERED_BOX ? '#4ade80' : 'linear-gradient(90deg, #1f9462, #22c55e)',
+                  background: palette.green,
                   transition: 'width 0.3s ease',
                 }} />
               </div>
@@ -472,92 +562,109 @@ function FlipCard({ el, flipped, onFlip, box }: {
   )
 }
 
-function DeckSummary({ total, correct, bestStreak, dailyStreak, onAgain }: {
+function DeckSummary({ palette, total, correct, bestStreak, dailyStreak, onAgain }: {
+  palette: Palette
   total: number; correct: number; bestStreak: number; dailyStreak: number; onAgain: () => void
 }) {
   const pct = Math.round((correct / total) * 100)
   const goldRun = pct >= 90
   return (
-    <div className="flex flex-col items-center px-4 py-8" style={{ maxWidth: 320, margin: '0 auto' }}>
+    <div className="flex flex-col items-center px-4 py-8" style={{ maxWidth: 340, margin: '0 auto' }}>
       <p style={{
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: 10, letterSpacing: 2, color: '#BEF264',
-        textShadow: '0 0 8px rgba(132,204,22,0.5)',
-        marginBottom: 24,
+        fontFamily: CHEM_FONT,
+        fontSize: 26,
+        fontWeight: 800,
+        color: palette.fg,
+        marginBottom: 6,
+        letterSpacing: -0.5,
       }}>
-        DECK COMPLETE
+        Deck complete
+      </p>
+      <p style={{
+        fontFamily: CHEM_FONT,
+        fontSize: 14,
+        fontWeight: 500,
+        color: palette.fgMuted,
+        marginBottom: 20,
+      }}>
+        Nice work — here&apos;s how it went.
       </p>
       <div className="grid grid-cols-3 gap-2 w-full mb-4">
-        <SummaryStat label="CORRECT" value={`${correct}/${total}`} />
-        <SummaryStat label="SCORE"   value={`${pct}%`} highlight={goldRun} />
-        <SummaryStat label="BEST"    value={`${bestStreak}×`} />
+        <SummaryStat palette={palette} label="Correct" value={`${correct}/${total}`} />
+        <SummaryStat palette={palette} label="Score"   value={`${pct}%`} highlight={goldRun} />
+        <SummaryStat palette={palette} label="Best"    value={`${bestStreak}×`} />
       </div>
       <div className="w-full mb-6" style={{
-        background: '#10200F',
-        border: '1px solid #3F6212',
-        borderRadius: 3,
-        padding: '8px 10px',
+        background: palette.sunLight,
+        border: `2px solid ${palette.ink}`,
+        borderRadius: 14,
+        padding: '12px 14px',
         textAlign: 'center',
+        boxShadow: neoShadow(palette.ink, 'md'),
       }}>
         <div style={{
-          fontFamily: '"Press Start 2P", monospace',
-          fontSize: 5.5, letterSpacing: 1, color: '#FBBF24',
+          fontFamily: CHEM_FONT,
+          fontSize: 11,
+          fontWeight: 700,
+          color: palette.fgMuted,
+          textTransform: 'uppercase',
+          letterSpacing: 0.6,
         }}>
-          DAILY STREAK
+          Daily streak
         </div>
         <div style={{
           marginTop: 4,
-          fontFamily: '"Press Start 2P", monospace',
-          fontSize: 11, color: '#FBBF24',
-          textShadow: dailyStreak >= 3 ? '0 0 6px rgba(251,191,36,0.6)' : undefined,
+          fontFamily: CHEM_FONT,
+          fontSize: 22,
+          fontWeight: 800,
+          color: palette.sunDark,
         }}>
-          {dailyStreak} {dailyStreak === 1 ? 'DAY' : 'DAYS'}
+          {dailyStreak} {dailyStreak === 1 ? 'day' : 'days'}
         </div>
       </div>
-      <button
-        type="button"
+      <NeoButton
+        palette={palette}
         onClick={onAgain}
-        className="w-full py-3 text-white active:translate-y-[2px] transition-transform"
-        style={{
-          background: 'linear-gradient(135deg, #84CC16, #65A30D)',
-          border: '2px solid #3F6212',
-          borderRadius: 3,
-          boxShadow: '0 3px 0 #1A2E05',
-          fontFamily: '"Press Start 2P"',
-          fontSize: 8, letterSpacing: 1.5,
-        }}>
-        NEW DECK
-      </button>
+        bg={palette.grape}
+        color={palette.ink}
+        label="New deck"
+        fullWidth
+      />
     </div>
   )
 }
 
-function SummaryStat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function SummaryStat({ palette, label, value, highlight }: {
+  palette: Palette; label: string; value: string; highlight?: boolean
+}) {
   return (
     <div style={{
-      background: '#1A2E05',
-      border: '1px solid #3F6212',
-      borderRadius: 3,
-      padding: '8px 6px',
+      background: highlight ? palette.sunLight : palette.card,
+      border: `2px solid ${palette.ink}`,
+      borderRadius: 14,
+      padding: '10px 8px',
       textAlign: 'center',
+      boxShadow: neoShadow(palette.ink, 'sm'),
     }}>
       <div style={{
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: 5, letterSpacing: 1,
-        color: highlight ? '#FBBF24' : '#84CC16', opacity: 0.85,
+        fontFamily: CHEM_FONT,
+        fontSize: 10,
+        fontWeight: 700,
+        color: palette.fgMuted,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
       }}>
         {label}
       </div>
       <div style={{
         marginTop: 4,
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: 9,
-        color: highlight ? '#FBBF24' : '#E8FAD0',
-        textShadow: highlight ? '0 0 6px rgba(251,191,36,0.6)' : undefined,
+        fontFamily: CHEM_FONT,
+        fontSize: 16,
+        fontWeight: 800,
+        color: highlight ? palette.sunDark : palette.fg,
       }}>
         {value}
       </div>
     </div>
   )
 }
-
