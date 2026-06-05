@@ -17,6 +17,7 @@
 //     iPhone SE and still feel right.
 
 import { playSound } from '@/lib/sounds'
+import PeriodicTable from './PeriodicTable'
 
 interface Props { onClose: () => void }
 
@@ -27,6 +28,9 @@ export default function PeriodicTableOverlay({ onClose }: Props) {
   }
   // stopPropagation at the root: any touch inside the overlay is "ours"
   // and must not bubble up to CareSceneHost's room-swipe gesture detector.
+  // We leave touch-action loose ('manipulation') so the table's horizontal
+  // scroll + the body's vertical scroll both work natively; propagation
+  // is killed here so nothing leaks.
   const stop = (e: React.TouchEvent) => e.stopPropagation()
 
   return (
@@ -34,7 +38,7 @@ export default function PeriodicTableOverlay({ onClose }: Props) {
       className="fixed inset-0 z-50 flex flex-col"
       style={{
         background: '#0A140A',
-        touchAction: 'pan-y',
+        touchAction: 'manipulation',
         WebkitTouchCallout: 'none',
         WebkitUserSelect: 'none',
         userSelect: 'none',
@@ -91,24 +95,15 @@ export default function PeriodicTableOverlay({ onClose }: Props) {
         </button>
       </header>
 
-      {/* ── Body: phase-1 placeholder ── */}
+      {/* ── Body: periodic table ── */}
       <main
-        className="relative flex-1 overflow-y-auto px-4"
+        className="relative flex-1 overflow-y-auto"
         style={{
-          paddingTop: 24,
-          paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
+          paddingTop: 16,
+          paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))',
         }}
       >
-        <div className="mx-auto max-w-sm text-center" style={{ paddingTop: 40 }}>
-          <p className="font-pixel" style={{ fontSize: 8, color: '#BEF264', letterSpacing: 1.5, marginBottom: 14 }}>
-            PHASE 1 · ENTRY READY
-          </p>
-          <p className="font-pixel" style={{ fontSize: 7, color: '#E8FAD0', lineHeight: 1.8, letterSpacing: 0.5 }}>
-            the 118-element table, study modes,<br />
-            daily missions and stats will land here<br />
-            in the next steps.
-          </p>
-        </div>
+        <PeriodicTable />
       </main>
     </div>
   )
