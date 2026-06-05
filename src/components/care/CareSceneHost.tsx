@@ -6,6 +6,7 @@ import FeedScene, { __foodDragActive } from './FeedScene'
 import PlayScene from './PlayScene'
 import SleepScene from './SleepScene'
 import WashScene from './WashScene'
+import ChemistryScene from './ChemistryScene'
 import HospitalScene from './HospitalScene'
 import VetScene from './VetScene'
 import SchoolScene from './SchoolScene'
@@ -13,43 +14,47 @@ import AnimatedEren from '@/components/AnimatedEren'
 import { playSound } from '@/lib/sounds'
 import { useIsDark } from '@/hooks/useIsDark'
 
-const LOOP_SCENES: CareScene[] = ['feed', 'play', 'sleep', 'wash', 'vet', 'school']
+const LOOP_SCENES: CareScene[] = ['feed', 'play', 'sleep', 'wash', 'chemistry', 'vet', 'school']
 
 const SCENE_LABELS: Record<CareScene, string> = {
-  feed:     'Kitchen',
-  play:     'Playroom',
-  sleep:    'Bedroom',
-  wash:     'Bathroom',
-  vet:      'Vet Office',
-  school:   'Serbian Class',
-  hospital: 'Vet Clinic',
+  feed:      'Kitchen',
+  play:      'Playroom',
+  sleep:     'Bedroom',
+  wash:      'Bathroom',
+  chemistry: 'Chemistry Lab',
+  vet:       'Vet Office',
+  school:    'Serbian Class',
+  hospital:  'Vet Clinic',
 }
 
 const SCENE_COLORS: Record<CareScene, string> = {
-  feed:     '#F5C842',
-  play:     '#FF6B9D',
-  sleep:    '#818CF8',
-  wash:     '#38BDF8',
-  vet:      '#34D399',
-  school:   '#F59E0B',
-  hospital: '#F87171',
+  feed:      '#F5C842',
+  play:      '#FF6B9D',
+  sleep:     '#818CF8',
+  wash:      '#38BDF8',
+  chemistry: '#84CC16',
+  vet:       '#34D399',
+  school:    '#F59E0B',
+  hospital:  '#F87171',
 }
 
 const SCENE_IMAGES_DAY: Partial<Record<CareScene, string>> = {
-  feed:   '/kitchen.png',
-  play:   '/playroom.png',
-  sleep:  '/bedroom.png',
-  wash:   '/bathroom.png',
-  vet:    '/vetBACK.png',
-  school: '/schoolBACK.png',
+  feed:      '/kitchen.png',
+  play:      '/playroom.png',
+  sleep:     '/bedroom.png',
+  wash:      '/bathroom.png',
+  chemistry: '/ChemistryDay.png',
+  vet:       '/vetBACK.png',
+  school:    '/schoolBACK.png',
 }
 const SCENE_IMAGES_DARK: Partial<Record<CareScene, string>> = {
-  feed:   '/KitchenDark.png',
-  play:   '/play.png',
-  sleep:  '/bedroom.png',
-  wash:   '/BathroomDark.png',
-  vet:    '/wetDark.png',
-  school: '/schoolBACK.png',
+  feed:      '/KitchenDark.png',
+  play:      '/play.png',
+  sleep:     '/bedroom.png',
+  wash:      '/BathroomDark.png',
+  chemistry: '/ChemistryNight.png',
+  vet:       '/wetDark.png',
+  school:    '/schoolBACK.png',
 }
 
 export default function CareSceneHost() {
@@ -334,8 +339,9 @@ export default function CareSceneHost() {
           {activeScene === 'feed'     && <FeedScene     {...props} />}
           {activeScene === 'play'     && <PlayScene     {...props} />}
           {activeScene === 'sleep'    && <SleepScene    {...props} />}
-          {activeScene === 'wash'     && <WashScene     {...props} />}
-          {activeScene === 'vet'      && <VetScene      {...props} />}
+          {activeScene === 'wash'      && <WashScene      {...props} />}
+          {activeScene === 'chemistry' && <ChemistryScene {...props} />}
+          {activeScene === 'vet'       && <VetScene       {...props} />}
           {activeScene === 'school'   && <SchoolScene   {...props} />}
           {activeScene === 'hospital' && <HospitalScene {...props} />}
         </div>
