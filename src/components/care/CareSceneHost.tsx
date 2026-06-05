@@ -116,7 +116,13 @@ export default function CareSceneHost() {
     })).then(() => {
       if (cancelled) return
       if (isFirstEntry) {
-        setSlideDir('left')
+        // Entry direction follows the swipe that opened the scene from home.
+        // Opening at index 0 (feed) = the user swiped left → new content
+        // enters from the right (slideDir 'left' → slideInRight).
+        // Opening at the last index (school) = the user swiped right →
+        // new content should enter from the left, following their finger.
+        const idx = LOOP_SCENES.indexOf(activeScene as CareScene)
+        setSlideDir(idx === LOOP_SCENES.length - 1 ? 'right' : 'left')
         setAnimKey(k => k + 1)
       }
       prevSceneRef.current = activeScene
