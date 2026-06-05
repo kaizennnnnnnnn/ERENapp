@@ -39,14 +39,15 @@ export default function ChemistryScene(_props: Props) {
         pointerEvents: 'none',
       }} />
 
-      {/* ══ EREN ══ sits on the rug, roughly centered with the desk above */}
+      {/* ══ EREN ══ sits front-and-center on the rug, big enough to read
+          at the same camera distance as the other rooms. */}
       <div className="absolute z-10" style={{
-        bottom: '22%',
+        bottom: '14%',
         left: '50%',
         transform: 'translateX(-50%)',
       }}>
         <ErenIdleLayer>
-          <BlinkingEren size={180} />
+          <BlinkingEren size={230} />
         </ErenIdleLayer>
       </div>
 
