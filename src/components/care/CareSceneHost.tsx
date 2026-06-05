@@ -65,6 +65,10 @@ export default function CareSceneHost() {
   const [slideDir, setSlideDir] = useState<'left' | 'right'>('left')
   const [animKey,  setAnimKey]  = useState(0)
   const [ready,    setReady]    = useState(false)
+  const [loadError, setLoadError] = useState(false)
+  // Bumps when the offline-panel retry button is tapped, forcing the image
+  // load effect to re-run without changing activeScene/isDark.
+  const [retryNonce, setRetryNonce] = useState(0)
   const [dragX,    setDragX]    = useState(0)
   const prevSceneRef = useRef<string | null>(null)
 
@@ -84,34 +88,49 @@ export default function CareSceneHost() {
 
   useLayoutEffect(() => {
     setReady(false)
+    setLoadError(false)
   }, [activeScene])
+
+  const reloadScene = useCallback(() => {
+    setLoadError(false)
+    setReady(false)
+    setRetryNonce(n => n + 1)
+  }, [])
 
   useEffect(() => {
     if (!activeScene) return
     const bgSrc = (isDark ? SCENE_IMAGES_DARK : SCENE_IMAGES_DAY)[activeScene]
     const toLoad = ['/erenGood.png', ...(bgSrc ? [bgSrc] : [])]
-    let loaded = 0
     const isFirstEntry = prevSceneRef.current === null
+    let cancelled = false
 
-    function onDone() {
-      loaded++
-      if (loaded >= toLoad.length) {
-        if (isFirstEntry) {
-          setSlideDir('left')
-          setAnimKey(k => k + 1)
-        }
-        prevSceneRef.current = activeScene
-        setReady(true)
-      }
-    }
-
-    toLoad.forEach(src => {
+    // img.decode() returns a promise that resolves only when the image is
+    // fully decoded and paintable — and rejects on network failure or 404.
+    // The old code wired onerror to the same handler as onload, so an
+    // offline scroll would mark the scene ready and render a black void
+    // (the screenshot the user reported). decode() gives us a real signal.
+    Promise.all(toLoad.map(src => {
       const img = new window.Image()
-      img.onload  = onDone
-      img.onerror = onDone
-      img.src     = src
+      img.src = src
+      return img.decode()
+    })).then(() => {
+      if (cancelled) return
+      if (isFirstEntry) {
+        setSlideDir('left')
+        setAnimKey(k => k + 1)
+      }
+      prevSceneRef.current = activeScene
+      setReady(true)
+    }).catch(() => {
+      if (cancelled) return
+      // Image decode failed — almost always offline + image not yet cached
+      // via the SW. Show the offline panel instead of falling through to a
+      // broken room render.
+      setLoadError(true)
     })
-  }, [activeScene, isDark])
+
+    return () => { cancelled = true }
+  }, [activeScene, isDark, retryNonce])
 
   useEffect(() => {
     if (!activeScene) prevSceneRef.current = null
@@ -215,7 +234,7 @@ export default function CareSceneHost() {
       <div className="fixed inset-0 z-40 bg-black" />
 
       {/* Custom loading screen — matches the app splash (dark purple bg) */}
-      {!ready && (
+      {!ready && !loadError && (
         <div
           className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5"
           style={{ background: '#0F0A1E' }}
@@ -235,6 +254,63 @@ export default function CareSceneHost() {
               50% { opacity: 1; }
             }
           `}</style>
+        </div>
+      )}
+
+      {/* Offline panel — replaces the broken-room render the user hit before.
+          Fires when the room's background image fails to decode (offline +
+          not yet cached by the SW). Lets them retry once back online, or
+          back out to the home page. */}
+      {loadError && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 px-8"
+          style={{ background: '#0F0A1E' }}
+        >
+          <AnimatedEren px={3} />
+          <div className="text-center" style={{ maxWidth: 280 }}>
+            <p className="font-pixel" style={{ fontSize: 9, color: '#F9A8D4', letterSpacing: 2, marginBottom: 10 }}>
+              CAN&apos;T REACH THE ROOM
+            </p>
+            <p className="font-pixel" style={{ fontSize: 7, color: '#E8DCFA', lineHeight: 1.7, letterSpacing: 0.5 }}>
+              looks like you&apos;re offline. once you&apos;re back online the
+              {' '}{SCENE_LABELS[activeScene as CareScene]?.toLowerCase()}{' '}
+              will be ready and saved for next time.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={reloadScene}
+              className="active:translate-y-[1px] transition-transform"
+              style={{
+                fontFamily: '"Press Start 2P", monospace',
+                fontSize: 8, letterSpacing: 1.5, color: '#0F0A1E',
+                background: '#F9A8D4',
+                padding: '10px 16px',
+                border: '2px solid #831843',
+                borderRadius: 4,
+                boxShadow: '3px 3px 0 #831843',
+              }}
+            >
+              RETRY
+            </button>
+            <button
+              type="button"
+              onClick={() => closeScene()}
+              className="active:translate-y-[1px] transition-transform"
+              style={{
+                fontFamily: '"Press Start 2P", monospace',
+                fontSize: 8, letterSpacing: 1.5, color: '#E8DCFA',
+                background: 'rgba(40,28,60,0.9)',
+                padding: '10px 16px',
+                border: '2px solid #5C3A7A',
+                borderRadius: 4,
+                boxShadow: '3px 3px 0 #050507',
+              }}
+            >
+              GO HOME
+            </button>
+          </div>
         </div>
       )}
 
