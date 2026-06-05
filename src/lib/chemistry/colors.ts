@@ -1,12 +1,11 @@
 // Color helpers for the periodic-table tiles.
 //
-// Ported from AminaChemistry/lib/colors.ts. The third mode there (mastery)
-// is gated on SRS state we don't have wired yet — it lands once phase 4
-// introduces the spaced-repetition store.
+// Ported from AminaChemistry/lib/colors.ts. Mastery mode lights up once
+// the chemistry store has card states for the household device.
 
 import type { ElementCategory, ElementState } from './elements'
 
-export type ColorMode = 'category' | 'state'
+export type ColorMode = 'category' | 'state' | 'mastery'
 
 export const CATEGORY_COLORS: Record<ElementCategory, string> = {
   'alkali-metal':         '#f87171', // red
@@ -33,6 +32,23 @@ export const STATE_LABELS: Record<ElementState, string> = {
   liquid:  'Liquid',
   gas:     'Gas',
   unknown: 'Unknown',
+}
+
+// Mastery heatmap: box 0 (new) = grey, 1-5 deepening green, 6 = bright.
+// Matches Amina's palette so a future cross-device sync feels consistent.
+export const MASTERY_COLORS: string[] = [
+  '#3f3f46', // 0 new — grey
+  '#0f3d2e', // 1
+  '#15573f', // 2
+  '#1a7050', // 3
+  '#1f9462', // 4
+  '#22c55e', // 5
+  '#4ade80', // 6 mastered — bright
+]
+
+export function masteryColor(box: number): string {
+  const i = Math.max(0, Math.min(box, 6))
+  return MASTERY_COLORS[i]
 }
 
 /** Pick readable text color (dark for bright fills, light for dark fills). */

@@ -17,8 +17,10 @@ import { useState } from 'react'
 import { elements, CATEGORY_LABELS, type Element, type ElementCategory } from '@/lib/chemistry/elements'
 import {
   CATEGORY_COLORS, STATE_COLORS, STATE_LABELS,
-  readableText, type ColorMode,
+  masteryColor, readableText, type ColorMode,
 } from '@/lib/chemistry/colors'
+import { useChemistryStore, elementCardId } from '@/lib/chemistry/store'
+import { MASTERED_BOX } from '@/lib/chemistry/srs'
 import { playSound } from '@/lib/sounds'
 import ElementDetail from './ElementDetail'
 
@@ -32,15 +34,22 @@ const F_ROWS   = 2    // lanthanides + actinides
 export default function PeriodicTable() {
   const [mode, setMode] = useState<ColorMode>('category')
   const [selected, setSelected] = useState<Element | null>(null)
+  const { state, hydrated } = useChemistryStore()
 
-  const fillFor = (el: Element): string =>
-    mode === 'state' ? STATE_COLORS[el.state] : CATEGORY_COLORS[el.category]
+  const boxFor = (el: Element): number =>
+    hydrated ? (state.cards[elementCardId(el.atomicNumber)]?.box ?? 0) : 0
+
+  const fillFor = (el: Element): string => {
+    if (mode === 'state')   return STATE_COLORS[el.state]
+    if (mode === 'mastery') return masteryColor(boxFor(el))
+    return CATEGORY_COLORS[el.category]
+  }
 
   return (
     <div className="flex flex-col gap-3">
       {/* Mode toggle */}
       <div className="flex items-center justify-center gap-2">
-        {(['category', 'state'] as ColorMode[]).map(m => (
+        {(['category', 'state', 'mastery'] as ColorMode[]).map(m => (
           <button
             key={m}
             type="button"
@@ -90,6 +99,7 @@ export default function PeriodicTable() {
             {elements.map(el => {
               const fill = fillFor(el)
               const text = readableText(fill)
+              const mastered = mode === 'mastery' && boxFor(el) >= MASTERED_BOX
               return (
                 <button
                   key={el.atomicNumber}
@@ -104,9 +114,10 @@ export default function PeriodicTable() {
                     gridRow: el.ypos <= 7 ? el.ypos : el.ypos + 1,
                     background: fill,
                     color: text,
-                    border: '1px solid rgba(0,0,0,0.55)',
+                    border: mastered ? '1px solid #BEF264' : '1px solid rgba(0,0,0,0.55)',
                     borderRadius: 2,
                     fontFamily: '"Press Start 2P", monospace',
+                    boxShadow: mastered ? '0 0 4px rgba(190,242,100,0.65)' : undefined,
                   }}
                 >
                   <span style={{
@@ -163,13 +174,23 @@ function Marker({ col, row, text }: { col: number; row: number; text: string }) 
 }
 
 function Legend({ mode }: { mode: ColorMode }) {
-  const items: { color: string; label: string }[] = mode === 'category'
-    ? (Object.keys(CATEGORY_COLORS) as ElementCategory[]).map(k => ({
-        color: CATEGORY_COLORS[k], label: CATEGORY_LABELS[k],
-      }))
-    : (['solid', 'liquid', 'gas', 'unknown'] as const).map(s => ({
-        color: STATE_COLORS[s], label: STATE_LABELS[s],
-      }))
+  let items: { color: string; label: string }[]
+  if (mode === 'category') {
+    items = (Object.keys(CATEGORY_COLORS) as ElementCategory[]).map(k => ({
+      color: CATEGORY_COLORS[k], label: CATEGORY_LABELS[k],
+    }))
+  } else if (mode === 'state') {
+    items = (['solid', 'liquid', 'gas', 'unknown'] as const).map(s => ({
+      color: STATE_COLORS[s], label: STATE_LABELS[s],
+    }))
+  } else {
+    items = [
+      { color: masteryColor(0), label: 'New' },
+      { color: masteryColor(2), label: 'Learning' },
+      { color: masteryColor(4), label: 'Familiar' },
+      { color: masteryColor(MASTERED_BOX), label: 'Mastered' },
+    ]
+  }
 
   return (
     <div className="flex flex-wrap justify-center gap-x-3 gap-y-1.5 px-2">

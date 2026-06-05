@@ -19,6 +19,7 @@
 
 import { useState } from 'react'
 import { playSound } from '@/lib/sounds'
+import { ChemistryStoreProvider, useChemistryStore } from '@/lib/chemistry/store'
 import PeriodicTable from './PeriodicTable'
 import Flashcards from './Flashcards'
 
@@ -32,7 +33,16 @@ const MODES: { id: Mode; label: string }[] = [
 interface Props { onClose: () => void }
 
 export default function PeriodicTableOverlay({ onClose }: Props) {
+  return (
+    <ChemistryStoreProvider>
+      <OverlayInner onClose={onClose} />
+    </ChemistryStoreProvider>
+  )
+}
+
+function OverlayInner({ onClose }: Props) {
   const [mode, setMode] = useState<Mode>('table')
+  const { dueCount, hydrated } = useChemistryStore()
 
   function handleClose() {
     playSound('ui_tap')
@@ -71,17 +81,37 @@ export default function PeriodicTableOverlay({ onClose }: Props) {
           background: 'rgba(132, 204, 22, 0.08)',
         }}
       >
-        <h1
-          className="font-pixel"
-          style={{
-            fontSize: 10,
-            letterSpacing: 2,
-            color: '#BEF264',
-            textShadow: '0 0 6px rgba(132,204,22,0.55)',
-          }}
-        >
-          CHEMISTRY
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1
+            className="font-pixel"
+            style={{
+              fontSize: 10,
+              letterSpacing: 2,
+              color: '#BEF264',
+              textShadow: '0 0 6px rgba(132,204,22,0.55)',
+            }}
+          >
+            CHEMISTRY
+          </h1>
+          {/* Due-count chip — only shown when the store is hydrated AND
+              there's at least one card waiting. Quiet otherwise to avoid
+              flashing a "0 DUE" placeholder on first open. */}
+          {hydrated && dueCount > 0 && (
+            <span style={{
+              padding: '4px 8px',
+              fontFamily: '"Press Start 2P", monospace',
+              fontSize: 6,
+              letterSpacing: 1,
+              color: '#0A140A',
+              background: '#BEF264',
+              border: '2px solid #84CC16',
+              borderRadius: 3,
+              boxShadow: '1px 1px 0 #050a02',
+            }}>
+              {dueCount} DUE
+            </span>
+          )}
+        </div>
         <button
           type="button"
           onClick={handleClose}
