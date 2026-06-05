@@ -58,7 +58,9 @@ function OverlayInner({ onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col"
+      // z-[80] sits above StatsHeader (z-60) and the CareSceneHost
+      // bottom dots (z-50) so the chemistry takeover actually takes over.
+      className="fixed inset-0 z-[80] flex flex-col"
       style={{
         background: '#0A140A',
         touchAction: 'manipulation',

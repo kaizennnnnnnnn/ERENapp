@@ -24,7 +24,8 @@ export default function ElementDetail({ element, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center px-4"
+      // z-[90] keeps the detail card above the overlay it was opened from.
+      className="fixed inset-0 z-[90] flex items-center justify-center px-4"
       style={{
         background: 'rgba(5, 12, 5, 0.78)',
         animation: 'elDetailFade 0.18s ease both',
