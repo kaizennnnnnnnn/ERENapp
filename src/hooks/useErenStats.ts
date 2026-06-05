@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, createContext, useContext, createElement, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from './useAuth'
 import type { ErenStats, FoodInventory } from '@/types'
 import { computeErenMood, clampStat, shouldBecomeSick } from '@/lib/utils'
 import { ACTION_CONFIGS, type ActionType } from '@/types'
@@ -206,7 +207,14 @@ let _channelCounter = 0
 let _cachedIsSleeping: boolean | null = null
 export function getCachedIsSleeping(): boolean | null { return _cachedIsSleeping }
 
-export function useErenStats(householdId: string | null) {
+// Internal implementation. Lives in module scope; ONLY the provider below
+// instantiates it, so every consumer of useErenStats() across the app
+// shares a single decay loop + a single realtime channel. The hook export
+// at the bottom of this file is a context reader — calling useErenStats()
+// in StatsHeader, FeedScene, every game page, etc. used to open its own
+// channel (3-5 duplicate eren_stats subscribers per page, blowing through
+// the Supabase Disk IO budget). Now they all read from the provider.
+function useErenStatsImpl(householdId: string | null) {
   const supabase = createClient()
   const channelSuffix = useRef(`${++_channelCounter}`)
   const [stats, setStats]     = useState<ErenStats | null>(null)
@@ -493,4 +501,26 @@ export function useErenStats(householdId: string | null) {
     addToMyFood, consumeMyFood, giftFood,
     wakeUp, refetch: fetchStats,
   }
+}
+
+type ErenStatsApi = ReturnType<typeof useErenStatsImpl>
+
+const ErenStatsContext = createContext<ErenStatsApi | null>(null)
+
+// Singleton provider — mounted once at (app)/layout.tsx. Owns the only
+// realtime channel and the only decay tick for the eren_stats row.
+export function ErenStatsProvider({ children }: { children: ReactNode }) {
+  const { profile } = useAuth()
+  const value = useErenStatsImpl(profile?.household_id ?? null)
+  return createElement(ErenStatsContext.Provider, { value }, children)
+}
+
+// Public hook. Same shape every consumer already uses — the householdId arg
+// is ignored (the provider derives it from auth) and kept for call-site
+// compatibility. Throws when used outside the provider so a missing wrap
+// surfaces loudly instead of silently re-opening a per-consumer channel.
+export function useErenStats(_householdId?: string | null): ErenStatsApi {
+  const ctx = useContext(ErenStatsContext)
+  if (!ctx) throw new Error('useErenStats must be used inside <ErenStatsProvider>')
+  return ctx
 }

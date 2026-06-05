@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, createContext, useContext, createElement, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from './useAuth'
 import type { Profile, JournalMessage, Interaction, GiftItem, UserMood, StreakData } from '@/types'
@@ -19,7 +19,12 @@ import {
 // commit (very common — the home page alone has ~5 consumers).
 let _coupleChannelCounter = 0
 
-export function useCouple() {
+// Internal implementation. Only the provider below calls this — every
+// consumer of useCouple() (home, hallway, couple, ThoughtCloud, JealousEren,
+// WishProvider, DailyBattlePop via useDailyBattle) used to mount its own
+// realtime channel on `couple_journal`. The shared layout had 5+ of them
+// listening simultaneously, which is half of the WAL-routing IO cost.
+function useCoupleImpl() {
   const supabase = createClient()
   const { user, profile } = useAuth()
 
@@ -360,4 +365,23 @@ export function useCouple() {
     sendMessage, sendNudge, markAllRead, loading,
     refetch: fetchAll,
   }
+}
+
+type CoupleApi = ReturnType<typeof useCoupleImpl>
+
+const CoupleContext = createContext<CoupleApi | null>(null)
+
+// Singleton provider — mounted once at (app)/layout.tsx. Owns the only
+// realtime channel on `couple_journal` and the only journal/partner fetch.
+export function CoupleProvider({ children }: { children: ReactNode }) {
+  const value = useCoupleImpl()
+  return createElement(CoupleContext.Provider, { value }, children)
+}
+
+// Public hook. Throws when used outside the provider so a missing wrap
+// surfaces loudly rather than silently re-opening a per-consumer channel.
+export function useCouple(): CoupleApi {
+  const ctx = useContext(CoupleContext)
+  if (!ctx) throw new Error('useCouple must be used inside <CoupleProvider>')
+  return ctx
 }
