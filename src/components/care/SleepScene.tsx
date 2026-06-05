@@ -115,10 +115,10 @@ export default function SleepScene({ onClose }: Props) {
               the blink + glint overlays at the new eye positions. Tune by
               eye if the bedroom looks off. */}
           <BlinkingEren size={200} src="/erenSleep.png" eyes={{
-            lidTop:    '40%',
+            lidTop:    '36%',
             lidLeftA:  '41%',
             lidLeftB:  '51%',
-            maskTop:   '40.3%',
+            maskTop:   '36.3%',
             maskLeftA: '42.3%',
             maskLeftB: '50.8%',
           }} />
