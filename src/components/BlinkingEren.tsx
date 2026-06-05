@@ -15,6 +15,11 @@ interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   // Subtle idle breathing sway. On by default so Eren feels alive in every
   // room; pass false where a perfectly static sprite is wanted.
   breathe?: boolean
+  // Sticker image. Defaults to the everyday `/erenGood.png` used in most
+  // rooms. The bedroom passes `/erenSleep.png` so the cat looks tucked in
+  // at night — every other behaviour (breathe, blink, eye glints) stays the
+  // same because they're all overlay layers, not part of the sprite.
+  src?: string
 }
 
 export default function BlinkingEren({
@@ -23,6 +28,7 @@ export default function BlinkingEren({
   style,
   alt = 'Eren',
   breathe = true,
+  src = '/erenGood.png',
   ...imgProps
 }: Props) {
   const isDark = useIsDark()
@@ -89,7 +95,7 @@ export default function BlinkingEren({
         backfaceVisibility: 'hidden',
         animation: breathe ? 'erenBreathe 4s ease-in-out infinite' : undefined,
       }}>
-        <img src="/erenGood.png" alt={alt} draggable={false}
+        <img src={src} alt={alt} draggable={false}
           {...imgProps}
           style={{
             width: '100%', height: '100%',

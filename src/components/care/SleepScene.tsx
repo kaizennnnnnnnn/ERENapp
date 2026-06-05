@@ -109,7 +109,7 @@ export default function SleepScene({ onClose }: Props) {
       <div className={cn('absolute z-10 transition-all duration-700', tuckedIn ? 'bottom-[16%]' : 'bottom-[14%]')}
         style={{ left: '50%', transform: 'translateX(-50%)' }}>
         <ErenIdleLayer disabled={tuckedIn}>
-          <BlinkingEren size={200} />
+          <BlinkingEren size={200} src="/erenSleep.png" />
           <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
         </ErenIdleLayer>
       </div>

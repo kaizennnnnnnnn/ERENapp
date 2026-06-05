@@ -2,7 +2,7 @@
 // Bump this string whenever you change badge/icon assets so the browser is
 // guaranteed to detect a byte difference and replace any old SW running on
 // the user's installed PWA. Pairs with no-store headers on /sw.js.
-const SW_VERSION = 'v9-room-image-cache-2026-06-06'
+const SW_VERSION = 'v10-eren-sleep-sprite-2026-06-07'
 
 // Room backgrounds + Eren sprite. We precache these on install so the user
 // can scroll between rooms with no internet without seeing the room render
@@ -11,7 +11,7 @@ const SW_VERSION = 'v9-room-image-cache-2026-06-06'
 // 404s and you see Eren floating in space).
 const IMAGE_CACHE = `eren-images-${SW_VERSION}`
 const PRECACHE_IMAGES = [
-  '/erenGood.png',
+  '/erenGood.png',   '/erenSleep.png',
   '/livingRoom.png', '/HomePage.png',
   '/kitchen.png',    '/KitchenDark.png',
   '/playroom.png',   '/play.png',
