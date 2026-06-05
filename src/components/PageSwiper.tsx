@@ -31,7 +31,12 @@ export default function PageSwiper({ children }: { children: React.ReactNode }) 
     // Trigger on 20% screen width or fast flick
     const threshold = window.innerWidth * 0.2
     if ((Math.abs(dx) > threshold || velocity > 0.4) && Math.abs(dx) > Math.abs(dy) * 1.2) {
+      // Swipe LEFT from home → enter the loop at the FIRST room (feed).
+      // Swipe RIGHT from home → enter at the LAST room (school) so the
+      // loop is reachable in both directions from home — matches how the
+      // rooms already wrap to home internally on either boundary.
       if (dx > 0) { playSound('ui_swipe_room'); openScene('feed') }
+      else        { playSound('ui_swipe_room'); openScene('school') }
     }
   }
 
