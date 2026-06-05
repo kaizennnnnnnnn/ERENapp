@@ -75,7 +75,7 @@ export const SERBIAN_COURSE: Lesson[] = [
     w('Vidimo se', 'Видимо се', 'See you', 'VEE-dee-moh seh'),
     w('Ćao', 'Ћао', 'Bye', 'CHOW'),
     w('Zbogom', 'Збогом', 'Farewell', 'ZBOH-gohm'),
-    w('Pozdrav', 'Поздрав', 'Greetings / Bye', 'POHZ-drahv'),
+    w('Pozdrav', 'Поздрав', 'Greetings', 'POHZ-drahv'),
   ], [
     s('Doviđenja, Eren!', 'Goodbye, Eren!'),
     s('Vidimo se sutra.', 'See you tomorrow.'),
@@ -122,50 +122,50 @@ export const SERBIAN_COURSE: Lesson[] = [
   // ─── UNIT: Manners (Ljubaznost) ───
   L('Thanks', 'Hvala', 'manners', [
     w('Hvala', 'Хвала', 'Thank you', 'HVAH-lah'),
-    w('Hvala lepo', 'Хвала лепо', 'Thank you kindly', 'HVAH-lah LEH-poh'),
-    w('Hvala ti', 'Хвала ти', 'Thanks (informal)', 'HVAH-lah tee'),
-    w('Mnogo', 'Много', 'A lot / Very', 'MNOH-goh'),
-    w('Puno', 'Пуно', 'A lot / Many', 'POO-noh'),
+    w('Nema na čemu', 'Нема на чему', 'You\'re welcome', 'NEH-mah nah CHEH-moo'),
+    w('Mnogo', 'Много', 'A lot', 'MNOH-goh'),
+    w('Veoma', 'Веома', 'Very', 'VEH-oh-mah'),
+    w('Tačno', 'Тачно', 'Exactly', 'TAHCH-noh'),
   ], [
     s('Hvala mnogo!', 'Thanks a lot!'),
-    s('Hvala ti, prijatelju.', 'Thanks, friend.'),
-    s('Hvala lepo, Eren.', 'Thank you kindly, Eren.'),
+    s('Nema na čemu, prijatelju.', 'You\'re welcome, friend.'),
+    s('Veoma sam srećan.', 'I am very happy.'),
   ], [
     q('"Hvala" means...', ['Hello', 'Thank you', 'Sorry', 'Please'], 1),
-    q('Polite "thanks" is...', ['Ćao', 'Hvala lepo', 'Doviđenja', 'Zdravo'], 1),
+    q('Reply to "Hvala":', ['Ćao', 'Nema na čemu', 'Doviđenja', 'Zdravo'], 1),
     q('"Mnogo" means...', ['Little', 'A lot', 'Very few', 'Once'], 1),
-    q('Casual "thanks":', ['Hvala vam', 'Hvala ti', 'Doviđenja', 'Zbogom'], 1),
+    q('"Veoma" means...', ['Sometimes', 'Very', 'Almost', 'Slowly'], 1),
   ]),
   L('Please', 'Molim', 'manners', [
-    w('Molim', 'Молим', 'Please / You\'re welcome', 'MOH-leem'),
-    w('Molim te', 'Молим те', 'Please (informal)', 'MOH-leem teh'),
-    w('Molim vas', 'Молим вас', 'Please (formal)', 'MOH-leem vahs'),
+    w('Molim', 'Молим', 'Please', 'MOH-leem'),
     w('Izvolite', 'Изволите', 'Here you go', 'eez-VOH-lee-teh'),
     w('Naravno', 'Наравно', 'Of course', 'NAH-rahv-noh'),
+    w('Posle vas', 'После вас', 'After you', 'POHS-leh vahs'),
+    w('Slobodno', 'Слободно', 'Feel free', 'sloh-BOHD-noh'),
   ], [
-    s('Molim te, Eren.', 'Please, Eren.'),
+    s('Molim, Eren.', 'Please, Eren.'),
     s('Izvolite, hvala.', 'Here you go, thanks.'),
-    s('Naravno, prijatelju.', 'Of course, friend.'),
+    s('Posle vas, gospodine.', 'After you, sir.'),
   ], [
-    q('"Molim" means...', ['Sorry', 'Please / You\'re welcome', 'Thanks', 'Yes'], 1),
-    q('Saying "please" to a friend:', ['Molim te', 'Molim vas', 'Hvala', 'Da'], 0),
+    q('"Molim" means...', ['Sorry', 'Please', 'Thanks', 'Yes'], 1),
+    q('"Posle vas" means...', ['Before you', 'After you', 'With you', 'Without you'], 1),
     q('"Izvolite" is used when...', ['Apologizing', 'Offering / handing over', 'Greeting', 'Refusing'], 1),
-    q('"Naravno" means...', ['Maybe', 'Of course', 'Never', 'Sometimes'], 1),
+    q('"Slobodno" means...', ['Feel free', 'Please', 'Hello', 'Thanks'], 0),
   ]),
   L('Sorry', 'Izvini', 'manners', [
-    w('Izvini', 'Извини', 'Sorry (informal)', 'eez-VEE-nee'),
-    w('Izvinite', 'Извините', 'Sorry (formal)', 'eez-VEE-nee-teh'),
+    w('Izvini', 'Извини', 'Sorry', 'eez-VEE-nee'),
+    w('Greška', 'Грешка', 'Mistake', 'GREHSH-kah'),
     w('Oprosti', 'Опрости', 'Forgive me', 'oh-PROH-stee'),
-    w('Žao mi je', 'Жао ми је', 'I am sorry', 'ZHAH-oh mee yeh'),
+    w('Žao mi je', 'Жао ми је', 'I feel bad', 'ZHAH-oh mee yeh'),
     w('Pardon', 'Пардон', 'Pardon', 'PAR-don'),
   ], [
     s('Izvini, ne razumem.', 'Sorry, I don\'t understand.'),
-    s('Žao mi je, prijatelju.', 'I am sorry, friend.'),
+    s('Žao mi je, prijatelju.', 'I feel bad, friend.'),
     s('Oprosti, molim te.', 'Forgive me, please.'),
   ], [
     q('"Izvini" means...', ['Hello', 'Sorry', 'Please', 'Thanks'], 1),
-    q('"Žao mi je" means...', ['I am happy', 'I am sorry', 'I don\'t know', 'I see'], 1),
-    q('Formal "sorry":', ['Izvini', 'Izvinite', 'Hvala', 'Da'], 1),
+    q('"Žao mi je" means...', ['I am happy', 'I feel bad', 'I am tired', 'I am late'], 1),
+    q('"Greška" means...', ['Mistake', 'Help', 'Hello', 'Thanks'], 0),
     q('After bumping someone, say...', ['Hvala', 'Izvini', 'Da', 'Molim'], 1),
   ]),
   L('Yes & No', 'Da i Ne', 'manners', [
@@ -188,8 +188,8 @@ export const SERBIAN_COURSE: Lesson[] = [
   // ─── UNIT: Me & You (Ja i Ti) ───
   L('I, You', 'Ja, Ti', 'me-you', [
     w('Ja', 'Ја', 'I', 'yah'),
-    w('Ti', 'Ти', 'You (informal)', 'tee'),
-    w('Vi', 'Ви', 'You (formal/plural)', 'vee'),
+    w('Ti', 'Ти', 'You', 'tee'),
+    w('Vi', 'Ви', 'You all', 'vee'),
     w('Mi', 'Ми', 'We', 'mee'),
     w('Oni', 'Они', 'They', 'OH-nee'),
   ], [
@@ -198,8 +198,8 @@ export const SERBIAN_COURSE: Lesson[] = [
     s('Mi smo srećni.', 'We are happy.'),
   ], [
     q('"Ja" means...', ['You', 'I', 'He', 'We'], 1),
-    q('"Ti" means...', ['I', 'You (informal)', 'They', 'She'], 1),
-    q('Formal "you":', ['Ja', 'Ti', 'Vi', 'On'], 2),
+    q('"Ti" means...', ['I', 'You', 'They', 'She'], 1),
+    q('"Vi" means...', ['I', 'You all', 'We', 'They'], 1),
     q('"Mi" means...', ['I', 'You', 'We', 'They'], 2),
   ]),
   L('To Be', 'Biti', 'me-you', [
@@ -1255,20 +1255,20 @@ export const SERBIAN_COURSE: Lesson[] = [
     q('"Jasno" means...', ['Cloudy', 'Clear', 'Loud', 'Quiet'], 1),
   ]),
   L('Help', 'Pomoć', 'phrases', [
-    w('Pomozite!', 'Помозите!', 'Help!', 'POH-moh-zee-teh'),
+    w('Pazi', 'Пази', 'Watch out', 'PAH-zee'),
     w('Pomoć', 'Помоћ', 'Help', 'POH-mohch'),
     w('Hitno', 'Хитно', 'Urgent', 'HEET-noh'),
-    w('Sigurno', 'Сигурно', 'Safely / For sure', 'see-GOOR-noh'),
-    w('Dobro', 'Добро', 'Good / Okay', 'DOH-broh'),
+    w('Sigurno', 'Сигурно', 'Safely', 'see-GOOR-noh'),
+    w('Dobro', 'Добро', 'Good', 'DOH-broh'),
   ], [
-    s('Pomozite, molim!', 'Help, please!'),
+    s('Pazi, kola!', 'Watch out, a car!'),
     s('Treba mi pomoć.', 'I need help.'),
     s('Sve je dobro.', 'Everything is good.'),
   ], [
-    q('"Pomozite" means...', ['Stop', 'Help', 'Wait', 'Go'], 1),
+    q('"Pazi" means...', ['Watch out', 'Hello', 'Thanks', 'Goodbye'], 0),
     q('"Pomoć" means...', ['Stop', 'Help', 'Time', 'End'], 1),
     q('"Hitno" means...', ['Urgent', 'Calm', 'Soon', 'Late'], 0),
-    q('"Sigurno" means...', ['Maybe', 'Safely / For sure', 'Quickly', 'Slowly'], 1),
+    q('"Sigurno" means...', ['Maybe', 'Safely', 'Quickly', 'Slowly'], 1),
   ]),
   L('Speak English?', 'Govorite engleski?', 'phrases', [
     w('Govoriti', 'Говорити', 'To speak', 'goh-VOH-ree-tee'),
@@ -1870,9 +1870,28 @@ export function buildExercises(lesson: Lesson): Exercise[] {
     }
   }
 
+  // Pairs exercise — dedup by canonical English so two cards never share a
+  // meaning. Without this, lessons that intentionally teach gender / formality
+  // / conjugation variants (Srećan/Srećna/Srećni → "happy", Smo/Ste both →
+  // "are", Moj/Moja → "my", Oni/One → "they") would render an unsolvable
+  // board where the matcher has to guess which Serbian half pairs with which
+  // identical English label. We pick the first card encountered per canonical
+  // meaning and drop the rest from the pairs board only — the rest still
+  // appear in the lesson's MC questions, just not all crammed onto one screen.
   if (words.length >= 3) {
-    const subset = shuffle(words).slice(0, Math.min(5, words.length))
-    list.push({ kind: 'pairs', pairs: subset.map(wd => ({ sr: wd.serbian, en: wd.english })) })
+    const seenCanon = new Set<string>()
+    const distinct: typeof words = []
+    for (const wd of shuffle(words)) {
+      const parts = canonEnParts(wd.english)
+      if (parts.length === 0) continue
+      if (parts.some(p => seenCanon.has(p))) continue
+      parts.forEach(p => seenCanon.add(p))
+      distinct.push(wd)
+    }
+    if (distinct.length >= 3) {
+      const subset = distinct.slice(0, Math.min(5, distinct.length))
+      list.push({ kind: 'pairs', pairs: subset.map(wd => ({ sr: wd.serbian, en: wd.english })) })
+    }
   }
 
   for (const wd of shuffle(words)) {
