@@ -60,8 +60,12 @@ CREATE POLICY "reminder_fires_update"
 SELECT cron.unschedule('fire-reminders')
   WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'fire-reminders');
 
+-- Every 5 minutes (not every minute). Reminders firing within ~5 min of
+-- their scheduled time is fine for a household to-do app, and this cuts
+-- the endpoint's load by 5× — meaningful given the Disk IO budget is
+-- already tight from realtime traffic.
 SELECT cron.schedule(
   'fire-reminders',
-  '* * * * *',
+  '*/5 * * * *',
   $$ SELECT net.http_get(url := 'https://eren-care-app.vercel.app/api/fire-reminders') $$
 );
