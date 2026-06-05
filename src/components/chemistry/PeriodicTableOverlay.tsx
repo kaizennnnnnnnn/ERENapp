@@ -1,8 +1,9 @@
 'use client'
 
 // PeriodicTableOverlay — full-screen study experience entered from the
-// Chemistry room. Phase 1: scaffold + close button only; the table, study
-// modes, and daily missions land in subsequent phases.
+// Chemistry room. Holds the top bar (title + ✕), the mode tabs (Browse
+// table / Flashcards / future modes), and renders whichever mode is
+// active. Daily missions ride on top of this once phase 6 lands.
 //
 // Mobile notes (kept here so we don't relearn them per phase):
 //   • All touch events are stopped at the root so they never reach
@@ -10,27 +11,35 @@
 //     the overlay would silently navigate to the next room.
 //   • Layout uses safe-area-inset-* so the top bar clears the iOS notch
 //     and the bottom doesn't sit under the home indicator.
-//   • touch-action: pan-y allows vertical scrolling for the table grid
-//     once it lands, while blocking horizontal swipe-nav inside the
-//     overlay too.
+//   • touch-action: manipulation keeps both vertical scroll (the body)
+//     and horizontal scroll (the table grid) working natively, while
+//     killing pinch-zoom.
 //   • No fixed pixel widths over 360 — the design has to flow on a 320-px
 //     iPhone SE and still feel right.
 
+import { useState } from 'react'
 import { playSound } from '@/lib/sounds'
 import PeriodicTable from './PeriodicTable'
+import Flashcards from './Flashcards'
+
+type Mode = 'table' | 'flashcards'
+
+const MODES: { id: Mode; label: string }[] = [
+  { id: 'table',      label: 'TABLE' },
+  { id: 'flashcards', label: 'FLASHCARDS' },
+]
 
 interface Props { onClose: () => void }
 
 export default function PeriodicTableOverlay({ onClose }: Props) {
+  const [mode, setMode] = useState<Mode>('table')
+
   function handleClose() {
     playSound('ui_tap')
     onClose()
   }
   // stopPropagation at the root: any touch inside the overlay is "ours"
   // and must not bubble up to CareSceneHost's room-swipe gesture detector.
-  // We leave touch-action loose ('manipulation') so the table's horizontal
-  // scroll + the body's vertical scroll both work natively; propagation
-  // is killed here so nothing leaks.
   const stop = (e: React.TouchEvent) => e.stopPropagation()
 
   return (
@@ -71,12 +80,12 @@ export default function PeriodicTableOverlay({ onClose }: Props) {
             textShadow: '0 0 6px rgba(132,204,22,0.55)',
           }}
         >
-          PERIODIC TABLE
+          CHEMISTRY
         </h1>
         <button
           type="button"
           onClick={handleClose}
-          aria-label="Close periodic table"
+          aria-label="Close chemistry overlay"
           className="active:translate-y-[1px] transition-transform"
           style={{
             minWidth: 44, minHeight: 44,
@@ -95,15 +104,42 @@ export default function PeriodicTableOverlay({ onClose }: Props) {
         </button>
       </header>
 
-      {/* ── Body: periodic table ── */}
+      {/* ── Mode tabs ── */}
+      <nav className="relative flex justify-center gap-2 px-4 py-3">
+        {MODES.map(m => (
+          <button
+            key={m.id}
+            type="button"
+            onClick={() => { playSound('ui_tap'); setMode(m.id) }}
+            className="active:translate-y-[1px] transition-transform"
+            style={{
+              padding: '8px 14px',
+              minHeight: 36,
+              fontFamily: '"Press Start 2P", monospace',
+              fontSize: 7,
+              letterSpacing: 1.5,
+              color: mode === m.id ? '#0A140A' : '#BEF264',
+              background: mode === m.id ? '#BEF264' : '#1A2E05',
+              border: '2px solid #84CC16',
+              borderRadius: 3,
+              boxShadow: mode === m.id ? 'inset 1px 1px 0 rgba(0,0,0,0.18)' : '2px 2px 0 #050a02',
+            }}
+          >
+            {m.label}
+          </button>
+        ))}
+      </nav>
+
+      {/* ── Body: active mode ── */}
       <main
         className="relative flex-1 overflow-y-auto"
         style={{
-          paddingTop: 16,
+          paddingTop: 4,
           paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))',
         }}
       >
-        <PeriodicTable />
+        {mode === 'table'      && <PeriodicTable />}
+        {mode === 'flashcards' && <Flashcards />}
       </main>
     </div>
   )
