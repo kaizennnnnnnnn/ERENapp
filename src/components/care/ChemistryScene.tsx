@@ -39,15 +39,15 @@ export default function ChemistryScene(_props: Props) {
         pointerEvents: 'none',
       }} />
 
-      {/* ══ EREN ══ sits front-and-center on the rug, big enough to read
-          at the same camera distance as the other rooms. */}
+      {/* ══ EREN ══ sits on the rug. Halfway between the original (too far)
+          and the previous bump (too close). */}
       <div className="absolute z-10" style={{
-        bottom: '14%',
+        bottom: '18%',
         left: '50%',
         transform: 'translateX(-50%)',
       }}>
         <ErenIdleLayer>
-          <BlinkingEren size={230} />
+          <BlinkingEren size={200} />
         </ErenIdleLayer>
       </div>
 
