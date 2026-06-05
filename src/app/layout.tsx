@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import SplashScreen from '@/components/SplashScreen'
+import TransientErrorSilencer from '@/components/TransientErrorSilencer'
 
 export const metadata: Metadata = {
   title: 'Eren',
@@ -39,6 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="bg-[#FDF6FF]">
+        <TransientErrorSilencer />
         <SplashScreen />
         <div className="app-container">
           {children}
