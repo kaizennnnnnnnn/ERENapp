@@ -59,13 +59,18 @@ const LIGHT_PALETTE: Palette = {
 }
 
 const DARK_PALETTE: Palette = {
-  bg:         '#1A1124',  // deep plum (--background.dark)
-  ink:        '#070310',  // darker than fg so shadow lines read crisply
-  fg:         '#F8E9C7',
-  fgMuted:    '#A89AB8',
-  fgFaint:    'rgba(248,233,199,0.4)',
-  card:       '#26193A',
-  cardMuted:  '#1F1330',
+  // Bumped a step lighter end-to-end based on user feedback: previous bg
+  // (#1A1124) was too dark to read counter text inside the progress bar
+  // / streak pill, and the card surfaces blended into the bg. Pushing the
+  // whole surface stack a step brighter while keeping ink (border +
+  // shadow colour) near-black preserves the neo-brutalism contrast.
+  bg:         '#291C40',
+  ink:        '#0A0517',
+  fg:         '#FBF1D9',
+  fgMuted:    '#D2C2E6',
+  fgFaint:    'rgba(251,241,217,0.62)',
+  card:       '#3A2A58',
+  cardMuted:  '#2F2148',
   grape:      '#C4A7F5',
   grapeLight: '#3F2A5E',
   grapeDark:  '#9F7BE8',
