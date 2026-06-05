@@ -210,6 +210,14 @@ function dayDiff(a: string, b: string): number {
   return Math.round((da - db) / 86_400_000)
 }
 
+// Global floor on how often ANY wish can repeat — even ones with
+// cooldownDays=0. Without this, the rotation converges on the same activity
+// wish for days at a time when the fridge is sparse: every hash position
+// inside the food band gets filtered, spills forward, and lands on the first
+// always-eligible non-food wish (act-bath). 7 days × ~25 daily-eligible
+// wishes leaves a comfortable margin before the fallback ever fires.
+const MIN_REPEAT_GAP_DAYS = 7
+
 export function isEligible(w: Wish, ctx: EligibilityCtx): boolean {
   if (w.missingInventory) return false
   if (w.needsLeader && !ctx.leaderName) return false
@@ -218,11 +226,13 @@ export function isEligible(w: Wish, ctx: EligibilityCtx): boolean {
   if (w.needsLeader && ctx.leaderName === ctx.viewerName) return false
   if (w.needsBothActive && !ctx.bothActiveLast48h) return false
 
-  if (w.cooldownDays > 0) {
+  // Respect the wish's own cooldown AND the global floor — whichever is longer.
+  const effectiveCooldown = Math.max(w.cooldownDays, MIN_REPEAT_GAP_DAYS)
+  if (effectiveCooldown > 0) {
     const last = ctx.recentlyShown.get(w.id)
     if (last) {
       const days = dayDiff(ctx.today, last)
-      if (days < w.cooldownDays) return false
+      if (days < effectiveCooldown) return false
     }
   }
 
