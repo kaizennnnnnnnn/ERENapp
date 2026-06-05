@@ -14,7 +14,9 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { playSound } from '@/lib/sounds'
 import { ChemistryStoreProvider, useChemistryStore } from '@/lib/chemistry/store'
-import { ChemistryThemeProvider, useChemistryTheme, neoShadow, CHEM_FONT } from '@/lib/chemistry/theme'
+import { ChemistryThemeProvider, useChemistryTheme, neoShadow, CHEM_FONT, type Palette } from '@/lib/chemistry/theme'
+import { useTasks } from '@/contexts/TaskContext'
+import { getDailyKey } from '@/lib/tasks'
 import PeriodicTable from './PeriodicTable'
 import Flashcards from './Flashcards'
 import Quiz from './Quiz'
@@ -43,7 +45,7 @@ export default function PeriodicTableOverlay({ onClose }: Props) {
 
 function OverlayInner({ onClose }: Props) {
   const [mode, setMode] = useState<Mode>('table')
-  const { dueCount, newCount, state, hydrated } = useChemistryStore()
+  const { dueCount, state, hydrated } = useChemistryStore()
   const { palette, theme, toggle } = useChemistryTheme()
 
   function handleClose() { playSound('ui_tap'); onClose() }
@@ -138,18 +140,10 @@ function OverlayInner({ onClose }: Props) {
         })}
       </nav>
 
-      {/* Optional: stats row showing DUE / NEW / STREAK / MASTERED */}
-      {hydrated && (
-        <div
-          className="relative flex gap-2 px-4 py-3 overflow-x-auto"
-          style={{ background: palette.bg, borderBottom: `2px solid ${palette.ink}` }}
-        >
-          <MiniStat label="Due"      value={dueCount} bg={palette.sunLight}   ink={palette.ink} fg={palette.fg} />
-          <MiniStat label="New"      value={newCount} bg={palette.skyLight}   ink={palette.ink} fg={palette.fg} />
-          <MiniStat label="Streak"   value={state.streak.current} bg={palette.grapeLight} ink={palette.ink} fg={palette.fg} />
-          <MiniStat label="Longest"  value={state.streak.longest} bg={palette.cardMuted} ink={palette.ink} fg={palette.fg} />
-        </div>
-      )}
+      {/* Today's missions — two daily reward chips. Replace the older
+          stats strip; Due / Streak are already in the header chips and
+          the SRS detail lives inside each mode. */}
+      {hydrated && <MissionStrip palette={palette} />}
 
       {/* ── Body ── */}
       <main
@@ -192,25 +186,100 @@ function Chip({ bg, ink, text, children }: {
   )
 }
 
-function MiniStat({ label, value, bg, ink, fg }: {
-  label: string; value: number; bg: string; ink: string; fg: string
+function MissionStrip({ palette }: { palette: Palette }) {
+  const { completedIds } = useTasks()
+  const dailyKey = getDailyKey()
+  const lessonDone = completedIds.has(`daily_chem_lesson:${dailyKey}`)
+  const streakDone = completedIds.has(`daily_chem_streak:${dailyKey}`)
+  return (
+    <div
+      className="relative flex gap-2 px-4 py-3 overflow-x-auto"
+      style={{ background: palette.bg, borderBottom: `2px solid ${palette.ink}` }}
+    >
+      <MissionCard
+        icon="📚"
+        title="Finish a lesson"
+        sub={lessonDone ? 'Claimed · +10 coins' : 'Reward: 10 coins, 15 xp'}
+        done={lessonDone}
+        accent={palette.sun}
+        palette={palette}
+      />
+      <MissionCard
+        icon="🔥"
+        title="5 in a row"
+        sub={streakDone ? 'Claimed · +15 coins' : 'Reward: 15 coins, 20 xp'}
+        done={streakDone}
+        accent={palette.grape}
+        palette={palette}
+      />
+    </div>
+  )
+}
+
+function MissionCard({ icon, title, sub, done, accent, palette }: {
+  icon: string
+  title: string
+  sub: string
+  done: boolean
+  accent: string
+  palette: Palette
 }) {
   return (
-    <div style={{
-      flex: '1 0 auto',
-      minWidth: 64,
-      padding: '8px 10px',
-      borderRadius: 12,
-      border: `2px solid ${ink}`,
-      background: bg,
-      boxShadow: neoShadow(ink, 'sm'),
-      color: fg,
-    }}>
-      <div style={{ fontSize: 11, opacity: 0.7, fontWeight: 700, letterSpacing: 0.4 }}>
-        {label.toUpperCase()}
+    <div
+      style={{
+        flex: '1 1 0%',
+        minWidth: 140,
+        padding: '10px 12px',
+        borderRadius: 14,
+        border: `2px solid ${palette.ink}`,
+        background: done ? accent : palette.card,
+        boxShadow: neoShadow(palette.ink, 'sm'),
+        color: palette.fg,
+        display: 'flex',
+        gap: 10,
+        alignItems: 'center',
+        opacity: done ? 0.95 : 1,
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          flexShrink: 0,
+          width: 34, height: 34,
+          display: 'inline-flex',
+          alignItems: 'center', justifyContent: 'center',
+          borderRadius: 10,
+          border: `2px solid ${palette.ink}`,
+          background: done ? palette.card : accent,
+          fontSize: 18,
+          boxShadow: neoShadow(palette.ink, 'sm'),
+        }}
+      >
+        {done ? '✓' : icon}
       </div>
-      <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1 }}>
-        {value}
+      <div style={{ minWidth: 0 }}>
+        <div style={{
+          fontSize: 12,
+          fontWeight: 800,
+          letterSpacing: 0.2,
+          color: done ? palette.ink : palette.fg,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}>
+          {title}
+        </div>
+        <div style={{
+          fontSize: 10,
+          fontWeight: 600,
+          opacity: 0.7,
+          color: done ? palette.ink : palette.fgMuted,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}>
+          {sub}
+        </div>
       </div>
     </div>
   )

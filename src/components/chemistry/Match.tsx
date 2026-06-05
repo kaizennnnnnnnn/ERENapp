@@ -17,6 +17,7 @@ import { CATEGORY_COLORS } from '@/lib/chemistry/colors'
 import { useChemistryStore, elementCardId } from '@/lib/chemistry/store'
 import { dueDate, isDue, isNew, MASTERED_BOX, type CardState } from '@/lib/chemistry/srs'
 import { useChemistryTheme, neoShadow, CHEM_FONT, type Palette } from '@/lib/chemistry/theme'
+import { useChemistryMissions } from '@/lib/chemistry/missions'
 import { playSound } from '@/lib/sounds'
 
 const ROUND_SECONDS  = 60
@@ -97,6 +98,8 @@ export default function Match() {
   const [running, setRunning] = useState(false)
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const finishedRef = useRef(false)
+
+  useChemistryMissions({ streak, done })
 
   const reset = useCallback(() => {
     if (!hydrated) return

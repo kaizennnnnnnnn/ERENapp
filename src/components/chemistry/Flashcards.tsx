@@ -21,6 +21,7 @@ import { useChemistryStore, elementCardId } from '@/lib/chemistry/store'
 import { dueDate, isDue, isNew, MASTERED_BOX, type CardState } from '@/lib/chemistry/srs'
 import { playSound } from '@/lib/sounds'
 import { useChemistryTheme, neoShadow, CHEM_FONT, type Palette } from '@/lib/chemistry/theme'
+import { useChemistryMissions } from '@/lib/chemistry/missions'
 
 const DECK_SIZE = 10
 
@@ -93,6 +94,9 @@ export default function Flashcards() {
   const [correct, setCorrect] = useState(0)
   const finishedRef = useRef(false)
 
+  const done = deck.length > 0 && index >= deck.length
+  useChemistryMissions({ streak, done })
+
   // Build the first deck once the store is hydrated. We deliberately do
   // NOT rebuild on every state.cards change — that would shift the
   // remaining deck mid-session when a card is rated and graduates.
@@ -102,8 +106,6 @@ export default function Flashcards() {
     setDeck(buildDeck(state.cards, today))
     finishedRef.current = false
   }, [hydrated, today, state.cards, deck.length])
-
-  const done = deck.length > 0 && index >= deck.length
 
   // Record the deck completion exactly once when we cross the boundary.
   useEffect(() => {

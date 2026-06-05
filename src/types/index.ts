@@ -67,6 +67,7 @@ export interface Profile {
 
 export type TaskId =
   | 'daily_mood' | 'daily_feed' | 'daily_play' | 'daily_sleep' | 'daily_wash' | 'daily_game' | 'daily_nudge'
+  | 'daily_chem_lesson' | 'daily_chem_streak'
   | 'weekly_all_care' | 'weekly_all_games' | 'weekly_high_score' | 'weekly_mood_5' | 'weekly_no_sick'
 
 export type TaskPeriod = 'daily' | 'weekly'

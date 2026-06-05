@@ -18,6 +18,7 @@ import { CATEGORY_COLORS } from '@/lib/chemistry/colors'
 import { useChemistryStore, elementCardId } from '@/lib/chemistry/store'
 import { dueDate, isDue, isNew, MASTERED_BOX, type CardState } from '@/lib/chemistry/srs'
 import { useChemistryTheme, neoShadow, CHEM_FONT, type Palette } from '@/lib/chemistry/theme'
+import { useChemistryMissions } from '@/lib/chemistry/missions'
 import { playSound } from '@/lib/sounds'
 
 const QUEUE_SIZE = 10
@@ -103,6 +104,7 @@ export default function Quiz() {
 
   const done = queue.length > 0 && index >= queue.length
   const current = !done && questions[index] ? questions[index] : null
+  useChemistryMissions({ streak, done })
 
   useEffect(() => {
     if (!done || finishedRef.current) return
