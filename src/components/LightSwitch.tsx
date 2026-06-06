@@ -154,7 +154,12 @@ export default function LightSwitch({
           )}
 
           {/* Soft directional cone — trapezoid shape blurred to avoid the
-              hard spotlight look. */}
+              hard spotlight look. Heavy blur + radial fade mask so the
+              cone's diagonal sides dissolve into the room instead of
+              reading as a visible straight line on the dark kitchen
+              background (left edge of the polygon used to land at ~23%
+              of viewport width which looked like a vertical line cutting
+              through the cat). */}
           <div className="absolute pointer-events-none" style={{
             top: lampTop,
             bottom: targetBottom,
@@ -163,7 +168,9 @@ export default function LightSwitch({
             width: 'min(62%, 320px)',
             background: 'linear-gradient(to bottom, rgba(255,236,180,0.18) 0%, rgba(255,236,180,0.22) 60%, rgba(255,236,180,0.26) 100%)',
             clipPath: 'polygon(46% 0%, 54% 0%, 100% 100%, 0% 100%)',
-            filter: 'blur(9px)',
+            filter: 'blur(24px)',
+            WebkitMaskImage: 'radial-gradient(ellipse 70% 80% at 50% 30%, rgba(0,0,0,1) 35%, rgba(0,0,0,0) 90%)',
+            maskImage: 'radial-gradient(ellipse 70% 80% at 50% 30%, rgba(0,0,0,1) 35%, rgba(0,0,0,0) 90%)',
             mixBlendMode: 'screen',
             zIndex: 11,
             animation: 'lsHaloPulse 4s ease-in-out infinite',
