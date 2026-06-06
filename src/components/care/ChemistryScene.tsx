@@ -6,7 +6,7 @@
 // follow-up phases.
 
 import { useState } from 'react'
-import { BookOpen, Flame, Check, type LucideIcon } from 'lucide-react'
+import { BookOpen, Flame, Check, ChevronUp, ChevronDown, type LucideIcon } from 'lucide-react'
 import BlinkingEren from '@/components/BlinkingEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
 import LightSwitch from '@/components/LightSwitch'
@@ -135,6 +135,9 @@ export default function ChemistryScene(_props: Props) {
 // rounded chips, two lines each (title + reward), state-aware.
 function RoomMissionChips() {
   const { completedIds } = useTasks()
+  // Default expanded so the player sees today's chem quests on entry; the
+  // header pill is a button that collapses the chips back into itself.
+  const [expanded, setExpanded] = useState(true)
   const dailyKey = getDailyKey()
   const lessonDone = completedIds.has(`daily_chem_lesson:${dailyKey}`)
   const streakDone = completedIds.has(`daily_chem_streak:${dailyKey}`)
@@ -151,13 +154,20 @@ function RoomMissionChips() {
         maxWidth: 232,
       }}
     >
-      {/* Section header — tells the room what these chips are. Same cream
-          background as the chips so the section reads as one unit. */}
-      <div
+      {/* Section header — toggle button. Tapping collapses both chips
+          back up into this pill; tapping again pops them out. Same cream
+          background as the chips so the three pieces read as one unit. */}
+      <button
+        type="button"
+        onClick={() => setExpanded(e => !e)}
+        aria-expanded={expanded}
         style={{
           pointerEvents: 'auto',
           alignSelf: 'flex-start',
-          padding: '3px 10px',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '3px 8px 3px 10px',
           borderRadius: 999,
           background: '#FFF7DA',
           border: '2px solid #1A0F2D',
@@ -168,26 +178,65 @@ function RoomMissionChips() {
           letterSpacing: 0.6,
           color: '#1A0F2D',
           marginBottom: 2,
+          cursor: 'pointer',
         }}
       >
         DAILY CHEM QUESTS
-      </div>
-      <MissionChip
-        Icon={BookOpen}
-        title="Finish a lesson"
-        reward="+10 coins  +15 xp"
-        done={lessonDone}
-        accent="#FCD34D"
-        accentDark="#D97706"
-      />
-      <MissionChip
-        Icon={Flame}
-        title="5 in a row"
-        reward="+15 coins  +20 xp"
-        done={streakDone}
-        accent="#C4A7F5"
-        accentDark="#7C3AED"
-      />
+        {expanded
+          ? <ChevronUp   size={12} strokeWidth={3} />
+          : <ChevronDown size={12} strokeWidth={3} />}
+      </button>
+      <Collapsible expanded={expanded} delayMs={0}>
+        <MissionChip
+          Icon={BookOpen}
+          title="Finish a lesson"
+          reward="+10 coins  +15 xp"
+          done={lessonDone}
+          accent="#FCD34D"
+          accentDark="#D97706"
+        />
+      </Collapsible>
+      <Collapsible expanded={expanded} delayMs={50}>
+        <MissionChip
+          Icon={Flame}
+          title="5 in a row"
+          reward="+15 coins  +20 xp"
+          done={streakDone}
+          accent="#C4A7F5"
+          accentDark="#7C3AED"
+        />
+      </Collapsible>
+    </div>
+  )
+}
+
+// Wrapper that animates its child into / out of the header pill. When
+// `expanded` flips false the child shrinks + fades + translates up so the
+// chip looks like it falls back into the header. Two chips can stagger
+// via `delayMs` so they peel out in sequence.
+function Collapsible({ expanded, delayMs, children }: {
+  expanded: boolean; delayMs: number; children: React.ReactNode
+}) {
+  return (
+    <div
+      aria-hidden={!expanded}
+      style={{
+        overflow: 'hidden',
+        maxHeight: expanded ? 80 : 0,
+        opacity: expanded ? 1 : 0,
+        transform: expanded ? 'translateY(0) scale(1)' : 'translateY(-14px) scale(0.85)',
+        transformOrigin: 'top left',
+        marginTop: expanded ? 0 : -8,
+        pointerEvents: expanded ? 'auto' : 'none',
+        transition: [
+          `max-height 240ms ease ${delayMs}ms`,
+          `opacity 200ms ease ${delayMs}ms`,
+          `transform 260ms cubic-bezier(0.4, 0, 0.2, 1) ${delayMs}ms`,
+          `margin-top 240ms ease ${delayMs}ms`,
+        ].join(', '),
+      }}
+    >
+      {children}
     </div>
   )
 }
