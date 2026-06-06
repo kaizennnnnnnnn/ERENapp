@@ -17,7 +17,7 @@ import { useChemistryTheme, CHEM_FONT, type Palette } from '@/lib/chemistry/them
 import { playSound } from '@/lib/sounds'
 import { dateStr } from '@/lib/chemistry/srs'
 
-type Mode = 'home' | 'table' | 'flashcards' | 'quiz' | 'match'
+type Mode = 'home' | 'review' | 'learn' | 'table' | 'flashcards' | 'quiz' | 'match' | 'speed' | 'locate'
 
 interface Props {
   palette: Palette
@@ -40,7 +40,10 @@ const DAILY_GOAL = 20
 
 export default function HomeDashboard({ palette, onGoto }: Props) {
   const { state, dueCount, hydrated } = useChemistryStore()
-  const { theme } = useChemistryTheme()
+  // Theme is still consumed by sibling components; the dashboard itself
+  // now uses the same bright pastel hex values regardless of theme, only
+  // the underlying overlay bg shifts dark.
+  useChemistryTheme()
 
   const masteredCount = Object.values(state.cards).filter(c => c.box >= 6).length
   const totalElements = 118 // matches the catalogue
@@ -58,32 +61,32 @@ export default function HomeDashboard({ palette, onGoto }: Props) {
   const inLvl  = xp % 100
   const xpPct  = (inLvl / 100) * 100
 
-  // Tile palette — pastel pairs sourced from the theme so light/dark both
-  // read. Picks track the Mandel screenshots' soft hues.
+  // Bright pastel pairs — same hex in both themes. The dark overlay bg
+  // gives the contrast; pastels stay pastels.
   const tilePastel = {
-    grape:  theme === 'dark' ? '#4A3568' : palette.grapeLight,
-    sky:    theme === 'dark' ? '#214861' : palette.skyLight,
-    sun:    theme === 'dark' ? '#5A4A1F' : palette.sunLight,
-    mint:   theme === 'dark' ? '#1F4D38' : '#CFEFE0',
-    coral:  theme === 'dark' ? '#5D2A2A' : '#FFD8D2',
-    cream:  theme === 'dark' ? '#3D3320' : '#FCEAB1',
+    grape:  palette.grapeLight, // #E4D6FB
+    sky:    palette.skyLight,   // #D6E9FC
+    sun:    palette.sunLight,   // #FEF1C3
+    mint:   '#CFEFE0',
+    coral:  '#FFD8D2',
+    cream:  '#FCEAB1',
   }
   const TILES: TileDef[] = [
-    { id: 'review',     label: 'Review',     sub: 'Spaced-repetition driver',     icon: '⚡', bg: tilePastel.sky,   status: 'soon' },
-    { id: 'learn',      label: 'Learn',      sub: 'Guided new-element batches',   icon: '📖', bg: tilePastel.grape, status: 'soon' },
+    { id: 'review',     label: 'Review',     sub: 'Spaced-repetition driver',     icon: '⚡', bg: tilePastel.sky,   status: 'live' },
+    { id: 'learn',      label: 'Learn',      sub: 'Guided new-element batches',   icon: '📖', bg: tilePastel.grape, status: 'live' },
     { id: 'table',      label: 'Table',      sub: 'Browse all 118 elements',      icon: '⌗',  bg: tilePastel.mint,  status: 'live' },
     { id: 'flashcards', label: 'Flashcards', sub: 'Flip & self-rate',             icon: '🗂', bg: tilePastel.sun,   status: 'live' },
     { id: 'quiz',       label: 'Quiz',       sub: 'Multiple-choice rounds',       icon: '✦',  bg: tilePastel.coral, status: 'live' },
     { id: 'match',      label: 'Match',      sub: 'Timed symbol ↔ name',          icon: '⊞',  bg: tilePastel.cream, status: 'live' },
-    { id: 'speed',      label: 'Speed',      sub: '60-second sprint',             icon: '⏱', bg: tilePastel.grape, status: 'soon' },
-    { id: 'locate',     label: 'Locate',     sub: 'Find on the table',            icon: '◎', bg: tilePastel.sky,   status: 'soon' },
+    { id: 'speed',      label: 'Speed',      sub: '60-second sprint',             icon: '⏱', bg: tilePastel.grape, status: 'live' },
+    { id: 'locate',     label: 'Locate',     sub: 'Find on the table',            icon: '◎', bg: tilePastel.sky,   status: 'live' },
   ]
 
   function handleHeroPrimary() {
-    // Until Review mode ships, the "X cards due" CTA routes to Quiz so
-    // the user always has somewhere productive to land.
     playSound('ui_tap')
-    onGoto('quiz')
+    // If there are due cards, drop straight into Review; otherwise run
+    // a Learn batch so the user always lands somewhere productive.
+    onGoto(dueCount > 0 ? 'review' : 'learn')
   }
   function handleHeroSecondary() {
     playSound('ui_tap')
@@ -104,37 +107,35 @@ export default function HomeDashboard({ palette, onGoto }: Props) {
       gap: 14,
       fontFamily: CHEM_FONT,
     }}>
-      {/* ── Hero card ── */}
+      {/* ── Hero card — bright lavender in both themes ── */}
       <div style={{
         position: 'relative',
         borderRadius: 24,
         padding: 18,
-        background: theme === 'dark' ? '#3F2A5E' : palette.grapeLight,
+        background: palette.grapeLight,
         overflow: 'hidden',
       }}>
-        {/* Decorative orbs — sun top-right, sky bottom-right, like Mandel */}
         <div aria-hidden style={{
           position: 'absolute', top: -22, right: -22,
           width: 90, height: 90, borderRadius: 999,
-          background: palette.sun, opacity: 0.85,
+          background: palette.sun, opacity: 0.95,
         }} />
         <div aria-hidden style={{
           position: 'absolute', bottom: -32, right: 28,
           width: 64, height: 64, borderRadius: 999,
-          background: palette.sky, opacity: 0.55,
+          background: palette.sky, opacity: 0.65,
         }} />
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div style={{
             fontSize: 11, fontWeight: 700, letterSpacing: 0.6,
-            color: theme === 'dark' ? palette.grape : palette.grapeDark,
-            opacity: 0.9,
+            color: palette.grapeDark,
           }}>
             SPACED REPETITION · ACTIVE RECALL
           </div>
           <div style={{
             marginTop: 6,
             fontSize: 26, fontWeight: 900, letterSpacing: -0.5,
-            color: theme === 'dark' ? palette.fg : palette.ink,
+            color: palette.ink,
           }}>
             {hydrated && dueCount > 0
               ? `${dueCount} card${dueCount === 1 ? '' : 's'} due today`
@@ -142,13 +143,12 @@ export default function HomeDashboard({ palette, onGoto }: Props) {
           </div>
           <div style={{
             marginTop: 6, fontSize: 13, fontWeight: 500,
-            color: theme === 'dark' ? palette.fgMuted : palette.ink,
-            opacity: 0.78,
+            color: palette.ink, opacity: 0.78,
             maxWidth: 360,
           }}>
             {hydrated && dueCount > 0
               ? 'Clear your reviews to keep everything in long-term memory. One tap to start.'
-              : 'Run a quiz round or browse the table while you wait for tomorrow\'s reviews.'}
+              : 'Run a Learn batch to start fresh elements, or browse the table.'}
           </div>
 
           <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -159,14 +159,16 @@ export default function HomeDashboard({ palette, onGoto }: Props) {
                 padding: '10px 16px',
                 borderRadius: 999,
                 border: 'none',
-                background: palette.sky,
-                color: palette.ink,
+                background: palette.grapeDark,
+                color: '#FFF',
                 fontFamily: CHEM_FONT,
                 fontSize: 14, fontWeight: 800,
                 whiteSpace: 'nowrap',
               }}
             >
-              ⚡ Start quiz
+              {hydrated && dueCount > 0
+                ? `⚡ Review ${dueCount} due`
+                : '📖 Learn new elements'}
             </button>
             <button
               type="button"
@@ -174,9 +176,9 @@ export default function HomeDashboard({ palette, onGoto }: Props) {
               style={{
                 padding: '10px 16px',
                 borderRadius: 999,
-                border: 'none',
-                background: theme === 'dark' ? palette.cardMuted : palette.card,
-                color: palette.fg,
+                border: `2px solid ${palette.ink}`,
+                background: 'transparent',
+                color: palette.ink,
                 fontFamily: CHEM_FONT,
                 fontSize: 14, fontWeight: 700,
                 whiteSpace: 'nowrap',
@@ -189,8 +191,7 @@ export default function HomeDashboard({ palette, onGoto }: Props) {
           <div style={{
             marginTop: 12, display: 'flex', gap: 14, alignItems: 'center',
             fontSize: 12, fontWeight: 600,
-            color: theme === 'dark' ? palette.fgMuted : palette.ink,
-            opacity: 0.78,
+            color: palette.ink, opacity: 0.78,
           }}>
             <span>🔥 {streak}-day streak</span>
             <span>•</span>
@@ -199,11 +200,11 @@ export default function HomeDashboard({ palette, onGoto }: Props) {
         </div>
       </div>
 
-      {/* ── Today's goal card ── */}
+      {/* ── Today's goal card — cream/sunlight in both themes ── */}
       <div style={{
         borderRadius: 24,
         padding: 16,
-        background: theme === 'dark' ? '#4A3C13' : palette.sunLight,
+        background: palette.sunLight,
         display: 'flex',
         gap: 14,
         alignItems: 'center',
@@ -212,16 +213,15 @@ export default function HomeDashboard({ palette, onGoto }: Props) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             fontSize: 14, fontWeight: 900,
-            color: theme === 'dark' ? palette.fg : palette.ink,
+            color: palette.ink,
           }}>
             Level {level}
           </div>
-          {/* XP bar */}
           <div style={{
             marginTop: 6,
             height: 10,
             borderRadius: 999,
-            background: theme === 'dark' ? 'rgba(0,0,0,0.25)' : 'rgba(0,0,0,0.12)',
+            background: 'rgba(0,0,0,0.12)',
             overflow: 'hidden',
           }}>
             <div style={{
@@ -234,81 +234,60 @@ export default function HomeDashboard({ palette, onGoto }: Props) {
           <div style={{
             marginTop: 6,
             fontSize: 12, fontWeight: 700,
-            color: theme === 'dark' ? palette.fgMuted : palette.ink,
-            opacity: 0.78,
+            color: palette.ink, opacity: 0.78,
           }}>
             🔥 {streak} day streak · {Math.max(0, DAILY_GOAL - goalProgress)} more to go
           </div>
         </div>
       </div>
 
-      {/* ── Mode tile grid (2 cols) ── */}
+      {/* ── Mode tile grid (2 cols) — all live, all bright ── */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
         gap: 10,
       }}>
-        {TILES.map(t => {
-          const live = t.status === 'live'
-          return (
-            <button
-              key={t.id}
-              type="button"
-              disabled={!live}
-              onClick={() => handleTile(t)}
-              style={{
-                position: 'relative',
-                textAlign: 'left',
-                padding: 14,
-                borderRadius: 18,
-                border: 'none',
-                background: t.bg,
-                opacity: live ? 1 : 0.55,
-                cursor: live ? 'pointer' : 'not-allowed',
-                color: theme === 'dark' ? palette.fg : palette.ink,
-                fontFamily: CHEM_FONT,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 8,
-                minHeight: 100,
-              }}
-            >
-              <div style={{
-                width: 32, height: 32,
-                borderRadius: 10,
-                background: theme === 'dark' ? 'rgba(0,0,0,0.28)' : 'rgba(255,255,255,0.55)',
-                display: 'inline-flex',
-                alignItems: 'center', justifyContent: 'center',
-                fontSize: 16,
-              }}>
-                {t.icon}
-              </div>
-              <div style={{ fontSize: 14, fontWeight: 800 }}>
-                {t.label}
-                {!live && (
-                  <span style={{
-                    marginLeft: 6,
-                    fontSize: 9, fontWeight: 700,
-                    padding: '2px 6px',
-                    borderRadius: 999,
-                    background: palette.sun,
-                    color: palette.ink,
-                    verticalAlign: 'middle',
-                  }}>
-                    SOON
-                  </span>
-                )}
-              </div>
-              <div style={{
-                fontSize: 11, fontWeight: 500,
-                opacity: 0.78,
-                lineHeight: 1.3,
-              }}>
-                {t.sub}
-              </div>
-            </button>
-          )
-        })}
+        {TILES.map(t => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => handleTile(t)}
+            style={{
+              position: 'relative',
+              textAlign: 'left',
+              padding: 14,
+              borderRadius: 18,
+              border: 'none',
+              background: t.bg,
+              color: palette.ink,
+              fontFamily: CHEM_FONT,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              minHeight: 100,
+              cursor: 'pointer',
+            }}
+          >
+            <div style={{
+              width: 32, height: 32,
+              borderRadius: 10,
+              background: 'rgba(255,255,255,0.55)',
+              display: 'inline-flex',
+              alignItems: 'center', justifyContent: 'center',
+              fontSize: 16,
+            }}>
+              {t.icon}
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 800 }}>{t.label}</div>
+            <div style={{
+              fontSize: 11, fontWeight: 500,
+              opacity: 0.72,
+              lineHeight: 1.3,
+            }}>
+              {t.sub}
+            </div>
+          </button>
+        ))}
       </div>
     </div>
   )

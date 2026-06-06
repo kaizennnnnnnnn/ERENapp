@@ -59,31 +59,35 @@ const LIGHT_PALETTE: Palette = {
 }
 
 const DARK_PALETTE: Palette = {
-  // Bumped a step lighter end-to-end based on user feedback: previous bg
-  // (#1A1124) was too dark to read counter text inside the progress bar
-  // / streak pill, and the card surfaces blended into the bg. Pushing the
-  // whole surface stack a step brighter while keeping ink (border +
-  // shadow colour) near-black preserves the neo-brutalism contrast.
-  bg:         '#291C40',
+  // Dark mode = dark background under VIVID pastels (the Mandel pattern).
+  // The previous palette darkened every brand variant which turned the
+  // hero / goal / tile cards into muddy plum. Now: bg is deep navy-plum,
+  // ink stays near-black for borders, but every grape/sky/sun/red/green
+  // pastel keeps full saturation so surfaces actually pop. Text rendered
+  // ON top of those bright cards uses `ink` (dark) — set explicitly in
+  // the components, not flipped on `fg` globally.
+  bg:         '#161025',
   ink:        '#0A0517',
   fg:         '#FBF1D9',
-  fgMuted:    '#D2C2E6',
-  fgFaint:    'rgba(251,241,217,0.62)',
-  card:       '#3A2A58',
-  cardMuted:  '#2F2148',
+  fgMuted:    '#C9BBE0',
+  fgFaint:    'rgba(251,241,217,0.60)',
+  card:       '#231838',     // neutral dark surface (non-accent cards)
+  cardMuted:  '#1C1330',     // softer dark surface
+  // Brand trio — same hex values as LIGHT mode so a "lavender card"
+  // reads as lavender regardless of theme.
   grape:      '#C4A7F5',
-  grapeLight: '#3F2A5E',
-  grapeDark:  '#9F7BE8',
+  grapeLight: '#E4D6FB',
+  grapeDark:  '#7C3AED',
   sky:        '#7CB6F2',
-  skyLight:   '#1F3950',
-  skyDark:    '#5A9DDF',
+  skyLight:   '#D6E9FC',
+  skyDark:    '#2F7CE0',
   sun:        '#FCD34D',
-  sunLight:   '#4A3C13',
-  sunDark:    '#E5BE3E',
-  red:        '#FCA5A5',
-  redLight:   '#4B1414',
-  green:      '#86EFAC',
-  greenLight: '#0F3D1F',
+  sunLight:   '#FEF1C3',
+  sunDark:    '#F1A92E',
+  red:        '#EF4444',
+  redLight:   '#FECACA',
+  green:      '#22C55E',
+  greenLight: '#BBF7D0',
 }
 
 const STORAGE_KEY = 'eren_chem_theme'

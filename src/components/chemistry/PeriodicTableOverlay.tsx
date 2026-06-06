@@ -20,19 +20,25 @@ import Flashcards from './Flashcards'
 import Quiz from './Quiz'
 import Match from './Match'
 import HomeDashboard from './HomeDashboard'
+import Review from './Review'
+import Learn from './Learn'
+import Speed from './Speed'
+import Locate from './Locate'
 
-type Mode = 'home' | 'table' | 'flashcards' | 'quiz' | 'match'
+type Mode = 'home' | 'review' | 'learn' | 'table' | 'flashcards' | 'quiz' | 'match' | 'speed' | 'locate'
 
-// Only the live modes appear in the header strip — disabled-with-soon-dot
-// pills on a 400px-wide screen ate all the visible space and confused users
-// into tapping unbuilt features. New modes will be added here as they ship.
+// Header pill strip — order = frequency of use, left to right.
 interface ModeDef { id: Mode; label: string }
 const MODES: ModeDef[] = [
   { id: 'home',       label: 'Home' },
+  { id: 'review',     label: 'Review' },
+  { id: 'learn',      label: 'Learn' },
   { id: 'table',      label: 'Table' },
   { id: 'flashcards', label: 'Cards' },
   { id: 'quiz',       label: 'Quiz' },
   { id: 'match',      label: 'Match' },
+  { id: 'speed',      label: 'Speed' },
+  { id: 'locate',     label: 'Locate' },
 ]
 
 interface Props { onClose: () => void }
@@ -201,10 +207,14 @@ function OverlayInner({ onClose }: Props) {
         }}
       >
         {mode === 'home'       && <HomeDashboard palette={palette} onGoto={setMode} />}
+        {mode === 'review'     && <Review onExit={() => setMode('home')} />}
+        {mode === 'learn'      && <Learn  onExit={() => setMode('home')} />}
         {mode === 'table'      && <PeriodicTable />}
         {mode === 'flashcards' && <Flashcards />}
         {mode === 'quiz'       && <Quiz />}
         {mode === 'match'      && <Match />}
+        {mode === 'speed'      && <Speed  onExit={() => setMode('home')} />}
+        {mode === 'locate'     && <Locate onExit={() => setMode('home')} />}
       </main>
     </div>,
     document.body,
