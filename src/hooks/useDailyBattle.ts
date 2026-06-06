@@ -6,7 +6,10 @@
 // short, recoverable race. Used by the home-screen HUD bar, the
 // floating action pop-up, and the detail sheet.
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import {
+  useEffect, useState, useCallback, useRef,
+  createContext, useContext, createElement, type ReactNode,
+} from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from './useAuth'
 import { useCouple } from './useCouple'
@@ -17,6 +20,7 @@ import {
   isComebackEligible, claimComebackBonus,
   COMEBACK_BONUS_COINS, type DailyBattleRow,
 } from '@/lib/battleResults'
+import { notifyPartnerAction } from '@/lib/statNotifications'
 
 const USEFUL_THRESHOLD = 90
 
@@ -76,7 +80,15 @@ function startOfDay(): Date {
 
 let _channelCounter = 0
 
-export function useDailyBattle(): DailyBattleState {
+// Internal implementation. Used to be exported as the public `useDailyBattle`
+// hook, which meant every consumer (DailyBattleHUD on home, DailyBattlePop in
+// layout) mounted its own postgres_changes channel on `interactions`. Now
+// wrapped in a singleton DailyBattleProvider so the channel is opened once.
+//
+// While we're here, the partner-action toast that used to live in a separate
+// `home_notifs_${user.id}` channel in home/page.tsx is fired right from this
+// realtime handler. Same INSERT event, no reason to keep two subscribers.
+function useDailyBattleImpl(): DailyBattleState {
   const supabase = createClient()
   const { user, profile } = useAuth()
   const { partner } = useCouple()
@@ -215,6 +227,18 @@ export function useDailyBattle(): DailyBattleState {
         filter: `household_id=eq.${profile.household_id}`,
       }, payload => {
         const row = payload.new as Interaction
+        // Fire partner-action toast for ANY action by the other user, even
+        // ones that won't count toward the battle (backfills, wasted actions).
+        // This is what the old home_notifs_${user.id} channel did; folded in
+        // here so we only open one Realtime subscription on `interactions`.
+        if (row.user_id !== user.id) {
+          let partnerName = partner?.name?.split(' ')[0] ?? 'Your partner'
+          try {
+            const cached = localStorage.getItem(`eren_partner_name_${user.id}`)
+            if (cached) partnerName = cached
+          } catch { /* localStorage blocked */ }
+          notifyPartnerAction(partnerName, row.action_type)
+        }
         // Ignore anything that didn't happen today (e.g. backfilled rows).
         if (new Date(row.created_at) < startOfDay()) return
         // Skip wasted actions — the daily battle only counts when the
@@ -311,3 +335,20 @@ export function timeUntilMidnight(): { hours: number; minutes: number; ms: numbe
  *  award stardust at the end of streaks. Surface in the UI so the
  *  goal is visible. */
 export const DAILY_PRIZE_COINS = 30
+
+const DailyBattleContext = createContext<DailyBattleState | null>(null)
+
+// Singleton provider — mounted once at (app)/layout.tsx. Owns the only
+// realtime channel on `interactions` for the daily battle scoreboard.
+export function DailyBattleProvider({ children }: { children: ReactNode }) {
+  const value = useDailyBattleImpl()
+  return createElement(DailyBattleContext.Provider, { value }, children)
+}
+
+// Public hook. Throws when used outside the provider so a missing wrap
+// surfaces loudly rather than silently re-opening a per-consumer channel.
+export function useDailyBattle(): DailyBattleState {
+  const ctx = useContext(DailyBattleContext)
+  if (!ctx) throw new Error('useDailyBattle must be used inside <DailyBattleProvider>')
+  return ctx
+}
