@@ -234,10 +234,16 @@ export default function WashScene({ onClose }: Props) {
           style={{ left: '50%', transform: 'translateX(-50%)' }}>
           <ErenIdleLayer>
             {/* Bathroom pose: ErenBathroomHat.png — blue beanie sits low on
-                the forehead so the face/eyes drop ~4% from the default. */}
+                the forehead so the face/eyes drop ~4% from the default.
+                Both eyes also sit 2% further LEFT than the everyday sprite,
+                so the lid + glint mask coords are nudged accordingly. */}
             <BlinkingEren size={200} src="/ErenBathroomHat.png" eyes={{
-              lidTop:  '36%',
-              maskTop: '36.3%',
+              lidTop:    '36%',
+              lidLeftA:  '36%',
+              lidLeftB:  '52%',
+              maskTop:   '36.3%',
+              maskLeftA: '37.3%',
+              maskLeftB: '51.8%',
             }} />
             <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
           </ErenIdleLayer>
