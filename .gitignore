@@ -28,3 +28,6 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Throwaway scratch files (verification scripts, preview renders)
+__*
