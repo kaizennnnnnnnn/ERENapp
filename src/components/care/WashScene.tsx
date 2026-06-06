@@ -238,32 +238,33 @@ export default function WashScene({ onClose }: Props) {
                 the eyes sit further LEFT than the everyday sprite. Coords are
                 measured to this sprite's eye centers (≈37.3% / 51.3% across)
                 so the blink + glint land dead-center on each eye. */}
-            {/* Coords below come from a direct pixel measurement of the
-                ErenBathroomHat.png sprite (two independent reads, averaged
-                and translated from sprite-coords to container-coords —
-                the sprite is height-fit inside a 200×200 box so only the
-                middle ~66% of the container holds the cat).
-                  Eye centers, container %:
-                    eye A (cat's right, viewer's left): 45.7% × 30.5%
-                    eye B (cat's left, viewer's right): 54.3% × 30.5%
-                    iris:  4.9% × 5.5%
-                  Catchlights: identical in both eyes, upper-left quadrant
-                    of the iris, ~26% in from the top-left corner. */}
+            {/* Coords from a precise pixel-scan of ErenBathroomHat.png.
+                Image is 871×1537 and the cat is NOT centered in its
+                canvas — there's extra transparent space on the right
+                — so image-relative % values translate awkwardly. The
+                numbers below are container-relative (200×200 box,
+                portrait sprite height-fits so the image occupies the
+                middle ~56.6% of container width, starting at x≈21.7%).
+                Catchlights are MIRRORED, not same-position: A in the
+                upper-RIGHT of its iris, B in the upper-LEFT. */}
             <BlinkingEren size={200} src="/ErenBathroomHat.png" eyes={{
-              lidTop:    '27.75%',
-              lidWidth:  '4.9%',
-              lidLeftA:  '43.3%',
-              lidLeftB:  '51.85%',
-              maskTop:   '27.75%',
-              maskLeftA: '43.3%',
-              maskLeftB: '51.85%',
-              maskW:     '4.9%',
-              maskH:     '5.5%',
-              glintLeftA: '12.5%',
-              glintLeftB: '12.5%',
-              glintTopA:  '12.5%',
-              glintTopB:  '12.5%',
-              glintW:     '28%',
+              lidTop:    '36.34%',
+              lidWidth:  '5.4%',
+              lidLeftA:  '34.38%',
+              lidLeftB:  '48.21%',
+              maskTop:   '36.34%',
+              maskLeftA: '34.38%',
+              maskLeftB: '48.21%',
+              maskW:     '5.4%',
+              maskH:     '4.36%',
+              // Catchlight in eye A sits at ~70% across × ~13% down of
+              // its iris. Glint top-left = center - radius.
+              glintLeftA: '59%',
+              glintTopA:  '2%',
+              // Catchlight in eye B sits at ~31% across × ~13% down.
+              glintLeftB: '20%',
+              glintTopB:  '2%',
+              glintW:     '22%',
             }} />
             <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
           </ErenIdleLayer>
