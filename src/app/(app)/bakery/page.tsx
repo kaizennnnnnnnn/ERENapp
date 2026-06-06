@@ -31,21 +31,30 @@ interface PurchaseFx {
   startedAt: number
 }
 
-// ErenCakeShop.png pose: pink baker hat. Eye coords measured to this sprite so
-// the blink + glint land on his eyes; the glint sits upper-left of each eye for
-// a consistent catchlight. He's clipped at the counter line (see EREN block),
-// so only his head + chest show above the counter.
+// ErenCakeShop.png pose: pink baker hat with strawberry. Coords from a
+// pixel-scan of the 963×1536 sprite, translated to the 360×360 container
+// the bakery renders at (portrait sprite height-fits so the image
+// occupies the middle ~62.7% of container width).
+// Catchlights on this sprite are MIRRORED (not same-position symmetric):
+//   eye A (cat's right, viewer's left) — upper-RIGHT of its iris
+//   eye B (cat's left, viewer's right) — upper-LEFT of its iris
+// He's clipped at the counter line (see EREN block) so only his head +
+// chest show above the counter.
 const CAKE_EYES = {
-  lidTop:     '37%',
-  lidLeftA:   '40.3%',
-  lidLeftB:   '54.8%',
-  maskTop:    '36.9%',
-  maskLeftA:  '41%',
-  maskLeftB:  '55.5%',
-  glintLeftA: '24%',
-  glintLeftB: '24%',
-  glintTopA:  '15%',
-  glintTopB:  '15%',
+  lidTop:     '37.08%',
+  lidWidth:   '5.43%',
+  lidLeftA:   '41.01%',
+  lidLeftB:   '54.98%',
+  maskTop:    '37.08%',
+  maskLeftA:  '41.01%',
+  maskLeftB:  '54.98%',
+  maskW:      '5.43%',
+  maskH:      '4.62%',
+  glintLeftA: '59.7%',
+  glintTopA:  '1.6%',
+  glintLeftB: '20.5%',
+  glintTopB:  '2%',
+  glintW:     '18%',
 }
 // The wooden counter top sits at ~63.5% down the picture — Eren is clipped here.
 const COUNTER_PCT = 63.5
