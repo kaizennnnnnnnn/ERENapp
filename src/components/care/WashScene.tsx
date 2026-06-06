@@ -240,11 +240,26 @@ export default function WashScene({ onClose }: Props) {
                 so the blink + glint land dead-center on each eye. */}
             <BlinkingEren size={200} src="/ErenBathroomHat.png" eyes={{
               lidTop:    '34.5%',
-              lidLeftA:  '33.8%',
-              lidLeftB:  '47.8%',
+              // Lid narrowed 7% → 5.5% so the blink stays inside the iris
+              // instead of spilling onto the white of the eye. Each lid
+              // is re-centered on its mask: maskLeftA + (maskW - lidW)/2.
+              lidWidth:  '5.5%',
+              lidLeftA:  '34.6%',
+              lidLeftB:  '48.6%',
               maskTop:   '34.8%',
               maskLeftA: '34.5%',
               maskLeftB: '48.5%',
+              // Glint coords were inherited from erenGood.png where the
+              // baked catchlight sits asymmetric (right side of eye 1,
+              // left side of eye 2). ErenBathroomHat.png has the
+              // catchlight in the upper-LEFT of BOTH irises — same values
+              // for A and B. Diameter trimmed a touch so it sits inside
+              // the iris cleanly.
+              glintLeftA: '22%',
+              glintLeftB: '22%',
+              glintTopA:  '14%',
+              glintTopB:  '14%',
+              glintW:     '32%',
             }} />
             <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
           </ErenIdleLayer>
