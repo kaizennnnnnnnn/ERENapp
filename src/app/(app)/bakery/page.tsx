@@ -21,6 +21,7 @@ import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
+import { useIsDark } from '@/hooks/useIsDark'
 import { playSound } from '@/lib/sounds'
 import { CAKES, type CakeDef } from '@/lib/cakes'
 import { IconCoin, IconStar, IconCake } from '@/components/PixelIcons'
@@ -80,6 +81,8 @@ export default function BakeryPage() {
   const { user } = useAuth()
   const { coins, spendCoins } = useTasks()
   const { setHideStats } = useCare()
+  const isDark = useIsDark()
+  const shopSrc = isDark ? '/CakeShopNight.png' : '/CakeShop.png'
 
   // Full-screen scene — hide the persistent StatsHeader.
   useEffect(() => { setHideStats(true) }, [setHideStats])
@@ -118,7 +121,7 @@ export default function BakeryPage() {
 
       {/* ══ BLURRED FILL ══ soft surround so the full picture needs no bare bars. */}
       <div className="absolute inset-0" style={{
-        backgroundImage: 'url(/CakeShop.png)',
+        backgroundImage: `url(${shopSrc})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         filter: 'blur(18px) brightness(0.55)',
@@ -133,7 +136,7 @@ export default function BakeryPage() {
           inside it so he always lines up with the painted counter. */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="relative" style={{ width: '100%', aspectRatio: `${IMG_W} / ${IMG_H}`, maxHeight: '100%' }}>
-          <img src="/CakeShop.png" alt="" draggable={false}
+          <img src={shopSrc} alt="" draggable={false}
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'fill', WebkitUserSelect: 'none', userSelect: 'none' }} />
 
           {/* ══ EREN ══ behind the counter. The clip box ends at the counter

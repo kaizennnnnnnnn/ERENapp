@@ -61,19 +61,21 @@ interface XpParticle {
 // ─── BOTTOM DOCK BUTTON STYLES ───────────────────────────────────────────
 // Shared chrome for the three full-width home dock buttons (gacha, cake,
 // shawarma). Per-button gradient is layered on top; the rest is identical
-// so the row reads as a single console-style dock.
+// so the row reads as a single console-style dock. Slim height so the
+// row tucks along the bottom edge of the room without colliding with
+// Eren standing at his usual bottom-10% spot.
 const dockBtnBase: React.CSSProperties = {
   flex: 1,
-  height: 72,
-  borderRadius: 6,
+  height: 44,
+  borderRadius: 5,
   border: '2px solid #050507',
   boxShadow:
-    '4px 4px 0 #050507, inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 0 rgba(0,0,0,0.25)',
+    '3px 3px 0 #050507, inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 0 rgba(0,0,0,0.25)',
   display: 'flex',
-  flexDirection: 'column',
+  flexDirection: 'row',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: 4,
+  gap: 6,
   position: 'relative',
   overflow: 'hidden',
   cursor: 'pointer',
@@ -581,7 +583,7 @@ export default function HomePage() {
             <ComebackBadge />
 
             <div className="absolute" style={{
-              bottom: '20%', left: '50%', transform: 'translateX(-50%)', zIndex: 2,
+              bottom: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 2,
               filter: mood === 'angry' ? 'hue-rotate(340deg) saturate(1.3)' : mood === 'sleepy' ? 'brightness(0.85)' : 'none',
             }}>
               {/* Tappable wrapper — pet/wiggle/purr lives here. Re-keyed every
@@ -656,7 +658,7 @@ export default function HomePage() {
                 onClick={() => { playSound('ui_modal_open'); setShowSendEren(true) }}
                 aria-label={`Send Eren to ${partner.name}`}
                 className="absolute active:scale-90 transition-transform"
-                style={{ bottom: '32%', left: '23%', zIndex: 3 }}
+                style={{ bottom: '22%', left: '23%', zIndex: 3 }}
               >
                 <div className="relative flex items-center justify-center" style={{
                   width: 38, height: 38, borderRadius: '50%',
@@ -831,12 +833,9 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Dot indicators — only visible during swipe / scene transition.
-            Sits above the bottom dock so it never overlaps the gacha/cake/
-            shawarma row. */}
-        <div className="absolute left-1/2 z-10 flex items-center gap-0.5 px-2 py-0.5"
+        {/* Dot indicators — only visible during swipe / scene transition */}
+        <div className="absolute bottom-4 left-1/2 z-10 flex items-center gap-0.5 px-2 py-0.5"
           style={{
-            bottom: 'calc(var(--safe-bottom, 0px) + 102px)',
             transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.35)',
             borderRadius: 20, backdropFilter: 'blur(6px)',
             opacity: dotsVisible ? 1 : 0,
@@ -873,10 +872,8 @@ export default function HomePage() {
         </div>
 
         {/* switchTop pushed below the home HUD/nav row so it doesn't sit
-            on top of the quest panel + nav buttons. targetBottom matches
-            Eren's new raised standing position so the light cone still
-            pools on him instead of behind the bottom dock. */}
-        <LightSwitch switchTop="30%" targetBottom="20%" targetLeft="50%" persistKey="home" />
+            on top of the quest panel + nav buttons. */}
+        <LightSwitch switchTop="30%" targetBottom="10%" targetLeft="50%" persistKey="home" />
 
         {/* ══ BOTTOM DOCK — gacha · cake · shawarma ══
             Three full-width neo-brutalism buttons filling the floor of the
@@ -885,7 +882,7 @@ export default function HomePage() {
             slides the button into the shadow for a tactile click. */}
         <div
           className="absolute left-0 right-0 z-20 flex gap-2 px-2"
-          style={{ bottom: 'calc(var(--safe-bottom, 0px) + 14px)' }}
+          style={{ bottom: 'calc(var(--safe-bottom, 0px) + 10px)' }}
         >
           <Link
             href="/gacha"
@@ -897,7 +894,7 @@ export default function HomePage() {
             }}
           >
             <div style={dockBtnGloss} />
-            <IconCapsule size={28} />
+            <IconCapsule size={20} />
             <span style={dockBtnLabel}>GACHA</span>
           </Link>
 
@@ -911,7 +908,7 @@ export default function HomePage() {
             }}
           >
             <div style={dockBtnGloss} />
-            <IconCake size={28} />
+            <IconCake size={20} />
             <span style={dockBtnLabel}>CAKE</span>
           </Link>
 
@@ -924,7 +921,7 @@ export default function HomePage() {
             }}
           >
             <div style={dockBtnGloss} />
-            <IconShawarma size={28} />
+            <IconShawarma size={20} />
             <span style={dockBtnLabel}>SHAWARMA</span>
           </button>
         </div>
