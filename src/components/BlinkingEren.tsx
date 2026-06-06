@@ -60,7 +60,10 @@ const DEFAULT_EYES: EyeLayout = {
 }
 
 interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
-  size?: number
+  // Box side length. A number is treated as px; a string is used verbatim as a
+  // CSS length (e.g. '64vw') so the sprite can scale responsively. The eye
+  // overlays are percentages of the box, so they hold at any size.
+  size?: number | string
   className?: string
   // Subtle idle breathing sway. On by default so Eren feels alive in every
   // room; pass false where a perfectly static sprite is wanted.

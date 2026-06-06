@@ -3,10 +3,12 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // EREN'S BAKERY — top-level shop page where Eren sells cakes.
 // ──────────────────────────────────────────────────────────────────────────
-// The room is the CakeShop.png picture (matches the care-room art style).
-// Eren stands BEHIND the wooden counter that's painted into the picture: his
-// sprite is clipped at the counter line so only his top half pokes over it,
-// with the same breathing + blink + idle treatment used in every room.
+// The room is the CakeShop.png picture shown WHOLE (fit to width) on a soft
+// blurred surround, so nothing of the bakery is cropped off. Eren lives inside
+// a "stage" that exactly matches the picture, so he always lines up with the
+// painted counter: his sprite is clipped at the counter line and only his head
+// pokes over it — he reads as standing behind/under the counter. Same breathing
+// + blink + idle treatment as every room.
 //
 // Buying cakes lives in a slide-up "ORDER" sheet so the picture stays the hero.
 // On purchase the cake flies up from Eren, a "SOLD!" stamp pops, coins burst.
@@ -56,11 +58,18 @@ const CAKE_EYES = {
   glintTopB:  '2%',
   glintW:     '18%',
 }
-// The wooden counter top sits at ~63.5% down the picture — Eren is clipped here.
+
+// Picture native size — the stage keeps this aspect so Eren lines up with it.
+const IMG_W = 940
+const IMG_H = 1672
+// The wooden counter top sits ~63.5% down the picture — Eren is clipped here.
 const COUNTER_PCT = 63.5
-const EREN_SIZE = 360
-// Show his top ~58%; the rest is hidden behind the counter.
-const EREN_BOTTOM = -(1 - 0.58) * EREN_SIZE
+// Eren's box, in vw so he scales with the full-width picture stage. Smaller
+// than a room sprite so he sits "back" behind the counter.
+const EREN_VW = 64
+// Show his top ~46% (head + a little) above the counter; rest is hidden.
+const EREN_SHOW = 0.46
+const EREN_BOTTOM = `${-(1 - EREN_SHOW) * EREN_VW}vw`
 
 export default function BakeryPage() {
   const router = useRouter()
@@ -103,27 +112,64 @@ export default function BakeryPage() {
   return (
     <div className="fixed inset-0 z-40 overflow-hidden select-none game-shell">
 
-      {/* ══ BACKGROUND PICTURE ══ */}
+      {/* ══ BLURRED FILL ══ soft surround so the full picture needs no bare bars. */}
       <div className="absolute inset-0" style={{
         backgroundImage: 'url(/CakeShop.png)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
+        filter: 'blur(18px) brightness(0.55)',
+        transform: 'scale(1.1)',
         WebkitTouchCallout: 'none',
         WebkitUserSelect: 'none',
         userSelect: 'none',
         pointerEvents: 'none',
       }} />
 
-      {/* ══ EREN ══ stands behind the counter. The clip box ends at the
-          counter line so his lower body is hidden; only his head + chest
-          poke over. Breathing lives in BlinkingEren, idle wiggles in
-          ErenIdleLayer — same treatment as every room. */}
-      <div className="absolute left-0 right-0 top-0 z-10 overflow-hidden pointer-events-none"
-        style={{ height: `${COUNTER_PCT}%` }}>
-        <div className="absolute left-1/2" style={{ bottom: EREN_BOTTOM, transform: 'translateX(-50%)' }}>
-          <ErenIdleLayer>
-            <BlinkingEren size={EREN_SIZE} src="/ErenCakeShop.png" eyes={CAKE_EYES} />
-          </ErenIdleLayer>
+      {/* ══ STAGE ══ the whole picture, fit to width and centered. Eren lives
+          inside it so he always lines up with the painted counter. */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="relative" style={{ width: '100%', aspectRatio: `${IMG_W} / ${IMG_H}`, maxHeight: '100%' }}>
+          <img src="/CakeShop.png" alt="" draggable={false}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'fill', WebkitUserSelect: 'none', userSelect: 'none' }} />
+
+          {/* ══ EREN ══ behind the counter. The clip box ends at the counter
+              line so his lower body is hidden; only his head pokes over.
+              Breathing lives in BlinkingEren, idle wiggles in ErenIdleLayer. */}
+          <div className="absolute left-0 right-0 top-0 overflow-hidden pointer-events-none"
+            style={{ height: `${COUNTER_PCT}%`, zIndex: 10 }}>
+            <div className="absolute left-1/2" style={{ bottom: EREN_BOTTOM, transform: 'translateX(-50%)' }}>
+              <ErenIdleLayer>
+                <BlinkingEren size={`${EREN_VW}vw`} src="/ErenCakeShop.png" eyes={CAKE_EYES} />
+              </ErenIdleLayer>
+            </div>
+          </div>
+
+          {/* ══ SELL ANIMATION ══ rises from Eren just above the counter. */}
+          {fx && (
+            <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 20 }}>
+              <div key={fx.id} className="absolute"
+                style={{ left: '50%', top: '56%', transform: 'translateX(-50%)', animation: 'bkCakeFly 1.6s cubic-bezier(0.34,1.56,0.64,1) forwards' }}>
+                <CakeSprite cake={fx.cake} size={56} />
+              </div>
+              <div key={`stamp-${fx.id}`} className="absolute"
+                style={{ left: '50%', top: '47%', transform: 'translate(-50%, -50%)', animation: 'bkStampPop 1.6s ease-out forwards' }}>
+                <div className="px-3 py-1.5 font-pixel" style={{
+                  background: 'rgba(220,38,38,0.18)', border: '3px solid #DC2626', borderRadius: 4,
+                  fontSize: 14, color: '#7F1D1D', letterSpacing: 4,
+                  textShadow: '0 1px 0 rgba(255,255,255,0.6)', boxShadow: '0 0 14px rgba(220,38,38,0.45)',
+                  transform: 'rotate(-8deg)',
+                }}>
+                  SOLD!
+                </div>
+              </div>
+              {[0, 1, 2, 3, 4].map(i => (
+                <div key={`coin-${fx.id}-${i}`} className="absolute"
+                  style={{ left: '50%', top: '57%', transform: 'translateX(-50%)', animation: `bkCoinFly${i} 1.4s ease-out forwards` }}>
+                  <IconCoin size={14} />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -141,34 +187,6 @@ export default function BakeryPage() {
           {coins}
         </div>
       </div>
-
-      {/* ══ SELL ANIMATION ══ floats over the scene; the cake rises from
-          Eren (just above the counter), a SOLD stamp pops, coins burst. */}
-      {fx && (
-        <div className="absolute inset-0 pointer-events-none z-30">
-          <div key={fx.id} className="absolute"
-            style={{ left: '50%', top: '52%', transform: 'translateX(-50%)', animation: 'bkCakeFly 1.6s cubic-bezier(0.34,1.56,0.64,1) forwards' }}>
-            <CakeSprite cake={fx.cake} size={56} />
-          </div>
-          <div key={`stamp-${fx.id}`} className="absolute"
-            style={{ left: '50%', top: '43%', transform: 'translate(-50%, -50%)', animation: 'bkStampPop 1.6s ease-out forwards' }}>
-            <div className="px-3 py-1.5 font-pixel" style={{
-              background: 'rgba(220,38,38,0.18)', border: '3px solid #DC2626', borderRadius: 4,
-              fontSize: 14, color: '#7F1D1D', letterSpacing: 4,
-              textShadow: '0 1px 0 rgba(255,255,255,0.6)', boxShadow: '0 0 14px rgba(220,38,38,0.45)',
-              transform: 'rotate(-8deg)',
-            }}>
-              SOLD!
-            </div>
-          </div>
-          {[0, 1, 2, 3, 4].map(i => (
-            <div key={`coin-${fx.id}-${i}`} className="absolute"
-              style={{ left: '50%', top: '55%', transform: 'translateX(-50%)', animation: `bkCoinFly${i} 1.4s ease-out forwards` }}>
-              <IconCoin size={14} />
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* ══ ORDER BUTTON ══ opens the cake menu sheet. */}
       {!menuOpen && (
