@@ -12,6 +12,8 @@ import LightSwitch from '@/components/LightSwitch'
 import { useIsDark } from '@/hooks/useIsDark'
 import { playSound } from '@/lib/sounds'
 import PeriodicTableOverlay from '@/components/chemistry/PeriodicTableOverlay'
+import { useTasks } from '@/contexts/TaskContext'
+import { getDailyKey } from '@/lib/tasks'
 
 interface Props { onClose: () => void }
 
@@ -70,6 +72,13 @@ export default function ChemistryScene(_props: Props) {
         pointerEvents: 'none',
       }} />
 
+      {/* ══ DAILY MISSIONS ══
+          Floats at the top-left just under StatsHeader so the user sees
+          what's worth doing today before tapping into the lab. Moved out
+          of the overlay (was taking a whole strip in there). */}
+      <RoomMissionChips />
+
+
       {/* ══ EREN ══ sits on the rug. Halfway between the original (too far)
           and the previous bump (too close). */}
       <div className="absolute z-10" style={{
@@ -116,6 +125,99 @@ export default function ChemistryScene(_props: Props) {
       {overlayOpen && (
         <PeriodicTableOverlay onClose={() => setOverlayOpen(false)} />
       )}
+    </div>
+  )
+}
+
+// ── Daily mission chips, top-left in the room ──────────────────────────
+// Sits under StatsHeader (z-[60]) so the bar takes precedence. Small
+// rounded chips, two lines each (title + reward), state-aware.
+function RoomMissionChips() {
+  const { completedIds } = useTasks()
+  const dailyKey = getDailyKey()
+  const lessonDone = completedIds.has(`daily_chem_lesson:${dailyKey}`)
+  const streakDone = completedIds.has(`daily_chem_streak:${dailyKey}`)
+  return (
+    <div
+      className="absolute z-20 pointer-events-none flex flex-col gap-1.5"
+      style={{
+        top: 'calc(96px + env(safe-area-inset-top, 0px))',
+        left: 10,
+        maxWidth: 168,
+      }}
+    >
+      <MissionChip
+        icon="📚"
+        title="Finish a lesson"
+        reward="+10c · +15xp"
+        done={lessonDone}
+        accent="#FCD34D"
+      />
+      <MissionChip
+        icon="🔥"
+        title="5 in a row"
+        reward="+15c · +20xp"
+        done={streakDone}
+        accent="#C4A7F5"
+      />
+    </div>
+  )
+}
+
+function MissionChip({ icon, title, reward, done, accent }: {
+  icon: string; title: string; reward: string; done: boolean; accent: string
+}) {
+  return (
+    <div
+      style={{
+        pointerEvents: 'auto',
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '6px 10px 6px 6px',
+        borderRadius: 14,
+        background: done ? accent : 'rgba(20, 12, 40, 0.72)',
+        backdropFilter: 'blur(6px)',
+        WebkitBackdropFilter: 'blur(6px)',
+        boxShadow: '0 4px 14px rgba(0,0,0,0.28)',
+        opacity: done ? 0.92 : 1,
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          flexShrink: 0,
+          width: 26, height: 26,
+          display: 'inline-flex',
+          alignItems: 'center', justifyContent: 'center',
+          borderRadius: 8,
+          background: done ? 'rgba(0,0,0,0.18)' : accent,
+          fontSize: 14,
+        }}
+      >
+        {done ? '✓' : icon}
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{
+          fontSize: 10,
+          fontWeight: 800,
+          color: done ? '#1A0F2D' : '#F4EEE2',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          letterSpacing: 0.2,
+        }}>
+          {title}
+        </div>
+        <div style={{
+          fontSize: 8,
+          fontWeight: 700,
+          color: done ? 'rgba(26,15,45,0.66)' : 'rgba(244,238,226,0.62)',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}>
+          {done ? 'Claimed' : reward}
+        </div>
+      </div>
     </div>
   )
 }

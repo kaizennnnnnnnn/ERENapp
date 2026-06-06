@@ -14,33 +14,26 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { playSound } from '@/lib/sounds'
 import { ChemistryStoreProvider, useChemistryStore } from '@/lib/chemistry/store'
-import { ChemistryThemeProvider, useChemistryTheme, neoShadow, CHEM_FONT, type Palette } from '@/lib/chemistry/theme'
-import { useTasks } from '@/contexts/TaskContext'
-import { getDailyKey } from '@/lib/tasks'
+import { ChemistryThemeProvider, useChemistryTheme, CHEM_FONT, type Palette } from '@/lib/chemistry/theme'
 import PeriodicTable from './PeriodicTable'
 import Flashcards from './Flashcards'
 import Quiz from './Quiz'
 import Match from './Match'
+import HomeDashboard from './HomeDashboard'
 
-type Mode = 'table' | 'flashcards' | 'quiz' | 'match'
+type Mode = 'home' | 'table' | 'flashcards' | 'quiz' | 'match'
 
-// The full mode roadmap. Live ones map to real screens; 'soon' ones render
-// as disabled pills with a sun-yellow dot so the user sees what's coming
-// without us having to refactor the header every time a screen lands.
-// Order = frequency-of-use, left to right.
-type ModeStatus = 'live' | 'soon'
-interface ModeDef { id: string; label: string; status: ModeStatus }
+// Only the live modes appear in the header strip — disabled-with-soon-dot
+// pills on a 400px-wide screen ate all the visible space and confused users
+// into tapping unbuilt features. New modes will be added here as they ship.
+interface ModeDef { id: Mode; label: string }
 const MODES: ModeDef[] = [
-  { id: 'review',     label: 'Review',     status: 'soon' },
-  { id: 'learn',      label: 'Learn',      status: 'soon' },
-  { id: 'table',      label: 'Table',      status: 'live' },
-  { id: 'flashcards', label: 'Cards',      status: 'live' },
-  { id: 'quiz',       label: 'Quiz',       status: 'live' },
-  { id: 'match',      label: 'Match',      status: 'live' },
-  { id: 'speed',      label: 'Speed',      status: 'soon' },
-  { id: 'locate',     label: 'Locate',     status: 'soon' },
+  { id: 'home',       label: 'Home' },
+  { id: 'table',      label: 'Table' },
+  { id: 'flashcards', label: 'Cards' },
+  { id: 'quiz',       label: 'Quiz' },
+  { id: 'match',      label: 'Match' },
 ]
-const LIVE_MODES = new Set<string>(['table', 'flashcards', 'quiz', 'match'])
 
 interface Props { onClose: () => void }
 
@@ -55,7 +48,7 @@ export default function PeriodicTableOverlay({ onClose }: Props) {
 }
 
 function OverlayInner({ onClose }: Props) {
-  const [mode, setMode] = useState<Mode>('table')
+  const [mode, setMode] = useState<Mode>('home')
   const { dueCount, state, hydrated } = useChemistryStore()
   const { palette, theme, toggle } = useChemistryTheme()
 
@@ -113,79 +106,68 @@ function OverlayInner({ onClose }: Props) {
           zIndex: 2,
         }}
       >
-        {/* LEFT — wordmark */}
-        <h1 style={{
+        {/* LEFT — small gradient orb glyph. Word "Chemistry" was eating
+            ~90px on a 400px screen which left no room for the pill strip
+            and led to users only seeing one pill. Keep a visual anchor
+            with the same grape→sun gradient. */}
+        <div aria-hidden style={{
           flexShrink: 0,
-          fontWeight: 900,
-          fontSize: 18,
-          letterSpacing: -0.4,
+          width: 26, height: 26,
+          borderRadius: 999,
           background: `linear-gradient(135deg, ${palette.grapeDark}, ${palette.sunDark})`,
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text',
-        }}>
-          Chemistry
-        </h1>
+        }} />
 
-        {/* MIDDLE — scrollable pill strip, every mode visible */}
-        <div
-          className="chem-pill-strip"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            display: 'flex',
-            gap: 6,
-            overflowX: 'auto',
-            scrollSnapType: 'x proximity',
-            paddingBottom: 2,
-          }}
-        >
-          {MODES.map(m => {
-            const active = mode === m.id
-            const live   = m.status === 'live'
-            return (
-              <button
-                key={m.id}
-                ref={el => { pillRefs.current[m.id] = el }}
-                type="button"
-                disabled={!live}
-                onClick={() => {
-                  if (!live) return
-                  playSound('ui_tap')
-                  setMode(m.id as Mode)
-                }}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  flexShrink: 0,
-                  padding: '8px 14px',
-                  fontFamily: CHEM_FONT,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  whiteSpace: 'nowrap',
-                  borderRadius: 999,
-                  border: 'none',
-                  background: active ? palette.grape : 'transparent',
-                  color: active ? palette.ink
-                       : live   ? palette.fg
-                       :          palette.fgFaint,
-                  opacity: live ? 1 : 0.55,
-                  cursor: live ? 'pointer' : 'not-allowed',
-                  scrollSnapAlign: 'start',
-                  transition: 'background 120ms ease, color 120ms ease',
-                }}
-              >
-                {!live && (
-                  <span aria-hidden style={{
-                    width: 6, height: 6, borderRadius: 999,
-                    background: palette.sun, flexShrink: 0,
-                  }} />
-                )}
-                {m.label}
-              </button>
-            )
-          })}
+        {/* MIDDLE — scrollable pill strip, live modes only. Edge-fade
+            gradient on the right edge tells the user it scrolls. */}
+        <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+          <div
+            className="chem-pill-strip"
+            style={{
+              display: 'flex',
+              gap: 6,
+              overflowX: 'auto',
+              scrollSnapType: 'x proximity',
+              paddingBottom: 2,
+            }}
+          >
+            {MODES.map(m => {
+              const active = mode === m.id
+              return (
+                <button
+                  key={m.id}
+                  ref={el => { pillRefs.current[m.id] = el }}
+                  type="button"
+                  onClick={() => { playSound('ui_tap'); setMode(m.id) }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    flexShrink: 0,
+                    padding: '7px 13px',
+                    fontFamily: CHEM_FONT,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                    borderRadius: 999,
+                    border: 'none',
+                    background: active ? palette.grape : 'transparent',
+                    color: active ? palette.ink : palette.fg,
+                    scrollSnapAlign: 'start',
+                    transition: 'background 120ms ease, color 120ms ease',
+                  }}
+                >
+                  {m.label}
+                </button>
+              )
+            })}
+          </div>
+          {/* Right-edge fade so a half-clipped pill reads as "more to scroll" */}
+          <div aria-hidden style={{
+            position: 'absolute',
+            right: 0, top: 0, bottom: 2,
+            width: 24,
+            pointerEvents: 'none',
+            background: `linear-gradient(to right, transparent, ${palette.bg})`,
+          }} />
         </div>
 
         {/* RIGHT — chips + theme + close, restyled soft (no ink border, no offset shadow) */}
@@ -205,10 +187,9 @@ function OverlayInner({ onClose }: Props) {
         </div>
       </header>
 
-      {/* Today's missions — two daily reward chips. Replace the older
-          stats strip; Due / Streak are already in the header chips and
-          the SRS detail lives inside each mode. */}
-      {hydrated && <MissionStrip palette={palette} />}
+      {/* Daily missions moved OUT of this overlay — they now live in the
+          ChemistryScene room so the user sees them before entering the
+          lab. The lab itself shows the SRS dashboard / mode tile grid. */}
 
       {/* ── Body ── */}
       <main
@@ -219,6 +200,7 @@ function OverlayInner({ onClose }: Props) {
           background: palette.bg,
         }}
       >
+        {mode === 'home'       && <HomeDashboard palette={palette} onGoto={setMode} />}
         {mode === 'table'      && <PeriodicTable />}
         {mode === 'flashcards' && <Flashcards />}
         {mode === 'quiz'       && <Quiz />}
@@ -251,105 +233,6 @@ function SoftChip({ bg, text, children }: {
     }}>
       {children}
     </span>
-  )
-}
-
-function MissionStrip({ palette }: { palette: Palette }) {
-  const { completedIds } = useTasks()
-  const dailyKey = getDailyKey()
-  const lessonDone = completedIds.has(`daily_chem_lesson:${dailyKey}`)
-  const streakDone = completedIds.has(`daily_chem_streak:${dailyKey}`)
-  return (
-    <div
-      className="relative flex gap-2 px-4 py-3 overflow-x-auto"
-      style={{ background: palette.bg, borderBottom: `2px solid ${palette.ink}` }}
-    >
-      <MissionCard
-        icon="📚"
-        title="Finish a lesson"
-        sub={lessonDone ? 'Claimed · +10 coins' : 'Reward: 10 coins, 15 xp'}
-        done={lessonDone}
-        accent={palette.sun}
-        palette={palette}
-      />
-      <MissionCard
-        icon="🔥"
-        title="5 in a row"
-        sub={streakDone ? 'Claimed · +15 coins' : 'Reward: 15 coins, 20 xp'}
-        done={streakDone}
-        accent={palette.grape}
-        palette={palette}
-      />
-    </div>
-  )
-}
-
-function MissionCard({ icon, title, sub, done, accent, palette }: {
-  icon: string
-  title: string
-  sub: string
-  done: boolean
-  accent: string
-  palette: Palette
-}) {
-  return (
-    <div
-      style={{
-        flex: '1 1 0%',
-        minWidth: 140,
-        padding: '10px 12px',
-        borderRadius: 14,
-        border: `2px solid ${palette.ink}`,
-        background: done ? accent : palette.card,
-        boxShadow: neoShadow(palette.ink, 'sm'),
-        color: palette.fg,
-        display: 'flex',
-        gap: 10,
-        alignItems: 'center',
-        opacity: done ? 0.95 : 1,
-      }}
-    >
-      <div
-        aria-hidden
-        style={{
-          flexShrink: 0,
-          width: 34, height: 34,
-          display: 'inline-flex',
-          alignItems: 'center', justifyContent: 'center',
-          borderRadius: 10,
-          border: `2px solid ${palette.ink}`,
-          background: done ? palette.card : accent,
-          fontSize: 18,
-          boxShadow: neoShadow(palette.ink, 'sm'),
-        }}
-      >
-        {done ? '✓' : icon}
-      </div>
-      <div style={{ minWidth: 0 }}>
-        <div style={{
-          fontSize: 12,
-          fontWeight: 800,
-          letterSpacing: 0.2,
-          color: done ? palette.ink : palette.fg,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-        }}>
-          {title}
-        </div>
-        <div style={{
-          fontSize: 10,
-          fontWeight: 600,
-          opacity: 0.7,
-          color: done ? palette.ink : palette.fgMuted,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-        }}>
-          {sub}
-        </div>
-      </div>
-    </div>
   )
 }
 
