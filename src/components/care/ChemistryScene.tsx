@@ -142,16 +142,36 @@ function RoomMissionChips() {
     <div
       className="absolute z-20 pointer-events-none flex flex-col gap-2"
       style={{
-        // StatsHeader sits at z-[60] with a ~84-100px height including the
-        // safe-area inset. 110 clears it cleanly even on devices with a
-        // notch / dynamic island.
-        top: 'calc(110px + env(safe-area-inset-top, 0px))',
+        // Bumped down 110 → 150 so the chips clear the chemistry wall
+        // diagram (proton / neutron / electron poster) in the room art.
+        top: 'calc(150px + env(safe-area-inset-top, 0px))',
         left: 10,
-        // Widened from 200 → 232 so the full title and reward line never
-        // ellipsis on a phone-width room.
+        // Widened to 232 so the full title and reward line never ellipsis
+        // on a phone-width room.
         maxWidth: 232,
       }}
     >
+      {/* Section header — tells the room what these chips are. Same cream
+          background as the chips so the section reads as one unit. */}
+      <div
+        style={{
+          pointerEvents: 'auto',
+          alignSelf: 'flex-start',
+          padding: '3px 10px',
+          borderRadius: 999,
+          background: '#FFF7DA',
+          border: '2px solid #1A0F2D',
+          boxShadow: '2px 2px 0 #1A0F2D, 0 4px 10px rgba(0,0,0,0.28)',
+          fontFamily: '"Press Start 2P", monospace',
+          fontSize: 7,
+          fontWeight: 800,
+          letterSpacing: 0.6,
+          color: '#1A0F2D',
+          marginBottom: 2,
+        }}
+      >
+        DAILY CHEM QUESTS
+      </div>
       <MissionChip
         Icon={BookOpen}
         title="Finish a lesson"
