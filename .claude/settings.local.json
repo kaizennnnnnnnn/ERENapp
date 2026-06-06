@@ -4,7 +4,12 @@
       "Bash(node -e \":*)",
       "Bash(npm cache:*)",
       "Bash(xargs grep:*)",
-      "Bash(node \"c:/Users/Lenovo/OneDrive/Desktop/WEBSITES/ERENapp/gen_eren.js\")"
+      "Bash(node \"c:/Users/Lenovo/OneDrive/Desktop/WEBSITES/ERENapp/gen_eren.js\")",
+      "Bash(node scripts/scan-serbian-quizzes.mjs)",
+      "Bash(node --input-type=module -e ' *)",
+      "Bash(node scripts/scan-quiz-overlap.mjs)",
+      "Bash(rm -f scripts/scan-serbian.mjs scripts/scan-serbian-quizzes.mjs scripts/scan-quiz-overlap.mjs)",
+      "Bash(rmdir scripts *)"
     ]
   }
 }

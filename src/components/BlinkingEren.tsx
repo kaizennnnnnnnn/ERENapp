@@ -31,6 +31,9 @@ export interface EyeLayout {
   glintLeftB: string
   glintTopA: string
   glintTopB: string
+  // Glint dot diameter as a share of its eye mask. The nightcap pose has
+  // tighter eyes so the bedroom dials this down.
+  glintW: string
 }
 
 const DEFAULT_EYES: EyeLayout = {
@@ -47,6 +50,7 @@ const DEFAULT_EYES: EyeLayout = {
   glintLeftB: '10.3%',
   glintTopA:  '2.9%',
   glintTopB:  '3.3%',
+  glintW:     '39%',
 }
 
 interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
@@ -110,7 +114,7 @@ export default function BlinkingEren({
   // paints over it.
   const glint: React.CSSProperties = {
     position: 'absolute',
-    width: '39%',
+    width: eyes.glintW,
     aspectRatio: '1',
     borderRadius: '50%',
     background:
