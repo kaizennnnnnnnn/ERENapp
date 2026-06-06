@@ -10,7 +10,7 @@
 // CareSceneHost's z-40 stacking context; without that, no z-index on
 // the overlay can rise above StatsHeader at the page root.
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { playSound } from '@/lib/sounds'
 import { ChemistryStoreProvider, useChemistryStore } from '@/lib/chemistry/store'
@@ -24,12 +24,23 @@ import Match from './Match'
 
 type Mode = 'table' | 'flashcards' | 'quiz' | 'match'
 
-const MODES: { id: Mode; label: string }[] = [
-  { id: 'table',      label: 'Table' },
-  { id: 'flashcards', label: 'Cards' },
-  { id: 'quiz',       label: 'Quiz' },
-  { id: 'match',      label: 'Match' },
+// The full mode roadmap. Live ones map to real screens; 'soon' ones render
+// as disabled pills with a sun-yellow dot so the user sees what's coming
+// without us having to refactor the header every time a screen lands.
+// Order = frequency-of-use, left to right.
+type ModeStatus = 'live' | 'soon'
+interface ModeDef { id: string; label: string; status: ModeStatus }
+const MODES: ModeDef[] = [
+  { id: 'review',     label: 'Review',     status: 'soon' },
+  { id: 'learn',      label: 'Learn',      status: 'soon' },
+  { id: 'table',      label: 'Table',      status: 'live' },
+  { id: 'flashcards', label: 'Cards',      status: 'live' },
+  { id: 'quiz',       label: 'Quiz',       status: 'live' },
+  { id: 'match',      label: 'Match',      status: 'live' },
+  { id: 'speed',      label: 'Speed',      status: 'soon' },
+  { id: 'locate',     label: 'Locate',     status: 'soon' },
 ]
+const LIVE_MODES = new Set<string>(['table', 'flashcards', 'quiz', 'match'])
 
 interface Props { onClose: () => void }
 
@@ -51,6 +62,15 @@ function OverlayInner({ onClose }: Props) {
   function handleClose() { playSound('ui_tap'); onClose() }
   const stop = (e: React.TouchEvent) => e.stopPropagation()
 
+  // Auto-scroll the active pill into the middle of the strip whenever the
+  // mode changes (e.g. tapping a pill near the edge keeps it visible). The
+  // ref array follows MODES order; we look up the pill for the current id.
+  const pillRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  useEffect(() => {
+    const el = pillRefs.current[mode]
+    if (el) el.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
+  }, [mode])
+
   if (typeof document === 'undefined') return null
 
   return createPortal(
@@ -69,76 +89,121 @@ function OverlayInner({ onClose }: Props) {
       onTouchMove={stop}
       onTouchEnd={stop}
     >
-      {/* ── Top bar ── */}
+      {/* Hide the horizontal scrollbar on the pill strip — Chrome/Safari
+          via ::-webkit-scrollbar, Firefox via scrollbar-width. Scoped by
+          class so it doesn't leak. */}
+      <style>{`
+        .chem-pill-strip::-webkit-scrollbar { display: none; }
+        .chem-pill-strip { scrollbar-width: none; -ms-overflow-style: none; }
+      `}</style>
+
+      {/* ── Single sticky top bar — left wordmark, middle scrollable pill
+          strip with every mode, right zone with chips + theme + close.
+          Mandel-soft: no ink border, no offset shadow, rounded chips. */}
       <header
-        className="relative flex items-center gap-2 px-4"
+        className="relative flex items-center gap-3"
         style={{
-          paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))',
-          paddingBottom: 12,
-          borderBottom: `2px solid ${palette.ink}`,
+          paddingTop: 'calc(10px + env(safe-area-inset-top, 0px))',
+          paddingBottom: 10,
+          paddingLeft: 14,
+          paddingRight: 14,
           background: palette.bg,
+          position: 'sticky',
+          top: 0,
+          zIndex: 2,
         }}
       >
+        {/* LEFT — wordmark */}
         <h1 style={{
-          fontWeight: 800,
-          fontSize: 22,
-          letterSpacing: -0.3,
-          color: palette.fg,
+          flexShrink: 0,
+          fontWeight: 900,
+          fontSize: 18,
+          letterSpacing: -0.4,
+          background: `linear-gradient(135deg, ${palette.grapeDark}, ${palette.sunDark})`,
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
         }}>
           Chemistry
         </h1>
 
-        <div className="ml-auto flex items-center gap-2">
+        {/* MIDDLE — scrollable pill strip, every mode visible */}
+        <div
+          className="chem-pill-strip"
+          style={{
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            gap: 6,
+            overflowX: 'auto',
+            scrollSnapType: 'x proximity',
+            paddingBottom: 2,
+          }}
+        >
+          {MODES.map(m => {
+            const active = mode === m.id
+            const live   = m.status === 'live'
+            return (
+              <button
+                key={m.id}
+                ref={el => { pillRefs.current[m.id] = el }}
+                type="button"
+                disabled={!live}
+                onClick={() => {
+                  if (!live) return
+                  playSound('ui_tap')
+                  setMode(m.id as Mode)
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  flexShrink: 0,
+                  padding: '8px 14px',
+                  fontFamily: CHEM_FONT,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                  borderRadius: 999,
+                  border: 'none',
+                  background: active ? palette.grape : 'transparent',
+                  color: active ? palette.ink
+                       : live   ? palette.fg
+                       :          palette.fgFaint,
+                  opacity: live ? 1 : 0.55,
+                  cursor: live ? 'pointer' : 'not-allowed',
+                  scrollSnapAlign: 'start',
+                  transition: 'background 120ms ease, color 120ms ease',
+                }}
+              >
+                {!live && (
+                  <span aria-hidden style={{
+                    width: 6, height: 6, borderRadius: 999,
+                    background: palette.sun, flexShrink: 0,
+                  }} />
+                )}
+                {m.label}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* RIGHT — chips + theme + close, restyled soft (no ink border, no offset shadow) */}
+        <div className="flex items-center gap-2" style={{ flexShrink: 0 }}>
           {hydrated && dueCount > 0 && (
-            <Chip bg={palette.sun} ink={palette.ink} text={palette.ink}>
-              ⚡ {dueCount} due
-            </Chip>
+            <SoftChip bg={palette.sunLight} text={palette.sunDark}>
+              ⚡ {dueCount}
+            </SoftChip>
           )}
           {hydrated && state.streak.current > 0 && (
-            <Chip bg={palette.grape} ink={palette.ink} text={palette.ink}>
+            <SoftChip bg={palette.grapeLight} text={palette.grapeDark}>
               🔥 {state.streak.current}
-            </Chip>
+            </SoftChip>
           )}
           <ThemeToggle theme={theme} onToggle={toggle} palette={palette} />
           <CloseButton onClose={handleClose} palette={palette} />
         </div>
       </header>
-
-      {/* ── Mode tabs ── */}
-      <nav
-        className="relative flex flex-wrap gap-2 px-4 py-3 overflow-x-auto"
-        style={{
-          background: palette.cardMuted,
-          borderBottom: `2px solid ${palette.ink}`,
-        }}
-      >
-        {MODES.map(m => {
-          const active = mode === m.id
-          return (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => { playSound('ui_tap'); setMode(m.id) }}
-              className="transition-all"
-              style={{
-                padding: '8px 16px',
-                minHeight: 38,
-                fontFamily: CHEM_FONT,
-                fontSize: 14,
-                fontWeight: 700,
-                color: active ? palette.ink : palette.fgMuted,
-                background: active ? palette.grape : 'transparent',
-                border: `2px solid ${active ? palette.ink : 'transparent'}`,
-                borderRadius: 999,
-                boxShadow: active ? neoShadow(palette.ink, 'sm') : 'none',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {m.label}
-            </button>
-          )
-        })}
-      </nav>
 
       {/* Today's missions — two daily reward chips. Replace the older
           stats strip; Due / Streak are already in the header chips and
@@ -164,8 +229,12 @@ function OverlayInner({ onClose }: Props) {
   )
 }
 
-function Chip({ bg, ink, text, children }: {
-  bg: string; ink: string; text: string; children: React.ReactNode
+// Mandel-soft chip used in the new top-header. No ink border, no offset
+// shadow — just a tinted fill + matching dark text colour. Caller picks the
+// (bg, text) pair so we can get sunLight/sunDark for "due", grapeLight/
+// grapeDark for "streak", etc.
+function SoftChip({ bg, text, children }: {
+  bg: string; text: string; children: React.ReactNode
 }) {
   return (
     <span style={{
@@ -174,12 +243,11 @@ function Chip({ bg, ink, text, children }: {
       gap: 4,
       padding: '5px 10px',
       borderRadius: 999,
-      border: `2px solid ${ink}`,
       background: bg,
       color: text,
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: 700,
-      boxShadow: neoShadow(ink, 'sm'),
+      whiteSpace: 'nowrap',
     }}>
       {children}
     </span>
@@ -296,13 +364,12 @@ function ThemeToggle({ theme, onToggle, palette }: {
       onClick={() => { playSound('ui_tap'); onToggle() }}
       aria-label={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
       style={{
-        width: 40, height: 40,
+        width: 34, height: 34,
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        background: palette.card,
+        background: palette.cardMuted,
         color: palette.fg,
-        border: `2px solid ${palette.ink}`,
-        borderRadius: 12,
-        boxShadow: neoShadow(palette.ink, 'sm'),
+        border: 'none',
+        borderRadius: 999,
       }}
     >
       {theme === 'light' ? <MoonIcon /> : <SunIcon />}
@@ -320,14 +387,13 @@ function CloseButton({ onClose, palette }: {
       onClick={onClose}
       aria-label="Close chemistry"
       style={{
-        width: 40, height: 40,
+        width: 34, height: 34,
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        background: palette.card,
+        background: palette.cardMuted,
         color: palette.fg,
-        border: `2px solid ${palette.ink}`,
-        borderRadius: 12,
-        boxShadow: neoShadow(palette.ink, 'sm'),
-        fontSize: 18,
+        border: 'none',
+        borderRadius: 999,
+        fontSize: 16,
         fontWeight: 800,
       }}
     >
