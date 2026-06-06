@@ -210,6 +210,40 @@ function scheduleRecipe(
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
+// Shared accessor so the mp3-sample player in sounds.ts uses the SAME
+// AudioContext as the synth engine — one context per page (mobile browsers
+// cap concurrent contexts and dislike spinning up extras).
+export function getAudioContext(): AudioContext | null {
+  return getCtx()
+}
+
+// Play a pre-decoded mp3 (AudioBuffer) through Web Audio. Replaces the old
+// HTMLAudioElement.cloneNode() playback, which made Chrome re-hit its media
+// cache on every play and log `net::ERR_CACHE_OPERATION_NOT_SUPPORTED`. A
+// buffer source touches the network/cache zero times, overlaps cleanly, and
+// frees its nodes on `ended`.
+export function playBuffer(buffer: AudioBuffer, volume: number): void {
+  const ctx = getCtx()
+  if (!ctx) return
+  if (ctx.state === 'suspended') {
+    void ctx.resume().catch(() => { /* first play before a gesture may be lost */ })
+  }
+  try {
+    const src = ctx.createBufferSource()
+    src.buffer = buffer
+    const gain = ctx.createGain()
+    gain.gain.value = Math.max(0, Math.min(1, volume))
+    src.connect(gain)
+    gain.connect(ctx.destination)
+    src.onended = () => {
+      try { src.disconnect(); gain.disconnect() } catch { /* ignore */ }
+    }
+    src.start()
+  } catch {
+    /* AudioContext might still be locked — ignore */
+  }
+}
+
 export function playSynth(recipe: SynthRecipe, volume: number): void {
   const ctx = getCtx()
   if (!ctx) return

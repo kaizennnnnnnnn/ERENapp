@@ -1,25 +1,29 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // SOUND HELPER — playback layer for every sound effect in the app.
 //
-// Two backends:
-//   1. mp3 files via HTMLAudioElement — used for shipped UI, progression,
-//      care, and gacha sounds. Files live in /public/sounds/<bucket>/<name>.mp3
-//      and are cached by SoundName below.
-//   2. Web Audio synthesis — used for the 11 mini-games' gameplay SFX. Each
-//      game-key has a chiptune recipe in soundRecipes.ts. We synthesise live
-//      instead of shipping mp3s so every game has its own UNIQUE sound by
-//      construction (different waveform/freq family per game), and so we
-//      never accidentally route a game miss-cue to the Eren-eats fallback
-//      when an mp3 is missing.
+// Two backends, both Web Audio:
+//   1. Decoded mp3 samples — shipped UI, progression, care, and gacha sounds.
+//      Files live in /public/sounds/<bucket>/<name>.mp3; we fetch + decode each
+//      to an AudioBuffer ONCE and play overlapping buffer-source nodes. This
+//      replaced HTMLAudioElement.cloneNode() playback, which made Chrome re-hit
+//      its media cache on every play and spam `ERR_CACHE_OPERATION_NOT_SUPPORTED`
+//      (most visibly on rapid room swipes firing ui_swipe_room). A
+//      cloneNode-based path is kept only as a fallback for browsers with no
+//      AudioContext at all.
+//   2. Web Audio synthesis — the 11 mini-games' gameplay SFX. Each game-key has
+//      a chiptune recipe in soundRecipes.ts. We synthesise live instead of
+//      shipping mp3s so every game has its own UNIQUE sound by construction
+//      (different waveform/freq family per game), and so we never accidentally
+//      route a game miss-cue to the Eren-eats fallback when an mp3 is missing.
 //
-// playSound() checks SYNTH_RECIPES first; if a recipe exists for the name it
-// fires Web Audio. Otherwise it falls back to the mp3 path + FALLBACK chain.
+// playSound() checks SYNTH_RECIPES first; if a recipe exists it synthesises.
+// Otherwise it plays the decoded mp3 sample (FALLBACK chain on a missing file).
 //
 // Volume + mute can be controlled per-call or globally via setVolume / setMuted.
 // State is in-memory only — wire it to localStorage if you want it to persist.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { playSynth } from './soundSynth'
+import { playSynth, playBuffer, getAudioContext } from './soundSynth'
 import { SYNTH_RECIPES } from './soundRecipes'
 
 export const SOUNDS = {
@@ -389,6 +393,43 @@ const knownMissing = new Set<SoundName>()
 let globalVolume = 0.55
 let muted = false
 
+// ─── Web Audio sample cache (primary mp3 backend) ───────────────────────────
+// Each mp3 is fetched + decoded to an AudioBuffer exactly once, then played via
+// AudioBufferSourceNodes (see playBuffer). Fetching is a normal HTTP request —
+// it does NOT trip the media-element cache error that cloneNode() playback did.
+const bufferCache = new Map<SoundName, AudioBuffer>()
+const bufferLoads = new Map<SoundName, Promise<AudioBuffer | null>>()
+
+function loadBuffer(name: SoundName): Promise<AudioBuffer | null> {
+  const ctx = getAudioContext()
+  if (!ctx) return Promise.resolve(null)
+  const cached = bufferCache.get(name)
+  if (cached) return Promise.resolve(cached)
+  const inFlight = bufferLoads.get(name)
+  if (inFlight) return inFlight
+
+  const load = (async (): Promise<AudioBuffer | null> => {
+    try {
+      const res = await fetch(SOUNDS[name])
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const buf = await ctx.decodeAudioData(await res.arrayBuffer())
+      bufferCache.set(name, buf)
+      return buf
+    } catch {
+      // File missing/undecodable — remember it so we never refetch, and route
+      // to a close-cousin sound so the moment still plays SOMETHING.
+      knownMissing.add(name)
+      const fb = FALLBACK[name]
+      if (fb && fb !== name && !knownMissing.has(fb)) return loadBuffer(fb)
+      return null
+    } finally {
+      bufferLoads.delete(name)
+    }
+  })()
+  bufferLoads.set(name, load)
+  return load
+}
+
 function resolveName(name: SoundName): SoundName {
   if (!knownMissing.has(name)) return name
   const fb = FALLBACK[name]
@@ -433,6 +474,20 @@ export function playSound(name: SoundName, opts: { volume?: number } = {}) {
     return
   }
 
+  // Primary mp3 backend: play the decoded sample through Web Audio. If it's not
+  // decoded yet (first play of this sound), kick off the decode and play once
+  // it resolves; every later play of that sound is instant from the buffer.
+  const ctx = getAudioContext()
+  if (ctx) {
+    const buf = bufferCache.get(name)
+    if (buf) { playBuffer(buf, finalVolume); return }
+    void loadBuffer(name).then(b => { if (b) playBuffer(b, finalVolume) })
+    return
+  }
+
+  // Legacy fallback (no Web Audio at all): the original HTMLAudioElement clone
+  // path. This is the one that can log ERR_CACHE_OPERATION_NOT_SUPPORTED, but
+  // it only runs when AudioContext is entirely unavailable.
   try {
     const effective = resolveName(name)
     const base = getBase(effective)
@@ -453,11 +508,14 @@ export function isMuted() { return muted }
 
 /** Preload every mp3-backed sound so the first play has zero latency. Game
  *  SFX backed by synth recipes are skipped — they don't have files to fetch.
- *  Call once on app boot. */
+ *  With Web Audio we fetch + decode each into a buffer; without it we fall back
+ *  to warming an HTMLAudioElement. Call once on app boot. */
 export function preloadSounds() {
   if (typeof window === 'undefined') return
+  const ctx = getAudioContext()
   for (const name of Object.keys(SOUNDS) as SoundName[]) {
     if (SYNTH_RECIPES[name]) continue
-    getBase(name)
+    if (ctx) void loadBuffer(name)
+    else getBase(name)
   }
 }
