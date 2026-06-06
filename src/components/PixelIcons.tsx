@@ -961,6 +961,32 @@ export function IconLock({ size = 20 }: IconProps) {
   }, size)
 }
 
+// ── SHAWARMA — meat wrap in flatbread with lettuce poking out top ────────
+export function IconShawarma({ size = 20 }: IconProps) {
+  const grid = [
+    '............',
+    '....KKKK....',
+    '...KGGGGK...',
+    '..KKSSSSKK..',
+    '..KFMMMMFK..',
+    '..KFSMMSFK..',
+    '..KFMRRMFK..',
+    '..KFFMMFFK..',
+    '...KFFFFK...',
+    '...KFFFFK...',
+    '....KFFK....',
+    '.....KK.....',
+  ]
+  return drawPixels(grid, {
+    K: '#3A1F0A',  // dark outline
+    F: '#E8C792',  // flatbread / lavash
+    M: '#7A3812',  // meat shadow
+    S: '#D17A30',  // meat highlight
+    R: '#C04030',  // red sauce / tomato
+    G: '#7AB05A',  // lettuce greens
+  }, size)
+}
+
 // ── FLY (stinky indicator) ────────────────────────────────────────────────
 export function IconFly({ size = 20 }: IconProps) {
   const grid = [

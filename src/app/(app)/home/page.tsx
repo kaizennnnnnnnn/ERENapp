@@ -17,7 +17,7 @@ import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 import { format } from 'date-fns'
 import Link from 'next/link'
 import { Sparkles } from 'lucide-react'
-import { IconGift, IconCapsule, IconHeart, IconBell, IconPerson, IconDoor, IconDrumstick, IconYarn, IconMoonZ, IconBath, IconPill, IconBook, IconCake, IconPhoto } from '@/components/PixelIcons'
+import { IconGift, IconCapsule, IconHeart, IconBell, IconPerson, IconDoor, IconDrumstick, IconYarn, IconMoonZ, IconBath, IconPill, IconBook, IconCake, IconPhoto, IconShawarma } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import TaskPanel from '@/components/TaskPanel'
 import BlinkingEren from '@/components/BlinkingEren'
@@ -56,6 +56,48 @@ interface XpParticle {
   id: number; x: number; y: number; tx: number; ty: number
   text: string; delay: number; duration: number
   size: number; color: string; glow: string
+}
+
+// ─── BOTTOM DOCK BUTTON STYLES ───────────────────────────────────────────
+// Shared chrome for the three full-width home dock buttons (gacha, cake,
+// shawarma). Per-button gradient is layered on top; the rest is identical
+// so the row reads as a single console-style dock.
+const dockBtnBase: React.CSSProperties = {
+  flex: 1,
+  height: 72,
+  borderRadius: 6,
+  border: '2px solid #050507',
+  boxShadow:
+    '4px 4px 0 #050507, inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 0 rgba(0,0,0,0.25)',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 4,
+  position: 'relative',
+  overflow: 'hidden',
+  cursor: 'pointer',
+  WebkitTapHighlightColor: 'transparent',
+}
+
+// Diagonal highlight streak that sells the "polished pixel button" look.
+const dockBtnGloss: React.CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  pointerEvents: 'none',
+  background:
+    'linear-gradient(135deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 45%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.18) 100%)',
+  borderRadius: 4,
+}
+
+const dockBtnLabel: React.CSSProperties = {
+  fontFamily: '"Press Start 2P"',
+  fontSize: 7,
+  letterSpacing: 0.5,
+  color: '#FBF1D9',
+  textShadow: '1px 1px 0 rgba(0,0,0,0.65)',
+  position: 'relative',
+  zIndex: 1,
 }
 
 export default function HomePage() {
@@ -539,7 +581,7 @@ export default function HomePage() {
             <ComebackBadge />
 
             <div className="absolute" style={{
-              bottom: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 2,
+              bottom: '20%', left: '50%', transform: 'translateX(-50%)', zIndex: 2,
               filter: mood === 'angry' ? 'hue-rotate(340deg) saturate(1.3)' : mood === 'sleepy' ? 'brightness(0.85)' : 'none',
             }}>
               {/* Tappable wrapper — pet/wiggle/purr lives here. Re-keyed every
@@ -614,7 +656,7 @@ export default function HomePage() {
                 onClick={() => { playSound('ui_modal_open'); setShowSendEren(true) }}
                 aria-label={`Send Eren to ${partner.name}`}
                 className="absolute active:scale-90 transition-transform"
-                style={{ bottom: '22%', left: '23%', zIndex: 3 }}
+                style={{ bottom: '32%', left: '23%', zIndex: 3 }}
               >
                 <div className="relative flex items-center justify-center" style={{
                   width: 38, height: 38, borderRadius: '50%',
@@ -681,18 +723,6 @@ export default function HomePage() {
                 <IconGift size={18} />
               </button>
             )}
-            <Link href="/gacha" onClick={() => playSound('ui_tap')}
-              className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-              style={OBSIDIAN_BTN}>
-              <Rivets inset={2} size={2} />
-              <IconCapsule size={18} />
-            </Link>
-            <Link href="/bakery" onClick={() => playSound('ui_tap')}
-              className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-              style={OBSIDIAN_BTN}>
-              <Rivets inset={2} size={2} />
-              <IconCake size={18} />
-            </Link>
             <Link href="/hallway" onClick={() => playSound('ui_tap')}
               aria-label="The Hallway"
               className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
@@ -801,9 +831,12 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Dot indicators — only visible during swipe / scene transition */}
-        <div className="absolute bottom-4 left-1/2 z-10 flex items-center gap-0.5 px-2 py-0.5"
+        {/* Dot indicators — only visible during swipe / scene transition.
+            Sits above the bottom dock so it never overlaps the gacha/cake/
+            shawarma row. */}
+        <div className="absolute left-1/2 z-10 flex items-center gap-0.5 px-2 py-0.5"
           style={{
+            bottom: 'calc(var(--safe-bottom, 0px) + 102px)',
             transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.35)',
             borderRadius: 20, backdropFilter: 'blur(6px)',
             opacity: dotsVisible ? 1 : 0,
@@ -840,8 +873,74 @@ export default function HomePage() {
         </div>
 
         {/* switchTop pushed below the home HUD/nav row so it doesn't sit
-            on top of the quest panel + nav buttons. */}
-        <LightSwitch switchTop="30%" targetBottom="10%" targetLeft="50%" persistKey="home" />
+            on top of the quest panel + nav buttons. targetBottom matches
+            Eren's new raised standing position so the light cone still
+            pools on him instead of behind the bottom dock. */}
+        <LightSwitch switchTop="30%" targetBottom="20%" targetLeft="50%" persistKey="home" />
+
+        {/* ══ BOTTOM DOCK — gacha · cake · shawarma ══
+            Three full-width neo-brutalism buttons filling the floor of the
+            room. Vibrant per-button gradient, hard 2px ink border + 4px
+            offset shadow, icon stacked over font-pixel label. Press state
+            slides the button into the shadow for a tactile click. */}
+        <div
+          className="absolute left-0 right-0 z-20 flex gap-2 px-2"
+          style={{ bottom: 'calc(var(--safe-bottom, 0px) + 14px)' }}
+        >
+          <Link
+            href="/gacha"
+            onClick={() => playSound('ui_tap')}
+            className="home-dock-btn"
+            style={{
+              ...dockBtnBase,
+              background: 'linear-gradient(180deg, #D4B4FC 0%, #A78BFA 45%, #7C3AED 100%)',
+            }}
+          >
+            <div style={dockBtnGloss} />
+            <IconCapsule size={28} />
+            <span style={dockBtnLabel}>GACHA</span>
+          </Link>
+
+          <Link
+            href="/bakery"
+            onClick={() => playSound('ui_tap')}
+            className="home-dock-btn"
+            style={{
+              ...dockBtnBase,
+              background: 'linear-gradient(180deg, #FBCFE8 0%, #F472B6 45%, #DB2777 100%)',
+            }}
+          >
+            <div style={dockBtnGloss} />
+            <IconCake size={28} />
+            <span style={dockBtnLabel}>CAKE</span>
+          </Link>
+
+          <button
+            onClick={() => { playSound('ui_tap'); showToast('SHAWARMA — coming soon') }}
+            className="home-dock-btn"
+            style={{
+              ...dockBtnBase,
+              background: 'linear-gradient(180deg, #FED7AA 0%, #FB923C 45%, #C2410C 100%)',
+            }}
+          >
+            <div style={dockBtnGloss} />
+            <IconShawarma size={28} />
+            <span style={dockBtnLabel}>SHAWARMA</span>
+          </button>
+        </div>
+
+        <style jsx global>{`
+          .home-dock-btn {
+            transition: transform 80ms ease-out, box-shadow 80ms ease-out;
+          }
+          .home-dock-btn:active {
+            transform: translate(3px, 3px);
+            box-shadow:
+              1px 1px 0 #050507,
+              inset 0 1px 0 rgba(255,255,255,0.35),
+              inset 0 -2px 0 rgba(0,0,0,0.25);
+          }
+        `}</style>
       </div>
     </>
   )
