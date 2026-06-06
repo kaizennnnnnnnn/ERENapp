@@ -233,7 +233,12 @@ export default function WashScene({ onClose }: Props) {
         <div className={cn('absolute transition-all duration-500', done ? 'bottom-[12%]' : 'bottom-[10%]')}
           style={{ left: '50%', transform: 'translateX(-50%)' }}>
           <ErenIdleLayer>
-            <BlinkingEren size={200} />
+            {/* Bathroom pose: ErenBathroomHat.png — blue beanie sits low on
+                the forehead so the face/eyes drop ~4% from the default. */}
+            <BlinkingEren size={200} src="/ErenBathroomHat.png" eyes={{
+              lidTop:  '36%',
+              maskTop: '36.3%',
+            }} />
             <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
           </ErenIdleLayer>
         </div>
