@@ -442,3 +442,14 @@
   0%, 100% { opacity: 1;    transform: translate(-50%, -50%) scale(1);    }
   50%      { opacity: 0.92; transform: translate(-50%, -50%) scale(1.05); }
 }
+
+/* ── Home bottom dock (gacha · cake · shawarma) ──
+   Tactile press: slides the button into its hard offset shadow. Lives
+   here in globals.css instead of <style jsx global> in home/page.tsx
+   because Next 14.2's styled-jsx SWC visitor panics on the multi-shadow
+   :active pseudo (styled_jsx 0.73.10 visitor.rs:597 unwrap on None). */
+.home-dock-btn { transition: transform 80ms ease-out, box-shadow 80ms ease-out; }
+.home-dock-btn:active {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0 #050507, inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 0 rgba(0,0,0,0.25);
+}

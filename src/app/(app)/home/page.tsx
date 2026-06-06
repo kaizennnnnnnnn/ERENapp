@@ -929,18 +929,6 @@ export default function HomePage() {
           </button>
         </div>
 
-        <style jsx global>{`
-          .home-dock-btn {
-            transition: transform 80ms ease-out, box-shadow 80ms ease-out;
-          }
-          .home-dock-btn:active {
-            transform: translate(3px, 3px);
-            box-shadow:
-              1px 1px 0 #050507,
-              inset 0 1px 0 rgba(255,255,255,0.35),
-              inset 0 -2px 0 rgba(0,0,0,0.25);
-          }
-        `}</style>
       </div>
     </>
   )
