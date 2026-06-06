@@ -139,83 +139,95 @@ function RoomMissionChips() {
   const streakDone = completedIds.has(`daily_chem_streak:${dailyKey}`)
   return (
     <div
-      className="absolute z-20 pointer-events-none flex flex-col gap-1.5"
+      className="absolute z-20 pointer-events-none flex flex-col gap-2"
       style={{
-        top: 'calc(96px + env(safe-area-inset-top, 0px))',
+        // StatsHeader sits at z-[60] with a ~84-100px height including the
+        // safe-area inset. 110 clears it cleanly even on devices with a
+        // notch / dynamic island.
+        top: 'calc(110px + env(safe-area-inset-top, 0px))',
         left: 10,
-        maxWidth: 168,
+        maxWidth: 200,
       }}
     >
       <MissionChip
         icon="📚"
         title="Finish a lesson"
-        reward="+10c · +15xp"
+        reward="+10 coins  +15 xp"
         done={lessonDone}
         accent="#FCD34D"
+        accentDark="#D97706"
       />
       <MissionChip
         icon="🔥"
         title="5 in a row"
-        reward="+15c · +20xp"
+        reward="+15 coins  +20 xp"
         done={streakDone}
         accent="#C4A7F5"
+        accentDark="#7C3AED"
       />
     </div>
   )
 }
 
-function MissionChip({ icon, title, reward, done, accent }: {
-  icon: string; title: string; reward: string; done: boolean; accent: string
+function MissionChip({ icon, title, reward, done, accent, accentDark }: {
+  icon: string; title: string; reward: string; done: boolean;
+  accent: string; accentDark: string
 }) {
   return (
     <div
       style={{
         pointerEvents: 'auto',
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '6px 10px 6px 6px',
-        borderRadius: 14,
-        background: done ? accent : 'rgba(20, 12, 40, 0.72)',
-        backdropFilter: 'blur(6px)',
-        WebkitBackdropFilter: 'blur(6px)',
-        boxShadow: '0 4px 14px rgba(0,0,0,0.28)',
-        opacity: done ? 0.92 : 1,
+        display: 'flex', alignItems: 'center', gap: 9,
+        padding: '8px 12px 8px 8px',
+        borderRadius: 16,
+        // Bright opaque fills — no more "translucent dark on dark cabinet"
+        // disappearing act. Claimed chips wear the accent solid; unclaimed
+        // wear cream so they pop against any room background.
+        background: done ? accent : '#FFF7DA',
+        border: `2px solid ${done ? accentDark : '#1A0F2D'}`,
+        boxShadow: `2px 3px 0 ${done ? accentDark : '#1A0F2D'}, 0 6px 16px rgba(0,0,0,0.32)`,
       }}
     >
       <div
         aria-hidden
         style={{
           flexShrink: 0,
-          width: 26, height: 26,
+          width: 30, height: 30,
           display: 'inline-flex',
           alignItems: 'center', justifyContent: 'center',
-          borderRadius: 8,
-          background: done ? 'rgba(0,0,0,0.18)' : accent,
-          fontSize: 14,
+          borderRadius: 9,
+          background: done ? '#FFF7DA' : accent,
+          border: `2px solid ${done ? accentDark : '#1A0F2D'}`,
+          fontSize: 16,
+          fontWeight: 900,
+          color: done ? accentDark : '#1A0F2D',
         }}
       >
         {done ? '✓' : icon}
       </div>
       <div style={{ minWidth: 0 }}>
         <div style={{
-          fontSize: 10,
-          fontWeight: 800,
-          color: done ? '#1A0F2D' : '#F4EEE2',
+          fontSize: 12,
+          fontWeight: 900,
+          color: '#1A0F2D',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
-          letterSpacing: 0.2,
+          letterSpacing: 0.1,
         }}>
           {title}
         </div>
         <div style={{
-          fontSize: 8,
+          fontSize: 9,
           fontWeight: 700,
-          color: done ? 'rgba(26,15,45,0.66)' : 'rgba(244,238,226,0.62)',
+          color: done ? '#1A0F2D' : '#5C4E6E',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
+          marginTop: 1,
+          letterSpacing: 0.2,
         }}>
-          {done ? 'Claimed' : reward}
+          {done ? 'CLAIMED' : reward}
         </div>
       </div>
     </div>
