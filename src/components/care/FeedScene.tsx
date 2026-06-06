@@ -374,14 +374,28 @@ export default function FeedScene({ onClose }: Props) {
     <div className="absolute z-20 bottom-[10%]"
       style={{ left: '50%', transform: 'translateX(-50%)' }}>
       <ErenIdleLayer>
-        {/* Kitchen pose: ErenCook.png — the taller chef hat in the new
-            sprite shifts the cat further down in the frame, so the eye
-            overlays drop a full 5-6% vs the everyday sprite. Horizontal
-            positions still match the default since the hat doesn't
-            squeeze the head sideways. */}
+        {/* Kitchen pose: ErenCook.png (redrawn — no watermark cross).
+            Coords come from a pixel-scan of the 959×1536 sprite,
+            translated to the 210×210 BlinkingEren container (portrait
+            sprite height-fits so the image occupies the middle ~62.6%
+            of container width). Catchlights are MIRRORED on this
+            sprite: eye A's in the upper-RIGHT of its iris, eye B's in
+            the upper-LEFT — they point toward the nose. */}
         <BlinkingEren size={210} src="/ErenCook.png" eyes={{
-          lidTop:  '38%',
-          maskTop: '38.3%',
+          lidTop:    '37.19%',
+          lidWidth:  '5.42%',
+          lidLeftA:  '40.79%',
+          lidLeftB:  '54.79%',
+          maskTop:   '37.19%',
+          maskLeftA: '40.79%',
+          maskLeftB: '54.79%',
+          maskW:     '5.42%',
+          maskH:     '4.62%',
+          glintLeftA: '60.3%',
+          glintTopA:  '3%',
+          glintLeftB: '20.5%',
+          glintTopB:  '3%',
+          glintW:     '18%',
         }} />
         <StinkyFlies cleanliness={cleanliness} />
       </ErenIdleLayer>
