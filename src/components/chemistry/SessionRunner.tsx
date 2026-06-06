@@ -7,6 +7,7 @@
 // retry/done summary card.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Check, X, Flame, CheckCircle2, Target } from 'lucide-react'
 import { useChemistryStore, elementCardId } from '@/lib/chemistry/store'
 import { useChemistryTheme, CHEM_FONT, type Palette } from '@/lib/chemistry/theme'
 import { useChemistryMissions } from '@/lib/chemistry/missions'
@@ -198,8 +199,14 @@ export default function SessionRunner({
         <div style={{
           fontSize: 11, fontWeight: 700, letterSpacing: 0.4,
           color: palette.grapeDark,
+          display: 'inline-flex', alignItems: 'center', gap: 5,
         }}>
-          {streak >= 2 ? `🔥 ${streak} in a row` : 'QUESTION'}
+          {streak >= 2 ? (
+            <>
+              <Flame size={13} strokeWidth={2.4} color={palette.sunDark} />
+              {streak} in a row
+            </>
+          ) : 'QUESTION'}
         </div>
         <div style={{
           marginTop: 8, fontSize: 22, fontWeight: 900, lineHeight: 1.2,
@@ -256,8 +263,8 @@ export default function SessionRunner({
                 {i + 1}
               </span>
               <span style={{ flex: 1 }}>{opt}</span>
-              {reveal && isAnswer && <span aria-hidden style={{ fontSize: 18 }}>✓</span>}
-              {reveal && isGiven && !isAnswer && <span aria-hidden style={{ fontSize: 18 }}>✕</span>}
+              {reveal && isAnswer && <Check size={20} strokeWidth={3} color={palette.greenLight === '#BBF7D0' ? '#15803D' : palette.green} />}
+              {reveal && isGiven && !isAnswer && <X size={20} strokeWidth={3} color={palette.red} />}
             </button>
           )
         })}
@@ -274,10 +281,19 @@ export default function SessionRunner({
               background: correct ? palette.greenLight : palette.redLight,
               color: palette.ink,
               fontSize: 13, fontWeight: 700,
+              display: 'flex', alignItems: 'center', gap: 8,
             }}>
-              {correct
-                ? 'Correct! 🎉'
-                : `Correct answer: ${q.answer}`}
+              {correct ? (
+                <>
+                  <Check size={16} strokeWidth={3} />
+                  Correct!
+                </>
+              ) : (
+                <>
+                  <X size={16} strokeWidth={3} />
+                  Correct answer: {q.answer}
+                </>
+              )}
             </div>
             <button
               type="button"
@@ -319,7 +335,7 @@ function Empty({ palette, title, body, onPrimary, primaryLabel }: {
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
       textAlign: 'center', fontFamily: CHEM_FONT, color: palette.fg,
     }}>
-      <div style={{ fontSize: 48 }}>🎉</div>
+      <CheckCircle2 size={56} strokeWidth={2.2} color={palette.green} />
       <h3 style={{ fontSize: 20, fontWeight: 900 }}>{title}</h3>
       <p style={{ fontSize: 13, color: palette.fgMuted, maxWidth: 320 }}>{body}</p>
       <button
@@ -369,12 +385,14 @@ function DoneCard({ palette, title, pct, correctCount, total, missed, onRetry, o
         </div>
         {pct === 100 && (
           <div style={{
-            display: 'inline-block', marginTop: 8,
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            marginTop: 8,
             padding: '4px 10px', borderRadius: 999,
             background: palette.green, color: palette.ink,
             fontSize: 11, fontWeight: 800,
           }}>
-            Perfect! 🎯
+            <Target size={12} strokeWidth={2.6} />
+            Perfect!
           </div>
         )}
         <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>

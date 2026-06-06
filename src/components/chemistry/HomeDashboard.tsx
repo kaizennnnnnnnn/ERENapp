@@ -12,6 +12,10 @@
 // rest of the overlay can keep its current theme until step 2 softens the
 // remaining surfaces.
 
+import {
+  Zap, BookOpen, Atom, Layers, ListChecks, LayoutGrid, Timer, MapPin, Flame,
+  type LucideIcon,
+} from 'lucide-react'
 import { useChemistryStore } from '@/lib/chemistry/store'
 import { useChemistryTheme, CHEM_FONT, type Palette } from '@/lib/chemistry/theme'
 import { playSound } from '@/lib/sounds'
@@ -29,7 +33,7 @@ interface TileDef {
   id: string
   label: string
   sub: string
-  icon: string
+  Icon: LucideIcon
   bg: string      // pastel fill
   status: 'live' | 'soon'
 }
@@ -72,14 +76,14 @@ export default function HomeDashboard({ palette, onGoto }: Props) {
     cream:  '#FCEAB1',
   }
   const TILES: TileDef[] = [
-    { id: 'review',     label: 'Review',     sub: 'Spaced-repetition driver',     icon: '⚡', bg: tilePastel.sky,   status: 'live' },
-    { id: 'learn',      label: 'Learn',      sub: 'Guided new-element batches',   icon: '📖', bg: tilePastel.grape, status: 'live' },
-    { id: 'table',      label: 'Table',      sub: 'Browse all 118 elements',      icon: '⌗',  bg: tilePastel.mint,  status: 'live' },
-    { id: 'flashcards', label: 'Flashcards', sub: 'Flip & self-rate',             icon: '🗂', bg: tilePastel.sun,   status: 'live' },
-    { id: 'quiz',       label: 'Quiz',       sub: 'Multiple-choice rounds',       icon: '✦',  bg: tilePastel.coral, status: 'live' },
-    { id: 'match',      label: 'Match',      sub: 'Timed symbol ↔ name',          icon: '⊞',  bg: tilePastel.cream, status: 'live' },
-    { id: 'speed',      label: 'Speed',      sub: '60-second sprint',             icon: '⏱', bg: tilePastel.grape, status: 'live' },
-    { id: 'locate',     label: 'Locate',     sub: 'Find on the table',            icon: '◎', bg: tilePastel.sky,   status: 'live' },
+    { id: 'review',     label: 'Review',     sub: 'Spaced-repetition driver',     Icon: Zap,        bg: tilePastel.sky,   status: 'live' },
+    { id: 'learn',      label: 'Learn',      sub: 'Guided new-element batches',   Icon: BookOpen,   bg: tilePastel.grape, status: 'live' },
+    { id: 'table',      label: 'Table',      sub: 'Browse all 118 elements',      Icon: Atom,       bg: tilePastel.mint,  status: 'live' },
+    { id: 'flashcards', label: 'Flashcards', sub: 'Flip & self-rate',             Icon: Layers,     bg: tilePastel.sun,   status: 'live' },
+    { id: 'quiz',       label: 'Quiz',       sub: 'Multiple-choice rounds',       Icon: ListChecks, bg: tilePastel.coral, status: 'live' },
+    { id: 'match',      label: 'Match',      sub: 'Timed symbol ↔ name',          Icon: LayoutGrid, bg: tilePastel.cream, status: 'live' },
+    { id: 'speed',      label: 'Speed',      sub: '60-second sprint',             Icon: Timer,      bg: tilePastel.grape, status: 'live' },
+    { id: 'locate',     label: 'Locate',     sub: 'Find on the table',            Icon: MapPin,     bg: tilePastel.sky,   status: 'live' },
   ]
 
   function handleHeroPrimary() {
@@ -164,11 +168,20 @@ export default function HomeDashboard({ palette, onGoto }: Props) {
                 fontFamily: CHEM_FONT,
                 fontSize: 14, fontWeight: 800,
                 whiteSpace: 'nowrap',
+                display: 'inline-flex', alignItems: 'center', gap: 7,
               }}
             >
-              {hydrated && dueCount > 0
-                ? `⚡ Review ${dueCount} due`
-                : '📖 Learn new elements'}
+              {hydrated && dueCount > 0 ? (
+                <>
+                  <Zap size={16} strokeWidth={2.6} />
+                  Review {dueCount} due
+                </>
+              ) : (
+                <>
+                  <BookOpen size={16} strokeWidth={2.4} />
+                  Learn new elements
+                </>
+              )}
             </button>
             <button
               type="button"
@@ -193,7 +206,10 @@ export default function HomeDashboard({ palette, onGoto }: Props) {
             fontSize: 12, fontWeight: 600,
             color: palette.ink, opacity: 0.78,
           }}>
-            <span>🔥 {streak}-day streak</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Flame size={13} strokeWidth={2.4} color={palette.sunDark} />
+              {streak}-day streak
+            </span>
             <span>•</span>
             <span>{masteredCount} / {totalElements} mastered</span>
           </div>
@@ -235,8 +251,10 @@ export default function HomeDashboard({ palette, onGoto }: Props) {
             marginTop: 6,
             fontSize: 12, fontWeight: 700,
             color: palette.ink, opacity: 0.78,
+            display: 'inline-flex', alignItems: 'center', gap: 5,
           }}>
-            🔥 {streak} day streak · {Math.max(0, DAILY_GOAL - goalProgress)} more to go
+            <Flame size={13} strokeWidth={2.4} color={palette.sunDark} />
+            {streak} day streak · {Math.max(0, DAILY_GOAL - goalProgress)} more to go
           </div>
         </div>
       </div>
@@ -247,47 +265,50 @@ export default function HomeDashboard({ palette, onGoto }: Props) {
         gridTemplateColumns: '1fr 1fr',
         gap: 10,
       }}>
-        {TILES.map(t => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => handleTile(t)}
-            style={{
-              position: 'relative',
-              textAlign: 'left',
-              padding: 14,
-              borderRadius: 18,
-              border: 'none',
-              background: t.bg,
-              color: palette.ink,
-              fontFamily: CHEM_FONT,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-              minHeight: 100,
-              cursor: 'pointer',
-            }}
-          >
-            <div style={{
-              width: 32, height: 32,
-              borderRadius: 10,
-              background: 'rgba(255,255,255,0.55)',
-              display: 'inline-flex',
-              alignItems: 'center', justifyContent: 'center',
-              fontSize: 16,
-            }}>
-              {t.icon}
-            </div>
-            <div style={{ fontSize: 14, fontWeight: 800 }}>{t.label}</div>
-            <div style={{
-              fontSize: 11, fontWeight: 500,
-              opacity: 0.72,
-              lineHeight: 1.3,
-            }}>
-              {t.sub}
-            </div>
-          </button>
-        ))}
+        {TILES.map(t => {
+          const TileIcon = t.Icon
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => handleTile(t)}
+              style={{
+                position: 'relative',
+                textAlign: 'left',
+                padding: 14,
+                borderRadius: 18,
+                border: 'none',
+                background: t.bg,
+                color: palette.ink,
+                fontFamily: CHEM_FONT,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+                minHeight: 100,
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{
+                width: 34, height: 34,
+                borderRadius: 10,
+                background: 'rgba(255,255,255,0.6)',
+                display: 'inline-flex',
+                alignItems: 'center', justifyContent: 'center',
+                color: palette.grapeDark,
+              }}>
+                <TileIcon size={20} strokeWidth={2.2} />
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 800 }}>{t.label}</div>
+              <div style={{
+                fontSize: 11, fontWeight: 500,
+                opacity: 0.72,
+                lineHeight: 1.3,
+              }}>
+                {t.sub}
+              </div>
+            </button>
+          )
+        })}
       </div>
     </div>
   )

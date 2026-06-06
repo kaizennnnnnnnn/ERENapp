@@ -6,6 +6,7 @@
 // follow-up phases.
 
 import { useState } from 'react'
+import { BookOpen, Flame, Check, type LucideIcon } from 'lucide-react'
 import BlinkingEren from '@/components/BlinkingEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
 import LightSwitch from '@/components/LightSwitch'
@@ -146,11 +147,13 @@ function RoomMissionChips() {
         // notch / dynamic island.
         top: 'calc(110px + env(safe-area-inset-top, 0px))',
         left: 10,
-        maxWidth: 200,
+        // Widened from 200 → 232 so the full title and reward line never
+        // ellipsis on a phone-width room.
+        maxWidth: 232,
       }}
     >
       <MissionChip
-        icon="📚"
+        Icon={BookOpen}
         title="Finish a lesson"
         reward="+10 coins  +15 xp"
         done={lessonDone}
@@ -158,7 +161,7 @@ function RoomMissionChips() {
         accentDark="#D97706"
       />
       <MissionChip
-        icon="🔥"
+        Icon={Flame}
         title="5 in a row"
         reward="+15 coins  +20 xp"
         done={streakDone}
@@ -169,8 +172,8 @@ function RoomMissionChips() {
   )
 }
 
-function MissionChip({ icon, title, reward, done, accent, accentDark }: {
-  icon: string; title: string; reward: string; done: boolean;
+function MissionChip({ Icon, title, reward, done, accent, accentDark }: {
+  Icon: LucideIcon; title: string; reward: string; done: boolean;
   accent: string; accentDark: string
 }) {
   return (
@@ -180,9 +183,8 @@ function MissionChip({ icon, title, reward, done, accent, accentDark }: {
         display: 'flex', alignItems: 'center', gap: 9,
         padding: '8px 12px 8px 8px',
         borderRadius: 16,
-        // Bright opaque fills — no more "translucent dark on dark cabinet"
-        // disappearing act. Claimed chips wear the accent solid; unclaimed
-        // wear cream so they pop against any room background.
+        // Bright opaque fills — claimed chips wear the accent solid;
+        // unclaimed wear cream so they pop against any room background.
         background: done ? accent : '#FFF7DA',
         border: `2px solid ${done ? accentDark : '#1A0F2D'}`,
         boxShadow: `2px 3px 0 ${done ? accentDark : '#1A0F2D'}, 0 6px 16px rgba(0,0,0,0.32)`,
@@ -192,18 +194,18 @@ function MissionChip({ icon, title, reward, done, accent, accentDark }: {
         aria-hidden
         style={{
           flexShrink: 0,
-          width: 30, height: 30,
+          width: 32, height: 32,
           display: 'inline-flex',
           alignItems: 'center', justifyContent: 'center',
           borderRadius: 9,
           background: done ? '#FFF7DA' : accent,
           border: `2px solid ${done ? accentDark : '#1A0F2D'}`,
-          fontSize: 16,
-          fontWeight: 900,
           color: done ? accentDark : '#1A0F2D',
         }}
       >
-        {done ? '✓' : icon}
+        {done
+          ? <Check size={18} strokeWidth={3} />
+          : <Icon size={18} strokeWidth={2.4} />}
       </div>
       <div style={{ minWidth: 0 }}>
         <div style={{

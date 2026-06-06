@@ -7,6 +7,7 @@
 // delay between rounds so feedback is readable.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { MapPin, Target, Trophy } from 'lucide-react'
 import { elements, type Element } from '@/lib/chemistry/elements'
 import { CATEGORY_COLORS } from '@/lib/chemistry/colors'
 import { useChemistryStore, elementCardId } from '@/lib/chemistry/store'
@@ -139,18 +140,20 @@ export default function Locate({ onExit }: Props) {
   if (status === 'idle') {
     return (
       <Center palette={palette}>
-        <div style={{ fontSize: 38 }}>◎</div>
+        <MapPin size={48} strokeWidth={2.2} color={palette.skyDark} />
         <h2 style={{ fontSize: 22, fontWeight: 900, color: palette.fg }}>Locate</h2>
         <p style={{ fontSize: 13, color: palette.fgMuted, maxWidth: 320, textAlign: 'center' }}>
           10 rounds. We name an element, you tap it on the blank table.
         </p>
         {best > 0 && (
           <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
             padding: '4px 10px', borderRadius: 999,
             background: palette.sunLight, color: palette.ink,
             fontSize: 12, fontWeight: 800,
           }}>
-            🏆 Best · {best} / {ROUNDS}
+            <Trophy size={13} strokeWidth={2.4} />
+            Best · {best} / {ROUNDS}
           </div>
         )}
         <button onClick={start} type="button" style={primaryBtn(palette)}>Start</button>
@@ -162,7 +165,7 @@ export default function Locate({ onExit }: Props) {
   if (status === 'done') {
     return (
       <Center palette={palette}>
-        <div style={{ fontSize: 38 }}>🎯</div>
+        <Target size={48} strokeWidth={2.2} color={palette.grapeDark} />
         <h2 style={{ fontSize: 22, fontWeight: 900, color: palette.fg }}>Round complete</h2>
         <div style={{ fontSize: 48, fontWeight: 900, color: palette.fg }}>
           {score} / {ROUNDS}

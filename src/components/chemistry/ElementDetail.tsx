@@ -4,6 +4,7 @@
 // tapped. Neo-brutalism card with ink borders, hard offset shadows, and a
 // category-coloured top slab. Tap backdrop or close button to dismiss.
 
+import { X as XIcon } from 'lucide-react'
 import { CATEGORY_LABELS, type Element } from '@/lib/chemistry/elements'
 import { CATEGORY_COLORS, STATE_LABELS, readableText } from '@/lib/chemistry/colors'
 import { playSound } from '@/lib/sounds'
@@ -72,14 +73,12 @@ export default function ElementDetail({ element, onClose }: Props) {
             boxShadow: neoShadow(palette.ink, 'sm'),
             color: palette.ink,
             fontFamily: CHEM_FONT,
-            fontSize: 16,
-            fontWeight: 800,
             lineHeight: 1,
             cursor: 'pointer',
             zIndex: 2,
           }}
         >
-          ×
+          <XIcon size={18} strokeWidth={2.6} />
         </button>
 
         {/* Symbol slab — category-coloured, big symbol + atomic number */}

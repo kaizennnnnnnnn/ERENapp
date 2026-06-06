@@ -7,6 +7,7 @@
 // so it's surfaced via state via a localStorage key local to this mode).
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Zap, Timer as TimerIcon, Trophy } from 'lucide-react'
 import { useChemistryStore, elementCardId } from '@/lib/chemistry/store'
 import { useChemistryTheme, CHEM_FONT, type Palette } from '@/lib/chemistry/theme'
 import { playSound } from '@/lib/sounds'
@@ -135,18 +136,20 @@ export default function Speed({ onExit }: Props) {
   if (status === 'idle') {
     return (
       <Center palette={palette}>
-        <div style={{ fontSize: 38, lineHeight: 1 }}>⚡</div>
+        <Zap size={48} strokeWidth={2.2} color={palette.sunDark} />
         <h2 style={{ fontSize: 22, fontWeight: 900, color: palette.fg }}>Speed Round</h2>
         <p style={{ fontSize: 13, color: palette.fgMuted, maxWidth: 320, textAlign: 'center' }}>
           60 seconds. Answer as many as you can. Keyboard 1–4 or tap.
         </p>
         {best > 0 && (
           <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
             padding: '4px 10px', borderRadius: 999,
             background: palette.sunLight, color: palette.ink,
             fontSize: 12, fontWeight: 800,
           }}>
-            🏆 Best · {best}
+            <Trophy size={13} strokeWidth={2.4} />
+            Best · {best}
           </div>
         )}
         <button onClick={start} type="button" style={primaryBtn(palette)}>
@@ -163,11 +166,15 @@ export default function Speed({ onExit }: Props) {
     const newBest = score > 0 && score === best
     return (
       <Center palette={palette}>
-        <div style={{ fontSize: 38 }}>⏱</div>
+        <TimerIcon size={48} strokeWidth={2.2} color={palette.grapeDark} />
         <h2 style={{ fontSize: 22, fontWeight: 900, color: palette.fg }}>Time!</h2>
         <div style={{ fontSize: 48, fontWeight: 900, color: palette.fg }}>{score}</div>
-        <div style={{ fontSize: 12, color: palette.fgMuted }}>
-          {newBest ? 'New personal best! 🏆' : `Best · ${best}`}
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          fontSize: 12, color: palette.fgMuted,
+        }}>
+          {newBest && <Trophy size={13} strokeWidth={2.4} color={palette.sunDark} />}
+          {newBest ? 'New personal best!' : `Best · ${best}`}
         </div>
         <button onClick={start} type="button" style={primaryBtn(palette)}>
           Play again
