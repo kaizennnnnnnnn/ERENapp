@@ -15,6 +15,37 @@ import PeriodicTableOverlay from '@/components/chemistry/PeriodicTableOverlay'
 
 interface Props { onClose: () => void }
 
+// ErenLab.png wears blue lab goggles, so the eye overlays are retuned to the
+// lenses (measured off the sprite): the blink lids sit over the dark pupils in
+// each lens, and the shine masks sit on the cool highlight in each lens's
+// upper-left. Colors are shifted into the goggle-blue family so the blink reads
+// as the eye closing behind the tinted glass and the shine reads as a glassy
+// reflection rather than a white dot.
+const LAB_EYES = {
+  // Blink lids — over the visible pupils.
+  lidTop:    '35%',
+  lidLeftA:  '40.5%',
+  lidLeftB:  '51.5%',
+  lidWidth:  '7%',
+  // Shine masks — upper-left highlight of each lens.
+  maskTop:   '33.7%',
+  maskLeftA: '37.5%',
+  maskLeftB: '50.4%',
+  maskW:     '6.8%',
+  maskH:     '5.4%',
+  // Glint sits in the upper-left of each mask (matches the lens highlight).
+  glintLeftA: '24%',
+  glintLeftB: '24%',
+  glintTopA:  '18%',
+  glintTopB:  '18%',
+  glintW:     '40%',
+}
+// Goggle-blue eyelid (a touch deeper than the lens base) + a cool blue-white
+// glass reflection for the shine.
+const LAB_LID_COLOR = '#5C86A0'
+const LAB_GLINT =
+  'radial-gradient(circle at 42% 38%, #ffffff 0%, #eaf6ff 26%, rgba(150,205,240,0.82) 54%, rgba(120,185,230,0) 82%)'
+
 export default function ChemistryScene(_props: Props) {
   void _props
   const isDark = useIsDark()
@@ -47,7 +78,13 @@ export default function ChemistryScene(_props: Props) {
         transform: 'translateX(-50%)',
       }}>
         <ErenIdleLayer>
-          <BlinkingEren size={200} />
+          <BlinkingEren
+            size={200}
+            src="/ErenLab.png"
+            eyes={LAB_EYES}
+            lidColor={LAB_LID_COLOR}
+            glintBackground={LAB_GLINT}
+          />
         </ErenIdleLayer>
       </div>
 

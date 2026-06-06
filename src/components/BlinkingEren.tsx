@@ -36,6 +36,12 @@ export interface EyeLayout {
   glintW: string
 }
 
+// Default eye-glint gloss — a white catchlight with a faint cool-blue falloff.
+// Sprites wearing tinted eyewear (e.g. the chemistry goggles) override this so
+// the shine reads as a reflection on the lens instead of a stray white dot.
+const DEFAULT_GLINT =
+  'radial-gradient(circle at 42% 38%, #ffffff 0%, #ffffff 30%, rgba(225,240,255,0.78) 54%, rgba(190,220,255,0) 80%)'
+
 const DEFAULT_EYES: EyeLayout = {
   lidTop:    '32.5%',
   lidLeftA:  '38%',
@@ -69,6 +75,14 @@ interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   // erenGood.png defaults above. The bedroom passes a partial override
   // because erenSleep.png puts the eyes lower and closer together.
   eyes?: Partial<EyeLayout>
+  // Eyelid color for the blink. Default gray suits the bare-eye sprites; the
+  // chemistry sprite passes a goggle-blue so the blink reads as the eye
+  // closing behind the tinted lens rather than a gray bar on the glass.
+  lidColor?: string
+  // Full CSS background for the eye glint. Defaults to a white catchlight; the
+  // chemistry sprite passes a cool blue-white so the shine looks like a
+  // reflection on the blue goggle glass.
+  glintBackground?: string
 }
 
 export default function BlinkingEren({
@@ -80,6 +94,8 @@ export default function BlinkingEren({
   src = '/erenGood.png',
   blink = true,
   eyes: eyesOverride,
+  lidColor = '#6B6B6B',
+  glintBackground = DEFAULT_GLINT,
   ...imgProps
 }: Props) {
   const isDark = useIsDark()
@@ -92,7 +108,7 @@ export default function BlinkingEren({
     position: 'absolute',
     width: eyes.lidWidth,
     height: '5.5%',
-    background: '#6B6B6B',
+    background: lidColor,
     borderRadius: 1,
     transform: 'scaleY(0)',
     transformOrigin: 'top',
@@ -117,8 +133,7 @@ export default function BlinkingEren({
     width: eyes.glintW,
     aspectRatio: '1',
     borderRadius: '50%',
-    background:
-      'radial-gradient(circle at 42% 38%, #ffffff 0%, #ffffff 30%, rgba(225,240,255,0.78) 54%, rgba(190,220,255,0) 80%)',
+    background: glintBackground,
     willChange: 'transform, opacity',
   }
 
