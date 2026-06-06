@@ -153,24 +153,22 @@ export default function LightSwitch({
             }} />
           )}
 
-          {/* Soft directional cone — trapezoid shape blurred to avoid the
-              hard spotlight look. Heavy blur + radial fade mask so the
-              cone's diagonal sides dissolve into the room instead of
-              reading as a visible straight line on the dark kitchen
-              background (left edge of the polygon used to land at ~23%
-              of viewport width which looked like a vertical line cutting
-              through the cat). */}
+          {/* Soft directional pool — pure radial-gradient ellipse. NO
+              clipPath, NO straight edges. The old trapezoid had two
+              diagonal sides that, under mix-blend-mode:screen on the
+              dark blue KitchenDark.png, turned the warm yellow into a
+              cool cyan stripe — visible as a vertical line during
+              room-swipes because the scene container's translateX moved
+              the edge into the eye. A radial gradient has no edge to
+              leak: opacity falls smoothly to zero in every direction. */}
           <div className="absolute pointer-events-none" style={{
             top: lampTop,
             bottom: targetBottom,
             left: targetLeft,
             transform: 'translateX(-50%)',
-            width: 'min(62%, 320px)',
-            background: 'linear-gradient(to bottom, rgba(255,236,180,0.18) 0%, rgba(255,236,180,0.22) 60%, rgba(255,236,180,0.26) 100%)',
-            clipPath: 'polygon(46% 0%, 54% 0%, 100% 100%, 0% 100%)',
-            filter: 'blur(24px)',
-            WebkitMaskImage: 'radial-gradient(ellipse 70% 80% at 50% 30%, rgba(0,0,0,1) 35%, rgba(0,0,0,0) 90%)',
-            maskImage: 'radial-gradient(ellipse 70% 80% at 50% 30%, rgba(0,0,0,1) 35%, rgba(0,0,0,0) 90%)',
+            width: 'min(85%, 400px)',
+            background: 'radial-gradient(ellipse at 50% 0%, rgba(255,236,180,0.32) 0%, rgba(255,236,180,0.18) 40%, rgba(255,236,180,0) 75%)',
+            filter: 'blur(14px)',
             mixBlendMode: 'screen',
             zIndex: 11,
             animation: 'lsHaloPulse 4s ease-in-out infinite',
