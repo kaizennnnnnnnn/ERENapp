@@ -62,13 +62,15 @@ const CAKE_EYES = {
 // Picture native size — the stage keeps this aspect so Eren lines up with it.
 const IMG_W = 940
 const IMG_H = 1672
-// The wooden counter top sits ~63.5% down the picture — Eren is clipped here.
-const COUNTER_PCT = 63.5
-// Eren's box, in vw so he scales with the full-width picture stage. Smaller
-// than a room sprite so he sits "back" behind the counter.
-const EREN_VW = 64
-// Show his top ~46% (head + a little) above the counter; rest is hidden.
-const EREN_SHOW = 0.46
+// Clip at the counter's TOP/back edge (where the pink wainscoting meets the
+// wooden counter ~57% down), NOT the front lip — so Eren reads as standing
+// BEHIND the counter with the whole counter in front of him.
+const COUNTER_PCT = 57
+// Eren's box, in vw so he scales with the full-width picture stage.
+const EREN_VW = 66
+// Show his top ~50% (head + chest + paws) above the counter; the lower half is
+// hidden behind it.
+const EREN_SHOW = 0.50
 const EREN_BOTTOM = `${-(1 - EREN_SHOW) * EREN_VW}vw`
 
 export default function BakeryPage() {
@@ -148,11 +150,11 @@ export default function BakeryPage() {
           {fx && (
             <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 20 }}>
               <div key={fx.id} className="absolute"
-                style={{ left: '50%', top: '56%', transform: 'translateX(-50%)', animation: 'bkCakeFly 1.6s cubic-bezier(0.34,1.56,0.64,1) forwards' }}>
+                style={{ left: '50%', top: '53%', transform: 'translateX(-50%)', animation: 'bkCakeFly 1.6s cubic-bezier(0.34,1.56,0.64,1) forwards' }}>
                 <CakeSprite cake={fx.cake} size={56} />
               </div>
               <div key={`stamp-${fx.id}`} className="absolute"
-                style={{ left: '50%', top: '47%', transform: 'translate(-50%, -50%)', animation: 'bkStampPop 1.6s ease-out forwards' }}>
+                style={{ left: '50%', top: '43%', transform: 'translate(-50%, -50%)', animation: 'bkStampPop 1.6s ease-out forwards' }}>
                 <div className="px-3 py-1.5 font-pixel" style={{
                   background: 'rgba(220,38,38,0.18)', border: '3px solid #DC2626', borderRadius: 4,
                   fontSize: 14, color: '#7F1D1D', letterSpacing: 4,
@@ -164,7 +166,7 @@ export default function BakeryPage() {
               </div>
               {[0, 1, 2, 3, 4].map(i => (
                 <div key={`coin-${fx.id}-${i}`} className="absolute"
-                  style={{ left: '50%', top: '57%', transform: 'translateX(-50%)', animation: `bkCoinFly${i} 1.4s ease-out forwards` }}>
+                  style={{ left: '50%', top: '54%', transform: 'translateX(-50%)', animation: `bkCoinFly${i} 1.4s ease-out forwards` }}>
                   <IconCoin size={14} />
                 </div>
               ))}
