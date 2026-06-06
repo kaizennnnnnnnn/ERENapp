@@ -374,7 +374,14 @@ export default function FeedScene({ onClose }: Props) {
     <div className="absolute z-20 bottom-[10%]"
       style={{ left: '50%', transform: 'translateX(-50%)' }}>
       <ErenIdleLayer>
-        <BlinkingEren size={210} />
+        {/* Kitchen pose: ErenCook.png — chef hat pushes the face down a bit,
+            so the eyelid + glint overlays are nudged ~4% lower than the
+            default. Horizontal positions match the everyday sprite since
+            the head isn't squeezed by the hat the way the nightcap does. */}
+        <BlinkingEren size={210} src="/ErenCook.png" eyes={{
+          lidTop:  '37%',
+          maskTop: '37.3%',
+        }} />
         <StinkyFlies cleanliness={cleanliness} />
       </ErenIdleLayer>
     </div>

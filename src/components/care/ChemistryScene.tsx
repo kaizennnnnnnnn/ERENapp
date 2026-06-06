@@ -211,9 +211,16 @@ function RoomMissionChips() {
 }
 
 // Wrapper that animates its child into / out of the header pill. When
-// `expanded` flips false the child shrinks + fades + translates up so the
-// chip looks like it falls back into the header. Two chips can stagger
+// `expanded` flips false the chip shrinks vertically + fades + slides up
+// so it looks like it falls back into the header. Two chips can stagger
 // via `delayMs` so they peel out in sequence.
+//
+// IMPORTANT: do NOT use transform:scale() here. Scaling the wrapper
+// interpolates the chip's effective width during the animation, which
+// breaks the inner flex text measurement (the first chip rendered as
+// blank cream after the user toggled the section a second time).
+// Pure opacity + translateY + maxHeight is enough for the "fall in"
+// feel and avoids the layout/measurement issue entirely.
 function Collapsible({ expanded, delayMs, children }: {
   expanded: boolean; delayMs: number; children: React.ReactNode
 }) {
@@ -221,18 +228,21 @@ function Collapsible({ expanded, delayMs, children }: {
     <div
       aria-hidden={!expanded}
       style={{
-        overflow: 'hidden',
-        maxHeight: expanded ? 80 : 0,
+        // Wide max-height ceiling so the chip never gets vertically
+        // clipped at the natural expanded size (chip + soft drop shadow
+        // can reach ~75px tall on iOS scale).
+        maxHeight: expanded ? 200 : 0,
         opacity: expanded ? 1 : 0,
-        transform: expanded ? 'translateY(0) scale(1)' : 'translateY(-14px) scale(0.85)',
-        transformOrigin: 'top left',
-        marginTop: expanded ? 0 : -8,
+        transform: expanded ? 'translateY(0)' : 'translateY(-14px)',
         pointerEvents: expanded ? 'auto' : 'none',
+        // overflow:hidden only when collapsing — when fully expanded we
+        // need the chip's drop shadow to spill OUT, which overflow:hidden
+        // would clip. Easiest fix: only clip during/while collapsed.
+        overflow: expanded ? 'visible' : 'hidden',
         transition: [
-          `max-height 240ms ease ${delayMs}ms`,
+          `max-height 260ms ease ${delayMs}ms`,
           `opacity 200ms ease ${delayMs}ms`,
           `transform 260ms cubic-bezier(0.4, 0, 0.2, 1) ${delayMs}ms`,
-          `margin-top 240ms ease ${delayMs}ms`,
         ].join(', '),
       }}
     >
