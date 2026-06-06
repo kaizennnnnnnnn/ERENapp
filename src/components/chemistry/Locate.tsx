@@ -11,7 +11,7 @@ import { MapPin, Target, Trophy } from 'lucide-react'
 import { elements, type Element } from '@/lib/chemistry/elements'
 import { CATEGORY_COLORS } from '@/lib/chemistry/colors'
 import { useChemistryStore, elementCardId } from '@/lib/chemistry/store'
-import { useChemistryTheme, CHEM_FONT, type Palette } from '@/lib/chemistry/theme'
+import { useChemistryTheme, CHEM_FONT, neoShadow, type Palette } from '@/lib/chemistry/theme'
 import { playSound } from '@/lib/sounds'
 import { shuffle } from '@/lib/chemistry/questions'
 
@@ -205,6 +205,8 @@ export default function Locate({ onExit }: Props) {
       <div style={{
         borderRadius: 22, padding: 22, textAlign: 'center',
         background: palette.grapeLight, color: palette.ink,
+        border: `2px solid ${palette.ink}`,
+        boxShadow: neoShadow(palette.ink, 'lg'),
       }}>
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, color: palette.grapeDark }}>
           FIND ON THE TABLE
@@ -238,15 +240,18 @@ function primaryBtn(palette: Palette): React.CSSProperties {
   return {
     marginTop: 6,
     padding: '10px 22px', borderRadius: 999,
-    border: 'none', background: palette.grapeDark, color: '#FFF',
+    border: `2px solid ${palette.ink}`,
+    boxShadow: neoShadow(palette.ink, 'md'),
+    background: palette.sky, color: palette.ink,
     fontFamily: CHEM_FONT, fontSize: 14, fontWeight: 800, cursor: 'pointer',
   }
 }
 function ghostBtn(palette: Palette): React.CSSProperties {
   return {
-    padding: '8px 18px', borderRadius: 999,
-    border: `2px solid ${palette.fgMuted}`,
-    background: 'transparent', color: palette.fg,
-    fontFamily: CHEM_FONT, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+    padding: '10px 22px', borderRadius: 999,
+    border: `2px solid ${palette.ink}`,
+    boxShadow: neoShadow(palette.ink, 'sm'),
+    background: '#FFFFFF', color: palette.ink,
+    fontFamily: CHEM_FONT, fontSize: 13, fontWeight: 800, cursor: 'pointer',
   }
 }

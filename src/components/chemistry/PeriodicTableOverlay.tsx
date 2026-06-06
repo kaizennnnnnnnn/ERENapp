@@ -15,7 +15,7 @@ import { createPortal } from 'react-dom'
 import { Zap, Flame, X as XIcon, Sun, Moon } from 'lucide-react'
 import { playSound } from '@/lib/sounds'
 import { ChemistryStoreProvider, useChemistryStore } from '@/lib/chemistry/store'
-import { ChemistryThemeProvider, useChemistryTheme, CHEM_FONT, type Palette } from '@/lib/chemistry/theme'
+import { ChemistryThemeProvider, useChemistryTheme, neoShadow, CHEM_FONT, type Palette } from '@/lib/chemistry/theme'
 import PeriodicTable from './PeriodicTable'
 import Flashcards from './Flashcards'
 import Quiz from './Quiz'
@@ -152,14 +152,16 @@ function OverlayInner({ onClose }: Props) {
                     padding: '7px 13px',
                     fontFamily: CHEM_FONT,
                     fontSize: 13,
-                    fontWeight: 600,
+                    fontWeight: 700,
                     whiteSpace: 'nowrap',
                     borderRadius: 999,
-                    border: 'none',
+                    border: active ? `2px solid ${palette.ink}` : '2px solid transparent',
+                    boxShadow: active ? neoShadow(palette.ink, 'sm') : 'none',
                     background: active ? palette.grape : 'transparent',
                     color: active ? palette.ink : palette.fg,
                     scrollSnapAlign: 'start',
                     transition: 'background 120ms ease, color 120ms ease',
+                    cursor: 'pointer',
                   }}
                 >
                   {m.label}
@@ -180,13 +182,13 @@ function OverlayInner({ onClose }: Props) {
         {/* RIGHT — chips + theme + close, restyled soft (no ink border, no offset shadow) */}
         <div className="flex items-center gap-2" style={{ flexShrink: 0 }}>
           {hydrated && dueCount > 0 && (
-            <SoftChip bg={palette.sunLight} text={palette.sunDark}>
+            <SoftChip bg={palette.sunLight} text={palette.sunDark} ink={palette.ink}>
               <Zap size={12} strokeWidth={2.6} />
               {dueCount}
             </SoftChip>
           )}
           {hydrated && state.streak.current > 0 && (
-            <SoftChip bg={palette.grapeLight} text={palette.grapeDark}>
+            <SoftChip bg={palette.grapeLight} text={palette.grapeDark} ink={palette.ink}>
               <Flame size={12} strokeWidth={2.4} />
               {state.streak.current}
             </SoftChip>
@@ -228,8 +230,8 @@ function OverlayInner({ onClose }: Props) {
 // shadow — just a tinted fill + matching dark text colour. Caller picks the
 // (bg, text) pair so we can get sunLight/sunDark for "due", grapeLight/
 // grapeDark for "streak", etc.
-function SoftChip({ bg, text, children }: {
-  bg: string; text: string; children: React.ReactNode
+function SoftChip({ bg, text, ink, children }: {
+  bg: string; text: string; ink: string; children: React.ReactNode
 }) {
   return (
     <span style={{
@@ -244,6 +246,8 @@ function SoftChip({ bg, text, children }: {
       fontWeight: 800,
       whiteSpace: 'nowrap',
       lineHeight: 1,
+      border: `2px solid ${ink}`,
+      boxShadow: neoShadow(ink, 'sm'),
     }}>
       {children}
     </span>
@@ -263,10 +267,12 @@ function ThemeToggle({ theme, onToggle, palette }: {
       style={{
         width: 34, height: 34,
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        background: palette.cardMuted,
+        background: palette.card,
         color: palette.fg,
-        border: 'none',
+        border: `2px solid ${palette.ink}`,
+        boxShadow: neoShadow(palette.ink, 'sm'),
         borderRadius: 999,
+        cursor: 'pointer',
       }}
     >
       {theme === 'light' ? <Moon size={16} strokeWidth={2.4} /> : <Sun size={16} strokeWidth={2.4} />}
@@ -286,10 +292,12 @@ function CloseButton({ onClose, palette }: {
       style={{
         width: 34, height: 34,
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        background: palette.cardMuted,
+        background: palette.card,
         color: palette.fg,
-        border: 'none',
+        border: `2px solid ${palette.ink}`,
+        boxShadow: neoShadow(palette.ink, 'sm'),
         borderRadius: 999,
+        cursor: 'pointer',
       }}
     >
       <XIcon size={16} strokeWidth={2.6} />

@@ -17,7 +17,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useChemistryStore } from '@/lib/chemistry/store'
-import { useChemistryTheme, CHEM_FONT, type Palette } from '@/lib/chemistry/theme'
+import { useChemistryTheme, CHEM_FONT, neoShadow, type Palette } from '@/lib/chemistry/theme'
 import { playSound } from '@/lib/sounds'
 import { dateStr } from '@/lib/chemistry/srs'
 
@@ -118,6 +118,8 @@ export default function HomeDashboard({ palette, onGoto }: Props) {
         padding: 18,
         background: palette.grapeLight,
         overflow: 'hidden',
+        border: `2px solid ${palette.ink}`,
+        boxShadow: neoShadow(palette.ink, 'lg'),
       }}>
         <div aria-hidden style={{
           position: 'absolute', top: -22, right: -22,
@@ -162,13 +164,15 @@ export default function HomeDashboard({ palette, onGoto }: Props) {
               style={{
                 padding: '10px 16px',
                 borderRadius: 999,
-                border: 'none',
-                background: palette.grapeDark,
-                color: '#FFF',
+                border: `2px solid ${palette.ink}`,
+                boxShadow: neoShadow(palette.ink, 'md'),
+                background: palette.sky,
+                color: palette.ink,
                 fontFamily: CHEM_FONT,
                 fontSize: 14, fontWeight: 800,
                 whiteSpace: 'nowrap',
                 display: 'inline-flex', alignItems: 'center', gap: 7,
+                cursor: 'pointer',
               }}
             >
               {hydrated && dueCount > 0 ? (
@@ -190,11 +194,13 @@ export default function HomeDashboard({ palette, onGoto }: Props) {
                 padding: '10px 16px',
                 borderRadius: 999,
                 border: `2px solid ${palette.ink}`,
-                background: 'transparent',
+                boxShadow: neoShadow(palette.ink, 'md'),
+                background: '#FFFFFF',
                 color: palette.ink,
                 fontFamily: CHEM_FONT,
-                fontSize: 14, fontWeight: 700,
+                fontSize: 14, fontWeight: 800,
                 whiteSpace: 'nowrap',
+                cursor: 'pointer',
               }}
             >
               Open table
@@ -224,6 +230,8 @@ export default function HomeDashboard({ palette, onGoto }: Props) {
         display: 'flex',
         gap: 14,
         alignItems: 'center',
+        border: `2px solid ${palette.ink}`,
+        boxShadow: neoShadow(palette.ink, 'lg'),
       }}>
         <ProgressRing value={goalProgress} max={DAILY_GOAL} palette={palette} />
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -277,7 +285,8 @@ export default function HomeDashboard({ palette, onGoto }: Props) {
                 textAlign: 'left',
                 padding: 14,
                 borderRadius: 18,
-                border: 'none',
+                border: `2px solid ${palette.ink}`,
+                boxShadow: neoShadow(palette.ink, 'md'),
                 background: t.bg,
                 color: palette.ink,
                 fontFamily: CHEM_FONT,
@@ -291,7 +300,9 @@ export default function HomeDashboard({ palette, onGoto }: Props) {
               <div style={{
                 width: 34, height: 34,
                 borderRadius: 10,
-                background: 'rgba(255,255,255,0.6)',
+                background: 'rgba(255,255,255,0.7)',
+                border: `2px solid ${palette.ink}`,
+                boxShadow: neoShadow(palette.ink, 'sm'),
                 display: 'inline-flex',
                 alignItems: 'center', justifyContent: 'center',
                 color: palette.grapeDark,

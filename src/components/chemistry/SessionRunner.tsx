@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, X, Flame, CheckCircle2, Target } from 'lucide-react'
 import { useChemistryStore, elementCardId } from '@/lib/chemistry/store'
-import { useChemistryTheme, CHEM_FONT, type Palette } from '@/lib/chemistry/theme'
+import { useChemistryTheme, CHEM_FONT, neoShadow, type Palette } from '@/lib/chemistry/theme'
 import { useChemistryMissions } from '@/lib/chemistry/missions'
 import { playSound } from '@/lib/sounds'
 import { makeQuestion, type Question } from '@/lib/chemistry/questions'
@@ -195,6 +195,8 @@ export default function SessionRunner({
         borderRadius: 22, padding: 22,
         background: palette.grapeLight,
         color: palette.ink,
+        border: `2px solid ${palette.ink}`,
+        boxShadow: neoShadow(palette.ink, 'lg'),
       }}>
         <div style={{
           fontSize: 11, fontWeight: 700, letterSpacing: 0.4,
@@ -241,7 +243,8 @@ export default function SessionRunner({
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '14px 14px',
                 borderRadius: 16,
-                border: 'none',
+                border: `2px solid ${palette.ink}`,
+                boxShadow: phase === 'feedback' ? 'none' : neoShadow(palette.ink, 'sm'),
                 background: bg,
                 color: reveal ? fg : palette.fg,
                 textAlign: 'left',
@@ -258,6 +261,7 @@ export default function SessionRunner({
                 display: 'inline-flex',
                 alignItems: 'center', justifyContent: 'center',
                 background: palette.sun, color: palette.ink,
+                border: `2px solid ${palette.ink}`,
                 fontSize: 13, fontWeight: 900,
               }}>
                 {i + 1}
@@ -282,6 +286,8 @@ export default function SessionRunner({
               color: palette.ink,
               fontSize: 13, fontWeight: 700,
               display: 'flex', alignItems: 'center', gap: 8,
+              border: `2px solid ${palette.ink}`,
+              boxShadow: neoShadow(palette.ink, 'sm'),
             }}>
               {correct ? (
                 <>
@@ -301,9 +307,10 @@ export default function SessionRunner({
               style={{
                 padding: '12px 16px',
                 borderRadius: 999,
-                border: 'none',
-                background: palette.grapeDark,
-                color: '#FFF',
+                border: `2px solid ${palette.ink}`,
+                boxShadow: neoShadow(palette.ink, 'md'),
+                background: palette.sky,
+                color: palette.ink,
                 fontFamily: CHEM_FONT,
                 fontSize: 15, fontWeight: 800,
                 cursor: 'pointer',
@@ -344,7 +351,9 @@ function Empty({ palette, title, body, onPrimary, primaryLabel }: {
         style={{
           marginTop: 6,
           padding: '10px 18px', borderRadius: 999,
-          border: 'none', background: palette.grapeDark, color: '#FFF',
+          border: `2px solid ${palette.ink}`,
+          boxShadow: neoShadow(palette.ink, 'md'),
+          background: palette.sky, color: palette.ink,
           fontFamily: CHEM_FONT, fontSize: 14, fontWeight: 800,
           cursor: 'pointer',
         }}
@@ -375,6 +384,8 @@ function DoneCard({ palette, title, pct, correctCount, total, missed, onRetry, o
         borderRadius: 24, padding: 22,
         background: palette.grapeLight, color: palette.ink,
         textAlign: 'center',
+        border: `2px solid ${palette.ink}`,
+        boxShadow: neoShadow(palette.ink, 'lg'),
       }}>
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, color: palette.grapeDark }}>
           {title.toUpperCase()} COMPLETE
@@ -397,8 +408,10 @@ function DoneCard({ palette, title, pct, correctCount, total, missed, onRetry, o
         )}
         <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
           <button onClick={onRetry} type="button" style={{
-            padding: '10px 16px', borderRadius: 999, border: 'none',
-            background: palette.grapeDark, color: '#FFF',
+            padding: '10px 16px', borderRadius: 999,
+            border: `2px solid ${palette.ink}`,
+            boxShadow: neoShadow(palette.ink, 'md'),
+            background: palette.sky, color: palette.ink,
             fontFamily: CHEM_FONT, fontSize: 14, fontWeight: 800,
             cursor: 'pointer',
           }}>
@@ -407,8 +420,9 @@ function DoneCard({ palette, title, pct, correctCount, total, missed, onRetry, o
           <button onClick={onExit} type="button" style={{
             padding: '10px 16px', borderRadius: 999,
             border: `2px solid ${palette.ink}`,
-            background: 'transparent', color: palette.ink,
-            fontFamily: CHEM_FONT, fontSize: 14, fontWeight: 700,
+            boxShadow: neoShadow(palette.ink, 'md'),
+            background: '#FFFFFF', color: palette.ink,
+            fontFamily: CHEM_FONT, fontSize: 14, fontWeight: 800,
             cursor: 'pointer',
           }}>
             Done
@@ -420,6 +434,8 @@ function DoneCard({ palette, title, pct, correctCount, total, missed, onRetry, o
         <div style={{
           borderRadius: 18, padding: 14,
           background: palette.card, color: palette.fg,
+          border: `2px solid ${palette.ink}`,
+          boxShadow: neoShadow(palette.ink, 'md'),
         }}>
           <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>
             Missed

@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Zap, Timer as TimerIcon, Trophy } from 'lucide-react'
 import { useChemistryStore, elementCardId } from '@/lib/chemistry/store'
-import { useChemistryTheme, CHEM_FONT, type Palette } from '@/lib/chemistry/theme'
+import { useChemistryTheme, CHEM_FONT, neoShadow, type Palette } from '@/lib/chemistry/theme'
 import { playSound } from '@/lib/sounds'
 import { speedPool, makeQuestion, type Question } from '@/lib/chemistry/questions'
 
@@ -199,6 +199,8 @@ export default function Speed({ onExit }: Props) {
                   : flash === 'no' ? palette.redLight
                   :                  palette.grapeLight,
         color: palette.ink,
+        border: `2px solid ${palette.ink}`,
+        boxShadow: neoShadow(palette.ink, 'lg'),
         transition: 'background 120ms ease',
       }}>
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, color: palette.grapeDark }}>
@@ -218,7 +220,9 @@ export default function Speed({ onExit }: Props) {
             style={{
               display: 'flex', alignItems: 'center', gap: 12,
               padding: '14px 14px',
-              borderRadius: 16, border: 'none',
+              borderRadius: 16,
+              border: `2px solid ${palette.ink}`,
+              boxShadow: neoShadow(palette.ink, 'sm'),
               background: palette.card, color: palette.fg,
               textAlign: 'left', fontFamily: CHEM_FONT,
               fontSize: 16, fontWeight: 700, cursor: 'pointer',
@@ -229,6 +233,7 @@ export default function Speed({ onExit }: Props) {
               width: 26, height: 26, borderRadius: 999,
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               background: palette.sun, color: palette.ink,
+              border: `2px solid ${palette.ink}`,
               fontSize: 13, fontWeight: 900,
             }}>{i + 1}</span>
             <span>{opt}</span>
@@ -255,15 +260,18 @@ function primaryBtn(palette: Palette): React.CSSProperties {
   return {
     marginTop: 6,
     padding: '10px 22px', borderRadius: 999,
-    border: 'none', background: palette.grapeDark, color: '#FFF',
+    border: `2px solid ${palette.ink}`,
+    boxShadow: neoShadow(palette.ink, 'md'),
+    background: palette.sky, color: palette.ink,
     fontFamily: CHEM_FONT, fontSize: 14, fontWeight: 800, cursor: 'pointer',
   }
 }
 function ghostBtn(palette: Palette): React.CSSProperties {
   return {
-    padding: '8px 18px', borderRadius: 999,
-    border: `2px solid ${palette.fgMuted}`,
-    background: 'transparent', color: palette.fg,
-    fontFamily: CHEM_FONT, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+    padding: '10px 22px', borderRadius: 999,
+    border: `2px solid ${palette.ink}`,
+    boxShadow: neoShadow(palette.ink, 'sm'),
+    background: '#FFFFFF', color: palette.ink,
+    fontFamily: CHEM_FONT, fontSize: 13, fontWeight: 800, cursor: 'pointer',
   }
 }
