@@ -239,10 +239,10 @@ export default function WashScene({ onClose }: Props) {
                 measured to this sprite's eye centers (≈37.3% / 51.3% across)
                 so the blink + glint land dead-center on each eye. */}
             <BlinkingEren size={200} src="/ErenBathroomHat.png" eyes={{
-              lidTop:    '36%',
+              lidTop:    '34.5%',
               lidLeftA:  '33.8%',
               lidLeftB:  '47.8%',
-              maskTop:   '36.3%',
+              maskTop:   '34.8%',
               maskLeftA: '34.5%',
               maskLeftB: '48.5%',
             }} />
