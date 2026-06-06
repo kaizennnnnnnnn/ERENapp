@@ -60,18 +60,19 @@ const CAKE_EYES = {
 }
 
 // Picture native size — the stage keeps this aspect so Eren lines up with it.
-const IMG_W = 940
+const IMG_W = 941
 const IMG_H = 1672
-// Clip exactly where the wooden counter top begins (the pink wainscoting ends
-// ~60.5% down) — measured off the picture — so Eren's body meets the counter
-// edge with no floating gap and reads as standing BEHIND it.
-const COUNTER_PCT = 60.5
+// Clip exactly where the wooden counter top's back edge begins — measured off
+// the picture, the peachy wall gives way to saturated wood at ~58.5% down — so
+// Eren's body meets the counter edge with no floating gap and reads as standing
+// BEHIND it.
+const COUNTER_PCT = 58.5
 // Eren's box, in vw so he scales with the full-width picture stage.
 const EREN_VW = 54
-// Show his top ~62% (head + chest + paws = half of him) above the counter.
-// Raising this lifts his head while the cut stays at the counter, so he shows
-// more of himself without floating off the counter edge.
-const EREN_SHOW = 0.62
+// Show his top ~70% (head + full chest + a paw) above the counter so he sits
+// up behind it rather than looking sunk into it. Raising this lifts him while
+// the cut stays at the counter, so he shows more without floating off the edge.
+const EREN_SHOW = 0.70
 const EREN_BOTTOM = `${-(1 - EREN_SHOW) * EREN_VW}vw`
 
 export default function BakeryPage() {
