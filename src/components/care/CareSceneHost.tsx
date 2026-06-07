@@ -57,6 +57,21 @@ const SCENE_IMAGES_DARK: Partial<Record<CareScene, string>> = {
   school:    '/schoolBACK.png',
 }
 
+// The Eren sprite each scene actually paints. Themed scenes use their own
+// PNG (kitchen → ErenCook, vet → ErenVet, …); rooms that still use the
+// universal sprite list `/erenGood.png`. Preloading these alongside the
+// background prevents the half-second pop-in when the scene mounts and
+// the <img> fetches fresh from network.
+const SCENE_EREN_SPRITES: Partial<Record<CareScene, string[]>> = {
+  feed:      ['/ErenCook_notail.png',         '/ErenCook_tail.png'],
+  play:      ['/ErenBell_notail.png',         '/ErenBell_tail.png'],
+  sleep:     ['/erenSleep_notail.png',        '/erenSleep_tail.png'],
+  wash:      ['/ErenBathroomHat_notail.png',  '/ErenBathroomHat_tail.png'],
+  chemistry: ['/ErenLab_notail.png',          '/ErenLab_tail.png'],
+  vet:       ['/ErenVet.png'],
+  school:    [],
+}
+
 export default function CareSceneHost() {
   const { activeScene, openScene, closeScene } = useCare()
   const isDark = useIsDark()
@@ -105,7 +120,8 @@ export default function CareSceneHost() {
   useEffect(() => {
     if (!activeScene) return
     const bgSrc = (isDark ? SCENE_IMAGES_DARK : SCENE_IMAGES_DAY)[activeScene]
-    const toLoad = ['/erenGood.png', ...(bgSrc ? [bgSrc] : [])]
+    const sprites = SCENE_EREN_SPRITES[activeScene] ?? ['/erenGood.png']
+    const toLoad = [...sprites, ...(bgSrc ? [bgSrc] : [])]
     const isFirstEntry = prevSceneRef.current === null
     let cancelled = false
 
