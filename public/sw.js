@@ -2,7 +2,7 @@
 // Bump this string whenever you change badge/icon assets so the browser is
 // guaranteed to detect a byte difference and replace any old SW running on
 // the user's installed PWA. Pairs with no-store headers on /sw.js.
-const SW_VERSION = 'v22-erenvet-ear-spot-2026-06-07'
+const SW_VERSION = 'v23-erenvet-tail-split-2026-06-07'
 
 // Room backgrounds + Eren sprite. We precache these on install so the user
 // can scroll between rooms with no internet without seeing the room render
@@ -11,7 +11,7 @@ const SW_VERSION = 'v22-erenvet-ear-spot-2026-06-07'
 // 404s and you see Eren floating in space).
 const IMAGE_CACHE = `eren-images-${SW_VERSION}`
 const PRECACHE_IMAGES = [
-  '/erenGood.png',   '/erenSleep.png',  '/ErenCook.png',  '/ErenBathroomHat.png',  '/ErenCakeShop.png',  '/ErenBell.png',  '/ErenVet.png',
+  '/erenGood.png',   '/erenSleep.png',  '/ErenCook.png',  '/ErenBathroomHat.png',  '/ErenCakeShop.png',  '/ErenBell.png',  '/ErenVet.png',  '/ErenVet_notail.png',  '/ErenVet_tail.png',
   '/livingRoom.png', '/HomePage.png',
   '/kitchen.png',    '/KitchenDark.png',
   '/playroom.png',   '/play.png',

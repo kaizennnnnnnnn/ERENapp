@@ -68,7 +68,7 @@ const SCENE_EREN_SPRITES: Partial<Record<CareScene, string[]>> = {
   sleep:     ['/erenSleep_notail.png',        '/erenSleep_tail.png'],
   wash:      ['/ErenBathroomHat_notail.png',  '/ErenBathroomHat_tail.png'],
   chemistry: ['/ErenLab_notail.png',          '/ErenLab_tail.png'],
-  vet:       ['/ErenVet.png'],
+  vet:       ['/ErenVet_notail.png',          '/ErenVet_tail.png'],
   school:    [],
 }
 

@@ -108,7 +108,7 @@ export default function VetScene({ onClose }: Props) {
         <div className={cn('absolute z-10 transition-all duration-500', checkDone ? 'bottom-[6%]' : 'bottom-[4%]')}
           style={{ left: '50%', transform: 'translateX(-50%)' }}>
           <ErenIdleLayer>
-            <BlinkingEren size={200} src="/ErenVet.png" eyes={VET_EYES} />
+            <BlinkingEren size={200} src="/ErenVet_notail.png" tailSrc="/ErenVet_tail.png" tailOrigin="71.6% 71.7%" eyes={VET_EYES} />
             <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
           </ErenIdleLayer>
         </div>
