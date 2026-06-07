@@ -74,9 +74,9 @@ const EREN_VW = 48
 // line. Raising this lifts him while the cut stays at the counter, so he
 // shows more without floating off the edge.
 const EREN_SHOW = 0.62
-// +1px nudges him a single pixel up off the counter line so his paws don't
+// +2px nudges him a couple pixels up off the counter line so his paws don't
 // sit perfectly flush against the wood seam.
-const EREN_BOTTOM = `calc(${-(1 - EREN_SHOW) * EREN_VW}vw + 1px)`
+const EREN_BOTTOM = `calc(${-(1 - EREN_SHOW) * EREN_VW}vw + 2px)`
 
 export default function BakeryPage() {
   const router = useRouter()
