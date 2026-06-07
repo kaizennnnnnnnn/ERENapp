@@ -276,16 +276,19 @@
 /* Lazy tail sway — on the home page Eren's tail is split into its own layer
    (erenGood_tail.png) over a tail-erased body (erenGood_notail.png). It's a
    PURE rotation about the tail ROOT at the hip (transform-origin set in
-   BlinkingEren): the base stays put and only the free tip up top flicks gently
-   outward (positive = away from the body) and back. No translate — translating
-   would drag the base sideways. The small gap that a pure rotation would open
-   at the base on the outward swing is pre-filled in erenGood_tail.png (extra
-   inner-base pixels tucked behind the body that bridge the gap as it swings),
-   so the base reads as connected without moving. ease-in-out smooths it. */
+   BlinkingEren): the base stays put and only the free tip up top flicks. No
+   translate — translating would drag the base sideways.
+   The swing is INWARD only (negative = tip toward the body). Swinging the tip
+   OUT (positive) rotates the curl away from the body and opens a gap at the
+   hip — "barely connected". Swinging IN tucks the curl toward the body, so the
+   connection only ever tightens and always reads as attached. The tip rests
+   out to the right, so an inward sway still reads as a right→left wiggle.
+   (erenGood_tail.png also keeps hidden filler at the inner base as insurance.)
+   ease-in-out smooths it. */
 @keyframes erenTailWiggle {
-  0%, 100% { transform: rotate(-2deg); }
-  40%      { transform: rotate(8deg);  }
-  70%      { transform: rotate(2deg);  }
+  0%, 100% { transform: rotate(0deg);  }
+  40%      { transform: rotate(-8deg); }
+  70%      { transform: rotate(-2deg); }
 }
 
 /* HUD gradient number — the gradient (set via --clip-grad) is clipped to the
