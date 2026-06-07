@@ -273,6 +273,16 @@
   55%      { transform: translate(0.2px, 0.35px)  scale(0.85); opacity: 0.78; }
   80%      { transform: translate(-0.3px, 0.15px) scale(1.12); opacity: 1;    }
 }
+/* Lazy tail sway — on the home page Eren's tail is split into its own layer
+   (erenGood_tail.png) over a tail-erased body (erenGood_notail.png). The layer
+   pivots at the tail root (transform-origin set in BlinkingEren) so the tip
+   swings gently side to side like a relaxed cat. Kept to a few degrees so it
+   reads as an idle wiggle, not a wag. ease-in-out per segment smooths it. */
+@keyframes erenTailWiggle {
+  0%, 100% { transform: rotate(-4deg); }
+  35%      { transform: rotate(7deg);  }
+  68%      { transform: rotate(-1deg); }
+}
 
 /* HUD gradient number — the gradient (set via --clip-grad) is clipped to the
    glyph shapes. When a browser can't clip text, this rule is skipped and the

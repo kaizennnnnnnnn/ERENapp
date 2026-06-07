@@ -86,6 +86,17 @@ interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   // chemistry sprite passes a cool blue-white so the shine looks like a
   // reflection on the blue goggle glass.
   glintBackground?: string
+  // Optional separate tail layer for a lazy tail sway. When set, this image is
+  // drawn BEHIND the main sprite and rotated by the erenTailWiggle keyframe so
+  // only the tail moves. Pair it with a tail-erased body in `src` — the home
+  // page uses src=/erenGood_notail.png + tailSrc=/erenGood_tail.png — so the
+  // baked-in tail doesn't ghost statically under the moving one.
+  tailSrc?: string
+  // transform-origin for the tail layer = the tail's root, in BOX coordinates.
+  // The box is square so a portrait sprite is letterboxed; this is converted
+  // from image coords accordingly. Default is tuned to erenGood_tail.png
+  // (root at image 721/848, 584/1264 → 73.5% / 46.2% of the square box).
+  tailOrigin?: string
 }
 
 export default function BlinkingEren({
@@ -99,6 +110,8 @@ export default function BlinkingEren({
   eyes: eyesOverride,
   lidColor = '#6B6B6B',
   glintBackground = DEFAULT_GLINT,
+  tailSrc,
+  tailOrigin = '73.5% 46.2%',
   ...imgProps
 }: Props) {
   const isDark = useIsDark()
@@ -161,9 +174,27 @@ export default function BlinkingEren({
         backfaceVisibility: 'hidden',
         animation: breathe ? 'erenBreathe 4s ease-in-out infinite' : undefined,
       }}>
+        {/* Tail layer — drawn first (so it sits BEHIND the body) and rotated
+            about the tail root so the tip sways. Both layers are absolute and
+            paint in DOM order: tail → body → eyes. */}
+        {tailSrc && (
+          <img src={tailSrc} alt="" aria-hidden="true" draggable={false}
+            style={{
+              position: 'absolute', inset: 0,
+              width: '100%', height: '100%',
+              objectFit: 'contain',
+              imageRendering: 'pixelated',
+              transformOrigin: tailOrigin,
+              willChange: 'transform',
+              backfaceVisibility: 'hidden',
+              animation: 'erenTailWiggle 3.4s ease-in-out infinite',
+              pointerEvents: 'none',
+            }} />
+        )}
         <img src={src} alt={alt} draggable={false}
           {...imgProps}
           style={{
+            position: 'absolute', inset: 0,
             width: '100%', height: '100%',
             objectFit: 'contain',
             imageRendering: 'pixelated',

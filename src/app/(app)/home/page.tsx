@@ -392,7 +392,7 @@ export default function HomePage() {
   useLayoutEffect(() => { setRoomReady(false) }, [])
   useEffect(() => {
     const bg = isDark ? '/HomePage.png' : '/livingRoom.png'
-    const srcs = [bg, '/erenGood.png']
+    const srcs = [bg, '/erenGood_notail.png', '/erenGood_tail.png']
     let cancelled = false
     setRoomReady(false)
     Promise.all(srcs.map(src => {
@@ -601,7 +601,11 @@ export default function HomePage() {
                 }}
               >
                 <ErenIdleLayer>
-                  <BlinkingEren id="eren-img" size={200} />
+                  {/* Tail split into its own layer (erenGood_tail.png) over a
+                      tail-erased body so only the tail sways. See BlinkingEren. */}
+                  <BlinkingEren id="eren-img" size={200}
+                    src="/erenGood_notail.png"
+                    tailSrc="/erenGood_tail.png" />
                   <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
 
                   {/* Outfit overlays — % positions are relative to the parent
