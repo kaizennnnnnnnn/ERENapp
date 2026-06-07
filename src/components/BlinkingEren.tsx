@@ -94,8 +94,10 @@ interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   tailSrc?: string
   // transform-origin for the tail layer = the tail's root, in BOX coordinates.
   // The box is square so a portrait sprite is letterboxed; this is converted
-  // from image coords accordingly. Default is tuned to erenGood_tail.png
-  // (root at image 721/848, 584/1264 → 73.5% / 46.2% of the square box).
+  // from image coords accordingly. Default is tuned to erenGood_tail.png: the
+  // root is at the BOTTOM where the tail meets the hip (image ~659/1005), not
+  // the thin tip up top — so the base stays glued and the tip swings. In box
+  // coords that's 68.6% / 79.5% of the square box.
   tailOrigin?: string
 }
 
@@ -111,7 +113,7 @@ export default function BlinkingEren({
   lidColor = '#6B6B6B',
   glintBackground = DEFAULT_GLINT,
   tailSrc,
-  tailOrigin = '73.5% 46.2%',
+  tailOrigin = '68.6% 79.5%',
   ...imgProps
 }: Props) {
   const isDark = useIsDark()

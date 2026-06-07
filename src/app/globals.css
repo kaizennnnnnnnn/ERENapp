@@ -275,13 +275,14 @@
 }
 /* Lazy tail sway — on the home page Eren's tail is split into its own layer
    (erenGood_tail.png) over a tail-erased body (erenGood_notail.png). The layer
-   pivots at the tail root (transform-origin set in BlinkingEren) so the tip
-   swings gently side to side like a relaxed cat. Kept to a few degrees so it
-   reads as an idle wiggle, not a wag. ease-in-out per segment smooths it. */
+   pivots at the tail ROOT where it meets the body at the hip (transform-origin
+   set in BlinkingEren) so the base stays glued and the free tip up top flicks
+   gently outward (positive = away from the body) and back. Kept to a few
+   degrees so it reads as an idle wiggle, not a wag. ease-in-out smooths it. */
 @keyframes erenTailWiggle {
-  0%, 100% { transform: rotate(-4deg); }
-  35%      { transform: rotate(7deg);  }
-  68%      { transform: rotate(-1deg); }
+  0%, 100% { transform: rotate(-2deg); }
+  40%      { transform: rotate(8deg);  }
+  70%      { transform: rotate(2deg);  }
 }
 
 /* HUD gradient number — the gradient (set via --clip-grad) is clipped to the
