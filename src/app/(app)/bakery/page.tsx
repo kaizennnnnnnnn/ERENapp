@@ -197,7 +197,7 @@ export default function BakeryPage() {
             style={{ height: `${COUNTER_PCT}%`, zIndex: 10 }}>
             <div className="absolute left-1/2" style={{ bottom: EREN_BOTTOM, transform: 'translateX(-50%)' }}>
               <ErenIdleLayer>
-                <BlinkingEren size={`${EREN_VW}vw`} src="/ErenCakeShop.png" eyes={CAKE_EYES} />
+                <BlinkingEren size={`${EREN_VW}vw`} src="/ErenCakeShop_notail.png" tailSrc="/ErenCakeShop_tail.png" tailOrigin="72.6% 79.9%" eyes={CAKE_EYES} />
               </ErenIdleLayer>
             </div>
           </div>
