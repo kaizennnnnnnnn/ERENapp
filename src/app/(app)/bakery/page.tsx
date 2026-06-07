@@ -63,6 +63,12 @@ const CAKE_EYES = {
 // Picture native size — the stage keeps this aspect so Eren lines up with it.
 const IMG_W = 941
 const IMG_H = 1672
+// Height of the empty band ABOVE (and identically BELOW) the picture, in CSS.
+// The picture is width-constrained on phones, so its rendered height is
+// `100vw * IMG_H/IMG_W`. The viewport leftover splits evenly top + bottom.
+// When the picture is height-constrained (very wide screens), the bands are
+// clamped to 0 and left/right empty space gets the blurred fill instead.
+const BAND_H = `max(0px, calc((100dvh - 100vw * ${IMG_H} / ${IMG_W}) / 2))`
 // Clip exactly where the wooden counter top's back edge begins — measured off
 // the picture, the peachy wall gives way to saturated wood at ~58.5% down — so
 // Eren's body meets the counter edge with no floating gap and reads as standing
@@ -133,6 +139,49 @@ export default function BakeryPage() {
         userSelect: 'none',
         pointerEvents: 'none',
       }} />
+
+      {/* ══ TOP WOOD BEAM ══ a wooden ceiling beam that fills the empty band
+          above the picture so the screen reads as a framed shop diorama
+          instead of "image with brown gradient bars". Height is the exact
+          letterbox band, computed from the picture aspect ratio. */}
+      <div className="absolute top-0 inset-x-0 z-[15] pointer-events-none overflow-hidden" style={{
+        height: BAND_H,
+        background: 'linear-gradient(180deg, #1F0F06 0%, #3A1F0E 25%, #2D1608 65%, #1A0B06 100%)',
+        borderBottom: '3px solid #0A0502',
+        boxShadow: '0 4px 8px rgba(0,0,0,0.55), inset 0 -3px 6px rgba(0,0,0,0.4)',
+      }}>
+        {/* Plank seams — vertical dark lines every ~28vw so the beam reads as
+            individual planks instead of one slab. */}
+        <div className="absolute inset-0" style={{
+          background:
+            'repeating-linear-gradient(90deg, transparent 0, transparent 28vw, rgba(0,0,0,0.55) 28vw, rgba(0,0,0,0.55) calc(28vw + 2px))',
+        }} />
+        {/* Subtle horizontal wood grain */}
+        <div className="absolute inset-0" style={{
+          background:
+            'repeating-linear-gradient(180deg, transparent 0, transparent 6px, rgba(255,180,120,0.05) 6px, rgba(255,180,120,0.05) 7px)',
+        }} />
+      </div>
+
+      {/* ══ BOTTOM TILE FLOOR ══ pink + cream checker that fills the empty
+          band below the picture. The painted floor inside the shop ends at
+          the picture's bottom edge; this strip carries it down to the
+          viewport edge so the ORDER button sits on tile, not on blur. */}
+      <div className="absolute bottom-0 inset-x-0 z-[15] pointer-events-none overflow-hidden" style={{
+        height: BAND_H,
+        borderTop: '3px solid #2E1404',
+        backgroundColor: '#F4D6CC',
+        backgroundImage:
+          'conic-gradient(#C97D7D 90deg, #F4D6CC 0 180deg, #C97D7D 0 270deg, #F4D6CC 0)',
+        backgroundSize: '28px 28px',
+        boxShadow: '0 -4px 8px rgba(0,0,0,0.4), inset 0 3px 6px rgba(0,0,0,0.3)',
+      }}>
+        {/* Soft top/bottom vignette so the tile edges feel grounded. */}
+        <div className="absolute inset-0" style={{
+          background:
+            'linear-gradient(180deg, rgba(0,0,0,0.3) 0%, transparent 25%, transparent 75%, rgba(0,0,0,0.18) 100%)',
+        }} />
+      </div>
 
       {/* ══ STAGE ══ the whole picture, fit to width and centered. Eren lives
           inside it so he always lines up with the painted counter. */}
