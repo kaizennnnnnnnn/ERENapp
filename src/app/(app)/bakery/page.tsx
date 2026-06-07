@@ -69,11 +69,11 @@ const IMG_H = 1672
 // BEHIND it.
 const COUNTER_PCT = 58.5
 // Eren's box, in vw so he scales with the full-width picture stage.
-const EREN_VW = 54
-// Show his top ~70% (head + full chest + a paw) above the counter so he sits
-// up behind it rather than looking sunk into it. Raising this lifts him while
-// the cut stays at the counter, so he shows more without floating off the edge.
-const EREN_SHOW = 0.70
+const EREN_VW = 48
+// Show his top ~62% (head + chest + paws on the counter) above the counter
+// line. Raising this lifts him while the cut stays at the counter, so he
+// shows more without floating off the edge.
+const EREN_SHOW = 0.62
 const EREN_BOTTOM = `${-(1 - EREN_SHOW) * EREN_VW}vw`
 
 export default function BakeryPage() {
