@@ -21,6 +21,32 @@ import { wishHintRoom } from '@/lib/wishes'
 interface Props { onClose: () => void }
 interface BallPos { x: number; y: number }
 
+// ErenBell.png pose: jingle-bell collar, blue irises, MIRRORED catchlights.
+// Pixel-scan of the 1029×1532 sprite translated to the 200×200 BlinkingEren
+// container (portrait, so height-fit → sprite scale 0.13055, sprite x offset
+// ~32.8px on each side).
+//   eye A (cat's RIGHT eye, viewer LEFT)  — catchlight in upper-RIGHT of iris
+//   eye B (cat's LEFT  eye, viewer RIGHT) — catchlight in upper-LEFT  of iris
+// catContentMidpointX = 58.9% (NOT 50%) — the bbox is pulled right by the bell
+// ribbon hanging at the cat's chin, which is already accounted for in the
+// per-eye image-% coords.
+const BELL_EYES = {
+  lidTop:     '32.93%',
+  lidWidth:   '5.51%',
+  lidLeftA:   '41.74%',
+  lidLeftB:   '56.00%',
+  maskTop:    '32.93%',
+  maskLeftA:  '41.74%',
+  maskLeftB:  '56.00%',
+  maskW:      '5.51%',
+  maskH:      '4.50%',
+  glintLeftA: '60.24%',
+  glintTopA:  '0%',
+  glintLeftB: '19.52%',
+  glintTopB:  '0%',
+  glintW:     '20%',
+}
+
 export default function PlayScene({ onClose }: Props) {
   const router = useRouter()
   const { user, profile } = useAuth()
@@ -112,7 +138,7 @@ export default function PlayScene({ onClose }: Props) {
         <div className={cn('absolute z-10 transition-all duration-500')}
           style={{ bottom: '10%', left: '50%', transform: `translateX(-50%) scaleX(${lookDir === 'left' ? -1 : 1})` }}>
           <ErenIdleLayer>
-            <BlinkingEren size={200} />
+            <BlinkingEren size={200} src="/ErenBell.png" eyes={BELL_EYES} />
             <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
           </ErenIdleLayer>
         </div>
