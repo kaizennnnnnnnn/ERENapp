@@ -6,7 +6,7 @@
 // collapsed (scaleY 0) most of the time and briefly drop down (scaleY 1)
 // every 5 s for a natural-looking blink.
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useIsDark } from '@/hooks/useIsDark'
 
 // Eye-overlay coordinates, all expressed as percentages of the sprite
@@ -120,6 +120,24 @@ export default function BlinkingEren({
 }: Props) {
   const isDark = useIsDark()
   const eyes: EyeLayout = { ...DEFAULT_EYES, ...eyesOverride }
+  // Hold the sprite hidden until BOTH the body and the (optional) tail layer
+  // have decoded, then reveal them together. They're separate <img>s, so on a
+  // fresh paint (e.g. swiping into a room) the smaller tail can decode and
+  // paint a frame before the body — making the tail flash in on its own. The
+  // decode() preload (same trick the home loader uses) guarantees both are
+  // ready before we flip the wrapper visible.
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    setReady(false)
+    const list = tailSrc ? [src, tailSrc] : [src]
+    Promise.all(list.map(s => {
+      const im = new window.Image()
+      im.src = s
+      return im.decode().catch(() => new Promise<void>(res => { im.onload = im.onerror = () => res() }))
+    })).then(() => { if (!cancelled) setReady(true) })
+    return () => { cancelled = true }
+  }, [src, tailSrc])
   // Drop brightness and a touch of saturation at night so the sprite
   // doesn't look weirdly lit-up against the dark room backgrounds.
   // Applied to the wrapper so the eyelid overlays darken in lockstep.
@@ -177,6 +195,8 @@ export default function BlinkingEren({
         willChange: breathe ? 'transform' : undefined,
         backfaceVisibility: 'hidden',
         animation: breathe ? 'erenBreathe 4s ease-in-out infinite' : undefined,
+        // Reveal body + tail together once both have decoded (see `ready`).
+        visibility: ready ? undefined : 'hidden',
       }}>
         {/* Tail layer — drawn first (so it sits BEHIND the body) and rotated
             about the tail root so the tip sways. Both layers are absolute and
