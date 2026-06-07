@@ -74,7 +74,11 @@ const BAND_H = `max(0px, calc((100dvh - 100vw * ${IMG_H} / ${IMG_W}) / 2))`
 // Eren's body meets the counter edge with no floating gap and reads as standing
 // BEHIND it.
 const COUNTER_PCT = 58.5
-// Eren's box, in vw so he scales with the full-width picture stage.
+// Eren's box, sized in cqi (container-query inline-size = % of the PICTURE's
+// width, see the `.pic` container) so he always tracks the picture and stays
+// glued to the counter. vw broke this: on a short/wide viewport the picture
+// becomes height-constrained (narrower than the screen), but vw is screen-
+// relative, so Eren ballooned oversized and slid off the counter.
 const EREN_VW = 48
 // Show his top ~62% (head + chest + paws on the counter) above the counter
 // line. Raising this lifts him while the cut stays at the counter, so he
@@ -82,7 +86,7 @@ const EREN_VW = 48
 const EREN_SHOW = 0.62
 // +2px nudges him a couple pixels up off the counter line so his paws don't
 // sit perfectly flush against the wood seam.
-const EREN_BOTTOM = `calc(${-(1 - EREN_SHOW) * EREN_VW}vw + 2px)`
+const EREN_BOTTOM = `calc(${-(1 - EREN_SHOW) * EREN_VW}cqi + 2px)`
 
 export default function BakeryPage() {
   const router = useRouter()
@@ -186,7 +190,7 @@ export default function BakeryPage() {
       {/* ══ STAGE ══ the whole picture, fit to width and centered. Eren lives
           inside it so he always lines up with the painted counter. */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="relative" style={{ width: '100%', aspectRatio: `${IMG_W} / ${IMG_H}`, maxHeight: '100%' }}>
+        <div className="relative" style={{ width: '100%', aspectRatio: `${IMG_W} / ${IMG_H}`, maxHeight: '100%', containerType: 'inline-size' }}>
           <img src={shopSrc} alt="" draggable={false}
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'fill', WebkitUserSelect: 'none', userSelect: 'none' }} />
 
@@ -197,7 +201,7 @@ export default function BakeryPage() {
             style={{ height: `${COUNTER_PCT}%`, zIndex: 10 }}>
             <div className="absolute left-1/2" style={{ bottom: EREN_BOTTOM, transform: 'translateX(-50%)' }}>
               <ErenIdleLayer>
-                <BlinkingEren size={`${EREN_VW}vw`} src="/ErenCakeShop.png" eyes={CAKE_EYES} />
+                <BlinkingEren size={`${EREN_VW}cqi`} src="/ErenCakeShop.png" eyes={CAKE_EYES} />
               </ErenIdleLayer>
             </div>
           </div>
