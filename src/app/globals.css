@@ -277,12 +277,16 @@
    (erenGood_tail.png) over a tail-erased body (erenGood_notail.png). The layer
    pivots at the tail ROOT where it meets the body at the hip (transform-origin
    set in BlinkingEren) so the base stays glued and the free tip up top flicks
-   gently outward (positive = away from the body) and back. Kept to a few
-   degrees so it reads as an idle wiggle, not a wag. ease-in-out smooths it. */
+   gently outward (positive = away from the body) and back.
+   The translateX rides WITH the rotation: rotating the tip outward pulls the
+   base a little off the body, so we pull the layer in by the matching amount
+   (~1.5px/deg, tuned to the 200px home box) only while it's swung out — 0 at
+   rest so the resting pose isn't buried. translateX is listed first so it
+   applies in screen space, after the rotation. ease-in-out smooths it. */
 @keyframes erenTailWiggle {
-  0%, 100% { transform: rotate(-2deg); }
-  40%      { transform: rotate(8deg);  }
-  70%      { transform: rotate(2deg);  }
+  0%, 100% { transform: translateX(0px)   rotate(-2deg); }
+  40%      { transform: translateX(-12px) rotate(8deg);  }
+  70%      { transform: translateX(-3px)  rotate(2deg);  }
 }
 
 /* HUD gradient number — the gradient (set via --clip-grad) is clipped to the

@@ -97,14 +97,10 @@ interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   // from image coords accordingly. Default is tuned to erenGood_tail.png: the
   // root is at the BOTTOM where the tail meets the hip (image ~659/1005), not
   // the thin tip up top — so the base stays glued and the tip swings. In box
-  // coords that's 68.6% / 79.5% of the square box.
+  // coords that's 68.6% / 79.5% of the square box. (The small in-swing pull
+  // that keeps the base connected rides inside the erenTailWiggle keyframe, so
+  // the resting pose isn't nudged into the body.)
   tailOrigin?: string
-  // CSS `left` offset that nudges the tail layer toward the body. Rotating
-  // about the root pulls the base slightly off the body on the outward swing;
-  // pushing the layer a touch into the body keeps the base connected the whole
-  // way (the extra inner overlap just tucks behind the body, which sits on
-  // top). Default tuned to erenGood_tail.png (~12px in the 200px home box).
-  tailNudge?: string
 }
 
 export default function BlinkingEren({
@@ -120,7 +116,6 @@ export default function BlinkingEren({
   glintBackground = DEFAULT_GLINT,
   tailSrc,
   tailOrigin = '68.6% 79.5%',
-  tailNudge = '-6%',
   ...imgProps
 }: Props) {
   const isDark = useIsDark()
@@ -189,7 +184,7 @@ export default function BlinkingEren({
         {tailSrc && (
           <img src={tailSrc} alt="" aria-hidden="true" draggable={false}
             style={{
-              position: 'absolute', top: 0, left: tailNudge,
+              position: 'absolute', inset: 0,
               width: '100%', height: '100%',
               objectFit: 'contain',
               imageRendering: 'pixelated',
