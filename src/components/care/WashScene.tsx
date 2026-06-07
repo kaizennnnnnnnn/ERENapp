@@ -247,7 +247,7 @@ export default function WashScene({ onClose }: Props) {
                 middle ~56.6% of container width, starting at x≈21.7%).
                 Catchlights are MIRRORED, not same-position: A in the
                 upper-RIGHT of its iris, B in the upper-LEFT. */}
-            <BlinkingEren size={200} src="/ErenBathroomHat.png" eyes={{
+            <BlinkingEren size={200} src="/ErenBathroomHat_notail.png" tailSrc="/ErenBathroomHat_tail.png" tailOrigin="65.9% 77.6%" eyes={{
               lidTop:    '36.34%',
               lidWidth:  '5.4%',
               lidLeftA:  '34.38%',

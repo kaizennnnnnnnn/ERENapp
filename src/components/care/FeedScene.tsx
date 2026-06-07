@@ -381,7 +381,7 @@ export default function FeedScene({ onClose }: Props) {
             of container width). Catchlights are MIRRORED on this
             sprite: eye A's in the upper-RIGHT of its iris, eye B's in
             the upper-LEFT — they point toward the nose. */}
-        <BlinkingEren size={210} src="/ErenCook.png" eyes={{
+        <BlinkingEren size={210} src="/ErenCook_notail.png" tailSrc="/ErenCook_tail.png" tailOrigin="71.8% 80.7%" eyes={{
           lidTop:    '37.19%',
           lidWidth:  '5.42%',
           lidLeftA:  '40.79%',

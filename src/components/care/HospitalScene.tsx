@@ -352,7 +352,7 @@ export default function HospitalScene({ onClose }: Props) {
       {/* ══ EREN on table ══ */}
       <div className={cn('absolute z-10 transition-all duration-500', 'bottom-[46%] left-[38%]')}
         style={{ width: 130, height: 130 }}>
-        <BlinkingEren size={130} />
+        <BlinkingEren size={130} src="/erenGood_notail.png" tailSrc="/erenGood_tail.png" />
         <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
       </div>
 

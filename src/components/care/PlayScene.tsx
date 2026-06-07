@@ -138,7 +138,7 @@ export default function PlayScene({ onClose }: Props) {
         <div className={cn('absolute z-10 transition-all duration-500')}
           style={{ bottom: '10%', left: '50%', transform: `translateX(-50%) scaleX(${lookDir === 'left' ? -1 : 1})` }}>
           <ErenIdleLayer>
-            <BlinkingEren size={200} src="/ErenBell.png" eyes={BELL_EYES} />
+            <BlinkingEren size={200} src="/ErenBell_notail.png" tailSrc="/ErenBell_tail.png" tailOrigin="73.3% 76.7%" eyes={BELL_EYES} />
             <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
           </ErenIdleLayer>
         </div>

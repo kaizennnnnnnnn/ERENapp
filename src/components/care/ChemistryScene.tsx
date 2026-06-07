@@ -90,7 +90,9 @@ export default function ChemistryScene(_props: Props) {
         <ErenIdleLayer>
           <BlinkingEren
             size={230}
-            src="/ErenLab.png"
+            src="/ErenLab_notail.png"
+            tailSrc="/ErenLab_tail.png"
+            tailOrigin="62.8% 75.7%"
             eyes={LAB_EYES}
             lidColor={LAB_LID_COLOR}
             glintBackground={LAB_GLINT}
