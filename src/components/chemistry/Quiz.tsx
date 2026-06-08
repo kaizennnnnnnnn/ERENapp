@@ -325,7 +325,7 @@ function Options({ palette, q, picked, onPick }: {
         const isCorrect = i === q.correctIdx
         const isPicked  = i === picked
 
-        let bg     = palette.card
+        let bg     = palette.cardRaised
         let color  = palette.fg
         let prefixBg    = palette.cardMuted
         // A/B/C/D letter — use fg, not ink. Ink is near-black in dark mode

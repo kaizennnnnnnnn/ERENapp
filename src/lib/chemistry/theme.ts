@@ -19,6 +19,7 @@ export interface Palette {
   fgMuted: string    // secondary text
   fgFaint: string    // tertiary / disabled
   card: string       // card background
+  cardRaised: string // answer-option surface — lifted off bg in dark mode
   cardMuted: string  // softer card variant
   grape: string
   grapeLight: string
@@ -42,6 +43,7 @@ const LIGHT_PALETTE: Palette = {
   fgMuted:    '#5C4E6E',
   fgFaint:    'rgba(26,15,45,0.45)',
   card:       '#FFFFFF',
+  cardRaised: '#FFFFFF',     // light mode already pops; same as card
   cardMuted:  '#FAEFD8',
   grape:      '#C4A7F5',
   grapeLight: '#E4D6FB',
@@ -72,6 +74,7 @@ const DARK_PALETTE: Palette = {
   fgMuted:    '#C9BBE0',
   fgFaint:    'rgba(251,241,217,0.60)',
   card:       '#231838',     // neutral dark surface (non-accent cards)
+  cardRaised: '#352552',     // lifted lavender-plum so answer options read clearly on bg
   cardMuted:  '#1C1330',     // softer dark surface
   // Brand trio — same hex values as LIGHT mode so a "lavender card"
   // reads as lavender regardless of theme.

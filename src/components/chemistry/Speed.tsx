@@ -223,7 +223,7 @@ export default function Speed({ onExit }: Props) {
               borderRadius: 16,
               border: `2px solid ${palette.ink}`,
               boxShadow: neoShadow(palette.ink, 'sm'),
-              background: palette.card, color: palette.fg,
+              background: palette.cardRaised, color: palette.fg,
               textAlign: 'left', fontFamily: CHEM_FONT,
               fontSize: 16, fontWeight: 700, cursor: 'pointer',
             }}

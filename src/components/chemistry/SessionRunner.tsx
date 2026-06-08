@@ -229,8 +229,8 @@ export default function SessionRunner({
           const bg = reveal
             ? isAnswer ? palette.greenLight
             : isGiven  ? palette.redLight
-            :            palette.card
-            : palette.card
+            :            palette.cardRaised
+            : palette.cardRaised
           const fg = palette.ink
           const opacity = reveal && !isAnswer && !isGiven ? 0.55 : 1
           return (

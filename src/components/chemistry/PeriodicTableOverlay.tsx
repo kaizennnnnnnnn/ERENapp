@@ -115,12 +115,14 @@ function OverlayInner({ onClose }: Props) {
       >
         {/* LEFT — brand mark. An atom logo badge in the slot where the
             "Chemistry" wordmark used to live: grape fill, ink outline + hard
-            offset shadow to match the neo-brutalism chips on the right. */}
+            offset shadow to match the neo-brutalism chips on the right. A
+            glowing sun-coloured nucleus sits behind the orbits for a pop of
+            colour inside. */}
         <div
           aria-label="Chemistry"
           style={{
             flexShrink: 0,
-            width: 30, height: 30,
+            width: 34, height: 34,
             borderRadius: 999,
             background: palette.grape,
             border: `2px solid ${palette.ink}`,
@@ -129,9 +131,16 @@ function OverlayInner({ onClose }: Props) {
             alignItems: 'center',
             justifyContent: 'center',
             color: palette.ink,
+            position: 'relative',
           }}
         >
-          <Atom size={17} strokeWidth={2.4} />
+          <span style={{
+            position: 'absolute', inset: 0, margin: 'auto',
+            width: 10, height: 10, borderRadius: 999,
+            background: palette.sun,
+            boxShadow: `0 0 4px 1px ${palette.sunDark}`,
+          }} />
+          <Atom size={21} strokeWidth={2.4} style={{ position: 'relative' }} />
         </div>
 
         {/* MIDDLE — scrollable pill strip, live modes only. Edge-fade
