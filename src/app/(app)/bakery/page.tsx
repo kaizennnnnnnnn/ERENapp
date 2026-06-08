@@ -60,20 +60,16 @@ const CAKE_EYES = {
   glintW:     '18%',
 }
 
-// Picture native size — the stage keeps this aspect so Eren lines up with it.
-const IMG_W = 941
-const IMG_H = 1672
-// Height of the empty band ABOVE (and identically BELOW) the picture, in CSS.
-// The picture is width-constrained on phones, so its rendered height is
-// `100vw * IMG_H/IMG_W`. The viewport leftover splits evenly top + bottom.
-// When the picture is height-constrained (very wide screens), the bands are
-// clamped to 0 and left/right empty space gets the blurred fill instead.
-const BAND_H = `max(0px, calc((100dvh - 100vw * ${IMG_H} / ${IMG_W}) / 2))`
-// Clip exactly where the wooden counter top's back edge begins — measured off
-// the picture, the peachy wall gives way to saturated wood at ~58.5% down — so
-// Eren's body meets the counter edge with no floating gap and reads as standing
-// BEHIND it.
-const COUNTER_PCT = 58.5
+// Per-picture metadata. Day and night were authored at different aspect
+// ratios (day 941×1672 ≈ 9:16, night 1024×1536 ≈ 4:3-ish) and the
+// counter top sits at very different row %s in each — measured from the
+// actual PNG bytes with a column-scan for the peachy-wall → dark-wood
+// transition. Locking the stage to a single aspect would mean Eren stands
+// right at the counter on one picture and floats above it on the other.
+// Carry both metrics through together.
+interface ShopPic { src: string; w: number; h: number; counterPct: number }
+const SHOP_DAY:   ShopPic = { src: '/CakeShop.png',      w:  941, h: 1672, counterPct: 58.5 }
+const SHOP_NIGHT: ShopPic = { src: '/CakeShopNight.png', w: 1024, h: 1536, counterPct: 74.3 }
 // Eren's box, sized in cqi (container-query inline-size = % of the PICTURE's
 // width, see the `.pic` container) so he always tracks the picture and stays
 // glued to the counter. vw broke this: on a short/wide viewport the picture
@@ -94,7 +90,11 @@ export default function BakeryPage() {
   const { coins, spendCoins } = useTasks()
   const { setHideStats } = useCare()
   const isDark = useIsDark()
-  const shopSrc = isDark ? '/CakeShopNight.png' : '/CakeShop.png'
+  const pic = isDark ? SHOP_NIGHT : SHOP_DAY
+  const shopSrc = pic.src
+  // The empty letterbox band height tracks the active picture's aspect.
+  // Width-constrained phones get bands, landscape gets clamp-to-0.
+  const bandH = `max(0px, calc((100dvh - 100vw * ${pic.h} / ${pic.w}) / 2))`
 
   // Full-screen scene — hide the persistent StatsHeader.
   useEffect(() => { setHideStats(true) }, [setHideStats])
@@ -149,7 +149,7 @@ export default function BakeryPage() {
           instead of "image with brown gradient bars". Height is the exact
           letterbox band, computed from the picture aspect ratio. */}
       <div className="absolute top-0 inset-x-0 z-[15] pointer-events-none overflow-hidden" style={{
-        height: BAND_H,
+        height: bandH,
         background: 'linear-gradient(180deg, #1F0F06 0%, #3A1F0E 25%, #2D1608 65%, #1A0B06 100%)',
         borderBottom: '3px solid #0A0502',
         boxShadow: '0 4px 8px rgba(0,0,0,0.55), inset 0 -3px 6px rgba(0,0,0,0.4)',
@@ -172,7 +172,7 @@ export default function BakeryPage() {
           the picture's bottom edge; this strip carries it down to the
           viewport edge so the ORDER button sits on tile, not on blur. */}
       <div className="absolute bottom-0 inset-x-0 z-[15] pointer-events-none overflow-hidden" style={{
-        height: BAND_H,
+        height: bandH,
         borderTop: '3px solid #2E1404',
         backgroundColor: '#F4D6CC',
         backgroundImage:
@@ -190,7 +190,7 @@ export default function BakeryPage() {
       {/* ══ STAGE ══ the whole picture, fit to width and centered. Eren lives
           inside it so he always lines up with the painted counter. */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="relative" style={{ width: '100%', aspectRatio: `${IMG_W} / ${IMG_H}`, maxHeight: '100%', containerType: 'inline-size' }}>
+        <div className="relative" style={{ width: '100%', aspectRatio: `${pic.w} / ${pic.h}`, maxHeight: '100%', containerType: 'inline-size' }}>
           <img src={shopSrc} alt="" draggable={false}
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'fill', WebkitUserSelect: 'none', userSelect: 'none' }} />
 
@@ -198,14 +198,20 @@ export default function BakeryPage() {
               line so his lower body is hidden; only his head pokes over.
               Breathing lives in BlinkingEren, idle wiggles in ErenIdleLayer. */}
           <div className="absolute left-0 right-0 top-0 overflow-hidden pointer-events-none"
-            style={{ height: `${COUNTER_PCT}%`, zIndex: 10 }}>
+            style={{ height: `${pic.counterPct}%`, zIndex: 10 }}>
             <div className="absolute left-1/2" style={{ bottom: EREN_BOTTOM, transform: 'translateX(-50%)' }}>
               <ErenIdleLayer>
-                {/* Skip BlinkingEren's default night brightness(0.7)+saturate(0.85)
-                    dimmer — the bakery's night picture pours a warm pendant-lamp
-                    pool right over Eren's head, so darkening him again makes him
-                    look mismatched against the lit pool he's supposed to be in. */}
-                <BlinkingEren size={`${EREN_VW}cqi`} src="/ErenCakeShop.png" eyes={CAKE_EYES} style={{ filter: 'none' }} />
+                {/* Soften BlinkingEren's default night dimmer
+                    (brightness(0.7)+saturate(0.85) — too dark) to a gentle dim
+                    with a warm sepia tint that matches the pendant-lamp pool
+                    pouring over his head in CakeShopNight.png. Day inherits
+                    no filter as usual. */}
+                <BlinkingEren
+                  size={`${EREN_VW}cqi`}
+                  src="/ErenCakeShop.png"
+                  eyes={CAKE_EYES}
+                  style={isDark ? { filter: 'brightness(0.93) saturate(0.95) sepia(0.08)' } : undefined}
+                />
               </ErenIdleLayer>
             </div>
           </div>
