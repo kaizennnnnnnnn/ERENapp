@@ -10,12 +10,11 @@
 // CareSceneHost's z-40 stacking context; without that, no z-index on
 // the overlay can rise above StatsHeader at the page root.
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Zap, Flame, X as XIcon, Sun, Moon } from 'lucide-react'
+import { Zap, Flame, X as XIcon, Sun, Moon, Atom } from 'lucide-react'
 import { playSound } from '@/lib/sounds'
 import { ChemistryStoreProvider, useChemistryStore } from '@/lib/chemistry/store'
-import { MASTERED_BOX } from '@/lib/chemistry/srs'
 import { ChemistryThemeProvider, useChemistryTheme, neoShadow, CHEM_FONT, type Palette } from '@/lib/chemistry/theme'
 import PeriodicTable from './PeriodicTable'
 import Flashcards from './Flashcards'
@@ -59,15 +58,6 @@ function OverlayInner({ onClose }: Props) {
   const [mode, setMode] = useState<Mode>('home')
   const { dueCount, state, hydrated } = useChemistryStore()
   const { palette, theme, toggle } = useChemistryTheme()
-
-  // Mastery donut count — how many of the 118 elements have reached the
-  // mastered box. Surfaces the long-arc "how much of the table do I own?"
-  // question that the due + streak chips don't answer.
-  const mastered = useMemo(
-    () => Object.values(state.cards).filter(c => c.box >= MASTERED_BOX).length,
-    [state.cards]
-  )
-  const masteredPct = Math.min(1, mastered / 118)
 
   function handleClose() { playSound('ui_tap'); onClose() }
   const stop = (e: React.TouchEvent) => e.stopPropagation()
@@ -123,44 +113,25 @@ function OverlayInner({ onClose }: Props) {
           zIndex: 2,
         }}
       >
-        {/* LEFT — mastery donut. The grape ring fills with the sun colour as
-            the user moves elements into the mastered box; the centre shows
-            the count out of 118. Replaces a dead decorative orb in the spot
-            where the "Chemistry" wordmark used to live. */}
+        {/* LEFT — brand mark. An atom logo badge in the slot where the
+            "Chemistry" wordmark used to live: grape fill, ink outline + hard
+            offset shadow to match the neo-brutalism chips on the right. */}
         <div
-          aria-label={`${mastered} of 118 elements mastered`}
-          title={`${mastered} / 118 mastered`}
+          aria-label="Chemistry"
           style={{
             flexShrink: 0,
-            width: 26, height: 26,
+            width: 30, height: 30,
             borderRadius: 999,
-            background: `conic-gradient(${palette.sunDark} ${masteredPct * 360}deg, ${palette.grapeDark} 0)`,
-            position: 'relative',
-          }}
-        >
-          {/* Hole — punches out the centre so the ring reads as a donut.
-              Uses the header's own bg colour so it blends seamlessly. */}
-          <div style={{
-            position: 'absolute',
-            inset: 3,
-            borderRadius: 999,
-            background: palette.bg,
+            background: palette.grape,
+            border: `2px solid ${palette.ink}`,
+            boxShadow: neoShadow(palette.ink, 'sm'),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-          }}>
-            <span style={{
-              fontFamily: CHEM_FONT,
-              // Tighter type at 3-digit counts (100–118) so it doesn't clip
-              // the 20-px inner well.
-              fontSize: mastered >= 100 ? 8 : 10,
-              fontWeight: 800,
-              lineHeight: 1,
-              color: palette.fg,
-            }}>
-              {mastered}
-            </span>
-          </div>
+            color: palette.ink,
+          }}
+        >
+          <Atom size={17} strokeWidth={2.4} />
         </div>
 
         {/* MIDDLE — scrollable pill strip, live modes only. Edge-fade
