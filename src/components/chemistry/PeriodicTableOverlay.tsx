@@ -10,11 +10,12 @@
 // CareSceneHost's z-40 stacking context; without that, no z-index on
 // the overlay can rise above StatsHeader at the page root.
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Zap, Flame, X as XIcon, Sun, Moon } from 'lucide-react'
 import { playSound } from '@/lib/sounds'
 import { ChemistryStoreProvider, useChemistryStore } from '@/lib/chemistry/store'
+import { MASTERED_BOX } from '@/lib/chemistry/srs'
 import { ChemistryThemeProvider, useChemistryTheme, neoShadow, CHEM_FONT, type Palette } from '@/lib/chemistry/theme'
 import PeriodicTable from './PeriodicTable'
 import Flashcards from './Flashcards'
@@ -58,6 +59,15 @@ function OverlayInner({ onClose }: Props) {
   const [mode, setMode] = useState<Mode>('home')
   const { dueCount, state, hydrated } = useChemistryStore()
   const { palette, theme, toggle } = useChemistryTheme()
+
+  // Mastery donut count — how many of the 118 elements have reached the
+  // mastered box. Surfaces the long-arc "how much of the table do I own?"
+  // question that the due + streak chips don't answer.
+  const mastered = useMemo(
+    () => Object.values(state.cards).filter(c => c.box >= MASTERED_BOX).length,
+    [state.cards]
+  )
+  const masteredPct = Math.min(1, mastered / 118)
 
   function handleClose() { playSound('ui_tap'); onClose() }
   const stop = (e: React.TouchEvent) => e.stopPropagation()
@@ -113,16 +123,45 @@ function OverlayInner({ onClose }: Props) {
           zIndex: 2,
         }}
       >
-        {/* LEFT — small gradient orb glyph. Word "Chemistry" was eating
-            ~90px on a 400px screen which left no room for the pill strip
-            and led to users only seeing one pill. Keep a visual anchor
-            with the same grape→sun gradient. */}
-        <div aria-hidden style={{
-          flexShrink: 0,
-          width: 26, height: 26,
-          borderRadius: 999,
-          background: `linear-gradient(135deg, ${palette.grapeDark}, ${palette.sunDark})`,
-        }} />
+        {/* LEFT — mastery donut. The grape ring fills with the sun colour as
+            the user moves elements into the mastered box; the centre shows
+            the count out of 118. Replaces a dead decorative orb in the spot
+            where the "Chemistry" wordmark used to live. */}
+        <div
+          aria-label={`${mastered} of 118 elements mastered`}
+          title={`${mastered} / 118 mastered`}
+          style={{
+            flexShrink: 0,
+            width: 26, height: 26,
+            borderRadius: 999,
+            background: `conic-gradient(${palette.sunDark} ${masteredPct * 360}deg, ${palette.grapeDark} 0)`,
+            position: 'relative',
+          }}
+        >
+          {/* Hole — punches out the centre so the ring reads as a donut.
+              Uses the header's own bg colour so it blends seamlessly. */}
+          <div style={{
+            position: 'absolute',
+            inset: 3,
+            borderRadius: 999,
+            background: palette.bg,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <span style={{
+              fontFamily: CHEM_FONT,
+              // Tighter type at 3-digit counts (100–118) so it doesn't clip
+              // the 20-px inner well.
+              fontSize: mastered >= 100 ? 8 : 10,
+              fontWeight: 800,
+              lineHeight: 1,
+              color: palette.fg,
+            }}>
+              {mastered}
+            </span>
+          </div>
+        </div>
 
         {/* MIDDLE — scrollable pill strip, live modes only. Edge-fade
             gradient on the right edge tells the user it scrolls. */}
