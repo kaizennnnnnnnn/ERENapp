@@ -79,7 +79,7 @@ const COUNTER_PCT = 58.5
 // glued to the counter. vw broke this: on a short/wide viewport the picture
 // becomes height-constrained (narrower than the screen), but vw is screen-
 // relative, so Eren ballooned oversized and slid off the counter.
-const EREN_VW = 48
+const EREN_VW = 42
 // Show his top ~62% (head + chest + paws on the counter) above the counter
 // line. Raising this lifts him while the cut stays at the counter, so he
 // shows more without floating off the edge.
