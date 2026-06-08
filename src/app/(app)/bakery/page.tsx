@@ -201,7 +201,11 @@ export default function BakeryPage() {
             style={{ height: `${COUNTER_PCT}%`, zIndex: 10 }}>
             <div className="absolute left-1/2" style={{ bottom: EREN_BOTTOM, transform: 'translateX(-50%)' }}>
               <ErenIdleLayer>
-                <BlinkingEren size={`${EREN_VW}cqi`} src="/ErenCakeShop.png" eyes={CAKE_EYES} />
+                {/* Skip BlinkingEren's default night brightness(0.7)+saturate(0.85)
+                    dimmer — the bakery's night picture pours a warm pendant-lamp
+                    pool right over Eren's head, so darkening him again makes him
+                    look mismatched against the lit pool he's supposed to be in. */}
+                <BlinkingEren size={`${EREN_VW}cqi`} src="/ErenCakeShop.png" eyes={CAKE_EYES} style={{ filter: 'none' }} />
               </ErenIdleLayer>
             </div>
           </div>
