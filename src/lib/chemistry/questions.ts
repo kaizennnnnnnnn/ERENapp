@@ -26,11 +26,70 @@ export function shuffle<T>(arr: T[]): T[] {
   return a
 }
 
+/**
+ * Three plausible WRONG symbols for "What is the symbol for {name}?" so the
+ * answer can't be guessed by first letter (the old version lined up random
+ * elements, so Magnesium's "Mg" was the only M and a giveaway). Every distractor
+ * shares a first letter with the symbol OR the name, blending, in order:
+ *   1. a "name guess" a learner makes from the English name (Magnesium → M, Ma),
+ *   2. real element symbols sharing the correct symbol's first letter (Mg → Mn, Mo),
+ *   3. real symbols sharing the NAME's first letter — covers Latin symbols where
+ *      the two differ (Sodium → S, Si, Se),
+ *   4. one-letter edits of the symbol (Mg → Ma…Mz) as a guaranteed filler.
+ */
+export function symbolDistractors(target: Element): string[] {
+  const S = target.symbol
+  const N = target.name
+  // Normalise any candidate to symbol case: first letter upper, second lower.
+  const toSym = (s: string) => (s ? s[0].toUpperCase() + s.slice(1, 2).toLowerCase() : '')
+  // Keep only things that read as a real candidate for THIS element.
+  const plausible = (d: string) => d.length >= 1 && d.length <= 2 && (d[0] === S[0] || d[0] === N[0])
+
+  const used = new Set<string>([S])
+  const out: string[] = []
+  const take = (pool: string[], n: number) => {
+    for (const c of pool) {
+      if (out.length >= 3 || n <= 0) break
+      const sym = toSym(c)
+      if (!sym || used.has(sym) || !plausible(sym)) continue
+      used.add(sym); out.push(sym); n--
+    }
+  }
+
+  const alpha = 'abcdefghijklmnopqrstuvwxyz'.split('')
+  const realSymFirst  = shuffle(elements.filter(e => e.symbol !== S && e.symbol[0] === S[0]).map(e => e.symbol))
+  const realNameFirst = shuffle(elements.filter(e => e.symbol !== S && e.symbol[0] === N[0]).map(e => e.symbol))
+  const nameGuesses   = shuffle([N[0], ...Array.from({ length: N.length - 1 }, (_, i) => N[0] + N[i + 1])])
+  const edits         = shuffle(alpha.map(c => S[0] + c))
+
+  // At least one distractor shares the SYMBOL's first letter, so the answer's
+  // letter is never unique (otherwise Latin symbols like Tungsten=W would be a
+  // giveaway: 3 T-options + the lone W). Real same-letter symbols first, else a
+  // symbol edit (W → Wa…Wz).
+  take([...realSymFirst, ...edits], 1)
+  take(nameGuesses, 1)    // a "looks like the name" trap (M, Ma, …)
+  take(realSymFirst, 3)   // more real elements sharing the symbol's first letter
+  take(realNameFirst, 3)  // real symbols sharing the name's first letter
+  take(nameGuesses, 3)
+  take(edits, 3)          // guaranteed fill so we always return exactly 3
+  return out
+}
+
+/** Three wrong element NAMES for "Which element has the symbol {symbol}?",
+ *  preferring elements whose symbol shares the queried symbol's first letter so
+ *  the choices stay thematically close (Mg → Manganese, Molybdenum, …) rather
+ *  than obviously-unrelated random elements. */
+export function nameDistractors(target: Element): string[] {
+  const S = target.symbol
+  const same = shuffle(elements.filter(e => e.atomicNumber !== target.atomicNumber && e.symbol[0] === S[0]))
+  const rest = shuffle(elements.filter(e => e.atomicNumber !== target.atomicNumber && e.symbol[0] !== S[0]))
+  return [...same, ...rest].slice(0, 3).map(e => e.name)
+}
+
 export function makeQuestion(el: Element, forceType?: QType): Question {
   const type: QType = forceType ?? (Math.random() < 0.5 ? 'name-from-symbol' : 'symbol-from-name')
-  const pool = shuffle(elements.filter(e => e.atomicNumber !== el.atomicNumber)).slice(0, 3)
   const answer = type === 'name-from-symbol' ? el.name : el.symbol
-  const wrong  = pool.map(e => type === 'name-from-symbol' ? e.name : e.symbol)
+  const wrong  = type === 'name-from-symbol' ? nameDistractors(el) : symbolDistractors(el)
   const opts   = shuffle([answer, ...wrong])
   const prompt = type === 'name-from-symbol'
     ? `Which element has the symbol ${el.symbol}?`

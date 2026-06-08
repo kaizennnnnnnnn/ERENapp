@@ -14,6 +14,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { elements, type Element } from '@/lib/chemistry/elements'
+import { symbolDistractors, nameDistractors } from '@/lib/chemistry/questions'
 import { CATEGORY_COLORS } from '@/lib/chemistry/colors'
 import { useChemistryStore, elementCardId } from '@/lib/chemistry/store'
 import { dueDate, isDue, isNew, MASTERED_BOX, type CardState } from '@/lib/chemistry/srs'
@@ -70,12 +71,11 @@ function pickQueue(cards: Record<string, CardState>, today: string): Element[] {
 
 function makeQuestion(el: Element): Question {
   const type: QType = Math.random() < 0.5 ? 'name-from-symbol' : 'symbol-from-name'
-  // Pick 3 wrong options of the same "shape" (other elements, sliced from a
-  // shuffled copy of the catalogue minus the answer). Sticking to other
-  // real elements is more interesting than random strings.
-  const pool = shuffle(elements.filter(e => e.atomicNumber !== el.atomicNumber)).slice(0, 3)
+  // Plausible look-alike distractors (shared with Speed/SessionRunner) so a
+  // symbol question can't be guessed by first letter — e.g. Magnesium offers
+  // Mg / Mn / Ma / M, not Mg among three unrelated elements.
   const correct = type === 'name-from-symbol' ? el.name : el.symbol
-  const wrong   = pool.map(e => type === 'name-from-symbol' ? e.name : e.symbol)
+  const wrong   = type === 'name-from-symbol' ? nameDistractors(el) : symbolDistractors(el)
   const all     = shuffle([correct, ...wrong])
   return { el, type, options: all, correctIdx: all.indexOf(correct) }
 }
