@@ -202,6 +202,25 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     const key = `${taskId}:${periodKey}`
     if (completedIds.has(key)) return null
 
+    // The in-memory guard above misses completions that already exist in the
+    // DB but not yet in local state — a fresh load before the load effect
+    // lands, or another tab/device that did this task earlier today. Inserting
+    // anyway violates the (user_id, task_id, period_key) unique constraint, and
+    // the browser logs a 409 for every such call. Check first, sync local
+    // state, and bail before the insert so we neither spam the console nor
+    // double-award coins/XP.
+    const { data: already } = await supabase
+      .from('user_task_completions')
+      .select('task_id')
+      .eq('user_id', user.id)
+      .eq('task_id', taskId)
+      .eq('period_key', periodKey)
+      .limit(1)
+    if (already && already.length > 0) {
+      setCompletedIds(prev => { const next = new Set(prev); next.add(key); return next })
+      return null
+    }
+
     // 1. Insert completion
     const { error } = await supabase
       .from('user_task_completions')
