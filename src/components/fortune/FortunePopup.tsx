@@ -1,13 +1,32 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { FortuneGiftDef } from '@/types'
 import { RARITY_COLORS } from '@/lib/gacha'
 import { useFortune } from '@/hooks/useFortune'
 import { playSound } from '@/lib/sounds'
+import SketchEren, { SKETCH_EREN_STATES, type SketchErenState } from '@/components/SketchEren'
 
 interface Props {
   onClose: () => void
+}
+
+// The daily gift is greeted by a different cheerful Eren each day, drawn from
+// the same expressive set as the Serbian-lesson cards. Skip the down/cross
+// moods so the gift never opens on a sad or angry face.
+const SKIP_GIFT_STATES = new Set<SketchErenState>([
+  'sad', 'angry', 'cry', 'sick', 'tired', 'yawn', 'sleeping', 'confused', 'shrug',
+])
+const GIFT_EREN_STATES = SKETCH_EREN_STATES.filter(s => !SKIP_GIFT_STATES.has(s))
+
+// Stable per calendar day (reopening shows the same one) but pseudo-random
+// across days, so it feels fresh each morning.
+function giftErenForToday(): SketchErenState {
+  const d = new Date()
+  const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+  let h = 0
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) | 0
+  return GIFT_EREN_STATES[Math.abs(h) % GIFT_EREN_STATES.length]
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -244,6 +263,7 @@ export default function FortunePopup({ onClose }: Props) {
   const { canClaim, claiming, claimFortune } = useFortune()
   const [gift, setGift] = useState<FortuneGiftDef | null>(null)
   const [phase, setPhase] = useState<'intro' | 'shake' | 'opening' | 'reveal'>('intro')
+  const dailyEren = useMemo(giftErenForToday, [])
 
   async function handleClaim() {
     if (!canClaim || claiming) return
@@ -271,8 +291,7 @@ export default function FortunePopup({ onClose }: Props) {
         {phase === 'intro' && (
           <>
             <div style={{ animation: 'fpFloat 2s ease-in-out infinite' }}>
-              <img src="/erenGood.png" alt="Eren" draggable={false}
-                style={{ width: 120, height: 120, objectFit: 'contain', imageRendering: 'pixelated' }} />
+              <SketchEren state={dailyEren} size={120} transparent noSpeech />
             </div>
             <PixelGiftBox size={88} animation="idle" />
             <div className="px-3 py-2 text-center"
