@@ -15,6 +15,7 @@ import {
   IconCoin, IconSparkles, IconTicket, IconStar, IconCrown,
 } from '@/components/PixelIcons'
 import PageLoader from '@/components/PageLoader'
+import AnimatedEren from '@/components/AnimatedEren'
 import { usePageReady } from '@/hooks/usePageReady'
 import { playSound } from '@/lib/sounds'
 
@@ -56,71 +57,6 @@ function tintFor(r: LevelReward): { bg: string; border: string; glow: string } {
   if (r.kind === 'food')     return { bg: 'linear-gradient(135deg, #86EFAC 0%, #16A34A 100%)', border: '#166534', glow: 'rgba(74,222,128,0.55)' }
   // coins
   return { bg: 'linear-gradient(135deg, #FDE68A 0%, #FBBF24 100%)', border: '#B45309', glow: 'rgba(251,191,36,0.45)' }
-}
-
-// ── Eren sprite — standing/idle pose (compact) ───────────────────────────────
-function ErenChibi({ size = 56, hop = false }: { size?: number; hop?: boolean }) {
-  return (
-    <div style={{ animation: hop ? 'erenHop 0.9s ease-in-out infinite' : 'erenStand 1.6s ease-in-out infinite' }}>
-      <svg width={size} height={size} viewBox="0 0 22 22" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-        {/* ears */}
-        <rect x="3" y="2" width="3" height="1" fill="#4A2E1A" />
-        <rect x="16" y="2" width="3" height="1" fill="#4A2E1A" />
-        <rect x="3" y="3" width="3" height="2" fill="#9B7A5C" />
-        <rect x="16" y="3" width="3" height="2" fill="#9B7A5C" />
-        <rect x="4" y="4" width="1" height="1" fill="#F4B0B8" />
-        <rect x="17" y="4" width="1" height="1" fill="#F4B0B8" />
-        {/* head */}
-        <rect x="5" y="3" width="12" height="1" fill="#4A2E1A" />
-        <rect x="4" y="4" width="14" height="1" fill="#4A2E1A" />
-        <rect x="3" y="5" width="16" height="1" fill="#4A2E1A" />
-        <rect x="4" y="5" width="14" height="1" fill="#F9EDD5" />
-        <rect x="3" y="6" width="1" height="6" fill="#4A2E1A" />
-        <rect x="18" y="6" width="1" height="6" fill="#4A2E1A" />
-        <rect x="4" y="6" width="14" height="6" fill="#F9EDD5" />
-        {/* Ragdoll brown mask */}
-        <rect x="5" y="6" width="3" height="2" fill="#D4B896" />
-        <rect x="14" y="6" width="3" height="2" fill="#D4B896" />
-        {/* eyes — happy curve (closed-ish, upward arc) */}
-        <rect x="6" y="7" width="2" height="2" fill="#6BAED6" />
-        <rect x="7" y="7" width="1" height="1" fill="#FFFFFF" />
-        <rect x="6" y="7" width="1" height="1" fill="#1A1A2E" />
-        <rect x="14" y="7" width="2" height="2" fill="#6BAED6" />
-        <rect x="14" y="7" width="1" height="1" fill="#FFFFFF" />
-        <rect x="15" y="7" width="1" height="1" fill="#1A1A2E" />
-        {/* rosy cheeks */}
-        <rect x="5" y="9" width="1" height="1" fill="#FFB6C8" />
-        <rect x="16" y="9" width="1" height="1" fill="#FFB6C8" />
-        {/* nose */}
-        <rect x="10" y="9" width="2" height="1" fill="#F48B9B" />
-        <rect x="10" y="10" width="2" height="1" fill="#4A2E1A" />
-        {/* mouth — happy :3 corners */}
-        <rect x="9" y="11" width="1" height="1" fill="#4A2E1A" />
-        <rect x="12" y="11" width="1" height="1" fill="#4A2E1A" />
-        {/* chin */}
-        <rect x="4" y="12" width="14" height="1" fill="#4A2E1A" />
-        <rect x="5" y="12" width="12" height="1" fill="#F9EDD5" />
-        {/* smile bottom — drawn after chin so the V shape is visible on the cream */}
-        <rect x="10" y="12" width="2" height="1" fill="#4A2E1A" />
-        {/* body */}
-        <rect x="4" y="13" width="14" height="1" fill="#4A2E1A" />
-        <rect x="3" y="14" width="1" height="5" fill="#4A2E1A" />
-        <rect x="18" y="14" width="1" height="5" fill="#4A2E1A" />
-        <rect x="4" y="14" width="14" height="5" fill="#F9EDD5" />
-        <rect x="4" y="19" width="14" height="1" fill="#4A2E1A" />
-        {/* paws */}
-        <rect x="5" y="19" width="2" height="1" fill="#D4B896" />
-        <rect x="15" y="19" width="2" height="1" fill="#D4B896" />
-        <rect x="5" y="20" width="3" height="1" fill="#4A2E1A" />
-        <rect x="14" y="20" width="3" height="1" fill="#4A2E1A" />
-        {/* whiskers */}
-        <rect x="1" y="9" width="3" height="1" fill="rgba(255,255,255,0.6)" />
-        <rect x="18" y="9" width="3" height="1" fill="rgba(255,255,255,0.6)" />
-        <rect x="1" y="11" width="3" height="1" fill="rgba(255,255,255,0.6)" />
-        <rect x="18" y="11" width="3" height="1" fill="rgba(255,255,255,0.6)" />
-      </svg>
-    </div>
-  )
 }
 
 // ── Main page ────────────────────────────────────────────────────────────────
@@ -523,16 +459,24 @@ export default function RewardsPage() {
                       </div>
                     )}
 
-                    {/* Eren sprite anchored to current level (always on open side of row) */}
+                    {/* Eren sprite anchored to current level (always on open
+                        side of row). Same AnimatedEren used on every loading
+                        screen — its own idle/blink/look/paw/hop sequence runs
+                        internally so the marker breathes the same as the
+                        loader; the outer erenLand drop-in still replays on
+                        claim because we key the wrapper on `fanfare`. The
+                        sprite is 22×18 cells at px=3 → 66×54 CSS px (vs the
+                        old chibi's 54×54), so the side offset bumps to -66 to
+                        keep it flush against the row instead of overlapping. */}
                     {isCurrent && (
                       <div className="absolute pointer-events-none" style={{
-                        [left ? 'right' : 'left']: -54,
+                        [left ? 'right' : 'left']: -66,
                         top: '50%',
                         transform: 'translateY(-50%)',
                         zIndex: 5,
                       }}>
                         <div key={fanfare} style={{ animation: 'erenLand 0.6s cubic-bezier(0.34,1.56,0.64,1)' }}>
-                          <ErenChibi size={54} hop />
+                          <AnimatedEren px={3} />
                         </div>
                         {/* Shadow under Eren */}
                         <div className="absolute left-1/2" style={{
