@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { withRetry } from '@/lib/supabaseRetry'
 import { useAuth } from '@/hooks/useAuth'
 import type { Profile, DailyMood } from '@/types'
 import { formatDuration } from '@/lib/utils'
@@ -147,9 +148,13 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!profile?.household_id || !user?.id) return
-    supabase.from('households').select('invite_code').eq('id', profile.household_id).single()
+    // withRetry: a transient Supabase 503 resolves as { data: null } and must
+    // not read as "no rows" — it used to hide the invite, partner and mood
+    // calendar cards until a manual reload.
+    withRetry(() => supabase.from('households').select('invite_code').eq('id', profile.household_id).single())
       .then(({ data }) => { if (data) setInviteCode(data.invite_code) })
-    supabase.from('profiles').select('*').eq('household_id', profile.household_id).neq('id', user.id).limit(1).single()
+    // maybeSingle: a partner-less household is a normal state, not an error to retry.
+    withRetry(() => supabase.from('profiles').select('*').eq('household_id', profile.household_id).neq('id', user.id).limit(1).maybeSingle())
       .then(({ data }) => { if (data) setPartner(data) })
     supabase.from('time_spent').select('user_id, duration_seconds').in('user_id', [user.id])
       .then(({ data }) => {
@@ -158,7 +163,7 @@ export default function ProfilePage() {
       })
     const today = new Date()
     const monthStart = format(new Date(today.getFullYear(), today.getMonth(), 1), 'yyyy-MM-dd')
-    supabase.from('daily_moods').select('*, profile:profiles(name, avatar_url)').gte('date', monthStart).order('date', { ascending: false })
+    withRetry(() => supabase.from('daily_moods').select('*, profile:profiles(name, avatar_url)').gte('date', monthStart).order('date', { ascending: false }))
       .then(({ data }) => { if (data) setMoods(data) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.household_id, user?.id])

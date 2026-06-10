@@ -1,7 +1,9 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { withRetry } from '@/lib/supabaseRetry'
+import { onForeground } from '@/lib/onForeground'
 import { useAuth } from './useAuth'
 import type { UserInventoryItem, GachaCategory } from '@/types'
 import { GACHA_ITEMS } from '@/lib/gacha'
@@ -13,17 +15,35 @@ export function useInventory() {
   const [inventory, setInventory] = useState<UserInventoryItem[]>([])
   const [loading, setLoading] = useState(true)
 
+  // True when the last fetch hit a Supabase outage that outlasted
+  // withRetry's backoff — the focus listener below uses it to refetch.
+  const loadFailedRef = useRef(false)
+
   const fetchInventory = useCallback(async () => {
     if (!user?.id) return
-    const { data } = await supabase
+    const { data, error } = await withRetry(() => supabase
       .from('user_inventory')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', user.id))
+    if (error) {
+      // Keep whatever inventory we already have — a 503 must not read as
+      // "owns nothing" (it blanked equipped cosmetics and the collection).
+      loadFailedRef.current = true
+      setLoading(false)
+      return
+    }
+    loadFailedRef.current = false
     if (data) setInventory(data)
     setLoading(false)
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchInventory() }, [fetchInventory])
+
+  // Self-heal after an outage: nothing else refetches the inventory (the
+  // equip/use refetches need items the user can no longer see).
+  useEffect(() => {
+    return onForeground(() => { if (loadFailedRef.current) fetchInventory() })
+  }, [fetchInventory])
 
   const ownsItem = useCallback((itemId: string) => {
     return inventory.some(i => i.item_id === itemId)
@@ -71,34 +91,43 @@ export function useInventory() {
     const inv = inventory.find(i => i.item_id === itemId)
     if (!inv || inv.quantity <= 0) return { success: false, message: 'You don\'t have this item' }
 
-    // Decrement quantity (or delete if last one)
+    // Read current stats BEFORE consuming the item. The old order
+    // decremented first, so a transient 503 on the stat read destroyed the
+    // consumable with zero effect (and the partial all-stat branch computed
+    // NaN from the failed read, voiding the whole update). A full restore
+    // needs no read at all.
+    const amount = item.buff.amount
+    const isFullRestore = item.buff.stat === 'all' && amount >= 100
+    let current: Record<string, number> = {}
+    if (!isFullRestore) {
+      const cols = item.buff.stat === 'all'
+        ? 'happiness, hunger, energy, sleep_quality, cleanliness'
+        : item.buff.stat
+      const { data, error } = await withRetry(() => supabase
+        .from('eren_stats').select(cols).eq('household_id', profile.household_id).maybeSingle())
+      if (error || !data) return { success: false, message: 'Connection hiccup — nothing used, try again' }
+      current = data as Record<string, number>
+    }
+
+    // Apply buff to eren_stats
+    const update: Record<string, number> = {}
+    if (item.buff.stat === 'all') {
+      for (const stat of ['happiness', 'hunger', 'energy', 'sleep_quality', 'cleanliness']) {
+        update[stat] = isFullRestore ? 100 : Math.min(100, (current[stat] ?? 0) + amount)
+      }
+    } else {
+      update[item.buff.stat] = Math.min(100, (current[item.buff.stat] ?? 0) + amount)
+    }
+    const { error: buffError } = await supabase.from('eren_stats')
+      .update({ ...update, updated_at: new Date().toISOString() })
+      .eq('household_id', profile.household_id)
+    if (buffError) return { success: false, message: 'Connection hiccup — nothing used, try again' }
+
+    // Consume only after the buff landed.
     if (inv.quantity === 1) {
       await supabase.from('user_inventory').delete().eq('id', inv.id)
     } else {
       await supabase.from('user_inventory').update({ quantity: inv.quantity - 1 }).eq('id', inv.id)
-    }
-
-    // Apply buff to eren_stats
-    if (item.buff.stat === 'all') {
-      const amount = item.buff.amount
-      const isFullRestore = amount >= 100
-      const update = isFullRestore
-        ? { happiness: 100, hunger: 100, energy: 100, sleep_quality: 100, cleanliness: 100 }
-        : {
-            happiness: Math.min(100, (await supabase.from('eren_stats').select('happiness').eq('household_id', profile.household_id).single()).data?.happiness + amount),
-            hunger: Math.min(100, (await supabase.from('eren_stats').select('hunger').eq('household_id', profile.household_id).single()).data?.hunger + amount),
-            energy: Math.min(100, (await supabase.from('eren_stats').select('energy').eq('household_id', profile.household_id).single()).data?.energy + amount),
-            sleep_quality: Math.min(100, (await supabase.from('eren_stats').select('sleep_quality').eq('household_id', profile.household_id).single()).data?.sleep_quality + amount),
-            cleanliness: Math.min(100, (await supabase.from('eren_stats').select('cleanliness').eq('household_id', profile.household_id).single()).data?.cleanliness + amount),
-          }
-      await supabase.from('eren_stats').update({ ...update, updated_at: new Date().toISOString() }).eq('household_id', profile.household_id)
-    } else {
-      // Single stat buff
-      const { data: current } = await supabase.from('eren_stats').select(item.buff.stat).eq('household_id', profile.household_id).single()
-      if (current) {
-        const val = Math.min(100, (current as unknown as Record<string, number>)[item.buff.stat] + item.buff.amount)
-        await supabase.from('eren_stats').update({ [item.buff.stat]: val, updated_at: new Date().toISOString() }).eq('household_id', profile.household_id)
-      }
     }
 
     await fetchInventory()

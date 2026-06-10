@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { withRetry } from '@/lib/supabaseRetry'
 import { useAuth } from './useAuth'
 import { useTasks } from '@/contexts/TaskContext'
 import type { FortuneGiftDef } from '@/types'
@@ -27,12 +28,17 @@ export function useFortune() {
       return
     }
 
-    // Fallback to DB check
-    const { data } = await supabase
+    // Fallback to DB check. maybeSingle + error check: a transient 503 must
+    // not read as "never claimed" — on any device without the localStorage
+    // stamp that used to show the fortune as claimable again and allow a
+    // duplicate daily claim. On error keep the current value; the focus
+    // listener and 5s poll are the natural retry.
+    const { data, error } = await supabase
       .from('user_gacha_state')
       .select('last_free_fortune')
       .eq('user_id', user.id)
-      .single()
+      .maybeSingle()
+    if (error) return
 
     if (!data) {
       setCanClaim(true)
@@ -69,9 +75,53 @@ export function useFortune() {
     setCanClaim(false) // Immediately prevent double-claim
     setClaiming(true)
 
+    const gift = rollFortuneGift()
+
+    // Read everything the grant needs BEFORE stamping the claim. These reads
+    // used to run after last_free_fortune was written, so a transient 503
+    // consumed the day's fortune while silently skipping the payout (the gift
+    // animation still played). Aborting here is safe: nothing is written yet,
+    // so the fortune stays claimable and the user can simply tap again.
+    let balances: Record<string, number> = {}
+    if (gift.stardustValue || gift.gachaTickets) {
+      const { data, error } = await withRetry(() => supabase
+        .from('user_gacha_state')
+        .select('stardust, gacha_tickets')
+        .eq('user_id', user.id)
+        .maybeSingle())
+      if (error) {
+        setClaiming(false)
+        setCanClaim(true)
+        return null
+      }
+      balances = (data ?? {}) as Record<string, number>
+    }
+
+    // Keepsake gifts need the owned-row lookup up front too. maybeSingle so
+    // a brand-new item (0 rows) doesn't 406.
+    const isKeepsake = !gift.coinValue && !gift.stardustValue && !gift.gachaTickets
+    let existingKeepsake: { id: string; quantity: number } | null = null
+    if (isKeepsake) {
+      const { data: existing, error } = await withRetry(() => supabase
+        .from('user_inventory')
+        .select('id, quantity')
+        .eq('user_id', user.id)
+        .eq('item_id', gift.id)
+        .maybeSingle())
+      if (error) {
+        setClaiming(false)
+        setCanClaim(true)
+        return null
+      }
+      existingKeepsake = existing
+    }
+
     // Save to localStorage FIRST so all hook instances instantly see it's claimed
     const now = new Date().toISOString()
     localStorage.setItem(`eren_fortune_last_${user.id}`, now)
+    // Re-assert: the 5s checkClaimable poll may have resolved true while the
+    // pre-claim reads above were in flight, overriding the false set at entry.
+    setCanClaim(false)
 
     // Ensure gacha state row exists (upsert)
     await supabase.from('user_gacha_state').upsert({
@@ -79,51 +129,26 @@ export function useFortune() {
       last_free_fortune: now,
     }, { onConflict: 'user_id' })
 
-    const gift = rollFortuneGift()
-
     // Apply gift effects
     if (gift.coinValue) {
       await addCoins(gift.coinValue)
     }
 
     if (gift.stardustValue) {
-      const { data } = await supabase
-        .from('user_gacha_state')
-        .select('stardust')
+      await supabase.from('user_gacha_state')
+        .update({ stardust: (balances.stardust ?? 0) + (gift.stardustValue ?? 0) })
         .eq('user_id', user.id)
-        .single()
-      if (data) {
-        await supabase.from('user_gacha_state')
-          .update({ stardust: (data.stardust ?? 0) + (gift.stardustValue ?? 0) })
-          .eq('user_id', user.id)
-      }
     }
 
     if (gift.gachaTickets) {
-      const { data } = await supabase
-        .from('user_gacha_state')
-        .select('gacha_tickets')
+      await supabase.from('user_gacha_state')
+        .update({ gacha_tickets: (balances.gacha_tickets ?? 0) + gift.gachaTickets })
         .eq('user_id', user.id)
-        .single()
-      if (data) {
-        await supabase.from('user_gacha_state')
-          .update({ gacha_tickets: ((data as Record<string, number>).gacha_tickets ?? 0) + gift.gachaTickets })
-          .eq('user_id', user.id)
-      }
     }
 
-    // If it's a decorative keepsake, add to inventory. maybeSingle so a
-    // brand-new item (0 rows) doesn't 406.
-    if (!gift.coinValue && !gift.stardustValue && !gift.gachaTickets) {
-      const { data: existing } = await supabase
-        .from('user_inventory')
-        .select('id, quantity')
-        .eq('user_id', user.id)
-        .eq('item_id', gift.id)
-        .maybeSingle()
-
-      if (existing) {
-        await supabase.from('user_inventory').update({ quantity: existing.quantity + 1 }).eq('id', existing.id)
+    if (isKeepsake) {
+      if (existingKeepsake) {
+        await supabase.from('user_inventory').update({ quantity: existingKeepsake.quantity + 1 }).eq('id', existingKeepsake.id)
       } else {
         await supabase.from('user_inventory').insert({ user_id: user.id, item_id: gift.id, quantity: 1, equipped: false })
       }

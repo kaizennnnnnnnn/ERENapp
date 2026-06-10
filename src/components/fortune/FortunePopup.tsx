@@ -270,7 +270,14 @@ export default function FortunePopup({ onClose }: Props) {
     setPhase('shake')
     const start = Date.now()
     const result = await claimFortune()
-    if (!result) return
+    if (!result) {
+      // Claim aborted (Supabase outage — the hook restored canClaim and wrote
+      // nothing). Drop back to the intro screen so the OPEN GIFT button
+      // reappears; staying on 'shake' would trap the user on an overlay
+      // with no controls.
+      setPhase('intro')
+      return
+    }
     setGift(result)
     // Hold the shake for at least 600ms so the anticipation reads even when
     // the network call returns instantly. Then lid pops, then full reveal.

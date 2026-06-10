@@ -11,6 +11,8 @@ import {
   createContext, useContext, createElement, type ReactNode,
 } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { withRetry } from '@/lib/supabaseRetry'
+import { onForeground } from '@/lib/onForeground'
 import { useAuth } from './useAuth'
 import { useCouple } from './useCouple'
 import { useErenStats } from './useErenStats'
@@ -107,6 +109,9 @@ function useDailyBattleImpl(): DailyBattleState {
   // Per-session dedupe — even though the DB CAS guards against double-payout,
   // skip extra round-trips if this tab already fired the attempt.
   const comebackAttemptedRef = useRef(false)
+  // True when the last fetchToday hit a Supabase outage that outlasted
+  // withRetry's backoff — the foreground listener uses it to refetch.
+  const loadFailedRef = useRef(false)
 
   const channelSuffix = useRef(`db_${++_channelCounter}`)
   const statsRef = useRef(stats)
@@ -120,11 +125,20 @@ function useDailyBattleImpl(): DailyBattleState {
     // useful=false then happens client-side — pre-migration the
     // field is undefined and every row counts, which matches the
     // old behaviour.
-    const { data } = await supabase
+    // Error-checked: a transient 503 resolves as { data: null, error } and
+    // must not be scored as a 0/0/0 day — keep the previous scores and let
+    // the foreground listener refetch.
+    const { data, error } = await withRetry(() => supabase
       .from('interactions')
       .select('*')
       .eq('household_id', profile.household_id)
-      .gte('created_at', sinceIso)
+      .gte('created_at', sinceIso))
+    if (error) {
+      loadFailedRef.current = true
+      setLoading(false)
+      return
+    }
+    loadFailedRef.current = false
 
     let me = 0, them = 0, count = 0
     for (const i of (data ?? []) as Interaction[]) {
@@ -144,13 +158,16 @@ function useDailyBattleImpl(): DailyBattleState {
         setPartnerDormant(false)
       } else {
         const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-        const { data: recent } = await supabase
+        const { data: recent, error: recentError } = await withRetry(() => supabase
           .from('interactions')
           .select('id')
           .eq('user_id', partner.id)
           .gte('created_at', dayAgo)
-          .limit(1)
-        setPartnerDormant(!recent || recent.length === 0)
+          .limit(1))
+        // A failed read must not mark the partner dormant — keep the
+        // previous flag and refetch on return to foreground.
+        if (recentError) loadFailedRef.current = true
+        else setPartnerDormant(!recent || recent.length === 0)
       }
     } else {
       setPartnerDormant(false)
@@ -160,6 +177,12 @@ function useDailyBattleImpl(): DailyBattleState {
   }, [profile?.household_id, user?.id, partner?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchToday() }, [fetchToday])
+
+  // Self-heal: fetchToday only re-runs on dep change or midnight rollover
+  // (realtime only adds future inserts), so a failed load would otherwise
+  // show a stale scoreboard until reload. Retry on return to foreground
+  // (focus alone misses iOS standalone, which only fires visibilitychange).
+  useEffect(() => onForeground(() => { if (loadFailedRef.current) fetchToday() }), [fetchToday])
 
   // Load yesterday's snapshot. Backfill may not have run yet — null is OK,
   // the eligibility check short-circuits and we re-fetch on day rollover.
@@ -275,6 +298,10 @@ function useDailyBattleImpl(): DailyBattleState {
   const lastDayRef = useRef<string>(new Date().toDateString())
   useEffect(() => {
     const id = setInterval(() => {
+      // Outage retry: an actively-focused tab never gets a foreground event,
+      // so a failed load (e.g. the midnight refetch below hitting a 503)
+      // would stick all day. Bounded to one retry per tick.
+      if (loadFailedRef.current) { fetchToday(); return }
       const today = new Date().toDateString()
       if (today !== lastDayRef.current) {
         lastDayRef.current = today

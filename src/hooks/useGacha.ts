@@ -2,10 +2,54 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { withRetry } from '@/lib/supabaseRetry'
+import { onForeground } from '@/lib/onForeground'
 import { useAuth } from './useAuth'
 import { useTasks } from '@/contexts/TaskContext'
 import type { UserGachaState, GachaPullResult } from '@/types'
 import { rollRarity, rollItem, DUPLICATE_STARDUST, PULL_COST_SINGLE, PULL_COST_TEN, getItemById } from '@/lib/gacha'
+
+// Resolve a pulled item into the inventory: insert the first copy, bump the
+// quantity on a duplicate. The owned-row read must distinguish "request
+// failed" from "not owned" — on a transient 503 a duplicate used to be
+// treated as new, so the stardust compensation was skipped AND the insert
+// died silently on unique(user_id, item_id): the paid pull granted nothing.
+// When the read fails (or races), the unique constraint itself is the
+// arbiter: a rejected insert means duplicate, recovered via re-read + bump.
+async function resolveDrop(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  itemId: string,
+): Promise<'new' | 'dup' | 'failed'> {
+  const owned = () => supabase
+    .from('user_inventory')
+    .select('id, quantity')
+    .eq('user_id', userId)
+    .eq('item_id', itemId)
+    .maybeSingle()
+
+  // Once a duplicate is confirmed, it IS a dup regardless of whether the
+  // quantity bump lands — the stardust compensation is the paid value, the
+  // quantity count is cosmetic. (The old code ignored this error too.)
+  const bump = async (row: { id: string; quantity: number }) => {
+    await supabase
+      .from('user_inventory')
+      .update({ quantity: row.quantity + 1 })
+      .eq('id', row.id)
+    return 'dup' as const
+  }
+
+  const { data: existing } = await withRetry(owned)
+  if (existing) return bump(existing)
+
+  const { error: insertError } = await supabase
+    .from('user_inventory')
+    .insert({ user_id: userId, item_id: itemId, quantity: 1, equipped: false })
+  if (!insertError) return 'new'
+
+  const { data: recheck } = await withRetry(owned)
+  return recheck ? bump(recheck) : 'failed'
+}
 
 export function useGacha() {
   const supabase = createClient()
@@ -18,16 +62,21 @@ export function useGacha() {
   // ── Load or init gacha state ──
   const fetchState = useCallback(async () => {
     if (!user?.id) return
-    const { data } = await supabase
+    // maybeSingle + error check: "request failed" must not be confused
+    // with "no row yet". A transient Supabase 503 used to fall through to
+    // the init branch and reset pity counters/stardust in client state,
+    // which the next pull then wrote back to the DB.
+    const { data, error } = await withRetry(() => supabase
       .from('user_gacha_state')
       .select('*')
       .eq('user_id', user.id)
-      .single()
+      .maybeSingle())
+    if (error) return // outage — leave state null; the focus listener retries
 
     if (data) {
       setState(data)
     } else {
-      // Create initial state
+      // Genuinely no row — first visit. Create initial state.
       const init: UserGachaState = {
         user_id: user.id,
         stardust: 0,
@@ -36,12 +85,29 @@ export function useGacha() {
         total_pulls: 0,
         last_free_fortune: null,
       }
-      await supabase.from('user_gacha_state').insert(init)
-      setState(init)
+      const { error: insertError } = await supabase.from('user_gacha_state').insert(init)
+      if (!insertError) {
+        setState(init)
+      } else {
+        // Most likely a conflict: another writer (fortune claim, rewards
+        // page) created the row between our read and insert. Re-read once —
+        // that row carries the real state.
+        const { data: row } = await withRetry(() => supabase
+          .from('user_gacha_state').select('*').eq('user_id', user.id).maybeSingle())
+        if (row) setState(row)
+      }
     }
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchState() }, [fetchState])
+
+  // Self-heal: state still null after mount means fetchState hit a Supabase
+  // outage that outlasted withRetry's backoff. Retry when the app returns
+  // to the foreground; the listener only exists while in the broken state.
+  useEffect(() => {
+    if (state) return
+    return onForeground(fetchState)
+  }, [state, fetchState])
 
   // ── Single pull ──
   const pullSingle = useCallback(async (bannerId: string, useTicket = false): Promise<GachaPullResult | null> => {
@@ -69,26 +135,9 @@ export function useGacha() {
     const isPity = (rarity === 'epic' && state.pulls_since_epic >= 29) ||
                    (rarity === 'legendary' && state.pulls_since_legendary >= 99)
 
-    // Check if user already owns this item. maybeSingle() returns null on
-    // 0 rows instead of erroring with 406 like single() does.
-    const { data: existing } = await supabase
-      .from('user_inventory')
-      .select('id, quantity')
-      .eq('user_id', user.id)
-      .eq('item_id', item.id)
-      .maybeSingle()
-
-    const isNew = !existing
-    let stardustGained = 0
-
-    if (existing) {
-      // Duplicate → give stardust
-      stardustGained = DUPLICATE_STARDUST[rarity]
-      await supabase.from('user_inventory').update({ quantity: existing.quantity + 1 }).eq('id', existing.id)
-    } else {
-      // New item
-      await supabase.from('user_inventory').insert({ user_id: user.id, item_id: item.id, quantity: 1, equipped: false })
-    }
+    const outcome = await resolveDrop(supabase, user.id, item.id)
+    const isNew = outcome === 'new'
+    const stardustGained = outcome === 'dup' ? DUPLICATE_STARDUST[rarity] : 0
 
     // Log the pull
     const newTotal = state.total_pulls + 1
@@ -139,23 +188,12 @@ export function useGacha() {
       if (rarity === 'epic' || rarity === 'legendary') pse = 0; else pse++
       if (rarity === 'legendary') psl = 0; else psl++
 
-      // Inventory — maybeSingle so a brand-new item (0 rows) doesn't 406.
-      const { data: existing } = await supabase
-        .from('user_inventory')
-        .select('id, quantity')
-        .eq('user_id', user.id)
-        .eq('item_id', item.id)
-        .maybeSingle()
-
-      const isNew = !existing
+      const outcome = await resolveDrop(supabase, user.id, item.id)
+      const isNew = outcome === 'new'
       let stardustGained = 0
-
-      if (existing) {
+      if (outcome === 'dup') {
         stardustGained = DUPLICATE_STARDUST[rarity]
         sd += stardustGained
-        await supabase.from('user_inventory').update({ quantity: existing.quantity + 1 }).eq('id', existing.id)
-      } else {
-        await supabase.from('user_inventory').insert({ user_id: user.id, item_id: item.id, quantity: 1, equipped: false })
       }
 
       // Log

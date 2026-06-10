@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState, useRef, useLayoutEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { withRetry } from '@/lib/supabaseRetry'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTimeTracking } from '@/hooks/useTimeTracking'
@@ -282,6 +283,7 @@ export default function HomePage() {
 
   const [todayMood, setTodayMood]         = useState<UserMood | null>(null)
   const [moodChecked, setMoodChecked]     = useState(false)
+  const [moodReadFailed, setMoodReadFailed] = useState(false)
   const [toast, setToast]                 = useState<string | null>(null)
   const [showReminders, setShowReminders] = useState(false)
   const [showRooms, setShowRooms]         = useState(false)
@@ -289,7 +291,8 @@ export default function HomePage() {
   const [roomReady, setRoomReady]         = useState(false)
 
   // Show stats header only when room is fully loaded & mood selected
-  const pageReady = !authLoading && !!todayMood && !loading && !!stats && roomReady
+  // (or the mood read failed and the gate is suppressed — room still shows)
+  const pageReady = !authLoading && (!!todayMood || moodReadFailed) && !loading && !!stats && roomReady
   useEffect(() => {
     setHideStats(!pageReady)
   }, [pageReady, setHideStats])
@@ -413,13 +416,22 @@ export default function HomePage() {
   // Load today's mood
   useEffect(() => {
     if (!profile?.household_id || !user?.id) return
-    const timeout = setTimeout(() => setMoodChecked(true), 6000)
+    let timedOut = false
+    const timeout = setTimeout(() => { timedOut = true; setMoodChecked(true) }, 6000)
     async function load() {
       try {
         const todayStr = format(new Date(), 'yyyy-MM-dd')
-        const { data } = await supabase
-          .from('daily_moods').select('mood').eq('user_id', user!.id).eq('date', todayStr).maybeSingle()
+        const { data, error } = await withRetry(() => supabase
+          .from('daily_moods').select('mood').eq('user_id', user!.id).eq('date', todayStr).maybeSingle())
         if (data) setTodayMood(data.mood as UserMood)
+        // A transient 503 resolves as { data: null, error } without
+        // throwing — error means "couldn't check", NOT "no mood yet".
+        // Suppress the gate: re-asking would upsert over today's row and
+        // can re-fire the partner low-mood push, which is worse than one
+        // missed prompt. But if the 6s fallback already fired, the MoodGate
+        // is on screen — a late error must not yank it away mid-interaction
+        // (that would hide the mood question for the whole session).
+        else if (error && !timedOut) setMoodReadFailed(true)
       } catch { /* ignore */ } finally {
         clearTimeout(timeout)
         setMoodChecked(true)
@@ -448,7 +460,7 @@ export default function HomePage() {
     )
   }
 
-  if (!todayMood) {
+  if (!todayMood && !moodReadFailed) {
     return (
       <MoodGate
         userId={user!.id}

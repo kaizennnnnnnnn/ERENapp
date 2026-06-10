@@ -6,6 +6,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { withRetry } from '@/lib/supabaseRetry'
+import { onForeground } from '@/lib/onForeground'
 import { useAuth } from '@/hooks/useAuth'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
@@ -79,6 +81,11 @@ export default function RewardsPage() {
   const xp    = profile?.xp ?? 0
 
   const [claimedLevel, setClaimedLevel] = useState<number>(0)
+  // False until the claimed_level read succeeds. A transient Supabase 503
+  // used to read as claimed_level=0, which put every level back into the
+  // claimable state — CLAIM ALL would then re-grant (and double-pay) all
+  // previously claimed rewards.
+  const [claimedLoaded, setClaimedLoaded] = useState(false)
   const [claiming, setClaiming] = useState(false)
   const [toast, setToast] = useState<{ msg: string; reward: LevelReward } | null>(null)
   const scrollerRef = useRef<HTMLDivElement>(null)
@@ -93,14 +100,19 @@ export default function RewardsPage() {
   // ── Load claimed_level ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!user?.id) return
-    supabase.from('profiles').select('claimed_level').eq('id', user.id).single()
-      .then(({ data }) => {
-        if (data && typeof data.claimed_level === 'number') {
-          setClaimedLevel(data.claimed_level)
-        } else {
-          setClaimedLevel(0)
-        }
-      })
+    let loaded = false
+    const load = () => {
+      withRetry(() => supabase.from('profiles').select('claimed_level').eq('id', user.id).maybeSingle())
+        .then(({ data, error }) => {
+          if (error) return // outage — placeholders stay up; foreground return retries
+          loaded = true
+          setClaimedLevel(typeof data?.claimed_level === 'number' ? data.claimed_level : 0)
+          setClaimedLoaded(true)
+        })
+    }
+    load()
+    // Self-heal: keep retrying on return to foreground until the first success.
+    return onForeground(() => { if (!loaded) load() })
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Auto-scroll to current level once profile is loaded ───────────────────
@@ -116,11 +128,11 @@ export default function RewardsPage() {
   // Click on any claimable node calls claimUpTo(idx); Claim All calls
   // claimUpTo(level). Aggregates DB writes into one update per kind.
   const cap = Math.min(level, MAX_LEVEL)
-  const claimableCount = Math.max(0, cap - claimedLevel)
+  const claimableCount = claimedLoaded ? Math.max(0, cap - claimedLevel) : 0
   const canClaimAny    = claimableCount > 0
 
   async function claimUpTo(target: number) {
-    if (!user?.id || !profile?.household_id || claiming) return
+    if (!user?.id || !profile?.household_id || claiming || !claimedLoaded) return
     if (target <= claimedLevel || target > level || target > MAX_LEVEL) return
 
     setClaiming(true)
@@ -140,17 +152,35 @@ export default function RewardsPage() {
         }
       }
 
+      // Read-before-write: fetch both balances up front and abort if either
+      // read fails. A transient Supabase 503 here used to read as "0
+      // stardust" / "empty fridge", and the read-modify-write below then
+      // clobbered the real balances with just the claim amounts.
+      let gacha: Record<string, number> | null = null
+      if (totalStardust > 0 || totalTickets > 0) {
+        const { data, error } = await withRetry(() => supabase
+          .from('user_gacha_state').select('stardust, gacha_tickets').eq('user_id', user.id).maybeSingle())
+        if (error) return // nothing written yet — the node stays claimable
+        gacha = data as Record<string, number> | null
+      }
+      let foodInv: Record<string, number> | null = null
+      if (Object.keys(foodToAdd).length > 0) {
+        const { data: stats, error } = await withRetry(() => supabase
+          .from('eren_stats').select('food_inventory').eq('household_id', profile.household_id).maybeSingle())
+        if (error) return
+        foodInv = (stats?.food_inventory ?? {}) as Record<string, number>
+      }
+
       if (totalCoins > 0) await addCoins(totalCoins)
 
       if (totalStardust > 0 || totalTickets > 0) {
-        const { data } = await supabase.from('user_gacha_state').select('stardust, gacha_tickets').eq('user_id', user.id).single()
-        const curS = data?.stardust ?? 0
-        const curT = (data as Record<string, number> | null)?.gacha_tickets ?? 0
-        const updates: Record<string, number> = {}
-        if (totalStardust > 0) updates.stardust       = curS + totalStardust
-        if (totalTickets  > 0) updates.gacha_tickets  = curT + totalTickets
-        const { error } = await supabase.from('user_gacha_state').update(updates).eq('user_id', user.id)
-        if (error) {
+        if (gacha) {
+          const updates: Record<string, number> = {}
+          if (totalStardust > 0) updates.stardust       = (gacha.stardust ?? 0) + totalStardust
+          if (totalTickets  > 0) updates.gacha_tickets  = (gacha.gacha_tickets ?? 0) + totalTickets
+          await supabase.from('user_gacha_state').update(updates).eq('user_id', user.id)
+        } else {
+          // Genuinely no row yet (maybeSingle returned 0 rows, not an error).
           await supabase.from('user_gacha_state').insert({
             user_id: user.id,
             stardust: totalStardust,
@@ -160,11 +190,9 @@ export default function RewardsPage() {
         }
       }
 
-      if (Object.keys(foodToAdd).length > 0) {
-        const { data: stats } = await supabase.from('eren_stats').select('food_inventory').eq('household_id', profile.household_id).single()
-        const inv = (stats?.food_inventory ?? {}) as Record<string, number>
-        for (const [f, n] of Object.entries(foodToAdd)) inv[f] = (inv[f] ?? 0) + n
-        await supabase.from('eren_stats').update({ food_inventory: inv }).eq('household_id', profile.household_id)
+      if (foodInv) {
+        for (const [f, n] of Object.entries(foodToAdd)) foodInv[f] = (foodInv[f] ?? 0) + n
+        await supabase.from('eren_stats').update({ food_inventory: foodInv }).eq('household_id', profile.household_id)
       }
 
       const claimedCount = target - claimedLevel
@@ -262,7 +290,8 @@ export default function RewardsPage() {
           {/* Claim badge */}
           <div className="flex flex-col items-end">
             <span className="font-pixel text-amber-300" style={{ fontSize: 5, letterSpacing: 1 }}>CLAIMED</span>
-            <span className="font-pixel text-white" style={{ fontSize: 8 }}>{claimedLevel}/100</span>
+            {/* Neutral placeholder until the read succeeds — "0/100" would be a lie. */}
+            <span className="font-pixel text-white" style={{ fontSize: 8 }}>{claimedLoaded ? `${claimedLevel}/100` : '—/100'}</span>
           </div>
         </div>
 
@@ -294,9 +323,12 @@ export default function RewardsPage() {
               borderRadius: 3,
               fontFamily: '"Press Start 2P"', fontSize: 7, color: '#A78BFA',
             }}>
-            {claimedLevel >= MAX_LEVEL
-              ? 'ALL 100 REWARDS CLAIMED ★'
-              : `REACH LVL ${claimedLevel + 1} TO UNLOCK NEXT REWARD`}
+            {/* While claimed_level hasn't loaded, "REACH LVL 1" would be false. */}
+            {!claimedLoaded
+              ? 'LOADING…'
+              : claimedLevel >= MAX_LEVEL
+                ? 'ALL 100 REWARDS CLAIMED ★'
+                : `REACH LVL ${claimedLevel + 1} TO UNLOCK NEXT REWARD`}
           </div>
         )}
       </div>
@@ -310,7 +342,7 @@ export default function RewardsPage() {
               const idx = i + 1
               const left = i % 2 === 0 // zigzag: even idx-1 left, odd right
               const claimed = idx <= claimedLevel
-              const claimable = idx > claimedLevel && idx <= level
+              const claimable = claimedLoaded && idx > claimedLevel && idx <= level
               const locked = idx > level
               const isCurrent = idx === level
               const tint = tintFor(reward)

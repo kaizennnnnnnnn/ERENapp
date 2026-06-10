@@ -1,7 +1,9 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { withRetry } from '@/lib/supabaseRetry'
+import { onForeground } from '@/lib/onForeground'
 import {
   TASK_DEFS, getDailyKey, getWeeklyKey, xpForNextLevel, totalXpForLevel,
   PROGRESS_MAP, CARE_TASK_IDS, getWeekDailyKeys,
@@ -50,55 +52,74 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [streak, setStreak] = useState<StreakData>({ current: 0, best: 0, lastDate: null })
   const [achievements, setAchievements] = useState<AchievementMap>({})
+  // True when the last completions load hit a Supabase outage that
+  // outlasted withRetry's backoff — the foreground listener uses it to retry.
+  const loadFailedRef = useRef(false)
 
   // ── Load completions + compute weekly progress ──────────────────────────
-  useEffect(() => {
+  const loadCompletions = useCallback(async () => {
     if (!user?.id) return
     const dailyKey  = getDailyKey()
     const weeklyKey = getWeeklyKey()
     const weekDayKeys = getWeekDailyKeys()
 
-    async function load() {
-      // Fetch today + this week's daily keys + weekly key
-      const allKeys = Array.from(new Set([dailyKey, weeklyKey, ...weekDayKeys]))
-      const { data } = await supabase
-        .from('user_task_completions')
-        .select('task_id, period_key')
-        .eq('user_id', user!.id)
-        .in('period_key', allKeys)
-
-      if (data) {
-        // Completed set (for today + weekly)
-        setCompletedIds(new Set(
-          data
-            .filter(c => c.period_key === dailyKey || c.period_key === weeklyKey)
-            .map(c => `${c.task_id}:${c.period_key}`)
-        ))
-
-        // Weekly progress from all daily completions this week
-        const weeklyComps = data.filter(c => weekDayKeys.includes(c.period_key))
-
-        const progress = new Map<TaskId, number>()
-
-        // weekly_all_care: distinct care types done any day this week
-        const careDone = new Set(weeklyComps.filter(c => (CARE_TASK_IDS as string[]).includes(c.task_id)).map(c => c.task_id))
-        progress.set('weekly_all_care', careDone.size)
-
-        // weekly_mood_5: distinct days with mood logged
-        const moodDays = new Set(weeklyComps.filter(c => c.task_id === 'daily_mood').map(c => c.period_key))
-        progress.set('weekly_mood_5', moodDays.size)
-
-        // weekly_all_games: total game sessions this week (cap at 3)
-        progress.set('weekly_all_games', Math.min(3, weeklyComps.filter(c => c.task_id === 'daily_game').length))
-
-        setTaskProgress(progress)
-      }
-
+    // Fetch today + this week's daily keys + weekly key. Goes through
+    // withRetry because a transient Supabase 503 resolves as { data: null,
+    // error } without throwing — read as "no rows", it blanked completedIds
+    // and showed every quest incomplete until a full reload.
+    const allKeys = Array.from(new Set([dailyKey, weeklyKey, ...weekDayKeys]))
+    const { data, error } = await withRetry(() => supabase
+      .from('user_task_completions')
+      .select('task_id, period_key')
+      .eq('user_id', user.id)
+      .in('period_key', allKeys))
+    if (error) {
+      // Outage — leave completion state untouched and let the foreground
+      // listener retry. Still drop loading so dependent UI unblocks.
+      loadFailedRef.current = true
       setLoading(false)
+      return
+    }
+    loadFailedRef.current = false
+
+    if (data) {
+      // Completed set (for today + weekly)
+      setCompletedIds(new Set(
+        data
+          .filter(c => c.period_key === dailyKey || c.period_key === weeklyKey)
+          .map(c => `${c.task_id}:${c.period_key}`)
+      ))
+
+      // Weekly progress from all daily completions this week
+      const weeklyComps = data.filter(c => weekDayKeys.includes(c.period_key))
+
+      const progress = new Map<TaskId, number>()
+
+      // weekly_all_care: distinct care types done any day this week
+      const careDone = new Set(weeklyComps.filter(c => (CARE_TASK_IDS as string[]).includes(c.task_id)).map(c => c.task_id))
+      progress.set('weekly_all_care', careDone.size)
+
+      // weekly_mood_5: distinct days with mood logged
+      const moodDays = new Set(weeklyComps.filter(c => c.task_id === 'daily_mood').map(c => c.period_key))
+      progress.set('weekly_mood_5', moodDays.size)
+
+      // weekly_all_games: total game sessions this week (cap at 3)
+      progress.set('weekly_all_games', Math.min(3, weeklyComps.filter(c => c.task_id === 'daily_game').length))
+
+      setTaskProgress(progress)
     }
 
-    load()
+    setLoading(false)
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => { loadCompletions() }, [loadCompletions])
+
+  // Self-heal after a Supabase outage: the load effect only re-runs when
+  // user.id changes, and TaskProvider lives in the persistent (app) layout
+  // so client-side navigation never remounts it — without this, a failed
+  // load would persist until a full reload. Retry on return to foreground
+  // (focus alone misses iOS standalone, which only fires visibilitychange).
+  useEffect(() => onForeground(() => { if (loadFailedRef.current) loadCompletions() }), [loadCompletions])
 
   // ── Sync XP + level + coins + streak + achievements from profile ─────────
   useEffect(() => {

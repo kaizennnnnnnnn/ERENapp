@@ -4,6 +4,8 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { withRetry } from '@/lib/supabaseRetry'
+import { onForeground } from '@/lib/onForeground'
 import { useAuth } from '@/hooks/useAuth'
 import type { Memory } from '@/types'
 import { formatDate, cn } from '@/lib/utils'
@@ -28,19 +30,28 @@ export default function MemoriesPage() {
   const [saving, setSaving]       = useState(false)
   const [selected, setSelected]   = useState<Memory | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const loadFailedRef = useRef(false)
 
   async function loadMemories() {
     if (!profile?.household_id) return
-    const { data } = await supabase
+    // withRetry: a transient Supabase 503 resolves as { data: null } and must
+    // not read as "no memories yet" — a false empty wall invites duplicates.
+    const { data, error } = await withRetry(() => supabase
       .from('memories')
       .select('*, profile:profiles(name)')
       .eq('household_id', profile.household_id)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false }))
     if (data) setMemories(data)
-    setLoading(false)
+    // On persistent failure keep the loader instead of the empty state.
+    loadFailedRef.current = !!error
+    if (!error) setLoading(false)
   }
 
   useEffect(() => { loadMemories() }, [profile?.household_id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Self-heal: while the last load failed (loader still up), retry on return
+  // to the foreground instead of waiting for a manual reload.
+  useEffect(() => onForeground(() => { if (loadFailedRef.current) loadMemories() }), [profile?.household_id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -222,6 +233,13 @@ export default function MemoriesPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── Loading (also covers a persistent outage; foreground retries) ── */}
+      {loading && (
+        <div className="flex flex-col items-center justify-center py-14">
+          <p className="font-pixel text-gray-400" style={{ fontSize: 8 }}>LOADING…</p>
         </div>
       )}
 

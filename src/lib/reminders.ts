@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { withRetry } from '@/lib/supabaseRetry'
 
 export interface Reminder {
   id: string
@@ -83,15 +84,19 @@ export function pingFireReminders(): void {
 
 // ── CRUD ─────────────────────────────────────────────────────────────────────
 
+// Returns null when the read failed (Supabase outage that outlasted
+// withRetry's backoff) so callers can tell "load failed" apart from
+// "no reminders" — rendering a false empty list invites duplicates.
 export async function getReminders(
   supabase: SupabaseClient,
   householdId: string,
-): Promise<Reminder[]> {
-  const { data } = await supabase
+): Promise<Reminder[] | null> {
+  const { data, error } = await withRetry(() => supabase
     .from('household_reminders')
     .select('*')
     .eq('household_id', householdId)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: true }))
+  if (error) return null
   return (data ?? []) as Reminder[]
 }
 

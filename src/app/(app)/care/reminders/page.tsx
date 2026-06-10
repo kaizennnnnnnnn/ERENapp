@@ -1,7 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { withRetry } from '@/lib/supabaseRetry'
+import { onForeground } from '@/lib/onForeground'
 import { useAuth } from '@/hooks/useAuth'
 import type { Reminder, ReminderType, RepeatInterval } from '@/types'
 import { formatRelativeTime, cn } from '@/lib/utils'
@@ -39,6 +41,7 @@ export default function RemindersPage() {
   const [showAdd, setShowAdd]         = useState(false)
   const [saving, setSaving]           = useState(false)
   const [completingId, setCompletingId] = useState<string | null>(null)
+  const loadFailedRef = useRef(false)
 
   // New reminder form state
   const [title, setTitle]           = useState('')
@@ -49,7 +52,9 @@ export default function RemindersPage() {
 
   async function load() {
     if (!profile?.household_id) return
-    const { data } = await supabase
+    // withRetry: a transient Supabase 503 resolves as { data: null } and must
+    // not read as "no reminders yet".
+    const { data, error } = await withRetry(() => supabase
       .from('reminders')
       .select(`
         *,
@@ -57,7 +62,7 @@ export default function RemindersPage() {
       `)
       .eq('household_id', profile.household_id)
       .eq('is_active', true)
-      .order('next_due', { ascending: true, nullsFirst: false })
+      .order('next_due', { ascending: true, nullsFirst: false }))
     if (data) {
       // Attach last_completed
       const enriched = data.map(r => ({
@@ -66,10 +71,16 @@ export default function RemindersPage() {
       }))
       setReminders(enriched)
     }
-    setLoading(false)
+    // On persistent failure keep the loader instead of the empty state.
+    loadFailedRef.current = !!error
+    if (!error) setLoading(false)
   }
 
   useEffect(() => { load() }, [profile?.household_id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Self-heal: while the last load failed (loader still up), retry on return
+  // to the foreground instead of waiting for a manual reload.
+  useEffect(() => onForeground(() => { if (loadFailedRef.current) load() }), [profile?.household_id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function resetForm() {
     setTitle('')
@@ -267,6 +278,13 @@ export default function RemindersPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── Loading (also covers a persistent outage; foreground retries) ── */}
+      {loading && (
+        <div className="flex flex-col items-center justify-center py-16">
+          <p className="text-gray-400 font-medium">Loading…</p>
         </div>
       )}
 

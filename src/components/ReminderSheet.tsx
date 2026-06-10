@@ -46,6 +46,7 @@ export default function ReminderSheet({ onClose }: Props) {
   const { user, profile } = useAuth()
 
   const [reminders, setReminders]   = useState<Reminder[]>([])
+  const [loading, setLoading]       = useState(true)
   const [fires, setFires]           = useState<ReminderFire[]>([])
   const [permission, setPermission] = useState<NotificationPermission>('default')
   const [showForm, setShowForm]     = useState(false)
@@ -71,8 +72,12 @@ export default function ReminderSheet({ onClose }: Props) {
   useEffect(() => {
     if (!profile?.household_id || !user?.id) return
     getReminders(supabase, profile.household_id).then(list => {
+      // null = load failed (Supabase outage). Stay in the loading state —
+      // a false "NO REMINDERS YET" invites duplicate re-creation.
+      if (!list) return
       setReminders(list)
       scheduleAll(list)
+      setLoading(false)
     })
     getRecentFires(supabase, profile.household_id, user.id).then(setFires)
   }, [profile?.household_id, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -394,7 +399,13 @@ export default function ReminderSheet({ onClose }: Props) {
 
         {/* List */}
         <div className="overflow-y-auto flex-1 px-3 pt-3 pb-4 flex flex-col gap-2">
-          {reminders.length === 0 && !showForm && (
+          {loading && reminders.length === 0 && !showForm && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <p className="font-pixel" style={{ fontSize: 7, color: PINK_LO, letterSpacing: 1.5 }}>LOADING</p>
+            </div>
+          )}
+
+          {!loading && reminders.length === 0 && !showForm && (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
               <div style={{ filter: `drop-shadow(0 0 6px ${accentA(0.35)})`, opacity: 0.4 }}>
                 <IconBell size={40} />

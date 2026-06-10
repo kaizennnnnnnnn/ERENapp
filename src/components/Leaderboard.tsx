@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { withRetry } from '@/lib/supabaseRetry'
 import { useAuth } from '@/hooks/useAuth'
 import {
   IconStar, IconCrown,
@@ -129,18 +130,25 @@ export default function Leaderboard({ onClose }: Props) {
   useEffect(() => {
     if (!user?.id || !profile) return
     async function load() {
-      const profilesQuery = profile!.household_id
+      // Both reads go through withRetry — a transient Supabase 503 resolves
+      // as { data: null, error } without throwing, which used to read as
+      // "no partner" / "no scores" and render a false solo or tie view. If
+      // a read still fails after retries, bail and stay on the loading
+      // state rather than show wrong standings.
+      const profilesQuery = () => profile!.household_id
         ? supabase.from('profiles').select('*').eq('household_id', profile!.household_id)
         : supabase.from('profiles').select('*').eq('id', user!.id)
 
-      const { data: profiles } = await profilesQuery
+      const { data: profiles, error: profilesError } = await withRetry(profilesQuery)
+      if (profilesError) return
       const resolved: Profile[] = profiles?.length ? profiles : [profile!]
 
       const userIds = resolved.map((p: Profile) => p.id)
-      const { data: scores } = await supabase
+      const { data: scores, error: scoresError } = await withRetry(() => supabase
         .from('game_scores')
         .select('user_id, game_type, score')
-        .in('user_id', userIds)
+        .in('user_id', userIds))
+      if (scoresError) return
 
       const bestMap: Record<string, Partial<Record<GameType, number>>> = {}
       scores?.forEach((s: { user_id: string; game_type: GameType; score: number }) => {

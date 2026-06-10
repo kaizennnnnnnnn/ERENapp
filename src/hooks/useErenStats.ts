@@ -90,7 +90,17 @@ async function detectUsefulSupported(
       .from('interactions')
       .select('*')
       .limit(1)
-    const supported = !error && !!data && data.length > 0 && 'useful' in (data[0] as Record<string, unknown>)
+    if (error) {
+      // A transient failure (Supabase 503) says nothing about the schema.
+      // Caching "unsupported" here used to stick for 24h and strip `useful`
+      // from every insert, so wasted actions landed as useful:true (the
+      // column default) in the battle ledger. Assume supported and don't
+      // cache — if the column really is missing, the insert's 400 safety
+      // net below corrects the cache after a single failed attempt.
+      _usefulProbe = null
+      return true
+    }
+    const supported = !!data && data.length > 0 && 'useful' in (data[0] as Record<string, unknown>)
     _usefulSupported = supported
     writeUsefulCache(supported)
     return supported

@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback, useRef, createContext, useContext, createElement, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { withRetry } from '@/lib/supabaseRetry'
+import { onForeground } from '@/lib/onForeground'
 import { useAuth } from './useAuth'
 import type { Profile, JournalMessage, Interaction, GiftItem, UserMood, StreakData } from '@/types'
 import { format, subDays } from 'date-fns'
@@ -49,17 +51,31 @@ function useCoupleImpl() {
   // already-subscribed channel back. The counter + random suffix
   // guarantees uniqueness.
   const channelRef = useRef<string>(`couple_${++_coupleChannelCounter}_${Math.random().toString(36).slice(2, 8)}`)
+  // True when the last fetchAll hit a Supabase outage that outlasted
+  // withRetry's backoff — the focus listener uses it to refetch.
+  const loadFailedRef = useRef(false)
 
   // ── Load partner, love meter, anniversary, journal ──
   const fetchAll = useCallback(async () => {
     if (!profile?.household_id || !user?.id) return
 
-    // Partner
-    const { data: members } = await supabase
+    // Partner. Reads below go through withRetry because Supabase
+    // intermittently 503s while the hosted project restarts — and this
+    // fetch runs once per mount, so a blip used to blank the couple UI
+    // until a manual reload. If the first read still fails after the
+    // retries, the backend is down: bail without clobbering whatever
+    // state we already have, and let the focus listener refetch.
+    const { data: members, error: membersError } = await withRetry(() => supabase
       .from('profiles')
       .select('*')
       .eq('household_id', profile.household_id)
-      .neq('id', user.id)
+      .neq('id', user.id))
+    if (membersError) {
+      loadFailedRef.current = true
+      setLoading(false)
+      return
+    }
+    loadFailedRef.current = false
     const p = members?.[0] ?? null
     setPartner(p)
     setPartnerStreak((p?.streak as StreakData | undefined) ?? null)
@@ -68,29 +84,36 @@ function useCoupleImpl() {
     if (p) {
       const todayStr = format(new Date(), 'yyyy-MM-dd')
       const weekStartStr = format(subDays(new Date(), 6), 'yyyy-MM-dd')
-      const { data: moodRows } = await supabase
+      const { data: moodRows, error: moodsError } = await withRetry(() => supabase
         .from('daily_moods')
         .select('mood, date')
         .eq('user_id', p.id)
-        .gte('date', weekStartStr)
-      const byDate = new Map<string, UserMood>((moodRows ?? []).map(m => [m.date, m.mood as UserMood]))
-      const week = Array.from({ length: 7 }, (_, i) => {
-        const d = format(subDays(new Date(), 6 - i), 'yyyy-MM-dd')
-        return { date: d, mood: byDate.get(d) ?? null }
-      })
-      setPartnerMoodWeek(week)
-      setPartnerMood(byDate.get(todayStr) ?? null)
+        .gte('date', weekStartStr))
+      if (moodsError) {
+        // Keep the previous mood strip — an all-null week from a failed read
+        // would clobber a correct one. The foreground listener refetches.
+        loadFailedRef.current = true
+      } else {
+        const byDate = new Map<string, UserMood>((moodRows ?? []).map(m => [m.date, m.mood as UserMood]))
+        const week = Array.from({ length: 7 }, (_, i) => {
+          const d = format(subDays(new Date(), 6 - i), 'yyyy-MM-dd')
+          return { date: d, mood: byDate.get(d) ?? null }
+        })
+        setPartnerMoodWeek(week)
+        setPartnerMood(byDate.get(todayStr) ?? null)
+      }
     } else {
       setPartnerMoodWeek([])
       setPartnerMood(null)
     }
 
     // Anniversary
-    const { data: household } = await supabase
+    const { data: household, error: householdError } = await withRetry(() => supabase
       .from('households')
       .select('created_at')
       .eq('id', profile.household_id)
-      .single()
+      .maybeSingle())
+    if (householdError) loadFailedRef.current = true
     if (household) {
       setAnniversary(getAnniversaryInfo(household.created_at))
     }
@@ -100,11 +123,12 @@ function useCoupleImpl() {
     // partner can come back from behind without staring down a
     // 30-day deficit.
     const weekStart = startOfWeek().toISOString()
-    const { data: interactions } = await supabase
+    const { data: interactions, error: interactionsError } = await withRetry(() => supabase
       .from('interactions')
       .select('*')
       .eq('household_id', profile.household_id)
-      .gte('created_at', weekStart)
+      .gte('created_at', weekStart))
+    if (interactionsError) loadFailedRef.current = true
 
     if (interactions && p) {
       setLoveMeter(computeLoveMeter(
@@ -138,13 +162,14 @@ function useCoupleImpl() {
     // Eren-delivered messages (via_eren = true) are filtered out here so
     // they never appear in the heart-button journal — they're a separate
     // channel that fires the ErenMessagePopup once and disappears.
-    const { data: msgs } = await supabase
+    const { data: msgs, error: msgsError } = await withRetry(() => supabase
       .from('couple_journal')
       .select('*, profile:profiles!sender_id(*)')
       .eq('household_id', profile.household_id)
       .or('via_eren.is.null,via_eren.eq.false')
       .order('created_at', { ascending: false })
-      .limit(50)
+      .limit(50))
+    if (msgsError) loadFailedRef.current = true
     if (msgs) {
       setJournal(msgs)
       // Count messages from partner that arrived AFTER the last time user read
@@ -169,22 +194,27 @@ function useCoupleImpl() {
         return prev
       })
     }
-    const onFocus = () => recount()
+    const onActive = () => {
+      recount()
+      // Self-heal after a Supabase outage: the mount-time fetchAll only
+      // runs once, so a failed load would otherwise persist until a reload.
+      if (loadFailedRef.current) fetchAll()
+    }
     const onStorage = (e: StorageEvent) => {
       if (e.key === `eren_journal_read_${user.id}`) recount()
     }
     const onMarkedRead = () => recount()
-    window.addEventListener('focus', onFocus)
+    const offForeground = onForeground(onActive)
     window.addEventListener('storage', onStorage)
     window.addEventListener('eren:journal-read', onMarkedRead)
     const interval = setInterval(recount, 3000)
     return () => {
-      window.removeEventListener('focus', onFocus)
+      offForeground()
       window.removeEventListener('storage', onStorage)
       window.removeEventListener('eren:journal-read', onMarkedRead)
       clearInterval(interval)
     }
-  }, [user?.id])
+  }, [user?.id, fetchAll])
 
   // ── Realtime: listen for new journal messages ──
   useEffect(() => {

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { format, subDays, startOfISOWeek, addDays, getISOWeek, getISOWeekYear } from 'date-fns'
+import { withRetry } from '@/lib/supabaseRetry'
 import type { Interaction } from '@/types'
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -272,12 +273,15 @@ export async function fetchLifetimeRows(
   daysBack: number = LIFETIME_LOOKBACK_DAYS,
 ): Promise<DailyBattleRow[]> {
   const since = format(subDays(new Date(), daysBack), 'yyyy-MM-dd')
-  const { data } = await supabase
+  const { data, error } = await withRetry(() => supabase
     .from('daily_battle_results')
     .select('*')
     .eq('user_id', myId)
     .gte('date', since)
-    .order('date', { ascending: false })
+    .order('date', { ascending: false }))
+  // Deliberate throw on persistent failure: useCouple's try/catch leaves
+  // lifetimeWLT null (panel hidden) instead of showing a false 0-0-0.
+  if (error) throw new Error(`fetchLifetimeRows failed: ${error.message ?? error.code}`)
   return (data ?? []) as DailyBattleRow[]
 }
 

@@ -11,6 +11,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { withRetry } from '@/lib/supabaseRetry'
+import { onForeground } from '@/lib/onForeground'
 
 let _memoryChannelCounter = 0
 
@@ -40,20 +42,38 @@ export function useMemoryFrames(householdId: string | null): {
 
   const [frames, setFrames] = useState<MemoryFrameRow[]>([])
   const [loading, setLoading] = useState(true)
+  // True when the last fetchAll hit a Supabase outage that outlasted
+  // withRetry's backoff — the foreground listener uses it to refetch.
+  const loadFailedRef = useRef(false)
 
   const fetchAll = useCallback(async () => {
     if (!householdId) { setFrames([]); setLoading(false); return }
     setLoading(true)
-    const { data } = await supabase
+    // Error-checked: a transient 503 resolves as { data: null, error } and
+    // must not read as "no frames" — that would wipe the wall to its empty
+    // state. Keep the prior list and let the foreground listener refetch.
+    const { data, error } = await withRetry(() => supabase
       .from('memory_frames')
       .select('household_id, frame_id, kind, rarity, unlocked_at, unlocked_by, payload, reaction')
       .eq('household_id', householdId)
-      .order('unlocked_at', { ascending: false })
+      .order('unlocked_at', { ascending: false }))
+    if (error) {
+      loadFailedRef.current = true
+      setLoading(false)
+      return
+    }
+    loadFailedRef.current = false
     setFrames((data ?? []) as MemoryFrameRow[])
     setLoading(false)
   }, [householdId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { void fetchAll() }, [fetchAll])
+
+  // Self-heal: the mount-time load only runs once and realtime has no
+  // backfill, so a failed fetch would persist until a full reload. Retry on
+  // return to foreground (focus alone misses iOS standalone, which only
+  // fires visibilitychange).
+  useEffect(() => onForeground(() => { if (loadFailedRef.current) void fetchAll() }), [fetchAll])
 
   useEffect(() => {
     if (!householdId) return

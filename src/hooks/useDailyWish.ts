@@ -22,6 +22,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { withRetry } from '@/lib/supabaseRetry'
+import { onForeground } from '@/lib/onForeground'
 import type { FoodKey } from '@/types'
 import {
   WISHES, FALLBACK_WISH,
@@ -111,6 +113,12 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
   // return false even when the user has actually done the action today —
   // leaving the wish stuck on "pending" forever after a fresh app open.
   const [caughtUp, setCaughtUp] = useState(false)
+  // True when the last fetchOrSeed hit a Supabase outage that outlasted
+  // withRetry's backoff — the foreground listener uses it to refetch.
+  const loadFailedRef = useRef(false)
+  // True when the interactions catch-up below failed — the foreground
+  // listener re-runs it so `caughtUp` never flips true over empty refs.
+  const caughtUpFailedRef = useRef(false)
 
   // ── Session action refs — survive across renders, persist via localStorage.
   // partnerFeeds intentionally stays empty: the interactions table doesn't
@@ -151,15 +159,23 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
     if (!opts.householdId || !todayKey) { setLoading(false); return }
     setLoading(true)
 
-    // Try to read the existing row first.
-    const { data: existing } = await supabase
+    // Try to read the existing row first. Error-checked: a transient 503
+    // resolves as { data: null, error } and must NOT read as "no wish row
+    // today" — that would send us down the seed path during an outage.
+    const { data: existing, error: readError } = await withRetry(() => supabase
       .from('eren_wishes')
       .select('household_id, period_key, wish_id, shown_at, granted_at, granted_by, action_taken, coins_paid')
       .eq('household_id', opts.householdId)
       .eq('period_key', todayKey)
-      .maybeSingle()
+      .maybeSingle())
+    if (readError) {
+      loadFailedRef.current = true
+      setLoading(false)
+      return
+    }
 
     if (existing) {
+      loadFailedRef.current = false
       setRow(existing as DailyWishRow)
       setLoading(false)
       return
@@ -185,13 +201,20 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
       })
     void insertError // ignore unique-violation; we re-select below
 
-    const { data: reread } = await supabase
+    const { data: reread, error: rereadError } = await withRetry(() => supabase
       .from('eren_wishes')
       .select('household_id, period_key, wish_id, shown_at, granted_at, granted_by, action_taken, coins_paid')
       .eq('household_id', opts.householdId)
       .eq('period_key', todayKey)
-      .maybeSingle()
+      .maybeSingle())
+    if (rereadError) {
+      // Keep whatever row we already had instead of blanking the cloud.
+      loadFailedRef.current = true
+      setLoading(false)
+      return
+    }
 
+    loadFailedRef.current = false
     setRow((reread as DailyWishRow) ?? null)
     setLoading(false)
   }, [opts.householdId, opts.tz, todayKey]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -245,32 +268,45 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
   // interaction logged before UTC midnight on the user's local today (e.g.
   // a bath at 01:00 local for a user at UTC+3), which is the exact case
   // that leaves a wish stuck on "pending" all day.
-  useEffect(() => {
-    if (!opts.householdId || !opts.userId || !todayKey) { setCaughtUp(false); return }
-    let cancelled = false
-    setCaughtUp(false)
-    ;(async () => {
-      const cutoff = new Date(Date.now() - 36 * 3600_000).toISOString()
-      const { data: rows } = await supabase
-        .from('interactions')
-        .select('user_id, action_type, created_at')
-        .eq('household_id', opts.householdId)
-        .gte('created_at', cutoff)
-      if (cancelled) return
-      const me: Array<'feed'|'play'|'sleep'|'wash'|'medicine'> = []
-      const part: Array<'feed'|'play'|'sleep'|'wash'|'medicine'> = []
-      for (const i of (rows ?? [])) {
-        if (dateKey(new Date(i.created_at as string), opts.tz) !== todayKey) continue
-        const at = i.action_type as 'feed'|'play'|'sleep'|'wash'|'medicine'
-        if (i.user_id === opts.userId) me.push(at)
-        else part.push(at)
-      }
-      myCaresRef.current = me
-      partnerCaresRef.current = part
-      setCaughtUp(true)
-    })()
-    return () => { cancelled = true }
+  // A callback (not effect-local) so the foreground listener can re-run it
+  // after an outage. Each run bumps the generation so a stale in-flight
+  // query (day flip, household change, overlapping retry) can't write refs.
+  const catchUpGenRef = useRef(0)
+  const catchUp = useCallback(async () => {
+    const gen = ++catchUpGenRef.current
+    if (!opts.householdId || !opts.userId || !todayKey) return
+    const cutoff = new Date(Date.now() - 36 * 3600_000).toISOString()
+    // Error-checked: a transient 503 resolves as { data: null, error } —
+    // flipping caughtUp over falsely-empty refs would spend the once-only
+    // grant pass on nothing, sticking a done wish on "pending" all day.
+    const { data: rows, error } = await withRetry(() => supabase
+      .from('interactions')
+      .select('user_id, action_type, created_at')
+      .eq('household_id', opts.householdId)
+      .gte('created_at', cutoff))
+    if (gen !== catchUpGenRef.current) return
+    if (error) {
+      caughtUpFailedRef.current = true
+      return
+    }
+    caughtUpFailedRef.current = false
+    const me: Array<'feed'|'play'|'sleep'|'wash'|'medicine'> = []
+    const part: Array<'feed'|'play'|'sleep'|'wash'|'medicine'> = []
+    for (const i of (rows ?? [])) {
+      if (dateKey(new Date(i.created_at as string), opts.tz) !== todayKey) continue
+      const at = i.action_type as 'feed'|'play'|'sleep'|'wash'|'medicine'
+      if (i.user_id === opts.userId) me.push(at)
+      else part.push(at)
+    }
+    myCaresRef.current = me
+    partnerCaresRef.current = part
+    setCaughtUp(true)
   }, [opts.householdId, opts.userId, todayKey, opts.tz]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    setCaughtUp(false)
+    void catchUp()
+  }, [catchUp])
 
   // ── Realtime subscription on this household's wish row.
   useEffect(() => {
@@ -444,6 +480,16 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
 
   // ── Boot.
   useEffect(() => { void fetchOrSeed() }, [fetchOrSeed])
+
+  // Self-heal: fetchOrSeed and the catch-up only run on mount/dep change, so
+  // bailing on a Supabase outage would otherwise leave the cloud empty (and
+  // the grant pass gated on empty refs) all day. Retry on return to
+  // foreground (focus alone misses iOS standalone, which only fires
+  // visibilitychange).
+  useEffect(() => onForeground(() => {
+    if (loadFailedRef.current) void fetchOrSeed()
+    if (caughtUpFailedRef.current) void catchUp()
+  }), [fetchOrSeed, catchUp])
 
   // ── Catch-up grant: if the wish row arrived AFTER the user already did
   // the matching action today (race on first mount, or app reopen after
