@@ -17,6 +17,7 @@ import {
   IconHouse, IconBook, IconStar,
 } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
+import { requestCloudNav } from '@/components/CloudTransition'
 import {
   PINK, PINK_HI, PINK_LO,
   OBSIDIAN_FACE, OBSIDIAN_BTN,
@@ -80,7 +81,7 @@ export default function GachaPage() {
 
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-2">
-        <button onClick={() => { playSound('ui_back'); router.back() }}
+        <button onClick={() => { playSound('ui_back'); requestCloudNav('/home', 'rainbow') }}
           className="flex items-center justify-center active:translate-y-[1px] transition-transform relative"
           style={{ width: 32, height: 32, ...OBSIDIAN_BTN }}>
           <Rivets inset={2} size={2} />

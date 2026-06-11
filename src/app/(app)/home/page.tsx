@@ -889,7 +889,12 @@ export default function HomePage() {
         >
           <Link
             href="/gacha"
-            onClick={() => playSound('ui_tap')}
+            onClick={e => {
+              // Rainbow variant of the cloud flight — gacha is the lucky room.
+              e.preventDefault()
+              playSound('ui_tap')
+              requestCloudNav('/gacha', 'rainbow')
+            }}
             className="home-dock-btn"
             style={{
               ...dockBtnBase,
