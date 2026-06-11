@@ -8,21 +8,17 @@
 // with gold sparkle + checkmark when the wish lands. Tappable to expand into
 // a detail card with the room hint.
 //
-// Pure presentational — caller wires it up with the data from useDailyWish.
+// Pure presentational — the caller (home page) decides when this is on
+// screen via useWishLinger, which owns the per-viewer two-minute post-grant
+// window and persists it across reopens. The StatsHeader gold chip remains
+// the permanent "granted today" indicator.
 // ═════════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { IconWish } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import type { Wish } from '@/lib/wishes'
 import { wishHintRoom } from '@/lib/wishes'
-
-// Time the bubble stays visible after a grant before fading out. Two minutes
-// — long enough that the "WISH GRANTED" stamp registers as a real moment of
-// accomplishment, short enough that the above-left anchor frees up for the
-// ambient flavor bubble well before the day is over. The StatsHeader gold
-// chip remains the permanent "granted today" indicator.
-const GRANTED_LINGER_MS = 120000
 
 interface Props {
   wish: Wish
@@ -43,52 +39,6 @@ const HINT_ROOM_LABEL: Record<NonNullable<ReturnType<typeof wishHintRoom>>, stri
 
 export default function WishCloud({ wish, text, status, grantedByMe, grantedByName, coinsPaid }: Props) {
   const [expanded, setExpanded] = useState(false)
-  const [sparkleKey, setSparkleKey] = useState(0)
-  // Tracks whether the bubble should still be on-screen. Goes false N seconds
-  // after grant so the bubble doesn't loiter showing stale text all day.
-  const [visible, setVisible] = useState(true)
-  const lingerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Per-viewer arm time. Once set, the 2-min countdown is locked to this
-  // moment — subsequent tab focus/blur doesn't reset it. Cleared when the
-  // wish refreshes for a new day.
-  const armedAtRef = useRef<number | null>(null)
-
-  // Bump the sparkle + arm the linger timer when the page is actually visible.
-  // If she's away when grant lands, we wait — her countdown starts when she
-  // comes back, not when the realtime UPDATE arrived.
-  useEffect(() => {
-    if (status !== 'granted') {
-      setVisible(true)
-      if (lingerTimerRef.current) {
-        clearTimeout(lingerTimerRef.current)
-        lingerTimerRef.current = null
-      }
-      armedAtRef.current = null
-      return
-    }
-
-    setSparkleKey(k => k + 1)
-
-    const arm = () => {
-      if (armedAtRef.current != null) return        // already armed; don't reset
-      if (document.visibilityState !== 'visible') return
-      armedAtRef.current = Date.now()
-      if (lingerTimerRef.current) clearTimeout(lingerTimerRef.current)
-      lingerTimerRef.current = setTimeout(() => setVisible(false), GRANTED_LINGER_MS)
-    }
-
-    arm()
-    const onVisibility = () => { if (document.visibilityState === 'visible') arm() }
-    document.addEventListener('visibilitychange', onVisibility)
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibility)
-      if (lingerTimerRef.current) clearTimeout(lingerTimerRef.current)
-    }
-  }, [status])
-
-  // Hide the bubble after the linger. The StatsHeader chip keeps the gold
-  // "granted today" state visible permanently for the rest of the day.
-  if (!visible) return null
 
   const hintRoom = wishHintRoom(wish)
   const hintLabel = hintRoom ? HINT_ROOM_LABEL[hintRoom] : null
@@ -181,8 +131,8 @@ export default function WishCloud({ wish, text, status, grantedByMe, grantedByNa
           </div>
         </button>
 
-        {/* Sparkle burst — re-rendered on each grant via key change */}
-        {isGranted && <SparkleBurst key={sparkleKey} />}
+        {/* Sparkle burst — mounts fresh when the grant flips isGranted */}
+        {isGranted && <SparkleBurst />}
       </div>
 
       {/* Detail modal — opens on tap */}

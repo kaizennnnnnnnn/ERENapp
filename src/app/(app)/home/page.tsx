@@ -322,8 +322,18 @@ export default function HomePage() {
   // Single source of truth for the wish bubble's on-screen window — gates
   // both the WishCloud mount below and the flavor-bubble suppression. The
   // per-viewer 2-min post-grant countdown persists in localStorage, so a
-  // remount (route change, PWA relaunch) resumes it instead of restarting it.
-  const wishBubbleVisible = useWishLinger(wish?.status ?? 'loading', wish?.todayKey ?? null)
+  // remount (route change, PWA relaunch) resumes it instead of restarting
+  // it. The countdown arms only while the bubble is actually viewable —
+  // home past its gates, no care scene covering the room, Eren awake —
+  // otherwise the one-shot window would burn behind MoodGate or a room
+  // overlay and the viewer would never see the granted state.
+  // `!!wish?.wish` keeps an unresolvable wish row (definition missing, or
+  // a 503 left the row unloaded) from suppressing the flavor bubble while
+  // nothing is on screen.
+  const wishBubbleEligible = pageReady && !activeScene && !stats?.is_sleeping
+  const wishBubbleVisible = useWishLinger(
+    wish?.status ?? 'loading', wish?.todayKey ?? null, wishBubbleEligible,
+  ) && !!wish?.wish
 
   const { line: flavorLine, dismiss: dismissFlavor } = useFlavorBubble({
     enabled: !!stats && !stats.is_sleeping && roomReady && !authLoading,
