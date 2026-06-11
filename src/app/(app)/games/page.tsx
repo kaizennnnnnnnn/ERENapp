@@ -560,7 +560,7 @@ export default function GamesPage() {
     if (!user?.id) return
     async function load() {
       const { data: scores } = await supabase
-        .from('game_scores')
+        .from('game_best_scores')
         .select('game_type, score')
         .eq('user_id', user!.id)
 

@@ -145,7 +145,7 @@ export default function Leaderboard({ onClose }: Props) {
 
       const userIds = resolved.map((p: Profile) => p.id)
       const { data: scores, error: scoresError } = await withRetry(() => supabase
-        .from('game_scores')
+        .from('game_best_scores')
         .select('user_id, game_type, score')
         .in('user_id', userIds))
       if (scoresError) return
