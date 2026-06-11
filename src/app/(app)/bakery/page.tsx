@@ -205,16 +205,19 @@ export default function BakeryPage() {
             style={{ height: `${pic.counterPct}%`, zIndex: 10 }}>
             <div className="absolute left-1/2" style={{ bottom: EREN_BOTTOM, transform: 'translateX(-50%)' }}>
               <ErenIdleLayer>
-                {/* Soften BlinkingEren's default night dimmer
-                    (brightness(0.7)+saturate(0.85) — too dark) to a gentle dim
-                    with a warm sepia tint that matches the pendant-lamp pool
-                    pouring over his head in CakeShopNight.png. Day inherits
-                    no filter as usual. */}
+                {/* Night dim tuned between BlinkingEren's default
+                    (brightness(0.7) — too dark, fur goes gray) and the old
+                    0.93 (too bright — he popped out of the dim room like a
+                    sticker). 0.8 + warm sepia sits him in the room's dusk
+                    while the pendant-lamp pool over his head keeps him warm.
+                    Picked against rendered candidates — see
+                    scripts/preview_bakery_night_dim.py. Day inherits no
+                    filter as usual. */}
                 <BlinkingEren
                   size={`${EREN_VW}cqi`}
                   src="/ErenCakeShop.png"
                   eyes={CAKE_EYES}
-                  style={isDark ? { filter: 'brightness(0.93) saturate(0.95) sepia(0.08)' } : undefined}
+                  style={isDark ? { filter: 'brightness(0.8) saturate(0.9) sepia(0.1)' } : undefined}
                 />
               </ErenIdleLayer>
             </div>
