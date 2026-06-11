@@ -59,7 +59,31 @@ function useCoupleImpl() {
   const fetchAll = useCallback(async () => {
     if (!profile?.household_id || !user?.id) return
 
-    // Partner. Reads below go through withRetry because Supabase
+    // Start every independent read at once — serially these were ~8
+    // back-to-back round trips on each app open. The awaits below keep
+    // the original order, so setter sequence and error handling are
+    // unchanged; withRetry never rejects, so a bail simply discards the
+    // in-flight reads without applying their setters.
+    const weekStart = startOfWeek().toISOString()
+    const householdP = withRetry(() => supabase
+      .from('households')
+      .select('created_at')
+      .eq('id', profile.household_id)
+      .maybeSingle())
+    const interactionsP = withRetry(() => supabase
+      .from('interactions')
+      .select('*')
+      .eq('household_id', profile.household_id)
+      .gte('created_at', weekStart))
+    const journalP = withRetry(() => supabase
+      .from('couple_journal')
+      .select('*, profile:profiles!sender_id(*)')
+      .eq('household_id', profile.household_id)
+      .or('via_eren.is.null,via_eren.eq.false')
+      .order('created_at', { ascending: false })
+      .limit(50))
+
+    // Partner. Reads go through withRetry because Supabase
     // intermittently 503s while the hosted project restarts — and this
     // fetch runs once per mount, so a blip used to blank the couple UI
     // until a manual reload. If the first read still fails after the
@@ -80,15 +104,30 @@ function useCoupleImpl() {
     setPartner(p)
     setPartnerStreak((p?.streak as StreakData | undefined) ?? null)
 
+    // Partner-dependent reads start now and run concurrently. Catches are
+    // attached at creation so a rejection while another await is pending
+    // can't fire unhandledrejection; the undefined sentinel reproduces the
+    // old catch-skips-setter behavior exactly.
+    const todayStr = format(new Date(), 'yyyy-MM-dd')
+    const weekStartStr = format(subDays(new Date(), 6), 'yyyy-MM-dd')
+    const moodsP = p ? withRetry(() => supabase
+      .from('daily_moods')
+      .select('mood, date')
+      .eq('user_id', p.id)
+      .gte('date', weekStartStr)) : null
+    const lifetimeP = p
+      ? backfillDailyResults(supabase, profile.household_id, user.id, p.id)
+          .then(() => fetchLifetimeRows(supabase, user.id))
+          .catch(() => undefined)
+      : null
+    const weeklyP = p
+      ? ensureLastWeekResult(supabase, profile.household_id, user.id, p.id)
+          .catch(() => undefined)
+      : null
+
     // Partner's recent moods — today's mood + a 7-day strip (gaps = null).
     if (p) {
-      const todayStr = format(new Date(), 'yyyy-MM-dd')
-      const weekStartStr = format(subDays(new Date(), 6), 'yyyy-MM-dd')
-      const { data: moodRows, error: moodsError } = await withRetry(() => supabase
-        .from('daily_moods')
-        .select('mood, date')
-        .eq('user_id', p.id)
-        .gte('date', weekStartStr))
+      const { data: moodRows, error: moodsError } = await moodsP!
       if (moodsError) {
         // Keep the previous mood strip — an all-null week from a failed read
         // would clobber a correct one. The foreground listener refetches.
@@ -108,11 +147,7 @@ function useCoupleImpl() {
     }
 
     // Anniversary
-    const { data: household, error: householdError } = await withRetry(() => supabase
-      .from('households')
-      .select('created_at')
-      .eq('id', profile.household_id)
-      .maybeSingle())
+    const { data: household, error: householdError } = await householdP
     if (householdError) loadFailedRef.current = true
     if (household) {
       setAnniversary(getAnniversaryInfo(household.created_at))
@@ -122,12 +157,7 @@ function useCoupleImpl() {
     // weekly so the scoreboard resets every Monday automatically: a
     // partner can come back from behind without staring down a
     // 30-day deficit.
-    const weekStart = startOfWeek().toISOString()
-    const { data: interactions, error: interactionsError } = await withRetry(() => supabase
-      .from('interactions')
-      .select('*')
-      .eq('household_id', profile.household_id)
-      .gte('created_at', weekStart))
+    const { data: interactions, error: interactionsError } = await interactionsP
     if (interactionsError) loadFailedRef.current = true
 
     if (interactions && p) {
@@ -141,20 +171,16 @@ function useCoupleImpl() {
     // Lifetime W-L-T: backfill any missing daily snapshots in the lookback
     // window, then aggregate. Backfill is idempotent (ignoreDuplicates).
     if (p) {
-      try {
-        await backfillDailyResults(supabase, profile.household_id, user.id, p.id)
-        const rows = await fetchLifetimeRows(supabase, user.id)
-        setLifetimeWLT(computeLifetimeWLT(rows))
-      } catch { /* ignore — UI hides empty W-L-T */ }
+      const rows = await lifetimeP!
+      if (rows !== undefined) setLifetimeWLT(computeLifetimeWLT(rows))
+      // undefined = failed — UI hides empty W-L-T
     }
 
     // Last week's Care Battle result. Computed once and persisted; if I won
     // and haven't been paid yet, the consumer surfaces the popup.
     if (p) {
-      try {
-        const wk = await ensureLastWeekResult(supabase, profile.household_id, user.id, p.id)
-        setWeeklyChampion(wk)
-      } catch { /* ignore */ }
+      const wk = await weeklyP!
+      if (wk !== undefined) setWeeklyChampion(wk)
     }
 
     // Journal messages.
@@ -162,13 +188,7 @@ function useCoupleImpl() {
     // Eren-delivered messages (via_eren = true) are filtered out here so
     // they never appear in the heart-button journal — they're a separate
     // channel that fires the ErenMessagePopup once and disappears.
-    const { data: msgs, error: msgsError } = await withRetry(() => supabase
-      .from('couple_journal')
-      .select('*, profile:profiles!sender_id(*)')
-      .eq('household_id', profile.household_id)
-      .or('via_eren.is.null,via_eren.eq.false')
-      .order('created_at', { ascending: false })
-      .limit(50))
+    const { data: msgs, error: msgsError } = await journalP
     if (msgsError) loadFailedRef.current = true
     if (msgs) {
       setJournal(msgs)

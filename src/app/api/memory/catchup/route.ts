@@ -404,46 +404,84 @@ export async function POST(req: Request) {
   const reported: Array<{ frame_id: string, unlocked_at: string }> = []
 
   const backfillEntries = Array.from(backfill.entries())
+
+  // Split: missing frames get ONE bulk insert; already-present frames get
+  // independent backdate updates. A frame_id is only ever in one bucket.
+  const toInsert: Array<{ frameId: string, entry: BackfillEntry, frame: MemoryFrame }> = []
+  const toBackdate: Array<{ frameId: string, entry: BackfillEntry }> = []
   for (const [frameId, entry] of backfillEntries) {
     const frame = frameById.get(frameId)
     if (!frame) continue
     const currentAt = existing.get(frameId)
+    if (!currentAt) toInsert.push({ frameId, entry, frame })
+    else if (new Date(entry.historical_at) < new Date(currentAt)) toBackdate.push({ frameId, entry })
+  }
 
-    if (!currentAt) {
-      // Insert with historical timestamp. Wrap in try so a single row's
-      // network failure doesn't abort the rest of the pass.
-      try {
-        const { error } = await supabase.from('memory_frames').insert({
-          household_id: body.household_id,
-          frame_id:     frameId,
-          kind:         frame.kind,
-          rarity:       frame.rarity,
-          unlocked_at:  entry.historical_at,
-          unlocked_by:  entry.unlocked_by,
-          payload:      entry.payload,
-        })
-        // 23505 = concurrent partner catchup beat us. We still surface the
-        // frame in the carousel since it's newly visible to this user now.
-        if (!error || error.code === '23505') {
-          reported.push({ frame_id: frameId, unlocked_at: entry.historical_at })
-        }
-      } catch { /* swallow — one failed row shouldn't abort the pass */ }
-    } else if (new Date(entry.historical_at) < new Date(currentAt)) {
-      // Pull the existing stamp backwards. This is a silent timestamp
-      // correction — the frame is already on the wall and the user has
-      // already seen it — so it does NOT enter `reported`. Otherwise the
-      // carousel would parade frames the user already discovered as if they
-      // were new.
-      try {
-        await supabase
-          .from('memory_frames')
-          .update({ unlocked_at: entry.historical_at })
-          .eq('household_id', body.household_id)
-          .eq('frame_id',     frameId)
-          .gt('unlocked_at',  entry.historical_at)
-      } catch { /* silent correction; ignore */ }
+  if (toInsert.length) {
+    const rows = toInsert.map(({ frameId, entry, frame }) => ({
+      household_id: body.household_id,
+      frame_id:     frameId,
+      kind:         frame.kind,
+      rarity:       frame.rarity,
+      unlocked_at:  entry.historical_at,
+      unlocked_by:  entry.unlocked_by,
+      payload:      entry.payload,
+    }))
+    // ONE round trip instead of up to 58. ON CONFLICT DO NOTHING matches the
+    // old per-row 23505 absorb: a concurrent partner catchup's row wins and
+    // the frame is still reported as newly visible to this user.
+    let bulkOk = false
+    try {
+      const { error } = await supabase
+        .from('memory_frames')
+        .upsert(rows, { onConflict: 'household_id,frame_id', ignoreDuplicates: true })
+      bulkOk = !error
+    } catch { /* fall through to per-row */ }
+    if (bulkOk) {
+      for (const { frameId, entry } of toInsert) {
+        reported.push({ frame_id: frameId, unlocked_at: entry.historical_at })
+      }
+    } else {
+      // Bulk write failed (transient 503s happen). The carousel stamps
+      // memory_caught_up on first mount, so this pass is our only shot at
+      // these rows — fall back to the old per-row loop so one blip can't
+      // drop the whole backfill.
+      for (const { frameId, entry, frame } of toInsert) {
+        try {
+          const { error } = await supabase.from('memory_frames').insert({
+            household_id: body.household_id,
+            frame_id:     frameId,
+            kind:         frame.kind,
+            rarity:       frame.rarity,
+            unlocked_at:  entry.historical_at,
+            unlocked_by:  entry.unlocked_by,
+            payload:      entry.payload,
+          })
+          // 23505 = concurrent partner catchup beat us. We still surface the
+          // frame in the carousel since it's newly visible to this user now.
+          if (!error || error.code === '23505') {
+            reported.push({ frame_id: frameId, unlocked_at: entry.historical_at })
+          }
+        } catch { /* swallow — one failed row shouldn't abort the pass */ }
+      }
     }
   }
+
+  // Backdates pull an existing stamp backwards. These are silent timestamp
+  // corrections on distinct, independent rows — the frame is already on the
+  // wall and the user has already seen it, so they never enter `reported`
+  // (otherwise the carousel would parade frames the user already discovered
+  // as if they were new). Run them concurrently, swallowing per-row failures
+  // like before.
+  await Promise.all(toBackdate.map(({ frameId, entry }) =>
+    supabase
+      .from('memory_frames')
+      .update({ unlocked_at: entry.historical_at })
+      .eq('household_id', body.household_id)
+      .eq('frame_id',     frameId)
+      .gt('unlocked_at',  entry.historical_at)
+      .then(() => undefined, () => undefined)
+  ))
 
   // Stamp catchup_pushed_at the FIRST time we run for this profile so PR 9's
   // notify-catchup doesn't re-nudge. First-write-wins — subsequent retries

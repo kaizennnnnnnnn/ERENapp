@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useReducer, useRef, useState } from 'react'
+import { memo, useEffect, useReducer, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -933,7 +933,7 @@ function CountUp({ target, duration, style }: { target: number; duration: number
 }
 
 // ─── Item sprites — small, bold silhouettes that read clearly on asphalt ────
-function ItemSprite({ variant }: { variant: Variant }) {
+const ItemSprite = memo(function ItemSprite({ variant }: { variant: Variant }) {
   if (variant === 'mouse') {
     return (
       <svg width="100%" height="100%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
@@ -1014,10 +1014,10 @@ function ItemSprite({ variant }: { variant: Variant }) {
       <rect x="4" y="5" width="1" height="1" fill="#1A1A2E" />
     </svg>
   )
-}
+})
 
 // ─── Eren runner sprite — chibi with bobbing run animation handled by parent ─
-function ErenRunner() {
+const ErenRunner = memo(function ErenRunner() {
   return (
     <svg width="100%" height="100%" viewBox="0 0 22 22" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
       <rect x="3" y="2" width="3" height="1" fill="#4A2E1A" />
@@ -1060,4 +1060,4 @@ function ErenRunner() {
       <rect x="17" y="19" width="2" height="1" fill="#D4B896" />
     </svg>
   )
-}
+})

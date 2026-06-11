@@ -585,12 +585,15 @@ export default function GamesPage() {
       paddingTop: 'calc(var(--safe-top) + 12px)', paddingBottom: 24,
     }}>
       {/* Drifting starfield + scanlines for the academy / arcade vibe */}
-      <div className="absolute inset-0 pointer-events-none opacity-50" style={{
-        backgroundImage: 'radial-gradient(circle, #FBBF24 1px, transparent 1px), radial-gradient(circle, #A78BFA 1px, transparent 1px)',
-        backgroundSize: '38px 38px, 56px 56px',
-        backgroundPosition: '0 0, 22px 28px',
-        animation: 'gpStarDrift 32s linear infinite',
-      }} />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute opacity-50" style={{
+          top: 0, bottom: 0, left: -200, right: 0,
+          backgroundImage: 'radial-gradient(circle, #FBBF24 1px, transparent 1px), radial-gradient(circle, #A78BFA 1px, transparent 1px)',
+          backgroundSize: '38px 38px, 56px 56px',
+          backgroundPosition: '200px 0, 222px 28px',
+          animation: 'gpStarDrift 32s linear infinite',
+        }} />
+      </div>
       <div className="absolute inset-0 pointer-events-none" style={{
         background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.18) 3px, rgba(0,0,0,0.18) 4px)',
         zIndex: 1,
@@ -796,8 +799,8 @@ export default function GamesPage() {
 
       <style jsx global>{`
         @keyframes gpStarDrift {
-          from { background-position: 0 0, 22px 28px; }
-          to   { background-position: 200px 0, 222px 28px; }
+          from { transform: translate3d(0, 0, 0); }
+          to   { transform: translate3d(200px, 0, 0); }
         }
         /* Sweeping shine that crosses each card. Long pause between
            sweeps + per-card animationDelay so the row reads as

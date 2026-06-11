@@ -21,6 +21,7 @@ export default function AnalogClock({ size = 80, mode = 'real', pixelated = fals
   useEffect(() => {
     let raf = 0
     const startMs = performance.now()
+    let lastSa = -1
 
     function frame() {
       let s: number, m: number, h: number
@@ -38,9 +39,12 @@ export default function AnalogClock({ size = 80, mode = 'real', pixelated = fals
       const sa = (s / 60) * 360
       const ma = (m / 60) * 360
       const ha = (h / 12) * 360
-      secondRef.current?.setAttribute('transform', `rotate(${sa} 100 100)`)
-      minuteRef.current?.setAttribute('transform', `rotate(${ma} 100 100)`)
-      hourRef.current?.setAttribute('transform',   `rotate(${ha} 100 100)`)
+      if (Math.abs(sa - lastSa) >= 0.4) {
+        lastSa = sa
+        secondRef.current?.setAttribute('transform', `rotate(${sa} 100 100)`)
+        minuteRef.current?.setAttribute('transform', `rotate(${ma} 100 100)`)
+        hourRef.current?.setAttribute('transform',   `rotate(${ha} 100 100)`)
+      }
       raf = requestAnimationFrame(frame)
     }
     frame()

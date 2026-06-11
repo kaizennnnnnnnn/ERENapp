@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
@@ -89,8 +89,22 @@ export default function PlayScene({ onClose }: Props) {
     animRef.current = requestAnimationFrame(step)
   }, [])
 
+  // Stop the ball's rAF loop if the scene unmounts mid-flight (room swipe).
+  useEffect(() => () => { if (animRef.current) cancelAnimationFrame(animRef.current) }, [])
+
   // Cache fallback so Eren renders synchronously with the right state.
   const isSleeping = stats?.is_sleeping ?? getCachedIsSleeping() ?? true
+
+  // Memoize Eren so the 60fps ball-physics renders don't reconcile the
+  // sprite stack every frame (same pattern as FeedScene). Cleanliness is
+  // the only changing input — it drives StinkyFlies.
+  const cleanliness = stats?.cleanliness ?? 100
+  const erenElement = useMemo(() => (
+    <ErenIdleLayer>
+      <BlinkingEren size={200} src="/ErenBell_notail.png" tailSrc="/ErenBell_tail.png" tailOrigin="73.3% 76.7%" eyes={BELL_EYES} />
+      <StinkyFlies cleanliness={cleanliness} />
+    </ErenIdleLayer>
+  ), [cleanliness])
 
   function handleThrow(e: React.MouseEvent<HTMLDivElement>) {
     if (done || isSleeping) return
@@ -137,10 +151,7 @@ export default function PlayScene({ onClose }: Props) {
       {!isSleeping && (
         <div className={cn('absolute z-10 transition-all duration-500')}
           style={{ bottom: '10%', left: '50%', transform: `translateX(-50%) scaleX(${lookDir === 'left' ? -1 : 1})` }}>
-          <ErenIdleLayer>
-            <BlinkingEren size={200} src="/ErenBell_notail.png" tailSrc="/ErenBell_tail.png" tailOrigin="73.3% 76.7%" eyes={BELL_EYES} />
-            <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
-          </ErenIdleLayer>
+          {erenElement}
         </div>
       )}
 

@@ -45,7 +45,7 @@ type StatKey = 'happiness' | 'hunger' | 'energy' | 'sleep_quality' | 'cleanlines
 
 interface GaugeDef {
   key: StatKey
-  Icon: (p: { size?: number }) => React.ReactElement | null
+  Icon: React.ComponentType<{ size?: number }>
   hue: [string, string]   // [topFill, bottomFill] for the high tier
 }
 

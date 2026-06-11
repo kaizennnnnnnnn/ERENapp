@@ -1,5 +1,7 @@
 'use client'
 
+import { memo } from 'react'
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // PIXEL ART ICONS — pure SVG, pixel-art style, no emojis
 // Each icon is drawn on a 12x12 grid for consistency
@@ -30,7 +32,7 @@ function drawPixels(grid: string[], palette: Record<string, string>, size: numbe
 }
 
 // ── HEART (happiness) ──────────────────────────────────────────────────────
-export function IconHeart({ size = 20 }: IconProps) {
+export const IconHeart = memo(function IconHeart({ size = 20 }: IconProps) {
   const grid = [
     '............',
     '..KKK..KKK..',
@@ -48,10 +50,10 @@ export function IconHeart({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#8B1538', P: '#FF4D7D', W: '#FFC0D0',
   }, size)
-}
+})
 
 // ── DRUMSTICK (hunger) — vertical, meaty top + bone handle below ──
-export function IconMeat({ size = 20 }: IconProps) {
+export const IconMeat = memo(function IconMeat({ size = 20 }: IconProps) {
   const grid = [
     '............',
     '....KKKK....',
@@ -74,10 +76,10 @@ export function IconMeat({ size = 20 }: IconProps) {
     B: '#E8D5A8', // bone
     W: '#FFFEF4', // bone highlight
   }, size)
-}
+})
 
 // ── LIGHTNING (energy) ─────────────────────────────────────────────────────
-export function IconLightning({ size = 20 }: IconProps) {
+export const IconLightning = memo(function IconLightning({ size = 20 }: IconProps) {
   const grid = [
     '......KKK...',
     '.....KYYYK..',
@@ -95,10 +97,10 @@ export function IconLightning({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#8B6400', Y: '#FFD700',
   }, size)
-}
+})
 
 // ── MOON (sleep) ───────────────────────────────────────────────────────────
-export function IconMoon({ size = 20 }: IconProps) {
+export const IconMoon = memo(function IconMoon({ size = 20 }: IconProps) {
   const grid = [
     '............',
     '....KKKK....',
@@ -116,10 +118,10 @@ export function IconMoon({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#312E81', S: '#C4B5FD',
   }, size)
-}
+})
 
 // ── WATER DROP (cleanliness) ───────────────────────────────────────────────
-export function IconDrop({ size = 20 }: IconProps) {
+export const IconDrop = memo(function IconDrop({ size = 20 }: IconProps) {
   const grid = [
     '.....K......',
     '.....K......',
@@ -137,10 +139,10 @@ export function IconDrop({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#075985', B: '#38BDF8', C: '#E0F7FF',
   }, size)
-}
+})
 
 // ── COIN ───────────────────────────────────────────────────────────────────
-export function IconCoin({ size = 20 }: IconProps) {
+export const IconCoin = memo(function IconCoin({ size = 20 }: IconProps) {
   const grid = [
     '...KKKKKK...',
     '..KYLLLLYK..',
@@ -158,10 +160,10 @@ export function IconCoin({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#7A4F00', Y: '#FFD700', L: '#FFF4A3', G: '#B88400',
   }, size)
-}
+})
 
 // ── GIFT BOX ───────────────────────────────────────────────────────────────
-export function IconGift({ size = 20 }: IconProps) {
+export const IconGift = memo(function IconGift({ size = 20 }: IconProps) {
   const grid = [
     '............',
     '..K.K..K.K..',
@@ -179,10 +181,10 @@ export function IconGift({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#2A1040', B: '#A78BFA', P: '#FFD700', R: '#FF4D7D',
   }, size)
-}
+})
 
 // ── TREASURE CHEST (gacha / capsule) ──────────────────────────────────────
-export function IconCapsule({ size = 20 }: IconProps) {
+export const IconCapsule = memo(function IconCapsule({ size = 20 }: IconProps) {
   const grid = [
     '............',
     '..KKKKKKKK..',
@@ -200,10 +202,10 @@ export function IconCapsule({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#2A1005', D: '#8B4513', M: '#B87830', S: '#6B3410', Y: '#FFD700',
   }, size)
-}
+})
 
 // ── BELL ───────────────────────────────────────────────────────────────────
-export function IconBell({ size = 20 }: IconProps) {
+export const IconBell = memo(function IconBell({ size = 20 }: IconProps) {
   const grid = [
     '.....KK.....',
     '.....KK.....',
@@ -221,10 +223,10 @@ export function IconBell({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#7A4F00', Y: '#FFD700',
   }, size)
-}
+})
 
 // ── PERSON ─────────────────────────────────────────────────────────────────
-export function IconPerson({ size = 20 }: IconProps) {
+export const IconPerson = memo(function IconPerson({ size = 20 }: IconProps) {
   const grid = [
     '....KKKK....',
     '...KSSSSK...',
@@ -242,10 +244,10 @@ export function IconPerson({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#2A1040', S: '#F5C89A', P: '#A78BFA',
   }, size)
-}
+})
 
 // ── DOOR ───────────────────────────────────────────────────────────────────
-export function IconDoor({ size = 20 }: IconProps) {
+export const IconDoor = memo(function IconDoor({ size = 20 }: IconProps) {
   const grid = [
     '...KKKKKK...',
     '..KDDDDDDK..',
@@ -263,10 +265,10 @@ export function IconDoor({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#1A0A00', D: '#4A2008', M: '#8B4513', L: '#B87830', S: '#6B3410', Y: '#FFD700',
   }, size)
-}
+})
 
 // ── QUESTS (scroll) ────────────────────────────────────────────────────────
-export function IconScroll({ size = 20 }: IconProps) {
+export const IconScroll = memo(function IconScroll({ size = 20 }: IconProps) {
   const grid = [
     '............',
     '..KKKKKKKK..',
@@ -284,10 +286,10 @@ export function IconScroll({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#5B3A1F', B: '#C89060', W: '#FFF8E8',
   }, size)
-}
+})
 
 // ── PHOTOS ─────────────────────────────────────────────────────────────────
-export function IconPhoto({ size = 20 }: IconProps) {
+export const IconPhoto = memo(function IconPhoto({ size = 20 }: IconProps) {
   const grid = [
     '............',
     '.KKKKKKKKKK.',
@@ -305,10 +307,10 @@ export function IconPhoto({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#1F1F2E', W: '#A0D8FF', Y: '#FFD700', G: '#4A9D4A',
   }, size)
-}
+})
 
 // ── PAW (3 toes) ───────────────────────────────────────────────────────────
-export function IconPaw({ size = 20 }: IconProps) {
+export const IconPaw = memo(function IconPaw({ size = 20 }: IconProps) {
   const grid = [
     '............',
     '.KK..KK..KK.',
@@ -326,10 +328,10 @@ export function IconPaw({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#3B1D1D', P: '#FFB0C8',
   }, size)
-}
+})
 
 // ── CROWN (winner) ─────────────────────────────────────────────────────────
-export function IconCrown({ size = 20 }: IconProps) {
+export const IconCrown = memo(function IconCrown({ size = 20 }: IconProps) {
   const grid = [
     '............',
     '.K...K....K.',
@@ -347,10 +349,10 @@ export function IconCrown({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#6B3F00', Y: '#FFD700', L: '#FFEC80', R: '#FF6B6B', B: '#38BDF8', P: '#FF4D7D',
   }, size)
-}
+})
 
 // ── SWORDS (care battle) ───────────────────────────────────────────────────
-export function IconSwords({ size = 20 }: IconProps) {
+export const IconSwords = memo(function IconSwords({ size = 20 }: IconProps) {
   const grid = [
     '..K......K..',
     '.KWK....KWK.',
@@ -368,10 +370,10 @@ export function IconSwords({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#1F1F2A', W: '#D8DFE8', Y: '#E89A3A', G: '#6B3410',
   }, size)
-}
+})
 
 // ── HOUSE (cozy home / invite) ────────────────────────────────────────────
-export function IconHouse({ size = 20 }: IconProps) {
+export const IconHouse = memo(function IconHouse({ size = 20 }: IconProps) {
   const grid = [
     '.....RR.....',
     '....RRRR....',
@@ -389,10 +391,10 @@ export function IconHouse({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#3A1A0A', R: '#D85040', B: '#F2C893', W: '#6BAED6', Y: '#5A3A1A',
   }, size)
-}
+})
 
 // ── DRESS (fashion) ────────────────────────────────────────────────────────
-export function IconDress({ size = 20 }: IconProps) {
+export const IconDress = memo(function IconDress({ size = 20 }: IconProps) {
   const grid = [
     '...KKKKKK...',
     '..KBBBBBBK..',
@@ -410,10 +412,10 @@ export function IconDress({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#1E3A8A', B: '#3B82F6', W: '#FFFFFF', L: '#93C5FD',
   }, size)
-}
+})
 
 // ── BOOK (collection / serbian class) ─────────────────────────────────────
-export function IconBook({ size = 20 }: IconProps) {
+export const IconBook = memo(function IconBook({ size = 20 }: IconProps) {
   const grid = [
     '............',
     '.KKKKKKKKKK.',
@@ -431,10 +433,10 @@ export function IconBook({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#4A1C05', R: '#C8491F', L: '#FFE8C8', B: '#7A3010',
   }, size)
-}
+})
 
 // ── TICKET (gacha ticket) ─────────────────────────────────────────────────
-export function IconTicket({ size = 20 }: IconProps) {
+export const IconTicket = memo(function IconTicket({ size = 20 }: IconProps) {
   const grid = [
     '............',
     '............',
@@ -452,10 +454,10 @@ export function IconTicket({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#991A4A', P: '#FF6B9D', W: '#FFF3B8',
   }, size)
-}
+})
 
 // ── CLOCK (time) ──────────────────────────────────────────────────────────
-export function IconClock({ size = 20 }: IconProps) {
+export const IconClock = memo(function IconClock({ size = 20 }: IconProps) {
   const grid = [
     '...KKKKKK...',
     '..KFFFFFFK..',
@@ -473,10 +475,10 @@ export function IconClock({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#7A4F00', F: '#FFF3B8', Y: '#C89000', H: '#C02020',
   }, size)
-}
+})
 
 // ── STAR ──────────────────────────────────────────────────────────────────
-export function IconStar({ size = 20 }: IconProps) {
+export const IconStar = memo(function IconStar({ size = 20 }: IconProps) {
   const grid = [
     '.....KK.....',
     '....KYYK....',
@@ -494,10 +496,10 @@ export function IconStar({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#7A4F00', Y: '#FFD700', L: '#FFF8C8',
   }, size)
-}
+})
 
 // ── SPARKLES (stardust) ───────────────────────────────────────────────────
-export function IconSparkles({ size = 20 }: IconProps) {
+export const IconSparkles = memo(function IconSparkles({ size = 20 }: IconProps) {
   const grid = [
     '...K........',
     '...YK.......',
@@ -515,10 +517,10 @@ export function IconSparkles({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#7A4FC0', Y: '#C4B5FD', L: '#FFFFFF',
   }, size)
-}
+})
 
 // ── CONTROLLER (games chip) ───────────────────────────────────────────────
-export function IconController({ size = 20 }: IconProps) {
+export const IconController = memo(function IconController({ size = 20 }: IconProps) {
   // Gamepad — clearly readable d-pad on the left, two action buttons on the
   // right, handle bumps at the bottom. Old version had W/K/W/K patterns the
   // eye couldn't parse below 40px.
@@ -539,10 +541,10 @@ export function IconController({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#1A0A2A', P: '#7C5DD4', W: '#FFFFFF', R: '#FF4D7D', B: '#38BDF8', Y: '#FFD700',
   }, size)
-}
+})
 
 // ── SLOT MACHINE (gacha chip) ─────────────────────────────────────────────
-export function IconSlots({ size = 20 }: IconProps) {
+export const IconSlots = memo(function IconSlots({ size = 20 }: IconProps) {
   const grid = [
     '.....KK.....',
     '.....KK.....',
@@ -560,10 +562,10 @@ export function IconSlots({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#2A1040', R: '#FF4D7D', W: '#FFFFFF', Y: '#FFD700', P: '#A78BFA', B: '#38BDF8',
   }, size)
-}
+})
 
 // ── ENVELOPE (journal / message) ──────────────────────────────────────────
-export function IconEnvelope({ size = 20 }: IconProps) {
+export const IconEnvelope = memo(function IconEnvelope({ size = 20 }: IconProps) {
   const grid = [
     '............',
     'KKKKKKKKKKKK',
@@ -581,14 +583,14 @@ export function IconEnvelope({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#5A1A3A', W: '#FFE0F0', H: '#FF4D7D',
   }, size)
-}
+})
 
 // ── EREN'S FACE ───────────────────────────────────────────────────────────
 // Ragdoll cat — cream body, grey-brown point markings on the ear tips +
 // face mask, big bright blue eyes (the breed's defining feature), and a
 // little pink nose. Palette pulled from SketchEren so the pixel version
 // reads as the same character.
-export function IconCatFace({ size = 20 }: IconProps) {
+export const IconCatFace = memo(function IconCatFace({ size = 20 }: IconProps) {
   // Eren straight from the loading-screen sprite (AnimatedEren's IDLE_R pose),
   // so the First Mood memory frame shows the very same cat the splash screen
   // does instead of a bespoke face. The sprite isn't square, so we render it
@@ -646,10 +648,10 @@ export function IconCatFace({ size = 20 }: IconProps) {
       {rects}
     </svg>
   )
-}
+})
 
 // ── WISH (4-point star, soft glow palette) — Phase 3 daily wish indicator ──
-export function IconWish({ size = 20 }: IconProps) {
+export const IconWish = memo(function IconWish({ size = 20 }: IconProps) {
   const grid = [
     '............',
     '.....KK.....',
@@ -667,10 +669,10 @@ export function IconWish({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#8B5A00', G: '#F5C842', W: '#FFF5C8',
   }, size)
-}
+})
 
 // ── PENCIL (edit) ─────────────────────────────────────────────────────────
-export function IconPencil({ size = 20 }: IconProps) {
+export const IconPencil = memo(function IconPencil({ size = 20 }: IconProps) {
   const grid = [
     '..........K.',
     '.........KPK',
@@ -688,10 +690,10 @@ export function IconPencil({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#2A2A2A', P: '#FF9AC0', Y: '#FFD700', B: '#F5C842', W: '#3A3A3A',
   }, size)
-}
+})
 
 // ── MOUSE (game) ──────────────────────────────────────────────────────────
-export function IconMouse({ size = 20 }: IconProps) {
+export const IconMouse = memo(function IconMouse({ size = 20 }: IconProps) {
   const grid = [
     '.KK.....KK..',
     'KPPK...KPPK.',
@@ -709,10 +711,10 @@ export function IconMouse({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#2A2A2A', G: '#B0B0B0', L: '#2A2A2A', N: '#F48B9B', P: '#FFB0C8',
   }, size)
-}
+})
 
 // ── YARN BALL ─────────────────────────────────────────────────────────────
-export function IconYarn({ size = 20 }: IconProps) {
+export const IconYarn = memo(function IconYarn({ size = 20 }: IconProps) {
   // Yarn ball — bold dark outline + clear diagonal strands that read at
   // small render sizes. The previous version washed into a pink blob in the
   // Memory Wall thumbnails; this one keeps strand contrast tight.
@@ -733,10 +735,10 @@ export function IconYarn({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#5A0A28', P: '#FF6B9D', D: '#A8204F', L: '#FFD0DC',
   }, size)
-}
+})
 
 // ── FISH ──────────────────────────────────────────────────────────────────
-export function IconFish({ size = 20 }: IconProps) {
+export const IconFish = memo(function IconFish({ size = 20 }: IconProps) {
   const grid = [
     '............',
     '........KK..',
@@ -754,10 +756,10 @@ export function IconFish({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#0A5A80', B: '#6BAED6', L: '#A0D8FF', W: '#1A1A1A',
   }, size)
-}
+})
 
 // ── BATHTUB (bathroom) ────────────────────────────────────────────────────
-export function IconBath({ size = 20 }: IconProps) {
+export const IconBath = memo(function IconBath({ size = 20 }: IconProps) {
   // Bathtub with bubbles floating above + water inside. Bubbles give it a
   // recognisable silhouette at small size; the steam was previously the
   // only "bath" cue and didn't read.
@@ -778,10 +780,10 @@ export function IconBath({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#1A3A5A', W: '#E0EEF8', B: '#3B8FC8', O: '#FFFFFF',
   }, size)
-}
+})
 
 // ── PILL (vet / medicine) ─────────────────────────────────────────────────
-export function IconPill({ size = 20 }: IconProps) {
+export const IconPill = memo(function IconPill({ size = 20 }: IconProps) {
   // Capsule pill — half coloured, half white, with a clear seam down the
   // middle. The previous diagonal lozenge read as a smear at thumbnail size.
   const grid = [
@@ -801,15 +803,15 @@ export function IconPill({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#4A0A1A', R: '#FF6B9D', L: '#FFC0D5', W: '#FFFEF6',
   }, size)
-}
+})
 
 // ── DRUMSTICK (kitchen) — alias of IconMeat ─────────────────────────────
-export function IconDrumstick({ size = 20 }: IconProps) {
-  return IconMeat({ size })
-}
+export const IconDrumstick = memo(function IconDrumstick({ size = 20 }: IconProps) {
+  return <IconMeat size={size} />
+})
 
 // ── MOON Z (bedroom / sleep) ──────────────────────────────────────────────
-export function IconMoonZ({ size = 20 }: IconProps) {
+export const IconMoonZ = memo(function IconMoonZ({ size = 20 }: IconProps) {
   const grid = [
     '...KKKK.....',
     '..KSSSSK.KK.',
@@ -827,10 +829,10 @@ export function IconMoonZ({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#312E81', S: '#C4B5FD',
   }, size)
-}
+})
 
 // ── STETHOSCOPE (vet) ─────────────────────────────────────────────────────
-export function IconStethoscope({ size = 20 }: IconProps) {
+export const IconStethoscope = memo(function IconStethoscope({ size = 20 }: IconProps) {
   const grid = [
     '.KK.....KK..',
     'KWWK...KWWK.',
@@ -848,10 +850,10 @@ export function IconStethoscope({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#1A3A5A', W: '#4A7A9A', R: '#FF4D7D',
   }, size)
-}
+})
 
 // ── HEART CARD (couple US chip) ───────────────────────────────────────────
-export function IconHeartDuo({ size = 20 }: IconProps) {
+export const IconHeartDuo = memo(function IconHeartDuo({ size = 20 }: IconProps) {
   // Two interlocked hearts — brown on the left (Jovan), pink on the right
   // (her). Matches the heart-color convention used everywhere else in the
   // app for sender attribution.
@@ -873,10 +875,10 @@ export function IconHeartDuo({ size = 20 }: IconProps) {
     B: '#5A3020', M: '#A86040', L: '#E0C0A0',     // brown heart
     K: '#7A1238', P: '#FF4D7D', W: '#FFC8D8',     // pink heart
   }, size)
-}
+})
 
 // ── CAKE — pink-frosted layered cake with a candle on top ────────────────
-export function IconCake({ size = 20 }: IconProps) {
+export const IconCake = memo(function IconCake({ size = 20 }: IconProps) {
   const grid = [
     '......F.....',   // F = candle flame
     '......T.....',   // T = candle wick / stem
@@ -896,10 +898,10 @@ export function IconCake({ size = 20 }: IconProps) {
     P: '#EC4899', W: '#FBCFE8',
     B: '#92400E', D: '#FDE68A', K: '#525252',
   }, size)
-}
+})
 
 // ── FIRE (streak) ────────────────────────────────────────────────────────
-export function IconFire({ size = 20 }: IconProps) {
+export const IconFire = memo(function IconFire({ size = 20 }: IconProps) {
   const grid = [
     '............',
     '.....KK.....',
@@ -917,10 +919,10 @@ export function IconFire({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#7A2000', O: '#FF6B00', Y: '#FFD700', R: '#FF3300',
   }, size)
-}
+})
 
 // ── TROPHY (achievements) ────────────────────────────────────────────────
-export function IconTrophy({ size = 20 }: IconProps) {
+export const IconTrophy = memo(function IconTrophy({ size = 20 }: IconProps) {
   const grid = [
     '............',
     '.KKKKKKKKKK.',
@@ -938,10 +940,10 @@ export function IconTrophy({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#7A4F00', Y: '#FFD700', L: '#FFF4A3', R: '#B88400',
   }, size)
-}
+})
 
 // ── LOCK (locked achievement) ────────────────────────────────────────────
-export function IconLock({ size = 20 }: IconProps) {
+export const IconLock = memo(function IconLock({ size = 20 }: IconProps) {
   const grid = [
     '............',
     '....KKKK....',
@@ -959,10 +961,10 @@ export function IconLock({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#3A3A4A', G: '#6A6A7A', S: '#8A8A9A', W: '#FFD700', Y: '#B88400',
   }, size)
-}
+})
 
 // ── SHAWARMA — meat wrap in flatbread with lettuce poking out top ────────
-export function IconShawarma({ size = 20 }: IconProps) {
+export const IconShawarma = memo(function IconShawarma({ size = 20 }: IconProps) {
   const grid = [
     '............',
     '....KKKK....',
@@ -985,10 +987,10 @@ export function IconShawarma({ size = 20 }: IconProps) {
     R: '#C04030',  // red sauce / tomato
     G: '#7AB05A',  // lettuce greens
   }, size)
-}
+})
 
 // ── FLY (stinky indicator) ────────────────────────────────────────────────
-export function IconFly({ size = 20 }: IconProps) {
+export const IconFly = memo(function IconFly({ size = 20 }: IconProps) {
   const grid = [
     '............',
     '..WW....WW..',
@@ -1006,4 +1008,4 @@ export function IconFly({ size = 20 }: IconProps) {
   return drawPixels(grid, {
     K: '#2D2D2D', G: '#556B2F', W: 'rgba(200,220,255,0.7)',
   }, size)
-}
+})

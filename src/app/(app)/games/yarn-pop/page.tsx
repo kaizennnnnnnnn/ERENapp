@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -538,7 +538,7 @@ export default function YarnPopGame() {
                       ? 'yp-tile-pop 0.42s cubic-bezier(0.34,1.56,0.64,1) forwards'
                       : undefined,
                   }}>
-                    <TileVisual type={tile.type} />
+                    <MemoTileVisual type={tile.type} />
                   </div>
                 </button>
                 )
@@ -784,6 +784,8 @@ function TileVisual({ type }: { type: number }) {
     default: return <EggTile />
   }
 }
+
+const MemoTileVisual = memo(TileVisual)
 
 // Tile background — radial highlight + diagonal gradient, with inset
 // bevel shadows for a candy-button feel. Each tile colour pair (main +

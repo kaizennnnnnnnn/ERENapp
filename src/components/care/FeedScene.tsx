@@ -1,15 +1,12 @@
 'use client'
 
-// Module-level flag so CareSceneHost can skip its swipe handler
-// while the user is dragging food onto Eren.
-export let __foodDragActive = false
-
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { ShoppingCart, Package } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
+import { foodDrag } from './foodDragFlag'
 import type { FoodInventory } from '@/types'
 import { playSound } from '@/lib/sounds'
 import AnalogClock from '@/components/AnalogClock'
@@ -282,6 +279,7 @@ export default function FeedScene({ onClose }: Props) {
   const tick = () => setDragRender(n => n + 1)
   void dragRender
   const foodElRef = useRef<HTMLDivElement>(null)
+  const ghostRef = useRef<HTMLDivElement>(null)
   const currentItemRef = useRef<typeof SHOP_ITEMS[number] | null>(null)
 
   const erenZone = useCallback((x: number, y: number) => {
@@ -305,7 +303,7 @@ export default function FeedScene({ onClose }: Props) {
       const d = dragRef.current
       d.item = item; d.startPos = { x: t.clientX, y: t.clientY }
       d.pos = { x: t.clientX, y: t.clientY }; d.active = false; d.near = false
-      __foodDragActive = true
+      foodDrag.active = true
       tick()
 
       function onMove(ev: TouchEvent) {
@@ -313,6 +311,8 @@ export default function FeedScene({ onClose }: Props) {
         ev.stopPropagation()
         const t2 = ev.touches[0]
         const d2 = dragRef.current
+        const wasActive = d2.active
+        const wasNear = d2.near
         if (d2.startPos) {
           const dx = Math.abs(t2.clientX - d2.startPos.x)
           const dy = Math.abs(t2.clientY - d2.startPos.y)
@@ -320,7 +320,15 @@ export default function FeedScene({ onClose }: Props) {
         }
         d2.pos = { x: t2.clientX, y: t2.clientY }
         d2.near = erenZone(t2.clientX, t2.clientY)
-        tick()
+        // Position the drag ghost imperatively — re-rendering the whole
+        // 860-line scene per touchmove is the expensive part, so only
+        // tick() on the active/near transitions that change other visuals.
+        const g = ghostRef.current
+        if (g) {
+          g.style.left = `${t2.clientX - 20}px`
+          g.style.top = `${t2.clientY - 20}px`
+        }
+        if (d2.active !== wasActive || d2.near !== wasNear) tick()
       }
       function onEnd() {
         document.removeEventListener('touchmove', onMove)
@@ -329,7 +337,7 @@ export default function FeedScene({ onClose }: Props) {
         if (d2.item && d2.active && d2.near) handleFeed(d2.item)
         d2.item = null; d2.pos = null; d2.startPos = null
         d2.active = false; d2.near = false
-        __foodDragActive = false
+        foodDrag.active = false
         tick()
       }
       document.addEventListener('touchmove', onMove, { passive: false })
@@ -517,7 +525,7 @@ export default function FeedScene({ onClose }: Props) {
 
       {/* ══ DRAG GHOST — just the food icon, no frame ══ */}
       {dragRef.current.item && dragRef.current.pos && dragRef.current.active && (
-        <div className="fixed pointer-events-none z-[60]" style={{
+        <div ref={ghostRef} className="fixed pointer-events-none z-[60]" style={{
           left: dragRef.current.pos.x - 20, top: dragRef.current.pos.y - 20,
           filter: `drop-shadow(0 2px 6px ${dragRef.current.item.color}88)`,
           transform: 'scale(1.3)',

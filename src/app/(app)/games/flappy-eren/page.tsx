@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useReducer, useRef, useState } from 'react'
+import { memo, useEffect, useReducer, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -503,58 +503,13 @@ export default function FlappyErenGame() {
 
         {/* Stacked sky layers — only the active one is fully opaque, others
             fade out. Result: smooth crossfade when themeIndex changes. */}
-        {THEMES.map((t, i) => (
-          <div key={`sky-${t.name}`} style={{
-            position: 'absolute', inset: 0,
-            background: t.sky,
-            opacity: i === themeIndex ? 1 : 0,
-            transition: 'opacity 1.4s ease',
-            pointerEvents: 'none',
-          }} />
-        ))}
+        <SkyLayers themeIndex={themeIndex} />
 
         {/* Stars (visible only in night) */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          opacity: currentTheme.starOpacity,
-          transition: 'opacity 1.4s ease',
-          pointerEvents: 'none',
-        }}>
-          {STAR_POSITIONS.map((s, i) => (
-            <div key={i} style={{
-              position: 'absolute',
-              left: s.left, top: s.top,
-              width: s.size, height: s.size,
-              background: '#FFFFFF',
-              borderRadius: '50%',
-              boxShadow: '0 0 4px rgba(255,255,255,0.7)',
-              animation: `twinkle 2.4s ease-in-out ${s.delay} infinite`,
-            }} />
-          ))}
-          {/* Moon */}
-          <div style={{
-            position: 'absolute',
-            top: '12%', right: '14%',
-            width: 28, height: 28,
-            background: 'radial-gradient(circle at 35% 35%, #FFFFFF, #E5E7EB 60%, #9CA3AF 100%)',
-            borderRadius: '50%',
-            boxShadow: '0 0 18px rgba(255,255,255,0.4)',
-          }} />
-        </div>
+        <StarField starOpacity={currentTheme.starOpacity} />
 
         {/* Clouds (faded out at night) */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          opacity: currentTheme.cloudOpacity,
-          transition: 'opacity 1.4s ease',
-          pointerEvents: 'none',
-        }}>
-          <Cloud x="12%"  y="14%" scale={1.0} />
-          <Cloud x="68%"  y="22%" scale={0.8} />
-          <Cloud x="35%"  y="46%" scale={1.2} />
-          <Cloud x="86%"  y="60%" scale={0.7} />
-          <Cloud x="6%"   y="70%" scale={0.9} />
-        </div>
+        <CloudLayer cloudOpacity={currentTheme.cloudOpacity} />
 
         {/* Pipes */}
         {pipesRef.current.map(p => (
@@ -579,7 +534,7 @@ export default function FlappyErenGame() {
                 transform: `rotate(${angleRef.current + impact.r}deg) scale(${impact.sx}, ${impact.sy})`,
                 transformOrigin: '50% 70%',
               }}>
-                <ErenOnCan />
+                <ErenOnCanMemo />
               </div>
             </div>
           )
@@ -600,16 +555,7 @@ export default function FlappyErenGame() {
         ))}
 
         {/* Ground — also crossfades */}
-        {THEMES.map((t, i) => (
-          <div key={`ground-${t.name}`} style={{
-            position: 'absolute', bottom: 0, left: 0, right: 0,
-            height: 12,
-            background: t.ground,
-            borderTop: `3px solid ${t.groundBorder}`,
-            opacity: i === themeIndex ? 1 : 0,
-            transition: 'opacity 1.4s ease',
-          }} />
-        ))}
+        <GroundLayers themeIndex={themeIndex} />
 
         {/* Score — outer div handles centering, inner div pulses on each pass. */}
         {state !== 'idle' && (
@@ -893,6 +839,92 @@ function Cloud({ x, y, scale = 1 }: { x: string; y: string; scale?: number }) {
     </div>
   )
 }
+
+// ─── Static scenery layers — memoized so the 60fps game loop's force-renders
+//     bail out instead of re-reconciling hundreds of unchanged elements ───────
+const SkyLayers = memo(function SkyLayers({ themeIndex }: { themeIndex: number }) {
+  return (
+    <>
+      {THEMES.map((t, i) => (
+        <div key={`sky-${t.name}`} style={{
+          position: 'absolute', inset: 0,
+          background: t.sky,
+          opacity: i === themeIndex ? 1 : 0,
+          transition: 'opacity 1.4s ease',
+          pointerEvents: 'none',
+        }} />
+      ))}
+    </>
+  )
+})
+
+const StarField = memo(function StarField({ starOpacity }: { starOpacity: number }) {
+  return (
+    <div style={{
+      position: 'absolute', inset: 0,
+      opacity: starOpacity,
+      transition: 'opacity 1.4s ease',
+      pointerEvents: 'none',
+    }}>
+      {STAR_POSITIONS.map((s, i) => (
+        <div key={i} style={{
+          position: 'absolute',
+          left: s.left, top: s.top,
+          width: s.size, height: s.size,
+          background: '#FFFFFF',
+          borderRadius: '50%',
+          boxShadow: '0 0 4px rgba(255,255,255,0.7)',
+          animation: `twinkle 2.4s ease-in-out ${s.delay} infinite`,
+        }} />
+      ))}
+      {/* Moon */}
+      <div style={{
+        position: 'absolute',
+        top: '12%', right: '14%',
+        width: 28, height: 28,
+        background: 'radial-gradient(circle at 35% 35%, #FFFFFF, #E5E7EB 60%, #9CA3AF 100%)',
+        borderRadius: '50%',
+        boxShadow: '0 0 18px rgba(255,255,255,0.4)',
+      }} />
+    </div>
+  )
+})
+
+const CloudLayer = memo(function CloudLayer({ cloudOpacity }: { cloudOpacity: number }) {
+  return (
+    <div style={{
+      position: 'absolute', inset: 0,
+      opacity: cloudOpacity,
+      transition: 'opacity 1.4s ease',
+      pointerEvents: 'none',
+    }}>
+      <Cloud x="12%"  y="14%" scale={1.0} />
+      <Cloud x="68%"  y="22%" scale={0.8} />
+      <Cloud x="35%"  y="46%" scale={1.2} />
+      <Cloud x="86%"  y="60%" scale={0.7} />
+      <Cloud x="6%"   y="70%" scale={0.9} />
+    </div>
+  )
+})
+
+const GroundLayers = memo(function GroundLayers({ themeIndex }: { themeIndex: number }) {
+  return (
+    <>
+      {THEMES.map((t, i) => (
+        <div key={`ground-${t.name}`} style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0,
+          height: 12,
+          background: t.ground,
+          borderTop: `3px solid ${t.groundBorder}`,
+          opacity: i === themeIndex ? 1 : 0,
+          transition: 'opacity 1.4s ease',
+        }} />
+      ))}
+    </>
+  )
+})
+
+const ErenOnCanMemo = memo(ErenOnCan)
 
 // ─── Eren on a high-detail energy can ─────────────────────────────────────────
 function ErenOnCan() {

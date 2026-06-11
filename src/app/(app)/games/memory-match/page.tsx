@@ -330,7 +330,8 @@ export default function MemoryMatchGame() {
       }}>
 
       {/* Star-field background — speeds up + brightens at combo>=3 (you're on fire) */}
-      <div className="absolute inset-0 pointer-events-none" style={{
+      <div className="absolute inset-y-0 right-0 pointer-events-none" style={{
+        left: -180,
         backgroundImage: 'radial-gradient(circle, #FFD700 1px, transparent 1px), radial-gradient(circle, #A78BFA 1px, transparent 1px)',
         backgroundSize: '30px 30px, 45px 45px',
         backgroundPosition: '0 0, 15px 22px',
@@ -689,8 +690,8 @@ export default function MemoryMatchGame() {
       {/* Styles */}
       <style jsx>{`
         @keyframes starDrift {
-          from { background-position: 0 0, 15px 22px; }
-          to   { background-position: 120px 0, 135px 22px; }
+          from { transform: translateX(0); }
+          to   { transform: translateX(120px); }
         }
         @keyframes cardShake {
           0%, 100% { transform: translateX(0); }

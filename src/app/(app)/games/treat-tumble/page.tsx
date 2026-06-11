@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
@@ -41,21 +41,21 @@ interface ItemMeta {
 
 const ITEMS: Record<ItemKind, ItemMeta> = {
   // Good items — five originals plus cookie + milk for more friendly variety.
-  kibble:   { label: 'Kibble',   points: 1,  life: 0,  rarity: 32, Icon: KibbleIcon,   tint: '#F5C842', danger: false },
-  fish:     { label: 'Fish',     points: 3,  life: 0,  rarity: 18, Icon: IconFish,     tint: '#6BAED6', danger: false },
-  cookie:   { label: 'Cookie',   points: 2,  life: 0,  rarity: 16, Icon: CookieIcon,   tint: '#A06030', danger: false },
-  milk:     { label: 'Milk',     points: 2,  life: 0,  rarity: 12, Icon: MilkIcon,     tint: '#FFFFFF', danger: false },
-  cream:    { label: 'Cream',    points: 5,  life: 0,  rarity: 9,  Icon: CreamIcon,    tint: '#E9D5FF', danger: false },
-  golden:   { label: 'Golden',   points: 10, life: 0,  rarity: 4,  Icon: IconStar,     tint: '#FFD700', danger: false },
-  heart:    { label: 'Heart',    points: 0,  life: 1,  rarity: 3,  Icon: IconHeart,    tint: '#FF6B9D', danger: false },
+  kibble:   { label: 'Kibble',   points: 1,  life: 0,  rarity: 32, Icon: memo(KibbleIcon),   tint: '#F5C842', danger: false },
+  fish:     { label: 'Fish',     points: 3,  life: 0,  rarity: 18, Icon: memo(IconFish),     tint: '#6BAED6', danger: false },
+  cookie:   { label: 'Cookie',   points: 2,  life: 0,  rarity: 16, Icon: memo(CookieIcon),   tint: '#A06030', danger: false },
+  milk:     { label: 'Milk',     points: 2,  life: 0,  rarity: 12, Icon: memo(MilkIcon),     tint: '#FFFFFF', danger: false },
+  cream:    { label: 'Cream',    points: 5,  life: 0,  rarity: 9,  Icon: memo(CreamIcon),    tint: '#E9D5FF', danger: false },
+  golden:   { label: 'Golden',   points: 10, life: 0,  rarity: 4,  Icon: memo(IconStar),     tint: '#FFD700', danger: false },
+  heart:    { label: 'Heart',    points: 0,  life: 1,  rarity: 3,  Icon: memo(IconHeart),    tint: '#FF6B9D', danger: false },
   // Dangers — items that read as actual threats. The previous "fire"
   // entry looked like a friendly candle flame, so it's been swapped for
   // a sprung mousetrap — recognisably dangerous AND thematic for a cat.
-  spider:   { label: 'Spider',   points: -5, life: -1, rarity: 5,  Icon: SpiderIcon,   tint: '#4B0082', danger: true },
-  bomb:     { label: 'Bomb',     points: -6, life: -1, rarity: 4,  Icon: BombIcon,     tint: '#DC2626', danger: true },
-  knife:    { label: 'Knife',    points: -5, life: -1, rarity: 5,  Icon: KnifeIcon,    tint: '#9CA3AF', danger: true },
-  trap:     { label: 'Trap',     points: -5, life: -1, rarity: 5,  Icon: TrapIcon,     tint: '#7C2D12', danger: true },
-  skull:    { label: 'Skull',    points: -8, life: -1, rarity: 3,  Icon: SkullIcon,    tint: '#E5E7EB', danger: true },
+  spider:   { label: 'Spider',   points: -5, life: -1, rarity: 5,  Icon: memo(SpiderIcon),   tint: '#4B0082', danger: true },
+  bomb:     { label: 'Bomb',     points: -6, life: -1, rarity: 4,  Icon: memo(BombIcon),     tint: '#DC2626', danger: true },
+  knife:    { label: 'Knife',    points: -5, life: -1, rarity: 5,  Icon: memo(KnifeIcon),    tint: '#9CA3AF', danger: true },
+  trap:     { label: 'Trap',     points: -5, life: -1, rarity: 5,  Icon: memo(TrapIcon),     tint: '#7C2D12', danger: true },
+  skull:    { label: 'Skull',    points: -8, life: -1, rarity: 3,  Icon: memo(SkullIcon),    tint: '#E5E7EB', danger: true },
 }
 
 const KINDS = Object.keys(ITEMS) as ItemKind[]
@@ -405,6 +405,12 @@ function SadErenSprite({ size = 48 }: { size?: number }) {
     </svg>
   )
 }
+
+const MemoErenSprite = memo(ErenSprite)
+const MemoSadErenSprite = memo(SadErenSprite)
+const MemoIconHeart = memo(IconHeart)
+const MemoIconStar = memo(IconStar)
+const MemoIconMeat = memo(IconMeat)
 
 // ── Component ────────────────────────────────────────────────────────────────
 export default function TreatTumbleGame() {
@@ -874,7 +880,7 @@ export default function TreatTumbleGame() {
         <div className="flex-1 flex items-center justify-center">
           <span className="font-pixel text-amber-900 px-3 py-1.5 inline-flex items-center gap-1.5"
             style={{ background: 'rgba(255,255,255,0.92)', border: '2px solid #D97706', borderRadius: 4, boxShadow: '0 2px 0 #B45309', fontSize: 7, letterSpacing: 1.5 }}>
-            <IconMeat size={12} />
+            <MemoIconMeat size={12} />
             TREAT TUMBLE
           </span>
         </div>
@@ -901,7 +907,7 @@ export default function TreatTumbleGame() {
             <div className="flex items-center justify-between gap-3">
               {/* Score */}
               <div className="flex items-center gap-1.5">
-                <IconStar size={14} />
+                <MemoIconStar size={14} />
                 <span className="font-pixel" style={{ fontSize: 6, color: '#FCD34D', letterSpacing: 2 }}>SCORE</span>
                 <span className="font-pixel" style={{
                   fontSize: 16,
@@ -955,7 +961,7 @@ export default function TreatTumbleGame() {
                       filter: i < lives && lowLives && gameState === 'running' ? 'drop-shadow(0 0 5px rgba(255,107,157,1))' : 'none',
                       animation: i < lives && lowLives && gameState === 'running' ? 'heartBeat 0.55s ease-in-out infinite' : 'none',
                     }}>
-                      <IconHeart size={18} />
+                      <MemoIconHeart size={18} />
                     </div>
                   ))}
                 </div>
@@ -1232,7 +1238,7 @@ export default function TreatTumbleGame() {
                 transform: i < lives ? 'scale(1)' : 'scale(0.7)',
                 transition: 'opacity 0.25s, transform 0.25s',
               }}>
-                <IconHeart size={10} />
+                <MemoIconHeart size={10} />
               </div>
             ))}
           </div>
@@ -1242,7 +1248,7 @@ export default function TreatTumbleGame() {
             transformOrigin: '50% 100%',
             animation: erenPop ? 'erenChomp 140ms cubic-bezier(0.34,1.56,0.64,1)' : 'none',
           }}>
-            <ErenSprite size={EREN_WIDTH} />
+            <MemoErenSprite size={EREN_WIDTH} />
           </div>
         </div>
       )}
@@ -1270,7 +1276,7 @@ export default function TreatTumbleGame() {
                 <IconCrown size={28} />
               ) : (
                 <div style={{ animation: 'sadBob 1.8s ease-in-out infinite' }}>
-                  <SadErenSprite size={48} />
+                  <MemoSadErenSprite size={48} />
                 </div>
               )}
             </div>

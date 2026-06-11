@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useReducer, useRef, useState } from 'react'
+import { memo, useEffect, useReducer, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -459,7 +459,7 @@ export default function ErenStackGame() {
           }} />
 
           {/* Tower */}
-          {towerRef.current.map(b => <Piece key={b.id} block={b} />)}
+          {towerRef.current.map(b => <MemoPiece key={b.id} block={b} />)}
 
           {/* Active piece (above tower) */}
           {currentRef.current && phase === 'running' && (
@@ -748,6 +748,10 @@ function Piece({ block, active = false, falling = false }: { block: Block; activ
     </div>
   )
 }
+
+// Tower blocks are immutable after push (dropPiece replaces, never mutates), so a
+// shallow-equal bailout skips re-rendering the whole tower every rAF frame.
+const MemoPiece = memo(Piece)
 
 function PieceTexture({ variant, edge }: { variant: number; edge: string }) {
   const dot = (left: string, top: string, color = edge) => (

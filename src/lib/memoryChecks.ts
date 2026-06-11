@@ -39,7 +39,6 @@ export type UnlockEvent =
 interface OnEventCounters {
   totalCares:    number
   caresByType:   Record<ActionType, number>
-  caresByUser:   Record<string, number>
   /** Distinct user_ids who logged at least one interaction today. */
   todayUserIds:  Set<string>
   /** Lifetime nudges sent across the household (couple_journal via_eren). */
@@ -94,13 +93,23 @@ async function fetchOnEventCounters(
     .eq('household_id', householdId)
   const memberIds = (profileRows ?? []).map(p => (p as { id: string }).id)
 
-  const [interactionsRes, journalRes, gamesRes, householdRes] = await Promise.all([
-    supabase.from('interactions')
-      .select('user_id, action_type, created_at')
+  // Server-side exact counts (head: true → no rows on the wire) instead of
+  // downloading the household's entire lifetime interactions + journal
+  // history on every action. Only today's interactions come back as rows.
+  const ACTION_TYPES: ActionType[] = ['feed', 'play', 'sleep', 'wash', 'medicine']
+  const [totalRes, typeResList, todayRes, nudgeTotalRes, nudgeSenderResList, gamesRes, householdRes] = await Promise.all([
+    supabase.from('interactions').select('*', { count: 'exact', head: true })
       .eq('household_id', householdId),
-    supabase.from('couple_journal')
-      .select('sender_id, via_eren')
-      .eq('household_id', householdId),
+    Promise.all(ACTION_TYPES.map(t =>
+      supabase.from('interactions').select('*', { count: 'exact', head: true })
+        .eq('household_id', householdId).eq('action_type', t))),
+    supabase.from('interactions').select('user_id')
+      .eq('household_id', householdId).gte('created_at', todayStart),
+    supabase.from('couple_journal').select('*', { count: 'exact', head: true })
+      .eq('household_id', householdId).eq('via_eren', true),
+    Promise.all(memberIds.map(id =>
+      supabase.from('couple_journal').select('*', { count: 'exact', head: true })
+        .eq('household_id', householdId).eq('via_eren', true).eq('sender_id', id))),
     memberIds.length
       ? supabase.from('game_scores')
           .select('id', { count: 'exact', head: true })
@@ -112,33 +121,25 @@ async function fetchOnEventCounters(
       .maybeSingle(),
   ])
 
-  const interactions = (interactionsRes.data ?? []) as Array<{ user_id: string, action_type: string, created_at: string }>
-  const journal = (journalRes.data ?? []) as Array<{ sender_id: string, via_eren: boolean }>
-
   const caresByType: Record<ActionType, number> = { feed: 0, play: 0, sleep: 0, wash: 0, medicine: 0 }
-  const caresByUser: Record<string, number> = {}
-  const todayUserIds = new Set<string>()
-  for (const i of interactions) {
-    if (i.action_type in caresByType) caresByType[i.action_type as ActionType]++
-    caresByUser[i.user_id] = (caresByUser[i.user_id] ?? 0) + 1
-    if (i.created_at >= todayStart) todayUserIds.add(i.user_id)
-  }
+  ACTION_TYPES.forEach((t, i) => { caresByType[t] = typeResList[i].count ?? 0 })
 
+  const todayUserIds = new Set<string>()
+  for (const row of (todayRes.data ?? []) as Array<{ user_id: string }>) todayUserIds.add(row.user_id)
+
+  // Only >0 entries, mirroring the old row-derived map so callers that check
+  // Object.keys(...).length see identical semantics.
   const nudgesBySender: Record<string, number> = {}
-  let nudgesTotal = 0
-  for (const j of journal) {
-    if (j.via_eren) {
-      nudgesTotal++
-      nudgesBySender[j.sender_id] = (nudgesBySender[j.sender_id] ?? 0) + 1
-    }
-  }
+  memberIds.forEach((id, i) => {
+    const c = nudgeSenderResList[i].count ?? 0
+    if (c > 0) nudgesBySender[id] = c
+  })
 
   return {
-    totalCares:     interactions.length,
+    totalCares:     totalRes.count ?? 0,
     caresByType,
-    caresByUser,
     todayUserIds,
-    nudgesTotal,
+    nudgesTotal:    nudgeTotalRes.count ?? 0,
     nudgesBySender,
     minigamesTotal: gamesRes.count ?? 0,
     wishesTotal:    (householdRes.data?.wishes_granted_count as number | undefined) ?? 0,
@@ -340,6 +341,7 @@ export async function runMemorySweep(
   let games: Array<{ game_type: string }> = []
   let household: HouseholdSweepRow | null = null
   let pairedSince: string | null = null
+  let already = new Set<string>()
 
   try {
     // Profiles first so we can scope game_scores to this household's members.
@@ -352,24 +354,29 @@ export async function runMemorySweep(
     if (profiles.length >= 2) pairedSince = profiles[1].created_at
     const memberIds = profiles.map(p => p.id)
 
-    const [iRes, gRes, hRes] = await Promise.all([
+    const [iRes, hRes, alreadySet] = await Promise.all([
       supabase.from('interactions')
         .select('user_id, action_type, created_at')
         .eq('household_id', householdId)
         .gte('created_at', windowStart),
-      memberIds.length
-        ? supabase.from('game_scores')
-            .select('game_type')
-            .in('user_id', memberIds)
-        : Promise.resolve({ data: [] as Array<{ game_type: string }> }),
       supabase.from('households')
         .select('id, created_at, eren_birthday, couple_anniversary')
         .eq('id', householdId)
         .maybeSingle(),
+      fetchUnlockedFrameIds(supabase, householdId),
     ])
     interactions = (iRes.data ?? []) as typeof interactions
-    games        = (gRes.data ?? []) as typeof games
     household    = (hRes.data ?? null) as HouseholdSweepRow | null
+    already      = alreadySet
+
+    // game_scores feeds ONLY the rare-all-minigames check; once that frame is
+    // unlocked the loop skips it, so don't pay the unbounded scan.
+    if (memberIds.length && !already.has('rare-all-minigames')) {
+      const gRes = await supabase.from('game_scores')
+        .select('game_type')
+        .in('user_id', memberIds)
+      games = (gRes.data ?? []) as typeof games
+    }
   } catch (err) {
     if (typeof console !== 'undefined') {
       console.warn('[memoryChecks] sweep fetch failed', householdId, err)
@@ -392,9 +399,6 @@ export async function runMemorySweep(
   const streakLen = currentStreakLength(daysWithCare, todayKey)
   const distinctGames = new Set(games.map(g => g.game_type))
   const calendarIds = household ? eligibleCalendarFrames(household, todayKey) : []
-  // Skip frames already unlocked so the sweep doesn't POST 50 conflicts per
-  // tick once a household has accumulated history.
-  const already = await fetchUnlockedFrameIds(supabase, householdId)
 
   for (const frame of MEMORY_FRAMES) {
     if (already.has(frame.id)) continue

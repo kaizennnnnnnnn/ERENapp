@@ -225,12 +225,17 @@ export default function RewardsPage() {
     <div className="fixed inset-0 z-40 flex flex-col overflow-hidden" style={{
       background: 'radial-gradient(ellipse at top, #2D1659 0%, #1A0A33 55%, #0F0620 100%)',
     }}>
-      {/* Star field */}
+      {/* Star field — drifts via transform (composited) instead of
+          background-position so the GPU moves a cached layer rather than
+          repainting the full viewport every frame. The -140px left overhang
+          plus +140px background offset keeps dot positions pixel-identical. */}
       <div className="absolute inset-0 pointer-events-none opacity-45" style={{
+        left: -140,
         backgroundImage: 'radial-gradient(circle, #FFD700 1px, transparent 1px), radial-gradient(circle, #A78BFA 1px, transparent 1px)',
         backgroundSize: '34px 34px, 52px 52px',
-        backgroundPosition: '0 0, 18px 24px',
-        animation: 'starDrift 26s linear infinite',
+        backgroundPosition: '140px 0, 158px 24px',
+        animation: 'rewardsStarDrift 26s linear infinite',
+        willChange: 'transform',
       }} />
 
       {/* Header */}
@@ -546,9 +551,9 @@ export default function RewardsPage() {
 
       {/* Keyframes */}
       <style jsx global>{`
-        @keyframes starDrift {
-          from { background-position: 0 0, 18px 24px; }
-          to   { background-position: 140px 0, 158px 24px; }
+        @keyframes rewardsStarDrift {
+          from { transform: translateX(0); }
+          to   { transform: translateX(140px); }
         }
         @keyframes nodePulse {
           0%, 100% { transform: scale(1); }

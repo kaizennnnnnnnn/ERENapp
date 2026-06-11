@@ -1,18 +1,29 @@
 'use client'
 
-import { useRef, useState, useEffect, useLayoutEffect, useCallback } from 'react'
+import { useRef, useState, useEffect, useLayoutEffect, useCallback, useMemo } from 'react'
 import { useCare, type CareScene } from '@/contexts/CareContext'
-import FeedScene, { __foodDragActive } from './FeedScene'
-import PlayScene from './PlayScene'
-import SleepScene from './SleepScene'
-import WashScene from './WashScene'
-import ChemistryScene from './ChemistryScene'
-import HospitalScene from './HospitalScene'
-import VetScene from './VetScene'
-import SchoolScene from './SchoolScene'
+import { foodDrag } from './foodDragFlag'
 import AnimatedEren from '@/components/AnimatedEren'
 import { playSound } from '@/lib/sounds'
 import { useIsDark } from '@/hooks/useIsDark'
+
+// Scenes are lazy chunks instead of static imports so the ~560 KB of room
+// code stays out of the shared (app) layout bundle every route parses.
+type SceneProps = { onClose: () => void }
+const SCENE_LOADERS: Record<CareScene, () => Promise<{ default: React.ComponentType<SceneProps> }>> = {
+  feed:      () => import('./FeedScene'),
+  play:      () => import('./PlayScene'),
+  sleep:     () => import('./SleepScene'),
+  wash:      () => import('./WashScene'),
+  chemistry: () => import('./ChemistryScene'),
+  vet:       () => import('./VetScene'),
+  school:    () => import('./SchoolScene'),
+  hospital:  () => import('./HospitalScene'),
+}
+// Module-level cache: populated before `ready` flips, so the render below
+// never sees a missing component (no Suspense, no fallback flash).
+const sceneComponents: Partial<Record<CareScene, React.ComponentType<SceneProps>>> = {}
+const loadScene = (s: CareScene) => SCENE_LOADERS[s]().then(m => { sceneComponents[s] = m.default })
 
 const LOOP_SCENES: CareScene[] = ['feed', 'play', 'sleep', 'wash', 'chemistry', 'vet', 'school']
 
@@ -130,11 +141,11 @@ export default function CareSceneHost() {
     // The old code wired onerror to the same handler as onload, so an
     // offline scroll would mark the scene ready and render a black void
     // (the screenshot the user reported). decode() gives us a real signal.
-    Promise.all(toLoad.map(src => {
+    Promise.all([loadScene(activeScene) as Promise<unknown>, ...toLoad.map(src => {
       const img = new window.Image()
       img.src = src
       return img.decode()
-    })).then(() => {
+    })]).then(() => {
       if (cancelled) return
       if (isFirstEntry) {
         // Entry direction follows the swipe that opened the scene from home.
@@ -163,6 +174,26 @@ export default function CareSceneHost() {
     if (!activeScene) prevSceneRef.current = null
   }, [activeScene])
 
+  // Warm every scene chunk shortly after mount so room opens stay instant and
+  // rooms keep working if the connection drops mid-session (sw.js precaches
+  // room images but not JS). Deliberately deferred off the cold-load critical
+  // path — this is the whole point of splitting the scenes out of the layout.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      (Object.keys(SCENE_LOADERS) as CareScene[]).forEach(s => { loadScene(s).catch(() => {}) })
+    }, 2000)
+    return () => clearTimeout(t)
+  }, [])
+
+  // Memoize the scene element so drag-driven host re-renders (setDragX at
+  // touch-move rate) bail out of re-rendering the heavy scene subtree.
+  // SceneComp and closeScene are both stable for the duration of a drag.
+  const SceneComp = activeScene ? sceneComponents[activeScene] : undefined
+  const sceneEl = useMemo(
+    () => (SceneComp ? <SceneComp onClose={closeScene} /> : null),
+    [SceneComp, closeScene]
+  )
+
   if (!activeScene) return null
 
   function navigate(dir: 'left' | 'right') {
@@ -180,7 +211,7 @@ export default function CareSceneHost() {
   }
 
   function onTouchStart(e: React.TouchEvent) {
-    if (__foodDragActive) return
+    if (foodDrag.active) return
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
     touchStartTime.current = Date.now()
@@ -189,7 +220,7 @@ export default function CareSceneHost() {
   }
 
   function onTouchMove(e: React.TouchEvent) {
-    if (__foodDragActive) return
+    if (foodDrag.active) return
     const dx = e.touches[0].clientX - touchStartX.current
     const dy = e.touches[0].clientY - touchStartY.current
 
@@ -214,7 +245,7 @@ export default function CareSceneHost() {
   }
 
   function onTouchEnd(e: React.TouchEvent) {
-    if (__foodDragActive) { setDragX(0); return }
+    if (foodDrag.active) { setDragX(0); return }
     const dx = touchStartX.current - e.changedTouches[0].clientX
     const dy = touchStartY.current - e.changedTouches[0].clientY
     const elapsed = Date.now() - touchStartTime.current
@@ -237,8 +268,6 @@ export default function CareSceneHost() {
   const animStyle: React.CSSProperties = dragX !== 0
     ? { transform: `translateX(${dragX}px)`, transition: 'none' }
     : { animation: `slideIn${slideDir === 'left' ? 'Right' : 'Left'} 0.4s cubic-bezier(0.32, 0.72, 0, 1) both` }
-
-  const props = { onClose: closeScene }
 
   return (
     <>
@@ -352,14 +381,7 @@ export default function CareSceneHost() {
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
         >
-          {activeScene === 'feed'     && <FeedScene     {...props} />}
-          {activeScene === 'play'     && <PlayScene     {...props} />}
-          {activeScene === 'sleep'    && <SleepScene    {...props} />}
-          {activeScene === 'wash'      && <WashScene      {...props} />}
-          {activeScene === 'chemistry' && <ChemistryScene {...props} />}
-          {activeScene === 'vet'       && <VetScene       {...props} />}
-          {activeScene === 'school'   && <SchoolScene   {...props} />}
-          {activeScene === 'hospital' && <HospitalScene {...props} />}
+          {sceneEl}
         </div>
       )}
 
