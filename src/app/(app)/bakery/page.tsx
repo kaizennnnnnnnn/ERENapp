@@ -16,7 +16,6 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useTasks } from '@/contexts/TaskContext'
@@ -27,6 +26,7 @@ import { CAKES, type CakeDef } from '@/lib/cakes'
 import { IconCoin, IconStar, IconCake } from '@/components/PixelIcons'
 import BlinkingEren from '@/components/BlinkingEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
+import { requestCloudNav } from '@/components/CloudTransition'
 
 interface PurchaseFx {
   id:    number
@@ -85,7 +85,6 @@ const EREN_SHOW = 0.62
 const EREN_BOTTOM = `calc(${-(1 - EREN_SHOW) * EREN_VW}cqi + 2px)`
 
 export default function BakeryPage() {
-  const router = useRouter()
   const { user } = useAuth()
   const { coins, spendCoins } = useTasks()
   const { setHideStats } = useCare()
@@ -248,7 +247,7 @@ export default function BakeryPage() {
       {/* ══ HEADER ══ back + coins, floated over the picture's top trim. */}
       <div className="absolute top-0 inset-x-0 z-30 flex items-center justify-between px-3"
         style={{ paddingTop: 'calc(8px + env(safe-area-inset-top, 0px))' }}>
-        <button onClick={() => { playSound('ui_back'); router.back() }}
+        <button onClick={() => { playSound('ui_back'); requestCloudNav('/home') }}
           className="flex items-center justify-center active:scale-90 transition-transform"
           style={{ width: 32, height: 32, background: 'rgba(74,26,10,0.55)', borderRadius: 6, border: '2px solid rgba(251,191,36,0.6)', boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
           <ChevronLeft size={16} className="text-amber-100" />
