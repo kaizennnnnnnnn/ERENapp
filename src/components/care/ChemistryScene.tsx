@@ -13,6 +13,7 @@ import LightSwitch from '@/components/LightSwitch'
 import { useIsDark } from '@/hooks/useIsDark'
 import { playSound } from '@/lib/sounds'
 import PeriodicTableOverlay from '@/components/chemistry/PeriodicTableOverlay'
+import { useStoredChemTheme } from '@/lib/chemistry/theme'
 import { useTasks } from '@/contexts/TaskContext'
 import { getDailyKey } from '@/lib/tasks'
 
@@ -77,7 +78,7 @@ export default function ChemistryScene(_props: Props) {
           Floats at the top-left just under StatsHeader so the user sees
           what's worth doing today before tapping into the lab. Moved out
           of the overlay (was taking a whole strip in there). */}
-      <RoomMissionChips />
+      <RoomMissionChips night={isDark} />
 
 
       {/* ══ EREN ══ sits on the rug. Halfway between the original (too far)
@@ -135,8 +136,21 @@ export default function ChemistryScene(_props: Props) {
 // ── Daily mission chips, top-left in the room ──────────────────────────
 // Sits under StatsHeader (z-[60]) so the bar takes precedence. Small
 // rounded chips, two lines each (title + reward), state-aware.
-function RoomMissionChips() {
+//
+// The chips go dark when night falls OR when the periodic-table overlay
+// is in dark mode — bright cream glows too hard against the night room
+// art. Note the overlay theme DEFAULTS to dark, so out of the box the
+// chips run dark even by day; flipping the overlay to light restores the
+// cream daytime look.
+function RoomMissionChips({ night }: { night: boolean }) {
   const { completedIds } = useTasks()
+  const chemTheme = useStoredChemTheme()
+  const dark = night || chemTheme === 'dark'
+  // Surfaces lifted from the chem DARK_PALETTE so the chips read as part
+  // of the same system as the overlay (card / ink / fg).
+  const surface = dark ? '#231838' : '#FFF7DA'
+  const ink     = dark ? '#0A0517' : '#1A0F2D'
+  const fg      = dark ? '#FBF1D9' : '#1A0F2D'
   // Default expanded so the player sees today's chem quests on entry; the
   // header pill is a button that collapses the chips back into itself.
   const [expanded, setExpanded] = useState(true)
@@ -171,14 +185,14 @@ function RoomMissionChips() {
           gap: 6,
           padding: '3px 8px 3px 10px',
           borderRadius: 999,
-          background: '#FFF7DA',
-          border: '2px solid #1A0F2D',
-          boxShadow: '2px 2px 0 #1A0F2D, 0 4px 10px rgba(0,0,0,0.28)',
+          background: surface,
+          border: `2px solid ${ink}`,
+          boxShadow: `2px 2px 0 ${ink}, 0 4px 10px rgba(0,0,0,0.28)`,
           fontFamily: '"Press Start 2P", monospace',
           fontSize: 7,
           fontWeight: 800,
           letterSpacing: 0.6,
-          color: '#1A0F2D',
+          color: fg,
           marginBottom: 2,
           cursor: 'pointer',
         }}
@@ -196,6 +210,8 @@ function RoomMissionChips() {
           done={lessonDone}
           accent="#FCD34D"
           accentDark="#D97706"
+          accentDeep="#92400E"
+          dark={dark}
         />
       </Collapsible>
       <Collapsible expanded={expanded} delayMs={50}>
@@ -206,6 +222,8 @@ function RoomMissionChips() {
           done={streakDone}
           accent="#C4A7F5"
           accentDark="#7C3AED"
+          accentDeep="#5B21B6"
+          dark={dark}
         />
       </Collapsible>
     </div>
@@ -253,10 +271,25 @@ function Collapsible({ expanded, delayMs, children }: {
   )
 }
 
-function MissionChip({ Icon, title, reward, done, accent, accentDark }: {
+function MissionChip({ Icon, title, reward, done, accent, accentDark, accentDeep, dark }: {
   Icon: LucideIcon; title: string; reward: string; done: boolean;
-  accent: string; accentDark: string
+  accent: string; accentDark: string; accentDeep: string; dark: boolean
 }) {
+  // Light: bright opaque fills — claimed chips wear the accent solid,
+  // unclaimed wear cream so they pop against the day room.
+  // Dark: chem dark-palette surfaces — unclaimed go plum-card with the
+  // accent confined to the icon box; claimed wear the DEEP accent tier
+  // (not accentDark: cream text on the amber #D97706 only hits ~2.8:1,
+  // the deep ~800 tier clears 4.5:1 on both chips) so a finished quest
+  // still reads coloured without glowing at night.
+  const surface = dark ? '#231838' : '#FFF7DA'
+  const ink     = dark ? '#0A0517' : '#1A0F2D'
+  const chipBg     = done ? (dark ? accentDeep : accent) : surface
+  const chipEdge   = done && !dark ? accentDark : ink
+  const titleColor = dark ? '#FBF1D9' : '#1A0F2D'
+  const subColor   = done
+    ? (dark ? 'rgba(251,241,217,0.85)' : '#1A0F2D')
+    : (dark ? '#C9BBE0' : '#5C4E6E')
   return (
     <div
       style={{
@@ -264,11 +297,9 @@ function MissionChip({ Icon, title, reward, done, accent, accentDark }: {
         display: 'flex', alignItems: 'center', gap: 9,
         padding: '8px 12px 8px 8px',
         borderRadius: 16,
-        // Bright opaque fills — claimed chips wear the accent solid;
-        // unclaimed wear cream so they pop against any room background.
-        background: done ? accent : '#FFF7DA',
-        border: `2px solid ${done ? accentDark : '#1A0F2D'}`,
-        boxShadow: `2px 3px 0 ${done ? accentDark : '#1A0F2D'}, 0 6px 16px rgba(0,0,0,0.32)`,
+        background: chipBg,
+        border: `2px solid ${chipEdge}`,
+        boxShadow: `2px 3px 0 ${chipEdge}, 0 6px 16px rgba(0,0,0,0.32)`,
       }}
     >
       <div
@@ -279,9 +310,9 @@ function MissionChip({ Icon, title, reward, done, accent, accentDark }: {
           display: 'inline-flex',
           alignItems: 'center', justifyContent: 'center',
           borderRadius: 9,
-          background: done ? '#FFF7DA' : accent,
-          border: `2px solid ${done ? accentDark : '#1A0F2D'}`,
-          color: done ? accentDark : '#1A0F2D',
+          background: done ? surface : accent,
+          border: `2px solid ${chipEdge}`,
+          color: done ? (dark ? accent : accentDark) : '#1A0F2D',
         }}
       >
         {done
@@ -292,7 +323,7 @@ function MissionChip({ Icon, title, reward, done, accent, accentDark }: {
         <div style={{
           fontSize: 12,
           fontWeight: 900,
-          color: '#1A0F2D',
+          color: titleColor,
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -303,7 +334,7 @@ function MissionChip({ Icon, title, reward, done, accent, accentDark }: {
         <div style={{
           fontSize: 9,
           fontWeight: 700,
-          color: done ? '#1A0F2D' : '#5C4E6E',
+          color: subColor,
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',

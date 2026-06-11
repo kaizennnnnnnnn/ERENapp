@@ -94,6 +94,18 @@ const DARK_PALETTE: Palette = {
 }
 
 const STORAGE_KEY = 'eren_chem_theme'
+// Fired on every theme change so components OUTSIDE the provider (the
+// room's mission chips) can track it — localStorage 'storage' events only
+// fire across tabs, never in the tab that wrote the value.
+const THEME_EVENT = 'eren:chem-theme'
+
+function readStored(): Theme | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY)
+    return stored === 'light' || stored === 'dark' ? stored : null
+  } catch { return null /* localStorage blocked */ }
+}
 
 interface ThemeApi {
   theme: Theme
@@ -106,20 +118,15 @@ const ChemistryThemeContext = createContext<ThemeApi | null>(null)
 
 export function ChemistryThemeProvider({ children }: { children: ReactNode }) {
   // Default to dark to match the rest of the Eren PWA aesthetic on first open.
-  const [theme, setTheme] = useState<Theme>('dark')
+  // The stored choice is read in the lazy initializer (not an effect) so the
+  // first render — and the persist effect's first broadcast below — already
+  // carry the real theme. Safe: the overlay never SSRs, it mounts on a tap.
+  const [theme, setTheme] = useState<Theme>(() => readStored() ?? 'dark')
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY)
-      if (stored === 'light' || stored === 'dark') setTheme(stored)
-    } catch { /* localStorage blocked → keep default */ }
-  }, [])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
     try { window.localStorage.setItem(STORAGE_KEY, theme) }
     catch { /* ignore */ }
+    window.dispatchEvent(new Event(THEME_EVENT))
   }, [theme])
 
   const palette = theme === 'light' ? LIGHT_PALETTE : DARK_PALETTE
@@ -136,6 +143,23 @@ export function useChemistryTheme(): ThemeApi {
   const ctx = useContext(ChemistryThemeContext)
   if (!ctx) throw new Error('useChemistryTheme must be used inside <ChemistryThemeProvider>')
   return ctx
+}
+
+/**
+ * Read-only view of the persisted chemistry theme for components OUTSIDE
+ * the ChemistryThemeProvider (the room's mission chips). Lazy-reads the
+ * stored value so the first painted frame is already correct, and stays
+ * in sync via the event the provider dispatches on every change.
+ * Defaults to 'dark', matching the provider.
+ */
+export function useStoredChemTheme(): Theme {
+  const [theme, setTheme] = useState<Theme>(() => readStored() ?? 'dark')
+  useEffect(() => {
+    const read = () => setTheme(readStored() ?? 'dark')
+    window.addEventListener(THEME_EVENT, read)
+    return () => window.removeEventListener(THEME_EVENT, read)
+  }, [])
+  return theme
 }
 
 /** Hard offset shadow ("neo" effect) using the active ink colour. */
