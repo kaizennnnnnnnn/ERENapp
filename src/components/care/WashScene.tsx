@@ -227,26 +227,36 @@ export default function WashScene({ onClose }: Props) {
       <div className="absolute inset-0" style={{ backgroundImage: `url(${isDark ? '/BathroomDark.png' : '/bathroom.png'})`, backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
       {/* ══ CANDLE FLAME (night only) ═════════════════════════════════════
-        The candle sits on the small stool to the right of the bathtub in
-        BathroomDark.png — roughly (76%, 63%) of the source. Overlay a tiny
-        flame div + glow that softly flickers via the candleFlame keyframe
-        in globals.css. */}
+        Overlays the painted flame of the candle on the stool right of the
+        bathtub. The background uses `cover + center`, so fixed screen-percent
+        coords drift with the viewport's aspect ratio — this wrapper recreates
+        the exact cover mapping (768×1376 source), letting the flame be placed
+        in image coordinates. Pixel-scanned: flame core spans (676–690,
+        823–845), center x 683, in BathroomDark.png. */}
       {isDark && (
-        <div className="absolute pointer-events-none" style={{ left: 'calc(76% + 65px)', top: 'calc(63% - 23px)', zIndex: 12 }}>
+        <div className="absolute pointer-events-none" style={{
+          left: '50%', top: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 'max(100vw, calc(100dvh * 768 / 1376))',
+          aspectRatio: '768 / 1376',
+          zIndex: 12,
+        }}>
           {/* Outer warm halo on the wall behind the candle */}
           <div style={{
             position: 'absolute',
-            left: '50%', top: '50%',
+            left: '88.93%', top: '60.57%',
             width: 36, height: 36,
             transform: 'translate(-50%, -50%)',
             background: 'radial-gradient(circle, rgba(255,180,80,0.35) 0%, rgba(255,160,60,0.12) 50%, transparent 80%)',
             mixBlendMode: 'screen',
           }} />
-          {/* The flame itself */}
+          {/* The flame itself — sized in image % so it hugs the painted flame
+              at every screen size. The candleFlame keyframes carry the
+              translateX(-50%) that centers it on `left`. */}
           <div style={{
             position: 'absolute',
-            left: 0,
-            width: 6, height: 9,
+            left: '88.93%', top: '59.81%',
+            width: '1.82%', height: '1.6%',
             background: 'radial-gradient(ellipse at 50% 75%, #FFF2B0 0%, #FFCC55 30%, #FF8020 65%, #B83820 90%, transparent 100%)',
             borderRadius: '50% 50% 35% 35% / 60% 60% 40% 40%',
             boxShadow: '0 0 6px rgba(255,180,60,0.8), 0 0 14px rgba(255,140,40,0.45)',
