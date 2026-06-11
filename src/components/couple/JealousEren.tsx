@@ -1,11 +1,12 @@
 'use client'
 
-// JealousEren — a very-rare floating speech bubble that pops above
-// Eren when one partner has clearly out-cared the other today. It's
-// the same line for both viewers: it names whoever is in the lead so
-// the partners get a shared "leaderboard" moment. Fires at most once
-// every six hours per device and even then only ~12% of opens, so it
-// stays a surprise instead of a nag.
+// JealousEren — a floating "EREN WHISPERS" speech bubble that pops above
+// Eren on some home opens. When one partner has clearly out-cared the
+// other today it names whoever is in the lead — the same line for both
+// viewers, a shared "leaderboard" moment. When the scoreboard is even it
+// falls back to a neutral line instead of staying silent. Fires at most
+// once every two hours per device and ~30% of eligible opens, so it's
+// a frequent-ish treat without becoming a nag.
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -13,28 +14,35 @@ import { useAuth } from '@/hooks/useAuth'
 import { useCouple } from '@/hooks/useCouple'
 import { playSound } from '@/lib/sounds'
 
-const COOLDOWN_MS    = 6 * 60 * 60 * 1000  // at most once per 6h
-const ROLL_THRESHOLD = 0.12                // ~12% of eligible opens
-const DELTA_FLOOR    = 2                   // partner must lead by ≥ this many actions
+const COOLDOWN_MS    = 2 * 60 * 60 * 1000  // at most once per 2h
+const ROLL_THRESHOLD = 0.30                // ~30% of eligible opens
+const DELTA_FLOOR    = 2                   // leader lines need a lead of ≥ this many actions
 const VISIBLE_MS     = 7000                // how long the bubble stays
 const Z_INDEX        = 45                  // sits below modals (popups are 70+)
 
-// Message bank. `{leader}` is the name of whichever partner did more
+// Message banks. `{leader}` is the name of whichever partner did more
 // care today — the SAME name for both viewers, since it's a shared
 // leaderboard moment, not a personal callout. Gender-neutral wording
-// so the line reads cleanly for any name.
-const LINES = [
+// so the line reads cleanly for any name. Neutral lines carry no
+// {leader} so they can fire even when today's scoreboard is tied.
+const LEADER_LINES = [
   'today\'s MVP is {leader}!',
   '{leader} is currently my favourite human, just saying.',
   'I think {leader} loves me more.',
-  'Do you care about me?',
   '{leader} fed me more.',
   '{leader} has more points than you, hehe.',
   'I guess {leader} cares more about me today.',
-  'I love you both!',
-  'I\'m so happy!',
   'I\'m watching you (betta feed me), {leader}.',
   'I think {leader} loves you.',
+]
+
+const NEUTRAL_LINES = [
+  'Do you care about me?',
+  'I love you both!',
+  'I\'m so happy!',
+  'I had a dream about salmon.',
+  'I saw a bird today. Life is good.',
+  'Pet me. This is not a request.',
 ]
 
 export default function JealousEren() {
@@ -75,21 +83,20 @@ export default function JealousEren() {
         if (row.user_id === user!.id) mine++
         else if (row.user_id === partner!.id) theirs++
       }
-      // Trigger whenever EITHER partner is clearly ahead today.
-      // Both viewers see the same line naming whoever leads, so it
-      // reads as a shared scoreboard moment rather than a personal
-      // jab.
+      // When EITHER partner is clearly ahead today, the full bank is in
+      // play and the line names whoever leads — a shared scoreboard
+      // moment, not a personal jab. When the scoreboard is even, fall
+      // back to neutral lines so whispers still happen on quiet days.
       const diff = Math.abs(mine - theirs)
-      if (diff < DELTA_FLOOR) return
-
-      const leaderProfile = mine > theirs ? profile! : partner!
-      const leaderFirst = (leaderProfile.name ?? '').split(' ')[0] || 'they'
+      const pool = diff >= DELTA_FLOOR ? [...NEUTRAL_LINES, ...LEADER_LINES] : NEUTRAL_LINES
 
       // Stamp the cooldown only when we actually show — so a roll
       // that didn't fire can be rolled again later.
       try { localStorage.setItem(key, new Date().toISOString()) } catch { /* ignore */ }
 
-      const template = LINES[Math.floor(Math.random() * LINES.length)]
+      const template = pool[Math.floor(Math.random() * pool.length)]
+      const leaderProfile = mine > theirs ? profile! : partner!
+      const leaderFirst = (leaderProfile.name ?? '').split(' ')[0] || 'they'
       setLine(template.replaceAll('{leader}', leaderFirst))
 
       playSound('ui_modal_open')
@@ -108,11 +115,14 @@ export default function JealousEren() {
     <div
       className="fixed flex flex-col items-center pointer-events-auto"
       style={{
-        // Sits just above Eren on the right-hand side, mirroring
-        // where the ThoughtCloud anchors so the two don't fight for
-        // the same airspace.
-        bottom: '38%',
-        left: '32%',
+        // Centered high above Eren's head, clear of the occupied
+        // airspace: the wish/flavor bubbles own bottom 38% / left 22%,
+        // the battle HUD bottom 40% / left 50%, and the ThoughtCloud
+        // bottom 30% / left 68%. The whisper fires often enough now
+        // that it must never cover the all-day pending wish bubble
+        // (which is tappable) at its old 32% anchor.
+        bottom: '50%',
+        left: '50%',
         transform: 'translateX(-50%)',
         zIndex: Z_INDEX,
         animation: 'jeIn 0.35s cubic-bezier(0.34,1.56,0.64,1)',
