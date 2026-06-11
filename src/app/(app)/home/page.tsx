@@ -20,6 +20,7 @@ import Link from 'next/link'
 import { Sparkles } from 'lucide-react'
 import { IconGift, IconCapsule, IconHeart, IconBell, IconPerson, IconDoor, IconDrumstick, IconYarn, IconMoonZ, IconBath, IconPill, IconBook, IconCake, IconPhoto, IconShawarma } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
+import { requestCloudNav } from '@/components/CloudTransition'
 import TaskPanel from '@/components/TaskPanel'
 import BlinkingEren from '@/components/BlinkingEren'
 import StinkyFlies from '@/components/StinkyFlies'
@@ -45,6 +46,7 @@ import { OBSIDIAN_BTN, Rivets } from '@/components/obsidian'
 import { useIsDark } from '@/hooks/useIsDark'
 import LightSwitch from '@/components/LightSwitch'
 import { useWish } from '@/contexts/WishContext'
+import { useWishLinger } from '@/hooks/useWishLinger'
 import WishCloud from '@/components/wish/WishCloud'
 import ErenGrantBurst from '@/components/wish/ErenGrantBurst'
 import ErenSpeechBubble from '@/components/wish/ErenSpeechBubble'
@@ -306,7 +308,7 @@ export default function HomePage() {
 
   // ── Flavor bubble — ambient inner-monologue lines that pop above-left of
   // Eren. Suppressed whenever the wish bubble is visible (pending or in its
-  // 6.5s post-grant linger) so the two surfaces never overlap. Leader name
+  // 2-min post-grant linger) so the two surfaces never overlap. Leader name
   // mirrors WishContext's W-L-T derivation; lines that need {leader} or
   // {other} substitute silently and drop themselves when those are null.
   const leaderName = useMemo<string | null>(() => {
@@ -317,35 +319,11 @@ export default function HomePage() {
     return null
   }, [lifetimeWLT, profile?.name, partner?.name])
 
-  const [wishBubbleVisible, setWishBubbleVisible] = useState(false)
-  const wishLingerArmedAtRef = useRef<number | null>(null)
-  useEffect(() => {
-    if (!wish?.wish || wish.status === 'loading') { setWishBubbleVisible(false); return }
-    if (wish.status === 'pending') {
-      setWishBubbleVisible(true)
-      wishLingerArmedAtRef.current = null
-      return
-    }
-    // 'granted' — mirror WishCloud's per-viewer arm: timer starts the first
-    // time THIS user's tab is actually visible. Otherwise a partner who's
-    // away when the grant lands would never see the bubble at all (the
-    // countdown would tick down in the background).
-    setWishBubbleVisible(true)
-    let t: ReturnType<typeof setTimeout> | null = null
-    const arm = () => {
-      if (wishLingerArmedAtRef.current != null) return
-      if (document.visibilityState !== 'visible') return
-      wishLingerArmedAtRef.current = Date.now()
-      t = setTimeout(() => setWishBubbleVisible(false), 120500)
-    }
-    arm()
-    const onVis = () => { if (document.visibilityState === 'visible') arm() }
-    document.addEventListener('visibilitychange', onVis)
-    return () => {
-      document.removeEventListener('visibilitychange', onVis)
-      if (t) clearTimeout(t)
-    }
-  }, [wish?.status, wish?.wish?.id])
+  // Single source of truth for the wish bubble's on-screen window — gates
+  // both the WishCloud mount below and the flavor-bubble suppression. The
+  // per-viewer 2-min post-grant countdown persists in localStorage, so a
+  // remount (route change, PWA relaunch) resumes it instead of restarting it.
+  const wishBubbleVisible = useWishLinger(wish?.status ?? 'loading', wish?.todayKey ?? null)
 
   const { line: flavorLine, dismiss: dismissFlavor } = useFlavorBubble({
     enabled: !!stats && !stats.is_sleeping && roomReady && !authLoading,
@@ -576,11 +554,10 @@ export default function HomePage() {
                 composer. Hidden while asleep since the whole Eren is. */}
             <ThoughtCloud />
 
-            {/* Very rare jealous whisper — if the partner has clearly
-                taken more care of Eren today, he occasionally lets it
-                slip in a small speech bubble. Self-gated to ~12% of
-                eligible opens and a 6h cooldown so it stays a
-                surprise. */}
+            {/* Eren's whisper — names today's care leader when one
+                partner is clearly ahead, otherwise drops a neutral
+                line. Self-gated to ~30% of eligible opens and a 2h
+                cooldown so it stays a treat, not a nag. */}
             <JealousEren />
 
             {/* Persistent daily care-battle HUD above Eren. The HUD
@@ -639,10 +616,10 @@ export default function HomePage() {
 
             {/* Daily wish bubble — anchored above-left of Eren, opposite
                 ThoughtCloud's above-right anchor. Pending state shows the
-                wish; granted state shows a gold-tinted sparkle burst then
-                self-hides after a few seconds so the bubble doesn't loiter
-                showing stale text. */}
-            {wish?.wish && wish.status !== 'loading' && (
+                wish all day; after the grant, useWishLinger keeps it mounted
+                for two minutes per viewer (persisted across reopens) and
+                then unmounts it for the rest of the day. */}
+            {wishBubbleVisible && wish?.wish && wish.status !== 'loading' && (
               <WishCloud
                 wish={wish.wish}
                 text={wish.text}
@@ -816,7 +793,7 @@ export default function HomePage() {
                         playSound('ui_tap')
                         setShowRooms(false)
                         if ('href' in room && room.href) {
-                          router.push(room.href)
+                          requestCloudNav(room.href)
                         } else {
                           openScene(room.id as Exclude<typeof room.id, 'bakery'>)
                         }
@@ -916,7 +893,13 @@ export default function HomePage() {
 
           <Link
             href="/bakery"
-            onClick={() => playSound('ui_tap')}
+            onClick={e => {
+              // Magical entry: clouds converge, the route swaps underneath,
+              // then they part on the shop. CloudTransition owns the push.
+              e.preventDefault()
+              playSound('ui_tap')
+              requestCloudNav('/bakery')
+            }}
             className="home-dock-btn"
             style={{
               ...dockBtnBase,
