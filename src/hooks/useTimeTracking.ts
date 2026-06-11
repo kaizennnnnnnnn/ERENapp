@@ -36,15 +36,20 @@ export function useTimeTracking(userId: string | null) {
     startSession()
 
     // End on tab close / page leave
-    window.addEventListener('beforeunload', endSession)
-    document.addEventListener('visibilitychange', () => {
+    const onVisibility = () => {
       if (document.visibilityState === 'hidden') endSession()
       if (document.visibilityState === 'visible') startSession()
-    })
+    }
+    window.addEventListener('beforeunload', endSession)
+    document.addEventListener('visibilitychange', onVisibility)
 
     return () => {
       endSession()
       window.removeEventListener('beforeunload', endSession)
+      // Without this, every visit leaked a listener whose dead closure kept
+      // INSERTing ghost time_spent rows on visibility flips after unmount —
+      // permanently inflating the profile's "time with Eren" totals.
+      document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 }

@@ -231,9 +231,17 @@ function useErenStatsImpl(householdId: string | null) {
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState<string | null>(null)
 
+  // Mirrors `stats` for the fetch callback below — fetchStats only depends on
+  // householdId, so reading state directly would be a stale closure.
+  const hasStatsRef = useRef(false)
+  useEffect(() => { hasStatsRef.current = stats !== null }, [stats])
+
   const fetchStats = useCallback(async () => {
     if (!householdId) return
-    setLoading(true)
+    // Only the initial fetch shows the loader. The 2-min decay tick and the
+    // visibilitychange refetch used to flip loading too, swapping the whole
+    // home room for the LOADING EREN screen every 2 minutes.
+    if (!hasStatsRef.current) setLoading(true)
     const { data, error } = await supabase
       .from('eren_stats').select('*').eq('household_id', householdId).single()
     if (error) { setError(error.message); setLoading(false); return }

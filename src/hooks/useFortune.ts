@@ -32,7 +32,7 @@ export function useFortune() {
     // not read as "never claimed" — on any device without the localStorage
     // stamp that used to show the fortune as claimable again and allow a
     // duplicate daily claim. On error keep the current value; the focus
-    // listener and 5s poll are the natural retry.
+    // listener and 60s poll are the natural retry.
     const { data, error } = await supabase
       .from('user_gacha_state')
       .select('last_free_fortune')
@@ -62,7 +62,14 @@ export function useFortune() {
     }
     window.addEventListener('focus', onFocus)
     window.addEventListener('storage', onStorage)
-    const interval = setInterval(checkClaimable, 5000) // poll every 5s as backup
+    // Backup poll — focus/storage events are the primary sync paths, but this
+    // is the ONLY path that clears a stale claimable button after the partner
+    // claims on another device, so it must keep running. 60s + visible-only
+    // instead of an unconditional 5s: that was ~720 radio wakes/hour on the
+    // idle home screen for a sync whose worst case is a once-a-day claim.
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') checkClaimable()
+    }, 60_000)
     return () => {
       window.removeEventListener('focus', onFocus)
       window.removeEventListener('storage', onStorage)
@@ -119,8 +126,8 @@ export function useFortune() {
     // Save to localStorage FIRST so all hook instances instantly see it's claimed
     const now = new Date().toISOString()
     localStorage.setItem(`eren_fortune_last_${user.id}`, now)
-    // Re-assert: the 5s checkClaimable poll may have resolved true while the
-    // pre-claim reads above were in flight, overriding the false set at entry.
+    // Re-assert: a checkClaimable poll/focus tick may have resolved true while
+    // the pre-claim reads above were in flight, overriding the false at entry.
     setCanClaim(false)
 
     // Ensure gacha state row exists (upsert)
