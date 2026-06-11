@@ -68,8 +68,13 @@ const CAKE_EYES = {
 // right at the counter on one picture and floats above it on the other.
 // Carry both metrics through together.
 interface ShopPic { src: string; w: number; h: number; counterPct: number }
+// counterPct = first row of the counter's lit TOP surface (wall → dark seam
+// → wood transition), NOT the front-edge seam lower down. Day: seam 58.37%,
+// wood 58.49%. Night: seam 68.36%, wood 68.42% — 74.3 was the front-edge
+// seam, which painted Eren over the whole counter top at night so he read
+// as standing in front of it. See scripts/profile_counter_column.py.
 const SHOP_DAY:   ShopPic = { src: '/CakeShop.png',      w:  941, h: 1672, counterPct: 58.5 }
-const SHOP_NIGHT: ShopPic = { src: '/CakeShopNight.png', w: 1024, h: 1536, counterPct: 74.3 }
+const SHOP_NIGHT: ShopPic = { src: '/CakeShopNight.png', w: 1024, h: 1536, counterPct: 68.4 }
 // Eren's box, sized in cqi (container-query inline-size = % of the PICTURE's
 // width, see the `.pic` container) so he always tracks the picture and stays
 // glued to the counter. vw broke this: on a short/wide viewport the picture
