@@ -8,18 +8,21 @@ import { playSound } from '@/lib/sounds'
 interface Props {
   results: GachaPullResult[]
   onDone: () => void
+  /** Skip the capsule-shake intro — for pulls whose opening already played (rainbow video). */
+  skipCapsule?: boolean
 }
 
-export default function PullAnimation({ results, onDone }: Props) {
-  const [phase, setPhase] = useState<'capsule' | 'reveal' | 'done'>('capsule')
+export default function PullAnimation({ results, onDone, skipCapsule = false }: Props) {
+  const [phase, setPhase] = useState<'capsule' | 'reveal' | 'done'>(skipCapsule ? 'reveal' : 'capsule')
   const [currentIdx, setCurrentIdx] = useState(0)
-  const [showItem, setShowItem] = useState(false)
+  const [showItem, setShowItem] = useState(skipCapsule)
 
   useEffect(() => {
+    if (skipCapsule) return
     // Capsule shake, then reveal
     const t = setTimeout(() => { setPhase('reveal'); setShowItem(true) }, 1200)
     return () => clearTimeout(t)
-  }, [])
+  }, [skipCapsule])
 
   const current = results[currentIdx]
 

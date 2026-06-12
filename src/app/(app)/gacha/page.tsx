@@ -39,6 +39,7 @@ export default function GachaPage() {
   const [pageIdx, setPageIdx] = useState(0)
   const [pullResults, setPullResults] = useState<GachaPullResult[] | null>(null)
   const [opening, setOpening] = useState(false) // rainbow video before food reveals
+  const pulledFood = useRef(false) // food pulls skip the capsule — the video IS the opening
 
   function onScroll() {
     const el = scrollRef.current
@@ -60,6 +61,7 @@ export default function GachaPage() {
   async function handlePull(count: 1 | 10) {
     if (pulling || opening || pullResults) return
     const bannerId = PAGES[pageIdx].id
+    pulledFood.current = bannerId === 'food'
     playSound('ui_tap')
     if (bannerId === 'food') {
       playSound('gift_open')
@@ -197,7 +199,7 @@ export default function GachaPage() {
       )}
 
       {/* ── Reveal ── */}
-      {pullResults && !opening && <PullAnimation results={pullResults} onDone={handlePullDone} />}
+      {pullResults && !opening && <PullAnimation results={pullResults} onDone={handlePullDone} skipCapsule={pulledFood.current} />}
     </div>
   )
 }
