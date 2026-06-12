@@ -382,7 +382,7 @@ export default function HomePage() {
   // still mid-decode, producing a flash of empty room on first load).
   useLayoutEffect(() => { setRoomReady(false) }, [])
   useEffect(() => {
-    const bg = isDark ? '/HomePage.png' : '/livingRoom.png'
+    const bg = isDark ? '/HomeNight.png' : '/HomeDay.png'
     const srcs = [bg, '/erenGood_notail.png', '/erenGood_tail.png']
     let cancelled = false
     setRoomReady(false)
@@ -528,7 +528,7 @@ export default function HomePage() {
 
         {/* Background image */}
         <div className="absolute inset-0" style={{
-          backgroundImage: `url(${isDark ? '/HomePage.png' : '/livingRoom.png'})`,
+          backgroundImage: `url(${isDark ? '/HomeNight.png' : '/HomeDay.png'})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           WebkitTouchCallout: 'none',
