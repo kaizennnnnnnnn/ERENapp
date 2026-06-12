@@ -1009,3 +1009,45 @@ export const IconFly = memo(function IconFly({ size = 20 }: IconProps) {
     K: '#2D2D2D', G: '#556B2F', W: 'rgba(200,220,255,0.7)',
   }, size)
 })
+
+// ── EYE (show password) ────────────────────────────────────────────────────
+export const IconEye = memo(function IconEye({ size = 20 }: IconProps) {
+  const grid = [
+    '............',
+    '............',
+    '...KKKKKK...',
+    '..KWWWWWWK..',
+    '.KWWPPPPWWK.',
+    'KWWPPIIPPWWK',
+    'KWWPPIIPPWWK',
+    '.KWWPPPPWWK.',
+    '..KWWWWWWK..',
+    '...KKKKKK...',
+    '............',
+    '............',
+  ]
+  return drawPixels(grid, {
+    K: '#1A1A2E', W: '#FFFFFF', P: '#4898D4', I: '#1A1A2E',
+  }, size)
+})
+
+// ── EYE OFF (hide password) — same eye, pink slash through it ─────────────
+export const IconEyeOff = memo(function IconEyeOff({ size = 20 }: IconProps) {
+  const grid = [
+    '..........S.',
+    '.........S..',
+    '...KKKKKS...',
+    '..KWWWWSWK..',
+    '.KWWPPSPWWK.',
+    'KWWPPSIPPWWK',
+    'KWWPSIIPPWWK',
+    '.KWSPPPPWWK.',
+    '..SWWWWWWK..',
+    '.S.KKKKKK...',
+    'S...........',
+    '............',
+  ]
+  return drawPixels(grid, {
+    K: '#1A1A2E', W: '#FFFFFF', P: '#4898D4', I: '#1A1A2E', S: '#FF6B9D',
+  }, size)
+})

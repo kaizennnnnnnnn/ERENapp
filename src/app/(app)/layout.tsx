@@ -6,7 +6,6 @@ import { ErenStatsProvider } from '@/hooks/useErenStats'
 import { CoupleProvider } from '@/hooks/useCouple'
 import { DailyBattleProvider } from '@/hooks/useDailyBattle'
 import CareSceneHost from '@/components/care/CareSceneHost'
-import CloudTransition from '@/components/CloudTransition'
 import DailyBattlePop from '@/components/couple/DailyBattlePop'
 import PageSwiper from '@/components/PageSwiper'
 import StatsHeader from '@/components/StatsHeader'
@@ -29,7 +28,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     </div>
                     <main>{children}</main>
                     <CareSceneHost />
-                    <CloudTransition />
                     <DailyBattlePop />
                     <AchievementToast />
                     <MemoryWatcher />

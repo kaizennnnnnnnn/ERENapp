@@ -167,11 +167,13 @@ export default function HomePage() {
 
   useEffect(() => {
     registerSW()
-    requestNotificationPermission().then(granted => {
-      if (granted && user?.id && profile?.household_id) {
-        subscribeToPush(user.id, profile.household_id)
-      }
-    })
+    // Onboarding owns the permission ASK now (styled slide with context) —
+    // home only refreshes the push subscription for users who already said
+    // yes. No more native-prompt ambush on first load.
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted'
+        && user?.id && profile?.household_id) {
+      subscribeToPush(user.id, profile.household_id)
+    }
   }, [user?.id, profile?.household_id])
 
   // Safety-net ping for /api/fire-reminders. The Supabase pg_cron is
@@ -367,6 +369,14 @@ export default function HomePage() {
     if (!authLoading && !user) router.replace('/auth/login')
   }, [user, authLoading, router])
 
+  // Signed in but never moved in — resume onboarding at its household step.
+  // Only when the profile actually LOADED without a household: profile null
+  // is the Supabase-outage state in useAuth, and bouncing a healthy user
+  // into onboarding during a 503 would be worse than the loader.
+  useEffect(() => {
+    if (!authLoading && user && profile && !profile.household_id) router.replace('/onboarding')
+  }, [authLoading, user, profile, router])
+
   useEffect(() => {
     if (!authLoading && !profile?.household_id) setMoodChecked(true)
   }, [authLoading, profile?.household_id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -439,6 +449,9 @@ export default function HomePage() {
 
   if (authLoading || !moodChecked) return LoadingScreen
 
+  // Redirected to /onboarding by the effect above — show the loader while
+  // the navigation lands.
+  if (profile && !profile.household_id) return LoadingScreen
   if (!profile?.household_id) {
     return (
       <div className="page-scroll flex flex-col items-center justify-center min-h-[80vh] gap-4">

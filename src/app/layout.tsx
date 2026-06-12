@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import CloudTransition from '@/components/CloudTransition'
 import SplashScreen from '@/components/SplashScreen'
 import TransientErrorSilencer from '@/components/TransientErrorSilencer'
 
@@ -44,6 +45,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SplashScreen />
         <div className="app-container">
           {children}
+          {/* Lives in the ROOT layout (inside .app-container so fixed
+              overlays scope to the phone frame) — it must survive the
+              onboarding → (app) navigation, which the (app) layout's
+              instance could not. Exactly one instance app-wide: a second
+              listener would double the router.push. */}
+          <CloudTransition />
         </div>
       </body>
     </html>

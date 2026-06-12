@@ -3,14 +3,15 @@
 export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { Eye, EyeOff, Cat } from 'lucide-react'
 import { usePageReady } from '@/hooks/usePageReady'
+import SketchEren from '@/components/SketchEren'
+import { pinkText } from '@/components/obsidian'
+import { IconEye, IconEyeOff, IconPaw } from '@/components/PixelIcons'
+import OnboardingShell from '@/components/onboarding/OnboardingShell'
+import { PixelButton, PixelInput, PixelError, PixelLink } from '@/components/onboarding/pixelForm'
 
 export default function LoginPage() {
-  const router = useRouter()
   const supabase = createClient()
   usePageReady(true)
 
@@ -47,74 +48,46 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-gradient-to-b from-pink-50 via-purple-50 to-[#FDF6FF]">
-      {/* Logo */}
-      <div className="mb-8 flex flex-col items-center gap-3">
-        <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-[#FF6B9D] to-[#A78BFA] flex items-center justify-center shadow-pink">
-          <Cat className="w-10 h-10 text-white" strokeWidth={1.5} />
-        </div>
-        <h1 className="text-3xl font-bold text-[#1F1F2E]">Eren</h1>
-        <p className="text-gray-500 text-sm text-center">Welcome back! Eren is waiting for you 🐾</p>
+    <OnboardingShell stage={null}>
+      <div className="flex flex-col items-center text-center" style={{ gap: 6, marginBottom: 18 }}>
+        <SketchEren state="wave" size={130} transparent noSpeech />
+        <h1 className="font-pixel" style={{ ...pinkText, fontSize: 20, letterSpacing: 3 }}>
+          EREN
+        </h1>
+        <p style={{ fontSize: 12, lineHeight: 1.6, color: '#C9B8E8', margin: 0 }}>
+          Welcome back. He noticed you were gone.
+        </p>
       </div>
 
-      {/* Form card */}
-      <div className="w-full max-w-sm card shadow-card">
-        <form onSubmit={handleLogin} className="flex flex-col gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              className="input"
-              placeholder="you@example.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-            />
-          </div>
+      <form onSubmit={handleLogin} className="flex flex-col" style={{ gap: 16 }}>
+        <PixelInput label="EMAIL" type="email" value={email} onChange={e => setEmail(e.target.value)}
+          placeholder="you@example.com" required autoComplete="email" />
+        <PixelInput label="PASSWORD" type={showPw ? 'text' : 'password'} value={password}
+          onChange={e => setPassword(e.target.value)} placeholder="Your password" required
+          autoComplete="current-password"
+          suffix={
+            <button type="button" onClick={() => setShowPw(v => !v)} aria-label="Toggle password visibility"
+              style={{ background: 'none', display: 'flex', padding: 4 }}>
+              {showPw ? <IconEyeOff size={18} /> : <IconEye size={18} />}
+            </button>
+          } />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <div className="relative">
-              <input
-                type={showPw ? 'text' : 'password'}
-                className="input pr-12"
-                placeholder="••••••••"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-              />
-              <button
-                type="button"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-                onClick={() => setShowPw(v => !v)}
-              >
-                {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-          </div>
+        {error && <PixelError>{error}</PixelError>}
 
-          {error && (
-            <p className="text-sm text-red-500 bg-red-50 rounded-xl px-3 py-2">{error}</p>
-          )}
+        <PixelButton variant="gold" type="submit" disabled={loading}>
+          {loading ? '...' : 'LOG IN'}
+        </PixelButton>
+      </form>
 
-          <button type="submit" className="btn-primary w-full mt-2" disabled={loading}>
-            {loading ? 'Logging in...' : 'Log In'}
-          </button>
-        </form>
-
-        <div className="mt-5 text-center text-sm text-gray-500">
-          New here?{' '}
-          <Link href="/auth/register" className="text-[#FF6B9D] font-semibold">
-            Create account
-          </Link>
-        </div>
+      <div className="flex flex-col items-center" style={{ gap: 14, marginTop: 20 }}>
+        <PixelLink href="/onboarding">NEW HERE? → MEET EREN</PixelLink>
+        <span className="inline-flex items-center" style={{ gap: 6 }}>
+          <IconPaw size={11} />
+          <span className="font-pixel" style={{ fontSize: 5.5, letterSpacing: 1, color: '#7A6F96' }}>
+            FOR EREN THE RAGDOLL
+          </span>
+        </span>
       </div>
-
-      <p className="mt-6 text-xs text-gray-400 text-center">
-        Made with 💕 for Eren the Ragdoll
-      </p>
-    </div>
+    </OnboardingShell>
   )
 }
