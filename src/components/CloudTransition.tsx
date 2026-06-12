@@ -47,8 +47,8 @@ function rng(seed: number) {
 interface CloudDef {
   /** CSS width — vmin so phones and tablets scale the same composition. */
   w: string
-  /** translate() endpoints + swirl midpoint, fed to keyframes via CSS vars. */
-  fx: string; fy: string; tx: string; ty: string; mx: string; my: string
+  /** translate() endpoints + sideways swirl offset, fed via CSS vars. */
+  fx: string; fy: string; tx: string; ty: string; sx: string; sy: string
   /** entry rotation for the swirl flight */
   rot: string
   delayIn: number; durIn: number
@@ -77,8 +77,12 @@ const CLOUDS: CloudDef[] = (() => {
       const cos = Math.cos(angle), sin = Math.sin(angle)
       const endR = ring.r0 + rand() * (ring.r1 - ring.r0)
       const w = ring.w0 + rand() * (ring.w1 - ring.w0)
-      // Swirl midpoint: 45% of the way in, swung sideways off the straight
-      // line — alternating direction so the rainbow flight reads as a vortex.
+      // Swirl swing: at 55% of the flight the cloud sits at the same radius
+      // as the straight-line path, swung 0.55 rad sideways — alternating
+      // direction so the rainbow flight reads as a vortex. Emitted as a
+      // pure offset from the straight line (sx/sy) so the swing can live
+      // on its own nested layer with its own easing; baking it into the
+      // flight keyframes made the easing restart mid-air and stutter.
       const dir = idx % 2 === 0 ? 1 : -1
       const midR = endR + (115 - endR) * 0.45
       const midA = angle + 0.55 * dir
@@ -88,8 +92,8 @@ const CLOUDS: CloudDef[] = (() => {
         fy: `${(sin * 115).toFixed(1)}vh`,
         tx: `${(cos * endR).toFixed(1)}vw`,
         ty: `${(sin * endR).toFixed(1)}vh`,
-        mx: `${(Math.cos(midA) * midR).toFixed(1)}vw`,
-        my: `${(Math.sin(midA) * midR).toFixed(1)}vh`,
+        sx: `${((Math.cos(midA) - cos) * midR).toFixed(1)}vw`,
+        sy: `${((Math.sin(midA) - sin) * midR).toFixed(1)}vh`,
         rot: `${((6 + rand() * 10) * dir).toFixed(1)}deg`,
         delayIn: Math.round(rand() * 200),
         durIn: Math.round(480 + rand() * 120),
@@ -239,8 +243,6 @@ export default function CloudTransition() {
 
   const t = THEMES[theme]
   const converging = phase === 'in' || phase === 'hold'
-  const inName = t.swirl ? 'ctCloudInArc' : 'ctCloudIn'
-  const outName = t.swirl ? 'ctCloudOutArc' : 'ctCloudOut'
 
   return (
     <div className="fixed inset-0 overflow-hidden" style={{ zIndex: 100 }}>
@@ -253,17 +255,25 @@ export default function CloudTransition() {
           from { transform: translate(var(--tx), var(--ty)); }
           to   { transform: translate(var(--fx), var(--fy)); }
         }
-        /* Swirl flight: curved path through a sideways midpoint, entry tilt
-           that levels off, and a puffy overshoot before settling. */
-        @keyframes ctCloudInArc {
-          from { transform: translate(var(--fx), var(--fy)) rotate(var(--rot)) scale(0.9); }
-          55%  { transform: translate(var(--mx), var(--my)) rotate(calc(var(--rot) / -2)) scale(1.1); }
-          to   { transform: translate(var(--tx), var(--ty)) rotate(0deg) scale(1); }
+        /* Swirl swing — layered ON TOP of the straight ctCloudIn/Out flight
+           (separate nested element). The main flight keeps one continuous
+           deceleration while this adds the sideways arc, entry tilt and
+           puffy scale. Symmetric ease-in-out segments peak at the swing's
+           turning point, so velocity is naturally zero there — no mid-air
+           hitch like the old single-animation arc had. */
+        @keyframes ctSwirlIn {
+          from { transform: translate(0, 0) rotate(var(--rot)) scale(0.92);
+                 animation-timing-function: ease-in-out; }
+          55%  { transform: translate(var(--sx), var(--sy)) rotate(calc(var(--rot) * 0.3)) scale(1.07);
+                 animation-timing-function: ease-in-out; }
+          to   { transform: translate(0, 0) rotate(0deg) scale(1); }
         }
-        @keyframes ctCloudOutArc {
-          from { transform: translate(var(--tx), var(--ty)) rotate(0deg) scale(1); }
-          45%  { transform: translate(var(--mx), var(--my)) rotate(calc(var(--rot) / 2)) scale(1.08); }
-          to   { transform: translate(var(--fx), var(--fy)) rotate(var(--rot)) scale(0.9); }
+        @keyframes ctSwirlOut {
+          from { transform: translate(0, 0) rotate(0deg) scale(1);
+                 animation-timing-function: ease-in-out; }
+          45%  { transform: translate(var(--sx), var(--sy)) rotate(calc(var(--rot) * 0.3)) scale(1.06);
+                 animation-timing-function: ease-in-out; }
+          to   { transform: translate(0, 0) rotate(var(--rot)) scale(0.92); }
         }
         @keyframes ctFadeIn  { from { opacity: 0; } to { opacity: 1; } }
         @keyframes ctFadeOut { from { opacity: 1; } to { opacity: 0; } }
@@ -305,19 +315,28 @@ export default function CloudTransition() {
             ['--fy' as string]: c.fy,
             ['--tx' as string]: c.tx,
             ['--ty' as string]: c.ty,
-            ['--mx' as string]: c.mx,
-            ['--my' as string]: c.my,
+            ['--sx' as string]: c.sx,
+            ['--sy' as string]: c.sy,
             ['--rot' as string]: c.rot,
             animation: converging
-              ? `${inName} ${c.durIn}ms cubic-bezier(0.16, 0.84, 0.28, 1) ${c.delayIn}ms both`
-              : `${outName} ${c.durOut}ms cubic-bezier(0.55, 0.04, 0.85, 0.4) ${c.delayOut}ms both`,
+              ? `ctCloudIn ${c.durIn}ms cubic-bezier(0.16, 0.84, 0.28, 1) ${c.delayIn}ms both`
+              : `ctCloudOut ${c.durOut}ms cubic-bezier(0.55, 0.04, 0.85, 0.4) ${c.delayOut}ms both`,
             filter: 'drop-shadow(0 4px 0 rgba(120,100,170,0.18))',
           } as React.CSSProperties}>
+            {/* Swirl layer — same duration/delay as the flight so the swing
+                spans the whole trip, but eased independently. */}
             <div style={t.swirl ? {
               width: '100%', height: '100%',
-              animation: `ctBob ${1800 + (i % 5) * 220}ms ease-in-out ${-(i * 137) % 1800}ms infinite alternate`,
+              animation: converging
+                ? `ctSwirlIn ${c.durIn}ms ${c.delayIn}ms both`
+                : `ctSwirlOut ${c.durOut}ms ${c.delayOut}ms both`,
             } : { width: '100%', height: '100%' }}>
-              <PixelCloud body={tone.body} shade={tone.shade} />
+              <div style={t.swirl ? {
+                width: '100%', height: '100%',
+                animation: `ctBob ${1800 + (i % 5) * 220}ms ease-in-out ${-(i * 137) % 1800}ms infinite alternate`,
+              } : { width: '100%', height: '100%' }}>
+                <PixelCloud body={tone.body} shade={tone.shade} />
+              </div>
             </div>
           </div>
         )
