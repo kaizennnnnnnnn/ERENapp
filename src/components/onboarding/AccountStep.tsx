@@ -8,8 +8,10 @@ import { PixelButton, PixelInput, PixelError, PixelLink } from './pixelForm'
 
 export default function AccountStep({
   onDone,
+  demo = false,
 }: {
   onDone: (v: { userId: string; name: string; email: string }) => void
+  demo?: boolean
 }) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -20,6 +22,11 @@ export default function AccountStep({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
+    // Preview walkthrough — advance without creating a real account.
+    if (demo) {
+      onDone({ userId: 'demo-user', name: name.trim() || 'Alex', email: email.trim() || 'demo@example.com' })
+      return
+    }
     if (!name.trim() || !email.trim() || password.length < 6 || loading) {
       if (password.length > 0 && password.length < 6) {
         setError({ code: 'unknown', message: 'Password needs 6+ characters.' })

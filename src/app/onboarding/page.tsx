@@ -45,6 +45,7 @@ export default function OnboardingPage() {
   const [householdId, setHouseholdId] = useState<string | null>(null)
   const [inviteCode, setInviteCode] = useState<string | null>(null)
   const [resumed, setResumed] = useState(false)
+  const [demo, setDemo] = useState(false)
   const [loadError, setLoadError] = useState(false)
   const [retryNonce, setRetryNonce] = useState(0)
 
@@ -59,19 +60,23 @@ export default function OnboardingPage() {
   useEffect(() => {
     let cancelled = false
     async function resolve() {
-      // Dev-only demo hook so the screenshot harness can shoot any step
-      // without a live Supabase account.
-      if (process.env.NODE_ENV !== 'production') {
-        const demo = new URLSearchParams(window.location.search).get('demo')
-        if (demo) {
-          setUserId('demo-user')
-          setUserName('ALEX')
-          setUserEmail('demo@example.com')
-          setHouseholdId('demo-household')
-          if (demo === 'code' || demo === 'slides') setInviteCode('CAT4EVER')
-          setStep(demo as Step)
-          return
-        }
+      // Demo / preview mode: ?demo=1 (or ?demo=welcome) walks the whole flow
+      // with fake ids and writes NOTHING to the database — so an already
+      // moved-in user can experience onboarding without being bounced to
+      // /home. Steps short-circuit their Supabase calls when `demo` is set.
+      // Any other value (account/household/code/slides) jumps to that step.
+      const demoParam = new URLSearchParams(window.location.search).get('demo')
+      if (demoParam) {
+        const STEPS: Step[] = ['welcome', 'account', 'household', 'code', 'slides']
+        const start: Step = STEPS.includes(demoParam as Step) ? demoParam as Step : 'welcome'
+        setDemo(true)
+        setUserId('demo-user')
+        setUserName('ALEX')
+        setUserEmail('demo@example.com')
+        setHouseholdId('demo-household')
+        if (start === 'code' || start === 'slides') setInviteCode('CAT4EVER')
+        setStep(start)
+        return
       }
 
       const { data: { user } } = await supabase.auth.getUser()
@@ -143,7 +148,7 @@ export default function OnboardingPage() {
           <WelcomeStep onStart={() => go('account')} />
         )}
         {step === 'account' && (
-          <AccountStep onDone={({ userId: id, name, email }) => {
+          <AccountStep demo={demo} onDone={({ userId: id, name, email }) => {
             setUserId(id)
             setUserName(name)
             setUserEmail(email)
@@ -156,6 +161,7 @@ export default function OnboardingPage() {
             userName={userName}
             userEmail={userEmail}
             resumed={resumed}
+            demo={demo}
             onCreated={({ householdId: hh, inviteCode: code }) => {
               localStorage.setItem(PENDING_KEY, '1')
               setHouseholdId(hh)
@@ -178,6 +184,7 @@ export default function OnboardingPage() {
             userId={userId}
             householdId={householdId}
             inviteCode={inviteCode}
+            demo={demo}
             onLaunch={launch}
           />
         )}

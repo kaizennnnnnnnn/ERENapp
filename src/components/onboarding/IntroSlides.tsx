@@ -78,12 +78,14 @@ export default function IntroSlides({
   userId,
   householdId,
   inviteCode,
+  demo = false,
   onLaunch,
 }: {
   userId: string
   householdId: string
   /** present only for the creator — kept visible so the code isn't lost */
   inviteCode: string | null
+  demo?: boolean
   onLaunch: () => void
 }) {
   const [idx, setIdx] = useState(0)
@@ -132,7 +134,8 @@ export default function IntroSlides({
     if (granted) {
       playSound('quest_complete')
       setNotif('granted')
-      subscribeToPush(userId, householdId).catch(() => {})
+      // Skip the DB write in preview mode (fake ids).
+      if (!demo) subscribeToPush(userId, householdId).catch(() => {})
     } else {
       setNotif('denied')
     }

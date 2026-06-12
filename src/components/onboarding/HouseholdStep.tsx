@@ -46,6 +46,7 @@ export default function HouseholdStep({
   userName,
   userEmail,
   resumed,
+  demo = false,
   onCreated,
   onJoined,
 }: {
@@ -54,6 +55,7 @@ export default function HouseholdStep({
   userEmail: string | null
   /** true when the flow resumed here after a refresh — show a welcome-back chip */
   resumed: boolean
+  demo?: boolean
   onCreated: (v: { householdId: string; inviteCode: string }) => void
   onJoined: (v: { householdId: string }) => void
 }) {
@@ -67,6 +69,12 @@ export default function HouseholdStep({
     e.preventDefault()
     if (loading) return
     setError(null)
+    // Preview walkthrough — advance with a fake code, no DB writes.
+    if (demo) {
+      if (mode === 'create') onCreated({ householdId: 'demo-household', inviteCode: 'CAT4EVER' })
+      else onJoined({ householdId: 'demo-household' })
+      return
+    }
     if (mode === 'create') {
       if (!householdName.trim()) return
       setLoading(true)
