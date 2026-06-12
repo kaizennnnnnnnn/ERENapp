@@ -227,12 +227,16 @@ export default function LightSwitch({
           border: '1px solid #050204',
           boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.7)',
         }}>
-          {/* Toggle lever */}
+          {/* Toggle lever — translate must include the -50% self-centering
+              offset: without it the lever's TOP edge starts at the slot's
+              midpoint, so "off" sat dead-center and "on" overflowed the
+              slot bottom by 7px. With it, the 16px lever rides 1px inside
+              the 34px slot at both ends. */}
           <div style={{
             position: 'absolute',
             left: '50%',
             top: '50%',
-            transform: `translate(-50%, ${on ? '8px' : '-8px'})`,
+            transform: `translate(-50%, calc(-50% ${on ? '+' : '-'} 8px))`,
             width: 12, height: 16,
             background: on
               ? 'linear-gradient(180deg, #FFEAA0 0%, #E0B850 50%, #B88830 100%)'
