@@ -60,14 +60,15 @@ interface CloudDef {
 const CLOUDS: CloudDef[] = (() => {
   const rand = rng(20260611)
   const defs: CloudDef[] = []
-  // Three rings: big front puffs piling on the center, a mid ring, and an
-  // outer ring parked near the edges — together a wall of clouds over the
-  // whole screen, not a lump in the middle. X spreads in vw and Y in vh so
-  // tall phone screens fill top to bottom.
+  // Four rings: big front puffs piling on the center, mid and outer rings,
+  // and a far ring of small fillers hugging the very edges — together a
+  // wall of clouds over the whole screen, not a lump in the middle. X
+  // spreads in vw and Y in vh so tall phone screens fill top to bottom.
   const RINGS = [
-    { n: 5, r0: 2,  r1: 13, w0: 64, w1: 86, z: 3 },
-    { n: 6, r0: 17, r1: 30, w0: 46, w1: 62, z: 2 },
-    { n: 6, r0: 33, r1: 46, w0: 38, w1: 52, z: 1 },
+    { n: 6, r0: 2,  r1: 13, w0: 64, w1: 86, z: 3 },
+    { n: 8, r0: 16, r1: 29, w0: 46, w1: 62, z: 2 },
+    { n: 8, r0: 32, r1: 45, w0: 38, w1: 52, z: 1 },
+    { n: 6, r0: 47, r1: 58, w0: 26, w1: 36, z: 1 },
   ]
   let idx = 0
   RINGS.forEach((ring, ri) => {
@@ -128,6 +129,7 @@ const PINK_RINGS = [
   { body: '#FFE9F4', shade: '#F2BEDD' },
   { body: '#FCD9EC', shade: '#E8A9CD' },
   { body: '#F6C6E1', shade: '#D898C0' },
+  { body: '#F1B9D8', shade: '#D18CB6' },
 ]
 
 const RAINBOW: Array<{ body: string; shade: string }> = [
