@@ -259,6 +259,8 @@ export interface GachaBannerDef {
   featuredItems: string[]
   permanent: boolean
   bgGradient: [string, string]
+  /** When set, pulls on this banner only drop items from these categories. */
+  categories?: GachaCategory[]
 }
 
 export interface UserInventoryItem {

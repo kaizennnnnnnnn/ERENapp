@@ -150,31 +150,24 @@ export const GACHA_ITEMS: GachaItemDef[] = [
 
 export const GACHA_BANNERS: GachaBannerDef[] = [
   {
-    id: 'standard',
-    name: "Eren's Capsule Machine",
-    description: 'The classic capsule machine with all items available.',
-    icon: '🎰',
+    id: 'food',
+    name: 'Snacks & Drinks',
+    description: 'Treats, recipes and drinks for Eren.',
+    icon: '🍪',
     featuredItems: [],
     permanent: true,
-    bgGradient: ['#7C3AED', '#A78BFA'],
+    bgGradient: ['#EC4899', '#F9A8D4'],
+    categories: ['recipe', 'consumable'],
   },
   {
-    id: 'fashion',
-    name: 'Fashion Week',
-    description: 'Boosted outfit drop rates! Dress up Eren in style.',
-    icon: '👗',
-    featuredItems: ['outfit_wizard_hat', 'outfit_crown', 'outfit_angel_wings', 'outfit_flower_crown'],
+    id: 'animal',
+    name: 'Kitty Hats',
+    description: 'Cute costume drop — hats, decor and more.',
+    icon: '🐸',
+    featuredItems: [],
     permanent: true,
-    bgGradient: ['#EC4899', '#F472B6'],
-  },
-  {
-    id: 'cozy_home',
-    name: 'Cozy Home',
-    description: 'Boosted decoration & background drops. Make Eren\'s home beautiful.',
-    icon: '🏠',
-    featuredItems: ['deco_fairy_lights', 'deco_neon_sign', 'bg_rainy', 'bg_northern_lights'],
-    permanent: true,
-    bgGradient: ['#F59E0B', '#FBBF24'],
+    bgGradient: ['#A78BFA', '#F472B6'],
+    categories: ['outfit', 'decoration', 'background', 'emote', 'frame'],
   },
 ]
 
@@ -196,7 +189,11 @@ export function rollRarity(pullsSinceEpic: number, pullsSinceLegendary: number):
 
 export function rollItem(rarity: GachaRarity, bannerId: string): GachaItemDef {
   const banner = GACHA_BANNERS.find(b => b.id === bannerId)
-  const pool = GACHA_ITEMS.filter(i => i.rarity === rarity)
+  let pool = GACHA_ITEMS.filter(i => i.rarity === rarity)
+  if (banner?.categories) {
+    const scoped = pool.filter(i => banner.categories!.includes(i.category))
+    if (scoped.length > 0) pool = scoped
+  }
   if (pool.length === 0) return GACHA_ITEMS[0] // fallback
 
   // Banner featured items have 50% chance if applicable

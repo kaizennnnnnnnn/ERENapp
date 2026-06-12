@@ -15,6 +15,7 @@ FILES = [
     "ChemistryDay.png", "ChemistryNight.png", "vetBACK.png", "wetDark.png",
     "schoolBACK.png", "livingRoom.png", "HomePage.png",
     "CakeShop.png", "CakeShopNight.png",
+    "gacha_food.png", "gacha_animal.png",
 ]
 
 total_before = total_after = 0
