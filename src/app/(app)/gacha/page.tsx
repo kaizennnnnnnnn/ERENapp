@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import { useGacha } from '@/hooks/useGacha'
@@ -23,6 +23,22 @@ const PAGES = [
   { id: 'animal', bg: '/gacha_animal.png' },
 ] as const
 
+// Pixel stars for the sparkle curtain between the two machines. Fixed layout
+// (no Math.random) so server and client render the same thing.
+const SEAM_STARS = [
+  { x: 50, y: 8, s: 6, c: '#FFE9F4', d: 1.6, delay: 0 },
+  { x: 30, y: 16, s: 4, c: '#F9A8D4', d: 1.2, delay: 0.3 },
+  { x: 68, y: 24, s: 5, c: '#C4B5FD', d: 1.8, delay: 0.7 },
+  { x: 42, y: 33, s: 4, c: '#F5C842', d: 1.4, delay: 0.2 },
+  { x: 60, y: 42, s: 7, c: '#FFFFFF', d: 2.0, delay: 0.5 },
+  { x: 25, y: 50, s: 4, c: '#F9A8D4', d: 1.3, delay: 0.9 },
+  { x: 72, y: 58, s: 5, c: '#C4B5FD', d: 1.7, delay: 0.1 },
+  { x: 47, y: 66, s: 6, c: '#FFE9F4', d: 1.5, delay: 0.6 },
+  { x: 33, y: 75, s: 4, c: '#F5C842', d: 1.9, delay: 0.4 },
+  { x: 63, y: 83, s: 5, c: '#FFFFFF', d: 1.4, delay: 0.8 },
+  { x: 50, y: 92, s: 4, c: '#F9A8D4', d: 1.6, delay: 0.25 },
+] as const
+
 export default function GachaPage() {
   const router = useRouter()
   const { setHideStats } = useCare()
@@ -41,7 +57,33 @@ export default function GachaPage() {
   const [opening, setOpening] = useState(false) // rainbow video before food reveals
   const pulledFood = useRef(false) // food pulls skip the capsule — the video IS the opening
 
+  // Scroll-driven swap effect: the off-center machine recedes (scale), dims,
+  // and its art slides slower than the page (parallax). Written imperatively
+  // per scroll event — no React re-renders mid-swipe.
+  const innerRefs = useRef<(HTMLDivElement | null)[]>([])
+  const bgRefs = useRef<(HTMLDivElement | null)[]>([])
+  const dimRefs = useRef<(HTMLDivElement | null)[]>([])
+
+  const applyScrollFx = useCallback(() => {
+    const el = scrollRef.current
+    if (!el || el.clientWidth === 0) return
+    const x = el.scrollLeft / el.clientWidth
+    PAGES.forEach((_, i) => {
+      const p = Math.max(-1, Math.min(1, x - i)) // 0 = centered, ±1 = a full page away
+      const a = Math.abs(p)
+      const inner = innerRefs.current[i]
+      if (inner) inner.style.transform = `scale(${(1 - 0.14 * a).toFixed(4)})`
+      const bg = bgRefs.current[i]
+      if (bg) bg.style.transform = `translateX(${(p * 6).toFixed(3)}%) scale(1.12)`
+      const dim = dimRefs.current[i]
+      if (dim) dim.style.opacity = (0.6 * a).toFixed(3)
+    })
+  }, [])
+
+  useEffect(() => { applyScrollFx() }, [applyScrollFx])
+
   function onScroll() {
+    applyScrollFx()
     const el = scrollRef.current
     if (!el) return
     const idx = Math.min(PAGES.length - 1, Math.max(0, Math.round(el.scrollLeft / el.clientWidth)))
@@ -87,51 +129,79 @@ export default function GachaPage() {
 
       {/* ── Swipeable machine pages ── */}
       <div ref={scrollRef} onScroll={onScroll}
-        className="h-full w-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory"
+        className="relative h-full w-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory"
         style={{ scrollbarWidth: 'none' }}>
-        {PAGES.map(p => (
+        {PAGES.map((p, idx) => (
           <section key={p.id} className="relative h-full w-full flex-shrink-0 snap-center overflow-hidden">
-            <div className="absolute inset-0" style={{
-              backgroundImage: `url(${p.bg})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-            }} />
+            <div ref={el => { innerRefs.current[idx] = el }}
+              className="absolute inset-0 will-change-transform"
+              style={{ transform: `scale(${idx === pageIdx ? 1 : 0.86})` }}>
+              <div ref={el => { bgRefs.current[idx] = el }}
+                className="absolute inset-0 will-change-transform"
+                style={{
+                  backgroundImage: `url(${p.bg})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  transform: 'scale(1.12)',
+                }} />
 
-            {/* Bottom shade so the controls read over the machine base */}
-            <div className="absolute inset-x-0 bottom-0 pointer-events-none" style={{
-              height: 190,
-              background: 'linear-gradient(180deg, rgba(5,5,7,0) 0%, rgba(5,5,7,0.78) 70%)',
-            }} />
+              {/* Bottom shade so the controls read over the machine base */}
+              <div className="absolute inset-x-0 bottom-0 pointer-events-none" style={{
+                height: 190,
+                background: 'linear-gradient(180deg, rgba(5,5,7,0) 0%, rgba(5,5,7,0.78) 70%)',
+              }} />
 
-            {/* Pull controls */}
-            <div className="absolute inset-x-0 bottom-0 px-4" style={{ paddingBottom: 'calc(var(--safe-bottom) + 14px)' }}>
-              <div className="flex justify-center gap-4 mb-2">
-                <span className="font-pixel" style={{ fontSize: 6, color: '#C4B5FD', textShadow: '0 0 3px rgba(167,139,250,0.5)' }}>EPIC {pityEpic}/{PITY_EPIC}</span>
-                <span className="font-pixel" style={{ fontSize: 6, color: '#F5C842', textShadow: '0 0 3px rgba(245,200,66,0.5)' }}>LEGENDARY {pityLegendary}/{PITY_LEGENDARY}</span>
-              </div>
-              <div className="flex gap-3">
-                <button onClick={() => handlePull(1)} disabled={pulling || (coins < PULL_COST_SINGLE && tickets <= 0)}
-                  className="flex-1 py-3 active:translate-y-[1px] transition-transform disabled:opacity-40 relative"
-                  style={OBSIDIAN_BTN}>
-                  <Rivets inset={3} size={3} />
-                  <div className="font-pixel" style={{ fontSize: 7, letterSpacing: 1, ...pinkText }}>PULL x1</div>
-                  <div className="font-pixel mt-1" style={{ fontSize: 6, color: '#9A8090' }}>{PULL_COST_SINGLE} coins</div>
-                </button>
-                <button onClick={() => handlePull(10)} disabled={pulling || coins < PULL_COST_TEN}
-                  className="flex-1 py-3 active:translate-y-[1px] transition-transform disabled:opacity-40 relative"
-                  style={{
-                    ...OBSIDIAN_BTN,
-                    border: '1px solid rgba(245,200,66,0.7)',
-                    boxShadow: `0 3px 10px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.07), 0 0 12px rgba(245,200,66,0.25)`,
-                  }}>
-                  <Rivets inset={3} size={3} />
-                  <div className="font-pixel" style={{ fontSize: 7, letterSpacing: 1, color: '#F5C842', textShadow: '0 0 4px rgba(245,200,66,0.6)' }}>PULL x10</div>
-                  <div className="font-pixel mt-1" style={{ fontSize: 6, color: '#9A8090' }}>{PULL_COST_TEN} coins</div>
-                </button>
+              {/* Pull controls */}
+              <div className="absolute inset-x-0 bottom-0 px-4" style={{ paddingBottom: 'calc(var(--safe-bottom) + 14px)' }}>
+                <div className="flex justify-center gap-4 mb-2">
+                  <span className="font-pixel" style={{ fontSize: 6, color: '#C4B5FD', textShadow: '0 0 3px rgba(167,139,250,0.5)' }}>EPIC {pityEpic}/{PITY_EPIC}</span>
+                  <span className="font-pixel" style={{ fontSize: 6, color: '#F5C842', textShadow: '0 0 3px rgba(245,200,66,0.5)' }}>LEGENDARY {pityLegendary}/{PITY_LEGENDARY}</span>
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={() => handlePull(1)} disabled={pulling || (coins < PULL_COST_SINGLE && tickets <= 0)}
+                    className="flex-1 py-3 active:translate-y-[1px] transition-transform disabled:opacity-40 relative"
+                    style={OBSIDIAN_BTN}>
+                    <Rivets inset={3} size={3} />
+                    <div className="font-pixel" style={{ fontSize: 7, letterSpacing: 1, ...pinkText }}>PULL x1</div>
+                    <div className="font-pixel mt-1" style={{ fontSize: 6, color: '#9A8090' }}>{PULL_COST_SINGLE} coins</div>
+                  </button>
+                  <button onClick={() => handlePull(10)} disabled={pulling || coins < PULL_COST_TEN}
+                    className="flex-1 py-3 active:translate-y-[1px] transition-transform disabled:opacity-40 relative"
+                    style={{
+                      ...OBSIDIAN_BTN,
+                      border: '1px solid rgba(245,200,66,0.7)',
+                      boxShadow: `0 3px 10px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.07), 0 0 12px rgba(245,200,66,0.25)`,
+                    }}>
+                    <Rivets inset={3} size={3} />
+                    <div className="font-pixel" style={{ fontSize: 7, letterSpacing: 1, color: '#F5C842', textShadow: '0 0 4px rgba(245,200,66,0.6)' }}>PULL x10</div>
+                    <div className="font-pixel mt-1" style={{ fontSize: 6, color: '#9A8090' }}>{PULL_COST_TEN} coins</div>
+                  </button>
+                </div>
               </div>
             </div>
+
+            {/* Dim veil — fades the machine out as it leaves center */}
+            <div ref={el => { dimRefs.current[idx] = el }}
+              className="absolute inset-0 pointer-events-none"
+              style={{ background: '#0B0414', opacity: idx === pageIdx ? 0 : 0.6 }} />
           </section>
         ))}
+
+        {/* Sparkle curtain at the seam — you swipe through it between machines */}
+        <div aria-hidden className="absolute top-0 bottom-0 z-10 pointer-events-none"
+          style={{ left: '100%', width: 150, transform: 'translateX(-50%)' }}>
+          <div className="absolute inset-0" style={{
+            background: 'linear-gradient(90deg, transparent, rgba(244,114,182,0.16) 35%, rgba(255,255,255,0.2) 50%, rgba(167,139,250,0.16) 65%, transparent)',
+          }} />
+          {SEAM_STARS.map((s, i) => (
+            <div key={i} className="absolute" style={{
+              left: `${s.x}%`, top: `${s.y}%`, width: s.s, height: s.s,
+              background: s.c,
+              boxShadow: `0 0 ${s.s + 4}px ${s.c}`,
+              animation: `gachaTwinkle ${s.d}s steps(2, jump-none) ${s.delay}s infinite`,
+            }} />
+          ))}
+        </div>
       </div>
 
       {/* ── Header overlay ── */}
@@ -200,6 +270,13 @@ export default function GachaPage() {
 
       {/* ── Reveal ── */}
       {pullResults && !opening && <PullAnimation results={pullResults} onDone={handlePullDone} skipCapsule={pulledFood.current} />}
+
+      <style jsx>{`
+        @keyframes gachaTwinkle {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.25; transform: scale(0.6); }
+        }
+      `}</style>
     </div>
   )
 }

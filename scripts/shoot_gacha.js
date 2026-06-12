@@ -20,10 +20,18 @@ async function main() {
   console.log('url after load:', page.url())
   await page.screenshot({ path: path.join(OUT, '1_food.png') })
 
+  // Freeze mid-swipe (snap disabled) to capture the depth/dim/sparkle-seam state
+  await page.evaluate(() => {
+    const el = document.querySelector('.snap-x')
+    if (el) { el.style.scrollSnapType = 'none'; el.scrollLeft = el.clientWidth * 0.5 }
+  })
+  await sleep(400)
+  await page.screenshot({ path: path.join(OUT, '1b_mid_swipe.png') })
+
   // Swipe right (scroll the snap container one page)
   await page.evaluate(() => {
     const el = document.querySelector('.snap-x')
-    if (el) el.scrollTo({ left: el.clientWidth, behavior: 'instant' })
+    if (el) { el.style.scrollSnapType = ''; el.scrollTo({ left: el.clientWidth, behavior: 'instant' }) }
   })
   await sleep(800)
   await page.screenshot({ path: path.join(OUT, '2_animal.png') })
