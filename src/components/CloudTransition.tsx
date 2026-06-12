@@ -27,10 +27,14 @@ export function requestCloudNav(href: string, theme: CloudTheme = 'pink') {
   window.dispatchEvent(new CustomEvent(EVENT, { detail: { href, theme } }))
 }
 
-// Converge duration covers the longest cloud delay + flight. The hold phase
-// then lasts until the destination route is mounted (+ a beat for its first
-// paint), with a hard fallback so a slow chunk can never strand the clouds.
-const IN_MS = 800
+// Converge duration covers the longest cloud delay + flight at speed 1.
+// Each theme stretches it by its own `speed` (see THEMES) so the gacha
+// drift can read slower than the cake one without retuning every cloud.
+// The hold phase then lasts until the destination route is mounted (+ a
+// beat for first paint), with a hard fallback so a slow chunk can never
+// strand the clouds.
+const BASE_IN_MS = 800
+const inMsFor = (theme: CloudTheme) => Math.round(BASE_IN_MS * THEMES[theme].speed)
 const HOLD_AFTER_ARRIVE_MS = 380
 const HOLD_MAX_MS = 2200
 const OUT_MS = 700
@@ -60,17 +64,40 @@ interface CloudDef {
 const CLOUDS: CloudDef[] = (() => {
   const rand = rng(20260611)
   const defs: CloudDef[] = []
-  // Four rings: big front puffs piling on the center, mid and outer rings,
-  // and a far ring of small fillers hugging the very edges — together a
-  // wall of clouds over the whole screen, not a lump in the middle. X
-  // spreads in vw and Y in vh so tall phone screens fill top to bottom.
-  const RINGS = [
-    { n: 6, r0: 2,  r1: 13, w0: 64, w1: 86, z: 3 },
-    { n: 8, r0: 16, r1: 29, w0: 46, w1: 62, z: 2 },
-    { n: 8, r0: 32, r1: 45, w0: 38, w1: 52, z: 1 },
-    { n: 6, r0: 47, r1: 58, w0: 26, w1: 36, z: 1 },
-  ]
   let idx = 0
+
+  const push = (
+    fxv: number, fyv: number, txv: number, tyv: number,
+    sxv: number, syv: number, w: number, ring: number, z: number,
+  ) => {
+    const dir = idx % 2 === 0 ? 1 : -1
+    defs.push({
+      w: `${w.toFixed(1)}vmin`,
+      fx: `${fxv.toFixed(1)}vw`, fy: `${fyv.toFixed(1)}vh`,
+      tx: `${txv.toFixed(1)}vw`, ty: `${tyv.toFixed(1)}vh`,
+      sx: `${(sxv * dir).toFixed(1)}vw`, sy: `${(syv * dir).toFixed(1)}vh`,
+      rot: `${((6 + rand() * 10) * dir).toFixed(1)}deg`,
+      delayIn: Math.round(rand() * 200),
+      durIn: Math.round(480 + rand() * 120),
+      delayOut: Math.round(rand() * 120),
+      durOut: Math.round(480 + rand() * 140),
+      ring, z,
+    })
+    idx++
+  }
+
+  // Rings: a small center blanket of big front puffs, then progressively
+  // denser mid/outer rings pushed further out. Trimming the center and
+  // packing more clouds into the outer rings spreads the pile across the
+  // whole screen instead of lumping in the middle — the outer counts climb
+  // (4 → 9 → 11 → 10) so a tall phone's top/bottom thirds fill in too.
+  // X spreads in vw and Y in vh.
+  const RINGS = [
+    { n: 4,  r0: 2,  r1: 11, w0: 60, w1: 80, z: 3 },
+    { n: 9,  r0: 15, r1: 30, w0: 44, w1: 60, z: 2 },
+    { n: 11, r0: 33, r1: 49, w0: 38, w1: 52, z: 1 },
+    { n: 10, r0: 51, r1: 66, w0: 28, w1: 42, z: 1 },
+  ]
   RINGS.forEach((ring, ri) => {
     for (let i = 0; i < ring.n; i++) {
       const angle = (i / ring.n) * Math.PI * 2 + ri * 0.9 + (rand() - 0.5) * 0.55
@@ -86,25 +113,33 @@ const CLOUDS: CloudDef[] = (() => {
       const dir = idx % 2 === 0 ? 1 : -1
       const midR = endR + (115 - endR) * 0.45
       const midA = angle + 0.55 * dir
-      defs.push({
-        w: `${w.toFixed(1)}vmin`,
-        fx: `${(cos * 115).toFixed(1)}vw`,
-        fy: `${(sin * 115).toFixed(1)}vh`,
-        tx: `${(cos * endR).toFixed(1)}vw`,
-        ty: `${(sin * endR).toFixed(1)}vh`,
-        sx: `${((Math.cos(midA) - cos) * midR).toFixed(1)}vw`,
-        sy: `${((Math.sin(midA) - sin) * midR).toFixed(1)}vh`,
-        rot: `${((6 + rand() * 10) * dir).toFixed(1)}deg`,
-        delayIn: Math.round(rand() * 200),
-        durIn: Math.round(480 + rand() * 120),
-        delayOut: Math.round(rand() * 120),
-        durOut: Math.round(480 + rand() * 140),
-        ring: ri,
-        z: ring.z,
-      })
-      idx++
+      push(
+        cos * 115, sin * 115, cos * endR, sin * endR,
+        (Math.cos(midA) - cos) * midR / dir, (Math.sin(midA) - sin) * midR / dir,
+        w, ri, ring.z,
+      )
     }
   })
+
+  // Corner fillers — a radial cloud at 45° and radius R only reaches ~0.7R
+  // on each axis, so on a tall phone the four diagonal corners stay light
+  // while the middle piles up. Plant a big puff aimed straight at each
+  // corner, flying in from just past it, so coverage reaches edge-to-edge.
+  const CORNERS = [
+    { x: -39, y: -46 }, { x: 39, y: -46 },
+    { x: -39, y:  46 }, { x: 39, y:  46 },
+  ]
+  for (const cn of CORNERS) {
+    const w = 50 + rand() * 16
+    const ang = Math.atan2(cn.y, cn.x)
+    const sw = 12 + rand() * 6                 // tangential swirl swing
+    push(
+      cn.x * 2.6, cn.y * 2.2, cn.x, cn.y,
+      -Math.sin(ang) * sw, Math.cos(ang) * sw,
+      w, 3, 1,
+    )
+  }
+
   return defs
 })()
 
@@ -127,6 +162,9 @@ interface ThemeDef {
   sparkleCount: number
   /** swirl = curved flight + rotation + scale pop + bobbing while covered */
   swirl: boolean
+  /** flight-time multiplier — 1 = base, >1 drifts in slower. Scales every
+   *  cloud's delay + duration and the converge window together. */
+  speed: number
 }
 
 const PINK_RINGS = [
@@ -153,6 +191,7 @@ const THEMES: Record<CloudTheme, ThemeDef> = {
     sparkleColors: ['#FFD700', '#FF9DCF', '#FFFFFF'],
     sparkleCount: 12,
     swirl: false,
+    speed: 1,
   },
   rainbow: {
     cloud: (_c, i) => RAINBOW[i % RAINBOW.length],
@@ -160,6 +199,9 @@ const THEMES: Record<CloudTheme, ThemeDef> = {
     sparkleColors: ['#FF6B6B', '#FFA94D', '#FFE066', '#69DB7C', '#4DABF7', '#9775FA', '#F783AC'],
     sparkleCount: 16,
     swirl: true,
+    // Gacha clouds drift in ~35% slower so the rainbow vortex reads as a
+    // gentle gather rather than a quick snap.
+    speed: 1.35,
   },
 }
 
@@ -204,9 +246,10 @@ export default function CloudTransition() {
       const detail = (e as CustomEvent<{ href: string; theme?: CloudTheme }>).detail
       if (!detail?.href || targetRef.current) return // already mid-flight
       const run = {}
+      const nav = detail.theme ?? 'pink'
       runRef.current = run
       targetRef.current = detail.href
-      setTheme(detail.theme ?? 'pink')
+      setTheme(nav)
       setPhase('in')
       playSound('gift_open')
       later(() => {
@@ -220,7 +263,7 @@ export default function CloudTransition() {
           setPhase('out')
           later(() => { if (runRef.current === run) setPhase('idle') }, OUT_MS)
         }, HOLD_MAX_MS)
-      }, IN_MS)
+      }, inMsFor(nav))
     }
     window.addEventListener(EVENT, onNav)
     return () => window.removeEventListener(EVENT, onNav)
@@ -243,6 +286,7 @@ export default function CloudTransition() {
 
   const t = THEMES[theme]
   const converging = phase === 'in' || phase === 'hold'
+  const inMs = inMsFor(theme)
 
   return (
     <div className="fixed inset-0 overflow-hidden" style={{ zIndex: 100 }}>
@@ -295,13 +339,17 @@ export default function CloudTransition() {
       <div className="absolute inset-0" style={{
         background: t.backdrop,
         animation: converging
-          ? `ctFadeIn 300ms ease-out ${IN_MS - 320}ms both`
+          ? `ctFadeIn 300ms ease-out ${inMs - 320}ms both`
           : 'ctFadeOut 300ms ease-in both',
       }} />
 
       {/* Clouds */}
       {CLOUDS.map((c, i) => {
         const tone = t.cloud(c, i)
+        // Stretch the inbound flight by the theme speed (the swing layer
+        // below must use the same scaled values so the two stay locked).
+        const durIn = Math.round(c.durIn * t.speed)
+        const delayIn = Math.round(c.delayIn * t.speed)
         return (
           <div key={i} style={{
             position: 'absolute',
@@ -319,7 +367,7 @@ export default function CloudTransition() {
             ['--sy' as string]: c.sy,
             ['--rot' as string]: c.rot,
             animation: converging
-              ? `ctCloudIn ${c.durIn}ms cubic-bezier(0.16, 0.84, 0.28, 1) ${c.delayIn}ms both`
+              ? `ctCloudIn ${durIn}ms cubic-bezier(0.16, 0.84, 0.28, 1) ${delayIn}ms both`
               : `ctCloudOut ${c.durOut}ms cubic-bezier(0.55, 0.04, 0.85, 0.4) ${c.delayOut}ms both`,
             filter: 'drop-shadow(0 4px 0 rgba(120,100,170,0.18))',
           } as React.CSSProperties}>
@@ -328,7 +376,7 @@ export default function CloudTransition() {
             <div style={t.swirl ? {
               width: '100%', height: '100%',
               animation: converging
-                ? `ctSwirlIn ${c.durIn}ms ${c.delayIn}ms both`
+                ? `ctSwirlIn ${durIn}ms ${delayIn}ms both`
                 : `ctSwirlOut ${c.durOut}ms ${c.delayOut}ms both`,
             } : { width: '100%', height: '100%' }}>
               <div style={t.swirl ? {
@@ -346,7 +394,7 @@ export default function CloudTransition() {
       <div className="absolute inset-0" style={{
         zIndex: 3,
         animation: converging
-          ? `ctFadeIn 200ms ease-out ${IN_MS - 150}ms both`
+          ? `ctFadeIn 200ms ease-out ${inMs - 150}ms both`
           : 'ctFadeOut 200ms ease-in both',
       }}>
         {SPARKLES.slice(0, t.sparkleCount).map((s, i) => {
