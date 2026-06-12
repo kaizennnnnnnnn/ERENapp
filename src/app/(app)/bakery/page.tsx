@@ -38,9 +38,12 @@ interface PurchaseFx {
 // pixel-scan of the 963×1536 sprite, translated to the 360×360 container
 // the bakery renders at (portrait sprite height-fits so the image
 // occupies the middle ~62.7% of container width).
-// Catchlights on this sprite are MIRRORED (not same-position symmetric):
+// The two eyes are exact horizontal mirrors of each other (the right eye
+// was re-mirrored from the left in the PNG — see scripts/fix_cake_eye_
+// symmetry.py — so the dark pupil reads the same on both sides, which the
+// night sepia filter used to exaggerate on the right). Catchlights:
 //   eye A (cat's right, viewer's left) — upper-RIGHT of its iris
-//   eye B (cat's left, viewer's right) — upper-LEFT of its iris
+//   eye B (cat's left, viewer's right) — upper-LEFT of its iris (mirror)
 // He's clipped at the counter line (see EREN block) so only his head +
 // chest show above the counter.
 const CAKE_EYES = {
@@ -55,8 +58,9 @@ const CAKE_EYES = {
   maskH:      '4.62%',
   glintLeftA: '59.7%',
   glintTopA:  '1.6%',
-  glintLeftB: '20.5%',
-  glintTopB:  '2%',
+  // Exact mirror of A within its mask: center 68.7% → 31.3%, same top.
+  glintLeftB: '22.3%',
+  glintTopB:  '1.6%',
   glintW:     '18%',
 }
 
