@@ -14,12 +14,13 @@ import { playSound } from '@/lib/sounds'
 import { PINK, PINK_HI, PINK_LO, OBSIDIAN_BTN, Rivets, pinkText, accentA, cuteBtn, CuteIcon } from './obsidian'
 
 // Quest pill is a light parchment-tan candy tile — a pale version of the
-// scroll icon's own colour. Counters are dark so they read on the pale fill.
+// scroll icon's own colour. The counters are colour-coded dark numbers
+// (amber = daily, violet = weekly) so they read crisply on the pale fill
+// without needing separate indicator dots.
 const QUEST_RGB = '232,210,160'
-const QUEST_INK = '#4A3A28'           // dark text colour for the pale tile
-const COUNTER_SHADOW = '0 1px 0 rgba(255,255,255,0.4)'  // light emboss
-const DAILY_DOT_DEEP  = '#D97A06'     // deeper amber  — visible on parchment
-const WEEKLY_DOT_DEEP = '#7C3AED'     // deeper purple — visible on parchment
+const COUNTER_SHADOW = '0 1px 0 rgba(255,255,255,0.45)'  // light emboss
+const DAILY_NUM  = '#B45309'   // dark amber  — daily counter
+const WEEKLY_NUM = '#6D28D9'   // dark violet — weekly counter
 
 function TaskIcon({ task, size = 22 }: { task: TaskDef; size?: number }) {
   switch (task.id) {
@@ -241,27 +242,17 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
       {compact ? (
         <button
           onClick={() => { playSound('ui_modal_open'); setOpen(true) }}
-          className="w-full flex items-center gap-1 px-2 h-10 active:scale-[0.97] transition-transform relative"
+          className="w-full flex items-center gap-2 px-2.5 h-8 active:scale-[0.97] transition-transform relative overflow-hidden"
           style={cuteBtn(QUEST_RGB)}
         >
-          <CuteIcon><IconScroll size={18} /></CuteIcon>
+          <CuteIcon><IconScroll size={20} /></CuteIcon>
 
-          {/* Inline counter — daily/weekly dots + numbers */}
-          <div className="relative flex items-center gap-0.5 min-w-0 ml-1">
-            <div className="flex-shrink-0" style={{
-              width: 5, height: 5, borderRadius: '50%',
-              background: DAILY_DOT_DEEP, boxShadow: `0 0 3px ${DAILY_DOT_DEEP}`,
-            }} />
-            <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: QUEST_INK, letterSpacing: 0.5, textShadow: COUNTER_SHADOW }}>{dailyDone}/{dailyTasks.length}</span>
-            <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: 'rgba(0,0,0,0.3)', margin: '0 1px' }}>·</span>
-            <div className="flex-shrink-0" style={{
-              width: 5, height: 5, borderRadius: '50%',
-              background: WEEKLY_DOT_DEEP, boxShadow: `0 0 3px ${WEEKLY_DOT_DEEP}`,
-            }} />
-            <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: QUEST_INK, letterSpacing: 0.5, textShadow: COUNTER_SHADOW }}>{weeklyDone}/{weeklyTasks.length}</span>
+          {/* Colour-coded counters: amber daily · violet weekly */}
+          <div className="font-pixel flex items-center min-w-0" style={{ fontSize: 8, whiteSpace: 'nowrap', textShadow: COUNTER_SHADOW }}>
+            <span style={{ color: DAILY_NUM }}>{dailyDone}/{dailyTasks.length}</span>
+            <span style={{ color: 'rgba(0,0,0,0.28)', margin: '0 4px' }}>·</span>
+            <span style={{ color: WEEKLY_NUM }}>{weeklyDone}/{weeklyTasks.length}</span>
           </div>
-
-          <span className="font-pixel ml-auto flex-shrink-0 relative" style={{ fontSize: 8, color: QUEST_INK, opacity: 0.85, textShadow: COUNTER_SHADOW }}>▶</span>
         </button>
       ) : (
         <button

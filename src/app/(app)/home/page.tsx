@@ -707,18 +707,18 @@ export default function HomePage() {
               <button onClick={() => { playSound('ui_modal_open'); setShowFortune(true) }}
                 className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
                 style={{ ...cuteBtn('217,199,247'), animation: 'pulse 2s ease-in-out infinite' }}>
-                <CuteIcon><IconGift size={18} /></CuteIcon>
+                <CuteIcon><IconGift size={22} /></CuteIcon>
               </button>
             )}
             <Link href="/hallway" onClick={() => playSound('ui_tap')}
               aria-label="The Hallway"
               className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
               style={cuteBtn('191,224,255')}>
-              <CuteIcon><IconPhoto size={18} /></CuteIcon>
+              <CuteIcon><IconPhoto size={22} /></CuteIcon>
             </Link>
             <Link href="/couple" onClick={() => playSound('ui_tap')} className="relative w-8 h-8 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
               style={cuteBtn('255,198,216')}>
-              <CuteIcon><IconHeart size={18} /></CuteIcon>
+              <CuteIcon><IconHeart size={22} /></CuteIcon>
               {unreadCount > 0 && (
                 <div className="absolute -top-1 -right-1 flex items-center justify-center"
                   style={{ width: 16, height: 16, background: '#FF1D5E', border: '2px solid #050507', boxShadow: '0 0 4px rgba(255,29,94,0.6)', borderRadius: 6 }}>
@@ -729,23 +729,23 @@ export default function HomePage() {
             <button onClick={() => { playSound('ui_modal_open'); setShowReminders(true) }}
               className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
               style={cuteBtn('251,228,154')}>
-              <CuteIcon><IconBell size={18} /></CuteIcon>
+              <CuteIcon><IconBell size={22} /></CuteIcon>
             </button>
             <Link href="/profile" onClick={() => playSound('ui_tap')}
               className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
               style={cuteBtn('217,199,247')}>
-              <CuteIcon><IconPerson size={18} /></CuteIcon>
+              <CuteIcon><IconPerson size={22} /></CuteIcon>
             </Link>
             <div className="relative flex-shrink-0">
               <button onClick={() => { playSound(showRooms ? 'ui_modal_close' : 'ui_modal_open'); setShowRooms(r => !r) }}
-                className="w-10 h-10 relative flex items-center justify-center active:scale-90 transition-transform"
+                className="w-8 h-8 relative flex items-center justify-center active:scale-90 transition-transform"
                 style={cuteBtn('226,196,154')}>
-                <CuteIcon><IconDoor size={18} /></CuteIcon>
+                <CuteIcon><IconDoor size={22} /></CuteIcon>
               </button>
               {showRooms && (
                 <>
                   <div className="fixed inset-0 z-20" onClick={() => setShowRooms(false)} />
-                  <div className="absolute right-0 top-12 z-30 flex flex-col gap-1.5 p-2.5"
+                  <div className="absolute right-0 top-10 z-30 flex flex-col gap-1.5 p-2.5"
                     style={{
                       background: 'linear-gradient(180deg, rgba(16,10,36,0.96) 0%, rgba(8,5,22,0.98) 100%)',
                       backdropFilter: 'blur(16px)',

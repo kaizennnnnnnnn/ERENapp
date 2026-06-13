@@ -72,13 +72,13 @@ export const cuteBtn = (rgb: string): CSSProperties => ({
   boxShadow: '0 1px 0 rgba(255,255,255,0.35), 0 3px 6px rgba(0,0,0,0.4), inset 0 2px 0 rgba(255,255,255,0.6), inset 0 -3px 5px rgba(0,0,0,0.13)',
 })
 
-/** Wraps a pixel icon with a soft drop-shadow so its edges separate from
- *  the pale button colour underneath. */
+/** Wraps a pixel icon with a HARD (un-blurred) 1px drop-shadow so its edges
+ *  separate from the pale button colour while staying pixel-crisp. */
 export function CuteIcon({ children }: { children: ReactNode }) {
   return (
     <span style={{
-      display: 'inline-flex', position: 'relative',
-      filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.35))',
+      display: 'inline-flex', position: 'relative', flexShrink: 0,
+      filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.32))',
     }}>
       {children}
     </span>
