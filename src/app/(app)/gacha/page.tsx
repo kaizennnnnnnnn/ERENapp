@@ -22,7 +22,7 @@ const PAGES = [
   { id: 'food', bg: '/gacha_food.png' },
   // ?v bumps the cache key when the art changes — the SW serves images
   // stale-while-revalidate, so a same-path replace shows the old one first.
-  { id: 'animal', bg: '/gacha_animal.png?v=2' },
+  { id: 'animal', bg: '/gacha_animal.png?v=3' },
 ] as const
 
 // Pixel stars for the sparkle curtain between the two machines. Fixed layout
