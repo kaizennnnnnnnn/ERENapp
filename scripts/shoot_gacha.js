@@ -20,13 +20,16 @@ async function main() {
   console.log('url after load:', page.url())
   await page.screenshot({ path: path.join(OUT, '1_food.png') })
 
-  // Freeze mid-swipe (snap disabled) to capture the depth/dim/sparkle-seam state
-  await page.evaluate(() => {
-    const el = document.querySelector('.snap-x')
-    if (el) { el.style.scrollSnapType = 'none'; el.scrollLeft = el.clientWidth * 0.5 }
-  })
-  await sleep(400)
-  await page.screenshot({ path: path.join(OUT, '1b_mid_swipe.png') })
+  // Freeze at several scroll fractions (snap disabled) to watch the blur on
+  // the incoming page rack into focus as it centers.
+  for (const frac of [0.25, 0.5, 0.75, 0.9]) {
+    await page.evaluate((f) => {
+      const el = document.querySelector('.snap-x')
+      if (el) { el.style.scrollSnapType = 'none'; el.scrollLeft = el.clientWidth * f; el.dispatchEvent(new Event('scroll')) }
+    }, frac)
+    await sleep(350)
+    await page.screenshot({ path: path.join(OUT, `1b_swipe_${Math.round(frac * 100)}.png`) })
+  }
 
   // Swipe right (scroll the snap container one page)
   await page.evaluate(() => {

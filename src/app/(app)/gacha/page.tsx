@@ -61,8 +61,9 @@ export default function GachaPage() {
   const touchedDeck = useRef(false) // gate swipe SFX to real gestures (see onScroll)
 
   // Scroll-driven swap effect: the off-center machine recedes (scale), dims,
-  // and its art slides slower than the page (parallax). Written imperatively
-  // per scroll event — no React re-renders mid-swipe.
+  // blurs, and its art slides slower than the page (parallax). The blur racks
+  // into focus as a page centers. Written imperatively per scroll event — no
+  // React re-renders mid-swipe.
   const innerRefs = useRef<(HTMLDivElement | null)[]>([])
   const bgRefs = useRef<(HTMLDivElement | null)[]>([])
   const dimRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -77,7 +78,12 @@ export default function GachaPage() {
       const inner = innerRefs.current[i]
       if (inner) inner.style.transform = `scale(${(1 - 0.14 * a).toFixed(4)})`
       const bg = bgRefs.current[i]
-      if (bg) bg.style.transform = `translateX(${(p * 6).toFixed(3)}%) scale(1.12)`
+      if (bg) {
+        bg.style.transform = `translateX(${(p * 6).toFixed(3)}%) scale(1.12)`
+        // Crisp when centered, racking up to a soft blur a page away. The
+        // bg overscans (scale 1.12) so the blur's fading edge stays offscreen.
+        bg.style.filter = a > 0.01 ? `blur(${(a * 12).toFixed(2)}px)` : 'none'
+      }
       const dim = dimRefs.current[i]
       if (dim) dim.style.opacity = (0.6 * a).toFixed(3)
     })
