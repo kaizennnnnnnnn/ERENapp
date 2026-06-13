@@ -18,7 +18,7 @@ import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 import { format } from 'date-fns'
 import Link from 'next/link'
 import { Sparkles } from 'lucide-react'
-import { IconGift, IconCapsule, IconHeart, IconBell, IconPerson, IconDoor, IconDrumstick, IconYarn, IconMoonZ, IconBath, IconPill, IconBook, IconCake, IconPhoto, IconShawarma } from '@/components/PixelIcons'
+import { IconGift, IconCapsule, IconHeart, IconBell, IconPerson, IconDoor, IconDrumstick, IconYarn, IconMoonZ, IconBath, IconPill, IconBook, IconCake, IconPhoto, IconShawarma, IconFlask } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import { requestCloudNav } from '@/components/CloudTransition'
 import TaskPanel from '@/components/TaskPanel'
@@ -42,7 +42,6 @@ import ComebackBadge from '@/components/couple/ComebackBadge'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
 import SendErenSheet from '@/components/couple/SendErenSheet'
 import { MOOD_THEME, LOW_MOODS } from '@/lib/moods'
-import { OBSIDIAN_BTN, Rivets } from '@/components/obsidian'
 import { useIsDark } from '@/hooks/useIsDark'
 import LightSwitch from '@/components/LightSwitch'
 import { useWish } from '@/contexts/WishContext'
@@ -107,6 +106,32 @@ const dockBtnLabel: React.CSSProperties = {
   textShadow: '1px 1px 0 rgba(0,0,0,0.65)',
   position: 'relative',
   zIndex: 1,
+}
+
+// ─── CUTE NAV BUTTONS ────────────────────────────────────────────────────
+// The top HUD nav buttons used to be flat black obsidian squares. They now
+// read as little candy gems: each is tinted to its own icon colour (passed
+// as an `r,g,b` triplet), squircle-rounded, ringed + softly glowing in that
+// colour, with a glossy top sheen instead of the old corner rivets. Still
+// dark enough to sit on the black HUD over a bright room.
+const cuteBtn = (rgb: string): React.CSSProperties => ({
+  background: `radial-gradient(circle at 50% 18%, rgba(${rgb},0.45) 0%, rgba(${rgb},0.17) 48%, rgba(10,8,20,0.88) 100%)`,
+  border: `1.5px solid rgba(${rgb},0.78)`,
+  borderRadius: 11,
+  boxShadow: `0 0 9px rgba(${rgb},0.42), 0 2px 6px rgba(0,0,0,0.5), inset 0 1.5px 0 rgba(255,255,255,0.32), inset 0 -2px 5px rgba(0,0,0,0.38)`,
+})
+
+// Glossy top highlight — the "candy" sheen. Sits above the icon (icons are
+// rendered after it in normal flow so they paint on top).
+function Gloss() {
+  return (
+    <span aria-hidden style={{
+      position: 'absolute', top: 2, left: 3, right: 3, height: '40%',
+      borderRadius: 9,
+      background: 'linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 100%)',
+      pointerEvents: 'none',
+    }} />
+  )
 }
 
 export default function HomePage() {
@@ -749,46 +774,46 @@ export default function HomePage() {
             {fortuneAvailable && (
               <button onClick={() => { playSound('ui_modal_open'); setShowFortune(true) }}
                 className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-                style={{ ...OBSIDIAN_BTN, animation: 'pulse 2s ease-in-out infinite' }}>
-                <Rivets inset={2} size={2} />
+                style={{ ...cuteBtn('251,191,36'), animation: 'pulse 2s ease-in-out infinite' }}>
+                <Gloss />
                 <IconGift size={18} />
               </button>
             )}
             <Link href="/hallway" onClick={() => playSound('ui_tap')}
               aria-label="The Hallway"
               className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-              style={OBSIDIAN_BTN}>
-              <Rivets inset={2} size={2} />
+              style={cuteBtn('56,189,248')}>
+              <Gloss />
               <IconPhoto size={18} />
             </Link>
             <Link href="/couple" onClick={() => playSound('ui_tap')} className="relative w-8 h-8 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
-              style={OBSIDIAN_BTN}>
-              <Rivets inset={2} size={2} />
+              style={cuteBtn('255,107,157')}>
+              <Gloss />
               <IconHeart size={18} />
               {unreadCount > 0 && (
                 <div className="absolute -top-1 -right-1 flex items-center justify-center"
-                  style={{ width: 16, height: 16, background: '#FF1D5E', border: '2px solid #050507', boxShadow: '0 0 4px rgba(255,29,94,0.6)' }}>
+                  style={{ width: 16, height: 16, background: '#FF1D5E', border: '2px solid #050507', boxShadow: '0 0 4px rgba(255,29,94,0.6)', borderRadius: 6 }}>
                   <span className="font-pixel text-white" style={{ fontSize: 5 }}>{unreadCount}</span>
                 </div>
               )}
             </Link>
             <button onClick={() => { playSound('ui_modal_open'); setShowReminders(true) }}
               className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-              style={OBSIDIAN_BTN}>
-              <Rivets inset={2} size={2} />
+              style={cuteBtn('245,158,11')}>
+              <Gloss />
               <IconBell size={18} />
             </button>
             <Link href="/profile" onClick={() => playSound('ui_tap')}
               className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-              style={OBSIDIAN_BTN}>
-              <Rivets inset={2} size={2} />
+              style={cuteBtn('167,139,250')}>
+              <Gloss />
               <IconPerson size={18} />
             </Link>
             <div className="relative flex-shrink-0">
               <button onClick={() => { playSound(showRooms ? 'ui_modal_close' : 'ui_modal_open'); setShowRooms(r => !r) }}
                 className="w-10 h-10 relative flex items-center justify-center active:scale-90 transition-transform"
-                style={OBSIDIAN_BTN}>
-                <Rivets inset={3} size={2} />
+                style={cuteBtn('52,211,153')}>
+                <Gloss />
                 <IconDoor size={18} />
               </button>
               {showRooms && (
@@ -819,6 +844,7 @@ export default function HomePage() {
                       { id: 'play',   label: 'Playroom',      Icon: IconYarn,      color: '#FF6B9D', rgb: '255,107,157' },
                       { id: 'sleep',  label: 'Bedroom',       Icon: IconMoonZ,     color: '#818CF8', rgb: '129,140,248' },
                       { id: 'wash',   label: 'Bathroom',      Icon: IconBath,      color: '#38BDF8', rgb: '56,189,248' },
+                      { id: 'chemistry', label: 'Chem Lab',   Icon: IconFlask,     color: '#84CC16', rgb: '132,204,22' },
                       { id: 'vet',    label: 'Vet Office',    Icon: IconPill,      color: '#34D399', rgb: '52,211,153' },
                       { id: 'school', label: 'Serbian Class', Icon: IconBook,      color: '#F59E0B', rgb: '245,158,11' },
                       // Bakery is a top-level route, not a care scene — `href`
@@ -881,6 +907,7 @@ export default function HomePage() {
             { id: 'play',   color: '#FF6B9D' },
             { id: 'sleep',  color: '#818CF8' },
             { id: 'wash',   color: '#38BDF8' },
+            { id: 'chemistry', color: '#84CC16' },
             { id: 'vet',    color: '#34D399' },
             { id: 'school', color: '#F59E0B' },
           ] as const).map(r => (

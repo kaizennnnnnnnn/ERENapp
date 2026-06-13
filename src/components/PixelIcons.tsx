@@ -267,6 +267,27 @@ export const IconDoor = memo(function IconDoor({ size = 20 }: IconProps) {
   }, size)
 })
 
+// ── FLASK (chemistry lab) — erlenmeyer with bubbling lime liquid ──
+export const IconFlask = memo(function IconFlask({ size = 20 }: IconProps) {
+  const grid = [
+    '....KKKK....',
+    '....KGGK....',
+    '....KGGK....',
+    '....KLLK....',
+    '...KLLLLK...',
+    '..KLLLLLLK..',
+    '..KLLLLLLK..',
+    '.KLLLLLLLLK.',
+    '.KLLLBLLLLK.',
+    '.KLLLLLLLLK.',
+    '.KLLLLLLLLK.',
+    '.KKKKKKKKKK.',
+  ]
+  return drawPixels(grid, {
+    K: '#1F3D0A', G: '#D7F7C8', L: '#84CC16', B: '#F0FFD0',
+  }, size)
+})
+
 // ── QUESTS (scroll) ────────────────────────────────────────────────────────
 export const IconScroll = memo(function IconScroll({ size = 20 }: IconProps) {
   const grid = [
