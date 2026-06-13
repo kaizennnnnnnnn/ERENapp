@@ -173,18 +173,43 @@ export default function PlayScene({ onClose }: Props) {
           an inner wrapper so its forward --tx is mirrored toward the ball by
           the same flip. Idle pauses while a reaction plays. */}
       {!isSleeping && (
-        <div className={cn('absolute z-10 transition-all duration-500')}
-          style={{ bottom: '10%', left: '50%', transform: `translateX(-50%) scaleX(${lookDir === 'left' ? -1 : 1})` }}>
+        <div className={cn('absolute z-10')}
+          style={{ bottom: '10%', left: '50%', transform: 'translateX(-50%)' }}>
+          {/* Watch-the-ball lean — the whole cat tips toward the ball's side so
+              he visibly tracks it as it flies. Derived from ballPos, which the
+              rAF loop already re-renders every frame during flight, so it costs
+              no extra render; a CSS transition eases it, low-passing the
+              bouncing ball into a lazy gaze instead of a twitch. Seam-free: he
+              pivots at his feet like the idle breathe — no head split, no neck
+              seam. Held upright during the pounce/finish beats so the hop and
+              the happy hop aren't tilted. */}
           <div style={{
-            animation: reaction.phase === 'pounce' ? 'erenPounce 520ms cubic-bezier(0.3,0.7,0.4,1)'
-              : reaction.phase === 'finish' ? 'erenIdleHop 800ms ease-in-out'
-              : undefined,
             transformOrigin: 'bottom center',
-            ['--tx' as string]: '10px',
-          } as React.CSSProperties}>
-            <ErenIdleLayer disabled={reaction.active}>
-              {erenSprite}
-            </ErenIdleLayer>
+            transition: 'transform 220ms ease-out',
+            transform: `rotate(${
+              reaction.phase === 'pounce' || reaction.phase === 'finish'
+                ? 0 : Math.max(-5, Math.min(5, (ballPos.x - 50) * 0.12))
+            }deg)`,
+          }}>
+            {/* Flip faces him toward the ball. Kept on its own layer INSIDE the
+                lean so the lean stays in screen space (no sign flip needed) and
+                the 500ms transition still gives the smooth turn-around. */}
+            <div style={{
+              transform: `scaleX(${lookDir === 'left' ? -1 : 1})`,
+              transition: 'transform 500ms',
+            }}>
+              <div style={{
+                animation: reaction.phase === 'pounce' ? 'erenPounce 520ms cubic-bezier(0.3,0.7,0.4,1)'
+                  : reaction.phase === 'finish' ? 'erenIdleHop 800ms ease-in-out'
+                  : undefined,
+                transformOrigin: 'bottom center',
+                ['--tx' as string]: '10px',
+              } as React.CSSProperties}>
+                <ErenIdleLayer disabled={reaction.active}>
+                  {erenSprite}
+                </ErenIdleLayer>
+              </div>
+            </div>
           </div>
         </div>
       )}
