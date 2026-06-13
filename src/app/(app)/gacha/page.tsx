@@ -58,6 +58,7 @@ export default function GachaPage() {
   const [pullResults, setPullResults] = useState<GachaPullResult[] | null>(null)
   const [opening, setOpening] = useState(false) // rainbow video before food reveals
   const pulledFood = useRef(false) // food pulls skip the capsule — the video IS the opening
+  const touchedDeck = useRef(false) // gate swipe SFX to real gestures (see onScroll)
 
   // Scroll-driven swap effect: the off-center machine recedes (scale), dims,
   // and its art slides slower than the page (parallax). Written imperatively
@@ -90,7 +91,11 @@ export default function GachaPage() {
     if (!el) return
     const idx = Math.min(PAGES.length - 1, Math.max(0, Math.round(el.scrollLeft / el.clientWidth)))
     if (idx !== pageIdx) {
-      playSound('ui_swipe_room')
+      // Only on a real swipe. A scroll event isn't a user-activation gesture,
+      // so firing audio from initial layout or scroll restoration trips the
+      // AudioContext autoplay warning (and the sound wouldn't play anyway).
+      // touchedDeck flips on pointerdown, which carries sticky activation.
+      if (touchedDeck.current) playSound('ui_swipe_room')
       setPageIdx(idx)
     }
   }
@@ -99,6 +104,9 @@ export default function GachaPage() {
     const el = scrollRef.current
     if (!el) return
     playSound('ui_select')
+    // This smooth scroll fires onScroll; clear the gesture flag so it doesn't
+    // also play the swipe SFX on top of ui_select. The next real touch re-arms.
+    touchedDeck.current = false
     el.scrollTo({ left: idx * el.clientWidth, behavior: 'smooth' })
   }
 
@@ -130,7 +138,7 @@ export default function GachaPage() {
     <div className="fixed inset-0" style={{ background: '#050507' }}>
 
       {/* ── Swipeable machine pages ── */}
-      <div ref={scrollRef} onScroll={onScroll}
+      <div ref={scrollRef} onScroll={onScroll} onPointerDown={() => { touchedDeck.current = true }}
         className="relative h-full w-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory"
         style={{ scrollbarWidth: 'none' }}>
         {PAGES.map((p, idx) => (
