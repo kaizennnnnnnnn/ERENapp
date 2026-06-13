@@ -395,6 +395,12 @@
   60%  { transform: scaleY(0.93); }
   100% { transform: scaleY(0.95); }
 }
+/* Gentle munch — a tiny vertical bob over the head-down eating pose so the
+   crouched sticker reads as actively chewing without a full body squash. */
+@keyframes erenChew {
+  0%, 100% { transform: translateY(0);   }
+  50%      { transform: translateY(2px); }
+}
 @keyframes erenGrimace {
   0%   { transform: scaleY(1)    rotate(0deg);  }
   30%  { transform: scaleY(0.95) rotate(-3deg); }

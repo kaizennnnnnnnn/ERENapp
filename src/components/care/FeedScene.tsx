@@ -22,6 +22,9 @@ import { useErenReaction } from '@/hooks/useErenReaction'
 import { happyFinisherBeats, WORD_COLOR } from '@/lib/erenReactions'
 import SoundWord from '@/components/SoundWord'
 import { FoodBowl, Crumbs, Hearts } from '@/components/care/ReactionFx'
+import PoseSprite from '@/components/care/PoseSprite'
+import PixelPoof from '@/components/PixelPoof'
+import { preloadImages } from '@/lib/preloadImages'
 
 interface Props { onClose: () => void }
 
@@ -382,6 +385,13 @@ export default function FeedScene({ onClose }: Props) {
   const reaction = useErenReaction()
   // The food just fed, so the bowl + crumbs can take its color.
   const [fedItem, setFedItem] = useState<typeof SHOP_ITEMS[number] | null>(null)
+  const [eatIdx, setEatIdx] = useState(0)       // which head-down pose (0–3)
+  const [showPoof, setShowPoof] = useState(false)
+
+  // Warm the four eating stickers so the poof reveals a decoded bitmap.
+  useEffect(() => {
+    preloadImages(['/erenEat1.png', '/erenEat2.png', '/erenEat3.png', '/erenEat4.png'])
+  }, [])
 
   // Memoize the bare sprite so stat changes from feeding don't re-render it.
   // Cleanliness is in the deps so the flies update — feeding never changes
@@ -423,19 +433,31 @@ export default function FeedScene({ onClose }: Props) {
   // 2650ms without restarting while the chew sound re-fires on 'eat2'.
   const eating = phase === 'eat' || phase === 'eat2'
   const bowlColor = fedItem?.color ?? '#D4A44A'
+  // Poof-mask the standing<->crouch sticker swap at each end of the meal.
+  const prevEating = useRef(false)
+  useEffect(() => {
+    if (prevEating.current !== eating) { prevEating.current = eating; setShowPoof(true) }
+  }, [eating])
   const erenElement = (
     <div className="absolute z-20 bottom-[10%]"
       style={{ left: '50%', transform: 'translateX(-50%)' }}>
-      <ErenIdleLayer disabled={reaction.active}>
-        <div style={{
-          animation: eating ? 'erenEatBody 2650ms ease-in-out both'
-            : phase === 'finish' ? 'erenIdleHop 800ms ease-in-out'
-            : undefined,
-          transformOrigin: 'bottom center',
-        }}>
-          {erenSprite}
+      {eating ? (
+        // Head-down eating pose (random pick, eyes painted in). A gentle chew
+        // bob over the sticker carries the munching; the standing<->crouch swap
+        // is hidden by the poof at each end of the meal.
+        <div style={{ animation: 'erenChew 440ms ease-in-out infinite' }}>
+          <PoseSprite src={`/erenEat${eatIdx + 1}.png`} width={205} breathe={false} />
         </div>
-      </ErenIdleLayer>
+      ) : (
+        <ErenIdleLayer disabled={reaction.active}>
+          <div style={{
+            animation: phase === 'finish' ? 'erenIdleHop 800ms ease-in-out' : undefined,
+            transformOrigin: 'bottom center',
+          }}>
+            {erenSprite}
+          </div>
+        </ErenIdleLayer>
+      )}
 
       {/* Bowl appears the moment food lands and stays until eating ends. */}
       {(phase === 'bowl' || eating) && <FoodBowl color={bowlColor} bottom="-2%" />}
@@ -448,6 +470,9 @@ export default function FeedScene({ onClose }: Props) {
         <Hearts count={2} bottom="60%" />
         <SoundWord word="YUM!" color={WORD_COLOR.happy} left={50} top={6} />
       </>}
+
+      {/* Poof that masks the standing<->crouch sticker swap. */}
+      {showPoof && <PixelPoof size={220} onDone={() => setShowPoof(false)} />}
     </div>
   )
 
@@ -485,6 +510,8 @@ export default function FeedScene({ onClose }: Props) {
     // kick off the eat reaction (bowl → crouch-and-chomp → happy finisher).
     playSound('care_eat')
     setFedItem(item)
+    // Random head-down pose for this meal.
+    setEatIdx(Math.floor(Math.random() * 4))
     reaction.play([
       { name: 'bowl', ms: 150 },
       { name: 'eat',  ms: 1300 },
