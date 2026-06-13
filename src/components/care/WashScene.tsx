@@ -13,6 +13,11 @@ import { useIsDark } from '@/hooks/useIsDark'
 import { useWish } from '@/contexts/WishContext'
 import WishHintBanner from '@/components/wish/WishHintBanner'
 import { wishHintRoom } from '@/lib/wishes'
+import { playSound } from '@/lib/sounds'
+import { useErenReaction } from '@/hooks/useErenReaction'
+import { happyFinisherBeats, WORD_COLOR } from '@/lib/erenReactions'
+import SoundWord from '@/components/SoundWord'
+import { Droplets, Sparkles, Hearts } from '@/components/care/ReactionFx'
 
 interface Props { onClose: () => void }
 // `c` = coverage % at the time this bubble was created. Used to fade
@@ -56,11 +61,27 @@ export default function WashScene({ onClose }: Props) {
   // Cache fallback so Eren renders synchronously with the right state.
   const isSleeping = stats?.is_sleeping ?? getCachedIsSleeping() ?? true
 
-  // Memoize the Eren stack so per-pointermove coverage/bubble renders don't
-  // reconcile the sprite (same pattern as FeedScene). Cleanliness is the only
-  // live input — it drives StinkyFlies.
-  const erenElement = useMemo(() => (
-    <ErenIdleLayer>
+  // Reaction runner — squirm while being soaped, shake-dry + sparkle on finish.
+  const reaction = useErenReaction()
+  const [scrubbing, setScrubbing] = useState(false)
+  const scrubStopRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Mark "being scrubbed" on each in-zone soap move; auto-clear ~250ms after
+  // the last one so a continuous scrub holds the squirm but pausing stops it.
+  const markScrub = useCallback(() => {
+    setScrubbing(true)
+    if (scrubStopRef.current) clearTimeout(scrubStopRef.current)
+    scrubStopRef.current = setTimeout(() => setScrubbing(false), 250)
+  }, [])
+  useEffect(() => () => { if (scrubStopRef.current) clearTimeout(scrubStopRef.current) }, [])
+  // Throttle the "SCRUB SCRUB" word so it pops at most ~once/1.2s while soaping.
+  const lastScrubWordRef = useRef(0)
+  const [scrubWordKey, setScrubWordKey] = useState(0)
+
+  // Memoize the bare sprite so per-pointermove coverage/bubble renders don't
+  // reconcile it (same pattern as FeedScene). Cleanliness is the only live
+  // input — it drives StinkyFlies.
+  const erenSprite = useMemo(() => (
+    <>
       {/* Bathroom pose: ErenBathroomHat.png — blue beanie sits low on
           the forehead so the face/eyes drop ~4% from the default, and
           the eyes sit further LEFT than the everyday sprite. Coords are
@@ -95,7 +116,7 @@ export default function WashScene({ onClose }: Props) {
         glintW:     '22%',
       }} />
       <StinkyFlies cleanliness={cleanliness} />
-    </ErenIdleLayer>
+    </>
   ), [cleanliness])
 
   // Apply initial positions to DOM
@@ -135,6 +156,12 @@ export default function WashScene({ onClose }: Props) {
         soapRef.current.style.top  = `${py}%`
       }
       if (px > 22 && px < 78 && py > 55 && py < 95) {
+        markScrub()
+        const now = Date.now()
+        if (now - lastScrubWordRef.current > 1200) {
+          lastScrubWordRef.current = now
+          setScrubWordKey(k => k + 1)
+        }
         setCoverage(c => {
           const next = Math.min(100, c + 0.7)
           coverageRef.current = next
@@ -197,6 +224,13 @@ export default function WashScene({ onClose }: Props) {
     if (!user?.id || doneRef.current) return
     doneRef.current = true
     setDone(true)
+    setScrubbing(false)
+    // Wet-dog shake → droplets fly off → clean sparkle → happy finisher.
+    reaction.play([
+      { name: 'shake',   ms: 750, onEnter: () => playSound('care_splash') },
+      { name: 'sparkle', ms: 1150 },
+      ...happyFinisherBeats(),
+    ])
     setSaving(true)
     try {
       const result = await applyAction(user.id, 'wash')
@@ -280,11 +314,36 @@ export default function WashScene({ onClose }: Props) {
       </div>
 
       {/* ══ PIXEL EREN ════════════════════════════════════════════════════ */}
-      {/* Hidden while sleeping in the bedroom. */}
+      {/* Hidden while sleeping in the bedroom. Body wrapper: squirm while
+          being soaped, shake-dry then a happy hop on finish. Idle pauses
+          during the finish reaction. */}
       {!isSleeping && (
         <div className={cn('absolute transition-all duration-500', done ? 'bottom-[12%]' : 'bottom-[10%]')}
           style={{ left: '50%', transform: 'translateX(-50%)' }}>
-          {erenElement}
+          <ErenIdleLayer disabled={scrubbing || reaction.active}>
+            <div style={{
+              animation: reaction.phase === 'shake' ? 'erenShakeDry 750ms linear'
+                : reaction.phase === 'finish' ? 'erenIdleHop 800ms ease-in-out'
+                : scrubbing ? 'erenSquirm 400ms steps(2) infinite'
+                : undefined,
+              transformOrigin: 'bottom center',
+            }}>
+              {erenSprite}
+            </div>
+          </ErenIdleLayer>
+
+          {/* Reaction particles + words, anchored to Eren's 200px box. */}
+          {scrubbing && scrubWordKey > 0 &&
+            <SoundWord key={scrubWordKey} word="SCRUB SCRUB" color={WORD_COLOR.water} left={50} top={2} size={6} />}
+          {reaction.phase === 'shake' && <>
+            <Droplets bottom="40%" />
+            <SoundWord word="SPLASH!" color={WORD_COLOR.water} left={50} top={4} />
+          </>}
+          {reaction.phase === 'sparkle' && <Sparkles />}
+          {reaction.phase === 'finish' && <>
+            <Hearts count={2} bottom="58%" />
+            <SoundWord word="CLEAN!" color={WORD_COLOR.happy} left={50} top={6} />
+          </>}
         </div>
       )}
 

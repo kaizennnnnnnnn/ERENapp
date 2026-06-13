@@ -14,6 +14,11 @@ import { useIsDark } from '@/hooks/useIsDark'
 import { useWish } from '@/contexts/WishContext'
 import WishHintBanner from '@/components/wish/WishHintBanner'
 import { wishHintRoom } from '@/lib/wishes'
+import { IconStethoscope } from '@/components/PixelIcons'
+import { useErenReaction } from '@/hooks/useErenReaction'
+import { happyFinisherBeats, WORD_COLOR } from '@/lib/erenReactions'
+import SoundWord from '@/components/SoundWord'
+import { Sparkles, Hearts } from '@/components/care/ReactionFx'
 
 interface Props { onClose: () => void }
 
@@ -52,6 +57,7 @@ export default function VetScene({ onClose }: Props) {
   const [medGiven,  setMedGiven]  = useState(false)
   const [giving,    setGiving]    = useState(false)
   const [toast,     setToast]     = useState<string | null>(null)
+  const reaction = useErenReaction()
   const isDark = useIsDark()
   const wish = useWish()
   const wishMatchesThisRoom = wish?.wish ? wishHintRoom(wish.wish) === 'medicine' : false
@@ -84,6 +90,12 @@ export default function VetScene({ onClose }: Props) {
   async function giveMedicine() {
     if (!user?.id || giving || medGiven || isSleeping) return
     setGiving(true)
+    // Gulp + grimace → snap upright with green recovery sparks → happy hop.
+    reaction.play([
+      { name: 'grimace', ms: 600, onEnter: () => playSound('care_gulp') },
+      { name: 'recover', ms: 600 },
+      ...happyFinisherBeats(),
+    ])
     await new Promise(r => setTimeout(r, 800))
     const result = await applyAction(user.id, 'medicine')
     setGiving(false)
@@ -103,21 +115,41 @@ export default function VetScene({ onClose }: Props) {
       {/* ══ BACKGROUND IMAGE ══ */}
       <div className="absolute inset-0" style={{ backgroundImage: `url(${isDark ? '/wetDark.png' : '/vetBACK.png'})`, backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
-      {/* ══ EREN ══ (hidden while sleeping in the bedroom) */}
+      {/* ══ EREN ══ (hidden while sleeping in the bedroom). Body wrapper:
+          curious tilt during the checkup, grimace on medicine then a snap
+          upright + happy hop. Idle pauses while examining / reacting. */}
       {!isSleeping && (
         <div className={cn('absolute z-10 transition-all duration-500', checkDone ? 'bottom-[6%]' : 'bottom-[4%]')}
           style={{ left: '50%', transform: 'translateX(-50%)' }}>
-          <ErenIdleLayer>
-            <BlinkingEren size={200} src="/ErenVet_notail.png" tailSrc="/ErenVet_tail.png" tailOrigin="71.6% 71.7%" eyes={VET_EYES} />
-            <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
+          <ErenIdleLayer disabled={checking || reaction.active}>
+            <div style={{
+              animation: reaction.phase === 'grimace' ? 'erenGrimace 600ms ease-out both'
+                : reaction.phase === 'finish' ? 'erenIdleHop 800ms ease-in-out'
+                : checking ? 'erenHeadTilt 1200ms ease-in-out'
+                : undefined,
+              transformOrigin: 'bottom center',
+            }}>
+              <BlinkingEren size={200} src="/ErenVet_notail.png" tailSrc="/ErenVet_tail.png" tailOrigin="71.6% 71.7%"
+                lidsClosed={reaction.phase === 'grimace'} eyes={VET_EYES} />
+              <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
+            </div>
           </ErenIdleLayer>
+
+          {/* Reaction words / sparks, anchored to Eren's 200px box. */}
+          {checking && <SoundWord word="?" color={WORD_COLOR.curious} left={62} top={2} size={10} />}
+          {reaction.phase === 'grimace' && <SoundWord word="BLEH!" color={WORD_COLOR.medicine} left={50} top={4} />}
+          {reaction.phase === 'recover' && <Sparkles tint="#86EFAC" />}
+          {reaction.phase === 'finish' && <>
+            <Hearts count={2} bottom="58%" />
+            <SoundWord word="ALL BETTER!" color={WORD_COLOR.happy} left={50} top={4} size={6} />
+          </>}
         </div>
       )}
 
-      {/* ══ STETHOSCOPE ANIM when checking ══ */}
+      {/* ══ STETHOSCOPE ANIM when checking — pixel icon, no emoji ══ */}
       {checking && (
         <div className="absolute z-20 pointer-events-none" style={{ left: '55%', bottom: '35%', animation: 'pulse 0.6s ease-in-out infinite' }}>
-          <div style={{ fontSize: 28 }}>🩺</div>
+          <IconStethoscope size={28} />
         </div>
       )}
 
