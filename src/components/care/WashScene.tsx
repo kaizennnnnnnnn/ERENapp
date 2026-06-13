@@ -76,6 +76,10 @@ export default function WashScene({ onClose }: Props) {
   // Throttle the "SCRUB SCRUB" word so it pops at most ~once/1.2s while soaping.
   const lastScrubWordRef = useRef(0)
   const [scrubWordKey, setScrubWordKey] = useState(0)
+  // Throttle the looping soap-rub / shower-hiss SFX so dragging him strings
+  // together a continuous water sound without spamming a play per pointermove.
+  const lastSoapSndRef  = useRef(0)
+  const lastRinseSndRef = useRef(0)
 
   // Memoize the bare sprite so per-pointermove coverage/bubble renders don't
   // reconcile it (same pattern as FeedScene). Cleanliness is the only live
@@ -158,6 +162,11 @@ export default function WashScene({ onClose }: Props) {
       if (px > 22 && px < 78 && py > 55 && py < 95) {
         markScrub()
         const now = Date.now()
+        // Soft soap-rub sound, strung together every ~260ms while soaping.
+        if (now - lastSoapSndRef.current > 260) {
+          lastSoapSndRef.current = now
+          playSound('care_soap')
+        }
         if (now - lastScrubWordRef.current > 1200) {
           lastScrubWordRef.current = now
           setScrubWordKey(k => k + 1)
@@ -189,6 +198,12 @@ export default function WashScene({ onClose }: Props) {
         showerRef.current.style.top  = `${py}%`
       }
       if (px > 22 && px < 78 && py > 55 && py < 95) {
+        // Running shower-water hiss while rinsing him off (~240ms cadence).
+        const now = Date.now()
+        if (now - lastRinseSndRef.current > 240) {
+          lastRinseSndRef.current = now
+          playSound('care_rinse')
+        }
         // Only drain coverage — bubbles fade out automatically in the
         // render layer based on each bubble's creation coverage vs the
         // current coverage. We don't pop them from the array, which is

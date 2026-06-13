@@ -141,4 +141,25 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
   pd_streak:     { type: 'arp',  notes: [659, 880, 1175, 1568], step: 70, noteDur: 130, shape: 'triangle', gain: 0.8 },
   pd_pickup:     { type: 'blip', freq: 1175, duration: 40, shape: 'sine', gain: 0.45 },
   pd_gameover:   { type: 'arp',  notes: [784, 988, 1175, 1568, 2093], step: 90, noteDur: 150, shape: 'sine', gain: 0.8 },
+
+  // ─── Care reactions — water / soap / medicine ──────────────────────────────
+  // Synthesised so they DON'T fall back to care_eat (the chewing mp3), which is
+  // why finishing a bath used to sound like Eren eating. Built from filtered
+  // white noise: band-limited = soft soap rub, bright highpass = shower hiss,
+  // a noise burst + downward sine = a water splash.
+  //
+  // care_soap   — short soft "shff" rub, replayed while soaping him up.
+  care_soap:   { type: 'noise', duration: 130, gain: 0.26, lowpass: 1300, highpass: 450 },
+  // care_rinse  — bright water hiss, replayed while the shower is over him.
+  care_rinse:  { type: 'noise', duration: 190, gain: 0.24, highpass: 2600, lowpass: 7000 },
+  // care_splash — the shake-dry: a spray of noise + a low water "ploop".
+  care_splash: { type: 'seq', parts: [
+                   { at: 0,  recipe: { type: 'noise', duration: 240, gain: 0.42, lowpass: 2200, highpass: 320 } },
+                   { at: 30, recipe: { type: 'sweep', freq: [620, 200], duration: 200, shape: 'sine', gain: 0.3, curve: 'exponential' } },
+                 ] },
+  // care_gulp   — medicine swallow (vet), so it isn't the chewing mp3 either.
+  care_gulp:   { type: 'seq', parts: [
+                   { at: 0,  recipe: { type: 'blip',  freq: 320, duration: 80, shape: 'sine', gain: 0.5 } },
+                   { at: 70, recipe: { type: 'sweep', freq: [260, 150], duration: 130, shape: 'sine', gain: 0.42, curve: 'exponential' } },
+                 ] },
 }

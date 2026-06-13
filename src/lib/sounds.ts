@@ -66,6 +66,10 @@ export const SOUNDS = {
   care_happy:           '/sounds/care/care_happy.mp3',
   care_sleep:           '/sounds/care/care_sleep.mp3',
   care_jingle:          '/sounds/care/care_jingle.mp3',
+  // Soap rub + shower hiss — synthesised (see soundRecipes), so they play the
+  // water sound, never the care_eat fallback. Paths kept for the type/preload.
+  care_soap:            '/sounds/care/care_soap.mp3',
+  care_rinse:           '/sounds/care/care_rinse.mp3',
 
   // Gacha — rarity-tiered reveal stingers.
   gacha_reveal_common:    '/sounds/gacha/gacha_reveal_common.mp3',
