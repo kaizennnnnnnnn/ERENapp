@@ -205,10 +205,24 @@ export default function BlinkingEren({
     willChange: 'transform, opacity',
   }
 
-  // Closed lids hold at full scaleY; the blink keyframe drives them otherwise.
-  const lidAnim = lidsClosed ? undefined : 'erenBlink 6s infinite'
-  const lidClosedStyle: React.CSSProperties = lidsClosed
-    ? { transform: 'scaleY(1)' } : {}
+  // Held-closed eye — an eye-SHAPED lid that follows the iris contour, not the
+  // squarish blink rectangle (which reads as two flat blocks when held shut
+  // for sleep / grimace). Built from the per-sprite iris mask, scaled up a
+  // touch so it fully covers the eye opening, and gently flattened toward an
+  // almond with a soft crease shadow at the bottom so it reads as a closed lid.
+  // 1.5× the iris box (centered on it) so it fully covers the painted iris —
+  // the tuned mask hugs the catchlight and is a touch narrower than the whole
+  // eye, so a smaller lid let a sliver of iris peek at the outer corners.
+  const closedEye = (left: string): React.CSSProperties => ({
+    position: 'absolute',
+    left: `calc(${left} - ${eyes.maskW} * 0.25)`,
+    top: `calc(${eyes.maskTop} - ${eyes.maskH} * 0.1)`,
+    width: `calc(${eyes.maskW} * 1.5)`,
+    height: `calc(${eyes.maskH} * 1.2)`,
+    background: `linear-gradient(180deg, ${lidColor} 0%, ${lidColor} 55%, rgba(0,0,0,0.28) 100%)`,
+    borderRadius: '50%',
+    pointerEvents: 'none',
+  })
 
   // Eye overlays — extracted so they can render either over the static body or
   // inside the head wrapper (so the eyes ride a rotating head layer).
@@ -216,18 +230,29 @@ export default function BlinkingEren({
     <>
       {/* Eye glints — clipped to an eye-shaped mask over the iris, centered on
           the baked catchlight inside, twinkling together (eyes track as one)
-          so they share one keyframe. */}
-      <div style={{ ...eyeMask, left: eyes.maskLeftA, top: eyes.maskTop, width: eyes.maskW, height: eyes.maskH }}>
-        <div style={{ ...glint, left: eyes.glintLeftA, top: eyes.glintTopA, animation: 'erenEyeShine 5s ease-in-out infinite' }} />
-      </div>
-      <div style={{ ...eyeMask, left: eyes.maskLeftB, top: eyes.maskTop, width: eyes.maskW, height: eyes.maskH }}>
-        <div style={{ ...glint, left: eyes.glintLeftB, top: eyes.glintTopB, animation: 'erenEyeShine 5s ease-in-out infinite' }} />
-      </div>
+          so they share one keyframe. Hidden once the lids are held shut. */}
+      {!lidsClosed && <>
+        <div style={{ ...eyeMask, left: eyes.maskLeftA, top: eyes.maskTop, width: eyes.maskW, height: eyes.maskH }}>
+          <div style={{ ...glint, left: eyes.glintLeftA, top: eyes.glintTopA, animation: 'erenEyeShine 5s ease-in-out infinite' }} />
+        </div>
+        <div style={{ ...eyeMask, left: eyes.maskLeftB, top: eyes.maskTop, width: eyes.maskW, height: eyes.maskH }}>
+          <div style={{ ...glint, left: eyes.glintLeftB, top: eyes.glintTopB, animation: 'erenEyeShine 5s ease-in-out infinite' }} />
+        </div>
+      </>}
 
-      {/* Both eyelids — same animation start time, no stagger. Cats blink with
-          both lids together. lidsClosed holds them shut for the duration. */}
-      <div style={{ ...lid, ...lidClosedStyle, left: eyes.lidLeftA, top: eyes.lidTop, animation: lidAnim }} />
-      <div style={{ ...lid, ...lidClosedStyle, left: eyes.lidLeftB, top: eyes.lidTop, animation: lidAnim }} />
+      {lidsClosed ? (
+        // Eye-shaped closed lids over each eye.
+        <>
+          <div style={closedEye(eyes.maskLeftA)} />
+          <div style={closedEye(eyes.maskLeftB)} />
+        </>
+      ) : (
+        // Blink lids — same start time, no stagger. Cats blink both together.
+        <>
+          <div style={{ ...lid, left: eyes.lidLeftA, top: eyes.lidTop, animation: 'erenBlink 6s infinite' }} />
+          <div style={{ ...lid, left: eyes.lidLeftB, top: eyes.lidTop, animation: 'erenBlink 6s infinite' }} />
+        </>
+      )}
     </>
   ) : null
 

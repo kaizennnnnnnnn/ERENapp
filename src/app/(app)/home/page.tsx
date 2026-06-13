@@ -625,7 +625,8 @@ export default function HomePage() {
                 }}>
                   <div style={{
                     animation: petReaction.phase === 'lean'
-                      ? 'erenPurrShiver 120ms steps(2) 250ms 7' : undefined,
+                      ? 'erenPurrShiver 150ms ease-in-out 250ms 6' : undefined,
+                    transformOrigin: 'bottom center',
                   }}>
                     <ErenIdleLayer disabled={petReaction.active}>
                       {/* Tail split into its own layer (erenGood_tail.png) over a
