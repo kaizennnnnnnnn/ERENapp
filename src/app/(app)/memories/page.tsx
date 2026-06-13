@@ -140,9 +140,9 @@ export default function MemoriesPage() {
 
       {/* ── Add memory modal ── */}
       {showAdd && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/50 backdrop-blur-sm" style={{ animation: 'scrimIn 200ms ease-out' }}>
           <div className="w-full max-w-md mx-auto shadow-2xl flex flex-col"
-            style={{ background: 'linear-gradient(180deg, #FFF8FF, #FFF0FF)', borderRadius: '16px 16px 0 0', borderTop: '3px solid #F0D0FF', boxShadow: '0 -4px 0 #E0B8FF', height: '82svh' }}>
+            style={{ background: 'linear-gradient(180deg, #FFF8FF, #FFF0FF)', borderRadius: '16px 16px 0 0', borderTop: '3px solid #F0D0FF', boxShadow: '0 -4px 0 #E0B8FF', height: '82svh', animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}>
 
             {/* Header */}
             <div className="flex items-center justify-between px-5 pt-4 pb-3 flex-shrink-0">
@@ -205,8 +205,8 @@ export default function MemoriesPage() {
 
       {/* ── Memory detail modal ── */}
       {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setSelected(null)}>
-          <div className="max-w-sm w-full overflow-hidden" style={{ borderRadius: 4, border: '3px solid #F0D0FF', boxShadow: '5px 5px 0 #C090E0' }} onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" style={{ animation: 'scrimIn 200ms ease-out' }} onClick={() => setSelected(null)}>
+          <div className="max-w-sm w-full overflow-hidden" style={{ borderRadius: 4, border: '3px solid #F0D0FF', boxShadow: '5px 5px 0 #C090E0', animation: 'modalPop 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both' }} onClick={e => e.stopPropagation()}>
             {selected.image_url && (
               <img src={selected.image_url} alt="" className="w-full aspect-square object-cover" />
             )}

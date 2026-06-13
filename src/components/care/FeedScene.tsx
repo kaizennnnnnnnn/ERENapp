@@ -707,8 +707,8 @@ export default function FeedScene({ onClose }: Props) {
       {/* ══ FRIDGE CATEGORY PAGE — full screen overlay ══ */}
       {tab === 'fridge' && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}>
-          <div className="w-full max-w-xs px-6">
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', animation: 'scrimIn 200ms ease-out' }}>
+          <div className="w-full max-w-xs px-6" style={{ animation: 'modalPop 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both' }}>
             <p className="font-pixel text-center mb-6" style={{ fontSize: 10, color: '#A8D8F8', letterSpacing: 2, textShadow: '0 0 8px rgba(168,216,248,0.5)' }}>
               PICK A CATEGORY
             </p>
@@ -773,7 +773,7 @@ export default function FeedScene({ onClose }: Props) {
         const closeShop = () => { playSound('ui_modal_close'); setShopCat(null); setTab(null) }
         return (
         <div className="absolute bottom-0 left-0 right-0 z-40 flex flex-col"
-          style={{ height: '52%', background: 'linear-gradient(180deg, #FFFBF0 0%, #FFF8E8 100%)', borderRadius: '16px 16px 0 0', borderTop: '3px solid #F5C842', boxShadow: '0 -4px 0 #E8A020' }}>
+          style={{ height: '52%', background: 'linear-gradient(180deg, #FFFBF0 0%, #FFF8E8 100%)', borderRadius: '16px 16px 0 0', borderTop: '3px solid #F5C842', boxShadow: '0 -4px 0 #E8A020', animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}>
 
           {/* Drawer header */}
           <div className="flex items-center justify-between px-4 pt-3 pb-2 flex-shrink-0">

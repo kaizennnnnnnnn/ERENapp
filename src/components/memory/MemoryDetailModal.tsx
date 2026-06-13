@@ -62,7 +62,7 @@ export default function MemoryDetailModal({ frame, row, partnerId, onClose, onRe
   // ── Locked state — simple teaser, no react button ────────────────────────
   if (locked) {
     return (
-      <div className="fixed inset-0 z-[70] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}
+      <div className="fixed inset-0 z-[70] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)', animation: 'scrimIn 200ms ease-out' }}
         onClick={() => { playSound('ui_modal_close'); onClose() }}>
         <div onClick={e => e.stopPropagation()}
           style={{
@@ -73,6 +73,7 @@ export default function MemoryDetailModal({ frame, row, partnerId, onClose, onRe
             maxWidth: 280,
             imageRendering: 'pixelated',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+            animation: 'modalPop 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both',
           }}>
           <MemoryFrameCanvas frame={frame} size={120} locked />
           <p style={{
@@ -96,7 +97,7 @@ export default function MemoryDetailModal({ frame, row, partnerId, onClose, onRe
     ? 'PARTNER' : null
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.72)' }}
+    <div className="fixed inset-0 z-[70] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.72)', animation: 'scrimIn 200ms ease-out' }}
       onClick={() => { playSound('ui_modal_close'); onClose() }}>
       <div onClick={e => e.stopPropagation()}
         style={{
@@ -107,6 +108,7 @@ export default function MemoryDetailModal({ frame, row, partnerId, onClose, onRe
           maxWidth: 300,
           imageRendering: 'pixelated',
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+          animation: 'modalPop 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both',
         }}>
 
         <MemoryFrameCanvas frame={frame} size={144} />

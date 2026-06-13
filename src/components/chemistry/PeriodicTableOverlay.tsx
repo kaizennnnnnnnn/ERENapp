@@ -59,7 +59,18 @@ function OverlayInner({ onClose }: Props) {
   const { dueCount, state, hydrated } = useChemistryStore()
   const { palette, theme, toggle } = useChemistryTheme()
 
-  function handleClose() { playSound('ui_tap'); onClose() }
+  // Open/close transition. The overlay scales + fades in on mount; closing
+  // plays the reverse, then unmounts via onClose once the animation lands
+  // (kept self-contained so ChemistryScene still just flips overlayOpen).
+  const [closing, setClosing] = useState(false)
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current) }, [])
+  function handleClose() {
+    if (closing) return
+    playSound('ui_tap')
+    setClosing(true)
+    closeTimer.current = setTimeout(onClose, 220)
+  }
   const stop = (e: React.TouchEvent) => e.stopPropagation()
 
   // Auto-scroll the active pill into the middle of the strip whenever the
@@ -84,6 +95,11 @@ function OverlayInner({ onClose }: Props) {
         WebkitTouchCallout: 'none',
         WebkitUserSelect: 'none',
         userSelect: 'none',
+        transformOrigin: 'center',
+        willChange: 'transform, opacity',
+        animation: closing
+          ? 'chemOverlayOut 200ms cubic-bezier(0.4, 0, 1, 1) forwards'
+          : 'chemOverlayIn 260ms cubic-bezier(0.16, 1, 0.3, 1) both',
       }}
       onTouchStart={stop}
       onTouchMove={stop}
@@ -95,6 +111,26 @@ function OverlayInner({ onClose }: Props) {
       <style>{`
         .chem-pill-strip::-webkit-scrollbar { display: none; }
         .chem-pill-strip { scrollbar-width: none; -ms-overflow-style: none; }
+        @keyframes chemOverlayIn {
+          0%   { opacity: 0; transform: scale(0.94); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        @keyframes chemOverlayOut {
+          0%   { opacity: 1; transform: scale(1); }
+          100% { opacity: 0; transform: scale(0.96); }
+        }
+        /* Each mode swap fades so switching pills (and the first open of the
+           lab body) is a soft cross-in, never an instant blink. Keyed on the
+           mode below so it re-runs on every switch.
+           OPACITY ONLY — deliberately no transform: a residual transform on
+           this wrapper would make it the containing block for position:fixed
+           descendants, and ElementDetail (the tile popup, rendered inline
+           inside <PeriodicTable/>) is fixed inset-0. A translateY here re-
+           anchored that popup to the wrapper box instead of the viewport. */
+        @keyframes chemModeIn {
+          0%   { opacity: 0; }
+          100% { opacity: 1; }
+        }
       `}</style>
 
       {/* ── Single sticky top bar — left wordmark, middle scrollable pill
@@ -230,15 +266,19 @@ function OverlayInner({ onClose }: Props) {
           background: palette.bg,
         }}
       >
-        {mode === 'home'       && <HomeDashboard palette={palette} onGoto={setMode} />}
-        {mode === 'review'     && <Review onExit={() => setMode('home')} />}
-        {mode === 'learn'      && <Learn  onExit={() => setMode('home')} />}
-        {mode === 'table'      && <PeriodicTable />}
-        {mode === 'flashcards' && <Flashcards />}
-        {mode === 'quiz'       && <Quiz />}
-        {mode === 'match'      && <Match />}
-        {mode === 'speed'      && <Speed  onExit={() => setMode('home')} />}
-        {mode === 'locate'     && <Locate onExit={() => setMode('home')} />}
+        {/* Keyed on `mode` so React remounts on every swap and chemModeIn
+            replays — the new mode rises in instead of hard-cutting. */}
+        <div key={mode} style={{ animation: 'chemModeIn 240ms cubic-bezier(0.16, 1, 0.3, 1) both' }}>
+          {mode === 'home'       && <HomeDashboard palette={palette} onGoto={setMode} />}
+          {mode === 'review'     && <Review onExit={() => setMode('home')} />}
+          {mode === 'learn'      && <Learn  onExit={() => setMode('home')} />}
+          {mode === 'table'      && <PeriodicTable />}
+          {mode === 'flashcards' && <Flashcards />}
+          {mode === 'quiz'       && <Quiz />}
+          {mode === 'match'      && <Match />}
+          {mode === 'speed'      && <Speed  onExit={() => setMode('home')} />}
+          {mode === 'locate'     && <Locate onExit={() => setMode('home')} />}
+        </div>
       </main>
     </div>,
     document.body,
