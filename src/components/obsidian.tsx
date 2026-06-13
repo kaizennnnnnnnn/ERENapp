@@ -56,6 +56,56 @@ export const OBSIDIAN_BTN: CSSProperties = {
   borderRadius: 4,
 }
 
+// ── Cute candy buttons ──
+// A softer, friendlier variant of OBSIDIAN_BTN used for the home HUD nav
+// row + the quest pill. Each button is tinted to its own icon colour (an
+// `r,g,b` triplet), squircle-rounded, ringed + glowing in that colour, and
+// half-filled with a liquid so it reads like a little potion jar.
+
+/** Cute button chrome. Pass the button's accent colour as `r,g,b`. */
+export const cuteBtn = (rgb: string): CSSProperties => ({
+  background: `radial-gradient(circle at 50% 16%, rgba(${rgb},0.42) 0%, rgba(${rgb},0.14) 46%, rgba(10,8,20,0.9) 100%)`,
+  border: `1.5px solid rgba(${rgb},0.78)`,
+  borderRadius: 11,
+  boxShadow: `0 0 9px rgba(${rgb},0.42), 0 2px 6px rgba(0,0,0,0.5), inset 0 1.5px 0 rgba(255,255,255,0.32), inset 0 -2px 5px rgba(0,0,0,0.38)`,
+})
+
+/** Glossy top sheen — the "candy" highlight. Render before the icon so the
+ *  icon paints on top. The parent must be `position: relative`. */
+export function Gloss() {
+  return (
+    <span aria-hidden style={{
+      position: 'absolute', top: 2, left: 3, right: 3, height: '38%',
+      borderRadius: 9,
+      background: 'linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 100%)',
+      pointerEvents: 'none',
+    }} />
+  )
+}
+
+/** Half-fill liquid that sits behind the icon, clipped to the button's
+ *  rounded bottom corners, with a bright surface line. `height` controls how
+ *  full it looks (default ~half). Render before the icon. */
+export function Liquid({ rgb, height = '50%' }: { rgb: string; height?: string }) {
+  return (
+    <span aria-hidden style={{
+      position: 'absolute', left: 1.5, right: 1.5, bottom: 1.5, height,
+      borderRadius: '3px 3px 9px 9px',
+      background: `linear-gradient(180deg, rgba(${rgb},0.82) 0%, rgba(${rgb},0.44) 100%)`,
+      boxShadow: 'inset 0 -2px 5px rgba(0,0,0,0.3)',
+      overflow: 'hidden',
+      pointerEvents: 'none',
+    }}>
+      {/* Bright surface meniscus at the top of the liquid. */}
+      <span style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+        background: 'rgba(255,255,255,0.6)',
+        boxShadow: `0 0 5px rgba(${rgb},0.9)`,
+      }} />
+    </span>
+  )
+}
+
 /** Circular orb chrome — level badge, VS badge, avatar circles. */
 export const OBSIDIAN_ORB: CSSProperties = {
   borderRadius: '50%',

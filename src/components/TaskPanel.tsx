@@ -11,7 +11,12 @@ import {
   IconStar, IconCrown,
 } from './PixelIcons'
 import { playSound } from '@/lib/sounds'
-import { PINK, PINK_HI, PINK_LO, OBSIDIAN_BTN, Rivets, pinkText, accentA } from './obsidian'
+import { PINK, PINK_HI, PINK_LO, OBSIDIAN_BTN, Rivets, pinkText, accentA, cuteBtn, Gloss, Liquid } from './obsidian'
+
+// Quest accent — warm amber/gold, matching the scroll icon + "today's quests".
+const QUEST_RGB = '245,200,66'
+// Dark shadow so the small counter text stays legible over the liquid fill.
+const COUNTER_SHADOW = '0 1px 2px rgba(0,0,0,0.7)'
 
 function TaskIcon({ task, size = 22 }: { task: TaskDef; size?: number }) {
   switch (task.id) {
@@ -234,27 +239,28 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
         <button
           onClick={() => { playSound('ui_modal_open'); setOpen(true) }}
           className="w-full flex items-center gap-1 px-2 h-10 active:scale-[0.97] transition-transform relative"
-          style={OBSIDIAN_BTN}
+          style={cuteBtn(QUEST_RGB)}
         >
-          <Rivets inset={2} size={2} />
-          <IconScroll size={18} />
+          <Liquid rgb={QUEST_RGB} height="46%" />
+          <Gloss />
+          <span className="relative flex items-center"><IconScroll size={18} /></span>
 
           {/* Inline counter — daily/weekly dots + numbers */}
-          <div className="flex items-center gap-0.5 min-w-0 ml-1">
+          <div className="relative flex items-center gap-0.5 min-w-0 ml-1">
             <div className="flex-shrink-0" style={{
               width: 5, height: 5, borderRadius: '50%',
-              background: DAILY_DOT, boxShadow: `0 0 4px ${DAILY_DOT}`,
+              background: DAILY_DOT, boxShadow: `0 0 4px ${DAILY_DOT}, 0 1px 1px rgba(0,0,0,0.6)`,
             }} />
-            <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: '#FFD760', letterSpacing: 0.5 }}>{dailyDone}/{dailyTasks.length}</span>
-            <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: PINK_LO, margin: '0 1px' }}>·</span>
+            <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: '#FFF3C8', letterSpacing: 0.5, textShadow: COUNTER_SHADOW }}>{dailyDone}/{dailyTasks.length}</span>
+            <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: '#7A5A12', margin: '0 1px' }}>·</span>
             <div className="flex-shrink-0" style={{
               width: 5, height: 5, borderRadius: '50%',
-              background: WEEKLY_DOT, boxShadow: `0 0 4px ${WEEKLY_DOT}`,
+              background: WEEKLY_DOT, boxShadow: `0 0 4px ${WEEKLY_DOT}, 0 1px 1px rgba(0,0,0,0.6)`,
             }} />
-            <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: PINK_HI, letterSpacing: 0.5 }}>{weeklyDone}/{weeklyTasks.length}</span>
+            <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: '#EADBFF', letterSpacing: 0.5, textShadow: COUNTER_SHADOW }}>{weeklyDone}/{weeklyTasks.length}</span>
           </div>
 
-          <span className="font-pixel ml-auto flex-shrink-0" style={{ fontSize: 8, color: PINK_HI, opacity: 0.7 }}>▶</span>
+          <span className="font-pixel ml-auto flex-shrink-0 relative" style={{ fontSize: 8, color: '#FFF3C8', opacity: 0.9, textShadow: COUNTER_SHADOW }}>▶</span>
         </button>
       ) : (
         <button

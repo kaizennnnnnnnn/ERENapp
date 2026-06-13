@@ -43,6 +43,7 @@ import ErenIdleLayer from '@/components/ErenIdleLayer'
 import SendErenSheet from '@/components/couple/SendErenSheet'
 import { MOOD_THEME, LOW_MOODS } from '@/lib/moods'
 import { useIsDark } from '@/hooks/useIsDark'
+import { cuteBtn, Gloss, Liquid } from '@/components/obsidian'
 import LightSwitch from '@/components/LightSwitch'
 import { useWish } from '@/contexts/WishContext'
 import { useWishLinger } from '@/hooks/useWishLinger'
@@ -106,32 +107,6 @@ const dockBtnLabel: React.CSSProperties = {
   textShadow: '1px 1px 0 rgba(0,0,0,0.65)',
   position: 'relative',
   zIndex: 1,
-}
-
-// ─── CUTE NAV BUTTONS ────────────────────────────────────────────────────
-// The top HUD nav buttons used to be flat black obsidian squares. They now
-// read as little candy gems: each is tinted to its own icon colour (passed
-// as an `r,g,b` triplet), squircle-rounded, ringed + softly glowing in that
-// colour, with a glossy top sheen instead of the old corner rivets. Still
-// dark enough to sit on the black HUD over a bright room.
-const cuteBtn = (rgb: string): React.CSSProperties => ({
-  background: `radial-gradient(circle at 50% 18%, rgba(${rgb},0.45) 0%, rgba(${rgb},0.17) 48%, rgba(10,8,20,0.88) 100%)`,
-  border: `1.5px solid rgba(${rgb},0.78)`,
-  borderRadius: 11,
-  boxShadow: `0 0 9px rgba(${rgb},0.42), 0 2px 6px rgba(0,0,0,0.5), inset 0 1.5px 0 rgba(255,255,255,0.32), inset 0 -2px 5px rgba(0,0,0,0.38)`,
-})
-
-// Glossy top highlight — the "candy" sheen. Sits above the icon (icons are
-// rendered after it in normal flow so they paint on top).
-function Gloss() {
-  return (
-    <span aria-hidden style={{
-      position: 'absolute', top: 2, left: 3, right: 3, height: '40%',
-      borderRadius: 9,
-      background: 'linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 100%)',
-      pointerEvents: 'none',
-    }} />
-  )
 }
 
 export default function HomePage() {
@@ -775,6 +750,7 @@ export default function HomePage() {
               <button onClick={() => { playSound('ui_modal_open'); setShowFortune(true) }}
                 className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
                 style={{ ...cuteBtn('251,191,36'), animation: 'pulse 2s ease-in-out infinite' }}>
+                <Liquid rgb="251,191,36" />
                 <Gloss />
                 <IconGift size={18} />
               </button>
@@ -783,11 +759,13 @@ export default function HomePage() {
               aria-label="The Hallway"
               className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
               style={cuteBtn('56,189,248')}>
+              <Liquid rgb="56,189,248" />
               <Gloss />
               <IconPhoto size={18} />
             </Link>
             <Link href="/couple" onClick={() => playSound('ui_tap')} className="relative w-8 h-8 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
               style={cuteBtn('255,107,157')}>
+              <Liquid rgb="255,107,157" />
               <Gloss />
               <IconHeart size={18} />
               {unreadCount > 0 && (
@@ -800,12 +778,14 @@ export default function HomePage() {
             <button onClick={() => { playSound('ui_modal_open'); setShowReminders(true) }}
               className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
               style={cuteBtn('245,158,11')}>
+              <Liquid rgb="245,158,11" />
               <Gloss />
               <IconBell size={18} />
             </button>
             <Link href="/profile" onClick={() => playSound('ui_tap')}
               className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
               style={cuteBtn('167,139,250')}>
+              <Liquid rgb="167,139,250" />
               <Gloss />
               <IconPerson size={18} />
             </Link>
@@ -813,6 +793,7 @@ export default function HomePage() {
               <button onClick={() => { playSound(showRooms ? 'ui_modal_close' : 'ui_modal_open'); setShowRooms(r => !r) }}
                 className="w-10 h-10 relative flex items-center justify-center active:scale-90 transition-transform"
                 style={cuteBtn('52,211,153')}>
+                <Liquid rgb="52,211,153" />
                 <Gloss />
                 <IconDoor size={18} />
               </button>
