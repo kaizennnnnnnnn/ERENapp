@@ -101,6 +101,30 @@ interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   // that keeps the base connected rides inside the erenTailWiggle keyframe, so
   // the resting pose isn't nudged into the body.)
   tailOrigin?: string
+  // Optional separate HEAD layer for live head motion (bob to a food bowl,
+  // lean into a pet, track the play ball). Same split-layer trick as the tail:
+  // pass a head-only PNG here and a head-ERASED body in `src` (e.g.
+  // src=/erenGood_body.png + headSrc=/erenGood_head.png). The head img AND the
+  // eye overlays render inside one wrapper pivoted at the neck, so the eyes
+  // ride the head when it rotates. Rotations are clamped (≤7°) by the caller
+  // so the fur-colored neck plug under the chin never uncovers.
+  headSrc?: string
+  // transform-origin for the head layer = the neck pivot, in BOX coordinates.
+  // Produced by scripts/split_eren_head.js alongside the split PNGs.
+  headOrigin?: string
+  // Imperative handle on the head wrapper so a 60fps loop (PlayScene's ball
+  // rAF) can write `transform` directly without a React render per frame.
+  headRef?: React.Ref<HTMLDivElement>
+  // CSS `animation` shorthand applied to the head wrapper for declarative
+  // reaction beats (head dive, lean). Ignored when headSrc is absent.
+  headAnimation?: string
+  // Hold both eyelids shut (sleep settle, medicine grimace). Overrides the
+  // blink keyframe so the eyes stay closed for the duration the caller renders
+  // this true. No effect when blink is false (eyes already painted shut).
+  lidsClosed?: boolean
+  // Breathing period in seconds. Default 4; sleep slows it to ~6.5 so the
+  // tucked-in cat breathes visibly slower.
+  breatheDur?: number
 }
 
 export default function BlinkingEren({
@@ -116,6 +140,12 @@ export default function BlinkingEren({
   glintBackground = DEFAULT_GLINT,
   tailSrc,
   tailOrigin = '68.6% 79.5%',
+  headSrc,
+  headOrigin = '50% 50%',
+  headRef,
+  headAnimation,
+  lidsClosed = false,
+  breatheDur = 4,
   ...imgProps
 }: Props) {
   const isDark = useIsDark()
@@ -130,14 +160,14 @@ export default function BlinkingEren({
   useEffect(() => {
     let cancelled = false
     setReady(false)
-    const list = tailSrc ? [src, tailSrc] : [src]
+    const list = [src, tailSrc, headSrc].filter(Boolean) as string[]
     Promise.all(list.map(s => {
       const im = new window.Image()
       im.src = s
       return im.decode().catch(() => new Promise<void>(res => { im.onload = im.onerror = () => res() }))
     })).then(() => { if (!cancelled) setReady(true) })
     return () => { cancelled = true }
-  }, [src, tailSrc])
+  }, [src, tailSrc, headSrc])
   // Drop brightness and a touch of saturation at night so the sprite
   // doesn't look weirdly lit-up against the dark room backgrounds.
   // Applied to the wrapper so the eyelid overlays darken in lockstep.
@@ -175,6 +205,32 @@ export default function BlinkingEren({
     willChange: 'transform, opacity',
   }
 
+  // Closed lids hold at full scaleY; the blink keyframe drives them otherwise.
+  const lidAnim = lidsClosed ? undefined : 'erenBlink 6s infinite'
+  const lidClosedStyle: React.CSSProperties = lidsClosed
+    ? { transform: 'scaleY(1)' } : {}
+
+  // Eye overlays — extracted so they can render either over the static body or
+  // inside the head wrapper (so the eyes ride a rotating head layer).
+  const eyeOverlays = blink ? (
+    <>
+      {/* Eye glints — clipped to an eye-shaped mask over the iris, centered on
+          the baked catchlight inside, twinkling together (eyes track as one)
+          so they share one keyframe. */}
+      <div style={{ ...eyeMask, left: eyes.maskLeftA, top: eyes.maskTop, width: eyes.maskW, height: eyes.maskH }}>
+        <div style={{ ...glint, left: eyes.glintLeftA, top: eyes.glintTopA, animation: 'erenEyeShine 5s ease-in-out infinite' }} />
+      </div>
+      <div style={{ ...eyeMask, left: eyes.maskLeftB, top: eyes.maskTop, width: eyes.maskW, height: eyes.maskH }}>
+        <div style={{ ...glint, left: eyes.glintLeftB, top: eyes.glintTopB, animation: 'erenEyeShine 5s ease-in-out infinite' }} />
+      </div>
+
+      {/* Both eyelids — same animation start time, no stagger. Cats blink with
+          both lids together. lidsClosed holds them shut for the duration. */}
+      <div style={{ ...lid, ...lidClosedStyle, left: eyes.lidLeftA, top: eyes.lidTop, animation: lidAnim }} />
+      <div style={{ ...lid, ...lidClosedStyle, left: eyes.lidLeftB, top: eyes.lidTop, animation: lidAnim }} />
+    </>
+  ) : null
+
   return (
     <div className={`relative ${className}`}
       style={{
@@ -194,13 +250,13 @@ export default function BlinkingEren({
         transformOrigin: 'bottom center',
         willChange: breathe ? 'transform' : undefined,
         backfaceVisibility: 'hidden',
-        animation: breathe ? 'erenBreathe 4s ease-in-out infinite' : undefined,
-        // Reveal body + tail together once both have decoded (see `ready`).
+        animation: breathe ? `erenBreathe ${breatheDur}s ease-in-out infinite` : undefined,
+        // Reveal body + tail + head together once all have decoded (see `ready`).
         visibility: ready ? undefined : 'hidden',
       }}>
         {/* Tail layer — drawn first (so it sits BEHIND the body) and rotated
-            about the tail root so the tip sways. Both layers are absolute and
-            paint in DOM order: tail → body → eyes. */}
+            about the tail root so the tip sways. All layers are absolute and
+            paint in DOM order: tail → body → head (+ eyes). */}
         {tailSrc && (
           <img src={tailSrc} alt="" aria-hidden="true" draggable={false}
             style={{
@@ -224,24 +280,28 @@ export default function BlinkingEren({
             imageRendering: 'pixelated',
           }} />
 
-        {blink && (
-          <>
-            {/* Eye glints — clipped to an eye-shaped mask over the iris,
-                centered on the baked catchlight inside, twinkling together
-                (eyes track as one) so they share one keyframe. */}
-            <div style={{ ...eyeMask, left: eyes.maskLeftA, top: eyes.maskTop, width: eyes.maskW, height: eyes.maskH }}>
-              <div style={{ ...glint, left: eyes.glintLeftA, top: eyes.glintTopA, animation: 'erenEyeShine 5s ease-in-out infinite' }} />
-            </div>
-            <div style={{ ...eyeMask, left: eyes.maskLeftB, top: eyes.maskTop, width: eyes.maskW, height: eyes.maskH }}>
-              <div style={{ ...glint, left: eyes.glintLeftB, top: eyes.glintTopB, animation: 'erenEyeShine 5s ease-in-out infinite' }} />
-            </div>
-
-            {/* Both eyelids — same animation start time, no stagger. Cats
-                blink with both lids together. */}
-            <div style={{ ...lid, left: eyes.lidLeftA, top: eyes.lidTop, animation: 'erenBlink 6s infinite' }} />
-            <div style={{ ...lid, left: eyes.lidLeftB, top: eyes.lidTop, animation: 'erenBlink 6s infinite' }} />
-          </>
-        )}
+        {headSrc ? (
+          // Head wrapper — the head img AND the eye overlays live inside one
+          // element pivoted at the neck, so the eyes ride the head when it
+          // rotates/leans. headRef lets a 60fps loop write transform directly.
+          <div ref={headRef} style={{
+            position: 'absolute', inset: 0,
+            transformOrigin: headOrigin,
+            willChange: 'transform',
+            backfaceVisibility: 'hidden',
+            animation: headAnimation,
+            pointerEvents: 'none',
+          }}>
+            <img src={headSrc} alt="" aria-hidden="true" draggable={false}
+              style={{
+                position: 'absolute', inset: 0,
+                width: '100%', height: '100%',
+                objectFit: 'contain',
+                imageRendering: 'pixelated',
+              }} />
+            {eyeOverlays}
+          </div>
+        ) : eyeOverlays}
       </div>
     </div>
   )

@@ -73,7 +73,15 @@ export default function ErenIdleLayer({ children, disabled }: Props) {
   }, [])
 
   useEffect(() => {
-    if (disabled) return
+    if (disabled) {
+      // Cancel an in-flight idle the moment a reaction takes over — clearing
+      // only the scheduler (below) would let a running hop/stretch keep
+      // fighting the reaction's own transform for up to its duration.
+      if (timerRef.current) clearTimeout(timerRef.current)
+      setAnim(null)
+      setThoughts([])
+      return
+    }
     scheduleNext()
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }
   }, [disabled, scheduleNext])

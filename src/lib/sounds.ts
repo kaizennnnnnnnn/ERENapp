@@ -58,6 +58,14 @@ export const SOUNDS = {
   // Pet — tap-on-Eren purr sound. Placeholder file path; if missing, the
   // FALLBACK below routes to care_eat so taps still play SOMETHING.
   pet_purr:             '/sounds/care/pet_purr.mp3',
+  // Reaction-system care SFX (Phase 0). Files are user-provided; until they
+  // land the FALLBACK map routes each to a shipped close-cousin so the
+  // reactions are never silent.
+  care_splash:          '/sounds/care/care_splash.mp3',
+  care_gulp:            '/sounds/care/care_gulp.mp3',
+  care_happy:           '/sounds/care/care_happy.mp3',
+  care_sleep:           '/sounds/care/care_sleep.mp3',
+  care_jingle:          '/sounds/care/care_jingle.mp3',
 
   // Gacha — rarity-tiered reveal stingers.
   gacha_reveal_common:    '/sounds/gacha/gacha_reveal_common.mp3',
@@ -287,6 +295,11 @@ const FALLBACK: Partial<Record<SoundName, SoundName>> = {
   coin_pickup:            'ui_notification_ping',
   gift_open:              'level_up',
   pet_purr:               'care_eat',
+  care_splash:            'care_eat',
+  care_gulp:              'care_eat',
+  care_happy:             'coin_pickup',
+  care_sleep:             'ui_notification_ping',
+  care_jingle:            'ui_select',
   gacha_reveal_common:    'ui_modal_open',
   gacha_reveal_rare:      'ui_notification_ping',
   gacha_reveal_epic:      'ui_notification_ping',

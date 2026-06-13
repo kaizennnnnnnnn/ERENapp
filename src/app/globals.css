@@ -291,6 +291,148 @@
   70%      { transform: rotate(-2deg); }
 }
 
+/* ── Eren reaction system ──
+   Beat-driven reactions (feed / sleep / pet / play / wash / vet) map a
+   useErenReaction `phase` to one of these. Naming follows the erenX
+   convention. Rotations on the HEAD layer are clamped to ≤10° by the scenes
+   so the fur-colored neck plug under the chin never uncovers. Particles that
+   "land" or "fly off" snap out in a final 1% window (no crossfade), per the
+   house style. Parameterised motion reads --tx/--ty (px) set inline by the
+   scene, the same way erenBurstSpark does. */
+
+/* HEAD layer — feed: dive to the bowl, bob while chewing, lift back up. Each
+   beat's end-state matches the next beat's start (rotate 8°) so swapping the
+   head animation mid-reaction never jumps. */
+@keyframes erenHeadDive {
+  0%   { transform: rotate(0deg)  translateY(0); }
+  100% { transform: rotate(8deg)  translateY(3%); }
+}
+@keyframes erenHeadChomp {
+  0%, 100% { transform: rotate(8deg)  translateY(3%); }
+  50%      { transform: rotate(11deg) translateY(5%); }
+}
+@keyframes erenHeadUp {
+  0%   { transform: rotate(8deg) translateY(3%); }
+  100% { transform: rotate(0deg) translateY(0); }
+}
+/* HEAD layer — pet: lean toward the tapped side, hold, return, in one span. */
+@keyframes erenHeadLeanR {
+  0%   { transform: rotate(0deg)  translateX(0); }
+  18%  { transform: rotate(6deg)  translateX(1.2%); }
+  80%  { transform: rotate(6deg)  translateX(1.2%); }
+  100% { transform: rotate(0deg)  translateX(0); }
+}
+@keyframes erenHeadLeanL {
+  0%   { transform: rotate(0deg)  translateX(0); }
+  18%  { transform: rotate(-6deg) translateX(-1.2%); }
+  80%  { transform: rotate(-6deg) translateX(-1.2%); }
+  100% { transform: rotate(0deg)  translateX(0); }
+}
+/* HEAD layer — vet: curious tilt during the checkup. */
+@keyframes erenHeadTilt {
+  0%   { transform: rotate(0deg); }
+  25%  { transform: rotate(5deg); }
+  75%  { transform: rotate(5deg); }
+  100% { transform: rotate(0deg); }
+}
+
+/* BODY wrappers (sit outside BlinkingEren, compose over its breathing). */
+@keyframes erenEatChomp {
+  0%, 100% { transform: scaleY(1);    }
+  50%      { transform: scaleY(0.975); }
+}
+@keyframes erenPurrShiver {
+  0%, 100% { transform: translate(0, 0)       rotate(0deg);    }
+  25%      { transform: translate(0.4px, 0)   rotate(-0.8deg); }
+  75%      { transform: translate(-0.4px, 0)  rotate(0.8deg);  }
+}
+@keyframes erenSquirm {
+  0%, 100% { transform: rotate(0deg);  }
+  25%      { transform: rotate(-2deg); }
+  75%      { transform: rotate(2deg);  }
+}
+@keyframes erenShakeDry {
+  0%   { transform: rotate(0deg);  }
+  12%  { transform: rotate(-8deg); }
+  25%  { transform: rotate(8deg);  }
+  37%  { transform: rotate(-8deg); }
+  50%  { transform: rotate(8deg);  }
+  62%  { transform: rotate(-6deg); }
+  75%  { transform: rotate(6deg);  }
+  100% { transform: rotate(0deg);  }
+}
+@keyframes erenPounce {
+  0%   { transform: translate(0, 0) scaleY(1);    }
+  15%  { transform: translate(0, 0) scaleY(0.9);  }
+  45%  { transform: translate(calc(var(--tx) * 0.6), -14px) scaleY(1.05); }
+  70%  { transform: translate(var(--tx), 0) scaleY(0.95); }
+  100% { transform: translate(0, 0) scaleY(1);    }
+}
+@keyframes erenSleepySway {
+  0%, 100% { transform: rotate(0deg);  }
+  25%      { transform: rotate(-2deg); }
+  75%      { transform: rotate(2deg);  }
+}
+@keyframes erenSettle {
+  0%   { transform: scaleY(1);    }
+  60%  { transform: scaleY(0.93); }
+  100% { transform: scaleY(0.95); }
+}
+@keyframes erenGrimace {
+  0%   { transform: scaleY(1)    rotate(0deg);  }
+  30%  { transform: scaleY(0.95) rotate(-3deg); }
+  100% { transform: scaleY(0.95) rotate(-3deg); }
+}
+
+/* Particles + props. */
+@keyframes erenCrumb {
+  0%   { transform: translate(0, 0) scale(1); opacity: 1; }
+  70%  { transform: translate(var(--tx), var(--ty)) scale(1); opacity: 1; }
+  99%  { transform: translate(var(--tx), calc(var(--ty) + 8px)) scale(0.8); opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes erenDroplet {
+  0%   { transform: translate(0, 0) scale(1); opacity: 1; }
+  99%  { transform: translate(var(--tx), var(--ty)) scale(0.9); opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes erenHeartRise {
+  0%   { transform: translate(0, 0) scale(0.6); opacity: 0; }
+  15%  { transform: translate(0, -6px) scale(1); opacity: 1; }
+  85%  { transform: translate(var(--tx), -44px) scale(1); opacity: 1; }
+  99%  { transform: translate(var(--tx), -52px) scale(0.9); opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes erenPropPop {
+  0%   { transform: scale(0);    }
+  60%  { transform: scale(1.15); }
+  100% { transform: scale(1);    }
+}
+@keyframes erenSparklePop {
+  0%   { transform: scale(0);    opacity: 0; }
+  40%  { transform: scale(1.15); opacity: 1; }
+  70%  { transform: scale(1);    opacity: 1; }
+  100% { transform: scale(1);    opacity: 0; }
+}
+@keyframes erenPoof {
+  0%   { transform: scale(0.4);  opacity: 0; }
+  40%  { transform: scale(1.2);  opacity: 1; }
+  70%  { transform: scale(1);    opacity: 1; }
+  99%  { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1.1);  opacity: 0; }
+}
+/* Sound-word — 2-step pop, hold, drift up, snap out in the last 1%. The
+   -50% centering lives in the keyframe because it overrides SoundWord's
+   inline transform once the animation runs. */
+@keyframes erenWordPop {
+  0%   { transform: translate(-50%, -50%) scale(0);    opacity: 0; }
+  10%  { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+  18%  { transform: translate(-50%, -50%) scale(1);    opacity: 1; }
+  80%  { transform: translate(-50%, -62%) scale(1);    opacity: 1; }
+  99%  { transform: translate(-50%, -70%) scale(1);    opacity: 1; }
+  100% { opacity: 0; }
+}
+
 /* HUD gradient number — the gradient (set via --clip-grad) is clipped to the
    glyph shapes. When a browser can't clip text, this rule is skipped and the
    number falls back to its solid inline `color` instead of the gradient
