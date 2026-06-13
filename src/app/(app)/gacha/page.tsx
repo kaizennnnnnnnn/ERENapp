@@ -67,6 +67,7 @@ export default function GachaPage() {
   const innerRefs = useRef<(HTMLDivElement | null)[]>([])
   const bgRefs = useRef<(HTMLDivElement | null)[]>([])
   const dimRefs = useRef<(HTMLDivElement | null)[]>([])
+  const edgeRefs = useRef<(HTMLDivElement | null)[]>([])
 
   const applyScrollFx = useCallback(() => {
     const el = scrollRef.current
@@ -86,6 +87,11 @@ export default function GachaPage() {
       }
       const dim = dimRefs.current[i]
       if (dim) dim.style.opacity = (0.6 * a).toFixed(3)
+      // Edge vignette ramps in off-center so the two abutting page edges melt
+      // into a soft dark gutter at the seam instead of a hard line. Zero when
+      // centered, so the settled machine stays full-bleed.
+      const edge = edgeRefs.current[i]
+      if (edge) edge.style.opacity = Math.min(1, a * 1.5).toFixed(3)
     })
   }, [])
 
@@ -200,6 +206,14 @@ export default function GachaPage() {
             <div ref={el => { dimRefs.current[idx] = el }}
               className="absolute inset-0 pointer-events-none"
               style={{ background: '#0B0414', opacity: idx === pageIdx ? 0 : 0.6 }} />
+
+            {/* Edge vignette — softens the seam between pages (driven in applyScrollFx) */}
+            <div ref={el => { edgeRefs.current[idx] = el }}
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background: 'linear-gradient(90deg, rgba(5,5,7,0.85) 0%, rgba(5,5,7,0) 16%, rgba(5,5,7,0) 84%, rgba(5,5,7,0.85) 100%)',
+                opacity: idx === pageIdx ? 0 : 1,
+              }} />
           </section>
         ))}
 
