@@ -241,7 +241,7 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
           className="w-full flex items-center gap-1 px-2 h-10 active:scale-[0.97] transition-transform relative"
           style={cuteBtn(QUEST_RGB)}
         >
-          <Liquid rgb={QUEST_RGB} height="46%" />
+          <Liquid rgb={QUEST_RGB} />
           <Gloss />
           <span className="relative flex items-center"><IconScroll size={18} /></span>
 

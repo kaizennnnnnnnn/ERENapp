@@ -83,26 +83,18 @@ export function Gloss() {
   )
 }
 
-/** Half-fill liquid that sits behind the icon, clipped to the button's
- *  rounded bottom corners, with a bright surface line. `height` controls how
- *  full it looks (default ~half). Render before the icon. */
-export function Liquid({ rgb, height = '50%' }: { rgb: string; height?: string }) {
+/** Liquid that fills the whole button behind the icon, clipped to the
+ *  button's rounded corners — a full, vivid colour gel tinted to `rgb`,
+ *  slightly deeper toward the bottom for depth. Render before the icon. */
+export function Liquid({ rgb }: { rgb: string }) {
   return (
     <span aria-hidden style={{
-      position: 'absolute', left: 1.5, right: 1.5, bottom: 1.5, height,
-      borderRadius: '3px 3px 9px 9px',
-      background: `linear-gradient(180deg, rgba(${rgb},0.82) 0%, rgba(${rgb},0.44) 100%)`,
-      boxShadow: 'inset 0 -2px 5px rgba(0,0,0,0.3)',
-      overflow: 'hidden',
+      position: 'absolute', top: 1.5, left: 1.5, right: 1.5, bottom: 1.5,
+      borderRadius: 9,
+      background: `linear-gradient(180deg, rgba(${rgb},0.68) 0%, rgba(${rgb},0.86) 58%, rgba(${rgb},0.96) 100%)`,
+      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -3px 6px rgba(0,0,0,0.3)',
       pointerEvents: 'none',
-    }}>
-      {/* Bright surface meniscus at the top of the liquid. */}
-      <span style={{
-        position: 'absolute', top: 0, left: 0, right: 0, height: 2,
-        background: 'rgba(255,255,255,0.6)',
-        boxShadow: `0 0 5px rgba(${rgb},0.9)`,
-      }} />
-    </span>
+    }} />
   )
 }
 
