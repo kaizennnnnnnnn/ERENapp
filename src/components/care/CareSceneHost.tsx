@@ -83,6 +83,23 @@ const SCENE_EREN_SPRITES: Partial<Record<CareScene, string[]>> = {
   school:    [],
 }
 
+// Pixel stars for the sparkle curtain you pass through between rooms — same
+// magical seam as the gacha swipe. Fixed layout (no Math.random) so the
+// pattern is stable across renders.
+const ROOM_SPARKS = [
+  { x: 50, y: 7,  s: 6, c: '#FFE9F4', d: 1.6, delay: 0    },
+  { x: 28, y: 15, s: 4, c: '#F9A8D4', d: 1.2, delay: 0.3  },
+  { x: 70, y: 23, s: 5, c: '#C4B5FD', d: 1.8, delay: 0.7  },
+  { x: 44, y: 32, s: 4, c: '#F5C842', d: 1.4, delay: 0.2  },
+  { x: 60, y: 41, s: 7, c: '#FFFFFF', d: 2.0, delay: 0.5  },
+  { x: 24, y: 50, s: 4, c: '#F9A8D4', d: 1.3, delay: 0.9  },
+  { x: 72, y: 59, s: 5, c: '#C4B5FD', d: 1.7, delay: 0.1  },
+  { x: 46, y: 67, s: 6, c: '#FFE9F4', d: 1.5, delay: 0.6  },
+  { x: 32, y: 76, s: 4, c: '#F5C842', d: 1.9, delay: 0.4  },
+  { x: 64, y: 84, s: 5, c: '#FFFFFF', d: 1.4, delay: 0.8  },
+  { x: 50, y: 93, s: 4, c: '#F9A8D4', d: 1.6, delay: 0.25 },
+] as const
+
 export default function CareSceneHost() {
   const { activeScene, openScene, closeScene } = useCare()
   const isDark = useIsDark()
@@ -265,20 +282,44 @@ export default function CareSceneHost() {
     }
   }
 
-  const animStyle: React.CSSProperties = dragX !== 0
+  const dragging = dragX !== 0
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 390
+  const dragProgress = Math.min(1, Math.abs(dragX) / vw)
+
+  const animStyle: React.CSSProperties = dragging
     ? { transform: `translateX(${dragX}px)`, transition: 'none' }
-    : { animation: `slideIn${slideDir === 'left' ? 'Right' : 'Left'} 0.4s cubic-bezier(0.32, 0.72, 0, 1) both` }
+    : { animation: `slideIn${slideDir === 'left' ? 'Right' : 'Left'} 0.45s cubic-bezier(0.32, 0.72, 0, 1) both` }
+
+  // Which edge the sparkle curtain hugs. While dragging it sits in the gap the
+  // receding room is opening; during the slide-in it rides the incoming room's
+  // leading edge so it sweeps across like a curtain you pass through.
+  const curtainSide: 'left' | 'right' = dragging
+    ? (dragX > 0 ? 'left' : 'right')
+    : (slideDir === 'left' ? 'left' : 'right')
 
   return (
     <>
       <style>{`
         @keyframes slideInRight {
-          from { transform: translateX(100%); }
-          to   { transform: translateX(0);    }
+          from { transform: translateX(100%) scale(0.92); }
+          to   { transform: translateX(0)    scale(1);    }
         }
         @keyframes slideInLeft {
-          from { transform: translateX(-100%); }
-          to   { transform: translateX(0);     }
+          from { transform: translateX(-100%) scale(0.92); }
+          to   { transform: translateX(0)     scale(1);    }
+        }
+        @keyframes roomArriveDim {
+          from { opacity: 0.55; }
+          to   { opacity: 0;    }
+        }
+        @keyframes roomCurtain {
+          0%   { opacity: 0; }
+          35%  { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        @keyframes roomTwinkle {
+          0%, 100% { opacity: 1;    transform: scale(1);   }
+          50%      { opacity: 0.25; transform: scale(0.6); }
         }
         @keyframes fadeInDown {
           from { opacity: 0; transform: translateY(-6px); }
@@ -382,6 +423,40 @@ export default function CareSceneHost() {
           onTouchEnd={onTouchEnd}
         >
           {sceneEl}
+
+          {/* Depth veil — the room darkens as it recedes (during a drag) and
+              brightens back in as the next room arrives (during the slide).
+              Sits just above the scene root (z-40), below the nav dots (z-50). */}
+          <div className="absolute inset-0 pointer-events-none" style={{
+            background: '#0B0414', zIndex: 41,
+            ...(dragging
+              ? { opacity: 0.5 * dragProgress }
+              : { opacity: 0, animation: 'roomArriveDim 0.45s ease-out both' }),
+          }} />
+
+          {/* Sparkle curtain — the magical seam between rooms. */}
+          <div aria-hidden className="absolute top-0 bottom-0 pointer-events-none" style={{
+            width: 130, zIndex: 45,
+            left:  curtainSide === 'left'  ? 0 : undefined,
+            right: curtainSide === 'right' ? 0 : undefined,
+            transform: `translateX(${curtainSide === 'left' ? '-50%' : '50%'})`,
+            ...(dragging
+              ? { opacity: 0.25 + 0.75 * dragProgress }
+              : { animation: 'roomCurtain 0.5s ease-out both' }),
+          }}>
+            <div className="absolute inset-0" style={{
+              background: curtainSide === 'left'
+                ? 'linear-gradient(90deg, transparent, rgba(244,114,182,0.18) 40%, rgba(255,255,255,0.22) 55%, rgba(167,139,250,0.16) 70%, transparent)'
+                : 'linear-gradient(90deg, transparent, rgba(167,139,250,0.16) 30%, rgba(255,255,255,0.22) 45%, rgba(244,114,182,0.18) 60%, transparent)',
+            }} />
+            {ROOM_SPARKS.map((s, i) => (
+              <div key={i} className="absolute" style={{
+                left: `${s.x}%`, top: `${s.y}%`, width: s.s, height: s.s,
+                background: s.c, boxShadow: `0 0 ${s.s + 4}px ${s.c}`,
+                animation: `roomTwinkle ${s.d}s steps(2, jump-none) ${s.delay}s infinite`,
+              }} />
+            ))}
+          </div>
         </div>
       )}
 
