@@ -17,6 +17,10 @@ import { useIsDark } from '@/hooks/useIsDark'
 import { useWish } from '@/contexts/WishContext'
 import WishHintBanner from '@/components/wish/WishHintBanner'
 import { wishHintRoom } from '@/lib/wishes'
+import { useErenReaction } from '@/hooks/useErenReaction'
+import { happyFinisherBeats, WORD_COLOR } from '@/lib/erenReactions'
+import SoundWord from '@/components/SoundWord'
+import { Hearts } from '@/components/care/ReactionFx'
 
 interface Props { onClose: () => void }
 interface BallPos { x: number; y: number }
@@ -69,6 +73,13 @@ export default function PlayScene({ onClose }: Props) {
   const animRef  = useRef<ReturnType<typeof requestAnimationFrame> | null>(null)
   const trailId  = useRef(0)
 
+  // Reaction runner — Eren pounces when the ball settles near him. The rAF
+  // step reads the runner via a ref so the []-dep animateBall callback always
+  // sees the latest play(), without re-creating the loop.
+  const reaction = useErenReaction()
+  const reactionRef = useRef(reaction); reactionRef.current = reaction
+  const lastPounceRef = useRef(0)
+
   const animateBall = useCallback((sx: number, sy: number, vx: number, vy: number) => {
     if (animRef.current) cancelAnimationFrame(animRef.current)
     let x = sx, y = sy, dvx = vx, dvy = vy
@@ -84,6 +95,13 @@ export default function PlayScene({ onClose }: Props) {
       } else {
         setBallMoving(false)
         setTrailDots([])
+        // Ball came to rest near Eren's paws → he pounces on it.
+        const now = Date.now()
+        if (Math.abs(x - 50) < 16 && y >= 82 && now - lastPounceRef.current > 1500) {
+          lastPounceRef.current = now
+          playSound('care_jingle')
+          reactionRef.current.play([{ name: 'pounce', ms: 520 }])
+        }
       }
     }
     animRef.current = requestAnimationFrame(step)
@@ -95,15 +113,15 @@ export default function PlayScene({ onClose }: Props) {
   // Cache fallback so Eren renders synchronously with the right state.
   const isSleeping = stats?.is_sleeping ?? getCachedIsSleeping() ?? true
 
-  // Memoize Eren so the 60fps ball-physics renders don't reconcile the
-  // sprite stack every frame (same pattern as FeedScene). Cleanliness is
+  // Memoize the bare sprite so the 60fps ball-physics renders don't reconcile
+  // the sprite stack every frame (same pattern as FeedScene). Cleanliness is
   // the only changing input — it drives StinkyFlies.
   const cleanliness = stats?.cleanliness ?? 100
-  const erenElement = useMemo(() => (
-    <ErenIdleLayer>
+  const erenSprite = useMemo(() => (
+    <>
       <BlinkingEren size={200} src="/ErenBell_notail.png" tailSrc="/ErenBell_tail.png" tailOrigin="73.3% 76.7%" eyes={BELL_EYES} />
       <StinkyFlies cleanliness={cleanliness} />
-    </ErenIdleLayer>
+    </>
   ), [cleanliness])
 
   function handleThrow(e: React.MouseEvent<HTMLDivElement>) {
@@ -128,7 +146,10 @@ export default function PlayScene({ onClose }: Props) {
     setSaving(false)
     setDone(true)
     setToast(result.message)
-    if (result.success) completeTask('daily_play')
+    if (result.success) {
+      completeTask('daily_play')
+      reaction.play(happyFinisherBeats())
+    }
     setTimeout(() => setToast(null), 2500)
   }
 
@@ -147,11 +168,39 @@ export default function PlayScene({ onClose }: Props) {
       {/* ══ BACKGROUND IMAGE ══ */}
       <div className="absolute inset-0" style={{ backgroundImage: `url(${isDark ? '/play.png' : '/playroom.png'})`, backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
-            {/* ══ EREN ══ (hidden while sleeping in the bedroom) */}
+            {/* ══ EREN ══ (hidden while sleeping in the bedroom).
+          The flip container faces him toward the ball; the pounce hop rides
+          an inner wrapper so its forward --tx is mirrored toward the ball by
+          the same flip. Idle pauses while a reaction plays. */}
       {!isSleeping && (
         <div className={cn('absolute z-10 transition-all duration-500')}
           style={{ bottom: '10%', left: '50%', transform: `translateX(-50%) scaleX(${lookDir === 'left' ? -1 : 1})` }}>
-          {erenElement}
+          <div style={{
+            animation: reaction.phase === 'pounce' ? 'erenPounce 520ms cubic-bezier(0.3,0.7,0.4,1)'
+              : reaction.phase === 'finish' ? 'erenIdleHop 800ms ease-in-out'
+              : undefined,
+            transformOrigin: 'bottom center',
+            ['--tx' as string]: '10px',
+          } as React.CSSProperties}>
+            <ErenIdleLayer disabled={reaction.active}>
+              {erenSprite}
+            </ErenIdleLayer>
+          </div>
+        </div>
+      )}
+
+      {/* Reaction words/hearts — a SEPARATE, non-flipped overlay at Eren's
+          spot so the pixel text never renders mirrored by the flip. */}
+      {!isSleeping && (reaction.phase === 'pounce' || reaction.phase === 'finish') && (
+        <div className="absolute z-20 pointer-events-none" style={{
+          bottom: '10%', left: '50%', transform: 'translateX(-50%)', width: 200, height: 200,
+        }}>
+          {reaction.phase === 'pounce' &&
+            <SoundWord word="JINGLE!" color={WORD_COLOR.curious} left={50} top={4} />}
+          {reaction.phase === 'finish' && <>
+            <Hearts count={2} bottom="60%" />
+            <SoundWord word="FUN!" color={WORD_COLOR.happy} left={50} top={6} />
+          </>}
         </div>
       )}
 

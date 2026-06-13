@@ -47,6 +47,10 @@ import { useIsDark } from '@/hooks/useIsDark'
 import LightSwitch from '@/components/LightSwitch'
 import { useWish } from '@/contexts/WishContext'
 import { useWishLinger } from '@/hooks/useWishLinger'
+import { useErenReaction } from '@/hooks/useErenReaction'
+import { WORD_COLOR } from '@/lib/erenReactions'
+import SoundWord from '@/components/SoundWord'
+import { Hearts } from '@/components/care/ReactionFx'
 import WishCloud from '@/components/wish/WishCloud'
 import ErenGrantBurst from '@/components/wish/ErenGrantBurst'
 import ErenSpeechBubble from '@/components/wish/ErenSpeechBubble'
@@ -119,21 +123,24 @@ export default function HomePage() {
   const isDark = useIsDark()
   const wish = useWish()
 
-  // Pet interaction — tap on Eren triggers a wiggle, a purr, and dispatches
-  // eren:pet so the wish system can grant pet-flavoured wishes (mood-pet,
-  // mood-lap). 1.5s cooldown prevents tap-spam from auto-granting.
-  const [wiggleKey, setWiggleKey] = useState(0)
+  // Pet interaction — tap on Eren and he leans his whole body toward your
+  // hand (the tapped side), shivers a purr, floats hearts and a "PURRR", and
+  // dispatches eren:pet so the wish system can grant pet-flavoured wishes
+  // (mood-pet, mood-lap). 1.5s cooldown prevents tap-spam from auto-granting.
+  const petReaction = useErenReaction()
+  const [petSide, setPetSide] = useState<'L' | 'R'>('R')
   const lastPetAtRef = useRef(0)
-  const handlePetEren = useCallback(() => {
+  const handlePetEren = useCallback((e: React.MouseEvent) => {
     const now = Date.now()
     if (now - lastPetAtRef.current < 1500) return
     lastPetAtRef.current = now
-    setWiggleKey(k => k + 1)
-    playSound('pet_purr')
+    // Lean toward whichever side of his body was tapped.
+    setPetSide(e.clientX < window.innerWidth / 2 ? 'L' : 'R')
+    petReaction.play([{ name: 'lean', ms: 1100, onEnter: () => playSound('pet_purr') }])
     try {
       window.dispatchEvent(new CustomEvent('eren:pet', { detail: { user_id: user?.id } }))
     } catch { /* SSR/no-window */ }
-  }, [user?.id])
+  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Get equipped items for display
   const equippedOutfits = inventory.filter(i => i.equipped).map(i => GACHA_ITEMS.find(g => g.id === i.item_id)).filter(Boolean)
@@ -598,42 +605,58 @@ export default function HomePage() {
               bottom: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 2,
               filter: mood === 'angry' ? 'hue-rotate(340deg) saturate(1.3)' : mood === 'sleepy' ? 'brightness(0.85)' : 'none',
             }}>
-              {/* Tappable wrapper — pet/wiggle/purr lives here. Re-keyed every
-                  pet so the wiggle keyframe restarts. */}
+              {/* Tappable wrapper — pet/lean/purr lives here. Two nested
+                  animated layers: the outer leans his whole body toward the
+                  tapped side, the inner adds the high-frequency purr shiver,
+                  so they compose without fighting one transform. */}
               <div
-                key={wiggleKey}
                 role="button"
                 aria-label="Pet Eren"
                 onClick={handlePetEren}
                 style={{
                   cursor: 'pointer',
-                  animation: wiggleKey > 0 ? 'erenPetWiggle 0.55s ease-out' : 'none',
-                  transformOrigin: '50% 90%',
                   WebkitTapHighlightColor: 'transparent',
                 }}
               >
-                <ErenIdleLayer>
-                  {/* Tail split into its own layer (erenGood_tail.png) over a
-                      tail-erased body so only the tail sways. See BlinkingEren. */}
-                  <BlinkingEren id="eren-img" size={200}
-                    src="/erenGood_notail.png"
-                    tailSrc="/erenGood_tail.png" />
-                  <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
+                <div style={{
+                  animation: petReaction.phase === 'lean'
+                    ? `erenHeadLean${petSide} 1100ms ease-in-out` : undefined,
+                  transformOrigin: 'bottom center',
+                }}>
+                  <div style={{
+                    animation: petReaction.phase === 'lean'
+                      ? 'erenPurrShiver 120ms steps(2) 250ms 7' : undefined,
+                  }}>
+                    <ErenIdleLayer disabled={petReaction.active}>
+                      {/* Tail split into its own layer (erenGood_tail.png) over a
+                          tail-erased body so only the tail sways. See BlinkingEren. */}
+                      <BlinkingEren id="eren-img" size={200}
+                        src="/erenGood_notail.png"
+                        tailSrc="/erenGood_tail.png" />
+                      <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
 
-                  {/* Outfit overlays — % positions are relative to the parent
-                      absolute div, which is sized by BlinkingEren (200×200). */}
-                  {equippedOutfits.map(item => item?.pos && item.slot && (
-                    <div key={item.id} className="absolute pointer-events-none" style={{
-                      top: `${item.pos.top}%`, left: `${item.pos.left}%`,
-                      transform: 'translate(-50%, -50%)',
-                      fontSize: item.pos.size, lineHeight: 1,
-                      zIndex: item.slot === 'hat' ? 10 : item.slot === 'eyes' ? 9 : 8,
-                      filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
-                    }}>
-                      {item.icon}
-                    </div>
-                  ))}
-                </ErenIdleLayer>
+                      {/* Outfit overlays — % positions are relative to the parent
+                          absolute div, which is sized by BlinkingEren (200×200). */}
+                      {equippedOutfits.map(item => item?.pos && item.slot && (
+                        <div key={item.id} className="absolute pointer-events-none" style={{
+                          top: `${item.pos.top}%`, left: `${item.pos.left}%`,
+                          transform: 'translate(-50%, -50%)',
+                          fontSize: item.pos.size, lineHeight: 1,
+                          zIndex: item.slot === 'hat' ? 10 : item.slot === 'eyes' ? 9 : 8,
+                          filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
+                        }}>
+                          {item.icon}
+                        </div>
+                      ))}
+                    </ErenIdleLayer>
+                  </div>
+                </div>
+
+                {/* Purr hearts + word during the lean, anchored to this box. */}
+                {petReaction.phase === 'lean' && <>
+                  <Hearts count={3} bottom="58%" />
+                  <SoundWord word="PURRR" color={WORD_COLOR.purr} left={petSide === 'L' ? 36 : 64} top={6} />
+                </>}
               </div>
             </div>
 
