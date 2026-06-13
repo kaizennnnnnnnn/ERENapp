@@ -73,11 +73,13 @@ interface XpParticle {
 // Eren standing at his usual bottom-10% spot.
 const dockBtnBase: React.CSSProperties = {
   flex: 1,
-  height: 44,
-  borderRadius: 5,
-  border: '2px solid #050507',
+  height: 46,
+  borderRadius: 15,
+  border: '2px solid #160a26',
+  // Straight-down chunky shadow (candy/game-button look) + a glossy inner top
+  // highlight. The press state in globals.css drops it into the shadow.
   boxShadow:
-    '3px 3px 0 #050507, inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 0 rgba(0,0,0,0.25)',
+    '0 4px 0 #160a26, inset 0 2px 0 rgba(255,255,255,0.5), inset 0 -3px 0 rgba(0,0,0,0.18)',
   display: 'flex',
   flexDirection: 'row',
   alignItems: 'center',
@@ -89,14 +91,29 @@ const dockBtnBase: React.CSSProperties = {
   WebkitTapHighlightColor: 'transparent',
 }
 
-// Diagonal highlight streak that sells the "polished pixel button" look.
+// Glossy top dome — the rounded shine that makes it read as a candy button.
 const dockBtnGloss: React.CSSProperties = {
   position: 'absolute',
-  inset: 0,
+  top: 2, left: 4, right: 4,
+  height: '44%',
   pointerEvents: 'none',
   background:
-    'linear-gradient(135deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 45%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.18) 100%)',
-  borderRadius: 4,
+    'linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.04) 100%)',
+  borderRadius: 12,
+}
+
+// Cute rounded bubble the icon sits in, so it pops as a little badge.
+const dockBtnIcon: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 24, height: 24,
+  borderRadius: 8,
+  flexShrink: 0,
+  background: 'rgba(255,255,255,0.25)',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 0 rgba(0,0,0,0.12)',
+  position: 'relative',
+  zIndex: 1,
 }
 
 const dockBtnLabel: React.CSSProperties = {
@@ -936,7 +953,8 @@ export default function HomePage() {
             }}
           >
             <div style={dockBtnGloss} />
-            <IconCapsule size={20} />
+            <div className="home-dock-shine" style={{ animationDelay: '0s' }} />
+            <span style={dockBtnIcon}><IconCapsule size={17} /></span>
             <span style={dockBtnLabel}>GACHA</span>
           </Link>
 
@@ -956,7 +974,8 @@ export default function HomePage() {
             }}
           >
             <div style={dockBtnGloss} />
-            <IconCake size={20} />
+            <div className="home-dock-shine" style={{ animationDelay: '1.4s' }} />
+            <span style={dockBtnIcon}><IconCake size={17} /></span>
             <span style={dockBtnLabel}>CAKE</span>
           </Link>
 
@@ -969,7 +988,8 @@ export default function HomePage() {
             }}
           >
             <div style={dockBtnGloss} />
-            <IconShawarma size={20} />
+            <div className="home-dock-shine" style={{ animationDelay: '2.8s' }} />
+            <span style={dockBtnIcon}><IconShawarma size={17} /></span>
             <span style={dockBtnLabel}>SHAWARMA</span>
           </button>
         </div>

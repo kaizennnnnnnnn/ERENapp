@@ -1,0 +1,79 @@
+<!doctype html>
+<!-- Mirrors the home-dock buttons (home/page.tsx dockBtn* + globals .home-dock-*)
+     so the candy restyle can be eyeballed without auth. Placeholder icon squares
+     stand in for the pixel icons. Keep in sync with the source. -->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  body { background: #b07a4a; padding: 16px 0; font-family: "Courier New", monospace; }
+  .frame { width: 390px; margin: 0 auto; }
+  .label { color: #fff; font-size: 11px; margin: 10px 8px 4px; opacity: 0.8; }
+
+  .dock { display: flex; gap: 8px; padding: 0 8px; }
+  .btn {
+    flex: 1; height: 46px; border-radius: 15px; border: 2px solid #160a26;
+    box-shadow: 0 4px 0 #160a26, inset 0 2px 0 rgba(255,255,255,0.5), inset 0 -3px 0 rgba(0,0,0,0.18);
+    display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px;
+    position: relative; overflow: hidden; cursor: pointer;
+  }
+  .btn.gacha { background: linear-gradient(180deg, #D4B4FC 0%, #A78BFA 45%, #7C3AED 100%); }
+  .btn.cake  { background: linear-gradient(180deg, #FBCFE8 0%, #F472B6 45%, #DB2777 100%); }
+  .btn.shaw  { background: linear-gradient(180deg, #FED7AA 0%, #FB923C 45%, #C2410C 100%); }
+
+  .btn.pressed {
+    transform: translateY(3px) scale(0.98);
+    box-shadow: 0 1px 0 #160a26, inset 0 2px 0 rgba(255,255,255,0.5), inset 0 -2px 0 rgba(0,0,0,0.18);
+  }
+
+  .gloss {
+    position: absolute; top: 2px; left: 4px; right: 4px; height: 44%;
+    pointer-events: none; border-radius: 12px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.04) 100%);
+  }
+  .icon {
+    display: flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 8px; flex-shrink: 0;
+    background: rgba(255,255,255,0.25);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 0 rgba(0,0,0,0.12);
+    position: relative; z-index: 1;
+  }
+  .icon i { width: 14px; height: 14px; border-radius: 3px; background: #fff7; display: block; }
+  .lbl {
+    font-family: "Press Start 2P", "Courier New", monospace; font-size: 7px; letter-spacing: 0.5px;
+    color: #FBF1D9; text-shadow: 1px 1px 0 rgba(0,0,0,0.65); position: relative; z-index: 1; font-weight: bold;
+  }
+
+  .shine {
+    position: absolute; top: 0; bottom: 0; left: 0; width: 38%; pointer-events: none;
+    background: linear-gradient(100deg, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%);
+    transform: translateX(-260%) skewX(-18deg);
+    animation: dockShine 5s ease-in-out infinite;
+  }
+  /* Frozen sweep position for the screenshot (one button caught mid-shine) */
+  .shine.mid { transform: translateX(40%) skewX(-18deg); animation: none; }
+  @keyframes dockShine {
+    0%, 72%   { transform: translateX(-260%) skewX(-18deg); }
+    88%, 100% { transform: translateX(360%) skewX(-18deg); }
+  }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="label">rest</div>
+    <div class="dock">
+      <a class="btn gacha"><div class="gloss"></div><div class="shine"></div><span class="icon"><i></i></span><span class="lbl">GACHA</span></a>
+      <a class="btn cake"><div class="gloss"></div><div class="shine"></div><span class="icon"><i></i></span><span class="lbl">CAKE</span></a>
+      <a class="btn shaw"><div class="gloss"></div><div class="shine"></div><span class="icon"><i></i></span><span class="lbl">SHAWARMA</span></a>
+    </div>
+
+    <div class="label">gacha pressed · cake mid-shine</div>
+    <div class="dock">
+      <a class="btn gacha pressed"><div class="gloss"></div><span class="icon"><i></i></span><span class="lbl">GACHA</span></a>
+      <a class="btn cake"><div class="gloss"></div><div class="shine mid"></div><span class="icon"><i></i></span><span class="lbl">CAKE</span></a>
+      <a class="btn shaw"><div class="gloss"></div><span class="icon"><i></i></span><span class="lbl">SHAWARMA</span></a>
+    </div>
+  </div>
+</body>
+</html>
