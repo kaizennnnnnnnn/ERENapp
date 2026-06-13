@@ -18,6 +18,10 @@ import { useIsDark } from '@/hooks/useIsDark'
 import { useWish } from '@/contexts/WishContext'
 import WishHintBanner from '@/components/wish/WishHintBanner'
 import { wishHintRoom } from '@/lib/wishes'
+import { useErenReaction } from '@/hooks/useErenReaction'
+import { happyFinisherBeats, WORD_COLOR } from '@/lib/erenReactions'
+import SoundWord from '@/components/SoundWord'
+import { FoodBowl, Crumbs, Hearts } from '@/components/care/ReactionFx'
 
 interface Props { onClose: () => void }
 
@@ -374,41 +378,78 @@ export default function FeedScene({ onClose }: Props) {
   // been fetched yet do we conservatively default to sleeping.
   const isSleeping = stats?.is_sleeping ?? getCachedIsSleeping() ?? true
 
-  // Memoize Eren so stat changes from feeding don't re-render the sprite.
+  // Reaction runner — drives the eating choreography on a successful feed.
+  const reaction = useErenReaction()
+  // The food just fed, so the bowl + crumbs can take its color.
+  const [fedItem, setFedItem] = useState<typeof SHOP_ITEMS[number] | null>(null)
+
+  // Memoize the bare sprite so stat changes from feeding don't re-render it.
   // Cleanliness is in the deps so the flies update — feeding never changes
   // cleanliness, so this never recomputes mid-feed (no sprite flicker).
   const cleanliness = stats?.cleanliness ?? 100
-  const erenElement = useMemo(() => (
+  const erenSprite = useMemo(() => (
+    <>
+      {/* Kitchen pose: ErenCook.png (redrawn — no watermark cross).
+          Coords come from a pixel-scan of the 959×1536 sprite,
+          translated to the 210×210 BlinkingEren container (portrait
+          sprite height-fits so the image occupies the middle ~62.6%
+          of container width). Catchlights are MIRRORED on this
+          sprite: eye A's in the upper-RIGHT of its iris, eye B's in
+          the upper-LEFT — they point toward the nose. */}
+      <BlinkingEren size={210} src="/ErenCook_notail.png" tailSrc="/ErenCook_tail.png" tailOrigin="71.8% 80.7%" eyes={{
+        lidTop:    '37.19%',
+        lidWidth:  '5.42%',
+        lidLeftA:  '40.79%',
+        lidLeftB:  '54.79%',
+        maskTop:   '37.19%',
+        maskLeftA: '40.79%',
+        maskLeftB: '54.79%',
+        maskW:     '5.42%',
+        maskH:     '4.62%',
+        glintLeftA: '60.3%',
+        glintTopA:  '3%',
+        glintLeftB: '20.5%',
+        glintTopB:  '3%',
+        glintW:     '18%',
+      }} />
+      <StinkyFlies cleanliness={cleanliness} />
+    </>
+  ), [cleanliness]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Eren block — sprite + crouch-to-eat body animation + bowl/crumbs/word/hearts
+  // particles, all anchored to this container. Idle is paused mid-reaction.
+  const phase = reaction.phase
+  // Both eat sub-beats keep the same body animation string, so it plays through
+  // 2650ms without restarting while the chew sound re-fires on 'eat2'.
+  const eating = phase === 'eat' || phase === 'eat2'
+  const bowlColor = fedItem?.color ?? '#D4A44A'
+  const erenElement = (
     <div className="absolute z-20 bottom-[10%]"
       style={{ left: '50%', transform: 'translateX(-50%)' }}>
-      <ErenIdleLayer>
-        {/* Kitchen pose: ErenCook.png (redrawn — no watermark cross).
-            Coords come from a pixel-scan of the 959×1536 sprite,
-            translated to the 210×210 BlinkingEren container (portrait
-            sprite height-fits so the image occupies the middle ~62.6%
-            of container width). Catchlights are MIRRORED on this
-            sprite: eye A's in the upper-RIGHT of its iris, eye B's in
-            the upper-LEFT — they point toward the nose. */}
-        <BlinkingEren size={210} src="/ErenCook_notail.png" tailSrc="/ErenCook_tail.png" tailOrigin="71.8% 80.7%" eyes={{
-          lidTop:    '37.19%',
-          lidWidth:  '5.42%',
-          lidLeftA:  '40.79%',
-          lidLeftB:  '54.79%',
-          maskTop:   '37.19%',
-          maskLeftA: '40.79%',
-          maskLeftB: '54.79%',
-          maskW:     '5.42%',
-          maskH:     '4.62%',
-          glintLeftA: '60.3%',
-          glintTopA:  '3%',
-          glintLeftB: '20.5%',
-          glintTopB:  '3%',
-          glintW:     '18%',
-        }} />
-        <StinkyFlies cleanliness={cleanliness} />
+      <ErenIdleLayer disabled={reaction.active}>
+        <div style={{
+          animation: eating ? 'erenEatBody 2650ms ease-in-out both'
+            : phase === 'finish' ? 'erenIdleHop 800ms ease-in-out'
+            : undefined,
+          transformOrigin: 'bottom center',
+        }}>
+          {erenSprite}
+        </div>
       </ErenIdleLayer>
+
+      {/* Bowl appears the moment food lands and stays until eating ends. */}
+      {(phase === 'bowl' || eating) && <FoodBowl color={bowlColor} bottom="-2%" />}
+      {/* Crumbs + chew words spread across the eat beat. */}
+      {eating && <Crumbs color={bowlColor} bottom="2%" />}
+      {eating && <SoundWord word="NOM NOM" color={WORD_COLOR.food} left={62} top={14} />}
+      {eating && <SoundWord word="NOM NOM" color={WORD_COLOR.food} left={60} top={12} delayMs={1400} />}
+      {/* Happy finisher. */}
+      {phase === 'finish' && <>
+        <Hearts count={2} bottom="60%" />
+        <SoundWord word="YUM!" color={WORD_COLOR.happy} left={50} top={6} />
+      </>}
     </div>
-  ), [cleanliness]) // eslint-disable-line react-hooks/exhaustive-deps
+  )
 
   function showToast(msg: string, ok = true) {
     setToast({ msg, ok })
@@ -440,8 +481,17 @@ export default function FeedScene({ onClose }: Props) {
       return
     }
     // Eren starts munching the moment the food lands — fire the eating
-    // sound before the network round-trip so playback feels immediate.
+    // sound before the network round-trip so playback feels immediate, and
+    // kick off the eat reaction (bowl → crouch-and-chomp → happy finisher).
     playSound('care_eat')
+    setFedItem(item)
+    reaction.play([
+      { name: 'bowl', ms: 150 },
+      { name: 'eat',  ms: 1300 },
+      // Second chew sound lands mid-meal, not stacked on the first.
+      { name: 'eat2', ms: 1350, onEnter: () => playSound('care_eat') },
+      ...happyFinisherBeats(),
+    ])
     // Signal the food key for the Daily Wish system — useDailyWish picks
     // this up to match food-specific wishes like "i'm craving salmon".
     try {

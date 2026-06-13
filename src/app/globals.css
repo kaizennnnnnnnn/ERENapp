@@ -341,6 +341,20 @@
   0%, 100% { transform: scaleY(1);    }
   50%      { transform: scaleY(0.975); }
 }
+/* Whole-body eat (Phase 1, no head rig): crouch down toward the floor bowl and
+   bob with each chomp, anchored at the feet so he dips to the food and lifts
+   back up. One span covers dive → 3 chomps → up. */
+@keyframes erenEatBody {
+  0%   { transform: translateY(0)    scaleY(1);    }
+  10%  { transform: translateY(4%)   scaleY(0.96); }
+  25%  { transform: translateY(5.5%) scaleY(0.94); }
+  35%  { transform: translateY(4%)   scaleY(0.96); }
+  50%  { transform: translateY(5.5%) scaleY(0.94); }
+  60%  { transform: translateY(4%)   scaleY(0.96); }
+  75%  { transform: translateY(5.5%) scaleY(0.94); }
+  85%  { transform: translateY(4%)   scaleY(0.96); }
+  100% { transform: translateY(0)    scaleY(1);    }
+}
 @keyframes erenPurrShiver {
   0%, 100% { transform: translate(0, 0)       rotate(0deg);    }
   25%      { transform: translate(0.4px, 0)   rotate(-0.8deg); }

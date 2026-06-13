@@ -13,6 +13,9 @@ import LightSwitch from '@/components/LightSwitch'
 import { useWish } from '@/contexts/WishContext'
 import WishHintBanner from '@/components/wish/WishHintBanner'
 import { wishHintRoom } from '@/lib/wishes'
+import { useErenReaction } from '@/hooks/useErenReaction'
+import { WORD_COLOR } from '@/lib/erenReactions'
+import SoundWord from '@/components/SoundWord'
 
 interface Props { onClose: () => void }
 
@@ -26,6 +29,7 @@ export default function SleepScene({ onClose }: Props) {
   const [tucking, setTucking] = useState(false)
   const [waking,  setWaking]  = useState(false)
   const [toast,   setToast]   = useState<string | null>(null)
+  const reaction = useErenReaction()
 
   // Fall back to the module-level cache so the button reads WAKE UP
   // immediately on swipe-in; otherwise it flashes TUCK IN for ~200 ms
@@ -38,7 +42,15 @@ export default function SleepScene({ onClose }: Props) {
   async function handleTuckIn() {
     if (!user?.id || busy) return
     setTucking(true)
-    await new Promise(r => setTimeout(r, 700))
+    // Sleepy sway → settle squash while the eyes drift shut. The stats flip
+    // to is_sleeping after applyAction, which keeps him settled + lids-closed
+    // from then on (so a partner's remote tuck-in lands the same resting pose
+    // with no choreography).
+    reaction.play([
+      { name: 'sway',   ms: 500, onEnter: () => playSound('care_sleep') },
+      { name: 'settle', ms: 700 },
+    ])
+    await new Promise(r => setTimeout(r, 1150))
     const result = await applyAction(user.id, 'sleep')
     setTucking(false)
     setToast(result.message)
@@ -51,6 +63,8 @@ export default function SleepScene({ onClose }: Props) {
     setWaking(true)
     const result = await wakeUp()
     setWaking(false)
+    // Eyes open (is_sleeping is now false), then a big waking stretch.
+    reaction.play([{ name: 'wake', ms: 1800, onEnter: () => playSound('care_sleep') }])
     setToast(result.message)
     setTimeout(() => setToast(null), 3000)
   }
@@ -108,23 +122,42 @@ export default function SleepScene({ onClose }: Props) {
       {/* ══ EREN ══ */}
       <div className={cn('absolute z-10 transition-all duration-700', tuckedIn ? 'bottom-[16%]' : 'bottom-[14%]')}
         style={{ left: '50%', transform: 'translateX(-50%)' }}>
-        <ErenIdleLayer disabled={tuckedIn}>
-          {/* Bedroom sticker is the nightcap pose — the cap pushes the face
-              down and squeezes the head slightly, so the eyes sit lower and
-              closer together than on erenGood.png. These overrides re-aim
-              the blink + glint overlays at the new eye positions. Tune by
-              eye if the bedroom looks off. */}
-          <BlinkingEren size={230} src="/erenSleep_notail.png" tailSrc="/erenSleep_tail.png" tailOrigin="69.4% 73.6%" eyes={{
-            lidTop:    '36%',
-            lidLeftA:  '41%',
-            lidLeftB:  '51%',
-            maskTop:   '36.3%',
-            maskLeftA: '40.3%',
-            maskLeftB: '52.8%',
-            glintW:    '28%',
-          }} />
+        <ErenIdleLayer disabled={tuckedIn || reaction.active}>
+          {/* Reaction wrapper: sleepy sway → settle squash on tuck-in, waking
+              stretch on wake; otherwise holds a slight settled squash while
+              he's asleep. Composes over BlinkingEren's (slowed) breathing. */}
+          <div style={{
+            animation: reaction.phase === 'sway'   ? 'erenSleepySway 500ms ease-in-out 2'
+              : reaction.phase === 'settle' ? 'erenSettle 700ms ease-out both'
+              : reaction.phase === 'wake'   ? 'erenIdleStretch 1800ms ease-in-out'
+              : undefined,
+            transform: tuckedIn && !reaction.active ? 'scaleY(0.96)' : undefined,
+            transformOrigin: 'bottom center',
+          }}>
+            {/* Bedroom sticker is the nightcap pose — the cap pushes the face
+                down and squeezes the head slightly, so the eyes sit lower and
+                closer together than on erenGood.png. These overrides re-aim
+                the blink + glint overlays at the new eye positions. lidsClosed
+                holds his eyes shut while asleep / settling; the breath slows. */}
+            <BlinkingEren size={230} src="/erenSleep_notail.png" tailSrc="/erenSleep_tail.png" tailOrigin="69.4% 73.6%"
+              lidsClosed={tuckedIn || reaction.phase === 'settle'}
+              breatheDur={tuckedIn ? 6.5 : 4}
+              eyes={{
+                lidTop:    '36%',
+                lidLeftA:  '41%',
+                lidLeftB:  '51%',
+                maskTop:   '36.3%',
+                maskLeftA: '40.3%',
+                maskLeftB: '52.8%',
+                glintW:    '28%',
+              }} />
+          </div>
           <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
         </ErenIdleLayer>
+
+        {/* Sleepy yawn / waking sound-words, anchored above his head. */}
+        {reaction.phase === 'sway' && <SoundWord word="MRAAW" color={WORD_COLOR.sleep} left={50} top={4} />}
+        {reaction.phase === 'wake' && <SoundWord word="MRRP!" color={WORD_COLOR.sleep} left={50} top={4} />}
       </div>
 
       {/* ══ ZZZs ══ */}

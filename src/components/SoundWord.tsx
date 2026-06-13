@@ -18,9 +18,11 @@ interface Props {
   top?: number
   /** Font size in px (Press Start 2P). */
   size?: number
+  /** Stagger the pop (ms) — lets one phase fire several words in sequence. */
+  delayMs?: number
 }
 
-export default function SoundWord({ word, color, left = 50, top = 0, size = 7 }: Props) {
+export default function SoundWord({ word, color, left = 50, top = 0, size = 7, delayMs = 0 }: Props) {
   return (
     <div
       className="absolute pointer-events-none"
@@ -35,7 +37,7 @@ export default function SoundWord({ word, color, left = 50, top = 0, size = 7 }:
         color,
         whiteSpace: 'nowrap',
         textShadow: '1px 1px 0 rgba(0,0,0,0.35)',
-        animation: 'erenWordPop 1.1s linear forwards',
+        animation: `erenWordPop 1.1s linear ${delayMs}ms both`,
         willChange: 'transform, opacity',
       }}
     >
