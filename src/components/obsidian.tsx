@@ -58,26 +58,27 @@ export const OBSIDIAN_BTN: CSSProperties = {
 
 // ── Cute candy buttons ──
 // A softer, friendlier variant of OBSIDIAN_BTN used for the home HUD nav
-// row + the quest pill. Each button is a SOLID colour candy tile (passed as
-// an `r,g,b` triplet) with a glossy top highlight and a chunky drop. The
-// button colour is chosen to CONTRAST its icon — never the icon's own hue —
-// so the pixel icon stays clearly readable on top.
+// row + the quest pill. Each button is a LIGHT pastel candy tile (passed as
+// an `r,g,b` triplet) with a glossy top highlight and a soft drop. The
+// pastel is a pale version of the colour INSIDE the icon, so the button
+// matches its icon; the icon's dark outlines + saturated fills keep it
+// crisp against the pale tile.
 
-/** Cute button chrome. Pass the button's solid colour as `r,g,b`. */
+/** Cute button chrome. Pass the button's pastel colour as `r,g,b`. */
 export const cuteBtn = (rgb: string): CSSProperties => ({
   background: `rgb(${rgb})`,
-  border: '1.5px solid rgba(0,0,0,0.32)',
+  border: '1.5px solid rgba(0,0,0,0.22)',
   borderRadius: 11,
-  boxShadow: `0 0 7px rgba(${rgb},0.4), 0 2px 5px rgba(0,0,0,0.45), inset 0 2px 0 rgba(255,255,255,0.5), inset 0 -3px 5px rgba(0,0,0,0.22)`,
+  boxShadow: '0 1px 0 rgba(255,255,255,0.35), 0 3px 6px rgba(0,0,0,0.4), inset 0 2px 0 rgba(255,255,255,0.6), inset 0 -3px 5px rgba(0,0,0,0.13)',
 })
 
-/** Wraps a pixel icon with a soft dark drop-shadow so its edges separate
- *  from the solid button colour underneath. */
+/** Wraps a pixel icon with a soft drop-shadow so its edges separate from
+ *  the pale button colour underneath. */
 export function CuteIcon({ children }: { children: ReactNode }) {
   return (
     <span style={{
       display: 'inline-flex', position: 'relative',
-      filter: 'drop-shadow(0 1px 1.5px rgba(0,0,0,0.5))',
+      filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.35))',
     }}>
       {children}
     </span>
