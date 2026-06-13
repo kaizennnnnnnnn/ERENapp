@@ -123,20 +123,17 @@ export default function HomePage() {
   const isDark = useIsDark()
   const wish = useWish()
 
-  // Pet interaction — tap on Eren and he leans his whole body toward your
-  // hand (the tapped side), shivers a purr, floats hearts and a "PURRR", and
-  // dispatches eren:pet so the wish system can grant pet-flavoured wishes
-  // (mood-pet, mood-lap). 1.5s cooldown prevents tap-spam from auto-granting.
+  // Pet interaction — tap on Eren and he stays in place, just trembling a
+  // gentle purr with hearts + a "PURRR", and dispatches eren:pet so the wish
+  // system can grant pet-flavoured wishes (mood-pet, mood-lap). 1.5s cooldown
+  // prevents tap-spam from auto-granting.
   const petReaction = useErenReaction()
-  const [petSide, setPetSide] = useState<'L' | 'R'>('R')
   const lastPetAtRef = useRef(0)
-  const handlePetEren = useCallback((e: React.MouseEvent) => {
+  const handlePetEren = useCallback(() => {
     const now = Date.now()
     if (now - lastPetAtRef.current < 1500) return
     lastPetAtRef.current = now
-    // Lean toward whichever side of his body was tapped.
-    setPetSide(e.clientX < window.innerWidth / 2 ? 'L' : 'R')
-    petReaction.play([{ name: 'lean', ms: 1100, onEnter: () => playSound('pet_purr') }])
+    petReaction.play([{ name: 'purr', ms: 1000, onEnter: () => playSound('pet_purr') }])
     try {
       window.dispatchEvent(new CustomEvent('eren:pet', { detail: { user_id: user?.id } }))
     } catch { /* SSR/no-window */ }
@@ -605,10 +602,8 @@ export default function HomePage() {
               bottom: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 2,
               filter: mood === 'angry' ? 'hue-rotate(340deg) saturate(1.3)' : mood === 'sleepy' ? 'brightness(0.85)' : 'none',
             }}>
-              {/* Tappable wrapper — pet/lean/purr lives here. Two nested
-                  animated layers: the outer leans his whole body toward the
-                  tapped side, the inner adds the high-frequency purr shiver,
-                  so they compose without fighting one transform. */}
+              {/* Tappable wrapper — pet/purr lives here. He stays put and
+                  just trembles a gentle purr in place; no lean. */}
               <div
                 role="button"
                 aria-label="Pet Eren"
@@ -619,44 +614,38 @@ export default function HomePage() {
                 }}
               >
                 <div style={{
-                  animation: petReaction.phase === 'lean'
-                    ? `erenHeadLean${petSide} 1100ms ease-in-out` : undefined,
+                  animation: petReaction.phase === 'purr'
+                    ? 'erenPurrShiver 150ms ease-in-out 6' : undefined,
                   transformOrigin: 'bottom center',
                 }}>
-                  <div style={{
-                    animation: petReaction.phase === 'lean'
-                      ? 'erenPurrShiver 150ms ease-in-out 250ms 6' : undefined,
-                    transformOrigin: 'bottom center',
-                  }}>
-                    <ErenIdleLayer disabled={petReaction.active}>
-                      {/* Tail split into its own layer (erenGood_tail.png) over a
-                          tail-erased body so only the tail sways. See BlinkingEren. */}
-                      <BlinkingEren id="eren-img" size={200}
-                        src="/erenGood_notail.png"
-                        tailSrc="/erenGood_tail.png" />
-                      <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
+                  <ErenIdleLayer disabled={petReaction.active}>
+                    {/* Tail split into its own layer (erenGood_tail.png) over a
+                        tail-erased body so only the tail sways. See BlinkingEren. */}
+                    <BlinkingEren id="eren-img" size={200}
+                      src="/erenGood_notail.png"
+                      tailSrc="/erenGood_tail.png" />
+                    <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
 
-                      {/* Outfit overlays — % positions are relative to the parent
-                          absolute div, which is sized by BlinkingEren (200×200). */}
-                      {equippedOutfits.map(item => item?.pos && item.slot && (
-                        <div key={item.id} className="absolute pointer-events-none" style={{
-                          top: `${item.pos.top}%`, left: `${item.pos.left}%`,
-                          transform: 'translate(-50%, -50%)',
-                          fontSize: item.pos.size, lineHeight: 1,
-                          zIndex: item.slot === 'hat' ? 10 : item.slot === 'eyes' ? 9 : 8,
-                          filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
-                        }}>
-                          {item.icon}
-                        </div>
-                      ))}
-                    </ErenIdleLayer>
-                  </div>
+                    {/* Outfit overlays — % positions are relative to the parent
+                        absolute div, which is sized by BlinkingEren (200×200). */}
+                    {equippedOutfits.map(item => item?.pos && item.slot && (
+                      <div key={item.id} className="absolute pointer-events-none" style={{
+                        top: `${item.pos.top}%`, left: `${item.pos.left}%`,
+                        transform: 'translate(-50%, -50%)',
+                        fontSize: item.pos.size, lineHeight: 1,
+                        zIndex: item.slot === 'hat' ? 10 : item.slot === 'eyes' ? 9 : 8,
+                        filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
+                      }}>
+                        {item.icon}
+                      </div>
+                    ))}
+                  </ErenIdleLayer>
                 </div>
 
-                {/* Purr hearts + word during the lean, anchored to this box. */}
-                {petReaction.phase === 'lean' && <>
+                {/* Purr hearts + word, anchored to this box (centered above). */}
+                {petReaction.phase === 'purr' && <>
                   <Hearts count={3} bottom="58%" />
-                  <SoundWord word="PURRR" color={WORD_COLOR.purr} left={petSide === 'L' ? 36 : 64} top={6} />
+                  <SoundWord word="PURRR" color={WORD_COLOR.purr} left={50} top={6} />
                 </>}
               </div>
             </div>
