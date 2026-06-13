@@ -33,7 +33,7 @@ import { useCouple } from '@/hooks/useCouple'
 import { useFortune } from '@/hooks/useFortune'
 import { useInventory } from '@/hooks/useInventory'
 import { GACHA_ITEMS } from '@/lib/gacha'
-import { DockContent, dockFrame } from '@/components/home/DockButtons'
+import { DockContent, dockFrame, GachaDockButton } from '@/components/home/DockButtons'
 import FortunePopup from '@/components/fortune/FortunePopup'
 import ErenMessagePopup from '@/components/couple/ErenMessagePopup'
 import ThoughtCloud from '@/components/couple/ThoughtCloud'
@@ -866,19 +866,9 @@ export default function HomePage() {
           className="absolute left-0 right-0 z-20 flex gap-2 px-2"
           style={{ bottom: 'calc(var(--safe-bottom, 0px) + 10px)' }}
         >
-          <Link
-            href="/gacha"
-            onClick={e => {
-              // Rainbow variant of the cloud flight — gacha is the lucky room.
-              e.preventDefault()
-              playSound('ui_tap')
-              requestCloudNav('/gacha', 'rainbow')
-            }}
-            className="home-dock-btn"
-            style={dockFrame}
-          >
-            <DockContent theme="gacha" label="GACHA" />
-          </Link>
+          {/* Rainbow variant of the cloud flight — gacha is the lucky room.
+              The crank turn + red-button pop play first, then the flight. */}
+          <GachaDockButton onActivate={() => requestCloudNav('/gacha', 'rainbow')} />
 
           <Link
             href="/bakery"
