@@ -638,24 +638,11 @@
    here in globals.css instead of <style jsx global> in home/page.tsx
    because Next 14.2's styled-jsx SWC visitor panics on the multi-shadow
    :active pseudo (styled_jsx 0.73.10 visitor.rs:597 unwrap on None). */
-.home-dock-btn { transition: transform 130ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 110ms ease-out; }
-.home-dock-btn:active {
-  transform: translateY(3px) scale(0.98);
-  box-shadow: 0 1px 0 #160a26, inset 0 2px 0 rgba(255,255,255,0.5), inset 0 -2px 0 rgba(0,0,0,0.18);
-}
-
-/* Slow shine sweep so the candy buttons read as shiny and tappable. Staggered
-   per button via inline animation-delay; clipped by the button's overflow. */
-.home-dock-shine {
-  position: absolute;
-  top: 0; bottom: 0; left: 0;
-  width: 38%;
-  pointer-events: none;
-  background: linear-gradient(100deg, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%);
-  transform: translateX(-260%) skewX(-18deg);
-  animation: dockShine 5s ease-in-out infinite;
-}
-@keyframes dockShine {
-  0%, 72%   { transform: translateX(-260%) skewX(-18deg); }
-  88%, 100% { transform: translateX(360%) skewX(-18deg); }
+/* The frame holds the press transform; the visible chrome (and its offset
+   shadow) lives on the inner .dock-fill, which drops into its shadow on tap. */
+.home-dock-btn { transition: transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+.home-dock-btn .dock-fill { transition: box-shadow 110ms ease-out, transform 110ms ease-out; }
+.home-dock-btn:active { transform: translate(2px, 2px); }
+.home-dock-btn:active .dock-fill {
+  box-shadow: 1px 1px 0 var(--dock-ink, #2C1A4A), inset 0 3px 0 rgba(255,255,255,0.18), inset 0 -3px 0 rgba(0,0,0,0.22);
 }

@@ -351,6 +351,48 @@ export const IconPaw = memo(function IconPaw({ size = 20 }: IconProps) {
   }, size)
 })
 
+// ── CHERRY (cake topping) ──────────────────────────────────────────────────
+export const IconCherry = memo(function IconCherry({ size = 20 }: IconProps) {
+  const grid = [
+    '............',
+    '........TG..',
+    '.......T.GG.',
+    '.......T.G..',
+    '......T.....',
+    '..KKKK......',
+    '.KRRRRK.....',
+    'KRWRRRRK....',
+    'KRRRRRRK....',
+    'KRRRRRRK....',
+    '.KRRRRK.....',
+    '..KKKK......',
+  ]
+  return drawPixels(grid, {
+    K: '#5A1020', R: '#EE2E4D', W: '#FF9FB2', T: '#7A4A1E', G: '#5BA83C',
+  }, size)
+})
+
+// ── FLOWER (cute bloom) ────────────────────────────────────────────────────
+export const IconFlower = memo(function IconFlower({ size = 20 }: IconProps) {
+  const grid = [
+    '............',
+    '....K..K....',
+    '...KPKKPK...',
+    '..KPPPPPPK..',
+    '..KPPYYPPK..',
+    '..KPPYYPPK..',
+    '..KPPPPPPK..',
+    '...KPKKPK...',
+    '....K..K....',
+    '............',
+    '............',
+    '............',
+  ]
+  return drawPixels(grid, {
+    K: '#B23A6A', P: '#FF8FBC', Y: '#FFD64D',
+  }, size)
+})
+
 // ── CROWN (winner) ─────────────────────────────────────────────────────────
 export const IconCrown = memo(function IconCrown({ size = 20 }: IconProps) {
   const grid = [

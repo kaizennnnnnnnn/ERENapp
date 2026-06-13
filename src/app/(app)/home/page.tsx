@@ -18,7 +18,7 @@ import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 import { format } from 'date-fns'
 import Link from 'next/link'
 import { Sparkles } from 'lucide-react'
-import { IconGift, IconCapsule, IconHeart, IconBell, IconPerson, IconDoor, IconDrumstick, IconYarn, IconMoonZ, IconBath, IconPill, IconBook, IconCake, IconPhoto, IconShawarma, IconFlask } from '@/components/PixelIcons'
+import { IconGift, IconHeart, IconBell, IconPerson, IconDoor, IconDrumstick, IconYarn, IconMoonZ, IconBath, IconPill, IconBook, IconCake, IconPhoto, IconFlask } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import { requestCloudNav } from '@/components/CloudTransition'
 import TaskPanel from '@/components/TaskPanel'
@@ -33,6 +33,7 @@ import { useCouple } from '@/hooks/useCouple'
 import { useFortune } from '@/hooks/useFortune'
 import { useInventory } from '@/hooks/useInventory'
 import { GACHA_ITEMS } from '@/lib/gacha'
+import { DockContent, dockFrame } from '@/components/home/DockButtons'
 import FortunePopup from '@/components/fortune/FortunePopup'
 import ErenMessagePopup from '@/components/couple/ErenMessagePopup'
 import ThoughtCloud from '@/components/couple/ThoughtCloud'
@@ -63,67 +64,6 @@ interface XpParticle {
   id: number; x: number; y: number; tx: number; ty: number
   text: string; delay: number; duration: number
   size: number; color: string; glow: string
-}
-
-// ─── BOTTOM DOCK BUTTON STYLES ───────────────────────────────────────────
-// Shared chrome for the three full-width home dock buttons (gacha, cake,
-// shawarma). Per-button gradient is layered on top; the rest is identical
-// so the row reads as a single console-style dock. Slim height so the
-// row tucks along the bottom edge of the room without colliding with
-// Eren standing at his usual bottom-10% spot.
-const dockBtnBase: React.CSSProperties = {
-  flex: 1,
-  height: 46,
-  borderRadius: 15,
-  border: '2px solid #160a26',
-  // Straight-down chunky shadow (candy/game-button look) + a glossy inner top
-  // highlight. The press state in globals.css drops it into the shadow.
-  boxShadow:
-    '0 4px 0 #160a26, inset 0 2px 0 rgba(255,255,255,0.5), inset 0 -3px 0 rgba(0,0,0,0.18)',
-  display: 'flex',
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 6,
-  position: 'relative',
-  overflow: 'hidden',
-  cursor: 'pointer',
-  WebkitTapHighlightColor: 'transparent',
-}
-
-// Glossy top dome — the rounded shine that makes it read as a candy button.
-const dockBtnGloss: React.CSSProperties = {
-  position: 'absolute',
-  top: 2, left: 4, right: 4,
-  height: '44%',
-  pointerEvents: 'none',
-  background:
-    'linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.04) 100%)',
-  borderRadius: 12,
-}
-
-// Cute rounded bubble the icon sits in, so it pops as a little badge.
-const dockBtnIcon: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: 24, height: 24,
-  borderRadius: 8,
-  flexShrink: 0,
-  background: 'rgba(255,255,255,0.25)',
-  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 0 rgba(0,0,0,0.12)',
-  position: 'relative',
-  zIndex: 1,
-}
-
-const dockBtnLabel: React.CSSProperties = {
-  fontFamily: '"Press Start 2P"',
-  fontSize: 7,
-  letterSpacing: 0.5,
-  color: '#FBF1D9',
-  textShadow: '1px 1px 0 rgba(0,0,0,0.65)',
-  position: 'relative',
-  zIndex: 1,
 }
 
 export default function HomePage() {
@@ -935,15 +875,9 @@ export default function HomePage() {
               requestCloudNav('/gacha', 'rainbow')
             }}
             className="home-dock-btn"
-            style={{
-              ...dockBtnBase,
-              background: 'linear-gradient(180deg, #D4B4FC 0%, #A78BFA 45%, #7C3AED 100%)',
-            }}
+            style={dockFrame}
           >
-            <div style={dockBtnGloss} />
-            <div className="home-dock-shine" style={{ animationDelay: '0s' }} />
-            <span style={dockBtnIcon}><IconCapsule size={17} /></span>
-            <span style={dockBtnLabel}>GACHA</span>
+            <DockContent theme="gacha" label="GACHA" />
           </Link>
 
           <Link
@@ -956,29 +890,17 @@ export default function HomePage() {
               requestCloudNav('/bakery')
             }}
             className="home-dock-btn"
-            style={{
-              ...dockBtnBase,
-              background: 'linear-gradient(180deg, #FBCFE8 0%, #F472B6 45%, #DB2777 100%)',
-            }}
+            style={dockFrame}
           >
-            <div style={dockBtnGloss} />
-            <div className="home-dock-shine" style={{ animationDelay: '1.4s' }} />
-            <span style={dockBtnIcon}><IconCake size={17} /></span>
-            <span style={dockBtnLabel}>CAKE</span>
+            <DockContent theme="cake" label="CAKE" />
           </Link>
 
           <button
             onClick={() => { playSound('ui_tap'); showToast('SHAWARMA — coming soon') }}
             className="home-dock-btn"
-            style={{
-              ...dockBtnBase,
-              background: 'linear-gradient(180deg, #FED7AA 0%, #FB923C 45%, #C2410C 100%)',
-            }}
+            style={dockFrame}
           >
-            <div style={dockBtnGloss} />
-            <div className="home-dock-shine" style={{ animationDelay: '2.8s' }} />
-            <span style={dockBtnIcon}><IconShawarma size={17} /></span>
-            <span style={dockBtnLabel}>SHAWARMA</span>
+            <DockContent theme="shawarma" label="SHAWARMA" />
           </button>
         </div>
 
