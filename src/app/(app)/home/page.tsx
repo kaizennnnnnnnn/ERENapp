@@ -43,7 +43,7 @@ import ErenIdleLayer from '@/components/ErenIdleLayer'
 import SendErenSheet from '@/components/couple/SendErenSheet'
 import { MOOD_THEME, LOW_MOODS } from '@/lib/moods'
 import { useIsDark } from '@/hooks/useIsDark'
-import { cuteBtn, Gloss, Liquid } from '@/components/obsidian'
+import { cuteBtn, CuteIcon } from '@/components/obsidian'
 import LightSwitch from '@/components/LightSwitch'
 import { useWish } from '@/contexts/WishContext'
 import { useWishLinger } from '@/hooks/useWishLinger'
@@ -766,25 +766,19 @@ export default function HomePage() {
             {fortuneAvailable && (
               <button onClick={() => { playSound('ui_modal_open'); setShowFortune(true) }}
                 className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-                style={{ ...cuteBtn('251,191,36'), animation: 'pulse 2s ease-in-out infinite' }}>
-                <Liquid rgb="251,191,36" />
-                <Gloss />
-                <IconGift size={18} />
+                style={{ ...cuteBtn('52,199,123'), animation: 'pulse 2s ease-in-out infinite' }}>
+                <CuteIcon><IconGift size={18} /></CuteIcon>
               </button>
             )}
             <Link href="/hallway" onClick={() => playSound('ui_tap')}
               aria-label="The Hallway"
               className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-              style={cuteBtn('56,189,248')}>
-              <Liquid rgb="56,189,248" />
-              <Gloss />
-              <IconPhoto size={18} />
+              style={cuteBtn('255,111,165')}>
+              <CuteIcon><IconPhoto size={18} /></CuteIcon>
             </Link>
             <Link href="/couple" onClick={() => playSound('ui_tap')} className="relative w-8 h-8 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
-              style={cuteBtn('255,107,157')}>
-              <Liquid rgb="255,107,157" />
-              <Gloss />
-              <IconHeart size={18} />
+              style={cuteBtn('45,212,191')}>
+              <CuteIcon><IconHeart size={18} /></CuteIcon>
               {unreadCount > 0 && (
                 <div className="absolute -top-1 -right-1 flex items-center justify-center"
                   style={{ width: 16, height: 16, background: '#FF1D5E', border: '2px solid #050507', boxShadow: '0 0 4px rgba(255,29,94,0.6)', borderRadius: 6 }}>
@@ -794,25 +788,19 @@ export default function HomePage() {
             </Link>
             <button onClick={() => { playSound('ui_modal_open'); setShowReminders(true) }}
               className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-              style={cuteBtn('245,158,11')}>
-              <Liquid rgb="245,158,11" />
-              <Gloss />
-              <IconBell size={18} />
+              style={cuteBtn('139,124,240')}>
+              <CuteIcon><IconBell size={18} /></CuteIcon>
             </button>
             <Link href="/profile" onClick={() => playSound('ui_tap')}
               className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-              style={cuteBtn('167,139,250')}>
-              <Liquid rgb="167,139,250" />
-              <Gloss />
-              <IconPerson size={18} />
+              style={cuteBtn('245,166,35')}>
+              <CuteIcon><IconPerson size={18} /></CuteIcon>
             </Link>
             <div className="relative flex-shrink-0">
               <button onClick={() => { playSound(showRooms ? 'ui_modal_close' : 'ui_modal_open'); setShowRooms(r => !r) }}
                 className="w-10 h-10 relative flex items-center justify-center active:scale-90 transition-transform"
-                style={cuteBtn('52,211,153')}>
-                <Liquid rgb="52,211,153" />
-                <Gloss />
-                <IconDoor size={18} />
+                style={cuteBtn('56,189,248')}>
+                <CuteIcon><IconDoor size={18} /></CuteIcon>
               </button>
               {showRooms && (
                 <>

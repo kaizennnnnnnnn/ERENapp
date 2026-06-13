@@ -58,43 +58,29 @@ export const OBSIDIAN_BTN: CSSProperties = {
 
 // ── Cute candy buttons ──
 // A softer, friendlier variant of OBSIDIAN_BTN used for the home HUD nav
-// row + the quest pill. Each button is tinted to its own icon colour (an
-// `r,g,b` triplet), squircle-rounded, ringed + glowing in that colour, and
-// half-filled with a liquid so it reads like a little potion jar.
+// row + the quest pill. Each button is a SOLID colour candy tile (passed as
+// an `r,g,b` triplet) with a glossy top highlight and a chunky drop. The
+// button colour is chosen to CONTRAST its icon — never the icon's own hue —
+// so the pixel icon stays clearly readable on top.
 
-/** Cute button chrome. Pass the button's accent colour as `r,g,b`. */
+/** Cute button chrome. Pass the button's solid colour as `r,g,b`. */
 export const cuteBtn = (rgb: string): CSSProperties => ({
-  background: `radial-gradient(circle at 50% 16%, rgba(${rgb},0.42) 0%, rgba(${rgb},0.14) 46%, rgba(10,8,20,0.9) 100%)`,
-  border: `1.5px solid rgba(${rgb},0.78)`,
+  background: `rgb(${rgb})`,
+  border: '1.5px solid rgba(0,0,0,0.32)',
   borderRadius: 11,
-  boxShadow: `0 0 9px rgba(${rgb},0.42), 0 2px 6px rgba(0,0,0,0.5), inset 0 1.5px 0 rgba(255,255,255,0.32), inset 0 -2px 5px rgba(0,0,0,0.38)`,
+  boxShadow: `0 0 7px rgba(${rgb},0.4), 0 2px 5px rgba(0,0,0,0.45), inset 0 2px 0 rgba(255,255,255,0.5), inset 0 -3px 5px rgba(0,0,0,0.22)`,
 })
 
-/** Glossy top sheen — the "candy" highlight. Render before the icon so the
- *  icon paints on top. The parent must be `position: relative`. */
-export function Gloss() {
+/** Wraps a pixel icon with a soft dark drop-shadow so its edges separate
+ *  from the solid button colour underneath. */
+export function CuteIcon({ children }: { children: ReactNode }) {
   return (
-    <span aria-hidden style={{
-      position: 'absolute', top: 2, left: 3, right: 3, height: '38%',
-      borderRadius: 9,
-      background: 'linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 100%)',
-      pointerEvents: 'none',
-    }} />
-  )
-}
-
-/** Liquid that fills the whole button behind the icon, clipped to the
- *  button's rounded corners — a full, vivid colour gel tinted to `rgb`,
- *  slightly deeper toward the bottom for depth. Render before the icon. */
-export function Liquid({ rgb }: { rgb: string }) {
-  return (
-    <span aria-hidden style={{
-      position: 'absolute', top: 1.5, left: 1.5, right: 1.5, bottom: 1.5,
-      borderRadius: 9,
-      background: `linear-gradient(180deg, rgba(${rgb},0.68) 0%, rgba(${rgb},0.86) 58%, rgba(${rgb},0.96) 100%)`,
-      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -3px 6px rgba(0,0,0,0.3)',
-      pointerEvents: 'none',
-    }} />
+    <span style={{
+      display: 'inline-flex', position: 'relative',
+      filter: 'drop-shadow(0 1px 1.5px rgba(0,0,0,0.5))',
+    }}>
+      {children}
+    </span>
   )
 }
 

@@ -11,12 +11,13 @@ import {
   IconStar, IconCrown,
 } from './PixelIcons'
 import { playSound } from '@/lib/sounds'
-import { PINK, PINK_HI, PINK_LO, OBSIDIAN_BTN, Rivets, pinkText, accentA, cuteBtn, Gloss, Liquid } from './obsidian'
+import { PINK, PINK_HI, PINK_LO, OBSIDIAN_BTN, Rivets, pinkText, accentA, cuteBtn, CuteIcon } from './obsidian'
 
-// Quest accent — warm amber/gold, matching the scroll icon + "today's quests".
-const QUEST_RGB = '245,200,66'
-// Dark shadow so the small counter text stays legible over the liquid fill.
-const COUNTER_SHADOW = '0 1px 2px rgba(0,0,0,0.7)'
+// Quest pill is a solid blue candy tile — contrasts the cream/brown scroll
+// icon and the amber/lavender counter dots so all three read clearly.
+const QUEST_RGB = '79,157,247'
+// Dark shadow so the small counter text stays legible on the solid fill.
+const COUNTER_SHADOW = '0 1px 2px rgba(0,0,0,0.6)'
 
 function TaskIcon({ task, size = 22 }: { task: TaskDef; size?: number }) {
   switch (task.id) {
@@ -241,9 +242,7 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
           className="w-full flex items-center gap-1 px-2 h-10 active:scale-[0.97] transition-transform relative"
           style={cuteBtn(QUEST_RGB)}
         >
-          <Liquid rgb={QUEST_RGB} />
-          <Gloss />
-          <span className="relative flex items-center"><IconScroll size={18} /></span>
+          <CuteIcon><IconScroll size={18} /></CuteIcon>
 
           {/* Inline counter — daily/weekly dots + numbers */}
           <div className="relative flex items-center gap-0.5 min-w-0 ml-1">
@@ -252,7 +251,7 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
               background: DAILY_DOT, boxShadow: `0 0 4px ${DAILY_DOT}, 0 1px 1px rgba(0,0,0,0.6)`,
             }} />
             <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: '#FFF3C8', letterSpacing: 0.5, textShadow: COUNTER_SHADOW }}>{dailyDone}/{dailyTasks.length}</span>
-            <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: '#7A5A12', margin: '0 1px' }}>·</span>
+            <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: 'rgba(255,255,255,0.55)', margin: '0 1px' }}>·</span>
             <div className="flex-shrink-0" style={{
               width: 5, height: 5, borderRadius: '50%',
               background: WEEKLY_DOT, boxShadow: `0 0 4px ${WEEKLY_DOT}, 0 1px 1px rgba(0,0,0,0.6)`,
@@ -260,7 +259,7 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
             <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: '#EADBFF', letterSpacing: 0.5, textShadow: COUNTER_SHADOW }}>{weeklyDone}/{weeklyTasks.length}</span>
           </div>
 
-          <span className="font-pixel ml-auto flex-shrink-0 relative" style={{ fontSize: 8, color: '#FFF3C8', opacity: 0.9, textShadow: COUNTER_SHADOW }}>▶</span>
+          <span className="font-pixel ml-auto flex-shrink-0 relative" style={{ fontSize: 8, color: '#FFF3C8', opacity: 0.95, textShadow: COUNTER_SHADOW }}>▶</span>
         </button>
       ) : (
         <button
