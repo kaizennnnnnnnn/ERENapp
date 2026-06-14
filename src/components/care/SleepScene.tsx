@@ -49,7 +49,7 @@ export default function SleepScene({ onClose }: Props) {
   // reveals a decoded bitmap, not a blank frame.
   useEffect(() => {
     setSleepIdx(Math.floor(Math.random() * 4))
-    preloadImages(['/erenSleep1.png', '/erenSleep2.png', '/erenSleep3.png', '/erenSleep4.png'])
+    preloadImages(['/erenSleep1.png?v=2', '/erenSleep2.png?v=2', '/erenSleep3.png?v=2', '/erenSleep4.png?v=2'])
   }, [])
   // Poof-mask the asleep<->awake pose swap, but only on a real transition — not
   // on mount or a room-swipe (prevTucked starts equal to the first value).
@@ -150,7 +150,7 @@ export default function SleepScene({ onClose }: Props) {
           // Asleep: a curled-up pose sticker (eyes painted shut, no overlays).
           // The pick is re-rolled on each tuck-in; the swap is hidden by the
           // poof. Breath slowed so the sleeping body rises and falls gently.
-          <PoseSprite src={`/erenSleep${sleepIdx + 1}.png`} width={125} breatheDur={6.5} />
+          <PoseSprite src={`/erenSleep${sleepIdx + 1}.png?v=2`} width={125} breatheDur={6.5} />
         ) : (
           <ErenIdleLayer disabled={reaction.active}>
             {/* Awake in the bedroom: the nightcap pose. Sleepy sway → settle

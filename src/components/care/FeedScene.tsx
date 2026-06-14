@@ -397,7 +397,7 @@ export default function FeedScene({ onClose }: Props) {
 
   // Warm the four eating stickers so the poof reveals a decoded bitmap.
   useEffect(() => {
-    preloadImages(['/erenEat1.png', '/erenEat2.png', '/erenEat3.png', '/erenEat4.png'])
+    preloadImages(['/erenEat1.png?v=2', '/erenEat2.png?v=2', '/erenEat3.png?v=2', '/erenEat4.png?v=2'])
   }, [])
 
   // Memoize the bare sprite so stat changes from feeding don't re-render it.
@@ -454,7 +454,7 @@ export default function FeedScene({ onClose }: Props) {
         // bob over the sticker carries the munching; the standing<->crouch swap
         // is hidden by the poof at each end of the meal.
         <div style={{ animation: 'erenChew 440ms ease-in-out infinite' }}>
-          <PoseSprite src={`/erenEat${eatIdx + 1}.png`} width={140} breathe={false} />
+          <PoseSprite src={`/erenEat${eatIdx + 1}.png?v=2`} width={140} breathe={false} />
         </div>
       ) : (
         <ErenIdleLayer disabled={reaction.active}>
