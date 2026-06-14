@@ -21,17 +21,18 @@ import OnboardingShell from '@/components/onboarding/OnboardingShell'
 import WelcomeStep from '@/components/onboarding/WelcomeStep'
 import AccountStep from '@/components/onboarding/AccountStep'
 import HouseholdStep, { CodeReveal } from '@/components/onboarding/HouseholdStep'
+import DatesStep from '@/components/onboarding/DatesStep'
 import IntroSlides from '@/components/onboarding/IntroSlides'
 import { PixelButton, PixelError } from '@/components/onboarding/pixelForm'
 
-type Step = 'resolving' | 'welcome' | 'account' | 'household' | 'code' | 'slides'
+type Step = 'resolving' | 'welcome' | 'account' | 'household' | 'code' | 'dates' | 'slides'
 
 // Written once create/join succeeds, cleared at launch — lets a mid-slides
 // refresh resume at the slides instead of bouncing to /home half-introduced.
 const PENDING_KEY = 'eren_onboarding_pending'
 
 const STAGE: Record<Step, number | null> = {
-  resolving: null, welcome: null, account: 0, household: 1, code: 1, slides: 2,
+  resolving: null, welcome: null, account: 0, household: 1, code: 1, dates: 1, slides: 2,
 }
 
 export default function OnboardingPage() {
@@ -67,7 +68,7 @@ export default function OnboardingPage() {
       // Any other value (account/household/code/slides) jumps to that step.
       const demoParam = new URLSearchParams(window.location.search).get('demo')
       if (demoParam) {
-        const STEPS: Step[] = ['welcome', 'account', 'household', 'code', 'slides']
+        const STEPS: Step[] = ['welcome', 'account', 'household', 'code', 'dates', 'slides']
         const start: Step = STEPS.includes(demoParam as Step) ? demoParam as Step : 'welcome'
         setDemo(true)
         setUserId('demo-user')
@@ -172,12 +173,20 @@ export default function OnboardingPage() {
             onJoined={({ householdId: hh }) => {
               localStorage.setItem(PENDING_KEY, '1')
               setHouseholdId(hh)
-              go('slides')
+              go('dates')
             }}
           />
         )}
         {step === 'code' && inviteCode && (
-          <CodeReveal code={inviteCode} onNext={() => go('slides')} />
+          <CodeReveal code={inviteCode} onNext={() => go('dates')} />
+        )}
+        {step === 'dates' && userId && householdId && (
+          <DatesStep
+            userId={userId}
+            householdId={householdId}
+            demo={demo}
+            onDone={() => go('slides')}
+          />
         )}
         {step === 'slides' && userId && householdId && (
           <IntroSlides
