@@ -163,10 +163,15 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
                    { at: 70, recipe: { type: 'sweep', freq: [260, 150], duration: 130, shape: 'sine', gain: 0.42, curve: 'exponential' } },
                  ] },
 
-  // The shared happy finisher + tuck-in + ball-bell + pet purr. Synthesised so
-  // they STOP 404ing on the missing mp3s (they used to hit the network, fail,
-  // and fall back — pet_purr even fell back to the chewing sound). Now they
-  // never touch the network and each has its own voice.
+  // The shared happy finisher + tuck-in + ball-bell. Synthesised so they STOP
+  // 404ing on the missing mp3s (they used to hit the network, fail, and fall
+  // back to the wrong sound). Now they never touch the network and each has its
+  // own voice.
+  //
+  // NOTE: pet_purr is deliberately NOT here. The real recorded purr lives at
+  // /sounds/care/pet_purr.mp3 (added in 9f1fa2f); a synth entry would shadow it
+  // because SYNTH_RECIPES always wins over the mp3 path. Tapping Eren plays the
+  // recorded purr — keep it that way.
   //
   // care_happy  — bright rising sparkle, the payoff after feed / play / vet.
   care_happy:  { type: 'arp', notes: [659, 880, 1175, 1568], step: 58, noteDur: 95, shape: 'triangle', gain: 0.6 },
@@ -174,7 +179,4 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
   care_sleep:  { type: 'sweep', freq: [523, 300], duration: 460, shape: 'sine', gain: 0.4, curve: 'exponential' },
   // care_jingle — the ball's bell when he pounces: a bright double ding.
   care_jingle: { type: 'arp', notes: [1568, 2093], step: 72, noteDur: 110, shape: 'triangle', gain: 0.5 },
-  // pet_purr    — a low rolling purr (pulsed sawtooth, kept high enough to
-  //               survive phone speakers) for tapping him on the home page.
-  pet_purr:    { type: 'pulse', freq: 150, pulses: 6, step: 56, pulseDur: 44, shape: 'sawtooth', gain: 0.3 },
 }
