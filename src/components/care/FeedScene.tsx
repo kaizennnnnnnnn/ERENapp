@@ -467,8 +467,10 @@ export default function FeedScene({ onClose }: Props) {
         </ErenIdleLayer>
       )}
 
-      {/* Bowl + crumbs sit under his lowered face (off-centre in the crouch). */}
-      {eating && <FoodBowl color={bowlColor} left={noseLeft} bottom="-8%" />}
+      {/* Bowl + crumbs sit under his lowered face (off-centre in the crouch).
+          A small bowl tucked just below his chin — his face is very low in the
+          crouch, so the full-size bowl left an awkward gap under it. */}
+      {eating && <FoodBowl color={bowlColor} left={noseLeft} bottom="-3%" width={34} />}
       {eating && <Crumbs color={bowlColor} left={noseLeft} bottom="2%" />}
       {eating && <SoundWord word="NOM NOM" color={WORD_COLOR.food} left={EAT_NOSE_X[eatIdx] + 8} top={12} />}
       {eating && <SoundWord word="NOM NOM" color={WORD_COLOR.food} left={EAT_NOSE_X[eatIdx] + 6} top={9} delayMs={1400} />}
@@ -646,6 +648,9 @@ export default function FeedScene({ onClose }: Props) {
 
           {/* CENTER: Current food with arrows */}
           {(() => {
+            // Hide the draggable food while he's eating so it doesn't sit over
+            // the crouch pose / bowl at the bottom of the scene.
+            if (reaction.active) return <div className="flex-1" />
             const catItems = fridgeCat
               ? SHOP_ITEMS.filter(i => i.cat === fridgeCat && (inventory[i.id] ?? 0) > 0)
               : []

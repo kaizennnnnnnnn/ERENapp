@@ -118,17 +118,18 @@ export function Sparkles({ tint = '#DFF3FF' }: { tint?: string }) {
 
 // ── Food bowl — a chunky pixel bowl that pops in at the feet, holding a band
 // of the fed food's color. Stays put while Eren eats; the scene unmounts it.
-export function FoodBowl({ color, bottom = '0%', left = '50%' }: { color: string; bottom?: string; left?: string }) {
+export function FoodBowl({ color, bottom = '0%', left = '50%', width = 48 }: { color: string; bottom?: string; left?: string; width?: number }) {
+  const height = Math.round(width * 13 / 24)
   return (
     <div className="absolute pointer-events-none" style={{
       left, bottom,
       transform: 'translateX(-50%)',
-      width: 48, height: 26,
+      width, height,
       zIndex: 18,
       animation: 'erenPropPop 220ms ease-out both',
       transformOrigin: 'center bottom',
     }}>
-      <svg width="48" height="26" viewBox="0 0 24 13" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
+      <svg width={width} height={height} viewBox="0 0 24 13" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
         {/* food mound */}
         <rect x="5" y="3" width="14" height="3" fill={color} />
         <rect x="7" y="2" width="10" height="1" fill={color} />
