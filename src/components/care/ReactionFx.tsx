@@ -36,7 +36,9 @@ export function Hearts({ count = 3, bottom = '62%' }: { count?: number; bottom?:
 }
 
 // ── Eating crumbs — small food-colored pixels pop off the bowl with gravity.
-export function Crumbs({ color, bottom = '4%' }: { color: string; bottom?: string }) {
+// `left` lets the scene anchor them at Eren's mouth (off-center in the crouch
+// poses) instead of the container centre.
+export function Crumbs({ color, bottom = '4%', left = '50%' }: { color: string; bottom?: string; left?: string }) {
   const bits = [
     { tx: -16, ty: -22, d: 200 }, { tx: 14, ty: -26, d: 500 },
     { tx: -10, ty: -30, d: 900 }, { tx: 18, ty: -20, d: 1300 },
@@ -46,7 +48,7 @@ export function Crumbs({ color, bottom = '4%' }: { color: string; bottom?: strin
     <>
       {bits.map((b, i) => (
         <div key={i} className="absolute pointer-events-none" style={{
-          left: '50%', bottom,
+          left, bottom,
           width: i % 2 ? 3 : 4, height: i % 2 ? 3 : 4,
           background: color,
           zIndex: 23,
@@ -116,10 +118,10 @@ export function Sparkles({ tint = '#DFF3FF' }: { tint?: string }) {
 
 // ── Food bowl — a chunky pixel bowl that pops in at the feet, holding a band
 // of the fed food's color. Stays put while Eren eats; the scene unmounts it.
-export function FoodBowl({ color, bottom = '0%' }: { color: string; bottom?: string }) {
+export function FoodBowl({ color, bottom = '0%', left = '50%' }: { color: string; bottom?: string; left?: string }) {
   return (
     <div className="absolute pointer-events-none" style={{
-      left: '50%', bottom,
+      left, bottom,
       transform: 'translateX(-50%)',
       width: 48, height: 26,
       zIndex: 18,

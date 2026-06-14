@@ -162,4 +162,19 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
                    { at: 0,  recipe: { type: 'blip',  freq: 320, duration: 80, shape: 'sine', gain: 0.5 } },
                    { at: 70, recipe: { type: 'sweep', freq: [260, 150], duration: 130, shape: 'sine', gain: 0.42, curve: 'exponential' } },
                  ] },
+
+  // The shared happy finisher + tuck-in + ball-bell + pet purr. Synthesised so
+  // they STOP 404ing on the missing mp3s (they used to hit the network, fail,
+  // and fall back — pet_purr even fell back to the chewing sound). Now they
+  // never touch the network and each has its own voice.
+  //
+  // care_happy  — bright rising sparkle, the payoff after feed / play / vet.
+  care_happy:  { type: 'arp', notes: [659, 880, 1175, 1568], step: 58, noteDur: 95, shape: 'triangle', gain: 0.6 },
+  // care_sleep  — soft downward coo for tuck-in / wake.
+  care_sleep:  { type: 'sweep', freq: [523, 300], duration: 460, shape: 'sine', gain: 0.4, curve: 'exponential' },
+  // care_jingle — the ball's bell when he pounces: a bright double ding.
+  care_jingle: { type: 'arp', notes: [1568, 2093], step: 72, noteDur: 110, shape: 'triangle', gain: 0.5 },
+  // pet_purr    — a low rolling purr (pulsed sawtooth, kept high enough to
+  //               survive phone speakers) for tapping him on the home page.
+  pet_purr:    { type: 'pulse', freq: 150, pulses: 6, step: 56, pulseDur: 44, shape: 'sawtooth', gain: 0.3 },
 }

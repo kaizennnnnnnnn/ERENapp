@@ -150,7 +150,7 @@ export default function SleepScene({ onClose }: Props) {
           // Asleep: a curled-up pose sticker (eyes painted shut, no overlays).
           // The pick is re-rolled on each tuck-in; the swap is hidden by the
           // poof. Breath slowed so the sleeping body rises and falls gently.
-          <PoseSprite src={`/erenSleep${sleepIdx + 1}.png`} width={240} breatheDur={6.5} />
+          <PoseSprite src={`/erenSleep${sleepIdx + 1}.png`} width={195} breatheDur={6.5} />
         ) : (
           <ErenIdleLayer disabled={reaction.active}>
             {/* Awake in the bedroom: the nightcap pose. Sleepy sway → settle
@@ -182,7 +182,7 @@ export default function SleepScene({ onClose }: Props) {
         <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
 
         {/* Poof that masks the asleep<->awake sticker swap (never on mount). */}
-        {showPoof && <PixelPoof size={240} onDone={() => setShowPoof(false)} />}
+        {showPoof && <PixelPoof size={210} onDone={() => setShowPoof(false)} />}
 
         {/* Sleepy yawn / waking sound-words, anchored above his head. */}
         {reaction.phase === 'sway' && <SoundWord word="MRAAW" color={WORD_COLOR.sleep} left={50} top={4} />}

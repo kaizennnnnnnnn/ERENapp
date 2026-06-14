@@ -251,6 +251,13 @@ function FoodIcon({ id }: { id: string; color?: string }) {
   )
 }
 
+// Where Eren's nose/mouth sits in each head-down eating pose, as a % of the
+// trimmed sprite's WIDTH. The crouch poses include his tail trailing right, so
+// his face is LEFT of the sprite centre — the bowl/crumbs/words anchor here,
+// not at the container centre, or they'd land under his body.
+// (measured by scripts/measure_eat_nose.py)
+const EAT_NOSE_X = [32.7, 31.3, 30.6, 40.1]
+
 export default function FeedScene({ onClose }: Props) {
   const { user, profile } = useAuth()
   const { stats, feedWithFood, addToMyFood, consumeMyFood } = useErenStats(profile?.household_id ?? null)
@@ -433,6 +440,7 @@ export default function FeedScene({ onClose }: Props) {
   // 2650ms without restarting while the chew sound re-fires on 'eat2'.
   const eating = phase === 'eat' || phase === 'eat2'
   const bowlColor = fedItem?.color ?? '#D4A44A'
+  const noseLeft = `${EAT_NOSE_X[eatIdx]}%`   // bowl/crumbs anchor at his mouth
   // Poof-mask the standing<->crouch sticker swap at each end of the meal.
   const prevEating = useRef(false)
   useEffect(() => {
@@ -446,7 +454,7 @@ export default function FeedScene({ onClose }: Props) {
         // bob over the sticker carries the munching; the standing<->crouch swap
         // is hidden by the poof at each end of the meal.
         <div style={{ animation: 'erenChew 440ms ease-in-out infinite' }}>
-          <PoseSprite src={`/erenEat${eatIdx + 1}.png`} width={205} breathe={false} />
+          <PoseSprite src={`/erenEat${eatIdx + 1}.png`} width={160} breathe={false} />
         </div>
       ) : (
         <ErenIdleLayer disabled={reaction.active}>
@@ -459,12 +467,11 @@ export default function FeedScene({ onClose }: Props) {
         </ErenIdleLayer>
       )}
 
-      {/* Bowl appears the moment food lands and stays until eating ends. */}
-      {(phase === 'bowl' || eating) && <FoodBowl color={bowlColor} bottom="-2%" />}
-      {/* Crumbs + chew words spread across the eat beat. */}
-      {eating && <Crumbs color={bowlColor} bottom="2%" />}
-      {eating && <SoundWord word="NOM NOM" color={WORD_COLOR.food} left={62} top={14} />}
-      {eating && <SoundWord word="NOM NOM" color={WORD_COLOR.food} left={60} top={12} delayMs={1400} />}
+      {/* Bowl + crumbs sit under his lowered face (off-centre in the crouch). */}
+      {eating && <FoodBowl color={bowlColor} left={noseLeft} bottom="-8%" />}
+      {eating && <Crumbs color={bowlColor} left={noseLeft} bottom="2%" />}
+      {eating && <SoundWord word="NOM NOM" color={WORD_COLOR.food} left={EAT_NOSE_X[eatIdx] + 8} top={12} />}
+      {eating && <SoundWord word="NOM NOM" color={WORD_COLOR.food} left={EAT_NOSE_X[eatIdx] + 6} top={9} delayMs={1400} />}
       {/* Happy finisher. */}
       {phase === 'finish' && <>
         <Hearts count={2} bottom="60%" />
@@ -472,7 +479,7 @@ export default function FeedScene({ onClose }: Props) {
       </>}
 
       {/* Poof that masks the standing<->crouch sticker swap. */}
-      {showPoof && <PixelPoof size={220} onDone={() => setShowPoof(false)} />}
+      {showPoof && <PixelPoof size={200} onDone={() => setShowPoof(false)} />}
     </div>
   )
 
