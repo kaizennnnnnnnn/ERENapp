@@ -149,8 +149,9 @@ export default function SleepScene({ onClose }: Props) {
         {tuckedIn ? (
           // Asleep: a curled-up pose sticker (eyes painted shut, no overlays).
           // The pick is re-rolled on each tuck-in; the swap is hidden by the
-          // poof. Breath slowed so the sleeping body rises and falls gently.
-          <PoseSprite src={`/erenSleep${sleepIdx + 1}.png?v=2`} width={125} breatheDur={6.5} />
+          // poof. No breathing — the scaleY stretch reads as bobbing on a
+          // curled pose, so he rests perfectly still once tucked in.
+          <PoseSprite src={`/erenSleep${sleepIdx + 1}.png?v=2`} width={125} breathe={false} />
         ) : (
           <ErenIdleLayer disabled={reaction.active}>
             {/* Awake in the bedroom: the nightcap pose. Sleepy sway → settle
