@@ -122,6 +122,12 @@ interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   // blink keyframe so the eyes stay closed for the duration the caller renders
   // this true. No effect when blink is false (eyes already painted shut).
   lidsClosed?: boolean
+  // Use the detailed "peaceful sleep" closed eye instead of the plain gray
+  // lid. Renders a narrow fur-toned lid (melts into the mask), a faint
+  // moonlit dome highlight, and a soft downward lash seam — the way the
+  // asleep poses draw shut eyes. Bedroom tuck-in only; the vet grimace keeps
+  // the plain lid. No effect unless lidsClosed is also true.
+  sleepyLids?: boolean
   // Breathing period in seconds. Default 4; sleep slows it to ~6.5 so the
   // tucked-in cat breathes visibly slower.
   breatheDur?: number
@@ -145,6 +151,7 @@ export default function BlinkingEren({
   headRef,
   headAnimation,
   lidsClosed = false,
+  sleepyLids = false,
   breatheDur = 4,
   ...imgProps
 }: Props) {
@@ -224,6 +231,31 @@ export default function BlinkingEren({
     pointerEvents: 'none',
   })
 
+  // Peaceful "asleep" closed eye (sleepyLids). Three thin layers over the
+  // iris: a narrow fur-toned lid that melts into the dark mask (so the painted
+  // open eye is hidden but no gray blob remains), a faint dome highlight
+  // catching the moonlight, and a soft downward lash seam — matching how the
+  // curled asleep poses paint shut eyes. Narrower than `closedEye` so it
+  // doesn't spill onto the white forehead blaze between the eyes.
+  const SLEEPY_W = 1.18, SLEEPY_H = 1.06
+  const sleepyClosedEye = (left: string) => (
+    <div style={{
+      position: 'absolute',
+      left:   `calc(${left} - ${eyes.maskW} * ${(SLEEPY_W - 1) / 2})`,
+      top:    `calc(${eyes.maskTop} - ${eyes.maskH} * ${(SLEEPY_H - 1) / 2})`,
+      width:  `calc(${eyes.maskW} * ${SLEEPY_W})`,
+      height: `calc(${eyes.maskH} * ${SLEEPY_H})`,
+      pointerEvents: 'none',
+    }}>
+      <div style={{ position: 'absolute', inset: 0, borderRadius: '50% 50% 48% 48%',
+        background: 'linear-gradient(180deg, #5b5049 0%, #473d36 60%, #382f29 100%)' }} />
+      <div style={{ position: 'absolute', left: '16%', right: '16%', top: '10%', height: '30%',
+        borderRadius: '50%', background: 'linear-gradient(180deg, rgba(255,250,245,0.18), rgba(255,250,245,0))' }} />
+      <div style={{ position: 'absolute', left: '7%', right: '7%', top: '26%', bottom: '24%',
+        borderBottom: '2px solid #161108', borderRadius: '0 0 60% 60%' }} />
+    </div>
+  )
+
   // Eye overlays — extracted so they can render either over the static body or
   // inside the head wrapper (so the eyes ride a rotating head layer).
   const eyeOverlays = blink ? (
@@ -241,11 +273,19 @@ export default function BlinkingEren({
       </>}
 
       {lidsClosed ? (
-        // Eye-shaped closed lids over each eye.
-        <>
-          <div style={closedEye(eyes.maskLeftA)} />
-          <div style={closedEye(eyes.maskLeftB)} />
-        </>
+        // Eye-shaped closed lids over each eye — detailed sleepy lids in the
+        // bedroom, plain gray lids elsewhere (vet grimace).
+        sleepyLids ? (
+          <>
+            {sleepyClosedEye(eyes.maskLeftA)}
+            {sleepyClosedEye(eyes.maskLeftB)}
+          </>
+        ) : (
+          <>
+            <div style={closedEye(eyes.maskLeftA)} />
+            <div style={closedEye(eyes.maskLeftB)} />
+          </>
+        )
       ) : (
         // Blink lids — same start time, no stagger. Cats blink both together.
         <>

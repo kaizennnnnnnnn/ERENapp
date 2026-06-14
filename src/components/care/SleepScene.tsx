@@ -166,6 +166,7 @@ export default function SleepScene({ onClose }: Props) {
             }}>
               <BlinkingEren size={230} src="/erenSleep_notail.png" tailSrc="/erenSleep_tail.png" tailOrigin="69.4% 73.6%"
                 lidsClosed={tucking || reaction.phase === 'settle'}
+                sleepyLids
                 breatheDur={4}
                 eyes={{
                   lidTop:    '36%',
