@@ -108,25 +108,24 @@ const cornerDeco: React.CSSProperties = {
   position: 'absolute', zIndex: 4, pointerEvents: 'none', lineHeight: 0,
 }
 
-// Gachapon controls poking out the top of the gacha button: a static gold
-// crank knob, plus a red push-button that presses itself on a loop (pure decor,
-// see .gacha-red-btn in globals.css) so the machine looks alive and inviting.
-function GachaControls() {
+// Static gachapon crank knob that pokes out the top of the gacha button — the
+// "control handle". The red push-button lives on the button face (see below).
+function GachaKnob() {
   return (
     <div style={{
       position: 'absolute', top: -11, left: '50%', transform: 'translateX(-50%)',
-      width: 28, height: 16, zIndex: 4, pointerEvents: 'none',
+      width: 20, height: 16, zIndex: 4, pointerEvents: 'none',
       filter: 'drop-shadow(1px 1px 0 rgba(0,0,0,0.45))',
     }}>
       {/* crank knob */}
       <div style={{
-        position: 'absolute', left: 1, top: 2, width: 12, height: 12, borderRadius: '50%',
+        position: 'absolute', left: 4, top: 2, width: 12, height: 12, borderRadius: '50%',
         background: '#E6BE4A', border: '2px solid #6E4A12',
         boxShadow: 'inset 0 2px 0 rgba(255,255,255,0.45), inset 0 -2px 0 rgba(0,0,0,0.18)',
       }} />
       {/* static lever — gives the knob its crank silhouette */}
       <div style={{
-        position: 'absolute', left: 7, top: 6.25, width: 8, height: 3.5,
+        position: 'absolute', left: 9, top: 6.25, width: 8, height: 3.5,
         background: '#C4C9D2', border: '1.5px solid #383B43', borderRadius: 2,
         transformOrigin: '1px 50%', transform: 'rotate(-32deg)',
       }}>
@@ -135,11 +134,6 @@ function GachaControls() {
           background: '#E7EAEF', border: '1.5px solid #383B43',
         }} />
       </div>
-      {/* red push-button — self-presses on a loop, purely for looks */}
-      <div className="gacha-red-btn" style={{
-        position: 'absolute', left: 18, top: 3, width: 9, height: 9, borderRadius: '50%',
-        background: '#FF3B3B', border: '1.5px solid #7E0F0F',
-      }} />
     </div>
   )
 }
@@ -161,9 +155,15 @@ export function DockContent({ theme, label }: { theme: DockTheme; label: string 
       )}
       {theme === 'gacha' && (
         <>
-          <GachaControls />
+          <GachaKnob />
+          {/* red push-button on the machine face — self-presses on a loop, pure
+              decor (see .gacha-red-btn in globals.css) so it looks tappable */}
+          <div className="gacha-red-btn" style={{
+            position: 'absolute', right: 9, bottom: 6, width: 11, height: 11, borderRadius: '50%',
+            background: '#FF3B3B', border: '1.5px solid #7E0F0F', zIndex: 4, pointerEvents: 'none',
+          }} />
           <span style={{ ...cornerDeco, top: 3, left: 5 }}><IconSparkles size={12} /></span>
-          <span style={{ ...cornerDeco, bottom: 2, right: 5 }}><IconStar size={12} /></span>
+          <span style={{ ...cornerDeco, top: 3, right: 5 }}><IconStar size={11} /></span>
         </>
       )}
       {theme === 'shawarma' && (
