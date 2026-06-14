@@ -204,11 +204,11 @@ export default function GachaPage() {
 
         {/* Sparkle curtain at the seam — you swipe through it between machines */}
         <div aria-hidden className="absolute top-0 bottom-0 z-10 pointer-events-none"
-          style={{ left: '100%', width: 190, transform: 'translateX(-50%)' }}>
+          style={{ left: '100%', width: 150, transform: 'translateX(-50%)' }}>
           <div className="absolute inset-0" style={{
             background: 'linear-gradient(90deg, transparent, rgba(244,114,182,0.16) 35%, rgba(255,255,255,0.2) 50%, rgba(167,139,250,0.16) 65%, transparent)',
           }} />
-          <CurtainGlitter count={32} seed={707070} />
+          <CurtainGlitter count={40} seed={707070} />
         </div>
       </div>
 

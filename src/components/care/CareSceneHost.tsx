@@ -416,7 +416,7 @@ export default function CareSceneHost() {
 
           {/* Sparkle curtain — the magical seam between rooms. */}
           <div aria-hidden className="absolute top-0 bottom-0 pointer-events-none" style={{
-            width: 170, zIndex: 45,
+            width: 130, zIndex: 45,
             left:  curtainSide === 'left'  ? 0 : undefined,
             right: curtainSide === 'right' ? 0 : undefined,
             transform: `translateX(${curtainSide === 'left' ? '-50%' : '50%'})`,
@@ -429,7 +429,7 @@ export default function CareSceneHost() {
                 ? 'linear-gradient(90deg, transparent, rgba(244,114,182,0.18) 40%, rgba(255,255,255,0.22) 55%, rgba(167,139,250,0.16) 70%, transparent)'
                 : 'linear-gradient(90deg, transparent, rgba(167,139,250,0.16) 30%, rgba(255,255,255,0.22) 45%, rgba(244,114,182,0.18) 60%, transparent)',
             }} />
-            <CurtainGlitter count={28} seed={424242} />
+            <CurtainGlitter count={32} seed={424242} />
           </div>
         </div>
       )}
