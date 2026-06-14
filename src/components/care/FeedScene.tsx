@@ -321,7 +321,10 @@ export default function FeedScene({ onClose }: Props) {
       tick()
 
       function onMove(ev: TouchEvent) {
-        ev.preventDefault()
+        // Only cancel when the browser still lets us — once a gesture is
+        // committed to scrolling, touchmove arrives with cancelable=false and
+        // preventDefault() is a no-op that logs an Intervention warning.
+        if (ev.cancelable) ev.preventDefault()
         ev.stopPropagation()
         const t2 = ev.touches[0]
         const d2 = dragRef.current
