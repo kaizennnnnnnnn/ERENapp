@@ -78,6 +78,15 @@ export function useCatchupGate(opts: {
         // Show the carousel even if frames is empty — the intro + outro alone
         // tell the user the wall is now their thing to fill up.
         setFrames(body.frames ?? [])
+        // If the backfill actually populated the wall, ping the partner once
+        // (fire-and-forget; the route is idempotent per recipient).
+        if ((body.frames?.length ?? 0) > 0) {
+          void fetch('/api/notify-catchup', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ user_id: opts.userId, household_id: opts.householdId }),
+          }).catch(() => { /* best-effort */ })
+        }
       } catch { /* network err — try again next mount */ triedRef.current = false }
     })()
 
