@@ -652,3 +652,21 @@
 .home-dock-btn:active .dock-fill {
   box-shadow: 1px 1px 0 var(--dock-ink, #2C1A4A), inset 0 3px 0 rgba(255,255,255,0.18), inset 0 -3px 0 rgba(0,0,0,0.22);
 }
+
+/* The gacha machine's red push-button presses itself on a loop — pure decor,
+   to make the button look alive and tappable. Mostly at rest, a quick dip. */
+.gacha-red-btn { animation: gachaSelfPress 1.9s ease-in-out infinite; }
+@keyframes gachaSelfPress {
+  0%, 64%, 100% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 2px 0 #7E0F0F, 0 0 5px rgba(255,70,70,0.75), inset 0 1px 0 rgba(255,255,255,0.55);
+  }
+  72% {
+    transform: translateY(2px) scale(0.9);
+    box-shadow: 0 0 0 #7E0F0F, 0 0 3px rgba(255,70,70,0.5), inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+  80% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 2px 0 #7E0F0F, 0 0 5px rgba(255,70,70,0.75), inset 0 1px 0 rgba(255,255,255,0.55);
+  }
+}

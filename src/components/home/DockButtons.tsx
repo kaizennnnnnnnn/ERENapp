@@ -1,9 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import Link from 'next/link'
 import { IconCherry, IconFlower, IconStar, IconSparkles, IconShawarma } from '@/components/PixelIcons'
-import { playSound } from '@/lib/sounds'
 
 // ─── HOME DOCK BUTTONS ───────────────────────────────────────────────────────
 // Pixel-art candy buttons for the bottom dock. Flat 2-tone face with hard ink
@@ -111,49 +108,43 @@ const cornerDeco: React.CSSProperties = {
   position: 'absolute', zIndex: 4, pointerEvents: 'none', lineHeight: 0,
 }
 
-// Gachapon crank that pokes out the top of the gacha button. On `cranked` the
-// lever turns and a red push-button pops onto the hub — fired when the button
-// is tapped (see GachaDockButton), just before the cloud flight to /gacha.
-function GachaCrank({ cranked }: { cranked: boolean }) {
+// Gachapon controls poking out the top of the gacha button: a static gold
+// crank knob, plus a red push-button that presses itself on a loop (pure decor,
+// see .gacha-red-btn in globals.css) so the machine looks alive and inviting.
+function GachaControls() {
   return (
     <div style={{
       position: 'absolute', top: -11, left: '50%', transform: 'translateX(-50%)',
-      width: 22, height: 16, zIndex: 4, pointerEvents: 'none',
+      width: 28, height: 16, zIndex: 4, pointerEvents: 'none',
       filter: 'drop-shadow(1px 1px 0 rgba(0,0,0,0.45))',
     }}>
-      {/* knob plate */}
+      {/* crank knob */}
       <div style={{
-        position: 'absolute', left: 5, top: 2, width: 12, height: 12, borderRadius: '50%',
+        position: 'absolute', left: 1, top: 2, width: 12, height: 12, borderRadius: '50%',
         background: '#E6BE4A', border: '2px solid #6E4A12',
         boxShadow: 'inset 0 2px 0 rgba(255,255,255,0.45), inset 0 -2px 0 rgba(0,0,0,0.18)',
       }} />
-      {/* lever — pivots on the hub, swings round on crank */}
+      {/* static lever — gives the knob its crank silhouette */}
       <div style={{
-        position: 'absolute', left: 11, top: 6.25, width: 9, height: 3.5,
+        position: 'absolute', left: 7, top: 6.25, width: 8, height: 3.5,
         background: '#C4C9D2', border: '1.5px solid #383B43', borderRadius: 2,
-        transformOrigin: '1px 50%',
-        transform: `rotate(${cranked ? 150 : 18}deg)`,
-        transition: 'transform 380ms cubic-bezier(0.34, 1.7, 0.5, 1)',
+        transformOrigin: '1px 50%', transform: 'rotate(-32deg)',
       }}>
         <div style={{
-          position: 'absolute', right: -4, top: -2, width: 6, height: 6, borderRadius: '50%',
+          position: 'absolute', right: -3, top: -2, width: 6, height: 6, borderRadius: '50%',
           background: '#E7EAEF', border: '1.5px solid #383B43',
         }} />
       </div>
-      {/* red push-button that appears once cranked */}
-      <div style={{
-        position: 'absolute', left: 8, top: 5, width: 6, height: 6, borderRadius: '50%',
+      {/* red push-button — self-presses on a loop, purely for looks */}
+      <div className="gacha-red-btn" style={{
+        position: 'absolute', left: 18, top: 3, width: 9, height: 9, borderRadius: '50%',
         background: '#FF3B3B', border: '1.5px solid #7E0F0F',
-        boxShadow: '0 0 5px rgba(255,70,70,0.9), inset 0 1px 0 rgba(255,255,255,0.55)',
-        opacity: cranked ? 1 : 0,
-        transform: `scale(${cranked ? 1 : 0})`,
-        transition: 'opacity 180ms ease 110ms, transform 240ms cubic-bezier(0.34, 1.9, 0.5, 1) 110ms',
       }} />
     </div>
   )
 }
 
-export function DockContent({ theme, label, cranked }: { theme: DockTheme; label: string; cranked?: boolean }) {
+export function DockContent({ theme, label }: { theme: DockTheme; label: string }) {
   const t = THEMES[theme]
   return (
     <>
@@ -170,7 +161,7 @@ export function DockContent({ theme, label, cranked }: { theme: DockTheme; label
       )}
       {theme === 'gacha' && (
         <>
-          <GachaCrank cranked={!!cranked} />
+          <GachaControls />
           <span style={{ ...cornerDeco, top: 3, left: 5 }}><IconSparkles size={12} /></span>
           <span style={{ ...cornerDeco, bottom: 2, right: 5 }}><IconStar size={12} /></span>
         </>
@@ -185,25 +176,5 @@ export function DockContent({ theme, label, cranked }: { theme: DockTheme; label
 
       <span style={dockLabel}>{label}</span>
     </>
-  )
-}
-
-// Gacha dock button: tapping turns the crank + pops the red button, then (after
-// a beat so the crank reads) runs onActivate — the cloud flight to /gacha.
-export function GachaDockButton({ onActivate }: { onActivate: () => void }) {
-  const [cranked, setCranked] = useState(false)
-  const firing = useRef(false)
-  function handleClick(e: React.MouseEvent) {
-    e.preventDefault()
-    if (firing.current) return
-    firing.current = true
-    setCranked(true)
-    playSound('ui_select')
-    window.setTimeout(onActivate, 420)
-  }
-  return (
-    <Link href="/gacha" onClick={handleClick} className="home-dock-btn" style={dockFrame} aria-label="Open gacha">
-      <DockContent theme="gacha" label="GACHA" cranked={cranked} />
-    </Link>
   )
 }
