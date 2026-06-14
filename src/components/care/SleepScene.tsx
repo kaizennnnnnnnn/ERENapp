@@ -144,7 +144,12 @@ export default function SleepScene({ onClose }: Props) {
       `}</style>
 
       {/* ══ EREN ══ */}
-      <div className={cn('absolute z-10 transition-all duration-700', tuckedIn ? 'bottom-[17%]' : 'bottom-[14%]')}
+      {/* Awake (14%) and asleep (17%) sit at different anchors because the two
+          poses have different contact lines. SNAP between them (no transition):
+          the swap is hidden by the 450ms poof, so he must already be at his
+          resting spot when the cloud clears — a 700ms slide would creep up
+          AFTER the poof and read as him drifting into place. */}
+      <div className={cn('absolute z-10', tuckedIn ? 'bottom-[17%]' : 'bottom-[14%]')}
         style={{ left: '50%', transform: 'translateX(-50%)' }}>
         {tuckedIn ? (
           // Asleep: a curled-up pose sticker (eyes painted shut, no overlays).
