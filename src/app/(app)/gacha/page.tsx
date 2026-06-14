@@ -15,6 +15,7 @@ import { IconCoin, IconSparkles, IconTicket, IconBook } from '@/components/Pixel
 import { playSound } from '@/lib/sounds'
 import { requestCloudNav } from '@/components/CloudTransition'
 import { PINK_HI, OBSIDIAN_BTN, Rivets, pinkText } from '@/components/obsidian'
+import CurtainGlitter from '@/components/CurtainGlitter'
 
 // Two machines, one swipe apart. Page order matches the banner ids in
 // GACHA_BANNERS — food first (what the gacha button lands on), animal right.
@@ -23,22 +24,6 @@ const PAGES = [
   // ?v bumps the cache key when the art changes — the SW serves images
   // stale-while-revalidate, so a same-path replace shows the old one first.
   { id: 'animal', bg: '/gacha_animal.png?v=3' },
-] as const
-
-// Pixel stars for the sparkle curtain between the two machines. Fixed layout
-// (no Math.random) so server and client render the same thing.
-const SEAM_STARS = [
-  { x: 50, y: 8, s: 6, c: '#FFE9F4', d: 1.6, delay: 0 },
-  { x: 30, y: 16, s: 4, c: '#F9A8D4', d: 1.2, delay: 0.3 },
-  { x: 68, y: 24, s: 5, c: '#C4B5FD', d: 1.8, delay: 0.7 },
-  { x: 42, y: 33, s: 4, c: '#F5C842', d: 1.4, delay: 0.2 },
-  { x: 60, y: 42, s: 7, c: '#FFFFFF', d: 2.0, delay: 0.5 },
-  { x: 25, y: 50, s: 4, c: '#F9A8D4', d: 1.3, delay: 0.9 },
-  { x: 72, y: 58, s: 5, c: '#C4B5FD', d: 1.7, delay: 0.1 },
-  { x: 47, y: 66, s: 6, c: '#FFE9F4', d: 1.5, delay: 0.6 },
-  { x: 33, y: 75, s: 4, c: '#F5C842', d: 1.9, delay: 0.4 },
-  { x: 63, y: 83, s: 5, c: '#FFFFFF', d: 1.4, delay: 0.8 },
-  { x: 50, y: 92, s: 4, c: '#F9A8D4', d: 1.6, delay: 0.25 },
 ] as const
 
 export default function GachaPage() {
@@ -219,18 +204,11 @@ export default function GachaPage() {
 
         {/* Sparkle curtain at the seam — you swipe through it between machines */}
         <div aria-hidden className="absolute top-0 bottom-0 z-10 pointer-events-none"
-          style={{ left: '100%', width: 150, transform: 'translateX(-50%)' }}>
+          style={{ left: '100%', width: 190, transform: 'translateX(-50%)' }}>
           <div className="absolute inset-0" style={{
             background: 'linear-gradient(90deg, transparent, rgba(244,114,182,0.16) 35%, rgba(255,255,255,0.2) 50%, rgba(167,139,250,0.16) 65%, transparent)',
           }} />
-          {SEAM_STARS.map((s, i) => (
-            <div key={i} className="absolute" style={{
-              left: `${s.x}%`, top: `${s.y}%`, width: s.s, height: s.s,
-              background: s.c,
-              boxShadow: `0 0 ${s.s + 4}px ${s.c}`,
-              animation: `gachaTwinkle ${s.d}s steps(2, jump-none) ${s.delay}s infinite`,
-            }} />
-          ))}
+          <CurtainGlitter count={32} seed={707070} />
         </div>
       </div>
 
@@ -300,13 +278,6 @@ export default function GachaPage() {
 
       {/* ── Reveal ── */}
       {pullResults && !opening && <PullAnimation results={pullResults} onDone={handlePullDone} skipCapsule={pulledFood.current} />}
-
-      <style jsx>{`
-        @keyframes gachaTwinkle {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.25; transform: scale(0.6); }
-        }
-      `}</style>
     </div>
   )
 }

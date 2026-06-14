@@ -6,6 +6,7 @@ import { foodDrag } from './foodDragFlag'
 import AnimatedEren from '@/components/AnimatedEren'
 import { playSound } from '@/lib/sounds'
 import { useIsDark } from '@/hooks/useIsDark'
+import CurtainGlitter from '@/components/CurtainGlitter'
 
 // Scenes are lazy chunks instead of static imports so the ~560 KB of room
 // code stays out of the shared (app) layout bundle every route parses.
@@ -82,23 +83,6 @@ const SCENE_EREN_SPRITES: Partial<Record<CareScene, string[]>> = {
   vet:       ['/ErenVet_notail.png',          '/ErenVet_tail.png'],
   school:    [],
 }
-
-// Pixel stars for the sparkle curtain you pass through between rooms — same
-// magical seam as the gacha swipe. Fixed layout (no Math.random) so the
-// pattern is stable across renders.
-const ROOM_SPARKS = [
-  { x: 50, y: 7,  s: 6, c: '#FFE9F4', d: 1.6, delay: 0    },
-  { x: 28, y: 15, s: 4, c: '#F9A8D4', d: 1.2, delay: 0.3  },
-  { x: 70, y: 23, s: 5, c: '#C4B5FD', d: 1.8, delay: 0.7  },
-  { x: 44, y: 32, s: 4, c: '#F5C842', d: 1.4, delay: 0.2  },
-  { x: 60, y: 41, s: 7, c: '#FFFFFF', d: 2.0, delay: 0.5  },
-  { x: 24, y: 50, s: 4, c: '#F9A8D4', d: 1.3, delay: 0.9  },
-  { x: 72, y: 59, s: 5, c: '#C4B5FD', d: 1.7, delay: 0.1  },
-  { x: 46, y: 67, s: 6, c: '#FFE9F4', d: 1.5, delay: 0.6  },
-  { x: 32, y: 76, s: 4, c: '#F5C842', d: 1.9, delay: 0.4  },
-  { x: 64, y: 84, s: 5, c: '#FFFFFF', d: 1.4, delay: 0.8  },
-  { x: 50, y: 93, s: 4, c: '#F9A8D4', d: 1.6, delay: 0.25 },
-] as const
 
 export default function CareSceneHost() {
   const { activeScene, openScene, closeScene } = useCare()
@@ -317,10 +301,6 @@ export default function CareSceneHost() {
           35%  { opacity: 1; }
           100% { opacity: 0; }
         }
-        @keyframes roomTwinkle {
-          0%, 100% { opacity: 1;    transform: scale(1);   }
-          50%      { opacity: 0.25; transform: scale(0.6); }
-        }
         @keyframes fadeInDown {
           from { opacity: 0; transform: translateY(-6px); }
           to   { opacity: 1; transform: translateY(0);    }
@@ -436,7 +416,7 @@ export default function CareSceneHost() {
 
           {/* Sparkle curtain — the magical seam between rooms. */}
           <div aria-hidden className="absolute top-0 bottom-0 pointer-events-none" style={{
-            width: 130, zIndex: 45,
+            width: 170, zIndex: 45,
             left:  curtainSide === 'left'  ? 0 : undefined,
             right: curtainSide === 'right' ? 0 : undefined,
             transform: `translateX(${curtainSide === 'left' ? '-50%' : '50%'})`,
@@ -449,13 +429,7 @@ export default function CareSceneHost() {
                 ? 'linear-gradient(90deg, transparent, rgba(244,114,182,0.18) 40%, rgba(255,255,255,0.22) 55%, rgba(167,139,250,0.16) 70%, transparent)'
                 : 'linear-gradient(90deg, transparent, rgba(167,139,250,0.16) 30%, rgba(255,255,255,0.22) 45%, rgba(244,114,182,0.18) 60%, transparent)',
             }} />
-            {ROOM_SPARKS.map((s, i) => (
-              <div key={i} className="absolute" style={{
-                left: `${s.x}%`, top: `${s.y}%`, width: s.s, height: s.s,
-                background: s.c, boxShadow: `0 0 ${s.s + 4}px ${s.c}`,
-                animation: `roomTwinkle ${s.d}s steps(2, jump-none) ${s.delay}s infinite`,
-              }} />
-            ))}
+            <CurtainGlitter count={28} seed={424242} />
           </div>
         </div>
       )}
