@@ -252,14 +252,14 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
               total dims back — so it reads as progress at a glance. */}
           <div className="font-pixel flex items-center min-w-0" style={{ whiteSpace: 'nowrap', textShadow: COUNTER_SHADOW, gap: 7 }}>
             <span className="flex items-center" style={{ gap: 3 }}>
-              <span style={{ width: 5, height: 5, background: DAILY_NUM, transform: 'rotate(45deg)', boxShadow: '0 0 0 1px rgba(0,0,0,0.18)' }} />
-              <span style={{ fontSize: 10, color: DAILY_NUM }}>{dailyDone}</span>
-              <span style={{ fontSize: 7, color: DAILY_NUM, opacity: 0.5 }}>/{dailyTasks.length}</span>
+              <span style={{ width: 4, height: 4, background: DAILY_NUM, transform: 'rotate(45deg)', boxShadow: '0 0 0 1px rgba(0,0,0,0.18)' }} />
+              <span style={{ fontSize: 8, color: DAILY_NUM }}>{dailyDone}</span>
+              <span style={{ fontSize: 6, color: DAILY_NUM, opacity: 0.5 }}>/{dailyTasks.length}</span>
             </span>
             <span className="flex items-center" style={{ gap: 3 }}>
-              <span style={{ width: 5, height: 5, background: WEEKLY_NUM, transform: 'rotate(45deg)', boxShadow: '0 0 0 1px rgba(0,0,0,0.18)' }} />
-              <span style={{ fontSize: 10, color: WEEKLY_NUM }}>{weeklyDone}</span>
-              <span style={{ fontSize: 7, color: WEEKLY_NUM, opacity: 0.5 }}>/{weeklyTasks.length}</span>
+              <span style={{ width: 4, height: 4, background: WEEKLY_NUM, transform: 'rotate(45deg)', boxShadow: '0 0 0 1px rgba(0,0,0,0.18)' }} />
+              <span style={{ fontSize: 8, color: WEEKLY_NUM }}>{weeklyDone}</span>
+              <span style={{ fontSize: 6, color: WEEKLY_NUM, opacity: 0.5 }}>/{weeklyTasks.length}</span>
             </span>
           </div>
         </button>
