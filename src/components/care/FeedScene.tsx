@@ -468,9 +468,9 @@ export default function FeedScene({ onClose }: Props) {
       )}
 
       {/* Bowl + crumbs sit under his lowered face (off-centre in the crouch).
-          A small bowl tucked just below his chin — his face is very low in the
-          crouch, so the full-size bowl left an awkward gap under it. */}
-      {eating && <FoodBowl color={bowlColor} left={noseLeft} bottom="-3%" width={34} />}
+          The bowl is nudged a touch down-and-left of the nose so it reads as
+          sitting on the floor in front of his mouth, not stuck to his chin. */}
+      {eating && <FoodBowl color={bowlColor} left={`${EAT_NOSE_X[eatIdx] - 6}%`} bottom="-9%" width={34} />}
       {eating && <Crumbs color={bowlColor} left={noseLeft} bottom="2%" />}
       {eating && <SoundWord word="NOM NOM" color={WORD_COLOR.food} left={EAT_NOSE_X[eatIdx] + 8} top={12} />}
       {eating && <SoundWord word="NOM NOM" color={WORD_COLOR.food} left={EAT_NOSE_X[eatIdx] + 6} top={9} delayMs={1400} />}
