@@ -454,7 +454,7 @@ export default function FeedScene({ onClose }: Props) {
         // bob over the sticker carries the munching; the standing<->crouch swap
         // is hidden by the poof at each end of the meal.
         <div style={{ animation: 'erenChew 440ms ease-in-out infinite' }}>
-          <PoseSprite src={`/erenEat${eatIdx + 1}.png`} width={160} breathe={false} />
+          <PoseSprite src={`/erenEat${eatIdx + 1}.png`} width={140} breathe={false} />
         </div>
       ) : (
         <ErenIdleLayer disabled={reaction.active}>
