@@ -307,8 +307,24 @@ export default function CareSceneHost() {
         }
       `}</style>
 
-      {/* Solid backdrop */}
-      <div className="fixed inset-0 z-40 bg-black" />
+      {/* Dreamy "between rooms" backdrop — what shows in the gap as a room
+          slides away during a swipe. Replaces the old pure-black void with a
+          soft twilight gradient and a gentle starfield so the seam between
+          rooms feels magical instead of like a hole punched in the screen.
+          Sits under the scene (z-40, scene rendered after) so it's only ever
+          visible mid-swipe. */}
+      <div className="fixed inset-0 z-40 overflow-hidden" style={{
+        background:
+          'radial-gradient(90% 60% at 22% 16%, rgba(167,139,250,0.22), transparent 60%),' +
+          'radial-gradient(80% 55% at 80% 84%, rgba(244,114,182,0.18), transparent 60%),' +
+          'linear-gradient(180deg, #241640 0%, #160d2b 52%, #20143c 100%)',
+      }}>
+        {/* Soft, sparse starfield drifting across the whole void — dimmer than
+            the bright seam curtain so the seam still reads as the focal point. */}
+        <div className="absolute inset-0" style={{ opacity: 0.7 }}>
+          <CurtainGlitter count={24} seed={313131} />
+        </div>
+      </div>
 
       {/* Custom loading screen — matches the app splash (dark purple bg) */}
       {!ready && !loadError && (
