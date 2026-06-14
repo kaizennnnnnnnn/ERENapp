@@ -166,20 +166,20 @@ export const IconCoin = memo(function IconCoin({ size = 20 }: IconProps) {
 export const IconGift = memo(function IconGift({ size = 20 }: IconProps) {
   const grid = [
     '............',
-    '..K.K..K.K..',
-    '..PKPPPPKP..',
-    '..KPPPPPPK..',
-    '.KKKKRKKKKK.',
-    '.KBBBRBBBBK.',
-    '.KBBBRBBBBK.',
-    '.KRRRKRRRRK.',
-    '.KBBBRBBBBK.',
-    '.KBBBRBBBBK.',
-    '.KKKKKKKKKK.',
+    '...KK..KK...',
+    '..KRRKKRRK..',
+    '...KRRRRK...',
+    '..KKKKKKKK..',
+    '..KWBRRBBK..',
+    '..KKKRRKKK..',
+    '..KBBRRBBK..',
+    '..KBBRRBBK..',
+    '..KBBRRBBK..',
+    '..KKKKKKKK..',
     '............',
   ]
   return drawPixels(grid, {
-    K: '#2A1040', B: '#A78BFA', P: '#FFD700', R: '#FF4D7D',
+    K: '#2A1040', B: '#A78BFA', W: '#D9C5FF', R: '#FF6FA5',
   }, size)
 })
 
