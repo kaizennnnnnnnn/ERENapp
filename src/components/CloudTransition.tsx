@@ -143,15 +143,26 @@ const CLOUDS: CloudDef[] = (() => {
   return defs
 })()
 
+// 4-point sparkle star — a concave diamond that reads as a glint of glitter.
+const SPARKLE_STAR =
+  'polygon(50% 0%, 58% 42%, 100% 50%, 58% 58%, 50% 100%, 42% 58%, 0% 50%, 42% 42%)'
+
+// A big, dense glitter field — spread edge-to-edge with a weighted size mix
+// (a few large hero glints among many small ones) and a per-sparkle twinkle
+// speed + rotation so the field shimmers rather than blinking in lockstep.
 const SPARKLES = (() => {
   const rand = rng(424242)
-  return Array.from({ length: 16 }, () => ({
-    x: `${((rand() - 0.5) * 76).toFixed(1)}vw`,
-    y: `${((rand() - 0.5) * 70).toFixed(1)}vh`,
-    size: rand() > 0.5 ? 7 : 5,
-    delay: Math.round(rand() * 600),
-    bobDelay: Math.round(rand() * 1200),
-  }))
+  return Array.from({ length: 64 }, () => {
+    const r = rand()
+    return {
+      x: `${((rand() - 0.5) * 98).toFixed(1)}vw`,
+      y: `${((rand() - 0.5) * 102).toFixed(1)}vh`,
+      size: r > 0.85 ? 28 : r > 0.6 ? 21 : r > 0.32 ? 15 : 11,
+      rot: Math.round(rand() * 90),
+      delay: Math.round(rand() * 700),
+      dur: 460 + Math.round(rand() * 520),
+    }
+  })
 })()
 
 interface ThemeDef {
@@ -188,16 +199,18 @@ const THEMES: Record<CloudTheme, ThemeDef> = {
   pink: {
     cloud: c => PINK_RINGS[c.ring],
     backdrop: 'radial-gradient(circle at 50% 42%, #FFF7FB 0%, #FCE4F1 55%, #F3C9E2 100%)',
-    sparkleColors: ['#FFD700', '#FF9DCF', '#FFFFFF'],
-    sparkleCount: 12,
+    // Saturated golds + pinks + a violet so the glitter pops on the pale
+    // pink backdrop (pure white vanished against it).
+    sparkleColors: ['#FFC400', '#FF4FA3', '#FF8FCF', '#FFD84D', '#C77DFF'],
+    sparkleCount: 50,
     swirl: false,
     speed: 1,
   },
   rainbow: {
     cloud: (_c, i) => RAINBOW[i % RAINBOW.length],
     backdrop: 'linear-gradient(150deg, #FFDCDC 0%, #FFEBCC 18%, #FFF9CC 36%, #DCF5DF 54%, #D2EAFF 72%, #DFDAFF 88%, #F6DCFF 100%)',
-    sparkleColors: ['#FF6B6B', '#FFA94D', '#FFE066', '#69DB7C', '#4DABF7', '#9775FA', '#F783AC'],
-    sparkleCount: 16,
+    sparkleColors: ['#FF5252', '#FF922B', '#FFD43B', '#51CF66', '#339AF0', '#845EF7', '#F06595'],
+    sparkleCount: 64,
     swirl: true,
     // Gacha clouds drift in ~35% slower so the rainbow vortex reads as a
     // gentle gather rather than a quick snap.
@@ -405,10 +418,23 @@ export default function CloudTransition() {
               left: `calc(50% + ${s.x})`,
               top: `calc(50% + ${s.y})`,
               width: s.size, height: s.size,
-              background: color,
-              boxShadow: `0 0 6px ${color}`,
-              animation: `ctTwinkle 0.6s steps(2) ${s.delay}ms infinite`,
-            }} />
+              transform: 'translate(-50%, -50%)',
+            }}>
+              {/* Twinkle (scale/opacity) lives on a middle layer so it never
+                  fights the star's static rotation on the inner one. */}
+              <div style={{
+                width: '100%', height: '100%',
+                animation: `ctTwinkle ${s.dur}ms steps(2) ${s.delay}ms infinite`,
+              }}>
+                <div style={{
+                  width: '100%', height: '100%',
+                  transform: `rotate(${s.rot}deg)`,
+                  background: `radial-gradient(circle, #fff 0%, #fff 18%, ${color} 55%, ${color} 70%)`,
+                  clipPath: SPARKLE_STAR,
+                  filter: `drop-shadow(0 0 ${Math.round(s.size * 0.6)}px ${color})`,
+                }} />
+              </div>
+            </div>
           )
         })}
       </div>
