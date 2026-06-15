@@ -63,6 +63,15 @@ export function totalXpForLevel(level: number): number {
   return (level * (level - 1)) / 2 * 100
 }
 
+// Level reached at a given total XP — the inverse of totalXpForLevel. Lets the
+// HUD derive the displayed level (and bar fill) from a single animated XP total
+// so a multi-level gain rolls the bar over naturally instead of jumping.
+export function levelForXp(totalXp: number): number {
+  let level = 1
+  while (totalXpForLevel(level + 1) <= totalXp) level++
+  return level
+}
+
 export function getLevelTitle(level: number): string {
   if (level <= 3)  return 'Kitten'
   if (level <= 7)  return 'Cat Parent'

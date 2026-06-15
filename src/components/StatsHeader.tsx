@@ -1,12 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
-import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
+import { useTween } from '@/hooks/useTween'
+import { xpForNextLevel, totalXpForLevel, levelForXp } from '@/lib/tasks'
 import { MAX_LEVEL } from '@/lib/levelRewards'
 import { createClient } from '@/lib/supabase/client'
 import { IconHeart, IconMeat, IconLightning, IconMoon, IconDrop, IconCoin, IconFire } from './PixelIcons'
@@ -40,6 +41,9 @@ const GOLD_LO = '#B35900'
 const SILVER_HI = '#FFFFFF'
 const SILVER    = '#C8C8D0'
 const SILVER_LO = '#7A7A85'
+
+// Monotonic id for the floating "+XP" chips.
+let floatSeq = 0
 
 type StatKey = 'happiness' | 'hunger' | 'energy' | 'sleep_quality' | 'cleanliness'
 
@@ -188,9 +192,69 @@ export default function StatsHeader() {
   const { hideStats, activeScene, closeScene } = useCare()
   const wish = useWish()
 
-  const xpIntoLevel = xp - totalXpForLevel(level)
-  const xpNeeded    = xpForNextLevel(level)
-  const xpPct       = Math.min(100, Math.round((xpIntoLevel / xpNeeded) * 100))
+  // Animate the raw XP + coin totals so the bar fills and the numbers roll up
+  // smoothly. Everything below is derived per-frame from the single animated XP
+  // value, so a gain that crosses a level boundary rolls the bar past 100% and
+  // continues into the next level naturally instead of snapping backward.
+  const animXp    = useTween(xp, 850)
+  const animCoins = useTween(coins, 650)
+  const dispLevel   = levelForXp(animXp)
+  const xpIntoLevel = Math.max(0, Math.round(animXp - totalXpForLevel(dispLevel)))
+  const xpNeeded    = xpForNextLevel(dispLevel)
+  const xpPct       = Math.max(0, Math.min(100, ((animXp - totalXpForLevel(dispLevel)) / xpNeeded) * 100))
+  const dispCoins   = Math.round(animCoins)
+
+  // Level-up burst — fires when the *animated* level rolls over, so the flash
+  // lands exactly as the bar wraps past 100% (not early, on the raw event).
+  const [orbBurst, setOrbBurst] = useState(0)
+  const prevDispLevel = useRef(dispLevel)
+  useEffect(() => {
+    if (dispLevel > prevDispLevel.current) setOrbBurst(k => k + 1)
+    prevDispLevel.current = dispLevel
+  }, [dispLevel])
+
+  // Coin pop + XP-bar sheen — keyed bumps that replay a one-shot animation each
+  // time the real total ticks up (the ref compares against the authoritative
+  // value, not the in-flight tween).
+  const [coinPop, setCoinPop] = useState(0)
+  const prevCoins = useRef(coins)
+  useEffect(() => {
+    if (coins > prevCoins.current) setCoinPop(k => k + 1)
+    prevCoins.current = coins
+  }, [coins])
+
+  const [xpTick, setXpTick] = useState(0)
+  const prevXp = useRef(xp)
+  useEffect(() => {
+    if (xp > prevXp.current) setXpTick(k => k + 1)
+    prevXp.current = xp
+  }, [xp])
+
+  // Floating "+N XP" chips on quest completion (any care action that completes
+  // its daily quest fires this too). Each rises from the bar and fades. Chips
+  // fan sideways (dx) so several gains in the same moment stay legible, and the
+  // removal timers are tracked so they're cleared if the header unmounts.
+  const [xpFloats, setXpFloats] = useState<{ id: number; xp: number; dx: number }[]>([])
+  useEffect(() => {
+    const timers = new Set<ReturnType<typeof setTimeout>>()
+    const onQuest = (e: Event) => {
+      const gained = (e as CustomEvent<{ xp?: number }>).detail?.xp ?? 0
+      if (gained <= 0) return
+      const id = ++floatSeq
+      const dx = (id % 3 - 1) * 16
+      setXpFloats(f => [...f, { id, xp: gained, dx }])
+      const t = setTimeout(() => {
+        setXpFloats(f => f.filter(x => x.id !== id))
+        timers.delete(t)
+      }, 1300)
+      timers.add(t)
+    }
+    window.addEventListener('eren:quest-complete', onQuest)
+    return () => {
+      window.removeEventListener('eren:quest-complete', onQuest)
+      timers.forEach(clearTimeout)
+    }
+  }, [])
 
   // ── Unclaimed reward count badge ──
   // Pulled separately from useAuth's profile because the value is mutated on
@@ -291,14 +355,32 @@ export default function StatsHeader() {
             )
           })}
 
+          {/* Level-up burst ring — remounts on each roll-over (keyed by
+              orbBurst) so it replays the expand-and-fade once. */}
+          {orbBurst > 0 && (
+            <div key={orbBurst} aria-hidden style={{
+              position: 'absolute', left: '50%', top: '50%',
+              width: 40, height: 40, borderRadius: '50%',
+              border: `2px solid ${YELLOW}`,
+              boxShadow: `0 0 10px ${yellowA(0.7)}`,
+              transform: 'translate(-50%, -50%)',
+              animation: 'hudOrbRing 650ms ease-out forwards',
+              pointerEvents: 'none',
+            }} />
+          )}
+
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <span className="font-pixel" style={{
               fontSize: 4.5, color: YELLOW_HI, letterSpacing: 1.5, lineHeight: 1, marginBottom: 2,
               textShadow: `0 0 3px ${yellowA(0.53)}`,
             }}>LVL</span>
             {/* Wrapper carries the drop-shadow so it can't break the number's
-                background-clip:text (Safari quirk → gradient fills the box). */}
-            <div style={{ filter: 'drop-shadow(0 0 2px rgba(255,255,255,0.35))' }}>
+                background-clip:text (Safari quirk → gradient fills the box).
+                Keyed by orbBurst so it bounces once on each level roll-over. */}
+            <div key={orbBurst} style={{
+              filter: 'drop-shadow(0 0 2px rgba(255,255,255,0.35))',
+              animation: orbBurst ? 'hudOrbPop 600ms cubic-bezier(0.16,1,0.3,1)' : undefined,
+            }}>
               <span
                 className="clip-num"
                 style={{
@@ -307,7 +389,7 @@ export default function StatsHeader() {
                   color: SILVER_HI,
                   '--clip-grad': `linear-gradient(180deg, ${SILVER_HI} 0%, ${SILVER} 50%, ${SILVER_LO} 100%)`,
                 } as React.CSSProperties}
-              >{level}</span>
+              >{dispLevel}</span>
             </div>
           </div>
 
@@ -377,9 +459,10 @@ export default function StatsHeader() {
               width: `${xpPct}%`, height: '100%', position: 'relative',
               // Warm-yellow fill — shares the level ring's hue so the level/XP
               // cluster reads as one unit; still reads as forward progress.
+              // The width is driven per-frame by the XP tween, so no CSS
+              // transition here (it would lag a second easing on top).
               background: `linear-gradient(180deg, ${YELLOW_HI} 0%, ${YELLOW} 40%, ${YELLOW_LO} 100%)`,
               boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.4)',
-              transition: 'width 700ms ease-out',
             }}>
               {xpPct > 2 && xpPct < 100 && (
                 <div style={{
@@ -398,7 +481,33 @@ export default function StatsHeader() {
                   'repeating-linear-gradient(90deg, transparent 0 calc(25% - 1px), rgba(0,0,0,0.5) calc(25% - 1px) 25%)',
               }}
             />
+            {/* Gain sheen — a soft light band sweeps across the filled portion
+                each time XP is earned. Clipped to the current fill width so it
+                never streaks over the empty track. */}
+            {xpTick > 0 && (
+              <div key={xpTick} aria-hidden style={{
+                position: 'absolute', top: 0, bottom: 0, left: 0, width: `${xpPct}%`,
+                overflow: 'hidden', pointerEvents: 'none',
+              }}>
+                <div style={{
+                  position: 'absolute', top: 0, bottom: 0, width: '45%',
+                  background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent)',
+                  animation: 'hudXpSheen 750ms ease-out',
+                }} />
+              </div>
+            )}
           </div>
+
+          {/* Floating "+N XP" chips — rise from the bar and fade on each gain. */}
+          {xpFloats.map(f => (
+            <div key={f.id} aria-hidden className="font-pixel" style={{
+              position: 'absolute', left: `calc(50% + ${f.dx}px)`, top: 2, zIndex: 6,
+              color: YELLOW_HI, fontSize: 8, letterSpacing: 1,
+              textShadow: `0 0 6px ${yellowA(0.75)}, 0 1px 0 rgba(0,0,0,0.6)`,
+              pointerEvents: 'none', whiteSpace: 'nowrap',
+              animation: 'hudFloatRise 1.3s ease-out forwards',
+            }}>+{f.xp} XP</div>
+          ))}
         </div>
 
         {/* Wish chip — Phase 3. Shows today's wish status + this-week count.
@@ -478,7 +587,11 @@ export default function StatsHeader() {
           <div style={{ filter: `drop-shadow(0 0 3px ${accentA(0.4)})` }}>
             <IconCoin size={16} />
           </div>
-          <div style={{ filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.8))' }}>
+          <div key={coinPop} style={{
+            filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.8))',
+            animation: coinPop ? 'hudNumPop 450ms cubic-bezier(0.16,1,0.3,1)' : undefined,
+            transformOrigin: 'center',
+          }}>
             <span
               className="clip-num"
               style={{
@@ -487,7 +600,7 @@ export default function StatsHeader() {
                 color: GOLD_HI,
                 '--clip-grad': `linear-gradient(180deg, ${GOLD_HI} 0%, ${GOLD} 60%, ${GOLD_LO} 100%)`,
               } as React.CSSProperties}
-            >{coins.toLocaleString()}</span>
+            >{dispCoins.toLocaleString()}</span>
           </div>
         </div>
       </div>
