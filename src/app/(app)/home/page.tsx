@@ -729,18 +729,18 @@ export default function HomePage() {
             <button onClick={() => { playSound('ui_modal_open'); setShowReminders(true) }}
               className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
               style={cuteBtn('251,228,154')}>
-              <CuteIcon><IconBell size={22} /></CuteIcon>
+              <CuteIcon><IconBell size={18} /></CuteIcon>
             </button>
             <Link href="/profile" onClick={() => playSound('ui_tap')}
               className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
               style={cuteBtn('217,199,247')}>
-              <CuteIcon><IconPerson size={22} /></CuteIcon>
+              <CuteIcon><IconPerson size={18} /></CuteIcon>
             </Link>
             <div className="relative flex-shrink-0">
               <button onClick={() => { playSound(showRooms ? 'ui_modal_close' : 'ui_modal_open'); setShowRooms(r => !r) }}
                 className="w-8 h-8 relative flex items-center justify-center active:scale-90 transition-transform"
                 style={cuteBtn('226,196,154')}>
-                <CuteIcon><IconDoor size={22} /></CuteIcon>
+                <CuteIcon><IconDoor size={18} /></CuteIcon>
               </button>
               {showRooms && (
                 <>
