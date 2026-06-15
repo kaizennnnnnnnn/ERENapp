@@ -489,6 +489,41 @@
   }
 }
 
+/* ── HUD reward feedback (XP / quests / level-up) ──────────────────────────
+   Smooth, juicy reward cues for the stats header. The numbers themselves roll
+   up via useTween; these handle the one-shot flourishes. */
+
+/* Floating "+N XP" / "+N" that drifts up from a chip and fades. */
+@keyframes hudFloatRise {
+  0%   { opacity: 0; transform: translate(-50%, 6px)  scale(0.8); }
+  18%  { opacity: 1; transform: translate(-50%, -1px) scale(1);   }
+  100% { opacity: 0; transform: translate(-50%, -30px) scale(1);  }
+}
+/* Quick squash-and-pop for a HUD number when its value ticks up. */
+@keyframes hudNumPop {
+  0%   { transform: scale(1);    }
+  35%  { transform: scale(1.32); }
+  60%  { transform: scale(0.94); }
+  100% { transform: scale(1);    }
+}
+/* Level-orb celebration: a snappy bounce when the level rolls over. */
+@keyframes hudOrbPop {
+  0%   { transform: scale(1);    }
+  25%  { transform: scale(1.22); }
+  55%  { transform: scale(0.93); }
+  100% { transform: scale(1);    }
+}
+/* Expanding ring that bursts off the level orb on level-up. */
+@keyframes hudOrbRing {
+  0%   { opacity: 0.85; transform: translate(-50%, -50%) scale(0.55); }
+  100% { opacity: 0;    transform: translate(-50%, -50%) scale(2.3);  }
+}
+/* Sheen that sweeps across the XP bar fill as it grows. */
+@keyframes hudXpSheen {
+  0%   { transform: translateX(-120%); }
+  100% { transform: translateX(320%);  }
+}
+
 /* ── Heartbeat for low stats ── */
 @keyframes heartbeat {
   0%, 100% { transform: scale(1); }
@@ -686,4 +721,33 @@
     transform: translateY(0) scale(1);
     box-shadow: 0 2px 0 #7E0F0F, 0 0 5px rgba(255,70,70,0.75), inset 0 1px 0 rgba(255,255,255,0.55);
   }
+}
+
+/* ── Chemistry room "PERIODIC TABLE" button ──
+   Lime reagent slab with a glossy top highlight, a hard olive drop shadow,
+   and a designed press that sinks it into that shadow. Lives here (not in
+   styled-jsx) for the same SWC multi-shadow `:active` reason as the home
+   dock above. The element tile and flask bubbles animate via the keyframes
+   below. */
+.chem-table-btn {
+  box-shadow: 0 5px 0 #1B2E05, 0 10px 16px rgba(0,0,0,0.32), inset 0 2px 0 rgba(255,255,255,0.5);
+  transition: transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 120ms ease-out, filter 120ms ease-out;
+}
+.chem-table-btn:hover { filter: brightness(1.05); }
+.chem-table-btn:active {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 #1B2E05, 0 3px 8px rgba(0,0,0,0.3), inset 0 2px 0 rgba(255,255,255,0.5);
+}
+
+/* Flask bubbles drift up from the mouth and pop — ambient lab fizz. */
+@keyframes chemBubbleRise {
+  0%   { transform: translateY(0)     scale(0.5); opacity: 0;    }
+  25%  { transform: translateY(-3px)  scale(1);   opacity: 0.95; }
+  80%  { transform: translateY(-9px)  scale(0.9); opacity: 0.7;  }
+  100% { transform: translateY(-13px) scale(0.3); opacity: 0;    }
+}
+/* The "Er" element tile sits at a jaunty sticker tilt and bobs gently. */
+@keyframes chemTileBob {
+  0%, 100% { transform: rotate(-4deg) translateY(0);      }
+  50%      { transform: rotate(-4deg) translateY(-1.5px); }
 }

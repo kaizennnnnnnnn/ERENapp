@@ -13,6 +13,7 @@ import LightSwitch from '@/components/LightSwitch'
 import { useIsDark } from '@/hooks/useIsDark'
 import { playSound } from '@/lib/sounds'
 import PeriodicTableOverlay from '@/components/chemistry/PeriodicTableOverlay'
+import PeriodicTableButton from '@/components/chemistry/PeriodicTableButton'
 import { useStoredChemTheme } from '@/lib/chemistry/theme'
 import { useTasks } from '@/contexts/TaskContext'
 import { getDailyKey } from '@/lib/tasks'
@@ -102,26 +103,12 @@ export default function ChemistryScene(_props: Props) {
       </div>
 
       {/* ══ BOTTOM ACTION BUTTON ══
-          Pixel-art slab anchored to the bottom of the room. Honours the
-          iOS / Android safe-area inset so it doesn't sit under the home
-          indicator on devices that have one. */}
+          Chemistry-dressed pixel slab anchored to the bottom of the room.
+          Honours the iOS / Android safe-area inset so it doesn't sit under
+          the home indicator on devices that have one. */}
       <div className="absolute inset-x-0 flex justify-center z-20 px-8"
         style={{ bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }}>
-        <button
-          type="button"
-          onClick={openStudy}
-          className="w-full max-w-xs py-3 text-white transition-all active:translate-y-[2px]"
-          style={{
-            background: 'linear-gradient(135deg, #84CC16, #65A30D)',
-            borderRadius: 3,
-            border: '2px solid #3F6212',
-            boxShadow: '0 3px 0 #1A2E05',
-            fontFamily: '"Press Start 2P"',
-            fontSize: 8,
-            letterSpacing: 1.5,
-          }}>
-          PERIODIC TABLE
-        </button>
+        <PeriodicTableButton onClick={openStudy} />
       </div>
 
       <LightSwitch targetBottom="22%" targetLeft="50%" persistKey="chemistry" />
