@@ -18,8 +18,30 @@ import { useErenReaction } from '@/hooks/useErenReaction'
 import { happyFinisherBeats, WORD_COLOR } from '@/lib/erenReactions'
 import SoundWord from '@/components/SoundWord'
 import { Droplets, Sparkles, Hearts } from '@/components/care/ReactionFx'
+import PoseSprite from '@/components/care/PoseSprite'
+import { BubblePoof, SplashPoof, WASH_POOF_PEAK_MS } from '@/components/care/WashPoof'
+import { preloadImages } from '@/lib/preloadImages'
 
 interface Props { onClose: () => void }
+
+// ── Soap-coverage → pose progression ─────────────────────────────────────────
+// He swaps through lather stages as `coverage` climbs (soaping) and back down
+// (rinsing), then a wet pose for the finishing shake. 'stand' = the everyday
+// standing sprite. Bubble poof masks each step UP, water-splash poof each DOWN.
+type WashStage = 'stand' | 's1' | 's2' | 's3' | 'wet'
+const WASH_POSE_SRC: Record<Exclude<WashStage, 'stand'>, string> = {
+  s1:  '/erenWash1.png?v=1',
+  s2:  '/erenWash2.png?v=1',
+  s3:  '/erenWash3.png?v=1',
+  wet: '/erenWashWet.png?v=1',
+}
+const STAGE_RANK: Record<string, number> = { stand: 0, s1: 1, s2: 2, s3: 3 }
+function poofTypeFor(prev: WashStage, next: WashStage): 'bubble' | 'water' {
+  // Soaping UP between lather stages bubbles; everything else (rinsing down,
+  // entering/leaving the wet pose) splashes.
+  if (prev in STAGE_RANK && next in STAGE_RANK) return STAGE_RANK[next] > STAGE_RANK[prev] ? 'bubble' : 'water'
+  return 'water'
+}
 // `c` = coverage % at the time this bubble was created. Used to fade
 // each bubble out individually as the rinse progresses past its
 // creation moment (newest/topmost bubbles wash off first).
@@ -117,6 +139,44 @@ export default function WashScene({ onClose }: Props) {
   // together a continuous water sound without spamming a play per pointermove.
   const lastSoapSndRef  = useRef(0)
   const lastRinseSndRef = useRef(0)
+
+  // ── Pose progression driven by soap coverage ──────────────────────────────
+  const [visibleStage, setVisibleStage] = useState<WashStage>('stand')
+  const [washStarted,  setWashStarted]  = useState(false)
+  const [poof, setPoof] = useState<{ type: 'bubble' | 'water'; key: number } | null>(null)
+  const prevStageRef = useRef<WashStage>('stand')
+  const poofKeyRef   = useRef(0)
+
+  // Preload the lather/wet stickers so the first swap doesn't flash.
+  useEffect(() => {
+    preloadImages(['/erenWash1.png?v=1', '/erenWash2.png?v=1', '/erenWash3.png?v=1', '/erenWashWet.png?v=1'])
+  }, [])
+
+  // Once soaping has begun we never drop back to the dry standing pose until the
+  // finishing shake — rinsing down to 0% keeps a light lather, not a dry cat.
+  useEffect(() => {
+    if (coverage >= 8 && !washStarted) setWashStarted(true)
+  }, [coverage, washStarted])
+
+  // The stage we SHOULD be at right now. During the finish sequence he's the
+  // wet pose through the shake, then back to standing for the happy hop.
+  const targetStage: WashStage = done
+    ? (reaction.phase === 'shake' || reaction.phase === 'sparkle' ? 'wet' : 'stand')
+    : (!washStarted && coverage < 8) ? 'stand'
+    : coverage < 38 ? 's1'
+    : coverage < 70 ? 's2'
+    : 's3'
+
+  // On each stage change, fire the matching poof and swap the visible pose at
+  // the poof's peak so the sticker change is hidden inside the burst.
+  useEffect(() => {
+    const prev = prevStageRef.current
+    if (targetStage === prev) return
+    prevStageRef.current = targetStage
+    setPoof({ type: poofTypeFor(prev, targetStage), key: ++poofKeyRef.current })
+    const t = setTimeout(() => setVisibleStage(targetStage), WASH_POOF_PEAK_MS)
+    return () => clearTimeout(t)
+  }, [targetStage])
 
   // Memoize the bare sprite so per-pointermove coverage/bubble renders don't
   // reconcile it (same pattern as FeedScene). Cleanliness is the only live
@@ -392,15 +452,28 @@ export default function WashScene({ onClose }: Props) {
           style={{ left: '50%', transform: 'translateX(-50%)' }}>
           <ErenIdleLayer disabled={scrubbing || reaction.active}>
             <div style={{
+              position: 'relative', width: 200, height: 200,
               animation: reaction.phase === 'shake' ? 'erenShakeDry 750ms linear'
                 : reaction.phase === 'finish' ? 'erenIdleHop 800ms ease-in-out'
                 : scrubbing ? 'erenSquirm 400ms steps(2) infinite'
                 : undefined,
               transformOrigin: 'bottom center',
             }}>
-              {erenSprite}
+              {/* Standing sprite when dry; lather/wet pose sticker otherwise.
+                  The 200×200 box stays fixed (erenRef) so the soap occupancy
+                  mask keeps lining up regardless of which pose shows. */}
+              {visibleStage === 'stand' ? erenSprite : (
+                <div style={{ position: 'absolute', left: '50%', bottom: 0, transform: 'translateX(-50%)' }}>
+                  <PoseSprite src={WASH_POSE_SRC[visibleStage]} width={125} />
+                </div>
+              )}
             </div>
           </ErenIdleLayer>
+
+          {/* Bubble (soaping) / splash (rinsing) poof masks each pose swap. */}
+          {poof && (poof.type === 'bubble'
+            ? <BubblePoof key={poof.key} size={210} onDone={() => setPoof(null)} />
+            : <SplashPoof key={poof.key} size={210} onDone={() => setPoof(null)} />)}
 
           {/* Reaction particles + words, anchored to Eren's 200px box. */}
           {scrubbing && scrubWordKey > 0 &&
