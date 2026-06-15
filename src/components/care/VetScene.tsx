@@ -45,6 +45,10 @@ const VET_EYES = {
   glintLeftB: '19.41%',
   glintTopB:  '0%',
   glintW:     '20%',
+  // The vet pose's painted eyes are bigger than the glint-tuned mask, so the
+  // sleepy closed lids need extra coverage to fully hide them.
+  sleepyLidW: 1.55,
+  sleepyLidH: 1.5,
 }
 
 export default function VetScene({ onClose }: Props) {
@@ -130,7 +134,7 @@ export default function VetScene({ onClose }: Props) {
               transformOrigin: 'bottom center',
             }}>
               <BlinkingEren size={200} src="/ErenVet_notail.png" tailSrc="/ErenVet_tail.png" tailOrigin="71.6% 71.7%"
-                lidsClosed={reaction.phase === 'grimace'} eyes={VET_EYES} />
+                lidsClosed={reaction.phase === 'grimace'} sleepyLids eyes={VET_EYES} />
               <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
             </div>
           </ErenIdleLayer>

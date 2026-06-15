@@ -34,6 +34,13 @@ export interface EyeLayout {
   // Glint dot diameter as a share of its eye mask. The nightcap pose has
   // tighter eyes so the bedroom dials this down.
   glintW: string
+  // Coverage of the sleepyLids closed eye, as multipliers of the iris mask
+  // (w × maskW, h × maskH). The mask is glint-tuned and a touch narrower than
+  // the painted eye, so sprites whose eye is much bigger than the mask (the
+  // vet pose) raise these to fully hide the open eye. Defaults to the bedroom's
+  // snug fit.
+  sleepyLidW?: number
+  sleepyLidH?: number
 }
 
 // Default eye-glint gloss — a white catchlight with a faint cool-blue falloff.
@@ -57,6 +64,8 @@ const DEFAULT_EYES: EyeLayout = {
   glintTopA:  '2.9%',
   glintTopB:  '3.3%',
   glintW:     '39%',
+  sleepyLidW: 1.18,
+  sleepyLidH: 1.06,
 }
 
 interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
@@ -237,7 +246,7 @@ export default function BlinkingEren({
   // catching the moonlight, and a soft downward lash seam — matching how the
   // curled asleep poses paint shut eyes. Narrower than `closedEye` so it
   // doesn't spill onto the white forehead blaze between the eyes.
-  const SLEEPY_W = 1.18, SLEEPY_H = 1.06
+  const SLEEPY_W = eyes.sleepyLidW ?? 1.18, SLEEPY_H = eyes.sleepyLidH ?? 1.06
   const sleepyClosedEye = (left: string) => (
     <div style={{
       position: 'absolute',
