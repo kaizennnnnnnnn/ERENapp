@@ -222,9 +222,9 @@ export default function WashScene({ onClose }: Props) {
           setScrubWordKey(k => k + 1)
         }
         setCoverage(c => {
-          // +0.4 per in-zone soap stroke (was 0.7): soaping him up to the 95%
-          // shower-unlock takes noticeably longer, so the scrub feels earned.
-          const next = Math.min(100, c + 0.4)
+          // +0.22 per in-zone soap stroke (was 0.7): soaping him up to the 95%
+          // shower-unlock takes ~3x longer, so the scrub really feels earned.
+          const next = Math.min(100, c + 0.22)
           coverageRef.current = next
           if (next >= 95 && !showShowerRef.current) {
             showShowerRef.current = true
