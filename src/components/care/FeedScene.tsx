@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
-import { ShoppingCart, Package } from 'lucide-react'
+import { ShoppingCart } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
@@ -22,6 +22,7 @@ import { useErenReaction } from '@/hooks/useErenReaction'
 import { happyFinisherBeats, WORD_COLOR } from '@/lib/erenReactions'
 import SoundWord from '@/components/SoundWord'
 import { FoodBowl, Crumbs, Hearts } from '@/components/care/ReactionFx'
+import KitchenNavButton from '@/components/kitchen/KitchenNavButton'
 import PoseSprite from '@/components/care/PoseSprite'
 import PixelPoof from '@/components/PixelPoof'
 import { preloadImages } from '@/lib/preloadImages'
@@ -641,13 +642,11 @@ export default function FeedScene({ onClose }: Props) {
         <div className="flex items-end justify-between">
 
           {/* LEFT: Fridge button */}
-          <button onClick={() => { if (!isSleeping) { playSound('ui_modal_open'); setTab('fridge') } }}
+          <KitchenNavButton
+            variant="fridge"
             disabled={isSleeping}
-            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 active:scale-95 transition-transform disabled:opacity-40"
-            style={{ background: 'linear-gradient(135deg, #A8D8F8, #78B8E8)', borderRadius: 12, border: '2px solid #5898C8', boxShadow: '0 3px 0 #3870A8, inset 0 1px 0 rgba(255,255,255,0.4)', fontFamily: '"Press Start 2P"', fontSize: 7, color: '#1A5A8A' }}>
-            <Package size={12} />
-            FRIDGE
-          </button>
+            onClick={() => { if (!isSleeping) { playSound('ui_modal_open'); setTab('fridge') } }}
+          />
 
           {/* CENTER: Current food with arrows */}
           {(() => {
@@ -732,17 +731,16 @@ export default function FeedScene({ onClose }: Props) {
 
           {/* RIGHT: Shop button — toggling shut also resets the shop
               category, so re-opening always lands on the category picker. */}
-          <button onClick={() => {
-            const closing = tab === 'shop'
-            playSound(closing ? 'ui_modal_close' : 'ui_modal_open')
-            if (closing) { setShopCat(null); setTab(null) } else { setTab('shop') }
-          }}
+          <KitchenNavButton
+            variant="shop"
+            active={tab === 'shop'}
             disabled={isSleeping}
-            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-white active:scale-95 transition-transform disabled:opacity-40"
-            style={{ background: tab === 'shop' ? 'linear-gradient(135deg, #E8A020, #C07010)' : 'linear-gradient(135deg, #F5C842, #E8A020)', borderRadius: 12, border: '2px solid #C88018', boxShadow: tab === 'shop' ? '0 2px 0 #904800' : '0 3px 0 #A06010, inset 0 1px 0 rgba(255,255,255,0.3)', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
-            <ShoppingCart size={12} />
-            SHOP
-          </button>
+            onClick={() => {
+              const closing = tab === 'shop'
+              playSound(closing ? 'ui_modal_close' : 'ui_modal_open')
+              if (closing) { setShopCat(null); setTab(null) } else { setTab('shop') }
+            }}
+          />
         </div>
       </div>
 

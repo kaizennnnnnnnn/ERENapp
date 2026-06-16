@@ -915,6 +915,48 @@ export const IconStethoscope = memo(function IconStethoscope({ size = 20 }: Icon
   }, size)
 })
 
+// ── FRIDGE (kitchen storage) ──────────────────────────────────────────────
+export const IconFridge = memo(function IconFridge({ size = 20 }: IconProps) {
+  const grid = [
+    '..KKKKKKKK..',
+    '..KFFFFFFK..',
+    '..KFFFFHFK..',
+    '..KFFFFHFK..',
+    '..KKKKKKKK..',
+    '..KFFFFFFK..',
+    '..KFFFFHFK..',
+    '..KFFFFHFK..',
+    '..KFFFFFFK..',
+    '..KKKKKKKK..',
+    '..K......K..',
+    '..K......K..',
+  ]
+  return drawPixels(grid, {
+    K: '#3A5A7A', F: '#EAF6FF', H: '#5FA8DC',
+  }, size)
+})
+
+// ── SHOPPING CART (shop) ──────────────────────────────────────────────────
+export const IconCart = memo(function IconCart({ size = 20 }: IconProps) {
+  const grid = [
+    '.K..........',
+    '.K.KKKKKK...',
+    '.K.K....K...',
+    '.KKK....K...',
+    '...K....K...',
+    '...KKKKKK...',
+    '...K..K.....',
+    '..OO..OO....',
+    '............',
+    '............',
+    '............',
+    '............',
+  ]
+  return drawPixels(grid, {
+    K: '#6E4410', O: '#4A2E08',
+  }, size)
+})
+
 // ── HEART CARD (couple US chip) ───────────────────────────────────────────
 export const IconHeartDuo = memo(function IconHeartDuo({ size = 20 }: IconProps) {
   // Two interlocked hearts — brown on the left (Jovan), pink on the right
