@@ -21,6 +21,7 @@ import { useErenReaction } from '@/hooks/useErenReaction'
 import { happyFinisherBeats, WORD_COLOR } from '@/lib/erenReactions'
 import SoundWord from '@/components/SoundWord'
 import { Hearts } from '@/components/care/ReactionFx'
+import DonePlayingButton from '@/components/playroom/DonePlayingButton'
 
 interface Props { onClose: () => void }
 interface BallPos { x: number; y: number }
@@ -366,18 +367,11 @@ export default function PlayScene({ onClose }: Props) {
           )}
         </div>
 
-        <button onClick={() => { playSound('ui_tap'); handleDone() }} disabled={throwCount < 1 || done || saving || isSleeping}
-          className="w-full max-w-xs py-3 text-white transition-all active:translate-y-[2px] disabled:opacity-40"
-          style={done
-            ? { background: '#4ade80', borderRadius: 3, border: '2px solid #16a34a', boxShadow: '0 3px 0 #15803d', fontFamily: '"Press Start 2P"', fontSize: 8 }
-            : saving
-              ? { background: '#C084FC', borderRadius: 3, border: '2px solid #9333ea', boxShadow: '0 3px 0 #7e22ce', fontFamily: '"Press Start 2P"', fontSize: 8 }
-              : throwCount < 1
-                ? { background: '#D0C8E8', borderRadius: 3, border: '2px solid #B0A8D0', fontFamily: '"Press Start 2P"', fontSize: 8, color: '#9090B0' }
-                : { background: 'linear-gradient(135deg, #C084FC, #A855F7)', borderRadius: 3, border: '2px solid #7C3AED', boxShadow: '0 3px 0 #5B21B6', fontFamily: '"Press Start 2P"', fontSize: 8 }
-          }>
-          {done ? 'GREAT SESSION!' : saving ? 'SAVING...' : 'DONE PLAYING'}
-        </button>
+        <DonePlayingButton
+          state={done ? 'done' : saving ? 'saving' : throwCount < 1 ? 'locked' : 'ready'}
+          disabled={throwCount < 1 || done || saving || isSleeping}
+          onClick={() => { playSound('ui_tap'); handleDone() }}
+        />
       </div>
 
       {/* Leaderboard modal — opened via the HIGH SCORES button. Wrapped in

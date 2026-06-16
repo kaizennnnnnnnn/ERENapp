@@ -813,3 +813,33 @@
   0%   { transform: translateX(-8px); }
   100% { transform: translateX(34px); }
 }
+
+/* ── Playroom "DONE PLAYING" button ──
+   Playful purple slab (green for the finish) with the same premium press as the
+   other room buttons. Here (not in styled-jsx) for the same SWC multi-shadow
+   `:active` panic reason. The hard drop-shadow colour is themed via the inline
+   `--play-ink` custom property; the paw badge reuses the shared `sleepBob` /
+   `sleepGlow` primitives, while the ball bounces via the keyframes below. */
+.play-btn {
+  box-shadow: 0 5px 0 var(--play-ink), 0 10px 16px rgba(0,0,0,0.32), inset 0 2px 0 rgba(255,255,255,0.45);
+  transition: transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 120ms ease-out, filter 120ms ease-out;
+}
+.play-btn:hover { filter: brightness(1.06); }
+.play-btn:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 var(--play-ink), 0 3px 8px rgba(0,0,0,0.3), inset 0 2px 0 rgba(255,255,255,0.45);
+}
+.play-btn:disabled { filter: saturate(0.85) brightness(0.96); }
+
+/* The pink ball bounces — apex lingers, a brief squash on contact. */
+@keyframes playBounce {
+  0%, 100% { transform: translateY(-16px) scaleX(1)    scaleY(1);    }
+  42%      { transform: translateY(0)     scaleX(1.05) scaleY(0.95); }
+  50%      { transform: translateY(1px)   scaleX(1.25) scaleY(0.72); }
+  58%      { transform: translateY(0)     scaleX(1.05) scaleY(0.95); }
+}
+/* Its ground shadow widens and darkens as it lands. */
+@keyframes playShadow {
+  0%, 100% { transform: scaleX(0.55); opacity: 0.18; }
+  50%      { transform: scaleX(1.15); opacity: 0.5;  }
+}
