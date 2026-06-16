@@ -19,7 +19,7 @@
 import type { CSSProperties, ComponentType } from 'react'
 import {
   IconCake, IconDonut, IconCherry,
-  IconDress, IconCrown, IconBow,
+  IconBeanie, IconCrown, IconBow,
   IconCoin, IconTicket,
 } from '@/components/PixelIcons'
 
@@ -198,7 +198,7 @@ function resolve(variant: Variant, tier: Tier): Cfg {
     titleShadow: isTen ? `0 1px 0 #3B1A6E, 0 2px 0 rgba(245,200,66,0.5)` : '0 1px 0 #3B1A6E',
     cost: isTen ? '#F2D9A8' : '#C9B4F0',
     trinketShadow: isTen ? 'rgba(168,120,15,0.5)' : 'rgba(74,36,135,0.5)',
-    medalIcon: isTen ? IconCrown : IconDress,
+    medalIcon: isTen ? IconCrown : IconBeanie,
     trinketIcon: isTen ? IconCoin : IconBow,
   }
 }

@@ -498,6 +498,27 @@ export const IconBow = memo(function IconBow({ size = 20 }: IconProps) {
   }, size)
 })
 
+// ── BEANIE (cute knit hat — gacha "clothes" pull, gender-neutral) ─────────
+export const IconBeanie = memo(function IconBeanie({ size = 20 }: IconProps) {
+  const grid = [
+    '.....WW.....',
+    '....WWWW....',
+    '....KKKK....',
+    '...KBBBBK...',
+    '..KBLLBBBK..',
+    '..KBBBBBBK..',
+    '.KBBBBBBBBK.',
+    '.KBBBBBBBBK.',
+    'KDDDDDDDDDDK',
+    'KDDDDDDDDDDK',
+    '.KKKKKKKKKK.',
+    '............',
+  ]
+  return drawPixels(grid, {
+    K: '#2A3F6B', B: '#5B8DEF', L: '#A9C8FF', D: '#3B6FC8', W: '#FFFFFF',
+  }, size)
+})
+
 // ── BOOK (collection / serbian class) ─────────────────────────────────────
 export const IconBook = memo(function IconBook({ size = 20 }: IconProps) {
   const grid = [
