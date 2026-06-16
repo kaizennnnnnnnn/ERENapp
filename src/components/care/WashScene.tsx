@@ -467,7 +467,7 @@ export default function WashScene({ onClose }: Props) {
                   this the pose lands lower and he looks like he drops on swap. */}
               {visibleStage === 'stand' ? erenSprite : (
                 <div style={{ position: 'absolute', left: '50%', bottom: 20, transform: 'translateX(-50%)' }}>
-                  <PoseSprite src={WASH_POSE_SRC[visibleStage]} width={125} />
+                  <PoseSprite src={WASH_POSE_SRC[visibleStage]} width={150} />
                 </div>
               )}
             </div>
