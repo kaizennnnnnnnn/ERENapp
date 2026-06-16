@@ -69,23 +69,18 @@ export function BubblePoof({ size = 150, onDone }: Props) {
   )
 }
 
-// Droplets fired radially in a full 360° burst. Each carries its own outward
-// vector via CSS vars. Upward/sideways throws reach a bit farther than the
-// downward ones so it reads as a splash, not a fountain.
-const DROPS = [
-  { a: 0,   dist: 0.42, s: 0.09, d: 10 },
-  { a: 30,  dist: 0.46, s: 0.08, d: 0 },
-  { a: 60,  dist: 0.44, s: 0.09, d: 20 },
-  { a: 90,  dist: 0.48, s: 0.10, d: 0 },
-  { a: 120, dist: 0.44, s: 0.09, d: 20 },
-  { a: 150, dist: 0.46, s: 0.08, d: 10 },
-  { a: 180, dist: 0.42, s: 0.09, d: 30 },
-  { a: 210, dist: 0.34, s: 0.07, d: 40 },
-  { a: 240, dist: 0.36, s: 0.08, d: 30 },
-  { a: 270, dist: 0.30, s: 0.07, d: 50 },
-  { a: 300, dist: 0.36, s: 0.08, d: 30 },
-  { a: 330, dist: 0.34, s: 0.07, d: 40 },
-]
+// A big scatter of droplets flung outward in every direction (golden-angle
+// spread → even 360° coverage), in three distance tiers so some fly far and
+// some stay close. No ring — the droplets ARE the splash. GRAVITY drags the
+// whole burst down a touch as it flies so it arcs like real water.
+const DROP_COUNT = 24
+const GRAVITY = 0.16
+const DROPS = Array.from({ length: DROP_COUNT }, (_, i) => ({
+  a:    (i * 137.508) % 360,                 // golden angle → even, non-clumping spread
+  dist: 0.52 + (i % 3) * 0.14,               // 0.52 / 0.66 / 0.80 of the box
+  s:    0.05 + ((i * 3) % 5) * 0.013,        // varied droplet sizes
+  d:    (i % 5) * 14,                         // staggered launch
+}))
 
 export function SplashPoof({ size = 150, onDone }: Props) {
   useEffect(() => {
@@ -93,35 +88,26 @@ export function SplashPoof({ size = 150, onDone }: Props) {
     return () => clearTimeout(t)
   }, [onDone])
 
-  const ring = size * 0.5
   return (
     <div className="absolute pointer-events-none" style={{
       left: '50%', top: '50%', width: size, height: size,
       transform: 'translate(-50%, -50%)', zIndex: 24,
     }}>
-      {/* Expanding splash ring */}
-      <div className="absolute rounded-full" style={{
-        left: '50%', top: '50%', width: ring, height: ring,
-        marginLeft: -ring / 2, marginTop: -ring / 2,
-        border: '3px solid rgba(120,195,240,0.85)',
-        animation: `erenSplashRing ${DURATION_MS}ms ease-out forwards`,
-        opacity: 0,
-      }} />
       {DROPS.map((p, i) => {
         const rad = (p.a * Math.PI) / 180
         const dx = Math.cos(rad) * p.dist * size
-        const dy = -Math.sin(rad) * p.dist * size
+        const dy = -Math.sin(rad) * p.dist * size + GRAVITY * size
         const d = p.s * size
         return (
           <div key={i} className="absolute" style={{
-            left: '50%', top: '55%', width: d, height: d * 1.4,
+            left: '50%', top: '52%', width: d, height: d * 1.5,
             marginLeft: -d / 2, marginTop: -d / 2,
-            background: 'linear-gradient(180deg, rgba(190,228,248,0.9), rgba(96,176,224,0.98))',
+            background: 'linear-gradient(180deg, rgba(205,236,252,0.95), rgba(86,170,222,1))',
             borderRadius: '50% 50% 55% 55% / 38% 38% 80% 80%',
-            boxShadow: '0 0 2px rgba(110,180,230,0.7)',
+            boxShadow: '0 0 3px rgba(120,190,235,0.8)',
             ['--dx' as string]: `${dx}px`,
             ['--dy' as string]: `${dy}px`,
-            animation: `erenSplashDrop ${DURATION_MS}ms cubic-bezier(0.25,0.6,0.4,1) ${p.d}ms forwards`,
+            animation: `erenSplashDrop ${DURATION_MS}ms cubic-bezier(0.2,0.7,0.35,1) ${p.d}ms forwards`,
             opacity: 0,
           } as React.CSSProperties} />
         )
