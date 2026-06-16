@@ -21,6 +21,7 @@ import { Droplets, Sparkles, Hearts } from '@/components/care/ReactionFx'
 import PoseSprite from '@/components/care/PoseSprite'
 import { BubblePoof, SplashPoof, WASH_POOF_PEAK_MS } from '@/components/care/WashPoof'
 import { preloadImages } from '@/lib/preloadImages'
+import SqueakyCleanBanner from '@/components/wash/SqueakyCleanBanner'
 
 interface Props { onClose: () => void }
 
@@ -655,12 +656,7 @@ export default function WashScene({ onClose }: Props) {
             {saving && <p className="font-pixel text-sky-400 text-center mt-2 animate-pulse" style={{ fontSize: 6 }}>SAVING...</p>}
           </div>
         )}
-        {done && (
-          <div className="w-full max-w-xs pointer-events-auto text-center py-3 active:translate-y-[2px] transition-transform"
-            style={{ background: 'linear-gradient(135deg, #50D890, #30C070)', borderRadius: 3, border: '2px solid #20A050', boxShadow: '0 4px 0 #108030', fontFamily: '"Press Start 2P"', fontSize: 8, color: 'white', letterSpacing: 0.5 }}>
-            SQUEAKY CLEAN!
-          </div>
-        )}
+        {done && <SqueakyCleanBanner />}
       </div>
 
       <style jsx>{`
