@@ -461,9 +461,12 @@ export default function WashScene({ onClose }: Props) {
             }}>
               {/* Standing sprite when dry; lather/wet pose sticker otherwise.
                   The 200×200 box stays fixed (erenRef) so the soap occupancy
-                  mask keeps lining up regardless of which pose shows. */}
+                  mask keeps lining up regardless of which pose shows. The pose
+                  is lifted 20px because the standing sprite's feet sit ~20px
+                  above the box bottom (its source has bottom padding) — without
+                  this the pose lands lower and he looks like he drops on swap. */}
               {visibleStage === 'stand' ? erenSprite : (
-                <div style={{ position: 'absolute', left: '50%', bottom: 0, transform: 'translateX(-50%)' }}>
+                <div style={{ position: 'absolute', left: '50%', bottom: 20, transform: 'translateX(-50%)' }}>
                   <PoseSprite src={WASH_POSE_SRC[visibleStage]} width={125} />
                 </div>
               )}
@@ -500,7 +503,9 @@ export default function WashScene({ onClose }: Props) {
         {bubbles.map(b => {
           const FADE_ANCHOR = 5
           const range = Math.max(15, b.c - FADE_ANCHOR)
-          const op = Math.max(0, Math.min(1, (coverage - FADE_ANCHOR) / range)) * 0.85
+          // Barely-there: the lather/soap now lives in the pose art itself, so
+          // the painted suds are just a faint "where you scrubbed" hint.
+          const op = Math.max(0, Math.min(1, (coverage - FADE_ANCHOR) / range)) * 0.2
           if (op <= 0.01) return null
           return (
             <div key={b.id} className="absolute rounded-full"
