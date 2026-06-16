@@ -19,6 +19,7 @@ import { useErenReaction } from '@/hooks/useErenReaction'
 import { happyFinisherBeats, WORD_COLOR } from '@/lib/erenReactions'
 import SoundWord from '@/components/SoundWord'
 import { Sparkles, Hearts } from '@/components/care/ReactionFx'
+import CheckupButton from '@/components/vet/CheckupButton'
 
 interface Props { onClose: () => void }
 
@@ -197,14 +198,11 @@ export default function VetScene({ onClose }: Props) {
 
         {/* Buttons */}
         {!checkDone ? (
-          <button onClick={() => { playSound('ui_tap'); doCheckup() }} disabled={checking || isSleeping}
-            className="w-full max-w-xs py-3 text-white transition-all active:translate-y-[2px] disabled:opacity-50"
-            style={checking
-              ? { background: '#388E3C', borderRadius: 3, border: '2px solid #2E7D32', fontFamily: '"Press Start 2P"', fontSize: 8 }
-              : { background: 'linear-gradient(135deg, #4CAF50, #388E3C)', borderRadius: 3, border: '2px solid #1B5E20', boxShadow: '0 3px 0 #145218', fontFamily: '"Press Start 2P"', fontSize: 8 }
-            }>
-            {checking ? 'EXAMINING...' : 'CHECK UP'}
-          </button>
+          <CheckupButton
+            state={checking ? 'checking' : 'check'}
+            disabled={checking || isSleeping}
+            onClick={() => { playSound('ui_tap'); doCheckup() }}
+          />
         ) : !healthy && !medGiven ? (
           <button onClick={() => { playSound('ui_tap'); giveMedicine() }} disabled={giving || isSleeping}
             className="w-full max-w-xs py-3 text-white transition-all active:translate-y-[2px] disabled:opacity-50"

@@ -791,3 +791,25 @@
   0%, 100% { transform: scale(0.5); opacity: 0.3; }
   50%      { transform: scale(1);   opacity: 1;   }
 }
+
+/* ── Vet room "CHECK UP" button ──
+   Clinic-green slab with the same premium press as the chemistry / bedroom
+   buttons. Here (not in styled-jsx) for the same SWC multi-shadow `:active`
+   panic reason. The stethoscope badge reuses the shared `heartbeat` / `sleepGlow`
+   motion primitives; the EKG monitor blip sweeps via `ekgSweep`. */
+.checkup-btn {
+  box-shadow: 0 5px 0 #0E3D17, 0 10px 16px rgba(0,0,0,0.32), inset 0 2px 0 rgba(255,255,255,0.4);
+  transition: transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 120ms ease-out, filter 120ms ease-out;
+}
+.checkup-btn:hover { filter: brightness(1.06); }
+.checkup-btn:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 #0E3D17, 0 3px 8px rgba(0,0,0,0.3), inset 0 2px 0 rgba(255,255,255,0.4);
+}
+.checkup-btn:disabled { filter: saturate(0.85) brightness(0.97); }
+
+/* The heart-monitor blip sweeps across the EKG screen. */
+@keyframes ekgSweep {
+  0%   { transform: translateX(-8px); }
+  100% { transform: translateX(34px); }
+}
