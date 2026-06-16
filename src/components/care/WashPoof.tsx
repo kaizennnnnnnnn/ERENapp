@@ -69,17 +69,32 @@ export function BubblePoof({ size = 150, onDone }: Props) {
   )
 }
 
-// A big scatter of droplets flung outward in every direction (golden-angle
-// spread → even 360° coverage), in three distance tiers so some fly far and
-// some stay close. No ring — the droplets ARE the splash. GRAVITY drags the
-// whole burst down a touch as it flies so it arcs like real water.
-const DROP_COUNT = 24
-const GRAVITY = 0.16
+// SplashPoof has two parts:
+//  1. A big central WATER mass — overlapping translucent blobs that swell to
+//     cover his whole body (and head, which pokes above the box) right at the
+//     swap peak, so the pose change is hidden inside the water.
+//  2. A scatter of small DROPLETS flung outward (golden-angle spread → even
+//     360° coverage, three distance tiers). Small now — they read as spray, not
+//     blobs. GRAVITY drags the burst down a touch so it arcs like real water.
+
+// Central blobs, positioned in % of the (tall) effect box. Biased upward so the
+// cluster covers his head. rw/rh are fractions of `size`; o = peak opacity.
+const WATER = [
+  { x: 50, y: 52, rw: 0.98, rh: 1.22, d: 0,  o: 0.92 },  // main mass, taller than wide
+  { x: 38, y: 40, rw: 0.58, rh: 0.66, d: 30, o: 0.85 },
+  { x: 63, y: 42, rw: 0.58, rh: 0.66, d: 40, o: 0.85 },
+  { x: 50, y: 18, rw: 0.74, rh: 0.64, d: 60, o: 0.82 },  // up high → covers the head + ears
+  { x: 44, y: 66, rw: 0.6,  rh: 0.56, d: 20, o: 0.85 },
+  { x: 58, y: 64, rw: 0.56, rh: 0.54, d: 50, o: 0.85 },
+]
+
+const DROP_COUNT = 30
+const GRAVITY = 0.14
 const DROPS = Array.from({ length: DROP_COUNT }, (_, i) => ({
   a:    (i * 137.508) % 360,                 // golden angle → even, non-clumping spread
-  dist: 0.52 + (i % 3) * 0.14,               // 0.52 / 0.66 / 0.80 of the box
-  s:    0.05 + ((i * 3) % 5) * 0.013,        // varied droplet sizes
-  d:    (i % 5) * 14,                         // staggered launch
+  dist: 0.55 + (i % 4) * 0.12,               // 0.55 … 0.91 of the box
+  s:    0.024 + ((i * 3) % 4) * 0.007,       // SMALL droplets (was ~2× this)
+  d:    (i % 6) * 12,                         // staggered launch
 }))
 
 export function SplashPoof({ size = 150, onDone }: Props) {
@@ -88,23 +103,38 @@ export function SplashPoof({ size = 150, onDone }: Props) {
     return () => clearTimeout(t)
   }, [onDone])
 
+  // Taller than wide and shifted up so it blankets the upright sitting pose
+  // (whose head sits above the sprite box).
   return (
     <div className="absolute pointer-events-none" style={{
-      left: '50%', top: '50%', width: size, height: size,
+      left: '50%', top: '35%', width: size, height: size * 1.35,
       transform: 'translate(-50%, -50%)', zIndex: 24,
     }}>
+      {WATER.map((b, i) => {
+        const bw = b.rw * size, bh = b.rh * size
+        return (
+          <div key={`w${i}`} className="absolute" style={{
+            left: `${b.x}%`, top: `${b.y}%`, width: bw, height: bh,
+            marginLeft: -bw / 2, marginTop: -bh / 2,
+            borderRadius: '50%',
+            background: `radial-gradient(ellipse at 42% 34%, rgba(228,245,253,${b.o}), rgba(126,198,236,${b.o * 0.95}) 52%, rgba(86,170,222,0) 100%)`,
+            animation: `erenWaterBurst ${DURATION_MS}ms ease-out ${b.d}ms forwards`,
+            opacity: 0,
+          }} />
+        )
+      })}
       {DROPS.map((p, i) => {
         const rad = (p.a * Math.PI) / 180
         const dx = Math.cos(rad) * p.dist * size
         const dy = -Math.sin(rad) * p.dist * size + GRAVITY * size
         const d = p.s * size
         return (
-          <div key={i} className="absolute" style={{
-            left: '50%', top: '52%', width: d, height: d * 1.5,
+          <div key={`d${i}`} className="absolute" style={{
+            left: '50%', top: '50%', width: d, height: d * 1.5,
             marginLeft: -d / 2, marginTop: -d / 2,
-            background: 'linear-gradient(180deg, rgba(205,236,252,0.95), rgba(86,170,222,1))',
+            background: 'linear-gradient(180deg, rgba(220,242,253,0.98), rgba(110,188,232,1))',
             borderRadius: '50% 50% 55% 55% / 38% 38% 80% 80%',
-            boxShadow: '0 0 3px rgba(120,190,235,0.8)',
+            boxShadow: '0 0 2px rgba(150,205,240,0.9)',
             ['--dx' as string]: `${dx}px`,
             ['--dy' as string]: `${dy}px`,
             animation: `erenSplashDrop ${DURATION_MS}ms cubic-bezier(0.2,0.7,0.35,1) ${p.d}ms forwards`,

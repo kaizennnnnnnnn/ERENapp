@@ -413,6 +413,14 @@
   0%   { transform: translate(0, 0) scale(1);   opacity: 1; }
   100% { transform: translate(var(--dx), var(--dy)) scale(0.5); opacity: 0; }
 }
+/* Central water mass of the rinse splash — swells opaque right over the swap
+   (held full ~40–58% so it blankets the pose change) then drains away. */
+@keyframes erenWaterBurst {
+  0%   { transform: scale(0.3);  opacity: 0;    }
+  40%  { transform: scale(1.08); opacity: 0.96; }
+  58%  { transform: scale(1.16); opacity: 0.96; }
+  100% { transform: scale(1.0);  opacity: 0;    }
+}
 @keyframes erenGrimace {
   0%   { transform: scaleY(1)    rotate(0deg);  }
   30%  { transform: scaleY(0.95) rotate(-3deg); }

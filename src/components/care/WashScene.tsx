@@ -467,7 +467,7 @@ export default function WashScene({ onClose }: Props) {
                   this the pose lands lower and he looks like he drops on swap. */}
               {visibleStage === 'stand' ? erenSprite : (
                 <div style={{ position: 'absolute', left: '50%', bottom: 20, transform: 'translateX(-50%)' }}>
-                  <PoseSprite src={WASH_POSE_SRC[visibleStage]} width={170} />
+                  <PoseSprite src={WASH_POSE_SRC[visibleStage]} width={190} />
                 </div>
               )}
             </div>
@@ -476,7 +476,7 @@ export default function WashScene({ onClose }: Props) {
           {/* Bubble (soaping) / splash (rinsing) poof masks each pose swap. */}
           {poof && (poof.type === 'bubble'
             ? <BubblePoof key={poof.key} size={210} onDone={() => setPoof(null)} />
-            : <SplashPoof key={poof.key} size={210} onDone={() => setPoof(null)} />)}
+            : <SplashPoof key={poof.key} size={240} onDone={() => setPoof(null)} />)}
 
           {/* Reaction particles + words, anchored to Eren's 200px box. */}
           {scrubbing && scrubWordKey > 0 &&
