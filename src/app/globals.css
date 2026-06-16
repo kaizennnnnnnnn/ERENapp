@@ -726,6 +726,18 @@
   }
 }
 
+/* Home dock corner trinkets twinkle gently (sparkles · stars · cake flowers). */
+@keyframes dockTwinkle {
+  0%, 100% { transform: scale(0.82); opacity: 0.6; }
+  50%      { transform: scale(1);    opacity: 1;   }
+}
+/* Steam wisps rise and fade off the fresh shawarma. */
+@keyframes dockSteam {
+  0%   { transform: translateY(2px)   scaleY(0.7); opacity: 0;    }
+  25%  { opacity: 0.85; }
+  100% { transform: translateY(-11px) scaleY(1.1); opacity: 0;    }
+}
+
 /* ── Chemistry room "PERIODIC TABLE" button ──
    Lime reagent slab with a glossy top highlight, a hard olive drop shadow,
    and a designed press that sinks it into that shadow. Lives here (not in
