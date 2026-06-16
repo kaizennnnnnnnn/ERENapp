@@ -137,30 +137,24 @@ export default function WashScene({ onClose }: Props) {
   const lastScrubWordRef = useRef(0)
   const [scrubWordKey, setScrubWordKey] = useState(0)
 
-  // "Rinsing right now" — mirrors `scrubbing`: set on each in-zone shower move,
-  // auto-clears ~250ms after the last one. Drives the looping rinse sound.
-  const [rinsing, setRinsing] = useState(false)
-  const rinseStopRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const markRinse = useCallback(() => {
-    setRinsing(true)
-    if (rinseStopRef.current) clearTimeout(rinseStopRef.current)
-    rinseStopRef.current = setTimeout(() => setRinsing(false), 250)
-  }, [])
-  useEffect(() => () => { if (rinseStopRef.current) clearTimeout(rinseStopRef.current) }, [])
-
-  // Loop the recorded soap / rinse mp3s while actively soaping / rinsing. The
-  // 2s (soap) / 1s (rinse) clips can't be re-triggered per pointermove without
-  // stacking overlapping copies, so we run a single looping source for the
-  // length of the action and stop it (with a short fade) when the activity
-  // signal clears — a pause of ~250ms, a pointer-up, or finishing the wash.
+  // Loop the recorded soap mp3 while actively soaping. The 2s clip can't be
+  // re-triggered per pointermove without stacking overlapping copies, so we run
+  // a single looping source while `scrubbing` holds — each in-zone rub keeps it
+  // alive and a ~250ms pause stops it with a short fade.
   useEffect(() => {
     if (!scrubbing) return
     return playLoop('care_soap')
   }, [scrubbing])
+
+  // Loop the rinse mp3 for the WHOLE time the showerhead is held — keyed to
+  // `dragShower`, NOT pointer movement, so holding the shower steady over him
+  // keeps a seamless continuous stream (Web Audio loops the gapless 1s clip
+  // sample-accurately). It stops, with a short fade, only when he's released —
+  // matching the falling-water droplets, which also render while `dragShower`.
   useEffect(() => {
-    if (!rinsing) return
+    if (!dragShower) return
     return playLoop('care_rinse')
-  }, [rinsing])
+  }, [dragShower])
 
   // ── Pose progression driven by soap coverage ──────────────────────────────
   const [visibleStage, setVisibleStage] = useState<WashStage>('stand')
@@ -330,9 +324,6 @@ export default function WashScene({ onClose }: Props) {
       // coverage (no suds are painted off-body), and rinsing is a slow drag,
       // so a forgiving target keeps it from feeling tedious.
       if (px > 22 && px < 78 && py > 55 && py < 95) {
-        // Mark rinsing so the looping rinse sound plays (and holds) while the
-        // shower stays over him.
-        markRinse()
         // Only drain coverage — bubbles fade out automatically in the
         // render layer based on each bubble's creation coverage vs the
         // current coverage. We don't pop them from the array, which is
@@ -369,7 +360,6 @@ export default function WashScene({ onClose }: Props) {
     doneRef.current = true
     setDone(true)
     setScrubbing(false)
-    setRinsing(false)
     // Wet-dog shake → droplets fly off → clean sparkle → happy finisher.
     reaction.play([
       { name: 'shake',   ms: 750, onEnter: () => playSound('care_splash') },
