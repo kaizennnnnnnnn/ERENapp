@@ -41,27 +41,16 @@ export default function WishChip({ text, status, weekGrantedCount }: Props) {
         }}
       >
         <Rivets inset={3} />
-        {/* Wish star — twinkles (scale + warm glow) while pending; once
-            granted it settles gold with a slow shimmer sweep across it. */}
+        {/* Wish star — twinkles (scale + warm accent glow) while pending; once
+            granted it breathes a warm gold glow. Both animate the icon itself
+            (no clipped overlay) so the chip's edges never show through. */}
         <div style={{
-          position: 'relative', width: 16, height: 16,
-          filter: isGranted ? 'drop-shadow(0 0 4px rgba(245,200,66,0.7))' : undefined,
+          width: 16, height: 16, transformOrigin: 'center',
+          animation: isGranted
+            ? 'hudWishGranted 2.4s ease-in-out infinite'
+            : 'hudWishTwinkle 1.8s ease-in-out infinite',
         }}>
-          <div style={{
-            width: 16, height: 16, transformOrigin: 'center',
-            animation: isGranted ? undefined : 'hudWishTwinkle 1.8s ease-in-out infinite',
-          }}>
-            <IconWish size={16} />
-          </div>
-          {isGranted && (
-            <div aria-hidden style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
-              <div style={{
-                position: 'absolute', top: -4, bottom: -4, left: 0, width: '55%',
-                background: 'linear-gradient(90deg, transparent, rgba(255,236,150,0.9), transparent)',
-                animation: 'hudWishShimmer 4s ease-in-out infinite',
-              }} />
-            </div>
-          )}
+          <IconWish size={16} />
         </div>
         <span style={{
           fontFamily: '"Press Start 2P", monospace',
