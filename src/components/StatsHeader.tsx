@@ -355,18 +355,35 @@ export default function StatsHeader() {
             )
           })}
 
-          {/* Level-up burst ring — remounts on each roll-over (keyed by
-              orbBurst) so it replays the expand-and-fade once. */}
+          {/* Level-up burst — a ring expands while a ring of golden sparks
+              flies outward. Both remount on each roll-over (keyed by orbBurst)
+              so they replay the one-shot animation. */}
           {orbBurst > 0 && (
-            <div key={orbBurst} aria-hidden style={{
-              position: 'absolute', left: '50%', top: '50%',
-              width: 40, height: 40, borderRadius: '50%',
-              border: `2px solid ${YELLOW}`,
-              boxShadow: `0 0 10px ${yellowA(0.7)}`,
-              transform: 'translate(-50%, -50%)',
-              animation: 'hudOrbRing 650ms ease-out forwards',
-              pointerEvents: 'none',
-            }} />
+            <div key={orbBurst} aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+              <div style={{
+                position: 'absolute', left: '50%', top: '50%',
+                width: 40, height: 40, borderRadius: '50%',
+                border: `2px solid ${YELLOW}`,
+                boxShadow: `0 0 10px ${yellowA(0.7)}`,
+                transform: 'translate(-50%, -50%)',
+                animation: 'hudOrbRing 650ms ease-out forwards',
+              }} />
+              {Array.from({ length: 8 }).map((_, i) => {
+                const a = (i / 8) * Math.PI * 2
+                const r = 24
+                return (
+                  <div key={i} style={{
+                    position: 'absolute', left: '50%', top: '50%',
+                    width: 3, height: 3, borderRadius: '50%',
+                    background: YELLOW_HI,
+                    boxShadow: `0 0 4px ${YELLOW}`,
+                    ['--sx']: `${Math.cos(a) * r}px`,
+                    ['--sy']: `${Math.sin(a) * r}px`,
+                    animation: `hudOrbSpark 620ms ease-out ${i * 18}ms forwards`,
+                  } as React.CSSProperties} />
+                )
+              })}
+            </div>
           )}
 
           <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -543,13 +560,39 @@ export default function StatsHeader() {
               }}
             >
               <Rivets inset={3} />
-              <div style={{
-                filter: streakNum >= 7 ? 'drop-shadow(0 0 4px rgba(255,107,0,0.6))'
-                  : streakNum > 0 ? `drop-shadow(0 0 3px ${accentA(0.4)})`
-                  : 'grayscale(0.8) brightness(0.4)',
-              }}>
-                <IconFire size={16} />
-              </div>
+              {streakNum > 0 ? (
+                // Living flame — the fire icon flickers from its base while a
+                // couple of embers drift up off the tip. Both run only when the
+                // streak is alive; a dead streak stays a cold gray ember.
+                <div style={{ position: 'relative', width: 16, height: 16 }}>
+                  <div style={{
+                    transformOrigin: 'bottom center',
+                    animation: 'hudFlameFlicker 0.9s ease-in-out infinite',
+                    willChange: 'transform, filter',
+                  }}>
+                    <IconFire size={16} />
+                  </div>
+                  {[
+                    { l: '42%', ex: '-3px', d: '0s',   dur: '1.5s' },
+                    { l: '58%', ex: '3px',  d: '0.6s', dur: '1.8s' },
+                    { l: '50%', ex: '0px',  d: '1.1s', dur: '1.6s' },
+                  ].map((e, i) => (
+                    <div key={i} aria-hidden style={{
+                      position: 'absolute', top: 1, left: e.l,
+                      width: 2, height: 2, borderRadius: '50%',
+                      background: i === 1 ? '#FFD24A' : '#FF8C1A',
+                      boxShadow: '0 0 3px rgba(255,160,40,0.9)',
+                      ['--ex']: e.ex,
+                      animation: `hudEmber ${e.dur} ease-out ${e.d} infinite`,
+                      pointerEvents: 'none',
+                    } as React.CSSProperties} />
+                  ))}
+                </div>
+              ) : (
+                <div style={{ filter: 'grayscale(0.8) brightness(0.4)' }}>
+                  <IconFire size={16} />
+                </div>
+              )}
               {/* Wrapper carries the drop-shadow so it can't break the number's
                   background-clip:text (Safari quirk → gradient filled the whole
                   span as a stray "cube"). The solid `color` is the fallback when
@@ -584,8 +627,21 @@ export default function StatsHeader() {
           }}
         >
           <Rivets inset={3} />
-          <div style={{ filter: `drop-shadow(0 0 3px ${accentA(0.4)})` }}>
+          {/* Coin with a periodic gloss sweep — a diagonal shine glides across
+              every few seconds so the gold reads as polished metal. Clipped to
+              the coin's round face so the streak never shows in the corners. */}
+          <div style={{
+            position: 'relative', width: 16, height: 16,
+            borderRadius: '50%', overflow: 'hidden',
+            filter: `drop-shadow(0 0 3px ${accentA(0.4)})`,
+          }}>
             <IconCoin size={16} />
+            <div aria-hidden style={{
+              position: 'absolute', top: -4, bottom: -4, left: 0, width: '55%',
+              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.9), transparent)',
+              animation: 'hudCoinShine 4.5s ease-in-out infinite',
+              pointerEvents: 'none',
+            }} />
           </div>
           <div key={coinPop} style={{
             filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.8))',

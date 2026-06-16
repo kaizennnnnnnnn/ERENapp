@@ -41,13 +41,27 @@ export default function WishChip({ text, status, weekGrantedCount }: Props) {
         }}
       >
         <Rivets inset={3} />
+        {/* Wish star — twinkles (scale + warm glow) while pending; once
+            granted it settles gold with a slow shimmer sweep across it. */}
         <div style={{
-          filter: isGranted
-            ? 'drop-shadow(0 0 4px rgba(245,200,66,0.7))'
-            : `drop-shadow(0 0 3px ${accentA(0.5)})`,
-          animation: isGranted ? 'none' : 'wishChipPulse 1.6s ease-in-out infinite',
+          position: 'relative', width: 16, height: 16,
+          filter: isGranted ? 'drop-shadow(0 0 4px rgba(245,200,66,0.7))' : undefined,
         }}>
-          <IconWish size={16} />
+          <div style={{
+            width: 16, height: 16, transformOrigin: 'center',
+            animation: isGranted ? undefined : 'hudWishTwinkle 1.8s ease-in-out infinite',
+          }}>
+            <IconWish size={16} />
+          </div>
+          {isGranted && (
+            <div aria-hidden style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+              <div style={{
+                position: 'absolute', top: -4, bottom: -4, left: 0, width: '55%',
+                background: 'linear-gradient(90deg, transparent, rgba(255,236,150,0.9), transparent)',
+                animation: 'hudWishShimmer 4s ease-in-out infinite',
+              }} />
+            </div>
+          )}
         </div>
         <span style={{
           fontFamily: '"Press Start 2P", monospace',
@@ -105,10 +119,6 @@ export default function WishChip({ text, status, weekGrantedCount }: Props) {
       )}
 
       <style jsx global>{`
-        @keyframes wishChipPulse {
-          0%, 100% { transform: scale(1); }
-          50%      { transform: scale(1.12); }
-        }
         @keyframes wishChipFold {
           0%   { opacity: 0; transform: translateY(-4px); }
           100% { opacity: 1; transform: translateY(0); }
