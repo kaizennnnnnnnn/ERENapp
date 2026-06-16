@@ -20,6 +20,7 @@ import { happyFinisherBeats, WORD_COLOR } from '@/lib/erenReactions'
 import SoundWord from '@/components/SoundWord'
 import { Sparkles, Hearts } from '@/components/care/ReactionFx'
 import CheckupButton from '@/components/vet/CheckupButton'
+import GiveMedicineButton, { MedicineResultBanner } from '@/components/vet/GiveMedicineButton'
 
 interface Props { onClose: () => void }
 
@@ -204,19 +205,13 @@ export default function VetScene({ onClose }: Props) {
             onClick={() => { playSound('ui_tap'); doCheckup() }}
           />
         ) : !healthy && !medGiven ? (
-          <button onClick={() => { playSound('ui_tap'); giveMedicine() }} disabled={giving || isSleeping}
-            className="w-full max-w-xs py-3 text-white transition-all active:translate-y-[2px] disabled:opacity-50"
-            style={giving
-              ? { background: '#7B1FA2', borderRadius: 3, border: '2px solid #6A1B9A', fontFamily: '"Press Start 2P"', fontSize: 8 }
-              : { background: 'linear-gradient(135deg, #AB47BC, #7B1FA2)', borderRadius: 3, border: '2px solid #4A148C', boxShadow: '0 3px 0 #38006B', fontFamily: '"Press Start 2P"', fontSize: 8 }
-            }>
-            {giving ? 'GIVING MEDICINE...' : 'GIVE MEDICINE'}
-          </button>
+          <GiveMedicineButton
+            state={giving ? 'giving' : 'give'}
+            disabled={giving || isSleeping}
+            onClick={() => { playSound('ui_tap'); giveMedicine() }}
+          />
         ) : (
-          <div className="w-full max-w-xs text-center py-3"
-            style={{ background: healthy ? 'linear-gradient(135deg, #4CAF50, #388E3C)' : 'linear-gradient(135deg, #AB47BC, #7B1FA2)', borderRadius: 3, border: `2px solid ${healthy ? '#1B5E20' : '#4A148C'}`, boxShadow: `0 2px 0 ${healthy ? '#145218' : '#38006B'}`, fontFamily: '"Press Start 2P"', fontSize: 8, color: 'white' }}>
-            {healthy ? 'ALL GOOD!' : 'MEDICINE GIVEN!'}
-          </div>
+          <MedicineResultBanner healthy={healthy} />
         )}
       </div>
 
