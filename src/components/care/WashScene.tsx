@@ -482,7 +482,13 @@ export default function WashScene({ onClose }: Props) {
                   this the pose lands lower and he looks like he drops on swap. */}
               {visibleStage === 'stand' ? erenSprite : (
                 <div style={{ position: 'absolute', left: '50%', bottom: 20, transform: 'translateX(-50%)' }}>
-                  <PoseSprite src={WASH_POSE_SRC[visibleStage]} width={190} />
+                  {/* width 108 ≈ the standing cat's on-screen silhouette
+                      (~107×155 → pose aspect ~0.67 gives ~108×159), so head
+                      and body match and he doesn't visibly shrink on the first
+                      soap swap. Earlier 125–190 values were dead: the `left:50%`
+                      wrapper + Tailwind's `img{max-width:100%}` capped every
+                      pose to ~100px until PoseSprite opted out of that cap. */}
+                  <PoseSprite src={WASH_POSE_SRC[visibleStage]} width={108} />
                 </div>
               )}
             </div>

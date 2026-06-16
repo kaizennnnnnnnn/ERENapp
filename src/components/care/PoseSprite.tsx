@@ -33,6 +33,12 @@ export default function PoseSprite({ src, width, breathe = true, breatheDur = 5,
     <img src={src} alt="Eren" draggable={false}
       style={{
         width, height: 'auto', display: 'block',
+        // Tailwind's preflight sets `img { max-width: 100% }`, which silently
+        // caps this sprite to its wrapper's width — when the wrapper is a
+        // `left:50%` box (WashScene's 200px Eren box) that available width is
+        // only ~100px, so the `width` prop was being ignored entirely. The
+        // prop is the authoritative on-screen size, so opt out of the cap.
+        maxWidth: 'none',
         imageRendering: 'pixelated',
         transformOrigin: 'bottom center',
         backfaceVisibility: 'hidden',

@@ -69,79 +69,79 @@ export function BubblePoof({ size = 150, onDone }: Props) {
   )
 }
 
-// SplashPoof has two parts:
-//  1. A big central WATER mass — overlapping translucent blobs that swell to
-//     cover his whole body (and head, which pokes above the box) right at the
-//     swap peak, so the pose change is hidden inside the water.
-//  2. A scatter of small DROPLETS flung outward (golden-angle spread → even
-//     360° coverage, three distance tiers). Small now — they read as spray, not
-//     blobs. GRAVITY drags the burst down a touch so it arcs like real water.
+// SplashPoof — the rinse-off transition. NO covering water mass: it's the same
+// pixel droplet as the finishing shake-off (ReactionFx `Droplets`, erenDroplet),
+// just a lot more of them, in two layers:
+//   1. SPRAY — droplets flung radially off his body (golden-angle fan, three
+//      size/distance tiers) that snap-vanish at full extent. The "water flying
+//      off" detail the user wanted to see.
+//   2. MID — a tighter cluster packed over his core, launched LATE (peaking with
+//      the pose swap) and travelling only a short way, so a dense flicker of
+//      droplets breaks up the swap without blotting him out.
+// Each droplet starts at (sx,sy) in % of the box and flies by (--tx,--ty) px.
+// erenDroplet holds it at its origin during the stagger delay (`both`), so the
+// late MID droplets sit over his body through the swap, then spray off.
 
-// Central blobs, positioned in % of the (tall) effect box. Biased upward so the
-// cluster covers his head. rw/rh are fractions of `size`; o = peak opacity.
-const WATER = [
-  { x: 50, y: 52, rw: 0.98, rh: 1.22, d: 0,  o: 0.92 },  // main mass, taller than wide
-  { x: 38, y: 40, rw: 0.58, rh: 0.66, d: 30, o: 0.85 },
-  { x: 63, y: 42, rw: 0.58, rh: 0.66, d: 40, o: 0.85 },
-  { x: 50, y: 18, rw: 0.74, rh: 0.64, d: 60, o: 0.82 },  // up high → covers the head + ears
-  { x: 44, y: 66, rw: 0.6,  rh: 0.56, d: 20, o: 0.85 },
-  { x: 58, y: 64, rw: 0.56, rh: 0.54, d: 50, o: 0.85 },
-]
+interface Drop { sx: number; sy: number; a: number; dist: number; sz: number; d: number }
 
-const DROP_COUNT = 30
-const GRAVITY = 0.14
-const DROPS = Array.from({ length: DROP_COUNT }, (_, i) => ({
-  a:    (i * 137.508) % 360,                 // golden angle → even, non-clumping spread
-  dist: 0.55 + (i % 4) * 0.12,               // 0.55 … 0.91 of the box
-  s:    0.024 + ((i * 3) % 4) * 0.007,       // SMALL droplets (was ~2× this)
-  d:    (i % 6) * 12,                         // staggered launch
-}))
+const GA = 137.508 * Math.PI / 180  // golden angle → even, non-clumping fan
+
+// Outward spray — starts just off his body center, three tiers (5/4/3 px, flying
+// 0.34 / 0.46 / 0.58 of the box), staggered 0–80ms so the burst reads layered.
+const SPRAY: Drop[] = Array.from({ length: 26 }, (_, i) => {
+  const a = i * GA, tier = i % 3
+  return {
+    sx: 50 + Math.cos(a) * (6 + tier * 4),
+    sy: 45 + Math.sin(a) * (8 + tier * 4),
+    a, dist: 0.34 + tier * 0.12, sz: 5 - tier, d: (i % 6) * 16,
+  }
+})
+
+// Central mask cluster — droplets scattered across his whole body (an ellipse
+// over head + torso), launched right around the swap peak (150–260ms) and only
+// hopping a tiny way, so a dense flurry of droplets sits over him exactly when
+// the pose flips, breaking it up without ever becoming a solid sheet.
+const MID: Drop[] = Array.from({ length: 22 }, (_, i) => {
+  const a = i * GA
+  const rr = 0.5 + (i % 5) * 0.12           // 0.5–0.98 → fills the body ellipse
+  return {
+    sx: 50 + Math.cos(a) * 17 * rr,         // ±~17% across his body
+    sy: 46 + Math.sin(a) * 22 * rr,         // ±~22% over head→lower torso
+    a, dist: 0.06 + (i % 4) * 0.035, sz: 5 - (i % 3), d: 150 + (i % 6) * 22,
+  }
+})
+
+function Droplet({ p, k, size }: { p: Drop; k: string; size: number }) {
+  const tx = Math.cos(p.a) * p.dist * size
+  const ty = Math.sin(p.a) * p.dist * size
+  return (
+    <div key={k} className="absolute" style={{
+      left: `${p.sx}%`, top: `${p.sy}%`,
+      width: p.sz, height: p.sz * 1.4,
+      marginLeft: -p.sz / 2, marginTop: -p.sz / 2,
+      background: 'linear-gradient(180deg, #DCF2FD 0%, #9FD8F5 45%, #6EBCE8 100%)',
+      borderRadius: '50% 50% 55% 55% / 35% 35% 85% 85%',
+      boxShadow: '0 0 2px rgba(150,205,240,0.85)',
+      ['--tx']: `${tx}px`, ['--ty']: `${ty}px`,
+      animation: `erenDroplet ${DURATION_MS}ms cubic-bezier(0.2,0.6,0.4,1) ${p.d}ms both`,
+    } as React.CSSProperties} />
+  )
+}
 
 export function SplashPoof({ size = 150, onDone }: Props) {
   useEffect(() => {
-    const t = setTimeout(() => onDone?.(), DURATION_MS + 40)
+    const t = setTimeout(() => onDone?.(), DURATION_MS + 240 + 40)
     return () => clearTimeout(t)
   }, [onDone])
 
-  // Taller than wide and shifted up so it blankets the upright sitting pose
-  // (whose head sits above the sprite box).
+  // Centered on his body; droplet coords are % of this box.
   return (
     <div className="absolute pointer-events-none" style={{
-      left: '50%', top: '35%', width: size, height: size * 1.35,
+      left: '50%', top: '50%', width: size, height: size,
       transform: 'translate(-50%, -50%)', zIndex: 24,
     }}>
-      {WATER.map((b, i) => {
-        const bw = b.rw * size, bh = b.rh * size
-        return (
-          <div key={`w${i}`} className="absolute" style={{
-            left: `${b.x}%`, top: `${b.y}%`, width: bw, height: bh,
-            marginLeft: -bw / 2, marginTop: -bh / 2,
-            borderRadius: '50%',
-            background: `radial-gradient(ellipse at 42% 34%, rgba(228,245,253,${b.o}), rgba(126,198,236,${b.o * 0.95}) 52%, rgba(86,170,222,0) 100%)`,
-            animation: `erenWaterBurst ${DURATION_MS}ms ease-out ${b.d}ms forwards`,
-            opacity: 0,
-          }} />
-        )
-      })}
-      {DROPS.map((p, i) => {
-        const rad = (p.a * Math.PI) / 180
-        const dx = Math.cos(rad) * p.dist * size
-        const dy = -Math.sin(rad) * p.dist * size + GRAVITY * size
-        const d = p.s * size
-        return (
-          <div key={`d${i}`} className="absolute" style={{
-            left: '50%', top: '50%', width: d, height: d * 1.5,
-            marginLeft: -d / 2, marginTop: -d / 2,
-            background: 'linear-gradient(180deg, rgba(220,242,253,0.98), rgba(110,188,232,1))',
-            borderRadius: '50% 50% 55% 55% / 38% 38% 80% 80%',
-            boxShadow: '0 0 2px rgba(150,205,240,0.9)',
-            ['--dx' as string]: `${dx}px`,
-            ['--dy' as string]: `${dy}px`,
-            animation: `erenSplashDrop ${DURATION_MS}ms cubic-bezier(0.2,0.7,0.35,1) ${p.d}ms forwards`,
-            opacity: 0,
-          } as React.CSSProperties} />
-        )
-      })}
+      {SPRAY.map((p, i) => <Droplet key={`s${i}`} k={`s${i}`} p={p} size={size} />)}
+      {MID.map((p, i) => <Droplet key={`m${i}`} k={`m${i}`} p={p} size={size} />)}
     </div>
   )
 }
