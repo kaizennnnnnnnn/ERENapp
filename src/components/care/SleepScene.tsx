@@ -19,6 +19,7 @@ import SoundWord from '@/components/SoundWord'
 import PoseSprite from '@/components/care/PoseSprite'
 import PixelPoof from '@/components/PixelPoof'
 import { preloadImages } from '@/lib/preloadImages'
+import SleepButton from '@/components/bedroom/SleepButton'
 
 interface Props { onClose: () => void }
 
@@ -256,18 +257,11 @@ export default function SleepScene({ onClose }: Props) {
           </div>
         </div>
 
-        <button onClick={() => { playSound('ui_tap'); tuckedIn ? handleWakeUp() : handleTuckIn() }} disabled={busy}
-          className="w-full max-w-xs py-3 text-white transition-all active:translate-y-[2px] disabled:opacity-50"
-          style={waking
-            ? { background: '#D97706', borderRadius: 3, border: '2px solid #F59E0B', fontFamily: '"Press Start 2P"', fontSize: 8 }
-            : tuckedIn
-              ? { background: 'linear-gradient(135deg, #F59E0B, #D97706)', borderRadius: 3, border: '2px solid #92400E', boxShadow: '0 3px 0 #78350F', fontFamily: '"Press Start 2P"', fontSize: 8 }
-              : tucking
-                ? { background: '#4F46E5', borderRadius: 3, border: '2px solid #6366F1', fontFamily: '"Press Start 2P"', fontSize: 8 }
-                : { background: 'linear-gradient(135deg, #6366F1, #4F46E5)', borderRadius: 3, border: '2px solid #3730A3', boxShadow: '0 3px 0 #2D2A7A', fontFamily: '"Press Start 2P"', fontSize: 8 }
-          }>
-          {waking ? 'WAKING UP...' : tuckedIn ? 'WAKE UP' : tucking ? 'TUCKING IN...' : 'TUCK IN'}
-        </button>
+        <SleepButton
+          state={waking ? 'waking' : tuckedIn ? 'wake' : tucking ? 'tucking' : 'tuck'}
+          disabled={busy}
+          onClick={() => { playSound('ui_tap'); tuckedIn ? handleWakeUp() : handleTuckIn() }}
+        />
       </div>
 
       <LightSwitch targetBottom="16%" targetLeft="50%" persistKey="bedroom" />
