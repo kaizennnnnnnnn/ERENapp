@@ -864,6 +864,30 @@
 }
 .kitchen-nav-btn:disabled { filter: saturate(0.75) brightness(0.96); opacity: 0.5; }
 
+/* ── Gacha "PULL x1 / x10" buttons — candy pills, themed by --pull-ink ──
+   Same premium press as the room buttons; here (not styled-jsx) for the SWC
+   multi-shadow :active panic reason. The hard pixel drop never blurs. x10 adds
+   .pull-btn--deluxe for the gold best-value frame + glow. Motion reuses the
+   shared sleepBob / sleepGlow / sleepTwinkle primitives. */
+.pull-btn {
+  box-shadow: 0 4px 0 var(--pull-ink), 0 7px 12px rgba(0,0,0,0.4), inset 0 2px 0 rgba(255,255,255,0.45);
+  transition: transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 120ms ease-out, filter 120ms ease-out;
+}
+.pull-btn:hover { filter: brightness(1.05); }
+.pull-btn:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 var(--pull-ink), 0 3px 7px rgba(0,0,0,0.4), inset 0 2px 0 rgba(255,255,255,0.45);
+}
+.pull-btn:disabled { filter: saturate(0.8) brightness(0.96); opacity: 0.5; }
+
+.pull-btn--deluxe {
+  box-shadow: 0 4px 0 var(--pull-ink), 0 7px 12px rgba(0,0,0,0.4), inset 0 2px 0 rgba(255,255,255,0.5), 0 0 0 2px rgba(245,200,66,0.85), 0 0 14px rgba(245,200,66,0.45);
+}
+.pull-btn--deluxe:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 var(--pull-ink), 0 3px 7px rgba(0,0,0,0.4), inset 0 2px 0 rgba(255,255,255,0.5), 0 0 0 2px rgba(245,200,66,0.9), 0 0 10px rgba(245,200,66,0.4);
+}
+
 /* ── Vet room "GIVE MEDICINE" button + result chip ──
    Get-well purple slab with the shared premium press; here (not in styled-jsx)
    for the same SWC multi-shadow `:active` panic reason. The hard drop-shadow

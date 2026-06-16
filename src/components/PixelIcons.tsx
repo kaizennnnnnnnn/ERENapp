@@ -477,6 +477,27 @@ export const IconDress = memo(function IconDress({ size = 20 }: IconProps) {
   }, size)
 })
 
+// ── BOW (cute costume accent — gacha "clothes" pull) ──────────────────────
+export const IconBow = memo(function IconBow({ size = 20 }: IconProps) {
+  const grid = [
+    '............',
+    '..KKK..KKK..',
+    '.KPHPKKPHPK.',
+    'KPPPPKKPPPPK',
+    'KPPPPGGPPPPK',
+    'KPPPPGGPPPPK',
+    '.KPPPKKPPPK.',
+    '..KKK..KKK..',
+    '....KGGK....',
+    '.....KK.....',
+    '............',
+    '............',
+  ]
+  return drawPixels(grid, {
+    K: '#A11E5E', P: '#FF7FB8', H: '#FFD0E4', G: '#F5C842',
+  }, size)
+})
+
 // ── BOOK (collection / serbian class) ─────────────────────────────────────
 export const IconBook = memo(function IconBook({ size = 20 }: IconProps) {
   const grid = [
@@ -1004,6 +1025,32 @@ export const IconCake = memo(function IconCake({ size = 20 }: IconProps) {
     F: '#FBBF24', T: '#7C2D12',
     P: '#EC4899', W: '#FBCFE8',
     B: '#92400E', D: '#FDE68A', K: '#525252',
+  }, size)
+})
+
+// ── DONUT (snack — gacha "food" pull) ─────────────────────────────────────
+// Pink-glazed ring with a transparent hole + a few sprinkles. Silhouette-first
+// so it still reads as a donut at ~14px.
+export const IconDonut = memo(function IconDonut({ size = 20 }: IconProps) {
+  // Pink frosting (P) on top, tan dough (D) below, and a BIG open hole so the
+  // ring silhouette reads as a donut (not a bullseye) even at ~16px. Sprinkles
+  // sit on the wider top/bottom arcs.
+  const grid = [
+    '............',
+    '...KKKKKK...',
+    '..KPLPUPPK..',
+    '.KPPKKKKPPK.',
+    '.KPK....KPK.',
+    '.KPK....KPK.',
+    '.KDK....KDK.',
+    '.KDK....KDK.',
+    '.KDDKKKKDDK.',
+    '..KDTDDUDK..',
+    '...KKKKKK...',
+    '............',
+  ]
+  return drawPixels(grid, {
+    K: '#6B3A1A', P: '#FF8FC0', L: '#FFE3F0', D: '#E8B07A', U: '#FBBF24', T: '#7DD3FC',
   }, size)
 })
 

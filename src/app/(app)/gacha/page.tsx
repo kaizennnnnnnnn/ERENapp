@@ -11,6 +11,7 @@ import { useCare } from '@/contexts/CareContext'
 import { PULL_COST_SINGLE, PULL_COST_TEN, PITY_EPIC, PITY_LEGENDARY } from '@/lib/gacha'
 import type { GachaPullResult } from '@/types'
 import PullAnimation from '@/components/gacha/PullAnimation'
+import GachaPullButton from '@/components/gacha/GachaPullButton'
 import { IconCoin, IconSparkles, IconTicket, IconBook } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import { requestCloudNav } from '@/components/CloudTransition'
@@ -165,24 +166,21 @@ export default function GachaPage() {
                   <span className="font-pixel" style={{ fontSize: 6, color: '#F5C842', textShadow: '0 0 3px rgba(245,200,66,0.5)' }}>LEGENDARY {pityLegendary}/{PITY_LEGENDARY}</span>
                 </div>
                 <div className="flex gap-3">
-                  <button onClick={() => handlePull(1)} disabled={pulling || (coins < PULL_COST_SINGLE && tickets <= 0)}
-                    className="flex-1 py-3 active:translate-y-[1px] transition-transform disabled:opacity-40 relative"
-                    style={OBSIDIAN_BTN}>
-                    <Rivets inset={3} size={3} />
-                    <div className="font-pixel" style={{ fontSize: 7, letterSpacing: 1, ...pinkText }}>PULL x1</div>
-                    <div className="font-pixel mt-1" style={{ fontSize: 6, color: '#9A8090' }}>{PULL_COST_SINGLE} coins</div>
-                  </button>
-                  <button onClick={() => handlePull(10)} disabled={pulling || coins < PULL_COST_TEN}
-                    className="flex-1 py-3 active:translate-y-[1px] transition-transform disabled:opacity-40 relative"
-                    style={{
-                      ...OBSIDIAN_BTN,
-                      border: '1px solid rgba(245,200,66,0.7)',
-                      boxShadow: `0 3px 10px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.07), 0 0 12px rgba(245,200,66,0.25)`,
-                    }}>
-                    <Rivets inset={3} size={3} />
-                    <div className="font-pixel" style={{ fontSize: 7, letterSpacing: 1, color: '#F5C842', textShadow: '0 0 4px rgba(245,200,66,0.6)' }}>PULL x10</div>
-                    <div className="font-pixel mt-1" style={{ fontSize: 6, color: '#9A8090' }}>{PULL_COST_TEN} coins</div>
-                  </button>
+                  <GachaPullButton
+                    variant={p.id === 'food' ? 'food' : 'clothes'}
+                    tier="single"
+                    cost={PULL_COST_SINGLE}
+                    disabled={pulling || (coins < PULL_COST_SINGLE && tickets <= 0)}
+                    showTicket={coins < PULL_COST_SINGLE && tickets > 0}
+                    onClick={() => handlePull(1)}
+                  />
+                  <GachaPullButton
+                    variant={p.id === 'food' ? 'food' : 'clothes'}
+                    tier="ten"
+                    cost={PULL_COST_TEN}
+                    disabled={pulling || coins < PULL_COST_TEN}
+                    onClick={() => handlePull(10)}
+                  />
                 </div>
               </div>
             </div>
