@@ -144,14 +144,13 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
 
   // ─── Care reactions — water / soap / medicine ──────────────────────────────
   // Synthesised so they DON'T fall back to care_eat (the chewing mp3), which is
-  // why finishing a bath used to sound like Eren eating. Built from filtered
-  // white noise: band-limited = soft soap rub, bright highpass = shower hiss,
-  // a noise burst + downward sine = a water splash.
+  // why finishing a bath used to sound like Eren eating.
   //
-  // care_soap   — short soft "shff" rub, replayed while soaping him up.
-  care_soap:   { type: 'noise', duration: 130, gain: 0.26, lowpass: 1300, highpass: 450 },
-  // care_rinse  — bright water hiss, replayed while the shower is over him.
-  care_rinse:  { type: 'noise', duration: 190, gain: 0.24, highpass: 2600, lowpass: 7000 },
+  // NOTE: care_soap and care_rinse are deliberately NOT here. They are recorded
+  // mp3s (/sounds/care/care_soap.mp3, care_rinse.mp3) looped via playLoop while
+  // soaping / rinsing. A synth entry would shadow them — SYNTH_RECIPES always
+  // wins over the mp3 path in playSound.
+  //
   // care_splash — the shake-dry: a spray of noise + a low water "ploop".
   care_splash: { type: 'seq', parts: [
                    { at: 0,  recipe: { type: 'noise', duration: 240, gain: 0.42, lowpass: 2200, highpass: 320 } },

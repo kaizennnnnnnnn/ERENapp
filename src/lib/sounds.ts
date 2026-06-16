@@ -23,7 +23,7 @@
 // State is in-memory only — wire it to localStorage if you want it to persist.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { playSynth, playBuffer, getAudioContext } from './soundSynth'
+import { playSynth, playBuffer, startLoopBuffer, getAudioContext } from './soundSynth'
 import { SYNTH_RECIPES } from './soundRecipes'
 
 export const SOUNDS = {
@@ -66,8 +66,9 @@ export const SOUNDS = {
   care_happy:           '/sounds/care/care_happy.mp3',
   care_sleep:           '/sounds/care/care_sleep.mp3',
   care_jingle:          '/sounds/care/care_jingle.mp3',
-  // Soap rub + shower hiss — synthesised (see soundRecipes), so they play the
-  // water sound, never the care_eat fallback. Paths kept for the type/preload.
+  // Soap rub + shower hiss — recorded mp3s, played as a LOOP while soaping /
+  // rinsing (see playLoop). NOT synthesised: a synth recipe of the same name
+  // would shadow these files in playSound.
   care_soap:            '/sounds/care/care_soap.mp3',
   care_rinse:           '/sounds/care/care_rinse.mp3',
 
@@ -192,6 +193,10 @@ const VOLUME_SCALE: Partial<Record<SoundName, number>> = {
   level_up:       0.8,
   gift_open:      0.85,
   pet_purr:       0.6,
+  // Looping water sounds — kept gentle so they sit under the SFX while
+  // dragging the soap / shower rather than dominating the scene.
+  care_soap:      0.6,
+  care_rinse:     0.6,
 
   // ─── Mini-game gameplay SFX ─────────────────────────────────────────────
   // catch-mouse
@@ -513,6 +518,34 @@ export function playSound(name: SoundName, opts: { volume?: number } = {}) {
     a.play().catch(() => { /* autoplay rejected — ignore */ })
   } catch {
     /* ignore */
+  }
+}
+
+/** Start a sound looping and return a stop() function. For continuous,
+ *  drag-driven audio (soaping / rinsing) where a multi-second clip would
+ *  otherwise stack overlapping copies if re-triggered per pointermove. The
+ *  loop starts as soon as the buffer is decoded (instantly if cached) and
+ *  stops with a short fade. Synth-recipe names and missing Web Audio both
+ *  return a no-op stop — callers can always call the result safely. */
+export function playLoop(name: SoundName, opts: { volume?: number } = {}): () => void {
+  if (muted || typeof window === 'undefined') return () => {}
+  const ctx = getAudioContext()
+  if (!ctx) return () => {}
+
+  const scale = VOLUME_SCALE[name] ?? 1
+  const finalVolume = Math.max(0, Math.min(1, (opts.volume ?? globalVolume) * scale))
+
+  let stopFn: (() => void) | null = null
+  let cancelled = false
+  const begin = (buf: AudioBuffer) => { if (!cancelled) stopFn = startLoopBuffer(buf, finalVolume) }
+
+  const cached = bufferCache.get(name)
+  if (cached) begin(cached)
+  else void loadBuffer(name).then(b => { if (b) begin(b) })
+
+  return () => {
+    cancelled = true
+    if (stopFn) stopFn()
   }
 }
 

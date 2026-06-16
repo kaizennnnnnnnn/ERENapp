@@ -244,6 +244,47 @@ export function playBuffer(buffer: AudioBuffer, volume: number): void {
   }
 }
 
+// Loop a pre-decoded mp3 (AudioBuffer) until the returned stop() is called.
+// For continuous, drag-driven sounds (soaping, rinsing) where re-triggering a
+// multi-second clip every pointermove would stack overlapping copies. A single
+// looping source plays seamlessly; stop() does a short gain fade so releasing
+// the drag doesn't click. Calling stop() more than once is a no-op.
+export function startLoopBuffer(buffer: AudioBuffer, volume: number): () => void {
+  const ctx = getCtx()
+  if (!ctx) return () => {}
+  if (ctx.state === 'suspended') {
+    void ctx.resume().catch(() => { /* first play before a gesture may be lost */ })
+  }
+  try {
+    const src = ctx.createBufferSource()
+    src.buffer = buffer
+    src.loop = true
+    const gain = ctx.createGain()
+    gain.gain.value = Math.max(0, Math.min(1, volume))
+    src.connect(gain)
+    gain.connect(ctx.destination)
+    src.onended = () => {
+      try { src.disconnect(); gain.disconnect() } catch { /* ignore */ }
+    }
+    src.start()
+    let stopped = false
+    return () => {
+      if (stopped) return
+      stopped = true
+      try {
+        const now = ctx.currentTime
+        gain.gain.setValueAtTime(gain.gain.value, now)
+        gain.gain.linearRampToValueAtTime(0, now + 0.08)
+        src.stop(now + 0.1)
+      } catch {
+        try { src.stop() } catch { /* already stopped */ }
+      }
+    }
+  } catch {
+    return () => {}
+  }
+}
+
 export function playSynth(recipe: SynthRecipe, volume: number): void {
   const ctx = getCtx()
   if (!ctx) return

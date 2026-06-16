@@ -13,7 +13,7 @@ import { useIsDark } from '@/hooks/useIsDark'
 import { useWish } from '@/contexts/WishContext'
 import WishHintBanner from '@/components/wish/WishHintBanner'
 import { wishHintRoom } from '@/lib/wishes'
-import { playSound } from '@/lib/sounds'
+import { playSound, playLoop } from '@/lib/sounds'
 import { useErenReaction } from '@/hooks/useErenReaction'
 import { happyFinisherBeats, WORD_COLOR } from '@/lib/erenReactions'
 import SoundWord from '@/components/SoundWord'
@@ -136,10 +136,31 @@ export default function WashScene({ onClose }: Props) {
   // Throttle the "SCRUB SCRUB" word so it pops at most ~once/1.2s while soaping.
   const lastScrubWordRef = useRef(0)
   const [scrubWordKey, setScrubWordKey] = useState(0)
-  // Throttle the looping soap-rub / shower-hiss SFX so dragging him strings
-  // together a continuous water sound without spamming a play per pointermove.
-  const lastSoapSndRef  = useRef(0)
-  const lastRinseSndRef = useRef(0)
+
+  // "Rinsing right now" — mirrors `scrubbing`: set on each in-zone shower move,
+  // auto-clears ~250ms after the last one. Drives the looping rinse sound.
+  const [rinsing, setRinsing] = useState(false)
+  const rinseStopRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const markRinse = useCallback(() => {
+    setRinsing(true)
+    if (rinseStopRef.current) clearTimeout(rinseStopRef.current)
+    rinseStopRef.current = setTimeout(() => setRinsing(false), 250)
+  }, [])
+  useEffect(() => () => { if (rinseStopRef.current) clearTimeout(rinseStopRef.current) }, [])
+
+  // Loop the recorded soap / rinse mp3s while actively soaping / rinsing. The
+  // 2s (soap) / 1s (rinse) clips can't be re-triggered per pointermove without
+  // stacking overlapping copies, so we run a single looping source for the
+  // length of the action and stop it (with a short fade) when the activity
+  // signal clears — a pause of ~250ms, a pointer-up, or finishing the wash.
+  useEffect(() => {
+    if (!scrubbing) return
+    return playLoop('care_soap')
+  }, [scrubbing])
+  useEffect(() => {
+    if (!rinsing) return
+    return playLoop('care_rinse')
+  }, [rinsing])
 
   // ── Pose progression driven by soap coverage ──────────────────────────────
   const [visibleStage, setVisibleStage] = useState<WashStage>('stand')
@@ -273,11 +294,6 @@ export default function WashScene({ onClose }: Props) {
       if (isOverEren(e.clientX, e.clientY)) {
         markScrub()
         const now = Date.now()
-        // Soft soap-rub sound, strung together every ~260ms while soaping.
-        if (now - lastSoapSndRef.current > 260) {
-          lastSoapSndRef.current = now
-          playSound('care_soap')
-        }
         if (now - lastScrubWordRef.current > 1200) {
           lastScrubWordRef.current = now
           setScrubWordKey(k => k + 1)
@@ -314,12 +330,9 @@ export default function WashScene({ onClose }: Props) {
       // coverage (no suds are painted off-body), and rinsing is a slow drag,
       // so a forgiving target keeps it from feeling tedious.
       if (px > 22 && px < 78 && py > 55 && py < 95) {
-        // Running shower-water hiss while rinsing him off (~240ms cadence).
-        const now = Date.now()
-        if (now - lastRinseSndRef.current > 240) {
-          lastRinseSndRef.current = now
-          playSound('care_rinse')
-        }
+        // Mark rinsing so the looping rinse sound plays (and holds) while the
+        // shower stays over him.
+        markRinse()
         // Only drain coverage — bubbles fade out automatically in the
         // render layer based on each bubble's creation coverage vs the
         // current coverage. We don't pop them from the array, which is
@@ -356,6 +369,7 @@ export default function WashScene({ onClose }: Props) {
     doneRef.current = true
     setDone(true)
     setScrubbing(false)
+    setRinsing(false)
     // Wet-dog shake → droplets fly off → clean sparkle → happy finisher.
     reaction.play([
       { name: 'shake',   ms: 750, onEnter: () => playSound('care_splash') },
