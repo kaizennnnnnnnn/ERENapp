@@ -223,11 +223,13 @@ function SunMedallion() {
               left: '50%',
               top: '50%',
               width: 2,
-              height: 6,
-              marginLeft: -1,
+              height: 5,
               background: '#FDE68A',
-              transformOrigin: 'center',
-              transform: `rotate(${i * 45}deg) translateY(-11px)`,
+              borderRadius: 1,
+              // Centre the ray on the badge centre first, THEN rotate + push
+              // outward — otherwise the ray's own 50% origin sits below centre
+              // and the whole ray-ring drifts off the sun core.
+              transform: `translate(-50%, -50%) rotate(${i * 45}deg) translateY(-10.5px)`,
             }}
           />
         ))}

@@ -918,42 +918,44 @@ export const IconStethoscope = memo(function IconStethoscope({ size = 20 }: Icon
 // ── FRIDGE (kitchen storage) ──────────────────────────────────────────────
 export const IconFridge = memo(function IconFridge({ size = 20 }: IconProps) {
   const grid = [
-    '..KKKKKKKK..',
-    '..KFFFFFFK..',
-    '..KFFFFHFK..',
-    '..KFFFFHFK..',
-    '..KKKKKKKK..',
-    '..KFFFFFFK..',
-    '..KFFFFHFK..',
-    '..KFFFFHFK..',
-    '..KFFFFFFK..',
-    '..KKKKKKKK..',
+    '.KKKKKKKKKK.',
+    '.KGGFFFFFFK.',
+    '.KFFFFFFHHK.',
+    '.KFFFFFFHHK.',
+    '.KKKKKKKKKK.',
+    '.KFFFFFFHHK.',
+    '.KFFFFFFHHK.',
+    '.KFFFFFFFFK.',
+    '.KFFFFFFFFK.',
+    '.KKKKKKKKKK.',
     '..K......K..',
-    '..K......K..',
+    '............',
   ]
   return drawPixels(grid, {
-    K: '#3A5A7A', F: '#EAF6FF', H: '#5FA8DC',
+    K: '#2F557A', F: '#EAF6FF', G: '#FFFFFF', H: '#5FA8DC',
   }, size)
 })
 
 // ── SHOPPING CART (shop) ──────────────────────────────────────────────────
 export const IconCart = memo(function IconCart({ size = 20 }: IconProps) {
+  // Cart with a left handle, a tapered wire basket carrying two grocery items
+  // (leafy green + round red), and two chunky wheels — reads "food shopping".
   const grid = [
-    '.K..........',
-    '.K.KKKKKK...',
-    '.K.K....K...',
-    '.KKK....K...',
-    '...K....K...',
-    '...KKKKKK...',
-    '...K..K.....',
-    '..OO..OO....',
     '............',
-    '............',
+    '..K.........',
+    '..K..GG.RR..',
+    '..K..GG.RR..',
+    '..KKKKKKKKK.',
+    '...K.....K..',
+    '...K.....K..',
+    '....KKKKK...',
+    '....K...K...',
+    '...OO...OO..',
     '............',
     '............',
   ]
   return drawPixels(grid, {
-    K: '#6E4410', O: '#4A2E08',
+    K: '#6B4A12', O: '#3D2A0A', G: '#5DBB63', R: '#EF5B54',
   }, size)
 })
 
