@@ -331,9 +331,10 @@ export default function WashScene({ onClose }: Props) {
           setScrubWordKey(k => k + 1)
         }
         setCoverage(c => {
-          // +0.22 per in-zone soap stroke (was 0.7): soaping him up to the 95%
-          // shower-unlock takes ~3x longer, so the scrub really feels earned.
-          const next = Math.min(100, c + 0.22)
+          // +0.5 per in-zone soap stroke: soaping up to the 95% shower-unlock
+          // stays quick (it dragged at 0.22) while the lather still climbs
+          // through s1→s2→s3 so the pose progression reads.
+          const next = Math.min(100, c + 0.5)
           coverageRef.current = next
           if (next >= 95 && !showShowerRef.current) {
             showShowerRef.current = true
@@ -367,7 +368,7 @@ export default function WashScene({ onClose }: Props) {
         // current coverage. We don't pop them from the array, which is
         // what made them disappear instantly before.
         setCoverage(c => {
-          const next = Math.max(0, c - 0.3)
+          const next = Math.max(0, c - 0.6)
           coverageRef.current = next
           return next
         })
