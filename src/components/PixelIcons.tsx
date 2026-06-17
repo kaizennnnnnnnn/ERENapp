@@ -142,23 +142,27 @@ export const IconDrop = memo(function IconDrop({ size = 20 }: IconProps) {
 })
 
 // ── COIN ───────────────────────────────────────────────────────────────────
+// Polished gold doubloon: a 5-step gold ramp (outline → deep → mid → face →
+// highlight) lights the disc from the top-left so it reads as a beveled,
+// glossy minted coin instead of a flat yellow circle. The two W pixels are a
+// hot specular glint; the dark rim wraps the lower-right for depth.
 export const IconCoin = memo(function IconCoin({ size = 20 }: IconProps) {
   const grid = [
-    '...KKKKKK...',
-    '..KYLLLLYK..',
-    '.KYLLYYLYGK.',
-    'KYLLYYYLYYGK',
-    'KYLYYYYYYGGK',
-    'KYYYYKYYYYGK',
-    'KYYYYYYYYYGK',
-    'KYGGGGGGGGGK',
-    '.KGGGGGGGGK.',
-    '..KGGGGGGGK.',
-    '...KKKKKK...',
+    '............',
+    '...KKLLKK...',
+    '..KLLYYLLK..',
+    '.KLYLLYYYDK.',
+    '.KLLWWYYYDK.',
+    '.LYYLLYYGGD.',
+    '.LYYYYYGGGD.',
+    '.KLYYYGGGDK.',
+    '.KLYYGGGGDK.',
+    '..KDDGGDDK..',
+    '...KKDDKK...',
     '............',
   ]
   return drawPixels(grid, {
-    K: '#7A4F00', Y: '#FFD700', L: '#FFF4A3', G: '#B88400',
+    K: '#5A3A00', D: '#9A6A00', G: '#D89A1E', Y: '#FFD23D', L: '#FFF1A6', W: '#FFFFFF',
   }, size)
 })
 
