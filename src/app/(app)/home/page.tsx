@@ -18,7 +18,7 @@ import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 import { format } from 'date-fns'
 import Link from 'next/link'
 import { Sparkles } from 'lucide-react'
-import { IconGift, IconHeart, IconBell, IconPerson, IconDoor, IconDrumstick, IconYarn, IconMoonZ, IconBath, IconPill, IconBook, IconCake, IconPhoto, IconFlask } from '@/components/PixelIcons'
+import { IconGift, IconHeart, IconBell, IconPerson, IconDoor, IconPhoto } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import { requestCloudNav } from '@/components/CloudTransition'
 import TaskPanel from '@/components/TaskPanel'
@@ -34,6 +34,7 @@ import { useFortune } from '@/hooks/useFortune'
 import { useInventory } from '@/hooks/useInventory'
 import { GACHA_ITEMS } from '@/lib/gacha'
 import { DockContent, dockFrame } from '@/components/home/DockButtons'
+import RoomsMenu, { type RoomDef } from '@/components/home/RoomsMenu'
 import FortunePopup from '@/components/fortune/FortunePopup'
 import ErenMessagePopup from '@/components/couple/ErenMessagePopup'
 import ThoughtCloud from '@/components/couple/ThoughtCloud'
@@ -405,6 +406,20 @@ export default function HomePage() {
     setTimeout(() => setToast(null), 2500)
   }
 
+  // ── Rooms door menu ──
+  function closeRooms() {
+    playSound('ui_modal_close')
+    setShowRooms(false)
+  }
+  function handleRoomSelect(room: RoomDef) {
+    playSound('ui_tap')
+    setShowRooms(false)
+    // Bakery is a top-level route (cloud transition); the rest are swipe-room
+    // care scenes opened in place.
+    if (room.href) requestCloudNav(room.href)
+    else openScene(room.id as Exclude<RoomDef['id'], 'bakery'>)
+  }
+
   // ── Loading ──
   const LoadingScreen = <PageLoader label="LOADING EREN" />
 
@@ -706,18 +721,18 @@ export default function HomePage() {
             {fortuneAvailable && (
               <button onClick={() => { playSound('ui_modal_open'); setShowFortune(true) }}
                 className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-                style={{ ...cuteBtn('217,199,247'), animation: 'pulse 2s ease-in-out infinite' }}>
+                style={{ ...cuteBtn('217,199,247'), animation: 'homeNavIn 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s backwards, pulse 2s ease-in-out 0.6s infinite' }}>
                 <CuteIcon><IconGift size={22} /></CuteIcon>
               </button>
             )}
             <Link href="/hallway" onClick={() => playSound('ui_tap')}
               aria-label="The Hallway"
-              className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-              style={cuteBtn('191,224,255')}>
+              className="home-nav-pop w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
+              style={{ ...cuteBtn('191,224,255'), animationDelay: '0.2s' }}>
               <CuteIcon><IconPhoto size={22} /></CuteIcon>
             </Link>
-            <Link href="/couple" onClick={() => playSound('ui_tap')} className="relative w-8 h-8 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
-              style={cuteBtn('255,198,216')}>
+            <Link href="/couple" onClick={() => playSound('ui_tap')} className="home-nav-pop relative w-8 h-8 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
+              style={{ ...cuteBtn('255,198,216'), animationDelay: '0.25s' }}>
               <CuteIcon><IconHeart size={22} /></CuteIcon>
               {unreadCount > 0 && (
                 <div className="absolute -top-1 -right-1 flex items-center justify-center"
@@ -727,89 +742,23 @@ export default function HomePage() {
               )}
             </Link>
             <button onClick={() => { playSound('ui_modal_open'); setShowReminders(true) }}
-              className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-              style={cuteBtn('251,228,154')}>
+              className="home-nav-pop w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
+              style={{ ...cuteBtn('251,228,154'), animationDelay: '0.3s' }}>
               <CuteIcon><IconBell size={18} /></CuteIcon>
             </button>
             <Link href="/profile" onClick={() => playSound('ui_tap')}
-              className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-              style={cuteBtn('217,199,247')}>
+              className="home-nav-pop w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
+              style={{ ...cuteBtn('217,199,247'), animationDelay: '0.35s' }}>
               <CuteIcon><IconPerson size={18} /></CuteIcon>
             </Link>
             <div className="relative flex-shrink-0">
               <button onClick={() => { playSound(showRooms ? 'ui_modal_close' : 'ui_modal_open'); setShowRooms(r => !r) }}
-                className="w-8 h-8 relative flex items-center justify-center active:scale-90 transition-transform"
-                style={cuteBtn('226,196,154')}>
+                aria-label="Rooms" aria-expanded={showRooms}
+                className="home-nav-pop w-8 h-8 relative flex items-center justify-center active:scale-90 transition-transform"
+                style={{ ...cuteBtn('226,196,154'), animationDelay: '0.4s' }}>
                 <CuteIcon><IconDoor size={18} /></CuteIcon>
               </button>
-              {showRooms && (
-                <>
-                  <div className="fixed inset-0 z-20" onClick={() => setShowRooms(false)} />
-                  <div className="absolute right-0 top-10 z-30 flex flex-col gap-1.5 p-2.5"
-                    style={{
-                      background: 'linear-gradient(180deg, rgba(16,10,36,0.96) 0%, rgba(8,5,22,0.98) 100%)',
-                      backdropFilter: 'blur(16px)',
-                      borderRadius: 6,
-                      border: '2px solid rgba(167,139,250,0.35)',
-                      minWidth: 172,
-                      boxShadow: '4px 4px 0 rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06), inset 0 1px 0 rgba(255,255,255,0.08)',
-                    }}>
-                    {/* Scanline overlay */}
-                    <div className="absolute inset-0 pointer-events-none" style={{
-                      background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.15) 3px, rgba(0,0,0,0.15) 4px)',
-                      borderRadius: 6,
-                    }} />
-                    {/* Corner ticks */}
-                    <div style={{ position: 'absolute', top: 4, left: 4, width: 4, height: 4, background: '#A78BFA', opacity: 0.6 }} />
-                    <div style={{ position: 'absolute', top: 4, right: 4, width: 4, height: 4, background: '#A78BFA', opacity: 0.6 }} />
-                    <div style={{ position: 'absolute', bottom: 4, left: 4, width: 4, height: 4, background: '#A78BFA', opacity: 0.6 }} />
-                    <div style={{ position: 'absolute', bottom: 4, right: 4, width: 4, height: 4, background: '#A78BFA', opacity: 0.6 }} />
-
-                    {([
-                      { id: 'feed',   label: 'Kitchen',       Icon: IconDrumstick, color: '#F5C842', rgb: '245,200,66' },
-                      { id: 'play',   label: 'Playroom',      Icon: IconYarn,      color: '#FF6B9D', rgb: '255,107,157' },
-                      { id: 'sleep',  label: 'Bedroom',       Icon: IconMoonZ,     color: '#818CF8', rgb: '129,140,248' },
-                      { id: 'wash',   label: 'Bathroom',      Icon: IconBath,      color: '#38BDF8', rgb: '56,189,248' },
-                      { id: 'chemistry', label: 'Chem Lab',   Icon: IconFlask,     color: '#84CC16', rgb: '132,204,22' },
-                      { id: 'vet',    label: 'Vet Office',    Icon: IconPill,      color: '#34D399', rgb: '52,211,153' },
-                      { id: 'school', label: 'Serbian Class', Icon: IconBook,      color: '#F59E0B', rgb: '245,158,11' },
-                      // Bakery is a top-level route, not a care scene — `href`
-                      // routes via router.push instead of openScene().
-                      { id: 'bakery', label: 'Eren’s Bakery', Icon: IconCake, color: '#FBBF24', rgb: '251,191,36', href: '/bakery' },
-                    ] as const).map(room => (
-                      <button key={room.id} onClick={() => {
-                        playSound('ui_tap')
-                        setShowRooms(false)
-                        if ('href' in room && room.href) {
-                          requestCloudNav(room.href)
-                        } else {
-                          openScene(room.id as Exclude<typeof room.id, 'bakery'>)
-                        }
-                      }}
-                        className="flex items-center gap-2.5 px-3 py-2 active:scale-95 transition-transform relative"
-                        style={{
-                          borderRadius: 4,
-                          background: `linear-gradient(135deg, rgba(${room.rgb},0.12), rgba(${room.rgb},0.04))`,
-                          border: `1px solid rgba(${room.rgb},0.25)`,
-                          boxShadow: `inset 0 1px 0 rgba(255,255,255,0.05)`,
-                        }}>
-                        <div className="flex items-center justify-center"
-                          style={{
-                            width: 26, height: 26,
-                            background: `rgba(${room.rgb},0.15)`,
-                            borderRadius: 3,
-                            border: `1px solid rgba(${room.rgb},0.4)`,
-                          }}>
-                          <room.Icon size={18} />
-                        </div>
-                        <span className="font-pixel" style={{ fontSize: 7, color: room.color, letterSpacing: 0.5, textShadow: `0 0 4px rgba(${room.rgb},0.4)` }}>
-                          {room.label.toUpperCase()}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
+              <RoomsMenu open={showRooms} onClose={closeRooms} onSelect={handleRoomSelect} />
             </div>
           </div>
         </div>
@@ -874,8 +823,8 @@ export default function HomePage() {
               playSound('ui_tap')
               requestCloudNav('/gacha', 'rainbow')
             }}
-            className="home-dock-btn"
-            style={dockFrame}
+            className="home-dock-btn home-dock-pop"
+            style={{ ...dockFrame, animationDelay: '0.18s' }}
           >
             <DockContent theme="gacha" label="GACHA" />
           </Link>
@@ -889,16 +838,16 @@ export default function HomePage() {
               playSound('ui_tap')
               requestCloudNav('/bakery')
             }}
-            className="home-dock-btn"
-            style={dockFrame}
+            className="home-dock-btn home-dock-pop"
+            style={{ ...dockFrame, animationDelay: '0.26s' }}
           >
             <DockContent theme="cake" label="CAKE" />
           </Link>
 
           <button
             onClick={() => { playSound('ui_tap'); showToast('SHAWARMA — coming soon') }}
-            className="home-dock-btn"
-            style={dockFrame}
+            className="home-dock-btn home-dock-pop"
+            style={{ ...dockFrame, animationDelay: '0.34s' }}
           >
             <DockContent theme="shawarma" label="SHAWARMA" />
           </button>
