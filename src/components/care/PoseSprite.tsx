@@ -29,22 +29,31 @@ interface Props {
 
 export default function PoseSprite({ src, width, breathe = true, breatheDur = 5, style }: Props) {
   const isDark = useIsDark()
+  // The breathing scale lives on this WRAPPER, never on the <img>. The image is
+  // `image-rendering: pixelated`, and animating a scale ON a pixelated element
+  // re-samples it nearest-neighbour every frame, so a hard horizontal seam line
+  // crawls up and down the sprite. Scaling a plain wrapper instead lets the
+  // compositor scale the already-rasterised (sharp) image bilinearly — smooth,
+  // no seam. (Same split BlinkingEren uses for its breathe.)
   return (
-    <img src={src} alt="Eren" draggable={false}
-      style={{
-        width, height: 'auto', display: 'block',
-        // Tailwind's preflight sets `img { max-width: 100% }`, which silently
-        // caps this sprite to its wrapper's width — when the wrapper is a
-        // `left:50%` box (WashScene's 200px Eren box) that available width is
-        // only ~100px, so the `width` prop was being ignored entirely. The
-        // prop is the authoritative on-screen size, so opt out of the cap.
-        maxWidth: 'none',
-        imageRendering: 'pixelated',
-        transformOrigin: 'bottom center',
-        backfaceVisibility: 'hidden',
-        filter: isDark ? 'brightness(0.7) saturate(0.85)' : undefined,
-        animation: breathe ? `erenBreathe ${breatheDur}s ease-in-out infinite` : undefined,
-        ...style,
-      }} />
+    <div style={{
+      width,
+      transformOrigin: 'bottom center',
+      backfaceVisibility: 'hidden',
+      willChange: breathe ? 'transform' : undefined,
+      animation: breathe ? `erenBreathe ${breatheDur}s ease-in-out infinite` : undefined,
+      ...style,
+    }}>
+      <img src={src} alt="Eren" draggable={false}
+        style={{
+          width: '100%', height: 'auto', display: 'block',
+          // Tailwind's preflight sets `img { max-width: 100% }`; opt out so the
+          // sprite is never capped below its intended width.
+          maxWidth: 'none',
+          imageRendering: 'pixelated',
+          backfaceVisibility: 'hidden',
+          filter: isDark ? 'brightness(0.7) saturate(0.85)' : undefined,
+        }} />
+    </div>
   )
 }
