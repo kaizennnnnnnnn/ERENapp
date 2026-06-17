@@ -4,12 +4,11 @@
 // SOAP / RINSE meters, the playroom ENERGY bar, and the bedroom SLEEP QUALITY
 // bar all render through this. The segments sit in a recessed dark channel
 // with a hard pixel drop-shadow, themed corner rivets, glossy gradient-lit
-// segments, a brighter pulsing "fill head", and a slow shimmer sweep across
-// the lit portion. Pixel-art consistent: hard offsets, crisp edges, no blurry
-// surfaces. Each room passes its own `palette` so the colour story stays local
-// while the premium chrome stays shared (DRY).
+// segments, and a brighter pulsing "fill head". Pixel-art consistent: hard
+// offsets, crisp edges, no blurry surfaces. Each room passes its own `palette`
+// so the colour story stays local while the premium chrome stays shared (DRY).
 //
-// Motion (`meterSheen`, `meterHead`) lives in globals.css.
+// The fill-head pulse (`meterHead`) lives in globals.css.
 
 const PIXEL_FONT = '"Press Start 2P", monospace'
 
@@ -34,7 +33,6 @@ interface Props {
   segments?: number             // default 12
   labelColor: string
   valueColor: string
-  shimmer?: boolean             // sweeping highlight across lit area (default true)
 }
 
 const RIVET_POS = [
@@ -46,11 +44,10 @@ const RIVET_POS = [
 
 export default function SegmentMeter({
   label, value, palette: p, valueText, segments = 12,
-  labelColor, valueColor, shimmer = true,
+  labelColor, valueColor,
 }: Props) {
   const clamped = Math.max(0, Math.min(100, value))
   const filled = Math.round((clamped / 100) * segments)
-  const litFrac = filled / segments
 
   return (
     <div style={{ width: '100%' }}>
@@ -92,21 +89,6 @@ export default function SegmentMeter({
             }} />
           )
         })}
-
-        {/* Shimmer sweep, clipped to roughly the lit portion */}
-        {shimmer && filled > 0 && (
-          <div aria-hidden style={{
-            position: 'absolute', left: 5, top: 4, bottom: 4,
-            width: `calc(${litFrac * 100}% - 10px)`,
-            borderRadius: 1.5, overflow: 'hidden', pointerEvents: 'none',
-          }}>
-            <div style={{
-              position: 'absolute', inset: 0,
-              background: 'linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.55) 50%, transparent 65%)',
-              animation: 'meterSheen 2.6s linear infinite',
-            }} />
-          </div>
-        )}
 
         {/* Corner rivets — the premium-card signature used across the app */}
         {RIVET_POS.map((pos, i) => (

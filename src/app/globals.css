@@ -896,12 +896,7 @@
 }
 
 /* ── Care room SegmentMeter (premium LED gauge) ──
-   A glint sweeps across the lit portion of the meter, then waits off-screen
-   for the rest of the cycle. The leading "fill head" segment pulses brighter. */
-@keyframes meterSheen {
-  0%        { transform: translateX(-100%); }
-  60%, 100% { transform: translateX(200%);  }
-}
+   The leading "fill head" segment pulses brighter. */
 @keyframes meterHead {
   0%, 100% { filter: brightness(1);   }
   50%      { filter: brightness(1.32); }
