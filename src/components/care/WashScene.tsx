@@ -22,8 +22,23 @@ import PoseSprite from '@/components/care/PoseSprite'
 import { BubblePoof, SplashPoof, WASH_POOF_PEAK_MS } from '@/components/care/WashPoof'
 import { preloadImages } from '@/lib/preloadImages'
 import SqueakyCleanBanner from '@/components/wash/SqueakyCleanBanner'
+import SegmentMeter, { type MeterPalette } from '@/components/care/SegmentMeter'
 
 interface Props { onClose: () => void }
+
+// Premium gauge palettes for the SOAP (warm pink lather) and RINSE (cool sky
+// water) meters. They sit inside the dark navy bath panel, so the channel ink
+// is a deep navy and the studs are the app's signature gold rivets.
+const SOAP_METER: MeterPalette = {
+  fillHi: '#FFC7DE', fillBase: '#FF6B9D', fillLo: '#E0487E', fillEdge: '#FF4080',
+  glow: 'rgba(255,90,150,0.65)', track: '#22323F', trackEdge: '#37495A',
+  groove: '#0E1C28', frame: '#27485C', rivet: '#FFD98A',
+}
+const RINSE_METER: MeterPalette = {
+  fillHi: '#D4F0FF', fillBase: '#6BAED6', fillLo: '#3F86B4', fillEdge: '#4A90BC',
+  glow: 'rgba(105,174,214,0.7)', track: '#22323F', trackEdge: '#37495A',
+  groove: '#0E1C28', frame: '#27485C', rivet: '#FFD98A',
+}
 
 // ── Soap-coverage → pose progression ─────────────────────────────────────────
 // He swaps through lather stages as `coverage` climbs (soaping) and back down
@@ -402,10 +417,6 @@ export default function WashScene({ onClose }: Props) {
     }
   }
 
-  const SOAP_SEGMENTS = 12
-  const soapFilled  = Math.round((coverage / 100) * SOAP_SEGMENTS)
-  const rinseFilled = showShower ? Math.round(Math.max(0, (100 - coverage) / 100) * SOAP_SEGMENTS) : 0
-
   return (
     <div
       ref={sceneRef}
@@ -643,54 +654,30 @@ export default function WashScene({ onClose }: Props) {
       {/* ══ PROGRESS BARS ════════════════════════════════════════════════ */}
       <div className="absolute bottom-4 inset-x-0 px-5 flex flex-col gap-2 items-center pointer-events-none">
         {!done && (
-          <div className="w-full max-w-xs pointer-events-none"
-            style={{ background: '#1A2A38', borderRadius: 4, border: '2px solid #3A5A70', boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', padding: '10px 12px' }}>
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="font-pixel text-sky-300" style={{ fontSize: 6 }}>SOAP</span>
-              <span className="font-pixel text-sky-400" style={{ fontSize: 6 }}>{Math.round(coverage)}%</span>
-            </div>
-            <div className="flex gap-0.5 mb-2.5">
-              {Array.from({ length: SOAP_SEGMENTS }).map((_, si) => {
-                const lit = si < soapFilled
-                return (
-                  <div key={si} style={{
-                    flex: 1, height: 8, borderRadius: 1,
-                    background: lit ? '#FF6B9D' : '#2A3A48',
-                    border: lit ? '1px solid #FF4080' : '1px solid #3A4A58',
-                    boxShadow: lit ? 'inset 0 1px 0 rgba(255,255,255,0.3), 0 0 4px rgba(255,100,160,0.4)' : 'none',
-                    transition: 'all 0.15s',
-                    transitionDelay: `${si * 20}ms`,
-                  }} />
-                )
-              })}
-            </div>
+          <div className="w-full max-w-xs pointer-events-none flex flex-col gap-2.5"
+            style={{ background: '#1A2A38', borderRadius: 6, border: '2px solid #3A5A70', boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', padding: '11px 12px' }}>
+            <SegmentMeter
+              label="SOAP"
+              value={coverage}
+              valueText={`${Math.round(coverage)}%`}
+              palette={SOAP_METER}
+              labelColor="#9BDCF7"
+              valueColor="#CFEFFF"
+            />
             {showShower && (
-              <>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-pixel text-sky-300" style={{ fontSize: 6 }}>RINSE</span>
-                  <span className="font-pixel text-sky-400" style={{ fontSize: 6 }}>{Math.round(Math.max(0, 100 - coverage))}%</span>
-                </div>
-                <div className="flex gap-0.5">
-                  {Array.from({ length: SOAP_SEGMENTS }).map((_, si) => {
-                    const lit = si < rinseFilled
-                    return (
-                      <div key={si} style={{
-                        flex: 1, height: 8, borderRadius: 1,
-                        background: lit ? '#6BAED6' : '#2A3A48',
-                        border: lit ? '1px solid #4A90BC' : '1px solid #3A4A58',
-                        boxShadow: lit ? 'inset 0 1px 0 rgba(255,255,255,0.3), 0 0 4px rgba(100,170,220,0.4)' : 'none',
-                        transition: 'all 0.15s',
-                        transitionDelay: `${si * 20}ms`,
-                      }} />
-                    )
-                  })}
-                </div>
-              </>
+              <SegmentMeter
+                label="RINSE"
+                value={Math.max(0, 100 - coverage)}
+                valueText={`${Math.round(Math.max(0, 100 - coverage))}%`}
+                palette={RINSE_METER}
+                labelColor="#9BDCF7"
+                valueColor="#CFEFFF"
+              />
             )}
             {showShower && !saving && coverage > 10 && (
-              <p className="font-pixel text-sky-400 text-center mt-2" style={{ fontSize: 6 }}>DRAG SHOWER TO RINSE!</p>
+              <p className="font-pixel text-sky-400 text-center" style={{ fontSize: 6 }}>DRAG SHOWER TO RINSE!</p>
             )}
-            {saving && <p className="font-pixel text-sky-400 text-center mt-2 animate-pulse" style={{ fontSize: 6 }}>SAVING...</p>}
+            {saving && <p className="font-pixel text-sky-400 text-center animate-pulse" style={{ fontSize: 6 }}>SAVING...</p>}
           </div>
         )}
         {done && <SqueakyCleanBanner />}
