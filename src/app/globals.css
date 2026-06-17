@@ -791,6 +791,41 @@
   100% { transform: translateY(-11px) scaleY(1.1); opacity: 0;    }
 }
 
+/* ── Home control entrances ──
+   When home reveals (after the splash fade) the controls assemble instead of
+   blinking into place: the HUD nav row pops down from the top bar, the bottom
+   dock rises up off the floor. `backwards` fill (not forwards) holds the
+   hidden 0% frame during the stagger delay but releases the resting transform
+   afterwards, so the buttons' existing :active press states still work. The
+   100% frame matches the natural rest state (opacity 1, no transform) so the
+   release is seamless. */
+@keyframes homeNavIn {
+  0%   { opacity: 0; transform: translateY(-9px) scale(0.6);  }
+  60%  { opacity: 1; transform: translateY(0)    scale(1.12); }
+  100% { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+@keyframes homeDockIn {
+  0%   { opacity: 0; transform: translateY(20px) scale(0.94); }
+  100% { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+.home-nav-pop  { animation: homeNavIn  0.42s cubic-bezier(0.34, 1.56, 0.64, 1) backwards; }
+.home-dock-pop { animation: homeDockIn 0.46s cubic-bezier(0.34, 1.56, 0.64, 1) backwards; }
+
+/* ── Rooms menu (door dropdown) ──
+   Each option cascades up as the panel grows open (the panel's own scale/fade
+   is handled inline on the container). Hover/press polish lives here; the
+   inline entrance animation rides on a different property channel so it never
+   fights these transitions. */
+@keyframes roomItemIn {
+  0%   { opacity: 0; transform: translateY(7px); }
+  100% { opacity: 1; transform: translateY(0);   }
+}
+.room-node { transition: transform 130ms cubic-bezier(0.34, 1.56, 0.64, 1), filter 130ms ease, box-shadow 130ms ease; }
+.room-node:hover  { filter: brightness(1.12); box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 6px rgba(0,0,0,0.4); }
+.room-node:active { transform: scale(0.96); }
+.room-node:hover .room-chevron { transform: translateX(3px); }
+.room-chevron { transition: transform 130ms ease; }
+
 /* ── Chemistry room "PERIODIC TABLE" button ──
    Lime reagent slab with a glossy top highlight, a hard olive drop shadow,
    and a designed press that sinks it into that shadow. Lives here (not in
@@ -858,6 +893,18 @@
 @keyframes sleepTwinkle {
   0%, 100% { transform: scale(0.5); opacity: 0.3; }
   50%      { transform: scale(1);   opacity: 1;   }
+}
+
+/* ── Care room SegmentMeter (premium LED gauge) ──
+   A glint sweeps across the lit portion of the meter, then waits off-screen
+   for the rest of the cycle. The leading "fill head" segment pulses brighter. */
+@keyframes meterSheen {
+  0%        { transform: translateX(-100%); }
+  60%, 100% { transform: translateX(200%);  }
+}
+@keyframes meterHead {
+  0%, 100% { filter: brightness(1);   }
+  50%      { filter: brightness(1.32); }
 }
 
 /* ── Vet room "CHECK UP" button ──

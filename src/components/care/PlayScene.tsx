@@ -22,6 +22,15 @@ import { happyFinisherBeats, WORD_COLOR } from '@/lib/erenReactions'
 import SoundWord from '@/components/SoundWord'
 import { Hearts } from '@/components/care/ReactionFx'
 import DonePlayingButton from '@/components/playroom/DonePlayingButton'
+import SegmentMeter, { type MeterPalette } from '@/components/care/SegmentMeter'
+
+// ENERGY gauge palettes — the lit colour tracks energy level (violet when
+// healthy, gold mid, red when low). The recessed channel is a deep plum so the
+// glowing segments pop against the bright playroom; rivets are the app gold.
+const ENERGY_TRACK = { track: '#2A2440', trackEdge: '#473A6E', groove: '#19142C', frame: '#120D24', rivet: '#FCD34D' }
+const ENERGY_GOOD: MeterPalette = { fillHi: '#CFBFFF', fillBase: '#A78BFA', fillLo: '#8567E0', fillEdge: '#7C5FE0', glow: 'rgba(167,139,250,0.6)', ...ENERGY_TRACK }
+const ENERGY_MID:  MeterPalette = { fillHi: '#FFE7A0', fillBase: '#F5C842', fillLo: '#D99A18', fillEdge: '#D99A10', glow: 'rgba(245,200,66,0.6)', ...ENERGY_TRACK }
+const ENERGY_LOW:  MeterPalette = { fillHi: '#FFB3B3', fillBase: '#F87171', fillLo: '#E04A4A', fillEdge: '#DC3535', glow: 'rgba(248,113,113,0.65)', ...ENERGY_TRACK }
 
 interface Props { onClose: () => void }
 interface BallPos { x: number; y: number }
@@ -156,6 +165,7 @@ export default function PlayScene({ onClose }: Props) {
 
   const mood = done ? 'happy' : throwCount >= 3 ? 'playful' : 'idle'
   const energy = stats?.energy ?? 100
+  const energyPalette = energy > 50 ? ENERGY_GOOD : energy > 25 ? ENERGY_MID : ENERGY_LOW
 
   return (
     <div ref={sceneRef}
@@ -347,17 +357,9 @@ export default function PlayScene({ onClose }: Props) {
 
       {/* ══ BOTTOM UI ══ */}
       <div className="absolute bottom-5 inset-x-0 flex flex-col items-center gap-2 px-8 z-20" onClick={e => e.stopPropagation()}>
-        {/* Energy bar — pixel segments */}
+        {/* Energy gauge */}
         <div className="w-full max-w-xs">
-          <div className="flex justify-between items-center mb-1.5">
-            <span className="font-pixel text-purple-600" style={{ fontSize: 7 }}>ENERGY</span>
-            <span className="font-pixel text-purple-600" style={{ fontSize: 7 }}>{energy}</span>
-          </div>
-          <div className="flex gap-[3px]">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="flex-1" style={{ height: 10, borderRadius: 2, background: i < Math.round(energy / 100 * 12) ? (energy > 50 ? '#A78BFA' : energy > 25 ? '#F5C842' : '#F87171') : '#E8E0FF', boxShadow: i < Math.round(energy / 100 * 12) ? '0 1px 0 rgba(0,0,0,0.15)' : 'none' }} />
-            ))}
-          </div>
+          <SegmentMeter label="ENERGY" value={energy} palette={energyPalette} labelColor="#7C3AED" valueColor="#7C3AED" />
         </div>
 
         <div className="flex items-center gap-3">

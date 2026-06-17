@@ -555,15 +555,20 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
         </span>
         <div className="flex-1 relative" style={{
           height: 8, background: PAPER_DK,
-          borderRadius: 4, border: `1px solid ${INK_SOFT}55`,
+          borderRadius: 4, border: `1px solid ${INK}`,
           overflow: 'hidden',
+          boxShadow: `inset 0 1px 2px rgba(0,0,0,0.22), 0 1.5px 0 ${INK_SOFT}`,
         }}>
           <div style={{
+            position: 'relative', overflow: 'hidden',
             width: `${(totalCompleted / totalLessons) * 100}%`,
-            height: '100%', background: PEN_RED,
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4)',
+            height: '100%',
+            background: `linear-gradient(180deg, #D8463F 0%, ${PEN_RED} 55%, ${PEN_RED_DK} 100%)`,
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.22)',
             transition: 'width 0.6s ease',
-          }} />
+          }}>
+            <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(105deg, transparent 35%, rgba(255,240,225,0.55) 50%, transparent 65%)', animation: 'meterSheen 2.8s linear infinite' }} />
+          </div>
         </div>
         <div style={{ fontFamily: TYPE_FONT, fontSize: 9, letterSpacing: 2, color: INK_SOFT }}>
           ★ {progress.perfect.length}
@@ -1742,14 +1747,18 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
           height: 10, background: PAPER_DK,
           border: `1.5px solid ${INK}`,
           borderRadius: 4, overflow: 'hidden',
-          boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.25)',
+          boxShadow: `inset 0 1px 2px rgba(0,0,0,0.25), 0 2px 0 rgba(31,22,10,0.45)`,
         }}>
           <div style={{
+            position: 'relative', overflow: 'hidden',
             width: `${progressPct}%`,
-            height: '100%', background: PEN_RED,
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4)',
+            height: '100%',
+            background: `linear-gradient(180deg, #D8463F 0%, ${PEN_RED} 55%, ${PEN_RED_DK} 100%)`,
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.22)',
             transition: 'width 0.5s cubic-bezier(0.34,1.56,0.64,1)',
-          }} />
+          }}>
+            <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(105deg, transparent 35%, rgba(255,240,225,0.6) 50%, transparent 65%)', animation: 'meterSheen 2.8s linear infinite' }} />
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 3 }}>
           {[1,2,3,4,5].map(i => (

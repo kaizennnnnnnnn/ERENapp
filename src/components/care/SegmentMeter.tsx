@@ -38,10 +38,10 @@ interface Props {
 }
 
 const RIVET_POS = [
-  { left: 3, top: 3 },
-  { right: 3, top: 3 },
-  { left: 3, bottom: 3 },
-  { right: 3, bottom: 3 },
+  { left: 1.5, top: 1.5 },
+  { right: 1.5, top: 1.5 },
+  { left: 1.5, bottom: 1.5 },
+  { right: 1.5, bottom: 1.5 },
 ] as const
 
 export default function SegmentMeter({
@@ -65,11 +65,11 @@ export default function SegmentMeter({
         position: 'relative',
         display: 'flex',
         gap: 2,
-        padding: 3,
+        padding: '4px 5px',
         borderRadius: 4,
         background: p.groove,
         border: `2px solid ${p.frame}`,
-        boxShadow: `0 2px 0 ${p.frame}, inset 0 2px 3px rgba(0,0,0,0.5)`,
+        boxShadow: `0 2px 0 ${p.frame}, inset 0 1px 0 rgba(255,255,255,0.14), inset 0 2px 3px rgba(0,0,0,0.5)`,
       }}>
         {Array.from({ length: segments }).map((_, i) => {
           const lit = i < filled
@@ -96,8 +96,8 @@ export default function SegmentMeter({
         {/* Shimmer sweep, clipped to roughly the lit portion */}
         {shimmer && filled > 0 && (
           <div aria-hidden style={{
-            position: 'absolute', left: 3, top: 3, bottom: 3,
-            width: `calc(${litFrac * 100}% - 6px)`,
+            position: 'absolute', left: 5, top: 4, bottom: 4,
+            width: `calc(${litFrac * 100}% - 10px)`,
             borderRadius: 1.5, overflow: 'hidden', pointerEvents: 'none',
           }}>
             <div style={{

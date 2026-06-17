@@ -20,6 +20,15 @@ import PoseSprite from '@/components/care/PoseSprite'
 import PixelPoof from '@/components/PixelPoof'
 import { preloadImages } from '@/lib/preloadImages'
 import SleepButton from '@/components/bedroom/SleepButton'
+import SegmentMeter, { type MeterPalette } from '@/components/care/SegmentMeter'
+
+// SLEEP QUALITY gauge palettes — moonlit indigo when restful, lavender mid,
+// red when poor. The channel is a deep night indigo to read against the dark
+// bedroom; rivets are a warm moon-gold.
+const SLEEP_TRACK = { track: '#1E1848', trackEdge: '#322A66', groove: '#120D2E', frame: '#0B0822', rivet: '#FCD34D' }
+const SLEEP_GOOD: MeterPalette = { fillHi: '#C3C9FF', fillBase: '#818CF8', fillLo: '#5E68DE', fillEdge: '#5A62D8', glow: 'rgba(130,140,255,0.7)', ...SLEEP_TRACK }
+const SLEEP_MID:  MeterPalette = { fillHi: '#E6CCFF', fillBase: '#C084FC', fillLo: '#9B53E6', fillEdge: '#A766E8', glow: 'rgba(192,132,252,0.65)', ...SLEEP_TRACK }
+const SLEEP_LOW:  MeterPalette = { fillHi: '#FFB3B3', fillBase: '#F87171', fillLo: '#E04A4A', fillEdge: '#DC3535', glow: 'rgba(248,113,113,0.7)', ...SLEEP_TRACK }
 
 interface Props { onClose: () => void }
 
@@ -42,6 +51,7 @@ export default function SleepScene({ onClose }: Props) {
   // while useErenStats refetches.
   const tuckedIn  = stats?.is_sleeping ?? getCachedIsSleeping() ?? false
   const sleepVal  = stats?.sleep_quality ?? 100
+  const sleepPalette = sleepVal > 50 ? SLEEP_GOOD : sleepVal > 25 ? SLEEP_MID : SLEEP_LOW
   const isSleepy  = sleepVal < 50
   const busy      = tucking || waking
 
@@ -244,17 +254,9 @@ export default function SleepScene({ onClose }: Props) {
 
       {/* ══ BOTTOM UI ══ */}
       <div className="absolute bottom-6 inset-x-0 flex flex-col items-center gap-3 px-8 z-20">
-        {/* Sleep quality — pixel bar */}
+        {/* Sleep quality gauge */}
         <div className="w-full max-w-xs">
-          <div className="flex justify-between items-center mb-1.5">
-            <span className="font-pixel text-indigo-300" style={{ fontSize: 7 }}>SLEEP QUALITY</span>
-            <span className="font-pixel text-indigo-300" style={{ fontSize: 7 }}>{sleepVal}</span>
-          </div>
-          <div className="flex gap-[3px]">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="flex-1" style={{ height: 10, borderRadius: 2, background: i < Math.round(sleepVal / 100 * 12) ? (sleepVal > 50 ? '#818CF8' : sleepVal > 25 ? '#C084FC' : '#F87171') : '#1E1848', boxShadow: i < Math.round(sleepVal / 100 * 12) ? '0 0 4px rgba(130,120,255,0.5)' : 'none' }} />
-            ))}
-          </div>
+          <SegmentMeter label="SLEEP QUALITY" value={sleepVal} palette={sleepPalette} labelColor="#A5B4FC" valueColor="#C7D2FE" />
         </div>
 
         <SleepButton
