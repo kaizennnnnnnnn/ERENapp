@@ -93,7 +93,7 @@ const SPRAY: Drop[] = Array.from({ length: 26 }, (_, i) => {
   return {
     sx: 50 + Math.cos(a) * (6 + tier * 4),
     sy: 45 + Math.sin(a) * (8 + tier * 4),
-    a, dist: 0.34 + tier * 0.12, sz: 5 - tier, d: (i % 6) * 16,
+    a, dist: 0.34 + tier * 0.12, sz: 4 - tier, d: (i % 6) * 16,
   }
 })
 
@@ -107,7 +107,7 @@ const MID: Drop[] = Array.from({ length: 22 }, (_, i) => {
   return {
     sx: 50 + Math.cos(a) * 17 * rr,         // ±~17% across his body
     sy: 46 + Math.sin(a) * 22 * rr,         // ±~22% over head→lower torso
-    a, dist: 0.06 + (i % 4) * 0.035, sz: 5 - (i % 3), d: 150 + (i % 6) * 22,
+    a, dist: 0.06 + (i % 4) * 0.035, sz: 4 - (i % 2), d: 150 + (i % 6) * 22,
   }
 })
 
@@ -120,7 +120,7 @@ const MID: Drop[] = Array.from({ length: 22 }, (_, i) => {
 function Droplet({ p, k, size }: { p: Drop; k: string; size: number }) {
   const tx = Math.cos(p.a) * p.dist * size
   const ty = Math.sin(p.a) * p.dist * size
-  const w = p.sz, h = p.sz * 1.6
+  const w = p.sz, h = p.sz * 1.45
   // The teardrop is drawn bulb-down / point-up, so its natural axis points up
   // (-90°). Rotate it to (a - 90°) so the rounded bulb LEADS the outward travel
   // (angle a, screen space: 0°=right, 90°=down) and the point streaks back
@@ -132,13 +132,22 @@ function Droplet({ p, k, size }: { p: Drop; k: string; size: number }) {
       ['--tx']: `${tx}px`, ['--ty']: `${ty}px`,
       animation: `erenDroplet ${DURATION_MS}ms cubic-bezier(0.2,0.6,0.4,1) ${p.d}ms both`,
     } as React.CSSProperties}>
+      {/* A real water bead: translucent blue body (the room shows through its
+          edge), a darker refracted base + bright surface rim from the inset
+          shadows, and a sharp specular catchlight near the top. */}
       <div style={{
         position: 'absolute', left: -w / 2, top: -h / 2, width: w, height: h,
-        background: 'linear-gradient(180deg, #DCF2FD 0%, #9FD8F5 45%, #6EBCE8 100%)',
+        background: 'radial-gradient(ellipse 72% 58% at 42% 38%, rgba(226,245,253,0.92) 0%, rgba(120,193,233,0.7) 58%, rgba(76,156,210,0.4) 100%)',
         borderRadius: '50% 50% 55% 55% / 35% 35% 85% 85%',
-        boxShadow: '0 0 2px rgba(150,205,240,0.85)',
+        boxShadow: 'inset 0 -0.5px 1px rgba(38,118,172,0.6), inset 0 0.5px 0.5px rgba(255,255,255,0.55), 0 0 1px rgba(130,200,235,0.7)',
         transform: `rotate(${deg}deg)`,
-      }} />
+      }}>
+        <div style={{
+          position: 'absolute', left: '24%', top: '13%', width: '40%', height: '30%',
+          background: 'radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 70%)',
+          borderRadius: '50%',
+        }} />
+      </div>
     </div>
   )
 }
