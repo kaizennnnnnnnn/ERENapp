@@ -757,11 +757,13 @@ export default function FeedScene({ onClose }: Props) {
               {fridgeItems.length === 0 ? (
                 <div className="text-center">
                   <p className="font-pixel mb-4" style={{ fontSize: 8, color: 'rgba(255,255,255,0.6)' }}>FRIDGE IS EMPTY</p>
-                  <button onClick={() => { playSound('ui_tap'); setTab('shop') }}
-                    className="px-5 py-3 text-white active:translate-y-[1px]"
-                    style={{ background: '#F5C842', borderRadius: 10, border: '2px solid #C88018', boxShadow: '0 3px 0 #A06010', fontFamily: '"Press Start 2P"', fontSize: 8 }}>
-                    GO SHOP
-                  </button>
+                  <div className="flex justify-center">
+                    <KitchenNavButton
+                      variant="shop"
+                      label="GO SHOP"
+                      onClick={() => { playSound('ui_tap'); setTab('shop') }}
+                    />
+                  </div>
                 </div>
               ) : (
                 FRIDGE_CATEGORIES.map(c => {

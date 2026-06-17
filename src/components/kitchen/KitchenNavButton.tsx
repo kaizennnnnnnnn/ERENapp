@@ -19,6 +19,7 @@ interface Props {
   onClick: () => void
   disabled?: boolean
   active?: boolean // shop drawer open
+  label?: string // overrides the default FRIDGE / SHOP text (e.g. "GO SHOP")
 }
 
 const PIXEL_FONT = '"Press Start 2P", monospace'
@@ -37,7 +38,7 @@ const RIVETS = [
   { right: 4, bottom: 4 },
 ]
 
-export default function KitchenNavButton({ variant, onClick, disabled, active }: Props) {
+export default function KitchenNavButton({ variant, onClick, disabled, active, label }: Props) {
   const isFridge = variant === 'fridge'
   const p = isFridge ? FRIDGE : active ? SHOP_OPEN : SHOP
 
@@ -86,7 +87,7 @@ export default function KitchenNavButton({ variant, onClick, disabled, active }:
           textShadow: '0 1px 0 rgba(255,255,255,0.4)',
         }}
       >
-        {isFridge ? 'FRIDGE' : 'SHOP'}
+        {label ?? (isFridge ? 'FRIDGE' : 'SHOP')}
       </span>
     </button>
   )
