@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
@@ -44,6 +44,14 @@ const SILVER_LO = '#7A7A85'
 
 // Monotonic id for the floating "+XP" chips.
 let floatSeq = 0
+
+// Earned-coin flight: a burst of coins that fly into the counter, then it
+// ticks up. COIN_FLY_MS is also how long the count-up is held back so the
+// number rises as the coins land.
+const COIN_FLY_MS = 720
+let coinFlightSeq = 0
+interface CoinSprite { i: number; sdx: number; sdy: number; delay: number }
+interface CoinFlight { id: number; tx: number; ty: number; sprites: CoinSprite[] }
 
 type StatKey = 'happiness' | 'hunger' | 'energy' | 'sleep_quality' | 'cleanliness'
 
@@ -196,8 +204,11 @@ export default function StatsHeader() {
   // smoothly. Everything below is derived per-frame from the single animated XP
   // value, so a gain that crosses a level boundary rolls the bar past 100% and
   // continues into the next level naturally instead of snapping backward.
+  // Earned coins fly into the counter before the number ticks up: `landedCoins`
+  // lags the real `coins` until the fly-in lands (spends apply immediately).
+  const [landedCoins, setLandedCoins] = useState(coins)
   const animXp    = useTween(xp, 850)
-  const animCoins = useTween(coins, 650)
+  const animCoins = useTween(landedCoins, 650)
   const dispLevel   = levelForXp(animXp)
   const xpIntoLevel = Math.max(0, Math.round(animXp - totalXpForLevel(dispLevel)))
   const xpNeeded    = xpForNextLevel(dispLevel)
@@ -213,15 +224,59 @@ export default function StatsHeader() {
     prevDispLevel.current = dispLevel
   }, [dispLevel])
 
-  // Coin pop + XP-bar sheen — keyed bumps that replay a one-shot animation each
-  // time the real total ticks up (the ref compares against the authoritative
-  // value, not the in-flight tween).
+  // Coins fly into the counter on every gain, then it pops + ticks up as they
+  // land; spends skip the flight and apply at once. The coin chip and a
+  // full-frame fly layer are measured so sprites land dead-on at any size.
   const [coinPop, setCoinPop] = useState(0)
+  const [coinFlights, setCoinFlights] = useState<CoinFlight[]>([])
   const prevCoins = useRef(coins)
+  const coinChipRef = useRef<HTMLDivElement>(null)
+  const flyLayerRef = useRef<HTMLDivElement>(null)
+  const coinTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set())
+  useEffect(() => () => { coinTimersRef.current.forEach(clearTimeout) }, [])
+
+  const launchCoinFlight = useCallback(() => {
+    const chip = coinChipRef.current
+    const layer = flyLayerRef.current
+    if (!chip || !layer) return
+    const c = chip.getBoundingClientRect()
+    const l = layer.getBoundingClientRect()
+    if (l.width === 0) return
+    // Counter centre + burst origin, both in the fly layer's local space, so
+    // the math holds whether the layer is the viewport or the desktop frame.
+    const tx = c.left + c.width / 2 - l.left
+    const ty = c.top + c.height / 2 - l.top
+    const ox = l.width / 2
+    const oy = l.height * 0.42
+    const id = ++coinFlightSeq
+    const sprites: CoinSprite[] = Array.from({ length: 6 }, (_, i) => {
+      const ang = (i / 6) * Math.PI * 2 + id * 0.7
+      const rad = 16 + (i % 3) * 11
+      return { i, sdx: ox + Math.cos(ang) * rad - tx, sdy: oy + Math.sin(ang) * rad - ty, delay: i * 45 }
+    })
+    setCoinFlights(f => [...f, { id, tx, ty, sprites }])
+    const t = setTimeout(() => {
+      setCoinFlights(f => f.filter(x => x.id !== id))
+      coinTimersRef.current.delete(t)
+    }, COIN_FLY_MS + 6 * 45 + 120)
+    coinTimersRef.current.add(t)
+  }, [])
+
   useEffect(() => {
-    if (coins > prevCoins.current) setCoinPop(k => k + 1)
+    const prev = prevCoins.current
     prevCoins.current = coins
-  }, [coins])
+    if (coins === prev) return
+    if (coins < prev) { setLandedCoins(coins); return }   // a spend — apply now
+    // Earned: fly the coins in, then land (count up + pop) on arrival.
+    launchCoinFlight()
+    const target = coins
+    const t = setTimeout(() => {
+      setLandedCoins(l => Math.max(l, target))
+      setCoinPop(k => k + 1)
+      coinTimersRef.current.delete(t)
+    }, COIN_FLY_MS)
+    coinTimersRef.current.add(t)
+  }, [coins, launchCoinFlight])
 
   const [xpTick, setXpTick] = useState(0)
   const prevXp = useRef(xp)
@@ -618,6 +673,7 @@ export default function StatsHeader() {
 
         {/* Coins chip */}
         <div
+          ref={coinChipRef}
           className="flex-shrink-0 relative flex items-center"
           style={{
             height: 40,
@@ -668,6 +724,26 @@ export default function StatsHeader() {
           const value = typeof raw === 'number' ? raw : 0
           return <ObsidianGauge key={def.key} def={def} value={value} />
         })}
+      </div>
+
+      {/* Coin-flight layer — full-frame; coins fly from a burst origin into the
+          counter on every gain. Always mounted so its box can be measured on
+          demand; pointer-events-none so it never blocks the UI. */}
+      <div ref={flyLayerRef} aria-hidden className="fixed inset-0 pointer-events-none" style={{ zIndex: 80 }}>
+        {coinFlights.map(flight =>
+          flight.sprites.map(s => (
+            <div key={`${flight.id}-${s.i}`} style={{
+              position: 'absolute', left: flight.tx, top: flight.ty,
+              ['--sdx']: `${s.sdx}px`, ['--sdy']: `${s.sdy}px`,
+              animation: `hudCoinFly ${COIN_FLY_MS}ms cubic-bezier(0.45,0,0.75,0.2) ${s.delay}ms forwards`,
+              willChange: 'transform, opacity',
+            } as React.CSSProperties}>
+              <div style={{ marginLeft: -7, marginTop: -7, filter: 'drop-shadow(0 0 5px rgba(255,200,60,0.85))' }}>
+                <IconCoin size={14} />
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   )

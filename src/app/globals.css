@@ -553,6 +553,14 @@
   0%, 82% { transform: translateX(-160%) rotate(20deg); }
   100%    { transform: translateX(180%)  rotate(20deg); }
 }
+/* Earned-coin flight — a coin pops out near its source then accelerates into
+   the counter and merges. --sdx / --sdy = the start offset from the counter. */
+@keyframes hudCoinFly {
+  0%   { opacity: 0; transform: translate(var(--sdx), var(--sdy)) scale(0.5)  rotate(0deg); }
+  14%  { opacity: 1; transform: translate(var(--sdx), var(--sdy)) scale(1.15) rotate(0deg); }
+  82%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(0, 0)                  scale(0.6)  rotate(160deg); }
+}
 /* Level-up spark — flies outward from the orb centre and fades.
    --sx / --sy = target offset from centre. */
 @keyframes hudOrbSpark {
