@@ -111,20 +111,35 @@ const MID: Drop[] = Array.from({ length: 22 }, (_, i) => {
   }
 })
 
+// One droplet = an outer anchor that FLIES (erenDroplet owns its `transform`:
+// translate) wrapping an inner teardrop ROTATED to point along its own travel
+// direction. So a drop flung left streaks left, one flung up streaks up — each
+// turned the way it's going, instead of every drop hanging point-down. The
+// rotation has to live on the inner element because the fly animation already
+// owns `transform` on the outer one.
 function Droplet({ p, k, size }: { p: Drop; k: string; size: number }) {
   const tx = Math.cos(p.a) * p.dist * size
   const ty = Math.sin(p.a) * p.dist * size
+  const w = p.sz, h = p.sz * 1.6
+  // The teardrop is drawn bulb-down / point-up, so its natural axis points up
+  // (-90°). Rotate it to (a - 90°) so the rounded bulb LEADS the outward travel
+  // (angle a, screen space: 0°=right, 90°=down) and the point streaks back
+  // toward his body — a real flung-water droplet, not a falling raindrop.
+  const deg = (p.a * 180) / Math.PI - 90
   return (
     <div key={k} className="absolute" style={{
-      left: `${p.sx}%`, top: `${p.sy}%`,
-      width: p.sz, height: p.sz * 1.4,
-      marginLeft: -p.sz / 2, marginTop: -p.sz / 2,
-      background: 'linear-gradient(180deg, #DCF2FD 0%, #9FD8F5 45%, #6EBCE8 100%)',
-      borderRadius: '50% 50% 55% 55% / 35% 35% 85% 85%',
-      boxShadow: '0 0 2px rgba(150,205,240,0.85)',
+      left: `${p.sx}%`, top: `${p.sy}%`, width: 0, height: 0,
       ['--tx']: `${tx}px`, ['--ty']: `${ty}px`,
       animation: `erenDroplet ${DURATION_MS}ms cubic-bezier(0.2,0.6,0.4,1) ${p.d}ms both`,
-    } as React.CSSProperties} />
+    } as React.CSSProperties}>
+      <div style={{
+        position: 'absolute', left: -w / 2, top: -h / 2, width: w, height: h,
+        background: 'linear-gradient(180deg, #DCF2FD 0%, #9FD8F5 45%, #6EBCE8 100%)',
+        borderRadius: '50% 50% 55% 55% / 35% 35% 85% 85%',
+        boxShadow: '0 0 2px rgba(150,205,240,0.85)',
+        transform: `rotate(${deg}deg)`,
+      }} />
+    </div>
   )
 }
 
