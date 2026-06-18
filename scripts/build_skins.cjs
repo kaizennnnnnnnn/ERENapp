@@ -416,8 +416,19 @@ function processInBrowser(dataUrl, opts) {
           if (pn) { rootX = psx / pn; rootY = psy / pn }
         }
         tailOrigin = `${(+bx(rootX).toFixed(1))}% ${(+by(rootY).toFixed(1))}%`
-        // erase the ENTIRE tail from the body so no static stub remains
-        for (let i = 0; i < W * H; i++) if (tailMask[i]) fd[i * 4 + 3] = 0
+        // Erase the tail from the body, but KEEP a thin connector strip of its
+        // inner edge in the body. The tail layer (full tail) is drawn over it at
+        // rest; when it swings (up to -8deg) the part of the long attachment
+        // seam below the hip lifts off — the static strip fills that gap so the
+        // tail stays joined to the body instead of detaching. Sized to the
+        // worst-case swing displacement (~0.022·W).
+        const connector = Math.max(5, Math.round(W * 0.022))
+        for (let y = tMinY; y <= tMaxY; y++) {
+          let rowLeft = -1
+          for (let x = tMinX; x <= tMaxX; x++) if (tailMask[y * W + x]) { rowLeft = x; break }
+          if (rowLeft < 0) continue
+          for (let x = rowLeft + connector; x <= tMaxX; x++) if (tailMask[y * W + x]) fd[(y * W + x) * 4 + 3] = 0
+        }
         fctx.putImageData(fid, 0, 0)
       }
 
