@@ -35,7 +35,7 @@ const SKINS = [
   { id: 'bear',    file: 'ErenBear1.png',       rarity: 'epic',      name: 'Bear Eren',   bg: 'black', reoutline: true },
   { id: 'fox',     file: 'ErenFox1.png',        rarity: 'epic',      name: 'Fox Eren',    bg: 'black', reoutline: true },
   { id: 'penguin', file: 'ErenPenguing1.png',   rarity: 'epic',      name: 'Penguin Eren' },
-  { id: 'bat',     file: 'ErenBat1.png',        rarity: 'epic',      name: 'Bat Eren', eyesOverride: { lx: 43.2, rx: 55.9, cy: 39 } },
+  { id: 'bat',     file: 'ErenBat1.png',        rarity: 'epic',      name: 'Bat Eren', eyesOverride: { lx: 40.4, rx: 57.9, cy: 32.5 } },
   { id: 'fish',    file: 'ErenFish1.png',       rarity: 'rare',      name: 'Fish Hat Eren' },
   { id: 'dog',     file: 'ErenDogi1.png',       rarity: 'rare',      name: 'Puppy Eren' },
   { id: 'chicken', file: 'ErenChicken1.png',    rarity: 'rare',      name: 'Chick Hood Eren' },
