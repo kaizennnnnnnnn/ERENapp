@@ -427,7 +427,14 @@ function processInBrowser(dataUrl, opts) {
           let rowLeft = -1
           for (let x = tMinX; x <= tMaxX; x++) if (tailMask[y * W + x]) { rowLeft = x; break }
           if (rowLeft < 0) continue
-          for (let x = rowLeft + connector; x <= tMaxX; x++) if (tailMask[y * W + x]) fd[(y * W + x) * 4 + 3] = 0
+          // Keep the connector strip ONLY where the tail borders the body (the
+          // body sits just left of its inner edge). Where the tail curves AWAY
+          // from the body (free rows), keep nothing — otherwise the strip floats
+          // in space and reads as a static stub when the tail swings (otter).
+          const lx = rowLeft - 1
+          const attached = lx >= 0 && sil[y * W + lx] === 1 && !tailMask[y * W + lx]
+          const keep = attached ? connector : 0
+          for (let x = rowLeft + keep; x <= tMaxX; x++) if (tailMask[y * W + x]) fd[(y * W + x) * 4 + 3] = 0
         }
         fctx.putImageData(fid, 0, 0)
       }
