@@ -7,7 +7,7 @@
     "height": 1166,
     "aspect": 0.734,
     "hasTail": true,
-    "tailOrigin": "75.7% 56.3%",
+    "tailOrigin": "76.7% 70.6%",
     "eyes": {
       "maskLeftA": "36.7%",
       "maskLeftB": "49.9%",
@@ -35,16 +35,16 @@
     "height": 1151,
     "aspect": 0.738,
     "hasTail": true,
-    "tailOrigin": "78.4% 61.4%",
+    "tailOrigin": "81.6% 67.5%",
     "eyes": {
-      "maskLeftA": "33.73%",
-      "maskLeftB": "47.41%",
-      "maskTop": "25.27%",
+      "maskLeftA": "31.82%",
+      "maskLeftB": "49.89%",
+      "maskTop": "24.89%",
       "maskW": "7.6%",
       "maskH": "8.6%",
-      "lidLeftA": "33.28%",
-      "lidLeftB": "46.95%",
-      "lidTop": "24.87%",
+      "lidLeftA": "31.37%",
+      "lidLeftB": "49.44%",
+      "lidTop": "24.49%",
       "lidWidth": "8.51%",
       "lidHeight": "9.4%",
       "glintLeftA": "36%",
@@ -53,7 +53,7 @@
       "glintTopB": "14%",
       "glintW": "26%"
     },
-    "eyeReason": "ok(539)"
+    "eyeReason": "ok(2c span24)"
   },
   {
     "id": "shark",
@@ -63,7 +63,7 @@
     "height": 1304,
     "aspect": 0.712,
     "hasTail": true,
-    "tailOrigin": "71.4% 52.4%",
+    "tailOrigin": "75.7% 72.2%",
     "eyes": {
       "maskLeftA": "38.7%",
       "maskLeftB": "51.2%",
@@ -91,16 +91,16 @@
     "height": 2044,
     "aspect": 0.691,
     "hasTail": true,
-    "tailOrigin": "76.6% 64.2%",
+    "tailOrigin": "77.5% 73.1%",
     "eyes": {
-      "maskLeftA": "34.85%",
-      "maskLeftB": "47.16%",
-      "maskTop": "29.76%",
+      "maskLeftA": "32.89%",
+      "maskLeftB": "49.94%",
+      "maskTop": "29.29%",
       "maskW": "7.6%",
       "maskH": "8.6%",
-      "lidLeftA": "34.39%",
-      "lidLeftB": "46.71%",
-      "lidTop": "29.36%",
+      "lidLeftA": "32.44%",
+      "lidLeftB": "49.49%",
+      "lidTop": "28.89%",
       "lidWidth": "8.51%",
       "lidHeight": "9.4%",
       "glintLeftA": "36%",
@@ -109,7 +109,7 @@
       "glintTopB": "14%",
       "glintW": "26%"
     },
-    "eyeReason": "ok(1377)"
+    "eyeReason": "ok(2c span24)"
   },
   {
     "id": "fox",
@@ -119,16 +119,16 @@
     "height": 2023,
     "aspect": 0.729,
     "hasTail": true,
-    "tailOrigin": "73.3% 50.6%",
+    "tailOrigin": "75.5% 64.5%",
     "eyes": {
-      "maskLeftA": "36.28%",
-      "maskLeftB": "48.97%",
-      "maskTop": "29.33%",
+      "maskLeftA": "33.5%",
+      "maskLeftB": "51.49%",
+      "maskTop": "28.71%",
       "maskW": "7.6%",
       "maskH": "8.6%",
-      "lidLeftA": "35.83%",
-      "lidLeftB": "48.51%",
-      "lidTop": "28.93%",
+      "lidLeftA": "33.04%",
+      "lidLeftB": "51.03%",
+      "lidTop": "28.31%",
       "lidWidth": "8.51%",
       "lidHeight": "9.4%",
       "glintLeftA": "36%",
@@ -137,7 +137,7 @@
       "glintTopB": "14%",
       "glintW": "26%"
     },
-    "eyeReason": "ok(1596)"
+    "eyeReason": "ok(2c span24)"
   },
   {
     "id": "penguin",
@@ -147,16 +147,16 @@
     "height": 1184,
     "aspect": 0.773,
     "hasTail": true,
-    "tailOrigin": "74.1% 50.3%",
+    "tailOrigin": "76.5% 73.7%",
     "eyes": {
-      "maskLeftA": "37.54%",
-      "maskLeftB": "50.46%",
-      "maskTop": "26.02%",
+      "maskLeftA": "34.76%",
+      "maskLeftB": "53.51%",
+      "maskTop": "25.35%",
       "maskW": "7.6%",
       "maskH": "8.6%",
-      "lidLeftA": "37.09%",
-      "lidLeftB": "50%",
-      "lidTop": "25.62%",
+      "lidLeftA": "34.3%",
+      "lidLeftB": "53.05%",
+      "lidTop": "24.95%",
       "lidWidth": "8.51%",
       "lidHeight": "9.4%",
       "glintLeftA": "36%",
@@ -165,7 +165,7 @@
       "glintTopB": "14%",
       "glintW": "26%"
     },
-    "eyeReason": "ok(517)"
+    "eyeReason": "ok(2c span24)"
   },
   {
     "id": "bat",
@@ -175,7 +175,7 @@
     "height": 1194,
     "aspect": 0.843,
     "hasTail": true,
-    "tailOrigin": "79.6% 48%",
+    "tailOrigin": "78.8% 66.1%",
     "eyes": {
       "maskLeftA": "39.4%",
       "maskLeftB": "52.1%",
@@ -203,16 +203,16 @@
     "height": 1153,
     "aspect": 0.696,
     "hasTail": true,
-    "tailOrigin": "72.6% 53.8%",
+    "tailOrigin": "75.5% 68%",
     "eyes": {
-      "maskLeftA": "34.19%",
-      "maskLeftB": "46.77%",
-      "maskTop": "28.43%",
+      "maskLeftA": "32.5%",
+      "maskLeftB": "49.54%",
+      "maskTop": "27.92%",
       "maskW": "7.6%",
       "maskH": "8.6%",
-      "lidLeftA": "33.74%",
-      "lidLeftB": "46.31%",
-      "lidTop": "28.03%",
+      "lidLeftA": "32.04%",
+      "lidLeftB": "49.08%",
+      "lidTop": "27.52%",
       "lidWidth": "8.51%",
       "lidHeight": "9.4%",
       "glintLeftA": "36%",
@@ -221,7 +221,7 @@
       "glintTopB": "14%",
       "glintW": "26%"
     },
-    "eyeReason": "ok(478)"
+    "eyeReason": "ok(5c span24)"
   },
   {
     "id": "dog",
@@ -231,16 +231,16 @@
     "height": 1183,
     "aspect": 0.782,
     "hasTail": true,
-    "tailOrigin": "74.1% 49.1%",
+    "tailOrigin": "76.8% 67.9%",
     "eyes": {
-      "maskLeftA": "36.62%",
-      "maskLeftB": "49.68%",
-      "maskTop": "26.53%",
+      "maskLeftA": "33.65%",
+      "maskLeftB": "52.62%",
+      "maskTop": "25.86%",
       "maskW": "7.6%",
       "maskH": "8.6%",
-      "lidLeftA": "36.16%",
-      "lidLeftB": "49.22%",
-      "lidTop": "26.13%",
+      "lidLeftA": "33.19%",
+      "lidLeftB": "52.17%",
+      "lidTop": "25.46%",
       "lidWidth": "8.51%",
       "lidHeight": "9.4%",
       "glintLeftA": "36%",
@@ -249,7 +249,7 @@
       "glintTopB": "14%",
       "glintW": "26%"
     },
-    "eyeReason": "ok(547)"
+    "eyeReason": "ok(2c span24)"
   },
   {
     "id": "chicken",
@@ -259,16 +259,16 @@
     "height": 1016,
     "aspect": 0.639,
     "hasTail": true,
-    "tailOrigin": "72.4% 61.6%",
+    "tailOrigin": "76.2% 69%",
     "eyes": {
-      "maskLeftA": "35.21%",
-      "maskLeftB": "46.79%",
-      "maskTop": "34.74%",
+      "maskLeftA": "33.7%",
+      "maskLeftB": "49.35%",
+      "maskTop": "34.04%",
       "maskW": "7.6%",
       "maskH": "8.6%",
-      "lidLeftA": "34.75%",
-      "lidLeftB": "46.33%",
-      "lidTop": "34.34%",
+      "lidLeftA": "33.24%",
+      "lidLeftB": "48.89%",
+      "lidTop": "33.64%",
       "lidWidth": "8.51%",
       "lidHeight": "9.4%",
       "glintLeftA": "36%",
@@ -277,7 +277,7 @@
       "glintTopB": "14%",
       "glintW": "26%"
     },
-    "eyeReason": "ok(115)"
+    "eyeReason": "ok(2c span24)"
   },
   {
     "id": "chick",
@@ -287,16 +287,16 @@
     "height": 1007,
     "aspect": 0.643,
     "hasTail": true,
-    "tailOrigin": "68.1% 53.1%",
+    "tailOrigin": "73.2% 68.6%",
     "eyes": {
-      "maskLeftA": "35.21%",
-      "maskLeftB": "46.7%",
-      "maskTop": "34.49%",
+      "maskLeftA": "33.59%",
+      "maskLeftB": "49.33%",
+      "maskTop": "33.88%",
       "maskW": "7.6%",
       "maskH": "8.6%",
-      "lidLeftA": "34.76%",
-      "lidLeftB": "46.25%",
-      "lidTop": "34.09%",
+      "lidLeftA": "33.13%",
+      "lidLeftB": "48.87%",
+      "lidTop": "33.48%",
       "lidWidth": "8.51%",
       "lidHeight": "9.4%",
       "glintLeftA": "36%",
@@ -305,7 +305,7 @@
       "glintTopB": "14%",
       "glintW": "26%"
     },
-    "eyeReason": "ok(173)"
+    "eyeReason": "ok(2c span24)"
   },
   {
     "id": "frog",
@@ -315,16 +315,16 @@
     "height": 987,
     "aspect": 0.657,
     "hasTail": true,
-    "tailOrigin": "68.4% 52.1%",
+    "tailOrigin": "73% 71.3%",
     "eyes": {
-      "maskLeftA": "35.07%",
-      "maskLeftB": "46.78%",
-      "maskTop": "33.1%",
+      "maskLeftA": "33.33%",
+      "maskLeftB": "49.39%",
+      "maskTop": "32.43%",
       "maskW": "7.6%",
       "maskH": "8.6%",
-      "lidLeftA": "34.61%",
-      "lidLeftB": "46.33%",
-      "lidTop": "32.7%",
+      "lidLeftA": "32.88%",
+      "lidLeftB": "48.94%",
+      "lidTop": "32.03%",
       "lidWidth": "8.51%",
       "lidHeight": "9.4%",
       "glintLeftA": "36%",
@@ -333,7 +333,7 @@
       "glintTopB": "14%",
       "glintW": "26%"
     },
-    "eyeReason": "ok(137)"
+    "eyeReason": "ok(2c span24)"
   },
   {
     "id": "panda",
@@ -343,16 +343,16 @@
     "height": 1222,
     "aspect": 0.702,
     "hasTail": true,
-    "tailOrigin": "70% 48.4%",
+    "tailOrigin": "76.5% 63.3%",
     "eyes": {
-      "maskLeftA": "34.25%",
-      "maskLeftB": "46.9%",
-      "maskTop": "28.46%",
+      "maskLeftA": "32.45%",
+      "maskLeftB": "49.68%",
+      "maskTop": "27.98%",
       "maskW": "7.6%",
       "maskH": "8.6%",
-      "lidLeftA": "33.8%",
-      "lidLeftB": "46.44%",
-      "lidTop": "28.06%",
+      "lidLeftA": "32%",
+      "lidLeftB": "49.22%",
+      "lidTop": "27.58%",
       "lidWidth": "8.51%",
       "lidHeight": "9.4%",
       "glintLeftA": "36%",
@@ -361,7 +361,7 @@
       "glintTopB": "14%",
       "glintW": "26%"
     },
-    "eyeReason": "ok(446)"
+    "eyeReason": "ok(2c span24)"
   },
   {
     "id": "owl",
@@ -371,16 +371,16 @@
     "height": 1201,
     "aspect": 0.746,
     "hasTail": true,
-    "tailOrigin": "73% 46.9%",
+    "tailOrigin": "74.5% 70.5%",
     "eyes": {
-      "maskLeftA": "35.84%",
-      "maskLeftB": "48.62%",
-      "maskTop": "27.34%",
+      "maskLeftA": "32.96%",
+      "maskLeftB": "51.49%",
+      "maskTop": "26.84%",
       "maskW": "7.6%",
       "maskH": "8.6%",
-      "lidLeftA": "35.38%",
-      "lidLeftB": "48.17%",
-      "lidTop": "26.94%",
+      "lidLeftA": "32.51%",
+      "lidLeftB": "51.03%",
+      "lidTop": "26.44%",
       "lidWidth": "8.51%",
       "lidHeight": "9.4%",
       "glintLeftA": "36%",
@@ -389,7 +389,7 @@
       "glintTopB": "14%",
       "glintW": "26%"
     },
-    "eyeReason": "ok(551)"
+    "eyeReason": "ok(2c span24)"
   },
   {
     "id": "axolotl",
@@ -399,16 +399,16 @@
     "height": 1168,
     "aspect": 0.771,
     "hasTail": true,
-    "tailOrigin": "74.5% 51.3%",
+    "tailOrigin": "76.9% 67.2%",
     "eyes": {
-      "maskLeftA": "36.19%",
-      "maskLeftB": "49.47%",
-      "maskTop": "25.87%",
+      "maskLeftA": "33.27%",
+      "maskLeftB": "52.32%",
+      "maskTop": "25.41%",
       "maskW": "7.6%",
       "maskH": "8.6%",
-      "lidLeftA": "35.73%",
-      "lidLeftB": "49.02%",
-      "lidTop": "25.47%",
+      "lidLeftA": "32.82%",
+      "lidLeftB": "51.87%",
+      "lidTop": "25.01%",
       "lidWidth": "8.51%",
       "lidHeight": "9.4%",
       "glintLeftA": "36%",
@@ -417,7 +417,7 @@
       "glintTopB": "14%",
       "glintW": "26%"
     },
-    "eyeReason": "ok(585)"
+    "eyeReason": "ok(2c span24)"
   },
   {
     "id": "sheep",
@@ -427,16 +427,16 @@
     "height": 1206,
     "aspect": 0.804,
     "hasTail": true,
-    "tailOrigin": "76.5% 50.6%",
+    "tailOrigin": "79.3% 66.4%",
     "eyes": {
-      "maskLeftA": "38.9%",
-      "maskLeftB": "51.53%",
-      "maskTop": "28.64%",
+      "maskLeftA": "36.08%",
+      "maskLeftB": "54.45%",
+      "maskTop": "27.91%",
       "maskW": "7.6%",
       "maskH": "8.6%",
-      "lidLeftA": "38.45%",
-      "lidLeftB": "51.08%",
-      "lidTop": "28.24%",
+      "lidLeftA": "35.63%",
+      "lidLeftB": "54%",
+      "lidTop": "27.51%",
       "lidWidth": "8.51%",
       "lidHeight": "9.4%",
       "glintLeftA": "36%",
@@ -445,7 +445,7 @@
       "glintTopB": "14%",
       "glintW": "26%"
     },
-    "eyeReason": "ok(537)"
+    "eyeReason": "ok(2c span22)"
   },
   {
     "id": "raccoon",
@@ -455,16 +455,16 @@
     "height": 1230,
     "aspect": 0.693,
     "hasTail": true,
-    "tailOrigin": "72.3% 50.3%",
+    "tailOrigin": "73.1% 68.4%",
     "eyes": {
-      "maskLeftA": "35.2%",
-      "maskLeftB": "48.21%",
-      "maskTop": "28.3%",
+      "maskLeftA": "33.07%",
+      "maskLeftB": "50.22%",
+      "maskTop": "29.89%",
       "maskW": "7.6%",
       "maskH": "8.6%",
-      "lidLeftA": "34.74%",
-      "lidLeftB": "47.76%",
-      "lidTop": "27.9%",
+      "lidLeftA": "32.61%",
+      "lidLeftB": "49.77%",
+      "lidTop": "29.49%",
       "lidWidth": "8.51%",
       "lidHeight": "9.4%",
       "glintLeftA": "36%",
@@ -473,7 +473,7 @@
       "glintTopB": "14%",
       "glintW": "26%"
     },
-    "eyeReason": "ok(475)"
+    "eyeReason": "ok(2c span24)"
   },
   {
     "id": "koala",
@@ -483,16 +483,16 @@
     "height": 1158,
     "aspect": 0.816,
     "hasTail": true,
-    "tailOrigin": "72.9% 50.9%",
+    "tailOrigin": "78.2% 61.5%",
     "eyes": {
-      "maskLeftA": "38.61%",
-      "maskLeftB": "51.62%",
-      "maskTop": "27.28%",
+      "maskLeftA": "35.66%",
+      "maskLeftB": "54.49%",
+      "maskTop": "26.01%",
       "maskW": "7.6%",
       "maskH": "8.6%",
-      "lidLeftA": "38.15%",
-      "lidLeftB": "51.17%",
-      "lidTop": "26.88%",
+      "lidLeftA": "35.21%",
+      "lidLeftB": "54.04%",
+      "lidTop": "25.61%",
       "lidWidth": "8.51%",
       "lidHeight": "9.4%",
       "glintLeftA": "36%",
@@ -501,7 +501,7 @@
       "glintTopB": "14%",
       "glintW": "26%"
     },
-    "eyeReason": "ok(843)"
+    "eyeReason": "ok(2c span23)"
   },
   {
     "id": "otter",
@@ -511,16 +511,16 @@
     "height": 1188,
     "aspect": 0.714,
     "hasTail": true,
-    "tailOrigin": "72.4% 48.6%",
+    "tailOrigin": "72.6% 69.9%",
     "eyes": {
-      "maskLeftA": "33.64%",
-      "maskLeftB": "46.6%",
-      "maskTop": "26.57%",
+      "maskLeftA": "32.02%",
+      "maskLeftB": "49.48%",
+      "maskTop": "26.15%",
       "maskW": "7.6%",
       "maskH": "8.6%",
-      "lidLeftA": "33.18%",
-      "lidLeftB": "46.14%",
-      "lidTop": "26.17%",
+      "lidLeftA": "31.56%",
+      "lidLeftB": "49.03%",
+      "lidTop": "25.75%",
       "lidWidth": "8.51%",
       "lidHeight": "9.4%",
       "glintLeftA": "36%",
@@ -529,7 +529,7 @@
       "glintTopB": "14%",
       "glintW": "26%"
     },
-    "eyeReason": "ok(489)"
+    "eyeReason": "ok(2c span24)"
   },
   {
     "id": "mouse",
@@ -539,16 +539,16 @@
     "height": 1224,
     "aspect": 0.708,
     "hasTail": true,
-    "tailOrigin": "73.8% 47.1%",
+    "tailOrigin": "75.9% 59.6%",
     "eyes": {
-      "maskLeftA": "34.39%",
-      "maskLeftB": "47.11%",
-      "maskTop": "27.22%",
+      "maskLeftA": "32.52%",
+      "maskLeftB": "49.92%",
+      "maskTop": "26.7%",
       "maskW": "7.6%",
       "maskH": "8.6%",
-      "lidLeftA": "33.93%",
-      "lidLeftB": "46.66%",
-      "lidTop": "26.82%",
+      "lidLeftA": "32.06%",
+      "lidLeftB": "49.46%",
+      "lidTop": "26.3%",
       "lidWidth": "8.51%",
       "lidHeight": "9.4%",
       "glintLeftA": "36%",
@@ -557,7 +557,7 @@
       "glintTopB": "14%",
       "glintW": "26%"
     },
-    "eyeReason": "ok(476)"
+    "eyeReason": "ok(2c span24)"
   },
   {
     "id": "bunny",
@@ -567,16 +567,16 @@
     "height": 1217,
     "aspect": 0.752,
     "hasTail": true,
-    "tailOrigin": "73.7% 50.1%",
+    "tailOrigin": "76% 75.4%",
     "eyes": {
-      "maskLeftA": "37.79%",
-      "maskLeftB": "50.47%",
-      "maskTop": "28.66%",
+      "maskLeftA": "34.94%",
+      "maskLeftB": "53.23%",
+      "maskTop": "28.16%",
       "maskW": "7.6%",
       "maskH": "8.6%",
-      "lidLeftA": "37.33%",
-      "lidLeftB": "50.02%",
-      "lidTop": "28.26%",
+      "lidLeftA": "34.49%",
+      "lidLeftB": "52.77%",
+      "lidTop": "27.76%",
       "lidWidth": "8.51%",
       "lidHeight": "9.4%",
       "glintLeftA": "36%",
@@ -585,6 +585,6 @@
       "glintTopB": "14%",
       "glintW": "26%"
     },
-    "eyeReason": "ok(557)"
+    "eyeReason": "ok(2c span24)"
   }
 ]

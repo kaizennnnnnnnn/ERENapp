@@ -218,57 +218,62 @@ function processInBrowser(dataUrl, opts) {
         const o = opts.eyesOverride // {lx, rx, cy} box %
         eyes = buildEyes(o.lx, o.rx, o.cy); eyeReason = 'override'
       } else {
-        // Eye centres = centroid of the vivid-blue iris per side; the local
-        // light/dark contrast gate rejects flat costume fur.
-        const pts = []
+        // "Scan it out": find the TRUE iris blob per eye via loose blue +
+        // connected components, and use each blob's BBOX CENTRE. The old
+        // catchlight-gated centroid pulled the centres inward, so the eyes read
+        // too close — a geometric bbox centre gives the real (wider) spacing.
+        // Flat costume fur (rainbow) is rejected by compactness + a
+        // catchlight-inside test, falling back to a manual override.
+        const cand = new Uint8Array(W * H)
         for (let y = ey0; y < ey1; y++) for (let x = ex0; x < ex1; x++) {
           const i = (y * W + x) * 4
           if (fd[i + 3] < 128) continue
           const r = fd[i], g = fd[i + 1], b = fd[i + 2]
-          if (b > 115 && b - r > 45 && b - g > 30 && r < 165 && hasContrast(x, y)) pts.push([x, y])
+          if (b > 88 && b - r > 18 && b - g > 6 && r < 200) cand[y * W + x] = 1
         }
-        if (pts.length >= 12) {
-          const xs = pts.map(p => p[0]).sort((a, b) => a - b)
-          const midG = (xs[0] + xs[xs.length - 1]) / 2
-          const Lp = pts.filter(p => p[0] < midG), Rp = pts.filter(p => p[0] >= midG)
-          if (Lp.length >= 5 && Rp.length >= 5) {
-            const cen = (a) => { let sx = 0, sy = 0; for (const [x, y] of a) { sx += x; sy += y } return { cx: sx / a.length, cy: sy / a.length } }
-            const ext = (a) => { let x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1; for (const [x, y] of a) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y } return { w: (x1 - x0) / W, h: (y1 - y0) / H } }
-            const cL = cen(Lp), cR = cen(Rp), eL = ext(Lp), eR = ext(Rp)
-            const span = (cR.cx - cL.cx) / W
-            if (eL.w > 0.16 || eR.w > 0.16 || eL.h > 0.14 || eR.h > 0.14 || span > 0.30 || span < 0.05) {
-              eyeReason = `spread(span=${span.toFixed(2)})`
-            } else {
-              // The contrast gate clusters near the inner-upper catchlight, so
-              // the strict centroid is biased IN and UP → eyes too close + high.
-              // Re-centre on the FULL iris: take all looser iris-blue in a window
-              // around each seed. This widens the spacing and lowers the centre
-              // to the true iris middle.
-              const refine = (seed) => {
-                const rx = Math.round(W * 0.075), ry = Math.round(H * 0.06)
-                let sx = 0, sy = 0, n = 0
-                for (let y = Math.max(0, seed.cy - ry); y < Math.min(H, seed.cy + ry); y++)
-                  for (let x = Math.max(0, seed.cx - rx); x < Math.min(W, seed.cx + rx); x++) {
-                    const i = (y * W + x) * 4
-                    if (fd[i + 3] < 128) continue
-                    const r = fd[i], g = fd[i + 1], b = fd[i + 2]
-                    if (b > 90 && b - r > 18 && b - g > 8 && r < 195) { sx += x; sy += y; n++ }
-                  }
-                return n > 4 ? { cx: sx / n, cy: sy / n } : seed
-              }
-              const rL = refine(cL), rR = refine(cR)
-              // enforce symmetry about the eye midline, using the more-outer
-              // (less inward-biased) offset, so the pair never reads too close.
-              const mid = (rL.cx + rR.cx) / 2
-              const d = Math.max(Math.abs(rL.cx - mid), Math.abs(rR.cx - mid))
-              // iris centre sits below the (up-biased) catchlight cluster → nudge down
-              const cy = (by(rL.cy) + by(rR.cy)) / 2 + 1.2
-              eyes = buildEyes(bx(mid - d), bx(mid + d), cy)
-              eyeBoxes = [{ cx: mid - d, cy: rL.cy }, { cx: mid + d, cy: rR.cy }]
-              eyeReason = `ok(${pts.length})`
+        const minSize = Math.max(10, Math.round(W * H * 0.00022))
+        const lab = new Int32Array(W * H).fill(-1)
+        const comps = []
+        const stk = []
+        for (let s = 0; s < W * H; s++) {
+          if (!cand[s] || lab[s] >= 0) continue
+          let size = 0, x0 = W, y0 = H, x1 = -1, y1 = -1, sx = 0
+          stk.length = 0; stk.push(s); lab[s] = 1
+          while (stk.length) {
+            const p = stk.pop(); size++
+            const px = p % W, py = (p / W) | 0
+            if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py
+            sx += px
+            for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+              if (!dx && !dy) continue
+              const nx = px + dx, ny = py + dy
+              if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue
+              const np = ny * W + nx
+              if (cand[np] && lab[np] < 0) { lab[np] = 1; stk.push(np) }
             }
-          } else eyeReason = 'one-cluster'
-        } else eyeReason = `few(${pts.length})`
+          }
+          if (size < minSize || (x1 - x0 + 1) / W > 0.14 || (y1 - y0 + 1) / H > 0.14) continue
+          let hasCL = false
+          for (let y = y0; y <= y1 && !hasCL; y++) for (let x = x0; x <= x1; x++) {
+            const i = (y * W + x) * 4
+            if (fd[i + 3] > 128 && lum(fd[i], fd[i + 1], fd[i + 2]) > 195) { hasCL = true; break }
+          }
+          if (!hasCL) continue
+          comps.push({ size, x0, y0, x1, y1, cx: sx / size })
+        }
+        const midX = (ex0 + ex1) / 2
+        const pick = (f) => comps.filter(f).sort((a, b) => b.size - a.size)[0]
+        const left = pick(c => c.cx < midX), right = pick(c => c.cx >= midX)
+        if (left && right) {
+          const cxL = (left.x0 + left.x1) / 2, cxR = (right.x0 + right.x1) / 2
+          const cyM = (left.y0 + left.y1 + right.y0 + right.y1) / 4
+          const span = (cxR - cxL) / W
+          if (span > 0.07 && span < 0.32) {
+            eyes = buildEyes(bx(cxL), bx(cxR), by(cyM))
+            eyeBoxes = [{ cx: cxL, cy: cyM }, { cx: cxR, cy: cyM }]
+            eyeReason = `ok(${comps.length}c span${(span * 100) | 0})`
+          } else eyeReason = `span(${span.toFixed(2)})`
+        } else eyeReason = `comps(${comps.length})`
       }
 
       // ── 6. Tail isolation by LEFT-RIGHT SYMMETRY. The body+head are roughly
@@ -349,19 +354,24 @@ function processInBrowser(dataUrl, opts) {
         }
         tctx.putImageData(tid, 0, 0)
         tail = tc.toDataURL('image/png')
-        // pivot = the hip attachment: the inner (left) edge of the tail's
-        // TOPMOST rows, where a hanging tail joins the body and swings from.
-        // Measured from the mask (avg of each top row's leftmost pixel) so it
-        // sits at the true root — the top stays glued and the hanging tip swings.
-        let rsx = 0, rsy = 0, found = 0
-        const topBand = tMinY + Math.max(2, Math.round((tMaxY - tMinY) * 0.12))
-        for (let y = tMinY; y <= topBand; y++) {
-          for (let x = tMinX; x <= tMaxX; x++) {
-            if (tailMask[y * W + x]) { rsx += x; rsy += y; found++; break } // leftmost in row
+        // pivot = the ATTACHMENT SEAM: tail pixels that border the body
+        // (sil minus tail). Their centroid is exactly where the tail joins the
+        // body — the hip it should swing from. (`sil` still includes the tail
+        // here; the body is sil AND NOT tailMask.) This keeps the attachment
+        // glued and the free length swinging, for any tail orientation.
+        let psx = 0, psy = 0, pn = 0
+        for (let y = tMinY; y <= tMaxY; y++) for (let x = tMinX; x <= tMaxX; x++) {
+          if (!tailMask[y * W + x]) continue
+          let border = false
+          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nx = x + dx, ny = y + dy
+            if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue
+            if (sil[ny * W + nx] && !tailMask[ny * W + nx]) { border = true; break }
           }
+          if (border) { psx += x; psy += y; pn++ }
         }
-        const rootX = found ? rsx / found : tMinX
-        const rootY = found ? rsy / found : tMinY
+        const rootX = pn ? psx / pn : tMinX
+        const rootY = pn ? psy / pn : tMinY
         tailOrigin = `${(+bx(rootX).toFixed(1))}% ${(+by(rootY).toFixed(1))}%`
         // erase the ENTIRE tail from the body so no static stub remains
         for (let i = 0; i < W * H; i++) if (tailMask[i]) fd[i * 4 + 3] = 0

@@ -124,11 +124,16 @@ export const SKINNABLE_ROOMS: RoomDef[] = [
 // sized so its cat matches the room default's cat, and lifted so the feet line
 // up. NOTE: `size` must stay in sync with the room's BlinkingEren size prop.
 export interface RoomFit { size: number; catFracH: number; botGap: number }
+// `size` is the room's BlinkingEren size; `catFracH` targets the room's CAT
+// BODY height (~150px on screen, consistent across rooms since it's the same
+// cat). Kitchen (chef toque) and Bedroom (nightcap, curled) measure tall
+// silhouettes, so their catFracH is set to the BODY fraction (not the hat-
+// inflated bbox) — otherwise a body-dominant skin renders far too big there.
 export const ROOM_FIT: Record<string, RoomFit> = {
   home:      { size: 200, catFracH: 0.761, botGap: 0.101 },
-  feed:      { size: 210, catFracH: 0.903, botGap: 0.075 },
+  feed:      { size: 210, catFracH: 0.715, botGap: 0.075 },
   play:      { size: 200, catFracH: 0.751, botGap: 0.115 },
-  sleep:     { size: 230, catFracH: 0.730, botGap: 0.153 },
+  sleep:     { size: 230, catFracH: 0.655, botGap: 0.120 },
   wash:      { size: 200, catFracH: 0.776, botGap: 0.101 },
   chemistry: { size: 230, catFracH: 0.640, botGap: 0.165 },
   vet:       { size: 200, catFracH: 0.750, botGap: 0.136 },
