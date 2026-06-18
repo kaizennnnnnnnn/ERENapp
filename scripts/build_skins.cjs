@@ -48,12 +48,7 @@ const SKINS = [
   { id: 'raccoon', file: 'ErenRacoon1.png',     rarity: 'rare',      name: 'Raccoon Eren' },
   { id: 'koala',   file: 'ErenCoala1.png',      rarity: 'rare',      name: 'Koala Eren' },
   { id: 'otter',   file: 'ErenOtter1.png',      rarity: 'rare',      name: 'Otter Eren' },
-  // Mouse tail attaches at the BOTTOM (the rump) and rises UP, so the auto
-  // pivot (upper-40% of the attachment seam = "the hip" for a hanging tail)
-  // lands on the raised TIP and the rump swings — "wiggling from the root".
-  // Override the origin to the rump so the base stays planted and the raised
-  // tip flicks. (Measured from the attachment-seam centroid; box coords.)
-  { id: 'mouse',   file: 'ErenMouseFull1.png',  rarity: 'legendary', name: 'Mouse Eren', tailOrigin: '72% 79%' },
+  { id: 'mouse',   file: 'ErenMouseFull1.png',  rarity: 'legendary', name: 'Mouse Eren' },
   { id: 'bunny',   file: 'ErenBunnyFull1.png',  rarity: 'legendary', name: 'Bunny Eren' },
 ]
 
@@ -433,9 +428,16 @@ function processInBrowser(dataUrl, opts) {
         if (seam.length) {
           let ymin = 1e9, ymax = -1
           for (let k = 1; k < seam.length; k += 2) { if (seam[k] < ymin) ymin = seam[k]; if (seam[k] > ymax) ymax = seam[k] }
-          const cutY = ymin + (ymax - ymin) * 0.40
+          // Eren's tail (the same crescent under every costume) attaches at the
+          // BOTTOM — the rump — and rises up; the raised end is the free tip.
+          // So the pivot is the centroid of the LOWER HALF of the attachment
+          // seam (the rump), NOT the upper part. (Pivoting at the top put the
+          // hinge on the raised tip, so the rump swung — "wiggling from the
+          // root". The costume changes where the tail borders the body, which is
+          // why a top-biased pick landed differently per skin.)
+          const cutY = ymin + (ymax - ymin) * 0.50
           let psx = 0, psy = 0, pn = 0
-          for (let k = 0; k < seam.length; k += 2) if (seam[k + 1] <= cutY) { psx += seam[k]; psy += seam[k + 1]; pn++ }
+          for (let k = 0; k < seam.length; k += 2) if (seam[k + 1] >= cutY) { psx += seam[k]; psy += seam[k + 1]; pn++ }
           if (pn) { rootX = psx / pn; rootY = psy / pn }
         }
         tailOrigin = `${(+bx(rootX).toFixed(1))}% ${(+by(rootY).toFixed(1))}%`
