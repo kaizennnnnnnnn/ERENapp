@@ -196,7 +196,7 @@ function processInBrowser(dataUrl, opts) {
       // ~5.4% ÷ its 0.76 fill ratio) — much larger than the room sprites; a
       // fixed size keyed to that reads right on every skin (same ragdoll face),
       // and lidHeight makes the blink cover the whole eye, not a thin bar.
-      const EYE = { w: 7.6, h: 8.4, lidH: 8.8 } // box-% sizes
+      const EYE = { w: 7.6, h: 8.6, lidH: 9.4 } // box-% sizes
       const buildEyes = (lx, rx, cy) => {
         const top = +(cy - EYE.h / 2).toFixed(2)
         const lidW = +(EYE.w * 1.12).toFixed(2)
@@ -239,11 +239,32 @@ function processInBrowser(dataUrl, opts) {
             if (eL.w > 0.16 || eR.w > 0.16 || eL.h > 0.14 || eR.h > 0.14 || span > 0.30 || span < 0.05) {
               eyeReason = `spread(span=${span.toFixed(2)})`
             } else {
-              // contrast-gated pixels skew toward the (upper) catchlight, so nudge
-              // the iris centre down a touch.
-              const cy = (by(cL.cy) + by(cR.cy)) / 2 + 1.0
-              eyes = buildEyes(bx(cL.cx), bx(cR.cx), cy)
-              eyeBoxes = [{ cx: cL.cx, cy: cL.cy }, { cx: cR.cx, cy: cR.cy }]
+              // The contrast gate clusters near the inner-upper catchlight, so
+              // the strict centroid is biased IN and UP → eyes too close + high.
+              // Re-centre on the FULL iris: take all looser iris-blue in a window
+              // around each seed. This widens the spacing and lowers the centre
+              // to the true iris middle.
+              const refine = (seed) => {
+                const rx = Math.round(W * 0.075), ry = Math.round(H * 0.06)
+                let sx = 0, sy = 0, n = 0
+                for (let y = Math.max(0, seed.cy - ry); y < Math.min(H, seed.cy + ry); y++)
+                  for (let x = Math.max(0, seed.cx - rx); x < Math.min(W, seed.cx + rx); x++) {
+                    const i = (y * W + x) * 4
+                    if (fd[i + 3] < 128) continue
+                    const r = fd[i], g = fd[i + 1], b = fd[i + 2]
+                    if (b > 90 && b - r > 18 && b - g > 8 && r < 195) { sx += x; sy += y; n++ }
+                  }
+                return n > 4 ? { cx: sx / n, cy: sy / n } : seed
+              }
+              const rL = refine(cL), rR = refine(cR)
+              // enforce symmetry about the eye midline, using the more-outer
+              // (less inward-biased) offset, so the pair never reads too close.
+              const mid = (rL.cx + rR.cx) / 2
+              const d = Math.max(Math.abs(rL.cx - mid), Math.abs(rR.cx - mid))
+              // iris centre sits below the (up-biased) catchlight cluster → nudge down
+              const cy = (by(rL.cy) + by(rR.cy)) / 2 + 1.2
+              eyes = buildEyes(bx(mid - d), bx(mid + d), cy)
+              eyeBoxes = [{ cx: mid - d, cy: rL.cy }, { cx: mid + d, cy: rR.cy }]
               eyeReason = `ok(${pts.length})`
             }
           } else eyeReason = 'one-cluster'
@@ -328,10 +349,19 @@ function processInBrowser(dataUrl, opts) {
         }
         tctx.putImageData(tid, 0, 0)
         tail = tc.toDataURL('image/png')
-        // pivot = the tail root at the hip = the inner (left) edge near the TOP
-        // of the mass, where a hanging tail joins the body and swings from.
-        const rootX = tMinX + (tMaxX - tMinX) * 0.16
-        const rootY = tMinY + (tMaxY - tMinY) * 0.28
+        // pivot = the hip attachment: the inner (left) edge of the tail's
+        // TOPMOST rows, where a hanging tail joins the body and swings from.
+        // Measured from the mask (avg of each top row's leftmost pixel) so it
+        // sits at the true root — the top stays glued and the hanging tip swings.
+        let rsx = 0, rsy = 0, found = 0
+        const topBand = tMinY + Math.max(2, Math.round((tMaxY - tMinY) * 0.12))
+        for (let y = tMinY; y <= topBand; y++) {
+          for (let x = tMinX; x <= tMaxX; x++) {
+            if (tailMask[y * W + x]) { rsx += x; rsy += y; found++; break } // leftmost in row
+          }
+        }
+        const rootX = found ? rsx / found : tMinX
+        const rootY = found ? rsy / found : tMinY
         tailOrigin = `${(+bx(rootX).toFixed(1))}% ${(+by(rootY).toFixed(1))}%`
         // erase the ENTIRE tail from the body so no static stub remains
         for (let i = 0; i < W * H; i++) if (tailMask[i]) fd[i * 4 + 3] = 0
