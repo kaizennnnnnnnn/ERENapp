@@ -1003,8 +1003,10 @@ export default function TreatTumbleGame() {
 
       {/* ── Idle intro — premium amber plaque with rivets, sweep shine,
             and grouped goods/dangers panels ──────────────────────────── */}
+      {/* pointer-events-none on the root so this full-screen z-30 overlay doesn't
+          swallow taps on the same-z header back button; START re-enables pointer events. */}
       {gameState === 'idle' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-start z-30 px-4 pt-12 pb-6 overflow-y-auto">
+        <div className="absolute inset-0 flex flex-col items-center justify-start z-30 px-4 pt-12 pb-6 overflow-y-auto pointer-events-none">
           {/* Drifting sparkle field behind the plaque */}
           <div className="absolute inset-0 pointer-events-none" style={{
             backgroundImage: 'radial-gradient(circle, rgba(251,191,36,0.55) 1px, transparent 1.5px), radial-gradient(circle, rgba(252,211,77,0.4) 1px, transparent 1.5px)',
@@ -1111,7 +1113,7 @@ export default function TreatTumbleGame() {
 
           {/* Premium START button */}
           <button onClick={() => { playSound('ui_tap'); start() }}
-            className="relative mt-5 px-8 py-3 text-white active:translate-y-[2px] transition-transform z-10 overflow-hidden"
+            className="relative mt-5 px-8 py-3 text-white active:translate-y-[2px] transition-transform z-10 overflow-hidden pointer-events-auto"
             style={{
               background: 'linear-gradient(180deg, #F59E0B 0%, #D97706 50%, #B45309 100%)',
               border: '3px solid #7C2D12',

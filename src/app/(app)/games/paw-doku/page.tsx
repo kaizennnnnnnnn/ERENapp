@@ -911,8 +911,11 @@ export default function PawDokuGame() {
 
       {/* Idle modal */}
       {phase === 'idle' && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center px-4">
-          <div className="px-6 py-5 flex flex-col items-center gap-3"
+        // pointer-events-none on the full-screen root so this idle overlay
+        // (absolute inset-0, z-10) doesn't sit on top of the header's back
+        // button and swallow taps. The START button re-enables pointer events.
+        <div className="absolute inset-0 z-10 flex items-center justify-center px-4 pointer-events-none">
+          <div className="px-6 py-5 flex flex-col items-center gap-3 pointer-events-auto"
             style={{ background: 'rgba(15,10,30,0.92)', border: '3px solid #A78BFA', borderRadius: 6, boxShadow: '0 4px 0 #4C1D95, 0 0 30px rgba(167,139,250,0.5)' }}>
             <p className="font-pixel" style={{ fontSize: 11, letterSpacing: 2.5, color: '#FDE68A',
               filter: 'drop-shadow(0 0 6px rgba(253,230,138,0.5))' }}>PAW DOKU</p>

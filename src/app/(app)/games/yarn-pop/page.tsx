@@ -578,9 +578,11 @@ export default function YarnPopGame() {
         </div>
       </div>
 
-      {/* Idle overlay */}
+      {/* Idle overlay — full-screen but pointer-events-none so it doesn't
+          swallow taps on the header back button underneath it. The START
+          button re-enables pointer events for itself. */}
       {phase === 'idle' && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center">
+        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
           <div className="px-6 py-5 flex flex-col items-center gap-3"
             style={{ background: 'rgba(15,3,18,0.85)', border: '3px solid #EC4899', borderRadius: 6, boxShadow: '0 4px 0 #831843, 0 0 24px rgba(236,72,153,0.4)' }}>
             <p className="font-pixel" style={{ fontSize: 10, letterSpacing: 2, color: '#FDE68A' }}>YARN POP</p>
@@ -588,7 +590,7 @@ export default function YarnPopGame() {
               TAP TWO ADJACENT TILES.<br/>MATCH 3+ TO POP.
             </p>
             <button onClick={() => { playSound('ui_tap'); startGame() }}
-              className="mt-1 px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
+              className="mt-1 px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2 pointer-events-auto"
               style={{
                 background: 'linear-gradient(135deg, #EC4899 0%, #DB2777 100%)',
                 border: '2px solid #831843',

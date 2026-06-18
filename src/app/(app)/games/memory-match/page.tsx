@@ -400,8 +400,11 @@ export default function MemoryMatchGame() {
       </div>
 
       {/* ── Idle intro screen ──────────────────────────────────────────────── */}
+      {/* pointer-events-none so this full-screen overlay doesn't sit on top of
+          the header back button (same z-30) and swallow its taps — only the
+          START button below opts back into pointer events. */}
       {gameState === 'idle' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-30">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-30 pointer-events-none">
           <div className="px-6 py-6 max-w-[320px] text-center relative"
             style={{ background: 'linear-gradient(135deg, rgba(60,20,110,0.92), rgba(30,10,70,0.92))', border: '3px solid #A78BFA', borderRadius: 6, boxShadow: '0 6px 0 #4C1D95, 0 0 18px rgba(167,139,250,0.4)' }}>
             <div className="flex items-center justify-center gap-2 mb-3">
@@ -436,7 +439,7 @@ export default function MemoryMatchGame() {
           </div>
 
           <button onClick={() => { playSound('ui_tap'); start() }}
-            className="px-8 py-3 text-white active:translate-y-[2px] transition-transform"
+            className="px-8 py-3 text-white active:translate-y-[2px] transition-transform pointer-events-auto"
             style={{
               background: 'linear-gradient(135deg, #EC4899 0%, #C026D3 50%, #9333EA 100%)',
               border: '3px solid #6B21A8',
