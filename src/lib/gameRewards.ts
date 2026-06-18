@@ -23,42 +23,44 @@ import { MINIGAME_IDS } from '@/lib/minigames'
 export const EXHAUSTED_ENERGY = 30
 
 /** Floor paid for finishing any run, before the score bonus. */
-export const PARTICIPATION_COINS = 3
+export const PARTICIPATION_COINS = 2
 
 // Per-game score → bonus coins (added on top of PARTICIPATION_COINS), then
-// clamped to the per-game cap. Mirrors each game's previously-tuned formula.
+// clamped to RUN_COIN_CAP. Tuned DELIBERATELY LOW: minigames are infinitely
+// repeatable, so a single run is only a small bonus — the once-daily game
+// quest and the weekly competition carry the real coin rewards. Divisors are
+// set so a strong run lands around 12–14 and a great one hits the 15 cap.
 const SCORE_BONUS: Record<GameType, (score: number) => number> = {
   catch_mouse:  s => Math.floor(s / 2),
-  paw_tap:      s => s,
-  memory_match: s => Math.floor(s / 8),
-  treat_tumble: s => Math.floor(s / 5),
-  flappy_eren:  s => s * 2,
+  paw_tap:      s => Math.floor(s / 4),
+  memory_match: s => Math.floor(s / 16),
+  treat_tumble: s => Math.floor(s / 12),
+  flappy_eren:  s => Math.floor(s / 2),
   tic_tac_toe:  () => 0, // win/loss handled in coinsForGame via the `won` flag
-  eren_stack:   s => s,
-  yarn_pop:     s => Math.floor(s / 25),
-  eren_says:    s => s * 2,
-  lane_runner:  s => Math.floor(s / 8),
-  paw_doku:     s => Math.floor(s / 60),
+  eren_stack:   s => Math.floor(s / 4),
+  yarn_pop:     s => Math.floor(s / 50),
+  eren_says:    s => Math.floor(s / 2),
+  lane_runner:  s => Math.floor(s / 16),
+  paw_doku:     s => Math.floor(s / 120),
 }
 
-const COIN_CAP: Record<GameType, number> = {
-  catch_mouse: 30, paw_tap: 50, memory_match: 30, treat_tumble: 40,
-  flappy_eren: 50, tic_tac_toe: 8,  eren_stack: 60, yarn_pop: 60,
-  eren_says: 40,  lane_runner: 60, paw_doku: 80,
-}
+/** Per-run coin cap for every score-based game. */
+const RUN_COIN_CAP = 15
+/** Coins for beating Eren at tic-tac-toe (a loss/draw pays the floor). */
+const TTT_WIN_COINS = 6
 
 /**
  * Coins for one finished run, BEFORE the energy gate. Always ≥ PARTICIPATION_COINS
- * for a completed run so the player never walks away with nothing.
- * Tic-tac-toe is win/loss based (no continuous score): a win pays the cap,
- * a loss/draw pays the participation floor.
+ * for a completed run so the player never walks away with nothing, and never
+ * more than RUN_COIN_CAP. Tic-tac-toe is win/loss based (no continuous score):
+ * a win pays TTT_WIN_COINS, a loss/draw pays the participation floor.
  */
 export function coinsForGame(gameType: GameType, score: number, won?: boolean): number {
   if (gameType === 'tic_tac_toe') {
-    return won ? COIN_CAP.tic_tac_toe : PARTICIPATION_COINS
+    return won ? TTT_WIN_COINS : PARTICIPATION_COINS
   }
   const bonus = Math.max(0, SCORE_BONUS[gameType](Math.max(0, score)))
-  return Math.min(COIN_CAP[gameType], PARTICIPATION_COINS + bonus)
+  return Math.min(RUN_COIN_CAP, PARTICIPATION_COINS + bonus)
 }
 
 // ── Weekly competition ──────────────────────────────────────────────────────
