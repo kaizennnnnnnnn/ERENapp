@@ -120,10 +120,10 @@ const MASK_ROWS = 24
 // upper-left of the head and its face aims down-left. So the water emitter is
 // pinned to that plate (as a % of the sprite box) and the spray fans down-left
 // to match where the plate actually points — not straight down from the body.
-const SHOWER_W = 48                                  // px display width
+const SHOWER_W = 40                                  // px display width
 const SHOWER_H = Math.round(SHOWER_W * 240 / 88)     // cleaned sprite is 88×240
 const DISC_X   = 15                                  // % of sprite box — plate face
-const DISC_Y   = 23
+const DISC_Y   = 18
 const SPRAY_RAYS = [12, 22, 31, 40, 49]              // deg clockwise → down-left fan
 const SOAP_W   = 54                                  // px display width
 const SOAP_H   = Math.round(SOAP_W * 177 / 240)      // cleaned sprite is 240×177
@@ -595,7 +595,7 @@ export default function WashScene({ onClose }: Props) {
                   {[0, 1, 2].map(j => (
                     <span key={j} className="spray-drop" style={{
                       animationDelay: `${(i * 0.05 + j * 0.16).toFixed(2)}s`,
-                      ['--len' as string]: `${56 + ((i + j) % 3) * 13}px`,
+                      ['--len' as string]: `${42 + ((i + j) % 3) * 10}px`,
                     } as React.CSSProperties} />
                   ))}
                 </div>
@@ -688,8 +688,8 @@ export default function WashScene({ onClose }: Props) {
            only = stays on the compositor. */
         .spray-ray  { position: absolute; left: 0; top: 0; transform-origin: top center; }
         .spray-drop {
-          position: absolute; top: 0; left: -1.25px;
-          width: 2.5px; height: 11px;
+          position: absolute; top: 0; left: -1px;
+          width: 2px; height: 9px;
           border-radius: 60% 60% 70% 70% / 30% 30% 80% 80%;
           background: linear-gradient(180deg, rgba(216,241,252,0.95) 0%, rgba(96,182,232,0.96) 100%);
           box-shadow: 0 0 3px rgba(120,200,240,0.55);
@@ -703,8 +703,8 @@ export default function WashScene({ onClose }: Props) {
           100% { transform: translateY(var(--len, 60px)) scaleY(1.3); opacity: 0; }
         }
         .shower-mist {
-          position: absolute; left: -8px; top: -5px;
-          width: 22px; height: 18px; border-radius: 50%;
+          position: absolute; left: -6px; top: -4px;
+          width: 18px; height: 14px; border-radius: 50%;
           background: radial-gradient(circle at 60% 35%, rgba(222,243,253,0.5) 0%, rgba(150,210,240,0.18) 55%, transparent 75%);
           animation: showerMist 0.6s ease-in-out infinite;
         }
