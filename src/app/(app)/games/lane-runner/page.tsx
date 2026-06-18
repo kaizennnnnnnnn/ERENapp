@@ -698,16 +698,16 @@ export default function LaneRunnerGame() {
           )
         })}
 
-        {/* Items */}
+        {/* Items — obstacles wear a pulsing red hazard aura, pickups a soft
+            warm glow + gentle bob, so danger vs. reward reads at a glance. */}
         {itemsRef.current.map(it => (
           <div key={it.id} className="absolute pointer-events-none"
             style={{
               left: laneToX(it.lane) - ITEM_SIZE / 2,
               top: it.y - ITEM_SIZE / 2,
               width: ITEM_SIZE, height: ITEM_SIZE,
-              filter: 'drop-shadow(0 2px 0 rgba(0,0,0,0.45))',
             }}>
-            <ItemSprite variant={it.variant} />
+            <ItemFx variant={it.variant} />
           </div>
         ))}
 
@@ -719,7 +719,7 @@ export default function LaneRunnerGame() {
               bottom: PLAYER_BOTTOM - 30,
               width: 60, height: 60,
               transition: 'left 0.16s cubic-bezier(0.34,1.56,0.64,1)',
-              animation: 'run-bob 0.36s ease-in-out infinite',
+              animation: 'run-bob 0.32s ease-in-out infinite',
               filter: 'drop-shadow(0 4px 0 rgba(0,0,0,0.45))',
             }}>
             <ErenRunner />
@@ -863,9 +863,36 @@ export default function LaneRunnerGame() {
       </div>
 
       <style jsx global>{`
+        /* Two strides per cycle — body lifts on each push-off, dips on each
+           foot-plant — synced to the alternating leg frames below. */
         @keyframes run-bob {
-          0%, 100% { transform: translateY(0) rotate(-2deg); }
-          50%      { transform: translateY(-3px) rotate(2deg); }
+          0%, 100% { transform: translateY(0)    scaleY(0.98); }
+          25%      { transform: translateY(-4px) scaleY(1.03); }
+          50%      { transform: translateY(0)    scaleY(0.98); }
+          75%      { transform: translateY(-4px) scaleY(1.03); }
+        }
+        /* Alternating run-cycle leg frames (hard 2-frame toggle). */
+        @keyframes lr-run-legA {
+          0%, 49.99% { opacity: 1; }
+          50%, 100%  { opacity: 0; }
+        }
+        @keyframes lr-run-legB {
+          0%, 49.99% { opacity: 0; }
+          50%, 100%  { opacity: 1; }
+        }
+        /* Obstacle hazard aura — angry red pulse. */
+        @keyframes lr-danger-pulse {
+          0%, 100% { transform: scale(0.9);  opacity: 0.72; }
+          50%      { transform: scale(1.14); opacity: 1; }
+        }
+        /* Pickup treatments — inviting halo + gentle float. */
+        @keyframes lr-pickup-glow {
+          0%, 100% { transform: scale(0.94); opacity: 0.65; }
+          50%      { transform: scale(1.1);  opacity: 1; }
+        }
+        @keyframes lr-pickup-bob {
+          0%, 100% { transform: translateY(1px); }
+          50%      { transform: translateY(-2px); }
         }
         @keyframes lr-pop {
           0%   { transform: scale(0.7); opacity: 0; }
@@ -932,6 +959,48 @@ function CountUp({ target, duration, style }: { target: number; duration: number
   return <span style={style}>{value}</span>
 }
 
+// ─── Item FX wrapper — encodes the danger/reward visual language ────────────
+// Obstacles: a pulsing red hazard aura + red rim so they read as "this kills
+// you" no matter the silhouette. Pickups: a warm inviting halo + gentle bob.
+// The contrast (aggressive red pulse vs. calm gold/cyan float) is what tells
+// the player at a glance what to dodge and what to grab.
+const ItemFx = memo(function ItemFx({ variant }: { variant: Variant }) {
+  if (isObstacle(variant)) {
+    return (
+      <>
+        <div style={{
+          position: 'absolute', inset: '-12%', borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(255,45,45,0.6) 0%, rgba(210,20,20,0.32) 46%, rgba(210,20,20,0) 72%)',
+          animation: 'lr-danger-pulse 0.6s ease-in-out infinite',
+        }} />
+        <div style={{
+          position: 'absolute', inset: 0,
+          filter: 'drop-shadow(0 0 3px rgba(255,45,45,0.95)) drop-shadow(0 2px 0 rgba(0,0,0,0.5))',
+        }}>
+          <ItemSprite variant={variant} />
+        </div>
+      </>
+    )
+  }
+  const halo = variant === 'fish' ? '125,211,252' : '252,211,77'
+  return (
+    <>
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: '50%',
+        background: `radial-gradient(circle, rgba(${halo},0.5) 0%, rgba(${halo},0) 68%)`,
+        animation: 'lr-pickup-glow 1.1s ease-in-out infinite',
+      }} />
+      <div style={{
+        position: 'absolute', inset: 0,
+        animation: 'lr-pickup-bob 0.9s ease-in-out infinite',
+        filter: 'drop-shadow(0 2px 0 rgba(0,0,0,0.4))',
+      }}>
+        <ItemSprite variant={variant} />
+      </div>
+    </>
+  )
+})
+
 // ─── Item sprites — small, bold silhouettes that read clearly on asphalt ────
 const ItemSprite = memo(function ItemSprite({ variant }: { variant: Variant }) {
   if (variant === 'mouse') {
@@ -941,8 +1010,10 @@ const ItemSprite = memo(function ItemSprite({ variant }: { variant: Variant }) {
         <rect x="2" y="4" width="8" height="3" fill="#9CA3AF" />
         <rect x="3" y="3" width="2" height="2" fill="#6B7280" />
         <rect x="7" y="3" width="2" height="2" fill="#6B7280" />
-        <rect x="4" y="5" width="1" height="1" fill="#1A1A1A" />
-        <rect x="7" y="5" width="1" height="1" fill="#1A1A1A" />
+        <rect x="3" y="4" width="2" height="1" fill="#3A1010" />
+        <rect x="7" y="4" width="2" height="1" fill="#3A1010" />
+        <rect x="4" y="5" width="1" height="1" fill="#FF2A2A" />
+        <rect x="7" y="5" width="1" height="1" fill="#FF2A2A" />
         <rect x="5" y="7" width="2" height="1" fill="#FBA8D8" />
         <rect x="9" y="6" width="3" height="1" fill="#9CA3AF" />
       </svg>
@@ -975,17 +1046,24 @@ const ItemSprite = memo(function ItemSprite({ variant }: { variant: Variant }) {
     )
   }
   if (variant === 'dog') {
+    // Snarling guard dog — angry brows, red eyes, bared teeth.
     return (
       <svg width="100%" height="100%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-        <rect x="3" y="3" width="6" height="6" fill="#A06030" />
-        <rect x="2" y="4" width="8" height="4" fill="#A06030" />
-        <rect x="2" y="3" width="2" height="2" fill="#7A4520" />
-        <rect x="8" y="3" width="2" height="2" fill="#7A4520" />
-        <rect x="4" y="5" width="1" height="1" fill="#1A1A1A" />
-        <rect x="7" y="5" width="1" height="1" fill="#1A1A1A" />
-        <rect x="5" y="7" width="2" height="1" fill="#1A1A1A" />
-        <rect x="3" y="9" width="2" height="1" fill="#1A1A1A" />
-        <rect x="7" y="9" width="2" height="1" fill="#1A1A1A" />
+        <rect x="1" y="2" width="2" height="3" fill="#6B4420" />
+        <rect x="9" y="2" width="2" height="3" fill="#6B4420" />
+        <rect x="2" y="3" width="8" height="6" fill="#8A5A2B" />
+        <rect x="3" y="4" width="6" height="4" fill="#A06030" />
+        <rect x="3" y="4" width="2" height="1" fill="#2A1608" />
+        <rect x="7" y="4" width="2" height="1" fill="#2A1608" />
+        <rect x="4" y="5" width="1" height="1" fill="#FF2A2A" />
+        <rect x="7" y="5" width="1" height="1" fill="#FF2A2A" />
+        <rect x="3" y="7" width="6" height="2" fill="#2A1608" />
+        <rect x="3" y="7" width="1" height="1" fill="#FFFFFF" />
+        <rect x="5" y="7" width="1" height="1" fill="#FFFFFF" />
+        <rect x="7" y="7" width="1" height="1" fill="#FFFFFF" />
+        <rect x="4" y="8" width="1" height="1" fill="#FFFFFF" />
+        <rect x="6" y="8" width="1" height="1" fill="#FFFFFF" />
+        <rect x="8" y="8" width="1" height="1" fill="#FFFFFF" />
       </svg>
     )
   }
@@ -1016,16 +1094,21 @@ const ItemSprite = memo(function ItemSprite({ variant }: { variant: Variant }) {
   )
 })
 
-// ─── Eren runner sprite — chibi with bobbing run animation handled by parent ─
+// ─── Eren runner sprite — chibi head/torso (static) over a two-frame leg
+// run-cycle. The parent supplies the body bob; the two <g> leg frames toggle
+// out of phase (legA visible first half, legB second half) so the legs
+// actually pump instead of the whole sprite just sliding up and down. ───────
 const ErenRunner = memo(function ErenRunner() {
   return (
     <svg width="100%" height="100%" viewBox="0 0 22 22" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
+      {/* Ears */}
       <rect x="3" y="2" width="3" height="1" fill="#4A2E1A" />
       <rect x="16" y="2" width="3" height="1" fill="#4A2E1A" />
       <rect x="3" y="3" width="3" height="2" fill="#9B7A5C" />
       <rect x="16" y="3" width="3" height="2" fill="#9B7A5C" />
       <rect x="4" y="4" width="1" height="1" fill="#F4B0B8" />
       <rect x="17" y="4" width="1" height="1" fill="#F4B0B8" />
+      {/* Head */}
       <rect x="5" y="3" width="12" height="1" fill="#4A2E1A" />
       <rect x="4" y="4" width="14" height="1" fill="#4A2E1A" />
       <rect x="3" y="5" width="16" height="1" fill="#4A2E1A" />
@@ -1033,31 +1116,50 @@ const ErenRunner = memo(function ErenRunner() {
       <rect x="18" y="6" width="1" height="6" fill="#4A2E1A" />
       <rect x="4" y="5" width="14" height="1" fill="#F9EDD5" />
       <rect x="4" y="6" width="14" height="6" fill="#F9EDD5" />
+      {/* Eyes */}
       <rect x="6" y="7" width="2" height="2" fill="#6BAED6" />
       <rect x="14" y="7" width="2" height="2" fill="#6BAED6" />
       <rect x="6" y="7" width="1" height="1" fill="#FFFFFF" />
       <rect x="15" y="7" width="1" height="1" fill="#FFFFFF" />
       <rect x="7" y="8" width="1" height="1" fill="#1A1A2E" />
       <rect x="14" y="8" width="1" height="1" fill="#1A1A2E" />
+      {/* Cheeks + nose */}
       <rect x="4" y="10" width="2" height="1" fill="#FFB6C8" />
       <rect x="16" y="10" width="2" height="1" fill="#FFB6C8" />
       <rect x="10" y="9" width="2" height="1" fill="#F48B9B" />
       <rect x="10" y="10" width="2" height="1" fill="#4A2E1A" />
       <rect x="9" y="11" width="1" height="1" fill="#4A2E1A" />
       <rect x="12" y="11" width="1" height="1" fill="#4A2E1A" />
+      {/* Torso */}
       <rect x="4" y="12" width="14" height="1" fill="#4A2E1A" />
       <rect x="5" y="12" width="12" height="1" fill="#F9EDD5" />
       <rect x="10" y="12" width="2" height="1" fill="#4A2E1A" />
-      <rect x="6" y="13" width="10" height="1" fill="#4A2E1A" />
-      <rect x="5" y="14" width="1" height="5" fill="#4A2E1A" />
-      <rect x="16" y="14" width="1" height="5" fill="#4A2E1A" />
-      <rect x="6" y="14" width="10" height="5" fill="#F9EDD5" />
-      <rect x="6" y="19" width="10" height="1" fill="#4A2E1A" />
-      {/* Running paws — alternating front/back */}
-      <rect x="3" y="20" width="4" height="1" fill="#4A2E1A" />
-      <rect x="15" y="20" width="4" height="1" fill="#4A2E1A" />
-      <rect x="3" y="19" width="2" height="1" fill="#D4B896" />
-      <rect x="17" y="19" width="2" height="1" fill="#D4B896" />
+      <rect x="5" y="13" width="1" height="2" fill="#4A2E1A" />
+      <rect x="16" y="13" width="1" height="2" fill="#4A2E1A" />
+      <rect x="6" y="13" width="10" height="2" fill="#F9EDD5" />
+
+      {/* Leg frame A — left planted, right lifted (mid push-off) */}
+      <g style={{ animation: 'lr-run-legA 0.32s linear infinite' }}>
+        <rect x="6" y="15" width="3" height="5" fill="#F9EDD5" />
+        <rect x="6" y="15" width="1" height="5" fill="#4A2E1A" />
+        <rect x="5" y="20" width="4" height="1" fill="#4A2E1A" />
+        <rect x="5" y="19" width="3" height="1" fill="#D4B896" />
+        <rect x="13" y="15" width="3" height="3" fill="#F9EDD5" />
+        <rect x="15" y="15" width="1" height="3" fill="#4A2E1A" />
+        <rect x="13" y="18" width="4" height="1" fill="#4A2E1A" />
+        <rect x="14" y="17" width="3" height="1" fill="#D4B896" />
+      </g>
+      {/* Leg frame B — left lifted, right planted */}
+      <g style={{ animation: 'lr-run-legB 0.32s linear infinite' }}>
+        <rect x="6" y="15" width="3" height="3" fill="#F9EDD5" />
+        <rect x="6" y="15" width="1" height="3" fill="#4A2E1A" />
+        <rect x="5" y="18" width="4" height="1" fill="#4A2E1A" />
+        <rect x="5" y="17" width="3" height="1" fill="#D4B896" />
+        <rect x="13" y="15" width="3" height="5" fill="#F9EDD5" />
+        <rect x="15" y="15" width="1" height="5" fill="#4A2E1A" />
+        <rect x="13" y="20" width="4" height="1" fill="#4A2E1A" />
+        <rect x="14" y="19" width="3" height="1" fill="#D4B896" />
+      </g>
     </svg>
   )
 })
