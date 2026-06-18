@@ -223,9 +223,11 @@ export default function WashScene({ onClose }: Props) {
     prevStageRef.current = targetStage
     const type = poofTypeFor(prev, targetStage)
     setPoof({ type, key: ++poofKeyRef.current })
-    // Rinsing him off (water poof) → he shakes the spray away. Not on soaping-up
-    // bubbles, and not during the finish (doneRef), which has its own shake-dry.
-    if (type === 'water' && !doneRef.current) {
+    // He shakes the spray off on every rinse transition. During the finish the
+    // s1→wet swap already shakes via erenShakeDry, but the CLOSING wet→stand
+    // explosion (targetStage 'stand' while done) only hopped — shake there too
+    // so the very last splash reads as him shaking the water off.
+    if (type === 'water' && (!doneRef.current || targetStage === 'stand')) {
       washShakeRef.current?.animate(WASH_SHAKE_KEYFRAMES, WASH_SHAKE_TIMING)
     }
     const t = setTimeout(() => setVisibleStage(targetStage), WASH_POOF_PEAK_MS)
