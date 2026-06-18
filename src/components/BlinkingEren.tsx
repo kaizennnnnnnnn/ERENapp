@@ -170,7 +170,7 @@ export default function BlinkingEren({
   const lid: React.CSSProperties = {
     position: 'absolute',
     width: eyes.lidWidth,
-    height: '5.5%',
+    height: eyes.lidHeight ?? '5.5%',
     background: lidColor,
     borderRadius: 1,
     transform: 'scaleY(0)',

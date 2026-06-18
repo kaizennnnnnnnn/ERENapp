@@ -245,6 +245,10 @@ export type OutfitSlot = 'hat' | 'eyes' | 'neck'
 // authoritative field docs live in components/BlinkingEren.tsx.
 export interface EyeLayout {
   lidTop: string; lidLeftA: string; lidLeftB: string; lidWidth: string
+  // Blink-lid height as a % of the sprite box. Defaults to 5.5% (tuned to the
+  // room sprites' ~5% eyes); gacha skins set it to their measured iris height
+  // because their anime eyes are larger.
+  lidHeight?: string
   maskTop: string; maskLeftA: string; maskLeftB: string; maskW: string; maskH: string
   glintLeftA: string; glintLeftB: string; glintTopA: string; glintTopB: string; glintW: string
   sleepyLidW?: number; sleepyLidH?: number

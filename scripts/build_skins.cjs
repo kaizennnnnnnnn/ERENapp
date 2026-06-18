@@ -29,13 +29,13 @@ const CONTACT = path.join(__dirname, '_skins_contact.html')
 const SKINS = [
   // rainbow/shark/bat: blue fur or hood defeats auto iris detection — eye
   // centres measured by hand from the cleaned sprite (box %: lx, rx, cy).
-  { id: 'rainbow', file: 'ErenRainbow1.png',   rarity: 'epic',      name: 'Rainbow Eren', eyesOverride: { lx: 40.5, rx: 53.7, cy: 30 } },
+  { id: 'rainbow', file: 'ErenRainbow1.png',   rarity: 'epic',      name: 'Rainbow Eren', eyesOverride: { lx: 40.5, rx: 53.7, cy: 31 } },
   { id: 'gold',    file: 'ErenGold1.png',       rarity: 'epic',      name: 'Golden Eren' },
-  { id: 'shark',   file: 'ErenSharki1.png',     rarity: 'epic',      name: 'Shark Eren', eyesOverride: { lx: 42.5, rx: 55, cy: 40 } },
+  { id: 'shark',   file: 'ErenSharki1.png',     rarity: 'epic',      name: 'Shark Eren', eyesOverride: { lx: 42.5, rx: 55, cy: 41 } },
   { id: 'bear',    file: 'ErenBear1.png',       rarity: 'epic',      name: 'Bear Eren',   bg: 'black', reoutline: true },
   { id: 'fox',     file: 'ErenFox1.png',        rarity: 'epic',      name: 'Fox Eren',    bg: 'black', reoutline: true },
   { id: 'penguin', file: 'ErenPenguing1.png',   rarity: 'epic',      name: 'Penguin Eren' },
-  { id: 'bat',     file: 'ErenBat1.png',        rarity: 'epic',      name: 'Bat Eren', eyesOverride: { lx: 43.2, rx: 55.9, cy: 38 } },
+  { id: 'bat',     file: 'ErenBat1.png',        rarity: 'epic',      name: 'Bat Eren', eyesOverride: { lx: 43.2, rx: 55.9, cy: 39 } },
   { id: 'fish',    file: 'ErenFish1.png',       rarity: 'rare',      name: 'Fish Hat Eren' },
   { id: 'dog',     file: 'ErenDogi1.png',       rarity: 'rare',      name: 'Puppy Eren' },
   { id: 'chicken', file: 'ErenChicken1.png',    rarity: 'rare',      name: 'Chick Hood Eren' },
@@ -191,120 +191,124 @@ function processInBrowser(dataUrl, opts) {
         }
         return false
       }
-      const eyePix = []
-      for (let y = ey0; y < ey1; y++) for (let x = ex0; x < ex1; x++) {
-        const i = (y * W + x) * 4
-        const r = fd[i], g = fd[i + 1], b = fd[i + 2], al = fd[i + 3]
-        if (al < 128) continue
-        if (b > 115 && b - r > 45 && b - g > 30 && r < 165 && hasContrast(x, y)) eyePix.push([x, y])
+      // Build a full EyeLayout from two eye CENTRES + a fixed iris size. Skins
+      // are trimmed TIGHT, so their iris is ~7.5–8.5% of the box (erenGood's
+      // ~5.4% ÷ its 0.76 fill ratio) — much larger than the room sprites; a
+      // fixed size keyed to that reads right on every skin (same ragdoll face),
+      // and lidHeight makes the blink cover the whole eye, not a thin bar.
+      const EYE = { w: 7.6, h: 8.4, lidH: 8.8 } // box-% sizes
+      const buildEyes = (lx, rx, cy) => {
+        const top = +(cy - EYE.h / 2).toFixed(2)
+        const lidW = +(EYE.w * 1.12).toFixed(2)
+        const gW = 26
+        return {
+          maskLeftA: +(lx - EYE.w / 2).toFixed(2) + '%', maskLeftB: +(rx - EYE.w / 2).toFixed(2) + '%',
+          maskTop: top + '%', maskW: EYE.w + '%', maskH: EYE.h + '%',
+          lidLeftA: +(lx - lidW / 2).toFixed(2) + '%', lidLeftB: +(rx - lidW / 2).toFixed(2) + '%',
+          lidTop: +(top - 0.4).toFixed(2) + '%', lidWidth: lidW + '%', lidHeight: EYE.lidH + '%',
+          // Catchlights point toward the nose: eye A (viewer-left) upper-RIGHT
+          // of its iris, eye B upper-LEFT — mirrored, like the room sprites.
+          glintLeftA: (62 - gW) + '%', glintLeftB: '38%', glintTopA: '14%', glintTopB: '14%', glintW: gW + '%',
+        }
       }
-      // Build a full EyeLayout from two eye CENTRES (box %) + a fixed eye size.
-      // The detected blue cluster is unreliable for SIZE (only the most
-      // saturated iris pixels survive the filter), but its CENTROID is a
-      // dependable eye centre. Every skin is the same ragdoll face at similar
-      // framing, so a constant iris size (≈ erenGood's) reads correctly on all.
-      const EYE = { w: 5.6, h: 5.2, lidW: 7.0 } // box-% sizes
-      const buildEyes = (lx, cyL, rx, cyR) => ({
-        maskLeftA: +(lx - EYE.w / 2).toFixed(2) + '%',
-        maskLeftB: +(rx - EYE.w / 2).toFixed(2) + '%',
-        maskTop:   +(Math.min(cyL, cyR) - EYE.h / 2).toFixed(2) + '%',
-        maskW: EYE.w + '%', maskH: EYE.h + '%',
-        lidLeftA: +(lx - EYE.lidW / 2).toFixed(2) + '%',
-        lidLeftB: +(rx - EYE.lidW / 2).toFixed(2) + '%',
-        lidTop:   +(Math.min(cyL, cyR) - EYE.h / 2 - 0.3).toFixed(2) + '%',
-        lidWidth: EYE.lidW + '%',
-        glintLeftA: '30%', glintLeftB: '30%', glintTopA: '26%', glintTopB: '26%', glintW: '38%',
-      })
 
-      let eyes = null, eyeReason = opts.eyesOverride ? 'override' : 'none'
-      let eyeBoxes = null // {cxL,cyL,cxR,cyR} in image px, for the debug overlay
+      let eyes = null, eyeReason = 'none'
+      let eyeBoxes = null // [{cx,cy}] image px, for the debug overlay
       if (opts.eyesOverride) {
-        const o = opts.eyesOverride // {lx, rx, cy} in box %
-        eyes = buildEyes(o.lx, o.cy, o.rx, o.cy)
-      } else if (eyePix.length >= 12) {
-        // Split into left / right clusters by the midpoint of the blue extent.
-        const xs = eyePix.map(p => p[0]).sort((p, q) => p - q)
-        const midGuess = (xs[0] + xs[xs.length - 1]) / 2
-        const L = eyePix.filter(p => p[0] < midGuess), R = eyePix.filter(p => p[0] >= midGuess)
-        const centroid = (pts) => {
-          let sx = 0, sy = 0
-          for (const [x, y] of pts) { sx += x; sy += y }
-          return { cx: sx / pts.length, cy: sy / pts.length }
+        const o = opts.eyesOverride // {lx, rx, cy} box %
+        eyes = buildEyes(o.lx, o.rx, o.cy); eyeReason = 'override'
+      } else {
+        // Eye centres = centroid of the vivid-blue iris per side; the local
+        // light/dark contrast gate rejects flat costume fur.
+        const pts = []
+        for (let y = ey0; y < ey1; y++) for (let x = ex0; x < ex1; x++) {
+          const i = (y * W + x) * 4
+          if (fd[i + 3] < 128) continue
+          const r = fd[i], g = fd[i + 1], b = fd[i + 2]
+          if (b > 115 && b - r > 45 && b - g > 30 && r < 165 && hasContrast(x, y)) pts.push([x, y])
         }
-        const bbox = (pts) => {
-          let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1
-          for (const [x, y] of pts) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y }
-          return { spanW: (x1 - x0) / W, spanH: (y1 - y0) / H }
-        }
-        if (L.length >= 5 && R.length >= 5) {
-          const cL = centroid(L), cR = centroid(R)
-          // Sanity: each iris cluster should be compact. Loose blue spread over
-          // the costume (rainbow fur, shark/bat hood) → reject, use a manual
-          // eyeCenters override instead.
-          const eL = bbox(L), eR = bbox(R)
-          const span = (cR.cx - cL.cx) / W
-          if (eL.spanW > 0.16 || eR.spanW > 0.16 || eL.spanH > 0.14 || eR.spanH > 0.14 || span > 0.30 || span < 0.05) {
-            eyeReason = `spread(span=${span.toFixed(2)},eLw=${eL.spanW.toFixed(2)})`
-          } else {
-            eyeBoxes = { cxL: cL.cx, cyL: cL.cy, cxR: cR.cx, cyR: cR.cy }
-            eyes = buildEyes(bx(cL.cx), by(cL.cy), bx(cR.cx), by(cR.cy))
-            eyeReason = `ok(${eyePix.length})`
-          }
-        } else { eyeReason = 'one-cluster' }
-      } else { eyeReason = `few(${eyePix.length})` }
-
-      // ── 6. Tail isolation — rightmost opaque run separated from the body by
-      //       a transparent gap, in the lower portion of the sprite. ────────
-      const gap = opts.tailGap || Math.max(4, Math.round(W * 0.03))
-      const yStart = Math.floor(H * (opts.tailYStart != null ? opts.tailYStart : 0.42))
-      const tailMask = new Uint8Array(W * H)
-      let tCount = 0, tMinX = 1e9, tMaxX = -1, tMinY = 1e9, tMaxY = -1
-      for (let y = yStart; y < H; y++) {
-        // find rightmost opaque pixel
-        let rx = -1
-        for (let x = W - 1; x >= 0; x--) { if (a(x, y) > 40) { rx = x; break } }
-        if (rx < 0) continue
-        // walk left over the rightmost run, then require a gap of transparency
-        let x = rx
-        while (x >= 0 && a(x, y) > 40) x--           // x = first transparent left of run
-        let g2 = 0, xx = x
-        while (xx >= 0 && a(xx, y) <= 40) { g2++; xx-- }
-        if (xx < 0) continue                          // run reaches left edge → it's the body, skip
-        if (g2 < gap) continue                        // not separated → not the curled tail
-        // accept the rightmost run [x+1 .. rx] as tail for this row
-        for (let tx = x + 1; tx <= rx; tx++) {
-          if (a(tx, y) <= 40) continue
-          tailMask[y * W + tx] = 1; tCount++
-          if (tx < tMinX) tMinX = tx; if (tx > tMaxX) tMaxX = tx
-          if (y < tMinY) tMinY = y; if (y > tMaxY) tMaxY = y
-        }
+        if (pts.length >= 12) {
+          const xs = pts.map(p => p[0]).sort((a, b) => a - b)
+          const midG = (xs[0] + xs[xs.length - 1]) / 2
+          const Lp = pts.filter(p => p[0] < midG), Rp = pts.filter(p => p[0] >= midG)
+          if (Lp.length >= 5 && Rp.length >= 5) {
+            const cen = (a) => { let sx = 0, sy = 0; for (const [x, y] of a) { sx += x; sy += y } return { cx: sx / a.length, cy: sy / a.length } }
+            const ext = (a) => { let x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1; for (const [x, y] of a) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y } return { w: (x1 - x0) / W, h: (y1 - y0) / H } }
+            const cL = cen(Lp), cR = cen(Rp), eL = ext(Lp), eR = ext(Rp)
+            const span = (cR.cx - cL.cx) / W
+            if (eL.w > 0.16 || eR.w > 0.16 || eL.h > 0.14 || eR.h > 0.14 || span > 0.30 || span < 0.05) {
+              eyeReason = `spread(span=${span.toFixed(2)})`
+            } else {
+              // contrast-gated pixels skew toward the (upper) catchlight, so nudge
+              // the iris centre down a touch.
+              const cy = (by(cL.cy) + by(cR.cy)) / 2 + 1.0
+              eyes = buildEyes(bx(cL.cx), bx(cR.cx), cy)
+              eyeBoxes = [{ cx: cL.cx, cy: cL.cy }, { cx: cR.cx, cy: cR.cy }]
+              eyeReason = `ok(${pts.length})`
+            }
+          } else eyeReason = 'one-cluster'
+        } else eyeReason = `few(${pts.length})`
       }
-      // Keep only the LARGEST connected component of the tail mask — the gap
-      // rule also catches a stray paw blob in the bottom rows; the real tail
-      // dwarfs it. Re-derive the bbox from the surviving component.
-      if (tCount > 0) {
-        const label = new Int32Array(W * H).fill(-1)
-        let bestId = -1, bestSize = 0, cur = 0
+
+      // ── 6. Tail isolation by LEFT-RIGHT SYMMETRY. The body+head are roughly
+      //       symmetric about a vertical axis; the tail is the asymmetric
+      //       RIGHTWARD excursion. For each row below the chest, anything in the
+      //       rightmost run that sticks out past the mirror of the (tail-free)
+      //       left edge is tail — captured from its ROOT (where it first bulges
+      //       past the body) to the tip, so it rotates about the hip. (A flush-
+      //       attached tail can't be split by gaps or thickness; symmetry can.)
+      const sil = new Uint8Array(W * H)
+      for (let i = 0; i < W * H; i++) sil[i] = fd[i * 4 + 3] > 40 ? 1 : 0
+      // symmetry axis = mean silhouette centre across the (tail-free) head band
+      let axisSum = 0, axisN = 0
+      for (let y = Math.floor(H * 0.05); y < Math.floor(H * 0.32); y++) {
+        let l = -1, r = -1
+        for (let x = 0; x < W; x++) if (sil[y * W + x]) { if (l < 0) l = x; r = x }
+        if (l >= 0) { axisSum += (l + r) / 2; axisN++ }
+      }
+      const axis = axisN ? axisSum / axisN : W / 2
+      const margin = Math.round(W * (opts.tailMargin != null ? opts.tailMargin : 0.035))
+      const yTail = Math.floor(H * (opts.tailYStart != null ? opts.tailYStart : 0.30))
+      const tailMask = new Uint8Array(W * H)
+      for (let y = yTail; y < H; y++) {
+        let l = -1, r = -1
+        for (let x = 0; x < W; x++) if (sil[y * W + x]) { if (l < 0) l = x; r = x }
+        if (l < 0) continue
+        const cut = (2 * axis - l) + margin   // mirror of the body's left edge
+        if (r <= cut) continue
+        let x = r                              // rightmost run, pixels past `cut`
+        while (x >= 0 && sil[y * W + x]) { if (x > cut) tailMask[y * W + x] = 1; x-- }
+      }
+
+      // largest tail component on the right + below the head band
+      let tCount = 0, tMinX = 1e9, tMaxX = -1, tMinY = 1e9, tMaxY = -1
+      {
+        const lab = new Int32Array(W * H).fill(-1)
+        const comps = []
         const stk = []
         for (let s = 0; s < W * H; s++) {
-          if (!tailMask[s] || label[s] >= 0) continue
-          let size = 0; stk.length = 0; stk.push(s); label[s] = cur
+          if (!tailMask[s] || lab[s] >= 0) continue
+          const id = comps.length
+          let size = 0, sx = 0, sy = 0
+          stk.length = 0; stk.push(s); lab[s] = id
           while (stk.length) {
             const p = stk.pop(); size++
             const px = p % W, py = (p / W) | 0
+            sx += px; sy += py
             for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
               const nx = px + dx, ny = py + dy
               if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue
               const np = ny * W + nx
-              if (tailMask[np] && label[np] < 0) { label[np] = cur; stk.push(np) }
+              if (tailMask[np] && lab[np] < 0) { lab[np] = id; stk.push(np) }
             }
           }
-          if (size > bestSize) { bestSize = size; bestId = cur }
-          cur++
+          comps.push({ id, size, cx: sx / size, cy: sy / size })
         }
-        tCount = 0; tMinX = 1e9; tMaxX = -1; tMinY = 1e9; tMaxY = -1
+        const tailComp = comps
+          .filter(c => c.cx > W * 0.5 && c.cy > H * 0.34 && c.size > W * H * 0.004)
+          .sort((a, b) => b.size - a.size)[0]
         for (let i = 0; i < W * H; i++) {
-          if (label[i] === bestId) {
+          if (tailComp && lab[i] === tailComp.id) {
             tCount++; const x = i % W, y = (i / W) | 0
             if (x < tMinX) tMinX = x; if (x > tMaxX) tMaxX = x
             if (y < tMinY) tMinY = y; if (y > tMaxY) tMaxY = y
@@ -313,12 +317,7 @@ function processInBrowser(dataUrl, opts) {
       }
 
       let tail = null, tailOrigin = null
-      // A real curling tail is a sizeable mass on the RIGHT that starts in the
-      // mid-body, not a stray fragment hugging the bottom-centre (koala). Guard
-      // against those so a bad fragment is dropped (skin just breathes+blinks).
-      const tCenterX = (tMinX + tMaxX) / 2
-      const haveTail = tCount > (W * H) * 0.006 && tMaxX >= 0 &&
-        tCenterX > W * 0.52 && tMinY < H * 0.72
+      const haveTail = tCount > (W * H) * 0.004 && tMaxX >= 0
       if (haveTail) {
         const tc = document.createElement('canvas')
         tc.width = W; tc.height = H
@@ -329,11 +328,12 @@ function processInBrowser(dataUrl, opts) {
         }
         tctx.putImageData(tid, 0, 0)
         tail = tc.toDataURL('image/png')
-        // pivot = where the tail joins the hip: its bottom-left, nudged inward
-        const rootX = tMinX + (tMaxX - tMinX) * 0.12
-        const rootY = tMinY + (tMaxY - tMinY) * 0.9
+        // pivot = the tail root at the hip = the inner (left) edge near the TOP
+        // of the mass, where a hanging tail joins the body and swings from.
+        const rootX = tMinX + (tMaxX - tMinX) * 0.16
+        const rootY = tMinY + (tMaxY - tMinY) * 0.28
         tailOrigin = `${(+bx(rootX).toFixed(1))}% ${(+by(rootY).toFixed(1))}%`
-        // erase tail from body
+        // erase the ENTIRE tail from the body so no static stub remains
         for (let i = 0; i < W * H; i++) if (tailMask[i]) fd[i * 4 + 3] = 0
         fctx.putImageData(fid, 0, 0)
       }
@@ -362,10 +362,9 @@ function processInBrowser(dataUrl, opts) {
         dx2.strokeRect(toPx(eyes.maskLeftB, offX), toPx(eyes.maskTop, offY), mw, mh)
       }
       if (eyeBoxes) {
-        dx2.fillStyle = '#ff1d5e'
-        for (const c of [[eyeBoxes.cxL, eyeBoxes.cyL], [eyeBoxes.cxR, eyeBoxes.cyR]]) {
-          dx2.beginPath(); dx2.arc(c[0], c[1], Math.max(2, W * 0.006), 0, 7); dx2.fill()
-        }
+        // detected iris centroids (yellow dots) — should sit at each eye centre
+        dx2.fillStyle = '#ffd000'
+        for (const c of eyeBoxes) { dx2.beginPath(); dx2.arc(c.cx, c.cy, Math.max(2, W * 0.006), 0, 7); dx2.fill() }
       }
       if (haveTail) {
         dx2.strokeStyle = '#7CFC00'; dx2.strokeRect(tMinX, tMinY, tMaxX - tMinX, tMaxY - tMinY)
