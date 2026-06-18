@@ -377,13 +377,23 @@ function processInBrowser(dataUrl, opts) {
           let lx = -1
           for (let x = tMinX; x <= tMaxX; x++) if (tailMask[y * W + x]) { lx = x; break }
           if (lx < 0) continue
+          // seed = the tail's own colour at this row's inner edge. Only absorb
+          // pixels that still match it (the tail's gray root/outline), and STOP
+          // at the body — whether that body is bright fur (lum) OR a coloured
+          // costume (the tan mouse hood). A plain white-only threshold misses the
+          // tan and over-grows ~maxGrow px into it, dragging a body-coloured
+          // fleck into the swinging tail layer.
+          const si = (y * W + lx) * 4
+          const sr = fd[si], sg = fd[si + 1], sb = fd[si + 2]
           for (let k = 1; k <= maxGrow; k++) {
             const nx = lx - k
             if (nx < 0) break
             const idx = y * W + nx
             if (!sil[idx] || tailMask[idx]) break
             const i = idx * 4
-            if (lum(fd[i], fd[i + 1], fd[i + 2]) > 195) break // hit the body's white fur → root reached
+            const r = fd[i], g = fd[i + 1], b = fd[i + 2]
+            if (lum(r, g, b) > 195) break // bright body fur → root reached
+            if (Math.abs(r - sr) + Math.abs(g - sg) + Math.abs(b - sb) > 110) break // colour diverged → entered the body
             add.push(idx)
           }
         }
@@ -399,20 +409,12 @@ function processInBrowser(dataUrl, opts) {
       let tail = null, tailOrigin = null
       const haveTail = tCount > (W * H) * 0.004 && tMaxX >= 0
       if (haveTail) {
-        const tc = document.createElement('canvas')
-        tc.width = W; tc.height = H
-        const tctx = tc.getContext('2d')
-        const tid = tctx.createImageData(W, H)
-        for (let i = 0; i < W * H; i++) {
-          if (tailMask[i]) { const j = i * 4; tid.data[j] = fd[j]; tid.data[j + 1] = fd[j + 1]; tid.data[j + 2] = fd[j + 2]; tid.data[j + 3] = fd[j + 3] }
-        }
-        tctx.putImageData(tid, 0, 0)
-        tail = tc.toDataURL('image/png')
-        // pivot = the ATTACHMENT SEAM: tail pixels that border the body
-        // (sil minus tail). Their centroid is exactly where the tail joins the
-        // body — the hip it should swing from. (`sil` still includes the tail
-        // here; the body is sil AND NOT tailMask.) This keeps the attachment
-        // glued and the free length swinging, for any tail orientation.
+        // pivot = centroid of the UPPER part of the attachment seam = the HIP
+        // where the tail emerges. (The full-seam centroid is dragged toward the
+        // tip when the root edge is long; a hanging tail must swing from its top.)
+        // Computed on the UN-trimmed mask so every previously-tuned skin keeps
+        // its exact, approved origin — the leak trim below runs afterwards and
+        // only cleans the emitted image.
         const seam = []
         for (let y = tMinY; y <= tMaxY; y++) for (let x = tMinX; x <= tMaxX; x++) {
           if (!tailMask[y * W + x]) continue
@@ -422,9 +424,6 @@ function processInBrowser(dataUrl, opts) {
             if (sil[ny * W + nx] && !tailMask[ny * W + nx]) { seam.push(x, y); break }
           }
         }
-        // pivot = centroid of the UPPER part of the attachment seam = the HIP
-        // where the tail emerges. (The full-seam centroid is dragged toward the
-        // tip when the root edge is long; a hanging tail must swing from its top.)
         let rootX = tMinX, rootY = tMinY
         if (seam.length) {
           let ymin = 1e9, ymax = -1
@@ -435,6 +434,42 @@ function processInBrowser(dataUrl, opts) {
           if (pn) { rootX = psx / pn; rootY = psy / pn }
         }
         tailOrigin = `${(+bx(rootX).toFixed(1))}% ${(+by(rootY).toFixed(1))}%`
+
+        // Trim costume that leaked into the tail. At the haunch rows the cat
+        // isn't left-right symmetric (a narrow paw on the left, the wide hip on
+        // the right), so the mirror cut lands INSIDE the costume and keeps a
+        // strip of body just left of the tail's dark outline (the tan mouse hip).
+        // The tail's true left boundary is that outline: per row, if the leftmost
+        // "tail" pixel is bright body — not the tail's own dark outline — drop
+        // that bright run up to the first dark outline pixel. Gray/gold/rainbow
+        // tails open with their own outline, so they're untouched; only leaked
+        // costume is reclassified back to the body (where it belongs, behind the
+        // resting tail). Runs AFTER the pivot, so it never moves the origin.
+        for (let y = tMinY; y <= tMaxY; y++) {
+          let L = -1, R = -1
+          for (let x = tMinX; x <= tMaxX; x++) if (tailMask[y * W + x]) { if (L < 0) L = x; R = x }
+          if (L < 0) continue
+          const li = (y * W + L) * 4
+          if (lum(fd[li], fd[li + 1], fd[li + 2]) < 90) continue // tail's own outline → no leak
+          for (let x = L; x <= R; x++) {
+            const idx = y * W + x
+            if (!tailMask[idx]) continue
+            const i = idx * 4, lm = lum(fd[i], fd[i + 1], fd[i + 2])
+            if (lm < 90) break              // reached the tail's dark inner outline → keep the rest
+            if (lm > 150) tailMask[idx] = 0 // bright leaked costume → back to body
+          }
+        }
+
+        // Emit the tail layer from the (now trimmed) mask.
+        const tc = document.createElement('canvas')
+        tc.width = W; tc.height = H
+        const tctx = tc.getContext('2d')
+        const tid = tctx.createImageData(W, H)
+        for (let i = 0; i < W * H; i++) {
+          if (tailMask[i]) { const j = i * 4; tid.data[j] = fd[j]; tid.data[j + 1] = fd[j + 1]; tid.data[j + 2] = fd[j + 2]; tid.data[j + 3] = fd[j + 3] }
+        }
+        tctx.putImageData(tid, 0, 0)
+        tail = tc.toDataURL('image/png')
         // Erase the tail from the body, but KEEP a thin connector strip of its
         // inner edge in the body. The tail layer (full tail) is drawn over it at
         // rest; when it swings (up to -8deg) the part of the long attachment
