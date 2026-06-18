@@ -20,6 +20,12 @@ export interface SkinDef {
   thumb: string          // full sprite for gacha reveal / collection / closet card
   aspect: number         // w/h of the trimmed sprite (card sizing)
   builtin?: boolean      // always owned, never a gacha drop (Classic look)
+  // Vertical framing of the sprite's CAT inside its canvas, as fractions of
+  // canvas height. The 21 gacha skins are trimmed tight (cat fills the canvas:
+  // catFracH 1, botGap 0); Classic reuses padded erenGood. Used to size a skin
+  // to match each room's default sprite (which carries padding). Defaults: 1/0.
+  catFracH?: number      // cat height / canvas height
+  botGap?: number        // empty space below the cat / canvas height
 }
 
 // The everyday look — always owned, selectable in any room. Uses BlinkingEren's
@@ -31,8 +37,11 @@ export const CLASSIC_SKIN: SkinDef = {
   src: '/erenGood_notail.png',
   tailSrc: '/erenGood_tail.png',
   thumb: '/erenGood.png',
-  aspect: 0.72,
+  aspect: 0.671,
   builtin: true,
+  // erenGood is padded, not tight — measured 76.1% cat height, 10.1% bottom gap.
+  catFracH: 0.761,
+  botGap: 0.101,
 }
 
 // The 21 gacha skins, from the auto-generated render data.
@@ -102,6 +111,35 @@ export const SKINNABLE_ROOMS: RoomDef[] = [
   { id: 'chemistry', label: 'Lab',         defaultThumb: '/ErenLab.png' },
   { id: 'vet',       label: 'Vet',         defaultThumb: '/ErenVet.png' },
 ]
+
+// Per-room fit: the BlinkingEren `size` each room renders its default sprite
+// at, plus that sprite's measured cat framing (cat height + bottom gap as
+// fractions of canvas height, from scripts/measure_frames.cjs). A skin is
+// sized so its cat matches the room default's cat, and lifted so the feet line
+// up. NOTE: `size` must stay in sync with the room's BlinkingEren size prop.
+export interface RoomFit { size: number; catFracH: number; botGap: number }
+export const ROOM_FIT: Record<string, RoomFit> = {
+  home:      { size: 200, catFracH: 0.761, botGap: 0.101 },
+  feed:      { size: 210, catFracH: 0.903, botGap: 0.075 },
+  play:      { size: 200, catFracH: 0.751, botGap: 0.115 },
+  sleep:     { size: 230, catFracH: 0.730, botGap: 0.153 },
+  wash:      { size: 200, catFracH: 0.776, botGap: 0.101 },
+  chemistry: { size: 230, catFracH: 0.640, botGap: 0.165 },
+  vet:       { size: 200, catFracH: 0.750, botGap: 0.136 },
+}
+
+// Compute the BlinkingEren box size + vertical lift (px) to render `skin` in
+// `roomId` so its cat matches that room's default sprite in both height and
+// foot position. Returns null if the room has no fit data (render as-is).
+export function skinRoomFit(skin: SkinDef, roomId: string): { size: number; lift: number } | null {
+  const fit = ROOM_FIT[roomId]
+  if (!fit) return null
+  const sc = skin.catFracH ?? 1   // skin cat fill (gacha skins are tight = 1)
+  const sb = skin.botGap ?? 0
+  const size = Math.round((fit.size * fit.catFracH) / sc)
+  const lift = Math.round(fit.size * fit.botGap - size * sb)
+  return { size, lift }
+}
 
 // Resolve a room's assigned skin from the household room_skins map. Returns the
 // SkinDef to render, or null when the room should keep its built-in default.

@@ -8,7 +8,7 @@ import { ChevronLeft } from 'lucide-react'
 import { useCare } from '@/contexts/CareContext'
 import { useCloset } from '@/hooks/useCloset'
 import {
-  SKINNABLE_ROOMS, GACHA_SKINS, CLASSIC_SKIN, getSkin, resolveRoomSkin,
+  SKINNABLE_ROOMS, GACHA_SKINS, CLASSIC_SKIN, getSkin, resolveRoomSkin, skinRoomFit,
   type SkinDef,
 } from '@/lib/skins'
 import { RARITY_COLORS } from '@/lib/gacha'
@@ -117,7 +117,11 @@ export default function ClosetPage() {
           ))}
           <div className="flex-1 flex items-end justify-center w-full pb-1">
             {previewSkin ? (
-              <BlinkingEren key={previewSkin.id} size={190}
+              // Size the preview to how it'll actually look in the selected
+              // room (matches the room default's cat), scaled up a touch so the
+              // showcase fills the card.
+              <BlinkingEren key={previewSkin.id + activeRoom}
+                size={(skinRoomFit(previewSkin, activeRoom)?.size ?? 180) * 1.15}
                 src={previewSkin.src} tailSrc={previewSkin.tailSrc}
                 tailOrigin={previewSkin.tailOrigin} eyes={previewSkin.eyes} />
             ) : (

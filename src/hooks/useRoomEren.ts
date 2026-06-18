@@ -1,8 +1,8 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, type CSSProperties } from 'react'
 import { useErenStats } from './useErenStats'
-import { resolveRoomSkin } from '@/lib/skins'
+import { resolveRoomSkin, skinRoomFit } from '@/lib/skins'
 import type { EyeLayout } from '@/types'
 
 export interface ErenSpriteProps {
@@ -15,6 +15,12 @@ export interface ErenSpriteProps {
   // gray-lid / white-glint defaults.
   lidColor?: string
   glintBackground?: string
+  // Set ONLY for an active skin: the per-room box size + vertical lift that
+  // make the tightly-trimmed skin match the room default's cat size/feet. The
+  // fallback (default look) leaves these undefined so the room's own size prop
+  // stands. BlinkingEren spreads `style` onto its outer wrapper.
+  size?: number
+  style?: CSSProperties
 }
 
 // Resolve a room's IDLE Eren sprite props: the skin assigned in the (shared,
@@ -28,8 +34,16 @@ export function useRoomEren(roomId: string, fallback: ErenSpriteProps): ErenSpri
   const skin = resolveRoomSkin(stats?.room_skins, roomId)
   const skinId = skin?.id ?? null
   return useMemo<ErenSpriteProps>(
-    () => skin ? { src: skin.src, tailSrc: skin.tailSrc, tailOrigin: skin.tailOrigin, eyes: skin.eyes } : fallback,
+    () => {
+      if (!skin) return fallback
+      const fit = skinRoomFit(skin, roomId)
+      return {
+        src: skin.src, tailSrc: skin.tailSrc, tailOrigin: skin.tailOrigin, eyes: skin.eyes,
+        size: fit?.size,
+        style: fit ? { transform: `translateY(${-fit.lift}px)` } : undefined,
+      }
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [skinId, fallback.src, fallback.tailSrc, fallback.tailOrigin, fallback.eyes],
+    [skinId, roomId, fallback.src, fallback.tailSrc, fallback.tailOrigin, fallback.eyes],
   )
 }
