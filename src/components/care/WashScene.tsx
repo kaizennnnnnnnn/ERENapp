@@ -504,7 +504,19 @@ export default function WashScene({ onClose }: Props) {
                     is lifted 20px because the standing sprite's feet sit ~20px
                     above the box bottom (its source has bottom padding) — without
                     this the pose lands lower and he looks like he drops on swap. */}
-                {visibleStage === 'stand' ? erenSprite : (
+                {visibleStage === 'stand' ? (
+                  // Bottom-anchor + centre the idle in the 200×200 box. The
+                  // default sprite is size 200 (fills the box), but a Closet
+                  // SKIN renders smaller (~155) and, left unwrapped, an
+                  // inline-block flows to the box's TOP-LEFT — so he'd sit high
+                  // and shifted, then "teleport" down to the centred wash pose
+                  // on the first soap. bottom:0 lands his feet at the same line
+                  // the pose uses (its 20px lift = the standing sprite's foot
+                  // padding / the skin's own lift), so the swap doesn't move him.
+                  <div style={{ position: 'absolute', left: '50%', bottom: 0, transform: 'translateX(-50%)' }}>
+                    {erenSprite}
+                  </div>
+                ) : (
                   <div style={{ position: 'absolute', left: '50%', bottom: 20, transform: 'translateX(-50%)' }}>
                     {/* width 108 ≈ the standing cat's on-screen silhouette
                         (~107×155 → pose aspect ~0.67 gives ~108×159), so head
