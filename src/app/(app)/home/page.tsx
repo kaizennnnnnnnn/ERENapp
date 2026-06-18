@@ -18,7 +18,7 @@ import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 import { format } from 'date-fns'
 import Link from 'next/link'
 import { Sparkles } from 'lucide-react'
-import { IconGift, IconHeart, IconBell, IconPerson, IconDoor, IconPhoto } from '@/components/PixelIcons'
+import { IconGift, IconHeart, IconBell, IconPerson, IconDoor, IconPhoto, IconDress } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import { requestCloudNav } from '@/components/CloudTransition'
 import TaskPanel from '@/components/TaskPanel'
@@ -755,11 +755,17 @@ export default function HomePage() {
               style={{ ...cuteBtn('217,199,247'), animationDelay: '0.35s' }}>
               <CuteIcon><IconPerson size={18} /></CuteIcon>
             </Link>
+            <Link href="/closet" onClick={() => playSound('ui_tap')}
+              aria-label="Closet"
+              className="home-nav-pop w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
+              style={{ ...cuteBtn('199,225,255'), animationDelay: '0.4s' }}>
+              <CuteIcon><IconDress size={20} /></CuteIcon>
+            </Link>
             <div className="relative flex-shrink-0">
               <button onClick={() => { playSound(showRooms ? 'ui_modal_close' : 'ui_modal_open'); setShowRooms(r => !r) }}
                 aria-label="Rooms" aria-expanded={showRooms}
                 className="home-nav-pop w-8 h-8 relative flex items-center justify-center active:scale-90 transition-transform"
-                style={{ ...cuteBtn('226,196,154'), animationDelay: '0.4s' }}>
+                style={{ ...cuteBtn('226,196,154'), animationDelay: '0.45s' }}>
                 <CuteIcon><IconDoor size={18} /></CuteIcon>
               </button>
               <RoomsMenu open={showRooms} onClose={closeRooms} onSelect={handleRoomSelect} />

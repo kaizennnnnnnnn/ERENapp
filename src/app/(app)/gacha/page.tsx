@@ -12,7 +12,7 @@ import { PULL_COST_SINGLE, PULL_COST_TEN, PITY_EPIC, PITY_LEGENDARY } from '@/li
 import type { GachaPullResult } from '@/types'
 import PullAnimation from '@/components/gacha/PullAnimation'
 import GachaPullButton from '@/components/gacha/GachaPullButton'
-import { IconCoin, IconSparkles, IconTicket, IconBook, IconDress } from '@/components/PixelIcons'
+import { IconCoin, IconSparkles, IconTicket, IconBook } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import { requestCloudNav } from '@/components/CloudTransition'
 import { PINK_HI, OBSIDIAN_BTN, Rivets, pinkText } from '@/components/obsidian'
@@ -237,13 +237,6 @@ export default function GachaPage() {
               <span className="font-pixel" style={{ fontSize: 8, ...pinkText }}>{tickets}</span>
             </div>
           )}
-          <button onClick={() => { playSound('ui_tap'); requestCloudNav('/closet') }}
-            aria-label="Closet"
-            className="flex items-center justify-center active:translate-y-[1px] transition-transform relative"
-            style={{ width: 32, height: 32, ...OBSIDIAN_BTN }}>
-            <Rivets inset={2} size={2} />
-            <IconDress size={18} />
-          </button>
           <button onClick={() => { playSound('ui_tap'); router.push('/gacha/collection') }}
             className="flex items-center justify-center active:translate-y-[1px] transition-transform relative"
             style={{ width: 32, height: 32, ...OBSIDIAN_BTN }}>
