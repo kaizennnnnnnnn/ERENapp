@@ -2,15 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
+import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import GameCoinReward from '@/components/games/GameCoinReward'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
 import {
   IconYarn, IconFish, IconPaw, IconMouse, IconHeart, IconStar,
-  IconCrown, IconCoin,
+  IconCrown,
 } from '@/components/PixelIcons'
 import { fireMinigameDone } from '@/lib/minigames'
 import { playSound } from '@/lib/sounds'
@@ -73,12 +74,12 @@ const COMBO_BONUS_PER = 6
 
 export default function MemoryMatchGame() {
   const router = useRouter()
-  const supabase = createClient()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
   useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
-  const { completeTask, addCoins } = useTasks()
+  const { completeTask } = useTasks()
+  const { reportGameResult } = useGameRewards()
 
   const [deck, setDeck] = useState<Card[]>(() => newDeck())
   const [score, setScore] = useState(0)
@@ -88,6 +89,7 @@ export default function MemoryMatchGame() {
   const [gameState, setGameState] = useState<'idle' | 'running' | 'finished'>('idle')
   const [showFlash, setShowFlash] = useState<{ id: number; type: 'match' | 'miss'; color: string } | null>(null)
   const [savedOnce, setSavedOnce] = useState(false)
+  const [reward, setReward] = useState<GameRewardResult | null>(null)
   const [confetti, setConfetti] = useState<Array<{ id: number; x: number; y: number; color: string; dx: number; dy: number; rot: number }>>([])
   // Floating score popups anchored to the matched card midpoint (board %)
   const [scorePops, setScorePops] = useState<Array<{ id: number; x: number; y: number; color: string; text: string }>>([])
@@ -171,15 +173,10 @@ export default function MemoryMatchGame() {
   useEffect(() => {
     if (gameState !== 'finished' || savedOnce || !user?.id) return
     setSavedOnce(true)
+    setReward(reportGameResult({ gameType: 'memory_match', score: finalScore }))
     ;(async () => {
-      await supabase.from('game_scores').insert({
-        user_id: user.id,
-        game_type: 'memory_match',
-        score: finalScore,
-      })
       fireMinigameDone('memory_match', finalScore)
       await applyAction(user.id, 'play')
-      await addCoins(Math.min(30, Math.floor(finalScore / 8)))
       completeTask('daily_game')
       if (finalScore >= 30) completeTask('weekly_high_score')
     })()
@@ -194,6 +191,7 @@ export default function MemoryMatchGame() {
     setTimeLeft(GAME_DURATION)
     setGameState('running')
     setSavedOnce(false)
+    setReward(null)
     setShowFlash(null)
     setConfetti([])
     setScorePops([])
@@ -668,10 +666,7 @@ export default function MemoryMatchGame() {
                 <p className="font-pixel text-white mt-1" style={{ fontSize: 10 }}>{GAME_DURATION - timeLeft}s</p>
               </div>
             </div>
-            <div className="flex items-center justify-center gap-1 mb-4" style={{ color: '#FFD760' }}>
-              <IconCoin size={14} />
-              <span className="font-pixel" style={{ fontSize: 8, textShadow: '1px 1px 0 rgba(0,0,0,0.5)' }}>+{Math.min(30, Math.floor(finalScore / 8))} coins</span>
-            </div>
+            {reward && (<div className="mb-3"><GameCoinReward coins={reward.coins} blocked={reward.blocked} /></div>)}
 
             <div className="flex gap-2 justify-center">
               <button onClick={() => { playSound('ui_tap'); start() }}

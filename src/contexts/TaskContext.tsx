@@ -453,9 +453,11 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     }
     window.addEventListener('eren:weekly-payout', credit)
     window.addEventListener('eren:comeback-payout', credit)
+    window.addEventListener('eren:games-payout', credit)
     return () => {
       window.removeEventListener('eren:weekly-payout', credit)
       window.removeEventListener('eren:comeback-payout', credit)
+      window.removeEventListener('eren:games-payout', credit)
     }
   }, [user?.id, addCoins])
 

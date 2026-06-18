@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
@@ -11,6 +10,8 @@ import { RefreshCw, ChevronLeft } from 'lucide-react'
 import { IconMouse, IconStar, IconCrown, IconCoin } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import { fireMinigameDone } from '@/lib/minigames'
+import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import GameCoinReward from '@/components/games/GameCoinReward'
 
 const MOUSE_SPEED_INIT = 2.2
 const GAME_DURATION    = 30
@@ -23,12 +24,12 @@ interface ConfettiPiece { id: number; x: number; vx: number; vy: number; color: 
 
 export default function CatchMouseGame() {
   const router = useRouter()
-  const supabase = createClient()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
   useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
-  const { completeTask, addCoins } = useTasks()
+  const { completeTask } = useTasks()
+  const { reportGameResult } = useGameRewards()
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const stateRef  = useRef({
@@ -44,6 +45,7 @@ export default function CatchMouseGame() {
   const [score, setScore]         = useState(0)
   const [timeLeft, setTimeLeft]   = useState(GAME_DURATION)
   const [gameState, setGameState] = useState<'idle' | 'running' | 'finished'>('idle')
+  const [reward, setReward] = useState<GameRewardResult | null>(null)
   const [combo, setCombo]         = useState(0)
   const [scoreBump, setScoreBump] = useState(0)         // increments each catch to retrigger pulse keyframe
   const [shakeNonce, setShakeNonce] = useState(0)       // increments on miss to retrigger shake
@@ -384,6 +386,7 @@ export default function CatchMouseGame() {
     setScore(0)
     setTimeLeft(GAME_DURATION)
     setGameState('running')
+    setReward(null)
     setCombo(0)
     setScorePops([])
     setMissMarks([])
@@ -438,11 +441,12 @@ export default function CatchMouseGame() {
       window.setTimeout(() => fireConfetti(), 220)
     }
 
+    // Coins + high-score save. reportGameResult always pays the participation
+    // floor (a weak run is never "nothing") and energy-gates the payout; the
+    // score row only persists when score > 0, inside the helper.
+    setReward(reportGameResult({ gameType: 'catch_mouse', score: s.score }))
     if (user?.id && s.score > 0) {
-      supabase.from('game_scores').insert({ user_id: user.id, game_type: 'catch_mouse', score: s.score }).then(({ error }) => { if (error) console.error('score save error:', error) })
       fireMinigameDone('catch_mouse', s.score)
-      const coinsEarned = Math.floor(s.score / 2)
-      if (coinsEarned > 0) addCoins(coinsEarned)
       completeTask('daily_game')
       if (s.score >= 30) completeTask('weekly_high_score')
       if (s.score > 5) applyAction(user.id, 'play')
@@ -741,10 +745,9 @@ export default function CatchMouseGame() {
                 <p className="font-pixel text-gray-500 mb-1" style={{ fontSize: 6 }}>
                   {score >= 15 ? '★ AMAZING! ★' : score >= 8 ? '★ GREAT JOB! ★' : 'GOOD EFFORT!'}
                 </p>
-                {score > 5 && (
-                  <div className="flex items-center gap-1 mb-4" style={{ color: '#A16207' }}>
-                    <IconCoin size={12} />
-                    <span className="font-pixel" style={{ fontSize: 7 }}>+{Math.floor(score / 2)} coins</span>
+                {reward && (
+                  <div className="mb-4">
+                    <GameCoinReward coins={reward.coins} blocked={reward.blocked} />
                   </div>
                 )}
                 <div className="flex gap-3 mt-1">

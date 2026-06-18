@@ -3,11 +3,12 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
+import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { fireMinigameDone } from '@/lib/minigames'
 
@@ -62,12 +63,12 @@ function minimax(board: Cell[], current: 'X' | 'O', depth = 0): { score: number;
 
 export default function TicTacToePage() {
   const router = useRouter()
-  const supabase = createClient()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
   useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
-  const { completeTask, addCoins } = useTasks()
+  const { completeTask } = useTasks()
+  const { reportGameResult } = useGameRewards()
 
   const [board, setBoard]   = useState<Cell[]>(() => Array(9).fill(null))
   const [turn, setTurn]     = useState<'X' | 'O'>('X')
@@ -83,6 +84,7 @@ export default function TicTacToePage() {
   // distracted and picks a random move instead of running minimax. Resets
   // each new match so it's a one-shot tactical option per round.
   const [canKnocked, setCanKnocked] = useState(false)
+  const [reward, setReward] = useState<GameRewardResult | null>(null)
   const matchSavedRef = useRef(false)
 
   // ─── Juice state ─────────────────────────────────────────────────────────
@@ -226,12 +228,11 @@ export default function TicTacToePage() {
     if (user?.id && !matchSavedRef.current) {
       matchSavedRef.current = true
       const newWins = result === 'won' ? wins + 1 : wins
+      // Coins = 8 on a win, participation floor on a loss/draw. Score =
+      // running win streak; the leaderboard's MAX surfaces the player's best
+      // streak, and the row only saves on a win.
+      setReward(reportGameResult({ gameType: 'tic_tac_toe', score: result === 'won' ? newWins : 0, won: result === 'won', saveScore: result === 'won' }))
       if (result === 'won') {
-        // Score = running win streak in this session; the leaderboard's MAX
-        // surfaces the player's best streak.
-        supabase.from('game_scores').insert({ user_id: user.id, game_type: 'tic_tac_toe', score: newWins })
-          .then(({ error }: { error: { message: string } | null }) => { if (error) console.error('ttt score save error:', error) })
-        addCoins(8)
         if (newWins >= 5) completeTask('weekly_high_score')
       }
       // Daily-game quest progresses on any finished match. fireMinigameDone
@@ -255,6 +256,7 @@ export default function TicTacToePage() {
     setPlacedCell(null)
     setFlashKey(null)
     setSpillBurst(false)
+    setReward(null)
     matchSavedRef.current = false
   }
 
@@ -580,12 +582,19 @@ export default function TicTacToePage() {
                 ))}
               </>
             )}
-            <span className="font-pixel text-white" style={{
-              fontSize: 11, letterSpacing: 2,
-              animation: status === 'won' ? 'tttBannerShimmer 1.6s ease-in-out infinite' : undefined,
-            }}>
-              {status === 'won' ? 'YOU WIN!' : status === 'lost' ? 'EREN WINS' : 'TIE!'}
-            </span>
+            <div className="flex flex-col items-center">
+              <span className="font-pixel text-white" style={{
+                fontSize: 11, letterSpacing: 2,
+                animation: status === 'won' ? 'tttBannerShimmer 1.6s ease-in-out infinite' : undefined,
+              }}>
+                {status === 'won' ? 'YOU WIN!' : status === 'lost' ? 'EREN WINS' : 'TIE!'}
+              </span>
+              {reward && (
+                <div className="mt-2 flex justify-center">
+                  <GameCoinReward coins={reward.coins} blocked={reward.blocked} />
+                </div>
+              )}
+            </div>
             <button onClick={() => { playSound('ui_tap'); newMatch() }}
               className="px-3 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-1.5"
               style={{

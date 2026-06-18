@@ -13,11 +13,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
+import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { IconStar, IconSparkles } from '@/components/PixelIcons'
 import { fireMinigameDone } from '@/lib/minigames'
@@ -252,12 +253,12 @@ type Phase = 'idle' | 'playing' | 'gameover'
 
 export default function PawDokuGame() {
   const router   = useRouter()
-  const supabase = createClient()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
   useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
-  const { completeTask, addCoins } = useTasks()
+  const { completeTask } = useTasks()
+  const { reportGameResult } = useGameRewards()
 
   const [phase,     setPhase]     = useState<Phase>('idle')
   const [grid,      setGrid]      = useState<Grid>(makeEmptyGrid)
@@ -277,6 +278,7 @@ export default function PawDokuGame() {
   const [vignette, setVignette] = useState(0)              // re-keys the game-over red vignette
   const [floater,   setFloater]   = useState<{ id: number; text: string; color: string } | null>(null)
   const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; color: string; dx: number; dy: number }>>([])
+  const [reward,    setReward]    = useState<GameRewardResult | null>(null)
   const savedRef = useRef(false)
   const STREAK_GRACE = 3
 
@@ -370,6 +372,7 @@ export default function PawDokuGame() {
     setStreakMisses(0)
     setPhase('playing')
     savedRef.current = false
+    setReward(null)
     setDraggedIdx(null)
   }
 
@@ -394,15 +397,15 @@ export default function PawDokuGame() {
     if (finalScore > 0) requestAnimationFrame(step)
     else setDisplayScore(0)
 
-    if (!savedRef.current && user?.id && score > 0) {
+    if (!savedRef.current && user?.id) {
       savedRef.current = true
-      supabase.from('game_scores').insert({ user_id: user.id, game_type: 'paw_doku', score })
-        .then(({ error }: { error: { message: string } | null }) => { if (error) console.error('paw_doku save:', error) })
-      fireMinigameDone('paw_doku', score)
-      addCoins(Math.min(80, Math.floor(score / 60)))
-      completeTask('daily_game')
-      if (score >= 1500) completeTask('weekly_high_score')
-      applyAction(user.id, 'play')
+      setReward(reportGameResult({ gameType: 'paw_doku', score }))
+      if (score > 0) {
+        fireMinigameDone('paw_doku', score)
+        completeTask('daily_game')
+        if (score >= 1500) completeTask('weekly_high_score')
+        applyAction(user.id, 'play')
+      }
     }
   }
 
@@ -972,6 +975,7 @@ export default function PawDokuGame() {
                 <span className="font-pixel" style={{ fontSize: 22, color: '#FDE68A' }}>{bestScore}</span>
               </div>
             </div>
+            {reward && (<div className="mb-3"><GameCoinReward coins={reward.coins} blocked={reward.blocked} /></div>)}
             <div className="flex items-center gap-2 mt-3">
               <button onClick={() => { playSound('ui_tap'); startGame() }}
                 className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"

@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
+import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import GameCoinReward from '@/components/games/GameCoinReward'
 import { RefreshCw, ChevronLeft } from 'lucide-react'
 import { playSound } from '@/lib/sounds'
 import { fireMinigameDone } from '@/lib/minigames'
@@ -37,14 +38,15 @@ const DANGER_FISH = ['🪼', '🦈', '🐙']
 
 export default function PawTapGame() {
   const router = useRouter()
-  const supabase = createClient()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
   useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
-  const { completeTask, addCoins } = useTasks()
+  const { completeTask } = useTasks()
+  const { reportGameResult } = useGameRewards()
 
   const [gameState, setGameState] = useState<'idle' | 'running' | 'finished'>('idle')
+  const [reward, setReward]       = useState<GameRewardResult | null>(null)
   const [score, setScore]         = useState(0)
   const [displayScore, setDisplayScore] = useState(0)
   const [scorePulse, setScorePulse] = useState<'none' | 'good' | 'bonus'>('none')
@@ -131,6 +133,7 @@ export default function PawTapGame() {
     comboRef.current = 0
     finishedRef.current = false
     timeLeftRef.current = GAME_DURATION
+    setReward(null)
     setScore(0)
     setDisplayScore(0)
     setTimeLeft(GAME_DURATION)
@@ -163,6 +166,7 @@ export default function PawTapGame() {
   function endGame() {
     if (finishedRef.current) return
     finishedRef.current = true
+    setReward(reportGameResult({ gameType: 'paw_tap', score: scoreRef.current }))
     clearInterval(timerRef.current!)
     clearInterval(fishTimerRef.current!)
     setGameState('finished')
@@ -201,9 +205,7 @@ export default function PawTapGame() {
     }
 
     if (user?.id && scoreRef.current > 0) {
-      supabase.from('game_scores').insert({ user_id: user.id, game_type: 'paw_tap', score: scoreRef.current }).then(({ error }) => { if (error) console.error('score save error:', error) })
       fireMinigameDone('paw_tap', scoreRef.current)
-      addCoins(scoreRef.current)
       completeTask('daily_game')
       if (scoreRef.current >= 30) completeTask('weekly_high_score')
       applyAction(user.id, 'play')
@@ -679,6 +681,7 @@ export default function PawTapGame() {
                   {score >= 60 ? '★ LEGENDARY ANGLER! ★' : score >= 40 ? '★ PAW MASTER! ★' : score >= 20 ? '★ NICE CATCH! ★' : 'KEEP PRACTICING!'}
                 </p>
                 {score > 5 && <p className="font-pixel text-[#FF6B9D] mb-4" style={{ fontSize: 6 }}>EREN IS THRILLED! ♥</p>}
+                {reward && (<div className="mb-3"><GameCoinReward coins={reward.coins} blocked={reward.blocked} /></div>)}
                 <div className="flex gap-3 mt-1">
                   <button onClick={() => { playSound('ui_tap'); startGame() }}
                     className="px-4 py-2 text-white active:translate-y-[1px] transition-transform flex items-center gap-2"

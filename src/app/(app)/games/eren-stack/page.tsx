@@ -3,11 +3,12 @@
 import { memo, useEffect, useReducer, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
+import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { IconCrown, IconStar } from '@/components/PixelIcons'
 import { fireMinigameDone } from '@/lib/minigames'
@@ -53,12 +54,12 @@ const SKIES = [
 
 export default function ErenStackGame() {
   const router = useRouter()
-  const supabase = createClient()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
   useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
-  const { completeTask, addCoins } = useTasks()
+  const { completeTask } = useTasks()
+  const { reportGameResult } = useGameRewards()
 
   const fieldRef = useRef<HTMLDivElement>(null)
   const [fieldDims, setFieldDims] = useState({ w: 360, h: 600 })
@@ -84,6 +85,7 @@ export default function ErenStackGame() {
   const [missFlash, setMissFlash] = useState(false)
   const [scorePulse, setScorePulse] = useState<{ id: number; perfect: boolean } | null>(null)
   const [streakBreak, setStreakBreak] = useState(0)
+  const [reward, setReward] = useState<GameRewardResult | null>(null)
 
   const stateRef       = useRef<'idle' | 'running' | 'gameover'>('idle')
   const towerRef       = useRef<Block[]>([])
@@ -133,6 +135,7 @@ export default function ErenStackGame() {
     setParticles([])
     setMissFlash(false)
     setScorePulse(null)
+    setReward(null)
     savedRef.current = false
 
     const baseW = fieldDims.w * STARTING_WIDTH
@@ -341,15 +344,15 @@ export default function ErenStackGame() {
     const finalScore = scoreRef()
     setBestScore(b => Math.max(b, finalScore))
 
-    if (!savedRef.current && user?.id && finalScore > 0) {
+    if (!savedRef.current && user?.id) {
       savedRef.current = true
-      supabase.from('game_scores').insert({ user_id: user.id, game_type: 'eren_stack', score: finalScore })
-        .then(({ error }: { error: { message: string } | null }) => { if (error) console.error('eren_stack save:', error) })
-      fireMinigameDone('eren_stack', finalScore)
-      addCoins(Math.min(60, finalScore))
-      completeTask('daily_game')
-      if (finalScore >= 25) completeTask('weekly_high_score')
-      applyAction(user.id, 'play')
+      setReward(reportGameResult({ gameType: 'eren_stack', score: finalScore }))
+      if (finalScore > 0) {
+        fireMinigameDone('eren_stack', finalScore)
+        completeTask('daily_game')
+        if (finalScore >= 25) completeTask('weekly_high_score')
+        applyAction(user.id, 'play')
+      }
     }
   }
 
@@ -614,6 +617,7 @@ export default function ErenStackGame() {
                   <span className="font-pixel" style={{ fontSize: 22, color: '#FDE68A' }}>{bestScore}</span>
                 </div>
               </div>
+              {reward && (<div className="mb-3"><GameCoinReward coins={reward.coins} blocked={reward.blocked} /></div>)}
               <div className="flex items-center gap-2 mt-3">
                 <button onClick={() => { playSound('ui_tap'); reset() }}
                   className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"

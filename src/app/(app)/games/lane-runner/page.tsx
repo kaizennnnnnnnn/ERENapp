@@ -3,11 +3,12 @@
 import { memo, useEffect, useReducer, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
+import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { IconCoin, IconStar } from '@/components/PixelIcons'
 import { fireMinigameDone } from '@/lib/minigames'
@@ -75,12 +76,12 @@ function isObstacle(v: Variant): boolean {
 
 export default function LaneRunnerGame() {
   const router = useRouter()
-  const supabase = createClient()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
   useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
-  const { completeTask, addCoins } = useTasks()
+  const { completeTask } = useTasks()
+  const { reportGameResult } = useGameRewards()
 
   const fieldRef = useRef<HTMLDivElement>(null)
   const [fieldDims, setFieldDims] = useState({ w: 360, h: 600 })
@@ -109,6 +110,7 @@ export default function LaneRunnerGame() {
   const [parallaxOffset, setParallaxOffset] = useState(0)
   const [gameOverScore, setGameOverScore] = useState(0)
   const [isNewBest, setIsNewBest] = useState(false)
+  const [reward, setReward] = useState<GameRewardResult | null>(null)
 
   const stateRef       = useRef<'idle' | 'running' | 'gameover'>('idle')
   const itemsRef       = useRef<Item[]>([])
@@ -410,6 +412,7 @@ export default function LaneRunnerGame() {
     setParallaxOffset(0)
     setIsNewBest(false)
     setGameOverScore(0)
+    setReward(null)
     stripeRef.current = 0
 
     const now = performance.now()
@@ -440,15 +443,15 @@ export default function LaneRunnerGame() {
       // Fire new-best fanfare slightly after the crash sound
       setTimeout(() => playSound('lr_new_best'), 280)
     }
-    if (!savedRef.current && user?.id && finalScore > 0) {
+    if (!savedRef.current && user?.id) {
       savedRef.current = true
-      supabase.from('game_scores').insert({ user_id: user.id, game_type: 'lane_runner', score: finalScore })
-        .then(({ error }: { error: { message: string } | null }) => { if (error) console.error('lane_runner save:', error) })
-      fireMinigameDone('lane_runner', finalScore)
-      addCoins(Math.min(60, Math.floor(finalScore / 8)))
-      completeTask('daily_game')
-      if (finalScore >= 200) completeTask('weekly_high_score')
-      applyAction(user.id, 'play')
+      setReward(reportGameResult({ gameType: 'lane_runner', score: finalScore }))
+      if (finalScore > 0) {
+        fireMinigameDone('lane_runner', finalScore)
+        completeTask('daily_game')
+        if (finalScore >= 200) completeTask('weekly_high_score')
+        applyAction(user.id, 'play')
+      }
     }
   }
 
@@ -833,6 +836,7 @@ export default function LaneRunnerGame() {
                 </div>
               </div>
               <span className="font-pixel" style={{ fontSize: 6, color: '#9CA3AF', marginTop: 4 }}>BEST {bestScore}</span>
+              {reward && (<div className="mb-3"><GameCoinReward coins={reward.coins} blocked={reward.blocked} /></div>)}
               <div className="flex items-center gap-2 mt-2">
                 <button onClick={() => { playSound('ui_tap'); reset() }}
                   className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"

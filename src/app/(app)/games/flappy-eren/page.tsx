@@ -3,11 +3,12 @@
 import { memo, useEffect, useReducer, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
+import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { fireMinigameDone } from '@/lib/minigames'
 
@@ -111,12 +112,12 @@ const STAR_POSITIONS = Array.from({ length: 38 }, () => ({
 
 export default function FlappyErenGame() {
   const router = useRouter()
-  const supabase = createClient()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
   useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
-  const { completeTask, addCoins } = useTasks()
+  const { completeTask } = useTasks()
+  const { reportGameResult } = useGameRewards()
 
   const fieldRef = useRef<HTMLDivElement>(null)
   const [fieldDims, setFieldDims] = useState({ w: 360, h: 600 })
@@ -142,6 +143,7 @@ export default function FlappyErenGame() {
   const [redFlashKey, setRedFlashKey] = useState(0)
   const [banner, setBanner]       = useState<ThemeBanner | null>(null)
   const [milestoneKey, setMilestoneKey] = useState<number | null>(null)
+  const [reward, setReward]       = useState<GameRewardResult | null>(null)
   const lastThemeIndexRef = useRef(0)
   const milestonesHitRef  = useRef<Set<number>>(new Set())
   const prevBestRef = useRef(0)
@@ -388,6 +390,7 @@ export default function FlappyErenGame() {
     setBanner(null)
     setMilestoneKey(null)
     setIsNewBest(false)
+    setReward(null)
     stateRef.current = 'running'
     setState('running')
     rafRef.current = requestAnimationFrame(loop)
@@ -428,17 +431,17 @@ export default function FlappyErenGame() {
       setDisplayBest(oldBest)
     }
 
+    // Coins + high-score save run on EVERY finished run via the shared reward
+    // hook — the participation floor pays even on a 0-pipe crash.
+    setReward(reportGameResult({ gameType: 'flappy_eren', score: finalScore }))
+
     if (user?.id) {
       // Daily-game credit fires on ANY finished run — even a 0-score one counts
-      // as having played the game today. The score insert + coins still gate
-      // on > 0 since a 0 row is junk data.
+      // as having played the game today.
       completeTask('daily_game')
       applyAction(user.id, 'play')
       if (finalScore > 0) {
-        supabase.from('game_scores').insert({ user_id: user.id, game_type: 'flappy_eren', score: finalScore })
-          .then(({ error }: { error: { message: string } | null }) => { if (error) console.error('flappy score save error:', error) })
         fireMinigameDone('flappy_eren', finalScore)
-        addCoins(finalScore * 2)
         if (finalScore >= 15) completeTask('weekly_high_score')
       }
     }
@@ -700,6 +703,9 @@ export default function FlappyErenGame() {
                   }}>{displayBest}</span>
                 </div>
               </div>
+              {reward && (
+                <div className="mb-3"><GameCoinReward coins={reward.coins} blocked={reward.blocked} /></div>
+              )}
               <div className="flex items-center gap-2 mt-3">
                 <button onClick={() => { playSound('ui_tap'); reset() }}
                   className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"

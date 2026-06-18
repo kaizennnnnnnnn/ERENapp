@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
+import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { IconPaw, IconStar } from '@/components/PixelIcons'
 import { fireMinigameDone } from '@/lib/minigames'
@@ -29,7 +30,6 @@ const FLASH_MS_MIN  = 200
 const GAP_MS_MIN    = 60
 const FAIL_MS   = 700
 const PRE_SHOW_MS = 600
-const COIN_CAP = 40
 
 function showTimings(seqLen: number) {
   // Smooth ramp: full speed by ~round 18. Each round shaves a small step.
@@ -65,12 +65,12 @@ type ScorePop = { id: number; text: string; color: string }
 
 export default function ErenSaysGame() {
   const router = useRouter()
-  const supabase = createClient()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
   useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
-  const { completeTask, addCoins } = useTasks()
+  const { completeTask } = useTasks()
+  const { reportGameResult } = useGameRewards()
 
   const [phase, setPhase]         = useState<'idle' | 'showing' | 'awaiting' | 'fail' | 'gameover'>('idle')
   const [round, setRound]         = useState(0)
@@ -85,7 +85,7 @@ export default function ErenSaysGame() {
   const [particles, setParticles] = useState<Particle[]>([])
   const [scorePops, setScorePops] = useState<ScorePop[]>([])
   const [displayedScore, setDisplayedScore] = useState(0) // count-up score on gameover
-  const [coinsAwarded, setCoinsAwarded] = useState(0)
+  const [reward, setReward]       = useState<GameRewardResult | null>(null)
   const [userStep, setUserStep]   = useState(0)           // mirrors userIdxRef for render
 
   const seqRef     = useRef<number[]>([])
@@ -164,7 +164,7 @@ export default function ErenSaysGame() {
     setParticles([])
     setScorePops([])
     setDisplayedScore(0)
-    setCoinsAwarded(0)
+    setReward(null)
     showSequence(seqRef.current)
   }
 
@@ -239,17 +239,15 @@ export default function ErenSaysGame() {
   }
 
   function saveScore(reached: number) {
-    if (savedRef.current || !user?.id || reached <= 0) return
+    if (savedRef.current || !user?.id) return
     savedRef.current = true
-    supabase.from('game_scores').insert({ user_id: user.id, game_type: 'eren_says', score: reached })
-      .then(({ error }: { error: { message: string } | null }) => { if (error) console.error('eren_says save:', error) })
-    fireMinigameDone('eren_says', reached)
-    const coins = Math.min(COIN_CAP, reached * 2)
-    setCoinsAwarded(coins)
-    addCoins(coins)
-    completeTask('daily_game')
-    if (reached >= 8) completeTask('weekly_high_score')
-    applyAction(user.id, 'play')
+    setReward(reportGameResult({ gameType: 'eren_says', score: reached }))
+    if (reached > 0) {
+      fireMinigameDone('eren_says', reached)
+      completeTask('daily_game')
+      if (reached >= 8) completeTask('weekly_high_score')
+      applyAction(user.id, 'play')
+    }
   }
 
   function reset() {
@@ -269,12 +267,11 @@ export default function ErenSaysGame() {
       setParticles([])
       setScorePops([])
       setDisplayedScore(0)
-      setCoinsAwarded(0)
+      setReward(null)
     }, 50)
   }
 
   const reachedScore = Math.max(0, seqRef.current.length - 1)
-  const coinsCap = reachedScore * 2 >= COIN_CAP
 
   return (
     <div className={`fixed inset-0 z-40 flex flex-col game-shell${shake ? ' shake' : ''}`} style={{
@@ -499,16 +496,10 @@ export default function ErenSaysGame() {
                 <span className="font-pixel" style={{ fontSize: 22, color: '#FDE68A' }}>{bestRound}</span>
               </div>
             </div>
-            {coinsAwarded > 0 && (
-              <div className="font-pixel mt-1 px-2 py-1" style={{
-                fontSize: 7,
-                letterSpacing: 1.5,
-                color: coinsCap ? '#1F1100' : '#FDE68A',
-                background: coinsCap ? 'linear-gradient(135deg, #FBBF24, #F59E0B)' : 'rgba(0,0,0,0.4)',
-                border: coinsCap ? '2px solid #78350F' : '2px solid rgba(253,230,138,0.4)',
-                borderRadius: 3,
-                boxShadow: coinsCap ? '0 2px 0 #78350F' : 'none',
-              }}>+{coinsAwarded} COINS{coinsCap ? ' — MAX!' : ''}</div>
+            {reward && (
+              <div className="mb-3">
+                <GameCoinReward coins={reward.coins} blocked={reward.blocked} />
+              </div>
             )}
             <div className="flex items-center gap-2 mt-3">
               <button onClick={() => { playSound('ui_tap'); reset() }}

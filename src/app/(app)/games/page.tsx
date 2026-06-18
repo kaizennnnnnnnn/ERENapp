@@ -15,6 +15,8 @@ import {
   IconScroll, IconLightning, IconSwords, IconHouse, IconCatFace,
 } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
+import { useGamesWeekly } from '@/hooks/useGamesWeekly'
+import WeeklyGamesChampionPopup from '@/components/games/WeeklyGamesChampionPopup'
 import type { GameType } from '@/types'
 
 type GameMeta = {
@@ -545,6 +547,8 @@ function PawDokuScene({ size }: { size: number }) {
 export default function GamesPage() {
   const router = useRouter()
   const { user } = useAuth()
+  const { weeklyChampion, claim: claimWeekly, partnerName } = useGamesWeekly()
+  const [champDismissed, setChampDismissed] = useState(false)
   const { setHideStats } = useCare()
   // Hide the persistent StatsHeader on the games page — the page has its
   // own glass header with a back button, and the StatsHeader was covering
@@ -810,6 +814,15 @@ export default function GamesPage() {
           26%, 100% { transform: translateX(130%); }
         }
       `}</style>
+
+      {weeklyChampion && !weeklyChampion.acknowledged && !champDismissed && (
+        <WeeklyGamesChampionPopup
+          row={weeklyChampion}
+          partnerFirstName={(partnerName ?? 'Partner').split(' ')[0]}
+          onClaim={claimWeekly}
+          onClose={() => setChampDismissed(true)}
+        />
+      )}
     </div>
   )
 }

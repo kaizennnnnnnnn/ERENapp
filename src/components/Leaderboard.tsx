@@ -1,17 +1,23 @@
 'use client'
 
 // ─── Leaderboard modal ─────────────────────────────────────────────────────
-// Premium dark/CRT scoreboard for the household. Each game gets one tight
-// row: icon · name · score-box · score-box. Winner is highlighted with a
-// gold border + subtle crown chip; ties show a yellow chip; missing scores
-// show a dash. Sticky header (with X) stays put while the body scrolls,
-// and a big CLOSE button at the bottom makes the exit unmissable.
+// Premium dark/CRT scoreboard for the household. Two modes:
+//   • THIS WEEK (default) — the competition. Per-game BEST scores for the
+//     current ISO week, side by side. The champion is whoever won MORE games
+//     (higher score in more individual games), NOT the sum of scores. Shows a
+//     countdown to the Monday reset and a claim banner for last week's prize.
+//   • ALL-TIME — every game's all-time best, side by side (records that are
+//     remembered forever). Same games-won metric for the headline.
+// Winner is highlighted with a gold border + crown chip; ties show a chip;
+// missing scores show a dash.
 
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { withRetry } from '@/lib/supabaseRetry'
 import { useAuth } from '@/hooks/useAuth'
+import { useGamesWeekly } from '@/hooks/useGamesWeekly'
+import { countGamesWon } from '@/lib/gameRewards'
 import {
   IconStar, IconCrown,
   IconMouse, IconFish, IconScroll, IconMeat, IconLightning,
@@ -41,6 +47,8 @@ interface PlayerScores {
 }
 
 interface Props { onClose: () => void }
+
+type Mode = 'week' | 'alltime'
 
 // ── Score-box atom ─────────────────────────────────────────────────────────
 function ScoreBox({ score, winner, side, big }: {
@@ -121,20 +129,36 @@ function AvatarDisc({ letter, side, label, big }: {
   )
 }
 
+function formatCountdown(resetAt: Date | undefined): string {
+  if (!resetAt) return ''
+  const ms = resetAt.getTime() - Date.now()
+  if (ms <= 0) return 'RESETTING…'
+  const totalH = Math.floor(ms / 3600000)
+  const days = Math.floor(totalH / 24)
+  const hours = totalH % 24
+  if (days > 0) return `RESETS IN ${days}d ${hours}h`
+  if (hours > 0) return `RESETS IN ${hours}h`
+  const mins = Math.max(1, Math.floor(ms / 60000))
+  return `RESETS IN ${mins}m`
+}
+
 export default function Leaderboard({ onClose }: Props) {
   const { user, profile } = useAuth()
   const supabase = createClient()
   const [players, setPlayers] = useState<PlayerScores[]>([])
   const [loading, setLoading] = useState(true)
+  const [mode, setMode] = useState<Mode>('week')
+  const [claimed, setClaimed] = useState(false)
+
+  // Weekly competition: this-week per-game bests + games-won + last-week prize.
+  const { standings, weeklyChampion, claim, partnerName } = useGamesWeekly()
 
   useEffect(() => {
     if (!user?.id || !profile) return
     async function load() {
       // Both reads go through withRetry — a transient Supabase 503 resolves
       // as { data: null, error } without throwing, which used to read as
-      // "no partner" / "no scores" and render a false solo or tie view. If
-      // a read still fails after retries, bail and stay on the loading
-      // state rather than show wrong standings.
+      // "no partner" / "no scores" and render a false solo or tie view.
       const profilesQuery = () => profile!.household_id
         ? supabase.from('profiles').select('*').eq('household_id', profile!.household_id)
         : supabase.from('profiles').select('*').eq('id', user!.id)
@@ -170,27 +194,44 @@ export default function Leaderboard({ onClose }: Props) {
   const me      = sorted[0]
   const partner = sorted[1]
 
-  const totals = sorted.map(p => GAMES.reduce((s, g) => s + (p.best[g.id] ?? 0), 0))
-  const myTotal      = totals[0] ?? 0
-  const partnerTotal = totals[1] ?? 0
+  // Per-game bests for the active mode.
+  const myAll      = me?.best ?? {}
+  const partnerAll = partner?.best ?? {}
+  const myBest      = mode === 'week' ? (standings?.myBest ?? {}) : myAll
+  const partnerBest = mode === 'week' ? (standings?.partnerBest ?? {}) : partnerAll
+
+  // Games-won metric (NOT a sum of scores).
+  const wins = mode === 'week'
+    ? { my: standings?.myWins ?? 0, their: standings?.partnerWins ?? 0 }
+    : (() => { const r = countGamesWon(myAll, partnerAll); return { my: r.myWins, their: r.partnerWins } })()
+  const totalDecided = wins.my + wins.their
+
   const winnerSide: 'me' | 'them' | 'tie' | 'solo' = !partner ? 'solo'
-    : myTotal === partnerTotal ? 'tie'
-    : myTotal > partnerTotal ? 'me' : 'them'
+    : wins.my === wins.their ? 'tie'
+    : wins.my > wins.their ? 'me' : 'them'
 
   function handleClose() {
     playSound('ui_back')
     onClose()
   }
 
+  async function handleClaim() {
+    setClaimed(true)
+    await claim()
+  }
+
   const meLetter = me?.profile.name?.[0]?.toUpperCase() ?? '?'
   const partnerLetter = partner?.profile.name?.[0]?.toUpperCase() ?? '?'
-  const partnerLabel = partner?.profile.name?.split(' ')[0]?.toUpperCase() ?? 'P2'
+  const partnerLabel = partner?.profile.name?.split(' ')[0]?.toUpperCase()
+    ?? partnerName?.split(' ')[0]?.toUpperCase() ?? 'P2'
+
+  const countdown = mode === 'week' ? formatCountdown(standings?.resetAt) : ''
+  const showClaimBanner = mode === 'week' && !claimed && !!weeklyChampion
+    && !weeklyChampion.payout_paid && weeklyChampion.payout_coins > 0
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-3"
       style={{
-        // Pad the centring container by the iOS safe area so the panel
-        // can't get vertically-centered into the status bar.
         paddingTop:    'calc(var(--safe-top) + 12px)',
         paddingBottom: '12px',
         animation: 'lbFade 0.2s ease-out forwards',
@@ -212,9 +253,7 @@ export default function Leaderboard({ onClose }: Props) {
           overflow: 'hidden',
         }}>
 
-        {/* Drifting starfield background — adds the "magical" vibe.
-            Two layered gradients animated horizontally; sits behind all
-            content but in front of the panel's solid bg. */}
+        {/* Drifting starfield */}
         <div className="absolute inset-0 pointer-events-none" style={{
           backgroundImage: 'radial-gradient(circle, #FBBF24 1px, transparent 1.5px), radial-gradient(circle, #A78BFA 1px, transparent 1.5px)',
           backgroundSize: '38px 38px, 56px 56px',
@@ -224,7 +263,7 @@ export default function Leaderboard({ onClose }: Props) {
           zIndex: 1,
         }} />
 
-        {/* CRT scanline overlay (over everything inside panel) */}
+        {/* CRT scanline overlay */}
         <div className="absolute inset-0 pointer-events-none" style={{
           background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.10) 3px, rgba(0,0,0,0.10) 4px)',
           zIndex: 30,
@@ -235,18 +274,16 @@ export default function Leaderboard({ onClose }: Props) {
           zIndex: 30,
         }} />
 
-        {/* ─── HEADER (sticky top, with close X) ──────────────────────────── */}
+        {/* ─── HEADER ──────────────────────────────────────────────────────── */}
         <div className="relative flex items-center px-4 py-3 flex-shrink-0"
           style={{
             background: 'linear-gradient(180deg, rgba(76,29,149,0.5) 0%, rgba(46,15,92,0.4) 100%)',
             borderBottom: '2px solid rgba(251,191,36,0.55)',
             zIndex: 20,
           }}>
-          {/* Corner gold pixels */}
           <div style={{ position: 'absolute', top: 4, left: 4, width: 4, height: 4, background: '#FFD700' }} />
           <div style={{ position: 'absolute', top: 4, right: 4, width: 4, height: 4, background: '#FFD700' }} />
 
-          {/* Spacer for centring */}
           <div style={{ width: 32 }} />
 
           <div className="flex-1 flex flex-col items-center gap-0.5">
@@ -255,13 +292,14 @@ export default function Leaderboard({ onClose }: Props) {
               <span className="font-pixel" style={{
                 fontSize: 11, color: '#FFD700', letterSpacing: 3,
                 textShadow: '0 0 8px rgba(255,215,0,0.55)',
-              }}>HIGH SCORES</span>
+              }}>LEADERBOARD</span>
               <IconStar size={12} />
             </div>
-            <div className="font-pixel" style={{ fontSize: 5, color: '#A080C0', letterSpacing: 1.5 }}>HOUSEHOLD LEADERBOARD</div>
+            <div className="font-pixel" style={{ fontSize: 5, color: '#A080C0', letterSpacing: 1.5 }}>
+              {mode === 'week' ? (countdown || 'THIS WEEK') : 'ALL-TIME RECORDS'}
+            </div>
           </div>
 
-          {/* Close X — large, obvious, gold-ringed */}
           <button onClick={handleClose} aria-label="Close leaderboard"
             className="flex items-center justify-center active:scale-90 transition-transform"
             style={{
@@ -276,7 +314,32 @@ export default function Leaderboard({ onClose }: Props) {
           </button>
         </div>
 
-        {/* ─── BODY (scrollable) ──────────────────────────────────────────── */}
+        {/* ─── MODE TOGGLE ─────────────────────────────────────────────────── */}
+        <div className="relative flex gap-1.5 px-4 pt-3 flex-shrink-0" style={{ zIndex: 20 }}>
+          {([['week', 'THIS WEEK'], ['alltime', 'ALL-TIME']] as Array<[Mode, string]>).map(([m, label]) => {
+            const active = mode === m
+            return (
+              <button key={m} onClick={() => { playSound('ui_tap'); setMode(m) }}
+                className="flex-1 py-1.5 active:translate-y-[1px] transition-transform"
+                style={{
+                  background: active
+                    ? 'linear-gradient(180deg, rgba(251,191,36,0.28), rgba(180,83,9,0.18))'
+                    : 'rgba(255,255,255,0.03)',
+                  border: `1.5px solid ${active ? '#FBBF24' : 'rgba(167,139,250,0.25)'}`,
+                  borderRadius: 5,
+                  boxShadow: active ? 'inset 0 1px 0 rgba(251,191,36,0.3), 0 0 10px rgba(251,191,36,0.25)' : 'none',
+                }}>
+                <span className="font-pixel" style={{
+                  fontSize: 7, letterSpacing: 1.5,
+                  color: active ? '#FDE68A' : '#6A5A8A',
+                  textShadow: active ? '0 0 6px rgba(251,191,36,0.5)' : 'none',
+                }}>{label}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* ─── BODY ────────────────────────────────────────────────────────── */}
         <div className="relative flex-1 overflow-y-auto px-4 pt-3 pb-4" style={{ scrollbarWidth: 'thin' }}>
           {loading ? (
             <div className="flex flex-col items-center justify-center gap-4 py-10">
@@ -297,14 +360,29 @@ export default function Leaderboard({ onClose }: Props) {
             </div>
           ) : (
             <>
-              {/* Avatars row — head-to-head with a glowing VS divider. The
-                  current leader gets a hovering crown that bobs gently. */}
+              {/* Last week's prize claim banner (week mode) */}
+              {showClaimBanner && (
+                <button onClick={handleClaim}
+                  className="w-full mb-3 py-2 px-3 flex items-center justify-center gap-2 active:translate-y-[1px] transition-transform"
+                  style={{
+                    background: 'linear-gradient(180deg, rgba(255,215,0,0.22), rgba(255,140,40,0.1))',
+                    border: '2px solid #FFD700',
+                    borderRadius: 5,
+                    boxShadow: '0 0 14px rgba(255,215,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
+                  }}>
+                  <IconCoin size={13} />
+                  <span className="font-pixel" style={{ fontSize: 7, color: '#FFD700', letterSpacing: 1.2, textShadow: '0 0 6px rgba(255,215,0,0.6)' }}>
+                    LAST WEEK&apos;S PRIZE — CLAIM +{weeklyChampion!.payout_coins}
+                  </span>
+                </button>
+              )}
+
+              {/* Avatars row — crown on the games-won leader */}
               <div className="flex items-center justify-center gap-3 mb-1 relative" style={{ minHeight: 64 }}>
                 <div className="relative">
                   {winnerSide === 'me' && (
                     <div className="absolute pointer-events-none" style={{
-                      left: '50%', top: -16,
-                      transform: 'translateX(-50%)',
+                      left: '50%', top: -16, transform: 'translateX(-50%)',
                       animation: 'lbCrownBob 1.6s ease-in-out infinite',
                       filter: 'drop-shadow(0 0 6px rgba(255,215,0,0.85))',
                     }}>
@@ -314,7 +392,6 @@ export default function Leaderboard({ onClose }: Props) {
                   <AvatarDisc letter={meLetter} side="me" label="YOU" big={winnerSide === 'me'} />
                 </div>
 
-                {/* VS divider — only when there's a partner */}
                 {partner && (
                   <div className="flex flex-col items-center" style={{ width: 36 }}>
                     <span className="font-pixel" style={{
@@ -329,8 +406,7 @@ export default function Leaderboard({ onClose }: Props) {
                 <div className="relative">
                   {winnerSide === 'them' && (
                     <div className="absolute pointer-events-none" style={{
-                      left: '50%', top: -16,
-                      transform: 'translateX(-50%)',
+                      left: '50%', top: -16, transform: 'translateX(-50%)',
                       animation: 'lbCrownBob 1.6s ease-in-out infinite',
                       filter: 'drop-shadow(0 0 6px rgba(255,215,0,0.85))',
                     }}>
@@ -356,10 +432,10 @@ export default function Leaderboard({ onClose }: Props) {
                 borderImage: 'linear-gradient(90deg, transparent, rgba(255,215,0,0.7), transparent) 1',
               }} />
 
-              {/* Game rows — single line each: icon + name + score boxes */}
+              {/* Game rows — per-game best for the active mode */}
               {GAMES.map(game => {
-                const s0 = me?.best[game.id] ?? 0
-                const s1 = partner?.best[game.id] ?? 0
+                const s0 = myBest[game.id] ?? 0
+                const s1 = partnerBest[game.id] ?? 0
                 const meWins   = !!partner && s0 > s1 && s0 > 0
                 const themWins = !!partner && s1 > s0 && s1 > 0
                 const tied     = !!partner && s0 === s1 && s0 > 0
@@ -390,19 +466,19 @@ export default function Leaderboard({ onClose }: Props) {
                 )
               })}
 
-              {/* Total row */}
+              {/* Games-won row (replaces the old raw-score TOTAL) */}
               <div className="flex items-center mt-3 pt-3 px-2"
                 style={{ borderTop: '2px solid #FFD700' }}>
                 <div className="flex-shrink-0 mr-2" style={{ width: 18, display: 'flex', justifyContent: 'center' }}>
                   <IconCrown size={14} />
                 </div>
-                <span className="flex-1 font-pixel" style={{ fontSize: 8, color: '#FFD700', letterSpacing: 2 }}>TOTAL</span>
-                <ScoreBox score={myTotal}      winner={winnerSide === 'me'}   side="me"   big />
+                <span className="flex-1 font-pixel" style={{ fontSize: 8, color: '#FFD700', letterSpacing: 2 }}>GAMES WON</span>
+                <ScoreBox score={wins.my}    winner={winnerSide === 'me'}   side="me"   big />
                 <div style={{ width: 6 }} />
-                <ScoreBox score={partnerTotal} winner={winnerSide === 'them'} side="them" big />
+                <ScoreBox score={wins.their} winner={winnerSide === 'them'} side="them" big />
               </div>
 
-              {/* Winner / tie / invite banner */}
+              {/* Banner */}
               {winnerSide === 'solo' && (
                 <div className="mt-4 py-2 px-3 flex items-center justify-center"
                   style={{ background: 'rgba(160,120,255,0.08)', borderRadius: 4, border: '1px dashed #3A2A60' }}>
@@ -411,7 +487,15 @@ export default function Leaderboard({ onClose }: Props) {
                   </span>
                 </div>
               )}
-              {winnerSide === 'tie' && (
+              {winnerSide !== 'solo' && totalDecided === 0 && (
+                <div className="mt-4 py-2 px-3 flex items-center justify-center"
+                  style={{ background: 'rgba(160,120,255,0.08)', borderRadius: 4, border: '1px dashed #3A2A60' }}>
+                  <span className="font-pixel" style={{ fontSize: 6, color: '#7A5AA0', lineHeight: 1.8, letterSpacing: 1, textAlign: 'center' }}>
+                    {mode === 'week' ? 'NO GAMES PLAYED YET THIS WEEK — GO COMPETE!' : 'PLAY A FEW GAMES TO SET RECORDS!'}
+                  </span>
+                </div>
+              )}
+              {winnerSide === 'tie' && totalDecided > 0 && (
                 <div className="mt-4 py-2 px-3 flex items-center justify-center gap-2"
                   style={{ background: 'rgba(160,120,255,0.10)', borderRadius: 4, border: '1px dashed #A080C0' }}>
                   <span className="font-pixel" style={{ fontSize: 7, color: '#C0A0F0', letterSpacing: 2 }}>IT&apos;S A TIE!</span>
@@ -426,12 +510,10 @@ export default function Leaderboard({ onClose }: Props) {
                     boxShadow: '0 0 16px rgba(255,215,0,0.5), inset 0 1px 0 rgba(255,255,255,0.2), 0 0 30px rgba(251,191,36,0.25)',
                     animation: 'lbWinnerPulse 2.2s ease-in-out infinite',
                   }}>
-                  {/* Sweeping shine across the banner */}
                   <div className="absolute inset-0 pointer-events-none" style={{
                     background: 'linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.45) 50%, transparent 62%)',
                     animation: 'lbWinnerShine 3.4s ease-in-out infinite',
                   }} />
-                  {/* Corner gold pixels */}
                   <div style={{ position: 'absolute', top: 3, left: 3, width: 4, height: 4, background: '#FFFFFF', boxShadow: '0 0 4px #FFD700' }} />
                   <div style={{ position: 'absolute', top: 3, right: 3, width: 4, height: 4, background: '#FFFFFF', boxShadow: '0 0 4px #FFD700' }} />
                   <div style={{ position: 'absolute', bottom: 3, left: 3, width: 4, height: 4, background: '#FFFFFF', boxShadow: '0 0 4px #FFD700' }} />
@@ -442,7 +524,9 @@ export default function Leaderboard({ onClose }: Props) {
                       <IconCrown size={16} />
                     </div>
                     <div className="flex flex-col items-center gap-0.5">
-                      <span className="font-pixel" style={{ fontSize: 5, color: '#FDE68A', letterSpacing: 3, opacity: 0.85 }}>★ CHAMPION ★</span>
+                      <span className="font-pixel" style={{ fontSize: 5, color: '#FDE68A', letterSpacing: 3, opacity: 0.85 }}>
+                        ★ {mode === 'week' ? 'THIS WEEK' : 'ALL-TIME'} ★
+                      </span>
                       <span className="font-pixel" style={{ fontSize: 9, color: '#FFD700', letterSpacing: 2.5, textShadow: '0 0 8px rgba(255,215,0,0.8), 0 1px 0 rgba(0,0,0,0.5)' }}>
                         {winnerSide === 'me' ? 'YOU ARE WINNING!' : `${partnerLabel} IS WINNING!`}
                       </span>
@@ -457,7 +541,7 @@ export default function Leaderboard({ onClose }: Props) {
           )}
         </div>
 
-        {/* ─── FOOTER (sticky bottom, prominent CLOSE) ────────────────────── */}
+        {/* ─── FOOTER ──────────────────────────────────────────────────────── */}
         <div className="relative flex-shrink-0 px-4 py-3"
           style={{
             background: 'linear-gradient(0deg, rgba(76,29,149,0.5) 0%, rgba(46,15,92,0.4) 100%)',
@@ -489,32 +573,26 @@ export default function Leaderboard({ onClose }: Props) {
           0%   { transform: scale(0.85); opacity: 0; }
           100% { transform: scale(1);    opacity: 1; }
         }
-        /* Drifting starfield in the panel background */
         @keyframes lbStars {
           from { background-position: 0 0, 22px 28px; }
           to   { background-position: 200px 0, 222px 28px; }
         }
-        /* VS divider — subtle pulse so the head-to-head feels alive */
         @keyframes lbVsPulse {
           0%, 100% { transform: scale(1);    text-shadow: 0 0 6px rgba(255,215,0,0.5); }
           50%      { transform: scale(1.18); text-shadow: 0 0 14px rgba(255,215,0,0.9); }
         }
-        /* Crown bobbing above the leader's avatar */
         @keyframes lbCrownBob {
           0%, 100% { transform: translateX(-50%) translateY(0); }
           50%      { transform: translateX(-50%) translateY(-3px); }
         }
-        /* Twinkling crowns on the winner banner */
         @keyframes lbCrownTwinkle {
           0%, 100% { transform: scale(1)    rotate(-4deg); opacity: 1;   }
           50%      { transform: scale(1.18) rotate(6deg);  opacity: 0.85; }
         }
-        /* Winner banner halo pulse */
         @keyframes lbWinnerPulse {
           0%, 100% { box-shadow: 0 0 16px rgba(255,215,0,0.5),  inset 0 1px 0 rgba(255,255,255,0.2), 0 0 30px rgba(251,191,36,0.25); }
           50%      { box-shadow: 0 0 24px rgba(255,215,0,0.75), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 50px rgba(251,191,36,0.4); }
         }
-        /* Sweeping shine across the winner banner */
         @keyframes lbWinnerShine {
           0%, 25%   { transform: translateX(-130%); }
           70%, 100% { transform: translateX(130%); }

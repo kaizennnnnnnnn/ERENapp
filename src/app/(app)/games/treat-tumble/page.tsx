@@ -2,14 +2,15 @@
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
+import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import GameCoinReward from '@/components/games/GameCoinReward'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
 import {
-  IconMeat, IconFish, IconHeart, IconStar, IconCrown, IconCoin, IconBook,
+  IconMeat, IconFish, IconHeart, IconStar, IconCrown, IconBook,
 } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import { fireMinigameDone } from '@/lib/minigames'
@@ -415,12 +416,12 @@ const MemoIconMeat = memo(IconMeat)
 // ── Component ────────────────────────────────────────────────────────────────
 export default function TreatTumbleGame() {
   const router = useRouter()
-  const supabase = createClient()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
   useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
-  const { completeTask, addCoins } = useTasks()
+  const { completeTask } = useTasks()
+  const { reportGameResult } = useGameRewards()
 
   const sceneRef = useRef<HTMLDivElement>(null)
 
@@ -443,9 +444,9 @@ export default function TreatTumbleGame() {
   const [combo, setCombo] = useState(0)
   const [bestCombo, setBestCombo] = useState(0)
   const [comboFlash, setComboFlash] = useState(0) // bump animation when multiplier ticks up
-  // For animated count-up of final score / coin reward on the finish overlay.
+  // For animated count-up of the final score on the finish overlay.
   const [displayedScore, setDisplayedScore] = useState(0)
-  const [displayedCoins, setDisplayedCoins] = useState(0)
+  const [reward, setReward] = useState<GameRewardResult | null>(null)
 
   const itemId  = useRef(0)
   const floatId = useRef(0)
@@ -477,7 +478,7 @@ export default function TreatTumbleGame() {
     setBestCombo(0)
     setComboFlash(0)
     setDisplayedScore(0)
-    setDisplayedCoins(0)
+    setReward(null)
     setErenX(50)
     erenXRef.current = 50
     setSavedOnce(false)
@@ -508,13 +509,11 @@ export default function TreatTumbleGame() {
     if (gameState === 'finished') playSound('tt_round_end')
   }, [gameState])
 
-  // ── Count-up tween on final score + coin reward when overlay opens ─────────
+  // ── Count-up tween on final score when overlay opens ───────────────────────
   useEffect(() => {
     if (gameState !== 'finished') return
     const target = Math.max(0, score)
-    const coinTarget = Math.min(40, Math.max(0, Math.floor(score / 5)))
     setDisplayedScore(0)
-    setDisplayedCoins(0)
     const start = performance.now()
     const DURATION = 600
     let raf = 0
@@ -523,7 +522,6 @@ export default function TreatTumbleGame() {
       // ease-out cubic
       const eased = 1 - Math.pow(1 - p, 3)
       setDisplayedScore(Math.round(target * eased))
-      setDisplayedCoins(Math.round(coinTarget * eased))
       if (p < 1) raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
@@ -534,15 +532,10 @@ export default function TreatTumbleGame() {
   useEffect(() => {
     if (gameState !== 'finished' || savedOnce || !user?.id) return
     setSavedOnce(true)
+    setReward(reportGameResult({ gameType: 'treat_tumble', score: Math.max(0, score) }))
     ;(async () => {
-      await supabase.from('game_scores').insert({
-        user_id: user.id,
-        game_type: 'treat_tumble',
-        score: Math.max(0, score),
-      })
       fireMinigameDone('treat_tumble', Math.max(0, score))
       await applyAction(user.id, 'play')
-      await addCoins(Math.min(40, Math.max(0, Math.floor(score / 5))))
       completeTask('daily_game')
       if (score >= 30) completeTask('weekly_high_score')
     })()
@@ -1298,10 +1291,11 @@ export default function TreatTumbleGame() {
                 BEST COMBO x{bestCombo >= 10 ? 3 : 2} ({bestCombo} CATCHES)
               </p>
             )}
-            <div className="flex items-center justify-center gap-1 mb-4" style={{ color: '#A16207' }}>
-              <IconCoin size={14} />
-              <span className="font-pixel" style={{ fontSize: 8 }}>+{displayedCoins} coins</span>
-            </div>
+            {reward && (
+              <div className="mb-4">
+                <GameCoinReward coins={reward.coins} blocked={reward.blocked} />
+              </div>
+            )}
             <div className="flex gap-2 justify-center">
               <button onClick={() => { playSound('ui_tap'); start() }}
                 className="flex items-center gap-1.5 px-4 py-2 text-white active:translate-y-[2px] transition-transform"
