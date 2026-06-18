@@ -293,7 +293,10 @@ function processInBrowser(dataUrl, opts) {
         if (l >= 0) { axisSum += (l + r) / 2; axisN++ }
       }
       const axis = axisN ? axisSum / axisN : W / 2
-      const margin = Math.round(W * (opts.tailMargin != null ? opts.tailMargin : 0.035))
+      // Small margin so the cut lands AT the tail's root (the body's symmetric
+      // right edge), not ~30px out — otherwise a sliver of the root stays in
+      // the body and sits static while the rest of the tail swings.
+      const margin = Math.round(W * (opts.tailMargin != null ? opts.tailMargin : 0.005))
       const yTail = Math.floor(H * (opts.tailYStart != null ? opts.tailYStart : 0.30))
       const tailMask = new Uint8Array(W * H)
       for (let y = yTail; y < H; y++) {
@@ -342,6 +345,38 @@ function processInBrowser(dataUrl, opts) {
         }
       }
 
+      // Extend the tail LEFT to its true ROOT. The symmetry cut stops at the
+      // body's mirrored edge, but the tail's root sits a little left of that,
+      // touching the body — those gray root pixels get left in the body and sit
+      // static while the rest swings ("not cut at the root"). For each tail row,
+      // grow left through non-white silhouette (the gray/outline root) and stop
+      // at the bright body fur. Re-derive the bbox afterwards.
+      if (tCount > 0) {
+        const maxGrow = Math.round(W * 0.06)
+        const add = []
+        for (let y = tMinY; y <= tMaxY; y++) {
+          let lx = -1
+          for (let x = tMinX; x <= tMaxX; x++) if (tailMask[y * W + x]) { lx = x; break }
+          if (lx < 0) continue
+          for (let k = 1; k <= maxGrow; k++) {
+            const nx = lx - k
+            if (nx < 0) break
+            const idx = y * W + nx
+            if (!sil[idx] || tailMask[idx]) break
+            const i = idx * 4
+            if (lum(fd[i], fd[i + 1], fd[i + 2]) > 195) break // hit the body's white fur → root reached
+            add.push(idx)
+          }
+        }
+        for (const idx of add) tailMask[idx] = 1
+        tMinX = 1e9; tMaxX = -1; tMinY = 1e9; tMaxY = -1
+        for (let i = 0; i < W * H; i++) if (tailMask[i]) {
+          const x = i % W, y = (i / W) | 0
+          if (x < tMinX) tMinX = x; if (x > tMaxX) tMaxX = x
+          if (y < tMinY) tMinY = y; if (y > tMaxY) tMaxY = y
+        }
+      }
+
       let tail = null, tailOrigin = null
       const haveTail = tCount > (W * H) * 0.004 && tMaxX >= 0
       if (haveTail) {
@@ -359,19 +394,27 @@ function processInBrowser(dataUrl, opts) {
         // body — the hip it should swing from. (`sil` still includes the tail
         // here; the body is sil AND NOT tailMask.) This keeps the attachment
         // glued and the free length swinging, for any tail orientation.
-        let psx = 0, psy = 0, pn = 0
+        const seam = []
         for (let y = tMinY; y <= tMaxY; y++) for (let x = tMinX; x <= tMaxX; x++) {
           if (!tailMask[y * W + x]) continue
-          let border = false
           for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
             const nx = x + dx, ny = y + dy
             if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue
-            if (sil[ny * W + nx] && !tailMask[ny * W + nx]) { border = true; break }
+            if (sil[ny * W + nx] && !tailMask[ny * W + nx]) { seam.push(x, y); break }
           }
-          if (border) { psx += x; psy += y; pn++ }
         }
-        const rootX = pn ? psx / pn : tMinX
-        const rootY = pn ? psy / pn : tMinY
+        // pivot = centroid of the UPPER part of the attachment seam = the HIP
+        // where the tail emerges. (The full-seam centroid is dragged toward the
+        // tip when the root edge is long; a hanging tail must swing from its top.)
+        let rootX = tMinX, rootY = tMinY
+        if (seam.length) {
+          let ymin = 1e9, ymax = -1
+          for (let k = 1; k < seam.length; k += 2) { if (seam[k] < ymin) ymin = seam[k]; if (seam[k] > ymax) ymax = seam[k] }
+          const cutY = ymin + (ymax - ymin) * 0.40
+          let psx = 0, psy = 0, pn = 0
+          for (let k = 0; k < seam.length; k += 2) if (seam[k + 1] <= cutY) { psx += seam[k]; psy += seam[k + 1]; pn++ }
+          if (pn) { rootX = psx / pn; rootY = psy / pn }
+        }
         tailOrigin = `${(+bx(rootX).toFixed(1))}% ${(+by(rootY).toFixed(1))}%`
         // erase the ENTIRE tail from the body so no static stub remains
         for (let i = 0; i < W * H; i++) if (tailMask[i]) fd[i * 4 + 3] = 0
@@ -407,6 +450,13 @@ function processInBrowser(dataUrl, opts) {
         for (const c of eyeBoxes) { dx2.beginPath(); dx2.arc(c.cx, c.cy, Math.max(2, W * 0.006), 0, 7); dx2.fill() }
       }
       if (haveTail) {
+        // paint the tail mask translucent red so the CUT (its left edge) is
+        // visible against the body — verification only.
+        const ov = document.createElement('canvas'); ov.width = W; ov.height = H
+        const oid = ov.getContext('2d').createImageData(W, H)
+        for (let i = 0; i < W * H; i++) if (tailMask[i]) { const j = i * 4; oid.data[j] = 255; oid.data[j + 1] = 30; oid.data[j + 2] = 30; oid.data[j + 3] = 255 }
+        ov.getContext('2d').putImageData(oid, 0, 0)
+        dx2.globalAlpha = 0.45; dx2.drawImage(ov, 0, 0); dx2.globalAlpha = 1
         dx2.strokeStyle = '#7CFC00'; dx2.strokeRect(tMinX, tMinY, tMaxX - tMinX, tMaxY - tMinY)
         const pr = (tailOrigin || '0% 0%').split(' ').map(s => parseFloat(s) / 100)
         dx2.fillStyle = '#ff00ff'; dx2.beginPath()
