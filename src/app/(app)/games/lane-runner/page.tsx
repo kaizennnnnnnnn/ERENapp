@@ -551,16 +551,16 @@ export default function LaneRunnerGame() {
           animation: shaking ? 'lr-shake 0.22s steps(6, end)' : undefined,
         }}>
 
-        {/* Sky band — sits behind asphalt */}
+        {/* Sky band — thin horizon strip behind the asphalt */}
         <div style={{
-          position: 'absolute', left: 0, right: 0, top: 0, height: '32%',
+          position: 'absolute', left: 0, right: 0, top: 0, height: '18%',
           background: 'linear-gradient(180deg, #1B1240 0%, #2B1B58 60%, #4B2D7E 100%)',
           pointerEvents: 'none',
         }} />
 
         {/* Parallax skyline — pixel buildings scroll slower than the road */}
         <div style={{
-          position: 'absolute', left: 0, right: 0, top: '18%', height: '14%',
+          position: 'absolute', left: 0, right: 0, top: '7%', height: '11%',
           backgroundImage: `repeating-linear-gradient(90deg,
             transparent 0 6px,
             #0A0420 6px 10px,
@@ -585,7 +585,7 @@ export default function LaneRunnerGame() {
 
         {/* Distant city lights — twinkling dots in the skyline strip */}
         <div style={{
-          position: 'absolute', left: 0, right: 0, top: '22%', height: '8%',
+          position: 'absolute', left: 0, right: 0, top: '10%', height: '6%',
           backgroundImage: `repeating-linear-gradient(90deg,
             transparent 0 14px,
             #FCD34D 14px 16px,
@@ -603,7 +603,7 @@ export default function LaneRunnerGame() {
 
         {/* Horizon line — where sky meets road */}
         <div style={{
-          position: 'absolute', left: 0, right: 0, top: '32%', height: 2,
+          position: 'absolute', left: 0, right: 0, top: '18%', height: 2,
           background: '#000',
           pointerEvents: 'none',
           opacity: 0.65,
@@ -611,13 +611,13 @@ export default function LaneRunnerGame() {
 
         {/* Asphalt + scrolling stripes (starts below the sky) */}
         <div style={{
-          position: 'absolute', left: 0, right: 0, top: '32%', bottom: 0,
+          position: 'absolute', left: 0, right: 0, top: '18%', bottom: 0,
           background: 'linear-gradient(180deg, #1F2937 0%, #111827 80%, #030712 100%)',
         }} />
 
         {/* Side grass margins (only across road portion) */}
-        <div style={{ position: 'absolute', left: 0, top: '32%', bottom: 0, width: '6%', background: 'repeating-linear-gradient(0deg, #16a34a 0 12px, #15803d 12px 24px)' }} />
-        <div style={{ position: 'absolute', right: 0, top: '32%', bottom: 0, width: '6%', background: 'repeating-linear-gradient(0deg, #16a34a 0 12px, #15803d 12px 24px)' }} />
+        <div style={{ position: 'absolute', left: 0, top: '18%', bottom: 0, width: '6%', background: 'repeating-linear-gradient(0deg, #16a34a 0 12px, #15803d 12px 24px)' }} />
+        <div style={{ position: 'absolute', right: 0, top: '18%', bottom: 0, width: '6%', background: 'repeating-linear-gradient(0deg, #16a34a 0 12px, #15803d 12px 24px)' }} />
 
         {/* Speed streaks — pixel lines on side grass that grow denser with speed */}
         {streaksRef.current.map(s => (
@@ -646,7 +646,7 @@ export default function LaneRunnerGame() {
           <div key={i} style={{
             position: 'absolute',
             left: `${(i / LANES) * 100}%`,
-            top: '32%', bottom: 0, width: 4,
+            top: '18%', bottom: 0, width: 4,
             background: `repeating-linear-gradient(180deg, #FCD34D 0 16px, transparent 16px 40px)`,
             backgroundPositionY: `${stripeOffset}px`,
             transform: 'translateX(-50%)',
