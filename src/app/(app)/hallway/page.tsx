@@ -52,7 +52,14 @@ export default function HallwayPage() {
 
   function exit() {
     playSound('ui_swipe_room')
-    router.back()
+    // The Hallway is a leaf view. It's normally reached from /home, but it's
+    // ALSO opened cold by the memory push notification (sw.js notificationclick
+    // → clients.openWindow / navigate('/hallway')), which lands here with no
+    // in-app history. In that case router.back() silently no-ops and both exit
+    // buttons look dead. Navigate home explicitly so exit always works — and
+    // replace (not push) so it doesn't bounce back into the hallway on the
+    // device back gesture.
+    router.replace('/home')
   }
 
   return (
