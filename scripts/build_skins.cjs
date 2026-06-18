@@ -333,15 +333,34 @@ function processInBrowser(dataUrl, opts) {
           }
           comps.push({ id, size, cx: sx / size, cy: sy / size })
         }
-        const tailComp = comps
-          .filter(c => c.cx > W * 0.5 && c.cy > H * 0.34 && c.size > W * H * 0.004)
-          .sort((a, b) => b.size - a.size)[0]
+        // Keep ALL right-side, below-head components (not just the largest):
+        // a tail that dips left of the mirror mid-way gets split into stacked
+        // pieces by the per-row cut (the mouse), and keeping only the biggest
+        // left the lower piece static in the body. The far-right + size gates
+        // still exclude paws/specks.
+        const keepIds = new Set(comps
+          .filter(c => c.cx > W * 0.55 && c.cy > H * 0.34 && c.size > W * H * 0.0025)
+          .map(c => c.id))
         for (let i = 0; i < W * H; i++) {
-          if (tailComp && lab[i] === tailComp.id) {
+          if (keepIds.has(lab[i])) {
             tCount++; const x = i % W, y = (i / W) | 0
             if (x < tMinX) tMinX = x; if (x > tMaxX) tMaxX = x
             if (y < tMinY) tMinY = y; if (y > tMaxY) tMaxY = y
           } else tailMask[i] = 0
+        }
+        // Bridge vertical gaps: rows inside the tail's span that the cut skipped
+        // (the tail curved behind the mirror) get the rightmost silhouette run in
+        // the tail's x-band, so the pieces reconnect into one continuous tail.
+        if (tCount > 0) {
+          for (let y = tMinY; y <= tMaxY; y++) {
+            let has = false
+            for (let x = tMinX; x <= tMaxX; x++) if (tailMask[y * W + x]) { has = true; break }
+            if (has) continue
+            let rx = -1
+            for (let x = tMaxX; x >= tMinX; x--) if (sil[y * W + x]) { rx = x; break }
+            if (rx < 0) continue
+            for (let x = rx; x >= tMinX && sil[y * W + x]; x--) { tailMask[y * W + x] = 1; tCount++ }
+          }
         }
       }
 
