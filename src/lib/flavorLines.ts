@@ -61,4 +61,21 @@ export const FLAVOR_LINES: FlavorLine[] = [
 
   // ── rare_intro: very rare, both names ─────────────────────────────────────
   { id: 'intro-people',  text: '{leader} and {other}. my people.',         trigger: 'rare_intro' },
+
+  // ── More ambient idle lines (added later) ─────────────────────────────────
+  { id: 'idle-missyou',   text: 'i missed you.',                                              trigger: 'idle' },
+  { id: 'idle-sardine',   text: 'you can have some of my sardines.',                          trigger: 'idle' },
+  { id: 'idle-sugarfree', text: "Jovan said all my food here is sugar-free. cause i can't eat it.", trigger: 'idle' },
+  { id: 'idle-loveyou',   text: 'i love you.',                                                trigger: 'idle' },
+  { id: 'idle-talk',      text: 'do you think they know i can talk… i mean, meow meow.',      trigger: 'idle' },
+  { id: 'idle-toilet',    text: 'i might jump into the toilet today.',                        trigger: 'idle' },
+  { id: 'idle-serbian',   text: 'Jovan said my Serbian is great.',                            trigger: 'idle' },
+  { id: 'idle-happi',     text: 'you seem happi.',                                            trigger: 'idle' },
+
+  // ── More leader-addressed lines (added later) ─────────────────────────────
+  { id: 'lead-loves',     text: 'i think {leader} really loves you.',                         trigger: 'needs_leader' },
+  { id: 'lead-secretfed', text: '{leader} already fed me. but no one needs to know that.',    trigger: 'needs_leader' },
+
+  // ── More rare lines (added later) ─────────────────────────────────────────
+  { id: 'intro-names',    text: 'my name is Eren, but people also call me Oi, Meow, and Tony.', trigger: 'rare_intro' },
 ]

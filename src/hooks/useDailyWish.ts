@@ -36,6 +36,7 @@ let _wishChannelCounter = 0
 const SESSION_FEEDS_KEY = 'eren:wish:fed-today'
 const SESSION_PLAYS_KEY = 'eren:wish:plays-today'
 const SESSION_NUDGES_KEY = 'eren:wish:nudges-today'
+const SESSION_SCHOOLS_KEY = 'eren:wish:schools-today'
 
 interface DailyWishRow {
   household_id: string
@@ -128,6 +129,7 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
   const sessionFeedsRef = useRef<FoodKey[]>([])
   const sessionPlaysRef = useRef<string[]>([])
   const sessionNudgesRef = useRef<Set<string>>(new Set())
+  const sessionSchoolsRef = useRef<number>(0)
   const myCaresRef = useRef<Array<'feed'|'play'|'sleep'|'wash'|'medicine'>>([])
   const partnerCaresRef = useRef<Array<'feed'|'play'|'sleep'|'wash'|'medicine'>>([])
   const partnerPlaysRef = useRef<string[]>([])
@@ -139,6 +141,7 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
     sessionFeedsRef.current = lsRead<FoodKey[]>(SESSION_FEEDS_KEY, todayKey, [])
     sessionPlaysRef.current = lsRead<string[]>(SESSION_PLAYS_KEY, todayKey, [])
     sessionNudgesRef.current = new Set(lsRead<string[]>(SESSION_NUDGES_KEY, todayKey, []))
+    sessionSchoolsRef.current = lsRead<number>(SESSION_SCHOOLS_KEY, todayKey, 0)
   }, [todayKey])
 
   // ── Build a fresh DailyActions snapshot from the refs.
@@ -152,6 +155,7 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
     nudges: new Set(sessionNudgesRef.current),
     partnerNudges: new Set(partnerNudgesRef.current),
     fridgeKeys: opts.fridgeKeys,
+    schools: sessionSchoolsRef.current,
   }), [opts.fridgeKeys])
 
   // ── Load (or seed) today's wish row.
@@ -436,6 +440,13 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
       if (todayKey) lsWrite(SESSION_PLAYS_KEY, todayKey, sessionPlaysRef.current)
       void tryGrant()
     }
+    const onLesson = () => {
+      // Serbian lesson finished — grants the 'school' wish. Fires for this
+      // user's local session only (lessons aren't logged to interactions).
+      sessionSchoolsRef.current += 1
+      if (todayKey) lsWrite(SESSION_SCHOOLS_KEY, todayKey, sessionSchoolsRef.current)
+      void tryGrant()
+    }
     const onPet = () => {
       // Pet is its own play-flavoured trigger so mood-pet / mood-lap can grant.
       myCaresRef.current.push('play')
@@ -446,12 +457,14 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
     window.addEventListener('eren:fed-food', onFedFood)
     window.addEventListener('eren:nudge-sent', onNudgeSent)
     window.addEventListener('eren:minigame-done', onMinigame)
+    window.addEventListener('eren:lesson-done', onLesson)
     window.addEventListener('eren:pet', onPet)
     return () => {
       window.removeEventListener('eren:my-action', onMyAction)
       window.removeEventListener('eren:fed-food', onFedFood)
       window.removeEventListener('eren:nudge-sent', onNudgeSent)
       window.removeEventListener('eren:minigame-done', onMinigame)
+      window.removeEventListener('eren:lesson-done', onLesson)
       window.removeEventListener('eren:pet', onPet)
     }
   }, [opts.householdId, opts.userId, todayKey, tryGrant])

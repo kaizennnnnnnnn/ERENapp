@@ -346,6 +346,10 @@ export default function SchoolScene({ onClose }: Props) {
       addCoins(3)
     }
 
+    // Signal the Daily Wish system — grants the "i'm also learning Serbian"
+    // wish (match: 'school'). Fires for both real lessons and practice runs.
+    try { window.dispatchEvent(new Event('eren:lesson-done')) } catch { /* SSR/no-window */ }
+
     setPhase('complete')
     playFanfare()
   }

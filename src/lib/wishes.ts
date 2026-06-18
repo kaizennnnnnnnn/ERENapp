@@ -28,6 +28,7 @@ export type WishCategory = 'food' | 'activity' | 'mood' | 'couple' | 'rare'
  *   play:any                any care play action OR any minigame completion
  *   play:<minigameId>       specific minigame
  *   wash | sleep | medicine the matching ACTION_CONFIGS action_type
+ *   school                 a Serbian lesson finished today (eren:lesson-done)
  *   nudge:<nudgeId>         specific nudge sent (or partner sent, when needsBothActive=true)
  *   nudge:any               any nudge
  *   care:any                any of feed|play|sleep|wash|medicine
@@ -163,6 +164,10 @@ export const WISHES: Wish[] = [
     category: 'rare', match: 'feed:all_inventory', needsLeader: false, needsBothActive: false, cooldownDays: 14, missingInventory: false, coinReward: 25 },
   { id: 'rare-king',      text: "today i am the king of this house.",
     category: 'rare', match: 'care:5plus',         needsLeader: false, needsBothActive: false, cooldownDays: 7,  missingInventory: false, coinReward: 15 },
+
+  // ── Activity — appended later (must stay at the END: rotation hashes on index) ──
+  { id: 'act-serbian',    text: "i'm also learning Serbian ALOO",
+    category: 'activity', match: 'school', needsLeader: false, needsBothActive: false, cooldownDays: 0, missingInventory: false, coinReward: 5 },
 ]
 
 // Always-eligible last-resort fallback. Same shape as mood-company but with a
@@ -283,6 +288,10 @@ export interface DailyActions {
   nudges: Set<string>                       // nudge ids YOU sent today
   partnerNudges: Set<string>
   fridgeKeys: Set<string>                   // union of both fridges
+  // Serbian lessons YOU finished today. Lesson completion isn't a DB action
+  // type, so (like feeds) only the local session is tracked — partner lessons
+  // aren't broadcast. Optional so older callers/snapshots decode unchanged.
+  schools?: number
 }
 
 export function matchWish(wish: Wish, a: DailyActions): boolean {
@@ -290,6 +299,7 @@ export function matchWish(wish: Wish, a: DailyActions): boolean {
   if (wish.match === 'wash')     return a.cares.includes('wash')     || a.partnerCares.includes('wash')
   if (wish.match === 'sleep')    return a.cares.includes('sleep')    || a.partnerCares.includes('sleep')
   if (wish.match === 'medicine') return a.cares.includes('medicine') || a.partnerCares.includes('medicine')
+  if (wish.match === 'school')   return (a.schools ?? 0) > 0
 
   const colon = wish.match.indexOf(':')
   if (colon < 0) return false
