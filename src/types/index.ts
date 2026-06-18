@@ -139,6 +139,10 @@ export interface ErenStats {
   updated_at: string
   last_decay_at?: string | null
   is_sleeping: boolean
+  // Per-household skin assignment: room id → skin id (see lib/skins.ts).
+  // Shared between partners and realtime-synced. Absent / missing key = the
+  // room shows its built-in default look.
+  room_skins?: Record<string, string> | null
 }
 
 export type FoodKey = 'kibble' | 'fish' | 'treat' | 'tuna' | 'steak' | 'cream' | 'biscuit' | 'shrimp' | 'salmon' | 'chicken' | 'sausage' | 'milk' | 'cheese' | 'yogurt' | 'cake' | 'sushi' | 'sardine' | 'egg' | 'monster' | 'donut' | 'cookie' | 'jelly_caka'
@@ -232,8 +236,19 @@ export interface GameScore {
 // ─── Gacha system ────────────────────────────────────────────────────────────
 
 export type GachaRarity = 'common' | 'rare' | 'epic' | 'legendary'
-export type GachaCategory = 'outfit' | 'decoration' | 'background' | 'recipe' | 'emote' | 'frame' | 'consumable'
+export type GachaCategory = 'outfit' | 'decoration' | 'background' | 'recipe' | 'emote' | 'frame' | 'consumable' | 'skin'
 export type OutfitSlot = 'hat' | 'eyes' | 'neck'
+
+// Eye-overlay layout for BlinkingEren — all values are percentages of the
+// sprite's square box. Defined here so the skins catalogue (lib/skins.ts) and
+// the asset pipeline (scripts/build_skins.cjs) can share the shape. The
+// authoritative field docs live in components/BlinkingEren.tsx.
+export interface EyeLayout {
+  lidTop: string; lidLeftA: string; lidLeftB: string; lidWidth: string
+  maskTop: string; maskLeftA: string; maskLeftB: string; maskW: string; maskH: string
+  glintLeftA: string; glintLeftB: string; glintTopA: string; glintTopB: string; glintW: string
+  sleepyLidW?: number; sleepyLidH?: number
+}
 
 export interface GachaItemDef {
   id: string
@@ -242,6 +257,11 @@ export interface GachaItemDef {
   rarity: GachaRarity
   icon: string
   description: string
+  // Skin items render an image instead of an emoji icon. `image` is the full
+  // sprite thumbnail; `skinId` keys into the skins catalogue (lib/skins.ts)
+  // for the animated room/closet render.
+  image?: string
+  skinId?: string
   // Outfit positioning (% relative to Eren's 200x200 container)
   slot?: OutfitSlot
   pos?: { top: number; left: number; size: number }

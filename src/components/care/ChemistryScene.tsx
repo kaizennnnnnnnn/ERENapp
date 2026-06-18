@@ -8,6 +8,7 @@
 import { useState } from 'react'
 import { BookOpen, Flame, Check, ChevronUp, ChevronDown, type LucideIcon } from 'lucide-react'
 import BlinkingEren from '@/components/BlinkingEren'
+import { useRoomEren } from '@/hooks/useRoomEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
 import LightSwitch from '@/components/LightSwitch'
 import { useIsDark } from '@/hooks/useIsDark'
@@ -51,9 +52,16 @@ const LAB_LID_COLOR = '#5C86A0'
 const LAB_GLINT =
   'radial-gradient(circle at 42% 38%, #ffffff 0%, #eaf6ff 26%, rgba(150,205,240,0.82) 54%, rgba(120,185,230,0) 82%)'
 
+// Lab idle look (ErenLab, goggles) — default when no Closet skin is set.
+const CHEM_EREN_FALLBACK = {
+  src: '/ErenLab_notail.png', tailSrc: '/ErenLab_tail.png', tailOrigin: '69.2% 72.7%',
+  eyes: LAB_EYES, lidColor: LAB_LID_COLOR, glintBackground: LAB_GLINT,
+}
+
 export default function ChemistryScene(_props: Props) {
   void _props
   const isDark = useIsDark()
+  const chemEren = useRoomEren('chemistry', CHEM_EREN_FALLBACK)
   const [overlayOpen, setOverlayOpen] = useState(false)
 
   function openStudy() {
@@ -90,15 +98,7 @@ export default function ChemistryScene(_props: Props) {
         transform: 'translateX(-50%)',
       }}>
         <ErenIdleLayer>
-          <BlinkingEren
-            size={230}
-            src="/ErenLab_notail.png"
-            tailSrc="/ErenLab_tail.png"
-            tailOrigin="69.2% 72.7%"
-            eyes={LAB_EYES}
-            lidColor={LAB_LID_COLOR}
-            glintBackground={LAB_GLINT}
-          />
+          <BlinkingEren size={230} {...chemEren} />
         </ErenIdleLayer>
       </div>
 

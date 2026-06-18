@@ -11,6 +11,7 @@ import type { FoodInventory } from '@/types'
 import { playSound } from '@/lib/sounds'
 import AnalogClock from '@/components/AnalogClock'
 import BlinkingEren from '@/components/BlinkingEren'
+import { useRoomEren } from '@/hooks/useRoomEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
 import StinkyFlies from '@/components/StinkyFlies'
 import LightSwitch from '@/components/LightSwitch'
@@ -259,6 +260,17 @@ function FoodIcon({ id }: { id: string; color?: string }) {
 // (measured by scripts/measure_eat_nose.py)
 const EAT_NOSE_X = [32.7, 31.3, 30.6, 40.1]
 
+// Kitchen idle look (ErenCook) — default when no Closet skin is set. Stable
+// module ref so useRoomEren's memo holds across the 60fps-free re-renders.
+const FEED_EREN_FALLBACK = {
+  src: '/ErenCook_notail.png', tailSrc: '/ErenCook_tail.png', tailOrigin: '71.8% 80.7%',
+  eyes: {
+    lidTop: '37.19%', lidWidth: '5.42%', lidLeftA: '40.79%', lidLeftB: '54.79%',
+    maskTop: '37.19%', maskLeftA: '40.79%', maskLeftB: '54.79%', maskW: '5.42%', maskH: '4.62%',
+    glintLeftA: '60.3%', glintTopA: '3%', glintLeftB: '20.5%', glintTopB: '3%', glintW: '18%',
+  },
+}
+
 export default function FeedScene({ onClose }: Props) {
   const { user, profile } = useAuth()
   const { stats, feedWithFood, addToMyFood, consumeMyFood } = useErenStats(profile?.household_id ?? null)
@@ -408,6 +420,7 @@ export default function FeedScene({ onClose }: Props) {
   // Cleanliness is in the deps so the flies update — feeding never changes
   // cleanliness, so this never recomputes mid-feed (no sprite flicker).
   const cleanliness = stats?.cleanliness ?? 100
+  const feedEren = useRoomEren('feed', FEED_EREN_FALLBACK)
   const erenSprite = useMemo(() => (
     <>
       {/* Kitchen pose: ErenCook.png (redrawn — no watermark cross).
@@ -417,25 +430,10 @@ export default function FeedScene({ onClose }: Props) {
           of container width). Catchlights are MIRRORED on this
           sprite: eye A's in the upper-RIGHT of its iris, eye B's in
           the upper-LEFT — they point toward the nose. */}
-      <BlinkingEren size={210} src="/ErenCook_notail.png" tailSrc="/ErenCook_tail.png" tailOrigin="71.8% 80.7%" eyes={{
-        lidTop:    '37.19%',
-        lidWidth:  '5.42%',
-        lidLeftA:  '40.79%',
-        lidLeftB:  '54.79%',
-        maskTop:   '37.19%',
-        maskLeftA: '40.79%',
-        maskLeftB: '54.79%',
-        maskW:     '5.42%',
-        maskH:     '4.62%',
-        glintLeftA: '60.3%',
-        glintTopA:  '3%',
-        glintLeftB: '20.5%',
-        glintTopB:  '3%',
-        glintW:     '18%',
-      }} />
+      <BlinkingEren size={210} {...feedEren} />
       <StinkyFlies cleanliness={cleanliness} />
     </>
-  ), [cleanliness]) // eslint-disable-line react-hooks/exhaustive-deps
+  ), [cleanliness, feedEren]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Eren block — sprite + crouch-to-eat body animation + bowl/crumbs/word/hearts
   // particles, all anchored to this container. Idle is paused mid-reaction.

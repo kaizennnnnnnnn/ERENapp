@@ -8,40 +8,19 @@
 
 import React, { useEffect, useState } from 'react'
 import { useIsDark } from '@/hooks/useIsDark'
+import type { EyeLayout } from '@/types'
 
 // Eye-overlay coordinates, all expressed as percentages of the sprite
 // container. Default values are tuned to erenGood.png. Other sprites (the
-// bedroom's erenSleep.png nightcap pose) override these via the `eyes` prop.
-export interface EyeLayout {
-  // Eyelid rectangle (drops in during blink).
-  lidTop: string
-  lidLeftA: string
-  lidLeftB: string
-  lidWidth: string
-  // Eye-mask = iris bounds. Clips the glint so it can't spill onto fur.
-  maskTop: string
-  maskLeftA: string
-  maskLeftB: string
-  maskW: string
-  maskH: string
-  // Where the glint sits INSIDE the mask. Centered on the baked catchlight
-  // in the sprite's iris, so the animated shine looks like the painted
-  // catchlight coming alive.
-  glintLeftA: string
-  glintLeftB: string
-  glintTopA: string
-  glintTopB: string
-  // Glint dot diameter as a share of its eye mask. The nightcap pose has
-  // tighter eyes so the bedroom dials this down.
-  glintW: string
-  // Coverage of the sleepyLids closed eye, as multipliers of the iris mask
-  // (w × maskW, h × maskH). The mask is glint-tuned and a touch narrower than
-  // the painted eye, so sprites whose eye is much bigger than the mask (the
-  // vet pose) raise these to fully hide the open eye. Defaults to the bedroom's
-  // snug fit.
-  sleepyLidW?: number
-  sleepyLidH?: number
-}
+// bedroom's erenSleep.png nightcap pose, gacha skins) override these via the
+// `eyes` prop. The EyeLayout shape lives in @/types so the skins catalogue
+// and the asset pipeline can share it; field docs:
+//   lid*   — eyelid rectangle that drops in during a blink
+//   mask*  — iris bounds; clips the glint so it can't spill onto fur
+//   glint* — where the shine sits INSIDE the mask (centered on the catchlight)
+//   glintW — glint diameter as a share of its eye mask
+//   sleepyLidW/H — closed-eye coverage as multipliers of the iris mask
+export type { EyeLayout }
 
 // Default eye-glint gloss — a white catchlight with a faint cool-blue falloff.
 // Sprites wearing tinted eyewear (e.g. the chemistry goggles) override this so

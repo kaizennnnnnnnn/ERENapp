@@ -7,6 +7,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
 import BlinkingEren from '@/components/BlinkingEren'
+import { useRoomEren } from '@/hooks/useRoomEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
 import StinkyFlies from '@/components/StinkyFlies'
 import LightSwitch from '@/components/LightSwitch'
@@ -53,9 +54,15 @@ const VET_EYES = {
   sleepyLidH: 1.5,
 }
 
+// Vet idle look (ErenVet) — default when no Closet skin is set.
+const VET_EREN_FALLBACK = {
+  src: '/ErenVet_notail.png', tailSrc: '/ErenVet_tail.png', tailOrigin: '71.6% 71.7%', eyes: VET_EYES,
+}
+
 export default function VetScene({ onClose }: Props) {
   const { user, profile } = useAuth()
   const { stats, applyAction } = useErenStats(profile?.household_id ?? null)
+  const vetEren = useRoomEren('vet', VET_EREN_FALLBACK)
   const { completeTask } = useTasks()
 
   const [checkDone, setCheckDone] = useState(false)
@@ -135,8 +142,8 @@ export default function VetScene({ onClose }: Props) {
                 : undefined,
               transformOrigin: 'bottom center',
             }}>
-              <BlinkingEren size={200} src="/ErenVet_notail.png" tailSrc="/ErenVet_tail.png" tailOrigin="71.6% 71.7%"
-                lidsClosed={reaction.phase === 'grimace'} sleepyLids eyes={VET_EYES} />
+              <BlinkingEren size={200} {...vetEren}
+                lidsClosed={reaction.phase === 'grimace'} sleepyLids />
               <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
             </div>
           </ErenIdleLayer>

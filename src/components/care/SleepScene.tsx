@@ -7,6 +7,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
 import BlinkingEren from '@/components/BlinkingEren'
+import { useRoomEren } from '@/hooks/useRoomEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
 import StinkyFlies from '@/components/StinkyFlies'
 import LightSwitch from '@/components/LightSwitch'
@@ -32,9 +33,20 @@ const SLEEP_LOW:  MeterPalette = { fillHi: '#FFB3B3', fillBase: '#F87171', fillL
 
 interface Props { onClose: () => void }
 
+// Bedroom awake idle look (erenSleep nightcap) — default when no Closet skin
+// is set. The tucked-in curled pose is a separate PoseSprite and unaffected.
+const SLEEP_EREN_FALLBACK = {
+  src: '/erenSleep_notail.png', tailSrc: '/erenSleep_tail.png', tailOrigin: '69.4% 73.6%',
+  eyes: {
+    lidTop: '36%', lidLeftA: '41%', lidLeftB: '51%',
+    maskTop: '36.3%', maskLeftA: '40.3%', maskLeftB: '52.8%', glintW: '28%',
+  },
+}
+
 export default function SleepScene({ onClose }: Props) {
   const { user, profile } = useAuth()
   const { stats, applyAction, wakeUp } = useErenStats(profile?.household_id ?? null)
+  const sleepEren = useRoomEren('sleep', SLEEP_EREN_FALLBACK)
   const { completeTask } = useTasks()
   const wish = useWish()
   const wishMatchesThisRoom = wish?.wish ? wishHintRoom(wish.wish) === 'sleep' : false
@@ -180,19 +192,10 @@ export default function SleepScene({ onClose }: Props) {
                 : undefined,
               transformOrigin: 'bottom center',
             }}>
-              <BlinkingEren size={230} src="/erenSleep_notail.png" tailSrc="/erenSleep_tail.png" tailOrigin="69.4% 73.6%"
+              <BlinkingEren size={230} {...sleepEren}
                 lidsClosed={tucking || reaction.phase === 'settle'}
                 sleepyLids
-                breatheDur={4}
-                eyes={{
-                  lidTop:    '36%',
-                  lidLeftA:  '41%',
-                  lidLeftB:  '51%',
-                  maskTop:   '36.3%',
-                  maskLeftA: '40.3%',
-                  maskLeftB: '52.8%',
-                  glintW:    '28%',
-                }} />
+                breatheDur={4} />
             </div>
           </ErenIdleLayer>
         )}

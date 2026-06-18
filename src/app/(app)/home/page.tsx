@@ -23,6 +23,7 @@ import { playSound } from '@/lib/sounds'
 import { requestCloudNav } from '@/components/CloudTransition'
 import TaskPanel from '@/components/TaskPanel'
 import BlinkingEren from '@/components/BlinkingEren'
+import { useRoomEren } from '@/hooks/useRoomEren'
 import StinkyFlies from '@/components/StinkyFlies'
 import PageLoader from '@/components/PageLoader'
 import ReminderSheet from '@/components/ReminderSheet'
@@ -67,6 +68,9 @@ interface XpParticle {
   size: number; color: string; glow: string
 }
 
+// Home's default idle look — stable ref so useRoomEren's memo holds.
+const HOME_EREN_FALLBACK = { src: '/erenGood_notail.png', tailSrc: '/erenGood_tail.png' }
+
 export default function HomePage() {
   const router   = useRouter()
   const supabase = createClient()
@@ -80,6 +84,8 @@ export default function HomePage() {
   const { inventory } = useInventory()
   const isDark = useIsDark()
   const wish = useWish()
+  // Idle look for the living room — a Closet skin or the classic erenGood.
+  const homeEren = useRoomEren('home', HOME_EREN_FALLBACK)
 
   // Pet interaction — tap on Eren and he stays in place, just trembling a
   // gentle purr with hearts + a "PURRR", and dispatches eren:pet so the wish
@@ -593,9 +599,7 @@ export default function HomePage() {
                   <ErenIdleLayer disabled={petReaction.active}>
                     {/* Tail split into its own layer (erenGood_tail.png) over a
                         tail-erased body so only the tail sways. See BlinkingEren. */}
-                    <BlinkingEren id="eren-img" size={200}
-                      src="/erenGood_notail.png"
-                      tailSrc="/erenGood_tail.png" />
+                    <BlinkingEren id="eren-img" size={200} {...homeEren} />
                     <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
 
                     {/* Outfit overlays — % positions are relative to the parent

@@ -1,4 +1,5 @@
 import type { GachaItemDef, GachaBannerDef, GachaRarity, GachaCategory, OutfitSlot } from '@/types'
+import { SKIN_GACHA_ITEMS } from './skins'
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GACHA SYSTEM — Eren's Capsule Machine
@@ -144,6 +145,9 @@ export const GACHA_ITEMS: GachaItemDef[] = [
   // Legendary
   { id: 'cons_ethereal_nectar',  name: 'Ethereal Nectar',   category: 'consumable', rarity: 'legendary', icon: '🌟', description: 'ALL stats +25. Liquid starlight.',                buff: { stat: 'all', amount: 25 } },
   { id: 'cons_phoenix_feather',  name: 'Phoenix Feather',   category: 'consumable', rarity: 'legendary', icon: '🔥', description: 'Fully restores ALL stats to 100. Miraculous.',    buff: { stat: 'all', amount: 100 } },
+
+  // ── SKINS — full-body Eren looks (Clothing gacha). Generated in lib/skins.ts.
+  ...SKIN_GACHA_ITEMS,
 ]
 
 // ─── Banners ─────────────────────────────────────────────────────────────────
@@ -161,13 +165,13 @@ export const GACHA_BANNERS: GachaBannerDef[] = [
   },
   {
     id: 'animal',
-    name: 'Kitty Hats',
-    description: 'Cute costume drop — hats, decor and more.',
-    icon: '🐸',
+    name: 'Kitty Costumes',
+    description: 'Full-body Eren skins — wear them in any room.',
+    icon: '🐱',
     featuredItems: [],
     permanent: true,
     bgGradient: ['#A78BFA', '#F472B6'],
-    categories: ['outfit', 'decoration', 'background', 'emote', 'frame'],
+    categories: ['skin'],
   },
 ]
 
@@ -187,14 +191,25 @@ export function rollRarity(pullsSinceEpic: number, pullsSinceLegendary: number):
   return 'common'
 }
 
+const RARITY_ORDER: GachaRarity[] = ['common', 'rare', 'epic', 'legendary']
+
 export function rollItem(rarity: GachaRarity, bannerId: string): GachaItemDef {
   const banner = GACHA_BANNERS.find(b => b.id === bannerId)
-  let pool = GACHA_ITEMS.filter(i => i.rarity === rarity)
-  if (banner?.categories) {
-    const scoped = pool.filter(i => banner.categories!.includes(i.category))
-    if (scoped.length > 0) pool = scoped
+  const inBanner = (i: GachaItemDef) => !banner?.categories || banner.categories.includes(i.category)
+
+  // Resolve the item pool at the rolled rarity, scoped to the banner's
+  // categories. A banner may have NO items at a given tier (the Clothing
+  // banner is skins-only, and there are no common skins) — escalate to the
+  // next rarity that DOES have in-banner items so a common roll never leaks a
+  // non-skin (e.g. a bowtie) into the clothing machine. The drawn item's own
+  // rarity is authoritative for display/stardust (see useGacha).
+  let pool: GachaItemDef[] = []
+  for (let i = Math.max(0, RARITY_ORDER.indexOf(rarity)); i < RARITY_ORDER.length; i++) {
+    const tier = GACHA_ITEMS.filter(it => it.rarity === RARITY_ORDER[i] && inBanner(it))
+    if (tier.length > 0) { pool = tier; break }
   }
-  if (pool.length === 0) return GACHA_ITEMS[0] // fallback
+  if (pool.length === 0) pool = GACHA_ITEMS.filter(inBanner)
+  if (pool.length === 0) return GACHA_ITEMS[0] // last-ditch fallback
 
   // Banner featured items have 50% chance if applicable
   if (banner && banner.featuredItems.length > 0 && Math.random() < 0.5) {
@@ -214,9 +229,9 @@ export function getItemsByCategory(category: GachaCategory): GachaItemDef[] {
 }
 
 export function getCategoryLabel(cat: GachaCategory): string {
-  return { outfit: 'Outfits', decoration: 'Decorations', background: 'Backgrounds', recipe: 'Recipes', emote: 'Emotes', frame: 'Frames', consumable: 'Items' }[cat]
+  return { outfit: 'Outfits', decoration: 'Decorations', background: 'Backgrounds', recipe: 'Recipes', emote: 'Emotes', frame: 'Frames', consumable: 'Items', skin: 'Skins' }[cat]
 }
 
 export const CATEGORY_ICONS: Record<GachaCategory, string> = {
-  outfit: '👔', decoration: '🪴', background: '🖼️', recipe: '🍳', emote: '💫', frame: '🖼️', consumable: '🧪',
+  outfit: '👔', decoration: '🪴', background: '🖼️', recipe: '🍳', emote: '💫', frame: '🖼️', consumable: '🧪', skin: '🐱',
 }

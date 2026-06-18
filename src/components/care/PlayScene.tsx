@@ -10,6 +10,7 @@ import { IconController, IconStar, IconCrown } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import Leaderboard from '@/components/Leaderboard'
 import BlinkingEren from '@/components/BlinkingEren'
+import { useRoomEren } from '@/hooks/useRoomEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
 import StinkyFlies from '@/components/StinkyFlies'
 import LightSwitch from '@/components/LightSwitch'
@@ -59,6 +60,11 @@ const BELL_EYES = {
   glintLeftB: '19.52%',
   glintTopB:  '0%',
   glintW:     '20%',
+}
+
+// Play room idle look (ErenBell) — default when no Closet skin is set.
+const PLAY_EREN_FALLBACK = {
+  src: '/ErenBell_notail.png', tailSrc: '/ErenBell_tail.png', tailOrigin: '73.3% 76.7%', eyes: BELL_EYES,
 }
 
 export default function PlayScene({ onClose }: Props) {
@@ -127,12 +133,13 @@ export default function PlayScene({ onClose }: Props) {
   // the sprite stack every frame (same pattern as FeedScene). Cleanliness is
   // the only changing input — it drives StinkyFlies.
   const cleanliness = stats?.cleanliness ?? 100
+  const playEren = useRoomEren('play', PLAY_EREN_FALLBACK)
   const erenSprite = useMemo(() => (
     <>
-      <BlinkingEren size={200} src="/ErenBell_notail.png" tailSrc="/ErenBell_tail.png" tailOrigin="73.3% 76.7%" eyes={BELL_EYES} />
+      <BlinkingEren size={200} {...playEren} />
       <StinkyFlies cleanliness={cleanliness} />
     </>
-  ), [cleanliness])
+  ), [cleanliness, playEren])
 
   function handleThrow(e: React.MouseEvent<HTMLDivElement>) {
     if (done || isSleeping) return

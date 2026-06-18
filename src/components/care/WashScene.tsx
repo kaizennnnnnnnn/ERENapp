@@ -6,6 +6,7 @@ import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import BlinkingEren from '@/components/BlinkingEren'
+import { useRoomEren } from '@/hooks/useRoomEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
 import StinkyFlies from '@/components/StinkyFlies'
 import LightSwitch from '@/components/LightSwitch'
@@ -113,6 +114,16 @@ const EREN_MASK = [
 ]
 const MASK_COLS = 24
 const MASK_ROWS = 24
+
+// Bathroom idle look (ErenBathroomHat) — default when no Closet skin is set.
+const WASH_EREN_FALLBACK = {
+  src: '/ErenBathroomHat_notail.png', tailSrc: '/ErenBathroomHat_tail.png', tailOrigin: '65.9% 77.6%',
+  eyes: {
+    lidTop: '36.34%', lidWidth: '5.4%', lidLeftA: '34.38%', lidLeftB: '48.21%',
+    maskTop: '36.34%', maskLeftA: '34.38%', maskLeftB: '48.21%', maskW: '5.4%', maskH: '4.36%',
+    glintLeftA: '59%', glintTopA: '2%', glintLeftB: '20%', glintTopB: '2%', glintW: '22%',
+  },
+}
 
 export default function WashScene({ onClose }: Props) {
   const { user, profile } = useAuth()
@@ -237,44 +248,14 @@ export default function WashScene({ onClose }: Props) {
   // Memoize the bare sprite so per-pointermove coverage/bubble renders don't
   // reconcile it (same pattern as FeedScene). Cleanliness is the only live
   // input — it drives StinkyFlies.
+  const washEren = useRoomEren('wash', WASH_EREN_FALLBACK)
   const erenSprite = useMemo(() => (
     <>
-      {/* Bathroom pose: ErenBathroomHat.png — blue beanie sits low on
-          the forehead so the face/eyes drop ~4% from the default, and
-          the eyes sit further LEFT than the everyday sprite. Coords are
-          measured to this sprite's eye centers (≈37.3% / 51.3% across)
-          so the blink + glint land dead-center on each eye. */}
-      {/* Coords from a precise pixel-scan of ErenBathroomHat.png.
-          Image is 871×1537 and the cat is NOT centered in its
-          canvas — there's extra transparent space on the right
-          — so image-relative % values translate awkwardly. The
-          numbers below are container-relative (200×200 box,
-          portrait sprite height-fits so the image occupies the
-          middle ~56.6% of container width, starting at x≈21.7%).
-          Catchlights are MIRRORED, not same-position: A in the
-          upper-RIGHT of its iris, B in the upper-LEFT. */}
-      <BlinkingEren size={200} src="/ErenBathroomHat_notail.png" tailSrc="/ErenBathroomHat_tail.png" tailOrigin="65.9% 77.6%" eyes={{
-        lidTop:    '36.34%',
-        lidWidth:  '5.4%',
-        lidLeftA:  '34.38%',
-        lidLeftB:  '48.21%',
-        maskTop:   '36.34%',
-        maskLeftA: '34.38%',
-        maskLeftB: '48.21%',
-        maskW:     '5.4%',
-        maskH:     '4.36%',
-        // Catchlight in eye A sits at ~70% across × ~13% down of
-        // its iris. Glint top-left = center - radius.
-        glintLeftA: '59%',
-        glintTopA:  '2%',
-        // Catchlight in eye B sits at ~31% across × ~13% down.
-        glintLeftB: '20%',
-        glintTopB:  '2%',
-        glintW:     '22%',
-      }} />
+      {/* Bathroom idle pose (ErenBathroomHat) or a Closet skin. */}
+      <BlinkingEren size={200} {...washEren} />
       <StinkyFlies cleanliness={cleanliness} />
     </>
-  ), [cleanliness])
+  ), [cleanliness, washEren])
 
   // Apply initial positions to DOM
   useEffect(() => {

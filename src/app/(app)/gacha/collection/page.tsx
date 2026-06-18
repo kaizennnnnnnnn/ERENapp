@@ -13,7 +13,7 @@ import { FORTUNE_GIFTS } from '@/lib/fortune'
 import type { GachaCategory, GachaItemDef } from '@/types'
 import { playSound } from '@/lib/sounds'
 
-const CATEGORIES: GachaCategory[] = ['outfit', 'decoration', 'background', 'recipe', 'emote', 'frame', 'consumable']
+const CATEGORIES: GachaCategory[] = ['skin', 'outfit', 'decoration', 'background', 'recipe', 'emote', 'frame', 'consumable']
 
 export default function CollectionPage() {
   const router = useRouter()
@@ -22,7 +22,7 @@ export default function CollectionPage() {
   const [useToast, setUseToast] = useState<string | null>(null)
   useEffect(() => { setHideStats(false) }, [setHideStats])
 
-  const [tab, setTab] = useState<GachaCategory>('outfit')
+  const [tab, setTab] = useState<GachaCategory>('skin')
   const [selected, setSelected] = useState<GachaItemDef | null>(null)
 
   const items = getItemsByCategory(tab)
@@ -93,7 +93,12 @@ export default function CollectionPage() {
                 boxShadow: owned ? `2px 2px 0 ${colors.border}44` : 'none',
                 opacity: owned ? 1 : 0.4,
               }}>
-              <span style={{ fontSize: 24, filter: owned ? 'none' : 'grayscale(1)' }}>{item.icon}</span>
+              {item.image ? (
+                <img src={item.image} alt={item.name} draggable={false}
+                  style={{ width: 40, height: 40, objectFit: 'contain', imageRendering: 'pixelated', filter: owned ? 'none' : 'grayscale(1) opacity(0.6)' }} />
+              ) : (
+                <span style={{ fontSize: 24, filter: owned ? 'none' : 'grayscale(1)' }}>{item.icon}</span>
+              )}
               <span className="font-pixel text-center leading-tight" style={{ fontSize: 5, color: owned ? colors.text : '#AAA' }}>
                 {item.name.toUpperCase()}
               </span>
@@ -115,11 +120,25 @@ export default function CollectionPage() {
             style={{ background: 'white', borderRadius: 8, border: '2px solid #D8C0F0', boxShadow: '4px 4px 0 #C0A0E0' }}>
             <div className="rounded-xl flex items-center justify-center"
               style={{ width: 70, height: 70, background: RARITY_COLORS[selected.rarity].bg, border: `2px solid ${RARITY_COLORS[selected.rarity].border}` }}>
-              <span style={{ fontSize: 36 }}>{selected.icon}</span>
+              {selected.image ? (
+                <img src={selected.image} alt={selected.name} draggable={false}
+                  style={{ width: 62, height: 62, objectFit: 'contain', imageRendering: 'pixelated' }} />
+              ) : (
+                <span style={{ fontSize: 36 }}>{selected.icon}</span>
+              )}
             </div>
             <p className="font-pixel text-gray-800" style={{ fontSize: 9 }}>{selected.name}</p>
             <p className="font-pixel" style={{ fontSize: 6, color: RARITY_COLORS[selected.rarity].text }}>{selected.rarity.toUpperCase()}</p>
             <p className="text-xs text-gray-500 text-center">{selected.description}</p>
+
+            {/* Skins are assigned per-room in the Closet, not equipped here. */}
+            {selected.category === 'skin' && (
+              <button onClick={() => { playSound('ui_tap'); router.push('/closet') }}
+                className="w-full py-2 text-white active:translate-y-[1px]"
+                style={{ background: 'linear-gradient(135deg, #7C3AED, #A78BFA)', borderRadius: 3, border: '2px solid #5B21B6', boxShadow: '0 2px 0 #4C1D95', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
+                OPEN CLOSET
+              </button>
+            )}
 
             {/* Equip/unequip for outfit, background, frame, decoration */}
             {['outfit', 'background', 'frame', 'decoration'].includes(selected.category) && (

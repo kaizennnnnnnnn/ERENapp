@@ -362,6 +362,9 @@ function useErenStatsImpl(householdId: string | null) {
               is_sick:        newRow.is_sick,
               mood:           newRow.mood,
               weight:         newRow.weight,
+              // Closet writes only room_skins (no decay bump), so it lands here
+              // — carry it through so a partner's re-dress syncs live.
+              room_skins:     newRow.room_skins,
             }
           })
         })

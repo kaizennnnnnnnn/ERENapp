@@ -137,7 +137,9 @@ export function useGacha() {
 
     const outcome = await resolveDrop(supabase, user.id, item.id)
     const isNew = outcome === 'new'
-    const stardustGained = outcome === 'dup' ? DUPLICATE_STARDUST[rarity] : 0
+    // item.rarity is authoritative — rollItem may escalate a tier when the
+    // banner has no item at the rolled rarity (e.g. no common skins).
+    const stardustGained = outcome === 'dup' ? DUPLICATE_STARDUST[item.rarity] : 0
 
     // Log the pull
     const newTotal = state.total_pulls + 1
@@ -192,7 +194,7 @@ export function useGacha() {
       const isNew = outcome === 'new'
       let stardustGained = 0
       if (outcome === 'dup') {
-        stardustGained = DUPLICATE_STARDUST[rarity]
+        stardustGained = DUPLICATE_STARDUST[item.rarity]
         sd += stardustGained
       }
 
