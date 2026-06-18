@@ -48,7 +48,12 @@ const SKINS = [
   { id: 'raccoon', file: 'ErenRacoon1.png',     rarity: 'rare',      name: 'Raccoon Eren' },
   { id: 'koala',   file: 'ErenCoala1.png',      rarity: 'rare',      name: 'Koala Eren' },
   { id: 'otter',   file: 'ErenOtter1.png',      rarity: 'rare',      name: 'Otter Eren' },
-  { id: 'mouse',   file: 'ErenMouseFull1.png',  rarity: 'legendary', name: 'Mouse Eren' },
+  // Mouse tail attaches at the BOTTOM (the rump) and rises UP, so the auto
+  // pivot (upper-40% of the attachment seam = "the hip" for a hanging tail)
+  // lands on the raised TIP and the rump swings — "wiggling from the root".
+  // Override the origin to the rump so the base stays planted and the raised
+  // tip flicks. (Measured from the attachment-seam centroid; box coords.)
+  { id: 'mouse',   file: 'ErenMouseFull1.png',  rarity: 'legendary', name: 'Mouse Eren', tailOrigin: '72% 79%' },
   { id: 'bunny',   file: 'ErenBunnyFull1.png',  rarity: 'legendary', name: 'Bunny Eren' },
 ]
 
@@ -434,6 +439,10 @@ function processInBrowser(dataUrl, opts) {
           if (pn) { rootX = psx / pn; rootY = psy / pn }
         }
         tailOrigin = `${(+bx(rootX).toFixed(1))}% ${(+by(rootY).toFixed(1))}%`
+        // Per-skin pivot override (box coords) for tails the seam heuristic can't
+        // place — e.g. a tail that attaches at the rump and rises (the mouse),
+        // where "upper-40% of the seam" picks the raised tip instead of the root.
+        if (opts.tailOrigin) tailOrigin = opts.tailOrigin
 
         // Trim costume that leaked into the tail. At the haunch rows the cat
         // isn't left-right symmetric (a narrow paw on the left, the wide hip on
@@ -561,7 +570,7 @@ function processInBrowser(dataUrl, opts) {
     if (!fs.existsSync(srcPath)) { console.log(`MISSING ${s.file}`); continue }
     const b64 = fs.readFileSync(srcPath).toString('base64')
     const dataUrl = `data:image/png;base64,${b64}`
-    const r = await page.evaluate(processInBrowser, dataUrl, { bg: s.bg, reoutline: s.reoutline, tailGap: s.tailGap, tailYStart: s.tailYStart, eyesOverride: s.eyesOverride })
+    const r = await page.evaluate(processInBrowser, dataUrl, { bg: s.bg, reoutline: s.reoutline, tailGap: s.tailGap, tailYStart: s.tailYStart, eyesOverride: s.eyesOverride, tailOrigin: s.tailOrigin })
     if (r.error) { console.log(`ERR ${s.id}: ${r.error}`); continue }
     const write = (suffix, url) => {
       if (!url) return
