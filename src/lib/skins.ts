@@ -44,16 +44,22 @@ export const CLASSIC_SKIN: SkinDef = {
   botGap: 0.101,
 }
 
+// Cache-buster for the skin PNGs. The SW serves images stale-while-revalidate,
+// so re-running the pipeline (which overwrites /skins/* in place) would keep
+// showing the OLD art — bump this whenever build_skins.cjs regenerates assets.
+const SKIN_V = '2'
+const v = (p?: string) => (p ? `${p}?v=${SKIN_V}` : p)
+
 // The 21 gacha skins, from the auto-generated render data.
 export const GACHA_SKINS: SkinDef[] = SKIN_DATA.map(s => ({
   id: s.id,
   name: s.name,
   rarity: s.rarity,
-  src: s.src,
-  tailSrc: s.tailSrc,
+  src: v(s.src)!,
+  tailSrc: v(s.tailSrc),
   tailOrigin: s.tailOrigin,
   eyes: s.eyes,
-  thumb: s.thumb,
+  thumb: v(s.thumb)!,
   aspect: s.aspect,
 }))
 
