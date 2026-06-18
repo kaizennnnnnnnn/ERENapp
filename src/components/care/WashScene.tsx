@@ -115,6 +115,19 @@ const EREN_MASK = [
 const MASK_COLS = 24
 const MASK_ROWS = 24
 
+// ── Prop sprites (Shower.png / Soap.png) ─────────────────────────────────────
+// The shower is a tall handheld head: its perforated spray PLATE sits on the
+// upper-left of the head and its face aims down-left. So the water emitter is
+// pinned to that plate (as a % of the sprite box) and the spray fans down-left
+// to match where the plate actually points — not straight down from the body.
+const SHOWER_W = 48                                  // px display width
+const SHOWER_H = Math.round(SHOWER_W * 240 / 88)     // cleaned sprite is 88×240
+const DISC_X   = 15                                  // % of sprite box — plate face
+const DISC_Y   = 23
+const SPRAY_RAYS = [12, 22, 31, 40, 49]              // deg clockwise → down-left fan
+const SOAP_W   = 54                                  // px display width
+const SOAP_H   = Math.round(SOAP_W * 177 / 240)      // cleaned sprite is 240×177
+
 // Bathroom idle look (ErenBathroomHat) — default when no Closet skin is set.
 const WASH_EREN_FALLBACK = {
   src: '/ErenBathroomHat_notail.png', tailSrc: '/ErenBathroomHat_tail.png', tailOrigin: '65.9% 77.6%',
@@ -208,7 +221,7 @@ export default function WashScene({ onClose }: Props) {
 
   // Preload the lather/wet stickers so the first swap doesn't flash.
   useEffect(() => {
-    preloadImages(['/erenWash1.png?v=1', '/erenWash2.png?v=1', '/erenWash3.png?v=1', '/erenWashWet.png?v=1'])
+    preloadImages(['/erenWash1.png?v=1', '/erenWash2.png?v=1', '/erenWash3.png?v=1', '/erenWashWet.png?v=1', '/shower.png?v=1', '/soap.png?v=1'])
   }, [])
 
   // Once soaping has begun we never drop back to the dry standing pose until the
@@ -567,20 +580,25 @@ export default function WashScene({ onClose }: Props) {
         onTouchMove={stopTouchBubble}
         onTouchEnd={stopTouchBubble}
       >
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-7" style={{ background: 'linear-gradient(180deg, #9ECAE1, #6BAED6)', borderRadius: 3 }} />
-        <div className="relative mt-6 flex items-center justify-center"
-          style={{ width: 44, height: 18, background: 'linear-gradient(135deg, #AADDF0, #70B8D8)', borderRadius: '4px 4px 10px 10px', border: '2px solid #4A9AB8', boxShadow: '1px 2px 0 #3080A0, inset 0 1px 2px rgba(255,255,255,0.4)' }}>
-          <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5">
-            {[0,1,2,3,4].map(ni => (
-              <div key={ni} className="rounded-full" style={{ width: 3, height: 3, background: 'rgba(30,80,120,0.5)' }} />
-            ))}
-          </div>
-          <div style={{ position: 'absolute', top: 2, left: 4, width: 14, height: 3, background: 'rgba(255,255,255,0.45)', borderRadius: 3 }} />
+        {/* Sprite + spray share one positioned box so the water stays pinned
+            to the perforated plate (≈DISC_X/DISC_Y of the sprite) at any size. */}
+        <div className="relative" style={{ width: SHOWER_W, height: SHOWER_H }}>
+          <img src="/shower.png?v=1" alt="" draggable={false}
+            style={{ width: '100%', height: '100%', display: 'block', pointerEvents: 'none', filter: 'drop-shadow(1px 2px 1px rgba(40,70,110,0.35))' }} />
+          {/* Water — emanates from the plate and fans down-left, the way the
+              plate's face points. Only while the head is held (dragShower). */}
           {dragShower && (
-            <div className="absolute top-full left-1/2 -translate-x-1/2 flex gap-1 pointer-events-none" style={{ marginTop: 2 }}>
-              {[0,3,7,11,15].map((ox, si) => (
-                <div key={si} className="rounded-full"
-                  style={{ width: 2, height: 28 + si * 2, background: 'rgba(100,190,240,0.8)', animation: `fall 0.45s linear ${si * 0.05}s infinite` }} />
+            <div className="absolute pointer-events-none" style={{ left: `${DISC_X}%`, top: `${DISC_Y}%`, width: 0, height: 0, zIndex: 1 }}>
+              <div className="shower-mist" />
+              {SPRAY_RAYS.map((deg, i) => (
+                <div key={i} className="spray-ray" style={{ transform: `rotate(${deg}deg)` }}>
+                  {[0, 1, 2].map(j => (
+                    <span key={j} className="spray-drop" style={{
+                      animationDelay: `${(i * 0.05 + j * 0.16).toFixed(2)}s`,
+                      ['--len' as string]: `${56 + ((i + j) % 3) * 13}px`,
+                    } as React.CSSProperties} />
+                  ))}
+                </div>
               ))}
             </div>
           )}
@@ -604,14 +622,8 @@ export default function WashScene({ onClose }: Props) {
         onTouchMove={stopTouchBubble}
         onTouchEnd={stopTouchBubble}
       >
-        <div className="flex flex-col items-center justify-center"
-          style={{ width: 48, height: 30, background: 'linear-gradient(135deg, #FFE4F2 0%, #FF9EC8 45%, #FF6B9D 100%)', borderRadius: 4, border: '2px solid #CC4080', boxShadow: '2px 3px 0 #991A5A' }}>
-          <span className="font-pixel text-white/90" style={{ fontSize: 6, letterSpacing: 1 }}>SOAP</span>
-          <div className="flex gap-1 mt-0.5">
-            {[0,1,2,3].map(k => <div key={k} className="rounded-full" style={{ width: 4, height: 4, background: 'rgba(255,255,255,0.55)', border: '1px solid rgba(255,255,255,0.4)' }} />)}
-          </div>
-          <div style={{ position: 'absolute', top: 4, left: 5, width: 12, height: 3, background: 'rgba(255,255,255,0.4)', borderRadius: 3 }} />
-        </div>
+        <img src="/soap.png?v=1" alt="" draggable={false}
+          style={{ width: SOAP_W, height: SOAP_H, display: 'block', pointerEvents: 'none', filter: 'drop-shadow(2px 3px 0 rgba(153,26,90,0.32))' }} />
         {!dragSoap && !showShower && (
           <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap font-pixel text-pink-500" style={{ fontSize: 6 }}>
             DRAG ON EREN!
@@ -668,9 +680,37 @@ export default function WashScene({ onClose }: Props) {
       </div>
 
       <style jsx>{`
-        @keyframes fall {
-          from { transform: translateY(-4px); opacity: 1; }
-          to   { transform: translateY(40px); opacity: 0; }
+        /* ── Shower spray ──
+           A fan of rotated rays pinned to the perforated plate. Each ray is a
+           zero-size pivot; its drops translate straight down in their own
+           frame and the ray's rotation tips that travel down-LEFT, so the
+           water leaves the plate the way its face points. translate+opacity
+           only = stays on the compositor. */
+        .spray-ray  { position: absolute; left: 0; top: 0; transform-origin: top center; }
+        .spray-drop {
+          position: absolute; top: 0; left: -1.25px;
+          width: 2.5px; height: 11px;
+          border-radius: 60% 60% 70% 70% / 30% 30% 80% 80%;
+          background: linear-gradient(180deg, rgba(216,241,252,0.95) 0%, rgba(96,182,232,0.96) 100%);
+          box-shadow: 0 0 3px rgba(120,200,240,0.55);
+          opacity: 0;
+          animation: sprayFall 0.5s linear infinite;
+        }
+        @keyframes sprayFall {
+          0%   { transform: translateY(0)               scaleY(0.6);  opacity: 0; }
+          16%  { opacity: 0.95; }
+          82%  { opacity: 0.85; }
+          100% { transform: translateY(var(--len, 60px)) scaleY(1.3); opacity: 0; }
+        }
+        .shower-mist {
+          position: absolute; left: -8px; top: -5px;
+          width: 22px; height: 18px; border-radius: 50%;
+          background: radial-gradient(circle at 60% 35%, rgba(222,243,253,0.5) 0%, rgba(150,210,240,0.18) 55%, transparent 75%);
+          animation: showerMist 0.6s ease-in-out infinite;
+        }
+        @keyframes showerMist {
+          0%, 100% { opacity: 0.45; transform: scale(1); }
+          50%      { opacity: 0.8;  transform: scale(1.14); }
         }
 
         .tap-drop {
