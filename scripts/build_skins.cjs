@@ -320,12 +320,13 @@ function processInBrowser(dataUrl, opts) {
         for (let s = 0; s < W * H; s++) {
           if (!tailMask[s] || lab[s] >= 0) continue
           const id = comps.length
-          let size = 0, sx = 0, sy = 0
+          let size = 0, sx = 0, sy = 0, cy0 = H, cy1 = -1
           stk.length = 0; stk.push(s); lab[s] = id
           while (stk.length) {
             const p = stk.pop(); size++
             const px = p % W, py = (p / W) | 0
             sx += px; sy += py
+            if (py < cy0) cy0 = py; if (py > cy1) cy1 = py
             for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
               const nx = px + dx, ny = py + dy
               if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue
@@ -333,16 +334,21 @@ function processInBrowser(dataUrl, opts) {
               if (tailMask[np] && lab[np] < 0) { lab[np] = id; stk.push(np) }
             }
           }
-          comps.push({ id, size, cx: sx / size, cy: sy / size })
+          comps.push({ id, size, cx: sx / size, cy: sy / size, y0: cy0, y1: cy1 })
         }
-        // Keep ALL right-side, below-head components (not just the largest):
-        // a tail that dips left of the mirror mid-way gets split into stacked
-        // pieces by the per-row cut (the mouse), and keeping only the biggest
-        // left the lower piece static in the body. The far-right + size gates
-        // still exclude paws/specks.
-        const keepIds = new Set(comps
-          .filter(c => c.cx > W * 0.55 && c.cy > H * 0.34 && c.size > W * H * 0.0025)
-          .map(c => c.id))
+        // Keep right-side, below-head components: the largest IS the tail, plus
+        // any piece the per-row cut split off mid-way (the mouse dips left of the
+        // mirror and stacks into pieces — keeping only the biggest left the lower
+        // piece static in the body). But REJECT a fragment floating entirely
+        // ABOVE the tail mass: the fish skin's sardine-hat fin sits on the right
+        // below the head band and otherwise gets mistaken for tail — a stray blob
+        // that then swings AND is carved out of the hat. The far-right + size
+        // gates still exclude paws/specks.
+        const qualify = comps.filter(c => c.cx > W * 0.55 && c.cy > H * 0.34 && c.size > W * H * 0.0025)
+        const mainComp = qualify.slice().sort((a, b) => b.size - a.size)[0]
+        const keepIds = new Set(
+          mainComp ? qualify.filter(c => c.y1 >= mainComp.y0 - H * 0.04).map(c => c.id) : []
+        )
         for (let i = 0; i < W * H; i++) {
           if (keepIds.has(lab[i])) {
             tCount++; const x = i % W, y = (i / W) | 0
@@ -448,6 +454,63 @@ function processInBrowser(dataUrl, opts) {
         // where "upper-40% of the seam" picks the raised tip instead of the root.
         if (opts.tailOrigin) tailOrigin = opts.tailOrigin
 
+        // Recover the curled-back TIP. The symmetry cut drops the topmost tail
+        // rows where the crescent's free end curls back INWARD (left of the
+        // body's mirror), leaving a flat-sliced top that's very visible when the
+        // tip swings. Walk UP from the top captured row: at each row the tail
+        // must continue as a SOLID, tail-coloured run that OVERLAPS the row below
+        // (real vertical continuity) and is bounded on the left by bright body
+        // fur. The strict gates make this a NO-OP for tails whose tip is already
+        // complete (nothing solid sits above them) — only the truly flat-cut
+        // tails grow — and stop it from chasing a 1px anti-alias thread up the
+        // body edge. Runs AFTER the pivot, so the rump origin is untouched.
+        {
+          let fL = 1e9, fR = -1
+          for (let x = tMinX; x <= tMaxX; x++) if (tailMask[tMinY * W + x]) { if (x < fL) fL = x; fR = x }
+          const minW = Math.max(4, Math.round(W * 0.012))
+          const drift = Math.max(2, Math.round(W * 0.012))
+          const topCap = Math.max(0, tMinY - Math.round(H * 0.20))
+          for (let y = tMinY - 1; y >= topCap; y--) {
+            // rightmost silhouette directly over the frontier (small drift slack)
+            let r = -1
+            for (let x = Math.min(W - 1, fR + drift); x >= Math.max(0, fL - drift); x--) {
+              if (sil[y * W + x]) { r = x; break }
+            }
+            if (r < 0) break
+            const rc = (y * W + r) * 4
+            if (lum(fd[rc], fd[rc + 1], fd[rc + 2]) > 195) break   // body fur → tail done
+            // contiguous run leftward, stopping at bright fur or a gap
+            let L = r
+            while (L - 1 >= 0 && sil[y * W + (L - 1)]) {
+              const i = (y * W + (L - 1)) * 4
+              if (lum(fd[i], fd[i + 1], fd[i + 2]) > 195) break
+              L--
+            }
+            const runW = r - L + 1
+            const overlap = Math.min(r, fR) - Math.max(L, fL) + 1
+            if (overlap < 2 || runW < minW) break                 // not a real continuation
+            // the run must be MOSTLY tail-coloured (gray/brown fill or its dark
+            // outline), not a faint anti-alias/halo thread
+            let solid = 0, total = 0
+            for (let x = L; x <= r; x++) {
+              if (!sil[y * W + x]) continue
+              total++
+              const i = (y * W + x) * 4
+              if (lum(fd[i], fd[i + 1], fd[i + 2]) <= 200) solid++
+            }
+            if (total < minW || solid / total < 0.6) break
+            for (let x = L; x <= r; x++) if (sil[y * W + x]) tailMask[y * W + x] = 1
+            fL = L; fR = r
+          }
+        }
+        // re-derive bbox to include the recovered tip (so the trims below cover it)
+        tMinX = 1e9; tMaxX = -1; tMinY = 1e9; tMaxY = -1
+        for (let i = 0; i < W * H; i++) if (tailMask[i]) {
+          const x = i % W, y = (i / W) | 0
+          if (x < tMinX) tMinX = x; if (x > tMaxX) tMaxX = x
+          if (y < tMinY) tMinY = y; if (y > tMaxY) tMaxY = y
+        }
+
         // Trim costume that leaked into the tail. At the haunch rows the cat
         // isn't left-right symmetric (a narrow paw on the left, the wide hip on
         // the right), so the mirror cut lands INSIDE the costume and keeps a
@@ -471,6 +534,75 @@ function processInBrowser(dataUrl, opts) {
             if (lm < 90) break              // reached the tail's dark inner outline → keep the rest
             if (lm > 150) tailMask[idx] = 0 // bright leaked costume → back to body
           }
+        }
+
+        // Solidity cleanup — drop stray pixels that don't belong to the tail
+        // body: thin dark spurs of the cat's own outline dragged in at the rump
+        // (the swinging "black trail"), anti-alias threads/specks. Keep the
+        // tail's gray FILL core plus everything within a few px of it (its real
+        // 2–3px outline always hugs the fill), and drop the rest. A pure-outline
+        // filament dangles FAR from any fill, so it goes; the outline stays.
+        {
+          const fill = new Uint8Array(W * H)
+          for (let i = 0; i < W * H; i++) {
+            if (!tailMask[i]) continue
+            const lm = lum(fd[i * 4], fd[i * 4 + 1], fd[i * 4 + 2])
+            if (lm >= 95 && lm <= 215) fill[i] = 1
+          }
+          // largest connected fill component = the solid tail body (+ its tip)
+          const lab2 = new Int32Array(W * H).fill(-1)
+          let best = -1, bestSize = 0
+          const stk2 = []
+          for (let s = 0; s < W * H; s++) {
+            if (!fill[s] || lab2[s] >= 0) continue
+            let size = 0
+            stk2.length = 0; stk2.push(s); lab2[s] = s
+            while (stk2.length) {
+              const p = stk2.pop(); size++
+              const px = p % W, py = (p / W) | 0
+              for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+                const nx = px + dx, ny = py + dy
+                if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue
+                const np = ny * W + nx
+                if (fill[np] && lab2[np] < 0) { lab2[np] = s; stk2.push(np) }
+              }
+            }
+            if (size > bestSize) { bestSize = size; best = s }
+          }
+          if (best >= 0) {
+            // 8-connected BFS distance (through the tail mask) from the core;
+            // keep pixels within D. 8-connected so a 2–3px outline at a convex
+            // corner is kept (4-connected Manhattan distance would clip corners
+            // and re-ragged the edge). D comfortably covers the outline; the dark
+            // spur dangling past it is dropped (a tiny near-pivot stub may remain,
+            // but it sits AT the pivot so it doesn't swing).
+            const D = Math.max(5, Math.round(W * 0.007))
+            const dist = new Int16Array(W * H).fill(-1)
+            let frontier = []
+            for (let i = 0; i < W * H; i++) if (lab2[i] === best) { dist[i] = 0; frontier.push(i) }
+            for (let d = 0; d < D && frontier.length; d++) {
+              const next = []
+              for (const p of frontier) {
+                const px = p % W, py = (p / W) | 0
+                for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+                  if (!dx && !dy) continue
+                  const nx = px + dx, ny = py + dy
+                  if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue
+                  const np = ny * W + nx
+                  if (tailMask[np] && dist[np] < 0) { dist[np] = d + 1; next.push(np) }
+                }
+              }
+              frontier = next
+            }
+            for (let i = 0; i < W * H; i++) if (tailMask[i] && dist[i] < 0) tailMask[i] = 0
+          }
+        }
+        // final bbox (stray pixels gone) for the connector/erase below
+        tMinX = 1e9; tMaxX = -1; tMinY = 1e9; tMaxY = -1
+        for (let i = 0; i < W * H; i++) if (tailMask[i]) {
+          const x = i % W, y = (i / W) | 0
+          if (x < tMinX) tMinX = x; if (x > tMaxX) tMaxX = x
+          if (y < tMinY) tMinY = y; if (y > tMaxY) tMaxY = y
         }
 
         // Emit the tail layer from the (now trimmed) mask.
