@@ -48,6 +48,8 @@ const SKINS = [
   { id: 'raccoon', file: 'ErenRacoon1.png',     rarity: 'rare',      name: 'Raccoon Eren' },
   { id: 'koala',   file: 'ErenCoala1.png',      rarity: 'rare',      name: 'Koala Eren' },
   { id: 'otter',   file: 'ErenOtter1.png',      rarity: 'rare',      name: 'Otter Eren' },
+  { id: 'deer',    file: 'ErenDeer.png',        rarity: 'rare',      name: 'Deer Eren' },
+  { id: 'cow',     file: 'ErenCow.png',         rarity: 'rare',      name: 'Cow Eren' },
   { id: 'mouse',   file: 'ErenMouseFull1.png',  rarity: 'legendary', name: 'Mouse Eren' },
   { id: 'bunny',   file: 'ErenBunnyFull1.png',  rarity: 'legendary', name: 'Bunny Eren' },
 ]

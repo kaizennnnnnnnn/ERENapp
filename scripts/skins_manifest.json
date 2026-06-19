@@ -483,7 +483,7 @@
     "height": 1158,
     "aspect": 0.816,
     "hasTail": true,
-    "tailOrigin": "74.8% 81.5%",
+    "tailOrigin": "74.2% 83.2%",
     "eyes": {
       "maskLeftA": "35.66%",
       "maskLeftB": "54.49%",
@@ -530,6 +530,62 @@
       "glintW": "26%"
     },
     "eyeReason": "ok(2c span24)"
+  },
+  {
+    "id": "deer",
+    "name": "Deer Eren",
+    "rarity": "rare",
+    "width": 1452,
+    "height": 2063,
+    "aspect": 0.704,
+    "hasTail": true,
+    "tailOrigin": "72% 83%",
+    "eyes": {
+      "maskLeftA": "33.14%",
+      "maskLeftB": "50.56%",
+      "maskTop": "29.61%",
+      "maskW": "7.6%",
+      "maskH": "8.6%",
+      "lidLeftA": "32.68%",
+      "lidLeftB": "50.11%",
+      "lidTop": "29.21%",
+      "lidWidth": "8.51%",
+      "lidHeight": "9.4%",
+      "glintLeftA": "36%",
+      "glintLeftB": "38%",
+      "glintTopA": "14%",
+      "glintTopB": "14%",
+      "glintW": "26%"
+    },
+    "eyeReason": "ok(2c span24)"
+  },
+  {
+    "id": "cow",
+    "name": "Cow Eren",
+    "rarity": "rare",
+    "width": 822,
+    "height": 1252,
+    "aspect": 0.657,
+    "hasTail": true,
+    "tailOrigin": "69.8% 81.8%",
+    "eyes": {
+      "maskLeftA": "33.78%",
+      "maskLeftB": "50.59%",
+      "maskTop": "28.17%",
+      "maskW": "7.6%",
+      "maskH": "8.6%",
+      "lidLeftA": "33.32%",
+      "lidLeftB": "50.14%",
+      "lidTop": "27.77%",
+      "lidWidth": "8.51%",
+      "lidHeight": "9.4%",
+      "glintLeftA": "36%",
+      "glintLeftB": "38%",
+      "glintTopA": "14%",
+      "glintTopB": "14%",
+      "glintW": "26%"
+    },
+    "eyeReason": "ok(2c span25)"
   },
   {
     "id": "mouse",
