@@ -19,6 +19,11 @@ import type { FoodKey } from '@/types'
 
 const IDLE_CYCLE_MIN_MS = 60_000
 const IDLE_CYCLE_MAX_MS = 90_000
+// The first idle line of a session fires fast (a few seconds after Eren
+// settles in) so even a short home visit catches one — with only the 60–90s
+// gap, most visits ended before Eren ever "thought" anything out loud.
+const FIRST_LINE_MIN_MS = 6_000
+const FIRST_LINE_MAX_MS = 12_000
 const BUBBLE_VISIBLE_MS = 5_500
 const TRIGGER_DELAY_MIN_MS = 4_000
 const TRIGGER_DELAY_MAX_MS = 8_000
@@ -140,12 +145,17 @@ export function useFlavorBubble(opts: UseFlavorBubbleOptions): {
   useEffect(() => {
     if (!opts.enabled) return
     const multiplier = opts.quietEren ? 2 : 1
+    let first = true
     const tick = () => {
       if (cycleTimerRef.current) clearTimeout(cycleTimerRef.current)
+      const delay = first
+        ? range(FIRST_LINE_MIN_MS * multiplier, FIRST_LINE_MAX_MS * multiplier)
+        : range(IDLE_CYCLE_MIN_MS * multiplier, IDLE_CYCLE_MAX_MS * multiplier)
+      first = false
       cycleTimerRef.current = setTimeout(() => {
         pickAndShow('idle-pool')
         tick()
-      }, range(IDLE_CYCLE_MIN_MS * multiplier, IDLE_CYCLE_MAX_MS * multiplier))
+      }, delay)
     }
     tick()
     return () => {

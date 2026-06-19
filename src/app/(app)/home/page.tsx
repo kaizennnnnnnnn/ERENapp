@@ -307,7 +307,13 @@ export default function HomePage() {
 
   const { line: flavorLine, dismiss: dismissFlavor } = useFlavorBubble({
     enabled: !!stats && !stats.is_sleeping && roomReady && !authLoading,
-    suppressed: wishBubbleVisible,
+    // Only mute flavor while the GRANT celebration owns the anchor (its 2-min
+    // linger). While a wish is merely pending it can sit unanswered all day —
+    // suppressing flavor then would silence Eren's whole inner monologue. So
+    // during pending, flavor and the wish cloud take turns: a flavor line
+    // borrows the anchor for ~5.5s (the WishCloud `!flavorLine` gate below
+    // hides the wish meanwhile), then the wish returns.
+    suppressed: wishBubbleVisible && wish?.status === 'granted',
     leaderName,
     viewerName: profile?.name ?? '',
     partnerName: partner?.name ?? null,
@@ -630,8 +636,10 @@ export default function HomePage() {
                 ThoughtCloud's above-right anchor. Pending state shows the
                 wish all day; after the grant, useWishLinger keeps it mounted
                 for two minutes per viewer (persisted across reopens) and
-                then unmounts it for the rest of the day. */}
-            {wishBubbleVisible && wish?.wish && wish.status !== 'loading' && (
+                then unmounts it for the rest of the day. While a flavor line
+                is on screen it yields the anchor (`!flavorLine`) so Eren's
+                ambient thoughts get a turn instead of being muted all day. */}
+            {wishBubbleVisible && !flavorLine && wish?.wish && wish.status !== 'loading' && (
               <WishCloud
                 wish={wish.wish}
                 text={wish.text}
