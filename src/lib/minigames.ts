@@ -25,6 +25,7 @@ export const MINIGAME_IDS = {
   LANE_RUNNER:  'lane_runner',
   PAW_DOKU:     'paw_doku',
   YARN_SORT:    'yarn_sort',
+  GONE_FISHIN:  'gone_fishin',
 } as const satisfies Record<string, GameType>
 
 /** Fire-and-forget signal that the user just completed a minigame.

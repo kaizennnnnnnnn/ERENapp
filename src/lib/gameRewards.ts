@@ -43,6 +43,7 @@ const SCORE_BONUS: Record<GameType, (score: number) => number> = {
   lane_runner:  s => Math.floor(s / 16),
   paw_doku:     s => Math.floor(s / 120),
   yarn_sort:    s => Math.floor(s / 2),  // score = levels solved; ~26 levels → 15 cap
+  gone_fishin:  s => Math.floor(s / 55), // score = total fish value; ~800 → 15 cap
 }
 
 /** Per-run coin cap for every score-based game. */

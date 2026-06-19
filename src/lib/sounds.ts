@@ -183,6 +183,15 @@ export const SOUNDS = {
   ys_undo:     '/sounds/games/yarn-sort/ys_undo.mp3',
   ys_low:      '/sounds/games/yarn-sort/ys_low.mp3',
   ys_gameover: '/sounds/games/yarn-sort/ys_gameover.mp3',
+
+  // gone-fishin
+  gf_cast:     '/sounds/games/gone-fishin/gf_cast.mp3',
+  gf_bite:     '/sounds/games/gone-fishin/gf_bite.mp3',
+  gf_hook:     '/sounds/games/gone-fishin/gf_hook.mp3',
+  gf_land:     '/sounds/games/gone-fishin/gf_land.mp3',
+  gf_big:      '/sounds/games/gone-fishin/gf_big.mp3',
+  gf_escape:   '/sounds/games/gone-fishin/gf_escape.mp3',
+  gf_gameover: '/sounds/games/gone-fishin/gf_gameover.mp3',
 } as const
 
 export type SoundName = keyof typeof SOUNDS
@@ -307,6 +316,15 @@ const VOLUME_SCALE: Partial<Record<SoundName, number>> = {
   ys_undo:            0.45,
   ys_low:             0.6,
   ys_gameover:        0.75,
+
+  // gone-fishin
+  gf_cast:            0.5,
+  gf_bite:            0.6,
+  gf_hook:            0.7,
+  gf_land:            0.8,
+  gf_big:             0.85,
+  gf_escape:          0.55,
+  gf_gameover:        0.75,
 }
 
 // Fallbacks let new sound names ship safely before the audio files land

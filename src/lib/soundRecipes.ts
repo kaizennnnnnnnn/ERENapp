@@ -151,6 +151,18 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
   ys_low:      { type: 'pulse', freq: 932, pulses: 3, step: 100, pulseDur: 60, shape: 'square', gain: 0.6 },
   ys_gameover: { type: 'arp',   notes: [784, 587, 440, 330], step: 130, noteDur: 170, shape: 'triangle', gain: 0.75 },
 
+  // ─── gone-fishin — airy casts, low plunks, bright catch fanfares ─────────
+  gf_cast:     { type: 'noise', duration: 170, gain: 0.35, highpass: 900 },
+  gf_bite:     { type: 'blip',  freq: 300, duration: 120, shape: 'sine', gain: 0.65 },
+  gf_hook:     { type: 'sweep', freq: [500, 1000], duration: 110, shape: 'triangle', gain: 0.7 },
+  gf_land:     { type: 'arp',   notes: [659, 880, 1175, 1568], step: 60, noteDur: 110, shape: 'sine', gain: 0.85 },
+  gf_big:      { type: 'seq',   parts: [
+                  { at: 0,   recipe: { type: 'arp', notes: [784, 1047, 1318, 1568, 2093], step: 60, noteDur: 120, shape: 'triangle', gain: 0.85 } },
+                  { at: 240, recipe: { type: 'chord', freqs: [1047, 1318, 1568], duration: 320, shape: 'sine', gain: 0.5 } },
+                ] },
+  gf_escape:   { type: 'sweep', freq: [600, 200], duration: 260, shape: 'sine', gain: 0.5, curve: 'exponential' },
+  gf_gameover: { type: 'arp',   notes: [659, 494, 392, 294], step: 130, noteDur: 160, shape: 'sine', gain: 0.7 },
+
   // ─── Care reactions — water / soap / medicine ──────────────────────────────
   // Synthesised so they DON'T fall back to care_eat (the chewing mp3), which is
   // why finishing a bath used to sound like Eren eating.
