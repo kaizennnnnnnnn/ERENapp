@@ -282,6 +282,13 @@ export default function PawDokuGame() {
   const savedRef = useRef(false)
   const STREAK_GRACE = 3
 
+  // Mirror score into a ref so endGame (fired via setTimeout from afterPlace)
+  // reads the TRUE post-placement total, not the stale closure score from the
+  // render that scheduled it — otherwise the final move's points (often a big
+  // multi-clear) are dropped from BEST, the count-up, the leaderboard, and coins.
+  const scoreRef = useRef(0)
+  useEffect(() => { scoreRef.current = score }, [score])
+
   // ── Drag state ──
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null)
   const [dragPos,    setDragPos]    = useState({ x: 0, y: 0 })
@@ -377,8 +384,9 @@ export default function PawDokuGame() {
   }
 
   function endGame() {
+    const finalScore = scoreRef.current
     setPhase('gameover')
-    setBest(b => Math.max(b, score))
+    setBest(b => Math.max(b, finalScore))
     setVignette(v => v + 1)
     playSound('pd_gameover')
 
@@ -386,7 +394,6 @@ export default function PawDokuGame() {
     // final tally feels earned. Starts from 0, eases to final score.
     setDisplayScore(0)
     const startTs = performance.now()
-    const finalScore = score
     const duration = 800
     function step(now: number) {
       const t = Math.min(1, (now - startTs) / duration)
@@ -399,11 +406,11 @@ export default function PawDokuGame() {
 
     if (!savedRef.current && user?.id) {
       savedRef.current = true
-      setReward(reportGameResult({ gameType: 'paw_doku', score }))
-      if (score > 0) {
-        fireMinigameDone('paw_doku', score)
+      setReward(reportGameResult({ gameType: 'paw_doku', score: finalScore }))
+      if (finalScore > 0) {
+        fireMinigameDone('paw_doku', finalScore)
         completeTask('daily_game')
-        if (score >= 1500) completeTask('weekly_high_score')
+        if (finalScore >= 1500) completeTask('weekly_high_score')
         applyAction(user.id, 'play')
       }
     }

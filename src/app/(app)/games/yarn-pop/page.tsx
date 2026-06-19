@@ -3,11 +3,12 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
+import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { IconStar } from '@/components/PixelIcons'
 import { fireMinigameDone } from '@/lib/minigames'
@@ -139,12 +140,12 @@ function doSwap(g: Grid, a: { r: number; c: number }, b: { r: number; c: number 
 // ─── Game component ─────────────────────────────────────────────────────────
 export default function YarnPopGame() {
   const router = useRouter()
-  const supabase = createClient()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
   useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
-  const { completeTask, addCoins } = useTasks()
+  const { completeTask } = useTasks()
+  const { reportGameResult } = useGameRewards()
 
   const [phase, setPhase]     = useState<'idle' | 'playing' | 'gameover'>('idle')
   const [grid, setGrid]       = useState<Grid>(() => genGrid())
@@ -158,6 +159,7 @@ export default function YarnPopGame() {
   const [displayCombo, setDisplayCombo] = useState(0)
   const [processing, setProcessing] = useState(false)
   const [floater, setFloater] = useState<{ id: number; text: string; x: number; y: number; color: string } | null>(null)
+  const [reward, setReward] = useState<GameRewardResult | null>(null)
   const savedRef = useRef(false)
   // Score pulse — incremented per gain so React re-keys the animated span.
   const [scorePulse, setScorePulse] = useState(0)
@@ -180,6 +182,7 @@ export default function YarnPopGame() {
     setEnding(false)
     setShakeKeys(new Set())
     savedRef.current = false
+    setReward(null)
     setPhase('playing')
   }
 
@@ -265,19 +268,28 @@ export default function YarnPopGame() {
   const movesRef = useRef(STARTING_MOVES)
   useEffect(() => { movesRef.current = moves }, [moves])
 
+  // Mirror score into a ref. endGame is fired from a setTimeout inside
+  // processCascades, whose closure captured the score from the render of the
+  // *final tap* — i.e. before that last cascade's setScore landed. Reading the
+  // ref makes BEST, the leaderboard insert, and the weekly check use the true
+  // final score (the on-screen number was already correct via current state).
+  const scoreRef = useRef(0)
+  useEffect(() => { scoreRef.current = score }, [score])
+
   function endGame() {
+    const finalScore = scoreRef.current
     setPhase('gameover')
     playSound('yp_gameover')
-    setBest(b => Math.max(b, score))
-    if (!savedRef.current && user?.id && score > 0) {
+    setBest(b => Math.max(b, finalScore))
+    if (!savedRef.current && user?.id) {
       savedRef.current = true
-      supabase.from('game_scores').insert({ user_id: user.id, game_type: 'yarn_pop', score })
-        .then(({ error }: { error: { message: string } | null }) => { if (error) console.error('yarn_pop save:', error) })
-      fireMinigameDone('yarn_pop', score)
-      addCoins(Math.min(60, Math.floor(score / 25)))
-      completeTask('daily_game')
-      if (score >= 600) completeTask('weekly_high_score')
-      applyAction(user.id, 'play')
+      setReward(reportGameResult({ gameType: 'yarn_pop', score: finalScore }))
+      if (finalScore > 0) {
+        fireMinigameDone('yarn_pop', finalScore)
+        completeTask('daily_game')
+        if (finalScore >= 600) completeTask('weekly_high_score')
+        applyAction(user.id, 'play')
+      }
     }
   }
 
@@ -628,6 +640,11 @@ export default function YarnPopGame() {
                 <span className="font-pixel" style={{ fontSize: 22, color: '#FDE68A' }}>{bestScore}</span>
               </div>
             </div>
+            {reward && (
+              <div className="mb-3">
+                <GameCoinReward coins={reward.coins} blocked={reward.blocked} />
+              </div>
+            )}
             <div className="flex items-center gap-2 mt-3">
               <button onClick={() => { playSound('ui_tap'); reset() }}
                 className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
