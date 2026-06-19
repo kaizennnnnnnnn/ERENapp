@@ -21,7 +21,7 @@ import { countGamesWon } from '@/lib/gameRewards'
 import {
   IconStar, IconCrown,
   IconMouse, IconFish, IconScroll, IconMeat, IconLightning,
-  IconSwords, IconHouse, IconHeart, IconCatFace, IconCoin, IconSparkles,
+  IconSwords, IconHouse, IconHeart, IconCatFace, IconCoin, IconSparkles, IconYarn,
 } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import type { GameType, Profile } from '@/types'
@@ -39,6 +39,7 @@ const GAMES: Array<{ id: GameType; title: string; Icon: React.FC<{ size?: number
   { id: 'eren_says',    title: 'EREN SAYS',        Icon: IconCatFace },
   { id: 'lane_runner',  title: 'LANE RUNNER',      Icon: IconCoin },
   { id: 'paw_doku',     title: 'PAW DOKU',         Icon: IconSparkles },
+  { id: 'yarn_sort',    title: 'YARN SORT',        Icon: IconYarn },
 ]
 
 interface PlayerScores {

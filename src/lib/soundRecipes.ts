@@ -142,6 +142,15 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
   pd_pickup:     { type: 'blip', freq: 1175, duration: 40, shape: 'sine', gain: 0.45 },
   pd_gameover:   { type: 'arp',  notes: [784, 988, 1175, 1568, 2093], step: 90, noteDur: 150, shape: 'sine', gain: 0.8 },
 
+  // ─── yarn-sort — bubbly triangle plinks + liquid pour sweeps ─────────────
+  ys_pick:     { type: 'blip',  freq: 784, duration: 90, shape: 'triangle', gain: 0.6 },
+  ys_pour:     { type: 'sweep', freq: [880, 440], duration: 170, shape: 'sine', gain: 0.6, curve: 'exponential' },
+  ys_invalid:  { type: 'blip',  freq: 220, duration: 130, shape: 'square', gain: 0.5 },
+  ys_solve:    { type: 'arp',   notes: [659, 880, 1175, 1568], step: 60, noteDur: 110, shape: 'triangle', gain: 0.85 },
+  ys_undo:     { type: 'sweep', freq: [520, 700], duration: 90, shape: 'triangle', gain: 0.45 },
+  ys_low:      { type: 'pulse', freq: 932, pulses: 3, step: 100, pulseDur: 60, shape: 'square', gain: 0.6 },
+  ys_gameover: { type: 'arp',   notes: [784, 587, 440, 330], step: 130, noteDur: 170, shape: 'triangle', gain: 0.75 },
+
   // ─── Care reactions — water / soap / medicine ──────────────────────────────
   // Synthesised so they DON'T fall back to care_eat (the chewing mp3), which is
   // why finishing a bath used to sound like Eren eating.

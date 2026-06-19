@@ -165,6 +165,18 @@ const GAMES: GameMeta[] = [
     Icon: IconSparkles,
     preview: [IconSparkles, IconHeart, IconStar],
   },
+  {
+    id: 'yarn_sort' as GameType,
+    href: '/games/yarn-sort',
+    title: 'YARN SORT',
+    desc: 'Pour the yarn — one color per tube.',
+    bg: 'linear-gradient(135deg, #E0FBF7, #C0F4EC)',
+    border: '#2DD4BF',
+    shadow: '#0F766E',
+    accent: '#0F766E',
+    Icon: IconYarn,
+    preview: [IconYarn, IconStar, IconYarn],
+  },
 ]
 
 // ─── Per-game mini scenes ───────────────────────────────────────────────────
@@ -184,6 +196,7 @@ function GameScene({ id, size = 48 }: { id: GameType; size?: number }) {
     case 'eren_says':    return <SaysScene        size={size} />
     case 'lane_runner':  return <LaneRunnerScene  size={size} />
     case 'paw_doku':     return <PawDokuScene     size={size} />
+    case 'yarn_sort':    return <YarnSortScene    size={size} />
   }
 }
 
@@ -540,6 +553,30 @@ function PawDokuScene({ size }: { size: number }) {
       <line x1={offset + 6 * (cell+gap) - 0.5} y1={offset - 1} x2={offset + 6 * (cell+gap) - 0.5} y2={offset + 9 * (cell+gap) - 1} stroke="#FBBF24" strokeWidth="1" opacity="0.7" />
       <line x1={offset - 1} y1={offset + 3 * (cell+gap) - 0.5} x2={offset + 9 * (cell+gap) - 1} y2={offset + 3 * (cell+gap) - 0.5} stroke="#FBBF24" strokeWidth="1" opacity="0.7" />
       <line x1={offset - 1} y1={offset + 6 * (cell+gap) - 0.5} x2={offset + 9 * (cell+gap) - 1} y2={offset + 6 * (cell+gap) - 0.5} stroke="#FBBF24" strokeWidth="1" opacity="0.7" />
+    </svg>
+  )
+}
+
+// YARN SORT — three test tubes of stacked yarn; the left one fully sorted
+function YarnSortScene({ size }: { size: number }) {
+  const P = '#EC4899', G = '#FBBF24', M = '#34D399', U = '#A78BFA'
+  // bottom→top stacks; null = empty slot
+  const Tube = (x: number, segs: (string | null)[]) => (
+    <g key={x}>
+      <rect x={x} y={11} width={10} height={31} fill="rgba(255,255,255,0.06)" stroke="#5EEAD4" strokeWidth="1" />
+      {segs.map((col, i) => col ? (
+        <rect key={i} x={x + 1} y={40 - (i + 1) * 7} width={8} height={7} fill={col} />
+      ) : null)}
+    </g>
+  )
+  return (
+    <svg {...svgProps(size)}>
+      {Tube(6,  [M, M, M, M])}
+      {Tube(19, [P, U, G, P])}
+      {Tube(32, [G, P, M, null])}
+      {/* sparkle over the solved tube */}
+      <rect x="10" y="5" width="1" height="3" fill="#FFFFFF" />
+      <rect x="9"  y="6" width="3" height="1" fill="#FFFFFF" />
     </svg>
   )
 }

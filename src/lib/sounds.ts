@@ -174,6 +174,15 @@ export const SOUNDS = {
   pd_streak:     '/sounds/games/paw-doku/pd_streak.mp3',
   pd_pickup:     '/sounds/games/paw-doku/pd_pickup.mp3',
   pd_gameover:   '/sounds/games/paw-doku/pd_gameover.mp3',
+
+  // yarn-sort
+  ys_pick:     '/sounds/games/yarn-sort/ys_pick.mp3',
+  ys_pour:     '/sounds/games/yarn-sort/ys_pour.mp3',
+  ys_invalid:  '/sounds/games/yarn-sort/ys_invalid.mp3',
+  ys_solve:    '/sounds/games/yarn-sort/ys_solve.mp3',
+  ys_undo:     '/sounds/games/yarn-sort/ys_undo.mp3',
+  ys_low:      '/sounds/games/yarn-sort/ys_low.mp3',
+  ys_gameover: '/sounds/games/yarn-sort/ys_gameover.mp3',
 } as const
 
 export type SoundName = keyof typeof SOUNDS
@@ -289,6 +298,15 @@ const VOLUME_SCALE: Partial<Record<SoundName, number>> = {
   pd_streak:          0.75,
   pd_pickup:          0.45,
   pd_gameover:        0.75,
+
+  // yarn-sort
+  ys_pick:            0.5,
+  ys_pour:            0.6,
+  ys_invalid:         0.5,
+  ys_solve:           0.8,
+  ys_undo:            0.45,
+  ys_low:             0.6,
+  ys_gameover:        0.75,
 }
 
 // Fallbacks let new sound names ship safely before the audio files land
