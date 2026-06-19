@@ -271,6 +271,13 @@ export default function PawDokuGame() {
   const [displayScore, setDisplayScore] = useState(0)      // count-up score for game-over panel
   const [scorePulse, setScorePulse] = useState(0)          // re-keys score pulse animation on increment
   const [bestScore, setBest]      = useState(0)
+  // Persist BEST across visits (matches flappy/lane).
+  useEffect(() => {
+    try {
+      const n = parseInt(localStorage.getItem('paw_doku_best') || '', 10)
+      if (Number.isFinite(n) && n > 0) setBest(n)
+    } catch { /* localStorage unavailable */ }
+  }, [])
   const [combo,     setCombo]     = useState(0)            // # of clears in this placement
   const [streak,    setStreak]    = useState(0)            // # of consecutive placements that cleared
   // Grace period: a placement that doesn't clear costs ONE grace.
@@ -392,6 +399,10 @@ export default function PawDokuGame() {
     const finalScore = scoreRef.current
     setPhase('gameover')
     setBest(b => Math.max(b, finalScore))
+    try {
+      const prev = parseInt(localStorage.getItem('paw_doku_best') || '0', 10) || 0
+      if (finalScore > prev) localStorage.setItem('paw_doku_best', String(finalScore))
+    } catch { /* ignore */ }
     if (!reduced) setVignette(v => v + 1)
     playSound('pd_gameover')
 

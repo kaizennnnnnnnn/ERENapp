@@ -77,6 +77,13 @@ export default function ErenSaysGame() {
   const [phase, setPhase]         = useState<'idle' | 'showing' | 'awaiting' | 'fail' | 'gameover'>('idle')
   const [round, setRound]         = useState(0)
   const [bestRound, setBestRound] = useState(0)
+  // Persist BEST across visits (matches flappy/lane).
+  useEffect(() => {
+    try {
+      const n = parseInt(localStorage.getItem('eren_says_best') || '', 10)
+      if (Number.isFinite(n) && n > 0) setBestRound(n)
+    } catch { /* localStorage unavailable */ }
+  }, [])
   const [activePad, setActivePad] = useState<number | null>(null)
   const [telegraphPad, setTelegraphPad] = useState<number | null>(null) // anticipatory ring
   const [trailPad, setTrailPad]   = useState<number | null>(null)        // afterglow trail
@@ -214,6 +221,10 @@ export default function ErenSaysGame() {
     if (userIdxRef.current >= seqRef.current.length) {
       const completed = seqRef.current.length
       setBestRound(b => Math.max(b, completed))
+      try {
+        const prev = parseInt(localStorage.getItem('eren_says_best') || '0', 10) || 0
+        if (completed > prev) localStorage.setItem('eren_says_best', String(completed))
+      } catch { /* ignore */ }
       playSound('ey_round_clear')
       setRoundPulse(p => p + 1)
       pushScorePop(`+${completed}`, '#A3F0C0')

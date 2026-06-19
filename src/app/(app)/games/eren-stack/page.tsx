@@ -88,6 +88,13 @@ export default function ErenStackGame() {
   const [phase, setPhase]         = useState<'idle' | 'running' | 'gameover'>('idle')
   const [score, setScore]         = useState(0)
   const [bestScore, setBestScore] = useState(0)
+  // Persist BEST across visits (matches flappy/lane).
+  useEffect(() => {
+    try {
+      const n = parseInt(localStorage.getItem('eren_stack_best') || '', 10)
+      if (Number.isFinite(n) && n > 0) setBestScore(n)
+    } catch { /* localStorage unavailable */ }
+  }, [])
   const [perfectStreak, setPerfectStreak] = useState(0)
   const [floater, setFloater]     = useState<{ id: number; text: string; x: number; y: number; color: string } | null>(null)
   const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; dx: number; dy: number; color: string; kind: 'star' | 'dust' }>>([])
@@ -357,6 +364,10 @@ export default function ErenStackGame() {
     setPhase('gameover')
     const finalScore = scoreRef()
     setBestScore(b => Math.max(b, finalScore))
+    try {
+      const prev = parseInt(localStorage.getItem('eren_stack_best') || '0', 10) || 0
+      if (finalScore > prev) localStorage.setItem('eren_stack_best', String(finalScore))
+    } catch { /* ignore */ }
 
     if (!savedRef.current && user?.id) {
       savedRef.current = true

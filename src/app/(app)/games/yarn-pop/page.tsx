@@ -155,6 +155,13 @@ export default function YarnPopGame() {
   const [moves, setMoves]     = useState(STARTING_MOVES)
   const [score, setScore]     = useState(0)
   const [bestScore, setBest]  = useState(0)
+  // Persist BEST across visits (matches flappy/lane).
+  useEffect(() => {
+    try {
+      const n = parseInt(localStorage.getItem('yarn_pop_best') || '', 10)
+      if (Number.isFinite(n) && n > 0) setBest(n)
+    } catch { /* localStorage unavailable */ }
+  }, [])
   const [combo, setCombo]     = useState(0)
   // displayCombo lingers after the cascade ends so big chains don't flash
   // away — the badge holds its final value while it fades out.
@@ -283,6 +290,10 @@ export default function YarnPopGame() {
     setPhase('gameover')
     playSound('yp_gameover')
     setBest(b => Math.max(b, finalScore))
+    try {
+      const prev = parseInt(localStorage.getItem('yarn_pop_best') || '0', 10) || 0
+      if (finalScore > prev) localStorage.setItem('yarn_pop_best', String(finalScore))
+    } catch { /* ignore */ }
     if (!savedRef.current && user?.id) {
       savedRef.current = true
       setReward(reportGameResult({ gameType: 'yarn_pop', score: finalScore }))
