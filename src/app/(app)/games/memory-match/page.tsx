@@ -7,6 +7,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import { useGameTimers } from '@/hooks/useGameTimers'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
 import {
@@ -20,7 +21,7 @@ import { playSound } from '@/lib/sounds'
 const GAME_DURATION = 60 // seconds
 const GRID_COLS = 3
 const GRID_ROWS = 4        // 12 cards = 6 pairs
-const MISMATCH_FLIP_BACK_MS = 720
+const MISMATCH_FLIP_BACK_MS = 1000  // hold the reveal ~1s so a mismatch registers
 const COMBO_WINDOW_MS = 3500
 
 type CardKind = 'yarn' | 'fish' | 'paw' | 'mouse' | 'heart' | 'star'
@@ -80,6 +81,7 @@ export default function MemoryMatchGame() {
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
+  const timers = useGameTimers()
 
   const [deck, setDeck] = useState<Card[]>(() => newDeck())
   const [score, setScore] = useState(0)
@@ -108,16 +110,20 @@ export default function MemoryMatchGame() {
 
   const selected = useRef<number[]>([])
   const locked   = useRef(false)
-  const comboTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const comboTimer = useRef<number | null>(null)
   const boardRef = useRef<HTMLDivElement | null>(null)
   const cardRefs = useRef<Array<HTMLButtonElement | null>>([])
   const popIdRef = useRef(0)
   const burstIdRef = useRef(0)
 
   // ── Game timer ─────────────────────────────────────────────────────────────
+  // The clock freezes while the tab is backgrounded (notification / app-switch)
+  // so a 60s round can't drain — or hit 0 — unseen. setInterval is suspended
+  // on mobile background anyway; the document.hidden guard covers desktop tabs.
   useEffect(() => {
     if (gameState !== 'running') return
     const interval = setInterval(() => {
+      if (document.hidden) return
       setTimeLeft(t => {
         if (t <= 1) {
           clearInterval(interval)
@@ -159,9 +165,9 @@ export default function MemoryMatchGame() {
         })
       }
       setConfetti(burst)
-      setTimeout(() => setConfetti([]), 2800)
+      timers.setTimeout(() => setConfetti([]), 2800)
     }
-  }, [matchedCount, deck.length, gameState])
+  }, [matchedCount, deck.length, gameState]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Compute final score ────────────────────────────────────────────────────
   const finalScore = useMemo(() => {
@@ -184,6 +190,10 @@ export default function MemoryMatchGame() {
 
   // ── Start a round ──────────────────────────────────────────────────────────
   function start() {
+    // Flush any timers still pending from the previous round so a stale
+    // match-resolve / flip-back / combo-reset can't fire into the fresh deck.
+    timers.clearAll()
+    comboTimer.current = null
     setDeck(newDeck())
     setScore(0)
     setCombo(0)
@@ -240,7 +250,7 @@ export default function MemoryMatchGame() {
         const kind = deck[a].kind
         const tint = KIND_META[kind].tint
         locked.current = true
-        setTimeout(() => {
+        timers.setTimeout(() => {
           setDeck(prev => prev.map((c, i) =>
             i === a || i === b ? { ...c, matched: true, wobble: 'match' } : c
           ))
@@ -263,7 +273,7 @@ export default function MemoryMatchGame() {
             const popId = ++popIdRef.current
             const text = next >= 2 ? `+${gained} x${next}!` : `+${gained}`
             setScorePops(prev => [...prev, { id: popId, x: mid.x, y: mid.y, color: tint, text }])
-            setTimeout(() => setScorePops(prev => prev.filter(p => p.id !== popId)), 700)
+            timers.setTimeout(() => setScorePops(prev => prev.filter(p => p.id !== popId)), 700)
             // Per-match mini sparkle burst (6 pixels in tint)
             const newBursts: Array<{ id: number; x: number; y: number; color: string; dx: number; dy: number }> = []
             for (let s = 0; s < 6; s++) {
@@ -279,16 +289,16 @@ export default function MemoryMatchGame() {
             }
             setMiniBursts(prev => [...prev, ...newBursts])
             const burstIds = newBursts.map(p => p.id)
-            setTimeout(() => setMiniBursts(prev => prev.filter(p => !burstIds.includes(p.id))), 750)
+            timers.setTimeout(() => setMiniBursts(prev => prev.filter(p => !burstIds.includes(p.id))), 750)
             // reset combo after window
-            if (comboTimer.current) clearTimeout(comboTimer.current)
-            comboTimer.current = setTimeout(() => setCombo(0), COMBO_WINDOW_MS)
+            if (comboTimer.current != null) timers.clearTimeout(comboTimer.current)
+            comboTimer.current = timers.setTimeout(() => setCombo(0), COMBO_WINDOW_MS)
             return next
           })
           setShowFlash({ id: Date.now(), type: 'match', color: tint })
-          setTimeout(() => setShowFlash(null), 700)
+          timers.setTimeout(() => setShowFlash(null), 700)
           // clear wobble
-          setTimeout(() => {
+          timers.setTimeout(() => {
             setDeck(prev => prev.map(c => c.wobble === 'match' ? { ...c, wobble: 'none' } : c))
           }, 600)
           selected.current = []
@@ -298,18 +308,18 @@ export default function MemoryMatchGame() {
         // MISS
         locked.current = true
         setShowFlash({ id: Date.now(), type: 'miss', color: '#F87171' })
-        setTimeout(() => setShowFlash(null), 500)
+        timers.setTimeout(() => setShowFlash(null), 500)
         setCombo(0)
         playSound('mm_miss')
         setBoardShakeKey(k => k + 1)
         setVignetteKey(k => k + 1)
-        setTimeout(() => {
+        timers.setTimeout(() => {
           setDeck(prev => prev.map((c, i) =>
             i === a || i === b
               ? { ...c, faceUp: false, wobble: 'miss' }
               : c
           ))
-          setTimeout(() => {
+          timers.setTimeout(() => {
             setDeck(prev => prev.map(c => c.wobble === 'miss' ? { ...c, wobble: 'none' } : c))
           }, 320)
           selected.current = []
