@@ -63,6 +63,48 @@ function minimax(board: Cell[], current: 'X' | 'O', depth = 0): { score: number;
   return best
 }
 
+// First empty cell that wins immediately for `player`, else -1.
+function findImmediateWin(board: Cell[], player: 'X' | 'O'): number {
+  for (let i = 0; i < 9; i++) {
+    if (board[i] !== null) continue
+    const next = board.slice()
+    next[i] = player
+    if (checkWin(next).winner === player) return i
+  }
+  return -1
+}
+
+// ─── Imperfect Eren ─────────────────────────────────────────────────────────
+// Perfect minimax makes an honest win impossible, so the game was a dead end.
+// Instead Eren plays optimally MOST of the time but blunders (plays a random
+// cell, which may miss a block) with a probability that scales to the player's
+// session record — newcomers and the unlucky get a real opening, a win streak
+// tightens him back up. He never throws away an immediate win, so he still
+// feels sharp rather than stupid.
+const BASE_MISTAKE = 0.32
+const MISTAKE_STEP = 0.08   // per (loss - win) of session record
+const MISTAKE_MIN  = 0.10
+const MISTAKE_MAX  = 0.55
+function erenMistakeChance(wins: number, losses: number): number {
+  const c = BASE_MISTAKE + MISTAKE_STEP * (losses - wins)
+  return Math.max(MISTAKE_MIN, Math.min(MISTAKE_MAX, c))
+}
+
+function chooseErenMove(board: Cell[], mistakeChance: number): number {
+  const empties: number[] = []
+  board.forEach((c, i) => { if (c === null) empties.push(i) })
+  if (empties.length === 0) return -1
+  // Never pass up a winning move.
+  const win = findImmediateWin(board, 'O')
+  if (win >= 0) return win
+  // Blunder: random cell (may fail to block the player's threat).
+  if (Math.random() < mistakeChance) {
+    return empties[Math.floor(Math.random() * empties.length)]
+  }
+  // Otherwise, optimal.
+  return minimax(board, 'O').move
+}
+
 export default function TicTacToePage() {
   const router = useRouter()
   const { user, profile } = useAuth()
@@ -104,6 +146,11 @@ export default function TicTacToePage() {
   // Spill burst — short-lived liquid spray pixels arcing out when the can
   // tips. Mounted for ~600ms then unmounted to free DOM.
   const [spillBurst, setSpillBurst] = useState(false)
+  // One-time discoverability nudge toward the can easter egg — shown for a
+  // single match once the player has 2+ non-wins and has never knocked it.
+  const [showCanHint, setShowCanHint] = useState(false)
+  const hintShownRef = useRef(false)
+  const everKnockedRef = useRef(false)
 
   // ─── Player move ────────────────────────────────────────────────────────────
   function handleCellClick(i: number, e: React.PointerEvent) {
@@ -178,19 +225,9 @@ export default function TicTacToePage() {
         board.forEach((c, i) => { if (c === null) empties.push(i) })
         move = empties.length > 0 ? empties[Math.floor(Math.random() * empties.length)] : -1
       } else {
-        // Difficulty ramp — until the player has 2 lifetime wins this
-        // session, Eren's opening move is randomized (~50% chance) on a
-        // mostly-empty board. Full minimax still kicks in by mid-game so
-        // tactical positions stay interesting; this just gives newcomers
-        // a fighting chance instead of a brick wall.
-        const softenedOpener = wins < 2 && emptyCount >= 8 && Math.random() < 0.5
-        if (softenedOpener) {
-          const empties: number[] = []
-          board.forEach((c, i) => { if (c === null) empties.push(i) })
-          move = empties[Math.floor(Math.random() * empties.length)]
-        } else {
-          move = minimax(board, 'O').move
-        }
+        // Imperfect-O scaled to the player's session record so honest wins
+        // are possible without being a pushover (see chooseErenMove).
+        move = chooseErenMove(board, erenMistakeChance(wins, losses))
       }
       if (move < 0) { setThinking(false); return }
       const next = board.slice()
@@ -207,7 +244,7 @@ export default function TicTacToePage() {
     }, delay)
 
     return () => { clearInterval(phraseTick); timers.clearTimeout(t) }
-  }, [turn, status, board, canKnocked, wins, timers])
+  }, [turn, status, board, canKnocked, wins, losses, timers])
 
   // ─── Match end ──────────────────────────────────────────────────────────────
   function finishMatch(result: Exclude<Status, 'playing'>, line: number[] | null, finalBoard: Cell[]) {
@@ -264,11 +301,21 @@ export default function TicTacToePage() {
     setSpillBurst(false)
     setReward(null)
     matchSavedRef.current = false
+    // Surface the can hint once, after the player has a couple of non-wins
+    // and still hasn't discovered the knock-it trick.
+    if (!hintShownRef.current && !everKnockedRef.current && (losses + draws) >= 2) {
+      hintShownRef.current = true
+      setShowCanHint(true)
+    } else {
+      setShowCanHint(false)
+    }
   }
 
   function knockCan(e: React.PointerEvent) {
     e.preventDefault()
     if (canKnocked || status !== 'playing') return
+    everKnockedRef.current = true
+    setShowCanHint(false)
     setCanKnocked(true)
     setSpillBurst(true)
     timers.setTimeout(() => setSpillBurst(false), 700)
@@ -377,6 +424,18 @@ export default function TicTacToePage() {
             transformOrigin: 'bottom center',
           }}>
           <CanSprite knocked={canKnocked} reduced={reduced} />
+          {showCanHint && status === 'playing' && !canKnocked && (
+            <span className="absolute font-pixel pointer-events-none" style={{
+              left: '50%', bottom: '100%', marginBottom: 6,
+              transform: 'translateX(-50%)',
+              whiteSpace: 'nowrap',
+              background: '#FFFFFF', color: '#831843',
+              border: '2px solid #831843', borderRadius: 3,
+              padding: '3px 6px', fontSize: 6, letterSpacing: 1,
+              boxShadow: '2px 2px 0 #831843',
+              animation: reduced ? undefined : 'tttHintBob 1s ease-in-out infinite',
+            }}>TAP ME?</span>
+          )}
         </button>
         {/* Eren — front-facing chibi while the can stands; the moment it
             spills he turns around in profile and starts lapping. The two
@@ -796,6 +855,11 @@ export default function TicTacToePage() {
         @keyframes tttSpillSpray {
           0%   { transform: translate(0, 0)                          scale(1); opacity: 1; }
           100% { transform: translate(var(--tx), var(--ty)) scale(0.6); opacity: 0; }
+        }
+        /* One-time can hint — gentle bob to draw the eye to the can. */
+        @keyframes tttHintBob {
+          0%, 100% { transform: translateX(-50%) translateY(0); }
+          50%      { transform: translateX(-50%) translateY(-3px); }
         }
         /* Exclamation bubble — pops in, holds, fades out. */
         @keyframes tttExclaim {
