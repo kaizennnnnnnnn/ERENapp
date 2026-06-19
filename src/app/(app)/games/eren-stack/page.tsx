@@ -8,6 +8,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import { useVisibilityPause } from '@/hooks/useVisibilityPause'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { IconCrown, IconStar } from '@/components/PixelIcons'
@@ -110,6 +111,8 @@ export default function ErenStackGame() {
   const milestonesHitRef = useRef<Set<number>>(new Set())
   const perfectStreakRef = useRef(0)
   const cameraOvershootRef = useRef(0)
+  const pausedRef      = useRef(false)
+  const hideAtRef      = useRef(0)
 
   const [, force] = useReducer((n: number) => n + 1, 0)
 
@@ -391,6 +394,26 @@ export default function ErenStackGame() {
   }
 
   useEffect(() => () => { cancelAnimationFrame(rafRef.current) }, [])
+
+  // Pause on background. The active piece's swing is sin(now - swingStartRef),
+  // so a hidden tab would teleport it on return. Freeze on hide, rebase the
+  // swing origin + frame clock by the hidden duration on show.
+  function handleHide() {
+    if (stateRef.current !== 'running') return
+    cancelAnimationFrame(rafRef.current)
+    pausedRef.current = true
+    hideAtRef.current = performance.now()
+  }
+  function handleShow() {
+    if (stateRef.current !== 'running' || !pausedRef.current) return
+    pausedRef.current = false
+    const now = performance.now()
+    const delta = now - hideAtRef.current
+    swingStartRef.current += delta
+    lastFrameRef.current = now
+    rafRef.current = requestAnimationFrame(loop)
+  }
+  useVisibilityPause(handleHide, handleShow)
 
   // Sky tier — every 12 placed pieces escalates one step.
   const skyIdx = Math.min(SKIES.length - 1, Math.floor(score / 12))

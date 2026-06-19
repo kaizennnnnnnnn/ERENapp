@@ -8,6 +8,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import { useVisibilityPause } from '@/hooks/useVisibilityPause'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { IconCoin, IconStar } from '@/components/PixelIcons'
@@ -145,6 +146,8 @@ export default function LaneRunnerGame() {
   const popupIdRef     = useRef(0)
   const sparkleIdRef   = useRef(0)
   const streakIdRef    = useRef(0)
+  const pausedRef      = useRef(false)
+  const hideAtRef      = useRef(0)
 
   const [, force] = useReducer((n: number) => n + 1, 0)
 
@@ -479,6 +482,28 @@ export default function LaneRunnerGame() {
   }
 
   useEffect(() => () => { cancelAnimationFrame(rafRef.current) }, [])
+
+  // Pause on background. A hidden tab would otherwise resume with the wall-clock
+  // speed ramp (now - startTimeRef) maxed out and a backlog of spawns. Freeze on
+  // hide, rebase the ramp + spawn clocks by the hidden duration on show.
+  function handleHide() {
+    if (stateRef.current !== 'running') return
+    cancelAnimationFrame(rafRef.current)
+    pausedRef.current = true
+    hideAtRef.current = performance.now()
+  }
+  function handleShow() {
+    if (stateRef.current !== 'running' || !pausedRef.current) return
+    pausedRef.current = false
+    const now = performance.now()
+    const delta = now - hideAtRef.current
+    startTimeRef.current       += delta
+    lastSpawnRef.current        += delta
+    lastStreakSpawnRef.current  += delta
+    lastFrameRef.current = now
+    rafRef.current = requestAnimationFrame(loop)
+  }
+  useVisibilityPause(handleHide, handleShow)
 
   // Keep ref in sync with state for collision check + lane bounds
   useEffect(() => { laneRef.current = lane }, [lane])

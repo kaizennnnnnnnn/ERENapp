@@ -8,6 +8,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import { useVisibilityPause } from '@/hooks/useVisibilityPause'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { fireMinigameDone } from '@/lib/minigames'
@@ -190,6 +191,8 @@ export default function FlappyErenGame() {
   const startTimeRef = useRef(0)
   const flapTimeRef  = useRef<number>(-Infinity)
   const rafRef       = useRef<number>(0)
+  const pausedRef    = useRef(false)
+  const hideAtRef    = useRef(0)
 
   const [, forceRender] = useReducer((n: number) => n + 1, 0)
 
@@ -468,6 +471,31 @@ export default function FlappyErenGame() {
   }
 
   useEffect(() => () => { cancelAnimationFrame(rafRef.current) }, [])
+
+  // Pause on background. A hidden tab keeps no rAF, but its wall-clock speed
+  // ramp (now - startTimeRef) would otherwise jump straight to SPEED_MAX on
+  // return and the player would die instantly. Freeze on hide, then rebase
+  // every wall-clock anchor by the hidden duration so the run continues
+  // exactly where it left off.
+  function handleHide() {
+    if (stateRef.current !== 'running') return
+    cancelAnimationFrame(rafRef.current)
+    pausedRef.current = true
+    hideAtRef.current = performance.now()
+  }
+  function handleShow() {
+    if (stateRef.current !== 'running' || !pausedRef.current) return
+    pausedRef.current = false
+    const now = performance.now()
+    const delta = now - hideAtRef.current
+    startTimeRef.current += delta
+    lastPipeRef.current  += delta
+    lastFizzRef.current  += delta
+    if (isFinite(flapTimeRef.current)) flapTimeRef.current += delta
+    lastFrameRef.current = now
+    rafRef.current = requestAnimationFrame(loop)
+  }
+  useVisibilityPause(handleHide, handleShow)
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
