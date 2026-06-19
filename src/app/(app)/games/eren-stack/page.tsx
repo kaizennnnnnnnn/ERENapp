@@ -63,11 +63,18 @@ export default function ErenStackGame() {
 
   const fieldRef = useRef<HTMLDivElement>(null)
   const [fieldDims, setFieldDims] = useState({ w: 360, h: 600 })
+  // Mirror dims into a ref — the rAF loop is self-perpetuating and captures
+  // fieldDims from the render that started the run, so a resize / rotation
+  // would drift the swing range + falling cleanup from the drawn field.
+  const fieldDimsRef = useRef({ w: 360, h: 600 })
 
   useEffect(() => {
     function measure() {
       const r = fieldRef.current?.getBoundingClientRect()
-      if (r && r.width && r.height) setFieldDims({ w: r.width, h: r.height })
+      if (r && r.width && r.height) {
+        fieldDimsRef.current = { w: r.width, h: r.height }
+        setFieldDims({ w: r.width, h: r.height })
+      }
     }
     measure()
     const t = setTimeout(measure, 50)
@@ -162,7 +169,7 @@ export default function ErenStackGame() {
     if (currentRef.current) {
       const elapsed = (now - swingStartRef.current) / 1000
       const phase = elapsed * swingSpeedRef.current
-      const range = fieldDims.w - currentRef.current.width
+      const range = fieldDimsRef.current.w - currentRef.current.width
       const t = (Math.sin(phase) + 1) / 2  // 0..1
       currentRef.current.x = t * range
     }
@@ -177,7 +184,7 @@ export default function ErenStackGame() {
 
     // Update falling trimmed pieces
     for (const f of fallingRef.current) f.y += 600 * dt
-    fallingRef.current = fallingRef.current.filter(f => f.y < fieldDims.h + 200)
+    fallingRef.current = fallingRef.current.filter(f => f.y < fieldDimsRef.current.h + 200)
 
     force()
     rafRef.current = requestAnimationFrame(loop)

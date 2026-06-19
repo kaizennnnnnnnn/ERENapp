@@ -121,11 +121,19 @@ export default function FlappyErenGame() {
 
   const fieldRef = useRef<HTMLDivElement>(null)
   const [fieldDims, setFieldDims] = useState({ w: 360, h: 600 })
+  // Mirror dims into a ref. The rAF loop chain is self-perpetuating and
+  // captures fieldDims from the render that started it, so a resize / rotation
+  // / mobile URL-bar collapse would drift collision + pipe spawning away from
+  // what's drawn. The ref always holds the latest measured size.
+  const fieldDimsRef = useRef({ w: 360, h: 600 })
 
   useEffect(() => {
     function measure() {
       const r = fieldRef.current?.getBoundingClientRect()
-      if (r && r.width && r.height) setFieldDims({ w: r.width, h: r.height })
+      if (r && r.width && r.height) {
+        fieldDimsRef.current = { w: r.width, h: r.height }
+        setFieldDims({ w: r.width, h: r.height })
+      }
     }
     measure()
     const t = setTimeout(measure, 50)
@@ -190,9 +198,10 @@ export default function FlappyErenGame() {
     // after speed caps out.
     const gap = Math.max(PIPE_GAP_MIN, PIPE_GAP_MAX - scoreRef.current)
     const minMargin = 70
-    const range = Math.max(60, fieldDims.h - gap - minMargin * 2)
+    const dims = fieldDimsRef.current
+    const range = Math.max(60, dims.h - gap - minMargin * 2)
     const gapY = minMargin + Math.random() * range
-    pipesRef.current.push({ id: newId(), x: fieldDims.w + 20, gapY, gap, passed: false })
+    pipesRef.current.push({ id: newId(), x: dims.w + 20, gapY, gap, passed: false })
   }
 
   function spawnScoreBurst(cx: number, cy: number) {
@@ -285,7 +294,7 @@ export default function FlappyErenGame() {
     const ex = PLAYER_X
     const ey = yRef.current
     if (ey < -8) return true
-    if (ey + EREN_H > fieldDims.h - 12) return true
+    if (ey + EREN_H > fieldDimsRef.current.h - 12) return true
 
     const hbX = ex + 6
     const hbW = EREN_W - 12

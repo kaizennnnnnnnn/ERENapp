@@ -85,11 +85,20 @@ export default function LaneRunnerGame() {
 
   const fieldRef = useRef<HTMLDivElement>(null)
   const [fieldDims, setFieldDims] = useState({ w: 360, h: 600 })
+  // Mirror dims into a ref — the rAF loop is self-perpetuating and captures
+  // fieldDims from the render that started the run, so a resize / rotation /
+  // mobile URL-bar collapse would drift the player's collision row (computed
+  // from height) away from the CSS bottom-anchored sprite. laneToX reads it
+  // too so the lane X mapping stays consistent between loop and render.
+  const fieldDimsRef = useRef({ w: 360, h: 600 })
 
   useEffect(() => {
     function measure() {
       const r = fieldRef.current?.getBoundingClientRect()
-      if (r && r.width && r.height) setFieldDims({ w: r.width, h: r.height })
+      if (r && r.width && r.height) {
+        fieldDimsRef.current = { w: r.width, h: r.height }
+        setFieldDims({ w: r.width, h: r.height })
+      }
     }
     measure()
     const t = setTimeout(measure, 50)
@@ -187,7 +196,7 @@ export default function LaneRunnerGame() {
   }
 
   function laneToX(l: 0 | 1 | 2) {
-    return ((l + 0.5) / LANES) * fieldDims.w
+    return ((l + 0.5) / LANES) * fieldDimsRef.current.w
   }
 
   function spawn(now: number) {
@@ -300,7 +309,7 @@ export default function LaneRunnerGame() {
       s.y += s.vy * dt
       s.life += dt
     }
-    streaksRef.current = streaksRef.current.filter(s => s.y < fieldDims.h + 40 && s.life < 1.5)
+    streaksRef.current = streaksRef.current.filter(s => s.y < fieldDimsRef.current.h + 40 && s.life < 1.5)
 
     // Move sparkles + popups (lifetime cleanup)
     sparklesRef.current = sparklesRef.current.filter(sp => now - sp.born < 600)
@@ -320,7 +329,7 @@ export default function LaneRunnerGame() {
     }
 
     // Collision + near-miss check
-    const playerY = fieldDims.h - PLAYER_BOTTOM
+    const playerY = fieldDimsRef.current.h - PLAYER_BOTTOM
     const playerLane = laneRef.current
     for (const it of itemsRef.current) {
       if (it.collected) continue
@@ -373,7 +382,7 @@ export default function LaneRunnerGame() {
     }
 
     // Drop offscreen items + collected. Reset streak if an uncollected pickup passes the player.
-    const playerRowBelow = fieldDims.h - PLAYER_BOTTOM + ITEM_SIZE
+    const playerRowBelow = fieldDimsRef.current.h - PLAYER_BOTTOM + ITEM_SIZE
     for (const i of itemsRef.current) {
       if (!i.collected && !isObstacle(i.variant) && i.y > playerRowBelow && !i.passed) {
         i.passed = true
@@ -384,7 +393,7 @@ export default function LaneRunnerGame() {
         }
       }
     }
-    itemsRef.current = itemsRef.current.filter(i => !i.collected && i.y < fieldDims.h + ITEM_SIZE)
+    itemsRef.current = itemsRef.current.filter(i => !i.collected && i.y < fieldDimsRef.current.h + ITEM_SIZE)
 
     force()
     rafRef.current = requestAnimationFrame(loop)
