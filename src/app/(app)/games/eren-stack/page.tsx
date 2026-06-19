@@ -9,6 +9,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useVisibilityPause } from '@/hooks/useVisibilityPause'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { IconCrown, IconStar } from '@/components/PixelIcons'
@@ -61,6 +62,7 @@ export default function ErenStackGame() {
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
+  const reduced = useReducedMotion()
 
   const fieldRef = useRef<HTMLDivElement>(null)
   const [fieldDims, setFieldDims] = useState({ w: 360, h: 600 })
@@ -210,9 +212,11 @@ export default function ErenStackGame() {
       fallingRef.current.push({ ...cur })
       currentRef.current = null
       playSound('es_miss')
-      setShakeKey(k => k + 1)
-      setMissFlash(true)
-      setTimeout(() => setMissFlash(false), 200)
+      if (!reduced) {
+        setShakeKey(k => k + 1)
+        setMissFlash(true)
+        setTimeout(() => setMissFlash(false), 200)
+      }
       endGame()
       return
     }
@@ -233,7 +237,7 @@ export default function ErenStackGame() {
       if (nextStreak >= 3 && nextStreak % 2 === 1) playSound('es_perfect_streak')
       else playSound('es_perfect')
       flashFloater('PERFECT!', cur.x + cur.width / 2, cur.y + 18, '#FDE68A')
-      spawnStarBurst(cur.x + cur.width / 2, cur.y + PIECE_HEIGHT / 2)
+      if (!reduced) spawnStarBurst(cur.x + cur.width / 2, cur.y + PIECE_HEIGHT / 2)
       // Tiny camera overshoot on perfects — makes height feel earned.
       cameraOvershootRef.current = 7
     } else {
@@ -254,7 +258,7 @@ export default function ErenStackGame() {
       // Soft trim whoosh sound + dust puffs at the cut edge.
       setTimeout(() => playSound('es_trim'), 60)
       const dustX = cutSide === 'left' ? overlapL : overlapR
-      spawnDustPuff(dustX, cur.y + PIECE_HEIGHT / 2)
+      if (!reduced) spawnDustPuff(dustX, cur.y + PIECE_HEIGHT / 2)
     }
 
     const locked: Block = { ...cur, x: lockedX, width: lockedW, y: top.y - PIECE_HEIGHT }
@@ -473,7 +477,7 @@ export default function ErenStackGame() {
                 background: '#FFFFFF',
                 borderRadius: '50%',
                 opacity: 0.8,
-                animation: `stk-twinkle 2.6s ease-in-out ${s.delay} infinite`,
+                animation: reduced ? 'none' : `stk-twinkle 2.6s ease-in-out ${s.delay} infinite`,
               }} />
             ))}
           </div>

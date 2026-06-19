@@ -9,6 +9,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useVisibilityPause } from '@/hooks/useVisibilityPause'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { IconCoin, IconStar } from '@/components/PixelIcons'
@@ -83,6 +84,12 @@ export default function LaneRunnerGame() {
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
+  const reduced = useReducedMotion()
+
+  // The rAF loop is self-perpetuating and captures `reduced` from the render
+  // that started the run; mirror it into a ref so spawn-time guards stay live.
+  const reducedRef = useRef(reduced)
+  useEffect(() => { reducedRef.current = reduced }, [reduced])
 
   const fieldRef = useRef<HTMLDivElement>(null)
   const [fieldDims, setFieldDims] = useState({ w: 360, h: 600 })
@@ -292,10 +299,11 @@ export default function LaneRunnerGame() {
     parallaxRef.current = (parallaxRef.current + speedRef.current * dt * 0.45) % 200
     setParallaxOffset(parallaxRef.current)
 
-    // Spawn speed streaks on the side grass — density scales with speed
+    // Spawn speed streaks on the side grass — density scales with speed.
+    // Decorative motion; skip entirely when reduced motion is requested.
     const speedRatio = (speedRef.current - SPEED_BASE) / (SPEED_MAX - SPEED_BASE)
     const streakInterval = Math.max(60, 220 - speedRatio * 180)
-    if (now - lastStreakSpawnRef.current > streakInterval) {
+    if (!reducedRef.current && now - lastStreakSpawnRef.current > streakInterval) {
       lastStreakSpawnRef.current = now
       const side: 'l' | 'r' = Math.random() < 0.5 ? 'l' : 'r'
       streaksRef.current.push({
@@ -354,8 +362,10 @@ export default function LaneRunnerGame() {
       if (Math.abs(it.y - playerY) > ITEM_SIZE / 2 + COLLIDE_INSET) continue
       if (isObstacle(it.variant)) {
         playSound('lr_crash')
-        triggerShake()
-        setHitFlash(f => f + 1)
+        if (!reducedRef.current) {
+          triggerShake()
+          setHitFlash(f => f + 1)
+        }
         // Streak ends on crash
         streakRef.current = 0
         setStreak(0)
@@ -376,11 +386,11 @@ export default function LaneRunnerGame() {
       if (it.variant === 'fish') {
         playSound('lr_fish_pickup')
         spawnPopup(popupX, popupY, '+3', '#7DD3FC')
-        spawnSparkles(popupX, popupY, '#7DD3FC', 6)
+        if (!reducedRef.current) spawnSparkles(popupX, popupY, '#7DD3FC', 6)
       } else {
         playSound('lr_coin_pickup')
         spawnPopup(popupX, popupY, '+1', '#FCD34D')
-        spawnSparkles(popupX, popupY, '#FCD34D', 5)
+        if (!reducedRef.current) spawnSparkles(popupX, popupY, '#FCD34D', 5)
       }
     }
 
@@ -744,7 +754,7 @@ export default function LaneRunnerGame() {
               top: it.y - ITEM_SIZE / 2,
               width: ITEM_SIZE, height: ITEM_SIZE,
             }}>
-            <ItemFx variant={it.variant} />
+            <ItemFx variant={it.variant} reduced={reduced} />
           </div>
         ))}
 
@@ -756,10 +766,10 @@ export default function LaneRunnerGame() {
               bottom: PLAYER_BOTTOM - 30,
               width: 60, height: 60,
               transition: 'left 0.16s cubic-bezier(0.34,1.56,0.64,1)',
-              animation: 'run-bob 0.32s ease-in-out infinite',
+              animation: reduced ? 'none' : 'run-bob 0.32s ease-in-out infinite',
               filter: 'drop-shadow(0 4px 0 rgba(0,0,0,0.45))',
             }}>
-            <ErenRunner />
+            <ErenRunner reduced={reduced} />
           </div>
         )}
 
@@ -1002,14 +1012,14 @@ function CountUp({ target, duration, style }: { target: number; duration: number
 // you" no matter the silhouette. Pickups: a warm inviting halo + gentle bob.
 // The contrast (aggressive red pulse vs. calm gold/cyan float) is what tells
 // the player at a glance what to dodge and what to grab.
-const ItemFx = memo(function ItemFx({ variant }: { variant: Variant }) {
+const ItemFx = memo(function ItemFx({ variant, reduced }: { variant: Variant; reduced: boolean }) {
   if (isObstacle(variant)) {
     return (
       <>
         <div style={{
           position: 'absolute', inset: '-12%', borderRadius: '50%',
           background: 'radial-gradient(circle, rgba(255,45,45,0.6) 0%, rgba(210,20,20,0.32) 46%, rgba(210,20,20,0) 72%)',
-          animation: 'lr-danger-pulse 0.6s ease-in-out infinite',
+          animation: reduced ? 'none' : 'lr-danger-pulse 0.6s ease-in-out infinite',
         }} />
         <div style={{
           position: 'absolute', inset: 0,
@@ -1026,11 +1036,11 @@ const ItemFx = memo(function ItemFx({ variant }: { variant: Variant }) {
       <div style={{
         position: 'absolute', inset: 0, borderRadius: '50%',
         background: `radial-gradient(circle, rgba(${halo},0.5) 0%, rgba(${halo},0) 68%)`,
-        animation: 'lr-pickup-glow 1.1s ease-in-out infinite',
+        animation: reduced ? 'none' : 'lr-pickup-glow 1.1s ease-in-out infinite',
       }} />
       <div style={{
         position: 'absolute', inset: 0,
-        animation: 'lr-pickup-bob 0.9s ease-in-out infinite',
+        animation: reduced ? 'none' : 'lr-pickup-bob 0.9s ease-in-out infinite',
         filter: 'drop-shadow(0 2px 0 rgba(0,0,0,0.4))',
       }}>
         <ItemSprite variant={variant} />
@@ -1136,7 +1146,7 @@ const ItemSprite = memo(function ItemSprite({ variant }: { variant: Variant }) {
 // run-cycle. The parent supplies the body bob; the two <g> leg frames toggle
 // out of phase (legA visible first half, legB second half) so the legs
 // actually pump instead of the whole sprite just sliding up and down. ───────
-const ErenRunner = memo(function ErenRunner() {
+const ErenRunner = memo(function ErenRunner({ reduced }: { reduced: boolean }) {
   return (
     <svg width="100%" height="100%" viewBox="0 0 22 22" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
       {/* Ears */}
@@ -1177,7 +1187,7 @@ const ErenRunner = memo(function ErenRunner() {
       <rect x="6" y="13" width="10" height="2" fill="#F9EDD5" />
 
       {/* Leg frame A — left planted, right lifted (mid push-off) */}
-      <g style={{ animation: 'lr-run-legA 0.32s linear infinite' }}>
+      <g style={{ animation: reduced ? 'none' : 'lr-run-legA 0.32s linear infinite' }}>
         <rect x="6" y="15" width="3" height="5" fill="#F9EDD5" />
         <rect x="6" y="15" width="1" height="5" fill="#4A2E1A" />
         <rect x="5" y="20" width="4" height="1" fill="#4A2E1A" />
@@ -1188,7 +1198,7 @@ const ErenRunner = memo(function ErenRunner() {
         <rect x="14" y="17" width="3" height="1" fill="#D4B896" />
       </g>
       {/* Leg frame B — left lifted, right planted */}
-      <g style={{ animation: 'lr-run-legB 0.32s linear infinite' }}>
+      <g style={{ animation: reduced ? 'none' : 'lr-run-legB 0.32s linear infinite', opacity: reduced ? 0 : undefined }}>
         <rect x="6" y="15" width="3" height="3" fill="#F9EDD5" />
         <rect x="6" y="15" width="1" height="3" fill="#4A2E1A" />
         <rect x="5" y="18" width="4" height="1" fill="#4A2E1A" />

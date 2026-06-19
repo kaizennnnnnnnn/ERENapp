@@ -8,6 +8,8 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import { useGameTimers } from '@/hooks/useGameTimers'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { fireMinigameDone } from '@/lib/minigames'
@@ -69,6 +71,8 @@ export default function TicTacToePage() {
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
+  const timers = useGameTimers()
+  const reduced = useReducedMotion()
 
   const [board, setBoard]   = useState<Cell[]>(() => Array(9).fill(null))
   const [turn, setTurn]     = useState<'X' | 'O'>('X')
@@ -102,7 +106,8 @@ export default function TicTacToePage() {
   const [spillBurst, setSpillBurst] = useState(false)
 
   // ─── Player move ────────────────────────────────────────────────────────────
-  function handleCellClick(i: number) {
+  function handleCellClick(i: number, e: React.PointerEvent) {
+    e.preventDefault()
     if (status !== 'playing' || turn !== 'X' || thinking || board[i] !== null) return
     playSound('ttt_place_x')
     const next = board.slice()
@@ -163,7 +168,7 @@ export default function TicTacToePage() {
     // Tiny jitter so back-to-back games don't feel identical.
     const delay = baseDelay + Math.floor(Math.random() * 180) - 90
 
-    const t = setTimeout(() => {
+    const t = timers.setTimeout(() => {
       clearInterval(phraseTick)
       let move: number
       if (canKnocked) {
@@ -201,8 +206,8 @@ export default function TicTacToePage() {
       setTurn('X')
     }, delay)
 
-    return () => { clearInterval(phraseTick); clearTimeout(t) }
-  }, [turn, status, board, canKnocked, wins])
+    return () => { clearInterval(phraseTick); timers.clearTimeout(t) }
+  }, [turn, status, board, canKnocked, wins, timers])
 
   // ─── Match end ──────────────────────────────────────────────────────────────
   function finishMatch(result: Exclude<Status, 'playing'>, line: number[] | null, finalBoard: Cell[]) {
@@ -218,7 +223,7 @@ export default function TicTacToePage() {
 
     // Result audio + shake for losses.
     if (result === 'won')  playSound('ttt_win_line')
-    if (result === 'lost') { playSound('ttt_lose'); setShake(true); setTimeout(() => setShake(false), 240) }
+    if (result === 'lost') { playSound('ttt_lose'); if (!reduced) { setShake(true); timers.setTimeout(() => setShake(false), 240) } }
     if (result === 'draw') playSound('ttt_draw')
 
     // Quest progress fires on every completed match — draws and losses now
@@ -247,6 +252,7 @@ export default function TicTacToePage() {
   }
 
   function newMatch() {
+    timers.clearAll()   // flush any queued AI move / shake reset before resetting
     setBoard(Array(9).fill(null))
     setTurn('X')
     setStatus('playing')
@@ -260,11 +266,12 @@ export default function TicTacToePage() {
     matchSavedRef.current = false
   }
 
-  function knockCan() {
+  function knockCan(e: React.PointerEvent) {
+    e.preventDefault()
     if (canKnocked || status !== 'playing') return
     setCanKnocked(true)
     setSpillBurst(true)
-    setTimeout(() => setSpillBurst(false), 700)
+    timers.setTimeout(() => setSpillBurst(false), 700)
     playSound('ttt_can_spill')   // glug/spill cue
   }
 
@@ -326,7 +333,7 @@ export default function TicTacToePage() {
         {/* Spill burst — short-lived liquid spray pixels arcing outward
             the frame the can tips. Mounted only during the burst window so
             unused DOM doesn't pile up. */}
-        {spillBurst && (
+        {spillBurst && !reduced && (
           <div className="absolute pointer-events-none" style={{ left: '50%', top: '60%', width: 0, height: 0, zIndex: 5 }}>
             {[...Array(7)].map((_, i) => {
               const angle = (i / 7) * Math.PI - Math.PI   // upper hemisphere, leftward bias
@@ -351,7 +358,7 @@ export default function TicTacToePage() {
         )}
         {/* Energy can — bigger, more presence. Tap once per match to spill it.
             Subtle wobble hint while standing tells the player it's tappable. */}
-        <button onClick={knockCan}
+        <button onPointerDown={knockCan}
           disabled={canKnocked || status !== 'playing'}
           aria-label={canKnocked ? 'Spilled energy drink' : 'Knock over the energy drink'}
           className="active:scale-90 transition-transform relative"
@@ -360,15 +367,16 @@ export default function TicTacToePage() {
             border: 'none',
             padding: 0,
             marginBottom: -2,
+            touchAction: 'none',
             cursor: canKnocked || status !== 'playing' ? 'default' : 'pointer',
             animation: spillBurst
               ? 'tttCanTip 0.45s cubic-bezier(0.34,1.4,0.64,1) forwards'
-              : !canKnocked && status === 'playing'
+              : !canKnocked && status === 'playing' && !reduced
                 ? 'tttCanWobble 2.6s ease-in-out infinite'
                 : undefined,
             transformOrigin: 'bottom center',
           }}>
-          <CanSprite knocked={canKnocked} />
+          <CanSprite knocked={canKnocked} reduced={reduced} />
         </button>
         {/* Eren — front-facing chibi while the can stands; the moment it
             spills he turns around in profile and starts lapping. The two
@@ -396,8 +404,8 @@ export default function TicTacToePage() {
             }}>!</div>
           )}
           {canKnocked
-            ? <ErenSideLapping size={78} />
-            : <ErenChibi size={64} hop={false} thinking={turn === 'O' && status === 'playing' && thinking} />
+            ? <ErenSideLapping size={78} reduced={reduced} />
+            : <ErenChibi size={64} hop={false} thinking={turn === 'O' && status === 'playing' && thinking} reduced={reduced} />
           }
         </div>
         <div className="relative" style={{ minWidth: 130 }}>
@@ -449,6 +457,7 @@ export default function TicTacToePage() {
             gridTemplateColumns: '1fr 1fr 1fr',
             gridTemplateRows: '1fr 1fr 1fr',
             gap: 4,
+            touchAction: 'none',
           }}>
             {board.map((cell, i) => {
               const inWinLine = winLine?.includes(i) ?? false
@@ -458,7 +467,7 @@ export default function TicTacToePage() {
               const winIndex = inWinLine && winLine ? winLine.indexOf(i) : -1
               return (
                 <button key={i}
-                  onClick={() => handleCellClick(i)}
+                  onPointerDown={(e) => handleCellClick(i, e)}
                   disabled={status !== 'playing' || turn !== 'X' || cell !== null || thinking}
                   className="relative flex items-center justify-center transition-transform active:scale-95"
                   style={{
@@ -492,7 +501,7 @@ export default function TicTacToePage() {
                       placed mark, ~250ms. Mounted only on the just-placed
                       cell, keyed by placement id so re-renders don't
                       replay it on unrelated turns. */}
-                  {justPlaced && placedCell && (
+                  {justPlaced && placedCell && !reduced && (
                     <div key={`puff-${placedCell.id}-${i}`} className="absolute inset-0 pointer-events-none">
                       {[...Array(4)].map((_, p) => {
                         const a = (p / 4) * Math.PI * 2 + Math.PI / 4
@@ -516,7 +525,7 @@ export default function TicTacToePage() {
 
                   {/* Win-cell sparkle pixels — only on cells in the winning
                       line for player wins. Continuous shimmer at slow rate. */}
-                  {inWinLine && status === 'won' && (
+                  {inWinLine && status === 'won' && !reduced && (
                     <div className="absolute inset-0 pointer-events-none">
                       {[...Array(3)].map((_, s) => (
                         <span key={s} style={{
@@ -543,10 +552,12 @@ export default function TicTacToePage() {
         <div className="absolute inset-0 flex items-end justify-center pb-32 pointer-events-none">
           {/* Vignette scrim — fades in to ~35% black so the verdict banner
               pops against the still-visible board behind it. */}
-          <div className="absolute inset-0 pointer-events-none" style={{
-            background: 'radial-gradient(ellipse at center, rgba(0,0,0,0) 30%, rgba(0,0,0,0.45) 100%)',
-            animation: 'tttScrim 0.3s ease-out forwards',
-          }} />
+          {!reduced && (
+            <div className="absolute inset-0 pointer-events-none" style={{
+              background: 'radial-gradient(ellipse at center, rgba(0,0,0,0) 30%, rgba(0,0,0,0.45) 100%)',
+              animation: 'tttScrim 0.3s ease-out forwards',
+            }} />
+          )}
           <div className="pointer-events-auto px-5 py-3 flex items-center gap-3 relative"
             style={{
               background: status === 'won'
@@ -561,7 +572,7 @@ export default function TicTacToePage() {
             }}>
             {/* Sparkle pixels around the banner on a win. Fixed positions
                 relative to the banner so they look hand-placed. */}
-            {status === 'won' && (
+            {status === 'won' && !reduced && (
               <>
                 {[
                   { left: -6, top: -6 },
@@ -585,7 +596,7 @@ export default function TicTacToePage() {
             <div className="flex flex-col items-center">
               <span className="font-pixel text-white" style={{
                 fontSize: 11, letterSpacing: 2,
-                animation: status === 'won' ? 'tttBannerShimmer 1.6s ease-in-out infinite' : undefined,
+                animation: status === 'won' && !reduced ? 'tttBannerShimmer 1.6s ease-in-out infinite' : undefined,
               }}>
                 {status === 'won' ? 'YOU WIN!' : status === 'lost' ? 'EREN WINS' : 'TIE!'}
               </span>
@@ -801,7 +812,7 @@ export default function TicTacToePage() {
 // ─── Energy can — easter-egg sprite. Upright (clickable) or knocked over
 // (spilling lime puddle, no longer interactive). Pixel art with crisp
 // edges so it sits in the same visual register as the X and O.
-function CanSprite({ knocked }: { knocked: boolean }) {
+function CanSprite({ knocked, reduced = false }: { knocked: boolean; reduced?: boolean }) {
   if (knocked) {
     // Knocked-over composition — viewBox 100×72, rendered 1:1. The can
     // lies horizontally with its mouth pointing RIGHT toward Eren. The
@@ -821,7 +832,7 @@ function CanSprite({ knocked }: { knocked: boolean }) {
         {/* A single slow drip from the can mouth — falls every ~2s
             instead of the prior 3-drop continuous trickle. */}
         <circle cx="47" cy="42" r="1.4" fill="#10B981"
-          style={{ animation: 'tttDrip 2.2s ease-in-out infinite' }} />
+          style={{ animation: reduced ? undefined : 'tttDrip 2.2s ease-in-out infinite' }} />
 
         {/* Knocked-over can — rotated +90° so the mouth points right. */}
         <g transform="translate(15 10) rotate(90 11 21)">
@@ -911,10 +922,10 @@ function PixelO({ animate = false, winning = false }: { animate?: boolean; winni
 
 // ─── Eren chibi — cleaner proportions: bigger head, slimmer body, no mask
 //                  spots blurring his face, pupils centered for a forward gaze.
-function ErenChibi({ size = 64, hop = false, thinking = false }: { size?: number; hop?: boolean; thinking?: boolean }) {
+function ErenChibi({ size = 64, hop = false, thinking = false, reduced = false }: { size?: number; hop?: boolean; thinking?: boolean; reduced?: boolean }) {
   return (
     <div style={{
-      animation: thinking ? 'thinkBob 0.6s ease-in-out infinite' : hop ? 'erenHop 0.9s ease-in-out infinite' : undefined,
+      animation: reduced ? undefined : thinking ? 'thinkBob 0.6s ease-in-out infinite' : hop ? 'erenHop 0.9s ease-in-out infinite' : undefined,
     }}>
       <svg width={size} height={size} viewBox="0 0 22 22" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
         {/* ears */}
@@ -994,14 +1005,14 @@ function ErenChibi({ size = 64, hop = false, thinking = false }: { size?: number
 // ViewBox 18×12 at size=72 → exact 4× integer scale, so every pixel is
 // crisp. Mouth at viewBox (0, 8); marginLeft:-16 lands the 2-cell tongue
 // right at the puddle's right edge on the can sprite to the left.
-function ErenSideLapping({ size = 72 }: { size?: number }) {
+function ErenSideLapping({ size = 72, reduced = false }: { size?: number; reduced?: boolean }) {
   const height = Math.round(size * 12 / 18)
   return (
     <div style={{
       width: size,
       height,
       marginLeft: -16,
-      animation: 'erenLapBob 2.4s ease-in-out infinite',
+      animation: reduced ? undefined : 'erenLapBob 2.4s ease-in-out infinite',
     }}>
       <svg
         viewBox="0 0 18 12"
@@ -1013,7 +1024,7 @@ function ErenSideLapping({ size = 72 }: { size?: number }) {
         {/* ─── TAIL — gray fur with brown outline, fat S-curl that
             wiggles with a punchy asymmetric flick. transformOrigin sits
             at the base so the tip swings further than the root. */}
-        <g style={{ transformOrigin: '15px 4px', animation: 'erenTailWiggle 1.4s ease-in-out infinite' }}>
+        <g style={{ transformOrigin: '15px 4px', animation: reduced ? undefined : 'erenTailWiggle 1.4s ease-in-out infinite' }}>
           {/* tip */}
           <rect x="15" y="0" width="2" height="1" fill="#4A2E1A" />
           <rect x="14" y="1" width="1" height="1" fill="#4A2E1A" />
@@ -1044,7 +1055,7 @@ function ErenSideLapping({ size = 72 }: { size?: number }) {
         {/* ─── EARS — grouped so they can do a tiny continuous sway.
             (Earlier translateY-jump version read as a startled twitch;
             this is a soft constant breathing motion instead.) */}
-        <g style={{ transformOrigin: '5px 2px', animation: 'erenEarFlick 3.4s ease-in-out infinite' }}>
+        <g style={{ transformOrigin: '5px 2px', animation: reduced ? undefined : 'erenEarFlick 3.4s ease-in-out infinite' }}>
           {/* Front ear */}
           <rect x="3" y="0" width="2" height="1" fill="#4A2E1A" />
           <rect x="2" y="1" width="1" height="1" fill="#4A2E1A" />
@@ -1076,7 +1087,7 @@ function ErenSideLapping({ size = 72 }: { size?: number }) {
         <rect x="2"  y="9" width="13" height="1" fill="#4A2E1A" />
 
         {/* ─── FACE FEATURES — sleepy content squint ───────────────── */}
-        <g style={{ transformOrigin: '5px 5.5px', animation: 'erenLapBlink 5.5s ease-in-out infinite' }}>
+        <g style={{ transformOrigin: '5px 5.5px', animation: reduced ? undefined : 'erenLapBlink 5.5s ease-in-out infinite' }}>
           <rect x="4" y="5" width="2" height="1" fill="#1A1A2E" />
           <rect x="3" y="5" width="1" height="1" fill="#4A2E1A" />
           <rect x="6" y="5" width="1" height="1" fill="#4A2E1A" />
@@ -1105,7 +1116,7 @@ function ErenSideLapping({ size = 72 }: { size?: number }) {
         {/* ─── TONGUE — tiny flick, dwells hidden most of the cycle ─ */}
         <g style={{
           transformOrigin: '1px 7.5px',
-          animation: 'erenLickFlick 2.4s ease-in-out infinite',
+          animation: reduced ? undefined : 'erenLickFlick 2.4s ease-in-out infinite',
         }}>
           <rect x="-1" y="7" width="2" height="1" fill="#EC4899" />
           <rect x="-1" y="7" width="1" height="1" fill="#FBCFE8" />

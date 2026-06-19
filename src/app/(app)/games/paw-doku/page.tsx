@@ -18,6 +18,8 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import { useGameTimers } from '@/hooks/useGameTimers'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { IconStar, IconSparkles } from '@/components/PixelIcons'
@@ -259,6 +261,8 @@ export default function PawDokuGame() {
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
+  const timers = useGameTimers()
+  const reduced = useReducedMotion()
 
   const [phase,     setPhase]     = useState<Phase>('idle')
   const [grid,      setGrid]      = useState<Grid>(makeEmptyGrid)
@@ -369,6 +373,7 @@ export default function PawDokuGame() {
   }, [draggedIdx])
 
   function startGame() {
+    timers.clearAll()
     setGrid(makeEmptyGrid())
     setTray(nextTray())
     setTrayRefillKey(k => k + 1)
@@ -387,7 +392,7 @@ export default function PawDokuGame() {
     const finalScore = scoreRef.current
     setPhase('gameover')
     setBest(b => Math.max(b, finalScore))
-    setVignette(v => v + 1)
+    if (!reduced) setVignette(v => v + 1)
     playSound('pd_gameover')
 
     // Count-up score animation, 800ms via requestAnimationFrame so the
@@ -452,7 +457,7 @@ export default function PawDokuGame() {
     // Cap the particle array so back-to-back clears don't compound a thousand DOM nodes
     setParticles(prev => [...prev, ...newParticles].slice(-180))
     const ids = new Set(newParticles.map(p => p.id))
-    setTimeout(() => {
+    timers.setTimeout(() => {
       setParticles(prev => prev.filter(p => !ids.has(p.id)))
     }, 650)
     // Keep `rect` referenced so linters don't flag the unused capture; we use
@@ -463,7 +468,7 @@ export default function PawDokuGame() {
   function flashFloater(text: string, color: string) {
     const id = ++_bid
     setFloater({ id, text, color })
-    setTimeout(() => setFloater(f => f && f.id === id ? null : f), 900)
+    timers.setTimeout(() => setFloater(f => f && f.id === id ? null : f), 900)
   }
 
   function handleDrop() {
@@ -519,29 +524,34 @@ export default function PawDokuGame() {
       else if (totalClears >= 2) playSound('pd_combo')
       else playSound('pd_line_clear')
 
-      // Spawn cleared-cell particles (uses each cell's palette color)
-      const particleCells: Array<{ r: number; c: number; color: string }> = []
-      const seen = new Set<string>()
-      const addCell = (r: number, c: number) => {
-        const key = `${r},${c}`
-        if (seen.has(key)) return
-        seen.add(key)
-        const cell = g[r][c]
-        if (cell) particleCells.push({ r, c, color: cell.color.main })
+      // Spawn cleared-cell particles (uses each cell's palette color).
+      // Skipped entirely when reduced-motion is on — this is the worst
+      // offender (up to 180 pixel squares fireworking per clear).
+      if (!reduced) {
+        const particleCells: Array<{ r: number; c: number; color: string }> = []
+        const seen = new Set<string>()
+        const addCell = (r: number, c: number) => {
+          const key = `${r},${c}`
+          if (seen.has(key)) return
+          seen.add(key)
+          const cell = g[r][c]
+          if (cell) particleCells.push({ r, c, color: cell.color.main })
+        }
+        rows.forEach(r => { for (let c = 0; c < GRID_SIZE; c++) addCell(r, c) })
+        cols.forEach(c => { for (let r = 0; r < GRID_SIZE; r++) addCell(r, c) })
+        subs.forEach(({ r, c }) => {
+          for (let dr = 0; dr < SUB_SIZE; dr++) for (let dc = 0; dc < SUB_SIZE; dc++) addCell(r + dr, c + dc)
+        })
+        spawnClearParticles(particleCells)
       }
-      rows.forEach(r => { for (let c = 0; c < GRID_SIZE; c++) addCell(r, c) })
-      cols.forEach(c => { for (let r = 0; r < GRID_SIZE; r++) addCell(r, c) })
-      subs.forEach(({ r, c }) => {
-        for (let dr = 0; dr < SUB_SIZE; dr++) for (let dc = 0; dc < SUB_SIZE; dc++) addCell(r + dr, c + dc)
-      })
-      spawnClearParticles(particleCells)
 
       // Show clearing flash, then nuke the cells next frame
       g = markClearing(g, rows, cols, subs)
       setGrid(g)
       setCombo(totalClears)
-      setGridFlash(f => f + 1)
-      setTimeout(() => setCombo(0), 850)
+      // Skip the hue-cycling grid washes + expanding shockwave when reduced.
+      if (!reduced) setGridFlash(f => f + 1)
+      timers.setTimeout(() => setCombo(0), 850)
 
       // Floater colour: gold for x3+ clears, pink for streaks ≥ 2,
       // mint for the regular case.
@@ -558,7 +568,7 @@ export default function PawDokuGame() {
                               : `+${gained}`
       flashFloater(floaterText, floaterColor)
 
-      setTimeout(() => {
+      timers.setTimeout(() => {
         let cleared = clearLines(g, rows, cols)
         cleared = clearSubBlocks(cleared, subs)
         setGrid(cleared)
@@ -602,7 +612,7 @@ export default function PawDokuGame() {
     // positives during the line-clear timeout.
     const remaining = next.filter(b => b !== null) as Block[]
     if (remaining.length > 0 && remaining.every(b => !canPlaceAnywhere(latestGrid, b.shape))) {
-      setTimeout(endGame, 280)
+      timers.setTimeout(endGame, 280)
     }
   }
 
@@ -746,8 +756,11 @@ export default function PawDokuGame() {
                   boxShadow: cell
                     ? 'inset 0 1px 0 rgba(255,255,255,0.4), inset 0 -1px 0 rgba(0,0,0,0.25), 0 1px 0 rgba(0,0,0,0.3)'
                     : 'inset 0 1px 0 rgba(255,255,255,0.04)',
-                  // Clearing animation: scale + fade
-                  animation: cell?.clearing ? 'pdClear 0.28s ease-out forwards' : undefined,
+                  // Clearing animation: scale + fade. Reduced-motion gets a
+                  // plain fade-out instead of the rainbow hue-cycle spin.
+                  animation: cell?.clearing
+                    ? (reduced ? 'pdClearReduced 0.28s ease-out forwards' : 'pdClear 0.28s ease-out forwards')
+                    : undefined,
                   transition: cell?.clearing ? undefined : 'background 0.15s, border-color 0.15s',
                 }} />
             )
@@ -1037,6 +1050,13 @@ export default function PawDokuGame() {
           40%  { transform: scale(1.55) rotate(18deg);  opacity: 1;    filter: brightness(2.8) hue-rotate(180deg) blur(1px); }
           65%  { transform: scale(1.05) rotate(-10deg); opacity: 0.7;  filter: brightness(2.4) hue-rotate(280deg) blur(3px); }
           100% { transform: scale(0)    rotate(45deg);  opacity: 0;    filter: brightness(4.0) hue-rotate(360deg) blur(5px); }
+        }
+        /* Reduced-motion clear: a plain collapse + fade, no hue-cycle,
+           no spin, no blur — keeps the meaning-bearing "cell cleared"
+           cue without the spectacle. */
+        @keyframes pdClearReduced {
+          0%   { transform: scale(1); opacity: 1; }
+          100% { transform: scale(0.6); opacity: 0; }
         }
         /* Primary grid-wide flash — gold/pink wash that hue-cycles. */
         @keyframes pdGridFlash {

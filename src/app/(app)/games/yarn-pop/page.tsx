@@ -8,6 +8,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { IconStar } from '@/components/PixelIcons'
@@ -146,6 +147,7 @@ export default function YarnPopGame() {
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
+  const reduced = useReducedMotion()
 
   const [phase, setPhase]     = useState<'idle' | 'playing' | 'gameover'>('idle')
   const [grid, setGrid]       = useState<Grid>(() => genGrid())
@@ -460,6 +462,11 @@ export default function YarnPopGame() {
           // top of a clearly "closed" board, not a still-active one.
           opacity: ending ? 0.4 : 1,
           transition: 'opacity 0.5s ease-out',
+          // Touch lock: keep swipes/drags on the board from scrolling the
+          // page or triggering pull-to-refresh mid-play.
+          touchAction: 'none',
+          overscrollBehavior: 'contain',
+          userSelect: 'none',
         }}>
           {/* Diagonal scanline sweep that telegraphs the end of the round.
               Mounts once when ending kicks in, fades out with the board. */}
@@ -510,8 +517,10 @@ export default function YarnPopGame() {
                   }}>
                   {/* Sparkle burst — radial flash that grows out from the
                       tile centre when it's matched. Sits on top via z-index
-                      and is the visible "pop" of the cell clearing. */}
-                  {tile.matched && (
+                      and is the visible "pop" of the cell clearing. Skipped
+                      under reduced-motion (decorative spectacle); the
+                      tile-pop below still conveys the clear. */}
+                  {tile.matched && !reduced && (
                     <div className="absolute pointer-events-none" style={{
                       inset: 0,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -577,8 +586,9 @@ export default function YarnPopGame() {
               x4 or higher. Overlays a quick warm wash + ring pulse over the
               whole board so the chain feels rewarding without being
               intrusive. The unique key forces a re-mount per combo so the
-              animation re-plays for each consecutive cascade. */}
-          {combo >= 4 && (
+              animation re-plays for each consecutive cascade. Skipped under
+              reduced-motion (full-screen flash overlay). */}
+          {combo >= 4 && !reduced && (
             <div key={`bigcombo-${combo}`} className="absolute inset-0 pointer-events-none"
               style={{ overflow: 'hidden', borderRadius: 4 }}>
               <div className="absolute inset-0" style={{

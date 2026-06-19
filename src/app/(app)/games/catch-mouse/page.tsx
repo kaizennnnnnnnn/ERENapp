@@ -12,6 +12,9 @@ import { playSound } from '@/lib/sounds'
 import { fireMinigameDone } from '@/lib/minigames'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import GameCoinReward from '@/components/games/GameCoinReward'
+import { useGameTimers } from '@/hooks/useGameTimers'
+import { useVisibilityPause } from '@/hooks/useVisibilityPause'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
 
 const MOUSE_SPEED_INIT = 2.2
 const GAME_DURATION    = 30
@@ -30,6 +33,8 @@ export default function CatchMouseGame() {
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
+  const timers = useGameTimers()
+  const reduced = useReducedMotion()
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const stateRef  = useRef({
@@ -39,7 +44,7 @@ export default function CatchMouseGame() {
     timeLeft:  GAME_DURATION,
     running:   false,
     animId:    0,
-    timerInterval: 0 as unknown as ReturnType<typeof setInterval>,
+    timerInterval: 0,
   })
 
   const [score, setScore]         = useState(0)
@@ -60,6 +65,8 @@ export default function CatchMouseGame() {
   const lastTickSecRef = useRef(0)
   const peekRef     = useRef({ at: 0, phase: 'idle' as 'idle' | 'peek' | 'dart', side: 0 })
   const lastFrameRef = useRef(0)
+  const pausedRef    = useRef(false)
+  const hideAtRef    = useRef(0)
 
   // ── Chibi pixel mouse — smaller, rounder, cuter (14×11) ───────────────────
   // K=outline G=fur P=pink(ear/nose) L=belly E=eye W=white_shine M=tail
@@ -169,7 +176,7 @@ export default function CatchMouseGame() {
       const next = [...prev, { id, x, y, text, color, born: performance.now() }]
       return next.length > 8 ? next.slice(next.length - 8) : next
     })
-    window.setTimeout(() => {
+    timers.setTimeout(() => {
       setScorePops(prev => prev.filter(p => p.id !== id))
     }, 850)
   }
@@ -180,7 +187,7 @@ export default function CatchMouseGame() {
       const next = [...prev, { id, x, y, born: performance.now() }]
       return next.length > 6 ? next.slice(next.length - 6) : next
     })
-    window.setTimeout(() => {
+    timers.setTimeout(() => {
       setMissMarks(prev => prev.filter(m => m.id !== id))
     }, 380)
   }
@@ -201,7 +208,7 @@ export default function CatchMouseGame() {
       }
     })
     setConfetti(pieces)
-    window.setTimeout(() => setConfetti([]), 2400)
+    timers.setTimeout(() => setConfetti([]), 2400)
   }
 
   // ── Draw frame ────────────────────────────────────────────────────────────
@@ -299,7 +306,8 @@ export default function CatchMouseGame() {
     drawPixelMouse(ctx, Math.round(mouse.x), Math.round(mouse.y), facingLeft)
 
     // ── Time warning vignette + scanline tint (last 10s) ──
-    if (stateRef.current.running && stateRef.current.timeLeft <= 10) {
+    // Decorative full-screen red overlay — skipped under reduced motion.
+    if (!reduced && stateRef.current.running && stateRef.current.timeLeft <= 10) {
       const pulse = 0.55 + 0.45 * Math.sin(performance.now() / 140)
       // Red vignette gradient (no soft blur — radial pixel feel via alpha steps)
       const grad = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.7)
@@ -313,7 +321,7 @@ export default function CatchMouseGame() {
         ctx.fillRect(0, sy, W, 1)
       }
     }
-  }, [])
+  }, [reduced])
 
   // ── Tick ──────────────────────────────────────────────────────────────────
   const tick = useCallback(() => {
@@ -321,6 +329,13 @@ export default function CatchMouseGame() {
     if (!canvas) return
     const { mouse } = stateRef.current
     const W = canvas.width, H = canvas.height
+
+    // Clamped delta-time, normalized to 60Hz so a 60fps display is unchanged
+    // and a 120Hz display doesn't run the mouse at ~2x speed.
+    const now = performance.now()
+    const dt = Math.min(0.05, (now - lastFrameRef.current) / 1000)
+    lastFrameRef.current = now
+    const dtScale = dt * 60
 
     // Cap difficulty multiplier so the mouse can't clip walls at high scores
     const speedMult = Math.min(1 + stateRef.current.score * 0.07, 2.2)
@@ -336,8 +351,8 @@ export default function CatchMouseGame() {
         mouse.vy = -(MOUSE_SPEED_INIT + Math.random() * 0.8)
       }
     } else {
-      mouse.x += mouse.vx * speedMult
-      mouse.y += mouse.vy * speedMult
+      mouse.x += mouse.vx * speedMult * dtScale
+      mouse.y += mouse.vy * speedMult * dtScale
     }
 
     // Clamp first, then reflect — prevents tunneling at high speedMult
@@ -378,6 +393,10 @@ export default function CatchMouseGame() {
 
   function startGame() {
     const s = stateRef.current
+    // Flush any stale feedback timers from a prior round so they can't fire
+    // a setState into the fresh game.
+    timers.clearAll()
+    cancelAnimationFrame(s.animId)
     s.score = 0
     s.timeLeft = GAME_DURATION
     s.running = true
@@ -395,8 +414,13 @@ export default function CatchMouseGame() {
     warnedRef.current = false
     lastTickSecRef.current = 0
     peekRef.current = { at: 0, phase: 'idle', side: 0 }
+    pausedRef.current = false
+    hideAtRef.current = 0
+    lastFrameRef.current = performance.now()
 
-    s.timerInterval = setInterval(() => {
+    s.timerInterval = timers.setInterval(() => {
+      // Freeze the countdown while the tab is backgrounded.
+      if (document.hidden) return
       stateRef.current.timeLeft -= 1
       setTimeLeft(stateRef.current.timeLeft)
       const t = stateRef.current.timeLeft
@@ -411,14 +435,14 @@ export default function CatchMouseGame() {
       if (t <= 0) endGame()
     }, 1000)
 
-    requestAnimationFrame(tick)
+    s.animId = requestAnimationFrame(tick)
   }
 
   function endGame() {
     const s = stateRef.current
     s.running = false
     cancelAnimationFrame(s.animId)
-    clearInterval(s.timerInterval)
+    timers.clearInterval(s.timerInterval)
     setGameState('finished')
     playSound('cm_gameover')
 
@@ -437,8 +461,8 @@ export default function CatchMouseGame() {
       }
       requestAnimationFrame(stepFn)
     }
-    if (finalScore >= 15) {
-      window.setTimeout(() => fireConfetti(), 220)
+    if (!reduced && finalScore >= 15) {
+      timers.setTimeout(() => fireConfetti(), 220)
     }
 
     // Coins + high-score save. reportGameResult always pays the participation
@@ -453,18 +477,15 @@ export default function CatchMouseGame() {
     }
   }
 
-  function handleTap(e: React.MouseEvent | React.TouchEvent) {
+  function handleTap(e: React.PointerEvent) {
+    // Single pointer handler — replaces the old onClick+onTouchStart pair so a
+    // touch can't fire twice (the 2nd landing post-teleport as a false miss).
+    e.preventDefault()
     if (!stateRef.current.running) return
     const canvas = canvasRef.current!
     const rect   = canvas.getBoundingClientRect()
-    let cx: number, cy: number
-    if ('touches' in e) {
-      cx = e.touches[0].clientX - rect.left
-      cy = e.touches[0].clientY - rect.top
-    } else {
-      cx = (e as React.MouseEvent).clientX - rect.left
-      cy = (e as React.MouseEvent).clientY - rect.top
-    }
+    const cx = e.clientX - rect.left
+    const cy = e.clientY - rect.top
     const scaleX = canvas.width  / rect.width
     const scaleY = canvas.height / rect.height
     const tx = cx * scaleX
@@ -477,7 +498,7 @@ export default function CatchMouseGame() {
       const newScore = stateRef.current.score
       setScore(newScore)
       setScoreBump(b => b + 1)
-      spawnParticles(mouse.x, mouse.y)
+      if (!reduced) spawnParticles(mouse.x, mouse.y)
       // Floating "+1" at catch coordinate, in screen-space
       pushScorePop(cx, cy, '+1', '#FFE05A')
 
@@ -504,7 +525,7 @@ export default function CatchMouseGame() {
       // MISS — soft thud, screen-space "X" ring, small shake, combo break
       playSound('cm_miss')
       pushMissMark(cx, cy)
-      setShakeNonce(n => n + 1)
+      if (!reduced) setShakeNonce(n => n + 1)
       setCombo(0)
     }
   }
@@ -512,9 +533,34 @@ export default function CatchMouseGame() {
   useEffect(() => {
     return () => {
       cancelAnimationFrame(stateRef.current.animId)
-      clearInterval(stateRef.current.timerInterval)
     }
   }, [])
+
+  // ── Pause-on-hidden ──
+  // Cancel the rAF when backgrounded; rebase the frame clock and peek/dart
+  // wall-clock anchors on return so the mouse doesn't teleport. The countdown
+  // setInterval freezes via its own `if (document.hidden) return` guard.
+  const handleHide = useCallback(() => {
+    if (!stateRef.current.running || pausedRef.current) return
+    pausedRef.current = true
+    hideAtRef.current = performance.now()
+    cancelAnimationFrame(stateRef.current.animId)
+  }, [])
+
+  const handleShow = useCallback(() => {
+    if (!pausedRef.current) return
+    pausedRef.current = false
+    const elapsed = performance.now() - hideAtRef.current
+    // Shift the peek timestamp forward so its 300ms/700ms windows don't fire
+    // instantly on return.
+    peekRef.current.at += elapsed
+    lastFrameRef.current = performance.now()
+    if (stateRef.current.running) {
+      stateRef.current.animId = requestAnimationFrame(tick)
+    }
+  }, [tick])
+
+  useVisibilityPause(handleHide, handleShow)
 
   useEffect(() => { if (gameState === 'idle') draw() }, [gameState, draw])
 
@@ -585,7 +631,7 @@ export default function CatchMouseGame() {
             borderRadius: 4,
             border: timeWarning ? '2px solid #F87171' : '2px solid #A78BFA',
             boxShadow: timeWarning ? '0 3px 0 #7A1A1A, 0 0 10px rgba(248,113,113,0.4)' : '0 3px 0 #4C1D95, 0 0 10px rgba(167,139,250,0.25)',
-            animation: timeWarning && gameState === 'running' ? 'timerPulse 0.6s ease-in-out infinite' : 'none',
+            animation: !reduced && timeWarning && gameState === 'running' ? 'timerPulse 0.6s ease-in-out infinite' : 'none',
           }}>
           <div style={{ position: 'absolute', top: 2, left: 2, width: 3, height: 3, background: timeWarning ? '#FCA5A5' : '#FFD700' }} />
           <div style={{ position: 'absolute', top: 2, right: 2, width: 3, height: 3, background: timeWarning ? '#FCA5A5' : '#FFD700' }} />
@@ -638,8 +684,7 @@ export default function CatchMouseGame() {
           height={320}
           className="w-full touch-none block"
           style={{ cursor: gameState === 'running' ? 'crosshair' : 'default', display: 'block' }}
-          onClick={handleTap}
-          onTouchStart={handleTap}
+          onPointerDown={handleTap}
         />
 
         {/* Score popups (screen-space, layered over canvas) */}
@@ -684,7 +729,7 @@ export default function CatchMouseGame() {
             style={{ background: 'rgba(253,246,255,0.92)' }}>
             {gameState === 'idle' && (
               <>
-                <div className="mb-3" style={{ animation: 'mouseBob 1.2s ease-in-out infinite', transform: 'scale(3)' }}>
+                <div className="mb-3" style={{ animation: reduced ? 'none' : 'mouseBob 1.2s ease-in-out infinite', transform: 'scale(3)' }}>
                   <IconMouse size={20} />
                 </div>
                 <p className="font-pixel text-gray-700 mb-1" style={{ fontSize: 10, letterSpacing: 1 }}>CATCH THE MOUSE!</p>
@@ -723,9 +768,9 @@ export default function CatchMouseGame() {
                     ))}
                   </div>
                 )}
-                <div className="mb-2 relative" style={{ animation: 'cmCrownBob 1.6s ease-in-out infinite' }}>
+                <div className="mb-2 relative" style={{ animation: reduced ? 'none' : 'cmCrownBob 1.6s ease-in-out infinite' }}>
                   <IconCrown size={28} />
-                  {score >= 15 && (
+                  {!reduced && score >= 15 && (
                     <>
                       <span style={{ position: 'absolute', top: -4, left: -6, width: 3, height: 3, background: '#FFF6B0', boxShadow: '0 0 0 1px #FFD700', animation: 'cmSparkle 1.4s ease-in-out infinite', imageRendering: 'pixelated' }} />
                       <span style={{ position: 'absolute', top: 2, right: -8, width: 3, height: 3, background: '#FFF6B0', boxShadow: '0 0 0 1px #FFD700', animation: 'cmSparkle 1.4s ease-in-out 0.4s infinite', imageRendering: 'pixelated' }} />

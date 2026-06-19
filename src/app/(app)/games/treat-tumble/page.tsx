@@ -7,6 +7,9 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import { useGameTimers } from '@/hooks/useGameTimers'
+import { useVisibilityPause } from '@/hooks/useVisibilityPause'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
 import {
@@ -422,6 +425,8 @@ export default function TreatTumbleGame() {
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
+  const timers = useGameTimers()
+  const reduced = useReducedMotion()
 
   const sceneRef = useRef<HTMLDivElement>(null)
 
@@ -461,9 +466,13 @@ export default function TreatTumbleGame() {
   const livesRef = useRef(START_LIVES)
   const comboRef = useRef(0)
   const gameStartRef = useRef(0)
+  const pausedRef = useRef(false)
+  const hideAtRef = useRef(0)
+  const loopRef = useRef<((t: number) => void) | null>(null)
 
   // ── Start ──────────────────────────────────────────────────────────────────
   const start = useCallback(() => {
+    timers.clearAll()
     setScore(0)
     setLives(START_LIVES)
     livesRef.current = START_LIVES
@@ -486,23 +495,28 @@ export default function TreatTumbleGame() {
     lastSpawn.current = 0
     lastTick.current = 0
     gameStartRef.current = performance.now()
-  }, [])
+    pausedRef.current = false
+    hideAtRef.current = 0
+  }, [timers])
 
   // ── Timer ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (gameState !== 'running') return
-    const id = setInterval(() => {
+    const id = timers.setInterval(() => {
+      // Freeze the countdown while backgrounded — pairs with the rAF pause so
+      // a tab-switch doesn't silently drain the clock.
+      if (document.hidden) return
       setTimeLeft(t => {
         if (t <= 1) {
-          clearInterval(id)
+          timers.clearInterval(id)
           setGameState('finished')
           return 0
         }
         return t - 1
       })
     }, 1000)
-    return () => clearInterval(id)
-  }, [gameState])
+    return () => timers.clearInterval(id)
+  }, [gameState]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Round-end jingle when the overlay appears (covers both timeout & 0 HP) ──
   useEffect(() => {
@@ -544,23 +558,23 @@ export default function TreatTumbleGame() {
   // ── Score bump animation ──────────────────────────────────────────────────
   useEffect(() => {
     if (scoreBump === 0) return
-    const id = setTimeout(() => setScoreBump(0), 280)
-    return () => clearTimeout(id)
-  }, [scoreBump])
+    const id = timers.setTimeout(() => setScoreBump(0), 280)
+    return () => timers.clearTimeout(id)
+  }, [scoreBump]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Eren chomp pop reset ──────────────────────────────────────────────────
   useEffect(() => {
     if (!erenPop) return
-    const id = setTimeout(() => setErenPop(false), 140)
-    return () => clearTimeout(id)
-  }, [erenPop])
+    const id = timers.setTimeout(() => setErenPop(false), 140)
+    return () => timers.clearTimeout(id)
+  }, [erenPop]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Combo flash reset ─────────────────────────────────────────────────────
   useEffect(() => {
     if (comboFlash === 0) return
-    const id = setTimeout(() => setComboFlash(0), 380)
-    return () => clearTimeout(id)
-  }, [comboFlash])
+    const id = timers.setTimeout(() => setComboFlash(0), 380)
+    return () => timers.clearTimeout(id)
+  }, [comboFlash]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Main game loop ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -570,7 +584,10 @@ export default function TreatTumbleGame() {
       const rect = sceneRef.current?.getBoundingClientRect()
       if (!rect) { rafId.current = requestAnimationFrame(loop); return }
 
-      const elapsed = lastTick.current === 0 ? 16 : (t - lastTick.current)
+      // Clamp per-frame dt so a long frame (or a resume hiccup) can't teleport
+      // items across the catch zone in a single step.
+      const rawElapsed = lastTick.current === 0 ? 16 : (t - lastTick.current)
+      const elapsed = Math.min(50, rawElapsed)
       lastTick.current = t
       const gameElapsedSec = (t - gameStartRef.current) / 1000
       const speed = ITEM_BASE_SPEED + ITEM_SPEED_PER_SEC * gameElapsedSec
@@ -595,20 +612,36 @@ export default function TreatTumbleGame() {
       const erenCX = (erenXRef.current / 100) * rect.width
       const catchY = rect.height - 110
 
+      // Frame outcome is collected here and the side-effects are fired AFTER the
+      // state updater returns. The setItems updater must stay pure: under React
+      // StrictMode it runs twice, so firing setState / playSound / setTimeout
+      // inside it would double-count score, lives and sounds.
+      let dLives = 0
+      let dScore = 0
+      let comboDelta = 0   // +N good catches, -1 means broken
+      let hadDanger = false
+      let hadGolden = false
+      let hadHeart = false
+      let hadGoodCatch = false
+      const newFloats: FloatText[] = []
+      const newParticles: Particle[] = []
+      const newPuffs: Puff[] = []
+      const groundY = rect.height - 72   // top of the grass strip
+
       setItems(prev => {
+        // Reset accumulators so a StrictMode double-invocation of this updater
+        // recomputes from scratch instead of doubling score / lives / bursts.
         const updated: FallingItem[] = []
-        let dLives = 0
-        let dScore = 0
-        let comboDelta = 0   // +N good catches, -1 means broken
-        let hadDanger = false
-        let hadGolden = false
-        let hadHeart = false
-        let hadGoodCatch = false
-        const newFloats: FloatText[] = []
-        const newParticles: Particle[] = []
-        const newShards: Shard[] = []
-        const newPuffs: Puff[] = []
-        const groundY = rect.height - 72   // top of the grass strip
+        dLives = 0
+        dScore = 0
+        comboDelta = 0
+        hadDanger = false
+        hadGolden = false
+        hadHeart = false
+        hadGoodCatch = false
+        newFloats.length = 0
+        newParticles.length = 0
+        newPuffs.length = 0
 
         for (const it of prev) {
           if (it.caught || it.missed) continue
@@ -646,7 +679,7 @@ export default function TreatTumbleGame() {
             })
 
             // Particle burst on positive catches (tinted to the item color).
-            if (isGood) {
+            if (isGood && !reduced) {
               const count = it.kind === 'golden' ? 9 : 6
               for (let i = 0; i < count; i++) {
                 const ang = (Math.PI * 2 * i) / count + Math.random() * 0.4
@@ -682,32 +715,36 @@ export default function TreatTumbleGame() {
           updated.push({ ...it, y: ny })
         }
 
-        if (dScore !== 0) {
-          setScore(s => {
-            const next = Math.max(0, s + dScore)
-            setScoreBump(dScore > 0 ? 1 : -1)
-            return next
-          })
-        }
-        if (dLives !== 0) {
-          const before = livesRef.current
-          const newLives = Math.max(0, Math.min(MAX_LIVES, before + dLives))
-          livesRef.current = newLives
-          setLives(newLives)
-          if (dLives < 0) {
+        return updated
+      })
+
+      // ── Side-effects (fired once per frame, OUTSIDE the pure updater) ───────
+      if (dScore !== 0) {
+        setScore(s => Math.max(0, s + dScore))
+        setScoreBump(dScore > 0 ? 1 : -1)
+      }
+      if (dLives !== 0) {
+        const before = livesRef.current
+        const newLives = Math.max(0, Math.min(MAX_LIVES, before + dLives))
+        livesRef.current = newLives
+        setLives(newLives)
+        if (dLives < 0) {
+          // Screen shake + red flash are pure spectacle — skip under reduced motion.
+          if (!reduced) {
             setShake(true)
             setHurtFlash(true)
-            setTimeout(() => setShake(false), 280)
-            setTimeout(() => setHurtFlash(false), 220)
+            timers.setTimeout(() => setShake(false), 280)
+            timers.setTimeout(() => setHurtFlash(false), 220)
             // Spawn heart shards from the slot of the heart that was just lost.
             // The HUD's heart row sits roughly at the top of the screen.
             const shardSlotIndex = Math.max(0, before - 1)
             const shardOriginX = rect.width - 84 + shardSlotIndex * 20
             const shardOriginY = 110
+            const burstShards: Shard[] = []
             for (let i = 0; i < 4; i++) {
               const ang = -Math.PI / 2 + (i - 1.5) * 0.55 + (Math.random() - 0.5) * 0.3
               const v = 60 + Math.random() * 30
-              newShards.push({
+              burstShards.push({
                 id: shardId.current++,
                 x: shardOriginX,
                 y: shardOriginY,
@@ -716,62 +753,96 @@ export default function TreatTumbleGame() {
                 t0: t,
               })
             }
-          }
-          if (newLives === 0) setGameState('finished')
-        }
-
-        // Combo handling: tick up on each consecutive good catch, reset on any
-        // danger or missed positive. Multiplier thresholds: 5 -> x2, 10 -> x3.
-        if (comboDelta !== 0) {
-          if (comboDelta < 0) {
-            comboRef.current = 0
-            setCombo(0)
-          } else {
-            const prevC = comboRef.current
-            const next = prevC + comboDelta
-            comboRef.current = next
-            setCombo(next)
-            setBestCombo(b => Math.max(b, next))
-            // Fire combo-up sound when crossing a multiplier threshold (5 or 10).
-            const prevMult = prevC >= 10 ? 3 : prevC >= 5 ? 2 : 1
-            const nextMult = next >= 10 ? 3 : next >= 5 ? 2 : 1
-            if (nextMult > prevMult) {
-              playSound('tt_combo_up')
-              setComboFlash(nextMult)
-            }
+            setShards(prev => [...prev, ...burstShards].slice(-40))
           }
         }
+        if (newLives === 0) setGameState('finished')
+      }
 
-        // Pop Eren on any good catch (chomp); play category sounds.
-        if (hadGoodCatch) setErenPop(true)
-        if (hadGolden) playSound('tt_catch_golden')
-        else if (hadHeart) playSound('tt_catch_heart')
-        else if (hadGoodCatch) playSound('tt_catch_good')
-        if (hadDanger) playSound('tt_hit_danger')
+      // Combo handling: tick up on each consecutive good catch, reset on any
+      // danger or missed positive. Multiplier thresholds: 5 -> x2, 10 -> x3.
+      if (comboDelta !== 0) {
+        if (comboDelta < 0) {
+          comboRef.current = 0
+          setCombo(0)
+        } else {
+          const prevC = comboRef.current
+          const next = prevC + comboDelta
+          comboRef.current = next
+          setCombo(next)
+          setBestCombo(b => Math.max(b, next))
+          // Fire combo-up sound when crossing a multiplier threshold (5 or 10).
+          const prevMult = prevC >= 10 ? 3 : prevC >= 5 ? 2 : 1
+          const nextMult = next >= 10 ? 3 : next >= 5 ? 2 : 1
+          if (nextMult > prevMult) {
+            playSound('tt_combo_up')
+            setComboFlash(nextMult)
+          }
+        }
+      }
 
-        if (newFloats.length > 0) {
-          setFloats(prev => [...prev, ...newFloats].slice(-22))
-        }
-        if (newParticles.length > 0) {
-          setParticles(prev => [...prev, ...newParticles].slice(-80))
-        }
-        if (newShards.length > 0) {
-          setShards(prev => [...prev, ...newShards].slice(-40))
-        }
-        if (newPuffs.length > 0) {
-          setPuffs(prev => [...prev, ...newPuffs].slice(-20))
-        }
-        return updated
-      })
+      // Pop Eren on any good catch (chomp); play category sounds.
+      if (hadGoodCatch) setErenPop(true)
+      if (hadGolden) playSound('tt_catch_golden')
+      else if (hadHeart) playSound('tt_catch_heart')
+      else if (hadGoodCatch) playSound('tt_catch_good')
+      if (hadDanger) playSound('tt_hit_danger')
 
-      if (gameState === 'running') {
+      if (newFloats.length > 0) {
+        setFloats(prev => [...prev, ...newFloats].slice(-22))
+      }
+      if (newParticles.length > 0) {
+        setParticles(prev => [...prev, ...newParticles].slice(-80))
+      }
+      if (newPuffs.length > 0) {
+        setPuffs(prev => [...prev, ...newPuffs].slice(-20))
+      }
+
+      if (gameState === 'running' && !pausedRef.current) {
         rafId.current = requestAnimationFrame(loop)
       }
     }
 
-    rafId.current = requestAnimationFrame(loop)
-    return () => { if (rafId.current) cancelAnimationFrame(rafId.current) }
+    loopRef.current = loop
+    if (!pausedRef.current) {
+      rafId.current = requestAnimationFrame(loop)
+    }
+    return () => {
+      loopRef.current = null
+      if (rafId.current) cancelAnimationFrame(rafId.current)
+    }
+  }, [gameState, reduced]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Pause on hidden ────────────────────────────────────────────────────────
+  // Backgrounding the tab cancels the rAF and records when we left, so the frame
+  // clock and wall-clock anchors can be rebased on return. Without this, items
+  // teleport across the catch zone and the difficulty ramp spikes on resume.
+  const handleHide = useCallback(() => {
+    if (gameState !== 'running' || pausedRef.current) return
+    pausedRef.current = true
+    hideAtRef.current = performance.now()
+    if (rafId.current) {
+      cancelAnimationFrame(rafId.current)
+      rafId.current = null
+    }
   }, [gameState])
+
+  const handleShow = useCallback(() => {
+    if (!pausedRef.current) return
+    pausedRef.current = false
+    const now = performance.now()
+    const gap = now - hideAtRef.current
+    // Rebase every wall-clock anchor by the time spent hidden so the spawn
+    // interval, difficulty ramp and frame dt all resume as if no time passed.
+    gameStartRef.current += gap
+    if (lastSpawn.current !== 0) lastSpawn.current += gap
+    lastTick.current = now
+    if (gameState === 'running' && loopRef.current) {
+      rafId.current = requestAnimationFrame(loopRef.current)
+    }
+  }, [gameState])
+
+  useVisibilityPause(handleHide, handleShow)
 
   // ── Clean up old float texts ───────────────────────────────────────────────
   useEffect(() => {
@@ -848,7 +919,7 @@ export default function TreatTumbleGame() {
       {/* Drifting clouds */}
       <div className="absolute inset-0 pointer-events-none opacity-70" style={{
         backgroundImage: 'radial-gradient(ellipse 60px 18px at 20% 15%, rgba(255,255,255,0.85), transparent 65%), radial-gradient(ellipse 80px 22px at 65% 28%, rgba(255,255,255,0.7), transparent 65%), radial-gradient(ellipse 50px 14px at 85% 50%, rgba(255,255,255,0.8), transparent 65%)',
-        animation: 'cloudDrift 22s linear infinite',
+        animation: reduced ? 'none' : 'cloudDrift 22s linear infinite',
       }} />
 
       {/* Grass floor */}
@@ -952,7 +1023,7 @@ export default function TreatTumbleGame() {
                       transform: i < lives ? 'scale(1)' : 'scale(0.75)',
                       transition: 'opacity 0.25s, transform 0.25s',
                       filter: i < lives && lowLives && gameState === 'running' ? 'drop-shadow(0 0 5px rgba(255,107,157,1))' : 'none',
-                      animation: i < lives && lowLives && gameState === 'running' ? 'heartBeat 0.55s ease-in-out infinite' : 'none',
+                      animation: i < lives && lowLives && gameState === 'running' && !reduced ? 'heartBeat 0.55s ease-in-out infinite' : 'none',
                     }}>
                       <MemoIconHeart size={18} />
                     </div>
@@ -987,7 +1058,7 @@ export default function TreatTumbleGame() {
               <span className="font-pixel" style={{
                 fontSize: 7,
                 color: timeWarning ? '#FCA5A5' : '#FDE68A',
-                animation: timeWarning && gameState === 'running' ? 'timerPulse 0.6s ease-in-out infinite' : 'none',
+                animation: timeWarning && gameState === 'running' && !reduced ? 'timerPulse 0.6s ease-in-out infinite' : 'none',
               }}>{String(Math.floor(timeLeft / 60))}:{String(timeLeft % 60).padStart(2, '0')}</span>
             </div>
           </div>
@@ -1005,7 +1076,7 @@ export default function TreatTumbleGame() {
             backgroundImage: 'radial-gradient(circle, rgba(251,191,36,0.55) 1px, transparent 1.5px), radial-gradient(circle, rgba(252,211,77,0.4) 1px, transparent 1.5px)',
             backgroundSize: '38px 38px, 56px 56px',
             backgroundPosition: '0 0, 22px 28px',
-            animation: 'ttStarDrift 32s linear infinite',
+            animation: reduced ? 'none' : 'ttStarDrift 32s linear infinite',
             opacity: 0.55,
           }} />
 
@@ -1026,19 +1097,19 @@ export default function TreatTumbleGame() {
             {/* Sweep shine across the plaque */}
             <div className="absolute inset-0 pointer-events-none" style={{
               background: 'linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.55) 50%, transparent 62%)',
-              animation: 'ttPlaqueShine 3.6s ease-in-out infinite',
+              animation: reduced ? 'none' : 'ttPlaqueShine 3.6s ease-in-out infinite',
             }} />
 
             {/* Title with twinkling stars */}
             <div className="flex items-center justify-center gap-2 mb-2 relative">
-              <div style={{ animation: 'twinkle 1.5s ease-in-out infinite', filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.7))' }}>
+              <div style={{ animation: reduced ? 'none' : 'twinkle 1.5s ease-in-out infinite', filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.7))' }}>
                 <IconStar size={16} />
               </div>
               <p className="font-pixel" style={{
                 fontSize: 12, letterSpacing: 3, color: '#7C2D12',
                 textShadow: '0 1px 0 rgba(255,255,255,0.7), 0 2px 0 rgba(120,53,15,0.4)',
               }}>TREAT TUMBLE</p>
-              <div style={{ animation: 'twinkle 1.5s ease-in-out 0.75s infinite', filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.7))' }}>
+              <div style={{ animation: reduced ? 'none' : 'twinkle 1.5s ease-in-out 0.75s infinite', filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.7))' }}>
                 <IconStar size={16} />
               </div>
             </div>
@@ -1119,7 +1190,7 @@ export default function TreatTumbleGame() {
             {/* Sweeping shine across the button */}
             <div className="absolute inset-0 pointer-events-none" style={{
               background: 'linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.5) 50%, transparent 62%)',
-              animation: 'ttPlaqueShine 2.4s ease-in-out infinite',
+              animation: reduced ? 'none' : 'ttPlaqueShine 2.4s ease-in-out infinite',
             }} />
           </button>
         </div>
@@ -1136,13 +1207,15 @@ export default function TreatTumbleGame() {
               top: it.y - ITEM_SIZE / 2,
               width: ITEM_SIZE,
               height: ITEM_SIZE,
-              animation: danger
-                ? 'itemSpin 1.4s linear infinite, dangerWobble 0.42s ease-in-out infinite'
-                : 'itemSpin 1.4s linear infinite',
+              animation: reduced
+                ? 'none'
+                : danger
+                  ? 'itemSpin 1.4s linear infinite, dangerWobble 0.42s ease-in-out infinite'
+                  : 'itemSpin 1.4s linear infinite',
             }}>
             <div style={{
               width: '100%', height: '100%',
-              animation: danger ? 'dangerPulse 0.55s ease-in-out infinite' : 'none',
+              animation: danger && !reduced ? 'dangerPulse 0.55s ease-in-out infinite' : 'none',
               filter: danger
                 ? `drop-shadow(0 3px 0 rgba(0,0,0,0.35)) drop-shadow(0 0 7px rgba(220,38,38,0.95)) drop-shadow(0 0 12px rgba(220,38,38,0.55))`
                 : `drop-shadow(0 3px 0 rgba(0,0,0,0.25)) drop-shadow(0 0 6px ${meta.tint}55)`,
@@ -1215,7 +1288,7 @@ export default function TreatTumbleGame() {
             filter: hurtFlash
               ? 'drop-shadow(0 0 10px rgba(220,38,38,1)) drop-shadow(0 0 16px rgba(220,38,38,0.6))'
               : 'drop-shadow(0 5px 0 rgba(0,0,0,0.25)) drop-shadow(0 0 8px rgba(255,255,255,0.25))',
-            animation: 'erenBob 0.7s ease-in-out infinite',
+            animation: reduced ? 'none' : 'erenBob 0.7s ease-in-out infinite',
           }}>
           {/* Floating HP indicator above head */}
           <div className="flex items-center justify-center gap-0.5 mb-1"
@@ -1225,7 +1298,7 @@ export default function TreatTumbleGame() {
               border: lowLives ? '2px solid #FCA5A5' : '2px solid rgba(255,255,255,0.45)',
               borderRadius: 3,
               boxShadow: lowLives ? '0 1px 0 rgba(0,0,0,0.45), 0 0 6px rgba(248,113,113,0.7)' : '0 1px 0 rgba(0,0,0,0.45)',
-              animation: lowLives ? 'heartBeat 0.5s ease-in-out infinite' : 'none',
+              animation: lowLives && !reduced ? 'heartBeat 0.5s ease-in-out infinite' : 'none',
             }}>
             {Array.from({ length: MAX_LIVES }).map((_, i) => (
               <div key={i} style={{
@@ -1270,7 +1343,7 @@ export default function TreatTumbleGame() {
               {lives > 0 ? (
                 <IconCrown size={28} />
               ) : (
-                <div style={{ animation: 'sadBob 1.8s ease-in-out infinite' }}>
+                <div style={{ animation: reduced ? 'none' : 'sadBob 1.8s ease-in-out infinite' }}>
                   <MemoSadErenSprite size={48} />
                 </div>
               )}

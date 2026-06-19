@@ -7,6 +7,9 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import { useGameTimers } from '@/hooks/useGameTimers'
+import { useVisibilityPause } from '@/hooks/useVisibilityPause'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { RefreshCw, ChevronLeft } from 'lucide-react'
 import { playSound } from '@/lib/sounds'
@@ -44,6 +47,8 @@ export default function PawTapGame() {
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
+  const timers = useGameTimers()
+  const reduced = useReducedMotion()
 
   const [gameState, setGameState] = useState<'idle' | 'running' | 'finished'>('idle')
   const [reward, setReward]       = useState<GameRewardResult | null>(null)
@@ -71,8 +76,8 @@ export default function PawTapGame() {
   )
 
   const scoreRef = useRef(0)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const fishTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const timerRef = useRef<number | null>(null)
+  const fishTimerRef = useRef<number | null>(null)
   const comboRef = useRef(0)
   const splashIdRef = useRef(0)
   const timeLeftRef = useRef(GAME_DURATION)
@@ -111,7 +116,7 @@ export default function PawTapGame() {
     const newFish: Fish = { id: Date.now() + Math.random(), ...pos, visible: true, caught: false, emoji, kind, points }
     setFish(prev => [...prev.slice(-8), newFish])
 
-    setTimeout(() => {
+    timers.setTimeout(() => {
       setFish(prev => prev.map(f => {
         if (f.id === newFish.id && !f.caught && f.visible) {
           // Fish escaped — play a soft bubble plop only for non-danger fish
@@ -124,11 +129,17 @@ export default function PawTapGame() {
   }
 
   function rescheduleFishTimer(intervalMs: number) {
-    if (fishTimerRef.current) clearInterval(fishTimerRef.current)
-    fishTimerRef.current = setInterval(spawnFish, intervalMs)
+    if (fishTimerRef.current !== null) timers.clearInterval(fishTimerRef.current)
+    // Freeze spawning while the tab is backgrounded so a returning round
+    // doesn't get flooded with a teleported backlog of fish.
+    fishTimerRef.current = timers.setInterval(() => {
+      if (document.hidden) return
+      spawnFish()
+    }, intervalMs)
   }
 
   function startGame() {
+    timers.clearAll()
     scoreRef.current = 0
     comboRef.current = 0
     finishedRef.current = false
@@ -147,7 +158,9 @@ export default function PawTapGame() {
     setShake(false)
     setGameState('running')
 
-    timerRef.current = setInterval(() => {
+    timerRef.current = timers.setInterval(() => {
+      // Freeze the countdown while backgrounded so a 20s round can't drain unseen.
+      if (document.hidden) return
       setTimeLeft(t => {
         const next = t - 1
         timeLeftRef.current = next
@@ -167,8 +180,10 @@ export default function PawTapGame() {
     if (finishedRef.current) return
     finishedRef.current = true
     setReward(reportGameResult({ gameType: 'paw_tap', score: scoreRef.current }))
-    clearInterval(timerRef.current!)
-    clearInterval(fishTimerRef.current!)
+    if (timerRef.current !== null) timers.clearInterval(timerRef.current)
+    if (fishTimerRef.current !== null) timers.clearInterval(fishTimerRef.current)
+    timerRef.current = null
+    fishTimerRef.current = null
     setGameState('finished')
     setFish([])
     playSound('pt_game_over')
@@ -180,12 +195,12 @@ export default function PawTapGame() {
       const steps = 30
       const stepMs = 600 / steps
       let i = 0
-      const countTimer = setInterval(() => {
+      const countTimer = timers.setInterval(() => {
         i += 1
         const v = Math.round((finalScore * i) / steps)
         setDisplayScore(v)
         if (i >= steps) {
-          clearInterval(countTimer)
+          timers.clearInterval(countTimer)
           setDisplayScore(finalScore)
         }
       }, stepMs)
@@ -193,8 +208,8 @@ export default function PawTapGame() {
       setDisplayScore(0)
     }
 
-    // Legendary tier — spawn 8 gold star pixels around the score
-    if (finalScore >= 60) {
+    // Legendary tier — spawn 8 gold star pixels around the score (spectacle, off when reduced)
+    if (finalScore >= 60 && !reduced) {
       const burst: StarParticle[] = Array.from({ length: 8 }, (_, idx) => ({
         id: starIdRef.current++,
         angle: (idx / 8) * 360,
@@ -224,16 +239,18 @@ export default function PawTapGame() {
       scoreRef.current = Math.max(0, scoreRef.current + f.points)
       comboRef.current = 0
       playSound('pt_danger_hit')
-      // Screen shake + global red HUD flash
-      setShake(true)
-      setTimeout(() => setShake(false), 220)
-      setHudFlash('danger')
-      setTimeout(() => setHudFlash('none'), 280)
+      // Screen shake + global red HUD flash + danger vignette — spectacle, off when reduced
+      if (!reduced) {
+        setShake(true)
+        timers.setTimeout(() => setShake(false), 220)
+        setHudFlash('danger')
+        timers.setTimeout(() => setHudFlash('none'), 280)
+      }
       // If they had a streak going, show a "COMBO LOST!" banner
       if (prevCombo >= 3) {
         const lostId = Date.now()
         setComboLost({ id: lostId, combo: prevCombo })
-        setTimeout(() => setComboLost(c => (c && c.id === lostId ? null : c)), 800)
+        timers.setTimeout(() => setComboLost(c => (c && c.id === lostId ? null : c)), 800)
       }
     } else {
       // Score + combo bonus every 5 catches
@@ -243,11 +260,13 @@ export default function PawTapGame() {
       comboRef.current += 1
       if (f.kind === 'bonus') {
         playSound('pt_catch_bonus')
-        // Subtle camera zoom-pulse on bonus catch
-        setBonusZoom(true)
-        setTimeout(() => setBonusZoom(false), 200)
-        setHudFlash('bonus')
-        setTimeout(() => setHudFlash('none'), 220)
+        // Subtle camera zoom-pulse + gold HUD flash — spectacle, off when reduced
+        if (!reduced) {
+          setBonusZoom(true)
+          timers.setTimeout(() => setBonusZoom(false), 200)
+          setHudFlash('bonus')
+          timers.setTimeout(() => setHudFlash('none'), 220)
+        }
       } else {
         playSound('pt_catch_good')
       }
@@ -258,16 +277,16 @@ export default function PawTapGame() {
     // HUD score number pulse — gold flash for bonus, regular pop otherwise
     if (!isDanger) {
       setScorePulse(f.kind === 'bonus' ? 'bonus' : 'good')
-      setTimeout(() => setScorePulse('none'), 180)
+      timers.setTimeout(() => setScorePulse('none'), 180)
     }
     setPawFlash(true)
-    setTimeout(() => setPawFlash(false), 150)
+    timers.setTimeout(() => setPawFlash(false), 150)
 
-    // Splash effect — color varies by kind, ring rendered on non-danger
+    // Splash effect — catch feedback, color varies by kind, ring rendered on non-danger
     const sid = splashIdRef.current++
     const splashColor = isDanger ? '#FF4444' : f.kind === 'bonus' ? '#FFD700' : '#FFFFFF'
     setSplashes(prev => [...prev, { id: sid, x: f.x, y: f.y, color: splashColor, ring: !isDanger }])
-    setTimeout(() => setSplashes(prev => prev.filter(s => s.id !== sid)), 600)
+    timers.setTimeout(() => setSplashes(prev => prev.filter(s => s.id !== sid)), 600)
 
     // Floating text
     let text = ''
@@ -285,13 +304,13 @@ export default function PawTapGame() {
       else { text = `+${f.points}` }
     }
     setComboText({ id: Date.now(), text, x: f.x, y: f.y, tier })
-    setTimeout(() => setComboText(null), 700)
+    timers.setTimeout(() => setComboText(null), 700)
   }
 
-  useEffect(() => () => {
-    clearInterval(timerRef.current!)
-    clearInterval(fishTimerRef.current!)
-  }, [])
+  // Timers auto-flush on unmount via useGameTimers. The countdown and fish-spawn
+  // intervals self-guard on `document.hidden` (they no-op while backgrounded),
+  // so the round simply freezes and resumes — no wall-clock rebase needed.
+  useVisibilityPause()
 
   const timeWarning = timeLeft <= 5
   const fillWidth = (timeLeft / GAME_DURATION) * 100
@@ -334,7 +353,7 @@ export default function PawTapGame() {
             {score}
           </span>
         </div>
-        <div className={`flex-1 flex flex-col items-center py-2.5 ${timeWarning ? 'animate-heartbeat' : ''}`}
+        <div className={`flex-1 flex flex-col items-center py-2.5 ${timeWarning && !reduced ? 'animate-heartbeat' : ''}`}
           style={{ background: timeWarning ? 'linear-gradient(135deg, #FFF0F0, #FFE0E0)' : 'linear-gradient(135deg, #F0F8FF, #E0EEFF)', borderRadius: 3, border: `2px solid ${timeWarning ? '#FFB0B0' : '#B8D8F0'}`, boxShadow: `2px 2px 0 ${timeWarning ? '#FF9090' : '#90B8D8'}` }}>
           <span className="font-pixel text-sky-500" style={{ fontSize: 6 }}>TIME</span>
           <span className={`font-pixel mt-1 ${timeWarning ? 'text-red-500' : 'text-gray-700'}`} style={{ fontSize: 16 }}>{timeLeft}s</span>
@@ -369,6 +388,10 @@ export default function PawTapGame() {
           border: '3px solid #88C4E8',
           boxShadow: '4px 4px 0 #60A8D0',
           animation: shake ? 'aquariumShake 0.22s steps(4, end)' : bonusZoom ? 'bonusZoom 0.2s ease-out' : 'none',
+          touchAction: 'none',
+          overscrollBehavior: 'contain',
+          WebkitUserSelect: 'none',
+          userSelect: 'none',
         }}>
 
         {/* ── Underwater background ── */}
@@ -399,7 +422,7 @@ export default function PawTapGame() {
               borderRadius: '50%',
               background: 'rgba(255,255,255,0.35)',
               border: '1px solid rgba(255,255,255,0.5)',
-              animation: `rise ${b.animDuration}s ease-in ${b.delay}s infinite`,
+              animation: reduced ? 'none' : `rise ${b.animDuration}s ease-in ${b.delay}s infinite`,
             }} />
         ))}
 
@@ -412,7 +435,7 @@ export default function PawTapGame() {
               background: `linear-gradient(180deg, #40A840, #286028)`,
               borderRadius: '3px 3px 0 0',
               transformOrigin: 'bottom center',
-              animation: `sway ${2 + si * 0.3}s ease-in-out infinite`,
+              animation: reduced ? 'none' : `sway ${2 + si * 0.3}s ease-in-out infinite`,
             }} />
         ))}
 
@@ -439,7 +462,7 @@ export default function PawTapGame() {
                   borderRadius: '50%',
                   border: '3px solid #FF2020',
                   boxShadow: '0 0 14px rgba(255,32,32,0.85), inset 0 0 10px rgba(255,32,32,0.5)',
-                  animation: 'dangerRing 0.55s ease-in-out infinite',
+                  animation: reduced ? 'none' : 'dangerRing 0.55s ease-in-out infinite',
                 }} />
                 {/* Inner red glow fill */}
                 <div className="absolute left-1/2 top-1/2 pointer-events-none" style={{
@@ -447,7 +470,7 @@ export default function PawTapGame() {
                   marginLeft: -24, marginTop: -24,
                   borderRadius: '50%',
                   background: 'radial-gradient(circle, rgba(255,50,50,0.45) 0%, rgba(255,50,50,0.15) 55%, transparent 80%)',
-                  animation: 'dangerGlow 0.8s ease-in-out infinite',
+                  animation: reduced ? 'none' : 'dangerGlow 0.8s ease-in-out infinite',
                 }} />
                 {/* Danger sign marker */}
                 <div className="absolute pointer-events-none font-pixel" style={{
@@ -460,17 +483,20 @@ export default function PawTapGame() {
                   padding: '1px 5px',
                   boxShadow: '0 2px 0 #7F1D1D, 0 0 6px rgba(220,38,38,0.8)',
                   letterSpacing: 1,
-                  animation: 'dangerBadge 0.5s ease-in-out infinite',
+                  animation: reduced ? 'none' : 'dangerBadge 0.5s ease-in-out infinite',
                 }}>!</div>
                 <button
                   onClick={() => catchFish(f)}
-                  className="relative active:scale-125 transition-transform duration-100"
+                  className="relative flex items-center justify-center active:scale-125 transition-transform duration-100"
                   style={{
+                    // Glyph stays 30px; transparent box grows the tap target to >=44px.
+                    minWidth: 44, minHeight: 44,
                     fontSize: 30,
                     lineHeight: 1,
                     filter: 'drop-shadow(0 0 8px rgba(255,20,20,1)) drop-shadow(0 2px 4px rgba(0,0,0,0.5))',
-                    animation: 'dangerPulse 0.45s ease-in-out infinite',
+                    animation: reduced ? 'none' : 'dangerPulse 0.45s ease-in-out infinite',
                     background: 'transparent',
+                    touchAction: 'none',
                   }}
                 >
                   {f.emoji}
@@ -482,17 +508,23 @@ export default function PawTapGame() {
             <button
               key={f.id}
               onClick={() => catchFish(f)}
-              className="absolute transform -translate-x-1/2 -translate-y-1/2 transition-transform duration-100 active:scale-125"
+              className="absolute flex items-center justify-center transform -translate-x-1/2 -translate-y-1/2 transition-transform duration-100 active:scale-125"
               style={{
                 left: f.x, top: f.y,
+                // Glyph keeps its size; transparent box grows the tap target to >=44px.
+                minWidth: 44, minHeight: 44,
                 fontSize: isBonus ? 34 : 28,
                 lineHeight: 1,
+                background: 'transparent',
+                touchAction: 'none',
                 filter: isBonus
                   ? 'drop-shadow(0 0 8px rgba(255,215,0,0.9)) drop-shadow(0 2px 4px rgba(0,0,0,0.4))'
                   : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
-                animation: isBonus
-                  ? 'bonusShine 0.8s ease-in-out infinite'
-                  : 'fishWobble 1.2s ease-in-out infinite',
+                animation: reduced
+                  ? 'none'
+                  : isBonus
+                    ? 'bonusShine 0.8s ease-in-out infinite'
+                    : 'fishWobble 1.2s ease-in-out infinite',
               }}
             >
               {f.emoji}
@@ -623,7 +655,7 @@ export default function PawTapGame() {
             style={{ background: 'rgba(20,80,140,0.78)' }}>
             {gameState === 'idle' && (
               <>
-                <div className="text-5xl mb-3 animate-float">🐟</div>
+                <div className={`text-5xl mb-3 ${reduced ? '' : 'animate-float'}`}>🐟</div>
                 <p className="font-pixel text-white mb-1" style={{ fontSize: 9 }}>PAW TAP!</p>
                 <p className="text-xs text-sky-200 mb-2 text-center px-8 leading-relaxed">
                   Tap fish to catch them in {GAME_DURATION} seconds!
@@ -651,7 +683,7 @@ export default function PawTapGame() {
             )}
             {gameState === 'finished' && (
               <>
-                <div className="text-4xl mb-2" style={{ animation: 'rodWiggle 1.4s ease-in-out infinite' }}>🎣</div>
+                <div className="text-4xl mb-2" style={{ animation: reduced ? 'none' : 'rodWiggle 1.4s ease-in-out infinite' }}>🎣</div>
                 <div className="relative">
                   {/* Star burst — only for LEGENDARY (60+) */}
                   {score >= 60 && stars.map(st => (

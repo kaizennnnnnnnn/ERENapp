@@ -9,6 +9,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useVisibilityPause } from '@/hooks/useVisibilityPause'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { fireMinigameDone } from '@/lib/minigames'
@@ -119,6 +120,11 @@ export default function FlappyErenGame() {
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
+  const reduced = useReducedMotion()
+  // The rAF loop is self-perpetuating from one render's closure, so it would
+  // capture a stale `reduced`. Mirror it into a ref the loop-bound functions read.
+  const reducedRef = useRef(reduced)
+  reducedRef.current = reduced
 
   const fieldRef = useRef<HTMLDivElement>(null)
   const [fieldDims, setFieldDims] = useState({ w: 360, h: 600 })
@@ -261,7 +267,7 @@ export default function FlappyErenGame() {
     if (stateRef.current !== 'running') return
     vyRef.current = FLAP_V
     flapTimeRef.current = performance.now()
-    spawnFlapBurst()
+    if (!reducedRef.current) spawnFlapBurst()
     playSound('fe_flap')
   }
 
@@ -337,7 +343,7 @@ export default function FlappyErenGame() {
     pipesRef.current = pipesRef.current.filter(p => p.x > -PIPE_W - 5)
 
     if (now - lastFizzRef.current > FIZZ_INTERVAL) {
-      spawnFizzPuff()
+      if (!reducedRef.current) spawnFizzPuff()
       lastFizzRef.current = now
     }
 
@@ -356,7 +362,7 @@ export default function FlappyErenGame() {
         setScore(scoreRef.current)
         setScorePulseKey(k => k + 1)
         // particle burst at gap center for visible reward
-        spawnScoreBurst(p.x + PIPE_W / 2, p.gapY + p.gap / 2)
+        if (!reducedRef.current) spawnScoreBurst(p.x + PIPE_W / 2, p.gapY + p.gap / 2)
         playSound('fe_pipe_pass')
 
         // Theme shift announcement — fires on the pipe that crossed the boundary.
@@ -418,9 +424,12 @@ export default function FlappyErenGame() {
     const beatBest = finalScore > oldBest
     setBestScore(b => Math.max(b, finalScore))
 
-    // Crash feedback — screen shake + red vignette stab.
-    setShakeKey(k => k + 1)
-    setRedFlashKey(k => k + 1)
+    // Crash feedback — screen shake + red vignette stab. Spectacle only; skip
+    // both when the player asked for reduced motion.
+    if (!reducedRef.current) {
+      setShakeKey(k => k + 1)
+      setRedFlashKey(k => k + 1)
+    }
     playSound('fe_crash')
 
     if (beatBest) {
@@ -546,7 +555,7 @@ export default function FlappyErenGame() {
         <SkyLayers themeIndex={themeIndex} />
 
         {/* Stars (visible only in night) */}
-        <StarField starOpacity={currentTheme.starOpacity} />
+        <StarField starOpacity={currentTheme.starOpacity} reduced={reduced} />
 
         {/* Clouds (faded out at night) */}
         <CloudLayer cloudOpacity={currentTheme.cloudOpacity} />
@@ -901,7 +910,7 @@ const SkyLayers = memo(function SkyLayers({ themeIndex }: { themeIndex: number }
   )
 })
 
-const StarField = memo(function StarField({ starOpacity }: { starOpacity: number }) {
+const StarField = memo(function StarField({ starOpacity, reduced }: { starOpacity: number; reduced: boolean }) {
   return (
     <div style={{
       position: 'absolute', inset: 0,
@@ -917,7 +926,7 @@ const StarField = memo(function StarField({ starOpacity }: { starOpacity: number
           background: '#FFFFFF',
           borderRadius: '50%',
           boxShadow: '0 0 4px rgba(255,255,255,0.7)',
-          animation: `twinkle 2.4s ease-in-out ${s.delay} infinite`,
+          animation: reduced ? 'none' : `twinkle 2.4s ease-in-out ${s.delay} infinite`,
         }} />
       ))}
       {/* Moon */}

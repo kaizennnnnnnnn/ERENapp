@@ -8,6 +8,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useGameTimers } from '@/hooks/useGameTimers'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
 import {
@@ -82,6 +83,7 @@ export default function MemoryMatchGame() {
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
   const timers = useGameTimers()
+  const reduced = useReducedMotion()
 
   const [deck, setDeck] = useState<Card[]>(() => newDeck())
   const [score, setScore] = useState(0)
@@ -151,21 +153,23 @@ export default function MemoryMatchGame() {
       // All pairs matched — finish
       setGameState('finished')
       playSound('mm_purrfect')
-      // Small confetti burst
-      const burst: typeof confetti = []
-      const colors = ['#FF6B9D', '#A78BFA', '#F5C842', '#6BAED6', '#4ADE80', '#FFD700']
-      for (let i = 0; i < 36; i++) {
-        burst.push({
-          id: i,
-          x: 50, y: 40,
-          color: colors[i % colors.length],
-          dx: (Math.random() - 0.5) * 180,
-          dy: -Math.random() * 260 - 20,
-          rot: (Math.random() - 0.5) * 540,
-        })
+      // Small confetti burst — pure spectacle, skipped under reduced motion
+      if (!reduced) {
+        const burst: typeof confetti = []
+        const colors = ['#FF6B9D', '#A78BFA', '#F5C842', '#6BAED6', '#4ADE80', '#FFD700']
+        for (let i = 0; i < 36; i++) {
+          burst.push({
+            id: i,
+            x: 50, y: 40,
+            color: colors[i % colors.length],
+            dx: (Math.random() - 0.5) * 180,
+            dy: -Math.random() * 260 - 20,
+            rot: (Math.random() - 0.5) * 540,
+          })
+        }
+        setConfetti(burst)
+        timers.setTimeout(() => setConfetti([]), 2800)
       }
-      setConfetti(burst)
-      timers.setTimeout(() => setConfetti([]), 2800)
     }
   }, [matchedCount, deck.length, gameState]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -274,22 +278,24 @@ export default function MemoryMatchGame() {
             const text = next >= 2 ? `+${gained} x${next}!` : `+${gained}`
             setScorePops(prev => [...prev, { id: popId, x: mid.x, y: mid.y, color: tint, text }])
             timers.setTimeout(() => setScorePops(prev => prev.filter(p => p.id !== popId)), 700)
-            // Per-match mini sparkle burst (6 pixels in tint)
-            const newBursts: Array<{ id: number; x: number; y: number; color: string; dx: number; dy: number }> = []
-            for (let s = 0; s < 6; s++) {
-              const angle = (Math.PI * 2 * s) / 6 + Math.random() * 0.5
-              const r = 30 + Math.random() * 18
-              newBursts.push({
-                id: ++burstIdRef.current,
-                x: mid.x, y: mid.y,
-                color: tint,
-                dx: Math.cos(angle) * r,
-                dy: Math.sin(angle) * r,
-              })
+            // Per-match mini sparkle burst (6 pixels in tint) — spectacle, skipped under reduced motion
+            if (!reduced) {
+              const newBursts: Array<{ id: number; x: number; y: number; color: string; dx: number; dy: number }> = []
+              for (let s = 0; s < 6; s++) {
+                const angle = (Math.PI * 2 * s) / 6 + Math.random() * 0.5
+                const r = 30 + Math.random() * 18
+                newBursts.push({
+                  id: ++burstIdRef.current,
+                  x: mid.x, y: mid.y,
+                  color: tint,
+                  dx: Math.cos(angle) * r,
+                  dy: Math.sin(angle) * r,
+                })
+              }
+              setMiniBursts(prev => [...prev, ...newBursts])
+              const burstIds = newBursts.map(p => p.id)
+              timers.setTimeout(() => setMiniBursts(prev => prev.filter(p => !burstIds.includes(p.id))), 750)
             }
-            setMiniBursts(prev => [...prev, ...newBursts])
-            const burstIds = newBursts.map(p => p.id)
-            timers.setTimeout(() => setMiniBursts(prev => prev.filter(p => !burstIds.includes(p.id))), 750)
             // reset combo after window
             if (comboTimer.current != null) timers.clearTimeout(comboTimer.current)
             comboTimer.current = timers.setTimeout(() => setCombo(0), COMBO_WINDOW_MS)
@@ -311,8 +317,11 @@ export default function MemoryMatchGame() {
         timers.setTimeout(() => setShowFlash(null), 500)
         setCombo(0)
         playSound('mm_miss')
-        setBoardShakeKey(k => k + 1)
-        setVignetteKey(k => k + 1)
+        // Board shake + red vignette flash are pure feedback spectacle — skip under reduced motion
+        if (!reduced) {
+          setBoardShakeKey(k => k + 1)
+          setVignetteKey(k => k + 1)
+        }
         timers.setTimeout(() => {
           setDeck(prev => prev.map((c, i) =>
             i === a || i === b
@@ -343,7 +352,7 @@ export default function MemoryMatchGame() {
         backgroundImage: 'radial-gradient(circle, #FFD700 1px, transparent 1px), radial-gradient(circle, #A78BFA 1px, transparent 1px)',
         backgroundSize: '30px 30px, 45px 45px',
         backgroundPosition: '0 0, 15px 22px',
-        animation: `starDrift ${combo >= 3 ? '10s' : '24s'} linear infinite`,
+        animation: reduced ? 'none' : `starDrift ${combo >= 3 ? '10s' : '24s'} linear infinite`,
         opacity: combo >= 3 ? 0.85 : 0.5,
         transition: 'opacity 0.4s ease',
       }} />
@@ -379,7 +388,7 @@ export default function MemoryMatchGame() {
           style={{ background: timeLeft <= 10 ? 'rgba(127,0,0,0.5)' : 'rgba(0,0,0,0.5)',
             border: timeLeft <= 10 ? '2px solid rgba(248,113,113,0.6)' : '2px solid rgba(167,139,250,0.5)',
             borderRadius: 4, boxShadow: '0 2px 0 rgba(0,0,0,0.3)',
-            animation: timeLeft <= 10 && gameState === 'running' ? 'timerPulse 0.6s ease-in-out infinite' : 'none' }}>
+            animation: !reduced && timeLeft <= 10 && gameState === 'running' ? 'timerPulse 0.6s ease-in-out infinite' : 'none' }}>
           <span className="font-pixel" style={{ fontSize: 9, color: timeLeft <= 10 ? '#FFA0A0' : '#C4B5FD', letterSpacing: 1 }}>
             {String(Math.floor(timeLeft / 60)).padStart(1, '0')}:{String(timeLeft % 60).padStart(2, '0')}
           </span>

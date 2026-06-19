@@ -8,6 +8,8 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
+import { useGameTimers } from '@/hooks/useGameTimers'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { IconPaw, IconStar } from '@/components/PixelIcons'
@@ -58,8 +60,6 @@ function tone(freq: number, dur = 0.32) {
   osc.stop(ac.currentTime + dur + 0.05)
 }
 
-const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
-
 type Particle = { id: number; x: number; y: number; dx: number; dy: number; color: string }
 type ScorePop = { id: number; text: string; color: string }
 
@@ -71,6 +71,8 @@ export default function ErenSaysGame() {
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
+  const timers = useGameTimers()
+  const reduced = useReducedMotion()
 
   const [phase, setPhase]         = useState<'idle' | 'showing' | 'awaiting' | 'fail' | 'gameover'>('idle')
   const [round, setRound]         = useState(0)
@@ -97,6 +99,10 @@ export default function ErenSaysGame() {
 
   useEffect(() => () => { cancelledRef.current = true }, [])
 
+  // Sequence sleep routed through tracked timers so a pending playback step is
+  // flushed on unmount (back button) and on clearAll() at restart.
+  const sleep = (ms: number) => new Promise<void>(r => { timers.setTimeout(r, ms) })
+
   function burstParticles(centerX: number, centerY: number, color: string, count = 6) {
     const fresh: Particle[] = []
     for (let i = 0; i < count; i++) {
@@ -113,13 +119,13 @@ export default function ErenSaysGame() {
     }
     setParticles(p => [...p, ...fresh])
     const ids = fresh.map(f => f.id)
-    setTimeout(() => setParticles(p => p.filter(x => !ids.includes(x.id))), 800)
+    timers.setTimeout(() => setParticles(p => p.filter(x => !ids.includes(x.id))), 800)
   }
 
   function pushScorePop(text: string, color = '#FDE68A') {
     const id = ++popIdRef.current
     setScorePops(p => [...p, { id, text, color }])
-    setTimeout(() => setScorePops(p => p.filter(x => x.id !== id)), 850)
+    timers.setTimeout(() => setScorePops(p => p.filter(x => x.id !== id)), 850)
   }
 
   async function showSequence(seq: number[]) {
@@ -153,6 +159,7 @@ export default function ErenSaysGame() {
   }
 
   function startGame() {
+    timers.clearAll()
     cancelledRef.current = false
     savedRef.current = false
     seqRef.current = [Math.floor(Math.random() * 4)]
@@ -177,18 +184,20 @@ export default function ErenSaysGame() {
   function handlePad(idx: number) {
     if (phase !== 'awaiting') return
     setActivePad(idx)
-    setTimeout(() => setActivePad(null), 180)
+    timers.setTimeout(() => setActivePad(null), 180)
 
     const expected = seqRef.current[userIdxRef.current]
     if (idx !== expected) {
       playSound('ey_miss')
       setFlashFail(true)
       setPhase('fail')
-      setShake(true)
-      setTimeout(() => setShake(false), 240)
+      if (!reduced) {
+        setShake(true)
+        timers.setTimeout(() => setShake(false), 240)
+      }
       const reached = seqRef.current.length - 1   // longest *complete* round before fail
       saveScore(reached)
-      setTimeout(() => {
+      timers.setTimeout(() => {
         setFlashFail(false)
         setPhase('gameover')
         playSound('ey_gameover')
@@ -209,16 +218,16 @@ export default function ErenSaysGame() {
       setRoundPulse(p => p + 1)
       pushScorePop(`+${completed}`, '#A3F0C0')
       // particle burst from center
-      burstParticles(50, 50, PADS[idx].color, 6)
+      if (!reduced) burstParticles(50, 50, PADS[idx].color, 6)
       // streak milestone every 5 rounds
       if (completed > 0 && completed % 5 === 0) {
         playSound('ey_streak_milestone')
         setStreakBadge(completed)
         // extra confetti
-        burstParticles(50, 50, '#FDE68A', 8)
-        setTimeout(() => setStreakBadge(null), 1400)
+        if (!reduced) burstParticles(50, 50, '#FDE68A', 8)
+        timers.setTimeout(() => setStreakBadge(null), 1400)
       }
-      setTimeout(nextRound, 600)
+      timers.setTimeout(nextRound, 600)
     }
   }
 
@@ -233,9 +242,9 @@ export default function ErenSaysGame() {
       setDisplayedScore(i)
       // soft tick on each increment
       tone(440 + i * 18, 0.05)
-      if (i < steps) setTimeout(tick, stepMs)
+      if (i < steps) timers.setTimeout(tick, stepMs)
     }
-    setTimeout(tick, 180)
+    timers.setTimeout(tick, 180)
   }
 
   function saveScore(reached: number) {
@@ -252,7 +261,8 @@ export default function ErenSaysGame() {
 
   function reset() {
     cancelledRef.current = true
-    setTimeout(() => {
+    timers.clearAll()
+    timers.setTimeout(() => {
       cancelledRef.current = false
       setPhase('idle')
       setRound(0)
@@ -368,10 +378,13 @@ export default function ErenSaysGame() {
               const isTrail = trailPad === i
               return (
                 <button key={i}
-                  onClick={() => handlePad(i)}
+                  onPointerDown={(e) => { e.preventDefault(); handlePad(i) }}
                   disabled={phase !== 'awaiting'}
                   className="relative active:scale-95 transition-transform"
                   style={{
+                    touchAction: 'none',
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
                     background: `linear-gradient(135deg, ${p.color}, ${p.color}AA)`,
                     border: '4px solid rgba(0,0,0,0.45)',
                     borderRadius: i === 0 ? '40% 8px 8px 8px' : i === 1 ? '8px 40% 8px 8px' : i === 2 ? '8px 8px 8px 40%' : '8px 8px 40% 8px',
@@ -411,7 +424,7 @@ export default function ErenSaysGame() {
               left: '50%', top: '50%',
               transform: 'translate(-50%, -50%)',
               animation: phase === 'awaiting'
-                ? 'eyDance 1s ease-in-out infinite'
+                ? (reduced ? 'none' : 'eyDance 1s ease-in-out infinite')
                 : (roundPulse > 0 && phase === 'showing' ? 'eyCheer 0.5s cubic-bezier(0.34,1.56,0.64,1)' : 'none'),
             }}>
             <ErenChibi size={68} blink={phase === 'showing'} fail={flashFail} cheer={streakBadge !== null} />
@@ -438,7 +451,7 @@ export default function ErenSaysGame() {
           </div>
 
           {/* Failure red wash */}
-          {flashFail && (
+          {flashFail && !reduced && (
             <div className="absolute inset-0 pointer-events-none rounded-lg"
               style={{ background: 'rgba(220,38,38,0.25)', animation: 'failPulse 0.7s ease-out' }} />
           )}
