@@ -473,6 +473,106 @@ function processInBrowser(dataUrl, opts) {
           }
         }
 
+        // ── Reclaim the tail's own FRAME the mirror cut sliced through. The cut
+        // lands a hair INSIDE the tail's dark outline, so that 2–5px black frame
+        // (and the rounded tip) stay in the body and "trail" / look chopped when
+        // the tail swings. Two bounded, grow-ONLY passes — the emit and the
+        // body-erase both read this final mask, so nothing is ever orphaned
+        // static (no ghost). Both run AFTER the pivot, so tailOrigin is
+        // byte-identical and skinsData/manifest don't move.
+
+        // (b) TOP tip: per column, climb the silhouette just above the mask to
+        // restore the rounded tip the flat mirror cut shaved off. GATED so it can
+        // never eat the body: it climbs only through the tail's OWN colour
+        // (matching the column's current top pixel) and its dark outline, and
+        // STOPS at bright fur or a divergent mid-tone costume. The run is kept
+        // ONLY when it terminates in the tail's dark outline CAP, the background,
+        // or an existing tail pixel — a real free tip. A run halted by bright fur
+        // / a divergent costume / the cap limit is body (e.g. the fox tip merging
+        // into the back, or any rump fur sitting above the cut) and is discarded,
+        // so this can neither balloon up the back nor drag body fur into the
+        // swinging layer.
+        const tipCap = Math.max(6, Math.round(H * 0.05))   // total climb ceiling
+        const softCap = Math.max(4, Math.round(H * 0.02))  // interior (non-dark) climb ceiling
+        const TIP_TOL = 90
+        {
+          const add = []
+          for (let x = tMinX; x <= tMaxX; x++) {
+            let ty = -1
+            for (let y = tMinY; y <= tMaxY; y++) if (tailMask[y * W + x]) { ty = y; break }
+            if (ty < 0) continue
+            const si = (ty * W + x) * 4, sr = fd[si], sg = fd[si + 1], sb = fd[si + 2]
+            const run = []
+            let commit = false, soft = 0
+            for (let k = 1; k <= tipCap; k++) {
+              const ny = ty - k
+              if (ny < 0) break                            // ran off the top → discard
+              const idx = ny * W + x
+              if (tailMask[idx]) { commit = true; break }  // joined an existing tail run → keep
+              if (!sil[idx]) { commit = true; break }      // background above → free tip → keep
+              const i = idx * 4, L = lum(fd[i], fd[i + 1], fd[i + 2])
+              if (L < 90) {
+                // A dark run. It's the tail's outline CAP — and the tip is real —
+                // ONLY if what sits ABOVE the (thin) dark run is background, an
+                // existing tail pixel, or the image edge. If MORE body fur sits
+                // above it, the dark pixel is just an internal seam / fur shadow /
+                // the body's own outline, and the same-coloured climb below it is
+                // body — so discard the whole run. Cap the dark run at the outline's
+                // own thickness so a thick black blob can't masquerade as a cap.
+                let kk = k, dark = 0
+                while (kk <= tipCap && dark < 6) {
+                  const yy = ty - kk; if (yy < 0) break
+                  const id2 = yy * W + x
+                  if (tailMask[id2] || !sil[id2]) break
+                  if (lum(fd[id2 * 4], fd[id2 * 4 + 1], fd[id2 * 4 + 2]) >= 90) break
+                  run.push(id2); kk++; dark++
+                }
+                const yy = ty - kk
+                commit = yy < 0 || !sil[yy * W + x] || !!tailMask[yy * W + x]
+                break
+              }
+              if (L > 195) break                            // bright body fur → discard
+              if (Math.abs(fd[i] - sr) + Math.abs(fd[i + 1] - sg) + Math.abs(fd[i + 2] - sb) > TIP_TOL) break // divergent costume → discard
+              if (++soft > softCap) break                   // climbed too much same-tone interior → body, not a short tip → discard
+              run.push(idx)                                 // tail's own colour → keep climbing
+            }
+            if (commit) for (const idx of run) add.push(idx)
+          }
+          for (const idx of add) tailMask[idx] = 1
+        }
+        // recompute the y-bounds so the left pass + erase below cover the new tip
+        for (let i = 0; i < W * H; i++) if (tailMask[i]) { const y = (i / W) | 0; if (y < tMinY) tMinY = y }
+
+        // (a) Inner-LEFT frame: per row, pull the contiguous DARK (lum<90) run
+        // just left of the inner edge into the tail. Dark-only + a small cap, so
+        // it halts at the first bright fur / mid-tone costume (tan mouse hood) /
+        // background — it can absorb the tail's black outline but never the body.
+        const frameCap = Math.max(4, Math.round(W * 0.014))
+        for (let y = tMinY; y <= tMaxY; y++) {
+          let lx = -1
+          for (let x = tMinX; x <= tMaxX; x++) if (tailMask[y * W + x]) { lx = x; break }
+          if (lx < 0) continue
+          const px = []
+          let ended = false
+          for (let k = 1; k <= frameCap; k++) {
+            const nx = lx - k; if (nx < 0) break
+            const idx = y * W + nx
+            if (tailMask[idx]) { ended = true; break }
+            if (!sil[idx]) { ended = true; break }            // background → the outline ended
+            const i = idx * 4
+            if (lum(fd[i], fd[i + 1], fd[i + 2]) >= 90) { ended = true; break } // body fur/costume → outline ended at the body
+            px.push(idx)                                       // a dark frame pixel
+          }
+          // Keep the run ONLY if the dark frame actually ENDED at the body or
+          // background within the cap (a thin outline). If it ran the whole cap
+          // still dark, this is a dark-COSTUME body region (a penguin/raccoon
+          // black flank), not the tail's outline, so leave it in the body.
+          if (ended) for (const idx of px) tailMask[idx] = 1
+        }
+        // final bbox after both grows (erase + debug overlay are bounded by it)
+        tMinX = 1e9; tMaxX = -1; tMinY = 1e9; tMaxY = -1
+        for (let i = 0; i < W * H; i++) if (tailMask[i]) { const x = i % W, y = (i / W) | 0; if (x < tMinX) tMinX = x; if (x > tMaxX) tMaxX = x; if (y < tMinY) tMinY = y; if (y > tMaxY) tMaxY = y }
+
         // Emit the tail layer from the (now trimmed) mask.
         const tc = document.createElement('canvas')
         tc.width = W; tc.height = H
@@ -491,17 +591,30 @@ function processInBrowser(dataUrl, opts) {
         // worst-case swing displacement (~0.022·W).
         const connector = Math.max(5, Math.round(W * 0.022))
         for (let y = tMinY; y <= tMaxY; y++) {
-          let rowLeft = -1
-          for (let x = tMinX; x <= tMaxX; x++) if (tailMask[y * W + x]) { rowLeft = x; break }
+          let rowLeft = -1, grayLeft = -1
+          for (let x = tMinX; x <= tMaxX; x++) if (tailMask[y * W + x]) {
+            if (rowLeft < 0) rowLeft = x
+            if (grayLeft < 0) { const i = (y * W + x) * 4; if (lum(fd[i], fd[i + 1], fd[i + 2]) >= 90) grayLeft = x }
+          }
           if (rowLeft < 0) continue
           // Keep the connector strip ONLY where the tail borders the body (the
           // body sits just left of its inner edge). Where the tail curves AWAY
           // from the body (free rows), keep nothing — otherwise the strip floats
           // in space and reads as a static stub when the tail swings (otter).
+          // Anchor the kept strip at the tail's INTERIOR (grayLeft), NOT the dark
+          // outline that pass (a) reclaimed: the outline must travel with the
+          // tail, so it's erased from the body in full (no black trail), leaving
+          // only a body-toned strip to bridge the swing gap (the pre-(a) look).
+          // An all-dark row (no interior, grayLeft<0) keeps NOTHING — its outline
+          // travels with the tail too, so no dark stub is ever left behind.
           const lx = rowLeft - 1
           const attached = lx >= 0 && sil[y * W + lx] === 1 && !tailMask[y * W + lx]
-          const keep = attached ? connector : 0
-          for (let x = rowLeft + keep; x <= tMaxX; x++) if (tailMask[y * W + x]) fd[(y * W + x) * 4 + 3] = 0
+          const keepEnd = (attached && grayLeft >= 0) ? grayLeft + connector : -1
+          for (let x = rowLeft; x <= tMaxX; x++) {
+            if (!tailMask[y * W + x]) continue
+            if (keepEnd >= 0 && x >= grayLeft && x < keepEnd) continue // keep the body-toned connector strip
+            fd[(y * W + x) * 4 + 3] = 0                 // erase everything else (incl. the dark outline)
+          }
         }
         fctx.putImageData(fid, 0, 0)
       }
