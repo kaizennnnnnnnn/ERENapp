@@ -163,6 +163,14 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
   gf_escape:   { type: 'sweep', freq: [600, 200], duration: 260, shape: 'sine', gain: 0.5, curve: 'exponential' },
   gf_gameover: { type: 'arp',   notes: [659, 494, 392, 294], step: 130, noteDur: 160, shape: 'sine', gain: 0.7 },
 
+  // ─── defend-bowl — chunky square thuds + charge fanfares ─────────────────
+  db_place:    { type: 'blip',  freq: 523, duration: 90, shape: 'square', gain: 0.6 },
+  db_upgrade:  { type: 'arp',   notes: [659, 880, 1175], step: 55, noteDur: 90, shape: 'square', gain: 0.7 },
+  db_pop:      { type: 'blip',  freq: 880, duration: 45, shape: 'triangle', gain: 0.5 },
+  db_leak:     { type: 'crash', noise: { duration: 200, gain: 0.5, lowpass: 800 }, tone: { freq: 140, duration: 220, shape: 'sawtooth', gain: 0.6 } },
+  db_wave:     { type: 'arp',   notes: [392, 523, 659, 784], step: 70, noteDur: 110, shape: 'square', gain: 0.75 },
+  db_gameover: { type: 'arp',   notes: [659, 494, 392, 262], step: 130, noteDur: 170, shape: 'square', gain: 0.7 },
+
   // ─── Care reactions — water / soap / medicine ──────────────────────────────
   // Synthesised so they DON'T fall back to care_eat (the chewing mp3), which is
   // why finishing a bath used to sound like Eren eating.

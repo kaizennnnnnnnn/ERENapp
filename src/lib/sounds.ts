@@ -192,6 +192,14 @@ export const SOUNDS = {
   gf_big:      '/sounds/games/gone-fishin/gf_big.mp3',
   gf_escape:   '/sounds/games/gone-fishin/gf_escape.mp3',
   gf_gameover: '/sounds/games/gone-fishin/gf_gameover.mp3',
+
+  // defend-bowl
+  db_place:    '/sounds/games/defend-bowl/db_place.mp3',
+  db_upgrade:  '/sounds/games/defend-bowl/db_upgrade.mp3',
+  db_pop:      '/sounds/games/defend-bowl/db_pop.mp3',
+  db_leak:     '/sounds/games/defend-bowl/db_leak.mp3',
+  db_wave:     '/sounds/games/defend-bowl/db_wave.mp3',
+  db_gameover: '/sounds/games/defend-bowl/db_gameover.mp3',
 } as const
 
 export type SoundName = keyof typeof SOUNDS
@@ -325,6 +333,14 @@ const VOLUME_SCALE: Partial<Record<SoundName, number>> = {
   gf_big:             0.85,
   gf_escape:          0.55,
   gf_gameover:        0.75,
+
+  // defend-bowl
+  db_place:           0.55,
+  db_upgrade:         0.65,
+  db_pop:             0.4,
+  db_leak:            0.7,
+  db_wave:            0.7,
+  db_gameover:        0.75,
 }
 
 // Fallbacks let new sound names ship safely before the audio files land

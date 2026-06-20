@@ -189,6 +189,18 @@ const GAMES: GameMeta[] = [
     Icon: IconFish,
     preview: [IconFish, IconStar, IconFish],
   },
+  {
+    id: 'defend_bowl' as GameType,
+    href: '/games/defend-bowl',
+    title: 'DEFEND THE BOWL',
+    desc: 'Place paws. Stop the mice. Survive waves.',
+    bg: 'linear-gradient(135deg, #FFEDD5, #FED7AA)',
+    border: '#FB923C',
+    shadow: '#9A3412',
+    accent: '#9A3412',
+    Icon: IconPaw,
+    preview: [IconPaw, IconMouse, IconMeat],
+  },
 ]
 
 // ─── Per-game mini scenes ───────────────────────────────────────────────────
@@ -210,6 +222,7 @@ function GameScene({ id, size = 48 }: { id: GameType; size?: number }) {
     case 'paw_doku':     return <PawDokuScene     size={size} />
     case 'yarn_sort':    return <YarnSortScene    size={size} />
     case 'gone_fishin':  return <GoneFishinScene  size={size} />
+    case 'defend_bowl':  return <DefendBowlScene  size={size} />
   }
 }
 
@@ -617,6 +630,35 @@ function GoneFishinScene({ size }: { size: number }) {
       <rect x="20" y="37" width="3"  height="4" fill="#F59E0B" />   {/* tail */}
       <rect x="10" y="38" width="2"  height="2" fill="#1F2937" />   {/* eye */}
       <rect x="6"  y="38" width="2"  height="2" fill="#F59E0B" />   {/* nose */}
+    </svg>
+  )
+}
+
+// DEFEND THE BOWL — food bowl guarded by a paw, mice marching in
+function DefendBowlScene({ size }: { size: number }) {
+  return (
+    <svg {...svgProps(size)}>
+      {/* path */}
+      <rect x="0"  y="20" width="48" height="8" fill="#A16207" opacity="0.45" />
+      {/* food bowl bottom-right */}
+      <rect x="32" y="34" width="14" height="3" fill="#E5E7EB" />
+      <rect x="31" y="37" width="16" height="6" fill="#9CA3AF" />
+      <rect x="33" y="33" width="10" height="2" fill="#FBBF24" />     {/* kibble */}
+      <rect x="35" y="31" width="3"  height="2" fill="#F59E0B" />
+      {/* paw tower (defender) top-right area */}
+      <rect x="30" y="8"  width="10" height="8" fill="#F9EDD5" />
+      <rect x="30" y="6"  width="3"  height="3" fill="#F9EDD5" />     {/* toe */}
+      <rect x="35" y="5"  width="3"  height="3" fill="#F9EDD5" />     {/* toe */}
+      <rect x="32" y="11" width="6"  height="4" fill="#F472B6" opacity="0.7" /> {/* pad */}
+      {/* mice marching in from the left */}
+      <rect x="4"  y="22" width="6" height="4" fill="#9CA3AF" />
+      <rect x="3"  y="23" width="1" height="2" fill="#F472B6" />      {/* tail */}
+      <rect x="6"  y="23" width="1" height="1" fill="#1F2937" />      {/* eye */}
+      <rect x="13" y="23" width="6" height="4" fill="#9CA3AF" />
+      <rect x="12" y="24" width="1" height="2" fill="#F472B6" />
+      <rect x="15" y="24" width="1" height="1" fill="#1F2937" />
+      {/* zap from paw */}
+      <rect x="22" y="14" width="8" height="1" fill="#FDE047" opacity="0.8" />
     </svg>
   )
 }
