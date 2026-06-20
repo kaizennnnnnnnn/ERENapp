@@ -201,6 +201,18 @@ const GAMES: GameMeta[] = [
     Icon: IconPaw,
     preview: [IconPaw, IconMouse, IconMeat],
   },
+  {
+    id: 'purr_beat' as GameType,
+    href: '/games/purr-beat',
+    title: 'PURR BEAT',
+    desc: 'Tap to the beat. Keep the combo. Make Eren dance.',
+    bg: 'linear-gradient(135deg, #FAE8FF, #F5D0FE)',
+    border: '#E879F9',
+    shadow: '#86198F',
+    accent: '#86198F',
+    Icon: IconCatFace,
+    preview: [IconCatFace, IconStar, IconHeart],
+  },
 ]
 
 // ─── Per-game mini scenes ───────────────────────────────────────────────────
@@ -223,6 +235,7 @@ function GameScene({ id, size = 48 }: { id: GameType; size?: number }) {
     case 'yarn_sort':    return <YarnSortScene    size={size} />
     case 'gone_fishin':  return <GoneFishinScene  size={size} />
     case 'defend_bowl':  return <DefendBowlScene  size={size} />
+    case 'purr_beat':    return <PurrBeatScene    size={size} />
   }
 }
 
@@ -659,6 +672,29 @@ function DefendBowlScene({ size }: { size: number }) {
       <rect x="15" y="24" width="1" height="1" fill="#1F2937" />
       {/* zap from paw */}
       <rect x="22" y="14" width="8" height="1" fill="#FDE047" opacity="0.8" />
+    </svg>
+  )
+}
+
+// PURR BEAT — falling notes in lanes hitting a beat line, cat bopping
+function PurrBeatScene({ size }: { size: number }) {
+  const laneX = [4, 16, 28, 40]
+  const cols = ['#EC4899', '#A78BFA', '#22D3EE', '#FBBF24']
+  return (
+    <svg {...svgProps(size)}>
+      {/* lane separators */}
+      {[10, 22, 34].map(x => <rect key={x} x={x} y="2" width="1" height="44" fill="rgba(255,255,255,0.12)" />)}
+      {/* hit line near bottom */}
+      <rect x="2" y="38" width="44" height="2" fill="#F0ABFC" />
+      {/* falling notes at varying heights */}
+      <rect x={laneX[0]} y="8"  width="6" height="4" fill={cols[0]} />
+      <rect x={laneX[1]} y="20" width="6" height="4" fill={cols[1]} />
+      <rect x={laneX[2]} y="14" width="6" height="4" fill={cols[2]} />
+      <rect x={laneX[3]} y="28" width="6" height="4" fill={cols[3]} />
+      {/* a note striking the line (flash) */}
+      <rect x={laneX[1]} y="36" width="6" height="5" fill="#FFFFFF" />
+      {/* pads */}
+      {laneX.map((x, i) => <rect key={i} x={x} y="42" width="6" height="3" fill={cols[i]} opacity="0.7" />)}
     </svg>
   )
 }

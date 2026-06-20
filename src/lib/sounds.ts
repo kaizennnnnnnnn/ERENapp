@@ -200,6 +200,16 @@ export const SOUNDS = {
   db_leak:     '/sounds/games/defend-bowl/db_leak.mp3',
   db_wave:     '/sounds/games/defend-bowl/db_wave.mp3',
   db_gameover: '/sounds/games/defend-bowl/db_gameover.mp3',
+
+  // purr-beat
+  pr_kick:     '/sounds/games/purr-beat/pr_kick.mp3',
+  pr_n1:       '/sounds/games/purr-beat/pr_n1.mp3',
+  pr_n2:       '/sounds/games/purr-beat/pr_n2.mp3',
+  pr_n3:       '/sounds/games/purr-beat/pr_n3.mp3',
+  pr_n4:       '/sounds/games/purr-beat/pr_n4.mp3',
+  pr_perfect:  '/sounds/games/purr-beat/pr_perfect.mp3',
+  pr_miss:     '/sounds/games/purr-beat/pr_miss.mp3',
+  pr_gameover: '/sounds/games/purr-beat/pr_gameover.mp3',
 } as const
 
 export type SoundName = keyof typeof SOUNDS
@@ -341,6 +351,16 @@ const VOLUME_SCALE: Partial<Record<SoundName, number>> = {
   db_leak:            0.7,
   db_wave:            0.7,
   db_gameover:        0.75,
+
+  // purr-beat
+  pr_kick:            0.4,
+  pr_n1:              0.55,
+  pr_n2:              0.55,
+  pr_n3:              0.55,
+  pr_n4:              0.55,
+  pr_perfect:         0.6,
+  pr_miss:            0.5,
+  pr_gameover:        0.7,
 }
 
 // Fallbacks let new sound names ship safely before the audio files land

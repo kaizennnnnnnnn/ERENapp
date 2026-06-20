@@ -42,6 +42,7 @@ const GAMES: Array<{ id: GameType; title: string; Icon: React.FC<{ size?: number
   { id: 'yarn_sort',    title: 'YARN SORT',        Icon: IconYarn },
   { id: 'gone_fishin',  title: "GONE FISHIN'",     Icon: IconFish },
   { id: 'defend_bowl',  title: 'DEFEND THE BOWL',  Icon: IconPaw },
+  { id: 'purr_beat',    title: 'PURR BEAT',        Icon: IconCatFace },
 ]
 
 interface PlayerScores {

@@ -171,6 +171,16 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
   db_wave:     { type: 'arp',   notes: [392, 523, 659, 784], step: 70, noteDur: 110, shape: 'square', gain: 0.75 },
   db_gameover: { type: 'arp',   notes: [659, 494, 392, 262], step: 130, noteDur: 170, shape: 'square', gain: 0.7 },
 
+  // ─── purr-beat — kick pulse + a 4-note melodic scale you play by hitting ──
+  pr_kick:     { type: 'sweep', freq: [170, 60], duration: 90, shape: 'sine', gain: 0.5, curve: 'exponential' },
+  pr_n1:       { type: 'blip',  freq: 523,  duration: 130, shape: 'triangle', gain: 0.6 },  // C5
+  pr_n2:       { type: 'blip',  freq: 659,  duration: 130, shape: 'triangle', gain: 0.6 },  // E5
+  pr_n3:       { type: 'blip',  freq: 784,  duration: 130, shape: 'triangle', gain: 0.6 },  // G5
+  pr_n4:       { type: 'blip',  freq: 1047, duration: 130, shape: 'triangle', gain: 0.6 },  // C6
+  pr_perfect:  { type: 'arp',   notes: [1047, 1568], step: 45, noteDur: 70, shape: 'triangle', gain: 0.55 },
+  pr_miss:     { type: 'sweep', freq: [300, 120], duration: 180, shape: 'sawtooth', gain: 0.5 },
+  pr_gameover: { type: 'arp',   notes: [784, 659, 523, 392], step: 130, noteDur: 160, shape: 'triangle', gain: 0.7 },
+
   // ─── Care reactions — water / soap / medicine ──────────────────────────────
   // Synthesised so they DON'T fall back to care_eat (the chewing mp3), which is
   // why finishing a bath used to sound like Eren eating.
