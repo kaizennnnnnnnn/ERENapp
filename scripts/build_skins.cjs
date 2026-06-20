@@ -32,7 +32,7 @@ const SKINS = [
   { id: 'rainbow', file: 'ErenRainbow1.png',   rarity: 'epic',      name: 'Rainbow Eren', eyesOverride: { lx: 40.5, rx: 53.7, cy: 31 } },
   { id: 'gold',    file: 'ErenGold1.png',       rarity: 'epic',      name: 'Golden Eren' },
   { id: 'shark',   file: 'ErenSharki1.png',     rarity: 'epic',      name: 'Shark Eren', eyesOverride: { lx: 42.5, rx: 55, cy: 41 } },
-  { id: 'bear',    file: 'ErenBear1.png',       rarity: 'epic',      name: 'Bear Eren',   bg: 'black', reoutline: true },
+  { id: 'bear',    file: 'ErenBear1.png',       rarity: 'epic',      name: 'Bear Eren',   bg: 'black', reoutline: true, topTip: true },
   { id: 'fox',     file: 'ErenFox1.png',        rarity: 'epic',      name: 'Fox Eren',    bg: 'black', reoutline: true },
   { id: 'penguin', file: 'ErenPenguing1.png',   rarity: 'epic',      name: 'Penguin Eren' },
   { id: 'bat',     file: 'ErenBat1.png',        rarity: 'epic',      name: 'Bat Eren', eyesOverride: { lx: 40.4, rx: 57.9, cy: 32.5 } },
@@ -44,7 +44,7 @@ const SKINS = [
   { id: 'panda',   file: 'ErenPanda1.png',      rarity: 'rare',      name: 'Panda Eren' },
   { id: 'owl',     file: 'ErenOwl1.png',        rarity: 'rare',      name: 'Owl Eren' },
   { id: 'axolotl', file: 'ErenPink1.png',       rarity: 'rare',      name: 'Axolotl Eren' },
-  { id: 'sheep',   file: 'ErenSheep1.png',      rarity: 'rare',      name: 'Sheep Eren' },
+  { id: 'sheep',   file: 'ErenSheep1.png',      rarity: 'rare',      name: 'Sheep Eren', topTip: true },
   { id: 'raccoon', file: 'ErenRacoon1.png',     rarity: 'rare',      name: 'Raccoon Eren' },
   { id: 'koala',   file: 'ErenCoala1.png',      rarity: 'rare',      name: 'Koala Eren' },
   { id: 'otter',   file: 'ErenOtter1.png',      rarity: 'rare',      name: 'Otter Eren' },
@@ -600,6 +600,35 @@ function processInBrowser(dataUrl, opts) {
           for (let i = 0; i < W * H; i++) if (tailMask[i]) { const y = (i / W) | 0; if (y < tMinY) tMinY = y }
         }
 
+        // Per-skin TIP cap (opts.topTip — sheep, bear): these tails end in a small
+        // FREE tip whose top 1–3px (a dark gray cap / its outline) the colour gate
+        // shaved, leaving a raw top on the left swing. Per column, take the
+        // contiguous silhouette straight above the mask top until background /
+        // bright body / mask, capped a few px. Because the body sits across a
+        // background gap, this can only grab the tail's own bg-bounded tip — never
+        // the body — and it's gated to these two skins so nothing else changes.
+        if (haveTail && opts.topTip) {
+          for (let x = tMinX; x <= tMaxX; x++) {
+            let ty = -1
+            for (let y = tMinY; y <= tMaxY; y++) if (tailMask[y * W + x]) { ty = y; break }
+            if (ty < 0) continue
+            let bridges = 1 // tolerate one 1px AA gap between the tip and a stray cap px
+            for (let k = 1; k <= 7; k++) {
+              const ny = ty - k; if (ny < 0) break
+              const np = ny * W + x
+              if (tailMask[np]) break
+              if (!sil[np]) {
+                const a = (ny - 1) * W + x
+                if (bridges > 0 && ny - 1 >= 0 && sil[a] && !tailMask[a] && lum(fd[a * 4], fd[a * 4 + 1], fd[a * 4 + 2]) <= BRIGHT) { bridges--; continue }
+                break                                                     // real background (body is across a wider gap) → stop
+              }
+              if (lum(fd[np * 4], fd[np * 4 + 1], fd[np * 4 + 2]) > BRIGHT) break // bright body → stop
+              tailMask[np] = 1
+            }
+          }
+          for (let i = 0; i < W * H; i++) if (tailMask[i]) { const y = (i / W) | 0; if (y < tMinY) tMinY = y }
+        }
+
         // (a) Inner-LEFT frame: per row, pull the contiguous DARK (lum<90) run
         // just left of the inner edge into the tail. Dark-only + a small cap, so
         // it halts at the first bright fur / mid-tone costume (tan mouse hood) /
@@ -744,7 +773,7 @@ function processInBrowser(dataUrl, opts) {
     if (!fs.existsSync(srcPath)) { console.log(`MISSING ${s.file}`); continue }
     const b64 = fs.readFileSync(srcPath).toString('base64')
     const dataUrl = `data:image/png;base64,${b64}`
-    const r = await page.evaluate(processInBrowser, dataUrl, { bg: s.bg, reoutline: s.reoutline, tailGap: s.tailGap, tailYStart: s.tailYStart, eyesOverride: s.eyesOverride, tailOrigin: s.tailOrigin })
+    const r = await page.evaluate(processInBrowser, dataUrl, { bg: s.bg, reoutline: s.reoutline, tailGap: s.tailGap, tailYStart: s.tailYStart, eyesOverride: s.eyesOverride, tailOrigin: s.tailOrigin, topTip: s.topTip })
     if (r.error) { console.log(`ERR ${s.id}: ${r.error}`); continue }
     const write = (suffix, url) => {
       if (!url) return
