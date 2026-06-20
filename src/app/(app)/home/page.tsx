@@ -367,7 +367,11 @@ export default function HomePage() {
   useLayoutEffect(() => { setRoomReady(false) }, [])
   useEffect(() => {
     const bg = isDark ? '/HomeNight.png' : '/HomeDay.png'
-    const srcs = [bg, '/erenGood_notail.png', '/erenGood_tail.png']
+    // Preload the idle look the room will actually paint — a Closet skin (its
+    // cache-busted ?v= URLs) or the classic default — so BlinkingEren (which
+    // decode-gates itself) shows it the instant the room reveals instead of
+    // popping it in a beat after. Hardcoding erenGood here missed skins.
+    const srcs = [bg, homeEren.src, homeEren.tailSrc].filter(Boolean) as string[]
     let cancelled = false
     setRoomReady(false)
     Promise.all(srcs.map(src => {
@@ -383,7 +387,7 @@ export default function HomePage() {
       if (!cancelled) setRoomReady(true)
     })
     return () => { cancelled = true }
-  }, [isDark])
+  }, [isDark, homeEren.src, homeEren.tailSrc])
 
   // Load today's mood
   useEffect(() => {

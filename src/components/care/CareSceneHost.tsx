@@ -2,6 +2,8 @@
 
 import { useRef, useState, useEffect, useLayoutEffect, useCallback, useMemo } from 'react'
 import { useCare, type CareScene } from '@/contexts/CareContext'
+import { useErenStats } from '@/hooks/useErenStats'
+import { resolveRoomSkin } from '@/lib/skins'
 import { foodDrag } from './foodDragFlag'
 import AnimatedEren from '@/components/AnimatedEren'
 import { playSound } from '@/lib/sounds'
@@ -87,6 +89,13 @@ const SCENE_EREN_SPRITES: Partial<Record<CareScene, string[]>> = {
 export default function CareSceneHost() {
   const { activeScene, openScene, closeScene } = useCare()
   const isDark = useIsDark()
+  const { stats } = useErenStats()
+  // The idle Eren the active room will actually paint: a Closet skin (its
+  // cache-busted ?v= URLs) or the room's built-in default. BlinkingEren
+  // decode-gates itself, so without preloading the SKIN here the room reveals
+  // and the skinned Eren pops in a beat later — SCENE_EREN_SPRITES only covers
+  // the defaults. Stable ref per skin id, so it's safe in the effect deps.
+  const roomSkin = activeScene ? resolveRoomSkin(stats?.room_skins, activeScene) : null
 
   const touchStartX = useRef(0)
   const touchStartY = useRef(0)
@@ -132,7 +141,9 @@ export default function CareSceneHost() {
   useEffect(() => {
     if (!activeScene) return
     const bgSrc = (isDark ? SCENE_IMAGES_DARK : SCENE_IMAGES_DAY)[activeScene]
-    const sprites = SCENE_EREN_SPRITES[activeScene] ?? ['/erenGood.png']
+    const sprites = roomSkin
+      ? [roomSkin.src, roomSkin.tailSrc].filter(Boolean) as string[]
+      : (SCENE_EREN_SPRITES[activeScene] ?? ['/erenGood.png'])
     const toLoad = [...sprites, ...(bgSrc ? [bgSrc] : [])]
     const isFirstEntry = prevSceneRef.current === null
     let cancelled = false
@@ -169,7 +180,7 @@ export default function CareSceneHost() {
     })
 
     return () => { cancelled = true }
-  }, [activeScene, isDark, retryNonce])
+  }, [activeScene, isDark, retryNonce, roomSkin])
 
   useEffect(() => {
     if (!activeScene) prevSceneRef.current = null
