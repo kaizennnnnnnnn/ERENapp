@@ -481,67 +481,56 @@ function processInBrowser(dataUrl, opts) {
         // static (no ghost). Both run AFTER the pivot, so tailOrigin is
         // byte-identical and skinsData/manifest don't move.
 
-        // (b) TOP tip: per column, climb the silhouette just above the mask to
-        // restore the rounded tip the flat mirror cut shaved off. GATED so it can
-        // never eat the body: it climbs only through the tail's OWN colour
-        // (matching the column's current top pixel) and its dark outline, and
-        // STOPS at bright fur or a divergent mid-tone costume. The run is kept
-        // ONLY when it terminates in the tail's dark outline CAP, the background,
-        // or an existing tail pixel — a real free tip. A run halted by bright fur
-        // / a divergent costume / the cap limit is body (e.g. the fox tip merging
-        // into the back, or any rump fur sitting above the cut) and is discarded,
-        // so this can neither balloon up the back nor drag body fur into the
-        // swinging layer.
-        const tipCap = Math.max(6, Math.round(H * 0.05))   // total climb ceiling
-        const softCap = Math.max(4, Math.round(H * 0.02))  // interior (non-dark) climb ceiling
-        const TIP_TOL = 90
+        // (b) UPPER tail: the mirror cut stops where the tail's crook closes and
+        // the tail merges up-and-inward into the body, so the cut-off upper tail
+        // sits static and reads as a CHOPPED TOP when the tail swings LEFT (the
+        // fox). Per column, climb straight up from that column's mask top through
+        // the tail's OWN colour and COMMIT it, cutting where the colour leaves the
+        // tail — a JUMP from the column's tail colour (the fox's orange cheek),
+        // BRIGHT body (the white chest), the tail's dark top OUTLINE, or
+        // background. The reference is FIXED to the column's tail colour (NOT
+        // propagated up) so a gradient can't drift the climb into a different-
+        // coloured body part. Vertical-only, so it can never spread sideways into
+        // the body at the rump; bounded by the head band + a height cap. A 1px
+        // dilation pulls in the dark outline as the frame. Grow-ONLY — nothing is
+        // ever dropped, so the tail's own multi-piece structure and every existing
+        // pixel are preserved (no ghost); runs AFTER the pivot (origin unchanged).
+        const DARK = 70, BRIGHT = 200, FIX_TOL = 88
+        const headBand = Math.floor(H * 0.18)
+        const climbCap = Math.round(H * 0.22)
+        const NEI8 = [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]]
         {
-          const add = []
+          const added = []
           for (let x = tMinX; x <= tMaxX; x++) {
             let ty = -1
             for (let y = tMinY; y <= tMaxY; y++) if (tailMask[y * W + x]) { ty = y; break }
             if (ty < 0) continue
-            const si = (ty * W + x) * 4, sr = fd[si], sg = fd[si + 1], sb = fd[si + 2]
-            const run = []
-            let commit = false, soft = 0
-            for (let k = 1; k <= tipCap; k++) {
-              const ny = ty - k
-              if (ny < 0) break                            // ran off the top → discard
-              const idx = ny * W + x
-              if (tailMask[idx]) { commit = true; break }  // joined an existing tail run → keep
-              if (!sil[idx]) { commit = true; break }      // background above → free tip → keep
-              const i = idx * 4, L = lum(fd[i], fd[i + 1], fd[i + 2])
-              if (L < 90) {
-                // A dark run. It's the tail's outline CAP — and the tip is real —
-                // ONLY if what sits ABOVE the (thin) dark run is background, an
-                // existing tail pixel, or the image edge. If MORE body fur sits
-                // above it, the dark pixel is just an internal seam / fur shadow /
-                // the body's own outline, and the same-coloured climb below it is
-                // body — so discard the whole run. Cap the dark run at the outline's
-                // own thickness so a thick black blob can't masquerade as a cap.
-                let kk = k, dark = 0
-                while (kk <= tipCap && dark < 6) {
-                  const yy = ty - kk; if (yy < 0) break
-                  const id2 = yy * W + x
-                  if (tailMask[id2] || !sil[id2]) break
-                  if (lum(fd[id2 * 4], fd[id2 * 4 + 1], fd[id2 * 4 + 2]) >= 90) break
-                  run.push(id2); kk++; dark++
-                }
-                const yy = ty - kk
-                commit = yy < 0 || !sil[yy * W + x] || !!tailMask[yy * W + x]
-                break
-              }
-              if (L > 195) break                            // bright body fur → discard
-              if (Math.abs(fd[i] - sr) + Math.abs(fd[i + 1] - sg) + Math.abs(fd[i + 2] - sb) > TIP_TOL) break // divergent costume → discard
-              if (++soft > softCap) break                   // climbed too much same-tone interior → body, not a short tip → discard
-              run.push(idx)                                 // tail's own colour → keep climbing
+            const sr = fd[(ty * W + x) * 4], sg = fd[(ty * W + x) * 4 + 1], sb = fd[(ty * W + x) * 4 + 2]
+            for (let k = 1; k <= climbCap; k++) {
+              const ny = ty - k; if (ny < headBand) break
+              const np = ny * W + x
+              if (tailMask[np] || !sil[np]) break                  // joined tail / background → tail top
+              const i = np * 4, L = lum(fd[i], fd[i + 1], fd[i + 2])
+              if (L < DARK || L > BRIGHT) break                    // tail's dark outline / bright body → cut here
+              if (Math.abs(fd[i] - sr) + Math.abs(fd[i + 1] - sg) + Math.abs(fd[i + 2] - sb) > FIX_TOL) break // colour left the tail → cut here
+              tailMask[np] = 1; added.push(np)
             }
-            if (commit) for (const idx of run) add.push(idx)
           }
-          for (const idx of add) tailMask[idx] = 1
+          for (const np of added) {            // dilate 1px into the tail's own dark outline (its frame)
+            const x = np % W, y = (np / W) | 0
+            for (const dxy of NEI8) {
+              const nx = x + dxy[0], ny = y + dxy[1]
+              if (nx < 0 || nx >= W || ny < headBand) continue
+              const q2 = ny * W + nx
+              if (tailMask[q2] || !sil[q2]) continue
+              const i = q2 * 4
+              if (lum(fd[i], fd[i + 1], fd[i + 2]) < DARK) tailMask[q2] = 1
+            }
+          }
         }
-        // recompute the y-bounds so the left pass + erase below cover the new tip
-        for (let i = 0; i < W * H; i++) if (tailMask[i]) { const y = (i / W) | 0; if (y < tMinY) tMinY = y }
+        // recompute the bbox so the left pass + erase below cover the grown top
+        tMinX = 1e9; tMaxX = -1; tMinY = 1e9; tMaxY = -1
+        for (let i = 0; i < W * H; i++) if (tailMask[i]) { const x = i % W, y = (i / W) | 0; if (x < tMinX) tMinX = x; if (x > tMaxX) tMaxX = x; if (y < tMinY) tMinY = y; if (y > tMaxY) tMaxY = y }
 
         // (a) Inner-LEFT frame: per row, pull the contiguous DARK (lum<90) run
         // just left of the inner edge into the tail. Dark-only + a small cap, so
