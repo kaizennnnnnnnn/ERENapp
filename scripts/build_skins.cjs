@@ -32,7 +32,7 @@ const SKINS = [
   { id: 'rainbow', file: 'ErenRainbow1.png',   rarity: 'epic',      name: 'Rainbow Eren', eyesOverride: { lx: 40.5, rx: 53.7, cy: 31 } },
   { id: 'gold',    file: 'ErenGold1.png',       rarity: 'epic',      name: 'Golden Eren' },
   { id: 'shark',   file: 'ErenSharki1.png',     rarity: 'epic',      name: 'Shark Eren', eyesOverride: { lx: 42.5, rx: 55, cy: 41 } },
-  { id: 'bear',    file: 'ErenBear1.png',       rarity: 'epic',      name: 'Bear Eren',   bg: 'black', reoutline: true, topTip: true },
+  { id: 'bear',    file: 'ErenBear1.png',       rarity: 'epic',      name: 'Bear Eren',   bg: 'black', reoutline: true, topTip: true, topFlood: true },
   { id: 'fox',     file: 'ErenFox1.png',        rarity: 'epic',      name: 'Fox Eren',    bg: 'black', reoutline: true },
   { id: 'penguin', file: 'ErenPenguing1.png',   rarity: 'epic',      name: 'Penguin Eren' },
   { id: 'bat',     file: 'ErenBat1.png',        rarity: 'epic',      name: 'Bat Eren', eyesOverride: { lx: 40.4, rx: 57.9, cy: 32.5 } },
@@ -629,6 +629,31 @@ function processInBrowser(dataUrl, opts) {
           for (let i = 0; i < W * H; i++) if (tailMask[i]) { const y = (i / W) | 0; if (y < tMinY) tMinY = y }
         }
 
+        // Per-skin top dark RIGHT-outline (opts.topFlood — bear): the symmetry cut
+        // lands too far right at the very top, so the tail's near-black RIGHT
+        // outline there (lum~14) is left static. Per row in a thin top band, from
+        // the row's RIGHTMOST mask pixel, take the contiguous DARK (lum<DARK) run
+        // to its right until background / bright body / non-dark. Dark-only +
+        // rightward + top-band only ⇒ it takes the tail's own black frame, never
+        // the gray/brown body (lum~130), never runs up the edge. Per-skin gated.
+        if (haveTail && opts.topFlood) {
+          const band = tMinY + Math.round(H * 0.03)
+          for (let y = tMinY; y <= Math.min(tMaxY, band); y++) {
+            let rx = -1
+            for (let x = tMaxX; x >= tMinX; x--) if (tailMask[y * W + x]) { rx = x; break }
+            if (rx < 0) continue
+            for (let k = 1; k <= 30; k++) {
+              const nx = rx + k; if (nx >= W) break
+              const idx = y * W + nx
+              if (tailMask[idx] || !sil[idx]) break
+              if (lum(fd[idx * 4], fd[idx * 4 + 1], fd[idx * 4 + 2]) >= DARK) break // dark frame only → stop at the body/interior
+              tailMask[idx] = 1
+            }
+          }
+          tMinX = 1e9; tMaxX = -1; tMinY = 1e9; tMaxY = -1
+          for (let i = 0; i < W * H; i++) if (tailMask[i]) { const x = i % W, y = (i / W) | 0; if (x < tMinX) tMinX = x; if (x > tMaxX) tMaxX = x; if (y < tMinY) tMinY = y; if (y > tMaxY) tMaxY = y }
+        }
+
         // (a) Inner-LEFT frame: per row, pull the contiguous DARK (lum<90) run
         // just left of the inner edge into the tail. Dark-only + a small cap, so
         // it halts at the first bright fur / mid-tone costume (tan mouse hood) /
@@ -773,7 +798,7 @@ function processInBrowser(dataUrl, opts) {
     if (!fs.existsSync(srcPath)) { console.log(`MISSING ${s.file}`); continue }
     const b64 = fs.readFileSync(srcPath).toString('base64')
     const dataUrl = `data:image/png;base64,${b64}`
-    const r = await page.evaluate(processInBrowser, dataUrl, { bg: s.bg, reoutline: s.reoutline, tailGap: s.tailGap, tailYStart: s.tailYStart, eyesOverride: s.eyesOverride, tailOrigin: s.tailOrigin, topTip: s.topTip })
+    const r = await page.evaluate(processInBrowser, dataUrl, { bg: s.bg, reoutline: s.reoutline, tailGap: s.tailGap, tailYStart: s.tailYStart, eyesOverride: s.eyesOverride, tailOrigin: s.tailOrigin, topTip: s.topTip, topFlood: s.topFlood })
     if (r.error) { console.log(`ERR ${s.id}: ${r.error}`); continue }
     const write = (suffix, url) => {
       if (!url) return
