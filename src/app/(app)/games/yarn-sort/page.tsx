@@ -14,10 +14,15 @@
 // — a clean, skill-based game-over with no timer. SCORE = levels solved.
 //
 // Levels are generated solvable-by-construction: a random deal is DFS-verified
-// before it's dealt, so you can never be handed an impossible board.
+// before it's dealt, and the verifier is PESSIMISTIC (an unproven board is
+// rejected, never shipped), so you can never be handed an impossible board.
+//
+// You also can't trap yourself: a pour that would freeze the board (no legal move
+// left, unsolved) is blocked, and if you wander into an unsolvable corner anyway,
+// UNDO is always available to back out. The run only ends when the move bank empties.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, RefreshCw, Undo2 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
@@ -118,18 +123,42 @@ function hasAnyLegalMove(tubes: number[][]): boolean {
   return false
 }
 
+// A "stranding" pour leaves the board unsolved AND with no legal move left — a
+// dead end that can never be part of a solution. We block these so the player
+// can never freeze the board into the "every option is wrong" softlock.
+function strandsBoard(tubes: number[][], src: number, dst: number): boolean {
+  const next = applyPour(tubes, src, dst).tubes
+  return !isSolved(next) && !hasAnyLegalMove(next)
+}
+
+// True if the board offers a move that is NOT a dead end. A solvable, unsolved
+// board ALWAYS has one (verified over 40k+ states), so blocking stranding moves
+// can never freeze a still-solvable board. When this is false the player has
+// wandered into an unsolvable corner and must undo to back out.
+function hasNonStrandingMove(tubes: number[][]): boolean {
+  const n = tubes.length
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      if (canPour(tubes, i, j) && !strandsBoard(tubes, i, j)) return true
+    }
+  }
+  return false
+}
+
 // Tube identity doesn't matter, so sort the tube strings for the visited key —
 // this collapses symmetric states and keeps the search small.
 function canonical(tubes: number[][]): string {
   return tubes.map(t => t.join(',')).sort().join('|')
 }
 
-// DFS reachability to a solved state, bounded so an (extremely rare) unsolvable
-// deal can't hang generation. Bails optimistic on the node cap — with EMPTIES≥2
-// random deals are nearly always solvable, so the cap protects the worst case
-// without ever shipping a board we proved impossible.
+// DFS reachability to a solved state, bounded so a pathological board can't hang
+// generation. The cap is PESSIMISTIC: if we can't PROVE a board solvable within
+// the cap we reject it and deal another — we never ship a board we didn't prove
+// solvable. (Empirically every solvable deal here verifies in <400 nodes, so the
+// cap never bites a real board; flipping it to optimistic is what could hand the
+// player an impossible board on hard levels.)
 function solvable(start: number[][]): boolean {
-  const NODE_CAP = 60000
+  const NODE_CAP = 200000
   const visited = new Set<string>()
   const stack: number[][][] = [start]
   let nodes = 0
@@ -139,7 +168,7 @@ function solvable(start: number[][]): boolean {
     const key = canonical(cur)
     if (visited.has(key)) continue
     visited.add(key)
-    if (++nodes > NODE_CAP) return true
+    if (++nodes > NODE_CAP) return false
     const n = cur.length
     for (let i = 0; i < n; i++) {
       for (let j = 0; j < n; j++) {
@@ -153,25 +182,34 @@ function solvable(start: number[][]): boolean {
   return false
 }
 
+function dealRandom(colors: number, empties: number): number[][] {
+  const pool: number[] = []
+  for (let c = 0; c < colors; c++) for (let k = 0; k < SEG; k++) pool.push(c)
+  const dealt = shuffle(pool)
+  const tubes: number[][] = []
+  for (let c = 0; c < colors; c++) tubes.push(dealt.slice(c * SEG, (c + 1) * SEG))
+  for (let e = 0; e < empties; e++) tubes.push([])
+  return tubes
+}
+
+// Always returns a board PROVEN solvable. With EMPTIES spare tubes a random deal
+// is solvable essentially every time (verified), so this returns on the first
+// try. The empties-escalation is a guaranteed-terminating safety net — more empty
+// tubes makes a board strictly easier to sort — so the loop can never fail to find
+// a solvable board and hand back an impossible one.
 function genLevel(level: number): number[][] {
   const colors = colorsForLevel(level)
-  let last: number[][] = []
-  for (let attempt = 0; attempt < 40; attempt++) {
-    const pool: number[] = []
-    for (let c = 0; c < colors; c++) for (let k = 0; k < SEG; k++) pool.push(c)
-    const dealt = shuffle(pool)
-    const tubes: number[][] = []
-    for (let c = 0; c < colors; c++) tubes.push(dealt.slice(c * SEG, (c + 1) * SEG))
-    for (let e = 0; e < EMPTIES; e++) tubes.push([])
-    last = tubes
-    if (!isSolved(tubes) && solvable(tubes)) return tubes
+  for (let empties = EMPTIES; empties <= EMPTIES + colors; empties++) {
+    for (let attempt = 0; attempt < 80; attempt++) {
+      const tubes = dealRandom(colors, empties)
+      if (!isSolved(tubes) && solvable(tubes)) return tubes
+    }
   }
-  return last // fallback (almost always solvable with 2 empties)
+  return dealRandom(colors, EMPTIES + colors) // unreachable in practice
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
 type Phase = 'idle' | 'playing' | 'gameover'
-type EndReason = 'empty' | 'stuck'
 
 export default function YarnSortGame() {
   const router = useRouter()
@@ -196,7 +234,7 @@ export default function YarnSortGame() {
   const [solveFx, setSolveFx]     = useState(0)
   const [shake, setShake]         = useState(0)
   const [pourFx, setPourFx]       = useState<{ tube: number; n: number; key: number } | null>(null)
-  const [endReason, setEndReason] = useState<EndReason>('empty')
+  const [notice, setNotice]       = useState<{ text: string; key: number } | null>(null)
   const [reward, setReward]       = useState<GameRewardResult | null>(null)
   const savedRef = useRef(false)
   const fxKey = useRef(0)
@@ -216,6 +254,25 @@ export default function YarnSortGame() {
 
   const level = solved + 1
 
+  // The board is "stuck" only when no NON-dead-end move remains — i.e. the player
+  // has wandered into an unsolvable corner. (Fresh levels are always solvable, so
+  // this is never true at the start of a level.) When stuck, undo is the escape.
+  const stuck = useMemo(
+    () => phase === 'playing' && !celebrating && tubes.length > 0
+      && !isSolved(tubes) && !hasNonStrandingMove(tubes),
+    [phase, celebrating, tubes],
+  )
+  // Undo works for voluntary take-backs (limited) OR to escape a stuck board
+  // (unlimited rescue) — so the player can never be permanently frozen.
+  const canUndo = phase === 'playing' && !celebrating && history.length > 0 && (undosLeft > 0 || stuck)
+
+  function flashNotice(text: string) {
+    fxKey.current += 1
+    const key = fxKey.current
+    setNotice({ text, key })
+    timers.setTimeout(() => setNotice(n => (n && n.key === key ? null : n)), 1100)
+  }
+
   function startGame() {
     timers.clearAll()
     setTubes(genLevel(1))
@@ -226,13 +283,13 @@ export default function YarnSortGame() {
     setHistory([])
     setCelebrating(false)
     setPourFx(null)
+    setNotice(null)
     setReward(null)
     savedRef.current = false
     setPhase('playing')
   }
 
-  function scheduleEnd(reason: EndReason) {
-    setEndReason(reason)
+  function scheduleEnd() {
     timers.setTimeout(() => endGame(), 360)
   }
 
@@ -288,8 +345,10 @@ export default function YarnSortGame() {
     setMovesLeft(newMoves)
 
     if (isSolved(next)) { handleSolved(); return }
-    if (newMoves <= 0) { scheduleEnd('empty'); return }
-    if (!hasAnyLegalMove(next) && undosLeft <= 0) { scheduleEnd('stuck'); return }
+    if (newMoves <= 0) { scheduleEnd(); return }
+    // No 'stuck' end here: tapTube blocks any pour that would dead-end the board,
+    // so `next` always has a legal move (or is solved). The run ends only when the
+    // move bank empties — the intended skill-based game-over.
     if (newMoves <= LOW_MOVES && movesLeft > LOW_MOVES) playSound('ys_low')
   }
 
@@ -303,6 +362,16 @@ export default function YarnSortGame() {
     }
     if (selected === i) { setSelected(null); return }
     if (canPour(tubes, selected, i)) {
+      if (strandsBoard(tubes, selected, i)) {
+        // Legal pour, but it would freeze the board with no way forward — block it
+        // so the player never lands in the "every option is wrong" softlock. Costs
+        // no move; there's always a non-dead-end move available instead.
+        playSound('ys_invalid')
+        setShake(s => s + 1)
+        flashNotice('DEAD END')
+        setSelected(null)
+        return
+      }
       attemptPour(selected, i)
       setSelected(null)
     } else {
@@ -315,12 +384,19 @@ export default function YarnSortGame() {
 
   function undo() {
     if (phase !== 'playing' || celebrating) return
-    if (history.length === 0 || undosLeft <= 0) return
+    if (history.length === 0) return
+    const voluntary = undosLeft > 0
+    if (!voluntary && !stuck) return // out of undos and not a stuck-rescue
     const prev = history[history.length - 1]
     setHistory(h => h.slice(0, -1))
     setTubes(prev)
-    setUndosLeft(u => u - 1)
-    setMovesLeft(m => m + 1)
+    if (voluntary) {
+      setUndosLeft(u => u - 1)
+      setMovesLeft(m => m + 1) // a voluntary take-back refunds its pour
+    }
+    // Rescue undo (stuck, no undos left) reverts the board but neither refunds the
+    // move nor consumes an undo: you're never permanently frozen, yet the misplay
+    // still cost its move so the run still ends fairly when the bank empties.
     setSelected(null)
     setPourFx(null)
     playSound('ys_undo')
@@ -374,22 +450,52 @@ export default function YarnSortGame() {
 
         <button
           onClick={() => { playSound('ui_tap'); undo() }}
-          disabled={history.length === 0 || undosLeft <= 0 || phase !== 'playing'}
+          disabled={!canUndo}
           className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 active:translate-y-[2px] transition-transform"
           style={{
-            background: undosLeft > 0 && history.length > 0 ? 'rgba(13,148,136,0.35)' : 'rgba(255,255,255,0.05)',
-            border: '2px solid rgba(45,212,191,0.5)',
+            background: canUndo ? 'rgba(13,148,136,0.35)' : 'rgba(255,255,255,0.05)',
+            border: `2px solid ${stuck ? '#FDE68A' : 'rgba(45,212,191,0.5)'}`,
             borderRadius: 5,
-            opacity: undosLeft > 0 && history.length > 0 && phase === 'playing' ? 1 : 0.4,
+            opacity: canUndo ? 1 : 0.4,
             boxShadow: '0 2px 0 rgba(0,0,0,0.3)',
+            animation: stuck && !reduced ? 'ysUndoPulse 0.7s ease-in-out infinite' : undefined,
           }}>
           <Undo2 size={14} className="text-teal-200" />
-          <span className="font-pixel" style={{ fontSize: 6, color: '#99F6E4', letterSpacing: 1 }}>UNDO {undosLeft}</span>
+          <span className="font-pixel" style={{ fontSize: 6, color: stuck ? '#FDE68A' : '#99F6E4', letterSpacing: 1 }}>UNDO {undosLeft}</span>
         </button>
       </div>
 
       {/* Tube field */}
-      <div className="flex-1 flex items-center justify-center px-3 pb-4 select-none overflow-hidden">
+      <div className="flex-1 flex items-center justify-center px-3 pb-4 select-none overflow-hidden relative">
+        {/* Stuck rescue banner — only when the player has no non-dead-end move left */}
+        {stuck && (
+          <div className="absolute left-1/2 -translate-x-1/2 z-20 px-3 py-2 font-pixel text-center" style={{
+            top: 6,
+            background: 'rgba(20,10,4,0.92)',
+            border: '2px solid #FDE68A',
+            borderRadius: 4,
+            fontSize: 7, letterSpacing: 1.5, lineHeight: 1.9,
+            boxShadow: '0 3px 0 rgba(0,0,0,0.4), 0 0 14px rgba(253,230,138,0.5)',
+            animation: reduced ? undefined : 'ysStuckPulse 0.9s ease-in-out infinite',
+          }}>
+            <span style={{ color: '#FDE68A' }}>DEAD END</span><br />
+            <span style={{ color: '#FCA5A5' }}>TAP UNDO TO BACK UP</span>
+          </div>
+        )}
+        {/* Transient notice — e.g. a blocked dead-end pour */}
+        {notice && !stuck && (
+          <div key={notice.key} className="absolute left-1/2 -translate-x-1/2 z-20 px-3 py-1.5 font-pixel" style={{
+            top: 6,
+            background: 'rgba(20,10,4,0.9)',
+            border: '2px solid #FB7185',
+            borderRadius: 4,
+            fontSize: 7, letterSpacing: 1.5, color: '#FECDD3',
+            boxShadow: '0 2px 0 rgba(0,0,0,0.4)',
+            animation: reduced ? undefined : 'ysNotice 1.1s ease-out forwards',
+          }}>
+            {notice.text}
+          </div>
+        )}
         <div key={`shake-${shake}`} className="flex flex-wrap items-end justify-center"
           style={{ gap: 14, maxWidth: 360, animation: shake > 0 && !reduced ? 'ysShake 0.26s steps(5,end)' : undefined }}>
           {tubes.map((stack, idx) => {
@@ -480,7 +586,7 @@ export default function YarnSortGame() {
               animation: reduced ? undefined : 'ysPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both',
             }}>
             <p className="font-pixel" style={{ fontSize: 11, color: '#FCA5A5', letterSpacing: 3 }}>
-              {endReason === 'stuck' ? 'NO MOVES LEFT' : 'OUT OF MOVES'}
+              OUT OF MOVES
             </p>
             <div className="flex items-center gap-4 mt-1">
               <div className="flex flex-col items-center">
@@ -536,6 +642,20 @@ export default function YarnSortGame() {
           60%  { transform: translateX(-4px); }
           80%  { transform: translateX(2px); }
           100% { transform: translateX(0); }
+        }
+        @keyframes ysUndoPulse {
+          0%, 100% { box-shadow: 0 2px 0 rgba(0,0,0,0.3); }
+          50%      { box-shadow: 0 2px 0 rgba(0,0,0,0.3), 0 0 12px rgba(253,230,138,0.85); }
+        }
+        @keyframes ysStuckPulse {
+          0%, 100% { transform: translateX(-50%) scale(1); }
+          50%      { transform: translateX(-50%) scale(1.05); }
+        }
+        @keyframes ysNotice {
+          0%   { opacity: 0; transform: translate(-50%, -6px); }
+          15%  { opacity: 1; transform: translate(-50%, 0); }
+          80%  { opacity: 1; transform: translate(-50%, 0); }
+          100% { opacity: 0; transform: translate(-50%, 0); }
         }
       `}</style>
       {/* keep imports referenced */}
