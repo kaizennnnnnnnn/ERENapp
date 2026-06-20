@@ -506,17 +506,53 @@ function processInBrowser(dataUrl, opts) {
             for (let y = tMinY; y <= tMaxY; y++) if (tailMask[y * W + x]) { ty = y; break }
             if (ty < 0) continue
             const sr = fd[(ty * W + x) * 4], sg = fd[(ty * W + x) * 4 + 1], sb = fd[(ty * W + x) * 4 + 2]
+            const off = (idx) => Math.abs(fd[idx * 4] - sr) + Math.abs(fd[idx * 4 + 1] - sg) + Math.abs(fd[idx * 4 + 2] - sb)
             for (let k = 1; k <= climbCap; k++) {
               const ny = ty - k; if (ny < headBand) break
               const np = ny * W + x
               if (tailMask[np] || !sil[np]) break                  // joined tail / background → tail top
               const i = np * 4, L = lum(fd[i], fd[i + 1], fd[i + 2])
-              if (L < DARK || L > BRIGHT) break                    // tail's dark outline / bright body → cut here
-              if (Math.abs(fd[i] - sr) + Math.abs(fd[i + 1] - sg) + Math.abs(fd[i + 2] - sb) > FIX_TOL) break // colour left the tail → cut here
+              if (L > BRIGHT) break                                // bright body fur → tail top
+              if (L < DARK) {
+                // A dark band: the tail's true TOP outline, or just internal
+                // shading along a curl with MORE tail above it (the mouse/gold
+                // tips the cut shaved). Take the thin dark run, then peek above:
+                // if tail-coloured interior resumes it was shading — keep climbing;
+                // if bg / bright body / a colour jump sits above, this is the true
+                // top — keep the dark run (the outline travels with the tail) and
+                // stop. Capped so a thick black mass can't be walked through.
+                let j = k, dn = 0
+                while (j <= climbCap && dn < 6) {
+                  const yy = ty - j; if (yy < headBand) break
+                  const ip = yy * W + x; if (tailMask[ip] || !sil[ip]) break
+                  if (lum(fd[ip * 4], fd[ip * 4 + 1], fd[ip * 4 + 2]) >= DARK) break
+                  j++; dn++
+                }
+                for (let q = k; q < j; q++) { const id3 = (ty - q) * W + x; tailMask[id3] = 1; added.push(id3) }
+                const ay = ty - j, ai = ay * W + x
+                const cont = ay >= headBand && !tailMask[ai] && sil[ai] &&
+                  lum(fd[ai * 4], fd[ai * 4 + 1], fd[ai * 4 + 2]) <= BRIGHT && off(ai) <= FIX_TOL
+                if (!cont) break
+                k = j - 1; continue                                // tail resumes above → climb past the shading band
+              }
+              if (off(np) > FIX_TOL) break                         // colour left the tail → tail top
               tailMask[np] = 1; added.push(np)
             }
           }
-          for (const np of added) {            // dilate 1px into the tail's own dark outline (its frame)
+          // De-spike: a per-column climb can send ONE column up through a gap in a
+          // shading band its neighbours don't, leaving a thin tall sliver that
+          // whips out on the swing. Cap each column's climbed top near its
+          // neighbours; only climbed pixels above the cap are dropped (back to the
+          // static body, where a few px read as nothing — not a sliver).
+          {
+            const addedSet = new Set(added)
+            const top = new Int32Array(W)
+            for (let x = tMinX; x <= tMaxX; x++) { let t = 1e9; for (let y = headBand; y <= tMaxY; y++) if (tailMask[y * W + x]) { t = y; break } top[x] = t }
+            const sm = Int32Array.from(top)
+            for (let it = 0; it < 5; it++) for (let x = tMinX + 1; x < tMaxX; x++) { const lim = Math.min(sm[x - 1], sm[x + 1]) - 3; if (sm[x] < lim) sm[x] = lim }
+            for (let x = tMinX; x <= tMaxX; x++) for (let y = top[x]; y < sm[x]; y++) if (addedSet.has(y * W + x)) tailMask[y * W + x] = 0
+          }
+          for (const np of added.filter(p => tailMask[p])) { // dilate 1px into the tail's own dark outline (its frame)
             const x = np % W, y = (np / W) | 0
             for (const dxy of NEI8) {
               const nx = x + dxy[0], ny = y + dxy[1]
