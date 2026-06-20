@@ -568,6 +568,38 @@ function processInBrowser(dataUrl, opts) {
         tMinX = 1e9; tMaxX = -1; tMinY = 1e9; tMaxY = -1
         for (let i = 0; i < W * H; i++) if (tailMask[i]) { const x = i % W, y = (i / W) | 0; if (x < tMinX) tMinX = x; if (x > tMaxX) tMaxX = x; if (y < tMinY) tMinY = y; if (y > tMaxY) tMaxY = y }
 
+        // Top OUTLINE: a column's topmost mask pixel is often the tail's INTERIOR,
+        // with the tail's own thin dark TOP OUTLINE sitting just above it — left
+        // static, so the swung tail shows a raw light top edge ("top outline cut
+        // off"). Per column, grow the top up into that contiguous dark run
+        // (lum<DARK), capped at the outline's thickness. Upward + dark only, so it
+        // takes the tail's frame line but can't grab bright body or spread sideways.
+        if (haveTail) {
+          for (let x = tMinX; x <= tMaxX; x++) {
+            let ty = -1
+            for (let y = tMinY; y <= tMaxY; y++) if (tailMask[y * W + x]) { ty = y; break }
+            if (ty < 0) continue
+            const tt = (ty * W + x) * 4
+            if (lum(fd[tt], fd[tt + 1], fd[tt + 2]) < DARK) continue // top is already its own dark outline
+            // Scan up to 4px for the tail's dark TOP outline. The climb stops at
+            // the interior just below it (a slight shade step trips the colour
+            // gate), so the thin outline + the 1–2px top edge sit static above.
+            // If a dark pixel is found with no bright body / bg / mask in between,
+            // pull in everything up to and including it (the tail's top frame).
+            let cap = 0
+            for (let k = 1; k <= 4; k++) {
+              const ny = ty - k; if (ny < 0) break
+              const np = ny * W + x
+              if (tailMask[np] || !sil[np]) break
+              const L = lum(fd[np * 4], fd[np * 4 + 1], fd[np * 4 + 2])
+              if (L > BRIGHT) break             // bright body fur → no tail outline here
+              if (L < DARK) { cap = k; break }   // the tail's dark top outline
+            }
+            for (let j = 1; j <= cap; j++) tailMask[(ty - j) * W + x] = 1
+          }
+          for (let i = 0; i < W * H; i++) if (tailMask[i]) { const y = (i / W) | 0; if (y < tMinY) tMinY = y }
+        }
+
         // (a) Inner-LEFT frame: per row, pull the contiguous DARK (lum<90) run
         // just left of the inner edge into the tail. Dark-only + a small cap, so
         // it halts at the first bright fur / mid-tone costume (tan mouse hood) /
