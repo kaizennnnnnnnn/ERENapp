@@ -36,8 +36,8 @@ import { fireMinigameDone } from '@/lib/minigames'
 const COLS = 6
 const ROWS = 9
 const CELL = 42
-const START_LIVES  = 12
-const START_KIBBLE = 120
+const START_LIVES  = 10
+const START_KIBBLE = 110
 const MAX_LEVEL    = 3
 const WEEKLY_HS    = 600   // score that completes the weekly high-score task
 
@@ -47,31 +47,38 @@ interface TowerDef { name: string; cost: number; color: string; dark: string; li
 
 const TOWER: Record<TowerType, TowerDef> = {
   claw: {
-    name: 'CLAW', cost: 45, color: '#F59E0B', dark: '#9A3412', light: '#FDE68A',
+    name: 'CLAW', cost: 50, color: '#F59E0B', dark: '#9A3412', light: '#FDE68A',
     levels: [
-      { range: 1.7, dmg: 12, rate: 1.5 },
-      { range: 1.9, dmg: 22, rate: 1.9 },
-      { range: 2.2, dmg: 40, rate: 2.5 },
-    ],
-    upgradeCost: [0, 45, 80],
-  },
-  squirt: {
-    name: 'SQUIRT', cost: 60, color: '#38BDF8', dark: '#075985', light: '#BAE6FD',
-    levels: [
-      { range: 1.5, dmg: 5,  rate: 1.0, slow: 0.45, slowDur: 1.2, splash: 0.85 },
-      { range: 1.6, dmg: 9,  rate: 1.2, slow: 0.55, slowDur: 1.4, splash: 0.95 },
-      { range: 1.8, dmg: 16, rate: 1.5, slow: 0.70, slowDur: 1.6, splash: 1.10 },
+      { range: 1.7, dmg: 11, rate: 1.4 },
+      { range: 1.9, dmg: 20, rate: 1.7 },
+      { range: 2.2, dmg: 34, rate: 2.1 },
     ],
     upgradeCost: [0, 55, 95],
   },
+  squirt: {
+    name: 'SQUIRT', cost: 65, color: '#38BDF8', dark: '#075985', light: '#BAE6FD',
+    // slowDur is kept strictly BELOW the fire interval (1/rate) at every level,
+    // so a continuously-targeted enemy always snaps back to full speed between
+    // shots — squirt now harasses + groups, it can no longer permanently freeze.
+    levels: [
+      { range: 1.5, dmg: 7,  rate: 1.0, slow: 0.30, slowDur: 0.8, splash: 0.75 },
+      { range: 1.6, dmg: 13, rate: 1.2, slow: 0.40, slowDur: 0.7, splash: 0.90 },
+      { range: 1.8, dmg: 22, rate: 1.5, slow: 0.50, slowDur: 0.6, splash: 1.05 },
+    ],
+    upgradeCost: [0, 60, 105],
+  },
 }
 
-type EnemyKind = 'mouse' | 'rat' | 'raccoon'
-interface EnemyDef { name: string; hp: number; speed: number; bounty: number; leak: number; color: string; dark: string; size: number }
+type EnemyKind = 'mouse' | 'rat' | 'raccoon' | 'kitten'
+interface EnemyDef { name: string; hp: number; speed: number; bounty: number; leak: number; color: string; dark: string; size: number; slowResist?: number }
 const ENEMY: Record<EnemyKind, EnemyDef> = {
-  mouse:   { name: 'MOUSE',   hp: 16, speed: 1.7,  bounty: 5,  leak: 1, color: '#9CA3AF', dark: '#4B5563', size: 22 },
-  rat:     { name: 'RAT',     hp: 36, speed: 1.25, bounty: 8,  leak: 1, color: '#92704E', dark: '#5B4327', size: 26 },
-  raccoon: { name: 'RACCOON', hp: 95, speed: 0.85, bounty: 18, leak: 2, color: '#475569', dark: '#1E293B', size: 30 },
+  mouse:   { name: 'MOUSE',   hp: 20,  speed: 1.7,  bounty: 4,  leak: 1, color: '#9CA3AF', dark: '#4B5563', size: 22 },
+  rat:     { name: 'RAT',     hp: 46,  speed: 1.25, bounty: 7,  leak: 1, color: '#92704E', dark: '#5B4327', size: 26 },
+  raccoon: { name: 'RACCOON', hp: 120, speed: 0.85, bounty: 15, leak: 2, color: '#475569', dark: '#1E293B', size: 30 },
+  // Fast, slow-RESISTANT rusher (from wave 5). Slips past slow-walls, forcing
+  // the player to back squirt with real claw damage. slowResist cuts 60% of any
+  // slow applied to it.
+  kitten:  { name: 'KITTEN',  hp: 28,  speed: 2.3,  bounty: 6,  leak: 1, color: '#FDE68A', dark: '#B45309', size: 20, slowResist: 0.6 },
 }
 
 // ─── Path (serpentine, generated + continuous) ──────────────────────────────
@@ -115,12 +122,14 @@ function shuffle<T>(arr: T[]): T[] {
 
 function genWave(w: number): EnemyKind[] {
   const out: EnemyKind[] = []
-  const mice = 5 + w * 2
-  const rats = Math.max(0, w - 1)
+  const mice = 4 + w * 2
+  const rats = Math.max(0, w - 2)
   const raccoons = Math.max(0, Math.floor((w - 3) / 2))
+  const kittens = Math.max(0, w - 4)   // fast rushers from wave 5
   for (let i = 0; i < mice; i++) out.push('mouse')
   for (let i = 0; i < rats; i++) out.push('rat')
   for (let i = 0; i < raccoons; i++) out.push('raccoon')
+  for (let i = 0; i < kittens; i++) out.push('kitten')
   return shuffle(out)
 }
 function spawnInterval(w: number): number { return Math.max(0.4, 0.78 - w * 0.02) }
@@ -152,6 +161,8 @@ function EnemySprite({ kind, size }: { kind: EnemyKind; size: number }) {
       <rect x="11" y="15" width="2" height="2" fill="#F472B6" />
       {/* tail */}
       <rect x="19" y="13" width="3" height="2" fill={d.dark} />
+      {/* kitten = speed streaks so it reads "fast" at a glance */}
+      {kind === 'kitten' && <><rect x="2" y="11" width="3" height="1" fill="#FFFFFF" opacity="0.55" /><rect x="0" y="14" width="4" height="1" fill="#FFFFFF" opacity="0.4" /><rect x="2" y="17" width="3" height="1" fill="#FFFFFF" opacity="0.5" /></>}
     </svg>
   )
 }
@@ -217,6 +228,8 @@ export default function DefendBowlGame() {
   const [waveBanner, setWaveBanner] = useState('')
   const [bestScore, setBest] = useState(0)
   const [reward, setReward] = useState<GameRewardResult | null>(null)
+  const [endReason, setEndReason] = useState<'dead' | 'cashed'>('dead')
+  const [confirmCashOut, setConfirmCashOut] = useState(false)
   const [, setTick] = useState(0)
   const forceRender = () => setTick(t => (t + 1) % 1000000)
 
@@ -315,8 +328,10 @@ export default function DefendBowlGame() {
           const p = pathPoint(e.t)
           if (Math.hypot(p.x - tp.x, p.y - tp.y) <= sp) {
             e.hp -= st.dmg
-            e.slowUntil = now + (st.slowDur ?? 1.2)
-            e.slowFactor = 1 - (st.slow ?? 0.4)
+            // slow-resistant enemies (kitten) shrug off most of the slow
+            const slowAmt = (st.slow ?? 0.4) * (1 - (ENEMY[e.kind].slowResist ?? 0))
+            e.slowUntil = now + (st.slowDur ?? 0.8)
+            e.slowFactor = 1 - slowAmt
           }
         }
       }
@@ -334,20 +349,20 @@ export default function DefendBowlGame() {
     // expire zaps
     if (zapsRef.current.length) zapsRef.current = zapsRef.current.filter(z => z.until > now)
     // end conditions
-    if (livesRef.current <= 0) { endGame(); return }
+    if (livesRef.current <= 0) { endRun('dead'); return }
     if (waveQueueRef.current.length === 0 && enemiesRef.current.length === 0) clearWave()
   }
 
   function spawnEnemy(kind: EnemyKind) {
     const def = ENEMY[kind]
     const w = waveRef.current
-    const hp = Math.round(def.hp * (1 + (w - 1) * 0.22))
-    enemiesRef.current.push({ id: ++idRef.current, kind, t: 0, hp, maxHp: hp, speed: def.speed * (1 + (w - 1) * 0.012), slowUntil: 0, slowFactor: 1 })
+    const hp = Math.round(def.hp * (1 + (w - 1) * 0.30))
+    enemiesRef.current.push({ id: ++idRef.current, kind, t: 0, hp, maxHp: hp, speed: def.speed * (1 + (w - 1) * 0.020), slowUntil: 0, slowFactor: 1 })
   }
 
   function clearWave() {
     clearedRef.current = waveRef.current
-    kibbleRef.current += 25 + waveRef.current * 6
+    kibbleRef.current += 20 + waveRef.current * 4
     waveRef.current += 1
     zapsRef.current = []
     setPhase('build')
@@ -413,6 +428,8 @@ export default function DefendBowlGame() {
     spawnTimerRef.current = 0
     scoreRef.current = 0
     savedRef.current = false
+    setEndReason('dead')
+    setConfirmCashOut(false)
     setReward(null)
     setSelectedCell(null)
     setWaveBanner('')
@@ -420,7 +437,11 @@ export default function DefendBowlGame() {
     forceRender()
   }
 
-  function endGame() {
+  // One exit path for both outcomes. Score = waves cleared + kills, banked once
+  // (savedRef guard), reward + high-score save identical whether you died or
+  // cashed out — so leaving early never loses what you earned.
+  function endRun(reason: 'dead' | 'cashed') {
+    setEndReason(reason)
     const finalScore = clearedRef.current * 100 + killsRef.current * 3
     scoreRef.current = finalScore
     setPhase('gameover')
@@ -429,7 +450,7 @@ export default function DefendBowlGame() {
       const prev = parseInt(localStorage.getItem('defend_bowl_best') || '0', 10) || 0
       if (finalScore > prev) localStorage.setItem('defend_bowl_best', String(finalScore))
     } catch { /* ignore */ }
-    playSound('db_gameover')
+    playSound(reason === 'dead' ? 'db_gameover' : 'db_wave')
     if (!savedRef.current && user?.id) {
       savedRef.current = true
       setReward(reportGameResult({ gameType: 'defend_bowl', score: finalScore }))
@@ -442,6 +463,38 @@ export default function DefendBowlGame() {
     }
   }
 
+  // ── Cash out: bank the run mid-game and keep the reward ──
+  function requestCashOut() {
+    pausedRef.current = true       // freeze the wave so nothing leaks while deciding
+    setSelectedCell(null)          // close any open build sheet so the confirm shows
+    setConfirmCashOut(true)
+  }
+  function cancelCashOut() {
+    pausedRef.current = false
+    lastFrameRef.current = performance.now()  // avoid a dt spike on resume
+    setConfirmCashOut(false)
+  }
+  function cashOut() {
+    setConfirmCashOut(false)
+    pausedRef.current = false
+    if (savedRef.current) return
+    const live = phaseRef.current === 'build' || phaseRef.current === 'wave'
+    const progressed = clearedRef.current > 0 || killsRef.current > 0
+    if (!live || !progressed) return
+    endRun('cashed')
+  }
+  // Header back: mid-run with progress → open the bank-and-leave confirm so
+  // pressing back never silently throws away your score.
+  function handleBack() {
+    const live = phase === 'build' || phase === 'wave'
+    const progressed = clearedRef.current > 0 || killsRef.current > 0
+    if (live && progressed) {
+      if (!confirmCashOut) { playSound('ui_tap'); requestCashOut() }
+      return
+    }
+    playSound('ui_back'); router.back()
+  }
+
   // ─── Render ─────────────────────────────────────────────────────────────
   const FIELD_W = COLS * CELL
   const FIELD_H = ROWS * CELL
@@ -450,6 +503,8 @@ export default function DefendBowlGame() {
   const enemiesLeft = enemiesRef.current.length + waveQueueRef.current.length
   const selTower = selectedCell ? towerAt(selectedCell.c, selectedCell.r) : null
   const selStats = selTower ? TOWER[selTower.type].levels[selTower.level] : null
+  const hasProgress = clearedRef.current > 0 || killsRef.current > 0
+  const projectedScore = clearedRef.current * 100 + killsRef.current * 3
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col game-shell select-none"
@@ -460,7 +515,7 @@ export default function DefendBowlGame() {
         background: 'linear-gradient(180deg, rgba(28,12,4,0.95) 0%, rgba(28,12,4,0.55) 100%)',
         borderBottom: '2px solid rgba(251,146,60,0.3)',
       }}>
-        <button onClick={() => { playSound('ui_back'); router.back() }}
+        <button onClick={handleBack}
           className="flex items-center justify-center active:scale-90 transition-transform"
           style={{ width: 32, height: 32, background: 'rgba(255,255,255,0.08)', borderRadius: 6, border: '2px solid rgba(251,146,60,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
           <ChevronLeft size={16} className="text-orange-200" />
@@ -641,17 +696,42 @@ export default function DefendBowlGame() {
               </div>
             )}
           </div>
+        ) : confirmCashOut ? (
+          <div className="flex items-center justify-between gap-2 px-3 py-2.5" style={{ background: 'rgba(28,12,4,0.95)', border: '2px solid #FDE047', borderRadius: 8 }}>
+            <div className="flex flex-col">
+              <span className="font-pixel" style={{ fontSize: 6, color: '#FDBA74', letterSpacing: 1 }}>BANK SCORE</span>
+              <span className="font-pixel inline-flex items-center gap-1" style={{ fontSize: 18, color: '#FDE68A', textShadow: '0 0 8px rgba(251,191,36,0.5)' }}><IconCoin size={13} />{projectedScore}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => { playSound('ui_back'); cancelCashOut() }} className="font-pixel px-3 py-2" style={{ background: 'rgba(0,0,0,0.4)', border: '2px solid rgba(255,255,255,0.3)', borderRadius: 5, color: '#FED7AA', fontSize: 7.5, letterSpacing: 1 }}>KEEP PLAYING</button>
+              <button onClick={cashOut} className="font-pixel inline-flex items-center gap-1 px-3 py-2 active:translate-y-[1px]" style={{ background: 'linear-gradient(135deg, #F59E0B, #B45309)', border: '2px solid #7C2D12', borderRadius: 5, color: '#FFF', fontSize: 8, letterSpacing: 1 }}><IconCoin size={9} /> CASH OUT</button>
+            </div>
+          </div>
         ) : phase === 'build' ? (
-          <button onClick={() => { playSound('ui_tap'); startWave() }}
-            className="w-full flex items-center justify-center gap-2 py-3 active:translate-y-[2px] transition-transform"
-            style={{ background: 'linear-gradient(135deg, #EA580C, #B45309)', border: '2px solid #7C2D12', borderRadius: 6, boxShadow: '0 4px 0 #7C2D12', color: '#FFF', fontFamily: '"Press Start 2P"', fontSize: 11, letterSpacing: 2 }}>
-            START WAVE {waveRef.current} <ArrowRight size={16} />
-          </button>
+          <div className="flex items-stretch gap-2">
+            <button onClick={() => { playSound('ui_tap'); startWave() }}
+              className="flex-1 flex items-center justify-center gap-2 py-3 active:translate-y-[2px] transition-transform"
+              style={{ background: 'linear-gradient(135deg, #EA580C, #B45309)', border: '2px solid #7C2D12', borderRadius: 6, boxShadow: '0 4px 0 #7C2D12', color: '#FFF', fontFamily: '"Press Start 2P"', fontSize: 11, letterSpacing: 2 }}>
+              START WAVE {waveRef.current} <ArrowRight size={16} />
+            </button>
+            {hasProgress && (
+              <button onClick={() => { playSound('ui_tap'); requestCashOut() }}
+                className="flex flex-col items-center justify-center gap-0.5 px-3 active:translate-y-[1px]"
+                style={{ background: 'rgba(0,0,0,0.4)', border: '2px solid #FDE047', borderRadius: 6, color: '#FDE68A' }}>
+                <IconCoin size={13} />
+                <span className="font-pixel" style={{ fontSize: 5.5, letterSpacing: 1 }}>CASH OUT</span>
+              </button>
+            )}
+          </div>
         ) : phase === 'wave' ? (
           <div className="w-full flex items-center justify-center gap-3 py-3" style={{ background: 'rgba(28,12,4,0.6)', border: '2px solid rgba(251,146,60,0.3)', borderRadius: 6 }}>
             <span className="font-pixel" style={{ fontSize: 8, color: '#FDBA74', letterSpacing: 1 }}>ENEMIES LEFT</span>
             <span className="font-pixel" style={{ fontSize: 14, color: '#FECACA' }}>{enemiesLeft}</span>
-            <span className="font-pixel" style={{ fontSize: 6, color: '#FDBA74', letterSpacing: 1 }}>· TAP A TILE TO BUILD</span>
+            {hasProgress ? (
+              <button onClick={() => { playSound('ui_tap'); requestCashOut() }} className="font-pixel inline-flex items-center gap-1 px-2.5 py-1.5 active:translate-y-[1px]" style={{ background: 'rgba(0,0,0,0.4)', border: '2px solid #FDE047', borderRadius: 5, color: '#FDE68A', fontSize: 7 }}><IconCoin size={9} /> CASH OUT</button>
+            ) : (
+              <span className="font-pixel" style={{ fontSize: 6, color: '#FDBA74', letterSpacing: 1 }}>· TAP A TILE TO BUILD</span>
+            )}
           </div>
         ) : null}
       </div>
@@ -665,6 +745,7 @@ export default function DefendBowlGame() {
               <p>TAP A GREEN TILE TO BUILD</p>
               <p>CLAW HITS · SQUIRT SLOWS</p>
               <p style={{ color: '#FCA5A5' }}>DON&apos;T LET THEM REACH THE BOWL</p>
+              <p style={{ color: '#FDE68A' }}>CASH OUT ANYTIME — KEEP YOUR SCORE</p>
             </div>
             <button onClick={() => { playSound('ui_tap'); startGame() }}
               className="mt-1 px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
@@ -680,7 +761,7 @@ export default function DefendBowlGame() {
         <div className="absolute inset-0 z-10 flex items-center justify-center" style={{ background: 'rgba(20,8,2,0.74)', backdropFilter: 'blur(2px)' }}>
           <div className="flex flex-col items-center gap-3 px-6 py-5"
             style={{ background: 'linear-gradient(180deg, #3B1D0E 0%, #2A1308 100%)', border: '3px solid #EA580C', borderRadius: 6, boxShadow: '0 6px 0 #7C2D12, 0 0 30px rgba(234,88,12,0.5)', animation: reduced ? undefined : 'dbPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both' }}>
-            <p className="font-pixel" style={{ fontSize: 11, color: '#FCA5A5', letterSpacing: 2 }}>THE BOWL FELL</p>
+            <p className="font-pixel" style={{ fontSize: 11, color: endReason === 'dead' ? '#FCA5A5' : '#FDE68A', letterSpacing: 2, ...(endReason !== 'dead' ? { filter: 'drop-shadow(0 0 6px rgba(251,191,36,0.5))' } : {}) }}>{endReason === 'dead' ? 'THE BOWL FELL' : 'CASHED OUT'}</p>
             <div className="flex items-center gap-4 mt-1">
               <div className="flex flex-col items-center">
                 <span className="font-pixel" style={{ fontSize: 6, color: '#FDBA74', letterSpacing: 1 }}>SCORE</span>
