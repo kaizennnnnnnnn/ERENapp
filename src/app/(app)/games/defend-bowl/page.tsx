@@ -36,9 +36,10 @@ import { fireMinigameDone } from '@/lib/minigames'
 const COLS = 6
 const ROWS = 9
 const CELL = 42
-const START_LIVES  = 10
-const START_KIBBLE = 110
+const START_LIVES  = 12
+const START_KIBBLE = 120
 const MAX_LEVEL    = 3
+const RECOIL_DUR   = 0.14  // seconds a fired tower spends lunging/recoiling
 const WEEKLY_HS    = 600   // score that completes the weekly high-score task
 
 type TowerType = 'claw' | 'squirt'
@@ -47,38 +48,46 @@ interface TowerDef { name: string; cost: number; color: string; dark: string; li
 
 const TOWER: Record<TowerType, TowerDef> = {
   claw: {
-    name: 'CLAW', cost: 50, color: '#F59E0B', dark: '#9A3412', light: '#FDE68A',
+    name: 'CLAW', cost: 45, color: '#F59E0B', dark: '#9A3412', light: '#FDE68A',
+    // The single-target specialist: best raw DPS-per-kibble, the answer to a
+    // tanky raccoon. Cheap to open with so wave 1 is never a death trap.
     levels: [
-      { range: 1.7, dmg: 11, rate: 1.4 },
-      { range: 1.9, dmg: 20, rate: 1.7 },
-      { range: 2.2, dmg: 34, rate: 2.1 },
+      { range: 1.8, dmg: 12, rate: 1.4 },
+      { range: 2.0, dmg: 21, rate: 1.7 },
+      { range: 2.3, dmg: 34, rate: 2.1 },
     ],
-    upgradeCost: [0, 55, 95],
+    upgradeCost: [0, 50, 90],
   },
   squirt: {
-    name: 'SQUIRT', cost: 65, color: '#38BDF8', dark: '#075985', light: '#BAE6FD',
-    // slowDur is kept strictly BELOW the fire interval (1/rate) at every level,
-    // so a continuously-targeted enemy always snaps back to full speed between
-    // shots — squirt now harasses + groups, it can no longer permanently freeze.
+    name: 'SQUIRT', cost: 45, color: '#38BDF8', dark: '#075985', light: '#BAE6FD',
+    // The crowd-control specialist: ~half claw's single-target DPS, but its
+    // splash hits every enemy in radius and its slow buys claws extra shots —
+    // genuinely co-viable now that 70%+ of every wave is a clustered swarm,
+    // and priced the same as claw so it's a real choice, not a tax.
+    // slowDur is kept strictly BELOW the fire interval (1/rate) at every level
+    // (0.85<0.91, 0.72<0.77, 0.60<0.63), so a continuously-targeted enemy always
+    // snaps back to full speed between shots — squirt harasses + groups, it can
+    // never permanently freeze.
     levels: [
-      { range: 1.5, dmg: 7,  rate: 1.0, slow: 0.30, slowDur: 0.8, splash: 0.75 },
-      { range: 1.6, dmg: 13, rate: 1.2, slow: 0.40, slowDur: 0.7, splash: 0.90 },
-      { range: 1.8, dmg: 22, rate: 1.5, slow: 0.50, slowDur: 0.6, splash: 1.05 },
+      { range: 1.5, dmg: 8,  rate: 1.1, slow: 0.40, slowDur: 0.85, splash: 0.85 },
+      { range: 1.6, dmg: 14, rate: 1.3, slow: 0.48, slowDur: 0.72, splash: 0.95 },
+      { range: 1.8, dmg: 22, rate: 1.6, slow: 0.55, slowDur: 0.60, splash: 1.00 },
     ],
-    upgradeCost: [0, 60, 105],
+    upgradeCost: [0, 50, 90],
   },
 }
 
 type EnemyKind = 'mouse' | 'rat' | 'raccoon' | 'kitten'
 interface EnemyDef { name: string; hp: number; speed: number; bounty: number; leak: number; color: string; dark: string; size: number; slowResist?: number }
 const ENEMY: Record<EnemyKind, EnemyDef> = {
-  mouse:   { name: 'MOUSE',   hp: 20,  speed: 1.7,  bounty: 4,  leak: 1, color: '#9CA3AF', dark: '#4B5563', size: 22 },
-  rat:     { name: 'RAT',     hp: 46,  speed: 1.25, bounty: 7,  leak: 1, color: '#92704E', dark: '#5B4327', size: 26 },
-  raccoon: { name: 'RACCOON', hp: 120, speed: 0.85, bounty: 15, leak: 2, color: '#475569', dark: '#1E293B', size: 30 },
-  // Fast, slow-RESISTANT rusher (from wave 5). Slips past slow-walls, forcing
-  // the player to back squirt with real claw damage. slowResist cuts 60% of any
-  // slow applied to it.
-  kitten:  { name: 'KITTEN',  hp: 28,  speed: 2.3,  bounty: 6,  leak: 1, color: '#FDE68A', dark: '#B45309', size: 20, slowResist: 0.6 },
+  mouse:   { name: 'MOUSE',   hp: 20,  speed: 1.6,  bounty: 4,  leak: 1, color: '#9CA3AF', dark: '#4B5563', size: 22 },
+  rat:     { name: 'RAT',     hp: 44,  speed: 1.2,  bounty: 7,  leak: 1, color: '#92704E', dark: '#5B4327', size: 26 },
+  raccoon: { name: 'RACCOON', hp: 115, speed: 0.85, bounty: 16, leak: 2, color: '#475569', dark: '#1E293B', size: 30 },
+  // Fast, slow-RESISTANT rusher (introduced wave 8, two waves after raccoons so
+  // each new threat is learned on its own). Slips past slow-walls, forcing the
+  // player to back squirt with real claw damage. slowResist cuts 50% of any
+  // slow applied to it — squirt dents it now, but claw still finishes it.
+  kitten:  { name: 'KITTEN',  hp: 30,  speed: 2.2,  bounty: 6,  leak: 1, color: '#FDE68A', dark: '#B45309', size: 20, slowResist: 0.5 },
 }
 
 // ─── Path (serpentine, generated + continuous) ──────────────────────────────
@@ -122,20 +131,25 @@ function shuffle<T>(arr: T[]): T[] {
 
 function genWave(w: number): EnemyKind[] {
   const out: EnemyKind[] = []
-  const mice = 4 + w * 2
+  // Threats are introduced one at a time so no single wave doubles in difficulty:
+  // rats from w3, raccoons from w6, kittens from w8 — each spaced so the player
+  // learns the counter before the next type lands.
+  const mice = 3 + w * 2
   const rats = Math.max(0, w - 2)
-  const raccoons = Math.max(0, Math.floor((w - 3) / 2))
-  const kittens = Math.max(0, w - 4)   // fast rushers from wave 5
+  const raccoons = Math.max(0, Math.floor((w - 4) / 2))  // tanky, from wave 6
+  const kittens = Math.max(0, w - 7)                     // fast rushers, from wave 8
   for (let i = 0; i < mice; i++) out.push('mouse')
   for (let i = 0; i < rats; i++) out.push('rat')
   for (let i = 0; i < raccoons; i++) out.push('raccoon')
   for (let i = 0; i < kittens; i++) out.push('kitten')
   return shuffle(out)
 }
-function spawnInterval(w: number): number { return Math.max(0.4, 0.78 - w * 0.02) }
+function spawnInterval(w: number): number { return Math.max(0.45, 0.82 - w * 0.02) }
 
 interface Enemy { id: number; kind: EnemyKind; t: number; hp: number; maxHp: number; speed: number; slowUntil: number; slowFactor: number }
-interface Tower { id: number; type: TowerType; c: number; r: number; level: number; cd: number }
+// aimX/aimY = unit vector toward the last target (drives the fire-lunge
+// direction); firedAt = game-clock time of the last shot (drives recoil decay).
+interface Tower { id: number; type: TowerType; c: number; r: number; level: number; cd: number; aimX: number; aimY: number; firedAt: number }
 interface Zap { id: number; x1: number; y1: number; x2: number; y2: number; type: TowerType; until: number }
 
 // ─── Sprites ────────────────────────────────────────────────────────────────
@@ -167,45 +181,112 @@ function EnemySprite({ kind, size }: { kind: EnemyKind; size: number }) {
   )
 }
 
-function TowerSprite({ type, level, size }: { type: TowerType; level: number; size: number }) {
-  const d = TOWER[type]
-  const p = { width: size, height: size, viewBox: '0 0 24 24', shapeRendering: 'crispEdges' as const, style: { imageRendering: 'pixelated' as const } }
-  if (type === 'claw') {
-    return (
-      <svg {...p}>
-        {/* paw pad */}
-        <rect x="7"  y="12" width="10" height="8" fill={d.color} />
-        <rect x="7"  y="12" width="10" height="2" fill={d.light} />
-        <rect x="9"  y="15" width="6"  height="4" fill="#F472B6" />
-        {/* toes */}
-        <rect x="6"  y="8"  width="3" height="4" fill={d.color} />
-        <rect x="10" y="6"  width="3" height="5" fill={d.color} />
-        <rect x="15" y="8"  width="3" height="4" fill={d.color} />
-      </svg>
-    )
+// ─── Tower art — "Gilded Garrison": a weapon head on a shared dark socket ─────
+// Level is encoded in the silhouette + accumulating gold (the app's premium-card
+// language), not in tiny dots. L1 plain → L2 gains gold rivets + a brighter head
+// → L3 grows (4th claw / twin-tank + cannon) and earns a gold mount lip.
+type SpriteRect = readonly [number, number, number, number, string]
+
+// CLAW — amber claws + pink toe-bean pad on a dark socket. (level is 0-indexed)
+function clawRects(level: number): SpriteRect[] {
+  const r: SpriteRect[] = [
+    [6, 15, 12, 6, '#9A3412'],   // socket
+    [6, 20, 12, 1, '#7C2D12'],   // bottom hard shadow (no blur)
+    [7, 15, 10, 2, '#B45309'],   // pressed-metal lip
+    [8, 13, 8, 4, '#F472B6'],    // pink toe-bean pad = instant "CLAW"
+  ]
+  const tip = level >= 1 ? 3 : 2 // claws catch more light once upgraded
+  r.push([7, 8, 2, 6, '#F59E0B'], [7, 8, 1, tip, '#FDE68A'])     // left claw
+  r.push([11, 6, 2, 8, '#F59E0B'], [11, 6, 1, tip, '#FDE68A'])   // center claw (tallest)
+  r.push([15, 8, 2, 6, '#F59E0B'], [15, 8, 1, tip, '#FDE68A'])   // right claw
+  if (level >= 1) r.push([7, 19, 1, 1, '#FDE047'], [16, 19, 1, 1, '#FDE047']) // gold rivets
+  if (level >= 2) {
+    r.push([7, 15, 10, 1, '#FDE047'])             // gold mount lip
+    r.push([9, 9, 2, 4, '#F59E0B'], [9, 9, 1, 2, '#FDE68A']) // 4th front claw — "unsheathed"
+    r.push([12, 5, 1, 1, '#FFFFFF'])              // white crown tip
   }
+  return r
+}
+
+// SQUIRT — sky tank with a left-facing barrel on the SAME socket (matched set).
+function squirtRects(level: number): SpriteRect[] {
+  const r: SpriteRect[] = [
+    [6, 15, 12, 6, '#0C4A6E'],   // socket (sky-tinted twin of CLAW's)
+    [6, 20, 12, 1, '#075985'],   // bottom hard shadow
+    [7, 15, 10, 2, '#0369A1'],   // lip
+    [8, 8, 8, 8, '#38BDF8'],     // tank body
+    [8, 8, 8, 2, '#BAE6FD'],     // top sheen
+    [8, 8, 1, 6, '#BAE6FD'],     // left-edge sheen
+    [9, 13, 6, 2, level >= 1 ? '#BAE6FD' : '#7DD3FC'], // water-level line
+  ]
+  if (level >= 2) {
+    r.push([3, 9, 5, 4, '#0369A1'], [2, 10, 1, 2, '#BAE6FD'])    // wide cannon barrel
+  } else {
+    r.push([4, 9, 4, level >= 1 ? 4 : 3, '#0369A1'], [3, 10, 1, 1, '#BAE6FD']) // barrel
+  }
+  if (level >= 1) r.push([7, 19, 1, 1, '#FDE047'], [16, 19, 1, 1, '#FDE047']) // gold rivets
+  if (level >= 2) {
+    r.push([9, 5, 6, 3, '#38BDF8'], [9, 5, 6, 1, '#BAE6FD'])     // stacked 2nd tank
+    r.push([7, 15, 10, 1, '#FDE047'])                            // gold mount lip
+  }
+  return r
+}
+
+function TowerSprite({ type, level, size }: { type: TowerType; level: number; size: number }) {
+  const p = { width: size, height: size, viewBox: '0 0 24 24', shapeRendering: 'crispEdges' as const, style: { imageRendering: 'pixelated' as const } }
+  const rects = type === 'claw' ? clawRects(level) : squirtRects(level)
   return (
     <svg {...p}>
-      {/* spray bottle */}
-      <rect x="8"  y="9"  width="8" height="11" fill={d.color} />
-      <rect x="8"  y="9"  width="8" height="2"  fill={d.light} />
-      <rect x="9"  y="13" width="6" height="5"  fill={d.dark} opacity="0.5" />
-      {/* nozzle */}
-      <rect x="6"  y="6"  width="6" height="3" fill={d.dark} />
-      <rect x="4"  y="7"  width="2" height="2" fill={d.dark} />
-      {/* droplet */}
-      <rect x="2"  y="7"  width="1" height="2" fill={d.light} />
+      {rects.map(([x, y, w, h, fill], i) => (
+        <rect key={i} x={x} y={y} width={w} height={h} fill={fill} />
+      ))}
     </svg>
   )
 }
 
-function levelPips(level: number, color: string) {
+// ─── Firing FX — replaces the flat line/circle with juicy pixel bursts ───────
+// One zap lives 0.12s; `life` (1→0) drives snap timing (no cross-fades). CLAW
+// rakes 3 gold claw-streaks + a pink "bonk"; SQUIRT flings a droplet fan into a
+// pixel splash. Pure positioned rects/lines — and the whole layer only exists
+// when motion is on (zaps aren't pushed under reduced-motion).
+function ZapFx({ z, now }: { z: Zap; now: number }) {
+  const life = (z.until - now) / 0.12
+  if (life <= 0) return null
+  const dx = z.x2 - z.x1, dy = z.y2 - z.y1
+  const len = Math.hypot(dx, dy) || 1
+  const nx = -dy / len, ny = dx / len   // unit normal to the aim line
+
+  if (z.type === 'claw') {
+    const sx = z.x1 + dx * 0.5, sy = z.y1 + dy * 0.5  // rake starts mid-flight
+    return (
+      <g opacity={life > 0.3 ? 0.95 : 0}>
+        {[-3, 0, 3].map((o, i) => (
+          <line key={i} x1={sx + nx * o} y1={sy + ny * o} x2={z.x2 + nx * o} y2={z.y2 + ny * o}
+            stroke={o === 0 ? '#FDE047' : '#FDE68A'} strokeWidth={2} strokeLinecap="round" />
+        ))}
+        {life > 0.6 && <rect x={z.x2 - 0.5} y={z.y2 - 0.5} width={1} height={1} fill="#FFFFFF" />}
+        {life > 0.45 && <rect x={z.x2 - 1} y={z.y2 - 1} width={2} height={2} fill="#F472B6" />}
+      </g>
+    )
+  }
+  // squirt: a fan of droplets arcing to the target, then a pixel splash
+  const drops = [0, 1, 2, 3].map(k => {
+    const prog = Math.min(1, Math.max(0, (1 - life) + k * 0.13))
+    const px = z.x1 + dx * prog, py = z.y1 + dy * prog + Math.sin(prog * Math.PI) * 4
+    return <rect key={k} x={px - 1} y={py - 1} width={2} height={2} fill={k % 2 ? '#BAE6FD' : '#7DD3FC'} opacity={0.9} />
+  })
   return (
-    <div className="absolute flex gap-[2px]" style={{ bottom: 1, left: '50%', transform: 'translateX(-50%)' }}>
-      {[0, 1, 2].map(i => (
-        <span key={i} style={{ width: 3, height: 3, background: i <= level ? color : 'rgba(255,255,255,0.25)', boxShadow: i <= level ? `0 0 3px ${color}` : 'none' }} />
-      ))}
-    </div>
+    <g>
+      {drops}
+      {life < 0.5 && (
+        <>
+          <rect x={z.x2 - 1.5} y={z.y2 - 1.5} width={3} height={3} fill="#38BDF8" opacity={0.85} />
+          {[[-2, 0], [2, 0], [0, -2], [0, 2]].map(([ox, oy], i) => (
+            <rect key={i} x={z.x2 + ox - 0.5} y={z.y2 + oy - 0.5} width={1} height={1} fill="#BAE6FD" opacity={0.9} />
+          ))}
+        </>
+      )}
+    </g>
   )
 }
 
@@ -320,6 +401,10 @@ export default function DefendBowlGame() {
       if (!target) continue
       tw.cd = 1 / st.rate
       const tp = pathPoint(target.t)
+      // Record aim direction + fire time so the render can lunge/recoil the
+      // tower toward (claw) or away from (squirt) its target.
+      const adx = tp.x - tx, ady = tp.y - ty, alen = Math.hypot(adx, ady) || 1
+      tw.aimX = adx / alen; tw.aimY = ady / alen; tw.firedAt = now
       if (tw.type === 'claw') {
         target.hp -= st.dmg
       } else {
@@ -356,13 +441,13 @@ export default function DefendBowlGame() {
   function spawnEnemy(kind: EnemyKind) {
     const def = ENEMY[kind]
     const w = waveRef.current
-    const hp = Math.round(def.hp * (1 + (w - 1) * 0.30))
-    enemiesRef.current.push({ id: ++idRef.current, kind, t: 0, hp, maxHp: hp, speed: def.speed * (1 + (w - 1) * 0.020), slowUntil: 0, slowFactor: 1 })
+    const hp = Math.round(def.hp * (1 + (w - 1) * 0.29))
+    enemiesRef.current.push({ id: ++idRef.current, kind, t: 0, hp, maxHp: hp, speed: def.speed * (1 + (w - 1) * 0.018), slowUntil: 0, slowFactor: 1 })
   }
 
   function clearWave() {
     clearedRef.current = waveRef.current
-    kibbleRef.current += 20 + waveRef.current * 4
+    kibbleRef.current += 22 + waveRef.current * 5
     waveRef.current += 1
     zapsRef.current = []
     setPhase('build')
@@ -395,7 +480,7 @@ export default function DefendBowlGame() {
     if (towerAt(selectedCell.c, selectedCell.r)) return
     if (kibbleRef.current < TOWER[type].cost) return
     kibbleRef.current -= TOWER[type].cost
-    towersRef.current = [...towersRef.current, { id: ++idRef.current, type, c: selectedCell.c, r: selectedCell.r, level: 0, cd: 0 }]
+    towersRef.current = [...towersRef.current, { id: ++idRef.current, type, c: selectedCell.c, r: selectedCell.r, level: 0, cd: 0, aimX: 0, aimY: -1, firedAt: -999 }]
     playSound('db_place')
     setSelectedCell(null)
     forceRender()
@@ -593,13 +678,29 @@ export default function DefendBowlGame() {
                 {!onPath && !tw && (
                   <span className="absolute inset-0 flex items-center justify-center font-pixel" style={{ fontSize: 12, color: 'rgba(255,255,255,0.22)' }}>+</span>
                 )}
-                {/* tower */}
-                {tw && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <TowerSprite type={tw.type} level={tw.level} size={CELL - 8} />
-                    {levelPips(tw.level, TOWER[tw.type].light)}
-                  </div>
-                )}
+                {/* tower — pop on place/upgrade · idle bob · fire-recoil lunge */}
+                {tw && (() => {
+                  const since = gameTimeRef.current - tw.firedAt
+                  const recoil = !reduced && since >= 0 && since < RECOIL_DUR ? 1 - since / RECOIL_DUR : 0
+                  const innerTransform = recoil <= 0 ? undefined
+                    : tw.type === 'claw'
+                      // claw pounces toward its target then snaps back
+                      ? `translate(${(tw.aimX * 3 * recoil).toFixed(2)}px,${(tw.aimY * 3 * recoil).toFixed(2)}px) scale(${(1 + 0.1 * recoil).toFixed(3)})`
+                      // squirt kicks back from the recoil + a pressure squash
+                      : `translate(${(-tw.aimX * 2 * recoil).toFixed(2)}px,${(-tw.aimY * 2 * recoil).toFixed(2)}px) scaleY(${(1 - 0.12 * recoil).toFixed(3)})`
+                  return (
+                    <div key={`${tw.id}:${tw.level}`}
+                      className={`absolute inset-0 flex items-center justify-center${reduced ? '' : ' db-turret-pop'}`}
+                      style={{ transformOrigin: '50% 88%' }}>
+                      <div className={reduced ? undefined : 'db-turret-idle'}
+                        style={reduced ? undefined : { animationDelay: `${((c + r) % 4) * 0.2}s` }}>
+                        <div style={{ transform: innerTransform, transformOrigin: '50% 88%' }}>
+                          <TowerSprite type={tw.type} level={tw.level} size={CELL - 8} />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
             )
           })}
@@ -634,11 +735,7 @@ export default function DefendBowlGame() {
           {/* zaps */}
           {zapsRef.current.length > 0 && (
             <svg className="absolute inset-0 pointer-events-none" width={FIELD_W} height={FIELD_H}>
-              {zapsRef.current.map(z => z.type === 'claw' ? (
-                <line key={z.id} x1={z.x1} y1={z.y1} x2={z.x2} y2={z.y2} stroke="#FDE047" strokeWidth={2} opacity={0.85} />
-              ) : (
-                <circle key={z.id} cx={z.x2} cy={z.y2} r={CELL * 0.8} fill="rgba(56,189,248,0.22)" stroke="#7DD3FC" strokeWidth={1.5} />
-              ))}
+              {zapsRef.current.map(z => <ZapFx key={z.id} z={z} now={gameTimeRef.current} />)}
             </svg>
           )}
 
@@ -798,6 +895,12 @@ export default function DefendBowlGame() {
       <style jsx global>{`
         @keyframes dbPop { 0% { transform: scale(0.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         @keyframes dbBanner { 0% { transform: scale(0.6); opacity: 0; } 25% { transform: scale(1.1); opacity: 1; } 75% { opacity: 1; } 100% { transform: scale(1); opacity: 0; } }
+        /* turret idle "breathing" — a 1px snap bob, runs in the build phase (no rAF) */
+        @keyframes dbTurretIdle { 0%, 49% { transform: translateY(0); } 50%, 100% { transform: translateY(-1px); } }
+        .db-turret-idle { animation: dbTurretIdle 1.6s steps(1, end) infinite; transform-origin: 50% 100%; }
+        /* place / upgrade pop — gravity overshoot + a one-frame charge flash */
+        @keyframes dbTurretPop { 0% { transform: scale(0.2); filter: brightness(2.4); } 45% { transform: scale(1.18); filter: brightness(1.4); } 70% { transform: scale(0.94); filter: brightness(1); } 100% { transform: scale(1); filter: brightness(1); } }
+        .db-turret-pop { animation: dbTurretPop 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
       `}</style>
     </div>
   )
