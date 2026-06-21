@@ -15,6 +15,11 @@ import {
   WEEKLY_PAYOUT_COINS,
   type LifetimeWLT, type WeeklyBattleRow,
 } from '@/lib/battleResults'
+import {
+  countCoopActions, claimCoopReward, thisIsoWeekKey,
+  COOP_WEEKLY_TARGET, COOP_REWARD_COINS,
+  type CoopGoalRow, type CoopGoalState,
+} from '@/lib/coopGoal'
 
 // Module-level counter so every useCouple instance picks a unique
 // realtime channel name even when several mount in the same React
@@ -41,6 +46,10 @@ function useCoupleImpl() {
   const [partnerMoodWeek, setPartnerMoodWeek] = useState<{ date: string; mood: UserMood | null }[]>([])
   const [lifetimeWLT, setLifetimeWLT] = useState<LifetimeWLT | null>(null)
   const [weeklyChampion, setWeeklyChampion] = useState<WeeklyBattleRow | null>(null)
+  // "We Cared" co-op goal — combined useful care actions this week (derived
+  // from the same interactions the love meter reads) + my claim row for the week.
+  const [coopCombined, setCoopCombined] = useState(0)
+  const [coopRow, setCoopRow] = useState<CoopGoalRow | null>(null)
   const [loading, setLoading] = useState(true)
   // Per-instance channel name. useCouple is currently instantiated by
   // 5+ components on the home screen (page, ThoughtCloud, JealousEren,
@@ -124,6 +133,13 @@ function useCoupleImpl() {
       ? ensureLastWeekResult(supabase, profile.household_id, user.id, p.id)
           .catch(() => undefined)
       : null
+    // My co-op claim row for THIS week (null until claimed). Read concurrently.
+    const coopRowP = p ? withRetry(() => supabase
+      .from('weekly_coop_results')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('iso_week', thisIsoWeekKey())
+      .maybeSingle()) : null
 
     // Partner's recent moods — today's mood + a 7-day strip (gaps = null).
     if (p) {
@@ -166,6 +182,9 @@ function useCoupleImpl() {
         user.id, profile.name,
         p.id, p.name,
       ))
+      // "We Cared" co-op progress — both partners' useful care actions this
+      // week, summed (no extra read: same interactions the love meter uses).
+      setCoopCombined(countCoopActions(interactions as Interaction[]))
     }
 
     // Lifetime W-L-T: backfill any missing daily snapshots in the lookback
@@ -181,6 +200,14 @@ function useCoupleImpl() {
     if (p) {
       const wk = await weeklyP!
       if (wk !== undefined) setWeeklyChampion(wk)
+    }
+
+    // My co-op claim row for this week — tells the bar whether I've already
+    // pocketed my share. A failed read keeps the previous row + self-heals.
+    if (p) {
+      const { data: coopData, error: coopError } = await coopRowP!
+      if (coopError) loadFailedRef.current = true
+      else setCoopRow((coopData as CoopGoalRow | null) ?? null)
     }
 
     // Journal messages.
@@ -406,12 +433,46 @@ function useCoupleImpl() {
     return paid
   }, [user?.id, weeklyChampion]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Claim my share of the "We Cared" co-op reward ──────────────────────────
+  // Pays COOP_REWARD_COINS once (atomic CAS on payout_paid) when the household
+  // has hit the shared target this week. Returns true if I was just paid.
+  const claimCoopGoal = useCallback(async (): Promise<boolean> => {
+    if (!user?.id || !profile?.household_id) return false
+    if (coopCombined < COOP_WEEKLY_TARGET) return false
+    if (coopRow?.payout_paid) return false
+    const coins = await claimCoopReward(supabase, profile.household_id, user.id, coopCombined)
+    if (coins > 0) {
+      window.dispatchEvent(new CustomEvent('eren:coop-payout', { detail: { coins } }))
+    }
+    // Stamp locally so the bar flips to "complete" without a refetch (CAS is
+    // the source of truth; a sibling tab that lost the race just shows complete).
+    setCoopRow({
+      household_id: profile.household_id,
+      user_id: user.id,
+      iso_week: thisIsoWeekKey(),
+      combined_actions: coopCombined,
+      goal: COOP_WEEKLY_TARGET,
+      payout_coins: COOP_REWARD_COINS,
+      payout_paid: true,
+    })
+    return coins > 0
+  }, [user?.id, profile?.household_id, coopCombined, coopRow]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const coopGoal: CoopGoalState = {
+    combined: coopCombined,
+    target: COOP_WEEKLY_TARGET,
+    reward: COOP_REWARD_COINS,
+    goalMet: coopCombined >= COOP_WEEKLY_TARGET,
+    claimed: !!coopRow?.payout_paid,
+  }
+
   return {
     partner, partnerStreak,
     loveMeter, anniversary, journal, unreadCount,
     newMessage, dismissPopup,
     partnerMood, partnerMoodWeek,
     lifetimeWLT, weeklyChampion, claimWeeklyChampion,
+    coopGoal, claimCoopGoal,
     sendMessage, sendNudge, markAllRead, loading,
     refetch: fetchAll,
   }
