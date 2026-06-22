@@ -293,14 +293,15 @@ export default function BlinkingEren({
         filter: nightFilter,
         ...style,
       }}>
-      {/* Breathing wrapper — gentle scaleY sway anchored at the feet so
-          the upper body rises while the feet stay planted. willChange +
-          backfaceVisibility force a dedicated GPU layer so the scale is
-          composited smoothly (no pixel-seam lines). */}
+      {/* Breathing wrapper — a gentle vertical bob (erenBreathe). It used to be
+          a scaleY swell, but scaling a pixel sprite resamples the grid every
+          frame and the nearest-neighbour rounding leaves a seam line that crawls
+          up and down (worst on flat skins). A translateY bob shifts every row
+          uniformly, so it's seam-free on every skin. willChange +
+          backfaceVisibility keep it on its own GPU layer. */}
       <div style={{
         position: 'relative',
         width: '100%', height: '100%',
-        transformOrigin: 'bottom center',
         willChange: breathe ? 'transform' : undefined,
         backfaceVisibility: 'hidden',
         animation: breathe ? `erenBreathe ${breatheDur}s ease-in-out infinite` : undefined,

@@ -29,16 +29,15 @@ interface Props {
 
 export default function PoseSprite({ src, width, breathe = true, breatheDur = 5, style }: Props) {
   const isDark = useIsDark()
-  // The breathing scale lives on this WRAPPER, never on the <img>. The image is
-  // `image-rendering: pixelated`, and animating a scale ON a pixelated element
-  // re-samples it nearest-neighbour every frame, so a hard horizontal seam line
-  // crawls up and down the sprite. Scaling a plain wrapper instead lets the
-  // compositor scale the already-rasterised (sharp) image bilinearly — smooth,
-  // no seam. (Same split BlinkingEren uses for its breathe.)
+  // Breathing is a gentle vertical bob (erenBreathe), never a scale. Animating a
+  // scale on a `image-rendering: pixelated` sprite re-samples the grid every
+  // frame and leaves a hard seam line that crawls up and down — and scaling a
+  // wrapper instead of the <img> still doesn't help on the PWA, which
+  // nearest-neighbour re-rasterises the layer. A translateY bob shifts every
+  // row uniformly, so there's no seam. (Same erenBreathe BlinkingEren uses.)
   return (
     <div style={{
       width,
-      transformOrigin: 'bottom center',
       backfaceVisibility: 'hidden',
       willChange: breathe ? 'transform' : undefined,
       animation: breathe ? `erenBreathe ${breatheDur}s ease-in-out infinite` : undefined,

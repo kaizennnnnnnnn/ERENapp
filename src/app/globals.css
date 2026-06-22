@@ -254,13 +254,16 @@
   100%      { transform: scaleY(0); }
 }
 @keyframes erenBreathe {
-  /* scaleY from the feet (transform-origin: bottom) so the body stretches
-     up while the feet stay planted — real breathing, not floating. The
-     translateZ(0) keeps it on its own GPU layer so the scale composites
-     smoothly (bilinear) instead of nearest-neighbour re-rasterising the
-     pixels, which is what produced the seam lines. */
-  0%, 100% { transform: scaleY(1)     translateZ(0); }
-  50%      { transform: scaleY(1.022) translateZ(0); }
+  /* A gentle vertical bob — NOT a scaleY swell. Scaling a pixel sprite resamples
+     the grid every frame; nearest-neighbour rounding collapses one source row
+     into a hard line that crawls up and down as the scale changes (worst on
+     flat-coloured skins — and putting the scale on a wrapper to "composite
+     bilinearly" doesn't stop it on the PWA, which re-rasterises the layer). A
+     translateY shifts every row by the same amount, so the grid is never
+     differentially resampled — the breath is seam-free on every skin. The
+     translateZ(0) keeps it on its own GPU layer for smooth compositing. */
+  0%, 100% { transform: translateY(0)     translateZ(0); }
+  50%      { transform: translateY(-1.4%) translateZ(0); }
 }
 /* Living catchlight — the eye shine is baked into the flat PNG. We sit a
    matched bright glint exactly on top of that existing highlight and bring
