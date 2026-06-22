@@ -1,12 +1,13 @@
 'use client'
 
 // ═══════════════════════════════════════════════════════════════════════════
-// "WE CARED" — the co-op goal strip. A slim, always-visible banner pinned at
-// the top of HOME (just under the StatsHeader), where the care actions that
-// fill it actually happen. ONE shared meter both partners fill together toward
-// a weekly target; gold "together" trim sets it apart from the pink/purple
-// rivalry bars. Hidden once claimed (keeps home clean) and for solo households.
-// Claim is CAS-guarded in useCouple → coopGoal/claimCoopGoal.
+// "WE CARED" — the co-op goal strip. Rendered IN-FLOW inside the home HUD
+// overlay, directly under the nav-button row. (It used to be a floating fixed
+// bar, which fought the StatsHeader / scene / bezel z-layers and landed in the
+// middle of the screen.) ONE shared meter both partners fill together toward a
+// weekly target; gold "together" trim sets it apart from the pink/purple
+// rivalry bars. Hidden once claimed / for solo households. Claim is CAS-guarded
+// in useCouple → coopGoal/claimCoopGoal.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useState } from 'react'
@@ -17,10 +18,6 @@ import { IconHeartDuo, IconCoin } from '@/components/PixelIcons'
 const GOLD    = '#FBBF24'
 const GOLD_HI = '#FDE68A'
 const GOLD_LO = '#B45309'
-// Must clear the full-screen layers the layout stacks over the home scene:
-// CareSceneHost backdrop/scene (z-40) and AppFrame bezel (z-50). Sits in the
-// gap just under the StatsHeader (z-60); modals (z-80) still cover it.
-const Z_STRIP = 55
 
 export default function CoopGoalBar() {
   const { coopGoal, claimCoopGoal, partner, loading } = useCouple()
@@ -46,25 +43,13 @@ export default function CoopGoalBar() {
   }
 
   return (
-    <div style={{
-      position: 'fixed',
-      // Clear of the StatsHeader (z-60, ~safe-top+96px tall: two rows + pads),
-      // with margin so a slightly taller header can't overlap it.
-      top: 'calc(var(--safe-top, 0px) + 110px)',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      width: 'min(92vw, 340px)',
-      zIndex: Z_STRIP,
-      pointerEvents: showClaim ? 'auto' : 'none',
-    }}>
+    <div style={{ marginTop: 6, pointerEvents: showClaim ? 'auto' : 'none' }}>
       <div className="flex items-center gap-2" style={{
         padding: '4px 8px',
         background: 'linear-gradient(180deg, rgba(26,21,16,0.94) 0%, rgba(7,6,10,0.94) 100%)',
         border: `1.5px solid ${GOLD}66`,
         borderRadius: 7,
         boxShadow: `0 3px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05), 0 0 14px ${GOLD}22`,
-        backdropFilter: 'blur(3px)',
-        WebkitBackdropFilter: 'blur(3px)',
         ...(showClaim ? { animation: 'coopStripPulse 1.3s ease-in-out infinite' } : {}),
       }}>
         <IconHeartDuo size={12} />

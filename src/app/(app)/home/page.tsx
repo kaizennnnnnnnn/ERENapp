@@ -517,10 +517,6 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* "We Cared" co-op goal — slim shared-progress strip pinned under the
-          StatsHeader. Self-positioned (fixed); hidden once claimed / solo. */}
-      <CoopGoalBar />
-
       {showReminders && <ReminderSheet onClose={() => setShowReminders(false)} />}
       {showFortune && <FortunePopup onClose={() => setShowFortune(false)} />}
       {/* Suppress partner-message popup while the catchup carousel is up so
@@ -816,6 +812,9 @@ export default function HomePage() {
               <RoomsMenu open={showRooms} onClose={closeRooms} onSelect={handleRoomSelect} />
             </div>
           </div>
+
+          {/* "We Cared" co-op goal — sits directly under the nav-button row */}
+          <CoopGoalBar />
         </div>
 
         {/* Dot indicators — only visible during swipe / scene transition */}
