@@ -293,15 +293,16 @@ export default function BlinkingEren({
         filter: nightFilter,
         ...style,
       }}>
-      {/* Breathing wrapper — a gentle vertical bob (erenBreathe). It used to be
-          a scaleY swell, but scaling a pixel sprite resamples the grid every
-          frame and the nearest-neighbour rounding leaves a seam line that crawls
-          up and down (worst on flat skins). A translateY bob shifts every row
-          uniformly, so it's seam-free on every skin. willChange +
-          backfaceVisibility keep it on its own GPU layer. */}
+      {/* Breathing wrapper — a gentle scaleY swell from the feet (erenBreathe).
+          The sprite <img>s render with SMOOTH downscaling (imageRendering:auto),
+          NOT nearest-neighbour: these are hi-res PNGs shrunk ~6x, so "pixelated"
+          only aliased them and made the breathing scale crawl a seam line up and
+          down (worst on dark/flat skins). Smooth resampling = a clean breath.
+          willChange + backfaceVisibility keep it on its own GPU layer. */}
       <div style={{
         position: 'relative',
         width: '100%', height: '100%',
+        transformOrigin: 'bottom center',
         willChange: breathe ? 'transform' : undefined,
         backfaceVisibility: 'hidden',
         animation: breathe ? `erenBreathe ${breatheDur}s ease-in-out infinite` : undefined,
@@ -317,7 +318,7 @@ export default function BlinkingEren({
               position: 'absolute', inset: 0,
               width: '100%', height: '100%',
               objectFit: 'contain',
-              imageRendering: 'pixelated',
+              imageRendering: 'auto',
               transformOrigin: tailOrigin,
               willChange: 'transform',
               backfaceVisibility: 'hidden',
@@ -331,7 +332,7 @@ export default function BlinkingEren({
             position: 'absolute', inset: 0,
             width: '100%', height: '100%',
             objectFit: 'contain',
-            imageRendering: 'pixelated',
+            imageRendering: 'auto',
           }} />
 
         {headSrc ? (
@@ -351,7 +352,7 @@ export default function BlinkingEren({
                 position: 'absolute', inset: 0,
                 width: '100%', height: '100%',
                 objectFit: 'contain',
-                imageRendering: 'pixelated',
+                imageRendering: 'auto',
               }} />
             {eyeOverlays}
           </div>

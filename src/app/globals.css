@@ -242,8 +242,10 @@
 
 /* ── Eren sprite: eye-blink + idle breathing ──
    Defined globally (not per-component) so the animation references in
-   BlinkingEren resolve in every room reliably. Breathing is a pure
-   translateY so the pixelated sprite is never resampled (no seam lines). */
+   BlinkingEren resolve in every room reliably. The sprite is a hi-res PNG
+   rendered with SMOOTH downscaling (image-rendering:auto on the <img>), NOT
+   nearest-neighbour — so the breathing scale resamples cleanly with no
+   crawling seam line on any skin (see BlinkingEren / PoseSprite for why). */
 @keyframes erenBlink {
   0%, 28%   { transform: scaleY(0); }
   30%       { transform: scaleY(1); }
@@ -254,16 +256,15 @@
   100%      { transform: scaleY(0); }
 }
 @keyframes erenBreathe {
-  /* A gentle vertical bob — NOT a scaleY swell. Scaling a pixel sprite resamples
-     the grid every frame; nearest-neighbour rounding collapses one source row
-     into a hard line that crawls up and down as the scale changes (worst on
-     flat-coloured skins — and putting the scale on a wrapper to "composite
-     bilinearly" doesn't stop it on the PWA, which re-rasterises the layer). A
-     translateY shifts every row by the same amount, so the grid is never
-     differentially resampled — the breath is seam-free on every skin. The
-     translateZ(0) keeps it on its own GPU layer for smooth compositing. */
-  0%, 100% { transform: translateY(0)     translateZ(0); }
-  50%      { transform: translateY(-1.4%) translateZ(0); }
+  /* Gentle scaleY swell anchored at the feet (transform-origin: bottom on the
+     wrapper): the chest/head rise while the feet stay planted — real breathing,
+     not a floaty whole-body bob. This is clean ONLY because the sprite renders
+     with smooth downscaling (image-rendering:auto). On a nearest-neighbour
+     ("pixelated") sprite the scale collapses a source row into a hard line that
+     crawls up and down — the bug this replaced. translateZ(0) keeps it on its
+     own GPU layer for smooth compositing. */
+  0%, 100% { transform: scaleY(1)     translateZ(0); }
+  50%      { transform: scaleY(1.022) translateZ(0); }
 }
 /* Living catchlight — the eye shine is baked into the flat PNG. We sit a
    matched bright glint exactly on top of that existing highlight and bring

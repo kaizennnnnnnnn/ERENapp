@@ -29,15 +29,15 @@ interface Props {
 
 export default function PoseSprite({ src, width, breathe = true, breatheDur = 5, style }: Props) {
   const isDark = useIsDark()
-  // Breathing is a gentle vertical bob (erenBreathe), never a scale. Animating a
-  // scale on a `image-rendering: pixelated` sprite re-samples the grid every
-  // frame and leaves a hard seam line that crawls up and down — and scaling a
-  // wrapper instead of the <img> still doesn't help on the PWA, which
-  // nearest-neighbour re-rasterises the layer. A translateY bob shifts every
-  // row uniformly, so there's no seam. (Same erenBreathe BlinkingEren uses.)
+  // Breathing is the shared erenBreathe scaleY swell. These poses are hi-res
+  // PNGs shrunk to a small on-screen width, so the <img> renders with SMOOTH
+  // downscaling (imageRendering:auto): nearest-neighbour ("pixelated") only
+  // aliased them and made the breathing scale crawl a hard seam line up and
+  // down the sprite. Smooth resampling keeps the breath clean on every skin.
   return (
     <div style={{
       width,
+      transformOrigin: 'bottom center',
       backfaceVisibility: 'hidden',
       willChange: breathe ? 'transform' : undefined,
       animation: breathe ? `erenBreathe ${breatheDur}s ease-in-out infinite` : undefined,
@@ -49,7 +49,7 @@ export default function PoseSprite({ src, width, breathe = true, breatheDur = 5,
           // Tailwind's preflight sets `img { max-width: 100% }`; opt out so the
           // sprite is never capped below its intended width.
           maxWidth: 'none',
-          imageRendering: 'pixelated',
+          imageRendering: 'auto',
           backfaceVisibility: 'hidden',
           filter: isDark ? 'brightness(0.7) saturate(0.85)' : undefined,
         }} />
