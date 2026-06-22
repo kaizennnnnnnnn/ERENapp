@@ -12,6 +12,7 @@ export const TASK_DEFS: TaskDef[] = [
   { id: 'daily_nudge', period: 'daily', title: 'Send a Nudge',        desc: 'Send your partner an Eren nudge',       icon: '💌', coins: 10, xp: 15 },
   { id: 'daily_chem_lesson', period: 'daily', title: 'Finish a Lesson',  desc: 'Complete a chemistry deck, quiz, or match',  icon: '🧪', coins: 10, xp: 15 },
   { id: 'daily_chem_streak', period: 'daily', title: '5 in a Row',       desc: 'Get 5 correct in a row in chemistry',        icon: '🔥', coins: 15, xp: 20 },
+  { id: 'daily_serbian',     period: 'daily', title: 'Serbian Lesson',   desc: 'Finish a lesson in the Serbian notebook',    icon: '📖', coins: 50, xp: 20 },
   // ── Weekly ─────────────────────────────────────────────────────────────────
   { id: 'weekly_all_care',   period: 'weekly', title: 'Full Care Week',   desc: 'Do all 4 care types this week',         icon: '⭐', coins: 60, xp: 100, maxProgress: 4 },
   { id: 'weekly_all_games',  period: 'weekly', title: 'Game Master',      desc: 'Play 3 game sessions this week',        icon: '🏆', coins: 50, xp: 80,  maxProgress: 3 },

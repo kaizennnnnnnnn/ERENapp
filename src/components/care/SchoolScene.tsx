@@ -337,7 +337,8 @@ export default function SchoolScene({ onClose }: Props) {
       saveProgress(next)
       setStreakIncreased(increased)
       addCoins(perfect ? 12 : 6)
-      completeTask('daily_play')
+      // Finishing a real lesson (not a practice run) clears today's Serbian quest.
+      completeTask('daily_serbian')
     } else {
       setLastXp(5)
       const { next, increased } = bumpStreak({ ...progress, totalXp: progress.totalXp + 5 })
