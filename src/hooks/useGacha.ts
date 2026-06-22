@@ -6,8 +6,17 @@ import { withRetry } from '@/lib/supabaseRetry'
 import { onForeground } from '@/lib/onForeground'
 import { useAuth } from './useAuth'
 import { useTasks } from '@/contexts/TaskContext'
-import type { UserGachaState, GachaPullResult } from '@/types'
+import type { UserGachaState, GachaPullResult, GachaRarity } from '@/types'
 import { rollRarity, rollItem, DUPLICATE_STARDUST, PULL_COST_SINGLE, PULL_COST_TEN, getItemById } from '@/lib/gacha'
+import { skinItemId } from '@/lib/skins'
+
+export interface SkinPurchaseResult {
+  ok: boolean
+  /** 'insufficient' | 'already_owned' | 'no_state' | 'error' | 'not_ready' | ... */
+  reason?: string
+  /** New stardust balance after the purchase (present on the server paths). */
+  stardust?: number
+}
 
 // Resolve a pulled item into the inventory: insert the first copy, bump the
 // quantity on a duplicate. The owned-row read must distinguish "request
@@ -215,8 +224,28 @@ export function useGacha() {
     return results
   }, [user?.id, state, pulling, coins, spendCoins]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Buy a skin outright with stardust ──
+  // Atomic on the server (deduct dust + grant the skin in one transaction; see
+  // supabase/migration_skin_stardust_shop.sql). We sync the returned balance into
+  // local state so the closet header updates without a refetch. Ownership lands
+  // in user_inventory — the caller refetches the closet's owned set to unlock it.
+  const purchaseSkin = useCallback(async (skinId: string, rarity: GachaRarity): Promise<SkinPurchaseResult> => {
+    if (!user?.id) return { ok: false, reason: 'not_ready' }
+    // Price is derived server-side from rarity — the client never sends the cost.
+    const { data, error } = await supabase.rpc('purchase_skin_with_stardust', {
+      p_item_id: skinItemId(skinId),
+      p_rarity: rarity,
+    })
+    if (error) return { ok: false, reason: 'error' }
+    const res = (data ?? { ok: false, reason: 'error' }) as SkinPurchaseResult
+    if (typeof res.stardust === 'number') {
+      setState(prev => (prev ? { ...prev, stardust: res.stardust! } : prev))
+    }
+    return res
+  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
   return {
-    state, pulling, pullSingle, pullTen, coins,
+    state, pulling, pullSingle, pullTen, purchaseSkin, coins,
     stardust: state?.stardust ?? 0,
     pityEpic: state ? state.pulls_since_epic : 0,
     pityLegendary: state ? state.pulls_since_legendary : 0,

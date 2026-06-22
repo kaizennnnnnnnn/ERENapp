@@ -80,6 +80,15 @@ export const skinItemId = (skinId: string) => `${SKIN_ITEM_PREFIX}${skinId}`
 export const itemIdToSkinId = (itemId: string) =>
   itemId.startsWith(SKIN_ITEM_PREFIX) ? itemId.slice(SKIN_ITEM_PREFIX.length) : null
 
+// ─── Stardust shop ─────────────────────────────────────────────────────────
+// Buy a skin outright with stardust (the gacha duplicate currency) instead of
+// pulling for it. There are no common gacha skins, so rare/epic/legendary covers
+// all 21. Kept here so the closet UI and the purchase RPC reason about one map.
+export const SKIN_STARDUST_PRICE: Record<GachaRarity, number> = {
+  common: 50, rare: 100, epic: 150, legendary: 200,
+}
+export const skinPrice = (rarity: GachaRarity): number => SKIN_STARDUST_PRICE[rarity]
+
 const RARITY_BLURB: Record<GachaRarity, string> = {
   common: 'A cosy everyday look.',
   rare: 'A rare costume look — wear it in any room from the Closet.',

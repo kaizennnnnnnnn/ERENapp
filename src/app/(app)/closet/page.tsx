@@ -8,14 +8,16 @@ import { ChevronLeft } from 'lucide-react'
 import { useCare } from '@/contexts/CareContext'
 import { useCloset } from '@/hooks/useCloset'
 import { useAuth } from '@/hooks/useAuth'
+import { useGacha } from '@/hooks/useGacha'
 import { markSkinsSeen } from '@/hooks/useNewSkins'
 import {
   SKINNABLE_ROOMS, GACHA_SKINS, CLASSIC_SKIN, getSkin, resolveRoomSkin, skinRoomFit,
-  type SkinDef,
+  skinPrice, type SkinDef,
 } from '@/lib/skins'
 import { RARITY_COLORS } from '@/lib/gacha'
 import BlinkingEren from '@/components/BlinkingEren'
-import { IconLock, IconDress } from '@/components/PixelIcons'
+import { IconLock, IconDress, IconSparkles } from '@/components/PixelIcons'
+import SkinPurchaseSheet from '@/components/closet/SkinPurchaseSheet'
 import { playSound } from '@/lib/sounds'
 
 // Cards shown for the active room: Default (revert) + Classic + the 21 gacha
@@ -26,9 +28,13 @@ export default function ClosetPage() {
   const router = useRouter()
   const { setHideStats } = useCare()
   const { user } = useAuth()
-  const { owned, roomSkins, assign, loading, loaded } = useCloset()
+  const { owned, roomSkins, assign, loading, loaded, refetch } = useCloset()
+  const { stardust, purchaseSkin } = useGacha()
   const [activeRoom, setActiveRoom] = useState(SKINNABLE_ROOMS[0].id)
   const [toast, setToast] = useState<string | null>(null)
+  // Skin awaiting purchase confirmation in the stardust shop sheet.
+  const [buying, setBuying] = useState<SkinDef | null>(null)
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => { setHideStats(true); return () => setHideStats(false) }, [setHideStats])
 
@@ -50,13 +56,35 @@ export default function ClosetPage() {
   }
 
   function pick(entry: CardEntry) {
-    if (entry.locked) {
-      playSound('ui_tap')
-      showToast('Win this look from the Clothing gacha')
+    if (entry.locked && entry.skin) {
+      // Locked → offer to buy it with stardust instead of only pointing at gacha.
+      playSound('ui_modal_open')
+      setBuying(entry.skin)
       return
     }
     playSound('ui_select')
     assign(activeRoom, entry.isDefault ? null : entry.key)
+  }
+
+  async function confirmBuy() {
+    if (!buying || busy) return
+    setBusy(true)
+    const res = await purchaseSkin(buying.id, buying.rarity)
+    setBusy(false)
+    if (res.ok) {
+      playSound('level_up')
+      const name = buying.name
+      setBuying(null)
+      await refetch()          // unlock the card (owned set now includes it)
+      showToast(`Unlocked ${name}!`)
+    } else if (res.reason === 'insufficient') {
+      showToast('Not enough stardust')
+    } else if (res.reason === 'already_owned') {
+      setBuying(null)
+      await refetch()
+    } else {
+      showToast('Could not unlock — try again')
+    }
   }
 
   const cards: CardEntry[] = [
@@ -87,6 +115,14 @@ export default function ClosetPage() {
           <span className="pixel-chip inline-flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, #7C3AED, #A78BFA)' }}>
             <IconDress size={12} /> CLOSET
           </span>
+          <div className="flex-1" />
+          {/* Stardust balance — what you can spend in the shop */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5" style={{
+            background: '#1B1233', borderRadius: 6, border: '2px solid #4C1D95', boxShadow: '0 2px 0 #2E1065',
+          }}>
+            <IconSparkles size={13} />
+            <span className="font-pixel" style={{ fontSize: 8, color: '#C4B5FD', textShadow: '0 0 3px rgba(167,139,250,0.5)' }}>{stardust}</span>
+          </div>
         </div>
 
         {/* Room pills */}
@@ -183,6 +219,14 @@ export default function ClosetPage() {
                       <IconLock size={16} />
                     </div>
                   )}
+                  {/* Stardust price — tap a locked skin to buy it */}
+                  {e.locked && e.skin && (
+                    <div className="absolute -top-1.5 -right-1.5 flex items-center gap-0.5 px-1 py-0.5"
+                      style={{ background: '#1B1233', border: '1.5px solid #4C1D95', borderRadius: 5, boxShadow: '0 1px 0 #2E1065' }}>
+                      <IconSparkles size={8} />
+                      <span className="font-pixel" style={{ fontSize: 5, color: '#C4B5FD' }}>{skinPrice(e.skin.rarity)}</span>
+                    </div>
+                  )}
                   {sel && (
                     <div className="absolute -top-1.5 -right-1.5 flex items-center justify-center"
                       style={{ width: 16, height: 16, background: '#22C55E', borderRadius: '50%', border: '2px solid #0B0717' }}>
@@ -195,6 +239,18 @@ export default function ClosetPage() {
           </div>
         )}
       </div>
+
+      {/* Stardust purchase sheet */}
+      {buying && (
+        <SkinPurchaseSheet
+          skin={buying}
+          price={skinPrice(buying.rarity)}
+          balance={stardust}
+          busy={busy}
+          onBuy={confirmBuy}
+          onClose={() => { if (!busy) setBuying(null) }}
+        />
+      )}
 
       {/* Toast */}
       {toast && (
