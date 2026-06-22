@@ -2,56 +2,50 @@
 
 // ═══════════════════════════════════════════════════════════════════════════
 // "WE CARED" — the co-op goal strip. Rendered IN-FLOW inside the home HUD
-// overlay, directly under the nav-button row. (It used to be a floating fixed
-// bar, which fought the StatsHeader / scene / bezel z-layers and landed in the
-// middle of the screen.) ONE shared meter both partners fill together toward a
-// weekly target; gold "together" trim sets it apart from the pink/purple
-// rivalry bars. Hidden once claimed / for solo households. Claim is CAS-guarded
-// in useCouple → coopGoal/claimCoopGoal.
+// overlay, directly under the nav-button row. Tap it to open CoopGoalSheet
+// with the full details (progress, each partner's share, reward, time left,
+// what counts) and the CLAIM button. ONE shared meter both partners fill
+// together toward a weekly target; gold "together" trim sets it apart from the
+// pink/purple rivalry bars. Hidden once claimed / for solo households.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useState } from 'react'
 import { useCouple } from '@/hooks/useCouple'
 import { playSound } from '@/lib/sounds'
 import { IconHeartDuo, IconCoin } from '@/components/PixelIcons'
+import CoopGoalSheet from './CoopGoalSheet'
 
 const GOLD    = '#FBBF24'
 const GOLD_HI = '#FDE68A'
 const GOLD_LO = '#B45309'
 
 export default function CoopGoalBar() {
-  const { coopGoal, claimCoopGoal, partner, loading } = useCouple()
-  const [claiming, setClaiming] = useState(false)
+  const { coopGoal, partner, loading } = useCouple()
+  const [open, setOpen] = useState(false)
 
   // Solo household / still loading → nothing. Once claimed this week, hide it
   // so home stays clean until next Monday's reset.
   if (loading || !partner) return null
-  const { combined, target, reward, goalMet, claimed, loaded } = coopGoal
+  const { combined, target, goalMet, claimed, loaded } = coopGoal
   if (claimed) return null
 
   const pct = Math.min(100, Math.round((combined / target) * 100))
-  // Only offer the claim once the coop-row read has settled (loaded), so we
-  // never flash CLAIM at someone who already pocketed it this week.
-  const showClaim = goalMet && loaded && !claimed
-
-  async function handleClaim() {
-    if (claiming) return
-    setClaiming(true)
-    playSound('level_up')
-    await claimCoopGoal()
-    setClaiming(false)
-  }
+  // Reward ready to claim — pulse the strip + show the CLAIM cue.
+  const ready = goalMet && loaded && !claimed
 
   return (
-    <div style={{ marginTop: 6, pointerEvents: showClaim ? 'auto' : 'none' }}>
-      <div className="flex items-center gap-2" style={{
-        padding: '4px 8px',
-        background: 'linear-gradient(180deg, rgba(26,21,16,0.94) 0%, rgba(7,6,10,0.94) 100%)',
-        border: `1.5px solid ${GOLD}66`,
-        borderRadius: 7,
-        boxShadow: `0 3px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05), 0 0 14px ${GOLD}22`,
-        ...(showClaim ? { animation: 'coopStripPulse 1.3s ease-in-out infinite' } : {}),
-      }}>
+    <div style={{ marginTop: 6 }}>
+      <button
+        onClick={() => { playSound('ui_modal_open'); setOpen(true) }}
+        className="w-full flex items-center gap-2 active:translate-y-[1px] transition-transform"
+        style={{
+          padding: '4px 8px',
+          background: 'linear-gradient(180deg, rgba(26,21,16,0.94) 0%, rgba(7,6,10,0.94) 100%)',
+          border: `1.5px solid ${GOLD}66`,
+          borderRadius: 7,
+          boxShadow: `0 3px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05), 0 0 14px ${GOLD}22`,
+          ...(ready ? { animation: 'coopStripPulse 1.3s ease-in-out infinite' } : {}),
+        }}>
         <IconHeartDuo size={12} />
         <span className="font-pixel" style={{
           fontSize: 6, letterSpacing: 1, color: GOLD_HI, whiteSpace: 'nowrap',
@@ -75,30 +69,22 @@ export default function CoopGoalBar() {
           }} />
         </div>
 
-        {showClaim ? (
-          <button
-            onClick={handleClaim}
-            disabled={claiming}
-            className="flex items-center gap-1 px-2 py-0.5 active:translate-y-[1px] transition-transform"
-            style={{
-              background: `linear-gradient(180deg, ${GOLD_HI} 0%, ${GOLD} 55%, ${GOLD_LO} 100%)`,
-              border: '1px solid #7a4a08',
-              borderRadius: 5,
-              boxShadow: `0 1px 0 #5e3906, 0 0 10px ${GOLD}88`,
-              whiteSpace: 'nowrap',
-            }}>
-            <IconCoin size={10} />
-            <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 0.5, color: '#3a2400' }}>
-              +{reward}
-            </span>
-          </button>
+        {ready ? (
+          <span className="font-pixel inline-flex items-center gap-1" style={{
+            fontSize: 7, color: GOLD_HI, whiteSpace: 'nowrap', letterSpacing: 0.5,
+            textShadow: `0 0 6px ${GOLD}77`,
+          }}>
+            <IconCoin size={9} />CLAIM
+          </span>
         ) : (
           <span className="font-pixel" style={{
             fontSize: 7, color: GOLD_HI, whiteSpace: 'nowrap', letterSpacing: 0.5,
             textShadow: '0 1px 2px rgba(0,0,0,0.8)',
           }}>{combined}/{target}</span>
         )}
-      </div>
+      </button>
+
+      {open && <CoopGoalSheet onClose={() => setOpen(false)} />}
 
       <style>{`
         @keyframes coopStripGlow {

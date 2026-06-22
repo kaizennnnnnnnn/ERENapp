@@ -16,7 +16,7 @@ import {
   type LifetimeWLT, type WeeklyBattleRow,
 } from '@/lib/battleResults'
 import {
-  countCoopActions, claimCoopReward, thisIsoWeekKey,
+  countCoopByUser, claimCoopReward, thisIsoWeekKey,
   COOP_WEEKLY_TARGET, COOP_REWARD_COINS,
   type CoopGoalRow, type CoopGoalState,
 } from '@/lib/coopGoal'
@@ -49,6 +49,8 @@ function useCoupleImpl() {
   // "We Cared" co-op goal — combined useful care actions this week (derived
   // from the same interactions the love meter reads) + my claim row for the week.
   const [coopCombined, setCoopCombined] = useState(0)
+  const [coopMine, setCoopMine] = useState(0)
+  const [coopPartner, setCoopPartner] = useState(0)
   const [coopRow, setCoopRow] = useState<CoopGoalRow | null>(null)
   // True once my coop-row has been successfully read this session. coopRow null
   // is ambiguous (never-claimed OR read-failed/not-yet-loaded), so consumers
@@ -187,8 +189,12 @@ function useCoupleImpl() {
         p.id, p.name,
       ))
       // "We Cared" co-op progress — both partners' useful care actions this
-      // week, summed (no extra read: same interactions the love meter uses).
-      setCoopCombined(countCoopActions(interactions as Interaction[]))
+      // week (no extra read: same interactions the love meter uses). Split by
+      // partner too, for the detail sheet's breakdown.
+      const coop = countCoopByUser(interactions as Interaction[], user.id, p.id)
+      setCoopMine(coop.mine)
+      setCoopPartner(coop.partner)
+      setCoopCombined(coop.combined)
     }
 
     // Lifetime W-L-T: backfill any missing daily snapshots in the lookback
@@ -465,6 +471,8 @@ function useCoupleImpl() {
 
   const coopGoal: CoopGoalState = {
     combined: coopCombined,
+    mine: coopMine,
+    partner: coopPartner,
     target: COOP_WEEKLY_TARGET,
     reward: COOP_REWARD_COINS,
     goalMet: coopCombined >= COOP_WEEKLY_TARGET,

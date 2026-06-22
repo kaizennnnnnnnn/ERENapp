@@ -42,6 +42,10 @@ export interface CoopGoalRow {
 /** What the UI needs: combined progress + whether it's met / already claimed. */
 export interface CoopGoalState {
   combined: number
+  /** My useful care actions this week (for the detail sheet's breakdown). */
+  mine: number
+  /** Partner's useful care actions this week. */
+  partner: number
   target: number
   reward: number
   goalMet: boolean
@@ -60,6 +64,23 @@ export function countCoopActions(interactions: Interaction[]): number {
     if (COOP_CARE_ACTIONS.has(i.action_type)) n++
   }
   return n
+}
+
+/** Split the useful care actions by partner — for the detail breakdown. */
+export function countCoopByUser(
+  interactions: Interaction[],
+  myId: string,
+  partnerId: string,
+): { mine: number; partner: number; combined: number } {
+  let mine = 0
+  let partner = 0
+  for (const i of interactions) {
+    if (i.useful === false) continue
+    if (!COOP_CARE_ACTIONS.has(i.action_type)) continue
+    if (i.user_id === myId) mine++
+    else if (i.user_id === partnerId) partner++
+  }
+  return { mine, partner, combined: mine + partner }
 }
 
 /** ISO-week key of the current week — the row key for this week's goal. */
