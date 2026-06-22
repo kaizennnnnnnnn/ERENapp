@@ -116,6 +116,11 @@ interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   // asleep poses draw shut eyes. Bedroom tuck-in only; the vet grimace keeps
   // the plain lid. No effect unless lidsClosed is also true.
   sleepyLids?: boolean
+  // Use the simple recolorable lid BAR for the blink instead of the realistic
+  // eye-shaped lid. Only for a sprite whose eye sits behind a tinted lens (the
+  // chemistry goggles), where a fur-toned closed eye reads wrong. Default false
+  // → the realistic eye-shaped blink (matching the sleep/vet closed eye).
+  plainLid?: boolean
   // Breathing period in seconds. Default 4; sleep slows it to ~6.5 so the
   // tucked-in cat breathes visibly slower.
   breatheDur?: number
@@ -140,6 +145,7 @@ export default function BlinkingEren({
   headAnimation,
   lidsClosed = false,
   sleepyLids = false,
+  plainLid = false,
   breatheDur = 4,
   ...imgProps
 }: Props) {
@@ -226,13 +232,17 @@ export default function BlinkingEren({
   // curled asleep poses paint shut eyes. Narrower than `closedEye` so it
   // doesn't spill onto the white forehead blaze between the eyes.
   const SLEEPY_W = eyes.sleepyLidW ?? 1.18, SLEEPY_H = eyes.sleepyLidH ?? 1.06
-  const sleepyClosedEye = (left: string) => (
+  const sleepyClosedEye = (left: string, animated = false) => (
     <div style={{
       position: 'absolute',
       left:   `calc(${left} - ${eyes.maskW} * ${(SLEEPY_W - 1) / 2})`,
       top:    `calc(${eyes.maskTop} - ${eyes.maskH} * ${(SLEEPY_H - 1) / 2})`,
       width:  `calc(${eyes.maskW} * ${SLEEPY_W})`,
       height: `calc(${eyes.maskH} * ${SLEEPY_H})`,
+      // Everyday blink: roll the lid down from the top (scaleY) on the erenBlink
+      // beat. Held shut (sleep/vet) leaves it fully drawn (animated = false).
+      transformOrigin: 'center top',
+      ...(animated ? { transform: 'scaleY(0)', animation: 'erenBlink 6s infinite' } : {}),
       pointerEvents: 'none',
     }}>
       <div style={{ position: 'absolute', inset: 0, borderRadius: '50% 50% 48% 48%',
@@ -274,11 +284,20 @@ export default function BlinkingEren({
             <div style={closedEye(eyes.maskLeftB)} />
           </>
         )
-      ) : (
-        // Blink lids — same start time, no stagger. Cats blink both together.
+      ) : plainLid ? (
+        // Recolorable bar — for an eye behind a tinted lens (chemistry goggles),
+        // where a fur-toned closed eye reads wrong. Both blink together.
         <>
           <div style={{ ...lid, left: eyes.lidLeftA, top: eyes.lidTop, animation: 'erenBlink 6s infinite' }} />
           <div style={{ ...lid, left: eyes.lidLeftB, top: eyes.lidTop, animation: 'erenBlink 6s infinite' }} />
+        </>
+      ) : (
+        // Everyday blink — the SAME realistic eye-shaped lid the sleep/vet poses
+        // use when held shut, here rolled down on the erenBlink beat. Centered on
+        // each sprite's measured iris mask, so it tracks every skin's eyes.
+        <>
+          {sleepyClosedEye(eyes.maskLeftA, true)}
+          {sleepyClosedEye(eyes.maskLeftB, true)}
         </>
       )}
     </>

@@ -56,6 +56,9 @@ const LAB_GLINT =
 const CHEM_EREN_FALLBACK = {
   src: '/ErenLab_notail.png', tailSrc: '/ErenLab_tail.png', tailOrigin: '69.2% 72.7%',
   eyes: LAB_EYES, lidColor: LAB_LID_COLOR, glintBackground: LAB_GLINT,
+  // Eye sits behind the tinted goggle lens — keep the recolorable lid bar, not
+  // the realistic fur-toned closed eye (which would look wrong through glass).
+  plainLid: true,
 }
 
 export default function ChemistryScene(_props: Props) {

@@ -15,6 +15,9 @@ export interface ErenSpriteProps {
   // gray-lid / white-glint defaults.
   lidColor?: string
   glintBackground?: string
+  // Chemistry passes this so its goggle-lens blink stays the recolorable bar
+  // instead of the realistic fur-toned eye. Skins omit it → realistic blink.
+  plainLid?: boolean
   // Set ONLY for an active skin: the per-room box size + vertical lift that
   // make the tightly-trimmed skin match the room default's cat size/feet. The
   // fallback (default look) leaves these undefined so the room's own size prop
