@@ -10,6 +10,7 @@ import { useInventory } from '@/hooks/useInventory'
 import { useCare } from '@/contexts/CareContext'
 import { PULL_COST_SINGLE, PULL_COST_TEN, PITY_EPIC, PITY_LEGENDARY } from '@/lib/gacha'
 import type { GachaPullResult } from '@/types'
+import { highestRarity, pickClothesHitVideo } from '@/lib/gachaVideos'
 import PullAnimation from '@/components/gacha/PullAnimation'
 import GachaPullButton from '@/components/gacha/GachaPullButton'
 import { IconCoin, IconSparkles, IconTicket, IconBook } from '@/components/PixelIcons'
@@ -42,8 +43,10 @@ export default function GachaPage() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [pageIdx, setPageIdx] = useState(0)
   const [pullResults, setPullResults] = useState<GachaPullResult[] | null>(null)
-  const [opening, setOpening] = useState(false) // rainbow video before food reveals
-  const pulledFood = useRef(false) // food pulls skip the capsule — the video IS the opening
+  // The opening cinematic for the current pull: the rainbow video for food, a
+  // rarity-tiered hit video for clothes. null = no video playing.
+  const [openingVideo, setOpeningVideo] = useState<string | null>(null)
+  const openedWithVideo = useRef(false) // a video opened this pull → skip the capsule
   const touchedDeck = useRef(false) // gate swipe SFX to real gestures (see onScroll)
 
   // Scroll-driven swap effect: the off-center machine recedes (scale), dims,
@@ -109,21 +112,37 @@ export default function GachaPage() {
   }
 
   async function handlePull(count: 1 | 10) {
-    if (pulling || opening || pullResults) return
+    if (pulling || openingVideo || pullResults) return
     const bannerId = PAGES[pageIdx].id
-    pulledFood.current = bannerId === 'food'
     playSound('ui_tap')
+    openedWithVideo.current = false
+
+    // Food's rainbow opening is generic, so it plays DURING the roll to mask
+    // the latency. Clothes' opening is rarity-tiered, so it can only be chosen
+    // after the roll resolves (below).
     if (bannerId === 'food') {
       playSound('gift_open')
-      setOpening(true)
+      openedWithVideo.current = true
+      setOpeningVideo('/rainbow_opening.mp4')
     }
+
     const results = count === 1
       ? await pullSingle(bannerId).then(r => (r ? [r] : null))
       : await pullTen(bannerId)
     if (!results) {
-      setOpening(false)
+      setOpeningVideo(null)
       return
     }
+
+    if (bannerId !== 'food') {
+      // Clothes: open with the hit cinematic for the best drop in the batch.
+      const vid = pickClothesHitVideo(highestRarity(results.map(r => r.item.rarity)))
+      if (vid) {
+        openedWithVideo.current = true
+        setOpeningVideo(vid)
+      }
+    }
+
     setPullResults(results)
   }
 
@@ -262,20 +281,20 @@ export default function GachaPage() {
         </div>
       </div>
 
-      {/* ── Rainbow opening (food pulls) ── */}
-      {opening && (
+      {/* ── Opening cinematic (rainbow for food, rarity hit for clothes) ── */}
+      {openingVideo && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center" style={{ background: '#000' }}
-          onClick={() => setOpening(false)}>
-          <video src="/rainbow_opening.mp4" autoPlay muted playsInline
+          onClick={() => setOpeningVideo(null)}>
+          <video key={openingVideo} src={openingVideo} autoPlay muted playsInline
             className="h-full w-full object-cover"
-            onEnded={() => setOpening(false)}
-            onError={() => setOpening(false)} />
+            onEnded={() => setOpeningVideo(null)}
+            onError={() => setOpeningVideo(null)} />
           <span className="absolute font-pixel" style={{ fontSize: 6, color: 'rgba(255,255,255,0.45)', bottom: 'calc(var(--safe-bottom) + 18px)' }}>TAP TO SKIP</span>
         </div>
       )}
 
       {/* ── Reveal ── */}
-      {pullResults && !opening && <PullAnimation results={pullResults} onDone={handlePullDone} skipCapsule={pulledFood.current} />}
+      {pullResults && !openingVideo && <PullAnimation results={pullResults} onDone={handlePullDone} skipCapsule={openedWithVideo.current} />}
     </div>
   )
 }
