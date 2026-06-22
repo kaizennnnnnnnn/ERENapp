@@ -45,8 +45,9 @@ export default function CoopGoalBar() {
   return (
     <div style={{
       position: 'fixed',
-      // Tuned to sit just under the StatsHeader (safe-area + header height).
-      top: 'calc(var(--safe-top, 0px) + 70px)',
+      // Clear of the StatsHeader (z-60, ~safe-top+96px tall: two rows + pads).
+      // At 70px the strip tucked BEHIND the header and was invisible.
+      top: 'calc(var(--safe-top, 0px) + 104px)',
       left: '50%',
       transform: 'translateX(-50%)',
       width: 'min(92vw, 340px)',
