@@ -282,7 +282,7 @@
   {
     "id": "chick",
     "name": "Lil Chick Eren",
-    "rarity": "rare",
+    "rarity": "legendary",
     "width": 647,
     "height": 1007,
     "aspect": 0.643,
@@ -310,7 +310,7 @@
   {
     "id": "frog",
     "name": "Frog Eren",
-    "rarity": "rare",
+    "rarity": "legendary",
     "width": 648,
     "height": 987,
     "aspect": 0.657,
