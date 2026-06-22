@@ -17,7 +17,10 @@ import { IconHeartDuo, IconCoin } from '@/components/PixelIcons'
 const GOLD    = '#FBBF24'
 const GOLD_HI = '#FDE68A'
 const GOLD_LO = '#B45309'
-const Z_STRIP = 30 // above the home room scene (z-0), below StatsHeader (z-60) + modals
+// Must clear the full-screen layers the layout stacks over the home scene:
+// CareSceneHost backdrop/scene (z-40) and AppFrame bezel (z-50). Sits in the
+// gap just under the StatsHeader (z-60); modals (z-80) still cover it.
+const Z_STRIP = 55
 
 export default function CoopGoalBar() {
   const { coopGoal, claimCoopGoal, partner, loading } = useCouple()
@@ -45,9 +48,9 @@ export default function CoopGoalBar() {
   return (
     <div style={{
       position: 'fixed',
-      // Clear of the StatsHeader (z-60, ~safe-top+96px tall: two rows + pads).
-      // At 70px the strip tucked BEHIND the header and was invisible.
-      top: 'calc(var(--safe-top, 0px) + 104px)',
+      // Clear of the StatsHeader (z-60, ~safe-top+96px tall: two rows + pads),
+      // with margin so a slightly taller header can't overlap it.
+      top: 'calc(var(--safe-top, 0px) + 110px)',
       left: '50%',
       transform: 'translateX(-50%)',
       width: 'min(92vw, 340px)',
