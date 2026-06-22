@@ -14,6 +14,12 @@ export function useInventory() {
   const { user, profile } = useAuth()
   const [inventory, setInventory] = useState<UserInventoryItem[]>([])
   const [loading, setLoading] = useState(true)
+  // Flips true after the FIRST successful fetch (stays true thereafter). Lets
+  // callers tell "loaded, owns nothing" apart from "fetch 503'd, empty by
+  // default" — `loading` goes false in both cases. The new-skin badge seeds
+  // its baseline only once this is true so a transient outage can't make the
+  // whole collection look brand-new.
+  const [loaded, setLoaded] = useState(false)
 
   // True when the last fetch hit a Supabase outage that outlasted
   // withRetry's backoff — the focus listener below uses it to refetch.
@@ -34,6 +40,7 @@ export function useInventory() {
     }
     loadFailedRef.current = false
     if (data) setInventory(data)
+    setLoaded(true)
     setLoading(false)
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -139,5 +146,5 @@ export function useInventory() {
   const totalItems = GACHA_ITEMS.length
   const collectionPct = Math.round((ownedCount / totalItems) * 100)
 
-  return { inventory, loading, ownsItem, getQuantity, getEquipped, equipItem, unequipItem, useItem, collectionPct, ownedCount, totalItems, refetch: fetchInventory }
+  return { inventory, loading, loaded, ownsItem, getQuantity, getEquipped, equipItem, unequipItem, useItem, collectionPct, ownedCount, totalItems, refetch: fetchInventory }
 }

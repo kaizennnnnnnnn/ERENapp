@@ -50,6 +50,10 @@ function useCoupleImpl() {
   // from the same interactions the love meter reads) + my claim row for the week.
   const [coopCombined, setCoopCombined] = useState(0)
   const [coopRow, setCoopRow] = useState<CoopGoalRow | null>(null)
+  // True once my coop-row has been successfully read this session. coopRow null
+  // is ambiguous (never-claimed OR read-failed/not-yet-loaded), so consumers
+  // that surface an "unclaimed reward" cue must wait for this before trusting it.
+  const [coopRowLoaded, setCoopRowLoaded] = useState(false)
   const [loading, setLoading] = useState(true)
   // Per-instance channel name. useCouple is currently instantiated by
   // 5+ components on the home screen (page, ThoughtCloud, JealousEren,
@@ -207,7 +211,7 @@ function useCoupleImpl() {
     if (p) {
       const { data: coopData, error: coopError } = await coopRowP!
       if (coopError) loadFailedRef.current = true
-      else setCoopRow((coopData as CoopGoalRow | null) ?? null)
+      else { setCoopRow((coopData as CoopGoalRow | null) ?? null); setCoopRowLoaded(true) }
     }
 
     // Journal messages.
@@ -455,6 +459,7 @@ function useCoupleImpl() {
       payout_coins: COOP_REWARD_COINS,
       payout_paid: true,
     })
+    setCoopRowLoaded(true)
     return coins > 0
   }, [user?.id, profile?.household_id, coopCombined, coopRow]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -464,6 +469,7 @@ function useCoupleImpl() {
     reward: COOP_REWARD_COINS,
     goalMet: coopCombined >= COOP_WEEKLY_TARGET,
     claimed: !!coopRow?.payout_paid,
+    loaded: coopRowLoaded,
   }
 
   return {

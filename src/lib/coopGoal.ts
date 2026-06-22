@@ -21,10 +21,12 @@ import { isoWeekKey } from '@/lib/battleResults'
 /** Care actions that count toward the shared goal — same set the daily battle scores. */
 const COOP_CARE_ACTIONS = new Set(['feed', 'play', 'sleep', 'wash', 'medicine'])
 
-/** Combined useful care actions both partners must reach this week. Tunable. */
-export const COOP_WEEKLY_TARGET = 50
+/** Combined useful care actions both partners must reach this week. Tunable.
+ *  Sized to take MOST of an active week (not 1-2 days) so the weekly reset
+ *  means something — the bar should climb all week, not cap out Tuesday. */
+export const COOP_WEEKLY_TARGET = 150
 /** Coins EACH partner claims when the goal is met (paid once per user per week). */
-export const COOP_REWARD_COINS = 50
+export const COOP_REWARD_COINS = 75
 
 export interface CoopGoalRow {
   household_id: string
@@ -44,6 +46,10 @@ export interface CoopGoalState {
   reward: number
   goalMet: boolean
   claimed: boolean
+  /** True once my coop-row has been successfully read — `claimed` is only
+   *  trustworthy when this is true (the row read is separate from the progress
+   *  read, so they settle in different commits and can fail independently). */
+  loaded: boolean
 }
 
 /** Count both partners' useful care actions in an interaction list. */

@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import { useCare } from '@/contexts/CareContext'
 import { useCloset } from '@/hooks/useCloset'
+import { useAuth } from '@/hooks/useAuth'
+import { markSkinsSeen } from '@/hooks/useNewSkins'
 import {
   SKINNABLE_ROOMS, GACHA_SKINS, CLASSIC_SKIN, getSkin, resolveRoomSkin, skinRoomFit,
   type SkinDef,
@@ -23,11 +25,20 @@ type CardEntry = { key: string; skin: SkinDef | null; locked: boolean; isDefault
 export default function ClosetPage() {
   const router = useRouter()
   const { setHideStats } = useCare()
-  const { owned, roomSkins, assign, loading } = useCloset()
+  const { user } = useAuth()
+  const { owned, roomSkins, assign, loading, loaded } = useCloset()
   const [activeRoom, setActiveRoom] = useState(SKINNABLE_ROOMS[0].id)
   const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => { setHideStats(true); return () => setHideStats(false) }, [setHideStats])
+
+  // Opening the Closet IS "checking out" the new looks — clear the home badge.
+  // Mark the household-union set the grid actually shows, gated on a SUCCESSFUL
+  // owned-load so a transient 503 (empty owned) can't blank the seen-set and make
+  // the whole collection look new again.
+  useEffect(() => {
+    if (loaded && user?.id) markSkinsSeen(user.id, Array.from(owned))
+  }, [loaded, user?.id, owned])
 
   const room = SKINNABLE_ROOMS.find(r => r.id === activeRoom)!
   const assignedId = roomSkins[activeRoom] // undefined = default

@@ -27,6 +27,11 @@ export function useCloset() {
 
   const [owned, setOwned] = useState<Set<string>>(new Set())
   const [ownedLoading, setOwnedLoading] = useState(true)
+  // Flips true after the FIRST successful owned fetch (stays true thereafter).
+  // Distinguishes "loaded, owns nothing" from "fetch 503'd, empty by default" —
+  // the new-skin badge marks seen only once this is true so an outage can't blank
+  // the seen-set.
+  const [ownedLoaded, setOwnedLoaded] = useState(false)
   const [pending, setPending] = useState<Record<string, string | null>>({})
   const failedRef = useRef(false)
 
@@ -68,6 +73,7 @@ export function useCloset() {
     }
     failedRef.current = false
     setOwned(set)
+    setOwnedLoaded(true)
     setOwnedLoading(false)
   }, [hh]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -86,5 +92,5 @@ export function useCloset() {
     await supabase.from('eren_stats').update({ room_skins: next }).eq('household_id', hh)
   }, [hh, roomSkins]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { owned, roomSkins, assign, loading: ownedLoading || !stats, refetch: loadOwned }
+  return { owned, roomSkins, assign, loading: ownedLoading || !stats, loaded: ownedLoaded, refetch: loadOwned }
 }

@@ -33,6 +33,7 @@ import { subscribeToPush } from '@/lib/pushSubscription'
 import { useCouple } from '@/hooks/useCouple'
 import { useFortune } from '@/hooks/useFortune'
 import { useInventory } from '@/hooks/useInventory'
+import { useNewSkins } from '@/hooks/useNewSkins'
 import { GACHA_ITEMS } from '@/lib/gacha'
 import { DockContent, dockFrame } from '@/components/home/DockButtons'
 import RoomsMenu, { type RoomDef } from '@/components/home/RoomsMenu'
@@ -41,6 +42,7 @@ import ErenMessagePopup from '@/components/couple/ErenMessagePopup'
 import ThoughtCloud from '@/components/couple/ThoughtCloud'
 import JealousEren from '@/components/couple/JealousEren'
 import DailyBattleHUD from '@/components/couple/DailyBattleHUD'
+import CoopGoalBar from '@/components/couple/CoopGoalBar'
 import ComebackBadge from '@/components/couple/ComebackBadge'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
 import SendErenSheet from '@/components/couple/SendErenSheet'
@@ -80,8 +82,9 @@ export default function HomePage() {
   const { xp, level } = useTasks()
   useTimeTracking(user?.id ?? null)
   const { canClaim: fortuneAvailable } = useFortune()
-  const { newMessage, dismissPopup, unreadCount, partner, sendNudge, partnerMood, lifetimeWLT } = useCouple()
-  const { inventory } = useInventory()
+  const { newMessage, dismissPopup, unreadCount, partner, sendNudge, partnerMood, lifetimeWLT, weeklyChampion, coopGoal } = useCouple()
+  const { inventory, loaded: invLoaded } = useInventory()
+  const newSkinCount = useNewSkins(inventory, invLoaded)
   const isDark = useIsDark()
   const wish = useWish()
   // Idle look for the living room — a Closet skin or the classic erenGood.
@@ -106,6 +109,20 @@ export default function HomePage() {
   // Get equipped items for display
   const equippedOutfits = inventory.filter(i => i.equipped).map(i => GACHA_ITEMS.find(g => g.id === i.item_id)).filter(Boolean)
   const equippedDecos = inventory.filter(i => i.equipped && GACHA_ITEMS.find(g => g.id === i.item_id)?.category === 'decoration').map(i => GACHA_ITEMS.find(g => g.id === i.item_id)!)
+
+  // Heart-button notification: an unclaimed weekly REWARD waiting on /couple —
+  // last week's Care Battle win (claimed via the champion popup, which stamps
+  // `acknowledged` on close) or a met "We Cared" co-op goal (claimed in
+  // CoopGoalBar). Both live in the shared CoupleProvider, so claiming on /couple
+  // clears this on return with no refetch. Gated on `partner` — both are 2-player.
+  const weeklyWinPending  = !!partner && weeklyChampion?.outcome === 'win' && !weeklyChampion.acknowledged
+  // `coopGoal.loaded` gate: goalMet (from interactions) and claimed (from the
+  // coop-row read) settle in separate commits — without it the dot would flash
+  // for an already-claimed goal before the row lands, and would mis-fire if that
+  // read 503'd. Only surface once the row's claim state is actually known.
+  const coopRewardPending = !!partner && coopGoal.goalMet && coopGoal.loaded && !coopGoal.claimed
+  const heartReward = weeklyWinPending || coopRewardPending
+
   const [showFortune, setShowFortune] = useState(false)
   const [dotsVisible, setDotsVisible] = useState(false)
   const dotsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -500,6 +517,10 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* "We Cared" co-op goal — slim shared-progress strip pinned under the
+          StatsHeader. Self-positioned (fixed); hidden once claimed / solo. */}
+      <CoopGoalBar />
+
       {showReminders && <ReminderSheet onClose={() => setShowReminders(false)} />}
       {showFortune && <FortunePopup onClose={() => setShowFortune(false)} />}
       {/* Suppress partner-message popup while the catchup carousel is up so
@@ -750,12 +771,17 @@ export default function HomePage() {
             <Link href="/couple" onClick={() => playSound('ui_tap')} className="home-nav-pop relative w-8 h-8 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
               style={{ ...cuteBtn('255,198,216'), animationDelay: '0.25s' }}>
               <CuteIcon><IconHeart size={22} /></CuteIcon>
-              {unreadCount > 0 && (
+              {/* Unread partner messages show the count; an unclaimed weekly
+                  reward (with no unread messages) shows a plain dot. */}
+              {unreadCount > 0 ? (
                 <div className="absolute -top-1 -right-1 flex items-center justify-center"
                   style={{ width: 16, height: 16, background: '#FF1D5E', border: '2px solid #050507', boxShadow: '0 0 4px rgba(255,29,94,0.6)', borderRadius: 6 }}>
                   <span className="font-pixel text-white" style={{ fontSize: 5 }}>{unreadCount}</span>
                 </div>
-              )}
+              ) : heartReward ? (
+                <div className="absolute -top-1 -right-1"
+                  style={{ width: 11, height: 11, background: '#FF1D5E', border: '2px solid #050507', boxShadow: '0 0 5px rgba(255,29,94,0.7)', borderRadius: '50%' }} />
+              ) : null}
             </Link>
             <button onClick={() => { playSound('ui_modal_open'); setShowReminders(true) }}
               className="home-nav-pop w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
@@ -772,6 +798,13 @@ export default function HomePage() {
               className="home-nav-pop w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
               style={{ ...cuteBtn('199,225,255'), animationDelay: '0.4s' }}>
               <CuteIcon><IconDress size={20} /></CuteIcon>
+              {/* New, unseen skins won from gacha — clears when the Closet opens. */}
+              {newSkinCount > 0 && (
+                <div className="absolute -top-1 -right-1 flex items-center justify-center"
+                  style={{ width: 16, height: 16, background: '#FF1D5E', border: '2px solid #050507', boxShadow: '0 0 4px rgba(255,29,94,0.6)', borderRadius: 6 }}>
+                  <span className="font-pixel text-white" style={{ fontSize: 5 }}>{newSkinCount > 9 ? '9+' : newSkinCount}</span>
+                </div>
+              )}
             </Link>
             <div className="relative flex-shrink-0">
               <button onClick={() => { playSound(showRooms ? 'ui_modal_close' : 'ui_modal_open'); setShowRooms(r => !r) }}
