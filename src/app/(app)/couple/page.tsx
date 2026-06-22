@@ -16,7 +16,6 @@ import {
 } from '@/components/PixelIcons'
 import { useTasks } from '@/contexts/TaskContext'
 import WeeklyChampionPopup from '@/components/couple/WeeklyChampionPopup'
-import CoopGoalBar from '@/components/couple/CoopGoalBar'
 import { playSound } from '@/lib/sounds'
 import {
   PINK, PINK_HI, PINK_LO,
@@ -265,9 +264,6 @@ export default function CouplePage() {
           </div>
         )
       })()}
-
-      {/* ── We Cared (co-op goal) — the "us" counterweight, above the "vs" ── */}
-      <CoopGoalBar />
 
       {/* ── Love Meter (Care Battle) ── */}
       {loveMeter && partner && (() => {
