@@ -12,6 +12,7 @@ import { PULL_COST_SINGLE, PULL_COST_TEN, PITY_EPIC, PITY_LEGENDARY } from '@/li
 import type { GachaPullResult } from '@/types'
 import { highestRarity, pickClothesHitVideo } from '@/lib/gachaVideos'
 import PullAnimation from '@/components/gacha/PullAnimation'
+import StarfallLoader from '@/components/gacha/StarfallLoader'
 import GachaPullButton from '@/components/gacha/GachaPullButton'
 import { IconCoin, IconSparkles, IconTicket, IconBook } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
@@ -46,6 +47,7 @@ export default function GachaPage() {
   // The opening cinematic for the current pull: the rainbow video for food, a
   // rarity-tiered hit video for clothes. null = no video playing.
   const [openingVideo, setOpeningVideo] = useState<string | null>(null)
+  const [videoReady, setVideoReady] = useState(false) // opening video can render its first frame
   const openedWithVideo = useRef(false) // a video opened this pull → skip the capsule
   const touchedDeck = useRef(false) // gate swipe SFX to real gestures (see onScroll)
 
@@ -111,6 +113,13 @@ export default function GachaPage() {
     el.scrollTo({ left: idx * el.clientWidth, behavior: 'smooth' })
   }
 
+  // Show a video opening from a clean "still buffering" state, so the starfall
+  // loader covers the gap until the first frame is decodable.
+  const startOpening = useCallback((src: string) => {
+    setVideoReady(false)
+    setOpeningVideo(src)
+  }, [])
+
   async function handlePull(count: 1 | 10) {
     if (pulling || openingVideo || pullResults) return
     const bannerId = PAGES[pageIdx].id
@@ -123,7 +132,7 @@ export default function GachaPage() {
     if (bannerId === 'food') {
       playSound('gift_open')
       openedWithVideo.current = true
-      setOpeningVideo('/rainbow_opening.mp4')
+      startOpening('/rainbow_opening.mp4')
     }
 
     const results = count === 1
@@ -139,7 +148,7 @@ export default function GachaPage() {
       const vid = pickClothesHitVideo(highestRarity(results.map(r => r.item.rarity)))
       if (vid) {
         openedWithVideo.current = true
-        setOpeningVideo(vid)
+        startOpening(vid)
       }
     }
 
@@ -285,11 +294,21 @@ export default function GachaPage() {
       {openingVideo && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center" style={{ background: '#000' }}
           onClick={() => setOpeningVideo(null)}>
-          <video key={openingVideo} src={openingVideo} autoPlay muted playsInline
+          <video key={openingVideo} src={openingVideo} autoPlay muted playsInline preload="auto"
             className="h-full w-full object-cover"
+            onLoadedData={() => setVideoReady(true)}
+            onCanPlay={() => setVideoReady(true)}
+            onPlaying={() => setVideoReady(true)}
             onEnded={() => setOpeningVideo(null)}
             onError={() => setOpeningVideo(null)} />
-          <span className="absolute font-pixel" style={{ fontSize: 6, color: 'rgba(255,255,255,0.45)', bottom: 'calc(var(--safe-bottom) + 18px)' }}>TAP TO SKIP</span>
+          {/* Magical sprinkles fill the buffering gap, then dissolve once the
+              video has a frame to show. */}
+          <div className="absolute inset-0 transition-opacity ease-out" style={{ opacity: videoReady ? 0 : 1, transitionDuration: '450ms' }}>
+            <StarfallLoader />
+          </div>
+          {videoReady && (
+            <span className="absolute font-pixel" style={{ fontSize: 6, color: 'rgba(255,255,255,0.45)', bottom: 'calc(var(--safe-bottom) + 18px)' }}>TAP TO SKIP</span>
+          )}
         </div>
       )}
 
