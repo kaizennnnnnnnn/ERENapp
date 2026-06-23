@@ -28,9 +28,9 @@ const PAGES = [
   // ?v bumps the cache key when the art changes — the SW serves images
   // stale-while-revalidate, so a same-path replace shows the old one first.
   { id: 'animal', bg: '/gacha_animal.png?v=3' },
-  // FoodSuits — placeholder reward pool for now (see GACHA_BANNERS). New path,
-  // so ?v=1 is just the initial cache key.
-  { id: 'foodsuits', bg: '/gacha_foodsuits.png?v=1' },
+  // FoodSuits — placeholder reward pool for now (see GACHA_BANNERS). ?v bumps
+  // on every art replace so the SW doesn't serve the old image stale.
+  { id: 'foodsuits', bg: '/gacha_foodsuits.png?v=2' },
 ] as const
 
 export default function GachaPage() {
