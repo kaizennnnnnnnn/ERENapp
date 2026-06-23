@@ -623,9 +623,11 @@ export default function WashScene({ onClose }: Props) {
       </div>
 
       {/* ══ SOAP BAR ══════════════════════════════════════════════════════ */}
+      {/* The soap prop stays on screen through the rinse phase (only the SOAP
+          *meter* swaps to RINSE). It hides just on finish / while sleeping. */}
       <div
         ref={soapRef}
-        className={cn('absolute z-30', dragSoap ? 'cursor-grabbing scale-110' : 'cursor-grab', (done || isSleeping || showShower) && 'opacity-0 pointer-events-none')}
+        className={cn('absolute z-30', dragSoap ? 'cursor-grabbing scale-110' : 'cursor-grab', (done || isSleeping) && 'opacity-0 pointer-events-none')}
         style={{ left: '12%', top: '62%', transform: 'translate(-50%,-50%)', touchAction: 'none' }}
         onPointerDown={onSoapDown}
         onPointerMove={onPointerMove}
