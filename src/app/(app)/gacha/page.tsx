@@ -263,7 +263,7 @@ export default function GachaPage() {
           </div>
           <div className="flex items-center gap-1.5 px-2 py-1.5 relative" style={OBSIDIAN_BTN}>
             <Rivets inset={2} size={2} />
-            <IconSparkles size={14} />
+            <span className="gacha-sparkle-icon"><IconSparkles size={14} /></span>
             <span className="font-pixel gacha-stardust-val" style={{ fontSize: 8 }}>{stardust}</span>
           </div>
           {tickets > 0 && (
@@ -337,6 +337,15 @@ export default function GachaPage() {
         @keyframes gachaStardustFlow {
           0%   { background-position: 0% center; }
           100% { background-position: 200% center; }
+        }
+        .gacha-sparkle-icon {
+          display: inline-flex;
+          align-items: center;
+          animation: gachaSparkleHue 2s linear infinite;
+        }
+        @keyframes gachaSparkleHue {
+          0%   { filter: hue-rotate(0deg)   saturate(2) brightness(1.15); }
+          100% { filter: hue-rotate(360deg) saturate(2) brightness(1.15); }
         }
       `}</style>
     </div>
