@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import type { GachaPullResult } from '@/types'
 import { RARITY_COLORS } from '@/lib/gacha'
 import { playSound } from '@/lib/sounds'
+import { getSkin } from '@/lib/skins'
+import SkinPodium from './SkinPodium'
 
 interface Props {
   results: GachaPullResult[]
@@ -76,28 +78,40 @@ export default function PullAnimation({ results, onDone, skipCapsule = false }: 
       {/* Reveal phase */}
       {phase === 'reveal' && showItem && (
         <button onClick={() => { playSound('ui_tap'); nextItem() }} className="flex flex-col items-center gap-4 active:scale-95 transition-transform w-full max-w-xs px-6">
-          {/* Rarity burst */}
-          <div className="relative flex items-center justify-center" style={{ width: 120, height: 120 }}>
-            <div className="absolute inset-0 rounded-full" style={{
-              background: `radial-gradient(circle, ${colors.glow} 0%, transparent 70%)`,
-              animation: 'pulseGlow 1.5s ease-in-out infinite',
-            }} />
-            <div className="relative flex items-center justify-center rounded-2xl"
-              style={{
-                width: 90, height: 90,
-                background: colors.bg,
-                border: `3px solid ${colors.border}`,
-                boxShadow: `0 0 20px ${colors.glow}`,
-                animation: 'itemBounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both',
-              }}>
-              {current.item.image ? (
-                <img src={current.item.image} alt={current.item.name} draggable={false}
-                  style={{ width: '88%', height: '88%', objectFit: 'contain', imageRendering: 'pixelated' }} />
-              ) : (
-                <span style={{ fontSize: 40 }}>{current.item.icon}</span>
-              )}
-            </div>
-          </div>
+          {/* Skin podium or standard rarity sticker */}
+          {(() => {
+            const skinDef = current.item.skinId ? getSkin(current.item.skinId) : undefined
+            if (skinDef) {
+              return (
+                <div style={{ animation: 'itemBounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both' }}>
+                  <SkinPodium skin={skinDef} rarity={current.item.rarity} />
+                </div>
+              )
+            }
+            return (
+              <div className="relative flex items-center justify-center" style={{ width: 120, height: 120 }}>
+                <div className="absolute inset-0 rounded-full" style={{
+                  background: `radial-gradient(circle, ${colors.glow} 0%, transparent 70%)`,
+                  animation: 'pulseGlow 1.5s ease-in-out infinite',
+                }} />
+                <div className="relative flex items-center justify-center rounded-2xl"
+                  style={{
+                    width: 90, height: 90,
+                    background: colors.bg,
+                    border: `3px solid ${colors.border}`,
+                    boxShadow: `0 0 20px ${colors.glow}`,
+                    animation: 'itemBounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both',
+                  }}>
+                  {current.item.image ? (
+                    <img src={current.item.image} alt={current.item.name} draggable={false}
+                      style={{ width: '88%', height: '88%', objectFit: 'contain', imageRendering: 'auto' }} />
+                  ) : (
+                    <span style={{ fontSize: 40 }}>{current.item.icon}</span>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Item info */}
           <div className="text-center" style={{ animation: 'fadeUp 0.4s ease-out 0.2s both' }}>
