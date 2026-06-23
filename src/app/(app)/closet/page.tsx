@@ -83,6 +83,8 @@ export default function ClosetPage() {
       setBuying(null)
       await refetch()
     } else {
+      // Close the sheet first so the toast isn't hidden behind it (sheet zIndex 60, toast 70).
+      setBuying(null)
       showToast('Could not unlock — try again')
     }
   }
@@ -255,7 +257,7 @@ export default function ClosetPage() {
       {/* Toast */}
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 text-white px-4 py-2.5 whitespace-nowrap" style={{
-          zIndex: 50, background: '#1F1F2E', borderRadius: 3, border: '2px solid #3A3A5E',
+          zIndex: 70, background: '#1F1F2E', borderRadius: 3, border: '2px solid #3A3A5E',
           boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', fontFamily: '"Press Start 2P"', fontSize: 7,
         }}>{toast}</div>
       )}
