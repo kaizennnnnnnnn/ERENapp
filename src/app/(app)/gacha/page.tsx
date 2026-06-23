@@ -256,7 +256,7 @@ export default function GachaPage() {
           <div className="flex items-center gap-1.5 px-2 py-1.5 relative" style={OBSIDIAN_BTN}>
             <Rivets inset={2} size={2} />
             <IconSparkles size={14} />
-            <span className="font-pixel" style={{ fontSize: 8, color: '#C4B5FD', textShadow: '0 0 3px rgba(167,139,250,0.5)' }}>{stardust}</span>
+            <span className="font-pixel gacha-stardust-val" style={{ fontSize: 8 }}>{stardust}</span>
           </div>
           {tickets > 0 && (
             <div className="flex items-center gap-1.5 px-2 py-1.5 relative" style={OBSIDIAN_BTN}>
@@ -314,6 +314,23 @@ export default function GachaPage() {
 
       {/* ── Reveal ── */}
       {pullResults && !openingVideo && <PullAnimation results={pullResults} onDone={handlePullDone} skipCapsule={openedWithVideo.current} />}
+
+      <style jsx>{`
+        .gacha-stardust-val {
+          background: linear-gradient(90deg,
+            #ff6b6b 0%, #ffb347 16%, #fff700 33%,
+            #87ff57 50%, #57c8ff 66%, #c87cff 83%, #ff6b6b 100%);
+          background-size: 200% 100%;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          animation: gachaStardustFlow 2s linear infinite;
+        }
+        @keyframes gachaStardustFlow {
+          0%   { background-position: 0% center; }
+          100% { background-position: 200% center; }
+        }
+      `}</style>
     </div>
   )
 }

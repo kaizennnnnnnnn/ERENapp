@@ -44,7 +44,8 @@ export default function PullAnimation({ results, onDone, skipCapsule = false }: 
 
   if (!current) { onDone(); return null }
 
-  const colors = RARITY_COLORS[current.item.rarity]
+  const colors  = RARITY_COLORS[current.item.rarity]
+  const skinDef = current.item.skinId ? getSkin(current.item.skinId) : undefined
 
   function nextItem() {
     if (currentIdx < results.length - 1) {
@@ -77,41 +78,36 @@ export default function PullAnimation({ results, onDone, skipCapsule = false }: 
 
       {/* Reveal phase */}
       {phase === 'reveal' && showItem && (
-        <button onClick={() => { playSound('ui_tap'); nextItem() }} className="flex flex-col items-center gap-4 active:scale-95 transition-transform w-full max-w-xs px-6">
+        <button onClick={() => { playSound('ui_tap'); nextItem() }}
+          className={`flex flex-col items-center active:scale-95 transition-transform w-full ${skinDef ? 'gap-3 max-w-sm px-3' : 'gap-4 max-w-xs px-6'}`}>
           {/* Skin podium or standard rarity sticker */}
-          {(() => {
-            const skinDef = current.item.skinId ? getSkin(current.item.skinId) : undefined
-            if (skinDef) {
-              return (
-                <div style={{ animation: 'itemBounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both' }}>
-                  <SkinPodium skin={skinDef} rarity={current.item.rarity} />
-                </div>
-              )
-            }
-            return (
-              <div className="relative flex items-center justify-center" style={{ width: 120, height: 120 }}>
-                <div className="absolute inset-0 rounded-full" style={{
-                  background: `radial-gradient(circle, ${colors.glow} 0%, transparent 70%)`,
-                  animation: 'pulseGlow 1.5s ease-in-out infinite',
-                }} />
-                <div className="relative flex items-center justify-center rounded-2xl"
-                  style={{
-                    width: 90, height: 90,
-                    background: colors.bg,
-                    border: `3px solid ${colors.border}`,
-                    boxShadow: `0 0 20px ${colors.glow}`,
-                    animation: 'itemBounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both',
-                  }}>
-                  {current.item.image ? (
-                    <img src={current.item.image} alt={current.item.name} draggable={false}
-                      style={{ width: '88%', height: '88%', objectFit: 'contain', imageRendering: 'auto' }} />
-                  ) : (
-                    <span style={{ fontSize: 40 }}>{current.item.icon}</span>
-                  )}
-                </div>
+          {skinDef ? (
+            <div style={{ animation: 'itemBounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both' }}>
+              <SkinPodium skin={skinDef} rarity={current.item.rarity} />
+            </div>
+          ) : (
+            <div className="relative flex items-center justify-center" style={{ width: 120, height: 120 }}>
+              <div className="absolute inset-0 rounded-full" style={{
+                background: `radial-gradient(circle, ${colors.glow} 0%, transparent 70%)`,
+                animation: 'pulseGlow 1.5s ease-in-out infinite',
+              }} />
+              <div className="relative flex items-center justify-center rounded-2xl"
+                style={{
+                  width: 90, height: 90,
+                  background: colors.bg,
+                  border: `3px solid ${colors.border}`,
+                  boxShadow: `0 0 20px ${colors.glow}`,
+                  animation: 'itemBounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both',
+                }}>
+                {current.item.image ? (
+                  <img src={current.item.image} alt={current.item.name} draggable={false}
+                    style={{ width: '88%', height: '88%', objectFit: 'contain', imageRendering: 'auto' }} />
+                ) : (
+                  <span style={{ fontSize: 40 }}>{current.item.icon}</span>
+                )}
               </div>
-            )
-          })()}
+            </div>
+          )}
 
           {/* Item info */}
           <div className="text-center" style={{ animation: 'fadeUp 0.4s ease-out 0.2s both' }}>
@@ -128,9 +124,12 @@ export default function PullAnimation({ results, onDone, skipCapsule = false }: 
             <p className="text-xs text-white/50">{current.item.description}</p>
 
             {current.stardustGained > 0 && (
-              <p className="font-pixel text-purple-300 mt-2" style={{ fontSize: 7 }}>
-                +{current.stardustGained} stardust (duplicate)
-              </p>
+              <div className="flex flex-col items-center mt-2 gap-0.5">
+                <span className="font-pixel" style={{ fontSize: 5, color: 'rgba(255,255,255,0.35)', letterSpacing: 2 }}>DUPLICATE</span>
+                <span className="pull-stardust-rainbow font-pixel" style={{ fontSize: 9 }}>
+                  ✦ +{current.stardustGained} STARDUST ✦
+                </span>
+              </div>
             )}
             {current.isPity && (
               <p className="font-pixel text-amber-300 mt-1" style={{ fontSize: 6 }}>PITY BONUS!</p>
@@ -175,6 +174,20 @@ export default function PullAnimation({ results, onDone, skipCapsule = false }: 
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(8px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+        .pull-stardust-rainbow {
+          background: linear-gradient(90deg,
+            #ff6b6b 0%, #ffb347 16%, #fff700 33%,
+            #87ff57 50%, #57c8ff 66%, #c87cff 83%, #ff6b6b 100%);
+          background-size: 200% 100%;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          animation: pullStardustFlow 1.8s linear infinite;
+        }
+        @keyframes pullStardustFlow {
+          0%   { background-position: 0% center; }
+          100% { background-position: 200% center; }
         }
       `}</style>
     </div>
