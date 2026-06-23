@@ -664,15 +664,19 @@ export default function WashScene({ onClose }: Props) {
         {!done && (
           <div className="w-full max-w-xs pointer-events-none flex flex-col gap-2.5"
             style={{ background: '#1A2A38', borderRadius: 6, border: '2px solid #3A5A70', boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', padding: '11px 12px' }}>
-            <SegmentMeter
-              label="SOAP"
-              value={coverage}
-              valueText={`${Math.round(coverage)}%`}
-              palette={SOAP_METER}
-              labelColor="#9BDCF7"
-              valueColor="#CFEFFF"
-            />
-            {showShower && (
+            {/* SOAP while lathering; once he's fully soaped the shower unlocks
+                (showShower latches at 95%) and the panel swaps to RINSE only —
+                the maxed-out SOAP bar disappears so just the active goal shows. */}
+            {!showShower ? (
+              <SegmentMeter
+                label="SOAP"
+                value={coverage}
+                valueText={`${Math.round(coverage)}%`}
+                palette={SOAP_METER}
+                labelColor="#9BDCF7"
+                valueColor="#CFEFFF"
+              />
+            ) : (
               <SegmentMeter
                 label="RINSE"
                 value={Math.max(0, 100 - coverage)}
