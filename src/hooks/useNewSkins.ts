@@ -67,6 +67,15 @@ function writeSeen(uid: string, ids: string[]): void {
 }
 
 /**
+ * Read the raw seen-skin id list for a user. Returns null on first run (the
+ * localStorage key hasn't been written yet). Callers can use null to skip
+ * per-card "NEW" badges rather than flagging every skin on first open.
+ */
+export function readSeenSkins(uid: string): string[] | null {
+  return readSeen(uid)
+}
+
+/**
  * Mark a set of skin ids as seen for this user and notify any live useNewSkins
  * instances (same tab via the SEEN_EVENT; other tabs via the storage event).
  * Call this from the Closet page with the displayed owned set once it has

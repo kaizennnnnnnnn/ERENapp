@@ -2,14 +2,14 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import { useCare } from '@/contexts/CareContext'
 import { useCloset } from '@/hooks/useCloset'
 import { useAuth } from '@/hooks/useAuth'
 import { useGacha } from '@/hooks/useGacha'
-import { markSkinsSeen } from '@/hooks/useNewSkins'
+import { markSkinsSeen, readSeenSkins } from '@/hooks/useNewSkins'
 import {
   SKINNABLE_ROOMS, GACHA_SKINS, CLASSIC_SKIN, getSkin, resolveRoomSkin, skinRoomFit,
   skinPrice, type SkinDef,
@@ -19,6 +19,9 @@ import BlinkingEren from '@/components/BlinkingEren'
 import { IconLock, IconDress, IconSparkles } from '@/components/PixelIcons'
 import SkinPurchaseSheet from '@/components/closet/SkinPurchaseSheet'
 import { playSound } from '@/lib/sounds'
+
+// Sort gacha skins: rare → epic → legendary.
+const RARITY_ORDER: Record<string, number> = { rare: 0, epic: 1, legendary: 2, common: 0 }
 
 // Cards shown for the active room: Default (revert) + Classic + the 21 gacha
 // skins. `key` doubles as the room_skins value ('' = default, else the skin id).
@@ -35,13 +38,35 @@ export default function ClosetPage() {
   // Skin awaiting purchase confirmation in the stardust shop sheet.
   const [buying, setBuying] = useState<SkinDef | null>(null)
   const [busy, setBusy] = useState(false)
+  // Per-card NEW badge: skins that were owned-but-unseen when the closet opened.
+  // Captured once on first successful load (before markSkinsSeen clears the seen-set).
+  const badgeCapturedRef = useRef(false)
+  const [newBadgeSkins, setNewBadgeSkins] = useState<Set<string>>(new Set())
 
   useEffect(() => { setHideStats(true); return () => setHideStats(false) }, [setHideStats])
 
-  // Opening the Closet IS "checking out" the new looks — clear the home badge.
-  // Mark the household-union set the grid actually shows, gated on a SUCCESSFUL
-  // owned-load so a transient 503 (empty owned) can't blank the seen-set and make
-  // the whole collection look new again.
+  // Capture which cards should show a "NEW" badge — skins owned but not yet seen.
+  // Must be declared BEFORE the markSkinsSeen effect so it runs first (React fires
+  // effects in declaration order). We read the pre-mark seen-set, diff against
+  // `owned`, and snapshot the result once. badgeCapturedRef prevents re-running on
+  // subsequent owned changes (e.g. after a stardust purchase + refetch).
+  // Skip on first-ever run (stored === null): the home page's useNewSkins handles
+  // seeding the seen-set; without it every skin would flash NEW on first open.
+  useEffect(() => {
+    if (!loaded || !user?.id || badgeCapturedRef.current) return
+    const stored = readSeenSkins(user.id)
+    if (stored !== null) {
+      const seen = new Set(stored)
+      const fresh = new Set<string>()
+      Array.from(owned).forEach(id => { if (!seen.has(id)) fresh.add(id) })
+      if (fresh.size > 0) setNewBadgeSkins(fresh)
+    }
+    badgeCapturedRef.current = true
+  }, [loaded, user?.id, owned]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clear the home badge: mark all visible household skins as seen. Runs after
+  // the capture above (declaration order). Gated on a SUCCESSFUL load so a 503
+  // can't blank the seen-set and make the whole collection look new again.
   useEffect(() => {
     if (loaded && user?.id) markSkinsSeen(user.id, Array.from(owned))
   }, [loaded, user?.id, owned])
@@ -92,7 +117,9 @@ export default function ClosetPage() {
   const cards: CardEntry[] = [
     { key: '', skin: null, locked: false, isDefault: true },
     { key: 'classic', skin: CLASSIC_SKIN, locked: false },
-    ...GACHA_SKINS.map(s => ({ key: s.id, skin: s, locked: !owned.has(s.id) })),
+    ...GACHA_SKINS
+      .map(s => ({ key: s.id, skin: s, locked: !owned.has(s.id) }))
+      .sort((a, b) => RARITY_ORDER[a.skin!.rarity] - RARITY_ORDER[b.skin!.rarity]),
   ]
   const isSelected = (e: CardEntry) => e.isDefault ? !assignedId : assignedId === e.key
 
@@ -233,6 +260,15 @@ export default function ClosetPage() {
                     <div className="absolute -top-1.5 -right-1.5 flex items-center justify-center"
                       style={{ width: 16, height: 16, background: '#22C55E', borderRadius: '50%', border: '2px solid #0B0717' }}>
                       <span style={{ fontSize: 8, color: '#fff', lineHeight: 1 }}>✓</span>
+                    </div>
+                  )}
+                  {!e.isDefault && !e.skin?.builtin && !e.locked && newBadgeSkins.has(e.key) && (
+                    <div className="absolute -top-1.5 -left-1.5 flex items-center justify-center px-1 py-0.5"
+                      style={{
+                        background: '#FF1D5E', border: '1.5px solid #8B0026', borderRadius: 3,
+                        boxShadow: '0 1px 0 #5C021F',
+                      }}>
+                      <span className="font-pixel" style={{ fontSize: 5, color: '#fff', letterSpacing: 0.5 }}>NEW</span>
                     </div>
                   )}
                 </button>
