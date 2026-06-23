@@ -20,13 +20,17 @@ import { requestCloudNav } from '@/components/CloudTransition'
 import { PINK_HI, OBSIDIAN_BTN, Rivets, pinkText } from '@/components/obsidian'
 import CurtainGlitter from '@/components/CurtainGlitter'
 
-// Two machines, one swipe apart. Page order matches the banner ids in
-// GACHA_BANNERS — food first (what the gacha button lands on), animal right.
+// Three machines, one swipe apart. Page order matches the banner ids in
+// GACHA_BANNERS — food first (what the gacha button lands on), animal next,
+// FoodSuits third.
 const PAGES = [
   { id: 'food', bg: '/gacha_food.png?v=3' },
   // ?v bumps the cache key when the art changes — the SW serves images
   // stale-while-revalidate, so a same-path replace shows the old one first.
   { id: 'animal', bg: '/gacha_animal.png?v=3' },
+  // FoodSuits — placeholder reward pool for now (see GACHA_BANNERS). New path,
+  // so ?v=1 is just the initial cache key.
+  { id: 'foodsuits', bg: '/gacha_foodsuits.png?v=1' },
 ] as const
 
 export default function GachaPage() {
@@ -126,10 +130,11 @@ export default function GachaPage() {
     playSound('ui_tap')
     openedWithVideo.current = false
 
-    // Food's rainbow opening is generic, so it plays DURING the roll to mask
-    // the latency. Clothes' opening is rarity-tiered, so it can only be chosen
-    // after the roll resolves (below).
-    if (bannerId === 'food') {
+    // The rainbow opening is generic, so it plays DURING the roll to mask the
+    // latency — used by the food and FoodSuits machines. Clothes' opening is
+    // rarity-tiered, so it can only be chosen after the roll resolves (below).
+    const usesRainbowOpening = bannerId === 'food' || bannerId === 'foodsuits'
+    if (usesRainbowOpening) {
       playSound('gift_open')
       openedWithVideo.current = true
       startOpening('/rainbow_opening.mp4')
@@ -143,7 +148,7 @@ export default function GachaPage() {
       return
     }
 
-    if (bannerId !== 'food') {
+    if (!usesRainbowOpening) {
       // Clothes: open with the hit cinematic for the best drop in the batch.
       const vid = pickClothesHitVideo(highestRarity(results.map(r => r.item.rarity)))
       if (vid) {
@@ -195,7 +200,7 @@ export default function GachaPage() {
                 </div>
                 <div className="flex gap-3">
                   <GachaPullButton
-                    variant={p.id === 'food' ? 'food' : 'clothes'}
+                    variant={p.id === 'animal' ? 'clothes' : 'food'}
                     tier="single"
                     cost={PULL_COST_SINGLE}
                     disabled={pulling || (coins < PULL_COST_SINGLE && tickets <= 0)}
@@ -203,7 +208,7 @@ export default function GachaPage() {
                     onClick={() => handlePull(1)}
                   />
                   <GachaPullButton
-                    variant={p.id === 'food' ? 'food' : 'clothes'}
+                    variant={p.id === 'animal' ? 'clothes' : 'food'}
                     tier="ten"
                     cost={PULL_COST_TEN}
                     disabled={pulling || coins < PULL_COST_TEN}
@@ -228,14 +233,17 @@ export default function GachaPage() {
           </section>
         ))}
 
-        {/* Sparkle curtain at the seam — you swipe through it between machines */}
-        <div aria-hidden className="absolute top-0 bottom-0 z-10 pointer-events-none"
-          style={{ left: '100%', width: 150, transform: 'translateX(-50%)' }}>
-          <div className="absolute inset-0" style={{
-            background: 'linear-gradient(90deg, transparent, rgba(244,114,182,0.16) 35%, rgba(255,255,255,0.2) 50%, rgba(167,139,250,0.16) 65%, transparent)',
-          }} />
-          <CurtainGlitter count={40} seed={707070} />
-        </div>
+        {/* Sparkle curtains — one per seam between machines, so you swipe through
+            glitter at every boundary regardless of how many machines there are. */}
+        {PAGES.slice(1).map((_, i) => (
+          <div key={i} aria-hidden className="absolute top-0 bottom-0 z-10 pointer-events-none"
+            style={{ left: `${(i + 1) * 100}%`, width: 150, transform: 'translateX(-50%)' }}>
+            <div className="absolute inset-0" style={{
+              background: 'linear-gradient(90deg, transparent, rgba(244,114,182,0.16) 35%, rgba(255,255,255,0.2) 50%, rgba(167,139,250,0.16) 65%, transparent)',
+            }} />
+            <CurtainGlitter count={40} seed={707070 + i * 131} />
+          </div>
+        ))}
       </div>
 
       {/* ── Header overlay ── */}

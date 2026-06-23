@@ -173,6 +173,21 @@ export const GACHA_BANNERS: GachaBannerDef[] = [
     bgGradient: ['#A78BFA', '#F472B6'],
     categories: ['skin'],
   },
+  {
+    id: 'foodsuits',
+    name: 'FoodSuits',
+    description: 'A grab-bag of outfits, decor, frames and more.',
+    icon: '🎁',
+    featuredItems: [],
+    permanent: true,
+    bgGradient: ['#F5A623', '#F8D57E'],
+    // PLACEHOLDER reward pool. These cosmetic categories aren't dropped by any
+    // other banner yet, so this machine grants otherwise-unobtainable loot and
+    // is distinct from the food machine. Swap these out when the real FoodSuits
+    // rewards are defined — every listed category has a full common→legendary
+    // spread, so pity and the ten-pull guarantee work unchanged.
+    categories: ['outfit', 'decoration', 'background', 'emote', 'frame'],
+  },
 ]
 
 // ─── Pull mechanics ──────────────────────────────────────────────────────────
