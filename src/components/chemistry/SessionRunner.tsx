@@ -45,10 +45,17 @@ export default function SessionRunner({
   const { palette } = useChemistryTheme()
   const { rateCard, finishDeck } = useChemistryStore()
 
-  // Lock the question list at session start so re-renders don't reshuffle.
+  // The active deck defaults to whatever queue the parent hands us, but
+  // "Retry missed" swaps in just the wrong answers so they can be redone
+  // without relying on the SRS due-queue (empty right after a session — the
+  // cause of the "all caught up" screen on Retry).
+  const [deck, setDeck] = useState<Element[]>(cards)
+  useEffect(() => { setDeck(cards) }, [cards])
+
+  // Lock the question list to the active deck so re-renders don't reshuffle.
   const questions = useMemo<Question[]>(
-    () => cards.map(el => makeQuestion(el)),
-    [cards],
+    () => deck.map(el => makeQuestion(el)),
+    [deck],
   )
 
   const [idx, setIdx]         = useState(0)
@@ -60,8 +67,8 @@ export default function SessionRunner({
   // 5-in-a-row mission signal — wired to the global task system.
   useChemistryMissions({ streak, done: phase === 'done' })
 
-  // Reset all session state whenever the caller hands us a new queue
-  // (e.g. user re-enters Review after a day of new dues, or hits Retry).
+  // Reset all session state whenever the active deck changes — a new queue
+  // from the parent (new dues) or a "Retry missed" swap both land here.
   useEffect(() => {
     setIdx(0)
     setPhase('answering')
@@ -69,7 +76,7 @@ export default function SessionRunner({
     setResults([])
     setStreak(0)
     bestStreakRef.current = 0
-  }, [cards])
+  }, [deck])
 
   function submit(option: string) {
     if (phase !== 'answering') return
@@ -142,7 +149,11 @@ export default function SessionRunner({
         title={title}
         pct={pct} correctCount={correctCount} total={results.length}
         missed={missed}
-        onRetry={onRestart}
+        // Retry the missed cards directly (they live in `results`) instead of
+        // asking the parent to rebuild its queue — after a session the SRS
+        // due-queue is empty, which is what showed "all caught up" on Retry.
+        onRetryMissed={missed.length > 0 ? () => setDeck(missed.map(m => m.q.el)) : undefined}
+        onRestart={onRestart}
         onExit={onExit}
       />
     )
@@ -364,14 +375,16 @@ function Empty({ palette, title, body, onPrimary, primaryLabel }: {
   )
 }
 
-function DoneCard({ palette, title, pct, correctCount, total, missed, onRetry, onExit }: {
+function DoneCard({ palette, title, pct, correctCount, total, missed, onRetryMissed, onRestart, onExit }: {
   palette: Palette
   title: string
   pct: number
   correctCount: number
   total: number
   missed: ResultRow[]
-  onRetry: () => void
+  /** Set when there are wrong answers to redo; relabels the primary button. */
+  onRetryMissed?: () => void
+  onRestart: () => void
   onExit: () => void
 }) {
   return (
@@ -407,7 +420,7 @@ function DoneCard({ palette, title, pct, correctCount, total, missed, onRetry, o
           </div>
         )}
         <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={onRetry} type="button" style={{
+          <button onClick={onRetryMissed ?? onRestart} type="button" style={{
             padding: '10px 16px', borderRadius: 999,
             border: `2px solid ${palette.ink}`,
             boxShadow: neoShadow(palette.ink, 'md'),
@@ -415,7 +428,7 @@ function DoneCard({ palette, title, pct, correctCount, total, missed, onRetry, o
             fontFamily: CHEM_FONT, fontSize: 14, fontWeight: 800,
             cursor: 'pointer',
           }}>
-            Retry
+            {onRetryMissed ? `Retry missed (${missed.length})` : 'Retry'}
           </button>
           <button onClick={onExit} type="button" style={{
             padding: '10px 16px', borderRadius: 999,
