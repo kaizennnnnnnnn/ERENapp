@@ -127,10 +127,11 @@ export default function GachaPage() {
   async function handlePull(count: 1 | 10) {
     if (pulling || openingVideo || pullResults) return
     const bannerId = PAGES[pageIdx].id
-    // A single pull falls back to a free ticket when coins can't cover it —
-    // mirrors the button's own `showTicket` affordance. Without this the
-    // "USE TICKET" button rolled with useTicket=false and silently no-op'd.
-    const useTicket = count === 1 && coins < PULL_COST_SINGLE && tickets > 0
+    // A single pull spends a free ticket whenever one is held — tickets are
+    // earned pulls, so they're used before coins and stay usable at any coin
+    // balance. Falls back to coins only once tickets run out. (x10 is always
+    // coins.) Mirrors the button's own `showTicket` affordance.
+    const useTicket = count === 1 && tickets > 0
     playSound('ui_tap')
     openedWithVideo.current = false
 
@@ -218,7 +219,7 @@ export default function GachaPage() {
                     tier="single"
                     cost={PULL_COST_SINGLE}
                     disabled={pulling || (coins < PULL_COST_SINGLE && tickets <= 0)}
-                    showTicket={coins < PULL_COST_SINGLE && tickets > 0}
+                    showTicket={tickets > 0}
                     onClick={() => handlePull(1)}
                   />
                   <GachaPullButton

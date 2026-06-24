@@ -32,8 +32,8 @@ interface Props {
   /** Coin price, rendered in the subline. */
   cost: number
   disabled?: boolean
-  /** Single only: caller has enough tickets but not enough coins — show the
-   *  ticket affordance instead of the coin price. */
+  /** Single only: caller holds a ticket — show the ticket affordance instead
+   *  of the coin price. Tickets are spent before coins. */
   showTicket?: boolean
   onClick: () => void
 }
