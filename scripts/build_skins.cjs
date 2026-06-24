@@ -65,13 +65,13 @@ const SKINS = [
   { id: 'lemon',           file: 'ErenLemon.png',           rarity: 'rare',      name: 'Lemon Hood Eren',       set: 'food' },
   { id: 'chocoglaze',      file: 'ErenChocoGlaze.png',      rarity: 'rare',      name: 'Choco Donut Eren',      set: 'food' },
   { id: 'cottoncandy',     file: 'ErenCottonCandy.png',     rarity: 'epic',      name: 'Cotton Candy Eren',     set: 'food' },
-  { id: 'banana',          file: 'ErenBanana.png',          rarity: 'rare',      name: 'Banana Eren',           set: 'food', reoutline: true },
+  { id: 'banana',          file: 'ErenBanana.png',          rarity: 'rare',      name: 'Banana Eren',           set: 'food', tailOutline: true },
   { id: 'applecandy',      file: 'ErenAppleCandy.png',      rarity: 'rare',      name: 'Candy Apple Eren',      set: 'food' },
   { id: 'creamstrawberry', file: 'ErenCreamStrawberry.png', rarity: 'legendary', name: 'Strawberry Cream Eren', set: 'food' },
   { id: 'cupcake',         file: 'ErenCupcake.png',         rarity: 'legendary', name: 'Cupcake Eren',          set: 'food' },
   { id: 'strawberry',      file: 'ErenStrawvberry.png',     rarity: 'rare',      name: 'Strawberry Eren',       set: 'food' },
   { id: 'chocolate',       file: 'ErenChocolate.png',       rarity: 'rare',      name: 'Chocolate Eren',        set: 'food' },
-  { id: 'watermelon',      file: 'ErenWatermeloon.png',     rarity: 'epic',      name: 'Watermelon Eren',       set: 'food', eyesOverride: { lx: 34.1, rx: 53.3, cy: 29.2 } },
+  { id: 'watermelon',      file: 'ErenWatermeloon.png',     rarity: 'epic',      name: 'Watermelon Eren',       set: 'food', eyesOverride: { lx: 34.1, rx: 53.3, cy: 29.2 }, topTip: true, topBright: true },
   { id: 'croissant',       file: 'ErenCroassan.png',        rarity: 'rare',      name: 'Croissant Eren',        set: 'food' },
   { id: 'macaron',         file: 'ErenMacaroon.png',        rarity: 'epic',      name: 'Macaron Eren',          set: 'food' },
   { id: 'boba',            file: 'ErenBoba.png',            rarity: 'legendary', name: 'Boba Eren',             set: 'food' },
@@ -638,7 +638,11 @@ function processInBrowser(dataUrl, opts) {
             for (let y = tMinY; y <= tMaxY; y++) if (tailMask[y * W + x]) { ty = y; break }
             if (ty < 0) continue
             let bridges = 1 // tolerate one 1px AA gap between the tip and a stray cap px
-            for (let k = 1; k <= 7; k++) {
+            // topBright (watermelon) has a longer curving tip than sheep/bear, so its
+            // dark cap sits beyond the default 7px reach — allow a deeper climb (still
+            // bg-bounded, so it can't run into the body).
+            const TIP_CAP = opts.topBright ? 14 : 7
+            for (let k = 1; k <= TIP_CAP; k++) {
               const ny = ty - k; if (ny < 0) break
               const np = ny * W + x
               if (tailMask[np]) break
@@ -647,7 +651,11 @@ function processInBrowser(dataUrl, opts) {
                 if (bridges > 0 && ny - 1 >= 0 && sil[a] && !tailMask[a] && lum(fd[a * 4], fd[a * 4 + 1], fd[a * 4 + 2]) <= BRIGHT) { bridges--; continue }
                 break                                                     // real background (body is across a wider gap) → stop
               }
-              if (lum(fd[np * 4], fd[np * 4 + 1], fd[np * 4 + 2]) > BRIGHT) break // bright body → stop
+              // bright body → stop. EXCEPT opts.topBright (watermelon): its free
+              // tip ends in a bright highlight + dark cap, so climbing must pass
+              // THROUGH the highlight. Safe because the tip is bg-bounded — the
+              // !sil break above stops the climb at the gap before the body.
+              if (lum(fd[np * 4], fd[np * 4 + 1], fd[np * 4 + 2]) > BRIGHT && !opts.topBright) break
               tailMask[np] = 1
             }
           }
@@ -714,8 +722,29 @@ function processInBrowser(dataUrl, opts) {
         tc.width = W; tc.height = H
         const tctx = tc.getContext('2d')
         const tid = tctx.createImageData(W, H)
+        // opts.tailOutline: re-crisp a tail whose own dark outline was softened to
+        // gray by halo-cleaning (banana — a white AI-sticker ring sits OUTSIDE a
+        // thin outline; peeling the ring greys the outline). Recolour the tail's
+        // 1px silhouette boundary to the outline tone where it reads light
+        // (lum>95). Tail-layer ONLY, so the body is untouched — no static dark
+        // strip exposed on the swing (the failure mode of the broader `reoutline`),
+        // and edges already dark are kept as-is (no doubling).
+        const isBound = (i) => {
+          const x = i % W, y = (i / W) | 0
+          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nx = x + dx, ny = y + dy
+            if (nx < 0 || ny < 0 || nx >= W || ny >= H || !tailMask[ny * W + nx]) return true
+          }
+          return false
+        }
         for (let i = 0; i < W * H; i++) {
-          if (tailMask[i]) { const j = i * 4; tid.data[j] = fd[j]; tid.data[j + 1] = fd[j + 1]; tid.data[j + 2] = fd[j + 2]; tid.data[j + 3] = fd[j + 3] }
+          if (!tailMask[i]) continue
+          const j = i * 4
+          if (opts.tailOutline && isBound(i) && lum(fd[j], fd[j + 1], fd[j + 2]) > 95) {
+            tid.data[j] = 26; tid.data[j + 1] = 22; tid.data[j + 2] = 20; tid.data[j + 3] = 255
+          } else {
+            tid.data[j] = fd[j]; tid.data[j + 1] = fd[j + 1]; tid.data[j + 2] = fd[j + 2]; tid.data[j + 3] = fd[j + 3]
+          }
         }
         tctx.putImageData(tid, 0, 0)
         tail = tc.toDataURL('image/png')
@@ -823,7 +852,7 @@ function processInBrowser(dataUrl, opts) {
     if (!fs.existsSync(srcPath)) { console.log(`MISSING ${s.file}`); continue }
     const b64 = fs.readFileSync(srcPath).toString('base64')
     const dataUrl = `data:image/png;base64,${b64}`
-    const r = await page.evaluate(processInBrowser, dataUrl, { bg: s.bg, reoutline: s.reoutline, tailGap: s.tailGap, tailYStart: s.tailYStart, eyesOverride: s.eyesOverride, tailOrigin: s.tailOrigin, topTip: s.topTip, topFlood: s.topFlood })
+    const r = await page.evaluate(processInBrowser, dataUrl, { bg: s.bg, reoutline: s.reoutline, tailGap: s.tailGap, tailYStart: s.tailYStart, eyesOverride: s.eyesOverride, tailOrigin: s.tailOrigin, topTip: s.topTip, topFlood: s.topFlood, tailOutline: s.tailOutline, topBright: s.topBright })
     if (r.error) { console.log(`ERR ${s.id}: ${r.error}`); continue }
     const write = (suffix, url) => {
       if (!url) return

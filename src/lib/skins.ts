@@ -48,7 +48,7 @@ export const CLASSIC_SKIN: SkinDef = {
 // Cache-buster for the skin PNGs. The SW serves images stale-while-revalidate,
 // so re-running the pipeline (which overwrites /skins/* in place) would keep
 // showing the OLD art — bump this whenever build_skins.cjs regenerates assets.
-const SKIN_V = '18'
+const SKIN_V = '19'
 const v = (p?: string) => (p ? `${p}?v=${SKIN_V}` : p)
 
 // The gacha skins (animal + food sets), from the auto-generated render data.
