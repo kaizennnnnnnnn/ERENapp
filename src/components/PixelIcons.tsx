@@ -545,23 +545,26 @@ export const IconBook = memo(function IconBook({ size = 20 }: IconProps) {
 })
 
 // ── TICKET (gacha ticket) ─────────────────────────────────────────────────
+// A glossy raffle ticket: a 2px tear-off stub on the left, a dashed
+// perforation, a gold star on the main panel, a light gloss band up top and a
+// shadow band at the base for depth. Reads as a ticket at 14–20px, not a card.
 export const IconTicket = memo(function IconTicket({ size = 20 }: IconProps) {
   const grid = [
     '............',
     '............',
-    'KKKKKKKKKKKK',
-    'KPPKPPPPPPPK',
-    'KPPKPPWWPPPK',
-    'KPPKPWWWWPPK',
-    'KPPKPPWWPPPK',
-    'KPPKPPPPPPPK',
-    'KKKKKKKKKKKK',
-    '............',
+    '.KKKKKKKKKK.',
+    'KLLKLLLLLLLK',
+    'KPPPPPPGPPPK',
+    'KPPKPPGGGPPK',
+    'KPPPPGGGGGPK',
+    'KPPKPPGPGPPK',
+    'KDDDDDDDDDDK',
+    '.KKKKKKKKKK.',
     '............',
     '............',
   ]
   return drawPixels(grid, {
-    K: '#991A4A', P: '#FF6B9D', W: '#FFF3B8',
+    K: '#7A1142', D: '#C8377E', P: '#FF6FA8', L: '#FFC6E0', G: '#FFD65A',
   }, size)
 })
 

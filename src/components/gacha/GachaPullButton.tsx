@@ -125,7 +125,7 @@ export default function GachaPullButton({ variant, tier, cost, disabled, showTic
         </span>
         {showTicket && !isTen ? (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <IconTicket size={10} />
+            <IconTicket size={13} />
             <span style={{ fontFamily: PIXEL_FONT, fontSize: 6, color: c.title, whiteSpace: 'nowrap' }}>
               USE TICKET
             </span>
