@@ -127,6 +127,10 @@ export default function GachaPage() {
   async function handlePull(count: 1 | 10) {
     if (pulling || openingVideo || pullResults) return
     const bannerId = PAGES[pageIdx].id
+    // A single pull falls back to a free ticket when coins can't cover it —
+    // mirrors the button's own `showTicket` affordance. Without this the
+    // "USE TICKET" button rolled with useTicket=false and silently no-op'd.
+    const useTicket = count === 1 && coins < PULL_COST_SINGLE && tickets > 0
     playSound('ui_tap')
     openedWithVideo.current = false
 
@@ -141,7 +145,7 @@ export default function GachaPage() {
     }
 
     const results = count === 1
-      ? await pullSingle(bannerId).then(r => (r ? [r] : null))
+      ? await pullSingle(bannerId, useTicket).then(r => (r ? [r] : null))
       : await pullTen(bannerId)
     if (!results) {
       setOpeningVideo(null)

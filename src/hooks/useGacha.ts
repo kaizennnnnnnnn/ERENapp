@@ -122,18 +122,18 @@ export function useGacha() {
   const pullSingle = useCallback(async (bannerId: string, useTicket = false): Promise<GachaPullResult | null> => {
     if (!user?.id || !state || pulling) return null
 
-    // Pay
+    const currentTickets = (state as unknown as Record<string, number>).gacha_tickets ?? 0
+
+    // Pay — a free ticket when the caller asked for one (and one is held),
+    // otherwise coins. The ticket is only *validated* here; it's spent in the
+    // same write as the pity counters below so the DB and the on-screen ticket
+    // count never drift (and there's no extra round-trip).
     if (useTicket) {
-      if ((state as unknown as Record<string, number>).gacha_tickets <= 0) return null
-      await supabase.from('user_gacha_state').update({
-        gacha_tickets: ((state as unknown as Record<string, number>).gacha_tickets ?? 0) - 1,
-      }).eq('user_id', user.id)
-    } else {
-      if (PULL_COST_SINGLE > 0) {
-        if (coins < PULL_COST_SINGLE) return null
-        const ok = await spendCoins(PULL_COST_SINGLE)
-        if (!ok) return null
-      }
+      if (currentTickets <= 0) return null
+    } else if (PULL_COST_SINGLE > 0) {
+      if (coins < PULL_COST_SINGLE) return null
+      const ok = await spendCoins(PULL_COST_SINGLE)
+      if (!ok) return null
     }
 
     setPulling(true)
@@ -156,12 +156,14 @@ export function useGacha() {
       user_id: user.id, banner_id: bannerId, item_id: item.id, rarity, pull_number: newTotal,
     })
 
-    // Update pity counters
+    // Update pity counters (and spend the ticket in the same write when this
+    // was a ticket pull, so local state stays in lockstep with the DB).
     const newState = {
       total_pulls: newTotal,
       pulls_since_epic: rarity === 'epic' || rarity === 'legendary' ? 0 : state.pulls_since_epic + 1,
       pulls_since_legendary: rarity === 'legendary' ? 0 : state.pulls_since_legendary + 1,
       stardust: state.stardust + stardustGained,
+      ...(useTicket ? { gacha_tickets: currentTickets - 1 } : {}),
     }
     await supabase.from('user_gacha_state').update(newState).eq('user_id', user.id)
     setState(prev => prev ? { ...prev, ...newState } : prev)
