@@ -12,6 +12,7 @@ export interface SkinDef {
   id: string
   name: string
   rarity: GachaRarity
+  set?: 'animal' | 'food'  // which skin gacha drops it (animal/food costumes)
   // BlinkingEren render inputs
   src: string            // tail-erased body (or full sprite when no tail layer)
   tailSrc?: string       // isolated tail layer (omitted → body breathes as one)
@@ -50,11 +51,12 @@ export const CLASSIC_SKIN: SkinDef = {
 const SKIN_V = '17'
 const v = (p?: string) => (p ? `${p}?v=${SKIN_V}` : p)
 
-// The 21 gacha skins, from the auto-generated render data.
+// The gacha skins (animal + food sets), from the auto-generated render data.
 export const GACHA_SKINS: SkinDef[] = SKIN_DATA.map(s => ({
   id: s.id,
   name: s.name,
   rarity: s.rarity,
+  set: s.set,
   src: v(s.src)!,
   tailSrc: v(s.tailSrc),
   tailOrigin: s.tailOrigin,
@@ -83,7 +85,8 @@ export const itemIdToSkinId = (itemId: string) =>
 // ─── Stardust shop ─────────────────────────────────────────────────────────
 // Buy a skin outright with stardust (the gacha duplicate currency) instead of
 // pulling for it. There are no common gacha skins, so rare/epic/legendary covers
-// all 21. Kept here so the closet UI and the purchase RPC reason about one map.
+// every skin (animal + food). Kept here so the closet UI and the purchase RPC
+// reason about one map.
 export const SKIN_STARDUST_PRICE: Record<GachaRarity, number> = {
   common: 50, rare: 100, epic: 150, legendary: 200,
 }
@@ -104,6 +107,7 @@ export const SKIN_GACHA_ITEMS: GachaItemDef[] = GACHA_SKINS.map(s => ({
   icon: '🐱',          // never shown — skin items render `image`
   image: s.thumb,
   skinId: s.id,
+  skinSet: s.set,      // scopes the item to its banner (animal vs food)
   description: RARITY_BLURB[s.rarity],
 }))
 

@@ -172,21 +172,22 @@ export const GACHA_BANNERS: GachaBannerDef[] = [
     permanent: true,
     bgGradient: ['#A78BFA', '#F472B6'],
     categories: ['skin'],
+    skinSet: 'animal',  // animal-costume skins only (see lib/skins.ts)
   },
   {
     id: 'foodsuits',
     name: 'FoodSuits',
-    description: 'A grab-bag of outfits, decor, frames and more.',
-    icon: '🎁',
+    description: 'Food-costume Eren skins — wear them in any room.',
+    icon: '🍰',
     featuredItems: [],
     permanent: true,
     bgGradient: ['#F5A623', '#F8D57E'],
-    // PLACEHOLDER reward pool. These cosmetic categories aren't dropped by any
-    // other banner yet, so this machine grants otherwise-unobtainable loot and
-    // is distinct from the food machine. Swap these out when the real FoodSuits
-    // rewards are defined — every listed category has a full common→legendary
-    // spread, so pity and the ten-pull guarantee work unchanged.
-    categories: ['outfit', 'decoration', 'background', 'emote', 'frame'],
+    // Drops the FOOD skin set (donut, boba, cupcake, …). Same `skin` category as
+    // the animal banner, so skinSet scopes each banner to its own set. Food skins
+    // are rare/epic/legendary (no commons), so a common roll escalates to rare —
+    // pity and the ten-pull guarantee work exactly as on the animal banner.
+    categories: ['skin'],
+    skinSet: 'food',
   },
 ]
 
@@ -210,7 +211,10 @@ const RARITY_ORDER: GachaRarity[] = ['common', 'rare', 'epic', 'legendary']
 
 export function rollItem(rarity: GachaRarity, bannerId: string): GachaItemDef {
   const banner = GACHA_BANNERS.find(b => b.id === bannerId)
-  const inBanner = (i: GachaItemDef) => !banner?.categories || banner.categories.includes(i.category)
+  const inBanner = (i: GachaItemDef) =>
+    (!banner?.categories || banner.categories.includes(i.category)) &&
+    // A skin banner draws only its own set; two banners share `category: 'skin'`.
+    (!banner?.skinSet || i.skinSet === banner.skinSet)
 
   // Resolve the item pool at the rolled rarity, scoped to the banner's
   // categories. A banner may have NO items at a given tier (the Clothing

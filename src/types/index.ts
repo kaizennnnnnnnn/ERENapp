@@ -266,6 +266,10 @@ export interface GachaItemDef {
   // for the animated room/closet render.
   image?: string
   skinId?: string
+  // Which skin gacha a skin item belongs to. Two banners both drop `category:
+  // 'skin'` (animal costumes vs food costumes); this keeps each banner's pool
+  // to its own set. Undefined on non-skin items.
+  skinSet?: 'animal' | 'food'
   // Outfit positioning (% relative to Eren's 200x200 container)
   slot?: OutfitSlot
   pos?: { top: number; left: number; size: number }
@@ -285,6 +289,9 @@ export interface GachaBannerDef {
   bgGradient: [string, string]
   /** When set, pulls on this banner only drop items from these categories. */
   categories?: GachaCategory[]
+  /** For a skin banner: which skin set it draws from. Lets two `['skin']`
+   *  banners (animal costumes vs food costumes) keep separate pools. */
+  skinSet?: 'animal' | 'food'
 }
 
 export interface UserInventoryItem {
