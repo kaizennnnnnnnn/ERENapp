@@ -174,9 +174,19 @@ export default function GachaPage() {
         style={{ scrollbarWidth: 'none' }}>
         {PAGES.map((p, idx) => (
           <section key={p.id} className="relative h-full w-full flex-shrink-0 snap-center overflow-hidden">
+            {/* applyScrollFx is the SOLE writer of the scroll-FX styles below
+                (transform here, dim/edge opacity further down). The inline
+                values are keyed off the constant `idx` — never the reactive
+                `pageIdx` — so a mid-swipe re-render (setPageIdx firing at the
+                page midpoint) can't clobber the live imperative scale. That
+                clobber used to leave the centered page shrunk/clipped (the
+                pull button "vanished") and, by mutating a snap-container child
+                mid-gesture, made iOS `mandatory` snap re-resolve to the first
+                page (the swipe-back "teleport"). idx===0 is the at-load
+                centered page, so the first paint matches applyScrollFx(). */}
             <div ref={el => { innerRefs.current[idx] = el }}
               className="absolute inset-0 will-change-transform"
-              style={{ transform: `scale(${idx === pageIdx ? 1 : 0.86})` }}>
+              style={{ transform: `scale(${idx === 0 ? 1 : 0.86})` }}>
               <div ref={el => { bgRefs.current[idx] = el }}
                 className="absolute inset-0 will-change-transform"
                 style={{
@@ -221,14 +231,14 @@ export default function GachaPage() {
             {/* Dim veil — fades the machine out as it leaves center */}
             <div ref={el => { dimRefs.current[idx] = el }}
               className="absolute inset-0 pointer-events-none"
-              style={{ background: '#0B0414', opacity: idx === pageIdx ? 0 : 0.6 }} />
+              style={{ background: '#0B0414', opacity: idx === 0 ? 0 : 0.6 }} />
 
             {/* Edge vignette — softens the seam between pages (driven in applyScrollFx) */}
             <div ref={el => { edgeRefs.current[idx] = el }}
               className="absolute inset-0 pointer-events-none"
               style={{
                 background: 'linear-gradient(90deg, rgba(5,5,7,0.85) 0%, rgba(5,5,7,0) 16%, rgba(5,5,7,0) 84%, rgba(5,5,7,0.85) 100%)',
-                opacity: idx === pageIdx ? 0 : 1,
+                opacity: idx === 0 ? 0 : 1,
               }} />
           </section>
         ))}
