@@ -29,9 +29,9 @@ const CONTACT = path.join(__dirname, '_skins_contact.html')
 const SKINS = [
   // rainbow/shark/bat: blue fur or hood defeats auto iris detection — eye
   // centres measured by hand from the cleaned sprite (box %: lx, rx, cy).
-  { id: 'rainbow', file: 'ErenRainbow1.png',   rarity: 'epic',      name: 'Rainbow Eren', eyesOverride: { lx: 40.5, rx: 53.7, cy: 31 } },
+  { id: 'rainbow', file: 'ErenRainbow1.png',   rarity: 'epic',      name: 'Rainbow Eren', eyesOverride: { lx: 40.5, rx: 53.7, cy: 31 }, glintOverride: { ax: 42.1, ay: 27.1, bx: 52.1, by: 27.2 } },
   { id: 'gold',    file: 'ErenGold1.png',       rarity: 'epic',      name: 'Golden Eren' },
-  { id: 'shark',   file: 'ErenSharki1.png',     rarity: 'epic',      name: 'Shark Eren', eyesOverride: { lx: 42.5, rx: 55, cy: 41 } },
+  { id: 'shark',   file: 'ErenSharki1.png',     rarity: 'epic',      name: 'Shark Eren', eyesOverride: { lx: 42.5, rx: 55, cy: 41 }, glintOverride: { ax: 44.3, ay: 39.8, bx: 51.8, by: 40.9 } },
   { id: 'bear',    file: 'ErenBear1.png',       rarity: 'epic',      name: 'Bear Eren',   bg: 'black', reoutline: true, topTip: true, topFlood: true },
   { id: 'fox',     file: 'ErenFox1.png',        rarity: 'epic',      name: 'Fox Eren',    bg: 'black', reoutline: true },
   { id: 'penguin', file: 'ErenPenguing1.png',   rarity: 'epic',      name: 'Penguin Eren' },
@@ -301,6 +301,71 @@ function processInBrowser(dataUrl, opts) {
             eyeReason = `ok(${comps.length}c span${(span * 100) | 0})`
           } else eyeReason = `span(${span.toFixed(2)})`
         } else eyeReason = `comps(${comps.length})`
+      }
+
+      // ── 5b. Glint placement — sit the animated shine on the PAINTED catchlight.
+      // buildEyes seeds a generic centred glint, but each skin's white catchlight
+      // sits upper-INNER (toward the nose) and its exact spot varies per skin, so a
+      // fixed glint drifts off the white. Per eye, measure the catchlight = the
+      // brightest white spot INSIDE the blue iris within that eye's mask, and
+      // re-centre the glint on it. Glint coords are overlay-only (skinsData, not
+      // baked into the PNG) → no asset change. Falls back to a toward-nose default
+      // when no clear catchlight is found (e.g. a tinted-lens eye).
+      if (eyes) {
+        const GW = parseFloat(eyes.glintW)
+        const mwPx = parseFloat(eyes.maskW) / 100 * M
+        const mhPx = parseFloat(eyes.maskH) / 100 * M
+        const mtopPx = parseFloat(eyes.maskTop) / 100 * M - offY
+        const GH = GW * (mwPx / mhPx)
+        const measure = (mlPct) => {
+          const mlPx = parseFloat(mlPct) / 100 * M - offX
+          const x0 = Math.max(0, Math.round(mlPx)), x1 = Math.min(W - 1, Math.round(mlPx + mwPx))
+          const y0 = Math.max(0, Math.round(mtopPx)), y1 = Math.min(H - 1, Math.round(mtopPx + mhPx))
+          let ix0 = 1e9, iy0 = 1e9, ix1 = -1, iy1 = -1   // blue-iris bbox inside the mask
+          for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+            const i = (y * W + x) * 4
+            const r = fd[i], g = fd[i + 1], b = fd[i + 2]
+            if (fd[i + 3] > 128 && b > 80 && b - r > 14 && b - g > 6 && r < 205) {
+              if (x < ix0) ix0 = x; if (x > ix1) ix1 = x; if (y < iy0) iy0 = y; if (y > iy1) iy1 = y
+            }
+          }
+          if (ix1 < 0) return null
+          ix0 = Math.max(x0, ix0 - 1); iy0 = Math.max(y0, iy0 - 1); ix1 = Math.min(x1, ix1 + 1); iy1 = Math.min(y1, iy1 + 1)
+          let sw = 0, sx = 0, sy = 0                       // brightest white in iris bbox = catchlight
+          for (let pass = 0; pass < 2 && sw === 0; pass++) {
+            const Lmin = pass === 0 ? 185 : 165, Cmin = pass === 0 ? 150 : 135
+            for (let y = iy0; y <= iy1; y++) for (let x = ix0; x <= ix1; x++) {
+              const i = (y * W + x) * 4
+              if (fd[i + 3] < 128) continue
+              const L = lum(fd[i], fd[i + 1], fd[i + 2])
+              if (L > Lmin && Math.min(fd[i], fd[i + 1], fd[i + 2]) > Cmin) { const w = L - 140; sw += w; sx += x * w; sy += y * w }
+            }
+          }
+          if (sw === 0) return null
+          return { clx: sx / sw, cly: sy / sw }
+        }
+        // Per-skin catchlight override (box-% positions) for skins whose costume
+        // defeats the auto-measure — rainbow's blue fur, shark's hood.
+        const gov = opts.glintOverride
+        const place = (mlPct, glKey, gtKey, noseRight, ovCL) => {
+          const cl = ovCL || measure(mlPct)
+          if (cl) {
+            const mlPx = parseFloat(mlPct) / 100 * M - offX
+            const gcx = (cl.clx - mlPx) / mwPx * 100
+            const gcy = (cl.cly - mtopPx) / mhPx * 100
+            const gl = Math.max(-6, Math.min(100 - GW + 6, gcx - GW / 2))
+            const gt = Math.max(-6, Math.min(100 - GH + 6, gcy - GH / 2))
+            eyes[glKey] = +gl.toFixed(2) + '%'
+            eyes[gtKey] = +gt.toFixed(2) + '%'
+          } else {
+            eyes[glKey] = (noseRight ? 54 : 18) + '%'   // toward-nose default
+            eyes[gtKey] = '12%'
+          }
+        }
+        place(eyes.maskLeftA, 'glintLeftA', 'glintTopA', true,
+          gov ? { clx: gov.ax / 100 * M - offX, cly: gov.ay / 100 * M - offY } : null)   // eye A
+        place(eyes.maskLeftB, 'glintLeftB', 'glintTopB', false,
+          gov ? { clx: gov.bx / 100 * M - offX, cly: gov.by / 100 * M - offY } : null)   // eye B
       }
 
       // ── 6. Tail isolation by LEFT-RIGHT SYMMETRY. The body+head are roughly
@@ -852,7 +917,7 @@ function processInBrowser(dataUrl, opts) {
     if (!fs.existsSync(srcPath)) { console.log(`MISSING ${s.file}`); continue }
     const b64 = fs.readFileSync(srcPath).toString('base64')
     const dataUrl = `data:image/png;base64,${b64}`
-    const r = await page.evaluate(processInBrowser, dataUrl, { bg: s.bg, reoutline: s.reoutline, tailGap: s.tailGap, tailYStart: s.tailYStart, eyesOverride: s.eyesOverride, tailOrigin: s.tailOrigin, topTip: s.topTip, topFlood: s.topFlood, tailOutline: s.tailOutline, topBright: s.topBright })
+    const r = await page.evaluate(processInBrowser, dataUrl, { bg: s.bg, reoutline: s.reoutline, tailGap: s.tailGap, tailYStart: s.tailYStart, eyesOverride: s.eyesOverride, tailOrigin: s.tailOrigin, topTip: s.topTip, topFlood: s.topFlood, tailOutline: s.tailOutline, topBright: s.topBright, glintOverride: s.glintOverride })
     if (r.error) { console.log(`ERR ${s.id}: ${r.error}`); continue }
     const write = (suffix, url) => {
       if (!url) return
