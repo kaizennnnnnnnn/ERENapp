@@ -34,30 +34,6 @@ type GameMeta = {
 
 const GAMES: GameMeta[] = [
   {
-    id: 'catch_mouse' as GameType,
-    href: '/games/catch-mouse',
-    title: 'CATCH THE MOUSE',
-    desc: 'Tap the pixel mouse before it escapes!',
-    bg: 'linear-gradient(135deg, #FFF5E0, #FFE8C0)',
-    border: '#F5C842',
-    shadow: '#D4A020',
-    accent: '#B07F10',
-    Icon: IconMouse,
-    preview: [IconMouse, IconStar, IconStar],
-  },
-  {
-    id: 'paw_tap' as GameType,
-    href: '/games/paw-tap',
-    title: 'PAW TAP!',
-    desc: 'Tap the fish before they swim away!',
-    bg: 'linear-gradient(135deg, #E8F6FF, #D0EEFF)',
-    border: '#6BAED6',
-    shadow: '#3A88B8',
-    accent: '#3A88B8',
-    Icon: IconFish,
-    preview: [IconFish, IconPaw, IconStar],
-  },
-  {
     id: 'memory_match' as GameType,
     href: '/games/memory-match',
     title: 'PURR-FECT MEMORY',
@@ -221,8 +197,6 @@ const GAMES: GameMeta[] = [
 // each card reads at a glance as that specific game.
 function GameScene({ id, size = 48 }: { id: GameType; size?: number }) {
   switch (id) {
-    case 'catch_mouse':  return <CatchMouseScene  size={size} />
-    case 'paw_tap':      return <PawTapScene      size={size} />
     case 'memory_match': return <MemoryScene      size={size} />
     case 'treat_tumble': return <TreatTumbleScene size={size} />
     case 'flappy_eren':  return <FlappyScene      size={size} />
@@ -236,6 +210,7 @@ function GameScene({ id, size = 48 }: { id: GameType; size?: number }) {
     case 'gone_fishin':  return <GoneFishinScene  size={size} />
     case 'defend_bowl':  return <DefendBowlScene  size={size} />
     case 'purr_beat':    return <PurrBeatScene    size={size} />
+    default:             return null
   }
 }
 
@@ -245,63 +220,6 @@ function svgProps(size: number) {
     shapeRendering: 'crispEdges' as const,
     style: { imageRendering: 'pixelated' as const },
   }
-}
-
-// CATCH MOUSE — gray mouse + cheese with motion dust
-function CatchMouseScene({ size }: { size: number }) {
-  return (
-    <svg {...svgProps(size)}>
-      {/* Cheese */}
-      <rect x="32" y="22" width="12" height="2" fill="#FDE68A" />
-      <rect x="32" y="24" width="12" height="6" fill="#FCD34D" />
-      <rect x="32" y="30" width="12" height="2" fill="#92400E" />
-      <rect x="34" y="25" width="2" height="2" fill="#92400E" />
-      <rect x="38" y="27" width="2" height="2" fill="#92400E" />
-      {/* Mouse body */}
-      <rect x="14" y="22" width="2" height="2" fill="#FBCFE8" />     {/* ear */}
-      <rect x="20" y="22" width="2" height="2" fill="#FBCFE8" />     {/* ear */}
-      <rect x="13" y="24" width="2" height="2" fill="#9CA3AF" />
-      <rect x="21" y="24" width="2" height="2" fill="#9CA3AF" />
-      <rect x="13" y="24" width="10" height="6" fill="#9CA3AF" />
-      <rect x="13" y="24" width="10" height="2" fill="#D1D5DB" />    {/* highlight */}
-      <rect x="15" y="26" width="2" height="2" fill="#1F2937" />     {/* eye */}
-      <rect x="22" y="27" width="2" height="2" fill="#FBCFE8" />     {/* nose */}
-      {/* Tail */}
-      <rect x="11" y="28" width="2" height="1" fill="#F472B6" />
-      <rect x="9"  y="29" width="2" height="1" fill="#F472B6" />
-      <rect x="7"  y="30" width="2" height="1" fill="#F472B6" />
-      {/* Motion dust */}
-      <rect x="4" y="32" width="3" height="2" fill="#9CA3AF" opacity="0.5" />
-      <rect x="0" y="34" width="3" height="2" fill="#9CA3AF" opacity="0.3" />
-    </svg>
-  )
-}
-
-// PAW TAP — fish leaping out of water with bubbles
-function PawTapScene({ size }: { size: number }) {
-  return (
-    <svg {...svgProps(size)}>
-      {/* Water surface */}
-      <rect x="0"  y="38" width="48" height="2" fill="#1E40AF" />
-      <rect x="0"  y="36" width="48" height="2" fill="#3B82F6" opacity="0.6" />
-      {/* Fish body */}
-      <rect x="14" y="14" width="20" height="12" fill="#3B82F6" />
-      <rect x="14" y="14" width="20" height="3"  fill="#93C5FD" />     {/* highlight */}
-      <rect x="14" y="22" width="20" height="3"  fill="#1E40AF" />     {/* shadow */}
-      <rect x="13" y="16" width="1"  height="8"  fill="#1E40AF" />     {/* mouth */}
-      <rect x="20" y="17" width="3"  height="3"  fill="#FFFFFF" />     {/* eye */}
-      <rect x="22" y="17" width="1"  height="2"  fill="#1F2937" />
-      {/* Tail fin */}
-      <rect x="34" y="14" width="3"  height="3"  fill="#1E40AF" />
-      <rect x="37" y="11" width="3"  height="4"  fill="#1E40AF" />
-      <rect x="34" y="22" width="3"  height="3"  fill="#1E40AF" />
-      <rect x="37" y="24" width="3"  height="4"  fill="#1E40AF" />
-      {/* Bubbles */}
-      <rect x="6"  y="20" width="3" height="3" fill="#BFDBFE" opacity="0.85" />
-      <rect x="3"  y="26" width="2" height="2" fill="#BFDBFE" opacity="0.7" />
-      <rect x="40" y="6"  width="3" height="3" fill="#BFDBFE" opacity="0.65" />
-    </svg>
-  )
 }
 
 // MEMORY MATCH — three cards, the centre one flipped showing a heart

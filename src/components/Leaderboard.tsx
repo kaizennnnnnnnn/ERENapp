@@ -20,7 +20,7 @@ import { useGamesWeekly } from '@/hooks/useGamesWeekly'
 import { countGamesWon } from '@/lib/gameRewards'
 import {
   IconStar, IconCrown,
-  IconMouse, IconFish, IconScroll, IconMeat, IconLightning,
+  IconFish, IconScroll, IconMeat, IconLightning,
   IconSwords, IconHouse, IconHeart, IconCatFace, IconCoin, IconSparkles, IconYarn, IconPaw,
 } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
@@ -28,8 +28,6 @@ import type { GameType, Profile } from '@/types'
 import AnimatedEren from '@/components/AnimatedEren'
 
 const GAMES: Array<{ id: GameType; title: string; Icon: React.FC<{ size?: number }> }> = [
-  { id: 'catch_mouse',  title: 'CATCH THE MOUSE',  Icon: IconMouse },
-  { id: 'paw_tap',      title: 'PAW TAP!',         Icon: IconFish },
   { id: 'memory_match', title: 'PURR-FECT MEMORY', Icon: IconScroll },
   { id: 'treat_tumble', title: 'TREAT TUMBLE',     Icon: IconMeat },
   { id: 'flappy_eren',  title: 'FIZZY EREN',       Icon: IconLightning },
