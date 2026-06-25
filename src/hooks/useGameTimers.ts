@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 
 export interface GameTimers {
   /** Tracked setTimeout — auto-deregisters when it fires. */
@@ -57,11 +57,17 @@ export function useGameTimers(): GameTimers {
   // Flush everything on unmount (e.g. back button mid-animation).
   useEffect(() => clearAll, [clearAll])
 
-  return {
+  // Stable object identity — the inner fns are already useCallback-stable, so
+  // this memo never changes. Returning a fresh object literal each render used
+  // to break any effect that listed `timers` in its deps: it re-ran on every
+  // commit, cancelling and rescheduling timers it had just set (e.g. Eren's
+  // tic-tac-toe move never fired because a 320ms phrase-cycle re-render kept
+  // resetting his ~600ms move timer).
+  return useMemo<GameTimers>(() => ({
     setTimeout: setT,
     setInterval: setI,
     clearTimeout: clearT,
     clearInterval: clearI,
     clearAll,
-  }
+  }), [setT, setI, clearT, clearI, clearAll])
 }
