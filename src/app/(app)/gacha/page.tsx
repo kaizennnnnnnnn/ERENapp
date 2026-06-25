@@ -9,10 +9,11 @@ import { useGacha } from '@/hooks/useGacha'
 import { useInventory } from '@/hooks/useInventory'
 import { useCare } from '@/contexts/CareContext'
 import { PULL_COST_SINGLE, PULL_COST_TEN, PITY_EPIC, PITY_LEGENDARY } from '@/lib/gacha'
-import type { GachaPullResult } from '@/types'
+import type { GachaPullResult, GachaRarity } from '@/types'
 import { highestRarity, pickClothesHitVideo } from '@/lib/gachaVideos'
 import { getSkin } from '@/lib/skins'
 import PullAnimation from '@/components/gacha/PullAnimation'
+import GachaEnergyOpening from '@/components/gacha/GachaEnergyOpening'
 import StarfallLoader from '@/components/gacha/StarfallLoader'
 import GachaPullButton from '@/components/gacha/GachaPullButton'
 import { IconCoin, IconSparkles, IconTicket, IconBook } from '@/components/PixelIcons'
@@ -53,7 +54,12 @@ export default function GachaPage() {
   // rarity-tiered hit video for clothes. null = no video playing.
   const [openingVideo, setOpeningVideo] = useState<string | null>(null)
   const [videoReady, setVideoReady] = useState(false) // opening video can render its first frame
-  const openedWithVideo = useRef(false) // a video opened this pull → skip the capsule
+  // The FoodSuits machine opens with a CSS energy cinematic instead of a video,
+  // so the burst can be tinted by the pulled rarity. energyOn = overlay active;
+  // energyRarity stays null until the roll resolves (the shine masks the wait).
+  const [energyOn, setEnergyOn] = useState(false)
+  const [energyRarity, setEnergyRarity] = useState<GachaRarity | null>(null)
+  const openedWithVideo = useRef(false) // a video/energy opening this pull → skip the capsule
   const touchedDeck = useRef(false) // gate swipe SFX to real gestures (see onScroll)
 
   // Scroll-driven swap effect: the off-center machine recedes (scale), dims,
@@ -141,13 +147,20 @@ export default function GachaPage() {
     openedWithVideo.current = false
 
     // The rainbow opening is generic, so it plays DURING the roll to mask the
-    // latency — used by the food and FoodSuits machines. Clothes' opening is
-    // rarity-tiered, so it can only be chosen after the roll resolves (below).
-    const usesRainbowOpening = bannerId === 'food' || bannerId === 'foodsuits'
+    // latency — used by the food machine. The FoodSuits machine opens with the
+    // rarity-tinted CSS energy cinematic (its shine phase masks the roll, then
+    // the burst colours to the result). Clothes' opening is a rarity-tiered hit
+    // video, chosen after the roll resolves (below).
+    const usesRainbowOpening = bannerId === 'food'
+    const usesEnergyOpening = bannerId === 'foodsuits'
     if (usesRainbowOpening) {
       playSound('gift_open')
       openedWithVideo.current = true
       startOpening('/rainbow_opening.mp4')
+    } else if (usesEnergyOpening) {
+      openedWithVideo.current = true
+      setEnergyRarity(null)
+      setEnergyOn(true)
     }
 
     const results = count === 1
@@ -155,6 +168,7 @@ export default function GachaPage() {
       : await pullTen(bannerId)
     if (!results) {
       setOpeningVideo(null)
+      setEnergyOn(false)
       return
     }
 
@@ -172,9 +186,13 @@ export default function GachaPage() {
       }
     }
 
-    if (!usesRainbowOpening) {
+    const best = highestRarity(results.map(r => r.item.rarity))
+    if (usesEnergyOpening) {
+      // Hand the FoodSuits energy cinematic its rarity → it charges and bursts.
+      setEnergyRarity(best)
+    } else if (bannerId === 'animal') {
       // Clothes: open with the hit cinematic for the best drop in the batch.
-      const vid = pickClothesHitVideo(highestRarity(results.map(r => r.item.rarity)))
+      const vid = pickClothesHitVideo(best)
       if (vid) {
         openedWithVideo.current = true
         startOpening(vid)
@@ -357,8 +375,11 @@ export default function GachaPage() {
         </div>
       )}
 
+      {/* ── FoodSuits energy cinematic (keyhole shine → rarity-tinted burst) ── */}
+      {energyOn && <GachaEnergyOpening rarity={energyRarity} onDone={() => setEnergyOn(false)} />}
+
       {/* ── Reveal ── */}
-      {pullResults && !openingVideo && <PullAnimation results={pullResults} onDone={handlePullDone} skipCapsule={openedWithVideo.current} />}
+      {pullResults && !openingVideo && !energyOn && <PullAnimation results={pullResults} onDone={handlePullDone} skipCapsule={openedWithVideo.current} />}
 
       <style jsx>{`
         .gacha-stardust-val {
