@@ -11,6 +11,7 @@ import { useCare } from '@/contexts/CareContext'
 import { PULL_COST_SINGLE, PULL_COST_TEN, PITY_EPIC, PITY_LEGENDARY } from '@/lib/gacha'
 import type { GachaPullResult } from '@/types'
 import { highestRarity, pickClothesHitVideo } from '@/lib/gachaVideos'
+import { getSkin } from '@/lib/skins'
 import PullAnimation from '@/components/gacha/PullAnimation'
 import StarfallLoader from '@/components/gacha/StarfallLoader'
 import GachaPullButton from '@/components/gacha/GachaPullButton'
@@ -151,6 +152,20 @@ export default function GachaPage() {
     if (!results) {
       setOpeningVideo(null)
       return
+    }
+
+    // Warm the skin sprites while the opening cinematic plays, so the reveal
+    // shows the cat already drawn on its podium instead of popping in after it
+    // (SkinPodium also gates on decode; this just pre-fills the cache).
+    for (const r of results) {
+      const sk = r.item.skinId ? getSkin(r.item.skinId) : undefined
+      if (!sk) continue
+      for (const s of [sk.src, sk.tailSrc]) {
+        if (!s) continue
+        const im = new Image()
+        im.src = s
+        im.decode?.().catch(() => {})
+      }
     }
 
     if (!usesRainbowOpening) {

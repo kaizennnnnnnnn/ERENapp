@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import BlinkingEren from '@/components/BlinkingEren'
 import type { SkinDef } from '@/lib/skins'
 
@@ -305,6 +306,27 @@ export default function SkinPodium({ skin, rarity }: Props) {
   const isLeg  = rarity === 'legendary'
   const isEpic = rarity === 'epic'
   const sparks = isLeg ? LEG_SPARKS : isEpic ? EPIC_SPARKS : RARE_SPARKS
+
+  // Gate the whole scene on the skin sprite being decoded, so the podium and
+  // the cat enter together. Without this the podium renders immediately and the
+  // sprite pops in late once its PNG decodes — looking like the skin "appears"
+  // after the plinth. Mirrors BlinkingEren's own decode-then-reveal pattern.
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    setReady(false)
+    const list = [skin.src, skin.tailSrc].filter(Boolean) as string[]
+    Promise.all(list.map(s => {
+      const im = new window.Image()
+      im.src = s
+      return im.decode().catch(() => new Promise<void>(res => { im.onload = im.onerror = () => res() }))
+    })).then(() => { if (!cancelled) setReady(true) })
+    return () => { cancelled = true }
+  }, [skin.src, skin.tailSrc])
+
+  // Reserve the scene's footprint while loading so the reveal layout doesn't
+  // jump when the podium appears.
+  if (!ready) return <div aria-hidden style={{ position: 'relative', width: SCENE_W, height: SCENE_H }} />
 
   return (
     <div style={{ position: 'relative', width: SCENE_W, height: SCENE_H }}>
