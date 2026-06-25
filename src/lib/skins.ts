@@ -51,6 +51,16 @@ export const CLASSIC_SKIN: SkinDef = {
 const SKIN_V = '19'
 const v = (p?: string) => (p ? `${p}?v=${SKIN_V}` : p)
 
+// Per-skin cat-body fraction override. The gacha skins are trimmed tight, so by
+// default the cat IS the whole canvas (catFracH 1) and skinRoomFit sizes the
+// canvas to the room's cat-height target. For a costume that's TALLER than the
+// cat — banana's elongated peel — the cat fills only part of that tall canvas,
+// so the default sizing shrinks the cat-inside (banana's face measured the
+// smallest of all skins). Setting catFracH < 1 sizes the skin up so the cat
+// matches the others; botGap stays 0 (paws at the canvas bottom), so the bigger
+// box grows upward and the feet stay aligned.
+const SKIN_CAT_FRAC: Record<string, number> = { banana: 0.8 }
+
 // The gacha skins (animal + food sets), from the auto-generated render data.
 export const GACHA_SKINS: SkinDef[] = SKIN_DATA.map(s => ({
   id: s.id,
@@ -63,6 +73,7 @@ export const GACHA_SKINS: SkinDef[] = SKIN_DATA.map(s => ({
   eyes: s.eyes,
   thumb: v(s.thumb)!,
   aspect: s.aspect,
+  catFracH: SKIN_CAT_FRAC[s.id],
 }))
 
 export const ALL_SKINS: SkinDef[] = [CLASSIC_SKIN, ...GACHA_SKINS]
