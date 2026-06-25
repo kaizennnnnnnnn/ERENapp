@@ -112,10 +112,14 @@ export default function GachaPage() {
     const el = scrollRef.current
     if (!el) return
     playSound('ui_select')
-    // This smooth scroll fires onScroll; clear the gesture flag so it doesn't
-    // also play the swipe SFX on top of ui_select. The next real touch re-arms.
+    // Jump instantly: snap-always (scroll-snap-stop: always, set on each page to
+    // stop hard flicks skipping a machine) also blocks a *smooth* programmatic
+    // scroll from crossing a snap point, so a far-dot tap would otherwise stall
+    // one page short. An instant scroll lands on the target directly.
+    // This fires onScroll; clear the gesture flag so it doesn't also play the
+    // swipe SFX on top of ui_select. The next real touch re-arms.
     touchedDeck.current = false
-    el.scrollTo({ left: idx * el.clientWidth, behavior: 'smooth' })
+    el.scrollTo({ left: idx * el.clientWidth, behavior: 'instant' })
   }
 
   // Show a video opening from a clean "still buffering" state, so the starfall
@@ -193,7 +197,10 @@ export default function GachaPage() {
         className="relative h-full w-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory"
         style={{ scrollbarWidth: 'none' }}>
         {PAGES.map((p, idx) => (
-          <section key={p.id} className="relative h-full w-full flex-shrink-0 snap-center overflow-hidden">
+          <section key={p.id} className="relative h-full w-full flex-shrink-0 snap-center snap-always overflow-hidden">
+            {/* snap-always = scroll-snap-stop: always — a hard flick can't fly
+                past a page; the scroll must settle on each machine in turn, so
+                you always step 1 → 2 → 3 instead of skipping straight to 3. */}
             {/* applyScrollFx is the SOLE writer of the scroll-FX styles below
                 (transform here, dim/edge opacity further down). The inline
                 values are keyed off the constant `idx` — never the reactive
