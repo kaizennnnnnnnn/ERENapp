@@ -29,7 +29,7 @@ export const EXHAUSTED_ENERGY = 30
 export const PARTICIPATION_COINS = 3
 
 /** Coins for beating Eren at tic-tac-toe (a loss/draw pays the floor). */
-const TTT_WIN_COINS = 20
+const TTT_WIN_COINS = 16
 
 // Per-game coin curve. A finished run ramps LINEARLY from PARTICIPATION_COINS (a
 // weak score) up to `cap`, hitting the cap at `greatScore`. Coins rise
@@ -44,27 +44,27 @@ const TTT_WIN_COINS = 20
 // games (gone-fishin, defend-bowl, yarn-sort) greatScore comes from the code's
 // realistic ceiling instead, since the few samples are too low to trust.
 //
-// `cap` is tiered by run effort: quick reflex 30, medium 40, long/endless 45-55.
-// Anchored to the wallet (a single gacha pull is 50): a great run ≈ half-to-a
-// full pull. Sample payouts are in the commit message / the curve check.
+// `cap` is tiered by run effort: quick reflex 24, medium 32, long/endless 36-44.
+// Anchored to the wallet (a single gacha pull is 50): a great run ≈ half a pull
+// (a touch more on the hardest games). Sample payouts are in the curve check.
 const COIN_CURVE: Record<GameType, { greatScore: number; cap: number }> = {
   // Quick reflex games — cap 30.
-  flappy_eren:  { greatScore: 40,    cap: 30 }, // +1/pipe. real median 11, p90 32, best 44 → 11≈10c · 24≈19c · 40+→30c
-  paw_tap:      { greatScore: 55,    cap: 30 }, // +1 fish / +3 bonus / combos, 20s. real median 20, best 57
-  catch_mouse:  { greatScore: 38,    cap: 30 }, // +1/catch, 30s. real median 31, best 37 (tight & high)
-  eren_says:    { greatScore: 15,    cap: 30 }, // +1/round survived. real best 12, ceiling ~20; tiny score band
+  flappy_eren:  { greatScore: 40,    cap: 24 }, // +1/pipe. real median 11, p90 32, best 44 → 11≈9c · 24≈16c · 40+→24c
+  paw_tap:      { greatScore: 55,    cap: 24 }, // +1 fish / +3 bonus / combos, 20s. real median 20, best 57
+  catch_mouse:  { greatScore: 38,    cap: 24 }, // +1/catch, 30s. real median 31, best 37 (tight & high)
+  eren_says:    { greatScore: 15,    cap: 24 }, // +1/round survived. real best 12, ceiling ~20; tiny score band
   // Medium games — cap 40.
-  memory_match: { greatScore: 255,   cap: 40 }, // 12/match + combo + time bonus, 60s. real median 166, best 250
-  treat_tumble: { greatScore: 340,   cap: 40 }, // item values × combo (x2/x3), 45s. real median 239, best 323
-  eren_stack:   { greatScore: 78,    cap: 40 }, // +5 perfect / +1 trim, ends ~22px wide. real best 68-73, ceiling ~78
-  yarn_sort:    { greatScore: 16,    cap: 40 }, // +1/level solved; ~22-26 levels possible (real plays stopped at 6)
+  memory_match: { greatScore: 255,   cap: 32 }, // 12/match + combo + time bonus, 60s. real median 166, best 250
+  treat_tumble: { greatScore: 340,   cap: 32 }, // item values × combo (x2/x3), 45s. real median 239, best 323
+  eren_stack:   { greatScore: 78,    cap: 32 }, // +5 perfect / +1 trim, ends ~22px wide. real best 68-73, ceiling ~78
+  yarn_sort:    { greatScore: 16,    cap: 32 }, // +1/level solved; ~22-26 levels possible (real plays stopped at 6)
   // Long / endless games — cap 45-55.
-  lane_runner:  { greatScore: 1300,  cap: 45 }, // distance + coins×5, endless. real median 159, p90 1338, best 1564
-  yarn_pop:     { greatScore: 4400,  cap: 45 }, // cascades × level, 30 moves (~900 floor). real median ~3000, best 4090
-  paw_doku:     { greatScore: 28000, cap: 50 }, // 10/cell + 100×clears×combo + streak bonus. real ~23-24k typical
-  gone_fishin:  { greatScore: 300,   cap: 50 }, // sum of fish value, 10 bait (rares refund). strong haul ~300 (epic+rares)
-  defend_bowl:  { greatScore: 2200,  cap: 55 }, // waves×100 + kills×3. real best 1573 (~wave 15); ~wave 20 ≈ 2200
-  purr_beat:    { greatScore: 60000, cap: 55 }, // hit pts × combo mult (→4×). real ~52k strong, 12k casual
+  lane_runner:  { greatScore: 1300,  cap: 36 }, // distance + coins×5, endless. real median 159, p90 1338, best 1564
+  yarn_pop:     { greatScore: 4400,  cap: 36 }, // cascades × level, 30 moves (~900 floor). real median ~3000, best 4090
+  paw_doku:     { greatScore: 28000, cap: 42 }, // 10/cell + 100×clears×combo + streak bonus. real ~23-24k typical
+  gone_fishin:  { greatScore: 300,   cap: 42 }, // sum of fish value, 10 bait (rares refund). strong haul ~300 (epic+rares)
+  defend_bowl:  { greatScore: 2200,  cap: 44 }, // waves×100 + kills×3. real best 1573 (~wave 15); ~wave 20 ≈ 2200
+  purr_beat:    { greatScore: 60000, cap: 44 }, // hit pts × combo mult (→4×). real ~52k strong, 12k casual
   // Win/loss only — the ramp is bypassed in coinsForGame (see TTT_WIN_COINS).
   tic_tac_toe:  { greatScore: 1,     cap: TTT_WIN_COINS },
 }
