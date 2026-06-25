@@ -453,6 +453,12 @@ export default function TreatTumbleGame() {
   const [displayedScore, setDisplayedScore] = useState(0)
   const [reward, setReward] = useState<GameRewardResult | null>(null)
 
+  // Live items — the rAF loop mutates this ref synchronously each frame and
+  // mirrors it into `items` state for rendering. The loop must NOT compute
+  // catches inside a setItems(prev => …) updater: React runs that updater
+  // lazily during reconciliation, so the score/life deltas read right after
+  // it were still 0 — catches scored nothing and dangers dealt no damage.
+  const itemsRef = useRef<FallingItem[]>([])
   const itemId  = useRef(0)
   const floatId = useRef(0)
   const particleId = useRef(0)
@@ -477,6 +483,7 @@ export default function TreatTumbleGame() {
     setLives(START_LIVES)
     livesRef.current = START_LIVES
     setTimeLeft(GAME_DURATION)
+    itemsRef.current = []
     setItems([])
     setFloats([])
     setParticles([])
@@ -593,11 +600,19 @@ export default function TreatTumbleGame() {
       const speed = ITEM_BASE_SPEED + ITEM_SPEED_PER_SEC * gameElapsedSec
       const spawnInterval = Math.max(MIN_SPAWN_MS, START_SPAWN_MS - SPAWN_RAMP_PER_SEC * gameElapsedSec)
 
+      // Live items for this frame: the ref is the source of truth (state lags
+      // because the loop closes over a stale `items`). Everything below is
+      // computed SYNCHRONOUSLY so the score/life deltas are populated before
+      // the side-effects read them — the loop owns the array, not a deferred
+      // setItems updater. (Running once per rAF frame, this is also immune to
+      // the StrictMode double-invoke that the old updater guarded against.)
+      let working = itemsRef.current
+
       // Spawn
       if (t - lastSpawn.current > spawnInterval) {
         lastSpawn.current = t
         const kind = pickKind()
-        setItems(prev => [...prev, {
+        working = [...working, {
           id: itemId.current++,
           x: Math.random() * (rect.width - ITEM_SIZE - 24) + 12 + ITEM_SIZE / 2,
           y: -ITEM_SIZE,
@@ -605,17 +620,13 @@ export default function TreatTumbleGame() {
           caught: false,
           missed: false,
           wobble: Math.random() * Math.PI * 2,
-        }])
+        }]
       }
 
       // Advance items
       const erenCX = (erenXRef.current / 100) * rect.width
       const catchY = rect.height - 110
 
-      // Frame outcome is collected here and the side-effects are fired AFTER the
-      // state updater returns. The setItems updater must stay pure: under React
-      // StrictMode it runs twice, so firing setState / playSound / setTimeout
-      // inside it would double-count score, lives and sounds.
       let dLives = 0
       let dScore = 0
       let comboDelta = 0   // +N good catches, -1 means broken
@@ -627,96 +638,82 @@ export default function TreatTumbleGame() {
       const newParticles: Particle[] = []
       const newPuffs: Puff[] = []
       const groundY = rect.height - 72   // top of the grass strip
+      const updated: FallingItem[] = []
 
-      setItems(prev => {
-        // Reset accumulators so a StrictMode double-invocation of this updater
-        // recomputes from scratch instead of doubling score / lives / bursts.
-        const updated: FallingItem[] = []
-        dLives = 0
-        dScore = 0
-        comboDelta = 0
-        hadDanger = false
-        hadGolden = false
-        hadHeart = false
-        hadGoodCatch = false
-        newFloats.length = 0
-        newParticles.length = 0
-        newPuffs.length = 0
+      for (const it of working) {
+        if (it.caught || it.missed) continue
+        const ny = it.y + speed * (elapsed / 1000)
 
-        for (const it of prev) {
-          if (it.caught || it.missed) continue
-          const ny = it.y + speed * (elapsed / 1000)
-
-          const dx = Math.abs(it.x - erenCX)
-          if (ny >= catchY && ny <= catchY + ITEM_SIZE + 18 && dx <= EREN_WIDTH / 2 + ITEM_SIZE / 2 - 4) {
-            const meta = ITEMS[it.kind]
-            const isGood = !meta.danger && (meta.points > 0 || meta.life > 0)
-            // Combo multiplier: applies to positive point items, not danger.
-            let pointsAwarded = meta.points
-            const currentMult = comboRef.current >= 10 ? 3 : comboRef.current >= 5 ? 2 : 1
-            if (meta.points > 0 && currentMult > 1) {
-              pointsAwarded = meta.points * currentMult
-            }
-            dScore += pointsAwarded
-            if (meta.life < 0) dLives += meta.life
-            else if (meta.life > 0) dLives += meta.life
-            if (meta.danger) { hadDanger = true; comboDelta = -1 }
-            else {
-              hadGoodCatch = true
-              if (it.kind === 'golden') hadGolden = true
-              if (it.kind === 'heart') hadHeart = true
-              if (meta.points > 0) comboDelta = comboDelta < 0 ? comboDelta : comboDelta + 1
-            }
-
-            newFloats.push({
-              id: floatId.current++,
-              x: it.x, y: catchY - 10,
-              text: pointsAwarded > 0
-                ? (currentMult > 1 ? `+${pointsAwarded} x${currentMult}` : `+${pointsAwarded}`)
-                : pointsAwarded < 0 ? `${pointsAwarded}` : meta.life > 0 ? '+♥' : '',
-              color: pointsAwarded > 0 ? (currentMult > 1 ? '#FBBF24' : '#FDE68A') : pointsAwarded < 0 ? '#FCA5A5' : '#FF6B9D',
-              t0: t,
-            })
-
-            // Particle burst on positive catches (tinted to the item color).
-            if (isGood && !reduced) {
-              const count = it.kind === 'golden' ? 9 : 6
-              for (let i = 0; i < count; i++) {
-                const ang = (Math.PI * 2 * i) / count + Math.random() * 0.4
-                const speedP = 38 + Math.random() * 26
-                newParticles.push({
-                  id: particleId.current++,
-                  x: it.x,
-                  y: catchY,
-                  dx: Math.cos(ang) * speedP,
-                  dy: Math.sin(ang) * speedP - 18,
-                  color: meta.tint,
-                  size: it.kind === 'golden' ? 4 : 3,
-                  t0: t,
-                })
-              }
-            }
-            continue
+        const dx = Math.abs(it.x - erenCX)
+        if (ny >= catchY && ny <= catchY + ITEM_SIZE + 18 && dx <= EREN_WIDTH / 2 + ITEM_SIZE / 2 - 4) {
+          const meta = ITEMS[it.kind]
+          const isGood = !meta.danger && (meta.points > 0 || meta.life > 0)
+          // Combo multiplier: applies to positive point items, not danger.
+          let pointsAwarded = meta.points
+          const currentMult = comboRef.current >= 10 ? 3 : comboRef.current >= 5 ? 2 : 1
+          if (meta.points > 0 && currentMult > 1) {
+            pointsAwarded = meta.points * currentMult
+          }
+          dScore += pointsAwarded
+          if (meta.life < 0) dLives += meta.life
+          else if (meta.life > 0) dLives += meta.life
+          if (meta.danger) { hadDanger = true; comboDelta = -1 }
+          else {
+            hadGoodCatch = true
+            if (it.kind === 'golden') hadGolden = true
+            if (it.kind === 'heart') hadHeart = true
+            if (meta.points > 0) comboDelta = comboDelta < 0 ? comboDelta : comboDelta + 1
           }
 
-          // Missed good items hitting the floor — smoke puff + small penalty.
-          if (ny >= groundY) {
-            const meta = ITEMS[it.kind]
-            if (!meta.danger && (meta.points > 0 || meta.life > 0)) {
-              newPuffs.push({ id: puffId.current++, x: it.x, y: groundY, t0: t })
-              // Tiny penalty so chasing low-value treats matters; combo breaks.
-              dScore -= 1
-              comboDelta = -1
-            }
-            continue
-          }
+          newFloats.push({
+            id: floatId.current++,
+            x: it.x, y: catchY - 10,
+            text: pointsAwarded > 0
+              ? (currentMult > 1 ? `+${pointsAwarded} x${currentMult}` : `+${pointsAwarded}`)
+              : pointsAwarded < 0 ? `${pointsAwarded}` : meta.life > 0 ? '+♥' : '',
+            color: pointsAwarded > 0 ? (currentMult > 1 ? '#FBBF24' : '#FDE68A') : pointsAwarded < 0 ? '#FCA5A5' : '#FF6B9D',
+            t0: t,
+          })
 
-          if (ny > rect.height + 10) continue
-          updated.push({ ...it, y: ny })
+          // Particle burst on positive catches (tinted to the item color).
+          if (isGood && !reduced) {
+            const count = it.kind === 'golden' ? 9 : 6
+            for (let i = 0; i < count; i++) {
+              const ang = (Math.PI * 2 * i) / count + Math.random() * 0.4
+              const speedP = 38 + Math.random() * 26
+              newParticles.push({
+                id: particleId.current++,
+                x: it.x,
+                y: catchY,
+                dx: Math.cos(ang) * speedP,
+                dy: Math.sin(ang) * speedP - 18,
+                color: meta.tint,
+                size: it.kind === 'golden' ? 4 : 3,
+                t0: t,
+              })
+            }
+          }
+          continue
         }
 
-        return updated
-      })
+        // Missed good items hitting the floor — smoke puff + small penalty.
+        if (ny >= groundY) {
+          const meta = ITEMS[it.kind]
+          if (!meta.danger && (meta.points > 0 || meta.life > 0)) {
+            newPuffs.push({ id: puffId.current++, x: it.x, y: groundY, t0: t })
+            // Tiny penalty so chasing low-value treats matters; combo breaks.
+            dScore -= 1
+            comboDelta = -1
+          }
+          continue
+        }
+
+        if (ny > rect.height + 10) continue
+        updated.push({ ...it, y: ny })
+      }
+
+      itemsRef.current = updated
+      setItems(updated)
 
       // ── Side-effects (fired once per frame, OUTSIDE the pure updater) ───────
       if (dScore !== 0) {
