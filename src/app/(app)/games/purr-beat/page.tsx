@@ -28,7 +28,7 @@ import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useVisibilityPause } from '@/hooks/useVisibilityPause'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound, type SoundName } from '@/lib/sounds'
-import { IconStar } from '@/components/PixelIcons'
+import { IconStar, IconHeart } from '@/components/PixelIcons'
 import { fireMinigameDone } from '@/lib/minigames'
 
 // ─── Tunables ───────────────────────────────────────────────────────────────
@@ -40,11 +40,10 @@ const LEAD_IN = TRAVEL + 0.6  // first beat time (gives a ~2s run-up)
 const W_PERFECT = 0.06
 const W_GOOD    = 0.11
 const W_OK      = 0.17
-// groove meter
-const GROOVE_START = 50
-const GROOVE_MAX   = 100
-const GAIN = { perfect: 3, good: 2, ok: 1 }
-const MISS_PEN = 8
+// lives — a flat pool of hearts. One heart is lost per missed note; the run
+// ends at 0. (Replaces the old draining/regenerating GROOVE meter.)
+const START_LIVES = 5
+const MAX_LIVES    = 5
 // points
 const PTS = { perfect: 50, good: 30, ok: 10 }
 // difficulty
@@ -85,7 +84,7 @@ export default function PurrBeatGame() {
   const beatsRef = useRef<number[]>([])
   const spawnIdxRef = useRef(0)
   const soundIdxRef = useRef(0)
-  const grooveRef = useRef(GROOVE_START)
+  const livesRef = useRef(START_LIVES)
   const scoreRef = useRef(0)
   const comboRef = useRef(0)
   const maxComboRef = useRef(0)
@@ -183,11 +182,11 @@ export default function PurrBeatGame() {
     if (missed > 0) {
       notesRef.current = survivors
       comboRef.current = 0
-      grooveRef.current = Math.max(0, grooveRef.current - MISS_PEN * missed)
+      livesRef.current = Math.max(0, livesRef.current - missed)
       playSound('pr_miss')
       showJudge('MISS', '#FCA5A5')
     }
-    if (grooveRef.current <= 0) endGame()
+    if (livesRef.current <= 0) endGame()
   }
 
   function showJudge(text: string, color: string) {
@@ -215,7 +214,6 @@ export default function PurrBeatGame() {
     comboRef.current += 1
     maxComboRef.current = Math.max(maxComboRef.current, comboRef.current)
     scoreRef.current += PTS[kind] * comboMult(comboRef.current)
-    grooveRef.current = Math.min(GROOVE_MAX, grooveRef.current + GAIN[kind])
     playSound(LANE_TONE[lane])
     if (kind === 'perfect') playSound('pr_perfect')
     showJudge(kind.toUpperCase(), kind === 'perfect' ? '#FDE047' : kind === 'good' ? '#A7F3D0' : '#BAE6FD')
@@ -227,7 +225,7 @@ export default function PurrBeatGame() {
     beatsRef.current = [LEAD_IN]
     spawnIdxRef.current = 0
     soundIdxRef.current = 0
-    grooveRef.current = GROOVE_START
+    livesRef.current = START_LIVES
     scoreRef.current = 0
     comboRef.current = 0
     maxComboRef.current = 0
@@ -264,7 +262,7 @@ export default function PurrBeatGame() {
 
   // ─── Render ─────────────────────────────────────────────────────────────
   const now = gameTimeRef.current
-  const groove = grooveRef.current
+  const lives = livesRef.current
   const combo = comboRef.current
   const mult = comboMult(combo)
   // Eren bops on the kick
@@ -310,15 +308,26 @@ export default function PurrBeatGame() {
               </div>
             )}
           </div>
-          {/* groove meter */}
-          <div className="relative" style={{ height: 12, background: 'rgba(0,0,0,0.45)', border: '2px solid rgba(232,121,249,0.5)', borderRadius: 6, overflow: 'hidden' }}>
-            <div style={{
-              height: '100%', width: `${groove}%`,
-              background: groove > 60 ? 'linear-gradient(90deg, #C026D3, #E879F9)' : groove > 30 ? 'linear-gradient(90deg, #F59E0B, #FBBF24)' : 'linear-gradient(90deg, #DC2626, #F87171)',
-              transition: reduced ? undefined : 'width 0.1s linear',
-              boxShadow: '0 0 10px rgba(232,121,249,0.5)',
-            }} />
-            <span className="font-pixel absolute inset-0 flex items-center justify-center" style={{ fontSize: 5, color: '#FFFFFF', letterSpacing: 2, textShadow: '0 1px 0 rgba(0,0,0,0.6)' }}>GROOVE</span>
+          {/* lives — a row of hearts; the last heart pulses as a warning */}
+          <div className="flex items-center gap-2">
+            <span className="font-pixel" style={{ fontSize: 6, color: '#E9A8FB', letterSpacing: 2 }}>LIVES</span>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: MAX_LIVES }).map((_, i) => {
+                const filled = i < lives
+                const critical = filled && lives <= 1 && !reduced
+                return (
+                  <div key={i} style={{
+                    opacity: filled ? 1 : 0.2,
+                    transform: filled ? 'scale(1)' : 'scale(0.78)',
+                    transition: reduced ? undefined : 'opacity 0.2s, transform 0.2s',
+                    filter: critical ? 'drop-shadow(0 0 5px rgba(232,121,249,0.95))' : 'none',
+                    animation: critical ? 'pbHeartBeat 0.5s ease-in-out infinite' : undefined,
+                  }}>
+                    <IconHeart size={16} />
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -328,7 +337,7 @@ export default function PurrBeatGame() {
         {/* Eren bopping at the top */}
         {phase !== 'idle' && (
           <div className="absolute left-1/2 z-10 pointer-events-none" style={{ top: 4, marginLeft: -16, transform: `scale(${erenScale})`, transformOrigin: 'center bottom' }}>
-            <ErenHead size={32} happy={groove > 30} />
+            <ErenHead size={32} happy={lives > 1} />
           </div>
         )}
 
@@ -409,7 +418,7 @@ export default function PurrBeatGame() {
         <div className="absolute inset-0 z-20 flex items-center justify-center" style={{ background: 'rgba(14,4,28,0.74)', backdropFilter: 'blur(2px)' }}>
           <div className="flex flex-col items-center gap-3 px-6 py-5"
             style={{ background: 'linear-gradient(180deg, #2E0A52 0%, #1C0636 100%)', border: '3px solid #C026D3', borderRadius: 6, boxShadow: '0 6px 0 #701A75, 0 0 30px rgba(192,38,211,0.5)', animation: reduced ? undefined : 'pbPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both' }}>
-            <p className="font-pixel" style={{ fontSize: 11, color: '#FCA5A5', letterSpacing: 2 }}>OUT OF GROOVE</p>
+            <p className="font-pixel" style={{ fontSize: 11, color: '#FCA5A5', letterSpacing: 2 }}>OUT OF LIVES</p>
             <div className="flex items-center gap-4 mt-1">
               <div className="flex flex-col items-center">
                 <span className="font-pixel" style={{ fontSize: 6, color: '#F0ABFC', letterSpacing: 1 }}>SCORE</span>
@@ -446,6 +455,7 @@ export default function PurrBeatGame() {
       <style jsx global>{`
         @keyframes pbPop { 0% { transform: scale(0.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         @keyframes pbJudge { 0% { transform: translate(-50%, 0) scale(0.7); opacity: 0; } 30% { transform: translate(-50%, -8px) scale(1.1); opacity: 1; } 100% { transform: translate(-50%, -28px) scale(0.9); opacity: 0; } }
+        @keyframes pbHeartBeat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.22); } }
       `}</style>
     </div>
   )
