@@ -1079,3 +1079,10 @@
   0%   { filter: hue-rotate(0deg)   saturate(2) brightness(1.15); }
   100% { filter: hue-rotate(360deg) saturate(2) brightness(1.15); }
 }
+/* Legendary closet card: a slow gold gloss that sweeps across, then rests. */
+@keyframes closetLegendShine {
+  0%   { transform: translateX(-160%); opacity: 0; }
+  8%   { opacity: 0.9; }
+  34%  { transform: translateX(320%); opacity: 0; }
+  100% { transform: translateX(320%); opacity: 0; }
+}

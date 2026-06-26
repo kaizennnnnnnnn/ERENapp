@@ -14,14 +14,14 @@
 //   • Grid — 3-col cards; locked cards are dark silhouettes with a stardust price
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import BlinkingEren from '@/components/BlinkingEren'
 import {
   IconDress, IconSparkles, IconLock, IconPaw, IconCake, IconCart, IconCrown, IconHeart,
 } from '@/components/PixelIcons'
-import { RARITY_COLORS } from '@/lib/gacha'
 import { resolveRoomSkin, skinRoomFit, skinPrice, type SkinDef, type RoomDef } from '@/lib/skins'
+import type { GachaRarity } from '@/types'
 import { playSound } from '@/lib/sounds'
 
 // Default (revert) + Classic + each gacha skin become one of these. `key`
@@ -334,11 +334,57 @@ function FilterChip({ active, onClick, icon, label, count }: {
   )
 }
 
+// ─── Rarity frame ────────────────────────────────────────────────────────────
+// Prestige escalates: common (plain) → rare (calm blue hint) → epic (purple
+// gradient frame + glow + corner gems) → legendary (gold gradient frame + 4
+// rivets + a slow shimmer). Locked cards keep their dark silhouette fill and
+// only take a DIMMED rarity border, so a locked legendary still teases gold
+// without competing with the looks you actually own.
+type CardFrame = { style: CSSProperties; rivets: boolean; gems: boolean; shine: boolean }
+
+function frameFor(rarity: GachaRarity, locked: boolean): CardFrame {
+  if (locked) {
+    const dim: Record<GachaRarity, string> = {
+      legendary: '#7A5E1A', epic: '#4E3E78', rare: 'rgba(96,165,250,0.30)', common: 'rgba(124,58,237,0.22)',
+    }
+    return { style: { background: 'rgba(11,7,23,0.55)', border: `2px solid ${dim[rarity]}` }, rivets: false, gems: false, shine: false }
+  }
+  switch (rarity) {
+    case 'legendary':
+      return {
+        style: {
+          border: '2px solid transparent',
+          background:
+            'radial-gradient(116% 86% at 50% 26%, rgba(245,200,66,0.24), rgba(20,12,40,0.5) 76%) padding-box, ' +
+            'linear-gradient(155deg, #FFF1C2 0%, #F5C842 42%, #B45309 100%) border-box',
+          boxShadow: '0 0 15px rgba(245,158,11,0.5), inset 0 1px 0 rgba(255,245,200,0.35)',
+        },
+        rivets: true, gems: false, shine: true,
+      }
+    case 'epic':
+      return {
+        style: {
+          border: '2px solid transparent',
+          background:
+            'radial-gradient(116% 86% at 50% 26%, rgba(167,139,250,0.18), rgba(20,12,40,0.42) 78%) padding-box, ' +
+            'linear-gradient(155deg, #E4DBFF 0%, #A78BFA 55%, #7C3AED 100%) border-box',
+          boxShadow: '0 0 10px rgba(167,139,250,0.34)',
+        },
+        rivets: false, gems: true, shine: false,
+      }
+    case 'rare':
+      return { style: { border: '2px solid rgba(96,165,250,0.5)', background: 'rgba(96,165,250,0.07)' }, rivets: false, gems: false, shine: false }
+    default:
+      return { style: { border: '2px solid rgba(167,139,250,0.18)', background: 'rgba(255,255,255,0.05)' }, rivets: false, gems: false, shine: false }
+  }
+}
+
 // ─── Skin / look card ────────────────────────────────────────────────────────
 function SkinCard({ card, room, selected, isNew, onClick }: {
   card: ClosetCard; room: RoomDef; selected: boolean; isNew: boolean; onClick: () => void
 }) {
-  const colors = card.skin ? RARITY_COLORS[card.skin.rarity] : RARITY_COLORS.common
+  const rarity: GachaRarity = card.skin ? card.skin.rarity : 'common'
+  const frame = frameFor(rarity, card.locked)
   const thumb = card.isDefault ? room.defaultThumb : card.skin!.thumb
   const name = card.isDefault ? 'DEFAULT' : card.skin!.name.toUpperCase()
   const ariaLabel = card.isDefault
@@ -346,6 +392,11 @@ function SkinCard({ card, room, selected, isNew, onClick }: {
     : card.locked
       ? `${card.skin!.name}, locked — ${skinPrice(card.skin!.rarity)} stardust to unlock`
       : `${card.skin!.name}${selected ? ', equipped' : ''}${isNew ? ', new' : ''}`
+  // Equipped marker is rarity-neutral (green ring + check) so it reads clearly
+  // even on a gold legendary card.
+  const boxShadow = selected
+    ? ['0 0 0 2px #0B0717', '0 0 0 3.5px #34D399', frame.style.boxShadow].filter(Boolean).join(', ')
+    : frame.style.boxShadow
 
   return (
     <button onClick={onClick}
@@ -353,20 +404,33 @@ function SkinCard({ card, room, selected, isNew, onClick }: {
       aria-pressed={card.locked ? undefined : selected}
       aria-haspopup={card.locked ? 'dialog' : undefined}
       className="relative flex flex-col items-center gap-1 p-1.5 active:scale-95 transition-all"
-      style={{
-        background: selected ? 'rgba(167,139,250,0.22)' : card.locked ? 'rgba(11,7,23,0.55)' : 'rgba(255,255,255,0.05)',
-        borderRadius: 10,
-        border: `2px solid ${selected ? '#F5C842' : card.locked ? 'rgba(124,58,237,0.28)' : colors.border + '77'}`,
-        boxShadow: selected ? '0 0 12px rgba(245,200,66,0.45)' : 'none',
-      }}>
-      {/* rarity dot — quiet hierarchy cue, not a loud border */}
-      {card.skin && !card.isDefault && (
-        <span className="absolute" style={{
-          top: 5, left: 5, width: 6, height: 6, borderRadius: '50%',
-          background: card.locked ? '#3A2D5C' : colors.border,
-          boxShadow: card.locked ? 'none' : `0 0 5px ${colors.glow}`,
-        }} />
+      style={{ ...frame.style, borderRadius: 10, boxShadow }}>
+
+      {/* legendary shimmer — clipped to the card so it can't spill onto the badges */}
+      {frame.shine && (
+        <span className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true" style={{ borderRadius: 10 }}>
+          <span className="absolute" style={{
+            top: 0, bottom: 0, left: 0, width: '42%',
+            background: 'linear-gradient(100deg, transparent 0%, rgba(255,248,214,0.55) 50%, transparent 100%)',
+            animation: 'closetLegendShine 3.6s ease-in-out infinite',
+          }} />
+        </span>
       )}
+
+      {/* legendary rivets (4) / epic gems (2 bottom) — quiet metal detail */}
+      {frame.rivets && ([['t', 'l'], ['t', 'r'], ['b', 'l'], ['b', 'r']] as const).map(([v, h], i) => (
+        <span key={`rv${i}`} className="absolute pointer-events-none" style={{
+          width: 3, height: 3, background: '#FFE9A8', boxShadow: '0 0 3px rgba(245,200,66,0.9)',
+          top: v === 't' ? 4 : undefined, bottom: v === 'b' ? 4 : undefined,
+          left: h === 'l' ? 4 : undefined, right: h === 'r' ? 4 : undefined,
+        }} />
+      ))}
+      {frame.gems && ([['b', 'l'], ['b', 'r']] as const).map(([, h], i) => (
+        <span key={`gm${i}`} className="absolute pointer-events-none" style={{
+          width: 3, height: 3, background: '#C4B5FD', boxShadow: '0 0 3px rgba(167,139,250,0.85)',
+          bottom: 4, left: h === 'l' ? 4 : undefined, right: h === 'r' ? 4 : undefined,
+        }} />
+      ))}
 
       <div className="flex items-center justify-center" style={{ width: '100%', aspectRatio: '1' }}>
         <img src={thumb} alt="" draggable={false}
