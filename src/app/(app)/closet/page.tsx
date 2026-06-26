@@ -2,56 +2,47 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft } from 'lucide-react'
 import { useCare } from '@/contexts/CareContext'
 import { useCloset } from '@/hooks/useCloset'
 import { useAuth } from '@/hooks/useAuth'
 import { useGacha } from '@/hooks/useGacha'
 import { markSkinsSeen, readSeenSkins } from '@/hooks/useNewSkins'
 import {
-  SKINNABLE_ROOMS, GACHA_SKINS, CLASSIC_SKIN, getSkin, resolveRoomSkin, skinRoomFit,
-  skinPrice, type SkinDef,
+  SKINNABLE_ROOMS, GACHA_SKINS, CLASSIC_SKIN, resolveRoomSkin, skinPrice, type SkinDef,
 } from '@/lib/skins'
-import { RARITY_COLORS } from '@/lib/gacha'
-import BlinkingEren from '@/components/BlinkingEren'
-import { IconLock, IconDress, IconSparkles } from '@/components/PixelIcons'
+import type { GachaRarity } from '@/types'
 import SkinPurchaseSheet from '@/components/closet/SkinPurchaseSheet'
+import ClosetView, { type ClosetCard } from '@/components/closet/ClosetView'
 import { playSound } from '@/lib/sounds'
 
-// Sort gacha skins: rare → epic → legendary.
-const RARITY_ORDER: Record<string, number> = { rare: 0, epic: 1, legendary: 2, common: 0 }
-
-// Cards shown for the active room: Default (revert) + Classic + the 21 gacha
-// skins. `key` doubles as the room_skins value ('' = default, else the skin id).
-type CardEntry = { key: string; skin: SkinDef | null; locked: boolean; isDefault?: boolean }
+// Rarest first — a player's prized looks lead in MY LOOKS, and the Shop reads
+// aspirational top-down.
+const RARITY_RANK: Record<GachaRarity, number> = { legendary: 0, epic: 1, rare: 2, common: 3 }
+const byRarity = (a: SkinDef, b: SkinDef) =>
+  RARITY_RANK[a.rarity] - RARITY_RANK[b.rarity] || a.name.localeCompare(b.name)
 
 export default function ClosetPage() {
   const router = useRouter()
   const { setHideStats } = useCare()
   const { user } = useAuth()
-  const { owned, roomSkins, assign, loading, loaded, refetch } = useCloset()
+  const { owned, roomSkins, assign, assignAll, loading, loaded, refetch } = useCloset()
   const { stardust, purchaseSkin } = useGacha()
   const [activeRoom, setActiveRoom] = useState(SKINNABLE_ROOMS[0].id)
+  const [tab, setTab] = useState<'mine' | 'shop'>('mine')
   const [toast, setToast] = useState<string | null>(null)
-  // Skin awaiting purchase confirmation in the stardust shop sheet.
   const [buying, setBuying] = useState<SkinDef | null>(null)
   const [busy, setBusy] = useState(false)
-  // Per-card NEW badge: skins that were owned-but-unseen when the closet opened.
-  // Captured once on first successful load (before markSkinsSeen clears the seen-set).
+
+  // Per-card NEW badge: skins owned-but-unseen when the closet opened. Captured
+  // once before markSkinsSeen clears the seen-set (effects run in declaration
+  // order, so this must precede the mark effect below).
   const badgeCapturedRef = useRef(false)
   const [newBadgeSkins, setNewBadgeSkins] = useState<Set<string>>(new Set())
 
   useEffect(() => { setHideStats(true); return () => setHideStats(false) }, [setHideStats])
 
-  // Capture which cards should show a "NEW" badge — skins owned but not yet seen.
-  // Must be declared BEFORE the markSkinsSeen effect so it runs first (React fires
-  // effects in declaration order). We read the pre-mark seen-set, diff against
-  // `owned`, and snapshot the result once. badgeCapturedRef prevents re-running on
-  // subsequent owned changes (e.g. after a stardust purchase + refetch).
-  // Skip on first-ever run (stored === null): the home page's useNewSkins handles
-  // seeding the seen-set; without it every skin would flash NEW on first open.
   useEffect(() => {
     if (!loaded || !user?.id || badgeCapturedRef.current) return
     const stored = readSeenSkins(user.id)
@@ -64,31 +55,55 @@ export default function ClosetPage() {
     badgeCapturedRef.current = true
   }, [loaded, user?.id, owned]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Clear the home badge: mark all visible household skins as seen. Runs after
-  // the capture above (declaration order). Gated on a SUCCESSFUL load so a 503
-  // can't blank the seen-set and make the whole collection look new again.
+  // Clear the home badge once the closet has SUCCESSFULLY loaded (a 503 mustn't
+  // blank the seen-set and make the whole collection look new again).
   useEffect(() => {
     if (loaded && user?.id) markSkinsSeen(user.id, Array.from(owned))
   }, [loaded, user?.id, owned])
 
-  const room = SKINNABLE_ROOMS.find(r => r.id === activeRoom)!
-  const assignedId = roomSkins[activeRoom] // undefined = default
-  const previewSkin = resolveRoomSkin(roomSkins, activeRoom) // SkinDef | null
+  const previewSkin = resolveRoomSkin(roomSkins, activeRoom)
+  const selectedKey = roomSkins[activeRoom] ?? ''
+
+  // The active look is "uniform" when every room already wears it — drives the
+  // wear-everywhere button's done state.
+  const isUniform = useMemo(
+    () => !!selectedKey && SKINNABLE_ROOMS.every(r => (roomSkins[r.id] ?? '') === selectedKey),
+    [roomSkins, selectedKey],
+  )
+
+  // MY LOOKS = Default + Classic + owned skins (the daily driver, no scrolling).
+  const ownedCards: ClosetCard[] = useMemo(() => [
+    { key: '', skin: null, locked: false, isDefault: true },
+    { key: 'classic', skin: CLASSIC_SKIN, locked: false },
+    ...GACHA_SKINS.filter(s => owned.has(s.id)).sort(byRarity)
+      .map(s => ({ key: s.id, skin: s, locked: false })),
+  ], [owned])
+
+  // SHOP = the locked catalogue, grouped animals→foods then rarest first.
+  const lockedCards: ClosetCard[] = useMemo(() =>
+    GACHA_SKINS.filter(s => !owned.has(s.id))
+      .sort((a, b) => (a.set === b.set ? byRarity(a, b) : a.set === 'animal' ? -1 : 1))
+      .map(s => ({ key: s.id, skin: s, locked: true })),
+    [owned])
 
   function showToast(msg: string) {
     setToast(msg)
     setTimeout(() => setToast(null), 2200)
   }
 
-  function pick(entry: CardEntry) {
-    if (entry.locked && entry.skin) {
-      // Locked → offer to buy it with stardust instead of only pointing at gacha.
+  function pick(card: ClosetCard) {
+    if (card.locked && card.skin) {
       playSound('ui_modal_open')
-      setBuying(entry.skin)
+      setBuying(card.skin)
       return
     }
     playSound('ui_select')
-    assign(activeRoom, entry.isDefault ? null : entry.key)
+    assign(activeRoom, card.isDefault ? null : card.key)
+  }
+
+  function wearEverywhere() {
+    if (!selectedKey) return
+    assignAll(selectedKey)
   }
 
   async function confirmBuy() {
@@ -98,187 +113,45 @@ export default function ClosetPage() {
     setBusy(false)
     if (res.ok) {
       playSound('level_up')
-      const name = buying.name
+      const skin = buying
       setBuying(null)
-      await refetch()          // unlock the card (owned set now includes it)
-      showToast(`Unlocked ${name}!`)
+      assign(activeRoom, skin.id)   // unlock → try it on in the room you're viewing
+      setTab('mine')                // the skin just left the Shop grid; show it in My Looks
+      await refetch()
+      showToast(`Now wearing ${skin.name}!`)
     } else if (res.reason === 'insufficient') {
       showToast('Not enough stardust')
     } else if (res.reason === 'already_owned') {
       setBuying(null)
       await refetch()
     } else {
-      // Close the sheet first so the toast isn't hidden behind it (sheet zIndex 60, toast 70).
       setBuying(null)
       showToast('Could not unlock — try again')
     }
   }
 
-  const cards: CardEntry[] = [
-    { key: '', skin: null, locked: false, isDefault: true },
-    { key: 'classic', skin: CLASSIC_SKIN, locked: false },
-    ...GACHA_SKINS
-      .map(s => ({ key: s.id, skin: s, locked: !owned.has(s.id) }))
-      .sort((a, b) => RARITY_ORDER[a.skin!.rarity] - RARITY_ORDER[b.skin!.rarity]),
-  ]
-  const isSelected = (e: CardEntry) => e.isDefault ? !assignedId : assignedId === e.key
-
   return (
-    <div className="fixed inset-0 overflow-y-auto" style={{
-      background: 'radial-gradient(120% 80% at 50% 0%, #2A1B4A 0%, #160E2E 55%, #0B0717 100%)',
-    }}>
-      {/* CRT scanlines — the dark "game panel" convention */}
-      <div className="fixed inset-0 pointer-events-none" style={{
-        backgroundImage: 'repeating-linear-gradient(0deg, rgba(0,0,0,0.18) 0px, rgba(0,0,0,0.18) 1px, transparent 1px, transparent 3px)',
-        zIndex: 1,
-      }} />
+    <>
+      <ClosetView
+        rooms={SKINNABLE_ROOMS}
+        activeRoom={activeRoom}
+        onSelectRoom={setActiveRoom}
+        roomSkins={roomSkins}
+        previewSkin={previewSkin}
+        selectedKey={selectedKey}
+        isUniform={isUniform}
+        ownedCards={ownedCards}
+        lockedCards={lockedCards}
+        newBadgeSkins={newBadgeSkins}
+        stardust={stardust}
+        loading={loading}
+        tab={tab}
+        onTabChange={setTab}
+        onPick={pick}
+        onWearEverywhere={wearEverywhere}
+        onBack={() => router.back()}
+      />
 
-      <div className="relative px-3" style={{ zIndex: 2, paddingTop: 'calc(var(--safe-top) + 10px)', paddingBottom: 'calc(var(--safe-bottom) + 16px)' }}>
-        {/* Header */}
-        <div className="flex items-center gap-2 mb-3">
-          <button onClick={() => { playSound('ui_back'); router.back() }}
-            className="flex items-center justify-center active:translate-y-[1px] transition-transform"
-            style={{ width: 32, height: 32, background: '#1B1233', borderRadius: 6, border: '2px solid #4C1D95', boxShadow: '0 2px 0 #2E1065' }}>
-            <ChevronLeft size={16} className="text-purple-200" />
-          </button>
-          <span className="pixel-chip inline-flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, #7C3AED, #A78BFA)' }}>
-            <IconDress size={12} /> CLOSET
-          </span>
-          <div className="flex-1" />
-          {/* Stardust balance — what you can spend in the shop */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5" style={{
-            background: '#1B1233', borderRadius: 6, border: '2px solid #4C1D95', boxShadow: '0 2px 0 #2E1065',
-          }}>
-            <span className="sparkle-hue"><IconSparkles size={13} /></span>
-            <span className="font-pixel stardust-rainbow" style={{ fontSize: 8 }}>{stardust}</span>
-          </div>
-        </div>
-
-        {/* Room pills */}
-        <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-          {SKINNABLE_ROOMS.map(r => {
-            const on = r.id === activeRoom
-            const sk = resolveRoomSkin(roomSkins, r.id)
-            return (
-              <button key={r.id} onClick={() => { playSound('ui_tap'); setActiveRoom(r.id) }}
-                className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 active:scale-95 transition-all"
-                style={{
-                  background: on ? 'linear-gradient(135deg, #7C3AED, #A78BFA)' : 'rgba(255,255,255,0.06)',
-                  borderRadius: 4,
-                  border: `2px solid ${on ? '#C4B5FD' : 'rgba(167,139,250,0.25)'}`,
-                  boxShadow: on ? '0 0 10px rgba(167,139,250,0.5)' : 'none',
-                }}>
-                <img src={sk?.thumb ?? r.defaultThumb} alt="" draggable={false}
-                  style={{ width: 18, height: 18, objectFit: 'contain', imageRendering: 'pixelated' }} />
-                <span className="font-pixel whitespace-nowrap" style={{ fontSize: 6, color: on ? '#fff' : '#C4B5FD' }}>{r.label.toUpperCase()}</span>
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Preview */}
-        <div className="relative mx-auto mb-4 flex flex-col items-center justify-end"
-          style={{
-            maxWidth: 320, height: 220,
-            background: 'radial-gradient(80% 70% at 50% 38%, rgba(124,58,237,0.28), rgba(11,7,23,0) 70%)',
-            border: '2px solid rgba(167,139,250,0.3)', borderRadius: 12,
-          }}>
-          {/* gold corner pixels */}
-          {[[6, 6], [6, 'r'], ['b', 6], ['b', 'r']].map((c, i) => (
-            <div key={i} className="absolute" style={{
-              width: 4, height: 4, background: '#F5C842',
-              top: c[0] === 'b' ? undefined : 6, bottom: c[0] === 'b' ? 6 : undefined,
-              left: c[1] === 'r' ? undefined : 6, right: c[1] === 'r' ? 6 : undefined,
-            }} />
-          ))}
-          <div className="flex-1 flex items-end justify-center w-full pb-1">
-            {previewSkin ? (
-              // Size the preview to how it'll actually look in the selected
-              // room (matches the room default's cat), scaled up a touch so the
-              // showcase fills the card.
-              <BlinkingEren key={previewSkin.id + activeRoom}
-                size={(skinRoomFit(previewSkin, activeRoom)?.size ?? 180) * 1.15}
-                src={previewSkin.src} tailSrc={previewSkin.tailSrc}
-                tailOrigin={previewSkin.tailOrigin} eyes={previewSkin.eyes} />
-            ) : (
-              // Default look — the room's native sprite (may be a special pose),
-              // shown as-is so "Default" reads as the current look.
-              <img src={room.defaultThumb} alt="" draggable={false}
-                style={{ height: 180, objectFit: 'contain', imageRendering: 'pixelated' }} />
-            )}
-          </div>
-          <div className="absolute top-2 left-1/2 -translate-x-1/2 text-center">
-            <p className="font-pixel" style={{ fontSize: 7, color: '#C4B5FD' }}>{room.label.toUpperCase()}</p>
-            <p className="font-pixel mt-0.5" style={{ fontSize: 6, color: 'rgba(255,255,255,0.55)' }}>
-              {previewSkin ? previewSkin.name.toUpperCase() : 'DEFAULT LOOK'}
-            </p>
-          </div>
-        </div>
-
-        {/* Skins grid */}
-        {loading ? (
-          <p className="text-center font-pixel" style={{ fontSize: 7, color: '#A78BFA' }}>LOADING…</p>
-        ) : (
-          <div className="grid grid-cols-4 gap-2">
-            {cards.map(e => {
-              const sel = isSelected(e)
-              const colors = e.skin ? RARITY_COLORS[e.skin.rarity] : RARITY_COLORS.common
-              return (
-                <button key={e.key || 'default'} onClick={() => pick(e)}
-                  className="relative flex flex-col items-center gap-1 p-1.5 active:scale-95 transition-all"
-                  style={{
-                    background: sel ? 'rgba(167,139,250,0.22)' : 'rgba(255,255,255,0.05)',
-                    borderRadius: 6,
-                    border: `2px solid ${sel ? '#C4B5FD' : e.locked ? 'rgba(255,255,255,0.1)' : colors.border + '88'}`,
-                    boxShadow: sel ? '0 0 10px rgba(167,139,250,0.55)' : 'none',
-                  }}>
-                  <div className="flex items-center justify-center" style={{ width: '100%', aspectRatio: '1' }}>
-                    <img src={e.isDefault ? room.defaultThumb : e.skin!.thumb} alt="" draggable={false}
-                      style={{
-                        width: '92%', height: '92%', objectFit: 'contain', imageRendering: 'pixelated',
-                        filter: e.locked ? 'grayscale(1) brightness(0.45)' : 'none',
-                        opacity: e.locked ? 0.7 : 1,
-                      }} />
-                  </div>
-                  <span className="font-pixel text-center leading-tight" style={{ fontSize: 5, color: e.locked ? '#6B7280' : '#E9D5FF' }}>
-                    {(e.isDefault ? 'DEFAULT' : e.skin!.name).toUpperCase()}
-                  </span>
-                  {e.locked && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <IconLock size={16} />
-                    </div>
-                  )}
-                  {/* Stardust price — tap a locked skin to buy it */}
-                  {e.locked && e.skin && (
-                    <div className="absolute -top-1.5 -right-1.5 flex items-center gap-0.5 px-1 py-0.5"
-                      style={{ background: '#1B1233', border: '1.5px solid #4C1D95', borderRadius: 5, boxShadow: '0 1px 0 #2E1065' }}>
-                      <span className="sparkle-hue"><IconSparkles size={8} /></span>
-                      <span className="font-pixel stardust-rainbow" style={{ fontSize: 5 }}>{skinPrice(e.skin.rarity)}</span>
-                    </div>
-                  )}
-                  {sel && (
-                    <div className="absolute -top-1.5 -right-1.5 flex items-center justify-center"
-                      style={{ width: 16, height: 16, background: '#22C55E', borderRadius: '50%', border: '2px solid #0B0717' }}>
-                      <span style={{ fontSize: 8, color: '#fff', lineHeight: 1 }}>✓</span>
-                    </div>
-                  )}
-                  {!e.isDefault && !e.skin?.builtin && !e.locked && newBadgeSkins.has(e.key) && (
-                    <div className="absolute -top-1.5 -left-1.5 flex items-center justify-center px-1 py-0.5"
-                      style={{
-                        background: '#FF1D5E', border: '1.5px solid #8B0026', borderRadius: 3,
-                        boxShadow: '0 1px 0 #5C021F',
-                      }}>
-                      <span className="font-pixel" style={{ fontSize: 5, color: '#fff', letterSpacing: 0.5 }}>NEW</span>
-                    </div>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Stardust purchase sheet */}
       {buying && (
         <SkinPurchaseSheet
           skin={buying}
@@ -290,13 +163,12 @@ export default function ClosetPage() {
         />
       )}
 
-      {/* Toast */}
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 text-white px-4 py-2.5 whitespace-nowrap" style={{
           zIndex: 70, background: '#1F1F2E', borderRadius: 3, border: '2px solid #3A3A5E',
           boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', fontFamily: '"Press Start 2P"', fontSize: 7,
         }}>{toast}</div>
       )}
-    </div>
+    </>
   )
 }
