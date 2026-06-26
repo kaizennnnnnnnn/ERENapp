@@ -266,30 +266,6 @@ export default function GachaPage() {
                 background: 'linear-gradient(180deg, rgba(5,5,7,0) 0%, rgba(5,5,7,0.78) 70%)',
               }} />
 
-              {/* Pull controls */}
-              <div className="absolute inset-x-0 bottom-0 px-4" style={{ paddingBottom: 'calc(var(--safe-bottom) + 14px)' }}>
-                <div className="flex justify-center gap-4 mb-2">
-                  <span className="font-pixel" style={{ fontSize: 6, color: '#C4B5FD', textShadow: '0 0 3px rgba(167,139,250,0.5)' }}>EPIC {pityEpic}/{PITY_EPIC}</span>
-                  <span className="font-pixel" style={{ fontSize: 6, color: '#F5C842', textShadow: '0 0 3px rgba(245,200,66,0.5)' }}>LEGENDARY {pityLegendary}/{PITY_LEGENDARY}</span>
-                </div>
-                <div className="flex gap-3">
-                  <GachaPullButton
-                    variant={p.id === 'animal' ? 'clothes' : 'food'}
-                    tier="single"
-                    cost={PULL_COST_SINGLE}
-                    disabled={pulling || (coins < PULL_COST_SINGLE && tickets <= 0)}
-                    showTicket={tickets > 0}
-                    onClick={() => handlePull(1)}
-                  />
-                  <GachaPullButton
-                    variant={p.id === 'animal' ? 'clothes' : 'food'}
-                    tier="ten"
-                    cost={PULL_COST_TEN}
-                    disabled={pulling || coins < PULL_COST_TEN}
-                    onClick={() => handlePull(10)}
-                  />
-                </div>
-              </div>
             </div>
 
             {/* Dim veil — fades the machine out as it leaves center */}
@@ -369,6 +345,38 @@ export default function GachaPage() {
             ))}
           </div>
           <span className="font-pixel" style={{ fontSize: 5, letterSpacing: 1, color: 'rgba(255,255,255,0.55)', textShadow: '1px 1px 0 rgba(5,5,7,0.8)' }}>SWIPE</span>
+        </div>
+      </div>
+
+      {/* ── Pull controls (fixed HUD, keyed to the current page) ──
+          Rendered OUTSIDE the swipeable deck and its per-page transform/scale
+          layers. Inside those layers the candy buttons intermittently failed to
+          paint on mobile GPUs — only their animated halos showed, blanking the
+          PULL x1 / x10 controls. A single bottom HUD in the root layer always
+          paints (and means two buttons exist instead of six). pointer-events
+          stay off the surrounding strip so swipes still reach the deck. */}
+      <div className="absolute inset-x-0 bottom-0 px-4 z-30 pointer-events-none"
+        style={{ paddingBottom: 'calc(var(--safe-bottom) + 14px)' }}>
+        <div className="flex justify-center gap-4 mb-2">
+          <span className="font-pixel" style={{ fontSize: 6, color: '#C4B5FD', textShadow: '0 0 3px rgba(167,139,250,0.5)' }}>EPIC {pityEpic}/{PITY_EPIC}</span>
+          <span className="font-pixel" style={{ fontSize: 6, color: '#F5C842', textShadow: '0 0 3px rgba(245,200,66,0.5)' }}>LEGENDARY {pityLegendary}/{PITY_LEGENDARY}</span>
+        </div>
+        <div className="flex gap-3 pointer-events-auto">
+          <GachaPullButton
+            variant={PAGES[pageIdx].id === 'animal' ? 'clothes' : 'food'}
+            tier="single"
+            cost={PULL_COST_SINGLE}
+            disabled={pulling || (coins < PULL_COST_SINGLE && tickets <= 0)}
+            showTicket={tickets > 0}
+            onClick={() => handlePull(1)}
+          />
+          <GachaPullButton
+            variant={PAGES[pageIdx].id === 'animal' ? 'clothes' : 'food'}
+            tier="ten"
+            cost={PULL_COST_TEN}
+            disabled={pulling || coins < PULL_COST_TEN}
+            onClick={() => handlePull(10)}
+          />
         </div>
       </div>
 
