@@ -21,20 +21,37 @@ const STARTING_MOVES = 30
 // types makes spontaneous matches easier and keeps the board reading clean.
 const N_TYPES = 5
 
+// ─── Candy-Crush specials ───────────────────────────────────────────────────
+// line-h : clears its whole ROW    (made by a horizontal match-4)
+// line-v : clears its whole COLUMN (made by a vertical match-4)
+// wrap   : clears a 3×3 AREA        (made by an L / T shape, 5+ cells, 2 axes)
+// bomb   : clears every tile of one COLOR (made by a straight match-5). A bomb
+//          never forms normal matches — it only fires when swapped or chained.
+type Special = 'line-h' | 'line-v' | 'wrap' | 'bomb'
+
 interface Tile {
   id: number
-  type: number   // 0..5
+  type: number   // 0..4
+  special?: Special
   matched?: boolean
   // Larger burst when this tile was part of a 5+ run.
   bigMatch?: boolean
   // Gold-tinted sparks for cascades ≥ 2.
   goldSpark?: boolean
+  // Freshly-minted special — plays a pop-in flourish.
+  spawned?: boolean
 }
 
 type Grid = (Tile | null)[][]
 
+// Bright accent per tile type — used to tint a special's explosion beam/flash.
+const TYPE_COLORS = ['#C4B5FD', '#60A5FA', '#F472B6', '#F59E0B', '#FBBF24']
+
 let _tid = 0
 const newTile = (type: number): Tile => ({ id: ++_tid, type })
+
+const keyOf = (r: number, c: number) => `${r},${c}`
+const parseKey = (k: string) => { const [r, c] = k.split(',').map(Number); return { r, c } }
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
 
@@ -138,6 +155,157 @@ function doSwap(g: Grid, a: { r: number; c: number }, b: { r: number; c: number 
   return ng
 }
 
+// ─── Match groups + Candy-Crush specials ────────────────────────────────────
+// A "run" is a straight ≥3 line of one type. Color bombs are colour-less, so
+// they break runs (they never auto-match — only swaps/chains fire them).
+interface Run { cells: { r: number; c: number }[]; horiz: boolean; type: number }
+interface Group { type: number; cells: Set<string>; horiz: boolean; vert: boolean; maxLen: number; runs: Run[] }
+
+const isMatchable = (t: Tile | null): boolean => !!t && t.special !== 'bomb'
+
+function findRuns(g: Grid): Run[] {
+  const runs: Run[] = []
+  for (let r = 0; r < ROWS; r++) {
+    let c = 0
+    while (c < COLS) {
+      const start = g[r][c]
+      if (!isMatchable(start)) { c++; continue }
+      let c2 = c + 1
+      while (c2 < COLS && isMatchable(g[r][c2]) && g[r][c2]!.type === start!.type) c2++
+      if (c2 - c >= 3) {
+        const cells = []
+        for (let i = c; i < c2; i++) cells.push({ r, c: i })
+        runs.push({ cells, horiz: true, type: start!.type })
+      }
+      c = c2
+    }
+  }
+  for (let c = 0; c < COLS; c++) {
+    let r = 0
+    while (r < ROWS) {
+      const start = g[r][c]
+      if (!isMatchable(start)) { r++; continue }
+      let r2 = r + 1
+      while (r2 < ROWS && isMatchable(g[r2][c]) && g[r2][c]!.type === start!.type) r2++
+      if (r2 - r >= 3) {
+        const cells = []
+        for (let i = r; i < r2; i++) cells.push({ r: i, c })
+        runs.push({ cells, horiz: false, type: start!.type })
+      }
+      r = r2
+    }
+  }
+  return runs
+}
+
+// Union runs that share a cell into connected groups (an overlapping H+V run
+// pair is an L/T → wrapped candy).
+function detectGroups(g: Grid): Group[] {
+  const runs = findRuns(g)
+  const parent = runs.map((_, i) => i)
+  const find = (i: number): number => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i] } return i }
+  const cellToRun = new Map<string, number>()
+  runs.forEach((run, i) => {
+    for (const cell of run.cells) {
+      const k = keyOf(cell.r, cell.c)
+      const prev = cellToRun.get(k)
+      if (prev !== undefined) parent[find(i)] = find(prev)
+      else cellToRun.set(k, i)
+    }
+  })
+  const byRoot = new Map<number, Group>()
+  runs.forEach((run, i) => {
+    const root = find(i)
+    let grp = byRoot.get(root)
+    if (!grp) { grp = { type: run.type, cells: new Set(), horiz: false, vert: false, maxLen: 0, runs: [] }; byRoot.set(root, grp) }
+    grp.runs.push(run)
+    if (run.horiz) grp.horiz = true; else grp.vert = true
+    grp.maxLen = Math.max(grp.maxLen, run.cells.length)
+    for (const cell of run.cells) grp.cells.add(keyOf(cell.r, cell.c))
+  })
+  return Array.from(byRoot.values())
+}
+
+function classifySpecial(grp: Group): Special | null {
+  if (grp.horiz && grp.vert) return 'wrap'   // L / T
+  if (grp.maxLen >= 5) return 'bomb'
+  if (grp.maxLen === 4) return grp.horiz ? 'line-h' : 'line-v'
+  return null
+}
+
+// Where the new special is born: the swapped cell if it's in the group (so it
+// lands under the player's finger), else the L/T intersection, else the middle
+// of the longest run.
+function spawnCell(grp: Group, swapCells: { r: number; c: number }[]): { r: number; c: number } {
+  for (const s of swapCells) if (grp.cells.has(keyOf(s.r, s.c))) return s
+  if (grp.horiz && grp.vert) {
+    const counts = new Map<string, number>()
+    for (const run of grp.runs) for (const cell of run.cells) {
+      const k = keyOf(cell.r, cell.c)
+      counts.set(k, (counts.get(k) ?? 0) + 1)
+    }
+    const hit = Array.from(counts.entries()).find(([, n]) => n >= 2)
+    if (hit) return parseKey(hit[0])
+  }
+  let longest = grp.runs[0]
+  for (const run of grp.runs) if (run.cells.length > longest.cells.length) longest = run
+  return longest.cells[Math.floor(longest.cells.length / 2)]
+}
+
+// Cells a detonating special at (r,c) destroys.
+function blastCells(g: Grid, r: number, c: number): { r: number; c: number }[] {
+  const sp = g[r][c]?.special
+  const out: { r: number; c: number }[] = []
+  if (sp === 'line-h') { for (let i = 0; i < COLS; i++) out.push({ r, c: i }) }
+  else if (sp === 'line-v') { for (let i = 0; i < ROWS; i++) out.push({ r: i, c }) }
+  else if (sp === 'wrap') {
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+      const nr = r + dr, nc = c + dc
+      if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) out.push({ r: nr, c: nc })
+    }
+  } else if (sp === 'bomb') {
+    const t = g[r][c]!.type
+    for (let rr = 0; rr < ROWS; rr++) for (let cc = 0; cc < COLS; cc++) {
+      if (g[rr][cc] && g[rr][cc]!.type === t) out.push({ r: rr, c: cc })
+    }
+  }
+  return out
+}
+
+// Grow an initial clear set by chain-detonating every special it touches.
+// `reserved` cells (newly-minted specials this step) are shielded from the blast.
+function expandDetonations(g: Grid, initial: Set<string>, reserved?: Map<string, unknown>): Set<string> {
+  const clear = new Set(initial)
+  const queue: string[] = []
+  const seen = new Set<string>()
+  initial.forEach(k => {
+    const { r, c } = parseKey(k)
+    if (g[r][c]?.special) { queue.push(k); seen.add(k) }
+  })
+  while (queue.length) {
+    const { r, c } = parseKey(queue.shift()!)
+    for (const bc of blastCells(g, r, c)) {
+      const bk = keyOf(bc.r, bc.c)
+      if (reserved?.has(bk)) continue
+      if (!clear.has(bk)) clear.add(bk)
+      if (g[bc.r][bc.c]?.special && !seen.has(bk)) { seen.add(bk); queue.push(bk) }
+    }
+  }
+  return clear
+}
+
+// ─── Explosion FX ───────────────────────────────────────────────────────────
+type FxKind = 'beam-h' | 'beam-v' | 'area' | 'zap'
+interface FxItem { id: number; kind: FxKind; r: number; c: number; color: string }
+
+function fxFor(special: Special, r: number, c: number, type: number): Omit<FxItem, 'id'> {
+  const color = TYPE_COLORS[type] ?? '#FDE68A'
+  if (special === 'line-h') return { kind: 'beam-h', r, c, color }
+  if (special === 'line-v') return { kind: 'beam-v', r, c, color }
+  if (special === 'wrap')   return { kind: 'area',   r, c, color }
+  return { kind: 'zap', r, c, color }
+}
+
 // ─── Game component ─────────────────────────────────────────────────────────
 export default function YarnPopGame() {
   const router = useRouter()
@@ -176,6 +344,21 @@ export default function YarnPopGame() {
   const [shakeKeys, setShakeKeys] = useState<Set<string>>(new Set())
   // Ending-flourish flag: dims board + sweeps a scanline before gameover.
   const [ending, setEnding] = useState(false)
+  // Live explosion overlays (line beams / area flash / bomb zap). Auto-cleared.
+  const [fx, setFx] = useState<FxItem[]>([])
+  const fxTimers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set())
+  useEffect(() => () => { fxTimers.current.forEach(clearTimeout) }, [])
+  function pushFx(items: Omit<FxItem, 'id'>[]) {
+    if (reduced || items.length === 0) return
+    const withIds = items.map(it => ({ ...it, id: ++_tid }))
+    setFx(f => [...f, ...withIds])
+    const ids = new Set(withIds.map(x => x.id))
+    const t = setTimeout(() => {
+      setFx(f => f.filter(x => !ids.has(x.id)))
+      fxTimers.current.delete(t)
+    }, 540)
+    fxTimers.current.add(t)
+  }
 
   function startGame() {
     let g = genGrid()
@@ -195,62 +378,90 @@ export default function YarnPopGame() {
     setPhase('playing')
   }
 
-  async function processCascades(initialGrid: Grid) {
+  async function processCascades(initialGrid: Grid, swapCells: { r: number; c: number }[] = []) {
     setProcessing(true)
     let g = initialGrid
     let comboLocal = 0
-    let totalScore = 0
-    let biggestMatch = 0
+    let firstPass = true
 
     while (true) {
-      const matches = detectMatches(g)
-      if (matches.size === 0) break
+      const groups = detectGroups(g)
+      if (groups.length === 0) break
       comboLocal++
       setCombo(comboLocal)
       setDisplayCombo(comboLocal)
-      if (matches.size > biggestMatch) biggestMatch = matches.size
 
-      // Mark matched tiles for fade animation. We tag big matches so the
-      // burst visual scales up and tints gold on combos ≥2.
-      const bigMatch = matches.size >= 5
+      // 1. New specials — every match of 4+, an L/T, or a 5-line reserves a
+      //    spawn cell that survives the clear and becomes the special candy.
+      const reserved = new Map<string, { special: Special; type: number }>()
+      for (const grp of groups) {
+        const sp = classifySpecial(grp)
+        if (!sp) continue
+        const s = spawnCell(grp, firstPass ? swapCells : [])
+        reserved.set(keyOf(s.r, s.c), { special: sp, type: grp.type })
+      }
+
+      // 2. Clear set = matched cells minus reserved spawns, grown by chain-
+      //    detonating any special the blast sweeps over.
+      const matchedSet = new Set<string>()
+      for (const grp of groups) grp.cells.forEach(k => matchedSet.add(k))
+      const seed = new Set<string>()
+      matchedSet.forEach(k => { if (!reserved.has(k)) seed.add(k) })
+      const clear = expandDetonations(g, seed, reserved)
+
+      // 3. Explosion FX for every special caught in the blast.
+      const fxList: Omit<FxItem, 'id'>[] = []
+      clear.forEach(k => {
+        const { r, c } = parseKey(k)
+        const t = g[r][c]
+        if (t?.special) fxList.push(fxFor(t.special, r, c, t.type))
+      })
+
+      // 4. Mark doomed tiles for the fade/burst pass.
+      const bigMatch = clear.size >= 5 || fxList.length > 0
       g = gridCopy(g)
-      matches.forEach(k => {
-        const [r, c] = k.split(',').map(Number)
+      clear.forEach(k => {
+        const { r, c } = parseKey(k)
         if (g[r][c]) g[r][c] = { ...g[r][c]!, matched: true, bigMatch, goldSpark: comboLocal >= 2 }
       })
       setGrid(g)
-      // Gameplay sound: ascending pop per cascade level. The big-combo sting
-      // fires once when a chain reaches x4 (replacing the screen-wash being
-      // the only feedback). Match-pop continues alongside so x4+ feels rich.
-      playSound('yp_match_pop')
-      if (comboLocal === 4) playSound('yp_big_combo')
+      pushFx(fxList)
 
-      // Score: 10 per cell, multiplied by cascade
-      const gained = matches.size * 10 * comboLocal
-      totalScore += gained
+      playSound('yp_match_pop')
+      if (reserved.size > 0 || fxList.length > 0 || comboLocal === 4) playSound('yp_big_combo')
+
+      // 5. Score — cells + a fat bonus per special detonated, all × cascade.
+      const specialBonus = fxList.reduce((s, f) => s + (f.kind === 'zap' ? 200 : f.kind === 'area' ? 110 : 70), 0)
+      const gained = (clear.size * 10 + specialBonus) * comboLocal
       setScore(s => s + gained)
       setScorePulse(p => p + 1)
-      flashFloater(comboLocal > 1 ? `${gained} · COMBO x${comboLocal}!` : `+${gained}`,
-                   comboLocal > 1 ? '#FBBF24' : '#FBCFE8')
+      flashFloater(
+        fxList.length > 0 ? `${gained} · BOOM!` : comboLocal > 1 ? `${gained} · COMBO x${comboLocal}!` : `+${gained}`,
+        fxList.length > 0 ? '#FDE68A' : comboLocal > 1 ? '#FBBF24' : '#FBCFE8',
+      )
 
-      await sleep(280)
+      await sleep(fxList.length > 0 ? 360 : 280)
 
-      // Clear matched cells
+      // 6. Null the cleared cells, mint the reserved specials in place.
       g = gridCopy(g)
-      matches.forEach(k => {
-        const [r, c] = k.split(',').map(Number)
-        g[r][c] = null
+      clear.forEach(k => { const { r, c } = parseKey(k); g[r][c] = null })
+      reserved.forEach((v, k) => {
+        const { r, c } = parseKey(k)
+        const t = g[r][c]
+        if (t) g[r][c] = { ...t, special: v.special, matched: false, bigMatch: false, goldSpark: false, spawned: true }
       })
+      setGrid(g)
+      await sleep(60)
 
-      // Gravity
+      // 7. Gravity + refill.
       g = applyGravityFn(g)
       setGrid(g)
       await sleep(220)
-
-      // Refill from top
       g = refillTop(g)
       setGrid(g)
       await sleep(180)
+
+      firstPass = false
     }
 
     setCombo(0)
@@ -262,8 +473,6 @@ export default function YarnPopGame() {
       setDisplayCombo(0)
     }
     setProcessing(false)
-    void totalScore
-    void biggestMatch
 
     // Check game over — kick off the end-of-game flourish immediately so
     // the board fade + scanline overlap the brief pause before the panel
@@ -272,6 +481,62 @@ export default function YarnPopGame() {
       setEnding(true)
       setTimeout(endGame, 600)
     }
+  }
+
+  // A special swapped without forming a 3-line still fires — strike it (and any
+  // combo partner) directly, then let the refill cascade. Bomb+bomb wipes the
+  // board; bomb+tile clears that tile's whole colour (the iconic move).
+  async function resolveSwapDetonation(g0: Grid, a: { r: number; c: number }, b: { r: number; c: number }) {
+    setProcessing(true)
+    const atA = g0[a.r][a.c]
+    const atB = g0[b.r][b.c]
+    let clear: Set<string>
+
+    if (atA?.special === 'bomb' && atB?.special === 'bomb') {
+      clear = new Set<string>()
+      for (let rr = 0; rr < ROWS; rr++) for (let cc = 0; cc < COLS; cc++) if (g0[rr][cc]) clear.add(keyOf(rr, cc))
+    } else {
+      const seed = new Set<string>()
+      const aKey = keyOf(a.r, a.c), bKey = keyOf(b.r, b.c)
+      if (atA?.special === 'bomb' || atB?.special === 'bomb') {
+        const other = atA?.special === 'bomb' ? atB : atA
+        seed.add(aKey); seed.add(bKey)
+        if (other) for (let rr = 0; rr < ROWS; rr++) for (let cc = 0; cc < COLS; cc++) {
+          if (g0[rr][cc] && g0[rr][cc]!.type === other.type) seed.add(keyOf(rr, cc))
+        }
+      } else {
+        if (atA?.special) seed.add(aKey)
+        if (atB?.special) seed.add(bKey)
+      }
+      clear = expandDetonations(g0, seed)
+    }
+
+    const fxList: Omit<FxItem, 'id'>[] = []
+    clear.forEach(k => { const { r, c } = parseKey(k); const t = g0[r][c]; if (t?.special) fxList.push(fxFor(t.special, r, c, t.type)) })
+
+    setCombo(1); setDisplayCombo(1)
+    let g = gridCopy(g0)
+    clear.forEach(k => { const { r, c } = parseKey(k); if (g[r][c]) g[r][c] = { ...g[r][c]!, matched: true, bigMatch: true, goldSpark: true } })
+    setGrid(g)
+    pushFx(fxList)
+    playSound('yp_match_pop'); playSound('yp_big_combo')
+
+    const bonus = fxList.reduce((s, f) => s + (f.kind === 'zap' ? 200 : f.kind === 'area' ? 110 : 70), 0)
+    const gained = clear.size * 12 + bonus
+    setScore(s => s + gained)
+    setScorePulse(p => p + 1)
+    flashFloater(`${gained} · BOOM!`, '#FDE68A')
+
+    await sleep(380)
+    g = gridCopy(g)
+    clear.forEach(k => { const { r, c } = parseKey(k); g[r][c] = null })
+    setGrid(g)
+    await sleep(60)
+    g = applyGravityFn(g); setGrid(g); await sleep(220)
+    g = refillTop(g); setGrid(g); await sleep(180)
+
+    // Resolve anything the refill created (also runs the game-over check).
+    await processCascades(g, [])
   }
 
   const movesRef = useRef(STARTING_MOVES)
@@ -331,22 +596,27 @@ export default function YarnPopGame() {
     const a = selected
     const b = { r, c }
     setSelected(null)
-    let next = doSwap(grid, a, b)
+    const next = doSwap(grid, a, b)
     setGrid(next)
     playSound('yp_swap')
 
     await sleep(160)
 
-    // Validate match
-    if (detectMatches(next).size === 0) {
-      // Soft rejection cue: shake both tiles, play the no-match buzzer,
-      // then revert the swap. Closes the feedback loop that previously
-      // felt like the input had been eaten.
+    // After the swap the two tiles sit at each other's old cells.
+    const atA = next[a.r][a.c]
+    const atB = next[b.r][b.c]
+    const bombInvolved = atA?.special === 'bomb' || atB?.special === 'bomb'
+    const swapHasSpecial = !!(atA?.special || atB?.special)
+    const formsMatch = detectGroups(next).length > 0
+
+    // Validate: a plain swap that makes no line and involves no special is
+    // illegal — shake, buzz, revert. A special can always be fired by swapping.
+    if (!formsMatch && !swapHasSpecial) {
       playSound('yp_no_match')
       const keys = new Set([`${a.r},${a.c}`, `${b.r},${b.c}`])
       setShakeKeys(keys)
-      next = doSwap(next, a, b)
-      setGrid(next)
+      const reverted = doSwap(next, a, b)
+      setGrid(reverted)
       flashFloater('NO MATCH', '#FCA5A5')
       setTimeout(() => setShakeKeys(new Set()), 240)
       return
@@ -359,7 +629,15 @@ export default function YarnPopGame() {
       if (nm === 5 || nm === 1) playSound('yp_low_moves')
       return nm
     })
-    await processCascades(next)
+
+    // A bomb always fires on swap (it never forms a normal match), and a lone
+    // line/wrap with no match fires directly too. Everything else cascades —
+    // any line/wrap caught inside that match detonates within the cascade.
+    if (bombInvolved || (swapHasSpecial && !formsMatch)) {
+      await resolveSwapDetonation(next, a, b)
+      return
+    }
+    await processCascades(next, [a, b])
   }
 
   function reset() {
@@ -559,23 +837,82 @@ export default function YarnPopGame() {
                   )}
                   <div style={{
                     width: '100%', height: '100%',
+                    position: 'relative',
                     boxShadow: selected && selected.r === r && selected.c === c
                       ? '0 0 0 3px #FDE68A, 0 0 14px rgba(253,230,138,0.8)'
-                      : 'none',
+                      : tile.special
+                        // Specials wear a permanent gold halo so they read as
+                        // "charged" against the normal candy field.
+                        ? '0 0 0 2px rgba(253,230,138,0.9), 0 0 12px rgba(253,230,138,0.55)'
+                        : 'none',
                     borderRadius: 6,
                     transition: 'box-shadow 0.15s',
-                    // The pop keyframe overshoots before vanishing — the
-                    // tile briefly puffs to 1.18× then collapses to 0.
+                    // matched → pop-and-vanish; freshly-minted special → pop-in.
                     animation: tile.matched
                       ? 'yp-tile-pop 0.42s cubic-bezier(0.34,1.56,0.64,1) forwards'
-                      : undefined,
+                      : tile.spawned
+                        ? 'yp-special-spawn 0.5s cubic-bezier(0.34,1.56,0.64,1)'
+                        : undefined,
                   }}>
-                    <MemoTileVisual type={tile.type} />
+                    {tile.special === 'bomb'
+                      ? <BombTile />
+                      : <MemoTileVisual type={tile.type} />}
+                    {tile.special && tile.special !== 'bomb' && (
+                      <SpecialOverlay special={tile.special} />
+                    )}
                   </div>
                 </button>
                 )
               })
             )}
+
+            {/* Explosion FX — row/column beams, 3×3 area flash, bomb zap.
+                Positioned in the same %-grid space as the tiles. */}
+            {fx.map(f => {
+              if (f.kind === 'beam-h') return (
+                <div key={f.id} className="absolute pointer-events-none" style={{
+                  left: 0, width: '100%',
+                  top: `${(f.r / ROWS) * 100}%`, height: `${100 / ROWS}%`,
+                  zIndex: 7, borderRadius: 4,
+                  background: `linear-gradient(90deg, transparent, ${f.color}, #FFFFFF, ${f.color}, transparent)`,
+                  boxShadow: `0 0 18px ${f.color}`,
+                  animation: 'yp-beam-h 0.5s ease-out forwards',
+                }} />
+              )
+              if (f.kind === 'beam-v') return (
+                <div key={f.id} className="absolute pointer-events-none" style={{
+                  top: 0, height: '100%',
+                  left: `${(f.c / COLS) * 100}%`, width: `${100 / COLS}%`,
+                  zIndex: 7, borderRadius: 4,
+                  background: `linear-gradient(180deg, transparent, ${f.color}, #FFFFFF, ${f.color}, transparent)`,
+                  boxShadow: `0 0 18px ${f.color}`,
+                  animation: 'yp-beam-v 0.5s ease-out forwards',
+                }} />
+              )
+              if (f.kind === 'area') return (
+                <div key={f.id} className="absolute pointer-events-none" style={{
+                  left: `${((f.c - 1) / COLS) * 100}%`, top: `${((f.r - 1) / ROWS) * 100}%`,
+                  width: `${(3 / COLS) * 100}%`, height: `${(3 / ROWS) * 100}%`,
+                  zIndex: 7, borderRadius: '50%',
+                  background: `radial-gradient(circle, #FFFFFF 0%, ${f.color} 38%, rgba(0,0,0,0) 72%)`,
+                  boxShadow: `0 0 22px ${f.color}`,
+                  animation: 'yp-area 0.5s ease-out forwards',
+                }} />
+              )
+              // zap — bomb: a white-hot ring blooms across the board.
+              return (
+                <div key={f.id} className="absolute inset-0 pointer-events-none" style={{ zIndex: 8, overflow: 'hidden', borderRadius: 4 }}>
+                  <div className="absolute" style={{
+                    left: `${((f.c + 0.5) / COLS) * 100}%`, top: `${((f.r + 0.5) / ROWS) * 100}%`,
+                    width: '12%', height: '12%',
+                    transform: 'translate(-50%, -50%)', borderRadius: '50%',
+                    background: 'radial-gradient(circle, #FFFFFF 0%, rgba(253,230,138,0.95) 30%, rgba(167,139,250,0.6) 55%, rgba(0,0,0,0) 75%)',
+                    boxShadow: '0 0 30px #FFFFFF',
+                    animation: 'yp-zap 0.55s ease-out forwards',
+                  }} />
+                </div>
+              )
+            })}
           </div>
 
           {/* Floater */}
@@ -619,9 +956,29 @@ export default function YarnPopGame() {
           <div className="px-6 py-5 flex flex-col items-center gap-3"
             style={{ background: 'rgba(15,3,18,0.85)', border: '3px solid #EC4899', borderRadius: 6, boxShadow: '0 4px 0 #831843, 0 0 24px rgba(236,72,153,0.4)' }}>
             <p className="font-pixel" style={{ fontSize: 10, letterSpacing: 2, color: '#FDE68A' }}>YARN POP</p>
-            <p className="font-pixel text-center" style={{ fontSize: 7, color: '#FBCFE8', letterSpacing: 1, lineHeight: 1.6 }}>
-              TAP TWO ADJACENT TILES.<br/>MATCH 3+ TO POP.
+            <p className="font-pixel text-center" style={{ fontSize: 7, color: '#FBCFE8', letterSpacing: 1, lineHeight: 1.7 }}>
+              TAP TWO ADJACENT TILES.<br/>MATCH 3 TO POP.
             </p>
+            <div className="flex flex-col gap-1.5" style={{ marginTop: 2 }}>
+              <div className="flex items-center gap-2">
+                <div style={{ position: 'relative', width: 20, height: 20 }}>
+                  <div style={{ width: '100%', height: '100%', borderRadius: 4 }}><MemoTileVisual type={2} /></div>
+                  <SpecialOverlay special="line-h" />
+                </div>
+                <span className="font-pixel" style={{ fontSize: 6, color: '#FDE68A', letterSpacing: 1 }}>MATCH 4 = LINE BLAST</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div style={{ position: 'relative', width: 20, height: 20 }}>
+                  <div style={{ width: '100%', height: '100%', borderRadius: 4 }}><MemoTileVisual type={0} /></div>
+                  <SpecialOverlay special="wrap" />
+                </div>
+                <span className="font-pixel" style={{ fontSize: 6, color: '#FDE68A', letterSpacing: 1 }}>L-SHAPE = AREA BOOM</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div style={{ width: 20, height: 20 }}><BombTile /></div>
+                <span className="font-pixel" style={{ fontSize: 6, color: '#FDE68A', letterSpacing: 1 }}>MATCH 5 = COLOR BOMB</span>
+              </div>
+            </div>
             <button onClick={() => { playSound('ui_tap'); startGame() }}
               className="mt-1 px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2 pointer-events-auto"
               style={{
@@ -807,6 +1164,60 @@ export default function YarnPopGame() {
           0%   { left: -40%; }
           100% { left: 140%; }
         }
+
+        /* ── Candy-Crush specials ───────────────────────────────────────── */
+        /* Pop-in when a special candy is minted. */
+        @keyframes yp-special-spawn {
+          0%   { transform: scale(0.2) rotate(-30deg); opacity: 0; }
+          60%  { transform: scale(1.25) rotate(8deg);  opacity: 1; }
+          100% { transform: scale(1) rotate(0);        opacity: 1; }
+        }
+        /* Striped & wrapped overlays — drawn over the candy, gently breathing. */
+        .yp-stripe-h, .yp-stripe-v, .yp-wrap-ring {
+          position: absolute; inset: 2px; border-radius: 5px; pointer-events: none;
+        }
+        .yp-stripe-h {
+          background: repeating-linear-gradient(0deg, rgba(255,255,255,0.9) 0 2px, transparent 2px 5px);
+          mix-blend-mode: overlay;
+          animation: yp-stripe-glow 1.2s ease-in-out infinite;
+        }
+        .yp-stripe-v {
+          background: repeating-linear-gradient(90deg, rgba(255,255,255,0.9) 0 2px, transparent 2px 5px);
+          mix-blend-mode: overlay;
+          animation: yp-stripe-glow 1.2s ease-in-out infinite;
+        }
+        @keyframes yp-stripe-glow { 0%, 100% { opacity: 0.65; } 50% { opacity: 1; } }
+        .yp-wrap-ring { animation: yp-wrap-glow 1.1s ease-in-out infinite; }
+        @keyframes yp-wrap-glow {
+          0%, 100% { box-shadow: inset 0 0 0 2px rgba(255,255,255,0.85), inset 0 0 6px rgba(253,230,138,0.7); }
+          50%      { box-shadow: inset 0 0 0 2px #FFFFFF,                 inset 0 0 12px rgba(253,230,138,1); }
+        }
+        /* Bomb sphere — slow rainbow-glow pulse. */
+        @keyframes yp-bomb-pulse {
+          0%, 100% { filter: drop-shadow(0 0 4px rgba(180,120,255,0.6)); }
+          50%      { filter: drop-shadow(0 0 9px rgba(210,160,255,0.95)); }
+        }
+        /* ── Explosion beams / area / zap ───────────────────────────────── */
+        @keyframes yp-beam-h {
+          0%   { opacity: 0; transform: scaleY(0.2); }
+          20%  { opacity: 1; transform: scaleY(1.2); }
+          100% { opacity: 0; transform: scaleY(0.6); }
+        }
+        @keyframes yp-beam-v {
+          0%   { opacity: 0; transform: scaleX(0.2); }
+          20%  { opacity: 1; transform: scaleX(1.2); }
+          100% { opacity: 0; transform: scaleX(0.6); }
+        }
+        @keyframes yp-area {
+          0%   { opacity: 0; transform: scale(0.3); }
+          25%  { opacity: 1; transform: scale(1.1); }
+          100% { opacity: 0; transform: scale(1.35); }
+        }
+        @keyframes yp-zap {
+          0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+          18%  { opacity: 1; }
+          100% { opacity: 0; transform: translate(-50%, -50%) scale(14); }
+        }
       `}</style>
     </div>
   )
@@ -826,6 +1237,44 @@ function TileVisual({ type }: { type: number }) {
 }
 
 const MemoTileVisual = memo(TileVisual)
+
+// Overlay drawn on top of a candy that's been turned into a striped (line) or
+// wrapped (area) special. Bombs render their own sphere instead (BombTile).
+function SpecialOverlay({ special }: { special: Special }) {
+  if (special === 'line-h') return <div className="yp-stripe-h" />
+  if (special === 'line-v') return <div className="yp-stripe-v" />
+  return <div className="yp-wrap-ring" />
+}
+
+// COLOR BOMB — a dark sprinkled sphere (colour-less; fires on swap/chain).
+function BombTile() {
+  return (
+    <div style={{
+      width: '100%', height: '100%', borderRadius: 6, position: 'relative',
+      background: 'radial-gradient(circle at 32% 28%, #4B4B6A 0%, #1A1A2E 68%, #050510 100%)',
+      border: '2px solid #0B0B18',
+      boxShadow: 'inset 0 2px 2px rgba(255,255,255,0.25), inset 0 -2px 2px rgba(0,0,0,0.6)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      animation: 'yp-bomb-pulse 1.4s ease-in-out infinite',
+    }}>
+      <svg width="78%" height="78%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
+        {/* multi-colour sprinkles scattered across the dark sphere */}
+        <rect x="3" y="3" width="1" height="1" fill="#F472B6" />
+        <rect x="7" y="2" width="1" height="1" fill="#60A5FA" />
+        <rect x="5" y="5" width="1" height="1" fill="#FBBF24" />
+        <rect x="8" y="6" width="1" height="1" fill="#34D399" />
+        <rect x="2" y="7" width="1" height="1" fill="#FBCFE8" />
+        <rect x="6" y="8" width="1" height="1" fill="#A78BFA" />
+        <rect x="4" y="9" width="1" height="1" fill="#F87171" />
+        <rect x="9" y="9" width="1" height="1" fill="#FDE68A" />
+        <rect x="9" y="4" width="1" height="1" fill="#22D3EE" />
+        {/* glossy top-left highlight */}
+        <rect x="3" y="2" width="2" height="1" fill="#FFFFFF" opacity="0.55" />
+        <rect x="2" y="3" width="1" height="1" fill="#FFFFFF" opacity="0.4" />
+      </svg>
+    </div>
+  )
+}
 
 // Tile background — radial highlight + diagonal gradient, with inset
 // bevel shadows for a candy-button feel. Each tile colour pair (main +
