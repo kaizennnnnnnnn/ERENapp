@@ -758,18 +758,19 @@ export default function LaneRunnerGame() {
           </div>
         ))}
 
-        {/* Eren — animated bobbing run cycle */}
+        {/* Eren — legless waddle: a quick left/right lean reads as walking */}
         {phase !== 'idle' && (
           <div className="absolute pointer-events-none"
             style={{
               left: laneToX(lane) - 30,
               bottom: PLAYER_BOTTOM - 30,
               width: 60, height: 60,
+              transformOrigin: 'bottom center',
               transition: 'left 0.16s cubic-bezier(0.34,1.56,0.64,1)',
-              animation: reduced ? 'none' : 'run-bob 0.32s ease-in-out infinite',
+              animation: reduced ? 'none' : 'run-lean 0.36s ease-in-out infinite',
               filter: 'drop-shadow(0 4px 0 rgba(0,0,0,0.45))',
             }}>
-            <ErenRunner reduced={reduced} />
+            <ErenRunner />
           </div>
         )}
 
@@ -911,22 +912,15 @@ export default function LaneRunnerGame() {
       </div>
 
       <style jsx global>{`
-        /* Two strides per cycle — body lifts on each push-off, dips on each
-           foot-plant — synced to the alternating leg frames below. */
-        @keyframes run-bob {
-          0%, 100% { transform: translateY(0)    scaleY(0.98); }
-          25%      { transform: translateY(-4px) scaleY(1.03); }
-          50%      { transform: translateY(0)    scaleY(0.98); }
-          75%      { transform: translateY(-4px) scaleY(1.03); }
-        }
-        /* Alternating run-cycle leg frames (hard 2-frame toggle). */
-        @keyframes lr-run-legA {
-          0%, 49.99% { opacity: 1; }
-          50%, 100%  { opacity: 0; }
-        }
-        @keyframes lr-run-legB {
-          0%, 49.99% { opacity: 0; }
-          50%, 100%  { opacity: 1; }
+        /* Legless waddle — Eren rocks onto each "foot" with a quick left/right
+           lean and rises over it, dipping through center as weight transfers.
+           Two leans = two steps per cycle; pivots on his base (bottom center). */
+        @keyframes run-lean {
+          0%   { transform: translateY(-3px) rotate(-7deg); }
+          25%  { transform: translateY(0)    rotate(0deg);  }
+          50%  { transform: translateY(-3px) rotate(7deg);  }
+          75%  { transform: translateY(0)    rotate(0deg);  }
+          100% { transform: translateY(-3px) rotate(-7deg); }
         }
         /* Obstacle hazard aura — angry red pulse. */
         @keyframes lr-danger-pulse {
@@ -1142,11 +1136,10 @@ const ItemSprite = memo(function ItemSprite({ variant }: { variant: Variant }) {
   )
 })
 
-// ─── Eren runner sprite — chibi head/torso (static) over a two-frame leg
-// run-cycle. The parent supplies the body bob; the two <g> leg frames toggle
-// out of phase (legA visible first half, legB second half) so the legs
-// actually pump instead of the whole sprite just sliding up and down. ───────
-const ErenRunner = memo(function ErenRunner({ reduced }: { reduced: boolean }) {
+// ─── Eren runner sprite — legless chibi head/torso. The parent supplies the
+// whole walk: a quick left/right lean (run-lean) that rocks him onto each
+// "foot", so he reads as walking without any legs drawn. ───────
+const ErenRunner = memo(function ErenRunner() {
   return (
     <svg width="100%" height="100%" viewBox="0 0 22 22" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
       {/* Ears */}
@@ -1185,29 +1178,8 @@ const ErenRunner = memo(function ErenRunner({ reduced }: { reduced: boolean }) {
       <rect x="5" y="13" width="1" height="2" fill="#4A2E1A" />
       <rect x="16" y="13" width="1" height="2" fill="#4A2E1A" />
       <rect x="6" y="13" width="10" height="2" fill="#F9EDD5" />
-
-      {/* Leg frame A — left planted, right lifted (mid push-off) */}
-      <g style={{ animation: reduced ? 'none' : 'lr-run-legA 0.32s linear infinite' }}>
-        <rect x="6" y="15" width="3" height="5" fill="#F9EDD5" />
-        <rect x="6" y="15" width="1" height="5" fill="#4A2E1A" />
-        <rect x="5" y="20" width="4" height="1" fill="#4A2E1A" />
-        <rect x="5" y="19" width="3" height="1" fill="#D4B896" />
-        <rect x="13" y="15" width="3" height="3" fill="#F9EDD5" />
-        <rect x="15" y="15" width="1" height="3" fill="#4A2E1A" />
-        <rect x="13" y="18" width="4" height="1" fill="#4A2E1A" />
-        <rect x="14" y="17" width="3" height="1" fill="#D4B896" />
-      </g>
-      {/* Leg frame B — left lifted, right planted */}
-      <g style={{ animation: reduced ? 'none' : 'lr-run-legB 0.32s linear infinite', opacity: reduced ? 0 : undefined }}>
-        <rect x="6" y="15" width="3" height="3" fill="#F9EDD5" />
-        <rect x="6" y="15" width="1" height="3" fill="#4A2E1A" />
-        <rect x="5" y="18" width="4" height="1" fill="#4A2E1A" />
-        <rect x="5" y="17" width="3" height="1" fill="#D4B896" />
-        <rect x="13" y="15" width="3" height="5" fill="#F9EDD5" />
-        <rect x="15" y="15" width="1" height="5" fill="#4A2E1A" />
-        <rect x="13" y="20" width="4" height="1" fill="#4A2E1A" />
-        <rect x="14" y="19" width="3" height="1" fill="#D4B896" />
-      </g>
+      {/* Rounded belly base — closes the body now that the legs are gone */}
+      <rect x="6" y="15" width="10" height="1" fill="#4A2E1A" />
     </svg>
   )
 })
