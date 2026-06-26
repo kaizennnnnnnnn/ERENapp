@@ -63,13 +63,27 @@ export default function GachaPage() {
   const touchedDeck = useRef(false) // gate swipe SFX to real gestures (see onScroll)
 
   // Scroll-driven swap effect: the off-center machine recedes (scale), dims,
-  // blurs, and its art slides slower than the page (parallax). The blur racks
-  // into focus as a page centers. Written imperatively per scroll event — no
-  // React re-renders mid-swipe.
+  // and its art slides slower than the page (parallax). Written imperatively
+  // per scroll event — no React re-renders mid-swipe.
   const innerRefs = useRef<(HTMLDivElement | null)[]>([])
   const bgRefs = useRef<(HTMLDivElement | null)[]>([])
   const dimRefs = useRef<(HTMLDivElement | null)[]>([])
   const edgeRefs = useRef<(HTMLDivElement | null)[]>([])
+
+  // will-change is a layer hint, not a paint. Holding it on the machine layers
+  // at rest force-promotes them to permanent compositor layers — and a forced,
+  // static layer inside an actively-scrolled container intermittently fails to
+  // repaint on mobile GPUs, blanking the centered machine's pull buttons. So we
+  // arm the hint only while a swipe is in flight and drop it once it settles.
+  const hintsOn = useRef(false)
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const setLayerHints = useCallback((on: boolean) => {
+    if (hintsOn.current === on) return
+    hintsOn.current = on
+    const wc = on ? 'transform' : 'auto'
+    for (const el of innerRefs.current) if (el) el.style.willChange = wc
+    for (const el of bgRefs.current) if (el) el.style.willChange = wc
+  }, [])
 
   const applyScrollFx = useCallback(() => {
     const el = scrollRef.current
@@ -81,12 +95,11 @@ export default function GachaPage() {
       const inner = innerRefs.current[i]
       if (inner) inner.style.transform = `scale(${(1 - 0.14 * a).toFixed(4)})`
       const bg = bgRefs.current[i]
-      if (bg) {
-        bg.style.transform = `translateX(${(p * 6).toFixed(3)}%) scale(1.12)`
-        // Crisp when centered, racking up to a soft blur a page away. The
-        // bg overscans (scale 1.12) so the blur's fading edge stays offscreen.
-        bg.style.filter = a > 0.01 ? `blur(${(a * 12).toFixed(2)}px)` : 'none'
-      }
+      // Parallax only — the off-center art slides slower than the page. The bg
+      // overscans (scale 1.12) so the shift never reveals an edge. (No per-frame
+      // blur: re-rasterizing a full-screen blur every scroll frame was the swipe
+      // jank, and the GPU-memory pressure it created was blanking the buttons.)
+      if (bg) bg.style.transform = `translateX(${(p * 6).toFixed(3)}%) scale(1.12)`
       const dim = dimRefs.current[i]
       if (dim) dim.style.opacity = (0.6 * a).toFixed(3)
       // Edge vignette ramps in off-center so the two abutting page edges melt
@@ -98,11 +111,17 @@ export default function GachaPage() {
   }, [])
 
   useEffect(() => { applyScrollFx() }, [applyScrollFx])
+  useEffect(() => () => { if (settleTimer.current) clearTimeout(settleTimer.current) }, [])
 
   function onScroll() {
+    setLayerHints(true)
     applyScrollFx()
     const el = scrollRef.current
     if (!el) return
+    // Drop the layer hints once the swipe settles so resting pages aren't left
+    // force-promoted (see setLayerHints). Momentum keeps the timer resetting.
+    if (settleTimer.current) clearTimeout(settleTimer.current)
+    settleTimer.current = setTimeout(() => setLayerHints(false), 160)
     const idx = Math.min(PAGES.length - 1, Math.max(0, Math.round(el.scrollLeft / el.clientWidth)))
     if (idx !== pageIdx) {
       // Only on a real swipe. A scroll event isn't a user-activation gesture,
@@ -230,10 +249,10 @@ export default function GachaPage() {
                 page (the swipe-back "teleport"). idx===0 is the at-load
                 centered page, so the first paint matches applyScrollFx(). */}
             <div ref={el => { innerRefs.current[idx] = el }}
-              className="absolute inset-0 will-change-transform"
+              className="absolute inset-0"
               style={{ transform: `scale(${idx === 0 ? 1 : 0.86})` }}>
               <div ref={el => { bgRefs.current[idx] = el }}
-                className="absolute inset-0 will-change-transform"
+                className="absolute inset-0"
                 style={{
                   backgroundImage: `url(${p.bg})`,
                   backgroundSize: 'cover',
