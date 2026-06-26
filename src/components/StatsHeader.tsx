@@ -53,6 +53,12 @@ let coinFlightSeq = 0
 interface CoinSprite { i: number; sdx: number; sdy: number; delay: number }
 interface CoinFlight { id: number; tx: number; ty: number; sprites: CoinSprite[] }
 
+// A bigger payout showers more coins. Floors at 6 (so small care rewards look
+// unchanged) and caps at 24 so even a 250-coin Royal Treasury never floods.
+function coinCountFor(amount: number): number {
+  return Math.max(6, Math.min(24, Math.round(amount / 3.5)))
+}
+
 type StatKey = 'happiness' | 'hunger' | 'energy' | 'sleep_quality' | 'cleanliness'
 
 interface GaugeDef {
@@ -230,12 +236,19 @@ export default function StatsHeader() {
   const [coinPop, setCoinPop] = useState(0)
   const [coinFlights, setCoinFlights] = useState<CoinFlight[]>([])
   const prevCoins = useRef(coins)
+  const coinsRef = useRef(coins)
+  coinsRef.current = coins
   const coinChipRef = useRef<HTMLDivElement>(null)
   const flyLayerRef = useRef<HTMLDivElement>(null)
   const coinTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set())
+  // Daily-fortune coin handshake: a coin gift arms `coinClaimRef` before
+  // crediting, so the HUD skips its own centre-burst; `awaitingBurstRef` then
+  // holds the count-up until the gift fires the shower from the revealed bag.
+  const coinClaimRef = useRef(false)
+  const awaitingBurstRef = useRef(false)
   useEffect(() => () => { coinTimersRef.current.forEach(clearTimeout) }, [])
 
-  const launchCoinFlight = useCallback(() => {
+  const launchCoinFlight = useCallback((opts?: { origin?: { x: number; y: number }; count?: number }) => {
     const chip = coinChipRef.current
     const layer = flyLayerRef.current
     if (!chip || !layer) return
@@ -246,19 +259,22 @@ export default function StatsHeader() {
     // the math holds whether the layer is the viewport or the desktop frame.
     const tx = c.left + c.width / 2 - l.left
     const ty = c.top + c.height / 2 - l.top
-    const ox = l.width / 2
-    const oy = l.height * 0.42
+    // Origin: a custom point (the daily-fortune bag, in viewport coords) or the
+    // default upper-centre of the frame for ordinary gains.
+    const ox = opts?.origin ? opts.origin.x - l.left : l.width / 2
+    const oy = opts?.origin ? opts.origin.y - l.top  : l.height * 0.42
+    const n = opts?.count ?? 6
     const id = ++coinFlightSeq
-    const sprites: CoinSprite[] = Array.from({ length: 6 }, (_, i) => {
-      const ang = (i / 6) * Math.PI * 2 + id * 0.7
-      const rad = 16 + (i % 3) * 11
-      return { i, sdx: ox + Math.cos(ang) * rad - tx, sdy: oy + Math.sin(ang) * rad - ty, delay: i * 45 }
+    const sprites: CoinSprite[] = Array.from({ length: n }, (_, i) => {
+      const ang = (i / n) * Math.PI * 2 + id * 0.7
+      const rad = 14 + (i % 4) * 10
+      return { i, sdx: ox + Math.cos(ang) * rad - tx, sdy: oy + Math.sin(ang) * rad - ty, delay: i * 38 }
     })
     setCoinFlights(f => [...f, { id, tx, ty, sprites }])
     const t = setTimeout(() => {
       setCoinFlights(f => f.filter(x => x.id !== id))
       coinTimersRef.current.delete(t)
-    }, COIN_FLY_MS + 6 * 45 + 120)
+    }, COIN_FLY_MS + n * 38 + 140)
     coinTimersRef.current.add(t)
   }, [])
 
@@ -267,8 +283,15 @@ export default function StatsHeader() {
     prevCoins.current = coins
     if (coins === prev) return
     if (coins < prev) { setLandedCoins(coins); return }   // a spend — apply now
-    // Earned: fly the coins in, then land (count up + pop) on arrival.
-    launchCoinFlight()
+    if (coinClaimRef.current) {
+      // A coin gift claimed this gain — it drives the shower + count-up itself
+      // when the gift is dismissed (eren:coin-burst). Hold the counter here.
+      coinClaimRef.current = false
+      awaitingBurstRef.current = true
+      return
+    }
+    // Earned: fly the coins in (scaled to the gain), then land + pop on arrival.
+    launchCoinFlight({ count: coinCountFor(coins - prev) })
     const target = coins
     const t = setTimeout(() => {
       setLandedCoins(l => Math.max(l, target))
@@ -277,6 +300,36 @@ export default function StatsHeader() {
     }, COIN_FLY_MS)
     coinTimersRef.current.add(t)
   }, [coins, launchCoinFlight])
+
+  // Coin-gift shower: arm on claim, then fly from the revealed bag into the
+  // counter when the gift popup closes. The count scales with the amount, so a
+  // 50-coin Heavy Coin Bag rains far more than a 10-coin pouch. If the burst
+  // never arrives (popup killed mid-reveal), a fresh mount re-reads the balance
+  // from `coins`, so the counter never gets stuck below the real total.
+  useEffect(() => {
+    const onClaim = () => { coinClaimRef.current = true }
+    const onBurst = (e: Event) => {
+      const d = (e as CustomEvent<{ x: number; y: number; amount: number }>).detail
+      if (!d) return
+      launchCoinFlight({ origin: { x: d.x, y: d.y }, count: coinCountFor(d.amount) })
+      if (awaitingBurstRef.current) {
+        awaitingBurstRef.current = false
+        const target = coinsRef.current
+        const t = setTimeout(() => {
+          setLandedCoins(l => Math.max(l, target))
+          setCoinPop(k => k + 1)
+          coinTimersRef.current.delete(t)
+        }, COIN_FLY_MS)
+        coinTimersRef.current.add(t)
+      }
+    }
+    window.addEventListener('eren:coin-claim', onClaim)
+    window.addEventListener('eren:coin-burst', onBurst as EventListener)
+    return () => {
+      window.removeEventListener('eren:coin-claim', onClaim)
+      window.removeEventListener('eren:coin-burst', onBurst as EventListener)
+    }
+  }, [launchCoinFlight])
 
   const [xpTick, setXpTick] = useState(0)
   const prevXp = useRef(xp)

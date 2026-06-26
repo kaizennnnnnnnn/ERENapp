@@ -1213,6 +1213,76 @@ export const IconEye = memo(function IconEye({ size = 20 }: IconProps) {
   }, size)
 })
 
+// ── COIN BAG (daily-fortune coin reward) ──────────────────────────────────
+// Tan burlap sack cinched with a light cord, a gold coin emblem on the belly.
+// Replaces the 💰 emoji on the Small/Coin/Heavy coin-bag fortune gifts.
+export const IconCoinBag = memo(function IconCoinBag({ size = 20 }: IconProps) {
+  const grid = [
+    '............',
+    '....KKKK....',
+    '...KGGGGK...',
+    '...KCKKCK...',
+    '..KBBBBBBK..',
+    '.KBLBBBBBDK.',
+    'KBBBSSSSBBDK',
+    'KBLBSHHSBBBK',
+    'KBBBSSSSBBDK',
+    'KBBLBBBBBBDK',
+    '.KKKKKKKKKK.',
+    '............',
+  ]
+  return drawPixels(grid, {
+    K: '#4A2F08', B: '#C28A3C', D: '#8A5E1E', L: '#E6B765',
+    G: '#E6C77A', C: '#6E4A14', S: '#F5C842', H: '#FFF1B8',
+  }, size)
+})
+
+// ── GEM (stardust crystal) ─────────────────────────────────────────────────
+// Cyan brilliant-cut diamond — flat table on top tapering to a point. Replaces
+// the 💎 emoji on the Stardust Crystal fortune gift.
+export const IconGem = memo(function IconGem({ size = 20 }: IconProps) {
+  const grid = [
+    '............',
+    '..KKKKKKKK..',
+    '.KHHCCCCHHK.',
+    'KCCCCCCCCCCK',
+    '.KCCCCCCCCK.',
+    '..KCCWCCCK..',
+    '...KCCCCK...',
+    '....KCCK....',
+    '.....KK.....',
+    '............',
+    '............',
+    '............',
+  ]
+  return drawPixels(grid, {
+    K: '#0E6F8A', C: '#2FD4EE', H: '#CFFAFE', W: '#FFFFFF',
+  }, size)
+})
+
+// ── FEATHER (Eren's whisker keepsake) ──────────────────────────────────────
+// Soft cream feather on a diagonal with a quill at the base. Replaces the 🪶
+// emoji on the Eren's Whisker fortune keepsake.
+export const IconFeather = memo(function IconFeather({ size = 20 }: IconProps) {
+  const grid = [
+    '..........K.',
+    '.........KW.',
+    '........KWL.',
+    '.......KWWL.',
+    '......KWWLK.',
+    '.....KWWLK..',
+    '....KWWLK...',
+    '...KWWLK....',
+    '..KWLLK.....',
+    '.KWLK.......',
+    '.KKK........',
+    'K...........',
+  ]
+  return drawPixels(grid, {
+    K: '#8A7A55', W: '#FFFEF6', L: '#D9CDB0',
+  }, size)
+})
+
 // ── EYE OFF (hide password) — same eye, pink slash through it ─────────────
 export const IconEyeOff = memo(function IconEyeOff({ size = 20 }: IconProps) {
   const grid = [

@@ -138,6 +138,10 @@ export function useFortune() {
 
     // Apply gift effects
     if (gift.coinValue) {
+      // Tell the HUD to hold its automatic coin fly-in: the gift popup will
+      // drive the shower from the revealed bag into the counter on close
+      // (see StatsHeader's eren:coin-claim / eren:coin-burst handshake).
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event('eren:coin-claim'))
       await addCoins(gift.coinValue)
     }
 

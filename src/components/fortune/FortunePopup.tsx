@@ -1,11 +1,37 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { FortuneGiftDef } from '@/types'
 import { RARITY_COLORS } from '@/lib/gacha'
 import { useFortune } from '@/hooks/useFortune'
 import { playSound } from '@/lib/sounds'
 import SketchEren, { SKETCH_EREN_STATES, type SketchErenState } from '@/components/SketchEren'
+import {
+  IconCoinBag, IconCapsule, IconCrown, IconSparkles, IconGem, IconTicket,
+  IconPaw, IconYarn, IconStar, IconMoon, IconFish, IconFeather, IconBell, IconGift,
+} from '@/components/PixelIcons'
+
+// Each fortune gift's `icon` key resolves to a pixel-art <Icon*/> — no emojis.
+const FORTUNE_ICON_MAP: Record<string, React.ComponentType<{ size?: number }>> = {
+  coinBag:   IconCoinBag,
+  coinChest: IconCapsule,
+  crown:     IconCrown,
+  stardust:  IconSparkles,
+  gem:       IconGem,
+  ticket:    IconTicket,
+  paw:       IconPaw,
+  yarn:      IconYarn,
+  star:      IconStar,
+  moon:      IconMoon,
+  fish:      IconFish,
+  feather:   IconFeather,
+  bell:      IconBell,
+}
+
+function FortuneIcon({ iconKey, size }: { iconKey: string; size: number }) {
+  const Icon = FORTUNE_ICON_MAP[iconKey] ?? IconGift
+  return <Icon size={size} />
+}
 
 interface Props {
   onClose: () => void
@@ -264,6 +290,22 @@ export default function FortunePopup({ onClose }: Props) {
   const [gift, setGift] = useState<FortuneGiftDef | null>(null)
   const [phase, setPhase] = useState<'intro' | 'shake' | 'opening' | 'reveal'>('intro')
   const dailyEren = useMemo(giftErenForToday, [])
+  const bagRef = useRef<HTMLDivElement>(null)
+
+  // Closing a coin reward showers coins from the revealed bag into the top-right
+  // counter. We measure the bag BEFORE unmounting and hand its centre + the coin
+  // amount to the HUD (StatsHeader) via `eren:coin-burst`; the count scales with
+  // the amount, so a 50-coin Heavy Coin Bag rains far more than a 10-coin pouch.
+  function closeReveal() {
+    playSound('ui_modal_close')
+    if (gift?.coinValue && bagRef.current) {
+      const r = bagRef.current.getBoundingClientRect()
+      window.dispatchEvent(new CustomEvent('eren:coin-burst', {
+        detail: { x: r.left + r.width / 2, y: r.top + r.height / 2, amount: gift.coinValue },
+      }))
+    }
+    onClose()
+  }
 
   async function handleClaim() {
     if (!canClaim || claiming) return
@@ -353,7 +395,7 @@ export default function FortunePopup({ onClose }: Props) {
 
         {/* Reveal — pixel-framed item with corner sparkles. */}
         {phase === 'reveal' && gift && colors && (
-          <button onClick={() => { playSound('ui_modal_close'); onClose() }}
+          <button onClick={closeReveal}
             className="flex flex-col items-center gap-4 active:scale-95 transition-transform">
             <div className="relative flex items-center justify-center"
               style={{
@@ -362,6 +404,7 @@ export default function FortunePopup({ onClose }: Props) {
               }}>
               <PixelStarFrame color={colors.border} />
               <div
+                ref={bagRef}
                 style={{
                   width: 96, height: 96,
                   background: colors.bg,
@@ -371,7 +414,7 @@ export default function FortunePopup({ onClose }: Props) {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   animation: 'fpRevealPulse 1.6s ease-in-out infinite',
                 }}>
-                <span style={{ fontSize: 44 }}>{gift.icon}</span>
+                <FortuneIcon iconKey={gift.icon} size={58} />
               </div>
             </div>
             <div className="text-center"
