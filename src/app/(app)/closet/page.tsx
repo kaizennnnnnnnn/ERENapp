@@ -149,8 +149,8 @@ export default function ClosetPage() {
           <div className="flex items-center gap-1.5 px-2.5 py-1.5" style={{
             background: '#1B1233', borderRadius: 6, border: '2px solid #4C1D95', boxShadow: '0 2px 0 #2E1065',
           }}>
-            <IconSparkles size={13} />
-            <span className="font-pixel" style={{ fontSize: 8, color: '#C4B5FD', textShadow: '0 0 3px rgba(167,139,250,0.5)' }}>{stardust}</span>
+            <span className="sparkle-hue"><IconSparkles size={13} /></span>
+            <span className="font-pixel stardust-rainbow" style={{ fontSize: 8 }}>{stardust}</span>
           </div>
         </div>
 
@@ -252,8 +252,8 @@ export default function ClosetPage() {
                   {e.locked && e.skin && (
                     <div className="absolute -top-1.5 -right-1.5 flex items-center gap-0.5 px-1 py-0.5"
                       style={{ background: '#1B1233', border: '1.5px solid #4C1D95', borderRadius: 5, boxShadow: '0 1px 0 #2E1065' }}>
-                      <IconSparkles size={8} />
-                      <span className="font-pixel" style={{ fontSize: 5, color: '#C4B5FD' }}>{skinPrice(e.skin.rarity)}</span>
+                      <span className="sparkle-hue"><IconSparkles size={8} /></span>
+                      <span className="font-pixel stardust-rainbow" style={{ fontSize: 5 }}>{skinPrice(e.skin.rarity)}</span>
                     </div>
                   )}
                   {sel && (

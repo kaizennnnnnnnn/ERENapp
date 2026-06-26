@@ -1049,3 +1049,33 @@
   70%  { opacity: 0.95; }
   100% { transform: translateY(-15px) scale(1);   opacity: 0;    }
 }
+
+/* ── Stardust rainbow ──────────────────────────────────────────────────────
+   The gacha header flows its stardust count through a rainbow gradient and
+   hue-cycles the sparkle icon. These shared classes let any stardust readout
+   (closet balance, price tags, purchase sheet) wear the exact same animation
+   so "star fragments" look identical wherever they appear. Values mirror
+   gacha/page.tsx's .gacha-stardust-val / .gacha-sparkle-icon. */
+.stardust-rainbow {
+  background: linear-gradient(90deg,
+    #ff6b6b 0%, #ffb347 16%, #fff700 33%,
+    #87ff57 50%, #57c8ff 66%, #c87cff 83%, #ff6b6b 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: stardustRainbowFlow 2s linear infinite;
+}
+@keyframes stardustRainbowFlow {
+  0%   { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+.sparkle-hue {
+  display: inline-flex;
+  align-items: center;
+  animation: sparkleHueRotate 2s linear infinite;
+}
+@keyframes sparkleHueRotate {
+  0%   { filter: hue-rotate(0deg)   saturate(2) brightness(1.15); }
+  100% { filter: hue-rotate(360deg) saturate(2) brightness(1.15); }
+}

@@ -76,8 +76,8 @@ export default function SkinPurchaseSheet({ skin, price, balance, busy, onBuy, o
         <div className="flex items-center justify-center gap-2 mb-1">
           <span className="font-pixel" style={{ fontSize: 6, color: '#9A8AB5', letterSpacing: 1 }}>PRICE</span>
           <div className="flex items-center gap-1">
-            <IconSparkles size={14} />
-            <span className="font-pixel" style={{ fontSize: 11, color: '#C4B5FD', textShadow: '0 0 4px rgba(167,139,250,0.6)' }}>{price}</span>
+            <span className="sparkle-hue"><IconSparkles size={14} /></span>
+            <span className="font-pixel stardust-rainbow" style={{ fontSize: 11 }}>{price}</span>
           </div>
         </div>
         <p className="text-center font-pixel" style={{
