@@ -9,8 +9,8 @@ export const metadata: Metadata = {
   description: 'Take care of Eren together — your virtual Ragdoll companion',
   manifest: '/manifest.json',
   icons: {
-    icon: '/ErenIcon.png',
-    apple: '/ErenIcon.png',
+    icon: '/ErenAppIcon.png',
+    apple: '/ErenAppIcon.png',
   },
   appleWebApp: {
     capable: true,

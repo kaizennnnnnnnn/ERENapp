@@ -2,7 +2,7 @@
 // Bump this string whenever you change badge/icon assets so the browser is
 // guaranteed to detect a byte difference and replace any old SW running on
 // the user's installed PWA. Pairs with no-store headers on /sw.js.
-const SW_VERSION = 'v24-home-bakery-night-art-2026-06-12'
+const SW_VERSION = 'v25-app-icon-2026-06-27'
 
 // Room backgrounds + Eren sprite. We precache these on install so the user
 // can scroll between rooms with no internet without seeing the room render
@@ -21,7 +21,7 @@ const PRECACHE_IMAGES = [
   '/CakeShop.png',   '/CakeShopNight.png',
   '/vetBACK.png',    '/wetDark.png',
   '/schoolBACK.png',
-  '/ErenIcon.png',   '/ErenBadge.png',
+  '/ErenAppIcon.png',   '/ErenBadge.png',
 ]
 
 self.addEventListener('install', e => {
@@ -100,7 +100,7 @@ self.addEventListener('message', ({ data }) => {
     const t = setTimeout(() => {
       self.registration.showNotification('🐱 Eren', {
         body: data.text,
-        icon: '/ErenIcon.png',
+        icon: '/ErenAppIcon.png',
         // Android masks the small status-bar icon to a flat tint — pass the
         // monochrome silhouette so it renders as a cat instead of a black box.
         badge: '/ErenBadge.png?v=6',
@@ -133,7 +133,7 @@ self.addEventListener('push', event => {
   const title = data.title || '🐱 Eren'
   const options = {
     body: data.body || '',
-    icon: '/ErenIcon.png',
+    icon: '/ErenAppIcon.png',
     // Monochrome silhouette for the Android status-bar small icon.
     badge: '/ErenBadge.png?v=6',
     tag: data.tag || 'eren-push',

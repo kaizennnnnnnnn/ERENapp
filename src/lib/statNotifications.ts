@@ -47,11 +47,11 @@ async function sendNotification(title: string, body: string, tag: string) {
   try {
     const reg = await navigator.serviceWorker?.ready
     if (reg) {
-      reg.showNotification(title, { body, icon: '/ErenIcon.png', badge: '/ErenIcon.png', tag } as NotificationOptions)
+      reg.showNotification(title, { body, icon: '/ErenAppIcon.png', badge: '/ErenAppIcon.png', tag } as NotificationOptions)
       return
     }
   } catch { /* fallback */ }
-  new Notification(title, { body, icon: '/ErenIcon.png', tag })
+  new Notification(title, { body, icon: '/ErenAppIcon.png', tag })
 }
 
 export function checkStatNotifications(stats: ErenStats) {
