@@ -33,20 +33,32 @@ import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { IconFish, IconStar } from '@/components/PixelIcons'
 import { fireMinigameDone } from '@/lib/minigames'
+import { FishSprite } from './FishSprite'
+import Atmosphere from './Atmosphere'
+import CatchCelebration from './CatchCelebration'
 
 // ─── Tunables ───────────────────────────────────────────────────────────────
 const START_BAIT  = 10
 const LOW_BAIT     = 3
 const WEEKLY_HS    = 300   // total fish value that completes the weekly high-score task
 const CAST_BASE    = 1.25  // cast-marker sweeps per second (climbs with catches)
-const HOOK_BASE    = 720   // hook window ms (shrinks with catches, floored)
-const HOOK_MIN     = 430
-// Reel physics
-const UP_ACCEL     = 4.6
-const GRAVITY      = 2.7
-const CATCH_RATE   = 0.56  // progress/sec while the fish is inside the bar
-const DRAIN_RATE   = 0.44  // progress/sec while it's outside
-const PROGRESS_START = 0.34
+const HOOK_BASE    = 760   // hook window ms (shrinks with catches, floored)
+const HOOK_MIN     = 470
+// ── Reel physics ──
+// The player-controlled catch bar must be able to CHASE a darting fish. The
+// old bar topped out near 0.44 track-units/sec while the fish crossed the
+// column in well under a second — uncatchable. Terminal velocity is roughly
+// REEL_DAMP·a·dt/(1−REEL_DAMP); at DAMP 0.90 the bar climbs ~1.35/sec, so it
+// keeps pace. The fish is also eased a touch calmer and the zones enlarged.
+const UP_ACCEL     = 9.0    // bar rises while held
+const GRAVITY      = 5.4    // bar falls while released
+const REEL_DAMP    = 0.90   // velocity retained per 60fps frame (higher = snappier)
+const CATCH_RATE   = 0.64   // progress/sec while the fish is inside the bar
+const DRAIN_RATE   = 0.30   // progress/sec while the fish is fully off the bar
+const GRACE_DRAIN  = 0.12   // gentler drain when the fish is only just off the bar
+const GRACE_MARGIN = 0.06   // "just off" = the fish is within this of a bar edge
+const FISH_EASE    = 3.3    // fish approach rate toward its target (was 4.5 — calmer)
+const PROGRESS_START = 0.42
 
 type Rarity = 'junk' | 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'
 
@@ -64,18 +76,18 @@ interface Species {
 }
 
 const SPECIES: Species[] = [
-  { id: 'boot',    name: 'OLD BOOT',    rarity: 'junk',      value: 2,   color: '#92400E', dark: '#451A03', light: '#B45309', kind: 'junk', speed: 0.25, jitter: 0.2 },
-  { id: 'can',     name: 'TIN CAN',     rarity: 'junk',      value: 2,   color: '#9CA3AF', dark: '#4B5563', light: '#D1D5DB', kind: 'junk', speed: 0.25, jitter: 0.2 },
-  { id: 'weed',    name: 'SEAWEED',     rarity: 'junk',      value: 3,   color: '#15803D', dark: '#14532D', light: '#22C55E', kind: 'junk', speed: 0.3,  jitter: 0.3 },
-  { id: 'minnow',  name: 'MINNOW',      rarity: 'common',    value: 6,   color: '#CBD5E1', dark: '#64748B', light: '#F1F5F9', kind: 'fish', speed: 0.4,  jitter: 0.45 },
-  { id: 'sardine', name: 'SARDINE',     rarity: 'common',    value: 9,   color: '#60A5FA', dark: '#1E40AF', light: '#BFDBFE', kind: 'fish', speed: 0.45, jitter: 0.5 },
-  { id: 'perch',   name: 'PERCH',       rarity: 'common',    value: 12,  color: '#84CC16', dark: '#3F6212', light: '#BEF264', kind: 'fish', speed: 0.5,  jitter: 0.55 },
-  { id: 'bass',    name: 'BASS',        rarity: 'uncommon',  value: 20,  color: '#10B981', dark: '#065F46', light: '#6EE7B7', kind: 'fish', speed: 0.58, jitter: 0.65 },
-  { id: 'trout',   name: 'TROUT',       rarity: 'uncommon',  value: 26,  color: '#2DD4BF', dark: '#115E59', light: '#99F6E4', kind: 'fish', speed: 0.62, jitter: 0.7 },
-  { id: 'puffer',  name: 'PUFFERFISH',  rarity: 'rare',      value: 42,  color: '#FBBF24', dark: '#92400E', light: '#FDE68A', kind: 'fish', speed: 0.72, jitter: 0.85 },
-  { id: 'koi',     name: 'KOI',         rarity: 'rare',      value: 58,  color: '#FB923C', dark: '#9A3412', light: '#FED7AA', kind: 'fish', speed: 0.76, jitter: 0.9 },
-  { id: 'catfish', name: 'CATFISH',     rarity: 'epic',      value: 85,  color: '#A78BFA', dark: '#4C1D95', light: '#DDD6FE', kind: 'fish', speed: 0.82, jitter: 1.05 },
-  { id: 'goldfish',name: 'GOLDEN FISH', rarity: 'legendary', value: 160, color: '#FDE047', dark: '#A16207', light: '#FEF9C3', kind: 'fish', speed: 0.9,  jitter: 1.2 },
+  { id: 'boot',    name: 'OLD BOOT',    rarity: 'junk',      value: 2,   color: '#92400E', dark: '#451A03', light: '#B45309', kind: 'junk', speed: 0.22, jitter: 0.18 },
+  { id: 'can',     name: 'TIN CAN',     rarity: 'junk',      value: 2,   color: '#9CA3AF', dark: '#4B5563', light: '#D1D5DB', kind: 'junk', speed: 0.22, jitter: 0.18 },
+  { id: 'weed',    name: 'SEAWEED',     rarity: 'junk',      value: 3,   color: '#15803D', dark: '#14532D', light: '#22C55E', kind: 'junk', speed: 0.26, jitter: 0.24 },
+  { id: 'minnow',  name: 'MINNOW',      rarity: 'common',    value: 6,   color: '#CBD5E1', dark: '#64748B', light: '#F1F5F9', kind: 'fish', speed: 0.34, jitter: 0.30 },
+  { id: 'sardine', name: 'SARDINE',     rarity: 'common',    value: 9,   color: '#60A5FA', dark: '#1E40AF', light: '#BFDBFE', kind: 'fish', speed: 0.38, jitter: 0.36 },
+  { id: 'perch',   name: 'PERCH',       rarity: 'common',    value: 12,  color: '#84CC16', dark: '#3F6212', light: '#BEF264', kind: 'fish', speed: 0.42, jitter: 0.42 },
+  { id: 'bass',    name: 'BASS',        rarity: 'uncommon',  value: 20,  color: '#10B981', dark: '#065F46', light: '#6EE7B7', kind: 'fish', speed: 0.50, jitter: 0.52 },
+  { id: 'trout',   name: 'TROUT',       rarity: 'uncommon',  value: 26,  color: '#2DD4BF', dark: '#115E59', light: '#99F6E4', kind: 'fish', speed: 0.54, jitter: 0.58 },
+  { id: 'puffer',  name: 'PUFFERFISH',  rarity: 'rare',      value: 42,  color: '#FBBF24', dark: '#92400E', light: '#FDE68A', kind: 'fish', speed: 0.62, jitter: 0.72 },
+  { id: 'koi',     name: 'KOI',         rarity: 'rare',      value: 58,  color: '#FB923C', dark: '#9A3412', light: '#FED7AA', kind: 'fish', speed: 0.66, jitter: 0.78 },
+  { id: 'catfish', name: 'CATFISH',     rarity: 'epic',      value: 85,  color: '#A78BFA', dark: '#4C1D95', light: '#DDD6FE', kind: 'fish', speed: 0.74, jitter: 0.92 },
+  { id: 'goldfish',name: 'GOLDEN FISH', rarity: 'legendary', value: 160, color: '#FDE047', dark: '#A16207', light: '#FEF9C3', kind: 'fish', speed: 0.82, jitter: 1.05 },
 ]
 
 const BASE_WEIGHT: Record<Rarity, number> = {
@@ -89,7 +101,7 @@ const RARITY_COLOR: Record<Rarity, string> = {
   junk: '#94A3B8', common: '#A7F3D0', uncommon: '#7DD3FC', rare: '#FBBF24', epic: '#C4B5FD', legendary: '#FDE047',
 }
 const RARITY_BAR_H: Record<Rarity, number> = {
-  junk: 0.34, common: 0.30, uncommon: 0.26, rare: 0.22, epic: 0.19, legendary: 0.16,
+  junk: 0.42, common: 0.36, uncommon: 0.31, rare: 0.26, epic: 0.22, legendary: 0.19,
 }
 
 function isRarePlus(r: Rarity): boolean {
@@ -114,55 +126,6 @@ function pickSpecies(quality: number, landed: number): Species {
     if (roll <= 0) return SPECIES[i]
   }
   return SPECIES[0]
-}
-
-// ─── Fish / junk sprite ─────────────────────────────────────────────────────
-function FishSprite({ s, size }: { s: Species; size: number }) {
-  const p = { width: size, height: size, viewBox: '0 0 24 24', shapeRendering: 'crispEdges' as const, style: { imageRendering: 'pixelated' as const } }
-  if (s.id === 'boot') {
-    return (
-      <svg {...p}>
-        <rect x="8" y="4"  width="6" height="10" fill={s.color} />
-        <rect x="8" y="14" width="12" height="5" fill={s.color} />
-        <rect x="8" y="4"  width="6" height="2"  fill={s.light} />
-        <rect x="8" y="17" width="12" height="2" fill={s.dark} />
-      </svg>
-    )
-  }
-  if (s.id === 'can') {
-    return (
-      <svg {...p}>
-        <rect x="7" y="6"  width="10" height="12" fill={s.color} />
-        <rect x="7" y="6"  width="10" height="2"  fill={s.light} />
-        <rect x="7" y="16" width="10" height="2"  fill={s.dark} />
-        <rect x="9" y="9"  width="6"  height="6"  fill={s.dark} opacity="0.5" />
-      </svg>
-    )
-  }
-  if (s.id === 'weed') {
-    return (
-      <svg {...p}>
-        <rect x="9"  y="4"  width="2" height="16" fill={s.color} />
-        <rect x="13" y="6"  width="2" height="14" fill={s.color} />
-        <rect x="6"  y="9"  width="2" height="11" fill={s.light} />
-        <rect x="11" y="10" width="2" height="3"  fill={s.light} />
-      </svg>
-    )
-  }
-  // generic pixel fish, recoloured
-  return (
-    <svg {...p}>
-      <rect x="4"  y="9"  width="13" height="7" fill={s.color} />
-      <rect x="4"  y="9"  width="13" height="2" fill={s.light} />
-      <rect x="4"  y="14" width="13" height="2" fill={s.dark} />
-      <rect x="3"  y="11" width="1"  height="3" fill={s.color} />
-      <rect x="17" y="8"  width="3"  height="3" fill={s.dark} />  {/* tail */}
-      <rect x="20" y="6"  width="2"  height="5" fill={s.dark} />
-      <rect x="17" y="14" width="3"  height="3" fill={s.dark} />
-      <rect x="20" y="14" width="2"  height="4" fill={s.dark} />
-      <rect x="7"  y="11" width="2"  height="2" fill="#0F172A" />  {/* eye */}
-    </svg>
-  )
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -191,6 +154,7 @@ export default function GoneFishinGame() {
   const [fishY, setFishY]           = useState(0.5)
   const [barY, setBarY]             = useState(0.45)
   const [progress, setProgress]     = useState(PROGRESS_START)
+  const [inside, setInside]         = useState(false)  // fish currently in the catch bar (drives glow)
   const [caught, setCaught]         = useState<{ s: Species; isNew: boolean } | null>(null)
   const [dex, setDex]               = useState<string[]>([])
   const [reward, setReward]         = useState<GameRewardResult | null>(null)
@@ -216,6 +180,7 @@ export default function GoneFishinGame() {
   const barYRef     = useRef(0.45)
   const barVelRef   = useRef(0)
   const progressRef = useRef(PROGRESS_START)
+  const insideRef   = useRef(false)
   const holdingRef  = useRef(false)
   const speciesRef  = useRef<Species>(SPECIES[0])
   const barHRef     = useRef(0.3)
@@ -279,24 +244,33 @@ export default function GoneFishinGame() {
     // fish darts toward a periodically re-randomised target
     fishTimerRef.current -= dt
     if (fishTimerRef.current <= 0) {
-      fishTargetRef.current = 0.08 + Math.random() * 0.84
-      fishTimerRef.current = (0.45 + Math.random() * 0.7) / (0.6 + sp.jitter)
+      fishTargetRef.current = 0.10 + Math.random() * 0.80
+      fishTimerRef.current = (0.55 + Math.random() * 0.65) / (0.5 + sp.jitter)
     }
-    fishYRef.current += (fishTargetRef.current - fishYRef.current) * Math.min(1, 4.5 * sp.speed * dt)
+    fishYRef.current += (fishTargetRef.current - fishYRef.current) * Math.min(1, FISH_EASE * sp.speed * dt)
     setFishY(fishYRef.current)
-    // catch bar: hold raises it, gravity pulls it down
+    // catch bar: hold raises it (toward the top), gravity pulls it down
     const accel = holdingRef.current ? -UP_ACCEL : GRAVITY
     barVelRef.current += accel * dt
-    barVelRef.current *= Math.pow(0.85, dt * 60)
+    barVelRef.current *= Math.pow(REEL_DAMP, dt * 60)
     let by = barYRef.current + barVelRef.current * dt
     const maxY = 1 - barHRef.current
     if (by <= 0) { by = 0; barVelRef.current = 0 }
     else if (by >= maxY) { by = maxY; barVelRef.current = 0 }
     barYRef.current = by
     setBarY(by)
-    // progress fills while the fish sits inside the bar
-    const inside = fishYRef.current >= by && fishYRef.current <= by + barHRef.current
-    let pr = progressRef.current + (inside ? CATCH_RATE : -DRAIN_RATE) * dt
+    // progress fills while the fish sits inside the bar; a near-miss drains gently
+    const top = by, bot = by + barHRef.current
+    const fy = fishYRef.current
+    const isIn = fy >= top && fy <= bot
+    if (isIn !== insideRef.current) { insideRef.current = isIn; setInside(isIn) }
+    let rate: number
+    if (isIn) rate = CATCH_RATE
+    else {
+      const gap = fy < top ? top - fy : fy - bot
+      rate = -(gap <= GRACE_MARGIN ? GRACE_DRAIN : DRAIN_RATE)
+    }
+    const pr = progressRef.current + rate * dt
     if (pr >= 1) { progressRef.current = 1; setProgress(1); landFish(); return }
     if (pr <= 0) { progressRef.current = 0; setProgress(0); resolveMiss('IT GOT AWAY!'); return }
     progressRef.current = pr
@@ -378,11 +352,14 @@ export default function GoneFishinGame() {
   function startReel() {
     const sp = pickSpecies(castQualityRef.current, landedRef.current)
     speciesRef.current = sp
-    barHRef.current = RARITY_BAR_H[sp.rarity]
+    const bh = RARITY_BAR_H[sp.rarity]
+    barHRef.current = bh
     fishYRef.current = 0.5; setFishY(0.5)
-    fishTargetRef.current = 0.5; fishTimerRef.current = 0.4
-    barYRef.current = 0.45; setBarY(0.45); barVelRef.current = 0
+    fishTargetRef.current = 0.5; fishTimerRef.current = 0.5
+    // start the bar centred on the fish so the player gets a fair grip
+    barYRef.current = 0.5 - bh / 2; setBarY(0.5 - bh / 2); barVelRef.current = 0
     progressRef.current = PROGRESS_START; setProgress(PROGRESS_START)
+    insideRef.current = true; setInside(true)
     resolvingRef.current = false
     setHolding(false); holdingRef.current = false
     setPhase('reel')
@@ -406,10 +383,11 @@ export default function GoneFishinGame() {
       setDex(nd)
       try { localStorage.setItem('gone_fishin_dex', JSON.stringify(nd)) } catch { /* ignore */ }
     }
+    playSound('care_splash')
     playSound(isRarePlus(sp.rarity) ? 'gf_big' : 'gf_land')
     setCaught({ s: sp, isNew })
     setPhase('caught')
-    timers.setTimeout(nextCastOrEnd, 1500)
+    timers.setTimeout(nextCastOrEnd, 1700)
   }
 
   function resolveMiss(msg: string) {
@@ -526,45 +504,79 @@ export default function GoneFishinGame() {
         onPointerCancel={handlePointerUp}
         style={{ touchAction: 'none' }}>
 
-        {/* water shimmer lines */}
-        <div className="absolute inset-0 pointer-events-none" style={{
-          background: 'repeating-linear-gradient(0deg, transparent, transparent 22px, rgba(186,230,253,0.06) 22px, rgba(186,230,253,0.06) 24px)',
-        }} />
+        {/* living underwater backdrop — rays, caustics, rising bubbles */}
+        <Atmosphere reduced={reduced} />
 
         {/* ── CAST: sweeping power meter ── */}
         {phase === 'cast' && (
-          <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-end pb-10 gap-4">
-            <p className="font-pixel" style={{ fontSize: 9, color: '#FDE68A', letterSpacing: 2, textShadow: '1px 1px 0 #0C2A3E' }}>TAP TO CAST</p>
-            <div className="relative" style={{ width: 260, height: 26, background: 'rgba(0,0,0,0.4)', border: '2px solid #38BDF8', borderRadius: 5, overflow: 'hidden' }}>
-              {/* depth gradient */}
-              <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, #1E3A8A, #0EA5E9 50%, #1E3A8A)' }} />
-              {/* sweet spot */}
-              <div className="absolute top-0 bottom-0" style={{ left: '42%', width: '16%', background: 'rgba(253,224,71,0.35)', borderLeft: '1px solid #FDE047', borderRight: '1px solid #FDE047' }} />
-              {/* marker */}
-              <div className="absolute top-0 bottom-0" style={{ left: `calc(${castMarker * 100}% - 3px)`, width: 6, background: '#FFFFFF', boxShadow: '0 0 8px rgba(255,255,255,0.9)' }} />
+          <>
+            {/* angler's rod + line dipping toward the meter */}
+            <div className="absolute left-1/2 pointer-events-none" style={{ top: '14%', marginLeft: -70, width: 140, height: '46%' }} aria-hidden>
+              <div style={{ position: 'absolute', left: 0, top: 0, width: 96, height: 4, background: 'linear-gradient(90deg,#7C5A33,#C8A36A)', borderRadius: 2, transform: 'rotate(-22deg)', transformOrigin: 'left center', boxShadow: '0 1px 0 rgba(0,0,0,0.4)' }} />
+              <div style={{ position: 'absolute', left: 92, top: 18, width: 2, height: '78%', marginLeft: -1, background: 'rgba(226,232,240,0.55)' }} />
+              {/* the cast power marker rides up the line as a tension flick */}
+              <div style={{ position: 'absolute', left: 92, top: `${18 + castMarker * 16}%`, marginLeft: -3, width: 6, height: 6, borderRadius: '50%', background: '#FDE047', boxShadow: '0 0 8px rgba(253,224,71,0.9)' }} />
             </div>
-            <p className="font-pixel" style={{ fontSize: 6, color: '#7DD3FC', letterSpacing: 1 }}>SWEET SPOT = DEEPER, RARER FISH</p>
-          </div>
+
+            <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-end pb-10 gap-3">
+              <p className="font-pixel" style={{ fontSize: 9, color: '#FDE68A', letterSpacing: 2, textShadow: '1px 1px 0 #0C2A3E', animation: reduced ? undefined : 'gfNudge 1.1s ease-in-out infinite' }}>TAP TO CAST</p>
+              <div className="relative" style={{ width: 264, height: 28, background: 'rgba(0,0,0,0.45)', border: '2px solid #38BDF8', borderRadius: 5, overflow: 'hidden', boxShadow: 'inset 0 0 10px rgba(0,0,0,0.5)' }}>
+                {/* depth gradient: dark shallows → bright deep at centre */}
+                <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, #16306B, #0EA5E9 50%, #16306B)' }} />
+                {/* depth ladder ticks */}
+                <div className="absolute inset-0 flex justify-between px-1">
+                  {[0, 1, 2, 3, 4, 5, 6, 7].map(i => (
+                    <div key={i} style={{ width: 1, background: 'rgba(186,230,253,0.25)' }} />
+                  ))}
+                </div>
+                {/* sweet spot */}
+                <div className="absolute top-0 bottom-0" style={{ left: '42%', width: '16%', background: 'rgba(253,224,71,0.32)', borderLeft: '1px solid #FDE047', borderRight: '1px solid #FDE047', boxShadow: '0 0 12px rgba(253,224,71,0.45)' }} />
+                {/* marker */}
+                <div className="absolute top-0 bottom-0" style={{ left: `calc(${castMarker * 100}% - 3px)`, width: 6, background: '#FFFFFF', boxShadow: '0 0 8px rgba(255,255,255,0.95)' }} />
+              </div>
+              {/* depth labels */}
+              <div className="flex items-center justify-between font-pixel" style={{ width: 264, fontSize: 5, color: '#7DD3FC', letterSpacing: 1 }}>
+                <span>SHALLOW</span>
+                <span style={{ color: '#FDE047' }}>DEEP · RARER FISH</span>
+                <span>SHALLOW</span>
+              </div>
+            </div>
+          </>
         )}
 
         {/* ── WAIT / HOOK: bobber ── */}
         {(phase === 'wait' || phase === 'hook') && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-6">
-            <div className="relative" style={{ height: 120, width: 60 }}>
-              {/* line */}
-              <div className="absolute left-1/2" style={{ top: 0, width: 2, height: bobberDip ? 78 : 60, marginLeft: -1, background: 'rgba(226,232,240,0.7)', transition: reduced ? undefined : 'height 0.12s' }} />
+            <div className="relative" style={{ height: 130, width: 80 }}>
+              {/* line from above */}
+              <div className="absolute left-1/2" style={{ top: 0, width: 2, height: bobberDip ? 84 : 62, marginLeft: -1, background: 'rgba(226,232,240,0.7)', transition: reduced ? undefined : 'height 0.1s' }} />
+
+              {/* concentric surface ripples (idle life) */}
+              {phase === 'wait' && !reduced && [0, 1, 2].map(i => (
+                <div key={i} className="absolute left-1/2" style={{
+                  top: 82, marginLeft: -7, width: 14, height: 14, borderRadius: '50%',
+                  border: '2px solid rgba(186,230,253,0.5)',
+                  animation: `gfRipple 2.4s ease-out ${i * 0.8}s infinite`,
+                }} />
+              ))}
+
+              {/* hook strike — a bright ring snaps outward */}
+              {phase === 'hook' && !reduced && (
+                <div className="absolute left-1/2" style={{ top: 86, marginLeft: -10, width: 20, height: 20, borderRadius: '50%', border: '2px solid rgba(253,224,71,0.9)', animation: 'gfStrike 0.5s ease-out infinite' }} />
+              )}
+
               {/* bobber */}
               <div className="absolute left-1/2" style={{
-                top: bobberDip ? 78 : 60, marginLeft: -9, width: 18, height: 22,
-                transition: reduced ? undefined : 'top 0.12s',
+                top: bobberDip ? 80 : 60, marginLeft: -9, width: 18, height: 22,
+                transition: reduced ? undefined : 'top 0.1s cubic-bezier(0.5,0,0.9,0.4)',
                 animation: phase === 'wait' && !reduced ? 'gfBob 1.6s ease-in-out infinite' : undefined,
               }}>
                 <div style={{ width: 18, height: 11, background: '#EF4444', borderRadius: '4px 4px 0 0', border: '2px solid #991B1B' }} />
                 <div style={{ width: 18, height: 11, background: '#FFFFFF', borderRadius: '0 0 4px 4px', border: '2px solid #991B1B', borderTop: 'none' }} />
+                <div style={{ position: 'absolute', top: 2, left: 3, width: 4, height: 3, background: 'rgba(255,255,255,0.6)', borderRadius: 2 }} />
               </div>
-              {/* ripple */}
-              <div className="absolute left-1/2" style={{ top: bobberDip ? 96 : 80, marginLeft: -16, width: 32, height: 6, border: '2px solid rgba(186,230,253,0.5)', borderRadius: '50%', transition: reduced ? undefined : 'top 0.12s' }} />
             </div>
+
             {phase === 'wait' && (
               <div className="flex flex-col items-center gap-1">
                 <p className="font-pixel" style={{ fontSize: 9, color: '#BAE6FD', letterSpacing: 2 }}>WAIT FOR A BITE…</p>
@@ -572,8 +584,8 @@ export default function GoneFishinGame() {
               </div>
             )}
             {phase === 'hook' && (
-              <div className="flex flex-col items-center gap-1" style={{ animation: reduced ? undefined : 'gfHookPop 0.2s ease-out' }}>
-                <p className="font-pixel" style={{ fontSize: 16, color: '#FDE047', letterSpacing: 3, textShadow: '2px 2px 0 #0C2A3E, 0 0 12px rgba(253,224,71,0.8)' }}>TAP!</p>
+              <div className="relative flex flex-col items-center gap-1" style={{ animation: reduced ? undefined : 'gfHookPop 0.2s ease-out' }}>
+                <p className="font-pixel" style={{ fontSize: 18, color: '#FDE047', letterSpacing: 3, textShadow: '2px 2px 0 #0C2A3E, 0 0 14px rgba(253,224,71,0.9)', animation: reduced ? undefined : 'gfTapPulse 0.36s ease-in-out infinite' }}>TAP!</p>
                 <p className="font-pixel" style={{ fontSize: 6, color: '#BAE6FD', letterSpacing: 1 }}>HOOK IT</p>
               </div>
             )}
@@ -583,30 +595,62 @@ export default function GoneFishinGame() {
         {/* ── REEL: Stardew-style catch bar ── */}
         {phase === 'reel' && (
           <div className="absolute inset-0 flex items-center justify-center gap-5">
-            {/* vertical track */}
-            <div className="relative" style={{ width: 56, height: 280, background: 'rgba(3,20,34,0.65)', border: '3px solid #0EA5E9', borderRadius: 8, overflow: 'hidden', boxShadow: 'inset 0 0 16px rgba(0,0,0,0.5)' }}>
+            {/* rod line feeding the column from above */}
+            <div className="absolute left-1/2 pointer-events-none" style={{ top: 0, marginLeft: -40, width: 2, height: '50%', background: 'linear-gradient(180deg, rgba(226,232,240,0) 0%, rgba(226,232,240,0.6) 100%)' }} aria-hidden />
+
+            {/* vertical water column */}
+            <div className="relative" style={{
+              width: 64, height: 300, borderRadius: 9, overflow: 'hidden',
+              border: `3px solid ${inside ? '#34D399' : '#0EA5E9'}`,
+              background: 'linear-gradient(180deg, rgba(8,40,64,0.7) 0%, rgba(3,18,30,0.85) 100%)',
+              boxShadow: inside ? 'inset 0 0 18px rgba(52,211,153,0.35), 0 0 14px rgba(52,211,153,0.4)' : 'inset 0 0 18px rgba(0,0,0,0.55)',
+              transition: reduced ? undefined : 'border-color 0.12s, box-shadow 0.12s',
+            }}>
+              {/* depth tick lines */}
+              {[0.25, 0.5, 0.75].map(t => (
+                <div key={t} className="absolute inset-x-0" style={{ top: `${t * 100}%`, height: 1, background: 'rgba(186,230,253,0.1)' }} />
+              ))}
               {/* catch bar (the zone you control) */}
               <div className="absolute left-1 right-1" style={{
                 top: `${barY * 100}%`, height: `${barHRef.current * 100}%`,
-                background: 'linear-gradient(180deg, rgba(253,224,71,0.5), rgba(251,191,36,0.32))',
-                border: '2px solid #FDE047', borderRadius: 5,
-                boxShadow: '0 0 10px rgba(253,224,71,0.5)',
-              }} />
-              {/* fish marker */}
-              <div className="absolute left-1/2" style={{ top: `${fishY * 100}%`, marginLeft: -12, marginTop: -8, transform: 'scaleX(-1)' }}>
-                <FishSprite s={speciesRef.current} size={24} />
+                background: inside
+                  ? 'linear-gradient(180deg, rgba(110,231,183,0.55), rgba(16,185,129,0.32))'
+                  : 'linear-gradient(180deg, rgba(253,224,71,0.5), rgba(251,191,36,0.3))',
+                border: `2px solid ${inside ? '#6EE7B7' : '#FDE047'}`, borderRadius: 5,
+                boxShadow: inside ? '0 0 14px rgba(52,211,153,0.7)' : '0 0 10px rgba(253,224,71,0.45)',
+                transition: reduced ? undefined : 'background 0.1s, border-color 0.1s, box-shadow 0.1s',
+              }}>
+                {/* grip ridges so the bar reads as a clamp */}
+                <div className="absolute inset-x-1" style={{ top: 2, height: 2, background: 'rgba(255,255,255,0.35)', borderRadius: 1 }} />
+                <div className="absolute inset-x-1" style={{ bottom: 2, height: 2, background: 'rgba(0,0,0,0.25)', borderRadius: 1 }} />
+              </div>
+              {/* fish marker — swims, glows when held inside the bar */}
+              <div className="absolute left-1/2" style={{
+                top: `${fishY * 100}%`, marginLeft: -16, marginTop: -15, transform: 'scaleX(-1)',
+                filter: inside ? 'drop-shadow(0 0 6px rgba(110,231,183,0.95))' : undefined,
+                transition: reduced ? undefined : 'filter 0.1s',
+              }}>
+                <FishSprite s={speciesRef.current} size={32} swim={!reduced} />
               </div>
             </div>
+
             {/* progress meter */}
-            <div className="relative" style={{ width: 18, height: 280, background: 'rgba(3,20,34,0.65)', border: '2px solid #0EA5E9', borderRadius: 6, overflow: 'hidden' }}>
+            <div className="relative" style={{ width: 20, height: 300, background: 'rgba(3,20,34,0.7)', border: '2px solid #0EA5E9', borderRadius: 6, overflow: 'hidden', boxShadow: 'inset 0 0 8px rgba(0,0,0,0.5)' }}>
               <div className="absolute inset-x-0 bottom-0" style={{
                 height: `${progress * 100}%`,
-                background: progress > 0.6 ? 'linear-gradient(180deg, #4ADE80, #16A34A)' : progress > 0.3 ? 'linear-gradient(180deg, #FDE047, #F59E0B)' : 'linear-gradient(180deg, #FB7185, #E11D48)',
+                background: progress > 0.6 ? 'linear-gradient(180deg, #6EE7B7, #16A34A)' : progress > 0.3 ? 'linear-gradient(180deg, #FDE047, #F59E0B)' : 'linear-gradient(180deg, #FB7185, #E11D48)',
                 transition: reduced ? undefined : 'height 0.08s linear',
+                boxShadow: progress > 0.85 ? '0 0 12px rgba(110,231,183,0.8)' : undefined,
               }} />
+              {/* segment ticks */}
+              {[0.2, 0.4, 0.6, 0.8].map(t => (
+                <div key={t} className="absolute inset-x-0" style={{ bottom: `${t * 100}%`, height: 1, background: 'rgba(3,20,34,0.7)' }} />
+              ))}
             </div>
-            <div className="absolute bottom-6 left-0 right-0 text-center">
+
+            <div className="absolute bottom-6 left-0 right-0 flex flex-col items-center gap-1">
               <p className="font-pixel" style={{ fontSize: 9, color: holding ? '#FDE047' : '#BAE6FD', letterSpacing: 2 }}>HOLD TO REEL</p>
+              <p className="font-pixel" style={{ fontSize: 5, color: inside ? '#6EE7B7' : '#7DD3FC', letterSpacing: 1 }}>{inside ? 'ON THE LINE!' : 'KEEP IT IN THE BRACKET'}</p>
             </div>
           </div>
         )}
@@ -618,28 +662,18 @@ export default function GoneFishinGame() {
           </div>
         )}
 
-        {/* ── CAUGHT card ── */}
+        {/* ── CAUGHT celebration ── */}
         {phase === 'caught' && caught && (
-          <div className="absolute inset-0 flex items-center justify-center px-6">
-            <div className="flex flex-col items-center gap-2 px-6 py-5" style={{
-              background: 'linear-gradient(180deg, #0B2A3E 0%, #07202F 100%)',
-              border: `3px solid ${RARITY_COLOR[caught.s.rarity]}`,
-              borderRadius: 8,
-              boxShadow: `0 6px 0 #06141F, 0 0 28px ${RARITY_COLOR[caught.s.rarity]}66`,
-              animation: reduced ? undefined : 'gfPop 0.45s cubic-bezier(0.34,1.56,0.64,1) both',
-            }}>
-              {caught.isNew && (
-                <span className="font-pixel" style={{ fontSize: 8, color: '#0C2A3E', background: '#FDE047', padding: '2px 8px', borderRadius: 3, letterSpacing: 2 }}>NEW!</span>
-              )}
-              <div style={{ filter: caught.s.rarity === 'legendary' && !reduced ? 'drop-shadow(0 0 10px rgba(253,224,71,0.9))' : undefined }}>
-                <FishSprite s={caught.s} size={72} />
-              </div>
-              <p className="font-pixel" style={{ fontSize: 11, color: '#FFFFFF', letterSpacing: 1.5 }}>{caught.s.name}</p>
-              <span className="font-pixel" style={{ fontSize: 7, color: RARITY_COLOR[caught.s.rarity], letterSpacing: 2 }}>{RARITY_LABEL[caught.s.rarity]}</span>
-              <p className="font-pixel" style={{ fontSize: 13, color: '#FDE68A', textShadow: '0 0 8px rgba(251,191,36,0.5)' }}>+{caught.s.value}</p>
-              <p className="font-pixel" style={{ fontSize: 5, color: '#7DD3FC', letterSpacing: 1, marginTop: 2 }}>TAP TO CONTINUE</p>
-            </div>
-          </div>
+          <CatchCelebration
+            s={caught.s}
+            name={caught.s.name}
+            value={caught.s.value}
+            rarityColor={RARITY_COLOR[caught.s.rarity]}
+            rarityLabel={RARITY_LABEL[caught.s.rarity]}
+            tier={caught.s.rarity === 'legendary' ? 'legendary' : isRarePlus(caught.s.rarity) ? 'rarePlus' : 'normal'}
+            isNew={caught.isNew}
+            reduced={reduced}
+          />
         )}
       </div>
 
@@ -735,6 +769,29 @@ export default function GoneFishinGame() {
         @keyframes gfHookPop { 0% { transform: scale(0.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         @keyframes gfPulse { 0% { transform: scale(1); } 40% { transform: scale(1.25); } 100% { transform: scale(1); } }
         @keyframes gfBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
+        @keyframes gfNudge { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+        @keyframes gfTapPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.14); } }
+        @keyframes gfRipple { 0% { transform: scale(0.5); opacity: 0.7; } 100% { transform: scale(2.7); opacity: 0; } }
+        @keyframes gfStrike { 0% { transform: scale(0.6); opacity: 1; } 100% { transform: scale(2.3); opacity: 0; } }
+        /* sprite tail flick (swim) */
+        @keyframes gfFin { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-10deg); } }
+        /* atmosphere */
+        @keyframes gfRay { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+        @keyframes gfCaustic { 0% { background-position: 0 0; } 100% { background-position: 0 24px; } }
+        @keyframes gfBubble {
+          0% { transform: translate(0, 0) scale(0.6); opacity: 0; }
+          14% { opacity: 0.85; }
+          85% { opacity: 0.7; }
+          100% { transform: translate(var(--drift, 0), -76vh) scale(1); opacity: 0; }
+        }
+        /* catch celebration */
+        @keyframes gfDrop { 0% { transform: translate(0,0) scale(1); opacity: 1; } 100% { transform: translate(var(--dx,0), var(--dy,0)) scale(0.3); opacity: 0; } }
+        @keyframes gfSplashRing { 0% { transform: scale(0.3); opacity: 0.9; } 100% { transform: scale(2.6); opacity: 0; } }
+        @keyframes gfTwinkle { 0%, 100% { transform: scale(0.4); opacity: 0; } 50% { transform: scale(1.1); opacity: 1; } }
+        @keyframes gfFlash { 0% { opacity: 0; } 22% { opacity: 1; } 100% { opacity: 0; } }
+        @keyframes gfShimmer { 0% { transform: translateX(-120%); } 60%, 100% { transform: translateX(120%); } }
+        @keyframes gfLeap { 0% { transform: translateY(42px) scale(0.55); opacity: 0; } 60% { transform: translateY(-6px) scale(1.06); } 100% { transform: translateY(0) scale(1); opacity: 1; } }
+        @keyframes gfValuePop { 0% { transform: scale(0); opacity: 0; } 70% { transform: scale(1.25); } 100% { transform: scale(1); opacity: 1; } }
       `}</style>
       {/* keep imports referenced */}
       <span style={{ display: 'none' }}><IconStar size={1} /></span>
