@@ -615,20 +615,47 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
           </button>
         )}
 
-        <div className="grid grid-cols-2 gap-3.5 sm:gap-4">
+        {/* Notebooks aren't lined up in a tidy grid — they're pinned to the
+            corkboard at jaunty angles, alternating sides and overlapping a
+            little as they cascade down, like notes tacked up over time. The
+            rotation lives here (not on the card) so each pushpin tilts with
+            its note. */}
+        <div className="relative flex flex-col items-stretch">
           {SERBIAN_SECTIONS.map((section, si) => {
             const units = section.unitIds.map(uid => getUnitById(uid)!).filter(Boolean)
             const sectionLessons = units.flatMap(u => u.lessonIds)
             const sectionDone = sectionLessons.filter(id => progress.completed.includes(id)).length
+            const cover = sectionCover(si + 1)
+            const left = si % 2 === 0
+            const rot = [-5, 4, -3.5, 5, -3, 4.5][si % 6]
             return (
-              <KraftSectionCover
-                key={section.id}
-                section={section}
-                sectionIndex={si + 1}
-                done={sectionDone}
-                total={sectionLessons.length}
-                onOpen={() => { playSound('ui_tap'); setOpenSectionId(section.id) }}
-              />
+              <div key={section.id} style={{
+                position: 'relative',
+                width: '64%', maxWidth: 248,
+                alignSelf: left ? 'flex-start' : 'flex-end',
+                marginLeft: left ? 8 : 0,
+                marginRight: left ? 0 : 8,
+                marginTop: si === 0 ? 6 : -18,
+                transform: `rotate(${rot}deg)`,
+                zIndex: 30 - si,
+              }}>
+                {/* Pushpin tacking this note to the board — section-coloured */}
+                <div style={{
+                  position: 'absolute', top: -7, left: '50%', transform: 'translateX(-50%)',
+                  width: 14, height: 14, borderRadius: '50%',
+                  background: cover.tape, border: `2px solid ${INK}`,
+                  boxShadow: '0 3px 0 rgba(0,0,0,0.28)', zIndex: 5,
+                }}>
+                  <div style={{ position: 'absolute', left: 3, top: 3, width: 3, height: 3, background: 'rgba(255,255,255,0.8)', borderRadius: '50%' }} />
+                </div>
+                <KraftSectionCover
+                  section={section}
+                  sectionIndex={si + 1}
+                  done={sectionDone}
+                  total={sectionLessons.length}
+                  onOpen={() => { playSound('ui_tap'); setOpenSectionId(section.id) }}
+                />
+              </div>
             )
           })}
         </div>
@@ -695,8 +722,8 @@ function KraftSectionCover({ section, sectionIndex, done, total, onOpen }: {
   total: number
   onOpen: () => void
 }) {
-  // Tiny inline rotation jitter so the grid feels like real notebooks on a desk.
-  const rot = [-1.2, 0.8, -0.6, 1.4, -1.0][(sectionIndex - 1) % 5]
+  // The jaunty rotation now lives on the positioning wrapper in CourseMap so
+  // the pushpin tilts with the note. The card itself stays upright.
   // Each notebook gets its OWN matte cover colour (face) with a darker bottom
   // shade (edge), plus a CONTRASTING washi-tape colour (tape). Shared with the
   // open-notebook animation via SECTION_COVERS so the two always match.
@@ -722,7 +749,6 @@ function KraftSectionCover({ section, sectionIndex, done, total, onOpen }: {
         boxShadow: `4px 4px 0 ${INK}, 4px 4px 0 1px rgba(0,0,0,0.25)`,
         border: `2px solid ${INK}`,
         borderRadius: 0,
-        transform: `rotate(${rot}deg)`,
         imageRendering: 'pixelated',
       }}>
       {/* pixel kraft speckle — crispEdges so the dots stay sharp */}
