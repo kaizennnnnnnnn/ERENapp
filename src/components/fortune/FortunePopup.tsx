@@ -330,6 +330,10 @@ export default function FortunePopup({ onClose }: Props) {
   }
 
   const colors = gift ? RARITY_COLORS[gift.rarity] : null
+  // Stardust gifts wear the same rainbow treatment as the gacha/closet balances:
+  // a hue-cycling icon + flowing rainbow gradient name, so "star fragments" read
+  // identically wherever they appear. (.sparkle-hue / .stardust-rainbow live in globals.css.)
+  const isStardust = !!gift?.stardustValue
 
   return (
     <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center"
@@ -414,7 +418,11 @@ export default function FortunePopup({ onClose }: Props) {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   animation: 'fpRevealPulse 1.6s ease-in-out infinite',
                 }}>
-                <FortuneIcon iconKey={gift.icon} size={58} />
+                {isStardust ? (
+                  <span className="sparkle-hue"><FortuneIcon iconKey={gift.icon} size={58} /></span>
+                ) : (
+                  <FortuneIcon iconKey={gift.icon} size={58} />
+                )}
               </div>
             </div>
             <div className="text-center"
@@ -425,7 +433,7 @@ export default function FortunePopup({ onClose }: Props) {
                 padding: '8px 12px',
                 imageRendering: 'pixelated',
               }}>
-              <p className="font-pixel text-white mb-1" style={{ fontSize: 9 }}>{gift.name}</p>
+              <p className={`font-pixel mb-1 ${isStardust ? 'stardust-rainbow' : 'text-white'}`} style={{ fontSize: 9 }}>{gift.name}</p>
               <p className="font-pixel mb-1"
                 style={{ fontSize: 6, color: colors.text === '#6B7280' ? '#9CA3AF' : colors.text }}>
                 {gift.rarity.toUpperCase()}
