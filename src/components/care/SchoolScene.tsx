@@ -451,7 +451,7 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
         <div style={{ position: 'absolute', inset: 7, background: '#F5C842', border: `2px solid ${INK}`, borderRadius: '50%', boxShadow: '2px 2px 0 rgba(0,0,0,0.2)' }} />
         {[0, 45, 90, 135, 180, 225, 270, 315].map(a => (
           <div key={a} style={{
-            position: 'absolute', left: 14, top: 14, width: 3, height: 9,
+            position: 'absolute', left: 13.5, top: 10.5, width: 3, height: 9,
             background: '#F5C842', border: `1px solid ${INK}`,
             transform: `rotate(${a}deg) translateY(-13px)`, transformOrigin: 'center',
           }} />
