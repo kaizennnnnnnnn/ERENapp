@@ -24,6 +24,16 @@ import { useEffect } from 'react'
 // Note: the browser's own "GET … net::ERR_INTERNET_DISCONNECTED" request logs
 // are emitted by the network stack, not by a rejection — those are not
 // suppressible from JS and are expected while offline.
+//
+// Separately, auth-js prints a direct console.warn (NOT a rejection) when a
+// caller waits >5s on the shared auth-token Navigator Lock, then force-steals
+// it to recover: "Lock … was not released within 5000ms … Forcefully acquiring
+// the lock to recover." This is the library's self-healing path — a background
+// refresh or a backgrounded PWA tab held the per-origin lock too long while our
+// many hooks queued getSession/getUser behind it. Functionally harmless; the
+// stolen op retries. Because it's a console.warn, not an unhandledrejection, it
+// bypasses the handler below, so we patch console.warn to demote just this
+// signature to console.debug.
 
 const NETWORK_SIGNATURES = [
   'failed to fetch',
@@ -47,6 +57,12 @@ function isBenignTransient(reason: unknown): boolean {
   return NETWORK_SIGNATURES.some(sig => msg.includes(sig))
 }
 
+// auth-js's Navigator-Lock timeout/steal recovery warning — self-healing, benign.
+function isBenignLockWarning(args: unknown[]): boolean {
+  const msg = args.map(a => (typeof a === 'string' ? a : String(a))).join(' ').toLowerCase()
+  return msg.includes('was not released within') || msg.includes('forcefully acquiring the lock')
+}
+
 export default function TransientErrorSilencer() {
   useEffect(() => {
     const onRejection = (e: PromiseRejectionEvent) => {
@@ -57,7 +73,20 @@ export default function TransientErrorSilencer() {
       }
     }
     window.addEventListener('unhandledrejection', onRejection)
-    return () => window.removeEventListener('unhandledrejection', onRejection)
+
+    const originalWarn = console.warn
+    console.warn = (...args: unknown[]) => {
+      if (isBenignLockWarning(args)) {
+        console.debug('[transient]', ...args)
+        return
+      }
+      originalWarn(...args)
+    }
+
+    return () => {
+      window.removeEventListener('unhandledrejection', onRejection)
+      console.warn = originalWarn
+    }
   }, [])
   return null
 }
