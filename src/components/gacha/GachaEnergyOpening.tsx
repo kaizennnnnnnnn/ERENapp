@@ -16,12 +16,13 @@ import { useReducedMotion } from '@/hooks/useReducedMotion'
 //            shockwave rings, volumetric god-rays, lightning, shard shrapnel,
 //            gravity-arcing embers, rising smoke and a lingering afterglow
 //   fade   — the afterglow dissolves into the item reveal
-// Perf notes (mobile): the turbulence filter is STATIC (baked) — only
-// transform/opacity animate over it, so Perlin never re-runs per frame; no
-// backdrop-filter (flattened context kills it silently on iOS); particles carry
-// no per-node box-shadow (one shared bloom instead). Respects
-// prefers-reduced-motion: drops the strobe/whiteout/shake/shrapnel for a calm
-// bloom so the burst is never a photosensitivity hazard.
+// Perf notes (mobile): tuned to stay smooth on mid-range phones. The plasma core
+// is a plain CSS radial gradient — NOT an SVG feTurbulence filter, which was the
+// burst's worst cost (a filtered layer re-rasterizes as it scale-animates). Per-
+// node blur/drop-shadow filters are kept minimal, particle counts lean, no
+// backdrop-filter (a flattened context kills it silently on iOS), one shared
+// bloom instead of per-node box-shadow. Respects prefers-reduced-motion: drops
+// the strobe/whiteout/shake/shrapnel for a calm bloom (never a seizure hazard).
 
 type Phase = 'shine' | 'charge' | 'burst' | 'fade'
 
@@ -73,10 +74,10 @@ function makeSparks(n: number): Spark[] {
 
 const RAYS = [0, 28, 58, 92, 128, 156, 184, 214, 250, 282, 312, 338] // uneven → volumetric, not a clock
 const RAY_W = [9, 5, 11, 6, 8, 5, 10, 6, 9, 5, 11, 7]
-const BOLTS = [14, 62, 128, 196, 248, 312]
+const BOLTS = [20, 110, 200, 290]
 const SHARDS = Array.from({ length: 8 }, (_, i) => ({ ang: i * (360 / 8) + (i % 2 ? 13 : -9), d: 66 + (i % 3) * 30 }))
-const WISPS = Array.from({ length: 5 }, (_, i) => {
-  const a = (i / 5) * Math.PI * 2 + 0.5
+const WISPS = Array.from({ length: 3 }, (_, i) => {
+  const a = (i / 3) * Math.PI * 2 + 0.5
   return { wx: Math.cos(a) * 78, wy: Math.sin(a) * 64 - 34, delay: i * 0.035 } // drift out and up
 })
 
@@ -119,8 +120,8 @@ export default function GachaEnergyOpening({
   }, [rarity, speed, freeze])
 
   const pal = rarity ? PALS[rarity] : SHINE_PAL
-  const converge = useMemo(() => makeSparks(28), [])
-  const embers = useMemo(() => makeEmbers(16), [])
+  const converge = useMemo(() => makeSparks(16), [])
+  const embers = useMemo(() => makeEmbers(10), [])
 
   const charged = phase === 'charge' || phase === 'burst' || phase === 'fade'
   const bursting = phase === 'burst' || phase === 'fade'
@@ -144,28 +145,9 @@ export default function GachaEnergyOpening({
     <div className="eo-root fixed inset-0 z-[80] overflow-hidden" style={{ background: '#040208', ...rootVars }}
       onClick={() => doneRef.current()}>
 
-      {/* Static turbulence filter — baked: only transform/opacity animate over it
-          so Perlin never re-runs per frame (mobile-safe). The noise MODULATES the
-          core's luminance (bright cores + dark veins/filaments), then a small
-          displacement breaks the edge — so it reads as roiling plasma, not a
-          smooth disc. */}
-      <svg width="0" height="0" aria-hidden style={{ position: 'absolute' }}>
-        <defs>
-          <filter id="eoPlasma" x="-35%" y="-35%" width="170%" height="170%" colorInterpolationFilters="sRGB">
-            <feTurbulence type="fractalNoise" baseFrequency="0.058" numOctaves={3} seed={7} result="noise" />
-            {/* noise → high-contrast grayscale so the veins read hard */}
-            <feColorMatrix in="noise" type="saturate" values="0" result="gray" />
-            <feComponentTransfer in="gray" result="bands">
-              <feFuncR type="gamma" amplitude="1.6" exponent="2.4" offset="-0.1" />
-              <feFuncG type="gamma" amplitude="1.6" exponent="2.4" offset="-0.1" />
-              <feFuncB type="gamma" amplitude="1.6" exponent="2.4" offset="-0.1" />
-            </feComponentTransfer>
-            {/* gradient × noise → hot cores where noise is high, dark veins where low */}
-            <feComposite in="SourceGraphic" in2="bands" operator="arithmetic" k1="1.5" k2="0.18" k3="0" k4="0" result="fire" />
-            <feDisplacementMap in="fire" in2="noise" scale={9} xChannelSelector="R" yChannelSelector="G" />
-          </filter>
-        </defs>
-      </svg>
+      {/* The plasma core is now a plain CSS gradient (see .eo-plasma). The old
+          SVG feTurbulence filter was the burst's worst mobile cost — a filtered
+          layer re-rasterizes as the core scale-animates — so it was removed. */}
 
       <div className={`eo-shake absolute inset-0 ${bursting && !calm ? 'eo-shaking' : ''}`}>
 
@@ -341,7 +323,7 @@ export default function GachaEnergyOpening({
             transparent 0deg, rgba(var(--g),0.9) 36deg, var(--core) 50deg, rgba(var(--g),0.9) 64deg, transparent 110deg,
             rgba(var(--g),0.75) 156deg, var(--core) 170deg, rgba(var(--g),0.75) 184deg, transparent 230deg,
             rgba(var(--g),0.9) 276deg, var(--core) 290deg, rgba(var(--g),0.9) 304deg, transparent 350deg, transparent 360deg);
-          mix-blend-mode: screen; filter: blur(1px);
+          mix-blend-mode: screen;
           animation: eoVortex 0.85s linear infinite, eoVortexGrow 0.7s ease-out both;
           will-change: transform;
         }
@@ -354,7 +336,7 @@ export default function GachaEnergyOpening({
           margin-top: -208px; transform-origin: 50% 100%;
           background: linear-gradient(0deg, rgba(var(--g),0) 0%, var(--mid) 50%, var(--core) 80%, #fff 96%);
           clip-path: polygon(40% 100%, 60% 100%, 52% 64%, 70% 60%, 46% 30%, 64% 26%, 50% 0, 30% 30%, 50% 34%, 32% 62%, 48% 64%);
-          filter: drop-shadow(0 0 5px var(--mid));
+          filter: drop-shadow(0 0 3px var(--mid));
           opacity: 0; animation: eoBolt 0.42s steps(2,end) infinite;
         }
         .eo-shaking .eo-bolt { animation-duration: 0.2s; height: 280px; margin-top: -278px; }
@@ -448,7 +430,6 @@ export default function GachaEnergyOpening({
           /* dark→coloured→white-hot head so the streak reads against bright fields */
           background: linear-gradient(to top, rgba(10,6,16,0) 0%, var(--mid) 30%, var(--spark) 66%, #fff 100%);
           box-shadow: 0 0 2px rgba(10,6,16,0.5);
-          filter: blur(0.4px);
         }
 
         /* ── lock shards (the keyhole bursting open) ── */
@@ -483,7 +464,6 @@ export default function GachaEnergyOpening({
           position: absolute; top: 0; margin-left: -4px; height: 430px;
           margin-top: -430px; transform-origin: 50% 100%;
           background: linear-gradient(0deg, #fff 0%, var(--core) 9%, var(--mid) 32%, var(--deep) 64%, rgba(var(--g),0.22) 86%, transparent 100%);
-          filter: blur(0.7px);
         }
         @keyframes eoRaysSpin {
           0% { opacity: 0; transform: scale(0.15) rotate(-22deg); }
@@ -491,13 +471,12 @@ export default function GachaEnergyOpening({
           100% { opacity: 0; transform: scale(1.3) rotate(12deg); }
         }
 
-        /* ── turbulent plasma core (SVG feTurbulence displaced edge) ── */
+        /* ── plasma core (smooth CSS gradient; no SVG filter — see perf notes) ── */
         .eo-plasma {
           position: absolute; left: 0; top: 0; width: 150px; height: 150px; margin: -75px 0 0 -75px; border-radius: 50%;
           background: radial-gradient(circle, #fff 0%, #fff 8%, var(--core) 22%, var(--mid) 46%, rgba(var(--g),0.55) 70%, transparent 82%);
-          filter: url(#eoPlasma);
-          /* modest scale so the baked turbulence stays crisp — the rings/rays
-             carry the big outward expansion, not the fireball texture */
+          /* smooth CSS core — the rings/rays carry the outward blast, so the
+             fireball itself needs no (mobile-expensive) turbulence filter */
           animation: eoPlasma 0.62s cubic-bezier(0.2,0.7,0.35,1) forwards;
         }
         @keyframes eoPlasma {
@@ -532,7 +511,7 @@ export default function GachaEnergyOpening({
         .eo-wisp {
           position: absolute; left: -34px; top: -34px; width: 68px; height: 68px; border-radius: 50%;
           background: radial-gradient(circle, rgba(16,11,22,0.6) 0%, rgba(16,11,22,0.32) 44%, transparent 72%);
-          filter: blur(7px);
+          filter: blur(5px);
           animation: eoWisp 1s ease-out 0.16s both;
         }
         @keyframes eoWisp {
