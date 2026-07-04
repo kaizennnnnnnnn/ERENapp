@@ -93,10 +93,14 @@ export async function GET(request: Request) {
       await supabase
         .from('eren_stats')
         .update({
-          happiness:     newHappiness,
-          hunger:        newHunger,
-          energy:        newEnergy,
-          sleep_quality: newSleep,
+          // happiness/hunger/energy/sleep_quality are integer columns — the
+          // fractional decay result must be rounded or Postgres rejects it
+          // (22P02 "invalid input syntax for type integer"). Mirrors the client
+          // hook (useErenStats). cleanliness is numeric, so it stays fractional.
+          happiness:     Math.round(newHappiness),
+          hunger:        Math.round(newHunger),
+          energy:        Math.round(newEnergy),
+          sleep_quality: Math.round(newSleep),
           cleanliness:   newCleanliness,
           weight:        Math.round(newWeight * 100) / 100,
           is_sick:       newIsSick,
