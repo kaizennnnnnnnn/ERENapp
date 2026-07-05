@@ -44,23 +44,35 @@ const WEEKLY_HS    = 300   // total fish value that completes the weekly high-sc
 const CAST_BASE    = 1.25  // cast-marker sweeps per second (climbs with catches)
 const HOOK_BASE    = 760   // hook window ms (shrinks with catches, floored)
 const HOOK_MIN     = 470
-// ── Reel physics ──
-// The player-controlled catch bar must be able to CHASE a darting fish. The
-// old bar topped out near 0.44 track-units/sec while the fish crossed the
-// column in well under a second — uncatchable. Terminal velocity is roughly
-// REEL_DAMP·a·dt/(1−REEL_DAMP); at DAMP 0.90 the bar climbs ~1.35/sec, so it
-// keeps pace. The fish is also eased a touch calmer and the zones enlarged.
-const UP_ACCEL     = 9.0    // bar rises while held
-const GRAVITY      = 5.4    // bar falls while released
-const REEL_DAMP    = 0.90   // velocity retained per 60fps frame (higher = snappier)
-const CATCH_RATE   = 0.64   // progress/sec while the fish is inside the bar
-const DRAIN_RATE   = 0.30   // progress/sec while the fish is fully off the bar
-const GRACE_DRAIN  = 0.12   // gentler drain when the fish is only just off the bar
-const GRACE_MARGIN = 0.06   // "just off" = the fish is within this of a bar edge
-const FISH_EASE    = 3.3    // fish approach rate toward its target (was 4.5 — calmer)
-const PROGRESS_START = 0.42
+// ── Reel physics (velocity-driven — snappy + controllable) ──
+// The catch bar is DIRECT-velocity controlled: holding drives it up at REEL_UP,
+// releasing lets it sink at REEL_DOWN, and its velocity chases that target over
+// ~VEL_SMOOTH so it keeps a hint of weight without floating. It crosses the
+// whole column in ~0.35s and settles within ~0.1s of release. (The old momentum
+// bar topped out ~1.35 units/s and drifted — sluggish and hard to place.)
+const REEL_UP      = 2.75   // bar top speed upward (track-units/sec) while held
+const REEL_DOWN    = 2.15   // bar sink speed while released
+const VEL_SMOOTH   = 22     // how fast bar velocity chases its target (bigger = snappier)
+const CATCH_RATE   = 0.62   // progress/sec while the fish sits inside the bracket
+const DRAIN_RATE   = 0.34   // progress/sec while the fish is fully off the bracket
+const GRACE_DRAIN  = 0.13   // gentler drain when the fish is only just off an edge
+const GRACE_MARGIN = 0.06   // "just off" = the fish is within this of a bracket edge
+const PROGRESS_START = 0.40
+
+// ── Fish fight (behaviour archetypes + a tiring arc) ──
+// Each species moves to its own rhythm (see the `move` archetype). As the catch
+// meter climbs past its start the fish tires — its darts shorten, calm toward
+// the middle, and space out — so every fight opens frantic and ends controllable.
+const FISH_EASE    = 3.6    // base approach rate toward the fish's current target
+const TIRE_CALM    = 0.5    // a fully-tired fish approaches this much slower
+const TIRE_DWELL   = 1.4    // …and waits this much longer between darts
 
 type Rarity = 'junk' | 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'
+// How a hooked fish moves in the reel column:
+//  cruise — gentle mid-water drift · dart — snappy jumps anywhere ·
+//  dive — sounds to the floor then bolts up · jitter — nervous hops ·
+//  run — long committed runs to an edge (the hardest to bracket).
+type Move = 'cruise' | 'dart' | 'dive' | 'jitter' | 'run'
 
 interface Species {
   id: string
@@ -73,21 +85,22 @@ interface Species {
   kind: 'fish' | 'junk'
   speed: number   // reel: dart speed
   jitter: number  // reel: re-target frequency
+  move: Move      // reel: behaviour archetype
 }
 
 const SPECIES: Species[] = [
-  { id: 'boot',    name: 'OLD BOOT',    rarity: 'junk',      value: 2,   color: '#92400E', dark: '#451A03', light: '#B45309', kind: 'junk', speed: 0.22, jitter: 0.18 },
-  { id: 'can',     name: 'TIN CAN',     rarity: 'junk',      value: 2,   color: '#9CA3AF', dark: '#4B5563', light: '#D1D5DB', kind: 'junk', speed: 0.22, jitter: 0.18 },
-  { id: 'weed',    name: 'SEAWEED',     rarity: 'junk',      value: 3,   color: '#15803D', dark: '#14532D', light: '#22C55E', kind: 'junk', speed: 0.26, jitter: 0.24 },
-  { id: 'minnow',  name: 'MINNOW',      rarity: 'common',    value: 6,   color: '#CBD5E1', dark: '#64748B', light: '#F1F5F9', kind: 'fish', speed: 0.34, jitter: 0.30 },
-  { id: 'sardine', name: 'SARDINE',     rarity: 'common',    value: 9,   color: '#60A5FA', dark: '#1E40AF', light: '#BFDBFE', kind: 'fish', speed: 0.38, jitter: 0.36 },
-  { id: 'perch',   name: 'PERCH',       rarity: 'common',    value: 12,  color: '#84CC16', dark: '#3F6212', light: '#BEF264', kind: 'fish', speed: 0.42, jitter: 0.42 },
-  { id: 'bass',    name: 'BASS',        rarity: 'uncommon',  value: 20,  color: '#10B981', dark: '#065F46', light: '#6EE7B7', kind: 'fish', speed: 0.50, jitter: 0.52 },
-  { id: 'trout',   name: 'TROUT',       rarity: 'uncommon',  value: 26,  color: '#2DD4BF', dark: '#115E59', light: '#99F6E4', kind: 'fish', speed: 0.54, jitter: 0.58 },
-  { id: 'puffer',  name: 'PUFFERFISH',  rarity: 'rare',      value: 42,  color: '#FBBF24', dark: '#92400E', light: '#FDE68A', kind: 'fish', speed: 0.62, jitter: 0.72 },
-  { id: 'koi',     name: 'KOI',         rarity: 'rare',      value: 58,  color: '#FB923C', dark: '#9A3412', light: '#FED7AA', kind: 'fish', speed: 0.66, jitter: 0.78 },
-  { id: 'catfish', name: 'CATFISH',     rarity: 'epic',      value: 85,  color: '#A78BFA', dark: '#4C1D95', light: '#DDD6FE', kind: 'fish', speed: 0.74, jitter: 0.92 },
-  { id: 'goldfish',name: 'GOLDEN FISH', rarity: 'legendary', value: 160, color: '#FDE047', dark: '#A16207', light: '#FEF9C3', kind: 'fish', speed: 0.82, jitter: 1.05 },
+  { id: 'boot',    name: 'OLD BOOT',    rarity: 'junk',      value: 2,   color: '#92400E', dark: '#451A03', light: '#B45309', kind: 'junk', speed: 0.22, jitter: 0.18, move: 'cruise' },
+  { id: 'can',     name: 'TIN CAN',     rarity: 'junk',      value: 2,   color: '#9CA3AF', dark: '#4B5563', light: '#D1D5DB', kind: 'junk', speed: 0.22, jitter: 0.18, move: 'cruise' },
+  { id: 'weed',    name: 'SEAWEED',     rarity: 'junk',      value: 3,   color: '#15803D', dark: '#14532D', light: '#22C55E', kind: 'junk', speed: 0.26, jitter: 0.24, move: 'cruise' },
+  { id: 'minnow',  name: 'MINNOW',      rarity: 'common',    value: 6,   color: '#CBD5E1', dark: '#64748B', light: '#F1F5F9', kind: 'fish', speed: 0.34, jitter: 0.30, move: 'cruise' },
+  { id: 'sardine', name: 'SARDINE',     rarity: 'common',    value: 9,   color: '#60A5FA', dark: '#1E40AF', light: '#BFDBFE', kind: 'fish', speed: 0.40, jitter: 0.38, move: 'dart' },
+  { id: 'perch',   name: 'PERCH',       rarity: 'common',    value: 12,  color: '#84CC16', dark: '#3F6212', light: '#BEF264', kind: 'fish', speed: 0.44, jitter: 0.44, move: 'dart' },
+  { id: 'bass',    name: 'BASS',        rarity: 'uncommon',  value: 20,  color: '#10B981', dark: '#065F46', light: '#6EE7B7', kind: 'fish', speed: 0.50, jitter: 0.52, move: 'dart' },
+  { id: 'trout',   name: 'TROUT',       rarity: 'uncommon',  value: 26,  color: '#2DD4BF', dark: '#115E59', light: '#99F6E4', kind: 'fish', speed: 0.54, jitter: 0.58, move: 'jitter' },
+  { id: 'puffer',  name: 'PUFFERFISH',  rarity: 'rare',      value: 42,  color: '#FBBF24', dark: '#92400E', light: '#FDE68A', kind: 'fish', speed: 0.60, jitter: 0.66, move: 'dive' },
+  { id: 'koi',     name: 'KOI',         rarity: 'rare',      value: 58,  color: '#FB923C', dark: '#9A3412', light: '#FED7AA', kind: 'fish', speed: 0.66, jitter: 0.82, move: 'jitter' },
+  { id: 'catfish', name: 'CATFISH',     rarity: 'epic',      value: 85,  color: '#A78BFA', dark: '#4C1D95', light: '#DDD6FE', kind: 'fish', speed: 0.72, jitter: 0.80, move: 'dive' },
+  { id: 'goldfish',name: 'GOLDEN FISH', rarity: 'legendary', value: 160, color: '#FDE047', dark: '#A16207', light: '#FEF9C3', kind: 'fish', speed: 0.78, jitter: 0.95, move: 'run' },
 ]
 
 const BASE_WEIGHT: Record<Rarity, number> = {
@@ -126,6 +139,27 @@ function pickSpecies(quality: number, landed: number): Species {
     if (roll <= 0) return SPECIES[i]
   }
   return SPECIES[0]
+}
+
+const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n)
+
+// Where the hooked fish darts next, by archetype. `tired` (0..1) drags the
+// chosen target back toward the catchable middle so a worn-out fish is landable.
+function pickFishTarget(move: Move, tired: number, cur: number): number {
+  const r = Math.random()
+  let t: number
+  switch (move) {
+    case 'cruise': t = 0.30 + r * 0.40; break                          // gentle mid-water drift
+    case 'dart':   t = 0.08 + r * 0.84; break                          // snappy jumps anywhere
+    case 'dive':   t = r < 0.5 ? 0.72 + Math.random() * 0.20           // sounds to the floor…
+                               : 0.08 + Math.random() * 0.18; break    // …or bolts to the top
+    case 'jitter': t = r < 0.72 ? clamp01(cur + (Math.random() - 0.5) * 0.32)
+                                : 0.10 + Math.random() * 0.80; break   // nervous hops + rare bolt
+    case 'run':    t = r < 0.5 ? 0.06 + Math.random() * 0.12           // long commits to an edge
+                               : 0.82 + Math.random() * 0.12; break
+    default:       t = 0.20 + r * 0.60
+  }
+  return t + (0.5 - t) * tired * 0.55
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -241,25 +275,30 @@ export default function GoneFishinGame() {
   function tickReel(dt: number) {
     if (resolvingRef.current) return
     const sp = speciesRef.current
-    // fish darts toward a periodically re-randomised target
+    // how worn-out the fish is: climbs from 0 as the catch meter passes its start
+    const tired = clamp01((progressRef.current - PROGRESS_START) / (1 - PROGRESS_START))
+
+    // fish darts to archetype-driven targets; tiring shortens + spaces out its moves
     fishTimerRef.current -= dt
     if (fishTimerRef.current <= 0) {
-      fishTargetRef.current = 0.10 + Math.random() * 0.80
-      fishTimerRef.current = (0.55 + Math.random() * 0.65) / (0.5 + sp.jitter)
+      fishTargetRef.current = pickFishTarget(sp.move, tired, fishYRef.current)
+      const beat = 0.5 + Math.random() * 0.6
+      fishTimerRef.current = (beat / (0.5 + sp.jitter)) * (1 + tired * TIRE_DWELL)
     }
-    fishYRef.current += (fishTargetRef.current - fishYRef.current) * Math.min(1, FISH_EASE * sp.speed * dt)
+    const ease = FISH_EASE * sp.speed * (1 - tired * TIRE_CALM)
+    fishYRef.current += (fishTargetRef.current - fishYRef.current) * Math.min(1, ease * dt)
     setFishY(fishYRef.current)
-    // catch bar: hold raises it (toward the top), gravity pulls it down
-    const accel = holdingRef.current ? -UP_ACCEL : GRAVITY
-    barVelRef.current += accel * dt
-    barVelRef.current *= Math.pow(REEL_DAMP, dt * 60)
+
+    // catch bar: direct velocity toward a hold(up)/sink(down) target, lightly smoothed
+    const targetVel = holdingRef.current ? -REEL_UP : REEL_DOWN
+    barVelRef.current += (targetVel - barVelRef.current) * Math.min(1, VEL_SMOOTH * dt)
     let by = barYRef.current + barVelRef.current * dt
     const maxY = 1 - barHRef.current
-    if (by <= 0) { by = 0; barVelRef.current = 0 }
-    else if (by >= maxY) { by = maxY; barVelRef.current = 0 }
+    if (by <= 0) { by = 0; if (barVelRef.current < 0) barVelRef.current = 0 }
+    else if (by >= maxY) { by = maxY; if (barVelRef.current > 0) barVelRef.current = 0 }
     barYRef.current = by
     setBarY(by)
-    // progress fills while the fish sits inside the bar; a near-miss drains gently
+    // progress fills while the fish sits inside the bracket; a near-miss drains gently
     const top = by, bot = by + barHRef.current
     const fy = fishYRef.current
     const isIn = fy >= top && fy <= bot
@@ -592,68 +631,87 @@ export default function GoneFishinGame() {
           </div>
         )}
 
-        {/* ── REEL: Stardew-style catch bar ── */}
-        {phase === 'reel' && (
-          <div className="absolute inset-0 flex items-center justify-center gap-5">
-            {/* rod line feeding the column from above */}
-            <div className="absolute left-1/2 pointer-events-none" style={{ top: 0, marginLeft: -40, width: 2, height: '50%', background: 'linear-gradient(180deg, rgba(226,232,240,0) 0%, rgba(226,232,240,0.6) 100%)' }} aria-hidden />
+        {/* ── REEL: fight the fish — steer the bracket over it ── */}
+        {phase === 'reel' && (() => {
+          const strain = holding && !inside   // over-reeling: the line is under tension
+          const rail = inside ? '#34D399' : strain ? '#FB7185' : '#38BDF8'
+          return (
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <div className="flex items-stretch justify-center gap-4">
+              {/* vertical water column with the hooked fish */}
+              <div className="relative" style={{
+                width: 78, height: 330, borderRadius: 12, overflow: 'hidden',
+                border: `3px solid ${rail}`,
+                background: 'linear-gradient(180deg, rgba(14,60,92,0.75) 0%, rgba(4,22,36,0.9) 100%)',
+                boxShadow: inside
+                  ? 'inset 0 0 22px rgba(52,211,153,0.4), 0 0 18px rgba(52,211,153,0.45)'
+                  : strain
+                    ? 'inset 0 0 22px rgba(251,113,133,0.32), 0 0 14px rgba(251,113,133,0.4)'
+                    : 'inset 0 0 22px rgba(0,0,0,0.55)',
+                transition: reduced ? undefined : 'border-color 0.1s, box-shadow 0.12s',
+              }}>
+                {/* depth ticks */}
+                {[0.2, 0.4, 0.6, 0.8].map(t => (
+                  <div key={t} className="absolute inset-x-0" style={{ top: `${t * 100}%`, height: 1, background: 'rgba(186,230,253,0.08)' }} />
+                ))}
 
-            {/* vertical water column */}
-            <div className="relative" style={{
-              width: 64, height: 300, borderRadius: 9, overflow: 'hidden',
-              border: `3px solid ${inside ? '#34D399' : '#0EA5E9'}`,
-              background: 'linear-gradient(180deg, rgba(8,40,64,0.7) 0%, rgba(3,18,30,0.85) 100%)',
-              boxShadow: inside ? 'inset 0 0 18px rgba(52,211,153,0.35), 0 0 14px rgba(52,211,153,0.4)' : 'inset 0 0 18px rgba(0,0,0,0.55)',
-              transition: reduced ? undefined : 'border-color 0.12s, box-shadow 0.12s',
-            }}>
-              {/* depth tick lines */}
-              {[0.25, 0.5, 0.75].map(t => (
-                <div key={t} className="absolute inset-x-0" style={{ top: `${t * 100}%`, height: 1, background: 'rgba(186,230,253,0.1)' }} />
-              ))}
-              {/* catch bar (the zone you control) */}
-              <div className="absolute left-1 right-1" style={{
-                top: `${barY * 100}%`, height: `${barHRef.current * 100}%`,
-                background: inside
-                  ? 'linear-gradient(180deg, rgba(110,231,183,0.55), rgba(16,185,129,0.32))'
-                  : 'linear-gradient(180deg, rgba(253,224,71,0.5), rgba(251,191,36,0.3))',
-                border: `2px solid ${inside ? '#6EE7B7' : '#FDE047'}`, borderRadius: 5,
-                boxShadow: inside ? '0 0 14px rgba(52,211,153,0.7)' : '0 0 10px rgba(253,224,71,0.45)',
-                transition: reduced ? undefined : 'background 0.1s, border-color 0.1s, box-shadow 0.1s',
-              }}>
-                {/* grip ridges so the bar reads as a clamp */}
-                <div className="absolute inset-x-1" style={{ top: 2, height: 2, background: 'rgba(255,255,255,0.35)', borderRadius: 1 }} />
-                <div className="absolute inset-x-1" style={{ bottom: 2, height: 2, background: 'rgba(0,0,0,0.25)', borderRadius: 1 }} />
+                {/* taut line running from the rod tip down to the hooked fish */}
+                <div className="absolute" style={{
+                  left: '50%', top: 0, marginLeft: -1, width: 2, height: `${fishY * 100}%`,
+                  background: strain
+                    ? 'linear-gradient(180deg, rgba(251,113,133,0.35), rgba(251,113,133,0.85))'
+                    : 'linear-gradient(180deg, rgba(226,232,240,0.25), rgba(226,232,240,0.7))',
+                }} />
+
+                {/* catch bracket (the zone you steer) */}
+                <div className="absolute left-1 right-1" style={{
+                  top: `${barY * 100}%`, height: `${barHRef.current * 100}%`,
+                  background: inside
+                    ? 'linear-gradient(180deg, rgba(110,231,183,0.55), rgba(16,185,129,0.28))'
+                    : 'linear-gradient(180deg, rgba(253,224,71,0.5), rgba(251,191,36,0.26))',
+                  border: `2px solid ${inside ? '#6EE7B7' : '#FDE047'}`, borderRadius: 6,
+                  boxShadow: inside ? '0 0 16px rgba(52,211,153,0.7)' : '0 0 10px rgba(253,224,71,0.4)',
+                  transition: reduced ? undefined : 'background 0.1s, border-color 0.1s, box-shadow 0.1s',
+                }}>
+                  {/* clamp caps top & bottom so it reads as a grip */}
+                  <div className="absolute" style={{ left: -2, right: -2, top: -3, height: 3, background: inside ? '#6EE7B7' : '#FDE047', borderRadius: 2 }} />
+                  <div className="absolute" style={{ left: -2, right: -2, bottom: -3, height: 3, background: inside ? '#6EE7B7' : '#FDE047', borderRadius: 2 }} />
+                  <div className="absolute inset-x-1" style={{ top: '50%', height: 1, background: 'rgba(255,255,255,0.28)' }} />
+                </div>
+
+                {/* the fish — swims, glows when bracketed */}
+                <div className="absolute left-1/2" style={{
+                  top: `${fishY * 100}%`, marginLeft: -17, marginTop: -17, transform: 'scaleX(-1)',
+                  filter: inside ? 'drop-shadow(0 0 7px rgba(110,231,183,0.95))' : undefined,
+                  transition: reduced ? undefined : 'filter 0.1s',
+                }}>
+                  <FishSprite s={speciesRef.current} size={34} swim={!reduced} />
+                </div>
               </div>
-              {/* fish marker — swims, glows when held inside the bar */}
-              <div className="absolute left-1/2" style={{
-                top: `${fishY * 100}%`, marginLeft: -16, marginTop: -15, transform: 'scaleX(-1)',
-                filter: inside ? 'drop-shadow(0 0 6px rgba(110,231,183,0.95))' : undefined,
-                transition: reduced ? undefined : 'filter 0.1s',
-              }}>
-                <FishSprite s={speciesRef.current} size={32} swim={!reduced} />
+
+              {/* landing meter */}
+              <div className="relative" style={{ width: 22, height: 330, background: 'rgba(3,20,34,0.7)', border: '2px solid #0EA5E9', borderRadius: 7, overflow: 'hidden', boxShadow: 'inset 0 0 8px rgba(0,0,0,0.5)' }}>
+                <div className="absolute inset-x-0 bottom-0" style={{
+                  height: `${progress * 100}%`,
+                  background: progress > 0.6 ? 'linear-gradient(180deg, #6EE7B7, #16A34A)' : progress > 0.3 ? 'linear-gradient(180deg, #FDE047, #F59E0B)' : 'linear-gradient(180deg, #FB7185, #E11D48)',
+                  transition: reduced ? undefined : 'height 0.08s linear',
+                  boxShadow: progress > 0.85 ? '0 0 12px rgba(110,231,183,0.85)' : undefined,
+                }} />
+                {[0.2, 0.4, 0.6, 0.8].map(t => (
+                  <div key={t} className="absolute inset-x-0" style={{ bottom: `${t * 100}%`, height: 1, background: 'rgba(3,20,34,0.8)' }} />
+                ))}
               </div>
             </div>
 
-            {/* progress meter */}
-            <div className="relative" style={{ width: 20, height: 300, background: 'rgba(3,20,34,0.7)', border: '2px solid #0EA5E9', borderRadius: 6, overflow: 'hidden', boxShadow: 'inset 0 0 8px rgba(0,0,0,0.5)' }}>
-              <div className="absolute inset-x-0 bottom-0" style={{
-                height: `${progress * 100}%`,
-                background: progress > 0.6 ? 'linear-gradient(180deg, #6EE7B7, #16A34A)' : progress > 0.3 ? 'linear-gradient(180deg, #FDE047, #F59E0B)' : 'linear-gradient(180deg, #FB7185, #E11D48)',
-                transition: reduced ? undefined : 'height 0.08s linear',
-                boxShadow: progress > 0.85 ? '0 0 12px rgba(110,231,183,0.8)' : undefined,
-              }} />
-              {/* segment ticks */}
-              {[0.2, 0.4, 0.6, 0.8].map(t => (
-                <div key={t} className="absolute inset-x-0" style={{ bottom: `${t * 100}%`, height: 1, background: 'rgba(3,20,34,0.7)' }} />
-              ))}
-            </div>
-
-            <div className="absolute bottom-6 left-0 right-0 flex flex-col items-center gap-1">
+            <div className="mt-5 flex flex-col items-center gap-1">
               <p className="font-pixel" style={{ fontSize: 9, color: holding ? '#FDE047' : '#BAE6FD', letterSpacing: 2 }}>HOLD TO REEL</p>
-              <p className="font-pixel" style={{ fontSize: 5, color: inside ? '#6EE7B7' : '#7DD3FC', letterSpacing: 1 }}>{inside ? 'ON THE LINE!' : 'KEEP IT IN THE BRACKET'}</p>
+              <p className="font-pixel" style={{ fontSize: 5, color: inside ? '#6EE7B7' : strain ? '#FCA5A5' : '#7DD3FC', letterSpacing: 1 }}>
+                {inside ? 'ON THE LINE — KEEP IT!' : strain ? "EASY — DON'T SNAP THE LINE" : 'KEEP THE FISH IN THE BRACKET'}
+              </p>
             </div>
           </div>
-        )}
+          )
+        })()}
 
         {/* ── MISSED ── */}
         {phase === 'missed' && (
