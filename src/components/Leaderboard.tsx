@@ -21,7 +21,7 @@ import { countGamesWon } from '@/lib/gameRewards'
 import {
   IconStar, IconCrown,
   IconFish, IconScroll, IconMeat, IconLightning,
-  IconSwords, IconHouse, IconHeart, IconCatFace, IconCoin, IconSparkles, IconYarn, IconPaw,
+  IconSwords, IconHouse, IconHeart, IconCatFace, IconCoin, IconSparkles, IconYarn,
 } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import type { GameType, Profile } from '@/types'
@@ -39,7 +39,6 @@ const GAMES: Array<{ id: GameType; title: string; Icon: React.FC<{ size?: number
   { id: 'paw_doku',     title: 'PAW DOKU',         Icon: IconSparkles },
   { id: 'yarn_sort',    title: 'YARN SORT',        Icon: IconYarn },
   { id: 'gone_fishin',  title: "GONE FISHIN'",     Icon: IconFish },
-  { id: 'defend_bowl',  title: 'DEFEND THE BOWL',  Icon: IconPaw },
   { id: 'purr_beat',    title: 'PURR BEAT',        Icon: IconCatFace },
 ]
 
