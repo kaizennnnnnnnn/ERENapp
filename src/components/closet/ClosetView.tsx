@@ -43,6 +43,7 @@ interface Props {
   newBadgeSkins: Set<string>
   stardust: number
   loading: boolean
+  ownedLoaded: boolean                 // owned set fetched OK at least once (vs a failed/empty fetch)
   tab: 'mine' | 'shop'
   onTabChange: (tab: 'mine' | 'shop') => void
   onPick: (card: ClosetCard) => void
@@ -55,7 +56,7 @@ const PANEL_BORDER = '#4C1D95'
 
 export default function ClosetView({
   rooms, activeRoom, onSelectRoom, roomSkins, previewSkin, selectedKey, isUniform,
-  ownedCards, lockedCards, newBadgeSkins, stardust, loading, tab, onTabChange, onPick, onWearEverywhere, onBack,
+  ownedCards, lockedCards, newBadgeSkins, stardust, loading, ownedLoaded, tab, onTabChange, onPick, onWearEverywhere, onBack,
 }: Props) {
   const [shopFilter, setShopFilter] = useState<ShopFilter>('all')
 
@@ -223,7 +224,10 @@ export default function ClosetView({
 
         {/* ── Grid ── */}
         <div id="closet-grid" role="tabpanel" aria-label={tab === 'mine' ? 'My looks' : 'Shop'}>
-        {loading ? (
+        {loading || (tab === 'shop' && !ownedLoaded) ? (
+          // Gate the Shop on a CONFIRMED owned set. A failed/incomplete fetch
+          // leaves owned empty, which would otherwise render the whole catalogue
+          // as buyable — including skins the household already owns.
           <p className="text-center font-pixel py-8" style={{ fontSize: 8, color: '#A78BFA' }}>LOADING…</p>
         ) : tab === 'mine' ? (
           <>

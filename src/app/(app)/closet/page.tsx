@@ -145,6 +145,7 @@ export default function ClosetPage() {
         newBadgeSkins={newBadgeSkins}
         stardust={stardust}
         loading={loading}
+        ownedLoaded={loaded}
         tab={tab}
         onTabChange={setTab}
         onPick={pick}
