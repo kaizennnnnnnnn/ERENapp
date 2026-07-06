@@ -17,7 +17,7 @@ import PeriodicTableOverlay from '@/components/chemistry/PeriodicTableOverlay'
 import PeriodicTableButton from '@/components/chemistry/PeriodicTableButton'
 import { useStoredChemTheme } from '@/lib/chemistry/theme'
 import { useTasks } from '@/contexts/TaskContext'
-import { getDailyKey } from '@/lib/tasks'
+import { getDailyKey, TASK_DEFS } from '@/lib/tasks'
 
 interface Props { onClose: () => void }
 
@@ -147,6 +147,12 @@ function RoomMissionChips({ night }: { night: boolean }) {
   const dailyKey = getDailyKey()
   const lessonDone = completedIds.has(`daily_chem_lesson:${dailyKey}`)
   const streakDone = completedIds.has(`daily_chem_streak:${dailyKey}`)
+  // Reward text is derived from the task defs (the source of truth for the
+  // actual payout) so the chips can't drift out of sync — they once showed a
+  // stale +10/+15 while the quests already paid 35 each.
+  const lessonDef = TASK_DEFS.find(t => t.id === 'daily_chem_lesson')!
+  const streakDef = TASK_DEFS.find(t => t.id === 'daily_chem_streak')!
+  const rewardText = (t: typeof lessonDef) => `+${t.coins} coins  +${t.xp} xp`
   return (
     <div
       className="absolute z-20 pointer-events-none flex flex-col gap-2"
@@ -196,7 +202,7 @@ function RoomMissionChips({ night }: { night: boolean }) {
         <MissionChip
           Icon={BookOpen}
           title="Finish a lesson"
-          reward="+10 coins  +15 xp"
+          reward={rewardText(lessonDef)}
           done={lessonDone}
           accent="#FCD34D"
           accentDark="#D97706"
@@ -208,7 +214,7 @@ function RoomMissionChips({ night }: { night: boolean }) {
         <MissionChip
           Icon={Flame}
           title="5 in a row"
-          reward="+15 coins  +20 xp"
+          reward={rewardText(streakDef)}
           done={streakDone}
           accent="#C4A7F5"
           accentDark="#7C3AED"
