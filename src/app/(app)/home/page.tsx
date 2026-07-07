@@ -806,7 +806,7 @@ export default function HomePage() {
               <button onClick={() => { playSound(showRooms ? 'ui_modal_close' : 'ui_modal_open'); setShowRooms(r => !r) }}
                 aria-label="Rooms" aria-expanded={showRooms}
                 className="home-nav-pop w-8 h-8 relative flex items-center justify-center active:scale-90 transition-transform"
-                style={{ ...cuteBtn('238,210,170'), animationDelay: '0.45s' }}>
+                style={{ ...cuteBtn('226,196,154'), animationDelay: '0.45s' }}>
                 <CuteIcon><IconDoor size={18} /></CuteIcon>
               </button>
               <RoomsMenu open={showRooms} onClose={closeRooms} onSelect={handleRoomSelect} />
