@@ -306,6 +306,13 @@ export default function HomePage() {
     return null
   }, [lifetimeWLT, profile?.name, partner?.name])
 
+  // Browser timezone for day-boundary math — the daily quip must resolve the
+  // same local day on both partners' phones (same household + same tz → same
+  // quip). Falls back to UTC inside dateKey when null.
+  const homeTz = useMemo<string | null>(() => {
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone ?? null } catch { return null }
+  }, [])
+
   // Single source of truth for the wish bubble's on-screen window — gates
   // both the WishCloud mount below and the flavor-bubble suppression. The
   // per-viewer 2-min post-grant countdown persists in localStorage, so a
@@ -335,6 +342,9 @@ export default function HomePage() {
     viewerName: profile?.name ?? '',
     partnerName: partner?.name ?? null,
     quietEren: profile?.quiet_eren_optin === true,
+    userId: user?.id ?? null,
+    householdId: profile?.household_id ?? null,
+    tz: homeTz,
   })
 
 

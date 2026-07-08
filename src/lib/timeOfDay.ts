@@ -151,3 +151,42 @@ export function tzCoords(): Coords | null {
   } catch { /* SSR or no Intl support */ }
   return null
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DAYPART — coarse buckets used to gate Eren's ambient flavor lines so a 3am
+// thought only surfaces at 3am. Separate from isDarkOutside (which drives the
+// room background off real sunrise/sunset): this is a simple, predictable
+// clock bucket for picking what Eren "thinks" about.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type Daypart = 'dawn' | 'day' | 'dusk' | 'night' | 'latenight'
+
+/** Hour (0–23) in the given tz, or the runtime-local hour when tz is absent. */
+function hourIn(date: Date, tz: string | null | undefined): number {
+  if (!tz || typeof Intl === 'undefined') return date.getHours()
+  try {
+    const fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', hour12: false })
+    // en-US hour12:false can emit '24' at midnight — normalise to 0.
+    const h = parseInt(fmt.format(date), 10)
+    return Number.isFinite(h) ? h % 24 : date.getHours()
+  } catch {
+    return date.getHours()
+  }
+}
+
+/**
+ * Buckets local time into a daypart:
+ *   latenight  00:00–04:59   3am gremlin energy
+ *   dawn       05:00–07:59   zoomies, sunrise
+ *   day        08:00–16:59   sunbeams, normal
+ *   dusk       17:00–20:59   dinner, winding down
+ *   night      21:00–23:59   quiet house
+ */
+export function getDaypart(date: Date = new Date(), tz?: string | null): Daypart {
+  const h = hourIn(date, tz)
+  if (h < 5)  return 'latenight'
+  if (h < 8)  return 'dawn'
+  if (h < 17) return 'day'
+  if (h < 21) return 'dusk'
+  return 'night'
+}

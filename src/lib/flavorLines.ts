@@ -21,6 +21,8 @@
 // Lines whose substitution can't resolve are dropped silently.
 // ═════════════════════════════════════════════════════════════════════════════
 
+import type { Daypart } from './timeOfDay'
+
 export type FlavorTrigger =
   | 'idle'
   | 'after_positive'
@@ -28,11 +30,18 @@ export type FlavorTrigger =
   | 'needs_leader'
   | 'duplicate_feed'
   | 'rare_intro'
+  | 'greeting'        // once/session, named, keyed to hours since THIS viewer last cared
 
 export interface FlavorLine {
   id: string
   text: string
   trigger: FlavorTrigger
+  /** idle lines only: restrict to certain dayparts. Undefined = any time. */
+  daypart?: Daypart | Daypart[]
+  /** greeting lines only: hours-since-my-last-care band. Match is
+   *  [minHours, maxHours) — maxHours undefined means open-ended. */
+  minHours?: number
+  maxHours?: number
 }
 
 export const FLAVOR_LINES: FlavorLine[] = [
@@ -78,4 +87,18 @@ export const FLAVOR_LINES: FlavorLine[] = [
 
   // ── More rare lines (added later) ─────────────────────────────────────────
   { id: 'intro-names',    text: 'my name is Eren, but people also call me Oi, Meow, and Tony.', trigger: 'rare_intro' },
+
+  // ── daypart idle lines (Living Voice) — only surface in their window ───────
+  { id: 'day-dawn-zoom',   text: 'zoomies. 6am zoomies.',              trigger: 'idle', daypart: 'dawn' },
+  { id: 'day-dawn-sun',    text: "the sun's up. so am i.",             trigger: 'idle', daypart: 'dawn' },
+  { id: 'day-noon-sun',    text: 'found a sunbeam. do not move me.',   trigger: 'idle', daypart: 'day' },
+  { id: 'day-dusk-dinner', text: 'dinner soon? …dinner soon.',         trigger: 'idle', daypart: 'dusk' },
+  { id: 'day-night-quiet', text: 'the house is quiet. good.',          trigger: 'idle', daypart: 'night' },
+  { id: 'day-late-gremlin',text: "it's 3am. i am ELECTRIC.",           trigger: 'idle', daypart: 'latenight' },
+  { id: 'day-late-mine',   text: "everyone's asleep. my house now.",   trigger: 'idle', daypart: 'latenight' },
+
+  // ── greeting: named, keyed to hours since THIS viewer last cared ───────────
+  { id: 'greet-soon', text: 'back already, {viewer}? good.',        trigger: 'greeting', minHours: 10, maxHours: 24 },
+  { id: 'greet-day',  text: "you're back, {viewer}. i missed you.", trigger: 'greeting', minHours: 24, maxHours: 72 },
+  { id: 'greet-long', text: '{viewer}. three whole days. hmph.',    trigger: 'greeting', minHours: 72 },
 ]

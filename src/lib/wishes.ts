@@ -185,7 +185,7 @@ export const FALLBACK_WISH: Wish = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** djb2 string hash — small, fast, deterministic. */
-function hashStr(s: string): number {
+export function hashStr(s: string): number {
   let h = 5381
   for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0
   return h >>> 0
