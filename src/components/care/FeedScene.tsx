@@ -21,6 +21,7 @@ import WishHintBanner from '@/components/wish/WishHintBanner'
 import { wishHintRoom } from '@/lib/wishes'
 import { useErenReaction } from '@/hooks/useErenReaction'
 import { happyFinisherBeats, WORD_COLOR } from '@/lib/erenReactions'
+import { foodOpinion, type FoodOpinion } from '@/lib/foodOpinion'
 import SoundWord from '@/components/SoundWord'
 import { FoodBowl, Crumbs, Hearts } from '@/components/care/ReactionFx'
 import KitchenNavButton from '@/components/kitchen/KitchenNavButton'
@@ -36,7 +37,7 @@ const SHOP_ITEMS = [
   { id: 'treat'   as const, name: 'Cat Treat',  price: 8,  hungerD: 8,  happyD: 20, weightD: 0.01, desc: 'Sweet & crunchy',    color: '#FF6B9D', cat: 'dry'     },
   { id: 'biscuit' as const, name: 'Biscuit',    price: 6,  hungerD: 12, happyD: 5,  weightD: 0.02, desc: 'Crunchy snack',      color: '#C8956A', cat: 'dry'     },
   // Seafood
-  { id: 'fish'    as const, name: 'Fish',        price: 12, hungerD: 25, happyD: 12, weightD: 0.05, desc: "Eren's favourite!",  color: '#5BA3D9', cat: 'seafood' },
+  { id: 'fish'    as const, name: 'Fish',        price: 12, hungerD: 25, happyD: 12, weightD: 0.05, desc: 'Classic & flaky',    color: '#5BA3D9', cat: 'seafood' },
   { id: 'tuna'    as const, name: 'Tuna Can',   price: 18, hungerD: 30, happyD: 15, weightD: 0.06, desc: 'Premium quality',    color: '#E8A020', cat: 'seafood' },
   { id: 'shrimp'  as const, name: 'Shrimp',     price: 15, hungerD: 20, happyD: 18, weightD: 0.03, desc: 'Pink & tasty',       color: '#F0836A', cat: 'seafood' },
   { id: 'salmon'  as const, name: 'Salmon',     price: 22, hungerD: 35, happyD: 20, weightD: 0.07, desc: 'Rich & flaky',       color: '#E8735A', cat: 'seafood' },
@@ -68,6 +69,17 @@ const FRIDGE_CATEGORIES = [
   { id: 'dairy',   label: 'DAIRY',   color: '#A78BFA' },
   { id: 'special', label: 'SPECIAL', color: '#FF85A2' },
 ]
+
+// Picky Prince — feeding his innate favorite/disliked food (see foodOpinion)
+// changes the finisher and nudges the happiness gain. Tastes are deterministic
+// per household; the couple discovers them by feeding.
+const FAVORITE_HAPPY_BONUS = 10
+const DISLIKE_HAPPY_PENALTY = 8
+const FINISH_BY_OPINION: Record<FoodOpinion, { word: string; hearts: number; color: string }> = {
+  favorite: { word: 'THE BEST!', hearts: 4, color: WORD_COLOR.happy },
+  neutral:  { word: 'YUM!',      hearts: 2, color: WORD_COLOR.happy },
+  disliked: { word: 'meh…',      hearts: 0, color: '#9AA0B0' },
+}
 
 function FoodIcon({ id }: { id: string; color?: string }) {
   const S = 32
@@ -448,6 +460,12 @@ export default function FeedScene({ onClose }: Props) {
   useEffect(() => {
     if (prevEating.current !== eating) { prevEating.current = eating; setShowPoof(true) }
   }, [eating])
+
+  // Picky Prince — the finisher word/hearts reflect his opinion of what he ate.
+  const fedOpinion: FoodOpinion = fedItem && profile?.household_id
+    ? foodOpinion(profile.household_id, fedItem.id) : 'neutral'
+  const finishStyle = FINISH_BY_OPINION[fedOpinion]
+
   const erenElement = (
     <div className="absolute z-20 bottom-[10%]"
       style={{ left: '50%', transform: 'translateX(-50%)' }}>
@@ -476,10 +494,10 @@ export default function FeedScene({ onClose }: Props) {
       {eating && <Crumbs color={bowlColor} left={noseLeft} bottom="2%" />}
       {eating && <SoundWord word="NOM NOM" color={WORD_COLOR.food} left={EAT_NOSE_X[eatIdx] + 8} top={12} />}
       {eating && <SoundWord word="NOM NOM" color={WORD_COLOR.food} left={EAT_NOSE_X[eatIdx] + 6} top={9} delayMs={1400} />}
-      {/* Happy finisher. */}
+      {/* Happy finisher — word + hearts vary with his opinion of the food. */}
       {phase === 'finish' && <>
-        <Hearts count={2} bottom="60%" />
-        <SoundWord word="YUM!" color={WORD_COLOR.happy} left={50} top={6} />
+        {finishStyle.hearts > 0 && <Hearts count={finishStyle.hearts} bottom="60%" />}
+        <SoundWord word={finishStyle.word} color={finishStyle.color} left={50} top={6} />
       </>}
 
       {/* Poof that masks the standing<->crouch sticker swap. */}
@@ -521,6 +539,15 @@ export default function FeedScene({ onClose }: Props) {
     // kick off the eat reaction (bowl → crouch-and-chomp → happy finisher).
     playSound('care_eat')
     setFedItem(item)
+    // Picky Prince — his opinion of THIS food scales the happiness gain, and a
+    // favorite stamps today so tonight's dream cloud turns sweet.
+    const opinion = profile?.household_id ? foodOpinion(profile.household_id, item.id) : 'neutral'
+    if (opinion === 'favorite') {
+      try { localStorage.setItem('eren:fed-fav-date', new Date().toLocaleDateString('en-CA')) } catch { /* ignore */ }
+    }
+    const happyD = opinion === 'favorite' ? item.happyD + FAVORITE_HAPPY_BONUS
+      : opinion === 'disliked' ? Math.max(1, item.happyD - DISLIKE_HAPPY_PENALTY)
+      : item.happyD
     // Random head-down pose for this meal.
     setEatIdx(Math.floor(Math.random() * 4))
     reaction.play([
@@ -537,7 +564,7 @@ export default function FeedScene({ onClose }: Props) {
         food: item.id, user_id: user.id, household_id: profile?.household_id,
       } }))
     } catch { /* SSR/no-window */ }
-    const result = await feedWithFood(user.id, item.hungerD, item.happyD, item.weightD)
+    const result = await feedWithFood(user.id, item.hungerD, happyD, item.weightD)
     showToast(result.message, result.success)
     setFeeding(null)
     if (result.success) completeTask('daily_feed')
