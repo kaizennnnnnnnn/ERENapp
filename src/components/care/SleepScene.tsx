@@ -57,11 +57,6 @@ export default function SleepScene({ onClose }: Props) {
   const [sleepIdx, setSleepIdx] = useState(0)   // which curled pose (0–3)
   const [showPoof, setShowPoof] = useState(false)
   const reaction = useErenReaction()
-  // Sweet dreams if he was fed his favorite today (stamped by FeedScene). Read
-  // once on mount — which is when you'd open the bedroom to peek at him.
-  const [fedFavToday] = useState(() => {
-    try { return localStorage.getItem('eren:fed-fav-date') === new Date().toLocaleDateString('en-CA') } catch { return false }
-  })
 
   // Fall back to the module-level cache so the button reads WAKE UP
   // immediately on swipe-in; otherwise it flashes TUCK IN for ~200 ms
@@ -71,13 +66,6 @@ export default function SleepScene({ onClose }: Props) {
   const sleepPalette = sleepVal > 50 ? SLEEP_GOOD : sleepVal > 25 ? SLEEP_MID : SLEEP_LOW
   const isSleepy  = sleepVal < 50
   const busy      = tucking || waking
-  // What Eren dreams — his wellbeing colours the dream cloud below: a cold
-  // empty-bowl nightmare when he went to bed hungry or sick, a sweet pink dream
-  // when he's content or ate his favorite today, otherwise the usual reverie.
-  const dreamMood: 'sweet' | 'neutral' | 'nightmare' =
-    (stats?.is_sick || (stats?.hunger ?? 100) < 25) ? 'nightmare'
-      : (fedFavToday || (stats?.happiness ?? 0) >= 75) ? 'sweet'
-        : 'neutral'
 
   // Roll a curled-pose pick on mount (covers a reload / remote-partner tuck-in
   // where handleTuckIn never ran) and warm the four stickers so the poof
@@ -233,57 +221,27 @@ export default function SleepScene({ onClose }: Props) {
         </div>
       )}
 
-      {/* Dream cloud when deeply sleeping — its tint + contents reflect how his
-          day went (see dreamMood): a cold empty-bowl nightmare, the usual
-          fish-paw-star reverie, or a sweet pink dream with a heart. */}
+      {/* Dream cloud when deeply sleeping */}
       {tuckedIn && (
         <div className="absolute pointer-events-none" style={{ bottom: '44%', left: '40%', animation: 'float 5s ease-in-out infinite' }}>
-          <div style={{
-            width: 60, height: 28, borderRadius: 20,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            background: dreamMood === 'sweet' ? 'rgba(255,180,210,0.18)'
-              : dreamMood === 'nightmare' ? 'rgba(95,105,125,0.20)'
-              : 'rgba(160,150,240,0.15)',
-            border: `1px solid ${dreamMood === 'sweet' ? 'rgba(255,190,220,0.30)'
-              : dreamMood === 'nightmare' ? 'rgba(125,135,155,0.30)'
-              : 'rgba(180,170,255,0.2)'}`,
-          }}>
-            {dreamMood === 'nightmare' ? (
-              <>
-                {/* empty bowl + a worried spark */}
-                <div style={{ width: 14, height: 7, background: '#8A90A0', borderRadius: '0 0 9px 9px', opacity: 0.6 }} />
-                <span style={{ fontFamily: '"Press Start 2P"', fontSize: 9, color: '#C0C6D6', opacity: 0.7 }}>!</span>
-              </>
-            ) : (
-              <>
-                {/* CSS fish */}
-                <div style={{ position: 'relative', width: 12, height: 8, opacity: 0.65 }}>
-                  <div style={{ width: 9, height: 7, borderRadius: '50% 40% 40% 50%', background: '#6BAED6' }} />
-                  <div style={{ position: 'absolute', right: -3, top: 0, width: 0, height: 0, borderTop: '4px solid transparent', borderBottom: '4px solid transparent', borderLeft: '5px solid #4A90BC' }} />
-                </div>
-                {dreamMood === 'sweet' ? (
-                  /* CSS heart */
-                  <div style={{ position: 'relative', width: 10, height: 9, opacity: 0.75 }}>
-                    <div style={{ position: 'absolute', left: 0, top: 0, width: 5, height: 5, borderRadius: '50%', background: '#FF9BB5' }} />
-                    <div style={{ position: 'absolute', right: 0, top: 0, width: 5, height: 5, borderRadius: '50%', background: '#FF9BB5' }} />
-                    <div style={{ position: 'absolute', left: 1.4, top: 2.6, width: 7.2, height: 7.2, background: '#FF9BB5', transform: 'rotate(45deg)', borderRadius: 1 }} />
-                  </div>
-                ) : (
-                  /* CSS paw */
-                  <div style={{ position: 'relative', width: 9, height: 9, opacity: 0.6 }}>
-                    <div style={{ width: 5, height: 4, borderRadius: '50%', background: '#C0A0E0', margin: '0 auto' }} />
-                    {[[-3,1],[3,1],[-1.5,4],[1.5,4]].map(([px,py], k) => (
-                      <div key={k} style={{ position: 'absolute', left: 4.5 + px, top: py, width: 2.5, height: 2, borderRadius: '50%', background: '#C0A0E0' }} />
-                    ))}
-                  </div>
-                )}
-                {/* CSS 4-star */}
-                <div style={{ position: 'relative', width: 9, height: 9, opacity: 0.55 }}>
-                  <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 2, transform: 'translateY(-50%)', background: '#F5E060', borderRadius: 1 }} />
-                  <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 2, transform: 'translateX(-50%)', background: '#F5E060', borderRadius: 1 }} />
-                </div>
-              </>
-            )}
+          <div style={{ width: 60, height: 28, borderRadius: 20, background: 'rgba(160,150,240,0.15)', border: '1px solid rgba(180,170,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            {/* CSS fish */}
+            <div style={{ position: 'relative', width: 12, height: 8, opacity: 0.65 }}>
+              <div style={{ width: 9, height: 7, borderRadius: '50% 40% 40% 50%', background: '#6BAED6' }} />
+              <div style={{ position: 'absolute', right: -3, top: 0, width: 0, height: 0, borderTop: '4px solid transparent', borderBottom: '4px solid transparent', borderLeft: '5px solid #4A90BC' }} />
+            </div>
+            {/* CSS paw */}
+            <div style={{ position: 'relative', width: 9, height: 9, opacity: 0.6 }}>
+              <div style={{ width: 5, height: 4, borderRadius: '50%', background: '#C0A0E0', margin: '0 auto' }} />
+              {[[-3,1],[3,1],[-1.5,4],[1.5,4]].map(([px,py], k) => (
+                <div key={k} style={{ position: 'absolute', left: 4.5 + px, top: py, width: 2.5, height: 2, borderRadius: '50%', background: '#C0A0E0' }} />
+              ))}
+            </div>
+            {/* CSS 4-star */}
+            <div style={{ position: 'relative', width: 9, height: 9, opacity: 0.55 }}>
+              <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 2, transform: 'translateY(-50%)', background: '#F5E060', borderRadius: 1 }} />
+              <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 2, transform: 'translateX(-50%)', background: '#F5E060', borderRadius: 1 }} />
+            </div>
           </div>
         </div>
       )}
