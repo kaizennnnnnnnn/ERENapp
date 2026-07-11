@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, createContext, useContext, createElement, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { withRetry, writeWithRetry } from '@/lib/supabaseRetry'
 import { useAuth } from './useAuth'
 import type { ErenStats, FoodInventory } from '@/types'
 import { computeErenMood, clampStat, shouldBecomeSick } from '@/lib/utils'
@@ -242,9 +243,12 @@ function useErenStatsImpl(householdId: string | null) {
     // visibilitychange refetch used to flip loading too, swapping the whole
     // home room for the LOADING EREN screen every 2 minutes.
     if (!hasStatsRef.current) setLoading(true)
-    const { data, error } = await supabase
-      .from('eren_stats').select('*').eq('household_id', householdId).single()
-    if (error) { setError(error.message); setLoading(false); return }
+    // withRetry: this read is also the ROLLBACK path for failed care writes —
+    // during a transient 503 an unretried refetch left the optimistic state
+    // stranded (UI asleep, DB awake). PGRST116 short-circuits inside.
+    const { data, error } = await withRetry(() => supabase
+      .from('eren_stats').select('*').eq('household_id', householdId).single())
+    if (error) { setError(error.message ?? 'fetch failed'); setLoading(false); return }
 
     const raw = data as ErenStats
 
@@ -390,19 +394,25 @@ function useErenStatsImpl(householdId: string | null) {
     const sleepingFlag = action === 'sleep' ? true : base.is_sleeping
     setStats(prev => prev ? { ...prev, happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, weight: newW, cleanliness: newCl, is_sick: newSick, mood: newMood, is_sleeping: sleepingFlag } : prev)
     const useful = isUsefulAction(action, base)
-    const [su] = await Promise.all([
-      supabase.from('eren_stats').update({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, weight: newW, cleanliness: newCl, is_sick: newSick, mood: newMood, is_sleeping: sleepingFlag, last_decay_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('household_id', householdId),
-      insertInteraction(supabase, { household_id: householdId, user_id: userId, action_type: action, happiness_delta: cfg.deltas.happiness ?? 0, hunger_delta: cfg.deltas.hunger ?? 0, energy_delta: cfg.deltas.energy ?? 0, sleep_delta: cfg.deltas.sleep_quality ?? 0, weight_delta: cfg.deltas.weight ?? 0, useful }),
-    ])
-    if (su.error) { await fetchStats(); return { success: false, message: su.error.message } }
+    // History row is fire-and-forget: its errors are swallowed inside anyway,
+    // and awaiting it let a stalled insert pin the room button in its busy
+    // state long after the stats write had landed.
+    void insertInteraction(supabase, { household_id: householdId, user_id: userId, action_type: action, happiness_delta: cfg.deltas.happiness ?? 0, hunger_delta: cfg.deltas.hunger ?? 0, energy_delta: cfg.deltas.energy ?? 0, sleep_delta: cfg.deltas.sleep_quality ?? 0, weight_delta: cfg.deltas.weight ?? 0, useful })
+    // writeWithRetry: absolute values, so a retry after a transient 503 or an
+    // aborted hang can't double-apply. Bounds the worst case instead of
+    // pinning TUCK IN/WAKE UP forever on a stalled request.
+    const su = await writeWithRetry(signal =>
+      supabase.from('eren_stats').update({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, weight: newW, cleanliness: newCl, is_sick: newSick, mood: newMood, is_sleeping: sleepingFlag, last_decay_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('household_id', householdId).abortSignal(signal))
+    if (su.error) { await fetchStats(); return { success: false, message: 'Connection hiccup — try again!' } }
     return { success: true, message: `${cfg.emoji} ${cfg.label} done!` }
   }, [stats, householdId, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const wakeUp = useCallback(async (): Promise<{ success: boolean; message: string }> => {
     if (!stats || !householdId) return { success: false, message: 'No stats loaded' }
     setStats(prev => prev ? { ...prev, is_sleeping: false } : prev)
-    const { error } = await supabase.from('eren_stats').update({ is_sleeping: false, updated_at: new Date().toISOString() }).eq('household_id', householdId)
-    if (error) { await fetchStats(); return { success: false, message: error.message } }
+    const { error } = await writeWithRetry(signal =>
+      supabase.from('eren_stats').update({ is_sleeping: false, updated_at: new Date().toISOString() }).eq('household_id', householdId).abortSignal(signal))
+    if (error) { await fetchStats(); return { success: false, message: 'Connection hiccup — try again!' } }
     return { success: true, message: 'Eren is awake!' }
   }, [stats, householdId, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -422,11 +432,12 @@ function useErenStatsImpl(householdId: string | null) {
     // Feeding only counts toward the daily battle when Eren is
     // actually hungry — at 90+ he's full and the action is wasted.
     const useful = base.hunger < USEFUL_THRESHOLD
-    const [su] = await Promise.all([
-      supabase.from('eren_stats').update({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, cleanliness: newCl, weight: newW, mood: newMood, last_decay_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('household_id', householdId),
-      insertInteraction(supabase, { household_id: householdId, user_id: userId, action_type: 'feed', happiness_delta: happyD, hunger_delta: hungerD, energy_delta: 0, sleep_delta: 0, weight_delta: weightD, useful }),
-    ])
-    if (su.error) { await fetchStats(); return { success: false, message: 'Failed' } }
+    // Same shape as applyAction: history insert fire-and-forget, stats write
+    // retried + timeout-bounded (absolute values, safe to retry).
+    void insertInteraction(supabase, { household_id: householdId, user_id: userId, action_type: 'feed', happiness_delta: happyD, hunger_delta: hungerD, energy_delta: 0, sleep_delta: 0, weight_delta: weightD, useful })
+    const su = await writeWithRetry(signal =>
+      supabase.from('eren_stats').update({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, cleanliness: newCl, weight: newW, mood: newMood, last_decay_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('household_id', householdId).abortSignal(signal))
+    if (su.error) { await fetchStats(); return { success: false, message: 'Connection hiccup — try again!' } }
     return { success: true, message: 'Eren is eating!' }
   }, [stats, householdId, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps
 
