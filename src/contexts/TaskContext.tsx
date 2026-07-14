@@ -441,6 +441,30 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('eren:my-action', onMyAction)
   }, [user?.id, profile?.household_id, profile?.name])
 
+  // ── Listen for streak milestones: fire server push to partner ────────────
+  // completeTask dispatches `eren:streak-milestone` when a threshold is
+  // crossed. The route dedups via last_phase3_notify, so a double event
+  // (StrictMode, retry) is harmless.
+  useEffect(() => {
+    if (!user?.id || !profile?.household_id) return
+    const onMilestone = (e: Event) => {
+      const detail = (e as CustomEvent<{ milestones?: number[] }>).detail
+      if (!detail?.milestones?.length) return
+      fetch('/api/notify-streak', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          household_id: profile.household_id,
+          sender_id: user.id,
+          sender_name: profile.name ?? '',
+          milestone: Math.max(...detail.milestones),
+        }),
+      }).catch(() => { /* best-effort */ })
+    }
+    window.addEventListener('eren:streak-milestone', onMilestone)
+    return () => window.removeEventListener('eren:streak-milestone', onMilestone)
+  }, [user?.id, profile?.household_id, profile?.name])
+
   // ── Listen for weekly champion / comeback coin payouts ──────────────────
   // The Care Battle modules CAS-claim the payout server-side first, then fire
   // these events with the credited amount. TaskContext owns the coin pool.

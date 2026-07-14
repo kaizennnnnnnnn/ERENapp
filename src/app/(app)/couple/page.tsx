@@ -25,13 +25,14 @@ import {
 import PageLoader from '@/components/PageLoader'
 import { usePageReady } from '@/hooks/usePageReady'
 import SendErenSheet from '@/components/couple/SendErenSheet'
+import CozyCountdown from '@/components/couple/CozyCountdown'
 import SketchEren from '@/components/SketchEren'
 import { MOOD_SKETCH, MOOD_THEME, LOW_MOODS } from '@/lib/moods'
 import { MOOD_CONFIGS } from '@/types'
 
 export default function CouplePage() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const { setHideStats } = useCare()
   const {
     partner, partnerStreak,
@@ -157,6 +158,16 @@ export default function CouplePage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* ── Cozy Countdown — advent doors in the 12 days before the anniversary.
+          Renders null outside the window / without a set anniversary. ── */}
+      {user && partner && profile?.household_id && (
+        <CozyCountdown
+          householdId={profile.household_id}
+          userId={user.id}
+          partnerFirstName={partner.name.split(' ')[0] ?? null}
+        />
       )}
 
       {/* ── Send Eren nudge ── */}
