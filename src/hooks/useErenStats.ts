@@ -462,7 +462,11 @@ function useErenStatsImpl(householdId: string | null) {
   const saveFoodInventory = useCallback(async (inv: FoodInventory): Promise<void> => {
     if (!householdId) return
     setStats(prev => prev ? { ...prev, food_inventory: inv } : prev)
-    await supabase.from('eren_stats').update({ food_inventory: inv }).eq('household_id', householdId)
+    // writeWithRetry: absolute jsonb value (idempotent, safe to retry) —
+    // survives a 503 blip instead of silently dropping the pile update, and
+    // a stalled request gets aborted instead of pinning callers forever.
+    await writeWithRetry(signal =>
+      supabase.from('eren_stats').update({ food_inventory: inv }).eq('household_id', householdId).abortSignal(signal))
   }, [householdId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Per-user fridge helpers ─────────────────────────────────────────────
@@ -471,7 +475,11 @@ function useErenStatsImpl(householdId: string | null) {
   const saveFoodByUser = useCallback(async (next: Record<string, FoodInventory>): Promise<void> => {
     if (!householdId) return
     setStats(prev => prev ? { ...prev, food_by_user: next } : prev)
-    await supabase.from('eren_stats').update({ food_by_user: next }).eq('household_id', householdId)
+    // Same contract as saveFoodInventory: absolute value, retried + bounded.
+    // FeedScene fires this without awaiting so the eat animation never waits
+    // on it — the retry keeps the decrement from vanishing on a blip.
+    await writeWithRetry(signal =>
+      supabase.from('eren_stats').update({ food_by_user: next }).eq('household_id', householdId).abortSignal(signal))
   }, [householdId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Adds 1 of `key` to the buyer's personal pile.

@@ -509,16 +509,17 @@ export default function FeedScene({ onClose }: Props) {
 
   async function handleFeed(item: typeof SHOP_ITEMS[number]) {
     if (!user?.id || feeding || isSleeping) return
-    setFeeding(item.id)
-    const consumed = await consumeMyFood(user.id, item.id)
-    if (!consumed) {
+    // Stock check is purely local — `inventory` derives from stats already
+    // in memory, so the no-food case answers without touching the network.
+    if ((inventory[item.id] ?? 0) <= 0) {
       showToast(`No ${item.name} in your fridge`, false)
-      setFeeding(null)
       return
     }
-    // Eren starts munching the moment the food lands — fire the eating
-    // sound before the network round-trip so playback feels immediate, and
-    // kick off the eat reaction (bowl → crouch-and-chomp → happy finisher).
+    setFeeding(item.id)
+    // Eren starts munching the moment the food lands — sound and reaction
+    // fire BEFORE any network write. The fridge decrement used to be
+    // awaited first, which held the whole choreography hostage to a
+    // Supabase round-trip (seconds of dead air on a cold connection).
     playSound('care_eat')
     setFedItem(item)
     // Random head-down pose for this meal.
@@ -537,6 +538,9 @@ export default function FeedScene({ onClose }: Props) {
         food: item.id, user_id: user.id, household_id: profile?.household_id,
       } }))
     } catch { /* SSR/no-window */ }
+    // Fridge decrement rides behind the animation. It reads the same stats
+    // snapshot as the stock check above, so it can't disagree with it.
+    void consumeMyFood(user.id, item.id)
     const result = await feedWithFood(user.id, item.hungerD, item.happyD, item.weightD)
     showToast(result.message, result.success)
     setFeeding(null)
