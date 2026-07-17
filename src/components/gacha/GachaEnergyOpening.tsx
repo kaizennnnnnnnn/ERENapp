@@ -23,21 +23,40 @@ import { useReducedMotion } from '@/hooks/useReducedMotion'
 type Phase = 'shine' | 'charge' | 'burst' | 'fade'
 
 interface Pal { core: string; glow: string } // core = hot centre; glow = "r,g,b" for rgba()
+// Saturated rarity palettes — the burst blooms carry the colour (see glow3), not
+// just a white flash, so each rarity reads vividly.
 const PALS: Record<GachaRarity, Pal> = {
-  common:    { core: '#ffffff', glow: '170,182,198' },
-  rare:      { core: '#eaf5ff', glow: '46,139,255' },
-  epic:      { core: '#f3e3ff', glow: '166,77,255' },
-  legendary: { core: '#fff6d8', glow: '255,186,31' },
+  common:    { core: '#ffffff', glow: '198,212,234' },
+  rare:      { core: '#cfe8ff', glow: '26,150,255' },
+  epic:      { core: '#ecd4ff', glow: '176,60,255' },
+  legendary: { core: '#ffeeae', glow: '255,190,12' },
 }
-// Neutral gold-white while the rarity is still unknown (the shine phase).
+// Neutral core for the pre-roll shine; its GLOW cycles through vivid hues below.
 const SHINE_PAL: Pal = { core: '#fff8e8', glow: '255,228,150' }
+// The shine (pre-roll) glow no longer sits on one gold — it eases through vivid
+// hues so the "charging" beat is colourful and ALWAYS shows purple, whatever
+// rarity the pull turns out to be. blue → purple → magenta → orange → gold.
+const SHINE_CYCLE = ['26,150,255', '150,60,255', '236,64,210', '255,120,40', '255,196,30']
 
-const MIN_SHINE = 760, CHARGE_MS = 740, BURST_MS = 540, FADE_MS = 520
+// Longer shine so the colour cycle reads before the roll resolves and bursts.
+const MIN_SHINE = 1250, CHARGE_MS = 740, BURST_MS = 540, FADE_MS = 520
 const TAU = Math.PI * 2
 
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3)
 const easeIn = (t: number) => t * t * t
 const clamp01 = (t: number) => (t < 0 ? 0 : t > 1 ? 1 : t)
+
+// Ease between two "r,g,b" triplets, and sample the shine hue cycle at time tMs.
+const lerpTriplet = (a: string, b: string, t: number): string => {
+  const pa = a.split(','), pb = b.split(',')
+  return pa.map((v, i) => Math.round(+v + (+pb[i] - +v) * t)).join(',')
+}
+const shineColor = (tMs: number): string => {
+  const seg = 700 // ms each hue dwells before easing to the next
+  const tt = (tMs % (seg * SHINE_CYCLE.length)) / seg
+  const i = Math.floor(tt) % SHINE_CYCLE.length
+  return lerpTriplet(SHINE_CYCLE[i], SHINE_CYCLE[(i + 1) % SHINE_CYCLE.length], tt - Math.floor(tt))
+}
 
 // Particle definitions are generated once and animated analytically by phase
 // progress (no per-frame physics state) — same stateless approach as the old CSS,
@@ -129,6 +148,16 @@ export default function GachaEnergyOpening({
       ctx.fillStyle = g
       ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill()
     }
+    // 3-stop variant — a saturated colour band between the white core and the
+    // transparent edge, so the big blooms read as COLOUR, not a white wash.
+    const glow3 = (x: number, y: number, r: number, inner: string, mid: string, outer: string) => {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r)
+      g.addColorStop(0, inner)
+      g.addColorStop(0.42, mid)
+      g.addColorStop(1, outer)
+      ctx.fillStyle = g
+      ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill()
+    }
 
     const draw = () => {
       raf = requestAnimationFrame(draw)
@@ -149,15 +178,18 @@ export default function GachaEnergyOpening({
       ctx.globalCompositeOperation = 'lighter' // additive — overlapping energy reads as light
 
       if (ph === 'shine') {
-        // A calm charging core + a few orbiting sparks while we wait on the roll.
-        const t = (now - phaseStartRef.current) / 1000
-        const pulse = 0.5 + 0.5 * Math.sin(t * 3.4)
-        glow(cx, cy, (24 + 12 * pulse) * u, `rgba(${pal.glow},${0.42 + 0.24 * pulse})`, `rgba(${pal.glow},0)`)
-        glow(cx, cy, 9 * u, 'rgba(255,255,255,0.7)', 'rgba(255,255,255,0)')
+        // A colour-cycling charging core + orbiting sparks while we wait on the
+        // roll. The hue eases blue → purple → magenta → gold (see shineColor) so
+        // the opening beat is vivid and always shows purple.
+        const tMs = now - phaseStartRef.current
+        const cyc = shineColor(tMs)
+        const pulse = 0.5 + 0.5 * Math.sin((tMs / 1000) * 3.4)
+        glow(cx, cy, (26 + 14 * pulse) * u, `rgba(${cyc},${0.52 + 0.3 * pulse})`, `rgba(${cyc},0)`)
+        glow(cx, cy, 11 * u, 'rgba(255,255,255,0.78)', 'rgba(255,255,255,0)')
         if (!reduced) {
           for (let i = 0; i < 5; i++) {
-            const ang = t * 1.7 + (i / 5) * TAU
-            glow(cx + Math.cos(ang) * 30 * u, cy + Math.sin(ang) * 30 * u, 5 * u, `rgba(255,255,255,0.6)`, `rgba(${pal.glow},0)`)
+            const ang = (tMs / 1000) * 1.7 + (i / 5) * TAU
+            glow(cx + Math.cos(ang) * 32 * u, cy + Math.sin(ang) * 32 * u, 5.5 * u, 'rgba(255,255,255,0.62)', `rgba(${cyc},0)`)
           }
         }
       } else if (ph === 'charge') {
@@ -170,19 +202,23 @@ export default function GachaEnergyOpening({
         }
         const cr = (12 + 26 * easeIn(p)) * u
         glow(cx, cy, cr, `rgba(255,255,255,${0.5 + 0.4 * p})`, `rgba(${pal.glow},0)`)
-        glow(cx, cy, cr * 2.6, `rgba(${pal.glow},${0.4 * p})`, `rgba(${pal.glow},0)`)
+        glow3(cx, cy, cr * 2.6, `rgba(255,255,255,${0.2 * p})`, `rgba(${pal.glow},${0.62 * p})`, `rgba(${pal.glow},0)`)
       } else {
         // burst + fade share the shockwave / spray, driven by time-since-burst.
         const bt = now - burstStartRef.current
         const span = BURST_MS + FADE_MS
 
-        // Flash — one smooth 0→1→0 over the first ~half of the burst (not a strobe).
+        // Flash — one smooth 0→1→0 over the first ~half of the burst (not a
+        // strobe). Tinted toward the rarity so the peak reads coloured, not white.
         const flashP = clamp01(bt / (BURST_MS * 0.5))
-        if (flashP < 1) glow(cx, cy, Math.max(W, H) * 0.9, `rgba(255,255,255,${0.82 * Math.sin(flashP * Math.PI)})`, `rgba(${pal.glow},0)`)
+        if (flashP < 1) {
+          const fa = Math.sin(flashP * Math.PI)
+          glow3(cx, cy, Math.max(W, H) * 0.9, `rgba(255,255,255,${0.8 * fa})`, `rgba(${pal.glow},${0.52 * fa})`, `rgba(${pal.glow},0)`)
+        }
 
-        // Core fireball — smooth gradient bloom, no turbulence filter.
+        // Core fireball — smooth gradient bloom with a saturated colour band.
         const cp = easeOut(clamp01(bt / BURST_MS))
-        glow(cx, cy, (30 + 120 * cp) * u, `rgba(255,255,255,${0.9 * (1 - cp)})`, `rgba(${pal.glow},0)`)
+        glow3(cx, cy, (30 + 120 * cp) * u, `rgba(255,255,255,${0.92 * (1 - cp)})`, `rgba(${pal.glow},${0.85 * (1 - cp)})`, `rgba(${pal.glow},0)`)
 
         // Shockwave rings — stroked arcs (cheap), staggered.
         const rings = reduced ? 1 : 3
@@ -218,7 +254,7 @@ export default function GachaEnergyOpening({
         // Lingering afterglow through the fade into the reveal.
         if (ph === 'fade') {
           const fp = clamp01((now - phaseStartRef.current) / FADE_MS)
-          glow(cx, cy, (60 + 40 * fp) * u, `rgba(${pal.glow},${0.5 * (1 - fp)})`, `rgba(${pal.glow},0)`)
+          glow3(cx, cy, (60 + 40 * fp) * u, `rgba(255,255,255,${0.3 * (1 - fp)})`, `rgba(${pal.glow},${0.62 * (1 - fp)})`, `rgba(${pal.glow},0)`)
         }
       }
 
