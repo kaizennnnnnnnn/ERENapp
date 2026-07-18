@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { withRetry } from '@/lib/supabaseRetry'
+import { withRetry, writeWithRetry } from '@/lib/supabaseRetry'
 import { onForeground } from '@/lib/onForeground'
 import {
   TASK_DEFS, getDailyKey, getWeeklyKey, xpForNextLevel, totalXpForLevel,
@@ -163,7 +163,12 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     if (!user?.id || coins < amount) return false
     const next = coins - amount
     setCoins(next)
-    const { error } = await supabase.from('profiles').update({ coins: next }).eq('id', user.id)
+    // writeWithRetry: absolute value, so a retry can't double-charge. A
+    // transient 503 no longer fails the purchase outright, and a stalled
+    // request gets aborted instead of pinning every caller's busy state
+    // (shop BUY, gacha PULL, bakery) for as long as the socket dangles.
+    const { error } = await writeWithRetry(signal =>
+      supabase.from('profiles').update({ coins: next }).eq('id', user.id).abortSignal(signal))
     if (error) { setCoins(coins); return false }
     return true
   }, [user?.id, coins]) // eslint-disable-line react-hooks/exhaustive-deps

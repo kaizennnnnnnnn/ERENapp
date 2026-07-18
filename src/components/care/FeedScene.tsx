@@ -497,12 +497,21 @@ export default function FeedScene({ onClose }: Props) {
   async function handleBuy(item: typeof SHOP_ITEMS[number]) {
     if (!user?.id || isSleeping || buying || coins < item.price) return
     setBuying(item.id)
+    // Affordability was just checked locally, so the outcome is already
+    // decided — toast NOW instead of after two sequential Supabase round-
+    // trips (coins write, then fridge write) that used to pin the button at
+    // "..." with zero feedback for seconds on a slow connection. The writes
+    // settle behind the toast; `buying` stays held until they do so
+    // purchases serialize and the coin math never sees a stale balance.
+    showToast(`Bought ${item.name}! In your fridge`)
     const ok = await spendCoins(item.price)
     if (ok) {
       await addToMyFood(user.id, item.id)
-      showToast(`Bought ${item.name}! In your fridge`)
     } else {
-      showToast('Not enough coins!', false)
+      // Can't be insufficient funds here (pre-checked above) — false means
+      // the coin write failed for real and spendCoins already rolled the
+      // balance back. No food was added.
+      showToast('Connection hiccup — try again!', false)
     }
     setBuying(null)
   }
