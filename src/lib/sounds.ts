@@ -51,6 +51,12 @@ export const SOUNDS = {
   quest_complete:       '/sounds/progression/quest_complete.mp3',
   level_up:             '/sounds/progression/level_up.mp3',
   coin_pickup:          '/sounds/progression/coin_pickup.mp3',
+  // Coin "ching" ×3 (ascending). SYNTHESISED — see SYNTH_RECIPES, which always
+  // wins over the mp3 path, so these files never exist and are never fetched
+  // (preload skips synth names). Paths are here only to declare the names.
+  coin_ching:           '/sounds/progression/coin_ching.mp3',
+  coin_ching2:          '/sounds/progression/coin_ching2.mp3',
+  coin_ching3:          '/sounds/progression/coin_ching3.mp3',
   gift_open:            '/sounds/progression/gift_open.mp3',
 
   // Care actions — fired by individual care scenes when Eren acts.
@@ -225,6 +231,10 @@ const VOLUME_SCALE: Partial<Record<SoundName, number>> = {
   ui_modal_open:  0.5,
   ui_modal_close: 0.5,
   coin_pickup:    0.7,
+  // Bright + piercing by design, and they overlap in a cascade — keep them soft.
+  coin_ching:     0.42,
+  coin_ching2:    0.42,
+  coin_ching3:    0.42,
   quest_complete: 0.7,
   level_up:       0.8,
   gift_open:      0.85,
@@ -621,21 +631,25 @@ export function playLoop(name: SoundName, opts: { volume?: number } = {}): () =>
   }
 }
 
-// Coin-counter ticks — how many at most, and how far apart.
-const COIN_TICK_MAX = 6
-const COIN_TICK_GAP = 75
+// Coin-counter chings — how many at most, how far apart, and the ascending
+// cycle. 110ms reads as a distinct "ching-ching-ching" (75ms trilled together).
+const COIN_TICK_MAX = 5
+const COIN_TICK_GAP = 110
+const COIN_CHINGS: SoundName[] = ['coin_ching', 'coin_ching2', 'coin_ching3']
 
-/** A short cascade of coin ticks to run while a coin counter climbs, so the
- *  number rising is audible and not just visual. Each tick is a `coin_pickup`
- *  at the user's OWN volume (deliberately no volume override — passing one
- *  would bypass their global setting), capped + spaced so a 250-coin payout
- *  cascades instead of machine-gunning. Returns cancel() so a caller can drop
- *  pending ticks on unmount, or when a newer gain supersedes this one. */
+/** A short cascade of coin chings to run while a coin counter climbs, so the
+ *  number rising is audible and not just visual. Cycles three ascending
+ *  metallic chings so the run CLIMBS like a coin counter instead of repeating
+ *  one flat note. Plays at the user's OWN volume (deliberately no volume
+ *  override — passing one would bypass their global setting), capped + spaced
+ *  so a 250-coin payout cascades instead of machine-gunning. Returns cancel()
+ *  so a caller can drop pending chings on unmount, or when a newer gain
+ *  supersedes this one. */
 export function playCoinTicks(ticks: number, startDelay = 0): () => void {
   if (muted || typeof window === 'undefined') return () => {}
   const n = Math.max(1, Math.min(COIN_TICK_MAX, Math.round(ticks)))
   const timers = Array.from({ length: n }, (_, i) =>
-    setTimeout(() => playSound('coin_pickup'), startDelay + i * COIN_TICK_GAP))
+    setTimeout(() => playSound(COIN_CHINGS[i % COIN_CHINGS.length]), startDelay + i * COIN_TICK_GAP))
   return () => timers.forEach(clearTimeout)
 }
 

@@ -213,6 +213,26 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
   //
   // care_happy  — bright rising sparkle, the payoff after feed / play / vet.
   care_happy:  { type: 'arp', notes: [659, 880, 1175, 1568], step: 58, noteDur: 95, shape: 'triangle', gain: 0.6 },
+
+  // ── Coin "ching" — the sound of coins landing in the counter ──────────────
+  // Struck metal, not a musical note: the partials are deliberately INHARMONIC
+  // (ratios ~1 : 1.53 : 2.08) which is what makes the ear hear "metal" rather
+  // than a chord. Each ching is a bright strike plus a sine ring-out that hangs
+  // ~290ms, so a cascade overlaps into a continuous shimmer of coins pouring in.
+  // Three ascending variants — playCoinTicks cycles them so the count-up climbs
+  // in pitch like a coin counter instead of repeating one flat note.
+  coin_ching:  { type: 'seq', parts: [
+                   { at: 0,  recipe: { type: 'chord', freqs: [2050, 3140, 4270], duration: 130, shape: 'triangle', gain: 0.6 } },
+                   { at: 26, recipe: { type: 'chord', freqs: [2630, 3520], duration: 290, shape: 'sine', gain: 0.38 } },
+                 ] },
+  coin_ching2: { type: 'seq', parts: [
+                   { at: 0,  recipe: { type: 'chord', freqs: [2300, 3520, 4790], duration: 130, shape: 'triangle', gain: 0.6 } },
+                   { at: 26, recipe: { type: 'chord', freqs: [2950, 3950], duration: 290, shape: 'sine', gain: 0.38 } },
+                 ] },
+  coin_ching3: { type: 'seq', parts: [
+                   { at: 0,  recipe: { type: 'chord', freqs: [2580, 3950, 5370], duration: 130, shape: 'triangle', gain: 0.6 } },
+                   { at: 26, recipe: { type: 'chord', freqs: [3310, 4430], duration: 290, shape: 'sine', gain: 0.38 } },
+                 ] },
   // care_sleep  — soft downward coo for tuck-in / wake.
   care_sleep:  { type: 'sweep', freq: [523, 300], duration: 460, shape: 'sine', gain: 0.4, curve: 'exponential' },
   // care_jingle — the ball's bell when he pounces: a bright double ding.

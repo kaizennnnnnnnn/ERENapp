@@ -73,7 +73,7 @@ export default function GameCoinReward({ coins, blocked = false }: Props) {
       }
     }
     setSprites(sp)
-    playSound('coin_pickup')
+    playSound('coin_ching')
 
     // Ticks land with the coins, running under the balance's count-up so the
     // number climbing is audible (the spawn sound above is the launch).
