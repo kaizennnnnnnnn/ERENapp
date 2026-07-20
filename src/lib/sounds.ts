@@ -621,6 +621,24 @@ export function playLoop(name: SoundName, opts: { volume?: number } = {}): () =>
   }
 }
 
+// Coin-counter ticks — how many at most, and how far apart.
+const COIN_TICK_MAX = 6
+const COIN_TICK_GAP = 75
+
+/** A short cascade of coin ticks to run while a coin counter climbs, so the
+ *  number rising is audible and not just visual. Each tick is a `coin_pickup`
+ *  at the user's OWN volume (deliberately no volume override — passing one
+ *  would bypass their global setting), capped + spaced so a 250-coin payout
+ *  cascades instead of machine-gunning. Returns cancel() so a caller can drop
+ *  pending ticks on unmount, or when a newer gain supersedes this one. */
+export function playCoinTicks(ticks: number, startDelay = 0): () => void {
+  if (muted || typeof window === 'undefined') return () => {}
+  const n = Math.max(1, Math.min(COIN_TICK_MAX, Math.round(ticks)))
+  const timers = Array.from({ length: n }, (_, i) =>
+    setTimeout(() => playSound('coin_pickup'), startDelay + i * COIN_TICK_GAP))
+  return () => timers.forEach(clearTimeout)
+}
+
 export function setVolume(v: number) {
   globalVolume = Math.max(0, Math.min(1, v))
 }

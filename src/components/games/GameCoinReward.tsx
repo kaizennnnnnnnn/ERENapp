@@ -17,7 +17,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { IconCoin } from '@/components/PixelIcons'
 import { useTasks } from '@/contexts/TaskContext'
-import { playSound } from '@/lib/sounds'
+import { playSound, playCoinTicks } from '@/lib/sounds'
 
 interface Props {
   coins: number
@@ -75,6 +75,10 @@ export default function GameCoinReward({ coins, blocked = false }: Props) {
     setSprites(sp)
     playSound('coin_pickup')
 
+    // Ticks land with the coins, running under the balance's count-up so the
+    // number climbing is audible (the spawn sound above is the launch).
+    const cancelTicks = playCoinTicks(4, COIN_FLY_MS)
+
     let cancelled = false
     let raf = 0
     const land = setTimeout(() => {
@@ -94,7 +98,7 @@ export default function GameCoinReward({ coins, blocked = false }: Props) {
     const maxDelay = (PER_SIDE - 1) * 60 + 30
     const clear = setTimeout(() => { if (!cancelled) setSprites([]) }, COIN_FLY_MS + maxDelay + 200)
 
-    return () => { cancelled = true; cancelAnimationFrame(raf); clearTimeout(land); clearTimeout(clear) }
+    return () => { cancelled = true; cancelAnimationFrame(raf); clearTimeout(land); clearTimeout(clear); cancelTicks() }
   }, [blocked, coins, startBal, target])
 
   return (

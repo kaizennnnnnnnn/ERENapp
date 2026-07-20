@@ -11,7 +11,7 @@ import { xpForNextLevel, totalXpForLevel, levelForXp } from '@/lib/tasks'
 import { MAX_LEVEL } from '@/lib/levelRewards'
 import { createClient } from '@/lib/supabase/client'
 import { IconHeart, IconMeat, IconLightning, IconMoon, IconDrop, IconCoin, IconFire } from './PixelIcons'
-import { playSound } from '@/lib/sounds'
+import { playSound, playCoinTicks } from '@/lib/sounds'
 import { PINK, PINK_HI, PINK_LO, OBSIDIAN_FACE, Rivets, accentA } from './obsidian'
 import { useWish } from '@/contexts/WishContext'
 import WishChip from '@/components/wish/WishChip'
@@ -246,7 +246,13 @@ export default function StatsHeader() {
   // holds the count-up until the gift fires the shower from the revealed bag.
   const coinClaimRef = useRef(false)
   const awaitingBurstRef = useRef(false)
-  useEffect(() => () => { coinTimersRef.current.forEach(clearTimeout) }, [])
+  // Pending coin-tick cascade (the sound of the counter climbing). Held so a
+  // newer gain can supersede it instead of the two overlapping into a clatter.
+  const coinTickCancelRef = useRef<(() => void) | null>(null)
+  useEffect(() => () => {
+    coinTimersRef.current.forEach(clearTimeout)
+    coinTickCancelRef.current?.()
+  }, [])
 
   const launchCoinFlight = useCallback((opts?: { origin?: { x: number; y: number }; count?: number }) => {
     const chip = coinChipRef.current
@@ -271,6 +277,10 @@ export default function StatsHeader() {
       return { i, sdx: ox + Math.cos(ang) * rad - tx, sdy: oy + Math.sin(ang) * rad - ty, delay: i * 38 }
     })
     setCoinFlights(f => [...f, { id, tx, ty, sprites }])
+    // Little coin ticks as the coins land and the counter starts climbing —
+    // more ticks for a bigger shower. A newer flight replaces the old cascade.
+    coinTickCancelRef.current?.()
+    coinTickCancelRef.current = playCoinTicks(Math.max(3, n / 3), COIN_FLY_MS)
     const t = setTimeout(() => {
       setCoinFlights(f => f.filter(x => x.id !== id))
       coinTimersRef.current.delete(t)
