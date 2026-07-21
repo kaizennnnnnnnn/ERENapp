@@ -231,10 +231,12 @@ const VOLUME_SCALE: Partial<Record<SoundName, number>> = {
   ui_modal_open:  0.5,
   ui_modal_close: 0.5,
   coin_pickup:    0.7,
-  // Bright + piercing by design, and they overlap in a cascade — keep them soft.
-  coin_ching:     0.42,
-  coin_ching2:    0.42,
-  coin_ching3:    0.42,
+  // They overlap in a cascade, so keep them gentle — but pure sine carries less
+  // harmonic energy than the triangle these used to be, so it needs a nudge UP
+  // to land at the same perceived loudness.
+  coin_ching:     0.52,
+  coin_ching2:    0.52,
+  coin_ching3:    0.52,
   quest_complete: 0.7,
   level_up:       0.8,
   gift_open:      0.85,
