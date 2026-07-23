@@ -504,13 +504,23 @@ export default function FeedScene({ onClose }: Props) {
     // settle behind the toast; `buying` stays held until they do so
     // purchases serialize and the coin math never sees a stale balance.
     showToast(`Bought ${item.name}! In your fridge`)
-    const ok = await spendCoins(item.price)
-    if (ok) {
-      await addToMyFood(user.id, item.id)
-    } else {
-      // Can't be insufficient funds here (pre-checked above) — false means
-      // the coin write failed for real and spendCoins already rolled the
-      // balance back. No food was added.
+    // The two writes are INDEPENDENT — different tables (profiles.coins vs
+    // eren_stats.food_by_user) with no ordering dependency — and each applies
+    // its optimistic local update the moment it's called. Awaiting the coin
+    // write first meant addToMyFood wasn't even CALLED until that round-trip
+    // came back, so the fridge count sat unchanged behind a toast that already
+    // said "In your fridge", and the button held at "..." for the SUM of two
+    // round-trips. Firing them together: the fridge fills on tap, and the
+    // button unpins after the slower single round-trip instead of both.
+    const [ok] = await Promise.all([
+      spendCoins(item.price),
+      addToMyFood(user.id, item.id),
+    ])
+    if (!ok) {
+      // Can't be insufficient funds here (pre-checked above) — false means the
+      // coin write failed for real and spendCoins already rolled the balance
+      // back. Take the food back too: a failed payment must not leave stock.
+      await consumeMyFood(user.id, item.id)
       showToast('Connection hiccup — try again!', false)
     }
     setBuying(null)

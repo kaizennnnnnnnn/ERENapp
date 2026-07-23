@@ -237,6 +237,16 @@ function useErenStatsImpl(householdId: string | null) {
   const hasStatsRef = useRef(false)
   useEffect(() => { hasStatsRef.current = stats !== null }, [stats])
 
+  // Latest stats, readable synchronously. The per-user fridge helpers below
+  // compute the next pile from THIS rather than the `stats` render closure:
+  // a caller that fires two food mutations before re-rendering (buy + roll
+  // back, buy + feed) would otherwise have both read the same pre-mutation
+  // value, and the second absolute write would silently clobber the first.
+  // Synced on every stats change, and written through by saveFoodByUser so
+  // it's already current for a follow-up call in the same tick.
+  const statsRef = useRef<ErenStats | null>(null)
+  useEffect(() => { statsRef.current = stats }, [stats])
+
   const fetchStats = useCallback(async () => {
     if (!householdId) return
     // Only the initial fetch shows the loader. The 2-min decay tick and the
@@ -474,6 +484,9 @@ function useErenStatsImpl(householdId: string | null) {
   // still draw from. `food_by_user` holds per-user piles keyed by user id.
   const saveFoodByUser = useCallback(async (next: Record<string, FoodInventory>): Promise<void> => {
     if (!householdId) return
+    // Write through to the ref as well as state, so a second food mutation in
+    // the same tick computes from this pile instead of the pre-mutation one.
+    if (statsRef.current) statsRef.current = { ...statsRef.current, food_by_user: next }
     setStats(prev => prev ? { ...prev, food_by_user: next } : prev)
     // Same contract as saveFoodInventory: absolute value, retried + bounded.
     // FeedScene fires this without awaiting so the eat animation never waits
@@ -484,8 +497,9 @@ function useErenStatsImpl(householdId: string | null) {
 
   // Adds 1 of `key` to the buyer's personal pile.
   const addToMyFood = useCallback(async (userId: string, key: keyof FoodInventory): Promise<void> => {
-    if (!stats) return
-    const byUser = { ...(stats.food_by_user ?? {}) }
+    const cur = statsRef.current ?? stats
+    if (!cur) return
+    const byUser = { ...(cur.food_by_user ?? {}) }
     const mine = { ...(byUser[userId] ?? {}) }
     mine[key] = (mine[key] ?? 0) + 1
     byUser[userId] = mine
@@ -496,8 +510,9 @@ function useErenStatsImpl(householdId: string | null) {
   // falls back to the shared legacy pool. Returns true if anything was
   // consumed.
   const consumeMyFood = useCallback(async (userId: string, key: keyof FoodInventory): Promise<boolean> => {
-    if (!stats) return false
-    const byUser = { ...(stats.food_by_user ?? {}) }
+    const cur = statsRef.current ?? stats
+    if (!cur) return false
+    const byUser = { ...(cur.food_by_user ?? {}) }
     const mine = { ...(byUser[userId] ?? {}) }
     if ((mine[key] ?? 0) > 0) {
       mine[key] = (mine[key] ?? 0) - 1
@@ -506,7 +521,7 @@ function useErenStatsImpl(householdId: string | null) {
       return true
     }
     // Legacy shared pool fallback
-    const shared = { ...(stats.food_inventory ?? {}) }
+    const shared = { ...(cur.food_inventory ?? {}) }
     if ((shared[key] ?? 0) > 0) {
       shared[key] = (shared[key] ?? 0) - 1
       await saveFoodInventory(shared)
@@ -522,8 +537,9 @@ function useErenStatsImpl(householdId: string | null) {
     toUserId: string,
     key: keyof FoodInventory,
   ): Promise<boolean> => {
-    if (!stats) return false
-    const byUser = { ...(stats.food_by_user ?? {}) }
+    const cur = statsRef.current ?? stats
+    if (!cur) return false
+    const byUser = { ...(cur.food_by_user ?? {}) }
     const sender = { ...(byUser[fromUserId] ?? {}) }
     if ((sender[key] ?? 0) <= 0) return false
     sender[key] = (sender[key] ?? 0) - 1
