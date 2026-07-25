@@ -116,6 +116,29 @@ export type FoodInventory = {
   donut?: number
   cookie?: number
   jelly_caka?: number
+  // World dishes (pixel-art plates). Grouped in the shop by cuisine —
+  // italian / sushi / asian / balkan / world.
+  pizza?: number
+  carbonara?: number
+  lasagna?: number
+  risotto?: number
+  nigiri?: number
+  temaki?: number
+  maki?: number
+  ramen?: number
+  pad_thai?: number
+  gyoza?: number
+  xiaolongbao?: number
+  cevapi?: number
+  sarma?: number
+  doner?: number
+  tacos?: number
+  wrap?: number
+  paella?: number
+  stew?: number
+  meatballs?: number
+  roast_chicken?: number
+  fried_egg?: number
 }
 
 export interface ErenStats {
@@ -146,6 +169,12 @@ export interface ErenStats {
 }
 
 export type FoodKey = 'kibble' | 'fish' | 'treat' | 'tuna' | 'steak' | 'cream' | 'biscuit' | 'shrimp' | 'salmon' | 'chicken' | 'sausage' | 'milk' | 'cheese' | 'yogurt' | 'cake' | 'sushi' | 'sardine' | 'egg' | 'monster' | 'donut' | 'cookie' | 'jelly_caka'
+  // World dishes — same lifecycle as the staples above (buyable, giftable).
+  | 'pizza' | 'carbonara' | 'lasagna' | 'risotto'
+  | 'nigiri' | 'temaki' | 'maki'
+  | 'ramen' | 'pad_thai' | 'gyoza' | 'xiaolongbao'
+  | 'cevapi' | 'sarma' | 'doner'
+  | 'tacos' | 'wrap' | 'paella' | 'stew' | 'meatballs' | 'roast_chicken' | 'fried_egg'
 export interface GiftItem { key: FoodKey; qty: number }
 
 export interface Interaction {

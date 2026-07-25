@@ -59,6 +59,38 @@ const SHOP_ITEMS = [
   { id: 'donut'      as const, name: 'Donut',       price: 14, hungerD: 12, happyD: 22, weightD: 0.04, desc: 'Pink & sprinkled', color: '#FF8FB0', cat: 'special' },
   { id: 'cookie'     as const, name: 'Cookie',      price: 7,  hungerD: 8,  happyD: 18, weightD: 0.02, desc: 'Choc-chip warm',   color: '#C89A6B', cat: 'special' },
   { id: 'jelly_caka' as const, name: 'Jelly Caka',  price: 20, hungerD: 14, happyD: 30, weightD: 0.05, desc: 'Sweet wobble',     color: '#E83A4A', cat: 'special' },
+
+  // ─── World dishes ────────────────────────────────────────────────────────
+  // Full plated meals (pixel-art art in /public/food), grouped by cuisine so
+  // the picker stays browsable instead of dumping 21 dishes into SPECIAL.
+  // Priced above the staples — these are real meals: high hunger, high joy,
+  // and heavier (weightD) than a treat.
+  // Italian
+  { id: 'pizza'     as const, name: 'Pizza',       price: 26, hungerD: 34, happyD: 26, weightD: 0.09, desc: 'Hot cheesy slice',   color: '#E4703A', cat: 'italian' },
+  { id: 'carbonara' as const, name: 'Carbonara',   price: 24, hungerD: 32, happyD: 22, weightD: 0.08, desc: 'Silky egg & pepper', color: '#EFC663', cat: 'italian' },
+  { id: 'lasagna'   as const, name: 'Lasagna',     price: 28, hungerD: 38, happyD: 24, weightD: 0.10, desc: 'Layered and baked',  color: '#D9793F', cat: 'italian' },
+  { id: 'risotto'   as const, name: 'Risotto',     price: 24, hungerD: 30, happyD: 22, weightD: 0.08, desc: 'Creamy saffron rice',color: '#E8C765', cat: 'italian' },
+  // Sushi
+  { id: 'nigiri'    as const, name: 'Nigiri',      price: 22, hungerD: 22, happyD: 28, weightD: 0.04, desc: 'Tuna on rice',       color: '#F0736F', cat: 'sushi'   },
+  { id: 'temaki'    as const, name: 'Temaki',      price: 20, hungerD: 20, happyD: 26, weightD: 0.04, desc: 'Hand-rolled cone',   color: '#3C6E52', cat: 'sushi'   },
+  { id: 'maki'      as const, name: 'Maki Roll',   price: 24, hungerD: 26, happyD: 28, weightD: 0.05, desc: 'Seaweed-wrapped',    color: '#2F3B33', cat: 'sushi'   },
+  // Asian
+  { id: 'ramen'     as const, name: 'Ramen',       price: 28, hungerD: 36, happyD: 30, weightD: 0.09, desc: 'Steamy bowl of joy', color: '#C8632E', cat: 'asian'   },
+  { id: 'pad_thai'  as const, name: 'Pad Thai',    price: 26, hungerD: 32, happyD: 26, weightD: 0.08, desc: 'Tangy peanut noodles',color: '#E08A3C', cat: 'asian'  },
+  { id: 'gyoza'     as const, name: 'Gyoza',       price: 20, hungerD: 24, happyD: 24, weightD: 0.06, desc: 'Pan-fried dumplings',color: '#E7D2A6', cat: 'asian'   },
+  { id: 'xiaolongbao' as const, name: 'Soup Buns', price: 24, hungerD: 28, happyD: 26, weightD: 0.07, desc: 'Steamed in a basket',color: '#D9BE8E', cat: 'asian'   },
+  // Balkan
+  { id: 'cevapi'    as const, name: 'Ćevapi',      price: 26, hungerD: 36, happyD: 24, weightD: 0.09, desc: 'Grilled little logs',color: '#A9663C', cat: 'balkan'  },
+  { id: 'sarma'     as const, name: 'Sarma',       price: 24, hungerD: 32, happyD: 24, weightD: 0.08, desc: 'Rolled cabbage',     color: '#7E9B4E', cat: 'balkan'  },
+  { id: 'doner'     as const, name: 'Döner',       price: 22, hungerD: 34, happyD: 22, weightD: 0.08, desc: 'Wrapped and stacked',color: '#D2A15C', cat: 'balkan'  },
+  // World
+  { id: 'tacos'     as const, name: 'Tacos',       price: 22, hungerD: 28, happyD: 26, weightD: 0.07, desc: 'Three of them!',     color: '#E0A93F', cat: 'world'   },
+  { id: 'wrap'      as const, name: 'Wrap',        price: 18, hungerD: 26, happyD: 20, weightD: 0.06, desc: 'Rolled up tight',    color: '#DDBE84', cat: 'world'   },
+  { id: 'paella'    as const, name: 'Paella',      price: 30, hungerD: 38, happyD: 28, weightD: 0.10, desc: 'Straight from the pan',color: '#DE9A3E', cat: 'world' },
+  { id: 'stew'      as const, name: 'Stew',        price: 24, hungerD: 34, happyD: 22, weightD: 0.09, desc: 'Slow-cooked & warm', color: '#8E5A2E', cat: 'world'   },
+  { id: 'meatballs' as const, name: 'Meatballs',   price: 26, hungerD: 34, happyD: 24, weightD: 0.09, desc: 'Simmered in sauce',  color: '#C4452F', cat: 'world'   },
+  { id: 'roast_chicken' as const, name: 'Roast Chicken', price: 32, hungerD: 42, happyD: 26, weightD: 0.12, desc: 'The whole bird',color: '#D8973C', cat: 'world'  },
+  { id: 'fried_egg' as const, name: 'Fried Egg',   price: 6,  hungerD: 16, happyD: 12, weightD: 0.03, desc: 'Sunny side up',      color: '#F2C14E', cat: 'world'   },
 ]
 
 const FRIDGE_CATEGORIES = [
@@ -67,7 +99,25 @@ const FRIDGE_CATEGORIES = [
   { id: 'meat',    label: 'MEAT',    color: '#CC3333' },
   { id: 'dairy',   label: 'DAIRY',   color: '#A78BFA' },
   { id: 'special', label: 'SPECIAL', color: '#FF85A2' },
+  { id: 'italian', label: 'ITALIAN', color: '#E4703A' },
+  { id: 'sushi',   label: 'SUSHI',   color: '#F0736F' },
+  { id: 'asian',   label: 'ASIAN',   color: '#C8632E' },
+  { id: 'balkan',  label: 'BALKAN',  color: '#A9663C' },
+  { id: 'world',   label: 'WORLD',   color: '#DE9A3E' },
 ]
+
+// Dishes whose art is a real pixel-art PNG rather than a hand-drawn SVG below.
+// Also re-arts three staples that shipped as SVGs (sardine / steak / chicken —
+// the chicken plate is the drumstick its description always promised), so their
+// old SVG branches in FoodIcon are gone: this map is checked first.
+const FOOD_IMAGE_IDS = new Set([
+  'pizza', 'carbonara', 'lasagna', 'risotto',
+  'nigiri', 'temaki', 'maki',
+  'ramen', 'pad_thai', 'gyoza', 'xiaolongbao',
+  'cevapi', 'sarma', 'doner',
+  'tacos', 'wrap', 'paella', 'stew', 'meatballs', 'roast_chicken', 'fried_egg',
+  'sardine', 'steak', 'chicken',
+])
 
 function FoodIcon({ id }: { id: string; color?: string }) {
   const S = 32
@@ -75,6 +125,15 @@ function FoodIcon({ id }: { id: string; color?: string }) {
   const base: React.CSSProperties = { imageRendering: 'pixelated' }
   const r = (x: number, y: number, w: number, h: number, f: string) =>
     <rect x={x} y={y} width={w} height={h} fill={f} />
+
+  // Pixel-art plates. These are hi-res sources downscaled to 128px, so they
+  // render SMOOTH (image-rendering auto) — `pixelated` would alias the
+  // non-integer downscale into a shimmering mess. Same rule as the Eren body
+  // sprites; only the true 10×10 SVGs below are pixel-snapped.
+  if (FOOD_IMAGE_IDS.has(id)) return (
+    <img src={`/food/${id}.png`} alt="" draggable={false} width={S} height={S}
+      style={{ width: S, height: S, objectFit: 'contain', display: 'block' }} />
+  )
 
   if (id === 'kibble') return (
     <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
@@ -129,35 +188,12 @@ function FoodIcon({ id }: { id: string; color?: string }) {
       {r(3,3,1,1,'rgba(255,255,255,0.4)')}{r(5,3,1,1,'rgba(255,255,255,0.25)')}
     </svg>
   )
-  if (id === 'sardine') return (
-    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
-      {r(1,4,6,2,'#7BAFC8')}{r(2,3,4,1,'#8EC4D8')}{r(2,6,4,1,'#6A98B0')}
-      {r(7,4,1,1,'#6A98B0')}{r(7,5,1,1,'#6A98B0')}{r(8,4,1,2,'#5888A0')}
-      {r(2,4,1,1,'#fff')}{r(3,5,1,1,'#222')}
-      {r(4,4,1,1,'#A0D0E8')}
-    </svg>
-  )
   if (id === 'sushi') return (
     <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
       {r(2,4,6,3,'#fff')}{r(2,3,6,1,'#E8735A')}{r(3,2,4,1,'#F08060')}
       {r(2,7,6,1,'#1A1A2A')}{r(3,5,4,1,'#E8E4E0')}
       {r(3,3,1,1,'rgba(255,255,255,0.3)')}{r(2,8,6,1,'#2D9B6A')}
       {r(3,8,4,1,'#3AB87A')}
-    </svg>
-  )
-  if (id === 'steak') return (
-    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
-      {r(2,3,6,5,'#CC3333')}{r(3,2,4,1,'#DD4444')}{r(2,8,6,1,'#993322')}
-      {r(3,4,1,2,'#FF8888')}{r(5,5,2,1,'#FF8888')}{r(4,7,1,1,'#FF8888')}
-      {r(3,3,1,1,'rgba(255,255,255,0.3)')}{r(7,4,1,1,'#B02828')}
-    </svg>
-  )
-  if (id === 'chicken') return (
-    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
-      {r(3,2,4,5,'#E8B44A')}{r(2,4,1,3,'#E8B44A')}{r(7,4,1,3,'#D4A030')}
-      {r(4,7,2,2,'#C89030')}{r(3,3,1,2,'#F5D070')}
-      {r(5,3,1,1,'#F5D070')}{r(3,2,1,1,'rgba(255,255,255,0.3)')}
-      {r(4,9,2,1,'#A07020')}
     </svg>
   )
   if (id === 'sausage') return (
