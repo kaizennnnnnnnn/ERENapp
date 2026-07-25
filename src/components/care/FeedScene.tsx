@@ -93,6 +93,11 @@ const SHOP_ITEMS = [
   { id: 'fried_egg' as const, name: 'Fried Egg',   price: 6,  hungerD: 16, happyD: 12, weightD: 0.03, desc: 'Sunny side up',      color: '#F2C14E', cat: 'world'   },
 ]
 
+// Icon size for the food you carry to Eren — the tray tile and the drag ghost
+// share it so the plate never changes size when you pick it up, and the ghost's
+// centring offset stays derived from one number.
+const DRAG_ICON = 50
+
 const FRIDGE_CATEGORIES = [
   { id: 'dry',     label: 'DRY',     color: '#D4A44A' },
   { id: 'seafood', label: 'SEAFOOD', color: '#5BA3D9' },
@@ -119,8 +124,8 @@ const FOOD_IMAGE_IDS = new Set([
   'sardine', 'steak', 'chicken',
 ])
 
-function FoodIcon({ id }: { id: string; color?: string }) {
-  const S = 32
+function FoodIcon({ id, size = 32 }: { id: string; color?: string; size?: number }) {
+  const S = size
   const V = '0 0 10 10'
   const base: React.CSSProperties = { imageRendering: 'pixelated' }
   const r = (x: number, y: number, w: number, h: number, f: string) =>
@@ -391,8 +396,9 @@ export default function FeedScene({ onClose }: Props) {
         // tick() on the active/near transitions that change other visuals.
         const g = ghostRef.current
         if (g) {
-          g.style.left = `${t2.clientX - 20}px`
-          g.style.top = `${t2.clientY - 20}px`
+          // Half the ghost icon (DRAG_ICON) so it stays centred under the finger.
+          g.style.left = `${t2.clientX - DRAG_ICON / 2}px`
+          g.style.top = `${t2.clientY - DRAG_ICON / 2}px`
         }
         if (d2.active !== wasActive || d2.near !== wasNear) tick()
       }
@@ -673,11 +679,13 @@ export default function FeedScene({ onClose }: Props) {
       {/* ══ DRAG GHOST — just the food icon, no frame ══ */}
       {dragRef.current.item && dragRef.current.pos && dragRef.current.active && (
         <div ref={ghostRef} className="fixed pointer-events-none z-[60]" style={{
-          left: dragRef.current.pos.x - 20, top: dragRef.current.pos.y - 20,
+          left: dragRef.current.pos.x - DRAG_ICON / 2, top: dragRef.current.pos.y - DRAG_ICON / 2,
           filter: `drop-shadow(0 2px 6px ${dragRef.current.item.color}88)`,
           transform: 'scale(1.3)',
         }}>
-          <FoodIcon id={dragRef.current.item.id} color={dragRef.current.item.color} />
+          {/* Matches the tray tile's icon size so the food doesn't visibly
+              shrink the moment you pick it up. */}
+          <FoodIcon id={dragRef.current.item.id} color={dragRef.current.item.color} size={DRAG_ICON} />
         </div>
       )}
 
@@ -740,7 +748,7 @@ export default function FeedScene({ onClose }: Props) {
                 <div ref={foodElRef}
                   style={{ position: 'relative', touchAction: 'none' }}>
                   <div style={{
-                    width: 56, height: 56,
+                    width: 64, height: 64,
                     background: `radial-gradient(circle at 40% 35%, ${item.color}30, ${item.color}10)`,
                     borderRadius: 12,
                     border: `2px solid ${item.color}88`,
@@ -751,7 +759,7 @@ export default function FeedScene({ onClose }: Props) {
                       opacity: (dragRef.current.item?.id === item.id && dragRef.current.active) ? 0.15 : 1,
                       transition: 'opacity 0.15s ease',
                     }}>
-                      <FoodIcon id={item.id} color={item.color} />
+                      <FoodIcon id={item.id} color={item.color} size={DRAG_ICON} />
                     </div>
                   </div>
                   {/* Qty badge */}
@@ -830,23 +838,25 @@ export default function FeedScene({ onClose }: Props) {
                   return (
                     <button key={c.id}
                       onClick={() => { playSound('ui_tap'); setFridgeCat(c.id); setFoodIdx(0); localStorage.setItem('eren_fridge_cat', c.id); setTab(null) }}
-                      className="flex items-center gap-4 px-5 py-4 active:scale-95 transition-transform w-full"
+                      className="flex items-center gap-3 px-3 py-2.5 active:scale-95 transition-transform w-full"
                       style={{
                         background: `linear-gradient(135deg, ${c.color}20, ${c.color}08)`,
                         borderRadius: 10,
                         border: `2px solid ${c.color}88`,
                         boxShadow: `3px 3px 0 rgba(0,0,0,0.3), 0 0 12px ${c.color}22`,
                       }}>
-                      <div className="flex gap-1 flex-shrink-0">
-                        {catItems.filter(i => (inventory[i.id] ?? 0) > 0).slice(0, 2).map(i => (
-                          <FoodIcon key={i.id} id={i.id} color={i.color} />
+                      {/* Preview what's actually IN the fridge, at a size you can
+                          read — three stocked foods from this category. */}
+                      <div className="flex items-center gap-0.5 flex-shrink-0">
+                        {catItems.filter(i => (inventory[i.id] ?? 0) > 0).slice(0, 3).map(i => (
+                          <FoodIcon key={i.id} id={i.id} color={i.color} size={40} />
                         ))}
                       </div>
-                      <div className="flex-1 text-left">
+                      <div className="flex-1 text-left min-w-0">
                         <span className="font-pixel block" style={{ fontSize: 9, color: c.color, letterSpacing: 1.5 }}>{c.label}</span>
                         <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>{catCount} item{catCount !== 1 ? 's' : ''}</span>
                       </div>
-                      <span className="font-pixel" style={{ fontSize: 12, color: c.color }}>▸</span>
+                      <span className="font-pixel flex-shrink-0" style={{ fontSize: 12, color: c.color }}>▸</span>
                     </button>
                   )
                 })
@@ -905,30 +915,32 @@ export default function FeedScene({ onClose }: Props) {
               <div className="flex flex-col gap-2">
                 {FRIDGE_CATEGORIES.map(c => {
                   const catItems = SHOP_ITEMS.filter(i => i.cat === c.id)
-                  const previewIcons = catItems.slice(0, 2)
+                  const previewIcons = catItems.slice(0, 3)
                   const cheapest = catItems.reduce((min, i) => i.price < min ? i.price : min, Infinity)
                   return (
                     <button key={c.id}
                       onClick={() => { playSound('ui_select'); setShopCat(c.id) }}
-                      className="flex items-center gap-3 px-4 py-3 active:scale-[0.98] transition-transform w-full"
+                      className="flex items-center gap-3 px-3 py-2.5 active:scale-[0.98] transition-transform w-full"
                       style={{
                         background: `linear-gradient(135deg, ${c.color}28 0%, ${c.color}10 100%)`,
-                        borderRadius: 6,
+                        borderRadius: 8,
                         border: `2px solid ${c.color}88`,
                         boxShadow: `2px 2px 0 ${c.color}33`,
                       }}>
-                      <div className="flex gap-1 flex-shrink-0">
+                      {/* Three tasters at a legible size — the art is the fastest
+                          way to recognise a cuisine, so give it real estate. */}
+                      <div className="flex items-center gap-0.5 flex-shrink-0">
                         {previewIcons.map(i => (
-                          <FoodIcon key={i.id} id={i.id} color={i.color} />
+                          <FoodIcon key={i.id} id={i.id} color={i.color} size={40} />
                         ))}
                       </div>
-                      <div className="flex-1 text-left">
+                      <div className="flex-1 text-left min-w-0">
                         <span className="font-pixel block" style={{ fontSize: 9, color: c.color, letterSpacing: 1.5 }}>{c.label}</span>
                         <span className="text-[10px]" style={{ color: '#8A7050' }}>
                           {catItems.length} item{catItems.length !== 1 ? 's' : ''} · from {cheapest}c
                         </span>
                       </div>
-                      <span className="font-pixel" style={{ fontSize: 12, color: c.color }}>▸</span>
+                      <span className="font-pixel flex-shrink-0" style={{ fontSize: 12, color: c.color }}>▸</span>
                     </button>
                   )
                 })}
@@ -940,24 +952,32 @@ export default function FeedScene({ onClose }: Props) {
                 {SHOP_ITEMS.filter(i => i.cat === activeCat.id).map(item => {
                   const canAfford = coins >= item.price
                   return (
-                    <div key={item.id} className={cn('p-3 transition-all', !canAfford && 'opacity-55')}
-                      style={{ background: `linear-gradient(135deg, ${item.color}28 0%, ${item.color}10 100%)`, borderRadius: 3, border: `2px solid ${item.color}55`, boxShadow: `2px 2px 0 ${item.color}33` }}>
-                      <div className="flex items-start justify-between mb-1">
-                        <FoodIcon id={item.id} color={item.color} />
-                        <div className="flex items-center gap-0.5 px-1.5 py-0.5" style={{ background: '#FFF3C0', borderRadius: 2, border: '1px solid #F5C842' }}>
-                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'radial-gradient(circle at 38% 35%, #FFE878, #D4A818)', border: '1px solid #B08810' }} />
-                          <span className="font-pixel text-amber-600" style={{ fontSize: 7 }}>{item.price}</span>
-                        </div>
+                    <div key={item.id} className={cn('relative flex flex-col items-center px-2.5 pt-2.5 pb-2.5 transition-all', !canAfford && 'opacity-55')}
+                      style={{ background: `linear-gradient(160deg, ${item.color}26 0%, ${item.color}0D 100%)`, borderRadius: 8, border: `2px solid ${item.color}55`, boxShadow: `2px 2px 0 ${item.color}33` }}>
+                      {/* Price rides the corner so the plate keeps the centre. */}
+                      <div className="absolute flex items-center gap-0.5 px-1.5 py-0.5" style={{ top: 5, right: 5, background: '#FFF3C0', borderRadius: 999, border: '1px solid #F5C842', boxShadow: '1px 1px 0 rgba(0,0,0,0.10)' }}>
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'radial-gradient(circle at 38% 35%, #FFE878, #D4A818)', border: '1px solid #B08810' }} />
+                        <span className="font-pixel text-amber-600" style={{ fontSize: 7 }}>{item.price}</span>
                       </div>
-                      <p className="text-xs font-bold text-gray-800">{item.name}</p>
-                      <p className="text-[10px] text-gray-400 mb-1.5">{item.desc}</p>
-                      <div className="flex gap-2 text-[9px] text-gray-500 mb-2">
-                        <span>HGR +{item.hungerD}</span>
-                        <span>JOY +{item.happyD}</span>
+                      {/* The plate itself — the hero of the card, on a soft
+                          tinted dish so every food sits on the same footprint
+                          whatever its aspect ratio. */}
+                      <div className="flex items-center justify-center flex-shrink-0" style={{
+                        width: 68, height: 68, borderRadius: '50%', marginTop: 4, marginBottom: 5,
+                        background: `radial-gradient(circle at 42% 34%, ${item.color}33, ${item.color}0F 70%, transparent)`,
+                      }}>
+                        <FoodIcon id={item.id} color={item.color} size={58} />
+                      </div>
+                      <p className="text-center font-bold text-gray-800 leading-tight" style={{ fontSize: 12 }}>{item.name}</p>
+                      <p className="text-center text-gray-400 leading-tight" style={{ fontSize: 10, marginTop: 1 }}>{item.desc}</p>
+                      {/* Stat chips — colour-coded so hunger vs joy reads at a glance. */}
+                      <div className="flex justify-center gap-1" style={{ marginTop: 6, marginBottom: 7 }}>
+                        <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFE3C4', color: '#B4622A', border: '1px solid #F0B884' }}>HGR+{item.hungerD}</span>
+                        <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFDCE8', color: '#C0407A', border: '1px solid #F5A8C4' }}>JOY+{item.happyD}</span>
                       </div>
                       <button onClick={() => { playSound('ui_tap'); handleBuy(item) }} disabled={!canAfford || buying === item.id}
-                        className="w-full py-1.5 text-white transition-all active:translate-y-[1px] disabled:opacity-40"
-                        style={{ background: canAfford ? item.color : '#ccc', borderRadius: 2, border: `1px solid ${canAfford ? 'rgba(0,0,0,0.15)' : '#bbb'}`, boxShadow: canAfford ? `0 2px 0 rgba(0,0,0,0.18)` : 'none', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
+                        className="w-full py-2 text-white transition-all active:translate-y-[1px] disabled:opacity-40 mt-auto"
+                        style={{ background: canAfford ? item.color : '#ccc', borderRadius: 5, border: `1px solid ${canAfford ? 'rgba(0,0,0,0.15)' : '#bbb'}`, boxShadow: canAfford ? `0 2px 0 rgba(0,0,0,0.18)` : 'none', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                         {buying === item.id ? '...' : canAfford ? 'BUY' : 'BROKE'}
                       </button>
                     </div>
