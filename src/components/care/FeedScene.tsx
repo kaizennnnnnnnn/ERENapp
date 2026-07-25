@@ -27,6 +27,7 @@ import KitchenNavButton from '@/components/kitchen/KitchenNavButton'
 import PoseSprite from '@/components/care/PoseSprite'
 import PixelPoof from '@/components/PixelPoof'
 import { preloadImages } from '@/lib/preloadImages'
+import { IconClose, IconChevronLeft } from '@/components/PixelIcons'
 
 interface Props { onClose: () => void }
 
@@ -97,6 +98,15 @@ const SHOP_ITEMS = [
 // share it so the plate never changes size when you pick it up, and the ghost's
 // centring offset stays derived from one number.
 const DRAG_ICON = 50
+
+// Shop drawer header buttons (back / close). One style object so the pair can
+// never drift apart again, sized as a proper 30px tap target.
+const SHOP_HDR_BTN: React.CSSProperties = {
+  width: 30, height: 30,
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  background: '#F7E9B8', borderRadius: 8, border: '2px solid #E8C870',
+  boxShadow: '0 2px 0 #D9B45C',
+}
 
 const FRIDGE_CATEGORIES = [
   { id: 'dry',     label: 'DRY',     color: '#D4A44A' },
@@ -863,10 +873,14 @@ export default function FeedScene({ onClose }: Props) {
               )}
             </div>
 
+            {/* Close — icon + label so it reads as a control, with a real tap
+                target instead of a thin 7px text strip. */}
             <button onClick={() => { playSound('ui_modal_close'); setTab(null) }}
-              className="mt-6 mx-auto block px-6 py-2 active:scale-95 transition-transform"
-              style={{ background: 'rgba(255,255,255,0.1)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)', fontFamily: '"Press Start 2P"', fontSize: 7, color: 'rgba(255,255,255,0.6)' }}>
-              CLOSE
+              className="mt-6 mx-auto flex items-center gap-2 px-5 py-2.5 active:scale-95 transition-transform"
+              style={{ background: 'rgba(255,255,255,0.12)', borderRadius: 10, border: '2px solid rgba(255,255,255,0.28)', boxShadow: '0 2px 0 rgba(0,0,0,0.35)' }}
+              aria-label="Close the fridge">
+              <IconClose size={13} tone="rgba(255,255,255,0.75)" />
+              <span className="font-pixel" style={{ fontSize: 7, color: 'rgba(255,255,255,0.75)', letterSpacing: 1 }}>CLOSE</span>
             </button>
           </div>
         </div>
@@ -884,26 +898,33 @@ export default function FeedScene({ onClose }: Props) {
         <div className="absolute bottom-0 left-0 right-0 z-40 flex flex-col"
           style={{ height: '52%', background: 'linear-gradient(180deg, #FFFBF0 0%, #FFF8E8 100%)', borderRadius: '16px 16px 0 0', borderTop: '3px solid #F5C842', boxShadow: '0 -4px 0 #E8A020', animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}>
 
-          {/* Drawer header */}
-          <div className="flex items-center justify-between px-4 pt-3 pb-2 flex-shrink-0">
-            <div className="flex items-center gap-2">
-              {activeCat && (
+          {/* Drawer header. Back / close are matched 30px pixel-icon buttons —
+              they used to be bare ◂ / ✕ font glyphs at mismatched paddings and
+              radii, which read as leftover text and were a ~20px tap target. */}
+          <div className="flex items-center justify-between px-3 pt-2.5 pb-2 flex-shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              {activeCat ? (
                 <button onClick={() => { playSound('ui_back'); setShopCat(null) }}
-                  className="active:scale-90 transition-transform"
-                  style={{ background: '#F5EDD0', borderRadius: 6, border: '2px solid #E8C870', padding: '2px 7px', fontFamily: '"Press Start 2P"', fontSize: 8, color: '#A07020' }}
+                  className="active:scale-90 transition-transform flex-shrink-0"
+                  style={SHOP_HDR_BTN}
                   aria-label="Back to categories">
-                  ◂
+                  <IconChevronLeft size={15} />
                 </button>
+              ) : (
+                <span className="flex items-center justify-center flex-shrink-0"
+                  style={{ width: 30, height: 30, background: '#F7E9B8', borderRadius: 8, border: '2px solid #E8C870' }}>
+                  <ShoppingCart size={14} color="#A07020" strokeWidth={2.5} />
+                </span>
               )}
-              <span className="font-pixel text-amber-700 flex items-center gap-2" style={{ fontSize: 9 }}>
-                <ShoppingCart size={12} />
-                {activeCat ? `SHOP · ${activeCat.label}` : 'SHOP'}
+              <span className="font-pixel text-amber-700 truncate" style={{ fontSize: 9, letterSpacing: 1 }}>
+                {activeCat ? activeCat.label : 'SHOP'}
               </span>
             </div>
             <button onClick={closeShop}
-              className="active:scale-90 transition-transform"
-              style={{ background: '#F5EDD0', borderRadius: 8, border: '2px solid #E8C870', padding: '3px 8px', fontFamily: '"Press Start 2P"', fontSize: 8, color: '#A07020' }}>
-              ✕
+              className="active:scale-90 transition-transform flex-shrink-0"
+              style={SHOP_HDR_BTN}
+              aria-label="Close shop">
+              <IconClose size={15} />
             </button>
           </div>
           <div style={{ height: 2, background: 'linear-gradient(90deg, transparent, #F5C842, transparent)', marginBottom: 4 }} />

@@ -1303,3 +1303,44 @@ export const IconEyeOff = memo(function IconEyeOff({ size = 20 }: IconProps) {
     K: '#1A1A2E', W: '#FFFFFF', P: '#4898D4', I: '#1A1A2E', S: '#FF6B9D',
   }, size)
 })
+
+// ── CLOSE (X) — dismiss a sheet / drawer ──────────────────────────────────
+// Single ink so the silhouette stays unambiguous at 12-16px; the button
+// chrome around it supplies the colour. `tone` lets a caller match the
+// surface it sits on.
+export const IconClose = memo(function IconClose({ size = 20, tone = '#A07020' }: IconProps & { tone?: string }) {
+  const grid = [
+    '............',
+    '.XX......XX.',
+    '..XX....XX..',
+    '...XX..XX...',
+    '....XXXX....',
+    '.....XX.....',
+    '.....XX.....',
+    '....XXXX....',
+    '...XX..XX...',
+    '..XX....XX..',
+    '.XX......XX.',
+    '............',
+  ]
+  return drawPixels(grid, { X: tone }, size)
+})
+
+// ── CHEVRON LEFT — step back one level (mirrors the ▸ on category rows) ───
+export const IconChevronLeft = memo(function IconChevronLeft({ size = 20, tone = '#A07020' }: IconProps & { tone?: string }) {
+  const grid = [
+    '............',
+    '.......XXX..',
+    '......XXX...',
+    '.....XXX....',
+    '....XXX.....',
+    '...XXX......',
+    '...XXX......',
+    '....XXX.....',
+    '.....XXX....',
+    '......XXX...',
+    '.......XXX..',
+    '............',
+  ]
+  return drawPixels(grid, { X: tone }, size)
+})
