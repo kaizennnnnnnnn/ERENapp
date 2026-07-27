@@ -145,8 +145,13 @@ function FoodIcon({ id, size = 32 }: { id: string; color?: string; size?: number
   // render SMOOTH (image-rendering auto) — `pixelated` would alias the
   // non-integer downscale into a shimmering mess. Same rule as the Eren body
   // sprites; only the true 10×10 SVGs below are pixel-snapped.
+  //
+  // Every PNG is a square canvas with the dish centred and scaled to one
+  // visual size (`scripts/normalize_food_art.py`), so `contain` centres the
+  // food itself and no dish outweighs another. ?v= busts the service worker's
+  // stale-while-revalidate image cache after a re-normalise.
   if (FOOD_IMAGE_IDS.has(id)) return (
-    <img src={`/food/${id}.png`} alt="" draggable={false} width={S} height={S}
+    <img src={`/food/${id}.png?v=2`} alt="" draggable={false} width={S} height={S}
       style={{ width: S, height: S, objectFit: 'contain', display: 'block' }} />
   )
 
