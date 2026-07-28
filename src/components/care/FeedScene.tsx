@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
+import { inkOn } from '@/lib/contrastInk'
 import { foodDrag } from './foodDragFlag'
 import type { FoodInventory } from '@/types'
 import { playSound } from '@/lib/sounds'
@@ -775,7 +776,7 @@ export default function FeedScene({ onClose }: Props) {
                   <span className="font-pixel absolute" style={{
                     top: -5, right: -5,
                     minWidth: 18, height: 18,
-                    background: item.color, color: '#fff',
+                    background: item.color, color: inkOn(item.color),
                     borderRadius: 9, fontSize: 7,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     border: '1.5px solid rgba(0,0,0,0.2)',
@@ -971,6 +972,7 @@ export default function FeedScene({ onClose }: Props) {
               <div className="grid grid-cols-2 gap-2">
                 {SHOP_ITEMS.filter(i => i.cat === activeCat.id).map(item => {
                   const canAfford = coins >= item.price
+                  const btnBg = canAfford ? item.color : '#cccccc'
                   return (
                     <div key={item.id} className={cn('relative flex flex-col items-center px-2.5 pt-2.5 pb-2.5 transition-all', !canAfford && 'opacity-55')}
                       style={{ background: `linear-gradient(160deg, ${item.color}26 0%, ${item.color}0D 100%)`, borderRadius: 8, border: `2px solid ${item.color}55`, boxShadow: `2px 2px 0 ${item.color}33` }}>
@@ -995,9 +997,11 @@ export default function FeedScene({ onClose }: Props) {
                         <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFE3C4', color: '#B4622A', border: '1px solid #F0B884' }}>HGR+{item.hungerD}</span>
                         <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFDCE8', color: '#C0407A', border: '1px solid #F5A8C4' }}>JOY+{item.happyD}</span>
                       </div>
+                      {/* Label colour is derived, not fixed: most food colours
+                          are pale tints that white text vanishes into. */}
                       <button onClick={() => { playSound('ui_tap'); handleBuy(item) }} disabled={!canAfford || buying === item.id}
-                        className="w-full py-2 text-white transition-all active:translate-y-[1px] disabled:opacity-40 mt-auto"
-                        style={{ background: canAfford ? item.color : '#ccc', borderRadius: 5, border: `1px solid ${canAfford ? 'rgba(0,0,0,0.15)' : '#bbb'}`, boxShadow: canAfford ? `0 2px 0 rgba(0,0,0,0.18)` : 'none', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
+                        className="w-full py-2 transition-all active:translate-y-[1px] disabled:opacity-40 mt-auto"
+                        style={{ background: btnBg, color: inkOn(btnBg), borderRadius: 5, border: `1px solid ${canAfford ? 'rgba(0,0,0,0.15)' : '#bbb'}`, boxShadow: canAfford ? `0 2px 0 rgba(0,0,0,0.18)` : 'none', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                         {buying === item.id ? '...' : canAfford ? 'BUY' : 'BROKE'}
                       </button>
                     </div>
