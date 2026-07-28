@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
-import { inkOn } from '@/lib/contrastInk'
+import { inkOn, deepenOn } from '@/lib/contrastInk'
 import { foodDrag } from './foodDragFlag'
 import type { FoodInventory } from '@/types'
 import { playSound } from '@/lib/sounds'
@@ -28,7 +28,7 @@ import KitchenNavButton from '@/components/kitchen/KitchenNavButton'
 import PoseSprite from '@/components/care/PoseSprite'
 import PixelPoof from '@/components/PixelPoof'
 import { preloadImages } from '@/lib/preloadImages'
-import { IconClose, IconChevronLeft } from '@/components/PixelIcons'
+import { IconClose, IconChevronLeft, IconChevronRight } from '@/components/PixelIcons'
 
 interface Props { onClose: () => void }
 
@@ -107,6 +107,11 @@ const SHOP_HDR_BTN: React.CSSProperties = {
   background: '#F7E9B8', borderRadius: 8, border: '2px solid #E8C870',
   boxShadow: '0 2px 0 #D9B45C',
 }
+
+// Darkest a category row's background gets: the MEAT tint (#CC3333 at 0x26)
+// over the drawer cream. Deepening every category label against this one
+// reference keeps each of them readable on its own, lighter row.
+const ROW_TINT_FLOOR = '#F7DDD4'
 
 const FRIDGE_CATEGORIES = [
   { id: 'dry',     label: 'DRY',     color: '#D4A44A' },
@@ -864,9 +869,9 @@ export default function FeedScene({ onClose }: Props) {
                       </div>
                       <div className="flex-1 text-left min-w-0">
                         <span className="font-pixel block" style={{ fontSize: 9, color: c.color, letterSpacing: 1.5 }}>{c.label}</span>
-                        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>{catCount} item{catCount !== 1 ? 's' : ''}</span>
+                        <span className="font-pixel block" style={{ fontSize: 6, color: 'rgba(255,255,255,0.55)', marginTop: 4 }}>{catCount} ITEM{catCount !== 1 ? 'S' : ''}</span>
                       </div>
-                      <span className="font-pixel flex-shrink-0" style={{ fontSize: 12, color: c.color }}>▸</span>
+                      <IconChevronRight size={11} tone={c.color} />
                     </button>
                   )
                 })
@@ -938,30 +943,41 @@ export default function FeedScene({ onClose }: Props) {
                   const catItems = SHOP_ITEMS.filter(i => i.cat === c.id)
                   const previewIcons = catItems.slice(0, 3)
                   const cheapest = catItems.reduce((min, i) => i.price < min ? i.price : min, Infinity)
+                  // The label prints in its own category colour, on a pale wash
+                  // of that same colour — which left tan-on-cream around 2:1.
+                  const ink = deepenOn(c.color, ROW_TINT_FLOOR)
                   return (
                     <button key={c.id}
                       onClick={() => { playSound('ui_select'); setShopCat(c.id) }}
-                      className="flex items-center gap-3 px-3 py-2.5 active:scale-[0.98] transition-transform w-full"
+                      className="flex items-center gap-2.5 px-2.5 py-2 w-full transition-transform active:translate-y-[2px]"
                       style={{
-                        background: `linear-gradient(135deg, ${c.color}28 0%, ${c.color}10 100%)`,
-                        borderRadius: 8,
-                        border: `2px solid ${c.color}88`,
-                        boxShadow: `2px 2px 0 ${c.color}33`,
+                        background: `linear-gradient(135deg, ${c.color}26 0%, ${c.color}0D 100%)`,
+                        borderRadius: 6,
+                        border: `2px solid ${c.color}99`,
+                        boxShadow: `3px 3px 0 ${c.color}44`,
                       }}>
-                      {/* Three tasters at a legible size — the art is the fastest
-                          way to recognise a cuisine, so give it real estate. */}
-                      <div className="flex items-center gap-0.5 flex-shrink-0">
+                      {/* Three tasters on a little inset shelf — the art is the
+                          fastest way to recognise a cuisine, and the second
+                          surface stops it floating loose on the tint. */}
+                      <div className="flex items-center gap-0.5 flex-shrink-0 px-1 py-0.5"
+                        style={{ background: 'rgba(255,255,255,0.55)', borderRadius: 4, border: `1px solid ${c.color}40` }}>
                         {previewIcons.map(i => (
                           <FoodIcon key={i.id} id={i.id} color={i.color} size={40} />
                         ))}
                       </div>
                       <div className="flex-1 text-left min-w-0">
-                        <span className="font-pixel block" style={{ fontSize: 9, color: c.color, letterSpacing: 1.5 }}>{c.label}</span>
-                        <span className="text-[10px]" style={{ color: '#8A7050' }}>
-                          {catItems.length} item{catItems.length !== 1 ? 's' : ''} · from {cheapest}c
+                        <span className="font-pixel block" style={{ fontSize: 9, color: ink, letterSpacing: 1.5 }}>{c.label}</span>
+                        {/* Pixel font + a real coin pip, so the meta line stops
+                            reading as leftover body copy with a stray "c". */}
+                        <span className="font-pixel flex items-center gap-1" style={{ fontSize: 6, color: '#9A7C58', marginTop: 4 }}>
+                          {catItems.length} ITEM{catItems.length !== 1 ? 'S' : ''}
+                          <span style={{ opacity: 0.45 }}>·</span>
+                          FROM
+                          <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'radial-gradient(circle at 38% 35%, #FFE878, #D4A818)', border: '1px solid #B08810' }} />
+                          {cheapest}
                         </span>
                       </div>
-                      <span className="font-pixel flex-shrink-0" style={{ fontSize: 12, color: c.color }}>▸</span>
+                      <IconChevronRight size={11} tone={ink} />
                     </button>
                   )
                 })}

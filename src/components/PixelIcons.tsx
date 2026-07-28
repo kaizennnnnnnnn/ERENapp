@@ -1344,3 +1344,22 @@ export const IconChevronLeft = memo(function IconChevronLeft({ size = 20, tone =
   ]
   return drawPixels(grid, { X: tone }, size)
 })
+
+// Mirror of the above — the "drill in" affordance on list rows.
+export const IconChevronRight = memo(function IconChevronRight({ size = 20, tone = '#A07020' }: IconProps & { tone?: string }) {
+  const grid = [
+    '............',
+    '..XXX.......',
+    '...XXX......',
+    '....XXX.....',
+    '.....XXX....',
+    '......XXX...',
+    '......XXX...',
+    '.....XXX....',
+    '....XXX.....',
+    '...XXX......',
+    '..XXX.......',
+    '............',
+  ]
+  return drawPixels(grid, { X: tone }, size)
+})

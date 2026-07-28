@@ -40,21 +40,50 @@ function contrast(a: number[], b: number[]): number {
 
 const WHITE = [255, 255, 255]
 
+const toRgb = (hex: string): number[] => {
+  const n = parseInt(hex.slice(1), 16)
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+}
+
+const toHex = (rgb: number[]): string =>
+  '#' + rgb.map(c => Math.round(Math.max(0, c)).toString(16).padStart(2, '0')).join('')
+
+/** Darkens `rgb` until it clears AIM against `on`, or bottoms out at black. */
+const darkenUntilReadable = (rgb: number[], on: number[]): number[] => {
+  let k = 1
+  while (k > 0 && contrast(rgb.map(c => c * k), on) < AIM) k -= 0.02
+  return rgb.map(c => c * k)
+}
+
 /** Readable ink for text drawn directly on `hex` (`#rrggbb`). */
 export function inkOn(hex: string): string {
   const cached = inkCache.get(hex)
   if (cached) return cached
 
-  const n = parseInt(hex.slice(1), 16)
-  const bg = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
-
-  let ink = '#ffffff'
-  if (contrast(WHITE, bg) < AA_MIN) {
-    let k = 1
-    while (k > 0 && contrast(bg.map(c => c * k), bg) < AIM) k -= 0.02
-    ink = '#' + bg.map(c => Math.round(Math.max(0, c * k)).toString(16).padStart(2, '0')).join('')
-  }
+  const bg = toRgb(hex)
+  const ink = contrast(WHITE, bg) >= AA_MIN ? '#ffffff' : toHex(darkenUntilReadable(bg, bg))
 
   inkCache.set(hex, ink)
   return ink
+}
+
+const deepCache = new Map<string, string>()
+
+/**
+ * Deepens `color` until it reads on the light background `on`, keeping its hue.
+ *
+ * For a coloured label sitting on a pale wash of its own colour — the kitchen's
+ * category rows print each category's name in its own colour on a ~15% tint of
+ * it, which leaves tan on cream at about 2:1. inkOn() is the wrong tool there:
+ * it would answer with a desaturated shade of the *background*, throwing away
+ * the colour coding the row exists to carry.
+ */
+export function deepenOn(color: string, on: string): string {
+  const key = `${color}|${on}`
+  const cached = deepCache.get(key)
+  if (cached) return cached
+
+  const out = toHex(darkenUntilReadable(toRgb(color), toRgb(on)))
+  deepCache.set(key, out)
+  return out
 }
