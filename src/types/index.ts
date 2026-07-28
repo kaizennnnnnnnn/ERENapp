@@ -138,7 +138,6 @@ export type FoodInventory = {
   stew?: number
   meatballs?: number
   roast_chicken?: number
-  fried_egg?: number
 }
 
 export interface ErenStats {
@@ -174,7 +173,7 @@ export type FoodKey = 'kibble' | 'fish' | 'treat' | 'tuna' | 'steak' | 'cream' |
   | 'nigiri' | 'temaki' | 'maki'
   | 'ramen' | 'pad_thai' | 'gyoza' | 'xiaolongbao'
   | 'cevapi' | 'sarma' | 'doner'
-  | 'tacos' | 'wrap' | 'paella' | 'stew' | 'meatballs' | 'roast_chicken' | 'fried_egg'
+  | 'tacos' | 'wrap' | 'paella' | 'stew' | 'meatballs' | 'roast_chicken'
 export interface GiftItem { key: FoodKey; qty: number }
 
 export interface Interaction {

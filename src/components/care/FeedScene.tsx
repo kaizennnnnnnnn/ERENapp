@@ -91,7 +91,6 @@ const SHOP_ITEMS = [
   { id: 'stew'      as const, name: 'Stew',        price: 24, hungerD: 34, happyD: 22, weightD: 0.09, desc: 'Slow-cooked & warm', color: '#8E5A2E', cat: 'world'   },
   { id: 'meatballs' as const, name: 'Meatballs',   price: 26, hungerD: 34, happyD: 24, weightD: 0.09, desc: 'Simmered in sauce',  color: '#C4452F', cat: 'world'   },
   { id: 'roast_chicken' as const, name: 'Roast Chicken', price: 32, hungerD: 42, happyD: 26, weightD: 0.12, desc: 'The whole bird',color: '#D8973C', cat: 'world'  },
-  { id: 'fried_egg' as const, name: 'Fried Egg',   price: 6,  hungerD: 16, happyD: 12, weightD: 0.03, desc: 'Sunny side up',      color: '#F2C14E', cat: 'world'   },
 ]
 
 // Icon size for the food you carry to Eren — the tray tile and the drag ghost
@@ -122,16 +121,18 @@ const FRIDGE_CATEGORIES = [
 ]
 
 // Dishes whose art is a real pixel-art PNG rather than a hand-drawn SVG below.
-// Also re-arts three staples that shipped as SVGs (sardine / steak / chicken —
-// the chicken plate is the drumstick its description always promised), so their
-// old SVG branches in FoodIcon are gone: this map is checked first.
+// Also re-arts four staples that shipped as SVGs (sardine / steak / chicken /
+// egg — the chicken plate is the drumstick its description always promised,
+// and the egg is the fried one), so their old SVG branches in FoodIcon are
+// gone: this map is checked first. A picture of a food the shop ALREADY sells
+// becomes that item's art; it never earns a second shop entry.
 const FOOD_IMAGE_IDS = new Set([
   'pizza', 'carbonara', 'lasagna', 'risotto',
   'nigiri', 'temaki', 'maki',
   'ramen', 'pad_thai', 'gyoza', 'xiaolongbao',
   'cevapi', 'sarma', 'doner',
-  'tacos', 'wrap', 'paella', 'stew', 'meatballs', 'roast_chicken', 'fried_egg',
-  'sardine', 'steak', 'chicken',
+  'tacos', 'wrap', 'paella', 'stew', 'meatballs', 'roast_chicken',
+  'sardine', 'steak', 'chicken', 'egg',
 ])
 
 function FoodIcon({ id, size = 32 }: { id: string; color?: string; size?: number }) {
@@ -259,13 +260,6 @@ function FoodIcon({ id, size = 32 }: { id: string; color?: string; size?: number
       {r(2,8,6,1,'#D86080')}{r(4,1,1,2,'#F5C842')}{r(4,0,1,1,'#FF8800')}
       {r(3,5,1,1,'#FFD0DD')}{r(6,6,1,1,'#FFD0DD')}
       {r(5,1,1,2,'#F5C842')}{r(5,0,1,1,'#FF8800')}
-    </svg>
-  )
-  if (id === 'egg') return (
-    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
-      {r(3,2,4,2,'#F5E6C8')}{r(2,4,6,3,'#F5E6C8')}{r(3,7,4,1,'#E8D8B0')}
-      {r(4,4,2,2,'#F5C842')}{r(3,3,1,1,'rgba(255,255,255,0.4)')}
-      {r(5,3,1,1,'rgba(255,255,255,0.25)')}{r(2,7,1,0,'transparent')}
     </svg>
   )
   if (id === 'monster') return (

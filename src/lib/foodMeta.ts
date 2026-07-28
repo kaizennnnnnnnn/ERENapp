@@ -55,7 +55,6 @@ export const FOOD_META: Record<FoodKey, { name: string; color: string }> = {
   stew:          { name: 'Stew',          color: '#8E5A2E' },
   meatballs:     { name: 'Meatballs',     color: '#C4452F' },
   roast_chicken: { name: 'Roast Chicken', color: '#D8973C' },
-  fried_egg:     { name: 'Fried Egg',     color: '#F2C14E' },
 }
 
 // Display order for food pickers — staples first (the everyday cat food), then
@@ -68,5 +67,5 @@ export const FOOD_ORDER: FoodKey[] = [
   'nigiri', 'temaki', 'maki',
   'ramen', 'pad_thai', 'gyoza', 'xiaolongbao',
   'cevapi', 'sarma', 'doner',
-  'tacos', 'wrap', 'paella', 'stew', 'meatballs', 'roast_chicken', 'fried_egg',
+  'tacos', 'wrap', 'paella', 'stew', 'meatballs', 'roast_chicken',
 ]
