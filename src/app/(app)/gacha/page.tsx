@@ -8,7 +8,7 @@ import { ChevronLeft } from 'lucide-react'
 import { useGacha } from '@/hooks/useGacha'
 import { useInventory } from '@/hooks/useInventory'
 import { useCare } from '@/contexts/CareContext'
-import { PULL_COST_SINGLE, PULL_COST_TEN, PITY_EPIC, PITY_LEGENDARY } from '@/lib/gacha'
+import { PULL_COST_SINGLE, PULL_COST_TEN, PITY_EPIC, PITY_LEGENDARY, MONSTA_RAINBOW_ID } from '@/lib/gacha'
 import type { GachaPullResult, GachaRarity } from '@/types'
 import { highestRarity, pickClothesHitVideo } from '@/lib/gachaVideos'
 import { getSkin } from '@/lib/skins'
@@ -147,12 +147,42 @@ export default function GachaPage() {
     el.scrollTo({ left: idx * el.clientWidth, behavior: 'instant' })
   }
 
+  // ── Rainbow Monsta jackpot ─────────────────────────────────────────────────
+  // Pulling it escalates the reveal: the banner's opening video plays first (it
+  // masks the roll), then the energy cinematic bursts for the can itself. Every
+  // other Monsta reveals plainly.
+  //
+  // Refs, not state, because the roll and the video race: the roll normally
+  // resolves while the video is still playing, but a slow one can land after it
+  // has ended. Either order must fire the cinematic exactly once, and reading
+  // `openingVideo` state inside the async pull would close over a stale value.
+  const jackpotPending = useRef(false)
+  const videoPlaying = useRef(false)
+
   // Show a video opening from a clean "still buffering" state, so the starfall
   // loader covers the gap until the first frame is decodable.
   const startOpening = useCallback((src: string) => {
     setVideoReady(false)
+    videoPlaying.current = true
     setOpeningVideo(src)
   }, [])
+
+  // Only fires once the video is off screen — the cinematic renders below the
+  // video layer, so starting it early would play it behind an opaque overlay.
+  const flushJackpot = useCallback(() => {
+    if (!jackpotPending.current || videoPlaying.current) return
+    jackpotPending.current = false
+    setEnergyRarity('legendary')
+    setEnergyOn(true)
+  }, [])
+
+  // Single exit for the opening video — it can end by finishing, erroring, or
+  // being tapped through, and all three have to hand off the same way.
+  const endOpening = useCallback(() => {
+    videoPlaying.current = false
+    setOpeningVideo(null)
+    flushJackpot()
+  }, [flushJackpot])
 
   async function handlePull(count: 1 | 10) {
     if (pulling || openingVideo || pullResults) return
@@ -186,7 +216,7 @@ export default function GachaPage() {
       ? await pullSingle(bannerId, useTicket).then(r => (r ? [r] : null))
       : await pullTen(bannerId)
     if (!results) {
-      setOpeningVideo(null)
+      endOpening()
       setEnergyOn(false)
       return
     }
@@ -206,6 +236,13 @@ export default function GachaPage() {
     }
 
     const best = highestRarity(results.map(r => r.item.rarity))
+    // Rainbow Monsta is the Snacks & Drinks jackpot — queue the energy burst.
+    // flushJackpot no-ops while the opening video is still up; endOpening picks
+    // it up when the video clears.
+    if (results.some(r => r.item.id === MONSTA_RAINBOW_ID)) {
+      jackpotPending.current = true
+      flushJackpot()
+    }
     if (usesEnergyOpening) {
       // Hand the FoodSuits energy cinematic its rarity → it charges and bursts.
       setEnergyRarity(best)
@@ -383,14 +420,14 @@ export default function GachaPage() {
       {/* ── Opening cinematic (rainbow for food, rarity hit for clothes) ── */}
       {openingVideo && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center" style={{ background: '#000' }}
-          onClick={() => setOpeningVideo(null)}>
+          onClick={endOpening}>
           <video key={openingVideo} src={openingVideo} autoPlay muted playsInline preload="auto"
             className="h-full w-full object-cover"
             onLoadedData={() => setVideoReady(true)}
             onCanPlay={() => setVideoReady(true)}
             onPlaying={() => setVideoReady(true)}
-            onEnded={() => setOpeningVideo(null)}
-            onError={() => setOpeningVideo(null)} />
+            onEnded={endOpening}
+            onError={endOpening} />
           {/* Magical sprinkles fill the buffering gap, then dissolve once the
               video has a frame to show. */}
           <div className="absolute inset-0 transition-opacity ease-out" style={{ opacity: videoReady ? 0 : 1, transitionDuration: '450ms' }}>

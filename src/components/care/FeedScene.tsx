@@ -7,6 +7,7 @@ import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import { inkOn, deepenOn } from '@/lib/contrastInk'
+import { foodArt } from '@/lib/foodMeta'
 import { foodDrag } from './foodDragFlag'
 import type { FoodInventory } from '@/types'
 import { playSound } from '@/lib/sounds'
@@ -61,6 +62,16 @@ const SHOP_ITEMS = [
   { id: 'donut'      as const, name: 'Donut',       price: 14, hungerD: 12, happyD: 22, weightD: 0.04, desc: 'Pink & sprinkled', color: '#FF8FB0', cat: 'special' },
   { id: 'cookie'     as const, name: 'Cookie',      price: 7,  hungerD: 8,  happyD: 18, weightD: 0.02, desc: 'Choc-chip warm',   color: '#C89A6B', cat: 'special' },
   { id: 'jelly_caka' as const, name: 'Jelly Caka',  price: 20, hungerD: 14, happyD: 30, weightD: 0.05, desc: 'Sweet wobble',     color: '#E83A4A', cat: 'special' },
+  // Monsta flavours — the can family next to the original Monster Zero above.
+  // Barely any hunger, plenty of joy, near-zero weight: they're drinks.
+  // Rainbow Monsta is deliberately NOT here — it only drops from the gacha.
+  { id: 'monsta_white'    as const, name: 'White Monsta',    price: 12, hungerD: 5, happyD: 16, weightD: 0.01, desc: 'Zero sugar ultra', color: '#2FBCB3', cat: 'special' },
+  { id: 'monsta_mango'    as const, name: 'Mango Monsta',    price: 14, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'Mango loco kick',  color: '#F9A300', cat: 'special' },
+  { id: 'monsta_loco'     as const, name: 'Loco Monsta',     price: 14, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'Tropical loco',    color: '#69C7EB', cat: 'special' },
+  { id: 'monsta_pipeline' as const, name: 'Pipeline Monsta', price: 13, hungerD: 5, happyD: 17, weightD: 0.01, desc: 'Pipeline punch',   color: '#F96679', cat: 'special' },
+  { id: 'monsta_punch'    as const, name: 'Punch Monsta',    price: 13, hungerD: 5, happyD: 17, weightD: 0.01, desc: 'Punchy citrus',    color: '#E9665C', cat: 'special' },
+  { id: 'monsta_rosa'     as const, name: 'Rosa Monsta',     price: 15, hungerD: 5, happyD: 19, weightD: 0.01, desc: 'Ultra rosa fizz',  color: '#D05C8D', cat: 'special' },
+  { id: 'monsta_peachy'   as const, name: 'Peachy Monsta',   price: 15, hungerD: 5, happyD: 19, weightD: 0.01, desc: 'Peachy keen',      color: '#F9AB94', cat: 'special' },
 
   // ─── World dishes ────────────────────────────────────────────────────────
   // Full plated meals (pixel-art art in /public/food), grouped by cuisine so
@@ -139,6 +150,10 @@ const FOOD_IMAGE_IDS = new Set([
   'cevapi', 'sarma', 'doner',
   'tacos', 'wrap', 'paella', 'stew', 'meatballs', 'roast_chicken',
   'sardine', 'steak', 'chicken', 'egg',
+  // Monsta cans. The normaliser clamps tall art to the box height, so every
+  // can ends up the same 124px height — they line up as a set.
+  'monsta_white', 'monsta_mango', 'monsta_loco', 'monsta_pipeline',
+  'monsta_punch', 'monsta_rosa', 'monsta_peachy',
 ])
 
 function FoodIcon({ id, size = 32 }: { id: string; color?: string; size?: number }) {
@@ -155,10 +170,10 @@ function FoodIcon({ id, size = 32 }: { id: string; color?: string; size?: number
   //
   // Every PNG is a square canvas with the dish centred and scaled to one
   // visual size (`scripts/normalize_food_art.py`), so `contain` centres the
-  // food itself and no dish outweighs another. ?v= busts the service worker's
-  // stale-while-revalidate image cache after a re-normalise.
+  // food itself and no dish outweighs another. foodArt() carries the cache-bust
+  // and is shared with the gacha's item art.
   if (FOOD_IMAGE_IDS.has(id)) return (
-    <img src={`/food/${id}.png?v=2`} alt="" draggable={false} width={S} height={S}
+    <img src={foodArt(id)} alt="" draggable={false} width={S} height={S}
       style={{ width: S, height: S, objectFit: 'contain', display: 'block' }} />
   )
 

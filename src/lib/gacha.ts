@@ -1,5 +1,13 @@
 import type { GachaItemDef, GachaBannerDef, GachaRarity, GachaCategory, OutfitSlot } from '@/types'
 import { SKIN_GACHA_ITEMS } from './skins'
+import { foodArt } from './foodMeta'
+
+/**
+ * The Snacks & Drinks jackpot. Named because the gacha screen fires the energy
+ * opening cinematic off it — an id worth matching on shouldn't be a bare string
+ * literal sitting in a page component.
+ */
+export const MONSTA_RAINBOW_ID = 'cons_monsta_rainbow'
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GACHA SYSTEM — Eren's Capsule Machine
@@ -145,6 +153,21 @@ export const GACHA_ITEMS: GachaItemDef[] = [
   // Legendary
   { id: 'cons_ethereal_nectar',  name: 'Ethereal Nectar',   category: 'consumable', rarity: 'legendary', icon: '🌟', description: 'ALL stats +25. Liquid starlight.',                buff: { stat: 'all', amount: 25 } },
   { id: 'cons_phoenix_feather',  name: 'Phoenix Feather',   category: 'consumable', rarity: 'legendary', icon: '🔥', description: 'Fully restores ALL stats to 100. Miraculous.',    buff: { stat: 'all', amount: 100 } },
+
+  // ── MONSTA CANS ────────────────────────────────────────────────
+  // Real can art rather than an emoji — `image` wins over `icon` in
+  // PullAnimation, so the icons below are never drawn (same as skins). Shares
+  // the kitchen's art via foodArt(), so both surfaces hit one cache entry.
+  // Seven of these are also buyable in the shop's SPECIAL row; Rainbow Monsta
+  // is gacha-only, which is what makes it worth chasing.
+  { id: 'cons_monsta_white',     name: 'White Monsta',      category: 'consumable', rarity: 'common',    icon: '🥤', description: '+15 energy. Zero sugar, all buzz.',               buff: { stat: 'energy', amount: 15 }, image: foodArt('monsta_white') },
+  { id: 'cons_monsta_mango',     name: 'Mango Monsta',      category: 'consumable', rarity: 'rare',      icon: '🥤', description: '+25 energy. Mango loco in a can.',                buff: { stat: 'energy', amount: 25 }, image: foodArt('monsta_mango') },
+  { id: 'cons_monsta_loco',      name: 'Loco Monsta',       category: 'consumable', rarity: 'rare',      icon: '🥤', description: '+25 energy. Tropical and loud.',                  buff: { stat: 'energy', amount: 25 }, image: foodArt('monsta_loco') },
+  { id: 'cons_monsta_pipeline',  name: 'Pipeline Monsta',   category: 'consumable', rarity: 'rare',      icon: '🥤', description: '+25 energy. Punch straight from the pipeline.',   buff: { stat: 'energy', amount: 25 }, image: foodArt('monsta_pipeline') },
+  { id: 'cons_monsta_punch',     name: 'Punch Monsta',      category: 'consumable', rarity: 'rare',      icon: '🥤', description: '+25 energy. Citrus punch, no chaser.',            buff: { stat: 'energy', amount: 25 }, image: foodArt('monsta_punch') },
+  { id: 'cons_monsta_rosa',      name: 'Rosa Monsta',       category: 'consumable', rarity: 'epic',      icon: '🥤', description: '+30 energy. Ultra rosa fizz.',                    buff: { stat: 'energy', amount: 30 }, image: foodArt('monsta_rosa') },
+  { id: 'cons_monsta_peachy',    name: 'Peachy Monsta',     category: 'consumable', rarity: 'epic',      icon: '🥤', description: '+30 energy. Peachy keen and ice cold.',           buff: { stat: 'energy', amount: 30 }, image: foodArt('monsta_peachy') },
+  { id: MONSTA_RAINBOW_ID,       name: 'Rainbow Monsta',    category: 'consumable', rarity: 'legendary', icon: '🥤', description: '+50 energy. The Ultimate Energy Blast.',          buff: { stat: 'energy', amount: 50 }, image: foodArt('monsta_rainbow') },
 
   // ── SKINS — full-body Eren looks (Clothing gacha). Generated in lib/skins.ts.
   ...SKIN_GACHA_ITEMS,

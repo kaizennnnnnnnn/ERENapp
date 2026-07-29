@@ -138,6 +138,13 @@ export type FoodInventory = {
   stew?: number
   meatballs?: number
   roast_chicken?: number
+  monsta_white?: number
+  monsta_mango?: number
+  monsta_loco?: number
+  monsta_pipeline?: number
+  monsta_punch?: number
+  monsta_rosa?: number
+  monsta_peachy?: number
 }
 
 export interface ErenStats {
@@ -174,6 +181,10 @@ export type FoodKey = 'kibble' | 'fish' | 'treat' | 'tuna' | 'steak' | 'cream' |
   | 'ramen' | 'pad_thai' | 'gyoza' | 'xiaolongbao'
   | 'cevapi' | 'sarma' | 'doner'
   | 'tacos' | 'wrap' | 'paella' | 'stew' | 'meatballs' | 'roast_chicken'
+  // Monsta cans (shop SPECIAL). Rainbow Monsta is gacha-only, so it is a
+  // GACHA_ITEMS consumable rather than a fridge food — no key here.
+  | 'monsta_white' | 'monsta_mango' | 'monsta_loco' | 'monsta_pipeline'
+  | 'monsta_punch' | 'monsta_rosa' | 'monsta_peachy'
 export interface GiftItem { key: FoodKey; qty: number }
 
 export interface Interaction {
