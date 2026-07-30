@@ -16,6 +16,7 @@ import { highestRarity, pickClothesHitVideo } from '@/lib/gachaVideos'
 import { getSkin } from '@/lib/skins'
 import PullAnimation from '@/components/gacha/PullAnimation'
 import GachaEnergyOpening from '@/components/gacha/GachaEnergyOpening'
+import GachaFizzOpening from '@/components/gacha/GachaFizzOpening'
 import StarfallLoader from '@/components/gacha/StarfallLoader'
 import GachaPullButton from '@/components/gacha/GachaPullButton'
 import { IconCoin, IconSparkles, IconTicket, IconBook } from '@/components/PixelIcons'
@@ -60,11 +61,12 @@ export default function GachaPage() {
   // or a rarity-tiered hit video for clothes. null = no video playing.
   const [openingVideo, setOpeningVideo] = useState<string | null>(null)
   const [videoReady, setVideoReady] = useState(false) // opening video can render its first frame
-  // Both food machines open with a CSS energy cinematic instead of a video, so
-  // the burst can be tinted by the pulled rarity. energyOn = overlay active;
-  // energyRarity stays null until the roll resolves (the shine masks the wait).
-  const [energyOn, setEnergyOn] = useState(false)
-  const [energyRarity, setEnergyRarity] = useState<GachaRarity | null>(null)
+  // Which drawn cinematic is on screen. Each machine has its own so they don't
+  // feel like one box in different wallpaper: Snacks pours and fizzes, FoodSuits
+  // charges and detonates. Rarity stays null until the roll resolves — the idle
+  // phase of either cinematic is what masks that wait.
+  const [cinematic, setCinematic] = useState<'fizz' | 'energy' | null>(null)
+  const [cinematicRarity, setCinematicRarity] = useState<GachaRarity | null>(null)
   const openedWithVideo = useRef(false) // a video/energy opening this pull → skip the capsule
   const touchedDeck = useRef(false) // gate swipe SFX to real gestures (see onScroll)
 
@@ -159,9 +161,9 @@ export default function GachaPage() {
   // the video, so seeing the video *is* the tell that you hit the jackpot.
   //
   // A ref, not state, because the async pull would close over a stale copy.
-  // No race to arbitrate: the cinematic holds its shine until `energyRarity`
-  // is set, so its onDone can't land before the roll has resolved and armed
-  // this — as long as it stays armed *before* setEnergyRarity below.
+  // No race to arbitrate: the cinematic holds its idle phase until
+  // `cinematicRarity` is set, so its onDone can't land before the roll has
+  // resolved and armed this — as long as it stays armed *before* that hand-off.
   const jackpotPending = useRef(false)
 
   // Show a video opening from a clean "still buffering" state, so the starfall
@@ -171,10 +173,10 @@ export default function GachaPage() {
     setOpeningVideo(src)
   }, [])
 
-  // Energy cinematic finished. On a jackpot this is where the rainbow video
-  // takes over; otherwise the reveal follows straight on.
-  const endEnergy = useCallback(() => {
-    setEnergyOn(false)
+  // Cinematic finished. On a jackpot this is where the rainbow video takes
+  // over; otherwise the reveal follows straight on.
+  const endCinematic = useCallback(() => {
+    setCinematic(null)
     if (!jackpotPending.current) return
     jackpotPending.current = false
     playSound('gift_open')
@@ -201,13 +203,13 @@ export default function GachaPage() {
     // Both food machines open with the rarity-tinted energy cinematic: its
     // shine phase masks the roll, then the burst colours to the result. The
     // rainbow video is no longer a generic opener — it belongs to the Rainbow
-    // Monsta alone and plays after the cinematic (see endEnergy). Clothes'
+    // Monsta alone and plays after the cinematic (see endCinematic). Clothes'
     // opening is a rarity-tiered hit video, chosen after the roll (below).
-    const usesEnergyOpening = bannerId === 'food' || bannerId === 'foodsuits'
-    if (usesEnergyOpening) {
+    const drawnOpening = bannerId === 'food' ? 'fizz' : bannerId === 'foodsuits' ? 'energy' : null
+    if (drawnOpening) {
       openedWithVideo.current = true
-      setEnergyRarity(null)
-      setEnergyOn(true)
+      setCinematicRarity(null)
+      setCinematic(drawnOpening)
     }
 
     const results = count === 1
@@ -215,7 +217,7 @@ export default function GachaPage() {
       : await pullTen(bannerId)
     if (!results) {
       endOpening()
-      setEnergyOn(false)
+      setCinematic(null)
       return
     }
 
@@ -242,11 +244,11 @@ export default function GachaPage() {
 
     const best = highestRarity(results.map(r => r.item.rarity))
     // Arm the jackpot BEFORE handing the cinematic its rarity — that hand-off
-    // is what lets the cinematic finish, and endEnergy reads this flag.
+    // is what lets the cinematic finish, and endCinematic reads this flag.
     jackpotPending.current = results.some(r => r.item.id === MONSTA_RAINBOW_ID)
-    if (usesEnergyOpening) {
-      // Hand the energy cinematic its rarity → it charges and bursts.
-      setEnergyRarity(best)
+    if (drawnOpening) {
+      // Hand the cinematic its rarity → it resolves and bursts.
+      setCinematicRarity(best)
     } else if (bannerId === 'animal') {
       // Clothes: open with the hit cinematic for the best drop in the batch.
       const vid = pickClothesHitVideo(best)
@@ -441,10 +443,11 @@ export default function GachaPage() {
       )}
 
       {/* ── FoodSuits energy cinematic (keyhole shine → rarity-tinted burst) ── */}
-      {energyOn && <GachaEnergyOpening rarity={energyRarity} onDone={endEnergy} />}
+      {cinematic === 'fizz'   && <GachaFizzOpening   rarity={cinematicRarity} onDone={endCinematic} />}
+      {cinematic === 'energy' && <GachaEnergyOpening rarity={cinematicRarity} onDone={endCinematic} />}
 
       {/* ── Reveal ── */}
-      {pullResults && !openingVideo && !energyOn && <PullAnimation results={pullResults} onDone={handlePullDone} skipCapsule={openedWithVideo.current} />}
+      {pullResults && !openingVideo && !cinematic && <PullAnimation results={pullResults} onDone={handlePullDone} skipCapsule={openedWithVideo.current} />}
 
       <style jsx>{`
         .gacha-stardust-val {
