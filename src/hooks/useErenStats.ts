@@ -506,6 +506,19 @@ function useErenStatsImpl(householdId: string | null) {
     await saveFoodByUser(byUser)
   }, [stats, saveFoodByUser])
 
+  // Adds several foods in ONE write. A ten-pull can drop multiple cans, and
+  // looping addToMyFood would be a Supabase round trip per can.
+  const addManyToMyFood = useCallback(async (userId: string, keys: (keyof FoodInventory)[]): Promise<void> => {
+    if (keys.length === 0) return
+    const cur = statsRef.current ?? stats
+    if (!cur) return
+    const byUser = { ...(cur.food_by_user ?? {}) }
+    const mine = { ...(byUser[userId] ?? {}) }
+    for (const key of keys) mine[key] = (mine[key] ?? 0) + 1
+    byUser[userId] = mine
+    await saveFoodByUser(byUser)
+  }, [stats, saveFoodByUser])
+
   // Consumes 1 of `key` for feeding. Tries the user's personal pile first;
   // falls back to the shared legacy pool. Returns true if anything was
   // consumed.
@@ -554,7 +567,7 @@ function useErenStatsImpl(householdId: string | null) {
   return {
     stats, loading, error, applyAction, feedWithFood,
     spendCoins, addCoins, saveFoodInventory,
-    addToMyFood, consumeMyFood, giftFood,
+    addToMyFood, addManyToMyFood, consumeMyFood, giftFood,
     wakeUp, refetch: fetchStats,
   }
 }

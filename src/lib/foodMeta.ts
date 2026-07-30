@@ -62,6 +62,7 @@ export const FOOD_META: Record<FoodKey, { name: string; color: string }> = {
   monsta_punch:    { name: 'Punch Monsta',    color: '#E9665C' },
   monsta_rosa:     { name: 'Rosa Monsta',     color: '#D05C8D' },
   monsta_peachy:   { name: 'Peachy Monsta',   color: '#F9AB94' },
+  monsta_rainbow:  { name: 'Rainbow Monsta',  color: '#83E030' },
 }
 
 // Display order for food pickers — staples first (the everyday cat food), then
@@ -76,7 +77,7 @@ export const FOOD_ORDER: FoodKey[] = [
   'cevapi', 'sarma', 'doner',
   'tacos', 'wrap', 'paella', 'stew', 'meatballs', 'roast_chicken',
   'monsta_white', 'monsta_mango', 'monsta_loco', 'monsta_pipeline',
-  'monsta_punch', 'monsta_rosa', 'monsta_peachy',
+  'monsta_punch', 'monsta_rosa', 'monsta_peachy', 'monsta_rainbow',
 ]
 
 /**

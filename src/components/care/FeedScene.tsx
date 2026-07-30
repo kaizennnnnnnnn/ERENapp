@@ -64,7 +64,9 @@ const SHOP_ITEMS = [
   { id: 'jelly_caka' as const, name: 'Jelly Caka',  price: 20, hungerD: 14, happyD: 30, weightD: 0.05, desc: 'Sweet wobble',     color: '#E83A4A', cat: 'special' },
   // Monsta flavours — the can family next to the original Monster Zero above.
   // Barely any hunger, plenty of joy, near-zero weight: they're drinks.
-  // Rainbow Monsta is deliberately NOT here — it only drops from the gacha.
+  // Rainbow is listed so a pulled one has a fridge shelf to land on (the fridge
+  // renders from SHOP_ITEMS), but priced as a splurge — the gacha is the
+  // sensible way to get it.
   { id: 'monsta_white'    as const, name: 'White Monsta',    price: 12, hungerD: 5, happyD: 16, weightD: 0.01, desc: 'Zero sugar ultra', color: '#2FBCB3', cat: 'special' },
   { id: 'monsta_mango'    as const, name: 'Mango Monsta',    price: 14, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'Mango loco kick',  color: '#F9A300', cat: 'special' },
   { id: 'monsta_loco'     as const, name: 'Loco Monsta',     price: 14, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'Tropical loco',    color: '#69C7EB', cat: 'special' },
@@ -72,6 +74,7 @@ const SHOP_ITEMS = [
   { id: 'monsta_punch'    as const, name: 'Punch Monsta',    price: 13, hungerD: 5, happyD: 17, weightD: 0.01, desc: 'Punchy citrus',    color: '#E9665C', cat: 'special' },
   { id: 'monsta_rosa'     as const, name: 'Rosa Monsta',     price: 15, hungerD: 5, happyD: 19, weightD: 0.01, desc: 'Ultra rosa fizz',  color: '#D05C8D', cat: 'special' },
   { id: 'monsta_peachy'   as const, name: 'Peachy Monsta',   price: 15, hungerD: 5, happyD: 19, weightD: 0.01, desc: 'Peachy keen',      color: '#F9AB94', cat: 'special' },
+  { id: 'monsta_rainbow'  as const, name: 'Rainbow Monsta',  price: 90, hungerD: 8, happyD: 40, weightD: 0.01, desc: 'Ultimate blast',   color: '#83E030', cat: 'special' },
 
   // ─── World dishes ────────────────────────────────────────────────────────
   // Full plated meals (pixel-art art in /public/food), grouped by cuisine so
@@ -153,7 +156,7 @@ const FOOD_IMAGE_IDS = new Set([
   // Monsta cans. The normaliser clamps tall art to the box height, so every
   // can ends up the same 124px height — they line up as a set.
   'monsta_white', 'monsta_mango', 'monsta_loco', 'monsta_pipeline',
-  'monsta_punch', 'monsta_rosa', 'monsta_peachy',
+  'monsta_punch', 'monsta_rosa', 'monsta_peachy', 'monsta_rainbow',
 ])
 
 function FoodIcon({ id, size = 32 }: { id: string; color?: string; size?: number }) {

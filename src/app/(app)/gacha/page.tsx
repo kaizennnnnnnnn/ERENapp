@@ -8,7 +8,9 @@ import { ChevronLeft } from 'lucide-react'
 import { useGacha } from '@/hooks/useGacha'
 import { useInventory } from '@/hooks/useInventory'
 import { useCare } from '@/contexts/CareContext'
-import { PULL_COST_SINGLE, PULL_COST_TEN, PITY_EPIC, PITY_LEGENDARY, MONSTA_RAINBOW_ID } from '@/lib/gacha'
+import { useAuth } from '@/hooks/useAuth'
+import { useErenStats } from '@/hooks/useErenStats'
+import { PULL_COST_SINGLE, PULL_COST_TEN, PITY_EPIC, PITY_LEGENDARY, MONSTA_RAINBOW_ID, GACHA_FOOD_GRANT } from '@/lib/gacha'
 import type { GachaPullResult, GachaRarity } from '@/types'
 import { highestRarity, pickClothesHitVideo } from '@/lib/gachaVideos'
 import { getSkin } from '@/lib/skins'
@@ -40,6 +42,10 @@ export default function GachaPage() {
   const { setHideStats } = useCare()
   const { coins, stardust, pityEpic, pityLegendary, pulling, pullSingle, pullTen, tickets } = useGacha()
   const { refetch: refetchInv } = useInventory()
+  const { user, profile } = useAuth()
+  // Singleton context (provider lives in (app)/layout) — no extra realtime
+  // channel from consuming it here.
+  const { addManyToMyFood } = useErenStats(profile?.household_id ?? null)
 
   // Hide the persistent StatsHeader on this subpage; restore on unmount.
   useEffect(() => {
@@ -50,12 +56,12 @@ export default function GachaPage() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [pageIdx, setPageIdx] = useState(0)
   const [pullResults, setPullResults] = useState<GachaPullResult[] | null>(null)
-  // The opening cinematic for the current pull: the rainbow video for food, a
-  // rarity-tiered hit video for clothes. null = no video playing.
+  // Video playing over the pull: the rainbow reward video (Rainbow Monsta only)
+  // or a rarity-tiered hit video for clothes. null = no video playing.
   const [openingVideo, setOpeningVideo] = useState<string | null>(null)
   const [videoReady, setVideoReady] = useState(false) // opening video can render its first frame
-  // The FoodSuits machine opens with a CSS energy cinematic instead of a video,
-  // so the burst can be tinted by the pulled rarity. energyOn = overlay active;
+  // Both food machines open with a CSS energy cinematic instead of a video, so
+  // the burst can be tinted by the pulled rarity. energyOn = overlay active;
   // energyRarity stays null until the roll resolves (the shine masks the wait).
   const [energyOn, setEnergyOn] = useState(false)
   const [energyRarity, setEnergyRarity] = useState<GachaRarity | null>(null)
@@ -148,41 +154,38 @@ export default function GachaPage() {
   }
 
   // ── Rainbow Monsta jackpot ─────────────────────────────────────────────────
-  // Pulling it escalates the reveal: the banner's opening video plays first (it
-  // masks the roll), then the energy cinematic bursts for the can itself. Every
-  // other Monsta reveals plainly.
+  // The rainbow video is the Rainbow Monsta's alone. Every pull opens with the
+  // energy cinematic; only a batch containing the rainbow can chases it with
+  // the video, so seeing the video *is* the tell that you hit the jackpot.
   //
-  // Refs, not state, because the roll and the video race: the roll normally
-  // resolves while the video is still playing, but a slow one can land after it
-  // has ended. Either order must fire the cinematic exactly once, and reading
-  // `openingVideo` state inside the async pull would close over a stale value.
+  // A ref, not state, because the async pull would close over a stale copy.
+  // No race to arbitrate: the cinematic holds its shine until `energyRarity`
+  // is set, so its onDone can't land before the roll has resolved and armed
+  // this — as long as it stays armed *before* setEnergyRarity below.
   const jackpotPending = useRef(false)
-  const videoPlaying = useRef(false)
 
   // Show a video opening from a clean "still buffering" state, so the starfall
   // loader covers the gap until the first frame is decodable.
   const startOpening = useCallback((src: string) => {
     setVideoReady(false)
-    videoPlaying.current = true
     setOpeningVideo(src)
   }, [])
 
-  // Only fires once the video is off screen — the cinematic renders below the
-  // video layer, so starting it early would play it behind an opaque overlay.
-  const flushJackpot = useCallback(() => {
-    if (!jackpotPending.current || videoPlaying.current) return
+  // Energy cinematic finished. On a jackpot this is where the rainbow video
+  // takes over; otherwise the reveal follows straight on.
+  const endEnergy = useCallback(() => {
+    setEnergyOn(false)
+    if (!jackpotPending.current) return
     jackpotPending.current = false
-    setEnergyRarity('legendary')
-    setEnergyOn(true)
-  }, [])
+    playSound('gift_open')
+    startOpening('/rainbow_opening.mp4')
+  }, [startOpening])
 
   // Single exit for the opening video — it can end by finishing, erroring, or
-  // being tapped through, and all three have to hand off the same way.
+  // being tapped through, and all three have to clear it the same way.
   const endOpening = useCallback(() => {
-    videoPlaying.current = false
     setOpeningVideo(null)
-    flushJackpot()
-  }, [flushJackpot])
+  }, [])
 
   async function handlePull(count: 1 | 10) {
     if (pulling || openingVideo || pullResults) return
@@ -195,18 +198,13 @@ export default function GachaPage() {
     playSound('ui_tap')
     openedWithVideo.current = false
 
-    // The rainbow opening is generic, so it plays DURING the roll to mask the
-    // latency — used by the food machine. The FoodSuits machine opens with the
-    // rarity-tinted CSS energy cinematic (its shine phase masks the roll, then
-    // the burst colours to the result). Clothes' opening is a rarity-tiered hit
-    // video, chosen after the roll resolves (below).
-    const usesRainbowOpening = bannerId === 'food'
-    const usesEnergyOpening = bannerId === 'foodsuits'
-    if (usesRainbowOpening) {
-      playSound('gift_open')
-      openedWithVideo.current = true
-      startOpening('/rainbow_opening.mp4')
-    } else if (usesEnergyOpening) {
+    // Both food machines open with the rarity-tinted energy cinematic: its
+    // shine phase masks the roll, then the burst colours to the result. The
+    // rainbow video is no longer a generic opener — it belongs to the Rainbow
+    // Monsta alone and plays after the cinematic (see endEnergy). Clothes'
+    // opening is a rarity-tiered hit video, chosen after the roll (below).
+    const usesEnergyOpening = bannerId === 'food' || bannerId === 'foodsuits'
+    if (usesEnergyOpening) {
       openedWithVideo.current = true
       setEnergyRarity(null)
       setEnergyOn(true)
@@ -235,16 +233,19 @@ export default function GachaPage() {
       }
     }
 
-    const best = highestRarity(results.map(r => r.item.rarity))
-    // Rainbow Monsta is the Snacks & Drinks jackpot — queue the energy burst.
-    // flushJackpot no-ops while the opening video is still up; endOpening picks
-    // it up when the video clears.
-    if (results.some(r => r.item.id === MONSTA_RAINBOW_ID)) {
-      jackpotPending.current = true
-      flushJackpot()
+    // Drinks also stock the fridge, so a pulled can is somewhere you can feed
+    // it from (see GACHA_FOOD_GRANT). One batched write for the whole batch.
+    if (user) {
+      const foods = results.map(r => GACHA_FOOD_GRANT[r.item.id]).filter(Boolean)
+      if (foods.length > 0) addManyToMyFood(user.id, foods)
     }
+
+    const best = highestRarity(results.map(r => r.item.rarity))
+    // Arm the jackpot BEFORE handing the cinematic its rarity — that hand-off
+    // is what lets the cinematic finish, and endEnergy reads this flag.
+    jackpotPending.current = results.some(r => r.item.id === MONSTA_RAINBOW_ID)
     if (usesEnergyOpening) {
-      // Hand the FoodSuits energy cinematic its rarity → it charges and bursts.
+      // Hand the energy cinematic its rarity → it charges and bursts.
       setEnergyRarity(best)
     } else if (bannerId === 'animal') {
       // Clothes: open with the hit cinematic for the best drop in the batch.
@@ -440,7 +441,7 @@ export default function GachaPage() {
       )}
 
       {/* ── FoodSuits energy cinematic (keyhole shine → rarity-tinted burst) ── */}
-      {energyOn && <GachaEnergyOpening rarity={energyRarity} onDone={() => setEnergyOn(false)} />}
+      {energyOn && <GachaEnergyOpening rarity={energyRarity} onDone={endEnergy} />}
 
       {/* ── Reveal ── */}
       {pullResults && !openingVideo && !energyOn && <PullAnimation results={pullResults} onDone={handlePullDone} skipCapsule={openedWithVideo.current} />}

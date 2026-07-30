@@ -1,4 +1,4 @@
-import type { GachaItemDef, GachaBannerDef, GachaRarity, GachaCategory, OutfitSlot } from '@/types'
+import type { GachaItemDef, GachaBannerDef, GachaRarity, GachaCategory, OutfitSlot, FoodKey } from '@/types'
 import { SKIN_GACHA_ITEMS } from './skins'
 import { foodArt } from './foodMeta'
 
@@ -8,6 +8,26 @@ import { foodArt } from './foodMeta'
  * literal sitting in a page component.
  */
 export const MONSTA_RAINBOW_ID = 'cons_monsta_rainbow'
+
+/**
+ * Gacha item id → the fridge food a pull also stocks.
+ *
+ * Consumables normally live only in the gacha collection, where they're used
+ * for their buff. That's the wrong place for a drink: pull a Monsta and you go
+ * looking in the fridge, not in a collection screen. So a pulled can is granted
+ * as food too — the collection entry stays as the "collected" record, and the
+ * can itself is where you'd feed it from.
+ */
+export const GACHA_FOOD_GRANT: Record<string, FoodKey> = {
+  cons_monsta_white:    'monsta_white',
+  cons_monsta_mango:    'monsta_mango',
+  cons_monsta_loco:     'monsta_loco',
+  cons_monsta_pipeline: 'monsta_pipeline',
+  cons_monsta_punch:    'monsta_punch',
+  cons_monsta_rosa:     'monsta_rosa',
+  cons_monsta_peachy:   'monsta_peachy',
+  [MONSTA_RAINBOW_ID]:  'monsta_rainbow',
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GACHA SYSTEM — Eren's Capsule Machine
