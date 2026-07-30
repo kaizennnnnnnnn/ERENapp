@@ -22,6 +22,7 @@ import { useErenReaction } from '@/hooks/useErenReaction'
 import { happyFinisherBeats, WORD_COLOR } from '@/lib/erenReactions'
 import SoundWord from '@/components/SoundWord'
 import { Hearts } from '@/components/care/ReactionFx'
+import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import DonePlayingButton from '@/components/playroom/DonePlayingButton'
 import SegmentMeter, { type MeterPalette } from '@/components/care/SegmentMeter'
 
@@ -223,9 +224,13 @@ export default function PlayScene({ onClose }: Props) {
                 transformOrigin: 'bottom center',
                 ['--tx' as string]: '10px',
               } as React.CSSProperties}>
-                <ErenIdleLayer disabled={reaction.active}>
-                  {erenSprite}
-                </ErenIdleLayer>
+                {/* Tapping him pets instead of throwing the ball at him —
+                    PetTarget swallows the tap before the scene's onClick. */}
+                <PetTarget reaction={reaction}>
+                  <ErenIdleLayer disabled={reaction.active}>
+                    {erenSprite}
+                  </ErenIdleLayer>
+                </PetTarget>
               </div>
             </div>
           </div>
@@ -234,7 +239,7 @@ export default function PlayScene({ onClose }: Props) {
 
       {/* Reaction words/hearts — a SEPARATE, non-flipped overlay at Eren's
           spot so the pixel text never renders mirrored by the flip. */}
-      {!isSleeping && (reaction.phase === 'pounce' || reaction.phase === 'finish') && (
+      {!isSleeping && (reaction.phase === 'pounce' || reaction.phase === 'finish' || reaction.phase === PURR) && (
         <div className="absolute z-20 pointer-events-none" style={{
           bottom: '10%', left: '50%', transform: 'translateX(-50%)', width: 200, height: 200,
         }}>
@@ -244,6 +249,7 @@ export default function PlayScene({ onClose }: Props) {
             <Hearts count={2} bottom="60%" />
             <SoundWord word="FUN!" color={WORD_COLOR.happy} left={50} top={6} />
           </>}
+          {reaction.phase === PURR && <PurrFx bottom="60%" />}
         </div>
       )}
 

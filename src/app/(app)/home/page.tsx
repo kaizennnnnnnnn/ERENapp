@@ -53,9 +53,7 @@ import LightSwitch from '@/components/LightSwitch'
 import { useWish } from '@/contexts/WishContext'
 import { useWishLinger } from '@/hooks/useWishLinger'
 import { useErenReaction } from '@/hooks/useErenReaction'
-import { WORD_COLOR } from '@/lib/erenReactions'
-import SoundWord from '@/components/SoundWord'
-import { Hearts } from '@/components/care/ReactionFx'
+import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import WishCloud from '@/components/wish/WishCloud'
 import ErenGrantBurst from '@/components/wish/ErenGrantBurst'
 import ErenSpeechBubble from '@/components/wish/ErenSpeechBubble'
@@ -91,20 +89,10 @@ export default function HomePage() {
   const homeEren = useRoomEren('home', HOME_EREN_FALLBACK)
 
   // Pet interaction — tap on Eren and he stays in place, just trembling a
-  // gentle purr with hearts + a "PURRR", and dispatches eren:pet so the wish
-  // system can grant pet-flavoured wishes (mood-pet, mood-lap). 1.5s cooldown
-  // prevents tap-spam from auto-granting.
+  // gentle purr with hearts + a "PURRR". The behaviour lives in PetTarget so
+  // the care rooms pet him identically; it also dispatches eren:pet for the
+  // pet-flavoured wishes (mood-pet, mood-lap).
   const petReaction = useErenReaction()
-  const lastPetAtRef = useRef(0)
-  const handlePetEren = useCallback(() => {
-    const now = Date.now()
-    if (now - lastPetAtRef.current < 1500) return
-    lastPetAtRef.current = now
-    petReaction.play([{ name: 'purr', ms: 1000, onEnter: () => playSound('pet_purr') }])
-    try {
-      window.dispatchEvent(new CustomEvent('eren:pet', { detail: { user_id: user?.id } }))
-    } catch { /* SSR/no-window */ }
-  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Get equipped items for display
   const equippedOutfits = inventory.filter(i => i.equipped).map(i => GACHA_ITEMS.find(g => g.id === i.item_id)).filter(Boolean)
@@ -617,50 +605,33 @@ export default function HomePage() {
               bottom: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 2,
               filter: mood === 'angry' ? 'hue-rotate(340deg) saturate(1.3)' : mood === 'sleepy' ? 'brightness(0.85)' : 'none',
             }}>
-              {/* Tappable wrapper — pet/purr lives here. He stays put and
-                  just trembles a gentle purr in place; no lean. */}
-              <div
-                role="button"
-                aria-label="Pet Eren"
-                onClick={handlePetEren}
-                style={{
-                  cursor: 'pointer',
-                  WebkitTapHighlightColor: 'transparent',
-                }}
-              >
-                <div style={{
-                  animation: petReaction.phase === 'purr'
-                    ? 'erenPurrShiver 150ms ease-in-out 6' : undefined,
-                  transformOrigin: 'bottom center',
-                }}>
-                  <ErenIdleLayer disabled={petReaction.active}>
-                    {/* Tail split into its own layer (erenGood_tail.png) over a
-                        tail-erased body so only the tail sways. See BlinkingEren. */}
-                    <BlinkingEren id="eren-img" size={200} {...homeEren} />
-                    <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
+              {/* Tappable wrapper — he stays put and just trembles a gentle
+                  purr in place; no lean. */}
+              <PetTarget reaction={petReaction}>
+                <ErenIdleLayer disabled={petReaction.active}>
+                  {/* Tail split into its own layer (erenGood_tail.png) over a
+                      tail-erased body so only the tail sways. See BlinkingEren. */}
+                  <BlinkingEren id="eren-img" size={200} {...homeEren} />
+                  <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
 
-                    {/* Outfit overlays — % positions are relative to the parent
-                        absolute div, which is sized by BlinkingEren (200×200). */}
-                    {equippedOutfits.map(item => item?.pos && item.slot && (
-                      <div key={item.id} className="absolute pointer-events-none" style={{
-                        top: `${item.pos.top}%`, left: `${item.pos.left}%`,
-                        transform: 'translate(-50%, -50%)',
-                        fontSize: item.pos.size, lineHeight: 1,
-                        zIndex: item.slot === 'hat' ? 10 : item.slot === 'eyes' ? 9 : 8,
-                        filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
-                      }}>
-                        {item.icon}
-                      </div>
-                    ))}
-                  </ErenIdleLayer>
-                </div>
+                  {/* Outfit overlays — % positions are relative to the parent
+                      absolute div, which is sized by BlinkingEren (200×200). */}
+                  {equippedOutfits.map(item => item?.pos && item.slot && (
+                    <div key={item.id} className="absolute pointer-events-none" style={{
+                      top: `${item.pos.top}%`, left: `${item.pos.left}%`,
+                      transform: 'translate(-50%, -50%)',
+                      fontSize: item.pos.size, lineHeight: 1,
+                      zIndex: item.slot === 'hat' ? 10 : item.slot === 'eyes' ? 9 : 8,
+                      filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
+                    }}>
+                      {item.icon}
+                    </div>
+                  ))}
+                </ErenIdleLayer>
+              </PetTarget>
 
-                {/* Purr hearts + word, anchored to this box (centered above). */}
-                {petReaction.phase === 'purr' && <>
-                  <Hearts count={3} bottom="58%" />
-                  <SoundWord word="PURRR" color={WORD_COLOR.purr} left={50} top={6} />
-                </>}
-              </div>
+              {/* Purr hearts + word, anchored to this box (centered above). */}
+              {petReaction.phase === PURR && <PurrFx />}
             </div>
 
             {/* Daily wish bubble — anchored above-left of Eren, opposite

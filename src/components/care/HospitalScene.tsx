@@ -7,12 +7,18 @@ import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
 import BlinkingEren from '@/components/BlinkingEren'
 import StinkyFlies from '@/components/StinkyFlies'
+import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
+import { useErenReaction } from '@/hooks/useErenReaction'
 
 interface Props { onClose: () => void }
 
 export default function HospitalScene({ onClose }: Props) {
   const { user, profile } = useAuth()
   const { stats, applyAction } = useErenStats(profile?.household_id ?? null)
+
+  // No care animation in the clinic — this runner is here so a tap on the
+  // patient still purrs, same as every other room.
+  const reaction = useErenReaction()
 
   const [medGiven, setMedGiven] = useState(false)
   const [giving,   setGiving]   = useState(false)
@@ -352,8 +358,13 @@ export default function HospitalScene({ onClose }: Props) {
       {/* ══ EREN on table ══ */}
       <div className={cn('absolute z-10 transition-all duration-500', 'bottom-[46%] left-[38%]')}
         style={{ width: 130, height: 130 }}>
-        <BlinkingEren size={130} src="/erenGood_notail.png" tailSrc="/erenGood_tail.png" />
+        <PetTarget reaction={reaction}>
+          <BlinkingEren size={130} src="/erenGood_notail.png" tailSrc="/erenGood_tail.png" />
+        </PetTarget>
         <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
+
+        {/* Tap-to-pet purr. */}
+        {reaction.phase === PURR && <PurrFx bottom="62%" />}
       </div>
 
       {/* ══ CONE OF SHAME ══ */}

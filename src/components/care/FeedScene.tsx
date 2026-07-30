@@ -27,6 +27,7 @@ import SoundWord from '@/components/SoundWord'
 import { FoodBowl, Crumbs, Hearts } from '@/components/care/ReactionFx'
 import KitchenNavButton from '@/components/kitchen/KitchenNavButton'
 import PoseSprite from '@/components/care/PoseSprite'
+import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import PixelPoof from '@/components/PixelPoof'
 import { preloadImages } from '@/lib/preloadImages'
 import { IconClose, IconChevronLeft, IconChevronRight } from '@/components/PixelIcons'
@@ -534,14 +535,16 @@ export default function FeedScene({ onClose }: Props) {
           <PoseSprite src={`/erenEat${eatIdx + 1}.png?v=2`} width={140} breathe={false} />
         </div>
       ) : (
-        <ErenIdleLayer disabled={reaction.active}>
-          <div style={{
-            animation: phase === 'finish' ? 'erenIdleHop 800ms ease-in-out' : undefined,
-            transformOrigin: 'bottom center',
-          }}>
-            {erenSprite}
-          </div>
-        </ErenIdleLayer>
+        <PetTarget reaction={reaction}>
+          <ErenIdleLayer disabled={reaction.active}>
+            <div style={{
+              animation: phase === 'finish' ? 'erenIdleHop 800ms ease-in-out' : undefined,
+              transformOrigin: 'bottom center',
+            }}>
+              {erenSprite}
+            </div>
+          </ErenIdleLayer>
+        </PetTarget>
       )}
 
       {/* Bowl + crumbs sit under his lowered face (off-centre in the crouch).
@@ -556,6 +559,8 @@ export default function FeedScene({ onClose }: Props) {
         <Hearts count={2} bottom="60%" />
         <SoundWord word="YUM!" color={WORD_COLOR.happy} left={50} top={6} />
       </>}
+      {/* Tap-to-pet purr. */}
+      {phase === PURR && <PurrFx bottom="60%" />}
 
       {/* Poof that masks the standing<->crouch sticker swap. */}
       {showPoof && <PixelPoof size={200} onDone={() => setShowPoof(false)} />}

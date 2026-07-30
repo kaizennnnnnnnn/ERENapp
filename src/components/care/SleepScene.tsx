@@ -18,6 +18,7 @@ import { useErenReaction } from '@/hooks/useErenReaction'
 import { WORD_COLOR } from '@/lib/erenReactions'
 import SoundWord from '@/components/SoundWord'
 import PoseSprite from '@/components/care/PoseSprite'
+import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import PixelPoof from '@/components/PixelPoof'
 import { preloadImages } from '@/lib/preloadImages'
 import SleepButton from '@/components/bedroom/SleepButton'
@@ -180,24 +181,28 @@ export default function SleepScene({ onClose }: Props) {
           // poof. Breath slowed so the sleeping body rises and falls gently.
           <PoseSprite src={`/erenSleep${sleepIdx + 1}.png?v=2`} width={125} breatheDur={6.5} />
         ) : (
-          <ErenIdleLayer disabled={reaction.active}>
-            {/* Awake in the bedroom: the nightcap pose. Sleepy sway → settle
-                squash as he's tucked in, waking stretch on wake. The bedroom
-                cap pushes the face down, so the blink/glint overlays are
-                re-aimed lower and closer together; lids shut during the settle. */}
-            <div style={{
-              animation: reaction.phase === 'sway'   ? 'erenSleepySway 500ms ease-in-out 2'
-                : reaction.phase === 'settle' ? 'erenSettle 700ms ease-out both'
-                : reaction.phase === 'wake'   ? 'erenIdleStretch 1800ms ease-in-out'
-                : undefined,
-              transformOrigin: 'bottom center',
-            }}>
-              <BlinkingEren size={230} {...sleepEren}
-                lidsClosed={tucking || reaction.phase === 'settle'}
-                sleepyLids
-                breatheDur={4} />
-            </div>
-          </ErenIdleLayer>
+          // Pettable only while he's up — the tucked-in pose above is asleep,
+          // and a purr there would undo the whole point of the bedroom.
+          <PetTarget reaction={reaction}>
+            <ErenIdleLayer disabled={reaction.active}>
+              {/* Awake in the bedroom: the nightcap pose. Sleepy sway → settle
+                  squash as he's tucked in, waking stretch on wake. The bedroom
+                  cap pushes the face down, so the blink/glint overlays are
+                  re-aimed lower and closer together; lids shut during the settle. */}
+              <div style={{
+                animation: reaction.phase === 'sway'   ? 'erenSleepySway 500ms ease-in-out 2'
+                  : reaction.phase === 'settle' ? 'erenSettle 700ms ease-out both'
+                  : reaction.phase === 'wake'   ? 'erenIdleStretch 1800ms ease-in-out'
+                  : undefined,
+                transformOrigin: 'bottom center',
+              }}>
+                <BlinkingEren size={230} {...sleepEren}
+                  lidsClosed={tucking || reaction.phase === 'settle'}
+                  sleepyLids
+                  breatheDur={4} />
+              </div>
+            </ErenIdleLayer>
+          </PetTarget>
         )}
         <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
 
@@ -207,6 +212,8 @@ export default function SleepScene({ onClose }: Props) {
         {/* Sleepy yawn / waking sound-words, anchored above his head. */}
         {reaction.phase === 'sway' && <SoundWord word="MRAAW" color={WORD_COLOR.sleep} left={50} top={4} />}
         {reaction.phase === 'wake' && <SoundWord word="MRRP!" color={WORD_COLOR.sleep} left={50} top={4} />}
+        {/* Tap-to-pet purr. */}
+        {reaction.phase === PURR && <PurrFx bottom="60%" />}
       </div>
 
       {/* ══ ZZZs ══ */}

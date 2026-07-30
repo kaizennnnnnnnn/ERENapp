@@ -20,6 +20,7 @@ import { useErenReaction } from '@/hooks/useErenReaction'
 import { happyFinisherBeats, WORD_COLOR } from '@/lib/erenReactions'
 import SoundWord from '@/components/SoundWord'
 import { Sparkles, Hearts } from '@/components/care/ReactionFx'
+import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import CheckupButton from '@/components/vet/CheckupButton'
 import GiveMedicineButton, { MedicineResultBanner } from '@/components/vet/GiveMedicineButton'
 
@@ -134,19 +135,21 @@ export default function VetScene({ onClose }: Props) {
       {!isSleeping && (
         <div className={cn('absolute z-10 transition-all duration-500', checkDone ? 'bottom-[6%]' : 'bottom-[4%]')}
           style={{ left: '50%', transform: 'translateX(-50%)' }}>
-          <ErenIdleLayer disabled={checking || reaction.active}>
-            <div style={{
-              animation: reaction.phase === 'grimace' ? 'erenGrimace 600ms ease-out both'
-                : reaction.phase === 'finish' ? 'erenIdleHop 800ms ease-in-out'
-                : checking ? 'erenHeadTilt 1200ms ease-in-out'
-                : undefined,
-              transformOrigin: 'bottom center',
-            }}>
-              <BlinkingEren size={200} {...vetEren}
-                lidsClosed={reaction.phase === 'grimace'} sleepyLids />
-              <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
-            </div>
-          </ErenIdleLayer>
+          <PetTarget reaction={reaction} disabled={checking}>
+            <ErenIdleLayer disabled={checking || reaction.active}>
+              <div style={{
+                animation: reaction.phase === 'grimace' ? 'erenGrimace 600ms ease-out both'
+                  : reaction.phase === 'finish' ? 'erenIdleHop 800ms ease-in-out'
+                  : checking ? 'erenHeadTilt 1200ms ease-in-out'
+                  : undefined,
+                transformOrigin: 'bottom center',
+              }}>
+                <BlinkingEren size={200} {...vetEren}
+                  lidsClosed={reaction.phase === 'grimace'} sleepyLids />
+                <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
+              </div>
+            </ErenIdleLayer>
+          </PetTarget>
 
           {/* Reaction words / sparks, anchored to Eren's 200px box. */}
           {checking && <SoundWord word="?" color={WORD_COLOR.curious} left={62} top={2} size={10} />}
@@ -156,6 +159,8 @@ export default function VetScene({ onClose }: Props) {
             <Hearts count={2} bottom="58%" />
             <SoundWord word="ALL BETTER!" color={WORD_COLOR.happy} left={50} top={4} size={6} />
           </>}
+          {/* Tap-to-pet purr. */}
+          {reaction.phase === PURR && <PurrFx />}
         </div>
       )}
 

@@ -20,6 +20,7 @@ import { happyFinisherBeats, WORD_COLOR } from '@/lib/erenReactions'
 import SoundWord from '@/components/SoundWord'
 import { Droplets, Sparkles, Hearts } from '@/components/care/ReactionFx'
 import PoseSprite from '@/components/care/PoseSprite'
+import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import { BubblePoof, SplashPoof, WASH_POOF_PEAK_MS } from '@/components/care/WashPoof'
 import { preloadImages } from '@/lib/preloadImages'
 import SqueakyCleanBanner from '@/components/wash/SqueakyCleanBanner'
@@ -486,50 +487,54 @@ export default function WashScene({ onClose }: Props) {
       {!isSleeping && (
         <div ref={erenRef} className={cn('absolute transition-all duration-500', done ? 'bottom-[12%]' : 'bottom-[10%]')}
           style={{ left: '50%', transform: 'translateX(-50%)' }}>
-          <ErenIdleLayer disabled={scrubbing || reaction.active}>
-            <div style={{
-              position: 'relative', width: 200, height: 200,
-              animation: reaction.phase === 'shake' ? 'erenShakeDry 750ms linear'
-                : reaction.phase === 'finish' ? 'erenIdleHop 800ms ease-in-out'
-                : scrubbing ? 'erenSquirm 400ms steps(2) infinite'
-                : undefined,
-              transformOrigin: 'bottom center',
-            }}>
-              {/* Shake wrapper — a rinse transition fires WASH_SHAKE_KEYFRAMES on
-                  this via WAAPI so he shakes the water off; pivots at the feet. */}
-              <div ref={washShakeRef} style={{ position: 'relative', width: '100%', height: '100%', transformOrigin: 'bottom center' }}>
-                {/* Standing sprite when dry; lather/wet pose sticker otherwise.
-                    The 200×200 box stays fixed (erenRef) so the soap occupancy
-                    mask keeps lining up regardless of which pose shows. The pose
-                    is lifted 20px because the standing sprite's feet sit ~20px
-                    above the box bottom (its source has bottom padding) — without
-                    this the pose lands lower and he looks like he drops on swap. */}
-                {visibleStage === 'stand' ? (
-                  // Bottom-anchor + centre the idle in the 200×200 box. The
-                  // default sprite is size 200 (fills the box), but a Closet
-                  // SKIN renders smaller (~155) and, left unwrapped, an
-                  // inline-block flows to the box's TOP-LEFT — so he'd sit high
-                  // and shifted, then "teleport" down to the centred wash pose
-                  // on the first soap. bottom:0 lands his feet at the same line
-                  // the pose uses (its 20px lift = the standing sprite's foot
-                  // padding / the skin's own lift), so the swap doesn't move him.
-                  <div style={{ position: 'absolute', left: '50%', bottom: 0, transform: 'translateX(-50%)' }}>
-                    {erenSprite}
-                  </div>
-                ) : (
-                  <div style={{ position: 'absolute', left: '50%', bottom: 20, transform: 'translateX(-50%)' }}>
-                    {/* width 108 ≈ the standing cat's on-screen silhouette
-                        (~107×155 → pose aspect ~0.67 gives ~108×159), so head
-                        and body match and he doesn't visibly shrink on the first
-                        soap swap. Earlier 125–190 values were dead: the `left:50%`
-                        wrapper + Tailwind's `img{max-width:100%}` capped every
-                        pose to ~100px until PoseSprite opted out of that cap. */}
-                    <PoseSprite src={WASH_POSE_SRC[visibleStage]} width={108} />
-                  </div>
-                )}
+          {/* Not pettable mid-scrub — his body is already squirming under the
+              soap, and the tap belongs to the tool you're dragging. */}
+          <PetTarget reaction={reaction} disabled={scrubbing}>
+            <ErenIdleLayer disabled={scrubbing || reaction.active}>
+              <div style={{
+                position: 'relative', width: 200, height: 200,
+                animation: reaction.phase === 'shake' ? 'erenShakeDry 750ms linear'
+                  : reaction.phase === 'finish' ? 'erenIdleHop 800ms ease-in-out'
+                  : scrubbing ? 'erenSquirm 400ms steps(2) infinite'
+                  : undefined,
+                transformOrigin: 'bottom center',
+              }}>
+                {/* Shake wrapper — a rinse transition fires WASH_SHAKE_KEYFRAMES on
+                    this via WAAPI so he shakes the water off; pivots at the feet. */}
+                <div ref={washShakeRef} style={{ position: 'relative', width: '100%', height: '100%', transformOrigin: 'bottom center' }}>
+                  {/* Standing sprite when dry; lather/wet pose sticker otherwise.
+                      The 200×200 box stays fixed (erenRef) so the soap occupancy
+                      mask keeps lining up regardless of which pose shows. The pose
+                      is lifted 20px because the standing sprite's feet sit ~20px
+                      above the box bottom (its source has bottom padding) — without
+                      this the pose lands lower and he looks like he drops on swap. */}
+                  {visibleStage === 'stand' ? (
+                    // Bottom-anchor + centre the idle in the 200×200 box. The
+                    // default sprite is size 200 (fills the box), but a Closet
+                    // SKIN renders smaller (~155) and, left unwrapped, an
+                    // inline-block flows to the box's TOP-LEFT — so he'd sit high
+                    // and shifted, then "teleport" down to the centred wash pose
+                    // on the first soap. bottom:0 lands his feet at the same line
+                    // the pose uses (its 20px lift = the standing sprite's foot
+                    // padding / the skin's own lift), so the swap doesn't move him.
+                    <div style={{ position: 'absolute', left: '50%', bottom: 0, transform: 'translateX(-50%)' }}>
+                      {erenSprite}
+                    </div>
+                  ) : (
+                    <div style={{ position: 'absolute', left: '50%', bottom: 20, transform: 'translateX(-50%)' }}>
+                      {/* width 108 ≈ the standing cat's on-screen silhouette
+                          (~107×155 → pose aspect ~0.67 gives ~108×159), so head
+                          and body match and he doesn't visibly shrink on the first
+                          soap swap. Earlier 125–190 values were dead: the `left:50%`
+                          wrapper + Tailwind's `img{max-width:100%}` capped every
+                          pose to ~100px until PoseSprite opted out of that cap. */}
+                      <PoseSprite src={WASH_POSE_SRC[visibleStage]} width={108} />
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </ErenIdleLayer>
+            </ErenIdleLayer>
+          </PetTarget>
 
           {/* Bubble (soaping) / splash (rinsing) poof masks each pose swap. */}
           {poof && (poof.type === 'bubble'
@@ -548,6 +553,8 @@ export default function WashScene({ onClose }: Props) {
             <Hearts count={2} bottom="58%" />
             <SoundWord word="CLEAN!" color={WORD_COLOR.happy} left={50} top={6} />
           </>}
+          {/* Tap-to-pet purr. */}
+          {reaction.phase === PURR && <PurrFx />}
         </div>
       )}
 

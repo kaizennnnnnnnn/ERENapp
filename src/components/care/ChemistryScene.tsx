@@ -10,6 +10,8 @@ import { BookOpen, Flame, Check, ChevronUp, ChevronDown, type LucideIcon } from 
 import BlinkingEren from '@/components/BlinkingEren'
 import { useRoomEren } from '@/hooks/useRoomEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
+import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
+import { useErenReaction } from '@/hooks/useErenReaction'
 import LightSwitch from '@/components/LightSwitch'
 import { useIsDark } from '@/hooks/useIsDark'
 import { playSound } from '@/lib/sounds'
@@ -65,6 +67,9 @@ export default function ChemistryScene(_props: Props) {
   void _props
   const isDark = useIsDark()
   const chemEren = useRoomEren('chemistry', CHEM_EREN_FALLBACK)
+  // The lab has no care action of its own — this runner exists purely so he
+  // still purrs when you tap him, like every other room.
+  const reaction = useErenReaction()
   const [overlayOpen, setOverlayOpen] = useState(false)
 
   function openStudy() {
@@ -100,9 +105,14 @@ export default function ChemistryScene(_props: Props) {
         left: '50%',
         transform: 'translateX(-50%)',
       }}>
-        <ErenIdleLayer>
-          <BlinkingEren size={230} {...chemEren} />
-        </ErenIdleLayer>
+        <PetTarget reaction={reaction}>
+          <ErenIdleLayer disabled={reaction.active}>
+            <BlinkingEren size={230} {...chemEren} />
+          </ErenIdleLayer>
+        </PetTarget>
+
+        {/* Tap-to-pet purr. */}
+        {reaction.phase === PURR && <PurrFx bottom="60%" />}
       </div>
 
       {/* ══ BOTTOM ACTION BUTTON ══
