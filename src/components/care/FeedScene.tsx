@@ -1009,20 +1009,24 @@ export default function FeedScene({ onClose }: Props) {
                   const btnBg = canAfford ? item.color : '#cccccc'
                   return (
                     <div key={item.id} className={cn('relative flex flex-col items-center px-2.5 pt-2.5 pb-2.5 transition-all', !canAfford && 'opacity-55')}
-                      style={{ background: `linear-gradient(160deg, ${item.color}26 0%, ${item.color}0D 100%)`, borderRadius: 8, border: `2px solid ${item.color}55`, boxShadow: `2px 2px 0 ${item.color}33` }}>
+                      /* One flat wash instead of a gradient, and a lighter
+                         border. The food colour used to appear five times on
+                         one card — gradient, border, shadow, plate, button —
+                         which is what made these read as busy. */
+                      style={{ background: `${item.color}14`, borderRadius: 8, border: `2px solid ${item.color}40`, boxShadow: `2px 2px 0 ${item.color}20` }}>
                       {/* Price rides the corner so the plate keeps the centre. */}
                       <div className="absolute flex items-center gap-0.5 px-1.5 py-0.5" style={{ top: 5, right: 5, background: '#FFF3C0', borderRadius: 999, border: '1px solid #F5C842', boxShadow: '1px 1px 0 rgba(0,0,0,0.10)' }}>
                         <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'radial-gradient(circle at 38% 35%, #FFE878, #D4A818)', border: '1px solid #B08810' }} />
                         <span className="font-pixel text-amber-600" style={{ fontSize: 7 }}>{item.price}</span>
                       </div>
-                      {/* The plate itself — the hero of the card, on a soft
-                          tinted dish so every food sits on the same footprint
-                          whatever its aspect ratio. */}
-                      <div className="flex items-center justify-center flex-shrink-0" style={{
-                        width: 68, height: 68, borderRadius: '50%', marginTop: 4, marginBottom: 5,
-                        background: `radial-gradient(circle at 42% 34%, ${item.color}33, ${item.color}0F 70%, transparent)`,
-                      }}>
-                        <FoodIcon id={item.id} color={item.color} size={58} />
+                      {/* The food is the hero, sitting straight on the card —
+                          the tinted plate behind it was a second shape
+                          competing with the art. The fixed height still gives
+                          every card the same footprint whatever the aspect
+                          ratio, so the grid stays even. */}
+                      <div className="flex items-center justify-center flex-shrink-0"
+                        style={{ height: 68, marginTop: 4, marginBottom: 5 }}>
+                        <FoodIcon id={item.id} color={item.color} size={62} />
                       </div>
                       <p className="text-center font-bold text-gray-800 leading-tight" style={{ fontSize: 12 }}>{item.name}</p>
                       <p className="text-center text-gray-400 leading-tight" style={{ fontSize: 10, marginTop: 1 }}>{item.desc}</p>
