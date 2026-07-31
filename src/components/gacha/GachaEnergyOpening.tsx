@@ -79,7 +79,7 @@ interface Props {
 }
 
 export default function GachaEnergyOpening({
-  rarity, onDone, machineSrc = '/gacha_foodsuits.png?v=2',
+  rarity, onDone, machineSrc = '/gacha_foodsuits.webp?v=1',
 }: Props) {
   const reduced = useReducedMotion()
   const canvasRef = useRef<HTMLCanvasElement>(null)

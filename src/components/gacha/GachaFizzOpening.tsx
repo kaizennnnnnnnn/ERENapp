@@ -89,7 +89,7 @@ interface Props {
 }
 
 export default function GachaFizzOpening({
-  rarity, onDone, machineSrc = '/gacha_food.png?v=3',
+  rarity, onDone, machineSrc = '/gacha_food.webp?v=1',
 }: Props) {
   const reduced = useReducedMotion()
   const canvasRef = useRef<HTMLCanvasElement>(null)

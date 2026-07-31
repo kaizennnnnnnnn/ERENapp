@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import { useGacha } from '@/hooks/useGacha'
@@ -28,14 +28,19 @@ import CurtainGlitter from '@/components/CurtainGlitter'
 // Three machines, one swipe apart. Page order matches the banner ids in
 // GACHA_BANNERS — food first (what the gacha button lands on), animal next,
 // FoodSuits third.
+// WEBP, not PNG, and deliberately so: all three backdrops are mounted at once,
+// each on its own transformed compositor layer, so their decoded size is
+// resident the whole time you're on this screen. As PNGs they were 11.4 MB on
+// the wire and ~29 MB of bitmap; re-encoded (scripts/backdrop_to_webp.py) they
+// are 0.46 MB and ~19 MB, which is what made the swipe smooth. Keep new art in
+// webp — a PNG here costs a lot more than its file size suggests.
+// ?v bumps the cache key when the art changes: the SW serves images
+// stale-while-revalidate, so a same-path replace shows the old one first.
 const PAGES = [
-  { id: 'food', bg: '/gacha_food.png?v=3' },
-  // ?v bumps the cache key when the art changes — the SW serves images
-  // stale-while-revalidate, so a same-path replace shows the old one first.
-  { id: 'animal', bg: '/gacha_animal.png?v=3' },
-  // FoodSuits — placeholder reward pool for now (see GACHA_BANNERS). ?v bumps
-  // on every art replace so the SW doesn't serve the old image stale.
-  { id: 'foodsuits', bg: '/gacha_foodsuits.png?v=2' },
+  { id: 'food', bg: '/gacha_food.webp?v=1' },
+  { id: 'animal', bg: '/gacha_animal.webp?v=1' },
+  // FoodSuits — placeholder reward pool for now (see GACHA_BANNERS).
+  { id: 'foodsuits', bg: '/gacha_foodsuits.webp?v=1' },
 ] as const
 
 export default function GachaPage() {
@@ -92,11 +97,36 @@ export default function GachaPage() {
     for (const el of innerRefs.current) if (el) el.style.willChange = wc
     for (const el of bgRefs.current) if (el) el.style.willChange = wc
   }, [])
+  // Every path that arms the hints goes through this to disarm them, so a tap
+  // that never turns into a scroll can't leave the deck permanently promoted.
+  // Momentum keeps resetting it via onScroll; the last frame wins.
+  const armSettle = useCallback(() => {
+    if (settleTimer.current) clearTimeout(settleTimer.current)
+    settleTimer.current = setTimeout(() => setLayerHints(false), 160)
+  }, [setLayerHints])
+
+  // Page width is read ONCE per resize, never per scroll event. `clientWidth`
+  // is a layout read, and the previous event has just written 12 inline styles
+  // — so reading it mid-scroll forced a synchronous reflow on every single
+  // event. That was jank the FX themselves didn't cost.
+  const pageW = useRef(0)
+  useEffect(() => {
+    const measure = () => { pageW.current = scrollRef.current?.clientWidth ?? 0 }
+    measure()
+    window.addEventListener('resize', measure)
+    window.addEventListener('orientationchange', measure)
+    return () => {
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('orientationchange', measure)
+    }
+  }, [])
 
   const applyScrollFx = useCallback(() => {
     const el = scrollRef.current
-    if (!el || el.clientWidth === 0) return
-    const x = el.scrollLeft / el.clientWidth
+    if (!el) return
+    const w = pageW.current || el.clientWidth
+    if (!w) return
+    const x = el.scrollLeft / w
     PAGES.forEach((_, i) => {
       const p = Math.max(-1, Math.min(1, x - i)) // 0 = centered, ±1 = a full page away
       const a = Math.abs(p)
@@ -118,27 +148,56 @@ export default function GachaPage() {
     })
   }, [])
 
+  const seamCurtains = useMemo(() => PAGES.slice(1).map((_, i) => (
+    <div key={i} aria-hidden className="absolute top-0 bottom-0 z-10 pointer-events-none"
+      style={{ left: `${(i + 1) * 100}%`, width: 150, transform: 'translateX(-50%)' }}>
+      <div className="absolute inset-0" style={{
+        background: 'linear-gradient(90deg, transparent, rgba(244,114,182,0.16) 35%, rgba(255,255,255,0.2) 50%, rgba(167,139,250,0.16) 65%, transparent)',
+      }} />
+      <CurtainGlitter count={40} seed={707070 + i * 131} />
+    </div>
+  )), [])
+
   useEffect(() => { applyScrollFx() }, [applyScrollFx])
-  useEffect(() => () => { if (settleTimer.current) clearTimeout(settleTimer.current) }, [])
+  useEffect(() => () => {
+    if (settleTimer.current) clearTimeout(settleTimer.current)
+    if (fxFrame.current) cancelAnimationFrame(fxFrame.current)
+  }, [])
+
+  // Scroll events fire faster than the screen refreshes — on a flick, several
+  // per frame. Doing the FX work per EVENT meant repeating a whole pass of
+  // style writes that only the last one of each frame could ever be seen. One
+  // rAF per frame collapses that to exactly the work the display can show.
+  const fxFrame = useRef(0)
+  const pageIdxRef = useRef(0)
 
   function onScroll() {
     setLayerHints(true)
-    applyScrollFx()
-    const el = scrollRef.current
-    if (!el) return
-    // Drop the layer hints once the swipe settles so resting pages aren't left
-    // force-promoted (see setLayerHints). Momentum keeps the timer resetting.
-    if (settleTimer.current) clearTimeout(settleTimer.current)
-    settleTimer.current = setTimeout(() => setLayerHints(false), 160)
-    const idx = Math.min(PAGES.length - 1, Math.max(0, Math.round(el.scrollLeft / el.clientWidth)))
-    if (idx !== pageIdx) {
+    armSettle()
+
+    if (fxFrame.current) return // this frame's pass is already booked
+    fxFrame.current = requestAnimationFrame(() => {
+      fxFrame.current = 0
+      applyScrollFx()
+      const el = scrollRef.current
+      if (!el) return
+      const w = pageW.current || el.clientWidth
+      if (!w) return
+      const idx = Math.min(PAGES.length - 1, Math.max(0, Math.round(el.scrollLeft / w)))
+      if (idx === pageIdxRef.current) return
+      pageIdxRef.current = idx
       // Only on a real swipe. A scroll event isn't a user-activation gesture,
       // so firing audio from initial layout or scroll restoration trips the
       // AudioContext autoplay warning (and the sound wouldn't play anyway).
       // touchedDeck flips on pointerdown, which carries sticky activation.
       if (touchedDeck.current) playSound('ui_swipe_room')
-      setPageIdx(idx)
-    }
+      // The dots and the pull-button variant are the only things that read
+      // pageIdx, and neither is worth a blocking render in the middle of a
+      // gesture — this used to land a full re-render right at the swipe's
+      // midpoint, which is precisely where it was felt. As a transition React
+      // may interrupt it to keep the scroll at frame rate.
+      startTransition(() => setPageIdx(idx))
+    })
   }
 
   function goTo(idx: number) {
@@ -152,7 +211,9 @@ export default function GachaPage() {
     // This fires onScroll; clear the gesture flag so it doesn't also play the
     // swipe SFX on top of ui_select. The next real touch re-arms.
     touchedDeck.current = false
-    el.scrollTo({ left: idx * el.clientWidth, behavior: 'instant' })
+    pageIdxRef.current = idx
+    setPageIdx(idx)
+    el.scrollTo({ left: idx * (pageW.current || el.clientWidth), behavior: 'instant' })
   }
 
   // ── Rainbow Monsta jackpot ─────────────────────────────────────────────────
@@ -270,7 +331,13 @@ export default function GachaPage() {
     <div className="fixed inset-0" style={{ background: '#050507' }}>
 
       {/* ── Swipeable machine pages ── */}
-      <div ref={scrollRef} onScroll={onScroll} onPointerDown={() => { touchedDeck.current = true }}
+      {/* Layer hints go up on TOUCH-DOWN, not on the first scroll event: the
+          compositor needs a beat to promote these layers, and arming them once
+          the finger is already moving spent that beat on the opening frame of
+          the swipe — the one you feel most. */}
+      <div ref={scrollRef} onScroll={onScroll}
+        onPointerDown={() => { touchedDeck.current = true; setLayerHints(true) }}
+        onPointerUp={armSettle} onPointerCancel={armSettle}
         className="relative h-full w-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory"
         style={{ scrollbarWidth: 'none' }}>
         {PAGES.map((p, idx) => (
@@ -324,16 +391,10 @@ export default function GachaPage() {
         ))}
 
         {/* Sparkle curtains — one per seam between machines, so you swipe through
-            glitter at every boundary regardless of how many machines there are. */}
-        {PAGES.slice(1).map((_, i) => (
-          <div key={i} aria-hidden className="absolute top-0 bottom-0 z-10 pointer-events-none"
-            style={{ left: `${(i + 1) * 100}%`, width: 150, transform: 'translateX(-50%)' }}>
-            <div className="absolute inset-0" style={{
-              background: 'linear-gradient(90deg, transparent, rgba(244,114,182,0.16) 35%, rgba(255,255,255,0.2) 50%, rgba(167,139,250,0.16) 65%, transparent)',
-            }} />
-            <CurtainGlitter count={40} seed={707070 + i * 131} />
-          </div>
-        ))}
+            glitter at every boundary regardless of how many machines there are.
+            Memoized: this is eighty-odd sparkle nodes of purely static markup,
+            and without it every pageIdx change re-reconciled the lot mid-swipe. */}
+        {seamCurtains}
       </div>
 
       {/* ── Header overlay ── */}
