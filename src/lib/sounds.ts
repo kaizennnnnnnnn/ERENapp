@@ -61,6 +61,10 @@ export const SOUNDS = {
 
   // Care actions — fired by individual care scenes when Eren acts.
   care_eat:             '/sounds/care/care_eat.mp3',
+  // Lapping, for foods Eren DRINKS rather than chews (see LAPPED_FOODS in
+  // FeedScene). Two takes so the meal's two beats aren't the same clip twice.
+  care_drink:           '/sounds/care/care_drink.mp3',
+  care_drink2:          '/sounds/care/care_drink2.mp3',
   // Pet — tap-on-Eren purr sound. Placeholder file path; if missing, the
   // FALLBACK below routes to care_eat so taps still play SOMETHING.
   pet_purr:             '/sounds/care/pet_purr.mp3',
@@ -388,6 +392,8 @@ const FALLBACK: Partial<Record<SoundName, SoundName>> = {
   coin_pickup:            'ui_notification_ping',
   gift_open:              'level_up',
   pet_purr:               'care_eat',
+  care_drink:             'care_eat',
+  care_drink2:            'care_drink',
   care_splash:            'care_eat',
   care_gulp:              'care_eat',
   care_happy:             'coin_pickup',

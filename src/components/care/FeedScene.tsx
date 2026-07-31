@@ -114,6 +114,13 @@ const SHOP_ITEMS = [
   { id: 'roast_chicken' as const, name: 'Roast Chicken', price: 32, hungerD: 42, happyD: 26, weightD: 0.12, desc: 'The whole bird',color: '#D8973C', cat: 'world'  },
 ]
 
+// Foods Eren LAPS instead of chews. Feeding one of these swaps the chewing
+// sample for the drinking one, so a bowl of milk doesn't crunch. Every Monsta
+// is a drink by construction, so the can family is matched by prefix — a new
+// flavour lands here for free instead of needing a second edit.
+const LAPPED_FOODS = new Set(['milk', 'cream', 'yogurt', 'monster'])
+const isDrink = (id: string) => LAPPED_FOODS.has(id) || id.startsWith('monsta_')
+
 // Icon size for the food you carry to Eren — the tray tile and the drag ghost
 // share it so the plate never changes size when you pick it up, and the ghost's
 // centring offset stays derived from one number.
@@ -625,15 +632,18 @@ export default function FeedScene({ onClose }: Props) {
     // fire BEFORE any network write. The fridge decrement used to be
     // awaited first, which held the whole choreography hostage to a
     // Supabase round-trip (seconds of dead air on a cold connection).
-    playSound('care_eat')
+    // Drinks lap, solids chew — same choreography, different sample.
+    const drinking = isDrink(item.id)
+    playSound(drinking ? 'care_drink' : 'care_eat')
     setFedItem(item)
     // Random head-down pose for this meal.
     setEatIdx(Math.floor(Math.random() * 4))
     reaction.play([
       { name: 'bowl', ms: 150 },
       { name: 'eat',  ms: 1300 },
-      // Second chew sound lands mid-meal, not stacked on the first.
-      { name: 'eat2', ms: 1350, onEnter: () => playSound('care_eat') },
+      // Second chew/lap sound lands mid-meal, not stacked on the first. The
+      // drink path uses its OTHER take so the two beats aren't one clip twice.
+      { name: 'eat2', ms: 1350, onEnter: () => playSound(drinking ? 'care_drink2' : 'care_eat') },
       ...happyFinisherBeats(),
     ])
     // Signal the food key for the Daily Wish system — useDailyWish picks
