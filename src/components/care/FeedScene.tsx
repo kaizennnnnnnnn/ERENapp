@@ -38,30 +38,35 @@ interface Props { onClose: () => void }
 /** Every Monsta costs the same — you're paying for the perk, not the flavour. */
 const MONSTA_PRICE = 100
 
+// A MEAL FEEDS HIM; IT DOESN'T CHEER HIM UP. Every ordinary food — staples,
+// seafood, meat, dairy, and all twenty world dishes — is happyD 0 on purpose.
+// Joy is a treat: only the sweets (cat treat, cream, cake, donut, cookie, jelly
+// caka) and the energy drinks with a real perk still raise happiness. If you're
+// adding a plain food, happyD stays 0; if you're adding a dessert, say so here.
 const SHOP_ITEMS = [
   // Dry
-  { id: 'kibble'  as const, name: 'Kibble',     price: 5,  hungerD: 15, happyD: 3,  weightD: 0.03, desc: 'Daily dry food',     color: '#D4A44A', cat: 'dry'     },
+  { id: 'kibble'  as const, name: 'Kibble',     price: 5,  hungerD: 15, happyD: 0,  weightD: 0.03, desc: 'Daily dry food',     color: '#D4A44A', cat: 'dry'     },
   { id: 'treat'   as const, name: 'Cat Treat',  price: 8,  hungerD: 8,  happyD: 20, weightD: 0.01, desc: 'Sweet & crunchy',    color: '#FF6B9D', cat: 'dry'     },
-  { id: 'biscuit' as const, name: 'Biscuit',    price: 6,  hungerD: 12, happyD: 5,  weightD: 0.02, desc: 'Crunchy snack',      color: '#C8956A', cat: 'dry'     },
+  { id: 'biscuit' as const, name: 'Biscuit',    price: 6,  hungerD: 12, happyD: 0,  weightD: 0.02, desc: 'Crunchy snack',      color: '#C8956A', cat: 'dry'     },
   // Seafood
-  { id: 'fish'    as const, name: 'Fish',        price: 12, hungerD: 25, happyD: 12, weightD: 0.05, desc: "Eren's favourite!",  color: '#5BA3D9', cat: 'seafood' },
-  { id: 'tuna'    as const, name: 'Tuna Can',   price: 18, hungerD: 30, happyD: 15, weightD: 0.06, desc: 'Premium quality',    color: '#E8A020', cat: 'seafood' },
-  { id: 'shrimp'  as const, name: 'Shrimp',     price: 15, hungerD: 20, happyD: 18, weightD: 0.03, desc: 'Pink & tasty',       color: '#F0836A', cat: 'seafood' },
-  { id: 'salmon'  as const, name: 'Salmon',     price: 22, hungerD: 35, happyD: 20, weightD: 0.07, desc: 'Rich & flaky',       color: '#E8735A', cat: 'seafood' },
-  { id: 'sardine' as const, name: 'Sardine',    price: 10, hungerD: 18, happyD: 8,  weightD: 0.04, desc: 'Tiny & oily',        color: '#7BAFC8', cat: 'seafood' },
-  { id: 'sushi'   as const, name: 'Sushi',      price: 25, hungerD: 28, happyD: 28, weightD: 0.04, desc: 'Fancy roll',         color: '#2D9B6A', cat: 'seafood' },
+  { id: 'fish'    as const, name: 'Fish',        price: 12, hungerD: 25, happyD:  0, weightD: 0.05, desc: "Eren's favourite!",  color: '#5BA3D9', cat: 'seafood' },
+  { id: 'tuna'    as const, name: 'Tuna Can',   price: 18, hungerD: 30, happyD:  0, weightD: 0.06, desc: 'Premium quality',    color: '#E8A020', cat: 'seafood' },
+  { id: 'shrimp'  as const, name: 'Shrimp',     price: 15, hungerD: 20, happyD:  0, weightD: 0.03, desc: 'Pink & tasty',       color: '#F0836A', cat: 'seafood' },
+  { id: 'salmon'  as const, name: 'Salmon',     price: 22, hungerD: 35, happyD:  0, weightD: 0.07, desc: 'Rich & flaky',       color: '#E8735A', cat: 'seafood' },
+  { id: 'sardine' as const, name: 'Sardine',    price: 10, hungerD: 18, happyD: 0,  weightD: 0.04, desc: 'Tiny & oily',        color: '#7BAFC8', cat: 'seafood' },
+  { id: 'sushi'   as const, name: 'Sushi',      price: 25, hungerD: 28, happyD:  0, weightD: 0.04, desc: 'Fancy roll',         color: '#2D9B6A', cat: 'seafood' },
   // Meat
-  { id: 'steak'   as const, name: 'Steak',      price: 30, hungerD: 40, happyD: 25, weightD: 0.10, desc: 'Luxury cut',         color: '#CC3333', cat: 'meat'    },
-  { id: 'chicken' as const, name: 'Chicken',    price: 14, hungerD: 28, happyD: 10, weightD: 0.06, desc: 'Juicy drumstick',    color: '#E8B44A', cat: 'meat'    },
-  { id: 'sausage' as const, name: 'Sausage',    price: 12, hungerD: 22, happyD: 8,  weightD: 0.05, desc: 'Smoky & meaty',      color: '#A0522D', cat: 'meat'    },
+  { id: 'steak'   as const, name: 'Steak',      price: 30, hungerD: 40, happyD:  0, weightD: 0.10, desc: 'Luxury cut',         color: '#CC3333', cat: 'meat'    },
+  { id: 'chicken' as const, name: 'Chicken',    price: 14, hungerD: 28, happyD:  0, weightD: 0.06, desc: 'Juicy drumstick',    color: '#E8B44A', cat: 'meat'    },
+  { id: 'sausage' as const, name: 'Sausage',    price: 12, hungerD: 22, happyD: 0,  weightD: 0.05, desc: 'Smoky & meaty',      color: '#A0522D', cat: 'meat'    },
   // Dairy
   { id: 'cream'   as const, name: 'Cream',      price: 10, hungerD: 10, happyD: 30, weightD: 0.02, desc: 'Sweet treat',        color: '#A78BFA', cat: 'dairy'   },
-  { id: 'milk'    as const, name: 'Milk',       price: 6,  hungerD: 12, happyD: 15, weightD: 0.02, desc: 'Fresh & cold',       color: '#E8E4E0', cat: 'dairy'   },
-  { id: 'cheese'  as const, name: 'Cheese',     price: 10, hungerD: 14, happyD: 16, weightD: 0.03, desc: 'Aged cheddar',       color: '#F5C842', cat: 'dairy'   },
-  { id: 'yogurt'  as const, name: 'Yogurt',     price: 8,  hungerD: 10, happyD: 18, weightD: 0.01, desc: 'Creamy & smooth',    color: '#FFB6C1', cat: 'dairy'   },
+  { id: 'milk'    as const, name: 'Milk',       price: 6,  hungerD: 12, happyD:  0, weightD: 0.02, desc: 'Fresh & cold',       color: '#E8E4E0', cat: 'dairy'   },
+  { id: 'cheese'  as const, name: 'Cheese',     price: 10, hungerD: 14, happyD:  0, weightD: 0.03, desc: 'Aged cheddar',       color: '#F5C842', cat: 'dairy'   },
+  { id: 'yogurt'  as const, name: 'Yogurt',     price: 8,  hungerD: 10, happyD:  0, weightD: 0.01, desc: 'Creamy & smooth',    color: '#FFB6C1', cat: 'dairy'   },
   // Special
   { id: 'cake'    as const, name: 'Cake',       price: 35, hungerD: 15, happyD: 40, weightD: 0.08, desc: 'Birthday special',   color: '#FF85A2', cat: 'special' },
-  { id: 'egg'     as const, name: 'Egg',        price: 4,  hungerD: 16, happyD: 4,  weightD: 0.03, desc: 'Simple & nutritious',color: '#F5E6C8', cat: 'special' },
+  { id: 'egg'     as const, name: 'Egg',        price: 4,  hungerD: 16, happyD: 0,  weightD: 0.03, desc: 'Simple & nutritious',color: '#F5E6C8', cat: 'special' },
   // Sweet (new — referenced by Phase 3 wishes)
   { id: 'monster'    as const, name: 'Monster Zero',price: 12, hungerD: 5,  happyD: 15, weightD: 0.01, desc: 'Sugar-free buzz',  color: '#1ED760', cat: 'special' },
   { id: 'donut'      as const, name: 'Donut',       price: 14, hungerD: 12, happyD: 22, weightD: 0.04, desc: 'Pink & sprinkled', color: '#FF8FB0', cat: 'special' },
@@ -85,33 +90,33 @@ const SHOP_ITEMS = [
   // ─── World dishes ────────────────────────────────────────────────────────
   // Full plated meals (pixel-art art in /public/food), grouped by cuisine so
   // the picker stays browsable instead of dumping 21 dishes into SPECIAL.
-  // Priced above the staples — these are real meals: high hunger, high joy,
-  // and heavier (weightD) than a treat.
+  // Priced above the staples — these are real meals: high hunger and heavier
+  // (weightD) than a treat. No joy: a dinner is a dinner, not a present.
   // Italian
-  { id: 'pizza'     as const, name: 'Pizza',       price: 26, hungerD: 34, happyD: 26, weightD: 0.09, desc: 'Hot cheesy slice',   color: '#E4703A', cat: 'italian' },
-  { id: 'carbonara' as const, name: 'Carbonara',   price: 24, hungerD: 32, happyD: 22, weightD: 0.08, desc: 'Silky egg & pepper', color: '#EFC663', cat: 'italian' },
-  { id: 'lasagna'   as const, name: 'Lasagna',     price: 28, hungerD: 38, happyD: 24, weightD: 0.10, desc: 'Layered and baked',  color: '#D9793F', cat: 'italian' },
-  { id: 'risotto'   as const, name: 'Risotto',     price: 24, hungerD: 30, happyD: 22, weightD: 0.08, desc: 'Creamy saffron rice',color: '#E8C765', cat: 'italian' },
+  { id: 'pizza'     as const, name: 'Pizza',       price: 26, hungerD: 34, happyD:  0, weightD: 0.09, desc: 'Hot cheesy slice',   color: '#E4703A', cat: 'italian' },
+  { id: 'carbonara' as const, name: 'Carbonara',   price: 24, hungerD: 32, happyD:  0, weightD: 0.08, desc: 'Silky egg & pepper', color: '#EFC663', cat: 'italian' },
+  { id: 'lasagna'   as const, name: 'Lasagna',     price: 28, hungerD: 38, happyD:  0, weightD: 0.10, desc: 'Layered and baked',  color: '#D9793F', cat: 'italian' },
+  { id: 'risotto'   as const, name: 'Risotto',     price: 24, hungerD: 30, happyD:  0, weightD: 0.08, desc: 'Creamy saffron rice',color: '#E8C765', cat: 'italian' },
   // Sushi
-  { id: 'nigiri'    as const, name: 'Nigiri',      price: 22, hungerD: 22, happyD: 28, weightD: 0.04, desc: 'Tuna on rice',       color: '#F0736F', cat: 'sushi'   },
-  { id: 'temaki'    as const, name: 'Temaki',      price: 20, hungerD: 20, happyD: 26, weightD: 0.04, desc: 'Hand-rolled cone',   color: '#3C6E52', cat: 'sushi'   },
-  { id: 'maki'      as const, name: 'Maki Roll',   price: 24, hungerD: 26, happyD: 28, weightD: 0.05, desc: 'Seaweed-wrapped',    color: '#2F3B33', cat: 'sushi'   },
+  { id: 'nigiri'    as const, name: 'Nigiri',      price: 22, hungerD: 22, happyD:  0, weightD: 0.04, desc: 'Tuna on rice',       color: '#F0736F', cat: 'sushi'   },
+  { id: 'temaki'    as const, name: 'Temaki',      price: 20, hungerD: 20, happyD:  0, weightD: 0.04, desc: 'Hand-rolled cone',   color: '#3C6E52', cat: 'sushi'   },
+  { id: 'maki'      as const, name: 'Maki Roll',   price: 24, hungerD: 26, happyD:  0, weightD: 0.05, desc: 'Seaweed-wrapped',    color: '#2F3B33', cat: 'sushi'   },
   // Asian
-  { id: 'ramen'     as const, name: 'Ramen',       price: 28, hungerD: 36, happyD: 30, weightD: 0.09, desc: 'Steamy bowl of joy', color: '#C8632E', cat: 'asian'   },
-  { id: 'pad_thai'  as const, name: 'Pad Thai',    price: 26, hungerD: 32, happyD: 26, weightD: 0.08, desc: 'Tangy peanut noodles',color: '#E08A3C', cat: 'asian'  },
-  { id: 'gyoza'     as const, name: 'Gyoza',       price: 20, hungerD: 24, happyD: 24, weightD: 0.06, desc: 'Pan-fried dumplings',color: '#E7D2A6', cat: 'asian'   },
-  { id: 'xiaolongbao' as const, name: 'Soup Buns', price: 24, hungerD: 28, happyD: 26, weightD: 0.07, desc: 'Steamed in a basket',color: '#D9BE8E', cat: 'asian'   },
+  { id: 'ramen'     as const, name: 'Ramen',       price: 28, hungerD: 36, happyD:  0, weightD: 0.09, desc: 'Steamy bowl of joy', color: '#C8632E', cat: 'asian'   },
+  { id: 'pad_thai'  as const, name: 'Pad Thai',    price: 26, hungerD: 32, happyD:  0, weightD: 0.08, desc: 'Tangy peanut noodles',color: '#E08A3C', cat: 'asian'  },
+  { id: 'gyoza'     as const, name: 'Gyoza',       price: 20, hungerD: 24, happyD:  0, weightD: 0.06, desc: 'Pan-fried dumplings',color: '#E7D2A6', cat: 'asian'   },
+  { id: 'xiaolongbao' as const, name: 'Soup Buns', price: 24, hungerD: 28, happyD:  0, weightD: 0.07, desc: 'Steamed in a basket',color: '#D9BE8E', cat: 'asian'   },
   // Balkan
-  { id: 'cevapi'    as const, name: 'Ćevapi',      price: 26, hungerD: 36, happyD: 24, weightD: 0.09, desc: 'Grilled little logs',color: '#A9663C', cat: 'balkan'  },
-  { id: 'sarma'     as const, name: 'Sarma',       price: 24, hungerD: 32, happyD: 24, weightD: 0.08, desc: 'Rolled cabbage',     color: '#7E9B4E', cat: 'balkan'  },
-  { id: 'doner'     as const, name: 'Döner',       price: 22, hungerD: 34, happyD: 22, weightD: 0.08, desc: 'Wrapped and stacked',color: '#D2A15C', cat: 'balkan'  },
+  { id: 'cevapi'    as const, name: 'Ćevapi',      price: 26, hungerD: 36, happyD:  0, weightD: 0.09, desc: 'Grilled little logs',color: '#A9663C', cat: 'balkan'  },
+  { id: 'sarma'     as const, name: 'Sarma',       price: 24, hungerD: 32, happyD:  0, weightD: 0.08, desc: 'Rolled cabbage',     color: '#7E9B4E', cat: 'balkan'  },
+  { id: 'doner'     as const, name: 'Döner',       price: 22, hungerD: 34, happyD:  0, weightD: 0.08, desc: 'Wrapped and stacked',color: '#D2A15C', cat: 'balkan'  },
   // World
-  { id: 'tacos'     as const, name: 'Tacos',       price: 22, hungerD: 28, happyD: 26, weightD: 0.07, desc: 'Three of them!',     color: '#E0A93F', cat: 'world'   },
-  { id: 'wrap'      as const, name: 'Wrap',        price: 18, hungerD: 26, happyD: 20, weightD: 0.06, desc: 'Rolled up tight',    color: '#DDBE84', cat: 'world'   },
-  { id: 'paella'    as const, name: 'Paella',      price: 30, hungerD: 38, happyD: 28, weightD: 0.10, desc: 'Straight from the pan',color: '#DE9A3E', cat: 'world' },
-  { id: 'stew'      as const, name: 'Stew',        price: 24, hungerD: 34, happyD: 22, weightD: 0.09, desc: 'Slow-cooked & warm', color: '#8E5A2E', cat: 'world'   },
-  { id: 'meatballs' as const, name: 'Meatballs',   price: 26, hungerD: 34, happyD: 24, weightD: 0.09, desc: 'Simmered in sauce',  color: '#C4452F', cat: 'world'   },
-  { id: 'roast_chicken' as const, name: 'Roast Chicken', price: 32, hungerD: 42, happyD: 26, weightD: 0.12, desc: 'The whole bird',color: '#D8973C', cat: 'world'  },
+  { id: 'tacos'     as const, name: 'Tacos',       price: 22, hungerD: 28, happyD:  0, weightD: 0.07, desc: 'Three of them!',     color: '#E0A93F', cat: 'world'   },
+  { id: 'wrap'      as const, name: 'Wrap',        price: 18, hungerD: 26, happyD:  0, weightD: 0.06, desc: 'Rolled up tight',    color: '#DDBE84', cat: 'world'   },
+  { id: 'paella'    as const, name: 'Paella',      price: 30, hungerD: 38, happyD:  0, weightD: 0.10, desc: 'Straight from the pan',color: '#DE9A3E', cat: 'world' },
+  { id: 'stew'      as const, name: 'Stew',        price: 24, hungerD: 34, happyD:  0, weightD: 0.09, desc: 'Slow-cooked & warm', color: '#8E5A2E', cat: 'world'   },
+  { id: 'meatballs' as const, name: 'Meatballs',   price: 26, hungerD: 34, happyD:  0, weightD: 0.09, desc: 'Simmered in sauce',  color: '#C4452F', cat: 'world'   },
+  { id: 'roast_chicken' as const, name: 'Roast Chicken', price: 32, hungerD: 42, happyD:  0, weightD: 0.12, desc: 'The whole bird',color: '#D8973C', cat: 'world'  },
 ]
 
 // Foods Eren LAPS instead of chews. Feeding one of these swaps the chewing
@@ -1077,7 +1082,11 @@ export default function FeedScene({ onClose }: Props) {
                           <span className={cn('font-pixel', isRainbow && 'rainbow-chip')} style={isRainbow ? undefined : { fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#E4F5DC', color: '#3E7A33', border: '1px solid #A8D598' }}>{buff.label}</span>
                         </> : <>
                           <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFE3C4', color: '#B4622A', border: '1px solid #F0B884' }}>HGR+{item.hungerD}</span>
-                          <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFDCE8', color: '#C0407A', border: '1px solid #F5A8C4' }}>JOY+{item.happyD}</span>
+                          {/* Ordinary food is joyless by design, and a "JOY+0"
+                              chip reads as a bug rather than as a rule. */}
+                          {item.happyD > 0 && (
+                            <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFDCE8', color: '#C0407A', border: '1px solid #F5A8C4' }}>JOY+{item.happyD}</span>
+                          )}
                         </>}
                       </div>
                       {/* Label colour is derived, not fixed: most food colours
