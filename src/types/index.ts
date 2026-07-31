@@ -278,8 +278,10 @@ export interface GameScore {
 // ─── Gacha system ────────────────────────────────────────────────────────────
 
 export type GachaRarity = 'common' | 'rare' | 'epic' | 'legendary'
-export type GachaCategory = 'outfit' | 'decoration' | 'background' | 'recipe' | 'emote' | 'frame' | 'consumable' | 'skin'
-export type OutfitSlot = 'hat' | 'eyes' | 'neck'
+// Two kinds of drop, and every one of them has real art. The emoji-only
+// categories (outfit / decoration / background / recipe / emote / frame) and
+// their equip plumbing were removed — this app draws pixel art, not emoji.
+export type GachaCategory = 'consumable' | 'skin'
 
 // Eye-overlay layout for BlinkingEren — all values are percentages of the
 // sprite's square box. Defined here so the skins catalogue (lib/skins.ts) and
@@ -301,22 +303,15 @@ export interface GachaItemDef {
   name: string
   category: GachaCategory
   rarity: GachaRarity
-  icon: string
   description: string
-  // Skin items render an image instead of an emoji icon. `image` is the full
-  // sprite thumbnail; `skinId` keys into the skins catalogue (lib/skins.ts)
-  // for the animated room/closet render.
-  image?: string
+  /** Item art. Every gacha item has some — a drop with no picture isn't a prize. */
+  image: string
+  /** Keys into the skins catalogue (lib/skins.ts) for the room/closet render. */
   skinId?: string
   // Which skin gacha a skin item belongs to. Two banners both drop `category:
   // 'skin'` (animal costumes vs food costumes); this keeps each banner's pool
   // to its own set. Undefined on non-skin items.
   skinSet?: 'animal' | 'food'
-  // Outfit positioning (% relative to Eren's 200x200 container)
-  slot?: OutfitSlot
-  pos?: { top: number; left: number; size: number }
-  // Decoration positioning (% relative to room)
-  roomPos?: { bottom: number; left: number; size: number }
   // Consumable buff
   buff?: { stat: string; amount: number; duration?: string }
 }
@@ -325,7 +320,6 @@ export interface GachaBannerDef {
   id: string
   name: string
   description: string
-  icon: string
   featuredItems: string[]
   permanent: boolean
   bgGradient: [string, string]

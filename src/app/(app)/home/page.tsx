@@ -34,7 +34,6 @@ import { useCouple } from '@/hooks/useCouple'
 import { useFortune } from '@/hooks/useFortune'
 import { useInventory } from '@/hooks/useInventory'
 import { useNewSkins } from '@/hooks/useNewSkins'
-import { GACHA_ITEMS } from '@/lib/gacha'
 import { DockContent, dockFrame } from '@/components/home/DockButtons'
 import RoomsMenu, { type RoomDef } from '@/components/home/RoomsMenu'
 import FortunePopup from '@/components/fortune/FortunePopup'
@@ -93,10 +92,6 @@ export default function HomePage() {
   // the care rooms pet him identically; it also dispatches eren:pet for the
   // pet-flavoured wishes (mood-pet, mood-lap).
   const petReaction = useErenReaction()
-
-  // Get equipped items for display
-  const equippedOutfits = inventory.filter(i => i.equipped).map(i => GACHA_ITEMS.find(g => g.id === i.item_id)).filter(Boolean)
-  const equippedDecos = inventory.filter(i => i.equipped && GACHA_ITEMS.find(g => g.id === i.item_id)?.category === 'decoration').map(i => GACHA_ITEMS.find(g => g.id === i.item_id)!)
 
   // Heart-button notification: an unclaimed weekly REWARD waiting on /couple —
   // last week's Care Battle win (claimed via the champion popup, which stamps
@@ -564,18 +559,6 @@ export default function HomePage() {
           </>
         )}
 
-        {/* === ROOM DECORATIONS (from gacha) === */}
-        {equippedDecos.map(deco => deco.roomPos && (
-          <div key={deco.id} className="absolute pointer-events-none" style={{
-            bottom: `${deco.roomPos.bottom}%`, left: `${deco.roomPos.left}%`,
-            transform: 'translateX(-50%)',
-            fontSize: deco.roomPos.size, lineHeight: 1, zIndex: 1,
-            filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.3))',
-          }}>
-            {deco.icon}
-          </div>
-        ))}
-
         {/* === EREN === (hidden while sleeping in the bedroom) */}
         {!stats.is_sleeping && (
           <>
@@ -613,20 +596,9 @@ export default function HomePage() {
                       tail-erased body so only the tail sways. See BlinkingEren. */}
                   <BlinkingEren id="eren-img" size={200} {...homeEren} />
                   <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
-
-                  {/* Outfit overlays — % positions are relative to the parent
-                      absolute div, which is sized by BlinkingEren (200×200). */}
-                  {equippedOutfits.map(item => item?.pos && item.slot && (
-                    <div key={item.id} className="absolute pointer-events-none" style={{
-                      top: `${item.pos.top}%`, left: `${item.pos.left}%`,
-                      transform: 'translate(-50%, -50%)',
-                      fontSize: item.pos.size, lineHeight: 1,
-                      zIndex: item.slot === 'hat' ? 10 : item.slot === 'eyes' ? 9 : 8,
-                      filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
-                    }}>
-                      {item.icon}
-                    </div>
-                  ))}
+                  {/* Eren used to wear emoji hats and the room used to have
+                      emoji plants stuck to it, both from the gacha. Those items
+                      are gone: his look comes from Closet skins now. */}
                 </ErenIdleLayer>
               </PetTarget>
 

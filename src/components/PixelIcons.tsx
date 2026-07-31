@@ -292,6 +292,30 @@ export const IconFlask = memo(function IconFlask({ size = 20 }: IconProps) {
   }, size)
 })
 
+// ── ENERGY CAN ─────────────────────────────────────────────────────────────
+// Tall drink can with a pull-tab lid — the Monsta family's silhouette. Reads
+// at 10px because the shape is all outline: narrow, flat-topped, and taller
+// than it is wide, which nothing else in this set is.
+export const IconCan = memo(function IconCan({ size = 20 }: IconProps) {
+  const grid = [
+    '..KKKKKKKK..',
+    '..KSSKSSSK..',   // lid metal, with the pull tab punched into it
+    '..KKKKKKKK..',
+    '..KBBBBBBK..',
+    '..KBGGGGBK..',
+    '..KBGGGGBK..',   // label band
+    '..KBGGGGBK..',
+    '..KBGGGGBK..',
+    '..KBBBBBBK..',
+    '..KBBBBBBK..',
+    '..KSSSSSSK..',   // base rim catches the light
+    '..KKKKKKKK..',
+  ]
+  return drawPixels(grid, {
+    K: '#0C0C10', S: '#B8BCC8', B: '#23232B', G: '#8CE01E',
+  }, size)
+})
+
 // ── QUESTS (scroll) ────────────────────────────────────────────────────────
 export const IconScroll = memo(function IconScroll({ size = 20 }: IconProps) {
   const grid = [

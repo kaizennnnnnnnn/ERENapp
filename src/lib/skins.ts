@@ -115,7 +115,6 @@ export const SKIN_GACHA_ITEMS: GachaItemDef[] = GACHA_SKINS.map(s => ({
   name: s.name,
   category: 'skin',
   rarity: s.rarity,
-  icon: '🐱',          // never shown — skin items render `image`
   image: s.thumb,
   skinId: s.id,
   skinSet: s.set,      // scopes the item to its banner (animal vs food)

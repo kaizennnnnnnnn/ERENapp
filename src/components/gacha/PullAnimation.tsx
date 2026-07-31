@@ -99,12 +99,8 @@ export default function PullAnimation({ results, onDone, skipCapsule = false }: 
                   boxShadow: `0 0 20px ${colors.glow}`,
                   animation: 'itemBounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both',
                 }}>
-                {current.item.image ? (
-                  <img src={current.item.image} alt={current.item.name} draggable={false}
-                    style={{ width: '88%', height: '88%', objectFit: 'contain', imageRendering: 'auto' }} />
-                ) : (
-                  <span style={{ fontSize: 40 }}>{current.item.icon}</span>
-                )}
+                <img src={current.item.image} alt={current.item.name} draggable={false}
+                  style={{ width: '88%', height: '88%', objectFit: 'contain', imageRendering: 'auto' }} />
               </div>
             </div>
           )}

@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { withRetry } from '@/lib/supabaseRetry'
 import { onForeground } from '@/lib/onForeground'
 import { useAuth } from './useAuth'
-import type { UserInventoryItem, GachaCategory } from '@/types'
+import type { UserInventoryItem } from '@/types'
 import { GACHA_ITEMS } from '@/lib/gacha'
 import { useErenStats } from './useErenStats'
 
@@ -60,35 +60,10 @@ export function useInventory() {
     return inventory.find(i => i.item_id === itemId)?.quantity ?? 0
   }, [inventory])
 
-  const getEquipped = useCallback((category: GachaCategory) => {
-    const equipped = inventory.find(i => i.equipped && GACHA_ITEMS.find(g => g.id === i.item_id)?.category === category)
-    return equipped ? GACHA_ITEMS.find(g => g.id === equipped.item_id) : null
-  }, [inventory])
-
-  const equipItem = useCallback(async (itemId: string) => {
-    if (!user?.id) return
-    const item = GACHA_ITEMS.find(g => g.id === itemId)
-    if (!item) return
-
-    // Unequip all in same category
-    const sameCategory = inventory.filter(i => {
-      const def = GACHA_ITEMS.find(g => g.id === i.item_id)
-      return def?.category === item.category && i.equipped
-    })
-    for (const i of sameCategory) {
-      await supabase.from('user_inventory').update({ equipped: false }).eq('id', i.id)
-    }
-
-    // Equip the new one
-    await supabase.from('user_inventory').update({ equipped: true }).eq('user_id', user.id).eq('item_id', itemId)
-    await fetchInventory()
-  }, [user?.id, inventory, fetchInventory]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const unequipItem = useCallback(async (itemId: string) => {
-    if (!user?.id) return
-    await supabase.from('user_inventory').update({ equipped: false }).eq('user_id', user.id).eq('item_id', itemId)
-    await fetchInventory()
-  }, [user?.id, fetchInventory]) // eslint-disable-line react-hooks/exhaustive-deps
+  // No equip API any more. Equipping only ever applied to the emoji outfit /
+  // decoration / background / frame items, which are gone; skins are assigned
+  // per-room in the Closet (eren_stats.room_skins) and consumables are used.
+  // The `equipped` column is left alone — old rows are harmless.
 
   // Use a consumable item (apply buff, decrement quantity)
   const useItem = useCallback(async (itemId: string): Promise<{ success: boolean; message: string }> => {
@@ -138,13 +113,17 @@ export function useInventory() {
     }
 
     await fetchInventory()
-    return { success: true, message: `${item.icon} Used ${item.name}!` }
+    return { success: true, message: `Used ${item.name}!` }
   }, [user?.id, profile?.household_id, inventory, fetchInventory]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Collection stats
-  const ownedCount = new Set(inventory.map(i => i.item_id)).size
+  // Count only rows whose item still exists. Deleting the emoji tiers left
+  // real inventory rows pointing at ids that are gone; counting those would
+  // push the collection past 100% (and the bar past its track).
+  const catalogue = new Set(GACHA_ITEMS.map(i => i.id))
+  const ownedCount = new Set(inventory.map(i => i.item_id).filter(id => catalogue.has(id))).size
   const totalItems = GACHA_ITEMS.length
   const collectionPct = Math.round((ownedCount / totalItems) * 100)
 
-  return { inventory, loading, loaded, ownsItem, getQuantity, getEquipped, equipItem, unequipItem, useItem, collectionPct, ownedCount, totalItems, refetch: fetchInventory }
+  return { inventory, loading, loaded, ownsItem, getQuantity, useItem, collectionPct, ownedCount, totalItems, refetch: fetchInventory }
 }
