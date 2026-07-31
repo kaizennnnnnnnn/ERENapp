@@ -138,6 +138,7 @@ export type FoodInventory = {
   stew?: number
   meatballs?: number
   roast_chicken?: number
+  monsta_original?: number
   monsta_white?: number
   monsta_mango?: number
   monsta_loco?: number
@@ -182,10 +183,11 @@ export type FoodKey = 'kibble' | 'fish' | 'treat' | 'tuna' | 'steak' | 'cream' |
   | 'ramen' | 'pad_thai' | 'gyoza' | 'xiaolongbao'
   | 'cevapi' | 'sarma' | 'doner'
   | 'tacos' | 'wrap' | 'paella' | 'stew' | 'meatballs' | 'roast_chicken'
-  // Monsta cans. All eight are fridge foods — a pulled can is granted here so
+  // Monsta cans. All nine are fridge foods — a pulled can is granted here so
   // it lands somewhere you can actually feed it from.
-  | 'monsta_white' | 'monsta_mango' | 'monsta_loco' | 'monsta_pipeline'
-  | 'monsta_punch' | 'monsta_rosa' | 'monsta_peachy' | 'monsta_rainbow'
+  | 'monsta_original' | 'monsta_white' | 'monsta_mango' | 'monsta_loco'
+  | 'monsta_pipeline' | 'monsta_punch' | 'monsta_rosa' | 'monsta_peachy'
+  | 'monsta_rainbow'
 export interface GiftItem { key: FoodKey; qty: number }
 
 export interface Interaction {

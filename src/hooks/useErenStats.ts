@@ -6,6 +6,7 @@ import { withRetry, writeWithRetry } from '@/lib/supabaseRetry'
 import { useAuth } from './useAuth'
 import type { ErenStats, FoodInventory } from '@/types'
 import { computeErenMood, clampStat, shouldBecomeSick } from '@/lib/utils'
+import { MONSTA_ENERGY, type MonstaBuff } from '@/lib/monstaBuffs'
 import { ACTION_CONFIGS, type ActionType } from '@/types'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -426,27 +427,35 @@ function useErenStatsImpl(householdId: string | null) {
     return { success: true, message: 'Eren is awake!' }
   }, [stats, householdId, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const feedWithFood = useCallback(async (userId: string, hungerD: number, happyD: number, weightD: number): Promise<{ success: boolean; message: string }> => {
+  /**
+   * Feed one item. `buff` is the Monsta perk (lib/monstaBuffs.ts) — present
+   * only for the can family, where it stacks its own stat deltas on top of the
+   * food's and fills the energy bar. Its `coins` are NOT paid here: coins live
+   * on the profile, not on eren_stats, so the caller settles those.
+   */
+  const feedWithFood = useCallback(async (userId: string, hungerD: number, happyD: number, weightD: number, buff?: MonstaBuff): Promise<{ success: boolean; message: string }> => {
     if (!stats || !householdId) return { success: false, message: 'No stats loaded' }
     const decay = computeDecay(stats)
     const base = decay ? { ...stats, ...decay } : stats
 
-    const newH  = Math.round(clampStat(base.happiness + happyD))
-    const newHu = Math.round(clampStat(base.hunger    + hungerD))
-    const newE  = Math.round(clampStat(base.energy))
-    const newS  = Math.round(clampStat(base.sleep_quality))
-    const newCl = Math.round(clampStat(base.cleanliness ?? 100))
-    const newW  = Math.round(Math.max(2, Math.min(10, base.weight + weightD)) * 100) / 100
+    const newH  = Math.round(clampStat(base.happiness + happyD + (buff?.happiness ?? 0)))
+    const newHu = Math.round(clampStat(base.hunger    + hungerD + (buff?.hunger ?? 0)))
+    const newE  = Math.round(clampStat(buff ? MONSTA_ENERGY : base.energy))
+    const newS  = Math.round(clampStat(base.sleep_quality + (buff?.sleep_quality ?? 0)))
+    const newCl = Math.round(clampStat((base.cleanliness ?? 100) + (buff?.cleanliness ?? 0)))
+    const newW  = Math.round(Math.max(2, Math.min(10, base.weight + weightD + (buff?.weight ?? 0))) * 100) / 100
+    const newSick = buff?.cure ? false : base.is_sick
     const newMood = computeErenMood({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, cleanliness: newCl })
-    setStats(prev => prev ? { ...prev, happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, cleanliness: newCl, weight: newW, mood: newMood } : prev)
+    setStats(prev => prev ? { ...prev, happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, cleanliness: newCl, weight: newW, is_sick: newSick, mood: newMood } : prev)
     // Feeding only counts toward the daily battle when Eren is
-    // actually hungry — at 90+ he's full and the action is wasted.
-    const useful = base.hunger < USEFUL_THRESHOLD
+    // actually hungry — at 90+ he's full and the action is wasted. A can also
+    // counts when he's running on empty: refuelling him is the point of it.
+    const useful = base.hunger < USEFUL_THRESHOLD || (!!buff && base.energy < USEFUL_THRESHOLD)
     // Same shape as applyAction: history insert fire-and-forget, stats write
     // retried + timeout-bounded (absolute values, safe to retry).
-    void insertInteraction(supabase, { household_id: householdId, user_id: userId, action_type: 'feed', happiness_delta: happyD, hunger_delta: hungerD, energy_delta: 0, sleep_delta: 0, weight_delta: weightD, useful })
+    void insertInteraction(supabase, { household_id: householdId, user_id: userId, action_type: 'feed', happiness_delta: newH - base.happiness, hunger_delta: newHu - base.hunger, energy_delta: newE - base.energy, sleep_delta: newS - base.sleep_quality, weight_delta: newW - base.weight, useful })
     const su = await writeWithRetry(signal =>
-      supabase.from('eren_stats').update({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, cleanliness: newCl, weight: newW, mood: newMood, last_decay_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('household_id', householdId).abortSignal(signal))
+      supabase.from('eren_stats').update({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, cleanliness: newCl, weight: newW, is_sick: newSick, mood: newMood, last_decay_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('household_id', householdId).abortSignal(signal))
     if (su.error) { await fetchStats(); return { success: false, message: 'Connection hiccup — try again!' } }
     return { success: true, message: 'Eren is eating!' }
   }, [stats, householdId, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps

@@ -19,6 +19,7 @@ export const MONSTA_RAINBOW_ID = 'cons_monsta_rainbow'
  * can itself is where you'd feed it from.
  */
 export const GACHA_FOOD_GRANT: Record<string, FoodKey> = {
+  cons_monsta_original: 'monsta_original',
   cons_monsta_white:    'monsta_white',
   cons_monsta_mango:    'monsta_mango',
   cons_monsta_loco:     'monsta_loco',
@@ -180,14 +181,19 @@ export const GACHA_ITEMS: GachaItemDef[] = [
   // the kitchen's art via foodArt(), so both surfaces hit one cache entry.
   // Seven of these are also buyable in the shop's SPECIAL row; Rainbow Monsta
   // is gacha-only, which is what makes it worth chasing.
-  { id: 'cons_monsta_white',     name: 'White Monsta',      category: 'consumable', rarity: 'common',    icon: '🥤', description: '+15 energy. Zero sugar, all buzz.',               buff: { stat: 'energy', amount: 15 }, image: foodArt('monsta_white') },
-  { id: 'cons_monsta_mango',     name: 'Mango Monsta',      category: 'consumable', rarity: 'rare',      icon: '🥤', description: '+25 energy. Mango loco in a can.',                buff: { stat: 'energy', amount: 25 }, image: foodArt('monsta_mango') },
-  { id: 'cons_monsta_loco',      name: 'Loco Monsta',       category: 'consumable', rarity: 'rare',      icon: '🥤', description: '+25 energy. Tropical and loud.',                  buff: { stat: 'energy', amount: 25 }, image: foodArt('monsta_loco') },
-  { id: 'cons_monsta_pipeline',  name: 'Pipeline Monsta',   category: 'consumable', rarity: 'rare',      icon: '🥤', description: '+25 energy. Punch straight from the pipeline.',   buff: { stat: 'energy', amount: 25 }, image: foodArt('monsta_pipeline') },
-  { id: 'cons_monsta_punch',     name: 'Punch Monsta',      category: 'consumable', rarity: 'rare',      icon: '🥤', description: '+25 energy. Citrus punch, no chaser.',            buff: { stat: 'energy', amount: 25 }, image: foodArt('monsta_punch') },
-  { id: 'cons_monsta_rosa',      name: 'Rosa Monsta',       category: 'consumable', rarity: 'epic',      icon: '🥤', description: '+30 energy. Ultra rosa fizz.',                    buff: { stat: 'energy', amount: 30 }, image: foodArt('monsta_rosa') },
-  { id: 'cons_monsta_peachy',    name: 'Peachy Monsta',     category: 'consumable', rarity: 'epic',      icon: '🥤', description: '+30 energy. Peachy keen and ice cold.',           buff: { stat: 'energy', amount: 30 }, image: foodArt('monsta_peachy') },
-  { id: MONSTA_RAINBOW_ID,       name: 'Rainbow Monsta',    category: 'consumable', rarity: 'legendary', icon: '🥤', description: '+50 energy. The Ultimate Energy Blast.',          buff: { stat: 'energy', amount: 50 }, image: foodArt('monsta_rainbow') },
+  // Every can fills the energy bar — that's the family trait, and it's what
+  // using one straight from the collection does. The flavour's own perk lands
+  // when you FEED it in the kitchen (see lib/monstaBuffs.ts), which is why each
+  // description names its perk rather than an energy number.
+  { id: 'cons_monsta_original',  name: 'Original Monsta',   category: 'consumable', rarity: 'rare',      icon: '🥤', description: 'Full energy. Feed it for 40 coins back.',         buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_original') },
+  { id: 'cons_monsta_white',     name: 'White Monsta',      category: 'consumable', rarity: 'common',    icon: '🥤', description: 'Full energy. Feed it to burn 0.25 kg.',           buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_white') },
+  { id: 'cons_monsta_mango',     name: 'Mango Monsta',      category: 'consumable', rarity: 'rare',      icon: '🥤', description: 'Full energy. Feed it for +35 happiness.',         buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_mango') },
+  { id: 'cons_monsta_loco',      name: 'Loco Monsta',       category: 'consumable', rarity: 'rare',      icon: '🥤', description: 'Full energy. Feed it for +35 hunger.',            buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_loco') },
+  { id: 'cons_monsta_pipeline',  name: 'Pipeline Monsta',   category: 'consumable', rarity: 'rare',      icon: '🥤', description: 'Full energy. Feed it for +35 cleanliness.',       buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_pipeline') },
+  { id: 'cons_monsta_punch',     name: 'Punch Monsta',      category: 'consumable', rarity: 'rare',      icon: '🥤', description: 'Full energy. Feed it to knock a sickness out.',   buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_punch') },
+  { id: 'cons_monsta_rosa',      name: 'Rosa Monsta',       category: 'consumable', rarity: 'epic',      icon: '🥤', description: 'Full energy. Feed it for +35 sleep quality.',     buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_rosa') },
+  { id: 'cons_monsta_peachy',    name: 'Peachy Monsta',     category: 'consumable', rarity: 'epic',      icon: '🥤', description: 'Full energy. Feed it for +20 joy and sleep.',     buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_peachy') },
+  { id: MONSTA_RAINBOW_ID,       name: 'Rainbow Monsta',    category: 'consumable', rarity: 'legendary', icon: '🥤', description: 'Full energy. Feed it for EVERY buff at once.',    buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_rainbow') },
 
   // ── SKINS — full-body Eren looks (Clothing gacha). Generated in lib/skins.ts.
   ...SKIN_GACHA_ITEMS,

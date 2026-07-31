@@ -28,11 +28,15 @@ import { FoodBowl, Crumbs, Hearts } from '@/components/care/ReactionFx'
 import KitchenNavButton from '@/components/kitchen/KitchenNavButton'
 import PoseSprite from '@/components/care/PoseSprite'
 import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
+import { monstaBuff } from '@/lib/monstaBuffs'
 import PixelPoof from '@/components/PixelPoof'
 import { preloadImages } from '@/lib/preloadImages'
 import { IconClose, IconChevronLeft, IconChevronRight } from '@/components/PixelIcons'
 
 interface Props { onClose: () => void }
+
+/** Every Monsta costs the same — you're paying for the perk, not the flavour. */
+const MONSTA_PRICE = 100
 
 const SHOP_ITEMS = [
   // Dry
@@ -64,18 +68,19 @@ const SHOP_ITEMS = [
   { id: 'cookie'     as const, name: 'Cookie',      price: 7,  hungerD: 8,  happyD: 18, weightD: 0.02, desc: 'Choc-chip warm',   color: '#C89A6B', cat: 'special' },
   { id: 'jelly_caka' as const, name: 'Jelly Caka',  price: 20, hungerD: 14, happyD: 30, weightD: 0.05, desc: 'Sweet wobble',     color: '#E83A4A', cat: 'special' },
   // Monsta flavours — the can family next to the original Monster Zero above.
-  // Barely any hunger, plenty of joy, near-zero weight: they're drinks.
-  // Rainbow is listed so a pulled one has a fridge shelf to land on (the fridge
-  // renders from SHOP_ITEMS), but priced as a splurge — the gacha is the
-  // sensible way to get it.
-  { id: 'monsta_white'    as const, name: 'White Monsta',    price: 12, hungerD: 5, happyD: 16, weightD: 0.01, desc: 'Zero sugar ultra', color: '#2FBCB3', cat: 'special' },
-  { id: 'monsta_mango'    as const, name: 'Mango Monsta',    price: 14, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'Mango loco kick',  color: '#F9A300', cat: 'special' },
-  { id: 'monsta_loco'     as const, name: 'Loco Monsta',     price: 14, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'Tropical loco',    color: '#69C7EB', cat: 'special' },
-  { id: 'monsta_pipeline' as const, name: 'Pipeline Monsta', price: 13, hungerD: 5, happyD: 17, weightD: 0.01, desc: 'Pipeline punch',   color: '#F96679', cat: 'special' },
-  { id: 'monsta_punch'    as const, name: 'Punch Monsta',    price: 13, hungerD: 5, happyD: 17, weightD: 0.01, desc: 'Punchy citrus',    color: '#E9665C', cat: 'special' },
-  { id: 'monsta_rosa'     as const, name: 'Rosa Monsta',     price: 15, hungerD: 5, happyD: 19, weightD: 0.01, desc: 'Ultra rosa fizz',  color: '#D05C8D', cat: 'special' },
-  { id: 'monsta_peachy'   as const, name: 'Peachy Monsta',   price: 15, hungerD: 5, happyD: 19, weightD: 0.01, desc: 'Peachy keen',      color: '#F9AB94', cat: 'special' },
-  { id: 'monsta_rainbow'  as const, name: 'Rainbow Monsta',  price: 90, hungerD: 8, happyD: 40, weightD: 0.01, desc: 'Ultimate blast',   color: '#83E030', cat: 'special' },
+  // Barely any hunger, near-zero weight: they're drinks, not meals. What you
+  // actually buy is the ENERGY (every can fills the bar) plus that flavour's
+  // own perk — see MONSTA_BUFFS in lib/monstaBuffs.ts. One flat MONSTA_PRICE
+  // for all nine, so you pick a can for what it does, never for what it costs.
+  { id: 'monsta_original' as const, name: 'Original Monsta', price: MONSTA_PRICE, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'The green classic', color: '#A6E728', cat: 'special' },
+  { id: 'monsta_white'    as const, name: 'White Monsta',    price: MONSTA_PRICE, hungerD: 5, happyD: 16, weightD: 0.01, desc: 'Zero sugar ultra',  color: '#2FBCB3', cat: 'special' },
+  { id: 'monsta_mango'    as const, name: 'Mango Monsta',    price: MONSTA_PRICE, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'Mango loco kick',   color: '#F9A300', cat: 'special' },
+  { id: 'monsta_loco'     as const, name: 'Loco Monsta',     price: MONSTA_PRICE, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'Tropical loco',     color: '#69C7EB', cat: 'special' },
+  { id: 'monsta_pipeline' as const, name: 'Pipeline Monsta', price: MONSTA_PRICE, hungerD: 5, happyD: 17, weightD: 0.01, desc: 'Pipeline punch',    color: '#F96679', cat: 'special' },
+  { id: 'monsta_punch'    as const, name: 'Punch Monsta',    price: MONSTA_PRICE, hungerD: 5, happyD: 17, weightD: 0.01, desc: 'Punchy citrus',     color: '#E9665C', cat: 'special' },
+  { id: 'monsta_rosa'     as const, name: 'Rosa Monsta',     price: MONSTA_PRICE, hungerD: 5, happyD: 19, weightD: 0.01, desc: 'Ultra rosa fizz',   color: '#D05C8D', cat: 'special' },
+  { id: 'monsta_peachy'   as const, name: 'Peachy Monsta',   price: MONSTA_PRICE, hungerD: 5, happyD: 19, weightD: 0.01, desc: 'Peachy keen',       color: '#F9AB94', cat: 'special' },
+  { id: 'monsta_rainbow'  as const, name: 'Rainbow Monsta',  price: MONSTA_PRICE, hungerD: 8, happyD: 40, weightD: 0.01, desc: 'Ultimate blast',    color: '#B65CF0', cat: 'special' },
 
   // ─── World dishes ────────────────────────────────────────────────────────
   // Full plated meals (pixel-art art in /public/food), grouped by cuisine so
@@ -156,8 +161,9 @@ const FOOD_IMAGE_IDS = new Set([
   'sardine', 'steak', 'chicken', 'egg',
   // Monsta cans. The normaliser clamps tall art to the box height, so every
   // can ends up the same 124px height — they line up as a set.
-  'monsta_white', 'monsta_mango', 'monsta_loco', 'monsta_pipeline',
-  'monsta_punch', 'monsta_rosa', 'monsta_peachy', 'monsta_rainbow',
+  'monsta_original', 'monsta_white', 'monsta_mango', 'monsta_loco',
+  'monsta_pipeline', 'monsta_punch', 'monsta_rosa', 'monsta_peachy',
+  'monsta_rainbow',
 ])
 
 function FoodIcon({ id, size = 32 }: { id: string; color?: string; size?: number }) {
@@ -349,7 +355,7 @@ const FEED_EREN_FALLBACK = {
 export default function FeedScene({ onClose }: Props) {
   const { user, profile } = useAuth()
   const { stats, feedWithFood, addToMyFood, consumeMyFood } = useErenStats(profile?.household_id ?? null)
-  const { completeTask, coins, spendCoins } = useTasks()
+  const { completeTask, coins, spendCoins, addCoins } = useTasks()
   const isDark = useIsDark()
   const wish = useWish()
   const wishMatchesThisRoom = wish?.wish ? wishHintRoom(wish.wish) === 'feed' : false
@@ -640,8 +646,13 @@ export default function FeedScene({ onClose }: Props) {
     // Fridge decrement rides behind the animation. It reads the same stats
     // snapshot as the stock check above, so it can't disagree with it.
     void consumeMyFood(user.id, item.id)
-    const result = await feedWithFood(user.id, item.hungerD, item.happyD, item.weightD)
-    showToast(result.message, result.success)
+    // A can refills the energy bar and lands its own perk on top of the food's
+    // hunger/joy. Coins are the one perk eren_stats can't hold, so they're paid
+    // here — after the stat write, so a failed feed doesn't mint them.
+    const buff = monstaBuff(item.id)
+    const result = await feedWithFood(user.id, item.hungerD, item.happyD, item.weightD, buff)
+    if (result.success && buff?.coins) void addCoins(buff.coins)
+    showToast(buff && result.success ? `ENERGY FULL · ${buff.label}` : result.message, result.success)
     setFeeding(null)
     if (result.success) completeTask('daily_feed')
   }
@@ -785,7 +796,14 @@ export default function FeedScene({ onClose }: Props) {
                 {(() => { currentItemRef.current = item; return null })()}
                 <div ref={foodElRef}
                   style={{ position: 'relative', touchAction: 'none' }}>
-                  <div style={{
+                  {/* The jackpot can keeps its spectrum here too — the fridge
+                      is where you pick it up, so it shouldn't go plain the
+                      moment it leaves the shop. */}
+                  <div className={cn(item.id === 'monsta_rainbow' && 'rainbow-tile')}
+                    style={item.id === 'monsta_rainbow' ? {
+                      width: 64, height: 64,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    } : {
                     width: 64, height: 64,
                     background: `radial-gradient(circle at 40% 35%, ${item.color}30, ${item.color}10)`,
                     borderRadius: 12,
@@ -1012,13 +1030,18 @@ export default function FeedScene({ onClose }: Props) {
                 {SHOP_ITEMS.filter(i => i.cat === activeCat.id).map(item => {
                   const canAfford = coins >= item.price
                   const btnBg = canAfford ? item.color : '#cccccc'
+                  const buff = monstaBuff(item.id)
+                  const isRainbow = item.id === 'monsta_rainbow'
                   return (
-                    <div key={item.id} className={cn('relative flex flex-col items-center px-2.5 pt-2.5 pb-2.5 transition-all', !canAfford && 'opacity-55')}
+                    <div key={item.id} className={cn('relative flex flex-col items-center px-2.5 pt-2.5 pb-2.5 transition-all', !canAfford && 'opacity-55', isRainbow && 'rainbow-card')}
                       /* One flat wash instead of a gradient, and a lighter
                          border. The food colour used to appear five times on
                          one card — gradient, border, shadow, plate, button —
-                         which is what made these read as busy. */
-                      style={{ background: `${item.color}14`, borderRadius: 8, border: `2px solid ${item.color}40`, boxShadow: `2px 2px 0 ${item.color}20` }}>
+                         which is what made these read as busy.
+                         The rainbow can dresses itself (.rainbow-card), so it
+                         gets no inline surface at all — an inline background
+                         would win over the animated one. */
+                      style={isRainbow ? undefined : { background: `${item.color}14`, borderRadius: 8, border: `2px solid ${item.color}40`, boxShadow: `2px 2px 0 ${item.color}20` }}>
                       {/* Price rides the corner so the plate keeps the centre. */}
                       <div className="absolute flex items-center gap-0.5 px-1.5 py-0.5" style={{ top: 5, right: 5, background: '#FFF3C0', borderRadius: 999, border: '1px solid #F5C842', boxShadow: '1px 1px 0 rgba(0,0,0,0.10)' }}>
                         <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'radial-gradient(circle at 38% 35%, #FFE878, #D4A818)', border: '1px solid #B08810' }} />
@@ -1029,16 +1052,23 @@ export default function FeedScene({ onClose }: Props) {
                           competing with the art. The fixed height still gives
                           every card the same footprint whatever the aspect
                           ratio, so the grid stays even. */}
-                      <div className="flex items-center justify-center flex-shrink-0"
+                      <div className={cn('flex items-center justify-center flex-shrink-0', isRainbow && 'rainbow-can')}
                         style={{ height: 68, marginTop: 4, marginBottom: 5 }}>
                         <FoodIcon id={item.id} color={item.color} size={62} />
                       </div>
                       <p className="text-center font-bold text-gray-800 leading-tight" style={{ fontSize: 12 }}>{item.name}</p>
                       <p className="text-center text-gray-400 leading-tight" style={{ fontSize: 10, marginTop: 1 }}>{item.desc}</p>
-                      {/* Stat chips — colour-coded so hunger vs joy reads at a glance. */}
-                      <div className="flex justify-center gap-1" style={{ marginTop: 6, marginBottom: 7 }}>
-                        <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFE3C4', color: '#B4622A', border: '1px solid #F0B884' }}>HGR+{item.hungerD}</span>
-                        <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFDCE8', color: '#C0407A', border: '1px solid #F5A8C4' }}>JOY+{item.happyD}</span>
+                      {/* Stat chips — colour-coded so hunger vs joy reads at a
+                          glance. A Monsta swaps them for what you actually buy
+                          it for: the full energy bar and its own perk. */}
+                      <div className="flex justify-center gap-1 flex-wrap" style={{ marginTop: 6, marginBottom: 7 }}>
+                        {buff ? <>
+                          <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFF0BC', color: '#9A6A08', border: '1px solid #F0CE68' }}>ENERGY MAX</span>
+                          <span className={cn('font-pixel', isRainbow && 'rainbow-chip')} style={isRainbow ? undefined : { fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#E4F5DC', color: '#3E7A33', border: '1px solid #A8D598' }}>{buff.label}</span>
+                        </> : <>
+                          <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFE3C4', color: '#B4622A', border: '1px solid #F0B884' }}>HGR+{item.hungerD}</span>
+                          <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFDCE8', color: '#C0407A', border: '1px solid #F5A8C4' }}>JOY+{item.happyD}</span>
+                        </>}
                       </div>
                       {/* Label colour is derived, not fixed: most food colours
                           are pale tints that white text vanishes into. */}
@@ -1058,6 +1088,83 @@ export default function FeedScene({ onClose }: Props) {
       })()}
 
       <style jsx>{`
+        /* ── Rainbow Monsta ────────────────────────────────────────────────
+           The gacha jackpot has to look like one sitting in a grid of eight
+           flat-tinted flavour cards. Three layers do it, all on compositor-
+           friendly properties: a spectrum running around the border, a violet
+           glow breathing under the card, and a slow bob on the can.
+
+           Border trick: the fill is painted to padding-box and the spectrum to
+           border-box, so a TRANSPARENT border reveals the gradient underneath
+           — a real rounded gradient border, which border-image can't do.
+
+           REPEATING gradient, not a single stretched one. A 2px border only
+           ever shows a sliver of the gradient, so one spectrum stretched over
+           the card reads as "a colour that slowly changes" rather than as a
+           rainbow. Repeating it every 84px puts the whole spectrum on screen
+           at once, and running it at 135deg wraps it around all four edges —
+           at 90deg the left and right borders each sit on one flat hue.
+
+           The 118.79px numbers are that 84px period divided by sin(135deg):
+           a shift along x moves a 135deg pattern along its own axis by
+           x·sin(135deg), so 118.79px is exactly one period. It has to be BOTH
+           the background-size and the travel — a gradient image tiles, and
+           each tile re-anchors the gradient to its own box, so any other tile
+           width puts a phase jump at every tile edge (measured: 947 seam
+           pixels before the size was pinned).
+
+           Kept in this scoped block rather than the contended globals.css. */
+        .rainbow-card {
+          border: 2px solid transparent;
+          border-radius: 8px;
+          background:
+            linear-gradient(#FFFAFF, #FFF4FC) padding-box,
+            repeating-linear-gradient(135deg, #FF4D6D 0px, #FF9A3D 14px, #FFE23D 28px, #4BE07A 42px, #35C7F5 56px, #A65CF6 70px, #FF4D6D 84px) border-box;
+          background-size: auto, 118.79px 100%;
+          animation: rainbowRun 2.6s linear infinite, rainbowGlow 2.8s ease-in-out infinite;
+        }
+        .rainbow-tile {
+          border: 2px solid transparent;
+          border-radius: 12px;
+          background:
+            radial-gradient(circle at 40% 35%, rgba(255,255,255,0.22), rgba(255,255,255,0.05)) padding-box,
+            repeating-linear-gradient(135deg, #FF4D6D 0px, #FF9A3D 14px, #FFE23D 28px, #4BE07A 42px, #35C7F5 56px, #A65CF6 70px, #FF4D6D 84px) border-box;
+          background-size: auto, 118.79px 100%;
+          animation: rainbowRun 2.6s linear infinite, rainbowGlow 2.8s ease-in-out infinite;
+        }
+        /* Dark fill, not a rainbow one: 6px pixel type on a full spectrum is
+           unreadable at any text colour. The spectrum goes on the border. */
+        .rainbow-chip {
+          font-size: 6px;
+          padding: 3px 5px;
+          border-radius: 4px;
+          color: #FFFFFF;
+          letter-spacing: 0.5px;
+          border: 1px solid transparent;
+          background:
+            linear-gradient(#2E1F45, #2E1F45) padding-box,
+            repeating-linear-gradient(135deg, #FF4D6D 0px, #FF9A3D 14px, #FFE23D 28px, #4BE07A 42px, #35C7F5 56px, #A65CF6 70px, #FF4D6D 84px) border-box;
+          background-size: auto, 118.79px 100%;
+          animation: rainbowRun 2.6s linear infinite;
+        }
+        .rainbow-can { animation: rainbowBob 3.2s ease-in-out infinite; }
+        @keyframes rainbowRun {
+          from { background-position: 0 0, 0        0; }
+          to   { background-position: 0 0, 118.79px 0; }
+        }
+        @keyframes rainbowGlow {
+          0%, 100% { box-shadow: 0 0 5px 0 rgba(166,92,246,0.28); }
+          50%      { box-shadow: 0 0 16px 4px rgba(166,92,246,0.62); }
+        }
+        @keyframes rainbowBob {
+          0%, 100% { transform: translateY(0)    rotate(0deg);    }
+          50%      { transform: translateY(-4px) rotate(-1.5deg); }
+        }
+        /* Respect the OS setting: the spectrum stays, the motion stops. */
+        @media (prefers-reduced-motion: reduce) {
+          .rainbow-card, .rainbow-tile, .rainbow-chip, .rainbow-can { animation: none; }
+        }
+
         .kettle-puff {
           position: absolute;
           left: 0;
