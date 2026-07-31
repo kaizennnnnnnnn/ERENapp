@@ -35,8 +35,15 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ['var(--font-geist-sans)', 'system-ui', 'sans-serif'],
-        mono: ['var(--font-geist-mono)', 'monospace'],
+        // NO var() here on purpose. These used to lead with
+        // var(--font-geist-sans) / var(--font-geist-mono), which are defined
+        // NOWHERE in the app — and an undefined var() inside a font-family
+        // list doesn't fall through to the next entry, it makes the whole
+        // declaration invalid at computed-value time. Tailwind's preflight
+        // rule on <html> therefore died and every piece of body copy in the
+        // app rendered in the browser default serif (Times), never system-ui.
+        sans: ['system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
         pixel: ['"Press Start 2P"', 'monospace'],
       },
       animation: {

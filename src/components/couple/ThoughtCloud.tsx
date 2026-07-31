@@ -9,7 +9,7 @@
 //   1. 'idle'    — single small pixel cloud with three pulsing dots and two
 //                  trailing puffs leading down to Eren's head.
 //   2. 'split'   — the cloud splits into two side-by-side mini clouds
-//                  (✉ message / 🎁 gift). Pick one.
+//                  (note / gift), each carrying a pixel icon. Pick one.
 //   3. 'message' — full message composer modal.
 //   4. 'gift'    — full gift picker modal.
 
@@ -19,6 +19,8 @@ import { useCouple } from '@/hooks/useCouple'
 import { useErenStats } from '@/hooks/useErenStats'
 import { playSound } from '@/lib/sounds'
 import { FOOD_META, FOOD_ORDER } from '@/lib/foodMeta'
+import FoodIcon from '@/components/care/FoodIcon'
+import { IconEnvelope, IconGift, IconClose } from '@/components/PixelIcons'
 import type { FoodInventory, FoodKey } from '@/types'
 
 type Mode = 'idle' | 'split' | 'message' | 'gift'
@@ -27,6 +29,16 @@ const CLOUD_BOTTOM = '30%'
 const Z_BACKDROP = 55
 const Z_CLOUD = 56
 const Z_MODAL = 61
+
+const MSG_TINT = '#A78BFA'
+const GIFT_TINT = '#F5C842'
+const MAX_MSG = 200
+
+// Split-cloud width. Sized so the cloud's three full-width interior rows are
+// tall enough to seat the icon WITHIN the puff — the old emoji was scaled off
+// the SVG grid and burst out through the outline.
+const CLOUD_TAB_W = 84
+const CLOUD_TAB_ICON = 20
 
 export default function ThoughtCloud() {
   const { user, profile } = useAuth()
@@ -105,25 +117,21 @@ export default function ThoughtCloud() {
 
         <CloudAnchor zIndex={Z_CLOUD}>
           <div
-            className="flex items-center gap-2"
+            className="flex items-start gap-2.5"
             style={{ animation: 'tcSplitIn 0.32s cubic-bezier(0.34,1.56,0.64,1) both' }}
           >
-            <button
-              onClick={(e) => { e.stopPropagation(); playSound('ui_tap'); setMode('message') }}
-              className="active:scale-95 transition-transform pointer-events-auto"
-              style={{ background: 'transparent', border: 'none', padding: 0 }}
-              aria-label="Send a message"
+            <CloudTab
+              tint={MSG_TINT} label="NOTE" ariaLabel="Send a message"
+              onPick={() => setMode('message')}
             >
-              <PixelCloud width={52} tint="#A78BFA" glyph="MSG" />
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); playSound('ui_tap'); setMode('gift') }}
-              className="active:scale-95 transition-transform pointer-events-auto"
-              style={{ background: 'transparent', border: 'none', padding: 0 }}
-              aria-label="Send a gift"
+              <IconEnvelope size={CLOUD_TAB_ICON} />
+            </CloudTab>
+            <CloudTab
+              tint={GIFT_TINT} label="GIFT" ariaLabel="Send a gift"
+              onPick={() => setMode('gift')}
             >
-              <PixelCloud width={52} tint="#F5C842" glyph="GIFT" />
-            </button>
+              <IconGift size={CLOUD_TAB_ICON} />
+            </CloudTab>
           </div>
           <TrailingPuffs />
         </CloudAnchor>
@@ -140,7 +148,10 @@ export default function ThoughtCloud() {
   }
 
   // ── composer modals (message / gift) ──────────────────────────────
-  const tint = mode === 'message' ? '#A78BFA' : '#F5C842'
+  const isMsg = mode === 'message'
+  const tint = isMsg ? MSG_TINT : GIFT_TINT
+  const partnerFirst = partner?.name?.split(' ')[0] ?? 'them'
+
   return (
     <>
       <div
@@ -154,15 +165,11 @@ export default function ThoughtCloud() {
         style={{ top: '20%', transform: 'translateX(-50%)', width: 'min(92vw, 360px)', zIndex: Z_MODAL }}
         onClick={e => e.stopPropagation()}
       >
-        <div
-          style={{
-            width: '100%',
-            background: '#FFFFFF',
-            border: `3px solid ${tint}`,
-            // Hard pixel-style shadow, no blur.
-            boxShadow: `4px 4px 0 ${tint}AA`,
-            imageRendering: 'pixelated',
-          }}
+        <ComposerCard
+          tint={tint}
+          icon={isMsg ? <IconEnvelope size={12} /> : <IconGift size={12} />}
+          title={isMsg ? `A NOTE FOR ${partnerFirst.toUpperCase()}` : 'PICK FROM YOUR FRIDGE'}
+          onClose={() => { playSound('ui_modal_close'); setMode('idle') }}
         >
           {noPartner ? (
             <div className="px-4 py-5 text-center">
@@ -170,51 +177,59 @@ export default function ThoughtCloud() {
                 Invite your partner first so Eren can deliver this.
               </p>
             </div>
-          ) : mode === 'message' ? (
-            <div className="px-4 py-3 flex flex-col gap-2 w-full">
-              <p className="font-pixel text-purple-500 text-center" style={{ fontSize: 6 }}>
-                EREN WILL DELIVER THIS TO {partner?.name?.toUpperCase().split(' ')[0] ?? 'THEM'}
-              </p>
+          ) : isMsg ? (
+            <div className="px-3 py-3 flex flex-col gap-2 w-full">
               <textarea
                 value={text}
                 onChange={e => setText(e.target.value)}
                 placeholder="thinking of you…"
-                maxLength={200}
+                maxLength={MAX_MSG}
                 rows={3}
                 autoFocus
-                className="w-full p-2 text-sm text-gray-700 resize-none focus:outline-none"
+                className="w-full p-2.5 text-sm text-gray-700 resize-none focus:outline-none"
                 style={{
-                  background: '#FFF',
-                  border: '2px dashed #E0CCFF',
+                  // Ruled notepaper — the lines make the box read as something
+                  // Eren carries, not as a form field.
+                  background: 'repeating-linear-gradient(#FFFDF7 0 21px, #EFE6FA 21px 22px)',
+                  border: `2px dashed ${tint}88`,
+                  lineHeight: '22px',
                   fontFamily: 'inherit',
                 }}
               />
-              <button
-                onClick={() => { playSound('ui_tap'); handleSendMessage() }}
-                disabled={!text.trim() || sending}
-                className="self-end px-4 py-2 text-white active:translate-y-[1px] disabled:opacity-40"
-                style={{
-                  background: '#A78BFA',
-                  border: '2px solid #7C3AED',
-                  boxShadow: '0 3px 0 #5B21B6',
-                  fontFamily: '"Press Start 2P"',
-                  fontSize: 7,
-                }}
-              >
-                {sending ? '...' : 'SEND'}
-              </button>
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-pixel" style={{
+                  fontSize: 6,
+                  color: text.length >= MAX_MSG ? '#C0407A' : '#B0A0C0',
+                }}>
+                  {text.length}/{MAX_MSG}
+                </span>
+                <button
+                  onClick={() => { playSound('ui_tap'); handleSendMessage() }}
+                  disabled={!text.trim() || sending}
+                  className="flex items-center gap-1.5 px-4 py-2 text-white active:translate-y-[1px] disabled:opacity-40 transition-transform"
+                  style={{
+                    background: tint,
+                    border: '2px solid #7C3AED',
+                    boxShadow: '0 3px 0 #5B21B6',
+                    fontFamily: '"Press Start 2P"',
+                    fontSize: 7,
+                  }}
+                >
+                  {sending ? '...' : 'SEND'}
+                </button>
+              </div>
             </div>
           ) : (
             <div className="px-3 py-3 flex flex-col gap-2 w-full">
-              <p className="font-pixel text-amber-600 text-center" style={{ fontSize: 6 }}>
-                PICK FROM YOUR FRIDGE
-              </p>
               {giftableKeys.length === 0 ? (
                 <p className="text-center text-xs text-gray-500 py-3">
                   Your fridge is empty. Buy something in the Kitchen first!
                 </p>
               ) : (
-                <div className="grid grid-cols-3 gap-2">
+                // Capped + scrollable: a stocked fridge runs to 50 foods, which
+                // used to grow the card straight off the bottom of the screen.
+                <div className="grid grid-cols-3 gap-2 overflow-y-auto"
+                  style={{ maxHeight: '44vh', overscrollBehavior: 'contain' }}>
                   {giftableKeys.map(key => {
                     const meta = FOOD_META[key]
                     const qty = myPile[key] ?? 0
@@ -223,20 +238,39 @@ export default function ThoughtCloud() {
                         key={key}
                         onClick={() => { playSound('ui_tap'); handleSendGift(key) }}
                         disabled={sending}
-                        className="flex flex-col items-center gap-1 p-2 active:translate-y-[1px] disabled:opacity-50 transition-transform"
+                        className="relative flex flex-col items-center gap-1 px-1 pt-2 pb-1.5 active:translate-y-[1px] disabled:opacity-50 transition-transform"
                         style={{
-                          background: `${meta.color}18`,
-                          border: `2px solid ${meta.color}66`,
-                          boxShadow: `2px 2px 0 ${meta.color}44`,
+                          background: '#FFFFFF',
+                          // Neutral frame on purpose. Tinting it per food made
+                          // the pale ones (egg, milk) look borderless next to
+                          // pizza, and the kitchen already learned that a
+                          // coloured surface competes with the art. The food is
+                          // the only coloured thing on the card.
+                          border: '2px solid #E6DCF2',
+                          boxShadow: '2px 2px 0 rgba(90,70,120,0.13)',
                         }}
                       >
-                        <div style={{
-                          width: 18, height: 18,
-                          background: meta.color,
-                          border: `2px solid ${meta.color}`,
-                        }} />
-                        <span className="text-[10px] font-bold" style={{ color: meta.color }}>{meta.name}</span>
-                        <span className="text-[9px] text-gray-500">x{qty}</span>
+                        {/* The real plate, same renderer as the kitchen — a
+                            gift should look like the food you're giving. */}
+                        <div className="flex items-center justify-center" style={{ height: 40 }}>
+                          <FoodIcon id={key} size={40} />
+                        </div>
+                        <span className="font-bold text-gray-700 leading-tight text-center"
+                          style={{ fontSize: 10 }}>
+                          {meta.name}
+                        </span>
+                        {/* Stock count as a corner badge — it was competing
+                            with the name as a third stacked text line. Sits
+                            INSIDE the card: the scroll container clips anything
+                            hanging off the edge. One dark chip for every food,
+                            because white-on-#F5E6C8 (egg) was invisible. */}
+                        <span className="font-pixel absolute flex items-center justify-center"
+                          style={{
+                            top: 3, right: 3, minWidth: 14, height: 14, padding: '0 3px',
+                            fontSize: 6, color: '#FFF', background: '#5A4A6A',
+                          }}>
+                          {qty}
+                        </span>
                       </button>
                     )
                   })}
@@ -244,7 +278,7 @@ export default function ThoughtCloud() {
               )}
             </div>
           )}
-        </div>
+        </ComposerCard>
 
         {toast && (
           <div className="px-3 py-1.5 text-white font-pixel"
@@ -291,12 +325,10 @@ function PixelCloud({
   width,
   tint = '#7C3AED',
   dots = false,
-  glyph,
 }: {
   width: number
   tint?: string
   dots?: boolean
-  glyph?: 'MSG' | 'GIFT'
 }) {
   const cols = CLOUD_GRID[0].length
   const rows = CLOUD_GRID.length
@@ -393,21 +425,6 @@ function PixelCloud({
         />
       ))}
 
-      {/* Tab glyph — actual emoji centred in the cloud. The color emoji
-          font handles the rendering, so even though the cloud itself is
-          pixel art the icon inside is immediately recognisable. */}
-      {glyph && (
-        <text
-          x={7 * cell}
-          y={4.4 * cell}
-          textAnchor="middle"
-          fontSize={cell * 4}
-          style={{ pointerEvents: 'none' }}
-        >
-          {glyph === 'MSG' ? '💌' : '🎁'}
-        </text>
-      )}
-
       <style>{`
         @keyframes tcDotBlink {
           0%, 49%   { opacity: 0.25; }
@@ -427,6 +444,118 @@ function PixelCloud({
         }
       `}</style>
     </svg>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────
+// CloudTab — one of the two split clouds: a pixel puff with an icon
+// riding on it and a label underneath.
+//
+// The icon is an HTML sibling layered over the SVG rather than a child of
+// it, so it stays put while the cloud breathes beneath — a pixel glyph
+// smears badly if you scale it 6% at 18px.
+// ────────────────────────────────────────────────────────────────────
+function CloudTab({
+  tint, label, ariaLabel, onPick, children,
+}: {
+  tint: string
+  label: string
+  ariaLabel: string
+  onPick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); playSound('ui_tap'); onPick() }}
+      className="flex flex-col items-center gap-1 active:scale-95 transition-transform pointer-events-auto"
+      style={{ background: 'transparent', border: 'none', padding: 0 }}
+      aria-label={ariaLabel}
+    >
+      <span style={{ position: 'relative', display: 'block' }}>
+        <PixelCloud width={CLOUD_TAB_W} tint={tint} />
+        <span style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          pointerEvents: 'none',
+        }}>
+          {children}
+        </span>
+      </span>
+      {/* Label sits on its own chip rather than floating on the room art — a
+          4-way white text-halo blurred the 6px glyphs into mush. */}
+      <span className="font-pixel" style={{
+        fontSize: 6, letterSpacing: 1, color: '#4A3A5A',
+        background: '#FFF', padding: '2px 5px',
+        border: `2px solid ${tint}`,
+        boxShadow: '1px 1px 0 rgba(0,0,0,0.2)',
+      }}>
+        {label}
+      </span>
+    </button>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────
+// ComposerCard — shared frame for the note and gift modals, so the two
+// read as one object in two moods rather than two separate boxes.
+// ────────────────────────────────────────────────────────────────────
+
+// Gold rivet pixels at the inner corners — the app's "premium card" tell.
+const RIVETS: React.CSSProperties[] = [
+  { top: 3, left: 3 }, { top: 3, right: 3 }, { bottom: 3, left: 3 }, { bottom: 3, right: 3 },
+]
+
+function ComposerCard({
+  tint, icon, title, onClose, children,
+}: {
+  tint: string
+  icon: React.ReactNode
+  title: string
+  onClose: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <div style={{
+      width: '100%',
+      background: '#FFFDF7',
+      border: `3px solid ${tint}`,
+      boxShadow: `4px 4px 0 ${tint}AA`,
+      position: 'relative',
+      animation: 'tcCardIn 0.24s cubic-bezier(0.34,1.56,0.64,1) both',
+    }}>
+      {RIVETS.map((pos, i) => (
+        <span key={i} style={{ position: 'absolute', width: 2, height: 2, background: '#F5C842', ...pos }} />
+      ))}
+
+      {/* Titlebar — icon + label on the left, a real close target on the
+          right. Before this the only way out was tapping the backdrop. */}
+      <div className="flex items-center justify-between px-2.5 py-2"
+        style={{ background: `${tint}22`, borderBottom: `2px solid ${tint}55` }}>
+        <span className="flex items-center gap-1.5 min-w-0">
+          {icon}
+          <span className="font-pixel truncate" style={{ fontSize: 6, letterSpacing: 1, color: '#4A3A5A' }}>
+            {title}
+          </span>
+        </span>
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="w-6 h-6 flex items-center justify-center flex-shrink-0 active:translate-y-[1px] transition-transform"
+          style={{ background: '#FFF', border: `2px solid ${tint}77` }}
+        >
+          <IconClose size={8} />
+        </button>
+      </div>
+
+      {children}
+
+      <style jsx>{`
+        @keyframes tcCardIn {
+          0%   { transform: scale(0.94) translateY(6px); opacity: 0; }
+          100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+      `}</style>
+    </div>
   )
 }
 
