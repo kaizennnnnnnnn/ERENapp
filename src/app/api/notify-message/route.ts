@@ -24,13 +24,17 @@ interface Body {
   sender_name?: string
   message?: string
   via_eren?: boolean
+  /** True when this message is pinned to the note board rather than the chat.
+   *  Decides where the notification opens. Kept separate from `via_eren`
+   *  because nudges are board-bound but still show their text in the push. */
+  to_notes?: boolean
 }
 
 export async function POST(request: Request) {
   let body: Body
   try { body = await request.json() } catch { return NextResponse.json({ error: 'bad json' }, { status: 400 }) }
 
-  const { household_id, sender_id, sender_name, message, via_eren } = body
+  const { household_id, sender_id, sender_name, message, via_eren, to_notes } = body
   if (!household_id || !sender_id) {
     return NextResponse.json({ error: 'missing household_id or sender_id' }, { status: 400 })
   }
@@ -64,8 +68,8 @@ export async function POST(request: Request) {
       { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
       title,
       snippet,
-      'partner-msg',
-      '/couple',
+      to_notes ? 'eren-note' : 'partner-msg',
+      to_notes ? '/notes' : '/couple',
     )
     if (ok) sent++
     else expired.push(sub.id)

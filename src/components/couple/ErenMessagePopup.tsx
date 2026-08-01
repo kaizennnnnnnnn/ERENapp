@@ -4,7 +4,7 @@ import type { JournalMessage, FoodKey } from '@/types'
 import { playSound } from '@/lib/sounds'
 import { FOOD_META } from '@/lib/foodMeta'
 import SketchEren, { type SketchErenState } from '@/components/SketchEren'
-import { IconHeart } from '@/components/PixelIcons'
+import { IconHeart, IconEnvelope, IconPin } from '@/components/PixelIcons'
 
 interface Props {
   message: JournalMessage
@@ -42,9 +42,7 @@ export default function ErenMessagePopup({ message, onDismiss }: Props) {
           {/* Letter / heart badge */}
           <div className="absolute -top-1 -right-1 flex items-center justify-center"
             style={{ width: 28, height: 28, background: '#FF6B9D', borderRadius: '50%', border: '2px solid #CC3366', boxShadow: '0 2px 6px rgba(255,107,157,0.4)' }}>
-            {isNudge
-              ? <IconHeart size={14} />
-              : <span style={{ fontSize: 14 }}>💌</span>}
+            {isNudge ? <IconHeart size={14} /> : <IconEnvelope size={14} />}
           </div>
         </div>
 
@@ -81,7 +79,16 @@ export default function ErenMessagePopup({ message, onDismiss }: Props) {
               <span className="text-[10px] text-gray-500">→ your fridge</span>
             </div>
           )}
-          <p className="text-[10px] text-gray-400 text-center mt-2">from your partner 💕</p>
+          <p className="text-[10px] text-gray-400 text-center mt-2 flex items-center justify-center gap-1">
+            from your partner <IconHeart size={9} />
+          </p>
+
+          {/* The popup is a moment, not a mailbox — say where the note went so
+              it isn't mistaken for something that disappears on close. */}
+          <p className="font-pixel flex items-center justify-center gap-1.5 mt-3 pt-2"
+            style={{ fontSize: 5, letterSpacing: 1, color: '#C0A8D8', borderTop: '1px dashed #F0D8FF' }}>
+            <IconPin size={9} tone="#E8A05C" /> PINNED TO YOUR NOTE BOARD
+          </p>
         </div>
 
         <p className="font-pixel text-white/50" style={{ fontSize: 6 }}>TAP TO CLOSE</p>

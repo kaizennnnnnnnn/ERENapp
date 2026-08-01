@@ -721,6 +721,32 @@ export const IconEnvelope = memo(function IconEnvelope({ size = 20 }: IconProps)
   }, size)
 })
 
+// ── PUSH PIN (the note board) ─────────────────────────────────────────────
+// Thumbtack in profile: wide cap, narrow neck, needle. Drawn side-on rather
+// than as a dome because a round head alone reads as a blob at 20 px — the
+// neck-and-needle taper is the whole silhouette. The needle is dark, not
+// steel-grey, so it stays visible against cream paper. `tone` colours the cap
+// so a note can be pinned in its sender's colour.
+export const IconPin = memo(function IconPin({ size = 20, tone = '#E8365D', dark = '#5A1020' }: IconProps & { tone?: string; dark?: string }) {
+  const grid = [
+    '............',
+    '..KKKKKKKK..',
+    '.KRRRRRRRRK.',
+    '.KRWRRRRRRK.',
+    '.KRRRRRRRRK.',
+    '..KKKKKKKK..',
+    '....KRRK....',
+    '....KRRK....',
+    '.....SS.....',
+    '.....SS.....',
+    '.....S......',
+    '............',
+  ]
+  return drawPixels(grid, {
+    K: dark, R: tone, W: 'rgba(255,255,255,0.7)', S: '#3F4550',
+  }, size)
+})
+
 // ── EREN'S FACE ───────────────────────────────────────────────────────────
 // Ragdoll cat — cream body, grey-brown point markings on the ear tips +
 // face mask, big bright blue eyes (the breed's defining feature), and a

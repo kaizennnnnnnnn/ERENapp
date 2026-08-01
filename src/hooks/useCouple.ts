@@ -42,6 +42,14 @@ function useCoupleImpl() {
   const [journal, setJournal] = useState<JournalMessage[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [newMessage, setNewMessage] = useState<JournalMessage | null>(null) // for popup
+  // ── Note board ──
+  // Everything Eren delivered (via_eren): ThoughtCloud notes, food gifts and
+  // nudges. A separate keepsake surface from the chat — these rows never
+  // enter `journal`, and unlike the popup they're kept forever.
+  const [notes, setNotes] = useState<JournalMessage[]>([])
+  // When I last opened the board. Unread is DERIVED from this rather than
+  // counted, so a note arriving while the board is open can't desync it.
+  const [notesReadAt, setNotesReadAt] = useState(0)
   const [partnerMood, setPartnerMood] = useState<UserMood | null>(null)
   const [partnerMoodWeek, setPartnerMoodWeek] = useState<{ date: string; mood: UserMood | null }[]>([])
   const [lifetimeWLT, setLifetimeWLT] = useState<LifetimeWLT | null>(null)
@@ -97,6 +105,15 @@ function useCoupleImpl() {
       .or('via_eren.is.null,via_eren.eq.false')
       .order('created_at', { ascending: false })
       .limit(50))
+    // The note board — same table, exactly the opposite filter to journalP,
+    // so a row is either chat or a note and never both.
+    const notesP = withRetry(() => supabase
+      .from('couple_journal')
+      .select('*, profile:profiles!sender_id(*)')
+      .eq('household_id', profile.household_id)
+      .eq('via_eren', true)
+      .order('created_at', { ascending: false })
+      .limit(200))
 
     // Partner. Reads go through withRetry because Supabase
     // intermittently 503s while the hosted project restarts — and this
@@ -223,8 +240,8 @@ function useCoupleImpl() {
     // Journal messages.
     //
     // Eren-delivered messages (via_eren = true) are filtered out here so
-    // they never appear in the heart-button journal — they're a separate
-    // channel that fires the ErenMessagePopup once and disappears.
+    // they never appear in the heart-button journal — they live on the note
+    // board instead, and also fire the ErenMessagePopup once on arrival.
     const { data: msgs, error: msgsError } = await journalP
     if (msgsError) loadFailedRef.current = true
     if (msgs) {
@@ -234,6 +251,11 @@ function useCoupleImpl() {
       const unread = msgs.filter((m: JournalMessage) => m.sender_id !== user.id && new Date(m.created_at).getTime() > lastReadMs).length
       setUnreadCount(unread)
     }
+
+    // Note board.
+    const { data: noteRows, error: notesError } = await notesP
+    if (notesError) loadFailedRef.current = true
+    else if (noteRows) setNotes(noteRows as JournalMessage[])
 
     setLoading(false)
   }, [profile?.household_id, user?.id, profile?.name]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -273,6 +295,25 @@ function useCoupleImpl() {
     }
   }, [user?.id, fetchAll])
 
+  // ── Note board read marker ──
+  // Mirrors localStorage into state so `unreadNotes` can be derived. Synced on
+  // mount, on focus, on a write from another tab, and on markNotesRead() here.
+  useEffect(() => {
+    if (!user?.id) return
+    const key = `eren_notes_read_${user.id}`
+    const sync = () => setNotesReadAt(new Date(localStorage.getItem(key) ?? 0).getTime())
+    sync()
+    const onStorage = (e: StorageEvent) => { if (e.key === key) sync() }
+    const offForeground = onForeground(sync)
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('eren:notes-read', sync)
+    return () => {
+      offForeground()
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('eren:notes-read', sync)
+    }
+  }, [user?.id])
+
   // ── Realtime: listen for new journal messages ──
   useEffect(() => {
     if (!profile?.household_id || !user?.id) return
@@ -285,17 +326,21 @@ function useCoupleImpl() {
         filter: `household_id=eq.${profile.household_id}`,
       }, payload => {
         const msg = payload.new as JournalMessage
-        if (msg.sender_id !== user.id) {
-          // Eren-delivered messages get the popup only — never the
-          // heart-button counter or the journal list. Regular messages
-          // go through both channels.
-          if (msg.via_eren) {
-            const lastReadMs = new Date(localStorage.getItem(`eren_journal_read_${user.id}`) ?? 0).getTime()
-            if (new Date(msg.created_at).getTime() > lastReadMs) {
-              setNewMessage(msg)
-            }
-            return
+        // Eren-delivered rows are NOTES, not chat: they get pinned to the
+        // board and pop the ErenMessagePopup, and they return before the
+        // setJournal below — falling through to it is what used to make a
+        // note show up inside the heart-button chat.
+        if (msg.via_eren) {
+          setNotes(prev => prev.some(n => n.id === msg.id) ? prev : [msg, ...prev])
+          if (msg.sender_id !== user.id) {
+            // Read localStorage rather than notesReadAt — this handler is
+            // built once per household and would close over a stale value.
+            const lastSeen = new Date(localStorage.getItem(`eren_notes_read_${user.id}`) ?? 0).getTime()
+            if (new Date(msg.created_at).getTime() > lastSeen) setNewMessage(msg)
           }
+          return
+        }
+        if (msg.sender_id !== user.id) {
           // Only count if the incoming message is newer than our read marker
           const lastReadMs = new Date(localStorage.getItem(`eren_journal_read_${user.id}`) ?? 0).getTime()
           if (new Date(msg.created_at).getTime() > lastReadMs) {
@@ -352,6 +397,9 @@ function useCoupleImpl() {
         sender_name: profile.name ?? '',
         message: trimmed || (gift ? `sent a ${gift.key}!` : ''),
         via_eren: viaEren,
+        // Deep-link a delivered note straight to the board. Tapping the push
+        // used to land on /couple, i.e. the chat, which is not where the note is.
+        to_notes: viaEren,
       }),
     }).catch(() => { /* best-effort */ })
   }, [user?.id, profile?.household_id, profile?.name]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -387,6 +435,7 @@ function useCoupleImpl() {
         sender_name: profile.name ?? '',
         message: messageText,
         via_eren: false,
+        to_notes: true,
       }),
     }).catch(() => { /* best-effort */ })
 
@@ -415,14 +464,27 @@ function useCoupleImpl() {
     try { window.dispatchEvent(new Event('eren:journal-read')) } catch { /* ignore */ }
   }, [user?.id])
 
-  // ── Clear popup + mark all as read ──
+  // ── Mark the note board as seen ──
+  const markNotesRead = useCallback(() => {
+    if (!user?.id) return
+    const stamp = Date.now() + 1000
+    localStorage.setItem(`eren_notes_read_${user.id}`, new Date(stamp).toISOString())
+    setNotesReadAt(stamp)
+    try { window.dispatchEvent(new Event('eren:notes-read')) } catch { /* ignore */ }
+  }, [user?.id])
+
+  // ── Clear popup + mark as read ──
+  // The popup carries either kind of message, so it clears whichever marker
+  // it actually belongs to — dismissing a note must not silence the chat.
   const dismissPopup = useCallback(() => {
+    const wasNote = newMessage?.via_eren
     setNewMessage(null)
     if (!user?.id) return
+    if (wasNote) { markNotesRead(); return }
     localStorage.setItem(`eren_journal_read_${user.id}`, new Date(Date.now() + 1000).toISOString())
     setUnreadCount(0)
     try { window.dispatchEvent(new Event('eren:journal-read')) } catch { /* ignore */ }
-  }, [user?.id])
+  }, [user?.id, newMessage?.via_eren, markNotesRead])
 
   // ── Claim the weekly Care Battle payout + dismiss the popup ─────────────
   // Pays the 100-coin bonus on first successful claim (atomic via CAS on
@@ -480,9 +542,15 @@ function useCoupleImpl() {
     loaded: coopRowLoaded,
   }
 
+  // Notes from my partner that landed after my last visit to the board.
+  const unreadNotes = notes.reduce((n, m) => (
+    n + (m.sender_id !== user?.id && new Date(m.created_at).getTime() > notesReadAt ? 1 : 0)
+  ), 0)
+
   return {
     partner, partnerStreak,
     loveMeter, anniversary, journal, unreadCount,
+    notes, unreadNotes, markNotesRead,
     newMessage, dismissPopup,
     partnerMood, partnerMoodWeek,
     lifetimeWLT, weeklyChampion, claimWeeklyChampion,

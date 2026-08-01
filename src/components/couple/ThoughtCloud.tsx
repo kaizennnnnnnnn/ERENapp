@@ -8,19 +8,20 @@
 // Four interaction states:
 //   1. 'idle'    — single small pixel cloud with three pulsing dots and two
 //                  trailing puffs leading down to Eren's head.
-//   2. 'split'   — the cloud splits into two side-by-side mini clouds
-//                  (note / gift), each carrying a pixel icon. Pick one.
+//   2. 'split'   — the cloud splits into three side-by-side mini clouds
+//                  (note / gift / board), each carrying a pixel icon.
 //   3. 'message' — full message composer modal.
 //   4. 'gift'    — full gift picker modal.
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useCouple } from '@/hooks/useCouple'
 import { useErenStats } from '@/hooks/useErenStats'
 import { playSound } from '@/lib/sounds'
 import { FOOD_META, FOOD_ORDER } from '@/lib/foodMeta'
 import FoodIcon from '@/components/care/FoodIcon'
-import { IconEnvelope, IconGift, IconClose } from '@/components/PixelIcons'
+import { IconEnvelope, IconGift, IconClose, IconPin } from '@/components/PixelIcons'
 import type { FoodInventory, FoodKey } from '@/types'
 
 type Mode = 'idle' | 'split' | 'message' | 'gift'
@@ -32,6 +33,7 @@ const Z_MODAL = 61
 
 const MSG_TINT = '#A78BFA'
 const GIFT_TINT = '#F5C842'
+const BOARD_TINT = '#E8A05C'
 const MAX_MSG = 200
 
 // Split-cloud width. Sized so the cloud's three full-width interior rows are
@@ -41,8 +43,9 @@ const CLOUD_TAB_W = 84
 const CLOUD_TAB_ICON = 20
 
 export default function ThoughtCloud() {
+  const router = useRouter()
   const { user, profile } = useAuth()
-  const { partner, sendMessage } = useCouple()
+  const { partner, sendMessage, unreadNotes } = useCouple()
   const { stats, giftFood } = useErenStats(profile?.household_id ?? null)
 
   const [mode, setMode] = useState<Mode>('idle')
@@ -68,7 +71,7 @@ export default function ThoughtCloud() {
     // kept out of the heart-button journal list.
     await sendMessage(text.trim(), null, true)
     setText('')
-    setToast('Eren will deliver it')
+    setToast('Delivered — and pinned to the board')
     setSending(false)
     setTimeout(() => setMode('idle'), 700)
   }
@@ -94,18 +97,28 @@ export default function ThoughtCloud() {
       <CloudAnchor zIndex={4}>
         <button
           onClick={() => { playSound('ui_modal_open'); setMode('split') }}
-          className="active:scale-95 transition-transform pointer-events-auto"
+          className="active:scale-95 transition-transform pointer-events-auto relative"
           style={{ background: 'transparent', border: 'none', padding: 0 }}
           aria-label="Open Eren's thought"
         >
           <PixelCloud width={64} dots />
+          {/* Unread notes waiting on the board — the home screen's only tell
+              that one arrived while the app was closed. */}
+          {unreadNotes > 0 && (
+            <span className="absolute flex items-center justify-center" style={{
+              top: -4, right: -6, minWidth: 15, height: 15, padding: '0 3px',
+              fontFamily: '"Press Start 2P"', fontSize: 5, color: '#FFF',
+              background: '#FF1D5E', border: '2px solid #FFF',
+              boxShadow: '0 0 5px rgba(255,29,94,0.7)', borderRadius: 6,
+            }}>{unreadNotes > 9 ? '9+' : unreadNotes}</span>
+          )}
         </button>
         <TrailingPuffs />
       </CloudAnchor>
     )
   }
 
-  // ── split: two side-by-side mini pixel clouds ─────────────────────
+  // ── split: three side-by-side mini pixel clouds ───────────────────
   if (mode === 'split') {
     return (
       <>
@@ -115,7 +128,9 @@ export default function ThoughtCloud() {
           onClick={() => { playSound('ui_modal_close'); setMode('idle') }}
         />
 
-        <CloudAnchor zIndex={Z_CLOUD}>
+        {/* Centred while open: three 84 px tabs are 272 px wide, which would
+            run off the right edge from the idle cloud's 68 % anchor. */}
+        <CloudAnchor zIndex={Z_CLOUD} left="50%">
           <div
             className="flex items-start gap-2.5"
             style={{ animation: 'tcSplitIn 0.32s cubic-bezier(0.34,1.56,0.64,1) both' }}
@@ -131,6 +146,13 @@ export default function ThoughtCloud() {
               onPick={() => setMode('gift')}
             >
               <IconGift size={CLOUD_TAB_ICON} />
+            </CloudTab>
+            <CloudTab
+              tint={BOARD_TINT} label="BOARD" ariaLabel="Open the note board"
+              badge={unreadNotes}
+              onPick={() => router.push('/notes')}
+            >
+              <IconPin size={CLOUD_TAB_ICON} tone="#E8365D" />
             </CloudTab>
           </div>
           <TrailingPuffs />
@@ -218,6 +240,16 @@ export default function ThoughtCloud() {
                   {sending ? '...' : 'SEND'}
                 </button>
               </div>
+              <button
+                onClick={() => { playSound('ui_tap'); router.push('/notes') }}
+                className="flex items-center gap-1.5 self-start active:translate-y-[1px] transition-transform"
+                style={{ background: 'transparent', border: 'none', padding: '2px 0' }}
+              >
+                <IconPin size={11} tone={BOARD_TINT} />
+                <span className="font-pixel" style={{ fontSize: 6, letterSpacing: 1, color: '#8A7A9A' }}>
+                  EVERY NOTE IS KEPT ON THE BOARD
+                </span>
+              </button>
             </div>
           ) : (
             <div className="px-3 py-3 flex flex-col gap-2 w-full">
@@ -456,12 +488,14 @@ function PixelCloud({
 // smears badly if you scale it 6% at 18px.
 // ────────────────────────────────────────────────────────────────────
 function CloudTab({
-  tint, label, ariaLabel, onPick, children,
+  tint, label, ariaLabel, onPick, badge = 0, children,
 }: {
   tint: string
   label: string
   ariaLabel: string
   onPick: () => void
+  /** Unread count shown as a corner pip. 0 hides it. */
+  badge?: number
   children: React.ReactNode
 }) {
   return (
@@ -480,6 +514,14 @@ function CloudTab({
         }}>
           {children}
         </span>
+        {badge > 0 && (
+          <span className="absolute flex items-center justify-center" style={{
+            top: -2, right: 4, minWidth: 15, height: 15, padding: '0 3px',
+            fontFamily: '"Press Start 2P"', fontSize: 5, color: '#FFF',
+            background: '#FF1D5E', border: '2px solid #FFF',
+            boxShadow: '0 0 5px rgba(255,29,94,0.7)', borderRadius: 6,
+          }}>{badge > 9 ? '9+' : badge}</span>
+        )}
       </span>
       {/* Label sits on its own chip rather than floating on the room art — a
           4-way white text-halo blurred the 6px glyphs into mush. */}
@@ -563,7 +605,13 @@ function ComposerCard({
 // CloudAnchor — fixed-positioned wrapper that sits the cloud just
 // above Eren on the home screen.
 // ────────────────────────────────────────────────────────────────────
-function CloudAnchor({ children, zIndex }: { children: React.ReactNode; zIndex: number }) {
+function CloudAnchor({ children, zIndex, left = '68%' }: {
+  children: React.ReactNode
+  zIndex: number
+  /** Horizontal anchor. Defaults to Eren's right shoulder; the open split
+   *  passes 50% because three tabs are too wide to hang off-centre. */
+  left?: string
+}) {
   return (
     <div
       className="fixed pointer-events-none"
@@ -572,7 +620,7 @@ function CloudAnchor({ children, zIndex }: { children: React.ReactNode; zIndex: 
         // Shifted right of Eren's head — the cloud now peeks out from his
         // right side rather than floating directly above him. translateX
         // keeps the element anchored to that offset point.
-        left: '68%',
+        left,
         transform: 'translateX(-50%)',
         zIndex,
         animation: 'tcDrift 2.6s ease-in-out infinite',

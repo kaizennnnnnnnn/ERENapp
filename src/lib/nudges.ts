@@ -25,6 +25,19 @@ export const NUDGE_DEFS: NudgeDef[] = [
 // heart preference + UI to set it) would be overkill.
 const MY_EMAIL = 'jocaspinjo@gmail.com'
 
+/**
+ * The household's fixed per-sender colour: brown belongs to MY_EMAIL, pink to
+ * the other partner. Derived from the VIEWER's own email so any surface can
+ * colour a message without reading the sender's profile row (realtime inserts
+ * arrive without the joined profile).
+ */
+export function isBrownSender(
+  senderIsMe: boolean,
+  myEmail: string | null | undefined,
+): boolean {
+  return senderIsMe === (myEmail === MY_EMAIL)
+}
+
 export function resolveNudgeMessage(
   nudge: NudgeDef,
   senderEmail: string | null | undefined,

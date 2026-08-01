@@ -12,7 +12,7 @@ import { useCare } from '@/contexts/CareContext'
 import { format } from 'date-fns'
 import {
   IconHeartDuo, IconSwords, IconEnvelope, IconCrown, IconPaw, IconHeart, IconStar,
-  IconFire, IconTrophy, IconCoin,
+  IconFire, IconTrophy, IconPin,
 } from '@/components/PixelIcons'
 import { useTasks } from '@/contexts/TaskContext'
 import WeeklyChampionPopup from '@/components/couple/WeeklyChampionPopup'
@@ -39,6 +39,7 @@ export default function CouplePage() {
     loveMeter, anniversary, journal,
     partnerMood, partnerMoodWeek,
     lifetimeWLT, weeklyChampion, claimWeeklyChampion,
+    notes, unreadNotes,
     sendMessage, sendNudge, markAllRead, loading,
   } = useCouple()
   const { streak: myStreak } = useTasks()
@@ -196,6 +197,44 @@ export default function CouplePage() {
           <span className="font-pixel flex-shrink-0" style={{ fontSize: 11, color: PINK, textShadow: `0 0 6px ${accentA(0.6)}` }}>▶</span>
         </button>
       )}
+
+      {/* ── Note board ──
+          Notes Eren delivered live here, not in the journal below. */}
+      <button
+        onClick={() => { playSound('ui_tap'); router.push('/notes') }}
+        className="w-full mb-4 px-4 py-3 flex items-center gap-3 relative active:translate-y-[1px] transition-transform"
+        style={{
+          ...OBSIDIAN_FACE,
+          border: '1.5px solid rgba(232,160,92,0.45)',
+          boxShadow: `0 0 14px rgba(232,160,92,0.2), ${OBSIDIAN_FACE.boxShadow}`,
+        }}
+      >
+        <Rivets inset={4} />
+        <div className="flex-shrink-0" style={{ filter: 'drop-shadow(0 0 5px rgba(232,160,92,0.5))' }}>
+          <IconPin size={22} tone="#E8A05C" />
+        </div>
+        <div className="flex-1 text-left">
+          <span className="font-pixel block" style={{ fontSize: 8, letterSpacing: 1, ...pinkText }}>
+            NOTE BOARD
+          </span>
+          <span className="text-xs" style={{ color: '#9A8C70' }}>
+            {notes.length > 0
+              ? `${notes.length} note${notes.length === 1 ? '' : 's'} Eren carried between you`
+              : 'Everything Eren delivers is kept here'}
+          </span>
+        </div>
+        {unreadNotes > 0 && (
+          <span className="font-pixel flex items-center justify-center flex-shrink-0"
+            style={{
+              minWidth: 18, height: 18, padding: '0 4px', fontSize: 6, color: '#FFF',
+              background: '#FF1D5E', borderRadius: 6,
+              boxShadow: '0 0 6px rgba(255,29,94,0.6)',
+            }}>
+            {unreadNotes > 9 ? '9+' : unreadNotes}
+          </span>
+        )}
+        <span className="font-pixel flex-shrink-0" style={{ fontSize: 11, color: PINK, textShadow: `0 0 6px ${accentA(0.6)}` }}>▶</span>
+      </button>
 
       {/* ── Partner mood today ── */}
       {partner && (() => {
