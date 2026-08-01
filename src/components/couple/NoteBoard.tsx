@@ -3,6 +3,10 @@
 // ═════════════════════════════════════════════════════════════════════════════
 // The Note Board surface — a cork board of pinned paper notes.
 //
+// Two kinds of row only: notes we wrote each other, and food we sent. One-tap
+// nudges are filtered out upstream (useCouple) — they're a gesture that pops
+// once, not something to keep.
+//
 // Pure presentation: it takes the rows and who's looking, and owns none of the
 // data. /notes wires it up; keeping it separate is also what makes the board
 // renderable outside the auth gate for visual checks.
@@ -12,7 +16,6 @@ import { format, isToday, isYesterday } from 'date-fns'
 import { isBrownSender } from '@/lib/nudges'
 import { FOOD_META } from '@/lib/foodMeta'
 import FoodIcon from '@/components/care/FoodIcon'
-import SketchEren, { type SketchErenState } from '@/components/SketchEren'
 import { IconPin, IconDoor, IconGift } from '@/components/PixelIcons'
 import type { JournalMessage } from '@/types'
 
@@ -187,8 +190,7 @@ export default function NoteBoard({ notes, myId, myEmail, myName, partnerName, o
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// One pinned note. Three shapes share the same paper: a written note, a food
-// gift, and a nudge (which carries a SketchEren pose instead of a picture).
+// One pinned note — a written note, or a food gift, on the same paper.
 //
 // The lean and the drop-in live on separate elements: animating `transform`
 // on the leaning element would have to re-state the rotation in every
@@ -235,18 +237,11 @@ function PinnedNote({ m, ink, name, index }: {
               </div>
             </div>
           ) : (
-            <div className="flex items-start gap-2.5">
-              {m.eren_state && (
-                <div className="flex-shrink-0" style={{ width: 54, marginTop: -8 }}>
-                  <SketchEren state={m.eren_state as SketchErenState} size={54} transparent noSpeech />
-                </div>
-              )}
-              <p className="flex-1 min-w-0" style={{
-                fontSize: 13, lineHeight: '21px', color: '#3A2A1C', wordBreak: 'break-word',
-              }}>
-                {m.message}
-              </p>
-            </div>
+            <p style={{
+              fontSize: 13, lineHeight: '21px', color: '#3A2A1C', wordBreak: 'break-word',
+            }}>
+              {m.message}
+            </p>
           )}
 
           {/* Signature line */}

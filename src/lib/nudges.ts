@@ -49,3 +49,11 @@ export function resolveNudgeMessage(
 
 // Nudges are intentionally spammable — the partner-side popup is the
 // fun moment. No cooldown.
+
+/**
+ * A nudge is a one-tap gesture with a canned line, identified by the
+ * SketchEren pose it carries. The note board keeps things we actually wrote
+ * or gave, so it filters these out — the same rule as the `eren_state IS NULL`
+ * clause on the board's query in useCouple.
+ */
+export const isNudgeRow = (m: { eren_state?: string | null }): boolean => !!m.eren_state

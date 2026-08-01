@@ -84,11 +84,14 @@ export default function ErenMessagePopup({ message, onDismiss }: Props) {
           </p>
 
           {/* The popup is a moment, not a mailbox — say where the note went so
-              it isn't mistaken for something that disappears on close. */}
-          <p className="font-pixel flex items-center justify-center gap-1.5 mt-3 pt-2"
-            style={{ fontSize: 5, letterSpacing: 1, color: '#C0A8D8', borderTop: '1px dashed #F0D8FF' }}>
-            <IconPin size={9} tone="#E8A05C" /> PINNED TO YOUR NOTE BOARD
-          </p>
+              it isn't mistaken for something that disappears on close. Nudges
+              genuinely do disappear, so they don't claim otherwise. */}
+          {!isNudge && (
+            <p className="font-pixel flex items-center justify-center gap-1.5 mt-3 pt-2"
+              style={{ fontSize: 5, letterSpacing: 1, color: '#C0A8D8', borderTop: '1px dashed #F0D8FF' }}>
+              <IconPin size={9} tone="#E8A05C" /> PINNED TO YOUR NOTE BOARD
+            </p>
+          )}
         </div>
 
         <p className="font-pixel text-white/50" style={{ fontSize: 6 }}>TAP TO CLOSE</p>

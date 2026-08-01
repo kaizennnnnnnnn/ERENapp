@@ -8,7 +8,7 @@ import { useAuth } from './useAuth'
 import type { Profile, JournalMessage, Interaction, GiftItem, UserMood, StreakData } from '@/types'
 import { format, subDays } from 'date-fns'
 import { computeLoveMeter, getAnniversaryInfo, startOfWeek, type LoveMeterResult, type AnniversaryInfo } from '@/lib/couple'
-import { resolveNudgeMessage, type NudgeDef } from '@/lib/nudges'
+import { resolveNudgeMessage, isNudgeRow, type NudgeDef } from '@/lib/nudges'
 import {
   backfillDailyResults, fetchLifetimeRows, computeLifetimeWLT,
   ensureLastWeekResult, claimWeeklyPayout, acknowledgeWeeklyResult,
@@ -105,13 +105,16 @@ function useCoupleImpl() {
       .or('via_eren.is.null,via_eren.eq.false')
       .order('created_at', { ascending: false })
       .limit(50))
-    // The note board — same table, exactly the opposite filter to journalP,
-    // so a row is either chat or a note and never both.
+    // The note board — same table, opposite filter to journalP, so a row is
+    // either chat or a note and never both. One-tap nudges are excluded on
+    // top of that (`eren_state` is the nudge's pose): the board keeps what we
+    // actually wrote or gave, not the canned gestures.
     const notesP = withRetry(() => supabase
       .from('couple_journal')
       .select('*, profile:profiles!sender_id(*)')
       .eq('household_id', profile.household_id)
       .eq('via_eren', true)
+      .is('eren_state', null)
       .order('created_at', { ascending: false })
       .limit(200))
 
@@ -331,12 +334,16 @@ function useCoupleImpl() {
         // setJournal below — falling through to it is what used to make a
         // note show up inside the heart-button chat.
         if (msg.via_eren) {
-          setNotes(prev => prev.some(n => n.id === msg.id) ? prev : [msg, ...prev])
+          // …but only written notes and gifts get pinned. A nudge still pops,
+          // it just leaves nothing behind.
+          if (!isNudgeRow(msg)) {
+            setNotes(prev => prev.some(n => n.id === msg.id) ? prev : [msg, ...prev])
+          }
           if (msg.sender_id !== user.id) {
             // Read localStorage rather than notesReadAt — this handler is
             // built once per household and would close over a stale value.
             const lastSeen = new Date(localStorage.getItem(`eren_notes_read_${user.id}`) ?? 0).getTime()
-            if (new Date(msg.created_at).getTime() > lastSeen) setNewMessage(msg)
+            if (isNudgeRow(msg) || new Date(msg.created_at).getTime() > lastSeen) setNewMessage(msg)
           }
           return
         }
@@ -435,7 +442,8 @@ function useCoupleImpl() {
         sender_name: profile.name ?? '',
         message: messageText,
         via_eren: false,
-        to_notes: true,
+        // Not to_notes: a nudge is never pinned, so the push opens /couple —
+        // where you'd send one back — and its text is already in the banner.
       }),
     }).catch(() => { /* best-effort */ })
 
@@ -474,17 +482,21 @@ function useCoupleImpl() {
   }, [user?.id])
 
   // ── Clear popup + mark as read ──
-  // The popup carries either kind of message, so it clears whichever marker
-  // it actually belongs to — dismissing a note must not silence the chat.
+  // The popup carries any of the three kinds, so it clears whichever marker it
+  // actually belongs to: dismissing a note must not silence the chat, and a
+  // nudge — which is on no list at all — must not silence either.
   const dismissPopup = useCallback(() => {
-    const wasNote = newMessage?.via_eren
+    const msg = newMessage
     setNewMessage(null)
-    if (!user?.id) return
-    if (wasNote) { markNotesRead(); return }
+    if (!user?.id || !msg) return
+    if (msg.via_eren) {
+      if (!isNudgeRow(msg)) markNotesRead()
+      return
+    }
     localStorage.setItem(`eren_journal_read_${user.id}`, new Date(Date.now() + 1000).toISOString())
     setUnreadCount(0)
     try { window.dispatchEvent(new Event('eren:journal-read')) } catch { /* ignore */ }
-  }, [user?.id, newMessage?.via_eren, markNotesRead])
+  }, [user?.id, newMessage, markNotesRead])
 
   // ── Claim the weekly Care Battle payout + dismiss the popup ─────────────
   // Pays the 100-coin bonus on first successful claim (atomic via CAS on
