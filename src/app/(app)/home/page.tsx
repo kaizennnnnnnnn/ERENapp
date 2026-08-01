@@ -851,13 +851,19 @@ export default function HomePage() {
             <DockContent theme="cake" label="CAKE" />
           </Link>
 
-          <button
-            onClick={() => { playSound('ui_tap'); showToast('SHAWARMA — coming soon') }}
+          <Link
+            href="/shawarma"
+            onClick={e => {
+              // Soot variant of the cloud flight — the kiosk is the dark one.
+              e.preventDefault()
+              playSound('ui_tap')
+              requestCloudNav('/shawarma', 'smoke')
+            }}
             className="home-dock-btn home-dock-pop"
             style={{ ...dockFrame, animationDelay: '0.34s' }}
           >
             <DockContent theme="shawarma" label="SHAWARMA" />
-          </button>
+          </Link>
         </div>
 
       </div>

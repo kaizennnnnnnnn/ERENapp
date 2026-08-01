@@ -9,10 +9,12 @@
 // from anywhere with requestCloudNav('/bakery') — while a transition is
 // running the overlay swallows pointer events and ignores repeat requests.
 //
-// Themes: 'pink' (cake shop — soft pink puffs, straight flight) and
-// 'rainbow' (gacha — every cloud a different rainbow hue, swirling curved
-// flight with a puffy scale-pop, gentle bobbing while covered, and a denser
-// multicolor sparkle field).
+// Themes: 'pink' (cake shop — soft pink puffs, straight flight), 'rainbow'
+// (gacha — every cloud a different rainbow hue, swirling curved flight with a
+// puffy scale-pop, gentle bobbing while covered, and a denser multicolor
+// sparkle field), and 'smoke' (shawarma kiosk — the same swirling flight in
+// soot black over an ember backdrop, slowed down and lit by two lightning
+// stabs; see `dread`).
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useRef, useState } from 'react'
@@ -21,7 +23,7 @@ import { playSound } from '@/lib/sounds'
 
 const EVENT = 'eren:cloud-nav'
 
-export type CloudTheme = 'pink' | 'rainbow'
+export type CloudTheme = 'pink' | 'rainbow' | 'smoke'
 
 export function requestCloudNav(href: string, theme: CloudTheme = 'pink') {
   window.dispatchEvent(new CustomEvent(EVENT, { detail: { href, theme } }))
@@ -165,6 +167,11 @@ interface ThemeDef {
   /** flight-time multiplier — 1 = base, >1 drifts in slower. Scales every
    *  cloud's delay + duration and the converge window together. */
   speed: number
+  /** Horror dressing, as one switch because it's one effect: a closing-in
+   *  vignette plus two hard lightning stabs timed to fire as the last puffs
+   *  seal the screen. Only 'smoke' wants it — a cheerful theme with either
+   *  half on its own just looks broken. */
+  dread?: boolean
 }
 
 const PINK_RINGS = [
@@ -172,6 +179,17 @@ const PINK_RINGS = [
   { body: '#FCD9EC', shade: '#E8A9CD' },
   { body: '#F6C6E1', shade: '#D898C0' },
   { body: '#F1B9D8', shade: '#D18CB6' },
+]
+
+// Soot, ringed the opposite way round from PINK_RINGS: ring 0 is the big
+// front blanket, so making IT the darkest drops the middle of the screen to
+// near-black while the outer rings stay light enough to keep their pixel
+// silhouettes readable against the ember backdrop.
+const SMOKE_RINGS = [
+  { body: '#221C21', shade: '#0D0A0D' },
+  { body: '#332A31', shade: '#191419' },
+  { body: '#443841', shade: '#241D23' },
+  { body: '#55454D', shade: '#2F262C' },
 ]
 
 const RAINBOW: Array<{ body: string; shade: string }> = [
@@ -202,6 +220,21 @@ const THEMES: Record<CloudTheme, ThemeDef> = {
     // Gacha clouds drift in ~35% slower so the rainbow vortex reads as a
     // gentle gather rather than a quick snap.
     speed: 1.35,
+  },
+  smoke: {
+    cloud: c => SMOKE_RINGS[c.ring],
+    // Coals low and centre, guttering out to black at the edges — the light
+    // is coming off the kiosk's grill, not the sky.
+    backdrop: 'radial-gradient(circle at 50% 64%, #5C1B08 0%, #2A0C06 36%, #0B0709 76%, #040304 100%)',
+    // Embers, not sparkles. The existing snap-twinkle already reads as a
+    // coal catching and dying, so only the palette changes.
+    sparkleColors: ['#FF7A2C', '#FF4318', '#FFB259', '#C4300F'],
+    sparkleCount: 14,
+    swirl: true,
+    // Heaviest of the three. Soot this thick should roll, and the extra
+    // second is what gives the two lightning stabs room to land.
+    speed: 1.6,
+    dread: true,
   },
 }
 
@@ -251,7 +284,9 @@ export default function CloudTransition() {
       targetRef.current = detail.href
       setTheme(nav)
       setPhase('in')
-      playSound('gift_open')
+      // The sparkly chime undercuts the soot theme — smoke gets the room
+      // whoosh instead, which reads as the cloud front arriving.
+      playSound(nav === 'smoke' ? 'ui_swipe_room' : 'gift_open')
       later(() => {
         if (runRef.current !== run) return
         router.push(detail.href)
@@ -331,6 +366,17 @@ export default function CloudTransition() {
         @keyframes ctBob {
           from { transform: translateY(-1.2%); }
           to   { transform: translateY(1.2%); }
+        }
+        /* Two lightning stabs for the smoke theme. Hard cuts, not fades —
+           the 1% gaps between each pair are what make it snap like a real
+           flash instead of pulsing like a lamp. The second is dimmer so it
+           reads as the storm moving off rather than a repeat. */
+        @keyframes ctDread {
+          0%,  29%  { opacity: 0;    }
+          30%, 35%  { opacity: 0.85; }
+          36%, 50%  { opacity: 0;    }
+          51%, 54%  { opacity: 0.55; }
+          55%, 100% { opacity: 0;    }
         }
       `}</style>
 
@@ -412,6 +458,32 @@ export default function CloudTransition() {
           )
         })}
       </div>
+
+      {/* ── Dread layers (smoke only) ───────────────────────────────────── */}
+      {t.dread && (
+        <>
+          {/* Vignette — rides the same fade as the backdrop so the darkness
+              closes in with the soot instead of appearing on top of it. */}
+          <div className="absolute inset-0 pointer-events-none" style={{
+            zIndex: 4,
+            background: 'radial-gradient(circle at 50% 55%, rgba(0,0,0,0) 28%, rgba(0,0,0,0.55) 70%, rgba(0,0,0,0.92) 100%)',
+            animation: converging
+              ? `ctFadeIn 300ms ease-out ${inMs - 320}ms both`
+              : 'ctFadeOut 300ms ease-in both',
+          }} />
+          {/* Lightning. Timed off inMs so it stays locked to the cover no
+              matter what `speed` the theme runs at: the first stab lands as
+              the last puffs seal the screen, the second once it's solid.
+              Converge-only — a flash on the way out would fight the reveal. */}
+          {converging && (
+            <div className="absolute inset-0 pointer-events-none" style={{
+              zIndex: 5,
+              background: 'radial-gradient(circle at 50% 44%, rgba(255,138,60,0.95) 0%, rgba(168,32,12,0.6) 42%, rgba(0,0,0,0) 74%)',
+              animation: `ctDread 700ms linear ${inMs - 280}ms both`,
+            }} />
+          )}
+        </>
+      )}
     </div>
   )
 }
