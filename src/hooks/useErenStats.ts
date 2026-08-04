@@ -110,13 +110,47 @@ async function detectUsefulSupported(
   return _usefulProbe
 }
 
+// Squares the payload off against the interactions column types.
+//
+// PostgREST hands a JSON number straight to the column's input function, so a
+// fractional value in an `integer` column is a hard 400 ("invalid input syntax
+// for type integer: 1.5999999999999943") — it does NOT round for you. Stat
+// deltas are measured against a POST-DECAY baseline, and decay is fractional
+// by nature, so `newHappiness - base.happiness` is fractional almost always.
+// That silently 400'd every feed, which is why fed meals never reached the
+// Care Battle ledger. Every eren_stats write already rounds for the same
+// reason; this is the one payload that didn't.
+const INTEGER_DELTA_COLUMNS = ['happiness_delta', 'hunger_delta', 'energy_delta', 'sleep_delta']
+
+function toColumnTypes(data: Record<string, unknown>): Record<string, unknown> {
+  const row = { ...data }
+  for (const col of INTEGER_DELTA_COLUMNS) {
+    if (typeof row[col] === 'number') row[col] = Math.round(row[col] as number)
+  }
+  // weight_delta is numeric(3,2), which accepts fractions — but float noise
+  // like 0.30000000000000004 has no business in the ledger either.
+  if (typeof row.weight_delta === 'number') {
+    row.weight_delta = Math.round((row.weight_delta as number) * 100) / 100
+  }
+  return row
+}
+
+// A dropped history row is deliberately non-fatal — the stat write is what the
+// user sees. But swallowing it in silence is how the fractional-delta 400 above
+// went unnoticed for months, so say something where a developer will see it.
+function warnDropped(error: { message?: string }): void {
+  if (process.env.NODE_ENV === 'production') return
+  console.warn('[interactions] history row dropped:', error.message)
+}
+
 // Insert into interactions. Strips `useful` upfront when the column
 // isn't supported (detected once per session) so the network tab
 // stays clean instead of logging a 400 on every care action.
 async function insertInteraction(
   supabase: ReturnType<typeof createClient>,
-  data: Record<string, unknown>,
+  raw: Record<string, unknown>,
 ): Promise<void> {
+  const data = toColumnTypes(raw)
   const supported = await detectUsefulSupported(supabase)
   let inserted = false
   if (supported) {
@@ -127,6 +161,7 @@ async function insertInteraction(
       _usefulSupported = false
       writeUsefulCache(false)
     } else {
+      warnDropped(r.error)
       return
     }
   }
@@ -134,7 +169,7 @@ async function insertInteraction(
     const { useful: _omit, ...rest } = data
     void _omit
     const r = await supabase.from('interactions').insert(rest)
-    if (r.error) return
+    if (r.error) { warnDropped(r.error); return }
   }
   // Notify the rest of the app a care action just landed — TaskContext
   // turns this into a server push so the closed-PWA partner still hears it.
