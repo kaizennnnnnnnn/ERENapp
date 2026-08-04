@@ -19,6 +19,7 @@ export const MONSTA_RAINBOW_ID = 'cons_monsta_rainbow'
  * can itself is where you'd feed it from.
  */
 export const GACHA_FOOD_GRANT: Record<string, FoodKey> = {
+  cons_monster:         'monster',
   cons_monsta_original: 'monsta_original',
   cons_monsta_white:    'monsta_white',
   cons_monsta_mango:    'monsta_mango',
@@ -71,6 +72,10 @@ export const GACHA_ITEMS: GachaItemDef[] = [
   // using one straight from the collection does. The flavour's own perk lands
   // when you FEED it in the kitchen (see lib/monstaBuffs.ts), which is why each
   // description names its perk rather than an energy number.
+  // The plain shop can — no flavour perk, and Eren pulls a face when you feed
+  // it to him. So it's the cheap common of the tier, and the only can here that
+  // does NOT fill the bar: 40 energy, not the flat 100 the Monsta family grants.
+  { id: 'cons_monster',          name: 'Monster Zero',      category: 'consumable', rarity: 'common',    description: 'Sugar-free buzz. Eren does not rate the taste.',  buff: { stat: 'energy', amount: 40 },  image: foodArt('monster') },
   { id: 'cons_monsta_original',  name: 'Original Monsta',   category: 'consumable', rarity: 'rare',      description: 'Full energy. Feed it for 40 coins back.',         buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_original') },
   { id: 'cons_monsta_white',     name: 'White Monsta',      category: 'consumable', rarity: 'common',    description: 'Full energy. Feed it to burn 0.25 kg.',           buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_white') },
   { id: 'cons_monsta_mango',     name: 'Mango Monsta',      category: 'consumable', rarity: 'rare',      description: 'Full energy. Feed it for +35 happiness.',         buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_mango') },

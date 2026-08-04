@@ -20,7 +20,10 @@ const FOOD_IMAGE_IDS = new Set([
   'tacos', 'wrap', 'paella', 'stew', 'meatballs', 'roast_chicken',
   'sardine', 'steak', 'chicken', 'egg',
   // Monsta cans. The normaliser clamps tall art to the box height, so every
-  // can ends up the same 124px height — they line up as a set.
+  // can ends up the same 124px height — they line up as a set. `monster` is the
+  // original shop drink; it was the last can still drawn as an SVG, sitting in
+  // a shelf of nine photoreal ones.
+  'monster',
   'monsta_original', 'monsta_white', 'monsta_mango', 'monsta_loco',
   'monsta_pipeline', 'monsta_punch', 'monsta_rosa', 'monsta_peachy',
   'monsta_rainbow',
@@ -151,14 +154,6 @@ export default function FoodIcon({ id, size = 32 }: { id: string; color?: string
       {r(2,8,6,1,'#D86080')}{r(4,1,1,2,'#F5C842')}{r(4,0,1,1,'#FF8800')}
       {r(3,5,1,1,'#FFD0DD')}{r(6,6,1,1,'#FFD0DD')}
       {r(5,1,1,2,'#F5C842')}{r(5,0,1,1,'#FF8800')}
-    </svg>
-  )
-  if (id === 'monster') return (
-    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
-      {r(3,1,4,8,'#0F0F0F')}{r(3,0,4,1,'#2A2A2A')}{r(3,9,4,1,'#1A1A1A')}
-      {r(4,2,2,2,'#00FF6A')}{r(4,4,1,1,'#00FF6A')}{r(5,4,1,1,'#00FF6A')}
-      {r(3,6,4,1,'#FFFFFF')}{r(4,6,1,1,'#0F0F0F')}{r(5,6,1,1,'#0F0F0F')}
-      {r(3,1,1,3,'rgba(255,255,255,0.15)')}
     </svg>
   )
   if (id === 'donut') return (

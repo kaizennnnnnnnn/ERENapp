@@ -126,6 +126,10 @@ const SHOP_ITEMS = [
 const LAPPED_FOODS = new Set(['milk', 'cream', 'yogurt', 'monster'])
 const isDrink = (id: string) => LAPPED_FOODS.has(id) || id.startsWith('monsta_')
 
+// Food he drinks but doesn't enjoy — the finisher pulls a face instead of
+// hearts. Monster Zero is the sugar-free one, and he has opinions about it.
+const BAD_TASTING = new Set(['monster'])
+
 // Icon size for the food you carry to Eren — the tray tile and the drag ghost
 // share it so the plate never changes size when you pick it up, and the ghost's
 // centring offset stays derived from one number.
@@ -349,6 +353,7 @@ export default function FeedScene({ onClose }: Props) {
   // 2650ms without restarting while the chew sound re-fires on 'eat2'.
   const eating = phase === 'eat' || phase === 'eat2'
   const bowlColor = fedItem?.color ?? '#D4A44A'
+  const tastesBad = !!fedItem && BAD_TASTING.has(fedItem.id)
   const noseLeft = `${EAT_NOSE_X[eatIdx]}%`   // bowl/crumbs anchor at his mouth
   // Poof-mask the standing<->crouch sticker swap at each end of the meal.
   const prevEating = useRef(false)
@@ -385,11 +390,17 @@ export default function FeedScene({ onClose }: Props) {
       {eating && <Crumbs color={bowlColor} left={noseLeft} bottom="2%" />}
       {eating && <SoundWord word="NOM NOM" color={WORD_COLOR.food} left={EAT_NOSE_X[eatIdx] + 8} top={12} />}
       {eating && <SoundWord word="NOM NOM" color={WORD_COLOR.food} left={EAT_NOSE_X[eatIdx] + 6} top={9} delayMs={1400} />}
-      {/* Happy finisher. */}
-      {phase === 'finish' && <>
+      {/* Finisher. Most food earns hearts and a YUM; the sugar-free can earns a
+          face. Two staggered words rather than one long line — the same trick
+          the NOM NOM pair uses, and "EEEK! THIS ONES BAD" on one row would run
+          wider than Eren. */}
+      {phase === 'finish' && (tastesBad ? <>
+        <SoundWord word="EEEK!" color={WORD_COLOR.yuck} left={50} top={4} />
+        <SoundWord word="THIS ONES BAD" color={WORD_COLOR.yuck} left={50} top={12} size={6} delayMs={420} />
+      </> : <>
         <Hearts count={2} bottom="60%" />
         <SoundWord word="YUM!" color={WORD_COLOR.happy} left={50} top={6} />
-      </>}
+      </>)}
       {/* Tap-to-pet purr. */}
       {phase === PURR && <PurrFx bottom="60%" />}
 

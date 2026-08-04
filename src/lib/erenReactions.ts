@@ -27,6 +27,9 @@ export const WORD_COLOR = {
   medicine: '#AB47BC',
   happy:    '#4ADE80',
   curious:  '#F5C842',
+  // Disgust. Sour olive rather than another mint — it has to read as "yuck"
+  // next to `happy`, which is the word it replaces.
+  yuck:     '#A8C22E',
 } as const
 
 /**
