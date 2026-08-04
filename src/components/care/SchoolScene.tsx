@@ -427,26 +427,63 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col overflow-hidden" style={{
-      // Sunlit classroom corkboard — warm honey cork with a soft blue→mint
-      // "window" glow bleeding from the top-right, much livelier than the
-      // old flat tan radial.
+      // The desk the notebooks are lying on: oak boards running top-to-bottom.
+      // Was a flat honey cork, which read as an empty tan void behind them.
+      //
+      // Layer order, top to bottom:
+      //   1. plank seams — a hard dark groove with a lit edge on ONE side only,
+      //      which is what sells a bevel between two boards
+      //   2/3. grain, at 90.6° and 89.3° rather than a true 90° so the streaks
+      //      wander across the boards instead of running as parallel rails
+      //   4. base tone, darker down the page
       background: `
-        radial-gradient(120% 90% at 84% 8%, #bfe3f2 0%, #d8ecd0 22%, transparent 46%),
-        radial-gradient(ellipse at 30% 120%, #e9d59a 0%, transparent 60%),
-        linear-gradient(170deg, #f0dca0 0%, #e3c987 55%, #d4b878 100%)`,
+        repeating-linear-gradient(90deg,
+          transparent 0 78px,
+          rgba(46,25,8,0.55) 78px 80px,
+          rgba(255,214,150,0.13) 80px 83px),
+        repeating-linear-gradient(90.6deg,
+          rgba(58,32,12,0.10) 0 1px, transparent 1px 6px),
+        repeating-linear-gradient(89.3deg,
+          rgba(255,222,168,0.06) 0 1px, transparent 1px 11px),
+        repeating-linear-gradient(90deg,
+          rgba(255,235,190,0.05) 0 83px,
+          rgba(40,22,6,0.06) 83px 166px),
+        linear-gradient(176deg, #a97a44 0%, #96682f 48%, #7d5324 100%)`,
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
     }}>
-      {/* Faint diagonal sun rays + warm vignette + fine 7px cork grain */}
+      {/* Knots — a dark core that fades out through one soft ring. Evenly
+          spaced concentric rings (repeating-radial-gradient) read as a dartboard
+          rather than wood, so the ring spacing is deliberately uneven and the
+          whole thing stays faint enough to be texture, not a symbol. */}
+      {[
+        { top: '13%', left: '8%',  w: 30, h: 46, rot: -8 },
+        { top: '57%', left: '79%', w: 22, h: 34, rot: 6 },
+        { top: '85%', left: '33%', w: 34, h: 50, rot: -3 },
+      ].map((k, i) => (
+        <div key={i} className="absolute pointer-events-none" style={{
+          top: k.top, left: k.left, width: k.w, height: k.h,
+          transform: `rotate(${k.rot}deg)`,
+          background: `radial-gradient(ellipse at 50% 50%,
+            rgba(48,26,9,0.42) 0%,
+            rgba(48,26,9,0.20) 24%,
+            rgba(150,104,54,0.12) 41%,
+            rgba(48,26,9,0.15) 57%,
+            transparent 76%)`,
+        }} />
+      ))}
+
+      {/* Warm light pooling from the top-right (keeps the sunlit-room feel the
+          cork had), a vignette to sink the corners, and a fine dot grain so the
+          wood doesn't read as flat vector fill next to the pixel UI. */}
       <div className="absolute inset-0 pointer-events-none" style={{
         backgroundImage: `
-          repeating-linear-gradient(118deg, rgba(255,244,200,0.10) 0 2px, transparent 2px 26px),
-          radial-gradient(circle at 20% 16%, rgba(255,236,170,0.18), transparent 42%),
-          radial-gradient(circle at 82% 88%, rgba(94,64,30,0.10), transparent 55%),
-          radial-gradient(circle at 1px 1px, rgba(120,84,40,0.16) 1px, transparent 1.4px)`,
-        backgroundSize: '100% 100%, 100% 100%, 100% 100%, 7px 7px',
+          radial-gradient(90% 55% at 84% 4%, rgba(255,230,175,0.30), transparent 60%),
+          radial-gradient(ellipse 120% 80% at 50% 50%, transparent 42%, rgba(40,22,6,0.42) 100%),
+          radial-gradient(circle at 1px 1px, rgba(52,28,10,0.12) 1px, transparent 1.4px)`,
+        backgroundSize: '100% 100%, 100% 100%, 5px 5px',
       }} />
 
-      {/* Paper sun sticker, bottom-right of the board (clear of the header) */}
+      {/* Paper sun sticker, bottom-right of the desk (clear of the header) */}
       <div style={{ position: 'absolute', bottom: 16, right: 14, width: 30, height: 30, zIndex: 1, pointerEvents: 'none', opacity: 0.9 }}>
         <div style={{ position: 'absolute', inset: 7, background: '#F5C842', border: `2px solid ${INK}`, borderRadius: '50%', boxShadow: '2px 2px 0 rgba(0,0,0,0.2)' }} />
         {[0, 45, 90, 135, 180, 225, 270, 315].map(a => (
@@ -458,29 +495,15 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
         ))}
       </div>
 
-      {/* Potted plant pinned bottom-left */}
+      {/* Potted plant sitting bottom-left */}
       <div style={{ position: 'absolute', left: 8, bottom: 10, zIndex: 1, pointerEvents: 'none', opacity: 0.95 }}>
         <div style={{ position: 'absolute', left: 6, bottom: 8, width: 4, height: 12, background: '#3FA34D', border: `1px solid ${INK}`, transform: 'rotate(-14deg)' }} />
         <div style={{ position: 'absolute', left: 11, bottom: 9, width: 4, height: 14, background: '#5BC46B', border: `1px solid ${INK}`, transform: 'rotate(12deg)' }} />
         <div style={{ position: 'absolute', left: 2, bottom: 0, width: 16, height: 9, background: '#C56A3A', border: `2px solid ${INK}`, boxShadow: '2px 2px 0 rgba(0,0,0,0.2)' }} />
       </div>
 
-      {/* Two colored pushpins tucked in the side margins (below the header) */}
-      {[
-        { top: '64%', left: 5, c: '#FF6B9D' },
-        { top: '40%', right: 6, c: '#6BAED6' },
-      ].map((p, i) => {
-        const { c, ...pos } = p
-        return (
-          <div key={i} style={{
-            position: 'absolute', ...pos, width: 8, height: 8,
-            background: c, border: `2px solid ${INK}`, borderRadius: '50%',
-            boxShadow: '0 3px 0 rgba(0,0,0,0.22)', zIndex: 1, pointerEvents: 'none',
-          }}>
-            <div style={{ position: 'absolute', left: 1, top: 1, width: 2, height: 2, background: 'rgba(255,255,255,0.7)' }} />
-          </div>
-        )
-      })}
+      {/* The two pushpins that used to sit in the side margins went with the
+          corkboard — there's nothing to pin into a desk. */}
 
       {/* Gentle twinkle sparkles — dust motes in the sunlight (no blur).
           Range kept below the header so none are wasted behind it. */}
@@ -615,8 +638,8 @@ function CourseMap({ progress, strugglingCount, onLessonTap, onPracticeTap, onCl
           </button>
         )}
 
-        {/* Notebooks aren't lined up in a tidy grid — they're pinned to the
-            corkboard at jaunty angles, alternating sides and overlapping a
+        {/* Notebooks aren't lined up in a tidy grid — they're dropped on the
+            desk at jaunty angles, alternating sides and overlapping a
             little as they cascade down, like notes tacked up over time. The
             rotation lives here (not on the card) so each pushpin tilts with
             its note. */}
