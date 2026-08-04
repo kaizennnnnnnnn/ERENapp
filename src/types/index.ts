@@ -176,7 +176,7 @@ export interface ErenStats {
   room_skins?: Record<string, string> | null
 }
 
-export type FoodKey = 'kibble' | 'fish' | 'treat' | 'tuna' | 'steak' | 'cream' | 'biscuit' | 'shrimp' | 'salmon' | 'chicken' | 'sausage' | 'milk' | 'cheese' | 'yogurt' | 'cake' | 'sushi' | 'sardine' | 'egg' | 'monster' | 'donut' | 'cookie' | 'jelly_caka'
+export type FoodKey = 'kibble' | 'fish' | 'treat' | 'tuna' | 'steak' | 'cream' | 'biscuit' | 'shrimp' | 'salmon' | 'chicken' | 'sausage' | 'milk' | 'cheese' | 'yogurt' | 'cake' | 'sushi' | 'sardine' | 'egg' | 'donut' | 'cookie' | 'jelly_caka'
   // World dishes — same lifecycle as the staples above (buyable, giftable).
   | 'pizza' | 'carbonara' | 'lasagna' | 'risotto'
   | 'nigiri' | 'temaki' | 'maki'

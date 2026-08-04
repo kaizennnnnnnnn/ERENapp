@@ -20,10 +20,7 @@ const FOOD_IMAGE_IDS = new Set([
   'tacos', 'wrap', 'paella', 'stew', 'meatballs', 'roast_chicken',
   'sardine', 'steak', 'chicken', 'egg',
   // Monsta cans. The normaliser clamps tall art to the box height, so every
-  // can ends up the same 124px height — they line up as a set. `monster` is the
-  // original shop drink; it was the last can still drawn as an SVG, sitting in
-  // a shelf of nine photoreal ones.
-  'monster',
+  // can ends up the same 124px height — they line up as a set.
   'monsta_original', 'monsta_white', 'monsta_mango', 'monsta_loco',
   'monsta_pipeline', 'monsta_punch', 'monsta_rosa', 'monsta_peachy',
   'monsta_rainbow',

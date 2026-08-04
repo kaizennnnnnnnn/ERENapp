@@ -30,7 +30,6 @@ export const FOOD_META: Record<FoodKey, { name: string; color: string }> = {
   sushi:      { name: 'Sushi',        color: '#2D9B6A' },
   sardine:    { name: 'Sardine',      color: '#7BAFC8' },
   egg:        { name: 'Egg',          color: '#F5E6C8' },
-  monster:    { name: 'Monster Zero', color: '#1ED760' },
   donut:      { name: 'Donut',        color: '#FF8FB0' },
   cookie:     { name: 'Cookie',       color: '#C89A6B' },
   jelly_caka: { name: 'Jelly Caka',   color: '#E83A4A' },
@@ -73,7 +72,7 @@ export const FOOD_META: Record<FoodKey, { name: string; color: string }> = {
 export const FOOD_ORDER: FoodKey[] = [
   'kibble', 'fish', 'treat', 'tuna', 'steak', 'cream', 'biscuit', 'shrimp',
   'salmon', 'chicken', 'sausage', 'milk', 'cheese', 'yogurt', 'cake', 'sushi',
-  'sardine', 'egg', 'monster', 'donut', 'cookie', 'jelly_caka',
+  'sardine', 'egg', 'donut', 'cookie', 'jelly_caka',
   'pizza', 'carbonara', 'lasagna', 'risotto',
   'nigiri', 'temaki', 'maki',
   'ramen', 'pad_thai', 'gyoza', 'xiaolongbao',

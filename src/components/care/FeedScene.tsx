@@ -68,11 +68,10 @@ const SHOP_ITEMS = [
   { id: 'cake'    as const, name: 'Cake',       price: 35, hungerD: 15, happyD: 40, weightD: 0.08, desc: 'Birthday special',   color: '#FF85A2', cat: 'special' },
   { id: 'egg'     as const, name: 'Egg',        price: 4,  hungerD: 16, happyD: 0,  weightD: 0.03, desc: 'Simple & nutritious',color: '#F5E6C8', cat: 'special' },
   // Sweet (new — referenced by Phase 3 wishes)
-  { id: 'monster'    as const, name: 'Monster Zero',price: 12, hungerD: 5,  happyD: 15, weightD: 0.01, desc: 'Sugar-free buzz',  color: '#1ED760', cat: 'special' },
   { id: 'donut'      as const, name: 'Donut',       price: 14, hungerD: 12, happyD: 22, weightD: 0.04, desc: 'Pink & sprinkled', color: '#FF8FB0', cat: 'special' },
   { id: 'cookie'     as const, name: 'Cookie',      price: 7,  hungerD: 8,  happyD: 18, weightD: 0.02, desc: 'Choc-chip warm',   color: '#C89A6B', cat: 'special' },
   { id: 'jelly_caka' as const, name: 'Jelly Caka',  price: 20, hungerD: 14, happyD: 30, weightD: 0.05, desc: 'Sweet wobble',     color: '#E83A4A', cat: 'special' },
-  // Monsta flavours — the can family next to the original Monster Zero above.
+  // Monsta flavours — the can family.
   // Barely any hunger, near-zero weight: they're drinks, not meals. What you
   // actually buy is the ENERGY (every can fills the bar) plus that flavour's
   // own perk — see MONSTA_BUFFS in lib/monstaBuffs.ts. One flat MONSTA_PRICE
@@ -123,12 +122,8 @@ const SHOP_ITEMS = [
 // sample for the drinking one, so a bowl of milk doesn't crunch. Every Monsta
 // is a drink by construction, so the can family is matched by prefix — a new
 // flavour lands here for free instead of needing a second edit.
-const LAPPED_FOODS = new Set(['milk', 'cream', 'yogurt', 'monster'])
+const LAPPED_FOODS = new Set(['milk', 'cream', 'yogurt'])
 const isDrink = (id: string) => LAPPED_FOODS.has(id) || id.startsWith('monsta_')
-
-// Food he drinks but doesn't enjoy — the finisher pulls a face instead of
-// hearts. Monster Zero is the sugar-free one, and he has opinions about it.
-const BAD_TASTING = new Set(['monster'])
 
 // Icon size for the food you carry to Eren — the tray tile and the drag ghost
 // share it so the plate never changes size when you pick it up, and the ghost's
@@ -353,7 +348,6 @@ export default function FeedScene({ onClose }: Props) {
   // 2650ms without restarting while the chew sound re-fires on 'eat2'.
   const eating = phase === 'eat' || phase === 'eat2'
   const bowlColor = fedItem?.color ?? '#D4A44A'
-  const tastesBad = !!fedItem && BAD_TASTING.has(fedItem.id)
   const noseLeft = `${EAT_NOSE_X[eatIdx]}%`   // bowl/crumbs anchor at his mouth
   // Poof-mask the standing<->crouch sticker swap at each end of the meal.
   const prevEating = useRef(false)
@@ -390,17 +384,11 @@ export default function FeedScene({ onClose }: Props) {
       {eating && <Crumbs color={bowlColor} left={noseLeft} bottom="2%" />}
       {eating && <SoundWord word="NOM NOM" color={WORD_COLOR.food} left={EAT_NOSE_X[eatIdx] + 8} top={12} />}
       {eating && <SoundWord word="NOM NOM" color={WORD_COLOR.food} left={EAT_NOSE_X[eatIdx] + 6} top={9} delayMs={1400} />}
-      {/* Finisher. Most food earns hearts and a YUM; the sugar-free can earns a
-          face. Two staggered words rather than one long line — the same trick
-          the NOM NOM pair uses, and "EEEK! THIS ONES BAD" on one row would run
-          wider than Eren. */}
-      {phase === 'finish' && (tastesBad ? <>
-        <SoundWord word="EEEK!" color={WORD_COLOR.yuck} left={50} top={4} />
-        <SoundWord word="THIS ONES BAD" color={WORD_COLOR.yuck} left={50} top={12} size={6} delayMs={420} />
-      </> : <>
+      {/* Happy finisher. */}
+      {phase === 'finish' && <>
         <Hearts count={2} bottom="60%" />
         <SoundWord word="YUM!" color={WORD_COLOR.happy} left={50} top={6} />
-      </>)}
+      </>}
       {/* Tap-to-pet purr. */}
       {phase === PURR && <PurrFx bottom="60%" />}
 
