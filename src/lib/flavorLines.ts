@@ -9,7 +9,7 @@
 // Lines carry a trigger that controls when the line is eligible:
 //
 //   idle             ambient cycle, picked every 60–90s when nothing else is up
-//   after_positive   fires 4–8s after a pet / care action lands ("best human.")
+//   after_positive   fires 4–8s after a pet / care action lands ("i love u")
 //   gap_24h          fires once on first session after 24h+ since last seen
 //   needs_leader     occasional, addresses the W-L-T leader by name
 //   duplicate_feed   fires 4–8s after feeding the same food key twice in a row
@@ -54,7 +54,17 @@ export const FLAVOR_LINES: FlavorLine[] = [
   { id: 'idle-treat',    text: 'thinking about treats. as usual.',         trigger: 'idle' },
 
   // ── after_positive: 4–8s after a pet / care / play lands ──────────────────
-  { id: 'pos-best',      text: 'best human.',                              trigger: 'after_positive' },
+  // This is the pool a tap on Eren draws from, so it's the one the user reads
+  // most often — keep it the widest. Two lines cycled visibly.
+  { id: 'pos-loveu',     text: 'i love u',                                 trigger: 'after_positive' },
+  { id: 'pos-loveu-sm',  text: 'i love u sm',                              trigger: 'after_positive' },
+  { id: 'pos-loveu-both',text: 'i love u both',                            trigger: 'after_positive' },
+  { id: 'pos-purr',      text: 'prrrrr purrr',                             trigger: 'after_positive' },
+  { id: 'pos-hehe',      text: 'hehe',                                     trigger: 'after_positive' },
+  { id: 'pos-hiss',      text: 'hsss i mean prrrr',                        trigger: 'after_positive' },
+  { id: 'pos-moreee',    text: 'more moreee',                              trigger: 'after_positive' },
+  { id: 'pos-hungry',    text: 'im hungry now',                            trigger: 'after_positive' },
+  { id: 'pos-oi',        text: 'oi oi',                                    trigger: 'after_positive' },
   { id: 'pos-more',      text: 'yes. more of that.',                       trigger: 'after_positive' },
 
   // ── gap_24h: first session after a 24h+ absence ───────────────────────────
