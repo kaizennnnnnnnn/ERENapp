@@ -5,10 +5,9 @@ export const dynamic = 'force-dynamic'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { usePageReady } from '@/hooks/usePageReady'
-import SketchEren from '@/components/SketchEren'
-import { pinkText } from '@/components/obsidian'
 import { IconEye, IconEyeOff, IconPaw } from '@/components/PixelIcons'
 import OnboardingShell from '@/components/onboarding/OnboardingShell'
+import ErenHero from '@/components/onboarding/ErenHero'
 import { PixelButton, PixelInput, PixelError, PixelLink } from '@/components/onboarding/pixelForm'
 
 export default function LoginPage() {
@@ -49,14 +48,16 @@ export default function LoginPage() {
 
   return (
     <OnboardingShell stage={null}>
-      <div className="flex flex-col items-center text-center" style={{ gap: 6, marginBottom: 18 }}>
-        <SketchEren state="wave" size={130} transparent noSpeech />
-        <h1 className="font-pixel" style={{ ...pinkText, fontSize: 20, letterSpacing: 3 }}>
-          EREN
-        </h1>
-        <p style={{ fontSize: 12, lineHeight: 1.6, color: '#C9B8E8', margin: 0 }}>
-          Welcome back. He noticed you were gone.
-        </p>
+      <div style={{ marginBottom: 18 }}>
+        <ErenHero
+          size={124}
+          titleSize={20}
+          tagline={
+            <p style={{ fontSize: 12, lineHeight: 1.6, color: '#C9B8E8', margin: 0 }}>
+              Welcome back. He noticed you were gone.
+            </p>
+          }
+        />
       </div>
 
       <form onSubmit={handleLogin} className="flex flex-col" style={{ gap: 16 }}>

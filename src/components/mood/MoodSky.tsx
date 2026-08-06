@@ -15,8 +15,9 @@
 // tall the screen is.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getDaypart, type Daypart } from '@/lib/timeOfDay'
+import SparkleField from '@/components/SparkleField'
 
 export interface SkyPalette {
   gradient: string
@@ -96,49 +97,6 @@ export function useSkyPalette(): SkyPalette {
   const [part, setPart] = useState<Daypart>('day')
   useEffect(() => { setPart(getDaypart()) }, [])
   return SKIES[part]
-}
-
-// ── Sparkle field ──────────────────────────────────────────────────────────
-
-// Concave 4-point star. A shape, not a glyph — the old screen used literal
-// "✦" characters, which render as whatever font happens to be around.
-const SPARKLE_CLIP =
-  'polygon(50% 0%, 58% 42%, 100% 50%, 58% 58%, 50% 100%, 42% 58%, 0% 50%, 42% 42%)'
-
-function mulberry32(seed: number): () => number {
-  let a = seed
-  return () => {
-    a = (a + 0x6d2b79f5) | 0
-    let t = Math.imul(a ^ (a >>> 15), 1 | a)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-interface Sparkle {
-  left: number; top: number; size: number
-  color: string; delay: number; dur: number; opacity: number
-}
-
-function buildSparkles(colors: string[], count: number): Sparkle[] {
-  const rnd = mulberry32(0x5eed)
-  const out: Sparkle[] = []
-  for (let i = 0; i < count; i++) {
-    // Bias the field toward the edges — the middle belongs to Eren and the
-    // card, and sparkles behind them just read as noise.
-    const edge = rnd()
-    const left = edge < 0.5 ? rnd() * 26 : 74 + rnd() * 26
-    out.push({
-      left: rnd() < 0.72 ? left : rnd() * 100,
-      top: rnd() * 100,
-      size: 3 + Math.floor(rnd() * 4) * 1.6,
-      color: colors[Math.floor(rnd() * colors.length)],
-      delay: rnd() * 4,
-      dur: 2.2 + rnd() * 2.6,
-      opacity: 0.45 + rnd() * 0.55,
-    })
-  }
-  return out
 }
 
 // ── Clouds ─────────────────────────────────────────────────────────────────
@@ -223,8 +181,6 @@ export default function MoodSky({ palette, tint }: {
   /** Mood glow washed over the sky once a mood is picked. */
   tint?: string | null
 }) {
-  const sparkles = useMemo(() => buildSparkles(palette.sparkle, 34), [palette])
-
   return (
     <div aria-hidden className="absolute inset-0 overflow-hidden pointer-events-none">
       <div className="absolute inset-0" style={{ background: palette.gradient }} />
@@ -234,18 +190,7 @@ export default function MoodSky({ palette, tint }: {
       <Cloud top="30%" width="44%" fill={palette.cloud} dur={188} delay={64} flip />
       <Cloud top="68%" width="72%" fill={palette.cloud} dur={156} delay={110} />
 
-      {sparkles.map((s, i) => (
-        <span key={i} style={{
-          position: 'absolute',
-          left: `${s.left}%`, top: `${s.top}%`,
-          width: s.size, height: s.size,
-          background: s.color,
-          clipPath: SPARKLE_CLIP,
-          opacity: s.opacity,
-          animation: `mgTwinkle ${s.dur}s ease-in-out infinite`,
-          animationDelay: `-${s.delay}s`,
-        }} />
-      ))}
+      <SparkleField colors={palette.sparkle} count={34} className="absolute inset-0" />
 
       <div className="absolute inset-0" style={{
         backgroundImage: GRAIN, opacity: 0.07, mixBlendMode: 'overlay',

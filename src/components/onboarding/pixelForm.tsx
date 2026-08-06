@@ -9,31 +9,56 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import type { CSSProperties, ReactNode } from 'react'
+import SparkleField from '@/components/SparkleField'
 
-// ── Page background layers (rewards-page recipe) ──
+// ── Page background layers ──
 
+// Two gradients, not one: a cool violet dome plus a warm ember low on the
+// horizon. A single radial reads as a default dark theme; the second light
+// source is what makes it look like a night rather than a background-color.
 export const ONB_BG: CSSProperties = {
-  background: 'radial-gradient(ellipse at top, #2D1659 0%, #1A0A33 55%, #0F0620 100%)',
+  background: [
+    'radial-gradient(ellipse 120% 55% at 50% 108%, rgba(236,72,153,0.20) 0%, transparent 70%)',
+    'radial-gradient(ellipse 90% 60% at 50% -10%, #3A1C6E 0%, transparent 72%)',
+    'linear-gradient(180deg, #241046 0%, #170A31 48%, #0C0519 100%)',
+  ].join(','),
 }
 
-/** Drifting starfield — transform-based (composited), same trick as rewards. */
+const STAR_HUES = ['#FFE9A8', '#FFFFFF', '#C4B0FF', '#F9A8D4']
+
+/**
+ * Night sky behind the auth + onboarding steps.
+ *
+ * Was a repeating radial-gradient lattice — a perfect 34px grid of dots that
+ * read as polka-dot wallpaper. Now a scattered field over a slow parallax
+ * drift, so the stars sit at real distances from each other.
+ */
 export function Starfield() {
   return (
     <>
       <style>{`
         @keyframes onbStarDrift {
-          from { transform: translateX(0); }
-          to   { transform: translateX(140px); }
+          from { transform: translate3d(0, 0, 0); }
+          to   { transform: translate3d(60px, 0, 0); }
         }
       `}</style>
-      <div aria-hidden className="fixed inset-0 pointer-events-none opacity-40" style={{
-        left: -140,
-        backgroundImage: 'radial-gradient(circle, #FFD700 1px, transparent 1px), radial-gradient(circle, #A78BFA 1px, transparent 1px)',
-        backgroundSize: '34px 34px, 52px 52px',
-        backgroundPosition: '140px 0, 158px 24px',
-        animation: 'onbStarDrift 26s linear infinite',
+      <div aria-hidden className="fixed pointer-events-none" style={{
+        inset: '-4% -18%',
+        animation: 'onbStarDrift 90s linear infinite alternate',
         willChange: 'transform',
-      }} />
+      }}>
+        <SparkleField colors={STAR_HUES} count={46} seed={0xE2E4} minSize={2} maxSize={7}
+          edgeBias={0.35} className="absolute inset-0" />
+      </div>
+      <div aria-hidden className="fixed pointer-events-none" style={{
+        inset: '-6% -10%',
+        animation: 'onbStarDrift 150s linear infinite alternate-reverse',
+        willChange: 'transform',
+        opacity: 0.55,
+      }}>
+        <SparkleField colors={STAR_HUES} count={30} seed={0x9A17} minSize={1.5} maxSize={3.5}
+          edgeBias={0.2} className="absolute inset-0" />
+      </div>
     </>
   )
 }
