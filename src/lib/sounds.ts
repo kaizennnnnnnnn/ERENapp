@@ -82,6 +82,15 @@ export const SOUNDS = {
   care_soap:            '/sounds/care/care_soap.mp3',
   care_rinse:           '/sounds/care/care_rinse.mp3',
 
+  // Talking to Eren (/talk). All SYNTHESISED — see SYNTH_RECIPES, which wins
+  // over the mp3 path, so these files never exist and are never fetched.
+  // Paths are declared here only to mint the names.
+  chat_send:            '/sounds/chat/chat_send.mp3',
+  chat_receive:         '/sounds/chat/chat_receive.mp3',
+  chat_saved:           '/sounds/chat/chat_saved.mp3',
+  chat_forget:          '/sounds/chat/chat_forget.mp3',
+  chat_quiet:           '/sounds/chat/chat_quiet.mp3',
+
   // Gacha — rarity-tiered reveal stingers.
   gacha_reveal_common:    '/sounds/gacha/gacha_reveal_common.mp3',
   gacha_reveal_rare:      '/sounds/gacha/gacha_reveal_rare.mp3',
@@ -249,6 +258,15 @@ const VOLUME_SCALE: Partial<Record<SoundName, number>> = {
   // dragging the soap / shower rather than dominating the scene.
   care_soap:      0.6,
   care_rinse:     0.6,
+
+  // Chat — deliberately the quietest family in the app. These fire on every
+  // single message, so anything punchy becomes irritating by the twentieth
+  // one. chat_saved is quieter still: it's a thing you half-notice.
+  chat_send:      0.4,
+  chat_receive:   0.5,
+  chat_saved:     0.32,
+  chat_forget:    0.35,
+  chat_quiet:     0.4,
 
   // ─── Mini-game gameplay SFX ─────────────────────────────────────────────
   // catch-mouse

@@ -235,6 +235,42 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
                    { at: 0,  recipe: { type: 'chord', freqs: [2637, 3951, 5274], duration: 110, shape: 'sine', gain: 0.55 } },
                    { at: 24, recipe: { type: 'chord', freqs: [2637, 3951], duration: 300, shape: 'sine', gain: 0.34 } },
                  ] },
+  // ─── /talk — Eren's texting voice ────────────────────────────────────────
+  // Its own family on purpose: warm sine/triangle in the 300–1100 mid register,
+  // no square, no noise. Every other palette in this file is chiptune-bright
+  // because it's scoring a GAME; a conversation is scoring a room at 1am, and
+  // these fire dozens of times per session. Soft beats characterful here.
+  //
+  // chat_send — the message leaving. A short rising sine, exponential so it
+  // lifts away rather than beeping.
+  chat_send:    { type: 'sweep', freq: [620, 940], duration: 85, shape: 'sine', gain: 0.5, curve: 'exponential' },
+
+  // chat_receive — Eren answering. Shaped like a real cat chirrup ("mrrp?"):
+  // a quick rise that overshoots, then settles a note below where it peaked.
+  // A flat two-note arp reads as a notification; the settle is what makes it
+  // sound like an animal rather than a phone.
+  chat_receive: { type: 'seq', parts: [
+                    { at: 0,  recipe: { type: 'sweep', freq: [520, 900], duration: 115, shape: 'triangle', gain: 0.55, curve: 'exponential' } },
+                    { at: 96, recipe: { type: 'blip',  freq: 740, duration: 95, shape: 'sine', gain: 0.4 } },
+                  ] },
+
+  // chat_saved — he quietly filed something away. Deliberately almost
+  // subliminal: a high consonant shimmer (fifth + octave) that rings out and
+  // fades. He is not supposed to announce that he remembered something, so
+  // this is the only tell, and it should feel like one.
+  chat_saved:   { type: 'seq', parts: [
+                    { at: 0,  recipe: { type: 'chord', freqs: [1568, 2349], duration: 90,  shape: 'sine', gain: 0.34 } },
+                    { at: 66, recipe: { type: 'chord', freqs: [2093, 3136], duration: 280, shape: 'sine', gain: 0.2 } },
+                  ] },
+
+  // chat_forget — you deleted a memory. The shimmer above, reversed and
+  // falling, so forgetting is audibly the undo of remembering.
+  chat_forget:  { type: 'sweep', freq: [1568, 620], duration: 260, shape: 'sine', gain: 0.4, curve: 'exponential' },
+
+  // chat_quiet — the request failed. Not an error buzzer: a small sigh, so a
+  // dropped connection reads as "he wandered off", not "the app broke".
+  chat_quiet:   { type: 'sweep', freq: [480, 260], duration: 300, shape: 'sine', gain: 0.4, curve: 'exponential' },
+
   // care_sleep  — soft downward coo for tuck-in / wake.
   care_sleep:  { type: 'sweep', freq: [523, 300], duration: 460, shape: 'sine', gain: 0.4, curve: 'exponential' },
   // care_jingle — the ball's bell when he pounces: a bright double ding.

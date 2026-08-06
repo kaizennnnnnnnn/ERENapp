@@ -218,6 +218,11 @@ export async function POST(request: Request) {
             const fact = String((tu.input as { fact?: unknown })?.fact ?? '').trim()
             if (tu.name === 'remember' && fact) {
               await saveMemory(supabase, user.id, fact)
+              // Tell the client so it can play the shimmer. The fact itself
+              // goes too — not to print in the transcript (he's told never to
+              // announce it), but so the memory sheet can highlight what's new
+              // without refetching mid-stream.
+              send({ saved: fact })
             }
             results.push({ type: 'tool_result', tool_use_id: tu.id, content: 'ok' })
           }
