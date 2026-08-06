@@ -1086,3 +1086,45 @@
   34%  { transform: translateX(320%); opacity: 0; }
   100% { transform: translateX(320%); opacity: 0; }
 }
+
+/* ── MOOD GATE — the daily check-in sky + picker ──────────────────────────
+   Decorative only: every one of these is dropped under
+   prefers-reduced-motion (see the block at the end). */
+@keyframes mgCloudDrift {
+  from { transform: translateX(-70%); }
+  to   { transform: translateX(240%); }
+}
+@keyframes mgTwinkle {
+  0%, 100% { opacity: 0.25; transform: scale(0.6); }
+  50%      { opacity: 1;    transform: scale(1); }
+}
+@keyframes mgBloom {
+  0%, 100% { transform: translate(-50%, -50%) scale(1);    opacity: 0.85; }
+  50%      { transform: translate(-50%, -50%) scale(1.09); opacity: 1; }
+}
+@keyframes mgFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-7px); }
+}
+@keyframes mgTileIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+@keyframes mgStamp {
+  from { opacity: 0; transform: rotate(-7deg) scale(1.9); }
+  to   { opacity: 1; transform: rotate(-7deg) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [style*="mgCloudDrift"], [style*="mgTwinkle"], [style*="mgBloom"],
+  [style*="mgFloat"], [style*="mgTileIn"], [style*="mgStamp"] {
+    animation: none !important;
+  }
+}
+/* Heading ornaments twinkle without ever fading to dust. */
+@keyframes mgTwinkleSoft {
+  0%, 100% { opacity: 0.6; transform: scale(0.86); }
+  50%      { opacity: 1;   transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [style*="mgTwinkleSoft"] { animation: none !important; }
+}

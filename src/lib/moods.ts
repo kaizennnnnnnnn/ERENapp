@@ -23,6 +23,16 @@ export const MOOD_THEME: Record<UserMood, {
   tired: { main: '#A78BFA', dark: '#5B21B6', light: '#EDE9FE', text: '#3B0764', glow: 'rgba(167,139,250,0.45)' },
 }
 
+// One line under each label on the daily gate. Fills the dead space the old
+// label-only rows left, and lets Eren's voice show up before you've tapped.
+export const MOOD_CAPTION: Record<UserMood, string> = {
+  good:  'riding high today',
+  mid:   'fine. just fine.',
+  sad:   'heavy, a little',
+  angry: 'hissing at something',
+  tired: 'running on fumes',
+}
+
 // Moods that surface the "send some love" prompt on the partner card.
 export const LOW_MOODS: UserMood[] = ['sad', 'angry', 'tired']
 

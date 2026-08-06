@@ -567,7 +567,7 @@ export default function SketchEren({
         </g>
 
         {/* extras layer (NOT through boil filter) */}
-        <SkExtras state={state} />
+        <SkExtras state={state} noSpeech={noSpeech} />
       </svg>
 
       {!noSpeech && <SkSpeech state={state} />}
@@ -1159,7 +1159,7 @@ function SkMouth({ state }: { state: SketchErenState }) {
 }
 
 // ─── EXTRAS ──────────────────────────────────────────────────────────
-function SkExtras({ state }: { state: SketchErenState }) {
+function SkExtras({ state, noSpeech }: { state: SketchErenState; noSpeech: boolean }) {
   if (state === 'happy') {
     return (
       <g className="sk-fx-pop">
@@ -1210,6 +1210,9 @@ function SkExtras({ state }: { state: SketchErenState }) {
     )
   }
   if (state === 'wave') {
+    // The word is speech too, even though it lives in the SVG rather than the
+    // HTML bubble — callers that asked for a silent Eren get a silent wave.
+    if (noSpeech) return null
     return (
       <g>
         <text x="20" y="40" fontSize={20} fontFamily='"Caveat", cursive' fill={INK} className="sk-wave-text">zdravo!</text>
