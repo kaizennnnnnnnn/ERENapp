@@ -426,6 +426,26 @@ export const ACTION_CONFIGS: Record<ActionType, {
   medicine: { label: 'Medicine',     icon: '💊', emoji: '💊', color: 'bg-green-400',   deltas: { happiness: 10, energy: 15, cleanliness: 10 },                 cooldownMs: 86400000 },
 }
 
+// ─── /talk — the chat with Eren ───────────────────────────────────────────────
+// Private per user (see supabase/migration_eren_chat.sql). `role` mirrors the
+// Anthropic API's own vocabulary so rows replay into the model untouched.
+
+export interface ErenChatMessage {
+  id: string
+  user_id: string
+  role: 'user' | 'assistant'
+  content: string
+  created_at: string
+}
+
+/** A fact Eren chose to keep, written by him through the `remember` tool. */
+export interface ErenChatMemory {
+  id: string
+  user_id: string
+  fact: string
+  created_at: string
+}
+
 export const MOOD_CONFIGS: Record<UserMood, { label: string; emoji: string; color: string }> = {
   good:  { label: 'Good',  emoji: '😊', color: 'bg-green-100 text-green-700'  },
   mid:   { label: 'Mid',   emoji: '😐', color: 'bg-yellow-100 text-yellow-700'},

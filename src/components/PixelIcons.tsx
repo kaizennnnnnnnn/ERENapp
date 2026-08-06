@@ -337,6 +337,27 @@ export const IconScroll = memo(function IconScroll({ size = 20 }: IconProps) {
   }, size)
 })
 
+// ── SPEECH BUBBLE (talk to Eren) — tail hangs left, three pink dots ────────
+export const IconSpeech = memo(function IconSpeech({ size = 20 }: IconProps) {
+  const grid = [
+    '............',
+    '.KKKKKKKKKK.',
+    '.KWWWWWWWWK.',
+    '.KWDWDWDWWK.',
+    '.KWWWWWWWWK.',
+    '.KWWWWWWWWK.',
+    '.KWWWWWWWWK.',
+    '.KKWWKKKKKK.',
+    '..KWWK......',
+    '..KWK.......',
+    '..KK........',
+    '............',
+  ]
+  return drawPixels(grid, {
+    K: '#5B3A1F', W: '#FFF8E8', D: '#E0568C',
+  }, size)
+})
+
 // ── PHOTOS ─────────────────────────────────────────────────────────────────
 export const IconPhoto = memo(function IconPhoto({ size = 20 }: IconProps) {
   const grid = [
