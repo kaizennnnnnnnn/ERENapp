@@ -4,7 +4,7 @@ export type Json = string | number | boolean | null | { [key: string]: Json } | 
 
 export type ErenMood = 'idle' | 'happy' | 'hungry' | 'sleepy' | 'playful' | 'angry'
 export type UserMood = 'good' | 'mid' | 'sad' | 'angry' | 'tired'
-export type ActionType = 'feed' | 'play' | 'sleep' | 'wash' | 'medicine'
+export type ActionType = 'feed' | 'play' | 'sleep' | 'wash' | 'medicine' | 'lolipop'
 export type ReminderType = 'feed' | 'litter' | 'medicine' | 'vet' | 'groom' | 'play' | 'custom'
 export type RepeatInterval = 'once' | 'daily' | 'weekly' | 'monthly'
 export type GameType = 'catch_mouse' | 'paw_tap' | 'memory_match' | 'treat_tumble' | 'flappy_eren' | 'tic_tac_toe' | 'eren_stack' | 'yarn_pop' | 'eren_says' | 'lane_runner' | 'paw_doku' | 'yarn_sort' | 'gone_fishin' | 'defend_bowl' | 'purr_beat'
@@ -424,6 +424,12 @@ export const ACTION_CONFIGS: Record<ActionType, {
   sleep:    { label: 'Put to sleep', icon: '💤', emoji: '😴', color: 'bg-indigo-400',  deltas: { sleep_quality: 30, energy: 25, hunger: -5 },                  cooldownMs: 28800000 },
   wash:     { label: 'Wash Eren',    icon: '🛁', emoji: '🛁', color: 'bg-sky-400',     deltas: { cleanliness: 60, happiness: 5 },                              cooldownMs: 43200000 },
   medicine: { label: 'Medicine',     icon: '💊', emoji: '💊', color: 'bg-green-400',   deltas: { happiness: 10, energy: 15, cleanliness: 10 },                 cooldownMs: 86400000 },
+  // The vet's reward for a clean bill of health. Lifts every bar except
+  // cleanliness — a sweet doesn't wash him, and topping that up here would
+  // undercut the bathroom entirely. No weight either: it's a prize for good
+  // care, so it shouldn't quietly push him toward "Overweight" on the next
+  // checkup. Once a day; see LOLIPOP_DAY_KEY in VetScene.
+  lolipop:  { label: 'Lolipop',      icon: '🍭', emoji: '🍭', color: 'bg-pink-400',    deltas: { happiness: 20, hunger: 10, energy: 10, sleep_quality: 10 },   cooldownMs: 86400000 },
 }
 
 // ─── /talk — the chat with Eren ───────────────────────────────────────────────

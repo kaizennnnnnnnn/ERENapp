@@ -41,6 +41,10 @@ function isUsefulAction(action: ActionType, before: ErenStats): boolean {
     case 'sleep':    return before.energy        < USEFUL_THRESHOLD
     case 'wash':     return (before.cleanliness ?? 100) < USEFUL_THRESHOLD
     case 'medicine': return !!before.is_sick
+    // The lolipop never reaches this — it's deliberately kept out of the
+    // interactions table (see applyAction) so a treat can't be farmed into the
+    // partner scoreboard. Listed so the switch stays exhaustive on ActionType.
+    case 'lolipop':  return false
     default:         return true
   }
 }
@@ -439,11 +443,19 @@ function useErenStatsImpl(householdId: string | null) {
     const newMood = computeErenMood({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, cleanliness: newCl })
     const sleepingFlag = action === 'sleep' ? true : base.is_sleeping
     setStats(prev => prev ? { ...prev, happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, weight: newW, cleanliness: newCl, is_sick: newSick, mood: newMood, is_sleeping: sleepingFlag } : prev)
-    const useful = isUsefulAction(action, base)
     // History row is fire-and-forget: its errors are swallowed inside anyway,
     // and awaiting it let a stalled insert pin the room button in its busy
     // state long after the stats write had landed.
-    void insertInteraction(supabase, { household_id: householdId, user_id: userId, action_type: action, happiness_delta: cfg.deltas.happiness ?? 0, hunger_delta: cfg.deltas.hunger ?? 0, energy_delta: cfg.deltas.energy ?? 0, sleep_delta: cfg.deltas.sleep_quality ?? 0, weight_delta: cfg.deltas.weight ?? 0, useful })
+    //
+    // The lolipop is exempt. `interactions.action_type` carries a CHECK
+    // constraint that predates it, so the insert would 400 (silently swallowed,
+    // but a red console error every time) until a migration is pasted — and it
+    // shouldn't be in there anyway: it's a reward for good care, not care, and
+    // logging it would let a treat pad the daily partner scoreboard.
+    if (action !== 'lolipop') {
+      const useful = isUsefulAction(action, base)
+      void insertInteraction(supabase, { household_id: householdId, user_id: userId, action_type: action, happiness_delta: cfg.deltas.happiness ?? 0, hunger_delta: cfg.deltas.hunger ?? 0, energy_delta: cfg.deltas.energy ?? 0, sleep_delta: cfg.deltas.sleep_quality ?? 0, weight_delta: cfg.deltas.weight ?? 0, useful })
+    }
     // writeWithRetry: absolute values, so a retry after a transient 503 or an
     // aborted hang can't double-apply. Bounds the worst case instead of
     // pinning TUCK IN/WAKE UP forever on a stalled request.

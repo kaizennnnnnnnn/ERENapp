@@ -23,8 +23,27 @@ import { Sparkles, Hearts } from '@/components/care/ReactionFx'
 import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import CheckupButton from '@/components/vet/CheckupButton'
 import GiveMedicineButton, { MedicineResultBanner } from '@/components/vet/GiveMedicineButton'
+import GiveLolipopButton, { LolipopBanner } from '@/components/vet/GiveLolipopButton'
+import { getDailyKey } from '@/lib/tasks'
 
 interface Props { onClose: () => void }
+
+// One lolipop a day. The treat lifts four bars at once, and the button sits two
+// taps from the room entrance — without a gate you could swipe in and out
+// topping him up faster than anything decays, and the whole care loop stops
+// mattering. Per-device on purpose: it's a small, shared indulgence, so both
+// of you getting one isn't a bug.
+const LOLIPOP_DAY_KEY = 'eren_lolipop_day'
+
+function hadLolipopToday(): boolean {
+  if (typeof window === 'undefined') return false
+  try { return localStorage.getItem(LOLIPOP_DAY_KEY) === getDailyKey() }
+  catch { return false }
+}
+
+function markLolipopToday(): void {
+  try { localStorage.setItem(LOLIPOP_DAY_KEY, getDailyKey()) } catch { /* private mode */ }
+}
 
 // ErenVet.png pose: vet doctor with stethoscope. MIRRORED catchlights.
 // Pixel-scan of the 976×1535 sprite translated to the 200×200 BlinkingEren
@@ -70,6 +89,11 @@ export default function VetScene({ onClose }: Props) {
   const [checking,  setChecking]  = useState(false)
   const [medGiven,  setMedGiven]  = useState(false)
   const [giving,    setGiving]    = useState(false)
+  const [lolGiven,  setLolGiven]  = useState(false)
+  const [lolBusy,   setLolBusy]   = useState(false)
+  // Read once per mount, not per render: a getter in the render path would
+  // disagree with itself across the midnight boundary mid-visit.
+  const [lolUsedToday, setLolUsedToday] = useState(hadLolipopToday)
   const [toast,     setToast]     = useState<string | null>(null)
   const reaction = useErenReaction()
   const isDark = useIsDark()
@@ -116,6 +140,29 @@ export default function VetScene({ onClose }: Props) {
     setMedGiven(true)
     setToast(result.message)
     if (result.success) completeTask('daily_wash')
+    setTimeout(() => setToast(null), 3000)
+  }
+
+  // The reward for a clean bill of health: every bar but cleanliness goes up,
+  // happiness twice as much. Same beat shape as the medicine, minus the
+  // grimace — nobody pulls a face at a lolipop.
+  async function giveLolipop() {
+    if (!user?.id || lolBusy || lolGiven || lolUsedToday || isSleeping) return
+    setLolBusy(true)
+    reaction.play([
+      { name: 'recover', ms: 500, onEnter: () => playSound('care_gulp') },
+      ...happyFinisherBeats(),
+    ])
+    await new Promise(r => setTimeout(r, 700))
+    const result = await applyAction(user.id, 'lolipop')
+    setLolBusy(false)
+    if (!result.success) { setToast(result.message); setTimeout(() => setToast(null), 3000); return }
+    // Only burn the day once the write actually landed — a 503 shouldn't cost
+    // him his one lolipop.
+    markLolipopToday()
+    setLolUsedToday(true)
+    setLolGiven(true)
+    setToast(result.message)
     setTimeout(() => setToast(null), 3000)
   }
 
@@ -209,7 +256,10 @@ export default function VetScene({ onClose }: Props) {
           </div>
         )}
 
-        {/* Buttons */}
+        {/* Buttons. A clean bill of health used to end the visit with a chip
+            and nothing to do; now it offers the lolipop instead. Curing him
+            with medicine flips `healthy` true, so the treat follows the dose
+            in the same visit. */}
         {!checkDone ? (
           <CheckupButton
             state={checking ? 'checking' : 'check'}
@@ -222,6 +272,14 @@ export default function VetScene({ onClose }: Props) {
             disabled={giving || isSleeping}
             onClick={() => { playSound('ui_tap'); giveMedicine() }}
           />
+        ) : healthy && !lolGiven && !lolUsedToday ? (
+          <GiveLolipopButton
+            state={lolBusy ? 'giving' : 'give'}
+            disabled={lolBusy || isSleeping}
+            onClick={() => { playSound('ui_tap'); giveLolipop() }}
+          />
+        ) : healthy ? (
+          <LolipopBanner alreadyToday={!lolGiven} />
         ) : (
           <MedicineResultBanner healthy={healthy} />
         )}

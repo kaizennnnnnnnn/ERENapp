@@ -1153,6 +1153,29 @@ export const IconDonut = memo(function IconDonut({ size = 20 }: IconProps) {
   }, size)
 })
 
+export const IconLolipop = memo(function IconLolipop({ size = 20 }: IconProps) {
+  // A candy disc on a stick. A spiral was the obvious idea and the wrong one:
+  // at 16px the coils collapse into a smudge and read as a target. One clean
+  // white stripe across a solid disc says "sweet" at any size.
+  const grid = [
+    '...KKKK.....',
+    '..KRRRRK....',
+    '.KRRRRLRK...',
+    '.KRRRLRRK...',
+    '.KRRLRRRK...',
+    '.KRLRRRRK...',
+    '..KRRRRK....',
+    '...KKKK.....',
+    '....SS......',
+    '....SS......',
+    '....SS......',
+    '....SS......',
+  ]
+  return drawPixels(grid, {
+    K: '#7A2440', R: '#FF5C8A', L: '#FFF4F8', S: '#D9A066',
+  }, size)
+})
+
 // ── FIRE (streak) ────────────────────────────────────────────────────────
 export const IconFire = memo(function IconFire({ size = 20 }: IconProps) {
   const grid = [
