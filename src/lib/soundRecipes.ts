@@ -271,6 +271,27 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
   // dropped connection reads as "he wandered off", not "the app broke".
   chat_quiet:   { type: 'sweep', freq: [480, 260], duration: 300, shape: 'sine', gain: 0.4, curve: 'exponential' },
 
+  // chat_type1/2/3 — keystrokes, cycled per character. Triangle rather than
+  // noise so the family's "no noise" rule holds; at 20ms the envelope IS the
+  // sound and it reads as a tick, not a tone. The three are a whole tone
+  // apart — enough that a sentence sounds like typing instead of a fault.
+  chat_type1:   { type: 'blip', freq: 790, duration: 20, shape: 'triangle', gain: 0.5 },
+  chat_type2:   { type: 'blip', freq: 860, duration: 18, shape: 'triangle', gain: 0.5 },
+  chat_type3:   { type: 'blip', freq: 730, duration: 22, shape: 'triangle', gain: 0.5 },
+
+  // chat_poof — the speech bubble puffing away. Two falling voices a fifth
+  // apart, the upper one entering a beat late and dying first: the pitch
+  // spread is what makes it "pff" rather than a single descending beep.
+  chat_poof:    { type: 'seq', parts: [
+                    { at: 0,  recipe: { type: 'sweep', freq: [880, 300],  duration: 175, shape: 'sine',     gain: 0.45, curve: 'exponential' } },
+                    { at: 18, recipe: { type: 'sweep', freq: [1320, 520], duration: 125, shape: 'triangle', gain: 0.22, curve: 'exponential' } },
+                  ] },
+
+  // chat_pin — holding the bubble open. A two-note latch upward: the second
+  // note is the catch closing, so it sounds like something was fastened
+  // rather than merely tapped.
+  chat_pin:     { type: 'arp', notes: [740, 1108], step: 42, noteDur: 55, shape: 'sine', gain: 0.5 },
+
   // care_sleep  — soft downward coo for tuck-in / wake.
   care_sleep:  { type: 'sweep', freq: [523, 300], duration: 460, shape: 'sine', gain: 0.4, curve: 'exponential' },
   // care_jingle — the ball's bell when he pounces: a bright double ding.

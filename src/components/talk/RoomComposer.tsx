@@ -11,8 +11,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useErenChatContext } from '@/contexts/ErenChatContext'
+import { playSound, type SoundName } from '@/lib/sounds'
 import { IconScroll, IconClose } from '@/components/PixelIcons'
 import TalkButton from './TalkButton'
+
+// Cycled per keystroke. One tick on repeat reads as a fault rather than typing.
+const TYPE_TICKS: SoundName[] = ['chat_type1', 'chat_type2', 'chat_type3']
+/** Held backspace and fast typists both outrun the ear; one tick per 45ms is
+ *  plenty to feel continuous without stacking into a buzz. */
+const TYPE_THROTTLE_MS = 45
 
 const INK   = '#3A2210'
 const PAPER = '#FFFBF1'
@@ -53,8 +60,18 @@ export default function RoomComposer({ onOpenTranscript }: Props) {
   const [draft, setDraft] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const keyboard = useKeyboardInset()
+  const tickIdx = useRef(0)
+  const lastTick = useRef(0)
 
   useEffect(() => { if (open) inputRef.current?.focus() }, [open])
+
+  const onDraftChange = useCallback((next: string) => {
+    setDraft(next)
+    const now = performance.now()
+    if (now - lastTick.current < TYPE_THROTTLE_MS) return
+    lastTick.current = now
+    playSound(TYPE_TICKS[tickIdx.current++ % TYPE_TICKS.length])
+  }, [])
 
   const submit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
@@ -95,7 +112,7 @@ export default function RoomComposer({ onOpenTranscript }: Props) {
             <input
               ref={inputRef}
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => onDraftChange(e.target.value)}
               placeholder="say something…"
               maxLength={2000}
               enterKeyHint="send"

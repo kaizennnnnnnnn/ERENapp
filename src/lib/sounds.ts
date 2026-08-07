@@ -90,6 +90,13 @@ export const SOUNDS = {
   chat_saved:           '/sounds/chat/chat_saved.mp3',
   chat_forget:          '/sounds/chat/chat_forget.mp3',
   chat_quiet:           '/sounds/chat/chat_quiet.mp3',
+  // Three keystroke ticks, cycled per character. One tick repeated is the
+  // difference between typing and a stuck buzzer.
+  chat_type1:           '/sounds/chat/chat_type1.mp3',
+  chat_type2:           '/sounds/chat/chat_type2.mp3',
+  chat_type3:           '/sounds/chat/chat_type3.mp3',
+  chat_poof:            '/sounds/chat/chat_poof.mp3',
+  chat_pin:             '/sounds/chat/chat_pin.mp3',
 
   // Gacha — rarity-tiered reveal stingers.
   gacha_reveal_common:    '/sounds/gacha/gacha_reveal_common.mp3',
@@ -267,6 +274,14 @@ const VOLUME_SCALE: Partial<Record<SoundName, number>> = {
   chat_saved:     0.32,
   chat_forget:    0.35,
   chat_quiet:     0.4,
+  // Keystrokes fire hundreds of times per message, so they sit far below
+  // everything else — felt more than heard. Anything louder turns a sentence
+  // into a drum solo.
+  chat_type1:     0.14,
+  chat_type2:     0.14,
+  chat_type3:     0.14,
+  chat_poof:      0.38,
+  chat_pin:       0.34,
 
   // ─── Mini-game gameplay SFX ─────────────────────────────────────────────
   // catch-mouse
