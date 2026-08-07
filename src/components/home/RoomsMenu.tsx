@@ -15,11 +15,11 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   IconDrumstick, IconYarn, IconMoonZ, IconBath,
-  IconFlask, IconPill, IconBook, IconCake, IconDoor,
+  IconFlask, IconPill, IconSpeech, IconBook, IconCake, IconDoor,
 } from '@/components/PixelIcons'
 
 export interface RoomDef {
-  id: 'feed' | 'play' | 'sleep' | 'wash' | 'chemistry' | 'vet' | 'school' | 'bakery'
+  id: 'feed' | 'play' | 'sleep' | 'wash' | 'chemistry' | 'vet' | 'talk' | 'school' | 'bakery'
   label: string
   Icon: React.ComponentType<{ size?: number }>
   color: string
@@ -36,6 +36,7 @@ export const ROOMS: RoomDef[] = [
   { id: 'wash',      label: 'Bathroom',      Icon: IconBath,      color: '#38BDF8', rgb: '56,189,248'  },
   { id: 'chemistry', label: 'Chem Lab',      Icon: IconFlask,     color: '#84CC16', rgb: '132,204,22'  },
   { id: 'vet',       label: 'Vet Office',    Icon: IconPill,      color: '#34D399', rgb: '52,211,153'  },
+  { id: 'talk',      label: 'The Attic',     Icon: IconSpeech,    color: '#D8B4FE', rgb: '216,180,254' },
   { id: 'school',    label: 'Serbian Class', Icon: IconBook,      color: '#F59E0B', rgb: '245,158,11'  },
   { id: 'bakery',    label: 'Eren’s Bakery', Icon: IconCake,      color: '#FBBF24', rgb: '251,191,36', href: '/bakery' },
 ]

@@ -18,7 +18,7 @@ import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 import { format } from 'date-fns'
 import Link from 'next/link'
 import { Sparkles } from 'lucide-react'
-import { IconGift, IconHeart, IconBell, IconPerson, IconDoor, IconPhoto, IconDress, IconSpeech } from '@/components/PixelIcons'
+import { IconGift, IconHeart, IconBell, IconPerson, IconDoor, IconPhoto, IconDress } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import { requestCloudNav } from '@/components/CloudTransition'
 import TaskPanel from '@/components/TaskPanel'
@@ -754,12 +754,6 @@ export default function HomePage() {
                   <span className="font-pixel text-white" style={{ fontSize: 5 }}>{newSkinCount > 9 ? '9+' : newSkinCount}</span>
                 </div>
               )}
-            </Link>
-            <Link href="/talk" onClick={() => playSound('ui_tap')}
-              aria-label="Talk to Eren"
-              className="home-nav-pop w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-              style={{ ...cuteBtn('255,214,232'), animationDelay: '0.42s' }}>
-              <CuteIcon><IconSpeech size={18} /></CuteIcon>
             </Link>
             <div className="relative flex-shrink-0">
               <button onClick={() => { playSound(showRooms ? 'ui_modal_close' : 'ui_modal_open'); setShowRooms(r => !r) }}

@@ -20,6 +20,7 @@ const SCENE_LOADERS: Record<CareScene, () => Promise<{ default: React.ComponentT
   wash:      () => import('./WashScene'),
   chemistry: () => import('./ChemistryScene'),
   vet:       () => import('./VetScene'),
+  talk:      () => import('./TalkScene'),
   school:    () => import('./SchoolScene'),
   hospital:  () => import('./HospitalScene'),
 }
@@ -28,7 +29,7 @@ const SCENE_LOADERS: Record<CareScene, () => Promise<{ default: React.ComponentT
 const sceneComponents: Partial<Record<CareScene, React.ComponentType<SceneProps>>> = {}
 const loadScene = (s: CareScene) => SCENE_LOADERS[s]().then(m => { sceneComponents[s] = m.default })
 
-const LOOP_SCENES: CareScene[] = ['feed', 'play', 'sleep', 'wash', 'chemistry', 'vet', 'school']
+const LOOP_SCENES: CareScene[] = ['feed', 'play', 'sleep', 'wash', 'chemistry', 'vet', 'talk', 'school']
 
 const SCENE_LABELS: Record<CareScene, string> = {
   feed:      'Kitchen',
@@ -37,6 +38,7 @@ const SCENE_LABELS: Record<CareScene, string> = {
   wash:      'Bathroom',
   chemistry: 'Chemistry Lab',
   vet:       'Vet Office',
+  talk:      'The Attic',
   school:    'Serbian Class',
   hospital:  'Vet Clinic',
 }
@@ -48,6 +50,7 @@ const SCENE_COLORS: Record<CareScene, string> = {
   wash:      '#38BDF8',
   chemistry: '#84CC16',
   vet:       '#34D399',
+  talk:      '#D8B4FE',
   school:    '#F59E0B',
   hospital:  '#F87171',
 }
@@ -59,6 +62,7 @@ const SCENE_IMAGES_DAY: Partial<Record<CareScene, string>> = {
   wash:      '/bathroom.png',
   chemistry: '/ChemistryDay.png',
   vet:       '/vetBACK.png',
+  talk:      '/AtticDay.png',
   school:    '/schoolBACK.png',
 }
 const SCENE_IMAGES_DARK: Partial<Record<CareScene, string>> = {
@@ -68,6 +72,9 @@ const SCENE_IMAGES_DARK: Partial<Record<CareScene, string>> = {
   wash:      '/BathroomDark.png',
   chemistry: '/ChemistryNight.png',
   vet:       '/wetDark.png',
+  // Night attic art pending — the day plate is lantern-lit and already reads
+  // as evening, so it stands in. Swap here and in TalkScene together.
+  talk:      '/AtticDay.png',
   school:    '/schoolBACK.png',
 }
 
@@ -83,6 +90,7 @@ const SCENE_EREN_SPRITES: Partial<Record<CareScene, string[]>> = {
   wash:      ['/ErenBathroomHat_notail.png',  '/ErenBathroomHat_tail.png'],
   chemistry: ['/ErenLab_notail.png',          '/ErenLab_tail.png'],
   vet:       ['/ErenVet_notail.png',          '/ErenVet_tail.png'],
+  talk:      ['/erenGood_notail.png',         '/erenGood_tail.png'],
   school:    [],
 }
 

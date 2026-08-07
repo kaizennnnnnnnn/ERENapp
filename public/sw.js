@@ -2,7 +2,7 @@
 // Bump this string whenever you change badge/icon assets so the browser is
 // guaranteed to detect a byte difference and replace any old SW running on
 // the user's installed PWA. Pairs with no-store headers on /sw.js.
-const SW_VERSION = 'v25-app-icon-2026-06-27'
+const SW_VERSION = 'v26-attic-2026-08-07'
 
 // Room backgrounds + Eren sprite. We precache these on install so the user
 // can scroll between rooms with no internet without seeing the room render
@@ -20,6 +20,7 @@ const PRECACHE_IMAGES = [
   '/ChemistryDay.png', '/ChemistryNight.png',
   '/CakeShop.png',   '/CakeShopNight.png',
   '/vetBACK.png',    '/wetDark.png',
+  '/AtticDay.png',
   '/schoolBACK.png',
   '/ErenAppIcon.png',   '/ErenBadge.png',
 ]
