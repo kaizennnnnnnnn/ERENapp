@@ -18,12 +18,21 @@ export type TileState = 'idle' | 'selected' | 'dimmed'
 
 const TILE_H = 60
 const WELL = 46
-// SketchEren's viewBox puts the face at ~47% of the sprite's height, so an
-// oversized sprite nudged up by these offsets frames the head in the well
-// instead of showing a tiny, unreadable full body.
-const SPRITE = 76
+
+// Framing the head inside the medallion. SketchEren draws into a 200×220
+// viewBox at `size` × `size * 1.1`, and within it the head runs from the ear
+// tips (y=8) to the chin (y=152) — so it is 144/220 of the sprite's height,
+// centred at 80/220. Sizing off those numbers rather than by eye is what
+// keeps the ears inside the circle.
+const SPRITE_RATIO = 1.1
+const HEAD_SPAN = 144 / 220
+const HEAD_CENTRE = 80 / 220
+/** How much of the medallion the head should occupy, ear tip to chin. */
+const HEAD_FILL = 0.81
+
+const SPRITE = (WELL * HEAD_FILL) / (HEAD_SPAN * SPRITE_RATIO)
 const SPRITE_LEFT = (WELL - SPRITE) / 2
-const SPRITE_TOP = WELL / 2 - SPRITE * 1.1 * 0.47
+const SPRITE_TOP = WELL / 2 - SPRITE * SPRITE_RATIO * HEAD_CENTRE
 
 export default function MoodTile({
   label, caption, sketch, theme, state, index, onSelect,
