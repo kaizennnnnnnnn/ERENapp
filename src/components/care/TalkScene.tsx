@@ -8,17 +8,15 @@
 // a rug, a lantern, and a button that opens the conversation. That emptiness is
 // the point, so resist adding a chore to it later.
 //
-// Night art is still to come. The attic is lantern-lit and already reads as
-// evening, so the day plate stands in until then — swap it here and in
-// CareSceneHost's SCENE_IMAGES_DARK together.
-
 import { useEffect, useState } from 'react'
 import BlinkingEren from '@/components/BlinkingEren'
 import { useRoomEren } from '@/hooks/useRoomEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
 import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
+import HangingDonut from '@/components/care/HangingDonut'
 import { useErenReaction } from '@/hooks/useErenReaction'
 import LightSwitch from '@/components/LightSwitch'
+import { useIsDark } from '@/hooks/useIsDark'
 import { useCare } from '@/contexts/CareContext'
 import { playSound } from '@/lib/sounds'
 import TalkButton from '@/components/talk/TalkButton'
@@ -35,6 +33,7 @@ const ATTIC_EREN_FALLBACK = {
 export default function TalkScene(_props: Props) {
   void _props
   const atticEren = useRoomEren('talk', ATTIC_EREN_FALLBACK)
+  const isDark = useIsDark()
   // No care action here — this runner exists purely so he still purrs when you
   // tap him, like every other room.
   const reaction = useErenReaction()
@@ -54,7 +53,7 @@ export default function TalkScene(_props: Props) {
 
       {/* ══ BACKGROUND IMAGE ══ */}
       <div className="absolute inset-0" style={{
-        backgroundImage: 'url(/AtticDay.png)',
+        backgroundImage: `url(${isDark ? '/AtticNight.png' : '/AtticDay.png'})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         WebkitTouchCallout: 'none',
@@ -62,6 +61,10 @@ export default function TalkScene(_props: Props) {
         userSelect: 'none',
         pointerEvents: 'none',
       }} />
+
+      {/* ══ DONUT ══ on its rope, under Eren's z so a hard swing passes
+          behind him rather than across his face. */}
+      <HangingDonut />
 
       {/* ══ EREN ══ sits on the rug. Measured against the art, not guessed:
           any higher and his feet land on the rug's far edge, which reads as

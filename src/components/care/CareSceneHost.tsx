@@ -72,9 +72,7 @@ const SCENE_IMAGES_DARK: Partial<Record<CareScene, string>> = {
   wash:      '/BathroomDark.png',
   chemistry: '/ChemistryNight.png',
   vet:       '/wetDark.png',
-  // Night attic art pending — the day plate is lantern-lit and already reads
-  // as evening, so it stands in. Swap here and in TalkScene together.
-  talk:      '/AtticDay.png',
+  talk:      '/AtticNight.png',
   school:    '/schoolBACK.png',
 }
 
@@ -92,6 +90,12 @@ const SCENE_EREN_SPRITES: Partial<Record<CareScene, string[]>> = {
   vet:       ['/ErenVet_notail.png',          '/ErenVet_tail.png'],
   talk:      ['/erenGood_notail.png',         '/erenGood_tail.png'],
   school:    [],
+}
+
+// Props a scene paints that aren't Eren. Unlike SCENE_EREN_SPRITES these are
+// always loaded — a Closet skin replaces the cat, not the furniture.
+const SCENE_PROPS: Partial<Record<CareScene, string[]>> = {
+  talk: ['/donut.png'],
 }
 
 export default function CareSceneHost() {
@@ -152,7 +156,7 @@ export default function CareSceneHost() {
     const sprites = roomSkin
       ? [roomSkin.src, roomSkin.tailSrc].filter(Boolean) as string[]
       : (SCENE_EREN_SPRITES[activeScene] ?? ['/erenGood.png'])
-    const toLoad = [...sprites, ...(bgSrc ? [bgSrc] : [])]
+    const toLoad = [...sprites, ...(SCENE_PROPS[activeScene] ?? []), ...(bgSrc ? [bgSrc] : [])]
     const isFirstEntry = prevSceneRef.current === null
     let cancelled = false
 
