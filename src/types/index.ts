@@ -428,8 +428,8 @@ export const ACTION_CONFIGS: Record<ActionType, {
   // cleanliness — a sweet doesn't wash him, and topping that up here would
   // undercut the bathroom entirely. No weight either: it's a prize for good
   // care, so it shouldn't quietly push him toward "Overweight" on the next
-  // checkup. Once a day; see LOLIPOP_DAY_KEY in VetScene.
-  lolipop:  { label: 'Lolipop',      icon: '🍭', emoji: '🍭', color: 'bg-pink-400',    deltas: { happiness: 20, hunger: 10, energy: 10, sleep_quality: 10 },   cooldownMs: 86400000 },
+  // checkup. The 30-minute wait is enforced in VetScene (LOLIPOP_COOLDOWN_MS).
+  lolipop:  { label: 'Lolipop',      icon: '🍭', emoji: '🍭', color: 'bg-pink-400',    deltas: { happiness: 20, hunger: 10, energy: 10, sleep_quality: 10 },   cooldownMs: 1800000  },
 }
 
 // ─── /talk — the chat with Eren ───────────────────────────────────────────────

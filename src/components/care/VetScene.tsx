@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
@@ -24,25 +24,40 @@ import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import CheckupButton from '@/components/vet/CheckupButton'
 import GiveMedicineButton, { MedicineResultBanner } from '@/components/vet/GiveMedicineButton'
 import GiveLolipopButton, { LolipopBanner } from '@/components/vet/GiveLolipopButton'
-import { getDailyKey } from '@/lib/tasks'
 
 interface Props { onClose: () => void }
 
-// One lolipop a day. The treat lifts four bars at once, and the button sits two
-// taps from the room entrance — without a gate you could swipe in and out
-// topping him up faster than anything decays, and the whole care loop stops
-// mattering. Per-device on purpose: it's a small, shared indulgence, so both
-// of you getting one isn't a bug.
-const LOLIPOP_DAY_KEY = 'eren_lolipop_day'
+// One lolipop every 30 minutes. The treat lifts four bars at once and the
+// button sits two taps from the room entrance, so ungated you could swipe in
+// and out topping him up faster than anything decays. Stored as the timestamp
+// of the last one rather than a "used" flag, so the wait survives a reload and
+// the room can show how long is left.
+//
+// Per-device on purpose: it's a small, shared indulgence, so both of you
+// getting one isn't a bug.
+const LOLIPOP_AT_KEY = 'eren_lolipop_at'
+const LOLIPOP_COOLDOWN_MS = 30 * 60 * 1000
 
-function hadLolipopToday(): boolean {
-  if (typeof window === 'undefined') return false
-  try { return localStorage.getItem(LOLIPOP_DAY_KEY) === getDailyKey() }
-  catch { return false }
+/** When the next one is available, as an epoch ms. 0 = now. */
+function lolipopReadyAt(): number {
+  if (typeof window === 'undefined') return 0
+  try {
+    const raw = Number(localStorage.getItem(LOLIPOP_AT_KEY))
+    // A clock that moved backwards (timezone change, manual set) shouldn't
+    // strand him behind a cooldown that never ends.
+    if (!raw || raw > Date.now()) return 0
+    return raw + LOLIPOP_COOLDOWN_MS
+  } catch { return 0 }
 }
 
-function markLolipopToday(): void {
-  try { localStorage.setItem(LOLIPOP_DAY_KEY, getDailyKey()) } catch { /* private mode */ }
+function markLolipopNow(): void {
+  try { localStorage.setItem(LOLIPOP_AT_KEY, String(Date.now())) } catch { /* private mode */ }
+}
+
+/** "29M" / "45S" — coarse while it's far off, precise once it's nearly there. */
+function formatWait(ms: number): string {
+  const s = Math.ceil(ms / 1000)
+  return s >= 60 ? `${Math.ceil(s / 60)}M` : `${s}S`
 }
 
 // ErenVet.png pose: vet doctor with stethoscope. MIRRORED catchlights.
@@ -89,12 +104,26 @@ export default function VetScene({ onClose }: Props) {
   const [checking,  setChecking]  = useState(false)
   const [medGiven,  setMedGiven]  = useState(false)
   const [giving,    setGiving]    = useState(false)
-  const [lolGiven,  setLolGiven]  = useState(false)
   const [lolBusy,   setLolBusy]   = useState(false)
-  // Read once per mount, not per render: a getter in the render path would
-  // disagree with itself across the midnight boundary mid-visit.
-  const [lolUsedToday, setLolUsedToday] = useState(hadLolipopToday)
+  // Drives the "LOLIPOP GIVEN!" chip for a beat before it hands over to the
+  // countdown, so handing one over still gets a reaction.
+  const [lolJustGiven, setLolJustGiven] = useState(false)
+  const [readyAt,   setReadyAt]   = useState(lolipopReadyAt)
+  const [now,       setNow]       = useState(() => Date.now())
   const [toast,     setToast]     = useState<string | null>(null)
+
+  const lolWait = Math.max(0, readyAt - now)
+  const lolCounting = lolWait > 0
+
+  // Tick only while something is actually counting down, so a healthy cat
+  // sitting in the vet room isn't re-rendering once a second forever. Keyed on
+  // the boolean, not the remaining ms — the latter changes every tick and would
+  // tear down and rebuild the interval each second.
+  useEffect(() => {
+    if (!lolCounting) return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [lolCounting])
   const reaction = useErenReaction()
   const isDark = useIsDark()
   const wish = useWish()
@@ -147,7 +176,7 @@ export default function VetScene({ onClose }: Props) {
   // happiness twice as much. Same beat shape as the medicine, minus the
   // grimace — nobody pulls a face at a lolipop.
   async function giveLolipop() {
-    if (!user?.id || lolBusy || lolGiven || lolUsedToday || isSleeping) return
+    if (!user?.id || lolBusy || lolWait > 0 || isSleeping) return
     setLolBusy(true)
     reaction.play([
       { name: 'recover', ms: 500, onEnter: () => playSound('care_gulp') },
@@ -157,11 +186,13 @@ export default function VetScene({ onClose }: Props) {
     const result = await applyAction(user.id, 'lolipop')
     setLolBusy(false)
     if (!result.success) { setToast(result.message); setTimeout(() => setToast(null), 3000); return }
-    // Only burn the day once the write actually landed — a 503 shouldn't cost
-    // him his one lolipop.
-    markLolipopToday()
-    setLolUsedToday(true)
-    setLolGiven(true)
+    // Only start the cooldown once the write actually landed — a 503 shouldn't
+    // cost him half an hour.
+    markLolipopNow()
+    setNow(Date.now())
+    setReadyAt(Date.now() + LOLIPOP_COOLDOWN_MS)
+    setLolJustGiven(true)
+    setTimeout(() => setLolJustGiven(false), 4000)
     setToast(result.message)
     setTimeout(() => setToast(null), 3000)
   }
@@ -272,14 +303,15 @@ export default function VetScene({ onClose }: Props) {
             disabled={giving || isSleeping}
             onClick={() => { playSound('ui_tap'); giveMedicine() }}
           />
-        ) : healthy && !lolGiven && !lolUsedToday ? (
+        ) : healthy && lolWait <= 0 ? (
           <GiveLolipopButton
             state={lolBusy ? 'giving' : 'give'}
             disabled={lolBusy || isSleeping}
             onClick={() => { playSound('ui_tap'); giveLolipop() }}
           />
         ) : healthy ? (
-          <LolipopBanner alreadyToday={!lolGiven} />
+          // The chip celebrates for four seconds, then becomes the clock.
+          <LolipopBanner waitLabel={lolJustGiven ? null : formatWait(lolWait)} />
         ) : (
           <MedicineResultBanner healthy={healthy} />
         )}

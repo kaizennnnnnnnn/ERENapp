@@ -142,13 +142,15 @@ function SweetHeart({ style }: { style: React.CSSProperties }) {
 }
 
 // ── Result chip ─────────────────────────────────────────────────────────────
-// Replaces the button once he's had it. Also stands in on a later visit the
-// same day, so "he already had one" is a visible state rather than a button
-// that mysteriously isn't there.
+// Replaces the button once he's had it, and again on any visit inside the
+// cooldown — so "not yet" is a visible countdown rather than a button that
+// mysteriously isn't there.
 
 const PINK = { hi: '#FFA8CB', mid: '#F4629B', lo: '#C62E68', ink: '#7A1038', shadow: '#5A0A28', text: '#FFF4F8' }
 
-export function LolipopBanner({ alreadyToday }: { alreadyToday: boolean }) {
+/** `waitLabel` null = just handed over; a string ("12M") = time until the next. */
+export function LolipopBanner({ waitLabel }: { waitLabel: string | null }) {
+  const waiting = waitLabel !== null
   return (
     <div
       className="relative w-full max-w-xs"
@@ -183,7 +185,7 @@ export function LolipopBanner({ alreadyToday }: { alreadyToday: boolean }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           animation: 'heartbeat 1.6s ease-in-out infinite',
         }}>
-          {alreadyToday ? <IconLolipop size={14} /> : <IconHeart size={14} />}
+          {waiting ? <IconLolipop size={14} /> : <IconHeart size={14} />}
         </span>
       </span>
 
@@ -191,7 +193,7 @@ export function LolipopBanner({ alreadyToday }: { alreadyToday: boolean }) {
         fontFamily: PIXEL_FONT, fontSize: 8, letterSpacing: 1, lineHeight: 1,
         whiteSpace: 'nowrap', textShadow: `0 2px 0 ${PINK.shadow}`,
       }}>
-        {alreadyToday ? 'ONE A DAY!' : 'LOLIPOP GIVEN!'}
+        {waiting ? `NEXT ONE IN ${waitLabel}` : 'LOLIPOP GIVEN!'}
       </span>
     </div>
   )
