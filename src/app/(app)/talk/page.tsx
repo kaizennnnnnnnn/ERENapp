@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCare } from '@/contexts/CareContext'
 import { usePageReady } from '@/hooks/usePageReady'
+import { ErenChatProvider } from '@/contexts/ErenChatContext'
 import TalkSurface from '@/components/talk/TalkSurface'
 
 export default function TalkPage() {
@@ -29,11 +30,13 @@ export default function TalkPage() {
   usePageReady(loaded)
 
   return (
-    <TalkSurface
-      onLoaded={() => setLoaded(true)}
-      // Reachable from a push notification, which lands with no in-app
-      // history — back() would no-op and the door would look dead.
-      onExit={() => router.replace('/home')}
-    />
+    <ErenChatProvider>
+      <TalkSurface
+        onLoaded={() => setLoaded(true)}
+        // Reachable from a push notification, which lands with no in-app
+        // history — back() would no-op and the door would look dead.
+        onExit={() => router.replace('/home')}
+      />
+    </ErenChatProvider>
   )
 }

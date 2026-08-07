@@ -6,7 +6,11 @@
 // Two places open it: the attic room you swipe to, and the /talk route (which
 // is now only reachable by URL / a push notification). The wiring lives here
 // rather than in either caller so the two can't drift — one place owns the
-// hooks, the notebook sheet, and the saved-fact glow.
+// notebook sheet and the saved-fact glow.
+//
+// The conversation itself comes from ErenChatProvider, not from a hook call
+// here: in the attic the floor composer is already talking to Eren, and the
+// transcript has to be that same conversation rather than a second one.
 //
 // TalkView is the surface; this is the plumbing.
 // ═════════════════════════════════════════════════════════════════════════════
@@ -14,7 +18,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
-import { useErenChat } from '@/hooks/useErenChat'
+import { useErenChatContext } from '@/contexts/ErenChatContext'
 import { useErenMemories } from '@/hooks/useErenMemories'
 import { isBrownSender } from '@/lib/nudges'
 import { playSound } from '@/lib/sounds'
@@ -46,7 +50,7 @@ interface Props {
 export default function TalkSurface({ onExit, onLoaded }: Props) {
   const { user, profile } = useAuth()
   const { stats } = useErenStats()
-  const { messages, streaming, sending, loading, error, savedTick, send } = useErenChat()
+  const { messages, streaming, sending, loading, error, savedTick, send } = useErenChatContext()
   const [sheetOpen, setSheetOpen] = useState(false)
   const { memories, loading: memLoading, loaded: memLoaded, refresh, forget } = useErenMemories(sheetOpen)
   const [flash, setFlash] = useState(false)

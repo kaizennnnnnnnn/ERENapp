@@ -455,6 +455,20 @@
   60%  { transform: scale(1.15); }
   100% { transform: scale(1);    }
 }
+/* The attic speech bubble's pop-in. Deliberately animates transform ONLY.
+   With `opacity: 0` in the `from` frame the thinking bubble stayed invisible:
+   it appears while the screen is otherwise completely static, the animation
+   never got a start time, and it sat pinned to its first keyframe. A
+   decorative entrance must never be the thing that decides whether content
+   can be seen. */
+@keyframes erenSayIn {
+  from { transform: scale(0.82) translateY(6px); }
+  to   { transform: scale(1)    translateY(0);   }
+}
+@keyframes erenSayDot {
+  0%, 32%   { opacity: 1;   transform: translateY(-2px); }
+  33%, 100% { opacity: 0.3; transform: translateY(0);    }
+}
 @keyframes erenSparklePop {
   0%   { transform: scale(0);    opacity: 0; }
   40%  { transform: scale(1.15); opacity: 1; }

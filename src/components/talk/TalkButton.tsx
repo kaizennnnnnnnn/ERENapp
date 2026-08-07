@@ -38,7 +38,7 @@ export default function TalkButton({ onClick }: Props) {
       type="button"
       onClick={onClick}
       aria-label="Talk to Eren"
-      className="relative w-full max-w-xs active:translate-y-[2px] transition-transform duration-100"
+      className="relative w-full active:translate-y-[2px] transition-transform duration-100"
       style={{
         display: 'flex',
         alignItems: 'center',
