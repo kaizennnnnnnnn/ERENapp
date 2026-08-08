@@ -27,6 +27,7 @@ export const WORD_COLOR = {
   medicine: '#AB47BC',
   happy:    '#4ADE80',
   curious:  '#F5C842',
+  candy:    '#FF5C8A',
 } as const
 
 /**

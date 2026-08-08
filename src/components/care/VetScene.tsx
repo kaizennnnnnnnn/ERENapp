@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
@@ -19,7 +19,9 @@ import { IconStethoscope } from '@/components/PixelIcons'
 import { useErenReaction } from '@/hooks/useErenReaction'
 import { happyFinisherBeats, WORD_COLOR } from '@/lib/erenReactions'
 import SoundWord from '@/components/SoundWord'
-import { Sparkles, Hearts } from '@/components/care/ReactionFx'
+import { Sparkles, Hearts, Crumbs, Lolipop } from '@/components/care/ReactionFx'
+import ChewingEren, { EAT_NOSE_X, EAT_WIDTH, pickEatPose, preloadEatPoses } from '@/components/care/ChewingEren'
+import PixelPoof from '@/components/PixelPoof'
 import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import CheckupButton from '@/components/vet/CheckupButton'
 import GiveMedicineButton, { MedicineResultBanner } from '@/components/vet/GiveMedicineButton'
@@ -59,6 +61,18 @@ function formatWait(ms: number): string {
   const s = Math.ceil(ms / 1000)
   return s >= 60 ? `${Math.ceil(s / 60)}M` : `${s}S`
 }
+
+// How long "LOLIPOP GIVEN!" holds before the chip turns into the countdown.
+// Measured from the stat write, which lands early — he's still licking for
+// another ~3s after it — so this has to cover the animation plus a few seconds
+// of the chip actually being on screen.
+const CELEBRATE_MS = 7000
+
+// The eating pose is bottom-anchored on its contact line, but BlinkingEren
+// bottom-anchors a 200px BOX whose paws sit ROOM_FIT.vet.botGap (13.6%) above
+// it. Lifting the crouch by that much lands him on the same floor he was
+// standing on, instead of dropping 27px at the swap.
+const EAT_LIFT = Math.round(200 * 0.136)
 
 // ErenVet.png pose: vet doctor with stethoscope. MIRRORED catchlights.
 // Pixel-scan of the 976×1535 sprite translated to the 200×200 BlinkingEren
@@ -111,6 +125,15 @@ export default function VetScene({ onClose }: Props) {
   const [readyAt,   setReadyAt]   = useState(lolipopReadyAt)
   const [now,       setNow]       = useState(() => Date.now())
   const [toast,     setToast]     = useState<string | null>(null)
+  // Lolipop eating choreography: which head-down pose this treat uses, the
+  // poof that masks the standing<->crouch sticker swap, and which of the two
+  // flows is finishing (a lolipop lands on "YUM!", a dose on "ALL BETTER!").
+  const [eatIdx,    setEatIdx]    = useState(0)
+  const [showPoof,  setShowPoof]  = useState(false)
+  const [treatFlow, setTreatFlow] = useState(false)
+
+  // Warm the four eating stickers so the poof reveals a decoded bitmap.
+  useEffect(() => { preloadEatPoses() }, [])
 
   const lolWait = Math.max(0, readyAt - now)
   const lolCounting = lolWait > 0
@@ -125,6 +148,20 @@ export default function VetScene({ onClose }: Props) {
     return () => clearInterval(id)
   }, [lolCounting])
   const reaction = useErenReaction()
+
+  // He's head-down on the treat. Same two-beat shape as a meal in the kitchen,
+  // so the crouch sticker, the chew bob and the poof all behave identically.
+  const licking = reaction.phase === 'lick' || reaction.phase === 'lick2'
+  // Everything from the tap to the last lick. `lolBusy` covers the frame
+  // between the tap and the first beat, so the bottom UI never flickers back.
+  const treating = lolBusy || reaction.phase === 'unwrap' || licking
+
+  // Poof-mask the standing<->crouch sticker swap at each end of the treat.
+  const prevLicking = useRef(false)
+  useEffect(() => {
+    if (prevLicking.current !== licking) { prevLicking.current = licking; setShowPoof(true) }
+  }, [licking])
+
   const isDark = useIsDark()
   const wish = useWish()
   const wishMatchesThisRoom = wish?.wish ? wishHintRoom(wish.wish) === 'medicine' : false
@@ -157,6 +194,7 @@ export default function VetScene({ onClose }: Props) {
   async function giveMedicine() {
     if (!user?.id || giving || medGiven || isSleeping) return
     setGiving(true)
+    setTreatFlow(false)
     // Gulp + grimace → snap upright with green recovery sparks → happy hop.
     reaction.play([
       { name: 'grimace', ms: 600, onEnter: () => playSound('care_gulp') },
@@ -173,13 +211,24 @@ export default function VetScene({ onClose }: Props) {
   }
 
   // The reward for a clean bill of health: every bar but cleanliness goes up,
-  // happiness twice as much. Same beat shape as the medicine, minus the
-  // grimace — nobody pulls a face at a lolipop.
+  // happiness twice as much. He actually EATS it — the kitchen's head-down
+  // choreography, with a lolipop on the floor at his muzzle instead of a bowl,
+  // and the lapping sample instead of the chewing one because it's a candy on
+  // a stick. The bottom UI clears out for the duration: the crouch pose is low
+  // enough that the report card lands across his face and the button covers
+  // everything under it.
   async function giveLolipop() {
     if (!user?.id || lolBusy || lolWait > 0 || isSleeping) return
     setLolBusy(true)
+    setTreatFlow(true)
+    setEatIdx(pickEatPose())
     reaction.play([
-      { name: 'recover', ms: 500, onEnter: () => playSound('care_gulp') },
+      // Beat of nothing so the UI is already gone when the poof fires.
+      { name: 'unwrap', ms: 150 },
+      { name: 'lick',   ms: 1300, onEnter: () => playSound('care_drink') },
+      // The second lap lands mid-treat rather than stacked on the first, and
+      // uses the OTHER take so it isn't one clip played twice.
+      { name: 'lick2',  ms: 1350, onEnter: () => playSound('care_drink2') },
       ...happyFinisherBeats(),
     ])
     await new Promise(r => setTimeout(r, 700))
@@ -192,7 +241,7 @@ export default function VetScene({ onClose }: Props) {
     setNow(Date.now())
     setReadyAt(Date.now() + LOLIPOP_COOLDOWN_MS)
     setLolJustGiven(true)
-    setTimeout(() => setLolJustGiven(false), 4000)
+    setTimeout(() => setLolJustGiven(false), CELEBRATE_MS)
     setToast(result.message)
     setTimeout(() => setToast(null), 3000)
   }
@@ -213,21 +262,41 @@ export default function VetScene({ onClose }: Props) {
       {!isSleeping && (
         <div className={cn('absolute z-10 transition-all duration-500', checkDone ? 'bottom-[6%]' : 'bottom-[4%]')}
           style={{ left: '50%', transform: 'translateX(-50%)' }}>
-          <PetTarget reaction={reaction} disabled={checking}>
-            <ErenIdleLayer disabled={checking || reaction.active}>
-              <div style={{
-                animation: reaction.phase === 'grimace' ? 'erenGrimace 600ms ease-out both'
-                  : reaction.phase === 'finish' ? 'erenIdleHop 800ms ease-in-out'
-                  : checking ? 'erenHeadTilt 1200ms ease-in-out'
-                  : undefined,
-                transformOrigin: 'bottom center',
-              }}>
-                <BlinkingEren size={200} {...vetEren}
-                  lidsClosed={reaction.phase === 'grimace'} sleepyLids />
-                <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
-              </div>
-            </ErenIdleLayer>
-          </PetTarget>
+          {licking ? (
+            // Head-down on the lolipop. Lifted onto the standing sprite's floor
+            // line, and the swap at each end is hidden inside the poof.
+            <div style={{ marginBottom: EAT_LIFT }}>
+              <ChewingEren idx={eatIdx} />
+            </div>
+          ) : (
+            <PetTarget reaction={reaction} disabled={checking}>
+              <ErenIdleLayer disabled={checking || reaction.active}>
+                <div style={{
+                  animation: reaction.phase === 'grimace' ? 'erenGrimace 600ms ease-out both'
+                    : reaction.phase === 'finish' ? 'erenIdleHop 800ms ease-in-out'
+                    : checking ? 'erenHeadTilt 1200ms ease-in-out'
+                    : undefined,
+                  transformOrigin: 'bottom center',
+                }}>
+                  <BlinkingEren size={200} {...vetEren}
+                    lidsClosed={reaction.phase === 'grimace'} sleepyLids />
+                  <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
+                </div>
+              </ErenIdleLayer>
+            </PetTarget>
+          )}
+
+          {/* The treat, lying on the floor at his muzzle — which is LEFT of the
+              sprite centre in the crouch poses, hence EAT_NOSE_X. The -6px puts
+              the candy itself (which sits right of the prop's centre, stick
+              trailing left) on the nose; the offsets below the contact line
+              sink it just far enough to read as in front of him. */}
+          {licking && <>
+            <Lolipop left={`${(EAT_NOSE_X[eatIdx] / 100) * EAT_WIDTH - 6}px`} bottom={`${EAT_LIFT - 10}px`} />
+            <Crumbs color={WORD_COLOR.candy} left={`${EAT_NOSE_X[eatIdx]}%`} bottom={`${EAT_LIFT + 6}px`} />
+            <SoundWord word="LICK LICK" color={WORD_COLOR.candy} left={EAT_NOSE_X[eatIdx] + 14} top={12} size={6} />
+            <SoundWord word="LICK LICK" color={WORD_COLOR.candy} left={EAT_NOSE_X[eatIdx] + 12} top={6} size={6} delayMs={1400} />
+          </>}
 
           {/* Reaction words / sparks, anchored to Eren's 200px box. */}
           {checking && <SoundWord word="?" color={WORD_COLOR.curious} left={62} top={2} size={10} />}
@@ -235,10 +304,13 @@ export default function VetScene({ onClose }: Props) {
           {reaction.phase === 'recover' && <Sparkles tint="#86EFAC" />}
           {reaction.phase === 'finish' && <>
             <Hearts count={2} bottom="58%" />
-            <SoundWord word="ALL BETTER!" color={WORD_COLOR.happy} left={50} top={4} size={6} />
+            <SoundWord word={treatFlow ? 'YUM!' : 'ALL BETTER!'} color={WORD_COLOR.happy} left={50} top={4} size={6} />
           </>}
           {/* Tap-to-pet purr. */}
           {reaction.phase === PURR && <PurrFx />}
+
+          {/* Poof that masks the standing<->crouch sticker swap. */}
+          {showPoof && <PixelPoof size={200} onDone={() => setShowPoof(false)} />}
         </div>
       )}
 
@@ -257,8 +329,12 @@ export default function VetScene({ onClose }: Props) {
         </div>
       )}
 
-      {/* ══ BOTTOM UI ══ */}
-      <div className="absolute bottom-6 inset-x-0 flex flex-col items-center gap-3 px-6 z-20">
+      {/* ══ BOTTOM UI ══
+          Cleared out entirely while he's eating the treat. The crouch pose is
+          low and the report card sits higher than the button, so leaving
+          either one up means watching him lick a lolipop from behind a slab. */}
+      <div className={cn('absolute bottom-6 inset-x-0 flex-col items-center gap-3 px-6 z-20',
+        treating ? 'hidden' : 'flex')}>
 
         {/* Health report card */}
         {checkDone && (

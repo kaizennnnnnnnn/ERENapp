@@ -116,6 +116,74 @@ export function Sparkles({ tint = '#DFF3FF' }: { tint?: string }) {
   )
 }
 
+// ── Lolipop — the vet's treat, the food bowl's opposite number: same pop-in,
+// same "stays put while he eats, the scene unmounts it" contract, and it
+// anchors at EAT_NOSE_X the same way.
+//
+// It LIES on the floor rather than standing on its stick. That isn't a style
+// choice: in the head-down crouch his muzzle is barely a dozen pixels off the
+// ground, so an upright lolipop tall enough to read as candy puts the disc up
+// over his eyes. Lying down it keeps the bowl's wide-and-short footprint,
+// which already reads correctly at this scale.
+//
+// The stick trails LEFT, out onto open floor. Pointing it the other way buries
+// it behind his muzzle and all you see is a pink ball.
+//
+// `left` centres the prop — the wrapper owns the -50% shift and the inner div
+// owns the pop, because erenPropPop animates `transform` and would otherwise
+// wipe a translateX on the same element for good (its end state is filled).
+export function Lolipop({ bottom = '0%', left = '50%', width = 34 }: { bottom?: string; left?: string; width?: number }) {
+  const height = Math.round(width * 14 / 20)
+  // A 12px candy disc: rim first, then the same disc inset by a pixel on every
+  // side, so the outline stays exactly one pixel thick without hand-drawing
+  // each edge.
+  const RIM = [
+    { y: 0, x: 4, w: 4 }, { y: 1, x: 2, w: 8 }, { y: 2, x: 1, w: 10 },
+    { y: 3, x: 1, w: 10 }, { y: 4, x: 0, w: 12 }, { y: 5, x: 0, w: 12 },
+    { y: 6, x: 0, w: 12 }, { y: 7, x: 0, w: 12 }, { y: 8, x: 1, w: 10 },
+    { y: 9, x: 1, w: 10 }, { y: 10, x: 2, w: 8 }, { y: 11, x: 4, w: 4 },
+  ]
+  const CANDY = [
+    { y: 1, x: 4, w: 4 }, { y: 2, x: 2, w: 8 }, { y: 3, x: 1, w: 10 },
+    { y: 4, x: 1, w: 10 }, { y: 5, x: 1, w: 10 }, { y: 6, x: 1, w: 10 },
+    { y: 7, x: 1, w: 10 }, { y: 8, x: 2, w: 8 }, { y: 9, x: 2, w: 8 },
+    { y: 10, x: 4, w: 4 },
+  ]
+  // Diagonal of 2×2 blocks — a spiral collapses into a smudge at this size, one
+  // clean stripe says "sweet". Same call as IconLolipop.
+  const STRIPE = [{ x: 7, y: 2 }, { x: 6, y: 3 }, { x: 5, y: 4 }, { x: 4, y: 5 }, { x: 3, y: 6 }]
+  // Stair-stepped stick, so it lies at a shallow angle instead of dead flat.
+  const STICK = [{ x: 8, y: 8 }, { x: 6, y: 9 }, { x: 4, y: 10 }, { x: 2, y: 11 }, { x: 0, y: 12 }]
+  // The disc sits in the right half of the box; the stick runs out to the left.
+  const DX = 8
+  return (
+    <div className="absolute pointer-events-none" style={{
+      left, bottom, transform: 'translateX(-50%)', zIndex: 18,
+    }}>
+      <div style={{
+        width, height,
+        animation: 'erenPropPop 220ms ease-out both',
+        transformOrigin: 'center bottom',
+      }}>
+        <svg width={width} height={height} viewBox="0 0 20 14" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
+          {/* stick first, so the disc covers where it tucks underneath */}
+          {/* A paper-white stick with a dark underline. Wood-tan was invisible:
+              it sits a couple of shades off the vet room's terracotta floor. */}
+          {STICK.map((s, i) => (
+            <g key={`k${i}`}>
+              <rect x={s.x} y={s.y} width="3" height="1" fill="#FFF4F8" />
+              <rect x={s.x} y={s.y + 1} width="3" height="1" fill="#7A2440" />
+            </g>
+          ))}
+          {RIM.map((r, i) => <rect key={`r${i}`} x={r.x + DX} y={r.y} width={r.w} height="1" fill="#7A2440" />)}
+          {CANDY.map((c, i) => <rect key={`c${i}`} x={c.x + DX} y={c.y} width={c.w} height="1" fill="#FF5C8A" />)}
+          {STRIPE.map((s, i) => <rect key={`s${i}`} x={s.x + DX} y={s.y} width="2" height="2" fill="#FFF4F8" />)}
+        </svg>
+      </div>
+    </div>
+  )
+}
+
 // ── Food bowl — a chunky pixel bowl that pops in at the feet, holding a band
 // of the fed food's color. Stays put while Eren eats; the scene unmounts it.
 export function FoodBowl({ color, bottom = '0%', left = '50%', width = 48 }: { color: string; bottom?: string; left?: string; width?: number }) {

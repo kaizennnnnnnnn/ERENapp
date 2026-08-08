@@ -26,11 +26,10 @@ import { happyFinisherBeats, WORD_COLOR } from '@/lib/erenReactions'
 import SoundWord from '@/components/SoundWord'
 import { FoodBowl, Crumbs, Hearts } from '@/components/care/ReactionFx'
 import KitchenNavButton from '@/components/kitchen/KitchenNavButton'
-import PoseSprite from '@/components/care/PoseSprite'
+import ChewingEren, { EAT_NOSE_X, pickEatPose, preloadEatPoses } from '@/components/care/ChewingEren'
 import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import { monstaBuff } from '@/lib/monstaBuffs'
 import PixelPoof from '@/components/PixelPoof'
-import { preloadImages } from '@/lib/preloadImages'
 import { IconClose, IconChevronLeft, IconChevronRight } from '@/components/PixelIcons'
 
 interface Props { onClose: () => void }
@@ -158,12 +157,9 @@ const FRIDGE_CATEGORIES = [
 ]
 
 
-// Where Eren's nose/mouth sits in each head-down eating pose, as a % of the
-// trimmed sprite's WIDTH. The crouch poses include his tail trailing right, so
-// his face is LEFT of the sprite centre — the bowl/crumbs/words anchor here,
-// not at the container centre, or they'd land under his body.
-// (measured by scripts/measure_eat_nose.py)
-const EAT_NOSE_X = [32.7, 31.3, 30.6, 40.1]
+// The head-down eating pose (sticker set, chew bob, and the EAT_NOSE_X muzzle
+// measurements the bowl/crumbs/words anchor to) lives in ChewingEren — the vet
+// shares it for the lolipop.
 
 // Kitchen idle look (ErenCook) — default when no Closet skin is set. Stable
 // module ref so useRoomEren's memo holds across the 60fps-free re-renders.
@@ -318,9 +314,7 @@ export default function FeedScene({ onClose }: Props) {
   const [showPoof, setShowPoof] = useState(false)
 
   // Warm the four eating stickers so the poof reveals a decoded bitmap.
-  useEffect(() => {
-    preloadImages(['/erenEat1.png?v=2', '/erenEat2.png?v=2', '/erenEat3.png?v=2', '/erenEat4.png?v=2'])
-  }, [])
+  useEffect(() => { preloadEatPoses() }, [])
 
   // Memoize the bare sprite so stat changes from feeding don't re-render it.
   // Cleanliness is in the deps so the flies update — feeding never changes
@@ -358,12 +352,9 @@ export default function FeedScene({ onClose }: Props) {
     <div className="absolute z-20 bottom-[10%]"
       style={{ left: '50%', transform: 'translateX(-50%)' }}>
       {eating ? (
-        // Head-down eating pose (random pick, eyes painted in). A gentle chew
-        // bob over the sticker carries the munching; the standing<->crouch swap
-        // is hidden by the poof at each end of the meal.
-        <div style={{ animation: 'erenChew 440ms ease-in-out infinite' }}>
-          <PoseSprite src={`/erenEat${eatIdx + 1}.png?v=2`} width={140} breathe={false} />
-        </div>
+        // Head-down eating pose (random pick, eyes painted in). The standing
+        // <-> crouch swap is hidden by the poof at each end of the meal.
+        <ChewingEren idx={eatIdx} />
       ) : (
         <PetTarget reaction={reaction}>
           <ErenIdleLayer disabled={reaction.active}>
@@ -454,7 +445,7 @@ export default function FeedScene({ onClose }: Props) {
     playSound(drinking ? 'care_drink' : 'care_eat')
     setFedItem(item)
     // Random head-down pose for this meal.
-    setEatIdx(Math.floor(Math.random() * 4))
+    setEatIdx(pickEatPose())
     reaction.play([
       { name: 'bowl', ms: 150 },
       { name: 'eat',  ms: 1300 },
