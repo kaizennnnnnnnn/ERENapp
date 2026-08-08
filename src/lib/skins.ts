@@ -139,6 +139,9 @@ export const SKINNABLE_ROOMS: RoomDef[] = [
   { id: 'wash',      label: 'Bathroom',    defaultThumb: '/ErenBathroomHat.png' },
   { id: 'chemistry', label: 'Lab',         defaultThumb: '/ErenLab.png' },
   { id: 'vet',       label: 'Vet',         defaultThumb: '/ErenVet.png' },
+  // The attic has no themed pose of its own — he sits as himself there, same
+  // as the living room, so it shows the plain look as its default.
+  { id: 'talk',      label: 'Attic',       defaultThumb: '/erenGood.png' },
 ]
 
 // Per-room fit: the BlinkingEren `size` each room renders its default sprite
@@ -160,6 +163,11 @@ export const ROOM_FIT: Record<string, RoomFit> = {
   wash:      { size: 200, catFracH: 0.776, botGap: 0.101 },
   chemistry: { size: 230, catFracH: 0.640, botGap: 0.165 },
   vet:       { size: 200, catFracH: 0.750, botGap: 0.136 },
+  // The attic paints the SAME sprite as home (erenGood_notail), so its cat
+  // framing is home's measurement verbatim; only the room's BlinkingEren size
+  // differs (210 there, 200 here). Not a guess — copying the numbers is
+  // correct precisely because it's the same art.
+  talk:      { size: 210, catFracH: 0.761, botGap: 0.101 },
 }
 
 // Compute the BlinkingEren box size + vertical lift (px) to render `skin` in
