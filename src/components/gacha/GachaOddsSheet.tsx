@@ -8,39 +8,61 @@
 // table here would be a lie on both skin banners, which have no common items —
 // their whole 60% common slice lands on rare instead.
 //
-// Pity is deliberately worded "across all machines": user_gacha_state holds one
-// pair of counters per USER, not per banner, so pulls on Snacks & Drinks push
-// the FoodSuits counter too.
+// Shape: one stacked proportion bar carries the whole story at a glance, then
+// four rarity plates carry the numbers. The rules are chips, not paragraphs —
+// this is a thing you glance at before spending 50 coins, not something you
+// read. One footnote survives as prose because it's a real gotcha: pity lives
+// on the USER, not the banner, so pulls on one machine push all three.
+//
+// No per-rarity gauges: odds run 3%–85%, and 3% on a 12-segment SegmentMeter
+// rounds to zero lit segments — an empty bar on the tier people came for.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { playSound } from '@/lib/sounds'
+import type { GachaRarity } from '@/types'
 import {
-  bannerOdds, RARITY_COLORS, DUPLICATE_STARDUST,
-  PITY_EPIC, PITY_LEGENDARY, PULL_COST_SINGLE, PULL_COST_TEN,
+  bannerOdds, DUPLICATE_STARDUST, PITY_EPIC, PITY_LEGENDARY,
 } from '@/lib/gacha'
 import { Rivets } from '@/components/obsidian'
 
 const GOLD = '#F5C842'
-const INK_SOFT = 'rgba(233,222,255,0.62)'
+const FRAME = '#0A0612'
 
-function Corner({ v, h }: { v: 't' | 'b'; h: 'l' | 'r' }) {
+/** Lit-segment gradients, in the SegmentMeter idiom: hi → base → lo. */
+const TIER: Record<GachaRarity, { hi: string; base: string; lo: string; glow: string }> = {
+  // Muted on purpose: at 60% of the bar a bright grey drowns the jewel
+  // tiers next to it, and common is the one nobody opened this for.
+  common:    { hi: '#C9CED6', base: '#8E95A0', lo: '#5B626D', glow: 'rgba(170,178,190,0.4)' },
+  rare:      { hi: '#DBEAFE', base: '#7FB0F7', lo: '#2F6FD0', glow: 'rgba(96,165,250,0.55)' },
+  epic:      { hi: '#F3E8FF', base: '#BFA0FB', lo: '#7C3AED', glow: 'rgba(167,139,250,0.6)' },
+  legendary: { hi: '#FFF6D2', base: '#F5C842', lo: '#B4700C', glow: 'rgba(245,200,66,0.7)' },
+}
+
+/** Rarity gem — a rotated pixel square, the panel's per-tier bullet. */
+function Gem({ rarity }: { rarity: GachaRarity }) {
+  const t = TIER[rarity]
   return (
-    <span aria-hidden className="absolute" style={{
-      width: 4, height: 4, background: GOLD, boxShadow: `0 0 3px ${GOLD}`,
-      top: v === 't' ? 7 : undefined, bottom: v === 'b' ? 7 : undefined,
-      left: h === 'l' ? 7 : undefined, right: h === 'r' ? 7 : undefined,
+    <span aria-hidden style={{
+      width: 11, height: 11, flexShrink: 0,
+      transform: 'rotate(45deg)',
+      background: `linear-gradient(135deg, ${t.hi} 0%, ${t.base} 55%, ${t.lo} 100%)`,
+      border: `1.5px solid ${FRAME}`,
+      boxShadow: `0 0 7px ${t.glow}`,
     }} />
   )
 }
 
-/** One line of small print under the table. */
-function Note({ label, children }: { label: string; children: React.ReactNode }) {
+/** Terse rule chip — replaces what used to be a paragraph each. */
+function Chip({ k, v }: { k: string; v: string }) {
   return (
-    <div className="flex items-start" style={{ gap: 7 }}>
-      <span className="font-pixel flex-shrink-0" style={{ fontSize: 5.5, color: GOLD, letterSpacing: 1, paddingTop: 1 }}>
-        {label}
-      </span>
-      <span style={{ fontSize: 10, lineHeight: 1.5, color: INK_SOFT }}>{children}</span>
+    <div className="flex items-center justify-between" style={{
+      gap: 6, padding: '6px 7px', borderRadius: 4,
+      background: 'linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.25))',
+      border: '1.5px solid rgba(245,200,66,0.28)',
+      boxShadow: '2px 2px 0 rgba(0,0,0,0.45)',
+    }}>
+      <span className="font-pixel" style={{ fontSize: 5.5, letterSpacing: 0.8, color: 'rgba(233,222,255,0.55)' }}>{k}</span>
+      <span className="font-pixel" style={{ fontSize: 6.5, letterSpacing: 0.5, color: GOLD }}>{v}</span>
     </div>
   )
 }
@@ -53,9 +75,6 @@ export default function GachaOddsSheet({
   onClose: () => void
 }) {
   const odds = bannerOdds(bannerId)
-  // Widest row drives the bar scale, so the smallest tier still reads as a bar
-  // rather than a 2px stub next to a 60% monster.
-  const widest = Math.max(...odds.map(o => o.chance), 1)
 
   return (
     <div
@@ -66,110 +85,146 @@ export default function GachaOddsSheet({
       <div
         className="relative w-full"
         style={{
-          maxWidth: 300,
+          maxWidth: 296,
           background: 'radial-gradient(120% 90% at 50% 0%, #2A1B4A 0%, #160E2E 60%, #0B0717 100%)',
           border: `2px solid ${GOLD}`,
-          borderRadius: 14,
-          boxShadow: '0 0 22px rgba(245,200,66,0.35), 0 10px 30px rgba(0,0,0,0.6)',
-          padding: '16px 15px 14px',
+          borderRadius: 12,
+          boxShadow: '0 0 22px rgba(245,200,66,0.32), 0 10px 30px rgba(0,0,0,0.6)',
+          padding: '15px 14px 13px',
         }}
         onClick={e => e.stopPropagation()}
       >
-        <Corner v="t" h="l" /><Corner v="t" h="r" />
-        <Corner v="b" h="l" /><Corner v="b" h="r" />
-
-        {/* CRT scanlines — the app's "game panel" tell. */}
+        {[['t', 'l'], ['t', 'r'], ['b', 'l'], ['b', 'r']].map(([v, h], i) => (
+          <span key={i} aria-hidden className="absolute" style={{
+            width: 4, height: 4, background: GOLD, boxShadow: `0 0 3px ${GOLD}`,
+            top: v === 't' ? 6 : undefined, bottom: v === 'b' ? 6 : undefined,
+            left: h === 'l' ? 6 : undefined, right: h === 'r' ? 6 : undefined,
+          }} />
+        ))}
         <span aria-hidden className="absolute inset-0 pointer-events-none" style={{
-          borderRadius: 12,
+          borderRadius: 10,
           background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.16) 3px, rgba(0,0,0,0.16) 4px)',
         }} />
 
-        <div className="relative text-center" style={{ marginBottom: 3 }}>
+        {/* ── Title ── */}
+        <div className="relative text-center">
           <h2 className="font-pixel" style={{
-            fontSize: 10, letterSpacing: 2, color: GOLD,
-            textShadow: '2px 2px 0 rgba(0,0,0,0.8)',
+            fontSize: 11, letterSpacing: 2, color: GOLD,
+            textShadow: `2px 2px 0 ${FRAME}, 0 0 12px rgba(245,200,66,0.5)`,
           }}>
             DROP RATES
           </h2>
+          <p className="font-pixel" style={{
+            fontSize: 5.5, letterSpacing: 1.4, color: 'rgba(233,222,255,0.5)', marginTop: 5,
+          }}>
+            {bannerName.toUpperCase()}
+          </p>
         </div>
-        <p className="relative text-center font-pixel" style={{
-          fontSize: 6, letterSpacing: 1, color: INK_SOFT, marginBottom: 12,
-        }}>
-          {bannerName.toUpperCase()}
-        </p>
 
-        {/* ── The table ── */}
-        <div className="relative flex flex-col" style={{ gap: 7, marginBottom: 13 }}>
-          {odds.map(o => {
-            const c = RARITY_COLORS[o.rarity]
+        {/* ── The whole 100%, one bar. Recessed channel in the SegmentMeter
+               idiom so it reads as a machine part, not a web progress bar. ── */}
+        <div className="relative flex" style={{
+          marginTop: 11, marginBottom: 14,
+          height: 20, borderRadius: 4, overflow: 'hidden',
+          border: `2px solid ${FRAME}`,
+          background: '#0A0714',
+          boxShadow: `0 2px 0 ${FRAME}, inset 0 2px 4px rgba(0,0,0,0.7)`,
+        }}>
+          {[...odds].reverse().map(o => {
+            const t = TIER[o.rarity]
             return (
-              <div key={o.rarity}>
-                <div className="flex items-baseline justify-between" style={{ marginBottom: 3 }}>
-                  <span className="font-pixel" style={{
-                    fontSize: 7, letterSpacing: 1.2, color: c.border,
-                    textShadow: `0 0 8px ${c.glow}`,
-                  }}>
-                    {o.rarity.toUpperCase()}
-                  </span>
-                  <span className="font-pixel" style={{ fontSize: 8, color: '#FFFFFF' }}>
-                    {o.chance.toFixed(o.chance < 10 ? 1 : 0)}%
-                  </span>
-                </div>
-                <div style={{
-                  height: 9, borderRadius: 3, overflow: 'hidden',
-                  background: 'rgba(0,0,0,0.45)',
-                  border: '1px solid rgba(255,255,255,0.07)',
+              <div key={o.rarity} className={o.rarity === 'legendary' ? 'odds-legend-seg' : undefined}
+                style={{
+                  width: `${o.chance}%`,
+                  background: `linear-gradient(180deg, ${t.hi} 0%, ${t.base} 52%, ${t.lo} 100%)`,
+                  borderRight: `1px solid ${FRAME}`,
+                  boxShadow: `inset 0 1px 0 rgba(255,255,255,0.35)`,
+                }} />
+            )
+          })}
+        </div>
+
+        {/* ── Rarity plates ── */}
+        <div className="relative flex flex-col" style={{ gap: 5 }}>
+          {odds.map(o => {
+            const t = TIER[o.rarity]
+            return (
+              <div key={o.rarity} className="flex items-center" style={{
+                gap: 9, padding: '7px 9px', borderRadius: 5,
+                background: `linear-gradient(90deg, ${t.glow.replace(/[\d.]+\)$/, '0.14)')} 0%, rgba(0,0,0,0.22) 70%)`,
+                border: `1.5px solid ${t.lo}`,
+                boxShadow: `2px 2px 0 rgba(0,0,0,0.5)`,
+              }}>
+                <Gem rarity={o.rarity} />
+                <span className="font-pixel flex-1" style={{
+                  fontSize: 7.5, letterSpacing: 1.2, color: t.hi,
+                  textShadow: `0 0 8px ${t.glow}`,
                 }}>
-                  <div style={{
-                    width: `${(o.chance / widest) * 100}%`, height: '100%',
-                    background: `linear-gradient(90deg, ${c.border}, ${c.bg})`,
-                    boxShadow: `0 0 8px ${c.glow}`,
-                  }} />
-                </div>
-                <p style={{ fontSize: 9, color: INK_SOFT, marginTop: 3 }}>
-                  {o.items} {o.items === 1 ? 'item' : 'items'} · {(o.chance / o.items).toFixed(2)}% each
-                </p>
+                  {o.rarity.toUpperCase()}
+                </span>
+                <span className="font-pixel" style={{
+                  fontSize: 5.5, letterSpacing: 0.5, color: 'rgba(233,222,255,0.42)',
+                }}>
+                  ×{o.items}
+                </span>
+                <span className="font-pixel" style={{
+                  fontSize: 10, color: '#FFFFFF', minWidth: 42, textAlign: 'right',
+                  textShadow: `0 0 10px ${t.glow}`,
+                }}>
+                  {o.chance.toFixed(o.chance < 10 ? 1 : 0)}%
+                </span>
               </div>
             )
           })}
         </div>
 
-        <div aria-hidden style={{
-          height: 2, marginBottom: 11,
-          background: `linear-gradient(90deg, transparent, ${GOLD}55, transparent)`,
-        }} />
-
-        <div className="relative flex flex-col" style={{ gap: 8 }}>
-          <Note label="PITY">
-            An Epic or better lands within {PITY_EPIC} pulls, a Legendary within {PITY_LEGENDARY}.
-            The counters are yours, not the machine&apos;s — pulls on every banner
-            push them along.
-          </Note>
-          <Note label="x10">
-            The 10th pull of a ten is always Rare or better.
-          </Note>
-          <Note label="DUPES">
-            Pulling one you own pays stardust instead: {DUPLICATE_STARDUST.common} / {DUPLICATE_STARDUST.rare} / {DUPLICATE_STARDUST.epic} / {DUPLICATE_STARDUST.legendary}.
-          </Note>
-          <Note label="COST">
-            {PULL_COST_SINGLE} coins a pull, {PULL_COST_TEN} for ten — one free.
-          </Note>
+        {/* ── Rules, as chips ── */}
+        <div className="relative grid grid-cols-2" style={{ gap: 5, marginTop: 11 }}>
+          <Chip k="EPIC BY" v={`${PITY_EPIC}`} />
+          <Chip k="LEGEND BY" v={`${PITY_LEGENDARY}`} />
+          <Chip k="10TH PULL" v="RARE+" />
+          <Chip k="DUPE" v={`${DUPLICATE_STARDUST.rare}-${DUPLICATE_STARDUST.legendary} DUST`} />
         </div>
+
+        <p className="relative text-center font-pixel" style={{
+          fontSize: 5, letterSpacing: 0.8, color: 'rgba(233,222,255,0.34)',
+          marginTop: 8, lineHeight: 1.6,
+        }}>
+          PITY COUNTS EVERY MACHINE
+        </p>
 
         <button
           onClick={() => { playSound('ui_modal_close'); onClose() }}
           className="relative w-full font-pixel active:translate-y-[2px] transition-transform"
           style={{
-            marginTop: 14, height: 34, borderRadius: 5,
-            border: '2px solid #050507',
+            marginTop: 11, height: 32, borderRadius: 5,
+            border: `2px solid ${FRAME}`,
             background: 'linear-gradient(180deg, #FFE08A 0%, #F5B73B 45%, #C77E16 100%)',
-            boxShadow: '3px 3px 0 #050507, inset 0 1px 0 rgba(255,255,255,0.35)',
+            boxShadow: `3px 3px 0 ${FRAME}, inset 0 1px 0 rgba(255,255,255,0.35)`,
             fontSize: 8, letterSpacing: 1.5, color: '#3A2606',
           }}
         >
           <Rivets inset={3} size={2} />
           GOT IT
         </button>
+
+        <style jsx>{`
+          /* A slow gleam over the legendary sliver — on a 3% segment it's the
+             only thing that stops the tier you came for reading as a rounding
+             error. One element, one gradient; nothing per-particle. */
+          .odds-legend-seg {
+            position: relative;
+            background-size: 100% 100%, 220% 100%;
+            animation: oddsGleam 3.2s ease-in-out infinite;
+          }
+          @keyframes oddsGleam {
+            0%, 100% { filter: brightness(1); }
+            50%      { filter: brightness(1.45); }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .odds-legend-seg { animation: none; }
+          }
+        `}</style>
       </div>
     </div>
   )
