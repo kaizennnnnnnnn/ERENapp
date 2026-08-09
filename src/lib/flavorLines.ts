@@ -72,7 +72,9 @@ export const FLAVOR_LINES: FlavorLine[] = [
   { id: 'gap-missed',    text: "i missed you. don't tell anyone.",         trigger: 'gap_24h' },
 
   // ── needs_leader: occasional, leader ≠ viewer ─────────────────────────────
-  { id: 'lead-fave',     text: "{leader} is my favourite. don't tell.",    trigger: 'needs_leader' },
+  // Keeps the slot but says nothing: he doesn't pick a favourite between the
+  // two of you. A plain meow in the leader pool is deliberate, not a stray.
+  { id: 'lead-mreow',    text: 'mreeeoww',                                 trigger: 'needs_leader' },
   { id: 'lead-kisses',   text: '{leader} forgot the kisses again.',        trigger: 'needs_leader' },
 
   // ── duplicate_feed: fed the same food key twice in a row ──────────────────
