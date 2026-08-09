@@ -23,7 +23,7 @@
 // State is in-memory only — wire it to localStorage if you want it to persist.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { playSynth, playBuffer, startLoopBuffer, getAudioContext } from './soundSynth'
+import { playSynth, playBuffer, startLoopBuffer, getAudioContext, unlockAudio } from './soundSynth'
 import { SYNTH_RECIPES } from './soundRecipes'
 
 export const SOUNDS = {
@@ -624,6 +624,11 @@ export function playSound(name: SoundName, opts: { volume?: number } = {}) {
   // it resolves; every later play of that sound is instant from the buffer.
   const ctx = getAudioContext()
   if (ctx) {
+    // Unlock HERE, still inside the tap that led to this call. playBuffer
+    // resumes too, but on the first play of a sound it only runs once the
+    // fetch + decode below has resolved — a whole network round-trip after the
+    // gesture ended, which the browser refuses and the sound is dropped.
+    unlockAudio()
     const buf = bufferCache.get(name)
     if (buf) { playBuffer(buf, finalVolume); return }
     void loadBuffer(name).then(b => { if (b) playBuffer(b, finalVolume) })
@@ -654,6 +659,7 @@ export function playLoop(name: SoundName, opts: { volume?: number } = {}): () =>
   if (muted || typeof window === 'undefined') return () => {}
   const ctx = getAudioContext()
   if (!ctx) return () => {}
+  unlockAudio()   // same reason as playSound: the loop starts after a decode
 
   const scale = VOLUME_SCALE[name] ?? 1
   const finalVolume = Math.max(0, Math.min(1, (opts.volume ?? globalVolume) * scale))

@@ -292,7 +292,7 @@ export default function VetScene({ onClose }: Props) {
               trailing left) on the nose; the offsets below the contact line
               sink it just far enough to read as in front of him. */}
           {licking && <>
-            <Lolipop left={`${(EAT_NOSE_X[eatIdx] / 100) * EAT_WIDTH - 6}px`} bottom={`${EAT_LIFT - 10}px`} />
+            <Lolipop left={`${(EAT_NOSE_X[eatIdx] / 100) * EAT_WIDTH - 6}px`} bottom={`${EAT_LIFT - 15}px`} />
             <Crumbs color={WORD_COLOR.candy} left={`${EAT_NOSE_X[eatIdx]}%`} bottom={`${EAT_LIFT + 6}px`} />
             <SoundWord word="LICK LICK" color={WORD_COLOR.candy} left={EAT_NOSE_X[eatIdx] + 14} top={12} size={6} />
             <SoundWord word="LICK LICK" color={WORD_COLOR.candy} left={EAT_NOSE_X[eatIdx] + 12} top={6} size={6} delayMs={1400} />

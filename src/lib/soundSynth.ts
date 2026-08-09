@@ -44,6 +44,15 @@ let _ctx: AudioContext | null = null
 function getCtx(): AudioContext | null {
   if (typeof window === 'undefined') return null
   if (_ctx) return _ctx
+  // Don't build the graph before the browser will let it run. A context
+  // constructed with no user activation behind it is born `suspended`, Chrome
+  // logs "The AudioContext was not allowed to start", and the sound that
+  // triggered it is inaudible anyway — so we'd be paying a console warning and
+  // a permanently-locked singleton for nothing. Waiting means the first context
+  // we ever make is already running. `userActivation` is Chromium-only; where
+  // it's missing (Safari) fall through and build as before.
+  const ua = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation
+  if (ua && !ua.hasBeenActive) return null
   try {
     const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
     if (!AC) return null
@@ -51,6 +60,17 @@ function getCtx(): AudioContext | null {
     return _ctx
   } catch {
     return null
+  }
+}
+
+/** Nudge a gesture-locked context back to `running`. No-op when it's already
+ *  running or Web Audio isn't available. Call this from the SYNCHRONOUS part of
+ *  a play path — the resumes further down fire after an await, by which point
+ *  the gesture that earned them is long over. */
+export function unlockAudio(): void {
+  const ctx = getCtx()
+  if (ctx && ctx.state === 'suspended') {
+    void ctx.resume().catch(() => { /* still locked — the sound is lost, not the app */ })
   }
 }
 
