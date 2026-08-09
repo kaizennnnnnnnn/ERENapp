@@ -345,7 +345,11 @@ export default function HomePage() {
   useEffect(() => {
     if (!user?.id) return
     const todayStr = format(new Date(), 'yyyy-MM-dd')
-    const cached = localStorage.getItem(`pocket_eren_mood_${user.id}_${todayStr}`)
+    // `pocket_eren_mood_*` is the old key name. Read it as a fallback so a mood
+    // logged before the rename doesn't re-prompt the gate today; it ages out on
+    // its own (the key is date-stamped) and this line can go after a day.
+    const cached = localStorage.getItem(`eren_mood_${user.id}_${todayStr}`)
+      ?? localStorage.getItem(`pocket_eren_mood_${user.id}_${todayStr}`)
     if (cached) { setTodayMood(cached as UserMood); setMoodChecked(true) }
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -471,7 +475,7 @@ export default function HomePage() {
         householdId={profile?.household_id ?? null}
         onDone={mood => {
           const todayStr = format(new Date(), 'yyyy-MM-dd')
-          localStorage.setItem(`pocket_eren_mood_${user!.id}_${todayStr}`, mood)
+          localStorage.setItem(`eren_mood_${user!.id}_${todayStr}`, mood)
           setTodayMood(mood)
           showToast(`${MOOD_CONFIGS[mood].emoji} Mood saved!`)
         }}

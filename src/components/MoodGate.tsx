@@ -113,7 +113,7 @@ export default function MoodGate({ userId, userName, householdId, onDone }: Prop
     ])
 
     // Cache locally so navigating back never re-shows the gate
-    localStorage.setItem(`pocket_eren_mood_${userId}_${today}`, mood)
+    localStorage.setItem(`eren_mood_${userId}_${today}`, mood)
     completeTask('daily_mood')
     // Memory Wall: signal first:mood. Plain Event — the watcher only needs
     // the trigger, not the payload (MoodGate already owns the value).

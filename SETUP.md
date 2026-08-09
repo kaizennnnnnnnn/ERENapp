@@ -14,7 +14,7 @@ npm install
 ### 2a. Create a project
 
 1. Go to [supabase.com](https://supabase.com) → **New project**
-2. Pick a name (e.g. `pocket-eren`), set a strong DB password, choose your region
+2. Pick a name (e.g. `eren`), set a strong DB password, choose your region
 3. Wait ~2 minutes for the project to spin up
 
 ### 2b. Run the SQL schema
