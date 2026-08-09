@@ -1,4 +1,4 @@
-# Pocket Eren — Complete Setup Guide
+# Eren — Complete Setup Guide
 
 ## 1. Install dependencies
 
@@ -124,7 +124,7 @@ Open [http://localhost:3000](http://localhost:3000)
 ```bash
 git init
 git add .
-git commit -m "Initial commit: Pocket Eren"
+git commit -m "Initial commit: Eren"
 git remote add origin https://github.com/kaizennnnnnnnn/ERENapp.git
 git push -u origin main![alt text](image.png)
 ```

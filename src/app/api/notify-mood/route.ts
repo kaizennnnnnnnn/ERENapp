@@ -65,7 +65,7 @@ export async function POST(request: Request) {
   }
 
   const name = (sender_name?.trim() || 'Your partner').slice(0, 32)
-  const title = '💜 Pocket Eren'
+  const title = '💜 Eren'
   const snippet = `${name} is having a tough day — maybe send Eren?`
 
   const expired: string[] = []

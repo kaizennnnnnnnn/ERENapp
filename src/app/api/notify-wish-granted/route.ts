@@ -80,7 +80,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, sent: 0, reason: 'no-subs' })
   }
 
-  const title = `${granterHeart} Pocket Eren`
+  const title = `${granterHeart} Eren`
   const bodyText = `${granterName} just listened to Eren's wish today.`
   let sent = 0
   const expired: string[] = []

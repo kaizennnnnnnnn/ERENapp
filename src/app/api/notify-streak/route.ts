@@ -149,7 +149,7 @@ export async function GET(req: Request) {
 
       usersAtRisk++
       pushesSent += await pushAll(
-        supabase, subs, '🔥 Pocket Eren',
+        supabase, subs, '🔥 Eren',
         `day ${s.current} slips at midnight — one little quest saves it.`,
         'streak-sos', '/home',
       )
@@ -204,7 +204,7 @@ export async function POST(req: Request) {
 
   const name = String(body.sender_name ?? '').trim().slice(0, 32) || 'your partner'
   const sent = await pushAll(
-    supabase, subs, '🔥 Pocket Eren',
+    supabase, subs, '🔥 Eren',
     `${name} just hit a ${milestone}-day streak! send them something nice.`,
     tag, '/couple',
   )

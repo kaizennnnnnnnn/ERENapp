@@ -10,7 +10,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Pocket Eren brand palette
+        // Eren brand palette
         pink: {
           brand: '#FF6B9D',
           light: '#FFD6E7',

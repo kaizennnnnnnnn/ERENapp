@@ -112,16 +112,16 @@ export async function GET() {
 
     // Eren's birthday — both partners, day-of only.
     if (anchorHits(hh.eren_birthday, today.y, today.mmdd)) {
-      events.push({ recipients: members, tag: 'anniv-eren', title: '🎂 Pocket Eren',
+      events.push({ recipients: members, tag: 'anniv-eren', title: '🎂 Eren',
         body: `Today is Eren's birthday! Spoil him a little.` })
     }
     // Couple anniversary — eve heads-up, then day-of. Both partners.
     if (anchorHits(hh.couple_anniversary, tom.y, tom.mmdd)) {
-      events.push({ recipients: members, tag: 'anniv-couple-eve', title: '💛 Pocket Eren',
+      events.push({ recipients: members, tag: 'anniv-couple-eve', title: '💛 Eren',
         body: `Your anniversary is tomorrow — plan a little surprise.` })
     }
     if (anchorHits(hh.couple_anniversary, today.y, today.mmdd)) {
-      events.push({ recipients: members, tag: 'anniv-couple', title: '💛 Pocket Eren',
+      events.push({ recipients: members, tag: 'anniv-couple', title: '💛 Eren',
         body: `Happy anniversary! Eren's parents have been together another year.` })
     }
     // Each partner's own birthday — notify the OTHER partner, eve + day-of.
@@ -131,11 +131,11 @@ export async function GET() {
       const heart = heartForEmail(m.email)
       const who = m.name?.trim() || 'your partner'
       if (anchorHits(m.birthday, tom.y, tom.mmdd)) {
-        events.push({ recipients: others, tag: `bday-eve-${m.id}`, title: `${heart} Pocket Eren`,
+        events.push({ recipients: others, tag: `bday-eve-${m.id}`, title: `${heart} Eren`,
           body: `${who}'s birthday is tomorrow — get ready!` })
       }
       if (anchorHits(m.birthday, today.y, today.mmdd)) {
-        events.push({ recipients: others, tag: `bday-${m.id}`, title: `${heart} Pocket Eren`,
+        events.push({ recipients: others, tag: `bday-${m.id}`, title: `${heart} Eren`,
           body: `Today is ${who}'s birthday! ${heart}` })
       }
     }

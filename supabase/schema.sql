@@ -1,5 +1,5 @@
 -- ============================================================
--- Pocket Eren — Complete Supabase Schema
+-- Eren — Complete Supabase Schema
 -- Run this in: Supabase Dashboard → SQL Editor → New query
 -- ============================================================
 

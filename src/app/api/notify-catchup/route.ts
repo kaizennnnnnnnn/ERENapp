@@ -73,7 +73,7 @@ export async function POST(req: Request) {
 
   const heart = heartForEmail(runner.email)
   const who = (runner.name?.trim() || 'Your partner').slice(0, 32)
-  const title = `${heart} Pocket Eren`
+  const title = `${heart} Eren`
   const text = `${who} started filling Eren's memory wall — come see your memories.`
 
   let sent = 0

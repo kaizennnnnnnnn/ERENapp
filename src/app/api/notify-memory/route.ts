@@ -68,7 +68,7 @@ export async function GET() {
     const epic = rows.some(r => r.rarity === 'epic')
     const count = rows.length
     const noun = count === 1 ? 'memory' : 'memories'
-    const title = epic ? '✨ Pocket Eren' : '🩷 Pocket Eren'
+    const title = epic ? '✨ Eren' : '🩷 Eren'
     const body = epic
       ? `${count} new ${noun} on your wall — including a rare one.`
       : `${count} new ${noun} on your wall.`

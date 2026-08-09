@@ -93,14 +93,14 @@ export async function GET() {
       let title: string
       let body: string
       if (tie) {
-        title = '💞 Pocket Eren'
+        title = '💞 Eren'
         body = `It's a tie — you're both Eren's favourites this week. 🤎🩷`
       } else if (m.id === champion.id) {
-        title = `${heartForEmail(m.email)} Pocket Eren`
+        title = `${heartForEmail(m.email)} Eren`
         body = `Eren says YOU were his favourite this week — ${maxN} moments together.`
       } else {
         const champName = champion.name?.trim() || 'your partner'
-        title = `${heartForEmail(champion.email)} Pocket Eren`
+        title = `${heartForEmail(champion.email)} Eren`
         body = `Eren's favourite this week was ${champName}. Your turn next week?`
       }
 

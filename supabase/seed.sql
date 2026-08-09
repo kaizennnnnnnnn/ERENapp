@@ -1,5 +1,5 @@
 -- ============================================================
--- Pocket Eren — Seed Data
+-- Eren — Seed Data
 -- Run AFTER schema.sql. Use real UUIDs from your auth.users.
 -- ============================================================
 
