@@ -147,6 +147,7 @@ export type FoodInventory = {
   monsta_rosa?: number
   monsta_peachy?: number
   monsta_rainbow?: number
+  monsta_gold?: number
 }
 
 export interface ErenStats {
@@ -187,7 +188,7 @@ export type FoodKey = 'kibble' | 'fish' | 'treat' | 'tuna' | 'steak' | 'cream' |
   // it lands somewhere you can actually feed it from.
   | 'monsta_original' | 'monsta_white' | 'monsta_mango' | 'monsta_loco'
   | 'monsta_pipeline' | 'monsta_punch' | 'monsta_rosa' | 'monsta_peachy'
-  | 'monsta_rainbow'
+  | 'monsta_rainbow' | 'monsta_gold'
 export interface GiftItem { key: FoodKey; qty: number }
 
 export interface Interaction {

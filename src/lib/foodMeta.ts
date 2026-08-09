@@ -65,6 +65,9 @@ export const FOOD_META: Record<FoodKey, { name: string; color: string }> = {
   // Violet, not the old green — Original Monsta now owns the can-green, and
   // the rainbow's colour is carried by its animated gradient anyway.
   monsta_rainbow:  { name: 'Rainbow Monsta',  color: '#B65CF0' },
+  // Sampled off the can art's dominant body tone, so the swatch and the
+  // sprite are the same gold rather than two guesses at one.
+  monsta_gold:     { name: 'Gold Monsta',     color: '#D89C24' },
 }
 
 // Display order for food pickers — staples first (the everyday cat food), then
@@ -80,7 +83,7 @@ export const FOOD_ORDER: FoodKey[] = [
   'tacos', 'wrap', 'paella', 'stew', 'meatballs', 'roast_chicken',
   'monsta_original', 'monsta_white', 'monsta_mango', 'monsta_loco',
   'monsta_pipeline', 'monsta_punch', 'monsta_rosa', 'monsta_peachy',
-  'monsta_rainbow',
+  'monsta_rainbow', 'monsta_gold',
 ]
 
 /**

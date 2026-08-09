@@ -23,7 +23,7 @@ const FOOD_IMAGE_IDS = new Set([
   // can ends up the same 124px height — they line up as a set.
   'monsta_original', 'monsta_white', 'monsta_mango', 'monsta_loco',
   'monsta_pipeline', 'monsta_punch', 'monsta_rosa', 'monsta_peachy',
-  'monsta_rainbow',
+  'monsta_rainbow', 'monsta_gold',
 ])
 
 export default function FoodIcon({ id, size = 32 }: { id: string; color?: string; size?: number }) {

@@ -12,6 +12,14 @@ import type { FoodKey } from '@/types'
 // Rainbow — the gacha jackpot — is EVERY perk at once, and it's DERIVED from
 // the table below rather than hand-copied. Add a tenth flavour and the rainbow
 // picks its perk up for free, with no chance of the two drifting apart.
+//
+// The two SPECIAL EDITION cans (Rainbow, Gold) sit OUTSIDE the flavour table on
+// purpose. They're siblings, not flavours: keeping Gold out of FLAVOURS stops it
+// silently inflating the rainbow through everyBuff(), and lets the pair pull in
+// different directions — Rainbow is breadth (a little of everything, cures,
+// slims), Gold is depth (the biggest single hit of joy in the family, and it
+// pays you back). Neither strictly dominates the other, so both stay worth
+// chasing.
 
 export interface MonstaBuff {
   /** Short line for the shop chip and the feeding toast. */
@@ -61,9 +69,20 @@ function everyBuff(): MonstaBuff {
   }
 }
 
+// The coin kickback MUST stay under MONSTA_PRICE (100). Every can is buyable in
+// the shop, so a can that pays back more than it costs is an infinite money
+// printer — and coins are what buy gacha pulls. +60 leaves it a net sink, in
+// the same shape as Original's +40.
+const MONSTA_GOLD_BUFF: MonstaBuff = {
+  label: '+60 COINS JOY+60',
+  coins: 60,
+  happiness: 60,
+}
+
 export const MONSTA_BUFFS: Partial<Record<FoodKey, MonstaBuff>> = {
   ...FLAVOURS,
   monsta_rainbow: everyBuff(),
+  monsta_gold: MONSTA_GOLD_BUFF,
 }
 
 /** The buff a food grants, or undefined if it's an ordinary dish. */

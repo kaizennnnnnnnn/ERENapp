@@ -1457,3 +1457,24 @@ export const IconChevronRight = memo(function IconChevronRight({ size = 20, tone
   ]
   return drawPixels(grid, { X: tone }, size)
 })
+
+// ── INFO — the "what are my chances" affordance on every gacha banner.
+// A filled disc with a knocked-out lowercase i, so it still reads as a single
+// solid shape at the 14px the gacha header renders it at.
+export const IconInfo = memo(function IconInfo({ size = 20, tone = '#F5C842', ink = '#2A1B0A' }: IconProps & { tone?: string; ink?: string }) {
+  const grid = [
+    '....XXXX....',
+    '..XXXXXXXX..',
+    '.XXXXXXXXXX.',
+    '.XXXXIIXXXX.',
+    'XXXXXIIXXXXX',
+    'XXXXXXXXXXXX',
+    'XXXXIIIXXXXX',
+    'XXXXXIIXXXXX',
+    '.XXXXIIXXXX.',
+    '.XXXIIIIXXX.',
+    '..XXXXXXXX..',
+    '....XXXX....',
+  ]
+  return drawPixels(grid, { X: tone, I: ink }, size)
+})

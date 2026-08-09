@@ -29,6 +29,8 @@ import KitchenNavButton from '@/components/kitchen/KitchenNavButton'
 import ChewingEren, { EAT_NOSE_X, pickEatPose, preloadEatPoses } from '@/components/care/ChewingEren'
 import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import { monstaBuff } from '@/lib/monstaBuffs'
+import CanAura, { type CanVariant } from './CanAura'
+import CanFeedBurst from './CanFeedBurst'
 import PixelPoof from '@/components/PixelPoof'
 import { IconClose, IconChevronLeft, IconChevronRight } from '@/components/PixelIcons'
 
@@ -74,7 +76,9 @@ const SHOP_ITEMS = [
   // Barely any hunger, near-zero weight: they're drinks, not meals. What you
   // actually buy is the ENERGY (every can fills the bar) plus that flavour's
   // own perk — see MONSTA_BUFFS in lib/monstaBuffs.ts. One flat MONSTA_PRICE
-  // for all nine, so you pick a can for what it does, never for what it costs.
+  // for all ten, so you pick a can for what it does, never for what it costs.
+  // That only holds while no can pays back more than it costs: every coin perk
+  // in MONSTA_BUFFS stays under MONSTA_PRICE, or the shop mints money.
   { id: 'monsta_original' as const, name: 'Original Monsta', price: MONSTA_PRICE, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'The green classic', color: '#A6E728', cat: 'special' },
   { id: 'monsta_white'    as const, name: 'White Monsta',    price: MONSTA_PRICE, hungerD: 5, happyD: 16, weightD: 0.01, desc: 'Zero sugar ultra',  color: '#2FBCB3', cat: 'special' },
   { id: 'monsta_mango'    as const, name: 'Mango Monsta',    price: MONSTA_PRICE, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'Mango loco kick',   color: '#F9A300', cat: 'special' },
@@ -84,6 +88,7 @@ const SHOP_ITEMS = [
   { id: 'monsta_rosa'     as const, name: 'Rosa Monsta',     price: MONSTA_PRICE, hungerD: 5, happyD: 19, weightD: 0.01, desc: 'Ultra rosa fizz',   color: '#D05C8D', cat: 'special' },
   { id: 'monsta_peachy'   as const, name: 'Peachy Monsta',   price: MONSTA_PRICE, hungerD: 5, happyD: 19, weightD: 0.01, desc: 'Peachy keen',       color: '#F9AB94', cat: 'special' },
   { id: 'monsta_rainbow'  as const, name: 'Rainbow Monsta',  price: MONSTA_PRICE, hungerD: 8, happyD: 40, weightD: 0.01, desc: 'Ultimate blast',    color: '#B65CF0', cat: 'special' },
+  { id: 'monsta_gold'     as const, name: 'Gold Monsta',     price: MONSTA_PRICE, hungerD: 8, happyD: 40, weightD: 0.01, desc: 'Special edition',   color: '#D89C24', cat: 'special' },
 
   // ─── World dishes ────────────────────────────────────────────────────────
   // Full plated meals (pixel-art art in /public/food), grouped by cuisine so
@@ -123,6 +128,14 @@ const SHOP_ITEMS = [
 // flavour lands here for free instead of needing a second edit.
 const LAPPED_FOODS = new Set(['milk', 'cream', 'yogurt'])
 const isDrink = (id: string) => LAPPED_FOODS.has(id) || id.startsWith('monsta_')
+
+// The two SPECIAL EDITION cans dress themselves — animated border, sparkle
+// aura, and a burst when they go down. Keyed rather than branched on an id
+// literal in four places, so a third special can is one line here.
+const SPECIAL_CAN: Record<string, CanVariant> = {
+  monsta_rainbow: 'rainbow',
+  monsta_gold:    'gold',
+}
 
 // Icon size for the food you carry to Eren — the tray tile and the drag ghost
 // share it so the plate never changes size when you pick it up, and the ghost's
@@ -375,6 +388,14 @@ export default function FeedScene({ onClose }: Props) {
       {eating && <Crumbs color={bowlColor} left={noseLeft} bottom="2%" />}
       {eating && <SoundWord word="NOM NOM" color={WORD_COLOR.food} left={EAT_NOSE_X[eatIdx] + 8} top={12} />}
       {eating && <SoundWord word="NOM NOM" color={WORD_COLOR.food} left={EAT_NOSE_X[eatIdx] + 6} top={9} delayMs={1400} />}
+      {/* SPECIAL EDITION payoff. Keyed on the phase so the burst REMOUNTS on
+          the second chew beat — its keyframes run once and fill forwards, so a
+          burst that merely stayed mounted would play only on the first can and
+          then sit there spent. */}
+      {fedItem && SPECIAL_CAN[fedItem.id] && (phase === 'eat' || phase === 'eat2') && (
+        <CanFeedBurst key={phase} variant={SPECIAL_CAN[fedItem.id]}
+          left={`${EAT_NOSE_X[eatIdx]}%`} bottom="34%" />
+      )}
       {/* Happy finisher. */}
       {phase === 'finish' && <>
         <Hearts count={2} bottom="60%" />
@@ -614,11 +635,11 @@ export default function FeedScene({ onClose }: Props) {
                 {(() => { currentItemRef.current = item; return null })()}
                 <div ref={foodElRef}
                   style={{ position: 'relative', touchAction: 'none' }}>
-                  {/* The jackpot can keeps its spectrum here too — the fridge
-                      is where you pick it up, so it shouldn't go plain the
-                      moment it leaves the shop. */}
-                  <div className={cn(item.id === 'monsta_rainbow' && 'rainbow-tile')}
-                    style={item.id === 'monsta_rainbow' ? {
+                  {/* A special-edition can keeps its dress here too — the
+                      fridge is where you pick it up, so it shouldn't go plain
+                      the moment it leaves the shop. */}
+                  <div className={cn('relative', SPECIAL_CAN[item.id] && `${SPECIAL_CAN[item.id]}-tile`)}
+                    style={SPECIAL_CAN[item.id] ? {
                       width: 64, height: 64,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     } : {
@@ -629,7 +650,8 @@ export default function FeedScene({ onClose }: Props) {
                     boxShadow: `2px 2px 0 ${item.color}44, 0 0 10px ${item.color}22`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
-                    <div style={{
+                    {SPECIAL_CAN[item.id] && <CanAura variant={SPECIAL_CAN[item.id]} box={64} />}
+                    <div className="relative" style={{
                       opacity: (dragRef.current.item?.id === item.id && dragRef.current.active) ? 0.15 : 1,
                       transition: 'opacity 0.15s ease',
                     }}>
@@ -849,17 +871,17 @@ export default function FeedScene({ onClose }: Props) {
                   const canAfford = coins >= item.price
                   const btnBg = canAfford ? item.color : '#cccccc'
                   const buff = monstaBuff(item.id)
-                  const isRainbow = item.id === 'monsta_rainbow'
+                  const special = SPECIAL_CAN[item.id]
                   return (
-                    <div key={item.id} className={cn('relative flex flex-col items-center px-2.5 pt-2.5 pb-2.5 transition-all', !canAfford && 'opacity-55', isRainbow && 'rainbow-card')}
+                    <div key={item.id} className={cn('relative flex flex-col items-center px-2.5 pt-2.5 pb-2.5 transition-all', !canAfford && 'opacity-55', special && `${special}-card`)}
                       /* One flat wash instead of a gradient, and a lighter
                          border. The food colour used to appear five times on
                          one card — gradient, border, shadow, plate, button —
                          which is what made these read as busy.
-                         The rainbow can dresses itself (.rainbow-card), so it
-                         gets no inline surface at all — an inline background
-                         would win over the animated one. */
-                      style={isRainbow ? undefined : { background: `${item.color}14`, borderRadius: 8, border: `2px solid ${item.color}40`, boxShadow: `2px 2px 0 ${item.color}20` }}>
+                         A special-edition can dresses itself (.rainbow-card /
+                         .gold-card), so it gets no inline surface at all — an
+                         inline background would win over the animated one. */
+                      style={special ? undefined : { background: `${item.color}14`, borderRadius: 8, border: `2px solid ${item.color}40`, boxShadow: `2px 2px 0 ${item.color}20` }}>
                       {/* Price rides the corner so the plate keeps the centre. */}
                       <div className="absolute flex items-center gap-0.5 px-1.5 py-0.5" style={{ top: 5, right: 5, background: '#FFF3C0', borderRadius: 999, border: '1px solid #F5C842', boxShadow: '1px 1px 0 rgba(0,0,0,0.10)' }}>
                         <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'radial-gradient(circle at 38% 35%, #FFE878, #D4A818)', border: '1px solid #B08810' }} />
@@ -870,8 +892,9 @@ export default function FeedScene({ onClose }: Props) {
                           competing with the art. The fixed height still gives
                           every card the same footprint whatever the aspect
                           ratio, so the grid stays even. */}
-                      <div className={cn('flex items-center justify-center flex-shrink-0', isRainbow && 'rainbow-can')}
+                      <div className={cn('relative flex items-center justify-center flex-shrink-0', special && `${special}-can`)}
                         style={{ height: 68, marginTop: 4, marginBottom: 5 }}>
+                        {special && <CanAura variant={special} box={68} />}
                         <FoodIcon id={item.id} color={item.color} size={62} />
                       </div>
                       <p className="text-center font-bold text-gray-800 leading-tight" style={{ fontSize: 12 }}>{item.name}</p>
@@ -882,7 +905,7 @@ export default function FeedScene({ onClose }: Props) {
                       <div className="flex justify-center gap-1 flex-wrap" style={{ marginTop: 6, marginBottom: 7 }}>
                         {buff ? <>
                           <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFF0BC', color: '#9A6A08', border: '1px solid #F0CE68' }}>ENERGY MAX</span>
-                          <span className={cn('font-pixel', isRainbow && 'rainbow-chip')} style={isRainbow ? undefined : { fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#E4F5DC', color: '#3E7A33', border: '1px solid #A8D598' }}>{buff.label}</span>
+                          <span className={cn('font-pixel', special && `${special}-chip`)} style={special ? undefined : { fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#E4F5DC', color: '#3E7A33', border: '1px solid #A8D598' }}>{buff.label}</span>
                         </> : <>
                           <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFE3C4', color: '#B4622A', border: '1px solid #F0B884' }}>HGR+{item.hungerD}</span>
                           {/* Ordinary food is joyless by design, and a "JOY+0"
@@ -969,7 +992,12 @@ export default function FeedScene({ onClose }: Props) {
           background-size: auto, 118.79px 100%;
           animation: rainbowRun 2.6s linear infinite;
         }
-        .rainbow-can { animation: rainbowBob 3.2s ease-in-out infinite; }
+        .rainbow-can {
+          animation: rainbowBob 3.2s ease-in-out infinite;
+          /* It used to bob with no light on it, which read flatter than its
+             own card. Matches the lift .gold-can gets below. */
+          filter: drop-shadow(0 0 6px rgba(166,92,246,0.5));
+        }
         @keyframes rainbowRun {
           from { background-position: 0 0, 0        0; }
           to   { background-position: 0 0, 118.79px 0; }
@@ -982,9 +1010,70 @@ export default function FeedScene({ onClose }: Props) {
           0%, 100% { transform: translateY(0)    rotate(0deg);    }
           50%      { transform: translateY(-4px) rotate(-1.5deg); }
         }
+        /* ── GOLD — the other SPECIAL EDITION. Same construction as the
+           rainbow above (animated border-box gradient + padding-box fill), so
+           the two read as a matched pair rather than two unrelated effects.
+           The travel is the same 118.79px one-period figure the rainbow
+           derives at length up there; a different width puts a phase jump at
+           every tile edge. What differs is the palette — a narrow bullion
+           ramp, dark-lit-dark, so it reads as METAL rather than as a yellow
+           rainbow — and a brighter, slower glow. */
+        .gold-card {
+          border: 2px solid transparent;
+          border-radius: 8px;
+          background:
+            linear-gradient(#FFFDF4, #FFF6E0) padding-box,
+            repeating-linear-gradient(135deg, #8A6410 0px, #D4A818 14px, #FFF3C0 28px, #F5C842 42px, #A8760F 56px, #E8B923 70px, #8A6410 84px) border-box;
+          background-size: auto, 118.79px 100%;
+          animation: goldRun 3.4s linear infinite, goldGlow 2.8s ease-in-out infinite;
+        }
+        .gold-tile {
+          border: 2px solid transparent;
+          border-radius: 12px;
+          background:
+            radial-gradient(circle at 40% 35%, rgba(255,240,190,0.26), rgba(255,220,120,0.06)) padding-box,
+            repeating-linear-gradient(135deg, #8A6410 0px, #D4A818 14px, #FFF3C0 28px, #F5C842 42px, #A8760F 56px, #E8B923 70px, #8A6410 84px) border-box;
+          background-size: auto, 118.79px 100%;
+          animation: goldRun 3.4s linear infinite, goldGlow 2.8s ease-in-out infinite;
+        }
+        /* Dark fill for the same reason as .rainbow-chip: 6px pixel type on a
+           bright metal ramp is unreadable at any text colour. */
+        .gold-chip {
+          font-size: 6px;
+          padding: 3px 5px;
+          border-radius: 4px;
+          color: #FFF3C0;
+          letter-spacing: 0.5px;
+          border: 1px solid transparent;
+          background:
+            linear-gradient(#3A2A08, #3A2A08) padding-box,
+            repeating-linear-gradient(135deg, #8A6410 0px, #D4A818 14px, #FFF3C0 28px, #F5C842 42px, #A8760F 56px, #E8B923 70px, #8A6410 84px) border-box;
+          background-size: auto, 118.79px 100%;
+          animation: goldRun 3.4s linear infinite;
+        }
+        /* Heavier than the rainbow's bob — gold should feel like it weighs
+           something. Its sheen sweep is the shine the rainbow gets from hue. */
+        .gold-can {
+          animation: goldBob 3.6s ease-in-out infinite;
+          filter: drop-shadow(0 0 6px rgba(245,200,66,0.55));
+        }
+        @keyframes goldRun {
+          from { background-position: 0 0, 0        0; }
+          to   { background-position: 0 0, 118.79px 0; }
+        }
+        @keyframes goldGlow {
+          0%, 100% { box-shadow: 0 0 6px 0 rgba(245,200,66,0.30); }
+          50%      { box-shadow: 0 0 18px 5px rgba(245,200,66,0.66); }
+        }
+        @keyframes goldBob {
+          0%, 100% { transform: translateY(0)    rotate(0deg);   }
+          50%      { transform: translateY(-3px) rotate(1.2deg); }
+        }
+
         /* Respect the OS setting: the spectrum stays, the motion stops. */
         @media (prefers-reduced-motion: reduce) {
-          .rainbow-card, .rainbow-tile, .rainbow-chip, .rainbow-can { animation: none; }
+          .rainbow-card, .rainbow-tile, .rainbow-chip, .rainbow-can,
+          .gold-card, .gold-tile, .gold-chip, .gold-can { animation: none; }
         }
 
         .kettle-puff {

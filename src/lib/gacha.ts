@@ -9,6 +9,11 @@ import { foodArt } from './foodMeta'
  */
 export const MONSTA_RAINBOW_ID = 'cons_monsta_rainbow'
 
+/** The other SPECIAL EDITION can. Same legendary tier as the rainbow, different
+ *  reason to want it — see MONSTA_BUFFS. Named for the same reason as above:
+ *  the reveal and the fridge both light it up, and both need to match on it. */
+export const MONSTA_GOLD_ID = 'cons_monsta_gold'
+
 /**
  * Gacha item id → the fridge food a pull also stocks.
  *
@@ -28,6 +33,7 @@ export const GACHA_FOOD_GRANT: Record<string, FoodKey> = {
   cons_monsta_rosa:     'monsta_rosa',
   cons_monsta_peachy:   'monsta_peachy',
   [MONSTA_RAINBOW_ID]:  'monsta_rainbow',
+  [MONSTA_GOLD_ID]:     'monsta_gold',
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -79,7 +85,11 @@ export const GACHA_ITEMS: GachaItemDef[] = [
   { id: 'cons_monsta_punch',     name: 'Punch Monsta',      category: 'consumable', rarity: 'rare',      description: 'Full energy. Feed it to knock a sickness out.',   buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_punch') },
   { id: 'cons_monsta_rosa',      name: 'Rosa Monsta',       category: 'consumable', rarity: 'epic',      description: 'Full energy. Feed it for +35 sleep quality.',     buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_rosa') },
   { id: 'cons_monsta_peachy',    name: 'Peachy Monsta',     category: 'consumable', rarity: 'epic',      description: 'Full energy. Feed it for +20 joy and sleep.',     buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_peachy') },
+  // The two SPECIAL EDITIONs share the legendary tier, which means they SPLIT
+  // it: rollItem picks uniformly inside a tier, so each is now 1.5% a pull
+  // rather than the rainbow's old 3%. That's the price of a second jackpot.
   { id: MONSTA_RAINBOW_ID,       name: 'Rainbow Monsta',    category: 'consumable', rarity: 'legendary', description: 'Full energy. Feed it for EVERY buff at once.',    buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_rainbow') },
+  { id: MONSTA_GOLD_ID,          name: 'Gold Monsta',       category: 'consumable', rarity: 'legendary', description: 'Full energy. Feed it for 60 coins and +60 joy.',  buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_gold') },
 
   // ── SKINS — full-body Eren looks (Clothing gacha). Generated in lib/skins.ts.
   ...SKIN_GACHA_ITEMS,
@@ -141,12 +151,65 @@ export function rollRarity(pullsSinceEpic: number, pullsSinceLegendary: number):
 
 const RARITY_ORDER: GachaRarity[] = ['common', 'rare', 'epic', 'legendary']
 
-export function rollItem(rarity: GachaRarity, bannerId: string): GachaItemDef {
+/**
+ * "Is this item in this banner's pool?" — the single definition, shared by the
+ * roller and by bannerOdds. The odds panel has to fold the exact same rules the
+ * machine uses, so the predicate can't be written down twice.
+ */
+function bannerFilter(bannerId: string): (i: GachaItemDef) => boolean {
   const banner = GACHA_BANNERS.find(b => b.id === bannerId)
-  const inBanner = (i: GachaItemDef) =>
+  return (i: GachaItemDef) =>
     (!banner?.categories || banner.categories.includes(i.category)) &&
     // A skin banner draws only its own set; two banners share `category: 'skin'`.
     (!banner?.skinSet || i.skinSet === banner.skinSet)
+}
+
+export interface BannerOdds {
+  rarity: GachaRarity
+  /** Percent chance per pull, with tier escalation already folded in. */
+  chance: number
+  /** Distinct items sitting in this tier on this banner. */
+  items: number
+}
+
+/**
+ * What this banner ACTUALLY drops, per rarity.
+ *
+ * RARITY_WEIGHTS on its own is a lie on any banner that's missing a tier.
+ * rollItem escalates a roll upward until it finds a tier that has items, so on
+ * the two skin banners — which have no commons — the entire 60% common slice
+ * lands on rare instead. A panel printing the raw table would be wrong about
+ * 60% of pulls there.
+ *
+ * Derived from GACHA_ITEMS through the same predicate the roller uses, so the
+ * numbers can't drift: add one common skin and the machine and the panel change
+ * together.
+ */
+export function bannerOdds(bannerId: string): BannerOdds[] {
+  const inBanner = bannerFilter(bannerId)
+  const counts = RARITY_ORDER.map(r =>
+    GACHA_ITEMS.filter(i => i.rarity === r && inBanner(i)).length)
+
+  const total = RARITY_ORDER.reduce((sum, r) => sum + RARITY_WEIGHTS[r], 0)
+  const share: Record<GachaRarity, number> = { common: 0, rare: 0, epic: 0, legendary: 0 }
+
+  RARITY_ORDER.forEach((rolled, idx) => {
+    // Walk up to the first tier that has items — rollItem's escalation loop.
+    let landing = idx
+    while (landing < RARITY_ORDER.length && counts[landing] === 0) landing++
+    if (landing >= RARITY_ORDER.length) return  // banner has no items at all
+    share[RARITY_ORDER[landing]] += RARITY_WEIGHTS[rolled]
+  })
+
+  return RARITY_ORDER
+    .map((r, idx) => ({ rarity: r, chance: (share[r] / total) * 100, items: counts[idx] }))
+    .filter(o => o.items > 0)
+    .reverse()  // legendary first — the tier anyone opening this panel came for
+}
+
+export function rollItem(rarity: GachaRarity, bannerId: string): GachaItemDef {
+  const banner = GACHA_BANNERS.find(b => b.id === bannerId)
+  const inBanner = bannerFilter(bannerId)
 
   // Resolve the item pool at the rolled rarity, scoped to the banner's
   // categories. A banner may have NO items at a given tier (the Clothing

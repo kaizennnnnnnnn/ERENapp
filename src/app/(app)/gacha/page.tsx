@@ -10,16 +10,17 @@ import { useInventory } from '@/hooks/useInventory'
 import { useCare } from '@/contexts/CareContext'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
-import { PULL_COST_SINGLE, PULL_COST_TEN, PITY_EPIC, PITY_LEGENDARY, MONSTA_RAINBOW_ID, GACHA_FOOD_GRANT } from '@/lib/gacha'
+import { PULL_COST_SINGLE, PULL_COST_TEN, PITY_EPIC, PITY_LEGENDARY, MONSTA_RAINBOW_ID, MONSTA_GOLD_ID, GACHA_FOOD_GRANT, GACHA_BANNERS } from '@/lib/gacha'
 import type { GachaPullResult, GachaRarity } from '@/types'
 import { highestRarity, pickClothesHitVideo } from '@/lib/gachaVideos'
 import { getSkin } from '@/lib/skins'
 import PullAnimation from '@/components/gacha/PullAnimation'
 import GachaEnergyOpening from '@/components/gacha/GachaEnergyOpening'
+import GachaOddsSheet from '@/components/gacha/GachaOddsSheet'
 import GachaFizzOpening from '@/components/gacha/GachaFizzOpening'
 import StarfallLoader from '@/components/gacha/StarfallLoader'
 import GachaPullButton from '@/components/gacha/GachaPullButton'
-import { IconCoin, IconSparkles, IconTicket, IconBook } from '@/components/PixelIcons'
+import { IconCoin, IconSparkles, IconTicket, IconBook, IconInfo } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import { requestCloudNav } from '@/components/CloudTransition'
 import { PINK_HI, OBSIDIAN_BTN, Rivets, pinkText } from '@/components/obsidian'
@@ -61,6 +62,7 @@ export default function GachaPage() {
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const [pageIdx, setPageIdx] = useState(0)
+  const [showOdds, setShowOdds] = useState(false)
   const [pullResults, setPullResults] = useState<GachaPullResult[] | null>(null)
   // Video playing over the pull: the rainbow reward video (Rainbow Monsta only)
   // or a rarity-tiered hit video for clothes. null = no video playing.
@@ -306,7 +308,10 @@ export default function GachaPage() {
     const best = highestRarity(results.map(r => r.item.rarity))
     // Arm the jackpot BEFORE handing the cinematic its rarity — that hand-off
     // is what lets the cinematic finish, and endCinematic reads this flag.
-    jackpotPending.current = results.some(r => r.item.id === MONSTA_RAINBOW_ID)
+    // Both SPECIAL EDITION cans earn the chaser video — a gold pull that ended
+    // on the plain fizz would read as the lesser jackpot next to the rainbow.
+    jackpotPending.current = results.some(r =>
+      r.item.id === MONSTA_RAINBOW_ID || r.item.id === MONSTA_GOLD_ID)
     if (drawnOpening) {
       // Hand the cinematic its rarity → it resolves and bursts.
       setCinematicRarity(best)
@@ -430,6 +435,16 @@ export default function GachaPage() {
             <Rivets inset={2} size={2} />
             <IconBook size={18} />
           </button>
+          {/* Drop rates. Lives in the header, NOT in the deck — the deck's
+              inner layer is the transform:scale one that used to blank the
+              pull buttons out on mobile GPUs (see the note above the HUD). */}
+          <button onClick={() => { playSound('ui_tap'); setShowOdds(true) }}
+            aria-label="Drop rates"
+            className="flex items-center justify-center active:translate-y-[1px] transition-transform relative"
+            style={{ width: 32, height: 32, ...OBSIDIAN_BTN }}>
+            <Rivets inset={2} size={2} />
+            <IconInfo size={16} />
+          </button>
         </div>
 
         {/* Page dots */}
@@ -509,6 +524,16 @@ export default function GachaPage() {
 
       {/* ── Reveal ── */}
       {pullResults && !openingVideo && !cinematic && <PullAnimation results={pullResults} onDone={handlePullDone} skipCapsule={openedWithVideo.current} />}
+
+      {/* ── Drop rates. Its own backdrop swallows taps: handlePull only guards
+             on pulling/video/results, so without one a miss would spend 50 coins. */}
+      {showOdds && (
+        <GachaOddsSheet
+          bannerId={PAGES[pageIdx].id}
+          bannerName={GACHA_BANNERS.find(b => b.id === PAGES[pageIdx].id)?.name ?? ''}
+          onClose={() => setShowOdds(false)}
+        />
+      )}
 
       <style jsx>{`
         .gacha-stardust-val {
