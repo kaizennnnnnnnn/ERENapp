@@ -5,7 +5,7 @@
 // button to a placeholder overlay; the actual table / modes / SRS land in
 // follow-up phases.
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { BookOpen, Flame, Check, ChevronUp, ChevronDown, type LucideIcon } from 'lucide-react'
 import BlinkingEren from '@/components/BlinkingEren'
 import { useRoomEren } from '@/hooks/useRoomEren'
@@ -17,51 +17,19 @@ import { useIsDark } from '@/hooks/useIsDark'
 import { playSound } from '@/lib/sounds'
 import PeriodicTableOverlay from '@/components/chemistry/PeriodicTableOverlay'
 import PeriodicTableButton from '@/components/chemistry/PeriodicTableButton'
+import BrewOverlay from '@/components/chemistry/BrewOverlay'
+import BrewButton from '@/components/chemistry/BrewButton'
+import { LAB_EREN } from '@/components/chemistry/labEren'
 import { useStoredChemTheme } from '@/lib/chemistry/theme'
 import { useTasks } from '@/contexts/TaskContext'
 import { getDailyKey, TASK_DEFS } from '@/lib/tasks'
 
 interface Props { onClose: () => void }
 
-// ErenLab.png wears blue lab goggles, so the eye overlays are retuned to the
-// lenses (measured off the sprite): the blink lids sit over the dark pupils in
-// each lens, and the shine masks sit on the cool highlight in each lens's
-// upper-left. Colors are shifted into the goggle-blue family so the blink reads
-// as the eye closing behind the tinted glass and the shine reads as a glassy
-// reflection rather than a white dot.
-const LAB_EYES = {
-  // Blink lids — over the visible pupils.
-  lidTop:    '35%',
-  lidLeftA:  '40.5%',
-  lidLeftB:  '51.5%',
-  lidWidth:  '7%',
-  // Shine masks — upper-left highlight of each lens.
-  maskTop:   '33.7%',
-  maskLeftA: '37.5%',
-  maskLeftB: '50.4%',
-  maskW:     '6.8%',
-  maskH:     '5.4%',
-  // Glint sits in the upper-left of each mask (matches the lens highlight).
-  glintLeftA: '24%',
-  glintLeftB: '24%',
-  glintTopA:  '18%',
-  glintTopB:  '18%',
-  glintW:     '40%',
-}
-// Goggle-blue eyelid (a touch deeper than the lens base) + a cool blue-white
-// glass reflection for the shine.
-const LAB_LID_COLOR = '#5C86A0'
-const LAB_GLINT =
-  'radial-gradient(circle at 42% 38%, #ffffff 0%, #eaf6ff 26%, rgba(150,205,240,0.82) 54%, rgba(120,185,230,0) 82%)'
-
-// Lab idle look (ErenLab, goggles) — default when no Closet skin is set.
-const CHEM_EREN_FALLBACK = {
-  src: '/ErenLab_notail.png', tailSrc: '/ErenLab_tail.png', tailOrigin: '69.2% 72.7%',
-  eyes: LAB_EYES, lidColor: LAB_LID_COLOR, glintBackground: LAB_GLINT,
-  // Eye sits behind the tinted goggle lens — keep the recolorable lid bar, not
-  // the realistic fur-toned closed eye (which would look wrong through glass).
-  plainLid: true,
-}
+// Lab idle look (ErenLab, goggles) — default when no Closet skin is set. The
+// measurements live in components/chemistry/labEren so the Brew bench can put
+// the same goggled cat next to its flask.
+const CHEM_EREN_FALLBACK = LAB_EREN
 
 export default function ChemistryScene(_props: Props) {
   void _props
@@ -71,10 +39,24 @@ export default function ChemistryScene(_props: Props) {
   // still purrs when you tap him, like every other room.
   const reaction = useErenReaction()
   const [overlayOpen, setOverlayOpen] = useState(false)
+  const [brewOpen, setBrewOpen] = useState(false)
+  // Whether today's brew is already filled, so the beaker on the button reads
+  // as done. Re-checked whenever the overlay closes.
+  const [brewDone, setBrewDone] = useState(false)
+  useEffect(() => {
+    if (brewOpen) return
+    try { setBrewDone(localStorage.getItem(`eren_brew_done_${getDailyKey()}`) === '1') }
+    catch { /* private mode */ }
+  }, [brewOpen])
 
   function openStudy() {
     playSound('ui_tap')
     setOverlayOpen(true)
+  }
+
+  function openBrew() {
+    playSound('ui_tap')
+    setBrewOpen(true)
   }
 
   return (
@@ -99,9 +81,11 @@ export default function ChemistryScene(_props: Props) {
 
 
       {/* ══ EREN ══ sits on the rug. Halfway between the original (too far)
-          and the previous bump (too close). */}
+          and the previous bump (too close) — then nudged 3% further back once
+          the bench grew a second slab. Percentage, not px, so the clearance
+          holds on a short phone instead of the buttons eating his paws. */}
       <div className="absolute z-10" style={{
-        bottom: '18%',
+        bottom: '21%',
         left: '50%',
         transform: 'translateX(-50%)',
       }}>
@@ -115,12 +99,15 @@ export default function ChemistryScene(_props: Props) {
         {reaction.phase === PURR && <PurrFx bottom="60%" />}
       </div>
 
-      {/* ══ BOTTOM ACTION BUTTON ══
-          Chemistry-dressed pixel slab anchored to the bottom of the room.
-          Honours the iOS / Android safe-area inset so it doesn't sit under
-          the home indicator on devices that have one. */}
-      <div className="absolute inset-x-0 flex justify-center z-20 px-8"
+      {/* ══ BOTTOM ACTION BUTTONS ══
+          Two chemistry-dressed pixel slabs stacked at the bottom of the room:
+          BREW on top, PERIODIC TABLE where it has always been, so adding the
+          second one doesn't move the one people already reach for. Honours the
+          iOS / Android safe-area inset so the stack doesn't sit under the home
+          indicator on devices that have one. */}
+      <div className="absolute inset-x-0 flex flex-col items-center gap-2.5 z-20 px-8"
         style={{ bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }}>
+        <BrewButton onClick={openBrew} done={brewDone} />
         <PeriodicTableButton onClick={openStudy} />
       </div>
 
@@ -128,6 +115,10 @@ export default function ChemistryScene(_props: Props) {
 
       {overlayOpen && (
         <PeriodicTableOverlay onClose={() => setOverlayOpen(false)} />
+      )}
+
+      {brewOpen && (
+        <BrewOverlay onClose={() => setBrewOpen(false)} />
       )}
     </div>
   )

@@ -851,13 +851,17 @@
    dock above. The element tile and flask bubbles animate via the keyframes
    below. */
 .chem-table-btn {
-  box-shadow: 0 5px 0 #1B2E05, 0 10px 16px rgba(0,0,0,0.32), inset 0 2px 0 rgba(255,255,255,0.5);
+  /* The lab has two of these slabs — lime PERIODIC TABLE and violet EREN'S
+     BREW — so the hard drop-shadow colour is a variable each one can set.
+     Default is the table's dark olive, i.e. this class alone is unchanged. */
+  --chem-ink: #1B2E05;
+  box-shadow: 0 5px 0 var(--chem-ink), 0 10px 16px rgba(0,0,0,0.32), inset 0 2px 0 rgba(255,255,255,0.5);
   transition: transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 120ms ease-out, filter 120ms ease-out;
 }
 .chem-table-btn:hover { filter: brightness(1.05); }
 .chem-table-btn:active {
   transform: translateY(4px);
-  box-shadow: 0 1px 0 #1B2E05, 0 3px 8px rgba(0,0,0,0.3), inset 0 2px 0 rgba(255,255,255,0.5);
+  box-shadow: 0 1px 0 var(--chem-ink), 0 3px 8px rgba(0,0,0,0.3), inset 0 2px 0 rgba(255,255,255,0.5);
 }
 
 /* Flask bubbles drift up from the mouth and pop — ambient lab fizz. */
@@ -1141,4 +1145,41 @@
 }
 @media (prefers-reduced-motion: reduce) {
   [style*="mgTwinkleSoft"] { animation: none !important; }
+}
+
+/* ── Eren's Brew (chemistry lab) ──
+   Bubbles climb from the flask floor to the liquid surface; --brew-rise is set
+   per-bubble from the current fill level so they never surface above it.
+   Soot is the puff over the mouth when a wrong ingredient goes in. */
+@keyframes brewBubble {
+  0%   { transform: translateY(0);                opacity: 0;    }
+  15%  { opacity: 0.9;  }
+  100% { transform: translateY(var(--brew-rise)); opacity: 0;    }
+}
+@keyframes brewSoot {
+  0%   { transform: translateY(6px) scale(0.3); opacity: 0;   }
+  35%  { transform: translateY(0)   scale(1);   opacity: 0.9; }
+  100% { transform: translateY(-16px) scale(1.4); opacity: 0; }
+}
+/* A tile flying off the shelf toward the flask. */
+@keyframes brewTileIn {
+  0%   { transform: scale(1)    translateY(0);     opacity: 1; }
+  60%  { transform: scale(0.7)  translateY(-18px); opacity: 0.8; }
+  100% { transform: scale(0.35) translateY(-34px); opacity: 0; }
+}
+/* Rejected tile: a short, sharp no. */
+@keyframes brewShake {
+  0%, 100% { transform: translateX(0);    }
+  20%      { transform: translateX(-5px); }
+  45%      { transform: translateX(4px);  }
+  70%      { transform: translateX(-3px); }
+}
+@keyframes brewPop {
+  0%   { transform: scale(0.7); opacity: 0; }
+  60%  { transform: scale(1.06); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [style*="brewBubble"], [style*="brewSoot"], [style*="brewTileIn"],
+  [style*="brewShake"], [style*="brewPop"] { animation: none !important; }
 }
