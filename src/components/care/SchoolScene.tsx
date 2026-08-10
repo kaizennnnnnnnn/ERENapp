@@ -1623,11 +1623,12 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
       if (totalCorrectRef.current === 1) return 'happy'
 
       // The answer that just *enters* a streak (third in a row) — big
-      // "we did it!" moment. Now includes party + trophy + proud from
-      // the second design pass.
+      // "we did it!" moment. The loudest poses in the set live here:
+      // party/trophy/proud plus highfive, balloon and sing.
       if (newRun === 3) return pickFrom<SketchErenState>([
         'eureka', 'cheer', 'wow', 'magic', 'love',
         'party', 'trophy', 'proud',
+        'highfive', 'balloon', 'sing',
       ])
 
       // Already mid-streak: 'streak' (fire crown) is still featured but
@@ -1640,15 +1641,16 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
           'magic',  'magic',
           'trophy', 'party', 'proud',
           'love', 'wink', 'flex', 'rocket', 'wow', 'eureka', 'dance', 'chill',
+          'highfive', 'laugh', 'balloon', 'sing',
         ])
       }
 
       // 2nd correct (post-1st or recovering after wrong): playful variety.
-      // Includes kiss / silly / chill from the new set for extra range.
+      // Includes kiss / silly / chill / laugh for extra range.
       return pickFrom<SketchErenState>([
         'happy', 'wink', 'love', 'cheer',
         'dance', 'wow', 'magic', 'eureka',
-        'kiss', 'silly', 'chill',
+        'kiss', 'silly', 'chill', 'laugh', 'highfive',
       ])
     } else {
       totalWrongRef.current += 1
@@ -1664,20 +1666,25 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
       // screen takes over.
       if (heartsAfter <= 0) return 'cry'
 
-      // Just lost a 3+ correct streak — exaggerated reaction. Adds
-      // 'angry' (steam puffs) from the new set for variety.
+      // Just lost a 3+ correct streak — exaggerated reaction. 'angry'
+      // (steam puffs), 'facepalm' (so close!) and 'scared' carry the sting.
       if (wasOnStreak) {
-        return pickFrom<SketchErenState>(['cry', 'gasp', 'cry', 'shy', 'angry'])
+        return pickFrom<SketchErenState>([
+          'cry', 'gasp', 'cry', 'shy', 'angry', 'facepalm', 'scared',
+        ])
       }
 
-      // Two or more wrong in a row — frustration variety. Adds 'yawn'
-      // (bored/tired) and 'sick' (off-day) to the mix.
+      // Two or more wrong in a row — frustration variety. 'dizzy' reads as
+      // "this lesson is spinning me", 'yawn'/'sick' as an off-day.
       if (newWrongRun >= 2) {
-        return pickFrom<SketchErenState>(['confused', 'shrug', 'sad', 'gasp', 'tired', 'yawn', 'sick'])
+        return pickFrom<SketchErenState>([
+          'confused', 'shrug', 'sad', 'gasp', 'tired', 'yawn', 'sick',
+          'dizzy', 'facepalm',
+        ])
       }
 
       // Otherwise — mild disappointment variety.
-      return pickFrom<SketchErenState>(['sad', 'confused', 'gasp', 'shrug'])
+      return pickFrom<SketchErenState>(['sad', 'confused', 'gasp', 'shrug', 'facepalm'])
     }
   }
 
@@ -1754,8 +1761,8 @@ function LessonPlayer({ exercises, onExit, onFinish, onWordResult }: {
     // pondering otherwise. The variety here keeps long lessons from
     // feeling like the same idle pose every time.
     const idlePool: SketchErenState[] = correctRunRef.current >= 3
-      ? ['listen', 'thinking', 'idle', 'meditate', 'read']
-      : ['thinking', 'idle', 'listen', 'peek', 'focus', 'read']
+      ? ['listen', 'thinking', 'idle', 'meditate', 'read', 'sip']
+      : ['thinking', 'idle', 'listen', 'peek', 'focus', 'read', 'search', 'sip', 'sneeze']
     setLessonErenState(pickFrom(idlePool))
   }
 

@@ -42,6 +42,7 @@ interface Props {
 // moods so the gift never opens on a sad or angry face.
 const SKIP_GIFT_STATES = new Set<SketchErenState>([
   'sad', 'angry', 'cry', 'sick', 'tired', 'yawn', 'sleeping', 'confused', 'shrug',
+  'scared', 'dizzy', 'facepalm', 'cold', 'sneeze',
 ])
 const GIFT_EREN_STATES = SKETCH_EREN_STATES.filter(s => !SKIP_GIFT_STATES.has(s))
 

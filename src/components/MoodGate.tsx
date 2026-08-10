@@ -29,6 +29,10 @@ const MOOD_REACTIONS: Record<UserMood, { picked: SketchErenState; line: string }
     { picked: 'kiss',   line: 'Mwah! Great day!' },
     { picked: 'trophy', line: 'You\'re a champion!' },
     { picked: 'flex',   line: 'Feeling strong!' },
+    { picked: 'laugh',    line: 'Hahaha, love that!' },
+    { picked: 'balloon',  line: 'Let\'s celebrate!' },
+    { picked: 'highfive', line: 'Up top! Good day!' },
+    { picked: 'sing',     line: 'Eren wrote you a song' },
   ],
   mid: [
     { picked: 'wave',     line: 'Eren is here for you!' },
@@ -38,6 +42,8 @@ const MOOD_REACTIONS: Record<UserMood, { picked: SketchErenState; line: string }
     { picked: 'nom',      line: 'Snack break?' },
     { picked: 'listen',   line: 'Eren\'s listening...' },
     { picked: 'meditate', line: 'Stay calm, stay cool' },
+    { picked: 'sip',      line: 'Let\'s have a slow one' },
+    { picked: 'search',   line: 'Looking for the good bits' },
   ],
   sad: [
     { picked: 'cry',  line: 'Come cuddle with Eren' },
@@ -46,6 +52,8 @@ const MOOD_REACTIONS: Record<UserMood, { picked: SketchErenState; line: string }
     { picked: 'love', line: 'Eren loves you always' },
     { picked: 'bow',  line: 'It\'s okay to be sad' },
     { picked: 'shy',  line: 'Eren\'s here, promise' },
+    { picked: 'cold', line: 'Cold day? Come closer' },
+    { picked: 'gift', line: 'Eren saved this for you' },
   ],
   angry: [
     { picked: 'angry', line: 'Eren is grumpy too!' },
@@ -54,6 +62,8 @@ const MOOD_REACTIONS: Record<UserMood, { picked: SketchErenState; line: string }
     { picked: 'wow',   line: 'Oh no... deep breaths!' },
     { picked: 'proud', line: 'Anger is power, rawr!' },
     { picked: 'silly', line: 'Hiss! Then laugh it off' },
+    { picked: 'facepalm', line: 'Ugh. What a day, huh' },
+    { picked: 'scared',   line: 'Eek! Okay okay, breathe' },
   ],
   tired: [
     { picked: 'yawn',     line: 'Nap time together' },
@@ -62,6 +72,8 @@ const MOOD_REACTIONS: Record<UserMood, { picked: SketchErenState; line: string }
     { picked: 'meditate', line: 'Rest your eyes...' },
     { picked: 'chill',    line: 'Take it easy today' },
     { picked: 'nom',      line: 'Coffee? Tea? Milk?' },
+    { picked: 'sip',      line: 'Eren made you a warm one' },
+    { picked: 'dizzy',    line: 'Whoa, running on fumes' },
   ],
 }
 
