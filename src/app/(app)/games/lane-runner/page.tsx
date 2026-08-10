@@ -11,6 +11,9 @@ import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useVisibilityPause } from '@/hooks/useVisibilityPause'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import GameCoinReward from '@/components/games/GameCoinReward'
+import ErenRunner, {
+  RUN_FRAME_COUNT, RUN_BOX_W, RUN_BOX_H, RUN_BODY_CX, isRunContact,
+} from '@/components/games/ErenRunner'
 import { playSound } from '@/lib/sounds'
 import { IconCoin, IconStar } from '@/components/PixelIcons'
 import { fireMinigameDone } from '@/lib/minigames'
@@ -25,6 +28,8 @@ const PLAYER_BOTTOM = 90  // distance from ground line
 const ITEM_SIZE = 46
 const COLLIDE_INSET = 10
 const SPEED_TIERS = [400, 500, SPEED_MAX]
+const STRIDE_PX = 34          // ground covered per frame of Eren's run cycle
+const STRIDE_SPEED_CAP = 480  // past this his legs would just blur, so cadence stops ramping
 
 type Variant = 'mouse' | 'vacuum' | 'cucumber' | 'dog' | 'coin' | 'fish'
 
@@ -128,6 +133,9 @@ export default function LaneRunnerGame() {
   const [gameOverScore, setGameOverScore] = useState(0)
   const [isNewBest, setIsNewBest] = useState(false)
   const [reward, setReward] = useState<GameRewardResult | null>(null)
+  // Transient lean into a lane change. `key` restarts the animation on every
+  // juke; null means he's simply running straight.
+  const [bank, setBank] = useState<{ dir: -1 | 1; key: number } | null>(null)
 
   const stateRef       = useRef<'idle' | 'running' | 'gameover'>('idle')
   const itemsRef       = useRef<Item[]>([])
@@ -155,6 +163,9 @@ export default function LaneRunnerGame() {
   const streakIdRef    = useRef(0)
   const pausedRef      = useRef(false)
   const hideAtRef      = useRef(0)
+  const strideRef      = useRef(0)
+  const runFrameRef    = useRef(0)
+  const bankKeyRef     = useRef(0)
 
   const [, force] = useReducer((n: number) => n + 1, 0)
 
@@ -191,6 +202,23 @@ export default function LaneRunnerGame() {
         dx: Math.cos(ang) * speed,
         dy: Math.sin(ang) * speed,
         color,
+        born: now,
+      })
+    }
+  }
+
+  // Grit kicked off the road by a landing paw. Reuses the sparkle pool, but
+  // thrown down-screen rather than radially so it reads as ground rushing past.
+  function spawnDust(x: number, y: number) {
+    const now = performance.now()
+    for (let i = 0; i < 2; i++) {
+      sparklesRef.current.push({
+        id: ++sparkleIdRef.current,
+        x: x + Math.random() * 20 - 10,
+        y,
+        dx: Math.random() * 44 - 22,
+        dy: 90 + Math.random() * 70,
+        color: '#8B94A3',
         born: now,
       })
     }
@@ -289,6 +317,17 @@ export default function LaneRunnerGame() {
     }
 
     spawn(now)
+
+    // Advance the run cycle off ground covered, not the clock, so his stride
+    // rate ramps up exactly as much as the road does.
+    strideRef.current += (Math.min(speedRef.current, STRIDE_SPEED_CAP) * dt) / STRIDE_PX
+    const runFrame = Math.floor(strideRef.current) % RUN_FRAME_COUNT
+    if (runFrame !== runFrameRef.current) {
+      runFrameRef.current = runFrame
+      if (!reducedRef.current && isRunContact(runFrame)) {
+        spawnDust(laneToX(laneRef.current), fieldDimsRef.current.h - PLAYER_BOTTOM + 26)
+      }
+    }
 
     // Move items
     for (const it of itemsRef.current) it.y += speedRef.current * dt
@@ -426,6 +465,9 @@ export default function LaneRunnerGame() {
     lastScoreRef.current = 0
     speedTierRef.current = 0
     parallaxRef.current = 0
+    strideRef.current = 0
+    runFrameRef.current = 0
+    setBank(null)
     setLane(1)
     setScore(0)
     setCoins(0)
@@ -518,6 +560,22 @@ export default function LaneRunnerGame() {
   // Keep ref in sync with state for collision check + lane bounds
   useEffect(() => { laneRef.current = lane }, [lane])
 
+  // The one way a lane change happens, so swipe and both arrow keys can't drift
+  // apart. Writing laneRef here (rather than waiting on the effect above) means
+  // the very next collision pass already sees the new lane.
+  const changeLaneRef = useRef<(dir: -1 | 1) => void>(() => {})
+  function changeLane(dir: -1 | 1) {
+    if (stateRef.current !== 'running') return
+    const from = laneRef.current
+    const to = Math.max(0, Math.min(2, from + dir)) as 0 | 1 | 2
+    if (to === from) return
+    laneRef.current = to
+    setLane(to)
+    setBank({ dir, key: ++bankKeyRef.current })
+    playSound('lr_lane_swipe')
+  }
+  useEffect(() => { changeLaneRef.current = changeLane })
+
   // Touch swipe handling
   const touchStartRef = useRef({ x: 0, y: 0, t: 0 })
   function onTouchStart(e: React.TouchEvent) {
@@ -525,40 +583,18 @@ export default function LaneRunnerGame() {
     touchStartRef.current = { x: t.clientX, y: t.clientY, t: Date.now() }
   }
   function onTouchEnd(e: React.TouchEvent) {
-    if (stateRef.current !== 'running') return
     const t = e.changedTouches[0]
     const dx = t.clientX - touchStartRef.current.x
     const dy = t.clientY - touchStartRef.current.y
-    const elapsed = Date.now() - touchStartRef.current.t
     if (Math.abs(dx) < 24 && Math.abs(dy) < 24) return // tap, not swipe
-    if (Math.abs(dx) > Math.abs(dy)) {
-      const dir = dx > 0 ? 1 : -1
-      setLane(l => {
-        const next = Math.max(0, Math.min(2, l + dir)) as 0 | 1 | 2
-        if (next !== l) playSound('lr_lane_swipe')
-        return next
-      })
-    }
-    void elapsed
+    if (Math.abs(dx) > Math.abs(dy)) changeLane(dx > 0 ? 1 : -1)
   }
 
   // Keyboard arrows for desktop
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (stateRef.current !== 'running') return
-      if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
-        setLane(l => {
-          const next = Math.max(0, l - 1) as 0 | 1 | 2
-          if (next !== l) playSound('lr_lane_swipe')
-          return next
-        })
-      } else if (e.code === 'ArrowRight' || e.code === 'KeyD') {
-        setLane(l => {
-          const next = Math.min(2, l + 1) as 0 | 1 | 2
-          if (next !== l) playSound('lr_lane_swipe')
-          return next
-        })
-      }
+      if (e.code === 'ArrowLeft' || e.code === 'KeyA') changeLaneRef.current(-1)
+      else if (e.code === 'ArrowRight' || e.code === 'KeyD') changeLaneRef.current(1)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -758,20 +794,40 @@ export default function LaneRunnerGame() {
           </div>
         ))}
 
-        {/* Eren — legless waddle: a quick left/right lean reads as walking */}
+        {/* Eren — back-view gallop. The road runs at the camera, so he runs
+            away from it; the contact shadow tightens under each footfall. */}
         {phase !== 'idle' && (
-          <div className="absolute pointer-events-none"
-            style={{
-              left: laneToX(lane) - 30,
-              bottom: PLAYER_BOTTOM - 30,
-              width: 60, height: 60,
-              transformOrigin: 'bottom center',
+          <>
+            <div className="absolute pointer-events-none" style={{
+              left: laneToX(lane) - 17,
+              bottom: PLAYER_BOTTOM - 36,
+              width: 34, height: 8,
+              borderRadius: '50%',
+              background: 'rgba(0,0,0,0.45)',
+              transform: `scale(${reduced || isRunContact(runFrameRef.current) ? 1 : 0.76})`,
               transition: 'left 0.16s cubic-bezier(0.34,1.56,0.64,1)',
-              animation: reduced ? 'none' : 'run-lean 0.36s ease-in-out infinite',
-              filter: 'drop-shadow(0 4px 0 rgba(0,0,0,0.45))',
+            }} />
+            <div className="absolute pointer-events-none" style={{
+              left: laneToX(lane) - RUN_BODY_CX,
+              bottom: PLAYER_BOTTOM - 32,
+              width: RUN_BOX_W, height: RUN_BOX_H,
+              transition: 'left 0.16s cubic-bezier(0.34,1.56,0.64,1)',
+              filter: 'drop-shadow(0 2px 0 rgba(0,0,0,0.45))',
             }}>
-            <ErenRunner />
-          </div>
+              {/* Keyed so each juke restarts the lean. It sits on an inner
+                  element because the lane slide lives on the parent, and
+                  remounting that would kill the transition mid-flight. */}
+              <div key={bank?.key ?? 0} style={{
+                width: '100%', height: '100%',
+                transformOrigin: 'bottom center',
+                animation: bank && !reduced
+                  ? `${bank.dir < 0 ? 'lr-bank-l' : 'lr-bank-r'} 0.3s cubic-bezier(0.34,1.56,0.64,1)`
+                  : undefined,
+              }}>
+                <ErenRunner frame={runFrameRef.current} standing={reduced} />
+              </div>
+            </div>
+          </>
         )}
 
         {/* HUD */}
@@ -912,15 +968,18 @@ export default function LaneRunnerGame() {
       </div>
 
       <style jsx global>{`
-        /* Legless waddle — Eren rocks onto each "foot" with a quick left/right
-           lean and rises over it, dipping through center as weight transfers.
-           Two leans = two steps per cycle; pivots on his base (bottom center). */
-        @keyframes run-lean {
-          0%   { transform: translateY(-3px) rotate(-7deg); }
-          25%  { transform: translateY(0)    rotate(0deg);  }
-          50%  { transform: translateY(-3px) rotate(7deg);  }
-          75%  { transform: translateY(0)    rotate(0deg);  }
-          100% { transform: translateY(-3px) rotate(-7deg); }
+        /* Juke — he leans into a lane change and springs back upright. This
+           fires on input rather than on a loop, so running straight never
+           wobbles; the gait itself lives in the sprite frames. */
+        @keyframes lr-bank-l {
+          0%   { transform: rotate(0deg)   translateX(0); }
+          40%  { transform: rotate(-14deg) translateX(-2px); }
+          100% { transform: rotate(0deg)   translateX(0); }
+        }
+        @keyframes lr-bank-r {
+          0%   { transform: rotate(0deg)  translateX(0); }
+          40%  { transform: rotate(14deg) translateX(2px); }
+          100% { transform: rotate(0deg)  translateX(0); }
         }
         /* Obstacle hazard aura — angry red pulse. */
         @keyframes lr-danger-pulse {
@@ -1132,54 +1191,6 @@ const ItemSprite = memo(function ItemSprite({ variant }: { variant: Variant }) {
       <rect x="9" y="3" width="1" height="2" fill="#3A88B8" />
       <rect x="9" y="7" width="1" height="2" fill="#3A88B8" />
       <rect x="4" y="5" width="1" height="1" fill="#1A1A2E" />
-    </svg>
-  )
-})
-
-// ─── Eren runner sprite — legless chibi head/torso. The parent supplies the
-// whole walk: a quick left/right lean (run-lean) that rocks him onto each
-// "foot", so he reads as walking without any legs drawn. ───────
-const ErenRunner = memo(function ErenRunner() {
-  return (
-    <svg width="100%" height="100%" viewBox="0 0 22 22" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      {/* Ears */}
-      <rect x="3" y="2" width="3" height="1" fill="#4A2E1A" />
-      <rect x="16" y="2" width="3" height="1" fill="#4A2E1A" />
-      <rect x="3" y="3" width="3" height="2" fill="#9B7A5C" />
-      <rect x="16" y="3" width="3" height="2" fill="#9B7A5C" />
-      <rect x="4" y="4" width="1" height="1" fill="#F4B0B8" />
-      <rect x="17" y="4" width="1" height="1" fill="#F4B0B8" />
-      {/* Head */}
-      <rect x="5" y="3" width="12" height="1" fill="#4A2E1A" />
-      <rect x="4" y="4" width="14" height="1" fill="#4A2E1A" />
-      <rect x="3" y="5" width="16" height="1" fill="#4A2E1A" />
-      <rect x="3" y="6" width="1" height="6" fill="#4A2E1A" />
-      <rect x="18" y="6" width="1" height="6" fill="#4A2E1A" />
-      <rect x="4" y="5" width="14" height="1" fill="#F9EDD5" />
-      <rect x="4" y="6" width="14" height="6" fill="#F9EDD5" />
-      {/* Eyes */}
-      <rect x="6" y="7" width="2" height="2" fill="#6BAED6" />
-      <rect x="14" y="7" width="2" height="2" fill="#6BAED6" />
-      <rect x="6" y="7" width="1" height="1" fill="#FFFFFF" />
-      <rect x="15" y="7" width="1" height="1" fill="#FFFFFF" />
-      <rect x="7" y="8" width="1" height="1" fill="#1A1A2E" />
-      <rect x="14" y="8" width="1" height="1" fill="#1A1A2E" />
-      {/* Cheeks + nose */}
-      <rect x="4" y="10" width="2" height="1" fill="#FFB6C8" />
-      <rect x="16" y="10" width="2" height="1" fill="#FFB6C8" />
-      <rect x="10" y="9" width="2" height="1" fill="#F48B9B" />
-      <rect x="10" y="10" width="2" height="1" fill="#4A2E1A" />
-      <rect x="9" y="11" width="1" height="1" fill="#4A2E1A" />
-      <rect x="12" y="11" width="1" height="1" fill="#4A2E1A" />
-      {/* Torso */}
-      <rect x="4" y="12" width="14" height="1" fill="#4A2E1A" />
-      <rect x="5" y="12" width="12" height="1" fill="#F9EDD5" />
-      <rect x="10" y="12" width="2" height="1" fill="#4A2E1A" />
-      <rect x="5" y="13" width="1" height="2" fill="#4A2E1A" />
-      <rect x="16" y="13" width="1" height="2" fill="#4A2E1A" />
-      <rect x="6" y="13" width="10" height="2" fill="#F9EDD5" />
-      {/* Rounded belly base — closes the body now that the legs are gone */}
-      <rect x="6" y="15" width="10" height="1" fill="#4A2E1A" />
     </svg>
   )
 })
