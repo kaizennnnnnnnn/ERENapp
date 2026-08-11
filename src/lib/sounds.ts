@@ -23,7 +23,8 @@
 // State is in-memory only — wire it to localStorage if you want it to persist.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { playSynth, playBuffer, startLoopBuffer, getAudioContext, unlockAudio } from './soundSynth'
+import { playSynth, playBuffer, startLoopBuffer, getAudioContext, unlockAudio, scheduleSynthAt } from './soundSynth'
+import type { SynthRecipe } from './soundSynth'
 import { SYNTH_RECIPES } from './soundRecipes'
 
 export const SOUNDS = {
@@ -647,6 +648,21 @@ export function playSound(name: SoundName, opts: { volume?: number } = {}) {
   } catch {
     /* ignore */
   }
+}
+
+/** Schedule a synth recipe to sound at an ABSOLUTE AudioContext time, honouring
+ *  the user's mute + global volume the same way playSound does.
+ *
+ *  For music, where a recipe is composed at runtime rather than looked up by
+ *  name. Purr Beat's drums, bass and pad are built per-beat from the current
+ *  tempo and chord, so they never enter the SOUNDS name table — but they must
+ *  still go silent when the player mutes the app, which is the whole reason
+ *  this wrapper exists instead of callers reaching for scheduleSynthAt.
+ *
+ *  `scale` is the per-sound trim that VOLUME_SCALE provides for named sounds. */
+export function playSynthAt(recipe: SynthRecipe, atSec: number, scale = 1, destination?: AudioNode): void {
+  if (muted || typeof window === 'undefined') return
+  scheduleSynthAt(recipe, Math.max(0, Math.min(1, globalVolume * scale)), atSec, destination)
 }
 
 /** Start a sound looping and return a stop() function. For continuous,

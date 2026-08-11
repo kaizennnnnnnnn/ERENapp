@@ -17,21 +17,36 @@
 
 type Shape = 'sine' | 'square' | 'triangle' | 'sawtooth'
 
+// Shared voice shaping, available on the recipe types that carry a pitch or a
+// noise body. Both were added for Purr Beat's music bed:
+//  - `lowpass` rounds a raw square/saw off into something that sits UNDER the
+//    melody. An unfiltered sawtooth bass is all upper harmonics and fights the
+//    lane tones for the same ear space.
+//  - `pan` places a voice in the stereo field. Purr Beat pans each lane's tone
+//    to match its position on screen, so on headphones the melody you play
+//    moves left-to-right with your thumbs.
+interface VoiceShape {
+  /** Lowpass corner in Hz. Omit for the raw waveform. */
+  lowpass?: number
+  /** Stereo position, -1 (hard left) to 1 (hard right). Omit for centre. */
+  pan?: number
+}
+
 export type SynthRecipe =
   // Single tone with attack + exponential decay.
-  | { type: 'blip'; freq: number; duration: number; shape?: Shape; gain?: number }
+  | ({ type: 'blip'; freq: number; duration: number; shape?: Shape; gain?: number } & VoiceShape)
   // Frequency sweep from `freq[0]` to `freq[1]` over `duration` ms.
-  | { type: 'sweep'; freq: [number, number]; duration: number; shape?: Shape; gain?: number; curve?: 'linear' | 'exponential' }
+  | ({ type: 'sweep'; freq: [number, number]; duration: number; shape?: Shape; gain?: number; curve?: 'linear' | 'exponential' } & VoiceShape)
   // Arpeggio — a sequence of notes spaced `step` ms apart.
   | { type: 'arp'; notes: number[]; step: number; noteDur?: number; shape?: Shape; gain?: number }
   // Repeated pulses of the same frequency — for warnings + timers.
   | { type: 'pulse'; freq: number; pulses: number; step: number; pulseDur?: number; shape?: Shape; gain?: number }
   // White-noise burst with optional lowpass / highpass filters.
-  | { type: 'noise'; duration: number; gain?: number; lowpass?: number; highpass?: number }
+  | ({ type: 'noise'; duration: number; gain?: number; lowpass?: number; highpass?: number } & Pick<VoiceShape, 'pan'>)
   // Crash = noise + (optional) low tone. Used for collisions.
   | { type: 'crash'; noise: { duration: number; gain?: number; lowpass?: number }; tone?: { freq: number; duration: number; shape?: Shape; gain?: number } }
   // Chord — multiple notes simultaneously (each note's gain auto-scaled by 1/N).
-  | { type: 'chord'; freqs: number[]; duration: number; shape?: Shape; gain?: number }
+  | ({ type: 'chord'; freqs: number[]; duration: number; shape?: Shape; gain?: number } & VoiceShape)
   // Composite — multiple sub-recipes scheduled with offsets. Use for richer
   // sounds that combine arp + noise, sweep + chord, etc.
   | { type: 'seq'; parts: Array<{ at: number; recipe: SynthRecipe }> }
@@ -76,6 +91,28 @@ export function unlockAudio(): void {
 
 // ─── Individual voices ───────────────────────────────────────────────────────
 
+/** Optional filter + panner tail shared by the tone and noise voices. Returns
+ *  the node a voice should connect INTO, having already wired the chain down to
+ *  `master`. Nodes are only created when actually asked for, so the common
+ *  unfiltered/centred blip still costs exactly one gain node as before. */
+function shapeChain(ctx: AudioContext, master: AudioNode, shape: VoiceShape): AudioNode {
+  let head: AudioNode = master
+  if (shape.pan != null && ctx.createStereoPanner) {
+    const p = ctx.createStereoPanner()
+    p.pan.value = Math.max(-1, Math.min(1, shape.pan))
+    p.connect(head)
+    head = p
+  }
+  if (shape.lowpass != null) {
+    const f = ctx.createBiquadFilter()
+    f.type = 'lowpass'
+    f.frequency.value = shape.lowpass
+    f.connect(head)
+    head = f
+  }
+  return head
+}
+
 function scheduleTone(
   ctx: AudioContext,
   master: AudioNode,
@@ -86,6 +123,7 @@ function scheduleTone(
   gain: number,
   glide?: number,
   glideCurve: 'linear' | 'exponential' = 'linear',
+  voice: VoiceShape = {},
 ): number {
   const dur = Math.max(0.005, durationMs / 1000)
   const osc = ctx.createOscillator()
@@ -108,7 +146,7 @@ function scheduleTone(
   env.gain.exponentialRampToValueAtTime(0.0005, tail)
   env.gain.setValueAtTime(0, tail + 0.001)
   osc.connect(env)
-  env.connect(master)
+  env.connect(shapeChain(ctx, master, voice))
   osc.start(startSec)
   osc.stop(tail + 0.01)
   return tail + 0.01
@@ -122,6 +160,7 @@ function scheduleNoise(
   gain: number,
   lowpass?: number,
   highpass?: number,
+  pan?: number,
 ): number {
   const dur = Math.max(0.005, durationMs / 1000)
   const samples = Math.max(1, Math.ceil(ctx.sampleRate * dur))
@@ -152,7 +191,7 @@ function scheduleNoise(
   env.gain.exponentialRampToValueAtTime(0.0005, tail)
   env.gain.setValueAtTime(0, tail + 0.001)
   node.connect(env)
-  env.connect(master)
+  env.connect(shapeChain(ctx, master, { pan }))
   src.start(startSec)
   src.stop(tail + 0.01)
   return tail + 0.01
@@ -168,10 +207,10 @@ function scheduleRecipe(
 ): number {
   switch (recipe.type) {
     case 'blip': {
-      return scheduleTone(ctx, master, startSec, recipe.freq, recipe.duration, recipe.shape ?? 'square', recipe.gain ?? 1)
+      return scheduleTone(ctx, master, startSec, recipe.freq, recipe.duration, recipe.shape ?? 'square', recipe.gain ?? 1, undefined, 'linear', recipe)
     }
     case 'sweep': {
-      return scheduleTone(ctx, master, startSec, recipe.freq[0], recipe.duration, recipe.shape ?? 'square', recipe.gain ?? 1, recipe.freq[1], recipe.curve ?? 'linear')
+      return scheduleTone(ctx, master, startSec, recipe.freq[0], recipe.duration, recipe.shape ?? 'square', recipe.gain ?? 1, recipe.freq[1], recipe.curve ?? 'linear', recipe)
     }
     case 'arp': {
       const noteDur = recipe.noteDur ?? recipe.step
@@ -198,7 +237,7 @@ function scheduleRecipe(
       return end
     }
     case 'noise': {
-      return scheduleNoise(ctx, master, startSec, recipe.duration, recipe.gain ?? 0.5, recipe.lowpass, recipe.highpass)
+      return scheduleNoise(ctx, master, startSec, recipe.duration, recipe.gain ?? 0.5, recipe.lowpass, recipe.highpass, recipe.pan)
     }
     case 'crash': {
       const a = scheduleNoise(ctx, master, startSec, recipe.noise.duration, recipe.noise.gain ?? 0.6, recipe.noise.lowpass)
@@ -212,7 +251,7 @@ function scheduleRecipe(
       const perNote = (recipe.gain ?? 0.8) / Math.max(1, recipe.freqs.length)
       let end = startSec
       for (const f of recipe.freqs) {
-        const e = scheduleTone(ctx, master, startSec, f, recipe.duration, recipe.shape ?? 'triangle', perNote)
+        const e = scheduleTone(ctx, master, startSec, f, recipe.duration, recipe.shape ?? 'triangle', perNote, undefined, 'linear', recipe)
         if (e > end) end = e
       }
       return end
@@ -235,6 +274,117 @@ function scheduleRecipe(
 // cap concurrent contexts and dislike spinning up extras).
 export function getAudioContext(): AudioContext | null {
   return getCtx()
+}
+
+/** How long a sample takes to travel from Web Audio to the listener's ear, in
+ *  seconds. Effectively zero on built-in speakers; 100-300 ms over Bluetooth,
+ *  which is longer than a rhythm game's entire timing window — a player on
+ *  earbuds who plays perfectly by ear taps that far "late" and would be graded
+ *  as missing every note.
+ *
+ *  `outputLatency` is the honest number but is Chromium/Firefox-only;
+ *  `baseLatency` (the graph's own buffering) is widely supported and is a
+ *  usable floor. Capped at 400 ms so a nonsense value from an exotic driver
+ *  degrades into a small offset rather than an unplayable one. */
+export function outputLatency(): number {
+  const ctx = getCtx() as (AudioContext & { outputLatency?: number }) | null
+  if (!ctx) return 0
+  const reported = (ctx.outputLatency ?? 0) || ctx.baseLatency || 0
+  return Number.isFinite(reported) ? Math.max(0, Math.min(0.4, reported)) : 0
+}
+
+/** AudioContext clock, in seconds. The ONLY clock that is in sync with what
+ *  the speaker is actually producing — `performance.now()` and rAF are not.
+ *  Purr Beat derives its game time from this so notes land on the beat the
+ *  player hears rather than on the beat the render loop guessed at. */
+export function audioNow(): number | null {
+  const ctx = getCtx()
+  return ctx ? ctx.currentTime : null
+}
+
+// ─── Shared limiter bus ──────────────────────────────────────────────────────
+// Every synthesised voice sums here before the speakers. Until Purr Beat's
+// music bed existed nothing in the app played more than two or three synth
+// voices at once, so each playSynth() could safely wire its own gain straight
+// to ctx.destination. A rhythm game breaks that assumption hard: kick + snare
+// + hat + bass + pad + a lane tone + a perfect stinger is seven voices landing
+// on the same millisecond, and raw summing above 0 dBFS clips into a nasty
+// digital crackle.
+//
+// The compressor is a LIMITER, not an effect — with a -10 dB threshold it does
+// nothing at all to the sparse UI blips (they never get near it) and only
+// engages on the dense stack. mp3 playback (playBuffer) is deliberately NOT
+// routed through it; that path is unchanged.
+let _bus: GainNode | null = null
+
+function getBus(ctx: AudioContext): GainNode {
+  if (_bus) return _bus
+  const input = ctx.createGain()
+  input.gain.value = 1
+  const limiter = ctx.createDynamicsCompressor()
+  // Gentle on purpose. A hard ratio here would let Purr Beat's kick duck the
+  // player's own lane tone every time they hit one on the beat — the feedback
+  // they most need to hear, quietest exactly when it matters.
+  limiter.threshold.value = -6
+  limiter.knee.value = 14
+  limiter.ratio.value = 4
+  limiter.attack.value = 0.004
+  limiter.release.value = 0.22
+  input.connect(limiter)
+  limiter.connect(ctx.destination)
+  _bus = input
+  return _bus
+}
+
+/** Input node of the shared limiter bus — route sub-mixes here so they get
+ *  clip protection along with everything else. Callers own their own gain node
+ *  in between when they need to fade a whole layer out (see Purr Beat's music
+ *  bus, which ramps to silence on game over so the lookahead-scheduled drums
+ *  don't keep playing over the results panel). */
+export function getSynthBus(): AudioNode | null {
+  const ctx = getCtx()
+  return ctx ? getBus(ctx) : null
+}
+
+/** Schedule a recipe to start at an ABSOLUTE AudioContext time.
+ *
+ *  This is the sample-accurate sibling of playSynth. playSynth fires "as soon
+ *  as possible", which is correct for a button blip and useless for music: a
+ *  rAF-driven caller can only notice a beat has arrived up to a frame late, so
+ *  a metronome driven that way audibly stumbles. Instead, a caller looks a few
+ *  hundred ms into the future, hands the exact times over here, and the audio
+ *  hardware places them to the sample.
+ *
+ *  `atSec` in the past is clamped forward — Web Audio silently drops nodes
+ *  started behind currentTime, which would show up as randomly missing beats. */
+export function scheduleSynthAt(
+  recipe: SynthRecipe,
+  volume: number,
+  atSec: number,
+  destination?: AudioNode,
+): void {
+  const ctx = getCtx()
+  if (!ctx) return
+  // MUST resume, like every other play path here. Purr Beat derives its game
+  // clock from ctx.currentTime, and currentTime does not advance while the
+  // context is suspended — which is what a backgrounded PWA or an incoming
+  // call leaves it as. Without this the game does not merely go quiet, it
+  // freezes: notes stop mid-flight and nothing can end the run.
+  if (ctx.state === 'suspended') {
+    void ctx.resume().catch(() => { /* still locked — the beat is lost, not the app */ })
+  }
+  try {
+    const master = ctx.createGain()
+    master.gain.value = Math.max(0, Math.min(1, volume))
+    master.connect(destination ?? getBus(ctx))
+    const startSec = Math.max(ctx.currentTime + 0.001, atSec)
+    const endSec = scheduleRecipe(ctx, master, startSec, recipe)
+    setTimeout(() => {
+      try { master.disconnect() } catch { /* ignore */ }
+    }, Math.max(50, (endSec - ctx.currentTime) * 1000 + 100))
+  } catch {
+    /* AudioContext might still be locked — ignore */
+  }
 }
 
 // Play a pre-decoded mp3 (AudioBuffer) through Web Audio. Replaces the old
@@ -316,7 +466,7 @@ export function playSynth(recipe: SynthRecipe, volume: number): void {
   try {
     const master = ctx.createGain()
     master.gain.value = Math.max(0, Math.min(1, volume))
-    master.connect(ctx.destination)
+    master.connect(getBus(ctx))
     const startSec = ctx.currentTime + 0.001
     const endSec = scheduleRecipe(ctx, master, startSec, recipe)
     // Disconnect the master node after the sound finishes so we don't leak
