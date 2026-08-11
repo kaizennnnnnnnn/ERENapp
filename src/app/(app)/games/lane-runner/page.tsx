@@ -14,6 +14,12 @@ import GameCoinReward from '@/components/games/GameCoinReward'
 import ErenRunner, {
   RUN_FRAME_COUNT, RUN_BOX_W, RUN_BOX_H, RUN_BODY_CX, isRunContact,
 } from '@/components/games/ErenRunner'
+import {
+  ZONES, ZONE_EVERY, ZoneSky, ZoneRoad, ZoneGutters, ItemArt,
+  HAZARDS, PICKUP_VALUE, HAZARD_SIZE, PICKUP_SIZE, isObstacle,
+  type Variant, type Hazard, type Pickup,
+} from '@/components/games/LaneRunnerWorld'
+import { choosePattern, patternSpan, isPatternSafe } from '@/lib/laneRunnerPatterns'
 import { playSound } from '@/lib/sounds'
 import { IconCoin, IconStar } from '@/components/PixelIcons'
 import { fireMinigameDone } from '@/lib/minigames'
@@ -22,16 +28,20 @@ const LANES = 3
 const SPEED_BASE = 270
 const SPEED_RAMP = 14    // px/s² → speed += 14 per second elapsed
 const SPEED_MAX = 620
-const SPAWN_BASE = 720
-const SPAWN_MIN  = 280
 const PLAYER_BOTTOM = 90  // distance from ground line
-const ITEM_SIZE = 46
-const COLLIDE_INSET = 10
+const ITEM_SIZE = 46          // spawn offset / cleanup margin
+/** Hitbox reach, deliberately DECOUPLED from the drawn size. Hazards render
+ *  bigger than they used to so they read at speed; feeding that into collision
+ *  would have silently made the game harder. This is the old 46/2 + 10, so the
+ *  difficulty is byte-for-byte what it was. */
+const HIT_SPAN = 33
+/** Where the horizon sits — the road starts here. */
+const HORIZON = '18%'
+
+const sizeOf = (v: Variant) => (isObstacle(v) ? HAZARD_SIZE : PICKUP_SIZE)
 const SPEED_TIERS = [400, 500, SPEED_MAX]
 const STRIDE_PX = 34          // ground covered per frame of Eren's run cycle
 const STRIDE_SPEED_CAP = 480  // past this his legs would just blur, so cadence stops ramping
-
-type Variant = 'mouse' | 'vacuum' | 'cucumber' | 'dog' | 'coin' | 'fish'
 
 interface Item {
   id: number
@@ -72,14 +82,6 @@ interface SpeedStreak {
 
 let _iid = 0
 const newId = () => ++_iid
-
-// 70% obstacle, 30% pickup. Within obstacles each variant equally likely.
-const OBSTACLE_VARIANTS: Variant[] = ['mouse', 'vacuum', 'cucumber', 'dog']
-const PICKUP_VARIANTS:   Variant[] = ['coin', 'coin', 'coin', 'fish']  // fish is rarer (worth more)
-
-function isObstacle(v: Variant): boolean {
-  return v === 'mouse' || v === 'vacuum' || v === 'cucumber' || v === 'dog'
-}
 
 export default function LaneRunnerGame() {
   const router = useRouter()
@@ -129,7 +131,10 @@ export default function LaneRunnerGame() {
   const [scorePulse, setScorePulse] = useState(0)
   const [hitFlash, setHitFlash] = useState(0)
   const [shaking, setShaking] = useState(false)
-  const [parallaxOffset, setParallaxOffset] = useState(0)
+  // Which stretch of the world we're running through. Derived from score so
+  // the crossfade is automatic; the banner announces the crossing.
+  const [zoneBanner, setZoneBanner] = useState<{ id: number; name: string } | null>(null)
+  const zoneIdxRef = useRef(0)
   const [gameOverScore, setGameOverScore] = useState(0)
   const [isNewBest, setIsNewBest] = useState(false)
   const [reward, setReward] = useState<GameRewardResult | null>(null)
@@ -140,11 +145,11 @@ export default function LaneRunnerGame() {
   const stateRef       = useRef<'idle' | 'running' | 'gameover'>('idle')
   const itemsRef       = useRef<Item[]>([])
   const speedRef       = useRef(SPEED_BASE)
-  const lastSpawnRef   = useRef(0)
+  /** Pixels of road left to travel before the next pattern is due. */
+  const spawnCursorRef = useRef(0)
   const lastFrameRef   = useRef(0)
   const startTimeRef   = useRef(0)
   const stripeRef      = useRef(0)
-  const parallaxRef    = useRef(0)
   const rafRef         = useRef<number>(0)
   const distanceRef    = useRef(0)
   const coinsRef       = useRef(0)
@@ -237,65 +242,50 @@ export default function LaneRunnerGame() {
     return ((l + 0.5) / LANES) * fieldDimsRef.current.w
   }
 
-  function spawn(now: number) {
-    const elapsed = (now - startTimeRef.current) / 1000
-    const interval = Math.max(SPAWN_MIN, SPAWN_BASE - elapsed * 14)
-    if (now - lastSpawnRef.current < interval) return
-    lastSpawnRef.current = now
+  /** Gap between one pattern's last row and the next pattern's first, in
+   *  PIXELS rather than milliseconds. The old spawner used a time interval,
+   *  which quietly meant the road got denser as you sped up — 720ms of travel
+   *  at 270px/s is 194px, but 280ms at 620px/s is 173px, and the player reads
+   *  distance, not time. Measuring the gap in distance keeps the road's
+   *  breathing room honest at every speed. */
+  function patternGapPx(difficulty: number): number {
+    return 360 - 140 * Math.min(1, Math.max(0, difficulty))
+  }
 
-    const isPickup = Math.random() < 0.3
-    const variant: Variant = isPickup
-      ? PICKUP_VARIANTS[Math.floor(Math.random() * PICKUP_VARIANTS.length)]
-      : OBSTACLE_VARIANTS[Math.floor(Math.random() * OBSTACLE_VARIANTS.length)]
+  function spawnPattern() {
+    const difficulty = Math.min(1, Math.max(0,
+      (speedRef.current - SPEED_BASE) / (SPEED_MAX - SPEED_BASE)))
 
-    // Avoid spawning so close to the previous one in the same lane that the
-    // player can't possibly switch in time. If recent same-lane item exists
-    // within 100px of the top, pick a different lane.
-    const recent = itemsRef.current.filter(i => i.y < 100)
-    const usedLanes = new Set(recent.map(i => i.lane))
-    const candidates = ([0, 1, 2] as const).filter(l => !usedLanes.has(l))
+    const rng = Math.random
+    const hazard = (): Hazard => HAZARDS[Math.floor(rng() * HAZARDS.length)]
+    const pattern = choosePattern(rng, difficulty)
+    const items = pattern.build(rng, hazard)
 
-    // Wall prevention: if we're about to spawn an OBSTACLE and there are
-    // already obstacles in the other two lanes within a vertical band (giving
-    // the player no escape), force a pickup or skip this spawn.
-    if (isObstacle(variant)) {
-      // Look at recent obstacles in a slightly larger band — anything that
-      // hasn't passed the player yet counts toward forming a wall.
-      const recentObstacles = itemsRef.current.filter(
-        i => isObstacle(i.variant) && i.y < 180 && !i.collected
-      )
-      const obstacleLanes = new Set(recentObstacles.map(i => i.lane))
-      // If two lanes already have obstacles in the upper band, the third lane
-      // MUST stay clear (or be a pickup). Force candidate to a safe lane and
-      // convert this spawn into a pickup so player can survive.
-      if (obstacleLanes.size >= 2) {
-        const safeLanes = ([0, 1, 2] as const).filter(l => !obstacleLanes.has(l))
-        if (safeLanes.length > 0) {
-          const safeLane = safeLanes[Math.floor(Math.random() * safeLanes.length)]
-          // Convert to a coin so player has a guaranteed survivable path
-          itemsRef.current.push({
-            id: newId(),
-            lane: safeLane,
-            y: -ITEM_SIZE,
-            variant: 'coin',
-          })
-          return
-        }
-        // No safe lane at all — skip spawn entirely to avoid a wall
-        return
-      }
+    // The library is authored to be safe and fuzz-tested, but a shape that
+    // somehow has no path through it is an unwinnable death, so it never gets
+    // to reach the player: fall back to a bare single hazard.
+    const safe = isPatternSafe(items, isObstacle)
+      ? items
+      : [{ lane: Math.floor(rng() * 3) as 0 | 1 | 2, variant: hazard(), dy: 0 }]
+
+    for (const p of safe) {
+      itemsRef.current.push({
+        id: newId(),
+        lane: p.lane,
+        y: -sizeOf(p.variant) - p.dy,
+        variant: p.variant,
+      })
     }
 
-    const targetLane = (candidates.length > 0
-      ? candidates[Math.floor(Math.random() * candidates.length)]
-      : Math.floor(Math.random() * 3) as 0 | 1 | 2)
+    spawnCursorRef.current = patternSpan(safe) + patternGapPx(difficulty)
+  }
 
-    itemsRef.current.push({
-      id: newId(),
-      lane: targetLane,
-      y: -ITEM_SIZE,
-      variant,
-    })
+  /** Distance-driven: the cursor counts down the pixels of road left before the
+   *  next pattern is due. */
+  function spawn(travelled: number) {
+    spawnCursorRef.current -= travelled
+    if (spawnCursorRef.current > 0) return
+    spawnPattern()
   }
 
   function loop(now: number) {
@@ -316,7 +306,7 @@ export default function LaneRunnerGame() {
       }
     }
 
-    spawn(now)
+    spawn(speedRef.current * dt)
 
     // Advance the run cycle off ground covered, not the clock, so his stride
     // rate ramps up exactly as much as the road does.
@@ -335,8 +325,6 @@ export default function LaneRunnerGame() {
     // Scroll lane stripes + parallax skyline
     stripeRef.current = (stripeRef.current + speedRef.current * dt) % 40
     setStripeOffset(stripeRef.current)
-    parallaxRef.current = (parallaxRef.current + speedRef.current * dt * 0.45) % 200
-    setParallaxOffset(parallaxRef.current)
 
     // Spawn speed streaks on the side grass — density scales with speed.
     // Decorative motion; skip entirely when reduced motion is requested.
@@ -376,6 +364,15 @@ export default function LaneRunnerGame() {
       }
       lastScoreRef.current = newScore
       setScore(newScore)
+
+      // Crossing into a new stretch of the world. Announced, so the change of
+      // scenery registers as somewhere you got to rather than as wallpaper.
+      const zi = Math.floor(newScore / ZONE_EVERY) % ZONES.length
+      if (zi !== zoneIdxRef.current) {
+        zoneIdxRef.current = zi
+        setZoneBanner({ id: newId(), name: ZONES[zi].name })
+        playSound('lr_speed_up')
+      }
     }
 
     // Collision + near-miss check
@@ -390,15 +387,15 @@ export default function LaneRunnerGame() {
         isObstacle(it.variant) &&
         it.lane !== playerLane &&
         Math.abs(it.lane - playerLane) === 1 &&
-        it.y > playerY - ITEM_SIZE / 2 &&
-        it.y < playerY + ITEM_SIZE / 2 + 4
+        it.y > playerY - HIT_SPAN &&
+        it.y < playerY + HIT_SPAN
       ) {
         it.passed = true
         playSound('lr_near_miss')
       }
 
       if (it.lane !== playerLane) continue
-      if (Math.abs(it.y - playerY) > ITEM_SIZE / 2 + COLLIDE_INSET) continue
+      if (Math.abs(it.y - playerY) > HIT_SPAN) continue
       if (isObstacle(it.variant)) {
         playSound('lr_crash')
         if (!reducedRef.current) {
@@ -413,7 +410,7 @@ export default function LaneRunnerGame() {
       }
       // Pickup
       it.collected = true
-      const reward = it.variant === 'fish' ? 3 : 1
+      const reward = PICKUP_VALUE[it.variant as Pickup]
       coinsRef.current += reward
       setCoins(coinsRef.current)
       streakRef.current += 1
@@ -422,15 +419,12 @@ export default function LaneRunnerGame() {
 
       const popupX = laneToX(it.lane)
       const popupY = it.y
-      if (it.variant === 'fish') {
-        playSound('lr_fish_pickup')
-        spawnPopup(popupX, popupY, '+3', '#7DD3FC')
-        if (!reducedRef.current) spawnSparkles(popupX, popupY, '#7DD3FC', 6)
-      } else {
-        playSound('lr_coin_pickup')
-        spawnPopup(popupX, popupY, '+1', '#FCD34D')
-        if (!reducedRef.current) spawnSparkles(popupX, popupY, '#FCD34D', 5)
-      }
+      // Each pickup keeps the colour of its own halo, so the burst reads as
+      // coming from the thing you grabbed.
+      const tint = it.variant === 'fish' ? '#7DD3FC' : it.variant === 'mouse' ? '#C4B5FD' : '#FCD34D'
+      playSound(it.variant === 'coin' ? 'lr_coin_pickup' : 'lr_fish_pickup')
+      spawnPopup(popupX, popupY, `+${reward}`, tint)
+      if (!reducedRef.current) spawnSparkles(popupX, popupY, tint, it.variant === 'coin' ? 5 : 6)
     }
 
     // Drop offscreen items + collected. Reset streak if an uncollected pickup passes the player.
@@ -464,7 +458,6 @@ export default function LaneRunnerGame() {
     streakRef.current = 0
     lastScoreRef.current = 0
     speedTierRef.current = 0
-    parallaxRef.current = 0
     strideRef.current = 0
     runFrameRef.current = 0
     setBank(null)
@@ -473,7 +466,8 @@ export default function LaneRunnerGame() {
     setCoins(0)
     setStreak(0)
     setStripeOffset(0)
-    setParallaxOffset(0)
+    zoneIdxRef.current = 0
+    setZoneBanner(null)
     setIsNewBest(false)
     setGameOverScore(0)
     setReward(null)
@@ -482,7 +476,7 @@ export default function LaneRunnerGame() {
     const now = performance.now()
     startTimeRef.current = now
     lastFrameRef.current = now
-    lastSpawnRef.current = now - SPAWN_BASE + 400
+    spawnCursorRef.current = 260   // a short run-up before the first shape
     lastStreakSpawnRef.current = now
 
     stateRef.current = 'running'
@@ -550,7 +544,6 @@ export default function LaneRunnerGame() {
     const now = performance.now()
     const delta = now - hideAtRef.current
     startTimeRef.current       += delta
-    lastSpawnRef.current        += delta
     lastStreakSpawnRef.current  += delta
     lastFrameRef.current = now
     rafRef.current = requestAnimationFrame(loop)
@@ -634,73 +627,19 @@ export default function LaneRunnerGame() {
           animation: shaking ? 'lr-shake 0.22s steps(6, end)' : undefined,
         }}>
 
-        {/* Sky band — thin horizon strip behind the asphalt */}
+        {/* ── World. Four zones crossfade on opacity: kitchen, garden, street,
+               rooftops. The hazard roster deliberately does NOT change with
+               them — you learn four hazards once and keep that knowledge. ── */}
+        <ZoneSky zoneIndex={zoneIdxRef.current} horizon={HORIZON} />
+
+        {/* Horizon line — where the backdrop meets the floor */}
         <div style={{
-          position: 'absolute', left: 0, right: 0, top: 0, height: '18%',
-          background: 'linear-gradient(180deg, #1B1240 0%, #2B1B58 60%, #4B2D7E 100%)',
-          pointerEvents: 'none',
+          position: 'absolute', left: 0, right: 0, top: HORIZON, height: 2,
+          background: '#000', pointerEvents: 'none', opacity: 0.55,
         }} />
 
-        {/* Parallax skyline — pixel buildings scroll slower than the road */}
-        <div style={{
-          position: 'absolute', left: 0, right: 0, top: '7%', height: '11%',
-          backgroundImage: `repeating-linear-gradient(90deg,
-            transparent 0 6px,
-            #0A0420 6px 10px,
-            #0A0420 10px 22px,
-            transparent 22px 28px,
-            #14092C 28px 50px,
-            transparent 50px 58px,
-            #0A0420 58px 70px,
-            transparent 70px 84px,
-            #14092C 84px 104px,
-            transparent 104px 116px,
-            #0A0420 116px 144px,
-            transparent 144px 156px,
-            #14092C 156px 180px,
-            transparent 180px 200px
-          )`,
-          backgroundPositionX: `${-parallaxOffset * 0.5}px`,
-          backgroundSize: '200px 100%',
-          pointerEvents: 'none',
-          opacity: 0.95,
-        }} />
-
-        {/* Distant city lights — twinkling dots in the skyline strip */}
-        <div style={{
-          position: 'absolute', left: 0, right: 0, top: '10%', height: '6%',
-          backgroundImage: `repeating-linear-gradient(90deg,
-            transparent 0 14px,
-            #FCD34D 14px 16px,
-            transparent 16px 38px,
-            #A78BFA 38px 40px,
-            transparent 40px 70px,
-            #FBBF24 70px 72px,
-            transparent 72px 110px
-          )`,
-          backgroundPositionX: `${-parallaxOffset * 0.5}px`,
-          backgroundSize: '160px 100%',
-          opacity: 0.7,
-          pointerEvents: 'none',
-        }} />
-
-        {/* Horizon line — where sky meets road */}
-        <div style={{
-          position: 'absolute', left: 0, right: 0, top: '18%', height: 2,
-          background: '#000',
-          pointerEvents: 'none',
-          opacity: 0.65,
-        }} />
-
-        {/* Asphalt + scrolling stripes (starts below the sky) */}
-        <div style={{
-          position: 'absolute', left: 0, right: 0, top: '18%', bottom: 0,
-          background: 'linear-gradient(180deg, #1F2937 0%, #111827 80%, #030712 100%)',
-        }} />
-
-        {/* Side grass margins (only across road portion) */}
-        <div style={{ position: 'absolute', left: 0, top: '18%', bottom: 0, width: '6%', background: 'repeating-linear-gradient(0deg, #16a34a 0 12px, #15803d 12px 24px)' }} />
-        <div style={{ position: 'absolute', right: 0, top: '18%', bottom: 0, width: '6%', background: 'repeating-linear-gradient(0deg, #16a34a 0 12px, #15803d 12px 24px)' }} />
+        <ZoneRoad zoneIndex={zoneIdxRef.current} horizon={HORIZON} scrollY={stripeOffset} />
+        <ZoneGutters zoneIndex={zoneIdxRef.current} horizon={HORIZON} scrollY={stripeOffset} />
 
         {/* Speed streaks — pixel lines on side grass that grow denser with speed */}
         {streaksRef.current.map(s => (
@@ -729,13 +668,40 @@ export default function LaneRunnerGame() {
           <div key={i} style={{
             position: 'absolute',
             left: `${(i / LANES) * 100}%`,
-            top: '18%', bottom: 0, width: 4,
-            background: `repeating-linear-gradient(180deg, #FCD34D 0 16px, transparent 16px 40px)`,
+            top: HORIZON, bottom: 0, width: 4,
+            background: `repeating-linear-gradient(180deg, ${ZONES[zoneIdxRef.current].laneLine} 0 16px, transparent 16px 40px)`,
+            transition: 'background 900ms ease',
             backgroundPositionY: `${stripeOffset}px`,
             transform: 'translateX(-50%)',
             opacity: 0.7,
           }} />
         ))}
+
+        {/* Zone banner — names the stretch you just ran into. */}
+        {zoneBanner && phase === 'running' && (
+          <div className="absolute pointer-events-none" style={{
+            top: '22%', left: 0, right: 0, display: 'flex', justifyContent: 'center', zIndex: 6,
+          }}>
+            <div
+              key={zoneBanner.id}
+              className="font-pixel"
+              style={{
+                padding: '6px 14px',
+                background: 'rgba(0,0,0,0.7)',
+                border: `2px solid ${ZONES[zoneIdxRef.current].accent}`,
+                borderRadius: 4,
+                boxShadow: `0 3px 0 rgba(0,0,0,0.45)`,
+                fontSize: 9,
+                letterSpacing: 3,
+                color: ZONES[zoneIdxRef.current].accent,
+                whiteSpace: 'nowrap',
+                animation: 'lr-zone-banner 1900ms cubic-bezier(0.22,1,0.36,1) forwards',
+              }}
+              onAnimationEnd={() => setZoneBanner(null)}>
+              {zoneBanner.name}
+            </div>
+          </div>
+        )}
 
         {/* Score popups (e.g. "+1", "+3") */}
         {popupsRef.current.map(p => {
@@ -786,11 +752,11 @@ export default function LaneRunnerGame() {
         {itemsRef.current.map(it => (
           <div key={it.id} className="absolute pointer-events-none"
             style={{
-              left: laneToX(it.lane) - ITEM_SIZE / 2,
-              top: it.y - ITEM_SIZE / 2,
-              width: ITEM_SIZE, height: ITEM_SIZE,
+              left: laneToX(it.lane) - sizeOf(it.variant) / 2,
+              top: it.y - sizeOf(it.variant) / 2,
+              width: sizeOf(it.variant), height: sizeOf(it.variant),
             }}>
-            <ItemFx variant={it.variant} reduced={reduced} />
+            <ItemArt variant={it.variant} reduced={reduced} />
           </div>
         ))}
 
@@ -981,19 +947,27 @@ export default function LaneRunnerGame() {
           40%  { transform: rotate(14deg) translateX(2px); }
           100% { transform: rotate(0deg)  translateX(0); }
         }
-        /* Obstacle hazard aura — angry red pulse. */
-        @keyframes lr-danger-pulse {
-          0%, 100% { transform: scale(0.9);  opacity: 0.72; }
-          50%      { transform: scale(1.14); opacity: 1; }
+        /* Hazard tape under an obstacle. Brightness only — it must not move,
+           or it competes with the sprite standing on it. */
+        @keyframes lr-hazard-tape {
+          0%, 100% { opacity: 0.72; }
+          50%      { opacity: 1; }
         }
-        /* Pickup treatments — inviting halo + gentle float. */
+        /* Pickup treatments — inviting halo + gentle float. The float is the
+           tell: pickups hover clear of their shadow, hazards sit on theirs. */
         @keyframes lr-pickup-glow {
           0%, 100% { transform: scale(0.94); opacity: 0.65; }
           50%      { transform: scale(1.1);  opacity: 1; }
         }
         @keyframes lr-pickup-bob {
           0%, 100% { transform: translateY(1px); }
-          50%      { transform: translateY(-2px); }
+          50%      { transform: translateY(-3px); }
+        }
+        @keyframes lr-zone-banner {
+          0%   { transform: translateY(-24px); opacity: 0; }
+          14%  { transform: translateY(0);     opacity: 1; }
+          78%  { transform: translateY(0);     opacity: 1; }
+          100% { transform: translateY(-10px); opacity: 0; }
         }
         @keyframes lr-pop {
           0%   { transform: scale(0.7); opacity: 0; }
@@ -1060,137 +1034,3 @@ function CountUp({ target, duration, style }: { target: number; duration: number
   return <span style={style}>{value}</span>
 }
 
-// ─── Item FX wrapper — encodes the danger/reward visual language ────────────
-// Obstacles: a pulsing red hazard aura + red rim so they read as "this kills
-// you" no matter the silhouette. Pickups: a warm inviting halo + gentle bob.
-// The contrast (aggressive red pulse vs. calm gold/cyan float) is what tells
-// the player at a glance what to dodge and what to grab.
-const ItemFx = memo(function ItemFx({ variant, reduced }: { variant: Variant; reduced: boolean }) {
-  if (isObstacle(variant)) {
-    return (
-      <>
-        <div style={{
-          position: 'absolute', inset: '-12%', borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(255,45,45,0.6) 0%, rgba(210,20,20,0.32) 46%, rgba(210,20,20,0) 72%)',
-          animation: reduced ? 'none' : 'lr-danger-pulse 0.6s ease-in-out infinite',
-        }} />
-        <div style={{
-          position: 'absolute', inset: 0,
-          filter: 'drop-shadow(0 0 3px rgba(255,45,45,0.95)) drop-shadow(0 2px 0 rgba(0,0,0,0.5))',
-        }}>
-          <ItemSprite variant={variant} />
-        </div>
-      </>
-    )
-  }
-  const halo = variant === 'fish' ? '125,211,252' : '252,211,77'
-  return (
-    <>
-      <div style={{
-        position: 'absolute', inset: 0, borderRadius: '50%',
-        background: `radial-gradient(circle, rgba(${halo},0.5) 0%, rgba(${halo},0) 68%)`,
-        animation: reduced ? 'none' : 'lr-pickup-glow 1.1s ease-in-out infinite',
-      }} />
-      <div style={{
-        position: 'absolute', inset: 0,
-        animation: reduced ? 'none' : 'lr-pickup-bob 0.9s ease-in-out infinite',
-        filter: 'drop-shadow(0 2px 0 rgba(0,0,0,0.4))',
-      }}>
-        <ItemSprite variant={variant} />
-      </div>
-    </>
-  )
-})
-
-// ─── Item sprites — small, bold silhouettes that read clearly on asphalt ────
-const ItemSprite = memo(function ItemSprite({ variant }: { variant: Variant }) {
-  if (variant === 'mouse') {
-    return (
-      <svg width="100%" height="100%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-        <rect x="3" y="3" width="6" height="5" fill="#9CA3AF" />
-        <rect x="2" y="4" width="8" height="3" fill="#9CA3AF" />
-        <rect x="3" y="3" width="2" height="2" fill="#6B7280" />
-        <rect x="7" y="3" width="2" height="2" fill="#6B7280" />
-        <rect x="3" y="4" width="2" height="1" fill="#3A1010" />
-        <rect x="7" y="4" width="2" height="1" fill="#3A1010" />
-        <rect x="4" y="5" width="1" height="1" fill="#FF2A2A" />
-        <rect x="7" y="5" width="1" height="1" fill="#FF2A2A" />
-        <rect x="5" y="7" width="2" height="1" fill="#FBA8D8" />
-        <rect x="9" y="6" width="3" height="1" fill="#9CA3AF" />
-      </svg>
-    )
-  }
-  if (variant === 'vacuum') {
-    return (
-      <svg width="100%" height="100%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-        <rect x="2" y="6" width="8" height="4" fill="#DC2626" />
-        <rect x="2" y="6" width="8" height="1" fill="#FCA5A5" />
-        <rect x="2" y="9" width="8" height="1" fill="#7F1D1D" />
-        <rect x="4" y="3" width="4" height="3" fill="#1F2937" />
-        <rect x="5" y="2" width="2" height="1" fill="#1F2937" />
-        <rect x="3" y="10" width="2" height="2" fill="#1F2937" />
-        <rect x="7" y="10" width="2" height="2" fill="#1F2937" />
-      </svg>
-    )
-  }
-  if (variant === 'cucumber') {
-    return (
-      <svg width="100%" height="100%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-        <rect x="2" y="5" width="8" height="3" fill="#16A34A" />
-        <rect x="1" y="6" width="10" height="1" fill="#22C55E" />
-        <rect x="2" y="5" width="8" height="1" fill="#86EFAC" />
-        <rect x="2" y="8" width="8" height="1" fill="#15803D" />
-        <rect x="3" y="6" width="1" height="1" fill="#86EFAC" />
-        <rect x="6" y="7" width="1" height="1" fill="#86EFAC" />
-        <rect x="8" y="6" width="1" height="1" fill="#86EFAC" />
-      </svg>
-    )
-  }
-  if (variant === 'dog') {
-    // Snarling guard dog — angry brows, red eyes, bared teeth.
-    return (
-      <svg width="100%" height="100%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-        <rect x="1" y="2" width="2" height="3" fill="#6B4420" />
-        <rect x="9" y="2" width="2" height="3" fill="#6B4420" />
-        <rect x="2" y="3" width="8" height="6" fill="#8A5A2B" />
-        <rect x="3" y="4" width="6" height="4" fill="#A06030" />
-        <rect x="3" y="4" width="2" height="1" fill="#2A1608" />
-        <rect x="7" y="4" width="2" height="1" fill="#2A1608" />
-        <rect x="4" y="5" width="1" height="1" fill="#FF2A2A" />
-        <rect x="7" y="5" width="1" height="1" fill="#FF2A2A" />
-        <rect x="3" y="7" width="6" height="2" fill="#2A1608" />
-        <rect x="3" y="7" width="1" height="1" fill="#FFFFFF" />
-        <rect x="5" y="7" width="1" height="1" fill="#FFFFFF" />
-        <rect x="7" y="7" width="1" height="1" fill="#FFFFFF" />
-        <rect x="4" y="8" width="1" height="1" fill="#FFFFFF" />
-        <rect x="6" y="8" width="1" height="1" fill="#FFFFFF" />
-        <rect x="8" y="8" width="1" height="1" fill="#FFFFFF" />
-      </svg>
-    )
-  }
-  if (variant === 'coin') {
-    return (
-      <svg width="100%" height="100%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-        <rect x="3" y="2" width="6" height="8" fill="#F59E0B" />
-        <rect x="2" y="3" width="8" height="6" fill="#F59E0B" />
-        <rect x="3" y="2" width="6" height="1" fill="#FCD34D" />
-        <rect x="2" y="3" width="2" height="6" fill="#FCD34D" />
-        <rect x="4" y="3" width="4" height="6" fill="#FBBF24" />
-        <rect x="5" y="4" width="2" height="4" fill="#92400E" />
-        <rect x="5" y="4" width="2" height="1" fill="#451A03" />
-      </svg>
-    )
-  }
-  // fish
-  return (
-    <svg width="100%" height="100%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      <rect x="2" y="4" width="6" height="4" fill="#6BAED6" />
-      <rect x="3" y="3" width="4" height="6" fill="#6BAED6" />
-      <rect x="3" y="3" width="4" height="1" fill="#A0CCE5" />
-      <rect x="8" y="4" width="1" height="4" fill="#3A88B8" />
-      <rect x="9" y="3" width="1" height="2" fill="#3A88B8" />
-      <rect x="9" y="7" width="1" height="2" fill="#3A88B8" />
-      <rect x="4" y="5" width="1" height="1" fill="#1A1A2E" />
-    </svg>
-  )
-})
