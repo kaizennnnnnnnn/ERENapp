@@ -11,6 +11,12 @@ import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useVisibilityPause } from '@/hooks/useVisibilityPause'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import GameCoinReward from '@/components/games/GameCoinReward'
+import {
+  THEMES, GROUND_H, TILE, CLOUD_TILE, GROUND_TILE, FAR_H, NEAR_H,
+  ParallaxRow, FarRidge, NearRidge, CloudBand, GroundBand,
+  SkyLayers, StarField, OrbLayer, HazeBand, Atmosphere,
+  type Theme,
+} from '@/components/games/FizzyErenScenery'
 import { playSound } from '@/lib/sounds'
 import { fireMinigameDone } from '@/lib/minigames'
 
@@ -34,83 +40,20 @@ const THEME_EVERY    = 8     // pipes between environment swaps
 const BEST_KEY       = 'flappy_eren_best'
 const MILESTONES     = [10, 25, 50, 100]
 
+// Parallax rates, as a fraction of the world's scroll speed. Stars sit at 0 —
+// held perfectly still, they're what the four moving layers read as distance
+// against.
+const RATE_CLOUD = 0.09
+const RATE_FAR   = 0.16
+const RATE_NEAR  = 0.40
+const RATE_GROUND = 1.0
+
 interface Pipe { id: number; x: number; gapY: number; gap: number; passed: boolean }
 interface Particle { id: number; x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; alpha: number; color: string }
 interface ThemeBanner { id: number; name: string; born: number; theme: Theme }
 
 let _pid = 0
 const newId = () => ++_pid
-
-// ─── Environments ────────────────────────────────────────────────────────────
-interface Theme {
-  name: 'day' | 'sunset' | 'night' | 'forest' | 'desert'
-  sky: string
-  ground: string
-  groundBorder: string
-  pipeMid: string   // gradient color used for pipe body
-  pipeShadow: string
-  cloudOpacity: number
-  starOpacity: number
-  pipeColor1: string
-  pipeColor2: string
-  pipeColor3: string
-}
-
-const THEMES: Theme[] = [
-  {
-    name: 'day',
-    sky: 'linear-gradient(180deg, #5BACEC 0%, #8FCCEF 50%, #C5E2EA 75%, #FCE7B4 100%)',
-    ground: 'repeating-linear-gradient(90deg, #16a34a 0 8px, #15803d 8px 16px)',
-    groundBorder: '#052e16',
-    pipeMid: '#22c55e', pipeShadow: '#064e3b',
-    pipeColor1: '#14a052', pipeColor2: '#16a34a', pipeColor3: '#22c55e',
-    cloudOpacity: 1, starOpacity: 0,
-  },
-  {
-    name: 'sunset',
-    sky: 'linear-gradient(180deg, #FF6F47 0%, #FF9966 30%, #FFB888 55%, #FFD7B5 80%, #FFE9C9 100%)',
-    ground: 'repeating-linear-gradient(90deg, #B45309 0 8px, #92400E 8px 16px)',
-    groundBorder: '#451A03',
-    pipeMid: '#F59E0B', pipeShadow: '#78350F',
-    pipeColor1: '#D97706', pipeColor2: '#F59E0B', pipeColor3: '#FBBF24',
-    cloudOpacity: 0.85, starOpacity: 0,
-  },
-  {
-    name: 'night',
-    sky: 'linear-gradient(180deg, #0A0F2A 0%, #1A1A4E 45%, #2D1B5E 80%, #4C1D95 100%)',
-    ground: 'repeating-linear-gradient(90deg, #1F2937 0 8px, #111827 8px 16px)',
-    groundBorder: '#030712',
-    pipeMid: '#7C3AED', pipeShadow: '#2E0F5C',
-    pipeColor1: '#5B21B6', pipeColor2: '#7C3AED', pipeColor3: '#A78BFA',
-    cloudOpacity: 0, starOpacity: 1,
-  },
-  {
-    name: 'forest',
-    sky: 'linear-gradient(180deg, #064E3B 0%, #15803D 35%, #4ADE80 70%, #BBF7D0 100%)',
-    ground: 'repeating-linear-gradient(90deg, #052e16 0 8px, #022c22 8px 16px)',
-    groundBorder: '#021810',
-    pipeMid: '#92400E', pipeShadow: '#451A03', // brown trunk-like pipes
-    pipeColor1: '#78350F', pipeColor2: '#92400E', pipeColor3: '#B45309',
-    cloudOpacity: 0.45, starOpacity: 0,
-  },
-  {
-    name: 'desert',
-    sky: 'linear-gradient(180deg, #FCD34D 0%, #FCA5A5 35%, #FECACA 65%, #FEF3C7 100%)',
-    ground: 'repeating-linear-gradient(90deg, #D97706 0 8px, #92400E 8px 16px)',
-    groundBorder: '#451A03',
-    pipeMid: '#A16207', pipeShadow: '#451A03', // sandstone-style
-    pipeColor1: '#854D0E', pipeColor2: '#A16207', pipeColor3: '#CA8A04',
-    cloudOpacity: 0.6, starOpacity: 0,
-  },
-]
-
-// Pre-baked star positions so they don't jitter between renders.
-const STAR_POSITIONS = Array.from({ length: 38 }, () => ({
-  left: `${Math.random() * 100}%`,
-  top: `${Math.random() * 60}%`,
-  size: 1 + Math.random() * 2,
-  delay: `${Math.random() * 3}s`,
-}))
 
 export default function FlappyErenGame() {
   const router = useRouter()
@@ -140,6 +83,10 @@ export default function FlappyErenGame() {
       if (r && r.width && r.height) {
         fieldDimsRef.current = { w: r.width, h: r.height }
         setFieldDims({ w: r.width, h: r.height })
+        // Park the can mid-field until a run starts. yRef is only centred by
+        // startGame, so before the first tap it sat at 0 — pinned to the top
+        // edge for the whole title screen.
+        if (stateRef.current === 'idle') yRef.current = r.height / 2 - EREN_H / 2
       }
     }
     measure()
@@ -199,6 +146,12 @@ export default function FlappyErenGame() {
   const rafRef       = useRef<number>(0)
   const pausedRef    = useRef(false)
   const hideAtRef    = useRef(0)
+  // Parallax scroll, each wrapped to its own tile width so the number never
+  // grows without bound over a long run.
+  const cloudOffRef  = useRef(0)
+  const farOffRef    = useRef(0)
+  const nearOffRef   = useRef(0)
+  const groundOffRef = useRef(0)
 
   const [, forceRender] = useReducer((n: number) => n + 1, 0)
 
@@ -208,7 +161,9 @@ export default function FlappyErenGame() {
     const gap = Math.max(PIPE_GAP_MIN, PIPE_GAP_MAX - scoreRef.current)
     const minMargin = 70
     const dims = fieldDimsRef.current
-    const range = Math.max(60, dims.h - gap - minMargin * 2)
+    // Playable height excludes the ground, so a gap can never open below it.
+    const playH = dims.h - GROUND_H
+    const range = Math.max(60, playH - gap - minMargin * 2)
     const gapY = minMargin + Math.random() * range
     pipesRef.current.push({ id: newId(), x: dims.w + 20, gapY, gap, passed: false })
   }
@@ -223,7 +178,7 @@ export default function FlappyErenGame() {
         vx: Math.cos(a) * speed,
         vy: Math.sin(a) * speed - 30,
         life: 0, max: 0.4,
-        size: 4 + Math.random() * 2,
+        size: 4 + (i % 2) * 2,
         alpha: 1,
         color: i % 2 === 0 ? '#A3F0C0' : '#FFFFFF',
       })
@@ -239,7 +194,7 @@ export default function FlappyErenGame() {
       vx: -120 - Math.random() * 80,
       vy: 50 + Math.random() * 100,
       life: 0, max: 0.45 + Math.random() * 0.4,
-      size: 3 + Math.random() * 3,
+      size: 2 + Math.floor(Math.random() * 3) * 2,
       alpha: 0.9,
       color: Math.random() < 0.4 ? '#A3F0C0' : '#FFFFFF',
     })
@@ -255,7 +210,7 @@ export default function FlappyErenGame() {
         vx: -50 - Math.random() * 230,
         vy: 80 + Math.random() * 240,
         life: 0, max: 0.55 + Math.random() * 0.55,
-        size: 4 + Math.random() * 5,
+        size: 3 + Math.floor(Math.random() * 3) * 2,
         alpha: 1,
         color: i % 3 === 0 ? '#10B981' : i % 3 === 1 ? '#A3F0C0' : '#FFFFFF',
       })
@@ -303,7 +258,7 @@ export default function FlappyErenGame() {
     const ex = PLAYER_X
     const ey = yRef.current
     if (ey < -8) return true
-    if (ey + EREN_H > fieldDimsRef.current.h - 12) return true
+    if (ey + EREN_H > fieldDimsRef.current.h - GROUND_H) return true
 
     const hbX = ex + 6
     const hbW = EREN_W - 12
@@ -333,7 +288,14 @@ export default function FlappyErenGame() {
       SPEED_MAX,
       SPEED_BASE + elapsed * TIME_ACCEL + scoreRef.current * SCORE_ACCEL,
     )
-    for (const p of pipesRef.current) p.x -= speedRef.current * dt
+    // One world movement, four different fractions of it. Each wraps to its own
+    // tile so the transforms stay in a small numeric range forever.
+    const move = speedRef.current * dt
+    for (const p of pipesRef.current) p.x -= move
+    cloudOffRef.current  = (cloudOffRef.current  + move * RATE_CLOUD)  % CLOUD_TILE
+    farOffRef.current    = (farOffRef.current    + move * RATE_FAR)    % TILE
+    nearOffRef.current   = (nearOffRef.current   + move * RATE_NEAR)   % TILE
+    groundOffRef.current = (groundOffRef.current + move * RATE_GROUND) % GROUND_TILE
 
     if (now - lastPipeRef.current > PIPE_INTERVAL) {
       spawnPipe()
@@ -550,61 +512,107 @@ export default function FlappyErenGame() {
         className="relative flex-1 overflow-hidden select-none"
         style={{ touchAction: 'none', cursor: 'pointer', animation: shakeKey > 0 ? 'feShake 240ms steps(8, end)' : undefined }}>
 
-        {/* Stacked sky layers — only the active one is fully opaque, others
-            fade out. Result: smooth crossfade when themeIndex changes. */}
+        {/* ── World, back to front. Each layer crossfades on theme change and
+               scrolls at its own rate; only the stars hold still. ── */}
         <SkyLayers themeIndex={themeIndex} />
-
-        {/* Stars (visible only in night) */}
+        <OrbLayer themeIndex={themeIndex} />
         <StarField starOpacity={currentTheme.starOpacity} reduced={reduced} />
 
-        {/* Clouds (faded out at night) */}
-        <CloudLayer cloudOpacity={currentTheme.cloudOpacity} />
+        <ParallaxRow offset={farOffRef.current} drift="feDriftFar" driftMs={70000}
+          reduced={reduced} bottom={GROUND_H} height={FAR_H}>
+          <FarRidge themeIndex={themeIndex} fieldW={fieldDims.w} />
+        </ParallaxRow>
+
+        {/* Clouds sit between the two ridges — a cloud passing in front of the
+            far skyline but behind the near one is a depth cue you get free. */}
+        <ParallaxRow offset={cloudOffRef.current} drift="feDriftCloud" driftMs={110000}
+          reduced={reduced} top={0} height={Math.max(200, fieldDims.h * 0.55)}>
+          <CloudBand themeIndex={themeIndex} fieldW={fieldDims.w} />
+        </ParallaxRow>
+
+        <HazeBand themeIndex={themeIndex} />
+
+        <ParallaxRow offset={nearOffRef.current} drift="feDriftNear" driftMs={30000}
+          reduced={reduced} bottom={GROUND_H} height={NEAR_H}>
+          <NearRidge themeIndex={themeIndex} fieldW={fieldDims.w} />
+        </ParallaxRow>
 
         {/* Pipes */}
         {pipesRef.current.map(p => (
           <PipePair key={p.id} pipe={p} fieldH={fieldDims.h} theme={currentTheme} />
         ))}
 
-        {/* Eren on can — outer wrapper handles position; inner wrapper applies
-            the flap squash/stretch + swing kick on top of the vy-based tilt. */}
+        {/* Eren on can — outer wrapper handles position, inner wrapper applies
+            the flap squash/stretch + swing kick on top of the vy-based tilt.
+            Ghosts trail behind once the world is moving fast enough to warrant
+            them; the thrust plume fires on every flap. */}
         {(() => {
-          const impact = getFlapImpact(performance.now())
+          const now = performance.now()
+          const impact = getFlapImpact(now)
+          const spin = `rotate(${angleRef.current + impact.r}deg) scale(${impact.sx}, ${impact.sy})`
+          // 0 at base speed, 1 at cap — ghosts fade in as the run gets faster.
+          const rush = reduced || state !== 'running' ? 0
+            : Math.max(0, Math.min(1, (speedRef.current - SPEED_BASE - 30) / (SPEED_MAX - SPEED_BASE - 30)))
+          const plume = reduced ? 0 : Math.max(0, 1 - (now - flapTimeRef.current) / 420)
           return (
-            <div style={{
-              position: 'absolute',
-              left: PLAYER_X,
-              top: yRef.current,
-              width: EREN_W,
-              height: EREN_H,
-              willChange: 'transform, top',
-            }}>
+            <>
+              {rush > 0.02 && [1, 2].map(k => (
+                <div key={k} style={{
+                  position: 'absolute',
+                  left: PLAYER_X - k * 13,
+                  top: yRef.current,
+                  width: EREN_W, height: EREN_H,
+                  opacity: rush * (k === 1 ? 0.26 : 0.13),
+                  transform: spin,
+                  transformOrigin: '50% 70%',
+                  pointerEvents: 'none',
+                }}>
+                  <ErenOnCanMemo />
+                </div>
+              ))}
               <div style={{
-                width: '100%', height: '100%',
-                transform: `rotate(${angleRef.current + impact.r}deg) scale(${impact.sx}, ${impact.sy})`,
-                transformOrigin: '50% 70%',
+                position: 'absolute',
+                left: PLAYER_X,
+                top: yRef.current,
+                width: EREN_W,
+                height: EREN_H,
+                willChange: 'transform, top',
+                animation: state === 'idle' && !reduced ? 'feIdleBob 1800ms ease-in-out infinite' : undefined,
               }}>
-                <ErenOnCanMemo />
+                <div style={{
+                  width: '100%', height: '100%',
+                  transform: spin,
+                  transformOrigin: '50% 70%',
+                }}>
+                  <ErenOnCanMemo />
+                  {plume > 0 && <ThrustPlume power={plume} />}
+                </div>
               </div>
-            </div>
+            </>
           )
         })()}
 
-        {/* Fizz particles */}
+        {/* Fizz — square chunks on whole pixels, no blur. Round divs with a
+            blurred glow read as generic CSS particles next to the can's art. */}
         {particlesRef.current.map(p => (
           <div key={p.id} style={{
             position: 'absolute',
-            left: p.x, top: p.y,
+            left: Math.round(p.x), top: Math.round(p.y),
             width: p.size, height: p.size,
             background: p.color,
             opacity: p.alpha,
-            borderRadius: '50%',
             pointerEvents: 'none',
-            boxShadow: p.color === '#FFFFFF' ? '0 0 4px rgba(255,255,255,0.8)' : 'none',
           }} />
         ))}
 
-        {/* Ground — also crossfades */}
-        <GroundLayers themeIndex={themeIndex} />
+        {/* Ground — scrolls at full world speed, so it's the layer that sells
+            how fast you're actually going. */}
+        <ParallaxRow offset={groundOffRef.current} drift="feDriftGround" driftMs={2600}
+          reduced={reduced} bottom={0} height={GROUND_H}>
+          <GroundBand themeIndex={themeIndex} />
+        </ParallaxRow>
+
+        <Atmosphere />
 
         {/* Score — outer div handles centering, inner div pulses on each pass. */}
         {state !== 'idle' && (
@@ -617,7 +625,13 @@ export default function FlappyErenGame() {
               style={{
                 fontSize: 36,
                 color: 'white',
-                textShadow: '3px 3px 0 #064e3b, -1px -1px 0 #064e3b',
+                // Eight-direction outline, not a single offset shadow — the
+                // score sits over five different skies and has to stay legible
+                // against every one of them.
+                textShadow:
+                  '2px 0 0 #08301F, -2px 0 0 #08301F, 0 2px 0 #08301F, 0 -2px 0 #08301F,' +
+                  '2px 2px 0 #08301F, -2px 2px 0 #08301F, 2px -2px 0 #08301F, -2px -2px 0 #08301F,' +
+                  '0 5px 0 rgba(0,0,0,0.32)',
                 letterSpacing: 2,
                 transformOrigin: 'center center',
                 animation: scorePulseKey > 0 ? 'feScorePulse 220ms cubic-bezier(0.34,1.56,0.64,1)' : undefined,
@@ -692,13 +706,16 @@ export default function FlappyErenGame() {
 
         {/* Idle overlay */}
         {state === 'idle' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none">
+          // Sits in the lower third, not dead centre — the can idles at mid-field
+          // and a centred panel lands right on top of it.
+          <div className="absolute inset-0 flex flex-col items-center justify-end pointer-events-none"
+            style={{ paddingBottom: '26%' }}>
             <div style={{
               padding: '14px 22px',
-              background: 'rgba(0,0,0,0.55)',
-              border: '3px solid rgba(255,255,255,0.5)',
+              background: 'linear-gradient(180deg, #15122A 0%, #0F0A1E 100%)',
+              border: '3px solid #10B981',
               borderRadius: 6,
-              boxShadow: '0 4px 0 rgba(0,0,0,0.4)',
+              boxShadow: '0 4px 0 #064e3b, 0 0 20px rgba(16,185,129,0.35)',
             }}>
               <p className="font-pixel text-white text-center" style={{ fontSize: 9, letterSpacing: 2 }}>TAP TO START</p>
               <p className="font-pixel text-center mt-2" style={{ fontSize: 6, color: '#A3F0C0', letterSpacing: 1 }}>FIZZ TO FLY · DODGE PIPES</p>
@@ -793,6 +810,18 @@ export default function FlappyErenGame() {
           0%, 100% { opacity: 0.35; }
           50%      { opacity: 1; }
         }
+        /* Idle drift. These run in every state and compose with the game's own
+           scroll offset (nested wrappers), so the title screen breathes and
+           tapping to start adds motion instead of snapping a layer back. Each
+           translation is exactly one tile, so the loop point is invisible. */
+        @keyframes feDriftCloud  { from { transform: translate3d(0,0,0); } to { transform: translate3d(-320px,0,0); } }
+        @keyframes feDriftFar    { from { transform: translate3d(0,0,0); } to { transform: translate3d(-256px,0,0); } }
+        @keyframes feDriftNear   { from { transform: translate3d(0,0,0); } to { transform: translate3d(-256px,0,0); } }
+        @keyframes feDriftGround { from { transform: translate3d(0,0,0); } to { transform: translate3d(-32px,0,0); } }
+        @keyframes feIdleBob {
+          0%, 100% { transform: translateY(0); }
+          50%      { transform: translateY(-7px); }
+        }
         @keyframes feScorePulse {
           0%   { transform: scale(1);    color: #FFFFFF; }
           45%  { transform: scale(1.35); color: #A3F0C0; }
@@ -835,146 +864,112 @@ export default function FlappyErenGame() {
   )
 }
 
-// ─── Pipe pair ────────────────────────────────────────────────────────────────
+// ─── Pipe pair ──────────────────────────────────────────────
+// Hard colour stops rather than a smooth gradient. A smooth left-to-right
+// blend reads as a CSS rectangle; discrete bands read as a drawn cylinder,
+// which is what sits right next to a 120-rect pixel sprite without embarrassing
+// it. Ribbing, a lit top edge and rivets on the caps do the rest.
+
+const PIPE_CAP_H = 18
+
+function pipeBody(theme: Theme): string {
+  return `linear-gradient(90deg,
+    ${theme.pipeShadow} 0 3px,
+    ${theme.pipeColor1} 3px 11px,
+    ${theme.pipeColor3} 11px 19px,
+    ${theme.pipeColor2} 19px 42px,
+    ${theme.pipeColor1} 42px 53px,
+    ${theme.pipeShadow} 53px ${PIPE_W}px)`
+}
+
+/** Horizontal ribbing. Very low alpha — it should register as material, not as
+ *  stripes you can count. */
+const PIPE_RIBS = 'repeating-linear-gradient(180deg, rgba(255,255,255,0.055) 0 2px, transparent 2px 11px)'
+
+function PipeCap({ x, y, theme }: { x: number; y: number; theme: Theme }) {
+  return (
+    <div style={{
+      position: 'absolute',
+      left: x - 6, top: y, width: PIPE_W + 12, height: PIPE_CAP_H,
+      background: pipeBody(theme),
+      backgroundSize: `${PIPE_W + 12}px 100%`,
+      border: `3px solid ${theme.pipeShadow}`,
+      boxSizing: 'border-box',
+      transition: 'background 1.4s ease, border-color 1.4s ease',
+    }}>
+      <div style={{ position: 'absolute', left: 3, right: 3, top: 0, height: 2, background: 'rgba(255,255,255,0.34)' }} />
+      <div style={{ position: 'absolute', left: 3, right: 3, bottom: 0, height: 2, background: 'rgba(0,0,0,0.30)' }} />
+      {/* rivets — the app's "premium surface" tell, reused on the pipe lip */}
+      <div style={{ position: 'absolute', left: 6, top: PIPE_CAP_H / 2 - 2, width: 3, height: 3, background: theme.pipeColor3 }} />
+      <div style={{ position: 'absolute', right: 6, top: PIPE_CAP_H / 2 - 2, width: 3, height: 3, background: theme.pipeColor3 }} />
+    </div>
+  )
+}
+
+function PipeShaft({ x, y, h, theme, mouth }: { x: number; y: number; h: number; theme: Theme; mouth: 'top' | 'bottom' }) {
+  if (h <= 0) return null
+  return (
+    <div style={{
+      position: 'absolute',
+      left: x, top: y, width: PIPE_W, height: h,
+      background: pipeBody(theme),
+      transition: 'background 1.4s ease',
+    }}>
+      <div style={{ position: 'absolute', inset: 0, background: PIPE_RIBS }} />
+      {/* the shaft's open end is darkened so the gap reads as a tunnel mouth
+          rather than as two rectangles that happen to stop */}
+      <div style={{
+        position: 'absolute', left: 0, right: 0, height: 26,
+        [mouth === 'top' ? 'bottom' : 'top']: 0,
+        background: `linear-gradient(${mouth === 'top' ? '0deg' : '180deg'}, rgba(0,0,0,0.34), transparent)`,
+      }} />
+    </div>
+  )
+}
+
 function PipePair({ pipe, fieldH, theme }: { pipe: Pipe; fieldH: number; theme: Theme }) {
-  const grad = `linear-gradient(90deg, ${theme.pipeColor1} 0%, ${theme.pipeColor2} 30%, ${theme.pipeColor3} 50%, ${theme.pipeColor2} 70%, ${theme.pipeColor1} 100%)`
+  const lowerY = pipe.gapY + pipe.gap
   return (
     <>
-      <div style={{
-        position: 'absolute',
-        left: pipe.x, top: 0, width: PIPE_W, height: pipe.gapY,
-        background: grad,
-        borderLeft: `3px solid ${theme.pipeShadow}`,
-        borderRight: `3px solid ${theme.pipeShadow}`,
-        transition: 'background 1.4s ease, border-color 1.4s ease',
-      }} />
-      <div style={{
-        position: 'absolute',
-        left: pipe.x - 5, top: pipe.gapY - 14, width: PIPE_W + 10, height: 14,
-        background: grad,
-        border: `3px solid ${theme.pipeShadow}`,
-        transition: 'background 1.4s ease, border-color 1.4s ease',
-      }} />
-      <div style={{
-        position: 'absolute',
-        left: pipe.x,
-        top: pipe.gapY + pipe.gap,
-        width: PIPE_W,
-        height: Math.max(0, fieldH - pipe.gapY - pipe.gap - 12),
-        background: grad,
-        borderLeft: `3px solid ${theme.pipeShadow}`,
-        borderRight: `3px solid ${theme.pipeShadow}`,
-        transition: 'background 1.4s ease, border-color 1.4s ease',
-      }} />
-      <div style={{
-        position: 'absolute',
-        left: pipe.x - 5, top: pipe.gapY + pipe.gap, width: PIPE_W + 10, height: 14,
-        background: grad,
-        border: `3px solid ${theme.pipeShadow}`,
-        transition: 'background 1.4s ease, border-color 1.4s ease',
-      }} />
+      <PipeShaft x={pipe.x} y={0} h={pipe.gapY - PIPE_CAP_H + 2} theme={theme} mouth="top" />
+      <PipeCap   x={pipe.x} y={pipe.gapY - PIPE_CAP_H} theme={theme} />
+      <PipeShaft x={pipe.x} y={lowerY + PIPE_CAP_H - 2}
+        h={fieldH - lowerY - PIPE_CAP_H - GROUND_H + 2} theme={theme} mouth="bottom" />
+      <PipeCap   x={pipe.x} y={lowerY} theme={theme} />
     </>
   )
 }
 
-// ─── Pixel cloud ──────────────────────────────────────────────────────────────
-function Cloud({ x, y, scale = 1 }: { x: string; y: string; scale?: number }) {
+// ─── Thrust plume ────────────────────────────────────────────
+/** Three stacked pixel bars under the can, sized by how recently you flapped.
+ *  The can was already spitting particles; what it lacked was a visible source
+ *  for them. `power` runs 1 -> 0 over 420ms. */
+function ThrustPlume({ power }: { power: number }) {
+  const bars = [
+    { w: 12, h: 7, c: '#FFFFFF' },
+    { w: 8,  h: 6, c: '#A3F0C0' },
+    { w: 4,  h: 5, c: '#10B981' },
+  ]
+  let y = EREN_H - 3
   return (
-    <div className="absolute pointer-events-none" style={{ left: x, top: y, transform: `scale(${scale})` }}>
-      <svg width="48" height="22" viewBox="0 0 48 22" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-        <rect x="6"  y="6"  width="36" height="10" fill="#FFFFFF" />
-        <rect x="10" y="3"  width="10" height="3"  fill="#FFFFFF" />
-        <rect x="22" y="2"  width="14" height="4"  fill="#FFFFFF" />
-        <rect x="4"  y="10" width="40" height="6"  fill="#FFFFFF" />
-        <rect x="8"  y="16" width="32" height="2"  fill="#E5E7EB" />
-      </svg>
+    <div aria-hidden style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+      {bars.map((b, i) => {
+        const h = Math.round(b.h * power)
+        const top = y
+        y += h
+        return h <= 0 ? null : (
+          <div key={i} style={{
+            position: 'absolute',
+            left: EREN_W / 2 - b.w / 2, top,
+            width: b.w, height: h,
+            background: b.c,
+            opacity: 0.55 + 0.45 * power,
+          }} />
+        )
+      })}
     </div>
   )
 }
-
-// ─── Static scenery layers — memoized so the 60fps game loop's force-renders
-//     bail out instead of re-reconciling hundreds of unchanged elements ───────
-const SkyLayers = memo(function SkyLayers({ themeIndex }: { themeIndex: number }) {
-  return (
-    <>
-      {THEMES.map((t, i) => (
-        <div key={`sky-${t.name}`} style={{
-          position: 'absolute', inset: 0,
-          background: t.sky,
-          opacity: i === themeIndex ? 1 : 0,
-          transition: 'opacity 1.4s ease',
-          pointerEvents: 'none',
-        }} />
-      ))}
-    </>
-  )
-})
-
-const StarField = memo(function StarField({ starOpacity, reduced }: { starOpacity: number; reduced: boolean }) {
-  return (
-    <div style={{
-      position: 'absolute', inset: 0,
-      opacity: starOpacity,
-      transition: 'opacity 1.4s ease',
-      pointerEvents: 'none',
-    }}>
-      {STAR_POSITIONS.map((s, i) => (
-        <div key={i} style={{
-          position: 'absolute',
-          left: s.left, top: s.top,
-          width: s.size, height: s.size,
-          background: '#FFFFFF',
-          borderRadius: '50%',
-          boxShadow: '0 0 4px rgba(255,255,255,0.7)',
-          animation: reduced ? 'none' : `twinkle 2.4s ease-in-out ${s.delay} infinite`,
-        }} />
-      ))}
-      {/* Moon */}
-      <div style={{
-        position: 'absolute',
-        top: '12%', right: '14%',
-        width: 28, height: 28,
-        background: 'radial-gradient(circle at 35% 35%, #FFFFFF, #E5E7EB 60%, #9CA3AF 100%)',
-        borderRadius: '50%',
-        boxShadow: '0 0 18px rgba(255,255,255,0.4)',
-      }} />
-    </div>
-  )
-})
-
-const CloudLayer = memo(function CloudLayer({ cloudOpacity }: { cloudOpacity: number }) {
-  return (
-    <div style={{
-      position: 'absolute', inset: 0,
-      opacity: cloudOpacity,
-      transition: 'opacity 1.4s ease',
-      pointerEvents: 'none',
-    }}>
-      <Cloud x="12%"  y="14%" scale={1.0} />
-      <Cloud x="68%"  y="22%" scale={0.8} />
-      <Cloud x="35%"  y="46%" scale={1.2} />
-      <Cloud x="86%"  y="60%" scale={0.7} />
-      <Cloud x="6%"   y="70%" scale={0.9} />
-    </div>
-  )
-})
-
-const GroundLayers = memo(function GroundLayers({ themeIndex }: { themeIndex: number }) {
-  return (
-    <>
-      {THEMES.map((t, i) => (
-        <div key={`ground-${t.name}`} style={{
-          position: 'absolute', bottom: 0, left: 0, right: 0,
-          height: 12,
-          background: t.ground,
-          borderTop: `3px solid ${t.groundBorder}`,
-          opacity: i === themeIndex ? 1 : 0,
-          transition: 'opacity 1.4s ease',
-        }} />
-      ))}
-    </>
-  )
-})
 
 const ErenOnCanMemo = memo(ErenOnCan)
 
