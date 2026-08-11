@@ -14,13 +14,14 @@
 //   • Grid — 3-col cards; locked cards are dark silhouettes with a stardust price
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, type CSSProperties } from 'react'
+import { useState } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import BlinkingEren from '@/components/BlinkingEren'
 import {
-  IconDress, IconSparkles, IconLock, IconPaw, IconCake, IconCart, IconCrown, IconHeart,
+  IconDress, IconSparkles, IconLock, IconPaw, IconCake, IconCart, IconCrown, IconHeart, IconCan,
 } from '@/components/PixelIcons'
 import { resolveRoomSkin, skinRoomFit, skinPrice, type SkinDef, type RoomDef } from '@/lib/skins'
+import { frameFor, lockedArt } from '@/lib/rarityFrame'
 import type { GachaRarity } from '@/types'
 import { playSound } from '@/lib/sounds'
 
@@ -338,51 +339,6 @@ function FilterChip({ active, onClick, icon, label, count }: {
   )
 }
 
-// ─── Rarity frame ────────────────────────────────────────────────────────────
-// Prestige escalates: common (plain) → rare (calm blue hint) → epic (purple
-// gradient frame + glow + corner gems) → legendary (gold gradient frame + 4
-// rivets + a slow shimmer). Locked cards keep their dark silhouette fill and
-// only take a DIMMED rarity border, so a locked legendary still teases gold
-// without competing with the looks you actually own.
-type CardFrame = { style: CSSProperties; rivets: boolean; gems: boolean; shine: boolean }
-
-function frameFor(rarity: GachaRarity, locked: boolean): CardFrame {
-  if (locked) {
-    const dim: Record<GachaRarity, string> = {
-      legendary: '#7A5E1A', epic: '#4E3E78', rare: 'rgba(96,165,250,0.30)', common: 'rgba(124,58,237,0.22)',
-    }
-    return { style: { background: 'rgba(11,7,23,0.55)', border: `2px solid ${dim[rarity]}` }, rivets: false, gems: false, shine: false }
-  }
-  switch (rarity) {
-    case 'legendary':
-      return {
-        style: {
-          border: '2px solid transparent',
-          background:
-            'radial-gradient(116% 86% at 50% 26%, rgba(245,200,66,0.24), rgba(20,12,40,0.5) 76%) padding-box, ' +
-            'linear-gradient(155deg, #FFF1C2 0%, #F5C842 42%, #B45309 100%) border-box',
-          boxShadow: '0 0 15px rgba(245,158,11,0.5), inset 0 1px 0 rgba(255,245,200,0.35)',
-        },
-        rivets: true, gems: false, shine: true,
-      }
-    case 'epic':
-      return {
-        style: {
-          border: '2px solid transparent',
-          background:
-            'radial-gradient(116% 86% at 50% 26%, rgba(167,139,250,0.18), rgba(20,12,40,0.42) 78%) padding-box, ' +
-            'linear-gradient(155deg, #E4DBFF 0%, #A78BFA 55%, #7C3AED 100%) border-box',
-          boxShadow: '0 0 10px rgba(167,139,250,0.34)',
-        },
-        rivets: false, gems: true, shine: false,
-      }
-    case 'rare':
-      return { style: { border: '2px solid rgba(96,165,250,0.5)', background: 'rgba(96,165,250,0.07)' }, rivets: false, gems: false, shine: false }
-    default:
-      return { style: { border: '2px solid rgba(167,139,250,0.18)', background: 'rgba(255,255,255,0.05)' }, rivets: false, gems: false, shine: false }
-  }
-}
-
 // ─── Skin / look card ────────────────────────────────────────────────────────
 function SkinCard({ card, room, selected, isNew, onClick }: {
   card: ClosetCard; room: RoomDef; selected: boolean; isNew: boolean; onClick: () => void
@@ -391,10 +347,15 @@ function SkinCard({ card, room, selected, isNew, onClick }: {
   const frame = frameFor(rarity, card.locked)
   const thumb = card.isDefault ? room.defaultThumb : card.skin!.thumb
   const name = card.isDefault ? 'DEFAULT' : card.skin!.name.toUpperCase()
+  // A drink-unlock look can't be bought at any price — the card says "pour the
+  // can", never a stardust number that would be a lie.
+  const byDrink = card.locked && card.skin?.unlock === 'drink'
   const ariaLabel = card.isDefault
     ? `Default look${selected ? ', equipped' : ''}`
     : card.locked
-      ? `${card.skin!.name}, locked — ${skinPrice(card.skin!.rarity)} stardust to unlock`
+      ? byDrink
+        ? 'Locked look — feed Eren a special edition can to unlock it'
+        : `${card.skin!.name}, locked — ${skinPrice(card.skin!.rarity)} stardust to unlock`
       : `${card.skin!.name}${selected ? ', equipped' : ''}${isNew ? ', new' : ''}`
   // Equipped marker is rarity-neutral (green ring + check) so it reads clearly
   // even on a gold legendary card.
@@ -440,7 +401,7 @@ function SkinCard({ card, room, selected, isNew, onClick }: {
         <img src={thumb} alt="" draggable={false}
           style={{
             width: '90%', height: '90%', objectFit: 'contain', imageRendering: 'auto',
-            filter: card.locked ? 'grayscale(1) brightness(0.22) contrast(0.85)' : 'none',
+            filter: card.locked ? lockedArt : 'none',
           }} />
       </div>
       <span className="font-pixel text-center leading-tight" style={{
@@ -454,12 +415,20 @@ function SkinCard({ card, room, selected, isNew, onClick }: {
             <IconLock size={18} />
           </div>
           {card.skin && (
-            <div className="absolute -top-1.5 -right-1.5 flex items-center gap-0.5 px-1 py-0.5" style={{
-              background: PANEL, border: `1.5px solid ${PANEL_BORDER}`, borderRadius: 6, boxShadow: '0 1px 0 #2E1065',
-            }}>
-              <span className="sparkle-hue"><IconSparkles size={8} /></span>
-              <span className="font-pixel stardust-rainbow" style={{ fontSize: 5.5 }}>{skinPrice(card.skin.rarity)}</span>
-            </div>
+            byDrink ? (
+              <div className="absolute -top-1.5 -right-1.5 flex items-center justify-center px-1 py-0.5" style={{
+                background: '#3A2A05', border: '1.5px solid #F5C842', borderRadius: 6, boxShadow: '0 1px 0 #2E1065',
+              }}>
+                <IconCan size={9} />
+              </div>
+            ) : (
+              <div className="absolute -top-1.5 -right-1.5 flex items-center gap-0.5 px-1 py-0.5" style={{
+                background: PANEL, border: `1.5px solid ${PANEL_BORDER}`, borderRadius: 6, boxShadow: '0 1px 0 #2E1065',
+              }}>
+                <span className="sparkle-hue"><IconSparkles size={8} /></span>
+                <span className="font-pixel stardust-rainbow" style={{ fontSize: 5.5 }}>{skinPrice(card.skin.rarity)}</span>
+              </div>
+            )
           )}
         </>
       )}

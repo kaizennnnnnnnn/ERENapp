@@ -313,6 +313,11 @@ export interface GachaItemDef {
   // 'skin'` (animal costumes vs food costumes); this keeps each banner's pool
   // to its own set. Undefined on non-skin items.
   skinSet?: 'animal' | 'food'
+  // Non-gacha unlock route. 'drink' = granted the first time the matching
+  // SPECIAL EDITION can is fed. Such an item is still catalogued (it counts
+  // toward the collection and shows in the closet) but never enters a banner
+  // pool — see bannerFilter in lib/gacha.ts.
+  unlock?: 'drink'
   // Consumable buff
   buff?: { stat: string; amount: number; duration?: string }
 }

@@ -10,9 +10,10 @@ import { useAuth } from '@/hooks/useAuth'
 import { useGacha } from '@/hooks/useGacha'
 import { markSkinsSeen, readSeenSkins } from '@/hooks/useNewSkins'
 import {
-  SKINNABLE_ROOMS, GACHA_SKINS, CLASSIC_SKIN, resolveRoomSkin, skinPrice, type SkinDef,
+  SKINNABLE_ROOMS, GACHA_SKINS, CLASSIC_SKIN, resolveRoomSkin, skinPrice, skinUnlockDrink, type SkinDef,
 } from '@/lib/skins'
-import type { GachaRarity } from '@/types'
+import { FOOD_META } from '@/lib/foodMeta'
+import type { GachaRarity, FoodKey } from '@/types'
 import SkinPurchaseSheet from '@/components/closet/SkinPurchaseSheet'
 import ClosetView, { type ClosetCard } from '@/components/closet/ClosetView'
 import { playSound } from '@/lib/sounds'
@@ -93,6 +94,14 @@ export default function ClosetPage() {
 
   function pick(card: ClosetCard) {
     if (card.locked && card.skin) {
+      // Rainbow / Golden Eren aren't for sale at any price — the kitchen is the
+      // only door. Say so instead of opening a sheet that couldn't complete.
+      const drink = skinUnlockDrink(card.skin.id)
+      if (drink) {
+        playSound('ui_tap')
+        showToast(`Feed Eren a ${FOOD_META[drink as FoodKey].name}`)
+        return
+      }
       playSound('ui_modal_open')
       setBuying(card.skin)
       return

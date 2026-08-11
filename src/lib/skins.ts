@@ -1,5 +1,6 @@
-import type { GachaItemDef, GachaRarity, EyeLayout } from '@/types'
+import type { GachaItemDef, GachaRarity, EyeLayout, FoodKey } from '@/types'
 import { SKIN_DATA } from './skinsData'
+import { FOOD_META } from './foodMeta'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SKINS — full-body Eren looks won from the Clothing gacha (and other ways).
@@ -21,6 +22,10 @@ export interface SkinDef {
   thumb: string          // full sprite for gacha reveal / collection / closet card
   aspect: number         // w/h of the trimmed sprite (card sizing)
   builtin?: boolean      // always owned, never a gacha drop (Classic look)
+  // Non-gacha unlock route. 'drink' = earned the first time you feed the
+  // matching SPECIAL EDITION can (see DRINK_UNLOCK_SKINS). These skins are out
+  // of every banner pool AND out of the stardust shop on purpose.
+  unlock?: 'drink'
   // Vertical framing of the sprite's CAT inside its canvas, as fractions of
   // canvas height. The 21 gacha skins are trimmed tight (cat fills the canvas:
   // catFracH 1, botGap 0); Classic reuses padded erenGood. Used to size a skin
@@ -61,12 +66,35 @@ const v = (p?: string) => (p ? `${p}?v=${SKIN_V}` : p)
 // box grows upward and the feet stay aligned.
 const SKIN_CAT_FRAC: Record<string, number> = { banana: 0.8 }
 
+// ─── Drink unlocks ───────────────────────────────────────────────────────────
+// Two looks are NOT in any gacha and cost no stardust: the only way to wear them
+// is to actually pour the can. Pour a Rainbow Monsta and Eren keeps the rainbow;
+// pour a Gold Monsta and he keeps the gold. Once, the first time — after that the
+// can is just a can again.
+//
+// Keyed by the FOOD id (the fridge/kitchen id), because that's what FeedScene has
+// in hand the moment a can goes down. Everything else — the `unlock` flag that
+// pulls the skin out of the banner pools, the closet's "how do I get this" hint,
+// the collection's mystery card — is DERIVED from this one table, so a third
+// special can is one line here and nothing else.
+export const DRINK_UNLOCK_SKINS: Record<string, string> = {
+  monsta_rainbow: 'rainbow',
+  monsta_gold: 'gold',
+}
+
+const SKIN_UNLOCK_DRINK: Record<string, string> = Object.fromEntries(
+  Object.entries(DRINK_UNLOCK_SKINS).map(([food, skin]) => [skin, food]))
+
+/** The can that unlocks this skin, or undefined for an ordinary gacha look. */
+export const skinUnlockDrink = (skinId: string): string | undefined => SKIN_UNLOCK_DRINK[skinId]
+
 // The gacha skins (animal + food sets), from the auto-generated render data.
 export const GACHA_SKINS: SkinDef[] = SKIN_DATA.map(s => ({
   id: s.id,
   name: s.name,
   rarity: s.rarity,
   set: s.set,
+  unlock: SKIN_UNLOCK_DRINK[s.id] ? ('drink' as const) : undefined,
   src: v(s.src)!,
   tailSrc: v(s.tailSrc),
   tailOrigin: s.tailOrigin,
@@ -118,7 +146,13 @@ export const SKIN_GACHA_ITEMS: GachaItemDef[] = GACHA_SKINS.map(s => ({
   image: s.thumb,
   skinId: s.id,
   skinSet: s.set,      // scopes the item to its banner (animal vs food)
-  description: RARITY_BLURB[s.rarity],
+  // A drink-unlock skin stays in the CATALOGUE (the collection screen still
+  // tracks it, the closet still lists it) but `unlock` keeps it out of every
+  // banner pool — see bannerFilter in lib/gacha.ts.
+  unlock: s.unlock,
+  description: s.unlock
+    ? `Feed Eren a ${FOOD_META[skinUnlockDrink(s.id) as FoodKey].name} to keep this look.`
+    : RARITY_BLURB[s.rarity],
 }))
 
 // ─── Rooms ───────────────────────────────────────────────────────────────────

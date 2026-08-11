@@ -159,6 +159,10 @@ const RARITY_ORDER: GachaRarity[] = ['common', 'rare', 'epic', 'legendary']
 function bannerFilter(bannerId: string): (i: GachaItemDef) => boolean {
   const banner = GACHA_BANNERS.find(b => b.id === bannerId)
   return (i: GachaItemDef) =>
+    // An item with a non-gacha unlock route (Rainbow/Golden Eren, earned by
+    // pouring the matching can) is never in ANY pool — the machine can't hand
+    // out something the kitchen is supposed to be the only source of.
+    !i.unlock &&
     (!banner?.categories || banner.categories.includes(i.category)) &&
     // A skin banner draws only its own set; two banners share `category: 'skin'`.
     (!banner?.skinSet || i.skinSet === banner.skinSet)

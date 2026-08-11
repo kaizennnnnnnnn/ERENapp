@@ -31,6 +31,9 @@ import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import { monstaBuff } from '@/lib/monstaBuffs'
 import CanAura, { type CanVariant } from './CanAura'
 import CanFeedBurst from './CanFeedBurst'
+import SkinUnlockCinematic from './SkinUnlockCinematic'
+import { DRINK_UNLOCK_SKINS, getSkin, type SkinDef } from '@/lib/skins'
+import { grantDrinkSkin, wearSkinEverywhere } from '@/lib/drinkUnlock'
 import PixelPoof from '@/components/PixelPoof'
 import { IconClose, IconChevronLeft, IconChevronRight } from '@/components/PixelIcons'
 
@@ -136,6 +139,9 @@ const SPECIAL_CAN: Record<string, CanVariant> = {
   monsta_rainbow: 'rainbow',
   monsta_gold:    'gold',
 }
+
+/** What the unlock cinematic needs, captured at the moment the can goes down. */
+interface UnlockPayload { skin: SkinDef; variant: CanVariant; drinkName: string }
 
 // Icon size for the food you carry to Eren — the tray tile and the drag ghost
 // share it so the plate never changes size when you pick it up, and the ghost's
@@ -326,6 +332,17 @@ export default function FeedScene({ onClose }: Props) {
   const [eatIdx, setEatIdx] = useState(0)       // which head-down pose (0–3)
   const [showPoof, setShowPoof] = useState(false)
 
+  // A first pour of a SPECIAL EDITION can grants the matching look. The grant
+  // resolves DURING the meal (it's a network write kicked off mid-animation), so
+  // it parks in `pendingUnlock` and only becomes the on-screen cinematic once the
+  // eat sequence has finished — the reveal is the reward for watching him drink,
+  // not something that interrupts it.
+  const [pendingUnlock, setPendingUnlock] = useState<UnlockPayload | null>(null)
+  const [unlock, setUnlock] = useState<UnlockPayload | null>(null)
+  useEffect(() => {
+    if (pendingUnlock && !reaction.active) { setUnlock(pendingUnlock); setPendingUnlock(null) }
+  }, [pendingUnlock, reaction.active])
+
   // Warm the four eating stickers so the poof reveals a decoded bitmap.
   useEffect(() => { preloadEatPoses() }, [])
 
@@ -494,6 +511,19 @@ export default function FeedScene({ onClose }: Props) {
     showToast(buff && result.success ? `ENERGY FULL · ${buff.label}` : result.message, result.success)
     setFeeding(null)
     if (result.success) completeTask('daily_feed')
+
+    // The FIRST pour of a SPECIAL EDITION can leaves its colours on him for
+    // good. `grantDrinkSkin` answers 'new' only on the insert that actually
+    // landed, so a second Gold Monsta — or the partner pouring one at the same
+    // moment — celebrates exactly once. See lib/drinkUnlock.ts.
+    const unlockSkinId = result.success ? DRINK_UNLOCK_SKINS[item.id] : undefined
+    if (unlockSkinId) {
+      const skin = getSkin(unlockSkinId)
+      const granted = await grantDrinkSkin(user.id, unlockSkinId)
+      if (skin && granted === 'new') {
+        setPendingUnlock({ skin, variant: SPECIAL_CAN[item.id], drinkName: item.name })
+      }
+    }
   }
 
   return (
@@ -1117,6 +1147,25 @@ export default function FeedScene({ onClose }: Props) {
         bulbLeft="50%"
         persistKey="kitchen"
       />
+
+      {/* SPECIAL EDITION unlock — sits above everything, including the shop
+          drawer, because it's the payoff for the can that just went down. */}
+      {unlock && (
+        <SkinUnlockCinematic
+          skin={unlock.skin}
+          variant={unlock.variant}
+          drinkName={unlock.drinkName}
+          onWear={() => {
+            if (profile?.household_id) void wearSkinEverywhere(profile.household_id, unlock.skin.id)
+            setUnlock(null)
+            showToast(`Now wearing ${unlock.skin.name}!`)
+          }}
+          onClose={() => {
+            setUnlock(null)
+            showToast(`${unlock.skin.name} is in your closet`)
+          }}
+        />
+      )}
     </div>
   )
 }
