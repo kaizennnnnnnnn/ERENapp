@@ -32,6 +32,15 @@ const SWING_SPEED_MAX  = 1.55
 /** Perfect-streak score multiplier caps here, so a streak is worth chasing
  *  without a single lucky run dwarfing every other score. */
 const STREAK_CAP = 5
+/** How far ABOVE its landing slot the incoming piece travels.
+ *
+ *  It used to travel at exactly its landing height, which put it in the same
+ *  36px band as the 32px rider standing on the tower — so the block sat on top
+ *  of Eren for most of every swing, which is precisely when you are looking at
+ *  him. Lifting the lane clear of his head (32px tall, drawn 30px above the
+ *  tower top, so anything past 30 clears it) fixes that, and buys a real drop:
+ *  the piece now visibly slams down into place instead of just stopping. */
+const LANE_LIFT = 38
 
 interface Block {
   id: number
@@ -163,7 +172,7 @@ export default function ErenStackGame() {
       id: newId(),
       x: 0,
       width: prevWidth,
-      y: prevY - PIECE_HEIGHT,
+      y: prevY - PIECE_HEIGHT - LANE_LIFT,
       hue: towerRef.current.length,
       texture: tex,
     }
@@ -253,6 +262,11 @@ export default function ErenStackGame() {
     const top = towerRef.current[towerRef.current.length - 1]
     const cur = currentRef.current
 
+    // Every landing effect anchors here. `cur.y` is the travel lane now, a
+    // full LANE_LIFT above the slot, so using it would float the dust, the
+    // sparks and the floater well clear of the piece they belong to.
+    const landY = top.y - PIECE_HEIGHT
+
     const overlapL = Math.max(top.x, cur.x)
     const overlapR = Math.min(top.x + top.width, cur.x + cur.width)
     const overlap = overlapR - overlapL
@@ -290,8 +304,8 @@ export default function ErenStackGame() {
       // Escalating chime on odd streaks 3,5,7…, regular perfect ding otherwise.
       if (nextStreak >= 3 && nextStreak % 2 === 1) playSound('es_perfect_streak')
       else playSound('es_perfect')
-      flashFloater(`PERFECT +${5 * Math.min(STREAK_CAP, nextStreak)}`, cur.x + cur.width / 2, cur.y + 18, '#FDE68A')
-      if (!reduced) spawnStarBurst(cur.x + cur.width / 2, cur.y + PIECE_HEIGHT / 2)
+      flashFloater(`PERFECT +${5 * Math.min(STREAK_CAP, nextStreak)}`, cur.x + cur.width / 2, landY + 18, '#FDE68A')
+      if (!reduced) spawnStarBurst(cur.x + cur.width / 2, landY + PIECE_HEIGHT / 2)
       // Tiny camera overshoot on perfects — makes height feel earned.
       cameraOvershootRef.current = 7
       setRider(r => ({ pose: 'cheer', landKey: r.landKey + 1 }))
@@ -303,7 +317,7 @@ export default function ErenStackGame() {
 
       const cutW = cur.width - overlap
       const cutX = cutSide === 'left' ? cur.x : overlapR
-      fallingRef.current.push({ ...cur, x: cutX, width: cutW, id: newId() })
+      fallingRef.current.push({ ...cur, x: cutX, width: cutW, y: landY, id: newId() })
       // Streak-broken feedback: if we were on a real streak (>=2), shake the
       // badge before it fades out so the loss is acknowledged.
       if (perfectStreakRef.current >= 2) setStreakBreak(k => k + 1)
@@ -313,13 +327,13 @@ export default function ErenStackGame() {
       // Soft trim whoosh sound + dust puffs at the cut edge.
       setTimeout(() => playSound('es_trim'), 60)
       const dustX = cutSide === 'left' ? overlapL : overlapR
-      if (!reduced) spawnDustPuff(dustX, cur.y + PIECE_HEIGHT / 2)
-      if (great) flashFloater('GREAT', cur.x + cur.width / 2, cur.y + 18, '#A7F3D0')
+      if (!reduced) spawnDustPuff(dustX, landY + PIECE_HEIGHT / 2)
+      if (great) flashFloater('GREAT', cur.x + cur.width / 2, landY + 18, '#A7F3D0')
       // A big trim visibly rattles him; a tidy one he just rides out.
       setRider(r => ({ pose: cutW > cur.width * 0.28 ? 'wobble' : 'ride', landKey: r.landKey + 1 }))
     }
 
-    const locked: Block = { ...cur, x: lockedX, width: lockedW, y: top.y - PIECE_HEIGHT }
+    const locked: Block = { ...cur, x: lockedX, width: lockedW, y: landY }
     towerRef.current.push(locked)
 
     // A perfect is worth more the longer the streak runs. Flat +5 made a
@@ -585,11 +599,22 @@ export default function ErenStackGame() {
             borderTop: '3px solid #052e16',
           }} />
 
-          {/* Tower */}
-          {towerRef.current.map(b => <MemoPiece key={b.id} block={b} />)}
+          {/* Tower. Each piece mounts exactly once, so the slam keyframe plays
+              once per placement with no state to track. */}
+          {towerRef.current.map(b => <MemoPiece key={b.id} block={b} slam={!reduced} />)}
 
-          {/* Eren, riding the top of the stack. World space, so he travels
-              with the camera like the tower he is standing on. */}
+          {/* Active piece — travels a LANE_LIFT above its slot, clear of Eren. */}
+          {currentRef.current && phase === 'running' && (
+            <Piece block={currentRef.current} active />
+          )}
+
+          {/* Falling trimmed bits */}
+          {fallingRef.current.map(f => <Piece key={`f-${f.id}`} block={f} falling />)}
+
+          {/* Eren, riding the top of the stack. World space, so he travels with
+              the camera like the tower he is standing on — and drawn LAST, so
+              the piece slamming into his slot passes behind him rather than
+              blanking him out for the 140ms it takes to land. */}
           {phase !== 'idle' && towerRef.current.length > 0 && (() => {
             const top = towerRef.current[towerRef.current.length - 1]
             return (
@@ -609,14 +634,6 @@ export default function ErenStackGame() {
               </div>
             )
           })()}
-
-          {/* Active piece (above tower) */}
-          {currentRef.current && phase === 'running' && (
-            <Piece block={currentRef.current} active />
-          )}
-
-          {/* Falling trimmed bits */}
-          {fallingRef.current.map(f => <Piece key={`f-${f.id}`} block={f} falling />)}
         </div>
 
         {/* Score (in viewport space, above the tower). Pulses on every drop;
@@ -879,6 +896,12 @@ export default function ErenStackGame() {
           0%   { opacity: 1; }
           100% { opacity: 0; }
         }
+        /* The piece falls the lane height it was hovering at. Accelerating
+           curve — it should read as dropped, not lowered. */
+        @keyframes stk-slam {
+          0%   { transform: translateY(-38px); }
+          100% { transform: translateY(0); }
+        }
       `}</style>
     </div>
   )
@@ -892,7 +915,7 @@ const STAR_POSITIONS = Array.from({ length: 28 }, () => ({
 }))
 
 // ─── A single tower piece. Rendered as a chunky pixel block with a texture. ─
-function Piece({ block, active = false, falling = false }: { block: Block; active?: boolean; falling?: boolean }) {
+function Piece({ block, active = false, falling = false, slam = false }: { block: Block; active?: boolean; falling?: boolean; slam?: boolean }) {
   const palette = PALETTES[block.hue % PALETTES.length]
   return (
     <div style={{
@@ -911,7 +934,12 @@ function Piece({ block, active = false, falling = false }: { block: Block; activ
       transition: falling ? 'transform 0.2s' : undefined,
       // Falling chunks fade out so they feel like they "disintegrate" rather
       // than coldly slide off the bottom of the field.
-      animation: falling ? 'stk-fall-fade 700ms ease-in forwards' : undefined,
+      // `slam` drops the piece the LANE_LIFT it was hovering at. Purely visual —
+      // the block's logical y is already its final slot, so nothing downstream
+      // (camera, trimming, collision) sees the travel.
+      animation: falling
+        ? 'stk-fall-fade 700ms ease-in forwards'
+        : slam ? 'stk-slam 150ms cubic-bezier(0.5,0,0.85,0.3)' : undefined,
     }}>
       {/* Pixel-art texture rivets/strands per variant */}
       <PieceTexture variant={block.texture} edge={palette.edge} />
