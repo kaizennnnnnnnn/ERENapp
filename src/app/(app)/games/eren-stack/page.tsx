@@ -14,13 +14,24 @@ import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { IconCrown, IconStar } from '@/components/PixelIcons'
 import { fireMinigameDone } from '@/lib/minigames'
+import { StackRidge, StackHills, StackClouds, ErenRider, CLOUD_BAND, type RiderPose } from '@/components/games/ErenStackScenery'
 
 const PIECE_HEIGHT   = 36
-const PERFECT_TOL    = 4    // px tolerance for "perfect"
+const PERFECT_TOL    = 4    // px tolerance for "perfect" — no trim at all
+const GREAT_TOL      = 12   // px — still trims, but you get told you were close
 const STARTING_WIDTH = 0.55 // % of field width
-const BASE_SWING_SPEED = 1.6
+// Swing speed is in HALF-cycles per second: the piece crosses the field once
+// per 1/speed seconds. It used to be radians/sec feeding a sine, which meant
+// the piece eased to a near-stop at both edges and tore through the middle —
+// exactly backwards, because the middle is where you usually need to land.
+// A triangle wave moves at a constant speed, so every part of the field is
+// equally hard and the timing is learnable.
+const BASE_SWING_SPEED = 0.55
 const SWING_SPEED_RAMP = 0.04 // +4% per piece
-const SWING_SPEED_MAX  = 4.5
+const SWING_SPEED_MAX  = 1.55
+/** Perfect-streak score multiplier caps here, so a streak is worth chasing
+ *  without a single lucky run dwarfing every other score. */
+const STREAK_CAP = 5
 
 interface Block {
   id: number
@@ -53,6 +64,20 @@ const SKIES = [
   'linear-gradient(180deg, #0A0F2A 0%, #15082E 60%, #2E0F5C 100%)',  // night
   'linear-gradient(180deg, #000000 0%, #0A0628 50%, #1F0A4F 100%)',  // space
 ] as const
+
+/** Silhouette tints per sky tier — [far ridge, near hills]. They desaturate
+ *  and darken as you climb, so the ground reads as falling away into haze. */
+/** What to call each sky tier. The gradient already changed every 12 pieces;
+ *  naming it turns a wallpaper swap into a milestone the player can aim at. */
+const TIER_NAME = ['GROUND', 'SUNSET', 'DUSK', 'NIGHT', 'SPACE'] as const
+
+const SCENERY_TONE: Array<[string, string]> = [
+  ['#8FBFE8', '#5E93C4'], // day
+  ['#C4713F', '#8E4520'], // sunset
+  ['#2B1F5E', '#1A1240'], // dusk
+  ['#141034', '#0B0722'], // night
+  ['#0C0722', '#050212'], // space
+]
 
 export default function ErenStackGame() {
   const router = useRouter()
@@ -103,11 +128,16 @@ export default function ErenStackGame() {
   const [scorePulse, setScorePulse] = useState<{ id: number; perfect: boolean } | null>(null)
   const [streakBreak, setStreakBreak] = useState(0)
   const [reward, setReward] = useState<GameRewardResult | null>(null)
+  // Eren's reaction to the last drop. `landKey` re-triggers his squash even
+  // when the pose is unchanged (two plain drops in a row).
+  const [rider, setRider] = useState<{ pose: RiderPose; landKey: number }>({ pose: 'ride', landKey: 0 })
 
   const stateRef       = useRef<'idle' | 'running' | 'gameover'>('idle')
   const towerRef       = useRef<Block[]>([])
   const currentRef     = useRef<Block | null>(null)
   const swingStartRef  = useRef(0)
+  const swingPhaseRef  = useRef(0)
+  const swingFromRightRef = useRef(false)
   const swingSpeedRef  = useRef(BASE_SWING_SPEED)
   const cameraYRef     = useRef(0)
   const cameraTargetRef= useRef(0)
@@ -138,6 +168,10 @@ export default function ErenStackGame() {
       texture: tex,
     }
     swingStartRef.current = performance.now()
+    // Enter from the opposite edge each time. Always starting from the same
+    // side lets a player build pure muscle memory and stop watching.
+    swingFromRightRef.current = !swingFromRightRef.current
+    swingPhaseRef.current = 0
     void prevX
   }
 
@@ -145,6 +179,8 @@ export default function ErenStackGame() {
     towerRef.current = []
     fallingRef.current = []
     swingSpeedRef.current = BASE_SWING_SPEED
+    swingPhaseRef.current = 0
+    swingFromRightRef.current = false
     setScore(0)
     setPerfectStreak(0)
     perfectStreakRef.current = 0
@@ -155,6 +191,7 @@ export default function ErenStackGame() {
     setMissFlash(false)
     setScorePulse(null)
     setReward(null)
+    setRider({ pose: 'ride', landKey: 0 })
     savedRef.current = false
 
     const baseW = fieldDims.w * STARTING_WIDTH
@@ -177,12 +214,18 @@ export default function ErenStackGame() {
     const dt = Math.min(0.05, (now - lastFrameRef.current) / 1000)
     lastFrameRef.current = now
 
-    // Swing the active piece using a sine, so it eases at extremes.
+    // Swing the active piece at a CONSTANT speed, bouncing off both edges.
     if (currentRef.current) {
-      const elapsed = (now - swingStartRef.current) / 1000
-      const phase = elapsed * swingSpeedRef.current
+      // Above the clouds the wind picks up: a slow gust modulates the speed so
+      // the late game varies its rhythm instead of only getting faster.
+      const tier = Math.min(SKIES.length - 1, Math.floor(scoreRefVal.current / 12))
+      const gust = tier >= 3 ? 1 + Math.sin(swingPhaseRef.current * 1.7) * 0.24 : 1
+      swingPhaseRef.current += dt * swingSpeedRef.current * gust
+
+      const cycle = swingPhaseRef.current % 2
+      let t = cycle < 1 ? cycle : 2 - cycle          // 0 -> 1 -> 0, linear
+      if (swingFromRightRef.current) t = 1 - t
       const range = fieldDimsRef.current.w - currentRef.current.width
-      const t = (Math.sin(phase) + 1) / 2  // 0..1
       currentRef.current.x = t * range
     }
 
@@ -230,6 +273,10 @@ export default function ErenStackGame() {
 
     const offset = Math.abs(cur.x - top.x)
     const perfect = offset < PERFECT_TOL
+    // A near miss is worth naming. Without it every non-perfect drop feels
+    // identical, so the player never learns how close they actually were and
+    // PERFECT reads as luck rather than as a skill they are converging on.
+    const great = !perfect && offset < GREAT_TOL
 
     let lockedX = cur.x, lockedW = cur.width
 
@@ -243,10 +290,11 @@ export default function ErenStackGame() {
       // Escalating chime on odd streaks 3,5,7…, regular perfect ding otherwise.
       if (nextStreak >= 3 && nextStreak % 2 === 1) playSound('es_perfect_streak')
       else playSound('es_perfect')
-      flashFloater('PERFECT!', cur.x + cur.width / 2, cur.y + 18, '#FDE68A')
+      flashFloater(`PERFECT +${5 * Math.min(STREAK_CAP, nextStreak)}`, cur.x + cur.width / 2, cur.y + 18, '#FDE68A')
       if (!reduced) spawnStarBurst(cur.x + cur.width / 2, cur.y + PIECE_HEIGHT / 2)
       // Tiny camera overshoot on perfects — makes height feel earned.
       cameraOvershootRef.current = 7
+      setRider(r => ({ pose: 'cheer', landKey: r.landKey + 1 }))
     } else {
       // Trim to overlap; tumble the cut-off chunk.
       const cutSide: 'left' | 'right' = cur.x > top.x ? 'left' : 'right'
@@ -261,17 +309,23 @@ export default function ErenStackGame() {
       if (perfectStreakRef.current >= 2) setStreakBreak(k => k + 1)
       perfectStreakRef.current = 0
       setPerfectStreak(0)
-      playSound('es_place')
+      playSound(great ? 'es_perfect' : 'es_place')
       // Soft trim whoosh sound + dust puffs at the cut edge.
       setTimeout(() => playSound('es_trim'), 60)
       const dustX = cutSide === 'left' ? overlapL : overlapR
       if (!reduced) spawnDustPuff(dustX, cur.y + PIECE_HEIGHT / 2)
+      if (great) flashFloater('GREAT', cur.x + cur.width / 2, cur.y + 18, '#A7F3D0')
+      // A big trim visibly rattles him; a tidy one he just rides out.
+      setRider(r => ({ pose: cutW > cur.width * 0.28 ? 'wobble' : 'ride', landKey: r.landKey + 1 }))
     }
 
     const locked: Block = { ...cur, x: lockedX, width: lockedW, y: top.y - PIECE_HEIGHT }
     towerRef.current.push(locked)
 
-    const gained = perfect ? 5 : 1
+    // A perfect is worth more the longer the streak runs. Flat +5 made a
+    // streak a nice noise and nothing else; escalating it is what turns "don't
+    // die" into "don't drop the streak", which is the actual game.
+    const gained = perfect ? 5 * Math.min(STREAK_CAP, perfectStreakRef.current) : great ? 3 : 1
     scoreRefVal.current += gained
     const newScore = scoreRefVal.current
     setScore(newScore)
@@ -494,6 +548,31 @@ export default function ErenStackGame() {
           </div>
         )}
 
+        {/* Parallax scenery. Same camera offset at three different rates —
+            the far ridge barely moves, the hills drift, the clouds keep up.
+            That difference is the entire sensation of altitude, and it costs
+            three transforms on memoised children. */}
+        <div aria-hidden className="absolute inset-0 pointer-events-none" style={{ overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', inset: 0, transform: `translateY(${-cameraYRef.current * 0.18}px)` }}>
+            <StackRidge tone={SCENERY_TONE[skyIdx][0]} />
+          </div>
+          <div style={{ position: 'absolute', inset: 0, transform: `translateY(${-cameraYRef.current * 0.34}px)` }}>
+            <StackHills tone={SCENERY_TONE[skyIdx][1]} />
+          </div>
+          {skyIdx <= 2 && (
+            <div style={{
+              position: 'absolute', inset: 0,
+              // Modulo the scroll by the tile height so the cloud field wraps
+              // instead of running out a few hundred pixels into the climb.
+              transform: `translateY(${((-cameraYRef.current * 0.6) % CLOUD_BAND + CLOUD_BAND) % CLOUD_BAND}px)`,
+              opacity: skyIdx === 2 ? 0.3 : 0.9,
+              transition: 'opacity 1.2s ease',
+            }}>
+              <StackClouds />
+            </div>
+          )}
+        </div>
+
         {/* Tower layer — translated by camera. Pieces below ground are still
             drawn so the trimming feels grounded. */}
         <div style={{ position: 'absolute', inset: 0, transform: `translateY(${-cameraYRef.current}px)`, willChange: 'transform' }}>
@@ -508,6 +587,28 @@ export default function ErenStackGame() {
 
           {/* Tower */}
           {towerRef.current.map(b => <MemoPiece key={b.id} block={b} />)}
+
+          {/* Eren, riding the top of the stack. World space, so he travels
+              with the camera like the tower he is standing on. */}
+          {phase !== 'idle' && towerRef.current.length > 0 && (() => {
+            const top = towerRef.current[towerRef.current.length - 1]
+            return (
+              <div
+                key={`rider-${rider.landKey}`}
+                className="pointer-events-none"
+                style={{
+                  position: 'absolute',
+                  left: top.x + top.width / 2,
+                  top: top.y - 30,
+                  marginLeft: -16,
+                  transformOrigin: 'center bottom',
+                  animation: reduced ? undefined : `stk-rider-land 340ms cubic-bezier(0.34,1.56,0.64,1)`,
+                  filter: 'drop-shadow(0 2px 0 rgba(0,0,0,0.35))',
+                }}>
+                <ErenRider pose={rider.pose} size={32} />
+              </div>
+            )
+          })()}
 
           {/* Active piece (above tower) */}
           {currentRef.current && phase === 'running' && (
@@ -539,12 +640,25 @@ export default function ErenStackGame() {
           </div>
         )}
 
+        {/* Altitude band. Keyed on the tier so crossing one re-triggers the
+            pop — the sky change and the label land together. */}
+        {phase !== 'idle' && (
+          <div key={`tier-${skyIdx}`} className="absolute font-pixel pointer-events-none" style={{
+            top: 60, left: '50%', transform: 'translateX(-50%)',
+            fontSize: 6, letterSpacing: 3, color: 'rgba(255,255,255,0.85)',
+            textShadow: '1px 1px 0 rgba(0,0,0,0.8)',
+            animation: reduced ? undefined : 'stk-pop 320ms cubic-bezier(0.34,1.56,0.64,1)',
+          }}>
+            {TIER_NAME[skyIdx]}
+          </div>
+        )}
+
         {/* Perfect streak badge — pops in on entry, shakes red on break. */}
         {phase !== 'idle' && perfectStreak >= 2 && (
           <div
             key={`streak-${perfectStreak}`}
             className="absolute font-pixel pointer-events-none" style={{
-              top: 64, left: '50%', transform: 'translateX(-50%)',
+              top: 78, left: '50%', transform: 'translateX(-50%)',
               background: 'rgba(0,0,0,0.5)',
               border: '2px solid #FDE68A',
               borderRadius: 3,
@@ -561,7 +675,7 @@ export default function ErenStackGame() {
           <div
             key={`streakbreak-${streakBreak}`}
             className="absolute font-pixel pointer-events-none" style={{
-              top: 64, left: '50%', transform: 'translateX(-50%)',
+              top: 78, left: '50%', transform: 'translateX(-50%)',
               background: 'rgba(0,0,0,0.5)',
               border: '2px solid #FCA5A5',
               borderRadius: 3,
@@ -754,6 +868,13 @@ export default function ErenStackGame() {
           100% { opacity: 0; }
         }
         /* Brief red full-screen tint on game-over. */
+        /* Eren absorbs the landing: a quick squash-and-recover. Scale only,
+           so it stays on the compositor. */
+        @keyframes stk-rider-land {
+          0%   { transform: translateY(-5px) scale(0.92, 1.12); }
+          45%  { transform: translateY(0) scale(1.14, 0.86); }
+          100% { transform: translateY(0) scale(1, 1); }
+        }
         @keyframes stk-miss-flash {
           0%   { opacity: 1; }
           100% { opacity: 0; }
