@@ -117,28 +117,70 @@ function crash(): SynthRecipe {
   return { type: 'noise', duration: 400, gain: 0.22, highpass: 5200 }
 }
 
-/** Hit tone for a lane. Rises an octave in four steps as the combo multiplier
- *  climbs, so a long streak literally sounds like it is going somewhere. */
-export function laneTone(lane: number, mult: number): SynthRecipe {
-  const step = Math.max(0, Math.min(3, mult - 1))
+/** One struck note — a mallet/bell voice, built as a harmonic stack.
+ *
+ *  A single oscillator is a beep; what makes the ear hear a NOTE played on an
+ *  instrument is the overtone series above the fundamental and the fact that
+ *  the higher partials die first. So: a noise transient for the mallet hitting
+ *  the bar, the fundamental with a long lowpassed tail, then the octave, the
+ *  twelfth, and one deliberately inharmonic partial for metallic shimmer —
+ *  each shorter and quieter than the last. */
+function struck(freq: number, pan: number, level = 1): SynthRecipe {
   return {
     type: 'seq',
     parts: [
-      { at: 0, recipe: { type: 'blip', freq: LANE_FREQ[lane] * (1 + step * 0.085), duration: 150, shape: 'triangle', gain: 0.62, pan: LANE_PAN[lane] } },
-      // A quiet fifth above gives the pluck some sparkle without another note.
-      { at: 0, recipe: { type: 'blip', freq: LANE_FREQ[lane] * 1.5, duration: 90, shape: 'sine', gain: 0.22, pan: LANE_PAN[lane] } },
+      { at: 0, recipe: { type: 'noise', duration: 11, gain: 0.13 * level, highpass: 3200, pan } },
+      { at: 0, recipe: { type: 'blip', freq, duration: 430, shape: 'triangle', gain: 0.5 * level, lowpass: 3000, pan } },
+      { at: 0, recipe: { type: 'blip', freq: freq * 2, duration: 200, shape: 'sine', gain: 0.19 * level, pan } },
+      { at: 0, recipe: { type: 'blip', freq: freq * 3, duration: 100, shape: 'sine', gain: 0.09 * level, pan } },
+      { at: 0, recipe: { type: 'blip', freq: freq * 4.2, duration: 55, shape: 'sine', gain: 0.045 * level, pan } },
     ],
   }
 }
 
-/** The PERFECT sting — a bright two-note flick over the lane tone. */
-export function perfectSting(lane: number): SynthRecipe {
-  const f = LANE_FREQ[lane] * 2
+/** Harmony stacked on top of the lane's own note as the multiplier climbs.
+ *  Ratios, not a detune: the old version multiplied the fundamental by 1.085
+ *  per tier, which is a quarter-tone-ish smear — the note went SHARP rather
+ *  than going anywhere, and a long streak slid steadily out of tune with the
+ *  bed. Adding true intervals makes a high combo sound RICHER instead. */
+const MULT_HARMONY: number[][] = [
+  [],             // x1 — the bare note
+  [1.5],          // x2 — + a fifth
+  [1.5, 2],       // x3 — + the octave
+  [1.5, 2, 2.5],  // x4 — + the tenth: a full major chord on every hit
+]
+
+/** Hit tone for a lane. Each lane is a fixed pitch — C5, E5, G5, C6 — so the
+ *  lanes are as distinguishable by ear as they are by colour, and sweeping
+ *  left to right plays an arpeggio. */
+export function laneTone(lane: number, mult: number): SynthRecipe {
+  const root = LANE_FREQ[lane]
+  const pan = LANE_PAN[lane]
+  const harmony = MULT_HARMONY[Math.max(0, Math.min(MULT_HARMONY.length - 1, mult - 1))]
   return {
     type: 'seq',
     parts: [
-      { at: 0, recipe: { type: 'blip', freq: f, duration: 55, shape: 'triangle', gain: 0.3, pan: LANE_PAN[lane] } },
-      { at: 42, recipe: { type: 'blip', freq: f * 1.5, duration: 90, shape: 'triangle', gain: 0.34, pan: LANE_PAN[lane] } },
+      { at: 0, recipe: struck(root, pan) },
+      // Each harmony voice enters a few ms late and quieter, so the stack reads
+      // as one strummed note rather than as several notes fired together.
+      ...harmony.map((ratio, i) => ({
+        at: 8 + i * 7,
+        recipe: struck(root * ratio, pan, 0.36 - i * 0.07),
+      })),
+    ],
+  }
+}
+
+/** The PERFECT sting — a bright glassy flick two octaves over the lane's note,
+ *  so it sits ABOVE the struck tone instead of competing with it. */
+export function perfectSting(lane: number): SynthRecipe {
+  const f = LANE_FREQ[lane] * 4
+  const pan = LANE_PAN[lane]
+  return {
+    type: 'seq',
+    parts: [
+      { at: 0, recipe: { type: 'blip', freq: f, duration: 60, shape: 'sine', gain: 0.2, pan } },
+      { at: 40, recipe: { type: 'blip', freq: f * 1.5, duration: 130, shape: 'sine', gain: 0.22, pan } },
     ],
   }
 }
