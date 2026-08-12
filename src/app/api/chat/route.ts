@@ -23,9 +23,9 @@ import Anthropic from '@anthropic-ai/sdk'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getDaypart } from '@/lib/timeOfDay'
+import { todayKey } from '@/lib/seededRng'
 import {
   buildPersona,
-  todayKey,
   REMEMBER_TOOL,
   MEMORY_CAP,
   HISTORY_LIMIT,

@@ -10,28 +10,38 @@
 // pokes over it — he reads as standing behind/under the counter. Same breathing
 // + blink + idle treatment as every room.
 //
-// Buying cakes lives in a slide-up "ORDER" sheet so the picture stays the hero.
-// On purchase the cake flies up from Eren, a "SOLD!" stamp pops, coins burst.
-// Currency: player coins via TaskContext.spendCoins(). No persistence (v1).
+// Buying lives in slide-up sheets so the picture stays the hero. Two counters
+// share them: ORDER CAKES (flavour only — the cake flies up, a "SOLD!" stamp
+// pops, coins burst, nothing is kept) and DONUTS, which sells three real fridge
+// foods a day off a rotating case (see lib/donuts.ts) and stocks your pile.
+// Currency: player coins via TaskContext.spendCoins().
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
+import { useErenStats } from '@/hooks/useErenStats'
 import { useIsDark } from '@/hooks/useIsDark'
 import { playSound } from '@/lib/sounds'
 import { CAKES, type CakeDef } from '@/lib/cakes'
-import { IconCoin, IconStar, IconCake } from '@/components/PixelIcons'
+import { dailyDonuts, msUntilNextBatch, type DonutDef } from '@/lib/donuts'
+import { foodArt } from '@/lib/foodMeta'
+import { todayKey } from '@/lib/seededRng'
+import { IconCoin, IconStar, IconCake, IconDonut } from '@/components/PixelIcons'
 import BlinkingEren from '@/components/BlinkingEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
 import { requestCloudNav } from '@/components/CloudTransition'
 
+/** What just went over the counter — decides what the fly-up animation shows. */
+type SoldItem =
+  | { kind: 'cake';  cake:  CakeDef }
+  | { kind: 'donut'; donut: DonutDef }
+
 interface PurchaseFx {
-  id:    number
-  cake:  CakeDef
-  startedAt: number
+  id:   number
+  sold: SoldItem
 }
 
 // ErenCakeShop.png pose: pink baker hat with strawberry. Coords from a
@@ -92,8 +102,9 @@ const EREN_SHOW = 0.62
 const EREN_BOTTOM = `calc(${-(1 - EREN_SHOW) * EREN_VW}cqi + 2px)`
 
 export default function BakeryPage() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const { coins, spendCoins } = useTasks()
+  const { addToMyFood, consumeMyFood } = useErenStats(profile?.household_id ?? null)
   const { setHideStats } = useCare()
   const isDark = useIsDark()
   const pic = isDark ? SHOP_NIGHT : SHOP_DAY
@@ -108,25 +119,54 @@ export default function BakeryPage() {
   const [fx, setFx] = useState<PurchaseFx | null>(null)
   const [busy, setBusy] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [caseOpen, setCaseOpen] = useState(false)
   const fxIdRef = useRef(0)
 
-  async function buy(cake: CakeDef) {
+  // The donut case is clock-derived, so it stays unresolved until the sheet is
+  // actually opened — which is necessarily after mount. Computing a day key
+  // during the first render would read UTC on the server and local time on the
+  // phone, and hydrate a different three donuts than it rendered.
+  const [now, setNow] = useState<Date | null>(null)
+  useEffect(() => {
+    if (!caseOpen) return
+    setNow(new Date())
+    const t = setInterval(() => setNow(new Date()), 30_000)
+    return () => clearInterval(t)
+  }, [caseOpen])
+  const dayKey = now ? todayKey(now) : null
+  const todaysDonuts = useMemo(() => dayKey ? dailyDonuts(dayKey) : [], [dayKey])
+
+  /**
+   * One counter, one till. `food` is what the purchase puts in the buyer's
+   * fridge pile — cakes pass none, so they stay the flavour they've always been.
+   */
+  async function purchase(price: number, sold: SoldItem, food?: DonutDef['id']) {
     if (busy) return
     if (!user?.id) return
-    if (coins < cake.price) {
+    if (coins < price) {
       playSound('ui_modal_open') // soft "no" ping
       return
     }
     setBusy(true)
     playSound('ui_tap')
-    const ok = await spendCoins(cake.price)
+    // Both writes hit different tables with no ordering between them, and each
+    // updates locally the moment it's called — same reasoning as the kitchen's
+    // handleBuy, so the fridge fills on tap instead of after two round trips.
+    const [ok] = await Promise.all([
+      spendCoins(price),
+      food ? addToMyFood(user.id, food) : Promise.resolve(),
+    ])
     if (!ok) {
+      // Pre-checked above, so this is a failed write, not a poor cat owner —
+      // spendCoins already rolled the balance back and the stock has to follow.
+      if (food) await consumeMyFood(user.id, food)
       setBusy(false)
       return
     }
     setMenuOpen(false)
+    setCaseOpen(false)
     const id = ++fxIdRef.current
-    setFx({ id, cake, startedAt: performance.now() })
+    setFx({ id, sold })
     // Animation runs ~1.6 s; release the buy-lock just after.
     setTimeout(() => {
       setFx(curr => curr && curr.id === id ? null : curr)
@@ -230,7 +270,10 @@ export default function BakeryPage() {
             <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 20 }}>
               <div key={fx.id} className="absolute"
                 style={{ left: '50%', top: '56%', transform: 'translateX(-50%)', animation: 'bkCakeFly 1.6s cubic-bezier(0.34,1.56,0.64,1) forwards' }}>
-                <CakeSprite cake={fx.cake} size={56} />
+                {fx.sold.kind === 'cake'
+                  ? <CakeSprite cake={fx.sold.cake} size={56} />
+                  : <img src={foodArt(fx.sold.donut.id)} alt="" width={56} height={56} draggable={false}
+                      style={{ display: 'block', objectFit: 'contain' }} />}
               </div>
               <div key={`stamp-${fx.id}`} className="absolute"
                 style={{ left: '50%', top: '46%', transform: 'translate(-50%, -50%)', animation: 'bkStampPop 1.6s ease-out forwards' }}>
@@ -269,21 +312,42 @@ export default function BakeryPage() {
         </div>
       </div>
 
-      {/* ══ ORDER BUTTON ══ opens the cake menu sheet. */}
-      {!menuOpen && (
-        <button onClick={() => { playSound('ui_modal_open'); setMenuOpen(true) }}
-          className="absolute left-1/2 -translate-x-1/2 z-30 font-pixel text-white inline-flex items-center gap-2 active:translate-y-[2px] transition-transform"
-          style={{
-            bottom: 'calc(18px + env(safe-area-inset-bottom, 0px))',
-            background: 'linear-gradient(135deg, #DB2777, #9D174D)',
-            border: '2px solid #831843', borderRadius: 5,
-            padding: '12px 22px', fontSize: 9, letterSpacing: 2,
-            boxShadow: '0 3px 0 rgba(0,0,0,0.35)',
-          }}>
-          <IconCake size={14} />
-          ORDER CAKES
-          <IconCake size={14} />
-        </button>
+      {/* ══ COUNTER BUTTONS ══ the two things Eren sells. Cakes keep the wide
+          pink pill they've always had; the donut case sits beside it in its own
+          amber, so the new counter reads as a second till rather than a mode
+          switch on the first one.
+          The row spans the screen and centres its children rather than sitting
+          at left:50% — an absolutely-positioned shrink-to-fit box only gets the
+          width from its left edge to the parent's right edge, which is half the
+          screen, and ORDER CAKES wrapped to two lines inside it. */}
+      {!menuOpen && !caseOpen && (
+        <div className="absolute inset-x-0 z-30 flex items-stretch justify-center gap-2 px-3"
+          style={{ bottom: 'calc(18px + env(safe-area-inset-bottom, 0px))' }}>
+          <button onClick={() => { playSound('ui_modal_open'); setMenuOpen(true) }}
+            className="font-pixel text-white inline-flex items-center gap-2 active:translate-y-[2px] transition-transform"
+            style={{
+              background: 'linear-gradient(135deg, #DB2777, #9D174D)',
+              border: '2px solid #831843', borderRadius: 5,
+              padding: '12px 14px', fontSize: 9, letterSpacing: 1.5,
+              whiteSpace: 'nowrap',
+              boxShadow: '0 3px 0 rgba(0,0,0,0.35)',
+            }}>
+            <IconCake size={14} />
+            ORDER CAKES
+          </button>
+          <button onClick={() => { playSound('ui_modal_open'); setCaseOpen(true) }}
+            className="font-pixel text-white inline-flex items-center gap-2 active:translate-y-[2px] transition-transform"
+            style={{
+              background: 'linear-gradient(135deg, #F59E0B, #B45309)',
+              border: '2px solid #78350F', borderRadius: 5,
+              padding: '12px 14px', fontSize: 9, letterSpacing: 1.5,
+              whiteSpace: 'nowrap',
+              boxShadow: '0 3px 0 rgba(0,0,0,0.35)',
+            }}>
+            <IconDonut size={14} />
+            DONUTS
+          </button>
+        </div>
       )}
 
       {/* ══ MENU SHEET ══ slide-up cake grid; tap-out or CLOSE to dismiss. */}
@@ -319,7 +383,7 @@ export default function BakeryPage() {
                   const canAfford = coins >= cake.price
                   return (
                     <button key={cake.id}
-                      onClick={() => buy(cake)}
+                      onClick={() => purchase(cake.price, { kind: 'cake', cake })}
                       disabled={!canAfford || busy}
                       className="relative p-2.5 text-left active:translate-y-[1px] transition-transform overflow-hidden"
                       style={{
@@ -387,6 +451,117 @@ export default function BakeryPage() {
         </div>
       )}
 
+      {/* ══ DONUT CASE ══ three donuts, changed every night. Unlike the cakes
+          these are real food: buying one puts it in your fridge pile, so the
+          card leads with the art and states what it does to Eren. */}
+      {caseOpen && (
+        <div className="absolute inset-0 z-40" style={{ background: 'rgba(40,20,10,0.45)' }}
+          onClick={() => { playSound('ui_modal_close'); setCaseOpen(false) }}>
+          <div className="absolute bottom-0 inset-x-0 flex flex-col"
+            style={{
+              maxHeight: '74%',
+              background: 'linear-gradient(180deg, #FFF8EC 0%, #FDE8C8 100%)',
+              borderTop: '3px solid #B45309',
+              borderRadius: '14px 14px 0 0',
+              boxShadow: '0 -6px 20px rgba(120,53,15,0.4)',
+              animation: 'bkSheetUp 0.28s ease-out',
+            }}
+            onClick={e => e.stopPropagation()}>
+            {/* Sheet header */}
+            <div className="flex items-center justify-between px-4 pt-3 pb-2 flex-shrink-0">
+              <span className="font-pixel inline-flex items-center gap-1.5" style={{ fontSize: 9, color: '#78350F', letterSpacing: 2 }}>
+                <IconDonut size={11} />
+                FRESH TODAY
+              </span>
+              <button onClick={() => { playSound('ui_modal_close'); setCaseOpen(false) }}
+                className="font-pixel active:scale-95" style={{ fontSize: 8, color: '#78350F', letterSpacing: 1 }}>
+                CLOSE
+              </button>
+            </div>
+
+            {/* The whole point of the counter: it is not the same three
+                tomorrow. Says so, with the time left on it. */}
+            <div className="mx-3 mb-2 px-2.5 py-1.5 flex items-center justify-center gap-1.5 flex-shrink-0"
+              style={{ background: 'rgba(180,83,9,0.12)', border: '2px solid rgba(180,83,9,0.35)', borderRadius: 5 }}>
+              <IconStar size={9} />
+              <span className="font-pixel" style={{ fontSize: 6, color: '#78350F', letterSpacing: 1.2 }}>
+                {now ? `NEW BATCH IN ${batchCountdown(msUntilNextBatch(now))}` : 'BAKING…'}
+              </span>
+              <IconStar size={9} />
+            </div>
+
+            <div className="overflow-y-auto px-3 pb-5" style={{ scrollbarWidth: 'thin' }}>
+              <div className="flex flex-col gap-2">
+                {todaysDonuts.map(donut => {
+                  const canAfford = coins >= donut.price
+                  return (
+                    <button key={donut.id}
+                      onClick={() => purchase(donut.price, { kind: 'donut', donut }, donut.id)}
+                      disabled={!canAfford || busy}
+                      className="relative flex items-center gap-3 p-2.5 text-left active:translate-y-[1px] transition-transform overflow-hidden"
+                      style={{
+                        background: canAfford
+                          ? 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,247,229,0.85) 100%)'
+                          : 'linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(253,232,200,0.4) 100%)',
+                        border: `2px solid ${canAfford ? '#B45309' : 'rgba(120,53,15,0.3)'}`,
+                        borderRadius: 6,
+                        boxShadow: canAfford
+                          ? `3px 3px 0 #78350F, inset 0 1px 0 rgba(255,255,255,0.65), 0 0 10px ${donut.color}40`
+                          : '2px 2px 0 rgba(120,53,15,0.25), inset 0 1px 0 rgba(255,255,255,0.3)',
+                        opacity: canAfford ? 1 : 0.6,
+                        cursor: canAfford && !busy ? 'pointer' : 'not-allowed',
+                      }}>
+                      {canAfford && (
+                        <>
+                          <div style={{ position: 'absolute', top: 3, left: 3, width: 3, height: 3, background: '#FBBF24' }} />
+                          <div style={{ position: 'absolute', top: 3, right: 3, width: 3, height: 3, background: '#FBBF24' }} />
+                          <div style={{ position: 'absolute', bottom: 3, left: 3, width: 3, height: 3, background: '#FBBF24' }} />
+                          <div style={{ position: 'absolute', bottom: 3, right: 3, width: 3, height: 3, background: '#FBBF24' }} />
+                        </>
+                      )}
+                      {/* Art straight on the card — a tinted plate behind it
+                          would be a second shape competing with the donut, the
+                          same call the kitchen shop cards make. */}
+                      <img src={foodArt(donut.id)} alt="" width={64} height={64} draggable={false}
+                        className="flex-shrink-0"
+                        style={{ width: 64, height: 64, objectFit: 'contain', display: 'block' }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-pixel mb-1" style={{ fontSize: 7, color: '#78350F', letterSpacing: 0.6, lineHeight: 1.3, textShadow: '0 1px 0 rgba(255,255,255,0.5)' }}>
+                          {donut.name.toUpperCase()}
+                        </p>
+                        <p className="text-[10px] mb-1.5" style={{ color: '#7C2D12', opacity: 0.75, lineHeight: 1.25 }}>
+                          {donut.desc}
+                        </p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 font-pixel"
+                            style={{
+                              background: canAfford ? 'linear-gradient(180deg, #78350F, #451A03)' : 'rgba(120,53,15,0.3)',
+                              border: `1px solid ${canAfford ? '#FBBF24' : 'rgba(120,53,15,0.4)'}`,
+                              borderRadius: 3, fontSize: 8, color: canAfford ? '#FDE68A' : '#7C2D12',
+                            }}>
+                            <IconCoin size={10} />
+                            {donut.price}
+                          </span>
+                          <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFE3C4', color: '#B4622A', border: '1px solid #F0B884' }}>HGR+{donut.hungerD}</span>
+                          <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFDCE8', color: '#C0407A', border: '1px solid #F5A8C4' }}>JOY+{donut.happyD}</span>
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="flex items-center justify-center gap-2 mt-4 mb-1">
+                <div className="h-[1px] w-10" style={{ background: 'linear-gradient(90deg, transparent, rgba(251,191,36,0.6), transparent)' }} />
+                <p className="font-pixel" style={{ fontSize: 6, color: '#7C2D12', letterSpacing: 2, opacity: 0.7 }}>
+                  STRAIGHT TO YOUR FRIDGE
+                </p>
+                <div className="h-[1px] w-10" style={{ background: 'linear-gradient(90deg, transparent, rgba(251,191,36,0.6), transparent)' }} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style jsx global>{`
         @keyframes bkSheetUp {
           from { transform: translateY(100%); }
@@ -435,6 +610,13 @@ export default function BakeryPage() {
       `}</style>
     </div>
   )
+}
+
+/** "4H 12M" / "12M". Rounds UP so the strip never reads 0M with time left. */
+function batchCountdown(ms: number): string {
+  const mins = Math.max(0, Math.ceil(ms / 60_000))
+  const h = Math.floor(mins / 60)
+  return h > 0 ? `${h}H ${mins % 60}M` : `${mins}M`
 }
 
 // ─── CakeSprite — SVG pixel-art cake using the cake's own palette ──────────

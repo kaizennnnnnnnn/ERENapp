@@ -93,7 +93,25 @@ export interface TaskCompletion {
   completed_at: string
 }
 
-export type FoodInventory = {
+/**
+ * The donut case. Twenty-seven of them, so they get their own union rather
+ * than another screenful inside FoodKey — the catalogue (price, art, where you
+ * can buy one) lives in lib/donuts.ts and is keyed by exactly this.
+ *
+ * `donut` has no suffix because it shipped before the rest and Phase 3 wishes
+ * ask for it by that id.
+ */
+export type DonutKey =
+  | 'donut' | 'donut_choco'
+  | 'donut_vanilla' | 'donut_honey' | 'donut_caramel' | 'donut_mint'
+  | 'donut_matcha' | 'donut_blueberry' | 'donut_red_velvet' | 'donut_mocha'
+  | 'donut_lattice' | 'donut_sakura' | 'donut_hibiscus' | 'donut_black_forest'
+  | 'donut_ube' | 'donut_maple_bacon' | 'donut_mochi' | 'donut_sesame'
+  | 'donut_gold_leaf' | 'donut_pizza' | 'donut_lavender' | 'donut_biscoff'
+  | 'donut_pistachio' | 'donut_white_choc'
+  | 'donut_tiger' | 'donut_arcade' | 'donut_neon'
+
+export type FoodInventory = Partial<Record<DonutKey, number>> & {
   kibble?: number
   fish?: number
   treat?: number
@@ -113,7 +131,6 @@ export type FoodInventory = {
   sardine?: number
   egg?: number
   monster?: number
-  donut?: number
   cookie?: number
   jelly_caka?: number
   // World dishes (pixel-art plates). Grouped in the shop by cuisine —
@@ -177,7 +194,10 @@ export interface ErenStats {
   room_skins?: Record<string, string> | null
 }
 
-export type FoodKey = 'kibble' | 'fish' | 'treat' | 'tuna' | 'steak' | 'cream' | 'biscuit' | 'shrimp' | 'salmon' | 'chicken' | 'sausage' | 'milk' | 'cheese' | 'yogurt' | 'cake' | 'sushi' | 'sardine' | 'egg' | 'donut' | 'cookie' | 'jelly_caka'
+export type FoodKey = 'kibble' | 'fish' | 'treat' | 'tuna' | 'steak' | 'cream' | 'biscuit' | 'shrimp' | 'salmon' | 'chicken' | 'sausage' | 'milk' | 'cheese' | 'yogurt' | 'cake' | 'sushi' | 'sardine' | 'egg' | 'cookie' | 'jelly_caka'
+  // The whole donut case — kitchen shelf, bakery specials and gacha pulls all
+  // land in the fridge the same way. See lib/donuts.ts.
+  | DonutKey
   // World dishes — same lifecycle as the staples above (buyable, giftable).
   | 'pizza' | 'carbonara' | 'lasagna' | 'risotto'
   | 'nigiri' | 'temaki' | 'maki'

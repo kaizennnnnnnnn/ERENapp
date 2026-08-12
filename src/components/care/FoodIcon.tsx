@@ -26,6 +26,11 @@ const FOOD_IMAGE_IDS = new Set([
   'monsta_rainbow', 'monsta_gold',
 ])
 
+// The whole donut case is real art (scripts/build_donuts.py), and every id in it
+// starts `donut` — including the bare `donut`, whose hand-drawn SVG this
+// replaced. Matched by prefix so adding a twenty-eighth donut needs no edit here.
+const isDonut = (id: string) => id === 'donut' || id.startsWith('donut_')
+
 export default function FoodIcon({ id, size = 32 }: { id: string; color?: string; size?: number }) {
   const S = size
   const V = '0 0 10 10'
@@ -42,7 +47,7 @@ export default function FoodIcon({ id, size = 32 }: { id: string; color?: string
   // visual size (`scripts/normalize_food_art.py`), so `contain` centres the
   // food itself and no dish outweighs another. foodArt() carries the cache-bust
   // and is shared with the gacha's item art.
-  if (FOOD_IMAGE_IDS.has(id)) return (
+  if (FOOD_IMAGE_IDS.has(id) || isDonut(id)) return (
     <img src={foodArt(id)} alt="" draggable={false} width={S} height={S}
       style={{ width: S, height: S, objectFit: 'contain', display: 'block' }} />
   )
@@ -151,14 +156,6 @@ export default function FoodIcon({ id, size = 32 }: { id: string; color?: string
       {r(2,8,6,1,'#D86080')}{r(4,1,1,2,'#F5C842')}{r(4,0,1,1,'#FF8800')}
       {r(3,5,1,1,'#FFD0DD')}{r(6,6,1,1,'#FFD0DD')}
       {r(5,1,1,2,'#F5C842')}{r(5,0,1,1,'#FF8800')}
-    </svg>
-  )
-  if (id === 'donut') return (
-    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
-      {r(2,3,6,4,'#C89460')}{r(3,2,4,1,'#C89460')}{r(3,7,4,1,'#A0703D')}
-      {r(4,4,2,2,'#FDF6FF')}
-      {r(2,3,6,1,'#FF8FB0')}{r(3,2,4,1,'#FFB0C8')}
-      {r(3,3,1,1,'#FFD700')}{r(5,2,1,1,'#5BA3D9')}{r(6,3,1,1,'#1ED760')}
     </svg>
   )
   if (id === 'cookie') return (

@@ -1,5 +1,6 @@
 import type { GachaItemDef, GachaBannerDef, GachaRarity, GachaCategory, FoodKey } from '@/types'
 import { SKIN_GACHA_ITEMS } from './skins'
+import { GACHA_DONUTS } from './donuts'
 import { foodArt } from './foodMeta'
 
 /**
@@ -34,6 +35,9 @@ export const GACHA_FOOD_GRANT: Record<string, FoodKey> = {
   cons_monsta_peachy:   'monsta_peachy',
   [MONSTA_RAINBOW_ID]:  'monsta_rainbow',
   [MONSTA_GOLD_ID]:     'monsta_gold',
+  // Same reasoning for the three machine-only donuts: a donut belongs in the
+  // fridge, not in a collection screen.
+  ...Object.fromEntries(GACHA_DONUTS.map(d => [`cons_${d.id}`, d.id])),
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -91,6 +95,17 @@ export const GACHA_ITEMS: GachaItemDef[] = [
   { id: MONSTA_RAINBOW_ID,       name: 'Rainbow Monsta',    category: 'consumable', rarity: 'legendary', description: 'Full energy. Feed it for EVERY buff at once.',    buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_rainbow') },
   { id: MONSTA_GOLD_ID,          name: 'Gold Monsta',       category: 'consumable', rarity: 'legendary', description: 'Full energy. Feed it for 60 coins and +60 joy.',  buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_gold') },
 
+  // ── MACHINE-ONLY DONUTS ────────────────────────────────────────────────
+  // Three donuts the bakery will never put out, so the machine is the only
+  // place they exist — same thing that makes the Rainbow Monsta worth chasing.
+  // Deliberately NOT legendary: that tier is the two SPECIAL EDITION cans, and
+  // a third name in it would cut each jackpot's odds again for no reason.
+  // The buff is joy because that is what a donut is; feeding it in the kitchen
+  // applies the real numbers from the catalogue.
+  { id: 'cons_donut_tiger',  name: 'Tiger Tail',  category: 'consumable', rarity: 'rare', description: 'A donut that gave up on being a ring.', buff: { stat: 'happiness', amount: 30 }, image: foodArt('donut_tiger') },
+  { id: 'cons_donut_arcade', name: 'Arcade',      category: 'consumable', rarity: 'epic', description: 'Covered in stickers. Eren approves.',   buff: { stat: 'happiness', amount: 38 }, image: foodArt('donut_arcade') },
+  { id: 'cons_donut_neon',   name: 'Neon Slime',  category: 'consumable', rarity: 'epic', description: 'It glows. Nobody knows why.',           buff: { stat: 'happiness', amount: 40 }, image: foodArt('donut_neon') },
+
   // ── SKINS — full-body Eren looks (Clothing gacha). Generated in lib/skins.ts.
   ...SKIN_GACHA_ITEMS,
 ]
@@ -101,7 +116,7 @@ export const GACHA_BANNERS: GachaBannerDef[] = [
   {
     id: 'food',
     name: 'Snacks & Drinks',
-    description: 'Energy cans for Eren.',
+    description: 'Energy cans and three donuts you cannot buy.',
     featuredItems: [],
     permanent: true,
     bgGradient: ['#EC4899', '#F9A8D4'],
@@ -247,5 +262,6 @@ export function getItemsByCategory(category: GachaCategory): GachaItemDef[] {
 }
 
 export function getCategoryLabel(cat: GachaCategory): string {
-  return { consumable: 'Drinks', skin: 'Skins' }[cat]
+  // 'Snacks', not 'Drinks' — the tier holds the machine-only donuts too.
+  return { consumable: 'Snacks', skin: 'Skins' }[cat]
 }

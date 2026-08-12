@@ -36,39 +36,9 @@
 import type { ErenMood } from '@/types'
 import type { Daypart } from './timeOfDay'
 
-// ─── Seeded RNG ──────────────────────────────────────────────────────────────
-// Same day in → same Eren out, for both people in the household, all day.
-
-function hashString(s: string): number {
-  let h = 2166136261
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return h >>> 0
-}
-
-function mulberry32(seed: number): () => number {
-  let a = seed
-  return () => {
-    a |= 0
-    a = (a + 0x6d2b79f5) | 0
-    let t = Math.imul(a ^ (a >>> 15), 1 | a)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-const pick = <T,>(rng: () => number, arr: readonly T[]): T => arr[Math.floor(rng() * arr.length)]
-
-function shuffled<T>(rng: () => number, arr: readonly T[]): T[] {
-  const a = [...arr]
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1))
-    ;[a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
-}
+// Seeded RNG — same day in → same Eren out, for both people in the household,
+// all day. Shared with the bakery's daily donut batch; see lib/seededRng.
+import { hashString, mulberry32, pick, shuffled } from './seededRng'
 
 // ─── The frozen core ─────────────────────────────────────────────────────────
 // Everything here is true every day. The parts that rotate are appended by
@@ -342,11 +312,6 @@ ${day.preoccupations.map((p) => `- ${p}`).join('\n')}
 This is background, not a list of topics to get through. It is what makes you a cat with a day instead of a cat waiting for a message.
 
 Most replies should mention NONE of it. Bring one up when it's actually relevant, or when you're bored and want to complain — the way a cat suddenly raises the thing that's been bothering it. Never more than one in a message. Never open by reciting one. The mood is a colour on how you say things, not a thing to say or describe.`
-}
-
-/** A stable per-day seed in the server's own timezone. */
-export function todayKey(now = new Date()): string {
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

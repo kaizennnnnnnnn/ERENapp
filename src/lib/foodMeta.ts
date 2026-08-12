@@ -1,4 +1,5 @@
-import type { FoodKey } from '@/types'
+import type { DonutKey, FoodKey } from '@/types'
+import { DONUTS } from './donuts'
 
 // ─── Food display metadata ───────────────────────────────────────────────────
 // Name + swatch colour for every food key, shared by the couple surfaces that
@@ -11,7 +12,17 @@ import type { FoodKey } from '@/types'
 // keeps its own richer table (price / stats / category / art), so this is
 // deliberately just the two fields the couple surfaces render.
 
+// Donuts carry their own name and swatch in lib/donuts.ts (the shop card, the
+// bakery case and the gacha reveal all read them from there), so they're folded
+// in rather than transcribed — twenty-seven hand-copied pairs is twenty-seven
+// chances to drift. Record<FoodKey, …> below still fails the build if the
+// catalogue ever stops covering every DonutKey.
+const DONUT_META = Object.fromEntries(
+  DONUTS.map(d => [d.id, { name: d.name, color: d.color }]),
+) as Record<DonutKey, { name: string; color: string }>
+
 export const FOOD_META: Record<FoodKey, { name: string; color: string }> = {
+  ...DONUT_META,
   kibble:     { name: 'Kibble',       color: '#D4A44A' },
   fish:       { name: 'Fish',         color: '#5BA3D9' },
   treat:      { name: 'Cat Treat',    color: '#FF6B9D' },
@@ -30,7 +41,6 @@ export const FOOD_META: Record<FoodKey, { name: string; color: string }> = {
   sushi:      { name: 'Sushi',        color: '#2D9B6A' },
   sardine:    { name: 'Sardine',      color: '#7BAFC8' },
   egg:        { name: 'Egg',          color: '#F5E6C8' },
-  donut:      { name: 'Donut',        color: '#FF8FB0' },
   cookie:     { name: 'Cookie',       color: '#C89A6B' },
   jelly_caka: { name: 'Jelly Caka',   color: '#E83A4A' },
   // World dishes
@@ -71,11 +81,12 @@ export const FOOD_META: Record<FoodKey, { name: string; color: string }> = {
 }
 
 // Display order for food pickers — staples first (the everyday cat food), then
-// the world dishes grouped by cuisine, matching the shop's category order.
+// the world dishes grouped by cuisine, matching the shop's category order, and
+// the donut case last as its own block.
 export const FOOD_ORDER: FoodKey[] = [
   'kibble', 'fish', 'treat', 'tuna', 'steak', 'cream', 'biscuit', 'shrimp',
   'salmon', 'chicken', 'sausage', 'milk', 'cheese', 'yogurt', 'cake', 'sushi',
-  'sardine', 'egg', 'donut', 'cookie', 'jelly_caka',
+  'sardine', 'egg', 'cookie', 'jelly_caka',
   'pizza', 'carbonara', 'lasagna', 'risotto',
   'nigiri', 'temaki', 'maki',
   'ramen', 'pad_thai', 'gyoza', 'xiaolongbao',
@@ -84,6 +95,7 @@ export const FOOD_ORDER: FoodKey[] = [
   'monsta_original', 'monsta_white', 'monsta_mango', 'monsta_loco',
   'monsta_pipeline', 'monsta_punch', 'monsta_rosa', 'monsta_peachy',
   'monsta_rainbow', 'monsta_gold',
+  ...DONUTS.map(d => d.id),
 ]
 
 /**

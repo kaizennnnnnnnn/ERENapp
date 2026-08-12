@@ -28,6 +28,7 @@ import { FoodBowl, Crumbs, Hearts } from '@/components/care/ReactionFx'
 import KitchenNavButton from '@/components/kitchen/KitchenNavButton'
 import ChewingEren, { EAT_NOSE_X, pickEatPose, preloadEatPoses } from '@/components/care/ChewingEren'
 import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
+import { DONUTS, KITCHEN_DONUTS } from '@/lib/donuts'
 import { monstaBuff } from '@/lib/monstaBuffs'
 import CanAura, { type CanVariant } from './CanAura'
 import CanFeedBurst from './CanFeedBurst'
@@ -123,7 +124,25 @@ const SHOP_ITEMS = [
   { id: 'stew'      as const, name: 'Stew',        price: 24, hungerD: 34, happyD:  0, weightD: 0.09, desc: 'Slow-cooked & warm', color: '#8E5A2E', cat: 'world'   },
   { id: 'meatballs' as const, name: 'Meatballs',   price: 26, hungerD: 34, happyD:  0, weightD: 0.09, desc: 'Simmered in sauce',  color: '#C4452F', cat: 'world'   },
   { id: 'roast_chicken' as const, name: 'Roast Chicken', price: 32, hungerD: 42, happyD:  0, weightD: 0.12, desc: 'The whole bird',color: '#D8973C', cat: 'world'  },
+
+  // ─── Donuts ──────────────────────────────────────────────────────────────
+  // The whole case, so a donut you got anywhere shows up in the fridge and can
+  // be dragged to Eren like any other food. Only the kitchen pair is on SALE
+  // here (see SHELF_ITEMS) — the rest come from the bakery's daily tray or the
+  // Snacks & Drinks machine.
+  ...DONUTS.map(d => ({
+    id: d.id, name: d.name, price: d.price,
+    hungerD: d.hungerD, happyD: d.happyD, weightD: d.weightD,
+    desc: d.desc, color: d.color, cat: 'donuts',
+  })),
 ]
+
+// What the SHOP is allowed to sell, as opposed to what the FRIDGE can hold.
+// Everything is on sale except the donuts you're supposed to earn elsewhere:
+// the bakery's rotating case and the three gacha exclusives are in SHOP_ITEMS
+// only so they render in your fridge once you own one.
+const KITCHEN_SHELF: ReadonlySet<string> = new Set(KITCHEN_DONUTS.map(d => d.id))
+const SHELF_ITEMS = SHOP_ITEMS.filter(i => i.cat !== 'donuts' || KITCHEN_SHELF.has(i.id))
 
 // Foods Eren LAPS instead of chews. Feeding one of these swaps the chewing
 // sample for the drinking one, so a bowl of milk doesn't crunch. Every Monsta
@@ -173,6 +192,7 @@ const FRIDGE_CATEGORIES = [
   { id: 'asian',   label: 'ASIAN',   color: '#C8632E' },
   { id: 'balkan',  label: 'BALKAN',  color: '#A9663C' },
   { id: 'world',   label: 'WORLD',   color: '#DE9A3E' },
+  { id: 'donuts',  label: 'DONUTS',  color: '#F06AA0' },
 ]
 
 
@@ -851,7 +871,9 @@ export default function FeedScene({ onClose }: Props) {
                  colored row per category, two preview food icons + count. */
               <div className="flex flex-col gap-2">
                 {FRIDGE_CATEGORIES.map(c => {
-                  const catItems = SHOP_ITEMS.filter(i => i.cat === c.id)
+                  // SHELF_ITEMS, not SHOP_ITEMS: the DONUTS row must count and
+                  // preview what's for sale, not the whole case.
+                  const catItems = SHELF_ITEMS.filter(i => i.cat === c.id)
                   const previewIcons = catItems.slice(0, 3)
                   const cheapest = catItems.reduce((min, i) => i.price < min ? i.price : min, Infinity)
                   // The label prints in its own category colour, on a pale wash
@@ -897,7 +919,7 @@ export default function FeedScene({ onClose }: Props) {
               /* PHASE 2 — items in the active category. Same card layout as
                  before; just filtered to one category. */
               <div className="grid grid-cols-2 gap-2">
-                {SHOP_ITEMS.filter(i => i.cat === activeCat.id).map(item => {
+                {SHELF_ITEMS.filter(i => i.cat === activeCat.id).map(item => {
                   const canAfford = coins >= item.price
                   const btnBg = canAfford ? item.color : '#cccccc'
                   const buff = monstaBuff(item.id)
