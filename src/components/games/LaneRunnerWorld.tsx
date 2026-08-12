@@ -135,9 +135,21 @@ export const ZONES: Zone[] = [
   },
 ]
 
-/** Zone changes every this many points. Long enough to settle into a look,
- *  short enough that a good run sees all four. */
-export const ZONE_EVERY = 45
+/** Zone changes every this many units of DISTANCE (not score — coins are worth
+ *  5 apiece and would yank the world forward every time you grabbed a run).
+ *
+ *  Distance accrues at speed x 0.05 per second: ~13.5/s at the opening speed
+ *  rising to ~31/s once the ramp tops out. At 780 the first stretch lasts ~32s
+ *  and each one after it ~25s — long enough to settle into a look and register
+ *  as a place, while a long run still travels through all four.
+ *
+ *  The previous value was 45 SCORE, which changed the entire world every
+ *  1.5-3.3 seconds. That is not scenery, it is strobing — and since each change
+ *  starts a 900ms crossfade over four stacked full-screen gradient layers plus
+ *  a `background` transition on the lane lines (a gradient, so it repaints
+ *  rather than composites), the world was mid-dissolve roughly a third of the
+ *  time. That was the stutter people felt. */
+export const ZONE_EVERY = 780
 
 // ─── Horizon backdrops ───────────────────────────────────────────────────────
 
@@ -256,27 +268,70 @@ export const ZoneSky = memo(function ZoneSky({ zoneIndex, horizon }: { zoneIndex
   )
 })
 
+// All four zones stay mounted so the opacity crossfade has something to fade
+// between — but only the ACTIVE one is fed the live scroll offset. The other
+// three get a frozen 0, so their props never change and memo skips them
+// entirely. Before this, `scrollY` changed 60x a second and was handed to every
+// zone, which re-rendered and re-styled twelve full-screen gradient layers per
+// frame for eleven layers nobody could see. That was the stutter.
+const ZoneRoadLayer = memo(function ZoneRoadLayer({
+  zone, active, horizon, scrollY,
+}: { zone: Zone; active: boolean; horizon: string; scrollY: number }) {
+  return (
+    <div aria-hidden style={{
+      position: 'absolute', left: 0, right: 0, top: horizon, bottom: 0,
+      opacity: active ? 1 : 0,
+      transition: 'opacity 900ms ease',
+      pointerEvents: 'none',
+    }}>
+      <div style={{ position: 'absolute', inset: 0, background: zone.road }} />
+      <div style={{
+        position: 'absolute', inset: 0,
+        backgroundImage: zone.roadTexture,
+        backgroundPositionY: `${scrollY % zone.roadTextureSize}px`,
+      }} />
+    </div>
+  )
+})
+
 export const ZoneRoad = memo(function ZoneRoad({
   zoneIndex, horizon, scrollY,
 }: { zoneIndex: number; horizon: string; scrollY: number }) {
   return (
     <>
       {ZONES.map((z, i) => (
-        <div key={z.name} aria-hidden style={{
-          position: 'absolute', left: 0, right: 0, top: horizon, bottom: 0,
-          opacity: i === zoneIndex ? 1 : 0,
-          transition: 'opacity 900ms ease',
-          pointerEvents: 'none',
+        <ZoneRoadLayer key={z.name} zone={z} active={i === zoneIndex}
+          horizon={horizon} scrollY={i === zoneIndex ? scrollY : 0} />
+      ))}
+    </>
+  )
+})
+
+const ZoneGutterLayer = memo(function ZoneGutterLayer({
+  zone, active, horizon, scrollY,
+}: { zone: Zone; active: boolean; horizon: string; scrollY: number }) {
+  return (
+    <div aria-hidden style={{
+      position: 'absolute', left: 0, right: 0, top: horizon, bottom: 0,
+      opacity: active ? 1 : 0,
+      transition: 'opacity 900ms ease',
+      pointerEvents: 'none',
+    }}>
+      {(['left', 'right'] as const).map(side => (
+        <div key={side} style={{
+          position: 'absolute', [side]: 0, top: 0, bottom: 0, width: '6%',
+          background: zone.gutter,
+          borderLeft: side === 'right' ? '2px solid rgba(0,0,0,0.4)' : undefined,
+          borderRight: side === 'left' ? '2px solid rgba(0,0,0,0.4)' : undefined,
         }}>
-          <div style={{ position: 'absolute', inset: 0, background: z.road }} />
           <div style={{
             position: 'absolute', inset: 0,
-            backgroundImage: z.roadTexture,
-            backgroundPositionY: `${scrollY % z.roadTextureSize}px`,
+            backgroundImage: zone.gutterDetail,
+            backgroundPositionY: `${scrollY % zone.gutterDetailSize}px`,
           }} />
         </div>
       ))}
-    </>
+    </div>
   )
 })
 
@@ -286,27 +341,8 @@ export const ZoneGutters = memo(function ZoneGutters({
   return (
     <>
       {ZONES.map((z, i) => (
-        <div key={z.name} aria-hidden style={{
-          position: 'absolute', left: 0, right: 0, top: horizon, bottom: 0,
-          opacity: i === zoneIndex ? 1 : 0,
-          transition: 'opacity 900ms ease',
-          pointerEvents: 'none',
-        }}>
-          {(['left', 'right'] as const).map(side => (
-            <div key={side} style={{
-              position: 'absolute', [side]: 0, top: 0, bottom: 0, width: '6%',
-              background: z.gutter,
-              borderLeft: side === 'right' ? '2px solid rgba(0,0,0,0.4)' : undefined,
-              borderRight: side === 'left' ? '2px solid rgba(0,0,0,0.4)' : undefined,
-            }}>
-              <div style={{
-                position: 'absolute', inset: 0,
-                backgroundImage: z.gutterDetail,
-                backgroundPositionY: `${scrollY % z.gutterDetailSize}px`,
-              }} />
-            </div>
-          ))}
-        </div>
+        <ZoneGutterLayer key={z.name} zone={z} active={i === zoneIndex}
+          horizon={horizon} scrollY={i === zoneIndex ? scrollY : 0} />
       ))}
     </>
   )

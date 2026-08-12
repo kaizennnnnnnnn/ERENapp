@@ -290,7 +290,14 @@ export default function LaneRunnerGame() {
 
   function loop(now: number) {
     if (stateRef.current !== 'running') return
-    const dt = Math.min(0.05, (now - lastFrameRef.current) / 1000)
+    // Clamped at BOTH ends. The floor is not paranoia: startGame stamps
+    // lastFrameRef from performance.now() at the moment of the tap, but the
+    // first rAF callback is handed the timestamp of the frame it belongs to,
+    // which may have begun BEFORE that tap. That made dt negative on frame one,
+    // which drove distance to -0.01, floored the score to -1, and indexed
+    // ZONES[-1] — a hard crash into "Application error" about a third of a
+    // second after pressing START.
+    const dt = Math.max(0, Math.min(0.05, (now - lastFrameRef.current) / 1000))
     lastFrameRef.current = now
 
     const elapsed = (now - startTimeRef.current) / 1000
@@ -364,15 +371,17 @@ export default function LaneRunnerGame() {
       }
       lastScoreRef.current = newScore
       setScore(newScore)
+    }
 
-      // Crossing into a new stretch of the world. Announced, so the change of
-      // scenery registers as somewhere you got to rather than as wallpaper.
-      const zi = Math.floor(newScore / ZONE_EVERY) % ZONES.length
-      if (zi !== zoneIdxRef.current) {
-        zoneIdxRef.current = zi
-        setZoneBanner({ id: newId(), name: ZONES[zi].name })
-        playSound('lr_speed_up')
-      }
+    // Crossing into a new stretch of the world. Announced, so the change of
+    // scenery registers as somewhere you got to rather than as wallpaper.
+    // Keyed off distance, not score: coins are worth 5 apiece, so a score-keyed
+    // zone would lurch forward every time you grabbed a coin run.
+    const zi = Math.floor(distanceRef.current / ZONE_EVERY) % ZONES.length
+    if (zi !== zoneIdxRef.current) {
+      zoneIdxRef.current = zi
+      setZoneBanner({ id: newId(), name: ZONES[zi].name })
+      playSound('lr_speed_up')
     }
 
     // Collision + near-miss check
