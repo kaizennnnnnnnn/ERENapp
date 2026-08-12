@@ -3,8 +3,8 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // YARN SORT — water/ball-sort puzzle, themed for the Eren app.
 // ────────────────────────────────────────────────────────────────────────
-// Tap a tube to lift its top run of same-coloured yarn, tap another to pour
-// it on (must be empty, or same colour on top with room). Sort every tube to
+// Tap a jar to lift its top run of same-coloured yarn, tap another to drop
+// it on (must be empty, or same colour on top with room). Sort every jar to
 // a single colour to clear the level. Difficulty climbs (more colours) each
 // couple of levels.
 //
@@ -20,6 +20,11 @@
 // You also can't trap yourself: a pour that would freeze the board (no legal move
 // left, unsolved) is blocked, and if you wander into an unsolvable corner anyway,
 // UNDO is always available to back out. The run only ends when the move bank empties.
+//
+// Presentation: a night-time craft shelf. Jars of wound yarn stand on walnut
+// planks; the run you're holding lifts clear of the rim so you can see exactly
+// what you're about to pour, and every jar that can legally receive it lights
+// up while the rest dim away. Nothing about the puzzle rules is hidden.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -38,18 +43,24 @@ import { IconStar, IconYarn } from '@/components/PixelIcons'
 import { fireMinigameDone } from '@/lib/minigames'
 
 // ─── Tunables ───────────────────────────────────────────────────────────────
-const SEG          = 4    // segments per colour = tube capacity
-const EMPTIES      = 2    // spare empty tubes (≥2 keeps random deals solvable)
+const SEG          = 4    // segments per colour = jar capacity
+const EMPTIES      = 2    // spare empty jars (≥2 keeps random deals solvable)
 const START_MOVES  = 30   // starting move bank
 const REFILL_BASE  = 7    // a solve grants REFILL_BASE + colours moves
 const UNDO_LIMIT   = 3    // undos per run (each refunds its pour)
 const LOW_MOVES    = 6    // bank warning threshold
 const WEEKLY_HS    = 8    // levels solved that completes the weekly high-score task
 
-// Visual sizing
-const TUBE_W   = 30
-const SEG_H    = 26
-const SEG_W    = 22
+// Visual sizing. Five jars per plank at TUBE_W + JAR_GAP must clear a 390px
+// phone with room for the plank overhang: 5·50 + 4·13 + 2·18 = 338.
+const TUBE_W    = 50                    // outer jar width (2px glass each side)
+const SEG_W     = 40                    // yarn band width
+const SEG_H     = 34                    // yarn band height
+const TUBE_H    = SEG * SEG_H + 12      // jar body height
+const HOLD_LIFT = 16                    // px the held run rises above the rest
+const ROW_MAX   = 5                     // jars per shelf plank
+const JAR_GAP   = 13                    // px between jars on a plank
+const GAUGE_MAX = 30                    // move-bank gauge is full at this many
 
 // Up to 8 distinct yarn colours; palettes match the app's pink/gold/mint set.
 interface Palette { main: string; dark: string; light: string }
@@ -64,8 +75,24 @@ const COLORS: Palette[] = [
   { main: '#22D3EE', dark: '#155E75', light: '#A5F3FC' }, // cyan
 ]
 
+// Solve-burst particle directions — fixed so they don't reshuffle every render.
+const SPARKS = [
+  { dx: -18, dy: -22 }, { dx: -6, dy: -30 }, { dx: 8, dy: -28 },
+  { dx: 20, dy: -18 },  { dx: -26, dy: -8 }, { dx: 26, dy: -6 },
+]
+
+// Drifting dust motes over the shelf — static layout, animated by CSS only.
+const MOTES = [
+  { left: '12%', top: '22%', size: 3, dur: 9.5, delay: 0 },
+  { left: '28%', top: '68%', size: 2, dur: 12,  delay: 1.8 },
+  { left: '47%', top: '14%', size: 2, dur: 11,  delay: 3.4 },
+  { left: '68%', top: '52%', size: 3, dur: 10,  delay: 0.9 },
+  { left: '83%', top: '28%', size: 2, dur: 13,  delay: 2.6 },
+  { left: '58%', top: '80%', size: 2, dur: 14,  delay: 4.2 },
+]
+
 // ─── Pure helpers ───────────────────────────────────────────────────────────
-// A tube is a bottom→top stack of colour indices. Board = tube[].
+// A jar is a bottom→top stack of colour indices. Board = jar[].
 
 function colorsForLevel(level: number): number {
   return Math.min(COLORS.length, 3 + Math.floor((level - 1) / 2))
@@ -87,6 +114,21 @@ function isSolved(tubes: number[][]): boolean {
   return tubes.every(t => t.length === 0 || (t.length === SEG && t.every(c => c === t[0])))
 }
 
+// A jar is "finished" once it holds a full stack of one colour — it's out of
+// play for the rest of the level, and the UI marks it so the eye can skip it.
+function isFinished(stack: number[]): boolean {
+  return stack.length === SEG && stack.every(c => c === stack[0])
+}
+
+// How many same-coloured segments sit on top — exactly what a pour would move.
+function topRun(stack: number[]): number {
+  if (stack.length === 0) return 0
+  const c = stack[stack.length - 1]
+  let n = 0
+  for (let i = stack.length - 1; i >= 0 && stack[i] === c; i--) n++
+  return n
+}
+
 function canPour(tubes: number[][], src: number, dst: number): boolean {
   if (src === dst) return false
   const s = tubes[src]
@@ -95,8 +137,8 @@ function canPour(tubes: number[][], src: number, dst: number): boolean {
   if (d.length >= SEG) return false
   const sc = s[s.length - 1]
   if (d.length > 0 && d[d.length - 1] !== sc) return false
-  // No-progress prune: don't move a tube that's already one solid colour into
-  // an empty tube (it accomplishes nothing and would waste a move).
+  // No-progress prune: don't move a jar that's already one solid colour into
+  // an empty jar (it accomplishes nothing and would waste a move).
   if (d.length === 0 && s.every(c => c === sc)) return false
   return true
 }
@@ -145,7 +187,7 @@ function hasNonStrandingMove(tubes: number[][]): boolean {
   return false
 }
 
-// Tube identity doesn't matter, so sort the tube strings for the visited key —
+// Jar identity doesn't matter, so sort the jar strings for the visited key —
 // this collapses symmetric states and keeps the search small.
 function canonical(tubes: number[][]): string {
   return tubes.map(t => t.join(',')).sort().join('|')
@@ -192,10 +234,10 @@ function dealRandom(colors: number, empties: number): number[][] {
   return tubes
 }
 
-// Always returns a board PROVEN solvable. With EMPTIES spare tubes a random deal
+// Always returns a board PROVEN solvable. With EMPTIES spare jars a random deal
 // is solvable essentially every time (verified), so this returns on the first
 // try. The empties-escalation is a guaranteed-terminating safety net — more empty
-// tubes makes a board strictly easier to sort — so the loop can never fail to find
+// jars makes a board strictly easier to sort — so the loop can never fail to find
 // a solvable board and hand back an impossible one.
 function genLevel(level: number): number[][] {
   const colors = colorsForLevel(level)
@@ -206,6 +248,49 @@ function genLevel(level: number): number[][] {
     }
   }
   return dealRandom(colors, EMPTIES + colors) // unreachable in practice
+}
+
+// Split jar indices into shelf rows of at most ROW_MAX, balanced so 7 jars read
+// as 4+3 rather than a lopsided 5+2.
+function shelfRows(count: number): number[][] {
+  if (count === 0) return []
+  const rowCount = Math.ceil(count / ROW_MAX)
+  const per = Math.ceil(count / rowCount)
+  const rows: number[][] = []
+  for (let i = 0; i < count; i += per) {
+    rows.push(Array.from({ length: Math.min(per, count - i) }, (_, k) => i + k))
+  }
+  return rows
+}
+
+// ─── Yarn band ──────────────────────────────────────────────────────────────
+// One segment of wound yarn. Three stacked backgrounds do the work: diagonal
+// strand winding on top, a left-lit cylinder shade in the middle, and the flat
+// colour underneath. `capped` rounds the top so the highest band in a stack
+// reads as the crown of a bundle instead of another brick.
+function YarnBand({ pal, capped, style }: { pal: Palette; capped: boolean; style?: React.CSSProperties }) {
+  return (
+    <div style={{
+      width: SEG_W,
+      height: SEG_H - 2,
+      marginTop: 2,
+      borderRadius: capped ? '9px 9px 3px 3px' : 3,
+      border: `1.5px solid ${pal.dark}`,
+      background: [
+        `repeating-linear-gradient(108deg,
+           rgba(255,255,255,0.34) 0px, rgba(255,255,255,0.34) 1.5px,
+           rgba(255,255,255,0)    1.5px, rgba(255,255,255,0)    3.5px,
+           rgba(0,0,0,0.20)       3.5px, rgba(0,0,0,0.20)       5px,
+           rgba(0,0,0,0)          5px,   rgba(0,0,0,0)          7px)`,
+        `linear-gradient(90deg,
+           rgba(0,0,0,0.30) 0%, rgba(255,255,255,0.38) 26%,
+           rgba(255,255,255,0.04) 56%, rgba(0,0,0,0.32) 100%)`,
+        `linear-gradient(180deg, ${pal.light} 0%, ${pal.main} 48%, ${pal.dark} 100%)`,
+      ].join(', '),
+      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.3)',
+      ...style,
+    }} />
+  )
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -231,6 +316,7 @@ export default function YarnSortGame() {
   const [history, setHistory]     = useState<number[][][]>([]) // snapshots, this level
   const [bestScore, setBest]      = useState(0)
   const [celebrating, setCelebrating] = useState(false)
+  const [lastRefill, setLastRefill]   = useState(0)
   const [solveFx, setSolveFx]     = useState(0)
   const [shake, setShake]         = useState(0)
   const [pourFx, setPourFx]       = useState<{ tube: number; n: number; key: number } | null>(null)
@@ -266,6 +352,24 @@ export default function YarnSortGame() {
   // (unlimited rescue) — so the player can never be permanently frozen.
   const canUndo = phase === 'playing' && !celebrating && history.length > 0 && (undosLeft > 0 || stuck)
 
+  // Jars the held run can legally land on. Dead-end pours are excluded because
+  // tapTube blocks them anyway — highlighting a target we'd then reject would be
+  // a lie. Null when nothing is held, which means "don't dim anything".
+  const targets = useMemo(() => {
+    if (selected === null) return null
+    const set = new Set<number>()
+    for (let j = 0; j < tubes.length; j++) {
+      if (canPour(tubes, selected, j) && !strandsBoard(tubes, selected, j)) set.add(j)
+    }
+    return set
+  }, [tubes, selected])
+
+  const heldRun = selected === null ? 0 : topRun(tubes[selected] ?? [])
+  const rows = useMemo(() => shelfRows(tubes.length), [tubes.length])
+  const movesLow = movesLeft <= LOW_MOVES
+  const gaugeFill = Math.max(0, Math.min(10, Math.round((movesLeft / GAUGE_MAX) * 10)))
+  const nextRefill = refillForLevel(colorsForLevel(level))
+
   function flashNotice(text: string) {
     fxKey.current += 1
     const key = fxKey.current
@@ -282,6 +386,7 @@ export default function YarnSortGame() {
     setUndosLeft(UNDO_LIMIT)
     setHistory([])
     setCelebrating(false)
+    setLastRefill(0)
     setPourFx(null)
     setNotice(null)
     setReward(null)
@@ -322,6 +427,7 @@ export default function YarnSortGame() {
     playSound('ys_solve')
     setSolved(s => s + 1)
     setMovesLeft(m => m + refill)
+    setLastRefill(refill)
     setHistory([])
     setSelected(null)
     setCelebrating(true)
@@ -329,7 +435,7 @@ export default function YarnSortGame() {
     timers.setTimeout(() => {
       setTubes(genLevel(justLevel + 1))
       setCelebrating(false)
-    }, reduced ? 360 : 680)
+    }, reduced ? 420 : 900)
   }
 
   function attemptPour(src: number, dst: number) {
@@ -402,80 +508,155 @@ export default function YarnSortGame() {
     playSound('ys_undo')
   }
 
-  const movesLow = movesLeft <= LOW_MOVES
-
   // ─── Render ─────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-40 flex flex-col game-shell"
-      style={{ background: 'radial-gradient(ellipse at top, #0B3B3A 0%, #082A2C 55%, #04181A 100%)' }}>
+    <div className="fixed inset-0 z-40 flex flex-col game-shell overflow-hidden"
+      style={{ background: 'radial-gradient(ellipse 130% 75% at 50% 52%, #175954 0%, #0C3A3B 40%, #062024 74%, #041318 100%)' }}>
+
+      {/* Knitted-wall texture — two shallow diagonals crossing into a stitch weave */}
+      <div aria-hidden className="absolute inset-0 pointer-events-none" style={{
+        background: [
+          'repeating-linear-gradient(56deg, rgba(94,234,212,0.05) 0px, rgba(94,234,212,0.05) 1px, transparent 1px, transparent 9px)',
+          'repeating-linear-gradient(-56deg, rgba(94,234,212,0.05) 0px, rgba(94,234,212,0.05) 1px, transparent 1px, transparent 9px)',
+        ].join(', '),
+        maskImage: 'radial-gradient(ellipse 90% 70% at 50% 40%, #000 0%, transparent 78%)',
+        WebkitMaskImage: 'radial-gradient(ellipse 90% 70% at 50% 40%, #000 0%, transparent 78%)',
+      }} />
+      {/* Vignette — darkens the corners without swallowing the shelf */}
+      <div aria-hidden className="absolute inset-0 pointer-events-none"
+        style={{ boxShadow: 'inset 0 0 80px 4px rgba(2,10,14,0.72)' }} />
+      {/* Low-bank danger glow at the edges */}
+      {phase === 'playing' && movesLow && (
+        <div aria-hidden className="absolute inset-0 pointer-events-none z-10" style={{
+          boxShadow: 'inset 0 0 64px 2px rgba(248,113,113,0.26)',
+          animation: reduced ? undefined : 'ysDanger 2s ease-in-out infinite',
+        }} />
+      )}
 
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{
-        background: 'linear-gradient(180deg, rgba(4,18,20,0.95) 0%, rgba(4,18,20,0.6) 100%)',
-        borderBottom: '2px solid rgba(45,212,191,0.3)',
+      <div className="relative flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{
+        background: 'linear-gradient(180deg, rgba(3,14,18,0.96) 0%, rgba(3,14,18,0.55) 100%)',
+        borderBottom: '2px solid rgba(45,212,191,0.32)',
+        boxShadow: '0 3px 0 rgba(0,0,0,0.35)',
       }}>
         <button onClick={() => { playSound('ui_back'); router.back() }}
-          className="flex items-center justify-center active:scale-90 transition-transform"
-          style={{ width: 32, height: 32, background: 'rgba(255,255,255,0.08)', borderRadius: 6, border: '2px solid rgba(45,212,191,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
+          aria-label="Back"
+          className="flex items-center justify-center active:translate-y-[2px] transition-transform"
+          style={{ width: 32, height: 32, background: 'rgba(255,255,255,0.08)', borderRadius: 6, border: '2px solid rgba(45,212,191,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.4)' }}>
           <ChevronLeft size={16} className="text-teal-200" />
         </button>
-        <span className="font-pixel text-white px-2.5 py-1.5"
-          style={{ background: 'linear-gradient(135deg, #0D9488, #2DD4BF)', border: '2px solid #134E4A', borderRadius: 4, fontSize: 8, letterSpacing: 2, boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
+        <span className="relative font-pixel text-white inline-flex items-center gap-1.5 px-2.5 py-1.5"
+          style={{ background: 'linear-gradient(135deg, #0D9488, #2DD4BF)', border: '2px solid #134E4A', borderRadius: 4, fontSize: 8, letterSpacing: 2, boxShadow: '0 2px 0 rgba(0,0,0,0.4)' }}>
+          <IconYarn size={10} />
           YARN SORT
+          <span aria-hidden style={{ position: 'absolute', left: 2, top: 2, width: 2, height: 2, background: '#FDE68A' }} />
+          <span aria-hidden style={{ position: 'absolute', right: 2, bottom: 2, width: 2, height: 2, background: '#FDE68A' }} />
         </span>
         <div className="flex-1" />
         <div className="flex items-center gap-1.5 px-2 py-1.5 font-pixel"
-          style={{ background: 'rgba(0,0,0,0.4)', border: '2px solid rgba(255,255,255,0.4)', borderRadius: 4, fontSize: 8, color: '#99F6E4' }}>
-          BEST {bestScore}
+          style={{ background: 'rgba(0,0,0,0.45)', border: '2px solid rgba(94,234,212,0.45)', borderRadius: 4, fontSize: 8, color: '#99F6E4', boxShadow: '0 2px 0 rgba(0,0,0,0.4)' }}>
+          <IconStar size={9} /> {bestScore}
         </div>
       </div>
 
-      {/* HUD: level · moves · undo */}
-      <div className="flex items-center justify-between px-4 py-3 flex-shrink-0">
-        <div>
-          <div className="font-pixel" style={{ fontSize: 6, color: '#5EEAD4', letterSpacing: 2 }}>LEVEL</div>
-          <div className="font-pixel" style={{ fontSize: 22, color: '#FFFFFF', textShadow: '2px 2px 0 #0B3B3A', letterSpacing: 1 }}>{level}</div>
+      {/* HUD: level · move bank · undo */}
+      <div className="relative flex items-stretch gap-2 px-3 py-2.5 flex-shrink-0">
+        {/* Level plate */}
+        <div className="flex flex-col items-center justify-center px-3 py-1.5" style={{
+          background: 'linear-gradient(180deg, rgba(9,42,44,0.9), rgba(4,20,24,0.9))',
+          border: '2px solid rgba(94,234,212,0.4)', borderRadius: 5,
+          boxShadow: '0 2px 0 rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)',
+        }}>
+          <span className="font-pixel" style={{ fontSize: 6, color: '#5EEAD4', letterSpacing: 2 }}>LVL</span>
+          <span className="font-pixel" style={{ fontSize: 18, color: '#FFFFFF', textShadow: '2px 2px 0 #04181A', letterSpacing: 1 }}>{level}</span>
         </div>
 
-        <div className="flex flex-col items-center">
-          <div className="font-pixel" style={{ fontSize: 6, color: movesLow ? '#FCA5A5' : '#5EEAD4', letterSpacing: 2 }}>MOVES</div>
-          <div key={`mv-${movesLeft}`} className="font-pixel" style={{
-            fontSize: 22,
-            color: movesLow ? '#FCA5A5' : '#FDE68A',
-            textShadow: movesLow ? '0 0 10px rgba(248,113,113,0.7)' : '2px 2px 0 #0B3B3A',
-            letterSpacing: 1,
-            animation: movesLow && !reduced ? 'ysMovePulse 0.5s ease-out' : undefined,
-          }}>{movesLeft}</div>
+        {/* Move bank: number + depleting gauge + what a solve pays back */}
+        <div className="flex-1 flex flex-col justify-center px-3 py-1.5" style={{
+          background: 'linear-gradient(180deg, rgba(9,42,44,0.9), rgba(4,20,24,0.9))',
+          border: `2px solid ${movesLow ? 'rgba(248,113,113,0.75)' : 'rgba(94,234,212,0.4)'}`,
+          borderRadius: 5,
+          boxShadow: movesLow
+            ? '0 2px 0 rgba(0,0,0,0.45), 0 0 12px rgba(248,113,113,0.4)'
+            : '0 2px 0 rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)',
+        }}>
+          <div className="flex items-baseline justify-between">
+            <span className="font-pixel" style={{ fontSize: 6, color: movesLow ? '#FCA5A5' : '#5EEAD4', letterSpacing: 2 }}>MOVES</span>
+            <span key={`mv-${movesLeft}`} className="font-pixel" style={{
+              fontSize: 18,
+              color: movesLow ? '#FCA5A5' : '#FDE68A',
+              textShadow: movesLow ? '0 0 10px rgba(248,113,113,0.8)' : '2px 2px 0 #04181A',
+              animation: !reduced ? 'ysMovePulse 0.4s ease-out' : undefined,
+            }}>{movesLeft}</span>
+          </div>
+          {/* Ten-tick gauge in a recessed channel — the app's meter language */}
+          <div className="flex gap-[2px] mt-1 p-[2px]" style={{
+            background: 'rgba(0,0,0,0.55)', borderRadius: 2,
+            boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.7)',
+          }}>
+            {Array.from({ length: 10 }).map((_, i) => {
+              const lit = i < gaugeFill
+              return (
+                <div key={i} style={{
+                  flex: 1, height: 5, borderRadius: 1,
+                  background: lit
+                    ? (movesLow
+                      ? 'linear-gradient(180deg, #FCA5A5, #DC2626)'
+                      : 'linear-gradient(180deg, #A7F3D0, #14B8A6)')
+                    : 'rgba(255,255,255,0.07)',
+                  boxShadow: lit ? `0 0 4px ${movesLow ? 'rgba(248,113,113,0.8)' : 'rgba(45,212,191,0.7)'}` : undefined,
+                  transition: 'background 0.18s',
+                  transitionDelay: `${i * 15}ms`,
+                }} />
+              )
+            })}
+          </div>
+          <span className="font-pixel mt-1" style={{ fontSize: 6, color: '#7DD3C8', letterSpacing: 1 }}>
+            SOLVE PAYS +{nextRefill}
+          </span>
         </div>
 
         <button
           onClick={() => { playSound('ui_tap'); undo() }}
           disabled={!canUndo}
-          className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 active:translate-y-[2px] transition-transform"
+          aria-label="Undo last pour"
+          className="flex flex-col items-center justify-center gap-0.5 px-3 active:translate-y-[2px] transition-transform"
           style={{
-            background: canUndo ? 'rgba(13,148,136,0.35)' : 'rgba(255,255,255,0.05)',
-            border: `2px solid ${stuck ? '#FDE68A' : 'rgba(45,212,191,0.5)'}`,
+            background: canUndo
+              ? 'linear-gradient(180deg, rgba(13,148,136,0.5), rgba(6,60,58,0.6))'
+              : 'rgba(255,255,255,0.05)',
+            border: `2px solid ${stuck ? '#FDE68A' : 'rgba(94,234,212,0.45)'}`,
             borderRadius: 5,
-            opacity: canUndo ? 1 : 0.4,
-            boxShadow: '0 2px 0 rgba(0,0,0,0.3)',
+            opacity: canUndo ? 1 : 0.35,
+            boxShadow: '0 2px 0 rgba(0,0,0,0.45)',
             animation: stuck && !reduced ? 'ysUndoPulse 0.7s ease-in-out infinite' : undefined,
           }}>
           <Undo2 size={14} className="text-teal-200" />
-          <span className="font-pixel" style={{ fontSize: 6, color: stuck ? '#FDE68A' : '#99F6E4', letterSpacing: 1 }}>UNDO {undosLeft}</span>
+          <span className="font-pixel" style={{ fontSize: 6, color: stuck ? '#FDE68A' : '#99F6E4', letterSpacing: 1 }}>{undosLeft}</span>
         </button>
       </div>
 
-      {/* Tube field */}
-      <div className="flex-1 flex items-center justify-center px-3 pb-4 select-none overflow-hidden relative">
+      {/* Shelf field */}
+      <div className="relative flex-1 flex items-center justify-center px-3 pb-3 select-none overflow-hidden">
+        {/* Drifting motes */}
+        {!reduced && MOTES.map((m, i) => (
+          <span key={i} aria-hidden className="absolute pointer-events-none" style={{
+            left: m.left, top: m.top, width: m.size, height: m.size, borderRadius: '50%',
+            background: 'rgba(167,243,208,0.55)',
+            boxShadow: '0 0 4px rgba(167,243,208,0.6)',
+            animation: `ysMote ${m.dur}s ease-in-out ${m.delay}s infinite`,
+          }} />
+        ))}
+
         {/* Stuck rescue banner — only when the player has no non-dead-end move left */}
         {stuck && (
-          <div className="absolute left-1/2 -translate-x-1/2 z-20 px-3 py-2 font-pixel text-center" style={{
-            top: 6,
-            background: 'rgba(20,10,4,0.92)',
+          <div className="absolute left-1/2 -translate-x-1/2 z-30 px-3 py-2 font-pixel text-center" style={{
+            top: 2,
+            background: 'rgba(20,10,4,0.94)',
             border: '2px solid #FDE68A',
             borderRadius: 4,
             fontSize: 7, letterSpacing: 1.5, lineHeight: 1.9,
-            boxShadow: '0 3px 0 rgba(0,0,0,0.4), 0 0 14px rgba(253,230,138,0.5)',
+            boxShadow: '0 3px 0 rgba(0,0,0,0.5), 0 0 14px rgba(253,230,138,0.5)',
             animation: reduced ? undefined : 'ysStuckPulse 0.9s ease-in-out infinite',
           }}>
             <span style={{ color: '#FDE68A' }}>DEAD END</span><br />
@@ -484,91 +665,237 @@ export default function YarnSortGame() {
         )}
         {/* Transient notice — e.g. a blocked dead-end pour */}
         {notice && !stuck && (
-          <div key={notice.key} className="absolute left-1/2 -translate-x-1/2 z-20 px-3 py-1.5 font-pixel" style={{
-            top: 6,
-            background: 'rgba(20,10,4,0.9)',
+          <div key={notice.key} className="absolute left-1/2 -translate-x-1/2 z-30 px-3 py-1.5 font-pixel" style={{
+            top: 2,
+            background: 'rgba(20,10,4,0.92)',
             border: '2px solid #FB7185',
             borderRadius: 4,
             fontSize: 7, letterSpacing: 1.5, color: '#FECDD3',
-            boxShadow: '0 2px 0 rgba(0,0,0,0.4)',
+            boxShadow: '0 2px 0 rgba(0,0,0,0.5)',
             animation: reduced ? undefined : 'ysNotice 1.1s ease-out forwards',
           }}>
             {notice.text}
           </div>
         )}
-        <div key={`shake-${shake}`} className="flex flex-wrap items-end justify-center"
-          style={{ gap: 14, maxWidth: 360, animation: shake > 0 && !reduced ? 'ysShake 0.26s steps(5,end)' : undefined }}>
-          {tubes.map((stack, idx) => {
-            const isSel = selected === idx
-            return (
-              <button key={idx} onClick={() => tapTube(idx)}
-                className="relative active:scale-95 transition-transform"
-                style={{
-                  width: TUBE_W,
-                  height: SEG * SEG_H + 8,
-                  background: 'linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03))',
-                  border: `2px solid ${isSel ? '#FDE68A' : 'rgba(94,234,212,0.55)'}`,
-                  borderTop: 'none',
-                  borderRadius: '4px 4px 13px 13px',
-                  boxShadow: isSel
-                    ? '0 0 16px rgba(253,230,138,0.6), inset 0 0 10px rgba(255,255,255,0.08)'
-                    : 'inset 0 0 8px rgba(0,0,0,0.35)',
-                  transform: isSel ? 'translateY(-8px)' : 'none',
-                  transition: 'transform 0.12s, border-color 0.12s, box-shadow 0.12s',
-                  touchAction: 'manipulation',
-                }}>
-                {/* glass top lip */}
-                <div className="absolute" style={{ top: -2, left: -2, right: -2, height: 3, background: isSel ? '#FDE68A' : 'rgba(94,234,212,0.55)', borderRadius: 2 }} />
-                {/* segment stack, bottom-anchored */}
-                <div key={pourFx && pourFx.tube === idx ? `p${pourFx.key}` : 's'}
-                  className="absolute inset-x-0 bottom-0 flex flex-col-reverse items-center" style={{ padding: 3 }}>
-                  {stack.map((c, i) => {
-                    const pal = COLORS[c]
-                    const isDropped = !reduced && pourFx !== null && pourFx.tube === idx && i >= stack.length - pourFx.n
-                    return (
-                      <div key={i} style={{
-                        width: SEG_W,
-                        height: SEG_H - 1,
-                        marginTop: 1,
-                        borderRadius: 3,
-                        background: `linear-gradient(135deg, ${pal.light}, ${pal.main})`,
-                        border: `2px solid ${pal.dark}`,
-                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -1px 0 rgba(0,0,0,0.25)',
-                        animation: isDropped ? 'ysDrop 0.26s cubic-bezier(0.34,1.4,0.64,1)' : undefined,
+
+        {/* Level-clear banner — states the payout so the move economy is legible */}
+        {celebrating && (
+          <div key={`clear-${solveFx}`} className="absolute left-1/2 -translate-x-1/2 z-30 px-4 py-2 font-pixel text-center" style={{
+            top: 2,
+            background: 'linear-gradient(180deg, rgba(13,80,70,0.96), rgba(4,30,32,0.96))',
+            border: '2px solid #FDE68A',
+            borderRadius: 4,
+            boxShadow: '0 3px 0 rgba(0,0,0,0.5), 0 0 20px rgba(253,230,138,0.55)',
+            animation: reduced ? undefined : 'ysBanner 0.9s ease-out both',
+          }}>
+            <div style={{ fontSize: 8, letterSpacing: 2, color: '#FDE68A' }}>LEVEL {solved} CLEAR</div>
+            <div style={{ fontSize: 7, letterSpacing: 1.5, color: '#A7F3D0', marginTop: 5 }}>+{lastRefill} MOVES</div>
+          </div>
+        )}
+
+        {/* Shelf rows */}
+        <div key={`shake-${shake}`} className="flex flex-col items-center"
+          style={{ gap: 22, animation: shake > 0 && !reduced ? 'ysShake 0.26s steps(5,end)' : undefined }}>
+          {rows.map((row, r) => (
+            <div key={r} className="relative flex items-end justify-center" style={{ gap: JAR_GAP, paddingTop: 28 }}>
+              {/* Warm pool of light on the plank — gives the composition a focal
+                  point so the dark around it reads as room, not empty canvas. */}
+              <span aria-hidden className="absolute pointer-events-none" style={{
+                left: -46, right: -46, bottom: -34, top: 10, zIndex: 0,
+                background: 'radial-gradient(ellipse 70% 62% at 50% 82%, rgba(255,206,140,0.20) 0%, rgba(255,190,120,0.09) 42%, transparent 72%)',
+              }} />
+              {row.map(idx => {
+                const stack = tubes[idx]
+                const isSel = selected === idx
+                const isTarget = targets !== null && targets.has(idx)
+                const dimmed = targets !== null && !isSel && !isTarget
+                const finished = isFinished(stack)
+                // Index of the lowest band in the held run. Those bands rise a fixed
+                // HOLD_LIFT so the run reads as picked up and pokes over the rim —
+                // a fixed lift (rather than floating the run clear of the jar) keeps
+                // even a full 4-band hold inside the row's headroom.
+                const holdFrom = isSel ? stack.length - heldRun : stack.length
+
+                return (
+                  <button key={idx} onClick={() => tapTube(idx)}
+                    aria-label={`Jar ${idx + 1}, ${stack.length} of ${SEG} full`}
+                    className="relative"
+                    style={{
+                      width: TUBE_W,
+                      height: TUBE_H,
+                      zIndex: isSel ? 6 : 1,
+                      // Dim, don't erase: you still need to read the whole board
+                      // to plan while holding a run.
+                      opacity: dimmed ? 0.72 : 1,
+                      filter: dimmed ? 'saturate(0.85)' : undefined,
+                      transform: isSel ? 'translateY(-6px)' : isTarget ? 'translateY(-3px)' : 'none',
+                      transition: 'transform 0.14s ease-out, opacity 0.16s, filter 0.16s',
+                      touchAction: 'manipulation',
+                      animation: isTarget && !reduced ? 'ysTarget 1s ease-in-out infinite' : undefined,
+                    }}>
+
+                    {/* Contact shadow on the plank */}
+                    <span aria-hidden className="absolute" style={{
+                      left: -3, right: -3, bottom: -5, height: 6, borderRadius: '50%',
+                      background: 'rgba(0,0,0,0.55)', filter: 'blur(2px)',
+                      opacity: isSel ? 0.45 : 0.8,
+                      transition: 'opacity 0.14s',
+                    }} />
+
+                    {/* Glass body. Border longhands only — mixing the `border`
+                        shorthand with `borderTop` warns in React once the colour
+                        starts changing between renders. */}
+                    <span aria-hidden className="absolute inset-0" style={{
+                      background: 'linear-gradient(180deg, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0.04) 45%, rgba(255,255,255,0.09) 100%)',
+                      borderLeftWidth: 2, borderRightWidth: 2, borderBottomWidth: 2,
+                      borderStyle: 'solid',
+                      borderColor: isSel ? '#FDE68A' : isTarget ? '#7DE8D6' : finished ? 'rgba(253,230,138,0.6)' : 'rgba(94,234,212,0.5)',
+                      borderTopWidth: 0,
+                      borderRadius: '3px 3px 13px 13px',
+                      boxShadow: isSel
+                        ? '0 0 18px rgba(253,230,138,0.65), inset 0 0 10px rgba(255,255,255,0.1)'
+                        : isTarget
+                          ? '0 0 14px rgba(94,234,212,0.6), inset 0 0 10px rgba(255,255,255,0.08)'
+                          : finished
+                            ? '0 0 10px rgba(253,230,138,0.35), inset 0 0 8px rgba(0,0,0,0.3)'
+                            : 'inset 0 0 8px rgba(0,0,0,0.4)',
+                      transition: 'border-color 0.14s, box-shadow 0.14s',
+                    }} />
+                    {/* Specular streak down the left of the glass */}
+                    <span aria-hidden className="absolute pointer-events-none" style={{
+                      left: 4, top: 4, bottom: 8, width: 4, borderRadius: 3,
+                      background: 'linear-gradient(180deg, rgba(255,255,255,0.42), rgba(255,255,255,0.05))',
+                    }} />
+
+                    {/* Glass rim */}
+                    <span aria-hidden className="absolute" style={{
+                      top: -3, left: -3, right: -3, height: 4, borderRadius: 2,
+                      background: isSel
+                        ? 'linear-gradient(180deg, #FEF3C7, #FDE68A)'
+                        : isTarget
+                          ? 'linear-gradient(180deg, #CFFAF2, #5EEAD4)'
+                          : finished
+                            ? 'linear-gradient(180deg, #FDE68A, #D9A441)'
+                            : 'linear-gradient(180deg, rgba(190,250,240,0.85), rgba(94,234,212,0.5))',
+                      boxShadow: '0 1px 0 rgba(0,0,0,0.45)',
+                      transition: 'background 0.14s',
+                    }} />
+
+                    {/* Yarn stack, bottom-anchored. The key remounts on a pour so the
+                        landing animation replays every time. */}
+                    <span key={pourFx && pourFx.tube === idx ? `p${pourFx.key}` : 's'}
+                      className="absolute inset-x-0 bottom-0 flex flex-col-reverse items-center"
+                      style={{
+                        padding: 2,
+                        animation: !reduced && pourFx?.tube === idx ? 'ysCatch 0.24s ease-out' : undefined,
+                      }}>
+                      {stack.map((c, i) => {
+                        const isDropped = !reduced && pourFx !== null && pourFx.tube === idx && i >= stack.length - pourFx.n
+                        const isHeld = i >= holdFrom
+                        return (
+                          <YarnBand key={i} pal={COLORS[c]} capped={i === stack.length - 1}
+                            style={{
+                              ['--lift' as string]: `-${HOLD_LIFT}px`,
+                              transform: isHeld ? `translateY(-${HOLD_LIFT}px)` : undefined,
+                              transition: 'transform 0.14s ease-out',
+                              filter: isHeld ? 'drop-shadow(0 2px 0 rgba(0,0,0,0.5)) brightness(1.12)' : undefined,
+                              animation: isDropped
+                                ? 'ysDrop 0.3s cubic-bezier(0.34,1.45,0.64,1)'
+                                : isHeld && !reduced
+                                  ? `ysHold 1.3s ease-in-out ${i * 40}ms infinite`
+                                  : undefined,
+                            } as React.CSSProperties} />
+                        )
+                      })}
+                    </span>
+
+                    {/* How many bands this pour would move — the thing you're planning around */}
+                    {isSel && heldRun > 1 && (
+                      <span className="font-pixel absolute pointer-events-none" style={{
+                        right: -15, top: TUBE_H - 8 - stack.length * SEG_H - HOLD_LIFT,
+                        padding: '2px 3px',
+                        fontSize: 7, color: '#FDE68A', letterSpacing: 0.5,
+                        background: 'rgba(12,6,2,0.92)',
+                        border: '1px solid #FDE68A',
+                        borderRadius: 2,
+                        boxShadow: '1px 1px 0 rgba(0,0,0,0.6)',
+                      }}>x{heldRun}</span>
+                    )}
+
+                    {/* Caret over a legal target. The glow alone reads fine on an
+                        empty jar but gets lost on a full one — the marker doesn't. */}
+                    {isTarget && (
+                      <span aria-hidden className="absolute pointer-events-none" style={{
+                        left: '50%', top: -15, marginLeft: -6,
+                        width: 0, height: 0,
+                        borderLeft: '6px solid transparent',
+                        borderRight: '6px solid transparent',
+                        borderTop: '8px solid #5EEAD4',
+                        filter: 'drop-shadow(0 0 5px rgba(45,212,191,0.9))',
+                        animation: reduced ? undefined : 'ysCaret 0.85s ease-in-out infinite',
                       }} />
-                    )
-                  })}
-                </div>
-                {/* solved cap glow */}
-                {celebrating && stack.length === SEG && stack.every(c => c === stack[0]) && (
-                  <div key={`fx-${solveFx}`} className="absolute inset-0 pointer-events-none" style={{
-                    border: '2px solid #FDE68A',
-                    borderRadius: '4px 4px 13px 13px',
-                    boxShadow: '0 0 18px rgba(253,230,138,0.8)',
-                    animation: reduced ? undefined : 'ysSolveCap 0.68s ease-out',
-                  }} />
-                )}
-              </button>
-            )
-          })}
+                    )}
+
+                    {/* Finished jar — a gold band and a star so the eye can skip it */}
+                    {finished && (
+                      <span aria-hidden className="absolute pointer-events-none" style={{
+                        left: -2, right: -2, top: 3, height: 3,
+                        background: 'linear-gradient(90deg, transparent, #FDE68A 25%, #FEF3C7 50%, #FDE68A 75%, transparent)',
+                      }} />
+                    )}
+
+                    {/* Solve burst — thrown from the rim into the dark above the jar.
+                        Fired from inside the jar it lands on bright yarn and vanishes. */}
+                    {celebrating && finished && !reduced && SPARKS.map((s, i) => (
+                      <span key={`sp-${solveFx}-${i}`} aria-hidden className="absolute pointer-events-none" style={{
+                        left: '50%', top: -2, width: 4, height: 4, borderRadius: '50%', zIndex: 8,
+                        background: i % 2 ? '#FDE68A' : '#FFFFFF',
+                        boxShadow: '0 0 5px rgba(253,230,138,0.9)',
+                        ['--dx' as string]: `${s.dx}px`,
+                        ['--dy' as string]: `${s.dy}px`,
+                        animation: `ysSpark 0.75s ease-out ${i * 30}ms both`,
+                      } as React.CSSProperties} />
+                    ))}
+                  </button>
+                )
+              })}
+
+              {/* Walnut plank the row stands on — lit top face, dark front edge */}
+              <span aria-hidden className="absolute pointer-events-none" style={{
+                left: -18, right: -18, bottom: -13, height: 13,
+                background: [
+                  'linear-gradient(180deg, #A96E42 0%, #8A5733 22%, #5C3620 24%, #4A2A18 62%, #2A160B 100%)',
+                  'repeating-linear-gradient(90deg, rgba(0,0,0,0.12) 0px, rgba(0,0,0,0.12) 2px, transparent 2px, transparent 17px)',
+                ].join(', '),
+                borderTop: '2px solid #C99160',
+                borderRadius: '1px 1px 2px 2px',
+                boxShadow: '0 4px 0 rgba(0,0,0,0.55), 0 6px 14px rgba(0,0,0,0.6), inset 0 -2px 0 rgba(0,0,0,0.4)',
+              }} />
+            </div>
+          ))}
         </div>
       </div>
 
       {/* Idle modal */}
       {phase === 'idle' && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center px-4 pointer-events-none">
-          <div className="px-6 py-5 flex flex-col items-center gap-3 pointer-events-auto"
-            style={{ background: 'rgba(6,30,32,0.94)', border: '3px solid #2DD4BF', borderRadius: 6, boxShadow: '0 4px 0 #134E4A, 0 0 30px rgba(45,212,191,0.5)' }}>
-            <p className="font-pixel" style={{ fontSize: 11, letterSpacing: 2.5, color: '#99F6E4', filter: 'drop-shadow(0 0 6px rgba(45,212,191,0.5))' }}>YARN SORT</p>
+        <div className="absolute inset-0 z-20 flex items-center justify-center px-4"
+          style={{ background: 'rgba(3,14,18,0.62)' }}>
+          <div className="px-6 py-5 flex flex-col items-center gap-3"
+            style={{ background: 'linear-gradient(180deg, #0B3234 0%, #051E22 100%)', border: '3px solid #2DD4BF', borderRadius: 6, boxShadow: '0 5px 0 #134E4A, 0 0 30px rgba(45,212,191,0.45)' }}>
+            <p className="font-pixel inline-flex items-center gap-2" style={{ fontSize: 11, letterSpacing: 2.5, color: '#99F6E4', filter: 'drop-shadow(0 0 6px rgba(45,212,191,0.5))' }}>
+              <IconYarn size={13} /> YARN SORT
+            </p>
             <div className="font-pixel text-center" style={{ fontSize: 6, color: '#7DD3C8', letterSpacing: 1, lineHeight: 1.9 }}>
-              <p>TAP A TUBE, THEN ANOTHER TO POUR</p>
-              <p>SORT EACH TUBE TO ONE COLOUR</p>
+              <p>TAP A JAR TO LIFT ITS TOP YARN</p>
+              <p>TAP A GLOWING JAR TO DROP IT</p>
+              <p>SORT EVERY JAR TO ONE COLOUR</p>
               <p style={{ color: '#FDE68A' }}>EVERY POUR SPENDS A MOVE</p>
+              <p style={{ color: '#FDE68A' }}>EVERY SOLVE PAYS MOVES BACK</p>
             </div>
             <button onClick={() => { playSound('ui_tap'); startGame() }}
               className="mt-1 px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
               style={{ background: 'linear-gradient(135deg, #2DD4BF 0%, #0D9488 100%)', border: '2px solid #134E4A', borderRadius: 3, boxShadow: '0 4px 0 #134E4A', fontFamily: '"Press Start 2P"', fontSize: 9, letterSpacing: 1.5 }}>
-              <IconYarn size={12} /> START
+              START
             </button>
           </div>
         </div>
@@ -576,7 +903,7 @@ export default function YarnSortGame() {
 
       {/* Game over */}
       {phase === 'gameover' && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center" style={{ background: 'rgba(4,16,18,0.7)', backdropFilter: 'blur(2px)' }}>
+        <div className="absolute inset-0 z-20 flex items-center justify-center" style={{ background: 'rgba(3,14,18,0.72)', backdropFilter: 'blur(2px)' }}>
           <div className="flex flex-col items-center gap-3 px-6 py-5"
             style={{
               background: 'linear-gradient(180deg, #0B2A2C 0%, #061E20 100%)',
@@ -595,7 +922,9 @@ export default function YarnSortGame() {
               </div>
               <div style={{ width: 1, height: 28, background: '#1F4D4A' }} />
               <div className="flex flex-col items-center">
-                <span className="font-pixel" style={{ fontSize: 6, color: '#FDE68A', letterSpacing: 1 }}>BEST</span>
+                <span className="font-pixel inline-flex items-center gap-1" style={{ fontSize: 6, color: '#FDE68A', letterSpacing: 1 }}>
+                  <IconStar size={7} /> BEST
+                </span>
                 <span className="font-pixel" style={{ fontSize: 22, color: '#FDE68A' }}>{bestScore}</span>
               </div>
             </div>
@@ -622,17 +951,41 @@ export default function YarnSortGame() {
           100% { transform: scale(1);   opacity: 1; }
         }
         @keyframes ysDrop {
-          0%   { transform: translateY(-14px) scaleY(0.7); opacity: 0.4; }
-          100% { transform: translateY(0)     scaleY(1);   opacity: 1; }
+          0%   { transform: translateY(-18px) scaleY(0.65); opacity: 0.35; }
+          60%  { transform: translateY(0)     scaleY(1.12); opacity: 1; }
+          100% { transform: translateY(0)     scaleY(1);    opacity: 1; }
         }
-        @keyframes ysSolveCap {
-          0%   { opacity: 0; transform: scale(1.08); }
-          40%  { opacity: 1; transform: scale(1); }
-          100% { opacity: 0; transform: scale(1); }
+        @keyframes ysCatch {
+          0%   { transform: translateY(-3px); }
+          55%  { transform: translateY(2px); }
+          100% { transform: translateY(0); }
+        }
+        /* Held bands breathe around their lifted rest position (--lift = -HOLD_LIFT) */
+        @keyframes ysHold {
+          0%, 100% { transform: translateY(var(--lift)); }
+          50%      { transform: translateY(calc(var(--lift) - 5px)); }
+        }
+        @keyframes ysCaret {
+          0%, 100% { transform: translateY(0);    opacity: 0.75; }
+          50%      { transform: translateY(-4px); opacity: 1; }
+        }
+        @keyframes ysTarget {
+          0%, 100% { transform: translateY(-3px); }
+          50%      { transform: translateY(-6px); }
+        }
+        @keyframes ysSpark {
+          0%   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+          100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.2); opacity: 0; }
+        }
+        @keyframes ysBanner {
+          0%   { opacity: 0; transform: translate(-50%, -10px) scale(0.85); }
+          20%  { opacity: 1; transform: translate(-50%, 0)     scale(1); }
+          80%  { opacity: 1; transform: translate(-50%, 0)     scale(1); }
+          100% { opacity: 0; transform: translate(-50%, -6px)  scale(0.96); }
         }
         @keyframes ysMovePulse {
           0%   { transform: scale(1); }
-          40%  { transform: scale(1.25); }
+          40%  { transform: scale(1.22); }
           100% { transform: scale(1); }
         }
         @keyframes ysShake {
@@ -644,8 +997,8 @@ export default function YarnSortGame() {
           100% { transform: translateX(0); }
         }
         @keyframes ysUndoPulse {
-          0%, 100% { box-shadow: 0 2px 0 rgba(0,0,0,0.3); }
-          50%      { box-shadow: 0 2px 0 rgba(0,0,0,0.3), 0 0 12px rgba(253,230,138,0.85); }
+          0%, 100% { box-shadow: 0 2px 0 rgba(0,0,0,0.45); }
+          50%      { box-shadow: 0 2px 0 rgba(0,0,0,0.45), 0 0 12px rgba(253,230,138,0.85); }
         }
         @keyframes ysStuckPulse {
           0%, 100% { transform: translateX(-50%) scale(1); }
@@ -657,9 +1010,17 @@ export default function YarnSortGame() {
           80%  { opacity: 1; transform: translate(-50%, 0); }
           100% { opacity: 0; transform: translate(-50%, 0); }
         }
+        @keyframes ysMote {
+          0%, 100% { transform: translate(0, 0);       opacity: 0.15; }
+          25%      { transform: translate(6px, -12px); opacity: 0.6; }
+          50%      { transform: translate(-4px, -22px); opacity: 0.35; }
+          75%      { transform: translate(-8px, -10px); opacity: 0.55; }
+        }
+        @keyframes ysDanger {
+          0%, 100% { opacity: 0.55; }
+          50%      { opacity: 1; }
+        }
       `}</style>
-      {/* keep imports referenced */}
-      <span style={{ display: 'none' }}><IconStar size={1} /></span>
     </div>
   )
 }
