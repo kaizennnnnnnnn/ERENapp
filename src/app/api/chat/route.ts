@@ -10,21 +10,28 @@
  * database, not by a filter in this file.
  *
  * The prompt is assembled in two halves, and the split is load-bearing:
- *   cached prefix   tools → EREN_PERSONA → memories        (cache_control)
- *   volatile tail   history → new message → live stats     (full price)
- * See erenPersona.ts. Folding stats into the persona would cost a cache miss
- * on every single message.
+ *   cached prefix   tools → buildPersona(today) → memories   (cache_control)
+ *   volatile tail   history → new message → live context     (full price)
+ * The prefix only has to survive one sitting, not forever — a cache entry
+ * lives ~5 minutes — so anything that changes DAILY (his voice lines, his mood,
+ * what he's preoccupied with) belongs in the prefix and is effectively free.
+ * Anything that changes per message (stats, clock, what they just did) belongs
+ * in the tail. Getting that backwards costs real money in either direction.
+ * See erenPersona.ts.
  */
 import Anthropic from '@anthropic-ai/sdk'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getDaypart } from '@/lib/timeOfDay'
 import {
-  EREN_PERSONA,
+  buildPersona,
+  todayKey,
   REMEMBER_TOOL,
   MEMORY_CAP,
   HISTORY_LIMIT,
+  OPENER_MEMORY,
   buildLiveContext,
+  type CareEvent,
 } from '@/lib/erenPersona'
 import type { ErenMood } from '@/types'
 
@@ -89,12 +96,12 @@ export async function POST(request: Request) {
 
   const householdId = profile?.household_id ?? null
 
-  const [statsRes, partnerRes, historyRes, memoryRes, lastCareRes] = await Promise.all([
+  const [statsRes, partnerRes, historyRes, memoryRes, careRes] = await Promise.all([
     householdId
       ? supabase.from('eren_stats').select('*').eq('household_id', householdId).maybeSingle()
       : Promise.resolve({ data: null }),
     householdId
-      ? supabase.from('profiles').select('name').eq('household_id', householdId).neq('id', user.id).maybeSingle()
+      ? supabase.from('profiles').select('id, name').eq('household_id', householdId).neq('id', user.id).maybeSingle()
       : Promise.resolve({ data: null }),
     supabase
       .from('eren_chat_messages')
@@ -108,14 +115,17 @@ export async function POST(request: Request) {
       .eq('user_id', user.id)
       .order('created_at', { ascending: true })
       .limit(MEMORY_CAP),
+    // One query serves two purposes: row 0 gives "how long since anyone cared",
+    // and the rows inside 24h become the list of what each person actually did.
+    // 40 is far past a realistic day of care, so the summary never truncates in
+    // practice.
     householdId
       ? supabase
           .from('interactions')
-          .select('created_at')
+          .select('created_at, user_id, action_type')
           .eq('household_id', householdId)
           .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
+          .limit(40)
       : Promise.resolve({ data: null }),
   ])
 
@@ -123,15 +133,48 @@ export async function POST(request: Request) {
   const memories = ((memoryRes.data ?? []) as { fact: string }[]).map((m) => m.fact)
   const history = ((historyRes.data ?? []) as { role: string; content: string }[]).reverse()
 
-  const lastCareAt = (lastCareRes.data as { created_at: string } | null)?.created_at
-  const hoursSinceLastCare = lastCareAt
-    ? (Date.now() - new Date(lastCareAt).getTime()) / 3600_000
+  const partner = partnerRes.data as { id: string; name: string } | null
+  const speakerName = profile?.name?.split(' ')[0] ?? 'someone'
+  const partnerName = partner?.name?.split(' ')[0] ?? null
+
+  const careRows = (careRes.data ?? []) as {
+    created_at: string
+    user_id: string
+    action_type: string
+  }[]
+
+  const hoursSinceLastCare = careRows[0]
+    ? (Date.now() - new Date(careRows[0].created_at).getTime()) / 3600_000
     : null
+
+  // Attribute each action to a name here so erenPersona stays free of ids.
+  // A row from neither member (a since-departed housemate) falls back rather
+  // than being dropped — he'd still have noticed being fed.
+  const dayAgo = Date.now() - 24 * 3600_000
+  const recentCare: CareEvent[] = careRows
+    .filter((r) => new Date(r.created_at).getTime() >= dayAgo)
+    .map((r) => ({
+      actor:
+        r.user_id === user.id ? speakerName
+        : r.user_id === partner?.id ? (partnerName ?? 'the other one')
+        : 'someone',
+      action: r.action_type,
+    }))
+
+  // His own last few opening lines. He has the full history in the prompt but
+  // doesn't notice patterns in his own output — listing them is what stops the
+  // reflex. Newest first, deduped, trimmed so this stays cheap.
+  const recentOpeners: string[] = []
+  for (const m of history.filter((h) => h.role === 'assistant').reverse()) {
+    if (recentOpeners.length >= OPENER_MEMORY) break
+    const first = m.content.split('\n')[0].trim().slice(0, 40)
+    if (first && recentOpeners.indexOf(first) === -1) recentOpeners.push(first)
+  }
 
   const now = new Date()
   const liveContext = buildLiveContext({
-    speakerName: profile?.name?.split(' ')[0] ?? 'someone',
-    partnerName: (partnerRes.data as { name: string } | null)?.name?.split(' ')[0] ?? null,
+    speakerName,
+    partnerName,
     hunger:      typeof stats?.hunger === 'number' ? stats.hunger : 80,
     energy:      typeof stats?.energy === 'number' ? stats.energy : 80,
     happiness:   typeof stats?.happiness === 'number' ? stats.happiness : 80,
@@ -143,13 +186,16 @@ export async function POST(request: Request) {
     localTime:   now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
     hoursSinceLastCare,
     memories,
+    recentCare,
+    recentOpeners,
   })
 
   // ── Build the request ─────────────────────────────────────────────────────
   // Two cache breakpoints. The first covers tools + persona + memories, which
-  // only changes when Eren saves a new fact. The second extends it over the
-  // replayed history, so a long conversation doesn't re-bill itself each turn.
-  const system: Anthropic.TextBlockParam[] = [{ type: 'text', text: EREN_PERSONA }]
+  // changes once a day (the persona rotates his voice lines and his mood) or
+  // when Eren saves a new fact. The second extends it over the replayed
+  // history, so a long conversation doesn't re-bill itself each turn.
+  const system: Anthropic.TextBlockParam[] = [{ type: 'text', text: buildPersona(todayKey(now)) }]
   if (memories.length > 0) {
     system.push({
       type: 'text',
