@@ -49,6 +49,28 @@
     @apply bg-[#FDF6FF];
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
+    /* Nothing is selectable by default. A long press that pops selection
+       handles and a Copy/Share sheet over a button is the loudest tell that a
+       PWA is a web page, and it fires constantly here — every control is a
+       <button> with a text label, and the care scenes are driven by press-and-
+       drag, which the browser reads as "start selecting". Given back below only
+       where it's load-bearing. */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* The exceptions. Text fields NEED user-select: iOS drives the caret and the
+     drag handles off it, so typing and editing break without it. `.selectable`
+     is the opt-in for any future text genuinely worth copying — neither invite
+     code needs it, both already ship a Copy button. */
+  input,
+  textarea,
+  [contenteditable='true'],
+  .selectable {
+    -webkit-touch-callout: default;
+    -webkit-user-select: text;
+    user-select: text;
   }
 
   body {
@@ -102,6 +124,7 @@
   img {
     -webkit-touch-callout: none;
     -webkit-user-drag: none;
+    -webkit-user-select: none;
     user-select: none;
   }
 }
