@@ -38,6 +38,7 @@ import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useGameTimers } from '@/hooks/useGameTimers'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import GameCoinReward from '@/components/games/GameCoinReward'
+import PixelEren, { type ErenPose } from '@/components/games/PixelEren'
 import { playSound } from '@/lib/sounds'
 import { IconStar, IconYarn } from '@/components/PixelIcons'
 import { fireMinigameDone } from '@/lib/minigames'
@@ -321,6 +322,7 @@ export default function YarnSortGame() {
   const [shake, setShake]         = useState(0)
   const [pourFx, setPourFx]       = useState<{ tube: number; n: number; key: number } | null>(null)
   const [notice, setNotice]       = useState<{ text: string; key: number } | null>(null)
+  const [fret, setFret]           = useState<{ key: number } | null>(null)  // Eren startled
   const [reward, setReward]       = useState<GameRewardResult | null>(null)
   const savedRef = useRef(false)
   const fxKey = useRef(0)
@@ -370,11 +372,29 @@ export default function YarnSortGame() {
   const gaugeFill = Math.max(0, Math.min(10, Math.round((movesLeft / GAUGE_MAX) * 10)))
   const nextRefill = refillForLevel(colorsForLevel(level))
 
+  // Eren doubles as feedback: you can read the last thing that happened off his
+  // pose without looking away from the jar you're aiming at.
+  const erenPose: ErenPose = celebrating ? 'cheer' : (stuck || fret !== null) ? 'wobble' : 'idle'
+  // His yarn ball takes the colour of the last thing you poured.
+  const ballColor = (() => {
+    const landed = pourFx ? tubes[pourFx.tube] : undefined
+    return landed && landed.length > 0 ? COLORS[landed[landed.length - 1]] : COLORS[0]
+  })()
+
   function flashNotice(text: string) {
     fxKey.current += 1
     const key = fxKey.current
     setNotice({ text, key })
     timers.setTimeout(() => setNotice(n => (n && n.key === key ? null : n)), 1100)
+  }
+
+  // Eren startles on a rejected tap. Keyed so overlapping startles don't let an
+  // earlier timer end a later one's reaction.
+  function startle() {
+    fxKey.current += 1
+    const key = fxKey.current
+    setFret({ key })
+    timers.setTimeout(() => setFret(f => (f && f.key === key ? null : f)), 620)
   }
 
   function startGame() {
@@ -435,6 +455,9 @@ export default function YarnSortGame() {
     timers.setTimeout(() => {
       setTubes(genLevel(justLevel + 1))
       setCelebrating(false)
+      // Drop the landing FX with the old board — its tube index means nothing
+      // on the next deal.
+      setPourFx(null)
     }, reduced ? 420 : 900)
   }
 
@@ -474,6 +497,7 @@ export default function YarnSortGame() {
         // no move; there's always a non-dead-end move available instead.
         playSound('ys_invalid')
         setShake(s => s + 1)
+        startle()
         flashNotice('DEAD END')
         setSelected(null)
         return
@@ -483,6 +507,7 @@ export default function YarnSortGame() {
     } else {
       playSound('ys_invalid')
       setShake(s => s + 1)
+      startle()
       if (tubes[i].length > 0) { setSelected(i); playSound('ys_pick') }
       else setSelected(null)
     }
@@ -873,6 +898,47 @@ export default function YarnSortGame() {
               }} />
             </div>
           ))}
+
+          {/* Eren, sitting on the floor in front of the shelf with his ball.
+              He fills the dead space under the bottom plank and doubles as
+              feedback — cheering a solve, startling at a rejected tap, fretting
+              while the board is stuck — all readable without looking away from
+              the jar you're aiming at. */}
+          {phase !== 'idle' && (
+            <div className="relative flex items-end justify-end pointer-events-none"
+              style={{ alignSelf: 'stretch', gap: 7, paddingRight: 4, marginTop: 6 }}>
+              {/* His yarn ball, wound like the jar segments and coloured by the
+                  last pour. It hops when yarn lands. */}
+              <span key={`ball-${pourFx?.key ?? 0}`} aria-hidden className="relative" style={{
+                width: 15, height: 15, borderRadius: '50%',
+                border: `1.5px solid ${ballColor.dark}`,
+                background: [
+                  `repeating-linear-gradient(122deg,
+                     rgba(255,255,255,0.34) 0px, rgba(255,255,255,0.34) 1.5px,
+                     rgba(255,255,255,0)    1.5px, rgba(255,255,255,0)    3.5px,
+                     rgba(0,0,0,0.22)       3.5px, rgba(0,0,0,0.22) 5px,
+                     rgba(0,0,0,0)          5px,   rgba(0,0,0,0)     7px)`,
+                  `radial-gradient(circle at 32% 28%, ${ballColor.light} 0%, ${ballColor.main} 55%, ${ballColor.dark} 100%)`,
+                ].join(', '),
+                marginBottom: 1,
+                animation: reduced || !pourFx ? undefined : 'ysBallHop 0.42s cubic-bezier(0.34,1.5,0.64,1)',
+              }} />
+
+              <span className="relative">
+                {/* contact shadow so he sits on the floor rather than floating */}
+                <span aria-hidden className="absolute" style={{
+                  left: 3, right: 3, bottom: -2, height: 4, borderRadius: '50%',
+                  background: 'rgba(0,0,0,0.5)', filter: 'blur(2px)',
+                }} />
+                <span className="relative block" style={{
+                  animation: reduced || erenPose !== 'idle' ? undefined : 'ysBreathe 3.2s ease-in-out infinite',
+                  transformOrigin: 'center bottom',
+                }}>
+                  <PixelEren pose={erenPose} size={38} />
+                </span>
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -964,6 +1030,16 @@ export default function YarnSortGame() {
         @keyframes ysHold {
           0%, 100% { transform: translateY(var(--lift)); }
           50%      { transform: translateY(calc(var(--lift) - 5px)); }
+        }
+        /* Eren idling — a slow breath so he isn't a decal */
+        @keyframes ysBreathe {
+          0%, 100% { transform: scaleY(1)     translateY(0); }
+          50%      { transform: scaleY(1.035) translateY(-1px); }
+        }
+        @keyframes ysBallHop {
+          0%   { transform: translateY(0)     scale(1); }
+          40%  { transform: translateY(-9px)  scale(1.1, 0.9); }
+          100% { transform: translateY(0)     scale(1); }
         }
         @keyframes ysCaret {
           0%, 100% { transform: translateY(0);    opacity: 0.75; }

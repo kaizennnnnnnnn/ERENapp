@@ -139,7 +139,7 @@ export default function ErenStackGame() {
   const [reward, setReward] = useState<GameRewardResult | null>(null)
   // Eren's reaction to the last drop. `landKey` re-triggers his squash even
   // when the pose is unchanged (two plain drops in a row).
-  const [rider, setRider] = useState<{ pose: RiderPose; landKey: number }>({ pose: 'ride', landKey: 0 })
+  const [rider, setRider] = useState<{ pose: RiderPose; landKey: number }>({ pose: 'idle', landKey: 0 })
 
   const stateRef       = useRef<'idle' | 'running' | 'gameover'>('idle')
   const towerRef       = useRef<Block[]>([])
@@ -200,7 +200,7 @@ export default function ErenStackGame() {
     setMissFlash(false)
     setScorePulse(null)
     setReward(null)
-    setRider({ pose: 'ride', landKey: 0 })
+    setRider({ pose: 'idle', landKey: 0 })
     savedRef.current = false
 
     const baseW = fieldDims.w * STARTING_WIDTH
@@ -330,7 +330,7 @@ export default function ErenStackGame() {
       if (!reduced) spawnDustPuff(dustX, landY + PIECE_HEIGHT / 2)
       if (great) flashFloater('GREAT', cur.x + cur.width / 2, landY + 18, '#A7F3D0')
       // A big trim visibly rattles him; a tidy one he just rides out.
-      setRider(r => ({ pose: cutW > cur.width * 0.28 ? 'wobble' : 'ride', landKey: r.landKey + 1 }))
+      setRider(r => ({ pose: cutW > cur.width * 0.28 ? 'wobble' : 'idle', landKey: r.landKey + 1 }))
     }
 
     const locked: Block = { ...cur, x: lockedX, width: lockedW, y: landY }
