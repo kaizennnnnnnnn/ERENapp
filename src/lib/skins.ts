@@ -1,4 +1,4 @@
-import type { GachaItemDef, GachaRarity, EyeLayout, FoodKey } from '@/types'
+import type { GachaItemDef, GachaRarity, EyeLayout, LidTone, FoodKey } from '@/types'
 import { SKIN_DATA } from './skinsData'
 import { FOOD_META } from './foodMeta'
 
@@ -26,6 +26,9 @@ export interface SkinDef {
   // matching SPECIAL EDITION can (see DRINK_UNLOCK_SKINS). These skins are out
   // of every banner pool AND out of the stardust shop on purpose.
   unlock?: 'drink'
+  // Blink-lid palette. Omit to keep Eren's own fur tones; set only on a skin
+  // that repaints his whole head (see LID_TONES below).
+  lidTone?: LidTone
   // Vertical framing of the sprite's CAT inside its canvas, as fractions of
   // canvas height. The 21 gacha skins are trimmed tight (cat fills the canvas:
   // catFracH 1, botGap 0); Classic reuses padded erenGood. Used to size a skin
@@ -85,6 +88,32 @@ export const DRINK_UNLOCK_SKINS: Record<string, string> = {
 const SKIN_UNLOCK_DRINK: Record<string, string> = Object.fromEntries(
   Object.entries(DRINK_UNLOCK_SKINS).map(([food, skin]) => [skin, food]))
 
+// ─── Lid tones ───────────────────────────────────────────────────────────────
+// A closed eyelid is fur, so it has to be the colour of the face wearing it.
+// Every costume skin keeps Eren's own ragdoll brow — the costume is a hat or a
+// suit, his face is still his face. The two drink unlocks are the exception:
+// they repaint the whole head, so a default lid reads as a grey-brown slab
+// dropped on a rainbow. Each gets its own, shaded top-to-bottom so the lid still
+// sits in shadow the way a real lid does instead of glowing flat.
+const LID_TONES: Record<string, LidTone> = {
+  rainbow: {
+    // The spectrum runs left→right to match the fur, under a heavy vertical
+    // shade. The shade is the whole trick: without it the lid reads as a glossy
+    // marble sitting on his face instead of skin folded over an eye.
+    base: 'linear-gradient(180deg, rgba(26,6,44,0.10) 0%, rgba(26,6,44,0.52) 100%), ' +
+      'linear-gradient(90deg, #FF5C7A 0%, #FFB255 18%, #FFF06B 36%, #63F094 55%, #4FD8FF 76%, #BB78FF 100%)',
+    sheen: 'linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0))',
+    seam: '#240938',
+    flat: '#7B45B4',
+  },
+  gold: {
+    base: 'linear-gradient(180deg, #E4C173 0%, #C08F26 52%, #5E3405 100%)',
+    sheen: 'linear-gradient(180deg, rgba(255,250,222,0.26), rgba(255,250,222,0))',
+    seam: '#331D03',
+    flat: '#B5851A',
+  },
+}
+
 /** The can that unlocks this skin, or undefined for an ordinary gacha look. */
 export const skinUnlockDrink = (skinId: string): string | undefined => SKIN_UNLOCK_DRINK[skinId]
 
@@ -95,6 +124,7 @@ export const GACHA_SKINS: SkinDef[] = SKIN_DATA.map(s => ({
   rarity: s.rarity,
   set: s.set,
   unlock: SKIN_UNLOCK_DRINK[s.id] ? ('drink' as const) : undefined,
+  lidTone: LID_TONES[s.id],
   src: v(s.src)!,
   tailSrc: v(s.tailSrc),
   tailOrigin: s.tailOrigin,

@@ -8,7 +8,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { useIsDark } from '@/hooks/useIsDark'
-import type { EyeLayout } from '@/types'
+import type { EyeLayout, LidTone } from '@/types'
 
 // Eye-overlay coordinates, all expressed as percentages of the sprite
 // container. Default values are tuned to erenGood.png. Other sprites (the
@@ -27,6 +27,22 @@ export type { EyeLayout }
 // the shine reads as a reflection on the lens instead of a stray white dot.
 const DEFAULT_GLINT =
   'radial-gradient(circle at 42% 38%, #ffffff 0%, #ffffff 30%, rgba(225,240,255,0.78) 54%, rgba(190,220,255,0) 80%)'
+
+// ─── Lid palette ─────────────────────────────────────────────────────────────
+// A closed eyelid is FUR — it should be the colour of the face it belongs to.
+// That's Eren's ragdoll brown by default, but a skin that repaints his whole
+// head (Rainbow, Golden) brings its own (LID_TONES in lib/skins.ts) or the blink
+// lands as a grey-brown slab. Fields:
+//   base   full CSS background for the lid body
+//   sheen  dome highlight along the top of the lid
+//   seam   lash seam drawn under the lid
+//   flat   flat fill for the held-shut lid (vet grimace) and the plain blink bar
+export const DEFAULT_LID_TONE: LidTone = {
+  base: 'linear-gradient(180deg, #5b5049 0%, #473d36 60%, #382f29 100%)',
+  sheen: 'linear-gradient(180deg, rgba(255,250,245,0.18), rgba(255,250,245,0))',
+  seam: '#161108',
+  flat: '#6B6B6B',
+}
 
 const DEFAULT_EYES: EyeLayout = {
   lidTop:    '32.5%',
@@ -70,6 +86,9 @@ interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   // chemistry sprite passes a goggle-blue so the blink reads as the eye
   // closing behind the tinted lens rather than a gray bar on the glass.
   lidColor?: string
+  // Palette for the everyday blink lid. Omit for Eren's own fur tones; a skin
+  // that recolours his whole face passes its own (LID_TONES in lib/skins.ts).
+  lidTone?: Partial<LidTone>
   // Full CSS background for the eye glint. Defaults to a white catchlight; the
   // chemistry sprite passes a cool blue-white so the shine looks like a
   // reflection on the blue goggle glass.
@@ -135,7 +154,8 @@ export default function BlinkingEren({
   src = '/erenGood.png',
   blink = true,
   eyes: eyesOverride,
-  lidColor = '#6B6B6B',
+  lidColor,
+  lidTone,
   glintBackground = DEFAULT_GLINT,
   tailSrc,
   tailOrigin = '68.6% 79.5%',
@@ -173,11 +193,17 @@ export default function BlinkingEren({
   // doesn't look weirdly lit-up against the dark room backgrounds.
   // Applied to the wrapper so the eyelid overlays darken in lockstep.
   const nightFilter = isDark ? 'brightness(0.7) saturate(0.85)' : undefined
+  // Lid palette. Defaults to Eren's own fur tones; a costume that repaints his
+  // whole face (Rainbow, Golden) passes its own, so a blink isn't a grey-brown
+  // slab dropped onto a rainbow — see LID_TONES in lib/skins.ts. An explicit
+  // `lidColor` (the chemistry goggle lens) still wins over the tone's flat.
+  const tone = { ...DEFAULT_LID_TONE, ...lidTone }
+  const lidFill = lidColor ?? tone.flat
   const lid: React.CSSProperties = {
     position: 'absolute',
     width: eyes.lidWidth,
     height: eyes.lidHeight ?? '5.5%',
-    background: lidColor,
+    background: lidFill,
     borderRadius: 1,
     transform: 'scaleY(0)',
     transformOrigin: 'top',
@@ -220,7 +246,7 @@ export default function BlinkingEren({
     top: `calc(${eyes.maskTop} - ${eyes.maskH} * 0.1)`,
     width: `calc(${eyes.maskW} * 1.5)`,
     height: `calc(${eyes.maskH} * 1.2)`,
-    background: `linear-gradient(180deg, ${lidColor} 0%, ${lidColor} 55%, rgba(0,0,0,0.28) 100%)`,
+    background: `linear-gradient(180deg, ${lidFill} 0%, ${lidFill} 55%, rgba(0,0,0,0.28) 100%)`,
     borderRadius: '50%',
     pointerEvents: 'none',
   })
@@ -246,11 +272,11 @@ export default function BlinkingEren({
       pointerEvents: 'none',
     }}>
       <div style={{ position: 'absolute', inset: 0, borderRadius: '50% 50% 48% 48%',
-        background: 'linear-gradient(180deg, #5b5049 0%, #473d36 60%, #382f29 100%)' }} />
+        background: tone.base }} />
       <div style={{ position: 'absolute', left: '16%', right: '16%', top: '10%', height: '30%',
-        borderRadius: '50%', background: 'linear-gradient(180deg, rgba(255,250,245,0.18), rgba(255,250,245,0))' }} />
+        borderRadius: '50%', background: tone.sheen }} />
       <div style={{ position: 'absolute', left: '7%', right: '7%', top: '26%', bottom: '24%',
-        borderBottom: '2px solid #161108', borderRadius: '0 0 60% 60%' }} />
+        borderBottom: `2px solid ${tone.seam}`, borderRadius: '0 0 60% 60%' }} />
     </div>
   )
 

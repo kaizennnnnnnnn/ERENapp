@@ -153,7 +153,8 @@ export default function ClosetView({
                 <BlinkingEren key={previewSkin.id + activeRoom}
                   size={(skinRoomFit(previewSkin, activeRoom)?.size ?? 180) * 1.18}
                   src={previewSkin.src} tailSrc={previewSkin.tailSrc}
-                  tailOrigin={previewSkin.tailOrigin} eyes={previewSkin.eyes} />
+                  tailOrigin={previewSkin.tailOrigin} eyes={previewSkin.eyes}
+                  lidTone={previewSkin.lidTone} />
               ) : (
                 <img src={room.defaultThumb} alt={`${room.label} default look`} draggable={false}
                   style={{ height: 190, objectFit: 'contain', imageRendering: 'auto' }} />

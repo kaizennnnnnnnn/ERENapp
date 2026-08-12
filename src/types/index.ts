@@ -299,6 +299,18 @@ export interface EyeLayout {
   sleepyLidW?: number; sleepyLidH?: number
 }
 
+// Eyelid palette for BlinkingEren's blink. A closed lid is FUR, so it has to be
+// the colour of the face wearing it: Eren's ragdoll brown by default, but a skin
+// that repaints his whole head (Rainbow, Golden) brings its own. Lives here, next
+// to EyeLayout, so the skins catalogue can define tones without importing a
+// component. Field docs live in components/BlinkingEren.tsx.
+export interface LidTone {
+  base: string
+  sheen: string
+  seam: string
+  flat: string
+}
+
 export interface GachaItemDef {
   id: string
   name: string

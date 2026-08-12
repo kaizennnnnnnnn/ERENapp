@@ -3,7 +3,7 @@
 import { useMemo, type CSSProperties } from 'react'
 import { useErenStats } from './useErenStats'
 import { resolveRoomSkin, skinRoomFit } from '@/lib/skins'
-import type { EyeLayout } from '@/types'
+import type { EyeLayout, LidTone } from '@/types'
 
 export interface ErenSpriteProps {
   src: string
@@ -15,6 +15,10 @@ export interface ErenSpriteProps {
   // gray-lid / white-glint defaults.
   lidColor?: string
   glintBackground?: string
+  // Blink-lid palette. A skin that repaints Eren's whole head (Rainbow,
+  // Golden) carries its own so the lid isn't a grey slab; every other skin
+  // and every room default leaves it undefined for his own fur tones.
+  lidTone?: LidTone
   // Chemistry passes this so its goggle-lens blink stays the recolorable bar
   // instead of the realistic fur-toned eye. Skins omit it → realistic blink.
   plainLid?: boolean
@@ -42,6 +46,7 @@ export function useRoomEren(roomId: string, fallback: ErenSpriteProps): ErenSpri
       const fit = skinRoomFit(skin, roomId)
       return {
         src: skin.src, tailSrc: skin.tailSrc, tailOrigin: skin.tailOrigin, eyes: skin.eyes,
+        lidTone: skin.lidTone,
         size: fit?.size,
         style: fit ? { transform: `translateY(${-fit.lift}px)` } : undefined,
       }

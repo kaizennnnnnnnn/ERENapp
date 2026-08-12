@@ -29,7 +29,12 @@ const CONTACT = path.join(__dirname, '_skins_contact.html')
 const SKINS = [
   // rainbow/shark/bat: blue fur or hood defeats auto iris detection — eye
   // centres measured by hand from the cleaned sprite (box %: lx, rx, cy).
-  { id: 'rainbow', file: 'ErenRainbow1.png',   rarity: 'epic',      name: 'Rainbow Eren', eyesOverride: { lx: 40.5, rx: 53.7, cy: 31 }, glintOverride: { ax: 42.1, ay: 27.1, bx: 52.1, by: 27.2 } },
+  // Eye + catchlight overrides re-MEASURED (pixel scan, not eyeballed): the old
+  // lx 40.5 put the left blink lid on the muzzle, between the eyes. The left eye
+  // is measurable on this skin (its outline gates the blue costume fur out); the
+  // right one isn't, so rx is the left centre plus the eye separation measured
+  // off the gold skin, whose face art is the same base ragdoll to within 0.3px.
+  { id: 'rainbow', file: 'ErenRainbow1.png',   rarity: 'epic',      name: 'Rainbow Eren', eyesOverride: { lx: 34.46, rx: 53.55, cy: 29.76 }, glintOverride: { ax: 36, ay: 26.9, bx: 52.1, by: 27.1 } },
   { id: 'gold',    file: 'ErenGold1.png',       rarity: 'epic',      name: 'Golden Eren' },
   { id: 'shark',   file: 'ErenSharki1.png',     rarity: 'epic',      name: 'Shark Eren', eyesOverride: { lx: 42.5, rx: 55, cy: 41 }, glintOverride: { ax: 44.3, ay: 39.8, bx: 51.8, by: 40.9 } },
   { id: 'bear',    file: 'ErenBear1.png',       rarity: 'epic',      name: 'Bear Eren',   bg: 'black', reoutline: true, topTip: true, topFlood: true },
