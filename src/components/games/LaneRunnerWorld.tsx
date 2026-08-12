@@ -32,13 +32,30 @@
 
 import { memo } from 'react'
 
-export type Hazard = 'dog' | 'vacuum' | 'puddle' | 'cucumber'
+export type Hazard = 'dog' | 'vacuum' | 'puddle' | 'cucumber' | 'roomba' | 'crow'
 export type Pickup = 'coin' | 'fish' | 'mouse'
 export type Variant = Hazard | Pickup
 
+/** Everything that kills you, including the two that move. */
+const ALL_HAZARDS: Hazard[] = ['dog', 'vacuum', 'puddle', 'cucumber', 'roomba', 'crow']
+
+/** The roster the generic spawner draws from — the four that hold still.
+ *
+ *  Roomba and crow are deliberately NOT in it. Both change lane while they
+ *  fall, so the safety proof in `isPatternSafe` (which reasons about fixed
+ *  lanes per row) cannot vouch for them. They arrive only through their own
+ *  authored patterns, which keep the neighbouring lanes clear so there is
+ *  always somewhere to step. */
 export const HAZARDS: Hazard[] = ['dog', 'vacuum', 'puddle', 'cucumber']
 
-const HAZARD_SET = new Set<string>(HAZARDS)
+/** The hazards that change lane after they spawn. Callers use this to hold
+ *  them back until the road ahead is empty — see the spawner. */
+const MOVER_SET = new Set<string>(['roomba', 'crow'])
+export function isMover(v: Variant): boolean {
+  return MOVER_SET.has(v)
+}
+
+const HAZARD_SET = new Set<string>(ALL_HAZARDS)
 export function isObstacle(v: Variant): v is Hazard {
   return HAZARD_SET.has(v)
 }
@@ -517,8 +534,76 @@ function MouseArt() {
   )
 }
 
+function RoombaArt() {
+  // Reads as a machine rather than an animal: perfect circle, no face, one
+  // amber sensor. The circle matters — every other hazard has an irregular
+  // silhouette, so "the round one" is the one that slides.
+  return (
+    <Svg>
+      <rect x="2" y="6" width="12" height="7" fill="#111827" />
+      <rect x="1" y="7" width="14" height="5" fill="#111827" />
+      <rect x="3" y="5" width="10" height="7" fill="#4B5563" />
+      <rect x="2" y="7" width="12" height="4" fill="#4B5563" />
+      <rect x="4" y="4" width="8" height="2" fill="#6B7280" />
+      <rect x="5" y="3" width="6" height="1" fill="#9CA3AF" />
+      {/* sensor dome — the one bright thing, findable at speed */}
+      <rect x="6" y="6" width="4" height="3" fill="#0B1220" />
+      <rect x="7" y="7" width="2" height="1" fill="#F59E0B" />
+      {/* bumper */}
+      <rect x="2" y="12" width="12" height="2" fill="#0B1220" />
+      <rect x="3" y="12" width="10" height="1" fill="#374151" />
+      {/* side brushes */}
+      <rect x="0" y="10" width="2" height="1" fill="#FCD34D" />
+      <rect x="14" y="10" width="2" height="1" fill="#FCD34D" />
+      <rect x="1" y="12" width="1" height="1" fill="#FCD34D" />
+      <rect x="14" y="12" width="1" height="1" fill="#FCD34D" />
+    </Svg>
+  )
+}
+
+function CrowArt() {
+  // Two things this has to survive. First, straight horizontal wings read as a
+  // plus sign rather than a bird, so they step outward and down into a swept
+  // dive. Second, an actual crow is near-black and the street and rooftop
+  // roads are near-black too — so this one is slate with a lit leading edge,
+  // which keeps the silhouette findable on every floor in the game.
+  return (
+    <Svg>
+      {/* wings, stepped out and down */}
+      <rect x="3"  y="5" width="2" height="4" fill="#263244" />
+      <rect x="1"  y="6" width="2" height="4" fill="#1B2433" />
+      <rect x="0"  y="8" width="2" height="3" fill="#263244" />
+      <rect x="11" y="5" width="2" height="4" fill="#263244" />
+      <rect x="13" y="6" width="2" height="4" fill="#1B2433" />
+      <rect x="14" y="8" width="2" height="3" fill="#263244" />
+      {/* lit leading edge — the reason it reads on dark asphalt */}
+      <rect x="1"  y="5" width="4" height="1" fill="#64748B" />
+      <rect x="0"  y="7" width="3" height="1" fill="#4B5A73" />
+      <rect x="11" y="5" width="4" height="1" fill="#64748B" />
+      <rect x="13" y="7" width="3" height="1" fill="#4B5A73" />
+      {/* body */}
+      <rect x="5" y="5" width="6" height="7" fill="#1B2433" />
+      <rect x="6" y="5" width="4" height="6" fill="#3B4A61" />
+      <rect x="6" y="5" width="2" height="3" fill="#4B5A73" />
+      {/* head */}
+      <rect x="6" y="2" width="4" height="4" fill="#1B2433" />
+      <rect x="5" y="3" width="6" height="2" fill="#263244" />
+      <rect x="6" y="3" width="1" height="1" fill="#FF3B30" />
+      <rect x="9" y="3" width="1" height="1" fill="#FF3B30" />
+      {/* beak, aimed down the lane at you */}
+      <rect x="7" y="6" width="2" height="2" fill="#F59E0B" />
+      <rect x="7" y="8" width="2" height="1" fill="#B45309" />
+      {/* tail */}
+      <rect x="6" y="12" width="4" height="2" fill="#1B2433" />
+      <rect x="7" y="14" width="2" height="2" fill="#263244" />
+    </Svg>
+  )
+}
+
 const ART: Record<Variant, () => JSX.Element> = {
   dog: DogArt,
+  roomba: RoombaArt,
+  crow: CrowArt,
   vacuum: VacuumArt,
   puddle: PuddleArt,
   cucumber: CucumberArt,
@@ -533,26 +618,53 @@ const ART: Record<Variant, () => JSX.Element> = {
  *  red aura was trying to do, except it sits BEHIND and BELOW the sprite
  *  instead of on top of it — so the lane cell reads as dangerous while the
  *  dog still looks like a dog. */
-const HazardPatch = memo(function HazardPatch({ reduced }: { reduced: boolean }) {
+const HazardPatch = memo(function HazardPatch({
+  reduced, locked,
+}: { reduced: boolean; locked?: boolean }) {
   return (
     <div style={{
       position: 'absolute', left: '2%', right: '2%', bottom: 0, height: '22%',
       borderRadius: 4,
-      border: '2px solid rgba(220,38,38,0.85)',
-      backgroundImage:
-        'repeating-linear-gradient(45deg, rgba(220,38,38,0.85) 0 5px, rgba(20,10,10,0.85) 5px 10px)',
+      // A locked-on crow goes white and flickers twice as fast. It is the same
+      // tape, shouting — you have stopped being able to out-wait it.
+      border: `2px solid ${locked ? 'rgba(255,255,255,0.95)' : 'rgba(220,38,38,0.85)'}`,
+      backgroundImage: locked
+        ? 'repeating-linear-gradient(45deg, rgba(248,113,113,0.95) 0 5px, rgba(60,10,10,0.9) 5px 10px)'
+        : 'repeating-linear-gradient(45deg, rgba(220,38,38,0.85) 0 5px, rgba(20,10,10,0.85) 5px 10px)',
       opacity: 0.9,
-      animation: reduced ? undefined : 'lr-hazard-tape 0.9s ease-in-out infinite',
+      animation: reduced ? undefined : `lr-hazard-tape ${locked ? '0.32s' : '0.9s'} ease-in-out infinite`,
     }} />
   )
 })
 
-export const ItemArt = memo(function ItemArt({ variant, reduced }: { variant: Variant; reduced: boolean }) {
+/** Which way a roomba is sliding, called out beside it. Without this you only
+ *  learn the direction by watching it move, which at 600px/s is learning it too
+ *  late — the arrow is the difference between a read and a coin flip. */
+const DriftArrow = memo(function DriftArrow({ drift, reduced }: { drift: -1 | 1; reduced: boolean }) {
+  return (
+    <div style={{
+      position: 'absolute', top: '34%',
+      [drift > 0 ? 'right' : 'left']: '-20%',
+      width: 0, height: 0,
+      borderTop: '7px solid transparent',
+      borderBottom: '7px solid transparent',
+      [drift > 0 ? 'borderLeft' : 'borderRight']: '10px solid rgba(252,211,77,0.95)',
+      filter: 'drop-shadow(0 2px 0 rgba(0,0,0,0.55))',
+      animation: reduced ? undefined : `lr-drift-${drift > 0 ? 'r' : 'l'} 0.55s ease-in-out infinite`,
+      pointerEvents: 'none',
+    } as React.CSSProperties} />
+  )
+})
+
+export const ItemArt = memo(function ItemArt({
+  variant, reduced, drift, locked,
+}: { variant: Variant; reduced: boolean; drift?: -1 | 1; locked?: boolean }) {
   const Art = ART[variant]
   if (isObstacle(variant)) {
     return (
       <>
-        <HazardPatch reduced={reduced} />
+        <HazardPatch reduced={reduced} locked={locked} />
+        {drift ? <DriftArrow drift={drift} reduced={reduced} /> : null}
         {/* contact shadow — grounds it. Hard-edged, no blur, per house style. */}
         <div style={{
           position: 'absolute', left: '16%', right: '16%', bottom: '15%', height: '8%',

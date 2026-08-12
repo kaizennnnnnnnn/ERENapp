@@ -16,7 +16,7 @@ import ErenRunner, {
 } from '@/components/games/ErenRunner'
 import {
   ZONES, ZONE_EVERY, ZoneSky, ZoneRoad, ZoneGutters, ItemArt,
-  HAZARDS, PICKUP_VALUE, HAZARD_SIZE, PICKUP_SIZE, isObstacle,
+  HAZARDS, PICKUP_VALUE, HAZARD_SIZE, PICKUP_SIZE, isObstacle, isMover,
   type Variant, type Hazard, type Pickup,
 } from '@/components/games/LaneRunnerWorld'
 import { choosePattern, patternSpan, isPatternSafe } from '@/lib/laneRunnerPatterns'
@@ -43,6 +43,34 @@ const SPEED_TIERS = [400, 500, SPEED_MAX]
 const STRIDE_PX = 34          // ground covered per frame of Eren's run cycle
 const STRIDE_SPEED_CAP = 480  // past this his legs would just blur, so cadence stops ramping
 
+/** A roomba does NOT ooze across the whole descent. It holds its lane, slides
+ *  over in one committed move partway down, then holds the new lane well before
+ *  it reaches you.
+ *
+ *  That shape is deliberate. Collision is a lane index, so anything parked
+ *  between two lanes is lying to you about what it will hit — half the screen
+ *  says "it's over there" while the hitbox says otherwise. Confining the
+ *  between-lanes state to a brief slide, taken far up the road, keeps the
+ *  hitbox honest everywhere it matters. */
+const DRIFT_START_FRAC = 0.30  // fraction of field height where the slide begins
+const DRIFT_SPAN_PX = 140      // descent the slide takes, start to finish
+/** ...but never so late that it is still sliding as it arrives. On a short
+ *  field (landscape phone) 30% of the height is not far enough up the road, so
+ *  the start is pulled back to guarantee this much settled travel. */
+const DRIFT_SETTLE_PX = 160
+/** Ground a crow covers while closing one lane on you. Faster than the roomba
+ *  — it is hunting — but slow enough that two lane changes shake it. */
+const CROW_TRACK_PX = 340
+/** How far above the player row a crow is fully committed to one lane. */
+const CROW_LOCK_LEAD = 420
+/** ...and the run-up before that in which it stops tracking and eases onto
+ *  that lane. Together they give ~2.1s of warning at the opening speed and
+ *  ~0.9s flat out, which is the window you get to sidestep. */
+const CROW_SETTLE_PX = 150
+/** Vertical clearance a mover needs from any static hazard at spawn, so the
+ *  two can never arrive at the player row together. Two hitboxes plus slack. */
+const MOVER_CLEAR_BAND = 130
+
 interface Item {
   id: number
   lane: 0 | 1 | 2
@@ -50,6 +78,15 @@ interface Item {
   variant: Variant
   collected?: boolean
   passed?: boolean       // crossed the player row — used for near-miss detection
+  /** Movers only. `laneF` is the real, continuous lane position; `lane` is kept
+   *  as its rounded value so collision, near-miss and streak bookkeeping all
+   *  keep operating on a plain lane index and needed no changes. */
+  laneF?: number
+  drift?: -1 | 1         // roomba: slide direction
+  driftTo?: number       // roomba: the lane it stops at, so it never runs past one
+  locked?: boolean       // crow: has committed and no longer tracks you
+  settleFrom?: number    // crow: where it was when it committed...
+  settleTo?: number      // ...and the whole lane it eases onto
 }
 
 interface Popup {
@@ -238,7 +275,8 @@ export default function LaneRunnerGame() {
     setScorePulse(p => p + 1)
   }
 
-  function laneToX(l: 0 | 1 | 2) {
+  /** Accepts a fractional lane: the movers sit between lanes mid-slide. */
+  function laneToX(l: number) {
     return ((l + 0.5) / LANES) * fieldDimsRef.current.w
   }
 
@@ -258,8 +296,29 @@ export default function LaneRunnerGame() {
 
     const rng = Math.random
     const hazard = (): Hazard => HAZARDS[Math.floor(rng() * HAZARDS.length)]
-    const pattern = choosePattern(rng, difficulty)
-    const items = pattern.build(rng, hazard)
+
+    // A mover changes lane in flight, so `isPatternSafe` — which proves a path
+    // through hazards that stay where they are put — cannot vouch for one.
+    // What would actually be unfair is a mover sharing a row with a static
+    // hazard: two lanes shut at the same instant, and the mover free to take
+    // the third. The spawn cursor already spaces patterns 220-360px apart so
+    // that cannot happen, but "cannot happen incidentally" is not a guarantee,
+    // so make it one. Deliberately a narrow band and not "is the road clear":
+    // at speed there is nearly always something on the road, and gating on
+    // that would have quietly meant movers never spawned at all.
+    const moverBlocked = itemsRef.current.some(
+      i => !i.collected && isObstacle(i.variant)
+        && Math.abs(i.y - -HAZARD_SIZE) < MOVER_CLEAR_BAND)
+
+    let pattern = choosePattern(rng, difficulty)
+    let items = pattern.build(rng, hazard)
+    for (let t = 0; t < 6 && moverBlocked && items.some(p => isMover(p.variant)); t++) {
+      pattern = choosePattern(rng, difficulty)
+      items = pattern.build(rng, hazard)
+    }
+    if (moverBlocked && items.some(p => isMover(p.variant))) {
+      items = [{ lane: Math.floor(rng() * 3) as 0 | 1 | 2, variant: hazard(), dy: 0 }]
+    }
 
     // The library is authored to be safe and fuzz-tested, but a shape that
     // somehow has no path through it is an unwinnable death, so it never gets
@@ -274,6 +333,12 @@ export default function LaneRunnerGame() {
         lane: p.lane,
         y: -sizeOf(p.variant) - p.dy,
         variant: p.variant,
+        // Movers start with laneF seeded from their spawn lane; everything else
+        // leaves it undefined and reads `lane` exactly as before.
+        ...(p.variant === 'roomba' && p.drift
+          ? { laneF: p.lane, drift: p.drift, driftTo: p.lane + p.drift }
+          : {}),
+        ...(p.variant === 'crow' ? { laneF: p.lane } : {}),
       })
     }
 
@@ -327,7 +392,54 @@ export default function LaneRunnerGame() {
     }
 
     // Move items
-    for (const it of itemsRef.current) it.y += speedRef.current * dt
+    const travelled = speedRef.current * dt
+    for (const it of itemsRef.current) it.y += travelled
+
+    // ...and sideways, for the two that do not fall in a straight line. Both
+    // write laneF then round it into `lane`, so collision and near-miss below
+    // stay untouched. Lateral speed is tied to ground travelled rather than to
+    // the clock, so a sweep covers the same ground at 270px/s and at 620.
+    const playerRow = fieldDimsRef.current.h - PLAYER_BOTTOM
+    const crowLockY = playerRow - CROW_LOCK_LEAD
+    for (const it of itemsRef.current) {
+      if (it.collected) continue
+
+      if (it.drift && it.driftTo !== undefined) {
+        const from = it.driftTo - it.drift
+        const slideAt = Math.min(
+          fieldDimsRef.current.h * DRIFT_START_FRAC,
+          playerRow - DRIFT_SPAN_PX - DRIFT_SETTLE_PX,
+        )
+        const p = Math.max(0, Math.min(1, (it.y - slideAt) / DRIFT_SPAN_PX))
+        it.laneF = from + it.drift * (p * p * (3 - 2 * p))  // smoothstep
+        it.lane = Math.round(it.laneF) as 0 | 1 | 2
+      } else if (it.variant === 'crow') {
+        // Three beats: hunt, commit, strike.
+        //
+        // The commit is its own beat because mid-hunt the crow can sit between
+        // two lanes, and collision is a lane index — so it has to arrive at a
+        // whole lane before it matters. Easing there over CROW_SETTLE_PX rather
+        // than snapping keeps the sprite and the hitbox saying the same thing
+        // without a 60px teleport, and the white tape starts the moment it
+        // stops tracking, so the warning begins when the decision does.
+        const settleAt = crowLockY - CROW_SETTLE_PX
+        if (!it.locked && it.y >= settleAt) {
+          it.locked = true
+          it.settleFrom = it.laneF ?? it.lane
+          it.settleTo = Math.round(it.settleFrom)
+          playSound('lr_near_miss')
+        }
+        if (!it.locked) {
+          const cur = it.laneF ?? it.lane
+          const step = travelled / CROW_TRACK_PX
+          it.laneF = cur + Math.max(-step, Math.min(step, laneRef.current - cur))
+        } else if (it.settleFrom !== undefined && it.settleTo !== undefined) {
+          const p = Math.max(0, Math.min(1, (it.y - settleAt) / CROW_SETTLE_PX))
+          it.laneF = it.settleFrom + (it.settleTo - it.settleFrom) * (p * p * (3 - 2 * p))
+        }
+        it.lane = Math.round(it.laneF ?? it.lane) as 0 | 1 | 2
+      }
+    }
 
     // Scroll lane stripes + parallax skyline
     stripeRef.current = (stripeRef.current + speedRef.current * dt) % 40
@@ -761,11 +873,11 @@ export default function LaneRunnerGame() {
         {itemsRef.current.map(it => (
           <div key={it.id} className="absolute pointer-events-none"
             style={{
-              left: laneToX(it.lane) - sizeOf(it.variant) / 2,
+              left: laneToX(it.laneF ?? it.lane) - sizeOf(it.variant) / 2,
               top: it.y - sizeOf(it.variant) / 2,
               width: sizeOf(it.variant), height: sizeOf(it.variant),
             }}>
-            <ItemArt variant={it.variant} reduced={reduced} />
+            <ItemArt variant={it.variant} reduced={reduced} drift={it.drift} locked={it.locked} />
           </div>
         ))}
 
@@ -961,6 +1073,16 @@ export default function LaneRunnerGame() {
         @keyframes lr-hazard-tape {
           0%, 100% { opacity: 0.72; }
           50%      { opacity: 1; }
+        }
+        /* Drift arrows beside a roomba. They nudge the way it is sliding, so
+           the direction reads as motion rather than as a static icon. */
+        @keyframes lr-drift-r {
+          0%, 100% { transform: translateX(0);   opacity: 0.75; }
+          50%      { transform: translateX(4px); opacity: 1; }
+        }
+        @keyframes lr-drift-l {
+          0%, 100% { transform: translateX(0);    opacity: 0.75; }
+          50%      { transform: translateX(-4px); opacity: 1; }
         }
         /* Pickup treatments — inviting halo + gentle float. The float is the
            tell: pickups hover clear of their shadow, hazards sit on theirs. */

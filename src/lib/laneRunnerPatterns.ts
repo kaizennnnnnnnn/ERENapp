@@ -28,6 +28,9 @@ export interface Placement {
   variant: Variant
   /** Distance above the pattern origin. 0 enters first. */
   dy: number
+  /** Only for a roomba: which way it slides as it comes down. Set here rather
+   *  than rolled at spawn time so a pattern can point it at something. */
+  drift?: -1 | 1
 }
 
 export interface Pattern {
@@ -183,6 +186,64 @@ export const PATTERNS: Pattern[] = [
         ...LANES.filter(l => l !== f2).map(lane => ({ lane, variant: hazard(), dy: ROW })),
         ...LANES.filter(l => l !== f3).map(lane => ({ lane, variant: hazard(), dy: ROW * 2 })),
         { lane: f3, variant: 'fish' as Variant, dy: ROW * 2 + 30 },
+      ]
+    },
+  },
+
+  // ── The two that move ──────────────────────────────────────────────────────
+  // Every shape above is a static wall: you read the gap and take it. These
+  // two ask a different question. The roomba's lane is a moving target, so you
+  // have to read a trajectory; the crow's lane is YOUR lane, so you have to
+  // bait it and step off late. Both are authored solo — one hazard, two clear
+  // lanes — because neither can be proved safe by `isPatternSafe`, which
+  // reasons about hazards that stay where they are put.
+
+  {
+    name: 'roombaSweep',
+    from: 0.12,
+    weight: 14,
+    build: rng => {
+      // Always starts on an edge and sweeps inward, so the drift is never a
+      // guess about which way it will bounce.
+      const lane: Lane = rng() < 0.5 ? 0 : 2
+      return [{ lane, variant: 'roomba' as Variant, dy: 0, drift: lane === 0 ? 1 : -1 }]
+    },
+  },
+  {
+    name: 'roombaLure',
+    from: 0.34,
+    weight: 11,
+    build: rng => {
+      // Coins laid in the lane it is sliding INTO. Greed says hold the lane;
+      // the arrow says you have about a second. That tension is the point.
+      const lane: Lane = rng() < 0.5 ? 0 : 2
+      const drift: -1 | 1 = lane === 0 ? 1 : -1
+      const into = (lane + drift) as Lane
+      return [
+        { lane, variant: 'roomba' as Variant, dy: 0, drift },
+        ...Array.from({ length: 4 }, (_, i) => ({
+          lane: into, variant: 'coin' as Variant, dy: 40 + i * COIN,
+        })),
+      ]
+    },
+  },
+  {
+    name: 'crowDive',
+    from: 0.3,
+    weight: 12,
+    build: rng => [{ lane: pick(rng, LANES), variant: 'crow' as Variant, dy: 0 }],
+  },
+  {
+    name: 'crowBait',
+    from: 0.55,
+    weight: 9,
+    build: rng => {
+      // The fish is the bait: stand still long enough to take it and the crow
+      // has already committed to that lane.
+      const lane = pick(rng, LANES)
+      return [
+        { lane: other(rng, [lane]), variant: 'crow' as Variant, dy: 0 },
+        { lane, variant: 'fish' as Variant, dy: 70 },
       ]
     },
   },
