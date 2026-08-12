@@ -20,7 +20,9 @@ import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useGameTimers } from '@/hooks/useGameTimers'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
+import { useErenIdle } from '@/hooks/useErenIdle'
 import GameCoinReward from '@/components/games/GameCoinReward'
+import PixelEren, { type ErenPose } from '@/components/games/PixelEren'
 import { playSound } from '@/lib/sounds'
 import { IconStar, IconSparkles } from '@/components/PixelIcons'
 import { fireMinigameDone } from '@/lib/minigames'
@@ -263,6 +265,7 @@ export default function PawDokuGame() {
   const { reportGameResult } = useGameRewards()
   const timers = useGameTimers()
   const reduced = useReducedMotion()
+  const idle = useErenIdle()
 
   const [phase,     setPhase]     = useState<Phase>('idle')
   const [grid,      setGrid]      = useState<Grid>(makeEmptyGrid)
@@ -287,11 +290,25 @@ export default function PawDokuGame() {
   const [gridShake, setGridShake] = useState(0)            // re-keys the invalid-drop grid shake
   const [trayRefillKey, setTrayRefillKey] = useState(0)    // re-keys tray-refill stagger animation
   const [vignette, setVignette] = useState(0)              // re-keys the game-over red vignette
+  // Eren's reaction to the last drop, cleared on a keyed timer so an earlier
+  // reaction can't cut a later one short.
+  const [erenFx, setErenFx] = useState<{ pose: ErenPose; key: number } | null>(null)
   const [floater,   setFloater]   = useState<{ id: number; text: string; color: string } | null>(null)
   const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; color: string; dx: number; dy: number }>>([])
   const [reward,    setReward]    = useState<GameRewardResult | null>(null)
   const savedRef = useRef(false)
   const STREAK_GRACE = 3
+
+  // Eren watches the tray and reacts to the last drop — a clear makes him
+  // cheer, a rejected block startles him. Keyed so overlapping reactions
+  // don't let an earlier timer end a later one.
+  const erenFxKey = useRef(0)
+  function reactEren(pose: ErenPose, hold: number) {
+    erenFxKey.current += 1
+    const key = erenFxKey.current
+    setErenFx({ pose, key })
+    timers.setTimeout(() => setErenFx(f => (f && f.key === key ? null : f)), hold)
+  }
 
   // Mirror score into a ref so endGame (fired via setTimeout from afterPlace)
   // reads the TRUE post-placement total, not the stale closure score from the
@@ -493,6 +510,7 @@ export default function PawDokuGame() {
       // Bounce back — error buzz + grid shake + brief red border pulse
       setDraggedIdx(null)
       setGridShake(s => s + 1)
+      reactEren('wobble', 620)
       playSound('pd_invalid')
       return
     }
@@ -562,6 +580,7 @@ export default function PawDokuGame() {
       setCombo(totalClears)
       // Skip the hue-cycling grid washes + expanding shockwave when reduced.
       if (!reduced) setGridFlash(f => f + 1)
+      reactEren('cheer', 900)
       timers.setTimeout(() => setCombo(0), 850)
 
       // Floater colour: gold for x3+ clears, pink for streaks ≥ 2,
@@ -887,6 +906,30 @@ export default function PawDokuGame() {
             {floater.text}
           </div>
         )}
+
+        {/* Eren, sitting under the board between it and the tray. He cheers a
+            clear and startles at a block that won't fit, so the last thing that
+            happened stays readable while your eyes are on the piece you're
+            dragging. Sits in the grid area's slack rather than the header,
+            where a COMBO and a STREAK pill together already fill the row. */}
+        {phase !== 'idle' && (
+          <div className="relative flex justify-end pointer-events-none"
+            style={{ width: GRID_PX, marginTop: 8, paddingRight: 2 }}>
+            <span className="relative">
+              <span aria-hidden className="absolute" style={{
+                left: 4, right: 4, bottom: -2, height: 4, borderRadius: '50%',
+                background: 'rgba(0,0,0,0.5)', filter: 'blur(2px)',
+              }} />
+              <span className="relative block" style={{
+                animation: reduced || erenFx ? undefined : 'pdErenBreathe 3.4s ease-in-out infinite',
+                transformOrigin: 'center bottom',
+              }}>
+                <PixelEren pose={erenFx?.pose ?? 'idle'} size={36}
+                  blink={idle.blink} twitch={idle.twitch} glance={idle.glance} />
+              </span>
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Tray — pointerDown sits on the WHOLE slot div so the player can
@@ -1103,6 +1146,11 @@ export default function PawDokuGame() {
         }
         /* SCORE digits pulse on increment — quick scale + gold textShadow
            flare so a big combo gain visually pops vs a small placement. */
+        /* Eren idling in the HUD — a slow breath so he isn't a decal */
+        @keyframes pdErenBreathe {
+          0%, 100% { transform: scaleY(1)     translateY(0); }
+          50%      { transform: scaleY(1.04)  translateY(-1px); }
+        }
         @keyframes pdScorePulse {
           0%   { transform: scale(1);    text-shadow: 2px 2px 0 #2E0F5C; color: #FFFFFF; }
           40%  { transform: scale(1.25); text-shadow: 2px 2px 0 #2E0F5C, 0 0 12px rgba(253,230,138,0.95); color: #FDE68A; }

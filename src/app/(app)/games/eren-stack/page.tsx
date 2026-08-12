@@ -10,6 +10,7 @@ import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useVisibilityPause } from '@/hooks/useVisibilityPause'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
+import { useErenIdle } from '@/hooks/useErenIdle'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { IconCrown, IconStar } from '@/components/PixelIcons'
@@ -97,6 +98,7 @@ export default function ErenStackGame() {
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
   const reduced = useReducedMotion()
+  const idle = useErenIdle()
 
   const fieldRef = useRef<HTMLDivElement>(null)
   const [fieldDims, setFieldDims] = useState({ w: 360, h: 600 })
@@ -630,7 +632,7 @@ export default function ErenStackGame() {
                   animation: reduced ? undefined : `stk-rider-land 340ms cubic-bezier(0.34,1.56,0.64,1)`,
                   filter: 'drop-shadow(0 2px 0 rgba(0,0,0,0.35))',
                 }}>
-                <ErenRider pose={rider.pose} size={32} />
+                <ErenRider pose={rider.pose} size={32} blink={idle.blink} twitch={idle.twitch} glance={idle.glance} />
               </div>
             )
           })()}

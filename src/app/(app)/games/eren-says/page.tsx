@@ -10,6 +10,7 @@ import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useGameTimers } from '@/hooks/useGameTimers'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
+import { useErenIdle } from '@/hooks/useErenIdle'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { IconPaw, IconStar } from '@/components/PixelIcons'
@@ -75,6 +76,9 @@ export default function ErenSaysGame() {
   const reduced = useReducedMotion()
 
   const [phase, setPhase]         = useState<'idle' | 'showing' | 'awaiting' | 'fail' | 'gameover'>('idle')
+  // No involuntary blinking while he's demonstrating the sequence — that face
+  // is information the player is trying to read.
+  const idle = useErenIdle(phase !== 'showing')
   const [round, setRound]         = useState(0)
   const [bestRound, setBestRound] = useState(0)
   // Persist BEST across visits (matches flappy/lane).
@@ -438,7 +442,8 @@ export default function ErenSaysGame() {
                 ? (reduced ? 'none' : 'eyDance 1s ease-in-out infinite')
                 : (roundPulse > 0 && phase === 'showing' ? 'eyCheer 0.5s cubic-bezier(0.34,1.56,0.64,1)' : 'none'),
             }}>
-            <ErenChibi size={68} blink={phase === 'showing'} fail={flashFail} cheer={streakBadge !== null} />
+            <ErenChibi size={68} blink={phase === 'showing' || idle.blink} fail={flashFail}
+              cheer={streakBadge !== null} twitch={idle.twitch} glance={idle.glance} />
           </div>
 
           {/* particle burst overlay (percent-based so it scales with pad area) */}
@@ -613,15 +618,19 @@ export default function ErenSaysGame() {
 }
 
 // ─── Eren chibi (forward-gaze, smile, cheeks) ───────────────────────────────
-function ErenChibi({ size = 68, blink = false, fail = false, cheer = false }: { size?: number; blink?: boolean; fail?: boolean; cheer?: boolean }) {
+function ErenChibi({ size = 68, blink = false, fail = false, cheer = false, twitch = false, glance = 0 }:
+  { size?: number; blink?: boolean; fail?: boolean; cheer?: boolean; twitch?: boolean; glance?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 22 22" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
       <rect x="3" y="2" width="3" height="1" fill="#4A2E1A" />
-      <rect x="16" y="2" width="3" height="1" fill="#4A2E1A" />
       <rect x="3" y="3" width="3" height="2" fill="#9B7A5C" />
-      <rect x="16" y="3" width="3" height="2" fill="#9B7A5C" />
       <rect x="4" y="4" width="1" height="1" fill="#F4B0B8" />
-      <rect x="17" y="4" width="1" height="1" fill="#F4B0B8" />
+      {/* right ear flicks a pixel on an idle twitch */}
+      <g transform={twitch ? 'translate(0,1)' : undefined}>
+        <rect x="16" y="2" width="3" height="1" fill="#4A2E1A" />
+        <rect x="16" y="3" width="3" height="2" fill="#9B7A5C" />
+        <rect x="17" y="4" width="1" height="1" fill="#F4B0B8" />
+      </g>
       <rect x="5" y="3" width="12" height="1" fill="#4A2E1A" />
       <rect x="4" y="4" width="14" height="1" fill="#4A2E1A" />
       <rect x="3" y="5" width="16" height="1" fill="#4A2E1A" />
@@ -660,10 +669,13 @@ function ErenChibi({ size = 68, blink = false, fail = false, cheer = false }: { 
         <>
           <rect x="6"  y="7" width="2" height="2" fill="#6BAED6" />
           <rect x="14" y="7" width="2" height="2" fill="#6BAED6" />
-          <rect x="6"  y="7" width="1" height="1" fill="#FFFFFF" />
-          <rect x="15" y="7" width="1" height="1" fill="#FFFFFF" />
-          <rect x="7"  y="8" width="1" height="1" fill="#1A1A2E" />
-          <rect x="14" y="8" width="1" height="1" fill="#1A1A2E" />
+          {/* pupils + shine slide a pixel when he glances off to one side */}
+          <g transform={glance ? `translate(${glance},0)` : undefined}>
+            <rect x="6"  y="7" width="1" height="1" fill="#FFFFFF" />
+            <rect x="15" y="7" width="1" height="1" fill="#FFFFFF" />
+            <rect x="7"  y="8" width="1" height="1" fill="#1A1A2E" />
+            <rect x="14" y="8" width="1" height="1" fill="#1A1A2E" />
+          </g>
         </>
       )}
 

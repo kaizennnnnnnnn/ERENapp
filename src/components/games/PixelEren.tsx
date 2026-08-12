@@ -26,9 +26,22 @@ const FUR = '#F9EDD5'
 const FUR_DK = '#E4CDA6'
 const EAR = '#4A2E1A'
 
-const PixelEren = memo(function PixelEren({ pose, size = 32 }: { pose: ErenPose; size?: number }) {
+interface Props {
+  pose: ErenPose
+  size?: number
+  /** Eyes shut this instant. Drive it from `useErenIdle` — see the hook. */
+  blink?: boolean
+  /** An ear is flicking. Drops the right ear one pixel. */
+  twitch?: boolean
+  /** -1 / 0 / +1 — slides the eyes a pixel sideways for an idle glance. */
+  glance?: number
+}
+
+const PixelEren = memo(function PixelEren({ pose, size = 32, blink = false, twitch = false, glance = 0 }: Props) {
   const cheer = pose === 'cheer'
   const wobble = pose === 'wobble'
+  // A blink can't override the poses whose whole point is the eye shape.
+  const shut = blink && !cheer && !wobble
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" shapeRendering="crispEdges"
       style={{
@@ -64,26 +77,32 @@ const PixelEren = memo(function PixelEren({ pose, size = 32 }: { pose: ErenPose;
         : <><rect x="5" y="18" width="4" height="2" fill={INK} /><rect x="11" y="18" width="4" height="2" fill={INK} />
            <rect x="6" y="18" width="2" height="1" fill={FUR_DK} /><rect x="12" y="18" width="2" height="1" fill={FUR_DK} /></>)}
 
-      {/* ears */}
+      {/* ears — the right one flicks a pixel down on a twitch */}
       <rect x="4" y="1" width="4" height="5" fill={INK} />
-      <rect x="12" y="1" width="4" height="5" fill={INK} />
       <rect x="5" y="2" width="2" height="3" fill={EAR} />
-      <rect x="13" y="2" width="2" height="3" fill={EAR} />
       <rect x="5" y="3" width="1" height="2" fill="#F472B6" />
-      <rect x="14" y="3" width="1" height="2" fill="#F472B6" />
+      <g transform={twitch ? 'translate(0,1)' : undefined}>
+        <rect x="12" y="1" width="4" height="5" fill={INK} />
+        <rect x="13" y="2" width="2" height="3" fill={EAR} />
+        <rect x="14" y="3" width="1" height="2" fill="#F472B6" />
+      </g>
 
       {/* head */}
       <rect x="3" y="4" width="14" height="9" fill={INK} />
       <rect x="4" y="5" width="12" height="7" fill={FUR} />
       <rect x="4" y="5" width="12" height="1" fill="#FFFFFF" opacity="0.5" />
 
-      {/* eyes — happy arcs cheering, wide when scrambling */}
-      {cheer
+      {/* eyes — happy arcs cheering, wide when scrambling, lid lines mid-blink */}
+      <g transform={glance && !shut && !cheer ? `translate(${glance},0)` : undefined}>
+      {shut
+        ? <><rect x="6" y="9" width="2" height="1" fill={INK} /><rect x="12" y="9" width="2" height="1" fill={INK} /></>
+        : cheer
         ? <><rect x="6" y="7" width="3" height="1" fill={INK} /><rect x="11" y="7" width="3" height="1" fill={INK} />
            <rect x="6" y="8" width="1" height="1" fill={INK} /><rect x="8" y="8" width="1" height="1" fill={INK} />
            <rect x="11" y="8" width="1" height="1" fill={INK} /><rect x="13" y="8" width="1" height="1" fill={INK} /></>
         : <><rect x="6" y="7" width="2" height={wobble ? 4 : 3} fill={INK} /><rect x="12" y="7" width="2" height={wobble ? 4 : 3} fill={INK} />
            <rect x="6" y="7" width="1" height="1" fill="#FFFFFF" /><rect x="12" y="7" width="1" height="1" fill="#FFFFFF" /></>}
+      </g>
 
       {/* blush + nose */}
       <rect x="4" y="10" width="2" height="1" fill="#F9A8D4" opacity={cheer ? 0.95 : 0.6} />

@@ -35,6 +35,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
+import { useErenIdle } from '@/hooks/useErenIdle'
 import { useVisibilityPause } from '@/hooks/useVisibilityPause'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import PurrBeatStage, { createStage, spawnHit, LANE_HUE, type StageState, type JudgeKind } from '@/components/games/PurrBeatStage'
@@ -87,6 +88,7 @@ export default function PurrBeatGame() {
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
   const reduced = useReducedMotion()
+  const idle = useErenIdle()
 
   const [phase, setPhase] = useState<Phase>('idle')
   const [bestScore, setBest] = useState(0)
@@ -513,7 +515,8 @@ export default function PurrBeatGame() {
         {phase !== 'idle' && (
           <div className="absolute left-1/2 pointer-events-none" style={{ top: 2, marginLeft: -26, zIndex: 2 }}>
             <div ref={erenRef} style={{ transformOrigin: 'center bottom', willChange: 'transform' }}>
-              <ErenDJ size={52} hyped={hud.mult > 1} worried={hud.lives <= 1} />
+              <ErenDJ size={52} hyped={hud.mult > 1} worried={hud.lives <= 1}
+                blink={idle.blink} twitch={idle.twitch} glance={idle.glance} />
             </div>
           </div>
         )}

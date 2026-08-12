@@ -10,6 +10,7 @@ import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useGameTimers } from '@/hooks/useGameTimers'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
+import { useErenIdle } from '@/hooks/useErenIdle'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { fireMinigameDone } from '@/lib/minigames'
@@ -115,6 +116,7 @@ export default function TicTacToePage() {
   const { reportGameResult } = useGameRewards()
   const timers = useGameTimers()
   const reduced = useReducedMotion()
+  const idle = useErenIdle()
 
   const [board, setBoard]   = useState<Cell[]>(() => Array(9).fill(null))
   const [turn, setTurn]     = useState<'X' | 'O'>('X')
@@ -464,7 +466,8 @@ export default function TicTacToePage() {
           )}
           {canKnocked
             ? <ErenSideLapping size={78} reduced={reduced} />
-            : <ErenChibi size={64} hop={false} thinking={turn === 'O' && status === 'playing' && thinking} reduced={reduced} />
+            : <ErenChibi size={64} hop={false} thinking={turn === 'O' && status === 'playing' && thinking} reduced={reduced}
+                blink={idle.blink} twitch={idle.twitch} glance={idle.glance} />
           }
         </div>
         <div className="relative" style={{ minWidth: 130 }}>
@@ -986,7 +989,8 @@ function PixelO({ animate = false, winning = false }: { animate?: boolean; winni
 
 // ─── Eren chibi — cleaner proportions: bigger head, slimmer body, no mask
 //                  spots blurring his face, pupils centered for a forward gaze.
-function ErenChibi({ size = 64, hop = false, thinking = false, reduced = false }: { size?: number; hop?: boolean; thinking?: boolean; reduced?: boolean }) {
+function ErenChibi({ size = 64, hop = false, thinking = false, reduced = false, blink = false, twitch = false, glance = 0 }:
+  { size?: number; hop?: boolean; thinking?: boolean; reduced?: boolean; blink?: boolean; twitch?: boolean; glance?: number }) {
   return (
     <div style={{
       animation: reduced ? undefined : thinking ? 'thinkBob 0.6s ease-in-out infinite' : hop ? 'erenHop 0.9s ease-in-out infinite' : undefined,
@@ -994,11 +998,14 @@ function ErenChibi({ size = 64, hop = false, thinking = false, reduced = false }
       <svg width={size} height={size} viewBox="0 0 22 22" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
         {/* ears */}
         <rect x="3"  y="2" width="3" height="1" fill="#4A2E1A" />
-        <rect x="16" y="2" width="3" height="1" fill="#4A2E1A" />
         <rect x="3"  y="3" width="3" height="2" fill="#9B7A5C" />
-        <rect x="16" y="3" width="3" height="2" fill="#9B7A5C" />
         <rect x="4"  y="4" width="1" height="1" fill="#F4B0B8" />
-        <rect x="17" y="4" width="1" height="1" fill="#F4B0B8" />
+        {/* right ear flicks a pixel on an idle twitch */}
+        <g transform={twitch ? 'translate(0,1)' : undefined}>
+          <rect x="16" y="2" width="3" height="1" fill="#4A2E1A" />
+          <rect x="16" y="3" width="3" height="2" fill="#9B7A5C" />
+          <rect x="17" y="4" width="1" height="1" fill="#F4B0B8" />
+        </g>
 
         {/* head outline */}
         <rect x="5"  y="3" width="12" height="1" fill="#4A2E1A" />
@@ -1013,12 +1020,24 @@ function ErenChibi({ size = 64, hop = false, thinking = false, reduced = false }
         {/* eyes — round 2x2 blue iris with centered black pupil + top-outer
             white shine; both pupils sit at the inner edge so the gaze reads
             forward instead of cross-eyed or wandering. */}
-        <rect x="6"  y="7" width="2" height="2" fill="#6BAED6" />
-        <rect x="14" y="7" width="2" height="2" fill="#6BAED6" />
-        <rect x="6"  y="7" width="1" height="1" fill="#FFFFFF" />
-        <rect x="15" y="7" width="1" height="1" fill="#FFFFFF" />
-        <rect x="7"  y="8" width="1" height="1" fill="#1A1A2E" />
-        <rect x="14" y="8" width="1" height="1" fill="#1A1A2E" />
+        {blink ? (
+          <>
+            <rect x="6"  y="8" width="2" height="1" fill="#4A2E1A" />
+            <rect x="14" y="8" width="2" height="1" fill="#4A2E1A" />
+          </>
+        ) : (
+          <>
+            <rect x="6"  y="7" width="2" height="2" fill="#6BAED6" />
+            <rect x="14" y="7" width="2" height="2" fill="#6BAED6" />
+            {/* pupils + shine slide a pixel when he glances off to one side */}
+            <g transform={glance ? `translate(${glance},0)` : undefined}>
+              <rect x="6"  y="7" width="1" height="1" fill="#FFFFFF" />
+              <rect x="15" y="7" width="1" height="1" fill="#FFFFFF" />
+              <rect x="7"  y="8" width="1" height="1" fill="#1A1A2E" />
+              <rect x="14" y="8" width="1" height="1" fill="#1A1A2E" />
+            </g>
+          </>
+        )}
 
         {/* rosy cheeks — pushed below eyes to actually look like cheeks */}
         <rect x="4"  y="10" width="2" height="1" fill="#FFB6C8" />

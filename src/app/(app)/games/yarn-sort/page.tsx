@@ -37,6 +37,7 @@ import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useGameTimers } from '@/hooks/useGameTimers'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
+import { useErenIdle } from '@/hooks/useErenIdle'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import PixelEren, { type ErenPose } from '@/components/games/PixelEren'
 import { playSound } from '@/lib/sounds'
@@ -307,6 +308,7 @@ export default function YarnSortGame() {
   const { reportGameResult } = useGameRewards()
   const timers = useGameTimers()
   const reduced = useReducedMotion()
+  const idle = useErenIdle()
 
   const [phase, setPhase]         = useState<Phase>('idle')
   const [tubes, setTubes]         = useState<number[][]>([])
@@ -934,7 +936,7 @@ export default function YarnSortGame() {
                   animation: reduced || erenPose !== 'idle' ? undefined : 'ysBreathe 3.2s ease-in-out infinite',
                   transformOrigin: 'center bottom',
                 }}>
-                  <PixelEren pose={erenPose} size={38} />
+                  <PixelEren pose={erenPose} size={38} blink={idle.blink} twitch={idle.twitch} glance={idle.glance} />
                 </span>
               </span>
             </div>

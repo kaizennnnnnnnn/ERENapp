@@ -10,6 +10,7 @@ import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useVisibilityPause } from '@/hooks/useVisibilityPause'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
+import { useErenIdle } from '@/hooks/useErenIdle'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import {
   THEMES, GROUND_H, TILE, CLOUD_TILE, GROUND_TILE, FAR_H, NEAR_H,
@@ -64,6 +65,7 @@ export default function FlappyErenGame() {
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
   const reduced = useReducedMotion()
+  const idle = useErenIdle()
   // The rAF loop is self-perpetuating from one render's closure, so it would
   // capture a stale `reduced`. Mirror it into a ref the loop-bound functions read.
   const reducedRef = useRef(reduced)
@@ -567,7 +569,7 @@ export default function FlappyErenGame() {
                   transformOrigin: '50% 70%',
                   pointerEvents: 'none',
                 }}>
-                  <ErenOnCanMemo />
+                  <ErenOnCanMemo blink={idle.blink} twitch={idle.twitch} glance={idle.glance} />
                 </div>
               ))}
               <div style={{
@@ -584,7 +586,7 @@ export default function FlappyErenGame() {
                   transform: spin,
                   transformOrigin: '50% 70%',
                 }}>
-                  <ErenOnCanMemo />
+                  <ErenOnCanMemo blink={idle.blink} twitch={idle.twitch} glance={idle.glance} />
                   {plume > 0 && <ThrustPlume power={plume} />}
                 </div>
               </div>
@@ -974,18 +976,21 @@ function ThrustPlume({ power }: { power: number }) {
 const ErenOnCanMemo = memo(ErenOnCan)
 
 // ─── Eren on a high-detail energy can ─────────────────────────────────────────
-function ErenOnCan() {
+function ErenOnCan({ blink = false, twitch = false, glance = 0 }: { blink?: boolean; twitch?: boolean; glance?: number }) {
   return (
     <svg width={EREN_W} height={EREN_H} viewBox="0 0 44 64" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
       {/* ═══ EREN CHIBI — clean Ragdoll, forward gaze ═══ */}
       <g transform="translate(11, 0)">
         {/* ears */}
         <rect x="3"  y="2" width="3" height="1" fill="#4A2E1A" />
-        <rect x="16" y="2" width="3" height="1" fill="#4A2E1A" />
         <rect x="3"  y="3" width="3" height="2" fill="#9B7A5C" />
-        <rect x="16" y="3" width="3" height="2" fill="#9B7A5C" />
         <rect x="4"  y="4" width="1" height="1" fill="#F4B0B8" />
-        <rect x="17" y="4" width="1" height="1" fill="#F4B0B8" />
+        {/* right ear flicks a pixel on an idle twitch */}
+        <g transform={twitch ? 'translate(0,1)' : undefined}>
+          <rect x="16" y="2" width="3" height="1" fill="#4A2E1A" />
+          <rect x="16" y="3" width="3" height="2" fill="#9B7A5C" />
+          <rect x="17" y="4" width="1" height="1" fill="#F4B0B8" />
+        </g>
         {/* head outline */}
         <rect x="5"  y="3" width="12" height="1" fill="#4A2E1A" />
         <rect x="4"  y="4" width="14" height="1" fill="#4A2E1A" />
@@ -996,12 +1001,24 @@ function ErenOnCan() {
         <rect x="4"  y="5" width="14" height="1" fill="#F9EDD5" />
         <rect x="4"  y="6" width="14" height="6" fill="#F9EDD5" />
         {/* eyes — wide and excited (the can is exploding under him) */}
-        <rect x="6"  y="7" width="2" height="2" fill="#6BAED6" />
-        <rect x="14" y="7" width="2" height="2" fill="#6BAED6" />
-        <rect x="6"  y="7" width="1" height="1" fill="#FFFFFF" />
-        <rect x="15" y="7" width="1" height="1" fill="#FFFFFF" />
-        <rect x="7"  y="8" width="1" height="1" fill="#1A1A2E" />
-        <rect x="14" y="8" width="1" height="1" fill="#1A1A2E" />
+        {blink ? (
+          <>
+            <rect x="6"  y="8" width="2" height="1" fill="#4A2E1A" />
+            <rect x="14" y="8" width="2" height="1" fill="#4A2E1A" />
+          </>
+        ) : (
+          <>
+            <rect x="6"  y="7" width="2" height="2" fill="#6BAED6" />
+            <rect x="14" y="7" width="2" height="2" fill="#6BAED6" />
+            {/* pupils + shine slide a pixel when he glances off to one side */}
+            <g transform={glance ? `translate(${glance},0)` : undefined}>
+              <rect x="6"  y="7" width="1" height="1" fill="#FFFFFF" />
+              <rect x="15" y="7" width="1" height="1" fill="#FFFFFF" />
+              <rect x="7"  y="8" width="1" height="1" fill="#1A1A2E" />
+              <rect x="14" y="8" width="1" height="1" fill="#1A1A2E" />
+            </g>
+          </>
+        )}
         {/* cheeks below eyes */}
         <rect x="4"  y="10" width="2" height="1" fill="#FFB6C8" />
         <rect x="16" y="10" width="2" height="1" fill="#FFB6C8" />
