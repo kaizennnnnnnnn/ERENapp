@@ -171,70 +171,67 @@ export default function CouplePage() {
         />
       )}
 
-      {/* ── Send Eren nudge ── */}
-      {partner && (
+      {/* ── Actions ──
+          Send-a-nudge and the note board, side by side. They used to be two
+          full-width bars identical to every card below them; as a 2-up row
+          they read as controls rather than more content, and give the page
+          a break in rhythm before the scoreboards start. */}
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        {partner && (
+          <button
+            onClick={() => { playSound('ui_modal_open'); setShowSend(true) }}
+            className="px-3 py-3 flex flex-col items-center gap-2 relative active:translate-y-[1px] transition-transform"
+            style={{
+              ...OBSIDIAN_FACE,
+              border: '1.5px solid rgba(255,107,157,0.45)',
+              boxShadow: `0 0 14px rgba(255,107,157,0.25), ${OBSIDIAN_FACE.boxShadow}`,
+            }}
+          >
+            <Rivets inset={4} />
+            <span style={{ filter: 'drop-shadow(0 0 5px rgba(255,107,157,0.5))' }}>
+              <IconHeartDuo size={24} />
+            </span>
+            <span className="font-pixel text-center" style={{ fontSize: 7, letterSpacing: 1, lineHeight: 1.6, ...pinkText }}>
+              SEND EREN
+            </span>
+            <span className="text-[10px] text-center leading-tight" style={{ color: '#9A8C70' }}>
+              a hug or a hello
+            </span>
+          </button>
+        )}
+
         <button
-          onClick={() => { playSound('ui_modal_open'); setShowSend(true) }}
-          className="w-full mb-4 px-4 py-3 flex items-center gap-3 relative active:translate-y-[1px] transition-transform"
+          onClick={() => { playSound('ui_tap'); router.push('/notes') }}
+          className="px-3 py-3 flex flex-col items-center gap-2 relative active:translate-y-[1px] transition-transform"
           style={{
             ...OBSIDIAN_FACE,
-            border: '1.5px solid rgba(255,107,157,0.45)',
-            boxShadow: `0 0 14px rgba(255,107,157,0.25), ${OBSIDIAN_FACE.boxShadow}`,
+            border: '1.5px solid rgba(232,160,92,0.45)',
+            boxShadow: `0 0 14px rgba(232,160,92,0.2), ${OBSIDIAN_FACE.boxShadow}`,
           }}
         >
           <Rivets inset={4} />
-          <div className="flex-shrink-0" style={{ filter: 'drop-shadow(0 0 5px rgba(255,107,157,0.5))' }}>
-            <IconHeartDuo size={22} />
-          </div>
-          <div className="flex-1 text-left">
-            <span className="font-pixel block" style={{ fontSize: 8, letterSpacing: 1, ...pinkText }}>
-              SEND EREN TO {partner.name.split(' ')[0].toUpperCase()}
-            </span>
-            <span className="text-xs" style={{ color: '#9A8C70' }}>
-              A hug, a kiss, or a little hello
-            </span>
-          </div>
-          <span className="font-pixel flex-shrink-0" style={{ fontSize: 11, color: PINK, textShadow: `0 0 6px ${accentA(0.6)}` }}>▶</span>
-        </button>
-      )}
-
-      {/* ── Note board ──
-          Notes Eren delivered live here, not in the journal below. */}
-      <button
-        onClick={() => { playSound('ui_tap'); router.push('/notes') }}
-        className="w-full mb-4 px-4 py-3 flex items-center gap-3 relative active:translate-y-[1px] transition-transform"
-        style={{
-          ...OBSIDIAN_FACE,
-          border: '1.5px solid rgba(232,160,92,0.45)',
-          boxShadow: `0 0 14px rgba(232,160,92,0.2), ${OBSIDIAN_FACE.boxShadow}`,
-        }}
-      >
-        <Rivets inset={4} />
-        <div className="flex-shrink-0" style={{ filter: 'drop-shadow(0 0 5px rgba(232,160,92,0.5))' }}>
-          <IconPin size={22} tone="#E8A05C" />
-        </div>
-        <div className="flex-1 text-left">
-          <span className="font-pixel block" style={{ fontSize: 8, letterSpacing: 1, ...pinkText }}>
+          <span style={{ filter: 'drop-shadow(0 0 5px rgba(232,160,92,0.5))' }}>
+            <IconPin size={24} tone="#E8A05C" />
+          </span>
+          <span className="font-pixel text-center" style={{ fontSize: 7, letterSpacing: 1, lineHeight: 1.6, ...pinkText }}>
             NOTE BOARD
           </span>
-          <span className="text-xs" style={{ color: '#9A8C70' }}>
-            {notes.length > 0
-              ? `${notes.length} note${notes.length === 1 ? '' : 's'} Eren carried between you`
-              : 'Everything Eren delivers is kept here'}
+          <span className="text-[10px] text-center leading-tight" style={{ color: '#9A8C70' }}>
+            {notes.length > 0 ? `${notes.length} kept` : 'nothing yet'}
           </span>
-        </div>
-        {unreadNotes > 0 && (
-          <span className="font-pixel flex items-center justify-center flex-shrink-0"
-            style={{
-              minWidth: 18, height: 18, padding: '0 4px', fontSize: 6, color: '#FFF',
-              background: '#FF1D5E', borderRadius: 6,
-              boxShadow: '0 0 6px rgba(255,29,94,0.6)',
-            }}>
-            {unreadNotes > 9 ? '9+' : unreadNotes}
-          </span>
-        )}
-        <span className="font-pixel flex-shrink-0" style={{ fontSize: 11, color: PINK, textShadow: `0 0 6px ${accentA(0.6)}` }}>▶</span>
-      </button>
+          {unreadNotes > 0 && (
+            <span className="font-pixel flex items-center justify-center absolute"
+              style={{
+                top: -7, right: -7,
+                minWidth: 18, height: 18, padding: '0 4px', fontSize: 6, color: '#FFF',
+                background: '#FF1D5E', borderRadius: 6,
+                boxShadow: '0 0 6px rgba(255,29,94,0.6)',
+              }}>
+              {unreadNotes > 9 ? '9+' : unreadNotes}
+            </span>
+          )}
+        </button>
+      </div>
 
       {/* ── Partner mood today ── */}
       {partner && (() => {
@@ -333,13 +330,19 @@ export default function CouplePage() {
             style={{ backgroundImage: `repeating-linear-gradient(45deg, ${PINK} 0, ${PINK} 2px, transparent 2px, transparent 8px)` }} />
 
           <div className="relative">
-            <div className="flex items-center justify-between mb-3">
-              <ObsidianChip accentRgb="245,200,66">
-                <IconSwords size={14} />
-                <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>CARE BATTLE</span>
-              </ObsidianChip>
-              <span className="font-pixel" style={{ fontSize: 6, color: '#9A8A60', letterSpacing: 1 }}>
-                THIS WEEK · RESETS IN {reset.days}D {reset.hours}H
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <span className="flex-shrink-0">
+                <ObsidianChip accentRgb="245,200,66">
+                  <IconSwords size={14} />
+                  <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>CARE BATTLE</span>
+                </ObsidianChip>
+              </span>
+              {/* Was "THIS WEEK · RESETS IN 3D 1H" — long enough to wrap under
+                  the chip and collide with it on a 360 px screen. The card is
+                  already the week, so only the reset clock is worth the row. */}
+              <span className="font-pixel text-right flex-shrink-0"
+                style={{ fontSize: 6, color: '#9A8A60', letterSpacing: 1, whiteSpace: 'nowrap' }}>
+                RESETS IN {reset.days}D {reset.hours}H
               </span>
             </div>
 
@@ -479,7 +482,7 @@ export default function CouplePage() {
                 <span className="font-pixel" style={{
                   fontSize: 7, letterSpacing: 1.5, ...pinkText,
                 }}>
-                  {leaderName} LEADS BY {diff}
+                  {leaderName === 'YOU' ? 'YOU LEAD' : `${leaderName} LEADS`} BY {diff}
                 </span>
               </div>
             )}
@@ -489,6 +492,67 @@ export default function CouplePage() {
                 IT&apos;S A TIE!
               </p>
             )}
+
+            {/* ── Season strip ──
+                Lifetime W-T-L and the two current streaks. These used to be
+                two more full-width cards stacked below, identical in chrome to
+                this one; folded in here the page reads as ONE scoreboard and
+                loses ~240 px of scroll. Gold = whoever's ahead on that row. */}
+            {(() => {
+              const first = partner.name.split(' ')[0].toUpperCase()
+              const rec = lifetimeWLT && lifetimeWLT.days > 0 ? lifetimeWLT : null
+              const mine   = myStreak.current ?? 0
+              const theirs = partnerStreak?.current ?? 0
+              const hasStreak = mine > 0 || theirs > 0
+              if (!rec && !hasStreak) return null
+
+              const label: React.CSSProperties = {
+                fontSize: 6, color: '#7A6A75', letterSpacing: 1.5,
+              }
+              const best: React.CSSProperties = { fontSize: 5, color: '#5A4A55', letterSpacing: 0.5 }
+              const dot = <span className="font-pixel" style={{ fontSize: 7, color: '#4A3A45' }}>·</span>
+
+              return (
+                <div className="mt-4 pt-3 flex flex-col gap-2.5"
+                  style={{ borderTop: `1px solid ${accentA(0.16)}` }}>
+                  {rec && (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-pixel flex items-center gap-1.5 flex-shrink-0" style={label}>
+                        <IconTrophy size={11} />
+                        RECORD
+                      </span>
+                      <span className="font-pixel flex items-center gap-2" style={{ fontSize: 7, letterSpacing: 1 }}>
+                        <span style={{ color: rec.myWins > rec.partnerWins ? '#FFD650' : PINK_HI }}>
+                          YOU {rec.myWins}
+                        </span>
+                        {dot}
+                        <span style={{ color: '#7A6A75' }}>TIE {rec.ties}</span>
+                        {dot}
+                        <span style={{ color: rec.partnerWins > rec.myWins ? '#FFD650' : '#C4B5FD' }}>
+                          {first} {rec.partnerWins}
+                        </span>
+                      </span>
+                    </div>
+                  )}
+
+                  {hasStreak && (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-pixel flex items-center gap-1.5 flex-shrink-0" style={label}>
+                        <IconFire size={11} />
+                        STREAK
+                      </span>
+                      <span className="font-pixel flex items-baseline gap-2" style={{ fontSize: 7, letterSpacing: 1 }}>
+                        <span style={{ color: mine > theirs ? '#FFB347' : PINK_HI }}>YOU {mine}</span>
+                        <span style={best}>BEST {myStreak.best ?? 0}</span>
+                        {dot}
+                        <span style={{ color: theirs > mine ? '#FFB347' : '#C4B5FD' }}>{first} {theirs}</span>
+                        <span style={best}>BEST {partnerStreak?.best ?? 0}</span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
           </div>
 
           <style jsx>{`
@@ -519,188 +583,6 @@ export default function CouplePage() {
             }
           `}</style>
         </div>
-        )
-      })()}
-
-      {/* ── Lifetime Battle Record (W-L-T) ── */}
-      {lifetimeWLT && partner && (lifetimeWLT.days > 0) && (() => {
-        const first = partner.name.split(' ')[0]
-        const youLead = lifetimeWLT.myWins > lifetimeWLT.partnerWins
-        const partnerLeads = lifetimeWLT.partnerWins > lifetimeWLT.myWins
-        return (
-          <div className="mb-4 p-4 relative overflow-hidden" style={OBSIDIAN_FACE}>
-            <Rivets inset={4} />
-            <div className="flex items-center justify-between mb-3">
-              <ObsidianChip accentRgb="245,200,66">
-                <IconTrophy size={14} />
-                <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>BATTLE RECORD</span>
-              </ObsidianChip>
-              <span className="font-pixel" style={{ fontSize: 6, color: '#9A8A60', letterSpacing: 1 }}>
-                LAST {lifetimeWLT.days} {lifetimeWLT.days === 1 ? 'DAY' : 'DAYS'}
-              </span>
-            </div>
-
-            {/* Triple-column W-L-T */}
-            <div className="flex items-stretch gap-2">
-              {/* My wins */}
-              <div className="flex-1 text-center px-2 py-2 relative" style={{
-                ...OBSIDIAN_BTN,
-                border: youLead ? '1.5px solid rgba(255,107,157,0.5)' : '1px solid rgba(255,255,255,0.06)',
-                boxShadow: youLead
-                  ? `0 0 10px rgba(255,107,157,0.25), ${OBSIDIAN_BTN.boxShadow}`
-                  : OBSIDIAN_BTN.boxShadow as string,
-              }}>
-                <p className="font-pixel" style={{ fontSize: 6, color: PINK_HI, letterSpacing: 1.5, marginBottom: 4 }}>YOU</p>
-                <p className="font-pixel" style={{
-                  fontSize: 22, lineHeight: 1, ...pinkText,
-                  textShadow: youLead ? `0 0 8px ${accentA(0.6)}` : 'none',
-                }}>{lifetimeWLT.myWins}</p>
-                <p className="font-pixel" style={{ fontSize: 5, color: '#7A6A75', letterSpacing: 1, marginTop: 3 }}>WINS</p>
-                {lifetimeWLT.myStreak >= 2 && (
-                  <div className="flex items-center justify-center gap-1 mt-2">
-                    <IconFire size={9} />
-                    <span className="font-pixel" style={{ fontSize: 6, color: '#FF6B00', letterSpacing: 1 }}>
-                      {lifetimeWLT.myStreak}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Ties */}
-              <div className="text-center px-2 py-2" style={{ ...OBSIDIAN_BTN, minWidth: 56 }}>
-                <p className="font-pixel" style={{ fontSize: 6, color: '#9A8A60', letterSpacing: 1.5, marginBottom: 4 }}>TIES</p>
-                <p className="font-pixel" style={{ fontSize: 22, lineHeight: 1, color: '#7A6A75' }}>{lifetimeWLT.ties}</p>
-                <p className="font-pixel" style={{ fontSize: 5, color: '#5A4A55', letterSpacing: 1, marginTop: 3 }}>EVEN</p>
-              </div>
-
-              {/* Partner wins */}
-              <div className="flex-1 text-center px-2 py-2 relative" style={{
-                ...OBSIDIAN_BTN,
-                border: partnerLeads ? '1.5px solid rgba(167,139,250,0.5)' : '1px solid rgba(255,255,255,0.06)',
-                boxShadow: partnerLeads
-                  ? '0 0 10px rgba(167,139,250,0.25), ' + (OBSIDIAN_BTN.boxShadow as string)
-                  : OBSIDIAN_BTN.boxShadow as string,
-              }}>
-                <p className="font-pixel" style={{ fontSize: 6, color: '#C4B5FD', letterSpacing: 1.5, marginBottom: 4 }}>
-                  {first.toUpperCase()}
-                </p>
-                <p className="font-pixel" style={{
-                  fontSize: 22, lineHeight: 1, color: '#D8B4FE',
-                  textShadow: partnerLeads ? '0 0 8px rgba(167,139,250,0.5)' : 'none',
-                }}>{lifetimeWLT.partnerWins}</p>
-                <p className="font-pixel" style={{ fontSize: 5, color: '#7A6A75', letterSpacing: 1, marginTop: 3 }}>WINS</p>
-                {lifetimeWLT.partnerStreak >= 2 && (
-                  <div className="flex items-center justify-center gap-1 mt-2">
-                    <IconFire size={9} />
-                    <span className="font-pixel" style={{ fontSize: 6, color: '#FF6B00', letterSpacing: 1 }}>
-                      {lifetimeWLT.partnerStreak}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Verdict line — only when one side actually leads */}
-            {(youLead || partnerLeads) && (
-              <div className="flex items-center justify-center gap-1.5 mt-3 px-3 py-1.5 relative" style={{
-                ...OBSIDIAN_BTN, width: 'fit-content', margin: '12px auto 0',
-              }}>
-                <IconCrown size={11} />
-                <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 1.5, ...pinkText }}>
-                  {youLead ? 'YOU' : first.toUpperCase()} LEADS BY {Math.abs(lifetimeWLT.myWins - lifetimeWLT.partnerWins)}
-                </span>
-              </div>
-            )}
-          </div>
-        )
-      })()}
-
-      {/* ── Dual streak: torch-bearer marker on the longer current streak ── */}
-      {partner && ((myStreak.current ?? 0) > 0 || (partnerStreak?.current ?? 0) > 0) && (() => {
-        const first = partner.name.split(' ')[0]
-        const mine = myStreak.current ?? 0
-        const theirs = partnerStreak?.current ?? 0
-        const myBest = myStreak.best ?? 0
-        const theirBest = partnerStreak?.best ?? 0
-        const iLead = mine > theirs
-        const theyLead = theirs > mine
-        return (
-          <div className="mb-4 p-4 relative overflow-hidden" style={OBSIDIAN_FACE}>
-            <Rivets inset={4} />
-            <div className="flex items-center gap-2 mb-3">
-              <ObsidianChip accentRgb="255,107,0">
-                <IconFire size={14} />
-                <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>CARE STREAKS</span>
-              </ObsidianChip>
-            </div>
-
-            <div className="flex items-stretch gap-3">
-              {/* Me */}
-              <div className="flex-1 text-center px-2 py-2 relative" style={{
-                ...OBSIDIAN_BTN,
-                border: iLead ? '1.5px solid rgba(255,107,0,0.45)' : '1px solid rgba(255,255,255,0.06)',
-                boxShadow: iLead
-                  ? '0 0 10px rgba(255,107,0,0.25), ' + (OBSIDIAN_BTN.boxShadow as string)
-                  : OBSIDIAN_BTN.boxShadow as string,
-              }}>
-                {iLead && (
-                  <div className="absolute" style={{ top: -10, left: '50%', transform: 'translateX(-50%)' }}>
-                    <IconCrown size={14} />
-                  </div>
-                )}
-                <p className="font-pixel" style={{ fontSize: 6, color: PINK_HI, letterSpacing: 1.5, marginBottom: 6 }}>YOU</p>
-                <div className="flex items-center justify-center gap-1.5">
-                  <IconFire size={16} />
-                  <span className="font-pixel" style={{
-                    fontSize: 22, lineHeight: 1, color: '#FFB347',
-                    textShadow: iLead ? '0 0 8px rgba(255,107,0,0.6)' : 'none',
-                  }}>{mine}</span>
-                </div>
-                <p className="font-pixel" style={{ fontSize: 5, color: '#7A6A75', letterSpacing: 1, marginTop: 5 }}>
-                  BEST {myBest}
-                </p>
-              </div>
-
-              {/* Partner */}
-              <div className="flex-1 text-center px-2 py-2 relative" style={{
-                ...OBSIDIAN_BTN,
-                border: theyLead ? '1.5px solid rgba(255,107,0,0.45)' : '1px solid rgba(255,255,255,0.06)',
-                boxShadow: theyLead
-                  ? '0 0 10px rgba(255,107,0,0.25), ' + (OBSIDIAN_BTN.boxShadow as string)
-                  : OBSIDIAN_BTN.boxShadow as string,
-              }}>
-                {theyLead && (
-                  <div className="absolute" style={{ top: -10, left: '50%', transform: 'translateX(-50%)' }}>
-                    <IconCrown size={14} />
-                  </div>
-                )}
-                <p className="font-pixel" style={{ fontSize: 6, color: '#C4B5FD', letterSpacing: 1.5, marginBottom: 6 }}>
-                  {first.toUpperCase()}
-                </p>
-                <div className="flex items-center justify-center gap-1.5">
-                  <IconFire size={16} />
-                  <span className="font-pixel" style={{
-                    fontSize: 22, lineHeight: 1, color: '#FFB347',
-                    textShadow: theyLead ? '0 0 8px rgba(255,107,0,0.6)' : 'none',
-                  }}>{theirs}</span>
-                </div>
-                <p className="font-pixel" style={{ fontSize: 5, color: '#7A6A75', letterSpacing: 1, marginTop: 5 }}>
-                  BEST {theirBest}
-                </p>
-              </div>
-            </div>
-
-            {(iLead || theyLead) && (
-              <p className="text-center font-pixel mt-3" style={{ fontSize: 6, color: '#9A8A60', letterSpacing: 1 }}>
-                TORCH-BEARER: {iLead ? 'YOU' : first.toUpperCase()}
-              </p>
-            )}
-            {mine > 0 && theirs > 0 && mine === theirs && (
-              <p className="text-center font-pixel mt-3" style={{ fontSize: 6, color: '#9A8A60', letterSpacing: 1 }}>
-                BOTH ON {mine} — KEEP IT UP!
-              </p>
-            )}
-          </div>
         )
       })()}
 
