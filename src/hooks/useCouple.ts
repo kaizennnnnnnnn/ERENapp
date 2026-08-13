@@ -6,9 +6,10 @@ import { withRetry } from '@/lib/supabaseRetry'
 import { onForeground } from '@/lib/onForeground'
 import { useAuth } from './useAuth'
 import type { Profile, JournalMessage, Interaction, GiftItem, UserMood, StreakData } from '@/types'
-import { format, subDays } from 'date-fns'
+import { subDays } from 'date-fns'
 import { computeLoveMeter, getAnniversaryInfo, startOfWeek, type LoveMeterResult, type AnniversaryInfo } from '@/lib/couple'
 import { resolveNudgeMessage, isNudgeRow, type NudgeDef } from '@/lib/nudges'
+import { moodDateKey } from '@/lib/moods'
 import {
   backfillDailyResults, fetchLifetimeRows, computeLifetimeWLT,
   ensureLastWeekResult, claimWeeklyPayout, acknowledgeWeeklyResult,
@@ -143,8 +144,8 @@ function useCoupleImpl() {
     // attached at creation so a rejection while another await is pending
     // can't fire unhandledrejection; the undefined sentinel reproduces the
     // old catch-skips-setter behavior exactly.
-    const todayStr = format(new Date(), 'yyyy-MM-dd')
-    const weekStartStr = format(subDays(new Date(), 6), 'yyyy-MM-dd')
+    const todayStr = moodDateKey()
+    const weekStartStr = moodDateKey(subDays(new Date(), 6))
     const moodsP = p ? withRetry(() => supabase
       .from('daily_moods')
       .select('mood, date')
@@ -177,7 +178,7 @@ function useCoupleImpl() {
       } else {
         const byDate = new Map<string, UserMood>((moodRows ?? []).map(m => [m.date, m.mood as UserMood]))
         const week = Array.from({ length: 7 }, (_, i) => {
-          const d = format(subDays(new Date(), 6 - i), 'yyyy-MM-dd')
+          const d = moodDateKey(subDays(new Date(), 6 - i))
           return { date: d, mood: byDate.get(d) ?? null }
         })
         setPartnerMoodWeek(week)

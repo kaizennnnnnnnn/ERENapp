@@ -12,7 +12,7 @@ import type { UserMood, ErenMood } from '@/types'
 import { useTasks } from '@/contexts/TaskContext'
 import { playSound } from '@/lib/sounds'
 import { type SketchErenState } from '@/components/SketchEren'
-import { PUSH_MOODS } from '@/lib/moods'
+import { PUSH_MOODS, moodDateKey } from '@/lib/moods'
 import MoodGateView from '@/components/mood/MoodGateView'
 
 // Each user mood maps to a pool of picked animations + speech lines. One is
@@ -114,7 +114,7 @@ export default function MoodGate({ userId, userName, householdId, onDone }: Prop
     setErenMood(MOOD_TO_EREN[mood])
     setAnimating(true)
 
-    const today = new Date().toISOString().split('T')[0]
+    const today = moodDateKey()
 
     // Save to DB and animate concurrently — wait for BOTH before closing
     await Promise.all([

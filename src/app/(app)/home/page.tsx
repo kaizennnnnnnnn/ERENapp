@@ -15,7 +15,6 @@ import { MOOD_CONFIGS } from '@/types'
 import { useCare } from '@/contexts/CareContext'
 import { useTasks } from '@/contexts/TaskContext'
 import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
-import { format } from 'date-fns'
 import Link from 'next/link'
 import { Sparkles } from 'lucide-react'
 import { IconGift, IconHeart, IconBell, IconPerson, IconDoor, IconPhoto, IconDress } from '@/components/PixelIcons'
@@ -45,7 +44,7 @@ import CoopGoalBar from '@/components/couple/CoopGoalBar'
 import ComebackBadge from '@/components/couple/ComebackBadge'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
 import SendErenSheet from '@/components/couple/SendErenSheet'
-import { MOOD_THEME, LOW_MOODS } from '@/lib/moods'
+import { MOOD_THEME, LOW_MOODS, moodDateKey } from '@/lib/moods'
 import { useIsDark } from '@/hooks/useIsDark'
 import { cuteBtn, CuteIcon } from '@/components/obsidian'
 import LightSwitch from '@/components/LightSwitch'
@@ -348,7 +347,7 @@ export default function HomePage() {
   // Fast localStorage check
   useEffect(() => {
     if (!user?.id) return
-    const todayStr = format(new Date(), 'yyyy-MM-dd')
+    const todayStr = moodDateKey()
     // `pocket_eren_mood_*` is the old key name. Read it as a fallback so a mood
     // logged before the rename doesn't re-prompt the gate today; it ages out on
     // its own (the key is date-stamped) and this line can go after a day.
@@ -414,7 +413,7 @@ export default function HomePage() {
     const timeout = setTimeout(() => { timedOut = true; setMoodChecked(true) }, 6000)
     async function load() {
       try {
-        const todayStr = format(new Date(), 'yyyy-MM-dd')
+        const todayStr = moodDateKey()
         const { data, error } = await withRetry(() => supabase
           .from('daily_moods').select('mood').eq('user_id', user!.id).eq('date', todayStr).maybeSingle())
         if (data) setTodayMood(data.mood as UserMood)
@@ -478,7 +477,7 @@ export default function HomePage() {
         userName={profile?.name ?? 'friend'}
         householdId={profile?.household_id ?? null}
         onDone={mood => {
-          const todayStr = format(new Date(), 'yyyy-MM-dd')
+          const todayStr = moodDateKey()
           localStorage.setItem(`eren_mood_${user!.id}_${todayStr}`, mood)
           setTodayMood(mood)
           showToast(`${MOOD_CONFIGS[mood].emoji} Mood saved!`)

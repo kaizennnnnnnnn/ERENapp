@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { UserMood } from '@/types'
 import { MOOD_CONFIGS } from '@/types'
+import { moodDateKey } from '@/lib/moods'
 import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
 
@@ -24,7 +25,7 @@ export default function MoodPicker({ userId, existing, onSave }: Props) {
     setSelected(mood)
     setSaving(true)
 
-    const today = new Date().toISOString().split('T')[0]
+    const today = moodDateKey()
     await supabase
       .from('daily_moods')
       .upsert({ user_id: userId, mood, date: today }, { onConflict: 'user_id,date' })

@@ -33,6 +33,21 @@ export const MOOD_CAPTION: Record<UserMood, string> = {
   tired: 'running on fumes',
 }
 
+/**
+ * The calendar day a mood belongs to, in the DEVICE's local timezone.
+ *
+ * Every read of `daily_moods` keys off the local day, so every write must
+ * too. `toISOString().slice(0, 10)` is UTC: east of Greenwich it files a
+ * check-in made after local midnight under YESTERDAY — which both hid it
+ * from the partner card ("hasn't checked in yet today") and overwrote the
+ * previous day's mood. Produce and compare every `daily_moods.date` here.
+ */
+export function moodDateKey(d: Date = new Date()): string {
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${m}-${day}`
+}
+
 // Moods that surface the "send some love" prompt on the partner card.
 export const LOW_MOODS: UserMood[] = ['sad', 'angry', 'tired']
 
