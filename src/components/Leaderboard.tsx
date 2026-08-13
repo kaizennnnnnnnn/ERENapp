@@ -20,7 +20,7 @@ import { useGamesWeekly } from '@/hooks/useGamesWeekly'
 import { countGamesWon } from '@/lib/gameRewards'
 import {
   IconStar, IconCrown,
-  IconFish, IconScroll, IconMeat, IconLightning,
+  IconScroll, IconMeat, IconLightning,
   IconSwords, IconHouse, IconHeart, IconCatFace, IconCoin, IconSparkles, IconYarn,
 } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
@@ -38,7 +38,6 @@ const GAMES: Array<{ id: GameType; title: string; Icon: React.FC<{ size?: number
   { id: 'lane_runner',  title: 'LANE RUNNER',      Icon: IconCoin },
   { id: 'paw_doku',     title: 'PAW DOKU',         Icon: IconSparkles },
   { id: 'yarn_sort',    title: 'YARN SORT',        Icon: IconYarn },
-  { id: 'gone_fishin',  title: "GONE FISHIN'",     Icon: IconFish },
   { id: 'purr_beat',    title: 'PURR BEAT',        Icon: IconCatFace },
 ]
 

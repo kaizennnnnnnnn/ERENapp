@@ -154,18 +154,6 @@ const GAMES: GameMeta[] = [
     preview: [IconYarn, IconStar, IconYarn],
   },
   {
-    id: 'gone_fishin' as GameType,
-    href: '/games/gone-fishin',
-    title: "GONE FISHIN'",
-    desc: 'Cast, hook, reel — fill your fish-dex.',
-    bg: 'linear-gradient(135deg, #DCEEFF, #BBDDFB)',
-    border: '#38BDF8',
-    shadow: '#0369A1',
-    accent: '#0369A1',
-    Icon: IconFish,
-    preview: [IconFish, IconStar, IconFish],
-  },
-  {
     id: 'purr_beat' as GameType,
     href: '/games/purr-beat',
     title: 'PURR BEAT',
@@ -195,7 +183,6 @@ function GameScene({ id, size = 48 }: { id: GameType; size?: number }) {
     case 'lane_runner':  return <LaneRunnerScene  size={size} />
     case 'paw_doku':     return <PawDokuScene     size={size} />
     case 'yarn_sort':    return <YarnSortScene    size={size} />
-    case 'gone_fishin':  return <GoneFishinScene  size={size} />
     case 'purr_beat':    return <PurrBeatScene    size={size} />
     default:             return null
   }
@@ -525,34 +512,7 @@ function YarnSortScene({ size }: { size: number }) {
   )
 }
 
-// GONE FISHIN' — bobber on the water, fishing line, a fish lurking below
-function GoneFishinScene({ size }: { size: number }) {
-  return (
-    <svg {...svgProps(size)}>
-      {/* water */}
-      <rect x="0" y="20" width="48" height="28" fill="#1E3A8A" />
-      <rect x="0" y="20" width="48" height="3"  fill="#3B82F6" opacity="0.7" />
-      <rect x="0" y="26" width="48" height="1"  fill="#60A5FA" opacity="0.5" />
-      <rect x="0" y="33" width="48" height="1"  fill="#60A5FA" opacity="0.35" />
-      {/* fishing line from top-right */}
-      <rect x="34" y="2"  width="1" height="22" fill="#E5E7EB" opacity="0.8" />
-      {/* bobber */}
-      <rect x="32" y="18" width="6" height="4" fill="#EF4444" />
-      <rect x="32" y="22" width="6" height="3" fill="#FFFFFF" />
-      <rect x="34" y="16" width="2" height="2" fill="#9CA3AF" />
-      {/* ripple around bobber */}
-      <rect x="28" y="24" width="14" height="1" fill="#93C5FD" opacity="0.6" />
-      {/* fish lurking below */}
-      <rect x="8"  y="36" width="12" height="6" fill="#FBBF24" />
-      <rect x="8"  y="36" width="12" height="2" fill="#FDE68A" />
-      <rect x="20" y="37" width="3"  height="4" fill="#F59E0B" />   {/* tail */}
-      <rect x="10" y="38" width="2"  height="2" fill="#1F2937" />   {/* eye */}
-      <rect x="6"  y="38" width="2"  height="2" fill="#F59E0B" />   {/* nose */}
-    </svg>
-  )
-}
-
-// PURR BEAT — falling notes in lanes hitting a beat line, cat bopping
+// PURR BEAT — four note lanes with a hit line across them
 function PurrBeatScene({ size }: { size: number }) {
   const laneX = [4, 16, 28, 40]
   const cols = ['#EC4899', '#A78BFA', '#22D3EE', '#FBBF24']
