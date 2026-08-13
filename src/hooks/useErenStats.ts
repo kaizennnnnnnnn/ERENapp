@@ -462,7 +462,10 @@ function useErenStatsImpl(householdId: string | null) {
     const su = await writeWithRetry(signal =>
       supabase.from('eren_stats').update({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, weight: newW, cleanliness: newCl, is_sick: newSick, mood: newMood, is_sleeping: sleepingFlag, last_decay_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('household_id', householdId).abortSignal(signal))
     if (su.error) { await fetchStats(); return { success: false, message: 'Connection hiccup — try again!' } }
-    return { success: true, message: `${cfg.emoji} ${cfg.label} done!` }
+    // No emoji: this string lands in CareToast, which draws its own pixel pips.
+    // The app's rule is pixel art, not emoji, and a 🍗 in a Press Start 2P line
+    // is the single thing that made these toasts read as unfinished.
+    return { success: true, message: `${cfg.label} done!` }
   }, [stats, householdId, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const wakeUp = useCallback(async (): Promise<{ success: boolean; message: string }> => {

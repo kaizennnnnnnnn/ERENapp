@@ -9,6 +9,7 @@ import BlinkingEren from '@/components/BlinkingEren'
 import StinkyFlies from '@/components/StinkyFlies'
 import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import { useErenReaction } from '@/hooks/useErenReaction'
+import CareToast from '@/components/care/CareToast'
 
 interface Props { onClose: () => void }
 
@@ -399,12 +400,7 @@ export default function HospitalScene({ onClose }: Props) {
       </div>
 
       {/* ══ TOAST ══ */}
-      {toast && (
-        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-50 text-white px-4 py-2 animate-float whitespace-nowrap"
-          style={{ background: '#1F2E3E', borderRadius: 3, border: '2px solid #3A4E6E', boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
-          {toast}
-        </div>
-      )}
+      {toast && <CareToast msg={toast} tone="#7DA3D9" top={56} />}
 
       {/* ══ DIAGNOSIS CARD ══ */}
       {reasons.length > 0 && !medGiven && (

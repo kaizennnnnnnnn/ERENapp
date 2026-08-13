@@ -23,6 +23,7 @@ import PixelPoof from '@/components/PixelPoof'
 import { preloadImages } from '@/lib/preloadImages'
 import SleepButton from '@/components/bedroom/SleepButton'
 import SegmentMeter, { type MeterPalette } from '@/components/care/SegmentMeter'
+import CareToast from '@/components/care/CareToast'
 
 // SLEEP QUALITY gauge palettes — moonlit indigo when restful, lavender mid,
 // red when poor. The channel is a deep night indigo to read against the dark
@@ -255,12 +256,7 @@ export default function SleepScene({ onClose }: Props) {
 
       {/* ══ UI ══ */}
 
-      {toast && (
-        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-50 text-white px-4 py-2 animate-float whitespace-nowrap"
-          style={{ background: '#2E2860', borderRadius: 3, border: '2px solid #4A40A0', boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
-          {toast}
-        </div>
-      )}
+      {toast && <CareToast msg={toast} tone="#818CF8" top={56} />}
 
       {/* ══ BOTTOM UI ══ */}
       <div className="absolute bottom-6 inset-x-0 flex flex-col items-center gap-3 px-8 z-20">

@@ -26,6 +26,7 @@ import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import CheckupButton from '@/components/vet/CheckupButton'
 import GiveMedicineButton, { MedicineResultBanner } from '@/components/vet/GiveMedicineButton'
 import GiveLolipopButton, { LolipopBanner } from '@/components/vet/GiveLolipopButton'
+import CareToast from '@/components/care/CareToast'
 
 interface Props { onClose: () => void }
 
@@ -322,12 +323,7 @@ export default function VetScene({ onClose }: Props) {
       )}
 
       {/* ══ TOAST ══ */}
-      {toast && (
-        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-50 text-white px-4 py-2.5 animate-float whitespace-nowrap"
-          style={{ background: '#1B5E20', borderRadius: 3, border: '2px solid #2E7D32', boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
-          {toast}
-        </div>
-      )}
+      {toast && <CareToast msg={toast} tone="#4ADE80" top={56} />}
 
       {/* ══ BOTTOM UI ══
           Cleared out entirely while he's eating the treat. The crouch pose is

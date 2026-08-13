@@ -39,6 +39,7 @@ import { DRINK_UNLOCK_SKINS, getSkin, type SkinDef } from '@/lib/skins'
 import { grantDrinkSkin, wearSkinEverywhere } from '@/lib/drinkUnlock'
 import PixelPoof from '@/components/PixelPoof'
 import FoodStatsCard, { type FoodStatItem } from '@/components/care/FoodStatsCard'
+import CareToast from '@/components/care/CareToast'
 import { useLongPress } from '@/hooks/useLongPress'
 import { IconClose, IconChevronLeft, IconChevronRight } from '@/components/PixelIcons'
 
@@ -657,12 +658,7 @@ export default function FeedScene({ onClose }: Props) {
 
       {/* ══ UI ══ */}
 
-      {toast && (
-        <div className={cn('absolute left-1/2 -translate-x-1/2 z-50 text-white px-4 py-2 animate-float whitespace-nowrap', toast.ok ? '' : '')}
-          style={{ top: 145, background: toast.ok ? '#1F1F2E' : '#CC2222', borderRadius: 3, border: `2px solid ${toast.ok ? '#3A3A5E' : '#AA1111'}`, boxShadow: `3px 3px 0 ${toast.ok ? 'rgba(0,0,0,0.4)' : '#880000'}`, fontFamily: '"Press Start 2P"', fontSize: 7 }}>
-          {toast.msg}
-        </div>
-      )}
+      {toast && <CareToast msg={toast.msg} ok={toast.ok} tone="#F5C842" top={145} />}
 
       {/* ══ DRAG GHOST — just the food icon, no frame ══ */}
       {dragRef.current.item && dragRef.current.pos && dragRef.current.active && (

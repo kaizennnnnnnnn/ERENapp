@@ -25,6 +25,7 @@ import { Hearts } from '@/components/care/ReactionFx'
 import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import DonePlayingButton from '@/components/playroom/DonePlayingButton'
 import SegmentMeter, { type MeterPalette } from '@/components/care/SegmentMeter'
+import CareToast from '@/components/care/CareToast'
 
 // ENERGY gauge palettes — the lit colour tracks energy level (violet when
 // healthy, gold mid, red when low). The recessed channel is a deep plum so the
@@ -354,12 +355,7 @@ export default function PlayScene({ onClose }: Props) {
         `}</style>
       </button>
 
-      {toast && (
-        <div className="absolute left-1/2 -translate-x-1/2 z-50 text-white px-4 py-2 animate-float whitespace-nowrap"
-          style={{ top: 'calc(var(--safe-top) + 232px)', background: '#1F1F2E', borderRadius: 3, border: '2px solid #3A3A5E', boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
-          {toast}
-        </div>
-      )}
+      {toast && <CareToast msg={toast} tone="#A78BFA" top="calc(var(--safe-top) + 232px)" />}
 
       {throwCount === 0 && !done && (
         <div className="absolute left-1/2 -translate-x-1/2 z-40 px-3 py-1.5 pointer-events-none animate-pulse-soft"

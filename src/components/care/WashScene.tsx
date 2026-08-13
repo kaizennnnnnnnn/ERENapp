@@ -25,6 +25,7 @@ import { BubblePoof, SplashPoof, WASH_POOF_PEAK_MS } from '@/components/care/Was
 import { preloadImages } from '@/lib/preloadImages'
 import SqueakyCleanBanner from '@/components/wash/SqueakyCleanBanner'
 import SegmentMeter, { type MeterPalette } from '@/components/care/SegmentMeter'
+import CareToast from '@/components/care/CareToast'
 
 interface Props { onClose: () => void }
 
@@ -661,12 +662,7 @@ export default function WashScene({ onClose }: Props) {
       </div>
 
       {/* ══ TOAST ════════════════════════════════════════════════════════ */}
-      {toast && (
-        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-50 text-white px-4 py-2.5 animate-float whitespace-nowrap"
-          style={{ background: '#1F3A4E', borderRadius: 3, border: '2px solid #3A6A8E', boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
-          {toast}
-        </div>
-      )}
+      {toast && <CareToast msg={toast} tone="#5BA3D9" top={56} />}
 
       {/* ══ PROGRESS BARS ════════════════════════════════════════════════ */}
       <div className="absolute bottom-4 inset-x-0 px-5 flex flex-col gap-2 items-center pointer-events-none">
