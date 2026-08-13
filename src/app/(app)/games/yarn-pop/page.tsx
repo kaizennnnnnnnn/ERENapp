@@ -9,7 +9,9 @@ import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
+import { useErenIdle } from '@/hooks/useErenIdle'
 import GameCoinReward from '@/components/games/GameCoinReward'
+import PixelEren, { type ErenPose } from '@/components/games/PixelEren'
 import { playSound } from '@/lib/sounds'
 import { IconStar } from '@/components/PixelIcons'
 import { fireMinigameDone } from '@/lib/minigames'
@@ -20,6 +22,11 @@ const STARTING_MOVES = 30
 // 5 tile types: paw, sardine, donut, cookie, egg. Reduced from 6 — fewer
 // types makes spontaneous matches easier and keeps the board reading clean.
 const N_TYPES = 5
+/** Pointer travel, in px, above which a press counts as a swipe rather than
+ *  a tap. Comfortably under one tile so a short flick still registers. */
+const SWIPE_MIN = 18
+/** How long the player may stall before the board offers a move. */
+const HINT_DELAY = 5200
 
 // ─── Candy-Crush specials ───────────────────────────────────────────────────
 // line-h : clears its whole ROW    (made by a horizontal match-4)
@@ -56,7 +63,22 @@ const parseKey = (k: string) => { const [r, c] = k.split(',').map(Number); retur
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
 
 // ─── Pure functions: grid generation, match detection, gravity ──────────────
-function genGrid(): Grid {
+
+/** A seeded integer generator, used for ONE thing: the board React renders
+ *  before the player has touched anything.
+ *
+ *  `useState(() => genGrid())` runs on the server during SSR and again on the
+ *  client, and with Math.random the two deal different boards — a hydration
+ *  mismatch that made React discard the server render and re-render the whole
+ *  root on the client, with a console error each time. Seeding the first deal
+ *  makes both sides agree; every deal after it (start, reset, refill) is a
+ *  client-side event and stays random. */
+function makeRng(seed: number): () => number {
+  let s = seed >>> 0
+  return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296 }
+}
+
+function genGrid(rand: () => number = Math.random): Grid {
   const g: Grid = []
   for (let r = 0; r < ROWS; r++) {
     const row: (Tile | null)[] = []
@@ -64,7 +86,7 @@ function genGrid(): Grid {
       let t = 0
       let attempts = 0
       do {
-        t = Math.floor(Math.random() * N_TYPES)
+        t = Math.floor(rand() * N_TYPES)
         attempts++
       } while (
         attempts < 60 && (
@@ -294,6 +316,80 @@ function expandDetonations(g: Grid, initial: Set<string>, reserved?: Map<string,
   return clear
 }
 
+// ─── Legal-move search ──────────────────────────────────────────────────────
+// A failed swap deliberately costs no move, which is right — you should not be
+// punished for a misread. But it means a board with NO legal swap can never be
+// advanced OR ended: every attempt bounces, the counter never falls, and the
+// run cannot finish. That is a softlock, and on a 6x8 board with five types it
+// is perfectly reachable after a cascade refills.
+//
+// So the board has to be able to prove it still has a move, and be reshuffled
+// when it cannot.
+
+/** Every swap that would produce a match, in a shuffled order so a hint does
+ *  not always point at the top-left of the board. `limit` stops the scan early
+ *  when the caller only needs to know whether ANY move exists. */
+function findMoves(g: Grid, limit = Infinity): Array<[{ r: number; c: number }, { r: number; c: number }]> {
+  const out: Array<[{ r: number; c: number }, { r: number; c: number }]> = []
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (!g[r][c]) continue
+      // A special can always be fired by swapping it with anything, so its mere
+      // presence means the board is playable.
+      if (g[r][c]!.special) {
+        if (c + 1 < COLS && g[r][c + 1]) out.push([{ r, c }, { r, c: c + 1 }])
+        else if (r + 1 < ROWS && g[r + 1][c]) out.push([{ r, c }, { r: r + 1, c }])
+        if (out.length >= limit) return out
+        continue
+      }
+      // Right and down only — every adjacent pair is covered exactly once.
+      for (const [dr, dc] of [[0, 1], [1, 0]] as const) {
+        const nr = r + dr, nc = c + dc
+        if (nr >= ROWS || nc >= COLS || !g[nr][nc]) continue
+        if (g[nr][nc]!.special) continue   // counted when that cell is visited
+        if (g[nr][nc]!.type === g[r][c]!.type) continue   // swapping equals is a no-op
+        if (detectGroups(doSwap(g, { r, c }, { r: nr, c: nc })).length > 0) {
+          out.push([{ r, c }, { r: nr, c: nc }])
+          if (out.length >= limit) return out
+        }
+      }
+    }
+  }
+  return out
+}
+
+const hasAnyMove = (g: Grid): boolean => findMoves(g, 1).length > 0
+
+/** Rebuild the board from the tiles already on it, so a shuffle re-deals the
+ *  same colours rather than quietly handing out a fresh (and possibly kinder)
+ *  distribution. Specials are preserved. Retries until the result is playable
+ *  and has no free matches sitting on it. */
+function shuffleGrid(g: Grid): Grid {
+  const tiles: Tile[] = []
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (g[r][c]) tiles.push(g[r][c]!)
+
+  for (let attempt = 0; attempt < 80; attempt++) {
+    const pool = tiles.slice()
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[pool[i], pool[j]] = [pool[j], pool[i]]
+    }
+    const ng: Grid = []
+    let k = 0
+    for (let r = 0; r < ROWS; r++) {
+      const row: (Tile | null)[] = []
+      for (let c = 0; c < COLS; c++) row.push(g[r][c] ? pool[k++] : null)
+      ng.push(row)
+    }
+    if (detectGroups(ng).length === 0 && hasAnyMove(ng)) return ng
+  }
+  // Shuffling failed to find a playable arrangement of these exact tiles —
+  // deal a fresh board rather than hand back a dead one.
+  let fresh = genGrid()
+  while (detectMatches(fresh).size > 0 || !hasAnyMove(fresh)) fresh = genGrid()
+  return fresh
+}
+
 // ─── Explosion FX ───────────────────────────────────────────────────────────
 type FxKind = 'beam-h' | 'beam-v' | 'area' | 'zap'
 interface FxItem { id: number; kind: FxKind; r: number; c: number; color: string }
@@ -318,7 +414,7 @@ export default function YarnPopGame() {
   const reduced = useReducedMotion()
 
   const [phase, setPhase]     = useState<'idle' | 'playing' | 'gameover'>('idle')
-  const [grid, setGrid]       = useState<Grid>(() => genGrid())
+  const [grid, setGrid]       = useState<Grid>(() => genGrid(makeRng(0x59504F50)))
   const [selected, setSelected] = useState<{ r: number; c: number } | null>(null)
   const [moves, setMoves]     = useState(STARTING_MOVES)
   const [score, setScore]     = useState(0)
@@ -344,6 +440,15 @@ export default function YarnPopGame() {
   const [shakeKeys, setShakeKeys] = useState<Set<string>>(new Set())
   // Ending-flourish flag: dims board + sweeps a scanline before gameover.
   const [ending, setEnding] = useState(false)
+  const idle = useErenIdle()
+  // Eren's reaction to the last event, cleared on a keyed timer so an earlier
+  // reaction can't cancel a newer one (the paw-doku pattern).
+  const [erenFx, setErenFx] = useState<{ pose: ErenPose; key: number } | null>(null)
+  const erenFxKey = useRef(0)
+  // The two cells of a suggested move, shown when the player stalls.
+  const [hint, setHint] = useState<{ a: string; b: string } | null>(null)
+  // Banner shown while a dead board is being re-dealt.
+  const [shuffling, setShuffling] = useState(false)
   // Live explosion overlays (line beams / area flash / bomb zap). Auto-cleared.
   const [fx, setFx] = useState<FxItem[]>([])
   const fxTimers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set())
@@ -360,10 +465,36 @@ export default function YarnPopGame() {
     fxTimers.current.add(t)
   }
 
+  function reactEren(pose: ErenPose, hold: number) {
+    erenFxKey.current += 1
+    const key = erenFxKey.current
+    setErenFx({ pose, key })
+    setTimeout(() => setErenFx(f => (f && f.key === key ? null : f)), hold)
+  }
+
+  /** A board with no legal swap can't be played OR ended — every attempt
+   *  bounces and the move counter never falls. Re-deal the tiles already on it
+   *  instead of leaving the player stuck. Measured at roughly 1 run in 400. */
+  async function shuffleIfDead(g: Grid): Promise<Grid> {
+    if (hasAnyMove(g)) return g
+    setShuffling(true)
+    setHint(null)
+    playSound('yp_no_match')
+    flashFloater('NO MOVES · SHUFFLING', '#93C5FD')
+    reactEren('wobble', 900)
+    await sleep(620)
+    const ng = shuffleGrid(g)
+    setGrid(ng)
+    playSound('yp_swap')
+    await sleep(260)
+    setShuffling(false)
+    return ng
+  }
+
   function startGame() {
     let g = genGrid()
-    // Make sure starting board has no immediate matches.
-    while (detectMatches(g).size > 0) g = genGrid()
+    // Guarantee the opening board is both settled AND playable.
+    while (detectMatches(g).size > 0 || !hasAnyMove(g)) g = genGrid()
     setGrid(g)
     setMoves(STARTING_MOVES)
     setScore(0)
@@ -373,6 +504,9 @@ export default function YarnPopGame() {
     setProcessing(false)
     setEnding(false)
     setShakeKeys(new Set())
+    setErenFx(null)
+    setHint(null)
+    setShuffling(false)
     savedRef.current = false
     setReward(null)
     setPhase('playing')
@@ -429,6 +563,9 @@ export default function YarnPopGame() {
 
       playSound('yp_match_pop')
       if (reserved.size > 0 || fxList.length > 0 || comboLocal === 4) playSound('yp_big_combo')
+      // He only celebrates things worth celebrating — a chain, a new special,
+      // or a detonation. Cheering at every three-match would make him wallpaper.
+      if (comboLocal >= 2 || fxList.length > 0 || reserved.size > 0) reactEren('cheer', 900)
 
       // 5. Score — cells + a fat bonus per special detonated, all × cascade.
       const specialBonus = fxList.reduce((s, f) => s + (f.kind === 'zap' ? 200 : f.kind === 'area' ? 110 : 70), 0)
@@ -472,6 +609,10 @@ export default function YarnPopGame() {
     } else {
       setDisplayCombo(0)
     }
+    // A settled board with no legal swap is a dead end — re-deal before handing
+    // control back, but never over the top of a finished run.
+    if (movesRef.current > 0) g = await shuffleIfDead(g)
+
     setProcessing(false)
 
     // Check game over — kick off the end-of-game flourish immediately so
@@ -578,7 +719,9 @@ export default function YarnPopGame() {
   }
 
   async function handleTileTap(r: number, c: number) {
-    if (phase !== 'playing' || processing || ending) return
+    if (swipedRef.current) { swipedRef.current = false; return }
+    if (phase !== 'playing' || processing || ending || shuffling) return
+    setHint(null)
     if (!selected) {
       setSelected({ r, c })
       return
@@ -592,10 +735,15 @@ export default function YarnPopGame() {
       return
     }
 
-    // Attempt swap
     const a = selected
-    const b = { r, c }
     setSelected(null)
+    await performSwap(a, { r, c })
+  }
+
+  /** The swap itself: animate, judge, and hand off to the cascade or the
+   *  detonation path. Both the tap and the swipe route through here so the
+   *  two input styles can never drift apart. */
+  async function performSwap(a: { r: number; c: number }, b: { r: number; c: number }) {
     const next = doSwap(grid, a, b)
     setGrid(next)
     playSound('yp_swap')
@@ -613,6 +761,7 @@ export default function YarnPopGame() {
     // illegal — shake, buzz, revert. A special can always be fired by swapping.
     if (!formsMatch && !swapHasSpecial) {
       playSound('yp_no_match')
+      reactEren('wobble', 620)
       const keys = new Set([`${a.r},${a.c}`, `${b.r},${b.c}`])
       setShakeKeys(keys)
       const reverted = doSwap(next, a, b)
@@ -640,6 +789,42 @@ export default function YarnPopGame() {
     await processCascades(next, [a, b])
   }
 
+  /** Swipe: press a tile and drag toward a neighbour. Tap-to-select still
+   *  works, but every match-3 on a phone is played with the thumb, and
+   *  two-tap makes a misread cost two taps instead of one. */
+  const dragRef = useRef<{ r: number; c: number; x: number; y: number } | null>(null)
+  /** Set when a swipe has just been resolved. A drag that clears the threshold
+   *  without leaving the tile still produces a click (down and up on the same
+   *  element), which would otherwise select that tile on top of the swap the
+   *  swipe already performed and leave a stale highlight behind. */
+  const swipedRef = useRef(false)
+
+  function handleTilePointerDown(r: number, c: number, e: React.PointerEvent) {
+    if (phase !== 'playing' || processing || ending || shuffling) return
+    dragRef.current = { r, c, x: e.clientX, y: e.clientY }
+  }
+
+  function handleTilePointerUp(e: React.PointerEvent) {
+    const d = dragRef.current
+    dragRef.current = null
+    if (!d) return
+    const dx = e.clientX - d.x
+    const dy = e.clientY - d.y
+    // Below the threshold it was a tap, and the button's onClick handles it.
+    if (Math.hypot(dx, dy) < SWIPE_MIN) return
+    const horiz = Math.abs(dx) > Math.abs(dy)
+    const target = horiz
+      ? { r: d.r, c: d.c + (dx > 0 ? 1 : -1) }
+      : { r: d.r + (dy > 0 ? 1 : -1), c: d.c }
+    if (target.r < 0 || target.r >= ROWS || target.c < 0 || target.c >= COLS) return
+    setHint(null)
+    // Re-enter the normal path by selecting the origin, then "tapping" the
+    // neighbour — one code path for both input styles.
+    swipedRef.current = true
+    setSelected(null)
+    void performSwap(d, target)
+  }
+
   function reset() {
     setPhase('idle')
     setGrid(genGrid())
@@ -651,6 +836,21 @@ export default function YarnPopGame() {
     setDisplayCombo(0)
     setShakeKeys(new Set())
   }
+
+  // Idle hint. Match-3s all have one because a stalled player has no way to
+  // tell "there is nothing here" from "I can't see it" — and here the
+  // difference matters, since a wrong guess costs nothing but time. Any board
+  // change or selection restarts the clock.
+  useEffect(() => {
+    if (phase !== 'playing' || processing || ending || shuffling) return
+    const t = setTimeout(() => {
+      const moves = findMoves(grid, 1)
+      if (moves.length === 0) return   // shuffleIfDead owns this case
+      const [a, b] = moves[0]
+      setHint({ a: keyOf(a.r, a.c), b: keyOf(b.r, b.c) })
+    }, HINT_DELAY)
+    return () => clearTimeout(t)
+  }, [phase, processing, ending, shuffling, grid, selected])
 
   // Auto-process initial board (in case it has matches from a wonky gen)
   useEffect(() => {
@@ -757,6 +957,30 @@ export default function YarnPopGame() {
           overscrollBehavior: 'contain',
           userSelect: 'none',
         }}>
+          {/* Eren, sat on the board's bottom rim watching you play. Same shared
+              arcade cat as Paw Doku and Eren Stack — he lives in PixelEren so
+              he can't fork per game. He sits OUTSIDE the board's padding so he
+              costs no playfield, and below rather than above it because the top
+              rim is already under the SCORE and MOVES readouts and he collided
+              with the counter. He reacts rather than idles: paws up on a chain
+              or a detonation, braced when a swap bounces. `pointer-events:none`
+              so he can never eat a tap meant for the corner tile. */}
+          {phase === 'playing' && (
+            <div className="absolute pointer-events-none" style={{
+              left: 10, bottom: -28, zIndex: 9,
+              filter: 'drop-shadow(0 2px 0 rgba(0,0,0,0.45))',
+            }}>
+              <PixelEren
+                key={erenFx?.key ?? 'idle'}
+                pose={erenFx?.pose ?? 'idle'}
+                size={34}
+                blink={idle.blink}
+                twitch={idle.twitch}
+                glance={idle.glance}
+              />
+            </div>
+          )}
+
           {/* Diagonal scanline sweep that telegraphs the end of the round.
               Mounts once when ending kicks in, fades out with the board. */}
           {ending && (
@@ -781,6 +1005,8 @@ export default function YarnPopGame() {
               row.map((tile, c) => {
                 if (!tile) return null
                 const isShaking = shakeKeys.has(`${r},${c}`)
+                const cellKey = keyOf(r, c)
+                const isHinted = !!hint && (hint.a === cellKey || hint.b === cellKey)
                 // Big matches (5+) get a larger burst + 8 sparks instead of
                 // 4. Gold spark colour kicks in once the cascade is ≥2.
                 const sparkCount = tile.bigMatch ? 8 : 4
@@ -789,6 +1015,8 @@ export default function YarnPopGame() {
                 return (
                 <button key={tile.id}
                   onClick={() => handleTileTap(r, c)}
+                  onPointerDown={e => handleTilePointerDown(r, c, e)}
+                  onPointerUp={handleTilePointerUp}
                   disabled={processing}
                   className="absolute flex items-center justify-center active:scale-95"
                   style={{
@@ -840,7 +1068,9 @@ export default function YarnPopGame() {
                     position: 'relative',
                     boxShadow: selected && selected.r === r && selected.c === c
                       ? '0 0 0 3px #FDE68A, 0 0 14px rgba(253,230,138,0.8)'
-                      : tile.special
+                      : isHinted
+                        ? '0 0 0 3px #93C5FD, 0 0 16px rgba(147,197,253,0.75)'
+                        : tile.special
                         // Specials wear a permanent gold halo so they read as
                         // "charged" against the normal candy field.
                         ? '0 0 0 2px rgba(253,230,138,0.9), 0 0 12px rgba(253,230,138,0.55)'
@@ -852,7 +1082,9 @@ export default function YarnPopGame() {
                       ? 'yp-tile-pop 0.42s cubic-bezier(0.34,1.56,0.64,1) forwards'
                       : tile.spawned
                         ? 'yp-special-spawn 0.5s cubic-bezier(0.34,1.56,0.64,1)'
-                        : undefined,
+                        : isHinted && !reduced
+                          ? 'yp-hint 1s ease-in-out infinite'
+                          : undefined,
                   }}>
                     {tile.special === 'bomb'
                       ? <BombTile />
@@ -1063,6 +1295,12 @@ export default function YarnPopGame() {
           35%  { transform: scale(1.35); opacity: 1; filter: drop-shadow(0 0 14px #FDE68A); }
           70%  { transform: scale(0.95); }
           100% { transform: scale(1);   opacity: 1; filter: drop-shadow(0 0 6px #FDE68A); }
+        }
+        /* Hinted pair — a slow breath, not a flash. It has to be findable in
+           peripheral vision without competing with an active cascade. */
+        @keyframes yp-hint {
+          0%, 100% { transform: scale(1);    }
+          50%      { transform: scale(1.07); }
         }
         @keyframes yp-floater {
           0%   { opacity: 1; transform: translateX(-50%) translateY(0); }
