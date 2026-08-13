@@ -52,7 +52,19 @@ export default function TodaysMenu({ menu, progress, complete, reward }: Props) 
   if (menu.length === 0) return null
 
   return (
-    <div className="absolute" style={{ bottom: '22%', right: '23%', zIndex: 3 }}
+    // Closed, the bowl is furniture and sits with the room's other props (3,
+    // same as Eren's speech bubble). Open, it has to clear everything that
+    // drifts around him uninvited: the daily wish and the partner's thought
+    // cloud (both 4), the care-battle HUD (8), and Eren's whisper (45). One of
+    // those WILL end up parked over this card — a thing that appears on its own
+    // must never cover a thing the player deliberately opened.
+    //
+    // 50 is the gap between that ambient tier and the committed-modal tier:
+    // ThoughtCloud's expanded composer sits at 55-61 and the app's popups at
+    // 70+, and this must stay under both. Everything named here lives inside
+    // the room's `fixed inset-0; z-index: 0` wrapper, so these all resolve
+    // against each other in that one stacking context.
+    <div className="absolute" style={{ bottom: '22%', right: '23%', zIndex: open ? 50 : 3 }}
       onPointerDown={e => e.stopPropagation()}>
 
       {/* ── The card ── only while asked for ── */}
