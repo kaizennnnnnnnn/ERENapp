@@ -18,6 +18,7 @@ import {
 } from '@/components/obsidian'
 import { IconCrown, IconCoin, IconSwords, IconHeart } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
+import CoinPayoutBurst from '@/components/CoinPayoutBurst'
 
 interface Props {
   row: WeeklyBattleRow
@@ -30,6 +31,9 @@ export default function WeeklyChampionPopup({ row, partnerFirstName, onClaim, on
   const [claiming, setClaiming] = useState(false)
   const [paid, setPaid] = useState(row.payout_paid)
   const [mounted, setMounted] = useState(false)
+  // Coins credited on this tap. Non-null hands the screen to the payout burst,
+  // which closes the popup when its counter lands.
+  const [burst, setBurst] = useState<number | null>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -37,13 +41,22 @@ export default function WeeklyChampionPopup({ row, partnerFirstName, onClaim, on
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePrimary = async () => {
-    if (claiming) return
+    if (claiming || burst !== null) return
     setClaiming(true)
-    playSound('ui_modal_close')
     const credited = await onClaim()
-    if (credited) setPaid(true)
+    if (credited) {
+      // Coins are banked — let the player watch them land before we close.
+      setPaid(true)
+      setBurst(WEEKLY_PAYOUT_COINS)
+      return
+    }
+    playSound('ui_modal_close')
     onClose()
   }
+
+  // Backdrop taps dismiss, except mid-burst — there the burst layer sits on
+  // top and owns the tap (tap-to-skip).
+  const handleBackdrop = () => { if (burst === null) onClose() }
 
   const isWin  = row.outcome === 'win'
   const isLoss = row.outcome === 'loss'
@@ -77,7 +90,7 @@ export default function WeeklyChampionPopup({ row, partnerFirstName, onClaim, on
         opacity: mounted ? 1 : 0,
         transition: 'opacity 220ms ease-out',
       }}
-      onClick={onClose}
+      onClick={handleBackdrop}
     >
       <div
         onClick={e => e.stopPropagation()}
@@ -178,6 +191,8 @@ export default function WeeklyChampionPopup({ row, partnerFirstName, onClaim, on
           </p>
         </div>
       </div>
+
+      {burst !== null && <CoinPayoutBurst coins={burst} onDone={onClose} />}
     </div>
   )
 }

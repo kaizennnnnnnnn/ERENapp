@@ -15,6 +15,7 @@ import {
 } from '@/components/obsidian'
 import { IconCrown, IconCoin, IconController } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
+import CoinPayoutBurst from '@/components/CoinPayoutBurst'
 
 interface Props {
   row: WeeklyGameRow
@@ -27,6 +28,9 @@ export default function WeeklyGamesChampionPopup({ row, partnerFirstName, onClai
   const [claiming, setClaiming] = useState(false)
   const [paid, setPaid] = useState(row.payout_paid)
   const [mounted, setMounted] = useState(false)
+  // Coins credited on this tap. Non-null hands the screen to the payout burst,
+  // which closes the popup when its counter lands.
+  const [burst, setBurst] = useState<number | null>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -34,11 +38,16 @@ export default function WeeklyGamesChampionPopup({ row, partnerFirstName, onClai
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePrimary = async () => {
-    if (claiming) return
+    if (claiming || burst !== null) return
     setClaiming(true)
-    playSound('ui_modal_close')
     const credited = await onClaim()
-    if (credited > 0) setPaid(true)
+    if (credited > 0) {
+      // Coins are banked — let the player watch them land before we close.
+      setPaid(true)
+      setBurst(credited)
+      return
+    }
+    playSound('ui_modal_close')
     onClose()
   }
 
@@ -154,6 +163,8 @@ export default function WeeklyGamesChampionPopup({ row, partnerFirstName, onClai
           </p>
         </div>
       </div>
+
+      {burst !== null && <CoinPayoutBurst coins={burst} onDone={onClose} />}
     </div>
   )
 }
