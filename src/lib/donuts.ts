@@ -128,3 +128,39 @@ export function msUntilNextBatch(now = new Date()): number {
   const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
   return midnight.getTime() - now.getTime()
 }
+
+// ─── The machine ─────────────────────────────────────────────────────────────
+// The bakery's other counter: pay 50 (or nothing, once a day) and it picks one
+// for you. It exists because a shop where you read three prices and tap BUY is
+// not a reason to walk into a room.
+
+export const SPIN_COST = 50
+
+/** Rolling, not "a new calendar day" — the machine counts down to the minute. */
+export const FREE_SPIN_MS = 24 * 60 * 60 * 1000
+
+/**
+ * What the machine can hand out: everything the bakery could ever sell.
+ *
+ * The three gacha donuts stay out on purpose. Snacks & Drinks being the only
+ * place they exist is the whole reason they're worth pulling, and a 50-coin
+ * spin that could produce one would delete that. It's also why the reel shows
+ * this list and not the full 27 — a machine that visibly cycles a prize it can
+ * never award is just lying to you.
+ */
+export const MACHINE_DONUTS: DonutDef[] = BAKERY_DONUTS
+
+/** Uniform — every donut in the case is equally likely. */
+export function rollDonut(): DonutDef {
+  return MACHINE_DONUTS[Math.floor(Math.random() * MACHINE_DONUTS.length)]
+}
+
+/** Milliseconds until the free spin is back, 0 when it's ready now. */
+export function msUntilFreeSpin(lastFree: string | null | undefined, now = Date.now()): number {
+  if (!lastFree) return 0
+  const elapsed = now - new Date(lastFree).getTime()
+  // A stamp in the future (clock skew between the two phones) would otherwise
+  // lock the machine for days. Treat anything nonsensical as ready.
+  if (!Number.isFinite(elapsed) || elapsed < 0) return 0
+  return Math.max(0, FREE_SPIN_MS - elapsed)
+}

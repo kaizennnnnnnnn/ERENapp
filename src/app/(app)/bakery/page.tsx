@@ -26,11 +26,14 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useIsDark } from '@/hooks/useIsDark'
 import { playSound } from '@/lib/sounds'
 import { CAKES, type CakeDef } from '@/lib/cakes'
-import { dailyDonuts, msUntilNextBatch, type DonutDef } from '@/lib/donuts'
+import { dailyDonuts, MACHINE_DONUTS, msUntilNextBatch, rollDonut, SPIN_COST, type DonutDef } from '@/lib/donuts'
 import { foodArt } from '@/lib/foodMeta'
 import { todayKey } from '@/lib/seededRng'
+import { useDonutMachine } from '@/hooks/useDonutMachine'
 import { IconCoin, IconStar, IconCake, IconDonut } from '@/components/PixelIcons'
 import BlinkingEren from '@/components/BlinkingEren'
+import DonutMachine from '@/components/bakery/DonutMachine'
+import DonutSpin from '@/components/bakery/DonutSpin'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
 import { requestCloudNav } from '@/components/CloudTransition'
 
@@ -43,6 +46,8 @@ interface PurchaseFx {
   id:   number
   sold: SoldItem
 }
+
+const MACHINE_DONUT_COUNT = MACHINE_DONUTS.length
 
 // ErenCakeShop.png pose: pink baker hat with strawberry. Coords from a
 // pixel-scan of the 963×1536 sprite, translated to the 360×360 container
@@ -135,6 +140,58 @@ export default function BakeryPage() {
   }, [caseOpen])
   const dayKey = now ? todayKey(now) : null
   const todaysDonuts = useMemo(() => dayKey ? dailyDonuts(dayKey) : [], [dayKey])
+
+  // ── The machine ────────────────────────────────────────────────────────
+  const machine = useDonutMachine(user?.id)
+  // Tapping the machine opens this first. A tap that immediately took 50 coins
+  // would be a trap on a thing that sits in the middle of the room.
+  const [machineOpen, setMachineOpen] = useState(false)
+  const [spin, setSpin] = useState<{ won: DonutDef; wasFree: boolean } | null>(null)
+  const canPaySpin = coins >= SPIN_COST
+
+  // The panel counts down to the next free spin, so it needs the same ticking
+  // clock the donut case uses — and for the same reason, only once it's open.
+  useEffect(() => {
+    if (!machineOpen) return
+    setNow(new Date())
+    const t = setInterval(() => setNow(new Date()), 30_000)
+    return () => clearInterval(t)
+  }, [machineOpen])
+
+  /**
+   * Free spin first, always — nobody wants to discover afterwards that they
+   * paid 50 for the one that was going to be free. Grants the donut up front
+   * so the reel is watching a purchase that already happened, not a promise.
+   */
+  async function doSpin() {
+    // `loaded` matters as much as `busy`: until the cooldown read lands,
+    // freeReady is false, and spinning on that would charge for a free spin.
+    if (busy || !user?.id || !machine.loaded) return
+    const usingFree = machine.freeReady
+    if (!usingFree && !canPaySpin) {
+      playSound('ui_modal_open') // soft "no" ping
+      return
+    }
+    setBusy(true)
+    playSound(usingFree ? 'ui_tap' : 'coin_ching')
+    setMenuOpen(false)
+    setCaseOpen(false)
+    setMachineOpen(false)
+
+    const won = rollDonut()
+    const [ok] = await Promise.all([
+      usingFree ? Promise.resolve(true) : spendCoins(SPIN_COST),
+      addToMyFood(user.id, won.id),
+    ])
+    if (!ok) {
+      await consumeMyFood(user.id, won.id)
+      setBusy(false)
+      return
+    }
+    if (usingFree) await machine.consumeFreeSpin()
+    setSpin({ won, wasFree: usingFree })
+    setBusy(false)
+  }
 
   /**
    * One counter, one till. `food` is what the purchase puts in the buyer's
@@ -264,6 +321,25 @@ export default function BakeryPage() {
               </ErenIdleLayer>
             </div>
           </div>
+
+          {/* ══ DONUT MACHINE ══ stands ON the counter, left of Eren and clear
+              of the painted cash register. Sized and placed in cqi/% of the
+              PICTURE, not the viewport, so it stays glued to the counter on
+              every aspect — the same reason Eren is. Its base sits a touch
+              below the counter's top edge (58.5%) so it rests on the wood
+              instead of hovering over the front face. */}
+          {!menuOpen && !caseOpen && !spin && (
+            <div className="absolute" style={{
+              left: '17%', bottom: '40.5%', width: '19cqi', aspectRatio: '48 / 64',
+              zIndex: 11, pointerEvents: 'auto',
+            }}>
+              <DonutMachine
+                free={machine.freeReady}
+                busy={busy}
+                onTap={() => { playSound('ui_modal_open'); setMachineOpen(true) }}
+              />
+            </div>
+          )}
 
           {/* ══ SELL ANIMATION ══ rises from Eren just above the counter. */}
           {fx && (
@@ -562,7 +638,108 @@ export default function BakeryPage() {
         </div>
       )}
 
+      {/* ══ MACHINE PANEL ══ what a spin costs and what you're spinning for.
+          A small centred card rather than another bottom sheet: the two sheets
+          are shops you browse, this is one decision. */}
+      {machineOpen && !spin && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center px-6"
+          style={{ background: 'rgba(40,20,10,0.55)' }}
+          onClick={() => { playSound('ui_modal_close'); setMachineOpen(false) }}>
+          <div className="w-full flex flex-col items-center"
+            style={{
+              maxWidth: 300, padding: '18px 16px 16px',
+              background: 'linear-gradient(180deg, #FFF8EC 0%, #FDE8C8 100%)',
+              border: '3px solid #B45309', borderRadius: 10,
+              boxShadow: '0 6px 0 rgba(60,26,4,0.45), 0 0 24px rgba(245,158,11,0.35)',
+              animation: 'bkCardPop 0.24s cubic-bezier(0.34,1.56,0.64,1)',
+            }}
+            onClick={e => e.stopPropagation()}>
+            {/* Gold rivets, same premium-card treatment as the shop cards. */}
+            <div style={{ position: 'absolute', width: 0 }} />
+            <p className="font-pixel inline-flex items-center gap-1.5 mb-1"
+              style={{ fontSize: 10, color: '#78350F', letterSpacing: 2 }}>
+              <IconDonut size={12} />
+              DONUT MACHINE
+            </p>
+            <p className="text-[11px] text-center mb-3" style={{ color: '#7C2D12', opacity: 0.8, lineHeight: 1.35 }}>
+              One random donut out of all {MACHINE_DONUT_COUNT} in the case.
+            </p>
+
+            {/* Held until the free-spin read lands. Offering "SPIN 50" while
+                that's still in flight would charge 50 coins for a spin the
+                player might already have free — freeReady is false during the
+                read, and doSpin believes it. */}
+            <button
+              onClick={doSpin}
+              disabled={busy || !machine.loaded || (!machine.freeReady && !canPaySpin)}
+              className="w-full font-pixel text-white inline-flex items-center justify-center gap-2 active:translate-y-[2px] transition-transform"
+              style={{
+                padding: '14px 12px', fontSize: 10, letterSpacing: 1.5,
+                background: !machine.loaded
+                  ? 'rgba(120,53,15,0.35)'
+                  : machine.freeReady
+                    ? 'linear-gradient(135deg, #16A34A, #14532D)'
+                    : canPaySpin
+                      ? 'linear-gradient(135deg, #F59E0B, #B45309)'
+                      : 'rgba(120,53,15,0.35)',
+                border: `2px solid ${machine.loaded && (machine.freeReady || canPaySpin)
+                  ? (machine.freeReady ? '#14532D' : '#78350F')
+                  : 'rgba(120,53,15,0.5)'}`,
+                borderRadius: 6,
+                boxShadow: busy ? 'none' : '0 3px 0 rgba(0,0,0,0.35)',
+                opacity: busy ? 0.6 : 1,
+                cursor: busy || !machine.loaded || (!machine.freeReady && !canPaySpin) ? 'not-allowed' : 'pointer',
+              }}>
+              {!machine.loaded
+                ? <>WARMING UP…</>
+                : machine.freeReady
+                  ? <>FREE SPIN</>
+                  : <>SPIN <IconCoin size={12} /> {SPIN_COST}</>}
+            </button>
+
+            {/* When the free one is spent, say exactly when it's back — an
+                unexplained missing FREE badge just reads as broken. */}
+            {machine.loaded && (
+              <p className="font-pixel mt-2.5 text-center" style={{ fontSize: 6, color: '#8A5A2B', letterSpacing: 1, lineHeight: 1.6 }}>
+                {machine.freeReady
+                  ? `NEXT SPINS COST ${SPIN_COST}`
+                  : `FREE SPIN IN ${batchCountdown(machine.msUntilFree)}`}
+              </p>
+            )}
+            {machine.loaded && !machine.freeReady && !canPaySpin && (
+              <p className="font-pixel mt-1" style={{ fontSize: 6, color: '#B91C1C', letterSpacing: 1 }}>
+                NOT ENOUGH COINS
+              </p>
+            )}
+
+            <button onClick={() => { playSound('ui_modal_close'); setMachineOpen(false) }}
+              className="font-pixel mt-3 active:scale-95" style={{ fontSize: 8, color: '#78350F', letterSpacing: 1 }}>
+              CLOSE
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ══ SPIN ══ the reel, then the reveal. The donut is already banked by
+          the time this mounts; this is the telling, not the deciding. */}
+      {spin && (
+        <DonutSpin
+          key={spin.won.id + String(coins)}
+          won={spin.won}
+          wasFree={spin.wasFree}
+          spinAgainCost={machine.freeReady ? 'free' : SPIN_COST}
+          onClose={() => setSpin(null)}
+          onSpinAgain={machine.freeReady || canPaySpin
+            ? () => { setSpin(null); doSpin() }
+            : undefined}
+        />
+      )}
+
       <style jsx global>{`
+        @keyframes bkCardPop {
+          from { transform: scale(0.88); opacity: 0; }
+          to   { transform: scale(1);    opacity: 1; }
+        }
         @keyframes bkSheetUp {
           from { transform: translateY(100%); }
           to   { transform: translateY(0); }

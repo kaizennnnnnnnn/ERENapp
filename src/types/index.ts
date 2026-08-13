@@ -384,6 +384,10 @@ export interface UserGachaState {
   pulls_since_legendary: number
   total_pulls: number
   last_free_fortune: string | null
+  // Bakery donut machine — rolling 24h, so an instant rather than a date.
+  // Absent until supabase/migration_donut_machine.sql is applied; a missing
+  // column reads as "never spun", which is the correct starting state anyway.
+  last_free_donut?: string | null
 }
 
 export interface GachaPullResult {

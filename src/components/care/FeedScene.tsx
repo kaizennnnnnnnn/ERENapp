@@ -69,13 +69,13 @@ const SHOP_ITEMS = [
   { id: 'milk'    as const, name: 'Milk',       price: 6,  hungerD: 12, happyD:  0, weightD: 0.02, desc: 'Fresh & cold',       color: '#E8E4E0', cat: 'dairy'   },
   { id: 'cheese'  as const, name: 'Cheese',     price: 10, hungerD: 14, happyD:  0, weightD: 0.03, desc: 'Aged cheddar',       color: '#F5C842', cat: 'dairy'   },
   { id: 'yogurt'  as const, name: 'Yogurt',     price: 8,  hungerD: 10, happyD:  0, weightD: 0.01, desc: 'Creamy & smooth',    color: '#FFB6C1', cat: 'dairy'   },
-  // Special
-  { id: 'cake'    as const, name: 'Cake',       price: 35, hungerD: 15, happyD: 40, weightD: 0.08, desc: 'Birthday special',   color: '#FF85A2', cat: 'special' },
-  { id: 'egg'     as const, name: 'Egg',        price: 4,  hungerD: 16, happyD: 0,  weightD: 0.03, desc: 'Simple & nutritious',color: '#F5E6C8', cat: 'special' },
-  // Sweet (new — referenced by Phase 3 wishes)
-  { id: 'donut'      as const, name: 'Donut',       price: 14, hungerD: 12, happyD: 22, weightD: 0.04, desc: 'Pink & sprinkled', color: '#FF8FB0', cat: 'special' },
-  { id: 'cookie'     as const, name: 'Cookie',      price: 7,  hungerD: 8,  happyD: 18, weightD: 0.02, desc: 'Choc-chip warm',   color: '#C89A6B', cat: 'special' },
-  { id: 'jelly_caka' as const, name: 'Jelly Caka',  price: 20, hungerD: 14, happyD: 30, weightD: 0.05, desc: 'Sweet wobble',     color: '#E83A4A', cat: 'special' },
+  // Sweets. The donut case is spread in at the bottom of this list — `donut`
+  // itself lives there now, not here, or it would be in SHOP_ITEMS twice.
+  { id: 'cake'    as const, name: 'Cake',       price: 35, hungerD: 15, happyD: 40, weightD: 0.08, desc: 'Birthday special',   color: '#FF85A2', cat: 'sweets'  },
+  // An egg is not a sweet — it sits with the other fridge staples.
+  { id: 'egg'     as const, name: 'Egg',        price: 4,  hungerD: 16, happyD: 0,  weightD: 0.03, desc: 'Simple & nutritious',color: '#F5E6C8', cat: 'dairy'   },
+  { id: 'cookie'     as const, name: 'Cookie',      price: 7,  hungerD: 8,  happyD: 18, weightD: 0.02, desc: 'Choc-chip warm',   color: '#C89A6B', cat: 'sweets'  },
+  { id: 'jelly_caka' as const, name: 'Jelly Caka',  price: 20, hungerD: 14, happyD: 30, weightD: 0.05, desc: 'Sweet wobble',     color: '#E83A4A', cat: 'sweets'  },
   // Monsta flavours — the can family.
   // Barely any hunger, near-zero weight: they're drinks, not meals. What you
   // actually buy is the ENERGY (every can fills the bar) plus that flavour's
@@ -83,16 +83,16 @@ const SHOP_ITEMS = [
   // for all ten, so you pick a can for what it does, never for what it costs.
   // That only holds while no can pays back more than it costs: every coin perk
   // in MONSTA_BUFFS stays under MONSTA_PRICE, or the shop mints money.
-  { id: 'monsta_original' as const, name: 'Original Monsta', price: MONSTA_PRICE, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'The green classic', color: '#A6E728', cat: 'special' },
-  { id: 'monsta_white'    as const, name: 'White Monsta',    price: MONSTA_PRICE, hungerD: 5, happyD: 16, weightD: 0.01, desc: 'Zero sugar ultra',  color: '#2FBCB3', cat: 'special' },
-  { id: 'monsta_mango'    as const, name: 'Mango Monsta',    price: MONSTA_PRICE, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'Mango loco kick',   color: '#F9A300', cat: 'special' },
-  { id: 'monsta_loco'     as const, name: 'Loco Monsta',     price: MONSTA_PRICE, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'Tropical loco',     color: '#69C7EB', cat: 'special' },
-  { id: 'monsta_pipeline' as const, name: 'Pipeline Monsta', price: MONSTA_PRICE, hungerD: 5, happyD: 17, weightD: 0.01, desc: 'Pipeline punch',    color: '#F96679', cat: 'special' },
-  { id: 'monsta_punch'    as const, name: 'Punch Monsta',    price: MONSTA_PRICE, hungerD: 5, happyD: 17, weightD: 0.01, desc: 'Punchy citrus',     color: '#E9665C', cat: 'special' },
-  { id: 'monsta_rosa'     as const, name: 'Rosa Monsta',     price: MONSTA_PRICE, hungerD: 5, happyD: 19, weightD: 0.01, desc: 'Ultra rosa fizz',   color: '#D05C8D', cat: 'special' },
-  { id: 'monsta_peachy'   as const, name: 'Peachy Monsta',   price: MONSTA_PRICE, hungerD: 5, happyD: 19, weightD: 0.01, desc: 'Peachy keen',       color: '#F9AB94', cat: 'special' },
-  { id: 'monsta_rainbow'  as const, name: 'Rainbow Monsta',  price: MONSTA_PRICE, hungerD: 8, happyD: 40, weightD: 0.01, desc: 'Ultimate blast',    color: '#B65CF0', cat: 'special' },
-  { id: 'monsta_gold'     as const, name: 'Gold Monsta',     price: MONSTA_PRICE, hungerD: 8, happyD: 40, weightD: 0.01, desc: 'Special edition',   color: '#D89C24', cat: 'special' },
+  { id: 'monsta_original' as const, name: 'Original Monsta', price: MONSTA_PRICE, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'The green classic', color: '#A6E728', cat: 'energy'  },
+  { id: 'monsta_white'    as const, name: 'White Monsta',    price: MONSTA_PRICE, hungerD: 5, happyD: 16, weightD: 0.01, desc: 'Zero sugar ultra',  color: '#2FBCB3', cat: 'energy'  },
+  { id: 'monsta_mango'    as const, name: 'Mango Monsta',    price: MONSTA_PRICE, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'Mango loco kick',   color: '#F9A300', cat: 'energy'  },
+  { id: 'monsta_loco'     as const, name: 'Loco Monsta',     price: MONSTA_PRICE, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'Tropical loco',     color: '#69C7EB', cat: 'energy'  },
+  { id: 'monsta_pipeline' as const, name: 'Pipeline Monsta', price: MONSTA_PRICE, hungerD: 5, happyD: 17, weightD: 0.01, desc: 'Pipeline punch',    color: '#F96679', cat: 'energy'  },
+  { id: 'monsta_punch'    as const, name: 'Punch Monsta',    price: MONSTA_PRICE, hungerD: 5, happyD: 17, weightD: 0.01, desc: 'Punchy citrus',     color: '#E9665C', cat: 'energy'  },
+  { id: 'monsta_rosa'     as const, name: 'Rosa Monsta',     price: MONSTA_PRICE, hungerD: 5, happyD: 19, weightD: 0.01, desc: 'Ultra rosa fizz',   color: '#D05C8D', cat: 'energy'  },
+  { id: 'monsta_peachy'   as const, name: 'Peachy Monsta',   price: MONSTA_PRICE, hungerD: 5, happyD: 19, weightD: 0.01, desc: 'Peachy keen',       color: '#F9AB94', cat: 'energy'  },
+  { id: 'monsta_rainbow'  as const, name: 'Rainbow Monsta',  price: MONSTA_PRICE, hungerD: 8, happyD: 40, weightD: 0.01, desc: 'Ultimate blast',    color: '#B65CF0', cat: 'energy'  },
+  { id: 'monsta_gold'     as const, name: 'Gold Monsta',     price: MONSTA_PRICE, hungerD: 8, happyD: 40, weightD: 0.01, desc: 'Special edition',   color: '#D89C24', cat: 'energy'  },
 
   // ─── World dishes ────────────────────────────────────────────────────────
   // Full plated meals (pixel-art art in /public/food), grouped by cuisine so
@@ -133,7 +133,7 @@ const SHOP_ITEMS = [
   ...DONUTS.map(d => ({
     id: d.id, name: d.name, price: d.price,
     hungerD: d.hungerD, happyD: d.happyD, weightD: d.weightD,
-    desc: d.desc, color: d.color, cat: 'donuts',
+    desc: d.desc, color: d.color, cat: 'sweets',
   })),
 ]
 
@@ -186,13 +186,16 @@ const FRIDGE_CATEGORIES = [
   { id: 'seafood', label: 'SEAFOOD', color: '#5BA3D9' },
   { id: 'meat',    label: 'MEAT',    color: '#CC3333' },
   { id: 'dairy',   label: 'DAIRY',   color: '#A78BFA' },
-  { id: 'special', label: 'SPECIAL', color: '#FF85A2' },
+  // SWEETS is the old SPECIAL: cake, cookie, jelly and the whole donut case.
+  // The ten Monsta cans used to sit here too and swamped it — they're a drink,
+  // not a dessert, and they now have their own shelf at the end.
+  { id: 'sweets',  label: 'SWEETS',  color: '#FF85A2' },
   { id: 'italian', label: 'ITALIAN', color: '#E4703A' },
   { id: 'sushi',   label: 'SUSHI',   color: '#F0736F' },
   { id: 'asian',   label: 'ASIAN',   color: '#C8632E' },
   { id: 'balkan',  label: 'BALKAN',  color: '#A9663C' },
   { id: 'world',   label: 'WORLD',   color: '#DE9A3E' },
-  { id: 'donuts',  label: 'DONUTS',  color: '#F06AA0' },
+  { id: 'energy',  label: 'ENERGY',  color: '#A6E728' },
 ]
 
 
