@@ -200,6 +200,12 @@ export interface ErenStats {
   // out. Shared rather than per-user so feeding the salmon on one phone ticks
   // it on the other. Replaced wholesale when the day rolls over.
   menu_state?: { day: string; done: string[]; claimed_at: string | null } | null
+  /**
+   * The donut effect currently running on Eren, if any (see donutEffects).
+   * On the household row on purpose — feeding him the neon one should be
+   * something the other person walks in on.
+   */
+  donut_effect?: { id: string; until: string } | null
 }
 
 export type FoodKey = 'kibble' | 'fish' | 'treat' | 'tuna' | 'steak' | 'cream' | 'biscuit' | 'shrimp' | 'salmon' | 'chicken' | 'sausage' | 'milk' | 'cheese' | 'yogurt' | 'cake' | 'sushi' | 'sardine' | 'egg' | 'cookie' | 'jelly_caka'

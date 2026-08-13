@@ -1,5 +1,6 @@
 import type { DonutKey } from '@/types'
 import type { MonstaBuff } from './monstaBuffs'
+import type { DonutEffectId } from './donutEffects'
 import { hashString, mulberry32, shuffled } from './seededRng'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -63,6 +64,13 @@ export interface DonutDef {
    */
   perk: MonstaBuff
   taste: DonutTaste
+  /**
+   * A visible mark it leaves on Eren for a while (see donutEffects).
+   *
+   * Only the four donuts worth staring at have one. A perk is a number; this
+   * is the part you can see from across the room.
+   */
+  effect?: DonutEffectId
 }
 
 export const DONUTS: DonutDef[] = [
@@ -108,7 +116,7 @@ export const DONUTS: DonutDef[] = [
   { id: 'donut_sesame',       name: 'Black Sesame',     price: 30, hungerD: 13, happyD: 28, weightD: 0.05, desc: 'Charcoal & toasted seed', color: '#3A3A3A', source: 'bakery' ,
     perk: { label: 'SLEEP +26',      sleep_quality: 26 }, taste: 'meh' },
   { id: 'donut_gold_leaf',    name: 'Gold Leaf',        price: 40, hungerD: 14, happyD: 34, weightD: 0.06, desc: 'Actual gold, on cocoa',  color: '#4A3018', source: 'bakery' ,
-    perk: { label: '+35 COINS',      coins: 35 }, taste: 'likes' },
+    perk: { label: '+35 COINS',      coins: 35 }, taste: 'likes', effect: 'gilded' },
   { id: 'donut_pizza',        name: 'Pizza Donut',      price: 30, hungerD: 22, happyD: 22, weightD: 0.08, desc: 'Yes. Really.',           color: '#E8901E', source: 'bakery' ,
     perk: { label: 'HUNGER +45',     hunger: 45 }, taste: 'meh' },
   { id: 'donut_lavender',     name: 'Lavender',         price: 28, hungerD: 12, happyD: 28, weightD: 0.04, desc: 'Honey drizzle, berries', color: '#B98BE0', source: 'bakery' ,
@@ -124,11 +132,11 @@ export const DONUTS: DonutDef[] = [
   // Priced like the fanciest bakery stock so the collection screen has a number
   // to show, but nothing sells them — see `source` above.
   { id: 'donut_tiger',  name: 'Tiger Tail',  price: 45, hungerD: 16, happyD: 30, weightD: 0.05, desc: 'Twisted. Not even a ring.', color: '#E8891E', source: 'gacha' ,
-    perk: { label: 'JOY+25 HUNGER+25', happiness: 25, hunger: 25 }, taste: 'loves' },
+    perk: { label: 'JOY+25 HUNGER+25', happiness: 25, hunger: 25 }, taste: 'loves', effect: 'zoomies' },
   { id: 'donut_arcade', name: 'Arcade',      price: 60, hungerD: 14, happyD: 38, weightD: 0.05, desc: 'Covered in stickers',       color: '#E31E5A', source: 'gacha' ,
-    perk: { label: 'JOY +45',        happiness: 45 }, taste: 'loves' },
+    perk: { label: 'JOY +45',        happiness: 45 }, taste: 'loves', effect: 'confetti' },
   { id: 'donut_neon',   name: 'Neon Slime',  price: 60, hungerD: 14, happyD: 40, weightD: 0.05, desc: 'It glows. Probably fine.',  color: '#5BE81E', source: 'gacha' ,
-    perk: { label: 'JOY+40 CLEAN+30', happiness: 40, cleanliness: 30 }, taste: 'likes' },
+    perk: { label: 'JOY+40 CLEAN+30', happiness: 40, cleanliness: 30 }, taste: 'likes', effect: 'glow' },
 ]
 
 /** Buyable at the bakery — everything the machine doesn't hold exclusive. */

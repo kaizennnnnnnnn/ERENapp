@@ -20,6 +20,7 @@
 import { useState } from 'react'
 import { foodArt } from '@/lib/foodMeta'
 import { DONUTS, MACHINE_DONUTS, SPIN_COST, TASTE_JOY, type DonutDef } from '@/lib/donuts'
+import { DONUT_EFFECTS } from '@/lib/donutEffects'
 import { playSound } from '@/lib/sounds'
 import { IconCoin, IconStar, IconDonut, IconHeart } from '@/components/PixelIcons'
 
@@ -234,6 +235,19 @@ export default function DonutCasePanel({
                       border: `1px solid ${picked.taste === 'loves' ? '#F5A8C4' : '#9CA3AF'}`,
                     }}>
                       {picked.taste === 'loves' ? `HE LOVES IT · JOY x${TASTE_JOY.loves}` : 'NOT HIS THING'}
+                    </span>
+                  )}
+                  {/* The visible one. Worth its own chip in its own colour —
+                      it's the only thing in the case you'd cross a room for. */}
+                  {picked.effect && (
+                    <span className="font-pixel" style={{
+                      fontSize: 5.5, padding: '2px 4px', borderRadius: 3,
+                      color: '#3A1B02',
+                      background: DONUT_EFFECTS[picked.effect].tone,
+                      border: `1px solid rgba(0,0,0,0.25)`,
+                      boxShadow: `0 0 8px ${DONUT_EFFECTS[picked.effect].tone}88`,
+                    }}>
+                      {DONUT_EFFECTS[picked.effect].blurb.toUpperCase()}
                     </span>
                   )}
                 </div>

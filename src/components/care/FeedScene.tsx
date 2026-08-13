@@ -29,6 +29,7 @@ import KitchenNavButton from '@/components/kitchen/KitchenNavButton'
 import ChewingEren, { EAT_NOSE_X, pickEatPose, preloadEatPoses } from '@/components/care/ChewingEren'
 import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import { DONUTS, getDonut, KITCHEN_DONUTS, TASTE_JOY, TASTE_LINE } from '@/lib/donuts'
+import { DONUT_EFFECTS } from '@/lib/donutEffects'
 import { dailyMenu } from '@/lib/foodMenu'
 import { todayKey } from '@/lib/seededRng'
 import { monstaBuff } from '@/lib/monstaBuffs'
@@ -228,7 +229,7 @@ const FEED_EREN_FALLBACK = {
 
 export default function FeedScene({ onClose }: Props) {
   const { user, profile } = useAuth()
-  const { stats, feedWithFood, addToMyFood, consumeMyFood, markDonutTasted, noteMenuFed } = useErenStats(profile?.household_id ?? null)
+  const { stats, feedWithFood, addToMyFood, consumeMyFood, markDonutTasted, noteMenuFed, startDonutEffect } = useErenStats(profile?.household_id ?? null)
   const { completeTask, coins, spendCoins, addCoins } = useTasks()
   const isDark = useIsDark()
   const wish = useWish()
@@ -575,7 +576,13 @@ export default function FeedScene({ onClose }: Props) {
       const day = todayKey(new Date())
       noteMenuFed(day, item.id, dailyMenu(day, profile?.household_id ?? null))
     }
+    // A special donut leaves something you can SEE, for a while, on the
+    // household row — so the aura is already up by the time the toast lands,
+    // and the partner finds a glowing cat next time they open the app.
+    const fx = result.success && donut?.effect ? DONUT_EFFECTS[donut.effect] : null
+    if (fx && donut?.effect) void startDonutEffect(donut.effect)
     const headline = !result.success ? null
+      : fx ? fx.label
       : buff?.energy != null ? `ENERGY FULL · ${buff.label}`
       : donut ? [TASTE_LINE[donut.taste], buff?.label].filter(Boolean).join(' · ')
       : null

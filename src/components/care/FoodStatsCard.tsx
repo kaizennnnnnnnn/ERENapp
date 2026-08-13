@@ -16,6 +16,7 @@
 
 import FoodIcon from '@/components/care/FoodIcon'
 import { getDonut, TASTE_JOY } from '@/lib/donuts'
+import { DONUT_EFFECTS } from '@/lib/donutEffects'
 import { monstaBuff } from '@/lib/monstaBuffs'
 import { IconCoin } from '@/components/PixelIcons'
 import type { FoodKey } from '@/types'
@@ -54,6 +55,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone: stri
 export default function FoodStatsCard({ item, owned, onClose }: Props) {
   const donut = getDonut(item.id)
   const buff = monstaBuff(item.id) ?? donut?.perk
+  const fx = donut?.effect ? DONUT_EFFECTS[donut.effect] : null
 
   // Donuts are worth what EREN thinks of them, not what the catalogue says:
   // the feeding path multiplies joy by taste, so printing the raw happyD here
@@ -124,17 +126,32 @@ export default function FoodStatsCard({ item, owned, onClose }: Props) {
         </div>
 
         {/* ── The one extra thing it does ── */}
-        {buff && (
+        {(buff || fx) && (
           <div style={{ marginTop: 9 }}>
             <p className="font-pixel" style={{ fontSize: 5.5, letterSpacing: 1, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>
               SPECIAL
             </p>
-            <span className="font-pixel inline-block" style={{
-              padding: '5px 7px', fontSize: 6.5, letterSpacing: 0.8, color: '#BBF7D0',
-              background: 'rgba(34,197,94,0.14)', border: '1px solid rgba(34,197,94,0.5)', borderRadius: 4,
-            }}>
-              {buff.label}
-            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {buff && (
+                <span className="font-pixel inline-block" style={{
+                  padding: '5px 7px', fontSize: 6.5, letterSpacing: 0.8, color: '#BBF7D0',
+                  background: 'rgba(34,197,94,0.14)', border: '1px solid rgba(34,197,94,0.5)', borderRadius: 4,
+                }}>
+                  {buff.label}
+                </span>
+              )}
+              {/* The part you can see. Painted in the effect's own colour, so
+                  the chip is a preview of what he's about to look like. */}
+              {fx && (
+                <span className="font-pixel inline-block" style={{
+                  padding: '5px 7px', fontSize: 6.5, letterSpacing: 0.8, color: fx.tone,
+                  background: `${fx.tone}1F`, border: `1px solid ${fx.tone}99`, borderRadius: 4,
+                  boxShadow: `0 0 10px ${fx.tone}44`,
+                }}>
+                  {fx.blurb.toUpperCase()}
+                </span>
+              )}
+            </div>
           </div>
         )}
 

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { IconHeart, IconFish, IconMoon, IconStar, IconPaw, IconMeat } from './PixelIcons'
+import ErenEffectAura from './care/ErenEffectAura'
+import { useDonutEffect } from '@/hooks/useDonutEffect'
 
 type IdleAnim =
   | 'lookLeft' | 'lookRight'
@@ -49,6 +51,7 @@ interface Props {
 }
 
 export default function ErenIdleLayer({ children, disabled }: Props) {
+  const effect = useDonutEffect()
   const [anim, setAnim] = useState<Exclude<IdleAnim, 'think'> | null>(null)
   const [thoughts, setThoughts] = useState<ThoughtBubble[]>([])
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -88,9 +91,19 @@ export default function ErenIdleLayer({ children, disabled }: Props) {
 
   return (
     <div className="relative">
+      {/* A special donut's effect, if one is running. It hangs here rather than
+          in each room because this wrapper is the one thing every room already
+          puts around Eren — kitchen, bedroom, bathroom, vet, playroom, bakery
+          and the home screen light up from this single mount. */}
+      {effect && <ErenEffectAura effect={effect.id} />}
+
       {/* Eren container — random idle animation overlay. Breathing lives
-          inside BlinkingEren so it's shared across every room. */}
+          inside BlinkingEren so it's shared across every room.
+          Positioned with a z-index ONLY so it paints above the aura: an
+          absolutely-positioned sibling beats a static one no matter the DOM
+          order, so without this the wash would sit on top of the cat. */}
       <div style={{
+        position: 'relative', zIndex: 1,
         animation: anim ? `${ANIM_STYLE[anim]} ${ANIM_DURATION[anim]}ms ease-in-out` : undefined,
         transformOrigin: 'bottom center',
       }}>

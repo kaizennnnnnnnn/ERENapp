@@ -8,6 +8,7 @@ import type { ErenStats, FoodInventory } from '@/types'
 import { computeErenMood, clampStat, shouldBecomeSick } from '@/lib/utils'
 import { MONSTA_ENERGY, type MonstaBuff } from '@/lib/monstaBuffs'
 import { ACTION_CONFIGS, type ActionType } from '@/types'
+import { DONUT_EFFECTS, type DonutEffectId } from '@/lib/donutEffects'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Decay is applied CLIENT-SIDE on fetch + action + periodic tick, keyed off
@@ -597,6 +598,25 @@ function useErenStatsImpl(householdId: string | null) {
       supabase.from('eren_stats').update({ donuts_tasted: next }).eq('household_id', householdId).abortSignal(signal))
   }, [stats, householdId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  /**
+   * Start a donut's visible effect on Eren.
+   *
+   * Always overwrites: feeding him a second special donut restarts the clock on
+   * the new one rather than queueing, because two auras at once is noise and
+   * "the last thing you fed him" is the rule anyone would guess.
+   */
+  const startDonutEffect = useCallback(async (id: DonutEffectId): Promise<void> => {
+    if (!householdId) return
+    const def = DONUT_EFFECTS[id]
+    if (!def) return
+    const next = { id, until: new Date(Date.now() + def.ms).toISOString() }
+    if (statsRef.current) statsRef.current = { ...statsRef.current, donut_effect: next }
+    setStats(prev => prev ? { ...prev, donut_effect: next } : prev)
+    // Absolute value — a retry re-sends the same deadline instead of extending it.
+    await writeWithRetry(signal =>
+      supabase.from('eren_stats').update({ donut_effect: next }).eq('household_id', householdId).abortSignal(signal))
+  }, [householdId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Today's food menu. Both writers go through here so `day` is the only thing
   // that decides whether yesterday's state is extended or thrown away — a stale
   // row from last night must never count toward this morning's menu.
@@ -680,7 +700,7 @@ function useErenStatsImpl(householdId: string | null) {
     stats, loading, error, applyAction, feedWithFood,
     spendCoins, addCoins, saveFoodInventory,
     addToMyFood, addManyToMyFood, consumeMyFood, giftFood,
-    markDonutTasted, noteMenuFed, claimMenu,
+    markDonutTasted, noteMenuFed, claimMenu, startDonutEffect,
     wakeUp, refetch: fetchStats,
   }
 }
