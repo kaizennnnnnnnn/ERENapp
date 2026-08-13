@@ -1153,6 +1153,31 @@ export const IconDonut = memo(function IconDonut({ size = 20 }: IconProps) {
   }, size)
 })
 
+export const IconBowl = memo(function IconBowl({ size = 20 }: IconProps) {
+  // A cat bowl with food heaped in it — the "what does he want to eat" icon.
+  // The heap has to break the rim line, or at 18px the whole thing flattens
+  // into a plain cup and stops reading as a MEAL. Wide foot for the same
+  // reason: a bowl is defined by its taper, and there isn't room for both a
+  // taper and a base unless the base is obvious.
+  const grid = [
+    '............',
+    '.....FF.....',
+    '...FFMMFF...',
+    '..FMMFFMMF..',
+    '.KKKKKKKKKK.',
+    'KBLLLLLLLLBK',
+    'KBBLLLLLLBBK',
+    '.KBBBBBBBBK.',
+    '..KBBBBBBK..',
+    '...KKKKKK...',
+    '..KSSSSSSK..',
+    '...KKKKKK...',
+  ]
+  return drawPixels(grid, {
+    K: '#5A2E14', B: '#E8734F', L: '#FFB4A0', F: '#F5C842', M: '#D98A3C', S: '#8A5230',
+  }, size)
+})
+
 export const IconLolipop = memo(function IconLolipop({ size = 20 }: IconProps) {
   // A candy disc on a stick. A spiral was the obvious idea and the wrong one:
   // at 16px the coils collapse into a smudge and read as a target. One clean

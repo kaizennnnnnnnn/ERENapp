@@ -646,6 +646,17 @@ export default function HomePage() {
               <ErenSpeechBubble bubble={flavorLine} onDismiss={dismissFlavor} />
             )}
 
+            {/* Food bowl on Eren's other side — tap for the three foods he
+                wants today. Mirrors the send-heart's anchor so the two read as
+                a matched pair of things sitting beside him, and keeps the menu
+                out of the HUD, which was covering the room to say very little. */}
+            <TodaysMenu
+              menu={foodMenu.menu}
+              progress={foodMenu.progress}
+              complete={foodMenu.complete}
+              reward={foodMenu.reward}
+            />
+
             {/* Little heart by Eren's side — quick "Send Eren" to your
                 partner. Only shown when paired. */}
             {partner && (
@@ -776,17 +787,6 @@ export default function HomePage() {
 
           {/* "We Cared" co-op goal — sits directly under the nav-button row */}
           <CoopGoalBar />
-
-          {/* Today's three foods. Sits under the co-op bar so the HUD reads
-              top-to-bottom as quests -> shared goal -> what he wants to eat. */}
-          <div className="mt-1.5">
-            <TodaysMenu
-              menu={foodMenu.menu}
-              progress={foodMenu.progress}
-              complete={foodMenu.complete}
-              reward={foodMenu.reward}
-            />
-          </div>
         </div>
 
         {/* Dot indicators — only visible during swipe / scene transition */}
