@@ -11,6 +11,7 @@ import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useVisibilityPause } from '@/hooks/useVisibilityPause'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useErenIdle } from '@/hooks/useErenIdle'
+import ErenReact, { useErenReaction } from '@/components/games/ErenReact'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import {
   THEMES, GROUND_H, TILE, CLOUD_TILE, GROUND_TILE, FAR_H, NEAR_H,
@@ -66,6 +67,7 @@ export default function FlappyErenGame() {
   const { reportGameResult } = useGameRewards()
   const reduced = useReducedMotion()
   const idle = useErenIdle()
+  const rx = useErenReaction()
   // The rAF loop is self-perpetuating from one render's closure, so it would
   // capture a stale `reduced`. Mirror it into a ref the loop-bound functions read.
   const reducedRef = useRef(reduced)
@@ -325,6 +327,7 @@ export default function FlappyErenGame() {
         scoreRef.current += 1
         setScore(scoreRef.current)
         setScorePulseKey(k => k + 1)
+        rx.good()
         // particle burst at gap center for visible reward
         if (!reducedRef.current) spawnScoreBurst(p.x + PIPE_W / 2, p.gapY + p.gap / 2)
         playSound('fe_pipe_pass')
@@ -379,6 +382,7 @@ export default function FlappyErenGame() {
   }
 
   function endGame() {
+    rx.bad()
     cancelAnimationFrame(rafRef.current)
     stateRef.current = 'gameover'
     setState('gameover')
@@ -586,7 +590,9 @@ export default function FlappyErenGame() {
                   transform: spin,
                   transformOrigin: '50% 70%',
                 }}>
-                  <ErenOnCanMemo blink={idle.blink} twitch={idle.twitch} glance={idle.glance} />
+                  <ErenReact reaction={rx.reaction} size={44} origin="center">
+                    <ErenOnCanMemo blink={idle.blink} twitch={idle.twitch} glance={idle.glance} />
+                  </ErenReact>
                   {plume > 0 && <ThrustPlume power={plume} />}
                 </div>
               </div>

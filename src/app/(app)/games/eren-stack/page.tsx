@@ -11,6 +11,7 @@ import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useVisibilityPause } from '@/hooks/useVisibilityPause'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useErenIdle } from '@/hooks/useErenIdle'
+import ErenReact, { useErenReaction } from '@/components/games/ErenReact'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { IconCrown, IconStar } from '@/components/PixelIcons'
@@ -99,6 +100,7 @@ export default function ErenStackGame() {
   const { reportGameResult } = useGameRewards()
   const reduced = useReducedMotion()
   const idle = useErenIdle()
+  const rx = useErenReaction()
 
   const fieldRef = useRef<HTMLDivElement>(null)
   const [fieldDims, setFieldDims] = useState({ w: 360, h: 600 })
@@ -311,6 +313,7 @@ export default function ErenStackGame() {
       // Tiny camera overshoot on perfects — makes height feel earned.
       cameraOvershootRef.current = 7
       setRider(r => ({ pose: 'cheer', landKey: r.landKey + 1 }))
+      rx.good()
     } else {
       // Trim to overlap; tumble the cut-off chunk.
       const cutSide: 'left' | 'right' = cur.x > top.x ? 'left' : 'right'
@@ -333,6 +336,7 @@ export default function ErenStackGame() {
       if (great) flashFloater('GREAT', cur.x + cur.width / 2, landY + 18, '#A7F3D0')
       // A big trim visibly rattles him; a tidy one he just rides out.
       setRider(r => ({ pose: cutW > cur.width * 0.28 ? 'wobble' : 'idle', landKey: r.landKey + 1 }))
+      if (cutW > cur.width * 0.28) rx.bad()
     }
 
     const locked: Block = { ...cur, x: lockedX, width: lockedW, y: landY }
@@ -632,7 +636,9 @@ export default function ErenStackGame() {
                   animation: reduced ? undefined : `stk-rider-land 340ms cubic-bezier(0.34,1.56,0.64,1)`,
                   filter: 'drop-shadow(0 2px 0 rgba(0,0,0,0.35))',
                 }}>
-                <ErenRider pose={rider.pose} size={32} blink={idle.blink} twitch={idle.twitch} glance={idle.glance} />
+                <ErenReact reaction={rx.reaction} size={32}>
+                  <ErenRider pose={rider.pose} size={32} blink={idle.blink} twitch={idle.twitch} glance={idle.glance} />
+                </ErenReact>
               </div>
             )
           })()}

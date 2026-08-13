@@ -38,6 +38,7 @@ import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useGameTimers } from '@/hooks/useGameTimers'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useErenIdle } from '@/hooks/useErenIdle'
+import ErenReact, { useErenReaction } from '@/components/games/ErenReact'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import PixelEren, { type ErenPose } from '@/components/games/PixelEren'
 import { playSound } from '@/lib/sounds'
@@ -309,6 +310,7 @@ export default function YarnSortGame() {
   const timers = useGameTimers()
   const reduced = useReducedMotion()
   const idle = useErenIdle()
+  const rx = useErenReaction()
 
   const [phase, setPhase]         = useState<Phase>('idle')
   const [tubes, setTubes]         = useState<number[][]>([])
@@ -396,6 +398,7 @@ export default function YarnSortGame() {
     fxKey.current += 1
     const key = fxKey.current
     setFret({ key })
+    rx.bad()
     timers.setTimeout(() => setFret(f => (f && f.key === key ? null : f)), 620)
   }
 
@@ -453,6 +456,7 @@ export default function YarnSortGame() {
     setHistory([])
     setSelected(null)
     setCelebrating(true)
+    rx.good()
     if (!reduced) setSolveFx(k => k + 1)
     timers.setTimeout(() => {
       setTubes(genLevel(justLevel + 1))
@@ -936,7 +940,9 @@ export default function YarnSortGame() {
                   animation: reduced || erenPose !== 'idle' ? undefined : 'ysBreathe 3.2s ease-in-out infinite',
                   transformOrigin: 'center bottom',
                 }}>
-                  <PixelEren pose={erenPose} size={38} blink={idle.blink} twitch={idle.twitch} glance={idle.glance} />
+                  <ErenReact reaction={rx.reaction} size={38}>
+                    <PixelEren pose={erenPose} size={38} blink={idle.blink} twitch={idle.twitch} glance={idle.glance} />
+                  </ErenReact>
                 </span>
               </span>
             </div>

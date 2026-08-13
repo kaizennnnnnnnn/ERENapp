@@ -10,6 +10,7 @@ import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useVisibilityPause } from '@/hooks/useVisibilityPause'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
+import ErenReact, { useErenReaction } from '@/components/games/ErenReact'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import ErenRunner, {
   RUN_FRAME_COUNT, RUN_BOX_W, RUN_BOX_H, RUN_BODY_CX, isRunContact,
@@ -129,6 +130,9 @@ export default function LaneRunnerGame() {
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
   const reduced = useReducedMotion()
+  // He has no face to blink (we only ever see his back), but the shared hop /
+  // flinch and its particles read fine on a rear view.
+  const rx = useErenReaction()
 
   // The rAF loop is self-perpetuating and captures `reduced` from the render
   // that started the run; mirror it into a ref so spawn-time guards stay live.
@@ -519,6 +523,7 @@ export default function LaneRunnerGame() {
       if (Math.abs(it.y - playerY) > HIT_SPAN) continue
       if (isObstacle(it.variant)) {
         playSound('lr_crash')
+        rx.bad()
         if (!reducedRef.current) {
           triggerShake()
           setHitFlash(f => f + 1)
@@ -544,6 +549,7 @@ export default function LaneRunnerGame() {
       // coming from the thing you grabbed.
       const tint = it.variant === 'fish' ? '#7DD3FC' : it.variant === 'mouse' ? '#C4B5FD' : '#FCD34D'
       playSound(it.variant === 'coin' ? 'lr_coin_pickup' : 'lr_fish_pickup')
+      rx.good()
       spawnPopup(popupX, popupY, `+${reward}`, tint)
       if (!reducedRef.current) spawnSparkles(popupX, popupY, tint, it.variant === 'coin' ? 5 : 6)
     }
@@ -911,7 +917,9 @@ export default function LaneRunnerGame() {
                   ? `${bank.dir < 0 ? 'lr-bank-l' : 'lr-bank-r'} 0.3s cubic-bezier(0.34,1.56,0.64,1)`
                   : undefined,
               }}>
-                <ErenRunner frame={runFrameRef.current} standing={reduced} />
+                <ErenReact reaction={rx.reaction} size={RUN_BOX_W}>
+                  <ErenRunner frame={runFrameRef.current} standing={reduced} />
+                </ErenReact>
               </div>
             </div>
           </>

@@ -21,6 +21,7 @@ import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useGameTimers } from '@/hooks/useGameTimers'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useErenIdle } from '@/hooks/useErenIdle'
+import ErenReact, { useErenReaction } from '@/components/games/ErenReact'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import PixelEren, { type ErenPose } from '@/components/games/PixelEren'
 import { playSound } from '@/lib/sounds'
@@ -266,6 +267,7 @@ export default function PawDokuGame() {
   const timers = useGameTimers()
   const reduced = useReducedMotion()
   const idle = useErenIdle()
+  const rx = useErenReaction()
 
   const [phase,     setPhase]     = useState<Phase>('idle')
   const [grid,      setGrid]      = useState<Grid>(makeEmptyGrid)
@@ -304,6 +306,8 @@ export default function PawDokuGame() {
   // don't let an earlier timer end a later one.
   const erenFxKey = useRef(0)
   function reactEren(pose: ErenPose, hold: number) {
+    if (pose === 'cheer') rx.good()
+    if (pose === 'wobble') rx.bad()
     erenFxKey.current += 1
     const key = erenFxKey.current
     setErenFx({ pose, key })
@@ -924,8 +928,10 @@ export default function PawDokuGame() {
                 animation: reduced || erenFx ? undefined : 'pdErenBreathe 3.4s ease-in-out infinite',
                 transformOrigin: 'center bottom',
               }}>
-                <PixelEren pose={erenFx?.pose ?? 'idle'} size={36}
-                  blink={idle.blink} twitch={idle.twitch} glance={idle.glance} />
+                <ErenReact reaction={rx.reaction} size={36}>
+                  <PixelEren pose={erenFx?.pose ?? 'idle'} size={36}
+                    blink={idle.blink} twitch={idle.twitch} glance={idle.glance} />
+                </ErenReact>
               </span>
             </span>
           </div>

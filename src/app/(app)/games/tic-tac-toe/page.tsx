@@ -11,6 +11,7 @@ import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useGameTimers } from '@/hooks/useGameTimers'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useErenIdle } from '@/hooks/useErenIdle'
+import ErenReact, { useErenReaction } from '@/components/games/ErenReact'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { fireMinigameDone } from '@/lib/minigames'
@@ -117,6 +118,7 @@ export default function TicTacToePage() {
   const timers = useGameTimers()
   const reduced = useReducedMotion()
   const idle = useErenIdle()
+  const rx = useErenReaction()
 
   const [board, setBoard]   = useState<Cell[]>(() => Array(9).fill(null))
   const [turn, setTurn]     = useState<'X' | 'O'>('X')
@@ -261,6 +263,11 @@ export default function TicTacToePage() {
     if (result === 'draw') { setDraws(d => d + 1);    setFlashKey({ kind: 'D', id: flashId }) }
 
     // Result audio + shake for losses.
+    // Eren reacts WITH the player, not for himself — he is on your side even
+    // when the O's on the board are his.
+    if (result === 'won')  rx.good()
+    if (result === 'lost') rx.bad()
+
     if (result === 'won')  playSound('ttt_win_line')
     if (result === 'lost') { playSound('ttt_lose'); if (!reduced) { setShake(true); timers.setTimeout(() => setShake(false), 240) } }
     if (result === 'draw') playSound('ttt_draw')
@@ -466,8 +473,10 @@ export default function TicTacToePage() {
           )}
           {canKnocked
             ? <ErenSideLapping size={78} reduced={reduced} />
-            : <ErenChibi size={64} hop={false} thinking={turn === 'O' && status === 'playing' && thinking} reduced={reduced}
-                blink={idle.blink} twitch={idle.twitch} glance={idle.glance} />
+            : <ErenReact reaction={rx.reaction} size={64} origin="center">
+                <ErenChibi size={64} hop={false} thinking={turn === 'O' && status === 'playing' && thinking} reduced={reduced}
+                  blink={idle.blink} twitch={idle.twitch} glance={idle.glance} />
+              </ErenReact>
           }
         </div>
         <div className="relative" style={{ minWidth: 130 }}>

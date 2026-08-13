@@ -36,6 +36,7 @@ import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useErenIdle } from '@/hooks/useErenIdle'
+import ErenReact, { useErenReaction } from '@/components/games/ErenReact'
 import { useVisibilityPause } from '@/hooks/useVisibilityPause'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import PurrBeatStage, { createStage, spawnHit, LANE_HUE, type StageState, type JudgeKind } from '@/components/games/PurrBeatStage'
@@ -89,6 +90,7 @@ export default function PurrBeatGame() {
   const { reportGameResult } = useGameRewards()
   const reduced = useReducedMotion()
   const idle = useErenIdle()
+  const rx = useErenReaction()
 
   const [phase, setPhase] = useState<Phase>('idle')
   const [bestScore, setBest] = useState(0)
@@ -280,6 +282,7 @@ export default function PurrBeatGame() {
     multRef.current = 1
     livesRef.current = Math.max(0, livesRef.current - count)
     tallyRef.current.miss += count
+    rx.bad()
     stage.missAt = now
     spawnHit(stage, lane, 'miss', now)
     playSynthAt(missTone(), 0, 0.5)
@@ -338,6 +341,9 @@ export default function PurrBeatGame() {
     playSynthAt(laneTone(lane, mult), 0, 0.55)
     if (kind === 'perfect') playSynthAt(perfectSting(lane), 0, 0.45)
     if (mult > prevMult) {
+      // Only on a multiplier step, not every hit — notes land far too fast for
+      // a per-note hop to read as anything but jitter.
+      rx.good()
       playSynthAt(multiplierTone(mult), 0, 0.5)
       stage.flareAt = now
     }
@@ -515,8 +521,10 @@ export default function PurrBeatGame() {
         {phase !== 'idle' && (
           <div className="absolute left-1/2 pointer-events-none" style={{ top: 2, marginLeft: -26, zIndex: 2 }}>
             <div ref={erenRef} style={{ transformOrigin: 'center bottom', willChange: 'transform' }}>
-              <ErenDJ size={52} hyped={hud.mult > 1} worried={hud.lives <= 1}
-                blink={idle.blink} twitch={idle.twitch} glance={idle.glance} />
+              <ErenReact reaction={rx.reaction} size={52} origin="center">
+                <ErenDJ size={52} hyped={hud.mult > 1} worried={hud.lives <= 1}
+                  blink={idle.blink} twitch={idle.twitch} glance={idle.glance} />
+              </ErenReact>
             </div>
           </div>
         )}

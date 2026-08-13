@@ -1206,3 +1206,36 @@
   [style*="brewBubble"], [style*="brewSoot"], [style*="brewTileIn"],
   [style*="brewShake"], [style*="brewPop"] { animation: none !important; }
 }
+
+/* ── Eren's shared arcade reactions (components/games/ErenReact.tsx) ──
+      Here rather than in a game's <style jsx> because every minigame's Eren
+      shares them. Kept compositor-friendly: transform + opacity only. */
+@keyframes erenGoodHop {
+  0%   { transform: translateY(0)    scale(1, 1); }
+  25%  { transform: translateY(-7px) scale(0.94, 1.08); }
+  55%  { transform: translateY(-9px) scale(1, 1); }
+  80%  { transform: translateY(0)    scale(1.07, 0.93); }
+  100% { transform: translateY(0)    scale(1, 1); }
+}
+@keyframes erenBadShudder {
+  0%   { transform: translateX(0)    rotate(0deg)   scaleY(1); }
+  15%  { transform: translateX(-3px) rotate(-4deg)  scaleY(0.97); }
+  35%  { transform: translateX(3px)  rotate(3deg)   scaleY(0.95); }
+  55%  { transform: translateX(-2px) rotate(-2deg)  scaleY(0.94); }
+  75%  { transform: translateX(1px)  rotate(1deg)   scaleY(0.96); }
+  100% { transform: translateX(0)    rotate(0deg)   scaleY(1); }
+}
+@keyframes erenSparkUp {
+  0%   { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+  30%  { transform: translate(calc(-50% + var(--rdx) * 0.55), calc(-50% + var(--rdy) * 0.55)) scale(1); opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--rdx)), calc(-50% + var(--rdy))) scale(0.35); opacity: 0; }
+}
+@keyframes erenSweatFly {
+  0%   { transform: translate(-50%, 0) scale(0.5); opacity: 0; }
+  25%  { transform: translate(calc(-50% + var(--rdx) * 0.4), calc(var(--rdy) * 0.5)) scale(1); opacity: 0.95; }
+  100% { transform: translate(calc(-50% + var(--rdx)), var(--rdy)) scale(0.7); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [style*="erenGoodHop"], [style*="erenBadShudder"],
+  [style*="erenSparkUp"], [style*="erenSweatFly"] { animation: none !important; }
+}

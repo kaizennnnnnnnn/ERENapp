@@ -11,6 +11,7 @@ import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useGameTimers } from '@/hooks/useGameTimers'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useErenIdle } from '@/hooks/useErenIdle'
+import ErenReact, { useErenReaction } from '@/components/games/ErenReact'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { IconPaw, IconStar } from '@/components/PixelIcons'
@@ -79,6 +80,7 @@ export default function ErenSaysGame() {
   // No involuntary blinking while he's demonstrating the sequence — that face
   // is information the player is trying to read.
   const idle = useErenIdle(phase !== 'showing')
+  const rx = useErenReaction()
   const [round, setRound]         = useState(0)
   const [bestRound, setBestRound] = useState(0)
   // Persist BEST across visits (matches flappy/lane).
@@ -201,6 +203,7 @@ export default function ErenSaysGame() {
     if (idx !== expected) {
       playSound('ey_miss')
       setFlashFail(true)
+      rx.bad()
       setPhase('fail')
       if (!reduced) {
         setShake(true)
@@ -231,6 +234,7 @@ export default function ErenSaysGame() {
       } catch { /* ignore */ }
       playSound('ey_round_clear')
       setRoundPulse(p => p + 1)
+      rx.good()
       pushScorePop(`+${completed}`, '#A3F0C0')
       // particle burst from center
       if (!reduced) burstParticles(50, 50, PADS[idx].color, 6)
@@ -442,8 +446,10 @@ export default function ErenSaysGame() {
                 ? (reduced ? 'none' : 'eyDance 1s ease-in-out infinite')
                 : (roundPulse > 0 && phase === 'showing' ? 'eyCheer 0.5s cubic-bezier(0.34,1.56,0.64,1)' : 'none'),
             }}>
-            <ErenChibi size={68} blink={phase === 'showing' || idle.blink} fail={flashFail}
-              cheer={streakBadge !== null} twitch={idle.twitch} glance={idle.glance} />
+            <ErenReact reaction={rx.reaction} size={68} origin="center">
+              <ErenChibi size={68} blink={phase === 'showing' || idle.blink} fail={flashFail}
+                cheer={streakBadge !== null} twitch={idle.twitch} glance={idle.glance} />
+            </ErenReact>
           </div>
 
           {/* particle burst overlay (percent-based so it scales with pad area) */}
