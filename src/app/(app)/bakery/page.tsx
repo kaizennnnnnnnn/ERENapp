@@ -26,7 +26,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useIsDark } from '@/hooks/useIsDark'
 import { playSound } from '@/lib/sounds'
 import { CAKES, type CakeDef } from '@/lib/cakes'
-import { dailyDonuts, msUntilNextBatch, rollDonut, SPIN_COST, type DonutDef } from '@/lib/donuts'
+import { dailyDonuts, msUntilNextBatch, rollDonut, SPIN_COST, TASTE_JOY, type DonutDef } from '@/lib/donuts'
 import { foodArt } from '@/lib/foodMeta'
 import { todayKey } from '@/lib/seededRng'
 import { useDonutMachine } from '@/hooks/useDonutMachine'
@@ -548,24 +548,36 @@ export default function BakeryPage() {
               animation: 'bkSheetUp 0.28s ease-out',
             }}
             onClick={e => e.stopPropagation()}>
-            {/* Sheet header */}
-            <div className="flex items-center justify-between px-4 pt-3 pb-2 flex-shrink-0">
-              <span className="font-pixel inline-flex items-center gap-1.5" style={{ fontSize: 9, color: '#78350F', letterSpacing: 2 }}>
+            {/* Sheet header — the same dark-wood-and-brass bar the machine's
+                case panel wears, so the bakery's two counters read as one
+                shop rather than two unrelated menus. */}
+            <div className="flex items-center justify-between px-4 py-2.5 flex-shrink-0"
+              style={{
+                background: 'linear-gradient(180deg, #6B3A18 0%, #48250E 100%)',
+                borderBottom: '2px solid #2E1404',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.14)',
+              }}>
+              <span className="font-pixel inline-flex items-center gap-1.5" style={{ fontSize: 9, color: '#FBBF24', letterSpacing: 2, textShadow: '0 1px 0 rgba(0,0,0,0.5)' }}>
                 <IconDonut size={11} />
                 FRESH TODAY
               </span>
               <button onClick={() => { playSound('ui_modal_close'); setCaseOpen(false) }}
-                className="font-pixel active:scale-95" style={{ fontSize: 8, color: '#78350F', letterSpacing: 1 }}>
+                className="font-pixel active:scale-95" style={{ fontSize: 8, color: '#F0C892', letterSpacing: 1 }}>
                 CLOSE
               </button>
             </div>
 
             {/* The whole point of the counter: it is not the same three
-                tomorrow. Says so, with the time left on it. */}
-            <div className="mx-3 mb-2 px-2.5 py-1.5 flex items-center justify-center gap-1.5 flex-shrink-0"
-              style={{ background: 'rgba(180,83,9,0.12)', border: '2px solid rgba(180,83,9,0.35)', borderRadius: 5 }}>
+                tomorrow. Says so, with the time left on it — on a brass ticket,
+                because it's the one line here that expires. */}
+            <div className="mx-3 mt-3 mb-2 px-2.5 py-2 flex items-center justify-center gap-2 flex-shrink-0"
+              style={{
+                background: 'linear-gradient(180deg, #3A1B02 0%, #241004 100%)',
+                border: '2px solid #B45309', borderRadius: 5,
+                boxShadow: 'inset 0 1px 0 rgba(251,191,36,0.35), 2px 2px 0 rgba(120,53,15,0.35)',
+              }}>
               <IconStar size={9} />
-              <span className="font-pixel" style={{ fontSize: 6, color: '#78350F', letterSpacing: 1.2 }}>
+              <span className="font-pixel" style={{ fontSize: 6, color: '#FDE68A', letterSpacing: 1.2 }}>
                 {now ? `NEW BATCH IN ${batchCountdown(msUntilNextBatch(now))}` : 'BAKING…'}
               </span>
               <IconStar size={9} />
@@ -602,10 +614,14 @@ export default function BakeryPage() {
                       )}
                       {/* Art straight on the card — a tinted plate behind it
                           would be a second shape competing with the donut, the
-                          same call the kitchen shop cards make. */}
+                          same call the kitchen shop cards make. It gets a
+                          contact shadow instead, so it sits on the card. */}
                       <img src={foodArt(donut.id)} alt="" width={64} height={64} draggable={false}
                         className="flex-shrink-0"
-                        style={{ width: 64, height: 64, objectFit: 'contain', display: 'block' }} />
+                        style={{
+                          width: 64, height: 64, objectFit: 'contain', display: 'block',
+                          filter: canAfford ? 'drop-shadow(0 3px 2px rgba(120,53,15,0.32))' : 'none',
+                        }} />
                       <div className="flex-1 min-w-0">
                         <p className="font-pixel mb-1" style={{ fontSize: 7, color: '#78350F', letterSpacing: 0.6, lineHeight: 1.3, textShadow: '0 1px 0 rgba(255,255,255,0.5)' }}>
                           {donut.name.toUpperCase()}
@@ -613,20 +629,42 @@ export default function BakeryPage() {
                         <p className="text-[10px] mb-1.5" style={{ color: '#7C2D12', opacity: 0.75, lineHeight: 1.25 }}>
                           {donut.desc}
                         </p>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 font-pixel"
-                            style={{
-                              background: canAfford ? 'linear-gradient(180deg, #78350F, #451A03)' : 'rgba(120,53,15,0.3)',
-                              border: `1px solid ${canAfford ? '#FBBF24' : 'rgba(120,53,15,0.4)'}`,
-                              borderRadius: 3, fontSize: 8, color: canAfford ? '#FDE68A' : '#7C2D12',
-                            }}>
-                            <IconCoin size={10} />
-                            {donut.price}
-                          </span>
+                        <div className="flex items-center gap-1 flex-wrap">
                           <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFE3C4', color: '#B4622A', border: '1px solid #F0B884' }}>HGR+{donut.hungerD}</span>
-                          <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFDCE8', color: '#C0407A', border: '1px solid #F5A8C4' }}>JOY+{donut.happyD}</span>
+                          {/* The joy he ACTUALLY gets: the feeding path scales it
+                              by taste, so the raw catalogue number would be wrong
+                              on every donut he loves or won't touch. */}
+                          <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFDCE8', color: '#C0407A', border: '1px solid #F5A8C4' }}>
+                            JOY+{Math.round(donut.happyD * TASTE_JOY[donut.taste])}
+                          </span>
+                          {/* What it DOES — the reason one donut is worth more
+                              than another was on every other donut surface but
+                              this one, which is the one you buy from. */}
+                          <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#E4F5DC', color: '#3E7A33', border: '1px solid #A8D598' }}>
+                            {donut.perk.label}
+                          </span>
                         </div>
                       </div>
+                      {/* Price as a pressable-looking plate on the right rather
+                          than a fourth chip in the pile: the whole row is the
+                          buy button, and nothing on it said so. */}
+                      <span className="flex-shrink-0 inline-flex flex-col items-center justify-center gap-0.5 font-pixel"
+                        style={{
+                          padding: '7px 8px', minWidth: 46,
+                          background: canAfford
+                            ? 'linear-gradient(180deg, #FCD34D 0%, #F59E0B 46%, #B45309 100%)'
+                            : 'rgba(120,53,15,0.22)',
+                          border: `2px solid ${canAfford ? '#7C2D12' : 'rgba(120,53,15,0.4)'}`,
+                          borderRadius: 5,
+                          boxShadow: canAfford ? '0 2px 0 #5A2408, inset 0 1px 0 rgba(255,255,255,0.5)' : 'none',
+                        }}>
+                        <span className="inline-flex items-center gap-1" style={{ fontSize: 9, color: canAfford ? '#3A1B02' : '#7C2D12' }}>
+                          <IconCoin size={10} />{donut.price}
+                        </span>
+                        <span style={{ fontSize: 5, letterSpacing: 0.8, color: canAfford ? '#5A2408' : '#7C2D12', opacity: 0.85 }}>
+                          {canAfford ? 'BUY' : 'BROKE'}
+                        </span>
+                      </span>
                     </button>
                   )
                 })}
