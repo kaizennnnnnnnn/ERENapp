@@ -38,6 +38,8 @@ import SkinUnlockCinematic from './SkinUnlockCinematic'
 import { DRINK_UNLOCK_SKINS, getSkin, type SkinDef } from '@/lib/skins'
 import { grantDrinkSkin, wearSkinEverywhere } from '@/lib/drinkUnlock'
 import PixelPoof from '@/components/PixelPoof'
+import FoodStatsCard, { type FoodStatItem } from '@/components/care/FoodStatsCard'
+import { useLongPress } from '@/hooks/useLongPress'
 import { IconClose, IconChevronLeft, IconChevronRight } from '@/components/PixelIcons'
 
 interface Props { onClose: () => void }
@@ -240,6 +242,13 @@ export default function FeedScene({ onClose }: Props) {
     if (typeof window !== 'undefined') return localStorage.getItem('eren_fridge_cat') || null
     return null
   })
+  // Which category the FRIDGE OVERLAY is currently looking inside. Separate
+  // from fridgeCat, which is what the bottom bar is carrying: opening a
+  // category to browse it shouldn't change what's in your hand until you pick
+  // something. null = the category list.
+  const [fridgeNav, setFridgeNav] = useState<string | null>(null)
+  // The food being inspected by a long press, from either the fridge or shop.
+  const [statsFor, setStatsFor] = useState<FoodStatItem | null>(null)
   const [foodIdx, setFoodIdx] = useState(0)
   const [buying, setBuying] = useState<string | null>(null)
   const [feeding, setFeeding] = useState<string | null>(null)
@@ -340,6 +349,15 @@ export default function FeedScene({ onClose }: Props) {
     SHOP_ITEMS.map(i => [i.id, (myPile[i.id] ?? 0) + (sharedPile[i.id] ?? 0)])
   ) as FoodInventory
   const fridgeItems = SHOP_ITEMS.filter(i => (inventory[i.id] ?? 0) > 0)
+
+  // What you actually own in a category, in the ONE order everything else
+  // agrees on: the fridge grid renders it, and foodIdx indexes into it, so
+  // picking the third tile has to land on the third food.
+  const ownedIn = (catId: string) =>
+    SHOP_ITEMS.filter(i => i.cat === catId && (inventory[i.id] ?? 0) > 0)
+
+  // Hold any food — in the fridge or on the shelf — to read its stats.
+  const hold = useLongPress<FoodStatItem>(setStatsFor)
 
   // Auto-pick a category if none saved or if saved one is now empty
   useEffect(() => {
@@ -787,15 +805,83 @@ export default function FeedScene({ onClose }: Props) {
         </div>
       </div>
 
-      {/* ══ FRIDGE CATEGORY PAGE — full screen overlay ══ */}
-      {tab === 'fridge' && (
+      {/* ══ FRIDGE — full screen overlay ══
+          Two phases, same shape as the shop drawer: fridgeNav=null → the
+          categories you own something in; fridgeNav=<id> → every food you own
+          in it. Picking a FOOD is what commits — the category list used to
+          commit on its own and drop you back at the first food in the row,
+          which meant arrowing through six things to reach the one you wanted. */}
+      {tab === 'fridge' && (() => {
+        const navCat = fridgeNav ? FRIDGE_CATEGORIES.find(c => c.id === fridgeNav) ?? null : null
+        const navItems = navCat ? ownedIn(navCat.id) : []
+        const closeFridge = () => { playSound('ui_modal_close'); setFridgeNav(null); setTab(null) }
+        return (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', animation: 'scrimIn 200ms ease-out' }}>
           <div className="w-full max-w-xs px-6" style={{ animation: 'modalPop 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both' }}>
-            <p className="font-pixel text-center mb-6" style={{ fontSize: 10, color: '#A8D8F8', letterSpacing: 2, textShadow: '0 0 8px rgba(168,216,248,0.5)' }}>
-              PICK A CATEGORY
-            </p>
 
+            {navCat ? (
+              <div className="flex items-center gap-2 mb-4">
+                <button onClick={() => { playSound('ui_back'); setFridgeNav(null) }}
+                  className="active:scale-90 transition-transform flex-shrink-0 flex items-center justify-center"
+                  style={{ width: 30, height: 30, background: 'rgba(255,255,255,0.12)', borderRadius: 8, border: '2px solid rgba(255,255,255,0.28)' }}
+                  aria-label="Back to categories">
+                  <IconChevronLeft size={14} tone="rgba(255,255,255,0.8)" />
+                </button>
+                <span className="font-pixel" style={{ fontSize: 10, color: navCat.color, letterSpacing: 2, textShadow: `0 0 8px ${navCat.color}66` }}>
+                  {navCat.label}
+                </span>
+              </div>
+            ) : (
+              <p className="font-pixel text-center mb-6" style={{ fontSize: 10, color: '#A8D8F8', letterSpacing: 2, textShadow: '0 0 8px rgba(168,216,248,0.5)' }}>
+                PICK A CATEGORY
+              </p>
+            )}
+
+            {navCat ? (
+              /* PHASE 2 — the foods you own here. Tap takes one to the tray;
+                 hold reads its stats. */
+              <div className="grid grid-cols-3 gap-2">
+                {navItems.map(item => {
+                  const qty = inventory[item.id] ?? 0
+                  return (
+                    <button key={item.id}
+                      {...hold.bind(item)}
+                      onClick={() => {
+                        if (hold.consumed()) return
+                        playSound('ui_tap')
+                        setFridgeCat(navCat.id)
+                        setFoodIdx(navItems.findIndex(i => i.id === item.id))
+                        localStorage.setItem('eren_fridge_cat', navCat.id)
+                        setFridgeNav(null)
+                        setTab(null)
+                      }}
+                      className="relative flex flex-col items-center px-1 pt-2 pb-1.5 active:scale-95 transition-transform"
+                      style={{
+                        background: `linear-gradient(135deg, ${item.color}22, ${item.color}0A)`,
+                        borderRadius: 8,
+                        border: `2px solid ${item.color}77`,
+                        boxShadow: `2px 2px 0 rgba(0,0,0,0.3)`,
+                      }}>
+                      <FoodIcon id={item.id} color={item.color} size={44} />
+                      <span className="font-pixel text-center" style={{
+                        fontSize: 5, lineHeight: 1.3, marginTop: 4,
+                        color: 'rgba(255,255,255,0.72)', letterSpacing: 0.3,
+                      }}>
+                        {item.name.toUpperCase()}
+                      </span>
+                      <span className="font-pixel absolute flex items-center justify-center" style={{
+                        top: -5, right: -5, minWidth: 17, height: 15, padding: '0 3px',
+                        background: item.color, color: inkOn(item.color),
+                        borderRadius: 8, fontSize: 6,
+                        border: '1.5px solid rgba(0,0,0,0.25)',
+                        boxShadow: '1px 1px 0 rgba(0,0,0,0.25)',
+                      }}>{qty}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            ) : (
             <div className="flex flex-col gap-3">
               {fridgeItems.length === 0 ? (
                 <div className="text-center">
@@ -810,12 +896,12 @@ export default function FeedScene({ onClose }: Props) {
                 </div>
               ) : (
                 FRIDGE_CATEGORIES.map(c => {
-                  const catItems = SHOP_ITEMS.filter(i => i.cat === c.id)
+                  const catItems = ownedIn(c.id)
                   const catCount = catItems.reduce((s, i) => s + (inventory[i.id] ?? 0), 0)
                   if (catCount === 0) return null
                   return (
                     <button key={c.id}
-                      onClick={() => { playSound('ui_tap'); setFridgeCat(c.id); setFoodIdx(0); localStorage.setItem('eren_fridge_cat', c.id); setTab(null) }}
+                      onClick={() => { playSound('ui_select'); setFridgeNav(c.id) }}
                       className="flex items-center gap-3 px-3 py-2.5 active:scale-95 transition-transform w-full"
                       style={{
                         background: `linear-gradient(135deg, ${c.color}20, ${c.color}08)`,
@@ -826,7 +912,7 @@ export default function FeedScene({ onClose }: Props) {
                       {/* Preview what's actually IN the fridge, at a size you can
                           read — three stocked foods from this category. */}
                       <div className="flex items-center gap-0.5 flex-shrink-0">
-                        {catItems.filter(i => (inventory[i.id] ?? 0) > 0).slice(0, 3).map(i => (
+                        {catItems.slice(0, 3).map(i => (
                           <FoodIcon key={i.id} id={i.id} color={i.color} size={40} />
                         ))}
                       </div>
@@ -840,10 +926,11 @@ export default function FeedScene({ onClose }: Props) {
                 })
               )}
             </div>
+            )}
 
             {/* Close — icon + label so it reads as a control, with a real tap
                 target instead of a thin 7px text strip. */}
-            <button onClick={() => { playSound('ui_modal_close'); setTab(null) }}
+            <button onClick={closeFridge}
               className="mt-6 mx-auto flex items-center gap-2 px-5 py-2.5 active:scale-95 transition-transform"
               style={{ background: 'rgba(255,255,255,0.12)', borderRadius: 10, border: '2px solid rgba(255,255,255,0.28)', boxShadow: '0 2px 0 rgba(0,0,0,0.35)' }}
               aria-label="Close the fridge">
@@ -852,7 +939,8 @@ export default function FeedScene({ onClose }: Props) {
             </button>
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* ══ SLIDE-UP DRAWER — shop ══ */}
       {/* Two phases: shopCat=null → category picker; shopCat=<id> → items in
@@ -957,7 +1045,8 @@ export default function FeedScene({ onClose }: Props) {
                   const buff = monstaBuff(item.id)
                   const special = SPECIAL_CAN[item.id]
                   return (
-                    <div key={item.id} className={cn('relative flex flex-col items-center px-2.5 pt-2.5 pb-2.5 transition-all', !canAfford && 'opacity-55', special && `${special}-card`)}
+                    <div key={item.id} {...hold.bind(item)}
+                      className={cn('relative flex flex-col items-center px-2.5 pt-2.5 pb-2.5 transition-all', !canAfford && 'opacity-55', special && `${special}-card`)}
                       /* One flat wash instead of a gradient, and a lighter
                          border. The food colour used to appear five times on
                          one card — gradient, border, shadow, plate, button —
@@ -1001,7 +1090,7 @@ export default function FeedScene({ onClose }: Props) {
                       </div>
                       {/* Label colour is derived, not fixed: most food colours
                           are pale tints that white text vanishes into. */}
-                      <button onClick={() => { playSound('ui_tap'); handleBuy(item) }} disabled={!canAfford || buying === item.id}
+                      <button onClick={() => { if (hold.consumed()) return; playSound('ui_tap'); handleBuy(item) }} disabled={!canAfford || buying === item.id}
                         className="w-full py-2 transition-all active:translate-y-[1px] disabled:opacity-40 mt-auto"
                         style={{ background: btnBg, color: inkOn(btnBg), borderRadius: 5, border: `1px solid ${canAfford ? 'rgba(0,0,0,0.15)' : '#bbb'}`, boxShadow: canAfford ? `0 2px 0 rgba(0,0,0,0.18)` : 'none', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                         {buying === item.id ? '...' : canAfford ? 'BUY' : 'BROKE'}
@@ -1015,6 +1104,16 @@ export default function FeedScene({ onClose }: Props) {
         </div>
         )
       })()}
+
+      {/* ══ FOOD STATS ══ what a held food actually does. Above both the fridge
+          overlay (50) and the shop drawer (40) — you can open it from either. */}
+      {statsFor && (
+        <FoodStatsCard
+          item={statsFor}
+          owned={inventory[statsFor.id] ?? 0}
+          onClose={() => setStatsFor(null)}
+        />
+      )}
 
       <style jsx>{`
         /* ── Rainbow Monsta ────────────────────────────────────────────────
