@@ -59,6 +59,8 @@ import ErenSpeechBubble from '@/components/wish/ErenSpeechBubble'
 import { useFlavorBubble } from '@/hooks/useFlavorBubble'
 import { useCatchupGate } from '@/hooks/useCatchupGate'
 import CatchupCarousel from '@/components/memory/CatchupCarousel'
+import TodaysMenu from '@/components/wish/TodaysMenu'
+import { useFoodMenu } from '@/hooks/useFoodMenu'
 import { usePageReady } from '@/hooks/usePageReady'
 
 interface XpParticle {
@@ -84,6 +86,8 @@ export default function HomePage() {
   const newSkinCount = useNewSkins(inventory, invLoaded)
   const isDark = useIsDark()
   const wish = useWish()
+  // Today's three foods. Owns its own payout — see useFoodMenu.
+  const foodMenu = useFoodMenu(profile?.household_id)
   // Idle look for the living room — a Closet skin or the classic erenGood.
   const homeEren = useRoomEren('home', HOME_EREN_FALLBACK)
 
@@ -772,6 +776,17 @@ export default function HomePage() {
 
           {/* "We Cared" co-op goal — sits directly under the nav-button row */}
           <CoopGoalBar />
+
+          {/* Today's three foods. Sits under the co-op bar so the HUD reads
+              top-to-bottom as quests -> shared goal -> what he wants to eat. */}
+          <div className="mt-1.5">
+            <TodaysMenu
+              menu={foodMenu.menu}
+              progress={foodMenu.progress}
+              complete={foodMenu.complete}
+              reward={foodMenu.reward}
+            />
+          </div>
         </div>
 
         {/* Dot indicators — only visible during swipe / scene transition */}

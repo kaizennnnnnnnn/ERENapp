@@ -21,6 +21,13 @@ import type { FoodKey } from '@/types'
 // pays you back). Neither strictly dominates the other, so both stay worth
 // chasing.
 
+/**
+ * A perk a food carries on top of its own hunger/joy.
+ *
+ * Named for the cans because they were the first to have one, but the donut
+ * case uses the same shape (see lib/donuts.ts) so `feedWithFood` has exactly
+ * one perk path to apply rather than two that can drift.
+ */
 export interface MonstaBuff {
   /** Short line for the shop chip and the feeding toast. */
   label: string
@@ -29,6 +36,13 @@ export interface MonstaBuff {
   hunger?: number
   sleep_quality?: number
   cleanliness?: number
+  /**
+   * Sets the energy bar outright — this is the cans' family trait, not a delta.
+   * MUST stay explicit: feedWithFood used to read "has a buff at all" as "fill
+   * the energy bar", so the moment a second food family carried a perk, a
+   * 14-coin donut refuelled him like a 100-coin can.
+   */
+  energy?: number
   /** Negative slims him down. */
   weight?: number
   /** Clears is_sick. */
@@ -79,11 +93,16 @@ const MONSTA_GOLD_BUFF: MonstaBuff = {
   happiness: 60,
 }
 
-export const MONSTA_BUFFS: Partial<Record<FoodKey, MonstaBuff>> = {
-  ...FLAVOURS,
-  monsta_rainbow: everyBuff(),
-  monsta_gold: MONSTA_GOLD_BUFF,
-}
+// Every can fills the energy bar, so that's stamped on centrally rather than
+// repeated on each flavour — one place to be right, and no flavour can be
+// added that quietly forgets the family trait.
+export const MONSTA_BUFFS: Partial<Record<FoodKey, MonstaBuff>> = Object.fromEntries(
+  Object.entries({
+    ...FLAVOURS,
+    monsta_rainbow: everyBuff(),
+    monsta_gold: MONSTA_GOLD_BUFF,
+  }).map(([id, buff]) => [id, { ...buff, energy: MONSTA_ENERGY }]),
+)
 
 /** The buff a food grants, or undefined if it's an ordinary dish. */
 export const monstaBuff = (id: string): MonstaBuff | undefined =>

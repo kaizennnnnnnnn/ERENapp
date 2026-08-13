@@ -1,4 +1,5 @@
 import type { DonutKey } from '@/types'
+import type { MonstaBuff } from './monstaBuffs'
 import { hashString, mulberry32, shuffled } from './seededRng'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -19,6 +20,25 @@ import { hashString, mulberry32, shuffled } from './seededRng'
 // (see the happyD rule at the top of FeedScene's SHOP_ITEMS).
 // ═══════════════════════════════════════════════════════════════════════════
 
+/**
+ * What Eren makes of a given donut.
+ *
+ * The point of 27 donuts is not 27 slightly different numbers — it's that he
+ * has opinions. A `loves` donut is worth hunting down; a `meh` one he eats
+ * because it's there and then complains about it.
+ */
+export type DonutTaste = 'loves' | 'likes' | 'meh'
+
+/** Joy multiplier per taste. Applied to the donut's own happyD, not the perk. */
+export const TASTE_JOY: Record<DonutTaste, number> = { loves: 2, likes: 1, meh: 0.5 }
+
+/** What he says about it, shown on the feeding toast. */
+export const TASTE_LINE: Record<DonutTaste, string> = {
+  loves: 'HE LOVES THIS ONE',
+  likes: '',
+  meh:   'he ate it. reluctantly.',
+}
+
 export interface DonutDef {
   id: DonutKey
   name: string
@@ -32,45 +52,83 @@ export interface DonutDef {
   /** Swatch colour — the bowl, crumbs and buy button take it. Sampled off the glaze. */
   color: string
   source: 'kitchen' | 'bakery' | 'gacha'
+  /**
+   * The one thing this donut DOES, on top of its hunger/joy — same shape and
+   * same code path as the Monsta cans' perks, minus `energy`, which stays the
+   * cans' family trait.
+   *
+   * Coin perks must stay UNDER the donut's own price (and under SPIN_COST for
+   * anything the machine can drop), or the case becomes a money printer and
+   * coins are what buy gacha pulls.
+   */
+  perk: MonstaBuff
+  taste: DonutTaste
 }
 
 export const DONUTS: DonutDef[] = [
   // ── Kitchen shelf ────────────────────────────────────────────────────────
   // `donut` predates the rest of this list (Phase 3 wishes ask for it by that
   // id, so it keeps the bare name) and is simply the pink one.
-  { id: 'donut',        name: 'Donut',        price: 14, hungerD: 12, happyD: 22, weightD: 0.04, desc: 'Pink & sprinkled',      color: '#FF8FB0', source: 'kitchen' },
-  { id: 'donut_choco',  name: 'Choco Donut',  price: 16, hungerD: 13, happyD: 24, weightD: 0.05, desc: 'Cocoa & rainbow bits',  color: '#6B3F2A', source: 'kitchen' },
+  { id: 'donut',        name: 'Donut',        price: 14, hungerD: 12, happyD: 22, weightD: 0.04, desc: 'Pink & sprinkled',      color: '#FF8FB0', source: 'kitchen' ,
+    perk: { label: 'JOY +10',        happiness: 10 }, taste: 'loves' },
+  { id: 'donut_choco',  name: 'Choco Donut',  price: 16, hungerD: 13, happyD: 24, weightD: 0.05, desc: 'Cocoa & rainbow bits',  color: '#6B3F2A', source: 'kitchen' ,
+    perk: { label: 'HUNGER +12',     hunger: 12 }, taste: 'likes' },
 
   // ── Bakery case ──────────────────────────────────────────────────────────
-  { id: 'donut_vanilla',      name: 'Vanilla Sprinkle', price: 22, hungerD: 12, happyD: 26, weightD: 0.04, desc: 'Snow glaze, confetti',   color: '#F2E6D6', source: 'bakery' },
-  { id: 'donut_honey',        name: 'Honey Glazed',     price: 20, hungerD: 14, happyD: 24, weightD: 0.05, desc: 'The classic sugar shell', color: '#D9A05B', source: 'bakery' },
-  { id: 'donut_caramel',      name: 'Salted Caramel',   price: 26, hungerD: 14, happyD: 28, weightD: 0.05, desc: 'Toffee & sea salt',      color: '#B5651D', source: 'bakery' },
-  { id: 'donut_mint',         name: 'Mint Choc Chip',   price: 26, hungerD: 12, happyD: 28, weightD: 0.04, desc: 'Cool mint, dark chips',  color: '#8FD9BE', source: 'bakery' },
-  { id: 'donut_matcha',       name: 'Matcha',           price: 28, hungerD: 12, happyD: 28, weightD: 0.04, desc: 'Stone-ground tea glaze', color: '#8FB93A', source: 'bakery' },
-  { id: 'donut_blueberry',    name: 'Blueberry',        price: 26, hungerD: 13, happyD: 27, weightD: 0.05, desc: 'Berries in the icing',   color: '#8E92D6', source: 'bakery' },
-  { id: 'donut_red_velvet',   name: 'Red Velvet',       price: 30, hungerD: 14, happyD: 30, weightD: 0.06, desc: 'Cream cheese crown',     color: '#B02036', source: 'bakery' },
-  { id: 'donut_mocha',        name: 'Mocha Bean',       price: 28, hungerD: 13, happyD: 28, weightD: 0.05, desc: 'Coffee beans & drizzle', color: '#C9A77C', source: 'bakery' },
-  { id: 'donut_lattice',      name: 'Berry Lattice',    price: 30, hungerD: 15, happyD: 29, weightD: 0.06, desc: 'Pie crust woven on top', color: '#6B4C9A', source: 'bakery' },
-  { id: 'donut_sakura',       name: 'Sakura',           price: 32, hungerD: 12, happyD: 32, weightD: 0.04, desc: 'Cherry blossom petals',  color: '#F5A7C0', source: 'bakery' },
-  { id: 'donut_hibiscus',     name: 'Hibiscus',         price: 32, hungerD: 12, happyD: 32, weightD: 0.04, desc: 'Dragonfruit & a flower', color: '#E5187F', source: 'bakery' },
-  { id: 'donut_black_forest', name: 'Black Forest',     price: 34, hungerD: 15, happyD: 32, weightD: 0.07, desc: 'Cocoa, cream, cherries', color: '#4A2C22', source: 'bakery' },
-  { id: 'donut_ube',          name: 'Ube',              price: 26, hungerD: 12, happyD: 27, weightD: 0.04, desc: 'Purple yam glaze',       color: '#9B4FD0', source: 'bakery' },
-  { id: 'donut_maple_bacon',  name: 'Maple Bacon',      price: 30, hungerD: 18, happyD: 26, weightD: 0.07, desc: 'Sweet, salty, wrong',    color: '#A9662F', source: 'bakery' },
-  { id: 'donut_mochi',        name: 'Mochi Ring',       price: 28, hungerD: 13, happyD: 30, weightD: 0.05, desc: 'Eight chewy beads',      color: '#EBD9C4', source: 'bakery' },
-  { id: 'donut_sesame',       name: 'Black Sesame',     price: 30, hungerD: 13, happyD: 28, weightD: 0.05, desc: 'Charcoal & toasted seed', color: '#3A3A3A', source: 'bakery' },
-  { id: 'donut_gold_leaf',    name: 'Gold Leaf',        price: 40, hungerD: 14, happyD: 34, weightD: 0.06, desc: 'Actual gold, on cocoa',  color: '#4A3018', source: 'bakery' },
-  { id: 'donut_pizza',        name: 'Pizza Donut',      price: 30, hungerD: 22, happyD: 22, weightD: 0.08, desc: 'Yes. Really.',           color: '#E8901E', source: 'bakery' },
-  { id: 'donut_lavender',     name: 'Lavender',         price: 28, hungerD: 12, happyD: 28, weightD: 0.04, desc: 'Honey drizzle, berries', color: '#B98BE0', source: 'bakery' },
-  { id: 'donut_biscoff',      name: 'Biscoff',          price: 30, hungerD: 15, happyD: 29, weightD: 0.06, desc: 'Spiced biscuit spread',  color: '#B5793F', source: 'bakery' },
-  { id: 'donut_pistachio',    name: 'Pistachio',        price: 32, hungerD: 13, happyD: 30, weightD: 0.05, desc: 'Nutty green crumble',    color: '#A8BE72', source: 'bakery' },
-  { id: 'donut_white_choc',   name: 'White Chocolate',  price: 30, hungerD: 13, happyD: 29, weightD: 0.05, desc: 'Curls of white choc',    color: '#E8DCC8', source: 'bakery' },
+  { id: 'donut_vanilla',      name: 'Vanilla Sprinkle', price: 22, hungerD: 12, happyD: 26, weightD: 0.04, desc: 'Snow glaze, confetti',   color: '#F2E6D6', source: 'bakery' ,
+    perk: { label: 'JOY +18',        happiness: 18 }, taste: 'likes' },
+  { id: 'donut_honey',        name: 'Honey Glazed',     price: 20, hungerD: 14, happyD: 24, weightD: 0.05, desc: 'The classic sugar shell', color: '#D9A05B', source: 'bakery' ,
+    perk: { label: 'HUNGER +20',     hunger: 20 }, taste: 'likes' },
+  { id: 'donut_caramel',      name: 'Salted Caramel',   price: 26, hungerD: 14, happyD: 28, weightD: 0.05, desc: 'Toffee & sea salt',      color: '#B5651D', source: 'bakery' ,
+    perk: { label: '+18 COINS',      coins: 18 }, taste: 'loves' },
+  { id: 'donut_mint',         name: 'Mint Choc Chip',   price: 26, hungerD: 12, happyD: 28, weightD: 0.04, desc: 'Cool mint, dark chips',  color: '#8FD9BE', source: 'bakery' ,
+    perk: { label: 'CLEAN +28',      cleanliness: 28 }, taste: 'likes' },
+  { id: 'donut_matcha',       name: 'Matcha',           price: 28, hungerD: 12, happyD: 28, weightD: 0.04, desc: 'Stone-ground tea glaze', color: '#8FB93A', source: 'bakery' ,
+    perk: { label: 'SLEEP +30',      sleep_quality: 30 }, taste: 'meh' },
+  { id: 'donut_blueberry',    name: 'Blueberry',        price: 26, hungerD: 13, happyD: 27, weightD: 0.05, desc: 'Berries in the icing',   color: '#8E92D6', source: 'bakery' ,
+    perk: { label: 'JOY +24',        happiness: 24 }, taste: 'likes' },
+  { id: 'donut_red_velvet',   name: 'Red Velvet',       price: 30, hungerD: 14, happyD: 30, weightD: 0.06, desc: 'Cream cheese crown',     color: '#B02036', source: 'bakery' ,
+    perk: { label: 'JOY +30',        happiness: 30 }, taste: 'loves' },
+  { id: 'donut_mocha',        name: 'Mocha Bean',       price: 28, hungerD: 13, happyD: 28, weightD: 0.05, desc: 'Coffee beans & drizzle', color: '#C9A77C', source: 'bakery' ,
+    perk: { label: 'HUNGER +25',     hunger: 25 }, taste: 'likes' },
+  { id: 'donut_lattice',      name: 'Berry Lattice',    price: 30, hungerD: 15, happyD: 29, weightD: 0.06, desc: 'Pie crust woven on top', color: '#6B4C9A', source: 'bakery' ,
+    perk: { label: 'CURES SICKNESS', cure: true }, taste: 'likes' },
+  { id: 'donut_sakura',       name: 'Sakura',           price: 32, hungerD: 12, happyD: 32, weightD: 0.04, desc: 'Cherry blossom petals',  color: '#F5A7C0', source: 'bakery' ,
+    perk: { label: 'JOY+20 SLEEP+20', happiness: 20, sleep_quality: 20 }, taste: 'loves' },
+  { id: 'donut_hibiscus',     name: 'Hibiscus',         price: 32, hungerD: 12, happyD: 32, weightD: 0.04, desc: 'Dragonfruit & a flower', color: '#E5187F', source: 'bakery' ,
+    perk: { label: 'CURES SICKNESS', cure: true }, taste: 'likes' },
+  { id: 'donut_black_forest', name: 'Black Forest',     price: 34, hungerD: 15, happyD: 32, weightD: 0.07, desc: 'Cocoa, cream, cherries', color: '#4A2C22', source: 'bakery' ,
+    perk: { label: 'JOY +34',        happiness: 34 }, taste: 'likes' },
+  { id: 'donut_ube',          name: 'Ube',              price: 26, hungerD: 12, happyD: 27, weightD: 0.04, desc: 'Purple yam glaze',       color: '#9B4FD0', source: 'bakery' ,
+    perk: { label: 'JOY +26',        happiness: 26 }, taste: 'likes' },
+  { id: 'donut_maple_bacon',  name: 'Maple Bacon',      price: 30, hungerD: 18, happyD: 26, weightD: 0.07, desc: 'Sweet, salty, wrong',    color: '#A9662F', source: 'bakery' ,
+    perk: { label: 'HUNGER +35',     hunger: 35 }, taste: 'loves' },
+  { id: 'donut_mochi',        name: 'Mochi Ring',       price: 28, hungerD: 13, happyD: 30, weightD: 0.05, desc: 'Eight chewy beads',      color: '#EBD9C4', source: 'bakery' ,
+    perk: { label: '-0.20 KG',       weight: -0.2 }, taste: 'likes' },
+  { id: 'donut_sesame',       name: 'Black Sesame',     price: 30, hungerD: 13, happyD: 28, weightD: 0.05, desc: 'Charcoal & toasted seed', color: '#3A3A3A', source: 'bakery' ,
+    perk: { label: 'SLEEP +26',      sleep_quality: 26 }, taste: 'meh' },
+  { id: 'donut_gold_leaf',    name: 'Gold Leaf',        price: 40, hungerD: 14, happyD: 34, weightD: 0.06, desc: 'Actual gold, on cocoa',  color: '#4A3018', source: 'bakery' ,
+    perk: { label: '+35 COINS',      coins: 35 }, taste: 'likes' },
+  { id: 'donut_pizza',        name: 'Pizza Donut',      price: 30, hungerD: 22, happyD: 22, weightD: 0.08, desc: 'Yes. Really.',           color: '#E8901E', source: 'bakery' ,
+    perk: { label: 'HUNGER +45',     hunger: 45 }, taste: 'meh' },
+  { id: 'donut_lavender',     name: 'Lavender',         price: 28, hungerD: 12, happyD: 28, weightD: 0.04, desc: 'Honey drizzle, berries', color: '#B98BE0', source: 'bakery' ,
+    perk: { label: 'SLEEP +28',      sleep_quality: 28 }, taste: 'likes' },
+  { id: 'donut_biscoff',      name: 'Biscoff',          price: 30, hungerD: 15, happyD: 29, weightD: 0.06, desc: 'Spiced biscuit spread',  color: '#B5793F', source: 'bakery' ,
+    perk: { label: '+22 COINS',      coins: 22 }, taste: 'likes' },
+  { id: 'donut_pistachio',    name: 'Pistachio',        price: 32, hungerD: 13, happyD: 30, weightD: 0.05, desc: 'Nutty green crumble',    color: '#A8BE72', source: 'bakery' ,
+    perk: { label: '-0.15 KG',       weight: -0.15 }, taste: 'likes' },
+  { id: 'donut_white_choc',   name: 'White Chocolate',  price: 30, hungerD: 13, happyD: 29, weightD: 0.05, desc: 'Curls of white choc',    color: '#E8DCC8', source: 'bakery' ,
+    perk: { label: 'CLEAN +24',      cleanliness: 24 }, taste: 'likes' },
 
   // ── Gacha exclusives ─────────────────────────────────────────────────────
   // Priced like the fanciest bakery stock so the collection screen has a number
   // to show, but nothing sells them — see `source` above.
-  { id: 'donut_tiger',  name: 'Tiger Tail',  price: 45, hungerD: 16, happyD: 30, weightD: 0.05, desc: 'Twisted. Not even a ring.', color: '#E8891E', source: 'gacha' },
-  { id: 'donut_arcade', name: 'Arcade',      price: 60, hungerD: 14, happyD: 38, weightD: 0.05, desc: 'Covered in stickers',       color: '#E31E5A', source: 'gacha' },
-  { id: 'donut_neon',   name: 'Neon Slime',  price: 60, hungerD: 14, happyD: 40, weightD: 0.05, desc: 'It glows. Probably fine.',  color: '#5BE81E', source: 'gacha' },
+  { id: 'donut_tiger',  name: 'Tiger Tail',  price: 45, hungerD: 16, happyD: 30, weightD: 0.05, desc: 'Twisted. Not even a ring.', color: '#E8891E', source: 'gacha' ,
+    perk: { label: 'JOY+25 HUNGER+25', happiness: 25, hunger: 25 }, taste: 'loves' },
+  { id: 'donut_arcade', name: 'Arcade',      price: 60, hungerD: 14, happyD: 38, weightD: 0.05, desc: 'Covered in stickers',       color: '#E31E5A', source: 'gacha' ,
+    perk: { label: 'JOY +45',        happiness: 45 }, taste: 'loves' },
+  { id: 'donut_neon',   name: 'Neon Slime',  price: 60, hungerD: 14, happyD: 40, weightD: 0.05, desc: 'It glows. Probably fine.',  color: '#5BE81E', source: 'gacha' ,
+    perk: { label: 'JOY+40 CLEAN+30', happiness: 40, cleanliness: 30 }, taste: 'likes' },
 ]
 
 /** Buyable at the bakery — everything the machine doesn't hold exclusive. */

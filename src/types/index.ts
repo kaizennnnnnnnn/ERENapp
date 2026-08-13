@@ -192,6 +192,14 @@ export interface ErenStats {
   // Shared between partners and realtime-synced. Absent / missing key = the
   // room shows its built-in default look.
   room_skins?: Record<string, string> | null
+  // Every donut id Eren has actually been fed, household-wide. The donut case
+  // in the bakery reads this to mark what he's tasted. Household rather than
+  // per-user on purpose: it's the CAT's palate, not a personal checklist.
+  donuts_tasted?: string[] | null
+  // Today's 3-food menu: which of it has been fed, and whether it's been paid
+  // out. Shared rather than per-user so feeding the salmon on one phone ticks
+  // it on the other. Replaced wholesale when the day rolls over.
+  menu_state?: { day: string; done: string[]; claimed_at: string | null } | null
 }
 
 export type FoodKey = 'kibble' | 'fish' | 'treat' | 'tuna' | 'steak' | 'cream' | 'biscuit' | 'shrimp' | 'salmon' | 'chicken' | 'sausage' | 'milk' | 'cheese' | 'yogurt' | 'cake' | 'sushi' | 'sardine' | 'egg' | 'cookie' | 'jelly_caka'

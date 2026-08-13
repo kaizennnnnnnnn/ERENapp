@@ -52,6 +52,7 @@ export default function DonutMachine({ free, busy, onTap }: Props) {
           {/* Everything in the globe is clipped to the globe, so a donut can
               never hang over the glass edge the way a plain stack would. */}
           <clipPath id="dmGlobe"><circle cx="24" cy="18" r="14" /></clipPath>
+          <clipPath id="dmChute"><rect x="21" y="49" width="15" height="8" /></clipPath>
         </defs>
 
         {/* Contact shadow — a hard slab, no blur, so it reads as pixel art
@@ -92,7 +93,9 @@ export default function DonutMachine({ free, busy, onTap }: Props) {
         <rect x="39" y="34" width="2"  height="26" fill="#9E3A5E" />
 
         {/* Faceplate decal. Small type on purpose — at the size this renders in
-            the room the word is texture, and a big one swallowed the machine. */}
+            the room the word is texture, and a big one swallowed the machine.
+            The pink stripe under it echoes the shop's wainscot so the cabinet
+            looks like it was bought for this room rather than dropped into it. */}
         <rect x="12" y="37" width="24" height="8" fill="#FCE9D6" />
         <rect x="12" y="37" width="24" height="1" fill="#FFFFFF" />
         <rect x="12" y="44" width="24" height="1" fill="#C39C7E" />
@@ -100,14 +103,26 @@ export default function DonutMachine({ free, busy, onTap }: Props) {
           style={{ font: '600 4px "Press Start 2P", monospace' }}>
           DONUT
         </text>
+        <rect x="9"  y="46" width="30" height="1" fill="#F191B2" opacity="0.6" />
 
-        {/* Crank left, delivery chute right */}
+        {/* Crank left, delivery chute right. The chute gets a lip and a shadow
+            so it reads as an opening you'd reach into, not a painted rectangle. */}
         <circle cx="13" cy="52" r="4" fill="#96682A" />
         <circle cx="13" cy="52" r="4" fill="none" stroke="#FBD98A" strokeWidth="1" />
         <rect x="12" y="49" width="2" height="4" fill="#FBD98A" />
-        <rect x="20" y="48" width="17" height="9" fill="#7C2B47" />
-        <rect x="21" y="49" width="15" height="7" fill="#2A1119" />
-        <rect x="21" y="49" width="15" height="1" fill="#1A0A10" />
+        <rect x="11" y="51" width="4" height="2" fill="#E0A73C" />
+        <rect x="20" y="48" width="17" height="10" fill="#7C2B47" />
+        <rect x="21" y="49" width="15" height="8"  fill="#2A1119" />
+        <rect x="21" y="49" width="15" height="2"  fill="#150810" />
+        <rect x="20" y="57" width="17" height="1"  fill="#E87BA0" />
+
+        {/* A donut waiting in the chute — the machine is loaded, and you can
+            see it is. Kept dark-edged so it doesn't fight the globe for
+            attention at the size this renders. */}
+        <g clipPath="url(#dmChute)">
+          <image href={foodArt(DOME_DONUTS[0]?.id ?? 'donut')} x="24" y="49" width="9" height="9"
+            preserveAspectRatio="xMidYMid meet" opacity="0.85" />
+        </g>
 
         {/* Bulb on top — pulses so the machine looks powered on */}
         <rect x="22" y="1" width="4" height="3" fill="#F0B84A"

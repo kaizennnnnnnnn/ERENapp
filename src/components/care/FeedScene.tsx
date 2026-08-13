@@ -28,7 +28,9 @@ import { FoodBowl, Crumbs, Hearts } from '@/components/care/ReactionFx'
 import KitchenNavButton from '@/components/kitchen/KitchenNavButton'
 import ChewingEren, { EAT_NOSE_X, pickEatPose, preloadEatPoses } from '@/components/care/ChewingEren'
 import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
-import { DONUTS, KITCHEN_DONUTS } from '@/lib/donuts'
+import { DONUTS, getDonut, KITCHEN_DONUTS, TASTE_JOY, TASTE_LINE } from '@/lib/donuts'
+import { dailyMenu } from '@/lib/foodMenu'
+import { todayKey } from '@/lib/seededRng'
 import { monstaBuff } from '@/lib/monstaBuffs'
 import CanAura, { type CanVariant } from './CanAura'
 import CanFeedBurst from './CanFeedBurst'
@@ -141,8 +143,15 @@ const SHOP_ITEMS = [
 // Everything is on sale except the donuts you're supposed to earn elsewhere:
 // the bakery's rotating case and the three gacha exclusives are in SHOP_ITEMS
 // only so they render in your fridge once you own one.
+//
+// Keyed on the CATALOGUE, never on the category. This filter used to read
+// `cat !== 'donuts'`, and the moment the donuts were folded into SWEETS that
+// stopped matching anything and quietly put all 27 on the shelf. An id is the
+// thing that actually identifies a donut; a category is a display grouping and
+// is free to be renamed.
+const ALL_DONUT_IDS: ReadonlySet<string> = new Set(DONUTS.map(d => d.id))
 const KITCHEN_SHELF: ReadonlySet<string> = new Set(KITCHEN_DONUTS.map(d => d.id))
-const SHELF_ITEMS = SHOP_ITEMS.filter(i => i.cat !== 'donuts' || KITCHEN_SHELF.has(i.id))
+const SHELF_ITEMS = SHOP_ITEMS.filter(i => !ALL_DONUT_IDS.has(i.id) || KITCHEN_SHELF.has(i.id))
 
 // Foods Eren LAPS instead of chews. Feeding one of these swaps the chewing
 // sample for the drinking one, so a bowl of milk doesn't crunch. Every Monsta
@@ -216,7 +225,7 @@ const FEED_EREN_FALLBACK = {
 
 export default function FeedScene({ onClose }: Props) {
   const { user, profile } = useAuth()
-  const { stats, feedWithFood, addToMyFood, consumeMyFood } = useErenStats(profile?.household_id ?? null)
+  const { stats, feedWithFood, addToMyFood, consumeMyFood, markDonutTasted, noteMenuFed } = useErenStats(profile?.household_id ?? null)
   const { completeTask, coins, spendCoins, addCoins } = useTasks()
   const isDark = useIsDark()
   const wish = useWish()
@@ -526,12 +535,32 @@ export default function FeedScene({ onClose }: Props) {
     // snapshot as the stock check above, so it can't disagree with it.
     void consumeMyFood(user.id, item.id)
     // A can refills the energy bar and lands its own perk on top of the food's
-    // hunger/joy. Coins are the one perk eren_stats can't hold, so they're paid
-    // here — after the stat write, so a failed feed doesn't mint them.
-    const buff = monstaBuff(item.id)
-    const result = await feedWithFood(user.id, item.hungerD, item.happyD, item.weightD, buff)
+    // hunger/joy; a donut lands its perk WITHOUT the refuel (see MonstaBuff's
+    // `energy` field). Coins are the one perk eren_stats can't hold, so they're
+    // paid here — after the stat write, so a failed feed doesn't mint them.
+    //
+    // Taste scales the donut's OWN joy, never the perk: a donut he loves is
+    // twice as nice to eat, but Gold Leaf still pays exactly 35 coins whether
+    // he enjoyed it or not.
+    const donut = getDonut(item.id)
+    const buff = monstaBuff(item.id) ?? donut?.perk
+    const joy = donut ? Math.round(item.happyD * TASTE_JOY[donut.taste]) : item.happyD
+    const result = await feedWithFood(user.id, item.hungerD, joy, item.weightD, buff)
     if (result.success && buff?.coins) void addCoins(buff.coins)
-    showToast(buff && result.success ? `ENERGY FULL · ${buff.label}` : result.message, result.success)
+    // He's tasted it now — that's what fills in the bakery's donut case.
+    if (result.success && donut) void markDonutTasted(donut.id)
+    // ...and it may have been one of the three he asked for today. Computed in
+    // the handler rather than during render so the clock is never read while
+    // hydrating; noteMenuFed ignores anything not on today's menu.
+    if (result.success) {
+      const day = todayKey(new Date())
+      noteMenuFed(day, item.id, dailyMenu(day, profile?.household_id ?? null))
+    }
+    const headline = !result.success ? null
+      : buff?.energy != null ? `ENERGY FULL · ${buff.label}`
+      : donut ? [TASTE_LINE[donut.taste], buff?.label].filter(Boolean).join(' · ')
+      : null
+    showToast(headline || result.message, result.success)
     setFeeding(null)
     if (result.success) completeTask('daily_feed')
 
