@@ -10,11 +10,16 @@ import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useGameTimers } from '@/hooks/useGameTimers'
 import { useVisibilityPause } from '@/hooks/useVisibilityPause'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
+import { useErenIdle } from '@/hooks/useErenIdle'
 import GameCoinReward from '@/components/games/GameCoinReward'
-import { ChevronLeft, RefreshCw } from 'lucide-react'
+import TreatTumbleWorld, { GROUND_H, FLOOR_OFFSET } from '@/components/games/TreatTumbleScenery'
+import TreatTumbleEren, { type TumblePose } from '@/components/games/TreatTumbleEren'
 import {
-  IconMeat, IconFish, IconHeart, IconStar, IconCrown, IconBook,
-} from '@/components/PixelIcons'
+  ITEMS, pickKind, fallDriftX, type ItemKind,
+  KibbleIcon, CookieIcon, MilkIcon, CreamIcon, SpiderIcon, BombIcon, KnifeIcon, TrapIcon, SkullIcon,
+} from '@/components/games/TreatTumbleItems'
+import { ChevronLeft, RefreshCw } from 'lucide-react'
+import { IconMeat, IconFish, IconHeart, IconStar, IconCrown } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import { fireMinigameDone } from '@/lib/minigames'
 
@@ -24,394 +29,59 @@ const START_LIVES   = 3
 const MAX_LIVES     = 5
 const START_SPAWN_MS = 760
 const MIN_SPAWN_MS   = 170
-const SPAWN_RAMP_PER_SEC = 24          // was 18 — even steeper
-const ITEM_BASE_SPEED = 175             // was 160
-const ITEM_SPEED_PER_SEC = 12           // was 8 — climbs faster
+const SPAWN_RAMP_PER_SEC = 24
+const ITEM_BASE_SPEED = 175
+const ITEM_SPEED_PER_SEC = 12
 const EREN_WIDTH  = 72
 const ITEM_SIZE   = 34
+/** Eren's feet, measured from the bottom of the screen. Puts him on the rug. */
+const EREN_BOTTOM = GROUND_H - 34
 
-type ItemKind = 'kibble' | 'fish' | 'cream' | 'golden' | 'heart' | 'cookie' | 'milk'
-  | 'bomb' | 'spider' | 'knife' | 'trap' | 'skull'
+// ── Combo ────────────────────────────────────────────────────────────────────
+// The multiplier used to be invisible below x2, so five catches in a row felt
+// like nothing at all and breaking a streak you never knew you had felt like a
+// bug. It is on screen from the first catch now.
+const TIER_2 = 5
+const TIER_3 = 10
+const PIPS = 5
+/** At x3 Eren's reach widens by this much each side. The streak buys a real
+ *  mechanical advantage, not just a bigger number — and the ring that appears
+ *  around him is the honest drawing of it. */
+const CATCH_BONUS = 15
 
-interface ItemMeta {
-  label: string
-  points: number
-  life: number
-  rarity: number   // weight
-  Icon: React.FC<{ size?: number }>
-  tint: string
-  danger: boolean
-}
+const multFor = (combo: number) => (combo >= TIER_3 ? 3 : combo >= TIER_2 ? 2 : 1)
+/** How far from Eren's centre an item's centre can be and still be caught.
+ *  The loop and the ring that advertises it both read this, so the drawing
+ *  cannot drift away from the hitbox it is claiming to show. */
+const reachFor = (mult: number) => EREN_WIDTH / 2 + ITEM_SIZE / 2 - 4 + (mult === 3 ? CATCH_BONUS : 0)
 
-const ITEMS: Record<ItemKind, ItemMeta> = {
-  // Good items — five originals plus cookie + milk for more friendly variety.
-  kibble:   { label: 'Kibble',   points: 1,  life: 0,  rarity: 32, Icon: memo(KibbleIcon),   tint: '#F5C842', danger: false },
-  fish:     { label: 'Fish',     points: 3,  life: 0,  rarity: 18, Icon: memo(IconFish),     tint: '#6BAED6', danger: false },
-  cookie:   { label: 'Cookie',   points: 2,  life: 0,  rarity: 16, Icon: memo(CookieIcon),   tint: '#A06030', danger: false },
-  milk:     { label: 'Milk',     points: 2,  life: 0,  rarity: 12, Icon: memo(MilkIcon),     tint: '#FFFFFF', danger: false },
-  cream:    { label: 'Cream',    points: 5,  life: 0,  rarity: 9,  Icon: memo(CreamIcon),    tint: '#E9D5FF', danger: false },
-  golden:   { label: 'Golden',   points: 10, life: 0,  rarity: 4,  Icon: memo(IconStar),     tint: '#FFD700', danger: false },
-  heart:    { label: 'Heart',    points: 0,  life: 1,  rarity: 3,  Icon: memo(IconHeart),    tint: '#FF6B9D', danger: false },
-  // Dangers — items that read as actual threats. The previous "fire"
-  // entry looked like a friendly candle flame, so it's been swapped for
-  // a sprung mousetrap — recognisably dangerous AND thematic for a cat.
-  spider:   { label: 'Spider',   points: -5, life: -1, rarity: 5,  Icon: memo(SpiderIcon),   tint: '#4B0082', danger: true },
-  bomb:     { label: 'Bomb',     points: -6, life: -1, rarity: 4,  Icon: memo(BombIcon),     tint: '#DC2626', danger: true },
-  knife:    { label: 'Knife',    points: -5, life: -1, rarity: 5,  Icon: memo(KnifeIcon),    tint: '#9CA3AF', danger: true },
-  trap:     { label: 'Trap',     points: -5, life: -1, rarity: 5,  Icon: memo(TrapIcon),     tint: '#7C2D12', danger: true },
-  skull:    { label: 'Skull',    points: -8, life: -1, rarity: 3,  Icon: memo(SkullIcon),    tint: '#E5E7EB', danger: true },
-}
-
-const KINDS = Object.keys(ITEMS) as ItemKind[]
-const WEIGHT_SUM = KINDS.reduce((s, k) => s + ITEMS[k].rarity, 0)
-
-function pickKind(): ItemKind {
-  const r = Math.random() * WEIGHT_SUM
-  let acc = 0
-  for (const k of KINDS) {
-    acc += ITEMS[k].rarity
-    if (r < acc) return k
-  }
-  return 'kibble'
-}
+// ── Treat rain ───────────────────────────────────────────────────────────────
+// Two goods-only windows per round. A 45-second ramp with no shape to it is
+// just a line going up; this gives the round two peaks to play toward and two
+// moments where building a streak is actually possible.
+const RAIN_STARTS = [13, 30]
+const RAIN_LEN = 3.4
+const RAIN_SPAWN_SCALE = 0.55
 
 interface FallingItem {
   id: number
+  /** Spawn column. Drift is an offset from this, never a walk, so a swaying
+   *  item can't wander off the edge over a long fall. */
+  bx: number
   x: number
   y: number
   kind: ItemKind
-  caught: boolean
-  missed: boolean
-  wobble: number // starting rotation phase
+  phase: number
+  t0: number
+  /** 0→1, how close to the floor. Drives the landing shadow. */
+  prox: number
 }
 
 interface FloatText { id: number; x: number; y: number; text: string; color: string; t0: number }
-
-// Radial particle burst spawned on positive catches.
 interface Particle { id: number; x: number; y: number; dx: number; dy: number; color: string; t0: number; size: number }
-// Heart-shard burst spawned when a life is lost.
 interface Shard { id: number; x: number; y: number; dx: number; dy: number; t0: number }
-// Smoke puff when a missed good treat hits the floor.
 interface Puff { id: number; x: number; y: number; t0: number }
 
-// ── Pixel-art icons specific to this game ────────────────────────────────────
-function KibbleIcon({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      <rect x="3" y="3" width="6" height="6" fill="#D4892A" />
-      <rect x="4" y="4" width="4" height="4" fill="#F5C842" />
-      <rect x="4" y="4" width="1" height="1" fill="#FFF4A3" />
-    </svg>
-  )
-}
-function CreamIcon({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      <rect x="3" y="2" width="6" height="2" fill="#FFFFFF" />
-      <rect x="2" y="4" width="8" height="6" fill="#E9D5FF" />
-      <rect x="2" y="4" width="8" height="1" fill="#FFFFFF" />
-      <rect x="3" y="10" width="6" height="1" fill="#A78BFA" />
-    </svg>
-  )
-}
-function CookieIcon({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      {/* outer crust */}
-      <rect x="3" y="1" width="6" height="1" fill="#7A4A1A" />
-      <rect x="2" y="2" width="8" height="1" fill="#7A4A1A" />
-      <rect x="1" y="3" width="10" height="6" fill="#7A4A1A" />
-      <rect x="2" y="9" width="8" height="1" fill="#7A4A1A" />
-      <rect x="3" y="10" width="6" height="1" fill="#7A4A1A" />
-      {/* dough */}
-      <rect x="3" y="2" width="6" height="1" fill="#C0824A" />
-      <rect x="2" y="3" width="8" height="6" fill="#C0824A" />
-      <rect x="3" y="9" width="6" height="1" fill="#C0824A" />
-      {/* highlight */}
-      <rect x="3" y="3" width="2" height="1" fill="#E0AC72" />
-      {/* chocolate chips */}
-      <rect x="4" y="4" width="2" height="1" fill="#3A1A05" />
-      <rect x="4" y="5" width="1" height="1" fill="#3A1A05" />
-      <rect x="7" y="3" width="1" height="2" fill="#3A1A05" />
-      <rect x="7" y="6" width="2" height="2" fill="#3A1A05" />
-      <rect x="3" y="7" width="2" height="1" fill="#3A1A05" />
-    </svg>
-  )
-}
-function MilkIcon({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      {/* roof */}
-      <rect x="4" y="0" width="4" height="1" fill="#9CA3AF" />
-      <rect x="3" y="1" width="6" height="1" fill="#D1D5DB" />
-      {/* carton body */}
-      <rect x="2" y="2" width="8" height="9" fill="#FFFFFF" />
-      <rect x="2" y="2" width="1" height="9" fill="#E5E7EB" />
-      <rect x="9" y="2" width="1" height="9" fill="#9CA3AF" />
-      <rect x="2" y="11" width="8" height="1" fill="#6B7280" />
-      {/* M for milk + small drop */}
-      <rect x="3" y="4" width="1" height="3" fill="#3B82F6" />
-      <rect x="4" y="5" width="1" height="1" fill="#3B82F6" />
-      <rect x="5" y="6" width="1" height="1" fill="#3B82F6" />
-      <rect x="6" y="5" width="1" height="1" fill="#3B82F6" />
-      <rect x="7" y="4" width="1" height="3" fill="#3B82F6" />
-      <rect x="4" y="8" width="4" height="1" fill="#60A5FA" />
-    </svg>
-  )
-}
-function BombIcon({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      <rect x="6" y="1" width="1" height="3" fill="#F5C842" />
-      <rect x="7" y="0" width="1" height="1" fill="#F97316" />
-      <rect x="8" y="1" width="1" height="1" fill="#F97316" />
-      <rect x="3" y="4" width="6" height="6" fill="#1A1A1A" />
-      <rect x="2" y="5" width="8" height="4" fill="#2A2A2A" />
-      <rect x="3" y="5" width="1" height="1" fill="#555555" />
-    </svg>
-  )
-}
-function SpiderIcon({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      {/* legs */}
-      <rect x="0" y="4" width="1" height="1" fill="#1A1A1A" />
-      <rect x="1" y="5" width="1" height="1" fill="#1A1A1A" />
-      <rect x="2" y="6" width="1" height="1" fill="#1A1A1A" />
-      <rect x="0" y="8" width="1" height="1" fill="#1A1A1A" />
-      <rect x="1" y="7" width="1" height="1" fill="#1A1A1A" />
-      <rect x="11" y="4" width="1" height="1" fill="#1A1A1A" />
-      <rect x="10" y="5" width="1" height="1" fill="#1A1A1A" />
-      <rect x="9" y="6" width="1" height="1" fill="#1A1A1A" />
-      <rect x="11" y="8" width="1" height="1" fill="#1A1A1A" />
-      <rect x="10" y="7" width="1" height="1" fill="#1A1A1A" />
-      {/* body */}
-      <rect x="3" y="4" width="6" height="5" fill="#1A1A1A" />
-      <rect x="4" y="3" width="4" height="1" fill="#1A1A1A" />
-      {/* eyes */}
-      <rect x="4" y="5" width="1" height="1" fill="#DC2626" />
-      <rect x="7" y="5" width="1" height="1" fill="#DC2626" />
-    </svg>
-  )
-}
-// ─── Knife — silver blade with brown handle, tip up. Reads as sharp ──────────
-function KnifeIcon({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      {/* tip */}
-      <rect x="5" y="0" width="2" height="1" fill="#E5E7EB" />
-      {/* blade — light edge + dark spine */}
-      <rect x="4" y="1" width="3" height="1" fill="#D1D5DB" />
-      <rect x="4" y="2" width="3" height="1" fill="#D1D5DB" />
-      <rect x="4" y="3" width="3" height="1" fill="#D1D5DB" />
-      <rect x="4" y="4" width="3" height="1" fill="#D1D5DB" />
-      <rect x="4" y="5" width="3" height="1" fill="#D1D5DB" />
-      {/* spine shadow */}
-      <rect x="6" y="1" width="1" height="5" fill="#9CA3AF" />
-      {/* edge highlight */}
-      <rect x="4" y="1" width="1" height="5" fill="#FFFFFF" />
-      {/* bolster */}
-      <rect x="3" y="6" width="5" height="1" fill="#525252" />
-      {/* handle */}
-      <rect x="4" y="7" width="3" height="4" fill="#7A4A1A" />
-      <rect x="4" y="7" width="1" height="4" fill="#A06A30" />
-      <rect x="6" y="7" width="1" height="4" fill="#4A2810" />
-      <rect x="3" y="11" width="5" height="1" fill="#3A1A05" />
-    </svg>
-  )
-}
-// ─── Mousetrap — wooden base + sprung metal bar + red trigger plate ────────
-function TrapIcon({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      {/* Sprung metal bar across the top */}
-      <rect x="2" y="1" width="8" height="1" fill="#374151" />
-      <rect x="2" y="2" width="8" height="1" fill="#6B7280" />
-      <rect x="2" y="2" width="8" height="1" fill="#9CA3AF" opacity="0.4" />
-      {/* Side rails / spring posts */}
-      <rect x="1" y="1" width="1" height="3" fill="#374151" />
-      <rect x="10" y="1" width="1" height="3" fill="#374151" />
-      <rect x="1" y="2" width="1" height="1" fill="#6B7280" />
-      <rect x="10" y="2" width="1" height="1" fill="#6B7280" />
-      {/* Wooden base — dark border + lighter centre with grain */}
-      <rect x="0" y="4" width="12" height="1" fill="#451A03" />
-      <rect x="0" y="5" width="12" height="6" fill="#7C2D12" />
-      <rect x="0" y="11" width="12" height="1" fill="#451A03" />
-      <rect x="0" y="5" width="12" height="1" fill="#92400E" />     {/* top highlight */}
-      <rect x="0" y="10" width="12" height="1" fill="#5A1A0A" />    {/* bottom shadow */}
-      {/* Wood grain flecks */}
-      <rect x="1" y="7" width="1" height="1" fill="#5A1A0A" />
-      <rect x="9" y="8" width="1" height="1" fill="#5A1A0A" />
-      <rect x="2" y="9" width="1" height="1" fill="#5A1A0A" />
-      <rect x="10" y="6" width="1" height="1" fill="#5A1A0A" />
-      {/* Red trigger plate (the "bait" pad) */}
-      <rect x="3" y="6" width="6" height="3" fill="#991B1B" />     {/* outline */}
-      <rect x="3" y="6" width="6" height="1" fill="#DC2626" />     {/* highlight */}
-      <rect x="4" y="7" width="4" height="1" fill="#EF4444" />
-      <rect x="4" y="8" width="4" height="1" fill="#7F1D1D" />     {/* shadow */}
-    </svg>
-  )
-}
-// ─── Skull — pure death icon, white bone with dark sockets ───────────────────
-function SkullIcon({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      {/* cranium top */}
-      <rect x="3" y="1" width="6" height="1" fill="#E5E7EB" />
-      <rect x="2" y="2" width="8" height="1" fill="#E5E7EB" />
-      <rect x="2" y="3" width="8" height="4" fill="#E5E7EB" />
-      {/* skull shading */}
-      <rect x="2" y="2" width="1" height="5" fill="#FFFFFF" />
-      <rect x="9" y="2" width="1" height="5" fill="#9CA3AF" />
-      {/* eye sockets */}
-      <rect x="3" y="4" width="2" height="2" fill="#0F0F0F" />
-      <rect x="7" y="4" width="2" height="2" fill="#0F0F0F" />
-      <rect x="3" y="4" width="1" height="1" fill="#3A3A3A" />
-      <rect x="7" y="4" width="1" height="1" fill="#3A3A3A" />
-      {/* nose */}
-      <rect x="5" y="6" width="2" height="1" fill="#0F0F0F" />
-      {/* jaw */}
-      <rect x="3" y="7" width="6" height="1" fill="#E5E7EB" />
-      <rect x="3" y="8" width="1" height="2" fill="#E5E7EB" />
-      <rect x="8" y="8" width="1" height="2" fill="#E5E7EB" />
-      <rect x="4" y="8" width="4" height="1" fill="#0F0F0F" />
-      <rect x="4" y="9" width="1" height="1" fill="#E5E7EB" />
-      <rect x="6" y="9" width="1" height="1" fill="#E5E7EB" />
-      <rect x="5" y="9" width="1" height="1" fill="#0F0F0F" />
-      <rect x="7" y="9" width="1" height="1" fill="#0F0F0F" />
-    </svg>
-  )
-}
-
-// ── Eren sprite — Ragdoll, smiling, rosy cheeks, happy eyes ───────────────────
-function ErenSprite({ size = 72 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 22 22" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      {/* ears */}
-      <rect x="3" y="2" width="3" height="1" fill="#4A2E1A" />
-      <rect x="16" y="2" width="3" height="1" fill="#4A2E1A" />
-      <rect x="3" y="3" width="3" height="2" fill="#9B7A5C" />
-      <rect x="16" y="3" width="3" height="2" fill="#9B7A5C" />
-      <rect x="4" y="4" width="1" height="1" fill="#F4B0B8" />
-      <rect x="17" y="4" width="1" height="1" fill="#F4B0B8" />
-      {/* head — ragdoll cream */}
-      <rect x="5" y="3" width="12" height="1" fill="#4A2E1A" />
-      <rect x="4" y="4" width="14" height="1" fill="#4A2E1A" />
-      <rect x="3" y="5" width="16" height="1" fill="#4A2E1A" />
-      <rect x="4" y="5" width="14" height="1" fill="#F9EDD5" />
-      <rect x="3" y="6" width="1" height="6" fill="#4A2E1A" />
-      <rect x="18" y="6" width="1" height="6" fill="#4A2E1A" />
-      <rect x="4" y="6" width="14" height="6" fill="#F9EDD5" />
-      {/* brown mask (Ragdoll points) around eyes */}
-      <rect x="5" y="6" width="3" height="2" fill="#D4B896" />
-      <rect x="14" y="6" width="3" height="2" fill="#D4B896" />
-      {/* eyes — bigger highlights to read as cheerful */}
-      <rect x="6" y="7" width="2" height="2" fill="#6BAED6" />
-      <rect x="6" y="7" width="1" height="1" fill="#FFFFFF" />
-      <rect x="7" y="8" width="1" height="1" fill="#1A1A2E" />
-      <rect x="14" y="7" width="2" height="2" fill="#6BAED6" />
-      <rect x="14" y="7" width="1" height="1" fill="#FFFFFF" />
-      <rect x="15" y="8" width="1" height="1" fill="#1A1A2E" />
-      {/* rosy cheeks */}
-      <rect x="5" y="9" width="2" height="1" fill="#F4B0B8" />
-      <rect x="15" y="9" width="2" height="1" fill="#F4B0B8" />
-      {/* nose */}
-      <rect x="10" y="9" width="2" height="1" fill="#F48B9B" />
-      <rect x="10" y="10" width="2" height="1" fill="#4A2E1A" />
-      {/* mouth — upturned smile :3 */}
-      <rect x="9" y="11" width="1" height="1" fill="#4A2E1A" />
-      <rect x="12" y="11" width="1" height="1" fill="#4A2E1A" />
-      <rect x="10" y="12" width="2" height="1" fill="#4A2E1A" />
-      {/* muzzle around the smile */}
-      <rect x="10" y="11" width="2" height="1" fill="#F9EDD5" />
-      {/* chin fluff */}
-      <rect x="4" y="12" width="14" height="1" fill="#4A2E1A" />
-      <rect x="5" y="12" width="5" height="1" fill="#F9EDD5" />
-      <rect x="12" y="12" width="5" height="1" fill="#F9EDD5" />
-      {/* body */}
-      <rect x="4" y="13" width="14" height="1" fill="#4A2E1A" />
-      <rect x="3" y="14" width="1" height="5" fill="#4A2E1A" />
-      <rect x="18" y="14" width="1" height="5" fill="#4A2E1A" />
-      <rect x="4" y="14" width="14" height="5" fill="#F9EDD5" />
-      {/* body shading */}
-      <rect x="5" y="14" width="2" height="1" fill="#E5D9BE" />
-      <rect x="15" y="14" width="2" height="1" fill="#E5D9BE" />
-      <rect x="4" y="19" width="14" height="1" fill="#4A2E1A" />
-      {/* paws */}
-      <rect x="5" y="19" width="2" height="1" fill="#D4B896" />
-      <rect x="15" y="19" width="2" height="1" fill="#D4B896" />
-      <rect x="5" y="20" width="3" height="1" fill="#4A2E1A" />
-      <rect x="14" y="20" width="3" height="1" fill="#4A2E1A" />
-      {/* whiskers — tilted up to support smile */}
-      <rect x="1" y="9" width="3" height="1" fill="rgba(255,255,255,0.65)" />
-      <rect x="18" y="9" width="3" height="1" fill="rgba(255,255,255,0.65)" />
-      <rect x="2" y="11" width="2" height="1" fill="rgba(255,255,255,0.55)" />
-      <rect x="18" y="11" width="2" height="1" fill="rgba(255,255,255,0.55)" />
-    </svg>
-  )
-}
-
-// ── Sad Eren variant — used on the GAME OVER overlay (0 HP) ──────────────────
-function SadErenSprite({ size = 48 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 22 22" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      {/* ears — drooped: shorter, slightly lower */}
-      <rect x="3" y="3" width="3" height="1" fill="#4A2E1A" />
-      <rect x="16" y="3" width="3" height="1" fill="#4A2E1A" />
-      <rect x="3" y="4" width="3" height="1" fill="#9B7A5C" />
-      <rect x="16" y="4" width="3" height="1" fill="#9B7A5C" />
-      {/* head */}
-      <rect x="5" y="3" width="12" height="1" fill="#4A2E1A" />
-      <rect x="4" y="4" width="14" height="1" fill="#4A2E1A" />
-      <rect x="3" y="5" width="16" height="1" fill="#4A2E1A" />
-      <rect x="4" y="5" width="14" height="1" fill="#F9EDD5" />
-      <rect x="3" y="6" width="1" height="6" fill="#4A2E1A" />
-      <rect x="18" y="6" width="1" height="6" fill="#4A2E1A" />
-      <rect x="4" y="6" width="14" height="6" fill="#F9EDD5" />
-      {/* mask points */}
-      <rect x="5" y="6" width="3" height="2" fill="#D4B896" />
-      <rect x="14" y="6" width="3" height="2" fill="#D4B896" />
-      {/* sad eyes — closed/squinted with tear */}
-      <rect x="6" y="8" width="2" height="1" fill="#1A1A2E" />
-      <rect x="14" y="8" width="2" height="1" fill="#1A1A2E" />
-      <rect x="6" y="7" width="1" height="1" fill="#1A1A2E" />
-      <rect x="15" y="7" width="1" height="1" fill="#1A1A2E" />
-      {/* tear under right eye */}
-      <rect x="14" y="9" width="1" height="2" fill="#6BAED6" />
-      {/* nose */}
-      <rect x="10" y="9" width="2" height="1" fill="#F48B9B" />
-      <rect x="10" y="10" width="2" height="1" fill="#4A2E1A" />
-      {/* frown — :( downturned */}
-      <rect x="10" y="12" width="2" height="1" fill="#4A2E1A" />
-      <rect x="9" y="13" width="1" height="1" fill="#4A2E1A" />
-      <rect x="12" y="13" width="1" height="1" fill="#4A2E1A" />
-      {/* muzzle */}
-      <rect x="10" y="11" width="2" height="1" fill="#F9EDD5" />
-      {/* chin fluff */}
-      <rect x="4" y="13" width="14" height="1" fill="#4A2E1A" />
-      <rect x="5" y="13" width="5" height="1" fill="#F9EDD5" />
-      <rect x="12" y="13" width="5" height="1" fill="#F9EDD5" />
-      {/* body — slumped */}
-      <rect x="4" y="14" width="14" height="1" fill="#4A2E1A" />
-      <rect x="3" y="15" width="1" height="4" fill="#4A2E1A" />
-      <rect x="18" y="15" width="1" height="4" fill="#4A2E1A" />
-      <rect x="4" y="15" width="14" height="4" fill="#F9EDD5" />
-      <rect x="4" y="19" width="14" height="1" fill="#4A2E1A" />
-      <rect x="5" y="19" width="2" height="1" fill="#D4B896" />
-      <rect x="15" y="19" width="2" height="1" fill="#D4B896" />
-      <rect x="5" y="20" width="3" height="1" fill="#4A2E1A" />
-      <rect x="14" y="20" width="3" height="1" fill="#4A2E1A" />
-      {/* drooping whiskers */}
-      <rect x="1" y="10" width="3" height="1" fill="rgba(255,255,255,0.65)" />
-      <rect x="18" y="10" width="3" height="1" fill="rgba(255,255,255,0.65)" />
-      <rect x="2" y="12" width="2" height="1" fill="rgba(255,255,255,0.55)" />
-      <rect x="18" y="12" width="2" height="1" fill="rgba(255,255,255,0.55)" />
-    </svg>
-  )
-}
-
-const MemoErenSprite = memo(ErenSprite)
-const MemoSadErenSprite = memo(SadErenSprite)
 const MemoIconHeart = memo(IconHeart)
 const MemoIconStar = memo(IconStar)
 const MemoIconMeat = memo(IconMeat)
@@ -440,7 +110,6 @@ export default function TreatTumbleGame() {
   const [shake, setShake] = useState(false)
   const [hurtFlash, setHurtFlash] = useState(false)
   const [savedOnce, setSavedOnce] = useState(false)
-  // scoreBump: +1 = good pop (gold), -1 = bad pop (red), 0 = idle
   const [scoreBump, setScoreBump] = useState<0 | 1 | -1>(0)
   const [erenPop, setErenPop] = useState(false)
   const [particles, setParticles] = useState<Particle[]>([])
@@ -448,16 +117,18 @@ export default function TreatTumbleGame() {
   const [puffs, setPuffs] = useState<Puff[]>([])
   const [combo, setCombo] = useState(0)
   const [bestCombo, setBestCombo] = useState(0)
-  const [comboFlash, setComboFlash] = useState(0) // bump animation when multiplier ticks up
-  // For animated count-up of the final score on the finish overlay.
+  const [comboFlash, setComboFlash] = useState(0)
   const [displayedScore, setDisplayedScore] = useState(0)
   const [reward, setReward] = useState<GameRewardResult | null>(null)
+  // Eren's state — driven by the loop, but only written when it actually
+  // changes, so a 60fps loop doesn't cause 60 pose re-renders a second.
+  const [pose, setPose] = useState<TumblePose>('ready')
+  const [look, setLook] = useState(0)
+  const [dir, setDir] = useState(0)
+  const [raining, setRaining] = useState(false)
 
-  // Live items — the rAF loop mutates this ref synchronously each frame and
-  // mirrors it into `items` state for rendering. The loop must NOT compute
-  // catches inside a setItems(prev => …) updater: React runs that updater
-  // lazily during reconciliation, so the score/life deltas read right after
-  // it were still 0 — catches scored nothing and dangers dealt no damage.
+  const erenIdle = useErenIdle(gameState === 'running')
+
   const itemsRef = useRef<FallingItem[]>([])
   const itemId  = useRef(0)
   const floatId = useRef(0)
@@ -475,6 +146,12 @@ export default function TreatTumbleGame() {
   const pausedRef = useRef(false)
   const hideAtRef = useRef(0)
   const loopRef = useRef<((t: number) => void) | null>(null)
+  const poseRef = useRef<TumblePose>('ready')
+  const poseHoldRef = useRef(0)
+  const lookRef = useRef(0)
+  const dirRef = useRef(0)
+  const moveUntilRef = useRef(0)
+  const rainRef = useRef(false)
 
   // ── Start ──────────────────────────────────────────────────────────────────
   const start = useCallback(() => {
@@ -504,6 +181,11 @@ export default function TreatTumbleGame() {
     gameStartRef.current = performance.now()
     pausedRef.current = false
     hideAtRef.current = 0
+    setPose('ready'); poseRef.current = 'ready'; poseHoldRef.current = 0
+    setLook(0); lookRef.current = 0
+    setDir(0); dirRef.current = 0
+    moveUntilRef.current = 0
+    setRaining(false); rainRef.current = false
   }, [timers])
 
   // ── Timer ──────────────────────────────────────────────────────────────────
@@ -535,13 +217,12 @@ export default function TreatTumbleGame() {
     if (gameState !== 'finished') return
     const target = Math.max(0, score)
     setDisplayedScore(0)
-    const start = performance.now()
+    const startedAt = performance.now()
     const DURATION = 600
     let raf = 0
     const tick = (t: number) => {
-      const p = Math.min(1, (t - start) / DURATION)
-      // ease-out cubic
-      const eased = 1 - Math.pow(1 - p, 3)
+      const p = Math.min(1, (t - startedAt) / DURATION)
+      const eased = 1 - Math.pow(1 - p, 3)   // ease-out cubic
       setDisplayedScore(Math.round(target * eased))
       if (p < 1) raf = requestAnimationFrame(tick)
     }
@@ -562,21 +243,19 @@ export default function TreatTumbleGame() {
     })()
   }, [gameState, savedOnce, user?.id, score]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Score bump animation ──────────────────────────────────────────────────
+  // ── Transient resets ──────────────────────────────────────────────────────
   useEffect(() => {
     if (scoreBump === 0) return
     const id = timers.setTimeout(() => setScoreBump(0), 280)
     return () => timers.clearTimeout(id)
   }, [scoreBump]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Eren chomp pop reset ──────────────────────────────────────────────────
   useEffect(() => {
     if (!erenPop) return
     const id = timers.setTimeout(() => setErenPop(false), 140)
     return () => timers.clearTimeout(id)
   }, [erenPop]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Combo flash reset ─────────────────────────────────────────────────────
   useEffect(() => {
     if (comboFlash === 0) return
     const id = timers.setTimeout(() => setComboFlash(0), 380)
@@ -598,38 +277,52 @@ export default function TreatTumbleGame() {
       lastTick.current = t
       const gameElapsedSec = (t - gameStartRef.current) / 1000
       const speed = ITEM_BASE_SPEED + ITEM_SPEED_PER_SEC * gameElapsedSec
+
+      // Treat rain — goods only, spawning roughly twice as fast.
+      const isRaining = RAIN_STARTS.some(s => gameElapsedSec >= s && gameElapsedSec < s + RAIN_LEN)
+      if (isRaining !== rainRef.current) {
+        rainRef.current = isRaining
+        setRaining(isRaining)
+        if (isRaining) playSound('tt_combo_up')
+      }
       const spawnInterval = Math.max(MIN_SPAWN_MS, START_SPAWN_MS - SPAWN_RAMP_PER_SEC * gameElapsedSec)
+        * (isRaining ? RAIN_SPAWN_SCALE : 1)
 
       // Live items for this frame: the ref is the source of truth (state lags
       // because the loop closes over a stale `items`). Everything below is
       // computed SYNCHRONOUSLY so the score/life deltas are populated before
       // the side-effects read them — the loop owns the array, not a deferred
-      // setItems updater. (Running once per rAF frame, this is also immune to
-      // the StrictMode double-invoke that the old updater guarded against.)
+      // setItems updater.
       let working = itemsRef.current
 
-      // Spawn
+      // Spawn. The margin accounts for the kind's sway amplitude, so a drifting
+      // item is placed where its whole arc stays on screen.
       if (t - lastSpawn.current > spawnInterval) {
         lastSpawn.current = t
-        const kind = pickKind()
+        const kind = pickKind(isRaining)
+        const meta = ITEMS[kind]
+        const margin = 12 + ITEM_SIZE / 2 + meta.amp
+        const span = Math.max(1, rect.width - margin * 2)
+        const bx = margin + Math.random() * span
         working = [...working, {
           id: itemId.current++,
-          x: Math.random() * (rect.width - ITEM_SIZE - 24) + 12 + ITEM_SIZE / 2,
-          y: -ITEM_SIZE,
+          bx, x: bx, y: -ITEM_SIZE,
           kind,
-          caught: false,
-          missed: false,
-          wobble: Math.random() * Math.PI * 2,
+          phase: Math.random() * Math.PI * 2,
+          t0: t,
+          prox: 0,
         }]
       }
 
-      // Advance items
       const erenCX = (erenXRef.current / 100) * rect.width
-      const catchY = rect.height - 110
+      const catchY = rect.height - 108
+      const groundY = rect.height - FLOOR_OFFSET
+      const mult = multFor(comboRef.current)
+      const reach = reachFor(mult)
 
       let dLives = 0
       let dScore = 0
-      let comboDelta = 0   // +N good catches, -1 means broken
+      let comboDelta = 0   // +N good catches; -1 means the streak broke
       let hadDanger = false
       let hadGolden = false
       let hadHeart = false
@@ -637,26 +330,20 @@ export default function TreatTumbleGame() {
       const newFloats: FloatText[] = []
       const newParticles: Particle[] = []
       const newPuffs: Puff[] = []
-      const groundY = rect.height - 72   // top of the grass strip
       const updated: FallingItem[] = []
 
       for (const it of working) {
-        if (it.caught || it.missed) continue
-        const ny = it.y + speed * (elapsed / 1000)
+        const meta = ITEMS[it.kind]
+        const ny = it.y + speed * meta.speed * (elapsed / 1000)
+        const nx = it.bx + fallDriftX(meta, it.phase, (t - it.t0) / 1000)
 
-        const dx = Math.abs(it.x - erenCX)
-        if (ny >= catchY && ny <= catchY + ITEM_SIZE + 18 && dx <= EREN_WIDTH / 2 + ITEM_SIZE / 2 - 4) {
-          const meta = ITEMS[it.kind]
+        const dx = Math.abs(nx - erenCX)
+        if (ny >= catchY && ny <= catchY + ITEM_SIZE + 18 && dx <= reach) {
           const isGood = !meta.danger && (meta.points > 0 || meta.life > 0)
-          // Combo multiplier: applies to positive point items, not danger.
           let pointsAwarded = meta.points
-          const currentMult = comboRef.current >= 10 ? 3 : comboRef.current >= 5 ? 2 : 1
-          if (meta.points > 0 && currentMult > 1) {
-            pointsAwarded = meta.points * currentMult
-          }
+          if (meta.points > 0 && mult > 1) pointsAwarded = meta.points * mult
           dScore += pointsAwarded
-          if (meta.life < 0) dLives += meta.life
-          else if (meta.life > 0) dLives += meta.life
+          if (meta.life !== 0) dLives += meta.life
           if (meta.danger) { hadDanger = true; comboDelta = -1 }
           else {
             hadGoodCatch = true
@@ -667,15 +354,14 @@ export default function TreatTumbleGame() {
 
           newFloats.push({
             id: floatId.current++,
-            x: it.x, y: catchY - 10,
+            x: nx, y: catchY - 10,
             text: pointsAwarded > 0
-              ? (currentMult > 1 ? `+${pointsAwarded} x${currentMult}` : `+${pointsAwarded}`)
-              : pointsAwarded < 0 ? `${pointsAwarded}` : meta.life > 0 ? '+♥' : '',
-            color: pointsAwarded > 0 ? (currentMult > 1 ? '#FBBF24' : '#FDE68A') : pointsAwarded < 0 ? '#FCA5A5' : '#FF6B9D',
+              ? (mult > 1 ? `+${pointsAwarded} x${mult}` : `+${pointsAwarded}`)
+              : pointsAwarded < 0 ? `${pointsAwarded}` : meta.life > 0 ? '+LIFE' : '',
+            color: pointsAwarded > 0 ? (mult > 1 ? '#FBBF24' : '#FDE68A') : pointsAwarded < 0 ? '#FCA5A5' : '#FF6B9D',
             t0: t,
           })
 
-          // Particle burst on positive catches (tinted to the item color).
           if (isGood && !reduced) {
             const count = it.kind === 'golden' ? 9 : 6
             for (let i = 0; i < count; i++) {
@@ -683,8 +369,7 @@ export default function TreatTumbleGame() {
               const speedP = 38 + Math.random() * 26
               newParticles.push({
                 id: particleId.current++,
-                x: it.x,
-                y: catchY,
+                x: nx, y: catchY,
                 dx: Math.cos(ang) * speedP,
                 dy: Math.sin(ang) * speedP - 18,
                 color: meta.tint,
@@ -696,20 +381,24 @@ export default function TreatTumbleGame() {
           continue
         }
 
-        // Missed good items hitting the floor — smoke puff + small penalty.
+        // Missed a good treat. It costs the points and nothing else.
+        //
+        // It used to cost a silent -1 AND the streak. Both were wrong. The -1
+        // was invisible next to a small grey puff, so a score that ticked down
+        // on its own read as a bug. And breaking the streak on a miss made the
+        // streak unwinnable by construction: past about second 25 the spawn
+        // rate puts treats in two columns at once, so "miss nothing" is asking
+        // the player to be in two places. Getting hit is a mistake. Failing to
+        // reach something unreachable is not.
         if (ny >= groundY) {
-          const meta = ITEMS[it.kind]
           if (!meta.danger && (meta.points > 0 || meta.life > 0)) {
-            newPuffs.push({ id: puffId.current++, x: it.x, y: groundY, t0: t })
-            // Tiny penalty so chasing low-value treats matters; combo breaks.
-            dScore -= 1
-            comboDelta = -1
+            newPuffs.push({ id: puffId.current++, x: nx, y: groundY, t0: t })
           }
           continue
         }
 
         if (ny > rect.height + 10) continue
-        updated.push({ ...it, y: ny })
+        updated.push({ ...it, x: nx, y: ny, prox: Math.min(1, Math.max(0, ny / groundY)) })
       }
 
       itemsRef.current = updated
@@ -725,39 +414,31 @@ export default function TreatTumbleGame() {
         const newLives = Math.max(0, Math.min(MAX_LIVES, before + dLives))
         livesRef.current = newLives
         setLives(newLives)
-        if (dLives < 0) {
-          // Screen shake + red flash are pure spectacle — skip under reduced motion.
-          if (!reduced) {
-            setShake(true)
-            setHurtFlash(true)
-            timers.setTimeout(() => setShake(false), 280)
-            timers.setTimeout(() => setHurtFlash(false), 220)
-            // Spawn heart shards from the slot of the heart that was just lost.
-            // The HUD's heart row sits roughly at the top of the screen.
-            const shardSlotIndex = Math.max(0, before - 1)
-            const shardOriginX = rect.width - 84 + shardSlotIndex * 20
-            const shardOriginY = 110
-            const burstShards: Shard[] = []
-            for (let i = 0; i < 4; i++) {
-              const ang = -Math.PI / 2 + (i - 1.5) * 0.55 + (Math.random() - 0.5) * 0.3
-              const v = 60 + Math.random() * 30
-              burstShards.push({
-                id: shardId.current++,
-                x: shardOriginX,
-                y: shardOriginY,
-                dx: Math.cos(ang) * v,
-                dy: Math.sin(ang) * v,
-                t0: t,
-              })
-            }
-            setShards(prev => [...prev, ...burstShards].slice(-40))
+        if (dLives < 0 && !reduced) {
+          setShake(true)
+          setHurtFlash(true)
+          timers.setTimeout(() => setShake(false), 280)
+          timers.setTimeout(() => setHurtFlash(false), 220)
+          // Shards fly out of the heart slot that just went dark.
+          const shardSlotIndex = Math.max(0, before - 1)
+          const shardOriginX = rect.width - 84 + shardSlotIndex * 20
+          const burstShards: Shard[] = []
+          for (let i = 0; i < 4; i++) {
+            const ang = -Math.PI / 2 + (i - 1.5) * 0.55 + (Math.random() - 0.5) * 0.3
+            const v = 60 + Math.random() * 30
+            burstShards.push({
+              id: shardId.current++,
+              x: shardOriginX, y: 110,
+              dx: Math.cos(ang) * v,
+              dy: Math.sin(ang) * v,
+              t0: t,
+            })
           }
+          setShards(prev => [...prev, ...burstShards].slice(-40))
         }
         if (newLives === 0) setGameState('finished')
       }
 
-      // Combo handling: tick up on each consecutive good catch, reset on any
-      // danger or missed positive. Multiplier thresholds: 5 -> x2, 10 -> x3.
       if (comboDelta !== 0) {
         if (comboDelta < 0) {
           comboRef.current = 0
@@ -768,32 +449,47 @@ export default function TreatTumbleGame() {
           comboRef.current = next
           setCombo(next)
           setBestCombo(b => Math.max(b, next))
-          // Fire combo-up sound when crossing a multiplier threshold (5 or 10).
-          const prevMult = prevC >= 10 ? 3 : prevC >= 5 ? 2 : 1
-          const nextMult = next >= 10 ? 3 : next >= 5 ? 2 : 1
-          if (nextMult > prevMult) {
+          const nextMult = multFor(next)
+          if (nextMult > multFor(prevC)) {
             playSound('tt_combo_up')
             setComboFlash(nextMult)
           }
         }
       }
 
-      // Pop Eren on any good catch (chomp); play category sounds.
       if (hadGoodCatch) setErenPop(true)
       if (hadGolden) playSound('tt_catch_golden')
       else if (hadHeart) playSound('tt_catch_heart')
       else if (hadGoodCatch) playSound('tt_catch_good')
       if (hadDanger) playSound('tt_hit_danger')
 
-      if (newFloats.length > 0) {
-        setFloats(prev => [...prev, ...newFloats].slice(-22))
+      // ── Eren ────────────────────────────────────────────────────────────────
+      // A deliberate pose holds for a beat so a catch is still readable at the
+      // speeds this reaches; after that he falls back to run / hype / ready.
+      let nextPose: TumblePose
+      if (hadDanger) { poseHoldRef.current = t + 520; nextPose = 'hurt' }
+      else if (hadGoodCatch) { poseHoldRef.current = t + 240; nextPose = 'nom' }
+      else if (t < poseHoldRef.current) nextPose = poseRef.current
+      else if (t < moveUntilRef.current) nextPose = 'run'
+      else nextPose = comboRef.current >= TIER_3 ? 'hype' : 'ready'
+      if (nextPose !== poseRef.current) { poseRef.current = nextPose; setPose(nextPose) }
+      if (dirRef.current !== 0 && t >= moveUntilRef.current) { dirRef.current = 0; setDir(0) }
+
+      // Eyes track the nearest treat worth having. Cheapest of the six poses
+      // and the one that reads most as alive — you catch him looking before
+      // you catch him moving.
+      let nearest = Infinity
+      for (const it of updated) {
+        if (ITEMS[it.kind].danger) continue
+        const d = it.x - erenCX
+        if (Math.abs(d) < Math.abs(nearest)) nearest = d
       }
-      if (newParticles.length > 0) {
-        setParticles(prev => [...prev, ...newParticles].slice(-80))
-      }
-      if (newPuffs.length > 0) {
-        setPuffs(prev => [...prev, ...newPuffs].slice(-20))
-      }
+      const nextLook = !Number.isFinite(nearest) || Math.abs(nearest) < 26 ? 0 : nearest > 0 ? 1 : -1
+      if (nextLook !== lookRef.current) { lookRef.current = nextLook; setLook(nextLook) }
+
+      if (newFloats.length > 0) setFloats(prev => [...prev, ...newFloats].slice(-22))
+      if (newParticles.length > 0) setParticles(prev => [...prev, ...newParticles].slice(-80))
+      if (newPuffs.length > 0) setPuffs(prev => [...prev, ...newPuffs].slice(-20))
 
       if (gameState === 'running' && !pausedRef.current) {
         rafId.current = requestAnimationFrame(loop)
@@ -801,9 +497,7 @@ export default function TreatTumbleGame() {
     }
 
     loopRef.current = loop
-    if (!pausedRef.current) {
-      rafId.current = requestAnimationFrame(loop)
-    }
+    if (!pausedRef.current) rafId.current = requestAnimationFrame(loop)
     return () => {
       loopRef.current = null
       if (rafId.current) cancelAnimationFrame(rafId.current)
@@ -811,8 +505,8 @@ export default function TreatTumbleGame() {
   }, [gameState, reduced]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Pause on hidden ────────────────────────────────────────────────────────
-  // Backgrounding the tab cancels the rAF and records when we left, so the frame
-  // clock and wall-clock anchors can be rebased on return. Without this, items
+  // Backgrounding cancels the rAF and records when we left, so the frame clock
+  // and wall-clock anchors can be rebased on return. Without this, items
   // teleport across the catch zone and the difficulty ramp spikes on resume.
   const handleHide = useCallback(() => {
     if (gameState !== 'running' || pausedRef.current) return
@@ -829,8 +523,6 @@ export default function TreatTumbleGame() {
     pausedRef.current = false
     const now = performance.now()
     const gap = now - hideAtRef.current
-    // Rebase every wall-clock anchor by the time spent hidden so the spawn
-    // interval, difficulty ramp and frame dt all resume as if no time passed.
     gameStartRef.current += gap
     if (lastSpawn.current !== 0) lastSpawn.current += gap
     lastTick.current = now
@@ -841,14 +533,12 @@ export default function TreatTumbleGame() {
 
   useVisibilityPause(handleHide, handleShow)
 
-  // ── Clean up old float texts ───────────────────────────────────────────────
+  // ── Cull expired ephemera ─────────────────────────────────────────────────
   useEffect(() => {
     if (floats.length === 0) return
     const id = setTimeout(() => setFloats(prev => prev.filter(f => performance.now() - f.t0 < 900)), 700)
     return () => clearTimeout(id)
   }, [floats])
-
-  // ── Cull expired particles / shards / puffs ───────────────────────────────
   useEffect(() => {
     if (particles.length === 0) return
     const id = setTimeout(() => setParticles(prev => prev.filter(p => performance.now() - p.t0 < 480)), 320)
@@ -870,6 +560,14 @@ export default function TreatTumbleGame() {
     const rect = sceneRef.current?.getBoundingClientRect()
     if (!rect) return
     const pct = Math.max(4, Math.min(96, ((clientX - rect.left) / rect.width) * 100))
+    const delta = pct - erenXRef.current
+    // A dead zone here matters: without it, one-pixel jitter on a held finger
+    // flips the lean back and forth and he vibrates instead of running.
+    if (Math.abs(delta) > 0.35) {
+      const d = delta > 0 ? 1 : -1
+      moveUntilRef.current = performance.now() + 150
+      if (dirRef.current !== d) { dirRef.current = d; setDir(d) }
+    }
     erenXRef.current = pct
     setErenX(pct)
   }
@@ -891,13 +589,19 @@ export default function TreatTumbleGame() {
   const timeWarning = timeLeft <= 10
   const lowLives = lives <= 1
   const timePct = (timeLeft / GAME_DURATION) * 100
+  const mult = multFor(combo)
+  const tierFloor = mult === 3 ? TIER_3 : mult === 2 ? TIER_2 : 0
+  const tierCeil  = mult === 3 ? TIER_3 : mult === 2 ? TIER_3 : TIER_2
+  const pipsLit = mult === 3
+    ? PIPS
+    : Math.min(PIPS, Math.round(((combo - tierFloor) / (tierCeil - tierFloor)) * PIPS))
 
   return (
     <div className="fixed inset-0 z-40 overflow-hidden select-none game-shell"
       style={{
-        background: 'linear-gradient(180deg, #FEF3C7 0%, #FDE68A 40%, #FBBF24 100%)',
+        background: '#FCD34D',
         touchAction: 'none',
-        animation: shake ? 'sceneShake 0.28s linear' : 'none',
+        animation: shake ? 'ttSceneShake 0.28s linear' : 'none',
       }}
       ref={sceneRef}
       onPointerDown={onPointerDown}
@@ -905,31 +609,22 @@ export default function TreatTumbleGame() {
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}>
 
+      <TreatTumbleWorld reduced={reduced} />
+
+      {/* Warm wash over the whole garden while it's raining treats. */}
+      {raining && (
+        <div className="absolute inset-0 pointer-events-none z-10" style={{
+          background: 'radial-gradient(ellipse at 50% 0%, rgba(253,224,71,0.42) 0%, rgba(251,191,36,0.16) 45%, transparent 75%)',
+        }} />
+      )}
+
       {/* Red hurt flash */}
       {hurtFlash && (
         <div className="absolute inset-0 pointer-events-none z-40" style={{
           background: 'radial-gradient(circle at center, rgba(220,38,38,0.35) 0%, rgba(220,38,38,0.08) 55%, transparent 80%)',
-          animation: 'hurtFade 0.22s ease-out forwards',
+          animation: 'ttHurtFade 0.22s ease-out forwards',
         }} />
       )}
-
-      {/* Drifting clouds */}
-      <div className="absolute inset-0 pointer-events-none opacity-70" style={{
-        backgroundImage: 'radial-gradient(ellipse 60px 18px at 20% 15%, rgba(255,255,255,0.85), transparent 65%), radial-gradient(ellipse 80px 22px at 65% 28%, rgba(255,255,255,0.7), transparent 65%), radial-gradient(ellipse 50px 14px at 85% 50%, rgba(255,255,255,0.8), transparent 65%)',
-        animation: reduced ? 'none' : 'cloudDrift 22s linear infinite',
-      }} />
-
-      {/* Grass floor */}
-      <div className="absolute bottom-0 inset-x-0 pointer-events-none" style={{
-        height: 72,
-        background: 'linear-gradient(180deg, #4ADE80 0%, #16A34A 60%, #166534 100%)',
-        borderTop: '3px solid #14532D',
-      }}>
-        <div className="absolute top-0 inset-x-0" style={{
-          height: 4,
-          background: 'repeating-linear-gradient(90deg, transparent 0 6px, #166534 6px 8px)',
-        }} />
-      </div>
 
       {/* Header */}
       <div className="absolute top-0 inset-x-0 pt-3 px-3 z-30 flex items-center gap-2">
@@ -948,10 +643,9 @@ export default function TreatTumbleGame() {
         <div style={{ width: 34 }} />
       </div>
 
-      {/* ══ PREMIUM HUD ═════════════════════════════════════════════════════ */}
+      {/* ══ HUD ═════════════════════════════════════════════════════════════ */}
       {gameState !== 'idle' && (
         <div className="absolute top-14 inset-x-0 px-3 z-20">
-          {/* Big score banner */}
           <div className="mb-2 relative overflow-hidden py-2.5 px-3"
             style={{
               background: 'linear-gradient(180deg, rgba(120,53,15,0.92) 0%, rgba(69,26,3,0.95) 100%)',
@@ -980,26 +674,11 @@ export default function TreatTumbleGame() {
                   transform: scoreBump === 1 ? 'scale(1.22)' : scoreBump === -1 ? 'scale(0.88)' : 'scale(1)',
                   transition: 'transform 0.16s cubic-bezier(0.34,1.56,0.64,1), color 0.18s, text-shadow 0.18s',
                   display: 'inline-block',
-                  animation: scoreBump === -1 ? 'scoreShake 0.26s linear' : 'none',
+                  animation: scoreBump === -1 ? 'ttScoreShake 0.26s linear' : 'none',
                 }}>{Math.max(0, score)}</span>
-                {/* Combo multiplier badge — only visible at x2+ */}
-                {combo >= 5 && (
-                  <span className="font-pixel ml-1 px-1.5 py-0.5" style={{
-                    fontSize: 7,
-                    color: '#451A03',
-                    background: 'linear-gradient(180deg, #FDE68A, #F59E0B)',
-                    border: '2px solid #7C2D12',
-                    borderRadius: 3,
-                    boxShadow: '0 2px 0 #5A1A0A, 0 0 6px rgba(251,191,36,0.7)',
-                    letterSpacing: 1,
-                    transform: comboFlash ? 'scale(1.32)' : 'scale(1)',
-                    transition: 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1)',
-                    display: 'inline-block',
-                  }}>x{combo >= 10 ? 3 : 2}</span>
-                )}
               </div>
 
-              {/* Lives — large, labelled */}
+              {/* Lives */}
               <div className="flex items-center gap-1.5 px-2 py-1"
                 style={{
                   background: lowLives ? 'rgba(220,38,38,0.4)' : 'rgba(0,0,0,0.45)',
@@ -1020,7 +699,7 @@ export default function TreatTumbleGame() {
                       transform: i < lives ? 'scale(1)' : 'scale(0.75)',
                       transition: 'opacity 0.25s, transform 0.25s',
                       filter: i < lives && lowLives && gameState === 'running' ? 'drop-shadow(0 0 5px rgba(255,107,157,1))' : 'none',
-                      animation: i < lives && lowLives && gameState === 'running' && !reduced ? 'heartBeat 0.55s ease-in-out infinite' : 'none',
+                      animation: i < lives && lowLives && gameState === 'running' && !reduced ? 'ttHeartBeat 0.55s ease-in-out infinite' : 'none',
                     }}>
                       <MemoIconHeart size={18} />
                     </div>
@@ -1029,7 +708,42 @@ export default function TreatTumbleGame() {
               </div>
             </div>
 
-            {/* Time progress bar */}
+            {/* Combo strip — on screen from the first catch, so breaking a
+                streak is something you watch happen rather than deduce. */}
+            <div className="flex items-center gap-1.5 mt-2">
+              <span className="font-pixel" style={{ fontSize: 5, letterSpacing: 1.5, color: '#FCD34D' }}>COMBO</span>
+              <div className="flex-1 flex items-center gap-[3px]">
+                {Array.from({ length: PIPS }).map((_, i) => {
+                  const lit = i < pipsLit
+                  return (
+                    <div key={i} style={{
+                      flex: 1, height: 5,
+                      background: lit
+                        ? (mult === 3 ? 'linear-gradient(180deg,#FEF3C7,#F59E0B)' : 'linear-gradient(180deg,#FDE68A,#D97706)')
+                        : 'rgba(0,0,0,0.45)',
+                      border: '1px solid rgba(245,158,11,0.45)',
+                      borderRadius: 1,
+                      boxShadow: lit ? '0 0 5px rgba(251,191,36,0.8)' : 'inset 0 1px 2px rgba(0,0,0,0.5)',
+                      transition: 'background 0.16s, box-shadow 0.16s',
+                    }} />
+                  )
+                })}
+              </div>
+              <span className="font-pixel px-1.5 py-0.5" style={{
+                fontSize: 7, minWidth: 30, textAlign: 'center',
+                color: mult > 1 ? '#451A03' : '#FCD34D',
+                background: mult > 1 ? 'linear-gradient(180deg, #FDE68A, #F59E0B)' : 'rgba(0,0,0,0.4)',
+                border: `2px solid ${mult > 1 ? '#7C2D12' : 'rgba(245,158,11,0.45)'}`,
+                borderRadius: 3,
+                boxShadow: mult > 1 ? '0 2px 0 #5A1A0A, 0 0 6px rgba(251,191,36,0.7)' : 'none',
+                letterSpacing: 1,
+                transform: comboFlash ? 'scale(1.3)' : 'scale(1)',
+                transition: 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1)',
+                display: 'inline-block',
+              }}>{mult > 1 ? `x${mult}` : combo}</span>
+            </div>
+
+            {/* Time */}
             <div className="mt-2 relative overflow-hidden" style={{
               height: 6,
               background: 'rgba(0,0,0,0.5)',
@@ -1055,29 +769,37 @@ export default function TreatTumbleGame() {
               <span className="font-pixel" style={{
                 fontSize: 7,
                 color: timeWarning ? '#FCA5A5' : '#FDE68A',
-                animation: timeWarning && gameState === 'running' && !reduced ? 'timerPulse 0.6s ease-in-out infinite' : 'none',
+                animation: timeWarning && gameState === 'running' && !reduced ? 'ttTimerPulse 0.6s ease-in-out infinite' : 'none',
               }}>{String(Math.floor(timeLeft / 60))}:{String(timeLeft % 60).padStart(2, '0')}</span>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Idle intro — premium amber plaque with rivets, sweep shine,
-            and grouped goods/dangers panels ──────────────────────────── */}
+      {/* ── TREAT RAIN banner ───────────────────────────────────────────────── */}
+      {raining && (
+        <div className="absolute inset-x-0 z-30 flex justify-center pointer-events-none" style={{ top: '34%' }}>
+          <div className="font-pixel px-4 py-2.5 inline-flex items-center gap-2" style={{
+            background: 'linear-gradient(180deg, #FEF3C7 0%, #FDE68A 50%, #F59E0B 100%)',
+            border: '3px solid #7C2D12',
+            borderRadius: 5,
+            boxShadow: '0 5px 0 #5A1A0A, 0 0 26px rgba(251,191,36,0.85)',
+            fontSize: 10, letterSpacing: 2.5, color: '#7C2D12',
+            textShadow: '0 1px 0 rgba(255,255,255,0.7)',
+            animation: reduced ? 'none' : 'ttRainBanner 3.4s ease-out both',
+          }}>
+            <IconStar size={14} />
+            TREAT RAIN
+            <IconStar size={14} />
+          </div>
+        </div>
+      )}
+
+      {/* ── Idle intro ──────────────────────────────────────────────────────── */}
       {/* pointer-events-none on the root so this full-screen z-30 overlay doesn't
-          swallow taps on the same-z header back button; START re-enables pointer events. */}
+          swallow taps on the same-z header back button; START re-enables them. */}
       {gameState === 'idle' && (
         <div className="absolute inset-0 flex flex-col items-center justify-start z-30 px-4 pt-12 pb-6 overflow-y-auto pointer-events-none">
-          {/* Drifting sparkle field behind the plaque */}
-          <div className="absolute inset-0 pointer-events-none" style={{
-            backgroundImage: 'radial-gradient(circle, rgba(251,191,36,0.55) 1px, transparent 1.5px), radial-gradient(circle, rgba(252,211,77,0.4) 1px, transparent 1.5px)',
-            backgroundSize: '38px 38px, 56px 56px',
-            backgroundPosition: '0 0, 22px 28px',
-            animation: reduced ? 'none' : 'ttStarDrift 32s linear infinite',
-            opacity: 0.55,
-          }} />
-
-          {/* Plaque */}
           <div className="relative px-5 py-5 w-full max-w-[340px] z-10" style={{
             background: 'linear-gradient(180deg, #FEF3C7 0%, #FDE68A 50%, #F59E0B 100%)',
             border: '3px solid #7C2D12',
@@ -1091,13 +813,11 @@ export default function TreatTumbleGame() {
             <div style={{ position: 'absolute', bottom: 6, left: 6, width: 6, height: 6, background: '#FFD700', borderRadius: 1, boxShadow: '0 0 4px rgba(255,215,0,0.9), inset 0 1px 0 rgba(255,255,255,0.6)' }} />
             <div style={{ position: 'absolute', bottom: 6, right: 6, width: 6, height: 6, background: '#FFD700', borderRadius: 1, boxShadow: '0 0 4px rgba(255,215,0,0.9), inset 0 1px 0 rgba(255,255,255,0.6)' }} />
 
-            {/* Sweep shine across the plaque */}
             <div className="absolute inset-0 pointer-events-none" style={{
               background: 'linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.55) 50%, transparent 62%)',
               animation: reduced ? 'none' : 'ttPlaqueShine 3.6s ease-in-out infinite',
             }} />
 
-            {/* Title with twinkling stars */}
             <div className="flex items-center justify-center gap-2 mb-2 relative">
               <div style={{ animation: reduced ? 'none' : 'twinkle 1.5s ease-in-out infinite', filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.7))' }}>
                 <IconStar size={16} />
@@ -1111,35 +831,35 @@ export default function TreatTumbleGame() {
               </div>
             </div>
 
-            {/* Decorative divider */}
             <div className="mb-3 mx-auto" style={{
-              width: '85%',
-              height: 2,
+              width: '85%', height: 2,
               background: 'linear-gradient(90deg, transparent, #B45309, #FBBF24, #B45309, transparent)',
               boxShadow: '0 1px 0 rgba(255,255,255,0.5)',
             }} />
 
-            {/* Description */}
             <p className="font-pixel text-center mb-3" style={{
               fontSize: 6, lineHeight: 1.9, letterSpacing: 1, color: '#7C2D12',
             }}>
               DRAG TO MOVE EREN<br/>
               CATCH TREATS · DODGE DANGERS<br/>
-              HEARTS GIVE LIVES<br/>
-              <span style={{ color: '#B91C1C', fontSize: 5 }}>⚡ IT GETS FASTER ⚡</span>
+              GET HIT AND THE STREAK ENDS<br/>
+              <span style={{ color: '#B45309' }}>5 IN A ROW = x2 · 10 = x3</span><br/>
+              <span style={{ color: '#15803D' }}>AT x3 EREN REACHES FURTHER</span><br/>
+              <span style={{ color: '#B91C1C', fontSize: 5 }}>IT GETS FASTER EVERY SECOND</span>
             </p>
 
-            {/* GOODS panel — green-tinted card */}
+            {/* GOODS */}
             <div className="mb-2.5 relative px-2 pt-2 pb-2.5" style={{
               background: 'linear-gradient(180deg, rgba(187,247,208,0.6) 0%, rgba(134,239,172,0.4) 100%)',
               border: '2px solid #15803D',
               borderRadius: 4,
               boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.55), 0 2px 0 rgba(21,128,61,0.35)',
             }}>
-              <p className="font-pixel mb-2 text-center" style={{
-                fontSize: 7, letterSpacing: 2.5, color: '#14532D',
-                textShadow: '0 1px 0 rgba(255,255,255,0.6)',
-              }}>★ GOODS ★</p>
+              <div className="flex items-center justify-center gap-1.5 mb-2">
+                <IconStar size={10} />
+                <p className="font-pixel" style={{ fontSize: 7, letterSpacing: 2.5, color: '#14532D', textShadow: '0 1px 0 rgba(255,255,255,0.6)' }}>GOODS</p>
+                <IconStar size={10} />
+              </div>
               <div className="grid grid-cols-7 gap-1">
                 <LegendTile Icon={KibbleIcon} tint="#F5C842" pts="+1" />
                 <LegendTile Icon={CookieIcon} tint="#A06030" pts="+2" />
@@ -1147,21 +867,25 @@ export default function TreatTumbleGame() {
                 <LegendTile Icon={IconFish}   tint="#6BAED6" pts="+3" />
                 <LegendTile Icon={CreamIcon}  tint="#A78BFA" pts="+5" />
                 <LegendTile Icon={IconStar}   tint="#FFD700" pts="+10" />
-                <LegendTile Icon={IconHeart}  tint="#FF6B9D" pts="+♥" />
+                <LegendTile Icon={IconHeart}  tint="#FF6B9D" pts="LIFE" />
               </div>
+              <p className="font-pixel text-center mt-2" style={{ fontSize: 5, letterSpacing: 1, color: '#14532D' }}>
+                FISH AND STARS DRIFT — LEAD THEM
+              </p>
             </div>
 
-            {/* DANGERS panel — red-tinted card */}
+            {/* DANGERS */}
             <div className="relative px-2 pt-2 pb-2.5" style={{
               background: 'linear-gradient(180deg, rgba(254,202,202,0.6) 0%, rgba(248,113,113,0.4) 100%)',
               border: '2px solid #B91C1C',
               borderRadius: 4,
               boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.55), 0 2px 0 rgba(185,28,28,0.35)',
             }}>
-              <p className="font-pixel mb-2 text-center" style={{
-                fontSize: 7, letterSpacing: 2.5, color: '#7F1D1D',
-                textShadow: '0 1px 0 rgba(255,255,255,0.6)',
-              }}>⚠ DANGERS ⚠</p>
+              <div className="flex items-center justify-center gap-1.5 mb-2">
+                <SkullIcon size={11} />
+                <p className="font-pixel" style={{ fontSize: 7, letterSpacing: 2.5, color: '#7F1D1D', textShadow: '0 1px 0 rgba(255,255,255,0.6)' }}>DANGERS</p>
+                <SkullIcon size={11} />
+              </div>
               <div className="grid grid-cols-5 gap-1">
                 <LegendTile Icon={TrapIcon}   tint="#7C2D12" pts="-5" danger />
                 <LegendTile Icon={KnifeIcon}  tint="#9CA3AF" pts="-5" danger />
@@ -1169,10 +893,12 @@ export default function TreatTumbleGame() {
                 <LegendTile Icon={BombIcon}   tint="#DC2626" pts="-6" danger />
                 <LegendTile Icon={SkullIcon}  tint="#E5E7EB" pts="-8" danger />
               </div>
+              <p className="font-pixel text-center mt-2" style={{ fontSize: 5, letterSpacing: 1, color: '#7F1D1D' }}>
+                BOXED IN RED · THE KNIFE COMES FAST
+              </p>
             </div>
           </div>
 
-          {/* Premium START button */}
           <button onClick={() => { playSound('ui_tap'); start() }}
             className="relative mt-5 px-8 py-3 text-white active:translate-y-[2px] transition-transform z-10 overflow-hidden pointer-events-auto"
             style={{
@@ -1183,8 +909,7 @@ export default function TreatTumbleGame() {
               fontFamily: '"Press Start 2P"', fontSize: 11, letterSpacing: 2,
               textShadow: '0 2px 0 #5A1A0A',
             }}>
-            ▶ START
-            {/* Sweeping shine across the button */}
+            START
             <div className="absolute inset-0 pointer-events-none" style={{
               background: 'linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.5) 50%, transparent 62%)',
               animation: reduced ? 'none' : 'ttPlaqueShine 2.4s ease-in-out infinite',
@@ -1193,10 +918,27 @@ export default function TreatTumbleGame() {
         </div>
       )}
 
-      {/* ── Falling items — dangers pulse a sharper red aura + wobble to stand out */}
+      {/* ── Landing shadows ── the one addition that helps you aim without
+            looking up. A shadow on the rug tells you where a treat is going to
+            land while the treat itself is still near the top of the screen. */}
+      {gameState !== 'idle' && items.map(it => (
+        <div key={`sh-${it.id}`} className="absolute pointer-events-none z-[5]" style={{
+          left: it.x, bottom: FLOOR_OFFSET - 6,
+          width: 10 + it.prox * 20,
+          height: 4 + it.prox * 3,
+          marginLeft: -(10 + it.prox * 20) / 2,
+          borderRadius: '50%',
+          background: ITEMS[it.kind].danger ? '#4A0F0F' : '#0F2A14',
+          opacity: 0.18 + it.prox * 0.58,
+        }} />
+      ))}
+
+      {/* ── Falling items ── goods drift free with a warm halo; dangers are
+            boxed in a dark red-bordered plate and tumble end over end. The
+            shape and the spin do the telling, so five red auras don't have to
+            fight each other and the artwork underneath. */}
       {gameState !== 'idle' && items.map(it => {
         const meta = ITEMS[it.kind]
-        const danger = meta.danger
         return (
           <div key={it.id} className="absolute pointer-events-none z-10"
             style={{
@@ -1206,16 +948,24 @@ export default function TreatTumbleGame() {
               height: ITEM_SIZE,
               animation: reduced
                 ? 'none'
-                : danger
-                  ? 'itemSpin 1.4s linear infinite, dangerWobble 0.42s ease-in-out infinite'
-                  : 'itemSpin 1.4s linear infinite',
+                : meta.danger
+                  ? 'ttTumble 1.1s linear infinite'
+                  : 'ttItemSpin 1.4s ease-in-out infinite',
             }}>
+            {meta.danger && (
+              <div style={{
+                position: 'absolute', inset: -3,
+                background: 'rgba(28,12,12,0.82)',
+                border: '2px solid #EF4444',
+                borderRadius: 3,
+                boxShadow: '0 0 9px rgba(239,68,68,0.7), inset 0 0 6px rgba(0,0,0,0.6)',
+              }} />
+            )}
             <div style={{
-              width: '100%', height: '100%',
-              animation: danger && !reduced ? 'dangerPulse 0.55s ease-in-out infinite' : 'none',
-              filter: danger
-                ? `drop-shadow(0 3px 0 rgba(0,0,0,0.35)) drop-shadow(0 0 7px rgba(220,38,38,0.95)) drop-shadow(0 0 12px rgba(220,38,38,0.55))`
-                : `drop-shadow(0 3px 0 rgba(0,0,0,0.25)) drop-shadow(0 0 6px ${meta.tint}55)`,
+              position: 'relative', width: '100%', height: '100%',
+              filter: meta.danger
+                ? 'drop-shadow(0 2px 0 rgba(0,0,0,0.4))'
+                : `drop-shadow(0 3px 0 rgba(0,0,0,0.22)) drop-shadow(0 0 7px ${meta.tint}66)`,
             }}>
               <meta.Icon size={ITEM_SIZE} />
             </div>
@@ -1231,7 +981,6 @@ export default function TreatTumbleGame() {
           background: p.color,
           boxShadow: `0 0 4px ${p.color}`,
           imageRendering: 'pixelated',
-          // Custom property drives the keyframe translate.
           ['--dx' as string]: `${p.dx}px`,
           ['--dy' as string]: `${p.dy}px`,
           animation: 'ttParticle 420ms cubic-bezier(0.22,1,0.36,1) forwards',
@@ -1259,35 +1008,26 @@ export default function TreatTumbleGame() {
           width: 16, height: 12,
           animation: 'ttPuff 500ms ease-out forwards',
         }}>
-          <div style={{
-            position: 'absolute', left: 2, top: 4, width: 4, height: 4,
-            background: 'rgba(180,180,180,0.85)', boxShadow: '0 0 3px rgba(200,200,200,0.6)',
-          }} />
-          <div style={{
-            position: 'absolute', left: 8, top: 2, width: 4, height: 4,
-            background: 'rgba(210,210,210,0.85)', boxShadow: '0 0 3px rgba(220,220,220,0.6)',
-          }} />
-          <div style={{
-            position: 'absolute', left: 5, top: 7, width: 3, height: 3,
-            background: 'rgba(160,160,160,0.8)',
-          }} />
+          <div style={{ position: 'absolute', left: 2, top: 4, width: 4, height: 4, background: 'rgba(180,180,180,0.85)', boxShadow: '0 0 3px rgba(200,200,200,0.6)' }} />
+          <div style={{ position: 'absolute', left: 8, top: 2, width: 4, height: 4, background: 'rgba(210,210,210,0.85)', boxShadow: '0 0 3px rgba(220,220,220,0.6)' }} />
+          <div style={{ position: 'absolute', left: 5, top: 7, width: 3, height: 3, background: 'rgba(160,160,160,0.8)' }} />
         </div>
       ))}
 
-      {/* ── Eren (new sprite) + floating HP bar ─────────────────────────────── */}
+      {/* ── Eren ────────────────────────────────────────────────────────────── */}
       {gameState !== 'idle' && (
         <div className="absolute pointer-events-none z-20"
           style={{
             left: `${erenX}%`,
-            bottom: 48,
+            bottom: EREN_BOTTOM,
             transform: 'translateX(-50%)',
             transition: dragging.current ? 'none' : 'left 0.08s ease-out',
             filter: hurtFlash
               ? 'drop-shadow(0 0 10px rgba(220,38,38,1)) drop-shadow(0 0 16px rgba(220,38,38,0.6))'
-              : 'drop-shadow(0 5px 0 rgba(0,0,0,0.25)) drop-shadow(0 0 8px rgba(255,255,255,0.25))',
-            animation: reduced ? 'none' : 'erenBob 0.7s ease-in-out infinite',
+              : 'drop-shadow(0 5px 0 rgba(0,0,0,0.22)) drop-shadow(0 0 8px rgba(255,255,255,0.22))',
+            animation: reduced || pose === 'run' ? 'none' : 'ttErenBob 0.7s ease-in-out infinite',
           }}>
-          {/* Floating HP indicator above head */}
+          {/* Floating HP above his head — your eyes are on Eren, not the HUD. */}
           <div className="flex items-center justify-center gap-0.5 mb-1"
             style={{
               padding: '2px 5px',
@@ -1295,7 +1035,7 @@ export default function TreatTumbleGame() {
               border: lowLives ? '2px solid #FCA5A5' : '2px solid rgba(255,255,255,0.45)',
               borderRadius: 3,
               boxShadow: lowLives ? '0 1px 0 rgba(0,0,0,0.45), 0 0 6px rgba(248,113,113,0.7)' : '0 1px 0 rgba(0,0,0,0.45)',
-              animation: lowLives && !reduced ? 'heartBeat 0.5s ease-in-out infinite' : 'none',
+              animation: lowLives && !reduced ? 'ttHeartBeat 0.5s ease-in-out infinite' : 'none',
             }}>
             {Array.from({ length: MAX_LIVES }).map((_, i) => (
               <div key={i} style={{
@@ -1308,12 +1048,35 @@ export default function TreatTumbleGame() {
             ))}
           </div>
 
-          <div style={{
-            display: 'inline-block',
-            transformOrigin: '50% 100%',
-            animation: erenPop ? 'erenChomp 140ms cubic-bezier(0.34,1.56,0.64,1)' : 'none',
-          }}>
-            <MemoErenSprite size={EREN_WIDTH} />
+          <div style={{ position: 'relative', display: 'inline-block' }}>
+            {/* At x3 the catch really is wider — this ring is that number,
+                drawn, so the reward reads as a power and not as luck. */}
+            {mult === 3 && gameState === 'running' && (
+              <div className="absolute pointer-events-none" style={{
+                left: '50%', top: 14,
+                width: reachFor(3) * 2, height: 48,
+                marginLeft: -reachFor(3),
+                borderRadius: 999,
+                border: '2px solid rgba(253,224,71,0.85)',
+                boxShadow: '0 0 14px rgba(251,191,36,0.7), inset 0 0 12px rgba(253,230,138,0.4)',
+                animation: reduced ? 'none' : 'ttReachPulse 1.1s ease-in-out infinite',
+              }} />
+            )}
+            <div style={{
+              display: 'inline-block',
+              transformOrigin: '50% 100%',
+              animation: erenPop ? 'ttErenChomp 140ms cubic-bezier(0.34,1.56,0.64,1)' : 'none',
+            }}>
+              <TreatTumbleEren
+                pose={lives === 0 ? 'sad' : pose}
+                dir={dir}
+                look={look}
+                size={EREN_WIDTH}
+                blink={erenIdle.blink}
+                twitch={erenIdle.twitch}
+                reduced={reduced}
+              />
+            </div>
           </div>
         </div>
       )}
@@ -1324,7 +1087,7 @@ export default function TreatTumbleGame() {
           left: f.x, top: f.y, transform: 'translateX(-50%)',
           color: f.color, fontSize: 13, letterSpacing: 1,
           textShadow: '2px 2px 0 rgba(0,0,0,0.6)',
-          animation: 'floatUp 0.95s ease-out forwards',
+          animation: 'ttFloatUp 0.95s ease-out forwards',
         }}>
           {f.text}
         </div>
@@ -1340,8 +1103,8 @@ export default function TreatTumbleGame() {
               {lives > 0 ? (
                 <IconCrown size={28} />
               ) : (
-                <div style={{ animation: reduced ? 'none' : 'sadBob 1.8s ease-in-out infinite' }}>
-                  <MemoSadErenSprite size={48} />
+                <div style={{ animation: reduced ? 'none' : 'ttSadBob 1.8s ease-in-out infinite' }}>
+                  <TreatTumbleEren pose="sad" size={52} reduced={reduced} />
                 </div>
               )}
             </div>
@@ -1352,13 +1115,12 @@ export default function TreatTumbleGame() {
               fontSize: 28,
               textShadow: '2px 2px 0 rgba(180,83,9,0.35)',
               display: 'inline-block',
-              transition: 'transform 0.2s',
             }}>
               {displayedScore}
             </p>
-            {bestCombo >= 5 && (
+            {bestCombo >= TIER_2 && (
               <p className="font-pixel mb-2" style={{ fontSize: 6, color: '#7C2D12', letterSpacing: 2 }}>
-                BEST COMBO x{bestCombo >= 10 ? 3 : 2} ({bestCombo} CATCHES)
+                BEST STREAK {bestCombo} — REACHED x{multFor(bestCombo)}
               </p>
             )}
             {reward && (
@@ -1382,96 +1144,6 @@ export default function TreatTumbleGame() {
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        @keyframes cloudDrift {
-          from { transform: translateX(-25px); }
-          to   { transform: translateX(25px); }
-        }
-        @keyframes itemSpin {
-          from { transform: rotate(-8deg); }
-          50%  { transform: rotate(8deg); }
-          to   { transform: rotate(-8deg); }
-        }
-        @keyframes erenBob {
-          0%, 100% { transform: translateX(-50%) translateY(0); }
-          50%      { transform: translateX(-50%) translateY(-5px); }
-        }
-        @keyframes floatUp {
-          0%   { transform: translateX(-50%) translateY(0); opacity: 1; }
-          100% { transform: translateX(-50%) translateY(-46px); opacity: 0; }
-        }
-        @keyframes timerPulse {
-          0%, 100% { transform: scale(1); }
-          50%      { transform: scale(1.08); }
-        }
-        @keyframes sceneShake {
-          0%, 100% { transform: translateX(0); }
-          20%      { transform: translateX(-6px); }
-          45%      { transform: translateX(6px); }
-          70%      { transform: translateX(-4px); }
-        }
-        @keyframes hurtFade {
-          from { opacity: 1; }
-          to   { opacity: 0; }
-        }
-        @keyframes heartBeat {
-          0%, 100% { transform: scale(1); }
-          50%      { transform: scale(1.18); }
-        }
-        /* Slow drifting sparkle field behind the start plaque */
-        @keyframes ttStarDrift {
-          from { background-position: 0 0, 22px 28px; }
-          to   { background-position: 200px 0, 222px 28px; }
-        }
-        /* Sweeping shine across the plaque + start button */
-        @keyframes ttPlaqueShine {
-          0%, 30%   { transform: translateX(-130%); }
-          70%, 100% { transform: translateX(130%); }
-        }
-        /* Quick chomp / squash on positive catch */
-        @keyframes erenChomp {
-          0%   { transform: scale(1, 1); }
-          40%  { transform: scale(1.15, 0.92); }
-          100% { transform: scale(1, 1); }
-        }
-        /* Side-to-side wobble for dangers — small, fast */
-        @keyframes dangerWobble {
-          0%, 100% { translate: -1px 0; }
-          50%      { translate:  1px 0; }
-        }
-        /* Pulsing red aura so dangers read at a glance */
-        @keyframes dangerPulse {
-          0%, 100% { opacity: 0.85; }
-          50%      { opacity: 1; }
-        }
-        /* Radial particle burst — moves toward --dx/--dy and fades */
-        @keyframes ttParticle {
-          0%   { transform: translate(-50%, -50%) translate(0, 0) scale(1); opacity: 1; }
-          100% { transform: translate(-50%, -50%) translate(var(--dx), var(--dy)) scale(0.4); opacity: 0; }
-        }
-        /* Heart shard fly-out with gravity-ish arc */
-        @keyframes ttShard {
-          0%   { transform: translate(-50%, -50%) translate(0, 0) rotate(0deg); opacity: 1; }
-          100% { transform: translate(-50%, -50%) translate(var(--dx), calc(var(--dy) + 28px)) rotate(140deg); opacity: 0; }
-        }
-        /* Smoke puff rising as it fades */
-        @keyframes ttPuff {
-          0%   { transform: translateY(0) scale(0.75); opacity: 0.95; }
-          100% { transform: translateY(-14px) scale(1.4); opacity: 0; }
-        }
-        /* Score shake on negative score change */
-        @keyframes scoreShake {
-          0%, 100% { transform: translateX(0) scale(0.88); }
-          25%      { transform: translateX(-3px) scale(0.88); }
-          75%      { transform: translateX(3px) scale(0.88); }
-        }
-        /* Sad Eren bob — slower, smaller */
-        @keyframes sadBob {
-          0%, 100% { transform: translateY(0); }
-          50%      { transform: translateY(-2px); }
-        }
-      `}</style>
     </div>
   )
 }
@@ -1481,7 +1153,6 @@ function LegendTile({ Icon, tint, pts, danger }: { Icon: React.FC<{ size?: numbe
   return (
     <div className="flex flex-col items-center gap-0.5 py-1.5 px-1 relative"
       style={{
-        // Subtle gradient + soft inner highlight gives each tile depth.
         background: danger
           ? 'linear-gradient(180deg, rgba(255,255,255,0.6), rgba(254,202,202,0.35))'
           : 'linear-gradient(180deg, rgba(255,255,255,0.7), rgba(255,255,255,0.25))',
@@ -1491,7 +1162,7 @@ function LegendTile({ Icon, tint, pts, danger }: { Icon: React.FC<{ size?: numbe
       }}>
       <Icon size={20} />
       <span className="font-pixel" style={{
-        fontSize: 6,
+        fontSize: pts.length > 3 ? 4 : 6,
         color: danger ? '#7F1D1D' : '#7C2D12',
         letterSpacing: 0.5,
         textShadow: '0 1px 0 rgba(255,255,255,0.5)',
