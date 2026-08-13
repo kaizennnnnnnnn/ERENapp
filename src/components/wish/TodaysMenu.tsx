@@ -16,7 +16,7 @@
 // opening down would run it off the bottom of the room.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FoodKey } from '@/types'
 import { FOOD_META, foodArt } from '@/lib/foodMeta'
 import FoodIcon from '@/components/care/FoodIcon'
@@ -36,17 +36,28 @@ interface Props {
 
 export default function TodaysMenu({ menu, progress, complete, reward }: Props) {
   const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
   const fedCount = progress.filter(Boolean).length
 
-  // Any tap elsewhere closes it. Registered only while open so the home screen
+  // Any tap ELSEWHERE closes it. Registered only while open so the home screen
   // isn't carrying a document listener for a card nobody has opened.
+  //
+  // The inside/outside test has to be `contains`, not the wrapper's
+  // stopPropagation. The App Router hydrates <html>, so React's own delegated
+  // listeners sit on `document` — the same node as this one — and
+  // stopPropagation() never stops a listener on the same node (only
+  // stopImmediatePropagation does, and only for listeners registered later).
+  // So a tap on the bowl ran this handler anyway: pointerdown closed the card
+  // and the click that followed toggled it straight back open, which looked
+  // exactly like the card refusing to shut.
   useEffect(() => {
     if (!open) return
-    const close = () => setOpen(false)
-    // Deferred a tick: the tap that OPENED the card would otherwise be the
-    // same one that closes it.
-    const t = setTimeout(() => document.addEventListener('pointerdown', close), 0)
-    return () => { clearTimeout(t); document.removeEventListener('pointerdown', close) }
+    const close = (e: PointerEvent) => {
+      if (rootRef.current?.contains(e.target as Node)) return
+      setOpen(false)
+    }
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
   }, [open])
 
   if (menu.length === 0) return null
@@ -64,7 +75,9 @@ export default function TodaysMenu({ menu, progress, complete, reward }: Props) 
     // 70+, and this must stay under both. Everything named here lives inside
     // the room's `fixed inset-0; z-index: 0` wrapper, so these all resolve
     // against each other in that one stacking context.
-    <div className="absolute" style={{ bottom: '22%', right: '23%', zIndex: open ? 50 : 3 }}
+    // The stopPropagation still earns its place: it keeps the tap off the
+    // room's own React handlers underneath. It just can't police `document`.
+    <div ref={rootRef} className="absolute" style={{ bottom: '22%', right: '23%', zIndex: open ? 50 : 3 }}
       onPointerDown={e => e.stopPropagation()}>
 
       {/* ── The card ── only while asked for ── */}
