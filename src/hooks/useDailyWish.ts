@@ -10,8 +10,8 @@
 //   2. Subscribe to realtime updates on that row so the other partner sees
 //      the granted state instantly.
 //   3. Listen to in-session events (eren:my-action, eren:fed-food,
-//      eren:nudge-sent, eren:minigame-done, eren:pet) plus a one-time
-//      catch-up query of today's interactions to build DailyActions.
+//      eren:nudge-sent, eren:minigame-done, eren:pet, eren:vet-checkup) plus
+//      a one-time catch-up query of today's interactions to build DailyActions.
 //   4. When matchWish(wish, actions) returns true and the row is still
 //      ungranted, call the grant_wish RPC and dispatch eren:wish-granted.
 //
@@ -37,6 +37,7 @@ const SESSION_FEEDS_KEY = 'eren:wish:fed-today'
 const SESSION_PLAYS_KEY = 'eren:wish:plays-today'
 const SESSION_NUDGES_KEY = 'eren:wish:nudges-today'
 const SESSION_SCHOOLS_KEY = 'eren:wish:schools-today'
+const SESSION_CHECKUPS_KEY = 'eren:wish:checkups-today'
 
 interface DailyWishRow {
   household_id: string
@@ -130,6 +131,7 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
   const sessionPlaysRef = useRef<string[]>([])
   const sessionNudgesRef = useRef<Set<string>>(new Set())
   const sessionSchoolsRef = useRef<number>(0)
+  const sessionCheckupsRef = useRef<number>(0)
   const myCaresRef = useRef<Array<'feed'|'play'|'sleep'|'wash'|'medicine'>>([])
   const partnerCaresRef = useRef<Array<'feed'|'play'|'sleep'|'wash'|'medicine'>>([])
   const partnerPlaysRef = useRef<string[]>([])
@@ -142,6 +144,7 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
     sessionPlaysRef.current = lsRead<string[]>(SESSION_PLAYS_KEY, todayKey, [])
     sessionNudgesRef.current = new Set(lsRead<string[]>(SESSION_NUDGES_KEY, todayKey, []))
     sessionSchoolsRef.current = lsRead<number>(SESSION_SCHOOLS_KEY, todayKey, 0)
+    sessionCheckupsRef.current = lsRead<number>(SESSION_CHECKUPS_KEY, todayKey, 0)
   }, [todayKey])
 
   // ── Build a fresh DailyActions snapshot from the refs.
@@ -156,6 +159,7 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
     partnerNudges: new Set(partnerNudgesRef.current),
     fridgeKeys: opts.fridgeKeys,
     schools: sessionSchoolsRef.current,
+    checkups: sessionCheckupsRef.current,
   }), [opts.fridgeKeys])
 
   // ── Load (or seed) today's wish row.
@@ -447,6 +451,14 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
       if (todayKey) lsWrite(SESSION_SCHOOLS_KEY, todayKey, sessionSchoolsRef.current)
       void tryGrant()
     }
+    const onCheckup = () => {
+      // Vet checkup run — grants the 'medicine' wish on its own, because a
+      // healthy Eren is never offered a dose. Local session only, same as
+      // lessons (the checkup isn't logged to interactions).
+      sessionCheckupsRef.current += 1
+      if (todayKey) lsWrite(SESSION_CHECKUPS_KEY, todayKey, sessionCheckupsRef.current)
+      void tryGrant()
+    }
     const onPet = () => {
       // Pet is its own play-flavoured trigger so mood-pet / mood-lap can grant.
       myCaresRef.current.push('play')
@@ -458,6 +470,7 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
     window.addEventListener('eren:nudge-sent', onNudgeSent)
     window.addEventListener('eren:minigame-done', onMinigame)
     window.addEventListener('eren:lesson-done', onLesson)
+    window.addEventListener('eren:vet-checkup', onCheckup)
     window.addEventListener('eren:pet', onPet)
     return () => {
       window.removeEventListener('eren:my-action', onMyAction)
@@ -465,6 +478,7 @@ export function useDailyWish(opts: UseDailyWishOptions): UseDailyWishResult {
       window.removeEventListener('eren:nudge-sent', onNudgeSent)
       window.removeEventListener('eren:minigame-done', onMinigame)
       window.removeEventListener('eren:lesson-done', onLesson)
+      window.removeEventListener('eren:vet-checkup', onCheckup)
       window.removeEventListener('eren:pet', onPet)
     }
   }, [opts.householdId, opts.userId, todayKey, tryGrant])

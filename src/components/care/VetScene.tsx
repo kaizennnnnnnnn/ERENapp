@@ -190,6 +190,10 @@ export default function VetScene({ onClose }: Props) {
     await new Promise(r => setTimeout(r, 1200))
     setChecking(false)
     setCheckDone(true)
+    // The visit itself grants "take me to the vet". A dose only follows when
+    // the report says NEEDS CARE, so waiting for one left the wish stuck on
+    // pending every day Eren was healthy.
+    try { window.dispatchEvent(new Event('eren:vet-checkup')) } catch { /* SSR/no-window */ }
   }
 
   async function giveMedicine() {

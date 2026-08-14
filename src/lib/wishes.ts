@@ -27,7 +27,8 @@ export type WishCategory = 'food' | 'activity' | 'mood' | 'couple' | 'rare'
  *   feed:all_inventory      every food in the fridge today
  *   play:any                any care play action OR any minigame completion
  *   play:<minigameId>       specific minigame
- *   wash | sleep | medicine the matching ACTION_CONFIGS action_type
+ *   wash | sleep           the matching ACTION_CONFIGS action_type
+ *   medicine               a dose given OR a vet checkup run (eren:vet-checkup)
  *   school                 a Serbian lesson finished today (eren:lesson-done)
  *   nudge:<nudgeId>         specific nudge sent (or partner sent, when needsBothActive=true)
  *   nudge:any               any nudge
@@ -292,13 +293,23 @@ export interface DailyActions {
   // type, so (like feeds) only the local session is tracked — partner lessons
   // aren't broadcast. Optional so older callers/snapshots decode unchanged.
   schools?: number
+  // Vet checkups YOU ran today. Same local-session deal as schools: the
+  // checkup isn't a DB action type, only the dose that may follow it is.
+  checkups?: number
 }
 
 export function matchWish(wish: Wish, a: DailyActions): boolean {
   // Bare-string matches first.
   if (wish.match === 'wash')     return a.cares.includes('wash')     || a.partnerCares.includes('wash')
   if (wish.match === 'sleep')    return a.cares.includes('sleep')    || a.partnerCares.includes('sleep')
-  if (wish.match === 'medicine') return a.cares.includes('medicine') || a.partnerCares.includes('medicine')
+  // "take me to the vet" is about the VISIT, not the dose. The vet room only
+  // offers medicine when the health report reads NEEDS CARE — a healthy Eren
+  // gets a lolipop instead, and lolipops are deliberately kept out of the
+  // interactions ledger. Gating on the dose alone made this wish impossible
+  // to grant on any day he was in good shape, no matter who took him in.
+  if (wish.match === 'medicine') return a.cares.includes('medicine')
+    || a.partnerCares.includes('medicine')
+    || (a.checkups ?? 0) > 0
   if (wish.match === 'school')   return (a.schools ?? 0) > 0
 
   const colon = wish.match.indexOf(':')
