@@ -6,7 +6,7 @@
 // Same presentation contract as the bakery: the picture is shown WHOLE (fit
 // to width) over a blurred copy of itself, so nothing of the kiosk is ever
 // cropped. The letterbox bands above and below are painted in the picture's
-// own measured edge colours (night sky #0C0E1F on top, asphalt #63565F
+// own measured edge colours (night sky #0B0D1E on top, asphalt #65555C
 // below — sampled off the PNG, not eyeballed) so the art reads as extending
 // to the screen edges instead of sitting in bars.
 //
@@ -27,24 +27,28 @@ import { requestCloudNav } from '@/components/CloudTransition'
 
 // Intrinsic size of /ShawarmaKiosk.png. Drives the stage aspect ratio and
 // the letterbox band height, so swapping in a repaint at a different size
-// only needs these two numbers changed.
-const PIC = { src: '/ShawarmaKiosk.png', w: 768, h: 1376 }
+// only needs these two numbers changed. The ?v= is a cache-bust: the service
+// worker serves images stale-while-revalidate, so a repaint dropped at the
+// same path shows the OLD art until the query changes.
+const PIC = { src: '/ShawarmaKiosk.png?v=2', w: 768, h: 1376 }
 
 // Averaged over the top 6 / bottom 6 rows of the PNG.
-const SKY_EDGE = '#0C0E1F'
-const ASPHALT_EDGE = '#63565F'
+const SKY_EDGE = '#0B0D1E'
+const ASPHALT_EDGE = '#65555C'
 
 // First row of the serving counter's lit top surface, from a column scan of
-// the PNG (row 839 of 1376) — NOT the front lip a dozen rows lower, which
+// the PNG (row 849 of 1376) — NOT the front lip a dozen rows lower, which
 // would paint Eren over the counter and read as him standing in front of it.
-const COUNTER_PCT = 60.97
+const COUNTER_PCT = 61.70
 // Eren's box, sized in cqi (container-query inline-size = % of the PICTURE's
 // width, see the stage's containerType) so he tracks the picture and stays
 // glued to the counter. vw would balloon him on a short/wide viewport, where
 // the picture goes height-constrained and is narrower than the screen.
 const EREN_CQI = 32
-// How much of him clears the counter: half — chef hat, face and chest.
-const EREN_SHOW = 0.5
+// How much of him clears the counter. Half cut him at the chin — a head on a
+// ledge. 0.64 lands the cut under his chest, just above the front paws, so he
+// stands at the window like someone actually serving.
+const EREN_SHOW = 0.64
 const EREN_BOTTOM = `${-(1 - EREN_SHOW) * EREN_CQI}cqi`
 
 // ErenCook.png (chef-hat pose) eye coords — the same measured layout the
