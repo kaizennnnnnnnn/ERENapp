@@ -36,16 +36,20 @@ const PIC = { src: '/ShawarmaKiosk.png?v=2', w: 768, h: 1376 }
 const SKY_EDGE = '#0B0D1E'
 const ASPHALT_EDGE = '#65555C'
 
-// First row of the serving counter's lit top surface, from a column scan of
-// the PNG (row 849 of 1376) — NOT the front lip a dozen rows lower, which
-// would paint Eren over the counter and read as him standing in front of it.
-const COUNTER_PCT = 61.70
+// Top edge of the window's bottom RAIL — the metal bar that runs across the
+// opening, in front of the interior (row 829 of 1376, the dark outline above
+// its lit face; a column scan finds it at the same row at every x Eren
+// occupies). Clipping at the counter's top surface instead — 20 rows lower —
+// hides his legs but leaves the rail painted across his chest, which reads as
+// him standing *through* it. The rail is the frontmost thing behind the
+// counter, so it's what he has to stand behind.
+const RAIL_PCT = 60.25
 // Eren's box, sized in cqi (container-query inline-size = % of the PICTURE's
 // width, see the stage's containerType) so he tracks the picture and stays
-// glued to the counter. vw would balloon him on a short/wide viewport, where
-// the picture goes height-constrained and is narrower than the screen.
+// glued to the rail. vw would balloon him on a short/wide viewport, where the
+// picture goes height-constrained and is narrower than the screen.
 const EREN_CQI = 32
-// How much of him clears the counter. Half cut him at the chin — a head on a
+// How much of him clears the rail. Half cut him at the chin — a head on a
 // ledge. 0.64 lands the cut under his chest, just above the front paws, so he
 // stands at the window like someone actually serving.
 const EREN_SHOW = 0.64
@@ -110,12 +114,12 @@ export default function ShawarmaPage() {
             objectFit: 'fill', WebkitUserSelect: 'none', userSelect: 'none',
           }} />
 
-          {/* ══ EREN ══ working the window. The clip box ends at the counter's
-              top edge, so everything below his chest is hidden behind it and
-              he reads as standing inside the kiosk rather than pasted on it.
+          {/* ══ EREN ══ working the window. The clip box ends at the window
+              rail, so everything below his chest is hidden behind it and he
+              reads as standing inside the kiosk rather than pasted on it.
               Breathing lives in BlinkingEren, idle wiggles in ErenIdleLayer. */}
           <div className="absolute left-0 right-0 top-0 overflow-hidden pointer-events-none"
-            style={{ height: `${COUNTER_PCT}%`, zIndex: 10 }}>
+            style={{ height: `${RAIL_PCT}%`, zIndex: 10 }}>
             <div className="absolute left-1/2" style={{ bottom: EREN_BOTTOM, transform: 'translateX(-50%)' }}>
               <ErenIdleLayer>
                 {/* The kiosk is painted at night whatever the app's theme is,
