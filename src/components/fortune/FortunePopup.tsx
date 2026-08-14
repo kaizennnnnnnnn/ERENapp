@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FortuneGiftDef } from '@/types'
 import { RARITY_COLORS } from '@/lib/gacha'
 import { useFortune } from '@/hooks/useFortune'
@@ -48,6 +48,16 @@ const GIFT_EREN_STATES = SKETCH_EREN_STATES.filter(s => !SKIP_GIFT_STATES.has(s)
 
 // Stable per calendar day (reopening shows the same one) but pseudo-random
 // across days, so it feels fresh each morning.
+// canClaimFortune() unlocks on a new CALENDAR day, so the wait is exactly the
+// time left until local midnight — worth showing, since "already claimed" on
+// its own leaves you guessing when to come back.
+function timeUntilMidnight(): { h: number; m: number } {
+  const now = new Date()
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+  const mins = Math.max(0, Math.round((midnight.getTime() - now.getTime()) / 60000))
+  return { h: Math.floor(mins / 60), m: mins % 60 }
+}
+
 function giftErenForToday(): SketchErenState {
   const d = new Date()
   const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
@@ -293,6 +303,13 @@ export default function FortunePopup({ onClose }: Props) {
   const dailyEren = useMemo(giftErenForToday, [])
   const bagRef = useRef<HTMLDivElement>(null)
 
+  // Countdown to the next gift, refreshed every minute while the popup is open.
+  const [untilNext, setUntilNext] = useState(timeUntilMidnight)
+  useEffect(() => {
+    const t = setInterval(() => setUntilNext(timeUntilMidnight()), 60_000)
+    return () => clearInterval(t)
+  }, [])
+
   // Closing a coin reward showers coins from the revealed bag into the top-right
   // counter. We measure the bag BEFORE unmounting and hand its centre + the coin
   // amount to the HUD (StatsHeader) via `eren:coin-burst`; the count scales with
@@ -344,38 +361,70 @@ export default function FortunePopup({ onClose }: Props) {
         {/* Intro — Eren + idle pixel gift box + CTA */}
         {phase === 'intro' && (
           <>
+            {/* Warm lantern glow behind the box. The scrim used to be flat
+                black, which left the gift sitting on nothing; this pools light
+                on the centrepiece so the eye lands there first. */}
+            <div aria-hidden className="fp-lantern" />
+
             <div style={{ animation: 'fpFloat 2s ease-in-out infinite' }}>
               <SketchEren state={dailyEren} size={120} transparent noSpeech />
             </div>
-            <PixelGiftBox size={88} animation="idle" />
-            <div className="px-3 py-2 text-center"
-              style={{
-                background: '#1F1F2E',
-                border: '2px solid #F5C842',
-                boxShadow: '3px 3px 0 rgba(0,0,0,0.5)',
-                imageRendering: 'pixelated',
-              }}>
-              <p className="font-pixel text-amber-300 mb-1" style={{ fontSize: 8 }}>DAILY FORTUNE</p>
-              <p className="font-pixel text-white/70" style={{ fontSize: 6 }}>EREN HAS A GIFT!</p>
+
+            <div className="relative">
+              <PixelGiftBox size={88} animation="idle" />
+              {/* Four pixel sparkles orbiting the box on staggered blinks. */}
+              {([
+                { delay: '0s',   pos: { top: -6,    left: -10 } },
+                { delay: '0.7s', pos: { top: 4,     right: -12 } },
+                { delay: '1.3s', pos: { bottom: -4, left: 6 } },
+                { delay: '1.9s', pos: { bottom: 8,  right: -6 } },
+              ] as const).map(s => (
+                <span key={s.delay} aria-hidden className="fp-spark"
+                  style={{ ...s.pos, animationDelay: s.delay }} />
+              ))}
             </div>
+
+            {/* Title plaque — now wears the app's premium-card treatment
+                (bevel + gold corner rivets) instead of a flat bordered rect. */}
+            <div className="fp-plaque relative px-4 py-2.5 text-center">
+              <span aria-hidden className="fp-rivet" style={{ top: 3, left: 3 }} />
+              <span aria-hidden className="fp-rivet" style={{ top: 3, right: 3 }} />
+              <span aria-hidden className="fp-rivet" style={{ bottom: 3, left: 3 }} />
+              <span aria-hidden className="fp-rivet" style={{ bottom: 3, right: 3 }} />
+              <p className="font-pixel fp-plaque-title mb-1.5" style={{ fontSize: 8 }}>DAILY FORTUNE</p>
+              <p className="font-pixel text-white/65" style={{ fontSize: 6, letterSpacing: 0.5 }}>
+                {canClaim ? 'EREN HAS A GIFT FOR YOU' : 'EREN IS WRAPPING THE NEXT ONE'}
+              </p>
+            </div>
+
             {canClaim ? (
               <button onClick={() => { playSound('ui_tap'); handleClaim() }}
-                className="w-full py-3 text-white active:translate-y-[2px] transition-transform"
-                style={{
-                  background: '#D97706',
-                  border: '3px solid #92400E',
-                  boxShadow: '0 4px 0 #6F2E08',
-                  fontFamily: '"Press Start 2P"',
-                  fontSize: 8,
-                  imageRendering: 'pixelated',
-                }}>
-                OPEN GIFT
+                disabled={claiming}
+                className="fp-open w-full relative">
+                <span aria-hidden className="fp-open-shine" />
+                <span className="fp-open-label">
+                  <IconGift size={18} />
+                  OPEN GIFT
+                </span>
               </button>
             ) : (
-              <p className="font-pixel text-white/40" style={{ fontSize: 7 }}>ALREADY CLAIMED TODAY</p>
+              /* Was a bare line of 40%-white text. Now it answers the only
+                 question you actually have here: when do I get the next one. */
+              <div className="fp-wait w-full text-center py-3">
+                <p className="font-pixel text-white/45 mb-1.5" style={{ fontSize: 7, letterSpacing: 1 }}>
+                  CLAIMED FOR TODAY
+                </p>
+                <p className="font-pixel fp-wait-clock" style={{ fontSize: 8 }}>
+                  NEXT GIFT IN {untilNext.h}H {untilNext.m}M
+                </p>
+              </div>
             )}
+
             <button onClick={() => { playSound('ui_modal_close'); onClose() }}
-              className="font-pixel text-white/30" style={{ fontSize: 6 }}>CLOSE</button>
+              className="font-pixel text-white/35 active:text-white/60 transition-colors"
+              style={{ fontSize: 7, letterSpacing: 1.5, padding: '10px 24px' }}>
+              CLOSE
+            </button>
           </>
         )}
 
@@ -447,6 +496,135 @@ export default function FortunePopup({ onClose }: Props) {
       </div>
 
       <style>{`
+        /* ── Intro atmosphere ── */
+        .fp-lantern {
+          position: absolute;
+          left: 50%; top: 50%;
+          width: 420px; height: 420px;
+          transform: translate(-50%, -50%);
+          background: radial-gradient(circle,
+            rgba(245, 200, 66, 0.16) 0%,
+            rgba(217, 119, 6, 0.07) 42%,
+            transparent 70%);
+          pointer-events: none;
+          animation: fpLantern 4.5s ease-in-out infinite;
+        }
+        @keyframes fpLantern {
+          0%, 100% { opacity: 0.75; transform: translate(-50%, -50%) scale(1);    }
+          50%      { opacity: 1;    transform: translate(-50%, -50%) scale(1.06); }
+        }
+        .fp-spark {
+          position: absolute;
+          width: 3px; height: 3px;
+          background: #FFE9A8;
+          box-shadow: 0 0 5px rgba(255, 220, 120, 0.9);
+          opacity: 0;
+          pointer-events: none;
+          animation: fpSpark 2.6s steps(1, end) infinite;
+        }
+        /* Steps, not a fade — a pixel sparkle pops on and off, it doesn't
+           dissolve. Same rule the water-drop keyframes follow. */
+        @keyframes fpSpark {
+          0%, 74%  { opacity: 0; transform: scale(1); }
+          78%      { opacity: 1; transform: scale(1.6); }
+          86%      { opacity: 1; transform: scale(1); }
+          92%, 100%{ opacity: 0; transform: scale(1); }
+        }
+
+        /* ── Title plaque ── */
+        .fp-plaque {
+          background: linear-gradient(180deg, #2A2438 0%, #16121F 100%);
+          border: 2px solid #F5C842;
+          box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.55),
+                      inset 0 1px 0 rgba(255, 232, 160, 0.22),
+                      inset 0 -2px 0 rgba(0, 0, 0, 0.5);
+        }
+        .fp-plaque-title {
+          color: #FFD86B;
+          letter-spacing: 1.5px;
+          text-shadow: 0 0 7px rgba(245, 200, 66, 0.5);
+        }
+        .fp-rivet {
+          position: absolute;
+          width: 2px; height: 2px;
+          background: #FFE9A8;
+          box-shadow: 0 0 3px rgba(245, 200, 66, 0.8);
+          pointer-events: none;
+        }
+
+        /* ── OPEN GIFT ──
+           Was a flat #D97706 slab with a plain border. Now a struck-gold
+           pixel button: gradient face, hard bevel, hard drop (no blur), a
+           slow shine sweep to pull the eye, and a real press that drives
+           the face down onto its own shadow. */
+        .fp-open {
+          padding: 14px 16px;
+          background: linear-gradient(180deg, #FFD86B 0%, #F5A623 45%, #D97706 100%);
+          border: 3px solid #6F3D08;
+          box-shadow: 0 5px 0 #6F2E08,
+                      inset 0 2px 0 rgba(255, 245, 200, 0.75),
+                      inset 0 -3px 0 rgba(146, 64, 14, 0.55),
+                      0 0 20px rgba(245, 166, 35, 0.35);
+          image-rendering: pixelated;
+          overflow: hidden;
+          transition: transform 60ms steps(2, end), box-shadow 60ms steps(2, end);
+          animation: fpOpenBreathe 2.4s ease-in-out infinite;
+        }
+        .fp-open:active:not(:disabled) {
+          transform: translateY(4px);
+          box-shadow: 0 1px 0 #6F2E08,
+                      inset 0 2px 0 rgba(255, 245, 200, 0.5),
+                      inset 0 -2px 0 rgba(146, 64, 14, 0.6),
+                      0 0 14px rgba(245, 166, 35, 0.3);
+          animation: none;
+        }
+        .fp-open:disabled { opacity: 0.65; animation: none; }
+        .fp-open-label {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 9px;
+          font-family: "Press Start 2P";
+          font-size: 10px;
+          letter-spacing: 1.5px;
+          color: #45210A;
+          text-shadow: 0 1px 0 rgba(255, 240, 190, 0.55);
+        }
+        .fp-open-shine {
+          position: absolute;
+          top: 0; bottom: 0; left: -40%;
+          width: 34%;
+          background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+          animation: fpOpenShine 3.2s ease-in-out infinite;
+          pointer-events: none;
+        }
+        @keyframes fpOpenShine {
+          0%, 62%  { left: -40%; }
+          88%, 100%{ left: 108%; }
+        }
+        @keyframes fpOpenBreathe {
+          0%, 100% { filter: brightness(1);    }
+          50%      { filter: brightness(1.09); }
+        }
+
+        /* ── Already-claimed panel ── */
+        .fp-wait {
+          background: linear-gradient(180deg, rgba(42, 36, 56, 0.7) 0%, rgba(16, 14, 24, 0.8) 100%);
+          border: 2px solid rgba(245, 200, 66, 0.28);
+          box-shadow: inset 0 1px 0 rgba(255, 232, 160, 0.1);
+        }
+        .fp-wait-clock {
+          color: #F5C842;
+          letter-spacing: 1.5px;
+          text-shadow: 0 0 8px rgba(245, 200, 66, 0.4);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .fp-lantern, .fp-spark, .fp-open, .fp-open-shine { animation: none; }
+          .fp-spark { opacity: 0.9; }
+        }
+
         @keyframes fpFloat {
           0%, 100% { transform: translateY(0); }
           50%      { transform: translateY(-4px); }
