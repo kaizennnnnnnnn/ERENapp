@@ -29,13 +29,15 @@ interface KioskView {
 
 // Ring order for a LEFT swipe, i.e. turning to your left. Reversed for a
 // right swipe by walking the index the other way.
-// Labels name what you're looking AT, not which way you turned — the walls
-// are the warmer trays, the drinks fridge and the spit.
+// `id` is the wall's place in the ring; the filenames are just what the art
+// was drawn as, and the two side walls hang the other way round from their
+// names — the spit is on your left, the trays on your right. Labels name
+// what you're looking AT, so they travel with the picture, not the slot.
 const VIEWS: KioskView[] = [
   { id: 'window', src: '/InsideOfKiosk.webp',   label: 'The Window' },
-  { id: 'left',   src: '/KioskLeftSide.webp',   label: 'Toppings'   },
+  { id: 'left',   src: '/KioskRightSide.webp',  label: 'Meat'       },
   { id: 'back',   src: '/BackOffTheKiosk.webp', label: 'Fridge'     },
-  { id: 'right',  src: '/KioskRightSide.webp',  label: 'Meat'       },
+  { id: 'right',  src: '/KioskLeftSide.webp',   label: 'Toppings'   },
 ]
 
 // Exported so the kiosk front can warm all four before the door opens — see
