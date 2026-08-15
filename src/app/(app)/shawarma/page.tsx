@@ -17,12 +17,13 @@
 // Reached from the home dock via the 'smoke' cloud transition.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useEffect } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { useCare } from '@/contexts/CareContext'
 import { playSound } from '@/lib/sounds'
 import BlinkingEren from '@/components/BlinkingEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
+import KioskInterior, { KIOSK_VIEW_SRCS } from '@/components/kiosk/KioskInterior'
 import { requestCloudNav } from '@/components/CloudTransition'
 
 // Intrinsic size of /ShawarmaKiosk.png. Drives the stage aspect ratio and
@@ -66,11 +67,46 @@ const COOK_EYES = {
   glintLeftA: '60.3%', glintTopA: '3%', glintLeftB: '20.5%', glintTopB: '3%', glintW: '18%',
 }
 
+// Stepping through the window. 'entering' runs the push-in on the front and
+// darkens to black; the interior only mounts once we're through, so its
+// arrival animation always starts from a clean black screen.
+type Phase = 'front' | 'entering' | 'inside' | 'leaving'
+const ENTER_MS = 620
+const LEAVE_MS = 420
+
 export default function ShawarmaPage() {
   const { setHideStats } = useCare()
+  const [phase, setPhase] = useState<Phase>('front')
 
   // Full-screen scene — hide the persistent StatsHeader while we're here.
   useEffect(() => { setHideStats(true); return () => setHideStats(false) }, [setHideStats])
+
+  // Warm all four walls in the background so the door opens instantly. Held
+  // off the cold-load critical path — the front picture is what matters when
+  // the page first paints.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      KIOSK_VIEW_SRCS.forEach(src => { const img = new window.Image(); img.src = src })
+    }, 1200)
+    return () => clearTimeout(t)
+  }, [])
+
+  const goInside = useCallback(() => {
+    playSound('ui_modal_open')
+    setPhase('entering')
+    // Cut to the interior when BOTH the push-in has finished and the first
+    // wall can actually paint. The preload above almost always wins the race;
+    // this is the guard for a tap in the first second on a cold load.
+    const pushIn = new Promise(resolve => setTimeout(resolve, ENTER_MS))
+    const firstWall = new window.Image()
+    firstWall.src = KIOSK_VIEW_SRCS[0]
+    Promise.all([pushIn, firstWall.decode().catch(() => null)]).then(() => setPhase('inside'))
+  }, [])
+
+  const goOutside = useCallback(() => {
+    setPhase('leaving')
+    setTimeout(() => setPhase('front'), LEAVE_MS)
+  }, [])
 
   // Height of ONE empty band. Clamps to 0 on viewports wide enough that the
   // picture becomes height-constrained instead of width-constrained.
@@ -78,6 +114,33 @@ export default function ShawarmaPage() {
 
   return (
     <div className="fixed inset-0 z-40 overflow-hidden select-none game-shell" style={{ background: '#040304' }}>
+      <style>{`
+        @keyframes kioskPushIn {
+          0%   { transform: scale(1);    opacity: 1; }
+          62%  { transform: scale(1.5);  opacity: 1; }
+          100% { transform: scale(2.15); opacity: 0; }
+        }
+        @keyframes kioskVeilIn  { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes kioskVeilOut { from { opacity: 1; } to { opacity: 0; } }
+        @keyframes kioskStepIn {
+          from { transform: scale(1.16); opacity: 0; }
+          to   { transform: scale(1);    opacity: 1; }
+        }
+        @keyframes kioskStepOut {
+          from { transform: scale(1);    opacity: 1; }
+          to   { transform: scale(1.16); opacity: 0; }
+        }
+      `}</style>
+
+      {/* ══ FRONT ══ the kiosk from the street. Everything in here rides the
+          push-in together, so the sign, the window and Eren all rush past you
+          as one picture rather than the button flying off on its own. */}
+      <div className="absolute inset-0" style={{
+        pointerEvents: phase === 'front' ? undefined : 'none',
+        ...(phase === 'entering'
+          ? { animation: `kioskPushIn ${ENTER_MS}ms cubic-bezier(0.5, 0, 0.75, 0) both` }
+          : null),
+      }}>
 
       {/* ══ BLURRED FILL ══ soft surround behind the bands, so any sliver the
           bands don't cover still shows kiosk colours rather than flat black. */}
@@ -135,6 +198,27 @@ export default function ShawarmaPage() {
               </ErenIdleLayer>
             </div>
           </div>
+
+          {/* ══ GO INSIDE ══ anchored to the PICTURE, not the viewport, so it
+              always lands on the pavement in front of the counter instead of
+              drifting onto the art on a short screen. */}
+          <button
+            type="button"
+            onClick={goInside}
+            className="font-pixel absolute left-1/2 active:translate-y-[2px] transition-transform"
+            style={{
+              bottom: '13%', transform: 'translateX(-50%)',
+              zIndex: 12, pointerEvents: 'auto',
+              fontSize: 8, letterSpacing: 1.5, color: '#3A1B08',
+              background: '#F59C45',
+              padding: '11px 15px 10px',
+              border: '3px solid #5A2E12',
+              borderRadius: 4,
+              boxShadow: '0 3px 0 #DC772A, 3px 5px 0 rgba(0,0,0,0.5), 0 0 20px rgba(245,156,69,0.3)',
+            }}
+          >
+            GO INSIDE
+          </button>
         </div>
       </div>
 
@@ -159,6 +243,32 @@ export default function ShawarmaPage() {
           <ChevronLeft size={16} className="text-orange-100" />
         </button>
       </div>
+
+      </div>{/* ── end FRONT ── */}
+
+      {/* ══ THRESHOLD ══ the black you pass through. Rises with the push-in,
+          holds under the interior so the front can snap back to rest unseen,
+          and fades with the walk back out. */}
+      {phase !== 'front' && (
+        <div className="absolute inset-0 z-[45] pointer-events-none" style={{
+          background: '#050408',
+          ...(phase === 'entering' ? { animation: `kioskVeilIn ${ENTER_MS}ms ease-in both` }
+            : phase === 'leaving'  ? { animation: `kioskVeilOut ${LEAVE_MS}ms ease-out both` }
+            : { opacity: 1 }),
+        }} />
+      )}
+
+      {/* ══ INSIDE ══ mounted only once you're through, so the walls never
+          flash behind the push-in. */}
+      {(phase === 'inside' || phase === 'leaving') && (
+        <div className="absolute inset-0 z-[60]" style={{
+          animation: phase === 'leaving'
+            ? `kioskStepOut ${LEAVE_MS}ms ease-in both`
+            : 'kioskStepIn 520ms cubic-bezier(0.16, 1, 0.3, 1) both',
+        }}>
+          <KioskInterior onExit={goOutside} />
+        </div>
+      )}
     </div>
   )
 }

@@ -22,6 +22,11 @@ const PRECACHE_IMAGES = [
   '/vetBACK.png',    '/wetDark.png',
   '/AtticDay.png',  '/AtticNight.png',  '/donut.png',
   '/schoolBACK.png',
+  // The four kiosk walls you turn between once you're inside the shawarma
+  // stand. Cheap to precache (~85 KB each as webp) and the interior has no
+  // offline panel of its own — without these a dropped connection in there
+  // is a black room.
+  '/InsideOfKiosk.webp', '/KioskLeftSide.webp', '/BackOffTheKiosk.webp', '/KioskRightSide.webp',
   '/ErenAppIcon.png',   '/ErenBadge.png',
 ]
 

@@ -20,6 +20,9 @@ function rng(seed: number) {
   }
 }
 
+// Default sparkle palette (care rooms, gacha). Pass `colors` to re-tint the
+// curtain for a scene the pink/violet would look wrong in — the kiosk
+// interior uses warm lamp-dust.
 const COLORS = ['#FFE9F4', '#F9A8D4', '#C4B5FD', '#F5C842', '#FFFFFF']
 
 interface Spark { x: number; y: number; size: number; dur: number; delay: number }
@@ -38,7 +41,7 @@ function makeSparks(n: number, seed: number): Spark[] {
   })
 }
 
-export default function CurtainGlitter({ count = 32, seed = 424242 }: { count?: number; seed?: number }) {
+export default function CurtainGlitter({ count = 32, seed = 424242, colors = COLORS }: { count?: number; seed?: number; colors?: string[] }) {
   const sparks = useMemo(() => makeSparks(count, seed), [count, seed])
   return (
     <>
@@ -47,7 +50,7 @@ export default function CurtainGlitter({ count = 32, seed = 424242 }: { count?: 
         50%      { opacity: 0.25; transform: scale(0.6); }
       }`}</style>
       {sparks.map((s, i) => {
-        const color = COLORS[i % COLORS.length]
+        const color = colors[i % colors.length]
         return (
           <div key={i} className="absolute" style={{
             left: `${s.x}%`, top: `${s.y}%`,
