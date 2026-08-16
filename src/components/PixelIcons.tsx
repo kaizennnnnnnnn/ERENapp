@@ -1503,3 +1503,24 @@ export const IconInfo = memo(function IconInfo({ size = 20, tone = '#F5C842', in
   ]
   return drawPixels(grid, { X: tone, I: ink }, size)
 })
+
+// ── TRASH — scrapping a wrap you built wrong at the kiosk. Lid separated from
+// the bin by a full transparent row so the silhouette still reads as a bin at
+// the ~16px the service HUD renders it at.
+export const IconTrash = memo(function IconTrash({ size = 20, tone = '#C9C2CE', ink = '#3A3040' }: IconProps & { tone?: string; ink?: string }) {
+  const grid = [
+    '............',
+    '....IIII....',
+    '..IIIIIIII..',
+    '.IXXXXXXXXI.',
+    '..IIIIIIII..',
+    '..IXXXXXXI..',
+    '..IXIXIXXI..',
+    '..IXIXIXXI..',
+    '..IXIXIXXI..',
+    '..IXIXIXXI..',
+    '..IIIIIIII..',
+    '............',
+  ]
+  return drawPixels(grid, { X: tone, I: ink }, size)
+})

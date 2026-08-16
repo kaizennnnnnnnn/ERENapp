@@ -27,6 +27,13 @@ const PRECACHE_IMAGES = [
   // offline panel of its own — without these a dropped connection in there
   // is a black room.
   '/InsideOfKiosk.webp', '/KioskLeftSide.webp', '/BackOffTheKiosk.webp', '/KioskRightSide.webp',
+  // Everything the shift itself is made of: the pan fills, the fridge stock,
+  // and the five stages of the cone. Without these a dropped connection puts
+  // you behind a counter with empty pans and no meat.
+  '/fill_tomato.webp', '/fill_onion.webp', '/fill_cheese.webp', '/fill_lettuce.webp',
+  '/fr_tomato.webp', '/fr_onion.webp', '/fr_cheese.webp', '/fr_lettuce.webp', '/fr_pepsi.webp',
+  '/meat1.webp', '/meat2.webp', '/meat3.webp', '/meat4.webp', '/meat5.webp',
+  '/FridgeOpen.webp',
   '/ErenAppIcon.png',   '/ErenBadge.png',
 ]
 

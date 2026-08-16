@@ -20,11 +20,23 @@ import { useRef, useState, useEffect, useCallback } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { playSound } from '@/lib/sounds'
 import CurtainGlitter from '@/components/CurtainGlitter'
+import { useKioskShift } from './useKioskShift'
+import { useCoverBox } from './useCoverBox'
+import ToppingTrays from './ToppingTrays'
+import MeatSpit from './MeatSpit'
+import CustomerWindow from './CustomerWindow'
+import FridgeOverlay from './FridgeOverlay'
+import ServiceHud from './ServiceHud'
+import { FRIDGE_HIT, payout } from './kioskShift'
 
 interface KioskView {
   id: string
   src: string
   label: string
+  /** What you can DO at this wall. Keyed off the art, never off `id` — the
+   *  two side walls hang opposite their slot names, so anything that keys off
+   *  position ends up painting pans onto the rotisserie. */
+  feature: 'window' | 'toppings' | 'meat' | 'fridge'
 }
 
 // Ring order for a LEFT swipe, i.e. turning to your left. Reversed for a
@@ -34,10 +46,10 @@ interface KioskView {
 // names — the spit is on your left, the trays on your right. Labels name
 // what you're looking AT, so they travel with the picture, not the slot.
 const VIEWS: KioskView[] = [
-  { id: 'window', src: '/InsideOfKiosk.webp',   label: 'The Window' },
-  { id: 'left',   src: '/KioskRightSide.webp',  label: 'Meat'       },
-  { id: 'back',   src: '/BackOffTheKiosk.webp', label: 'Fridge'     },
-  { id: 'right',  src: '/KioskLeftSide.webp',   label: 'Toppings'   },
+  { id: 'window', src: '/InsideOfKiosk.webp',   label: 'The Window', feature: 'window'   },
+  { id: 'left',   src: '/KioskRightSide.webp',  label: 'Meat',       feature: 'meat'     },
+  { id: 'back',   src: '/BackOffTheKiosk.webp', label: 'Fridge',     feature: 'fridge'   },
+  { id: 'right',  src: '/KioskLeftSide.webp',   label: 'Toppings',   feature: 'toppings' },
 ]
 
 // Exported so the kiosk front can warm all four before the door opens — see
@@ -58,11 +70,24 @@ export default function KioskInterior({ onExit }: Props) {
   const [slideDir, setSlideDir] = useState<'left' | 'right'>('left')
   const [animKey, setAnimKey] = useState(0)
   const [dragX, setDragX] = useState(0)
+  const [fridgeOpen, setFridgeOpen] = useState(false)
+
+  const shift = useKioskShift()
+  // Anything pinned to the art has to live inside the cover-cropped picture
+  // box, not the viewport, or it slides off its pan on a different screen.
+  const box = useCoverBox(768, 1376)
 
   const touchStartX = useRef(0)
   const touchStartY = useRef(0)
   const touchStartTime = useRef(0)
   const isDragging = useRef(false)
+  // A swipe that starts on a pan still ends in a click on some browsers.
+  // Everything you can tap on a wall goes through this guard.
+  const lastDragEnd = useRef(0)
+  const guard = useCallback((fn: () => void) => () => {
+    if (Date.now() - lastDragEnd.current < 260) return
+    fn()
+  }, [])
 
   // Wall-name label: shown on arrival so you know where you're standing,
   // then faded out. Same 1.4s dwell as the care rooms.
@@ -124,6 +149,7 @@ export default function KioskInterior({ onExit }: Props) {
     setDragX(0)
     if (!isDragging.current) return
     isDragging.current = false
+    lastDragEnd.current = Date.now()
 
     const threshold = window.innerWidth * 0.2
     if (Math.abs(dx) > threshold || velocity > 0.4) {
@@ -170,6 +196,46 @@ export default function KioskInterior({ onExit }: Props) {
           from { opacity: 0; transform: translateY(-6px); }
           to   { opacity: 1; transform: translateY(0);    }
         }
+        @keyframes kioskCarve {
+          from { transform: translateX(-50%) scale(1.04); }
+          to   { transform: translateX(-50%) scale(1);    }
+        }
+        @keyframes kioskHint {
+          0%, 100% { opacity: 0.55; }
+          50%      { opacity: 1;    }
+        }
+        @keyframes kioskCustomerArrive {
+          from { opacity: 0; transform: translateX(-50%) translateY(26px); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0);    }
+        }
+        @keyframes kioskCustomerLeave {
+          from { opacity: 1; transform: translateX(-50%) translateY(0);    }
+          to   { opacity: 0; transform: translateX(-50%) translateY(30px); }
+        }
+        @keyframes kioskBubbleIn {
+          from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.9); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0)   scale(1);   }
+        }
+        @keyframes kioskBubbleOut {
+          from { opacity: 1; transform: translateX(-50%) scale(1);    }
+          to   { opacity: 0; transform: translateX(-50%) scale(0.92); }
+        }
+        @keyframes kioskRefuse {
+          0%, 100% { transform: translateX(0);    }
+          20%      { transform: translateX(-7px); }
+          45%      { transform: translateX(6px);  }
+          70%      { transform: translateX(-4px); }
+        }
+        @keyframes kioskNudge {
+          0%   { opacity: 0; transform: translateY(5px); }
+          10%  { opacity: 1; transform: translateY(0);   }
+          78%  { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        @keyframes kioskFridgeIn {
+          from { opacity: 0; transform: scale(1.14); }
+          to   { opacity: 1; transform: scale(1);    }
+        }
       `}</style>
 
       {/* ══ THE GAP ══ what shows behind a wall as it slides away. The care
@@ -195,13 +261,55 @@ export default function KioskInterior({ onExit }: Props) {
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        <div className="absolute inset-0" style={{
-          backgroundImage: `url(${view.src})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none',
-          pointerEvents: 'none',
-        }} />
+        {/* The picture, sized and centred exactly as `cover` would crop it —
+            but as a real box, so the pans, the spit and the customer can be
+            positioned in the ART's coordinates instead of the viewport's. */}
+        <div style={{
+          position: 'absolute',
+          left: box.left, top: box.top, width: box.width, height: box.height,
+          containerType: 'inline-size',
+        }}>
+          <img src={view.src} alt={view.label} draggable={false} style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'fill',
+            WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none',
+            pointerEvents: 'none',
+          }} />
+
+          {view.feature === 'toppings' && (
+            <ToppingTrays stock={shift.stock} onTap={id => guard(() => shift.addTopping(id))()} />
+          )}
+
+          {view.feature === 'meat' && (
+            <MeatSpit
+              meat={shift.meat}
+              onCarve={guard(shift.carveMeat)}
+              onRestock={shift.restockMeat}
+            />
+          )}
+
+          {view.feature === 'window' && (
+            <CustomerWindow
+              order={shift.order}
+              status={shift.status}
+              coins={shift.order ? payout(shift.order) : 0}
+            />
+          )}
+
+          {view.feature === 'fridge' && (
+            <button
+              type="button"
+              aria-label="Open the fridge"
+              onClick={guard(() => setFridgeOpen(true))}
+              className="active:scale-[0.98] transition-transform"
+              style={{
+                position: 'absolute',
+                left: `${FRIDGE_HIT.left}%`, top: `${FRIDGE_HIT.top}%`,
+                width: `${FRIDGE_HIT.width}%`, height: `${FRIDGE_HIT.height}%`,
+                background: 'none', border: 0, padding: 0,
+              }}
+            />
+          )}
+        </div>
 
         {/* Depth veil — the wall darkens as it recedes under your finger and
             lifts back off as the next one settles. Pushed harder than the
@@ -274,10 +382,11 @@ export default function KioskInterior({ onExit }: Props) {
         </span>
       </div>
 
-      {/* ══ DOTS ══ which way you're facing. */}
-      <div className="absolute bottom-4 left-1/2 flex items-center gap-2 px-3 py-1.5"
+      {/* ══ DOTS ══ which way you're facing. Sits above the service HUD. */}
+      <div className="absolute left-1/2 flex items-center gap-2 px-3 py-1.5"
         style={{
           zIndex: 55,
+          bottom: 'calc(78px + env(safe-area-inset-bottom, 0px))',
           transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.4)',
           borderRadius: 20, backdropFilter: 'blur(6px)', pointerEvents: 'none',
           opacity: labelVisible ? 1 : 0, transition: 'opacity 0.3s ease',
@@ -293,6 +402,27 @@ export default function KioskInterior({ onExit }: Props) {
           }} />
         ))}
       </div>
+
+      {/* ══ SERVICE ══ the wrap in your hands, the bin, and the hand-over.
+          Outside the sliding wall so it stays put while you turn around. */}
+      <ServiceHud
+        build={shift.build}
+        earned={shift.earned}
+        nudge={shift.nudge}
+        canServe={shift.build.meat && !!shift.order && shift.status !== 'paid'}
+        onTrash={shift.trashBuild}
+        onServe={shift.serve}
+      />
+
+      {fridgeOpen && (
+        <FridgeOverlay
+          stock={shift.stock}
+          hasPepsi={shift.build.pepsi}
+          onRestock={shift.restockTopping}
+          onTakePepsi={shift.addPepsi}
+          onClose={() => setFridgeOpen(false)}
+        />
+      )}
     </div>
   )
 }
