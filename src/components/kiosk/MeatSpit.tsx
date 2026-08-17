@@ -1,17 +1,28 @@
 'use client'
 
-// The rotisserie on the right wall. Tap it to carve a wrap's worth off the
-// cone — five carves and the skewer is bare — then hold the empty machine to
-// load a fresh one.
+// The rotisserie on the right wall. Tap the cone to carve a wrap's worth off
+// it — five carves and the skewer is bare — and hold the LOAD button bolted to
+// the wall beside it to hang a fresh one.
+//
+// The smoke is the only thing in the kiosk that moves on its own. It's what
+// makes the wall read as a machine that's switched on rather than a painting.
 
 import HoldTarget from './HoldTarget'
-import { MEAT_FRAMES, MAX_USES, SPIT_BOX, SPIT_HIT } from './kioskShift'
+import { MEAT_FRAMES, MAX_USES, SPIT_BOX, SPIT_HIT, SPIT_SMOKE, MEAT_BTN } from './kioskShift'
 
 interface Props {
   meat: number
   onCarve: () => void
   onRestock: () => void
 }
+
+/** Wisps, each with its own drift, size and phase so they never pulse in step. */
+const WISPS = [
+  { dx: '-3.5cqi', size: 9,  delay: 0,    dur: 5.2 },
+  { dx: '2.8cqi',  size: 7,  delay: 1.7,  dur: 6.1 },
+  { dx: '0.6cqi',  size: 11, delay: 3.4,  dur: 5.6 },
+  { dx: '-1.4cqi', size: 6,  delay: 2.5,  dur: 4.6 },
+]
 
 export default function MeatSpit({ meat, onCarve, onRestock }: Props) {
   // meat 5 → the fattest cone, 1 → the last sliver, 0 → bare skewer.
@@ -40,9 +51,32 @@ export default function MeatSpit({ meat, onCarve, onRestock }: Props) {
         />
       )}
 
-      {/* Carving is a tap; loading a new cone is a hold, so a swipe that
-          happens to start on the machine can't reload it by accident. */}
-      {meat > 0 ? (
+      {/* Heat coming off the cone. Dies with the meat — a bare skewer doesn't
+          steam. */}
+      {meat > 0 && (
+        <div aria-hidden className="pointer-events-none" style={{
+          position: 'absolute', left: `${SPIT_SMOKE.x}%`, top: `${SPIT_SMOKE.y}%`,
+          width: 0, height: 0, zIndex: 3,
+        }}>
+          {WISPS.map((w, i) => (
+            <span key={i} style={{
+              position: 'absolute', left: 0, top: 0,
+              width: `${w.size}cqi`, height: `${w.size}cqi`,
+              marginLeft: `${-w.size / 2}cqi`, marginTop: `${-w.size / 2}cqi`,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(255,238,214,0.5), rgba(255,226,190,0.16) 55%, transparent 72%)',
+              filter: 'blur(3px)',
+              // Custom property the keyframe reads, so each wisp drifts its
+              // own way off one shared animation.
+              ['--drift' as string]: w.dx,
+              animation: `kioskSmoke ${w.dur}s ease-out ${w.delay}s infinite`,
+            }} />
+          ))}
+        </div>
+      )}
+
+      {/* Carving is a tap on the cone itself. */}
+      {meat > 0 && (
         <button
           type="button"
           aria-label="Carve meat"
@@ -53,29 +87,40 @@ export default function MeatSpit({ meat, onCarve, onRestock }: Props) {
             left: `${SPIT_HIT.left}%`, top: `${SPIT_HIT.top}%`,
             width: `${SPIT_HIT.width}%`, height: `${SPIT_HIT.height}%`,
             background: 'none', border: 0, padding: 0,
+            zIndex: 4,
           }}
         />
-      ) : (
-        <HoldTarget
-          aria-label="Load a fresh cone"
-          duration={1100}
-          onComplete={onRestock}
-          size={62}
-          style={{
-            left: `${SPIT_HIT.left}%`, top: `${SPIT_HIT.top}%`,
-            width: `${SPIT_HIT.width}%`, height: `${SPIT_HIT.height}%`,
-          }}
-        >
-          <span className="font-pixel" style={{
-            position: 'absolute', left: '50%', bottom: -26, transform: 'translateX(-50%)',
-            whiteSpace: 'nowrap', fontSize: 6, letterSpacing: 1, color: '#FFE7C4',
-            background: 'rgba(0,0,0,0.5)', padding: '4px 7px', borderRadius: 8,
-            animation: 'kioskHint 1.8s ease-in-out infinite',
-          }}>
-            HOLD TO LOAD
-          </span>
-        </HoldTarget>
       )}
+
+      {/* Loading a new cone is a hold on a real button bolted to the wall, not
+          a hold on the meat — you can see it's a control, and a swipe that
+          happens to start on the machine can't reload anything. */}
+      <HoldTarget
+        aria-label="Load a fresh cone"
+        duration={1100}
+        disabled={meat > 0}
+        onComplete={onRestock}
+        size={54}
+        style={{
+          left: `${MEAT_BTN.x}%`, top: `${MEAT_BTN.y}%`,
+          transform: 'translate(-50%, -50%)',
+          zIndex: 5,
+        }}
+      >
+        <span className="font-pixel" style={{
+          display: 'block', whiteSpace: 'nowrap',
+          fontSize: 7, letterSpacing: 1,
+          color: meat > 0 ? 'rgba(255,231,196,0.4)' : '#3A1B08',
+          background: meat > 0 ? 'rgba(28,20,16,0.85)' : '#F59C45',
+          padding: '9px 8px 8px',
+          border: `2px solid ${meat > 0 ? 'rgba(245,156,69,0.28)' : '#5A2E12'}`,
+          borderRadius: 7,
+          boxShadow: meat > 0 ? '0 3px 0 rgba(0,0,0,0.5)' : '0 3px 0 #DC772A, 0 0 14px rgba(245,156,69,0.35)',
+          animation: meat > 0 ? undefined : 'kioskHint 1.8s ease-in-out infinite',
+        }}>
+          LOAD
+        </span>
+      </HoldTarget>
     </>
   )
 }

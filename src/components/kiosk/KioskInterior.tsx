@@ -17,7 +17,6 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useRef, useState, useEffect, useCallback } from 'react'
-import { ChevronLeft } from 'lucide-react'
 import { playSound } from '@/lib/sounds'
 import CurtainGlitter from '@/components/CurtainGlitter'
 import { useKioskShift } from './useKioskShift'
@@ -27,7 +26,10 @@ import MeatSpit from './MeatSpit'
 import CustomerWindow from './CustomerWindow'
 import FridgeOverlay from './FridgeOverlay'
 import ServiceHud from './ServiceHud'
-import { FRIDGE_HIT, payout } from './kioskShift'
+import WallTarget from './WallTarget'
+import {
+  FRIDGE_HIT, FRIDGE_TAG, DOOR_HIT, DOOR_TAG, MAX_USES, payout,
+} from './kioskShift'
 
 interface KioskView {
   id: string
@@ -158,6 +160,9 @@ export default function KioskInterior({ onExit }: Props) {
   }
 
   const view = VIEWS[idx]
+  // Something out front is running low, so the fridge tag lights up properly
+  // instead of just idling.
+  const needsStock = Object.values(shift.stock).some(n => n < MAX_USES)
   const dragging = dragX !== 0
   const vw = typeof window !== 'undefined' ? window.innerWidth : 390
   const dragProgress = Math.min(1, Math.abs(dragX) / vw)
@@ -173,7 +178,16 @@ export default function KioskInterior({ onExit }: Props) {
     : (slideDir === 'left' ? 'left' : 'right')
 
   return (
-    <div className="absolute inset-0 overflow-hidden select-none game-shell">
+    <div className="absolute inset-0 overflow-hidden select-none game-shell"
+      // The walls are wider than the screen, so the pans at either end hang
+      // off the edge. Tapping one focuses it, and the browser answers by
+      // scrolling this box to bring it into view — which slides the whole
+      // room sideways and never slides back, because `overflow: hidden`
+      // hides the scrollbar but does not stop the scrolling. Snap it shut.
+      onScroll={e => {
+        const el = e.currentTarget
+        if (el.scrollLeft || el.scrollTop) { el.scrollLeft = 0; el.scrollTop = 0 }
+      }}>
       <style>{`
         @keyframes kioskSlideInRight {
           from { transform: translateX(100%) scale(0.92); }
@@ -236,6 +250,30 @@ export default function KioskInterior({ onExit }: Props) {
           from { opacity: 0; transform: scale(1.14); }
           to   { opacity: 1; transform: scale(1);    }
         }
+        @keyframes kioskLineIn {
+          from { opacity: 0; transform: translateY(3px); }
+          to   { opacity: 1; transform: translateY(0);   }
+        }
+        /* Heat off the cone. --drift is set per wisp so they don't rise as
+           a column. */
+        @keyframes kioskSmoke {
+          0%   { opacity: 0;    transform: translate(0, 0)                scale(0.45); }
+          16%  { opacity: 0.5;  }
+          100% { opacity: 0;    transform: translate(var(--drift), -19cqi) scale(1.75); }
+        }
+        /* Only opacity + scale: the positioning and the hand-placed tilt live
+           on wrappers, because a forwards-filling animation would otherwise
+           overwrite whatever transform the element was given inline. */
+        @keyframes kioskDropOn {
+          0%   { opacity: 0; transform: scale(1.55); }
+          60%  { opacity: 1; }
+          100% { opacity: 1; transform: scale(1);    }
+        }
+        @keyframes kioskRollShut {
+          0%   { transform: scaleX(1)    scaleY(1);    }
+          45%  { transform: scaleX(0.55) scaleY(1.06); }
+          100% { transform: scaleX(1)    scaleY(1);    }
+        }
       `}</style>
 
       {/* ══ THE GAP ══ what shows behind a wall as it slides away. The care
@@ -291,23 +329,27 @@ export default function KioskInterior({ onExit }: Props) {
             <CustomerWindow
               order={shift.order}
               status={shift.status}
+              speech={shift.speech}
               coins={shift.order ? payout(shift.order) : 0}
             />
           )}
 
+          {/* The back wall holds both the way to restock and the way out.
+              Neither is a button by nature, so both wear a tag. */}
           {view.feature === 'fridge' && (
-            <button
-              type="button"
-              aria-label="Open the fridge"
-              onClick={guard(() => setFridgeOpen(true))}
-              className="active:scale-[0.98] transition-transform"
-              style={{
-                position: 'absolute',
-                left: `${FRIDGE_HIT.left}%`, top: `${FRIDGE_HIT.top}%`,
-                width: `${FRIDGE_HIT.width}%`, height: `${FRIDGE_HIT.height}%`,
-                background: 'none', border: 0, padding: 0,
-              }}
-            />
+            <>
+              <WallTarget
+                hit={FRIDGE_HIT} tag={FRIDGE_TAG} label="OPEN"
+                aria-label="Open the fridge"
+                urgent={needsStock}
+                onClick={guard(() => setFridgeOpen(true))}
+              />
+              <WallTarget
+                hit={DOOR_HIT} tag={DOOR_TAG} label="EXIT ›"
+                aria-label="Step back outside"
+                onClick={guard(() => { playSound('ui_back'); onExit() })}
+              />
+            </>
           )}
         </div>
 
@@ -346,21 +388,8 @@ export default function KioskInterior({ onExit }: Props) {
         background: 'radial-gradient(circle at 50% 48%, rgba(0,0,0,0) 44%, rgba(0,0,0,0.32) 78%, rgba(0,0,0,0.6) 100%)',
       }} />
 
-      {/* ══ BACK ══ out through the window again. */}
-      <div className="absolute top-0 inset-x-0 flex items-center px-3"
-        style={{ zIndex: 55, paddingTop: 'calc(8px + env(safe-area-inset-top, 0px))' }}>
-        <button onClick={() => { playSound('ui_back'); onExit() }}
-          aria-label="Step back outside"
-          className="flex items-center justify-center active:scale-90 transition-transform"
-          style={{
-            width: 32, height: 32, borderRadius: 6,
-            background: 'rgba(20,10,8,0.65)',
-            border: `2px solid ${LAMP}A6`,
-            boxShadow: '0 2px 0 rgba(0,0,0,0.45)',
-          }}>
-          <ChevronLeft size={16} className="text-orange-100" />
-        </button>
-      </div>
+      {/* There's no back button up here on purpose — you leave the way you'd
+          leave a real kiosk, through the door on the back wall. */}
 
       {/* ══ WALL NAME ══ fades in on arrival, out 1.4s later. */}
       <div className="absolute left-1/2 pointer-events-none"
@@ -407,10 +436,13 @@ export default function KioskInterior({ onExit }: Props) {
           Outside the sliding wall so it stays put while you turn around. */}
       <ServiceHud
         build={shift.build}
+        rolled={shift.rolled}
         earned={shift.earned}
         nudge={shift.nudge}
-        canServe={shift.build.meat && !!shift.order && shift.status !== 'paid'}
+        canRoll={shift.build.meat && !shift.rolled && shift.status !== 'paid'}
+        canServe={shift.rolled && !!shift.order && shift.status !== 'paid'}
         onTrash={shift.trashBuild}
+        onRoll={shift.rollWrap}
         onServe={shift.serve}
       />
 

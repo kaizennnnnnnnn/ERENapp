@@ -1,24 +1,70 @@
 'use client'
 
-// The strip along the bottom of every wall: what's in your hands right now,
-// the bin, and the hand-it-over button. It has to be readable from any wall,
-// because you build the wrap by walking between three of them.
+// The strip along the bottom of every wall: the tortilla you're building on,
+// the bin, and the button that moves the wrap along. It has to be readable
+// from any wall, because you build the wrap by walking between three of them.
+//
+// The tortilla is the whole point — every ingredient you pick up lands on it
+// where you can see it, so the wrap is a thing you assembled rather than a
+// list you accumulated. Rolling it shut is deliberate and one-way.
 
 import { IconTrash, IconCoin } from '@/components/PixelIcons'
-import { TOPPING_BY_ID, PEPSI_SPRITE, type Build } from './kioskShift'
+import {
+  TOPPING_BY_ID, PEPSI_SPRITE, TORTILLA_SPOTS, MEAT_ON_TORTILLA, SHAVED_MEAT,
+  type Build,
+} from './kioskShift'
 import type { Nudge } from './useKioskShift'
 
 interface Props {
   build: Build
+  rolled: boolean
   earned: number
   nudge: Nudge
+  canRoll: boolean
   canServe: boolean
   onTrash: () => void
+  onRoll: () => void
   onServe: () => void
 }
 
-export default function ServiceHud({ build, earned, nudge, canServe, onTrash, onServe }: Props) {
+/** Diameter of the tortilla on screen. Everything on it is sized off this. */
+const DISC = 86
+
+/**
+ * One ingredient sitting on the bread. Three nested elements on purpose:
+ * the outer one places it, the middle one gives it its hand-dropped tilt, and
+ * only the image animates — a forwards-filling animation on the image itself
+ * would otherwise wipe out the tilt the moment it landed.
+ */
+function Laid({ src, label, spot }: {
+  src: string
+  label: string
+  spot: { x: number; y: number; size: number; rot: number }
+}) {
+  return (
+    <span style={{
+      position: 'absolute',
+      left: `${spot.x}%`, top: `${spot.y}%`, width: `${spot.size}%`,
+      transform: 'translate(-50%, -50%)',
+    }}>
+      <span style={{ display: 'block', transform: `rotate(${spot.rot}deg)` }}>
+        <img src={src} alt={label} draggable={false} style={{
+          width: '100%', height: 'auto', display: 'block',
+          filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.45))',
+          animation: 'kioskDropOn 320ms cubic-bezier(0.32, 0.72, 0, 1) both',
+        }} />
+      </span>
+    </span>
+  )
+}
+
+export default function ServiceHud({
+  build, rolled, earned, nudge, canRoll, canServe, onTrash, onRoll, onServe,
+}: Props) {
   const empty = !build.meat && build.toppings.length === 0 && !build.pepsi
+  const action = rolled
+    ? { label: 'GIVE', on: onServe, live: canServe }
+    : { label: 'ROLL', on: onRoll, live: canRoll }
 
   return (
     <div className="absolute left-0 right-0 pointer-events-none" style={{
@@ -44,8 +90,7 @@ export default function ServiceHud({ build, earned, nudge, canServe, onTrash, on
         <IconTrash size={18} />
       </button>
 
-      {/* The wrap in progress. Empty slots are drawn as dashes so you can see
-          at a glance that nothing's on it yet. */}
+      {/* The prep board. */}
       <div style={{
         flex: '1 1 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
       }}>
@@ -61,35 +106,62 @@ export default function ServiceHud({ build, earned, nudge, canServe, onTrash, on
         )}
 
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          minHeight: 40, padding: '6px 10px',
-          background: 'rgba(14,10,8,0.78)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          padding: '6px 12px',
+          background: 'rgba(14,10,8,0.72)',
           border: '2px solid rgba(245,156,69,0.4)',
-          borderRadius: 10,
+          borderRadius: 12,
           boxShadow: '0 3px 0 rgba(0,0,0,0.5)',
+          backdropFilter: 'blur(2px)',
         }}>
-          {empty ? (
-            <span className="font-pixel" style={{ fontSize: 6.5, letterSpacing: 1, color: 'rgba(255,231,196,0.5)' }}>
-              NOTHING ON THE BOARD
-            </span>
-          ) : (
-            <>
-              {build.meat && (
-                <img src="/meat5.webp" alt="Meat" style={{ width: 12, height: 26, objectFit: 'contain' }} />
-              )}
-              {build.toppings.map(t => (
-                <img key={t} src={TOPPING_BY_ID[t].sprite} alt={TOPPING_BY_ID[t].label}
-                  style={{ width: 24, height: 24, objectFit: 'contain' }} />
-              ))}
-              {build.pepsi && (
-                <img src={PEPSI_SPRITE} alt="Pepsi" style={{ width: 17, height: 24, objectFit: 'contain' }} />
-              )}
-            </>
-          )}
+          {/* The bread, and whatever is on it. */}
+          <div style={{ position: 'relative', width: DISC, height: DISC, flex: '0 0 auto' }}>
+            <img
+              key={rolled ? 'wrap' : 'flat'}
+              src={rolled ? '/wrap_rolled.webp' : '/tortilla.webp'}
+              alt={rolled ? 'Rolled wrap' : 'Tortilla'}
+              draggable={false}
+              style={{
+                position: 'absolute', inset: 0,
+                width: '100%', height: '100%', objectFit: 'contain',
+                filter: 'brightness(0.94) saturate(0.96) drop-shadow(0 2px 3px rgba(0,0,0,0.55))',
+                animation: rolled
+                  ? 'kioskRollShut 420ms cubic-bezier(0.32, 0.72, 0, 1) both'
+                  : undefined,
+              }}
+            />
+
+            {/* Fillings only show while it's open. Once it's rolled they're
+                inside, which is exactly the tension. */}
+            {!rolled && build.meat && (
+              <Laid src={SHAVED_MEAT} label="Meat" spot={MEAT_ON_TORTILLA} />
+            )}
+            {!rolled && build.toppings.map(t => (
+              <Laid key={t} src={TOPPING_BY_ID[t].sprite} label={TOPPING_BY_ID[t].label}
+                spot={TORTILLA_SPOTS[t]} />
+            ))}
+          </div>
+
+          {/* The drink rides alongside — it never goes on the bread. */}
+          <div style={{
+            width: 26, height: DISC - 18, flex: '0 0 auto',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            borderRadius: 7,
+            border: `2px dashed ${build.pepsi ? 'transparent' : 'rgba(245,156,69,0.22)'}`,
+          }}>
+            {build.pepsi && (
+              <img src={PEPSI_SPRITE} alt="Pepsi" draggable={false} style={{
+                width: '100%', height: 'auto', objectFit: 'contain',
+                filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))',
+                animation: 'kioskDropOn 320ms cubic-bezier(0.32, 0.72, 0, 1) both',
+              }} />
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Serve, plus the shift's takings under it. */}
+      {/* Roll it, then hand it over. Same button, two jobs — there's only ever
+          one thing the wrap is waiting for. */}
       <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
         {earned > 0 && (
           <span className="font-pixel" style={{
@@ -101,18 +173,18 @@ export default function ServiceHud({ build, earned, nudge, canServe, onTrash, on
         )}
         <button
           type="button"
-          onClick={onServe}
-          disabled={!canServe}
+          onClick={action.on}
+          disabled={!action.live}
           className="font-pixel active:translate-y-[2px] transition-transform pointer-events-auto"
           style={{
-            fontSize: 7.5, letterSpacing: 1, color: canServe ? '#3A1B08' : 'rgba(255,231,196,0.45)',
-            background: canServe ? '#F59C45' : 'rgba(30,22,18,0.8)',
+            fontSize: 7.5, letterSpacing: 1, color: action.live ? '#3A1B08' : 'rgba(255,231,196,0.45)',
+            background: action.live ? '#F59C45' : 'rgba(30,22,18,0.8)',
             padding: '11px 12px 10px',
-            border: `2px solid ${canServe ? '#5A2E12' : 'rgba(245,156,69,0.25)'}`,
+            border: `2px solid ${action.live ? '#5A2E12' : 'rgba(245,156,69,0.25)'}`,
             borderRadius: 8,
-            boxShadow: canServe ? '0 3px 0 #DC772A, 0 0 16px rgba(245,156,69,0.28)' : '0 3px 0 rgba(0,0,0,0.5)',
+            boxShadow: action.live ? '0 3px 0 #DC772A, 0 0 16px rgba(245,156,69,0.28)' : '0 3px 0 rgba(0,0,0,0.5)',
           }}>
-          SERVE
+          {action.label}
         </button>
       </div>
     </div>

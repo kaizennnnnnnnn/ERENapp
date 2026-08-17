@@ -1,38 +1,15 @@
 'use client'
 
 // The four warmer pans on the left wall. Each pan is filled with its own
-// seamless texture clipped to the pan's quad; every scoop taken drops the
-// level by a fifth, so the pan empties from the top the way a real one does.
+// seamless texture clipped to the pan's real outline; every scoop taken drops
+// the level by a fifth, so the pan empties from the top the way a real one
+// does and the leaning steel walls trim the surface as it falls.
 
-import { TOPPINGS, MAX_USES, type ToppingId } from './kioskShift'
+import { TOPPINGS, panFill, type ToppingId } from './kioskShift'
 
 interface Props {
   stock: Record<ToppingId, number>
   onTap: (id: ToppingId) => void
-}
-
-/** Quad → the CSS box that contains it, plus a clip-path for the food inside
- *  it at the current level. Points are % of the picture; the polygon is % of
- *  the box, which is what clip-path wants. */
-function fillGeometry(well: [number, number][], left: number) {
-  const xs = well.map(p => p[0])
-  const ys = well.map(p => p[1])
-  const x0 = Math.min(...xs), x1 = Math.max(...xs)
-  const y0 = Math.min(...ys), y1 = Math.max(...ys)
-  const w = x1 - x0, h = y1 - y0
-
-  const [tl, tr, br, bl] = well
-  // Sink the top edge toward the floor of the pan as it's used up.
-  const k = 1 - left / MAX_USES
-  const lerp = (a: [number, number], b: [number, number]): [number, number] =>
-    [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k]
-  const pts: [number, number][] = [lerp(tl, bl), lerp(tr, br), br, bl]
-
-  const rel = pts.map(([x, y]) => `${((x - x0) / w * 100).toFixed(2)}% ${((y - y0) / h * 100).toFixed(2)}%`)
-  return {
-    box: { left: `${x0}%`, top: `${y0}%`, width: `${w}%`, height: `${h}%` },
-    clip: `polygon(${rel.join(', ')})`,
-  }
 }
 
 export default function ToppingTrays({ stock, onTap }: Props) {
@@ -40,7 +17,7 @@ export default function ToppingTrays({ stock, onTap }: Props) {
     <>
       {TOPPINGS.map(t => {
         const left = stock[t.id]
-        const { box, clip } = fillGeometry(t.well, left)
+        const { box, clip } = panFill(t.well, left)
         return (
           <div key={t.id}>
             {left > 0 && (

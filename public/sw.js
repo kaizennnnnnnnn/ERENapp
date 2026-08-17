@@ -34,6 +34,9 @@ const PRECACHE_IMAGES = [
   '/fr_tomato.webp', '/fr_onion.webp', '/fr_cheese.webp', '/fr_lettuce.webp', '/fr_pepsi.webp',
   '/meat1.webp', '/meat2.webp', '/meat3.webp', '/meat4.webp', '/meat5.webp',
   '/FridgeOpen.webp',
+  // The prep board: the bread you build on, the carved meat that goes on it,
+  // and what it becomes once you roll it shut.
+  '/tortilla.webp', '/wrap_rolled.webp', '/meat_shaved.webp',
   '/ErenAppIcon.png',   '/ErenBadge.png',
 ]
 
