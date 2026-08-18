@@ -48,11 +48,19 @@ export default function CurtainGlitter({ count = 32, seed = 424242, colors = COL
       <style>{`@keyframes cgTwinkle {
         0%, 100% { opacity: 1;    transform: scale(1);   }
         50%      { opacity: 0.25; transform: scale(0.6); }
-      }`}</style>
+      }
+      /* A curtain hangs at a SEAM: when the deck is settled on a page it is
+         parked off-screen, invisible, and still animating opacity + scale on
+         every particle — each with a blurred box-shadow the GPU has to
+         re-rasterize. Forty of those per seam is real per-frame work spent on
+         something nobody can see, and it was being spent inside the very
+         container you are trying to scroll. An ancestor marks itself .cg-idle
+         while at rest and the whole field stops dead. */
+      .cg-idle .cg-spark { animation-play-state: paused; }`}</style>
       {sparks.map((s, i) => {
         const color = colors[i % colors.length]
         return (
-          <div key={i} className="absolute" style={{
+          <div key={i} className="cg-spark absolute" style={{
             left: `${s.x}%`, top: `${s.y}%`,
             width: s.size, height: s.size,
             background: color,

@@ -98,6 +98,14 @@ export default function GachaPage() {
     const wc = on ? 'transform' : 'auto'
     for (const el of innerRefs.current) if (el) el.style.willChange = wc
     for (const el of bgRefs.current) if (el) el.style.willChange = wc
+    // The seam glitter rides the same lifecycle. Eighty particles animating
+    // opacity + scale + a blurred box-shadow, forever, INSIDE the container
+    // you're scrolling — and parked off-screen at every seam while the deck is
+    // settled, so none of it was even visible. `cg-idle` freezes the field the
+    // moment the swipe ends; it thaws on the next pointerdown, which is the
+    // only time you can see a seam anyway. Toggled on the DOM node rather than
+    // through state so it costs zero re-renders of the memoized curtains.
+    scrollRef.current?.classList.toggle('cg-idle', !on)
   }, [])
   // Every path that arms the hints goes through this to disarm them, so a tap
   // that never turns into a scroll can't leave the deck permanently promoted.
@@ -343,7 +351,7 @@ export default function GachaPage() {
       <div ref={scrollRef} onScroll={onScroll}
         onPointerDown={() => { touchedDeck.current = true; setLayerHints(true) }}
         onPointerUp={armSettle} onPointerCancel={armSettle}
-        className="relative h-full w-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory"
+        className="cg-idle relative h-full w-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory"
         style={{ scrollbarWidth: 'none' }}>
         {PAGES.map((p, idx) => (
           <section key={p.id} className="relative h-full w-full flex-shrink-0 snap-center snap-always overflow-hidden">

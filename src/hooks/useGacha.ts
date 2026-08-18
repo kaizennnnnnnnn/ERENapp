@@ -6,7 +6,7 @@ import { withRetry } from '@/lib/supabaseRetry'
 import { onForeground } from '@/lib/onForeground'
 import { useAuth } from './useAuth'
 import { useTasks } from '@/contexts/TaskContext'
-import type { UserGachaState, GachaPullResult, GachaRarity } from '@/types'
+import type { UserGachaState, GachaPullResult, GachaRarity, GachaItemDef } from '@/types'
 import { rollRarity, rollItem, DUPLICATE_STARDUST, PULL_COST_SINGLE, PULL_COST_TEN, getItemById } from '@/lib/gacha'
 import { skinItemId } from '@/lib/skins'
 
@@ -58,6 +58,23 @@ async function resolveDrop(
 
   const { data: recheck } = await withRetry(owned)
   return recheck ? bump(recheck) : 'failed'
+}
+
+/**
+ * Does a duplicate of this item pay stardust?
+ *
+ * No, when it's a CONSUMABLE — the Snacks & Drinks banner. Stardust exists to
+ * compensate you for a drop you can't use: a skin you already own is worth
+ * nothing on its own, so it converts to dust you spend on a skin you don't.
+ * A second Loco Monsta is not that. resolveDrop bumps its quantity, so the
+ * "duplicate" lands in your fridge as a real, drinkable second can — paying
+ * dust on top of it was being paid twice for one pull.
+ *
+ * Keyed on the item's CATEGORY rather than the banner id, so a consumable that
+ * ever shows up on another banner obeys the same rule.
+ */
+function paysStardust(item: GachaItemDef): boolean {
+  return item.category !== 'consumable'
 }
 
 export function useGacha() {
@@ -148,7 +165,7 @@ export function useGacha() {
     const isNew = outcome === 'new'
     // item.rarity is authoritative — rollItem may escalate a tier when the
     // banner has no item at the rolled rarity (e.g. no common skins).
-    const stardustGained = outcome === 'dup' ? DUPLICATE_STARDUST[item.rarity] : 0
+    const stardustGained = outcome === 'dup' && paysStardust(item) ? DUPLICATE_STARDUST[item.rarity] : 0
 
     // Log the pull
     const newTotal = state.total_pulls + 1
@@ -204,7 +221,7 @@ export function useGacha() {
       const outcome = await resolveDrop(supabase, user.id, item.id)
       const isNew = outcome === 'new'
       let stardustGained = 0
-      if (outcome === 'dup') {
+      if (outcome === 'dup' && paysStardust(item)) {
         stardustGained = DUPLICATE_STARDUST[item.rarity]
         sd += stardustGained
       }

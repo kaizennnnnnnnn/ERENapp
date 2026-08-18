@@ -28,7 +28,13 @@ interface Props {
 // common still reads as a common at a glance.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const ITEM_PX = 172
+// Sized to the ART, not to taste. Every food/can/donut PNG is a 128px canvas
+// whose content is clamped to 124px (normalize_food_art.py MAX_SIDE), so 172px
+// was a 1.34x upscale and the cans visibly went soft. 136 renders the content
+// at ~132px — a 1.06x upscale nobody can see — and is still 72% bigger than the
+// 79px box this replaced. Going bigger needs 2x source art, which exists for
+// only two of the ten cans.
+const ITEM_PX = 136
 
 interface RevealTier {
   /** Rays behind the item. Commons don't get them. */
