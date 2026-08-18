@@ -276,6 +276,18 @@ export default function KioskInterior({ onExit }: Props) {
           60%  { opacity: 1; }
           100% { opacity: 1; transform: scale(1);    }
         }
+        /* A slice coming off the cone: it peels away from the blade, then
+           drops to the tray with the weight of a wet thing. */
+        @keyframes kioskShave {
+          0%   { opacity: 0; transform: translate(0, 0)          rotate(-8deg) scale(0.65); }
+          14%  { opacity: 1; transform: translate(-8%, 12%)      rotate(4deg)  scale(1);    }
+          100% { opacity: 0; transform: translate(-34%, 190%)    rotate(64deg) scale(0.9);  }
+        }
+        /* The carve gauge topping out. */
+        @keyframes kioskGaugeFlash {
+          0%   { transform: translateX(-50%) scale(1);    filter: brightness(2.1); }
+          100% { transform: translateX(-50%) scale(1);    filter: brightness(1);   }
+        }
         @keyframes kioskRollShut {
           0%   { transform: scaleX(1)    scaleY(1);    }
           45%  { transform: scaleX(0.55) scaleY(1.06); }
@@ -327,6 +339,7 @@ export default function KioskInterior({ onExit }: Props) {
           {view.feature === 'meat' && (
             <MeatSpit
               meat={shift.meat}
+              canCarve={shift.meat > 0 && !shift.build.meat && !shift.rolled}
               onCarve={guard(shift.carveMeat)}
               onRestock={shift.restockMeat}
             />

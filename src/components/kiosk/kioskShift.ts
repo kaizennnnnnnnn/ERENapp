@@ -99,12 +99,28 @@ export function panFill(well: [number, number][], left: number) {
 export const MEAT_FRAMES = ['/meat1.webp', '/meat2.webp', '/meat3.webp', '/meat4.webp', '/meat5.webp']
 /** Meat canvas box on KioskRightSide, % of the picture. */
 export const SPIT_BOX = { left: 50, top: 14.10, height: 50.15 }
-/** Tap target over the cone itself, % of the picture. */
-export const SPIT_HIT = { left: 30, top: 22, width: 40, height: 40 }
 /** Where the heat comes off — the top of the meat, not the top of the canvas. */
 export const SPIT_SMOKE = { x: 50, y: 29 }
 /** The LOAD button, on the bare wall to the right of the machine. */
 export const MEAT_BTN = { x: 80, y: 40 }
+
+// ── The knife ─────────────────────────────────────────────────────────────
+// Carving is a gesture, not a button: you hold the knife against the cone and
+// saw it up and down. `x` and `size` are in % of the picture's WIDTH (what a
+// cqi is); `home`, `top` and `bottom` are the sprite's CENTRE in % of its
+// height. The stroke band is set so the blade sweeps the whole cone — not the
+// tip, which hangs well below the middle of the sprite.
+export const KNIFE = { x: 57, size: 30, home: 45, top: 33, bottom: 53 }
+export const KNIFE_SPRITE = '/knife.webp'
+/** Travel, in % of the picture's HEIGHT, that one slice costs. Measured
+ *  rather than timed, so a slice is the same amount of hand movement on a
+ *  tall phone as on a short one — about two and a half full strokes. */
+export const CARVE_TRAVEL = 55
+/** The carve gauge, on the tiles under the machine's drip tray. */
+export const CARVE_BAR = { y: 63, width: 34 }
+/** The nudge that says the knife is yours to move, clear of the LOAD button
+ *  above it and of the blade itself. */
+export const KNIFE_TAG = { x: 76, y: 54 }
 
 // ── The fridge ────────────────────────────────────────────────────────────
 // Shelf standing-lines and the headroom above each, measured off FridgeOpen.
@@ -134,9 +150,12 @@ export const DOOR_HIT = { left: 76, top: 24.85, width: 24, height: 50.22 }
 export const DOOR_TAG = { x: 82, y: 50 }
 
 // ── The window ────────────────────────────────────────────────────────────
-/** Where the road disappears behind the sill: the line a customer standing
- *  outside gets cut off at. % of InsideOfKiosk's height. */
-export const SILL_PCT = 62.2
+/** Where a customer standing outside gets cut off — the top edge of the
+ *  serving ledge, y=905 of InsideOfKiosk's 1376. The line above it, at 62.2%,
+ *  is where the road meets the PAVEMENT: clipping there left a strip of empty
+ *  street under everybody's chin and put them out on the kerb instead of at
+ *  the window. */
+export const SILL_PCT = 65.8
 /** Side of the square BlinkingEren box, in cqi (% of the picture's width).
  *  The sprite is letterboxed to fill the box's HEIGHT, so this is its height —
  *  which matters because the costumes run 0.58 to 0.84 aspect and sizing them

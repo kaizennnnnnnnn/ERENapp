@@ -1,17 +1,20 @@
 'use client'
 
-// The rotisserie on the right wall. Tap the cone to carve a wrap's worth off
-// it — five carves and the skewer is bare — and hold the LOAD button bolted to
-// the wall beside it to hang a fresh one.
+// The rotisserie on the right wall. Saw a wrap's worth off the cone with the
+// knife — five slices and the skewer is bare — and hold the LOAD button bolted
+// to the wall beside it to hang a fresh one.
 //
 // The smoke is the only thing in the kiosk that moves on its own. It's what
 // makes the wall read as a machine that's switched on rather than a painting.
 
 import HoldTarget from './HoldTarget'
-import { MEAT_FRAMES, MAX_USES, SPIT_BOX, SPIT_HIT, SPIT_SMOKE, MEAT_BTN } from './kioskShift'
+import CarveKnife from './CarveKnife'
+import { MEAT_FRAMES, MAX_USES, SPIT_BOX, SPIT_SMOKE, MEAT_BTN } from './kioskShift'
 
 interface Props {
   meat: number
+  /** Whether a slice would actually land on the wrap in your hands. */
+  canCarve: boolean
   onCarve: () => void
   onRestock: () => void
 }
@@ -24,7 +27,7 @@ const WISPS = [
   { dx: '-1.4cqi', size: 6,  delay: 2.5,  dur: 4.6 },
 ]
 
-export default function MeatSpit({ meat, onCarve, onRestock }: Props) {
+export default function MeatSpit({ meat, canCarve, onCarve, onRestock }: Props) {
   // meat 5 → the fattest cone, 1 → the last sliver, 0 → bare skewer.
   const frame = meat > 0 ? MEAT_FRAMES[MAX_USES - meat] : null
 
@@ -75,22 +78,8 @@ export default function MeatSpit({ meat, onCarve, onRestock }: Props) {
         </div>
       )}
 
-      {/* Carving is a tap on the cone itself. */}
-      {meat > 0 && (
-        <button
-          type="button"
-          aria-label="Carve meat"
-          onClick={onCarve}
-          className="active:scale-95 transition-transform"
-          style={{
-            position: 'absolute',
-            left: `${SPIT_HIT.left}%`, top: `${SPIT_HIT.top}%`,
-            width: `${SPIT_HIT.width}%`, height: `${SPIT_HIT.height}%`,
-            background: 'none', border: 0, padding: 0,
-            zIndex: 4,
-          }}
-        />
-      )}
+      {/* Carving is the knife, held against the cone and worked up and down. */}
+      <CarveKnife canCarve={canCarve} onCarve={onCarve} />
 
       {/* Loading a new cone is a hold on a real button bolted to the wall, not
           a hold on the meat — you can see it's a control, and a swipe that
