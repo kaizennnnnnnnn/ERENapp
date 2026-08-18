@@ -241,8 +241,11 @@ export default function CarveKnife({ canCarve, onCarve }: Props) {
       >
         <span style={{
           display: 'block',
-          transform: `rotate(${8 + tilt}deg) scale(${held ? 1.06 : 1})`,
-          transformOrigin: '50% 22%',
+          // Held the way you'd actually hold it: handle up and out to your
+          // right, blade laid across the cone. Pivoting near the grip means
+          // the stroke wobble reads at the tip, where a real one would.
+          transform: `rotate(${KNIFE.lean + tilt}deg) scale(${held ? 1.06 : 1})`,
+          transformOrigin: '50% 18%',
           transition: 'transform 160ms ease-out',
         }}>
           <img src={KNIFE_SPRITE} alt="" draggable={false} style={{

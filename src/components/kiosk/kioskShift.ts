@@ -110,12 +110,12 @@ export const MEAT_BTN = { x: 80, y: 40 }
 // cqi is); `home`, `top` and `bottom` are the sprite's CENTRE in % of its
 // height. The stroke band is set so the blade sweeps the whole cone — not the
 // tip, which hangs well below the middle of the sprite.
-export const KNIFE = { x: 57, size: 30, home: 45, top: 33, bottom: 53 }
+export const KNIFE = { x: 60, size: 30, home: 45, top: 33, bottom: 53, lean: 27 }
 export const KNIFE_SPRITE = '/knife.webp'
 /** Travel, in % of the picture's HEIGHT, that one slice costs. Measured
  *  rather than timed, so a slice is the same amount of hand movement on a
- *  tall phone as on a short one — about two and a half full strokes. */
-export const CARVE_TRAVEL = 55
+ *  tall phone as on a short one — about four full strokes. */
+export const CARVE_TRAVEL = 80
 /** The carve gauge, on the tiles under the machine's drip tray. */
 export const CARVE_BAR = { y: 63, width: 34 }
 /** The nudge that says the knife is yours to move, clear of the LOAD button
