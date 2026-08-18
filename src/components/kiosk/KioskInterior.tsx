@@ -218,13 +218,20 @@ export default function KioskInterior({ onExit }: Props) {
           0%, 100% { opacity: 0.55; }
           50%      { opacity: 1;    }
         }
-        @keyframes kioskCustomerArrive {
-          from { opacity: 0; transform: translateX(-50%) translateY(26px); }
-          to   { opacity: 1; transform: translateX(-50%) translateY(0);    }
+        /* Customers rise from behind the sill rather than fading in on the
+           road. --rise is however much of them clears it, set per sprite, so
+           they start exactly out of sight. The two beats past zero are the
+           bob of someone leaning up to a window a touch too eagerly. */
+        @keyframes kioskCustomerPop {
+          0%   { transform: translateX(-50%) translateY(var(--rise)); }
+          62%  { transform: translateX(-50%) translateY(-7%);         }
+          82%  { transform: translateX(-50%) translateY(2%);          }
+          100% { transform: translateX(-50%) translateY(0);           }
         }
-        @keyframes kioskCustomerLeave {
-          from { opacity: 1; transform: translateX(-50%) translateY(0);    }
-          to   { opacity: 0; transform: translateX(-50%) translateY(30px); }
+        @keyframes kioskCustomerDuck {
+          0%   { opacity: 1; transform: translateX(-50%) translateY(0);           }
+          65%  { opacity: 1; }
+          100% { opacity: 0; transform: translateX(-50%) translateY(var(--rise)); }
         }
         @keyframes kioskBubbleIn {
           from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.9); }

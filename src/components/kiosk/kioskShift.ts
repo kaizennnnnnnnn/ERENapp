@@ -6,7 +6,7 @@
 // The moving parts live in useKioskShift.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { SKIN_DATA } from '@/lib/skinsData'
+import { GACHA_SKINS, type SkinDef } from '@/lib/skins'
 
 export type ToppingId = 'tomato' | 'onion' | 'cheese' | 'lettuce'
 
@@ -137,15 +137,18 @@ export const DOOR_TAG = { x: 82, y: 50 }
 /** Where the road disappears behind the sill: the line a customer standing
  *  outside gets cut off at. % of InsideOfKiosk's height. */
 export const SILL_PCT = 62.2
-/** Customer sprite HEIGHT in cqi (% of the picture's width).
- *  Height, not width, because the costume sprites run from 0.69 to 0.77
- *  aspect — sizing by width made the tall ones tower over the window. */
-export const CUSTOMER_H = 30
-/** How much of them clears the sill: head down to about the chest. */
-export const CUSTOMER_SHOW = 0.68
+/** Side of the square BlinkingEren box, in cqi (% of the picture's width).
+ *  The sprite is letterboxed to fill the box's HEIGHT, so this is its height —
+ *  which matters because the costumes run 0.58 to 0.84 aspect and sizing them
+ *  by width made the tall ones tower over the window. */
+export const CUSTOMER_BOX = 34
+/** How much of that box clears the sill. Just the head and a little shoulder:
+ *  they lean up to the window rather than standing out in the road. Every
+ *  costume's eyes sit above 37% of its box, so a blink always shows. */
+export const CUSTOMER_SHOW = 0.52
 /** Speech bubble, anchored by its BOTTOM so it stays above their head no
  *  matter how many lines they're saying. % up from the bottom of the picture. */
-export const BUBBLE_BOTTOM = 50.5
+export const BUBBLE_BOTTOM = 49
 
 // ── The prep board ────────────────────────────────────────────────────────
 /** Where each topping lands on the tortilla, in % of the disc. */
@@ -162,9 +165,9 @@ export const SHAVED_MEAT = '/meat_shaved.webp'
 export interface Order {
   toppings: ToppingId[]
   pepsi: boolean
-  /** Sprite for whoever walked up — a costume from the closet set. */
-  skin: string
-  name: string
+  /** Whoever walked up — a whole costume from the closet, so the window can
+   *  render them through BlinkingEren with their own eyes and lid tones. */
+  customer: SkinDef
   /** What they say while they're waiting. */
   line: string
 }
@@ -179,7 +182,7 @@ export const EMPTY_BUILD: Build = { meat: false, toppings: [], pepsi: false }
 
 /** Customers are drawn from the animal costumes — the food ones would be odd
  *  company for a shawarma. */
-const CUSTOMER_SKINS = SKIN_DATA.filter(s => s.set === 'animal')
+const CUSTOMER_SKINS = GACHA_SKINS.filter(s => s.set === 'animal')
 
 // ── What they say ─────────────────────────────────────────────────────────
 // Three moods, rolled evenly. Nobody mentions their own order — that's what
@@ -258,12 +261,10 @@ export function rollOrder(): Order {
   for (let i = 0; i < want; i++) {
     toppings.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0].id)
   }
-  const skin = pick(CUSTOMER_SKINS)
   return {
     toppings,
     pepsi: Math.random() < 0.45,
-    skin: skin.thumb,
-    name: skin.name,
+    customer: pick(CUSTOMER_SKINS),
     line: pick(pick([NICE, WEIRD, CREEPY])),
   }
 }

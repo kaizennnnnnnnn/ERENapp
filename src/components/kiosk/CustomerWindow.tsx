@@ -1,15 +1,20 @@
 'use client'
 
-// Whoever's at the window, and what they want. The customer stands out in the
-// street and is cut off by the sill — the same trick that puts Eren behind the
-// rail out front — with whatever they're saying, and their order, above them.
+// Whoever's at the window, and what they want.
 //
-// They're deliberately small: the window is wide, and a customer scaled to
-// fill it reads as a face pressed against the glass rather than someone
-// standing at a counter.
+// They stand out in the street and pop up over the sill when they arrive —
+// head and a little shoulder, the rest of them below the counter. Anything
+// taller reads as a face pressed against the glass rather than someone
+// waiting to be served, and anything higher up reads as standing in the road.
+//
+// They're rendered through BlinkingEren, the same sprite stack the rooms use,
+// so a customer breathes and blinks while they wait. Every costume in the
+// closet carries its own measured eye layout, which is what makes that
+// possible without hand-placing eyelids for twenty-three animals.
 
+import BlinkingEren from '@/components/BlinkingEren'
 import {
-  TOPPING_BY_ID, PEPSI_SPRITE, SILL_PCT, CUSTOMER_H, CUSTOMER_SHOW, BUBBLE_BOTTOM,
+  TOPPING_BY_ID, PEPSI_SPRITE, SILL_PCT, CUSTOMER_BOX, CUSTOMER_SHOW, BUBBLE_BOTTOM,
   type Order,
 } from './kioskShift'
 import type { Speech } from './useKioskShift'
@@ -25,6 +30,7 @@ export default function CustomerWindow({ order, status, speech, coins }: Props) 
   if (!order) return null
 
   const paid = status === 'paid'
+  const who = order.customer
 
   return (
     <>
@@ -33,25 +39,33 @@ export default function CustomerWindow({ order, status, speech, coins }: Props) 
       <div className="absolute left-0 right-0 top-0 overflow-hidden pointer-events-none"
         style={{ height: `${SILL_PCT}%`, zIndex: 6 }}>
         <div className="absolute left-1/2" style={{
-          bottom: `${-(1 - CUSTOMER_SHOW) * CUSTOMER_H}cqi`,
-          height: `${CUSTOMER_H}cqi`,
+          bottom: `${-(1 - CUSTOMER_SHOW) * CUSTOMER_BOX}cqi`,
           transform: 'translateX(-50%)',
+          // How far down they start: the whole visible part of them, plus a
+          // little margin so no sliver of ear is left showing over the sill
+          // before they pop. The keyframes read it, so one animation fits any
+          // box size.
+          ['--rise' as string]: `${(CUSTOMER_BOX * CUSTOMER_SHOW + 3).toFixed(2)}cqi`,
           animation: paid
-            ? 'kioskCustomerLeave 900ms ease-in both'
-            : 'kioskCustomerArrive 620ms cubic-bezier(0.16, 1, 0.3, 1) both',
+            ? 'kioskCustomerDuck 760ms ease-in both'
+            : 'kioskCustomerPop 620ms cubic-bezier(0.16, 1, 0.3, 1) both',
         }}>
-          <img
-            key={order.skin}
-            src={order.skin}
-            alt=""
-            draggable={false}
-            style={{
-              height: '100%', width: 'auto', display: 'block',
+          {/* The head-shake lives on its own layer: the wrapper above is
+              already spending its transform on the pop. */}
+          <div style={{ animation: status === 'refused' ? 'kioskRefuse 520ms ease-in-out' : undefined }}>
+            <BlinkingEren
+              key={who.id}
+              size={`${CUSTOMER_BOX}cqi`}
+              src={who.src}
+              tailSrc={who.tailSrc}
+              tailOrigin={who.tailOrigin}
+              eyes={who.eyes}
+              lidTone={who.lidTone}
+              alt=""
               // Night lighting, and they're a step further out than Eren is.
-              filter: 'brightness(0.72) saturate(0.85)',
-              animation: status === 'refused' ? 'kioskRefuse 520ms ease-in-out' : undefined,
-            }}
-          />
+              style={{ filter: 'brightness(0.72) saturate(0.85)' }}
+            />
+          </div>
         </div>
       </div>
 

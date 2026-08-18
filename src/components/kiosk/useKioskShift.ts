@@ -31,6 +31,23 @@ export type Speech = { id: number; text: string } | null
 /** How long someone stands there before they start commenting on the wait. */
 const PATIENCE_MS = 16000
 
+/**
+ * Decode a customer's sprite before anyone knows they're coming.
+ *
+ * Without this the ticket wins the race every time: the order is plain state
+ * and paints on the next frame, while the costume is a PNG that still has to
+ * be fetched and decoded — so you'd read what they wanted a beat before they
+ * showed up to want it.
+ */
+function arriveWhenDrawn(order: Order): Promise<void> {
+  const art = [order.customer.src, order.customer.tailSrc].filter(Boolean) as string[]
+  return Promise.all(art.map(src => {
+    const img = new window.Image()
+    img.src = src
+    return img.decode().catch(() => undefined)
+  })).then(() => undefined)
+}
+
 export interface KioskShift {
   stock: Record<ToppingId, number>
   meat: number
@@ -81,19 +98,35 @@ export function useKioskShift(): KioskShift {
     setSpeech({ id: ++lineId.current, text })
   }, [])
 
+  // Guards the async arrival below. Set on mount as well as cleared on
+  // unmount: StrictMode mounts, unmounts and remounts in dev, and a ref that
+  // only ever gets cleared stays false through the second mount — so nobody
+  // would ever walk up to the window again.
+  const alive = useRef(true)
+  useEffect(() => {
+    alive.current = true
+    return () => { alive.current = false }
+  }, [])
+
   /** Walk a new customer up to the window with their opening line. */
   const nextCustomer = useCallback(() => {
     const next = rollOrder()
-    setOrder(next)
-    speak(next.line)
+    arriveWhenDrawn(next).then(() => {
+      if (!alive.current) return
+      setOrder(next)
+      speak(next.line)
+    })
   }, [speak])
 
   // First customer walks up a beat after you're through the door.
   useEffect(() => {
     const t = setTimeout(() => {
       const first = rollOrder()
-      setOrder(first)
-      setSpeech({ id: ++lineId.current, text: first.line })
+      arriveWhenDrawn(first).then(() => {
+        if (!alive.current) return
+        setOrder(first)
+        setSpeech({ id: ++lineId.current, text: first.line })
+      })
     }, 1400)
     return () => clearTimeout(t)
   }, [])
