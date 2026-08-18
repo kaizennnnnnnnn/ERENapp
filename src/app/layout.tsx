@@ -3,6 +3,7 @@ import './globals.css'
 import CloudTransition from '@/components/CloudTransition'
 import SplashScreen from '@/components/SplashScreen'
 import TransientErrorSilencer from '@/components/TransientErrorSilencer'
+import LongPressGuard from '@/components/LongPressGuard'
 
 export const metadata: Metadata = {
   title: 'Eren',
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="bg-[#FDF6FF]">
         <TransientErrorSilencer />
+        <LongPressGuard />
         <SplashScreen />
         <div className="app-container">
           {children}
