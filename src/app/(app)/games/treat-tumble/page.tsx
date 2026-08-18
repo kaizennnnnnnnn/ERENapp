@@ -1135,7 +1135,7 @@ export default function TreatTumbleGame() {
                 <RefreshCw size={12} />
                 AGAIN
               </button>
-              <button onClick={() => { playSound('ui_back'); router.push('/games') }}
+              <button onClick={() => { playSound('ui_back'); router.back() }}
                 className="px-4 py-2 text-amber-900 active:translate-y-[2px] transition-transform"
                 style={{ background: 'rgba(255,255,255,0.9)', border: '2px solid #D97706', borderRadius: 3, boxShadow: '0 3px 0 #B45309', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                 BACK

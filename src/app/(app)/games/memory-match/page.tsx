@@ -694,7 +694,7 @@ export default function MemoryMatchGame() {
                 <RefreshCw size={12} />
                 AGAIN
               </button>
-              <button onClick={() => { playSound('ui_back'); router.push('/games') }}
+              <button onClick={() => { playSound('ui_back'); router.back() }}
                 className="px-4 py-2 text-white active:translate-y-[2px] transition-transform"
                 style={{ background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(167,139,250,0.5)', borderRadius: 3, boxShadow: '0 3px 0 rgba(0,0,0,0.3)', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                 BACK
