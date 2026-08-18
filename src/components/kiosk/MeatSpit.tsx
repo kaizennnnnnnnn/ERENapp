@@ -5,11 +5,12 @@
 // to the wall beside it to hang a fresh one.
 //
 // The smoke is the only thing in the kiosk that moves on its own. It's what
-// makes the wall read as a machine that's switched on rather than a painting.
+// makes the wall read as a machine that's switched on rather than a painting,
+// so it comes off the whole cone rather than out of the top of its head.
 
 import HoldTarget from './HoldTarget'
 import CarveKnife from './CarveKnife'
-import { MEAT_FRAMES, MAX_USES, SPIT_BOX, SPIT_SMOKE, MEAT_BTN } from './kioskShift'
+import { MEAT_FRAMES, MAX_USES, SPIT_BOX, MEAT_BTN, smokeVents } from './kioskShift'
 
 interface Props {
   meat: number
@@ -18,14 +19,6 @@ interface Props {
   onCarve: () => void
   onRestock: () => void
 }
-
-/** Wisps, each with its own drift, size and phase so they never pulse in step. */
-const WISPS = [
-  { dx: '-3.5cqi', size: 9,  delay: 0,    dur: 5.2 },
-  { dx: '2.8cqi',  size: 7,  delay: 1.7,  dur: 6.1 },
-  { dx: '0.6cqi',  size: 11, delay: 3.4,  dur: 5.6 },
-  { dx: '-1.4cqi', size: 6,  delay: 2.5,  dur: 4.6 },
-]
 
 export default function MeatSpit({ meat, canCarve, onCarve, onRestock }: Props) {
   // meat 5 → the fattest cone, 1 → the last sliver, 0 → bare skewer.
@@ -54,29 +47,25 @@ export default function MeatSpit({ meat, canCarve, onCarve, onRestock }: Props) 
         />
       )}
 
-      {/* Heat coming off the cone. Dies with the meat — a bare skewer doesn't
-          steam. */}
-      {meat > 0 && (
-        <div aria-hidden className="pointer-events-none" style={{
-          position: 'absolute', left: `${SPIT_SMOKE.x}%`, top: `${SPIT_SMOKE.y}%`,
-          width: 0, height: 0, zIndex: 3,
-        }}>
-          {WISPS.map((w, i) => (
-            <span key={i} style={{
-              position: 'absolute', left: 0, top: 0,
-              width: `${w.size}cqi`, height: `${w.size}cqi`,
-              marginLeft: `${-w.size / 2}cqi`, marginTop: `${-w.size / 2}cqi`,
-              borderRadius: '50%',
-              background: 'radial-gradient(circle, rgba(255,238,214,0.5), rgba(255,226,190,0.16) 55%, transparent 72%)',
-              filter: 'blur(3px)',
-              // Custom property the keyframe reads, so each wisp drifts its
-              // own way off one shared animation.
-              ['--drift' as string]: w.dx,
-              animation: `kioskSmoke ${w.dur}s ease-out ${w.delay}s infinite`,
-            }} />
-          ))}
-        </div>
-      )}
+      {/* Heat coming off the cone — crown, shoulders and flanks. Dies with the
+          meat: a bare skewer doesn't steam. */}
+      {meat > 0 && smokeVents(meat).map(v => (
+        <span key={v.key} aria-hidden className="pointer-events-none" style={{
+          position: 'absolute', left: `${v.x}%`, top: `${v.y}%`, zIndex: 3,
+          width: `${v.size}cqi`, height: `${v.size}cqi`,
+          marginLeft: `${-v.size / 2}cqi`, marginTop: `${-v.size / 2}cqi`,
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(255,243,226,1), rgba(255,228,194,0.48) 52%, transparent 74%)',
+          filter: 'blur(4px)',
+          // Custom properties the one shared keyframe reads, so nine wisps can
+          // each rise their own distance, at their own strength, off one
+          // animation instead of nine.
+          ['--drift' as string]: `${v.drift}cqi`,
+          ['--lift' as string]: `${v.lift}cqi`,
+          ['--puff' as string]: `${v.puff}`,
+          animation: `kioskSmoke ${v.dur}s ease-out ${v.delay}s infinite`,
+        }} />
+      ))}
 
       {/* Carving is the knife, held against the cone and worked up and down. */}
       <CarveKnife canCarve={canCarve} onCarve={onCarve} />

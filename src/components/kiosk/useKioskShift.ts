@@ -28,6 +28,11 @@ export type Nudge = { id: number; text: string } | null
 /** What the customer is saying right now. `id` re-triggers the bubble anim. */
 export type Speech = { id: number; text: string } | null
 
+/** A wrap that just got paid for. A fresh object every time, so the coin
+ *  counter can key its flight off identity rather than off a total that
+ *  changes for other reasons too. */
+export type Payout = { id: number; amount: number } | null
+
 /** How long someone stands there before they start commenting on the wait. */
 const PATIENCE_MS = 16000
 
@@ -59,6 +64,7 @@ export interface KioskShift {
   earned: number
   nudge: Nudge
   speech: Speech
+  paid: Payout
   addTopping: (id: ToppingId) => void
   carveMeat: () => void
   addPepsi: () => void
@@ -83,8 +89,10 @@ export function useKioskShift(): KioskShift {
   const [earned, setEarned] = useState(0)
   const [nudge, setNudge] = useState<Nudge>(null)
   const [speech, setSpeech] = useState<Speech>(null)
+  const [paid, setPaid] = useState<Payout>(null)
 
   const lineId = useRef(0)
+  const payId = useRef(0)
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
   const later = useCallback((fn: () => void, ms: number) => {
     timers.current.push(setTimeout(fn, ms))
@@ -198,6 +206,7 @@ export function useKioskShift(): KioskShift {
       const coins = payout(order)
       setStatus('paid')
       setEarned(e => e + coins)
+      setPaid({ id: ++payId.current, amount: coins })
       speak(pick(HAPPY_LINES))
       playSound('coin_pickup')
       addCoins(coins).catch(() => {})
@@ -218,7 +227,7 @@ export function useKioskShift(): KioskShift {
   }, [order, rolled, build, addCoins, say, speak, later, nextCustomer])
 
   return {
-    stock, meat, build, rolled, order, status, earned, nudge, speech,
+    stock, meat, build, rolled, order, status, earned, nudge, speech, paid,
     addTopping, carveMeat, addPepsi, rollWrap, restockTopping, restockMeat, trashBuild, serve,
   }
 }

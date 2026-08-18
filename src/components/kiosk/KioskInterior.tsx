@@ -26,6 +26,7 @@ import MeatSpit from './MeatSpit'
 import CustomerWindow from './CustomerWindow'
 import FridgeOverlay from './FridgeOverlay'
 import ServiceHud from './ServiceHud'
+import KioskCoins from './KioskCoins'
 import WallTarget from './WallTarget'
 import {
   FRIDGE_HIT, FRIDGE_TAG, DOOR_HIT, DOOR_TAG, MAX_USES, payout,
@@ -261,12 +262,17 @@ export default function KioskInterior({ onExit }: Props) {
           from { opacity: 0; transform: translateY(3px); }
           to   { opacity: 1; transform: translateY(0);   }
         }
-        /* Heat off the cone. --drift is set per wisp so they don't rise as
-           a column. */
+        /* Heat off the cone. Every wisp sets its own drift, rise and peak
+           opacity, so nine of them read as a haze around the meat rather than
+           one column out of the top. */
         @keyframes kioskSmoke {
-          0%   { opacity: 0;    transform: translate(0, 0)                scale(0.45); }
-          16%  { opacity: 0.5;  }
-          100% { opacity: 0;    transform: translate(var(--drift), -19cqi) scale(1.75); }
+          0%   { opacity: 0;                        transform: translate(0, 0)                     scale(0.45); }
+          13%  { opacity: var(--puff);              }
+          /* Held near full for most of the rise. Fading from the first frame
+             leaves every wisp but one sitting at almost nothing, and eleven
+             invisible wisps look exactly like no smoke at all. */
+          58%  { opacity: calc(var(--puff) * 0.74); }
+          100% { opacity: 0;                        transform: translate(var(--drift), var(--lift)) scale(1.75); }
         }
         /* Only opacity + scale: the positioning and the hand-placed tilt live
            on wrappers, because a forwards-filling animation would otherwise
@@ -287,6 +293,13 @@ export default function KioskInterior({ onExit }: Props) {
         @keyframes kioskGaugeFlash {
           0%   { transform: translateX(-50%) scale(1);    filter: brightness(2.1); }
           100% { transform: translateX(-50%) scale(1);    filter: brightness(1);   }
+        }
+        /* The value of a wrap, riding under the till while its coins fly. */
+        @keyframes kioskEarn {
+          0%   { opacity: 0; transform: translateY(-4px); }
+          18%  { opacity: 1; transform: translateY(0);    }
+          72%  { opacity: 1; }
+          100% { opacity: 0; transform: translateY(3px);  }
         }
         @keyframes kioskRollShut {
           0%   { transform: scaleX(1)    scaleY(1);    }
@@ -410,6 +423,9 @@ export default function KioskInterior({ onExit }: Props) {
 
       {/* There's no back button up here on purpose — you leave the way you'd
           leave a real kiosk, through the door on the back wall. */}
+
+      {/* ══ TILL ══ your money, on every wall, all the time. */}
+      <KioskCoins paid={shift.paid} />
 
       {/* ══ WALL NAME ══ fades in on arrival, out 1.4s later. */}
       <div className="absolute left-1/2 pointer-events-none"

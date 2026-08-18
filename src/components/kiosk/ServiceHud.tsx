@@ -163,12 +163,14 @@ export default function ServiceHud({
       {/* Roll it, then hand it over. Same button, two jobs — there's only ever
           one thing the wrap is waiting for. */}
       <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+        {/* Tonight's takings, not your wallet — the till in the corner is
+            the wallet, and two unlabelled coin figures read as a bug. */}
         {earned > 0 && (
           <span className="font-pixel" style={{
             display: 'flex', alignItems: 'center', gap: 3,
-            fontSize: 7, color: '#FFD98A',
+            fontSize: 6, color: 'rgba(255,217,138,0.85)',
           }}>
-            <IconCoin size={11} />{earned}
+            SHIFT <IconCoin size={10} />{earned}
           </span>
         )}
         <button

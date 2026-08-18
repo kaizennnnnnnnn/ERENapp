@@ -99,8 +99,60 @@ export function panFill(well: [number, number][], left: number) {
 export const MEAT_FRAMES = ['/meat1.webp', '/meat2.webp', '/meat3.webp', '/meat4.webp', '/meat5.webp']
 /** Meat canvas box on KioskRightSide, % of the picture. */
 export const SPIT_BOX = { left: 50, top: 14.10, height: 50.15 }
-/** Where the heat comes off — the top of the meat, not the top of the canvas. */
-export const SPIT_SMOKE = { x: 50, y: 29 }
+// ── Heat off the cone ─────────────────────────────────────────────────────
+// The cone doesn't steam out of its scalp, it steams all over. Vents are held
+// in the meat's OWN coordinates — `u` across the half-width, `v` down the
+// height — and mapped onto the level's real footprint, because the cone loses
+// half its width by the last slice and vents pinned to the picture would end
+// up smoking bare air.
+export const MEAT_BOX = [
+  { x0: 36.6, x1: 63.2, y0: 28.5, y1: 56.6 },
+  { x0: 36.8, x1: 62.6, y0: 29.1, y1: 55.3 },
+  { x0: 39.1, x1: 60.9, y0: 29.9, y1: 55.3 },
+  { x0: 43.7, x1: 56.5, y0: 30.7, y1: 55.3 },
+  { x0: 44.8, x1: 54.5, y0: 31.0, y1: 54.9 },
+]
+
+interface Vent {
+  u: number       // -1..1 across the cone at that depth
+  v: number       // 0..1 from crown to base
+  size: number    // cqi
+  puff: number    // peak opacity — the crown reads strongest
+  lift: number    // how far it rises, cqi
+  drift: number   // sideways wander, cqi
+  delay: number   // s
+  dur: number     // s
+}
+
+/** Eleven vents, none of them in step with any other, and none idle for long
+ *  — a stagger longer than about three seconds leaves visible dead air. */
+export const SPIT_VENTS: Vent[] = [
+  { u:  0.0, v: 0.02, size: 12, puff: 0.86, lift: -19, drift:  0.5, delay: 0.0, dur: 5.4 },
+  { u: -0.5, v: 0.04, size: 10, puff: 0.74, lift: -18, drift: -2.4, delay: 1.6, dur: 5.0 },
+  { u:  0.5, v: 0.04, size: 10, puff: 0.74, lift: -18, drift:  2.2, delay: 2.9, dur: 5.8 },
+  { u: -0.8, v: 0.14, size:  9, puff: 0.68, lift: -17, drift: -3.4, delay: 0.7, dur: 6.0 },
+  { u:  0.8, v: 0.14, size:  9, puff: 0.68, lift: -17, drift:  3.1, delay: 2.2, dur: 5.2 },
+  { u: -0.9, v: 0.34, size:  8, puff: 0.62, lift: -15, drift: -3.9, delay: 1.1, dur: 6.4 },
+  { u:  0.9, v: 0.34, size:  8, puff: 0.62, lift: -15, drift:  3.7, delay: 3.3, dur: 5.6 },
+  { u: -0.8, v: 0.58, size:  7, puff: 0.54, lift: -13, drift: -3.0, delay: 2.6, dur: 6.2 },
+  { u:  0.8, v: 0.58, size:  7, puff: 0.54, lift: -13, drift:  2.8, delay: 0.4, dur: 5.9 },
+  { u: -0.5, v: 0.82, size:  6, puff: 0.46, lift: -11, drift: -2.3, delay: 3.1, dur: 6.6 },
+  { u:  0.5, v: 0.82, size:  6, puff: 0.46, lift: -11, drift:  2.1, delay: 1.9, dur: 6.9 },
+]
+
+/** The vents placed on the cone as it stands right now, in % of the picture.
+ *  The half-width narrows with depth because the cone does. */
+export function smokeVents(meat: number) {
+  const box = MEAT_BOX[MAX_USES - meat] ?? MEAT_BOX[MEAT_BOX.length - 1]
+  const cx = (box.x0 + box.x1) / 2
+  const half = (box.x1 - box.x0) / 2
+  return SPIT_VENTS.map((vent, i) => ({
+    ...vent,
+    key: i,
+    x: cx + vent.u * half * (1 - 0.5 * vent.v),
+    y: box.y0 + vent.v * (box.y1 - box.y0),
+  }))
+}
 /** The LOAD button, on the bare wall to the right of the machine. */
 export const MEAT_BTN = { x: 80, y: 40 }
 
@@ -110,12 +162,12 @@ export const MEAT_BTN = { x: 80, y: 40 }
 // cqi is); `home`, `top` and `bottom` are the sprite's CENTRE in % of its
 // height. The stroke band is set so the blade sweeps the whole cone — not the
 // tip, which hangs well below the middle of the sprite.
-export const KNIFE = { x: 60, size: 30, home: 45, top: 33, bottom: 53, lean: 27 }
+export const KNIFE = { x: 60, size: 30, home: 45, top: 33, bottom: 53, lean: 40 }
 export const KNIFE_SPRITE = '/knife.webp'
 /** Travel, in % of the picture's HEIGHT, that one slice costs. Measured
  *  rather than timed, so a slice is the same amount of hand movement on a
- *  tall phone as on a short one — about four full strokes. */
-export const CARVE_TRAVEL = 80
+ *  tall phone as on a short one — about five full strokes. */
+export const CARVE_TRAVEL = 105
 /** The carve gauge, on the tiles under the machine's drip tray. */
 export const CARVE_BAR = { y: 63, width: 34 }
 /** The nudge that says the knife is yours to move, clear of the LOAD button
