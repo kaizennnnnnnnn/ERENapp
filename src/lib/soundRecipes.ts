@@ -296,4 +296,26 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
   care_sleep:  { type: 'sweep', freq: [523, 300], duration: 460, shape: 'sine', gain: 0.4, curve: 'exponential' },
   // care_jingle — the ball's bell when he pounces: a bright double ding.
   care_jingle: { type: 'arp', notes: [1568, 2093], step: 72, noteDur: 110, shape: 'triangle', gain: 0.5 },
+
+  // ─── The kiosk payphone ──────────────────────────────────────────────────
+  // kiosk_ring — one brrring-brrring, meant to be re-fired on a slow interval
+  // rather than looped. Each burst is TWO pulse trains a fourth apart with the
+  // lower one offset by half a pulse: that beat between them is the warble a
+  // real bell has, and a single train just sounds like an alarm clock.
+  kiosk_ring:   { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'pulse', freq: 1046, pulses: 9, step: 46, pulseDur: 30, shape: 'sine', gain: 0.5  } },
+                    { at: 23,  recipe: { type: 'pulse', freq: 784,  pulses: 9, step: 46, pulseDur: 30, shape: 'sine', gain: 0.38 } },
+                    { at: 560, recipe: { type: 'pulse', freq: 1046, pulses: 9, step: 46, pulseDur: 30, shape: 'sine', gain: 0.5  } },
+                    { at: 583, recipe: { type: 'pulse', freq: 784,  pulses: 9, step: 46, pulseDur: 30, shape: 'sine', gain: 0.38 } },
+                  ] },
+
+  // kiosk_pickup — the handset coming off the hook. A filtered noise clack for
+  // the cradle switch, then a low thunk for the weight of it.
+  kiosk_pickup: { type: 'seq', parts: [
+                    { at: 0,  recipe: { type: 'noise', duration: 55, gain: 0.4, lowpass: 1400, highpass: 300 } },
+                    { at: 38, recipe: { type: 'blip', freq: 196, duration: 90, shape: 'square', gain: 0.32 } },
+                  ] },
+
+  // kiosk_beep — the answering machine's tone, before and after a message.
+  kiosk_beep:   { type: 'blip', freq: 932, duration: 150, shape: 'sine', gain: 0.42 },
 }

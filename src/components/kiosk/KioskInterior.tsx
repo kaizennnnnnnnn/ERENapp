@@ -27,6 +27,9 @@ import CustomerWindow from './CustomerWindow'
 import FridgeOverlay from './FridgeOverlay'
 import ServiceHud from './ServiceHud'
 import KioskCoins from './KioskCoins'
+import KioskPhone from './KioskPhone'
+import PhoneCallHud from './PhoneCallHud'
+import { useKioskPhone } from './useKioskPhone'
 import WallTarget from './WallTarget'
 import {
   FRIDGE_HIT, FRIDGE_TAG, DOOR_HIT, DOOR_TAG, MAX_USES, payout,
@@ -51,7 +54,7 @@ interface KioskView {
 const VIEWS: KioskView[] = [
   { id: 'window', src: '/InsideOfKiosk.webp',   label: 'The Window', feature: 'window'   },
   { id: 'left',   src: '/KioskRightSide.webp',  label: 'Meat',       feature: 'meat'     },
-  { id: 'back',   src: '/BackOffTheKiosk.webp', label: 'Fridge',     feature: 'fridge'   },
+  { id: 'back',   src: '/KioskBackReal.webp',   label: 'Fridge',     feature: 'fridge'   },
   { id: 'right',  src: '/KioskLeftSide.webp',   label: 'Toppings',   feature: 'toppings' },
 ]
 
@@ -76,6 +79,9 @@ export default function KioskInterior({ onExit }: Props) {
   const [fridgeOpen, setFridgeOpen] = useState(false)
 
   const shift = useKioskShift()
+  // The phone lives up here rather than on the back wall, because it has to
+  // ring whichever way you happen to be facing.
+  const phone = useKioskPhone()
   // Anything pinned to the art has to live inside the cover-cropped picture
   // box, not the viewport, or it slides off its pan on a different screen.
   const box = useCoverBox(768, 1376)
@@ -114,6 +120,19 @@ export default function KioskInterior({ onExit }: Props) {
     setSlideDir(dir)
     setAnimKey(k => k + 1)
     setIdx(next)
+    flashLabel()
+  }
+
+  /** Spin straight round to a wall, the short way. The ringing chip uses it
+   *  so a call you can hear is a call you can reach. */
+  function turnTo(feature: KioskView['feature']) {
+    const target = VIEWS.findIndex(v => v.feature === feature)
+    if (target < 0 || target === idx) return
+    const forward = (target - idx + VIEWS.length) % VIEWS.length
+    playSound('ui_swipe_room')
+    setSlideDir(forward <= VIEWS.length - forward ? 'left' : 'right')
+    setAnimKey(k => k + 1)
+    setIdx(target)
     flashLabel()
   }
 
@@ -301,6 +320,46 @@ export default function KioskInterior({ onExit }: Props) {
           72%  { opacity: 1; }
           100% { opacity: 0; transform: translateY(3px);  }
         }
+        /* The handset rattling in its cradle. Two bursts inside one 1.6s
+           cycle, landing on the two brrrings of kiosk_ring, with a rest
+           after — a phone that buzzes continuously reads as an alarm. */
+        @keyframes kioskRingShake {
+          0%,  27%, 35%, 62%, 100% { transform: translateX(0)      rotate(0deg);    }
+          3%,  38%                 { transform: translateX(-2.2px) rotate(-3.6deg); }
+          7%,  42%                 { transform: translateX(2.4px)  rotate(3.8deg);  }
+          11%, 46%                 { transform: translateX(-2px)   rotate(-3deg);   }
+          15%, 50%                 { transform: translateX(2px)    rotate(3deg);    }
+          19%, 54%                 { transform: translateX(-1.4px) rotate(-2deg);   }
+          23%, 58%                 { transform: translateX(1.2px)  rotate(1.6deg);  }
+        }
+        /* Answered: the handset tips out of the cradle and stays there for as
+           long as the message runs. */
+        @keyframes kioskHandsetOff {
+          0%   { transform: translate(0, 0)        rotate(0deg);   }
+          60%  { transform: translate(-9%, 3.5%)   rotate(-19deg); }
+          100% { transform: translate(-7.5%, 2.8%) rotate(-15deg); }
+        }
+        @keyframes kioskRingGlow {
+          0%, 100% { opacity: 0.16; }
+          14%      { opacity: 0.62; }
+          40%      { opacity: 0.22; }
+          54%      { opacity: 0.58; }
+        }
+        @keyframes kioskRingChip {
+          0%, 100% { transform: translateY(0)    scale(1);    }
+          12%      { transform: translateY(-2px) scale(1.05); }
+          24%      { transform: translateY(0)    scale(1);    }
+          46%      { transform: translateY(-2px) scale(1.05); }
+          58%      { transform: translateY(0)    scale(1);    }
+        }
+        @keyframes kioskCallIn {
+          from { opacity: 0; transform: translateY(-7px) scale(0.96); }
+          to   { opacity: 1; transform: translateY(0)    scale(1);    }
+        }
+        @keyframes kioskCaret {
+          0%, 49%   { opacity: 1; }
+          50%, 100% { opacity: 0; }
+        }
         @keyframes kioskRollShut {
           0%   { transform: scaleX(1)    scaleY(1);    }
           45%  { transform: scaleX(0.55) scaleY(1.06); }
@@ -371,6 +430,7 @@ export default function KioskInterior({ onExit }: Props) {
               Neither is a button by nature, so both wear a tag. */}
           {view.feature === 'fridge' && (
             <>
+              <KioskPhone state={phone.state} lifted={phone.lifted} onAnswer={guard(phone.answer)} />
               <WallTarget
                 hit={FRIDGE_HIT} tag={FRIDGE_TAG} label="OPEN"
                 aria-label="Open the fridge"
@@ -423,6 +483,14 @@ export default function KioskInterior({ onExit }: Props) {
 
       {/* There's no back button up here on purpose — you leave the way you'd
           leave a real kiosk, through the door on the back wall. */}
+
+      {/* ══ THE CALL ══ audible from any wall, so it has to be visible from
+          one too. */}
+      <PhoneCallHud
+        phone={phone}
+        facing={view.feature === 'fridge'}
+        onTurn={() => turnTo('fridge')}
+      />
 
       {/* ══ TILL ══ your money, on every wall, all the time. */}
       <KioskCoins paid={shift.paid} />

@@ -26,7 +26,9 @@ const PRECACHE_IMAGES = [
   // stand. Cheap to precache (~85 KB each as webp) and the interior has no
   // offline panel of its own — without these a dropped connection in there
   // is a black room.
-  '/InsideOfKiosk.webp', '/KioskLeftSide.webp', '/BackOffTheKiosk.webp', '/KioskRightSide.webp',
+  '/InsideOfKiosk.webp', '/KioskLeftSide.webp', '/KioskBackReal.webp', '/KioskRightSide.webp',
+  // The payphone's handset and cord — the only part of that wall that moves.
+  '/kiosk_handset.webp',
   // Everything the shift itself is made of: the pan fills, the fridge stock,
   // and the five stages of the cone. Without these a dropped connection puts
   // you behind a counter with empty pans and no meat.

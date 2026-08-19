@@ -229,6 +229,27 @@ export const IconBell = memo(function IconBell({ size = 20 }: IconProps) {
   }, size)
 })
 
+// ── PHONE (the payphone handset on the kiosk's back wall) ──────────────────
+export const IconPhone = memo(function IconPhone({ size = 20 }: IconProps) {
+  const grid = [
+    '............',
+    '.KKKK.......',
+    'KHHHHK......',
+    'KHWHHK......',
+    '.KHHK.......',
+    '..KHK.......',
+    '...KHK......',
+    '....KHK.....',
+    '.....KHK....',
+    '.....KHHHHK.',
+    '.....KHHWHK.',
+    '......KKKK..',
+  ]
+  return drawPixels(grid, {
+    K: '#1A1A20', H: '#C9CED8', W: '#F2F5FA',
+  }, size)
+})
+
 // ── PERSON ─────────────────────────────────────────────────────────────────
 export const IconPerson = memo(function IconPerson({ size = 20 }: IconProps) {
   const grid = [

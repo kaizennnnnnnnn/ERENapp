@@ -237,6 +237,13 @@ export const SOUNDS = {
   pr_perfect:  '/sounds/games/purr-beat/pr_perfect.mp3',
   pr_miss:     '/sounds/games/purr-beat/pr_miss.mp3',
   pr_gameover: '/sounds/games/purr-beat/pr_gameover.mp3',
+
+  // The payphone on the kiosk's back wall. All three are synthesised — the
+  // paths are here only because a SoundName has to be minted in this table,
+  // and SYNTH_RECIPES wins before anything is ever fetched.
+  kiosk_ring:   '/sounds/kiosk/kiosk_ring.mp3',
+  kiosk_pickup: '/sounds/kiosk/kiosk_pickup.mp3',
+  kiosk_beep:   '/sounds/kiosk/kiosk_beep.mp3',
 } as const
 
 export type SoundName = keyof typeof SOUNDS
@@ -283,6 +290,12 @@ const VOLUME_SCALE: Partial<Record<SoundName, number>> = {
   chat_type3:     0.14,
   chat_poof:      0.38,
   chat_pin:       0.34,
+
+  // The kiosk payphone. The ring carries across a room you're not looking
+  // at, so it sits above the UI clicks but below a payoff.
+  kiosk_ring:     0.42,
+  kiosk_pickup:   0.5,
+  kiosk_beep:     0.4,
 
   // ─── Mini-game gameplay SFX ─────────────────────────────────────────────
   // catch-mouse

@@ -188,18 +188,29 @@ export const FRIDGE_SHELVES = [
 // its button on the right, both clear of the door frame.
 export const FRIDGE_ITEM_X = 39
 export const FRIDGE_BTN_X = 62
-/** The closed cooler on BackOffTheKiosk, % of the picture. */
-export const FRIDGE_HIT = { left: 6.51, top: 24.85, width: 42.58, height: 54.29 }
+/** The stocked cooler on KioskBackReal, % of the picture. */
+export const FRIDGE_HIT = { left: 5.73, top: 25.73, width: 43.10, height: 52.30 }
 export const FRIDGE_TAG = { x: 27.8, y: 50 }
 
 // ── The door ──────────────────────────────────────────────────────────────
-// The door leaf starts at 83.7% and runs off the right edge of the picture,
+// The door leaf starts at 85.3% and runs off the right edge of the picture,
 // and a phone's cover-crop eats everything past ~91%, so what's actually on
-// screen is a ~36px stripe hard against the bezel. Too thin to aim at, so the
-// hit area is padded out across the bare wall to its left and the EXIT tag
-// sits on that padding, pointing at the door.
-export const DOOR_HIT = { left: 76, top: 24.85, width: 24, height: 50.22 }
+// screen is a stripe hard against the bezel. Too thin to aim at, so the hit
+// area is padded out across the bare wall to its left and the EXIT tag sits
+// on that padding, pointing at the door. It starts at 78 rather than 76 now:
+// the payphone's housing ends at 75.3% and two adjacent targets want a gap.
+export const DOOR_HIT = { left: 78, top: 25, width: 22, height: 51 }
 export const DOOR_TAG = { x: 82, y: 50 }
+
+// ── The payphone ──────────────────────────────────────────────────────────
+// The housing is painted into the wall; the handset and its coiled cord are
+// not, so they can move. `HANDSET` is the sprite's box, placed so the handset
+// hangs in the cradle over the phone's face and the cord loops down onto the
+// coin box, exactly as the reference photo has it.
+export const PHONE_HIT = { left: 57.8, top: 35.3, width: 18.4, height: 25.3 }
+export const PHONE_TAG = { x: 67, y: 64 }
+export const HANDSET = { left: 58.33, top: 38.66, width: 17.19 }
+export const HANDSET_SPRITE = '/kiosk_handset.webp'
 
 // ── The window ────────────────────────────────────────────────────────────
 /** Where a customer standing outside gets cut off — the top edge of the
