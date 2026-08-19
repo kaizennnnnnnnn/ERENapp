@@ -17,7 +17,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTasks } from '@/contexts/TaskContext'
 import { playSound } from '@/lib/sounds'
 import {
-  MAX_USES, EMPTY_BUILD, rollOrder, orderMatches, payout,
+  MAX_USES, EMPTY_BUILD, rollOrder, orderMatches, payout, CHEER_MS, DUCK_MS,
   REFUSALS, HAPPY_LINES, IMPATIENT_LINES, pick,
   type Build, type Order, type ToppingId,
 } from './kioskShift'
@@ -210,14 +210,15 @@ export function useKioskShift(): KioskShift {
       speak(pick(HAPPY_LINES))
       playSound('coin_pickup')
       addCoins(coins).catch(() => {})
-      // Customer pockets the wrap and goes; the next one wanders up after.
+      // They hop about it, then duck away with the wrap; the next one wanders
+      // up after. Clearing the order any earlier blinks them out mid-jump.
       later(() => {
         setBuild(EMPTY_BUILD)
         setRolled(false)
         setOrder(null)
         setStatus('waiting')
-      }, 1500)
-      later(nextCustomer, 2600)
+      }, CHEER_MS + DUCK_MS + 120)
+      later(nextCustomer, CHEER_MS + DUCK_MS + 1220)
     } else {
       setStatus('refused')
       speak(pick(REFUSALS))

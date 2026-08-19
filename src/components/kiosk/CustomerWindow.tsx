@@ -15,7 +15,7 @@
 import BlinkingEren from '@/components/BlinkingEren'
 import {
   TOPPING_BY_ID, PEPSI_SPRITE, SILL_PCT, CUSTOMER_BOX, CUSTOMER_SHOW, BUBBLE_BOTTOM,
-  type Order,
+  CHEER_MS, DUCK_MS, type Order,
 } from './kioskShift'
 import type { Speech } from './useKioskShift'
 
@@ -46,13 +46,24 @@ export default function CustomerWindow({ order, status, speech, coins }: Props) 
           // before they pop. The keyframes read it, so one animation fits any
           // box size.
           ['--rise' as string]: `${(CUSTOMER_BOX * CUSTOMER_SHOW + 3).toFixed(2)}cqi`,
+          // The duck WAITS for the hop rather than running alongside it: a
+          // `both`-filled animation applies its first frame from time zero, so
+          // a second animation on this element would flatten the jump before
+          // it ever left the ground.
           animation: paid
-            ? 'kioskCustomerDuck 760ms ease-in both'
+            ? `kioskCustomerDuck ${DUCK_MS}ms ease-in ${CHEER_MS}ms both`
             : 'kioskCustomerPop 620ms cubic-bezier(0.16, 1, 0.3, 1) both',
         }}>
-          {/* The head-shake lives on its own layer: the wrapper above is
-              already spending its transform on the pop. */}
-          <div style={{ animation: status === 'refused' ? 'kioskRefuse 520ms ease-in-out' : undefined }}>
+          {/* The head-shake and the hop share a layer of their own: the
+              wrapper above is already spending its transform on the pop and
+              the duck. Squashing from the FEET — down past the sill, out of
+              sight — is what keeps a landing from bobbing the whole head. */}
+          <div style={{
+            transformOrigin: '50% 100%',
+            animation: status === 'refused' ? 'kioskRefuse 520ms ease-in-out'
+                     : paid ? `kioskCheer ${CHEER_MS}ms both`
+                     : undefined,
+          }}>
             <BlinkingEren
               key={who.id}
               size={`${CUSTOMER_BOX}cqi`}
@@ -73,7 +84,11 @@ export default function CustomerWindow({ order, status, speech, coins }: Props) 
           reading it at a glance with your hands on the pans. */}
       <div className="absolute left-1/2 pointer-events-none" style={{
         bottom: `${BUBBLE_BOTTOM}%`, transform: 'translateX(-50%)', zIndex: 8,
-        animation: paid ? 'kioskBubbleOut 420ms ease-in both' : 'kioskBubbleIn 520ms cubic-bezier(0.16, 1, 0.3, 1) both',
+        // Held up through the hop before it goes. The thank-you and the coins
+        // are the whole point of the beat, and both used to be gone in 420ms.
+        animation: paid
+          ? `kioskBubbleOut 420ms ease-in ${CHEER_MS - 140}ms both`
+          : 'kioskBubbleIn 520ms cubic-bezier(0.16, 1, 0.3, 1) both',
       }}>
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,

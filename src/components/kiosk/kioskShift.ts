@@ -231,6 +231,12 @@ export const CUSTOMER_SHOW = 0.52
 /** Speech bubble, anchored by its BOTTOM so it stays above their head no
  *  matter how many lines they're saying. % up from the bottom of the picture. */
 export const BUBBLE_BOTTOM = 49
+/** The little celebration when a wrap lands: they hop on the spot before
+ *  they drop back under the sill. Shared, because the window animates it and
+ *  the shift has to wait it out before pulling the customer. */
+export const CHEER_MS = 880
+/** And the duck away afterwards. */
+export const DUCK_MS = 760
 
 // ── The prep board ────────────────────────────────────────────────────────
 /** Where each topping lands on the tortilla, in % of the disc. */
@@ -278,21 +284,30 @@ const NICE = [
   'smells like the good place',
   'you always get it right',
   'hope you get home okay tonight',
-  'i walked past twice to be sure',
   'best window on this street',
+  'my bus is late. this is better anyway',
+  'i brought exact change for once',
+  'you’re the only thing open and awake',
+  'i told my sister about this place',
+  'take your time, i like watching',
+  'cold night. warm window',
+  'my friends said they’d wait. they did not',
+  'i’ll eat it on the bench across the road',
+  'this is the good part of my day',
 ]
 
 const WEIRD = [
   'i can hear your fridge from here',
   'my shoes are on the wrong feet',
-  'i named all the pigeons already',
-  'do you ever count the ceiling',
   'i’ve been awake for one day',
   'there’s a word for this hour',
   'i think i left the tap running',
   'my reflection blinked early',
-  'i only eat facing north',
-  'the moon followed me in',
+  'i can taste the colour orange tonight',
+  'i had this exact night in march',
+  'my phone thinks we’re in another city',
+  'do you hear it too or is that mine',
+  'i’ve been practising standing still',
 ]
 
 const CREEPY = [
@@ -305,7 +320,11 @@ const CREEPY = [
   'your door was open earlier',
   'i know what time you close',
   'the street gets hungry first',
-  'count us again when we leave',
+  'don’t turn around until i’ve gone',
+  'i’ve stood here longer than you think',
+  'your window is the only one that answers',
+  'someone’s been ordering as me',
+  'i’d finish that one quickly',
 ]
 
 /** What the customer says when the wrap is wrong — kept vague on purpose, so
@@ -315,6 +334,10 @@ export const REFUSALS = [
   'that’s not my order',
   'hey — wrong one',
   'nope, not mine',
+  'close. not close enough',
+  'i’d eat it, but no',
+  'try again, i’m patient',
+  'that’s not what i said',
 ]
 
 export const HAPPY_LINES = [
@@ -324,6 +347,8 @@ export const HAPPY_LINES = [
   'exactly right. thank you.',
   'this’ll do nicely',
   'same time next week',
+  'this is why i walk the long way',
+  'see you when it’s dark again',
 ]
 
 export const IMPATIENT_LINES = [
@@ -332,6 +357,13 @@ export const IMPATIENT_LINES = [
   'still here, by the way',
   'i can wait. i think.',
   'you didn’t forget me, right',
+  'don’t wrap it pretty, wrap it fast',
+  'is this how long it always takes',
+  'everywhere else shut. that’s the only reason',
+  'hello? still breathing out here',
+  'no pressure. some pressure',
+  'take your time. i’m being sarcastic',
+  'any progress or shall i sit down',
 ]
 
 /** One to three toppings, plus a coin-flip Pepsi. Meat is never asked for —

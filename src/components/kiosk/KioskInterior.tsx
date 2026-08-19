@@ -253,6 +253,20 @@ export default function KioskInterior({ onExit }: Props) {
           65%  { opacity: 1; }
           100% { opacity: 0; transform: translateX(-50%) translateY(var(--rise)); }
         }
+        /* Paid, and delighted about it: two hops on the spot, the second one
+           smaller, with the squash landing on the counter side of each. Every
+           keyframe carries its own easing — the rise has to slow and the fall
+           has to speed up, and a single easing over the whole thing floats
+           like the moon rather than dropping like a cat. */
+        @keyframes kioskCheer {
+          0%   { transform: translateY(0)    scale(1, 1);       animation-timing-function: ease-out; }
+          9%   { transform: translateY(1.5%) scale(1.05, 0.95); animation-timing-function: cubic-bezier(0.15, 0.85, 0.4, 1); }
+          32%  { transform: translateY(-11%) scale(0.97, 1.04); animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.45); }
+          50%  { transform: translateY(0)    scale(1.06, 0.94); animation-timing-function: cubic-bezier(0.15, 0.85, 0.4, 1); }
+          71%  { transform: translateY(-6%)  scale(0.98, 1.02); animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.45); }
+          87%  { transform: translateY(0)    scale(1.04, 0.96); animation-timing-function: ease-out; }
+          100% { transform: translateY(0)    scale(1, 1);       }
+        }
         @keyframes kioskBubbleIn {
           from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.9); }
           to   { opacity: 1; transform: translateX(-50%) translateY(0)   scale(1);   }
