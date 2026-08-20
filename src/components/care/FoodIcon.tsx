@@ -19,6 +19,10 @@ const FOOD_IMAGE_IDS = new Set([
   'cevapi', 'sarma', 'doner',
   'tacos', 'wrap', 'paella', 'stew', 'meatballs', 'roast_chicken',
   'sardine', 'steak', 'chicken', 'egg',
+  // Second art drop: the staples and sweets that were still hand-drawn SVGs.
+  // Biscuit is the fish-SHAPED one (paw-stamped cat biscuit, not a fresh fish —
+  // `fish` has no art yet and keeps its SVG).
+  'kibble', 'biscuit', 'tuna', 'salmon', 'shrimp', 'cake', 'jelly_caka',
   // Monsta cans. The normaliser clamps tall art to the box height, so every
   // can ends up the same 124px height — they line up as a set.
   'monsta_original', 'monsta_white', 'monsta_mango', 'monsta_loco',
@@ -52,26 +56,11 @@ export default function FoodIcon({ id, size = 32 }: { id: string; color?: string
       style={{ width: S, height: S, objectFit: 'contain', display: 'block' }} />
   )
 
-  if (id === 'kibble') return (
-    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
-      {r(2,4,6,4,'#C8956A')}{r(2,3,6,1,'#D4A44A')}{r(3,2,4,1,'#D4A44A')}
-      {r(3,5,1,1,'#A0724A')}{r(5,5,1,1,'#A0724A')}{r(7,6,1,1,'#A0724A')}
-      {r(3,7,1,1,'#B08050')}{r(6,4,1,1,'#B08050')}
-      {r(2,8,6,1,'#A06830')}{r(3,3,1,1,'rgba(255,255,255,0.3)')}
-    </svg>
-  )
   if (id === 'treat') return (
     <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
       {r(3,2,4,1,'#FF85A2')}{r(2,3,6,4,'#FF6B9D')}{r(3,7,4,1,'#FF6B9D')}
       {r(4,4,2,2,'#FFB6CC')}{r(3,3,1,1,'rgba(255,255,255,0.4)')}
       {r(2,3,1,4,'#E05580')}{r(8,3,0,0,'transparent')}
-    </svg>
-  )
-  if (id === 'biscuit') return (
-    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
-      {r(2,3,6,4,'#D4A060')}{r(3,2,4,1,'#D4A060')}{r(3,7,4,1,'#C89050')}
-      {r(3,4,1,1,'#B07838')}{r(6,5,1,1,'#B07838')}{r(4,6,1,1,'#B07838')}
-      {r(3,3,1,1,'rgba(255,255,255,0.35)')}{r(5,3,1,1,'rgba(255,255,255,0.25)')}
     </svg>
   )
   if (id === 'fish') return (
@@ -81,28 +70,6 @@ export default function FoodIcon({ id, size = 32 }: { id: string; color?: string
       {r(8,6,1,1,'#4A8ABB')}{r(3,4,1,1,'#222')}{r(3,4,1,1,'#fff')}
       {r(4,5,1,1,'#222')}{r(2,5,1,1,'#6BB5E8')}
       {r(5,5,1,1,'#74C0F0')}{r(4,4,1,1,'#74C0F0')}
-    </svg>
-  )
-  if (id === 'tuna') return (
-    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
-      {r(2,4,6,4,'#D4D4D0')}{r(2,3,6,1,'#E0E0DC')}{r(3,2,4,1,'#C8C8C4')}
-      {r(2,8,6,1,'#B0B0AC')}{r(3,5,4,2,'#E8A020')}{r(4,4,2,1,'#F0B040')}
-      {r(3,4,1,1,'rgba(255,255,255,0.4)')}{r(4,7,2,1,'#C88818')}
-    </svg>
-  )
-  if (id === 'shrimp') return (
-    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
-      {r(4,2,2,1,'#F0836A')}{r(3,3,3,1,'#F0836A')}{r(3,4,4,1,'#E86A50')}
-      {r(4,5,3,1,'#E86A50')}{r(5,6,2,1,'#F09080')}{r(5,7,3,1,'#FFB0A0')}
-      {r(4,3,1,1,'rgba(255,255,255,0.3)')}{r(6,5,1,1,'#D05A40')}
-      {r(3,5,1,1,'#F8A088')}{r(2,4,1,1,'#F8A088')}
-    </svg>
-  )
-  if (id === 'salmon') return (
-    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
-      {r(2,3,6,4,'#E8735A')}{r(3,2,4,1,'#F08868')}{r(2,7,6,1,'#C85A42')}
-      {r(3,4,2,1,'#FFB0A0')}{r(6,5,1,1,'#FFB0A0')}{r(4,6,2,1,'#FFB0A0')}
-      {r(3,3,1,1,'rgba(255,255,255,0.4)')}{r(5,3,1,1,'rgba(255,255,255,0.25)')}
     </svg>
   )
   if (id === 'sushi') return (
@@ -150,14 +117,6 @@ export default function FoodIcon({ id, size = 32 }: { id: string; color?: string
       {r(4,5,2,1,'rgba(255,255,255,0.4)')}{r(4,4,1,1,'rgba(255,255,255,0.3)')}
     </svg>
   )
-  if (id === 'cake') return (
-    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
-      {r(2,5,6,3,'#FF85A2')}{r(2,4,6,1,'#FFB0C4')}{r(3,3,4,1,'#FFD0DD')}
-      {r(2,8,6,1,'#D86080')}{r(4,1,1,2,'#F5C842')}{r(4,0,1,1,'#FF8800')}
-      {r(3,5,1,1,'#FFD0DD')}{r(6,6,1,1,'#FFD0DD')}
-      {r(5,1,1,2,'#F5C842')}{r(5,0,1,1,'#FF8800')}
-    </svg>
-  )
   if (id === 'cookie') return (
     <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
       {r(2,3,6,4,'#C89A6B')}{r(3,2,4,1,'#D8AA7B')}{r(3,7,4,1,'#A07A4B')}
@@ -165,14 +124,6 @@ export default function FoodIcon({ id, size = 32 }: { id: string; color?: string
       {r(3,4,1,1,'#4A2A1A')}{r(5,3,1,1,'#4A2A1A')}
       {r(6,5,1,1,'#4A2A1A')}{r(4,5,1,1,'#4A2A1A')}
       {r(3,3,1,1,'rgba(255,255,255,0.3)')}
-    </svg>
-  )
-  if (id === 'jelly_caka') return (
-    <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>
-      {r(2,6,6,2,'#F5E6C8')}{r(2,4,6,2,'#FFB0C8')}{r(2,2,6,2,'#E83A4A')}
-      {r(3,1,4,1,'#FF5060')}{r(2,8,6,1,'#B07840')}
-      {r(2,5,1,1,'#E8909C')}{r(7,5,1,1,'#C89090')}
-      {r(3,2,1,1,'rgba(255,255,255,0.35)')}
     </svg>
   )
   // fallback

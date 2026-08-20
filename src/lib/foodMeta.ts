@@ -108,4 +108,4 @@ export const FOOD_ORDER: FoodKey[] = [
  * cache entry instead of fetching identical bytes under two URLs, and the
  * version can't drift between them.
  */
-export const foodArt = (id: string): string => `/food/${id}.png?v=2`
+export const foodArt = (id: string): string => `/food/${id}.png?v=3`
