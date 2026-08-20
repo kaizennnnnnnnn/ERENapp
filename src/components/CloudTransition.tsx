@@ -23,7 +23,7 @@ import { playSound } from '@/lib/sounds'
 
 const EVENT = 'eren:cloud-nav'
 
-export type CloudTheme = 'pink' | 'rainbow' | 'smoke'
+export type CloudTheme = 'pink' | 'rainbow' | 'smoke' | 'mint'
 
 export function requestCloudNav(href: string, theme: CloudTheme = 'pink') {
   window.dispatchEvent(new CustomEvent(EVENT, { detail: { href, theme } }))
@@ -192,6 +192,16 @@ const SMOKE_RINGS = [
   { body: '#55454D', shade: '#2F262C' },
 ]
 
+// Jelly Parlour clouds — set gelatin rather than sky: cool mint bodies with a
+// deeper jade underside, so the flight reads sweet without borrowing the
+// bakery's pink or the gacha's rainbow.
+const MINT_RINGS = [
+  { body: '#E8FCEF', shade: '#B4E8C9' },
+  { body: '#CFF6DE', shade: '#96DCB2' },
+  { body: '#B4EDCC', shade: '#7ACB9B' },
+  { body: '#98E2B8', shade: '#5FB585' },
+]
+
 const RAINBOW: Array<{ body: string; shade: string }> = [
   { body: '#FF9B9B', shade: '#D96B6B' }, // red
   { body: '#FFC38F', shade: '#DD9255' }, // orange
@@ -220,6 +230,14 @@ const THEMES: Record<CloudTheme, ThemeDef> = {
     // Gacha clouds drift in ~35% slower so the rainbow vortex reads as a
     // gentle gather rather than a quick snap.
     speed: 1.35,
+  },
+  mint: {
+    cloud: c => MINT_RINGS[c.ring],
+    backdrop: 'radial-gradient(circle at 50% 44%, #F4FFF8 0%, #DDF7E7 52%, #BCEBD1 100%)',
+    sparkleColors: ['#FF6B8A', '#FFE066', '#8BE8B0', '#FFFFFF'],
+    sparkleCount: 13,
+    swirl: false,
+    speed: 1,
   },
   smoke: {
     cloud: c => SMOKE_RINGS[c.ring],

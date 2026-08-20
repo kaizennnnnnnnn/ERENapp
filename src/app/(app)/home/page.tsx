@@ -831,8 +831,8 @@ export default function HomePage() {
             on top of the quest panel + nav buttons. */}
         <LightSwitch switchTop="30%" targetBottom="10%" targetLeft="50%" persistKey="home" />
 
-        {/* ══ BOTTOM DOCK — gacha · cake · shawarma ══
-            Three full-width neo-brutalism buttons filling the floor of the
+        {/* ══ BOTTOM DOCK — gacha · cake · shawarma · jelly ══
+            Four full-width neo-brutalism buttons filling the floor of the
             room. Vibrant per-button gradient, hard 2px ink border + 4px
             offset shadow, icon stacked over font-pixel label. Press state
             slides the button into the shadow for a tactile click. */}
@@ -881,6 +881,20 @@ export default function HomePage() {
             style={{ ...dockFrame, animationDelay: '0.34s' }}
           >
             <DockContent theme="shawarma" label="SHAWARMA" />
+          </Link>
+
+          <Link
+            href="/jelly"
+            onClick={e => {
+              // Mint variant of the cloud flight — the Parlour is the sweet one.
+              e.preventDefault()
+              playSound('ui_tap')
+              requestCloudNav('/jelly', 'mint')
+            }}
+            className="home-dock-btn home-dock-pop"
+            style={{ ...dockFrame, animationDelay: '0.42s' }}
+          >
+            <DockContent theme="jelly" label="JELLY" />
           </Link>
         </div>
 

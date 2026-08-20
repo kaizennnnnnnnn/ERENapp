@@ -37,7 +37,7 @@ import CanAura, { type CanVariant } from './CanAura'
 import CanFeedBurst from './CanFeedBurst'
 import SkinUnlockCinematic from './SkinUnlockCinematic'
 import { DRINK_UNLOCK_SKINS, getSkin, type SkinDef } from '@/lib/skins'
-import { grantDrinkSkin, wearSkinEverywhere } from '@/lib/drinkUnlock'
+import { grantSkin, wearSkinEverywhere } from '@/lib/skinGrant'
 import PixelPoof from '@/components/PixelPoof'
 import FoodStatsCard, { type FoodStatItem } from '@/components/care/FoodStatsCard'
 import CareToast from '@/components/care/CareToast'
@@ -591,13 +591,13 @@ export default function FeedScene({ onClose }: Props) {
     if (result.success) completeTask('daily_feed')
 
     // The FIRST pour of a SPECIAL EDITION can leaves its colours on him for
-    // good. `grantDrinkSkin` answers 'new' only on the insert that actually
-    // landed, so a second Gold Monsta — or the partner pouring one at the same
-    // moment — celebrates exactly once. See lib/drinkUnlock.ts.
+    // good. `grantSkin` answers 'new' only on the insert that actually landed,
+    // so a second Gold Monsta — or the partner pouring one at the same moment —
+    // celebrates exactly once. See lib/skinGrant.ts.
     const unlockSkinId = result.success ? DRINK_UNLOCK_SKINS[item.id] : undefined
     if (unlockSkinId) {
       const skin = getSkin(unlockSkinId)
-      const granted = await grantDrinkSkin(user.id, unlockSkinId)
+      const granted = await grantSkin(user.id, unlockSkinId)
       if (skin && granted === 'new') {
         setPendingUnlock({ skin, variant: SPECIAL_CAN[item.id], drinkName: item.name })
       }

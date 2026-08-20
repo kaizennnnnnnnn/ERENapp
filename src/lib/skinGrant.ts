@@ -1,19 +1,18 @@
 'use client'
 
 // ═══════════════════════════════════════════════════════════════════════════
-// DRINK UNLOCKS — the two looks you can't pull for.
+// SKIN GRANTS — earning a look outside the gacha.
 //
-// Rainbow Eren and Golden Eren are out of every banner and out of the stardust
-// shop (see `unlock` in lib/skins.ts). The ONLY way to wear them is to hand Eren
-// the matching SPECIAL EDITION can and watch him finish it. This module is the
-// grant half of that: FeedScene calls `grantDrinkSkin` once the can is down, and
-// the answer decides whether the unlock cinematic plays.
+// Two features hand out skins directly: pouring a SPECIAL EDITION can (Rainbow /
+// Golden Eren, see `unlock` in lib/skins.ts) and completing the jelly set (Eren
+// Jelly, see lib/jellies.ts). Both need the same two answers — did I just earn
+// this, and can I wear it everywhere — so both live here.
 //
 // "First time" needs no new column. The inventory row IS the record: the insert
 // is attempted blind, and the unique(user_id, item_id) constraint is what tells
-// us this is the first pour. That's the same insert-first shape the stardust
-// purchase RPC uses, and it's race-safe by construction — two devices pouring at
-// once produce exactly one 'new'.
+// us this is the first one. That's the same insert-first shape the stardust
+// purchase RPC uses, and it's race-safe by construction — two devices earning it
+// at the same moment produce exactly one 'new', so the cinematic plays once.
 //
 // Ownership is per-user (each partner earns their own), while the room_skins
 // assignment is per-household — so "wear it" below dresses the shared cat.
@@ -25,14 +24,14 @@ import { skinItemId, SKINNABLE_ROOMS } from '@/lib/skins'
 /** Postgres unique_violation — the row was already there, so this isn't a first. */
 const UNIQUE_VIOLATION = '23505'
 
-export type DrinkGrant = 'new' | 'owned' | 'failed'
+export type SkinGrant = 'new' | 'owned' | 'failed'
 
 /**
- * Grant a drink-unlock skin to a user. Returns 'new' ONLY on the pour that
- * actually created the row — the caller uses that to gate the cinematic, so a
- * connection hiccup must read as 'failed' (no celebration) rather than 'new'.
+ * Grant a skin to a user. Returns 'new' ONLY on the call that actually created
+ * the row — callers gate a celebration on that, so a connection hiccup must read
+ * as 'failed' (no celebration) rather than 'new'.
  */
-export async function grantDrinkSkin(userId: string, skinId: string): Promise<DrinkGrant> {
+export async function grantSkin(userId: string, skinId: string): Promise<SkinGrant> {
   const supabase = createClient()
   const { error } = await supabase
     .from('user_inventory')

@@ -422,6 +422,29 @@ export const IconPaw = memo(function IconPaw({ size = 20 }: IconProps) {
 })
 
 // ── CHERRY (cake topping) ──────────────────────────────────────────────────
+// A moulded jelly with its mint leaf — the Jelly Parlour's mark. Fluted sides
+// and a bright rim highlight so it reads as wobbling gelatin at 18px, not a
+// dome. Palette stays at 6 (outline / body / shade / rim / two greens).
+export const IconJelly = memo(function IconJelly({ size = 20 }: IconProps) {
+  const grid = [
+    '............',
+    '.....G......',
+    '....GGL.....',
+    '.....KK.....',
+    '...KKKKKK...',
+    '..KRRHRRRK..',
+    '..KRHRRRSK..',
+    '.KRRRRRRRSK.',
+    '.KRHRRRRRSK.',
+    'KRRRRRRRRRSK',
+    'KSSSSSSSSSSK',
+    '.KKKKKKKKKK.',
+  ]
+  return drawPixels(grid, {
+    K: '#7A1712', R: '#E5453C', H: '#FF9D8C', S: '#A8231C', G: '#4E9B36', L: '#7ED45C',
+  }, size)
+})
+
 export const IconCherry = memo(function IconCherry({ size = 20 }: IconProps) {
   const grid = [
     '............',

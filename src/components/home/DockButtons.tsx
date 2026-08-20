@@ -1,20 +1,25 @@
 'use client'
 
-import { IconCherry, IconFlower, IconStar, IconSparkles, IconShawarma } from '@/components/PixelIcons'
+import { IconCherry, IconFlower, IconStar, IconSparkles, IconShawarma, IconJelly } from '@/components/PixelIcons'
 
 // ─── HOME DOCK BUTTONS ───────────────────────────────────────────────────────
 // Pixel-art candy buttons for the bottom dock. Flat 2-tone face with hard ink
 // border + offset shadow (no smooth gloss), each themed with little pixel
 // trinkets: cake gets piped frosting + a cherry + corner flowers, gacha gets a
-// paw + sparkles, shawarma gets a star + sparkles.
+// paw + sparkles, shawarma gets a star + sparkles, jelly gets a wobbling jelly
+// and a pair of bouncing blobs.
 
-export type DockTheme = 'gacha' | 'cake' | 'shawarma'
+export type DockTheme = 'gacha' | 'cake' | 'shawarma' | 'jelly'
 
 interface ThemeCfg { face: string; hi: string; shade: string; ink: string }
 const THEMES: Record<DockTheme, ThemeCfg> = {
   gacha:    { face: '#9B7BF5', hi: '#C8B6FF', shade: '#6E46D2', ink: '#2C1A4A' },
   cake:     { face: '#F074AE', hi: '#FBAAD3', shade: '#D24E8E', ink: '#561C3E' },
   shawarma: { face: '#F59C45', hi: '#FBC079', shade: '#DC772A', ink: '#5A2E12' },
+  // Lime, because the other three already own purple / pink / orange and a
+  // fourth warm button would read as a duplicate at dock size. The strawberry
+  // motif on top supplies the jelly red.
+  jelly:    { face: '#3FBF6E', hi: '#84E4A6', shade: '#22935A', ink: '#123A24' },
 }
 
 // The frame is a transparent positioning wrapper so trinkets can poke above the
@@ -209,6 +214,22 @@ function SteamWisps() {
   )
 }
 
+// Two little blobs that bounce inside the jelly button, a beat apart, so the
+// face itself looks like it's still setting. Keyframe in globals.css.
+function JellyBlobs() {
+  return (
+    <>
+      {[{ l: '18%', d: '0s', c: '#B9F5CF' }, { l: '74%', d: '0.55s', c: '#DFFBE9' }].map((b, i) => (
+        <span key={i} aria-hidden style={{
+          position: 'absolute', left: b.l, bottom: 6, width: 5, height: 5, borderRadius: '50%',
+          background: b.c, opacity: 0.85, zIndex: 3, pointerEvents: 'none',
+          animation: `dockJellyBlob 1.6s ease-in-out ${b.d} infinite`,
+        }} />
+      ))}
+    </>
+  )
+}
+
 export function DockContent({ theme, label }: { theme: DockTheme; label: string }) {
   const t = THEMES[theme]
   return (
@@ -245,6 +266,17 @@ export function DockContent({ theme, label }: { theme: DockTheme; label: string 
           <span style={topMotif}><IconShawarma size={17} /></span>
           <span style={{ ...cornerDeco, top: 3, right: 5, ...twinkle('0s') }}><IconStar size={11} /></span>
           <span style={{ ...cornerDeco, bottom: 2, left: 5, ...twinkle('0.9s') }}><IconSparkles size={12} /></span>
+        </>
+      )}
+
+      {theme === 'jelly' && (
+        <>
+          <JellyBlobs />
+          {/* The motif wobbles on its own timer — it IS the jelly. */}
+          <span style={{ ...topMotif, animation: 'dockJellyWobble 1.9s ease-in-out infinite' }}>
+            <IconJelly size={18} />
+          </span>
+          <span style={{ ...cornerDeco, top: 3, left: 5, ...twinkle('0.4s') }}><IconSparkles size={11} /></span>
         </>
       )}
 
