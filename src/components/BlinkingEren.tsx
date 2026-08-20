@@ -385,7 +385,9 @@ export default function BlinkingEren({
             imageRendering: 'auto',
           }} />
 
-        {coat === 'jelly' && <JellyCoat />}
+        {/* Surface gloss, clipped to THIS sprite's alpha (JellyCoat masks
+            with the same src at the same contain/center fit). */}
+        {coat === 'jelly' && <JellyCoat src={src} />}
 
         {headSrc ? (
           // Head wrapper — the head img AND the eye overlays live inside one
