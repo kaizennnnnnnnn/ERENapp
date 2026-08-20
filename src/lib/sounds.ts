@@ -136,6 +136,16 @@ export const SOUNDS = {
   mm_timer_warn: '/sounds/games/memory-match/mm_timer_warn.mp3',
 
   // treat-tumble
+  // ─── jelly parlour (slice + jump) ───────────────────────────────────────
+  // No mp3s ship for these: playSound() prefers a SYNTH_RECIPE, and every jl_*
+  // key has one. The paths are here because SoundName is keyof typeof SOUNDS.
+  jl_slice:        '/sounds/games/jelly/jl_slice.mp3',
+  jl_combo:        '/sounds/games/jelly/jl_combo.mp3',
+  jl_miss:         '/sounds/games/jelly/jl_miss.mp3',
+  jl_bounce:       '/sounds/games/jelly/jl_bounce.mp3',
+  jl_high:         '/sounds/games/jelly/jl_high.mp3',
+  jl_over:         '/sounds/games/jelly/jl_over.mp3',
+
   tt_catch_good:   '/sounds/games/treat-tumble/tt_catch_good.mp3',
   tt_catch_golden: '/sounds/games/treat-tumble/tt_catch_golden.mp3',
   tt_catch_heart:  '/sounds/games/treat-tumble/tt_catch_heart.mp3',
@@ -323,6 +333,12 @@ const VOLUME_SCALE: Partial<Record<SoundName, number>> = {
   mm_timer_warn:      0.6,
 
   // treat-tumble
+  jl_slice:           0.55,
+  jl_combo:           0.7,
+  jl_miss:            0.5,
+  jl_bounce:          0.5,
+  jl_high:            0.7,
+  jl_over:            0.75,
   tt_catch_good:      0.6,
   tt_catch_golden:    0.75,
   tt_catch_heart:     0.7,
@@ -475,6 +491,14 @@ const FALLBACK: Partial<Record<SoundName, SoundName>> = {
   mm_miss:            'pet_purr' as SoundName,
   mm_purrfect:        'quest_complete' as SoundName,
   mm_timer_warn:      'gift_open' as SoundName,
+
+  // jelly parlour
+  jl_slice:           'care_eat' as SoundName,
+  jl_combo:           'gacha_reveal_rare' as SoundName,
+  jl_miss:            'pet_purr' as SoundName,
+  jl_bounce:          'ui_tap' as SoundName,
+  jl_high:            'level_up' as SoundName,
+  jl_over:            'quest_complete' as SoundName,
 
   // treat-tumble
   tt_catch_good:      'care_eat' as SoundName,

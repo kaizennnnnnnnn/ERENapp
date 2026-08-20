@@ -19,6 +19,7 @@ export interface ErenSpriteProps {
   // Golden) carries its own so the lid isn't a grey slab; every other skin
   // and every room default leaves it undefined for his own fur tones.
   lidTone?: LidTone
+  coat?: 'jelly'
   // Chemistry passes this so its goggle-lens blink stays the recolorable bar
   // instead of the realistic fur-toned eye. Skins omit it → realistic blink.
   plainLid?: boolean
@@ -47,6 +48,7 @@ export function useRoomEren(roomId: string, fallback: ErenSpriteProps): ErenSpri
       return {
         src: skin.src, tailSrc: skin.tailSrc, tailOrigin: skin.tailOrigin, eyes: skin.eyes,
         lidTone: skin.lidTone,
+        coat: skin.coat,
         size: fit?.size,
         style: fit ? { transform: `translateY(${-fit.lift}px)` } : undefined,
       }

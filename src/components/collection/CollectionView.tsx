@@ -42,7 +42,7 @@ const TAB_ICON: Record<GachaCategory, React.ComponentType<{ size?: number }>> = 
 // The skins tab is long enough to need shelves. SPECIAL leads because it's the
 // only group you can't pull for — see `unlock` in lib/skins.ts.
 const SKIN_SECTIONS = [
-  { key: 'special', label: 'SPECIAL EDITION', Icon: IconCrown, match: (i: GachaItemDef) => i.unlock === 'drink' },
+  { key: 'special', label: 'EARNED, NOT PULLED', Icon: IconCrown, match: (i: GachaItemDef) => !!i.unlock },
   { key: 'animal',  label: 'ANIMAL COSTUMES', Icon: IconPaw,   match: (i: GachaItemDef) => !i.unlock && i.skinSet === 'animal' },
   { key: 'food',    label: 'FOODSUITS',       Icon: IconCake,  match: (i: GachaItemDef) => !i.unlock && i.skinSet === 'food' },
 ]
@@ -50,6 +50,9 @@ const SKIN_SECTIONS = [
 /** Where an item actually comes from — the answer a locked tap is asking for. */
 function sourceHint(item: GachaItemDef): string {
   if (item.category === 'consumable') return 'Pull it from the SNACKS & DRINKS machine.'
+  if (item.unlock === 'jelly') {
+    return 'Win all five jellies in the Jelly Parlour. Complete the shelf and Eren keeps one of his own.'
+  }
   const drink = item.skinId ? skinUnlockDrink(item.skinId) : undefined
   if (drink) return `Feed Eren a ${FOOD_META[drink as FoodKey].name}. The first can he finishes leaves its colours on him for good.`
   return item.skinSet === 'food'

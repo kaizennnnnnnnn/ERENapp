@@ -389,6 +389,7 @@ export default function SkinPodium({ skin, rarity }: Props) {
           tailSrc={skin.tailSrc}
           tailOrigin={skin.tailOrigin}
           lidTone={skin.lidTone}
+          coat={skin.coat}
           eyes={skin.eyes}
         />
       </div>

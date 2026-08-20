@@ -154,7 +154,7 @@ export default function ClosetView({
                   size={(skinRoomFit(previewSkin, activeRoom)?.size ?? 180) * 1.18}
                   src={previewSkin.src} tailSrc={previewSkin.tailSrc}
                   tailOrigin={previewSkin.tailOrigin} eyes={previewSkin.eyes}
-                  lidTone={previewSkin.lidTone} />
+                  lidTone={previewSkin.lidTone} coat={previewSkin.coat} />
               ) : (
                 <img src={room.defaultThumb} alt={`${room.label} default look`} draggable={false}
                   style={{ height: 190, objectFit: 'contain', imageRendering: 'auto' }} />
@@ -348,14 +348,14 @@ function SkinCard({ card, room, selected, isNew, onClick }: {
   const frame = frameFor(rarity, card.locked)
   const thumb = card.isDefault ? room.defaultThumb : card.skin!.thumb
   const name = card.isDefault ? 'DEFAULT' : card.skin!.name.toUpperCase()
-  // A drink-unlock look can't be bought at any price — the card says "pour the
-  // can", never a stardust number that would be a lie.
-  const byDrink = card.locked && card.skin?.unlock === 'drink'
+  // An EARNED look (poured can, completed jelly shelf) can't be bought at any
+  // price — the card shows a badge, never a stardust number that would be a lie.
+  const earned = card.locked && !!card.skin?.unlock
   const ariaLabel = card.isDefault
     ? `Default look${selected ? ', equipped' : ''}`
     : card.locked
-      ? byDrink
-        ? 'Locked look — feed Eren a special edition can to unlock it'
+      ? earned
+        ? 'Locked look — earned by playing, not bought'
         : `${card.skin!.name}, locked — ${skinPrice(card.skin!.rarity)} stardust to unlock`
       : `${card.skin!.name}${selected ? ', equipped' : ''}${isNew ? ', new' : ''}`
   // Equipped marker is rarity-neutral (green ring + check) so it reads clearly
@@ -416,7 +416,7 @@ function SkinCard({ card, room, selected, isNew, onClick }: {
             <IconLock size={18} />
           </div>
           {card.skin && (
-            byDrink ? (
+            earned ? (
               <div className="absolute -top-1.5 -right-1.5 flex items-center justify-center px-1 py-0.5" style={{
                 background: '#3A2A05', border: '1.5px solid #F5C842', borderRadius: 6, boxShadow: '0 1px 0 #2E1065',
               }}>

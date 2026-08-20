@@ -181,7 +181,7 @@ export default function SkinUnlockCinematic({ skin, variant, drinkName, onWear, 
               background: 'radial-gradient(50% 50% at 50% 50%, rgba(0,0,0,0.5), rgba(0,0,0,0))',
             }} />
             <BlinkingEren size={200} src={skin.src} tailSrc={skin.tailSrc}
-              tailOrigin={skin.tailOrigin} eyes={skin.eyes} lidTone={skin.lidTone} />
+              tailOrigin={skin.tailOrigin} eyes={skin.eyes} lidTone={skin.lidTone} coat={skin.coat} />
             {!reduced && <CanFeedBurst variant={variant} left="50%" bottom="46%" />}
           </div>
 

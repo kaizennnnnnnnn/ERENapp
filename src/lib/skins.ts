@@ -25,7 +25,10 @@ export interface SkinDef {
   // Non-gacha unlock route. 'drink' = earned the first time you feed the
   // matching SPECIAL EDITION can (see DRINK_UNLOCK_SKINS). These skins are out
   // of every banner pool AND out of the stardust shop on purpose.
-  unlock?: 'drink'
+  unlock?: 'drink' | 'jelly'
+  // Poured-jelly gloss over the sprite (components/JellyCoat). Set only on the
+  // Parlour reward; travels with the look to every surface that renders it.
+  coat?: 'jelly'
   // Blink-lid palette. Omit to keep Eren's own fur tones; set only on a skin
   // that repaints his whole head (see LID_TONES below).
   lidTone?: LidTone
@@ -88,6 +91,13 @@ export const DRINK_UNLOCK_SKINS: Record<string, string> = {
 const SKIN_UNLOCK_DRINK: Record<string, string> = Object.fromEntries(
   Object.entries(DRINK_UNLOCK_SKINS).map(([food, skin]) => [skin, food]))
 
+// ─── Jelly unlock ────────────────────────────────────────────────────────────
+// The third non-gacha look, and the only one that isn't earned in the kitchen:
+// win all five jellies in the Parlour (lib/jellies.ts) and Eren keeps one of his
+// own. It also carries `coat: 'jelly'` — the gloss that makes him read as set
+// gelatin wherever he's rendered.
+export const JELLY_SKIN = 'jelly'
+
 // ─── Lid tones ───────────────────────────────────────────────────────────────
 // A closed eyelid is fur, so it has to be the colour of the face wearing it.
 // Every costume skin keeps Eren's own ragdoll brow — the costume is a hat or a
@@ -123,7 +133,9 @@ export const GACHA_SKINS: SkinDef[] = SKIN_DATA.map(s => ({
   name: s.name,
   rarity: s.rarity,
   set: s.set,
-  unlock: SKIN_UNLOCK_DRINK[s.id] ? ('drink' as const) : undefined,
+  unlock: SKIN_UNLOCK_DRINK[s.id] ? ('drink' as const)
+    : s.id === JELLY_SKIN ? ('jelly' as const) : undefined,
+  coat: s.id === JELLY_SKIN ? ('jelly' as const) : undefined,
   lidTone: LID_TONES[s.id],
   src: v(s.src)!,
   tailSrc: v(s.tailSrc),
@@ -180,9 +192,11 @@ export const SKIN_GACHA_ITEMS: GachaItemDef[] = GACHA_SKINS.map(s => ({
   // tracks it, the closet still lists it) but `unlock` keeps it out of every
   // banner pool — see bannerFilter in lib/gacha.ts.
   unlock: s.unlock,
-  description: s.unlock
-    ? `Feed Eren a ${FOOD_META[skinUnlockDrink(s.id) as FoodKey].name} to keep this look.`
-    : RARITY_BLURB[s.rarity],
+  description: s.unlock === 'jelly'
+    ? 'Win all five jellies in the Jelly Parlour and Eren keeps one of his own.'
+    : s.unlock === 'drink'
+      ? `Feed Eren a ${FOOD_META[skinUnlockDrink(s.id) as FoodKey].name} to keep this look.`
+      : RARITY_BLURB[s.rarity],
 }))
 
 // ─── Rooms ───────────────────────────────────────────────────────────────────

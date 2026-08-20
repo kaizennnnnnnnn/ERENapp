@@ -1,5 +1,34 @@
 [
   {
+    "id": "jelly",
+    "name": "Eren Jelly",
+    "rarity": "legendary",
+    "set": "food",
+    "width": 702,
+    "height": 1048,
+    "aspect": 0.67,
+    "hasTail": true,
+    "tailOrigin": "71.2% 82.1%",
+    "eyes": {
+      "maskLeftA": "32.89%",
+      "maskLeftB": "47.77%",
+      "maskTop": "22.56%",
+      "maskW": "7.6%",
+      "maskH": "8.6%",
+      "lidLeftA": "32.43%",
+      "lidLeftB": "47.32%",
+      "lidTop": "22.16%",
+      "lidWidth": "8.51%",
+      "lidHeight": "9.4%",
+      "glintLeftA": "40.92%",
+      "glintLeftB": "20.78%",
+      "glintTopA": "16.38%",
+      "glintTopB": "16.31%",
+      "glintW": "26%"
+    },
+    "eyeReason": "ok(2c span22)"
+  },
+  {
     "id": "rainbow",
     "name": "Rainbow Eren",
     "rarity": "epic",

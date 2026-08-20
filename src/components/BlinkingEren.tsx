@@ -9,6 +9,7 @@
 import React, { useEffect, useState } from 'react'
 import { useIsDark } from '@/hooks/useIsDark'
 import type { EyeLayout, LidTone } from '@/types'
+import JellyCoat from './JellyCoat'
 
 // Eye-overlay coordinates, all expressed as percentages of the sprite
 // container. Default values are tuned to erenGood.png. Other sprites (the
@@ -89,6 +90,9 @@ interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   // Palette for the everyday blink lid. Omit for Eren's own fur tones; a skin
   // that recolours his whole face passes its own (LID_TONES in lib/skins.ts).
   lidTone?: Partial<LidTone>
+  // Surface treatment painted OVER the sprite. Only Eren Jelly has one; the
+  // flag rides on the SkinDef so every render site gets it for free.
+  coat?: 'jelly'
   // Full CSS background for the eye glint. Defaults to a white catchlight; the
   // chemistry sprite passes a cool blue-white so the shine looks like a
   // reflection on the blue goggle glass.
@@ -156,6 +160,7 @@ export default function BlinkingEren({
   eyes: eyesOverride,
   lidColor,
   lidTone,
+  coat,
   glintBackground = DEFAULT_GLINT,
   tailSrc,
   tailOrigin = '68.6% 79.5%',
@@ -379,6 +384,8 @@ export default function BlinkingEren({
             objectFit: 'contain',
             imageRendering: 'auto',
           }} />
+
+        {coat === 'jelly' && <JellyCoat />}
 
         {headSrc ? (
           // Head wrapper — the head img AND the eye overlays live inside one

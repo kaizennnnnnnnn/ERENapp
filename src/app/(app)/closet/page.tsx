@@ -94,8 +94,13 @@ export default function ClosetPage() {
 
   function pick(card: ClosetCard) {
     if (card.locked && card.skin) {
-      // Rainbow / Golden Eren aren't for sale at any price — the kitchen is the
-      // only door. Say so instead of opening a sheet that couldn't complete.
+      // The earned looks aren't for sale at any price. Point at the door that
+      // actually opens them instead of a sheet that couldn't complete.
+      if (card.skin.unlock === 'jelly') {
+        playSound('ui_tap')
+        showToast('Win all 5 jellies in the Jelly Parlour')
+        return
+      }
       const drink = skinUnlockDrink(card.skin.id)
       if (drink) {
         playSound('ui_tap')

@@ -78,6 +78,17 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
   tt_combo_up:     { type: 'arp',   notes: [784, 1047, 1397], step: 55, noteDur: 90, shape: 'square', gain: 0.8 },
   tt_round_end:    { type: 'arp',   notes: [880, 1047, 1319, 1568, 2093], step: 80, noteDur: 150, shape: 'square', gain: 0.85 },
 
+  // ─── jelly parlour — wet, round sine blips (the two games share a voice
+  //     so the Parlour sounds like one place, unlike the arcade's per-game
+  //     palettes). Slicing is a short downward sine cut; a combo stacks a
+  //     rising arp on top of it; a bounce is a fat low pluck. ───────────────
+  jl_slice:        { type: 'sweep', freq: [1320, 620], duration: 90, shape: 'sine', gain: 0.7 },
+  jl_combo:        { type: 'arp',   notes: [880, 1175, 1568, 2093], step: 48, noteDur: 90, shape: 'sine', gain: 0.75 },
+  jl_miss:         { type: 'sweep', freq: [420, 180], duration: 220, shape: 'triangle', gain: 0.6 },
+  jl_bounce:       { type: 'sweep', freq: [300, 520], duration: 110, shape: 'sine', gain: 0.7 },
+  jl_high:         { type: 'arp',   notes: [1047, 1319, 1568], step: 60, noteDur: 120, shape: 'sine', gain: 0.7 },
+  jl_over:         { type: 'arp',   notes: [784, 659, 523, 392], step: 110, noteDur: 190, shape: 'triangle', gain: 0.8 },
+
   // ─── flappy-eren — gritty square sweeps ─────────────────────────────────
   fe_flap:         { type: 'sweep', freq: [440, 280], duration: 80, shape: 'square', gain: 0.55 },
   fe_pipe_pass:    { type: 'blip',  freq: 880, duration: 60, shape: 'square', gain: 0.7 },

@@ -38,10 +38,11 @@ begin
     return jsonb_build_object('ok', false, 'reason', 'bad_item');
   end if;
 
-  -- Drink-unlock looks are not for sale at any price. Kept as an explicit list
-  -- rather than a naming convention so adding a third one is a deliberate edit
-  -- here and in DRINK_UNLOCK_SKINS (lib/skins.ts) — the two must agree.
-  if p_item_id in ('skin_rainbow', 'skin_gold') then
+  -- Earned looks are not for sale at any price: the two drink unlocks and the
+  -- Jelly Parlour set reward. Kept as an explicit list rather than a naming
+  -- convention so adding a fourth is a deliberate edit here and in lib/skins.ts
+  -- (DRINK_UNLOCK_SKINS / JELLY_SKIN) — the two must agree.
+  if p_item_id in ('skin_rainbow', 'skin_gold', 'skin_jelly') then
     return jsonb_build_object('ok', false, 'reason', 'not_for_sale');
   end if;
 

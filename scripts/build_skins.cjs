@@ -13,7 +13,12 @@
  * shuttles base64 PNGs in and out and writes files. Also emits a contact sheet
  * (scripts/_skins_contact.html) for visual verification.
  *
- * Run:  node scripts/build_skins.cjs
+ * Run:  node scripts/build_skins.cjs           (everything)
+ *       node scripts/build_skins.cjs jelly     (one skin)
+ *
+ * The one-skin form exists because a full run rewrites all 43 PNGs, which
+ * forces a SKIN_V bump and re-verification of art that didn't change. It merges
+ * its result into the EXISTING manifest, so skinsData.ts still comes out whole.
  */
 const fs = require('fs')
 const path = require('path')
@@ -27,6 +32,10 @@ const CONTACT = path.join(__dirname, '_skins_contact.html')
 
 // id, source file, rarity, display name, and optional per-skin pipeline params.
 const SKINS = [
+  // Eren Jelly — the Jelly Parlour set reward, not a gacha drop. Lives here so
+  // it goes through the same tail/eye measurement as every other skin; it's
+  // kept out of the banners by `unlock: 'jelly'` in lib/skins.ts.
+  { id: 'jelly',   file: 'ErenJelly.png',      rarity: 'legendary', name: 'Eren Jelly', set: 'food' },
   // rainbow/shark/bat: blue fur or hood defeats auto iris detection — eye
   // centres measured by hand from the cleaned sprite (box %: lx, rx, cy).
   // Eye + catchlight overrides re-MEASURED (pixel scan, not eyeballed): the old
@@ -910,6 +919,16 @@ function processInBrowser(dataUrl, opts) {
 }
 
 ;(async () => {
+  // Optional id filter. Everything else is carried over from the last run's
+  // manifest, so a targeted build can't silently drop 42 skins from the
+  // generated data file.
+  const ONLY = process.argv[2] || null
+  const prior = ONLY && fs.existsSync(MANIFEST)
+    ? JSON.parse(fs.readFileSync(MANIFEST, 'utf8'))
+    : []
+  const todo = ONLY ? SKINS.filter(s => s.id === ONLY) : SKINS
+  if (ONLY && todo.length === 0) { console.log(`no skin with id "${ONLY}"`); return }
+
   fs.mkdirSync(OUT_DIR, { recursive: true })
   const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new', args: ['--no-sandbox'] })
   const page = await browser.newPage()
@@ -917,7 +936,7 @@ function processInBrowser(dataUrl, opts) {
 
   const manifest = []
   const sheet = []
-  for (const s of SKINS) {
+  for (const s of todo) {
     const srcPath = path.join(SRC_DIR, s.file)
     if (!fs.existsSync(srcPath)) { console.log(`MISSING ${s.file}`); continue }
     const b64 = fs.readFileSync(srcPath).toString('base64')
@@ -940,10 +959,17 @@ function processInBrowser(dataUrl, opts) {
     console.log(`${s.id.padEnd(9)} ${r.width}x${r.height} aspect=${r.aspect} tail=${r.tail ? 'Y@' + r.tailOrigin : 'n'} eyes=${r.eyeReason}`)
   }
 
-  fs.writeFileSync(MANIFEST, JSON.stringify(manifest, null, 2))
+  // Merge: a freshly-built entry wins, anything untouched keeps its old row,
+  // and SKINS order stays the source of truth for the file's order.
+  const built = new Map(manifest.map(m => [m.id, m]))
+  const kept = new Map(prior.map(m => [m.id, m]))
+  const merged = SKINS
+    .map(s => built.get(s.id) || kept.get(s.id))
+    .filter(Boolean)
+  fs.writeFileSync(MANIFEST, JSON.stringify(merged, null, 2))
 
   // Emit a typed data file consumed by lib/skins.ts (regenerated on art change).
-  const tsRows = manifest.map(m => {
+  const tsRows = merged.map(m => {
     const eyes = m.eyes ? JSON.stringify(m.eyes) : 'undefined'
     const tail = m.hasTail ? `'/skins/${m.id}_tail.png'` : 'undefined'
     const to = m.hasTail && m.tailOrigin ? `'${m.tailOrigin}'` : 'undefined'
