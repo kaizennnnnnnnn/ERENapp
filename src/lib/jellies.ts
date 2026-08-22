@@ -1,15 +1,21 @@
 import type { MonstaBuff } from './monstaBuffs'
 
-// ═══════════════════════════════════════════════════════════════════════════
-// JELLIES — the Jelly Parlour's five collectibles.
+// ════════════════════════════════════════════════════════════════════════════
+// JELLIES — the Jelly Parlour's five flavours, and the tray they fill.
 //
-// You don't buy these. They're the prize for a round in the Parlour, and a
-// round pays out ONE jelly picked at random — then that jelly rolls one of its
-// OWN three effects, so the same flavour isn't the same gift twice. Five
-// flavours × three outcomes is fifteen ways a round can end, which is what
-// keeps "win a jelly" interesting on the fortieth run.
+// You don't buy these and you don't keep them. Every DAY the tray of five
+// empties; a won round fills one slot and that flavour immediately does one of
+// its OWN three things, so five flavours × three outcomes is fifteen ways a
+// round can end. Fill all five slots in a day and the tray mints ONE Super
+// Jelly (see SUPER_JELLY) — feed him five of those and Eren Jelly is yours.
 //
-// Own all five and Eren Jelly unlocks (see useJellies).
+// The daily reset is the whole design. Under the old rule the set was a
+// one-off checklist that the skin fell out of on day one; now finishing the
+// tray is something you can do again tomorrow, and the skin is five of those
+// days. Nothing about a flavour is "owned" any more, which is why there are no
+// inventory ids here — the tray lives in the jelly_progress row (see
+// supabase/migration_jelly_progress.sql) and the server decides every
+// transition.
 //
 // Effects reuse MonstaBuff rather than inventing a second stat-delta shape:
 // useErenStats.feedWithFood already applies exactly these fields, and calling
@@ -19,7 +25,8 @@ import type { MonstaBuff } from './monstaBuffs'
 //
 // Effect budget: nothing here is bigger than a can's perk (~35 of a stat, 60
 // coins). A jelly is a treat for playing, not a way to skip caring for him.
-// ═══════════════════════════════════════════════════════════════════════════
+// The Super Jelly is the one exception, and it has earned it.
+// ════════════════════════════════════════════════════════════════════════════
 
 export type JellyId = 'red' | 'green' | 'purple' | 'yellow' | 'orange'
 
@@ -91,38 +98,57 @@ export const JELLY_COUNT = JELLIES.length
 const BY_ID: Record<string, JellyDef> = Object.fromEntries(JELLIES.map(j => [j.id, j]))
 export const getJelly = (id: string): JellyDef | undefined => BY_ID[id]
 
-// ─── Inventory ids ───────────────────────────────────────────────────────────
-// Jellies live in user_inventory alongside skins and gacha items — same table,
-// same unique(user_id, item_id), so ownership and the "first one" check come
-// free with no migration. They are deliberately NOT in GACHA_ITEMS, so they
-// never appear in the gacha collection or count toward its completion.
-export const JELLY_ITEM_PREFIX = 'jelly_'
-export const jellyItemId = (id: JellyId) => `${JELLY_ITEM_PREFIX}${id}`
-export const itemIdToJellyId = (itemId: string): JellyId | null => {
-  if (!itemId.startsWith(JELLY_ITEM_PREFIX)) return null
-  const id = itemId.slice(JELLY_ITEM_PREFIX.length)
-  return (BY_ID[id] ? (id as JellyId) : null)
-}
+// ─── The Super Jelly ────────────────────────────────────────────────────
+// What a full tray becomes. It isn't a sixth flavour — it's all five at once,
+// which is why the art is the five real jellies banded together rather than a
+// new drawing (see components/jelly/SuperJelly).
 
-/** The reward for owning the full set. Granted by useJellies, worn from the Closet. */
-export const JELLY_SKIN_ID = 'jelly'
+/** Flavours needed in one day to mint a Super Jelly. */
+export const TRAY_SIZE = JELLY_COUNT
 
-// ─── Rolling ─────────────────────────────────────────────────────────────────
+/** Super Jellies Eren has to eat before the skin is earned. */
+export const SUPER_FEEDS_FOR_SKIN = 5
 
 /**
- * Pick the jelly a finished round pays out.
+ * What one Super Jelly does when fed.
  *
- * Weighted toward flavours you're missing, because a pure uniform roll turns
- * the last jelly of five into a long grind (coupon-collector: the fifth one
- * takes five times as many wins as the first). `NEW_BIAS` is the chance of
- * drawing from the missing pile when one exists — high enough that the set
- * finishes, low enough that a duplicate still happens and still pays out.
+ * Deliberately bigger than any single flavour and deliberately FIXED: this is
+ * a whole day's tray in one spoonful, and a player who spent a day earning it
+ * should know exactly what they're about to get. Randomising it here would
+ * turn a milestone into another slot pull.
+ */
+export const SUPER_JELLY_BUFF: MonstaBuff = {
+  label: 'A WHOLE DAY OF JELLY',
+  happiness: 45,
+  hunger: 35,
+  sleep_quality: 25,
+  cleanliness: 20,
+  energy: 100,
+  cure: true,
+  coins: 120,
+}
+
+/** The reward for feeding him {SUPER_FEEDS_FOR_SKIN} Super Jellies. */
+export const JELLY_SKIN_ID = 'jelly'
+
+// ─── Rolling ──────────────────────────────────────────────────────────────
+
+/**
+ * Pick the flavour a finished round pays out.
+ *
+ * Weighted toward the slots still empty on TODAY's tray, because a pure
+ * uniform roll turns the fifth slot into a long grind (coupon-collector: the
+ * last one takes five times as many wins as the first) — and a tray that
+ * usually can't be finished in a day makes the whole daily loop pointless.
+ * `NEW_BIAS` is the chance of drawing from the empty slots when any remain:
+ * high enough that a good session finishes the tray, low enough that a repeat
+ * still happens and still pays its effect.
  */
 const NEW_BIAS = 0.7
 
-export function rollJelly(owned: ReadonlySet<string>, rnd: () => number = Math.random): JellyDef {
-  const missing = JELLIES.filter(j => !owned.has(j.id))
-  const pool = missing.length > 0 && rnd() < NEW_BIAS ? missing : JELLIES
+export function rollJelly(filledToday: ReadonlySet<string>, rnd: () => number = Math.random): JellyDef {
+  const empty = JELLIES.filter(j => !filledToday.has(j.id))
+  const pool = empty.length > 0 && rnd() < NEW_BIAS ? empty : JELLIES
   return pool[Math.floor(rnd() * pool.length)]
 }
 

@@ -51,7 +51,7 @@ const SKIN_SECTIONS = [
 function sourceHint(item: GachaItemDef): string {
   if (item.category === 'consumable') return 'Pull it from the SNACKS & DRINKS machine.'
   if (item.unlock === 'jelly') {
-    return 'Win all five jellies in the Jelly Parlour. Complete the shelf and Eren keeps one of his own.'
+    return 'Fill the Parlour tray of five in a day for a Super Jelly. Feed him five of those and the coat is his.'
   }
   const drink = item.skinId ? skinUnlockDrink(item.skinId) : undefined
   if (drink) return `Feed Eren a ${FOOD_META[drink as FoodKey].name}. The first can he finishes leaves its colours on him for good.`

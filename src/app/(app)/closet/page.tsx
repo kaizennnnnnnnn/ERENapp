@@ -98,7 +98,7 @@ export default function ClosetPage() {
       // actually opens them instead of a sheet that couldn't complete.
       if (card.skin.unlock === 'jelly') {
         playSound('ui_tap')
-        showToast('Win all 5 jellies in the Jelly Parlour')
+        showToast('Feed Eren 5 Super Jellies')
         return
       }
       const drink = skinUnlockDrink(card.skin.id)

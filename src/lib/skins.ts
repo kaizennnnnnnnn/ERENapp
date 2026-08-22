@@ -93,7 +93,7 @@ const SKIN_UNLOCK_DRINK: Record<string, string> = Object.fromEntries(
 
 // ─── Jelly unlock ────────────────────────────────────────────────────────────
 // The third non-gacha look, and the only one that isn't earned in the kitchen:
-// win all five jellies in the Parlour (lib/jellies.ts) and Eren keeps one of his
+// feed him five Super Jellies from the Parlour (lib/jellies.ts) and he keeps one of his
 // own. It also carries `coat: 'jelly'` — the gloss that makes him read as set
 // gelatin wherever he's rendered.
 export const JELLY_SKIN = 'jelly'
@@ -193,7 +193,7 @@ export const SKIN_GACHA_ITEMS: GachaItemDef[] = GACHA_SKINS.map(s => ({
   // banner pool — see bannerFilter in lib/gacha.ts.
   unlock: s.unlock,
   description: s.unlock === 'jelly'
-    ? 'Win all five jellies in the Jelly Parlour and Eren keeps one of his own.'
+    ? 'Fill the Parlour tray of five in a day for a Super Jelly. Feed him five of those and the coat is his.'
     : s.unlock === 'drink'
       ? `Feed Eren a ${FOOD_META[skinUnlockDrink(s.id) as FoodKey].name} to keep this look.`
       : RARITY_BLURB[s.rarity],

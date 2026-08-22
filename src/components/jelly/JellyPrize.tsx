@@ -11,9 +11,14 @@
 //
 // A round can pay out two jellies — the round prize and the duel bonus for
 // taking today's lead — so `wins` is a list and the card stacks them.
+//
+// The meter under the prize is TODAY'S TRAY, not a permanent collection. It
+// resets every night, and filling it is what mints a Super Jelly — so when a
+// win completes it, that is the headline of the card, above the score.
 
 import { useEffect, useState } from 'react'
-import { IconSparkles, IconCrown, IconJelly } from '@/components/PixelIcons'
+import { IconSparkles, IconJelly } from '@/components/PixelIcons'
+import SuperJelly from './SuperJelly'
 import type { JellyWin } from '@/hooks/useJellies'
 import { playSound } from '@/lib/sounds'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
@@ -37,17 +42,18 @@ interface Props {
   threshold: number
   duel: DuelLine | null
   wins: JellyWin[]
-  ownedCount: number
-  total: number
+  /** Slots filled on today's tray, after this round. */
+  trayCount: number
+  traySize: number
   onPlayAgain: () => void
   onExit: () => void
 }
 
 export default function JellyPrize({
-  score, best, isBest, unit, threshold, duel, wins, ownedCount, total, onPlayAgain, onExit,
+  score, best, isBest, unit, threshold, duel, wins, trayCount, traySize, onPlayAgain, onExit,
 }: Props) {
   const reduced = useReducedMotion()
-  const completedSet = wins.some(w => w.completedSet)
+  const mintedSuper = wins.some(w => w.mintedSuper)
   // Reveal the jellies one at a time so a double payout reads as two events.
   const [shown, setShown] = useState(reduced ? wins.length : 0)
 
@@ -110,29 +116,31 @@ export default function JellyPrize({
           </div>
         )}
 
-        {/* ── Set progress ── */}
+        {/* ── Today's tray ── */}
         <div className="w-full flex items-center gap-1.5 mb-3">
-          <span className="font-pixel" style={{ fontSize: 5.5, color: '#6E9781' }}>SHELF</span>
-          <div className="flex-1 h-2.5 overflow-hidden" style={{
-            borderRadius: 999, background: 'rgba(44,74,56,0.12)',
-          }}>
-            <div style={{
-              width: `${(ownedCount / total) * 100}%`, height: '100%', borderRadius: 999,
-              background: 'linear-gradient(90deg, #4FD68A, #FF7FA6)',
-              transition: 'width 600ms cubic-bezier(0.16, 1, 0.3, 1)',
-            }} />
+          <span className="font-pixel" style={{ fontSize: 5.5, color: '#6E9781' }}>TRAY</span>
+          <div className="flex-1 flex gap-1">
+            {Array.from({ length: traySize }).map((_, i) => (
+              <span key={i} style={{
+                flex: 1, height: 9, borderRadius: 3,
+                background: i < trayCount ? 'linear-gradient(180deg, #6FE0A0, #2FA765)' : 'rgba(44,74,56,0.12)',
+                border: `2px solid ${i < trayCount ? INK : 'transparent'}`,
+                transition: 'background 300ms ease-out',
+              }} />
+            ))}
           </div>
-          <span className="font-pixel" style={{ fontSize: 6, color: INK }}>{ownedCount}/{total}</span>
+          <span className="font-pixel" style={{ fontSize: 6, color: INK }}>{trayCount}/{traySize}</span>
         </div>
 
-        {completedSet && (
-          <div className="w-full flex items-center gap-2 mb-3 px-3 py-2.5" style={{
+        {mintedSuper && (
+          <div className="w-full flex items-center gap-2.5 mb-3 px-3 py-2.5" style={{
             borderRadius: 12, background: 'linear-gradient(180deg, #FFE9A8, #F5C842)',
             border: `2.5px solid ${INK}`,
+            animation: reduced ? undefined : 'jellyPrizeIn 460ms cubic-bezier(0.16, 1, 0.3, 1) both',
           }}>
-            <IconCrown size={18} />
+            <SuperJelly size={38} />
             <p style={{ fontSize: 10, lineHeight: 1.4, color: '#5A3208' }}>
-              <strong>Full shelf!</strong> Eren Jelly is in your closet.
+              <strong>Tray complete!</strong> A Super Jelly is waiting on the stand — feed it to him.
             </p>
           </div>
         )}

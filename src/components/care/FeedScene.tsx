@@ -1310,7 +1310,7 @@ export default function FeedScene({ onClose }: Props) {
         <SkinUnlockCinematic
           skin={unlock.skin}
           variant={unlock.variant}
-          drinkName={unlock.drinkName}
+          earnedLine={`He finished the ${unlock.drinkName} and kept the colours.`}
           onWear={() => {
             if (profile?.household_id) void wearSkinEverywhere(profile.household_id, unlock.skin.id)
             setUnlock(null)

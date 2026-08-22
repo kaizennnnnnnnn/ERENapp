@@ -1,260 +1,249 @@
 'use client'
 
 // ─── ParlourView ────────────────────────────────────────────────────────────
-// The Jelly Parlour hub: the shelf of five, and the two ways to win one.
+// The Jelly Parlour hub, as a ROOM rather than a screen.
 //
-// Deliberately the LIGHT room. The closet and the collection are the dark
-// game-panel screens; a sweet shop that opened into the same purple would read
-// as one more vault. Mint and cream, with the jelly art doing the colour work.
+// The first build was mint gradient + white rounded cards + a padlock row, and
+// it read exactly like the template it was: uniform radius, flat fills, nothing
+// behind anything else. This version is furniture. A striped wall with a
+// picture rail and wainscot, a stained display case with today's tray behind
+// glass, a cloche on a pedestal, a chalkboard menu, and Eren actually BEHIND a
+// counter — so depth comes from things overlapping in a place, not from a
+// drop-shadow on a div.
 //
-// Presentational only — the container (jelly/page.tsx) owns ownership, duel
-// standings and navigation, so this renders with mock data at mobile widths.
+// Presentational only — the container (jelly/page.tsx) owns the tray, the duel
+// standings, feeding and navigation, so this renders with mock data at mobile
+// widths.
 
 import { ChevronLeft } from 'lucide-react'
 import BlinkingEren from '@/components/BlinkingEren'
-import { IconJelly, IconSparkles, IconLock, IconCrown, IconDress } from '@/components/PixelIcons'
+import { IconJelly } from '@/components/PixelIcons'
+import ParlourCase from './ParlourCase'
+import ParlourMenu, { type ParlourGame } from './ParlourMenu'
+import SuperJellyStand from './SuperJellyStand'
 import type { JellyDef } from '@/lib/jellies'
 import { playSound } from '@/lib/sounds'
+import {
+  INK, CREAM, WALL, WALL_STRIPE, WALL_DEEP, WOOD, WOOD_DK, WOOD_LT,
+  BRASS, BRASS_LT, BRASS_DK, dropShadow,
+} from './parlourTheme'
 
-export interface ParlourGame {
-  id: 'slice' | 'jump'
-  title: string
-  blurb: string
-  best: number
-  mineToday: number
-  theirsToday: number
-  theirName: string | null
-}
+export type { ParlourGame }
 
 interface Props {
-  shelf: { jelly: JellyDef; owned: boolean }[]
-  ownedCount: number
-  total: number
-  complete: boolean
+  tray: { jelly: JellyDef; filled: boolean }[]
+  trayCount: number
+  traySize: number
+  supers: number
+  fed: number
+  feedGoal: number
   ownsSkin: boolean
+  feeding: boolean
   loaded: boolean
   games: ParlourGame[]
   onPlay: (id: 'slice' | 'jump') => void
+  onFeed: () => void
   onOpenCloset: () => void
   onBack: () => void
 }
 
-const INK = '#2C4A38'
-const CREAM = '#FFFDF6'
-
 export default function ParlourView({
-  shelf, ownedCount, total, complete, ownsSkin, loaded, games, onPlay, onOpenCloset, onBack,
+  tray, trayCount, traySize, supers, fed, feedGoal, ownsSkin, feeding, loaded,
+  games, onPlay, onFeed, onOpenCloset, onBack,
 }: Props) {
   return (
-    <div className="fixed inset-0 overflow-y-auto" style={{
-      background: 'radial-gradient(120% 70% at 50% 0%, #F4FFF8 0%, #DDF7E7 46%, #B9E9CF 100%)',
-    }}>
-      {/* Sugar dust — the parlour's ambience, four elements rather than forty. */}
-      <div aria-hidden className="fixed inset-0 pointer-events-none" style={{ zIndex: 1 }}>
-        {[{ l: '12%', t: '18%', d: '0s' }, { l: '82%', t: '26%', d: '1.1s' },
-          { l: '26%', t: '68%', d: '0.6s' }, { l: '71%', t: '78%', d: '1.7s' }].map((m, i) => (
+    <div className="fixed inset-0 overflow-y-auto" style={{ background: WALL }}>
+      {/* ── The room ── fixed behind the scroll, so the wall doesn't slide. */}
+      <div aria-hidden className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }}>
+        {/* Wallpaper: wide soft stripes. */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: `repeating-linear-gradient(90deg, ${WALL} 0 18px, ${WALL_STRIPE} 18px 36px)`,
+        }} />
+        {/* Picture rail. */}
+        <div style={{
+          position: 'absolute', left: 0, right: 0, top: 'calc(var(--safe-top) + 62px)', height: 6,
+          background: `linear-gradient(180deg, ${WOOD_LT}, ${WOOD_DK})`,
+          borderTop: `2px solid ${INK}`, borderBottom: `2px solid ${INK}`, opacity: 0.9,
+        }} />
+        {/* Corner shade so the room has a light source instead of flat fill. */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: `radial-gradient(94% 58% at 50% 8%, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 52%), radial-gradient(120% 80% at 50% 110%, ${WALL_DEEP}88 0%, rgba(0,0,0,0) 62%)`,
+        }} />
+        {/* Sugar dust — four motes, not forty. */}
+        {[{ l: '11%', t: '30%', d: '0s' }, { l: '84%', t: '24%', d: '1.1s' },
+          { l: '24%', t: '72%', d: '0.6s' }, { l: '73%', t: '80%', d: '1.7s' }].map((m, i) => (
           <span key={i} style={{
-            position: 'absolute', left: m.l, top: m.t, width: 6, height: 6, borderRadius: '50%',
-            background: 'rgba(255,255,255,0.9)', boxShadow: '0 0 6px rgba(255,255,255,0.8)',
+            position: 'absolute', left: m.l, top: m.t, width: 5, height: 5, borderRadius: '50%',
+            background: 'rgba(255,255,255,0.95)', boxShadow: '0 0 6px rgba(255,255,255,0.85)',
             animation: `parlourDust 4.2s ease-in-out ${m.d} infinite`,
           }} />
         ))}
       </div>
 
-      <div className="relative px-3 mx-auto" style={{
-        zIndex: 2, maxWidth: 440,
-        paddingTop: 'calc(var(--safe-top) + 10px)', paddingBottom: 'calc(var(--safe-bottom) + 24px)',
+      {/* One column at least as tall as the viewport, so the counter is the
+          FLOOR of the room rather than a strip that stops mid-wall when the
+          page is short. */}
+      <div className="relative flex flex-col mx-auto" style={{ zIndex: 2, minHeight: '100%', maxWidth: 440 }}>
+      <div className="px-3" style={{
+        paddingTop: 'calc(var(--safe-top) + 10px)', paddingBottom: 14,
       }}>
-        {/* ── Header ── */}
-        <div className="flex items-center gap-2 mb-3">
+        {/* ── Header ── the sign hangs from the rail and swings a little. */}
+        <div className="flex items-start gap-2" style={{ marginBottom: 26 }}>
           <button onClick={() => { playSound('ui_back'); onBack() }} aria-label="Back"
-            className="flex items-center justify-center active:translate-y-[1px] transition-transform"
-            style={{ width: 40, height: 40, background: CREAM, borderRadius: 9, border: `3px solid ${INK}`, boxShadow: `0 3px 0 ${INK}` }}>
+            className="flex items-center justify-center active:translate-y-[1px] transition-transform flex-shrink-0"
+            style={{
+              width: 38, height: 38, background: CREAM, borderRadius: 8,
+              border: `3px solid ${INK}`, boxShadow: dropShadow(3),
+            }}>
             <ChevronLeft size={17} style={{ color: INK }} />
           </button>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5" style={{
-            background: 'linear-gradient(180deg, #4FD68A, #2FA765)', borderRadius: 9,
-            border: `3px solid ${INK}`, boxShadow: `0 3px 0 ${INK}`,
-          }}>
-            <span style={{ animation: 'dockJellyWobble 1.9s ease-in-out infinite', display: 'inline-flex' }}>
-              <IconJelly size={14} />
-            </span>
-            <span className="font-pixel" style={{ fontSize: 8, color: CREAM, letterSpacing: 0.5 }}>JELLY PARLOUR</span>
-          </span>
-          <div className="flex-1" />
-          <div className="flex items-center gap-1 px-2.5 py-1.5" aria-label={`${ownedCount} of ${total} jellies`} style={{
-            background: CREAM, borderRadius: 9, border: `3px solid ${INK}`, boxShadow: `0 3px 0 ${INK}`,
-          }}>
-            <span className="font-pixel" style={{ fontSize: 9, color: INK }}>{ownedCount}</span>
-            <span className="font-pixel" style={{ fontSize: 7, color: '#7FA890' }}>/{total}</span>
-          </div>
-        </div>
 
-        {/* ── The shelf ── */}
-        <SectionLabel>THE JELLY SHELF</SectionLabel>
-        <div className="relative mb-4 px-2 pt-3 pb-2" style={{
-          background: CREAM, borderRadius: 14, border: `3px solid ${INK}`, boxShadow: `0 4px 0 ${INK}`,
-        }}>
-          <div className="flex justify-between gap-1">
-            {shelf.map(({ jelly, owned }) => (
-              <div key={jelly.id} className="flex-1 flex flex-col items-center gap-1" style={{ minWidth: 0 }}>
-                <div className="relative flex items-end justify-center" style={{
-                  width: '100%', aspectRatio: '1', borderRadius: 10,
-                  background: owned
-                    ? `radial-gradient(60% 55% at 50% 62%, ${jelly.colour}33, rgba(255,255,255,0) 72%)`
-                    : 'rgba(44,74,56,0.06)',
-                }}>
-                  {owned ? (
-                    <img src={jelly.art} alt="" draggable={false} style={{
-                      width: '90%', height: '90%', objectFit: 'contain', imageRendering: 'auto',
-                      animation: 'parlourJiggle 2.6s ease-in-out infinite',
-                    }} />
-                  ) : (
-                    <span className="absolute inset-0 flex items-center justify-center" aria-hidden>
-                      <IconLock size={16} />
-                    </span>
-                  )}
-                </div>
-                <span className="font-pixel text-center leading-tight" style={{
-                  fontSize: 5, color: owned ? INK : '#A8C0B2', minHeight: 12,
-                }}>{owned ? jelly.name.split(' ')[0].toUpperCase() : '???'}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Set reward ── */}
-        {complete && ownsSkin ? (
-          <button onClick={() => { playSound('ui_select'); onOpenCloset() }}
-            className="w-full flex items-center justify-center gap-2 py-3 mb-4 active:translate-y-[1px] transition-transform"
-            style={{
-              borderRadius: 12, background: 'linear-gradient(180deg, #FF7FA6, #E14C7C)',
-              border: `3px solid ${INK}`, boxShadow: `0 4px 0 ${INK}`,
+          <div className="flex-1 flex justify-center" style={{ minWidth: 0 }}>
+            <div className="relative" style={{
+              transformOrigin: 'top center',
+              animation: 'parlourSignSway 5.4s ease-in-out infinite',
             }}>
-            <IconDress size={14} />
-            <span className="font-pixel" style={{ fontSize: 8, color: CREAM, letterSpacing: 0.5 }}>WEAR EREN JELLY</span>
-          </button>
-        ) : (
-          <div className="flex items-center gap-2 mb-4 px-3 py-2.5" style={{
-            background: 'rgba(255,255,255,0.7)', borderRadius: 12, border: '2px dashed rgba(44,74,56,0.3)',
-          }}>
-            <IconCrown size={16} />
-            <p style={{ fontSize: 10, lineHeight: 1.5, color: '#4A6B58' }}>
-              Collect all {total} and Eren keeps a jelly of his own —
-              <strong style={{ color: INK }}> {total - ownedCount} to go</strong>.
-            </p>
+              {/* Two little chains up to the rail. */}
+              {[-26, 26].map(x => (
+                <span key={x} aria-hidden style={{
+                  position: 'absolute', left: `calc(50% + ${x}px)`, top: -14, width: 2, height: 16,
+                  background: BRASS_DK,
+                }} />
+              ))}
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5" style={{
+                background: `linear-gradient(180deg, ${WOOD_LT} 0%, ${WOOD} 100%)`,
+                borderRadius: 7, border: `3px solid ${INK}`, boxShadow: dropShadow(3),
+              }}>
+                <span style={{ animation: 'dockJellyWobble 1.9s ease-in-out infinite', display: 'inline-flex' }}>
+                  <IconJelly size={13} />
+                </span>
+                <span className="font-pixel" style={{
+                  fontSize: 8, color: BRASS_LT, letterSpacing: 0.8, textShadow: `1px 1px 0 ${INK}`,
+                }}>JELLY PARLOUR</span>
+              </span>
+            </div>
           </div>
-        )}
 
-        {/* ── The two games ── */}
-        <SectionLabel>PICK A GAME</SectionLabel>
-        {!loaded ? (
-          <p className="text-center font-pixel py-8" style={{ fontSize: 8, color: '#6E9781' }}>LOADING…</p>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {games.map(g => <GameCard key={g.id} game={g} onPlay={() => onPlay(g.id)} />)}
+          <div className="flex items-center gap-0.5 px-2 py-1.5 flex-shrink-0"
+            aria-label={`${trayCount} of ${traySize} on today's tray`}
+            style={{ background: CREAM, borderRadius: 8, border: `3px solid ${INK}`, boxShadow: dropShadow(3) }}>
+            <span className="font-pixel" style={{ fontSize: 9, color: INK }}>{trayCount}</span>
+            <span className="font-pixel" style={{ fontSize: 7, color: '#B39684' }}>/{traySize}</span>
           </div>
-        )}
+        </div>
 
-        {/* ── The counter ── Eren minds the shop. Decorative: he's the reason
-            the room is warm, and he fills the tail of a short page so it ends
-            on something alive rather than on empty mint. */}
-        <div className="relative mt-6 flex items-end justify-center" aria-hidden style={{ height: 150 }}>
-          <span style={{
-            position: 'absolute', bottom: 26, width: 128, height: 14, borderRadius: '50%',
-            background: 'radial-gradient(50% 50% at 50% 50%, rgba(44,74,56,0.28), rgba(44,74,56,0))',
-          }} />
-          <div style={{ marginBottom: 12 }}>
-            <BlinkingEren size={150} src="/erenGood_notail.png" tailSrc="/erenGood_tail.png" />
-          </div>
-          {/* A jelly set out on the counter beside him, still wobbling. */}
-          {shelf[0] && (
-            <img src={shelf[0].jelly.art} alt="" draggable={false} style={{
-              position: 'absolute', right: '18%', bottom: 24, width: 44, height: 44,
-              objectFit: 'contain', imageRendering: 'auto',
-              animation: 'parlourJiggle 2.9s ease-in-out 0.4s infinite',
+        {/* ── The case ── */}
+        <ParlourCase tray={tray} count={trayCount} size={traySize} loading={!loaded} />
+        <p className="text-center" style={{ fontSize: 8.5, color: '#9A7484', margin: '7px 0 14px' }}>
+          The tray empties every night. Win a round to fill a slot.
+        </p>
+
+        {/* ── The stand ── */}
+        <div style={{ marginBottom: 14 }}>
+          <SuperJellyStand
+            supers={supers} fed={fed} goal={feedGoal} ownsSkin={ownsSkin}
+            busy={feeding} onFeed={onFeed} onOpenCloset={onOpenCloset} />
+        </div>
+
+        {/* ── The menu ── */}
+        <ParlourMenu games={games} loaded={loaded} onPlay={onPlay} />
+      </div>
+
+      {/* ── The counter ── Eren minds the shop. He is drawn BEHIND the counter
+          top, which is the one real overlap in the layout and the reason the
+          page ends in a place instead of on empty wall. `flex-1` on the spacer
+          above pins it to the floor of the room at any content height. */}
+      <div className="flex-1" />
+      <div className="relative" aria-hidden style={{ zIndex: 1 }}>
+        <div className="relative flex items-end justify-center" style={{ height: 168 }}>
+          {/* Back-bar shelf. Eren stands in FRONT of it, which is the second
+              real overlap in the room and what turns the empty wall above the
+              counter into depth. */}
+          <div style={{ position: 'absolute', left: '9%', right: '9%', top: 6 }}>
+            <div className="flex items-end justify-around">
+              {tray.slice(1, 4).map(({ jelly }, i) => (
+                <span key={jelly.id} style={{
+                  position: 'relative', display: 'block', width: 32, height: 34 + (i % 2) * 6,
+                  borderRadius: '5px 5px 8px 8px',
+                  background: 'linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.26) 100%)',
+                  border: `2.5px solid ${INK}`, overflow: 'hidden',
+                }}>
+                  <img src={jelly.art} alt="" draggable={false} style={{
+                    position: 'absolute', left: 2, bottom: 1, width: 24, height: 24,
+                    objectFit: 'contain', imageRendering: 'auto',
+                  }} />
+                  <span style={{
+                    position: 'absolute', left: 3, top: 3, width: 5, height: 12,
+                    borderRadius: '50%', background: 'rgba(255,255,255,0.78)',
+                  }} />
+                </span>
+              ))}
+            </div>
+            <div style={{
+              height: 8, borderRadius: 2,
+              background: `linear-gradient(180deg, ${WOOD_LT}, ${WOOD_DK})`,
+              border: `2.5px solid ${INK}`,
             }} />
+          </div>
+
+          {/* Pulled down so the counter top crosses his chest. */}
+          <div style={{ marginBottom: -44, position: 'relative' }}>
+            <BlinkingEren size={176} src="/erenGood_notail.png" tailSrc="/erenGood_tail.png" />
+          </div>
+
+          {/* A jar of the day's jellies, standing on the counter beside him. */}
+          {tray[0] && (
+            <div style={{ position: 'absolute', right: 34, bottom: 3, zIndex: 1 }}>
+              <span style={{
+                position: 'relative', display: 'block', width: 44, height: 52,
+                borderRadius: '8px 8px 12px 12px',
+                background: 'linear-gradient(180deg, rgba(255,255,255,0.66) 0%, rgba(255,255,255,0.3) 100%)',
+                border: `3px solid ${INK}`, overflow: 'hidden',
+              }}>
+                {tray.slice(0, 3).map(({ jelly }, i) => (
+                  <img key={jelly.id} src={jelly.art} alt="" draggable={false} style={{
+                    position: 'absolute', left: i % 2 ? 2 : 10, bottom: 1 + i * 14,
+                    width: 26, height: 26, objectFit: 'contain', imageRendering: 'auto',
+                  }} />
+                ))}
+                <span style={{
+                  position: 'absolute', left: 5, top: 4, width: 7, height: 20,
+                  borderRadius: '50%', background: 'rgba(255,255,255,0.8)',
+                }} />
+              </span>
+              <span style={{
+                display: 'block', width: 50, height: 8, marginLeft: -3, marginTop: -2,
+                borderRadius: 3, background: `linear-gradient(180deg, ${BRASS_LT}, ${BRASS})`,
+                border: `2.5px solid ${INK}`,
+              }} />
+            </div>
           )}
         </div>
+
+        {/* Counter top — the edge he stands behind. Positioned so it paints
+            OVER the sprite: without this his paws hang down the front panel. */}
+        <div style={{
+          position: 'relative', zIndex: 2,
+          height: 15,
+          background: `linear-gradient(180deg, ${WOOD_LT} 0%, ${WOOD} 100%)`,
+          borderTop: `3px solid ${INK}`, borderBottom: `3px solid ${INK}`,
+        }} />
+        {/* Panelled front, tall enough to read as furniture. */}
+        <div style={{
+          position: 'relative', zIndex: 2,
+          height: 'calc(var(--safe-bottom) + 76px)',
+          background: `linear-gradient(180deg, ${WOOD} 0%, ${WOOD_DK} 100%)`,
+        }}>
+          <div style={{
+            height: '100%', margin: '0 16px',
+            borderLeft: `3px solid rgba(0,0,0,0.16)`, borderRight: `3px solid rgba(0,0,0,0.16)`,
+            background: 'repeating-linear-gradient(90deg, transparent 0 54px, rgba(0,0,0,0.14) 54px 57px)',
+          }} />
+        </div>
       </div>
-    </div>
-  )
-}
-
-// ─── Game card ───────────────────────────────────────────────────────────────
-function GameCard({ game, onPlay }: { game: ParlourGame; onPlay: () => void }) {
-  const theme = game.id === 'slice'
-    ? { a: '#FF8FA8', b: '#E14C7C' }
-    : { a: '#7FD4F5', b: '#3F9FD1' }
-  // Who leads today. Only meaningful once she has actually played — an
-  // unplayed 0 is not a score you beat.
-  const duel = game.theirName == null || game.theirsToday === 0
-    ? null
-    : game.mineToday > game.theirsToday ? 'ahead'
-      : game.mineToday < game.theirsToday ? 'behind' : 'level'
-
-  return (
-    <button onClick={() => { playSound('ui_select'); onPlay() }}
-      className="relative w-full text-left active:translate-y-[2px] transition-transform"
-      style={{
-        borderRadius: 14, padding: 12,
-        background: `linear-gradient(180deg, ${theme.a}, ${theme.b})`,
-        border: `3px solid ${INK}`, boxShadow: `0 5px 0 ${INK}`,
-      }}>
-      <div className="flex items-center gap-2 mb-1">
-        <span style={{ animation: 'parlourJiggle 2.2s ease-in-out infinite', display: 'inline-flex' }}>
-          <IconJelly size={16} />
-        </span>
-        <span className="font-pixel" style={{ fontSize: 10, color: CREAM, letterSpacing: 0.5, textShadow: `1px 1px 0 ${INK}` }}>
-          {game.title}
-        </span>
       </div>
-      <p style={{ fontSize: 10, lineHeight: 1.45, color: 'rgba(255,255,255,0.94)', marginBottom: 8, paddingRight: 34 }}>
-        {game.blurb}
-      </p>
-
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <Chip label="BEST" value={game.best} />
-        {duel ? (
-          <Chip
-            label={`TODAY vs ${(game.theirName ?? '').slice(0, 8).toUpperCase()}`}
-            value={`${game.mineToday}-${game.theirsToday}`}
-            tone={duel === 'ahead' ? 'good' : duel === 'behind' ? 'bad' : 'even'}
-          />
-        ) : game.mineToday > 0 ? (
-          <Chip label="TODAY" value={game.mineToday} />
-        ) : null}
-      </div>
-
-      <span aria-hidden className="absolute flex items-center justify-center" style={{
-        right: 12, bottom: 12, width: 26, height: 26, borderRadius: '50%',
-        background: CREAM, border: `2.5px solid ${INK}`,
-      }}>
-        <span style={{ fontSize: 10, color: INK, lineHeight: 1, marginLeft: 2 }}>&#9654;</span>
-      </span>
-    </button>
-  )
-}
-
-function Chip({ label, value, tone = 'plain' }: {
-  label: string; value: string | number; tone?: 'plain' | 'good' | 'bad' | 'even'
-}) {
-  const bg = tone === 'good' ? '#2FA765'
-    : tone === 'bad' ? '#C4453F'
-      : tone === 'even' ? '#6E7F98' : 'rgba(0,0,0,0.28)'
-  return (
-    <span className="inline-flex items-center gap-1 px-1.5 py-1" style={{ background: bg, borderRadius: 6 }}>
-      <span className="font-pixel" style={{ fontSize: 5, color: 'rgba(255,255,255,0.75)' }}>{label}</span>
-      <span className="font-pixel" style={{ fontSize: 7, color: '#fff' }}>{value}</span>
-    </span>
-  )
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-1.5 mb-2 px-0.5">
-      <IconSparkles size={10} />
-      <span className="font-pixel" style={{ fontSize: 7, color: '#5C806C', letterSpacing: 1 }}>{children}</span>
     </div>
   )
 }

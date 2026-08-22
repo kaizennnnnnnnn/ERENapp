@@ -3,10 +3,12 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // SKIN GRANTS — earning a look outside the gacha.
 //
-// Two features hand out skins directly: pouring a SPECIAL EDITION can (Rainbow /
-// Golden Eren, see `unlock` in lib/skins.ts) and completing the jelly set (Eren
-// Jelly, see lib/jellies.ts). Both need the same two answers — did I just earn
-// this, and can I wear it everywhere — so both live here.
+// Pouring a SPECIAL EDITION can (Rainbow / Golden Eren, see `unlock` in
+// lib/skins.ts) hands out a skin directly and needs two answers — did I just
+// earn this, and can I wear it everywhere — so both live here. Eren Jelly is
+// earned too, but its grant happens SERVER-side inside feed_super_jelly()
+// because it has to be atomic with spending the fifth Super Jelly; it still
+// uses wearSkinEverywhere below once the cinematic offers it.
 //
 // "First time" needs no new column. The inventory row IS the record: the insert
 // is attempted blind, and the unique(user_id, item_id) constraint is what tells

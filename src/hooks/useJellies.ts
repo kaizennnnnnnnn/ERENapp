@@ -1,26 +1,33 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { withRetry } from '@/lib/supabaseRetry'
+import { onForeground } from '@/lib/onForeground'
 import { useAuth } from './useAuth'
 import { useInventory } from './useInventory'
 import { useErenStats } from './useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
-import { grantSkin } from '@/lib/skinGrant'
 import {
-  JELLIES, JELLY_COUNT, JELLY_SKIN_ID, itemIdToJellyId, jellyItemId,
-  rollEffect, rollJelly, type JellyDef, type JellyEffect,
+  JELLIES, JELLY_SKIN_ID, SUPER_FEEDS_FOR_SKIN, SUPER_JELLY_BUFF, TRAY_SIZE,
+  getJelly, rollEffect, rollJelly, type JellyDef, type JellyEffect, type JellyId,
 } from '@/lib/jellies'
 
 // ─── useJellies ─────────────────────────────────────────────────────────────
-// Owns the jelly collection: what you have, and what happens when a Parlour
-// round pays one out.
+// The Parlour's whole progression: today's tray, the Super Jellies it mints,
+// and how many of those Eren has eaten on the way to his own jelly coat.
 //
-// Storage is user_inventory rows (`jelly_red`, …) — see lib/jellies.ts for why
-// that needs no migration. It also means the award path is the same insert-first
-// shape as a skin grant: attempt the insert blind and let the unique constraint
-// answer "is this my first one", so two devices finishing a round at the same
-// moment can't both think they completed the set.
+// Every WRITE is an RPC (collect_jelly / feed_super_jelly). Both are
+// read-modify-write decisions — "is this the fifth flavour today?", "is this
+// the fifth feed ever?" — and both mint something. Doing that from the client
+// means two devices finishing a round together can each read four-on-the-tray
+// and each hand out a Super Jelly. The RPCs take the row FOR UPDATE, so the
+// database decides the transition and the client only reports it.
+//
+// The client still owns the two things the server has no business knowing:
+// WHICH flavour a round rolled (biased toward the empty slots, so a tray is
+// finishable in a day) and which of that flavour's three effects fires. The
+// server validates the flavour is real and does the counting.
 //
 // The effect is applied through feedWithFood with zero hunger/joy/weight, which
 // turns it into a pure buff channel — the jelly's own MonstaBuff is the only
@@ -28,98 +35,209 @@ import {
 // paid through TaskContext, and only AFTER the stat write succeeds: a failed
 // round must not mint money.
 
-const UNIQUE_VIOLATION = '23505'
+interface Progress {
+  /** Flavours already on today's tray. */
+  today: Set<JellyId>
+  /** Super Jellies held and not yet fed. */
+  supers: number
+  /** Super Jellies fed, ever. */
+  fed: number
+  /** False until a fetch has actually confirmed the row (503-safe). */
+  loaded: boolean
+}
+
+const EMPTY: Progress = { today: new Set(), supers: 0, fed: 0, loaded: false }
+
+/** Shape of the jsonb both RPCs return. Fields are optional on the error path. */
+interface RpcResult {
+  ok: boolean
+  reason?: string
+  is_new?: boolean
+  today?: string[]
+  super_awarded?: boolean
+  supers?: number
+  fed?: number
+  skin_granted?: boolean
+}
 
 export interface JellyWin {
   jelly: JellyDef
   effect: JellyEffect
-  /** First one of this flavour — the collection shelf lights it up. */
+  /** First time this flavour landed on TODAY's tray — the case lights it up. */
   isNew: boolean
-  /** This win completed all five and Eren Jelly was granted just now. */
-  completedSet: boolean
+  /** This win filled the fifth slot and minted a Super Jelly. */
+  mintedSuper: boolean
+  /** Slots filled after this win, for the tray meter on the prize card. */
+  trayCount: number
+}
+
+export interface FeedResult {
+  ok: boolean
+  /** Super Jellies still in hand. */
+  supers: number
+  /** Feeds so far, out of SUPER_FEEDS_FOR_SKIN. */
+  fed: number
+  /** This feed was the fifth and Eren Jelly was granted just now. */
+  skinGranted: boolean
 }
 
 export function useJellies() {
   const supabase = createClient()
   const { user, profile } = useAuth()
-  const { inventory, loaded, loading, refetch } = useInventory()
+  const { inventory, loaded: invLoaded, loading, refetch: refetchInventory } = useInventory()
   const { feedWithFood } = useErenStats(profile?.household_id ?? null)
   const { addCoins } = useTasks()
+  const [progress, setProgress] = useState<Progress>(EMPTY)
   const [awarding, setAwarding] = useState(false)
+  const [feeding, setFeeding] = useState(false)
+  /**
+   * Mirrors of the two values the write paths BRANCH on.
+   *
+   * A round can award twice in a row (the round prize, then the duel-lead
+   * bonus) inside one `await` chain, with no render in between — so a second
+   * call reading `progress`/`feeding` from state sees the values as they were
+   * before the first call. That made the bonus jelly roll against a stale tray
+   * (often duplicating the flavour just won) and made the in-flight guard a
+   * no-op. Refs are the only things that are actually current here.
+   */
+  const todayRef = useRef<Set<JellyId>>(new Set())
+  const busyRef = useRef(false)
 
-  const owned = useMemo(() => {
-    const s = new Set<string>()
-    for (const row of inventory) {
-      const id = itemIdToJellyId(row.item_id)
-      if (id) s.add(id)
+  // ── Read ────────────────────────────────────────────────────────────────
+  const load = useCallback(async () => {
+    if (!user?.id) return
+    const res = await withRetry(() => supabase
+      .from('jelly_progress')
+      .select('day, flavours, supers, fed')
+      .eq('user_id', user.id)
+      .maybeSingle())
+    // An outage must not read as an empty tray: that would draw every slot
+    // locked to someone who filled four this morning.
+    if (res.error) return
+
+    const row = res.data as { day: string; flavours: JellyId[]; supers: number; fed: number } | null
+    // No row yet is a real, confirmed answer — a player who has never played.
+    if (!row) {
+      todayRef.current = new Set()
+      setProgress({ ...EMPTY, today: new Set(), loaded: true })
+      return
     }
-    return s
-  }, [inventory])
+
+    // The tray belongs to a DAY. The RPC resets it lazily on the next collect,
+    // so a client that opened the app after midnight must not render
+    // yesterday's slots as filled while it waits for that write.
+    const stale = row.day !== utcDay()
+    const today = new Set<JellyId>(stale ? [] : (row.flavours ?? []).filter(f => !!getJelly(f)))
+    todayRef.current = today
+    setProgress({
+      today,
+      supers: row.supers ?? 0,
+      fed: row.fed ?? 0,
+      loaded: true,
+    })
+  }, [user?.id, supabase])
+
+  useEffect(() => { void load() }, [load])
+  // Self-heal after an outage that outlasted withRetry's backoff, and pick up
+  // the tray reset when the app is reopened the next morning.
+  useEffect(() => onForeground(() => { void load() }), [load])
 
   const ownsSkin = useMemo(
     () => inventory.some(r => r.item_id === `skin_${JELLY_SKIN_ID}`),
     [inventory],
   )
 
+  // ── Win a jelly ─────────────────────────────────────────────────────────
   /**
-   * Pay out one jelly for a finished round. Returns null only when the write
+   * Pay out one flavour for a finished round. Returns null only when the write
    * genuinely failed — the caller shows nothing rather than a fake prize.
    */
   const awardJelly = useCallback(async (): Promise<JellyWin | null> => {
-    if (!user?.id || awarding) return null
+    if (!user?.id || busyRef.current) return null
+    busyRef.current = true
     setAwarding(true)
     try {
-      const jelly = rollJelly(owned)
+      const jelly = rollJelly(todayRef.current)
       const effect = rollEffect(jelly)
-      const itemId = jellyItemId(jelly.id)
 
-      // Insert-first: the constraint, not a prior read, decides "is this new".
-      const { error } = await supabase
-        .from('user_inventory')
-        .insert({ user_id: user.id, item_id: itemId, quantity: 1, equipped: false })
-      let isNew = !error
-      if (error) {
-        if (error.code !== UNIQUE_VIOLATION) return null
-        // Duplicate — still a win, it just bumps the pile. The effect fires
-        // either way, so a repeat flavour is never a wasted round.
-        const { data: row } = await supabase
-          .from('user_inventory')
-          .select('id, quantity')
-          .eq('user_id', user.id).eq('item_id', itemId).maybeSingle()
-        if (row) await supabase.from('user_inventory').update({ quantity: row.quantity + 1 }).eq('id', row.id)
-        isNew = false
-      }
+      const { data, error } = await supabase.rpc('collect_jelly', { p_flavour: jelly.id })
+      const res = data as RpcResult | null
+      if (error || !res?.ok) return null
 
       // The jelly does its thing. Zero hunger/joy/weight → only the buff lands.
-      const result = await feedWithFood(user.id, 0, 0, 0, effect.buff)
-      if (result.success && effect.buff.coins) void addCoins(effect.buff.coins)
+      const applied = await feedWithFood(user.id, 0, 0, 0, effect.buff)
+      if (applied.success && effect.buff.coins) void addCoins(effect.buff.coins)
 
-      // Set complete? `owned` is the pre-award snapshot, so add this one first.
-      const after = new Set(owned); after.add(jelly.id)
-      let completedSet = false
-      if (after.size >= JELLY_COUNT && !ownsSkin) {
-        completedSet = (await grantSkin(user.id, JELLY_SKIN_ID)) === 'new'
+      const today = new Set<JellyId>((res.today ?? []).filter(f => !!getJelly(f)) as JellyId[])
+      todayRef.current = today
+      setProgress(p => ({ ...p, today, supers: res.supers ?? p.supers, fed: res.fed ?? p.fed, loaded: true }))
+
+      return {
+        jelly,
+        effect,
+        isNew: !!res.is_new,
+        mintedSuper: !!res.super_awarded,
+        trayCount: today.size,
       }
-
-      void refetch()
-      return { jelly, effect, isNew, completedSet }
     } finally {
+      busyRef.current = false
       setAwarding(false)
     }
-  }, [user?.id, awarding, owned, ownsSkin, supabase, feedWithFood, addCoins, refetch])
+  }, [user?.id, supabase, feedWithFood, addCoins])
+
+  // ── Feed a Super Jelly ──────────────────────────────────────────────────
+  /**
+   * Spend one Super Jelly. The RPC decrements, counts the feed, and grants the
+   * skin on the fifth — all in one transaction, so a dropped connection can't
+   * leave someone five-fed with nothing to wear.
+   */
+  const feedSuper = useCallback(async (): Promise<FeedResult> => {
+    const none: FeedResult = { ok: false, supers: progress.supers, fed: progress.fed, skinGranted: false }
+    if (!user?.id || busyRef.current || progress.supers < 1) return none
+    busyRef.current = true
+    setFeeding(true)
+    try {
+      const { data, error } = await supabase.rpc('feed_super_jelly')
+      const res = data as RpcResult | null
+      if (error || !res?.ok) return none
+
+      await feedWithFood(user.id, 0, 0, 0, SUPER_JELLY_BUFF)
+      if (SUPER_JELLY_BUFF.coins) void addCoins(SUPER_JELLY_BUFF.coins)
+
+      setProgress(p => ({ ...p, supers: res.supers ?? 0, fed: res.fed ?? 0 }))
+      if (res.skin_granted) void refetchInventory()
+
+      return { ok: true, supers: res.supers ?? 0, fed: res.fed ?? 0, skinGranted: !!res.skin_granted }
+    } finally {
+      busyRef.current = false
+      setFeeding(false)
+    }
+  }, [user?.id, progress.supers, progress.fed, supabase, feedWithFood, addCoins, refetchInventory])
 
   return {
-    /** Flavour ids the user owns. */
-    owned,
-    ownedCount: owned.size,
-    total: JELLY_COUNT,
-    complete: owned.size >= JELLY_COUNT,
+    /** Flavour ids already on today's tray. */
+    today: progress.today,
+    trayCount: progress.today.size,
+    traySize: TRAY_SIZE,
+    trayFull: progress.today.size >= TRAY_SIZE,
+    /** Catalogue in display order, each flagged with whether today's slot is filled. */
+    tray: JELLIES.map(j => ({ jelly: j, filled: progress.today.has(j.id) })),
+    supers: progress.supers,
+    fed: progress.fed,
+    feedGoal: SUPER_FEEDS_FOR_SKIN,
     ownsSkin,
-    /** Catalogue in display order, each flagged with whether it's yours. */
-    shelf: JELLIES.map(j => ({ jelly: j, owned: owned.has(j.id) })),
+    /** Both halves confirmed: the tray row AND the inventory the skin lives in. */
+    loaded: progress.loaded && invLoaded,
     loading,
-    loaded,
     awarding,
+    feeding,
     awardJelly,
+    feedSuper,
+    reload: load,
   }
+}
+
+/** UTC day string, matching the table's `day` default so both agree at midnight. */
+function utcDay(): string {
+  return new Date().toISOString().slice(0, 10)
 }

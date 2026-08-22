@@ -39,7 +39,12 @@ const BUTTONS_MS = 780
 
 // Per-variant colour language. `column` is the light that pours up in CHARGE,
 // `key` the dominant tint on the reveal furniture, `rays` the fan behind him.
-const LOOK: Record<CanVariant, { key: string; deep: string; column: string; rays: string; motes: string[] }> = {
+// The Parlour earns its skin without a can, so the variant union is wider than
+// CanVariant here. Only the two DRINK variants get CanFeedBurst below — the
+// jelly reveal has no can to burst out of.
+export type UnlockVariant = CanVariant | 'jelly'
+
+const LOOK: Record<UnlockVariant, { key: string; deep: string; column: string; rays: string; motes: string[] }> = {
   rainbow: {
     key: '#C77DFF',
     deep: '#3B0764',
@@ -54,6 +59,13 @@ const LOOK: Record<CanVariant, { key: string; deep: string; column: string; rays
     rays: 'repeating-conic-gradient(from 0deg, rgba(255,232,120,0.34) 0deg 9deg, transparent 9deg 22deg, rgba(245,200,66,0.24) 22deg 31deg, transparent 31deg 45deg)',
     motes: ['#FFF6D2', '#F5C842', '#FFE878', '#D4A818'],
   },
+  jelly: {
+    key: '#FF6E9C',
+    deep: '#4A0E28',
+    column: 'linear-gradient(0deg, rgba(215,56,50,0.85) 0%, rgba(255,120,150,0.7) 34%, rgba(148,210,25,0.4) 62%, rgba(152,94,186,0) 100%)',
+    rays: 'repeating-conic-gradient(from 0deg, rgba(255,110,156,0.30) 0deg 9deg, transparent 9deg 22deg, rgba(235,214,63,0.24) 22deg 31deg, transparent 31deg 45deg)',
+    motes: ['#D73832', '#94D219', '#985EBA', '#EBD63F', '#F86618'],
+  },
 }
 
 /** Eight motes that fall INTO him during CHARGE. x is % of width, d the beat. */
@@ -64,15 +76,15 @@ const FALLING = [
 
 interface Props {
   skin: SkinDef
-  variant: CanVariant
-  /** Name of the can that did it — printed on the "how you got this" line. */
-  drinkName: string
+  variant: UnlockVariant
+  /** The "how you got this" sentence, printed under the name plate. */
+  earnedLine: string
   /** WEAR IT — dress every room in the new look, then close. */
   onWear: () => void
   onClose: () => void
 }
 
-export default function SkinUnlockCinematic({ skin, variant, drinkName, onWear, onClose }: Props) {
+export default function SkinUnlockCinematic({ skin, variant, earnedLine, onWear, onClose }: Props) {
   const reduced = useReducedMotion()
   const look = LOOK[variant]
   const rarity = RARITY_COLORS[skin.rarity]
@@ -182,7 +194,7 @@ export default function SkinUnlockCinematic({ skin, variant, drinkName, onWear, 
             }} />
             <BlinkingEren size={200} src={skin.src} tailSrc={skin.tailSrc}
               tailOrigin={skin.tailOrigin} eyes={skin.eyes} lidTone={skin.lidTone} coat={skin.coat} />
-            {!reduced && <CanFeedBurst variant={variant} left="50%" bottom="46%" />}
+            {!reduced && variant !== 'jelly' && <CanFeedBurst variant={variant} left="50%" bottom="46%" />}
           </div>
 
           {/* Name plate */}
@@ -207,7 +219,7 @@ export default function SkinUnlockCinematic({ skin, variant, drinkName, onWear, 
               {skin.name.toUpperCase()}
             </p>
             <p className="text-center" style={{ fontSize: 10, lineHeight: 1.6, color: '#B9A6DE' }}>
-              He finished the {drinkName} and kept the colours.
+              {earnedLine}
             </p>
           </div>
 
