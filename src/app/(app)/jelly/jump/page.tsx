@@ -147,6 +147,7 @@ export default function JellyJumpPage() {
   const [pose, setPose] = useState<ErenPose>('idle')
   const [banner, setBanner] = useState<string | null>(null)
   const [wins, setWins] = useState<JellyWin[]>([])
+  const [awardFailed, setAwardFailed] = useState(false)
   const [result, setResult] = useState<{ isBest: boolean; duel: DuelLine } | null>(null)
 
   const fieldRef = useRef<HTMLDivElement | null>(null)
@@ -202,6 +203,9 @@ export default function JellyJumpPage() {
       }
     }
     setWins(won)
+    // Cleared the bar but came back empty-handed: the write failed, and the
+    // card must say that rather than quote a threshold the player already beat.
+    setAwardFailed(final >= THRESHOLD && won.length === 0)
     setResult({
       isBest: submitted.isBest,
       duel: { theirName: duel.theirName, theirsToday: duel.theirsToday, tookLead: submitted.tookLead },
@@ -459,7 +463,7 @@ export default function JellyJumpPage() {
     milestone.current = 0
     steer.current = 0
     savedRef.current = false
-    setHeight(0); setBanner(null); setWins([]); setResult(null)
+    setHeight(0); setBanner(null); setWins([]); setAwardFailed(false); setResult(null)
     phaseRef.current = 'play'
     setPhase('play')
   }, [addPlat])
@@ -590,7 +594,7 @@ export default function JellyJumpPage() {
       {phase === 'over' && result && (
         <JellyPrize
           score={height} best={Math.max(duel.best, height)} isBest={result.isBest}
-          unit="M" threshold={THRESHOLD} duel={result.duel} wins={wins}
+          unit="M" threshold={THRESHOLD} duel={result.duel} wins={wins} awardFailed={awardFailed}
           trayCount={jellies.trayCount} traySize={jellies.traySize}
           onPlayAgain={start}
           onExit={() => router.push('/jelly')}

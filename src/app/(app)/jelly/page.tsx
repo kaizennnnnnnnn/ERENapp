@@ -72,6 +72,7 @@ export default function JellyParlourPage() {
         feedGoal={jellies.feedGoal}
         ownsSkin={jellies.ownsSkin}
         feeding={jellies.feeding}
+        blocked={jellies.blocked}
         // Gate on the progress row AND the inventory: a tray drawn from an
         // unconfirmed fetch would show five empty slots to someone who filled
         // four this morning.

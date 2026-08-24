@@ -40,6 +40,8 @@ interface Props {
   ownsSkin: boolean
   feeding: boolean
   loaded: boolean
+  /** The Parlour's tables are missing; say so instead of showing an empty tray. */
+  blocked: boolean
   games: ParlourGame[]
   onPlay: (id: 'slice' | 'jump') => void
   onFeed: () => void
@@ -48,7 +50,7 @@ interface Props {
 }
 
 export default function ParlourView({
-  tray, trayCount, traySize, supers, fed, feedGoal, ownsSkin, feeding, loaded,
+  tray, trayCount, traySize, supers, fed, feedGoal, ownsSkin, feeding, loaded, blocked,
   games, onPlay, onFeed, onOpenCloset, onBack,
 }: Props) {
   return (
@@ -136,9 +138,26 @@ export default function ParlourView({
 
         {/* ── The case ── */}
         <ParlourCase tray={tray} count={trayCount} size={traySize} loading={!loaded} />
-        <p className="text-center" style={{ fontSize: 8.5, color: '#9A7484', margin: '7px 0 14px' }}>
-          The tray empties every night. Win a round to fill a slot.
-        </p>
+        {blocked ? (
+          /* Without this the tray just sits at 0/5 for ever and every round
+             quietly pays nothing — which reads as "the game is broken", not as
+             "one SQL file has not been run yet". */
+          <div className="flex items-start gap-2 px-3 py-2.5" style={{
+            margin: '8px 0 14px', borderRadius: 10,
+            background: '#FFF1E2', border: `2px dashed ${INK}55`,
+          }}>
+            <span style={{ marginTop: 1 }}><IconJelly size={13} /></span>
+            <p style={{ fontSize: 9.5, lineHeight: 1.45, color: '#8A5A3C' }}>
+              The Parlour can&apos;t reach its shelf, so nothing you win will stick.
+              Run <strong>supabase/migration_jelly_progress.sql</strong> once in the
+              Supabase SQL editor.
+            </p>
+          </div>
+        ) : (
+          <p className="text-center" style={{ fontSize: 8.5, color: '#9A7484', margin: '7px 0 14px' }}>
+            The tray empties every night. Win a round to fill a slot.
+          </p>
+        )}
 
         {/* ── The stand ── */}
         <div style={{ marginBottom: 14 }}>

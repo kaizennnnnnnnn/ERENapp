@@ -13,11 +13,15 @@
 //   SHELLED  a sugar crust over the art. Two cuts: the first cracks it.
 //   GOLDEN   small, fast, gold, sparking. Worth five of anything else.
 //
-// Cut jellies keep their art and part down the middle (two clipped copies) so
-// the slice reads as a slice and not as a puff of particles.
+// A cut jelly keeps its art and comes apart along the ACTUAL blade line — two
+// copies clipped to complementary half-planes (see sliceCut.ts) that drift
+// apart perpendicular to the cut. Halving everything down the vertical middle,
+// which is what this did first, made every diagonal flick produce the same
+// straight vertical split.
 
 import { memo } from 'react'
 import type { JellyDef } from '@/lib/jellies'
+import { halfPolygon, type CutLine } from './sliceCut'
 
 export type FlyerKind = 'jelly' | 'sour' | 'shelled' | 'golden'
 
@@ -29,6 +33,11 @@ interface Props {
   sliced: boolean
   /** SHELLED only: the crust is already off, so it's one cut from splitting. */
   cracked: boolean
+  /** Where the blade actually crossed it. Absent until it is cut. */
+  cut?: CutLine
+  /** The loop writes each half's drift straight to these, once per frame. */
+  halfARef?: (el: HTMLSpanElement | null) => void
+  halfBRef?: (el: HTMLSpanElement | null) => void
 }
 
 const art: React.CSSProperties = {
@@ -36,15 +45,26 @@ const art: React.CSSProperties = {
   objectFit: 'contain', imageRendering: 'auto',
 }
 
-const SliceFlyer = memo(function SliceFlyer({ kind, jelly, r, sliced, cracked }: Props) {
-  // A cut jelly: the same art split down the middle, halves parting.
+const SliceFlyer = memo(function SliceFlyer({
+  kind, jelly, r, sliced, cracked, cut, halfARef, halfBRef,
+}: Props) {
+  // A cut jelly: the same art, split along the line the blade actually took.
   if (sliced) {
+    const a = cut ? halfPolygon(cut, true) : null
+    const b = cut ? halfPolygon(cut, false) : null
+    // A blade that somehow missed the box leaves no usable polygon; show the
+    // sprite whole rather than a degenerate clip.
+    if (!a || !b) {
+      return <img src={jelly.art} alt="" draggable={false} style={{ ...art, filter: kindFilter(kind) }} />
+    }
     return (
       <>
-        <img src={jelly.art} alt="" draggable={false}
-          style={{ ...art, clipPath: 'inset(0 50% 0 0)', transform: 'translateX(-7px)', filter: kindFilter(kind) }} />
-        <img src={jelly.art} alt="" draggable={false}
-          style={{ ...art, clipPath: 'inset(0 0 0 50%)', transform: 'translateX(7px)', filter: kindFilter(kind) }} />
+        <span ref={halfARef} style={{ position: 'absolute', inset: 0, willChange: 'transform' }}>
+          <img src={jelly.art} alt="" draggable={false} style={{ ...art, clipPath: a, filter: kindFilter(kind) }} />
+        </span>
+        <span ref={halfBRef} style={{ position: 'absolute', inset: 0, willChange: 'transform' }}>
+          <img src={jelly.art} alt="" draggable={false} style={{ ...art, clipPath: b, filter: kindFilter(kind) }} />
+        </span>
       </>
     )
   }

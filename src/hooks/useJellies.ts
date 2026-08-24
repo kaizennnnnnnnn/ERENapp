@@ -35,6 +35,16 @@ import {
 // paid through TaskContext, and only AFTER the stat write succeeds: a failed
 // round must not mint money.
 
+/**
+ * Errors that mean the Parlour's schema simply is not there — an unapplied
+ * migration, not a bad connection. PostgREST answers PGRST202 for a function it
+ * cannot find and PGRST205 for a table; Postgres itself answers 42P01 /42883.
+ * Worth separating from an outage because the two need opposite responses:
+ * one is "try again in a second", the other is "this will never work".
+ */
+const SETUP_ERRORS = new Set(['PGRST202', 'PGRST205', '42P01', '42883'])
+const isSetupError = (e: { code?: string } | null) => !!e?.code && SETUP_ERRORS.has(e.code)
+
 interface Progress {
   /** Flavours already on today's tray. */
   today: Set<JellyId>
@@ -44,9 +54,16 @@ interface Progress {
   fed: number
   /** False until a fetch has actually confirmed the row (503-safe). */
   loaded: boolean
+  /**
+   * The tables/RPCs this hook needs do not exist. Distinct from `!loaded`,
+   * which is the ordinary "still fetching / had a blip" state: this one never
+   * resolves on its own and has to be SAID, or a round silently pays nothing
+   * and the prize card blames the player's score.
+   */
+  blocked: boolean
 }
 
-const EMPTY: Progress = { today: new Set(), supers: 0, fed: 0, loaded: false }
+const EMPTY: Progress = { today: new Set(), supers: 0, fed: 0, loaded: false, blocked: false }
 
 /** Shape of the jsonb both RPCs return. Fields are optional on the error path. */
 interface RpcResult {
@@ -112,8 +129,12 @@ export function useJellies() {
       .eq('user_id', user.id)
       .maybeSingle())
     // An outage must not read as an empty tray: that would draw every slot
-    // locked to someone who filled four this morning.
-    if (res.error) return
+    // locked to someone who filled four this morning. A MISSING table is a
+    // different thing and gets said out loud.
+    if (res.error) {
+      if (isSetupError(res.error)) setProgress(p => ({ ...p, blocked: true }))
+      return
+    }
 
     const row = res.data as { day: string; flavours: JellyId[]; supers: number; fed: number } | null
     // No row yet is a real, confirmed answer — a player who has never played.
@@ -134,6 +155,7 @@ export function useJellies() {
       supers: row.supers ?? 0,
       fed: row.fed ?? 0,
       loaded: true,
+      blocked: false,
     })
   }, [user?.id, supabase])
 
@@ -162,7 +184,10 @@ export function useJellies() {
 
       const { data, error } = await supabase.rpc('collect_jelly', { p_flavour: jelly.id })
       const res = data as RpcResult | null
-      if (error || !res?.ok) return null
+      if (error || !res?.ok) {
+        if (isSetupError(error)) setProgress(p => ({ ...p, blocked: true }))
+        return null
+      }
 
       // The jelly does its thing. Zero hunger/joy/weight → only the buff lands.
       const applied = await feedWithFood(user.id, 0, 0, 0, effect.buff)
@@ -170,7 +195,7 @@ export function useJellies() {
 
       const today = new Set<JellyId>((res.today ?? []).filter(f => !!getJelly(f)) as JellyId[])
       todayRef.current = today
-      setProgress(p => ({ ...p, today, supers: res.supers ?? p.supers, fed: res.fed ?? p.fed, loaded: true }))
+      setProgress(p => ({ ...p, today, supers: res.supers ?? p.supers, fed: res.fed ?? p.fed, loaded: true, blocked: false }))
 
       return {
         jelly,
@@ -199,7 +224,10 @@ export function useJellies() {
     try {
       const { data, error } = await supabase.rpc('feed_super_jelly')
       const res = data as RpcResult | null
-      if (error || !res?.ok) return none
+      if (error || !res?.ok) {
+        if (isSetupError(error)) setProgress(p => ({ ...p, blocked: true }))
+        return none
+      }
 
       await feedWithFood(user.id, 0, 0, 0, SUPER_JELLY_BUFF)
       if (SUPER_JELLY_BUFF.coins) void addCoins(SUPER_JELLY_BUFF.coins)
@@ -226,6 +254,8 @@ export function useJellies() {
     fed: progress.fed,
     feedGoal: SUPER_FEEDS_FOR_SKIN,
     ownsSkin,
+    /** The Parlour's tables/RPCs are missing — the migration has not been run. */
+    blocked: progress.blocked,
     /** Both halves confirmed: the tray row AND the inventory the skin lives in. */
     loaded: progress.loaded && invLoaded,
     loading,

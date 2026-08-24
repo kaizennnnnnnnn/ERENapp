@@ -50,6 +50,7 @@ import { JELLIES, type JellyDef } from '@/lib/jellies'
 import JellyPrize, { type DuelLine } from '@/components/jelly/JellyPrize'
 import SliceStage, { SliceCounter } from '@/components/jelly/SliceStage'
 import SliceFlyer, { type FlyerKind } from '@/components/jelly/SliceFlyer'
+import { cutLineFor, type CutLine } from '@/components/jelly/sliceCut'
 import PixelEren, { type ErenPose } from '@/components/games/PixelEren'
 import { IconJelly } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
@@ -103,7 +104,13 @@ interface Fly {
   lastStroke: number
   /** Halves fly apart with their own drift once cut. */
   halfDir: number
+  /** The blade line this one came apart on, in its own sprite frame. */
+  cut?: CutLine
+  /** How far the two halves have drifted apart, px. */
+  sep: number
   el?: HTMLDivElement | null
+  halfA?: HTMLSpanElement | null
+  halfB?: HTMLSpanElement | null
 }
 
 interface Bit {
@@ -142,6 +149,7 @@ export default function JellySlicePage() {
   const [pose, setPose] = useState<ErenPose>('idle')
   const [pops, setPops] = useState<Pop[]>([])
   const [wins, setWins] = useState<JellyWin[]>([])
+  const [awardFailed, setAwardFailed] = useState(false)
   const [result, setResult] = useState<{ isBest: boolean; duel: DuelLine } | null>(null)
 
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -200,6 +208,9 @@ export default function JellySlicePage() {
       }
     }
     setWins(won)
+    // Cleared the bar but came back empty-handed: the write failed, and the
+    // card must say that rather than quote a threshold the player already beat.
+    setAwardFailed(final >= THRESHOLD && won.length === 0)
     setResult({
       isBest: submitted.isBest,
       duel: { theirName: duel.theirName, theirsToday: duel.theirsToday, tookLead: submitted.tookLead },
@@ -258,7 +269,7 @@ export default function JellySlicePage() {
       x, y: H + r,
       vx: drift, vy: -v0,
       spin: 0, spinV: (Math.random() - 0.5) * 200,
-      sliced: false, cracked: false, halfDir: 0, lastStroke: 0,
+      sliced: false, cracked: false, halfDir: 0, lastStroke: 0, sep: 0,
     })
   }, [])
 
@@ -300,7 +311,17 @@ export default function JellySlicePage() {
         f.x += f.vx * dt
         f.y += f.vy * dt
         f.spin += f.spinV * dt
-        if (f.sliced) f.x += f.halfDir * 90 * dt
+        if (f.sliced) {
+          f.x += f.halfDir * 90 * dt
+          // The two halves slide apart PERPENDICULAR to the cut, so the gap
+          // opens along the line the blade actually took.
+          f.sep += 54 * dt
+          if (f.cut) {
+            const ox = f.cut.nx * f.sep, oy = f.cut.ny * f.sep
+            if (f.halfA) f.halfA.style.transform = `translate3d(${ox}px, ${oy}px, 0)`
+            if (f.halfB) f.halfB.style.transform = `translate3d(${-ox}px, ${-oy}px, 0)`
+          }
+        }
 
         if (f.y > H + f.r * 2.4) {
           // Letting a SOUR one fall is exactly right, so it costs nothing.
@@ -385,6 +406,7 @@ export default function JellySlicePage() {
         // The one thing you must not do. It ends the chain, costs a life, and
         // the jelly itself is removed so a wild follow-through can't hit it twice.
         f.sliced = true
+        f.cut = cutLineFor(ax, ay, bx, by, f.x, f.y, f.r, f.spin)
         f.halfDir = bx >= ax ? 1 : -1
         stung = true
         burst(f, 10, '#B6FF3D')
@@ -403,6 +425,7 @@ export default function JellySlicePage() {
       }
 
       f.sliced = true
+      f.cut = cutLineFor(ax, ay, bx, by, f.x, f.y, f.r, f.spin)
       f.halfDir = bx >= ax ? 1 : -1
       f.spinV = f.halfDir * 320
       hits++
@@ -492,7 +515,7 @@ export default function JellySlicePage() {
     savedRef.current = false
     lastPt.current = null
     startedAt.current = performance.now()
-    setScore(0); setLives(LIVES); setCombo(0); setPops([]); setWins([]); setResult(null)
+    setScore(0); setLives(LIVES); setCombo(0); setPops([]); setWins([]); setAwardFailed(false); setResult(null)
     phaseRef.current = 'play'
     setPhase('play')
   }, [])
@@ -566,7 +589,11 @@ export default function JellySlicePage() {
             position: 'absolute', left: 0, top: 0, width: f.r * 2, height: f.r * 2,
             willChange: 'transform', pointerEvents: 'none',
           }}>
-            <SliceFlyer kind={f.kind} jelly={f.jelly} r={f.r} sliced={f.sliced} cracked={f.cracked} />
+            <SliceFlyer
+              kind={f.kind} jelly={f.jelly} r={f.r}
+              sliced={f.sliced} cracked={f.cracked} cut={f.cut}
+              halfARef={el => { f.halfA = el }}
+              halfBRef={el => { f.halfB = el }} />
           </div>
         ))}
 
@@ -636,7 +663,7 @@ export default function JellySlicePage() {
       {phase === 'over' && result && (
         <JellyPrize
           score={score} best={Math.max(duel.best, score)} isBest={result.isBest}
-          unit="PTS" threshold={THRESHOLD} duel={result.duel} wins={wins}
+          unit="PTS" threshold={THRESHOLD} duel={result.duel} wins={wins} awardFailed={awardFailed}
           trayCount={jellies.trayCount} traySize={jellies.traySize}
           onPlayAgain={start}
           onExit={() => router.push('/jelly')}

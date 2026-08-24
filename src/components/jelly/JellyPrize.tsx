@@ -42,6 +42,8 @@ interface Props {
   threshold: number
   duel: DuelLine | null
   wins: JellyWin[]
+  /** The round DID clear the threshold, but the jelly could not be saved. */
+  awardFailed: boolean
   /** Slots filled on today's tray, after this round. */
   trayCount: number
   traySize: number
@@ -50,7 +52,7 @@ interface Props {
 }
 
 export default function JellyPrize({
-  score, best, isBest, unit, threshold, duel, wins, trayCount, traySize, onPlayAgain, onExit,
+  score, best, isBest, unit, threshold, duel, wins, awardFailed, trayCount, traySize, onPlayAgain, onExit,
 }: Props) {
   const reduced = useReducedMotion()
   const mintedSuper = wins.some(w => w.mintedSuper)
@@ -110,8 +112,12 @@ export default function JellyPrize({
             borderRadius: 12, background: 'rgba(44,74,56,0.05)', border: '2px dashed rgba(44,74,56,0.28)',
           }}>
             <IconJelly size={20} />
+            {/* Two very different failures. Telling a player who scored 300 that
+                they need 120 is worse than telling them nothing. */}
             <p className="text-center" style={{ fontSize: 10, lineHeight: 1.5, color: '#4A6B58' }}>
-              No jelly this time — reach <strong style={{ color: INK }}>{threshold} {unit}</strong> to win one.
+              {awardFailed
+                ? <>That jelly couldn&apos;t be saved, so the tray didn&apos;t move. Nothing else was lost — check the Parlour.</>
+                : <>No jelly this time — reach <strong style={{ color: INK }}>{threshold} {unit}</strong> to win one.</>}
             </p>
           </div>
         )}
