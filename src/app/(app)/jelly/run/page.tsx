@@ -53,7 +53,7 @@ import { useJellies, type JellyWin } from '@/hooks/useJellies'
 import { useJellyDuel } from '@/hooks/useJellyDuel'
 import JellyPrize, { type DuelLine } from '@/components/jelly/JellyPrize'
 import {
-  BackWall, WallShelf, FloorTile, CellarTile, Crate, Pipe, Tide, Bead,
+  BackWall, WallShelf, CeilingLamp, FloorTile, CellarTile, Crate, Pipe, Tide, Bead,
   TILE, FLOOR_H,
 } from '@/components/jelly/RunScenery'
 import PixelEren, { type ErenPose } from '@/components/games/PixelEren'
@@ -99,12 +99,24 @@ const SLIDE_MS = 620
  */
 const DROP = 150
 
-/** Gap the tide sits behind Eren, in px. Hit zero and it has you. */
-const GAP_0 = 190
-const GAP_MAX = 260
-const GAP_RECOVER = 26        // px/s clawed back while you run clean
-const GAP_CREEP = 15          // px/s it gains no matter what
-const GAP_HIT = 78            // ...and all at once when you clip something
+/**
+ * Gap the tide sits behind Eren, in px. Hit zero and it has you.
+ *
+ * The first pass cost 78px a hit against a 190px gap — two mistakes and the
+ * tide had you, while clean running clawed back a net 11px/s, so ONE hit took
+ * seven flawless seconds to undo. That is not pressure, it is a coin flip.
+ * A hit now costs a quarter of the gap and pays back in about two seconds.
+ *
+ * The pressure instead comes from CREEP, which grows with time: an endless
+ * runner needs a reason to end even for someone who never puts a foot wrong.
+ * Past ~90s the creep outruns the recovery and the tide closes regardless.
+ */
+const GAP_0 = 210
+const GAP_MAX = 275
+const GAP_RECOVER = 42        // px/s clawed back while you run clean
+const GAP_CREEP = 15          // px/s it gains no matter what, at the gun...
+const GAP_CREEP_RAMP = 62     // ...doubling every this many seconds
+const GAP_HIT = 52            // ...and all at once when you clip something
 const GAP_DASH = 90           // ...and what a dash buys back
 
 const POWER_PER_BEAD = 9
@@ -152,7 +164,17 @@ const N_COL = COLS_AHEAD + 4
 const N_CRATE = 12
 const N_PIPE = 6
 const N_BEAD = 34
+/**
+ * Three background bands, each on its own parallax rate.
+ *
+ * On a tall phone the parlour floor lands around two-thirds down and the whole
+ * space above it was flat wall — the single biggest reason the room read as
+ * unfinished. The bands fill it with the shop rather than with noise, and each
+ * one is washed further toward the wall colour so depth is unambiguous.
+ */
 const N_SHELF = 4
+const N_SHELF_FAR = 4
+const N_LAMP = 4
 
 export default function JellyRunPage() {
   const router = useRouter()
@@ -214,6 +236,8 @@ export default function JellyRunPage() {
   const pipeEls = useRef<(HTMLDivElement | null)[]>([])
   const beadEls = useRef<(HTMLDivElement | null)[]>([])
   const shelfEls = useRef<(HTMLDivElement | null)[]>([])
+  const shelfFarEls = useRef<(HTMLDivElement | null)[]>([])
+  const lampEls = useRef<(HTMLDivElement | null)[]>([])
   const erenEl = useRef<HTMLDivElement>(null)
   const tideEl = useRef<HTMLDivElement>(null)
 
@@ -314,9 +338,88 @@ export default function JellyRunPage() {
     nextColX.current += TILE
   }, [])
 
-  // ── Start ────────────────────────────────────────────────────────────────
-  const start = useCallback(() => {
-    measure()
+  // ── Paint ────────────────────────────────────────────────────────────────
+  /**
+   * Writes the world to the pooled DOM.
+   *
+   * Pure geometry read out of the refs — it advances nothing — so the READY
+   * screen can call it once. Without that, none of the pooled nodes has a
+   * transform yet and the entire world sits stacked in the top-left corner
+   * until the first frame runs.
+   */
+  const paint = useCallback(() => {
+    const { upperY, cellarY, erenX } = dims.current
+    const camX = world.current.x
+    const feetY = eren.current.y
+
+    for (let i = 0; i < N_COL; i++) {
+      const c = cols.current[i]
+      const el = colEls.current[i], ce = cellEls.current[i]
+      if (!c) { if (el) el.style.display = 'none'; if (ce) ce.style.display = 'none'; continue }
+      const sx = c.x - camX
+      if (el) {
+        el.style.display = c.upper ? 'block' : 'none'
+        if (c.upper) el.style.transform = `translate3d(${sx.toFixed(1)}px, ${upperY}px, 0)`
+      }
+      if (ce) {
+        ce.style.display = 'block'
+        ce.style.transform = `translate3d(${sx.toFixed(1)}px, ${cellarY}px, 0)`
+      }
+    }
+    // Two pools, one per kind. A single shared pool drew whatever art the
+    // SLOT happened to hold, so a crate could render as a pipe — and the
+    // player would duck a thing that was actually a jump.
+    let ci = 0, pi = 0
+    for (const o of obs.current) {
+      if (o.dead) continue
+      const crate = o.kind === 'crate'
+      const el = crate ? crateEls.current[ci] : pipeEls.current[pi]
+      if (crate) { if (ci >= N_CRATE) continue; ci++ } else { if (pi >= N_PIPE) continue; pi++ }
+      if (!el) continue
+      const base = o.cellar ? cellarY : upperY
+      const oy = crate ? base - o.h : base - PIPE_CLEAR - PIPE_H
+      el.style.display = 'block'
+      el.style.transform = `translate3d(${(o.x - camX).toFixed(1)}px, ${oy}px, 0)`
+    }
+    for (let i = ci; i < N_CRATE; i++) { const el = crateEls.current[i]; if (el) el.style.display = 'none' }
+    for (let i = pi; i < N_PIPE; i++) { const el = pipeEls.current[i]; if (el) el.style.display = 'none' }
+    for (let i = 0; i < N_BEAD; i++) {
+      const b = bead.current[i]
+      const el = beadEls.current[i]
+      if (!el) continue
+      if (!b || b.taken) { el.style.display = 'none'; continue }
+      el.style.display = 'block'
+      el.style.transform = `translate3d(${(b.x - camX).toFixed(1)}px, ${b.y}px, 0)`
+    }
+    // Parallax bands. Each is a fixed ring of nodes wrapped around a span, so
+    // the further back a band is the slower it slides — the only depth cue a
+    // flat side-on runner has, and the one that stops the wall reading as a
+    // sticker glued to the camera.
+    const band = (
+      els: (HTMLDivElement | null)[], n: number, span: number, rate: number, y: number,
+    ) => {
+      const loop = span * n
+      for (let i = 0; i < n; i++) {
+        const el = els[i]
+        if (!el) continue
+        const sx = ((i * span - camX * rate) % loop + loop) % loop - span
+        el.style.transform = `translate3d(${sx.toFixed(1)}px, ${y.toFixed(0)}px, 0)`
+      }
+    }
+    band(lampEls.current, N_LAMP, 210, 0.16, 30)
+    band(shelfFarEls.current, N_SHELF_FAR, 300, 0.22, Math.max(58, upperY - 232))
+    band(shelfEls.current, N_SHELF, 260, 0.33, upperY - 120)
+    if (erenEl.current) {
+      erenEl.current.style.transform = `translate3d(${erenX - EREN_PX / 2}px, ${(feetY - EREN_PX).toFixed(1)}px, 0)`
+    }
+    if (tideEl.current) {
+      tideEl.current.style.transform = `translate3d(${(erenX - world.current.gap - 300).toFixed(1)}px, 0, 0)`
+    }
+  }, [])
+
+  // ── Seed ─────────────────────────────────────────────────────────────────
+  /** Puts the world back at the starting line. Shared by READY and by start. */
+  const seed = useCallback(() => {
     const { upperY } = dims.current
     cols.current = []
     obs.current = []
@@ -331,16 +434,33 @@ export default function JellyRunPage() {
     metresRef.current = 0
     beadsRef.current = 0
     powerRef.current = 0
-    savedRef.current = false
     lastT.current = 0
     stepT.current = 0
     for (let i = 0; i < COLS_AHEAD + 2; i++) dealColumn()
+  }, [dealColumn])
+
+  /**
+   * The READY screen's backdrop: a real, still parlour rather than a pile of
+   * tiles at the origin. Re-runs on resize, since `layout` changing is the
+   * signal that `measure` moved the floors.
+   */
+  useEffect(() => {
+    if (phase !== 'ready') return
+    seed()
+    paint()
+  }, [phase, layout, seed, paint])
+
+  // ── Start ────────────────────────────────────────────────────────────────
+  const start = useCallback(() => {
+    measure()
+    seed()
+    savedRef.current = false
     setMetres(0); setBeads(0); setPower(0)
     setResult(null); setWins([]); setAwardFailed(false); setBanner(null)
     setPose('run')
     phaseRef.current = 'play'
     setPhase('play')
-  }, [measure, dealColumn])
+  }, [measure, seed])
 
   // ── End ──────────────────────────────────────────────────────────────────
   const endRun = useCallback(async () => {
@@ -472,7 +592,8 @@ export default function JellyRunPage() {
       // Tide: creeps in always, is clawed back by running clean, and lunges on
       // a hit. Dashing holds it off entirely.
       if (!dashing) {
-        w.gap += (GAP_RECOVER * (stumble.current > 0 ? 0 : 1) - GAP_CREEP) * dt
+        const creep = GAP_CREEP * (1 + w.t / GAP_CREEP_RAMP)
+        w.gap += (GAP_RECOVER * (stumble.current > 0 ? 0 : 1) - creep) * dt
         w.gap = Math.min(GAP_MAX, w.gap)
       }
 
@@ -581,60 +702,7 @@ export default function JellyRunPage() {
       }
 
       // ── Paint ──
-      const camX = w.x
-      for (let i = 0; i < N_COL; i++) {
-        const c = cols.current[i]
-        const el = colEls.current[i], ce = cellEls.current[i]
-        if (!c) { if (el) el.style.display = 'none'; if (ce) ce.style.display = 'none'; continue }
-        const sx = c.x - camX
-        if (el) {
-          el.style.display = c.upper ? 'block' : 'none'
-          if (c.upper) el.style.transform = `translate3d(${sx.toFixed(1)}px, ${upperY}px, 0)`
-        }
-        if (ce) {
-          ce.style.display = 'block'
-          ce.style.transform = `translate3d(${sx.toFixed(1)}px, ${cellarY}px, 0)`
-        }
-      }
-      // Two pools, one per kind. A single shared pool drew whatever art the
-      // SLOT happened to hold, so a crate could render as a pipe — and the
-      // player would duck a thing that was actually a jump.
-      let ci = 0, pi = 0
-      for (const o of obs.current) {
-        if (o.dead) continue
-        const crate = o.kind === 'crate'
-        const el = crate ? crateEls.current[ci] : pipeEls.current[pi]
-        if (crate) { if (ci >= N_CRATE) continue; ci++ } else { if (pi >= N_PIPE) continue; pi++ }
-        if (!el) continue
-        const base = o.cellar ? cellarY : upperY
-        const oy = crate ? base - o.h : base - PIPE_CLEAR - PIPE_H
-        el.style.display = 'block'
-        el.style.transform = `translate3d(${(o.x - camX).toFixed(1)}px, ${oy}px, 0)`
-      }
-      for (let i = ci; i < N_CRATE; i++) { const el = crateEls.current[i]; if (el) el.style.display = 'none' }
-      for (let i = pi; i < N_PIPE; i++) { const el = pipeEls.current[i]; if (el) el.style.display = 'none' }
-      for (let i = 0; i < N_BEAD; i++) {
-        const b = bead.current[i]
-        const el = beadEls.current[i]
-        if (!el) continue
-        if (!b || b.taken) { el.style.display = 'none'; continue }
-        el.style.display = 'block'
-        el.style.transform = `translate3d(${(b.x - camX).toFixed(1)}px, ${b.y}px, 0)`
-      }
-      for (let i = 0; i < N_SHELF; i++) {
-        const el = shelfEls.current[i]
-        if (!el) continue
-        // Parallax: the far wall slides at a third of the floor's rate.
-        const span = 260
-        const sx = ((i * span - camX * 0.33) % (span * N_SHELF) + span * N_SHELF) % (span * N_SHELF) - span
-        el.style.transform = `translate3d(${sx.toFixed(1)}px, ${(upperY - 120).toFixed(0)}px, 0)`
-      }
-      if (erenEl.current) {
-        erenEl.current.style.transform = `translate3d(${erenX - EREN_PX / 2}px, ${(feetY - EREN_PX).toFixed(1)}px, 0)`
-      }
-      if (tideEl.current) {
-        tideEl.current.style.transform = `translate3d(${(erenX - w.gap - 300).toFixed(1)}px, 0, 0)`
-      }
+      paint()
 
       // ── Pose ──
       stepT.current += dt
@@ -657,7 +725,7 @@ export default function JellyRunPage() {
     rafRef.current = requestAnimationFrame(tick)
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, dealColumn, shout])
+  }, [phase, dealColumn, paint, shout])
 
   // Stumbling clears back to running once the wobble is spent.
   useEffect(() => {
@@ -672,16 +740,30 @@ export default function JellyRunPage() {
 
   return (
     <div className="fixed inset-0 z-40 overflow-hidden select-none" style={{ background: CREAM }}>
+      {/* The stage takes a z-index of its OWN so it becomes a stacking context.
+          Without one it is `z-index: auto`, the world's layers (Eren at 6, the
+          tide at 7) escape into the root context, and the tide paints straight
+          over the HUD and the RUN button. */}
       <div ref={stageRef} className="absolute inset-0 overflow-hidden"
-        style={{ touchAction: 'none' }}
+        style={{ touchAction: 'none', zIndex: 5, isolation: 'isolate' }}
         onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
 
         <BackWall upperY={layout.upperY || 320} />
 
-        {/* Parallax shelving */}
+        {/* Parallax dressing, furthest band first so nearer ones overlap it */}
+        {Array.from({ length: N_LAMP }).map((_, i) => (
+          <div key={`l${i}`} ref={el => { lampEls.current[i] = el }} style={{ position: 'absolute', left: 0, top: 0 }}>
+            <CeilingLamp depth={1} />
+          </div>
+        ))}
+        {Array.from({ length: N_SHELF_FAR }).map((_, i) => (
+          <div key={`sf${i}`} ref={el => { shelfFarEls.current[i] = el }} style={{ position: 'absolute', left: 0, top: 0 }}>
+            <WallShelf depth={1} />
+          </div>
+        ))}
         {Array.from({ length: N_SHELF }).map((_, i) => (
-          <div key={`s${i}`} ref={el => { shelfEls.current[i] = el }} style={{ position: 'absolute', left: 0, top: 0, opacity: 0.55 }}>
-            <WallShelf />
+          <div key={`s${i}`} ref={el => { shelfEls.current[i] = el }} style={{ position: 'absolute', left: 0, top: 0 }}>
+            <WallShelf depth={0} />
           </div>
         ))}
 
@@ -729,7 +811,7 @@ export default function JellyRunPage() {
 
       {/* ── HUD ── */}
       <div className="absolute inset-x-0 top-0 px-3 pointer-events-none"
-        style={{ paddingTop: 'calc(var(--safe-top) + 8px)' }}>
+        style={{ paddingTop: 'calc(var(--safe-top) + 8px)', zIndex: 30 }}>
         <div className="flex items-center gap-2">
           <button onClick={() => router.push('/jelly')}
             className="pointer-events-auto flex items-center justify-center active:translate-y-[1px]"
@@ -768,7 +850,7 @@ export default function JellyRunPage() {
         <button onClick={doDash} disabled={!full}
           className="absolute font-pixel active:translate-y-[2px]"
           style={{
-            right: 14, bottom: 'calc(18px + env(safe-area-inset-bottom, 0px))',
+            right: 14, bottom: 'calc(18px + env(safe-area-inset-bottom, 0px))', zIndex: 30,
             padding: '12px 14px', fontSize: 9, letterSpacing: 1,
             color: full ? '#3A1B02' : 'rgba(255,248,238,0.4)',
             background: full ? `linear-gradient(180deg, ${BRASS_LT}, ${BRASS})` : 'rgba(58,31,43,0.7)',
@@ -781,7 +863,7 @@ export default function JellyRunPage() {
       )}
 
       {banner && (
-        <div className="absolute inset-x-0 flex justify-center pointer-events-none" style={{ top: '22%' }}>
+        <div className="absolute inset-x-0 flex justify-center pointer-events-none" style={{ top: '22%', zIndex: 35 }}>
           <span className="font-pixel px-3 py-2" style={{
             fontSize: 11, color: CREAM, background: 'rgba(58,31,43,0.85)',
             border: `2px solid ${BRASS}`, borderRadius: 6,
@@ -793,7 +875,7 @@ export default function JellyRunPage() {
       {/* ── Ready ── */}
       {phase === 'ready' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center px-6"
-          style={{ background: 'rgba(43,26,34,0.82)' }}>
+          style={{ background: 'rgba(43,26,34,0.82)', zIndex: 40 }}>
           <p className="font-pixel mb-2" style={{ fontSize: 14, color: BRASS_LT, letterSpacing: 2 }}>JELLY RUN</p>
           <p className="text-center mb-5" style={{ fontSize: 11, color: CREAM, opacity: 0.8, lineHeight: 1.5 }}>
             The tide is right behind you.

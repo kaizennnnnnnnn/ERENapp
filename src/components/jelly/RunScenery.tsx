@@ -17,7 +17,7 @@
 import { memo } from 'react'
 import {
   INK, CREAM, CREAM_DIM, WALL, WALL_STRIPE, WALL_DEEP,
-  WOOD, WOOD_DK, WOOD_LT, CASE_IN, CASE_IN_LT, BERRY, BERRY_DK, BRASS, BRASS_LT,
+  WOOD, WOOD_DK, WOOD_LT, CASE_IN, CASE_IN_LT, BERRY, BERRY_DK, BRASS, BRASS_LT, BRASS_DK,
 } from './parlourTheme'
 
 /** One terrain column. The whole world grid is measured in these. */
@@ -25,6 +25,27 @@ export const TILE = 44
 
 /** How tall a floor slab is drawn. */
 export const FLOOR_H = 14
+
+// ─── Depth ─────────────────────────────────────────────────────────────────
+
+/**
+ * Mixes a colour toward the wall.
+ *
+ * In this art style a hard INK outline is what says "this is solid, you can
+ * stand on it". So background dressing gets NO outline and is washed toward
+ * the wall colour instead — atmospheric perspective doing the job an outline
+ * would do badly. Without this the parallax shelving read as a ledge the
+ * player could land on, which in a runner is a lie you pay for.
+ */
+function recede(hex: string, t: number): string {
+  const a = parseInt(hex.slice(1), 16)
+  const b = parseInt(WALL.slice(1), 16)
+  const mix = (sh: number) => {
+    const ca = (a >> sh) & 255, cb = (b >> sh) & 255
+    return Math.round(ca + (cb - ca) * t)
+  }
+  return `rgb(${mix(16)}, ${mix(8)}, ${mix(0)})`
+}
 
 // ─── Back wall ─────────────────────────────────────────────────────────────
 
@@ -38,6 +59,24 @@ export const BackWall = memo(function BackWall({ upperY }: { upperY: number }) {
         height: upperY,
         background: `linear-gradient(180deg, ${WALL} 0%, ${WALL_STRIPE} 62%, ${WALL_DEEP} 100%)`,
       }} />
+      {/* The wallpaper's actual stripes. Fixed rather than scrolling: a moving
+          repeating pattern at this pitch strobes against the frame rate. */}
+      <div className="absolute inset-x-0 top-0 pointer-events-none" style={{
+        height: upperY, opacity: 0.5,
+        background: `repeating-linear-gradient(90deg, transparent 0 22px, ${WALL_DEEP} 22px 44px)`,
+        maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.12) 78%, transparent 100%)',
+        WebkitMaskImage: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.12) 78%, transparent 100%)',
+      }} />
+      {/* Ceiling. The upper floor sits low on a tall phone, so without this the
+          top third is blank wall and the room reads as unfinished rather than
+          as a room. */}
+      <div className="absolute inset-x-0 top-0 pointer-events-none" style={{
+        height: 34,
+        background: `linear-gradient(180deg, ${recede(WOOD_DK, 0.5)} 0%, ${recede(WOOD, 0.55)} 62%, ${recede(WOOD_DK, 0.62)} 100%)`,
+      }} />
+      <div className="absolute inset-x-0 pointer-events-none" style={{
+        top: 34, height: 5, background: recede(WOOD_DK, 0.35), opacity: 0.8,
+      }} />
       {/* Cellar — cold and dark, so the drop reads as a different place */}
       <div className="absolute inset-x-0 pointer-events-none" style={{
         top: upperY, bottom: 0,
@@ -50,18 +89,49 @@ export const BackWall = memo(function BackWall({ upperY }: { upperY: number }) {
   )
 })
 
-/** Far shelving that slides by slower than the floor. Placed by the loop. */
-export const WallShelf = memo(function WallShelf() {
+/**
+ * Far shelving that slides by slower than the floor. Placed by the loop.
+ *
+ * `depth` is how far back it sits: 0 is the near band, 1 the far one. It
+ * drives colour only — nothing here is ever solid.
+ */
+export const WallShelf = memo(function WallShelf({ depth = 0 }: { depth?: number }) {
+  const t = 0.42 + depth * 0.26
+  const jar = (c: string) => recede(c, t + 0.06)
   return (
-    <div style={{ width: 120, height: 26, position: 'absolute', willChange: 'transform' }}>
-      <div style={{ position: 'absolute', inset: 0, background: WOOD, border: `2px solid ${INK}`, borderRadius: 2 }} />
-      <div style={{ position: 'absolute', left: 0, right: 0, top: 2, height: 2, background: WOOD_LT }} />
+    <div style={{ width: 120, height: 22, position: 'absolute', willChange: 'transform' }}>
+      <div style={{ position: 'absolute', inset: 0, background: recede(WOOD, t), borderRadius: 2 }} />
+      <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 2, background: recede(WOOD_LT, t) }} />
       {[10, 44, 78].map(x => (
         <div key={x} style={{
-          position: 'absolute', left: x, top: -12, width: 16, height: 14,
-          background: x === 44 ? BERRY : BRASS, border: `2px solid ${INK}`, borderRadius: 3,
+          position: 'absolute', left: x, top: -11, width: 16, height: 13,
+          background: jar(x === 44 ? BERRY : BRASS), borderRadius: 3,
         }} />
       ))}
+    </div>
+  )
+})
+
+/** A pendant lamp on the ceiling. Pure dressing, and washed out to say so. */
+export const CeilingLamp = memo(function CeilingLamp({ depth = 0 }: { depth?: number }) {
+  const t = 0.34 + depth * 0.22
+  return (
+    <div style={{ width: 34, height: 60, position: 'absolute', willChange: 'transform' }}>
+      <div style={{ position: 'absolute', left: 16, top: 0, width: 2, height: 26, background: recede(WOOD_DK, t) }} />
+      <div style={{
+        position: 'absolute', left: 3, top: 24, width: 28, height: 14,
+        background: recede(BRASS_DK, t), borderRadius: '14px 14px 3px 3px',
+      }} />
+      <div style={{
+        position: 'absolute', left: 9, top: 36, width: 16, height: 9,
+        background: recede(BRASS_LT, t * 0.5), borderRadius: '0 0 8px 8px',
+      }} />
+      {/* The light it throws. Sits under everything, so it can never be read
+          as a surface. */}
+      <div style={{
+        position: 'absolute', left: -13, top: 40, width: 60, height: 84,
+        background: `radial-gradient(ellipse at 50% 0%, rgba(255,226,160,${0.3 - depth * 0.14}) 0%, rgba(255,226,160,0) 72%)`,
+      }} />
     </div>
   )
 })
