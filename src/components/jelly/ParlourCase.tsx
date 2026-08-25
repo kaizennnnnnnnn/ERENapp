@@ -6,9 +6,15 @@
 // This replaces a row of white rounded squares with padlocks in them. The
 // problem with that row wasn't the lock icon, it was that an empty slot looked
 // like a UI placeholder — so four fifths of the hero element read as "nothing
-// here yet". An empty alcove now shows the jelly's own SILHOUETTE in the dark,
-// lit from below: you can see exactly which flavour is missing, which is the
-// thing the player actually wants to know.
+// here yet".
+//
+// The fix that stuck: an empty slot is an ALCOVE with the jelly still in it,
+// just unlit. Each flavour keeps its own hue at a fraction of its brightness,
+// so an empty case reads as five jellies waiting in the dark rather than as a
+// black rectangle with ghosts in it — you can still see which flavour is
+// missing, which is the thing the player actually wants to know. Winning one
+// switches its alcove light on, and the difference between lit and unlit is
+// the whole readout.
 //
 // Construction, bottom to top: stained frame → dark interior → a warm shelf
 // glow → the five alcoves → one diagonal glare across the glass → brass rail.
@@ -17,7 +23,6 @@
 
 import { memo } from 'react'
 import type { JellyDef } from '@/lib/jellies'
-import { IconLock } from '@/components/PixelIcons'
 import {
   INK, CREAM, CREAM_DIM, WOOD, WOOD_DK, WOOD_LT, CASE_IN, CASE_IN_LT,
   BRASS, BRASS_LT, BRASS_DK, dropShadow,
@@ -63,21 +68,21 @@ const ParlourCase = memo(function ParlourCase({ tray, count, size, loading = fal
         borderRadius: 5,
         background: `linear-gradient(180deg, ${CASE_IN} 0%, ${CASE_IN_LT} 78%, ${CASE_IN} 100%)`,
         border: `2px solid ${INK}`,
-        paddingTop: 13,
+        paddingTop: 11,
       }}>
         {/* Warm light pooling up from the shelf. */}
         <span aria-hidden style={{
-          position: 'absolute', left: 0, right: 0, bottom: 0, height: '68%',
-          background: 'radial-gradient(70% 100% at 50% 100%, rgba(255,196,120,0.34) 0%, rgba(255,196,120,0) 74%)',
+          position: 'absolute', left: 0, right: 0, bottom: 0, height: '70%',
+          background: 'radial-gradient(72% 100% at 50% 100%, rgba(255,196,120,0.4) 0%, rgba(255,196,120,0) 74%)',
         }} />
         {/* CRT scanlines — the app's dark-panel texture, so the case belongs to
             the same world as the leaderboards and the reward road. */}
         <span aria-hidden style={{
-          position: 'absolute', inset: 0, opacity: 0.5,
+          position: 'absolute', inset: 0, opacity: 0.45,
           background: 'repeating-linear-gradient(180deg, rgba(0,0,0,0.16) 0px, rgba(0,0,0,0.16) 1px, transparent 1px, transparent 3px)',
         }} />
 
-        <div className="relative flex justify-between gap-0.5 px-1" style={{ zIndex: 2 }}>
+        <div className="relative flex justify-between px-1.5" style={{ zIndex: 2, gap: 4 }}>
           {tray.map(({ jelly, filled }) => (
             <Alcove key={jelly.id} jelly={jelly} filled={filled && !loading} />
           ))}
@@ -85,7 +90,7 @@ const ParlourCase = memo(function ParlourCase({ tray, count, size, loading = fal
 
         {/* The shelf the jellies stand on. */}
         <div style={{
-          height: 7, marginTop: 2,
+          height: 7, marginTop: 3,
           background: `linear-gradient(180deg, ${WOOD_LT}, ${WOOD_DK})`,
           borderTop: `2px solid ${INK}`,
         }} />
@@ -117,34 +122,43 @@ export default ParlourCase
 function Alcove({ jelly, filled }: { jelly: JellyDef; filled: boolean }) {
   return (
     <div className="flex-1 flex flex-col items-center" style={{ minWidth: 0 }}>
-      <div className="relative flex items-end justify-center w-full" style={{ aspectRatio: '0.92' }}>
+      {/* The niche itself — a recess cut into the back of the case, with its
+          own little light. An unlit one is a hollow, not a gap. */}
+      <div className="relative flex items-end justify-center w-full overflow-hidden" style={{
+        aspectRatio: '0.8',
+        borderRadius: '13px 13px 3px 3px',
+        background: filled
+          ? `linear-gradient(180deg, #1B1017 0%, ${jelly.colour}22 76%, ${jelly.colour}33 100%)`
+          : 'linear-gradient(180deg, #170D13 0%, #241621 100%)',
+        boxShadow: `inset 0 2px 4px rgba(0,0,0,0.62), inset 0 0 0 1px rgba(255,255,255,0.05)`,
+      }}>
         {/* The jelly's own light, thrown onto the back of the alcove. */}
-        {filled && (
-          <span aria-hidden style={{
-            position: 'absolute', inset: '8% 2% 2% 2%', borderRadius: '46% 46% 30% 30%',
-            background: `radial-gradient(58% 52% at 50% 66%, ${jelly.colour}66 0%, ${jelly.colour}00 74%)`,
-          }} />
-        )}
+        <span aria-hidden style={{
+          position: 'absolute', inset: '10% 4% 0 4%', borderRadius: '46% 46% 30% 30%',
+          background: `radial-gradient(58% 54% at 50% 68%, ${jelly.colour}${filled ? '7A' : '12'} 0%, ${jelly.colour}00 74%)`,
+        }} />
 
         <img src={jelly.art} alt="" draggable={false} style={{
-          position: 'relative', width: '96%', height: '96%',
+          position: 'relative', width: '92%', height: '92%', marginBottom: 2,
           objectFit: 'contain', imageRendering: 'auto',
-          // Empty: the flavour reduced to a shadow on the back wall. Readable
-          // as "the green one is missing" without pretending to be owned.
-          filter: filled ? undefined : 'brightness(0) invert(1) opacity(0.13)',
+          // Empty: the same jelly, just not lit. It keeps its hue, so the case
+          // reads as five flavours in the dark instead of five holes.
+          filter: filled ? undefined : 'brightness(0.26) saturate(0.55) contrast(0.95)',
           animation: filled ? 'parlourJiggle 2.6s ease-in-out infinite' : undefined,
         }} />
 
-        {!filled && (
-          <span className="absolute inset-0 flex items-center justify-center" aria-hidden style={{ opacity: 0.55 }}>
-            <IconLock size={13} />
-          </span>
+        {/* Reflection on the polished shelf under a lit jelly. */}
+        {filled && (
+          <span aria-hidden style={{
+            position: 'absolute', bottom: 0, width: '62%', height: 5, borderRadius: '50%',
+            background: `radial-gradient(50% 50% at 50% 50%, ${jelly.colour}99 0%, ${jelly.colour}00 70%)`,
+          }} />
         )}
       </div>
 
-      <span className="font-pixel text-center leading-tight" style={{
-        fontSize: 5, minHeight: 11, letterSpacing: 0.2,
-        color: filled ? BRASS_LT : 'rgba(255,248,238,0.28)',
+      <span className="font-pixel text-center leading-tight w-full overflow-hidden" style={{
+        fontSize: 5, minHeight: 11, marginTop: 2, letterSpacing: 0,
+        color: filled ? BRASS_LT : 'rgba(255,248,238,0.34)',
         textShadow: filled ? `1px 1px 0 ${INK}` : undefined,
       }}>
         {filled ? jelly.name.split(' ')[0].toUpperCase() : '???'}

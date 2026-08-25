@@ -1442,6 +1442,33 @@
 }
 /* ── Jelly Parlour: the room ──────────────────────────────────────────────
    The hanging shop sign, and the Super Jelly's own settle + shine. */
+/* Menu-board tickets. The press has to MOVE — a raised panel that only
+   changes colour on tap reads as a label, not a button. The lift on hover is
+   desktop-only so a touch device never sticks in the hover state. */
+.parlour-ticket {
+  box-shadow: 0 3px 0 #3A1F2B;
+  transition: transform 90ms ease, box-shadow 90ms ease, filter 90ms ease;
+}
+.parlour-ticket:active {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 #3A1F2B;
+  filter: brightness(1.06);
+}
+@media (hover: hover) {
+  .parlour-ticket:hover { transform: translateY(-1px); box-shadow: 0 4px 0 #3A1F2B; }
+}
+/* A gleam crossing the brass stub, so PLAY reads as live. */
+@keyframes parlourStubGleam {
+  0%, 62%  { transform: translateX(-24px); opacity: 0; }
+  70%      { opacity: 0.9; }
+  100%     { transform: translateX(64px); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [style*="parlourJiggle"], [style*="parlourDust"], [style*="parlourSignSway"],
+  [style*="parlourStubGleam"], [style*="superJellyWobble"], [style*="superJellyShine"],
+  [style*="dockJellyWobble"] { animation: none !important; }
+  .parlour-ticket { transition: none; }
+}
 @keyframes parlourSignSway {
   0%, 100% { transform: rotate(-1.4deg); }
   50%      { transform: rotate(1.4deg); }

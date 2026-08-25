@@ -180,31 +180,51 @@ export default function ParlourView({
           {/* Back-bar shelf. Eren stands in FRONT of it, which is the second
               real overlap in the room and what turns the empty wall above the
               counter into depth. */}
-          <div style={{ position: 'absolute', left: '9%', right: '9%', top: 6 }}>
+          <div style={{ position: 'absolute', left: '9%', right: '9%', top: 4 }}>
             <div className="flex items-end justify-around">
               {tray.slice(1, 4).map(({ jelly }, i) => (
-                <span key={jelly.id} style={{
-                  position: 'relative', display: 'block', width: 32, height: 34 + (i % 2) * 6,
-                  borderRadius: '5px 5px 8px 8px',
-                  background: 'linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.26) 100%)',
-                  border: `2.5px solid ${INK}`, overflow: 'hidden',
-                }}>
-                  <img src={jelly.art} alt="" draggable={false} style={{
-                    position: 'absolute', left: 2, bottom: 1, width: 24, height: 24,
-                    objectFit: 'contain', imageRendering: 'auto',
+                <span key={jelly.id} className="relative block" style={{ width: 36 }}>
+                  {/* Brass lid, so a jar reads as a jar and not as a box. */}
+                  <span style={{
+                    display: 'block', width: 30, height: 5, margin: '0 auto',
+                    borderRadius: '3px 3px 0 0',
+                    background: `linear-gradient(180deg, ${BRASS_LT}, ${BRASS})`,
+                    border: `2px solid ${INK}`, borderBottom: 'none',
                   }} />
                   <span style={{
-                    position: 'absolute', left: 3, top: 3, width: 5, height: 12,
-                    borderRadius: '50%', background: 'rgba(255,255,255,0.78)',
-                  }} />
+                    position: 'relative', display: 'block', width: 36, height: 32 + (i % 2) * 6,
+                    borderRadius: '4px 4px 9px 9px',
+                    background: 'linear-gradient(180deg, rgba(255,255,255,0.66) 0%, rgba(255,255,255,0.28) 100%)',
+                    border: `2.5px solid ${INK}`, overflow: 'hidden',
+                  }}>
+                    <img src={jelly.art} alt="" draggable={false} style={{
+                      position: 'absolute', left: '50%', bottom: 1, width: 26, height: 26,
+                      marginLeft: -13, objectFit: 'contain', imageRendering: 'auto',
+                    }} />
+                    <span style={{
+                      position: 'absolute', left: 4, top: 4, width: 5, height: 12,
+                      borderRadius: '50%', background: 'rgba(255,255,255,0.78)',
+                    }} />
+                  </span>
                 </span>
               ))}
             </div>
+            {/* The plank, and the two brackets holding it to the wall — without
+                them the jars read as stickers floating on the wallpaper. */}
             <div style={{
               height: 8, borderRadius: 2,
               background: `linear-gradient(180deg, ${WOOD_LT}, ${WOOD_DK})`,
               border: `2.5px solid ${INK}`,
             }} />
+            <div className="flex justify-between" style={{ padding: '0 12%' }}>
+              {[0, 1].map(i => (
+                <span key={i} style={{
+                  width: 7, height: 11, background: WOOD_DK,
+                  borderLeft: `2px solid ${INK}`, borderRight: `2px solid ${INK}`,
+                  borderBottom: `2px solid ${INK}`, borderRadius: '0 0 4px 4px',
+                }} />
+              ))}
+            </div>
           </div>
 
           {/* Pulled down so the counter top crosses his chest. */}
@@ -245,9 +265,12 @@ export default function ParlourView({
             OVER the sprite: without this his paws hang down the front panel. */}
         <div style={{
           position: 'relative', zIndex: 2,
-          height: 15,
-          background: `linear-gradient(180deg, ${WOOD_LT} 0%, ${WOOD} 100%)`,
+          height: 17,
+          background: `linear-gradient(180deg, ${WOOD_LT} 0%, ${WOOD_LT} 42%, ${WOOD} 100%)`,
           borderTop: `3px solid ${INK}`, borderBottom: `3px solid ${INK}`,
+          // A lit front edge and a shadow cast down the panelling: that pair is
+          // what gives the top its thickness. A flat band reads as floor.
+          boxShadow: `inset 0 2px 0 rgba(255,255,255,0.35), 0 4px 6px -2px rgba(0,0,0,0.45)`,
         }} />
         {/* Panelled front, tall enough to read as furniture. */}
         <div style={{
