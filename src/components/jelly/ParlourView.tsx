@@ -43,7 +43,7 @@ interface Props {
   /** The Parlour's tables are missing; say so instead of showing an empty tray. */
   blocked: boolean
   games: ParlourGame[]
-  onPlay: (id: 'slice' | 'jump') => void
+  onPlay: (id: 'run' | 'jump') => void
   onFeed: () => void
   onOpenCloset: () => void
   onBack: () => void

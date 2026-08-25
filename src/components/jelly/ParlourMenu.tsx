@@ -29,7 +29,7 @@ import {
 } from './parlourTheme'
 
 export interface ParlourGame {
-  id: 'slice' | 'jump'
+  id: 'run' | 'jump'
   title: string
   blurb: string
   best: number
@@ -41,11 +41,11 @@ export interface ParlourGame {
 interface Props {
   games: ParlourGame[]
   loaded: boolean
-  onPlay: (id: 'slice' | 'jump') => void
+  onPlay: (id: 'run' | 'jump') => void
 }
 
 /** The jelly served on each game's plate. Fixed per game so the board is stable. */
-const PLATE: Record<'slice' | 'jump', number> = { slice: 0, jump: 2 }
+const PLATE: Record<'run' | 'jump', number> = { run: 0, jump: 2 }
 
 const ParlourMenu = memo(function ParlourMenu({ games, loaded, onPlay }: Props) {
   return (

@@ -29,7 +29,7 @@ export default function JellyParlourPage() {
   const { profile } = useAuth()
   const { setHideStats } = useCare()
   const jellies = useJellies()
-  const slice = useJellyDuel('slice')
+  const run = useJellyDuel('run')
   const jump = useJellyDuel('jump')
 
   // The feed scene, holding the RPC's own numbers.
@@ -46,10 +46,10 @@ export default function JellyParlourPage() {
 
   const games: ParlourGame[] = [
     {
-      id: 'slice',
-      title: 'JELLY SLICE',
-      blurb: 'Flick through the jellies — slowly dragging cuts nothing. Never touch a sour one.',
-      best: slice.best, mineToday: slice.mineToday, theirsToday: slice.theirsToday, theirName: slice.theirName,
+      id: 'run',
+      title: 'JELLY RUN',
+      blurb: 'Outrun the jelly tide. Tap to jump, hold for height, swipe down to drop into the cellar.',
+      best: run.best, mineToday: run.mineToday, theirsToday: run.theirsToday, theirName: run.theirName,
     },
     {
       id: 'jump',

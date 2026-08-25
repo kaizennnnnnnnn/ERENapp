@@ -20,7 +20,7 @@ import { useAuth } from './useAuth'
 // back and forth all evening, because your second lead of the day hits the same
 // key. She can still earn hers by taking it back, which is the point.
 
-export type JellyGame = 'slice' | 'jump'
+export type JellyGame = 'run' | 'jump'
 const UNIQUE_VIOLATION = '23505'
 
 /** UTC day string, matching the table's `day` default so both agree at midnight. */
