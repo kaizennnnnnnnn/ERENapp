@@ -18,10 +18,17 @@ export const dynamic = 'force-dynamic'
 //   DIVE             swipe down. Slams the canopy shut and drops fast, and it
 //                    is the ONLY way under a hanging pipe — so down is a real
 //                    input, not a fidget.
-//   TWO FLOORS       gaps in the parlour floor drop you into the cellar. That
-//                    is not a death: it is a different, tighter lane you have
-//                    to jump back out of. Missing a jump costs you a route,
-//                    not the run.
+//   GAPS             holes in the parlour floor, over the vat. Every one is
+//                    dealt narrow enough to clear with a PLAIN TAP at the speed
+//                    you will be moving when you reach it, so a gap you can see
+//                    is a gap you can make. Miss it and that is the run.
+//
+//                    There used to be a second walkable storey down there and
+//                    falling in was a detour rather than a death. It came out:
+//                    escaping it needed 198px of climb, which is the only
+//                    reason the jump was ever 224px tall, and a player who
+//                    misjudged the climb was simply stuck in a lane with no
+//                    exit. Both of those are the same bug wearing two hats.
 //   BEADS -> POWER   collecting charges a bar. Full bar = DASH.
 //   DASH             double-tap (or the button): invincible, smashes anything
 //                    standing on the floor, and shoves the tide back. It is the
@@ -31,6 +38,10 @@ export const dynamic = 'force-dynamic'
 //                    tide. A lit burner KILLS. Everything that merely slows you
 //                    is wood or brass; the lethal is the only orange thing on
 //                    screen, because colour is read faster than shape.
+//   BEADS ON PATHS   every bead sits on a line he can actually travel, so a
+//                    string of them is always collectable in full by one move —
+//                    usually the move he was already making. Arcs over the
+//                    things you jump are sampled from the real parabola.
 //   THE TIDE         a wall of jelly on your heels that NEVER stops gaining.
 //                    Running cleanly buys time, never ground.
 //
@@ -61,8 +72,8 @@ import { useJellies, type JellyWin } from '@/hooks/useJellies'
 import { useJellyDuel } from '@/hooks/useJellyDuel'
 import JellyPrize, { type DuelLine } from '@/components/jelly/JellyPrize'
 import {
-  BackWall, WallShelf, CeilingLamp, FloorTile, CellarTile, Crate, Pipe, Burner, Glider, Tide, Bead,
-  TILE, FLOOR_H,
+  BackWall, WallShelf, CeilingLamp, FloorTile, Crate, Pipe, Burner, Glider, Tide, Bead,
+  TILE,
 } from '@/components/jelly/RunScenery'
 import PixelEren, { type ErenPose } from '@/components/games/PixelEren'
 import { playSound } from '@/lib/sounds'
@@ -71,16 +82,21 @@ import { INK, CREAM, BERRY, BRASS, BRASS_LT, LEAF, WOOD } from '@/components/jel
 // ─── Tuning ────────────────────────────────────────────────────────────────
 const GRAVITY = 2600          // px/s²
 /**
- * Jump.
+ * Jump — sized to clear ONE obstacle, and nothing grander.
  *
- * Stronger than it was, because the second jump is gone. The old double jump
- * was doing load-bearing work: escaping the cellar needs FLOOR_H + H_RUN +
- * DROP of climb, and a single jump could not manage it alone. One jump now
- * clears that on its own (see DROP), and holding buys height on top.
+ * It used to reach 224px, which is seven times the height of the crate it was
+ * clearing. That was not a taste call gone wrong: the lower lane needed
+ * FLOOR_H + H_RUN + its own depth of climb to escape, and the jump was carrying
+ * that. The lane is gone (see the file header), so the jump is free to be what
+ * a runner's jump should be — a hop with a definite top to it.
+ *
+ * A tap now peaks at JUMP_V²/(2·GRAVITY) ≈ 60px: a 30px crate cleared with
+ * about its own height again in daylight. Holding stretches that to ~102px for
+ * the wider gaps, and the glider does the rest.
  */
-const JUMP_V = 1080           // px/s off the floor — apex ≈ 224px
-const HOLD_ACC = 1600         // px/s² of extra lift while the tap is held...
-const HOLD_MS = 200           // ...for at most this long
+const JUMP_V = 560            // px/s off the floor — apex ≈ 60px
+const HOLD_ACC = 1400         // px/s² of extra lift while the tap is held...
+const HOLD_MS = 170           // ...for at most this long (held apex ≈ 102px)
 /**
  * The glider.
  *
@@ -97,6 +113,46 @@ const SPEED_MAX = 560
 const SPEED_RAMP = 78         // seconds to reach SPEED_MAX
 /** Two taps inside this window are a DASH, not two jumps. */
 const DOUBLE_TAP_MS = 280
+/**
+ * How long after a press a downward swipe may still take back its jump.
+ *
+ * Long enough to cover an ordinary thumb flick, short enough that it can never
+ * cancel a jump you meant — by 130ms a deliberate jump is already at two thirds
+ * of its apex and the player has visibly committed.
+ */
+const SWIPE_GRACE = 130
+/**
+ * The two forgivenesses every platformer needs, and this one needed most.
+ *
+ * COYOTE: you may still jump for a moment after walking off a lip. Without it
+ * the honest input "jump at the edge" loses to one frame of arithmetic.
+ * BUFFER: a jump pressed just before landing is remembered and fires on
+ * touchdown, instead of being dropped for not being grounded yet.
+ *
+ * Neither makes anything possible that was not already meant to be — they only
+ * stop the game refusing inputs the player did make.
+ */
+const COYOTE_MS = 90
+const JUMP_BUFFER_MS = 130
+
+/**
+ * The jump, as the terrain generator needs to know it.
+ *
+ * Every gap in the floor is sized against these, so a gap you can see is a gap
+ * you can clear. They are derived, never typed in twice — retuning the jump
+ * retunes the map with it, and the two can never drift apart.
+ */
+const TAP_AIR = (2 * JUMP_V) / GRAVITY            // seconds airborne on a tap
+const TAP_APEX = (JUMP_V * JUMP_V) / (2 * GRAVITY) // px it peaks at
+/**
+ * Fraction of a tap-jump's reach a gap is allowed to be.
+ *
+ * Well under 1 on purpose: the reach assumes he leaves at the last possible
+ * pixel and lands on the first, which nobody does. This is the margin that
+ * turns "technically possible" into "possible while also reading the next
+ * thing coming".
+ */
+const GAP_SAFETY = 0.62
 
 const EREN_PX = 34            // sprite box
 const EREN_W = 22             // ...and its hitbox, which is narrower than the art
@@ -115,21 +171,25 @@ const PIPE_CLEAR = 27
 const PIPE_H = 18
 /** A grounded slide ends on its own; it is a move, not a stance. */
 const SLIDE_MS = 620
-/** The lethal burner. Taller than a crate, so the shape agrees with the heat. */
-const BURNER_W = 38
-const BURNER_H = 46
-
 /**
- * Cellar headroom, in px.
+ * How tall a thing standing on the floor is allowed to be.
  *
- * Escaping the cellar means lifting his FEET from cellarY all the way to
- * upperY — that is FLOOR_H + H_RUN + DROP = 198px of climb, not DROP. A plain
- * tap now reaches JUMP_V²/(2·GRAVITY) ≈ 224px, so it clears with ~26px to
- * spare and a held jump is comfortable. Get this wrong in the other direction
- * and falling in is a slow death sentence rather than a detour: the ONLY way
- * out is up through the next hole in the floor.
+ * Derived from the jump, like the gaps are, and for the same reason. The burner
+ * was 46px against a 60px apex, which left a takeoff window of about 25px —
+ * jump a hair late and you clip a LETHAL you were clearly trying to clear. An
+ * obstacle you cannot comfortably hop is not an obstacle, it is a wall.
+ *
+ * At 62% of the apex he is above the obstacle for roughly a quarter of a
+ * second, which at running speed is a takeoff window several times the
+ * obstacle's own width.
  */
-const DROP = 150
+const MAX_OB_H = Math.round(TAP_APEX * 0.62)
+const CRATE_W = 30
+const CRATE_H = Math.min(30, MAX_OB_H)
+/** The lethal burner. Still the tallest thing on the ground — but jumpable. */
+const BURNER_W = 32
+const BURNER_H = MAX_OB_H
+
 
 /**
  * Gap the tide sits behind Eren, in px. Hit zero and it has you.
@@ -139,20 +199,23 @@ const DROP = 150
  * always coming, beads charge the bar, and the DASH is the one thing that
  * shoves it back. Collect, spend, survive.
  *
- * Creep also grows with elapsed time, so the loop tightens: early on a dash
- * buys most of the gap back, late on it barely keeps pace, and every run has
- * to end even for someone who never puts a foot wrong.
+ * Creep is deliberately gentle now. It was 17px/s ramping every 70s, which ate
+ * the last 100px — the stretch where the tide is actually ON SCREEN and you can
+ * see it — in about six seconds, so the moment it appeared it was already over.
+ * At 11px/s that same stretch is nine seconds of visible, answerable pressure,
+ * and the ramp is slower behind it.
  */
 const GAP_0 = 250
 const GAP_MAX = 300
-const GAP_CREEP = 17          // px/s it gains at the gun...
-const GAP_CREEP_RAMP = 70     // ...doubling every this many seconds
-const GAP_HIT = 58            // ...and all at once when a crate or pipe clips you
-const GAP_DASH = 165          // ...and what a dash shoves back
+const GAP_CREEP = 11          // px/s it gains at the gun...
+const GAP_CREEP_RAMP = 95     // ...doubling every this many seconds
+const GAP_HIT = 50            // ...and all at once when a crate or pipe clips you
+const GAP_DASH = 150          // ...and what a dash shoves back
 
 const POWER_PER_BEAD = 9
-const DASH_MS = 1500
-const DASH_MULT = 1.85
+/** Short and sharp. At 1.5s the dash outlasted the moment it was answering. */
+const DASH_MS = 900
+const DASH_MULT = 1.6
 
 /** A run's terrain is dealt in columns of TILE px. */
 const COLS_AHEAD = 26
@@ -184,8 +247,8 @@ const DASH_STREAKS = [
 interface Col {
   /** World x of the column's left edge. */
   x: number
-  /** Is there parlour floor here, or is this a hole into the cellar? */
-  upper: boolean
+  /** Is there floor here, or is this a gap over the drop? */
+  solid: boolean
 }
 
 /**
@@ -203,8 +266,6 @@ const LETHAL: Record<ObKind, boolean> = { crate: false, pipe: false, burner: tru
 interface Ob {
   x: number
   kind: ObKind
-  /** Which floor it belongs to. */
-  cellar: boolean
   dead: boolean
   w: number
   h: number
@@ -262,18 +323,20 @@ export default function JellyRunPage() {
 
   // ── Stage ────────────────────────────────────────────────────────────────
   const stageRef = useRef<HTMLDivElement>(null)
-  const dims = useRef({ w: 360, h: 620, upperY: 0, cellarY: 0, erenX: 0 })
-  const [layout, setLayout] = useState({ upperY: 0, h: 620 })
+  const dims = useRef({ w: 360, h: 620, floorY: 0, erenX: 0 })
+  const [layout, setLayout] = useState({ floorY: 0, h: 620 })
 
   // ── Entities (never state — the loop owns these) ─────────────────────────
   const cols = useRef<Col[]>([])
   const obs = useRef<Ob[]>([])
   const bead = useRef<BeadEnt[]>([])
   const nextColX = useRef(0)
+  /** One bead arc per gap, not one per column of it. */
+  const holeArcDone = useRef(false)
   /** Columns still owed to the current terrain feature. */
   const run = useRef({ kind: 'flat' as 'flat' | 'hole' | 'crates', left: 0 })
 
-  const eren = useRef({ y: 0, vy: 0, grounded: true, cellar: false, gliding: false, diving: false, slideUntil: 0 })
+  const eren = useRef({ y: 0, vy: 0, grounded: true, gliding: false, diving: false, slideUntil: 0 })
   const world = useRef({ x: 0, speed: SPEED_0, gap: GAP_0, t: 0 })
   const dash = useRef({ until: 0 })
   const stumble = useRef(0)
@@ -281,6 +344,12 @@ export default function JellyRunPage() {
   const swipe = useRef({ x: 0, y: 0, used: false })
   /** When the last pointerdown landed, so a second one can be read as a dash. */
   const lastTap = useRef(0)
+  /** When the current jump left the floor, so a swipe can un-jump it. */
+  const jumpedAt = useRef(0)
+  /** Latest moment a jump is still allowed after walking off a lip. */
+  const coyoteUntil = useRef(0)
+  /** A jump pressed mid-air, waiting for the landing that can spend it. */
+  const bufferUntil = useRef(0)
 
   const phaseRef = useRef<'ready' | 'play' | 'over'>('ready')
   const savedRef = useRef(false)
@@ -296,7 +365,6 @@ export default function JellyRunPage() {
 
   // ── Pooled DOM ───────────────────────────────────────────────────────────
   const colEls = useRef<(HTMLDivElement | null)[]>([])
-  const cellEls = useRef<(HTMLDivElement | null)[]>([])
   const crateEls = useRef<(HTMLDivElement | null)[]>([])
   const pipeEls = useRef<(HTMLDivElement | null)[]>([])
   const burnerEls = useRef<(HTMLDivElement | null)[]>([])
@@ -321,15 +389,14 @@ export default function JellyRunPage() {
     const el = stageRef.current
     if (!el) return
     const w = el.clientWidth, h = el.clientHeight
-    // Both floors are derived from DROP so the cellar is always escapable,
-    // whatever the screen. Clamped so a short screen doesn't push the parlour
-    // floor up into the HUD.
-    const cellarY = h - 54
-    const upperY = Math.max(Math.round(h * 0.34), cellarY - (FLOOR_H + H_RUN + DROP))
-    dims.current = { w, h, upperY, cellarY, erenX: Math.round(w * 0.26) }
+    // One floor. It sits low enough that the drop beneath it reads as a real
+    // fall rather than a step, and high enough to leave the jump arc room —
+    // which is now only ~102px at its most generous.
+    const floorY = Math.round(h * 0.70)
+    dims.current = { w, h, floorY, erenX: Math.round(w * 0.26) }
     // The backdrop is React-rendered, so the split has to reach state — a ref
     // alone leaves the wall painted at the pre-measure guess forever.
-    setLayout({ upperY, h })
+    setLayout({ floorY, h })
   }, [])
 
   useEffect(() => {
@@ -354,16 +421,50 @@ export default function JellyRunPage() {
   const dealColumn = useCallback(() => {
     const x = nextColX.current
     const t = world.current.t
-    const { upperY, cellarY } = dims.current
+    const { floorY } = dims.current
     // Difficulty: holes and crate rows get more common and longer with time.
     const heat = Math.min(1, t / 70)
 
+    /**
+     * How fast he will be moving when he ARRIVES here, not how fast he is now.
+     *
+     * Columns are dealt around 1500px ahead, which is several seconds of run —
+     * long enough for the speed ramp to have moved on. Sizing a gap against the
+     * current speed deals a gap that was fair when it was written and is not by
+     * the time it is reached. Estimating the arrival time first is what keeps
+     * the guarantee honest.
+     */
+    const lead = Math.max(0, x - world.current.x - dims.current.erenX)
+    const tArrive = t + lead / Math.max(1, world.current.speed)
+    const speedHere = SPEED_0 + (SPEED_MAX - SPEED_0) * Math.min(1, tArrive / SPEED_RAMP)
+    /**
+     * The widest gap a PLAIN TAP clears here, in whole columns.
+     *
+     * This is the promise the whole map rests on: every gap is jumpable with
+     * the simplest input available, at the speed you will actually meet it, and
+     * without needing the hold or the glider. Those are for style and for
+     * saving yourself, never for passage.
+     */
+    const maxGap = Math.max(1, Math.floor((speedHere * TAP_AIR * GAP_SAFETY) / TILE))
+
     if (run.current.left <= 0) {
       const r = Math.random()
-      if (r < 0.20 + heat * 0.14) {
-        run.current = { kind: 'hole', left: 2 + (Math.random() < heat * 0.5 ? 1 : 0) }
-      } else if (r < 0.46 + heat * 0.16) {
-        run.current = { kind: 'crates', left: 1 + (Math.random() < heat * 0.6 ? 1 : 0) }
+      // A hazard is always followed by flat ground. Not politeness — a runner
+      // is a reading game, and back-to-back features give you nothing to read
+      // the second one in.
+      if (run.current.kind !== 'flat') {
+        // The rest has to be LONGER THAN A JUMP. Two columns of flat is 88px,
+        // and a jump carries 108px at the gun and 240px at full speed — so a
+        // crate followed by a gap put the gap under him while he was still in
+        // the air from the crate, with the tap that would have saved him
+        // swallowed for not being grounded. Every fall in testing traced back
+        // here. Derived from the same reach the gaps are, so they stay in step.
+        const restCols = Math.ceil((speedHere * TAP_AIR) / TILE) + 1
+        run.current = { kind: 'flat', left: restCols + Math.floor(Math.random() * 2) }
+      } else if (r < 0.24 + heat * 0.12) {
+        run.current = { kind: 'hole', left: Math.min(maxGap, 1 + (Math.random() < 0.35 + heat * 0.4 ? 1 : 0)) }
+      } else if (r < 0.52 + heat * 0.14) {
+        run.current = { kind: 'crates', left: 1 + (Math.random() < heat * 0.5 ? 1 : 0) }
       } else {
         run.current = { kind: 'flat', left: 2 + Math.floor(Math.random() * 3) }
       }
@@ -371,16 +472,18 @@ export default function JellyRunPage() {
     const feature = run.current.kind
     run.current.left--
 
-    const upper = feature !== 'hole'
-    cols.current.push({ x, upper })
+    const solid = feature !== 'hole'
+    cols.current.push({ x, solid })
 
     // ONE hazard per column at most. Stacking a burner behind a crate reads as
     // a single blurred shape at 500px/s, and the two ask for opposite things.
     let hazard: ObKind | null = null
-    if (feature === 'crates' && upper) {
+    let hazardX = 0
+    if (feature === 'crates' && solid) {
       hazard = 'crate'
-      obs.current.push({ x: x + TILE * 0.28, kind: 'crate', cellar: false, dead: false, w: 30, h: 30 })
-    } else if (feature === 'flat' && upper && x > TILE * 8) {
+      hazardX = x + TILE * 0.28
+      obs.current.push({ x: hazardX, kind: 'crate', dead: false, w: CRATE_W, h: CRATE_H })
+    } else if (feature === 'flat' && solid && x > TILE * 8) {
       // The opening columns stay clear of both: a runner that kills you before
       // you have found the controls is not difficult, it is rude.
       const r = Math.random()
@@ -388,48 +491,77 @@ export default function JellyRunPage() {
       const pipeOdds = 0.10 + heat * 0.10
       if (r < burnerOdds) {
         hazard = 'burner'
-        const bx = x + (TILE - BURNER_W) / 2
-        obs.current.push({ x: bx, kind: 'burner', cellar: false, dead: false, w: BURNER_W, h: BURNER_H })
-        // Sweep low beads off the APPROACH as well as off the burner itself.
-        // The column before this one was dealt without knowing what was coming,
-        // and a low bead line running up to a lethal is the one arrangement
-        // that punishes the instinct — go for the pickup — the whole rest of
-        // the game spends its time training.
-        const lowY = upperY - 46
-        bead.current = bead.current.filter(bd =>
-          bd.x < bx - TILE * 1.1 || bd.x > bx + BURNER_W + 16 || bd.y < lowY)
+        hazardX = x + (TILE - BURNER_W) / 2
+        obs.current.push({ x: hazardX, kind: 'burner', dead: false, w: BURNER_W, h: BURNER_H })
       } else if (r < burnerOdds + pipeOdds) {
         // A hanging pipe over open floor — the dive gate. Never over a hole,
         // where it would ask for a dive and a jump in the same step.
         hazard = 'pipe'
-        obs.current.push({ x: x + TILE * 0.2, kind: 'pipe', cellar: false, dead: false, w: 40, h: 18 })
+        hazardX = x + TILE * 0.2
+        obs.current.push({ x: hazardX, kind: 'pipe', dead: false, w: 40, h: 18 })
       }
-    }
-    // The cellar gets its own crates so falling in is a lane, not a rest. Never
-    // a burner: down there you are already cornered, and a lethal in a lane you
-    // did not choose to enter is just a punishment for one earlier mistake.
-    if (Math.random() < 0.18 + heat * 0.12) {
-      obs.current.push({ x: x + TILE * 0.3, kind: 'crate', cellar: true, dead: false, w: 28, h: 26 })
     }
 
-    // Beads. Over a hole they arc across the gap (the reward for jumping it);
-    // on flat ground they sit at hop height.
-    if (feature === 'hole') {
-      // Arced across the gap — the payment for committing to the jump.
-      for (let i = 0; i < 3; i++) {
-        bead.current.push({ x: x + 8 + i * 13, y: upperY - 62 - Math.sin((i + 1) / 4 * Math.PI) * 26, taken: false })
+    // ── Beads ────────────────────────────────────────────────────────────
+    //
+    // Every bead sits on a path he can actually travel, so a line of them is
+    // always collectable in full by one move. They used to be dropped at a
+    // "low" or "high" row picked at random, which meant a high row over open
+    // floor asked for a jump that gained nothing, and a row could be strung
+    // across a jump he had no reason to make — half of them uncollectable in
+    // practice.
+    //
+    // The three placements below are the only three paths he has: standing,
+    // jumping something, and crossing a gap. Nothing is ever put anywhere else.
+    const arc = (fromX: number, span: number, n: number) => {
+      // The parabola of the tap-jump that clears `span` px, apex centred on it.
+      // Sampling the real trajectory is what makes the line collectable in one
+      // move rather than merely near one.
+      const air = TAP_AIR
+      const v0 = JUMP_V
+      for (let i = 0; i < n; i++) {
+        const f = (i + 0.5) / n                       // 0..1 along the arc
+        const tt = f * air
+        const rise = v0 * tt - 0.5 * GRAVITY * tt * tt
+        bead.current.push({
+          x: fromX + f * span,
+          // The pickup test compares against his CENTRE, so the arc is written
+          // in centre-height and the bead's own box is offset off it.
+          y: floorY - rise - EREN_PX * 0.5 - 8,
+          taken: false,
+        })
       }
-    } else if (Math.random() < 0.55) {
-      // Over a burner the row is forced HIGH. A bead sitting at hop height in
-      // front of a lethal is a trap that rewards the exact instinct — reach for
-      // the pickup — the rest of the game spends its time training.
-      const low = hazard !== 'burner' && Math.random() < 0.5
-      const floorY = hazard === 'burner' ? upperY : Math.random() < 0.25 ? cellarY : upperY
-      // Well clear of a burner's 46px of pot, not skimming its rim.
-      const lift = low ? 26 : hazard === 'burner' ? 90 : 64
-      const baseY = floorY - lift
-      for (let i = 0; i < 3; i++) {
-        bead.current.push({ x: x + 6 + i * 14, y: baseY, taken: false })
+    }
+
+    if (feature === 'hole') {
+      // Only the FIRST column of a gap lays the arc; the flag is cleared by
+      // the next solid column. Otherwise a two-column gap gets two overlapping
+      // strings of beads across the same jump.
+      if (!holeArcDone.current) {
+        holeArcDone.current = true
+        const span = speedHere * TAP_AIR
+        arc(x - span * 0.28, span, 5)
+      }
+    } else {
+      holeArcDone.current = false
+      if (hazard === 'crate') {
+        // Strung over the crate he already has to jump. This is the one the
+        // whole rule exists for: the pickup is ON the move he was making.
+        const span = speedHere * TAP_AIR
+        arc(hazardX + CRATE_W / 2 - span * 0.5, span, 5)
+      } else if (hazard === 'burner') {
+        // Apex dead-centre over it, exactly like the crate. Offsetting it by a
+        // few percent pulled the arc's first low bead to within a stride of a
+        // LETHAL — close enough that taking it left no room to take off. The
+        // whole point of laying beads on the trajectory is that following them
+        // IS the correct move; nudging the arc off the jump breaks that.
+        const span = speedHere * TAP_AIR
+        arc(hazardX + BURNER_W / 2 - span * 0.5, span, 5)
+      } else if (hazard === null && Math.random() < 0.5) {
+        // Open floor: a level line at running height, taken by doing nothing.
+        for (let i = 0; i < 3; i++) {
+          bead.current.push({ x: x + 6 + i * 14, y: floorY - EREN_PX * 0.5 - 8, taken: false })
+        }
       }
     }
 
@@ -446,23 +578,17 @@ export default function JellyRunPage() {
    * until the first frame runs.
    */
   const paint = useCallback(() => {
-    const { upperY, cellarY, erenX } = dims.current
+    const { floorY, erenX } = dims.current
     const camX = world.current.x
     const feetY = eren.current.y
 
     for (let i = 0; i < N_COL; i++) {
       const c = cols.current[i]
-      const el = colEls.current[i], ce = cellEls.current[i]
-      if (!c) { if (el) el.style.display = 'none'; if (ce) ce.style.display = 'none'; continue }
-      const sx = c.x - camX
-      if (el) {
-        el.style.display = c.upper ? 'block' : 'none'
-        if (c.upper) el.style.transform = `translate3d(${sx.toFixed(1)}px, ${upperY}px, 0)`
-      }
-      if (ce) {
-        ce.style.display = 'block'
-        ce.style.transform = `translate3d(${sx.toFixed(1)}px, ${cellarY}px, 0)`
-      }
+      const el = colEls.current[i]
+      if (!el) continue
+      if (!c || !c.solid) { el.style.display = 'none'; continue }
+      el.style.display = 'block'
+      el.style.transform = `translate3d(${(c.x - camX).toFixed(1)}px, ${floorY}px, 0)`
     }
     // One pool PER KIND. A single shared pool drew whatever art the SLOT
     // happened to hold, so a crate could render as a pipe — and the player
@@ -476,8 +602,7 @@ export default function JellyRunPage() {
       else if (o.kind === 'pipe') { if (pi >= N_PIPE) continue; el = pipeEls.current[pi++] }
       else { if (bi >= N_BURNER) continue; el = burnerEls.current[bi++] }
       if (!el) continue
-      const base = o.cellar ? cellarY : upperY
-      const oy = o.kind === 'pipe' ? base - PIPE_CLEAR - PIPE_H : base - o.h
+      const oy = o.kind === 'pipe' ? floorY - PIPE_CLEAR - PIPE_H : floorY - o.h
       el.style.display = 'block'
       el.style.transform = `translate3d(${(o.x - camX).toFixed(1)}px, ${oy}px, 0)`
     }
@@ -508,8 +633,8 @@ export default function JellyRunPage() {
       }
     }
     band(lampEls.current, N_LAMP, 210, 0.16, 30)
-    band(shelfFarEls.current, N_SHELF_FAR, 300, 0.22, Math.max(58, upperY - 232))
-    band(shelfEls.current, N_SHELF, 260, 0.33, upperY - 120)
+    band(shelfFarEls.current, N_SHELF_FAR, 300, 0.22, Math.max(58, floorY - 232))
+    band(shelfEls.current, N_SHELF, 260, 0.33, floorY - 120)
     const erenT = `translate3d(${erenX - EREN_PX / 2}px, ${(feetY - EREN_PX).toFixed(1)}px, 0)`
     if (erenEl.current) erenEl.current.style.transform = erenT
     // The trail rides exactly where he is; its stamps carry their own offsets.
@@ -522,14 +647,15 @@ export default function JellyRunPage() {
   // ── Seed ─────────────────────────────────────────────────────────────────
   /** Puts the world back at the starting line. Shared by READY and by start. */
   const seed = useCallback(() => {
-    const { upperY } = dims.current
+    const { floorY } = dims.current
     cols.current = []
     obs.current = []
     bead.current = []
     nextColX.current = 0
     run.current = { kind: 'flat', left: 6 }   // a clear runway to begin on
+    holeArcDone.current = false
     world.current = { x: 0, speed: SPEED_0, gap: GAP_0, t: 0 }
-    eren.current = { y: upperY, vy: 0, grounded: true, cellar: false, gliding: false, diving: false, slideUntil: 0 }
+    eren.current = { y: floorY, vy: 0, grounded: true, gliding: false, diving: false, slideUntil: 0 }
     hud.current = { m: -1, b: -1, p: -1 }
     dash.current = { until: 0 }
     held.current = { at: 0, active: false }
@@ -603,6 +729,8 @@ export default function JellyRunPage() {
   // down and restart the difficulty ramp several times a second.
   const endRef = useRef(endRun)
   useEffect(() => { endRef.current = endRun }, [endRun])
+  /** The loop fires buffered jumps, and is built before doJump exists. */
+  const jumpRef = useRef<() => boolean>(() => false)
 
   // ── Input ────────────────────────────────────────────────────────────────
   //
@@ -611,16 +739,26 @@ export default function JellyRunPage() {
   //   keep holding climb higher, then the glider opens on the way down
   //   tap twice    DASH
   //   swipe down   dive: slam the glider shut and hit the floor, or slide
-  const doJump = useCallback(() => {
+  const doJump = useCallback((): boolean => {
     const e = eren.current
-    if (!e.grounded) return
+    const now = performance.now()
+    if (!e.grounded && now > coyoteUntil.current) {
+      // Can't go yet — remember it and let the landing spend it.
+      bufferUntil.current = now + JUMP_BUFFER_MS
+      return false
+    }
+    coyoteUntil.current = 0
+    bufferUntil.current = 0
     e.slideUntil = 0
     e.vy = -JUMP_V
     e.grounded = false
     e.diving = false
     e.gliding = false
+    // Remembered so a swipe can take it back — see SWIPE_GRACE.
+    jumpedAt.current = now
     playSound('jl_bounce')
     setPose('leap')
+    return true
   }, [])
 
   /** Returns whether it actually fired, so the caller knows if the tap was spent. */
@@ -647,6 +785,8 @@ export default function JellyRunPage() {
     return () => window.clearTimeout(t)
   }, [dashOn])
 
+  useEffect(() => { jumpRef.current = doJump }, [doJump])
+
   const onDown = useCallback((ev: React.PointerEvent) => {
     if (phaseRef.current !== 'play') return
     swipe.current = { x: ev.clientX, y: ev.clientY, used: false }
@@ -671,11 +811,36 @@ export default function JellyRunPage() {
     const dx = ev.clientX - swipe.current.x
     const dy = ev.clientY - swipe.current.y
     if (dy > SWIPE_PX && dy > Math.abs(dx)) {
-      // Down: dive. Cancels the jump and the glider this same gesture started —
-      // a swipe down is unambiguously "get me to the floor NOW".
+      // Down: dive.
       swipe.current.used = true
       held.current.active = false
       const e = eren.current
+      /**
+       * PUT THE JUMP BACK.
+       *
+       * A swipe begins with a pointerdown, and pointerdown jumps — it has to,
+       * because a runner cannot afford to wait and see whether a press becomes
+       * a gesture. So every swipe down was silently launching him first, and
+       * "duck" turned into "hop, then slam": he arrived at the pipe airborne,
+       * at head height, holding a short hitbox that was never going to help.
+       * It was the single commonest death in testing.
+       *
+       * Inside the grace window the press is reclassified as a swipe and the
+       * jump is undone — he is put back on the floor he left. Only over solid
+       * ground: undoing a jump that was carrying him across a gap would stand
+       * him on nothing.
+       */
+      const sinceDown = performance.now() - jumpedAt.current
+      if (sinceDown < SWIPE_GRACE) {
+        const { floorY, erenX } = dims.current
+        const idx = Math.floor((world.current.x + erenX) / TILE)
+        const under = cols.current.find(c => c.x === idx * TILE)
+        if (!under || under.solid) {
+          e.y = floorY
+          e.vy = 0
+          e.grounded = true
+        }
+      }
       e.diving = true
       e.gliding = false
       // Grounded, this is a SLIDE with a timer; airborne it's a fast fall that
@@ -709,7 +874,7 @@ export default function JellyRunPage() {
 
       const w = world.current
       const e = eren.current
-      const { upperY, cellarY, erenX, h } = dims.current
+      const { floorY, erenX, h } = dims.current
       const dashing = now < dash.current.until
 
       // Speed: ramps with time, boosted by a dash, cut while stumbling.
@@ -739,48 +904,35 @@ export default function JellyRunPage() {
       const wantGlide = held.current.active && !e.grounded && !e.diving && !dashing && e.vy > 0
       e.gliding = wantGlide
       if (wantGlide && e.vy > GLIDE_V) e.vy = GLIDE_V
+      const prevY = e.y
       e.y += e.vy * dt
 
       // A slide runs out on its own, so he can't crawl the whole level.
       if (e.diving && e.grounded && now > e.slideUntil) e.diving = false
 
-      // Which floor is under him at this instant?
+      // Is there floor under him at this instant?
       const hereX = w.x + erenX          // Eren's world x = camera + his offset
       const idx = Math.floor(hereX / TILE)
       const col = cols.current.find(c => c.x === idx * TILE)
-      const hasUpper = col ? col.upper : true
-      /** Lowest his FEET may go while under the parlour floor. */
-      const ceilFeet = upperY + FLOOR_H + H_RUN
+      const solid = col ? col.solid : true
 
-      if (e.cellar) {
-        // In the cellar. The upper slab is a CEILING here — the only way back
-        // out is up through the next hole, which is what makes the cellar a
-        // lane you have to escape rather than a safe corridor.
-        if (e.y >= cellarY) {
-          e.y = cellarY; e.vy = 0; e.grounded = true
-        } else {
-          e.grounded = false
-        }
-        if (!hasUpper && e.y <= upperY) {
-          e.cellar = false            // climbed out through a hole
-        } else if (hasUpper && e.y < ceilFeet) {
-          // Bonked the underside. Feet clamp so his HEAD stays below the slab.
-          e.y = ceilFeet
-          if (e.vy < 0) e.vy = 0
-        }
-      } else {
-        if (e.y >= upperY) {
-          if (hasUpper) {
-            e.y = upperY; e.vy = 0; e.grounded = true
-          } else {
-            e.cellar = true           // over a hole — drop into the cellar
-            e.grounded = false
-          }
-        } else {
-          e.grounded = false
-        }
+      // Landing is a CROSSING of the floor line, not simply being at or below
+      // it. Testing position alone teleports him back up the moment solid
+      // ground scrolls over his head after he has already dropped past it.
+      if (solid && prevY <= floorY && e.y >= floorY) {
+        e.y = floorY; e.vy = 0; e.grounded = true
+        // Spend a jump that was pressed a moment too early.
+        if (now < bufferUntil.current) { bufferUntil.current = 0; jumpRef.current() }
+      } else if (e.grounded && !solid) {
+        e.grounded = false             // ran off the lip of a gap
+        coyoteUntil.current = now + COYOTE_MS
+      } else if (e.y < floorY || !solid) {
+        e.grounded = false
       }
-      if (e.y > h + 80) { endRef.current(); return }
+      // Down the hole. There is no lower lane to catch him any more — the gap
+      // is the hazard, and every gap is dealt narrow enough to clear with a
+      // plain tap at the speed he meets it (see GAP_SAFETY).
+      if (e.y > h + 40) { endRef.current(); return }
 
       const feetY = e.y
       const eH = e.diving ? H_SLIDE : H_RUN
@@ -797,12 +949,10 @@ export default function JellyRunPage() {
       const eL = hereX - EREN_W / 2, eR = hereX + EREN_W / 2
       for (const o of obs.current) {
         if (o.dead) continue
-        if (o.cellar !== e.cellar) continue
         if (o.x + o.w < eL || o.x > eR) continue
-        const base = o.cellar ? cellarY : upperY
         const hanging = o.kind === 'pipe'
-        const oTop = hanging ? base - PIPE_CLEAR - PIPE_H : base - o.h
-        const oBot = hanging ? base - PIPE_CLEAR : base
+        const oTop = hanging ? floorY - PIPE_CLEAR - PIPE_H : floorY - o.h
+        const oBot = hanging ? floorY - PIPE_CLEAR : floorY
         if (feetY < oTop || headY > oBot) continue
         if (dashing) {
           // A dash goes THROUGH anything standing on the floor — that is what
@@ -900,7 +1050,7 @@ export default function JellyRunPage() {
         style={{ touchAction: 'none', zIndex: 5, isolation: 'isolate' }}
         onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
 
-        <BackWall upperY={layout.upperY || 320} />
+        <BackWall floorY={layout.floorY || 420} />
 
         {/* Parallax dressing, furthest band first so nearer ones overlap it */}
         {Array.from({ length: N_LAMP }).map((_, i) => (
@@ -925,11 +1075,6 @@ export default function JellyRunPage() {
             <FloorTile w={TILE + 1} />
           </div>
         ))}
-        {Array.from({ length: N_COL }).map((_, i) => (
-          <div key={`k${i}`} ref={el => { cellEls.current[i] = el }} style={{ position: 'absolute', left: 0, top: 0 }}>
-            <CellarTile w={TILE + 1} />
-          </div>
-        ))}
 
         {/* Beads */}
         {Array.from({ length: N_BEAD }).map((_, i) => (
@@ -941,7 +1086,7 @@ export default function JellyRunPage() {
         {/* Obstacles */}
         {Array.from({ length: N_CRATE }).map((_, i) => (
           <div key={`cr${i}`} ref={el => { crateEls.current[i] = el }} style={{ position: 'absolute', left: 0, top: 0, display: 'none' }}>
-            <Crate w={30} h={30} />
+            <Crate w={CRATE_W} h={CRATE_H} />
           </div>
         ))}
         {Array.from({ length: N_PIPE }).map((_, i) => (
@@ -1109,6 +1254,7 @@ export default function JellyRunPage() {
             <span>TAP to jump — KEEP HOLDING to open the glider</span>
             <span>TAP TWICE to DASH on a full bar</span>
             <span>SWIPE DOWN to drop fast, and to duck the pipes</span>
+            <span>Every gap can be cleared with one plain tap</span>
           </div>
           {/* The two hazard classes, stated before the first one arrives. The
               lethal is the only thing in the room that is orange, so the

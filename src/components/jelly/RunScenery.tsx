@@ -7,11 +7,11 @@
 // running: the page owns one rAF loop and moves these pieces by writing
 // transforms to refs, so none of this re-renders during a run.
 //
-// The world is the parlour's stores in cross-section — a lit upper floor of
-// shelving you run along, and a dark preserve cellar underneath that you drop
-// into. Keeping the two halves visually opposite (warm and lit vs cold and
-// dim) is what makes falling through a gap read as going SOMEWHERE rather
-// than as clipping through the floor.
+// The world is the parlour's stores in cross-section — a lit floor of shelving
+// you run along, and below it the drop: a dark shaft ending in the jelly vat.
+// Keeping the two halves visually opposite (warm and lit above, cold and dark
+// below) is what makes a gap in the floor read as a HOLE rather than as a
+// missing tile.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { memo } from 'react'
@@ -49,27 +49,27 @@ function recede(hex: string, t: number): string {
 
 // ─── Back wall ─────────────────────────────────────────────────────────────
 
-export const BackWall = memo(function BackWall({ upperY }: { upperY: number }) {
+export const BackWall = memo(function BackWall({ floorY }: { floorY: number }) {
   return (
     <>
       {/* Lit upper half — the parlour's striped wall. Deliberately low
           contrast: the player is reading a silhouette moving at 500px/s, and a
           busy backdrop is what makes a runner feel noisy instead of fast. */}
       <div className="absolute inset-x-0 top-0 pointer-events-none" style={{
-        height: upperY,
+        height: floorY,
         background: `linear-gradient(180deg, ${WALL} 0%, ${WALL_STRIPE} 62%, ${WALL_DEEP} 100%)`,
       }} />
       {/* The wallpaper's actual stripes. Fixed rather than scrolling: a moving
           repeating pattern at this pitch strobes against the frame rate. */}
       <div className="absolute inset-x-0 top-0 pointer-events-none" style={{
-        height: upperY, opacity: 0.5,
+        height: floorY, opacity: 0.5,
         background: `repeating-linear-gradient(90deg, transparent 0 22px, ${WALL_DEEP} 22px 44px)`,
         maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.12) 78%, transparent 100%)',
         WebkitMaskImage: 'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.12) 78%, transparent 100%)',
       }} />
-      {/* Ceiling. The upper floor sits low on a tall phone, so without this the
-          top third is blank wall and the room reads as unfinished rather than
-          as a room. */}
+      {/* Ceiling. The floor sits low on a tall phone, so without this the top
+          third is blank wall and the room reads as unfinished rather than as a
+          room. */}
       <div className="absolute inset-x-0 top-0 pointer-events-none" style={{
         height: 34,
         background: `linear-gradient(180deg, ${recede(WOOD_DK, 0.5)} 0%, ${recede(WOOD, 0.55)} 62%, ${recede(WOOD_DK, 0.62)} 100%)`,
@@ -77,14 +77,34 @@ export const BackWall = memo(function BackWall({ upperY }: { upperY: number }) {
       <div className="absolute inset-x-0 pointer-events-none" style={{
         top: 34, height: 5, background: recede(WOOD_DK, 0.35), opacity: 0.8,
       }} />
-      {/* Cellar — cold and dark, so the drop reads as a different place */}
+      {/*
+        Below the floor: the drop.
+
+        This used to be a second walkable storey. It is now a fall, and the art
+        has to say so before the player finds out the hard way — so it goes
+        dark fast and ends in jelly, the same jelly that is chasing him. A gap
+        in the floor is a hole into the vat.
+      */}
       <div className="absolute inset-x-0 pointer-events-none" style={{
-        top: upperY, bottom: 0,
-        background: `linear-gradient(180deg, ${CASE_IN_LT} 0%, ${CASE_IN} 55%, #1B1017 100%)`,
+        top: floorY, bottom: 0,
+        background: `linear-gradient(180deg, ${CASE_IN_LT} 0%, ${CASE_IN} 34%, #150C11 78%)`,
       }} />
       <div className="absolute inset-x-0 pointer-events-none" style={{
-        top: upperY - 2, height: 3, background: INK, opacity: 0.85,
+        top: floorY - 2, height: 3, background: INK, opacity: 0.85,
       }} />
+      <div className="jrVat absolute inset-x-0 bottom-0 pointer-events-none" style={{
+        height: 34,
+        background: `linear-gradient(180deg, ${BERRY_DK} 0%, #6E1B39 100%)`,
+        boxShadow: `0 -8px 22px rgba(158,43,81,0.55)`,
+      }} />
+      <style jsx>{`
+        .jrVat { animation: jrVatBreathe 2.4s ease-in-out infinite; }
+        @keyframes jrVatBreathe {
+          0%, 100% { transform: translateY(0); }
+          50%      { transform: translateY(-3px); }
+        }
+        @media (prefers-reduced-motion: reduce) { .jrVat { animation: none; } }
+      `}</style>
     </>
   )
 })
@@ -141,9 +161,9 @@ export const CeilingLamp = memo(function CeilingLamp({ depth = 0 }: { depth?: nu
 /**
  * One tile of the run-along floor.
  *
- * It gets a dark underside because in the cellar you see this same slab FROM
- * BELOW — down there it is the ceiling, and a slab with no underside reads as
- * a floating line.
+ * It keeps a dark underside: at the lip of a gap you see the slab end, and a
+ * floor with no thickness reads as a painted line rather than as something you
+ * are standing on top of.
  */
 export const FloorTile = memo(function FloorTile({ w }: { w: number }) {
   return (
@@ -152,17 +172,6 @@ export const FloorTile = memo(function FloorTile({ w }: { w: number }) {
       <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 3, background: WOOD_LT }} />
       <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 1, background: CREAM_DIM, opacity: 0.5 }} />
       <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, background: INK, opacity: 0.9 }} />
-    </div>
-  )
-})
-
-/** The cellar's own floor — stone, colder, and always continuous. */
-export const CellarTile = memo(function CellarTile({ w }: { w: number }) {
-  return (
-    <div style={{ width: w, height: FLOOR_H, position: 'absolute', willChange: 'transform' }}>
-      <div style={{ position: 'absolute', inset: 0, background: '#3A2A33', borderLeft: '1px solid #241820' }} />
-      <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 3, background: '#584250' }} />
-      <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 1, background: '#7A6070' }} />
     </div>
   )
 })
