@@ -17,7 +17,7 @@
 import { memo } from 'react'
 import {
   INK, CREAM, CREAM_DIM, WALL, WALL_STRIPE, WALL_DEEP,
-  WOOD, WOOD_DK, WOOD_LT, CASE_IN, CASE_IN_LT, BERRY, BERRY_DK, BRASS, BRASS_LT, BRASS_DK,
+  WOOD, WOOD_DK, WOOD_LT, CASE_IN, CASE_IN_LT, BERRY, BERRY_DK, BRASS, BRASS_LT, BRASS_DK, LEAF,
 } from './parlourTheme'
 
 /** One terrain column. The whole world grid is measured in these. */
@@ -116,7 +116,12 @@ export const BackWall = memo(function BackWall({ floorY }: { floorY: number }) {
  * drives colour only — nothing here is ever solid.
  */
 export const WallShelf = memo(function WallShelf({ depth = 0 }: { depth?: number }) {
-  const t = 0.42 + depth * 0.26
+  // Pushed further back than it used to be. The run now has REAL walkways at
+  // roughly shelf height and in the same brown, and a background prop that a
+  // player might try to land on is a lie the game charges for. Atmospheric
+  // perspective is the whole defence, so it has to be worth something: at 0.42
+  // the near band still read as a solid ledge with a lit top.
+  const t = 0.56 + depth * 0.24
   const jar = (c: string) => recede(c, t + 0.06)
   return (
     <div style={{ width: 120, height: 22, position: 'absolute', willChange: 'transform' }}>
@@ -390,6 +395,296 @@ export const Bead = memo(function Bead({ size, color }: { size: number; color: s
         boxShadow: `0 0 8px ${color}`,
       }} />
       <div style={{ position: 'absolute', left: 3, top: 2, width: 4, height: 3, background: CREAM, opacity: 0.85, borderRadius: 1 }} />
+    </div>
+  )
+})
+
+// ─── Raised roads ──────────────────────────────────────────────────────────
+
+/**
+ * A suspended service walkway — the run's high road.
+ *
+ * It is a ONE-WAY platform: you pass up through it and land on top, and the
+ * lit floor always continues underneath, so stepping off one is never a fall.
+ * That is the whole reason it can afford to be generous — a high line worth
+ * taking for the gems on it, with nothing punishing about missing it.
+ *
+ * Two hanging brass rods, exactly the language the pipe uses, because both are
+ * bolted to the same ceiling. What separates them is the part you read at
+ * speed: the pipe is a NARROW brass bar with syrup running off it; this is a
+ * WIDE plank with a lit top edge. Wide-and-wooden means stand on it. The two
+ * are also never dealt in the same stretch, so the question never comes up
+ * with a hazard's timing attached to the answer.
+ */
+export const Road = memo(function Road() {
+  const fade = 'linear-gradient(0deg, rgba(0,0,0,1) 0%, rgba(0,0,0,0.7) 62%, rgba(0,0,0,0) 100%)'
+  const hanger: React.CSSProperties = {
+    position: 'absolute', bottom: '100%', width: 5, height: 96,
+    background: `linear-gradient(180deg, ${BRASS_DK} 0%, ${BRASS} 78%, ${BRASS_LT} 100%)`,
+    maskImage: fade, WebkitMaskImage: fade,
+  }
+  return (
+    // No width or height of its own: road segments come in several lengths and
+    // the pool node they are drawn into is reused, so the LOOP owns the box and
+    // the art fills it. Anything that had to be measured in px here (seams) is
+    // a repeating background instead.
+    //
+    // Drawn LIGHTER than the floor on purpose. It hangs in mid-air over a pink
+    // wall with nothing beneath it, so it has to win the read against the
+    // parallax shelving behind it — which is the same brown, receded. Wood-lit
+    // plus a hard shadow plus visible hangers is what makes it a thing you
+    // stand ON rather than a bar drawn across the room.
+    <div style={{ position: 'absolute', inset: 0, willChange: 'transform' }}>
+      <div style={{ ...hanger, left: 14 }} />
+      <div style={{ ...hanger, right: 15 }} />
+      <div style={{
+        position: 'absolute', inset: 0, background: WOOD_LT,
+        border: `2px solid ${INK}`, borderRadius: 2,
+        // Thickness, in the app's hard-shadow language — no blur.
+        boxShadow: `0 3px 0 ${INK}`,
+        backgroundImage: `repeating-linear-gradient(90deg, transparent 0 34px, ${WOOD} 34px 37px)`,
+      }} />
+      {/* the lit standing edge — the pixel row that says "this is a top" */}
+      <div style={{ position: 'absolute', left: 2, right: 2, top: 0, height: 2, background: CREAM }} />
+      {/* and the shaded underside, so it has a near face rather than an edge */}
+      <div style={{ position: 'absolute', left: 2, right: 2, bottom: 0, height: 3, background: WOOD_DK, opacity: 0.9 }} />
+      {/* brass end caps, so where the walkway RUNS OUT is legible early */}
+      <div style={{
+        position: 'absolute', left: -1, top: -3, bottom: -2, width: 8,
+        background: `linear-gradient(180deg, ${BRASS_LT} 0%, ${BRASS} 60%, ${BRASS_DK} 100%)`,
+        border: `2px solid ${INK}`, borderRadius: 2,
+      }} />
+      <div style={{
+        position: 'absolute', right: -1, top: -3, bottom: -2, width: 8,
+        background: `linear-gradient(180deg, ${BRASS_LT} 0%, ${BRASS} 60%, ${BRASS_DK} 100%)`,
+        border: `2px solid ${INK}`, borderRadius: 2,
+      }} />
+    </div>
+  )
+})
+
+// ─── More hazards ──────────────────────────────────────────────────────────
+
+/**
+ * Boiling syrup, spilled across the floor. LETHAL, and the second thing in
+ * the run allowed to be orange.
+ *
+ * It exists to be the burner's opposite. The burner is TALL and NARROW: you
+ * clear it with a hop and the only question is when. This is FLAT and WIDE, so
+ * a hop off the wrong foot lands you back in the middle of it and the question
+ * becomes where you take off from. Same colour, same verdict, completely
+ * different read — which is what stops "jump the orange thing" collapsing into
+ * one reflex.
+ *
+ * Nothing about it is standable, and the art says so: it has no top, only a
+ * surface that is obviously liquid.
+ */
+export const Spill = memo(function Spill({ w, h }: { w: number; h: number }) {
+  const bubbles: Array<[number, number]> = [[10, 3], [Math.round(w * 0.42), 4], [w - 20, 3]]
+  return (
+    <div style={{ width: w, height: h, position: 'absolute', willChange: 'transform' }}>
+      <div className="jrSpillHeat" style={{
+        position: 'absolute', left: -10, right: -10, top: -26, bottom: -4,
+        background: `radial-gradient(ellipse at 50% 88%, rgba(255,138,42,0.4) 0%, rgba(255,90,20,0.13) 50%, rgba(255,90,20,0) 78%)`,
+      }} />
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: `linear-gradient(180deg, #FFB259 0%, #FF8A2A 42%, #C7401A 100%)`,
+        border: `2px solid ${INK}`, borderRadius: '40% 40% 30% 30% / 70% 70% 40% 40%',
+      }} />
+      {bubbles.map(([bx, r], i) => (
+        <div key={bx} className={`jrBub jrBub${i}`} style={{
+          position: 'absolute', left: bx, top: 2, width: r * 2, height: r * 2,
+          background: '#FFD166', borderRadius: '50%', opacity: 0.9,
+        }} />
+      ))}
+      {[22, 55, 80].map((p, i) => (
+        <div key={p} className={`jrWisp jrWisp${i}`} style={{
+          position: 'absolute', left: `${p}%`, top: -18, width: 3, height: 16,
+          background: `linear-gradient(0deg, rgba(255,209,102,0.55), rgba(255,209,102,0))`,
+          borderRadius: 3,
+        }} />
+      ))}
+      <style jsx>{`
+        .jrSpillHeat { animation: jrSpillPulse 1.1s ease-in-out infinite; }
+        .jrBub  { animation: jrBubUp 0.62s steps(2, jump-none) infinite; }
+        .jrBub1 { animation-delay: 0.2s; }
+        .jrBub2 { animation-delay: 0.4s; }
+        .jrWisp  { animation: jrWispUp 1.3s ease-out infinite; }
+        .jrWisp1 { animation-delay: 0.42s; }
+        .jrWisp2 { animation-delay: 0.86s; }
+        @keyframes jrSpillPulse { 0%,100% { opacity: 0.72; } 50% { opacity: 1; } }
+        @keyframes jrBubUp  { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-3px) scale(1.25); } }
+        @keyframes jrWispUp { 0% { transform: translateY(6px) scaleY(0.5); opacity: 0; } 40% { opacity: 0.9; } 100% { transform: translateY(-12px) scaleY(1.2); opacity: 0; } }
+        @media (prefers-reduced-motion: reduce) {
+          .jrSpillHeat, .jrBub, .jrWisp { animation: none; }
+        }
+      `}</style>
+    </div>
+  )
+})
+
+/**
+ * A runaway service trolley, rolling the WRONG way down the aisle.
+ *
+ * The only hazard in the run that moves, and so the only one whose timing you
+ * cannot solve by reading the floor alone — it closes faster than the ground
+ * does. It costs you rather than kills, because a moving lethal would make the
+ * "every hazard is answerable" promise very hard to keep honest.
+ *
+ * Its top is a flat tray, and standing on it is a legitimate answer.
+ */
+export const Cart = memo(function Cart({ w, h }: { w: number; h: number }) {
+  return (
+    <div style={{ width: w, height: h, position: 'absolute', willChange: 'transform' }}>
+      {/* tray — the landable top, lit the way the floor's top is lit */}
+      <div style={{
+        position: 'absolute', left: 0, right: 0, top: 0, height: 7,
+        background: WOOD, border: `2px solid ${INK}`, borderRadius: 2,
+      }} />
+      <div style={{ position: 'absolute', left: 2, right: 2, top: 2, height: 2, background: WOOD_LT }} />
+      <div style={{ position: 'absolute', left: 4, top: 7, width: 3, bottom: 7, background: BRASS_DK }} />
+      <div style={{ position: 'absolute', right: 4, top: 7, width: 3, bottom: 7, background: BRASS_DK }} />
+      <div style={{
+        position: 'absolute', left: 3, right: 3, bottom: 6, height: 5,
+        background: WOOD_DK, border: `2px solid ${INK}`, borderRadius: 2,
+      }} />
+      <div style={{
+        position: 'absolute', left: '50%', marginLeft: -5, bottom: 10, width: 10, height: 8,
+        background: BERRY, border: `2px solid ${INK}`, borderRadius: 2,
+      }} />
+      {[3, w - 13].map(wx => (
+        <div key={wx} className="jrWheel" style={{
+          position: 'absolute', left: wx, bottom: 0, width: 10, height: 10,
+          background: BRASS, border: `2px solid ${INK}`, borderRadius: '50%',
+        }}>
+          <div style={{ position: 'absolute', left: 2, top: 0, width: 2, height: '100%', background: BRASS_DK }} />
+        </div>
+      ))}
+      <style jsx>{`
+        .jrWheel { animation: jrRoll 0.3s linear infinite; }
+        @keyframes jrRoll { to { transform: rotate(-360deg); } }
+        @media (prefers-reduced-motion: reduce) { .jrWheel { animation: none; } }
+      `}</style>
+    </div>
+  )
+})
+
+/**
+ * A boiler vent in the floor. Run over it and it throws you.
+ *
+ * The run's one piece of terrain that HELPS, and it is what finally gives the
+ * glider a job on a single-floor map: the vent puts you two and a half jumps
+ * up with nothing above you, and the canopy is how that height becomes
+ * distance and a line of beads instead of just a trip back down.
+ *
+ * Deliberately NOT orange. Everything hot in this room ends the run, so the
+ * one thing that saves you is drawn in the same cream the beads and the lamps
+ * are lit with — and it points up.
+ */
+export const Vent = memo(function Vent({ w, h }: { w: number; h: number }) {
+  return (
+    <div style={{ width: w, height: h, position: 'absolute', willChange: 'transform' }}>
+      {/* the jet, UNDER the grate so it can never read as a surface */}
+      <div className="jrJet" style={{
+        position: 'absolute', left: 2, right: 2, bottom: h - 2, height: 116,
+        background: `linear-gradient(0deg, rgba(255,248,238,0.5) 0%, rgba(214,238,255,0.22) 46%, rgba(214,238,255,0) 100%)`,
+        borderRadius: '50% 50% 8px 8px', transformOrigin: '50% 100%',
+      }} />
+      {/* chevrons — the jet says "up" twice, once in shape and once in motion */}
+      {[0, 1, 2].map(i => (
+        <div key={i} className={`jrChev jrChev${i}`} style={{
+          position: 'absolute', left: '50%', marginLeft: -7, bottom: h + 10 + i * 22,
+          width: 14, height: 8,
+          borderLeft: `3px solid ${CREAM}`, borderTop: `3px solid ${CREAM}`,
+          transform: 'rotate(45deg)', opacity: 0.75,
+        }} />
+      ))}
+      <div style={{
+        position: 'absolute', inset: 0, background: BRASS_DK,
+        border: `2px solid ${INK}`, borderRadius: 2,
+      }} />
+      {[0, 1, 2, 3].map(i => (
+        <div key={i} style={{
+          position: 'absolute', left: 5 + i * ((w - 10) / 4), top: 3, bottom: 3,
+          width: 3, background: CASE_IN, borderRadius: 1,
+        }} />
+      ))}
+      <style jsx>{`
+        .jrJet   { animation: jrJetPuff 0.44s steps(2, jump-none) infinite; }
+        .jrChev  { animation: jrChevUp 0.9s ease-out infinite; }
+        .jrChev1 { animation-delay: 0.3s; }
+        .jrChev2 { animation-delay: 0.6s; }
+        @keyframes jrJetPuff { 0%,100% { transform: scaleY(0.88) scaleX(0.94); } 50% { transform: scaleY(1.06) scaleX(1); } }
+        @keyframes jrChevUp  { 0% { transform: translateY(10px) rotate(45deg); opacity: 0; } 45% { opacity: 0.8; } 100% { transform: translateY(-14px) rotate(45deg); opacity: 0; } }
+        @media (prefers-reduced-motion: reduce) { .jrJet, .jrChev { animation: none; } }
+      `}</style>
+    </div>
+  )
+})
+
+// ─── Better pickups ────────────────────────────────────────────────────────
+
+/** A cut jelly gem. Worth five beads, and only ever laid on the high road. */
+export const Gem = memo(function Gem({ size }: { size: number }) {
+  return (
+    <div style={{ width: size, height: size, position: 'absolute', willChange: 'transform' }}>
+      <div className="jrGemGlow" style={{
+        position: 'absolute', left: '-40%', top: '-40%', width: '180%', height: '180%',
+        background: `radial-gradient(circle, rgba(93,232,158,0.55) 0%, rgba(93,232,158,0) 68%)`,
+      }} />
+      <div className="jrGem" style={{ position: 'absolute', inset: 0 }}>
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: `linear-gradient(160deg, #7DF3C4 0%, ${LEAF} 52%, #14724A 100%)`,
+          border: `2px solid ${INK}`,
+          clipPath: 'polygon(50% 0%, 100% 34%, 78% 100%, 22% 100%, 0% 34%)',
+        }} />
+        <div style={{
+          position: 'absolute', left: '22%', top: '16%', width: '26%', height: '30%',
+          background: CREAM, opacity: 0.85, clipPath: 'polygon(0% 0%, 100% 22%, 60% 100%)',
+        }} />
+      </div>
+      <style jsx>{`
+        .jrGem     { animation: jrGemSpin 1.6s ease-in-out infinite; }
+        .jrGemGlow { animation: jrGemGlow 1.1s ease-in-out infinite; }
+        @keyframes jrGemSpin { 0%,100% { transform: scaleX(1); } 50% { transform: scaleX(0.55); } }
+        @keyframes jrGemGlow { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }
+        @media (prefers-reduced-motion: reduce) { .jrGem, .jrGemGlow { animation: none; } }
+      `}</style>
+    </div>
+  )
+})
+
+/**
+ * A dollop of cream in a bubble. Takes ONE hit for you — the burner included.
+ *
+ * It is here because the run now has two ways to die outright, and a runner
+ * that can end on a single misread at 560px/s wants one layer between a
+ * mistake and the results screen. Rare, and gone the instant it is spent.
+ */
+export const ShieldPickup = memo(function ShieldPickup({ size }: { size: number }) {
+  return (
+    <div style={{ width: size, height: size, position: 'absolute', willChange: 'transform' }}>
+      <div className="jrShield" style={{
+        position: 'absolute', inset: 0, borderRadius: '50%',
+        background: `radial-gradient(circle at 34% 28%, rgba(255,248,238,0.9) 0%, rgba(255,248,238,0.28) 46%, rgba(255,248,238,0.1) 100%)`,
+        border: `2px solid ${CREAM}`,
+        boxShadow: `0 0 10px rgba(255,248,238,0.7)`,
+      }} />
+      <div style={{
+        position: 'absolute', left: '26%', top: '22%', width: '48%', height: '30%',
+        background: CREAM, borderRadius: '50% 50% 40% 40%', border: `2px solid ${INK}`,
+      }} />
+      <div style={{
+        position: 'absolute', left: '20%', top: '46%', width: '60%', height: '30%',
+        background: CREAM_DIM, borderRadius: '40% 40% 50% 50%', border: `2px solid ${INK}`,
+      }} />
+      <style jsx>{`
+        .jrShield { animation: jrShieldBob 1.4s ease-in-out infinite; }
+        @keyframes jrShieldBob { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+        @media (prefers-reduced-motion: reduce) { .jrShield { animation: none; } }
+      `}</style>
     </div>
   )
 })
