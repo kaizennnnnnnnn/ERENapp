@@ -32,6 +32,9 @@ export type PhoneState = 'idle' | 'ringing' | 'playing'
 const BLIPS = ['chat_type1', 'chat_type2', 'chat_type3'] as const
 
 export interface KioskPhone {
+  /** Calls the machine had to take because nobody picked up. Costs you a
+   *  few coins off the night's tips — somebody wanted something. */
+  missed: number
   state: PhoneState
   /** True only when YOU picked up. The machine taking a call leaves the
    *  handset in its cradle, and the wall draws it that way. */
@@ -55,6 +58,7 @@ function makeDeck(): KioskCall[] {
 }
 
 export function useKioskPhone(): KioskPhone {
+  const [missed, setMissed] = useState(0)
   const [state, setState] = useState<PhoneState>('idle')
   const [lifted, setLifted] = useState(false)
   const [call, setCall] = useState<KioskCall | null>(null)
@@ -159,8 +163,12 @@ export function useKioskPhone(): KioskPhone {
     playSound('kiosk_ring')
     ringLoop.current = setInterval(() => playSound('kiosk_ring'), RING_EVERY_MS)
     // Nobody picked up, so the machine does. The message plays either way —
-    // a call you can miss is a call you'd never hear.
-    ringOut.current = setTimeout(() => play(who, false), RING_MS)
+    // a call you can miss is a call you'd never hear — but a caller who
+    // wanted something and got a tape instead is a caller you've lost.
+    ringOut.current = setTimeout(() => {
+      setMissed(m => m + 1)
+      play(who, false)
+    }, RING_MS)
   }, [play, setPhase])
 
   const answer = useCallback(() => {
@@ -210,5 +218,5 @@ export function useKioskPhone(): KioskPhone {
     useCallback(() => arm(CALL_EVERY_MS), [arm]),
   )
 
-  return { state, lifted, call, spoken, answer }
+  return { missed, state, lifted, call, spoken, answer }
 }

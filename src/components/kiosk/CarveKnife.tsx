@@ -104,10 +104,11 @@ export default function CarveKnife({ canCarve, onCarve }: Props) {
       return
     }
 
-    // One tick per segment, so the fill is audible under your thumb as well
-    // as visible past it.
+    // One stroke per segment, so the cut is audible under your thumb as well
+    // as visible past it. Band-limited noise rather than a UI click — this
+    // is a blade dragging through meat, not a checkbox.
     if (Math.floor(after * SEGMENTS) !== Math.floor(before * SEGMENTS)) {
-      playSound('ui_toggle', { volume: 0.16 })
+      playSound('kiosk_saw')
     }
     progRef.current = after
     setProgress(after)

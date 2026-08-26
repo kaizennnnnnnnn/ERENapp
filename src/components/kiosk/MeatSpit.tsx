@@ -73,9 +73,12 @@ export default function MeatSpit({ meat, canCarve, onCarve, onRestock }: Props) 
       {/* Loading a new cone is a hold on a real button bolted to the wall, not
           a hold on the meat — you can see it's a control, and a swipe that
           happens to start on the machine can't reload anything. */}
+      {/* Long on purpose. A cone is a thing you heave onto a spit, and with
+          somebody's patience running down at the window it has to be a real
+          decision to run out of meat. */}
       <HoldTarget
         aria-label="Load a fresh cone"
-        duration={1100}
+        duration={2600}
         disabled={meat > 0}
         onComplete={onRestock}
         size={54}

@@ -192,6 +192,12 @@ export interface ErenStats {
   // Shared between partners and realtime-synced. Absent / missing key = the
   // room shows its built-in default look.
   room_skins?: Record<string, string> | null
+  // Kiosk memory, household-wide: costume id -> the order they had last
+  // time and how many times they've been served right (see kioskShift's
+  // Regulars), plus lifetime wraps, which is what puts new things on the
+  // kiosk's menu.
+  kiosk_regulars?: Record<string, unknown> | null
+  kiosk_wraps?: number | null
   // Every donut id Eren has actually been fed, household-wide. The donut case
   // in the bakery reads this to mark what he's tasted. Household rather than
   // per-user on purpose: it's the CAT's palate, not a personal checklist.

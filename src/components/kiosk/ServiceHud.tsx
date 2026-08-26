@@ -1,24 +1,27 @@
 'use client'
 
 // The strip along the bottom of every wall: the tortilla you're building on,
-// the bin, and the button that moves the wrap along. It has to be readable
-// from any wall, because you build the wrap by walking between three of them.
+// what's already finished beside it, the bin, and the button that moves the
+// wrap along. It has to be readable from any wall, because you build the wrap
+// by walking between three of them.
 //
 // The tortilla is the whole point — every ingredient you pick up lands on it
 // where you can see it, so the wrap is a thing you assembled rather than a
-// list you accumulated. Rolling it shut is deliberate and one-way.
+// list you accumulated. Rolling it shut is deliberate and one-way: it goes on
+// the tray, and what's inside is now a decision you've made.
 
-import { IconTrash, IconCoin } from '@/components/PixelIcons'
+import { IconTrash } from '@/components/PixelIcons'
 import {
-  TOPPING_BY_ID, PEPSI_SPRITE, TORTILLA_SPOTS, MEAT_ON_TORTILLA, SHAVED_MEAT,
-  type Build,
+  TOPPING_BY_ID, SAUCE_BY_ID, SIDE_BY_ID, TORTILLA_SPOTS, MEAT_ON_TORTILLA,
+  SAUCE_ON_TORTILLA, SHAVED_MEAT, type Build, type Tray,
 } from './kioskShift'
 import type { Nudge } from './useKioskShift'
 
 interface Props {
   build: Build
-  rolled: boolean
-  earned: number
+  tray: Tray
+  /** How many wraps this order wants. */
+  wrapsWanted: number
   nudge: Nudge
   canRoll: boolean
   canServe: boolean
@@ -59,10 +62,14 @@ function Laid({ src, label, spot }: {
 }
 
 export default function ServiceHud({
-  build, rolled, earned, nudge, canRoll, canServe, onTrash, onRoll, onServe,
+  build, tray, wrapsWanted, nudge, canRoll, canServe, onTrash, onRoll, onServe,
 }: Props) {
-  const empty = !build.meat && build.toppings.length === 0 && !build.pepsi
-  const action = rolled
+  const boardBusy = build.meat || build.toppings.length > 0 || build.sauce !== null
+  const empty = !boardBusy && tray.wraps.length === 0 && tray.sides.length === 0
+  // Once everything they asked for is on the tray there is nothing left to
+  // roll, so the button stops offering.
+  const done = tray.wraps.length >= wrapsWanted
+  const action = done
     ? { label: 'GIVE', on: onServe, live: canServe }
     : { label: 'ROLL', on: onRoll, live: canRoll }
 
@@ -73,10 +80,12 @@ export default function ServiceHud({
       display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
       padding: '0 12px', gap: 8,
     }}>
-      {/* Bin — the only way out of a wrap you've built wrong. */}
+      {/* Bin — the only way out of a wrap you've built wrong. Clears the tray
+          too: a bad first wrap of a pair is not something you can pick back
+          out of the bag. */}
       <button
         type="button"
-        aria-label="Scrap this wrap"
+        aria-label="Scrap this order and start again"
         onClick={onTrash}
         disabled={empty}
         className="flex items-center justify-center active:scale-90 transition-transform pointer-events-auto"
@@ -105,6 +114,17 @@ export default function ServiceHud({
           </div>
         )}
 
+        {/* Which of the two you're on. Silent for a one-wrap order, because
+            "WRAP 1 OF 1" is noise. */}
+        {wrapsWanted > 1 && (
+          <div className="font-pixel" style={{
+            fontSize: 6, letterSpacing: 1, color: '#FFC773',
+            textShadow: '0 1px 0 rgba(0,0,0,0.7)',
+          }}>
+            WRAP {Math.min(tray.wraps.length + (done ? 0 : 1), wrapsWanted)} OF {wrapsWanted}
+          </div>
+        )}
+
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           padding: '6px 12px',
@@ -117,62 +137,76 @@ export default function ServiceHud({
           {/* The bread, and whatever is on it. */}
           <div style={{ position: 'relative', width: DISC, height: DISC, flex: '0 0 auto' }}>
             <img
-              key={rolled ? 'wrap' : 'flat'}
-              src={rolled ? '/wrap_rolled.webp' : '/tortilla.webp'}
-              alt={rolled ? 'Rolled wrap' : 'Tortilla'}
+              src="/tortilla.webp"
+              alt="Tortilla"
               draggable={false}
               style={{
                 position: 'absolute', inset: 0,
                 width: '100%', height: '100%', objectFit: 'contain',
                 filter: 'brightness(0.94) saturate(0.96) drop-shadow(0 2px 3px rgba(0,0,0,0.55))',
-                animation: rolled
-                  ? 'kioskRollShut 420ms cubic-bezier(0.32, 0.72, 0, 1) both'
-                  : undefined,
+                opacity: boardBusy ? 1 : 0.72,
               }}
             />
 
-            {/* Fillings only show while it's open. Once it's rolled they're
-                inside, which is exactly the tension. */}
-            {!rolled && build.meat && (
-              <Laid src={SHAVED_MEAT} label="Meat" spot={MEAT_ON_TORTILLA} />
-            )}
-            {!rolled && build.toppings.map(t => (
+            {build.meat && <Laid src={SHAVED_MEAT} label="Meat" spot={MEAT_ON_TORTILLA} />}
+            {build.toppings.map(t => (
               <Laid key={t} src={TOPPING_BY_ID[t].sprite} label={TOPPING_BY_ID[t].label}
                 spot={TORTILLA_SPOTS[t]} />
             ))}
+            {/* Sauce goes on last and sits over everything, because it does. */}
+            {build.sauce && (
+              <Laid src={SAUCE_BY_ID[build.sauce].drizzle}
+                label={`${SAUCE_BY_ID[build.sauce].label} sauce`}
+                spot={SAUCE_ON_TORTILLA} />
+            )}
           </div>
 
-          {/* The drink rides alongside — it never goes on the bread. */}
+          {/* ══ THE TRAY ══ what's finished, and the sides that ride along.
+              Two dashed slots when they asked for two, so an order for a pair
+              looks like one before you've built either. */}
           <div style={{
-            width: 26, height: DISC - 18, flex: '0 0 auto',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            borderRadius: 7,
-            border: `2px dashed ${build.pepsi ? 'transparent' : 'rgba(245,156,69,0.22)'}`,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+            minWidth: 34,
           }}>
-            {build.pepsi && (
-              <img src={PEPSI_SPRITE} alt="Pepsi" draggable={false} style={{
-                width: '100%', height: 'auto', objectFit: 'contain',
-                filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))',
-                animation: 'kioskDropOn 320ms cubic-bezier(0.32, 0.72, 0, 1) both',
-              }} />
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              {Array.from({ length: Math.max(1, wrapsWanted) }, (_, i) => {
+                const filled = i < tray.wraps.length
+                return (
+                  <div key={i} style={{
+                    width: 26, height: 26,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: 6,
+                    border: filled ? '2px solid transparent' : '2px dashed rgba(245,156,69,0.22)',
+                  }}>
+                    {filled && (
+                      <img src="/wrap_rolled.webp" alt="Rolled wrap" draggable={false} style={{
+                        width: '100%', height: '100%', objectFit: 'contain',
+                        filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))',
+                        animation: 'kioskRollShut 420ms cubic-bezier(0.32, 0.72, 0, 1) both',
+                      }} />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3, minHeight: 26 }}>
+              {tray.sides.map(s => (
+                <img key={s} src={SIDE_BY_ID[s].sprite} alt={SIDE_BY_ID[s].label} draggable={false}
+                  style={{
+                    width: s === 'pepsi' ? 15 : 22, height: 24, objectFit: 'contain',
+                    filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))',
+                    animation: 'kioskDropOn 320ms cubic-bezier(0.32, 0.72, 0, 1) both',
+                  }} />
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Roll it, then hand it over. Same button, two jobs — there's only ever
-          one thing the wrap is waiting for. */}
-      <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-        {/* Tonight's takings, not your wallet — the till in the corner is
-            the wallet, and two unlabelled coin figures read as a bug. */}
-        {earned > 0 && (
-          <span className="font-pixel" style={{
-            display: 'flex', alignItems: 'center', gap: 3,
-            fontSize: 6, color: 'rgba(255,217,138,0.85)',
-          }}>
-            SHIFT <IconCoin size={10} />{earned}
-          </span>
-        )}
+          one thing the order is waiting for. */}
+      <div style={{ flex: '0 0 auto' }}>
         <button
           type="button"
           onClick={action.on}

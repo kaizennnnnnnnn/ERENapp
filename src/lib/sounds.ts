@@ -254,6 +254,13 @@ export const SOUNDS = {
   kiosk_ring:   '/sounds/kiosk/kiosk_ring.mp3',
   kiosk_pickup: '/sounds/kiosk/kiosk_pickup.mp3',
   kiosk_beep:   '/sounds/kiosk/kiosk_beep.mp3',
+
+  // The counter itself. Synthesised for the same reason as the payphone.
+  kiosk_saw:     '/sounds/kiosk/kiosk_saw.mp3',
+  kiosk_squeeze: '/sounds/kiosk/kiosk_squeeze.mp3',
+  kiosk_refuse:  '/sounds/kiosk/kiosk_refuse.mp3',
+  kiosk_walkout: '/sounds/kiosk/kiosk_walkout.mp3',
+  kiosk_shutter: '/sounds/kiosk/kiosk_shutter.mp3',
 } as const
 
 export type SoundName = keyof typeof SOUNDS
@@ -306,6 +313,14 @@ const VOLUME_SCALE: Partial<Record<SoundName, number>> = {
   kiosk_ring:     0.42,
   kiosk_pickup:   0.5,
   kiosk_beep:     0.4,
+
+  // The counter. The saw fires ten times per slice, so it has to sit well
+  // under everything else or it turns into a drill.
+  kiosk_saw:      0.2,
+  kiosk_squeeze:  0.42,
+  kiosk_refuse:   0.5,
+  kiosk_walkout:  0.42,
+  kiosk_shutter:  0.55,
 
   // ─── Mini-game gameplay SFX ─────────────────────────────────────────────
   // catch-mouse
@@ -753,11 +768,32 @@ export function playCoinTicks(ticks: number, startDelay = 0): () => void {
   return () => timers.forEach(clearTimeout)
 }
 
-export function setVolume(v: number) {
-  globalVolume = Math.max(0, Math.min(1, v))
+// ── Ambience beds ───────────────────────────────────────────────────────────
+// A one-shot reads the volume when it fires and is gone. A bed that runs for
+// three minutes has to be TOLD when the player moves the slider or hits mute,
+// so anything continuous registers a setter here and gets pushed the current
+// level — immediately, and on every change after.
+const ambienceBeds = new Set<(level: number) => void>()
+
+function pushAmbience() {
+  const level = muted ? 0 : globalVolume
+  ambienceBeds.forEach(fn => fn(level))
 }
 
-export function setMuted(m: boolean) { muted = m }
+/** Register a running ambience bed. Called back at once with the current
+ *  level, then on every volume or mute change. Returns an unregister. */
+export function registerAmbience(fn: (level: number) => void): () => void {
+  ambienceBeds.add(fn)
+  fn(muted ? 0 : globalVolume)
+  return () => { ambienceBeds.delete(fn) }
+}
+
+export function setVolume(v: number) {
+  globalVolume = Math.max(0, Math.min(1, v))
+  pushAmbience()
+}
+
+export function setMuted(m: boolean) { muted = m; pushAmbience() }
 export function isMuted() { return muted }
 
 /** Preload every mp3-backed sound so the first play has zero latency. Game

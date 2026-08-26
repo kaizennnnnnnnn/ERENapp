@@ -53,6 +53,95 @@ export const TOPPING_BY_ID: Record<ToppingId, ToppingDef> =
 
 export const PEPSI_SPRITE = '/fr_pepsi.webp'
 
+// ── Sauce ──────────────────────────────────────────────────────────────────
+// Three squeeze bottles standing on the prep counter under the pans. The
+// counter's top surface runs 71.8% -> 75.2% of the picture (a column scan of
+// KioskLeftSide: the bright band between the dark wall above and the cabinet
+// face below), so a bottle's base sits at 74.6% and it stands up into the
+// shadow between the counter and the warmer shelf.
+export type SauceId = 'garlic' | 'chilli' | 'herb'
+
+export interface SauceDef {
+  id: SauceId
+  label: string
+  /** The bottle on the counter. */
+  sprite: string
+  /** The squeeze of it, laid across the wrap. */
+  drizzle: string
+  /** Centre of the bottle, % of the picture's width. */
+  x: number
+  /** Lifetime wraps before it's on the menu. 0 = there from the start. */
+  unlockAt: number
+}
+
+export const SAUCES: SauceDef[] = [
+  { id: 'garlic', label: 'Garlic', sprite: '/sauce_garlic.webp', drizzle: '/drizzle_garlic.webp', x: 13.5, unlockAt: 0  },
+  { id: 'chilli', label: 'Chilli', sprite: '/sauce_chilli.webp', drizzle: '/drizzle_chilli.webp', x: 23.5, unlockAt: 0  },
+  { id: 'herb',   label: 'Herb',   sprite: '/sauce_herb.webp',   drizzle: '/drizzle_herb.webp',   x: 33.5, unlockAt: 25 },
+]
+
+export const SAUCE_BY_ID: Record<SauceId, SauceDef> =
+  Object.fromEntries(SAUCES.map(x => [x.id, x])) as Record<SauceId, SauceDef>
+
+/** Bottle box on the toppings wall: width in % of the picture, top set so the
+ *  base lands on the counter. */
+export const SAUCE_BOX = { width: 5.6, top: 65.46 }
+
+// ── Sides ──────────────────────────────────────────────────────────────────
+// Things that ride alongside the wrap instead of going in it. The Pepsi comes
+// out of the fridge; the chips come out of the warmer basket at the far end
+// of the same counter the sauces stand on.
+export type SideId = 'pepsi' | 'chips'
+
+export interface SideDef {
+  id: SideId
+  label: string
+  sprite: string
+  unlockAt: number
+}
+
+export const SIDES: SideDef[] = [
+  { id: 'pepsi', label: 'Pepsi', sprite: PEPSI_SPRITE,     unlockAt: 0  },
+  { id: 'chips', label: 'Chips', sprite: '/fr_chips.webp', unlockAt: 50 },
+]
+
+export const SIDE_BY_ID: Record<SideId, SideDef> =
+  Object.fromEntries(SIDES.map(x => [x.id, x])) as Record<SideId, SideDef>
+
+/** The chip warmer, on the counter's right-hand end. */
+export const CHIPS_BOX = { x: 84, width: 11.7, top: 69.04 }
+
+/** What the kiosk currently sells. Grows with the household's lifetime wraps
+ *  — see UNLOCKS for what arrives when. */
+export interface MenuState {
+  sauces: SauceId[]
+  sides: SideId[]
+}
+
+export interface Unlock {
+  at: number
+  label: string
+  /** One line on the receipt, the night it lands. */
+  blurb: string
+}
+
+export const UNLOCKS: Unlock[] = [
+  { at: 25, label: 'HERB SAUCE', blurb: 'a third bottle turned up on the counter' },
+  { at: 50, label: 'CHIPS',      blurb: 'the warmer works again — chips are back on' },
+]
+
+export function menuFor(lifetimeWraps: number): MenuState {
+  return {
+    sauces: SAUCES.filter(x => lifetimeWraps >= x.unlockAt).map(x => x.id),
+    sides:  SIDES.filter(x => lifetimeWraps >= x.unlockAt).map(x => x.id),
+  }
+}
+
+/** An unlock crossed on THIS shift, for the receipt to announce. */
+export function unlockedBetween(before: number, after: number): Unlock | null {
+  return UNLOCKS.find(u => before < u.at && after >= u.at) ?? null
+}
+
 /**
  * The pan's contents at a given level: the well polygon with everything above
  * the food line cut away. Clipping the real outline (rather than shrinking a
@@ -247,26 +336,65 @@ export const TORTILLA_SPOTS: Record<ToppingId, { x: number; y: number; size: num
   lettuce: { x: 66, y: 68, size: 33, rot:  14 },
 }
 export const MEAT_ON_TORTILLA = { x: 50, y: 50, size: 52, rot: -4 }
+/** The squeeze of sauce, laid across everything else. Wider than the meat and
+ *  sitting a touch low, so it reads as the last thing on rather than another
+ *  filling. */
+export const SAUCE_ON_TORTILLA = { x: 50, y: 55, size: 76, rot: -7 }
 export const SHAVED_MEAT = '/meat_shaved.webp'
 
-// ── Orders ────────────────────────────────────────────────────────────────
-export interface Order {
+// ── Orders ─────────────────────────────────────────────────────────────────
+export interface Wrap {
+  /** Exactly what has to be on it. */
   toppings: ToppingId[]
-  pepsi: boolean
+  sauce: SauceId | null
+  /** Display only. A three-topping wrap is every topping BUT one, and reading
+   *  it as "no onion" is a different job from reading a list of three — so
+   *  some of them are drawn that way. The required set above is already the
+   *  complement; nothing about the matching changes. */
+  without: ToppingId | null
+}
+
+export interface Order {
+  /** One wrap, or two when they're buying for someone waiting outside. */
+  wraps: Wrap[]
+  sides: SideId[]
   /** Whoever walked up — a whole costume from the closet, so the window can
    *  render them through BlinkingEren with their own eyes and lid tones. */
   customer: SkinDef
   /** What they say while they're waiting. */
   line: string
+  /** They asked for "the usual" and the ticket stays blank. You either
+   *  remember what they had last time or you guess. */
+  usual: boolean
 }
 
+/** The open tortilla in front of you. */
 export interface Build {
   meat: boolean
   toppings: ToppingId[]
-  pepsi: boolean
+  sauce: SauceId | null
 }
 
-export const EMPTY_BUILD: Build = { meat: false, toppings: [], pepsi: false }
+/** What's finished and waiting on the counter to be handed over. */
+export interface Tray {
+  wraps: Build[]
+  sides: SideId[]
+}
+
+export const EMPTY_BUILD: Build = { meat: false, toppings: [], sauce: null }
+export const EMPTY_TRAY: Tray = { wraps: [], sides: [] }
+
+/** What a costume ordered last time they were served properly. Kept per
+ *  household, so a regular of hers is a regular of yours. */
+export interface RememberedOrder {
+  wraps: Wrap[]
+  sides: SideId[]
+  /** How many times they've been served right. Two, and they stop telling you
+   *  what they want. */
+  times: number
+}
+
+export type Regulars = Record<string, RememberedOrder>
 
 /** Customers are drawn from the animal costumes — the food ones would be odd
  *  company for a shawarma. */
@@ -366,33 +494,93 @@ export const IMPATIENT_LINES = [
   'any progress or shall i sit down',
 ]
 
-/** One to three toppings, plus a coin-flip Pepsi. Meat is never asked for —
- *  every shawarma has it, which is why the spit is a step and not a choice. */
-export function rollOrder(): Order {
+/** What a regular says instead of an order. */
+export const USUAL_LINES = [
+  'the usual, when you get a minute',
+  'same as always. you know it.',
+  'my usual. don’t make me say it.',
+  'you remember. i can tell.',
+  'the same one. the good one.',
+]
+
+/** What they say when their usual comes back wrong — and then, mercifully,
+ *  the ticket comes back too. */
+export const USUAL_MISS = [
+  'that’s not my usual',
+  'close, but no. here — look.',
+  'you forgot. it happens.',
+]
+
+/** What they say on the way out, having given up on you. */
+export const WALKOUT_LINES = [
+  'forget it. i’ll get chips.',
+  'i waited. i really did.',
+  'next time, maybe',
+  'you’re busy. i get it.',
+  'i’m going home',
+]
+
+/** Chance a customer with a remembered order asks for it by name. */
+const USUAL_CHANCE = 0.4
+/** Chance an order is for two wraps rather than one. */
+const TWO_WRAP_CHANCE = 0.16
+
+function rollWrap(menu: MenuState): Wrap {
   const want = 1 + Math.floor(Math.random() * 3)
   const pool = [...TOPPINGS]
   const toppings: ToppingId[] = []
   for (let i = 0; i < want; i++) {
     toppings.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0].id)
   }
-  return {
-    toppings,
-    pepsi: Math.random() < 0.45,
-    customer: pick(CUSTOMER_SKINS),
-    line: pick(pick([NICE, WEIRD, CREEPY])),
+  // Three of the four means exactly one is missing, and whatever's left in
+  // the pool IS the missing one. Half the time the ticket says so instead of
+  // listing the other three.
+  const without = want === TOPPINGS.length - 1 && Math.random() < 0.55 ? pool[0].id : null
+  const sauce = menu.sauces.length > 0 && Math.random() < 0.5 ? pick(menu.sauces) : null
+  return { toppings, sauce, without }
+}
+
+/** Whoever's next. Meat is never asked for — every shawarma has it, which is
+ *  why the spit is a step and not a choice. */
+export function rollOrder(menu: MenuState, regulars: Regulars): Order {
+  const customer = pick(CUSTOMER_SKINS)
+  const known = regulars[customer.id]
+
+  if (known && known.times >= 2 && known.wraps.length > 0 && Math.random() < USUAL_CHANCE) {
+    return { wraps: known.wraps, sides: known.sides, customer, line: pick(USUAL_LINES), usual: true }
   }
+
+  const wraps = [rollWrap(menu)]
+  if (Math.random() < TWO_WRAP_CHANCE) wraps.push(rollWrap(menu))
+
+  const sides: SideId[] = []
+  if (Math.random() < 0.45) sides.push('pepsi')
+  if (menu.sides.includes('chips') && Math.random() < 0.3) sides.push('chips')
+
+  return { wraps, sides, customer, line: pick(pick([NICE, WEIRD, CREEPY])), usual: false }
 }
 
-/** Set equality on toppings — order of assembly doesn't matter, contents do.
- *  Meat is required on every wrap even though nobody asks for it. */
-export function orderMatches(order: Order, build: Build): boolean {
-  if (!build.meat) return false
-  if (build.pepsi !== order.pepsi) return false
-  if (build.toppings.length !== order.toppings.length) return false
-  return order.toppings.every(t => build.toppings.includes(t))
+/** One finished wrap against one that was asked for. Contents, not order of
+ *  assembly. Meat is required on every wrap even though nobody asks for it. */
+export function wrapMatches(want: Wrap, got: Build): boolean {
+  if (!got.meat) return false
+  if (want.sauce !== got.sauce) return false
+  if (want.toppings.length !== got.toppings.length) return false
+  return want.toppings.every(t => got.toppings.includes(t))
 }
 
-/** Base wrap, a little per topping, a little for the drink. */
-export function payout(order: Order): number {
-  return 6 + order.toppings.length * 2 + (order.pepsi ? 3 : 0)
+/** The whole hand-over. Two wraps count either way round — they're both
+ *  going into the same bag. */
+export function orderMatches(order: Order, tray: Tray): boolean {
+  if (tray.wraps.length !== order.wraps.length) return false
+  if (tray.sides.length !== order.sides.length) return false
+  if (!order.sides.every(s => tray.sides.includes(s))) return false
+  if (order.wraps.length === 1) return wrapMatches(order.wraps[0], tray.wraps[0])
+  return (wrapMatches(order.wraps[0], tray.wraps[0]) && wrapMatches(order.wraps[1], tray.wraps[1]))
+      || (wrapMatches(order.wraps[0], tray.wraps[1]) && wrapMatches(order.wraps[1], tray.wraps[0]))
+}
+
+/** What to remember about someone you just got right. */
+export function rememberOrder(order: Order, known: RememberedOrder | undefined): RememberedOrder {
+  return { wraps: order.wraps, sides: order.sides, times: (known?.times ?? 0) + 1 }
 }

@@ -329,4 +329,33 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
 
   // kiosk_beep — the answering machine's tone, before and after a message.
   kiosk_beep:   { type: 'blip', freq: 932, duration: 150, shape: 'sine', gain: 0.42 },
+
+  // ─── The counter ────────────────────────────────────────────────────────
+  // kiosk_saw — one stroke of the blade through the cone. Band-limited noise
+  // and nothing else: a tone would read as a machine, and this has to sound
+  // like a knife dragging through meat ten times a slice without becoming a
+  // drill.
+  kiosk_saw:     { type: 'noise', duration: 70, gain: 0.5, lowpass: 2600, highpass: 700 },
+
+  // kiosk_squeeze — a sauce bottle. A short airy hiss with a low bloop under
+  // it for the bottle giving way.
+  kiosk_squeeze: { type: 'seq', parts: [
+                    { at: 0,  recipe: { type: 'noise', duration: 130, gain: 0.3, lowpass: 3200, highpass: 900 } },
+                    { at: 46, recipe: { type: 'blip', freq: 233, duration: 110, shape: 'sine', gain: 0.3 } },
+                  ] },
+
+  // kiosk_refuse — handed over wrong. Two flat notes DOWN, which is the one
+  // shape every player already reads as no. Deliberately not ui_back: a lost
+  // sale and a cancelled menu should not sound alike.
+  kiosk_refuse:  { type: 'arp', notes: [311, 233], step: 110, noteDur: 150, shape: 'square', gain: 0.34 },
+
+  // kiosk_walkout — they gave up. The same shape, lower and slower, with the
+  // last note left hanging.
+  kiosk_walkout: { type: 'arp', notes: [262, 196, 147], step: 150, noteDur: 240, shape: 'triangle', gain: 0.3 },
+
+  // kiosk_shutter — closing up: the roller coming down, then the latch.
+  kiosk_shutter: { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'noise', duration: 620, gain: 0.34, lowpass: 1500, highpass: 120 } },
+                    { at: 640, recipe: { type: 'blip', freq: 147, duration: 130, shape: 'square', gain: 0.4 } },
+                  ] },
 }

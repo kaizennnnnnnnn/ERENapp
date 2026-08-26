@@ -81,7 +81,7 @@ export default function FridgeOverlay({ stock, hasPepsi, onRestock, onTakePepsi,
 
               <HoldTarget
                 aria-label={`Refill the ${t.label} pan`}
-                duration={900}
+                duration={2200}
                 disabled={full}
                 onComplete={() => onRestock(t.id)}
                 size={50}

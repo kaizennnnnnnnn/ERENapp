@@ -40,6 +40,11 @@ const PRECACHE_IMAGES = [
   // and what it becomes once you roll it shut.
   '/tortilla.webp', '/wrap_rolled.webp', '/meat_shaved.webp',
   '/knife.webp',
+  // The sauce bottles standing on the prep counter, the squeeze of each
+  // one that ends up on the bread, and the chip warmer at the far end.
+  '/sauce_garlic.webp', '/sauce_chilli.webp', '/sauce_herb.webp',
+  '/drizzle_garlic.webp', '/drizzle_chilli.webp', '/drizzle_herb.webp',
+  '/fr_chips.webp',
   '/ErenAppIcon.png',   '/ErenBadge.png',
 ]
 

@@ -418,8 +418,11 @@ function useErenStatsImpl(householdId: string | null) {
               mood:           newRow.mood,
               weight:         newRow.weight,
               // Closet writes only room_skins (no decay bump), so it lands here
-              // — carry it through so a partner's re-dress syncs live.
+              // — carry it through so a partner's re-dress syncs live. The
+              // kiosk's two columns land the same way at the end of a shift.
               room_skins:     newRow.room_skins,
+              kiosk_regulars: newRow.kiosk_regulars,
+              kiosk_wraps:    newRow.kiosk_wraps,
             }
           })
         })

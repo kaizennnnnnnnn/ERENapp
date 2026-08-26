@@ -18,6 +18,8 @@
 
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { playSound } from '@/lib/sounds'
+import { startKioskAmbience, type KioskAmbience } from '@/lib/kioskAmbience'
+import { useTasks } from '@/contexts/TaskContext'
 import CurtainGlitter from '@/components/CurtainGlitter'
 import { useKioskShift } from './useKioskShift'
 import { useCoverBox } from './useCoverBox'
@@ -31,9 +33,12 @@ import KioskPhone from './KioskPhone'
 import PhoneCallHud from './PhoneCallHud'
 import { useKioskPhone } from './useKioskPhone'
 import WallTarget from './WallTarget'
+import ShiftReport from './ShiftReport'
 import {
-  FRIDGE_HIT, FRIDGE_TAG, DOOR_HIT, DOOR_TAG, MAX_USES, payout,
+  FRIDGE_HIT, FRIDGE_TAG, DOOR_HIT, DOOR_TAG, MAX_USES, SILL_PCT,
 } from './kioskShift'
+import { orderBase, SHIFT_MS } from './kioskEconomy'
+import type { KioskRecord } from './useKioskRecord'
 
 interface KioskView {
   id: string
@@ -69,22 +74,58 @@ const DUST = ['#F5C89A', '#FFE7C4', '#C98F4E', '#FFFFFF']
 
 interface Props {
   onExit: () => void
+  /** What the kiosk remembers. Owned by the page, because the board out
+   *  front reads it too and two copies would mean two fetches. */
+  record: KioskRecord
+  /** Whether tonight's takings actually go home with you. */
+  payable: boolean
+  /** And if not, why not — printed on the receipt. */
+  practiceReason: string | null
 }
 
-export default function KioskInterior({ onExit }: Props) {
+export default function KioskInterior({ onExit, record, payable, practiceReason }: Props) {
   const [idx, setIdx] = useState(0)
   const [slideDir, setSlideDir] = useState<'left' | 'right'>('left')
   const [animKey, setAnimKey] = useState(0)
   const [dragX, setDragX] = useState(0)
   const [fridgeOpen, setFridgeOpen] = useState(false)
 
-  const shift = useKioskShift()
+  const { addCoins } = useTasks()
+  /** Did the night make it into the book? Only a recorded shift can carry a
+   *  note to whoever works next. */
+  const [recorded, setRecorded] = useState(false)
+
+  const shift = useKioskShift({
+    menu: record.menu,
+    regulars: record.regulars,
+    lifetimeWraps: record.lifetimeWraps,
+    payable,
+    onBank: useCallback((coins: number) => { addCoins(coins).catch(() => {}) }, [addCoins]),
+    onClose: useCallback((report, regulars) => {
+      void record.closeShift({
+        takings: report.takings,
+        grade: report.grade,
+        rained: report.rained,
+        regulars,
+        paid: report.paid,
+      }).then(setRecorded)
+    }, [record]),
+  })
   // The phone lives up here rather than on the back wall, because it has to
   // ring whichever way you happen to be facing.
   const phone = useKioskPhone()
   // Anything pinned to the art has to live inside the cover-cropped picture
   // box, not the viewport, or it slides off its pan on a different screen.
   const box = useCoverBox(768, 1376)
+
+  // The street, the fridge, the spit and the weather. Started once, mixed as
+  // you turn: the rotisserie is loud on its own wall and a suggestion from the
+  // others, which is most of what makes turning round feel like turning round.
+  const ambience = useRef<KioskAmbience | null>(null)
+  useEffect(() => {
+    ambience.current = startKioskAmbience()
+    return () => { ambience.current?.stop(); ambience.current = null }
+  }, [])
 
   const touchStartX = useRef(0)
   const touchStartY = useRef(0)
@@ -183,6 +224,20 @@ export default function KioskInterior({ onExit }: Props) {
   // Something out front is running low, so the fridge tag lights up properly
   // instead of just idling.
   const needsStock = Object.values(shift.stock).some(n => n < MAX_USES)
+  // Anything at all happened tonight? Then walking out is closing up, and it
+  // pays. Walk straight back through the door and it's just a door.
+  const worked = shift.till.served + shift.till.wrong + shift.till.walked
+
+  // The rotisserie is loud on its own wall and a hiss from anywhere else,
+  // which is most of what makes turning round feel like turning round. Rain
+  // is the opposite: loudest at the open window, muffled by three walls.
+  useEffect(() => {
+    ambience.current?.setSizzle(view.feature === 'meat' ? 1 : 0.2)
+  }, [view.feature])
+  useEffect(() => {
+    if (!shift.rained) { ambience.current?.setRain(0); return }
+    ambience.current?.setRain(view.feature === 'window' ? 1 : 0.4)
+  }, [shift.rained, view.feature])
   const dragging = dragX !== 0
   const vw = typeof window !== 'undefined' ? window.innerWidth : 390
   const dragProgress = Math.min(1, Math.abs(dragX) / vw)
@@ -266,6 +321,29 @@ export default function KioskInterior({ onExit }: Props) {
           71%  { transform: translateY(-6%)  scale(0.98, 1.02); animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.45); }
           87%  { transform: translateY(0)    scale(1.04, 0.96); animation-timing-function: ease-out; }
           100% { transform: translateY(0)    scale(1, 1);       }
+        }
+        /* Given up on you: they sink under the sill AND slide off down the
+           street, so a walk-out never reads as the same beat as a sale. */
+        @keyframes kioskCustomerWalk {
+          0%   { opacity: 1; transform: translateX(-50%) translateY(0); }
+          100% { opacity: 0; transform: translateX(-140%) translateY(calc(var(--rise) * 0.7)); }
+        }
+        /* Rain on the street outside the window. The streaks are a repeating
+           gradient and only its POSITION moves, so a downpour costs one
+           composited layer rather than a hundred elements. */
+        @keyframes kioskRain {
+          from { background-position: 0 0; }
+          to   { background-position: -90px 340px; }
+        }
+        /* The till roll printing. */
+        @keyframes kioskReceiptIn {
+          from { opacity: 0; transform: translateY(-14px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0)     scale(1);    }
+        }
+        @keyframes kioskGradeIn {
+          0%   { opacity: 0; transform: scale(0.5) rotate(-8deg); }
+          70%  { opacity: 1; transform: scale(1.12) rotate(2deg); }
+          100% { opacity: 1; transform: scale(1)   rotate(0deg);  }
         }
         @keyframes kioskBubbleIn {
           from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.9); }
@@ -419,16 +497,37 @@ export default function KioskInterior({ onExit }: Props) {
           }} />
 
           {view.feature === 'toppings' && (
-            <ToppingTrays stock={shift.stock} onTap={id => guard(() => shift.addTopping(id))()} />
+            <ToppingTrays
+              stock={shift.stock}
+              menu={record.menu}
+              sauce={shift.build.sauce}
+              sides={shift.tray.sides}
+              onTap={id => guard(() => shift.addTopping(id))()}
+              onSauce={id => guard(() => shift.addSauce(id))()}
+              onSide={id => guard(() => shift.takeSide(id))()}
+            />
           )}
 
           {view.feature === 'meat' && (
             <MeatSpit
               meat={shift.meat}
-              canCarve={shift.meat > 0 && !shift.build.meat && !shift.rolled}
+              canCarve={shift.meat > 0 && !shift.build.meat && shift.status === 'waiting'}
               onCarve={guard(shift.carveMeat)}
               onRestock={shift.restockMeat}
             />
+          )}
+
+          {/* Rain, out in the street where it belongs — clipped to the same
+              sill the customers stand behind, so it falls OUTSIDE rather than
+              in the kiosk with you. */}
+          {view.feature === 'window' && shift.rained && (
+            <div aria-hidden className="absolute left-0 right-0 top-0 pointer-events-none" style={{
+              height: `${SILL_PCT}%`, zIndex: 3, overflow: 'hidden',
+              background:
+                'repeating-linear-gradient(104deg,' +
+                ' transparent 0 7px, rgba(190,214,255,0.17) 7px 8px, transparent 8px 15px)',
+              animation: 'kioskRain 700ms linear infinite',
+            }} />
           )}
 
           {view.feature === 'window' && (
@@ -436,7 +535,11 @@ export default function KioskInterior({ onExit }: Props) {
               order={shift.order}
               status={shift.status}
               speech={shift.speech}
-              coins={shift.order ? payout(shift.order) : 0}
+              patience={shift.patience}
+              ticketOpen={shift.ticketOpen}
+              revealed={shift.revealed}
+              value={shift.order ? orderBase(shift.order) : 0}
+              onRepeat={guard(shift.repeatOrder)}
             />
           )}
 
@@ -451,10 +554,15 @@ export default function KioskInterior({ onExit }: Props) {
                 urgent={needsStock}
                 onClick={guard(() => setFridgeOpen(true))}
               />
+              {/* The only way out, and the only way to get paid. Serve
+                  nobody and it's just a door. */}
               <WallTarget
-                hit={DOOR_HIT} tag={DOOR_TAG} label="EXIT ›"
-                aria-label="Step back outside"
-                onClick={guard(() => { playSound('ui_back'); onExit() })}
+                hit={DOOR_HIT} tag={DOOR_TAG} label={worked > 0 ? 'CLOSE UP' : 'EXIT ›'}
+                aria-label={worked > 0 ? 'Close up for the night' : 'Step back outside'}
+                urgent={shift.lastCall && worked > 0}
+                onClick={guard(() => {
+                  if (!shift.closeUp(phone.missed)) { playSound('ui_back'); onExit() }
+                })}
               />
             </>
           )}
@@ -506,8 +614,47 @@ export default function KioskInterior({ onExit }: Props) {
         onTurn={() => turnTo('fridge')}
       />
 
-      {/* ══ TILL ══ your money, on every wall, all the time. */}
-      <KioskCoins paid={shift.paid} />
+      {/* ══ THE CLOCK ══ how much night is left. The bar under it is the
+          same countdown as the numbers, for when you're not reading. */}
+      <div className="absolute pointer-events-none" style={{
+        top: 'calc(env(safe-area-inset-top, 0px) + 14px)', left: 12, zIndex: 57,
+        display: 'flex', flexDirection: 'column', gap: 4, width: 74,
+      }}>
+        <div className="font-pixel" style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '7px 8px 6px',
+          background: 'rgba(14,10,8,0.82)',
+          border: `2px solid ${shift.lastCall ? 'rgba(228,72,60,0.6)' : 'rgba(245,156,69,0.5)'}`,
+          borderRadius: 9,
+          boxShadow: '0 3px 0 rgba(0,0,0,0.5)',
+          backdropFilter: 'blur(3px)',
+          fontSize: 9, letterSpacing: 1, color: shift.lastCall ? '#F5A79C' : '#FFE7C4',
+        }}>
+          {shift.clock}
+        </div>
+        <div style={{
+          height: 4, background: 'rgba(0,0,0,0.55)',
+          border: '1px solid rgba(245,156,69,0.28)', borderRadius: 3, overflow: 'hidden',
+        }}>
+          <div style={{
+            height: '100%', transformOrigin: '0% 50%',
+            transform: `scaleX(${Math.max(0, 1 - shift.elapsed / SHIFT_MS)})`,
+            background: shift.lastCall ? '#E4483C' : '#F59C45',
+            transition: 'transform 200ms linear',
+          }} />
+        </div>
+        {shift.lastCall && (
+          <div className="font-pixel" style={{
+            fontSize: 5.5, letterSpacing: 1, color: '#F5A79C', textAlign: 'center',
+            textShadow: '0 1px 0 rgba(0,0,0,0.7)',
+          }}>
+            LAST CALL
+          </div>
+        )}
+      </div>
+
+      {/* ══ TILL ══ tonight's takings, on every wall, all the time. */}
+      <KioskCoins paid={shift.paid} till={shift.till} streak={shift.streak} practice={shift.practice} />
 
       {/* ══ WALL NAME ══ fades in on arrival, out 1.4s later. */}
       <div className="absolute left-1/2 pointer-events-none"
@@ -554,22 +701,32 @@ export default function KioskInterior({ onExit }: Props) {
           Outside the sliding wall so it stays put while you turn around. */}
       <ServiceHud
         build={shift.build}
-        rolled={shift.rolled}
-        earned={shift.earned}
+        tray={shift.tray}
+        wrapsWanted={shift.wrapsWanted}
         nudge={shift.nudge}
-        canRoll={shift.build.meat && !shift.rolled && shift.status !== 'paid'}
-        canServe={shift.rolled && !!shift.order && shift.status !== 'paid'}
+        canRoll={shift.build.meat && shift.tray.wraps.length < shift.wrapsWanted && shift.status === 'waiting'}
+        canServe={shift.tray.wraps.length >= shift.wrapsWanted && !!shift.order && shift.status === 'waiting'}
         onTrash={shift.trashBuild}
         onRoll={shift.rollWrap}
         onServe={shift.serve}
       />
 
+      {shift.report && (
+        <ShiftReport
+          report={shift.report}
+          practiceReason={shift.report.paid ? null : practiceReason}
+          canNote={recorded}
+          onSaveNote={note => { void record.saveNote(note) }}
+          onDone={onExit}
+        />
+      )}
+
       {fridgeOpen && (
         <FridgeOverlay
           stock={shift.stock}
-          hasPepsi={shift.build.pepsi}
+          hasPepsi={shift.tray.sides.includes('pepsi')}
           onRestock={shift.restockTopping}
-          onTakePepsi={shift.addPepsi}
+          onTakePepsi={() => shift.takeSide('pepsi')}
           onClose={() => setFridgeOpen(false)}
         />
       )}

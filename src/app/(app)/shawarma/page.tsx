@@ -20,7 +20,12 @@
 import { useEffect, useState, useCallback } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { useCare } from '@/contexts/CareContext'
+import { useAuth } from '@/hooks/useAuth'
+import { useErenStats } from '@/hooks/useErenStats'
 import { playSound } from '@/lib/sounds'
+import { EXHAUSTED_ENERGY } from '@/lib/gameRewards'
+import { useKioskRecord } from '@/components/kiosk/useKioskRecord'
+import { GRADE_WORD } from '@/components/kiosk/kioskEconomy'
 import BlinkingEren from '@/components/BlinkingEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
 import KioskInterior, { KIOSK_VIEW_SRCS } from '@/components/kiosk/KioskInterior'
@@ -76,7 +81,26 @@ const LEAVE_MS = 420
 
 export default function ShawarmaPage() {
   const { setHideStats } = useCare()
+  const { user } = useAuth()
+  const { stats } = useErenStats()
+  // Owned up here rather than inside the kiosk: the board on the front reads
+  // it too, and two copies would mean two fetches of the same book.
+  const record = useKioskRecord()
   const [phase, setPhase] = useState<Phase>('front')
+
+  // A night only pays once, and only if the cat has the energy for it. Both
+  // reasons are said out loud on the front door rather than discovered at the
+  // till — nobody should work a shift to find out it was unpaid.
+  const tired = (stats?.energy ?? 100) < EXHAUSTED_ENERGY
+  const payable = !record.workedTonight && !tired
+  const practiceReason = record.workedTonight
+    ? 'you already worked tonight — this one was for the practice'
+    : tired
+      ? 'eren was too tired to take the money seriously'
+      : null
+
+  const last = record.lastShift
+  const mine = !!last && !!user && last.user_id === user.id
 
   // Full-screen scene — hide the persistent StatsHeader while we're here.
   useEffect(() => { setHideStats(true); return () => setHideStats(false) }, [setHideStats])
@@ -219,6 +243,65 @@ export default function ShawarmaPage() {
           >
             GO INSIDE
           </button>
+
+          {/* ══ THE BOARD ══ last night's takings, chalked up by the door, and
+              whatever they left at the till for whoever works next. Anchored
+              to the PICTURE like the button, so it can't drift onto the art on
+              a short screen. */}
+          {last && (
+            <div className="absolute left-1/2 pointer-events-none" style={{
+              bottom: '23%', transform: 'translateX(-50%)', zIndex: 12,
+              width: '76%', maxWidth: 280,
+              padding: '8px 10px 9px',
+              background: 'rgba(12,9,8,0.82)',
+              border: '2px solid rgba(245,156,69,0.45)',
+              borderRadius: 8,
+              boxShadow: '0 3px 0 rgba(0,0,0,0.5), 0 0 18px rgba(245,156,69,0.14)',
+              backdropFilter: 'blur(3px)',
+            }}>
+              <div className="font-pixel" style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                fontSize: 5.5, letterSpacing: 1.4, color: 'rgba(255,231,196,0.6)',
+              }}>
+                {/* Whose night it was. Brown is yours, pink is hers — the same
+                    two colours every other shared thing in the app uses. */}
+                <span aria-hidden style={{
+                  width: 7, height: 7, borderRadius: 2, flex: '0 0 auto',
+                  background: mine ? '#8B5E3C' : '#FF4D7D',
+                }} />
+                LAST SHIFT
+              </div>
+              <div className="font-pixel" style={{
+                fontSize: 6.5, lineHeight: 1.8, letterSpacing: 0.3,
+                color: '#FFE7C4', marginTop: 5,
+              }}>
+                {last.served} served · {GRADE_WORD[last.grade]}
+                {last.rained ? ' · in the rain' : ''}
+              </div>
+              {last.note && (
+                <div className="font-pixel" style={{
+                  fontSize: 6, lineHeight: 1.8, color: '#F5C89A', marginTop: 6,
+                  borderTop: '1px solid rgba(245,156,69,0.25)', paddingTop: 6,
+                }}>
+                  “{last.note}”
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* No pay tonight, and why. Said before you go in, not after. */}
+          {record.loaded && practiceReason && (
+            <div className="font-pixel absolute left-1/2 pointer-events-none" style={{
+              bottom: '8.5%', transform: 'translateX(-50%)', zIndex: 12,
+              whiteSpace: 'nowrap',
+              fontSize: 5.5, letterSpacing: 1, color: 'rgba(255,231,196,0.72)',
+              background: 'rgba(12,9,8,0.7)',
+              border: '2px solid rgba(200,190,205,0.25)',
+              borderRadius: 7, padding: '5px 8px 4px',
+            }}>
+              {record.workedTonight ? 'PRACTICE — TONIGHT’S PAY IS SPENT' : 'PRACTICE — EREN IS TOO TIRED'}
+            </div>
+          )}
         </div>
       </div>
 
@@ -266,7 +349,12 @@ export default function ShawarmaPage() {
             ? `kioskStepOut ${LEAVE_MS}ms ease-in both`
             : 'kioskStepIn 520ms cubic-bezier(0.16, 1, 0.3, 1) both',
         }}>
-          <KioskInterior onExit={goOutside} />
+          <KioskInterior
+            onExit={goOutside}
+            record={record}
+            payable={payable}
+            practiceReason={practiceReason}
+          />
         </div>
       )}
     </div>

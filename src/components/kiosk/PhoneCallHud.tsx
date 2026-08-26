@@ -32,7 +32,9 @@ export default function PhoneCallHud({ phone, facing, onTurn }: Props) {
           className="font-pixel active:translate-y-[2px] transition-transform"
           style={{
             position: 'absolute', zIndex: 57,
-            top: 'calc(env(safe-area-inset-top, 0px) + 14px)', left: 12,
+            // Under the clock, not on top of it: the top-left corner belongs
+            // to how much night is left.
+            top: 'calc(env(safe-area-inset-top, 0px) + 80px)', left: 12,
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '7px 10px 6px',
             fontSize: 7, letterSpacing: 1, color: '#3A1B08',
@@ -52,7 +54,7 @@ export default function PhoneCallHud({ phone, facing, onTurn }: Props) {
       {state === 'playing' && call && (
         <div className="absolute pointer-events-none" style={{
           zIndex: 57, left: 12, right: 12,
-          top: 'calc(env(safe-area-inset-top, 0px) + 62px)',
+          top: 'calc(env(safe-area-inset-top, 0px) + 92px)',
           display: 'flex', justifyContent: 'center',
         }}>
           <div style={{

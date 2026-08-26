@@ -1,0 +1,165 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// KIOSK ECONOMY — what a night is worth, and how long it lasts.
+// ──────────────────────────────────────────────────────────────────────────
+// Pure numbers, no React. Kept apart from kioskShift's art geometry because
+// these are the knobs you actually want to turn: how long the night runs, how
+// fast a customer's patience burns, what a tip is worth.
+//
+// The shape of a shift:
+//   * The kiosk opens at 22:00 and the street empties at 02:00. That whole
+//     night is SHIFT_MS of real time, so the clock on the wall is a readout of
+//     a real countdown rather than decoration.
+//   * Closing time stops NEW customers. Whoever is already at the window can
+//     still be served — you are never cut off mid-order.
+//   * Coins are NOT paid per wrap. They pile up in the till and are banked
+//     when you close up, which is what makes closing a moment instead of a
+//     door. Walk out through the door early and the base pay follows you home;
+//     the tips do not.
+// ═══════════════════════════════════════════════════════════════════════════
+
+import type { Order, SideId, Wrap } from './kioskShift'
+
+// ── The night ─────────────────────────────────────────────────────────────
+/** How long the street stays busy. Turn this one number to make the night
+ *  longer or shorter — the clock, the customer flow and the report all read
+ *  from it. */
+export const SHIFT_MS = 210_000
+/** Painted on the clock: open at 22:00, dead by 02:00. */
+export const OPEN_HOUR = 22
+export const SHIFT_HOURS = 4
+
+/** The kiosk clock, as hours and minutes, from how far into the night you are. */
+export function shiftClock(elapsed: number): { h: number; m: number } {
+  const t = Math.max(0, Math.min(1, elapsed / SHIFT_MS)) * SHIFT_HOURS
+  const h = (OPEN_HOUR + Math.floor(t)) % 24
+  return { h, m: Math.floor((t % 1) * 60) }
+}
+
+export function clockText(elapsed: number): string {
+  const { h, m } = shiftClock(elapsed)
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+// ── Waiting ───────────────────────────────────────────────────────────────
+/** How long someone will stand at the window before they give up and walk.
+ *  Long enough to carve, load a pan and still make it; short enough that
+ *  wandering off to admire the smoke costs you the sale. */
+export const PATIENCE_MS = 34_000
+/** Below this much patience left, they start saying so. */
+export const GRUMBLE_AT = 0.42
+/** And below this the meter goes red. */
+export const PANIC_AT = 0.2
+/** Gap between one customer leaving and the next walking up. */
+export const NEXT_CUSTOMER_MS = 1_600
+
+// ── Money ─────────────────────────────────────────────────────────────────
+/** Base pay for one wrap: the bread, plus what's on it. */
+export function wrapBase(w: Wrap): number {
+  return 6 + w.toppings.length * 2 + (w.sauce ? 2 : 0)
+}
+
+export function sideBase(id: SideId): number {
+  return id === 'pepsi' ? 3 : 4
+}
+
+/** What the order is worth before anyone decides how they feel about you. */
+export function orderBase(o: Order): number {
+  return o.wraps.reduce((sum, w) => sum + wrapBase(w), 0)
+    + o.sides.reduce((sum, s) => sum + sideBase(s), 0)
+}
+
+/** Each correct wrap in a row is worth a little more than the last, up to a
+ *  ceiling — a hot streak should feel hot without turning one lucky night
+ *  into the whole economy. */
+export const STREAK_STEP = 0.12
+export const STREAK_CAP = 5
+
+export function streakMultiplier(streak: number): number {
+  return 1 + Math.min(streak, STREAK_CAP) * STREAK_STEP
+}
+
+/**
+ * The tip. Everything above base pay comes from how fast you were and how
+ * long you've been getting it right — served the moment they arrive and on a
+ * run, a wrap can pay nearly double; served as they're about to walk out, it
+ * pays base and nothing else.
+ *
+ * `patience01` is how much of their patience was LEFT when you handed it over.
+ */
+export function orderTip(base: number, patience01: number, streak: number): number {
+  const speed = Math.max(0, Math.min(1, patience01))
+  return Math.round(base * 0.55 * speed * streakMultiplier(streak))
+}
+
+/** Remembering an order nobody told you deserves paying for. */
+export const USUAL_BONUS = 8
+/** Nobody else is out in this, and they know it. */
+export const RAIN_BONUS = 0.15
+/** What an unanswered phone costs off the night's tips — a caller who wanted
+ *  something and got the machine instead. */
+export const MISSED_CALL_COST = 4
+/** Sitting in the till at the start of the night, so the first coin flight
+ *  isn't from zero. */
+export const FLOAT_COINS = 0
+
+// ── The report ────────────────────────────────────────────────────────────
+export interface Takings {
+  /** Wraps handed over and paid for. */
+  served: number
+  /** Handed over wrong. */
+  wrong: number
+  /** Gave up and walked off. */
+  walked: number
+  /** Calls the machine had to take. */
+  missedCalls: number
+  /** Best run of correct orders. */
+  bestStreak: number
+  base: number
+  tips: number
+}
+
+export const EMPTY_TAKINGS: Takings = {
+  served: 0, wrong: 0, walked: 0, missedCalls: 0, bestStreak: 0, base: 0, tips: 0,
+}
+
+export type Grade = 'S' | 'A' | 'B' | 'C' | 'D'
+
+/**
+ * The night, in one letter.
+ *
+ * Accuracy is most of it — a kiosk that gets orders wrong doesn't get busy.
+ * Volume is the rest, measured against a night's honest work rather than a
+ * theoretical maximum, so a good run at a comfortable pace still grades well.
+ */
+export const GOOD_NIGHT = 9
+
+export function gradeNight(t: Takings): Grade {
+  const attempts = t.served + t.wrong + t.walked
+  if (attempts === 0) return 'D'
+  const accuracy = t.served / attempts
+  const volume = Math.min(1, t.served / GOOD_NIGHT)
+  const score = accuracy * 0.68 + volume * 0.32
+  if (score >= 0.94 && t.wrong === 0 && t.walked === 0) return 'S'
+  if (score >= 0.82) return 'A'
+  if (score >= 0.64) return 'B'
+  if (score >= 0.42) return 'C'
+  return 'D'
+}
+
+/** Printed on cream till paper, not on a dark panel — these are ink colours.
+ *  The pale set that reads well on the kiosk's HUD disappears on the roll. */
+export const GRADE_COLOR: Record<Grade, string> = {
+  S: '#B07A12',
+  A: '#2E7D32',
+  B: '#1F5FA8',
+  C: '#A85E12',
+  D: '#A83A32',
+}
+
+export const GRADE_WORD: Record<Grade, string> = {
+  S: 'a perfect night',
+  A: 'a good night',
+  B: 'a fair night',
+  C: 'a slow night',
+  D: 'a rough night',
+}
