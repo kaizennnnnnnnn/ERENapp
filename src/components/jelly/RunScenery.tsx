@@ -189,18 +189,148 @@ export const Crate = memo(function Crate({ w, h }: { w: number; h: number }) {
   )
 })
 
-/** A dripping syrup pipe hanging from the ceiling. Duck it — never jump it. */
-export const Pipe = memo(function Pipe({ w, h }: { w: number; h: number }) {
+/**
+ * A lit syrup burner. Touch it and the run is OVER.
+ *
+ * The run has two classes of hazard and the player has to tell them apart in
+ * the fraction of a second before contact, so they are separated on the one
+ * channel that is read fastest: COLOUR. Everything that merely slows you is
+ * wood-brown or brass. This is the only thing on screen that is hot — orange
+ * flame, a glow that spills onto the floor, and rising heat. Nothing else in
+ * the parlour is allowed to be that colour.
+ *
+ * It is also the tallest thing on the ground, so the silhouette agrees with
+ * the colour instead of relying on it.
+ */
+export const Burner = memo(function Burner({ w, h }: { w: number; h: number }) {
   return (
     <div style={{ width: w, height: h, position: 'absolute', willChange: 'transform' }}>
+      {/* the heat it throws — under everything, so it can never read as solid */}
+      <div className="jrHeat" style={{
+        position: 'absolute', left: -14, right: -14, top: -18, bottom: -6,
+        background: `radial-gradient(ellipse at 50% 70%, rgba(255,138,42,0.42) 0%, rgba(255,90,20,0.14) 46%, rgba(255,90,20,0) 74%)`,
+      }} />
+      {/* stove body */}
+      <div style={{
+        position: 'absolute', left: 3, right: 3, bottom: 0, height: h * 0.44,
+        background: '#4A3038', border: `2px solid ${INK}`, borderRadius: 2,
+      }} />
+      {/* flame mouth */}
+      <div className="jrFlame" style={{
+        position: 'absolute', left: 8, right: 8, bottom: 3, height: h * 0.3,
+        background: `linear-gradient(0deg, #FFD166 0%, #FF8A2A 46%, #E8402A 100%)`,
+        borderRadius: '40% 40% 3px 3px',
+      }} />
+      {/* the pot, and the syrup boiling over the rim */}
+      <div style={{
+        position: 'absolute', left: 0, right: 0, top: 6, height: h * 0.46,
+        background: `linear-gradient(180deg, ${BRASS} 0%, ${BRASS_DK} 100%)`,
+        border: `2px solid ${INK}`, borderRadius: '3px 3px 8px 8px',
+      }} />
+      <div style={{
+        position: 'absolute', left: -2, right: -2, top: 2, height: 7,
+        background: BRASS_LT, border: `2px solid ${INK}`, borderRadius: 3,
+      }} />
+      <div className="jrBoil" style={{
+        position: 'absolute', left: 4, right: 4, top: 6, height: 6,
+        background: '#FF6B3D', borderRadius: 3,
+      }} />
+      <style jsx>{`
+        .jrFlame { animation: jrFlicker 0.24s steps(2, jump-none) infinite; transform-origin: 50% 100%; }
+        .jrHeat  { animation: jrHeatPulse 0.9s ease-in-out infinite; }
+        .jrBoil  { animation: jrBoilUp 0.5s steps(2, jump-none) infinite; }
+        @keyframes jrFlicker  { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(1.28) scaleX(0.9); } }
+        @keyframes jrHeatPulse{ 0%,100% { opacity: 0.75; } 50% { opacity: 1; } }
+        @keyframes jrBoilUp   { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+        @media (prefers-reduced-motion: reduce) {
+          .jrFlame, .jrHeat, .jrBoil { animation: none; }
+        }
+      `}</style>
+    </div>
+  )
+})
+
+/**
+ * The glider canopy. Opens over Eren's head while he holds a fall.
+ *
+ * A jelly-shop parasol rather than a hang-glider, because it has to look like
+ * it came out of this room. Drawn by the game rather than by the sprite so it
+ * can scale and fade independently of the 20x20 cat.
+ */
+export const Glider = memo(function Glider({ w }: { w: number }) {
+  return (
+    <div style={{ width: w, height: w * 0.52, position: 'absolute', pointerEvents: 'none' }}>
+      <div className="jrCanopy" style={{ position: 'absolute', inset: 0 }}>
+        <div style={{
+          position: 'absolute', left: 0, right: 0, top: 0, bottom: '32%',
+          background: `linear-gradient(180deg, ${BERRY} 0%, ${BERRY_DK} 100%)`,
+          border: `2px solid ${INK}`, borderRadius: '999px 999px 6px 6px',
+        }} />
+        {[26, 50, 74].map(p => (
+          <div key={p} style={{
+            position: 'absolute', left: `${p}%`, top: 2, bottom: '34%', width: 2,
+            marginLeft: -1, background: CREAM, opacity: 0.5,
+          }} />
+        ))}
+        {/* rigging down to the paws */}
+        <div style={{ position: 'absolute', left: '20%', top: '62%', bottom: 0, width: 2, background: INK, transform: 'rotate(12deg)' }} />
+        <div style={{ position: 'absolute', left: '78%', top: '62%', bottom: 0, width: 2, background: INK, transform: 'rotate(-12deg)' }} />
+      </div>
+      <style jsx>{`
+        .jrCanopy { animation: jrCanopyBob 1.1s ease-in-out infinite; transform-origin: 50% 100%; }
+        @keyframes jrCanopyBob {
+          0%, 100% { transform: rotate(-3deg); }
+          50%      { transform: rotate(3deg); }
+        }
+        @media (prefers-reduced-motion: reduce) { .jrCanopy { animation: none; } }
+      `}</style>
+    </div>
+  )
+})
+
+/**
+ * A dripping syrup pipe. Duck it — never jump it.
+ *
+ * `clear` is how far its underside floats above the floor, and it exists only
+ * so the pipe can prove it is HANGING. Drawn as a bare bar it read as a low
+ * table you might hop onto: a brass slab on three little legs, floating, with
+ * nothing holding it up. In a runner, a thing that looks landable but is
+ * actually a duck-or-be-hit is the worst kind of lie.
+ *
+ * So it gets stems climbing out of the top and fading away, and a syrup puddle
+ * on the floor directly under it. Together they say the same thing twice: this
+ * comes from ABOVE, and the space under it is the space you want.
+ */
+export const Pipe = memo(function Pipe({ w, h, clear }: { w: number; h: number; clear: number }) {
+  const fade = 'linear-gradient(0deg, rgba(0,0,0,1) 0%, rgba(0,0,0,0.5) 45%, rgba(0,0,0,0) 100%)'
+  return (
+    <div style={{ width: w, height: h, position: 'absolute', willChange: 'transform' }}>
+      {/* stems up out of frame */}
+      {[7, w - 13].map(x => (
+        <div key={x} style={{
+          position: 'absolute', left: x, bottom: h - 2, width: 5, height: 74,
+          background: `linear-gradient(180deg, ${BRASS_DK} 0%, ${BRASS} 100%)`,
+          maskImage: fade, WebkitMaskImage: fade,
+        }} />
+      ))}
       <div style={{ position: 'absolute', inset: 0, background: BRASS, border: `2px solid ${INK}`, borderRadius: 2 }} />
       <div style={{ position: 'absolute', left: 2, right: 2, top: 2, height: 2, background: BRASS_LT }} />
-      {[4, 18, 32].map(x => (
+      {/* drips, at three different lengths so they read as falling */}
+      {[[5, 9], [18, 14], [31, 7]].map(([x, len]) => (
         <div key={x} style={{
-          position: 'absolute', left: x, bottom: -5, width: 4, height: 6,
+          position: 'absolute', left: x, top: h - 2, width: 4, height: len,
           background: BERRY, border: `1px solid ${INK}`, borderRadius: '0 0 3px 3px',
         }} />
       ))}
+      {/* and the puddle they have been landing in */}
+      <div style={{
+        position: 'absolute', left: 2, right: 2, bottom: -clear - 3, height: 6,
+        background: BERRY_DK, borderRadius: '50%', opacity: 0.85,
+      }} />
+      <div style={{
+        position: 'absolute', left: 8, right: 8, bottom: -clear - 1, height: 3,
+        background: BERRY, borderRadius: '50%',
+      }} />
     </div>
   )
 })

@@ -22,6 +22,8 @@ export type ErenPose =
   | 'run'     // legs driving — alternate frames with `step`
   | 'leap'    // airborne, forepaws reaching
   | 'dive'    // tucked and dropping, tail up
+  | 'glide'   // hanging off a glider, legs loose
+  | 'dash'    // hurled forward, ears flat, eyes narrowed
 
 const INK = '#3B2416'   // outline — the sprite sits on saturated blocks and
                         // needs a dark edge or it dissolves into them
@@ -54,12 +56,20 @@ const PixelEren = memo(function PixelEren({ pose, size = 32, blink = false, twit
   const run = pose === 'run'
   const leap = pose === 'leap'
   const dive = pose === 'dive'
+  const glide = pose === 'glide'
+  const dash = pose === 'dash'
   // A blink can't override the poses whose whole point is the eye shape.
-  const shut = blink && !cheer && !wobble && !dive
-  // The three running poses lean into the direction of travel. Rotation, not
+  const shut = blink && !cheer && !wobble && !dive && !dash
+  // The running poses lean into the direction of travel. Rotation, not
   // redrawn art: the silhouette is what reads at this size, and a tilt changes
   // the whole silhouette for one attribute.
-  const tilt = run ? (step ? -3 : -5) : leap ? -8 : dive ? 10 : wobble ? -9 : 0
+  //
+  // A DASH leans hardest of all — it is the only pose that has to read as
+  // faster than running, and at 30px a lean is the only thing that says speed.
+  // A GLIDE barely tilts: hanging off a canopy is the one airborne pose that
+  // should look calm, so it reads as the opposite of a fall.
+  const tilt = dash ? -18 : glide ? -2
+    : run ? (step ? -3 : -5) : leap ? -8 : dive ? 10 : wobble ? -9 : 0
   const bob = run && step ? 1 : 0
   /**
    * A dive SQUASHES him, and that is not decoration.
@@ -81,6 +91,12 @@ const PixelEren = memo(function PixelEren({ pose, size = 32, blink = false, twit
       {/* tail — up and curled when cheering, flat out when scrambling */}
       {cheer
         ? <><rect x="1" y="9" width="2" height="4" fill={EAR} /><rect x="1" y="7" width="3" height="2" fill={EAR} /></>
+        : dash
+        // Straight out behind him and long — the tail is the speed line.
+        ? <><rect x="0" y="12" width="5" height="2" fill={EAR} /><rect x="0" y="11" width="2" height="1" fill={EAR} /></>
+        : glide
+        // Hanging loose and low, the way a tail does when nothing is bracing.
+        ? <><rect x="1" y="14" width="3" height="2" fill={EAR} /><rect x="1" y="16" width="2" height="2" fill={EAR} /></>
         : dive
         // Diving: the tail whips straight up, which is the clearest read that
         // he is going DOWN on a sprite that can't show a profile.
@@ -98,6 +114,18 @@ const PixelEren = memo(function PixelEren({ pose, size = 32, blink = false, twit
           <rect x="2" y="2" width="3" height="5" fill="none" stroke={INK} strokeWidth="0.6" />
           <rect x="15" y="2" width="3" height="5" fill={FUR} />
           <rect x="15" y="2" width="3" height="5" fill="none" stroke={INK} strokeWidth="0.6" />
+        </>
+      )}
+
+      {/* gripping paws (glide) — straight up and INSIDE the ears, so the
+          silhouette reads as hanging from something rather than cheering. The
+          canopy itself is the game's to draw; the cat only holds on. */}
+      {glide && (
+        <>
+          <rect x="6" y="0" width="3" height="6" fill={INK} />
+          <rect x="6" y="1" width="2" height="4" fill={FUR} />
+          <rect x="11" y="0" width="3" height="6" fill={INK} />
+          <rect x="12" y="1" width="2" height="4" fill={FUR} />
         </>
       )}
 
@@ -128,14 +156,30 @@ const PixelEren = memo(function PixelEren({ pose, size = 32, blink = false, twit
         : dive
         // Everything tucked tight and narrow — a falling ball of cat.
         ? <><rect x="6" y="18" width="3" height="2" fill={INK} /><rect x="11" y="18" width="3" height="2" fill={INK} /></>
+        : dash
+        // Forepaws punched forward, hind legs trailing — nothing under him is
+        // touching ground, which is the read that separates this from a run.
+        ? <><rect x="15" y="15" width="5" height="3" fill={INK} /><rect x="16" y="16" width="3" height="1" fill={FUR} />
+           <rect x="2" y="17" width="5" height="2" fill={INK} /><rect x="3" y="17" width="3" height="1" fill={FUR_DK} /></>
+        : glide
+        // Dangling straight down and slack. Legs doing nothing is the whole
+        // point of a glide.
+        ? <><rect x="6" y="18" width="3" height="2" fill={INK} /><rect x="11" y="18" width="3" height="2" fill={INK} />
+           <rect x="7" y="19" width="1" height="1" fill={FUR_DK} /><rect x="12" y="19" width="1" height="1" fill={FUR_DK} /></>
         : <><rect x="5" y="18" width="4" height="2" fill={INK} /><rect x="11" y="18" width="4" height="2" fill={INK} />
            <rect x="6" y="18" width="2" height="1" fill={FUR_DK} /><rect x="12" y="18" width="2" height="1" fill={FUR_DK} /></>)}
 
-      {/* ears — the right one flicks a pixel down on a twitch */}
-      <rect x="4" y="1" width="4" height="5" fill={INK} />
-      <rect x="5" y="2" width="2" height="3" fill={EAR} />
-      <rect x="5" y="3" width="1" height="2" fill="#F472B6" />
-      <g transform={twitch ? 'translate(0,1)' : undefined}>
+      {/* ears — the right one flicks a pixel down on a twitch.
+          Dashing pins them BACK: they slide down behind the head (drawn after
+          this) and out, leaving two swept nubs. A cat at speed does not run
+          with its ears up, and the flattened silhouette is most of what sells
+          the pose at 30px. */}
+      <g transform={dash ? 'translate(-1,3)' : undefined}>
+        <rect x="4" y="1" width="4" height="5" fill={INK} />
+        <rect x="5" y="2" width="2" height="3" fill={EAR} />
+        <rect x="5" y="3" width="1" height="2" fill="#F472B6" />
+      </g>
+      <g transform={dash ? 'translate(1,3)' : twitch ? 'translate(0,1)' : undefined}>
         <rect x="12" y="1" width="4" height="5" fill={INK} />
         <rect x="13" y="2" width="2" height="3" fill={EAR} />
         <rect x="14" y="3" width="1" height="2" fill="#F472B6" />
@@ -156,6 +200,11 @@ const PixelEren = memo(function PixelEren({ pose, size = 32, blink = false, twit
            <rect x="11" y="8" width="1" height="1" fill={INK} /><rect x="13" y="8" width="1" height="1" fill={INK} /></>
         : dive
         ? <><rect x="6" y="9" width="3" height="1" fill={INK} /><rect x="11" y="9" width="3" height="1" fill={INK} /></>
+        : dash
+        // Narrowed to a hard squint — wide round eyes read as surprised, and
+        // a dash is the one moment he is not being surprised by anything.
+        ? <><rect x="5" y="8" width="4" height="2" fill={INK} /><rect x="11" y="8" width="4" height="2" fill={INK} />
+           <rect x="8" y="8" width="1" height="1" fill="#FFFFFF" /><rect x="14" y="8" width="1" height="1" fill="#FFFFFF" /></>
         : <><rect x="6" y="7" width="2" height={wobble || leap ? 4 : 3} fill={INK} /><rect x="12" y="7" width="2" height={wobble || leap ? 4 : 3} fill={INK} />
            <rect x="6" y="7" width="1" height="1" fill="#FFFFFF" /><rect x="12" y="7" width="1" height="1" fill="#FFFFFF" /></>}
       </g>

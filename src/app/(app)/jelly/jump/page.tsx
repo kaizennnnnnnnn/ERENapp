@@ -11,12 +11,20 @@ export const dynamic = 'force-dynamic'
 // give the climb a shape, and the director introduces them in the order a
 // player can absorb them:
 //
-//   JELLY   the baseline. One bounce, then it melts. No camping.
-//   SLIDER  slides along its shelf. Appears early; teaches timing.
-//   CREAM   whipped cream — a much bigger bounce, and it survives. The reward
-//           line: risk a longer reach for a free storey.
-//   CRUMB   a crumbling biscuit. Bounces once, then falls out from under you.
-//           It's the one that makes you look before you land.
+//   JELLY   the baseline. Bounces, and STAYS. It used to melt after one
+//           bounce, and so did the slider, which meant three of the four kinds
+//           vanished under you with no way to tell which — the game read as
+//           "everything disappears".
+//   SLIDER  slides along its shelf. Appears early; teaches timing. Also stays.
+//   CREAM   whipped cream — a much bigger bounce. The reward line: risk a
+//           longer reach for a free storey.
+//   CRUMB   a crumbling biscuit, and the ONLY platform that ever goes away. It
+//           cracks where you land, holds for a beat, then drops. It's the one
+//           that makes you look before you land.
+//
+// Camping is handled by the CHAIN rather than by taking the floor away: bounce
+// back onto the shelf you just left and the count resets, climb ten new ones
+// and the tenth throws you like cream.
 //
 // Gaps widen and sliders speed up with height, so the top of a good run is a
 // genuinely different game from the bottom.
@@ -100,6 +108,18 @@ const THRESHOLD = 240
 const PX_PER_M = 8
 /** Metres after which the director is at full strength. */
 const RAMP_M = 900
+/**
+ * How long a landed biscuit holds before it drops.
+ *
+ * Not politeness — legibility. A platform that vanishes on contact teaches
+ * nothing, because by the time you see it go you have already committed. A
+ * beat with the cracks showing is what turns "it disappeared" into "I saw that
+ * one crack". You still cannot bounce on it twice; it is spent the instant you
+ * touch it.
+ */
+const CRUMB_HOLD_MS = 220
+/** Consecutive NEW platforms that earn a cream-strength bounce. */
+const CHAIN_REWARD = 10
 
 type PlatKind = 'jelly' | 'slider' | 'cream' | 'crumb'
 
@@ -110,19 +130,26 @@ interface Plat {
   /** World Y — grows downward; the camera subtracts from it. */
   wy: number
   jelly: JellyDef
+  /**
+   * Spent. ONLY a crumb can ever be spent.
+   *
+   * This used to be set for every kind except cream, and the recycler melted
+   * anything spent — so jellies AND sliders vanished the moment you touched
+   * them, which is three of the four kinds. From the player's seat that is
+   * "the platforms disappear", with no way to tell which. The rule now is the
+   * one the start card states: the biscuit is the thing that gives way, and
+   * nothing else does.
+   */
   used: boolean
   /** 0..1 squish, decays after a bounce. */
   squish: number
-  /**
-   * 0→1 after it has been used. A spent jelly used to sit at 15% opacity
-   * forever, which reads as a dark smudge stuck to the wall rather than
-   * something that melted — and worse, it looks landable. It now flattens and
-   * goes completely.
-   */
+  /** 0→1 as a crumb falls away, so it fades instead of blinking out. */
   melt: number
   /** CRUMB: bounced once, now falling away. */
   falling: boolean
   fallV: number
+  /** CRUMB: when it was landed on, so the cracks get a beat to be seen. */
+  crackAt: number
   /** SLIDER: horizontal speed and travel bounds. */
   vx: number
   minX: number
@@ -144,6 +171,7 @@ export default function JellyJumpPage() {
 
   const [phase, setPhase] = useState<'ready' | 'play' | 'over'>('ready')
   const [height, setHeight] = useState(0)
+  const [chainUi, setChainUi] = useState(0)
   const [pose, setPose] = useState<ErenPose>('idle')
   const [banner, setBanner] = useState<string | null>(null)
   const [wins, setWins] = useState<JellyWin[]>([])
@@ -166,6 +194,9 @@ export default function JellyJumpPage() {
   /** x of the platform below, so the next one lands within reach of it. */
   const lastPlatX = useRef(0)
   const milestone = useRef(0)
+  /** Consecutive platforms that weren't the one he just left. */
+  const chain = useRef(0)
+  const lastHitId = useRef(-1)
   const poseTimer = useRef<number | null>(null)
   const bannerTimer = useRef<number | null>(null)
   const [, force] = useState(0)
@@ -246,7 +277,10 @@ export default function JellyJumpPage() {
 
     const roll = Math.random()
     const sliderChance = 0.12 + heat * 0.26
-    const crumbChance = heat < 0.12 ? 0 : 0.08 + heat * 0.18
+    // Raised: the biscuit is now the only platform that ever goes away, so
+    // it inherits the pressure the melting jellies used to supply. Still
+    // held back at the very bottom of a run, where the player is learning.
+    const crumbChance = heat < 0.10 ? 0 : 0.13 + heat * 0.24
     const kind: PlatKind = roll < 0.10 ? 'cream'
       : roll < 0.10 + sliderChance ? 'slider'
         : roll < 0.10 + sliderChance + crumbChance ? 'crumb'
@@ -272,7 +306,7 @@ export default function JellyJumpPage() {
       kind,
       x, wy: nextPlatWy.current,
       jelly: JELLIES[Math.floor(Math.random() * JELLIES.length)],
-      used: false, squish: 0, melt: 0, falling: false, fallV: 0,
+      used: false, squish: 0, melt: 0, falling: false, fallV: 0, crackAt: 0,
       vx: kind === 'slider' ? (Math.random() < 0.5 ? -1 : 1) * (48 + heat * 78) : 0,
       minX, maxX,
     })
@@ -293,6 +327,9 @@ export default function JellyJumpPage() {
       last = now
 
       const c = cat.current
+      // Declared up here rather than at the recycler, because landing on a
+      // biscuit has to repaint too — that is what makes its cracks appear.
+      let listChanged = false
       // Steering
       if (steer.current !== 0) c.vx += steer.current * MOVE_A * dt
       else c.vx *= Math.pow(DRAG, dt * 60)
@@ -326,22 +363,41 @@ export default function JellyJumpPage() {
           if (dx > PLAT_W / 2 + EREN / 4) continue
           const feet = c.wy + EREN / 2
           if (feet >= p.wy && feet <= p.wy + PLAT_H * 0.9) {
-            if (p.kind === 'cream') {
-              c.vy = -CREAM_V
-              // Cream survives — it's the one platform you'd come back to, and
-              // it never gets the chance because you're already three up.
-              p.squish = 1
+            // The chain counts platforms you have not just come off. Landing
+            // back on the same shelf resets it — which is the whole reason
+            // persistent jellies can stay persistent: camping costs you the
+            // chain instead of being blocked outright.
+            if (p.id === lastHitId.current) chain.current = 0
+            else chain.current++
+            lastHitId.current = p.id
+
+            const earned = chain.current > 0 && chain.current % CHAIN_REWARD === 0
+            const big = p.kind === 'cream' || earned
+            c.vy = big ? -CREAM_V : -BOUNCE_V
+            p.squish = 1
+            // What the platform DOES is independent of how hard he leaves it.
+            // Folding these together made a chain reward landing on a biscuit
+            // leave the biscuit standing — the one platform whose whole
+            // identity is that it breaks.
+            if (p.kind === 'crumb') {
+              // Spent immediately so it can't be bounced twice, but it does
+              // not LEAVE yet — see CRUMB_HOLD_MS.
+              p.used = true
+              p.crackAt = now
+              listChanged = true    // repaint once so the cracks show
+            }
+            if (big) {
               playSound('jl_high')
-              shout('WHIPPED!')
+              shout(earned && p.kind !== 'cream' ? `SUGAR RUSH x${chain.current}` : 'WHIPPED!')
               flash('cheer', 340)
             } else {
-              c.vy = -BOUNCE_V
-              p.used = true
-              p.squish = 1
-              if (p.kind === 'crumb') { p.falling = true; p.fallV = 40 }
               playSound('jl_bounce')
               flash('cheer', 260)
             }
+            if (chain.current > 0 && chain.current % 5 === 0 && !earned) {
+              shout(`CHAIN x${chain.current}`)
+            }
+            setChainUi(chain.current)
             break
           }
         }
@@ -365,22 +421,29 @@ export default function JellyJumpPage() {
       }
 
       // Keep a screen and a half of platforms above, recycle below.
-      let listChanged = false
       while (nextPlatWy.current > cam.current - H * 0.6) { addPlat(W); listChanged = true }
       plats.current = plats.current.filter(p => {
         if (p.wy - cam.current > H + PLAT_H * 3) { listChanged = true; return false }
         if (p.squish > 0) p.squish = Math.max(0, p.squish - dt * 3.2)
-        // Melt a spent jelly away entirely. Cream is never spent; a crumb
-        // falls instead, and is recycled by the off-screen test above.
-        if (p.used && !p.falling && p.kind !== 'cream') {
-          p.melt = Math.min(1, p.melt + dt * 2.4)
-          if (p.melt >= 1) { listChanged = true; return false }
+        // A landed biscuit holds, cracks showing, then gives way. Nothing else
+        // is ever spent, so nothing else is ever removed from under the player
+        // — nothing here melts any more.
+        if (p.used && !p.falling && now - p.crackAt > CRUMB_HOLD_MS) {
+          p.falling = true
+          p.fallV = 40
         }
+        // Fade it out as it drops, so it leaves rather than blinks off.
+        if (p.falling) p.melt = Math.min(1, p.melt + dt * 1.5)
         if (p.el) {
-          const sy = (1 - p.squish * 0.45) * (1 - p.melt * 0.8)
-          const sx = (1 + p.squish * 0.3) * (1 + p.melt * 0.25)
+          const sy = 1 - p.squish * 0.45
+          const sx = 1 + p.squish * 0.3
+          // A biscuit TUMBLES as it goes. It used to squash flat on the way
+          // out, borrowed from the melting jellies — but a biscuit that
+          // flattens reads as melting, and the point of this one is that it
+          // broke.
+          const spin = p.falling ? ` rotate(${p.melt * 34}deg)` : ''
           p.el.style.transform =
-            `translate3d(${p.x - PLAT_W / 2}px, ${p.wy - cam.current}px, 0) scale(${sx}, ${sy})`
+            `translate3d(${p.x - PLAT_W / 2}px, ${p.wy - cam.current}px, 0) scale(${sx}, ${sy})${spin}`
           p.el.style.opacity = String(1 - p.melt)
         }
         return true
@@ -454,16 +517,18 @@ export default function JellyJumpPage() {
     // A wide starting jelly right under him so the first bounce is free.
     plats.current.push({
       id: ++uid, kind: 'jelly', x: W / 2, wy: 0, jelly: JELLIES[0],
-      used: false, squish: 0, melt: 0, falling: false, fallV: 0, vx: 0, minX: W / 2, maxX: W / 2,
+      used: false, squish: 0, melt: 0, falling: false, fallV: 0, crackAt: 0, vx: 0, minX: W / 2, maxX: W / 2,
     })
     for (let i = 0; i < 9; i++) addPlat(W)
     cat.current = { x: W / 2, wy: -EREN, vx: 0, vy: 0 }
     bestWy.current = 0
     heightRef.current = 0
     milestone.current = 0
+    chain.current = 0
+    lastHitId.current = -1
     steer.current = 0
     savedRef.current = false
-    setHeight(0); setBanner(null); setWins([]); setAwardFailed(false); setResult(null)
+    setHeight(0); setChainUi(0); setBanner(null); setWins([]); setAwardFailed(false); setResult(null)
     phaseRef.current = 'play'
     setPhase('play')
   }, [addPlat])
@@ -496,6 +561,16 @@ export default function JellyJumpPage() {
           <span className="font-pixel" style={{ fontSize: 10, color: INK }}>{height}</span>
           <span className="font-pixel" style={{ fontSize: 6, color: '#A8836C' }}>M</span>
         </div>
+        {/* The chain. Hidden until it means something, so the HUD stays a
+            height readout on an ordinary hop. */}
+        {phase === 'play' && chainUi >= 3 && (
+          <div className="flex items-center px-2 py-1.5" style={{
+            background: chainUi >= CHAIN_REWARD - 2 ? '#2FA765' : INK,
+            borderRadius: 8, border: '2.5px solid #FFF8EE',
+          }}>
+            <span className="font-pixel" style={{ fontSize: 7, color: '#FFE6F0' }}>x{chainUi}</span>
+          </div>
+        )}
         <div className="flex-1" />
         {/* Her line for today, so you can see what you're chasing mid-run. */}
         {duel.theirName && duel.theirsToday > 0 && (
@@ -534,7 +609,7 @@ export default function JellyJumpPage() {
             willChange: 'transform, opacity', pointerEvents: 'none',
             transformOrigin: 'center bottom',
           }}>
-            <Platform kind={p.kind} jelly={p.jelly} />
+            <Platform kind={p.kind} jelly={p.jelly} cracked={p.used} />
           </div>
         ))}
 
@@ -561,9 +636,10 @@ export default function JellyJumpPage() {
               He wraps around the edges.
             </p>
             <div className="w-full flex flex-col gap-1.5 my-0.5">
-              <Rule swatch="#D73832" text="JELLIES melt after one bounce — never stop climbing." />
-              <Rule swatch="#FFF3D6" text="CREAM throws him twice as high and stays put." />
-              <Rule swatch="#C89B62" text="BISCUITS crumble away the moment you land." />
+              <Rule swatch="#D73832" text="JELLIES hold. Bounce them as often as you like." />
+              <Rule swatch="#FFF3D6" text="CREAM throws him twice as high." />
+              <Rule swatch="#C89B62" text="BISCUITS crack when you land, then give way. The only ones that do." />
+              <Rule swatch="#7BD88F" text="Ten new shelves in a row and the tenth throws him like cream." />
             </div>
             <p className="text-center" style={{ fontSize: 10, color: '#9A7484' }}>
               Slip past the bottom of the shaft and the run ends.
@@ -616,7 +692,7 @@ export default function JellyJumpPage() {
 // Each kind differs in SHAPE as well as colour, because at a screen's distance
 // while falling, shape is all you get: cream is a piped swirl, biscuit is a
 // bitten slab, a slider wears brass rails.
-function Platform({ kind, jelly }: { kind: PlatKind; jelly: JellyDef }) {
+function Platform({ kind, jelly, cracked }: { kind: PlatKind; jelly: JellyDef; cracked: boolean }) {
   if (kind === 'cream') {
     return (
       <span style={{ position: 'absolute', inset: 0 }}>
@@ -655,6 +731,26 @@ function Platform({ kind, jelly }: { kind: PlatKind; jelly: JellyDef }) {
             background: 'rgba(88,50,18,0.75)',
           }} />
         ))}
+        {/* Split lines, the instant it is landed on. This is the whole point of
+            CRUMB_HOLD_MS: the player gets a frame where the biscuit is visibly
+            broken, so what happens next is something they watched rather than
+            something that happened to them. */}
+        {cracked && (
+          <>
+            <span style={{
+              position: 'absolute', left: 24, bottom: 3, width: 3, height: 17,
+              background: INK, transform: 'rotate(9deg)',
+            }} />
+            <span style={{
+              position: 'absolute', left: 49, bottom: 3, width: 3, height: 17,
+              background: INK, transform: 'rotate(-13deg)',
+            }} />
+            <span style={{
+              position: 'absolute', left: 33, bottom: 11, width: 14, height: 2.5,
+              background: INK, transform: 'rotate(6deg)',
+            }} />
+          </>
+        )}
       </span>
     )
   }
