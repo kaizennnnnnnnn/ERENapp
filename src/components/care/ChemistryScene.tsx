@@ -6,7 +6,7 @@
 // follow-up phases.
 
 import { useEffect, useState } from 'react'
-import { BookOpen, Flame, Check, ChevronUp, ChevronDown, type LucideIcon } from 'lucide-react'
+import { IconBook, IconFire, IconCheck, IconChevronDown } from '@/components/PixelIcons'
 import BlinkingEren from '@/components/BlinkingEren'
 import { useRoomEren } from '@/hooks/useRoomEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
@@ -21,6 +21,7 @@ import BrewOverlay from '@/components/chemistry/BrewOverlay'
 import BrewButton from '@/components/chemistry/BrewButton'
 import { LAB_EREN } from '@/components/chemistry/labEren'
 import { useStoredChemTheme } from '@/lib/chemistry/theme'
+import { pixelSkin, hard, PIXEL_FONT, type PixelSkin } from '@/components/chemistry/pixel'
 import { useTasks } from '@/contexts/TaskContext'
 import { getDailyKey, TASK_DEFS } from '@/lib/tasks'
 
@@ -125,23 +126,24 @@ export default function ChemistryScene(_props: Props) {
 }
 
 // ── Daily mission chips, top-left in the room ──────────────────────────
-// Sits under StatsHeader (z-[60]) so the bar takes precedence. Small
-// rounded chips, two lines each (title + reward), state-aware.
+// Sits under StatsHeader (z-[60]) so the bar takes precedence. Two chips,
+// two lines each (title + reward), state-aware.
 //
-// The chips go dark when night falls OR when the periodic-table overlay
-// is in dark mode — bright cream glows too hard against the night room
-// art. Note the overlay theme DEFAULTS to dark, so out of the box the
-// chips run dark even by day; flipping the overlay to light restores the
-// cream daytime look.
+// Dressed from the shared chemistry pixel kit so the chips, the brew bench
+// and the study overlay are visibly one system: 3px edge, hard offset
+// shadow, Press Start 2P, pixel icons. The one deliberate departure from
+// the house rule is the soft lift under the hard shadow — these float over
+// room ART rather than over a panel, and without it they read as muddy on
+// the night wall.
+//
+// The chips go dark when night falls OR when the chemistry overlay is in
+// dark mode — bright parchment glows too hard against the night room art.
+// Note the overlay theme DEFAULTS to dark, so out of the box the chips run
+// dark even by day; flipping the overlay to light restores the warm look.
 function RoomMissionChips({ night }: { night: boolean }) {
   const { completedIds } = useTasks()
   const chemTheme = useStoredChemTheme()
-  const dark = night || chemTheme === 'dark'
-  // Surfaces lifted from the chem DARK_PALETTE so the chips read as part
-  // of the same system as the overlay (card / ink / fg).
-  const surface = dark ? '#231838' : '#FFF7DA'
-  const ink     = dark ? '#0A0517' : '#1A0F2D'
-  const fg      = dark ? '#FBF1D9' : '#1A0F2D'
+  const skin = pixelSkin(night || chemTheme === 'dark' ? 'dark' : 'light')
   // Default expanded so the player sees today's chem quests on entry; the
   // header pill is a button that collapses the chips back into itself.
   const [expanded, setExpanded] = useState(true)
@@ -153,7 +155,7 @@ function RoomMissionChips({ night }: { night: boolean }) {
   // stale +10/+15 while the quests already paid 35 each.
   const lessonDef = TASK_DEFS.find(t => t.id === 'daily_chem_lesson')!
   const streakDef = TASK_DEFS.find(t => t.id === 'daily_chem_streak')!
-  const rewardText = (t: typeof lessonDef) => `+${t.coins} coins  +${t.xp} xp`
+  const rewardText = (t: typeof lessonDef) => `+${t.coins} COINS  +${t.xp} XP`
   return (
     <div
       className="absolute z-20 pointer-events-none flex flex-col gap-2"
@@ -162,72 +164,70 @@ function RoomMissionChips({ night }: { night: boolean }) {
         // diagram (proton / neutron / electron poster) in the room art.
         top: 'calc(150px + env(safe-area-inset-top, 0px))',
         left: 10,
-        // Widened to 232 so the full title and reward line never ellipsis
+        // Widened to 236 so the full title and reward line never ellipsis
         // on a phone-width room.
-        maxWidth: 232,
+        maxWidth: 236,
       }}
     >
-      {/* Section header — toggle button. Tapping collapses both chips
-          back up into this pill; tapping again pops them out. Same cream
-          background as the chips so the three pieces read as one unit. */}
+      {/* Section header — toggle button. Tapping collapses both chips back
+          up into this slab; tapping again pops them out. Same surface as
+          the chips so the three pieces read as one unit. */}
       <button
         type="button"
         onClick={() => setExpanded(e => !e)}
         aria-expanded={expanded}
+        className="chem-pixel-btn"
         style={{
           pointerEvents: 'auto',
           alignSelf: 'flex-start',
           display: 'inline-flex',
           alignItems: 'center',
-          gap: 6,
-          padding: '3px 8px 3px 10px',
-          borderRadius: 999,
-          background: surface,
-          border: `2px solid ${ink}`,
-          boxShadow: `2px 2px 0 ${ink}, 0 4px 10px rgba(0,0,0,0.28)`,
-          fontFamily: '"Press Start 2P", monospace',
+          gap: 7,
+          padding: '6px 9px',
+          background: skin.panel,
+          border: `3px solid ${skin.edge}`,
+          boxShadow: `${hard(skin.ink)}, 0 4px 12px rgba(0,0,0,0.35)`,
+          fontFamily: PIXEL_FONT,
           fontSize: 7,
-          fontWeight: 800,
-          letterSpacing: 0.6,
-          color: fg,
+          letterSpacing: 1,
+          lineHeight: 1.4,
+          color: skin.fg,
           marginBottom: 2,
-          cursor: 'pointer',
         }}
       >
         DAILY CHEM QUESTS
-        {expanded
-          ? <ChevronUp   size={12} strokeWidth={3} />
-          : <ChevronDown size={12} strokeWidth={3} />}
+        <span aria-hidden style={{
+          display: 'inline-flex',
+          transform: expanded ? 'rotate(180deg)' : undefined,
+        }}>
+          <IconChevronDown size={12} tone={skin.gold} />
+        </span>
       </button>
       <Collapsible expanded={expanded} delayMs={0}>
         <MissionChip
-          Icon={BookOpen}
-          title="Finish a lesson"
+          Icon={IconBook}
+          title="FINISH A LESSON"
           reward={rewardText(lessonDef)}
           done={lessonDone}
           accent="#FCD34D"
-          accentDark="#D97706"
-          accentDeep="#92400E"
-          dark={dark}
+          skin={skin}
         />
       </Collapsible>
       <Collapsible expanded={expanded} delayMs={50}>
         <MissionChip
-          Icon={Flame}
-          title="5 in a row"
+          Icon={IconFire}
+          title="5 IN A ROW"
           reward={rewardText(streakDef)}
           done={streakDone}
           accent="#C4A7F5"
-          accentDark="#7C3AED"
-          accentDeep="#5B21B6"
-          dark={dark}
+          skin={skin}
         />
       </Collapsible>
     </div>
   )
 }
 
-// Wrapper that animates its child into / out of the header pill. When
+// Wrapper that animates its child into / out of the header slab. When
 // `expanded` flips false the chip shrinks vertically + fades + slides up
 // so it looks like it falls back into the header. Two chips can stagger
 // via `delayMs` so they peel out in sequence.
@@ -257,9 +257,9 @@ function Collapsible({ expanded, delayMs, children }: {
         // would clip. Easiest fix: only clip during/while collapsed.
         overflow: expanded ? 'visible' : 'hidden',
         transition: [
-          `max-height 260ms ease ${delayMs}ms`,
-          `opacity 200ms ease ${delayMs}ms`,
-          `transform 260ms cubic-bezier(0.4, 0, 0.2, 1) ${delayMs}ms`,
+          `max-height 260ms steps(6) ${delayMs}ms`,
+          `opacity 200ms steps(4) ${delayMs}ms`,
+          `transform 260ms steps(6) ${delayMs}ms`,
         ].join(', '),
       }}
     >
@@ -268,75 +268,63 @@ function Collapsible({ expanded, delayMs, children }: {
   )
 }
 
-function MissionChip({ Icon, title, reward, done, accent, accentDark, accentDeep, dark }: {
-  Icon: LucideIcon; title: string; reward: string; done: boolean;
-  accent: string; accentDark: string; accentDeep: string; dark: boolean
+// A claimed chip wears its accent solid with dark text, in BOTH skins —
+// that's the app's bright-accent-plus-ink-text convention, and it retires
+// the old three-tier accent/accentDark/accentDeep dance that existed only
+// to keep cream text legible on amber.
+function MissionChip({ Icon, title, reward, done, accent, skin }: {
+  Icon: React.ComponentType<{ size?: number }>
+  title: string; reward: string; done: boolean; accent: string; skin: PixelSkin
 }) {
-  // Light: bright opaque fills — claimed chips wear the accent solid,
-  // unclaimed wear cream so they pop against the day room.
-  // Dark: chem dark-palette surfaces — unclaimed go plum-card with the
-  // accent confined to the icon box; claimed wear the DEEP accent tier
-  // (not accentDark: cream text on the amber #D97706 only hits ~2.8:1,
-  // the deep ~800 tier clears 4.5:1 on both chips) so a finished quest
-  // still reads coloured without glowing at night.
-  const surface = dark ? '#231838' : '#FFF7DA'
-  const ink     = dark ? '#0A0517' : '#1A0F2D'
-  const chipBg     = done ? (dark ? accentDeep : accent) : surface
-  const chipEdge   = done && !dark ? accentDark : ink
-  const titleColor = dark ? '#FBF1D9' : '#1A0F2D'
-  const subColor   = done
-    ? (dark ? 'rgba(251,241,217,0.85)' : '#1A0F2D')
-    : (dark ? '#C9BBE0' : '#5C4E6E')
+  const body = done ? skin.onAccent : skin.fg
+  const sub = done ? skin.onAccent : skin.fgDim
   return (
     <div
       style={{
         pointerEvents: 'auto',
         display: 'flex', alignItems: 'center', gap: 9,
-        padding: '8px 12px 8px 8px',
-        borderRadius: 16,
-        background: chipBg,
-        border: `2px solid ${chipEdge}`,
-        boxShadow: `2px 3px 0 ${chipEdge}, 0 6px 16px rgba(0,0,0,0.32)`,
+        padding: '8px 11px 8px 8px',
+        background: done ? accent : skin.panel,
+        border: `3px solid ${skin.edge}`,
+        boxShadow: `${hard(skin.ink)}, 0 4px 12px rgba(0,0,0,0.35)`,
       }}
     >
-      <div
+      <span
         aria-hidden
         style={{
           flexShrink: 0,
-          width: 32, height: 32,
-          display: 'inline-flex',
-          alignItems: 'center', justifyContent: 'center',
-          borderRadius: 9,
-          background: done ? surface : accent,
-          border: `2px solid ${chipEdge}`,
-          color: done ? (dark ? accent : accentDark) : '#1A0F2D',
+          width: 30, height: 30,
+          display: 'grid', placeItems: 'center',
+          background: done ? skin.panel : accent,
+          border: `2px solid ${skin.edge}`,
+          boxShadow: hard(skin.ink, 2),
         }}
       >
-        {done
-          ? <Check size={18} strokeWidth={3} />
-          : <Icon size={18} strokeWidth={2.4} />}
-      </div>
+        {done ? <IconCheck size={16} tone="#4ADE80" /> : <Icon size={16} />}
+      </span>
       <div style={{ minWidth: 0 }}>
         <div style={{
-          fontSize: 12,
-          fontWeight: 900,
-          color: titleColor,
+          fontFamily: PIXEL_FONT,
+          fontSize: 8,
+          letterSpacing: 0.6,
+          lineHeight: 1.5,
+          color: body,
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
-          letterSpacing: 0.1,
         }}>
           {title}
         </div>
         <div style={{
-          fontSize: 9,
-          fontWeight: 700,
-          color: subColor,
+          fontFamily: PIXEL_FONT,
+          fontSize: 6,
+          letterSpacing: 0.4,
+          lineHeight: 1.6,
+          color: sub,
+          marginTop: 4,
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
-          marginTop: 1,
-          letterSpacing: 0.2,
         }}>
           {done ? 'CLAIMED' : reward}
         </div>

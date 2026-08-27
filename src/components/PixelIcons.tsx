@@ -1548,6 +1548,46 @@ export const IconChevronRight = memo(function IconChevronRight({ size = 20, tone
   return drawPixels(grid, { X: tone }, size)
 })
 
+// ── CHECK — a claimed quest, a satisfied condition.
+export const IconCheck = memo(function IconCheck({ size = 20, tone = '#22C55E' }: IconProps & { tone?: string }) {
+  const grid = [
+    '............',
+    '............',
+    '..........XX',
+    '.........XX.',
+    '........XX..',
+    '.X......XX..',
+    '.XX....XX...',
+    '..XX..XX....',
+    '...XXXX.....',
+    '....XX......',
+    '............',
+    '............',
+  ]
+  return drawPixels(grid, { X: tone }, size)
+})
+
+// ── CHEVRON DOWN — collapse/expand affordance. Rotate it 180deg for "up";
+// a half-turn of a pixel grid is still pixel-perfect, so a second hand-drawn
+// mirror would only be a second thing to keep in sync.
+export const IconChevronDown = memo(function IconChevronDown({ size = 20, tone = '#A07020' }: IconProps & { tone?: string }) {
+  const grid = [
+    '............',
+    '............',
+    '............',
+    '.XX......XX.',
+    '..XX....XX..',
+    '...XX..XX...',
+    '....XXXX....',
+    '.....XX.....',
+    '............',
+    '............',
+    '............',
+    '............',
+  ]
+  return drawPixels(grid, { X: tone }, size)
+})
+
 // ── INFO — the "what are my chances" affordance on every gacha banner.
 // A filled disc with a knocked-out lowercase i, so it still reads as a single
 // solid shape at the 14px the gacha header renders it at.
