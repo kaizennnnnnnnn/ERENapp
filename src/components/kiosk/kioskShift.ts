@@ -142,41 +142,141 @@ export function unlockedBetween(before: number, after: number): Unlock | null {
   return UNLOCKS.find(u => before < u.at && after >= u.at) ?? null
 }
 
+/** Deterministic 0–1 noise. The same pan at the same level must produce the
+ *  same lumps every render — a surface that re-rolled on each paint would
+ *  boil like static. */
+function hash(n: number): number {
+  const x = Math.sin(n * 127.1) * 43758.5453
+  return x - Math.floor(x)
+}
+
+/** Where the pan's walls are at a given height. The wells lean, so the food's
+ *  width depends on how deep in the tray you are. */
+function spanAt(well: [number, number][], y: number): [number, number] {
+  let lo = Infinity, hi = -Infinity
+  for (let i = 0; i < well.length; i++) {
+    const a = well[i], b = well[(i + 1) % well.length]
+    if ((a[1] <= y && b[1] >= y) || (b[1] <= y && a[1] >= y)) {
+      const t = a[1] === b[1] ? 0 : (y - a[1]) / (b[1] - a[1])
+      const x = a[0] + (b[0] - a[0]) * t
+      if (x < lo) lo = x
+      if (x > hi) hi = x
+    }
+  }
+  return [lo, hi]
+}
+
+/** Points along the food's surface, and down each wall to the floor. Both
+ *  counts are FIXED so every level produces a polygon with the same number of
+ *  vertices — which is the only way clip-path will animate between them
+ *  instead of snapping. */
+const SURFACE_POINTS = 13
+const WALL_POINTS = 5
+/** Lumps in the surface, as a fraction of the pan's depth. */
+const LUMP = 0.085
+/** How far the pile domes up as the pan empties. */
+const DOME = 0.24
+/** Where loose pieces sit along the surface, before jitter. Six slots, of
+ *  which each pan uses a hashed handful — a fixed count at fixed spacing is
+ *  a row of decorations, which is the symmetry this was all trying to fix. */
+const CREST_AT = [0.13, 0.29, 0.44, 0.58, 0.73, 0.88]
+
+export interface PanCrest {
+  /** Picture coordinates, same space as the well. */
+  x: number
+  y: number
+  rot: number
+  /** Multiplier on the base piece size. No two the same. */
+  scale: number
+}
+
 /**
- * The pan's contents at a given level: the well polygon with everything above
- * the food line cut away. Clipping the real outline (rather than shrinking a
- * rectangle) is what keeps the food inside the steel as it drains — the walls
- * lean, so a level line has to be trimmed by them, not approximated.
+ * The pan's contents at a given level.
  *
- * Returns the bounding box to position the element on, plus a `clip-path`
- * polygon in percentages of that box.
+ * The food is NOT the well polygon with its top cropped off. A dead-straight
+ * horizontal boundary across a texture reads as a cropped image, not as a
+ * level — nothing edible has a flat top. So the surface is a lumpy polyline
+ * with a slight tilt, and as the pan empties it domes into a heap in the
+ * middle with bare steel showing at the sides, the way a tray that's been
+ * served from all night actually looks.
+ *
+ * The lumps are hashed off the pan and the level, so they hold still between
+ * renders and change only when someone takes a scoop.
+ *
+ * Returns the bounding box to position the element on, a `clip-path` polygon
+ * in percentages of that box, where the surface sits within it (for lighting
+ * it), and a few points to drop loose pieces on.
  */
-export function panFill(well: [number, number][], left: number) {
+export function panFill(well: [number, number][], left: number, seed = 0) {
   const xs = well.map(p => p[0])
   const ys = well.map(p => p[1])
   const x0 = Math.min(...xs), x1 = Math.max(...xs)
   const y0 = Math.min(...ys), y1 = Math.max(...ys)
   const w = x1 - x0, h = y1 - y0
 
-  // Where the surface of the food sits. Full = the brim, empty = the floor.
-  const cut = y1 - h * (left / MAX_USES)
+  const level = Math.max(0, Math.min(1, left / MAX_USES))
+  // The mean height of the food. Everything below shapes the surface AROUND
+  // this line without moving it, so the pan still reads as N-fifths full.
+  const cut = y1 - h * level
+  // Empty pans heap; full pans lie flat against the brim.
+  const dome = (1 - level) * h * DOME
+  // And nothing is ever quite level.
+  const tilt = (hash(seed + 0.5) - 0.5) * h * 0.07
 
-  // Sutherland–Hodgman against the single edge y >= cut.
-  const kept: [number, number][] = []
-  for (let i = 0; i < well.length; i++) {
-    const a = well[i], b = well[(i + 1) % well.length]
-    const aIn = a[1] >= cut, bIn = b[1] >= cut
-    if (aIn) kept.push(a)
-    if (aIn !== bIn) {
-      const t = (cut - a[1]) / (b[1] - a[1])
-      kept.push([a[0] + (b[0] - a[0]) * t, cut])
-    }
+  const surfaceY = (t: number, i: number) => {
+    // Parabola with its mean subtracted: up in the middle, down at the walls,
+    // average unchanged.
+    const p = (2 * t - 1) ** 2 - 1 / 3
+    const lump = (hash(seed * 31 + left * 7 + i) - 0.5) * h * LUMP
+    const y = cut + dome * p + tilt * (t - 0.5) + lump
+    return Math.max(y0, Math.min(y1, y))
   }
 
-  const rel = kept.map(([x, y]) => `${((x - x0) / w * 100).toFixed(2)}% ${((y - y0) / h * 100).toFixed(2)}%`)
+  const [sxL, sxR] = spanAt(well, Math.max(y0 + 0.01, Math.min(y1 - 0.01, cut)))
+
+  const pts: [number, number][] = []
+  for (let i = 0; i < SURFACE_POINTS; i++) {
+    const t = i / (SURFACE_POINTS - 1)
+    pts.push([sxL + (sxR - sxL) * t, surfaceY(t, i)])
+  }
+  for (let k = 1; k <= WALL_POINTS; k++) {
+    const y = cut + (y1 - cut) * (k / (WALL_POINTS + 1))
+    pts.push([spanAt(well, y)[1], y])
+  }
+  const [bxL, bxR] = spanAt(well, y1 - 0.01)
+  pts.push([bxR, y1], [bxL, y1])
+  for (let k = WALL_POINTS; k >= 1; k--) {
+    const y = cut + (y1 - cut) * (k / (WALL_POINTS + 1))
+    pts.push([spanAt(well, y)[0], y])
+  }
+
+  // A handful of pieces half-buried in the pile. They sit a little BELOW the
+  // surface, not on it, so they read as part of the food rather than as
+  // ornaments resting on a shelf — and they're what stops the top edge being
+  // legible as a cut at all.
+  const crest: PanCrest[] = []
+  for (let i = 0; i < CREST_AT.length; i++) {
+    // Each slot is a coin flip, so the count and the spacing both vary.
+    if (hash(seed * 7 + left * 23 + i * 3) < 0.42) continue
+    const t = Math.max(0.06, Math.min(0.94,
+      CREST_AT[i] + (hash(seed * 17 + left * 3 + i) - 0.5) * 0.1))
+    crest.push({
+      x: sxL + (sxR - sxL) * t,
+      y: surfaceY(t, Math.round(t * (SURFACE_POINTS - 1)))
+        + h * (0.03 + hash(seed * 71 + left * 5 + i) * 0.05),
+      rot: (hash(seed * 53 + left * 11 + i) - 0.5) * 150,
+      scale: 0.72 + hash(seed * 97 + left * 13 + i) * 0.5,
+    })
+  }
+
+  const rel = pts.map(([x, y]) => `${((x - x0) / w * 100).toFixed(2)}% ${((y - y0) / h * 100).toFixed(2)}%`)
   return {
     box: { left: `${x0}%`, top: `${y0}%`, width: `${w}%`, height: `${h}%` },
     clip: `polygon(${rel.join(', ')})`,
+    /** The surface's mean height, as a % down the box — for putting the
+     *  lamplight on it. */
+    surfacePct: ((cut - y0) / h) * 100,
+    crest,
   }
 }
 
