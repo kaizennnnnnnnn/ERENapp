@@ -1,105 +1,164 @@
 'use client'
 
-// The Erlenmeyer flask on Eren's bench. Fills as the order gets filled, in the
-// day's potion colour, with bubbles drifting up through the liquid.
+// The flask on Eren's bench — pixel art, not vector.
 //
-// Everything is one SVG so the liquid and the bubbles can share a clip path
-// shaped like the glass — a rectangular overflow clip would let bubbles escape
-// through the sloped shoulders.
+// It used to be a smooth SVG outline with a translucent white wash, which on
+// the dark palette read as a grey blob sitting in the middle of the screen. Now
+// it's drawn on a 22-wide pixel grid like everything else in this app: one cell
+// of ink for the glass, hard steps down the shoulders, and a liquid line that
+// snaps to whole rows as slots fill instead of sliding smoothly. A 1px outline
+// at ~6x scale is exactly the chunky edge the rest of the UI has.
+//
+// The silhouette is generated from a per-row edge table rather than a hand-typed
+// character grid — 21 rows of 22 characters is a thing you get wrong once and
+// then can't find.
 
-import { useId } from 'react'
+import { useMemo } from 'react'
 
 interface Props {
-  /** 0–1. Drives the liquid height. */
+  /** 0–1. Snaps to whole pixel rows. */
   fill: number
   deep: string
   light: string
   ink: string
-  /** Empty-glass tint. Theme-aware: a fixed white wash turns into a grey slab
-   *  on the dark palette, which reads as a filled flask rather than an empty
-   *  one. Pass the theme's faint foreground. */
+  /** Empty-glass tint, behind the liquid. */
   glass?: string
-  /** Everything's in — glow, and fizz harder. */
+  /** Everything's in — glow and fizz harder. */
   done?: boolean
   /** Wrong ingredient just went in — puff of soot over the mouth. */
   soot?: boolean
-  width?: number
+  /** Cell size in CSS px. The flask is 22 cells wide. */
+  cell?: number
 }
 
-// Inside of the glass, in viewBox units. Liquid and bubbles clip to this.
-const BODY = 'M42,32 L15,101 Q13,110 22,110 L78,110 Q87,110 85,101 L58,32 Z'
-const FLOOR = 110
-const CEILING = 34
+// Ink column on each side, row by row: lip, neck, then the body opening out.
+const EDGES: [number, number][] = [
+  [6, 15], [6, 15],                                   // lip
+  [8, 13], [8, 13], [8, 13], [8, 13],                 // neck
+  [7, 14], [7, 14],
+  [6, 15], [6, 15],
+  [5, 16], [5, 16],
+  [4, 17], [4, 17],
+  [3, 18], [3, 18],
+  [2, 19], [2, 19],
+  [1, 20], [1, 20],
+  [1, 20],                                            // floor, solid
+]
 
+const GRID_W = 22
+const GRID_H = EDGES.length
+const FLOOR_ROW = GRID_H - 1
+/** Liquid never climbs past the shoulders — a full flask stops here. */
+const BRIM_ROW = 7
+
+/** Glass highlight, two cells down the upper-left of the body. */
+const SHINE: [number, number][] = [[8, 8], [7, 9], [7, 10]]
+
+// Bubble columns and their timing. Each rises from the floor to the surface.
 const BUBBLES = [
-  { cx: 36, r: 3.4, delay: '0s',    dur: '2.0s' },
-  { cx: 50, r: 2.6, delay: '0.5s',  dur: '2.4s' },
-  { cx: 62, r: 3.0, delay: '1.1s',  dur: '1.7s' },
-  { cx: 44, r: 2.2, delay: '1.6s',  dur: '2.2s' },
+  { col: 8,  delay: '0s',    dur: '2.0s' },
+  { col: 11, delay: '0.5s',  dur: '2.4s' },
+  { col: 14, delay: '1.1s',  dur: '1.7s' },
+  { col: 10, delay: '1.6s',  dur: '2.2s' },
 ]
 
 const SOOT = [
-  { cx: 42, cy: 16, r: 6, delay: '0s' },
-  { cx: 54, cy: 11, r: 7, delay: '0.06s' },
-  { cx: 62, cy: 18, r: 5, delay: '0.12s' },
+  { col: 7,  row: -3, size: 2, delay: '0s' },
+  { col: 10, row: -4, size: 2, delay: '0.06s' },
+  { col: 13, row: -3, size: 2, delay: '0.12s' },
 ]
 
-export default function BrewFlask({ fill, deep, light, ink, glass = 'rgba(255,255,255,0.30)', done, soot, width = 132 }: Props) {
-  const uid = useId().replace(/:/g, '')
-  const clipId = `brewclip-${uid}`
-  // Liquid surface: empty sits on the floor, full stops just under the neck.
-  const level = FLOOR - (FLOOR - CEILING) * Math.max(0, Math.min(1, fill))
+type Cell = { x: number; y: number; fill: string }
+
+export default function BrewFlask({
+  fill, deep, light, ink, glass = 'rgba(255,255,255,0.10)', done, soot, cell = 6,
+}: Props) {
+  // Liquid surface, snapped to a whole row. `fill` 0 sits on the floor.
+  const clamped = Math.max(0, Math.min(1, fill))
+  const level = FLOOR_ROW - Math.round((FLOOR_ROW - BRIM_ROW) * clamped)
+
+  const cells = useMemo<Cell[]>(() => {
+    const out: Cell[] = []
+    const shine = new Set(SHINE.map(([x, y]) => `${x},${y}`))
+
+    for (let y = 0; y < GRID_H; y++) {
+      const [l, r] = EDGES[y]
+      const [pl, pr] = y > 0 ? EDGES[y - 1] : EDGES[0]
+      const inks = new Set<number>([l, r])
+      // Where the wall steps INWARD, the row above would spill out sideways —
+      // cap the gap with ink so the lip actually closes onto the neck.
+      if (pl < l) for (let x = pl; x <= l; x++) inks.add(x)
+      if (pr > r) for (let x = r; x <= pr; x++) inks.add(x)
+
+      if (y === FLOOR_ROW) {
+        for (let x = l; x <= r; x++) out.push({ x, y, fill: ink })
+        continue
+      }
+      for (let x = l; x <= r; x++) {
+        if (inks.has(x)) { out.push({ x, y, fill: ink }); continue }
+        const wet = y >= level
+        const isSurface = wet && y === level
+        out.push({
+          x, y,
+          fill: wet ? (isSurface ? light : deep)
+            : shine.has(`${x},${y}`) ? 'rgba(255,255,255,0.55)'
+            : glass,
+        })
+      }
+    }
+    return out
+  }, [level, deep, light, ink, glass])
+
+  const w = GRID_W * cell
+  const h = GRID_H * cell
 
   return (
     <svg
-      width={width}
-      height={width * (128 / 100)}
-      viewBox="0 0 100 128"
+      width={w}
+      height={h}
+      viewBox={`0 0 ${GRID_W} ${GRID_H}`}
+      shapeRendering="crispEdges"
       style={{
         overflow: 'visible',
-        filter: done ? `drop-shadow(0 0 12px ${light})` : undefined,
-        transition: 'filter 400ms ease',
+        imageRendering: 'pixelated',
+        filter: done ? `drop-shadow(0 0 ${cell}px ${light})` : undefined,
+        transition: 'filter 320ms steps(4)',
       }}
       aria-hidden
     >
-      <defs>
-        <clipPath id={clipId}><path d={BODY} /></clipPath>
-      </defs>
+      {cells.map(c => (
+        <rect key={`${c.x}-${c.y}`} x={c.x} y={c.y} width={1.02} height={1.02} fill={c.fill} />
+      ))}
 
-      {/* neck + lip */}
-      <rect x="40" y="10" width="20" height="24" fill={glass} stroke={ink} strokeWidth="3.5" strokeLinejoin="round" />
-      <rect x="35" y="4" width="30" height="9" rx="3" fill={glass} stroke={ink} strokeWidth="3.5" strokeLinejoin="round" />
+      {/* Bubbles climb from the floor to the current surface. Whole cells, so
+          they read as pixels rather than dots. */}
+      {clamped > 0 && BUBBLES.map((b, i) => (
+        <rect
+          key={`b${i}`}
+          x={b.col} y={FLOOR_ROW - 2} width={1} height={1}
+          fill={light} fillOpacity="0.95"
+          style={{
+            animation: `brewBubble ${done ? '1.1s' : b.dur} steps(6) ${b.delay} infinite`,
+            ['--brew-rise' as string]: `${-(FLOOR_ROW - level - 2)}px`,
+          }}
+        />
+      ))}
 
-      {/* glass body */}
-      <path d={BODY} fill={glass} stroke={ink} strokeWidth="3.5" strokeLinejoin="round" />
+      {/* Two sparks over a finished brew. */}
+      {done && [[5, 4], [17, 6]].map(([x, y], i) => (
+        <rect
+          key={`s${i}`} x={x} y={y} width={1} height={1} fill={light}
+          style={{ animation: `brewSpark 1.4s steps(3) ${i * 0.45}s infinite` }}
+        />
+      ))}
 
-      <g clipPath={`url(#${clipId})`}>
-        {/* liquid — animates its own height as slots fill */}
-        <rect x="0" y={level} width="100" height={FLOOR - level + 4} fill={deep}
-          style={{ transition: 'y 520ms cubic-bezier(0.34,1.3,0.64,1), height 520ms cubic-bezier(0.34,1.3,0.64,1)' }} />
-        {/* lighter meniscus band so the surface reads as liquid, not a block */}
-        {fill > 0 && (
-          <rect x="0" y={level} width="100" height="5" fill={light}
-            style={{ transition: 'y 520ms cubic-bezier(0.34,1.3,0.64,1)' }} />
-        )}
-        {/* bubbles, only once there's something to bubble through */}
-        {fill > 0 && BUBBLES.map((b, i) => (
-          <circle key={i} cx={b.cx} cy={FLOOR - 8} r={b.r} fill={light} fillOpacity="0.9"
-            style={{
-              animation: `brewBubble ${done ? '1.1s' : b.dur} linear ${b.delay} infinite`,
-              // Each bubble climbs from the floor to the current surface.
-              ['--brew-rise' as string]: `${-(FLOOR - level - 6)}px`,
-            }} />
-        ))}
-      </g>
-
-      {/* glass shine, over the liquid */}
-      <path d="M46,40 L34,72" stroke="#FFFFFF" strokeOpacity="0.55" strokeWidth="4" strokeLinecap="round" />
-
-      {/* soot puff when a wrong ingredient goes in */}
       {soot && SOOT.map((s, i) => (
-        <circle key={i} cx={s.cx} cy={s.cy} r={s.r} fill="#6B7280" fillOpacity="0.85"
-          style={{ animation: `brewSoot 620ms ease-out ${s.delay} both` }} />
+        <rect
+          key={`k${i}`}
+          x={s.col} y={s.row} width={s.size} height={s.size}
+          fill="#6B7280" fillOpacity="0.9"
+          style={{ animation: `brewSoot 620ms steps(5) ${s.delay} both` }}
+        />
       ))}
     </svg>
   )

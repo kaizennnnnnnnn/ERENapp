@@ -14,6 +14,7 @@
 // ═════════════════════════════════════════════════════════════════════════════
 
 import { elements, type Element } from './elements'
+import { POTIONS, type Potion } from './potions'
 
 // ─── Seeded RNG ──────────────────────────────────────────────────────────────
 // Same key in → same brew out, on both phones, all day.
@@ -80,8 +81,8 @@ const ASKS: Ask[] = [
   { id: 'p2',       label: 'anything from period 2',      chip: 'PERIOD 2',     maxCount: 2, test: e => e.period === 2 },
   { id: 'p3',       label: 'anything from period 3',      chip: 'PERIOD 3',     maxCount: 2, test: e => e.period === 3 },
   { id: 'p4',       label: 'anything from period 4',      chip: 'PERIOD 4',     maxCount: 2, test: e => e.period === 4 },
-  { id: 'tiny',     label: 'an element lighter than neon',chip: 'NUMBER < 10',  maxCount: 2, test: e => e.atomicNumber < 10 },
-  { id: 'heavy',    label: 'an element heavier than lead',chip: 'NUMBER > 82',  maxCount: 2, test: e => e.atomicNumber > 82 },
+  { id: 'tiny',     label: 'an element lighter than neon',chip: 'LIGHTER 1-9',  maxCount: 2, test: e => e.atomicNumber < 10 },
+  { id: 'heavy',    label: 'an element heavier than lead',chip: 'HEAVIER 83+',  maxCount: 2, test: e => e.atomicNumber > 82 },
 ]
 
 /** Elements an ask matches. Computed once — the table never changes. */
@@ -95,26 +96,6 @@ const MATCHES: Record<string, Element[]> = Object.fromEntries(
 function disjoint(a: Ask, b: Ask): boolean {
   return !MATCHES[a.id].some(el => b.test(el))
 }
-
-// ─── Potions ─────────────────────────────────────────────────────────────────
-// Name + liquid colour travel together so a "Frostmint Fizz" is never brown.
-
-interface Potion { name: string; deep: string; light: string }
-
-const POTIONS: Potion[] = [
-  { name: 'Fizzy Moonmilk',  deep: '#8B5CF6', light: '#C4B5FD' },
-  { name: 'Frostmint Fizz',  deep: '#14B8A6', light: '#7EE7DA' },
-  { name: 'Sunbeam Syrup',   deep: '#F59E0B', light: '#FCD34D' },
-  { name: 'Sardine Sparkle', deep: '#0EA5E9', light: '#7DD3FC' },
-  { name: 'Purring Draught', deep: '#EC4899', light: '#F9A8D4' },
-  { name: 'Midnight Bubbles',deep: '#4F46E5', light: '#A5B4FC' },
-  { name: 'Comet Cream',     deep: '#06B6D4', light: '#A5F3FC' },
-  { name: 'Velvet Ember',    deep: '#DC2626', light: '#FCA5A5' },
-  { name: 'Whisker Tonic',   deep: '#65A30D', light: '#BEF264' },
-  { name: 'Nebula Milk',     deep: '#A21CAF', light: '#F0ABFC' },
-  { name: 'Bottled Thunder', deep: '#0284C7', light: '#BAE6FD' },
-  { name: 'Honeyed Static',  deep: '#CA8A04', light: '#FDE68A' },
-]
 
 // ─── The order ───────────────────────────────────────────────────────────────
 
@@ -135,7 +116,7 @@ export interface BrewOrder {
   sentence: string
   slots: BrewSlot[]
   /** Nine tiles: every slot's answer, a couple of spares, and near-misses. */
-  shelf: Element[]
+  tray: Element[]
 }
 
 const PLURAL: Record<string, string> = {
@@ -170,11 +151,11 @@ function joinNicely(parts: string[]): string {
   return `${parts.slice(0, -1).join(', ')}, and ${parts[parts.length - 1]}`
 }
 
-const SHELF_SIZE = 9
+const TRAY_SIZE = 9
 
 /**
  * Build the order for `key`. Deterministic: same key always yields the same
- * potion, asks, and shelf — including the tile order.
+ * potion, asks, and tray — including the tile order.
  */
 export function buildBrew(key: string): BrewOrder {
   const rng = mulberry32(hashString(`brew:${key}`))
@@ -213,25 +194,25 @@ export function buildBrew(key: string): BrewOrder {
     return el
   }
 
-  const shelf: Element[] = []
+  const tray: Element[] = []
   chosen.forEach((ask, i) => {
     for (let n = 0; n < counts[i]; n++) {
       const el = takeFrom(ask)
-      if (el) shelf.push(el)
+      if (el) tray.push(el)
     }
   })
   for (const ask of chosen) {
-    if (shelf.length >= SHELF_SIZE - 3) break
+    if (tray.length >= TRAY_SIZE - 3) break
     const spare = takeFrom(ask)
-    if (spare) shelf.push(spare)
+    if (spare) tray.push(spare)
   }
 
   const distractors = elements.filter(
     e => !used.has(e.atomicNumber) && chosen.every(a => !a.test(e)),
   )
   for (const el of shuffled(rng, distractors)) {
-    if (shelf.length >= SHELF_SIZE) break
-    shelf.push(el)
+    if (tray.length >= TRAY_SIZE) break
+    tray.push(el)
   }
 
   return {
@@ -239,7 +220,7 @@ export function buildBrew(key: string): BrewOrder {
     potion: pick(rng, POTIONS),
     sentence: joinNicely(chosen.map((a, i) => phrase(a, counts[i]))),
     slots,
-    shelf: shuffled(rng, shelf),
+    tray: shuffled(rng, tray),
   }
 }
 

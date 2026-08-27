@@ -517,6 +517,38 @@ function useErenStatsImpl(householdId: string | null) {
     return { success: true, message: 'Eren is eating!' }
   }, [stats, householdId, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  /**
+   * Apply a bare perk — nothing was eaten and no care action happened.
+   *
+   * The lab's brewed potions land here. Deliberately NOT written to
+   * `interactions`: a potion is a puzzle reward, not care, and logging one
+   * would hand the daily partner scoreboard a free tick for solving a word
+   * problem (the same reasoning that keeps the lolipop out of the ledger).
+   *
+   * `buff.energy` is read as a FLOOR rather than the cans' outright set — a
+   * watered-down murky batch must never DROP a full energy bar to its tier.
+   */
+  const applyBuff = useCallback(async (buff: MonstaBuff): Promise<boolean> => {
+    if (!stats || !householdId) return false
+    const decay = computeDecay(stats)
+    const base = decay ? { ...stats, ...decay } : stats
+
+    const newH  = Math.round(clampStat(base.happiness + (buff.happiness ?? 0)))
+    const newHu = Math.round(clampStat(base.hunger + (buff.hunger ?? 0)))
+    const newE  = Math.round(clampStat(Math.max(base.energy, buff.energy ?? 0)))
+    const newS  = Math.round(clampStat(base.sleep_quality + (buff.sleep_quality ?? 0)))
+    const newCl = Math.round(clampStat((base.cleanliness ?? 100) + (buff.cleanliness ?? 0)))
+    const newW  = Math.round(Math.max(2, Math.min(10, base.weight + (buff.weight ?? 0))) * 100) / 100
+    const newSick = buff.cure ? false : base.is_sick
+    const newMood = computeErenMood({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, cleanliness: newCl })
+    setStats(prev => prev ? { ...prev, happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, cleanliness: newCl, weight: newW, is_sick: newSick, mood: newMood } : prev)
+    // Absolute values, so a retry after a 503 can't double-pour the potion.
+    const su = await writeWithRetry(signal =>
+      supabase.from('eren_stats').update({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, cleanliness: newCl, weight: newW, is_sick: newSick, mood: newMood, last_decay_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('household_id', householdId).abortSignal(signal))
+    if (su.error) { await fetchStats(); return false }
+    return true
+  }, [stats, householdId, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const spendCoins = useCallback(async (amount: number): Promise<boolean> => {
     if (!stats || !householdId) return false
     const cur = stats.coins ?? 0
@@ -700,7 +732,7 @@ function useErenStatsImpl(householdId: string | null) {
   }, [stats, saveFoodByUser])
 
   return {
-    stats, loading, error, applyAction, feedWithFood,
+    stats, loading, error, applyAction, feedWithFood, applyBuff,
     spendCoins, addCoins, saveFoodInventory,
     addToMyFood, addManyToMyFood, consumeMyFood, giftFood,
     markDonutTasted, noteMenuFed, claimMenu, startDonutEffect,

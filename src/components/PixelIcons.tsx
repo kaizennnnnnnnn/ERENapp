@@ -120,6 +120,27 @@ export const IconMoon = memo(function IconMoon({ size = 20 }: IconProps) {
   }, size)
 })
 
+// ── SUN (day / light theme) ────────────────────────────────────────────────
+export const IconSun = memo(function IconSun({ size = 20 }: IconProps) {
+  const grid = [
+    '............',
+    '.....KK.....',
+    '..K..YY..K..',
+    '...KYYYYK...',
+    '..YYYWWYYY..',
+    '.KYYWWYYYYK.',
+    '.KYYYYYYYYK.',
+    '..YYYYYYYY..',
+    '...KYYYYK...',
+    '..K..YY..K..',
+    '.....KK.....',
+    '............',
+  ]
+  return drawPixels(grid, {
+    K: '#B45309', Y: '#FCD34D', W: '#FEF3C7',
+  }, size)
+})
+
 // ── WATER DROP (cleanliness) ───────────────────────────────────────────────
 export const IconDrop = memo(function IconDrop({ size = 20 }: IconProps) {
   const grid = [

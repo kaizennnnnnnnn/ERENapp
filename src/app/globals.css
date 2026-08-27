@@ -881,6 +881,14 @@
   box-shadow: 0 5px 0 var(--chem-ink), 0 10px 16px rgba(0,0,0,0.32), inset 0 2px 0 rgba(255,255,255,0.5);
   transition: transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 120ms ease-out, filter 120ms ease-out;
 }
+/* Shared press for every button in the chemistry pixel kit: the slab drops
+   onto its own hard shadow instead of fading. */
+.chem-pixel-btn { transition: transform 60ms steps(2), box-shadow 60ms steps(2); }
+.chem-pixel-btn:not(:disabled):active {
+  transform: translate(3px, 3px);
+  box-shadow: none !important;
+}
+
 .chem-table-btn:hover { filter: brightness(1.05); }
 .chem-table-btn:active {
   transform: translateY(4px);
@@ -1179,10 +1187,17 @@
   15%  { opacity: 0.9;  }
   100% { transform: translateY(var(--brew-rise)); opacity: 0;    }
 }
+/* Soot rides INSIDE the flask's SVG viewBox, so these units are grid cells,
+   not CSS pixels — a 16px rise here would launch it off the screen. */
 @keyframes brewSoot {
-  0%   { transform: translateY(6px) scale(0.3); opacity: 0;   }
-  35%  { transform: translateY(0)   scale(1);   opacity: 0.9; }
-  100% { transform: translateY(-16px) scale(1.4); opacity: 0; }
+  0%   { transform: translateY(1px)  scale(0.3); opacity: 0;   }
+  35%  { transform: translateY(0)    scale(1);   opacity: 0.9; }
+  100% { transform: translateY(-4px) scale(1.4); opacity: 0; }
+}
+/* Sparks over a finished brew — same grid-cell space. */
+@keyframes brewSpark {
+  0%, 100% { opacity: 0; transform: scale(0.5); }
+  50%      { opacity: 1; transform: scale(1.4); }
 }
 /* A tile flying off the shelf toward the flask. */
 @keyframes brewTileIn {
@@ -1202,9 +1217,43 @@
   60%  { transform: scale(1.06); opacity: 1; }
   100% { transform: scale(1);    opacity: 1; }
 }
+/* ── The pour: the payoff beat when a bottle is served to Eren ── */
+/* Flask tips toward him and holds there while the liquid drains. */
+@keyframes brewTip {
+  0%   { transform: rotate(0deg)   translateX(0); }
+  30%  { transform: rotate(-38deg) translateX(-6px); }
+  85%  { transform: rotate(-38deg) translateX(-6px); }
+  100% { transform: rotate(0deg)   translateX(0); }
+}
+/* Droplets crossing from the flask mouth to Eren. Pixel-stepped, no easing. */
+@keyframes brewPourDrop {
+  0%   { opacity: 0; transform: translate(0, 0); }
+  15%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--pour-dx), var(--pour-dy)); }
+}
+/* He drinks: a squash, a swallow, a satisfied settle. */
+@keyframes brewGulp {
+  0%, 100% { transform: scale(1, 1)       translateY(0); }
+  20%      { transform: scale(1.06, 0.94) translateY(3px); }
+  45%      { transform: scale(0.96, 1.05) translateY(-5px); }
+  70%      { transform: scale(1.03, 0.97) translateY(1px); }
+}
+/* Grade stamp slamming onto the bottled card. */
+@keyframes brewStamp {
+  0%   { transform: scale(2.4) rotate(-14deg); opacity: 0; }
+  55%  { transform: scale(0.92) rotate(-8deg); opacity: 1; }
+  100% { transform: scale(1)    rotate(-8deg); opacity: 1; }
+}
+/* A heat pip going out. */
+@keyframes brewPipOut {
+  0%   { transform: scale(1.5); }
+  100% { transform: scale(1); }
+}
 @media (prefers-reduced-motion: reduce) {
   [style*="brewBubble"], [style*="brewSoot"], [style*="brewTileIn"],
-  [style*="brewShake"], [style*="brewPop"] { animation: none !important; }
+  [style*="brewShake"], [style*="brewPop"], [style*="brewSpark"],
+  [style*="brewTip"], [style*="brewPourDrop"], [style*="brewGulp"],
+  [style*="brewStamp"], [style*="brewPipOut"] { animation: none !important; }
 }
 
 /* ── Eren's shared arcade reactions (components/games/ErenReact.tsx) ──
