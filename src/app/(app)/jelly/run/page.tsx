@@ -22,10 +22,17 @@ export const dynamic = 'force-dynamic'
 //                    dealt narrow enough to clear with a PLAIN TAP at the speed
 //                    you will be moving when you reach it, so a gap you can see
 //                    is a gap you can make. Miss it and that is the run.
-//   HIGH ROADS       suspended walkways over the floor, carrying the gems. They
-//                    are ONE-WAY platforms and the lit floor always continues
-//                    underneath, so the high line is a choice, never a trap:
-//                    fall off one and you are simply back where you started.
+//   HIGH ROADS       suspended walkways over the floor — the run's one real
+//                    decision. Running one makes THE TIDE LOSE GROUND, which
+//                    nothing else does but spending a full dash bar, and they
+//                    carry the gems. They are ONE-WAY platforms and the lit
+//                    floor always continues underneath, so the high line is a
+//                    choice and never a trap: fall off and you are simply back
+//                    where you started, minus the gain.
+//                    They ask for it, though. Chains carry RICKETY planks that
+//                    crack the moment you touch them, pipes hung low enough to
+//                    duck up there, and sometimes a vent off the last plank
+//                    that throws you into a glide.
 //   TOPS ARE FLOOR   every hazard that is not hot has a landable top. A clean
 //                    jump that ends on a crate is a good outcome, not a hit.
 //   BEADS -> POWER   collecting charges a bar. Full bar = DASH.
@@ -240,9 +247,50 @@ const VENT_V = 880            // px/s of lift — apex ≈ 149px
 const VENT_AIR = (2 * VENT_V) / GRAVITY
 const VENT_REACH = 120        // how high above the floor the jet still catches you
 
-/** The high road: a suspended walkway you can hop onto with a plain tap. */
+/**
+ * The high road: a suspended walkway you can hop onto with a plain tap.
+ *
+ * ROAD_RISE - ROAD_T must stay above H_RUN, or he cannot run UNDERNEATH one,
+ * and the low line stops being a route.
+ */
 const ROAD_RISE = 46          // its surface, above the floor (tap apex is 60)
 const ROAD_T = 9              // drawn thickness
+/**
+ * What the high line is FOR.
+ *
+ * It used to be a detour that paid in beads: climb, collect, drop off, nothing
+ * gained. Now running a walkway makes the TIDE LOSE GROUND — the only other
+ * thing in the game that does, besides spending a full dash bar. That turns the
+ * chain from scenery into the one decision the run keeps asking: the floor is
+ * safe and flat, the walkway buys you distance from the jelly but demands
+ * jumps, ducks and planks that will not hold you.
+ *
+ * Sized against the dash on purpose. Three seconds of clean walkway is worth
+ * about one dash, so neither answer to the tide is strictly better.
+ */
+const ROAD_GAIN = 58          // px/s the gap grows while you run a walkway
+/**
+ * A chain can step up a tier, and back down.
+ *
+ * One tier is a plain tap from the plank below — but TWO tiers is 90px, past
+ * what a tap reaches from the floor, so the upper deck can only ever be
+ * arrived at from the lower one. That is what turns a chain from a shelf you
+ * hop onto into a route you climb, and it is why the first plank of every
+ * chain is pinned to the bottom tier: the way up has to start somewhere you
+ * can actually reach.
+ */
+const ROAD_TIER = 44          // extra height of the upper deck
+/**
+ * A RICKETY plank cracks the instant you touch it and lets go shortly after.
+ *
+ * It is what stops the high line being a stroll: you cannot stand still up
+ * there, and a chain with one in it has to be read before you commit. Failing
+ * costs nothing but the gain — the lit floor is still underneath.
+ */
+const ROAD_HOLD_MS = 700
+const ROAD_FALL_V = 300       // px/s it drops once it goes
+/** How far a fallen plank travels before it stops being drawn. */
+const ROAD_FALL_MAX = 180
 
 /**
  * Gap the tide sits behind Eren, in px. Hit zero and it has you.
@@ -263,8 +311,18 @@ const POWER_PER_BEAD = 9
 /** A gem is five beads in one, and only ever laid on the high road. */
 const GEM_POWER = 34
 const GEM_BEADS = 5
-/** Short and sharp. At 1.5s the dash outlasted the moment it was answering. */
-const DASH_MS = 900
+/**
+ * Short and sharp.
+ *
+ * 1.5s outlasted the moment it was answering; 900ms still did, because of what
+ * it was picking up on the way. At 1.6x speed a 900ms dash crosses ~800px of
+ * bead lines, and beads are what BUY the dash — so one dash handed back most of
+ * the next one and the bar was never really a resource. Collecting is now
+ * switched off for the duration (see the pickup pass), and the window is cut to
+ * match: long enough to punch through a hazard and shove the tide, too short to
+ * be a lap of the level.
+ */
+const DASH_MS = 600
 const DASH_MULT = 1.6
 
 /** A run's terrain is dealt in columns of TILE px. */
@@ -307,6 +365,12 @@ interface RoadSeg {
   w: number
   /** The surface itself — what he stands on. */
   y: number
+  /** Cracks under your paws and drops away. Never the first plank of a chain. */
+  rickety: boolean
+  /** When it was first stood on. 0 while untouched. */
+  steppedAt: number
+  /** How far it has fallen. 0 while it is still a floor. */
+  drop: number
 }
 
 /**
@@ -351,6 +415,13 @@ interface Ob {
   dead: boolean
   w: number
   h: number
+  /**
+   * The surface it sits on or hangs from — the parlour floor for almost
+   * everything, a WALKWAY for the pieces that furnish the high line. Without
+   * it every obstacle was welded to floorY and the high road could never have
+   * anything on it but beads, which is exactly why it was boring.
+   */
+  base: number
   /** Carts roll toward you. Everything else is nailed down. */
   vx: number
   /** ...and stop here, so a trolley can never wander into the last feature. */
@@ -372,8 +443,16 @@ interface Pick {
 // small enough that the whole world is ~110 DOM nodes.
 const N_COL = COLS_AHEAD + 4
 const N_ROAD = 5
+/**
+ * Rickety planks get their OWN pool.
+ *
+ * Same rule as the hazards: a shared pool draws whatever art the SLOT happens
+ * to hold, and a plank that looks solid but is not would be the single most
+ * expensive lie this game could tell.
+ */
+const N_ROAD_RICK = 4
 const N_CRATE = 10
-const N_PIPE = 4
+const N_PIPE = 6
 const N_BURNER = 4
 const N_SPILL = 4
 const N_CART = 3
@@ -413,6 +492,8 @@ export default function JellyRunPage() {
   const [dashOn, setDashOn] = useState(false)
   /** Canopy out. Only flips on a transition, so it costs one render a glide. */
   const [gliding, setGliding] = useState(false)
+  /** On a walkway, so the HUD can say the tide is losing ground. */
+  const [onRoad, setOnRoad] = useState(false)
   /** The cream bubble. One free hit, and it has to be visible to be worth it. */
   const [shielded, setShielded] = useState(false)
   const [banner, setBanner] = useState<string | null>(null)
@@ -443,6 +524,16 @@ export default function JellyRunPage() {
    * column short of a gap.
    */
   const clearUntilX = useRef(0)
+  /**
+   * Columns the NEXT feature-end reservation must add on top of its own.
+   *
+   * A walkway chain that ends on a vent launches you well past where the chain
+   * itself finishes, and the flight has to land on floor the generator has
+   * promised to leave alone. The chain cannot reserve that itself — reserving
+   * anything mid-chain would mark its own remaining columns clear and it would
+   * never be built.
+   */
+  const extraReserve = useRef(0)
   /** Columns still owed to the current terrain feature. */
   const run = useRef({ kind: 'flat' as 'flat' | 'hole' | 'crates' | 'road', left: 0 })
 
@@ -478,6 +569,7 @@ export default function JellyRunPage() {
   // ── Pooled DOM ───────────────────────────────────────────────────────────
   const colEls = useRef<(HTMLDivElement | null)[]>([])
   const roadEls = useRef<(HTMLDivElement | null)[]>([])
+  const roadRickEls = useRef<(HTMLDivElement | null)[]>([])
   const crateEls = useRef<(HTMLDivElement | null)[]>([])
   const pipeEls = useRef<(HTMLDivElement | null)[]>([])
   const burnerEls = useRef<(HTMLDivElement | null)[]>([])
@@ -624,9 +716,11 @@ export default function JellyRunPage() {
      */
     if (run.current.left <= 0 && run.current.kind !== 'flat') {
       run.current = { kind: 'flat', left: 0 }
+      const extra = extraReserve.current
+      extraReserve.current = 0
       clearUntilX.current = Math.max(
         clearUntilX.current,
-        x + (reachCols + Math.floor(Math.random() * 2)) * TILE,
+        x + (reachCols + extra + Math.floor(Math.random() * 2)) * TILE,
       )
     }
 
@@ -659,34 +753,86 @@ export default function JellyRunPage() {
         // so the chain is a route rather than a risk: the gems are up there,
         // the glider is how you keep them coming, and dropping off costs you
         // nothing but the gems you did not reach.
-        const segs = 2 + (Math.random() < 0.45 ? 1 : 0)
-        const ry = floorY - ROAD_RISE
+        const segs = 2 + (Math.random() < 0.6 ? 1 : 0)
         let cursor = x
         let total = 0
+        // The first plank is always on the bottom tier — see ROAD_TIER.
+        let tier = 0
+        let ry = floorY - ROAD_RISE
         for (let s = 0; s < segs; s++) {
+          if (s > 0 && Math.random() < 0.55) tier = tier === 0 ? 1 : 0
+          ry = floorY - ROAD_RISE - tier * ROAD_TIER
           const segCols = 3 + Math.floor(Math.random() * 2)
           const rw = segCols * TILE
-          roads.current.push({ x: cursor, w: rw, y: ry })
+          // The FIRST plank is always solid. You have to be able to get onto a
+          // chain at all, and a chain you cannot board is not a decision.
+          const rickety = s > 0 && Math.random() < 0.34 + heat * 0.24
+          roads.current.push({ x: cursor, w: rw, y: ry, rickety, steppedAt: 0, drop: 0 })
+
           // A line of beads down the walkway, and a gem in the middle of it —
-          // the reason to be up here at all.
+          // the reason to be up here at all. A rickety plank carries the gem
+          // more often: the thing you cannot stand on is where the prize is.
           const n = Math.max(2, Math.round(rw / 26))
-          const gemAt = s === segs - 1 ? Math.floor(n / 2) : -1
+          const gemAt = (rickety || s === segs - 1) ? Math.floor(n / 2) : -1
           for (let i = 0; i < n; i++) {
             const px = cursor + 14 + (i * (rw - 28)) / (n - 1)
             lay(px, lineY(ry), i === gemAt ? 'gem' : 'bead')
           }
+
+          // A pipe hung over the middle of a SOLID plank: the high line's own
+          // duck. It is why the walkway is a skill test rather than a stroll —
+          // and it is placed centrally so it can never coincide with the jump
+          // at either end. Harmless from the floor: at walkway height its
+          // underside clears a standing cat by a good margin.
+          if (!rickety && s > 0 && segCols >= 3 && Math.random() < 0.42) {
+            const px = cursor + rw / 2 - 20
+            obs.current.push({
+              x: px, kind: 'pipe', dead: false, w: 40, h: PIPE_H, base: ry,
+              vx: 0, minX: px, used: false,
+            })
+            // Sweep out any bead the incoming arc already threw into it. The
+            // arc leaving the PREVIOUS plank is laid before this plank's pipe
+            // exists and can carry 240px at full speed — far enough to land a
+            // pickup inside the one thing up here you have to duck. A bead you
+            // cannot take without taking a hit is worse than no bead.
+            const pTop = ry - PIPE_CLEAR - PIPE_H
+            const pBot = ry - PIPE_CLEAR
+            picks.current = picks.current.filter(
+              b => !(b.x + 16 > px && b.x < px + 40 && b.y + 16 > pTop && b.y < pBot),
+            )
+          }
+
           cursor += rw
           total += segCols
           if (s < segs - 1) {
-            // The gap between segments. Sized in columns rather than pixels so
-            // it scales with the grid, and small enough to clear with a tap at
-            // walkway height — the glider is what makes the WIDE ones routine,
-            // not what makes them possible.
+            // The gap between planks. Sized in columns rather than pixels so it
+            // scales with the grid, and clearable with a tap at walkway height
+            // — the glider is what makes the WIDE ones routine, not what makes
+            // them possible.
             const gapCols = 1 + Math.floor(Math.random() * Math.max(1, Math.min(3, maxGap)))
             arc(cursor - TILE * 0.3, 4, ry, JUMP_V)
             cursor += gapCols * TILE
             total += gapCols
           }
+        }
+
+        // A chain that ends on a VENT throws you off the end instead of just
+        // dropping you off it — straight into a glide, with the run's longest
+        // bead line under you. The whole flight has to be reserved, so it is
+        // handed to the feature-end reservation rather than taken here: taking
+        // it here would mark the chain's own columns clear and the chain would
+        // never be dealt.
+        const lastRick = roads.current[roads.current.length - 1]?.rickety
+        if (!lastRick && Math.random() < 0.45) {
+          const vx2 = cursor - TILE + (TILE - VENT_W) / 2
+          obs.current.push({
+            x: vx2, kind: 'vent', dead: false, w: VENT_W, h: VENT_H, base: ry,
+            vx: 0, minX: vx2, used: false,
+          })
+          arc(vx2 + VENT_W / 2, 7, ry, VENT_V)
+          lay(vx2 + VENT_W / 2 + (speedHere * VENT_AIR) / 2, lineY(ry) - TAP_APEX * 2.3,
+            Math.random() < 0.4 ? 'shield' : 'gem')
+          extraReserve.current = Math.ceil((speedHere * VENT_AIR) / TILE) + 2
         }
         run.current = { kind: 'road', left: total }
       } else if (r < 0.36 + heat * 0.12) {
@@ -759,7 +905,7 @@ export default function JellyRunPage() {
         : hazard === 'pipe' ? x + TILE * 0.2
           : x + (TILE - W[hazard]) / 2
       obs.current.push({
-        x: hazardX, kind: hazard, dead: false, w: W[hazard], h: H[hazard],
+        x: hazardX, kind: hazard, dead: false, w: W[hazard], h: H[hazard], base: floorY,
         vx: hazard === 'cart' ? CART_V : 0, minX: hazardX - CART_ROAM, used: false,
       })
 
@@ -853,17 +999,24 @@ export default function JellyRunPage() {
 
     // Roads come in several lengths, so the pool node owns the box and the art
     // fills it. Every other pool draws a fixed-size piece.
-    let ri = 0
+    let ri = 0, rri = 0
     for (const r of roads.current) {
-      if (!onScreen(r.x, r.w) || ri >= N_ROAD) continue
-      const el = roadEls.current[ri++]
+      if (r.drop >= ROAD_FALL_MAX || !onScreen(r.x, r.w)) continue
+      const i = r.rickety ? rri++ : ri++
+      if (i >= (r.rickety ? N_ROAD_RICK : N_ROAD)) continue
+      const el = (r.rickety ? roadRickEls : roadEls).current[i]
       if (!el) continue
       el.style.display = 'block'
       el.style.width = `${r.w}px`
       el.style.height = `${ROAD_T}px`
-      el.style.transform = `translate3d(${(r.x - camX).toFixed(1)}px, ${r.y}px, 0)`
+      // A plank that has let go drops, tips and fades. The tip is what stops
+      // it reading as the walkway simply being switched off.
+      el.style.opacity = r.drop > 0 ? String(Math.max(0, 1 - r.drop / ROAD_FALL_MAX)) : '1'
+      el.style.transform = `translate3d(${(r.x - camX).toFixed(1)}px, ${(r.y + r.drop).toFixed(1)}px, 0)`
+        + (r.drop > 0 ? ` rotate(${(r.drop * 0.05).toFixed(2)}deg)` : '')
     }
     for (let i = ri; i < N_ROAD; i++) { const el = roadEls.current[i]; if (el) el.style.display = 'none' }
+    for (let i = rri; i < N_ROAD_RICK; i++) { const el = roadRickEls.current[i]; if (el) el.style.display = 'none' }
 
     // One pool PER KIND. A single shared pool drew whatever art the SLOT
     // happened to hold, so a crate could render as a pipe — and the player
@@ -883,7 +1036,7 @@ export default function JellyRunPage() {
       if (pool.i >= pool.n) continue
       const el = pool.els[pool.i++]
       if (!el) continue
-      const oy = o.kind === 'pipe' ? floorY - PIPE_CLEAR - PIPE_H : floorY - o.h
+      const oy = o.kind === 'pipe' ? o.base - PIPE_CLEAR - PIPE_H : o.base - o.h
       el.style.display = 'block'
       el.style.transform = `translate3d(${(o.x - camX).toFixed(1)}px, ${oy}px, 0)`
     }
@@ -950,6 +1103,7 @@ export default function JellyRunPage() {
     run.current = { kind: 'flat', left: 6 }   // a clear runway to begin on
     holeArcDone.current = false
     clearUntilX.current = 0
+    extraReserve.current = 0
     world.current = { x: 0, speed: SPEED_0, gap: GAP_0, t: 0 }
     eren.current = {
       y: floorY, vy: 0, grounded: true, gliding: false, diving: false, slideUntil: 0, shield: false,
@@ -1205,12 +1359,6 @@ export default function JellyRunPage() {
       w.speed = ramp * (dashing ? DASH_MULT : stumble.current > 0 ? 0.55 : 1)
       w.x += w.speed * dt
 
-      // The tide only ever gains. Dashing is the one thing that holds it, and
-      // the gap it bought is spent from the moment the dash ends.
-      if (!dashing) {
-        w.gap -= GAP_CREEP * (1 + w.t / GAP_CREEP_RAMP) * dt
-      }
-
       // ── Vertical ──
       if (held.current.active && now - held.current.at < HOLD_MS && e.vy < 0) {
         e.vy -= HOLD_ACC * dt
@@ -1233,7 +1381,13 @@ export default function JellyRunPage() {
       while (nextColX.current < w.x + dims.current.w + COLS_AHEAD * TILE) dealColumn()
       const cullX = w.x - TILE * 3
       if (cols.current.length > N_COL + 6) cols.current = cols.current.filter(c => c.x > cullX)
-      if (roads.current.length > N_ROAD + 4) roads.current = roads.current.filter(r => r.x + r.w > cullX)
+      // Gated on length, like every other cull here: a filter per frame would
+      // allocate for a 90-second run that is supposed to allocate nothing.
+      // Planks that have finished falling stop being PAINTED the moment they
+      // land (see paint), so leaving them in the array costs nothing but bytes.
+      if (roads.current.length > N_ROAD + N_ROAD_RICK + 4) {
+        roads.current = roads.current.filter(r => r.x + r.w > cullX && r.drop < ROAD_FALL_MAX)
+      }
       if (obs.current.length > 24) obs.current = obs.current.filter(o => o.x > cullX && !o.dead)
       if (picks.current.length > N_BEAD + 24) picks.current = picks.current.filter(p => p.x > cullX && !p.taken)
 
@@ -1279,13 +1433,14 @@ export default function JellyRunPage() {
        */
       if (floorHere || dashing) cross(floorY)
       for (const r of roads.current) {
+        if (r.drop > 0) continue              // this one has already let go
         if (r.x + r.w < eL || r.x > eR) continue
         cross(r.y)
       }
       for (const o of obs.current) {
         if (o.dead || !LANDABLE[o.kind]) continue
         if (o.x + o.w < eL || o.x > eR) continue
-        cross(floorY - o.h)
+        cross(o.base - o.h)
       }
 
       if (land < Infinity && e.vy >= 0) {
@@ -1303,6 +1458,34 @@ export default function JellyRunPage() {
       // at the speed he meets it (see GAP_SAFETY).
       if (e.y > h + 40) { endRef.current(); return }
 
+      // ── The high road ────────────────────────────────────────────────────
+      //
+      // Standing on a walkway is the one thing besides a full dash bar that
+      // takes ground BACK from the tide, and it is the whole reason to be up
+      // here. A rickety plank starts its clock the moment he touches it.
+      let onRoadSeg: RoadSeg | null = null
+      if (e.grounded) {
+        for (const r of roads.current) {
+          if (r.drop > 0 || Math.abs(e.y - r.y) > 2) continue
+          if (r.x + r.w < eL || r.x > eR) continue
+          onRoadSeg = r
+          break
+        }
+      }
+      if (onRoadSeg?.rickety && !onRoadSeg.steppedAt) {
+        onRoadSeg.steppedAt = now
+        playSound('jl_miss')
+      }
+      for (const r of roads.current) {
+        if (!r.rickety) continue
+        if (r.steppedAt && r.drop === 0 && now - r.steppedAt > ROAD_HOLD_MS) r.drop = 1
+        if (r.drop > 0) r.drop += ROAD_FALL_V * dt
+      }
+
+      // The tide. It only ever gains — except up here, and behind a dash.
+      if (onRoadSeg) w.gap = Math.min(GAP_MAX, w.gap + ROAD_GAIN * dt)
+      else if (!dashing) w.gap -= GAP_CREEP * (1 + w.t / GAP_CREEP_RAMP) * dt
+
       // ── Vents ──
       // Terrain that helps. Fires once, and only while he is low enough for
       // the jet to reach him, so it is a thing you run over rather than a
@@ -1310,7 +1493,7 @@ export default function JellyRunPage() {
       for (const o of obs.current) {
         if (o.kind !== 'vent' || o.dead || o.used) continue
         if (o.x + o.w < eL || o.x > eR) continue
-        const above = floorY - e.y
+        const above = o.base - e.y
         if (above < -2 || above > VENT_REACH) continue
         o.used = true
         e.vy = -VENT_V
@@ -1330,8 +1513,8 @@ export default function JellyRunPage() {
         if (o.dead || o.kind === 'vent') continue
         if (o.x + o.w < eL || o.x > eR) continue
         const hanging = o.kind === 'pipe'
-        const oTop = hanging ? floorY - PIPE_CLEAR - PIPE_H : floorY - o.h
-        const oBot = hanging ? floorY - PIPE_CLEAR : floorY
+        const oTop = hanging ? o.base - PIPE_CLEAR - PIPE_H : o.base - o.h
+        const oBot = hanging ? o.base - PIPE_CLEAR : o.base
         // THE TOP IS FLOOR. He has just been stood on it by the ground pass,
         // so his feet are exactly at its top — and a hit test that only asks
         // "do the boxes overlap" calls that a collision. It is why landing a
@@ -1374,7 +1557,15 @@ export default function JellyRunPage() {
       }
 
       // ── Pickups ──
-      for (const p of picks.current) {
+      //
+      // NOT WHILE DASHING. The dash is bought with beads and spent at 1.6x
+      // speed straight down the lines of them, so it used to refund most of its
+      // own cost — collect, dash, collect the dash, dash again. A resource you
+      // earn back by spending it is not a resource, and the whole
+      // collect-spend-survive loop the run is built on quietly stopped
+      // mattering. Beads passed at speed are simply gone, which is the price of
+      // the invincibility.
+      for (const p of dashing ? [] : picks.current) {
         if (p.taken) continue
         if (p.x + 18 < eL || p.x > eR + 6) continue
         if (Math.abs(p.y - (feetY - EREN_PX * 0.5)) > 34) continue
@@ -1419,6 +1610,7 @@ export default function JellyRunPage() {
       // The canopy is a mounted element, so it only reacts to the TRANSITION —
       // setState with the same value is free, but the check keeps it obvious.
       setGliding(g => (g === e.gliding ? g : e.gliding))
+      setOnRoad(v => (v === !!onRoadSeg ? v : !!onRoadSeg))
 
       // HUD only when a number actually changed. Compared against a REF of the
       // last pushed value: this closure was built once, so `metres`/`beads`/
@@ -1486,6 +1678,12 @@ export default function JellyRunPage() {
           <div key={`rd${i}`} ref={el => { roadEls.current[i] = el }}
             style={{ position: 'absolute', left: 0, top: 0, display: 'none', width: 132, height: ROAD_T, zIndex: 3 }}>
             <Road />
+          </div>
+        ))}
+        {Array.from({ length: N_ROAD_RICK }).map((_, i) => (
+          <div key={`rk${i}`} ref={el => { roadRickEls.current[i] = el }}
+            style={{ position: 'absolute', left: 0, top: 0, display: 'none', width: 132, height: ROAD_T, zIndex: 3 }}>
+            <Road rickety />
           </div>
         ))}
 
@@ -1663,6 +1861,22 @@ export default function JellyRunPage() {
             transition: 'width 120ms linear',
           }} />
         </div>
+
+        {/* The walkway's payoff, stated. The tide is usually off-screen, so a
+            player on the high road would otherwise have no way of knowing the
+            one thing that makes being up there worth the trouble. */}
+        {onRoad && (
+          <div className="flex justify-center mt-1.5">
+            <span className="font-pixel px-2 py-1" style={{
+              fontSize: 8, letterSpacing: 1, color: '#0E3B23',
+              background: `linear-gradient(180deg, #7DF3C4, ${LEAF})`,
+              border: `2px solid ${INK}`, borderRadius: 5,
+              animation: reduced ? undefined : 'jrGainPulse 620ms ease-in-out infinite',
+            }}>
+              HIGH ROAD — TIDE LOSING
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Dash button — the swipe is the real control, but a thumb on a phone
@@ -1720,7 +1934,7 @@ export default function JellyRunPage() {
             </span>
             <span className="flex items-center gap-2" style={{ color: '#D8F5E4' }}>
               <span style={{ width: 10, height: 10, background: LEAF, border: `2px solid ${INK}`, borderRadius: 2, flexShrink: 0 }} />
-              Take the high walkways for gems. Vents throw you — then glide.
+              High walkways push the TIDE BACK. Grey planks give way.
             </span>
           </div>
           <button onClick={start} className="font-pixel active:translate-y-[2px]" style={{
@@ -1765,6 +1979,10 @@ export default function JellyRunPage() {
         @keyframes jrCanopyPop {
           0%   { transform: scaleY(0.2) scaleX(0.6); opacity: 0; }
           100% { transform: scaleY(1) scaleX(1); opacity: 1; }
+        }
+        @keyframes jrGainPulse {
+          0%, 100% { transform: translateY(0); filter: brightness(1); }
+          50%      { transform: translateY(-1px); filter: brightness(1.18); }
         }
         @keyframes jrShieldRing {
           0%, 100% { transform: scale(1); opacity: 0.85; }

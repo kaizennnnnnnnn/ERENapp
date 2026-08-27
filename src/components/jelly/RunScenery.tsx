@@ -416,12 +416,54 @@ export const Bead = memo(function Bead({ size, color }: { size: number; color: s
  * are also never dealt in the same stretch, so the question never comes up
  * with a hazard's timing attached to the answer.
  */
-export const Road = memo(function Road() {
+export const Road = memo(function Road({ rickety = false }: { rickety?: boolean }) {
   const fade = 'linear-gradient(0deg, rgba(0,0,0,1) 0%, rgba(0,0,0,0.7) 62%, rgba(0,0,0,0) 100%)'
   const hanger: React.CSSProperties = {
     position: 'absolute', bottom: '100%', width: 5, height: 96,
     background: `linear-gradient(180deg, ${BRASS_DK} 0%, ${BRASS} 78%, ${BRASS_LT} 100%)`,
     maskImage: fade, WebkitMaskImage: fade,
+  }
+  /**
+   * The rickety plank.
+   *
+   * It has to be readable BEFORE you commit, from across the screen and at
+   * 500px/s — a plank you only discover is rotten by standing on it is a trap,
+   * and this game does not have those. So it differs on four channels at once:
+   * it hangs from ONE frayed rope instead of two brass rods, it is dry grey
+   * wood instead of lit, it is split end to end, and it is never quite still.
+   * Any one of those could be missed in a glance; all four cannot.
+   */
+  if (rickety) {
+    return (
+      <div className="jrRick" style={{ position: 'absolute', inset: 0, willChange: 'transform' }}>
+        {/* one rope, off-centre, so it reads as barely holding */}
+        <div style={{
+          position: 'absolute', left: '38%', bottom: '100%', width: 3, height: 96,
+          background: `repeating-linear-gradient(180deg, ${CREAM_DIM} 0 4px, ${WOOD_DK} 4px 7px)`,
+          maskImage: fade, WebkitMaskImage: fade,
+        }} />
+        <div style={{
+          position: 'absolute', inset: 0, background: WOOD_DK,
+          border: `2px solid ${INK}`, borderRadius: 2,
+          backgroundImage: `repeating-linear-gradient(90deg, transparent 0 15px, ${INK} 15px 17px)`,
+        }} />
+        {/* a dry, unlit top: no cream edge, because it is not a floor for long */}
+        <div style={{ position: 'absolute', left: 2, right: 2, top: 0, height: 2, background: WOOD, opacity: 0.85 }} />
+        {/* the split running the length of it */}
+        <div style={{
+          position: 'absolute', left: 6, right: 6, top: '50%', height: 2, marginTop: -1,
+          background: INK, opacity: 0.75,
+        }} />
+        <style jsx>{`
+          .jrRick { animation: jrRickCreak 0.9s ease-in-out infinite; transform-origin: 38% 0%; }
+          @keyframes jrRickCreak {
+            0%, 100% { transform: rotate(-0.7deg); }
+            50%      { transform: rotate(0.7deg); }
+          }
+          @media (prefers-reduced-motion: reduce) { .jrRick { animation: none; } }
+        `}</style>
+      </div>
+    )
   }
   return (
     // No width or height of its own: road segments come in several lengths and
