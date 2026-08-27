@@ -19,6 +19,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { ChevronLeft } from 'lucide-react'
+import { IconCrown } from '@/components/PixelIcons'
 import { useCare } from '@/contexts/CareContext'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
@@ -284,6 +285,46 @@ export default function ShawarmaPage() {
                   borderTop: '1px solid rgba(245,156,69,0.25)', paddingTop: 6,
                 }}>
                   “{last.note}”
+                </div>
+              )}
+
+              {/* Seven nights, side by side. Nobody needs telling who's
+                  winning — but the crown says it anyway. */}
+              {record.week.mine + record.week.theirs > 0 && (
+                <div style={{
+                  marginTop: 8, paddingTop: 7,
+                  borderTop: '1px solid rgba(245,156,69,0.25)',
+                }}>
+                  <div className="font-pixel" style={{
+                    fontSize: 5.5, letterSpacing: 1.4, color: 'rgba(255,231,196,0.6)',
+                  }}>
+                    THIS WEEK
+                  </div>
+                  <div style={{ display: 'flex', gap: 14, marginTop: 6 }}>
+                    {[
+                      { who: 'YOU', dot: '#8B5E3C', wraps: record.week.mine, nights: record.week.myNights },
+                      { who: 'THEM', dot: '#FF4D7D', wraps: record.week.theirs, nights: record.week.theirNights },
+                    ].map(side => {
+                      const ahead = side.wraps > 0
+                        && side.wraps >= Math.max(record.week.mine, record.week.theirs)
+                        && record.week.mine !== record.week.theirs
+                      return (
+                        <div key={side.who} className="font-pixel" style={{
+                          display: 'flex', alignItems: 'center', gap: 5,
+                          fontSize: 6.5, letterSpacing: 0.5,
+                          color: ahead ? '#FFE7C4' : 'rgba(255,231,196,0.55)',
+                        }}>
+                          <span aria-hidden style={{
+                            width: 7, height: 7, borderRadius: 2, flex: '0 0 auto',
+                            background: side.dot,
+                            opacity: ahead ? 1 : 0.6,
+                          }} />
+                          {side.who} {side.wraps}
+                          {ahead && <IconCrown size={11} />}
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
             </div>

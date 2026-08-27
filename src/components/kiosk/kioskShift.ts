@@ -420,6 +420,21 @@ export const CUSTOMER_SHOW = 0.52
 /** Speech bubble, anchored by its BOTTOM so it stays above their head no
  *  matter how many lines they're saying. % up from the bottom of the picture. */
 export const BUBBLE_BOTTOM = 49
+/** The tip jar, standing on the serving ledge. That ledge's top surface runs
+ *  68.6%–69.8% of the picture (a column scan), so the jar's base sits at 69.3
+ *  — left of the customer's head, and clear of the shakers at 61%. It's in
+ *  FRONT of whoever's at the window, which is why it draws over them. */
+export const TIP_JAR = { x: 36, width: 6.2, top: 64.77 }
+export const TIP_JAR_SPRITE = '/tipjar.webp'
+export const TIP_JAR_COINS = '/tipjar_coins.webp'
+/** Tips that fill it to the lid. A very good night, not a possible one — a
+ *  jar that tops out at eight o'clock stops meaning anything. */
+export const TIP_JAR_FULL = 70
+
+/** The radio, on the prep counter beside the sauce bottles — the same
+ *  measured surface they stand on, in the gap before the crumbs at 70%. */
+export const RADIO_BOX = { x: 53, width: 9.5, top: 71.17 }
+export const RADIO_SPRITE = '/kiosk_radio.webp'
 /** The little celebration when a wrap lands: they hop on the spot before
  *  they drop back under the sill. Shared, because the window animates it and
  *  the shift has to wait it out before pulling the customer. */

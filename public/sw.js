@@ -45,6 +45,9 @@ const PRECACHE_IMAGES = [
   '/sauce_garlic.webp', '/sauce_chilli.webp', '/sauce_herb.webp',
   '/drizzle_garlic.webp', '/drizzle_chilli.webp', '/drizzle_herb.webp',
   '/fr_chips.webp',
+  // The tip jar on the ledge (glass and its coins are two sprites on one
+  // canvas) and the radio on the prep counter.
+  '/tipjar.webp', '/tipjar_coins.webp', '/kiosk_radio.webp',
   '/ErenAppIcon.png',   '/ErenBadge.png',
 ]
 

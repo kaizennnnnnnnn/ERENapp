@@ -44,6 +44,16 @@ export interface ShiftRow {
   closed_at: string
 }
 
+/** The last seven nights, split between the two of you. */
+export interface WeekTally {
+  /** Wraps served this week. */
+  mine: number
+  theirs: number
+  /** And how many nights each of you worked. */
+  myNights: number
+  theirNights: number
+}
+
 export interface KioskRecord {
   /** False until the first fetch lands. An empty record and a failed fetch
    *  look identical otherwise, and the difference decides whether tonight is
@@ -53,6 +63,8 @@ export interface KioskRecord {
   workedTonight: boolean
   /** The most recent shift anyone worked — the board out front. */
   lastShift: ShiftRow | null
+  /** The board out front: who's had the better week. */
+  week: WeekTally
   lifetimeWraps: number
   menu: MenuState
   regulars: Regulars
@@ -72,11 +84,20 @@ export interface KioskRecord {
 /** Today, in the player's own timezone — a night that starts at 23:50 belongs
  *  to the day it started in. */
 function today(): string {
+  return dayKey(0)
+}
+
+/** A date key `back` days ago, in the player's own timezone. */
+function dayKey(back: number): string {
   const tz = typeof Intl !== 'undefined'
     ? Intl.DateTimeFormat().resolvedOptions().timeZone
     : 'UTC'
-  return dateKey(new Date(), tz)
+  const d = new Date()
+  d.setDate(d.getDate() - back)
+  return dateKey(d, tz)
 }
+
+const EMPTY_WEEK: WeekTally = { mine: 0, theirs: 0, myNights: 0, theirNights: 0 }
 
 export function useKioskRecord(): KioskRecord {
   const supabase = createClient()
@@ -87,6 +108,7 @@ export function useKioskRecord(): KioskRecord {
   const [loaded, setLoaded] = useState(false)
   const [workedTonight, setWorkedTonight] = useState(false)
   const [lastShift, setLastShift] = useState<ShiftRow | null>(null)
+  const [week, setWeek] = useState<WeekTally>(EMPTY_WEEK)
   /** The row we just wrote, so saveNote knows what to edit. */
   const myDate = useRef<string | null>(null)
 
@@ -102,13 +124,26 @@ export function useKioskRecord(): KioskRecord {
         .select('user_id, shift_date, served, wrong, walked, missed_calls, best_streak, base, tips, grade, rained, note, closed_at')
         .eq('household_id', hh)
         .order('closed_at', { ascending: false })
-        .limit(8))
+        // Enough for both of you to have worked every night of the last week
+        // and then some — the board wants seven days, not eight rows.
+        .limit(24))
     // An error is NOT "no shifts" — leaving `loaded` false keeps tonight
     // payable rather than silently marking it already worked.
     if (error) return
     const rows = (data ?? []) as ShiftRow[]
     setLastShift(rows[0] ?? null)
     setWorkedTonight(rows.some(r => r.user_id === user.id && r.shift_date === today()))
+
+    // Tonight and the six before it. Keyed on the player's own dates, so a
+    // week means the last seven nights you lived through.
+    const recent = new Set(Array.from({ length: 7 }, (_, i) => dayKey(i)))
+    const tally = { ...EMPTY_WEEK }
+    for (const r of rows) {
+      if (!recent.has(r.shift_date)) continue
+      if (r.user_id === user.id) { tally.mine += r.served; tally.myNights += 1 }
+      else { tally.theirs += r.served; tally.theirNights += 1 }
+    }
+    setWeek(tally)
     setLoaded(true)
   }, [hh, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -169,6 +204,7 @@ export function useKioskRecord(): KioskRecord {
     loaded,
     workedTonight,
     lastShift,
+    week,
     lifetimeWraps,
     menu,
     regulars,

@@ -19,6 +19,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { playSound } from '@/lib/sounds'
 import { startKioskAmbience, type KioskAmbience } from '@/lib/kioskAmbience'
+import { startRadio, STATIONS } from '@/lib/kioskRadio'
 import { useTasks } from '@/contexts/TaskContext'
 import CurtainGlitter from '@/components/CurtainGlitter'
 import { useKioskShift } from './useKioskShift'
@@ -34,6 +35,8 @@ import PhoneCallHud from './PhoneCallHud'
 import { useKioskPhone } from './useKioskPhone'
 import WallTarget from './WallTarget'
 import ShiftReport from './ShiftReport'
+import TipJar from './TipJar'
+import KioskRadio from './KioskRadio'
 import {
   FRIDGE_HIT, FRIDGE_TAG, DOOR_HIT, DOOR_TAG, MAX_USES, SILL_PCT,
 } from './kioskShift'
@@ -66,6 +69,9 @@ const VIEWS: KioskView[] = [
 // Exported so the kiosk front can warm all four before the door opens — see
 // the preload effect in the shawarma page.
 export const KIOSK_VIEW_SRCS = VIEWS.map(v => v.src)
+
+/** Which station this device was left on. */
+const RADIO_KEY = 'eren_kiosk_radio'
 
 // Lamp amber, the same hue as the dock button that leads here.
 const LAMP = '#F59C45'
@@ -117,6 +123,28 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
   // Anything pinned to the art has to live inside the cover-cropped picture
   // box, not the viewport, or it slides off its pan on a different screen.
   const box = useCoverBox(768, 1376)
+
+  // Off, or one of three stations. Kept in localStorage rather than the
+  // database: which station you like is a thing about YOU, not about the cat.
+  const [station, setStation] = useState(0)
+  useEffect(() => {
+    const saved = Number(window.localStorage.getItem(RADIO_KEY) ?? 0)
+    if (saved > 0 && saved <= STATIONS.length) setStation(saved)
+  }, [])
+  useEffect(() => {
+    if (station === 0) return
+    const stop = startRadio(station - 1)
+    return stop
+  }, [station])
+
+  const cycleStation = useCallback(() => {
+    setStation(prev => {
+      const next = (prev + 1) % (STATIONS.length + 1)
+      try { window.localStorage.setItem(RADIO_KEY, String(next)) } catch { /* private mode */ }
+      playSound(next === 0 ? 'ui_back' : 'ui_toggle')
+      return next
+    })
+  }, [])
 
   // The street, the fridge, the spit and the weather. Started once, mixed as
   // you turn: the rotisserie is loud on its own wall and a suggestion from the
@@ -340,6 +368,18 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
           from { opacity: 0; transform: translateY(-14px) scale(0.97); }
           to   { opacity: 1; transform: translateY(0)     scale(1);    }
         }
+        /* The jar taking the weight of another coin. */
+        @keyframes kioskJarClink {
+          0%   { transform: translateY(0)    scale(1, 1);       }
+          35%  { transform: translateY(1.5%) scale(1.05, 0.95); }
+          70%  { transform: translateY(-1%)  scale(0.98, 1.03); }
+          100% { transform: translateY(0)    scale(1, 1);       }
+        }
+        /* Bars behind the radio's grille. */
+        @keyframes kioskRadioEq {
+          from { transform: scaleY(0.25); }
+          to   { transform: scaleY(1);    }
+        }
         @keyframes kioskGradeIn {
           0%   { opacity: 0; transform: scale(0.5) rotate(-8deg); }
           70%  { opacity: 1; transform: scale(1.12) rotate(2deg); }
@@ -508,6 +548,10 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
             />
           )}
 
+          {view.feature === 'toppings' && (
+            <KioskRadio station={station} onCycle={guard(cycleStation)} />
+          )}
+
           {view.feature === 'meat' && (
             <MeatSpit
               meat={shift.meat}
@@ -529,6 +573,10 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
               animation: 'kioskRain 700ms linear infinite',
             }} />
           )}
+
+          {/* The night's tips, as a depth of coins on the ledge people are
+              leaving them on. */}
+          {view.feature === 'window' && <TipJar tips={shift.till.tips} />}
 
           {view.feature === 'window' && (
             <CustomerWindow
