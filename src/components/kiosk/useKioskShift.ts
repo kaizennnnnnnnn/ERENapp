@@ -34,12 +34,12 @@ import { useVisibilityPause } from '@/hooks/useVisibilityPause'
 import {
   MAX_USES, EMPTY_BUILD, EMPTY_TRAY, rollOrder, orderMatches, rememberOrder,
   REFUSALS, HAPPY_LINES, IMPATIENT_LINES, USUAL_MISS, WALKOUT_LINES, pick,
-  unlockedBetween, CHEER_MS, DUCK_MS,
+  unlockedBetween, CHEER_MS, LINGER_MS, DUCK_MS,
   type Build, type MenuState, type Order, type Regulars, type SauceId,
   type SideId, type ToppingId, type Tray, type Unlock,
 } from './kioskShift'
 import {
-  SHIFT_MS, PATIENCE_MS, GRUMBLE_AT, NEXT_CUSTOMER_MS, clockText,
+  SHIFT_MS, PATIENCE_MS, GRUMBLE_AT, NEXT_CUSTOMER_MS, NEXT_AFTER_SALE_MS, clockText,
   orderBase, orderTip, MISSED_CALL_COST, RAIN_BONUS, USUAL_BONUS,
   EMPTY_TAKINGS, gradeNight, type Grade, type Takings,
 } from './kioskEconomy'
@@ -64,6 +64,8 @@ const TICKET_MS = 5_600
 const RAIN_CHANCE = 0.3
 /** The tick that drives the clock, the patience meters and the ticket. */
 const TICK_MS = 100
+/** How long after the hand-over the verdict lands — the coins, or the no. */
+const PAY_SOUND_MS = 260
 
 export interface ShiftReport {
   takings: Takings
@@ -418,6 +420,10 @@ export function useKioskShift(opts: ShiftOpts): KioskShift {
       return
     }
 
+    // The physical act, before anyone has an opinion about it. Right or
+    // wrong, the wrap crosses the counter the same way.
+    playSound('kiosk_handover')
+
     if (orderMatches(current, tray)) {
       const base = orderBase(current)
       const tip = Math.round(
@@ -444,16 +450,22 @@ export function useKioskShift(opts: ShiftOpts): KioskShift {
         ),
       }
       speak(pick(HAPPY_LINES))
-      playSound('coin_pickup')
+      // The wrap goes over the counter first and the money answers it — one
+      // sound on top of the other reads as a single event, and pressing GIVE
+      // should sound like giving rather than like being paid.
+      later(() => playSound('coin_pickup'), PAY_SOUND_MS)
 
+      // They hop, then they STAND there being pleased with you, and only then
+      // do they duck. The middle beat is the one you read the line in.
+      const gone = CHEER_MS + LINGER_MS + DUCK_MS
       later(() => {
         orderRef.current = null
         setOrder(null)
         setBuild(EMPTY_BUILD)
         setTray(EMPTY_TRAY)
         setPhase('waiting')
-      }, CHEER_MS + DUCK_MS + 120)
-      later(nextCustomer, CHEER_MS + DUCK_MS + NEXT_CUSTOMER_MS)
+      }, gone + 120)
+      later(nextCustomer, gone + NEXT_AFTER_SALE_MS)
     } else {
       setPhase('refused')
       // A regular who asked for "the usual" and got something else finally
@@ -461,7 +473,8 @@ export function useKioskShift(opts: ShiftOpts): KioskShift {
       // meant to re-read your own order, not be told the answer.
       if (current.usual) setRevealed(true)
       speak(pick(current.usual ? USUAL_MISS : REFUSALS))
-      playSound('kiosk_refuse')
+      // Same beat as the payment: handed over, LOOKED at, then answered.
+      later(() => playSound('kiosk_refuse'), PAY_SOUND_MS)
       setStreak(0)
       streakRef.current = 0
       setTill(t => ({ ...t, wrong: t.wrong + 1 }))

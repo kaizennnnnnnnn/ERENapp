@@ -19,7 +19,7 @@
 import BlinkingEren from '@/components/BlinkingEren'
 import {
   TOPPING_BY_ID, SAUCE_BY_ID, SIDE_BY_ID, SILL_PCT, CUSTOMER_BOX, CUSTOMER_SHOW,
-  BUBBLE_BOTTOM, CHEER_MS, DUCK_MS, type Order, type Wrap,
+  BUBBLE_BOTTOM, CHEER_MS, LINGER_MS, DUCK_MS, type Order, type Wrap,
 } from './kioskShift'
 import { PANIC_AT } from './kioskEconomy'
 import type { ShiftStatus, Speech } from './useKioskShift'
@@ -111,6 +111,9 @@ export default function CustomerWindow({
   const hidden = order.usual && !revealed
   const faded = !ticketOpen && !paid && !left
   const multi = order.wraps.length > 1
+  /** When a happy customer starts leaving. The hop, then a beat of standing
+   *  there so the thank-you can actually be read. */
+  const duckAt = CHEER_MS + LINGER_MS
 
   return (
     <>
@@ -131,7 +134,7 @@ export default function CustomerWindow({
           // a second animation on this element would flatten the jump before
           // it ever left the ground.
           animation: paid
-            ? `kioskCustomerDuck ${DUCK_MS}ms ease-in ${CHEER_MS}ms both`
+            ? `kioskCustomerDuck ${DUCK_MS}ms ease-in ${duckAt}ms both`
             : left
               ? `kioskCustomerWalk ${DUCK_MS}ms ease-in both`
               : 'kioskCustomerPop 620ms cubic-bezier(0.16, 1, 0.3, 1) both',
@@ -142,9 +145,14 @@ export default function CustomerWindow({
               sight — is what keeps a landing from bobbing the whole head. */}
           <div style={{
             transformOrigin: '50% 100%',
+            // The hop, and then a slow pleased sway for as long as they
+            // stand there — a customer frozen mid-thank-you reads as the game
+            // having hung, which is the opposite of the beat we bought.
             animation: status === 'refused' ? 'kioskRefuse 520ms ease-in-out'
-                     : paid ? `kioskCheer ${CHEER_MS}ms both`
-                     : undefined,
+                     : paid
+                       ? `kioskCheer ${CHEER_MS}ms both,`
+                         + ` kioskCustomerPleased ${(LINGER_MS / 2).toFixed(0)}ms ease-in-out ${CHEER_MS}ms 2`
+                       : undefined,
           }}>
             <BlinkingEren
               key={who.id}
@@ -187,7 +195,7 @@ export default function CustomerWindow({
         // Held up through the hop before it goes. The thank-you and the coins
         // are the whole point of the beat, and both used to be gone in 420ms.
         animation: paid
-          ? `kioskBubbleOut 420ms ease-in ${CHEER_MS - 140}ms both`
+          ? `kioskBubbleOut 420ms ease-in ${duckAt - 140}ms both`
           : left
             ? 'kioskBubbleOut 300ms ease-in both'
             : 'kioskBubbleIn 520ms cubic-bezier(0.16, 1, 0.3, 1) both',

@@ -408,6 +408,13 @@ export const HANDSET_SPRITE = '/kiosk_handset.webp'
  *  street under everybody's chin and put them out on the kerb instead of at
  *  the window. */
 export const SILL_PCT = 65.8
+/** The hatch's glass, in % of the picture — the aperture runs x 129→644 and
+ *  y 391→905 of InsideOfKiosk's 768×1376, traced by scanning for where the
+ *  cool street colour gives way to the warm timber of the frame. Its bottom
+ *  edge IS the sill, which is why the height lands exactly on SILL_PCT.
+ *
+ *  Anything that belongs to the weather outside is clipped to this box. */
+export const GLASS = { left: 16.8, top: 28.4, width: 67.05, height: 37.4 }
 /** Side of the square BlinkingEren box, in cqi (% of the picture's width).
  *  The sprite is letterboxed to fill the box's HEIGHT, so this is its height —
  *  which matters because the costumes run 0.58 to 0.84 aspect and sizing them
@@ -439,6 +446,13 @@ export const RADIO_SPRITE = '/kiosk_radio.webp'
  *  they drop back under the sill. Shared, because the window animates it and
  *  the shift has to wait it out before pulling the customer. */
 export const CHEER_MS = 880
+/** Then they STAY, holding the thank-you up where you can read it. The hop
+ *  used to run straight into the duck, which gave you about seven hundred
+ *  milliseconds of a line in a 6px font — long enough to notice somebody had
+ *  said something, nowhere near long enough to find out what. The gap after
+ *  they leave pays for most of it (see NEXT_AFTER_SALE_MS): the beat is spent
+ *  on a customer you can still see instead of on an empty window. */
+export const LINGER_MS = 1_500
 /** And the duck away afterwards. */
 export const DUCK_MS = 760
 

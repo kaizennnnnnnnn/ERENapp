@@ -258,6 +258,7 @@ export const SOUNDS = {
   // The counter itself. Synthesised for the same reason as the payphone.
   kiosk_saw:     '/sounds/kiosk/kiosk_saw.mp3',
   kiosk_squeeze: '/sounds/kiosk/kiosk_squeeze.mp3',
+  kiosk_handover:'/sounds/kiosk/kiosk_handover.mp3',
   kiosk_refuse:  '/sounds/kiosk/kiosk_refuse.mp3',
   kiosk_walkout: '/sounds/kiosk/kiosk_walkout.mp3',
   kiosk_shutter: '/sounds/kiosk/kiosk_shutter.mp3',
@@ -318,6 +319,7 @@ const VOLUME_SCALE: Partial<Record<SoundName, number>> = {
   // under everything else or it turns into a drill.
   kiosk_saw:      0.2,
   kiosk_squeeze:  0.42,
+  kiosk_handover: 0.5,
   kiosk_refuse:   0.5,
   kiosk_walkout:  0.42,
   kiosk_shutter:  0.55,

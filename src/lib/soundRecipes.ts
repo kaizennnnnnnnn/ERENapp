@@ -344,6 +344,18 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
                     { at: 46, recipe: { type: 'blip', freq: 233, duration: 110, shape: 'sine', gain: 0.3 } },
                   ] },
 
+  // kiosk_handover — pressing GIVE. The wrap crossing the counter, and
+  // nothing about money: paper going round it, a second shuffle as it changes
+  // hands, then the soft weight of it landing, with one small bright tick on
+  // top for the "there you go". The coins answer 260ms later — stacked on the
+  // same instant the two blur into one event and the hand-over disappears.
+  kiosk_handover: { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'noise', duration: 90,  gain: 0.3,  lowpass: 7200, highpass: 2400 } },
+                    { at: 64,  recipe: { type: 'noise', duration: 130, gain: 0.2,  lowpass: 5200, highpass: 1500 } },
+                    { at: 128, recipe: { type: 'blip', freq: 165, duration: 130, shape: 'triangle', gain: 0.34 } },
+                    { at: 150, recipe: { type: 'blip', freq: 659, duration: 90,  shape: 'sine',     gain: 0.16 } },
+                  ] },
+
   // kiosk_refuse — handed over wrong. Two flat notes DOWN, which is the one
   // shape every player already reads as no. Deliberately not ui_back: a lost
   // sale and a cancelled menu should not sound alike.

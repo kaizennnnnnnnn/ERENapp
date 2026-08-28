@@ -21,6 +21,7 @@ import { playSound } from '@/lib/sounds'
 import { startKioskAmbience, type KioskAmbience } from '@/lib/kioskAmbience'
 import { startRadio, STATIONS } from '@/lib/kioskRadio'
 import { useTasks } from '@/contexts/TaskContext'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
 import CurtainGlitter from '@/components/CurtainGlitter'
 import { useKioskShift } from './useKioskShift'
 import { useCoverBox } from './useCoverBox'
@@ -37,8 +38,9 @@ import WallTarget from './WallTarget'
 import ShiftReport from './ShiftReport'
 import TipJar from './TipJar'
 import KioskRadio from './KioskRadio'
+import RainLayer from './RainLayer'
 import {
-  FRIDGE_HIT, FRIDGE_TAG, DOOR_HIT, DOOR_TAG, MAX_USES, SILL_PCT,
+  FRIDGE_HIT, FRIDGE_TAG, DOOR_HIT, DOOR_TAG, MAX_USES,
 } from './kioskShift'
 import { orderBase, SHIFT_MS } from './kioskEconomy'
 import type { KioskRecord } from './useKioskRecord'
@@ -123,6 +125,10 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
   // Anything pinned to the art has to live inside the cover-cropped picture
   // box, not the viewport, or it slides off its pan on a different screen.
   const box = useCoverBox(768, 1376)
+  // A hundred drops falling for four minutes is exactly the kind of endless
+  // decorative motion the reduced-motion setting is asking about. The weather
+  // stays — it still reads as a wet night, it just stops moving.
+  const reduced = useReducedMotion()
 
   // Off, or one of three stations. Kept in localStorage rather than the
   // database: which station you like is a thing about YOU, not about the cat.
@@ -356,12 +362,28 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
           0%   { opacity: 1; transform: translateX(-50%) translateY(0); }
           100% { opacity: 0; transform: translateX(-140%) translateY(calc(var(--rise) * 0.7)); }
         }
-        /* Rain on the street outside the window. The streaks are a repeating
-           gradient and only its POSITION moves, so a downpour costs one
-           composited layer rather than a hundred elements. */
-        @keyframes kioskRain {
-          from { background-position: 0 0; }
-          to   { background-position: -90px 340px; }
+        /* One drop's whole fall. The translate is in PERCENT of the streak's
+           own full-height column, so a single keyframe fits any window size,
+           and the rotate before it makes the drop fall the way it leans.
+           -110% to 110% keeps it out of sight at both ends. */
+        @keyframes kioskRainFall {
+          from { transform: rotate(var(--tilt, 8deg)) translate3d(0, -110%, 0); }
+          to   { transform: rotate(var(--tilt, 8deg)) translate3d(0,  110%, 0); }
+        }
+        /* And breaking on the ledge: a flat splat that spreads and thins. */
+        @keyframes kioskRainSplash {
+          0%   { opacity: 0;    transform: scale(0.3, 1.1); }
+          14%  { opacity: 0.85; transform: scale(1, 0.65);  }
+          100% { opacity: 0;    transform: scale(1.7, 0.3); }
+        }
+        /* Standing there pleased with you, after the hop and before the duck.
+           A held pose reads as the game having frozen; a sway reads as
+           somebody enjoying their dinner. */
+        @keyframes kioskCustomerPleased {
+          0%   { transform: rotate(0deg);    }
+          25%  { transform: rotate(-1.8deg); }
+          75%  { transform: rotate(1.8deg);  }
+          100% { transform: rotate(0deg);    }
         }
         /* The till roll printing. */
         @keyframes kioskReceiptIn {
@@ -561,18 +583,11 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
             />
           )}
 
-          {/* Rain, out in the street where it belongs — clipped to the same
-              sill the customers stand behind, so it falls OUTSIDE rather than
-              in the kiosk with you. */}
-          {view.feature === 'window' && shift.rained && (
-            <div aria-hidden className="absolute left-0 right-0 top-0 pointer-events-none" style={{
-              height: `${SILL_PCT}%`, zIndex: 3, overflow: 'hidden',
-              background:
-                'repeating-linear-gradient(104deg,' +
-                ' transparent 0 7px, rgba(190,214,255,0.17) 7px 8px, transparent 8px 15px)',
-              animation: 'kioskRain 700ms linear infinite',
-            }} />
-          )}
+          {/* Rain, out in the street where it belongs — clipped to the GLASS,
+              not to the sill. Clipping at the sill covered the whole top of
+              the wall: the shutter, the tiled corners and the ceiling lamps
+              all got rained on, indoors, with you. */}
+          {view.feature === 'window' && shift.rained && <RainLayer still={reduced} />}
 
           {/* The night's tips, as a depth of coins on the ledge people are
               leaving them on. */}

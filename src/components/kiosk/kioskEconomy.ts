@@ -51,6 +51,10 @@ export const GRUMBLE_AT = 0.42
 export const PANIC_AT = 0.2
 /** Gap between one customer leaving and the next walking up. */
 export const NEXT_CUSTOMER_MS = 1_600
+/** Shorter after a SALE, because the beat has already been spent: the
+ *  customer stood there being pleased with you for LINGER_MS. A walk-out
+ *  keeps the full gap — an empty window is how a lost sale lands. */
+export const NEXT_AFTER_SALE_MS = 700
 
 // ── Money ─────────────────────────────────────────────────────────────────
 /** Base pay for one wrap: the bread, plus what's on it. */
