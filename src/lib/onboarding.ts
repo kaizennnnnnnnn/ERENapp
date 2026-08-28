@@ -99,6 +99,16 @@ export async function joinHousehold(args: {
     const { data: householdId, error: joinErr } = await withRetry(() =>
       supabase.rpc('join_household', { p_invite_code: args.inviteCode }))
     if (joinErr) {
+      // The RPC raises named exceptions for the two states that are the
+      // user's problem rather than the network's, so they get real copy
+      // instead of "check your connection".
+      const raised = joinErr.message ?? ''
+      if (raised.includes('household_full')) {
+        return { ok: false, code: 'invalid_code', message: 'That home already has two people in it.' }
+      }
+      if (raised.includes('already_in_household')) {
+        return { ok: false, code: 'invalid_code', message: "You're already in a home. Leave it first from your profile." }
+      }
       return { ok: false, code: 'network', message: NETWORK_MSG }
     }
     if (!householdId) {

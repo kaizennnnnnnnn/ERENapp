@@ -17,7 +17,7 @@
 // practice (spine §8 sets households.tz from the device). Accepted drift.
 // ═════════════════════════════════════════════════════════════════════════════
 
-import { authorizeRequest } from '@/lib/apiAuth'
+import { authorizeRequest, cronOnly } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPush } from '@/lib/serverPush'
@@ -100,9 +100,10 @@ async function pushAll(
 
 // ── GET: evening SOS sweep ───────────────────────────────────────────────────
 export async function GET(req: Request) {
-  // Service-role sweep: pg_cron proves itself with x-cron-secret, the in-app
-  // safety-net ping proves itself with the session cookie it already sends.
-  const auth = await authorizeRequest(req)
+  // Whole-database digest sweep with no in-app caller, so a session is not
+  // enough: anyone can create an account, and "is signed in" would let one
+  // burner run every tenant's fan-out on demand. pg_cron only.
+  const auth = cronOnly(req)
   if (!auth.ok) return NextResponse.json({ error: auth.reason }, { status: auth.status })
 
   const supabase = createAdminClient()
@@ -179,6 +180,13 @@ export async function POST(req: Request) {
   if (!household_id || !sender_id || typeof milestone !== 'number') {
     return NextResponse.json({ ok: false, reason: 'missing fields' }, { status: 400 })
   }
+
+  // This POST was missed when the rest of the notify-* family was guarded —
+  // only the GET sweep in this file got one. Without it, sender_id is
+  // attacker-chosen, which also picks WHICH member is treated as "the
+  // partner" and defeats the last_phase3_notify dedup key.
+  const auth = await authorizeRequest(req, household_id)
+  if (!auth.ok) return NextResponse.json({ error: auth.reason }, { status: auth.status })
   // Server-authoritative milestone list — the client can't inject arbitrary N.
   if (!MILESTONES.includes(milestone)) {
     return NextResponse.json({ ok: true, sent: 0, reason: 'bad milestone' })

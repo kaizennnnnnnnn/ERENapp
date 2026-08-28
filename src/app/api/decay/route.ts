@@ -39,9 +39,24 @@ export async function GET(request: Request) {
 
   const supabase = createAdminClient()
 
-  const { data: allStats, error } = await supabase
-    .from('eren_stats')
-    .select('*')
+  // Scope follows how the caller proved itself. pg_cron sweeps every
+  // household; a signed-in caller (the client's tab-focus safety-net ping)
+  // gets its OWN household and nothing else.
+  //
+  // Without this the ping was O(all tenants): one person opening the app ran
+  // every household's decay and push fan-out inside their own request, and
+  // any account could do it on demand. It also kept the sweep unbounded —
+  // PostgREST caps a select at 1000 rows by default, so past 1000 households
+  // the tail would silently stop decaying.
+  let query = supabase.from('eren_stats').select('*')
+  if (auth.via === 'session') {
+    if (!auth.householdId) {
+      return NextResponse.json({ ok: true, households: 0, reason: 'no household' })
+    }
+    query = query.eq('household_id', auth.householdId)
+  }
+
+  const { data: allStats, error } = await query
 
   if (error || !allStats) {
     return NextResponse.json({ error: 'Failed to load stats' }, { status: 500 })

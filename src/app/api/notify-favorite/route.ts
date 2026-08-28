@@ -13,7 +13,7 @@
 // quiet_eren_optin mute. A household with zero care this week is skipped.
 // ═════════════════════════════════════════════════════════════════════════════
 
-import { authorizeRequest } from '@/lib/apiAuth'
+import { authorizeRequest, cronOnly } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPush, heartGlyph } from '@/lib/serverPush'
@@ -45,9 +45,10 @@ function isoWeekKey(d: Date): string {
 }
 
 export async function GET(request: Request) {
-  // Service-role sweep: pg_cron proves itself with x-cron-secret, the in-app
-  // safety-net ping proves itself with the session cookie it already sends.
-  const auth = await authorizeRequest(request)
+  // Whole-database digest sweep with no in-app caller, so a session is not
+  // enough: anyone can create an account, and "is signed in" would let one
+  // burner run every tenant's fan-out on demand. pg_cron only.
+  const auth = cronOnly(request)
   if (!auth.ok) return NextResponse.json({ error: auth.reason }, { status: auth.status })
 
   const supabase = createAdminClient()

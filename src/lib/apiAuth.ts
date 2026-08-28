@@ -26,7 +26,20 @@ import { createClient } from '@/lib/supabase/server'
  * require the caller to actually be a member.
  */
 
-type Ok = { ok: true; via: 'cron' | 'session'; userId: string | null }
+type Ok = {
+  ok: true
+  via: 'cron' | 'session'
+  userId: string | null
+  /** The session caller's own household, null for a cron caller.
+   *
+   *  Sweep routes MUST narrow to this when via === 'session'. They iterate
+   *  every household in the database, and "is signed in" is not a meaningful
+   *  bar when anyone can create an account — without narrowing, one burner
+   *  account could run the entire tenant base's decay and push fan-out on
+   *  demand, and the app's own tab-focus safety-net ping made every user do
+   *  it to every other user by accident. */
+  householdId: string | null
+}
 type Denied = { ok: false; status: 401 | 403; reason: string }
 export type AuthResult = Ok | Denied
 
@@ -45,20 +58,35 @@ export async function authorizeRequest(
   householdId?: string | null,
 ): Promise<AuthResult> {
   if (secretMatches(request.headers.get('x-cron-secret'))) {
-    return { ok: true, via: 'cron', userId: null }
+    return { ok: true, via: 'cron', userId: null, householdId: null }
   }
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { ok: false, status: 401, reason: 'unauthorized' }
 
-  if (householdId) {
-    const { data: profile } = await supabase
-      .from('profiles').select('household_id').eq('id', user.id).single()
-    if (!profile || profile.household_id !== householdId) {
-      return { ok: false, status: 403, reason: 'not a member of that household' }
-    }
+  const { data: profile } = await supabase
+    .from('profiles').select('household_id').eq('id', user.id).single()
+
+  if (householdId && profile?.household_id !== householdId) {
+    return { ok: false, status: 403, reason: 'not a member of that household' }
   }
 
-  return { ok: true, via: 'session', userId: user.id }
+  return {
+    ok: true,
+    via: 'session',
+    userId: user.id,
+    householdId: profile?.household_id ?? null,
+  }
+}
+
+/**
+ * For sweeps that have no legitimate in-app caller (the notify-* digest jobs).
+ * Only pg_cron may run these — a session, however valid, is not enough.
+ */
+export function cronOnly(request: Request): AuthResult {
+  if (secretMatches(request.headers.get('x-cron-secret'))) {
+    return { ok: true, via: 'cron', userId: null, householdId: null }
+  }
+  return { ok: false, status: 401, reason: 'cron only' }
 }

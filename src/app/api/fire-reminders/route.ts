@@ -113,10 +113,18 @@ export async function GET(request: Request) {
   const supabase = createAdminClient()
   const now = new Date()
 
-  const { data: reminders, error: remErr } = await supabase
-    .from('household_reminders')
-    .select('*')
-    .eq('active', true)
+  // Same scoping rule as /api/decay: cron sweeps everything, a signed-in
+  // caller (the home-screen safety-net ping) only ever fires its own
+  // household's reminders.
+  let remQuery = supabase.from('household_reminders').select('*').eq('active', true)
+  if (auth.via === 'session') {
+    if (!auth.householdId) {
+      return NextResponse.json({ ok: true, fired: 0, reason: 'no household' })
+    }
+    remQuery = remQuery.eq('household_id', auth.householdId)
+  }
+
+  const { data: reminders, error: remErr } = await remQuery
 
   if (remErr) {
     return NextResponse.json({ ok: false, error: remErr.message }, { status: 500 })
