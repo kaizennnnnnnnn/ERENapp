@@ -56,6 +56,9 @@ export default function ProfilePage() {
     return () => setHideStats(false)
   }, [setHideStats])
 
+  const [deleteOpen, setDeleteOpen]   = useState(false)
+  const [deleting, setDeleting]       = useState(false)
+  const [deleteErr, setDeleteErr]     = useState<string | null>(null)
   const [partner, setPartner]         = useState<Profile | null>(null)
   const [inviteCode, setInviteCode]   = useState<string | null>(null)
   const [copied, setCopied]           = useState(false)
@@ -197,6 +200,24 @@ export default function ProfilePage() {
   async function handleSignOut() {
     await signOut()
     router.push('/auth/login')
+  }
+
+  // delete_my_account() erases personal data, severs co-authored content from
+  // this user, and drops the auth row last. The session is dead once it
+  // returns, so sign out locally rather than leaving a token for a user that
+  // no longer exists.
+  async function handleDeleteAccount() {
+    if (deleting) return
+    setDeleting(true)
+    setDeleteErr(null)
+    const { error } = await supabase.rpc('delete_my_account')
+    if (error) {
+      setDeleting(false)
+      setDeleteErr("Couldn't delete the account just now. Try again in a moment.")
+      return
+    }
+    await signOut()
+    router.replace('/auth/login')
   }
 
   // Dark page surface — overrides the page-scroll's 120 px top padding
@@ -794,6 +815,61 @@ export default function ProfilePage() {
         <LogOut size={16} style={{ color: '#fca5a5' }} />
         <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, color: '#fca5a5', textShadow: '0 0 3px rgba(248,113,113,0.4)' }}>SIGN OUT</span>
       </button>
+
+      {/* ── Delete account ──
+          Google Play requires in-app account deletion for any app with
+          account creation. The two-step confirm is not friction for its own
+          sake: deletion is irreversible, and the second step is where we
+          disclose that co-authored content stays with the partner without a
+          name on it. Anonymising silently would not be informed consent. */}
+      <button
+        onClick={() => { playSound('ui_tap'); setDeleteOpen(true) }}
+        className="w-full flex items-center justify-center gap-2 py-3 mt-3 transition-all active:translate-y-[1px]"
+        style={{ background: 'transparent', border: '1px solid rgba(120,113,108,0.35)' }}>
+        <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 1.5, color: '#8A7A85' }}>DELETE ACCOUNT</span>
+      </button>
+
+      {deleteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-5"
+             style={{ background: 'rgba(5,5,7,0.82)' }}
+             role="dialog" aria-modal="true" aria-labelledby="del-title">
+          <div style={{ ...OBSIDIAN_BTN, maxWidth: 340, padding: 20, border: '2px solid rgba(248,113,113,0.5)' }}>
+            <Rivets inset={4} size={3} />
+            <p id="del-title" className="font-pixel mb-3"
+               style={{ fontSize: 9, letterSpacing: 1, color: '#fca5a5' }}>DELETE ACCOUNT</p>
+            <p className="mb-3" style={{ fontSize: 12, lineHeight: 1.55, color: '#C9BFC5' }}>
+              This erases your login, your chats with Eren, your items, scores and
+              moods. It cannot be undone.
+            </p>
+            <p className="mb-4" style={{ fontSize: 12, lineHeight: 1.55, color: '#C9BFC5' }}>
+              {partner
+                ? 'Notes and memories you added stay in your shared home so your partner keeps their history — but your name comes off them.'
+                : 'You are the only one here, so the home, Eren, and every photo you added are deleted too.'}
+            </p>
+            {deleteErr && (
+              <p className="mb-3" style={{ fontSize: 11, color: '#fca5a5' }}>{deleteErr}</p>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={() => { playSound('ui_tap'); setDeleteOpen(false); setDeleteErr(null) }}
+                disabled={deleting}
+                className="flex-1 py-2"
+                style={{ ...OBSIDIAN_BTN, opacity: deleting ? 0.5 : 1 }}>
+                <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 1, color: '#C9BFC5' }}>KEEP IT</span>
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="flex-1 py-2"
+                style={{ ...OBSIDIAN_BTN, border: '1px solid rgba(248,113,113,0.6)', opacity: deleting ? 0.5 : 1 }}>
+                <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 1, color: '#fca5a5' }}>
+                  {deleting ? 'DELETING…' : 'DELETE'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-center gap-2 mt-6 pb-2">
         <div className="h-px w-8" style={{ background: `repeating-linear-gradient(90deg, ${accentA(0.2)} 0px, ${accentA(0.2)} 3px, transparent 3px, transparent 6px)` }} />
