@@ -82,25 +82,20 @@ be applied already.
 
 ---
 
-## ⚠ MIGRATION QUEUE — paste in this order
+## Migrations — all applied
 
-`migration_private_memories_bucket.sql` is **done** (verified:
-`memories_is_public = false`, 0 rows still holding a URL, policy listing
-clean). Four remain:
+`private_memories_bucket`, `account_deletion_fix`, `journal_integrity`,
+`avatar_bucket_scope`, `terms_acceptance` all pasted 2026-08-28, on top of the
+earlier set (`kiosk_shifts`, `household_takeover_fix`, `per_profile_heart`,
+`leave_household`, `account_deletion`, `cron_io_reduction`, `cron_auth_headers`).
 
-| # | File | Why |
-|---|---|---|
-| 1 | `migration_account_deletion_fix.sql` | **Account deletion has never worked.** Highest priority — it is a shipped Play requirement that throws for every caller. |
-| 2 | `migration_journal_integrity.sql` | Either member can currently rewrite the other's messages and forge authorship. |
-| 3 | `migration_avatar_bucket_scope.sql` | `avatars` accepts uploads to any path from any authenticated user, on a public bucket. |
-| 4 | `migration_terms_acceptance.sql` | Adds `terms_accepted_at` + `accept_terms()`. |
+`account_deletion_fix` deadlocked on its first run — `DROP NOT NULL` needs an
+AccessExclusiveLock and `fire-reminders` reads `reminders` every 15 minutes.
+The file now sets `lock_timeout` and retries each ALTER inside its own
+EXCEPTION block, so a caught deadlock releases its locks and the loop carries
+on instead of the script dying.
 
-Each ends with a verification query — read the output rather than assuming.
-
-**Expect after #4:** you and your girlfriend both get a one-time "before you
-carry on" sheet on next launch. That is deliberate. Existing rows are not
-backfilled, because stamping a consent date on accounts that have never seen
-these rules would fabricate a consent that did not happen.
+**Nothing is queued for the dashboard.** Next SQL will come with report+block.
 
 ---
 
