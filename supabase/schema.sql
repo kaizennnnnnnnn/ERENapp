@@ -378,7 +378,11 @@ create policy "Users can insert own scores"
 -- ─────────────────────────────────────────────────
 -- STORAGE BUCKETS (run after schema)
 -- ─────────────────────────────────────────────────
+-- `memories` holds users' private photographs and MUST NOT be public — a
+-- public bucket serves every object to anyone holding the URL, with no
+-- session and no membership check. Its access policies live in
+-- migration_private_memories_bucket.sql; run that after this.
 -- insert into storage.buckets (id, name, public)
--- values ('memories', 'memories', true);
+-- values ('memories', 'memories', false);
 -- insert into storage.buckets (id, name, public)
 -- values ('avatars', 'avatars', true);

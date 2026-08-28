@@ -14,18 +14,39 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useCare } from '@/contexts/CareContext'
 
-/** Recover an object's path inside the `memories` bucket from the public URL
- *  stored on the row. Supabase public URLs end with
- *  /storage/v1/object/public/memories/<householdId>/<file>, and the bucket
- *  API wants only the part after the bucket name. Returns null for a row with
- *  no image, or a URL that is not one of ours. */
-function storagePathFromPublicUrl(url: string | null | undefined): string | null {
-  if (!url) return null
+/** How long a signed photo URL stays valid, and how stale one may get before
+ *  a return to the foreground re-signs it. Short because a signed URL is a
+ *  bearer token: anyone it is forwarded to can see the photo until it
+ *  expires, including someone who has since left the household. */
+const SIGN_TTL_SEC   = 60 * 60
+const RESIGN_AFTER_MS = 45 * 60 * 1000
+
+/** Reduce whatever `memories.image_url` holds to an object path inside the
+ *  `memories` bucket.
+ *
+ *  Rows written while the bucket was public hold a full URL ending
+ *  /object/public/memories/<householdId>/<file>; rows written since hold the
+ *  bare path. Accepting both means the migration that flips the bucket and
+ *  the deploy that ships this can land in either order — and a row inserted
+ *  in between still renders. Returns null for a row with no image, or a URL
+ *  pointing somewhere we cannot sign. */
+function memoryObjectPath(value: string | null | undefined): string | null {
+  if (!value) return null
   const marker = '/object/public/memories/'
-  const at = url.indexOf(marker)
-  if (at === -1) return null
-  const raw = url.slice(at + marker.length).split('?')[0]
-  return raw ? decodeURIComponent(raw) : null
+  const at = value.indexOf(marker)
+  if (at !== -1) return decodeURIComponent(value.slice(at + marker.length).split('?')[0]) || null
+  // Not one of our public URLs. A bare path is the new shape; anything else
+  // absolute belongs to a host we hold no key for.
+  if (/^https?:/i.test(value)) return null
+  return value.split('?')[0] || null
+}
+
+/** A memory photo, or a quiet placeholder while its signed URL is being
+ *  minted. Never renders an <img> with an empty src — that paints a
+ *  broken-image glyph, and on the wall it would paint a grid of them. */
+function MemoryPhoto({ src, className }: { src: string | null; className: string }) {
+  if (!src) return <div className={className} style={{ background: '#F5EBFF' }} />
+  return <img src={src} alt="" className={className} />
 }
 
 export default function MemoriesPage() {
@@ -43,8 +64,13 @@ export default function MemoriesPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [saving, setSaving]       = useState(false)
   const [selected, setSelected]   = useState<Memory | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  // objectPath -> signed URL. The bucket is private, so a photo has no
+  // stable address; every render needs a fresh token.
+  const [signed, setSigned]       = useState<Record<string, string>>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
   const loadFailedRef = useRef(false)
+  const signedAtRef = useRef(0)
 
   async function loadMemories() {
     if (!profile?.household_id) return
@@ -63,9 +89,61 @@ export default function MemoriesPage() {
 
   useEffect(() => { loadMemories() }, [profile?.household_id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Self-heal: while the last load failed (loader still up), retry on return
-  // to the foreground instead of waiting for a manual reload.
-  useEffect(() => onForeground(() => { if (loadFailedRef.current) loadMemories() }), [profile?.household_id]) // eslint-disable-line react-hooks/exhaustive-deps
+  /** Mint a signed URL for every photo currently on screen. One round trip
+   *  for the whole wall — signing per <img> would be a request per tile. */
+  async function signPhotos() {
+    const paths = Array.from(new Set(
+      memories.map(m => memoryObjectPath(m.image_url)).filter((p): p is string => !!p)
+    ))
+    if (paths.length === 0) {
+      setSigned(prev => Object.keys(prev).length ? {} : prev)
+      return
+    }
+
+    const { data } = await withRetry(() => supabase.storage
+      .from('memories')
+      .createSignedUrls(paths, SIGN_TTL_SEC))
+    if (!data) return // transient — the foreground hook below tries again
+
+    // Rebuild rather than merge: a path that has dropped off the wall should
+    // not keep a live token sitting in memory.
+    const next: Record<string, string> = {}
+    for (const row of data) {
+      if (row.path && row.signedUrl) next[row.path] = row.signedUrl
+    }
+    setSigned(next)
+    signedAtRef.current = Date.now()
+  }
+
+  /** The live URL for a memory's photo, or null while it is being signed. */
+  function photoSrc(memory: Memory): string | null {
+    const path = memoryObjectPath(memory.image_url)
+    return path ? signed[path] ?? null : null
+  }
+
+  // Keyed on the set of paths, not on `memories` — a favourite toggle
+  // rewrites the array but must not re-sign the whole wall.
+  const photoKey = memories.map(m => memoryObjectPath(m.image_url) ?? '').join('|')
+  useEffect(() => { signPhotos() }, [photoKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Self-heal on return to the foreground: retry a failed load (the loader is
+  // still up), and re-sign before the tokens expire. A PWA left open on this
+  // page for an hour would otherwise come back to a wall of broken images.
+  useEffect(() => onForeground(() => {
+    if (loadFailedRef.current) loadMemories()
+    else if (Date.now() - signedAtRef.current > RESIGN_AFTER_MS) signPhotos()
+  }), [profile?.household_id, photoKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Close the composer and drop everything it was holding. `imageFile` in
+   *  particular: leaving it set meant cancelling, reopening and saving a
+   *  note-only memory silently re-uploaded the abandoned photo. */
+  function closeAdd() {
+    setShowAdd(false)
+    setImagePreview(null)
+    setImageFile(null)
+    setText('')
+    setSaveError(null)
+  }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -79,8 +157,12 @@ export default function MemoriesPage() {
     if (!user?.id || !profile?.household_id) return
     if (!text.trim() && !imageFile) return
     setSaving(true)
+    setSaveError(null)
 
-    let imageUrl: string | null = null
+    // The object path, not a URL. The bucket is private, so there is no
+    // stable address to store — the path is the durable fact and the URL
+    // gets signed per view.
+    let objectPath: string | null = null
 
     if (imageFile) {
       const ext  = imageFile.name.split('.').pop()
@@ -89,32 +171,43 @@ export default function MemoriesPage() {
         .from('memories')
         .upload(path, imageFile)
 
-      if (!uploadErr) {
-        const { data: urlData } = supabase.storage
-          .from('memories')
-          .getPublicUrl(path)
-        imageUrl = urlData.publicUrl
+      // Saving the note anyway and dropping the photo on the floor is the
+      // worst outcome: the memory looks saved, the picture is gone, and
+      // nothing said so. Stop and let them retry.
+      if (uploadErr) {
+        setSaveError(/exceeded the maximum allowed size/i.test(uploadErr.message)
+          ? 'That photo is too large — 15 MB max.'
+          : 'Photo upload failed. Check your connection and try again.')
+        setSaving(false)
+        return
       }
+      objectPath = path
     }
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('memories')
       .insert({
         household_id: profile.household_id,
         user_id: user.id,
         text: text.trim() || null,
-        image_url: imageUrl,
+        image_url: objectPath,
       })
       .select('*, profile:profiles(name)')
       .single()
 
-    if (data) setMemories(prev => [data, ...prev])
+    if (error || !data) {
+      // The upload landed but nothing references it now — bin it rather than
+      // leave an object no one can reach and no one can delete.
+      if (objectPath) await supabase.storage.from('memories').remove([objectPath])
+      setSaveError('Could not save that memory. Try again in a moment.')
+      setSaving(false)
+      return
+    }
 
-    setText('')
-    setImageFile(null)
-    setImagePreview(null)
+    // The signing effect picks the new path up from the changed photo key.
+    setMemories(prev => [data, ...prev])
     setSaving(false)
-    setShowAdd(false)
+    closeAdd()
   }
 
   async function handleToggleFavorite(memory: Memory) {
@@ -126,16 +219,15 @@ export default function MemoriesPage() {
   }
 
   async function handleDelete(id: string) {
-    // Delete the image object too, not just the row. The memories bucket is
-    // public, so an orphaned object stays fetchable by anyone holding the URL
-    // forever — "delete" that leaves the photo up is not a delete, and it
+    // Delete the image object too, not just the row. An orphaned object still
+    // counts against storage and still answers a signed URL minted before the
+    // row went — "delete" that leaves the photo behind is not a delete, and it
     // breaks any takedown request.
     //
-    // Storage takes the path within the bucket, while the row stores the full
-    // public URL, so recover the path from it. Object first: if the row went
-    // first and this failed we would have lost the only pointer to the file.
+    // Object first: if the row went first and this failed we would have lost
+    // the only pointer to the file.
     const memory = memories.find(m => m.id === id)
-    const objectPath = storagePathFromPublicUrl(memory?.image_url)
+    const objectPath = memoryObjectPath(memory?.image_url)
     if (objectPath) {
       await supabase.storage.from('memories').remove([objectPath])
     }
@@ -177,7 +269,7 @@ export default function MemoriesPage() {
             {/* Header */}
             <div className="flex items-center justify-between px-5 pt-4 pb-3 flex-shrink-0">
               <span className="pixel-chip" style={{ background: 'linear-gradient(135deg, #FF6B9D, #C084FC)' }}>+ NEW MEMORY</span>
-              <button onClick={() => { setShowAdd(false); setImagePreview(null); setText('') }}
+              <button onClick={closeAdd}
                 style={{ background: '#F5F0FF', borderRadius: 3, border: '2px solid #DDD0F0', padding: '4px 6px' }}>
                 <X size={16} className="text-purple-400" />
               </button>
@@ -214,9 +306,17 @@ export default function MemoriesPage() {
               />
             </div>
 
+            {/* Save failed — say so instead of closing as if it worked */}
+            {saveError && (
+              <div className="mx-5 mt-3 px-3 py-2 flex-shrink-0"
+                style={{ background: '#FFF0F0', borderRadius: 3, border: '2px solid #FFB8B8', boxShadow: '2px 2px 0 #FF9090' }}>
+                <p className="text-xs text-red-500">{saveError}</p>
+              </div>
+            )}
+
             {/* Buttons — always pinned at bottom */}
             <div className="flex gap-3 px-5 py-4 flex-shrink-0" style={{ borderTop: '1px solid #F0E0FF' }}>
-              <button onClick={() => { setShowAdd(false); setImagePreview(null); setText('') }}
+              <button onClick={closeAdd}
                 className="flex-1 py-3 transition-all active:translate-y-[1px]"
                 style={{ background: '#F5F0FF', borderRadius: 6, border: '2px solid #DDD0F0', boxShadow: '0 3px 0 #C8B8E8', color: '#7C3AED', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                 CANCEL
@@ -238,7 +338,7 @@ export default function MemoriesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" style={{ animation: 'scrimIn 200ms ease-out' }} onClick={() => setSelected(null)}>
           <div className="max-w-sm w-full overflow-hidden" style={{ borderRadius: 4, border: '3px solid #F0D0FF', boxShadow: '5px 5px 0 #C090E0', animation: 'modalPop 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both' }} onClick={e => e.stopPropagation()}>
             {selected.image_url && (
-              <img src={selected.image_url} alt="" className="w-full aspect-square object-cover" />
+              <MemoryPhoto src={photoSrc(selected)} className="w-full aspect-square object-cover" />
             )}
             <div className="p-4 bg-white">
               {selected.text && <p className="text-sm text-gray-700 mb-2">{selected.text}</p>}
@@ -305,7 +405,7 @@ export default function MemoriesPage() {
                     style={{ borderRadius: 3, border: '2px solid #FF6B9D', boxShadow: '2px 2px 0 #CC3366' }}
                   >
                     {m.image_url
-                      ? <img src={m.image_url} alt="" className="w-full h-full object-cover" />
+                      ? <MemoryPhoto src={photoSrc(m)} className="w-full h-full object-cover" />
                       : <div className="w-full h-full flex items-center justify-center text-2xl" style={{ background: '#FFF0F7' }}>💕</div>
                     }
                   </button>
@@ -325,7 +425,7 @@ export default function MemoriesPage() {
               >
                 {memory.image_url && (
                   <div className="aspect-square relative overflow-hidden">
-                    <img src={memory.image_url} alt="" className="w-full h-full object-cover" />
+                    <MemoryPhoto src={photoSrc(memory)} className="w-full h-full object-cover" />
                     {memory.is_favorite && (
                       <div className="absolute top-1.5 right-1.5 w-5 h-5 flex items-center justify-center"
                         style={{ background: 'rgba(255,255,255,0.9)', borderRadius: 2, border: '1px solid #FF6B9D' }}>

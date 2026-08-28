@@ -261,6 +261,10 @@ credible risk to someone's safety.
   and your own household's data.
 - Your "Talk to Eren" conversation is restricted at the database level to your
   own account, so your partner cannot read it even though you share a household.
+- Photos you upload are held in **private** storage. They have no public web
+  address. When you open your memory wall the app requests a temporary link
+  that expires within the hour, and one is only issued if you are a member of
+  the household the photo belongs to.
 - Push notification content is encrypted end-to-end between our server and your
   device, so the push delivery service cannot read it.
 - Our administrative database key and AI provider key are held only on the
