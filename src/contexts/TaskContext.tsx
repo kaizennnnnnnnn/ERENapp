@@ -155,7 +155,13 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     if (!user?.id) return
     const next = coins + amount
     setCoins(next)
-    await supabase.from('profiles').update({ coins: next }).eq('id', user.id)
+    // writeWithRetry + error check, mirroring spendCoins below: this is an
+    // absolute value so a retry can't double-credit. Unretried and unchecked,
+    // a transient 503 silently swallowed every payout in the app (arcade
+    // rewards, kiosk shifts, fortunes) and the coins were simply gone.
+    const { error } = await writeWithRetry(signal =>
+      supabase.from('profiles').update({ coins: next }).eq('id', user.id).abortSignal(signal))
+    if (error) setCoins(coins)
   }, [user?.id, coins]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Spend coins (returns false if insufficient) ──────────────────────────
@@ -294,7 +300,18 @@ export function TaskProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    await supabase.from('profiles').update(profilePatch).eq('id', user.id)
+    // The completion row is already in. If the rewards write fails we must not
+    // leave the quest marked complete with nothing paid out — that state is
+    // unrecoverable for the user (the quest never re-offers, the coins/XP/
+    // streak are simply forfeited). Roll the completion back instead so the
+    // quest stays claimable and they can retry.
+    const { error: rewardErr } = await writeWithRetry(signal =>
+      supabase.from('profiles').update(profilePatch).eq('id', user.id).abortSignal(signal))
+    if (rewardErr) {
+      await supabase.from('user_task_completions').delete()
+        .eq('user_id', user.id).eq('task_id', taskId).eq('period_key', periodKey)
+      return null
+    }
     setCoins(newCoins)
     setXp(newXp)
     setLevel(newLevel)
