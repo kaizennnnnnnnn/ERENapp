@@ -342,7 +342,17 @@ function useErenStatsImpl(householdId: string | null) {
     setLoading(false)
 
     // Persist the decayed values + refreshed timestamp.
-    supabase.from('eren_stats').update({
+    //
+    // This MUST be awaited (or at least subscribed to): a supabase-js builder
+    // is lazy — the fetch only fires inside then(). A bare statement here
+    // never sent a request, which left the DB stale-high while the app was
+    // open, so /api/notify-stats evaluated pre-decay values and the
+    // background threshold push never fired.
+    //
+    // The last_decay_at guard makes this a compare-and-set: if a care action
+    // (either partner) landed between our read and this write, the filter
+    // misses and we skip rather than clobber the action with pre-action values.
+    await writeWithRetry(signal => supabase.from('eren_stats').update({
       happiness: decayed.happiness,
       hunger: decayed.hunger,
       energy: decayed.energy,
@@ -353,6 +363,8 @@ function useErenStatsImpl(householdId: string | null) {
       last_decay_at: decayed.last_decay_at,
       updated_at: new Date().toISOString(),
     }).eq('household_id', householdId)
+      .eq('last_decay_at', raw.last_decay_at)
+      .abortSignal(signal))
 
     // If the client just decayed across a threshold while the tab is in
     // the background, ping the server so it can fire a push (cooldown-
