@@ -59,6 +59,14 @@ export default function ProfilePage() {
   const [deleteOpen, setDeleteOpen]   = useState(false)
   const [deleting, setDeleting]       = useState(false)
   const [deleteErr, setDeleteErr]     = useState<string | null>(null)
+  const [leaveOpen, setLeaveOpen]     = useState(false)
+  const [leaving, setLeaving]         = useState(false)
+  const [leaveErr, setLeaveErr]       = useState<string | null>(null)
+  // Rotating the invite code is one tap that invalidates a code the partner
+  // may be mid-way through typing, so the button arms before it fires. One
+  // state rather than four booleans — every label the button shows is a
+  // position in this machine.
+  const [rotateState, setRotateState] = useState<'idle' | 'armed' | 'busy' | 'failed'>('idle')
   const [partner, setPartner]         = useState<Profile | null>(null)
   const [inviteCode, setInviteCode]   = useState<string | null>(null)
   const [copied, setCopied]           = useState(false)
@@ -186,6 +194,51 @@ export default function ProfilePage() {
     navigator.clipboard.writeText(inviteCode)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  // Armed and failed are both transient — fall back to idle so a stray tap
+  // doesn't leave a primed button sitting there minutes later.
+  useEffect(() => {
+    if (rotateState !== 'armed' && rotateState !== 'failed') return
+    const t = setTimeout(() => setRotateState('idle'), 4000)
+    return () => clearTimeout(t)
+  }, [rotateState])
+
+  // rotate_invite_code() replaces the code and returns the new one. This is
+  // the remedy for a code that got out — an old screenshot, a shared phone,
+  // an ex who still remembers it. Without it a code, once seen, was a
+  // permanent key to the household.
+  async function handleRotateCode() {
+    if (rotateState === 'busy') return
+    if (rotateState !== 'armed') { setRotateState('armed'); return }
+
+    setRotateState('busy')
+    const { data, error } = await supabase.rpc('rotate_invite_code')
+    if (error || !data) { setRotateState('failed'); return }
+
+    setInviteCode(data as string)
+    setCopied(false)   // the clipboard now holds the dead code
+    setRotateState('idle')
+  }
+
+  // leave_household() detaches this account and rotates the code behind it.
+  // Shared history stays with the household by design — this is "move out",
+  // not "delete our life together".
+  //
+  // A hard navigation, not router.replace: useAuth still holds a profile
+  // saying we are in a household, and every context downstream is built on
+  // it. Reloading is the honest way to drop all of it at once.
+  async function handleLeaveHousehold() {
+    if (leaving) return
+    setLeaving(true)
+    setLeaveErr(null)
+    const { error } = await supabase.rpc('leave_household')
+    if (error) {
+      setLeaving(false)
+      setLeaveErr("Couldn't leave just now. Try again in a moment.")
+      return
+    }
+    window.location.href = '/onboarding'
   }
 
   async function saveName() {
@@ -612,6 +665,32 @@ export default function ProfilePage() {
                 : <Copy size={20} style={{ color: PINK_HI }} />}
             </button>
           </div>
+
+          {/* Rotate. Two taps, because the first one would otherwise kill a
+              code the partner is halfway through typing. */}
+          <button
+            onClick={() => { playSound('ui_tap'); handleRotateCode() }}
+            disabled={rotateState === 'busy'}
+            className="w-full mt-2 py-2 transition-all active:translate-y-[1px]"
+            style={{
+              background: 'transparent',
+              border: `1px solid ${rotateState === 'armed' ? 'rgba(251,191,36,0.5)' : 'rgba(120,113,108,0.3)'}`,
+            }}>
+            <span className="font-pixel" style={{
+              fontSize: 7,
+              letterSpacing: 1.5,
+              color: rotateState === 'armed' ? '#fbbf24' : rotateState === 'failed' ? '#fca5a5' : '#8A7A85',
+            }}>
+              {rotateState === 'armed'  ? 'TAP AGAIN TO REPLACE'
+             : rotateState === 'busy'   ? 'REPLACING…'
+             : rotateState === 'failed' ? "COULDN'T REPLACE — RETRY"
+             : 'NEW CODE'}
+            </span>
+          </button>
+          <p className="mt-1.5" style={{ fontSize: 10, lineHeight: 1.5, color: '#6A5A65' }}>
+            Replaces the code above. Anyone still holding the old one can no
+            longer join.
+          </p>
         </div>
       )}
 
@@ -815,6 +894,64 @@ export default function ProfilePage() {
         <LogOut size={16} style={{ color: '#fca5a5' }} />
         <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, color: '#fca5a5', textShadow: '0 0 3px rgba(248,113,113,0.4)' }}>SIGN OUT</span>
       </button>
+
+      {/* ── Leave household ──
+          The exit from a home you joined by mistake, or one you no longer
+          want to be in. Without it, typing someone's invite code once put
+          you inside their journal, notes, moods and memory wall permanently
+          — the only way out was deleting your whole account. */}
+      {profile?.household_id && (
+        <button
+          onClick={() => { playSound('ui_tap'); setLeaveOpen(true) }}
+          className="w-full flex items-center justify-center gap-2 py-3 mt-3 transition-all active:translate-y-[1px]"
+          style={{ background: 'transparent', border: '1px solid rgba(251,191,36,0.35)' }}>
+          <IconHouse size={12} />
+          <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 1.5, color: '#c9a227' }}>LEAVE THIS HOME</span>
+        </button>
+      )}
+
+      {leaveOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-5"
+             style={{ background: 'rgba(5,5,7,0.82)' }}
+             role="dialog" aria-modal="true" aria-labelledby="leave-title">
+          <div style={{ ...OBSIDIAN_BTN, maxWidth: 340, padding: 20, border: '2px solid rgba(251,191,36,0.5)' }}>
+            <Rivets inset={4} size={3} />
+            <p id="leave-title" className="font-pixel mb-3"
+               style={{ fontSize: 9, letterSpacing: 1, color: '#fbbf24' }}>LEAVE THIS HOME</p>
+            <p className="mb-3" style={{ fontSize: 12, lineHeight: 1.55, color: '#C9BFC5' }}>
+              {partner
+                ? `Eren and everything you two wrote together stay with ${partner.name.split(' ')[0]}. You keep your account, but you lose access to this home.`
+                : 'You are the only one here, so this home, Eren, and every note, memory and photo in it are deleted with you. Your account stays.'}
+            </p>
+            <p className="mb-4" style={{ fontSize: 12, lineHeight: 1.55, color: '#C9BFC5' }}>
+              {partner
+                ? 'The invite code is replaced on your way out, so coming back needs a new one.'
+                : 'You can start a new home or join one straight after.'}
+            </p>
+            {leaveErr && (
+              <p className="mb-3" style={{ fontSize: 11, color: '#fca5a5' }}>{leaveErr}</p>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={() => { playSound('ui_tap'); setLeaveOpen(false); setLeaveErr(null) }}
+                disabled={leaving}
+                className="flex-1 py-2"
+                style={{ ...OBSIDIAN_BTN, opacity: leaving ? 0.5 : 1 }}>
+                <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 1, color: '#C9BFC5' }}>STAY</span>
+              </button>
+              <button
+                onClick={handleLeaveHousehold}
+                disabled={leaving}
+                className="flex-1 py-2"
+                style={{ ...OBSIDIAN_BTN, border: '1px solid rgba(251,191,36,0.6)', opacity: leaving ? 0.5 : 1 }}>
+                <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 1, color: '#fbbf24' }}>
+                  {leaving ? 'LEAVING…' : 'LEAVE'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Delete account ──
           Google Play requires in-app account deletion for any app with
