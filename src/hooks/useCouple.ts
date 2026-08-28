@@ -378,13 +378,16 @@ function useCoupleImpl() {
     if (!user?.id || !profile?.household_id) return
     const trimmed = text.trim()
     if (!trimmed && !gift) return
-    await supabase.from('couple_journal').insert({
+    // The id comes back because the push route now needs it: a notification
+    // may only mirror a message that already exists, so there is nothing to
+    // announce until the row does.
+    const { data: row } = await supabase.from('couple_journal').insert({
       household_id: profile.household_id,
       sender_id: user.id,
       message: trimmed,
       gift_item: gift ?? null,
       via_eren: viaEren,
-    })
+    }).select('id').single()
     // Memory Wall: signal first:message + any future message-frame predicates.
     // Skip the dispatch when this row is actually a nudge (via_eren) — those
     // already unlock first:nudge via the eren:nudge-sent event, no need to
@@ -396,20 +399,21 @@ function useCoupleImpl() {
     // fully closed; the in-app realtime channel only fires when their tab is
     // alive, so this is the only path that covers a backgrounded-and-killed
     // app on iOS/Android.
-    fetch('/api/notify-message', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        household_id: profile.household_id,
-        sender_id: user.id,
-        sender_name: profile.name ?? '',
-        message: trimmed || (gift ? `sent a ${gift.key}!` : ''),
-        via_eren: viaEren,
-        // Deep-link a delivered note straight to the board. Tapping the push
-        // used to land on /couple, i.e. the chat, which is not where the note is.
-        to_notes: viaEren,
-      }),
-    }).catch(() => { /* best-effort */ })
+    if (row?.id) {
+      fetch('/api/notify-message', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          message_id: row.id,
+          // An Eren-delivered message keeps its text back so the partner has
+          // to open the app to read it.
+          hide_text: viaEren,
+          // Deep-link a delivered note straight to the board. Tapping the push
+          // used to land on /couple, i.e. the chat, which is not where the note is.
+          to_notes: viaEren,
+        }),
+      }).catch(() => { /* best-effort */ })
+    }
   }, [user?.id, profile?.household_id, profile?.name]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Send an Eren nudge (one-tap affectionate gesture) ──
@@ -426,24 +430,24 @@ function useCoupleImpl() {
     // profile colour rather than a hardcoded address.
     const messageText = resolveNudgeMessage(nudge, profile.heart)
 
-    const { error } = await supabase.from('couple_journal').insert({
+    const { data: row, error } = await supabase.from('couple_journal').insert({
       household_id: profile.household_id,
       sender_id: user.id,
       message: messageText,
       via_eren: true,
       eren_state: nudge.state,
-    })
-    if (error) return false
+    }).select('id').single()
+    if (error || !row) return false
 
     fetch('/api/notify-message', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        household_id: profile.household_id,
-        sender_id: user.id,
-        sender_name: profile.name ?? '',
-        message: messageText,
-        via_eren: false,
+        message_id: row.id,
+        // A nudge's whole point is the line itself, so unlike an Eren-delivered
+        // message it is SHOWN in the banner. The row is still via_eren, which
+        // is what keeps it out of the chat list and routes it to the popup.
+        hide_text: false,
         // Not to_notes: a nudge is never pinned, so the push opens /couple —
         // where you'd send one back — and its text is already in the banner.
       }),
