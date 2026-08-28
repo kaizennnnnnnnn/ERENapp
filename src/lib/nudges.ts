@@ -19,31 +19,29 @@ export const NUDGE_DEFS: NudgeDef[] = [
   { id: 'think',   label: 'Thinking',   state: 'wink', message: "Just I'm thinking about you" },
 ]
 
-// The "Thinking" nudge appends a heart at send time, picked by sender:
-// brown for me, pink for her. The mapping is intentionally hardcoded —
-// this is a two-person household app and the alternative (per-profile
-// heart preference + UI to set it) would be overkill.
-const MY_EMAIL = 'jocaspinjo@gmail.com'
-
 /**
- * The household's fixed per-sender colour: brown belongs to MY_EMAIL, pink to
- * the other partner. Derived from the VIEWER's own email so any surface can
- * colour a message without reading the sender's profile row (realtime inserts
- * arrive without the joined profile).
+ * The household's per-sender colour, derived from the VIEWER's own
+ * profiles.heart so any surface can colour a message without reading the
+ * sender's profile row (realtime inserts arrive without the joined profile).
+ *
+ * A household has exactly two partners and exactly two colours, so "not mine"
+ * is always the other one. This used to compare against a hardcoded personal
+ * email, which made the viewer's own colour depend on who the app was
+ * originally written for.
  */
 export function isBrownSender(
   senderIsMe: boolean,
-  myEmail: string | null | undefined,
+  myHeart: string | null | undefined,
 ): boolean {
-  return senderIsMe === (myEmail === MY_EMAIL)
+  return senderIsMe === (myHeart === 'brown_heart')
 }
 
 export function resolveNudgeMessage(
   nudge: NudgeDef,
-  senderEmail: string | null | undefined,
+  senderHeart: string | null | undefined,
 ): string {
   if (nudge.id !== 'think') return nudge.message
-  const heart = senderEmail === MY_EMAIL ? '🤎' : '🩷'
+  const heart = senderHeart === 'brown_heart' ? '🤎' : senderHeart === 'sparkle' ? '✨' : '🩷'
   return `${nudge.message} ${heart}`
 }
 

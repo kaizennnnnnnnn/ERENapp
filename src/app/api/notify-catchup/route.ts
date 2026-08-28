@@ -20,7 +20,7 @@
 import { authorizeRequest } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendPush, heartForEmail } from '@/lib/serverPush'
+import { sendPush, heartGlyph } from '@/lib/serverPush'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
 
   // Runner must belong to the household (admin client bypasses RLS, so re-check).
   const { data: runner } = await supabase
-    .from('profiles').select('id, name, email, household_id')
+    .from('profiles').select('id, name, email, heart, household_id')
     .eq('id', body.user_id).maybeSingle()
   if (!runner || runner.household_id !== body.household_id) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 })
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
   const subs = (subData ?? []) as Sub[]
   if (subs.length === 0) return NextResponse.json({ ok: true, sent: 0, reason: 'no-subs' })
 
-  const heart = heartForEmail(runner.email)
+  const heart = heartGlyph(runner.heart)
   const who = (runner.name?.trim() || 'Your partner').slice(0, 32)
   const title = `${heart} Eren`
   const text = `${who} started filling Eren's memory wall — come see your memories.`

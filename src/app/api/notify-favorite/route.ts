@@ -16,7 +16,7 @@
 import { authorizeRequest } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendPush, heartForEmail } from '@/lib/serverPush'
+import { sendPush, heartGlyph } from '@/lib/serverPush'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -25,6 +25,7 @@ interface Member {
   id: string
   name: string | null
   email: string | null
+  heart: string | null
   quiet_eren_optin: boolean | null
   last_phase3_notify: Record<string, string> | null
 }
@@ -78,7 +79,7 @@ export async function GET(request: Request) {
   for (const [householdId, counts] of Array.from(byHousehold.entries())) {
     const { data: memberRows } = await supabase
       .from('profiles')
-      .select('id, name, email, quiet_eren_optin, last_phase3_notify')
+      .select('id, name, email, heart, quiet_eren_optin, last_phase3_notify')
       .eq('household_id', householdId)
     const members = (memberRows ?? []) as Member[]
     if (members.length === 0) continue
@@ -102,11 +103,11 @@ export async function GET(request: Request) {
         title = '💞 Eren'
         body = `It's a tie — you're both Eren's favourites this week. 🤎🩷`
       } else if (m.id === champion.id) {
-        title = `${heartForEmail(m.email)} Eren`
+        title = `${heartGlyph(m.heart)} Eren`
         body = `Eren says YOU were his favourite this week — ${maxN} moments together.`
       } else {
         const champName = champion.name?.trim() || 'your partner'
-        title = `${heartForEmail(champion.email)} Eren`
+        title = `${heartGlyph(champion.heart)} Eren`
         body = `Eren's favourite this week was ${champName}. Your turn next week?`
       }
 

@@ -422,8 +422,9 @@ function useCoupleImpl() {
   const sendNudge = useCallback(async (nudge: NudgeDef): Promise<boolean> => {
     if (!user?.id || !profile?.household_id) return false
 
-    // The "Thinking" nudge picks its heart emoji from the sender's email.
-    const messageText = resolveNudgeMessage(nudge, user.email)
+    // The "Thinking" nudge picks its heart emoji from the sender's own
+    // profile colour rather than a hardcoded address.
+    const messageText = resolveNudgeMessage(nudge, profile.heart)
 
     const { error } = await supabase.from('couple_journal').insert({
       household_id: profile.household_id,

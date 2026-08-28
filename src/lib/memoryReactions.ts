@@ -6,17 +6,23 @@
 // independently. Last-write-wins is fine here — reactions are rare and the
 // realtime UPDATE settles the UI within the same RTT.
 //
-// Heart convention matches the rest of the app (see [[project_heart_colors]]):
-//   • brown_heart 🤎 — Jovan (jocaspinjo@gmail.com)
-//   • pink_heart  🩷 — her
+// Heart convention matches the rest of the app:
+//   • brown_heart 🤎 — the partner who created the household
+//   • pink_heart  🩷 — the partner who joined it
 //   • sparkle     ✨ — neutral, used when both partners want to react identically
+//
+// The colour lives on profiles.heart and is stamped at onboarding. It used to
+// be decided by comparing the user's address to a hardcoded personal email,
+// which gave every household but the original one two pink partners.
 // ═════════════════════════════════════════════════════════════════════════════
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ReactionEmoji } from '@/hooks/useMemoryFrames'
 
-export function heartForEmail(email: string | null | undefined): ReactionEmoji {
-  return email === 'jocaspinjo@gmail.com' ? 'brown_heart' : 'pink_heart'
+/** The viewer's own heart, from their profile. Falls back to pink so a
+ *  not-yet-loaded profile still renders a valid reaction. */
+export function heartOf(heart: string | null | undefined): ReactionEmoji {
+  return heart === 'brown_heart' ? 'brown_heart' : heart === 'sparkle' ? 'sparkle' : 'pink_heart'
 }
 
 export const HEART_GLYPH: Record<ReactionEmoji, string> = {

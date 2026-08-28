@@ -50,30 +50,29 @@ export async function createHousehold(args: {
 }): Promise<OnbResult<{ householdId: string; inviteCode: string }>> {
   const supabase = createClient()
   try {
-    const code = Math.random().toString(36).substring(2, 10).toUpperCase()
-    const { data: household, error: hhError } = await supabase
-      .from('households')
-      .insert({ name: args.householdName, invite_code: code })
-      .select()
-      .single()
-    if (hhError || !household) {
+    // One round trip, server-side. The client can no longer write
+    // profiles.household_id (revoked in migration_household_takeover_fix.sql
+    // so an account can't relocate itself into someone else's household), so
+    // creating the household, linking the profile, stamping the creator's
+    // heart colour and seeding Eren's stats all happen inside the RPC — which
+    // also makes them atomic instead of three writes that could half-fail and
+    // strand a user with a household but no cat.
+    const { data, error: rpcError } = await withRetry(() =>
+      supabase.rpc('create_household', {
+        p_household_name: args.householdName,
+        p_display_name:   args.name,
+      }))
+    if (rpcError) {
       return { ok: false, code: 'network', message: 'Could not build the home. Try again?' }
     }
 
-    // Link profile to household. This is the critical link — surface the
-    // error instead of silently ignoring it like the old register page did.
-    const { error: linkError } = await supabase
-      .from('profiles')
-      .update({ household_id: household.id, name: args.name })
-      .eq('id', args.userId)
-    if (linkError) {
-      return { ok: false, code: 'network', message: NETWORK_MSG }
+    // RETURNS TABLE comes back as a one-row array.
+    const row = Array.isArray(data) ? data[0] : data
+    if (!row?.household_id) {
+      return { ok: false, code: 'network', message: 'Could not build the home. Try again?' }
     }
 
-    // Seed Eren's stats. Non-fatal if it races a partner's insert.
-    await supabase.from('eren_stats').insert({ household_id: household.id })
-
-    return { ok: true, value: { householdId: household.id, inviteCode: household.invite_code as string } }
+    return { ok: true, value: { householdId: row.household_id as string, inviteCode: row.invite_code as string } }
   } catch {
     return { ok: false, code: 'network', message: NETWORK_MSG }
   }

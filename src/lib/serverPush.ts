@@ -18,11 +18,15 @@ interface PushSub {
   auth: string
 }
 
-/** Sender-tinted heart for push notification copy. Brown for Jovan, pink for
- *  the partner — matches the in-app convention used by ThoughtCloud / wish
- *  bubble / memory reactions. */
-export function heartForEmail(email: string | null | undefined): string {
-  return email === 'jocaspinjo@gmail.com' ? '🤎' : '🩷'
+/** Sender-tinted heart for push notification copy — matches the in-app
+ *  convention used by ThoughtCloud / wish bubble / memory reactions.
+ *
+ *  Reads profiles.heart. This used to compare the address to a literal
+ *  personal email, which worked for exactly one household and made every
+ *  other user pink — including both partners in a new one, collapsing the
+ *  two-colour convention the UI is built on. */
+export function heartGlyph(heart: string | null | undefined): string {
+  return heart === 'brown_heart' ? '🤎' : heart === 'sparkle' ? '✨' : '🩷'
 }
 
 export async function sendPush(sub: PushSub, title: string, body: string, tag?: string, url?: string): Promise<boolean> {

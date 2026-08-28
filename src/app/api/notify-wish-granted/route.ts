@@ -13,7 +13,7 @@
 import { authorizeRequest } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendPush, heartForEmail } from '@/lib/serverPush'
+import { sendPush, heartGlyph } from '@/lib/serverPush'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
       .eq('period_key', body.period_key)
       .maybeSingle(),
     supabase.from('profiles')
-      .select('id, name, email')
+      .select('id, name, email, heart')
       .eq('id', body.granter_id)
       .maybeSingle(),
   ])
@@ -52,9 +52,9 @@ export async function POST(req: Request) {
   if (!wRes.data || wRes.data.granted_pushed_at || !wRes.data.granted_at) {
     return NextResponse.json({ ok: true, skipped: true })
   }
-  const granter = (gRes.data as { id: string, name: string, email: string } | null)
+  const granter = (gRes.data as { id: string, name: string, email: string, heart: string | null } | null)
   const granterName = granter?.name ?? 'your partner'
-  const granterHeart = heartForEmail(granter?.email)
+  const granterHeart = heartGlyph(granter?.heart)
 
   // Recipient = the other household member.
   const { data: recipient } = await supabase

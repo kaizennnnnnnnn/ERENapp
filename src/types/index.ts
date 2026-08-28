@@ -61,6 +61,11 @@ export interface Profile {
   quiet_eren_optin?: boolean
   birthday?: string | null
   email?: string
+  /** Sender colour within the household: the creator is 'brown_heart', the
+   *  partner who joins is 'pink_heart'. Stamped at onboarding — replaces the
+   *  hardcoded-email check that made every household after the first one
+   *  render two identical pink partners. */
+  heart?: 'brown_heart' | 'pink_heart' | 'sparkle'
   created_at: string
   updated_at: string
 }

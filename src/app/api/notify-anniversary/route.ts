@@ -20,7 +20,7 @@
 import { authorizeRequest } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendPush, heartForEmail } from '@/lib/serverPush'
+import { sendPush, heartGlyph } from '@/lib/serverPush'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -29,6 +29,7 @@ interface Member {
   id: string
   name: string | null
   email: string | null
+  heart: string | null
   birthday: string | null
   quiet_eren_optin: boolean | null
   last_phase3_notify: Record<string, string> | null
@@ -109,7 +110,7 @@ export async function GET(request: Request) {
 
     const { data: memberRows } = await supabase
       .from('profiles')
-      .select('id, name, email, birthday, quiet_eren_optin, last_phase3_notify')
+      .select('id, name, email, heart, birthday, quiet_eren_optin, last_phase3_notify')
       .eq('household_id', hh.id)
     const members = (memberRows ?? []) as Member[]
     if (members.length === 0) continue
@@ -134,7 +135,7 @@ export async function GET(request: Request) {
     for (const m of members) {
       const others = members.filter(o => o.id !== m.id)
       if (others.length === 0) continue
-      const heart = heartForEmail(m.email)
+      const heart = heartGlyph(m.heart)
       const who = m.name?.trim() || 'your partner'
       if (anchorHits(m.birthday, tom.y, tom.mmdd)) {
         events.push({ recipients: others, tag: `bday-eve-${m.id}`, title: `${heart} Eren`,

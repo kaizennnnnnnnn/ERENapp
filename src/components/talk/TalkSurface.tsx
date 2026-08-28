@@ -77,7 +77,7 @@ export default function TalkSurface({ onExit, onLoaded }: Props) {
         error={error}
         status={sending ? 'typing…' : MOOD_STATUS[(stats?.mood as ErenMood) ?? 'idle']}
         myName={profile?.name?.split(' ')[0] ?? 'You'}
-        mySkin={isBrownSender(true, user?.email) ? BROWN : PINK}
+        mySkin={isBrownSender(true, profile?.heart) ? BROWN : PINK}
         flash={flash}
         onSend={send}                    // owns the chat_send sound
         onOpenMemories={() => { playSound('ui_modal_open'); setSheetOpen(true); void refresh() }}

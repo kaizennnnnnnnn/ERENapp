@@ -14,7 +14,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { playSound } from '@/lib/sounds'
 import MemoryFrameCanvas from './MemoryFrameCanvas'
-import { setMemoryReaction, heartForEmail, HEART_GLYPH } from '@/lib/memoryReactions'
+import { setMemoryReaction, heartOf, HEART_GLYPH } from '@/lib/memoryReactions'
 import type { MemoryFrameRow, ReactionEmoji } from '@/hooks/useMemoryFrames'
 import type { MemoryFrame } from '@/lib/memoryCatalogue'
 
@@ -41,7 +41,7 @@ export default function MemoryDetailModal({ frame, row, partnerId, onClose, onRe
   const locked = !row
   const myReaction = (user?.id && row?.reaction[user.id]) || null
   const partnerReaction = (partnerId && row?.reaction[partnerId]) || null
-  const myHeart = heartForEmail(user?.email)
+  const myHeart = heartOf(profile?.heart)
 
   async function toggleReaction() {
     if (!user?.id || !row || busy) return

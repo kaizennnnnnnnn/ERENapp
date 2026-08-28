@@ -57,7 +57,7 @@ export default function NotesPage() {
     <NoteBoard
       notes={notes}
       myId={user?.id}
-      myEmail={user?.email}
+      myHeart={profile?.heart}
       myName={profile?.name?.split(' ')[0] ?? 'You'}
       partnerName={partner?.name?.split(' ')[0] ?? 'Them'}
       onExit={exit}

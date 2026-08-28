@@ -59,13 +59,13 @@ function dayLabel(iso: string): string {
 interface Props {
   notes: JournalMessage[]
   myId: string | undefined
-  myEmail: string | null | undefined
+  myHeart: string | null | undefined
   myName: string
   partnerName: string
   onExit: () => void
 }
 
-export default function NoteBoard({ notes, myId, myEmail, myName, partnerName, onExit }: Props) {
+export default function NoteBoard({ notes, myId, myHeart, myName, partnerName, onExit }: Props) {
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden" style={{
       background: 'linear-gradient(180deg, #CBA372 0%, #B98A56 55%, #9E6F3B 100%)',
@@ -153,7 +153,7 @@ export default function NoteBoard({ notes, myId, myEmail, myName, partnerName, o
                 )}
                 <PinnedNote
                   m={m}
-                  ink={isBrownSender(mine, myEmail) ? BROWN : PINK}
+                  ink={isBrownSender(mine, myHeart) ? BROWN : PINK}
                   name={mine ? myName : partnerName}
                   index={i}
                 />
