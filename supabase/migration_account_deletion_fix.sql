@@ -35,16 +35,36 @@
 -- so its existence cannot be assumed from the migrations. DROP NOT NULL on a
 -- column that is already nullable is a no-op, so this is safe to re-run and
 -- safe to run against a database where some of these differ.
+--
+-- ── About the locking ──
+-- DROP NOT NULL is a catalog-only change — instant, no table rewrite — but it
+-- still needs an AccessExclusiveLock for that instant, and `reminders` is read
+-- by the fire-reminders cron every 15 minutes and by every open app session.
+-- The first attempt at this migration deadlocked there: the cron held a lock
+-- on `reminders` and wanted one on a table this block had already taken.
+--
+-- Three things stop that repeating:
+--   • lock_timeout gives up after a few seconds instead of queueing behind a
+--     long reader and becoming the other half of a deadlock
+--   • each ALTER retries inside its own EXCEPTION block, which is a
+--     subtransaction — a caught deadlock releases the locks it took and lets
+--     the loop carry on rather than killing the whole script
+--   • the contended tables go FIRST, so we are not sitting on locks for four
+--     other tables while fighting for the busy one
+set lock_timeout = '4s';
+
 do $$
 declare
-  r record;
+  r       record;
+  attempt int;
 begin
   for r in
     select * from (values
-      ('couple_journal',      'sender_id'),
-      ('memories',            'user_id'),
+      -- Busiest first: cron reads these every 15 minutes.
       ('reminders',           'created_by'),
       ('household_reminders', 'created_by'),
+      ('couple_journal',      'sender_id'),
+      ('memories',            'user_id'),
       ('eren_wishes',         'granted_by')
     ) as t(tbl, col)
   loop
@@ -52,10 +72,25 @@ begin
       raise notice 'SKIP %.% — table does not exist', r.tbl, r.col;
       continue;
     end if;
-    execute format('alter table public.%I alter column %I drop not null', r.tbl, r.col);
-    raise notice 'nullable: %.%', r.tbl, r.col;
+
+    for attempt in 1..6 loop
+      begin
+        execute format('alter table public.%I alter column %I drop not null', r.tbl, r.col);
+        raise notice 'nullable: %.% (attempt %)', r.tbl, r.col, attempt;
+        exit;
+      exception
+        when lock_not_available or deadlock_detected then
+          if attempt = 6 then
+            raise exception 'could not lock %.% after 6 tries — close the app in every tab and on both phones, wait for a quiet minute between cron ticks, and re-run', r.tbl, r.col;
+          end if;
+          raise notice 'busy: %.% — retrying (%/6)', r.tbl, r.col, attempt;
+          perform pg_sleep(2);
+      end;
+    end loop;
   end loop;
 end $$;
+
+reset lock_timeout;
 
 -- ─── 2. The function, without the DELETE on a view ────────────────────────
 CREATE OR REPLACE FUNCTION public.delete_my_account()
