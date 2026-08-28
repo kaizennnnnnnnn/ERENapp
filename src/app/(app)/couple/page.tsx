@@ -105,13 +105,21 @@ export default function CouplePage() {
 
   usePageReady(!loading)
 
+  function exitToHome() {
+    // Partner-message pushes deep-link straight here (sw.js → openWindow/
+    // navigate), so the page often opens with no in-app history — router.back()
+    // silently no-ops and the back button looks broken. Replace instead, the
+    // same way /notes and /hallway do.
+    router.replace('/home')
+  }
+
   if (loading) return <PageLoader label="LOADING" />
 
   return (
     <div className="page-scroll" style={pageStyle}>
       {/* ── Header row ── */}
       <div className="flex items-center gap-2 mb-2">
-        <button onClick={() => { playSound('ui_back'); router.back() }}
+        <button onClick={() => { playSound('ui_back'); exitToHome() }}
           className="flex items-center justify-center active:translate-y-[1px] transition-transform relative"
           style={{ width: 32, height: 32, ...OBSIDIAN_BTN }}>
           <Rivets inset={2} />

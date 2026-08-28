@@ -1,9 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  env: {
-    NEXT_PUBLIC_SUPABASE_URL: 'https://bjnnqqxjjihmsbljeayf.supabase.co',
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqbm5xcXhqamlobXNibGplYXlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4NzU3NTEsImV4cCI6MjA5MDQ1MTc1MX0.ExFtVhRZ6_1QbfHkXXk3e2KwDy6ZQAF2rTEJvvf6sOY',
-  },
+  // NOTE: NEXT_PUBLIC_SUPABASE_URL / _ANON_KEY are deliberately NOT pinned
+  // here. An `env` block is inlined at build time and overrides the real
+  // environment, so hardcoding them meant Vercel env vars were dead config:
+  // rotating the anon key had no effect and no build could be pointed at a
+  // staging project without editing committed source. They now resolve from
+  // the environment like every other NEXT_PUBLIC_ var.
   images: {
     remotePatterns: [
       {

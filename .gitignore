@@ -29,5 +29,14 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Throwaway scratch files (verification scripts, preview renders)
-__*
+# Throwaway scratch files (verification scripts, preview renders).
+# Single underscore, not double: every scratch render this repo actually
+# produces is named _base_common.png / _v2_epic.png / _cap_fox.png, so the
+# old `__*` pattern matched none of them and left ~180 strays stageable.
+_*
+scripts/_*
+
+# Tooling scratch
+.playwright-mcp/
+*.tmp
+LAUNCH_AUDIT.html
