@@ -86,30 +86,35 @@ export async function joinHousehold(args: {
 }): Promise<OnbResult<{ householdId: string }>> {
   const supabase = createClient()
   try {
-    // Read goes through withRetry + maybeSingle so a transient 503 reads as
-    // a retryable network error, never as "bad code" (the old .single()
-    // conflated the two).
-    const { data: household, error: findErr } = await withRetry(() => supabase
-      .from('households')
-      .select('id')
-      .eq('invite_code', args.inviteCode.toUpperCase())
-      .maybeSingle())
-    if (findErr) {
+    // This used to SELECT households by invite_code straight from the client,
+    // which could never work: the only SELECT policy on households is
+    // `id = my_household_id()`, and that is NULL for someone who hasn't joined
+    // yet — so every valid code came back as "Code not found". It also relied
+    // on the client being able to write profiles.household_id, which was the
+    // same permission that let any account relocate into any household.
+    //
+    // join_household() does both server-side: resolves the code with the RLS
+    // bypass it needs, and sets household_id, which the client can no longer
+    // write. It returns the household id, or NULL for a genuinely bad code —
+    // so a transient 503 still reads as retryable rather than as "bad code".
+    const { data: householdId, error: joinErr } = await withRetry(() =>
+      supabase.rpc('join_household', { p_invite_code: args.inviteCode }))
+    if (joinErr) {
       return { ok: false, code: 'network', message: NETWORK_MSG }
     }
-    if (!household) {
+    if (!householdId) {
       return { ok: false, code: 'invalid_code', message: 'Code not found. Ask your partner for it!' }
     }
 
-    const { error: linkError } = await supabase
+    const { error: nameError } = await supabase
       .from('profiles')
-      .update({ household_id: household.id, name: args.name })
+      .update({ name: args.name })
       .eq('id', args.userId)
-    if (linkError) {
+    if (nameError) {
       return { ok: false, code: 'network', message: NETWORK_MSG }
     }
 
-    return { ok: true, value: { householdId: household.id } }
+    return { ok: true, value: { householdId: householdId as string } }
   } catch {
     return { ok: false, code: 'network', message: NETWORK_MSG }
   }
