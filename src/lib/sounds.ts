@@ -261,6 +261,9 @@ export const SOUNDS = {
   kiosk_handover:'/sounds/kiosk/kiosk_handover.mp3',
   kiosk_refuse:  '/sounds/kiosk/kiosk_refuse.mp3',
   kiosk_walkout: '/sounds/kiosk/kiosk_walkout.mp3',
+  kiosk_wipe:    '/sounds/kiosk/kiosk_wipe.mp3',
+  kiosk_blackout:'/sounds/kiosk/kiosk_blackout.mp3',
+  kiosk_power:   '/sounds/kiosk/kiosk_power.mp3',
   kiosk_shutter: '/sounds/kiosk/kiosk_shutter.mp3',
 } as const
 
@@ -322,6 +325,9 @@ const VOLUME_SCALE: Partial<Record<SoundName, number>> = {
   kiosk_handover: 0.5,
   kiosk_refuse:   0.5,
   kiosk_walkout:  0.42,
+  kiosk_wipe:     0.5,
+  kiosk_blackout: 0.6,
+  kiosk_power:    0.55,
   kiosk_shutter:  0.55,
 
   // ─── Mini-game gameplay SFX ─────────────────────────────────────────────

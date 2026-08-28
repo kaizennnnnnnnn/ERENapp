@@ -25,7 +25,7 @@ import { onForeground } from '@/lib/onForeground'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { dateKey } from '@/lib/wishes'
-import { menuFor, type MenuState, type Regulars } from './kioskShift'
+import { menuFor, type MenuState, type Regulars, type WeatherId } from './kioskShift'
 import type { Grade, Takings } from './kioskEconomy'
 
 export interface ShiftRow {
@@ -39,9 +39,22 @@ export interface ShiftRow {
   base: number
   tips: number
   grade: Grade
+  /** Kept for rows written before the weather was a system rather than a
+   *  boolean. Nothing reads it any more; the column stays so an old row and a
+   *  new one are the same shape. */
   rained: boolean
+  weather: WeatherId
   note: string | null
   closed_at: string
+}
+
+/** What somebody left at the till, and when. */
+export interface TillNote {
+  text: string
+  /** Your own handwriting reads back to you differently. */
+  mine: boolean
+  /** "tonight", "last night", "tuesday". */
+  when: string
 }
 
 /** The last seven nights, split between the two of you. */
@@ -65,6 +78,12 @@ export interface KioskRecord {
   lastShift: ShiftRow | null
   /** The board out front: who's had the better week. */
   week: WeekTally
+  /** Wraps the household has served tonight, on anybody's shift. The shared
+   *  goal counts from here. */
+  tonight: number
+  /** The most recent note either of you left at the till, if it's recent
+   *  enough to still be about something. */
+  note: TillNote | null
   lifetimeWraps: number
   menu: MenuState
   regulars: Regulars
@@ -73,7 +92,7 @@ export interface KioskRecord {
   closeShift: (opts: {
     takings: Takings
     grade: Grade
-    rained: boolean
+    weather: WeatherId
     regulars: Regulars
     paid: boolean
   }) => Promise<boolean>
@@ -99,6 +118,23 @@ function dayKey(back: number): string {
 
 const EMPTY_WEEK: WeekTally = { mine: 0, theirs: 0, myNights: 0, theirNights: 0 }
 
+/** How long a note stays up on the wall. Anything older is a note about a
+ *  night neither of you remembers. */
+const NOTE_DAYS = 4
+
+/** How to refer to a shift date, from today. */
+function whenWord(date: string): string {
+  for (let i = 0; i < NOTE_DAYS; i++) {
+    if (dayKey(i) !== date) continue
+    if (i === 0) return 'tonight'
+    if (i === 1) return 'last night'
+    const d = new Date()
+    d.setDate(d.getDate() - i)
+    return d.toLocaleDateString(undefined, { weekday: 'long' })
+  }
+  return ''
+}
+
 export function useKioskRecord(): KioskRecord {
   const supabase = createClient()
   const { user, profile } = useAuth()
@@ -109,6 +145,8 @@ export function useKioskRecord(): KioskRecord {
   const [workedTonight, setWorkedTonight] = useState(false)
   const [lastShift, setLastShift] = useState<ShiftRow | null>(null)
   const [week, setWeek] = useState<WeekTally>(EMPTY_WEEK)
+  const [tonight, setTonight] = useState(0)
+  const [note, setNote] = useState<TillNote | null>(null)
   /** The row we just wrote, so saveNote knows what to edit. */
   const myDate = useRef<string | null>(null)
 
@@ -121,7 +159,7 @@ export function useKioskRecord(): KioskRecord {
     if (!hh || !user?.id) return
     const { data, error } = await withRetry(() =>
       supabase.from('kiosk_shifts')
-        .select('user_id, shift_date, served, wrong, walked, missed_calls, best_streak, base, tips, grade, rained, note, closed_at')
+        .select('user_id, shift_date, served, wrong, walked, missed_calls, best_streak, base, tips, grade, rained, weather, note, closed_at')
         .eq('household_id', hh)
         .order('closed_at', { ascending: false })
         // Enough for both of you to have worked every night of the last week
@@ -138,20 +176,32 @@ export function useKioskRecord(): KioskRecord {
     // week means the last seven nights you lived through.
     const recent = new Set(Array.from({ length: 7 }, (_, i) => dayKey(i)))
     const tally = { ...EMPTY_WEEK }
+    const now = today()
+    let served = 0
     for (const r of rows) {
+      if (r.shift_date === now) served += r.served
       if (!recent.has(r.shift_date)) continue
       if (r.user_id === user.id) { tally.mine += r.served; tally.myNights += 1 }
       else { tally.theirs += r.served; tally.theirNights += 1 }
     }
     setWeek(tally)
+    setTonight(served)
+
+    // The note on the wall: the newest one anybody wrote, while it's still
+    // recent enough to be about a night either of you remembers. Rows arrive
+    // newest first, so the first hit is the right one.
+    const fresh = rows.find(r => r.note && r.note.trim() && whenWord(r.shift_date))
+    setNote(fresh
+      ? { text: fresh.note as string, mine: fresh.user_id === user.id, when: whenWord(fresh.shift_date) }
+      : null)
     setLoaded(true)
   }, [hh, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load() }, [load])
   useEffect(() => onForeground(load), [load])
 
-  const closeShift = useCallback(async ({ takings, grade, rained, regulars: next, paid }: {
-    takings: Takings; grade: Grade; rained: boolean; regulars: Regulars; paid: boolean
+  const closeShift = useCallback(async ({ takings, grade, weather, regulars: next, paid }: {
+    takings: Takings; grade: Grade; weather: WeatherId; regulars: Regulars; paid: boolean
   }): Promise<boolean> => {
     if (!hh || !user?.id) return false
 
@@ -177,7 +227,10 @@ export function useKioskRecord(): KioskRecord {
       base: takings.base,
       tips: takings.tips,
       grade,
-      rained,
+      weather,
+      // Written as well as `weather`, so a row still reads correctly to any
+      // query that predates the weather being more than rain or not-rain.
+      rained: weather === 'rain',
     }))
     if (error) return false
     myDate.current = date
@@ -205,6 +258,8 @@ export function useKioskRecord(): KioskRecord {
     workedTonight,
     lastShift,
     week,
+    tonight,
+    note,
     lifetimeWraps,
     menu,
     regulars,

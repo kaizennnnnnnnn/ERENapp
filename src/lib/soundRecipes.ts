@@ -365,6 +365,33 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
   // last note left hanging.
   kiosk_walkout: { type: 'arp', notes: [262, 196, 147], step: 150, noteDur: 240, shape: 'triangle', gain: 0.3 },
 
+  // kiosk_wipe — a sleeve across a misted pane. Two short high squeaks a
+  // semitone apart, over a scrape of filtered noise. The squeak is the whole
+  // sound; the noise is only there so it has a surface to squeak on.
+  kiosk_wipe:    { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'noise', duration: 260, gain: 0.16, lowpass: 5200, highpass: 1400 } },
+                    { at: 40,  recipe: { type: 'sweep', freq: [1900, 2450], duration: 130, shape: 'sine', gain: 0.14 } },
+                    { at: 175, recipe: { type: 'sweep', freq: [2100, 2600], duration: 110, shape: 'sine', gain: 0.1 } },
+                  ] },
+
+  // kiosk_blackout — the street losing power. Everything winds DOWN at once:
+  // a falling sweep for the lamps dying, a low thunk for the breaker, and a
+  // last dwindling hiss as the fridge coasts to a stop.
+  kiosk_blackout: { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'blip', freq: 82, duration: 150, shape: 'square', gain: 0.4 } },
+                    { at: 40,  recipe: { type: 'sweep', freq: [420, 60], duration: 620, shape: 'triangle', gain: 0.34, curve: 'exponential' } },
+                    { at: 90,  recipe: { type: 'noise', duration: 700, gain: 0.2, lowpass: 900, highpass: 60 } },
+                  ] },
+
+  // kiosk_power — and coming back. The same shape upward, with the hum
+  // catching at the top instead of a tone: the fridge starting is the sound
+  // that tells you the street is alive again.
+  kiosk_power:   { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'blip', freq: 98, duration: 120, shape: 'square', gain: 0.4 } },
+                    { at: 60,  recipe: { type: 'sweep', freq: [70, 330], duration: 420, shape: 'triangle', gain: 0.3, curve: 'exponential' } },
+                    { at: 330, recipe: { type: 'chord', freqs: [100, 150], duration: 420, shape: 'sine', gain: 0.22 } },
+                  ] },
+
   // kiosk_shutter — closing up: the roller coming down, then the latch.
   kiosk_shutter: { type: 'seq', parts: [
                     { at: 0,   recipe: { type: 'noise', duration: 620, gain: 0.34, lowpass: 1500, highpass: 120 } },

@@ -26,7 +26,8 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { playSound } from '@/lib/sounds'
 import { EXHAUSTED_ENERGY } from '@/lib/gameRewards'
 import { useKioskRecord } from '@/components/kiosk/useKioskRecord'
-import { GRADE_WORD } from '@/components/kiosk/kioskEconomy'
+import { GRADE_WORD, NIGHT_GOAL } from '@/components/kiosk/kioskEconomy'
+import { WEATHER_BY_ID } from '@/components/kiosk/kioskShift'
 import BlinkingEren from '@/components/BlinkingEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
 import KioskInterior, { KIOSK_VIEW_SRCS } from '@/components/kiosk/KioskInterior'
@@ -277,7 +278,7 @@ export default function ShawarmaPage() {
                 color: '#FFE7C4', marginTop: 5,
               }}>
                 {last.served} served · {GRADE_WORD[last.grade]}
-                {last.rained ? ' · in the rain' : ''}
+                {WEATHER_BY_ID[last.weather]?.note ? ` · ${WEATHER_BY_ID[last.weather].note}` : ''}
               </div>
               {last.note && (
                 <div className="font-pixel" style={{
@@ -287,6 +288,38 @@ export default function ShawarmaPage() {
                   “{last.note}”
                 </div>
               )}
+
+              {/* ══ TONIGHT ══ the one number the two of you share. Shown before
+                  you go in, because a target you find out about on the
+                  receipt is a fact rather than a goal. */}
+              <div style={{
+                marginTop: 8, paddingTop: 7,
+                borderTop: '1px solid rgba(245,156,69,0.25)',
+              }}>
+                <div className="font-pixel" style={{
+                  display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+                  fontSize: 5.5, letterSpacing: 1.4, color: 'rgba(255,231,196,0.6)',
+                }}>
+                  <span>TONIGHT, BETWEEN YOU</span>
+                  <span style={{ color: record.tonight >= NIGHT_GOAL ? '#7ED678' : '#FFE7C4' }}>
+                    {record.tonight}/{NIGHT_GOAL}
+                  </span>
+                </div>
+                <div style={{
+                  height: 5, marginTop: 5,
+                  background: 'rgba(0,0,0,0.5)',
+                  border: '1px solid rgba(245,156,69,0.28)',
+                  borderRadius: 3, overflow: 'hidden',
+                }}>
+                  <div style={{
+                    height: '100%', transformOrigin: '0% 50%',
+                    transform: `scaleX(${Math.min(1, record.tonight / NIGHT_GOAL)})`,
+                    background: record.tonight >= NIGHT_GOAL ? '#7ED678' : '#F59C45',
+                    boxShadow: record.tonight >= NIGHT_GOAL ? '0 0 8px rgba(126,214,120,0.6)' : 'none',
+                    transition: 'transform 420ms cubic-bezier(0.32, 0.72, 0, 1)',
+                  }} />
+                </div>
+              </div>
 
               {/* Seven nights, side by side. Nobody needs telling who's
                   winning — but the crown says it anyway. */}

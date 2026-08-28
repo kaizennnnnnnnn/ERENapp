@@ -17,7 +17,7 @@
 //     the tips do not.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import type { Order, SideId, Wrap } from './kioskShift'
+import type { Order, SideId, Tidiness, WeatherId, Wrap } from './kioskShift'
 
 // ── The night ─────────────────────────────────────────────────────────────
 /** How long the street stays busy. Turn this one number to make the night
@@ -97,8 +97,55 @@ export function orderTip(base: number, patience01: number, streak: number): numb
 
 /** Remembering an order nobody told you deserves paying for. */
 export const USUAL_BONUS = 8
-/** Nobody else is out in this, and they know it. */
-export const RAIN_BONUS = 0.15
+
+// ── Who's at the window ───────────────────────────────────────────────────
+/** Chance the next arrival is somebody in a mood. Never the first of the
+ *  night: the kiosk gets to introduce itself politely. */
+export const RUDE_CHANCE = 0.11
+/** Patience left they need to still have when you hand it over, before a rude
+ *  customer will admit you did well. */
+export const RUDE_EARNS_IT = 0.5
+/** And what the apology is worth, on top of a normal tip. */
+export const RUDE_MULT = 2.1
+
+/** Chance the next arrival didn{A}t come to buy anything. */
+export const CHAT_CHANCE = 0.12
+/** How long a chat visitor stands there if you never answer them. */
+export const CHAT_PATIENCE_MS = 15_000
+/** Beat between the last thing they say and them walking off. */
+export const CHAT_LEAVE_MS = 2_400
+/** What hearing one all the way out is worth. Never much — the point isn{A}t
+ *  the money, it{A}s that the money is not the reason. */
+export const CHAT_TIP = 9
+
+/** Chance the closing-time regular turns up at all. */
+export const LATE_CHANCE = 0.72
+/** How long after last call they appear. */
+export const LATE_ARRIVES_MS: [number, number] = [6_000, 13_000]
+/** Everything they pay, times this. Staying open for one more is meant to be
+ *  worth it. */
+export const LATE_MULT = 2.4
+
+// ── What can go wrong with the food ───────────────────────────────────────
+/** Tip multiplier for a wrap made with meat that was raw or charred. They
+ *  still take it. They still notice. */
+export const BAD_MEAT_MULT = 0.45
+/** And what the roll is worth, per wrap on the tray. */
+export const TIDY_BONUS: Record<Tidiness, number> = { neat: 0.18, loose: 0, split: -0.14 }
+
+// ── The lights going out ──────────────────────────────────────────────────
+/** Chance the street loses power at some point in the night. */
+export const BLACKOUT_CHANCE = 0.3
+export const BLACKOUT_MS = 26_000
+/** Flat extra on every wrap handed over in the dark. */
+export const BLACKOUT_BONUS = 7
+
+// ── Between the two of you ────────────────────────────────────────────────
+/** Wraps the household is asked for in one night, across both shifts. */
+export const NIGHT_GOAL = 22
+/** What meeting it is worth, to whoever closes with it met. Both of you get
+ *  it if you both close after the line is crossed — which is the point. */
+export const GOAL_BONUS = 40
 /** What an unanswered phone costs off the night's tips — a caller who wanted
  *  something and got the machine instead. */
 export const MISSED_CALL_COST = 4
@@ -108,6 +155,8 @@ export const FLOAT_COINS = 0
 
 // ── The report ────────────────────────────────────────────────────────────
 export interface Takings {
+  /** Wraps handed over while the street had no power. */
+  inDark: number
   /** Wraps handed over and paid for. */
   served: number
   /** Handed over wrong. */
@@ -123,7 +172,7 @@ export interface Takings {
 }
 
 export const EMPTY_TAKINGS: Takings = {
-  served: 0, wrong: 0, walked: 0, missedCalls: 0, bestStreak: 0, base: 0, tips: 0,
+  served: 0, wrong: 0, walked: 0, missedCalls: 0, bestStreak: 0, base: 0, tips: 0, inDark: 0,
 }
 
 export type Grade = 'S' | 'A' | 'B' | 'C' | 'D'

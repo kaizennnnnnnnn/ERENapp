@@ -18,8 +18,9 @@
 
 import BlinkingEren from '@/components/BlinkingEren'
 import {
-  TOPPING_BY_ID, SAUCE_BY_ID, SIDE_BY_ID, SILL_PCT, CUSTOMER_BOX, CUSTOMER_SHOW,
-  BUBBLE_BOTTOM, CHEER_MS, LINGER_MS, DUCK_MS, type Order, type Wrap,
+  TOPPINGS, TOPPING_BY_ID, SAUCE_BY_ID, SIDE_BY_ID, SILL_PCT, CUSTOMER_BOX,
+  CUSTOMER_SHOW, BUBBLE_BOTTOM, CHEER_MS, LINGER_MS, DUCK_MS, portionsOf,
+  type Order, type Wrap,
 } from './kioskShift'
 import { PANIC_AT } from './kioskEconomy'
 import type { ShiftStatus, Speech } from './useKioskShift'
@@ -41,8 +42,8 @@ interface Props {
 
 /** One thing on the ticket. A crossed one is a topping they DON'T want, which
  *  is a different job to read than a list of the ones they do. */
-function Item({ src, label, size = 24, crossed = false }: {
-  src: string; label: string; size?: number; crossed?: boolean
+function Item({ src, label, size = 24, crossed = false, times = 1 }: {
+  src: string; label: string; size?: number; crossed?: boolean; times?: number
 }) {
   return (
     <span style={{ position: 'relative', display: 'inline-flex', flex: '0 0 auto' }}>
@@ -50,6 +51,19 @@ function Item({ src, label, size = 24, crossed = false }: {
         width: size, height: size, objectFit: 'contain',
         filter: crossed ? 'grayscale(0.7) brightness(0.72)' : undefined,
       }} />
+      {/* A double is a NUMBER, not the sprite twice: two tomatoes at ticket
+          size read as one tomato and a smudge. */}
+      {times > 1 && (
+        <span className="font-pixel" aria-label={`times ${times}`} style={{
+          position: 'absolute', right: -5, bottom: -3,
+          fontSize: 6.5, lineHeight: 1, letterSpacing: 0,
+          color: '#3A1B08', background: '#FFD98A',
+          padding: '2px 3px 1px', borderRadius: 3,
+          border: '1px solid #8A5A18',
+        }}>
+          x{times}
+        </span>
+      )}
       {crossed && (
         <>
           <span aria-hidden style={{
@@ -88,8 +102,9 @@ function WrapLine({ wrap, index, marked }: { wrap: Wrap; index: number; marked: 
       {wrap.without
         ? <Item src={TOPPING_BY_ID[wrap.without].sprite}
             label={`No ${TOPPING_BY_ID[wrap.without].label}`} crossed />
-        : wrap.toppings.map(t => (
-            <Item key={t} src={TOPPING_BY_ID[t].sprite} label={TOPPING_BY_ID[t].label} />
+        : TOPPINGS.filter(t => portionsOf(wrap.toppings, t.id) > 0).map(t => (
+            <Item key={t.id} src={t.sprite} label={t.label}
+              times={portionsOf(wrap.toppings, t.id)} />
           ))}
       {wrap.sauce && (
         <Item src={SAUCE_BY_ID[wrap.sauce].sprite} label={`${SAUCE_BY_ID[wrap.sauce].label} sauce`} size={20} />
@@ -106,11 +121,19 @@ export default function CustomerWindow({
   const paid = status === 'paid'
   const left = status === 'left'
   const who = order.customer
+  // Somebody who came to talk has no ticket, no meter and nothing to hand
+  // over — the only thing on offer is whether you keep tapping.
+  const chat = order.kind === 'chat'
+  const rude = order.mood === 'rude'
   // A regular who asked for "the usual" tells you nothing — unless you've
   // already got it wrong once, at which point they give in.
   const hidden = order.usual && !revealed
-  const faded = !ticketOpen && !paid && !left
+  const faded = !ticketOpen && !paid && !left && !chat
   const multi = order.wraps.length > 1
+  // The bubble takes its colour from who's talking: amber for anybody
+  // ordinary, red for somebody in a mood, gold for the one who always comes
+  // after closing.
+  const tone = rude ? '228,72,60' : order.late ? '245,200,73' : '245,156,69'
   /** When a happy customer starts leaving. The hop, then a beat of standing
    *  there so the thank-you can actually be read. */
   const duckAt = CHEER_MS + LINGER_MS
@@ -175,10 +198,10 @@ export default function CustomerWindow({
       {status === 'waiting' && (
         <button
           type="button"
-          aria-label="Ask them to repeat the order"
+          aria-label={chat ? 'Let them say the next bit' : 'Ask them to repeat the order'}
           onClick={onRepeat}
           style={{
-            position: 'absolute', zIndex: 7,
+            position: 'absolute', zIndex: 11,
             left: '50%', width: `${CUSTOMER_BOX}cqi`,
             top: `${SILL_PCT - CUSTOMER_BOX * CUSTOMER_SHOW}%`,
             height: `${CUSTOMER_BOX * CUSTOMER_SHOW}cqi`,
@@ -191,7 +214,7 @@ export default function CustomerWindow({
       {/* What they said, and what they want. Icons for the order — you're
           reading it at a glance with your hands on the pans. */}
       <div className="absolute left-1/2 pointer-events-none" style={{
-        bottom: `${BUBBLE_BOTTOM}%`, transform: 'translateX(-50%)', zIndex: 8,
+        bottom: `${BUBBLE_BOTTOM}%`, transform: 'translateX(-50%)', zIndex: 10,
         // Held up through the hop before it goes. The thank-you and the coins
         // are the whole point of the beat, and both used to be gone in 420ms.
         animation: paid
@@ -207,9 +230,9 @@ export default function CustomerWindow({
           // longer wraps, which is fine.
           maxWidth: 216,
           background: 'rgba(14,10,8,0.85)',
-          border: '2px solid rgba(245,156,69,0.55)',
+          border: `2px solid rgba(${tone},0.6)`,
           borderRadius: 10,
-          boxShadow: '0 4px 0 rgba(0,0,0,0.5), 0 0 22px rgba(245,156,69,0.18)',
+          boxShadow: `0 4px 0 rgba(0,0,0,0.5), 0 0 22px rgba(${tone},0.2)`,
           backdropFilter: 'blur(3px)',
         }}>
           {speech && (
@@ -222,7 +245,7 @@ export default function CustomerWindow({
             </span>
           )}
 
-          {paid || left ? null : (
+          {paid || left || chat ? null : (
             <div style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
               // Faded, not gone: you can see there IS an order, you just can't
@@ -258,7 +281,7 @@ export default function CustomerWindow({
           {/* How long they'll give you, and what it's worth. Both gone the
               moment the order is settled — a meter on a customer who has
               already paid is just an animation. */}
-          {!paid && !left && (
+          {!paid && !left && !chat && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%' }}>
               <div style={{
                 position: 'relative', flex: '1 1 auto', height: 5,
@@ -290,13 +313,24 @@ export default function CustomerWindow({
               TAP THEM TO ASK AGAIN
             </span>
           )}
+
+          {/* The whole interface for somebody who came to talk. There is no
+              cost to walking away and no reward for staying that you can see
+              from here, which is the point of it. */}
+          {chat && !paid && !left && (
+            <span className="font-pixel" style={{
+              fontSize: 5.5, letterSpacing: 1, color: 'rgba(255,231,196,0.55)',
+            }}>
+              TAP THEM TO LISTEN
+            </span>
+          )}
         </div>
         {/* Bubble tail, pointing down at whoever's talking. */}
         <div style={{
           position: 'absolute', left: '50%', bottom: -7, transform: 'translateX(-50%)',
           width: 0, height: 0,
           borderLeft: '7px solid transparent', borderRight: '7px solid transparent',
-          borderTop: '8px solid rgba(245,156,69,0.55)',
+          borderTop: `8px solid rgba(${tone},0.6)`,
         }} />
       </div>
     </>

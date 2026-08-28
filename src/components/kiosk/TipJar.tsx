@@ -51,7 +51,9 @@ export default function TipJar({ tips }: Props) {
       position: 'absolute',
       left: `${TIP_JAR.x}%`, top: `${TIP_JAR.top}%`, width: `${TIP_JAR.width}%`,
       transform: 'translateX(-50%)',
-      zIndex: 7,
+      // In front of the misted pane as well as in front of the customer: the
+      // jar is on this side of the glass.
+      zIndex: 8,
     }}>
       {/* Position outside, motion inside — a forwards-filling animation on the
           outer element would wipe out the centring. */}

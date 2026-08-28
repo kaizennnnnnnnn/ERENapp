@@ -38,11 +38,16 @@ import WallTarget from './WallTarget'
 import ShiftReport from './ShiftReport'
 import TipJar from './TipJar'
 import KioskRadio from './KioskRadio'
-import RainLayer from './RainLayer'
+import StreetWeather from './StreetWeather'
+import GlassMist from './GlassMist'
+import TipCoin, { COIN_MS } from './TipCoin'
+import { ShiftNote, ChampionApron } from './WallProps'
 import {
-  FRIDGE_HIT, FRIDGE_TAG, DOOR_HIT, DOOR_TAG, MAX_USES,
+  FRIDGE_HIT, FRIDGE_TAG, DOOR_HIT, DOOR_TAG, MAX_USES, WEATHER_BY_ID,
+  type WeatherId,
 } from './kioskShift'
-import { orderBase, SHIFT_MS } from './kioskEconomy'
+import { orderBase, SHIFT_MS, NIGHT_GOAL } from './kioskEconomy'
+import { KIOSK_KEYFRAMES } from './kioskKeyframes'
 import type { KioskRecord } from './useKioskRecord'
 
 interface KioskView {
@@ -74,6 +79,13 @@ export const KIOSK_VIEW_SRCS = VIEWS.map(v => v.src)
 
 /** Which station this device was left on. */
 const RADIO_KEY = 'eren_kiosk_radio'
+
+/** How long a clean pane takes to go completely, per kind of night. A warm
+ *  kiosk fogs its own glass whatever the weather; wet and foggy nights just
+ *  get on with it. */
+const MIST_MS: Record<WeatherId, number> = {
+  clear: 132_000, wind: 150_000, rain: 88_000, fog: 54_000,
+}
 
 // Lamp amber, the same hue as the dock button that leads here.
 const LAMP = '#F59C45'
@@ -107,13 +119,16 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
     menu: record.menu,
     regulars: record.regulars,
     lifetimeWraps: record.lifetimeWraps,
+    // What the two of you have already served tonight, so the shared goal
+    // knows where the night stands before you touched it.
+    nightSoFar: record.tonight,
     payable,
     onBank: useCallback((coins: number) => { addCoins(coins).catch(() => {}) }, [addCoins]),
     onClose: useCallback((report, regulars) => {
       void record.closeShift({
         takings: report.takings,
         grade: report.grade,
-        rained: report.rained,
+        weather: report.weather,
         regulars,
         paid: report.paid,
       }).then(setRecorded)
@@ -129,6 +144,40 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
   // decorative motion the reduced-motion setting is asking about. The weather
   // stays — it still reads as a wet night, it just stops moving.
   const reduced = useReducedMotion()
+
+  // ── the pane ────────────────────────────────────────────────────────────
+  // Elapsed when the glass was last wiped. The mist is derived from it, so
+  // it freezes with everything else when the app is in your pocket.
+  const [wipedAt, setWipedAt] = useState(0)
+  const [wipes, setWipes] = useState(0)
+  const mist = Math.min(1, Math.max(0, (shift.elapsed - wipedAt) / MIST_MS[shift.weather]))
+  const wipeGlass = useCallback(() => {
+    setWipedAt(shift.elapsed)
+    setWipes(n => n + 1)
+    playSound('kiosk_wipe')
+  }, [shift.elapsed])
+
+  // ── the jar ─────────────────────────────────────────────────────────────
+  // The level waits for the coin to land. Without the delay the jar rises
+  // while the coin is still in the air, and then the coin arrives at a jar
+  // that has already been paid.
+  const [jarTips, setJarTips] = useState(0)
+  useEffect(() => {
+    if (shift.till.tips === jarTips) return
+    const t = setTimeout(() => setJarTips(shift.till.tips), COIN_MS - 90)
+    return () => clearTimeout(t)
+  }, [shift.till.tips, jarTips])
+
+  // The coin itself only exists for the length of its flight. `shift.paid`
+  // stays set for the rest of the night, so rendering off it directly meant a
+  // coin flew every time you turned back to the window.
+  const [coin, setCoin] = useState<{ id: number } | null>(null)
+  useEffect(() => {
+    if (!shift.paid || shift.paid.tip <= 0) return
+    setCoin({ id: shift.paid.id })
+    const t = setTimeout(() => setCoin(null), COIN_MS + 80)
+    return () => clearTimeout(t)
+  }, [shift.paid])
 
   // Off, or one of three stations. Kept in localStorage rather than the
   // database: which station you like is a thing about YOU, not about the cat.
@@ -258,6 +307,12 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
   // Something out front is running low, so the fridge tag lights up properly
   // instead of just idling.
   const needsStock = Object.values(shift.stock).some(n => n < MAX_USES)
+  // Who's wearing the apron. Null on a tie or an empty week — an apron on
+  // nobody in particular is just a coat.
+  const leader: boolean | null =
+    record.week.mine === record.week.theirs ? null
+    : record.week.mine + record.week.theirs === 0 ? null
+    : record.week.mine > record.week.theirs
   // Anything at all happened tonight? Then walking out is closing up, and it
   // pays. Walk straight back through the door and it's just a door.
   const worked = shift.till.served + shift.till.wrong + shift.till.walked
@@ -268,10 +323,17 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
   useEffect(() => {
     ambience.current?.setSizzle(view.feature === 'meat' ? 1 : 0.2)
   }, [view.feature])
+  // Weather is loudest at the open window and muffled by three walls. Fog is
+  // the one that has no sound of its own — the quiet IS the fog.
   useEffect(() => {
-    if (!shift.rained) { ambience.current?.setRain(0); return }
-    ambience.current?.setRain(view.feature === 'window' ? 1 : 0.4)
-  }, [shift.rained, view.feature])
+    const near = view.feature === 'window' ? 1 : 0.4
+    ambience.current?.setRain(shift.weather === 'rain' ? near : 0)
+    ambience.current?.setWind(shift.weather === 'wind' ? near : 0)
+  }, [shift.weather, view.feature])
+  // And when the street loses power, the fridge and the lamps go with it.
+  useEffect(() => {
+    ambience.current?.setPower(shift.blackout ? 0 : 1)
+  }, [shift.blackout])
   const dragging = dragX !== 0
   const vw = typeof window !== 'undefined' ? window.innerWidth : 390
   const dragProgress = Math.min(1, Math.abs(dragX) / vw)
@@ -297,229 +359,15 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
         const el = e.currentTarget
         if (el.scrollLeft || el.scrollTop) { el.scrollLeft = 0; el.scrollTop = 0 }
       }}>
-      <style>{`
-        @keyframes kioskSlideInRight {
-          from { transform: translateX(100%) scale(0.92); }
-          to   { transform: translateX(0)    scale(1);    }
-        }
-        @keyframes kioskSlideInLeft {
-          from { transform: translateX(-100%) scale(0.92); }
-          to   { transform: translateX(0)     scale(1);    }
-        }
-        @keyframes kioskWallArrive {
-          from { opacity: 0.6; }
-          to   { opacity: 0;   }
-        }
-        @keyframes kioskSeam {
-          0%   { opacity: 0; }
-          35%  { opacity: 1; }
-          100% { opacity: 0; }
-        }
-        @keyframes kioskLabelIn {
-          from { opacity: 0; transform: translateY(-6px); }
-          to   { opacity: 1; transform: translateY(0);    }
-        }
-        @keyframes kioskCarve {
-          from { transform: translateX(-50%) scale(1.04); }
-          to   { transform: translateX(-50%) scale(1);    }
-        }
-        @keyframes kioskHint {
-          0%, 100% { opacity: 0.55; }
-          50%      { opacity: 1;    }
-        }
-        /* Customers rise from behind the sill rather than fading in on the
-           road. --rise is however much of them clears it, set per sprite, so
-           they start exactly out of sight. The two beats past zero are the
-           bob of someone leaning up to a window a touch too eagerly. */
-        @keyframes kioskCustomerPop {
-          0%   { transform: translateX(-50%) translateY(var(--rise)); }
-          62%  { transform: translateX(-50%) translateY(-7%);         }
-          82%  { transform: translateX(-50%) translateY(2%);          }
-          100% { transform: translateX(-50%) translateY(0);           }
-        }
-        @keyframes kioskCustomerDuck {
-          0%   { opacity: 1; transform: translateX(-50%) translateY(0);           }
-          65%  { opacity: 1; }
-          100% { opacity: 0; transform: translateX(-50%) translateY(var(--rise)); }
-        }
-        /* Paid, and delighted about it: two hops on the spot, the second one
-           smaller, with the squash landing on the counter side of each. Every
-           keyframe carries its own easing — the rise has to slow and the fall
-           has to speed up, and a single easing over the whole thing floats
-           like the moon rather than dropping like a cat. */
-        @keyframes kioskCheer {
-          0%   { transform: translateY(0)    scale(1, 1);       animation-timing-function: ease-out; }
-          9%   { transform: translateY(1.5%) scale(1.05, 0.95); animation-timing-function: cubic-bezier(0.15, 0.85, 0.4, 1); }
-          32%  { transform: translateY(-11%) scale(0.97, 1.04); animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.45); }
-          50%  { transform: translateY(0)    scale(1.06, 0.94); animation-timing-function: cubic-bezier(0.15, 0.85, 0.4, 1); }
-          71%  { transform: translateY(-6%)  scale(0.98, 1.02); animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.45); }
-          87%  { transform: translateY(0)    scale(1.04, 0.96); animation-timing-function: ease-out; }
-          100% { transform: translateY(0)    scale(1, 1);       }
-        }
-        /* Given up on you: they sink under the sill AND slide off down the
-           street, so a walk-out never reads as the same beat as a sale. */
-        @keyframes kioskCustomerWalk {
-          0%   { opacity: 1; transform: translateX(-50%) translateY(0); }
-          100% { opacity: 0; transform: translateX(-140%) translateY(calc(var(--rise) * 0.7)); }
-        }
-        /* One drop's whole fall. The translate is in PERCENT of the streak's
-           own full-height column, so a single keyframe fits any window size,
-           and the rotate before it makes the drop fall the way it leans.
-           -110% to 110% keeps it out of sight at both ends. */
-        @keyframes kioskRainFall {
-          from { transform: rotate(var(--tilt, 8deg)) translate3d(0, -110%, 0); }
-          to   { transform: rotate(var(--tilt, 8deg)) translate3d(0,  110%, 0); }
-        }
-        /* And breaking on the ledge: a flat splat that spreads and thins. */
-        @keyframes kioskRainSplash {
-          0%   { opacity: 0;    transform: scale(0.3, 1.1); }
-          14%  { opacity: 0.85; transform: scale(1, 0.65);  }
-          100% { opacity: 0;    transform: scale(1.7, 0.3); }
-        }
-        /* Standing there pleased with you, after the hop and before the duck.
-           A held pose reads as the game having frozen; a sway reads as
-           somebody enjoying their dinner. */
-        @keyframes kioskCustomerPleased {
-          0%   { transform: rotate(0deg);    }
-          25%  { transform: rotate(-1.8deg); }
-          75%  { transform: rotate(1.8deg);  }
-          100% { transform: rotate(0deg);    }
-        }
-        /* The till roll printing. */
-        @keyframes kioskReceiptIn {
-          from { opacity: 0; transform: translateY(-14px) scale(0.97); }
-          to   { opacity: 1; transform: translateY(0)     scale(1);    }
-        }
-        /* The jar taking the weight of another coin. */
-        @keyframes kioskJarClink {
-          0%   { transform: translateY(0)    scale(1, 1);       }
-          35%  { transform: translateY(1.5%) scale(1.05, 0.95); }
-          70%  { transform: translateY(-1%)  scale(0.98, 1.03); }
-          100% { transform: translateY(0)    scale(1, 1);       }
-        }
-        /* Bars behind the radio's grille. */
-        @keyframes kioskRadioEq {
-          from { transform: scaleY(0.25); }
-          to   { transform: scaleY(1);    }
-        }
-        @keyframes kioskGradeIn {
-          0%   { opacity: 0; transform: scale(0.5) rotate(-8deg); }
-          70%  { opacity: 1; transform: scale(1.12) rotate(2deg); }
-          100% { opacity: 1; transform: scale(1)   rotate(0deg);  }
-        }
-        @keyframes kioskBubbleIn {
-          from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.9); }
-          to   { opacity: 1; transform: translateX(-50%) translateY(0)   scale(1);   }
-        }
-        @keyframes kioskBubbleOut {
-          from { opacity: 1; transform: translateX(-50%) scale(1);    }
-          to   { opacity: 0; transform: translateX(-50%) scale(0.92); }
-        }
-        @keyframes kioskRefuse {
-          0%, 100% { transform: translateX(0);    }
-          20%      { transform: translateX(-7px); }
-          45%      { transform: translateX(6px);  }
-          70%      { transform: translateX(-4px); }
-        }
-        @keyframes kioskNudge {
-          0%   { opacity: 0; transform: translateY(5px); }
-          10%  { opacity: 1; transform: translateY(0);   }
-          78%  { opacity: 1; }
-          100% { opacity: 0; }
-        }
-        @keyframes kioskFridgeIn {
-          from { opacity: 0; transform: scale(1.14); }
-          to   { opacity: 1; transform: scale(1);    }
-        }
-        @keyframes kioskLineIn {
-          from { opacity: 0; transform: translateY(3px); }
-          to   { opacity: 1; transform: translateY(0);   }
-        }
-        /* Heat off the cone. Every wisp sets its own drift, rise and peak
-           opacity, so nine of them read as a haze around the meat rather than
-           one column out of the top. */
-        @keyframes kioskSmoke {
-          0%   { opacity: 0;                        transform: translate(0, 0)                     scale(0.45); }
-          13%  { opacity: var(--puff);              }
-          /* Held near full for most of the rise. Fading from the first frame
-             leaves every wisp but one sitting at almost nothing, and eleven
-             invisible wisps look exactly like no smoke at all. */
-          58%  { opacity: calc(var(--puff) * 0.74); }
-          100% { opacity: 0;                        transform: translate(var(--drift), var(--lift)) scale(1.75); }
-        }
-        /* Only opacity + scale: the positioning and the hand-placed tilt live
-           on wrappers, because a forwards-filling animation would otherwise
-           overwrite whatever transform the element was given inline. */
-        @keyframes kioskDropOn {
-          0%   { opacity: 0; transform: scale(1.55); }
-          60%  { opacity: 1; }
-          100% { opacity: 1; transform: scale(1);    }
-        }
-        /* A slice coming off the cone: it peels away from the blade, then
-           drops to the tray with the weight of a wet thing. */
-        @keyframes kioskShave {
-          0%   { opacity: 0; transform: translate(0, 0)          rotate(-8deg) scale(0.65); }
-          14%  { opacity: 1; transform: translate(-8%, 12%)      rotate(4deg)  scale(1);    }
-          100% { opacity: 0; transform: translate(-34%, 190%)    rotate(64deg) scale(0.9);  }
-        }
-        /* The carve gauge topping out. */
-        @keyframes kioskGaugeFlash {
-          0%   { transform: translateX(-50%) scale(1);    filter: brightness(2.1); }
-          100% { transform: translateX(-50%) scale(1);    filter: brightness(1);   }
-        }
-        /* The value of a wrap, riding under the till while its coins fly. */
-        @keyframes kioskEarn {
-          0%   { opacity: 0; transform: translateY(-4px); }
-          18%  { opacity: 1; transform: translateY(0);    }
-          72%  { opacity: 1; }
-          100% { opacity: 0; transform: translateY(3px);  }
-        }
-        /* The handset rattling in its cradle. Two bursts inside one 1.6s
-           cycle, landing on the two brrrings of kiosk_ring, with a rest
-           after — a phone that buzzes continuously reads as an alarm. */
-        @keyframes kioskRingShake {
-          0%,  27%, 35%, 62%, 100% { transform: translateX(0)      rotate(0deg);    }
-          3%,  38%                 { transform: translateX(-2.2px) rotate(-3.6deg); }
-          7%,  42%                 { transform: translateX(2.4px)  rotate(3.8deg);  }
-          11%, 46%                 { transform: translateX(-2px)   rotate(-3deg);   }
-          15%, 50%                 { transform: translateX(2px)    rotate(3deg);    }
-          19%, 54%                 { transform: translateX(-1.4px) rotate(-2deg);   }
-          23%, 58%                 { transform: translateX(1.2px)  rotate(1.6deg);  }
-        }
-        /* Answered: the handset tips out of the cradle and stays there for as
-           long as the message runs. */
-        @keyframes kioskHandsetOff {
-          0%   { transform: translate(0, 0)        rotate(0deg);   }
-          60%  { transform: translate(-9%, 3.5%)   rotate(-19deg); }
-          100% { transform: translate(-7.5%, 2.8%) rotate(-15deg); }
-        }
-        @keyframes kioskRingGlow {
-          0%, 100% { opacity: 0.16; }
-          14%      { opacity: 0.62; }
-          40%      { opacity: 0.22; }
-          54%      { opacity: 0.58; }
-        }
-        @keyframes kioskRingChip {
-          0%, 100% { transform: translateY(0)    scale(1);    }
-          12%      { transform: translateY(-2px) scale(1.05); }
-          24%      { transform: translateY(0)    scale(1);    }
-          46%      { transform: translateY(-2px) scale(1.05); }
-          58%      { transform: translateY(0)    scale(1);    }
-        }
-        @keyframes kioskCallIn {
-          from { opacity: 0; transform: translateY(-7px) scale(0.96); }
-          to   { opacity: 1; transform: translateY(0)    scale(1);    }
-        }
-        @keyframes kioskCaret {
-          0%, 49%   { opacity: 1; }
-          50%, 100% { opacity: 0; }
-        }
-        @keyframes kioskRollShut {
-          0%   { transform: scaleX(1)    scaleY(1);    }
-          45%  { transform: scaleX(0.55) scaleY(1.06); }
-          100% { transform: scaleX(1)    scaleY(1);    }
-        }
-      `}</style>
+      {/* Injected as raw HTML, not as a text child. React ESCAPES text
+          children — so every apostrophe in a CSS comment went into the
+          server HTML as &#x27;, the browser's parser left it alone (a <style>
+          element is raw text, entities and all), and the string React then
+          compared it against on the client still had the apostrophe. That
+          mismatch threw away the whole server tree and re-rendered the root
+          on the client, every time, invisibly. The content is a compile-time
+          constant in this file's own module; there is no input to sanitise. */}
+      <style dangerouslySetInnerHTML={{ __html: KIOSK_KEYFRAMES }} />
 
       {/* ══ THE GAP ══ what shows behind a wall as it slides away. The care
           rooms open onto a violet dream; the kiosk opens onto the street it
@@ -562,7 +410,7 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
             <ToppingTrays
               stock={shift.stock}
               menu={record.menu}
-              sauce={shift.build.sauce}
+              board={shift.boards[shift.active] ?? shift.boards[0]}
               sides={shift.tray.sides}
               onTap={id => guard(() => shift.addTopping(id))()}
               onSauce={id => guard(() => shift.addSauce(id))()}
@@ -577,21 +425,31 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
           {view.feature === 'meat' && (
             <MeatSpit
               meat={shift.meat}
-              canCarve={shift.meat > 0 && !shift.build.meat && shift.status === 'waiting'}
+              meatOn={shift.meatOn}
+              cooked={shift.meatCooked}
+              canCarve={shift.meat > 0 && !shift.boards[shift.active]?.meat && shift.status === 'waiting'}
               onCarve={guard(shift.carveMeat)}
               onRestock={shift.restockMeat}
             />
           )}
 
-          {/* Rain, out in the street where it belongs — clipped to the GLASS,
-              not to the sill. Clipping at the sill covered the whole top of
-              the wall: the shutter, the tiled corners and the ceiling lamps
-              all got rained on, indoors, with you. */}
-          {view.feature === 'window' && shift.rained && <RainLayer still={reduced} />}
+          {/* Whatever the street is doing — clipped to the GLASS, not to the
+              sill. Clipping at the sill covered the whole top of the wall:
+              the shutter, the tiled corners and the ceiling lamps all got
+              rained on, indoors, with you. */}
+          {view.feature === 'window' && (
+            <StreetWeather weather={shift.weather} still={reduced} />
+          )}
+
+          {/* The pane misting over, and your sleeve. */}
+          {view.feature === 'window' && (
+            <GlassMist mist={mist} wipe={wipes} onWipe={guard(wipeGlass)} still={reduced} />
+          )}
 
           {/* The night's tips, as a depth of coins on the ledge people are
-              leaving them on. */}
-          {view.feature === 'window' && <TipJar tips={shift.till.tips} />}
+              leaving them on — and the coin somebody just put there. */}
+          {view.feature === 'window' && <TipJar tips={jarTips} />}
+          {view.feature === 'window' && coin && <TipCoin key={coin.id} id={coin.id} />}
 
           {view.feature === 'window' && (
             <CustomerWindow
@@ -610,6 +468,13 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
               Neither is a button by nature, so both wear a tag. */}
           {view.feature === 'fridge' && (
             <>
+              {/* What whoever worked last wrote at the till, taped up by the
+                  door you'll leave through. */}
+              {record.note && (
+                <ShiftNote note={record.note.text} mine={record.note.mine} when={record.note.when} />
+              )}
+              {/* And the apron, on whoever's ahead this week. */}
+              {leader !== null && <ChampionApron mine={leader} />}
               <KioskPhone state={phone.state} lifted={phone.lifted} onAnswer={guard(phone.answer)} />
               <WallTarget
                 hit={FRIDGE_HIT} tag={FRIDGE_TAG} label="OPEN"
@@ -714,7 +579,45 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
             LAST CALL
           </div>
         )}
+        {/* What kind of night it is. Under the clock because it's the other
+            half of the same fact: this is when you are and this is what it's
+            doing out there. A clear night says nothing. */}
+        {WEATHER_BY_ID[shift.weather].note && (
+          <div className="font-pixel" style={{
+            fontSize: 5.5, letterSpacing: 1, textAlign: 'center',
+            color: 'rgba(198,214,240,0.75)',
+            textShadow: '0 1px 0 rgba(0,0,0,0.7)',
+          }}>
+            {WEATHER_BY_ID[shift.weather].label}
+          </div>
+        )}
       </div>
+
+      {/* ══ THE LIGHTS ══ the street losing power. Over the walls AND over the
+          HUD — a blackout that politely leaves your interface lit is not a
+          blackout — but only down to where you can still work by the glow off
+          the spit, because you're still expected to. */}
+      {shift.blackout && (
+        <div aria-hidden className="absolute inset-0 pointer-events-none" style={{
+          zIndex: 58,
+          background:
+            'radial-gradient(58% 34% at 50% 62%, rgba(0,0,0,0.28), rgba(0,0,0,0.72) 72%, rgba(0,0,0,0.88) 100%)',
+          animation: 'kioskLightsOut 700ms ease-out both',
+        }} />
+      )}
+      {shift.blackout && (
+        <div className="font-pixel absolute left-1/2 pointer-events-none" style={{
+          zIndex: 59,
+          top: 'calc(env(safe-area-inset-top, 0px) + 96px)',
+          transform: 'translateX(-50%)', whiteSpace: 'nowrap',
+          fontSize: 6.5, letterSpacing: 1.6, color: '#F5A79C',
+          background: 'rgba(10,7,6,0.8)', padding: '6px 10px 5px',
+          border: '2px solid rgba(228,72,60,0.45)', borderRadius: 8,
+          animation: 'kioskLineIn 400ms ease-out both',
+        }}>
+          THE STREET HAS GONE DARK
+        </div>
+      )}
 
       {/* ══ TILL ══ tonight's takings, on every wall, all the time. */}
       <KioskCoins paid={shift.paid} till={shift.till} streak={shift.streak} practice={shift.practice} />
@@ -763,13 +666,23 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
       {/* ══ SERVICE ══ the wrap in your hands, the bin, and the hand-over.
           Outside the sliding wall so it stays put while you turn around. */}
       <ServiceHud
-        build={shift.build}
+        boards={shift.boards}
+        active={shift.active}
         tray={shift.tray}
         wrapsWanted={shift.wrapsWanted}
         nudge={shift.nudge}
-        canRoll={shift.build.meat && shift.tray.wraps.length < shift.wrapsWanted && shift.status === 'waiting'}
-        canServe={shift.tray.wraps.length >= shift.wrapsWanted && !!shift.order && shift.status === 'waiting'}
+        canRoll={
+          !!shift.boards[shift.active]?.meat
+          && shift.tray.wraps.length < shift.wrapsWanted
+          && shift.status === 'waiting'
+        }
+        canServe={
+          shift.tray.wraps.length >= shift.wrapsWanted
+          && !!shift.order && shift.order.kind === 'order'
+          && shift.status === 'waiting'
+        }
         onTrash={shift.trashBuild}
+        onPick={shift.setActive}
         onRoll={shift.rollWrap}
         onServe={shift.serve}
       />

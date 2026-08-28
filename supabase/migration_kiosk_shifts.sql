@@ -19,6 +19,10 @@
 --   eren_stats.kiosk_wraps     lifetime wraps served by the household. Drives
 --                       the menu unlocks (herb sauce at 25, chips at 50).
 --
+--   `weather` is what the night was doing: clear, rain, fog or wind. It
+--   decides how busy the street is, how fast the ticket fades and what people
+--   tip, and it prints on the receipt and the board out front.
+--
 -- Paste into the Supabase SQL editor (run once) BEFORE deploying the code
 -- that reads or writes any of this. Safe to re-run.
 -- ============================================================
@@ -35,7 +39,11 @@ create table if not exists public.kiosk_shifts (
   base          int  not null default 0,
   tips          int  not null default 0,
   grade         text not null default 'D' check (grade in ('S','A','B','C','D')),
+  -- Superseded by `weather` below. Still written, still defaulted, so a row
+  -- from before the weather was a system reads the same as one from after.
   rained        boolean not null default false,
+  weather       text not null default 'clear'
+                  check (weather in ('clear','rain','fog','wind')),
   note          text,
   closed_at     timestamptz not null default now(),
   primary key (household_id, user_id, shift_date)
@@ -64,6 +72,23 @@ create policy "users insert own kiosk shifts"
 create policy "users update own kiosk shifts"
   on public.kiosk_shifts for update
   using (household_id = public.my_household_id() and user_id = auth.uid());
+
+-- Added after the table shipped: if you already ran this file once, THIS is
+-- the part that matters on the re-run. Safe either way.
+alter table public.kiosk_shifts
+  add column if not exists weather text not null default 'clear';
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.kiosk_shifts'::regclass and conname = 'kiosk_shifts_weather_check'
+  ) then
+    alter table public.kiosk_shifts
+      add constraint kiosk_shifts_weather_check
+      check (weather in ('clear','rain','fog','wind'));
+  end if;
+end $$;
 
 -- The kiosk's memory rides on the shared stats row, like room_skins does.
 alter table public.eren_stats

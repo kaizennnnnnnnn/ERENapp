@@ -21,7 +21,8 @@
 
 import {
   TOPPINGS, SAUCES, SAUCE_BOX, CHIPS_BOX, SIDE_BY_ID, MAX_USES, panFill,
-  type MenuState, type SauceId, type SideId, type ToppingId,
+  portionsOf, MAX_PORTIONS,
+  type Build, type MenuState, type SauceId, type SideId, type ToppingId,
 } from './kioskShift'
 
 /** Base size of one loose piece on a pile, in % of the picture's width —
@@ -42,8 +43,9 @@ interface Props {
   /** What's on the menu tonight — a bottle you haven't unlocked isn't on the
    *  counter at all. */
   menu: MenuState
-  /** The sauce already on the wrap in your hands. */
-  sauce: SauceId | null
+  /** The wrap in your hands — which of these pans have already been into
+   *  it, and how many times. */
+  board: Build
   /** Sides already on the tray. */
   sides: SideId[]
   onTap: (id: ToppingId) => void
@@ -51,15 +53,20 @@ interface Props {
   onSide: (id: SideId) => void
 }
 
-export default function ToppingTrays({ stock, menu, sauce, sides, onTap, onSauce, onSide }: Props) {
+export default function ToppingTrays({ stock, menu, board, sides, onTap, onSauce, onSide }: Props) {
   const chipsOn = menu.sides.includes('chips')
   const gotChips = sides.includes('chips')
+  const sauce = board.sauce
 
   return (
     <>
       {TOPPINGS.map((t, pan) => {
         const left = stock[t.id]
         const { box, clip, surfacePct, crest } = panFill(t.well, left, pan + 1)
+        // How much of this has already gone on the wrap. A second scoop is a
+        // real thing people ask for, and the difference between asking for it
+        // and doing it by accident is whether you noticed — so the pan says.
+        const on = portionsOf(board.toppings, t.id)
         return (
           <div key={t.id}>
             {left > 0 && (
@@ -116,7 +123,7 @@ export default function ToppingTrays({ stock, menu, sauce, sides, onTap, onSauce
 
             <button
               type="button"
-              aria-label={`Add ${t.label}`}
+              aria-label={on > 0 ? `${t.label}: ${on} on the wrap. Add more.` : `Add ${t.label}`}
               onClick={() => onTap(t.id)}
               className="active:scale-95 transition-transform"
               style={{
@@ -128,6 +135,29 @@ export default function ToppingTrays({ stock, menu, sauce, sides, onTap, onSauce
                 borderRadius: 4,
               }}
             />
+
+            {/* One pip per scoop already on the wrap, on the pan's own rim.
+                Two of them is the double — and the second pip appearing is
+                the only warning you get that a tap went in twice. */}
+            {on > 0 && (
+              <span aria-hidden className="pointer-events-none" style={{
+                position: 'absolute',
+                left: box.left, top: `calc(${box.top} - 2.6cqi)`,
+                width: box.width,
+                display: 'flex', justifyContent: 'center', gap: '0.5cqi',
+                zIndex: 4,
+              }}>
+                {Array.from({ length: MAX_PORTIONS }, (_, i) => (
+                  <span key={i} style={{
+                    width: '1.5cqi', height: '1.5cqi', borderRadius: '50%',
+                    background: i < on ? '#F5C049' : 'rgba(255,231,196,0.16)',
+                    boxShadow: i < on ? '0 0 5px rgba(245,192,73,0.7)' : 'none',
+                    border: '1px solid rgba(0,0,0,0.5)',
+                    transition: 'background 180ms ease',
+                  }} />
+                ))}
+              </span>
+            )}
           </div>
         )
       })}

@@ -23,6 +23,12 @@ export interface KioskAmbience {
   setSizzle(level: number): void
   /** 0–1: rain on the roof. */
   setRain(level: number): void
+  /** 0–1: wind through the hatch. Higher and drier than the rain, and it
+   *  breathes — a flat hiss is a radiator, not weather. */
+  setWind(level: number): void
+  /** 0–1: the fridge, the lamps, the whole electrical bed. Goes to nothing
+   *  when the street loses power, which is most of what a blackout IS. */
+  setPower(level: number): void
   /** Fade the whole street out. */
   stop(): void
 }
@@ -34,7 +40,7 @@ const RAMP = 0.45
 const NOISE_SECONDS = 3
 
 const NO_AMBIENCE: KioskAmbience = {
-  setSizzle() {}, setRain() {}, stop() {},
+  setSizzle() {}, setRain() {}, setWind() {}, setPower() {}, stop() {},
 }
 
 /** Brown-ish noise: white noise run through a leaky integrator, which tilts
@@ -144,6 +150,17 @@ export function startKioskAmbience(): KioskAmbience {
   // ── the spit, and the weather ─────────────────────────────────────────
   const sizzle = noiseVoice(0.075, 7000, 1900, 0.5)
   const rain = noiseVoice(0.105, 3400, 700, 0.4)
+  // Wind sits between the two: brighter than rain, wider than the spit, and
+  // it swells on a slow oscillator so it gusts instead of hissing.
+  const wind = noiseVoice(0.115, 1800, 220, 0.9)
+  const gustOsc = ctx.createOscillator()
+  gustOsc.type = 'sine'
+  gustOsc.frequency.value = 0.13
+  const gustAmt = ctx.createGain()
+  gustAmt.gain.value = 0.055
+  gustOsc.connect(gustAmt)
+  gustAmt.connect(wind.gain.gain)
+  gustOsc.start()
 
   const ramp = (node: GainNode, to: number) => {
     const now = ctx.currentTime
@@ -171,6 +188,16 @@ export function startKioskAmbience(): KioskAmbience {
       if (stopped) return
       ramp(rain.gain, rain.peak * Math.max(0, Math.min(1, level)))
     },
+    setWind(level) {
+      if (stopped) return
+      ramp(wind.gain, wind.peak * Math.max(0, Math.min(1, level)))
+    },
+    setPower(level) {
+      if (stopped) return
+      // The hum is the whole electrical bed — fridge, lamps, the lot. When it
+      // goes, what's left is the street, which is exactly right.
+      ramp(humGain, 0.02 * Math.max(0, Math.min(1, level)))
+    },
     stop() {
       if (stopped) return
       stopped = true
@@ -183,6 +210,7 @@ export function startKioskAmbience(): KioskAmbience {
       // on the way out is a click.
       setTimeout(() => {
         swellOsc.stop()
+        gustOsc.stop()
         hums.forEach(o => o.stop())
         voices.forEach(v => v.nodes.forEach(n => n.stop()))
         master.disconnect()

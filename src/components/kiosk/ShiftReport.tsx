@@ -14,7 +14,8 @@
 import { useEffect, useState } from 'react'
 import { IconCoin } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
-import { GRADE_COLOR, GRADE_WORD } from './kioskEconomy'
+import { WEATHER_BY_ID } from './kioskShift'
+import { GRADE_COLOR, GRADE_WORD, NIGHT_GOAL, GOAL_BONUS } from './kioskEconomy'
 import type { ShiftReport as Report } from './useKioskShift'
 
 interface Props {
@@ -60,7 +61,8 @@ function Row({ label, value, dim }: { label: string; value: string; dim?: boolea
 }
 
 export default function ShiftReport({ report, practiceReason, canNote, onSaveNote, onDone }: Props) {
-  const { takings: t, grade, coins, rained, early, unlock } = report
+  const { takings: t, grade, coins, weather, early, unlock, nightTotal, goalMet } = report
+  const sky = WEATHER_BY_ID[weather]
   const [note, setNote] = useState('')
   const [saved, setSaved] = useState(false)
 
@@ -85,7 +87,8 @@ export default function ShiftReport({ report, practiceReason, canNote, onSaveNot
           <div className="font-pixel" style={{
             textAlign: 'center', fontSize: 5.5, letterSpacing: 1, color: FADED, marginTop: 5,
           }}>
-            {early ? 'CLOSED EARLY' : 'WORKED THE WHOLE NIGHT'}{rained ? ' · IN THE RAIN' : ''}
+            {early ? 'CLOSED EARLY' : 'WORKED THE WHOLE NIGHT'}
+            {sky.note ? ` · ${sky.note.toUpperCase()}` : ''}
           </div>
 
           <div style={{ height: 1, background: 'rgba(59,42,29,0.25)', margin: '12px 0 10px' }} />
@@ -96,6 +99,9 @@ export default function ShiftReport({ report, practiceReason, canNote, onSaveNot
             {t.wrong > 0 && <Row label="HANDED BACK" value={`${t.wrong}`} />}
             {t.walked > 0 && <Row label="WALKED OFF" value={`${t.walked}`} />}
             {t.bestStreak > 1 && <Row label="BEST RUN" value={`${t.bestStreak}`} />}
+            {/* Only printed if it happened. A line that says nought every
+                night is a line nobody reads on the night it says one. */}
+            {t.inDark > 0 && <Row label="IN THE DARK" value={`${t.inDark}`} />}
             {t.missedCalls > 0 && <Row label="MISSED CALLS" value={`${t.missedCalls}`} dim />}
           </div>
 
@@ -132,6 +138,34 @@ export default function ShiftReport({ report, practiceReason, canNote, onSaveNot
                 fontSize: 5.5, lineHeight: 1.7, color: FADED, marginTop: 6,
               }}>
                 {practiceReason}
+              </div>
+            )}
+          </div>
+
+          {/* ── the two of you ── what the household did tonight, across both
+              shifts. Printed whether or not the line was crossed: half the
+              point of a shared number is seeing how far off it is. */}
+          <div style={{
+            marginTop: 10, padding: '8px 10px',
+            border: `1px ${goalMet ? 'solid' : 'dashed'} rgba(59,42,29,${goalMet ? '0.4' : '0.22'})`,
+            borderRadius: 4,
+          }}>
+            <div className="font-pixel" style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              fontSize: 6, letterSpacing: 1, color: goalMet ? INK : FADED,
+            }}>
+              <span>BETWEEN YOU TONIGHT</span>
+              <span>{nightTotal} / {NIGHT_GOAL}</span>
+            </div>
+            {goalMet && (
+              <div className="font-pixel" style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                fontSize: 6, letterSpacing: 0.5, color: INK, marginTop: 6,
+              }}>
+                <span>THE PAIR OF YOU MADE IT</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <IconCoin size={10} />+{GOAL_BONUS}
+                </span>
               </div>
             )}
           </div>

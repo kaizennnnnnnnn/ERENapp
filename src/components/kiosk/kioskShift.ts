@@ -10,6 +10,53 @@ import { GACHA_SKINS, type SkinDef } from '@/lib/skins'
 
 export type ToppingId = 'tomato' | 'onion' | 'cheese' | 'lettuce'
 
+// ── The weather ───────────────────────────────────────────────────────────
+// Rolled once when you walk in, and it colours the whole night: what the
+// street looks like through the hatch, how often anybody turns up, how long
+// the ticket stays legible, and what they leave on top.
+//
+// The rule behind the numbers: bad weather pays. Fog pays best of all because
+// it empties the street — fewer customers, but every one of them has walked
+// past three shut shops to get here.
+export type WeatherId = 'clear' | 'rain' | 'fog' | 'wind'
+
+export interface WeatherDef {
+  id: WeatherId
+  /** On the clock HUD. */
+  label: string
+  /** On the receipt, and on the board out front. Empty for a clear night —
+   *  nobody says "I worked in the clear". */
+  note: string
+  /** Relative chance of a night being this one. */
+  weight: number
+  /** Multiplier on every tip. */
+  tip: number
+  /** Multiplier on the gap before the next customer. Above 1 = a quiet street. */
+  flow: number
+  /** Multiplier on how fast the ticket goes to ghosts. */
+  ticketBurn: number
+}
+
+export const WEATHER: WeatherDef[] = [
+  { id: 'clear', label: 'CLEAR', note: '',            weight: 44, tip: 1,    flow: 1,    ticketBurn: 1   },
+  { id: 'rain',  label: 'RAIN',  note: 'in the rain', weight: 25, tip: 1.15, flow: 1,    ticketBurn: 1   },
+  { id: 'fog',   label: 'FOG',   note: 'in the fog',  weight: 18, tip: 1.45, flow: 1.55, ticketBurn: 1   },
+  { id: 'wind',  label: 'WIND',  note: 'in the wind', weight: 13, tip: 1.15, flow: 0.92, ticketBurn: 1.9 },
+]
+
+export const WEATHER_BY_ID: Record<WeatherId, WeatherDef> =
+  Object.fromEntries(WEATHER.map(w => [w.id, w])) as Record<WeatherId, WeatherDef>
+
+export function rollWeather(): WeatherId {
+  const total = WEATHER.reduce((sum, w) => sum + w.weight, 0)
+  let n = Math.random() * total
+  for (const w of WEATHER) {
+    n -= w.weight
+    if (n <= 0) return w.id
+  }
+  return 'clear'
+}
+
 /** Uses per full tray, and per full spit. Both deplete one step at a time. */
 export const MAX_USES = 5
 
@@ -345,6 +392,47 @@ export function smokeVents(meat: number) {
 /** The LOAD button, on the bare wall to the right of the machine. */
 export const MEAT_BTN = { x: 80, y: 40 }
 
+// ── How long the cone has been on ─────────────────────────────────────────
+// A fresh cone is raw for a moment and then it is exactly right for a while
+// and then it is ruined, which is the whole job of standing next to one. The
+// clock starts when you hang it and resets when you hang the next.
+//
+// The good band is deliberately most of a shift: this is a thing to keep half
+// an eye on between customers, not a second timer to fight.
+export const MEAT_RAW_MS = 8_000
+export const MEAT_GOOD_MS = 82_000
+/** The last few seconds of good, when the warning is worth showing. */
+export const MEAT_WARN_MS = 14_000
+
+export type MeatState = 'raw' | 'good' | 'charred'
+
+/** `on` is how long the cone has been hanging, in ms. */
+export function meatState(on: number): MeatState {
+  if (on < MEAT_RAW_MS) return 'raw'
+  if (on < MEAT_GOOD_MS) return 'good'
+  return 'charred'
+}
+
+/** 0 → 1 across the whole life of a cone, for the gauge on the wall. */
+export function meatHeat01(on: number): number {
+  return Math.max(0, Math.min(1, on / MEAT_GOOD_MS))
+}
+
+// ── Rolling it up ─────────────────────────────────────────────────────────
+// Hold the button and the wrap rolls; let go when it is round. Too early and
+// it is loose, too late and the tortilla splits. The band is wide on purpose
+// — this is a flourish that pays a little, not a gate you can fail.
+export type Tidiness = 'loose' | 'neat' | 'split'
+/** One full roll, from nothing to torn. */
+export const ROLL_MS = 1_100
+export const ROLL_BAND: [number, number] = [0.46, 0.82]
+
+export function tidinessFor(progress: number): Tidiness {
+  if (progress < ROLL_BAND[0]) return 'loose'
+  if (progress > ROLL_BAND[1]) return 'split'
+  return 'neat'
+}
+
 // ── The knife ─────────────────────────────────────────────────────────────
 // Carving is a gesture, not a button: you hold the knife against the cone and
 // saw it up and down. `x` and `size` are in % of the picture's WIDTH (what a
@@ -400,6 +488,17 @@ export const PHONE_HIT = { left: 57.8, top: 35.3, width: 18.4, height: 25.3 }
 export const PHONE_TAG = { x: 67, y: 64 }
 export const HANDSET = { left: 58.33, top: 38.66, width: 17.19 }
 export const HANDSET_SPRITE = '/kiosk_handset.webp'
+
+// ── What else is on the back wall ─────────────────────────────────────────
+// Two bits of bare tiling, both above things that already have hit boxes: the
+// note goes over the payphone (whose target starts at 35.3%) and the apron
+// over the fridge (whose target starts at 25.7%). Both stop short of the
+// door's target at 78%, and both sit inside the 9%–91% strip a tall phone
+// can actually see after the cover crop.
+export const NOTE_BOARD = { x: 64, y: 12.5, width: 24 }
+export const APRON_HOOK = { x: 27, y: 7, width: 13 }
+export const APRON_BROWN = '/apron_brown.webp'
+export const APRON_PINK = '/apron_pink.webp'
 
 // ── The window ────────────────────────────────────────────────────────────
 /** Where a customer standing outside gets cut off — the top edge of the
@@ -483,8 +582,16 @@ export interface Wrap {
   without: ToppingId | null
 }
 
+/** Not everyone who comes to the window wants feeding. */
+export type VisitKind = 'order' | 'chat'
+/** How they're behaving. A rude one tips nothing — unless you're right AND
+ *  quick, and then they have the decency to say so. */
+export type Mood = 'normal' | 'rude'
+
 export interface Order {
-  /** One wrap, or two when they're buying for someone waiting outside. */
+  kind: VisitKind
+  /** One wrap, or two when they're buying for someone waiting outside.
+   *  Empty for a chat: there's nothing to make. */
   wraps: Wrap[]
   sides: SideId[]
   /** Whoever walked up — a whole costume from the closet, so the window can
@@ -495,13 +602,29 @@ export interface Order {
   /** They asked for "the usual" and the ticket stays blank. You either
    *  remember what they had last time or you guess. */
   usual: boolean
+  mood: Mood
+  /** For a chat: everything they came to say, in order. You get the next one
+   *  each time you tap them, and they leave when they run out or get bored. */
+  chat: string[]
+  /** The one who turns up after the shutters should already be down. */
+  late: boolean
 }
 
-/** The open tortilla in front of you. */
+/** The open tortilla in front of you.
+ *
+ *  `toppings` is a MULTISET, not a set: the same id twice means a double
+ *  portion of it, which is a thing people ask for and a thing you can get
+ *  wrong by tapping a pan one time too many. */
 export interface Build {
   meat: boolean
   toppings: ToppingId[]
   sauce: SauceId | null
+  /** How it came out of the roll. Meaningless until it's on the tray. */
+  tidy: Tidiness
+  /** What the cone was like at the moment this slice came off it, or null if
+   *  it was exactly right. Rides with the WRAP, not with the spit: hang a
+   *  fresh cone afterwards and this one is still what it is. */
+  meatBad: MeatState | null
 }
 
 /** What's finished and waiting on the counter to be handed over. */
@@ -510,7 +633,13 @@ export interface Tray {
   sides: SideId[]
 }
 
-export const EMPTY_BUILD: Build = { meat: false, toppings: [], sauce: null }
+export const EMPTY_BUILD: Build = { meat: false, toppings: [], sauce: null, tidy: 'neat', meatBad: null }
+/** Most portions of one topping that will fit on a tortilla. */
+export const MAX_PORTIONS = 2
+
+export function portionsOf(list: ToppingId[], id: ToppingId): number {
+  return list.reduce((n, t) => n + (t === id ? 1 : 0), 0)
+}
 export const EMPTY_TRAY: Tray = { wraps: [], sides: [] }
 
 /** What a costume ordered last time they were served properly. Kept per
@@ -640,6 +769,110 @@ export const USUAL_MISS = [
   'you forgot. it happens.',
 ]
 
+/** Someone who came to the window in a mood. They tip nothing on principle
+ *  — but get it right and get it fast and they climb down. */
+export const RUDE_LINES = [
+  'do you know how long i’ve been standing here',
+  'just make it. i don’t need a chat.',
+  'is this place always this slow',
+  'i’m only here because everywhere else shut',
+  'don’t get it wrong. i mean it.',
+  'you look like you’re about to get it wrong',
+  'quickly. i have somewhere to be.',
+  'the last one was cold, by the way',
+]
+
+/** And what they say when you’ve earned it. */
+export const RUDE_HAPPY = [
+  'okay. that’s... that’s actually good. sorry.',
+  'fine. you know what you’re doing.',
+  'i was rude. that was quick.',
+  'right. i’ll stop talking. here.',
+  'you didn’t deserve that. good wrap.',
+]
+
+/** A rude customer, served right but slowly: no apology, no tip. */
+export const RUDE_FLAT = [
+  'took you long enough',
+  'yeah. that’s the one.',
+  'about time',
+  'right. bye.',
+]
+
+// ── Someone who didn’t come to buy anything ──────────────────────────────
+// They stand at the window and use up the slot, and they’re the only thing in
+// the kiosk you can lose money to on purpose. Hear one all the way out and
+// they leave something in the jar, because that’s what people do.
+export const CHAT_VISITS: string[][] = [
+  ['i’m not buying anything. is that alright.',
+   'i just wanted to stand where a light is on.',
+   'that’s all. thanks. genuinely.'],
+  ['my shift ended an hour ago',
+   'i’ve been walking the long way round since',
+   'i’ll go home now. i think.'],
+  ['do you ever get the one where the street is quiet',
+   'and it’s not peaceful, it’s just quiet',
+   'anyway. your lamps are nice.'],
+  ['i had a whole thing i was going to say',
+   'and now i’m here and i’ve lost it',
+   'it wasn’t important. sorry.'],
+  ['someone told me you’re open all night',
+   'i didn’t believe them',
+   'good. good. okay. night.'],
+  ['i’m not hungry. i checked.',
+   'i just liked the smell from the corner',
+   'right. i’ll leave you to it.'],
+  ['my phone died four hours ago',
+   'you’re the first person i’ve spoken to since',
+   'that’s a bit much, isn’t it. sorry.'],
+  ['is it tomorrow yet or is it still tonight',
+   'i can never tell at this bit',
+   'okay. thank you. that helped.'],
+]
+
+/** What they say as they go, after you’ve heard them out. */
+export const CHAT_THANKS = [
+  'here. for listening.',
+  'take that. i mean it.',
+  'you didn’t have to. thanks.',
+]
+
+// ── The one who comes after last call ─────────────────────────────────────
+// Same face every time, same order, always after the street has emptied. The
+// only customer worth staying open for, and the whole reason to not close up
+// the second the clock turns.
+export const LATE_REGULAR_ID = 'owl'
+export const LATE_LINES = [
+  'knew you’d still be here',
+  'i always cut it fine. sorry.',
+  'last one of the night. same as ever.',
+  'you never close on time. good.',
+]
+export const LATE_HAPPY = [
+  'that’s the one. see you tomorrow, late.',
+  'perfect. now go home.',
+  'every night. thank you. every night.',
+]
+
+/** Handed a wrap with meat that wasn’t ready, or meat that was ready an hour
+ *  ago. They still take it — they just take less off their own pocket. */
+export const RAW_LINES = [
+  'this is a bit... pink',
+  'was that on the heat at all',
+  'i’ll eat it. i’ll regret it.',
+]
+export const BURNT_LINES = [
+  'that’s been on there a while',
+  'tastes like the inside of a lamp',
+  'crunchy. that’s not the word i wanted.',
+]
+/** And a wrap that came apart in the bag. */
+export const MESSY_LINES = [
+  'it’s falling out the end',
+  'you rolled this in a hurry',
+  'half of it’s in the bag now',
+]
+
 /** What they say on the way out, having given up on you. */
 export const WALKOUT_LINES = [
   'forget it. i’ll get chips.',
@@ -653,6 +886,10 @@ export const WALKOUT_LINES = [
 const USUAL_CHANCE = 0.4
 /** Chance an order is for two wraps rather than one. */
 const TWO_WRAP_CHANCE = 0.16
+/** Chance a short order asks for a double of one of its toppings. Only on
+ *  one- and two-topping wraps: "no onion, extra tomato" is a ticket nobody
+ *  should have to read at four in the morning. */
+const DOUBLE_CHANCE = 0.2
 
 function rollWrap(menu: MenuState): Wrap {
   const want = 1 + Math.floor(Math.random() * 3)
@@ -665,18 +902,30 @@ function rollWrap(menu: MenuState): Wrap {
   // the pool IS the missing one. Half the time the ticket says so instead of
   // listing the other three.
   const without = want === TOPPINGS.length - 1 && Math.random() < 0.55 ? pool[0].id : null
+  if (want <= 2 && !without && Math.random() < DOUBLE_CHANCE) toppings.push(pick(toppings))
   const sauce = menu.sauces.length > 0 && Math.random() < 0.5 ? pick(menu.sauces) : null
   return { toppings, sauce, without }
 }
 
+/** The shape every visitor shares, so the three rollers below only have to
+ *  say what's different about theirs. */
+function visitor(customer: SkinDef): Omit<Order, 'wraps' | 'sides' | 'line'> {
+  return { kind: 'order', customer, usual: false, mood: 'normal', chat: [], late: false }
+}
+
 /** Whoever's next. Meat is never asked for — every shawarma has it, which is
  *  why the spit is a step and not a choice. */
-export function rollOrder(menu: MenuState, regulars: Regulars): Order {
+export function rollOrder(menu: MenuState, regulars: Regulars, rude = false): Order {
   const customer = pick(CUSTOMER_SKINS)
   const known = regulars[customer.id]
+  const mood: Mood = rude ? 'rude' : 'normal'
 
   if (known && known.times >= 2 && known.wraps.length > 0 && Math.random() < USUAL_CHANCE) {
-    return { wraps: known.wraps, sides: known.sides, customer, line: pick(USUAL_LINES), usual: true }
+    return {
+      ...visitor(customer), mood,
+      wraps: known.wraps, sides: known.sides,
+      line: rude ? pick(RUDE_LINES) : pick(USUAL_LINES), usual: true,
+    }
   }
 
   const wraps = [rollWrap(menu)]
@@ -686,7 +935,34 @@ export function rollOrder(menu: MenuState, regulars: Regulars): Order {
   if (Math.random() < 0.45) sides.push('pepsi')
   if (menu.sides.includes('chips') && Math.random() < 0.3) sides.push('chips')
 
-  return { wraps, sides, customer, line: pick(pick([NICE, WEIRD, CREEPY])), usual: false }
+  return {
+    ...visitor(customer), mood, wraps, sides,
+    line: rude ? pick(RUDE_LINES) : pick(pick([NICE, WEIRD, CREEPY])),
+  }
+}
+
+/** Somebody who just wanted the window to be open. Nothing to build, nothing
+ *  to hand over — only a slot at the counter and the choice of what to do
+ *  with it. */
+export function rollChat(): Order {
+  const said = pick(CHAT_VISITS)
+  return {
+    ...visitor(pick(CUSTOMER_SKINS)),
+    kind: 'chat', wraps: [], sides: [], chat: said, line: said[0],
+  }
+}
+
+/** The last one of the night, after the street has already emptied. Always
+ *  the same face, always the same order, so remembering it is the point. */
+export function rollLate(menu: MenuState): Order {
+  const customer = CUSTOMER_SKINS.find(c => c.id === LATE_REGULAR_ID) ?? CUSTOMER_SKINS[0]
+  const sauce: SauceId | null = menu.sauces.includes('herb') ? 'herb' : 'garlic'
+  return {
+    ...visitor(customer), late: true,
+    wraps: [{ toppings: ['onion', 'cheese'], sauce, without: null }],
+    sides: ['pepsi'],
+    line: pick(LATE_LINES),
+  }
 }
 
 /** One finished wrap against one that was asked for. Contents, not order of
@@ -694,8 +970,11 @@ export function rollOrder(menu: MenuState, regulars: Regulars): Order {
 export function wrapMatches(want: Wrap, got: Build): boolean {
   if (!got.meat) return false
   if (want.sauce !== got.sauce) return false
+  // Counts, not membership: one tomato and two tomatoes are different orders,
+  // and the second tap on a pan is how you get it wrong.
   if (want.toppings.length !== got.toppings.length) return false
-  return want.toppings.every(t => got.toppings.includes(t))
+  return TOPPINGS.every(t =>
+    portionsOf(want.toppings, t.id) === portionsOf(got.toppings, t.id))
 }
 
 /** The whole hand-over. Two wraps count either way round — they're both
