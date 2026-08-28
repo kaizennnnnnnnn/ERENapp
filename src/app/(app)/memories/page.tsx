@@ -14,6 +14,20 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useCare } from '@/contexts/CareContext'
 
+/** Recover an object's path inside the `memories` bucket from the public URL
+ *  stored on the row. Supabase public URLs end with
+ *  /storage/v1/object/public/memories/<householdId>/<file>, and the bucket
+ *  API wants only the part after the bucket name. Returns null for a row with
+ *  no image, or a URL that is not one of ours. */
+function storagePathFromPublicUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  const marker = '/object/public/memories/'
+  const at = url.indexOf(marker)
+  if (at === -1) return null
+  const raw = url.slice(at + marker.length).split('?')[0]
+  return raw ? decodeURIComponent(raw) : null
+}
+
 export default function MemoriesPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -112,7 +126,23 @@ export default function MemoriesPage() {
   }
 
   async function handleDelete(id: string) {
-    await supabase.from('memories').delete().eq('id', id)
+    // Delete the image object too, not just the row. The memories bucket is
+    // public, so an orphaned object stays fetchable by anyone holding the URL
+    // forever — "delete" that leaves the photo up is not a delete, and it
+    // breaks any takedown request.
+    //
+    // Storage takes the path within the bucket, while the row stores the full
+    // public URL, so recover the path from it. Object first: if the row went
+    // first and this failed we would have lost the only pointer to the file.
+    const memory = memories.find(m => m.id === id)
+    const objectPath = storagePathFromPublicUrl(memory?.image_url)
+    if (objectPath) {
+      await supabase.storage.from('memories').remove([objectPath])
+    }
+
+    const { error } = await supabase.from('memories').delete().eq('id', id)
+    if (error) return
+
     setMemories(prev => prev.filter(m => m.id !== id))
     setSelected(null)
   }
