@@ -46,22 +46,6 @@ beats the environment entirely.
 
 ---
 
-## Migrations — all applied and verified live
-
-`kiosk_shifts`, `household_takeover_fix`, `per_profile_heart`,
-`leave_household`, `account_deletion`, `cron_auth_headers`.
-
-RPCs confirmed present: `create_household`, `join_household`,
-`leave_household`, `rotate_invite_code`, `delete_my_account`, `grant_wish`,
-`purchase_skin_with_stardust`, `collect_jelly`, `feed_super_jelly`,
-`open_countdown_door`, `my_household_id`.
-
-Nothing from the original audit is left to paste. `jelly_run`,
-`drink_unlock_skins`, `streak_sos` and `cron_io_reduction` all turned out to
-be applied already.
-
----
-
 ## Done this session (11 commits, `0be2382`..`53507f2`)
 
 | | What |
@@ -127,48 +111,51 @@ Now it takes only a message id and refuses unless the caller wrote that row.
 
 ---
 
-## NEXT UP — in the order I'd take them
+## NEXT UP — corrected order
 
-### ~~1. Private photo bucket~~ — code done (`a1aeff7`), SQL pending
-Was public: every photo fetchable by URL with no auth, household UUID in the
-path and a guessable epoch filename, so one leaked link made the rest of that
-household's photos enumerable. Now: private bucket, storage policies pinned
-to the caller's own household folder, `image_url` holds a path, the client
-signs for 1 h and re-signs on foreground. Two adjacent bugs fell out — a
-failed upload used to save the note and silently drop the photo, and
-cancelling the composer left the file staged so the next save re-uploaded it.
+Done: private photo bucket (`a1aeff7`), leave/rotate wired (`bfe996e`), terms +
+content rules published and gated (`45af286`, `ec457fa`), three UGC defects
+fixed (`4b90354`).
 
-### ~~2. Wire up leave / rotate~~ — done (`bfe996e`)
-`leave_household()` and `rotate_invite_code()` had zero call sites, so the
-one-way-door the takeover fix created was still a one-way door. Profile page
-now has LEAVE THIS HOME (confirms, and the wording differs for a partnered vs
-solo household because leaving alone deletes the home and everything in it)
-and NEW CODE (arms before firing).
+### 1. TWA build — the real blocker on the longest pole
+Corrected from the earlier plan, which said "start recruiting". Recruiting is
+not what starts the clock: **testers can only opt in to a build that exists in
+Play Console**. So the Android wrapper is the gate on the 4-6 week wait, not
+report+block.
 
-### 3. Report + block (Play blocking) — NEXT
-UGC policy applies even to a private two-person space ("a subset of users").
-Needs: report content AND users, block users, ToS acceptance gate, published
-objectionable-content definition. `couple_journal` backs both the chat and the
-note board, so one report target kind covers both text surfaces.
+Needs: Bubblewrap init/build against `manifest.json`, a signed AAB, the app
+created in Play Console, and `/.well-known/assetlinks.json` served from the
+Vercel domain with the fingerprint from **Play App Signing** (not the local
+upload key).
 
-### 4. Start the 12-tester clock
-New personal dev accounts: closed test, 12 testers, **14 continuous days**,
-then ~7 days production-access review. 4–6 weeks total. Nothing shortens it.
-Start recruiting before writing more code.
+### 2. Start the 12-tester clock the moment a build is up
+12 testers opted in for **14 continuous days**, then ~7 days review. Recruit
+15 — people uninstall and change phones, and dropping below 12 is a problem.
+Everything below can ship into the same closed-testing track while it runs.
 
-### 5. Verify TWA push on a real device — could invalidate the plan
+### 3. Report + block (Play blocking)
+The ground under it is now solid: messages are immutable, push cannot be
+spoofed, and every notification maps to a reportable row. Design decided:
+report targets `couple_journal.id` / `memories.id` / `profiles.id`; a block =
+leave the household + a permanent pair record enforced in `join_household()`.
+**Open question for the user:** whether to add delete-your-own-message (see
+below).
+
+### 4. Verify TWA push on a real Android 13+ device
 [android-browser-helper#563](https://github.com/GoogleChrome/android-browser-helper/issues/563)
-(open, updated 2026-08-09): on Android 16 / Chrome 142 the page reports
-permission `granted` while native `POST_NOTIFICATIONS` stays blocked and
-nothing arrives. **The entire retention loop is push.** Test before writing a
-store listing.
+(open, updated 2026-08-09): the page reports permission `granted` while native
+`POST_NOTIFICATIONS` stays blocked and nothing arrives. **The entire retention
+loop is push.** Test as soon as the TWA exists — if it bites, the plan changes.
 
-### 6. Open question, not yet diagnosed
-React **#418 / #423** hydration errors on `/home` in production. Non-fatal —
-React discards the prerender and client-renders — but costs startup perf.
-Almost certainly pre-existing. `MoodSky` was checked and is already correct
-(`useState('day')` + `useEffect(setPart(getDaypart()))`). **Source not yet
-found.** Needs a dev build to read the un-minified mismatch.
+### 5. Open question, not yet diagnosed
+React **#418 / #423** hydration errors on `/home` in production. Non-fatal.
+`MoodSky` ruled out. Needs a dev build to read the un-minified mismatch.
+
+### Decision waiting on the user
+§10 of `/terms` says you can delete individual items before deleting your
+account. For journal messages that is **false** — `couple_journal` has no
+DELETE policy for anyone. Either add delete-your-own-message alongside the
+report UI (recommended, makes the sentence true) or amend the terms.
 
 ---
 
