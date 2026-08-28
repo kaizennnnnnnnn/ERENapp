@@ -82,19 +82,53 @@ be applied already.
 
 ---
 
-## ⚠ ONE THING TO PASTE
+## ⚠ MIGRATION QUEUE — paste in this order
 
-`supabase/migration_private_memories_bucket.sql` — flips the `memories`
-bucket to private, replaces its storage policies with household-scoped ones,
-and rewrites `memories.image_url` from a public URL to an object path.
+`migration_private_memories_bucket.sql` is **done** (verified:
+`memories_is_public = false`, 0 rows still holding a URL, policy listing
+clean). Four remain:
 
-The code shipped for it (`a1aeff7`) reads **both** shapes and signs URLs
-either way, so deploying before or after the paste is equally safe — but the
-photos stay world-readable until the SQL runs.
+| # | File | Why |
+|---|---|---|
+| 1 | `migration_account_deletion_fix.sql` | **Account deletion has never worked.** Highest priority — it is a shipped Play requirement that throws for every caller. |
+| 2 | `migration_journal_integrity.sql` | Either member can currently rewrite the other's messages and forge authorship. |
+| 3 | `migration_avatar_bucket_scope.sql` | `avatars` accepts uploads to any path from any authenticated user, on a public bucket. |
+| 4 | `migration_terms_acceptance.sql` | Adds `terms_accepted_at` + `accept_terms()`. |
 
-The last statement prints a verification row. Expect
-`memories_is_public = false` and `rows_still_holding_a_url = 0`. Then run the
-commented policy listing at the bottom and check nothing unexpected survived.
+Each ends with a verification query — read the output rather than assuming.
+
+**Expect after #4:** you and your girlfriend both get a one-time "before you
+carry on" sheet on next launch. That is deliberate. Existing rows are not
+backfilled, because stamping a consent date on accounts that have never seen
+these rules would fabricate a consent that did not happen.
+
+---
+
+## The three defects the UGC map turned up
+
+Found while inventorying user-content surfaces for report+block. All three
+sat underneath the feature about to be built on them.
+
+**`delete_my_account()` aborted for every caller, twice over.** It ran
+`DELETE FROM game_best_scores`, which is a VIEW with `GROUP BY`/`max()` —
+Postgres raises 55000 before any real work. And it anonymises co-authored
+content by nulling the author column, but `couple_journal.sender_id`,
+`memories.user_id` and `reminders.created_by` are all `NOT NULL`, so every
+real user hit 23502. The design was right; the schema never permitted it.
+Nulling the author before dropping `auth.users` is also what stops
+`ON DELETE CASCADE` taking the partner's history, so it is load-bearing.
+
+**Journal messages were mutable and forgeable.** The policy called "Users can
+mark messages read" had `USING` with no `WITH CHECK` and no column grant, so
+either member could rewrite `message` and `sender_id` on any row. Nothing in
+the app has ever updated that table (`is_read` only moves in React state), so
+the capability was removed rather than narrowed.
+
+**`/api/notify-message` trusted the request body.** `sender_id`, `sender_name`
+and `message` all came from the caller and none were checked against the
+session — and no journal row was required, so one member could push unlimited
+arbitrary text to the other's lock screen under any name, recorded nowhere.
+Now it takes only a message id and refuses unless the caller wrote that row.
 
 ---
 
