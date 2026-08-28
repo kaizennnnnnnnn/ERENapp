@@ -86,11 +86,11 @@ export const FLAVOR_LINES: FlavorLine[] = [
   // ── More ambient idle lines (added later) ─────────────────────────────────
   { id: 'idle-missyou',   text: 'i missed you.',                                              trigger: 'idle' },
   { id: 'idle-sardine',   text: 'you can have some of my sardines.',                          trigger: 'idle' },
-  { id: 'idle-sugarfree', text: "Jovan said all my food here is sugar-free. cause i can't eat it.", trigger: 'idle' },
+  { id: 'idle-sugarfree', text: "they said all my food here is sugar-free. cause i can't eat it.", trigger: 'idle' },
   { id: 'idle-loveyou',   text: 'i love you.',                                                trigger: 'idle' },
   { id: 'idle-talk',      text: 'do you think they know i can talk… i mean, meow meow.',      trigger: 'idle' },
   { id: 'idle-toilet',    text: 'i might jump into the toilet today.',                        trigger: 'idle' },
-  { id: 'idle-serbian',   text: 'Jovan said my Serbian is great.',                            trigger: 'idle' },
+  { id: 'idle-serbian',   text: 'they said my Serbian is great.',                             trigger: 'idle' },
   { id: 'idle-happi',     text: 'you seem happi.',                                            trigger: 'idle' },
 
   // ── More leader-addressed lines (added later) ─────────────────────────────

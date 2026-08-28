@@ -22,6 +22,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getDaypart } from '@/lib/timeOfDay'
 import { todayKey } from '@/lib/seededRng'
 import {
@@ -47,6 +48,13 @@ const MAX_TURNS = 3
 /** Per-user hourly cap. Generous for a person, hard stop for a runaway loop. */
 const RATE_LIMIT_PER_HOUR = 150
 const MAX_INPUT_CHARS = 2000
+/** Whole-deployment daily ceiling on billed messages.
+ *
+ *  The per-user cap alone is not a spend control: accounts are free and
+ *  unlimited, so "150/hour/user" is really "150/hour/signup". This is the
+ *  backstop that bounds the invoice no matter how many identities show up.
+ *  Override with CHAT_DAILY_GLOBAL_CAP once real usage is known. */
+const GLOBAL_DAILY_CAP = Number(process.env.CHAT_DAILY_GLOBAL_CAP ?? 2000)
 
 interface Body {
   message?: string
@@ -74,6 +82,13 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
+  // ── Kill switch ───────────────────────────────────────────────────────────
+  // Every message here is billed to one Anthropic key. This is the lever that
+  // stops the spend without a code change if usage runs away.
+  if (process.env.EREN_CHAT_DISABLED === 'true') {
+    return NextResponse.json({ error: 'eren is napping' }, { status: 503 })
+  }
+
   // ── Rate limit ────────────────────────────────────────────────────────────
   const hourAgo = new Date(Date.now() - 3600_000).toISOString()
   const { count } = await supabase
@@ -85,6 +100,33 @@ export async function POST(request: Request) {
 
   if ((count ?? 0) >= RATE_LIMIT_PER_HOUR) {
     return NextResponse.json({ error: 'slow down' }, { status: 429 })
+  }
+
+  // Global daily ceiling, checked with the admin client so it sees every
+  // user's rows rather than just the caller's (RLS scopes chat to its owner).
+  const globalWindowStart = new Date(Date.now() - 86_400_000).toISOString()
+  const { count: globalCount } = await createAdminClient()
+    .from('eren_chat_messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('role', 'user')
+    .gte('created_at', globalWindowStart)
+
+  if ((globalCount ?? 0) >= GLOBAL_DAILY_CAP) {
+    return NextResponse.json({ error: 'eren is napping' }, { status: 503 })
+  }
+
+  // ── Reserve the message BEFORE spending anything ─────────────────────────
+  // The user row used to be written after the stream finished, alongside the
+  // reply. That made the rate limit above unenforceable in two ways: a client
+  // that aborted mid-stream was billed by Anthropic but never counted, and N
+  // concurrent requests all read the same pre-insert count and all passed.
+  // Writing it first makes the counter mean what it says — every billed
+  // message is recorded, whether or not a reply ever comes back.
+  const { error: reserveErr } = await supabase
+    .from('eren_chat_messages')
+    .insert({ user_id: user.id, role: 'user', content: text })
+  if (reserveErr) {
+    return NextResponse.json({ error: 'eren went quiet' }, { status: 503 })
   }
 
   // ── Gather context ────────────────────────────────────────────────────────
@@ -277,10 +319,11 @@ export async function POST(request: Request) {
 
         full = full.trim()
         if (full) {
-          await supabase.from('eren_chat_messages').insert([
-            { user_id: user.id, role: 'user', content: text },
+          // The user row was already reserved before the request went out, so
+          // only the reply is written here.
+          await supabase.from('eren_chat_messages').insert(
             { user_id: user.id, role: 'assistant', content: full },
-          ])
+          )
         }
         send({ done: true })
       } catch (err) {
