@@ -82,20 +82,41 @@ be applied already.
 
 ---
 
+## ⚠ ONE THING TO PASTE
+
+`supabase/migration_private_memories_bucket.sql` — flips the `memories`
+bucket to private, replaces its storage policies with household-scoped ones,
+and rewrites `memories.image_url` from a public URL to an object path.
+
+The code shipped for it (`a1aeff7`) reads **both** shapes and signs URLs
+either way, so deploying before or after the paste is equally safe — but the
+photos stay world-readable until the SQL runs.
+
+The last statement prints a verification row. Expect
+`memories_is_public = false` and `rows_still_holding_a_url = 0`. Then run the
+commented policy listing at the bottom and check nothing unexpected survived.
+
+---
+
 ## NEXT UP — in the order I'd take them
 
-### 1. Private photo bucket (biggest real risk)
-`memories` bucket is **public**. Every photo ever uploaded is fetchable by URL
-with no auth, household UUID in the path. Needs private bucket + signed URLs.
-Breaks every stored `image_url`, so it needs a real migration, not a drive-by.
-`src/app/(app)/memories/page.tsx:74-81` uses `getPublicUrl`.
+### ~~1. Private photo bucket~~ — code done (`a1aeff7`), SQL pending
+Was public: every photo fetchable by URL with no auth, household UUID in the
+path and a guessable epoch filename, so one leaked link made the rest of that
+household's photos enumerable. Now: private bucket, storage policies pinned
+to the caller's own household folder, `image_url` holds a path, the client
+signs for 1 h and re-signs on foreground. Two adjacent bugs fell out — a
+failed upload used to save the note and silently drop the photo, and
+cancelling the composer left the file staged so the next save re-uploaded it.
 
-### 2. Wire up leave / rotate (written, live, unreachable)
-`leave_household()` and `rotate_invite_code()` exist in the DB with **zero
-call sites**. Needs two buttons on the profile page. This is a Play-blocking
-requirement sitting one button away from done.
+### ~~2. Wire up leave / rotate~~ — done (`bfe996e`)
+`leave_household()` and `rotate_invite_code()` had zero call sites, so the
+one-way-door the takeover fix created was still a one-way door. Profile page
+now has LEAVE THIS HOME (confirms, and the wording differs for a partnered vs
+solo household because leaving alone deletes the home and everything in it)
+and NEW CODE (arms before firing).
 
-### 3. Report + block (Play blocking)
+### 3. Report + block (Play blocking) — NEXT
 UGC policy applies even to a private two-person space ("a subset of users").
 Needs: report content AND users, block users, ToS acceptance gate, published
 objectionable-content definition. `couple_journal` backs both the chat and the
