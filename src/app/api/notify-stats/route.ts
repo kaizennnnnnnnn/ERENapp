@@ -10,6 +10,7 @@
  */
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPush, getStatNotifications } from '@/lib/serverPush'
+import { authorizeRequest } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
@@ -43,6 +44,9 @@ export async function POST(request: Request) {
   if (!household_id) {
     return NextResponse.json({ error: 'missing household_id' }, { status: 400 })
   }
+
+  const auth = await authorizeRequest(request, household_id)
+  if (!auth.ok) return NextResponse.json({ error: auth.reason }, { status: auth.status })
 
   const supabase = createAdminClient()
 

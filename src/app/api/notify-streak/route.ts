@@ -17,6 +17,7 @@
 // practice (spine §8 sets households.tz from the device). Accepted drift.
 // ═════════════════════════════════════════════════════════════════════════════
 
+import { authorizeRequest } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPush } from '@/lib/serverPush'
@@ -99,6 +100,11 @@ async function pushAll(
 
 // ── GET: evening SOS sweep ───────────────────────────────────────────────────
 export async function GET(req: Request) {
+  // Service-role sweep: pg_cron proves itself with x-cron-secret, the in-app
+  // safety-net ping proves itself with the session cookie it already sends.
+  const auth = await authorizeRequest(req)
+  if (!auth.ok) return NextResponse.json({ error: auth.reason }, { status: auth.status })
+
   const supabase = createAdminClient()
 
   // Dev-only hour override so the evening gate is testable without editing it.

@@ -13,6 +13,7 @@
 // quiet_eren_optin mute. A household with zero care this week is skipped.
 // ═════════════════════════════════════════════════════════════════════════════
 
+import { authorizeRequest } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPush, heartForEmail } from '@/lib/serverPush'
@@ -42,7 +43,12 @@ function isoWeekKey(d: Date): string {
   return `${date.getUTCFullYear()}-W${String(week).padStart(2, '0')}`
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  // Service-role sweep: pg_cron proves itself with x-cron-secret, the in-app
+  // safety-net ping proves itself with the session cookie it already sends.
+  const auth = await authorizeRequest(request)
+  if (!auth.ok) return NextResponse.json({ error: auth.reason }, { status: auth.status })
+
   const supabase = createAdminClient()
   const now = new Date()
   const weekKey = isoWeekKey(now)

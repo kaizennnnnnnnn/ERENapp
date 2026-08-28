@@ -5,6 +5,7 @@
  * when stats drop below warning (50%) or critical (10%) thresholds.
  */
 import { createAdminClient } from '@/lib/supabase/admin'
+import { authorizeRequest } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 import { clampStat, computeErenMood, shouldBecomeSick } from '@/lib/utils'
 import { sendPush, getStatNotifications } from '@/lib/serverPush'
@@ -31,9 +32,10 @@ const DECAY_PER_HOUR = {
 const NOTIFY_COOLDOWN_MS = 2 * 60 * 60 * 1000
 
 export async function GET(request: Request) {
-  // No auth — this endpoint just applies hourly stat decay.
-  // Safe to call publicly since it only applies time-based decay
-  // and rate-limits naturally (decay is based on hours elapsed).
+  // Service-role sweep: pg_cron proves itself with x-cron-secret, the in-app
+  // safety-net ping proves itself with the session cookie it already sends.
+  const auth = await authorizeRequest(request)
+  if (!auth.ok) return NextResponse.json({ error: auth.reason }, { status: auth.status })
 
   const supabase = createAdminClient()
 

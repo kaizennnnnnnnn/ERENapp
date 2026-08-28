@@ -10,6 +10,7 @@
  */
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPush } from '@/lib/serverPush'
+import { authorizeRequest } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
@@ -45,6 +46,9 @@ export async function POST(request: Request) {
 
   const label = LABELS[action_type]
   if (!label) return NextResponse.json({ ok: true, sent: 0, reason: 'unknown action' })
+
+  const auth = await authorizeRequest(request, household_id)
+  if (!auth.ok) return NextResponse.json({ error: auth.reason }, { status: auth.status })
 
   const supabase = createAdminClient()
 

@@ -13,6 +13,7 @@
  */
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPush } from '@/lib/serverPush'
+import { authorizeRequest } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
@@ -38,6 +39,11 @@ export async function POST(request: Request) {
   if (!household_id || !sender_id) {
     return NextResponse.json({ error: 'missing household_id or sender_id' }, { status: 400 })
   }
+
+  // Service-role route: prove the caller belongs to this household before we
+  // deliver body-supplied text to their phones.
+  const auth = await authorizeRequest(request, household_id)
+  if (!auth.ok) return NextResponse.json({ error: auth.reason }, { status: auth.status })
 
   const supabase = createAdminClient()
 

@@ -13,6 +13,7 @@
 // silences the whole channel).
 // ═════════════════════════════════════════════════════════════════════════════
 
+import { authorizeRequest } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPush } from '@/lib/serverPush'
@@ -20,7 +21,12 @@ import { sendPush } from '@/lib/serverPush'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-export async function GET() {
+export async function GET(request: Request) {
+  // Service-role sweep: pg_cron proves itself with x-cron-secret, the in-app
+  // safety-net ping proves itself with the session cookie it already sends.
+  const auth = await authorizeRequest(request)
+  if (!auth.ok) return NextResponse.json({ error: auth.reason }, { status: auth.status })
+
   const supabase = createAdminClient()
 
   // Pull pending unlocks grouped logically by household — we read flat then

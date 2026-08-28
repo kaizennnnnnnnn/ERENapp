@@ -17,6 +17,7 @@
 // so a distributed CAS would be over-engineering for a two-person app.
 // ═════════════════════════════════════════════════════════════════════════════
 
+import { authorizeRequest } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPush, heartForEmail } from '@/lib/serverPush'
@@ -33,6 +34,9 @@ export async function POST(req: Request) {
   if (!body.user_id || !body.household_id) {
     return NextResponse.json({ error: 'missing fields' }, { status: 400 })
   }
+
+  const auth = await authorizeRequest(req, body.household_id)
+  if (!auth.ok) return NextResponse.json({ error: auth.reason }, { status: auth.status })
 
   const supabase = createAdminClient()
 
