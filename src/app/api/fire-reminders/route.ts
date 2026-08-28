@@ -21,18 +21,41 @@
  */
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPush } from '@/lib/serverPush'
+import { authorizeRequest } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-// Fire a reminder if its scheduled minute matches the current minute,
-// or up to N minutes ago — so a cron that's a tiny bit late doesn't
-// silently skip the slot.
-const WINDOW_MS = 2 * 60 * 1000
+// Fire a reminder if its scheduled time is now, or up to N minutes ago.
+//
+// This MUST be at least as long as the cron period or most reminders can
+// never fire at all. The job runs every 15 minutes (migration_cron_io_
+// reduction.sql), so a 2-minute window only ever caught reminders set within
+// 2 minutes of :00/:15/:30/:45 — 8 of 60 possible minutes, meaning ~87% of
+// reminder times produced nothing, silently. 16 minutes covers the full
+// period plus a minute of cron jitter; DEDUP_MS below is what stops the
+// wider window from re-firing the same reminder on the next run.
+const WINDOW_MIN = 16
 // Don't double-fire the same reminder within this window even if the
-// schedule check repeatedly matches (it will for the full WINDOW_MS).
+// schedule check repeatedly matches (it will for the full WINDOW_MIN).
 const DEDUP_MS  = 30 * 60 * 1000
+
+/** Wall-clock parts for an instant, as seen in a specific IANA timezone. */
+function tzParts(at: Date, tz: string) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz, hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', weekday: 'short',
+  }).formatToParts(at)
+  const get = (t: string) => parts.find(p => p.type === t)?.value ?? ''
+  const DOW: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+  return {
+    minutes: (Number(get('hour')) % 24) * 60 + Number(get('minute')),
+    weekday: DOW[get('weekday')] ?? 0,
+    date: `${get('year')}-${get('month')}-${get('day')}`,
+  }
+}
 
 interface Reminder {
   id: string
@@ -47,31 +70,46 @@ interface Reminder {
   is_private: boolean
 }
 
-function shouldFire(r: Reminder, now: Date): boolean {
+/**
+ * `tz` is the household's IANA zone. The reminder's HH:MM is what the user
+ * typed on their phone, so it only means anything in their local time — this
+ * used to call target.setHours() on the server clock, which is UTC on Vercel,
+ * so every reminder fired at the wrong hour (2 h late for Europe/Budapest).
+ */
+function shouldFire(r: Reminder, now: Date, tz: string): boolean {
   const parts = r.time?.split(':').map(Number)
   if (!parts || parts.length < 2) return false
   const [h, m] = parts
   if (Number.isNaN(h) || Number.isNaN(m)) return false
 
-  if (r.type === 'once') {
-    if (!r.date) return false
-    const target = new Date(`${r.date}T${r.time}:00`)
-    const delta = now.getTime() - target.getTime()
-    return delta >= 0 && delta <= WINDOW_MS
+  const local = tzParts(now, tz)
+  const targetMin = h * 60 + m
+
+  // Minutes since the target, allowing for the local-midnight wrap: a 23:55
+  // reminder checked at 00:05 is 10 minutes late, not 1430 minutes early.
+  let delta = local.minutes - targetMin
+  let firedOn = local.date
+  let firedDow = local.weekday
+  if (delta < 0 && delta + 1440 <= WINDOW_MIN) {
+    delta += 1440
+    const yesterday = tzParts(new Date(now.getTime() - 86_400_000), tz)
+    firedOn = yesterday.date
+    firedDow = yesterday.weekday
   }
+  if (delta < 0 || delta > WINDOW_MIN) return false
 
-  // Daily / weekly: compute today's instance of HH:MM
-  const target = new Date(now)
-  target.setHours(h, m, 0, 0)
-  const delta = now.getTime() - target.getTime()
-  if (delta < 0 || delta > WINDOW_MS) return false
-
-  if (r.type === 'daily') return true
-  if (r.type === 'weekly') return r.week_days?.includes(now.getDay()) ?? false
+  if (r.type === 'once')   return r.date === firedOn
+  if (r.type === 'daily')  return true
+  if (r.type === 'weekly') return r.week_days?.includes(firedDow) ?? false
   return false
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  // Service-role sweep: pg_cron proves itself with x-cron-secret, the in-app
+  // safety-net ping proves itself with the session cookie it already sends.
+  const auth = await authorizeRequest(request)
+  if (!auth.ok) return NextResponse.json({ error: auth.reason }, { status: auth.status })
+
   const supabase = createAdminClient()
   const now = new Date()
 
@@ -87,7 +125,14 @@ export async function GET() {
     return NextResponse.json({ ok: true, fired: 0, reason: 'no active reminders' })
   }
 
-  const dueNow = (reminders as Reminder[]).filter(r => shouldFire(r, now))
+  // Each reminder's HH:MM is wall-clock time in its household's zone, so we
+  // need the zone before we can decide whether it's due. households.tz is set
+  // from the browser on first authenticated mount and defaults to 'UTC'.
+  const { data: households } = await supabase.from('households').select('id, tz')
+  const tzOf = new Map((households ?? []).map(h => [h.id as string, (h.tz as string) || 'UTC']))
+
+  const dueNow = (reminders as Reminder[]).filter(r =>
+    shouldFire(r, now, tzOf.get(r.household_id) ?? 'UTC'))
   if (dueNow.length === 0) {
     return NextResponse.json({ ok: true, fired: 0 })
   }
