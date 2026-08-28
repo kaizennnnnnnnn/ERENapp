@@ -35,6 +35,18 @@ export async function signUpAccount(args: {
       }
       return { ok: false, code: 'unknown', message: error?.message ?? 'Sign up failed' }
     }
+
+    // Record the acceptance the signup checkbox represents. The timestamp is
+    // set server-side by the RPC, so it is evidence rather than a value the
+    // client asserted.
+    //
+    // Best-effort on purpose, and the result is deliberately unchecked: if
+    // Supabase email confirmation is ever switched on there is no session
+    // here yet and this no-ops. TermsGate re-asks anyone whose acceptance is
+    // missing or older than the current terms, so the guarantee lives there
+    // — this only spares most people from meeting the gate at all.
+    await supabase.rpc('accept_terms')
+
     return { ok: true, value: { userId: data.user.id } }
   } catch {
     return { ok: false, code: 'network', message: NETWORK_MSG }

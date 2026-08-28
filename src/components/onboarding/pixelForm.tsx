@@ -10,6 +10,7 @@
 
 import type { CSSProperties, ReactNode } from 'react'
 import SparkleField from '@/components/SparkleField'
+import { IconCheck } from '@/components/PixelIcons'
 
 // ── Page background layers ──
 
@@ -236,10 +237,14 @@ export function PixelLink({
   children,
   onClick,
   href,
+  newTab = false,
 }: {
   children: ReactNode
   onClick?: () => void
   href?: string
+  /** Open in a new tab. Use for the legal documents: following them in-place
+   *  would throw away a half-typed signup form. */
+  newTab?: boolean
 }) {
   const style: CSSProperties = {
     fontFamily: '"Press Start 2P"',
@@ -252,6 +257,59 @@ export function PixelLink({
     cursor: 'pointer',
     background: 'none',
   }
-  if (href) return <a href={href} style={style}>{children}</a>
+  if (href) {
+    return (
+      <a href={href} style={style} {...(newTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+        {children}
+      </a>
+    )
+  }
   return <button type="button" onClick={onClick} style={style}>{children}</button>
+}
+
+// ── Checkbox ──
+
+/**
+ * A checkbox in the same obsidian-well language as PixelInput. The real
+ * <input> stays in the DOM (visually hidden, not display:none) so it keeps
+ * its role, its label association and its keyboard behaviour — the drawn
+ * square is decoration on top.
+ */
+export function PixelCheckbox({
+  checked,
+  onChange,
+  children,
+}: {
+  checked: boolean
+  onChange: (v: boolean) => void
+  children: ReactNode
+}) {
+  return (
+    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+      <span style={{ position: 'relative', flexShrink: 0, marginTop: 1 }}>
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={e => onChange(e.target.checked)}
+          style={{
+            position: 'absolute', width: 22, height: 22, margin: 0,
+            opacity: 0, cursor: 'pointer',
+          }}
+        />
+        <span aria-hidden style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 22, height: 22,
+          background: checked ? 'linear-gradient(180deg, #FFE08A 0%, #F5B73B 45%, #C77E16 100%)' : '#0B0B10',
+          border: '2px solid #050507',
+          boxShadow: checked
+            ? '2px 2px 0 #050507, inset 0 1px 0 rgba(255,255,255,0.35)'
+            : 'inset 0 2px 4px rgba(0,0,0,0.6), 0 0 0 1px rgba(var(--accent-rgb), 0.25)',
+          borderRadius: 3,
+        }}>
+          {checked && <IconCheck size={14} tone="#2A1A05" />}
+        </span>
+      </span>
+      <span style={{ fontSize: 12, lineHeight: 1.6, color: '#C9B8E8' }}>{children}</span>
+    </label>
+  )
 }

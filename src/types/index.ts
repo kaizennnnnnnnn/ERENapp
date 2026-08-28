@@ -66,6 +66,10 @@ export interface Profile {
    *  hardcoded-email check that made every household after the first one
    *  render two identical pink partners. */
   heart?: 'brown_heart' | 'pink_heart' | 'sparkle'
+  /** When this account last accepted the terms and content rules. Stamped
+   *  server-side by accept_terms(). Null for accounts created before the
+   *  gate existed — TermsGate re-asks them. */
+  terms_accepted_at?: string | null
   created_at: string
   updated_at: string
 }

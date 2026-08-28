@@ -4,7 +4,7 @@ import { useState } from 'react'
 import SketchEren from '@/components/SketchEren'
 import { IconEye, IconEyeOff } from '@/components/PixelIcons'
 import { signUpAccount } from '@/lib/onboarding'
-import { PixelButton, PixelInput, PixelError, PixelLink } from './pixelForm'
+import { PixelButton, PixelInput, PixelError, PixelLink, PixelCheckbox } from './pixelForm'
 
 export default function AccountStep({
   onDone,
@@ -17,6 +17,7 @@ export default function AccountStep({
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
+  const [accepted, setAccepted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<{ code: string; message: string } | null>(null)
 
@@ -27,7 +28,7 @@ export default function AccountStep({
       onDone({ userId: 'demo-user', name: name.trim() || 'Alex', email: email.trim() || 'demo@example.com' })
       return
     }
-    if (!name.trim() || !email.trim() || password.length < 6 || loading) {
+    if (!name.trim() || !email.trim() || password.length < 6 || !accepted || loading) {
       if (password.length > 0 && password.length < 6) {
         setError({ code: 'unknown', message: 'Password needs 6+ characters.' })
       }
@@ -79,7 +80,21 @@ export default function AccountStep({
         </PixelError>
       )}
 
-      <PixelButton variant="gold" type="submit" disabled={loading}>
+      {/* Consent gate. Play requires an app carrying user content to get
+          agreement to its content rules, and the 18+ floor has to be stated
+          where someone actually sees it — not only inside the document.
+          Unticked by default, and CONTINUE stays dead until it is ticked:
+          a pre-ticked box is not consent.
+
+          The links open in a new tab so reading them does not throw away a
+          half-typed form. */}
+      <PixelCheckbox checked={accepted} onChange={setAccepted}>
+        I am 18 or over, and I agree to the{' '}
+        <PixelLink href="/terms" newTab>TERMS</PixelLink>{' '}and{' '}
+        <PixelLink href="/privacy" newTab>PRIVACY POLICY</PixelLink>.
+      </PixelCheckbox>
+
+      <PixelButton variant="gold" type="submit" disabled={loading || !accepted}>
         {loading ? '...' : 'CONTINUE'}
       </PixelButton>
     </form>
