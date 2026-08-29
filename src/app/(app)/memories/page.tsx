@@ -9,10 +9,11 @@ import { onForeground } from '@/lib/onForeground'
 import { useAuth } from '@/hooks/useAuth'
 import type { Memory } from '@/types'
 import { formatDate, cn } from '@/lib/utils'
-import { Camera, Heart, Plus, Trash2, X, ChevronLeft } from 'lucide-react'
+import { Camera, Heart, Plus, Trash2, X, ChevronLeft, Flag } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useCare } from '@/contexts/CareContext'
+import ReportSheet from '@/components/safety/ReportSheet'
 
 /** How long a signed photo URL stays valid, and how stale one may get before
  *  a return to the foreground re-signs it. Short because a signed URL is a
@@ -65,6 +66,9 @@ export default function MemoriesPage() {
   const [saving, setSaving]       = useState(false)
   const [selected, setSelected]   = useState<Memory | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
+  // The memory being reported, if any. Separate from `selected` so the
+  // detail modal stays mounted behind the sheet.
+  const [reporting, setReporting] = useState<Memory | null>(null)
   // objectPath -> signed URL. The bucket is private, so a photo has no
   // stable address; every render needs a fresh token.
   const [signed, setSigned]       = useState<Record<string, string>>({})
@@ -352,6 +356,16 @@ export default function MemoriesPage() {
                   <Heart size={14} className={selected.is_favorite ? 'text-[#FF6B9D] fill-[#FF6B9D]' : 'text-gray-400'} />
                   <span className="font-pixel text-gray-600" style={{ fontSize: 6 }}>{selected.is_favorite ? 'UNFAV' : 'FAV'}</span>
                 </button>
+                {/* Report is offered on anyone's memory INCLUDING your own —
+                    a photo can be of you, uploaded by you, and still be the
+                    thing you need taken down. Delete stays own-rows-only,
+                    matching the RLS policy. */}
+                <button onClick={() => setReporting(selected)}
+                  className="px-3 flex items-center gap-1 transition-all active:translate-y-[1px]"
+                  style={{ background: '#FFF8F0', borderRadius: 3, border: '2px solid #F0D0A8', boxShadow: '2px 2px 0 #E0B888' }}>
+                  <Flag size={13} className="text-amber-500" />
+                  <span className="font-pixel text-amber-600" style={{ fontSize: 6 }}>REPORT</span>
+                </button>
                 {selected.user_id === user?.id && (
                   <button onClick={() => handleDelete(selected.id)}
                     className="px-4 flex items-center gap-1 transition-all active:translate-y-[1px]"
@@ -364,6 +378,15 @@ export default function MemoriesPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {reporting && (
+        <ReportSheet
+          target="memory"
+          targetId={reporting.id}
+          what="this memory"
+          onClose={() => setReporting(null)}
+        />
       )}
 
       {/* ── Loading (also covers a persistent outage; foreground retries) ── */}

@@ -28,7 +28,7 @@ import PageLoader from '@/components/PageLoader'
 export default function NotesPage() {
   const router = useRouter()
   const { user, profile } = useAuth()
-  const { notes, markNotesRead, partner, loading } = useCouple()
+  const { notes, markNotesRead, deleteMessage, partner, loading } = useCouple()
   const { setHideStats } = useCare()
 
   useEffect(() => {
@@ -61,6 +61,7 @@ export default function NotesPage() {
       myName={profile?.name?.split(' ')[0] ?? 'You'}
       partnerName={partner?.name?.split(' ')[0] ?? 'Them'}
       onExit={exit}
+      onDeleteNote={deleteMessage}
     />
   )
 }

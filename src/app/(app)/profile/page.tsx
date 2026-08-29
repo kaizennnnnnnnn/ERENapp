@@ -5,6 +5,8 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { blockUser } from '@/lib/reporting'
+import ReportSheet from '@/components/safety/ReportSheet'
 import { withRetry } from '@/lib/supabaseRetry'
 import { useAuth } from '@/hooks/useAuth'
 import type { Profile, DailyMood } from '@/types'
@@ -67,6 +69,10 @@ export default function ProfilePage() {
   // state rather than four booleans — every label the button shows is a
   // position in this machine.
   const [rotateState, setRotateState] = useState<'idle' | 'armed' | 'busy' | 'failed'>('idle')
+  const [reportOpen, setReportOpen] = useState(false)
+  const [blockOpen, setBlockOpen]   = useState(false)
+  const [blocking, setBlocking]     = useState(false)
+  const [blockErr, setBlockErr]     = useState<string | null>(null)
   const [partner, setPartner]         = useState<Profile | null>(null)
   const [inviteCode, setInviteCode]   = useState<string | null>(null)
   const [copied, setCopied]           = useState(false)
@@ -219,6 +225,24 @@ export default function ProfilePage() {
     setInviteCode(data as string)
     setCopied(false)   // the clipboard now holds the dead code
     setRotateState('idle')
+  }
+
+  // block_user() records the block and detaches this account in one
+  // transaction, and join_household() then refuses to put these two accounts
+  // together again in either direction. The hard navigation is for the same
+  // reason as leaving: every context downstream is built on a profile that
+  // still says we are in a household.
+  async function handleBlock() {
+    if (blocking || !partner?.id) return
+    setBlocking(true)
+    setBlockErr(null)
+    const res = await blockUser(partner.id)
+    if (!res.ok) {
+      setBlocking(false)
+      setBlockErr(res.message)
+      return
+    }
+    window.location.href = '/onboarding'
   }
 
   // leave_household() detaches this account and rotates the code behind it.
@@ -894,6 +918,87 @@ export default function ProfilePage() {
         <LogOut size={16} style={{ color: '#fca5a5' }} />
         <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, color: '#fca5a5', textShadow: '0 0 3px rgba(248,113,113,0.4)' }}>SIGN OUT</span>
       </button>
+
+      {/* ── Report and block ──
+          Play's UGC policy wants both, reachable in-app. They are separate
+          buttons on purpose: reporting is for us to act on and changes nothing
+          for the reporter, while blocking ends the shared home immediately.
+          Someone frightened should be able to do the second without the
+          first, and someone who just wants it looked at should not have to
+          blow up their household to say so. */}
+      {partner && (
+        <>
+          <button
+            onClick={() => { playSound('ui_tap'); setReportOpen(true) }}
+            className="w-full flex items-center justify-center gap-2 py-3 mt-3 transition-all active:translate-y-[1px]"
+            style={{ background: 'transparent', border: '1px solid rgba(120,113,108,0.35)' }}>
+            <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 1.5, color: '#8A7A85' }}>
+              REPORT {partner.name.split(' ')[0].toUpperCase()}
+            </span>
+          </button>
+
+          <button
+            onClick={() => { playSound('ui_tap'); setBlockOpen(true) }}
+            className="w-full flex items-center justify-center gap-2 py-3 mt-3 transition-all active:translate-y-[1px]"
+            style={{ background: 'transparent', border: '1px solid rgba(248,113,113,0.35)' }}>
+            <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 1.5, color: '#fca5a5' }}>
+              BLOCK {partner.name.split(' ')[0].toUpperCase()}
+            </span>
+          </button>
+        </>
+      )}
+
+      {reportOpen && partner && (
+        <ReportSheet
+          target="profile"
+          targetId={partner.id}
+          what={partner.name.split(' ')[0]}
+          onClose={() => setReportOpen(false)}
+        />
+      )}
+
+      {blockOpen && partner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-5"
+             style={{ background: 'rgba(5,5,7,0.82)' }}
+             role="dialog" aria-modal="true" aria-labelledby="block-title">
+          <div style={{ ...OBSIDIAN_BTN, maxWidth: 340, padding: 20, border: '2px solid rgba(248,113,113,0.5)' }}>
+            <Rivets inset={4} size={3} />
+            <p id="block-title" className="font-pixel mb-3"
+               style={{ fontSize: 9, letterSpacing: 1, color: '#fca5a5' }}>
+              BLOCK {partner.name.split(' ')[0].toUpperCase()}
+            </p>
+            <p className="mb-3" style={{ fontSize: 12, lineHeight: 1.55, color: '#C9BFC5' }}>
+              You leave this home right now, and {partner.name.split(' ')[0]} can
+              never share a home with you again — not even with a new invite code.
+            </p>
+            <p className="mb-4" style={{ fontSize: 12, lineHeight: 1.55, color: '#C9BFC5' }}>
+              Eren and everything you wrote together stay with them. Your account
+              is untouched, and you can start a new home straight after.
+            </p>
+            {blockErr && (
+              <p className="mb-3" style={{ fontSize: 11, color: '#fca5a5' }}>{blockErr}</p>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={() => { playSound('ui_tap'); setBlockOpen(false); setBlockErr(null) }}
+                disabled={blocking}
+                className="flex-1 py-2"
+                style={{ ...OBSIDIAN_BTN, opacity: blocking ? 0.5 : 1 }}>
+                <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 1, color: '#C9BFC5' }}>CANCEL</span>
+              </button>
+              <button
+                onClick={handleBlock}
+                disabled={blocking}
+                className="flex-1 py-2"
+                style={{ ...OBSIDIAN_BTN, border: '1px solid rgba(248,113,113,0.6)', opacity: blocking ? 0.5 : 1 }}>
+                <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 1, color: '#fca5a5' }}>
+                  {blocking ? 'BLOCKING…' : 'BLOCK'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Leave household ──
           The exit from a home you joined by mistake, or one you no longer

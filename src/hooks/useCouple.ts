@@ -549,6 +549,22 @@ function useCoupleImpl() {
     return coins > 0
   }, [user?.id, profile?.household_id, coopCombined, coopRow]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Delete one of your own messages. /terms §10 says you may remove
+  // individual items before deleting your account; for journal rows that was
+  // untrue until now, because the table had no DELETE policy for anyone.
+  //
+  // Own rows only, enforced by RLS as well as here. Both the chat and the
+  // note board are backed by this table, so one function covers both — the
+  // local removal touches both lists rather than guessing which the row is in.
+  const deleteMessage = useCallback(async (id: string): Promise<boolean> => {
+    if (!user?.id) return false
+    const { error } = await supabase.from('couple_journal').delete().eq('id', id)
+    if (error) return false
+    setJournal(prev => prev.filter(m => m.id !== id))
+    setNotes(prev => prev.filter(m => m.id !== id))
+    return true
+  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const coopGoal: CoopGoalState = {
     combined: coopCombined,
     mine: coopMine,
@@ -573,7 +589,7 @@ function useCoupleImpl() {
     partnerMood, partnerMoodWeek,
     lifetimeWLT, weeklyChampion, claimWeeklyChampion,
     coopGoal, claimCoopGoal,
-    sendMessage, sendNudge, markAllRead, loading,
+    sendMessage, sendNudge, deleteMessage, markAllRead, loading,
     refetch: fetchAll,
   }
 }

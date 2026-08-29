@@ -82,6 +82,17 @@ Eren does not ask Android for permission to read your photo library. When you
 add a photo, your device's own file picker opens and only the single file you
 choose is sent.
 
+### 2.5 Reports you send us
+If you report content or a person, we store what you reported, the reason you
+picked, anything you typed, your account id, and **a copy of the reported
+content as it was at that moment**. The copy is deliberate: content can be
+deleted, and a report with nothing attached cannot be acted on.
+
+We keep reports even if you or the reported person later delete your account,
+because a safety record that disappears on request is not a safety record. Our
+lawful basis is our legitimate interest in keeping the service safe, and where
+the law requires it, a legal obligation.
+
 ### 2.5 What you do in the app
 We record care actions (feeding, washing, playing and so on) with a timestamp
 and who did them, the length of your app sessions, mini-game scores and weekly
@@ -226,6 +237,7 @@ details here, or delete this paragraph.]
 |---|---|
 | Account, profile, household | Until you delete your account. |
 | Messages, notes, memories, photos, moods, reminders | Until you or your partner delete the item, or until you delete your account. |
+| Reports of content or people | Kept after account deletion. Safety records that vanish on request are not safety records. |
 | Care actions, game scores, session times, in-game progress | Until you delete your account. |
 | Your "Talk to Eren" transcript | Until you delete it in the app, or you delete your account. |
 | Facts Eren saved about you | Capped at 60 per person — the oldest is automatically deleted when a new one is saved. Deleted entirely with your account. |

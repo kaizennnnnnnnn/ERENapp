@@ -27,6 +27,9 @@ import { usePageReady } from '@/hooks/usePageReady'
 import SendErenSheet from '@/components/couple/SendErenSheet'
 import CozyCountdown from '@/components/couple/CozyCountdown'
 import SketchEren from '@/components/SketchEren'
+import MessageActions from '@/components/safety/MessageActions'
+import { useLongPress } from '@/hooks/useLongPress'
+import type { JournalMessage } from '@/types'
 import { MOOD_SKETCH, MOOD_THEME, LOW_MOODS } from '@/lib/moods'
 import { MOOD_CONFIGS } from '@/types'
 
@@ -40,10 +43,15 @@ export default function CouplePage() {
     partnerMood, partnerMoodWeek,
     lifetimeWLT, weeklyChampion, claimWeeklyChampion,
     notes, unreadNotes,
-    sendMessage, sendNudge, markAllRead, loading,
+    sendMessage, sendNudge, deleteMessage, markAllRead, loading,
   } = useCouple()
   const { streak: myStreak } = useTasks()
   const [showSend, setShowSend] = useState(false)
+  // The message whose long-press sheet is open, if any.
+  const [actionOn, setActionOn] = useState<JournalMessage | null>(null)
+  // Hold a bubble to report or delete it. Tap is unused on a message, so
+  // the hold is the only free gesture here.
+  const { bind: bindHold } = useLongPress<JournalMessage>(setActionOn)
   // Local "user has closed the weekly popup this session" flag — hides
   // the popup instantly on backdrop tap even before the server ack lands.
   const [weeklyDismissed, setWeeklyDismissed] = useState(false)
@@ -646,13 +654,17 @@ export default function CouplePage() {
                     <img src="/erenGood.png" alt="" style={{ width: 18, height: 18, objectFit: 'contain', imageRendering: 'pixelated' }} />
                   </div>
                 )}
-                <div className="max-w-[75%] px-3 py-2 relative" style={{
+                <div {...bindHold(m)} className="max-w-[75%] px-3 py-2 relative" style={{
                   ...OBSIDIAN_FACE,
                   // Subtle border tint difference so "me" vs partner reads at
                   // a glance — purple-bright vs cool lavender — alongside the
                   // mirrored bottom border-radius.
                   borderColor: isMe ? `${accentA(0.47)}` : '#C4B5FD55',
                   borderRadius: isMe ? '6px 6px 2px 6px' : '6px 6px 6px 2px',
+                  // Without these a hold raises the OS selection menu over the
+                  // sheet it just opened.
+                  userSelect: 'none',
+                  WebkitTouchCallout: 'none',
                 }}>
                   <p className="text-sm" style={{ color: '#E8E0D0' }}>{m.message}</p>
                   <p className="text-[9px] mt-1" style={{ color: '#7A6A50' }}>
@@ -662,8 +674,26 @@ export default function CouplePage() {
               </div>
             )
           })}
+          {journal.length > 0 && (
+            <p className="text-center text-[10px] pt-1" style={{ color: '#5A4A40' }}>
+              Hold a message to report or delete it
+            </p>
+          )}
         </div>
       </div>
+
+      {actionOn && (
+        <MessageActions
+          target="message"
+          targetId={actionOn.id}
+          what="this message"
+          preview={actionOn.message}
+          onDelete={actionOn.sender_id === user?.id
+            ? async () => { await deleteMessage(actionOn.id) }
+            : undefined}
+          onClose={() => setActionOn(null)}
+        />
+      )}
 
       {showSend && partner && (
         <SendErenSheet

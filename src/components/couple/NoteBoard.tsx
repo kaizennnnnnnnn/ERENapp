@@ -18,6 +18,9 @@ import { FOOD_META } from '@/lib/foodMeta'
 import FoodIcon from '@/components/care/FoodIcon'
 import { IconPin, IconDoor, IconGift } from '@/components/PixelIcons'
 import type { JournalMessage } from '@/types'
+import { useLongPress } from '@/hooks/useLongPress'
+import MessageActions from '@/components/safety/MessageActions'
+import { useState } from 'react'
 
 // One ink per partner, from the household's fixed brown/pink convention.
 interface Ink {
@@ -63,9 +66,16 @@ interface Props {
   myName: string
   partnerName: string
   onExit: () => void
+  /** Remove one of my own notes. Omitted means the board is read-only. */
+  onDeleteNote?: (id: string) => Promise<boolean> | Promise<void> | void
 }
 
-export default function NoteBoard({ notes, myId, myHeart, myName, partnerName, onExit }: Props) {
+export default function NoteBoard({ notes, myId, myHeart, myName, partnerName, onExit, onDeleteNote }: Props) {
+  // Hold a note to report or take it down. A note has no tap action, so the
+  // hold is free here the same way it is in the chat.
+  const [actionOn, setActionOn] = useState<JournalMessage | null>(null)
+  const { bind: bindHold } = useLongPress<JournalMessage>(setActionOn)
+
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden" style={{
       background: 'linear-gradient(180deg, #CBA372 0%, #B98A56 55%, #9E6F3B 100%)',
@@ -156,12 +166,26 @@ export default function NoteBoard({ notes, myId, myHeart, myName, partnerName, o
                   ink={isBrownSender(mine, myHeart) ? BROWN : PINK}
                   name={mine ? myName : partnerName}
                   index={i}
+                  hold={bindHold(m)}
                 />
               </div>
             )
           })}
         </div>
       </div>
+
+      {actionOn && (
+        <MessageActions
+          target="message"
+          targetId={actionOn.id}
+          what="this note"
+          preview={actionOn.message}
+          onDelete={actionOn.sender_id === myId && onDeleteNote
+            ? async () => { await onDeleteNote(actionOn.id) }
+            : undefined}
+          onClose={() => setActionOn(null)}
+        />
+      )}
 
       {/* Exit pill — the board scrolls long, so the way out is at both ends. */}
       <button type="button" onClick={onExit} aria-label="Leave the note board"
@@ -196,11 +220,13 @@ export default function NoteBoard({ notes, myId, myHeart, myName, partnerName, o
 // on the leaning element would have to re-state the rotation in every
 // keyframe, and any future tweak to tilt() would silently desync them.
 // ────────────────────────────────────────────────────────────────────────────
-function PinnedNote({ m, ink, name, index }: {
+function PinnedNote({ m, ink, name, index, hold }: {
   m: JournalMessage
   ink: Ink
   name: string
   index: number
+  /** Long-press handlers from the board's useLongPress bind(). */
+  hold: Record<string, unknown>
 }) {
   const gift = m.gift_item && FOOD_META[m.gift_item.key] ? m.gift_item : null
 
@@ -210,7 +236,11 @@ function PinnedNote({ m, ink, name, index }: {
       // Stagger the first screenful only — past that it's just latency.
       animation: `nbPinIn 0.34s cubic-bezier(0.34,1.56,0.64,1) ${Math.min(index, 6) * 0.045}s both`,
     }}>
-      <div className="relative" style={{ transform: `rotate(${tilt(m.id)}deg)` }}>
+      <div {...hold} className="relative" style={{
+        transform: `rotate(${tilt(m.id)}deg)`,
+        userSelect: 'none',
+        WebkitTouchCallout: 'none',
+      }}>
         {/* Paper */}
         <div style={{
           background: `repeating-linear-gradient(${ink.paper} 0 20px, ${ink.rule} 20px 21px)`,
