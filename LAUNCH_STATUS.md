@@ -66,23 +66,6 @@ beats the environment entirely.
 
 ---
 
-## Migrations — all applied
-
-`private_memories_bucket`, `account_deletion_fix`, `journal_integrity`,
-`avatar_bucket_scope`, `terms_acceptance` all pasted 2026-08-28, on top of the
-earlier set (`kiosk_shifts`, `household_takeover_fix`, `per_profile_heart`,
-`leave_household`, `account_deletion`, `cron_io_reduction`, `cron_auth_headers`).
-
-`account_deletion_fix` deadlocked on its first run — `DROP NOT NULL` needs an
-AccessExclusiveLock and `fire-reminders` reads `reminders` every 15 minutes.
-The file now sets `lock_timeout` and retries each ALTER inside its own
-EXCEPTION block, so a caught deadlock releases its locks and the loop carries
-on instead of the script dying.
-
-**Nothing is queued for the dashboard.** Next SQL will come with report+block.
-
----
-
 ## The three defects the UGC map turned up
 
 Found while inventorying user-content surfaces for report+block. All three
@@ -111,63 +94,108 @@ Now it takes only a message id and refuses unless the caller wrote that row.
 
 ---
 
-## ⚠ ONE MIGRATION TO PASTE
+## Safety + IP work (commits `12e1dc8`, `779168c`, `a83fa0a`)
 
-`supabase/migration_reports_blocks.sql` — reports, blocks, delete-your-own-
-message, and the evidence-retention guard. Everything else is applied.
+**Report / block / delete shipped.** Long-press a message or note → Report /
+Delete. Report on the memory wall, report-and-block on the profile, flag on
+Eren's AI replies. Design notes that matter if you touch it:
+
+- `report_content()` is an RPC, not an insert. A client-supplied snapshot could
+  fabricate a message a partner never sent; a client-chosen target id would
+  turn reporting into an oracle for probing whether a uuid exists. The server
+  reads the row itself, scoped to the caller's own household.
+- The snapshot exists BECAUSE people can now delete their own messages.
+- `content_reports` and `user_blocks` use PLAIN uuids, no FK. An evidence
+  record has to outlive the account it names, and a cascading block would let
+  the blocked party delete their account to remove the row keeping them out.
+- Block = leave + a permanent symmetric bar in `join_household()`. The CALLER
+  leaves, never the other person — otherwise either member could evict the
+  other from a shared history and keep it.
+- A reported photo's bytes are held by `object_has_open_report()`, which the
+  storage DELETE policy and both last-member sweeps consult. The row still
+  deletes so nothing tips off the uploader.
+- You cannot report after blocking (reporting needs a shared household). The
+  block dialog says so and offers reporting first.
+
+**Trademarks removed.** The ten `monsta_*.png` were renders of REAL Monster
+cans (claw + wordmark legible); `fr_pepsi.webp` carried the PEPSI wordmark and
+globe, and a Pepsi can was painted into `KioskBackReal.webp`. All regenerated
+as original art with a paw mark by `scripts/build_energy_cans.py` and
+`scripts/build_cola_can.py` — rerun those rather than hand-editing the PNGs.
+Tic-tac-toe's "lime claw-mark accents" are a paw now. Flavours renamed off
+Monster's SKU line; Biscoff → Speculoos.
+
+**IDs were deliberately NOT renamed** (`monsta_*`, `donut_biscoff`) — they are
+stored in inventories, gift payloads and purchase history. Only pixels and
+display names moved. `SideId 'pepsi'` → `'cola'` WAS safe: in-memory only.
+
+---
+
+## Migrations — ALL APPLIED, nothing queued
+
+Applied 2026-08-28/29: `kiosk_shifts`, `household_takeover_fix`,
+`per_profile_heart`, `leave_household`, `account_deletion`,
+`cron_io_reduction`, `cron_auth_headers`, `private_memories_bucket`,
+`account_deletion_fix`, `journal_integrity`, `avatar_bucket_scope`,
+`terms_acceptance`, `reports_blocks`.
+
+Verified live after the last paste: `report_content`, `block_user`,
+`join_household` functions present; `content_reports` and `user_blocks`
+tables present; journal delete/read/send and block read/lift policies present.
+
+**Nothing is waiting for the dashboard.**
 
 ---
 
 ## NEXT UP
 
-### 1. TWA build — still the blocker on the longest pole
+### 1. TWA build — the blocker on the longest pole
 Testers can only opt in to a build that exists in Play Console, so this gates
-the 4-6 week wait, not report+block.
+the 4-6 week wait. Nothing else does.
 
-**Prep is done in the repo:** real 192/512 icons, separate maskable variants
-with a safe zone, explicit `scope`, matching `theme_color`, and
-`public/.well-known/assetlinks.json` scaffolded with the Play-App-Signing
-trap written up in a README beside it. `public/play-icon-512.png` is the Play
-listing hi-res icon.
+**Done in the repo:** real 192/512 icons plus separate maskable variants with
+a safe zone (the art runs edge to edge, so a maskable-declared full-bleed icon
+would have been cropped into the cats); explicit `scope`; `theme_color` now
+matches the meta tag; `public/.well-known/assetlinks.json` scaffolded with the
+Play-App-Signing trap written up in a README beside it;
+`public/play-icon-512.png` for the listing.
 
-**Still needed and only you can do it:** the Play Console app, the $25
-registration, then `bubblewrap init/build`, upload, and paste the real
-fingerprint into assetlinks.json.
+**Yours:** Play Console app + $25, then `bubblewrap init/build`, upload, read
+the SHA-256 from **Play App Signing** (NOT the local upload key — that mismatch
+is the usual cause of a TWA shipping with a visible address bar), paste it into
+assetlinks.json, redeploy.
 
 **Store art that does not exist:** 1024x500 feature graphic (net-new), and
-phone screenshots at a compliant ratio — the 52 dev shots in `scripts/*_shots/`
-are 780x1688, whose 2.164 ratio exceeds Play's 2.0 limit, so they cannot be
-used.
+phone screenshots — the 52 dev shots in `scripts/*_shots/` are 780x1688, and
+that 2.164 ratio exceeds Play's 2.0 limit, so they cannot be used.
 
 ### 2. Start the 12-tester clock the moment a build is up
-Recruit 15. Everything below ships into the same track while it runs.
+12 opted in for 14 CONTINUOUS days, then ~7 days review. Recruit 15 — dropping
+below 12 on day nine is the failure mode. Must be the Google account they
+actually use on the Play Store. Everything below ships into the same track
+while the clock runs.
 
-### 3. IP — this is worse than "pastiche" and needs deciding now
-Verified by opening the files, not inferred:
-- `public/food/monsta_*.png` (10 files) are renders of **real Monster Energy
-  cans** — the claw device and the MONSTER ENERGY wordmark are legible.
-- `public/fr_pepsi.webp` carries the **PEPSI wordmark twice and the globe**.
-- `games/tic-tac-toe/page.tsx:930-968` draws "lime claw-mark accents".
-- `lib/donuts.ts:124` sells a donut named **Biscoff** (Lotus Bakeries).
-
-Renaming does not help — the infringement is in the pixels. Redraw or remove
-before buying store art, because Play's IP process is takedown on complaint.
-
-### 4. Remaining code, in rough priority
-- Solo state (100% of new installs land on a couple UI with no partner)
-- Password reset (does not exist anywhere)
-- Economy hardening (coins/stardust/inventory client-writable)
-- Offline fallback: the SW caches images only, so a cold start with no network
-  is a blank screen with no address bar to escape from in a TWA
-- Precache is 30 MB and re-pulls on every SW_VERSION bump
-- Bakery donut machine is a second loot box with no published odds
-- Error reporting (none exists)
-- React #418/#423 hydration errors on /home, still undiagnosed
-
-### Placeholders — 34 total, not 21
+### 3. Fill 34 placeholders
 21 in `privacy/policy.md`, 13 in `terms/terms.md`, plus a live
-`PLACEHOLDER@example.com` mailto on `/delete-account:114` — which is the exact
-page a Play reviewer opens for the deletion-URL requirement.
+`PLACEHOLDER@example.com` mailto at `delete-account/page.tsx:114` — the exact
+page a reviewer opens for the deletion-URL requirement. Then set
+`TERMS_LAST_UPDATED` in `components/legal/TermsGate.tsx` to the real publish
+date.
+
+### 4. Remaining code, roughly prioritised
+- **Solo state** — 100% of new installs land on a couple UI with no partner
+- **Password reset** — does not exist anywhere
+- **Economy hardening** — coins/stardust/inventory client-writable; gacha odds
+  are a promise the server cannot keep
+- **Offline fallback** — the SW caches images only, so a cold start with no
+  network is a blank screen with no address bar to escape from in a TWA
+- **Precache is 30 MB** and re-pulls on every SW_VERSION bump
+- **Bakery donut machine** is a second loot box with no published odds
+- **Error reporting** — none exists
+- **React #418/#423** hydration errors on /home, still undiagnosed (MoodSky
+  ruled out; needs a dev build to read the un-minified mismatch)
+- **`/talk` has no AI disclosure in the UI** — the reply-flag is now wired, but
+  nothing on screen says it is software
 
 ---
 
