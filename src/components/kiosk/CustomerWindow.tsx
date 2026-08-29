@@ -269,7 +269,7 @@ export default function CustomerWindow({
                       {order.sides.map(s => (
                         <img key={s} src={SIDE_BY_ID[s].sprite} alt={SIDE_BY_ID[s].label}
                           draggable={false}
-                          style={{ width: s === 'pepsi' ? 18 : 24, height: 24, objectFit: 'contain' }} />
+                          style={{ width: s === 'cola' ? 18 : 24, height: 24, objectFit: 'contain' }} />
                       ))}
                     </div>
                   )}

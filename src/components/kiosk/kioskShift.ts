@@ -98,7 +98,7 @@ export const TOPPINGS: ToppingDef[] = [
 export const TOPPING_BY_ID: Record<ToppingId, ToppingDef> =
   Object.fromEntries(TOPPINGS.map(t => [t.id, t])) as Record<ToppingId, ToppingDef>
 
-export const PEPSI_SPRITE = '/fr_pepsi.webp'
+export const COLA_SPRITE = '/fr_cola.webp'
 
 // ── Sauce ──────────────────────────────────────────────────────────────────
 // Three squeeze bottles standing on the prep counter under the pans. The
@@ -135,10 +135,10 @@ export const SAUCE_BY_ID: Record<SauceId, SauceDef> =
 export const SAUCE_BOX = { width: 5.6, top: 65.46 }
 
 // ── Sides ──────────────────────────────────────────────────────────────────
-// Things that ride alongside the wrap instead of going in it. The Pepsi comes
+// Things that ride alongside the wrap instead of going in it. The cola comes
 // out of the fridge; the chips come out of the warmer basket at the far end
 // of the same counter the sauces stand on.
-export type SideId = 'pepsi' | 'chips'
+export type SideId = 'cola' | 'chips'
 
 export interface SideDef {
   id: SideId
@@ -148,7 +148,7 @@ export interface SideDef {
 }
 
 export const SIDES: SideDef[] = [
-  { id: 'pepsi', label: 'Pepsi', sprite: PEPSI_SPRITE,     unlockAt: 0  },
+  { id: 'cola', label: 'Cola', sprite: COLA_SPRITE,     unlockAt: 0  },
   { id: 'chips', label: 'Chips', sprite: '/fr_chips.webp', unlockAt: 50 },
 ]
 
@@ -453,7 +453,7 @@ export const KNIFE_TAG = { x: 76, y: 54 }
 
 // ── The fridge ────────────────────────────────────────────────────────────
 // Shelf standing-lines and the headroom above each, measured off FridgeOpen.
-// One item per shelf, top to bottom: the four toppings, then the Pepsi.
+// One item per shelf, top to bottom: the four toppings, then the cola.
 export const FRIDGE_SHELVES = [
   { base: 32.56, gap: 12.21 },
   { base: 44.70, gap: 10.90 },
@@ -953,7 +953,7 @@ export function rollOrder(menu: MenuState, regulars: Regulars, rude = false): Or
   if (Math.random() < TWO_WRAP_CHANCE) wraps.push(rollWrap(menu))
 
   const sides: SideId[] = []
-  if (Math.random() < 0.45) sides.push('pepsi')
+  if (Math.random() < 0.45) sides.push('cola')
   if (menu.sides.includes('chips') && Math.random() < 0.3) sides.push('chips')
 
   return {
@@ -981,7 +981,7 @@ export function rollLate(menu: MenuState): Order {
   return {
     ...visitor(customer), late: true,
     wraps: [{ toppings: ['onion', 'cheese'], sauce, without: null }],
-    sides: ['pepsi'],
+    sides: ['cola'],
     line: pick(LATE_LINES),
   }
 }

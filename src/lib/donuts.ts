@@ -121,7 +121,7 @@ export const DONUTS: DonutDef[] = [
     perk: { label: 'HUNGER +45',     hunger: 45 }, taste: 'meh' },
   { id: 'donut_lavender',     name: 'Lavender',         price: 28, hungerD: 12, happyD: 28, weightD: 0.04, desc: 'Honey drizzle, berries', color: '#B98BE0', source: 'bakery' ,
     perk: { label: 'SLEEP +28',      sleep_quality: 28 }, taste: 'likes' },
-  { id: 'donut_biscoff',      name: 'Biscoff',          price: 30, hungerD: 15, happyD: 29, weightD: 0.06, desc: 'Spiced biscuit spread',  color: '#B5793F', source: 'bakery' ,
+  { id: 'donut_biscoff',      name: 'Speculoos',          price: 30, hungerD: 15, happyD: 29, weightD: 0.06, desc: 'Spiced biscuit spread',  color: '#B5793F', source: 'bakery' ,
     perk: { label: '+22 COINS',      coins: 22 }, taste: 'likes' },
   { id: 'donut_pistachio',    name: 'Pistachio',        price: 32, hungerD: 13, happyD: 30, weightD: 0.05, desc: 'Nutty green crumble',    color: '#A8BE72', source: 'bakery' ,
     perk: { label: '-0.15 KG',       weight: -0.15 }, taste: 'likes' },

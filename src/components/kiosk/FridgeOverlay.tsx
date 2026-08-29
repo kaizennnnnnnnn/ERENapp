@@ -1,10 +1,10 @@
 'use client'
 
-// The fridge, opened. Five shelves, four toppings and the Pepsi.
+// The fridge, opened. Five shelves, four toppings and the cola.
 //
 // You don't grab the food itself — each shelf has its own little REFILL button
 // you press and hold, the way a restock is a thing you *do* rather than a
-// thing that happens because you touched a tomato. The Pepsi is a single tap,
+// thing that happens because you touched a tomato. The cola is a single tap,
 // since you're taking one can, not filling anything.
 
 import { useEffect } from 'react'
@@ -13,15 +13,15 @@ import { playSound } from '@/lib/sounds'
 import HoldTarget from './HoldTarget'
 import { useCoverBox } from './useCoverBox'
 import {
-  TOPPINGS, PEPSI_SPRITE, FRIDGE_SHELVES, FRIDGE_ITEM_X, FRIDGE_BTN_X,
+  TOPPINGS, COLA_SPRITE, FRIDGE_SHELVES, FRIDGE_ITEM_X, FRIDGE_BTN_X,
   MAX_USES, type ToppingId,
 } from './kioskShift'
 
 interface Props {
   stock: Record<ToppingId, number>
-  hasPepsi: boolean
+  hasCola: boolean
   onRestock: (id: ToppingId) => void
-  onTakePepsi: () => void
+  onTakeCola: () => void
   onClose: () => void
 }
 
@@ -39,7 +39,7 @@ function face(live: boolean): React.CSSProperties {
   }
 }
 
-export default function FridgeOverlay({ stock, hasPepsi, onRestock, onTakePepsi, onClose }: Props) {
+export default function FridgeOverlay({ stock, hasCola, onRestock, onTakeCola, onClose }: Props) {
   const box = useCoverBox(768, 1376)
 
   useEffect(() => { playSound('ui_modal_open') }, [])
@@ -105,28 +105,28 @@ export default function FridgeOverlay({ stock, hasPepsi, onRestock, onTakePepsi,
           )
         })}
 
-        {/* Pepsi — one tap, one can. */}
+        {/* Cola — one tap, one can. */}
         {(() => {
           const shelf = FRIDGE_SHELVES[4]
           const top = shelf.base - shelf.gap * 0.82
           const height = shelf.gap * 0.82
           return (
             <>
-              <img src={PEPSI_SPRITE} alt="Pepsi" draggable={false} style={{
+              <img src={COLA_SPRITE} alt="Cola" draggable={false} style={{
                 position: 'absolute',
                 left: `${FRIDGE_ITEM_X}%`, top: `${top}%`,
                 height: `${height}%`, width: 'auto',
                 transform: 'translateX(-50%)',
                 objectFit: 'contain',
-                filter: hasPepsi ? 'brightness(0.45) saturate(0.5)' : 'none',
+                filter: hasCola ? 'brightness(0.45) saturate(0.5)' : 'none',
                 transition: 'filter 240ms ease',
                 pointerEvents: 'none',
               }} />
               <button
                 type="button"
-                aria-label="Take a Pepsi"
-                disabled={hasPepsi}
-                onClick={onTakePepsi}
+                aria-label="Take a cola"
+                disabled={hasCola}
+                onClick={onTakeCola}
                 className="active:translate-y-[2px] transition-transform"
                 style={{
                   position: 'absolute',
@@ -135,7 +135,7 @@ export default function FridgeOverlay({ stock, hasPepsi, onRestock, onTakePepsi,
                   background: 'none', border: 0, padding: 0,
                 }}
               >
-                <span className="font-pixel" style={face(!hasPepsi)}>TAKE</span>
+                <span className="font-pixel" style={face(!hasCola)}>TAKE</span>
               </button>
             </>
           )

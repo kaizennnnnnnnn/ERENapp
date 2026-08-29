@@ -63,7 +63,7 @@ export function wrapBase(w: Wrap): number {
 }
 
 export function sideBase(id: SideId): number {
-  return id === 'pepsi' ? 3 : 4
+  return id === 'cola' ? 3 : 4
 }
 
 /** What the order is worth before anyone decides how they feel about you. */

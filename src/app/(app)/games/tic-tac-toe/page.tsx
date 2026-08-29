@@ -948,16 +948,18 @@ function CanBody() {
       <rect x="18" y="5" width="1" height="32" fill="#000000" />
       <rect x="2" y="5" width="1" height="32" fill="#0A0A0A" />
       <rect x="19" y="5" width="1" height="32" fill="#0A0A0A" />
-      {/* Lime claw-mark accents */}
-      <rect x="6"  y="11" width="2" height="14" fill="#10B981" />
-      <rect x="6"  y="11" width="1" height="14" fill="#34D399" />
-      <rect x="6"  y="10" width="2" height="1"  fill="#A3F0C0" />
-      <rect x="10" y="13" width="2" height="11" fill="#10B981" />
-      <rect x="10" y="13" width="1" height="11" fill="#34D399" />
-      <rect x="10" y="12" width="2" height="1"  fill="#A3F0C0" />
-      <rect x="14" y="11" width="2" height="14" fill="#10B981" />
-      <rect x="14" y="11" width="1" height="14" fill="#34D399" />
-      <rect x="14" y="10" width="2" height="1"  fill="#A3F0C0" />
+      {/* Paw mark. This was three vertical lime slashes on a black can —
+          which is the Monster claw, and the comment said so. Same paw as the
+          energy cans in public/food/, so the easter egg still reads as a can
+          from this app rather than a real brand. */}
+      <rect x="5"  y="12" width="2" height="3" fill="#F3E8D2" />
+      <rect x="8"  y="11" width="2" height="4" fill="#F3E8D2" />
+      <rect x="12" y="11" width="2" height="4" fill="#F3E8D2" />
+      <rect x="15" y="12" width="2" height="3" fill="#F3E8D2" />
+      <rect x="7"  y="18" width="8" height="4" fill="#F3E8D2" />
+      <rect x="8"  y="17" width="6" height="1" fill="#F3E8D2" />
+      <rect x="8"  y="22" width="6" height="1" fill="#F3E8D2" />
+      <rect x="7"  y="21" width="8" height="1" fill="#CFC3AA" />
       {/* Bottom metallic ring */}
       <rect x="2" y="37" width="18" height="2" fill="#525252" />
       <rect x="3" y="37" width="16" height="1" fill="#9CA3AF" />

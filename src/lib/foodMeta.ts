@@ -64,20 +64,20 @@ export const FOOD_META: Record<FoodKey, { name: string; color: string }> = {
   stew:          { name: 'Stew',          color: '#8E5A2E' },
   meatballs:     { name: 'Meatballs',     color: '#C4452F' },
   roast_chicken: { name: 'Roast Chicken', color: '#D8973C' },
-  monsta_original: { name: 'Original Monsta', color: '#A6E728' },
-  monsta_white:    { name: 'White Monsta',    color: '#2FBCB3' },
-  monsta_mango:    { name: 'Mango Monsta',    color: '#F9A300' },
-  monsta_loco:     { name: 'Loco Monsta',     color: '#69C7EB' },
-  monsta_pipeline: { name: 'Pipeline Monsta', color: '#F96679' },
-  monsta_punch:    { name: 'Punch Monsta',    color: '#E9665C' },
-  monsta_rosa:     { name: 'Rosa Monsta',     color: '#D05C8D' },
-  monsta_peachy:   { name: 'Peachy Monsta',   color: '#F9AB94' },
+  monsta_original: { name: 'Original Monsta',       color: '#A6E728' },
+  monsta_white:    { name: 'Frost Monsta',          color: '#2FBCB3' },
+  monsta_mango:    { name: 'Mango Monsta',          color: '#F9A300' },
+  monsta_loco:     { name: 'Wave Monsta',           color: '#69C7EB' },
+  monsta_pipeline: { name: 'Guava Monsta',          color: '#F96679' },
+  monsta_punch:    { name: 'Berry Monsta',          color: '#E9665C' },
+  monsta_rosa:     { name: 'Dragonfruit Monsta',    color: '#D05C8D' },
+  monsta_peachy:   { name: 'Peach Monsta',          color: '#F9AB94' },
   // Violet, not the old green — Original Monsta now owns the can-green, and
   // the rainbow's colour is carried by its animated gradient anyway.
-  monsta_rainbow:  { name: 'Rainbow Monsta',  color: '#B65CF0' },
+  monsta_rainbow:  { name: 'Rainbow Monsta',        color: '#B65CF0' },
   // Sampled off the can art's dominant body tone, so the swatch and the
   // sprite are the same gold rather than two guesses at one.
-  monsta_gold:     { name: 'Gold Monsta',     color: '#D89C24' },
+  monsta_gold:     { name: 'Gold Monsta',           color: '#D89C24' },
 }
 
 // Display order for food pickers — staples first (the everyday cat food), then

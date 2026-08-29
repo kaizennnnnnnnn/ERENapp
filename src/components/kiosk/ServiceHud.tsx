@@ -312,7 +312,7 @@ export default function ServiceHud({
               {tray.sides.map(s => (
                 <img key={s} src={SIDE_BY_ID[s].sprite} alt={SIDE_BY_ID[s].label} draggable={false}
                   style={{
-                    width: s === 'pepsi' ? 15 : 22, height: 24, objectFit: 'contain',
+                    width: s === 'cola' ? 15 : 22, height: 24, objectFit: 'contain',
                     filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))',
                     animation: 'kioskDropOn 320ms cubic-bezier(0.32, 0.72, 0, 1) both',
                   }} />

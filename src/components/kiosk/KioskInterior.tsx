@@ -700,9 +700,9 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
       {fridgeOpen && (
         <FridgeOverlay
           stock={shift.stock}
-          hasPepsi={shift.tray.sides.includes('pepsi')}
+          hasCola={shift.tray.sides.includes('cola')}
           onRestock={shift.restockTopping}
-          onTakePepsi={() => shift.takeSide('pepsi')}
+          onTakeCola={() => shift.takeSide('cola')}
           onClose={() => setFridgeOpen(false)}
         />
       )}

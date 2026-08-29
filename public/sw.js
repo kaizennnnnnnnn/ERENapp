@@ -2,7 +2,7 @@
 // Bump this string whenever you change badge/icon assets so the browser is
 // guaranteed to detect a byte difference and replace any old SW running on
 // the user's installed PWA. Pairs with no-store headers on /sw.js.
-const SW_VERSION = 'v27-attic-night-donut-2026-08-07'
+const SW_VERSION = 'v28-cola-icons-2026-08-29'
 
 // Room backgrounds + Eren sprite. We precache these on install so the user
 // can scroll between rooms with no internet without seeing the room render
@@ -33,7 +33,7 @@ const PRECACHE_IMAGES = [
   // and the five stages of the cone. Without these a dropped connection puts
   // you behind a counter with empty pans and no meat.
   '/fill_tomato.webp', '/fill_onion.webp', '/fill_cheese.webp', '/fill_lettuce.webp',
-  '/fr_tomato.webp', '/fr_onion.webp', '/fr_cheese.webp', '/fr_lettuce.webp', '/fr_pepsi.webp',
+  '/fr_tomato.webp', '/fr_onion.webp', '/fr_cheese.webp', '/fr_lettuce.webp', '/fr_cola.webp',
   '/meat1.webp', '/meat2.webp', '/meat3.webp', '/meat4.webp', '/meat5.webp',
   '/FridgeOpen.webp',
   // The prep board: the bread you build on, the carved meat that goes on it,
