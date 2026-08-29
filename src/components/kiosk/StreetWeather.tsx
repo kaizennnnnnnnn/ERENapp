@@ -17,7 +17,7 @@
 //          whole street sideways for a moment.
 
 import RainLayer from './RainLayer'
-import { GLASS, type WeatherId } from './kioskShift'
+import { GLASS, GLASS_MASK, type WeatherId } from './kioskShift'
 
 /** Stable pseudo-random, so the weather doesn't reshuffle on every render. */
 function hash(n: number): number {
@@ -32,6 +32,8 @@ function pane(children: React.ReactNode, extra?: React.CSSProperties) {
       left: `${GLASS.left}%`, top: `${GLASS.top}%`,
       width: `${GLASS.width}%`, height: `${GLASS.height}%`,
       zIndex: 3,
+      // Weather stops at the counter, not at the rectangle.
+      ...GLASS_MASK,
       ...extra,
     }}>
       {children}

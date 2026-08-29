@@ -10,7 +10,7 @@
 // It costs you nothing and pays you nothing on purpose. It's the one control
 // in the kiosk that exists only because you'd want to.
 
-import { GLASS } from './kioskShift'
+import { GLASS, GLASS_MASK } from './kioskShift'
 
 interface Props {
   /** 0 clear, 1 completely gone. */
@@ -57,6 +57,10 @@ export default function GlassMist({ mist, wipe, onWipe, still = false }: Props) 
         ...box, zIndex: 7,
         opacity: m,
         transition: 'opacity 600ms ease',
+        // Condensation forms on the GLASS. The shakers and the till are on
+        // this side of it and stay dry — without the mask the mist covers
+        // them too, which is what gave the whole ledge a grey lid.
+        ...GLASS_MASK,
       }}>
         <div style={{
           position: 'absolute', inset: 0,

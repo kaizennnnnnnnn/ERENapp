@@ -20,7 +20,7 @@
 // their positions come from a hash of their index rather than Math.random, so
 // the rain doesn't reshuffle itself on every re-render of the shift.
 
-import { GLASS } from './kioskShift'
+import { GLASS, GLASS_MASK } from './kioskShift'
 
 /** Stable pseudo-random in [0,1). Same seed, same rain, every render. */
 function hash(n: number): number {
@@ -143,6 +143,8 @@ export default function RainLayer({ still = false }: { still?: boolean }) {
       left: `${GLASS.left}%`, top: `${GLASS.top}%`,
       width: `${GLASS.width}%`, height: `${GLASS.height}%`,
       zIndex: 3,
+      // Rain falls behind the shakers and the till, not over them.
+      ...GLASS_MASK,
     }}>
       {/* The pane going cold and wet. Barely there — it only has to take the
           street half a step further away. */}
