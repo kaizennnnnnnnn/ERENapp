@@ -111,51 +111,63 @@ Now it takes only a message id and refuses unless the caller wrote that row.
 
 ---
 
-## NEXT UP — corrected order
+## ⚠ ONE MIGRATION TO PASTE
 
-Done: private photo bucket (`a1aeff7`), leave/rotate wired (`bfe996e`), terms +
-content rules published and gated (`45af286`, `ec457fa`), three UGC defects
-fixed (`4b90354`).
+`supabase/migration_reports_blocks.sql` — reports, blocks, delete-your-own-
+message, and the evidence-retention guard. Everything else is applied.
 
-### 1. TWA build — the real blocker on the longest pole
-Corrected from the earlier plan, which said "start recruiting". Recruiting is
-not what starts the clock: **testers can only opt in to a build that exists in
-Play Console**. So the Android wrapper is the gate on the 4-6 week wait, not
-report+block.
+---
 
-Needs: Bubblewrap init/build against `manifest.json`, a signed AAB, the app
-created in Play Console, and `/.well-known/assetlinks.json` served from the
-Vercel domain with the fingerprint from **Play App Signing** (not the local
-upload key).
+## NEXT UP
+
+### 1. TWA build — still the blocker on the longest pole
+Testers can only opt in to a build that exists in Play Console, so this gates
+the 4-6 week wait, not report+block.
+
+**Prep is done in the repo:** real 192/512 icons, separate maskable variants
+with a safe zone, explicit `scope`, matching `theme_color`, and
+`public/.well-known/assetlinks.json` scaffolded with the Play-App-Signing
+trap written up in a README beside it. `public/play-icon-512.png` is the Play
+listing hi-res icon.
+
+**Still needed and only you can do it:** the Play Console app, the $25
+registration, then `bubblewrap init/build`, upload, and paste the real
+fingerprint into assetlinks.json.
+
+**Store art that does not exist:** 1024x500 feature graphic (net-new), and
+phone screenshots at a compliant ratio — the 52 dev shots in `scripts/*_shots/`
+are 780x1688, whose 2.164 ratio exceeds Play's 2.0 limit, so they cannot be
+used.
 
 ### 2. Start the 12-tester clock the moment a build is up
-12 testers opted in for **14 continuous days**, then ~7 days review. Recruit
-15 — people uninstall and change phones, and dropping below 12 is a problem.
-Everything below can ship into the same closed-testing track while it runs.
+Recruit 15. Everything below ships into the same track while it runs.
 
-### 3. Report + block (Play blocking)
-The ground under it is now solid: messages are immutable, push cannot be
-spoofed, and every notification maps to a reportable row. Design decided:
-report targets `couple_journal.id` / `memories.id` / `profiles.id`; a block =
-leave the household + a permanent pair record enforced in `join_household()`.
-**Open question for the user:** whether to add delete-your-own-message (see
-below).
+### 3. IP — this is worse than "pastiche" and needs deciding now
+Verified by opening the files, not inferred:
+- `public/food/monsta_*.png` (10 files) are renders of **real Monster Energy
+  cans** — the claw device and the MONSTER ENERGY wordmark are legible.
+- `public/fr_pepsi.webp` carries the **PEPSI wordmark twice and the globe**.
+- `games/tic-tac-toe/page.tsx:930-968` draws "lime claw-mark accents".
+- `lib/donuts.ts:124` sells a donut named **Biscoff** (Lotus Bakeries).
 
-### 4. Verify TWA push on a real Android 13+ device
-[android-browser-helper#563](https://github.com/GoogleChrome/android-browser-helper/issues/563)
-(open, updated 2026-08-09): the page reports permission `granted` while native
-`POST_NOTIFICATIONS` stays blocked and nothing arrives. **The entire retention
-loop is push.** Test as soon as the TWA exists — if it bites, the plan changes.
+Renaming does not help — the infringement is in the pixels. Redraw or remove
+before buying store art, because Play's IP process is takedown on complaint.
 
-### 5. Open question, not yet diagnosed
-React **#418 / #423** hydration errors on `/home` in production. Non-fatal.
-`MoodSky` ruled out. Needs a dev build to read the un-minified mismatch.
+### 4. Remaining code, in rough priority
+- Solo state (100% of new installs land on a couple UI with no partner)
+- Password reset (does not exist anywhere)
+- Economy hardening (coins/stardust/inventory client-writable)
+- Offline fallback: the SW caches images only, so a cold start with no network
+  is a blank screen with no address bar to escape from in a TWA
+- Precache is 30 MB and re-pulls on every SW_VERSION bump
+- Bakery donut machine is a second loot box with no published odds
+- Error reporting (none exists)
+- React #418/#423 hydration errors on /home, still undiagnosed
 
-### Decision waiting on the user
-§10 of `/terms` says you can delete individual items before deleting your
-account. For journal messages that is **false** — `couple_journal` has no
-DELETE policy for anyone. Either add delete-your-own-message alongside the
-report UI (recommended, makes the sentence true) or amend the terms.
+### Placeholders — 34 total, not 21
+21 in `privacy/policy.md`, 13 in `terms/terms.md`, plus a live
+`PLACEHOLDER@example.com` mailto on `/delete-account:114` — which is the exact
+page a Play reviewer opens for the deletion-URL requirement.
 
 ---
 
