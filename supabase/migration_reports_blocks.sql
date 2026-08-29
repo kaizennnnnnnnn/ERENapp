@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS public.content_reports (
   reported_user_id  uuid,
   household_id      uuid,
   target_kind       text        NOT NULL
-                      CHECK (target_kind IN ('message','memory','profile','household')),
+                      CHECK (target_kind IN ('message','memory','profile','household','ai_reply')),
   target_id         uuid        NOT NULL,
   -- Drawn from the list published in /terms §4, so the categories a reporter
   -- picks from are the same ones the rules are written in.
@@ -57,6 +57,14 @@ CREATE TABLE IF NOT EXISTS public.content_reports (
 CREATE INDEX IF NOT EXISTS idx_reports_open
   ON public.content_reports(created_at DESC) WHERE status = 'open';
 
+-- One open report per reporter, per thing, per reason. Without this the RPC
+-- inserts unconditionally on every call, so anyone can bury a real report
+-- under thousands of scripted ones — and the operator queue is a plain
+-- time-ordered list, so burying it is enough to hide it.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_reports_open_per_target
+  ON public.content_reports(reporter_id, target_kind, target_id, reason)
+  WHERE status = 'open';
+
 ALTER TABLE public.content_reports ENABLE ROW LEVEL SECURITY;
 
 -- No policies at all, on purpose. Every write goes through report_content()
@@ -72,11 +80,18 @@ ALTER TABLE public.content_reports ENABLE ROW LEVEL SECURITY;
 -- ─────────────────────────────────────────────────────────────────────
 -- 2. user_blocks
 -- ─────────────────────────────────────────────────────────────────────
--- Unlike reports, these DO cascade: a block between two accounts is
--- meaningless once either is gone.
+-- Plain uuids with no foreign key, same reasoning as content_reports. With
+-- ON DELETE CASCADE, the blocked person deleting their account would delete
+-- the block that keeps them out — the one action a determined person is most
+-- likely to try. The row has to outlive the profile.
+--
+-- Be honest about the limit: a uuid is minted fresh on re-registration, so
+-- someone who deletes and signs up again is a different account and this
+-- cannot recognise them. What it does stop is the far commoner case — the
+-- same account being handed a new invite code.
 CREATE TABLE IF NOT EXISTS public.user_blocks (
-  blocker_id  uuid        NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  blocked_id  uuid        NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  blocker_id  uuid        NOT NULL,
+  blocked_id  uuid        NOT NULL,
   created_at  timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (blocker_id, blocked_id),
   CONSTRAINT no_self_block CHECK (blocker_id <> blocked_id)
@@ -176,11 +191,57 @@ BEGIN
      WHERE m.id = p_target_id AND m.household_id = v_household;
 
   ELSIF p_target_kind = 'profile' THEN
-    SELECT jsonb_build_object('name', p.name, 'heart', p.heart),
+    -- A name and a heart colour is not a report. Someone reporting a person
+    -- rather than one message is usually reporting a pattern — dozens of
+    -- messages, none individually damning — and asking them to file each one
+    -- separately is asking a person in distress to do data entry. Carry the
+    -- recent authored content with it so there is something to actually read.
+    SELECT jsonb_build_object(
+             'name',  p.name,
+             'heart', p.heart,
+             'recent_messages', coalesce((
+               SELECT jsonb_agg(x)
+                 FROM (
+                   SELECT j.message, j.gift_item, j.via_eren, j.created_at
+                     FROM public.couple_journal j
+                    WHERE j.household_id = v_household
+                      AND j.sender_id = p_target_id
+                    ORDER BY j.created_at DESC
+                    LIMIT 30
+                 ) x
+             ), '[]'::jsonb),
+             'recent_memories', coalesce((
+               SELECT jsonb_agg(y)
+                 FROM (
+                   SELECT m.text, m.image_url AS image_path, m.created_at
+                     FROM public.memories m
+                    WHERE m.household_id = v_household
+                      AND m.user_id = p_target_id
+                    ORDER BY m.created_at DESC
+                    LIMIT 20
+                 ) y
+             ), '[]'::jsonb)),
            p.id
       INTO v_snapshot, v_author
       FROM public.profiles p
      WHERE p.id = p_target_id AND p.household_id = v_household;
+
+  ELSIF p_target_kind = 'ai_reply' THEN
+    -- Play requires an in-app way to report generative-AI output. Scoped to
+    -- the caller's OWN chat, which is also the only thing they could report:
+    -- eren_chat_messages is private per user, partner included.
+    --
+    -- reported_user_id stays NULL. Nobody authored this — it came out of a
+    -- model — and pinning a person's id to it would put a human in a
+    -- moderation queue for something software said.
+    SELECT jsonb_build_object(
+             'content',    c.content,
+             'role',       c.role,
+             'created_at', c.created_at),
+           NULL::uuid
+      INTO v_snapshot, v_author
+      FROM public.eren_chat_messages c
+     WHERE c.id = p_target_id AND c.user_id = v_uid;
 
   ELSIF p_target_kind = 'household' THEN
     SELECT jsonb_build_object('name', h.name),
@@ -207,7 +268,19 @@ BEGIN
     v_uid, v_author, v_household,
     p_target_kind, p_target_id, p_reason, left(coalesce(p_detail, ''), 2000), v_snapshot
   )
+  ON CONFLICT DO NOTHING
   RETURNING id INTO v_report;
+
+  -- Already reported by this person, for this reason, and still open. Report
+  -- it as success: the reporter did the right thing and telling them "you
+  -- already did that" helps nobody.
+  IF v_report IS NULL THEN
+    SELECT id INTO v_report
+      FROM public.content_reports
+     WHERE reporter_id = v_uid AND target_kind = p_target_kind
+       AND target_id = p_target_id AND reason = p_reason AND status = 'open'
+     LIMIT 1;
+  END IF;
 
   RETURN v_report;
 END;
@@ -259,6 +332,12 @@ BEGIN
   ) OR EXISTS (
     SELECT 1 FROM public.couple_journal
      WHERE household_id = v_household AND sender_id = p_blocked_id
+  ) OR EXISTS (
+    -- Someone can share a home, upload photos and never type a message. Keying
+    -- reachability on journal authorship alone would make exactly that person
+    -- unblockable after they leave.
+    SELECT 1 FROM public.memories
+     WHERE household_id = v_household AND user_id = p_blocked_id
   ) INTO v_known;
 
   IF NOT v_known THEN
@@ -282,7 +361,8 @@ BEGIN
 
     IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE household_id = v_household) THEN
       DELETE FROM storage.objects
-       WHERE bucket_id = 'memories' AND name LIKE v_household::text || '/%';
+       WHERE bucket_id = 'memories' AND name LIKE v_household::text || '/%'
+         AND NOT public.object_has_open_report(name);
       DELETE FROM public.households WHERE id = v_household;
     ELSE
       UPDATE public.households
@@ -398,10 +478,184 @@ GRANT EXECUTE ON FUNCTION public.join_household(text) TO authenticated;
 -- is editing their side of a shared history — and it would let an abuser
 -- erase what they said from the other person's phone.
 DROP POLICY IF EXISTS "Users can delete own journal messages" ON public.couple_journal;
+-- The household predicate is not decoration. sender_id survives leaving and
+-- survives being blocked, and a PostgREST DELETE needs no SELECT privilege on
+-- the row — so without it, someone who left (or was blocked) could still reach
+-- back into the household they are no longer in and erase everything they ever
+-- said, which is precisely the evidence the person who blocked them may need.
 CREATE POLICY "Users can delete own journal messages"
   ON public.couple_journal FOR DELETE
   TO authenticated
-  USING (sender_id = auth.uid());
+  USING (
+    sender_id = auth.uid()
+    AND household_id = public.my_household_id()
+  );
+
+
+-- ─────────────────────────────────────────────────────────────────────
+-- 6b. Reported photos survive the uploader deleting them
+-- ─────────────────────────────────────────────────────────────────────
+-- The snapshot for a memory stores the object PATH, not the bytes — SQL
+-- cannot copy an object out of storage. So on its own it does not survive
+-- this sequence:
+--
+--   A uploads a photo → B reports it → A opens the memory wall and deletes
+--   it → memories/page.tsx removes the storage object first, then the row →
+--   the report now points at nothing.
+--
+-- That is the exact sequence that matters most, because the photos worth
+-- reporting are the ones the uploader most wants gone: an intimate image
+-- posted without consent, or worse. A report that resolves to a 404 is not
+-- evidence, and it is not something we could hand to anyone.
+--
+-- The fix keeps the ROW deletable and the OBJECT retained. The person
+-- deleting sees it disappear from the wall exactly as before — no error, no
+-- hint that anything was preserved, which matters because tipping off the
+-- uploader is its own harm. The bytes stay reachable to the service role
+-- until the report is closed.
+--
+-- The privacy policy already discloses that reports keep a copy of reported
+-- content and that we keep it after deletion.
+CREATE OR REPLACE FUNCTION public.object_has_open_report(p_name text)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  -- SECURITY DEFINER because content_reports has RLS on and no policies:
+  -- a storage policy evaluated as the deleting user could not see the rows,
+  -- and would silently always return false.
+  SELECT EXISTS (
+    SELECT 1 FROM public.content_reports
+     WHERE status = 'open'
+       AND (
+         (target_kind = 'memory'  AND snapshot->>'image_path' = p_name)
+         -- A profile report carries the reported person's recent memories,
+         -- so those paths need holding too.
+         OR (target_kind = 'profile'
+             AND snapshot->'recent_memories' @> jsonb_build_array(
+                   jsonb_build_object('image_path', p_name)))
+       )
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.object_has_open_report(text) FROM public;
+GRANT EXECUTE ON FUNCTION public.object_has_open_report(text) TO authenticated;
+
+DROP POLICY IF EXISTS "Users can delete own memory photos" ON storage.objects;
+CREATE POLICY "Users can delete own memory photos"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING (
+    bucket_id = 'memories'
+    AND (owner = auth.uid() OR owner_id = auth.uid()::text)
+    AND NOT public.object_has_open_report(name)
+  );
+
+
+-- ─────────────────────────────────────────────────────────────────────
+-- 6c. The same guard on account deletion
+-- ─────────────────────────────────────────────────────────────────────
+-- delete_my_account() sweeps the household's storage objects when the last
+-- member leaves, and it is SECURITY DEFINER so the policy above does not
+-- constrain it. Restated here in full — identical to
+-- migration_account_deletion_fix.sql apart from the one added condition —
+-- because a function body cannot be patched in place.
+CREATE OR REPLACE FUNCTION public.delete_my_account()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid       uuid := auth.uid();
+  v_household uuid;
+  v_remaining int;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'delete_my_account: not authenticated';
+  END IF;
+
+  SELECT household_id INTO v_household
+    FROM public.profiles WHERE id = v_uid;
+
+  -- ── 1. Personal data: destroyed outright ────────────────────────────────
+  -- Everything here must be a BASE TABLE. game_best_scores used to be in this
+  -- list and is a view over game_scores — deleting the underlying game_scores
+  -- rows (below) is what actually clears it.
+  DELETE FROM public.eren_chat_messages     WHERE user_id = v_uid;
+  DELETE FROM public.eren_chat_memories     WHERE user_id = v_uid;
+  DELETE FROM public.push_subscriptions     WHERE user_id = v_uid;
+  DELETE FROM public.user_gacha_state       WHERE user_id = v_uid;
+  DELETE FROM public.user_inventory         WHERE user_id = v_uid;
+  DELETE FROM public.gacha_pull_log         WHERE user_id = v_uid;
+  DELETE FROM public.user_task_completions  WHERE user_id = v_uid;
+  DELETE FROM public.interactions           WHERE user_id = v_uid;
+  DELETE FROM public.time_spent             WHERE user_id = v_uid;
+  DELETE FROM public.daily_moods            WHERE user_id = v_uid;
+  DELETE FROM public.game_scores            WHERE user_id = v_uid;
+  DELETE FROM public.jelly_scores           WHERE user_id = v_uid;
+  DELETE FROM public.jelly_duel_leads       WHERE user_id = v_uid;
+  DELETE FROM public.jelly_progress         WHERE user_id = v_uid;
+  DELETE FROM public.kiosk_shifts           WHERE user_id = v_uid;
+  DELETE FROM public.daily_battle_results   WHERE user_id = v_uid;
+  DELETE FROM public.weekly_battle_results  WHERE user_id = v_uid;
+  DELETE FROM public.weekly_coop_results    WHERE user_id = v_uid;
+  DELETE FROM public.weekly_game_results    WHERE user_id = v_uid;
+  DELETE FROM public.reminder_fires         WHERE user_id = v_uid;
+  DELETE FROM public.reminder_logs          WHERE user_id = v_uid;
+
+  -- ── 2. Co-authored content: severed, not destroyed ──────────────────────
+  -- Must run before the auth.users delete below: these columns carry
+  -- ON DELETE CASCADE, so a row still pointing at this user would be deleted
+  -- with them rather than anonymised, taking the partner's history with it.
+  UPDATE public.couple_journal      SET sender_id  = NULL WHERE sender_id  = v_uid;
+  UPDATE public.memories            SET user_id    = NULL WHERE user_id    = v_uid;
+  UPDATE public.household_reminders SET created_by = NULL WHERE created_by = v_uid;
+  UPDATE public.reminders           SET created_by = NULL WHERE created_by = v_uid;
+  UPDATE public.eren_wishes         SET granted_by = NULL WHERE granted_by = v_uid;
+
+  -- ── 3. The household ────────────────────────────────────────────────────
+  IF v_household IS NOT NULL THEN
+    SELECT count(*) INTO v_remaining
+      FROM public.profiles
+     WHERE household_id = v_household AND id <> v_uid;
+
+    IF v_remaining = 0 THEN
+      -- Last one out. Nothing here is shared any more, so the uploaded photos
+      -- go too. The bucket is private now, but an orphaned object still costs
+      -- storage and still answers any signed URL minted before this ran.
+      DELETE FROM storage.objects
+       WHERE bucket_id = 'memories'
+         AND name LIKE v_household::text || '/%'
+         AND NOT public.object_has_open_report(name);
+
+      DELETE FROM public.households WHERE id = v_household;
+    ELSE
+      -- Someone stays: rotate the code so a departed partner cannot rejoin,
+      -- and make sure the survivor holds a colour.
+      UPDATE public.households
+         SET invite_code = upper(substring(gen_random_uuid()::text FROM 1 FOR 8))
+       WHERE id = v_household;
+
+      UPDATE public.profiles
+         SET heart = 'brown_heart'
+       WHERE household_id = v_household
+         AND NOT EXISTS (
+           SELECT 1 FROM public.profiles
+            WHERE household_id = v_household AND heart = 'brown_heart' AND id <> v_uid
+         );
+    END IF;
+  END IF;
+
+  -- ── 4. The identity itself ──────────────────────────────────────────────
+  DELETE FROM auth.users WHERE id = v_uid;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.delete_my_account() FROM public;
+GRANT EXECUTE ON FUNCTION public.delete_my_account() TO authenticated;
 
 
 -- ─────────────────────────────────────────────────────────────────────

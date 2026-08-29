@@ -14,6 +14,7 @@ import AchievementToast from '@/components/AchievementToast'
 import StreakMilestoneBurst from '@/components/StreakMilestoneBurst'
 import MemoryWatcher from '@/components/memory/MemoryWatcher'
 import TermsGate from '@/components/legal/TermsGate'
+import AppGuard from '@/components/AppGuard'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -34,6 +35,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     <AchievementToast />
                     <StreakMilestoneBurst />
                     <MemoryWatcher />
+                    <AppGuard />
                     <AppFrame />
                     {/* Last, and above everything: nothing else in the app
                         should be reachable while acceptance is outstanding. */}

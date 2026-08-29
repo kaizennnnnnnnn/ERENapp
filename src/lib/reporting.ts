@@ -14,7 +14,7 @@
 import { createClient } from '@/lib/supabase/client'
 
 /** What can be reported. Matches the target_kind CHECK in the migration. */
-export type ReportTarget = 'message' | 'memory' | 'profile' | 'household'
+export type ReportTarget = 'message' | 'memory' | 'profile' | 'household' | 'ai_reply'
 
 /** Reason codes, matching the reason CHECK in the migration. */
 export type ReportReason =

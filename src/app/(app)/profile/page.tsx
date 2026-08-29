@@ -971,10 +971,23 @@ export default function ProfilePage() {
               You leave this home right now, and {partner.name.split(' ')[0]} can
               never share a home with you again — not even with a new invite code.
             </p>
-            <p className="mb-4" style={{ fontSize: 12, lineHeight: 1.55, color: '#C9BFC5' }}>
+            <p className="mb-3" style={{ fontSize: 12, lineHeight: 1.55, color: '#C9BFC5' }}>
               Eren and everything you wrote together stay with them. Your account
               is untouched, and you can start a new home straight after.
             </p>
+            {/* Reporting reads the content out of the household you share, so
+                once you have left there is nothing left for a report to point
+                at. Nobody should discover that ordering afterwards. */}
+            <button
+              onClick={() => { playSound('ui_tap'); setBlockOpen(false); setReportOpen(true) }}
+              disabled={blocking}
+              className="w-full py-2 mb-4"
+              style={{ background: 'transparent', border: '1px solid rgba(251,191,36,0.45)', opacity: blocking ? 0.5 : 1 }}>
+              <span style={{ fontSize: 12, color: '#fbbf24' }}>
+                Want us to look at what they did? Report first —
+                you cannot report once you have left.
+              </span>
+            </button>
             {blockErr && (
               <p className="mb-3" style={{ fontSize: 11, color: '#fca5a5' }}>{blockErr}</p>
             )}

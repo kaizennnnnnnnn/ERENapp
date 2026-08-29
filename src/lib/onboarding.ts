@@ -121,6 +121,12 @@ export async function joinHousehold(args: {
       if (raised.includes('already_in_household')) {
         return { ok: false, code: 'invalid_code', message: "You're already in a home. Leave it first from your profile." }
       }
+      // Someone in that household blocked this account, or this account
+      // blocked someone in it. Deliberately vague about which: naming the
+      // person would tell a blocked ex exactly whose code they just tried.
+      if (raised.includes('blocked')) {
+        return { ok: false, code: 'invalid_code', message: 'That code cannot be used with this account.' }
+      }
       return { ok: false, code: 'network', message: NETWORK_MSG }
     }
     if (!householdId) {

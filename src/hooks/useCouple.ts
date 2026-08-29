@@ -279,9 +279,13 @@ function useCoupleImpl() {
     }
     const onActive = () => {
       recount()
-      // Self-heal after a Supabase outage: the mount-time fetchAll only
-      // runs once, so a failed load would otherwise persist until a reload.
-      if (loadFailedRef.current) fetchAll()
+      // Refetch unconditionally, not just after an outage. The realtime
+      // channel subscribes to INSERT only, so a message the sender DELETED
+      // stays on the other person's screen indefinitely — including one
+      // deleted precisely because it should not have been sent. Returning to
+      // the app is the natural moment to reconcile, and it also self-heals a
+      // load that failed during a Supabase outage.
+      fetchAll()
     }
     const onStorage = (e: StorageEvent) => {
       if (e.key === `eren_journal_read_${user.id}`) recount()

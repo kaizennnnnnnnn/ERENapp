@@ -48,7 +48,6 @@ export async function subscribeToPush(userId: string, householdId: string): Prom
       return false
     }
 
-    console.log('Push subscription saved successfully')
     return true
   } catch (err) {
     console.warn('Push subscription failed:', err)

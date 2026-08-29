@@ -16,6 +16,8 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { format, isToday, isYesterday } from 'date-fns'
 import { IconDoor, IconScroll } from '@/components/PixelIcons'
 import type { ErenChatMessage } from '@/types'
+import { useLongPress } from '@/hooks/useLongPress'
+import ReportSheet from '@/components/safety/ReportSheet'
 
 // `label` is separate from `edge` on purpose. A border colour that reads well
 // as a 2px outline is far too light as 6px text — reusing edge for the name
@@ -57,6 +59,12 @@ export default function TalkView({
   }, [messages.length, streaming])
 
   const rows = useMemo(() => groupMessages(messages), [messages])
+
+  // Play requires an in-app way to report generative-AI output, reachable
+  // without leaving the conversation. Hold one of Eren's replies to flag it.
+  // Row keys are the message id for 'msg' rows, which is what the report needs.
+  const [flagging, setFlagging] = useState<string | null>(null)
+  const { bind: bindHold } = useLongPress<string>(setFlagging)
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -173,8 +181,18 @@ export default function TalkView({
                 author={row.self ? myName : 'Eren'}
                 showAuthor={row.first}
                 time={row.last ? row.time : null}
+                hold={row.self ? undefined : bindHold(row.key)}
               />
             ),
+          )}
+
+          {flagging && (
+            <ReportSheet
+              target="ai_reply"
+              targetId={flagging}
+              what="what Eren said"
+              onClose={() => setFlagging(null)}
+            />
           )}
 
           {streaming && (
@@ -326,8 +344,10 @@ function DayMark({ label }: { label: string }) {
   )
 }
 
-function Bubble({ text, self, skin, author, showAuthor, time }: {
+function Bubble({ text, self, skin, author, showAuthor, time, hold }: {
   text: string; self: boolean; skin: Skin; author: string; showAuthor: boolean; time: string | null
+  /** Long-press handlers, present only on a finished reply from Eren. */
+  hold?: Record<string, unknown>
 }) {
   return (
     <div className={`flex flex-col ${self ? 'items-end' : 'items-start'}`}
@@ -341,7 +361,8 @@ function Bubble({ text, self, skin, author, showAuthor, time }: {
         </span>
       )}
 
-      <div style={{
+      <div {...(hold ?? {})} style={{
+        ...(hold ? { userSelect: 'none' as const, WebkitTouchCallout: 'none' as const } : {}),
         maxWidth: '82%',
         fontSize: 13.5, lineHeight: 1.55, color: skin.ink,
         padding: '10px 13px',

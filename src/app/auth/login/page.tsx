@@ -27,7 +27,6 @@ export default function LoginPage() {
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
-    console.log('LOGIN RESULT:', JSON.stringify({ error, hasSession: !!data?.session, userId: data?.user?.id }))
 
     if (error) {
       setError(error.message)

@@ -92,11 +92,11 @@ export default function TermsGate() {
         </p>
 
         <div className="flex flex-col" style={{ gap: 8, marginBottom: 18 }}>
-          <a href="/terms" target="_blank" rel="noopener noreferrer"
+          <a href="/terms"
              style={{ fontSize: 13, color: '#f0a5c0' }}>
             Read the terms and content rules →
           </a>
-          <a href="/privacy" target="_blank" rel="noopener noreferrer"
+          <a href="/privacy"
              style={{ fontSize: 13, color: '#f0a5c0' }}>
             Read the privacy policy →
           </a>

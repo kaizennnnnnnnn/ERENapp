@@ -196,7 +196,7 @@ export async function GET(request: Request) {
           '⏰ Reminder',
           r.text,
           'reminder-' + r.id,
-          '/',
+          '/home',
         )
         if (!ok) expired.push(sub.id)
       }

@@ -139,6 +139,14 @@ that is more useful than promising a service level we cannot keep:
 - We do not have an appeals board. If you think we got it wrong, write to
   [PLACEHOLDER: contact email] and a human will read it.
 
+When you report something, we store a copy of the reported content as it was
+at that moment, along with who reported it and who posted it. We keep that
+record **even if you or the other person later deletes their account**, and
+even if the content itself is deleted — a safety record that disappears on
+request is not a safety record. It is kept for as long as we need it to act on
+it and to recognise a repeat pattern, and no longer than the law requires us
+to keep it.
+
 We are legally required to report child sexual abuse material to the relevant
 authority, and we will. We do not investigate it ourselves and we do not retain
 copies beyond what the law requires us to preserve.
