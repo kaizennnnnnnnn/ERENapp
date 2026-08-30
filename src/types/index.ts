@@ -70,6 +70,12 @@ export interface Profile {
    *  server-side by accept_terms(). Null for accounts created before the
    *  gate existed — TermsGate re-asks them. */
   terms_accepted_at?: string | null
+  // ── Trophy battle (migration_trophy_battle.sql) ──────────────────────────
+  /** Spendable trophies. Minted only by claim_daily_trophy(). */
+  trophies?: number
+  /** Bought in the Trophy Shop's prestige shelf; shown beside the name. */
+  equipped_title?: string | null
+  equipped_frame?: string | null
   created_at: string
   updated_at: string
 }
@@ -201,6 +207,14 @@ export interface ErenStats {
   // Shared between partners and realtime-synced. Absent / missing key = the
   // room shows its built-in default look.
   room_skins?: Record<string, string> | null
+  // Trophy-shop decor placed in each room: room id → decor item id. Household
+  // rather than per-user for the same reason room_skins is — there is one
+  // house, and a prop she hangs should be there when you open the door.
+  room_decor?: Record<string, string> | null
+  // The accessory Eren is currently wearing (trophyShop AccessoryItem id), or
+  // null for a bare cat. Household-wide on purpose: the point of a crown is
+  // that the other person finds it on him.
+  equipped_accessory?: string | null
   // Kiosk memory, household-wide: costume id -> the order they had last
   // time and how many times they've been served right (see kioskShift's
   // Regulars), plus lifetime wraps, which is what puts new things on the

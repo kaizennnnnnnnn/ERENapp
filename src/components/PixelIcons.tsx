@@ -1308,6 +1308,56 @@ export const IconTrophy = memo(function IconTrophy({ size = 20 }: IconProps) {
   }, size)
 })
 
+// ── TROPHY, per tier ──────────────────────────────────────────────────────
+// Same silhouette as IconTrophy so a shelf of mixed tiers reads as one set;
+// only the metal changes. The daily battle mints exactly these three.
+const TROPHY_METALS = {
+  bronze: { K: '#4A2708', Y: '#E0975A', L: '#FFD9B0', R: '#8A4B18' },
+  silver: { K: '#3A3F4A', Y: '#D8DCE6', L: '#FFFFFF', R: '#8B93A3' },
+  gold:   { K: '#7A4F00', Y: '#FFD700', L: '#FFF4A3', R: '#B88400' },
+} as const
+
+export const IconTrophyTier = memo(function IconTrophyTier(
+  { size = 20, tier = 'gold' }: IconProps & { tier?: keyof typeof TROPHY_METALS },
+) {
+  const grid = [
+    '............',
+    '.KKKKKKKKKK.',
+    'KKYYYYYYYKKK',
+    'KLYYYYYYYRLK',
+    'KKYYYYYYYKKK',
+    '.KYYYYYYYK..',
+    '..KYYYYYK...',
+    '...KYYYK....',
+    '....KYK.....',
+    '....KYK.....',
+    '...KKKKKK...',
+    '..KYYYYYYK..',
+  ]
+  return drawPixels(grid, TROPHY_METALS[tier], size)
+})
+
+// ── SHELF (trophy case / decor tab) ───────────────────────────────────────
+export const IconShelf = memo(function IconShelf({ size = 20 }: IconProps) {
+  const grid = [
+    '............',
+    '..K...KK...K',
+    '..K..KYYK..K',
+    '..K..KYYK..K',
+    '.KKKKKKKKKK.',
+    '.KWWWWWWWWK.',
+    '..K.KK..K..K',
+    '..K.KRK.KGK.',
+    '..K.KRK.KGK.',
+    '.KKKKKKKKKK.',
+    '.KWWWWWWWWK.',
+    '............',
+  ]
+  return drawPixels(grid, {
+    K: '#3A2410', W: '#8B5A2B', Y: '#FFD700', R: '#E0975A', G: '#D8DCE6',
+  }, size)
+})
+
 // ── LOCK (locked achievement) ────────────────────────────────────────────
 export const IconLock = memo(function IconLock({ size = 20 }: IconProps) {
   const grid = [

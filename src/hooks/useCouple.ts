@@ -153,7 +153,14 @@ function useCoupleImpl() {
       .gte('date', weekStartStr)) : null
     const lifetimeP = p
       ? backfillDailyResults(supabase, profile.household_id, user.id, p.id)
-          .then(() => fetchLifetimeRows(supabase, user.id))
+          .then(() => {
+            // Yesterday's snapshot only EXISTS after this runs — there is no
+            // cron. The trophy settlement waits on this signal rather than
+            // racing it, because at midnight the row is reliably absent and a
+            // hook that read once would cache "no result" for the whole day.
+            try { window.dispatchEvent(new Event('eren:battle-backfilled')) } catch { /* SSR */ }
+            return fetchLifetimeRows(supabase, user.id)
+          })
           .catch(() => undefined)
       : null
     const weeklyP = p

@@ -15,36 +15,16 @@ import { withRetry } from '@/lib/supabaseRetry'
 import { onForeground } from '@/lib/onForeground'
 import { useAuth } from './useAuth'
 import { useCouple } from './useCouple'
-import { useErenStats } from './useErenStats'
-import type { Interaction, ErenStats } from '@/types'
+import type { Interaction } from '@/types'
 import { format, subDays } from 'date-fns'
 import {
-  isComebackEligible, claimComebackBonus,
+  isComebackEligible, claimComebackBonus, scoreDaily,
   COMEBACK_BONUS_COINS, type DailyBattleRow,
 } from '@/lib/battleResults'
+import {
+  twistForDate, scoreActions, isBattleAction, type TwistDef,
+} from '@/lib/dailyTwist'
 import { notifyPartnerAction } from '@/lib/statNotifications'
-
-const USEFUL_THRESHOLD = 90
-
-function isUsefulByStats(action: string, stats: ErenStats | null): boolean {
-  if (!stats) return true
-  switch (action) {
-    case 'feed':     return stats.hunger        < USEFUL_THRESHOLD
-    case 'play':     return stats.happiness     < USEFUL_THRESHOLD
-    case 'sleep':    return stats.energy        < USEFUL_THRESHOLD
-    case 'wash':     return (stats.cleanliness ?? 100) < USEFUL_THRESHOLD
-    case 'medicine': return !!stats.is_sick
-    default:         return true
-  }
-}
-
-const ACTION_POINTS: Record<string, number> = {
-  feed: 1,
-  play: 1,
-  sleep: 1,
-  wash: 1,
-  medicine: 1,
-}
 
 export interface DailyActionSignal {
   userId: string
@@ -72,12 +52,21 @@ export interface DailyBattleState {
   /** True when the partner has had zero interactions in the last 24h — used
    *  to hide the scoreboard HUD so a one-sided 100-0 bar doesn't sit there. */
   partnerDormant: boolean
+  /** Today's rule. Never null — every day has one. */
+  twist: TwistDef
+  /** Local 'yyyy-MM-dd' the scores belong to. Flips at midnight. */
+  dayKey: string
 }
 
 function startOfDay(): Date {
   const d = new Date()
   d.setHours(0, 0, 0, 0)
   return d
+}
+
+/** Local 'yyyy-MM-dd' — the same key the snapshot rows are filed under. */
+function localDayKey(d: Date = new Date()): string {
+  return format(d, 'yyyy-MM-dd')
 }
 
 let _channelCounter = 0
@@ -94,8 +83,8 @@ function useDailyBattleImpl(): DailyBattleState {
   const supabase = createClient()
   const { user, profile } = useAuth()
   const { partner } = useCouple()
-  const { stats } = useErenStats(profile?.household_id ?? null)
 
+  const [dayKey, setDayKey]           = useState(() => localDayKey())
   const [myScore, setMyScore]         = useState(0)
   const [partnerScore, setPartnerScore] = useState(0)
   const [totalActions, setTotalActions] = useState(0)
@@ -114,8 +103,6 @@ function useDailyBattleImpl(): DailyBattleState {
   const loadFailedRef = useRef(false)
 
   const channelSuffix = useRef(`db_${++_channelCounter}`)
-  const statsRef = useRef(stats)
-  statsRef.current = stats
 
   const fetchToday = useCallback(async () => {
     if (!profile?.household_id || !user?.id) return
@@ -140,21 +127,20 @@ function useDailyBattleImpl(): DailyBattleState {
     }
     loadFailedRef.current = false
 
-    let me = 0, them = 0, count = 0
-    for (const i of (data ?? []) as Interaction[]) {
-      if (i.useful === false) continue
-      const pts = ACTION_POINTS[i.action_type] ?? 1
-      if (i.user_id === user.id) me += pts
-      else if (i.user_id === partner?.id) them += pts
-      count++
-    }
-    setMyScore(me)
-    setPartnerScore(them)
-    setTotalActions(count)
+    // One scorer for the whole app — the snapshot the backfill writes tonight
+    // is computed by this exact function, so the bar can never disagree with
+    // the result screen tomorrow morning.
+    const rows = (data ?? []) as Interaction[]
+    const today = localDayKey()
+    const sp = scoreDaily(rows, user.id, partner?.id ?? '', today)
+    setDayKey(today)
+    setMyScore(sp.myScore)
+    setPartnerScore(sp.partnerScore)
+    setTotalActions(rows.filter(i => i.useful !== false && isBattleAction(i.action_type)).length)
 
     // Dormancy check: any partner interaction in the last 24h?
     if (partner?.id) {
-      if (them > 0) {
+      if (sp.partnerScore > 0) {
         setPartnerDormant(false)
       } else {
         const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
@@ -264,19 +250,37 @@ function useDailyBattleImpl(): DailyBattleState {
         }
         // Ignore anything that didn't happen today (e.g. backfilled rows).
         if (new Date(row.created_at) < startOfDay()) return
-        // Skip wasted actions — the daily battle only counts when the
-        // relevant stat was actually low. If the useful column exists
-        // trust it; otherwise fall back to checking current stats.
+        // Skip wasted actions. `useful` is stamped at write time against the
+        // PRE-action stats (useErenStats.isUsefulAction) and is the only
+        // honest answer — the local re-check that used to live here read
+        // post-action stats, so it rejected exactly the feeds and washes that
+        // had just done the most good, while the fetch and the nightly
+        // snapshot both counted them. Trust the column.
         if (row.useful === false) return
-        if (row.useful === undefined && !isUsefulByStats(row.action_type, statsRef.current)) return
-        const pts = ACTION_POINTS[row.action_type] ?? 1
+        if (!isBattleAction(row.action_type)) return
+
+        const twist = twistForDate(localDayKey())
         const isMe = row.user_id === user.id
-        if (isMe) setMyScore(s => s + pts)
-        else if (row.user_id === partner?.id) {
-          setPartnerScore(s => s + pts)
-          setPartnerDormant(false)
+        const isPartner = row.user_id === partner?.id
+        if (!isMe && !isPartner) return
+        if (isPartner) setPartnerDormant(false)
+
+        // What the pop-up shouts. Scoring this single action in isolation is
+        // also its exact value under every per-row twist, and its best case
+        // under the two contextual ones.
+        const pts = scoreActions(twist, [row.action_type])
+
+        // A contextual twist (FULL HOUSE, SPRINT) prices an action by what
+        // that person already did today, which an increment cannot know.
+        // Refetch instead — correctness beats the extra round-trip, and it is
+        // at most a handful of times a day.
+        if (twist.perRow) {
+          if (isMe) setMyScore(s => s + pts)
+          else setPartnerScore(s => s + pts)
+          setTotalActions(c => c + 1)
+        } else {
+          void fetchToday()
         }
-        setTotalActions(c => c + 1)
         setLastAction({
           userId:   row.user_id,
           userName: isMe
@@ -341,6 +345,8 @@ function useDailyBattleImpl(): DailyBattleState {
     lastAction,
     hasPartner: !!partner?.id,
     partnerDormant,
+    twist: twistForDate(dayKey),
+    dayKey,
   }
 }
 
