@@ -273,6 +273,7 @@ export const SOUNDS = {
   kiosk_tip:     '/sounds/kiosk/kiosk_tip.mp3',
   kiosk_tip2:    '/sounds/kiosk/kiosk_tip2.mp3',
   kiosk_tip3:    '/sounds/kiosk/kiosk_tip3.mp3',
+  kiosk_print:   '/sounds/kiosk/kiosk_print.mp3',
 } as const
 
 export type SoundName = keyof typeof SOUNDS
@@ -342,6 +343,7 @@ const VOLUME_SCALE: Partial<Record<SoundName, number>> = {
   kiosk_tip:      0.5,
   kiosk_tip2:     0.5,
   kiosk_tip3:     0.5,
+  kiosk_print:    0.45,
 
   // ─── Mini-game gameplay SFX ─────────────────────────────────────────────
   // catch-mouse

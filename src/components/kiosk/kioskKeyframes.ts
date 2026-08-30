@@ -177,6 +177,44 @@ export const KIOSK_KEYFRAMES = `
           70%  { transform: translateY(-1%)  scale(0.98, 1.03); }
           100% { transform: translateY(0)    scale(1, 1);       }
         }
+        /* ── the till ────────────────────────────────────────────────────
+           The screen coming on. Stepped rather than faded: a vacuum
+           fluorescent display strikes, stutters and settles, and a smooth
+           ramp to full reads as a web page rather than as a machine. */
+        @keyframes kioskTillOn {
+          0%   { opacity: 0;    }
+          22%  { opacity: 1;    }
+          38%  { opacity: 0.28; }
+          54%  { opacity: 1;    }
+          70%  { opacity: 0.55; }
+          100% { opacity: 1;    }
+        }
+        @keyframes kioskTillOff {
+          0%   { opacity: 1;   }
+          60%  { opacity: 0.4; }
+          100% { opacity: 0;   }
+        }
+        /* Reduced motion: the total still appears, it just doesn't strike. */
+        @keyframes kioskTillGlow {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        /* Paper coming up out of the printer. Clipped from the top down, so
+           the roll is REVEALED from its bottom edge upward — the paper is
+           standing still and the slot is letting more of it through, which is
+           what actually happens. Stepped, because a thermal printer advances
+           the roll a line at a time and you can hear it doing it. */
+        @keyframes kioskReceiptOut {
+          from { clip-path: inset(100% 0 0 0); }
+          to   { clip-path: inset(0 0 0 0);    }
+        }
+        /* And taken. A short tug to pull it free of the printer before it
+           leaves — paper doesn't launch, it gets grabbed. */
+        @keyframes kioskReceiptTaken {
+          0%   { transform: translate(0, 0)            rotate(0deg);   opacity: 1; }
+          22%  { transform: translate(-0.4cqi, 0.5cqi) rotate(-3deg);  opacity: 1; }
+          100% { transform: translate(14cqi, -4.2cqi)  rotate(-16deg); opacity: 0; }
+        }
         /* Bars behind the radio's grille. */
         @keyframes kioskRadioEq {
           from { transform: scaleY(0.25); }

@@ -558,6 +558,23 @@ export const TIP_JAR_COINS = '/tipjar_coins.webp'
  *  jar that tops out at eight o'clock stops meaning anything. */
 export const TIP_JAR_FULL = 70
 
+/** The till on the ledge, measured off the art at 12x against a pixel grid.
+ *
+ *  Two parts of it are working parts. The customer-facing screen on its stalk
+ *  is the dark rectangle x 176→219, y 876→893, and the printer's mouth is the
+ *  top edge of the recessed slot below it, x 163→222 at y 920. The slot is on
+ *  the register's FRONT face and the screen is behind on a stalk, so paper
+ *  coming up out of the one passes in front of the other — which is why the
+ *  receipt is allowed to stop just under the screen rather than over it.
+ *
+ *  `x` is a centre, like TIP_JAR. Widths and heights are cqi (% of the
+ *  picture's width) so they don't stretch with the viewport's aspect. */
+export const TILL_SCREEN = { x: 25.72, top: 63.66, width: 5.60, height: 2.21 }
+export const TILL_SLOT = { x: 25.07, top: 66.86 }
+/** The receipt itself: how big it is, and how far out of the slot it comes.
+ *  22px of it, which lands its torn top edge just under the screen. */
+export const RECEIPT = { width: 5.21, height: 2.86 }
+
 /** The radio, on the prep counter beside the sauce bottles — the same
  *  measured surface they stand on, in the gap before the crumbs at 70%. */
 export const RADIO_BOX = { x: 53, width: 9.5, top: 71.17 }

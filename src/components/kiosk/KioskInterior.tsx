@@ -41,6 +41,7 @@ import KioskRadio from './KioskRadio'
 import StreetWeather from './StreetWeather'
 import GlassMist from './GlassMist'
 import TipCoin, { COIN_MS, coinFlightMs } from './TipCoin'
+import CashRegister, { TILL_MS } from './CashRegister'
 import { ShiftNote, ChampionApron } from './WallProps'
 import {
   FRIDGE_HIT, FRIDGE_TAG, DOOR_HIT, DOOR_TAG, MAX_USES, WEATHER_BY_ID,
@@ -179,6 +180,26 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
     // A big tip is several coins landing a beat apart, so the handful has to
     // outlive one coin's flight.
     const t = setTimeout(() => setCoin(null), coinFlightMs(tip) + 320)
+    return () => clearTimeout(t)
+  }, [shift.paid])
+
+  // The till rings for EVERY sale, tip or no tip — it's totalling the order,
+  // not the gratuity. Same one-shot shape as the coins: `shift.paid` stays set
+  // for the rest of the night, so rendering off it directly would re-print a
+  // receipt every time you turned back to the window.
+  // `sale`, not merely `paid`: somebody who came to talk leaves a tip without
+  // buying anything, and a till that rings up a total and prints a receipt for
+  // a conversation is a till that has misunderstood the conversation.
+  const [sale, setSale] = useState<{ id: number; amount: number; at: number } | null>(null)
+  useEffect(() => {
+    if (!shift.paid || !shift.paid.sale) return
+    const { id, amount } = shift.paid
+    // The wall subtree is keyed, so turning to another wall and back remounts
+    // the register. It is handed the moment the sale happened and resumes from
+    // there — otherwise coming back re-struck the screen and printed a second
+    // receipt for a sale that was already over.
+    setSale({ id, amount, at: Date.now() })
+    const t = setTimeout(() => setSale(null), TILL_MS)
     return () => clearTimeout(t)
   }, [shift.paid])
 
@@ -456,6 +477,12 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
           {view.feature === 'window' && <TipJar tips={jarTips} />}
           {view.feature === 'window' && coin && (
             <TipCoin key={coin.id} id={coin.id} tip={coin.tip} still={reduced} />
+          )}
+
+          {/* The till totalling the sale and printing for it. */}
+          {view.feature === 'window' && sale && (
+            <CashRegister key={sale.id} id={sale.id} amount={sale.amount}
+              startedAt={sale.at} still={reduced} />
           )}
 
           {view.feature === 'window' && (

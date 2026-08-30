@@ -431,6 +431,26 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
                     { at: 0,  recipe: { type: 'chord', freqs: [1568, 2349], duration: 85, shape: 'sine', gain: 0.42 } },
                     { at: 16, recipe: { type: 'blip', freq: 784, duration: 240, shape: 'sine', gain: 0.15 } },
                   ] },
+  // kiosk_print — the till printing a receipt. A thermal printer is a stepper
+  // motor advancing paper one line at a time, so this is ten identical little
+  // noise ticks on a 56 ms grid over a low motor hum, and a click at the end
+  // for the cutter. Ten evenly-spaced ticks is the ENTIRE character of the
+  // sound — randomising their spacing turns a machine into a rustle.
+  kiosk_print:   { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'blip', freq: 92, duration: 560, shape: 'triangle', gain: 0.1 } },
+                    { at: 0,  recipe: { type: 'noise', duration: 26, gain: 0.15, lowpass: 5200, highpass: 1500 } },
+                    { at: 56, recipe: { type: 'noise', duration: 26, gain: 0.15, lowpass: 5200, highpass: 1500 } },
+                    { at: 112,recipe: { type: 'noise', duration: 26, gain: 0.14, lowpass: 5200, highpass: 1500 } },
+                    { at: 168,recipe: { type: 'noise', duration: 26, gain: 0.15, lowpass: 5200, highpass: 1500 } },
+                    { at: 224,recipe: { type: 'noise', duration: 26, gain: 0.14, lowpass: 5200, highpass: 1500 } },
+                    { at: 280,recipe: { type: 'noise', duration: 26, gain: 0.15, lowpass: 5200, highpass: 1500 } },
+                    { at: 336,recipe: { type: 'noise', duration: 26, gain: 0.13, lowpass: 5200, highpass: 1500 } },
+                    { at: 392,recipe: { type: 'noise', duration: 26, gain: 0.12, lowpass: 5200, highpass: 1500 } },
+                    { at: 448,recipe: { type: 'noise', duration: 26, gain: 0.11, lowpass: 5200, highpass: 1500 } },
+                    { at: 504,recipe: { type: 'noise', duration: 26, gain: 0.10, lowpass: 5200, highpass: 1500 } },
+                    { at: 560, recipe: { type: 'blip', freq: 1244, duration: 44, shape: 'square', gain: 0.12 } },
+                  ] },
+
   kiosk_tip3:    { type: 'seq', parts: [
                     { at: 0,  recipe: { type: 'noise', duration: 24, gain: 0.14, lowpass: 7000, highpass: 2400 } },
                     { at: 0,  recipe: { type: 'chord', freqs: [1760, 2637], duration: 85, shape: 'sine', gain: 0.42 } },

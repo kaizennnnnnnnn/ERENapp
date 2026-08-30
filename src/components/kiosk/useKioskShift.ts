@@ -68,8 +68,13 @@ export type Speech = { id: number; text: string } | null
 
 /** A wrap that just got paid for. A fresh object every time, so the till can
  *  key its coin flight off identity rather than off a total that changes for
- *  other reasons too. */
-export type Payout = { id: number; amount: number; tip: number } | null
+ *  other reasons too.
+ *
+ *  `sale` is false for money that arrived without anything being sold — a
+ *  visitor who only came to talk still leaves something in the jar. The coins
+ *  fly either way, because they really did leave it; the register does not,
+ *  because there is nothing to ring up and nothing to print a receipt for. */
+export type Payout = { id: number; amount: number; tip: number; sale: boolean } | null
 
 export type ShiftStatus = 'waiting' | 'paid' | 'refused' | 'left'
 
@@ -412,7 +417,7 @@ export function useKioskShift(opts: ShiftOpts): KioskShift {
     setPhase(heard ? 'paid' : 'left')
     if (heard) {
       speak(pick(CHAT_THANKS))
-      setPaid({ id: ++payId.current, amount: CHAT_TIP, tip: CHAT_TIP })
+      setPaid({ id: ++payId.current, amount: CHAT_TIP, tip: CHAT_TIP, sale: false })
       setTill(t => ({ ...t, tips: t.tips + CHAT_TIP }))
       playSound('coin_pickup')
     } else {
@@ -698,7 +703,7 @@ export function useKioskShift(opts: ShiftOpts): KioskShift {
       const tipPart = earned - base
 
       setPhase('paid')
-      setPaid({ id: ++payId.current, amount: earned, tip: Math.max(0, tipPart) })
+      setPaid({ id: ++payId.current, amount: earned, tip: Math.max(0, tipPart), sale: true })
       setTill(t => ({
         ...t,
         served: t.served + 1,

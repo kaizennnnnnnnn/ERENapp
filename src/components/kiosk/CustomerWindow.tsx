@@ -19,7 +19,8 @@
 import BlinkingEren from '@/components/BlinkingEren'
 import {
   TOPPINGS, TOPPING_BY_ID, SAUCE_BY_ID, SIDE_BY_ID, SILL_PCT, CUSTOMER_BOX,
-  CUSTOMER_SHOW, BUBBLE_BOTTOM, CHEER_MS, LINGER_MS, DUCK_MS, portionsOf,
+  CUSTOMER_SHOW, BUBBLE_BOTTOM, CHEER_MS, LINGER_MS, DUCK_MS, GLASS, GLASS_MASK,
+  portionsOf,
   type Order, type Wrap,
 } from './kioskShift'
 import { PANIC_AT } from './kioskEconomy'
@@ -39,6 +40,23 @@ interface Props {
   value: number
   onRepeat: () => void
 }
+
+/** The customer stands OUT IN THE STREET, on the far side of the glass. The
+ *  shakers, the napkins, the sauce bottles and the till stand on the ledge on
+ *  THIS side of it — so anything of them that breaks the sill line is in front
+ *  of the customer, and a tail sweeping over the pepper pot is a tail inside
+ *  the kiosk with you. Wearing the same mask the weather wears puts them back
+ *  behind the counter, and it fixes walking away for free: they now pass
+ *  behind the till and the bottles on their way out instead of straight
+ *  through them, and disappear behind the window frame rather than off the
+ *  side of the wall.
+ *
+ *  Their box is anchored to the picture, not to the glass, so the centre line
+ *  has to be restated in the glass box's own coordinates. The aperture is not
+ *  quite centred in the picture — its own midpoint is at 50.325% — so a plain
+ *  `left: 50%` against the new wrapper would put them 2px to the RIGHT of
+ *  where they have always stood. */
+const CUSTOMER_X = ((50 - GLASS.left) / GLASS.width) * 100
 
 /** One thing on the ticket. A crossed one is a topping they DON'T want, which
  *  is a different job to read than a list of the ones they do. */
@@ -140,11 +158,17 @@ export default function CustomerWindow({
 
   return (
     <>
-      {/* Cut off at the sill, so they're standing at the counter rather than
-          floating in the window. */}
-      <div className="absolute left-0 right-0 top-0 overflow-hidden pointer-events-none"
-        style={{ height: `${SILL_PCT}%`, zIndex: 6 }}>
-        <div className="absolute left-1/2" style={{
+      {/* The glass they're standing behind. Its bottom edge IS the sill, so
+          they're still cut off at the counter; what's new is that its sides
+          are the window frame and its mask is the clutter on the ledge. */}
+      <div className="absolute overflow-hidden pointer-events-none" style={{
+        left: `${GLASS.left}%`, top: `${GLASS.top}%`,
+        width: `${GLASS.width}%`, height: `${GLASS.height}%`,
+        zIndex: 6,
+        ...GLASS_MASK,
+      }}>
+        <div className="absolute" style={{
+          left: `${CUSTOMER_X}%`,
           bottom: `${-(1 - CUSTOMER_SHOW) * CUSTOMER_BOX}cqi`,
           transform: 'translateX(-50%)',
           // How far down they start: the whole visible part of them, plus a
@@ -203,7 +227,15 @@ export default function CustomerWindow({
           style={{
             position: 'absolute', zIndex: 11,
             left: '50%', width: `${CUSTOMER_BOX}cqi`,
-            top: `${SILL_PCT - CUSTOMER_BOX * CUSTOMER_SHOW}%`,
+            // The head runs UP from the sill by a distance measured in cqi —
+            // percent of the picture's WIDTH. Subtracting that number from a
+            // percentage of its HEIGHT (the picture is 768x1376, so 1cqi is
+            // 0.56% of height, never 1%) put this hit box two thirds of its
+            // own height ABOVE the head: taps on the cat did nothing, and taps
+            // on the empty street above it asked them to repeat. It is the
+            // only way back once the ticket fades, and the whole interface for
+            // a visitor who came to talk.
+            top: `calc(${SILL_PCT}% - ${CUSTOMER_BOX * CUSTOMER_SHOW}cqi)`,
             height: `${CUSTOMER_BOX * CUSTOMER_SHOW}cqi`,
             transform: 'translateX(-50%)',
             background: 'none', border: 0, padding: 0,
