@@ -182,12 +182,30 @@ export const EREN_SAYS_MAX = 120
 // provider publishes the current expiry, the decay loop reads it. Both live in
 // the same tab, so there is no coherence problem to solve.
 
+const FREEZE_KEY = 'eren_decay_freeze_until'
+
 let _frozenUntil = 0
 
 export function publishDecayFreeze(until: number): void {
   _frozenUntil = until
+  // Mirrored to localStorage because the decay loop runs on the FIRST render
+  // of a cold start, well before the effects fetch lands. Without this the
+  // opening tick of a session applies up to an hour and a half of decay that
+  // a paid freeze was supposed to prevent — the exact hour a player buys the
+  // freeze to cover.
+  try {
+    if (until > Date.now()) localStorage.setItem(FREEZE_KEY, String(until))
+    else localStorage.removeItem(FREEZE_KEY)
+  } catch { /* storage blocked — the in-memory latch still works this session */ }
 }
 
 export function decayFrozen(now = Date.now()): boolean {
-  return _frozenUntil > now
+  if (_frozenUntil > now) return true
+  // Only consulted before the first publish; a stale value can never extend a
+  // freeze beyond its own timestamp.
+  try {
+    const cached = Number(localStorage.getItem(FREEZE_KEY) ?? 0)
+    if (cached > now) { _frozenUntil = cached; return true }
+  } catch { /* ignore */ }
+  return false
 }
