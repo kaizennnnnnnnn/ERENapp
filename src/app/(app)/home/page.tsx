@@ -40,6 +40,8 @@ import ErenMessagePopup from '@/components/couple/ErenMessagePopup'
 import ThoughtCloud from '@/components/couple/ThoughtCloud'
 import JealousEren from '@/components/couple/JealousEren'
 import DailyBattleHUD from '@/components/couple/DailyBattleHUD'
+import DailyVerdictScreen from '@/components/couple/DailyVerdictScreen'
+import { useDailyVerdict } from '@/hooks/useDailyVerdict'
 import CoopGoalBar from '@/components/couple/CoopGoalBar'
 import ComebackBadge from '@/components/couple/ComebackBadge'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
@@ -338,6 +340,11 @@ export default function HomePage() {
   // auth + household resolve; the server endpoint backfills historical
   // memory_frames timestamps, the client carousel walks the user through the
   // result. memory_caught_up flips inside the carousel's dismiss handler.
+  // Yesterday's result + the trophy it paid. Same readiness contract as the
+  // catchup gate: the mood is in, the stats are loaded and the room art has
+  // decoded, so the verdict never renders under the splash.
+  const verdict = useDailyVerdict(!authLoading && !!todayMood && !!stats && roomReady)
+
   const { frames: catchupFrames, dismiss: dismissCatchup } = useCatchupGate({
     userId:      user?.id ?? null,
     householdId: profile?.household_id ?? null,
@@ -487,6 +494,25 @@ export default function HomePage() {
   }
 
   if (loading || !stats || !roomReady) return LoadingScreen
+
+  // Yesterday's verdict — a sixth hard gate rather than an overlay, so it
+  // cannot mount underneath the catchup carousel or an inbound message popup.
+  // Both of those are inside the returned room tree and simply don't exist
+  // while this is up; they get their turn on the render after it closes.
+  if (verdict.show && verdict.row) {
+    return (
+      <DailyVerdictScreen
+        row={verdict.row}
+        awarded={verdict.awarded}
+        streak={verdict.streak}
+        yesterdayTwist={verdict.yesterdayTwist}
+        todayTwist={verdict.todayTwist}
+        myName={profile?.name?.split(' ')[0] ?? 'You'}
+        partnerName={partner?.name?.split(' ')[0] ?? 'Partner'}
+        onClose={verdict.dismiss}
+      />
+    )
+  }
 
   const mood = (stats.mood ?? 'idle') as string
 
