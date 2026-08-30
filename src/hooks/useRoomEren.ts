@@ -3,6 +3,8 @@
 import { useMemo, type CSSProperties } from 'react'
 import { useErenStats } from './useErenStats'
 import { resolveRoomSkin, skinRoomFit } from '@/lib/skins'
+import { accessoryDef } from '@/lib/trophyShop'
+import type { AccessoryItem } from '@/lib/trophyShop'
 import type { EyeLayout, LidTone } from '@/types'
 
 export interface ErenSpriteProps {
@@ -29,6 +31,10 @@ export interface ErenSpriteProps {
   // stands. BlinkingEren spreads `style` onto its outer wrapper.
   size?: number
   style?: CSSProperties
+  // The Trophy Shop accessory the household has Eren wearing, if any. Resolved
+  // here rather than at each call site so every room, the home screen and the
+  // closet all get the crown from one place.
+  accessory?: AccessoryItem | null
 }
 
 // Resolve a room's IDLE Eren sprite props: the skin assigned in the (shared,
@@ -41,9 +47,11 @@ export function useRoomEren(roomId: string, fallback: ErenSpriteProps): ErenSpri
   const { stats } = useErenStats()
   const skin = resolveRoomSkin(stats?.room_skins, roomId)
   const skinId = skin?.id ?? null
+  const wornId = stats?.equipped_accessory ?? null
   return useMemo<ErenSpriteProps>(
     () => {
-      if (!skin) return fallback
+      const accessory = accessoryDef(wornId)
+      if (!skin) return accessory ? { ...fallback, accessory } : fallback
       const fit = skinRoomFit(skin, roomId)
       return {
         src: skin.src, tailSrc: skin.tailSrc, tailOrigin: skin.tailOrigin, eyes: skin.eyes,
@@ -51,9 +59,10 @@ export function useRoomEren(roomId: string, fallback: ErenSpriteProps): ErenSpri
         coat: skin.coat,
         size: fit?.size,
         style: fit ? { transform: `translateY(${-fit.lift}px)` } : undefined,
+        accessory,
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [skinId, roomId, fallback.src, fallback.tailSrc, fallback.tailOrigin, fallback.eyes],
+    [skinId, roomId, wornId, fallback.src, fallback.tailSrc, fallback.tailOrigin, fallback.eyes],
   )
 }

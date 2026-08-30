@@ -10,6 +10,8 @@ import React, { useEffect, useState } from 'react'
 import { useIsDark } from '@/hooks/useIsDark'
 import type { EyeLayout, LidTone } from '@/types'
 import JellyCoat from './JellyCoat'
+import ErenAccessory from '@/components/care/ErenAccessory'
+import type { AccessoryItem } from '@/lib/trophyShop'
 
 // Eye-overlay coordinates, all expressed as percentages of the sprite
 // container. Default values are tuned to erenGood.png. Other sprites (the
@@ -147,6 +149,11 @@ interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   // Breathing period in seconds. Default 4; sleep slows it to ~6.5 so the
   // tucked-in cat breathes visibly slower.
   breatheDur?: number
+  // A Trophy Shop accessory worn on top of whatever skin this is. Rendered
+  // last so it sits over the head, and inside the breathing wrapper so it
+  // rises and falls with him. Its placement is derived from `src` (a measured
+  // head box) and from the merged eye layout — see care/ErenAccessory.
+  accessory?: AccessoryItem | null
 }
 
 export default function BlinkingEren({
@@ -172,6 +179,7 @@ export default function BlinkingEren({
   sleepyLids = false,
   plainLid = false,
   breatheDur = 4,
+  accessory = null,
   ...imgProps
 }: Props) {
   const isDark = useIsDark()
@@ -411,6 +419,9 @@ export default function BlinkingEren({
             {eyeOverlays}
           </div>
         ) : eyeOverlays}
+
+        {/* Worn last so it paints over the head, whichever branch drew it. */}
+        {accessory && <ErenAccessory def={accessory} src={src} eyes={eyes} />}
       </div>
     </div>
   )

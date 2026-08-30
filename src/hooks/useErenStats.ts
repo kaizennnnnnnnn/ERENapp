@@ -435,6 +435,11 @@ function useErenStatsImpl(householdId: string | null) {
               room_skins:     newRow.room_skins,
               kiosk_regulars: newRow.kiosk_regulars,
               kiosk_wraps:    newRow.kiosk_wraps,
+              // Trophy-shop cosmetics, written the same no-decay-bump way as
+              // room_skins. Both are household-wide on purpose, so the whole
+              // point is that they land on the OTHER phone without a reload.
+              room_decor:         newRow.room_decor,
+              equipped_accessory: newRow.equipped_accessory,
             }
           })
         })
