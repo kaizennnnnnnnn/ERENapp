@@ -1312,27 +1312,31 @@ export const IconTrophy = memo(function IconTrophy({ size = 20 }: IconProps) {
 // Same silhouette as IconTrophy so a shelf of mixed tiers reads as one set;
 // only the metal changes. The daily battle mints exactly these three.
 const TROPHY_METALS = {
-  bronze: { K: '#4A2708', Y: '#E0975A', L: '#FFD9B0', R: '#8A4B18' },
-  silver: { K: '#3A3F4A', Y: '#D8DCE6', L: '#FFFFFF', R: '#8B93A3' },
-  gold:   { K: '#7A4F00', Y: '#FFD700', L: '#FFF4A3', R: '#B88400' },
+  bronze: { O: '#48260A', D: '#A85F22', M: '#DE8C3E', H: '#F5B678', W: '#FFE1BC' },
+  silver: { O: '#454D5C', D: '#96A0B2', M: '#D2D9E4', H: '#F2F5FA', W: '#FFFFFF' },
+  gold:   { O: '#6B4200', D: '#D19A0B', M: '#FFC81E', H: '#FFE573', W: '#FFFDEB' },
 } as const
 
+// The chrome-sized twin of components/trophies/TrophyCup. Same object — rim,
+// two handles, stem, flared foot — squeezed to 12x12 so a trophy in a 10px
+// counter and a trophy at 90px on the verdict screen are recognisably the
+// same cup. Change one silhouette, change the other.
 export const IconTrophyTier = memo(function IconTrophyTier(
   { size = 20, tier = 'gold' }: IconProps & { tier?: keyof typeof TROPHY_METALS },
 ) {
   const grid = [
-    '............',
-    '.KKKKKKKKKK.',
-    'KKYYYYYYYKKK',
-    'KLYYYYYYYRLK',
-    'KKYYYYYYYKKK',
-    '.KYYYYYYYK..',
-    '..KYYYYYK...',
-    '...KYYYK....',
-    '....KYK.....',
-    '....KYK.....',
-    '...KKKKKK...',
-    '..KYYYYYYK..',
+    '..OOOOOOOO..',
+    '..OHHHHHHO..',
+    'O.OHWMMMDO.O',
+    'O.OHMMMMDO.O',
+    'OOOHMMMMDOOO',
+    '..OHMMMMDO..',
+    '...OHMMDO...',
+    '....OOOO....',
+    '....OHDO....',
+    '...OHMMDO...',
+    '..OHHHHHHO..',
+    '..OOOOOOOO..',
   ]
   return drawPixels(grid, TROPHY_METALS[tier], size)
 })

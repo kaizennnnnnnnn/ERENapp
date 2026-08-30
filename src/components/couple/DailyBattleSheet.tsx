@@ -16,7 +16,8 @@ import {
   OBSIDIAN_FACE, OBSIDIAN_BTN, OBSIDIAN_ORB,
   pinkText, accentA,
 } from '@/components/obsidian'
-import { IconCrown, IconSwords, IconTrophyTier } from '@/components/PixelIcons'
+import { IconCrown, IconSwords } from '@/components/PixelIcons'
+import TrophyCup from '@/components/trophies/TrophyCup'
 
 interface Props {
   battle: DailyBattleState
@@ -248,7 +249,7 @@ export default function DailyBattleSheet({ battle, onClose }: Props) {
                         : 'grayscale(1) brightness(0.42)',
                     opacity: reached ? 1 : 0.8,
                   }}>
-                    <IconTrophyTier size={current ? 22 : 18} tier={rung.tier} />
+                    <TrophyCup size={current ? 26 : 20} tier={rung.tier} shine={current} />
                   </span>
                   <span className="font-pixel" style={{
                     fontSize: 5, letterSpacing: 1,

@@ -25,9 +25,10 @@ import type { DailyBattleRow } from '@/lib/battleResults'
 import { TROPHY_TONE, TROPHY_LABEL, type TwistDef, type TrophyTier } from '@/lib/dailyTwist'
 import { OBSIDIAN_FACE, OBSIDIAN_BTN, Rivets, accentA } from '@/components/obsidian'
 import {
-  IconTrophyTier, IconCrown, IconSwords, IconFire, IconHeart, IconShelf,
+  IconCrown, IconSwords, IconFire, IconHeart, IconShelf,
 } from '@/components/PixelIcons'
 import Nameplate from '@/components/trophies/Nameplate'
+import TrophyCup from '@/components/trophies/TrophyCup'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { playSound } from '@/lib/sounds'
 
@@ -217,11 +218,11 @@ export default function DailyVerdictScreen({
                 animation: reduced ? undefined : 'dvStamp 0.5s cubic-bezier(0.34,1.7,0.5,1) both',
               }}>
                 {won && tier
-                  ? <IconTrophyTier size={78} tier={tier} />
+                  ? <TrophyCup size={86} tier={tier} glow sparkle={tier === 'gold'} />
                   : tied
                     ? <IconSwords size={62} />
                     : awarded > 0
-                      ? <IconTrophyTier size={62} tier="bronze" />
+                      ? <TrophyCup size={66} tier="bronze" glow />
                       : <IconHeart size={58} />}
               </div>
             </div>
@@ -250,7 +251,7 @@ export default function DailyVerdictScreen({
               boxShadow: `0 0 16px ${accent.glow}, ${OBSIDIAN_BTN.boxShadow}`,
             }}>
               <Rivets inset={3} size={2} />
-              <IconTrophyTier size={20} tier={tier ?? 'bronze'} />
+              <TrophyCup size={24} tier={tier ?? 'bronze'} shine={false} />
               <span className="font-pixel" style={{
                 fontSize: 15, color: accent.hi, textShadow: `0 0 6px ${accent.glow}`,
               }}>+{awarded}</span>

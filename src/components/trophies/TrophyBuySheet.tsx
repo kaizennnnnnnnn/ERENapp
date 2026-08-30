@@ -7,12 +7,10 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTrophies } from '@/hooks/useTrophies'
-import {
-  SHOP_RARITY_COLORS, type AnyShopItem, type DecorItem, type AccessoryItem,
-} from '@/lib/trophyShop'
-import DecorArt from './DecorArt'
-import AccessoryThumb from './AccessoryThumb'
-import { IconTrophyTier } from '@/components/PixelIcons'
+import { useAuth } from '@/hooks/useAuth'
+import { SHOP_RARITY_COLORS, type AnyShopItem } from '@/lib/trophyShop'
+import ItemPreview from './ItemPreview'
+import TrophyCup from './TrophyCup'
 import { playSound } from '@/lib/sounds'
 
 const REFUSAL: Record<string, string> = {
@@ -26,6 +24,7 @@ export default function TrophyBuySheet({
   item, onClose,
 }: { item: AnyShopItem; onClose(): void }) {
   const trophies = useTrophies()
+  const { profile } = useAuth()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
@@ -76,12 +75,8 @@ export default function TrophyBuySheet({
           background: rc.bg, border: `1.5px solid ${rc.border}`, borderRadius: 4,
         }}>{item.rarity.toUpperCase()}</span>
 
-        <div className="flex items-center justify-center" style={{ height: 62 }}>
-          {item.kind === 'decor'
-            ? <DecorArt art={(item as DecorItem).art} width={120} />
-            : item.kind === 'accessory'
-              ? <AccessoryThumb art={(item as AccessoryItem).art} size={58} />
-              : <IconTrophyTier size={44} tier="gold" />}
+        <div className="flex items-center justify-center" style={{ minHeight: 86 }}>
+          <ItemPreview item={item} size={104} name={profile?.name?.split(' ')[0] || 'YOU'} />
         </div>
 
         <p className="font-pixel text-center" style={{ fontSize: 9, letterSpacing: 1.5, color: rc.text }}>
@@ -107,7 +102,7 @@ export default function TrophyBuySheet({
             borderRadius: 6,
             opacity: busy ? 0.6 : 1,
           }}>
-          {!done && <IconTrophyTier size={13} tier="gold" />}
+          {!done && <TrophyCup tier="gold" size={15} shine={false} />}
           <span className="font-pixel" style={{
             fontSize: 9, letterSpacing: 1, color: affordable || done ? '#2A1A00' : '#7A7286',
           }}>

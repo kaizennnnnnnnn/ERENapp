@@ -10,15 +10,14 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import type { AccessoryItem } from '@/lib/trophyShop'
+import { PixelGrid, gridAspect, type PixelArt } from '@/components/pixelGrid'
 
 // ─── The art ─────────────────────────────────────────────────────────────────
 // Pixel grids, drawn as SVG rects. Rows may be ragged; the viewBox takes the
 // widest. Kept in the same idiom as PixelIcons so a crown next to a coin reads
 // as the same game.
 
-export type Art = { grid: string[]; palette: Record<string, string> }
-
-const ART: Record<AccessoryItem['art'], Art> = {
+const ART: Record<AccessoryItem['art'], PixelArt> = {
   crown: {
     grid: [
       '..W...W...W..',
@@ -122,34 +121,17 @@ const ART: Record<AccessoryItem['art'], Art> = {
   },
 }
 
+/** The raw grid, for a caller that composes it into its own svg. */
+export function accessoryArt(art: AccessoryItem['art']): PixelArt {
+  return ART[art]
+}
+
 export function AccessorySvg({ art }: { art: AccessoryItem['art'] }) {
   const { grid, palette } = ART[art]
-  const cols = Math.max(...grid.map(r => r.length))
-  const rows = grid.length
-  const rects: React.ReactElement[] = []
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < grid[y].length; x++) {
-      const c = palette[grid[y][x]]
-      if (!c) continue
-      rects.push(<rect key={`${x}-${y}`} x={x} y={y} width={1.02} height={1.02} fill={c} />)
-    }
-  }
-  return (
-    <svg
-      viewBox={`0 0 ${cols} ${rows}`}
-      width="100%" height="100%"
-      shapeRendering="crispEdges"
-      style={{ display: 'block', overflow: 'visible' }}
-      aria-hidden
-    >
-      {rects}
-    </svg>
-  )
+  return <PixelGrid grid={grid} palette={palette} />
 }
 
 /** Grid aspect (height / width) — how tall a piece is for a given width. */
 export function aspectOf(art: AccessoryItem['art']): number {
-  const g = ART[art].grid
-  return g.length / Math.max(...g.map(r => r.length))
+  return gridAspect(ART[art].grid)
 }
-

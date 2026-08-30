@@ -3,17 +3,19 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // NAMEPLATE — a name, wearing whatever prestige its owner has bought.
 //
-// The frame wraps the name; the title sits under it. Both are trophy-only, so
+// The frame wraps the name; the title hangs under it. Both are trophy-only, so
 // a nameplate with anything on it is a statement about days won, which is the
 // entire reason the prestige shelf exists: it is worthless except as a signal,
 // and a signal is only worth something where the other person will see it.
 //
-// Takes ids, not values, so a caller only has to hand over a profile.
+// Takes ids, not values, so a caller only has to hand over a profile. The
+// drawing itself lives in prestigeArt, shared with the shop cards — what you
+// buy is exactly what you saw.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { memo } from 'react'
 import { prestigeDef } from '@/lib/trophyShop'
-import { FRAME_SKINS } from './TrophyShopView'
+import { FramePlate, TitlePlate } from './prestigeArt'
 
 interface Props {
   name: string
@@ -29,51 +31,26 @@ export default memo(function Nameplate({
 }: Props) {
   const title = prestigeDef(titleId)
   const frame = prestigeDef(frameId)
-  const skin = frame?.slot === 'frame' ? FRAME_SKINS[frame.value] : null
-
-  const label = (
-    <span className="font-pixel relative" style={{
-      fontSize: size, letterSpacing: 1.5,
-      color: skin ? skin.text : tone,
-      textShadow: skin ? `0 0 5px ${skin.glow}` : undefined,
-      whiteSpace: 'nowrap',
-    }}>{name.toUpperCase()}</span>
-  )
+  const framed = frame?.slot === 'frame'
 
   return (
-    <span className="inline-flex flex-col items-center" style={{ gap: 2 }}>
-      {skin ? (
-        <span className="relative inline-flex items-center justify-center px-2 py-1" style={{
-          border: `2px solid ${skin.border}`,
-          borderRadius: 3,
-          background: skin.bg,
-          boxShadow: `0 0 9px ${skin.glow}`,
-          overflow: 'hidden',
-        }}>
-          {skin.shine && (
-            <span aria-hidden className="absolute inset-0" style={{
-              background: 'linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.45) 50%, transparent 62%)',
-              animation: 'npShine 3.4s ease-in-out infinite',
-            }} />
-          )}
-          {label}
-        </span>
-      ) : label}
-
-      {title?.slot === 'title' && (
+    <span className="inline-flex flex-col items-center" style={{ gap: 3 }}>
+      {framed ? (
+        <FramePlate tone={frame.value} name={name} scale={size} />
+      ) : (
         <span className="font-pixel" style={{
-          fontSize: Math.max(4, size - 2), letterSpacing: 1,
-          color: skin ? skin.text : '#9A8AA8',
-          opacity: 0.9,
-        }}>{title.value}</span>
+          fontSize: size, letterSpacing: 1.5, color: tone, whiteSpace: 'nowrap',
+        }}>{name.toUpperCase()}</span>
       )}
 
-      <style>{`
-        @keyframes npShine {
-          0%, 25%   { transform: translateX(-130%); }
-          70%, 100% { transform: translateX(130%); }
-        }
-      `}</style>
+      {title?.slot === 'title' && (
+        <TitlePlate
+          value={title.value}
+          focus={title.focus}
+          scale={Math.max(4, size - 2)}
+          glory={title.rarity === 'legendary'}
+        />
+      )}
     </span>
   )
 })

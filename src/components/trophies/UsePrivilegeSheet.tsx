@@ -15,7 +15,7 @@ import { useTrophyEffects } from '@/hooks/useTrophyEffects'
 import { useDailyBattle } from '@/hooks/useDailyBattle'
 import { EREN_SAYS_MAX } from '@/lib/trophyEffects'
 import type { PrivilegeItem } from '@/lib/trophyShop'
-import { IconLightning } from '@/components/PixelIcons'
+import PowerArt, { POWER_TONE } from './PowerArt'
 import { playSound } from '@/lib/sounds'
 import type { StreakData } from '@/types'
 
@@ -36,6 +36,7 @@ export default function UsePrivilegeSheet({
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
 
+  const tone = POWER_TONE[item.privilege]
   const them = partner?.name?.split(' ')[0] ?? 'them'
   const leaderIsPartner = battle.leader === 'partner'
   const leaderIsMe = battle.leader === 'me'
@@ -130,14 +131,14 @@ export default function UsePrivilegeSheet({
         className="relative w-full p-4 flex flex-col items-center gap-3"
         style={{
           maxWidth: 300,
-          background: 'radial-gradient(120% 90% at 50% 0%, #14321F 0%, #0C1E14 60%, #06110B 100%)',
-          border: '2px solid #63F094',
+          background: 'radial-gradient(120% 90% at 50% 0%, #191426 0%, #0D0A16 60%, #06050B 100%)',
+          border: `2px solid ${tone}`,
           borderRadius: 12,
-          boxShadow: '0 0 22px rgba(99,240,148,0.32), 0 10px 30px rgba(0,0,0,0.6)',
+          boxShadow: `0 0 22px ${tone}55, 0 10px 30px rgba(0,0,0,0.6)`,
         }}>
 
-        <IconLightning size={30} />
-        <p className="font-pixel text-center" style={{ fontSize: 9, letterSpacing: 1.5, color: '#A7F3C0' }}>
+        <PowerArt id={item.privilege} width={54} />
+        <p className="font-pixel text-center" style={{ fontSize: 9, letterSpacing: 1.5, color: tone }}>
           {item.name.toUpperCase()}
         </p>
         <p className="text-center text-[11px]" style={{ color: blocked ? '#FFB4A1' : '#9FD8B5' }}>

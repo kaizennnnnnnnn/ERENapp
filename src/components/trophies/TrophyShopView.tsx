@@ -13,9 +13,14 @@
 // Nothing here is buyable with coins. That is the entire economic point: the
 // daily battle is the only source of trophies, so the only way to own any of
 // this is to have won days.
+//
+// A card is a picture, a claim, and ONE row of controls along the bottom. The
+// first cut hung the equip toggle off the right-hand edge at 6px next to the
+// price, and the result was a shop you could buy from but could not work out
+// how to wear.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useCouple } from '@/hooks/useCouple'
 import { useTrophies } from '@/hooks/useTrophies'
@@ -23,14 +28,13 @@ import { useTrophyCosmetics } from '@/hooks/useTrophyCosmetics'
 import {
   itemsOfKind, SHOP_RARITY_COLORS,
   type AnyShopItem, type ShopKind, type DecorItem,
-  type AccessoryItem, type PrivilegeItem, type PrestigeItem,
+  type PrivilegeItem, type PrestigeItem,
 } from '@/lib/trophyShop'
-import { OBSIDIAN_FACE, OBSIDIAN_BTN, Rivets, accentA } from '@/components/obsidian'
+import { OBSIDIAN_BTN, Rivets, accentA } from '@/components/obsidian'
 import {
   IconTrophyTier, IconShelf, IconDress, IconLightning, IconCrown, IconLock, IconCheck,
 } from '@/components/PixelIcons'
-import DecorArt from './DecorArt'
-import AccessoryThumb from './AccessoryThumb'
+import ItemPreview from './ItemPreview'
 import { playSound } from '@/lib/sounds'
 
 const TABS: { kind: ShopKind; label: string; icon: React.ReactNode; sub: string }[] = [
@@ -45,25 +49,28 @@ const ROOM_LABEL: Record<string, string> = {
 }
 
 interface Props {
+  /** Which shelf is open. Owned by the page so the loadout strip can jump. */
+  tab: ShopKind
+  onTab(kind: ShopKind): void
   /** Opens the confirm sheet. Owned by the page so the sheet can portal. */
   onBuy(item: AnyShopItem): void
   /** Fires a privilege the player already owns. */
   onUse(item: PrivilegeItem): void
 }
 
-export default function TrophyShopView({ onBuy, onUse }: Props) {
-  const { user } = useAuth()
+export default function TrophyShopView({ tab, onTab, onBuy, onUse }: Props) {
+  const { user, profile } = useAuth()
   const trophies = useTrophies()
   const cos = useTrophyCosmetics()
   const { partner } = useCouple()
   const partnerPresent = !!partner?.id
-  const [tab, setTab] = useState<ShopKind>('decor')
 
   const items = useMemo(() => itemsOfKind(tab), [tab])
   // A solo household has no battle, so nothing here can ever be earned — say
   // that instead of showing a price list with no way to pay it.
   const hasPartner = trophies.owned.some(o => o.userId !== user?.id) || partnerPresent
   const active = TABS.find(t => t.kind === tab)!
+  const myName = profile?.name?.split(' ')[0] || 'YOU'
 
   return (
     <div className="flex flex-col gap-3">
@@ -71,10 +78,12 @@ export default function TrophyShopView({ onBuy, onUse }: Props) {
       <div className="flex gap-1.5">
         {TABS.map(t => {
           const on = t.kind === tab
+          const stock = itemsOfKind(t.kind)
+          const have = stock.filter(i => trophies.mine(i.id)).length
           return (
             <button
               key={t.kind}
-              onClick={() => { playSound('ui_tap'); setTab(t.kind) }}
+              onClick={() => { playSound('ui_tap'); onTab(t.kind) }}
               className="flex-1 flex flex-col items-center gap-1 py-2 relative active:translate-y-[1px] transition-transform"
               style={{
                 ...OBSIDIAN_BTN,
@@ -90,6 +99,9 @@ export default function TrophyShopView({ onBuy, onUse }: Props) {
               <span className="font-pixel" style={{
                 fontSize: 5, letterSpacing: 1, color: on ? '#FFD9EC' : '#8B7F9B',
               }}>{t.label}</span>
+              <span className="font-pixel" style={{
+                fontSize: 5, color: have ? '#63F094' : '#5E5470',
+              }}>{have}/{stock.length}</span>
             </button>
           )
         })}
@@ -117,35 +129,33 @@ export default function TrophyShopView({ onBuy, onUse }: Props) {
       )}
 
       {/* ── Shelf ── */}
-      <div className="flex flex-col gap-2">
-        {items.map(item => {
-          const owned = trophies.mine(item.id)
-          const qty = trophies.qty(item.id)
-          const partnerHas = trophies.owned.some(o =>
-            o.userId !== user?.id && o.itemId === item.id && o.quantity > 0)
-          return (
-            <ShopCard
-              key={item.id}
-              item={item}
-              owned={owned}
-              qty={qty}
-              partnerHas={partnerHas}
-              balance={trophies.balance}
-              cos={cos}
-              onBuy={() => onBuy(item)}
-              onUse={() => onUse(item as PrivilegeItem)}
-            />
-          )
-        })}
+      <div className="flex flex-col gap-2.5">
+        {items.map(item => (
+          <ShopCard
+            key={item.id}
+            item={item}
+            owned={trophies.mine(item.id)}
+            qty={trophies.qty(item.id)}
+            partnerHas={trophies.owned.some(o =>
+              o.userId !== user?.id && o.itemId === item.id && o.quantity > 0)}
+            balance={trophies.balance}
+            cos={cos}
+            myName={myName}
+            onBuy={() => onBuy(item)}
+            onUse={() => onUse(item as PrivilegeItem)}
+          />
+        ))}
       </div>
     </div>
   )
 }
 
 // ─── One card ────────────────────────────────────────────────────────────────
+// Exported so a throwaway preview route can render one without the page's
+// providers — see scripts/tro_preview_page.tsx.txt and scripts/shoot_tro.js.
 
-function ShopCard({
-  item, owned, qty, partnerHas, balance, cos, onBuy, onUse,
+export function ShopCard({
+  item, owned, qty, partnerHas, balance, cos, myName, onBuy, onUse,
 }: {
   item: AnyShopItem
   owned: boolean
@@ -153,15 +163,17 @@ function ShopCard({
   partnerHas: boolean
   balance: number
   cos: ReturnType<typeof useTrophyCosmetics>
+  myName: string
   onBuy(): void
   onUse(): void
 }) {
   const rc = SHOP_RARITY_COLORS[item.rarity]
   const affordable = balance >= item.price
   const buyable = !owned || item.stackable === true
+  const banner = item.kind === 'prestige'
 
   return (
-    <div className="relative flex gap-3 px-3 py-2.5" style={{
+    <div className="relative flex flex-col" style={{
       ...OBSIDIAN_BTN,
       border: owned ? `1.5px solid ${rc.border}` : '1px solid rgba(255,255,255,0.06)',
       background: owned
@@ -170,45 +182,68 @@ function ShopCard({
       boxShadow: owned
         ? `0 0 10px ${rc.glow}, ${OBSIDIAN_BTN.boxShadow}`
         : OBSIDIAN_BTN.boxShadow as string,
+      overflow: 'hidden',
     }}>
       {owned && <Rivets inset={2} size={2} />}
 
-      {/* Preview */}
-      <div className="flex-shrink-0 flex items-center justify-center" style={{
-        width: 54, height: 54,
-        background: 'radial-gradient(circle at 50% 40%, rgba(255,255,255,0.05) 0%, transparent 70%)',
-        opacity: owned ? 1 : 0.62,
-      }}>
-        <Preview item={item} />
-      </div>
+      {/* A nameplate is a banner, not an icon: boxed into the 78px thumb
+          column it clipped UNDEFEATED to UNDEFEATI. Prestige gets the full
+          width of the card and the thumb column is dropped. */}
+      {banner && (
+        <div className="flex justify-center px-3 pt-3" style={{ opacity: owned ? 1 : 0.85 }}>
+          <ItemPreview item={item} size={78} name={myName} />
+        </div>
+      )}
 
-      {/* Text */}
-      <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
-        <div className="flex items-center gap-1.5">
-          <span className="font-pixel truncate" style={{
-            fontSize: 7, letterSpacing: 1, color: owned ? rc.text : '#C4B8D0',
-          }}>{item.name.toUpperCase()}</span>
-          {qty > 1 && (
-            <span className="font-pixel" style={{ fontSize: 6, color: '#FFD650' }}>x{qty}</span>
+      <div className="flex gap-3 px-3 pt-3 pb-2.5">
+        {!banner && (
+          /* Preview — sized so a room diorama and a worn hat both read. */
+          <div className="flex-shrink-0 flex items-center justify-center" style={{
+            width: 78, minHeight: 62,
+            opacity: owned ? 1 : 0.85,
+          }}>
+            <ItemPreview item={item} size={78} name={myName} />
+          </div>
+        )}
+
+        {/* Text */}
+        <div className={`flex-1 min-w-0 flex flex-col justify-center gap-1${banner ? ' items-center text-center' : ''}`}>
+          <div className="flex items-center gap-1.5">
+            <span className="font-pixel truncate" style={{
+              fontSize: 7, letterSpacing: 1, color: owned ? rc.text : '#D6CBE2',
+            }}>{item.name.toUpperCase()}</span>
+            {qty > 1 && (
+              <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: '#FFD650' }}>x{qty}</span>
+            )}
+          </div>
+          <p className="text-[10px] leading-snug" style={{ color: '#9A8EAA' }}>{item.blurb}</p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-pixel px-1 py-0.5" style={{
+              fontSize: 5, letterSpacing: 1, color: rc.text,
+              background: rc.bg, border: `1px solid ${rc.border}`, borderRadius: 2,
+            }}>{item.rarity.toUpperCase()}</span>
+            <Where item={item} />
+          </div>
+          {partnerHas && !owned && (
+            <p className="font-pixel" style={{ fontSize: 5, letterSpacing: 1, color: '#C9B4FF' }}>
+              THEY ALREADY HAVE THIS
+            </p>
           )}
         </div>
-        <p className="text-[10px] leading-snug" style={{ color: '#8B7F9B' }}>{item.blurb}</p>
-        <Where item={item} />
-        {partnerHas && !owned && (
-          <p className="font-pixel" style={{ fontSize: 5, letterSpacing: 1, color: '#C9B4FF' }}>
-            THEY ALREADY HAVE THIS
-          </p>
-        )}
       </div>
 
-      {/* Action */}
-      <div className="flex-shrink-0 flex flex-col items-end justify-center gap-1.5" style={{ minWidth: 62 }}>
-        {buyable && (
+      {/* ── Action rail ── */}
+      <div className="flex items-stretch gap-2 px-3 py-2" style={{
+        borderTop: '1px solid rgba(255,255,255,0.06)',
+        background: 'rgba(0,0,0,0.32)',
+      }}>
+        {buyable ? (
           <button
             onClick={() => { playSound(affordable ? 'ui_select' : 'ui_tap'); if (affordable) onBuy() }}
             disabled={!affordable}
-            className="px-2 py-1.5 flex items-center gap-1 active:translate-y-[1px] transition-transform"
+            className="flex items-center justify-center gap-1.5 px-3 py-1.5 active:translate-y-[1px] transition-transform"
             style={{
+              minWidth: 84,
               background: affordable
                 ? 'linear-gradient(180deg, #FDE68A 0%, #F5C842 55%, #B45309 100%)'
                 : 'rgba(255,255,255,0.05)',
@@ -217,13 +252,26 @@ function ShopCard({
               opacity: affordable ? 1 : 0.55,
             }}
           >
-            <IconTrophyTier size={10} tier="gold" />
+            <IconTrophyTier size={12} tier="gold" />
             <span className="font-pixel" style={{
               fontSize: 8, color: affordable ? '#3A2400' : '#7A7286',
             }}>{item.price}</span>
+            <span className="font-pixel" style={{
+              fontSize: 6, letterSpacing: 1, color: affordable ? '#5C3B02' : '#7A7286',
+            }}>{owned ? 'AGAIN' : 'BUY'}</span>
           </button>
+        ) : (
+          <span className="flex items-center gap-1.5 px-3 py-1.5" style={{
+            border: `1.5px solid ${rc.border}`, borderRadius: 3, background: rc.bg,
+          }}>
+            <IconCheck size={9} />
+            <span className="font-pixel" style={{ fontSize: 6, letterSpacing: 1, color: rc.text }}>OWNED</span>
+          </span>
         )}
-        <EquipButton item={item} owned={owned} cos={cos} onUse={onUse} />
+
+        <div className="flex-1 flex items-center justify-end">
+          <EquipControl item={item} owned={owned} cos={cos} onUse={onUse} />
+        </div>
       </div>
     </div>
   )
@@ -231,27 +279,24 @@ function ShopCard({
 
 /** Where a bought thing will show up — the answer to "and then what". */
 function Where({ item }: { item: AnyShopItem }) {
-  if (item.kind === 'decor') {
-    return (
-      <span className="font-pixel" style={{ fontSize: 5, letterSpacing: 1, color: '#6E6080' }}>
-        {ROOM_LABEL[(item as DecorItem).room] ?? (item as DecorItem).room.toUpperCase()}
-      </span>
-    )
-  }
+  const chip = (text: string) => (
+    <span className="font-pixel" style={{ fontSize: 5, letterSpacing: 1, color: '#7E7090' }}>
+      {text}
+    </span>
+  )
+  if (item.kind === 'decor') return chip(ROOM_LABEL[(item as DecorItem).room] ?? '')
+  if (item.kind === 'accessory') return chip('ON EREN')
   if (item.kind === 'privilege') {
     const p = item as PrivilegeItem
-    return (
-      <span className="font-pixel" style={{ fontSize: 5, letterSpacing: 1, color: '#6E6080' }}>
-        {p.minutes === 0 ? 'ONE SHOT' : p.minutes >= 60 ? `${Math.round(p.minutes / 60)}H` : `${p.minutes}M`}
-      </span>
-    )
+    return chip(p.minutes === 0 ? 'ONE SHOT'
+      : p.minutes >= 60 ? `LASTS ${Math.round(p.minutes / 60)}H` : `LASTS ${p.minutes}M`)
   }
-  return null
+  return chip((item as PrestigeItem).slot === 'title' ? 'UNDER YOUR NAME' : 'AROUND YOUR NAME')
 }
 
 // ─── Equip / use ─────────────────────────────────────────────────────────────
 
-function EquipButton({
+function EquipControl({
   item, owned, cos, onUse,
 }: {
   item: AnyShopItem
@@ -261,14 +306,19 @@ function EquipButton({
 }) {
   if (!owned) {
     return (
-      <span style={{ opacity: 0.3 }}><IconLock size={11} /></span>
+      <span className="flex items-center gap-1.5" style={{ opacity: 0.4 }}>
+        <IconLock size={11} />
+        <span className="font-pixel" style={{ fontSize: 5, letterSpacing: 1, color: '#7A7286' }}>
+          LOCKED
+        </span>
+      </span>
     )
   }
 
   if (item.kind === 'accessory') {
     const on = cos.accessory === item.id
     return (
-      <Toggle on={on} onLabel="WORN" offLabel="WEAR"
+      <Toggle on={on} onLabel="WEARING" offLabel="PUT IT ON"
         onClick={() => { playSound('ui_tap'); cos.wear(on ? null : item.id) }} />
     )
   }
@@ -277,7 +327,7 @@ function EquipButton({
     const d = item as DecorItem
     const on = cos.decor[d.room] === item.id
     return (
-      <Toggle on={on} onLabel="UP" offLabel="HANG"
+      <Toggle on={on} onLabel="HANGING" offLabel="HANG IT UP"
         onClick={() => { playSound('ui_tap'); cos.place(d.room, on ? null : item.id) }} />
     )
   }
@@ -286,7 +336,7 @@ function EquipButton({
     const p = item as PrestigeItem
     const on = p.slot === 'title' ? cos.myTitle === item.id : cos.myFrame === item.id
     return (
-      <Toggle on={on} onLabel="ON" offLabel="EQUIP"
+      <Toggle on={on} onLabel="EQUIPPED" offLabel="EQUIP"
         onClick={() => {
           playSound('ui_tap')
           if (p.slot === 'title') cos.setTitle(on ? null : item.id)
@@ -299,14 +349,18 @@ function EquipButton({
   return (
     <button
       onClick={() => { playSound('ui_select'); onUse() }}
-      className="px-2 py-1 active:translate-y-[1px] transition-transform"
+      className="px-3 py-1.5 flex items-center gap-1.5 active:translate-y-[1px] transition-transform"
       style={{
         border: '1.5px solid #63F094',
         borderRadius: 3,
-        background: 'rgba(99,240,148,0.10)',
+        background: 'linear-gradient(180deg, rgba(99,240,148,0.22) 0%, rgba(99,240,148,0.06) 100%)',
+        boxShadow: '0 0 8px rgba(99,240,148,0.22)',
       }}
     >
-      <span className="font-pixel" style={{ fontSize: 6, letterSpacing: 1, color: '#63F094' }}>USE</span>
+      <IconLightning size={10} />
+      <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 1, color: '#A7F3C0' }}>
+        USE ONE
+      </span>
     </button>
   )
 }
@@ -317,94 +371,20 @@ function Toggle({
   return (
     <button
       onClick={onClick}
-      className="px-2 py-1 flex items-center gap-1 active:translate-y-[1px] transition-transform"
+      className="px-3 py-1.5 flex items-center gap-1.5 active:translate-y-[1px] transition-transform"
       style={{
-        border: `1.5px solid ${on ? '#63F094' : 'rgba(255,255,255,0.18)'}`,
+        border: `1.5px solid ${on ? '#63F094' : 'rgba(255,255,255,0.28)'}`,
         borderRadius: 3,
-        background: on ? 'rgba(99,240,148,0.12)' : 'rgba(255,255,255,0.03)',
+        background: on
+          ? 'linear-gradient(180deg, rgba(99,240,148,0.24) 0%, rgba(99,240,148,0.06) 100%)'
+          : 'linear-gradient(180deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.02) 100%)',
+        boxShadow: on ? '0 0 8px rgba(99,240,148,0.22)' : undefined,
       }}
     >
-      {on && <IconCheck size={8} />}
+      {on && <IconCheck size={9} />}
       <span className="font-pixel" style={{
-        fontSize: 6, letterSpacing: 1, color: on ? '#63F094' : '#B4A8C4',
+        fontSize: 7, letterSpacing: 1, color: on ? '#A7F3C0' : '#D6CBE2',
       }}>{on ? onLabel : offLabel}</span>
     </button>
   )
-}
-
-// ─── Previews ────────────────────────────────────────────────────────────────
-
-function Preview({ item }: { item: AnyShopItem }) {
-  if (item.kind === 'decor') {
-    return <DecorArt art={(item as DecorItem).art} width={50} muted />
-  }
-  if (item.kind === 'accessory') {
-    return <AccessoryThumb art={(item as AccessoryItem).art} size={42} />
-  }
-  if (item.kind === 'privilege') {
-    return <span style={{ filter: 'drop-shadow(0 0 6px rgba(99,240,148,0.4))' }}><IconLightning size={30} /></span>
-  }
-  const p = item as PrestigeItem
-  if (p.slot === 'title') {
-    return (
-      <span className="font-pixel text-center" style={{
-        fontSize: 5, letterSpacing: 0.5, color: SHOP_RARITY_COLORS[item.rarity].text,
-        lineHeight: 1.5, padding: '2px 3px',
-        border: `1px solid ${SHOP_RARITY_COLORS[item.rarity].border}`,
-        borderRadius: 2,
-      }}>{p.value}</span>
-    )
-  }
-  return <FrameSwatch tone={p.value} />
-}
-
-/** A nameplate frame, shown around a stand-in name. */
-export function FrameSwatch({ tone, label = 'NAME' }: { tone: string; label?: string }) {
-  const skin = FRAME_SKINS[tone] ?? FRAME_SKINS.bronze
-  return (
-    <span className="relative inline-flex items-center justify-center px-1.5 py-1" style={{
-      border: `2px solid ${skin.border}`,
-      borderRadius: 2,
-      background: skin.bg,
-      boxShadow: `0 0 8px ${skin.glow}`,
-      overflow: 'hidden',
-    }}>
-      {skin.shine && (
-        <span aria-hidden className="absolute inset-0" style={{
-          background: 'linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.5) 50%, transparent 62%)',
-          animation: 'frameShine 3.4s ease-in-out infinite',
-        }} />
-      )}
-      <span className="font-pixel relative" style={{ fontSize: 5, letterSpacing: 1, color: skin.text }}>
-        {label}
-      </span>
-      <style>{`
-        @keyframes frameShine {
-          0%, 25%   { transform: translateX(-130%); }
-          70%, 100% { transform: translateX(130%); }
-        }
-      `}</style>
-    </span>
-  )
-}
-
-export const FRAME_SKINS: Record<string, {
-  border: string; bg: string; glow: string; text: string; shine?: boolean
-}> = {
-  bronze: {
-    border: '#8A4B18', bg: 'linear-gradient(180deg, rgba(224,151,90,0.18) 0%, #0A0710 100%)',
-    glow: 'rgba(224,151,90,0.25)', text: '#E0975A',
-  },
-  silver: {
-    border: '#8B93A3', bg: 'linear-gradient(180deg, rgba(216,220,230,0.16) 0%, #0A0710 100%)',
-    glow: 'rgba(216,220,230,0.25)', text: '#D8DCE6',
-  },
-  gold: {
-    border: '#F5C842', bg: 'linear-gradient(180deg, rgba(245,200,66,0.18) 0%, #0A0710 100%)',
-    glow: 'rgba(245,200,66,0.35)', text: '#FDE68A', shine: true,
-  },
-  champion: {
-    border: '#FFD700', bg: 'linear-gradient(180deg, rgba(255,215,0,0.24) 0%, rgba(255,140,40,0.10) 60%, #0A0710 100%)',
-    glow: 'rgba(255,215,0,0.55)', text: '#FFF4A3', shine: true,
-  },
 }

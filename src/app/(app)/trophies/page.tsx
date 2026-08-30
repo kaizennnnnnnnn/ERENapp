@@ -1,47 +1,56 @@
 'use client'
 
 // ═══════════════════════════════════════════════════════════════════════════
-// /trophies — the case and the shop.
+// /trophies — the case, the loadout, and the shop, in that order.
 //
 // Reached from the morning verdict screen's SHOP button and from the home nav.
-// The case is above the shop on purpose: you should see what you have won
-// before you see what it buys.
+// The order is deliberate and it is the answer to three separate questions the
+// screen kept failing:
+//   the CASE      what have I won
+//   the LOADOUT   where is the stuff I bought, and how do I put it on
+//   the SHOP      what else is there
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useCouple } from '@/hooks/useCouple'
 import { useCare } from '@/contexts/CareContext'
 import { useTrophies } from '@/hooks/useTrophies'
+import { useTrophyCosmetics } from '@/hooks/useTrophyCosmetics'
 import { usePageReady } from '@/hooks/usePageReady'
 import { withRetry } from '@/lib/supabaseRetry'
 import { LIFETIME_LOOKBACK_DAYS, type DailyBattleRow } from '@/lib/battleResults'
-import { TROPHY_TONE, type TrophyTier } from '@/lib/dailyTwist'
-import type { AnyShopItem, PrivilegeItem } from '@/lib/trophyShop'
+import type { TrophyTier } from '@/lib/dailyTwist'
+import type { AnyShopItem, PrivilegeItem, ShopKind } from '@/lib/trophyShop'
 import TrophyShopView from '@/components/trophies/TrophyShopView'
 import TrophyBuySheet from '@/components/trophies/TrophyBuySheet'
 import UsePrivilegeSheet from '@/components/trophies/UsePrivilegeSheet'
-import DecorArt, { type TrophyCounts } from '@/components/trophies/DecorArt'
+import TrophyCase from '@/components/trophies/TrophyCase'
+import EquippedBar from '@/components/trophies/EquippedBar'
+import TrophyCup from '@/components/trophies/TrophyCup'
+import { type TrophyCounts } from '@/components/trophies/DecorArt'
 import PageLoader from '@/components/PageLoader'
-import { OBSIDIAN_FACE, Rivets } from '@/components/obsidian'
-import { IconTrophyTier, IconDoor, IconFire } from '@/components/PixelIcons'
+import { IconDoor } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 
 export default function TrophiesPage() {
   const router = useRouter()
   const supabase = createClient()
-  const { user, loading: authLoading } = useAuth()
+  const { user, profile, loading: authLoading } = useAuth()
   const { lifetimeWLT } = useCouple()
   const { setHideStats } = useCare()
   const trophies = useTrophies()
+  const cos = useTrophyCosmetics()
 
   const [rows, setRows] = useState<DailyBattleRow[] | null>(null)
   const [buying, setBuying] = useState<AnyShopItem | null>(null)
   const [using, setUsing] = useState<PrivilegeItem | null>(null)
+  const [tab, setTab] = useState<ShopKind>('decor')
+  const shopRef = useRef<HTMLDivElement | null>(null)
 
   // The page wears its own header; the floating StatsHeader would fight it.
   useEffect(() => {
@@ -77,7 +86,11 @@ export default function TrophiesPage() {
     return c
   }, [rows])
 
-  const totalWon = counts.bronze + counts.silver + counts.gold
+  /** A loadout slot was tapped: open its shelf and put it on screen. */
+  function jumpTo(kind: ShopKind) {
+    setTab(kind)
+    shopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   if (authLoading) return <PageLoader label="OPENING THE CASE" />
 
@@ -112,7 +125,7 @@ export default function TrophiesPage() {
           borderRadius: 3,
           background: 'rgba(245,200,66,0.10)',
         }}>
-          <IconTrophyTier size={13} tier="gold" />
+          <TrophyCup tier="gold" size={15} shine={false} />
           <span className="font-pixel" style={{ fontSize: 10, color: '#FDE68A' }}>
             {trophies.loaded ? trophies.balance : '—'}
           </span>
@@ -122,63 +135,21 @@ export default function TrophiesPage() {
       <div className="relative flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-4"
         style={{ paddingBottom: 40 }}>
 
-        {/* ── The case ── */}
-        <div className="relative px-3 pt-3 pb-3" style={{
-          ...OBSIDIAN_FACE,
-          border: '1.5px solid rgba(245,200,66,0.45)',
-          boxShadow: '3px 3px 0 rgba(0,0,0,0.55), 0 0 18px rgba(245,200,66,0.16)',
-        }}>
-          <Rivets inset={4} size={3} />
+        <TrophyCase
+          counts={counts}
+          loading={rows === null}
+          streak={lifetimeWLT?.myStreak}
+        />
 
-          <p className="font-pixel text-center" style={{
-            fontSize: 7, letterSpacing: 2, color: '#9A8AA8', marginBottom: 10,
-          }}>YOUR CASE</p>
+        <EquippedBar
+          cos={cos}
+          name={profile?.name?.split(' ')[0] || 'YOU'}
+          onJump={jumpTo}
+        />
 
-          <div className="mx-auto" style={{ maxWidth: 260 }}>
-            <DecorArt art="trophy_shelf" counts={counts} />
-          </div>
-
-          <div className="flex justify-center gap-2 mt-3">
-            {(['gold', 'silver', 'bronze'] as TrophyTier[]).map(t => (
-              <div key={t} className="flex items-center gap-1 px-2 py-1" style={{
-                border: `1px solid ${TROPHY_TONE[t]}55`,
-                background: `${TROPHY_TONE[t]}10`,
-                borderRadius: 3,
-              }}>
-                <IconTrophyTier size={11} tier={t} />
-                <span className="font-pixel" style={{ fontSize: 7, color: TROPHY_TONE[t] }}>
-                  {counts[t]}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <p className="text-center text-[10px] mt-2.5" style={{ color: '#8B7F9B' }}>
-            {rows === null
-              ? 'Counting…'
-              : totalWon === 0
-                ? 'Nothing on the shelf yet. Win a day.'
-                : `${totalWon} day${totalWon === 1 ? '' : 's'} won.`}
-          </p>
-
-          {lifetimeWLT && lifetimeWLT.myStreak > 1 && (
-            <div className="flex justify-center mt-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1" style={{
-                border: '1px solid rgba(255,107,61,0.5)',
-                background: 'rgba(255,107,61,0.10)',
-                borderRadius: 3,
-              }}>
-                <IconFire size={11} />
-                <span className="font-pixel" style={{ fontSize: 6, letterSpacing: 1, color: '#FF9A6B' }}>
-                  {lifetimeWLT.myStreak} IN A ROW
-                </span>
-              </span>
-            </div>
-          )}
+        <div ref={shopRef} style={{ scrollMarginTop: 8 }}>
+          <TrophyShopView tab={tab} onTab={setTab} onBuy={setBuying} onUse={setUsing} />
         </div>
-
-        {/* ── The shop ── */}
-        <TrophyShopView onBuy={setBuying} onUse={setUsing} />
       </div>
 
       {buying && <TrophyBuySheet item={buying} onClose={() => setBuying(null)} />}
