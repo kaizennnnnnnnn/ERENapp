@@ -40,7 +40,7 @@ import TipJar from './TipJar'
 import KioskRadio from './KioskRadio'
 import StreetWeather from './StreetWeather'
 import GlassMist from './GlassMist'
-import TipCoin, { COIN_MS } from './TipCoin'
+import TipCoin, { COIN_MS, coinFlightMs } from './TipCoin'
 import { ShiftNote, ChampionApron } from './WallProps'
 import {
   FRIDGE_HIT, FRIDGE_TAG, DOOR_HIT, DOOR_TAG, MAX_USES, WEATHER_BY_ID,
@@ -171,11 +171,14 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
   // The coin itself only exists for the length of its flight. `shift.paid`
   // stays set for the rest of the night, so rendering off it directly meant a
   // coin flew every time you turned back to the window.
-  const [coin, setCoin] = useState<{ id: number } | null>(null)
+  const [coin, setCoin] = useState<{ id: number; tip: number } | null>(null)
   useEffect(() => {
     if (!shift.paid || shift.paid.tip <= 0) return
-    setCoin({ id: shift.paid.id })
-    const t = setTimeout(() => setCoin(null), COIN_MS + 80)
+    const tip = shift.paid.tip
+    setCoin({ id: shift.paid.id, tip })
+    // A big tip is several coins landing a beat apart, so the handful has to
+    // outlive one coin's flight.
+    const t = setTimeout(() => setCoin(null), coinFlightMs(tip) + 320)
     return () => clearTimeout(t)
   }, [shift.paid])
 
@@ -196,7 +199,9 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
     setStation(prev => {
       const next = (prev + 1) % (STATIONS.length + 1)
       try { window.localStorage.setItem(RADIO_KEY, String(next)) } catch { /* private mode */ }
-      playSound(next === 0 ? 'ui_back' : 'ui_toggle')
+      // The dial, not the UI. A menu click on a radio is the tell that the
+      // radio is a button with a picture of a radio on it.
+      playSound(next === 0 ? 'kiosk_radio_off' : 'kiosk_tune')
       return next
     })
   }, [])
@@ -449,7 +454,9 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
           {/* The night's tips, as a depth of coins on the ledge people are
               leaving them on — and the coin somebody just put there. */}
           {view.feature === 'window' && <TipJar tips={jarTips} />}
-          {view.feature === 'window' && coin && <TipCoin key={coin.id} id={coin.id} />}
+          {view.feature === 'window' && coin && (
+            <TipCoin key={coin.id} id={coin.id} tip={coin.tip} still={reduced} />
+          )}
 
           {view.feature === 'window' && (
             <CustomerWindow

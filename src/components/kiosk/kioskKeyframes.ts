@@ -110,12 +110,35 @@ export const KIOSK_KEYFRAMES = `
         }
         /* A coin off the ledge and into the jar. It leaves the hand upward
            and lands downward, because that is what a thrown coin does — a
-           straight line between the two reads as a cursor. */
+           straight line between the two reads as a cursor.
+
+           The arc is split across two elements. This one carries the FLIGHT,
+           and its --lift is per-coin, so a handful thrown together fans out
+           instead of moving like one rigid object. The spin lives on a child
+           (kioskTipFlip) on its own clock: a coin tumbles several times on the
+           way across, which a single keyframe list can't express while it is
+           already busy describing a parabola. */
         @keyframes kioskTipCoin {
-          0%   { opacity: 0; transform: translate(0, 0) scale(0.55); }
-          14%  { opacity: 1; transform: translate(calc(var(--dx) * 0.14), calc(var(--dy) * 0.14 - 4cqi)) scale(1.05); }
-          58%  { opacity: 1; transform: translate(calc(var(--dx) * 0.58), calc(var(--dy) * 0.58 - 5cqi)) scale(1); }
-          100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.78); }
+          0%   { opacity: 0; transform: translate(0, 0); }
+          8%   { opacity: 1; transform: translate(calc(var(--dx) * 0.08), calc(var(--dy) * 0.08 - var(--lift) * 0.5)); }
+          52%  { opacity: 1; transform: translate(calc(var(--dx) * 0.52), calc(var(--dy) * 0.52 - var(--lift))); }
+          86%  { opacity: 1; transform: translate(calc(var(--dx) * 0.94), calc(var(--dy) * 0.94 - var(--lift) * 0.16)); }
+          100% { opacity: 0; transform: translate(var(--dx), var(--dy)); }
+        }
+        /* The coin turning over. Edge-on it is a sliver, which is the whole
+           reason to do it in scaleX rather than by swapping sprites. */
+        @keyframes kioskTipFlip {
+          0%   { transform: scaleX(1)    rotate(0deg);   }
+          25%  { transform: scaleX(0.14) rotate(-6deg);  }
+          50%  { transform: scaleX(1)    rotate(-12deg); }
+          75%  { transform: scaleX(0.14) rotate(-6deg);  }
+          100% { transform: scaleX(1)    rotate(0deg);   }
+        }
+        /* And the jar taking it: a ring of light off the mouth, gone in a
+           quarter of a second. */
+        @keyframes kioskTipLand {
+          0%   { opacity: 0.85; transform: translate(-50%, -50%) scale(0.35); }
+          100% { opacity: 0;    transform: translate(-50%, -50%) scale(1.9);  }
         }
         /* The lights going. */
         @keyframes kioskLightsOut {

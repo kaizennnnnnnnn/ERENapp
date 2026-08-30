@@ -265,6 +265,14 @@ export const SOUNDS = {
   kiosk_blackout:'/sounds/kiosk/kiosk_blackout.mp3',
   kiosk_power:   '/sounds/kiosk/kiosk_power.mp3',
   kiosk_shutter: '/sounds/kiosk/kiosk_shutter.mp3',
+  kiosk_tune:    '/sounds/kiosk/kiosk_tune.mp3',
+  kiosk_radio_off:'/sounds/kiosk/kiosk_radio_off.mp3',
+  // A coin landing in the jar, three ascending variants so a handful of them
+  // climbs instead of repeating one note. Same trick as coin_ching, an octave
+  // down and much shorter: five of these in a row must not become a whistle.
+  kiosk_tip:     '/sounds/kiosk/kiosk_tip.mp3',
+  kiosk_tip2:    '/sounds/kiosk/kiosk_tip2.mp3',
+  kiosk_tip3:    '/sounds/kiosk/kiosk_tip3.mp3',
 } as const
 
 export type SoundName = keyof typeof SOUNDS
@@ -329,6 +337,11 @@ const VOLUME_SCALE: Partial<Record<SoundName, number>> = {
   kiosk_blackout: 0.6,
   kiosk_power:    0.55,
   kiosk_shutter:  0.55,
+  kiosk_tune:     0.4,
+  kiosk_radio_off:0.4,
+  kiosk_tip:      0.5,
+  kiosk_tip2:     0.5,
+  kiosk_tip3:     0.5,
 
   // ─── Mini-game gameplay SFX ─────────────────────────────────────────────
   // catch-mouse

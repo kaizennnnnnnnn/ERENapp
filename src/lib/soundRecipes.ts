@@ -397,4 +397,43 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
                     { at: 0,   recipe: { type: 'noise', duration: 620, gain: 0.34, lowpass: 1500, highpass: 120 } },
                     { at: 640, recipe: { type: 'blip', freq: 147, duration: 130, shape: 'square', gain: 0.4 } },
                   ] },
+
+  // kiosk_tune — the dial moving. A click, then a smear of static that lands
+  // on a station: the noise is BAND-LIMITED to the same 220 Hz-5 kHz the radio
+  // itself plays through, so tuning and the music come out of one speaker
+  // rather than out of two different sound systems.
+  kiosk_tune:    { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'blip', freq: 1200, duration: 22, shape: 'square', gain: 0.16 } },
+                    { at: 14,  recipe: { type: 'noise', duration: 230, gain: 0.3, lowpass: 5000, highpass: 900 } },
+                    { at: 150, recipe: { type: 'noise', duration: 120, gain: 0.14, lowpass: 3000, highpass: 400 } },
+                  ] },
+
+  // kiosk_radio_off — the click, and the hiss collapsing behind it. Shorter
+  // than kiosk_tune on purpose: OFF should feel like a lid closing.
+  kiosk_radio_off: { type: 'seq', parts: [
+                    { at: 0,  recipe: { type: 'blip', freq: 900, duration: 26, shape: 'square', gain: 0.18 } },
+                    { at: 8,  recipe: { type: 'noise', duration: 130, gain: 0.16, lowpass: 4200, highpass: 700 } },
+                  ] },
+
+  // ── kiosk_tip ×3 — a coin going into the glass jar ───────────────────────
+  // Not coin_ching. A ching is money being COUNTED — bright, ringing, up in
+  // the 2-5 kHz music-box register. This is one coin hitting the coins already
+  // in a jar: a dull little strike with the glass answering underneath it, an
+  // octave lower and a third of the length, because up to five of them land in
+  // half a second and five chings in half a second is an alarm.
+  kiosk_tip:     { type: 'seq', parts: [
+                    { at: 0,  recipe: { type: 'noise', duration: 24, gain: 0.14, lowpass: 7000, highpass: 2400 } },
+                    { at: 0,  recipe: { type: 'chord', freqs: [1319, 1976], duration: 85, shape: 'sine', gain: 0.42 } },
+                    { at: 16, recipe: { type: 'blip', freq: 659, duration: 240, shape: 'sine', gain: 0.15 } },
+                  ] },
+  kiosk_tip2:    { type: 'seq', parts: [
+                    { at: 0,  recipe: { type: 'noise', duration: 24, gain: 0.14, lowpass: 7000, highpass: 2400 } },
+                    { at: 0,  recipe: { type: 'chord', freqs: [1568, 2349], duration: 85, shape: 'sine', gain: 0.42 } },
+                    { at: 16, recipe: { type: 'blip', freq: 784, duration: 240, shape: 'sine', gain: 0.15 } },
+                  ] },
+  kiosk_tip3:    { type: 'seq', parts: [
+                    { at: 0,  recipe: { type: 'noise', duration: 24, gain: 0.14, lowpass: 7000, highpass: 2400 } },
+                    { at: 0,  recipe: { type: 'chord', freqs: [1760, 2637], duration: 85, shape: 'sine', gain: 0.42 } },
+                    { at: 16, recipe: { type: 'blip', freq: 880, duration: 240, shape: 'sine', gain: 0.15 } },
+                  ] },
 }
