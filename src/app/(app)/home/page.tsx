@@ -17,7 +17,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 import Link from 'next/link'
 import { Sparkles } from 'lucide-react'
-import { IconGift, IconHeart, IconBell, IconPerson, IconDoor, IconPhoto, IconDress } from '@/components/PixelIcons'
+import { IconGift, IconHeart, IconBell, IconPerson, IconDoor, IconPhoto, IconDress, IconTrophyTier } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import { requestCloudNav } from '@/components/CloudTransition'
 import TaskPanel from '@/components/TaskPanel'
@@ -42,6 +42,8 @@ import JealousEren from '@/components/couple/JealousEren'
 import DailyBattleHUD from '@/components/couple/DailyBattleHUD'
 import DailyVerdictScreen from '@/components/couple/DailyVerdictScreen'
 import { useDailyVerdict } from '@/hooks/useDailyVerdict'
+import { useTrophyEffects } from '@/hooks/useTrophyEffects'
+import { useTrophies } from '@/hooks/useTrophies'
 import CoopGoalBar from '@/components/couple/CoopGoalBar'
 import ComebackBadge from '@/components/couple/ComebackBadge'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
@@ -317,7 +319,13 @@ export default function HomePage() {
     wish?.status ?? 'loading', wish?.todayKey ?? null, wishBubbleEligible,
   ) && !!wish?.wish
 
+  // A line the partner bought in the Trophy Shop for Eren to say to me.
+  const { erenSays } = useTrophyEffects()
+  const { balance: trophyBalanceRaw, loaded: trophiesLoaded } = useTrophies()
+  const trophyBalance = trophiesLoaded ? trophyBalanceRaw : 0
+
   const { line: flavorLine, dismiss: dismissFlavor } = useFlavorBubble({
+    erenSays,
     enabled: !!stats && !stats.is_sleeping && roomReady && !authLoading,
     // Only mute flavor while the GRANT celebration owns the anchor (its 2-min
     // linger). While a wish is merely pending it can sit unanswered all day —
@@ -509,6 +517,10 @@ export default function HomePage() {
         todayTwist={verdict.todayTwist}
         myName={profile?.name?.split(' ')[0] ?? 'You'}
         partnerName={partner?.name?.split(' ')[0] ?? 'Partner'}
+        myTitle={profile?.equipped_title}
+        myFrame={profile?.equipped_frame}
+        partnerTitle={partner?.equipped_title}
+        partnerFrame={partner?.equipped_frame}
         onClose={verdict.dismiss}
       />
     )
@@ -775,6 +787,24 @@ export default function HomePage() {
                 <div className="absolute -top-1 -right-1"
                   style={{ width: 11, height: 11, background: '#FF1D5E', border: '2px solid #050507', boxShadow: '0 0 5px rgba(255,29,94,0.7)', borderRadius: '50%' }} />
               ) : null}
+            </Link>
+            <Link href="/trophies" onClick={() => playSound('ui_tap')}
+              aria-label="Trophy room"
+              className="home-nav-pop w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
+              style={{ ...cuteBtn('251,214,120'), animationDelay: '0.28s' }}>
+              <CuteIcon><IconTrophyTier size={20} tier="gold" /></CuteIcon>
+              {/* Spendable balance. Gated on `loaded` so an outage shows no
+                  badge rather than a confident zero. */}
+              {trophyBalance > 0 && (
+                <div className="absolute -top-1 -right-1 flex items-center justify-center"
+                  style={{
+                    minWidth: 16, height: 16, padding: '0 3px',
+                    background: '#F5C842', border: '2px solid #050507',
+                    boxShadow: '0 0 5px rgba(245,200,66,0.65)', borderRadius: 6,
+                  }}>
+                  <span className="font-pixel" style={{ fontSize: 5, color: '#3A2400' }}>{trophyBalance}</span>
+                </div>
+              )}
             </Link>
             <button onClick={() => { playSound('ui_modal_open'); setShowReminders(true) }}
               className="home-nav-pop w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"

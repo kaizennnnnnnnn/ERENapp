@@ -24,6 +24,7 @@ import {
 import {
   twistForDate, scoreActions, isBattleAction, type TwistDef,
 } from '@/lib/dailyTwist'
+import { useTrophyEffects } from './useTrophyEffects'
 import { notifyPartnerAction } from '@/lib/statNotifications'
 
 export interface DailyActionSignal {
@@ -83,6 +84,11 @@ function useDailyBattleImpl(): DailyBattleState {
   const supabase = createClient()
   const { user, profile } = useAuth()
   const { partner } = useCouple()
+  // Today's bought privileges. A Double Hour or a Point Steal changes what the
+  // rows are worth, and both phones have to reach the same number, so the mods
+  // go through the same scorer the snapshot uses rather than being patched
+  // onto the display.
+  const { mods } = useTrophyEffects()
 
   const [dayKey, setDayKey]           = useState(() => localDayKey())
   const [myScore, setMyScore]         = useState(0)
@@ -103,6 +109,10 @@ function useDailyBattleImpl(): DailyBattleState {
   const loadFailedRef = useRef(false)
 
   const channelSuffix = useRef(`db_${++_channelCounter}`)
+  // Read through a ref so a new effect landing does not rebuild fetchToday and
+  // re-subscribe the realtime channel; the refetch below is what applies it.
+  const modsRef = useRef(mods)
+  modsRef.current = mods
 
   const fetchToday = useCallback(async () => {
     if (!profile?.household_id || !user?.id) return
@@ -132,7 +142,7 @@ function useDailyBattleImpl(): DailyBattleState {
     // the result screen tomorrow morning.
     const rows = (data ?? []) as Interaction[]
     const today = localDayKey()
-    const sp = scoreDaily(rows, user.id, partner?.id ?? '', today)
+    const sp = scoreDaily(rows, user.id, partner?.id ?? '', today, modsRef.current)
     setDayKey(today)
     setMyScore(sp.myScore)
     setPartnerScore(sp.partnerScore)
@@ -163,6 +173,11 @@ function useDailyBattleImpl(): DailyBattleState {
   }, [profile?.household_id, user?.id, partner?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchToday() }, [fetchToday])
+
+  // A privilege fired on either phone re-prices today's rows. Cheap to redo
+  // and it is the only way a Point Steal shows up on the victim's screen.
+  const modsKey = JSON.stringify(mods)
+  useEffect(() => { void fetchToday() }, [modsKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Self-heal: fetchToday only re-runs on dep change or midnight rollover
   // (realtime only adds future inserts), so a failed load would otherwise

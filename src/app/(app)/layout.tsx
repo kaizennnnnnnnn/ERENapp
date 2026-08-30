@@ -5,6 +5,8 @@ import { WishProvider } from '@/contexts/WishContext'
 import { ErenStatsProvider } from '@/hooks/useErenStats'
 import { CoupleProvider } from '@/hooks/useCouple'
 import { DailyBattleProvider } from '@/hooks/useDailyBattle'
+import { TrophiesProvider } from '@/hooks/useTrophies'
+import { TrophyEffectsProvider } from '@/hooks/useTrophyEffects'
 import CareSceneHost from '@/components/care/CareSceneHost'
 import DailyBattlePop from '@/components/couple/DailyBattlePop'
 import PageSwiper from '@/components/PageSwiper'
@@ -23,8 +25,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <TaskProvider>
           <ErenStatsProvider>
             <CoupleProvider>
-              <DailyBattleProvider>
-                <WishProvider>
+              <TrophiesProvider>
+                {/* Above DailyBattleProvider on purpose: the scoreboard reads
+                    the day's live privileges (double hour, point steal) out of
+                    it, so the effects have to exist first. */}
+                <TrophyEffectsProvider>
+                  <DailyBattleProvider>
+                    <WishProvider>
                   <PageSwiper>
                     <div className="fixed top-0 left-0 right-0 z-[60] pointer-events-none">
                       <StatsHeader />
@@ -41,8 +48,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                         should be reachable while acceptance is outstanding. */}
                     <TermsGate />
                   </PageSwiper>
-                </WishProvider>
-              </DailyBattleProvider>
+                    </WishProvider>
+                  </DailyBattleProvider>
+                </TrophyEffectsProvider>
+              </TrophiesProvider>
             </CoupleProvider>
           </ErenStatsProvider>
         </TaskProvider>

@@ -6,6 +6,10 @@ import {
   twistForDate, scoreActions, isBattleAction,
   type TrophyTier, type TwistId,
 } from '@/lib/dailyTwist'
+import {
+  NO_MODS, inAnyWindow, scoreModsFor, fetchEffects,
+  type ScoreMods,
+} from '@/lib/trophyEffects'
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // BATTLE RESULTS — daily + weekly scoreboard persistence
@@ -115,19 +119,28 @@ export function scoreDaily(
   myId: string,
   partnerId: string,
   dayKey: string,
+  mods: ScoreMods = NO_MODS,
 ): ScorePair {
   const twist = twistForDate(dayKey)
   const mine: string[] = []
   const theirs: string[] = []
+  // A DOUBLE HOUR is applied by counting the action twice rather than by
+  // doubling a subtotal — that keeps it correct under the contextual twists,
+  // where the value of an action depends on its position in the sequence.
   const ordered = [...interactions].sort((a, b) => a.created_at.localeCompare(b.created_at))
   for (const i of ordered) {
     if (i.useful === false) continue
     if (!isBattleAction(i.action_type)) continue
-    if (i.user_id === myId) mine.push(i.action_type)
-    else if (i.user_id === partnerId) theirs.push(i.action_type)
+    const bucket = i.user_id === myId ? mine : i.user_id === partnerId ? theirs : null
+    if (!bucket) continue
+    bucket.push(i.action_type)
+    if (inAnyWindow(mods.doubles[i.user_id], new Date(i.created_at).getTime())) {
+      bucket.push(i.action_type)
+    }
   }
-  const me = scoreActions(twist, mine)
-  const them = scoreActions(twist, theirs)
+  // A POINT STEAL cannot take a score below zero — it is a nudge, not a debt.
+  const me = Math.max(0, scoreActions(twist, mine) - (mods.steals[myId] ?? 0))
+  const them = Math.max(0, scoreActions(twist, theirs) - (mods.steals[partnerId] ?? 0))
   return { myScore: me, partnerScore: them, outcome: outcomeOf(me, them) }
 }
 
@@ -270,6 +283,12 @@ async function doBackfillDailyResults(
     .lt('created_at', endIso)
   const all = (interactions ?? []) as Interaction[]
 
+  // The same window's privileges. Without this a Double Hour spent last night
+  // would show on the live bar all evening and then quietly vanish from the
+  // snapshot written this morning — the worst possible bug for a thing you
+  // paid trophies for.
+  const effects = await fetchEffects(supabase, householdId, startIso)
+
   // Bucket by local-date string so the date semantics match the snapshot key.
   const byDate = new Map<string, Interaction[]>()
   for (const i of all) {
@@ -281,7 +300,9 @@ async function doBackfillDailyResults(
   const rowsToInsert: Omit<DailyBattleRow, 'created_at'>[] = []
   for (const date of missing) {
     const ints = byDate.get(date) ?? []
-    const sp = scoreDaily(ints, myId, partnerId, date)
+    const dayStart = new Date(date + 'T00:00:00').getTime()
+    const sp = scoreDaily(ints, myId, partnerId, date,
+      scoreModsFor(effects, dayStart, dayStart + 86_400_000))
     // Skip dead days — neither user did anything tracked.
     if (sp.myScore === 0 && sp.partnerScore === 0) continue
     rowsToInsert.push({

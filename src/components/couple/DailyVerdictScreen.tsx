@@ -27,6 +27,7 @@ import { OBSIDIAN_FACE, OBSIDIAN_BTN, Rivets, accentA } from '@/components/obsid
 import {
   IconTrophyTier, IconCrown, IconSwords, IconFire, IconHeart, IconShelf,
 } from '@/components/PixelIcons'
+import Nameplate from '@/components/trophies/Nameplate'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { playSound } from '@/lib/sounds'
 
@@ -38,6 +39,11 @@ interface Props {
   todayTwist: TwistDef
   myName: string
   partnerName: string
+  /** Prestige each side is wearing, if any (Trophy Shop). */
+  myTitle?: string | null
+  myFrame?: string | null
+  partnerTitle?: string | null
+  partnerFrame?: string | null
   onClose(): void
 }
 
@@ -48,7 +54,8 @@ const MY_PINK = { hi: '#FF8DB8', mid: '#FF6B9D', lo: '#C8265F', rgb: '255,107,15
 const THEIR_PURPLE = { hi: '#C9B4FF', mid: '#A78BFA', lo: '#5C2FE0', rgb: '167,139,250' }
 
 export default function DailyVerdictScreen({
-  row, awarded, streak, yesterdayTwist, todayTwist, myName, partnerName, onClose,
+  row, awarded, streak, yesterdayTwist, todayTwist, myName, partnerName,
+  myTitle, myFrame, partnerTitle, partnerFrame, onClose,
 }: Props) {
   const router = useRouter()
   const reduced = useReducedMotion()
@@ -151,11 +158,13 @@ export default function DailyVerdictScreen({
                 shape, because they are the same result. */}
             <div className="relative flex items-end justify-center gap-2">
               <Podium
-                name={myName} score={row.score} place={won ? 1 : tied ? 0 : 2}
+                name={myName} titleId={myTitle} frameId={myFrame}
+                score={row.score} place={won ? 1 : tied ? 0 : 2}
                 side={MY_PINK} reveal={beat >= 1} reduced={reduced}
               />
               <Podium
-                name={partnerName} score={row.partner_score}
+                name={partnerName} titleId={partnerTitle} frameId={partnerFrame}
+                score={row.partner_score}
                 place={row.outcome === 'loss' ? 1 : tied ? 0 : 2}
                 side={THEIR_PURPLE} reveal={beat >= 1} reduced={reduced}
               />
@@ -356,9 +365,11 @@ export default function DailyVerdictScreen({
 // ── One side of the board ────────────────────────────────────────────────────
 
 function Podium({
-  name, score, place, side, reveal, reduced,
+  name, titleId, frameId, score, place, side, reveal, reduced,
 }: {
   name: string
+  titleId?: string | null
+  frameId?: string | null
   score: number
   /** 1 first, 2 second, 0 a dead heat. Drives the block height. */
   place: 0 | 1 | 2
@@ -385,10 +396,9 @@ function Podium({
         )}
       </div>
 
-      <span className="font-pixel" style={{
-        fontSize: 6, letterSpacing: 1.5, color: side.hi, marginBottom: 5,
-        textShadow: `0 0 6px rgba(${side.rgb},0.45)`,
-      }}>{name.toUpperCase()}</span>
+      <div style={{ marginBottom: 5 }}>
+        <Nameplate name={name} titleId={titleId} frameId={frameId} size={6} tone={side.hi} />
+      </div>
 
       {/* The block. Score sits ON it, the way a number sits on a podium. */}
       <div className="relative flex items-center justify-center" style={{

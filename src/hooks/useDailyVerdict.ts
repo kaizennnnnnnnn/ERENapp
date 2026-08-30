@@ -31,6 +31,11 @@ import {
   type DailyBattleRow, type TrophySettlement,
 } from '@/lib/battleResults'
 import { twistForDate, type TwistDef } from '@/lib/dailyTwist'
+import { useTrophies } from './useTrophies'
+import { useTrophyCosmetics } from './useTrophyCosmetics'
+
+/** The accessory a win puts on Eren for the day, if the winner owns it. */
+const WINNERS_CROWN = 'acc_crown'
 
 export interface DailyVerdict {
   /** Render the screen. False until settlement has actually resolved. */
@@ -61,6 +66,8 @@ export function useDailyVerdict(ready: boolean): DailyVerdict {
   const supabase = createClient()
   const { user } = useAuth()
   const { partner, lifetimeWLT } = useCouple()
+  const trophies = useTrophies()
+  const cos = useTrophyCosmetics()
 
   const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd')
   const today = format(new Date(), 'yyyy-MM-dd')
@@ -127,6 +134,20 @@ export function useDailyVerdict(ready: boolean): DailyVerdict {
     window.addEventListener('eren:battle-backfilled', onBackfill)
     return () => window.removeEventListener('eren:battle-backfilled', onBackfill)
   }, [ready, settle])
+
+  // The winner's crown. Yesterday's winner finds it on the cat this morning,
+  // and so does the loser — which is the entire joke. Only ever put on a BARE
+  // cat: silently replacing an accessory someone deliberately chose would be a
+  // reward that takes something away.
+  const crownedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!ready || !row || row.outcome !== 'win') return
+    if (crownedRef.current === yesterday) return
+    if (!trophies.loaded || !trophies.mine(WINNERS_CROWN)) return
+    if (cos.accessory) return
+    crownedRef.current = yesterday
+    void cos.wear(WINNERS_CROWN)
+  }, [ready, row, yesterday, trophies.loaded, cos.accessory]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const dismiss = useCallback(() => {
     setShow(false)

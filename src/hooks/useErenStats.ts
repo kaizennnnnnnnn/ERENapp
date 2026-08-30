@@ -7,6 +7,7 @@ import { useAuth } from './useAuth'
 import type { ErenStats, FoodInventory } from '@/types'
 import { computeErenMood, clampStat, shouldBecomeSick } from '@/lib/utils'
 import { MONSTA_ENERGY, type MonstaBuff } from '@/lib/monstaBuffs'
+import { decayFrozen } from '@/lib/trophyEffects'
 import { ACTION_CONFIGS, type ActionType } from '@/types'
 import { DONUT_EFFECTS, type DonutEffectId } from '@/lib/donutEffects'
 
@@ -305,6 +306,17 @@ function useErenStatsImpl(householdId: string | null) {
 
     // Initialize last_decay_at on first load so subsequent ticks have a reference.
     if (!raw.last_decay_at) {
+      const now = new Date().toISOString()
+      await supabase.from('eren_stats').update({ last_decay_at: now }).eq('household_id', householdId)
+      setStats({ ...raw, last_decay_at: now })
+      setLoading(false)
+      return
+    }
+
+    // A DECAY FREEZE bought in the Trophy Shop pauses the CLOCK, not the
+    // maths: last_decay_at is pushed forward so the skipped hours are not
+    // banked up and dumped on him the moment it lapses.
+    if (decayFrozen()) {
       const now = new Date().toISOString()
       await supabase.from('eren_stats').update({ last_decay_at: now }).eq('household_id', householdId)
       setStats({ ...raw, last_decay_at: now })

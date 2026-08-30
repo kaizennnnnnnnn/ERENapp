@@ -65,6 +65,11 @@ export interface UseFlavorBubbleOptions {
   userId?: string | null
   householdId?: string | null
   tz?: string | null
+  /** A line the partner PAID for Eren to say to this viewer (Trophy Shop's
+   *  "Eren Says"). When present it displaces the idle pool roughly a third of
+   *  the time — often enough that it lands, rarely enough that Eren doesn't
+   *  become a billboard for one sentence. */
+  erenSays?: string | null
 }
 
 export interface FlavorBubble {
@@ -73,6 +78,9 @@ export interface FlavorBubble {
   text: string
   trigger: FlavorTrigger
 }
+
+/** How often a paid Eren Says line displaces an idle one. */
+const EREN_SAYS_CHANCE = 0.34
 
 export function useFlavorBubble(opts: UseFlavorBubbleOptions): {
   line: FlavorBubble | null
@@ -86,6 +94,7 @@ export function useFlavorBubble(opts: UseFlavorBubbleOptions): {
   const enabledRef = useRef(opts.enabled)
   const suppressedRef = useRef(opts.suppressed)
   const leaderRef = useRef(opts.leaderName)
+  const erenSaysRef = useRef(opts.erenSays ?? null)
   const viewerRef = useRef(opts.viewerName)
   const partnerRef = useRef(opts.partnerName)
   const userIdRef = useRef(opts.userId)
@@ -94,6 +103,7 @@ export function useFlavorBubble(opts: UseFlavorBubbleOptions): {
   useEffect(() => { enabledRef.current = opts.enabled }, [opts.enabled])
   useEffect(() => { suppressedRef.current = opts.suppressed }, [opts.suppressed])
   useEffect(() => { leaderRef.current = opts.leaderName }, [opts.leaderName])
+  useEffect(() => { erenSaysRef.current = opts.erenSays ?? null }, [opts.erenSays])
   useEffect(() => { viewerRef.current = opts.viewerName }, [opts.viewerName])
   useEffect(() => { partnerRef.current = opts.partnerName }, [opts.partnerName])
   useEffect(() => { userIdRef.current = opts.userId }, [opts.userId])
@@ -145,6 +155,13 @@ export function useFlavorBubble(opts: UseFlavorBubbleOptions): {
   // Pick a line for the given pool (specific trigger) or the "idle-pool"
   // composite that occasionally splices in needs_leader / rare_intro.
   const pickAndShow = useCallback((source: FlavorTrigger | 'idle-pool') => {
+    // A paid-for line outranks the idle pool. Kept to a third of idle ticks so
+    // it reads as Eren repeating something he was told, not as a stuck record.
+    const paid = erenSaysRef.current
+    if (source === 'idle-pool' && paid && Math.random() < EREN_SAYS_CHANCE) {
+      show({ id: `eren-says:${paid.slice(0, 24)}`, text: paid, trigger: 'idle' })
+      return
+    }
     let pool: FlavorLine[]
     if (source === 'idle-pool') {
       const hasLeader = !!leaderRef.current && leaderRef.current !== viewerRef.current
