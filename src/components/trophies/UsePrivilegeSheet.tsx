@@ -102,7 +102,15 @@ export default function UsePrivilegeSheet({
    */
   async function bankFreezeToken(): Promise<boolean> {
     if (!user?.id) return false
-    const streak = (profile?.streak ?? {}) as StreakData
+    // Re-read immediately before writing. useAuth's `profile` is fetched once
+    // per session and never refreshed, so a read-modify-write of the whole
+    // jsonb from it would happily post a days-old `current`/`lastDate` back
+    // over a streak that has since advanced — a paid item that silently
+    // rewinds your care streak is the worst possible outcome here.
+    const { data, error: readErr } = await supabase
+      .from('profiles').select('streak').eq('id', user.id).maybeSingle()
+    if (readErr) return false
+    const streak = ((data?.streak ?? profile?.streak ?? {}) as StreakData)
     const next: StreakData = {
       ...streak,
       current: streak.current ?? 0,

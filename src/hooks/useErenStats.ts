@@ -316,10 +316,19 @@ function useErenStatsImpl(householdId: string | null) {
     // A DECAY FREEZE bought in the Trophy Shop pauses the CLOCK, not the
     // maths: last_decay_at is pushed forward so the skipped hours are not
     // banked up and dumped on him the moment it lapses.
+    //
+    // Only WRITES when enough time has built up to matter. This tick runs
+    // every two minutes and on every visibilitychange; writing each time
+    // would be ~90 pointless round-trips per three-hour freeze.
     if (decayFrozen()) {
-      const now = new Date().toISOString()
-      await supabase.from('eren_stats').update({ last_decay_at: now }).eq('household_id', householdId)
-      setStats({ ...raw, last_decay_at: now })
+      const pending = computeDecay(raw)
+      if (pending && pending.hours >= DECAY_MIN_SAVE_HOURS) {
+        const now = new Date().toISOString()
+        await supabase.from('eren_stats').update({ last_decay_at: now }).eq('household_id', householdId)
+        setStats({ ...raw, last_decay_at: now })
+      } else {
+        setStats(raw)
+      }
       setLoading(false)
       return
     }

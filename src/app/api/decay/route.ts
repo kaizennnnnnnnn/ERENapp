@@ -62,6 +62,20 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Failed to load stats' }, { status: 500 })
   }
 
+  // Households with a Trophy Shop DECAY FREEZE still running. The client half
+  // of the freeze is a module latch in the open tab; this is the half that
+  // matters, because the hourly cron is exactly what runs while the app is
+  // shut and the whole point of the item is to cover a long shift.
+  const frozen = new Set<string>()
+  {
+    const { data: live } = await supabase
+      .from('trophy_effects')
+      .select('household_id')
+      .eq('kind', 'decay_freeze')
+      .gt('active_until', new Date().toISOString())
+    for (const r of (live ?? []) as { household_id: string }[]) frozen.add(r.household_id)
+  }
+
   let pushesSent = 0
 
   const updates = allStats.map(async stat => {
@@ -83,7 +97,18 @@ export async function GET(request: Request) {
       is_sick:       stat.is_sick,
     }
 
-    const hoursElapsed = lastDecay
+    // A live freeze pauses the CLOCK, not the maths: push last_decay_at
+    // forward and apply nothing, so the skipped hours are not banked up and
+    // dumped on him the moment it lapses. Notifications below still run —
+    // frozen stats can already be low, and the partner should still hear.
+    const isFrozen = frozen.has(stat.household_id)
+    if (isFrozen && lastDecay) {
+      await supabase.from('eren_stats').update({
+        last_decay_at: new Date().toISOString(),
+      }).eq('id', stat.id)
+    }
+
+    const hoursElapsed = lastDecay && !isFrozen
       ? Math.min(1.5, (Date.now() - lastDecay.getTime()) / 3600000)
       : 0
 

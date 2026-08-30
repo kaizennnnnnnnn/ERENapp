@@ -8,8 +8,13 @@
 // the scenes are heavy and re-render on every drag frame, and decor has no
 // business being reconciled at touch-move rate.
 //
-// Sits above the room art and below Eren, so a shelf is on the wall behind him
-// rather than pasted over his face.
+// LAYERING, honestly: each scene's root is itself `fixed inset-0 z-40` inside
+// the host's own z-40 container, so it is its own stacking context and nothing
+// mounted beside it can paint BETWEEN the room art and Eren. Decor therefore
+// sits just above the whole scene — and every anchor in lib/trophyShop is a
+// wall zone in the top fifth of the room, well clear of a cat who sits in the
+// lower middle. Getting a prop genuinely behind him would mean threading it
+// into all four scenes, which is not worth the coupling for a wall fixture.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useState } from 'react'
@@ -22,8 +27,8 @@ import { LIFETIME_LOOKBACK_DAYS, type DailyBattleRow } from '@/lib/battleResults
 import type { TrophyTier } from '@/lib/dailyTwist'
 import DecorArt, { type TrophyCounts } from './DecorArt'
 
-/** Under Eren (rooms paint him around z-10) and over the background. */
-const Z_DECOR = 3
+/** Just above the scene root (z-40), below the care HUD and any sheet. */
+const Z_DECOR = 41
 
 export default function RoomDecor({ room }: { room: string }) {
   const supabase = createClient()

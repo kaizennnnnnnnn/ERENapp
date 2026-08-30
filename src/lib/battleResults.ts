@@ -287,7 +287,12 @@ async function doBackfillDailyResults(
   // would show on the live bar all evening and then quietly vanish from the
   // snapshot written this morning — the worst possible bug for a thing you
   // paid trophies for.
-  const effects = await fetchEffects(supabase, householdId, startIso)
+  // Reach back a day BEFORE the window: a Double Hour bought at 23:40 is
+  // created on the previous day but scores actions after midnight, and
+  // fetchEffects filters on created_at. Without the slack the live bar would
+  // count those and the snapshot would not.
+  const effectsSince = new Date(new Date(startIso).getTime() - 25 * 3600_000).toISOString()
+  const effects = await fetchEffects(supabase, householdId, effectsSince)
 
   // Bucket by local-date string so the date semantics match the snapshot key.
   const byDate = new Map<string, Interaction[]>()
@@ -526,8 +531,9 @@ export function isComebackEligible(
 
 export interface TrophySettlement {
   ok: boolean
-  /** Why nothing was paid: 'already_claimed' | 'no_row' | 'unauthenticated'. */
+  /** 'already_claimed' | 'not_finished' | 'bad_window' | 'too_old' | … */
   reason?: string
+  date: string
   tier: TrophyTier | null
   /** Trophies credited by THIS call. 0 on a repeat. */
   trophies: number
@@ -535,29 +541,86 @@ export interface TrophySettlement {
   streak: number
   /** My new balance after the credit. */
   balance: number
+  /** What the SERVER scored the day as — it recomputes, it does not trust
+   *  the snapshot row, and it corrects the row on its way through. */
+  score: number
+  partnerScore: number
+  outcome: Outcome | null
+}
+
+/** Local midnight either side of a 'yyyy-MM-dd', as ISO instants. */
+export function localDayBounds(date: string): { start: string; end: string } {
+  const [y, m, d] = date.split('-').map(Number)
+  const start = new Date(y, m - 1, d, 0, 0, 0, 0)
+  const end = new Date(y, m - 1, d + 1, 0, 0, 0, 0)
+  return { start: start.toISOString(), end: end.toISOString() }
 }
 
 /**
  * Settle one finished day. Safe to call repeatedly and from both tabs — only
  * the first call credits anything.
+ *
+ * The day WINDOW is sent explicitly because the household's timezone lives
+ * nowhere the server can see it, and "yesterday" is a local idea. The server
+ * checks the window is a real, finished, correctly-dated day and then scores
+ * what actually happened inside it.
  */
 export async function claimDailyTrophy(
   supabase: SupabaseClient,
   date: string,
 ): Promise<TrophySettlement> {
-  const { data, error } = await supabase.rpc('claim_daily_trophy', { p_date: date })
+  const { start, end } = localDayBounds(date)
+  const empty = {
+    date, tier: null, trophies: 0, streak: 0, balance: 0,
+    score: 0, partnerScore: 0, outcome: null,
+  }
+  const { data, error } = await supabase.rpc('settle_daily_battle', {
+    p_date: date, p_start: start, p_end: end,
+  })
   if (error || !data) {
-    return { ok: false, reason: error?.message ?? 'rpc_failed', tier: null, trophies: 0, streak: 0, balance: 0 }
+    return { ok: false, reason: error?.message ?? 'rpc_failed', ...empty }
   }
   const r = data as Record<string, unknown>
   return {
     ok: r.ok === true,
     reason: typeof r.reason === 'string' ? r.reason : undefined,
+    date,
     tier: (r.tier as TrophyTier | null) ?? null,
     trophies: Number(r.trophies ?? 0),
     streak: Number(r.streak ?? 0),
     balance: Number(r.balance ?? 0),
+    score: Number(r.score ?? 0),
+    partnerScore: Number(r.partner_score ?? 0),
+    outcome: (r.outcome as Outcome | null) ?? null,
   }
+}
+
+/**
+ * Every finished day I have not been paid for yet, oldest first.
+ *
+ * Settling only "yesterday" silently swallowed a win whenever the app was not
+ * opened the following day: Monday's row would be written by Wednesday's
+ * backfill and then never claimed by anything. The RPC is one-shot per
+ * (user, date), so sweeping a window costs nothing when there is nothing owed.
+ */
+export async function unsettledDates(
+  supabase: SupabaseClient,
+  myId: string,
+  today: string,
+  daysBack: number = LIFETIME_LOOKBACK_DAYS,
+): Promise<string[]> {
+  const since = format(subDays(new Date(), daysBack), 'yyyy-MM-dd')
+  const { data, error } = await supabase
+    .from('daily_battle_results')
+    .select('date, trophy_claimed')
+    .eq('user_id', myId)
+    .gte('date', since)
+    .lt('date', today)
+    .order('date', { ascending: true })
+  if (error) return []
+  return ((data ?? []) as { date: string; trophy_claimed?: boolean }[])
+    .filter(r => r.trophy_claimed !== true)
+    .map(r => r.date)
 }
 
 /** My snapshot row for one date, or null when the day was never settled. */

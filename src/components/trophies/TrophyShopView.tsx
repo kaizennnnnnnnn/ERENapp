@@ -17,6 +17,7 @@
 
 import { useState, useMemo } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { useCouple } from '@/hooks/useCouple'
 import { useTrophies } from '@/hooks/useTrophies'
 import { useTrophyCosmetics } from '@/hooks/useTrophyCosmetics'
 import {
@@ -54,9 +55,14 @@ export default function TrophyShopView({ onBuy, onUse }: Props) {
   const { user } = useAuth()
   const trophies = useTrophies()
   const cos = useTrophyCosmetics()
+  const { partner } = useCouple()
+  const partnerPresent = !!partner?.id
   const [tab, setTab] = useState<ShopKind>('decor')
 
   const items = useMemo(() => itemsOfKind(tab), [tab])
+  // A solo household has no battle, so nothing here can ever be earned — say
+  // that instead of showing a price list with no way to pay it.
+  const hasPartner = trophies.owned.some(o => o.userId !== user?.id) || partnerPresent
   const active = TABS.find(t => t.kind === tab)!
 
   return (
@@ -90,6 +96,25 @@ export default function TrophyShopView({ onBuy, onUse }: Props) {
       </div>
 
       <p className="text-center text-[10px]" style={{ color: '#8B7F9B' }}>{active.sub}</p>
+
+      {/* Day one is a wall of locked cards and no obvious way in. Say where
+          trophies come from, once, and only while there are none. */}
+      {trophies.loaded && trophies.balance === 0 && (
+        <div className="px-3 py-2.5 text-center" style={{
+          border: '1px dashed rgba(245,200,66,0.35)',
+          background: 'rgba(245,200,66,0.05)',
+          borderRadius: 4,
+        }}>
+          <p className="font-pixel" style={{ fontSize: 6, letterSpacing: 1.5, color: '#F5C842', marginBottom: 4 }}>
+            HOW TO GET TROPHIES
+          </p>
+          <p className="text-[10px]" style={{ color: '#B4A8C4' }}>
+            {hasPartner
+              ? 'Win a day of the Care Battle. Ahead at midnight pays bronze; lead by 3 pays silver, by 6 pays gold. Lose by two or less and you still get one.'
+              : 'The Care Battle needs two people. Invite your partner from the couple screen and the days start counting.'}
+          </p>
+        </div>
+      )}
 
       {/* ── Shelf ── */}
       <div className="flex flex-col gap-2">

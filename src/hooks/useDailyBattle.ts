@@ -88,7 +88,7 @@ function useDailyBattleImpl(): DailyBattleState {
   // rows are worth, and both phones have to reach the same number, so the mods
   // go through the same scorer the snapshot uses rather than being patched
   // onto the display.
-  const { mods } = useTrophyEffects()
+  const { mods, myDoubleLive } = useTrophyEffects()
 
   const [dayKey, setDayKey]           = useState(() => localDayKey())
   const [myScore, setMyScore]         = useState(0)
@@ -113,6 +113,11 @@ function useDailyBattleImpl(): DailyBattleState {
   // re-subscribe the realtime channel; the refetch below is what applies it.
   const modsRef = useRef(mods)
   modsRef.current = mods
+  // A live Double Hour makes an action worth twice its face value, which a
+  // flat increment cannot know. Refetch for those rows too, or the bar would
+  // undercount all hour and then jump when something else forces a reload.
+  const doubleLiveRef = useRef(myDoubleLive)
+  doubleLiveRef.current = myDoubleLive
 
   const fetchToday = useCallback(async () => {
     if (!profile?.household_id || !user?.id) return
@@ -289,7 +294,11 @@ function useDailyBattleImpl(): DailyBattleState {
         // that person already did today, which an increment cannot know.
         // Refetch instead — correctness beats the extra round-trip, and it is
         // at most a handful of times a day.
-        if (twist.perRow) {
+        // Any double-hour window at all (mine or theirs) makes the flat
+        // increment wrong for the affected side, so fall back to a refetch.
+        const anyDouble = doubleLiveRef.current
+          || Object.keys(modsRef.current.doubles).length > 0
+        if (twist.perRow && !anyDouble) {
           if (isMe) setMyScore(s => s + pts)
           else setPartnerScore(s => s + pts)
           setTotalActions(c => c + 1)

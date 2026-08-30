@@ -131,7 +131,7 @@ display names moved. `SideId 'pepsi'` → `'cola'` WAS safe: in-memory only.
 
 ---
 
-## Migrations — ALL APPLIED, nothing queued
+## Migrations — ONE QUEUED
 
 Applied 2026-08-28/29: `kiosk_shifts`, `household_takeover_fix`,
 `per_profile_heart`, `leave_household`, `account_deletion`,
@@ -143,7 +143,26 @@ Verified live after the last paste: `report_content`, `block_user`,
 `join_household` functions present; `content_reports` and `user_blocks`
 tables present; journal delete/read/send and block read/lift policies present.
 
-**Nothing is waiting for the dashboard.**
+### ⏳ Waiting for the dashboard: `supabase/migration_trophy_battle.sql`
+
+The daily Care Battle now pays **trophies** instead of 30 coins, and trophies
+buy the Trophy Room (decor / accessories / powers / prestige). Paste the whole
+file into the Supabase SQL editor. It is idempotent — re-running is a no-op.
+
+It adds:
+
+- `profiles.trophies`, `profiles.equipped_title`, `profiles.equipped_frame`
+- `daily_battle_results`: `twist_id`, `trophy_tier`, `trophies_awarded`,
+  `trophy_claimed`, `verdict_seen`
+- `claim_daily_trophy(date)` — one-shot mint, tier derived server-side
+- `trophy_shop_items` (price list, seeded) + `user_trophy_items` (ownership)
+- `purchase_trophy_item(text)` — atomic spend, grant-before-charge
+- `eren_stats.room_decor`, `eren_stats.equipped_accessory`
+- `trophy_effects` + its realtime publication
+
+**Until it is pasted the app still runs** — the battle scores and displays
+normally, and every trophy read degrades to an empty wallet. Nothing mints and
+nothing is buyable, so paste it before expecting the Trophy Room to work.
 
 ---
 

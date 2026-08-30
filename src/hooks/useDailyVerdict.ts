@@ -6,9 +6,13 @@
 //
 // Two jobs, deliberately separate:
 //
-//   SETTLE  runs always, the moment yesterday's snapshot row is readable.
-//           Calls claim_daily_trophy, which is one-shot server-side, so the
-//           trophies land whether or not anyone ever looks at the screen.
+//   SETTLE  sweeps EVERY finished day I have not been paid for, oldest first,
+//           not just yesterday — a day whose row was written by a later
+//           backfill (open Monday, skip Tuesday, open Wednesday) would
+//           otherwise never be claimed by anything. settle_daily_battle is
+//           one-shot per (user, date) server-side, so the trophies land
+//           whether or not anyone ever looks at the screen, and re-sweeping
+//           costs nothing when nothing is owed.
 //
 //   SHOW    gates the screen to once per local day, on the FIRST entry after
 //           the mood check-in. Guarded twice: a date-stamped localStorage key
@@ -27,7 +31,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from './useAuth'
 import { useCouple } from './useCouple'
 import {
-  fetchDailyRow, claimDailyTrophy, markVerdictSeen,
+  fetchDailyRow, claimDailyTrophy, markVerdictSeen, unsettledDates,
   type DailyBattleRow, type TrophySettlement,
 } from '@/lib/battleResults'
 import { twistForDate, type TwistDef } from '@/lib/dailyTwist'
@@ -81,49 +85,53 @@ export function useDailyVerdict(ready: boolean): DailyVerdict {
     if (!user?.id || !partner?.id) return
     if (settledRef.current === yesterday) return
 
-    const existing = await fetchDailyRow(supabase, user.id, yesterday)
-    // No row means one of: nobody played yesterday, or the backfill has not
-    // run yet. Either way there is nothing to settle — stay silent and wait
-    // for the next `eren:battle-backfilled`.
-    if (!existing) return
+    // Every finished day I have not been paid for, oldest first — not just
+    // yesterday. A day whose row was written by a LATER backfill (open the app
+    // Monday, skip Tuesday, open it Wednesday) would otherwise never be
+    // claimed by anything, and the trophies for a real win would evaporate.
+    const owed = await unsettledDates(supabase, user.id, today)
+    if (owed.length === 0 && !(await fetchDailyRow(supabase, user.id, yesterday))) {
+      // No row for yesterday and nothing outstanding: either nobody played or
+      // the backfill has not run. Stay silent and wait for the next signal.
+      return
+    }
     settledRef.current = yesterday
 
-    let current = existing
-    let paid: TrophySettlement | null = null
-    if (!existing.trophy_claimed) {
-      paid = await claimDailyTrophy(supabase, yesterday)
+    let paidYesterday: TrophySettlement | null = null
+    let transient = false
+    for (const date of owed) {
+      const paid = await claimDailyTrophy(supabase, date)
       if (paid.ok) {
-        current = {
-          ...existing,
-          trophy_claimed: true,
-          trophy_tier: paid.tier,
-          trophies_awarded: paid.trophies,
-        }
         window.dispatchEvent(new CustomEvent('eren:trophy-payout', {
           detail: { trophies: paid.trophies, balance: paid.balance, tier: paid.tier },
         }))
-      } else if (paid.reason === 'already_claimed') {
-        // The other tab beat us. Re-read so the screen shows the real amount.
-        current = (await fetchDailyRow(supabase, user.id, yesterday)) ?? existing
-        paid = null
-      } else {
-        // no_row / not_finished / a transient failure. Let the next signal
-        // retry rather than showing a screen with a blank prize on it.
-        settledRef.current = null
-        return
+        if (date === yesterday) paidYesterday = paid
+      } else if (paid.reason && paid.reason !== 'already_claimed'
+                 && paid.reason !== 'too_old' && paid.reason !== 'not_finished') {
+        // A genuine failure (offline, 503). Allow one more attempt later.
+        transient = true
       }
     }
+    if (transient) settledRef.current = null
+
+    // Re-read after settling: the RPC RE-SCORES the day and corrects the row,
+    // so the screen must show what the server actually paid rather than what
+    // the client had computed.
+    const current = await fetchDailyRow(supabase, user.id, yesterday)
+    if (!current) return
 
     setRow(current)
-    setSettlement(paid)
+    setSettlement(paidYesterday)
 
     let alreadySeen = current.verdict_seen === true
     try {
       if (localStorage.getItem(seenKey(user.id, yesterday))) alreadySeen = true
     } catch { /* storage blocked — the server flag still covers it */ }
     if (!alreadySeen) setShow(true)
-  }, [user?.id, partner?.id, yesterday]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, partner?.id, yesterday, today]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // `settle` is rebuilt when `yesterday` changes, so a session left open
+  // across local midnight re-runs for the day that just ended.
   useEffect(() => { if (ready) void settle() }, [ready, settle])
 
   // The row is written by useCouple's backfill, which may land after our first
@@ -152,6 +160,10 @@ export function useDailyVerdict(ready: boolean): DailyVerdict {
   const dismiss = useCallback(() => {
     setShow(false)
     if (!user?.id) return
+    // Mark the row seen in local state as well as in both stores: if
+    // localStorage is blocked AND the write is slow, a re-render before the
+    // round-trip lands would otherwise put the screen straight back up.
+    setRow(prev => (prev ? { ...prev, verdict_seen: true } : prev))
     try { localStorage.setItem(seenKey(user.id, yesterday), '1') } catch { /* ignore */ }
     void markVerdictSeen(supabase, user.id, yesterday)
   }, [user?.id, yesterday]) // eslint-disable-line react-hooks/exhaustive-deps
