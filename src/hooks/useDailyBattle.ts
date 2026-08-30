@@ -364,11 +364,6 @@ export function timeUntilMidnight(): { hours: number; minutes: number; ms: numbe
   }
 }
 
-/** Fixed for now — future: scale by total household activity, or
- *  award stardust at the end of streaks. Surface in the UI so the
- *  goal is visible. */
-export const DAILY_PRIZE_COINS = 30
-
 const DailyBattleContext = createContext<DailyBattleState | null>(null)
 
 // Singleton provider — mounted once at (app)/layout.tsx. Owns the only

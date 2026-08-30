@@ -9,13 +9,14 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { playSound } from '@/lib/sounds'
 import type { DailyBattleState } from '@/hooks/useDailyBattle'
-import { DAILY_PRIZE_COINS, timeUntilMidnight } from '@/hooks/useDailyBattle'
+import { timeUntilMidnight } from '@/hooks/useDailyBattle'
+import { trophyTier, TROPHY_TONE, TROPHY_LABEL, TROPHY_VALUE, type TrophyTier } from '@/lib/dailyTwist'
 import {
   PINK, PINK_HI, PINK_LO,
   OBSIDIAN_FACE, OBSIDIAN_BTN, OBSIDIAN_ORB,
   pinkText, accentA,
 } from '@/components/obsidian'
-import { IconCrown, IconCoin, IconSwords } from '@/components/PixelIcons'
+import { IconCrown, IconSwords, IconTrophyTier } from '@/components/PixelIcons'
 
 interface Props {
   battle: DailyBattleState
@@ -34,10 +35,20 @@ export default function DailyBattleSheet({ battle, onClose }: Props) {
 
   if (!mounted) return null
 
+  const LADDER: { tier: TrophyTier; at: number }[] = [
+    { tier: 'bronze', at: 1 },
+    { tier: 'silver', at: 3 },
+    { tier: 'gold',   at: 6 },
+  ]
+
   const meLeading      = battle.leader === 'me'
   const partnerLeading = battle.leader === 'partner'
   const diff = Math.abs(battle.myScore - battle.partnerScore)
   const leaderName = meLeading ? battle.myName : partnerLeading ? battle.partnerName : null
+  // The tier the CURRENT margin would strike, and the colour the panel wears
+  // because of it.
+  const liveTier = leaderName ? trophyTier(diff) : null
+  const liveTone = liveTier ? TROPHY_TONE[liveTier] : '#6E6080'
 
   return createPortal(
     <div className="fixed inset-0 z-[60] flex flex-col justify-end">
@@ -176,26 +187,85 @@ export default function DailyBattleSheet({ battle, onClose }: Props) {
           </p>
         )}
 
-        {/* Daily prize box — gives the bar a concrete goal. */}
+        {/* ── Today's rule ── */}
+        <div className="px-3 py-2.5 relative" style={{
+          ...OBSIDIAN_FACE,
+          border: `1px solid ${battle.twist.tone}66`,
+          boxShadow: `3px 3px 0 rgba(0,0,0,0.55), 0 0 14px ${battle.twist.tone}22`,
+        }}>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-pixel" style={{
+              fontSize: 8, letterSpacing: 2, color: battle.twist.tone,
+              textShadow: `0 0 6px ${battle.twist.tone}66`,
+            }}>{battle.twist.name}</span>
+            <div style={{ flex: 1, height: 1, background: `${battle.twist.tone}33` }} />
+          </div>
+          <p className="text-[10px]" style={{ color: '#B4A8C4' }}>{battle.twist.blurb}</p>
+        </div>
+
+        {/* ── The trophy ladder ──
+            Three rungs, not one number. Seeing that a 2-point lead is one
+            action away from SILVER is what makes the last hour of a day worth
+            playing; "30 coins at midnight" never did. */}
         <div className="px-3 py-3 relative overflow-hidden" style={{
           ...OBSIDIAN_FACE,
-          border: '1px solid rgba(245,200,66,0.5)',
-          boxShadow: '3px 3px 0 rgba(0,0,0,0.55), 0 0 14px rgba(245,200,66,0.18)',
+          border: `1px solid ${liveTone}66`,
+          boxShadow: `3px 3px 0 rgba(0,0,0,0.55), 0 0 14px ${liveTone}2e`,
         }}>
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <IconCoin size={14} />
-            <span className="font-pixel" style={{
-              fontSize: 7, letterSpacing: 2, color: '#F5C842',
-              textShadow: '0 0 5px rgba(245,200,66,0.45)',
-            }}>TODAY&apos;S PRIZE</span>
-            <IconCoin size={14} />
-          </div>
           <p className="text-center font-pixel" style={{
-            fontSize: 18, color: '#F5C842',
-            textShadow: '0 0 6px rgba(245,200,66,0.55)',
-          }}>{DAILY_PRIZE_COINS} COINS</p>
-          <p className="text-center text-[10px] mt-2" style={{ color: '#9A8C70' }}>
-            Whoever&apos;s ahead at midnight pockets the bonus.
+            fontSize: 7, letterSpacing: 2, color: '#9A8AA8', marginBottom: 10,
+          }}>TONIGHT&apos;S PRIZE</p>
+
+          <div className="flex items-stretch gap-1.5">
+            {LADDER.map(rung => {
+              const reached = diff >= rung.at && leaderName !== null
+              // Only the top reached rung is the one actually on offer; the
+              // ones below it are history. Lighting all three equally made a
+              // 10-point lead look the same as a 1-point one.
+              const current = reached && rung.tier === liveTier
+              return (
+                <div key={rung.tier} className="flex-1 flex flex-col items-center gap-1 py-2 px-1 relative" style={{
+                  border: `${current ? 2 : 1}px solid ${
+                    current ? TROPHY_TONE[rung.tier]
+                    : reached ? `${TROPHY_TONE[rung.tier]}55`
+                    : 'rgba(255,255,255,0.07)'}`,
+                  background: current
+                    ? `linear-gradient(180deg, ${TROPHY_TONE[rung.tier]}2E 0%, #050507 100%)`
+                    : reached
+                      ? `linear-gradient(180deg, ${TROPHY_TONE[rung.tier]}12 0%, #050507 100%)`
+                      : 'rgba(255,255,255,0.02)',
+                  boxShadow: current
+                    ? `0 0 14px ${TROPHY_TONE[rung.tier]}66, inset 0 1px 0 rgba(255,255,255,0.12)`
+                    : undefined,
+                  borderRadius: 3,
+                  animation: current ? 'dbsRungPulse 2s ease-in-out infinite' : undefined,
+                }}>
+                  <span style={{
+                    filter: current
+                      ? `drop-shadow(0 0 7px ${TROPHY_TONE[rung.tier]})`
+                      : reached
+                        ? `drop-shadow(0 0 4px ${TROPHY_TONE[rung.tier]}66)`
+                        : 'grayscale(1) brightness(0.42)',
+                    opacity: reached ? 1 : 0.8,
+                  }}>
+                    <IconTrophyTier size={current ? 22 : 18} tier={rung.tier} />
+                  </span>
+                  <span className="font-pixel" style={{
+                    fontSize: 5, letterSpacing: 1,
+                    color: reached ? TROPHY_TONE[rung.tier] : '#5E5470',
+                  }}>{TROPHY_LABEL[rung.tier]}</span>
+                  <span className="font-pixel" style={{
+                    fontSize: 5, color: reached ? '#C8BCD4' : '#4E4658',
+                  }}>BY {rung.at}</span>
+                </div>
+              )
+            })}
+          </div>
+
+          <p className="text-center text-[10px] mt-2.5" style={{ color: '#9A8C70' }}>
+            {liveTier
+              ? `${leaderName} is on ${TROPHY_LABEL[liveTier]} — ${TROPHY_VALUE[liveTier]} ${TROPHY_VALUE[liveTier] === 1 ? 'trophy' : 'trophies'} at midnight.`
+              : 'Lead by 1 at midnight to strike a trophy.'}
           </p>
         </div>
 
@@ -222,6 +292,10 @@ export default function DailyBattleSheet({ battle, onClose }: Props) {
         @keyframes dbsFlowL {
           from { background-position: 0 0; }
           to   { background-position: -11px 0; }
+        }
+        @keyframes dbsRungPulse {
+          0%, 100% { filter: brightness(1); }
+          50%      { filter: brightness(1.16); }
         }
       `}</style>
     </div>,
