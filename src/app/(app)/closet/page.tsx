@@ -8,14 +8,20 @@ import { useCare } from '@/contexts/CareContext'
 import { useCloset } from '@/hooks/useCloset'
 import { useAuth } from '@/hooks/useAuth'
 import { useGacha } from '@/hooks/useGacha'
+import { useTrophies } from '@/hooks/useTrophies'
+import { useTrophyCosmetics } from '@/hooks/useTrophyCosmetics'
 import { markSkinsSeen, readSeenSkins } from '@/hooks/useNewSkins'
 import {
   SKINNABLE_ROOMS, GACHA_SKINS, CLASSIC_SKIN, resolveRoomSkin, skinPrice, skinUnlockDrink, type SkinDef,
 } from '@/lib/skins'
 import { FOOD_META } from '@/lib/foodMeta'
+import { ACCESSORIES, accessoryDef, type AnyShopItem } from '@/lib/trophyShop'
 import type { GachaRarity, FoodKey } from '@/types'
 import SkinPurchaseSheet from '@/components/closet/SkinPurchaseSheet'
-import ClosetView, { type ClosetCard } from '@/components/closet/ClosetView'
+import TrophyBuySheet from '@/components/trophies/TrophyBuySheet'
+import ClosetView, {
+  type ClosetCard, type ClosetTab, type AccessoryCard,
+} from '@/components/closet/ClosetView'
 import { playSound } from '@/lib/sounds'
 
 // Rarest first — a player's prized looks lead in MY LOOKS, and the Shop reads
@@ -30,8 +36,14 @@ export default function ClosetPage() {
   const { user } = useAuth()
   const { owned, roomSkins, assign, assignAll, loading, loaded, refetch } = useCloset()
   const { stardust, purchaseSkin } = useGacha()
+  // Hats and collars are bought with trophies, not stardust, and worn by the
+  // household's one cat — so they read the Trophy Shop's wallet and the shared
+  // cosmetics row, not the closet's own skin tables.
+  const trophies = useTrophies()
+  const cos = useTrophyCosmetics()
   const [activeRoom, setActiveRoom] = useState(SKINNABLE_ROOMS[0].id)
-  const [tab, setTab] = useState<'mine' | 'shop'>('mine')
+  const [tab, setTab] = useState<ClosetTab>('mine')
+  const [buyingHat, setBuyingHat] = useState<AnyShopItem | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [buying, setBuying] = useState<SkinDef | null>(null)
   const [busy, setBusy] = useState(false)
@@ -86,6 +98,25 @@ export default function ClosetPage() {
       .sort((a, b) => (a.set === b.set ? byRarity(a, b) : a.set === 'animal' ? -1 : 1))
       .map(s => ({ key: s.id, skin: s, locked: true })),
     [owned])
+
+  const accessoryCards: AccessoryCard[] = useMemo(
+    () => ACCESSORIES.map(item => ({
+      item,
+      owned: trophies.mine(item.id),
+      worn: cos.accessory === item.id,
+    })),
+    [trophies, cos.accessory],
+  )
+
+  function pickAccessory(card: AccessoryCard) {
+    if (!card.owned) {
+      playSound('ui_modal_open')
+      setBuyingHat(card.item)
+      return
+    }
+    playSound('ui_select')
+    cos.wear(card.worn ? null : card.item.id)
+  }
 
   function showToast(msg: string) {
     setToast(msg)
@@ -165,7 +196,16 @@ export default function ClosetPage() {
         onPick={pick}
         onWearEverywhere={wearEverywhere}
         onBack={() => router.back()}
+        accessoryCards={accessoryCards}
+        wornAccessory={accessoryDef(cos.accessory)}
+        trophyBalance={trophies.balance}
+        trophiesLoaded={trophies.loaded}
+        onPickAccessory={pickAccessory}
       />
+
+      {buyingHat && (
+        <TrophyBuySheet item={buyingHat} onClose={() => setBuyingHat(null)} />
+      )}
 
       {buying && (
         <SkinPurchaseSheet

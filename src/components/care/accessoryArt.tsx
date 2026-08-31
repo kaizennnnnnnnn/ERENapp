@@ -18,106 +18,140 @@ import { PixelGrid, gridAspect, type PixelArt } from '@/components/pixelGrid'
 // as the same game.
 
 const ART: Record<AccessoryItem['art'], PixelArt> = {
+  // Rounded points, a pearl on each, two gem colours in the band.
   crown: {
     grid: [
-      '..W...W...W..',
-      '.KWK.KWK.KWK.',
-      'KYYYKYYYKYYYK',
-      'KYYYYYYYYYYYK',
-      'KYRYYYRYYYRYK',
-      'KYYYYYYYYYYYK',
-      'KKKKKKKKKKKKK',
+      '..W....W....W..',
+      '.KWK..KWK..KWK.',
+      '.KYK..KYK..KYK.',
+      'KYYYKKYYYKKYYYK',
+      'KYYYYYYYYYYYYYK',
+      'KYRYYYYBYYYYRYK',
+      'KYYYYYYYYYYYYYK',
+      'KLLLLLLLLLLLLLK',
+      'KKKKKKKKKKKKKKK',
     ],
-    palette: { K: '#7A4F00', Y: '#FFD700', W: '#FFF4A3', R: '#E31E5A' },
+    palette: {
+      K: '#8A5A00', Y: '#FFD24A', L: '#FFEC9E', W: '#FFF9DC',
+      R: '#FF4D7D', B: '#5AC8FF',
+    },
   },
+
+  // Pompom, two stripes, and a brim he could actually chew.
   party_hat: {
     grid: [
-      '....P....',
-      '...PPP...',
-      '....K....',
-      '...KAK...',
-      '...KAK...',
-      '..KAAAK..',
-      '..KABAK..',
-      '.KAAAAAK.',
-      '.KABAAAK.',
-      'KAAAAAAAK',
-      'KKKKKKKKK',
-    ],
-    palette: { K: '#7A1030', A: '#FF5C7A', B: '#FFF06B', P: '#FFF06B' },
-  },
-  tophat: {
-    grid: [
-      '..KKKKKKK..',
-      '..KWWWWWK..',
-      '..KWWWWWK..',
-      '..KWWWWWK..',
-      '..KBBBBBK..',
-      '..KWWWWWK..',
-      '.KKKKKKKKK.',
-      'KWWWWWWWWWK',
+      '....PPP....',
+      '...PPPPP...',
+      '....PPP....',
+      '....KAK....',
+      '...KAAAK...',
+      '...KBBBK...',
+      '..KAAAAAK..',
+      '..KAAAAAK..',
+      '.KBBBBBBBK.',
+      '.KAAAAAAAK.',
+      'KAAAAAAAAAK',
       'KKKKKKKKKKK',
     ],
-    palette: { K: '#08080C', W: '#2A2A38', B: '#E31E5A' },
+    palette: { K: '#8A1030', A: '#FF7FA8', B: '#FFF06B', P: '#8FF0C0' },
   },
+
+  // Felt, a ribbon band, and one small flower tucked into it.
+  tophat: {
+    grid: [
+      '...KKKKKKK...',
+      '...KWWWWWK...',
+      '...KWWWWWK...',
+      '...KWWWWWK...',
+      '...KWWFWWK...',
+      '...KRFYFRK...',
+      '...KRRRRRK...',
+      '...KWLWWWK...',
+      '.KKKKKKKKKKK.',
+      'KWWWWWWWWWWWK',
+      'KKKKKKKKKKKKK',
+    ],
+    palette: {
+      K: '#0A0A10', W: '#3E3E58', L: '#5E5E7E', R: '#E31E5A',
+      F: '#FFB3D1', Y: '#FFE066',
+    },
+  },
+
+  // Daisies alternating with pink ones, on a green vine.
   flowers: {
     grid: [
-      '.W...W...W...W.',
-      'WYW.WYW.WYW.WYW',
-      '.W.G.W.G.W.G.W.',
-      '..GGGGGGGGGGG..',
+      '.WWW..PPP..WWW.',
+      'WWYWWWPYPWWWYWW',
+      '.WWW..PPP..WWW.',
+      'GGGGGGGGGGGGGGG',
     ],
-    palette: { W: '#FFE0EC', Y: '#FFD700', G: '#63F094' },
+    palette: { W: '#FFFFFF', P: '#FFB3D1', Y: '#FFD700', G: '#63D48A' },
   },
+
+  // Cat-ear headphones, because he already has the ears for it.
   cans: {
     grid: [
-      '....KKKKKKK....',
-      '..KKBBBBBBBKK..',
-      '.KKB.......BKK.',
-      'KKB.........BKK',
-      'KCK.........KCK',
+      '...K.......K...',
+      '..KPK.....KPK..',
+      '.KPPPK...KPPPK.',
+      '.KKKKKKKKKKKKK.',
+      'KKBBBBBBBBBBBKK',
       'KCCK.......KCCK',
+      'KCCCK.....KCCCK',
+      'KCHCK.....KCCCK',
+      'KCCCK.....KCCCK',
       'KCCK.......KCCK',
-      'KCK.........KCK',
-      '.K...........K.',
+      '.KK.........KK.',
     ],
-    palette: { K: '#14141C', B: '#3A3A4A', C: '#4FD8FF' },
+    palette: { K: '#14141C', P: '#FF9EC4', B: '#4A4A5E', C: '#7FE3FF', H: '#FF6B9D' },
   },
+
+  // Rounder lenses and a proper glint.
   shades: {
     grid: [
-      'KKKKKKKKKKKKK',
-      'KDWDDKKKDWDDK',
+      '.KKKKK.KKKKK.',
+      'KDWWDKKKDWWDK',
+      'KDWDDK.KDWDDK',
       'KDDDDK.KDDDDK',
       '.KDDK...KDDK.',
       '..KK.....KK..',
     ],
-    palette: { K: '#08080C', D: '#1B2A4A', W: '#7FB0FF' },
+    palette: { K: '#0A0A12', D: '#2A3A6A', W: '#9FD0FF' },
   },
+
+  // A star struck into the disc, on a ribbon.
   medal: {
     grid: [
-      '.RR...RR.',
-      '.RR...RR.',
-      '..RR.RR..',
-      '...RRR...',
-      '..KKKKK..',
-      '.KYYYYYK.',
-      'KYYWYYYYK',
-      'KYYYYYYYK',
-      '.KYYYYYK.',
-      '..KKKKK..',
+      'RRR.....RRR',
+      'RRR.....RRR',
+      '.RRR...RRR.',
+      '..RRRRRRR..',
+      '..KKKKKKK..',
+      '.KYYYDYYYK.',
+      'KYWYDDDYYYK',
+      'KYDDDDDDDYK',
+      'KYYDDDDDYYK',
+      'KYYDYYYDYYK',
+      '.KYYYYYYYK.',
+      '..KKKKKKK..',
     ],
-    palette: { R: '#E31E5A', K: '#7A4F00', Y: '#FFD700', W: '#FFF4A3' },
+    palette: {
+      R: '#E31E5A', K: '#8A5A00', Y: '#FFD24A', D: '#A8700A', W: '#FFF9DC',
+    },
   },
+
+  // Fatter loops, a highlight, and a gold knot.
   bow: {
     grid: [
-      '.KK.....KK.',
-      'KBBK.K.KBBK',
-      'KBBBKMKBBBK',
-      'KBBBKMKBBBK',
-      'KBBK.K.KBBK',
-      '.KK.....KK.',
+      '.KKK.....KKK.',
+      'KBHBK...KBHBK',
+      'KBBBBKMKBBBBK',
+      'KBBBBKMKBBBBK',
+      'KBBBBKMKBBBBK',
+      'KBBBK...KBBBK',
+      '.KKK.....KKK.',
     ],
-    palette: { K: '#3A0A18', B: '#E31E5A', M: '#FF8DB8' },
+    palette: { K: '#7A0A28', B: '#FF4D7D', H: '#FFC0D8', M: '#FFD24A' },
   },
 }
 

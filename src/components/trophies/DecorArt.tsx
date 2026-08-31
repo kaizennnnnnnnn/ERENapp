@@ -55,7 +55,7 @@ export default memo(function DecorArt({ art, width = '100%', px, counts, muted }
 
 const SHELF_CAPACITY = 7
 const CUP_W = 11.4
-const BOARD_Y = [27, 57]
+const PITCH = 12.6
 
 function Shelf({ style, counts }: { style: React.CSSProperties; counts?: TrophyCounts }) {
   const c = counts ?? { bronze: 0, silver: 0, gold: 0 }
@@ -65,29 +65,40 @@ function Shelf({ style, counts }: { style: React.CSSProperties; counts?: TrophyC
     ...Array(Math.min(c.bronze, SHELF_CAPACITY)).fill('bronze' as const),
   ].slice(0, SHELF_CAPACITY * 2)
 
+  // The case grows a second board only once the first one is full. Two boards
+  // from day one left the bottom half of the cabinet permanently empty, which
+  // read as broken rather than as room to grow.
+  const rows = line.length > SHELF_CAPACITY ? 2 : 1
+  const boards = rows === 2 ? [27, 57] : [30]
+  const H = rows === 2 ? 63 : 36
+
   return (
     <div style={{ ...style, position: 'relative' }}>
-      <svg viewBox="0 0 100 63" width="100%" shapeRendering="crispEdges" style={{ display: 'block' }}>
+      <svg viewBox={`0 0 100 ${H}`} width="100%" shapeRendering="crispEdges" style={{ display: 'block' }}>
         {/* carcass */}
-        <rect x="0" y="0" width="100" height="63" fill="#1B1008" />
-        <rect x="2" y="1" width="96" height="61" fill="#3B2413" />
-        <rect x="4" y="3" width="92" height="57" fill="#24160B" />
+        <rect x="0" y="0" width="100" height={H} fill="#1B1008" />
+        <rect x="2" y="1" width="96" height={H - 2} fill="#3B2413" />
+        <rect x="4" y="3" width="92" height={H - 6} fill="#24160B" />
         {/* grain */}
-        {[8, 17, 35, 44, 62].map(y => (
+        {[8, 17, 35, 44, 62].filter(y => y < H - 4).map(y => (
           <rect key={y} x="4" y={y} width="92" height="1" fill="#2E1C0E" />
         ))}
         {/* side posts, so it reads as a case and not a plank */}
-        <rect x="2" y="1" width="3" height="61" fill="#4A2D17" />
-        <rect x="95" y="1" width="3" height="61" fill="#160D06" />
+        <rect x="2" y="1" width="3" height={H - 2} fill="#4A2D17" />
+        <rect x="95" y="1" width="3" height={H - 2} fill="#160D06" />
         <rect x="2" y="1" width="96" height="2" fill="#5C3A1E" />
 
-        {BOARD_Y.map((y, row) => {
+        {boards.map((y, row) => {
           const items = line.slice(row * SHELF_CAPACITY, (row + 1) * SHELF_CAPACITY)
+          // Centred on the board rather than packed left, so four cups look
+          // displayed and not abandoned.
+          const span = items.length ? items.length * PITCH - (PITCH - CUP_W) : 0
+          const x0 = (100 - span) / 2
           return (
             <g key={y}>
               {items.map((tier, i) => (
                 <CupGroup key={i} tier={tier}
-                  x={7 + i * 12.6} y={y - CUP_W * 27 / 26} w={CUP_W} />
+                  x={x0 + i * PITCH} y={y - CUP_W * 27 / 26} w={CUP_W} />
               ))}
               <rect x="5" y={y} width="90" height="1" fill="#C08B54" />
               <rect x="5" y={y + 1} width="90" height="3" fill="#8B5A2B" />

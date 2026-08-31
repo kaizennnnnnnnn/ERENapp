@@ -1,26 +1,26 @@
 'use client'
 
 // ═══════════════════════════════════════════════════════════════════════════
-// /trophies — the case, the loadout, and the shop, in that order.
+// /trophies — the case and the shop.
 //
 // Reached from the morning verdict screen's SHOP button and from the home nav.
-// The order is deliberate and it is the answer to three separate questions the
-// screen kept failing:
-//   the CASE      what have I won
-//   the LOADOUT   where is the stuff I bought, and how do I put it on
-//   the SHOP      what else is there
+// Two things, in this order: the CASE (what have I won) and the SHOP (what
+// does it buy). Nothing else — an earlier build had a whole LOADOUT panel
+// wedged between them listing every slot in the game, and stacked with the
+// case and the shelf picker it made the screen read as three headers and no
+// content. Each shelf now carries its own one-line "what you have on" strip
+// instead; see ShelfSummary in TrophyShopView.
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useRef, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useCouple } from '@/hooks/useCouple'
 import { useCare } from '@/contexts/CareContext'
 import { useTrophies } from '@/hooks/useTrophies'
-import { useTrophyCosmetics } from '@/hooks/useTrophyCosmetics'
 import { usePageReady } from '@/hooks/usePageReady'
 import { withRetry } from '@/lib/supabaseRetry'
 import { LIFETIME_LOOKBACK_DAYS, type DailyBattleRow } from '@/lib/battleResults'
@@ -30,7 +30,6 @@ import TrophyShopView from '@/components/trophies/TrophyShopView'
 import TrophyBuySheet from '@/components/trophies/TrophyBuySheet'
 import UsePrivilegeSheet from '@/components/trophies/UsePrivilegeSheet'
 import TrophyCase from '@/components/trophies/TrophyCase'
-import EquippedBar from '@/components/trophies/EquippedBar'
 import TrophyCup from '@/components/trophies/TrophyCup'
 import { type TrophyCounts } from '@/components/trophies/DecorArt'
 import PageLoader from '@/components/PageLoader'
@@ -40,17 +39,15 @@ import { playSound } from '@/lib/sounds'
 export default function TrophiesPage() {
   const router = useRouter()
   const supabase = createClient()
-  const { user, profile, loading: authLoading } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const { lifetimeWLT } = useCouple()
   const { setHideStats } = useCare()
   const trophies = useTrophies()
-  const cos = useTrophyCosmetics()
 
   const [rows, setRows] = useState<DailyBattleRow[] | null>(null)
   const [buying, setBuying] = useState<AnyShopItem | null>(null)
   const [using, setUsing] = useState<PrivilegeItem | null>(null)
   const [tab, setTab] = useState<ShopKind>('decor')
-  const shopRef = useRef<HTMLDivElement | null>(null)
 
   // The page wears its own header; the floating StatsHeader would fight it.
   useEffect(() => {
@@ -85,12 +82,6 @@ export default function TrophiesPage() {
     }
     return c
   }, [rows])
-
-  /** A loadout slot was tapped: open its shelf and put it on screen. */
-  function jumpTo(kind: ShopKind) {
-    setTab(kind)
-    shopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
 
   if (authLoading) return <PageLoader label="OPENING THE CASE" />
 
@@ -141,15 +132,7 @@ export default function TrophiesPage() {
           streak={lifetimeWLT?.myStreak}
         />
 
-        <EquippedBar
-          cos={cos}
-          name={profile?.name?.split(' ')[0] || 'YOU'}
-          onJump={jumpTo}
-        />
-
-        <div ref={shopRef} style={{ scrollMarginTop: 8 }}>
-          <TrophyShopView tab={tab} onTab={setTab} onBuy={setBuying} onUse={setUsing} />
-        </div>
+        <TrophyShopView tab={tab} onTab={setTab} onBuy={setBuying} onUse={setUsing} />
       </div>
 
       {buying && <TrophyBuySheet item={buying} onClose={() => setBuying(null)} />}

@@ -3,12 +3,17 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // TROPHY SHOP — where a won day turns into something you can see.
 //
-// Four shelves, and they are deliberately different KINDS of thing rather
-// than four drawers of the same cosmetic:
+// Three shelves, and they are deliberately different KINDS of thing rather
+// than three drawers of the same cosmetic:
 //   DECOR      changes the house, for both of you
-//   WEAR       changes the cat, for both of you
 //   POWERS     changes the next battle
 //   PRESTIGE   changes your name
+//
+// WEARABLES USED TO BE A FOURTH SHELF HERE and now live in the Closet, next to
+// the costume skins — which is where anyone looking for a hat actually goes,
+// and it means the Closet's mirror shows the hat on the real cat in the real
+// costume instead of on a 15px stand-in head. They are still bought with
+// trophies; only the counter moved.
 //
 // Nothing here is buyable with coins. That is the entire economic point: the
 // daily battle is the only source of trophies, so the only way to own any of
@@ -21,26 +26,29 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useMemo } from 'react'
+import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { useCouple } from '@/hooks/useCouple'
 import { useTrophies } from '@/hooks/useTrophies'
 import { useTrophyCosmetics } from '@/hooks/useTrophyCosmetics'
 import {
-  itemsOfKind, SHOP_RARITY_COLORS,
-  type AnyShopItem, type ShopKind, type DecorItem,
+  itemsOfKind, decorDef, prestigeDef, SHOP_RARITY_COLORS,
+  type AnyShopItem, type ShopKind, type DecorItem, type DecorRoom,
   type PrivilegeItem, type PrestigeItem,
 } from '@/lib/trophyShop'
 import { OBSIDIAN_BTN, Rivets, accentA } from '@/components/obsidian'
 import {
-  IconTrophyTier, IconShelf, IconDress, IconLightning, IconCrown, IconLock, IconCheck,
+  IconTrophyTier, IconShelf, IconDress, IconLightning, IconCrown, IconLock,
+  IconCheck, IconChevronRight,
 } from '@/components/PixelIcons'
-import ItemPreview from './ItemPreview'
+import ItemPreview, { DecorTile } from './ItemPreview'
+import { TitlePlate, FramePlate } from './prestigeArt'
+import PowerArt from './PowerArt'
 import { playSound } from '@/lib/sounds'
 
 const TABS: { kind: ShopKind; label: string; icon: React.ReactNode; sub: string }[] = [
   { kind: 'decor',     label: 'DECOR',    icon: <IconShelf size={14} />,     sub: 'Hangs in a room. Both of you see it.' },
-  { kind: 'accessory', label: 'WEAR',     icon: <IconDress size={14} />,     sub: 'Worn over any skin. Both of you see it.' },
-  { kind: 'privilege', label: 'POWERS',   icon: <IconLightning size={14} />, sub: 'Spent on the battle, not on the mirror.' },
+  { kind: 'privilege', label: 'POWERS',   icon: <IconLightning size={14} />, sub: 'Spent on the battle, not worn.' },
   { kind: 'prestige',  label: 'PRESTIGE', icon: <IconCrown size={14} />,     sub: 'Sits beside your name, everywhere.' },
 ]
 
@@ -109,6 +117,8 @@ export default function TrophyShopView({ tab, onTab, onBuy, onUse }: Props) {
 
       <p className="text-center text-[10px]" style={{ color: '#8B7F9B' }}>{active.sub}</p>
 
+      <ShelfSummary kind={tab} cos={cos} name={myName} trophies={trophies} />
+
       {/* Day one is a wall of locked cards and no obvious way in. Say where
           trophies come from, once, and only while there are none. */}
       {trophies.loaded && trophies.balance === 0 && (
@@ -146,6 +156,112 @@ export default function TrophyShopView({ tab, onTab, onBuy, onUse }: Props) {
           />
         ))}
       </div>
+
+      {/* The fourth shelf moved. Say so, once, at the bottom of every shelf. */}
+      <Link href="/closet" onClick={() => playSound('ui_tap')}
+        className="flex items-center gap-2 px-3 py-2.5 active:translate-y-[1px] transition-transform"
+        style={{
+          ...OBSIDIAN_BTN,
+          border: '1px dashed rgba(255,255,255,0.16)',
+        }}>
+        <IconDress size={15} />
+        <span className="flex-1 text-left">
+          <span className="font-pixel block" style={{ fontSize: 6, letterSpacing: 1, color: '#D6CBE2' }}>
+            HATS AND COLLARS
+          </span>
+          <span className="text-[10px]" style={{ color: '#7E7090' }}>
+            In the Closet, with the costumes. Still bought with trophies.
+          </span>
+        </span>
+        <IconChevronRight size={11} />
+      </Link>
+    </div>
+  )
+}
+
+// ─── What this shelf already has on ──────────────────────────────────────────
+// The old build put every slot in the game in one panel above the shop, which
+// was a wall of blocks nobody read. Each shelf now answers only its own
+// question, in one line, right where you would act on it.
+
+const SUMMARY_ROOMS: { room: DecorRoom; label: string }[] = [
+  { room: 'feed', label: 'KITCHEN' }, { room: 'play', label: 'PLAYROOM' },
+  { room: 'sleep', label: 'BEDROOM' }, { room: 'wash', label: 'BATHROOM' },
+]
+
+export function ShelfSummary({ kind, cos, name, trophies }: {
+  kind: ShopKind
+  cos: ReturnType<typeof useTrophyCosmetics>
+  name: string
+  trophies: ReturnType<typeof useTrophies>
+}) {
+  const shell: React.CSSProperties = {
+    background: 'rgba(0,0,0,0.3)',
+    border: '1px solid rgba(255,255,255,0.07)',
+    borderRadius: 4,
+  }
+
+  if (kind === 'decor') {
+    return (
+      <div className="grid px-2 py-2" style={{ ...shell, gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+        {SUMMARY_ROOMS.map(({ room, label }) => {
+          const d = decorDef(cos.decor[room])
+          return (
+            <span key={room} className="flex flex-col items-center gap-1">
+              <span className="flex items-center justify-center w-full overflow-hidden" style={{
+                height: 34, borderRadius: 2,
+                border: d ? undefined : '1px dashed rgba(255,255,255,0.13)',
+              }}>
+                {d ? <DecorTile item={d} width={44} />
+                   : <span style={{ opacity: 0.22 }}><IconShelf size={14} /></span>}
+              </span>
+              <span className="font-pixel" style={{
+                fontSize: 5, letterSpacing: 0.5, color: d ? '#A7F3C0' : '#5E5470',
+              }}>{label}</span>
+            </span>
+          )
+        })}
+      </div>
+    )
+  }
+
+  if (kind === 'prestige') {
+    const title = prestigeDef(cos.myTitle)
+    const frame = prestigeDef(cos.myFrame)
+    return (
+      <div className="flex flex-col items-center gap-1.5 px-3 py-2.5" style={shell}>
+        <span className="font-pixel" style={{ fontSize: 5, letterSpacing: 1, color: '#7E7090' }}>
+          RIGHT NOW YOU LOOK LIKE
+        </span>
+        {frame?.slot === 'frame'
+          ? <FramePlate tone={frame.value} name={name} scale={7} />
+          : <span className="font-pixel" style={{
+              fontSize: 7, letterSpacing: 1.5, color: '#C4B8D0',
+            }}>{name.toUpperCase()}</span>}
+        {title?.slot === 'title' && (
+          <TitlePlate value={title.value} focus={title.focus} scale={5}
+            glory={title.rarity === 'legendary'} />
+        )}
+      </div>
+    )
+  }
+
+  // Powers are consumables, so the useful summary is what is banked.
+  const banked = itemsOfKind('privilege')
+    .map(i => ({ i: i as PrivilegeItem, n: trophies.qty(i.id) }))
+    .filter(x => x.n > 0)
+  if (!banked.length) return null
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 flex-wrap" style={shell}>
+      <span className="font-pixel" style={{ fontSize: 5, letterSpacing: 1, color: '#7E7090' }}>
+        BANKED
+      </span>
+      {banked.map(({ i, n }) => (
+        <span key={i.id} className="flex items-center gap-1">
+          <PowerArt id={i.privilege} width={16} />
+          <span className="font-pixel" style={{ fontSize: 6, color: '#A7F3C0' }}>x{n}</span>
+        </span>
+      ))}
     </div>
   )
 }

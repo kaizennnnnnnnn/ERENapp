@@ -14,7 +14,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { memo } from 'react'
-import { TROPHY_TONE, TROPHY_LABEL, type TrophyTier } from '@/lib/dailyTwist'
+import type { TrophyTier } from '@/lib/dailyTwist'
 import { IconFire } from '@/components/PixelIcons'
 import DecorArt, { type TrophyCounts } from './DecorArt'
 import TrophyCup from './TrophyCup'
@@ -157,12 +157,6 @@ export default memo(function TrophyCase({
         </div>
       )}
 
-      {best && (
-        <p className="text-center text-[10px]" style={{ color: '#8B7F9B', marginTop: 8 }}>
-          Best so far: {TROPHY_LABEL[best].toLowerCase()}
-          <span style={{ color: TROPHY_TONE[best] }}> ●</span>
-        </p>
-      )}
     </div>
   )
 })

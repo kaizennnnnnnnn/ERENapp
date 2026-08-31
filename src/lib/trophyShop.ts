@@ -152,10 +152,13 @@ export const ACCESSORIES: AccessoryItem[] = [
     offset: { y: 0.14 },
   },
   {
-    id: 'acc_cans', kind: 'accessory', art: 'cans', anchor: 'head', scale: 0.86,
+    id: 'acc_cans', kind: 'accessory', art: 'cans', anchor: 'head', scale: 0.98,
     name: 'Headphones', rarity: 'epic', price: 22,
     blurb: 'He is not listening. He was never listening.',
-    offset: { y: 0.2 },
+    // Sunk further than anything else on purpose: the cans have to reach his
+    // ears, which are most of the way down the head, or they hang beside his
+    // eyes and read as two blue tears.
+    offset: { y: 0.32 },
   },
   {
     id: 'acc_shades', kind: 'accessory', art: 'shades', anchor: 'eyes', scale: 0.72,
