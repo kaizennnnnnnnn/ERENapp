@@ -143,13 +143,18 @@ Verified live after the last paste: `report_content`, `block_user`,
 `join_household` functions present; `content_reports` and `user_blocks`
 tables present; journal delete/read/send and block read/lift policies present.
 
-### ⏳ Waiting for the dashboard: `supabase/migration_trophy_battle.sql`
+### ✅ Applied: `supabase/migration_trophy_battle.sql`
 
-The daily Care Battle now pays **trophies** instead of 30 coins, and trophies
-buy the Trophy Room (decor / accessories / powers / prestige). Paste the whole
-file into the Supabase SQL editor. It is idempotent — re-running is a no-op.
+Confirmed 2026-08-31 from `pg_publication_tables`: `trophy_effects` is in the
+`supabase_realtime` publication. That table is created only by this migration
+and the publication line sits near the end of the file, so it ran to
+completion. (This section previously read "waiting for the dashboard" — that
+was stale, and it misled a later audit into assuming the Trophy Room was inert.)
 
-It adds:
+The daily Care Battle pays **trophies** instead of 30 coins, and trophies buy
+the Trophy Room (decor / accessories / powers / prestige).
+
+It added:
 
 - `profiles.trophies`, `profiles.equipped_title`, `profiles.equipped_frame`
 - `daily_battle_results`: `twist_id`, `trophy_tier`, `trophies_awarded`,
@@ -160,9 +165,31 @@ It adds:
 - `eren_stats.room_decor`, `eren_stats.equipped_accessory`
 - `trophy_effects` + its realtime publication
 
-**Until it is pasted the app still runs** — the battle scores and displays
-normally, and every trophy read degrades to an empty wallet. Nothing mints and
-nothing is buyable, so paste it before expecting the Trophy Room to work.
+---
+
+### ✅ Applied: the disk-IO pass (2026-08-31)
+
+Supabase warned on Disk IO budget for the fourth time. Measured against live
+`pg_stat_statements` this round instead of reasoning from source: **the app is
+not the cause.** Top-25 queries total ~1.4 MB WAL/day at two users. The three
+prior rounds each fixed something real but immaterial — `cron.job_run_details`,
+the one the last round targeted, is ~0.004% of capacity.
+
+Applied: `migration_disk_io_indexes.sql` (five missing indexes; dropped
+`daily_moods` and `reminders` from the realtime publication — 9 published, 7
+ever subscribed) and `migration_retention.sql` (monthly prune). Code in
+`e6c41aa`: the memory-unlock check no longer runs five lifetime `COUNT(*)`s per
+tap, and `time_spent` writes one complete row per session instead of
+insert-then-update.
+
+**Do not put these on a retention timer:** `couple_journal` (their actual
+messages), `time_spent` (lifetime profile total, no date filter),
+`interactions` / `game_scores` (lifetime memory-catalogue counters, ceiling 500
+cares). Reasons are documented inside `migration_retention.sql`.
+
+Two things measurement surfaced that are *not* app code: `realtime.subscription`
+has the highest churn of any table (740 autovacuums), and the single biggest
+temp-file writer is Supabase Studio's own schema introspection (~2.6 GB).
 
 ---
 
