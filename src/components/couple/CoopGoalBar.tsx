@@ -23,9 +23,10 @@ export default function CoopGoalBar() {
   const { coopGoal, partner, loading } = useCouple()
   const [open, setOpen] = useState(false)
 
-  // Solo household / still loading → nothing. Once claimed this week, hide it
-  // so home stays clean until next Monday's reset.
-  if (loading || !partner) return null
+  // Once claimed this week, hide it so home stays clean until Monday's reset.
+  // A solo household still gets the strip — the target is scaled to one share
+  // (coopTargetFor), so the bar fills at the same effort a couple spends.
+  if (loading) return null
   const { combined, target, goalMet, claimed, loaded } = coopGoal
   if (claimed) return null
 
@@ -50,7 +51,7 @@ export default function CoopGoalBar() {
         <span className="font-pixel" style={{
           fontSize: 6, letterSpacing: 1, color: GOLD_HI, whiteSpace: 'nowrap',
           textShadow: `0 0 6px ${GOLD}55`,
-        }}>WE CARED</span>
+        }}>{partner ? 'WE CARED' : 'YOU CARED'}</span>
 
         {/* Thin combined fill — one bar, both partners, no split */}
         <div style={{

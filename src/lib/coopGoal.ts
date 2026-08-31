@@ -21,12 +21,27 @@ import { isoWeekKey } from '@/lib/battleResults'
 /** Care actions that count toward the shared goal — same set the daily battle scores. */
 const COOP_CARE_ACTIONS = new Set(['feed', 'play', 'sleep', 'wash', 'medicine'])
 
-/** Combined useful care actions both partners must reach this week. Tunable.
- *  Sized to take MOST of an active week (not 1-2 days) so the weekly reset
- *  means something — the bar should climb all week, not cap out Tuesday. */
-export const COOP_WEEKLY_TARGET = 150
+/** One person's share of the week. Sized to take MOST of an active week (not
+ *  1-2 days) so the weekly reset means something — the bar should climb all
+ *  week, not cap out Tuesday. */
+export const COOP_TARGET_PER_PERSON = 75
+/** Combined useful care actions both partners must reach this week. */
+export const COOP_WEEKLY_TARGET = COOP_TARGET_PER_PERSON * 2
 /** Coins EACH partner claims when the goal is met (paid once per user per week). */
 export const COOP_REWARD_COINS = 75
+
+/**
+ * The bar a household actually has to clear.
+ *
+ * The target scales with how many people are in the house, so the EFFORT is the
+ * same either way — 75 useful actions each. Halving it for one person is not a
+ * discount: the pair target is two shares, and a solo player only ever brings
+ * one. Leaving it at 150 would make the goal unreachable at exactly double the
+ * work, and a bar that cannot fill is worse than no bar.
+ */
+export function coopTargetFor(hasPartner: boolean): number {
+  return hasPartner ? COOP_WEEKLY_TARGET : COOP_TARGET_PER_PERSON
+}
 
 export interface CoopGoalRow {
   household_id: string
@@ -113,8 +128,12 @@ export async function claimCoopReward(
   householdId: string,
   myId: string,
   combined: number,
+  // Passed in rather than read off the constant: a household of one clears a
+  // single share, and the `goal` column has to record which bar was actually
+  // cleared or the history reads as though they hit 150.
+  target: number = COOP_WEEKLY_TARGET,
 ): Promise<number> {
-  if (combined < COOP_WEEKLY_TARGET) return 0
+  if (combined < target) return 0
   const key = thisIsoWeekKey()
 
   // Ensure a row exists to CAS against — no-op on a race / repeat claim.
@@ -125,7 +144,7 @@ export async function claimCoopReward(
       user_id: myId,
       iso_week: key,
       combined_actions: combined,
-      goal: COOP_WEEKLY_TARGET,
+      goal: target,
       payout_coins: COOP_REWARD_COINS,
       payout_paid: false,
     }], { onConflict: 'household_id,user_id,iso_week', ignoreDuplicates: true })

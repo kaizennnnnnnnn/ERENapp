@@ -71,7 +71,7 @@ export default function CoopGoalSheet({ onClose }: { onClose: () => void }) {
           <div className="flex items-center gap-2">
             <IconHeartDuo size={14} />
             <span className="font-pixel" style={{ fontSize: 9, letterSpacing: 2, ...goldText }}>
-              WE CARED
+              {partner ? 'WE CARED' : 'YOU CARED'}
             </span>
           </div>
           <button onClick={() => { playSound('ui_modal_close'); onClose() }}
@@ -82,8 +82,13 @@ export default function CoopGoalSheet({ onClose }: { onClose: () => void }) {
         </div>
 
         <p className="text-center text-[11px]" style={{ color: '#C9BBA0', lineHeight: 1.5 }}>
-          A goal you build <span style={{ color: GOLD_HI }}>together</span> — every bit of care you
-          {' '}both give Eren this week adds up.
+          {partner ? (
+            <>A goal you build <span style={{ color: GOLD_HI }}>together</span> — every bit of care you
+            {' '}both give Eren this week adds up.</>
+          ) : (
+            <>A goal you build <span style={{ color: GOLD_HI }}>all week</span> — every bit of care you
+            {' '}give Eren adds up.</>
+          )}
         </p>
 
         {/* Big combined progress */}
@@ -92,7 +97,7 @@ export default function CoopGoalSheet({ onClose }: { onClose: () => void }) {
             {combined}<span style={{ fontSize: 16, color: '#8A7A50' }}> / {target}</span>
           </p>
           <p className="font-pixel mt-1" style={{ fontSize: 6, letterSpacing: 1.5, color: '#8A7A50' }}>
-            CARE ACTIONS TOGETHER
+            {partner ? 'CARE ACTIONS TOGETHER' : 'CARE ACTIONS THIS WEEK'}
           </p>
         </div>
 
@@ -117,12 +122,15 @@ export default function CoopGoalSheet({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        {/* Per-partner breakdown — cooperative, not a VS */}
-        <div className="flex items-center justify-center gap-2 font-pixel" style={{ fontSize: 7, letterSpacing: 1 }}>
-          <span style={{ color: GOLD_HI }}>YOU {mine}</span>
-          <span style={{ color: '#6A5C3E' }}>+</span>
-          <span style={{ color: GOLD_HI }}>{partnerName.toUpperCase()} {partnerCount}</span>
-        </div>
+        {/* Per-partner breakdown — cooperative, not a VS. Solo there is nothing
+            to break down: a lone "YOU 41 + 0" reads as a missing person. */}
+        {partner && (
+          <div className="flex items-center justify-center gap-2 font-pixel" style={{ fontSize: 7, letterSpacing: 1 }}>
+            <span style={{ color: GOLD_HI }}>YOU {mine}</span>
+            <span style={{ color: '#6A5C3E' }}>+</span>
+            <span style={{ color: GOLD_HI }}>{partnerName.toUpperCase()} {partnerCount}</span>
+          </div>
+        )}
 
         {/* Reward box */}
         <div className="px-3 py-3 relative overflow-hidden" style={{
@@ -136,10 +144,12 @@ export default function CoopGoalSheet({ onClose }: { onClose: () => void }) {
             <IconCoin size={14} />
           </div>
           <p className="text-center font-pixel" style={{ fontSize: 18, ...goldText }}>
-            +{reward} COINS EACH
+            +{reward} COINS{partner ? ' EACH' : ''}
           </p>
           <p className="text-center text-[10px] mt-2" style={{ color: '#9A8C70' }}>
-            You <span style={{ color: GOLD_HI }}>both</span> get the coins when you reach {target} together.
+            {partner
+              ? <>You <span style={{ color: GOLD_HI }}>both</span> get the coins when you reach {target} together.</>
+              : <>The coins are yours when you reach {target}.</>}
           </p>
         </div>
 

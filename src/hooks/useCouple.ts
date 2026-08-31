@@ -17,8 +17,8 @@ import {
   type LifetimeWLT, type WeeklyBattleRow,
 } from '@/lib/battleResults'
 import {
-  countCoopByUser, claimCoopReward, thisIsoWeekKey,
-  COOP_WEEKLY_TARGET, COOP_REWARD_COINS,
+  countCoopByUser, claimCoopReward, thisIsoWeekKey, coopTargetFor,
+  COOP_REWARD_COINS,
   type CoopGoalRow, type CoopGoalState,
 } from '@/lib/coopGoal'
 
@@ -174,12 +174,15 @@ function useCoupleImpl() {
           .catch(() => undefined)
       : null
     // My co-op claim row for THIS week (null until claimed). Read concurrently.
-    const coopRowP = p ? withRetry(() => supabase
+    // Not gated on `p` — a solo household clears a single share and claims it
+    // the same way, so the row has to be readable to know whether they already
+    // have.
+    const coopRowP = withRetry(() => supabase
       .from('weekly_coop_results')
       .select('*')
       .eq('user_id', user.id)
       .eq('iso_week', thisIsoWeekKey())
-      .maybeSingle()) : null
+      .maybeSingle())
 
     // Partner's recent moods — today's mood + a 7-day strip (gaps = null).
     if (p) {
@@ -222,10 +225,19 @@ function useCoupleImpl() {
         user.id, profile.name,
         p.id, p.name,
       ))
-      // "We Cared" co-op progress — both partners' useful care actions this
-      // week (no extra read: same interactions the love meter uses). Split by
-      // partner too, for the detail sheet's breakdown.
-      const coop = countCoopByUser(interactions as Interaction[], user.id, p.id)
+    }
+
+    // "We Cared" co-op progress — useful care actions this week (no extra read:
+    // the same interactions the love meter uses). Split by person for the
+    // detail sheet's breakdown.
+    //
+    // Deliberately OUTSIDE the `p` branch above. The counting used to live
+    // inside it, which is why simply un-hiding the bar for a solo household
+    // showed 0 forever: there was nothing incrementing it. With an empty
+    // partnerId the split still works — `partner` stays 0 and `combined`
+    // equals `mine`.
+    if (interactions) {
+      const coop = countCoopByUser(interactions as Interaction[], user.id, p?.id ?? '')
       setCoopMine(coop.mine)
       setCoopPartner(coop.partner)
       setCoopCombined(coop.combined)
@@ -248,8 +260,8 @@ function useCoupleImpl() {
 
     // My co-op claim row for this week — tells the bar whether I've already
     // pocketed my share. A failed read keeps the previous row + self-heals.
-    if (p) {
-      const { data: coopData, error: coopError } = await coopRowP!
+    {
+      const { data: coopData, error: coopError } = await coopRowP
       if (coopError) loadFailedRef.current = true
       else { setCoopRow((coopData as CoopGoalRow | null) ?? null); setCoopRowLoaded(true) }
     }
@@ -545,9 +557,10 @@ function useCoupleImpl() {
   // has hit the shared target this week. Returns true if I was just paid.
   const claimCoopGoal = useCallback(async (): Promise<boolean> => {
     if (!user?.id || !profile?.household_id) return false
-    if (coopCombined < COOP_WEEKLY_TARGET) return false
+    const target = coopTargetFor(!!partner)
+    if (coopCombined < target) return false
     if (coopRow?.payout_paid) return false
-    const coins = await claimCoopReward(supabase, profile.household_id, user.id, coopCombined)
+    const coins = await claimCoopReward(supabase, profile.household_id, user.id, coopCombined, target)
     if (coins > 0) {
       window.dispatchEvent(new CustomEvent('eren:coop-payout', { detail: { coins } }))
     }
@@ -558,13 +571,13 @@ function useCoupleImpl() {
       user_id: user.id,
       iso_week: thisIsoWeekKey(),
       combined_actions: coopCombined,
-      goal: COOP_WEEKLY_TARGET,
+      goal: target,
       payout_coins: COOP_REWARD_COINS,
       payout_paid: true,
     })
     setCoopRowLoaded(true)
     return coins > 0
-  }, [user?.id, profile?.household_id, coopCombined, coopRow]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, profile?.household_id, coopCombined, coopRow, partner]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Delete one of your own messages. /terms §10 says you may remove
   // individual items before deleting your account; for journal rows that was
@@ -586,9 +599,9 @@ function useCoupleImpl() {
     combined: coopCombined,
     mine: coopMine,
     partner: coopPartner,
-    target: COOP_WEEKLY_TARGET,
+    target: coopTargetFor(!!partner),
     reward: COOP_REWARD_COINS,
-    goalMet: coopCombined >= COOP_WEEKLY_TARGET,
+    goalMet: coopCombined >= coopTargetFor(!!partner),
     claimed: !!coopRow?.payout_paid,
     loaded: coopRowLoaded,
   }
