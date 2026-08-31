@@ -17,6 +17,19 @@ import { runMemorySweep } from '@/lib/memoryChecks'
 // JSON without re-running — so decay stops advancing and push never fires.
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
+/** Hobby's ceiling. The sweep stops itself at SWEEP_DEADLINE_MS below so it
+ *  reports a partial run rather than being killed mid-household. */
+export const maxDuration = 60
+
+/** Rows per page. PostgREST caps a select at 1000 by default; paging by key
+ *  is what stops household #1001 from silently never decaying again. */
+const SWEEP_PAGE = 500
+/** Households in flight at once. Each is a few writes plus a memory sweep, so
+ *  one unbounded Promise.all over every tenant is what would time this out
+ *  long before the row cap ever came into it. */
+const SWEEP_CONCURRENCY = 20
+/** Leave room to answer. Past this the sweep stops and SAYS it stopped. */
+const SWEEP_DEADLINE_MS = 50_000
 
 const DECAY_PER_HOUR = {
   hunger:        -10,   // empties in 10h
@@ -48,18 +61,21 @@ export async function GET(request: Request) {
   // any account could do it on demand. It also kept the sweep unbounded —
   // PostgREST caps a select at 1000 rows by default, so past 1000 households
   // the tail would silently stop decaying.
-  let query = supabase.from('eren_stats').select('*')
-  if (auth.via === 'session') {
-    if (!auth.householdId) {
-      return NextResponse.json({ ok: true, households: 0, reason: 'no household' })
-    }
-    query = query.eq('household_id', auth.householdId)
+  if (auth.via === 'session' && !auth.householdId) {
+    return NextResponse.json({ ok: true, households: 0, reason: 'no household' })
   }
 
-  const { data: allStats, error } = await query
-
-  if (error || !allStats) {
-    return NextResponse.json({ error: 'Failed to load stats' }, { status: 500 })
+  // Keyset on id, not offset. The sweep REWRITES last_decay_at as it goes, so
+  // any ordering that depends on a column we mutate reshuffles under us and
+  // offset paging then skips whole pages of households. `id` never moves.
+  // A builder can't be re-executed, so this returns a fresh one per page.
+  const pageQuery = (afterId: string | null) => {
+    let q = supabase.from('eren_stats').select('*')
+      .order('id', { ascending: true })
+      .limit(SWEEP_PAGE)
+    if (auth.via === 'session') q = q.eq('household_id', auth.householdId as string)
+    if (afterId) q = q.gt('id', afterId)
+    return q
   }
 
   // Households with a Trophy Shop DECAY FREEZE still running. The client half
@@ -78,153 +94,179 @@ export async function GET(request: Request) {
 
   let pushesSent = 0
 
-  const updates = allStats.map(async stat => {
-    // If last_decay_at is missing, set to now and skip decay this run (but
-    // we still let the notification block below evaluate current state).
-    const lastDecay = stat.last_decay_at ? new Date(stat.last_decay_at) : null
-    if (!lastDecay) {
-      await supabase.from('eren_stats').update({
-        last_decay_at: new Date().toISOString(),
-      }).eq('id', stat.id)
+  const startedAt = Date.now()
+  let processed = 0
+  let truncated = false
+  let afterId: string | null = null
+
+  for (;;) {
+    const { data: page, error } = await pageQuery(afterId)
+    if (error) {
+      return NextResponse.json({ error: 'Failed to load stats' }, { status: 500 })
     }
+    if (!page || page.length === 0) break
 
-    let currentStats = {
-      happiness:     stat.happiness,
-      hunger:        stat.hunger,
-      energy:        stat.energy,
-      sleep_quality: stat.sleep_quality,
-      cleanliness:   stat.cleanliness ?? 100,
-      is_sick:       stat.is_sick,
-    }
+    for (let i = 0; i < page.length; i += SWEEP_CONCURRENCY) {
+      if (Date.now() - startedAt > SWEEP_DEADLINE_MS) { truncated = true; break }
+      const batch = page.slice(i, i + SWEEP_CONCURRENCY)
+      await Promise.all(batch.map(async stat => {
+        // If last_decay_at is missing, set to now and skip decay this run (but
+        // we still let the notification block below evaluate current state).
+        const lastDecay = stat.last_decay_at ? new Date(stat.last_decay_at) : null
+        if (!lastDecay) {
+          await supabase.from('eren_stats').update({
+            last_decay_at: new Date().toISOString(),
+          }).eq('id', stat.id)
+        }
 
-    // A live freeze pauses the CLOCK, not the maths: push last_decay_at
-    // forward and apply nothing, so the skipped hours are not banked up and
-    // dumped on him the moment it lapses. Notifications below still run —
-    // frozen stats can already be low, and the partner should still hear.
-    const isFrozen = frozen.has(stat.household_id)
-    if (isFrozen && lastDecay) {
-      await supabase.from('eren_stats').update({
-        last_decay_at: new Date().toISOString(),
-      }).eq('id', stat.id)
-    }
+        let currentStats = {
+          happiness:     stat.happiness,
+          hunger:        stat.hunger,
+          energy:        stat.energy,
+          sleep_quality: stat.sleep_quality,
+          cleanliness:   stat.cleanliness ?? 100,
+          is_sick:       stat.is_sick,
+        }
 
-    const hoursElapsed = lastDecay && !isFrozen
-      ? Math.min(1.5, (Date.now() - lastDecay.getTime()) / 3600000)
-      : 0
+        // A live freeze pauses the CLOCK, not the maths: push last_decay_at
+        // forward and apply nothing, so the skipped hours are not banked up and
+        // dumped on him the moment it lapses. Notifications below still run —
+        // frozen stats can already be low, and the partner should still hear.
+        const isFrozen = frozen.has(stat.household_id)
+        if (isFrozen && lastDecay) {
+          await supabase.from('eren_stats').update({
+            last_decay_at: new Date().toISOString(),
+          }).eq('id', stat.id)
+        }
 
-    // ── Decay block — only run if enough time has passed since last_decay_at.
-    if (hoursElapsed >= 0.5) {
-      const newHappiness   = clampStat(stat.happiness    + DECAY_PER_HOUR.happiness    * hoursElapsed)
-      const newHunger      = clampStat(stat.hunger       + DECAY_PER_HOUR.hunger       * hoursElapsed)
-      const newEnergy      = clampStat(stat.energy       + DECAY_PER_HOUR.energy       * hoursElapsed)
-      const newSleep       = clampStat(stat.sleep_quality + DECAY_PER_HOUR.sleep_quality * hoursElapsed)
-      const newCleanliness = clampStat((stat.cleanliness ?? 100) + DECAY_PER_HOUR.cleanliness * hoursElapsed)
+        const hoursElapsed = lastDecay && !isFrozen
+          ? Math.min(1.5, (Date.now() - lastDecay.getTime()) / 3600000)
+          : 0
 
-      const weightLossRate = stat.hunger < 40 ? -0.04 : -0.02
-      const newWeight = Math.max(2, Math.min(10, (stat.weight ?? 4) + weightLossRate * hoursElapsed))
+        // ── Decay block — only run if enough time has passed since last_decay_at.
+        if (hoursElapsed >= 0.5) {
+          const newHappiness   = clampStat(stat.happiness    + DECAY_PER_HOUR.happiness    * hoursElapsed)
+          const newHunger      = clampStat(stat.hunger       + DECAY_PER_HOUR.hunger       * hoursElapsed)
+          const newEnergy      = clampStat(stat.energy       + DECAY_PER_HOUR.energy       * hoursElapsed)
+          const newSleep       = clampStat(stat.sleep_quality + DECAY_PER_HOUR.sleep_quality * hoursElapsed)
+          const newCleanliness = clampStat((stat.cleanliness ?? 100) + DECAY_PER_HOUR.cleanliness * hoursElapsed)
 
-      const newIsSick = stat.is_sick
-        ? true
-        : shouldBecomeSick({ cleanliness: newCleanliness, sleep_quality: newSleep, weight: newWeight })
+          const weightLossRate = stat.hunger < 40 ? -0.04 : -0.02
+          const newWeight = Math.max(2, Math.min(10, (stat.weight ?? 4) + weightLossRate * hoursElapsed))
 
-      const newMood = computeErenMood({
-        happiness: newHappiness, hunger: newHunger, energy: newEnergy,
-        sleep_quality: newSleep, cleanliness: newCleanliness,
-      })
+          const newIsSick = stat.is_sick
+            ? true
+            : shouldBecomeSick({ cleanliness: newCleanliness, sleep_quality: newSleep, weight: newWeight })
 
-      await supabase
-        .from('eren_stats')
-        .update({
-          // happiness/hunger/energy/sleep_quality are integer columns — the
-          // fractional decay result must be rounded or Postgres rejects it
-          // (22P02 "invalid input syntax for type integer"). Mirrors the client
-          // hook (useErenStats). cleanliness is numeric, so it stays fractional.
-          happiness:     Math.round(newHappiness),
-          hunger:        Math.round(newHunger),
-          energy:        Math.round(newEnergy),
-          sleep_quality: Math.round(newSleep),
-          cleanliness:   newCleanliness,
-          weight:        Math.round(newWeight * 100) / 100,
-          is_sick:       newIsSick,
-          mood:          newMood,
-          last_decay_at: new Date().toISOString(),
-          updated_at:    new Date().toISOString(),
+          const newMood = computeErenMood({
+            happiness: newHappiness, hunger: newHunger, energy: newEnergy,
+            sleep_quality: newSleep, cleanliness: newCleanliness,
+          })
+
+          await supabase
+            .from('eren_stats')
+            .update({
+              // happiness/hunger/energy/sleep_quality are integer columns — the
+              // fractional decay result must be rounded or Postgres rejects it
+              // (22P02 "invalid input syntax for type integer"). Mirrors the client
+              // hook (useErenStats). cleanliness is numeric, so it stays fractional.
+              happiness:     Math.round(newHappiness),
+              hunger:        Math.round(newHunger),
+              energy:        Math.round(newEnergy),
+              sleep_quality: Math.round(newSleep),
+              cleanliness:   newCleanliness,
+              weight:        Math.round(newWeight * 100) / 100,
+              is_sick:       newIsSick,
+              mood:          newMood,
+              last_decay_at: new Date().toISOString(),
+              updated_at:    new Date().toISOString(),
+            })
+            .eq('id', stat.id)
+
+          currentStats = {
+            happiness: newHappiness, hunger: newHunger, energy: newEnergy,
+            sleep_quality: newSleep, cleanliness: newCleanliness, is_sick: newIsSick,
+          }
+        }
+
+        // ── Notification block — ALWAYS runs, regardless of whether decay was
+        // applied this tick. State-based: if a stat is currently in warning/
+        // critical, the corresponding tag is a candidate. The cooldown filter
+        // below stops us from re-firing within 2h.
+        const allNotifs = getStatNotifications(currentStats)
+        if (allNotifs.length === 0) return
+
+        // Apply per-tag cooldown so we don't re-fire the same alert every cron
+        // tick. last_notified_at is a jsonb { [tag]: iso_timestamp }.
+        const now = Date.now()
+        const lastNotified = (stat.last_notified_at ?? {}) as Record<string, string>
+        const notifs = allNotifs.filter(n => {
+          const prev = lastNotified[n.tag] ? new Date(lastNotified[n.tag]).getTime() : 0
+          return now - prev > NOTIFY_COOLDOWN_MS
         })
-        .eq('id', stat.id)
+        if (notifs.length === 0) return
 
-      currentStats = {
-        happiness: newHappiness, hunger: newHunger, energy: newEnergy,
-        sleep_quality: newSleep, cleanliness: newCleanliness, is_sick: newIsSick,
-      }
+        // Get all push subscriptions for this household
+        const { data: subs } = await supabase
+          .from('push_subscriptions')
+          .select('*')
+          .eq('household_id', stat.household_id)
+
+        if (!subs || subs.length === 0) return
+
+        // Send notifications to all subscribed devices
+        const expired: string[] = []
+
+        for (const notif of notifs) {
+          for (const sub of subs) {
+            const ok = await sendPush(
+              { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
+              notif.title,
+              notif.body,
+              notif.tag,
+            )
+            if (!ok) expired.push(sub.id)
+            else pushesSent++
+          }
+        }
+
+        // Persist the cooldown timestamps for every tag we just attempted.
+        const updatedNotified: Record<string, string> = { ...lastNotified }
+        for (const n of notifs) updatedNotified[n.tag] = new Date(now).toISOString()
+        await supabase.from('eren_stats').update({
+          last_notified_at: updatedNotified,
+        }).eq('id', stat.id)
+
+        // Clean up expired subscriptions
+        if (expired.length > 0) {
+          await supabase.from('push_subscriptions').delete().in('id', expired)
+        }
+
+        // Memory Wall sweep — date-based + streak + rare frames. Idempotent via
+        // CAS on memory_frames PK, so safe to run every tick. PR 9's notify-memory
+        // cron drains the trigger-queued memory_unlocks rows.
+        try {
+          await runMemorySweep(supabase, stat.household_id)
+        } catch { /* best-effort; sweep swallows its own errors */ }
+      }))
+      processed += batch.length
     }
 
-    // ── Notification block — ALWAYS runs, regardless of whether decay was
-    // applied this tick. State-based: if a stat is currently in warning/
-    // critical, the corresponding tag is a candidate. The cooldown filter
-    // below stops us from re-firing within 2h.
-    const allNotifs = getStatNotifications(currentStats)
-    if (allNotifs.length === 0) return
+    if (truncated) break
+    afterId = page[page.length - 1].id as string
+    if (page.length < SWEEP_PAGE) break
+  }
 
-    // Apply per-tag cooldown so we don't re-fire the same alert every cron
-    // tick. last_notified_at is a jsonb { [tag]: iso_timestamp }.
-    const now = Date.now()
-    const lastNotified = (stat.last_notified_at ?? {}) as Record<string, string>
-    const notifs = allNotifs.filter(n => {
-      const prev = lastNotified[n.tag] ? new Date(lastNotified[n.tag]).getTime() : 0
-      return now - prev > NOTIFY_COOLDOWN_MS
-    })
-    if (notifs.length === 0) return
-
-    // Get all push subscriptions for this household
-    const { data: subs } = await supabase
-      .from('push_subscriptions')
-      .select('*')
-      .eq('household_id', stat.household_id)
-
-    if (!subs || subs.length === 0) return
-
-    // Send notifications to all subscribed devices
-    const expired: string[] = []
-
-    for (const notif of notifs) {
-      for (const sub of subs) {
-        const ok = await sendPush(
-          { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
-          notif.title,
-          notif.body,
-          notif.tag,
-        )
-        if (!ok) expired.push(sub.id)
-        else pushesSent++
-      }
-    }
-
-    // Persist the cooldown timestamps for every tag we just attempted.
-    const updatedNotified: Record<string, string> = { ...lastNotified }
-    for (const n of notifs) updatedNotified[n.tag] = new Date(now).toISOString()
-    await supabase.from('eren_stats').update({
-      last_notified_at: updatedNotified,
-    }).eq('id', stat.id)
-
-    // Clean up expired subscriptions
-    if (expired.length > 0) {
-      await supabase.from('push_subscriptions').delete().in('id', expired)
-    }
-
-    // Memory Wall sweep — date-based + streak + rare frames. Idempotent via
-    // CAS on memory_frames PK, so safe to run every tick. PR 9's notify-memory
-    // cron drains the trigger-queued memory_unlocks rows.
-    try {
-      await runMemorySweep(supabase, stat.household_id)
-    } catch { /* best-effort; sweep swallows its own errors */ }
-  })
-
-  await Promise.all(updates)
 
   return NextResponse.json({
     ok: true,
-    processed: allStats.length,
+    processed,
+    // The old sweep stopped at 1000 households and said `ok`. If this run ran
+    // out of clock, that fact ships in the response so it can be alerted on
+    // instead of being discovered in a review saying the cat never gets hungry.
+    truncated,
     pushesSent,
+    ms: Date.now() - startedAt,
     timestamp: new Date().toISOString(),
   })
 }
