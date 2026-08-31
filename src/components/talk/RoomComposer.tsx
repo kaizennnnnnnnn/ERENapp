@@ -11,6 +11,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useErenChatContext } from '@/contexts/ErenChatContext'
+import { useErenStats } from '@/hooks/useErenStats'
+import { isTooSleepy } from '@/lib/chatAllowance'
 import { playSound, type SoundName } from '@/lib/sounds'
 import { IconScroll, IconClose } from '@/components/PixelIcons'
 import TalkButton from './TalkButton'
@@ -55,7 +57,11 @@ interface Props {
 }
 
 export default function RoomComposer({ onOpenTranscript }: Props) {
-  const { sending, send } = useErenChatContext()
+  const { sending, send, spent } = useErenChatContext()
+  // The floor composer has to know about the energy gate too, or a line
+  // typed down here disappears into a 429 the room never explains.
+  const { stats } = useErenStats()
+  const tired = spent || isTooSleepy(stats?.energy ?? 100)
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -64,6 +70,11 @@ export default function RoomComposer({ onOpenTranscript }: Props) {
   const lastTick = useRef(0)
 
   useEffect(() => { if (open) inputRef.current?.focus() }, [open])
+
+  // He can run out mid-conversation (or the day can roll over with the
+  // composer open). Put the input away rather than leave a live box that
+  // the server is only going to refuse.
+  useEffect(() => { if (tired) { setOpen(false); setDraft('') } }, [tired])
 
   const onDraftChange = useCallback((next: string) => {
     setDraft(next)
@@ -76,12 +87,12 @@ export default function RoomComposer({ onOpenTranscript }: Props) {
   const submit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
     const text = draft.trim()
-    if (!text || sending) return
+    if (!text || sending || tired) return
     setDraft('')
     send(text)                       // owns the chat_send sound
     // Stays open: you say something else, he answers again. Closing after every
     // line would make a conversation feel like a series of separate errands.
-  }, [draft, sending, send])
+  }, [draft, sending, tired, send])
 
   return (
     <div
@@ -94,7 +105,7 @@ export default function RoomComposer({ onOpenTranscript }: Props) {
       onTouchEnd={(e) => e.stopPropagation()}
     >
       <div className="flex items-stretch gap-2 w-full" style={{ maxWidth: 362 }}>
-        {open ? (
+        {open && !tired ? (
           <form onSubmit={submit} className="flex-1 flex items-stretch gap-2 min-w-0">
             <button
               type="button"
@@ -146,7 +157,7 @@ export default function RoomComposer({ onOpenTranscript }: Props) {
           </form>
         ) : (
           <div className="flex-1 min-w-0">
-            <TalkButton onClick={() => setOpen(true)} />
+            {tired ? <AsleepSlab /> : <TalkButton onClick={() => setOpen(true)} />}
           </div>
         )}
 
@@ -165,6 +176,38 @@ export default function RoomComposer({ onOpenTranscript }: Props) {
           <IconScroll size={18} />
         </button>
       </div>
+    </div>
+  )
+}
+
+/**
+ * The TALK slab, once he's out of words for the day. Sits in the same slot so
+ * the bottom bar doesn't reflow — the floor should say the same thing the
+ * transcript does, not silently swallow a line into a 429.
+ */
+function AsleepSlab() {
+  return (
+    <div
+      className="w-full flex items-center justify-center gap-2"
+      style={{
+        padding: '11px 16px', borderRadius: 9,
+        background: 'linear-gradient(180deg, #E4D2B4 0%, #D3BE99 100%)',
+        border: `3px solid ${INK}`,
+        boxShadow: `3px 3px 0 ${INK}`,
+      }}
+    >
+      <span style={{
+        fontFamily: '"Press Start 2P", monospace', fontSize: 8, letterSpacing: 0.5,
+        color: '#6B4A26', textShadow: '0 1px 0 rgba(255,255,255,0.45)',
+      }}>
+        ASLEEP
+      </span>
+      <span aria-hidden style={{
+        fontFamily: '"Press Start 2P", monospace', fontSize: 7, color: '#8A6844',
+        animation: 'erenZ 2400ms steps(4, end) infinite',
+      }}>
+        Z
+      </span>
     </div>
   )
 }

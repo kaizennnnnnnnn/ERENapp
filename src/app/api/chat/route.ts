@@ -26,6 +26,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getDaypart } from '@/lib/timeOfDay'
 import { todayKey } from '@/lib/seededRng'
 import {
+  DAILY_ALLOWANCE, ENERGY_PER_MESSAGE, allowanceDayStart, isTooSleepy,
+} from '@/lib/chatAllowance'
+import {
   buildPersona,
   REMEMBER_TOOL,
   MEMORY_CAP,
@@ -102,6 +105,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'slow down' }, { status: 429 })
   }
 
+  // ── Daily allowance ───────────────────────────────────────────────────────
+  // The INVISIBLE backstop. Energy (below) is the limit a player is meant to
+  // meet; this one only catches someone who restores him over and over to keep
+  // talking, because every one of those messages is billed. `tired` marks it
+  // as "he's done for the day" rather than the loop guard's "slow down".
+  const { count: todayCount } = await supabase
+    .from('eren_chat_messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .eq('role', 'user')
+    .gte('created_at', allowanceDayStart())
+
+  if ((todayCount ?? 0) >= DAILY_ALLOWANCE) {
+    return NextResponse.json({ error: 'tired', tired: true }, { status: 429 })
+  }
+
   // Global daily ceiling, checked with the admin client so it sees every
   // user's rows rather than just the caller's (RLS scopes chat to its owner).
   const globalWindowStart = new Date(Date.now() - 86_400_000).toISOString()
@@ -113,20 +132,6 @@ export async function POST(request: Request) {
 
   if ((globalCount ?? 0) >= GLOBAL_DAILY_CAP) {
     return NextResponse.json({ error: 'eren is napping' }, { status: 503 })
-  }
-
-  // ── Reserve the message BEFORE spending anything ─────────────────────────
-  // The user row used to be written after the stream finished, alongside the
-  // reply. That made the rate limit above unenforceable in two ways: a client
-  // that aborted mid-stream was billed by Anthropic but never counted, and N
-  // concurrent requests all read the same pre-insert count and all passed.
-  // Writing it first makes the counter mean what it says — every billed
-  // message is recorded, whether or not a reply ever comes back.
-  const { error: reserveErr } = await supabase
-    .from('eren_chat_messages')
-    .insert({ user_id: user.id, role: 'user', content: text })
-  if (reserveErr) {
-    return NextResponse.json({ error: 'eren went quiet' }, { status: 503 })
   }
 
   // ── Gather context ────────────────────────────────────────────────────────
@@ -172,6 +177,49 @@ export async function POST(request: Request) {
   ])
 
   const stats = statsRes.data as Record<string, unknown> | null
+
+  // ── Energy gate ───────────────────────────────────────────────────────────
+  // The VISIBLE limit, and the only one a player is meant to meet. Reuses the
+  // arcade's EXHAUSTED_ENERGY so "too tired" means one thing across the app.
+  //
+  // Checked here rather than up with the rate limits because it needs his
+  // stats, and deliberately BEFORE the reserve below: a refusal costs nothing
+  // to serve, so it must not spend the day's allowance either.
+  const energy = typeof stats?.energy === 'number' ? stats.energy : 100
+  if (isTooSleepy(energy)) {
+    return NextResponse.json({ error: 'sleepy', sleepy: true, energy }, { status: 429 })
+  }
+
+  // ── Reserve the message BEFORE spending anything ─────────────────────────
+  // The user row used to be written after the stream finished, alongside the
+  // reply. That made the rate limit above unenforceable in two ways: a client
+  // that aborted mid-stream was billed by Anthropic but never counted, and N
+  // concurrent requests all read the same pre-insert count and all passed.
+  // Writing it first makes the counter mean what it says — every billed
+  // message is recorded, whether or not a reply ever comes back.
+  //
+  // It also has to happen AFTER the history read above, or the message ends up
+  // in `history` and again in the explicit user turn below — the same line
+  // sent to the model twice.
+  const { error: reserveErr } = await supabase
+    .from('eren_chat_messages')
+    .insert({ user_id: user.id, role: 'user', content: text })
+  if (reserveErr) {
+    return NextResponse.json({ error: 'eren went quiet' }, { status: 503 })
+  }
+
+  // Talking costs him something — that's what makes the bar a resource rather
+  // than a quota. Rounded and clamped because energy is an INTEGER column and
+  // PostgREST rejects a fractional value outright. last_decay_at is left alone
+  // on purpose: care resets the decay clock, talking is a withdrawal.
+  // The client sees this over the eren_stats realtime channel it already
+  // subscribes to, so the bar moves without a refetch.
+  if (householdId) {
+    await supabase
+      .from('eren_stats')
+      .update({ energy: Math.max(0, Math.round(energy - ENERGY_PER_MESSAGE)) })
+      .eq('household_id', householdId)
+  }
   const memories = ((memoryRes.data ?? []) as { fact: string }[]).map((m) => m.fact)
   const history = ((historyRes.data ?? []) as { role: string; content: string }[]).reverse()
 
@@ -266,12 +314,19 @@ export async function POST(request: Request) {
   const anthropic = new Anthropic()
   const encoder = new TextEncoder()
 
+  // Reply latency decides whether he feels alive or laggy, so it's measured
+  // rather than guessed at. Read these off the Vercel function logs to pick a
+  // model on evidence: `ttft` is when the first word appears (what a player
+  // actually perceives), `total` includes tool round-trips.
+  const t0 = Date.now()
+
   const stream = new ReadableStream({
     async start(controller) {
       const send = (obj: unknown) =>
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`))
 
       let full = ''
+      let ttft = 0
       try {
         for (let turn = 0; turn < MAX_TURNS; turn++) {
           const run = anthropic.messages.stream({
@@ -288,6 +343,7 @@ export async function POST(request: Request) {
           })
 
           run.on('text', (delta) => {
+            if (!ttft) ttft = Date.now() - t0
             full += delta
             send({ t: delta })
           })
@@ -325,6 +381,9 @@ export async function POST(request: Request) {
             { user_id: user.id, role: 'assistant', content: full },
           )
         }
+        console.log(
+          `[chat] model=${MODEL} ttft=${ttft}ms total=${Date.now() - t0}ms chars=${full.length}`,
+        )
         send({ done: true })
       } catch (err) {
         console.error('[chat] stream failed', err)

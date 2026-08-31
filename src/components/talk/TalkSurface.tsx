@@ -21,6 +21,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useErenChatContext } from '@/contexts/ErenChatContext'
 import { useErenMemories } from '@/hooks/useErenMemories'
 import { isBrownSender } from '@/lib/nudges'
+import { isTooSleepy } from '@/lib/chatAllowance'
 import { playSound } from '@/lib/sounds'
 import TalkView, { BROWN, PINK } from './TalkView'
 import MemorySheet from './MemorySheet'
@@ -50,10 +51,21 @@ interface Props {
 export default function TalkSurface({ onExit, onLoaded }: Props) {
   const { user, profile } = useAuth()
   const { stats } = useErenStats()
-  const { messages, streaming, sending, loading, error, savedTick, send } = useErenChatContext()
+  const {
+    messages, streaming, sending, loading, error, savedTick, send,
+    spent,
+  } = useErenChatContext()
   const [sheetOpen, setSheetOpen] = useState(false)
   const { memories, loading: memLoading, loaded: memLoaded, refresh, forget } = useErenMemories(sheetOpen)
   const [flash, setFlash] = useState(false)
+
+  // The gate players actually meet. Same threshold the arcade uses to stop
+  // paying coins, so "too tired" means one thing across the whole app — and
+  // it's fixed the same way: feed him, put him to bed. `spent` is the daily
+  // backstop behind it, which should be rare enough that most people never
+  // see it at all.
+  const energy = stats?.energy ?? 100
+  const sleepy = isTooSleepy(energy)
 
   useEffect(() => { if (!loading) onLoaded?.() }, [loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -75,10 +87,14 @@ export default function TalkSurface({ onExit, onLoaded }: Props) {
         streaming={streaming}
         sending={sending}
         error={error}
-        status={sending ? 'typing…' : MOOD_STATUS[(stats?.mood as ErenMood) ?? 'idle']}
+        // Asleep either way, so his mood is beside the point — he's out.
+        status={sleepy || spent ? 'out cold' : sending ? 'typing…' : MOOD_STATUS[(stats?.mood as ErenMood) ?? 'idle']}
         myName={profile?.name?.split(' ')[0] ?? 'You'}
         mySkin={isBrownSender(true, profile?.heart) ? BROWN : PINK}
         flash={flash}
+        energy={energy}
+        sleepy={sleepy}
+        spent={spent}
         onSend={send}                    // owns the chat_send sound
         onOpenMemories={() => { playSound('ui_modal_open'); setSheetOpen(true); void refresh() }}
         onExit={() => { playSound('ui_swipe_room'); onExit() }}

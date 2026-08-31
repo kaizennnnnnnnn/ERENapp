@@ -12,12 +12,30 @@
 // "prrrr" turns four one-word replies into four separate events.
 // ═════════════════════════════════════════════════════════════════════════════
 
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { format, isToday, isYesterday } from 'date-fns'
 import { IconDoor, IconScroll } from '@/components/PixelIcons'
 import type { ErenChatMessage } from '@/types'
 import { useLongPress } from '@/hooks/useLongPress'
 import ReportSheet from '@/components/safety/ReportSheet'
+import SegmentMeter, { type MeterPalette } from '@/components/care/SegmentMeter'
+import { messagesLeft, sleepiness } from '@/lib/chatAllowance'
+
+// Warm amber in a dark recessed channel — the same gauge the care rooms use,
+// themed for paper rather than hand-rolled. It fills as he tires out, so the
+// lit end of it is the bad end: full means he's asleep.
+const SLEEPY: MeterPalette = {
+  fillHi:    '#FFD98A',
+  fillBase:  '#F0A63C',
+  fillLo:    '#C3701A',
+  fillEdge:  '#8A4E12',
+  glow:      'rgba(240,166,60,0.42)',
+  track:     '#7C6042',
+  trackEdge: '#5E472F',
+  groove:    '#402D18',
+  frame:     '#2A1B0C',
+  rivet:     '#C9A87A',
+}
 
 // `label` is separate from `edge` on purpose. A border colour that reads well
 // as a 2px outline is far too light as 6px text — reusing edge for the name
@@ -39,6 +57,12 @@ interface Props {
   mySkin: Skin
   /** True for a beat after he files a fact away; makes the notebook glow. */
   flash: boolean
+  /** His energy, which is what the bar actually draws. */
+  energy: number
+  /** Out of energy — the gate players meet. Restorable: feed him, rest him. */
+  sleepy: boolean
+  /** Daily backstop reached. Rare, and only clears tomorrow. */
+  spent: boolean
   onSend: (text: string) => void
   onOpenMemories: () => void
   onExit: () => void
@@ -46,8 +70,11 @@ interface Props {
 
 export default function TalkView({
   messages, streaming, sending, error, status, myName, mySkin, flash,
+  energy, sleepy, spent,
   onSend, onOpenMemories, onExit,
 }: Props) {
+  // Either way he's asleep; they differ only in what wakes him.
+  const asleep = sleepy || spent
   const [draft, setDraft] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -163,6 +190,29 @@ export default function TalkView({
         </button>
       </header>
 
+      {/* ── How much talking he has left in him ────────────────────────────
+          Its own strip rather than crammed into the header: the gauge needs
+          the width to read as segments instead of a smear, and a HUD band
+          under the title bar is the shape the rest of the app already uses. */}
+      <div
+        className="relative z-10 px-4 shrink-0"
+        style={{
+          paddingTop: 8, paddingBottom: 9,
+          background: 'linear-gradient(180deg, #E7D3B0 0%, #DFC79F 100%)',
+          borderBottom: '2px solid #C09B68',
+        }}
+      >
+        <SegmentMeter
+          label={asleep ? 'FAST ASLEEP' : 'SLEEPY'}
+          value={asleep ? 100 : sleepiness(energy)}
+          valueText={asleep ? '0 LEFT' : `${messagesLeft(energy)} LEFT`}
+          segments={10}
+          palette={SLEEPY}
+          labelColor={asleep ? '#8A4E12' : '#7A5A32'}
+          valueColor="#7A5A32"
+        />
+      </div>
+
       {/* ── Transcript ─────────────────────────────────────────────────── */}
       <div className="relative flex-1 min-h-0">
         <div ref={scrollRef} className="talk-scroll absolute inset-0 overflow-y-auto px-4 py-4 flex flex-col gap-1">
@@ -217,7 +267,8 @@ export default function TalkView({
           style={{ background: 'linear-gradient(180deg, #EFE0C6 0%, transparent 100%)' }} />
       </div>
 
-      {/* ── Composer ───────────────────────────────────────────────────── */}
+      {/* ── Composer ─── or, once he's spent, the reason there isn't one ── */}
+      {asleep ? <AsleepPanel reason={spent ? 'spent' : 'sleepy'} /> : (
       <form
         onSubmit={submit}
         className="relative z-10 flex items-end gap-2 px-3 shrink-0"
@@ -261,6 +312,7 @@ export default function TalkView({
           SEND
         </button>
       </form>
+      )}
 
       <style>{`
         /* A stock scrollbar cuts a grey strip down the paper and undoes the
@@ -421,6 +473,65 @@ function EmptyState() {
       </div>
       <div style={{ fontSize: 12, color: '#9A7444', lineHeight: 1.65, maxWidth: 260 }}>
         say something. he&apos;s been waiting all day, which is what he says every day.
+      </div>
+    </div>
+  )
+}
+
+/**
+ * What the composer becomes once he's asleep — worn out, or done for the day.
+ *
+ * A replacement rather than a disabled input on purpose: a greyed-out box with
+ * a dead SEND button reads as the app being broken, while a sleeping cat reads
+ * as the answer to a question you never had to ask.
+ */
+function AsleepPanel({ reason }: { reason: 'sleepy' | 'spent' }) {
+  // Same trick as the bedroom — roll one of the four curled poses AFTER mount.
+  // Rolling it during render would disagree with the server-rendered markup.
+  const [pose, setPose] = useState(0)
+  useEffect(() => { setPose(Math.floor(Math.random() * 4)) }, [])
+
+  return (
+    <div
+      className="relative z-10 flex items-center gap-3 px-4 shrink-0"
+      style={{
+        paddingTop: 12,
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
+        background: 'linear-gradient(180deg, #E9D3AC 0%, #DAC098 100%)',
+        borderTop: '3px solid #C9A87A',
+        boxShadow: '0 -3px 0 rgba(122,74,34,0.12)',
+      }}
+    >
+      <div className="relative shrink-0">
+        <img
+          src={`/erenSleep${pose + 1}.png?v=2`} alt="" width={62} height={62}
+          // Hi-res PNG downscaled — renders smooth, never pixelated, or the
+          // breathing scale crawls a seam line down him.
+          style={{
+            objectFit: 'contain', imageRendering: 'auto',
+            animation: 'erenBreathe 6.5s ease-in-out infinite',
+          }}
+        />
+        {[0, 1, 2].map((i) => (
+          <span key={i} aria-hidden style={{
+            position: 'absolute', right: -3, top: 0,
+            fontFamily: '"Press Start 2P"', fontSize: 7, color: '#A8814E',
+            animation: `erenZ 2400ms steps(4, end) ${i * 800}ms infinite`,
+          }}>Z</span>
+        ))}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div style={{
+          fontFamily: '"Press Start 2P"', fontSize: 8, color: '#7A4A22', letterSpacing: 0.5,
+        }}>
+          {reason === 'sleepy' ? 'WORN OUT' : 'HE’S ASLEEP'}
+        </div>
+        <div style={{ fontSize: 11.5, color: '#8A6844', lineHeight: 1.55, marginTop: 6 }}>
+          {reason === 'sleepy'
+            ? 'he says he’s tired. feed him, or tuck him into bed — he’ll want to talk again once he’s rested.'
+            : 'he says he’s said everything he has today. he’ll have more tomorrow.'}
+        </div>
       </div>
     </div>
   )
