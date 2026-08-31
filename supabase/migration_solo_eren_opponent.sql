@@ -38,6 +38,13 @@
 -- EREN_BASE keyed on the twist (the twist decides what an action is WORTH, so
 -- a flat number would make high-multiplier days free wins), plus an 11-long
 -- jitter against the twist cycle's 8 for an 88-day period, floored at 3.
+--
+-- Calibrated against 204 real playing days: median 13, p75 21, p90 33, max 66.
+-- Eren sits at about the median for his twist, so a median day is a coin flip.
+-- He is deliberately NOT set low: the tier ladder is margin-based, so a weak
+-- opponent would mint gold on any ordinary day and pay a solo player roughly
+-- 3x what someone in a couple earns (two real partners keep each other's
+-- margins small just by both showing up).
 create or replace function public.eren_opponent_score(p_date date)
 returns int
 language sql
@@ -47,15 +54,15 @@ as $fn$
   select greatest(
     3,                                          -- EREN_FLOOR
     (case public.eren_twist_for_date(p_date)    -- EREN_BASE
-       when 'bath_day'   then 8
-       when 'feast'      then 8
-       when 'playday'    then 8
-       when 'nap_day'    then 8
-       when 'nurse'      then 11
-       when 'double'     then 12
-       when 'full_house' then 10
-       when 'sprint'     then 12
-       else 8
+       when 'bath_day'   then 12
+       when 'feast'      then 12
+       when 'playday'    then 12
+       when 'nap_day'    then 12
+       when 'nurse'      then 9
+       when 'double'     then 16
+       when 'full_house' then 18
+       when 'sprint'     then 16
+       else 12
      end)
     + (array[0,1,-1,2,-1,1,0,-2,1,0,-1])[       -- EREN_JITTER, length 11
         (((p_date - date '1970-01-01') % 11) + 11) % 11 + 1 ]
