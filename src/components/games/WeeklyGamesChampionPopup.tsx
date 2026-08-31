@@ -13,6 +13,7 @@ import {
   OBSIDIAN_FACE, OBSIDIAN_BTN,
   Rivets, pinkText,
 } from '@/components/obsidian'
+import { SOLO_VARIETY_TARGET } from '@/lib/gameRewards'
 import { IconCrown, IconCoin, IconController } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import CoinPayoutBurst from '@/components/CoinPayoutBurst'
@@ -20,11 +21,13 @@ import CoinPayoutBurst from '@/components/CoinPayoutBurst'
 interface Props {
   row: WeeklyGameRow
   partnerFirstName: string
+  /** Household of one: the week was a variety goal, not a contest. */
+  solo?: boolean
   onClaim: () => Promise<number>   // returns coins credited (0 if nothing/already)
   onClose: () => void
 }
 
-export default function WeeklyGamesChampionPopup({ row, partnerFirstName, onClaim, onClose }: Props) {
+export default function WeeklyGamesChampionPopup({ row, partnerFirstName, solo = false, onClaim, onClose }: Props) {
   const [claiming, setClaiming] = useState(false)
   const [paid, setPaid] = useState(row.payout_paid)
   const [mounted, setMounted] = useState(false)
@@ -60,12 +63,21 @@ export default function WeeklyGamesChampionPopup({ row, partnerFirstName, onClai
       ? { hi: '#D8D8E0', glow: 'rgba(180,180,200,0.35)' }
       : { hi: '#C4B5FD', glow: 'rgba(167,139,250,0.4)' }
 
-  const title = isWin ? 'GAMES CHAMPION' : isTie ? 'DEAD HEAT' : 'GOOD GAMES'
-  const subtitle = isWin
-    ? 'You won more games last week!'
-    : isTie
-      ? `You and ${partnerFirstName} won the same number of games.`
-      : `${partnerFirstName} won more games last week.`
+  // Solo, `games_won` is the number of DIFFERENT games played (with no
+  // opponent every game with a score counts), and the week was a variety goal
+  // rather than a contest — so nothing here may name or imply a second player.
+  const title = solo
+    ? (isWin ? 'ARCADE EXPLORER' : 'GOOD GAMES')
+    : isWin ? 'GAMES CHAMPION' : isTie ? 'DEAD HEAT' : 'GOOD GAMES'
+  const subtitle = solo
+    ? (isWin
+        ? `You played ${row.games_won} different games last week!`
+        : `You played ${row.games_won} of ${SOLO_VARIETY_TARGET} different games.`)
+    : isWin
+      ? 'You won more games last week!'
+      : isTie
+        ? `You and ${partnerFirstName} won the same number of games.`
+        : `${partnerFirstName} won more games last week.`
 
   const canClaim = !paid && row.payout_coins > 0
 
@@ -109,7 +121,15 @@ export default function WeeklyGamesChampionPopup({ row, partnerFirstName, onClai
 
           <p className="text-sm mb-4" style={{ color: PINK_LO }}>{subtitle}</p>
 
-          {/* Games-won line */}
+          {/* Games-won line. Solo there is no VS — just the count against the
+              goal, or "YOU 4 VS PARTNER 0" reads as a no-show opponent. */}
+          {solo ? (
+            <div className="text-center mb-1">
+              <p className="font-pixel" style={{ fontSize: 22, lineHeight: 1, ...pinkText }}>
+                {row.games_won}<span style={{ fontSize: 12, color: '#7A6A75' }}> / {SOLO_VARIETY_TARGET}</span>
+              </p>
+            </div>
+          ) : (
           <div className="flex items-center justify-center gap-3 mb-1">
             <div className="text-center">
               <p className="font-pixel" style={{ fontSize: 5, color: PINK_HI, letterSpacing: 1.5, marginBottom: 2 }}>YOU</p>
@@ -123,7 +143,10 @@ export default function WeeklyGamesChampionPopup({ row, partnerFirstName, onClai
               <p className="font-pixel" style={{ fontSize: 22, lineHeight: 1, color: '#D8B4FE' }}>{row.partner_games_won}</p>
             </div>
           </div>
-          <p className="font-pixel mb-5" style={{ fontSize: 5, color: '#7A6A75', letterSpacing: 2 }}>GAMES WON</p>
+          )}
+          <p className="font-pixel mb-5" style={{ fontSize: 5, color: '#7A6A75', letterSpacing: 2 }}>
+            {solo ? 'DIFFERENT GAMES PLAYED' : 'GAMES WON'}
+          </p>
 
           {canClaim ? (
             <button

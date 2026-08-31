@@ -91,6 +91,18 @@ export type Outcome = 'win' | 'loss' | 'tie'
 /** All 11 canonical game ids (derived from MINIGAME_IDS to avoid drift). */
 export const ALL_GAME_TYPES: GameType[] = Object.values(MINIGAME_IDS)
 
+// ── Solo households ──
+// The arcade weekly is the one competition Eren cannot stand in for: he does
+// not play the games. So a household of one gets a VARIETY goal instead of an
+// opponent — touch this many different games in the week and the payout lands.
+// It reuses countGamesWon unchanged: with no opponent, every game with a
+// non-zero best already counts as a "win", so myWins IS the variety count.
+export const SOLO_VARIETY_TARGET = 5
+// Deliberately between the champion and runner-up prizes. A paired player
+// averages ~62/week across winning and losing, so this restores the income a
+// solo player was missing without making one player the richer configuration.
+export const SOLO_VARIETY_COINS = 60
+
 export const WEEKLY_CHAMPION_COINS = 100 // most games won that week
 export const WEEKLY_TIE_COINS      = 100 // equal games won — both get the prize
 export const WEEKLY_LOSER_COINS    = 25  // fewer games won, but still showed up

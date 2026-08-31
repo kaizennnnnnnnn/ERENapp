@@ -538,7 +538,7 @@ function PurrBeatScene({ size }: { size: number }) {
 export default function GamesPage() {
   const router = useRouter()
   const { user } = useAuth()
-  const { weeklyChampion, claim: claimWeekly, partnerName } = useGamesWeekly()
+  const { weeklyChampion, claim: claimWeekly, partnerName, partnerId } = useGamesWeekly()
   const [champDismissed, setChampDismissed] = useState(false)
   const { setHideStats } = useCare()
   // Hide the persistent StatsHeader on the games page — the page has its
@@ -810,6 +810,7 @@ export default function GamesPage() {
         <WeeklyGamesChampionPopup
           row={weeklyChampion}
           partnerFirstName={(partnerName ?? 'Partner').split(' ')[0]}
+          solo={!partnerId}
           onClaim={claimWeekly}
           onClose={() => setChampDismissed(true)}
         />

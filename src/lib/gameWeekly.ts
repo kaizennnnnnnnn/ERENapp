@@ -1,7 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { startOfISOWeek, addDays } from 'date-fns'
 import { isoWeekKey, lastIsoWeek } from '@/lib/battleResults'
-import { countGamesWon, weeklyPayoutFor, type Outcome } from '@/lib/gameRewards'
+import {
+  countGamesWon, weeklyPayoutFor,
+  SOLO_VARIETY_TARGET, SOLO_VARIETY_COINS,
+  type Outcome,
+} from '@/lib/gameRewards'
 import type { GameType } from '@/types'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -134,16 +138,36 @@ async function doEnsureLastWeekGameResult(
     .maybeSingle()
   if (existing) return existing as WeeklyGameRow
 
-  const bests = await fetchWeekBests(supabase, [myId, partnerId], start, end)
+  // An empty partnerId means a household of one. It must not reach the query:
+  // `.in('user_id', [myId, ''])` is an empty string against a uuid column and
+  // PostgREST rejects the whole request, so the settlement would fail rather
+  // than degrade.
+  const solo = !partnerId
+  const ids = solo ? [myId] : [myId, partnerId]
+  const bests = await fetchWeekBests(supabase, ids, start, end)
   const myBest = bests[myId] ?? {}
-  const partnerBest = bests[partnerId] ?? {}
+  const partnerBest = solo ? {} : (bests[partnerId] ?? {})
 
   // Nobody played last week — no competition, no settlement.
   const iPlayed = Object.keys(myBest).length > 0
   const partnerPlayed = Object.keys(partnerBest).length > 0
   if (!iPlayed && !partnerPlayed) return null
 
-  const { myWins, partnerWins, outcome } = countGamesWon(myBest, partnerBest)
+  const counted = countGamesWon(myBest, partnerBest)
+  const myWins = counted.myWins
+  const partnerWins = counted.partnerWins
+
+  // Solo, `myWins` is not a win count — with no opponent every game holding a
+  // non-zero best already counts, so it IS the number of different games played.
+  // The goal is variety rather than victory, and `outcome` records whether it
+  // was cleared so the popup and the history read consistently.
+  const outcome = solo
+    ? (myWins >= SOLO_VARIETY_TARGET ? 'win' : 'loss')
+    : counted.outcome
+  const payout = solo
+    ? (myWins >= SOLO_VARIETY_TARGET ? SOLO_VARIETY_COINS : 0)
+    : weeklyPayoutFor(counted.outcome, iPlayed)
+
   const row: WeeklyGameRow = {
     household_id: householdId,
     user_id: myId,
@@ -151,7 +175,7 @@ async function doEnsureLastWeekGameResult(
     games_won: myWins,
     partner_games_won: partnerWins,
     outcome,
-    payout_coins: weeklyPayoutFor(outcome, iPlayed),
+    payout_coins: payout,
     payout_paid: false,
     acknowledged: false,
   }

@@ -46,9 +46,13 @@ export function useGamesWeekly() {
       const st = await weeklyStandings(supabase, user.id, pId).catch(() => null)
       if (!cancelled && st) setStandings(st)
 
-      // Settle last week (needs a partner to compete against).
-      if (profile.household_id && pId) {
-        const champ = await ensureLastWeekGameResult(supabase, profile.household_id, user.id, pId).catch(() => null)
+      // Settle last week. No longer needs a partner: a household of one settles
+      // against the variety goal instead of an opponent (SOLO_VARIETY_TARGET),
+      // which is what this competition pays a solo player.
+      if (profile.household_id) {
+        const champ = await ensureLastWeekGameResult(
+          supabase, profile.household_id, user.id, pId ?? '',
+        ).catch(() => null)
         if (!cancelled) setWeeklyChampion(champ)
       }
       if (!cancelled) setLoading(false)
