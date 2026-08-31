@@ -227,6 +227,13 @@ export async function POST(request: Request) {
   const speakerName = profile?.name?.split(' ')[0] ?? 'someone'
   const partnerName = partner?.name?.split(' ')[0] ?? null
 
+  // Which persona Eren wears — he stops asserting a second caretaker exists
+  // when there isn't one. A FAILED read is not an absent partner: on a 503 we
+  // keep the paired voice, because flipping a real couple into the solo persona
+  // would both misvoice him and miss the day's prompt cache on the way past.
+  const partnerReadFailed = Boolean((partnerRes as { error?: unknown }).error)
+  const hasPartner = partnerReadFailed || partner !== null
+
   const careRows = (careRes.data ?? []) as {
     created_at: string
     user_id: string
@@ -261,6 +268,15 @@ export async function POST(request: Request) {
     if (first && recentOpeners.indexOf(first) === -1) recentOpeners.push(first)
   }
 
+  // Their side of the openers mechanism. `history` excludes the message being
+  // answered (it's read before the reserve insert), so this is genuinely what
+  // they said BEFORE now — he counts the current one himself.
+  const recentTheirs = history
+    .filter((h) => h.role !== 'assistant')
+    .slice(-OPENER_MEMORY)
+    .reverse()
+    .map((h) => h.content.replace(/\s+/g, ' ').trim().slice(0, 60))
+
   const now = new Date()
   const liveContext = buildLiveContext({
     speakerName,
@@ -278,6 +294,7 @@ export async function POST(request: Request) {
     memories,
     recentCare,
     recentOpeners,
+    recentTheirs,
   })
 
   // ── Build the request ─────────────────────────────────────────────────────
@@ -285,7 +302,7 @@ export async function POST(request: Request) {
   // changes once a day (the persona rotates his voice lines and his mood) or
   // when Eren saves a new fact. The second extends it over the replayed
   // history, so a long conversation doesn't re-bill itself each turn.
-  const system: Anthropic.TextBlockParam[] = [{ type: 'text', text: buildPersona(todayKey(now)) }]
+  const system: Anthropic.TextBlockParam[] = [{ type: 'text', text: buildPersona(todayKey(now), hasPartner) }]
   if (memories.length > 0) {
     system.push({
       type: 'text',
