@@ -11,7 +11,7 @@
  *
  * The prompt is assembled in two halves, and the split is load-bearing:
  *   cached prefix   tools → buildPersona(today) → memories   (cache_control)
- *   volatile tail   history → new message → live context     (full price)
+ *   volatile tail   history → live context + new message     (full price)
  * The prefix only has to survive one sitting, not forever — a cache entry
  * lives ~5 minutes — so anything that changes DAILY (his voice lines, his mood,
  * what he's preoccupied with) belongs in the prefix and is effectively free.
@@ -43,7 +43,7 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 export const maxDuration = 60
 
-const MODEL = 'claude-opus-5'
+const MODEL = 'claude-sonnet-5'
 const MAX_TOKENS = 1024
 /** Ceiling on tool round-trips. Eren saves at most one fact per message, so
  *  two passes is the real shape; three is slack for a double call. */
@@ -304,11 +304,23 @@ export async function POST(request: Request) {
         : m.content,
   }))
 
-  messages.push({ role: 'user', content: text })
-  // Live state rides as a mid-conversation system message so the cached prefix
-  // above it survives. It must follow a user turn and be last (or be followed
-  // by an assistant turn — which is what happens after a tool call).
-  messages.push({ role: 'system', content: liveContext } as Anthropic.MessageParam)
+  // Live state rides INSIDE the final user turn rather than as a mid-conversation
+  // {role:'system'} message. That channel is Opus-family only — Sonnet 5 rejects
+  // it with a 400 — and this shape works on every model while keeping the cached
+  // prefix above it intact, since the whole turn is volatile tail either way.
+  //
+  // State goes FIRST and the person's words LAST, deliberately: nothing the user
+  // types can then pose as trailing operator context. It also reads the natural
+  // way round — here's the situation, here's what they just said.
+  messages.push({
+    role: 'user',
+    content: [
+      { type: 'text', text: `<live_context>
+${liveContext}
+</live_context>` },
+      { type: 'text', text },
+    ],
+  })
 
   // ── Stream ────────────────────────────────────────────────────────────────
   const anthropic = new Anthropic()
@@ -332,9 +344,11 @@ export async function POST(request: Request) {
           const run = anthropic.messages.stream({
             model: MODEL,
             max_tokens: MAX_TOKENS,
-            // Thinking stays ON. With it disabled, Opus 5 sometimes writes a
+            // Thinking stays ON. With it disabled the model sometimes writes a
             // tool call into visible text instead of emitting a tool_use block
-            // — the save silently never happens and nothing errors.
+            // — the save silently never happens and nothing errors. `adaptive`
+            // is the only on-mode on both Opus 5 and Sonnet 5, so this line is
+            // what makes the model swap a one-word change.
             thinking: { type: 'adaptive' },
             output_config: { effort: 'low' },
             system,
