@@ -94,7 +94,7 @@ export default function DatesStep({
         value={myBirthday} onChange={e => setMyBirthday(e.target.value)} />
       <PixelInput label="EREN'S BIRTHDAY" type="date" max={today} style={dateStyle}
         value={erenBirthday} onChange={e => setErenBirthday(e.target.value)} />
-      <PixelInput label="WHEN YOU TWO MET" type="date" max={today} style={dateStyle}
+      <PixelInput label="AN ANNIVERSARY" type="date" max={today} style={dateStyle}
         value={coupleAnniversary} onChange={e => setCoupleAnniversary(e.target.value)} />
 
       <PixelButton variant="gold" onClick={save} disabled={saving}>

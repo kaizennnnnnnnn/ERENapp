@@ -56,8 +56,8 @@ const SLIDES: SlideDef[] = [
     ],
   },
   {
-    heading: 'BETTER TOGETHER',
-    body: 'Share your mood, journal through Eren, battle daily, and fill the memory wall.',
+    heading: 'SHARE THE DAY',
+    body: 'Share your mood, journal through Eren, take the daily battle, and fill the memory wall.',
     eren: 'love',
     chips: [
       { Icon: IconHeartDuo, label: 'MOODS' },
@@ -68,7 +68,7 @@ const SLIDES: SlideDef[] = [
   },
   {
     heading: 'EREN WILL CALL YOU',
-    body: "Get a nudge when he's hungry — or when your partner sends love.",
+    body: "Get a nudge when he's hungry — or when someone sends love.",
     eren: 'listen',
     chips: [],
   },

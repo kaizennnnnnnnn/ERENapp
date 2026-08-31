@@ -83,7 +83,14 @@ export default function HouseholdStep({
       if (!res.ok) { setError(res.message); return }
       onCreated(res.value)
     } else {
-      if (inviteCode.trim().length < 4) return
+      // Was a bare `return`: MOVE IN did nothing at all on a short code, no
+      // message, no spinner — and because setError(null) runs above, a second
+      // tap also wiped the previous "Code not found". A dead button on the one
+      // screen a new user cannot get past.
+      if (inviteCode.trim().length < 4) {
+        setError('That code is too short — it should be 8 characters.')
+        return
+      }
       setLoading(true)
       const res = await joinHousehold({ userId, name: userName, inviteCode: inviteCode.trim() })
       setLoading(false)
@@ -127,7 +134,7 @@ export default function HouseholdStep({
           <PixelInput label="HOME NAME" value={householdName}
             onChange={e => setHouseholdName(e.target.value)} placeholder="Eren's Home" />
           <p style={{ fontSize: 12, lineHeight: 1.6, color: '#9C8FBC', margin: 0 }}>
-            You&apos;ll get a code to invite your partner.
+            You&apos;ll get a code, if you ever want to invite someone.
           </p>
         </>
       ) : (
@@ -137,7 +144,7 @@ export default function HouseholdStep({
             placeholder="8 CHARACTERS" maxLength={8} autoCapitalize="characters" autoCorrect="off"
             style={{ fontFamily: '"Press Start 2P"', fontSize: 16, letterSpacing: 3 }} />
           <p style={{ fontSize: 12, lineHeight: 1.6, color: '#9C8FBC', margin: 0 }}>
-            Ask your partner — it&apos;s on their profile.
+            Whoever invited you has it on their profile.
           </p>
         </>
       )}
@@ -195,8 +202,14 @@ export function CodeReveal({ code, onNext }: { code: string; onNext: () => void 
         </span>
       </PixelButton>
 
+      {/* Was "Send this to your partner so they can move in too." — an
+          unskippable full screen whose entire content was an errand, four
+          screens into a signup a solo player had no way to opt out of. The
+          code is permanent and already lives on the profile page, so nothing
+          is lost by making this an offer instead of an instruction. */}
       <p style={{ fontSize: 12, lineHeight: 1.7, color: '#C9B8E8', margin: 0, maxWidth: 240 }}>
-        Send this to your partner so they can move in too. It also lives on your profile.
+        If someone else looks after him too, this lets them in. It stays on your
+        profile — no rush.
       </p>
 
       <PixelButton variant="gold" onClick={onNext}>NEXT</PixelButton>

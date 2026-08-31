@@ -130,7 +130,7 @@ export async function joinHousehold(args: {
       return { ok: false, code: 'network', message: NETWORK_MSG }
     }
     if (!householdId) {
-      return { ok: false, code: 'invalid_code', message: 'Code not found. Ask your partner for it!' }
+      return { ok: false, code: 'invalid_code', message: 'Code not found. Check it with whoever invited you.' }
     }
 
     const { error: nameError } = await supabase

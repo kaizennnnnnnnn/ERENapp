@@ -13,7 +13,12 @@ export default function WelcomeStep({ onStart }: { onStart: () => void }) {
           <p style={{ fontSize: 13, lineHeight: 1.7, color: '#C9B8E8', maxWidth: 250 }}>
             A tiny cat. A big responsibility.
             <br />
-            For two.
+            {/* Was "For two." — the first line of the signup flow, and it told
+                every solo installer they were the wrong customer before they
+                had typed anything. The app still works best with someone else
+                in it; that is an invitation to extend later, not a doorway to
+                stand in. */}
+            Alone, or with someone.
           </p>
         }
       />
