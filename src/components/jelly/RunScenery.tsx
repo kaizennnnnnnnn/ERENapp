@@ -316,35 +316,60 @@ export const Glider = memo(function Glider({ w }: { w: number }) {
  * comes from ABOVE, and the space under it is the space you want.
  */
 export const Pipe = memo(function Pipe({ w, h, clear }: { w: number; h: number; clear: number }) {
-  const fade = 'linear-gradient(0deg, rgba(0,0,0,1) 0%, rgba(0,0,0,0.5) 45%, rgba(0,0,0,0) 100%)'
+  const fade = 'linear-gradient(0deg, rgba(0,0,0,1) 0%, rgba(0,0,0,0.55) 55%, rgba(0,0,0,0) 100%)'
+  // Strand lengths as a fraction of the drop, so the hem is ragged but the
+  // BOTTOM of the box — the line you have to get under — stays a hard edge.
+  const strands = [0.93, 1, 0.88, 0.99, 0.9, 1, 0.95]
   return (
     <div style={{ width: w, height: h, position: 'absolute', willChange: 'transform' }}>
-      {/* stems up out of frame */}
-      {[7, w - 13].map(x => (
+      {/* the rail it pours from, and its stems climbing out of frame */}
+      {[6, w - 12].map(x => (
         <div key={x} style={{
-          position: 'absolute', left: x, bottom: h - 2, width: 5, height: 74,
+          position: 'absolute', left: x, bottom: h - 4, width: 5, height: 60,
           background: `linear-gradient(180deg, ${BRASS_DK} 0%, ${BRASS} 100%)`,
           maskImage: fade, WebkitMaskImage: fade,
         }} />
       ))}
-      <div style={{ position: 'absolute', inset: 0, background: BRASS, border: `2px solid ${INK}`, borderRadius: 2 }} />
-      <div style={{ position: 'absolute', left: 2, right: 2, top: 2, height: 2, background: BRASS_LT }} />
-      {/* drips, at three different lengths so they read as falling */}
-      {[[5, 9], [18, 14], [31, 7]].map(([x, len]) => (
-        <div key={x} style={{
-          position: 'absolute', left: x, top: h - 2, width: 4, height: len,
-          background: BERRY, border: `1px solid ${INK}`, borderRadius: '0 0 3px 3px',
-        }} />
-      ))}
-      {/* and the puddle they have been landing in */}
       <div style={{
-        position: 'absolute', left: 2, right: 2, bottom: -clear - 3, height: 6,
+        position: 'absolute', left: -2, right: -2, top: 0, height: 10,
+        background: `linear-gradient(180deg, ${BRASS_LT} 0%, ${BRASS} 60%, ${BRASS_DK} 100%)`,
+        border: `2px solid ${INK}`, borderRadius: 3,
+      }} />
+      {/* the curtain itself */}
+      <div className="jrCurtain" style={{ position: 'absolute', left: 0, right: 0, top: 8, bottom: 0 }}>
+        {strands.map((f, i) => (
+          <div key={i} style={{
+            position: 'absolute', left: 2 + i * ((w - 8) / strands.length),
+            top: 0, height: `${f * 100}%`, width: (w - 8) / strands.length - 1,
+            background: `linear-gradient(180deg, ${BERRY_DK} 0%, ${BERRY} 40%, #FF7FA6 100%)`,
+            opacity: 0.82,
+            borderRadius: '2px 2px 5px 5px',
+            boxShadow: `inset -1px 0 0 rgba(58,31,43,0.45)`,
+          }} />
+        ))}
+        {/* the hem, hard and unmistakable: everything above it is a wall */}
+        <div style={{
+          position: 'absolute', left: 0, right: 0, bottom: 0, height: 4,
+          background: BERRY_DK, borderRadius: 3, boxShadow: `0 0 6px ${BERRY}`,
+        }} />
+      </div>
+      {/* and the puddle it has been landing in, on whatever it hangs over */}
+      <div style={{
+        position: 'absolute', left: -3, right: -3, bottom: -clear - 3, height: 6,
         background: BERRY_DK, borderRadius: '50%', opacity: 0.85,
       }} />
       <div style={{
-        position: 'absolute', left: 8, right: 8, bottom: -clear - 1, height: 3,
+        position: 'absolute', left: 6, right: 6, bottom: -clear - 1, height: 3,
         background: BERRY, borderRadius: '50%',
       }} />
+      <style jsx>{`
+        .jrCurtain { animation: jrCurtainSway 1.15s ease-in-out infinite; transform-origin: 50% 0%; }
+        @keyframes jrCurtainSway {
+          0%, 100% { transform: skewX(-1.4deg); }
+          50%      { transform: skewX(1.4deg); }
+        }
+        @media (prefers-reduced-motion: reduce) { .jrCurtain { animation: none; } }
+      `}</style>
     </div>
   )
 })
