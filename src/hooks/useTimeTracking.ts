@@ -4,38 +4,39 @@ import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 export function useTimeTracking(userId: string | null) {
-  const supabase     = createClient()
-  const sessionIdRef = useRef<string | null>(null)
-  const startRef     = useRef<string | null>(null)
+  const supabase = createClient()
+  const startRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!userId) return
 
-    // Start session
-    async function startSession() {
-      const start = new Date().toISOString()
-      startRef.current = start
-      const { data } = await supabase
-        .from('time_spent')
-        .insert({ user_id: userId, session_start: start, date: start.split('T')[0] })
-        .select('id')
-        .single()
-      if (data) sessionIdRef.current = data.id
+    // Open a session in memory only. The row is written once, complete, when
+    // the session ends — the old insert-then-update pattern made time_spent the
+    // app's heaviest WAL producer (one insert + one update + one dead tuple per
+    // visibility flip) and left an orphan row with a null session_end behind
+    // every time two `visible` events arrived in a row.
+    function startSession() {
+      if (startRef.current) return
+      startRef.current = new Date().toISOString()
     }
 
-    // End session
     async function endSession() {
-      if (!sessionIdRef.current) return
-      await supabase
-        .from('time_spent')
-        .update({ session_end: new Date().toISOString() })
-        .eq('id', sessionIdRef.current)
-      sessionIdRef.current = null
+      const start = startRef.current
+      if (!start) return
+      startRef.current = null
+      const end = new Date().toISOString()
+      await supabase.from('time_spent').insert({
+        user_id:       userId,
+        session_start: start,
+        session_end:   end,
+        date:          start.split('T')[0],
+      })
     }
 
     startSession()
 
-    // End on tab close / page leave
+    // `hidden` is the only reliable close signal on a phone — a PWA killed from
+    // the app switcher never fires beforeunload — so the row is written there.
     const onVisibility = () => {
       if (document.visibilityState === 'hidden') endSession()
       if (document.visibilityState === 'visible') startSession()

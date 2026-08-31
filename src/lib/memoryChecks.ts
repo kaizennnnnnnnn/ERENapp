@@ -217,13 +217,33 @@ export async function checkOnEventUnlocks(
   supabase: SupabaseClient,
   evt: UnlockEvent,
 ): Promise<void> {
-  let counters: OnEventCounters
+  // The already-unlocked set is one indexed lookup; the counter snapshot below
+  // is thirteen round trips, five of them lifetime COUNT(*)s over the whole
+  // interactions table. Fetch the cheap one FIRST and bail when there is
+  // nothing left it could unlock — otherwise every care action, every pet (1.5s
+  // cooldown) and every message keeps paying for the expensive one forever,
+  // and the cost grows with the household's accumulated history.
   let already: Set<string>
   try {
-    [counters, already] = await Promise.all([
-      fetchOnEventCounters(supabase, evt.householdId),
-      fetchUnlockedFrameIds(supabase, evt.householdId),
-    ])
+    already = await fetchUnlockedFrameIds(supabase, evt.householdId)
+  } catch (err) {
+    if (typeof console !== 'undefined') {
+      console.warn('[memoryChecks] fetchUnlockedFrameIds failed', err)
+    }
+    return
+  }
+
+  // Derived from the catalogue rather than hardcoded, so adding an on-event
+  // frame later automatically re-opens this path for households that had
+  // already finished the old catalogue.
+  const anythingLeft = MEMORY_FRAMES.some(
+    f => !already.has(f.id) && !isSweepPredicate(f.predicate),
+  )
+  if (!anythingLeft) return
+
+  let counters: OnEventCounters
+  try {
+    counters = await fetchOnEventCounters(supabase, evt.householdId)
   } catch (err) {
     if (typeof console !== 'undefined') {
       console.warn('[memoryChecks] fetchOnEventCounters failed', err)
