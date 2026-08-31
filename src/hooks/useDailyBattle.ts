@@ -24,6 +24,7 @@ import {
 import {
   twistForDate, scoreActions, isBattleAction, type TwistDef,
 } from '@/lib/dailyTwist'
+import { EREN_OPPONENT_NAME } from '@/lib/erenOpponent'
 import { useTrophyEffects } from './useTrophyEffects'
 import { notifyPartnerAction } from '@/lib/statNotifications'
 
@@ -83,7 +84,7 @@ let _channelCounter = 0
 function useDailyBattleImpl(): DailyBattleState {
   const supabase = createClient()
   const { user, profile } = useAuth()
-  const { partner } = useCouple()
+  const { partner, isSolo } = useCouple()
   // Today's bought privileges. A Double Hour or a Point Steal changes what the
   // rows are worth, and both phones have to reach the same number, so the mods
   // go through the same scorer the snapshot uses rather than being patched
@@ -363,7 +364,7 @@ function useDailyBattleImpl(): DailyBattleState {
     loading,
     myScore, partnerScore,
     myName:     profile?.name?.split(' ')[0] ?? 'You',
-    partnerName: partner?.name?.split(' ')[0] ?? 'Partner',
+    partnerName: partner?.name?.split(' ')[0] ?? (isSolo ? EREN_OPPONENT_NAME : 'Partner'),
     myPct, partnerPct,
     leader, total, totalActions,
     lastAction,

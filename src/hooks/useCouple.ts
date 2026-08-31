@@ -151,18 +151,24 @@ function useCoupleImpl() {
       .select('mood, date')
       .eq('user_id', p.id)
       .gte('date', weekStartStr)) : null
-    const lifetimeP = p
-      ? backfillDailyResults(supabase, profile.household_id, user.id, p.id)
-          .then(() => {
-            // Yesterday's snapshot only EXISTS after this runs — there is no
-            // cron. The trophy settlement waits on this signal rather than
-            // racing it, because at midnight the row is reliably absent and a
-            // hook that read once would cache "no result" for the whole day.
-            try { window.dispatchEvent(new Event('eren:battle-backfilled')) } catch { /* SSR */ }
-            return fetchLifetimeRows(supabase, user.id)
-          })
-          .catch(() => undefined)
-      : null
+    // Runs solo too, with an empty partnerId — scoreDaily then puts Eren in
+    // the empty seat. Gating this on `p` was the real reason a solo player
+    // never earned a trophy: no snapshot row was ever written, so there was
+    // nothing for the settlement sweep to find, so the entire Trophy Room was
+    // a wall of prices they could not pay. `p` here is the freshly-fetched
+    // partner, not the loading-state null, so this cannot misfire for a couple.
+    const lifetimeP = backfillDailyResults(
+      supabase, profile.household_id, user.id, p?.id ?? '',
+    )
+      .then(() => {
+        // Yesterday's snapshot only EXISTS after this runs — there is no
+        // cron. The trophy settlement waits on this signal rather than
+        // racing it, because at midnight the row is reliably absent and a
+        // hook that read once would cache "no result" for the whole day.
+        try { window.dispatchEvent(new Event('eren:battle-backfilled')) } catch { /* SSR */ }
+        return fetchLifetimeRows(supabase, user.id)
+      })
+      .catch(() => undefined)
     const weeklyP = p
       ? ensureLastWeekResult(supabase, profile.household_id, user.id, p.id)
           .catch(() => undefined)
@@ -593,6 +599,11 @@ function useCoupleImpl() {
   ), 0)
 
   return {
+    // A household of one, KNOWN to be so. Deliberately false while the fetch
+    // is still in flight: `partner` is null during loading too, and anything
+    // that persists or pays out (trophy settlement, the battle snapshot) must
+    // not treat a not-yet-loaded couple as solo and settle them against Eren.
+    isSolo: !loading && !partner,
     partner, partnerStreak,
     loveMeter, anniversary, journal, unreadCount,
     notes, unreadNotes, markNotesRead,

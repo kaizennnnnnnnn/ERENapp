@@ -69,7 +69,7 @@ function seenKey(userId: string, date: string) {
 export function useDailyVerdict(ready: boolean): DailyVerdict {
   const supabase = createClient()
   const { user } = useAuth()
-  const { partner, lifetimeWLT } = useCouple()
+  const { partner, isSolo, lifetimeWLT } = useCouple()
   const trophies = useTrophies()
   const cos = useTrophyCosmetics()
 
@@ -82,7 +82,13 @@ export function useDailyVerdict(ready: boolean): DailyVerdict {
   const settledRef = useRef<string | null>(null)
 
   const settle = useCallback(async () => {
-    if (!user?.id || !partner?.id) return
+    // A partner is no longer required — a solo household settles against Eren
+    // (lib/erenOpponent.ts). But we must know WHICH we are before minting:
+    // `partner` is null while the couple fetch is in flight, so settling on
+    // that alone would score a real couple against Eren and pay the wrong
+    // trophies. `isSolo` is false until the fetch resolves, so this waits.
+    if (!user?.id) return
+    if (!partner?.id && !isSolo) return
     if (settledRef.current === yesterday) return
 
     // Every finished day I have not been paid for, oldest first — not just
@@ -128,7 +134,7 @@ export function useDailyVerdict(ready: boolean): DailyVerdict {
       if (localStorage.getItem(seenKey(user.id, yesterday))) alreadySeen = true
     } catch { /* storage blocked — the server flag still covers it */ }
     if (!alreadySeen) setShow(true)
-  }, [user?.id, partner?.id, yesterday, today]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, partner?.id, isSolo, yesterday, today]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // `settle` is rebuilt when `yesterday` changes, so a session left open
   // across local midnight re-runs for the day that just ended.

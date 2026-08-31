@@ -10,6 +10,7 @@ import {
   NO_MODS, inAnyWindow, scoreModsFor, fetchEffects,
   type ScoreMods,
 } from '@/lib/trophyEffects'
+import { erenOpponentScore } from '@/lib/erenOpponent'
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // BATTLE RESULTS — daily + weekly scoreboard persistence
@@ -140,7 +141,13 @@ export function scoreDaily(
   }
   // A POINT STEAL cannot take a score below zero — it is a nudge, not a debt.
   const me = Math.max(0, scoreActions(twist, mine) - (mods.steals[myId] ?? 0))
-  const them = Math.max(0, scoreActions(twist, theirs) - (mods.steals[partnerId] ?? 0))
+  // An empty partnerId means a household of one. Eren takes the seat rather
+  // than scoring zero — against zero the margin IS the player's whole score,
+  // so every finished day would settle as a gold win, and the battle is the
+  // only place trophies are minted. See lib/erenOpponent.ts.
+  const them = partnerId
+    ? Math.max(0, scoreActions(twist, theirs) - (mods.steals[partnerId] ?? 0))
+    : erenOpponentScore(dayKey, twist.id)
   return { myScore: me, partnerScore: them, outcome: outcomeOf(me, them) }
 }
 
@@ -308,8 +315,15 @@ async function doBackfillDailyResults(
     const dayStart = new Date(date + 'T00:00:00').getTime()
     const sp = scoreDaily(ints, myId, partnerId, date,
       scoreModsFor(effects, dayStart, dayStart + 86_400_000))
-    // Skip dead days — neither user did anything tracked.
-    if (sp.myScore === 0 && sp.partnerScore === 0) continue
+    // Skip dead days — nobody did anything tracked.
+    //
+    // Solo, Eren's score is never zero, so the paired test would write a row
+    // for every day the app was never opened: a loss each, cluttering the
+    // history and handing him a win for days the player wasn't playing. What
+    // makes a day dead solo is that the PLAYER did nothing. A missing row
+    // breaks the win streak either way, which is the same thing that happens
+    // to a couple when neither of them shows up.
+    if (sp.myScore === 0 && (!partnerId || sp.partnerScore === 0)) continue
     rowsToInsert.push({
       household_id: householdId,
       user_id: myId,
