@@ -24,6 +24,10 @@ eats the wallpaper:
   key    and never darker than the seed by `keyDrop`, which is what actually
          stops it at the outline every window in this game is drawn with
          (disabled for a night window, where the sky IS the dark thing)
+  green  and never a green-dominant pixel, because no window in this game has
+         green SKY -- green is the treeline, the hills and the bushes, and
+         erasing those leaves rain falling through where a tree used to be.
+         `greenGuard` is the margin, 10 by default; 0 turns it off
   cool   and, where a room asks for it, never less blue than `coolMin`,
          measured as blue minus red. This is the night window's substitute for
          the key brake: after dark the frame is not darker than the sky, but it
@@ -83,6 +87,16 @@ def cool(c):
     return c[2] - c[0]
 
 
+def leafy(c, margin):
+    """Green-dominant, i.e. a tree, a hedge or a hill. Never sky.
+
+    `min(c) < 200` keeps a near-white pixel out of it: cloud and window glare
+    often sit a couple of levels greener than neutral without being foliage.
+    """
+    return (margin > 0 and min(c[:3]) < 200
+            and c[1] > c[0] + margin and c[1] > c[2] + margin)
+
+
 def cut(room, spec, outdir, shots, art=None, suffix='', only=None):
     im = Image.open(os.path.join(PUB, art or spec['art'])).convert('RGBA')
     W, H = im.size
@@ -97,6 +111,7 @@ def cut(room, spec, outdir, shots, art=None, suffix='', only=None):
     seed_tol = spec.get('seedTol', 110)
     key_drop = spec.get('keyDrop', 55)
     cool_min = spec.get('coolMin')
+    green_guard = spec.get('greenGuard', 10)
     night = spec.get('night', False)
 
     # Painted-in walls the flood may not enter, in fractions of this crop.
@@ -117,7 +132,8 @@ def cut(room, spec, outdir, shots, art=None, suffix='', only=None):
         # A seed skips every brake by definition, so a seed dropped one row off
         # the glass punches a hole in the frame and nothing downstream catches
         # it. Refuse it loudly instead.
-        if keep[p[0]][p[1]] or (cool_min is not None and cool(px[p[0], p[1]]) < cool_min):
+        if (keep[p[0]][p[1]] or leafy(px[p[0], p[1]], green_guard)
+                or (cool_min is not None and cool(px[p[0], p[1]]) < cool_min)):
             print(f'  ! {room}{suffix}: seed ({sx}, {sy}) is not on glass '
                   f'-- px {p} is {px[p[0], p[1]][:3]}, ignored')
             continue
@@ -140,6 +156,8 @@ def cut(room, spec, outdir, shots, art=None, suffix='', only=None):
             if dist(seed, c) > seed_tol:
                 continue
             if not night and luma(c) < luma(seed) - key_drop:
+                continue
+            if leafy(c, green_guard):
                 continue
             if cool_min is not None and cool(c) < cool_min:
                 continue
@@ -170,7 +188,8 @@ def cut(room, spec, outdir, shots, art=None, suffix='', only=None):
     pct = 100.0 * n / (cw * ch)
     print(f'{room + suffix:16s} box={cw}x{ch} sky={pct:5.1f}% '
           f'tol={tol} seedTol={seed_tol} keyDrop={key_drop} coolMin={cool_min} '
-          f'night={night} keep={len(spec.get("keep", []))} -> {room}{suffix}.png')
+          f'green={green_guard} night={night} keep={len(spec.get("keep", []))} '
+          f'-> {room}{suffix}.png')
     return pct, (cw, ch), im.size, sky
 
 
@@ -205,10 +224,11 @@ def main():
 
 
 ROOM_LABELS = {
+    'home': 'LIVING ROOM',
     'feed': 'KITCHEN', 'play': 'PLAYROOM', 'sleep': 'BEDROOM', 'wash': 'BATHROOM',
     'chemistry': 'LAB', 'talk': 'ATTIC', 'school': 'SCHOOL',
 }
-ROOM_ORDER = ['feed', 'play', 'sleep', 'wash', 'chemistry', 'talk', 'school']
+ROOM_ORDER = ['home', 'feed', 'play', 'sleep', 'wash', 'chemistry', 'talk', 'school']
 
 
 def emit_ts(specs, meta):

@@ -24,6 +24,13 @@ export interface RoomWindow {
 }
 
 export const ROOM_WINDOWS: Record<string, RoomWindow> = {
+  home: {
+    label: 'LIVING ROOM',
+    art: { w: 768, h: 1376 },
+    box: { l: 0.47396, t: 0.10538, w: 0.45313, h: 0.29433 },
+    day: '/weather/home.png',
+    night: '/weather/home_night.png',
+  },
   feed: {
     label: 'KITCHEN',
     art: { w: 768, h: 1376 },
