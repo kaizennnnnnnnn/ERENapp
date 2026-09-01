@@ -230,7 +230,13 @@ date.
 
 ### 4. Remaining code, roughly prioritised
 - **Solo state** — 100% of new installs land on a couple UI with no partner
-- **Password reset** — does not exist anywhere
+- ~~**Password reset**~~ — CODE DONE (`469f10c`): `/auth/forgot` + `/auth/reset`,
+  reusing the existing PKCE callback, neutral response so the form can't be used
+  to enumerate registered emails. **STILL BLOCKED on two dashboard steps**:
+  allowlist `/auth/callback` under Authentication → URL Configuration (unlisted,
+  it silently falls back to the Site URL and the link goes nowhere), and wire
+  custom SMTP — Supabase's built-in mailer does a few messages an hour and
+  password reset is the first thing that breaks under it
 - **Economy hardening** — coins/stardust/inventory client-writable; gacha odds
   are a promise the server cannot keep
 - **Offline fallback** — the SW caches images only, so a cold start with no
@@ -240,8 +246,12 @@ date.
 - **Error reporting** — none exists
 - **React #418/#423** hydration errors on /home, still undiagnosed (MoodSky
   ruled out; needs a dev build to read the un-minified mismatch)
-- **`/talk` has no AI disclosure in the UI** — the reply-flag is now wired, but
-  nothing on screen says it is software
+- ~~**`/talk` has no AI disclosure in the UI**~~ — DONE (`d6d2b3c`): an AI chip
+  in the header, a plain-language line in the empty state, and a tag on the
+  attic speech bubble (the second surface where he answers — reachable without
+  ever opening the transcript). The empty state also names the long-press
+  report, which was wired and undiscoverable. Wording is not legal advice and
+  should be squared with the privacy policy and terms
 
 ---
 
