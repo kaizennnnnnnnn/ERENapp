@@ -7,7 +7,7 @@
 //
 //   accessory  household  there is one cat; if she puts the crown on him you
 //                         should find it on him. eren_stats.equipped_accessory
-//   decor      household  same reasoning, per room. eren_stats.room_decor
+//   decor      household  same reasoning, per room. eren_stats.room_weather
 //   title      per user   it sits next to YOUR name. profiles.equipped_title
 //   frame      per user   likewise. profiles.equipped_frame
 //
@@ -20,17 +20,17 @@ import { useCallback, useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from './useAuth'
 import { useErenStats } from './useErenStats'
-import type { DecorRoom } from '@/lib/trophyShop'
+import type { WeatherId } from '@/lib/weather'
 
 export interface TrophyCosmetics {
   /** Accessory id Eren is wearing, or null. */
   accessory: string | null
-  /** room id → decor item id. */
-  decor: Record<string, string>
+  /** room id → the WeatherId showing in that room's window. */
+  weather: Record<string, string>
   myTitle: string | null
   myFrame: string | null
   wear(accessoryId: string | null): Promise<void>
-  place(room: DecorRoom, itemId: string | null): Promise<void>
+  setWeather(room: string, id: WeatherId | null): Promise<void>
   setTitle(itemId: string | null): Promise<void>
   setFrame(itemId: string | null): Promise<void>
 }
@@ -45,7 +45,7 @@ export function useTrophyCosmetics(): TrophyCosmetics {
   // a round-trip later, and a cosmetic that lags a tap feels broken — same
   // `pending` pattern the closet uses for room skins.
   const [pendingAcc, setPendingAcc] = useState<string | null | undefined>(undefined)
-  const [pendingDecor, setPendingDecor] = useState<Record<string, string | null>>({})
+  const [pendingWeather, setPendingDecor] = useState<Record<string, string | null>>({})
   const [myTitle, setMyTitle] = useState<string | null>(null)
   const [myFrame, setMyFrame] = useState<string | null>(null)
 
@@ -55,7 +55,7 @@ export function useTrophyCosmetics(): TrophyCosmetics {
   }, [profile?.equipped_title, profile?.equipped_frame])
 
   const liveAcc = stats?.equipped_accessory ?? null
-  const liveDecor = (stats?.room_decor ?? {}) as Record<string, string>
+  const liveWeather = (stats?.room_weather ?? {}) as Record<string, string>
 
   // Drop an overlay once the server agrees with it.
   useEffect(() => {
@@ -64,10 +64,10 @@ export function useTrophyCosmetics(): TrophyCosmetics {
 
   const accessory = pendingAcc !== undefined ? pendingAcc : liveAcc
 
-  const decor: Record<string, string> = { ...liveDecor }
-  for (const [room, id] of Object.entries(pendingDecor)) {
-    if (id === null) delete decor[room]
-    else decor[room] = id
+  const weather: Record<string, string> = { ...liveWeather }
+  for (const [room, id] of Object.entries(pendingWeather)) {
+    if (id === null) delete weather[room]
+    else weather[room] = id
   }
 
   const wear = useCallback(async (accessoryId: string | null) => {
@@ -76,18 +76,18 @@ export function useTrophyCosmetics(): TrophyCosmetics {
     await supabase.from('eren_stats').update({ equipped_accessory: accessoryId }).eq('household_id', hh)
   }, [hh]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const place = useCallback(async (room: DecorRoom, itemId: string | null) => {
+  const setWeather = useCallback(async (room: string, itemId: WeatherId | null) => {
     if (!hh) return
     setPendingDecor(p => ({ ...p, [room]: itemId }))
     // Rebuilt from the live map rather than a jsonb merge: two partners
     // redecorating different rooms in the same second is not a scenario worth
     // a server function, and last-write-wins on a whole map is what room_skins
     // already does.
-    const next = { ...liveDecor }
+    const next = { ...liveWeather }
     if (itemId === null) delete next[room]
     else next[room] = itemId
-    await supabase.from('eren_stats').update({ room_decor: next }).eq('household_id', hh)
-  }, [hh, liveDecor]) // eslint-disable-line react-hooks/exhaustive-deps
+    await supabase.from('eren_stats').update({ room_weather: next }).eq('household_id', hh)
+  }, [hh, liveWeather]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const setTitle = useCallback(async (itemId: string | null) => {
     if (!user?.id) return
@@ -101,5 +101,5 @@ export function useTrophyCosmetics(): TrophyCosmetics {
     await supabase.from('profiles').update({ equipped_frame: itemId }).eq('id', user.id)
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { accessory, decor, myTitle, myFrame, wear, place, setTitle, setFrame }
+  return { accessory, weather, myTitle, myFrame, wear, setWeather, setTitle, setFrame }
 }

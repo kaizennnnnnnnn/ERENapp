@@ -4,7 +4,7 @@
 // that is the whole reason winning a day means something now.
 //
 // Four shelves:
-//   decor      — props that appear in a room for BOTH of you
+//   weather    — the sky outside a room's window, for BOTH of you
 //   accessory  — worn on Eren's head, over any skin, seen by both of you
 //   privilege  — consumable powers that change the next battle
 //   prestige   — a title and a nameplate frame beside your name
@@ -17,13 +17,11 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import type { BattleAction } from '@/lib/dailyTwist'
+import { WEATHER_FOR_SALE, weatherItemId, type WeatherId } from '@/lib/weather'
 
-export type ShopKind = 'decor' | 'accessory' | 'privilege' | 'prestige'
+export type ShopKind = 'weather' | 'accessory' | 'privilege' | 'prestige'
 
 export type ShopRarity = 'common' | 'rare' | 'epic' | 'legendary'
-
-/** Which room a decor prop hangs in. Matches the CareScene ids. */
-export type DecorRoom = 'feed' | 'play' | 'sleep' | 'wash'
 
 /** Where on the sprite an accessory rides. */
 export type AccessoryAnchor = 'head' | 'eyes' | 'neck'
@@ -40,13 +38,9 @@ export interface ShopItem {
   stackable?: boolean
 }
 
-export interface DecorItem extends ShopItem {
-  kind: 'decor'
-  room: DecorRoom
-  /** Which drawn prop renders it (components/decor/RoomDecor). */
-  art: 'trophy_shelf' | 'neon_champ' | 'string_lights' | 'rosette' | 'pennants'
-  /** Anchor inside the room box, as percentages. */
-  at: { left: number; top: number; width: number }
+export interface WeatherItem extends ShopItem {
+  kind: 'weather'
+  weather: WeatherId
 }
 
 export interface AccessoryItem extends ShopItem {
@@ -80,45 +74,22 @@ export interface PrestigeItem extends ShopItem {
   focus?: BattleAction | null
 }
 
-export type AnyShopItem = DecorItem | AccessoryItem | PrivilegeItem | PrestigeItem
+export type AnyShopItem = WeatherItem | AccessoryItem | PrivilegeItem | PrestigeItem
 
-// ─── Decor ───────────────────────────────────────────────────────────────────
-// Positions are percentages of the room box and were picked to sit on wall or
-// shelf space, clear of Eren (who occupies roughly the middle third) and clear
-// of the bottom action bar.
+// ─── Weather ─────────────────────────────────────────────────────────────────
+// Built from lib/weather rather than restated here, so the shop, the machine
+// in the Lab and the SQL price list cannot drift apart. The `wx_` prefix is
+// derivable both ways (weatherItemId / weatherFromItemId).
 
-export const DECOR: DecorItem[] = [
-  {
-    id: 'decor_trophy_shelf', kind: 'decor', room: 'sleep', art: 'trophy_shelf',
-    name: 'Trophy Shelf', rarity: 'legendary', price: 40,
-    blurb: 'A real shelf. Every trophy you have ever won stands on it.',
-    at: { left: 6, top: 17, width: 34 },
-  },
-  {
-    id: 'decor_neon_champ', kind: 'decor', room: 'play', art: 'neon_champ',
-    name: 'CHAMPION Sign', rarity: 'epic', price: 30,
-    blurb: 'A neon sign that hums the winner\'s name at the playroom.',
-    at: { left: 55, top: 12, width: 38 },
-  },
-  {
-    id: 'decor_string_lights', kind: 'decor', room: 'feed', art: 'string_lights',
-    name: 'String Lights', rarity: 'rare', price: 18,
-    blurb: 'Warm bulbs strung across the kitchen. They blink out of sync.',
-    at: { left: 4, top: 5, width: 92 },
-  },
-  {
-    id: 'decor_rosette', kind: 'decor', room: 'wash', art: 'rosette',
-    name: 'First Place Rosette', rarity: 'rare', price: 16,
-    blurb: 'A prize ribbon pinned above the tub, where it will get damp.',
-    at: { left: 72, top: 14, width: 20 },
-  },
-  {
-    id: 'decor_pennants', kind: 'decor', room: 'play', art: 'pennants',
-    name: 'Victory Pennants', rarity: 'common', price: 10,
-    blurb: 'A row of little flags. One per bunting, no deeper meaning.',
-    at: { left: 3, top: 6, width: 94 },
-  },
-]
+export const WEATHERS: WeatherItem[] = WEATHER_FOR_SALE.map(w => ({
+  id: weatherItemId(w.id),
+  kind: 'weather' as const,
+  weather: w.id,
+  name: w.name,
+  blurb: w.blurb,
+  price: w.price,
+  rarity: w.rarity,
+}))
 
 // ─── Accessories ─────────────────────────────────────────────────────────────
 // Worn over ANY skin — they sit on the measured head, not on a per-skin
@@ -262,7 +233,7 @@ export const PRESTIGE: PrestigeItem[] = [
 // ─── Lookup ──────────────────────────────────────────────────────────────────
 
 export const SHOP_ITEMS: AnyShopItem[] = [
-  ...DECOR, ...ACCESSORIES, ...PRIVILEGES, ...PRESTIGE,
+  ...WEATHERS, ...ACCESSORIES, ...PRIVILEGES, ...PRESTIGE,
 ]
 
 const BY_ID = new Map<string, AnyShopItem>(SHOP_ITEMS.map(i => [i.id, i]))
@@ -281,10 +252,10 @@ export function accessoryDef(id: string | null | undefined): AccessoryItem | nul
   return it && it.kind === 'accessory' ? it : null
 }
 
-export function decorDef(id: string | null | undefined): DecorItem | null {
+export function weatherItem(id: string | null | undefined): WeatherItem | null {
   if (!id) return null
   const it = BY_ID.get(id)
-  return it && it.kind === 'decor' ? it : null
+  return it && it.kind === 'weather' ? it : null
 }
 
 export function prestigeDef(id: string | null | undefined): PrestigeItem | null {

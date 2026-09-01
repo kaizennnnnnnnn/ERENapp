@@ -131,7 +131,14 @@ display names moved. `SideId 'pepsi'` → `'cola'` WAS safe: in-memory only.
 
 ---
 
-## Migrations — ONE QUEUED
+## Migrations — TWO QUEUED
+
+**`supabase/migration_room_weather.sql`** — paste this too. Adds
+`eren_stats.room_weather`, widens the shop's `kind` check to allow
+`'weather'`, and seeds the ten skies. Until it lands, the Lab's weather
+machine shows every sky locked and every window stays clear — nothing
+breaks, nothing is buyable.
+
 
 Applied 2026-08-28/29: `kiosk_shifts`, `household_takeover_fix`,
 `per_profile_heart`, `leave_household`, `account_deletion`,

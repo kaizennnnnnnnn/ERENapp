@@ -16,7 +16,7 @@
 import { memo } from 'react'
 import type { TrophyTier } from '@/lib/dailyTwist'
 import { IconFire } from '@/components/PixelIcons'
-import DecorArt, { type TrophyCounts } from './DecorArt'
+import TrophyShelf, { type TrophyCounts } from './TrophyShelf'
 import TrophyCup from './TrophyCup'
 
 const TIERS: TrophyTier[] = ['gold', 'silver', 'bronze']
@@ -81,7 +81,7 @@ export default memo(function TrophyCase({
 
         {best ? (
           <div className="mx-auto" style={{ maxWidth: 250 }}>
-            <DecorArt art="trophy_shelf" counts={counts} />
+            <TrophyShelf counts={counts} />
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2" style={{ padding: '10px 0 14px' }}>

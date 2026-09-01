@@ -9,7 +9,7 @@
 // its own with nothing to wear it. Both are fixed by showing the item WHERE
 // IT GOES —
 //
-//   decor      inside a lit diorama of the room it hangs in
+//   weather    running live inside a little window pane
 //   accessory  on a cat's head, at the anchor it will really ride
 //   privilege  its own drawing (PowerArt)
 //   prestige   your own name, already wearing it
@@ -21,77 +21,47 @@ import { memo } from 'react'
 import { pixelRects, gridAspect, type PixelArt } from '@/components/pixelGrid'
 import { accessoryArt } from '@/components/care/accessoryArt'
 import type {
-  AnyShopItem, DecorItem, DecorRoom, AccessoryItem, PrivilegeItem, PrestigeItem,
+  AnyShopItem, WeatherItem, AccessoryItem, PrivilegeItem, PrestigeItem,
 } from '@/lib/trophyShop'
-import DecorArt from './DecorArt'
+import { WEATHER_BY_ID } from '@/lib/weather'
+import WeatherFx from '@/components/weather/WeatherFx'
 import PowerArt from './PowerArt'
 import { TitlePlate, FramePlate } from './prestigeArt'
 
-// ─── Decor: a lit room, at doll's-house scale ────────────────────────────────
+// ─── Weather: the sky, running, in a little window ───────────────────────────
+// A still swatch cannot tell rain from a grey wash, so the card runs the real
+// effect at thumbnail size. That is also the honest preview: these are sized in
+// container units, so what a 76px pane shows is what a 76px window will show.
 
-const ROOM_TILE: Record<DecorRoom, {
-  wall: string; floor: string; rail: string; lamp: string
-}> = {
-  feed: {
-    wall: 'linear-gradient(180deg, #46311A 0%, #2A1B0C 100%)',
-    floor: '#5A3D1B', rail: '#7A5426', lamp: 'rgba(255,178,85,0.22)',
-  },
-  play: {
-    wall: 'linear-gradient(180deg, #14402E 0%, #08231A 100%)',
-    floor: '#1C5138', rail: '#2E7A54', lamp: 'rgba(99,240,148,0.20)',
-  },
-  sleep: {
-    wall: 'linear-gradient(180deg, #271847 0%, #120A26 100%)',
-    floor: '#33215C', rail: '#503484', lamp: 'rgba(187,120,255,0.20)',
-  },
-  wash: {
-    wall: 'linear-gradient(180deg, #13374C 0%, #081E2C 100%)',
-    floor: '#1B4A62', rail: '#2C6B8C', lamp: 'rgba(79,216,255,0.20)',
-  },
-}
-
-/** Where the prop sits inside the tile — tuned for the tile, not the room. */
-const TILE_AT: Record<DecorItem['art'], { left: number; top: number; width: number }> = {
-  trophy_shelf:  { left: 16, top: 20, width: 68 },
-  neon_champ:    { left: 12, top: 24, width: 76 },
-  string_lights: { left: 2,  top: 8,  width: 96 },
-  rosette:       { left: 34, top: 14, width: 32 },
-  pennants:      { left: 1,  top: 12, width: 98 },
-}
-
-const SHELF_STOCK = { gold: 2, silver: 2, bronze: 3 }
-
-export const DecorTile = memo(function DecorTile({ item, width = 76 }: {
-  item: DecorItem; width?: number
+export const WeatherThumb = memo(function WeatherThumb({ item, width = 76 }: {
+  item: WeatherItem; width?: number
 }) {
-  const t = ROOM_TILE[item.room]
-  const at = TILE_AT[item.art]
+  const def = WEATHER_BY_ID[item.weather]
   return (
-    <div className="relative overflow-hidden" style={{
-      width, height: Math.round(width * 0.8),
-      background: t.wall,
-      border: '1.5px solid rgba(0,0,0,0.7)',
-      boxShadow: `inset 0 0 14px rgba(0,0,0,0.65), inset 0 0 0 1px ${t.rail}44`,
-      borderRadius: 2,
+    <div className="relative" style={{
+      width, height: Math.round(width * 0.86),
+      background: '#7A5A34',
+      border: '2px solid #3A2614',
+      borderRadius: 3,
+      padding: 3,
+      boxShadow: `0 0 10px ${def.tone}33, inset 0 1px 0 rgba(255,214,160,0.4)`,
     }}>
-      {/* the light the prop hangs in */}
-      <div aria-hidden className="absolute" style={{
-        inset: '-20% -10% 30% -10%',
-        background: `radial-gradient(ellipse at 50% 30%, ${t.lamp} 0%, transparent 70%)`,
-      }} />
-      {/* floor + skirting, so the wall has a bottom */}
-      <div aria-hidden className="absolute left-0 right-0 bottom-0" style={{
-        height: '22%', background: t.floor,
-        borderTop: `2px solid ${t.rail}`,
-      }} />
-      <div className="absolute" style={{
-        left: `${at.left}%`, top: `${at.top}%`, width: `${at.width}%`,
+      <div className="relative w-full h-full overflow-hidden" style={{
+        containerType: 'size',
+        background: '#0B0F1E',
+        boxShadow: 'inset 0 0 6px rgba(0,0,0,0.8)',
       }}>
-        {/* A catalogue photo, so the shelf comes stocked. The real one reads
-            your own history — see RoomDecor and the case. */}
-        <DecorArt art={item.art} counts={SHELF_STOCK}
-          px={Math.round(width * at.width / 100)} />
+        <WeatherFx id={item.weather} />
       </div>
+      {/* A cross of glazing bars, so it reads as a window and not a swatch. */}
+      <span aria-hidden className="absolute" style={{
+        left: '50%', top: 3, bottom: 3, width: 2, marginLeft: -1,
+        background: '#5C3F22', boxShadow: '0 0 0 1px rgba(0,0,0,0.5)',
+      }} />
+      <span aria-hidden className="absolute" style={{
+        top: '50%', left: 3, right: 3, height: 2, marginTop: -1,
+        background: '#5C3F22', boxShadow: '0 0 0 1px rgba(0,0,0,0.5)',
+      }} />
     </div>
   )
 })
@@ -179,7 +149,7 @@ export default function ItemPreview({ item, size = 76, name = 'YOU' }: {
   /** Whose name a frame should wrap. */
   name?: string
 }) {
-  if (item.kind === 'decor') return <DecorTile item={item as DecorItem} width={size} />
+  if (item.kind === 'weather') return <WeatherThumb item={item as WeatherItem} width={size} />
   if (item.kind === 'accessory') {
     return <WornThumb item={item as AccessoryItem} size={Math.round(size * 0.82)} />
   }

@@ -9,7 +9,7 @@ import AnimatedEren from '@/components/AnimatedEren'
 import { playSound } from '@/lib/sounds'
 import { useIsDark } from '@/hooks/useIsDark'
 import CurtainGlitter from '@/components/CurtainGlitter'
-import RoomDecor from '@/components/trophies/RoomDecor'
+import RoomWeather from '@/components/weather/RoomWeather'
 
 // Scenes are lazy chunks instead of static imports so the ~560 KB of room
 // code stays out of the shared (app) layout bundle every route parses.
@@ -446,7 +446,7 @@ export default function CareSceneHost() {
           {/* Whatever the household has hanging in this room. Mounted here
               rather than inside each scene so it isn't reconciled on every
               drag frame with the rest of the heavy scene subtree. */}
-          {activeScene && <RoomDecor room={activeScene} />}
+          {activeScene && <RoomWeather room={activeScene} dark={isDark} />}
 
           {/* Depth veil — the room darkens as it recedes (during a drag) and
               brightens back in as the next room arrives (during the slide).

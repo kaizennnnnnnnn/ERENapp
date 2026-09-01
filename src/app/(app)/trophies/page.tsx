@@ -31,7 +31,7 @@ import TrophyBuySheet from '@/components/trophies/TrophyBuySheet'
 import UsePrivilegeSheet from '@/components/trophies/UsePrivilegeSheet'
 import TrophyCase from '@/components/trophies/TrophyCase'
 import TrophyCup from '@/components/trophies/TrophyCup'
-import { type TrophyCounts } from '@/components/trophies/DecorArt'
+import { type TrophyCounts } from '@/components/trophies/TrophyShelf'
 import PageLoader from '@/components/PageLoader'
 import { IconDoor } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
@@ -47,7 +47,7 @@ export default function TrophiesPage() {
   const [rows, setRows] = useState<DailyBattleRow[] | null>(null)
   const [buying, setBuying] = useState<AnyShopItem | null>(null)
   const [using, setUsing] = useState<PrivilegeItem | null>(null)
-  const [tab, setTab] = useState<ShopKind>('decor')
+  const [tab, setTab] = useState<ShopKind>('weather')
 
   // The page wears its own header; the floating StatsHeader would fight it.
   useEffect(() => {

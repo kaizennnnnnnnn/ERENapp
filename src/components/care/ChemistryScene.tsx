@@ -6,6 +6,9 @@
 // follow-up phases.
 
 import { useEffect, useState } from 'react'
+import {
+  WeatherMachineButton, WeatherMachinePanel,
+} from '@/components/weather/WeatherMachine'
 import { IconBook, IconFire, IconCheck, IconChevronDown } from '@/components/PixelIcons'
 import BlinkingEren from '@/components/BlinkingEren'
 import { useRoomEren } from '@/hooks/useRoomEren'
@@ -41,6 +44,7 @@ export default function ChemistryScene(_props: Props) {
   const reaction = useErenReaction()
   const [overlayOpen, setOverlayOpen] = useState(false)
   const [brewOpen, setBrewOpen] = useState(false)
+  const [weatherOpen, setWeatherOpen] = useState(false)
   // Whether today's brew is already filled, so the beaker on the button reads
   // as done. Re-checked whenever the overlay closes.
   const [brewDone, setBrewDone] = useState(false)
@@ -108,9 +112,12 @@ export default function ChemistryScene(_props: Props) {
           indicator on devices that have one. */}
       <div className="absolute inset-x-0 flex flex-col items-center gap-2.5 z-20 px-8"
         style={{ bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }}>
+        <WeatherMachineButton onOpen={() => { setWeatherOpen(true) }} />
         <BrewButton onClick={openBrew} done={brewDone} />
         <PeriodicTableButton onClick={openStudy} />
       </div>
+
+      {weatherOpen && <WeatherMachinePanel onClose={() => setWeatherOpen(false)} />}
 
       <LightSwitch targetBottom="22%" targetLeft="50%" persistKey="chemistry" />
 

@@ -207,10 +207,11 @@ export interface ErenStats {
   // Shared between partners and realtime-synced. Absent / missing key = the
   // room shows its built-in default look.
   room_skins?: Record<string, string> | null
-  // Trophy-shop decor placed in each room: room id → decor item id. Household
-  // rather than per-user for the same reason room_skins is — there is one
-  // house, and a prop she hangs should be there when you open the door.
-  room_decor?: Record<string, string> | null
+  // The sky outside each room's window: room id → WeatherId (see lib/weather).
+  // Household rather than per-user for the same reason room_skins is — there
+  // is one house, and the storm she put over the bath should still be there
+  // when you open the door.
+  room_weather?: Record<string, string> | null
   // The accessory Eren is currently wearing (trophyShop AccessoryItem id), or
   // null for a bare cat. Household-wide on purpose: the point of a crown is
   // that the other person finds it on him.

@@ -5,7 +5,7 @@
 //
 // Three shelves, and they are deliberately different KINDS of thing rather
 // than three drawers of the same cosmetic:
-//   DECOR      changes the house, for both of you
+//   WEATHER    changes the sky outside every window, for both of you
 //   POWERS     changes the next battle
 //   PRESTIGE   changes your name
 //
@@ -32,29 +32,25 @@ import { useCouple } from '@/hooks/useCouple'
 import { useTrophies } from '@/hooks/useTrophies'
 import { useTrophyCosmetics } from '@/hooks/useTrophyCosmetics'
 import {
-  itemsOfKind, decorDef, prestigeDef, SHOP_RARITY_COLORS,
-  type AnyShopItem, type ShopKind, type DecorItem, type DecorRoom,
+  itemsOfKind, prestigeDef, SHOP_RARITY_COLORS,
+  type AnyShopItem, type ShopKind,
   type PrivilegeItem, type PrestigeItem,
 } from '@/lib/trophyShop'
 import { OBSIDIAN_BTN, Rivets, accentA } from '@/components/obsidian'
 import {
-  IconTrophyTier, IconShelf, IconDress, IconLightning, IconCrown, IconLock,
-  IconCheck, IconChevronRight,
+  IconTrophyTier, IconSun, IconDress, IconLightning, IconCrown, IconLock,
+  IconCheck, IconChevronRight, IconFlask,
 } from '@/components/PixelIcons'
-import ItemPreview, { DecorTile } from './ItemPreview'
+import ItemPreview from './ItemPreview'
 import { TitlePlate, FramePlate } from './prestigeArt'
 import PowerArt from './PowerArt'
 import { playSound } from '@/lib/sounds'
 
 const TABS: { kind: ShopKind; label: string; icon: React.ReactNode; sub: string }[] = [
-  { kind: 'decor',     label: 'DECOR',    icon: <IconShelf size={14} />,     sub: 'Hangs in a room. Both of you see it.' },
+  { kind: 'weather',   label: 'WEATHER',  icon: <IconSun size={14} />,       sub: 'The sky outside a window. Both of you see it.' },
   { kind: 'privilege', label: 'POWERS',   icon: <IconLightning size={14} />, sub: 'Spent on the battle, not worn.' },
   { kind: 'prestige',  label: 'PRESTIGE', icon: <IconCrown size={14} />,     sub: 'Sits beside your name, everywhere.' },
 ]
-
-const ROOM_LABEL: Record<string, string> = {
-  feed: 'KITCHEN', play: 'PLAYROOM', sleep: 'BEDROOM', wash: 'BATHROOM',
-}
 
 interface Props {
   /** Which shelf is open. Owned by the page so the loadout strip can jump. */
@@ -184,11 +180,6 @@ export default function TrophyShopView({ tab, onTab, onBuy, onUse }: Props) {
 // was a wall of blocks nobody read. Each shelf now answers only its own
 // question, in one line, right where you would act on it.
 
-const SUMMARY_ROOMS: { room: DecorRoom; label: string }[] = [
-  { room: 'feed', label: 'KITCHEN' }, { room: 'play', label: 'PLAYROOM' },
-  { room: 'sleep', label: 'BEDROOM' }, { room: 'wash', label: 'BATHROOM' },
-]
-
 export function ShelfSummary({ kind, cos, name, trophies }: {
   kind: ShopKind
   cos: ReturnType<typeof useTrophyCosmetics>
@@ -201,27 +192,25 @@ export function ShelfSummary({ kind, cos, name, trophies }: {
     borderRadius: 4,
   }
 
-  if (kind === 'decor') {
+  if (kind === 'weather') {
+    // Buying a sky and CHOOSING where it hangs are deliberately different
+    // places: one is a shop, the other is a machine with seven dials on it.
+    // Saying so here is the whole reason this strip exists.
     return (
-      <div className="grid px-2 py-2" style={{ ...shell, gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-        {SUMMARY_ROOMS.map(({ room, label }) => {
-          const d = decorDef(cos.decor[room])
-          return (
-            <span key={room} className="flex flex-col items-center gap-1">
-              <span className="flex items-center justify-center w-full overflow-hidden" style={{
-                height: 34, borderRadius: 2,
-                border: d ? undefined : '1px dashed rgba(255,255,255,0.13)',
-              }}>
-                {d ? <DecorTile item={d} width={44} />
-                   : <span style={{ opacity: 0.22 }}><IconShelf size={14} /></span>}
-              </span>
-              <span className="font-pixel" style={{
-                fontSize: 5, letterSpacing: 0.5, color: d ? '#A7F3C0' : '#5E5470',
-              }}>{label}</span>
-            </span>
-          )
-        })}
-      </div>
+      <Link href="/care?room=chemistry" onClick={() => playSound('ui_tap')}
+        className="flex items-center gap-2 px-3 py-2.5 active:translate-y-[1px] transition-transform"
+        style={shell}>
+        <IconFlask size={15} />
+        <span className="flex-1 text-left">
+          <span className="font-pixel block" style={{ fontSize: 6, letterSpacing: 1, color: '#D6CBE2' }}>
+            THE WEATHER MACHINE
+          </span>
+          <span className="text-[10px]" style={{ color: '#7E7090' }}>
+            In the Lab. Pick which sky hangs outside each room.
+          </span>
+        </span>
+        <IconChevronRight size={11} />
+      </Link>
     )
   }
 
@@ -400,7 +389,7 @@ function Where({ item }: { item: AnyShopItem }) {
       {text}
     </span>
   )
-  if (item.kind === 'decor') return chip(ROOM_LABEL[(item as DecorItem).room] ?? '')
+  if (item.kind === 'weather') return chip('ANY WINDOW')
   if (item.kind === 'accessory') return chip('ON EREN')
   if (item.kind === 'privilege') {
     const p = item as PrivilegeItem
@@ -439,12 +428,16 @@ function EquipControl({
     )
   }
 
-  if (item.kind === 'decor') {
-    const d = item as DecorItem
-    const on = cos.decor[d.room] === item.id
+  if (item.kind === 'weather') {
     return (
-      <Toggle on={on} onLabel="HANGING" offLabel="HANG IT UP"
-        onClick={() => { playSound('ui_tap'); cos.place(d.room, on ? null : item.id) }} />
+      <span className="flex items-center gap-1.5 px-2 py-1.5" style={{
+        border: '1px dashed rgba(255,255,255,0.22)', borderRadius: 3,
+      }}>
+        <IconFlask size={11} />
+        <span className="font-pixel" style={{ fontSize: 6, letterSpacing: 1, color: '#B4A8C4' }}>
+          SET IN THE LAB
+        </span>
+      </span>
     )
   }
 
