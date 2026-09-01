@@ -198,6 +198,22 @@ export default function ErenSpeechBubble() {
       {/* ── How long you've got, and the catch that stops it ── */}
       {showClock && (
         <div className="flex items-center gap-2" style={{ marginTop: 8 }}>
+          {/* The attic floor is the OTHER place he answers, and someone can
+              talk to him here without ever opening the transcript — so the
+              disclosure the transcript carries has to exist on this surface
+              too, or it isn't really on screen. Rides the clock row because
+              that row appears on every real reply, right under the generated
+              text it's labelling. */}
+          <span
+            title="Eren is an AI character, not a real cat"
+            style={{
+              fontFamily: '"Press Start 2P"', fontSize: 5.5, letterSpacing: 0.4,
+              color: ink, opacity: 0.5, lineHeight: 1, flexShrink: 0,
+            }}
+          >
+            AI
+          </span>
+
           <div style={{ flex: 1, height: 4, background: TRACK, borderRadius: 2, overflow: 'hidden' }}>
             <div
               ref={barRef}

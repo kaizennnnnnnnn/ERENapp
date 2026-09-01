@@ -151,8 +151,27 @@ export default function TalkView({
         </div>
 
         <div className="flex-1 min-w-0">
-          <div style={{ fontFamily: '"Press Start 2P"', fontSize: 10, color: '#5A3212', letterSpacing: 0.5 }}>
-            EREN
+          <div className="flex items-center gap-2">
+            <span style={{ fontFamily: '"Press Start 2P"', fontSize: 10, color: '#5A3212', letterSpacing: 0.5 }}>
+              EREN
+            </span>
+            {/* Play's generative-AI policy wants the disclosure ON SCREEN, not
+                only in how he behaves when asked. The persona already forbids
+                him denying it, but a reviewer opening an existing thread never
+                asks the question — so it has to be visible without prompting.
+                Muted rather than hidden: present at a glance, not a banner
+                shouting over the conversation. */}
+            <span
+              title="Eren is an AI character, not a real cat"
+              style={{
+                fontFamily: '"Press Start 2P"', fontSize: 6, letterSpacing: 0.5,
+                color: '#8A6844', background: '#EBD9B8',
+                border: '1px solid #C9A87A', borderRadius: 3,
+                padding: '3px 4px 2px', lineHeight: 1,
+              }}
+            >
+              AI
+            </span>
           </div>
           <div style={{ fontSize: 10.5, color: '#9A7444', marginTop: 4 }}>{status}</div>
         </div>
@@ -473,6 +492,19 @@ function EmptyState() {
       </div>
       <div style={{ fontSize: 12, color: '#9A7444', lineHeight: 1.65, maxWidth: 260 }}>
         say something. he&apos;s been waiting all day, which is what he says every day.
+      </div>
+
+      {/* Sentence case, deliberately. Everything else on this screen is the
+          cat's lowercase voice; this line is the APP speaking, and reading
+          differently is what stops it being taken as more of the fiction.
+          It also names the long-press report, which was wired but had no
+          affordance telling anyone it existed. */}
+      <div style={{
+        fontSize: 10.5, color: '#A8896A', lineHeight: 1.6, maxWidth: 280,
+        marginTop: 4, paddingTop: 10, borderTop: '2px solid rgba(122,74,34,0.13)',
+      }}>
+        Eren is an AI character — software, not a real cat. He invents things
+        and can be wrong. Press and hold any of his replies to report one.
       </div>
     </div>
   )
