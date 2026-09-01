@@ -18,7 +18,7 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useTrophies } from '@/hooks/useTrophies'
 import { useTrophyCosmetics } from '@/hooks/useTrophyCosmetics'
-import { WEATHER, weatherItemId, type WeatherId } from '@/lib/weather'
+import { WEATHER, weatherItemId, WEATHER_ALL_UNLOCKED, type WeatherId } from '@/lib/weather'
 import { WEATHER_ROOMS } from '@/lib/roomWindows'
 import WeatherFx from './WeatherFx'
 import { IconClose, IconLock, IconChevronRight } from '@/components/PixelIcons'
@@ -188,7 +188,8 @@ export function WeatherMachinePanel({ onClose }: { onClose(): void }) {
         </span>
         <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
           {WEATHER.map(w => {
-            const owned = w.id === 'clear' || trophies.mine(weatherItemId(w.id))
+            const owned = w.id === 'clear' || WEATHER_ALL_UNLOCKED
+              || trophies.mine(weatherItemId(w.id))
             const on = current === w.id
             return (
               <button key={w.id}

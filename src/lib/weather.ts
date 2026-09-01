@@ -119,3 +119,14 @@ export function weatherDef(id: string | null | undefined): WeatherDef | null {
 export const WEATHER_RARITY_PRICE: Record<WeatherRarity, number> = {
   common: 8, rare: 14, epic: 22, legendary: 40,
 }
+
+// ─── TESTING ────────────────────────────────────────────────────────────────
+// Every sky handed over for free, so the machine can be exercised without
+// grinding out battles first. ONE flag, deliberately — flip it back to `false`
+// and the shop is exactly as it was; nothing else needs touching.
+export const WEATHER_ALL_UNLOCKED: boolean = true
+
+/** True when this shop item is a sky the flag above is giving away. */
+export function weatherFree(itemId: string): boolean {
+  return WEATHER_ALL_UNLOCKED && weatherFromItemId(itemId) !== null
+}

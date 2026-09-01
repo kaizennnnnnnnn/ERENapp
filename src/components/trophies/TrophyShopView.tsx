@@ -36,6 +36,7 @@ import {
   type AnyShopItem, type ShopKind,
   type PrivilegeItem, type PrestigeItem,
 } from '@/lib/trophyShop'
+import { weatherFree } from '@/lib/weather'
 import { OBSIDIAN_BTN, Rivets, accentA } from '@/components/obsidian'
 import {
   IconTrophyTier, IconSun, IconDress, IconLightning, IconCrown, IconLock,
@@ -83,7 +84,7 @@ export default function TrophyShopView({ tab, onTab, onBuy, onUse }: Props) {
         {TABS.map(t => {
           const on = t.kind === tab
           const stock = itemsOfKind(t.kind)
-          const have = stock.filter(i => trophies.mine(i.id)).length
+          const have = stock.filter(i => trophies.mine(i.id) || weatherFree(i.id)).length
           return (
             <button
               key={t.kind}
@@ -140,7 +141,7 @@ export default function TrophyShopView({ tab, onTab, onBuy, onUse }: Props) {
           <ShopCard
             key={item.id}
             item={item}
-            owned={trophies.mine(item.id)}
+            owned={trophies.mine(item.id) || weatherFree(item.id)}
             qty={trophies.qty(item.id)}
             partnerHas={trophies.owned.some(o =>
               o.userId !== user?.id && o.itemId === item.id && o.quantity > 0)}
