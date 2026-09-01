@@ -80,6 +80,7 @@ export default function LoginPage() {
       </form>
 
       <div className="flex flex-col items-center" style={{ gap: 14, marginTop: 20 }}>
+        <PixelLink href="/auth/forgot">FORGOT YOUR PASSWORD?</PixelLink>
         <PixelLink href="/onboarding">NEW HERE? → MEET EREN</PixelLink>
         <span className="inline-flex items-center" style={{ gap: 6 }}>
           <IconPaw size={11} />
