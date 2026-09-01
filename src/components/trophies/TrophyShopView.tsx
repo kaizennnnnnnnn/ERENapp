@@ -39,7 +39,7 @@ import {
 import { weatherFree } from '@/lib/weather'
 import { OBSIDIAN_BTN, Rivets, accentA } from '@/components/obsidian'
 import {
-  IconTrophyTier, IconSun, IconDress, IconLightning, IconCrown, IconLock,
+  IconTrophyTier, IconSun, IconLightning, IconCrown, IconLock,
   IconCheck, IconChevronRight, IconFlask,
 } from '@/components/PixelIcons'
 import ItemPreview from './ItemPreview'
@@ -154,24 +154,6 @@ export default function TrophyShopView({ tab, onTab, onBuy, onUse }: Props) {
         ))}
       </div>
 
-      {/* The fourth shelf moved. Say so, once, at the bottom of every shelf. */}
-      <Link href="/closet" onClick={() => playSound('ui_tap')}
-        className="flex items-center gap-2 px-3 py-2.5 active:translate-y-[1px] transition-transform"
-        style={{
-          ...OBSIDIAN_BTN,
-          border: '1px dashed rgba(255,255,255,0.16)',
-        }}>
-        <IconDress size={15} />
-        <span className="flex-1 text-left">
-          <span className="font-pixel block" style={{ fontSize: 6, letterSpacing: 1, color: '#D6CBE2' }}>
-            HATS AND COLLARS
-          </span>
-          <span className="text-[10px]" style={{ color: '#7E7090' }}>
-            In the Closet, with the costumes. Still bought with trophies.
-          </span>
-        </span>
-        <IconChevronRight size={11} />
-      </Link>
     </div>
   )
 }
@@ -391,7 +373,6 @@ function Where({ item }: { item: AnyShopItem }) {
     </span>
   )
   if (item.kind === 'weather') return chip('ANY WINDOW')
-  if (item.kind === 'accessory') return chip('ON EREN')
   if (item.kind === 'privilege') {
     const p = item as PrivilegeItem
     return chip(p.minutes === 0 ? 'ONE SHOT'
@@ -418,14 +399,6 @@ function EquipControl({
           LOCKED
         </span>
       </span>
-    )
-  }
-
-  if (item.kind === 'accessory') {
-    const on = cos.accessory === item.id
-    return (
-      <Toggle on={on} onLabel="WEARING" offLabel="PUT IT ON"
-        onClick={() => { playSound('ui_tap'); cos.wear(on ? null : item.id) }} />
     )
   }
 

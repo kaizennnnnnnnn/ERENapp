@@ -65,6 +65,7 @@ import CatchupCarousel from '@/components/memory/CatchupCarousel'
 import TodaysMenu from '@/components/wish/TodaysMenu'
 import { useFoodMenu } from '@/hooks/useFoodMenu'
 import { usePageReady } from '@/hooks/usePageReady'
+import RoomWeather from '@/components/weather/RoomWeather'
 
 interface XpParticle {
   id: number; x: number; y: number; tx: number; ty: number
@@ -596,6 +597,10 @@ export default function HomePage() {
           userSelect: 'none',
           pointerEvents: 'none',
         }} />
+
+        {/* Whatever the household hung outside the living-room window. Layer 1
+            so it is over the wallpaper and under Eren. */}
+        <RoomWeather room="home" dark={isDark} z={1} />
 
         {mood === 'happy' && (
           <>

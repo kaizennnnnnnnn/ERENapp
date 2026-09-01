@@ -5,9 +5,7 @@
 //
 // Split by WHO it belongs to, which is not the same question as who bought it:
 //
-//   accessory  household  there is one cat; if she puts the crown on him you
-//                         should find it on him. eren_stats.equipped_accessory
-//   decor      household  same reasoning, per room. eren_stats.room_weather
+//   weather    household  same reasoning, per room. eren_stats.room_weather
 //   title      per user   it sits next to YOUR name. profiles.equipped_title
 //   frame      per user   likewise. profiles.equipped_frame
 //
@@ -20,17 +18,22 @@ import { useCallback, useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from './useAuth'
 import { useErenStats } from './useErenStats'
-import type { WeatherId } from '@/lib/weather'
-
 export interface TrophyCosmetics {
-  /** Accessory id Eren is wearing, or null. */
-  accessory: string | null
   /** room id → the WeatherId showing in that room's window. */
   weather: Record<string, string>
+  /**
+   * Write the WHOLE room→sky map in one go, and say whether it landed.
+   *
+   * Deliberately not a per-room setter. `room_weather` is a single jsonb
+   * column, so every write is a write of the entire map, and a per-room
+   * setter has to rebuild that map from the last value it saw. Two taps
+   * inside one realtime round-trip both rebuild from the SAME stale copy and
+   * the second silently erases the first -- which is exactly what "set this
+   * sky in every window" did seven times over, leaving one room changed.
+   */
+  saveWeather(next: Record<string, string>): Promise<boolean>
   myTitle: string | null
   myFrame: string | null
-  wear(accessoryId: string | null): Promise<void>
-  setWeather(room: string, id: WeatherId | null): Promise<void>
   setTitle(itemId: string | null): Promise<void>
   setFrame(itemId: string | null): Promise<void>
 }
@@ -44,8 +47,7 @@ export function useTrophyCosmetics(): TrophyCosmetics {
   // Optimistic overlays. The realtime echo is the source of truth but arrives
   // a round-trip later, and a cosmetic that lags a tap feels broken — same
   // `pending` pattern the closet uses for room skins.
-  const [pendingAcc, setPendingAcc] = useState<string | null | undefined>(undefined)
-  const [pendingWeather, setPendingDecor] = useState<Record<string, string | null>>({})
+  const [pendingWeather, setPendingWeather] = useState<Record<string, string> | null>(null)
   const [myTitle, setMyTitle] = useState<string | null>(null)
   const [myFrame, setMyFrame] = useState<string | null>(null)
 
@@ -54,40 +56,27 @@ export function useTrophyCosmetics(): TrophyCosmetics {
     setMyFrame(profile?.equipped_frame ?? null)
   }, [profile?.equipped_title, profile?.equipped_frame])
 
-  const liveAcc = stats?.equipped_accessory ?? null
   const liveWeather = (stats?.room_weather ?? {}) as Record<string, string>
 
-  // Drop an overlay once the server agrees with it.
+  // Drop the overlay once the realtime echo agrees with it.
   useEffect(() => {
-    if (pendingAcc !== undefined && pendingAcc === liveAcc) setPendingAcc(undefined)
-  }, [liveAcc, pendingAcc])
+    if (pendingWeather && sameMap(pendingWeather, liveWeather)) setPendingWeather(null)
+  }, [liveWeather, pendingWeather])
 
-  const accessory = pendingAcc !== undefined ? pendingAcc : liveAcc
+  const weather = pendingWeather ?? liveWeather
 
-  const weather: Record<string, string> = { ...liveWeather }
-  for (const [room, id] of Object.entries(pendingWeather)) {
-    if (id === null) delete weather[room]
-    else weather[room] = id
-  }
-
-  const wear = useCallback(async (accessoryId: string | null) => {
-    if (!hh) return
-    setPendingAcc(accessoryId)
-    await supabase.from('eren_stats').update({ equipped_accessory: accessoryId }).eq('household_id', hh)
+  const saveWeather = useCallback(async (next: Record<string, string>) => {
+    if (!hh) return false
+    setPendingWeather(next)
+    const { error } = await supabase
+      .from('eren_stats').update({ room_weather: next }).eq('household_id', hh)
+    if (error) {
+      // Show the truth rather than a sky that is not really hanging anywhere.
+      setPendingWeather(null)
+      return false
+    }
+    return true
   }, [hh]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const setWeather = useCallback(async (room: string, itemId: WeatherId | null) => {
-    if (!hh) return
-    setPendingDecor(p => ({ ...p, [room]: itemId }))
-    // Rebuilt from the live map rather than a jsonb merge: two partners
-    // redecorating different rooms in the same second is not a scenario worth
-    // a server function, and last-write-wins on a whole map is what room_skins
-    // already does.
-    const next = { ...liveWeather }
-    if (itemId === null) delete next[room]
-    else next[room] = itemId
-    await supabase.from('eren_stats').update({ room_weather: next }).eq('household_id', hh)
-  }, [hh, liveWeather]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const setTitle = useCallback(async (itemId: string | null) => {
     if (!user?.id) return
@@ -101,5 +90,11 @@ export function useTrophyCosmetics(): TrophyCosmetics {
     await supabase.from('profiles').update({ equipped_frame: itemId }).eq('id', user.id)
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { accessory, weather, myTitle, myFrame, wear, setWeather, setTitle, setFrame }
+  return { weather, saveWeather, myTitle, myFrame, setTitle, setFrame }
+}
+
+/** Shallow equality over a room→sky map. */
+export function sameMap(a: Record<string, string>, b: Record<string, string>): boolean {
+  const ka = Object.keys(a), kb = Object.keys(b)
+  return ka.length === kb.length && ka.every(k => a[k] === b[k])
 }

@@ -40,10 +40,14 @@ import WeatherFx from './WeatherFx'
 /** Just above the scene root (z-40), below the care HUD and any sheet. */
 const Z_WEATHER = 41
 
-export default memo(function RoomWeather({ room, dark }: {
+export default memo(function RoomWeather({ room, dark, z = Z_WEATHER }: {
   room: string
   /** The scene is showing its night art, so the cut must come from that. */
   dark?: boolean
+  /** Override the layer. The home screen stacks its own room from zero, so
+   *  the weather goes just above the wallpaper there and Eren stays in front
+   *  of the glass rather than behind it. */
+  z?: number
 }) {
   const { profile } = useAuth()
   const { stats } = useErenStats(profile?.household_id ?? null)
@@ -67,7 +71,7 @@ export default memo(function RoomWeather({ room, dark }: {
 
   return (
     <div aria-hidden className="fixed inset-0 pointer-events-none overflow-hidden"
-      style={{ zIndex: Z_WEATHER }}>
+      style={{ zIndex: z }}>
       {/* The room picture's own rectangle, reproduced from `cover`. */}
       <div style={{
         position: 'absolute', top: '50%', left: '50%',

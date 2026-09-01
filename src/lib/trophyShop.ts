@@ -5,7 +5,6 @@
 //
 // Four shelves:
 //   weather    — the sky outside a room's window, for BOTH of you
-//   accessory  — worn on Eren's head, over any skin, seen by both of you
 //   privilege  — consumable powers that change the next battle
 //   prestige   — a title and a nameplate frame beside your name
 //
@@ -19,12 +18,9 @@
 import type { BattleAction } from '@/lib/dailyTwist'
 import { WEATHER_FOR_SALE, weatherItemId, type WeatherId } from '@/lib/weather'
 
-export type ShopKind = 'weather' | 'accessory' | 'privilege' | 'prestige'
+export type ShopKind = 'weather' | 'privilege' | 'prestige'
 
 export type ShopRarity = 'common' | 'rare' | 'epic' | 'legendary'
-
-/** Where on the sprite an accessory rides. */
-export type AccessoryAnchor = 'head' | 'eyes' | 'neck'
 
 export interface ShopItem {
   id: string
@@ -41,17 +37,6 @@ export interface ShopItem {
 export interface WeatherItem extends ShopItem {
   kind: 'weather'
   weather: WeatherId
-}
-
-export interface AccessoryItem extends ShopItem {
-  kind: 'accessory'
-  anchor: AccessoryAnchor
-  /** Width as a fraction of the measured head width. */
-  scale: number
-  /** Nudge along the anchor, as a fraction of head width. +y is down. */
-  offset?: { x?: number; y?: number }
-  /** Which drawn accessory renders it (components/accessory/ErenAccessory). */
-  art: 'crown' | 'party_hat' | 'medal' | 'shades' | 'bow' | 'flowers' | 'cans' | 'tophat'
 }
 
 export type PrivilegeId =
@@ -74,7 +59,7 @@ export interface PrestigeItem extends ShopItem {
   focus?: BattleAction | null
 }
 
-export type AnyShopItem = WeatherItem | AccessoryItem | PrivilegeItem | PrestigeItem
+export type AnyShopItem = WeatherItem | PrivilegeItem | PrestigeItem
 
 // ─── Weather ─────────────────────────────────────────────────────────────────
 // Built from lib/weather rather than restated here, so the shop, the machine
@@ -90,63 +75,6 @@ export const WEATHERS: WeatherItem[] = WEATHER_FOR_SALE.map(w => ({
   price: w.price,
   rarity: w.rarity,
 }))
-
-// ─── Accessories ─────────────────────────────────────────────────────────────
-// Worn over ANY skin — they sit on the measured head, not on a per-skin
-// hand-placed point, so a new skin needs no accessory work at all.
-// `scale` is a fraction of head WIDTH so a wide hood and a narrow cat get a
-// crown of proportionate size rather than the same number of pixels.
-
-export const ACCESSORIES: AccessoryItem[] = [
-  {
-    id: 'acc_crown', kind: 'accessory', art: 'crown', anchor: 'head', scale: 0.62,
-    name: 'Winner\'s Crown', rarity: 'legendary', price: 35,
-    blurb: 'Gold, slightly too big. Auto-worn all day after you win.',
-    offset: { y: 0.04 },
-  },
-  {
-    id: 'acc_party_hat', kind: 'accessory', art: 'party_hat', anchor: 'head', scale: 0.42,
-    name: 'Party Hat', rarity: 'common', price: 8,
-    blurb: 'Cone. Pompom. Elastic under the chin he keeps chewing.',
-    offset: { x: 0.1, y: 0.02 },
-  },
-  {
-    id: 'acc_tophat', kind: 'accessory', art: 'tophat', anchor: 'head', scale: 0.5,
-    name: 'Tiny Top Hat', rarity: 'rare', price: 14,
-    blurb: 'For a cat with somewhere formal to be.',
-    offset: { y: 0.03 },
-  },
-  {
-    id: 'acc_flowers', kind: 'accessory', art: 'flowers', anchor: 'head', scale: 0.78,
-    name: 'Flower Crown', rarity: 'rare', price: 14,
-    blurb: 'Daisies. He will eat one within the hour.',
-    offset: { y: 0.14 },
-  },
-  {
-    id: 'acc_cans', kind: 'accessory', art: 'cans', anchor: 'head', scale: 0.98,
-    name: 'Headphones', rarity: 'epic', price: 22,
-    blurb: 'He is not listening. He was never listening.',
-    // Sunk further than anything else on purpose: the cans have to reach his
-    // ears, which are most of the way down the head, or they hang beside his
-    // eyes and read as two blue tears.
-    offset: { y: 0.32 },
-  },
-  {
-    id: 'acc_shades', kind: 'accessory', art: 'shades', anchor: 'eyes', scale: 0.72,
-    name: 'Cool Shades', rarity: 'epic', price: 22,
-    blurb: 'Worn indoors, at night, during a bath.',
-  },
-  {
-    id: 'acc_medal', kind: 'accessory', art: 'medal', anchor: 'neck', scale: 0.34,
-    name: 'Gold Medal', rarity: 'epic', price: 26,
-    blurb: 'On a ribbon. Hangs at the chest and swings when he breathes.',
-  },
-  {
-    id: 'acc_bow', kind: 'accessory', art: 'bow', anchor: 'neck', scale: 0.4,
-    name: 'Bow Tie', rarity: 'common', price: 8,
-    blurb: 'Clip-on. Nobody needs to know.',
-  },
-]
 
 // ─── Privileges ──────────────────────────────────────────────────────────────
 // The half of the shop that is not a picture. These change the NEXT battle,
@@ -233,7 +161,7 @@ export const PRESTIGE: PrestigeItem[] = [
 // ─── Lookup ──────────────────────────────────────────────────────────────────
 
 export const SHOP_ITEMS: AnyShopItem[] = [
-  ...WEATHERS, ...ACCESSORIES, ...PRIVILEGES, ...PRESTIGE,
+  ...WEATHERS, ...PRIVILEGES, ...PRESTIGE,
 ]
 
 const BY_ID = new Map<string, AnyShopItem>(SHOP_ITEMS.map(i => [i.id, i]))
@@ -244,12 +172,6 @@ export function shopItem(id: string): AnyShopItem | undefined {
 
 export function itemsOfKind(kind: ShopKind): AnyShopItem[] {
   return SHOP_ITEMS.filter(i => i.kind === kind)
-}
-
-export function accessoryDef(id: string | null | undefined): AccessoryItem | null {
-  if (!id) return null
-  const it = BY_ID.get(id)
-  return it && it.kind === 'accessory' ? it : null
 }
 
 export function weatherItem(id: string | null | undefined): WeatherItem | null {

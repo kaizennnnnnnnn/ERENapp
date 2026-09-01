@@ -10,13 +10,8 @@
 //   • Room rail — 7 room portraits showing each room's CURRENT look; tap to dress
 //   • Mirror — big live preview of the active room's cat + outfit name
 //   • Wear-everywhere — one tap to put the active look in every room
-//   • MINE / SHOP / HATS tabs — your looks, the locked catalog, the wearables
+//   • MINE / SHOP tabs — your looks and the locked catalog
 //   • Grid — 3-col cards; locked cards are dark silhouettes with a price
-//
-// HATS is the Trophy Shop's old WEAR shelf, moved here: a hat is a wardrobe
-// thing, and the mirror above already shows the real cat in the real costume,
-// so you see the crown ON him instead of on a stand-in head. They are still
-// paid for in trophies, so the balance chip swaps currency on that tab.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState } from 'react'
@@ -25,9 +20,6 @@ import BlinkingEren from '@/components/BlinkingEren'
 import {
   IconDress, IconSparkles, IconLock, IconPaw, IconCake, IconCart, IconCrown, IconHeart, IconCan,
 } from '@/components/PixelIcons'
-import TrophyCup from '@/components/trophies/TrophyCup'
-import { AccessorySvg, aspectOf } from '@/components/care/accessoryArt'
-import { SHOP_RARITY_COLORS, type AccessoryItem } from '@/lib/trophyShop'
 import { resolveRoomSkin, skinRoomFit, skinPrice, type SkinDef, type RoomDef } from '@/lib/skins'
 import { frameFor, lockedArt } from '@/lib/rarityFrame'
 import type { GachaRarity } from '@/types'
@@ -39,10 +31,7 @@ export type ClosetCard = { key: string; skin: SkinDef | null; locked: boolean; i
 
 type ShopFilter = 'all' | 'animal' | 'food'
 
-export type ClosetTab = 'mine' | 'shop' | 'accessory'
-
-/** One wearable on the HATS shelf. */
-export type AccessoryCard = { item: AccessoryItem; owned: boolean; worn: boolean }
+export type ClosetTab = 'mine' | 'shop'
 
 interface Props {
   rooms: RoomDef[]
@@ -63,13 +52,6 @@ interface Props {
   onPick: (card: ClosetCard) => void
   onWearEverywhere: () => void
   onBack: () => void
-  // ── HATS shelf ──
-  accessoryCards: AccessoryCard[]
-  /** What Eren has on right now, for the mirror. */
-  wornAccessory: AccessoryItem | null
-  trophyBalance: number
-  trophiesLoaded: boolean
-  onPickAccessory: (card: AccessoryCard) => void
 }
 
 const PANEL = '#1B1233'
@@ -78,7 +60,6 @@ const PANEL_BORDER = '#4C1D95'
 export default function ClosetView({
   rooms, activeRoom, onSelectRoom, roomSkins, previewSkin, selectedKey, isUniform,
   ownedCards, lockedCards, newBadgeSkins, stardust, loading, ownedLoaded, tab, onTabChange, onPick, onWearEverywhere, onBack,
-  accessoryCards, wornAccessory, trophyBalance, trophiesLoaded, onPickAccessory,
 }: Props) {
   const [shopFilter, setShopFilter] = useState<ShopFilter>('all')
 
@@ -86,7 +67,6 @@ export default function ClosetView({
   const showWearEverywhere = !!selectedKey   // only meaningful for a real outfit
   const ownsAnySkin = ownedCards.length > 2  // beyond Default + Classic
 
-  const hatsOwned = accessoryCards.filter(c => c.owned).length
   const animalLocked = lockedCards.filter(c => c.skin?.set === 'animal').length
   const foodLocked = lockedCards.filter(c => c.skin?.set === 'food').length
   const shopCards = shopFilter === 'all'
@@ -119,23 +99,12 @@ export default function ClosetView({
             <IconDress size={13} /> CLOSET
           </span>
           <div className="flex-1" />
-          {tab === 'accessory' ? (
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5" aria-label={`Trophies: ${trophyBalance}`} style={{
-              background: '#2A1B08', borderRadius: 8, border: '2px solid #7A4F00', boxShadow: '0 2px 0 #3A2606',
-            }}>
-              <TrophyCup tier="gold" size={15} shine={false} />
-              <span className="font-pixel" style={{ fontSize: 8, color: '#FDE68A' }}>
-                {trophiesLoaded ? trophyBalance : '—'}
-              </span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5" aria-label={`Stardust: ${stardust}`} style={{
-              background: PANEL, borderRadius: 8, border: `2px solid ${PANEL_BORDER}`, boxShadow: '0 2px 0 #2E1065',
-            }}>
-              <span className="sparkle-hue" aria-hidden="true"><IconSparkles size={14} /></span>
-              <span className="font-pixel stardust-rainbow" style={{ fontSize: 8 }}>{stardust}</span>
-            </div>
-          )}
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5" aria-label={`Stardust: ${stardust}`} style={{
+            background: PANEL, borderRadius: 8, border: `2px solid ${PANEL_BORDER}`, boxShadow: '0 2px 0 #2E1065',
+          }}>
+            <span className="sparkle-hue" aria-hidden="true"><IconSparkles size={14} /></span>
+            <span className="font-pixel stardust-rainbow" style={{ fontSize: 8 }}>{stardust}</span>
+          </div>
         </div>
 
         {/* ── Room rail ── each portrait shows that room's current outfit ── */}
@@ -187,15 +156,7 @@ export default function ClosetView({
                   size={(skinRoomFit(previewSkin, activeRoom)?.size ?? 180) * 1.18}
                   src={previewSkin.src} tailSrc={previewSkin.tailSrc}
                   tailOrigin={previewSkin.tailOrigin} eyes={previewSkin.eyes}
-                  lidTone={previewSkin.lidTone} coat={previewSkin.coat}
-                  accessory={wornAccessory} />
-              ) : wornAccessory ? (
-                // The default look is normally a flat <img>. A worn piece needs
-                // the measured head box to sit on, so it goes through
-                // BlinkingEren — with blinking off, because the room defaults
-                // carry per-sprite eye overrides this screen does not have.
-                <BlinkingEren key={`default-${activeRoom}`} size={196}
-                  src={room.defaultThumb} blink={false} accessory={wornAccessory} />
+                  lidTone={previewSkin.lidTone} coat={previewSkin.coat} />
               ) : (
                 <img src={room.defaultThumb} alt={`${room.label} default look`} draggable={false}
                   style={{ height: 190, objectFit: 'contain', imageRendering: 'auto' }} />
@@ -251,9 +212,6 @@ export default function ClosetView({
           <Tab active={tab === 'shop'} onClick={() => { playSound('ui_tap'); onTabChange('shop') }}
             icon={<IconCart size={12} />} label="SHOP" badge={lockedCards.length} controls="closet-grid"
             ariaLabel={`Shop, ${lockedCards.length} locked outfits`} />
-          <Tab active={tab === 'accessory'} onClick={() => { playSound('ui_tap'); onTabChange('accessory') }}
-            icon={<IconCrown size={12} />} label="HATS" controls="closet-grid"
-            ariaLabel={`Hats and collars, ${hatsOwned} of ${accessoryCards.length} owned`} />
         </div>
 
         {/* ── SHOP filters ── */}
@@ -270,23 +228,8 @@ export default function ClosetView({
 
         {/* ── Grid ── */}
         <div id="closet-grid" role="tabpanel"
-          aria-label={tab === 'mine' ? 'My looks' : tab === 'shop' ? 'Shop' : 'Hats and collars'}>
-        {tab === 'accessory' ? (
-          <>
-            <p className="text-center mb-3" style={{ fontSize: 10, color: '#9D8BC4' }}>
-              Worn over every costume, in every room. Both of you see it.
-            </p>
-            <div className="grid grid-cols-3 gap-2.5">
-              {accessoryCards.map(c => (
-                <HatCard key={c.item.id} card={c} onClick={() => onPickAccessory(c)} />
-              ))}
-            </div>
-            <EmptyHint>
-              Paid for in <strong style={{ color: '#FDE68A' }}>trophies</strong> — win a day of the
-              Care Battle in the <strong style={{ color: '#FDE68A' }}>Trophy Room</strong>.
-            </EmptyHint>
-          </>
-        ) : loading || (tab === 'shop' && !ownedLoaded) ? (
+          aria-label={tab === 'mine' ? 'My looks' : 'Shop'}>
+        {loading || (tab === 'shop' && !ownedLoaded) ? (
           // Gate the Shop on a CONFIRMED owned set. A failed/incomplete fetch
           // leaves owned empty, which would otherwise render the whole catalogue
           // as buyable — including skins the household already owns.
@@ -517,75 +460,6 @@ function SkinCard({ card, room, selected, isNew, onClick }: {
 
 // ─── Hat / collar card ───────────────────────────────────────────────────────
 // The mirror above shows it ON him, so the card shows the piece alone, big.
-
-function HatCard({ card, onClick }: { card: AccessoryCard; onClick: () => void }) {
-  const { item, owned, worn } = card
-  const rc = SHOP_RARITY_COLORS[item.rarity]
-  const a = aspectOf(item.art)
-
-  return (
-    <button onClick={onClick}
-      aria-pressed={owned ? worn : undefined}
-      aria-label={owned
-        ? `${item.name}${worn ? ', worn' : ''}`
-        : `${item.name}, locked - ${item.price} trophies`}
-      className="relative flex flex-col items-center gap-1 p-1.5 active:scale-95 transition-all"
-      style={{
-        borderRadius: 10,
-        background: owned
-          ? `linear-gradient(160deg, ${rc.bg} 0%, rgba(11,7,23,0.9) 100%)`
-          : 'rgba(255,255,255,0.035)',
-        border: `2px solid ${owned ? rc.border : 'rgba(167,139,250,0.18)'}`,
-        boxShadow: worn
-          ? '0 0 0 2px #0B0717, 0 0 0 3.5px #34D399'
-          : owned ? `0 0 10px ${rc.glow}` : 'none',
-      }}>
-
-      {/* A lit tray behind the piece. Without it a black top hat and a navy
-          pair of shades are invisible on the closet's dark panel. */}
-      <div className="flex items-center justify-center" style={{
-        width: '100%', aspectRatio: '1', borderRadius: 7,
-        background: 'radial-gradient(62% 58% at 50% 46%, rgba(233,213,255,0.22) 0%, rgba(124,58,237,0.08) 55%, transparent 78%)',
-      }}>
-        <div style={{
-          width: a > 1 ? `${88 / a}%` : '88%',
-          filter: owned
-            ? 'drop-shadow(0 1px 2px rgba(0,0,0,0.55))'
-            : 'grayscale(1) brightness(0.42)',
-        }}>
-          <AccessorySvg art={item.art} />
-        </div>
-      </div>
-
-      <span className="font-pixel text-center leading-tight" style={{
-        fontSize: 5.5, color: owned ? rc.text : '#5B4E7A', minHeight: 12,
-      }}>{item.name.toUpperCase()}</span>
-
-      {!owned && (
-        <>
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none"
-            style={{ paddingBottom: 14 }}>
-            <IconLock size={16} />
-          </div>
-          <div className="absolute -top-1.5 -right-1.5 flex items-center gap-0.5 px-1 py-0.5" style={{
-            background: '#2A1B08', border: '1.5px solid #7A4F00', borderRadius: 6, boxShadow: '0 1px 0 #1A1005',
-          }}>
-            <TrophyCup tier="gold" size={9} shine={false} />
-            <span className="font-pixel" style={{ fontSize: 5.5, color: '#FDE68A' }}>{item.price}</span>
-          </div>
-        </>
-      )}
-
-      {worn && (
-        <div className="absolute -top-1.5 -right-1.5 flex items-center justify-center" style={{
-          width: 17, height: 17, background: '#22C55E', borderRadius: '50%', border: '2px solid #0B0717',
-        }}>
-          <span style={{ fontSize: 9, color: '#fff', lineHeight: 1 }}>✓</span>
-        </div>
-      )}
-    </button>
-  )
-}
 
 // ─── Small shared bits ───────────────────────────────────────────────────────
 function SectionLabel({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
