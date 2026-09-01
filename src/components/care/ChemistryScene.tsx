@@ -162,7 +162,7 @@ function RoomMissionChips({ night }: { night: boolean }) {
   // stale +10/+15 while the quests already paid 35 each.
   const lessonDef = TASK_DEFS.find(t => t.id === 'daily_chem_lesson')!
   const streakDef = TASK_DEFS.find(t => t.id === 'daily_chem_streak')!
-  const rewardText = (t: typeof lessonDef) => `+${t.coins} COINS  +${t.xp} XP`
+  const rewardText = (t: typeof lessonDef) => `+${t.coins} COINS +${t.xp} XP`
   return (
     <div
       className="absolute z-20 pointer-events-none flex flex-col gap-2"
@@ -171,9 +171,11 @@ function RoomMissionChips({ night }: { night: boolean }) {
         // diagram (proton / neutron / electron poster) in the room art.
         top: 'calc(150px + env(safe-area-inset-top, 0px))',
         left: 10,
-        // Widened to 236 so the full title and reward line never ellipsis
-        // on a phone-width room.
-        maxWidth: 236,
+        // The chips want 159px in Press Start 2P (measured, longest line is
+        // "FINISH A LESSON" at 7px). 200 leaves headroom without eating half
+        // the room; the vw clamp means a narrow phone crops the ROOM, never
+        // the panel.
+        maxWidth: 'min(200px, calc(100vw - 20px))',
       }}
     >
       {/* Section header — toggle button. Tapping collapses both chips back
@@ -189,14 +191,14 @@ function RoomMissionChips({ night }: { night: boolean }) {
           alignSelf: 'flex-start',
           display: 'inline-flex',
           alignItems: 'center',
-          gap: 7,
-          padding: '6px 9px',
+          gap: 6,
+          padding: '5px 8px',
           background: skin.panel,
-          border: `3px solid ${skin.edge}`,
+          border: `2px solid ${skin.edge}`,
           boxShadow: `${hard(skin.ink)}, 0 4px 12px rgba(0,0,0,0.35)`,
           fontFamily: PIXEL_FONT,
-          fontSize: 7,
-          letterSpacing: 1,
+          fontSize: 6,
+          letterSpacing: 0.8,
           lineHeight: 1.4,
           color: skin.fg,
           marginBottom: 2,
@@ -207,7 +209,7 @@ function RoomMissionChips({ night }: { night: boolean }) {
           display: 'inline-flex',
           transform: expanded ? 'rotate(180deg)' : undefined,
         }}>
-          <IconChevronDown size={12} tone={skin.gold} />
+          <IconChevronDown size={10} tone={skin.gold} />
         </span>
       </button>
       <Collapsible expanded={expanded} delayMs={0}>
@@ -289,10 +291,10 @@ function MissionChip({ Icon, title, reward, done, accent, skin }: {
     <div
       style={{
         pointerEvents: 'auto',
-        display: 'flex', alignItems: 'center', gap: 9,
-        padding: '8px 11px 8px 8px',
+        display: 'flex', alignItems: 'center', gap: 7,
+        padding: '6px 8px 6px 6px',
         background: done ? accent : skin.panel,
-        border: `3px solid ${skin.edge}`,
+        border: `2px solid ${skin.edge}`,
         boxShadow: `${hard(skin.ink)}, 0 4px 12px rgba(0,0,0,0.35)`,
       }}
     >
@@ -300,20 +302,20 @@ function MissionChip({ Icon, title, reward, done, accent, skin }: {
         aria-hidden
         style={{
           flexShrink: 0,
-          width: 30, height: 30,
+          width: 24, height: 24,
           display: 'grid', placeItems: 'center',
           background: done ? skin.panel : accent,
           border: `2px solid ${skin.edge}`,
           boxShadow: hard(skin.ink, 2),
         }}
       >
-        {done ? <IconCheck size={16} tone="#4ADE80" /> : <Icon size={16} />}
+        {done ? <IconCheck size={13} tone="#4ADE80" /> : <Icon size={13} />}
       </span>
       <div style={{ minWidth: 0 }}>
         <div style={{
           fontFamily: PIXEL_FONT,
-          fontSize: 8,
-          letterSpacing: 0.6,
+          fontSize: 7,
+          letterSpacing: 0.3,
           lineHeight: 1.5,
           color: body,
           whiteSpace: 'nowrap',
@@ -324,11 +326,11 @@ function MissionChip({ Icon, title, reward, done, accent, skin }: {
         </div>
         <div style={{
           fontFamily: PIXEL_FONT,
-          fontSize: 6,
-          letterSpacing: 0.4,
+          fontSize: 5.5,
+          letterSpacing: 0.2,
           lineHeight: 1.6,
           color: sub,
-          marginTop: 4,
+          marginTop: 3,
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',

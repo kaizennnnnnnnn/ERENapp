@@ -620,7 +620,8 @@
     "tol": 26,
     "seedTol": 110,
     "keyDrop": 55,
-    "nightArt": "ChemistryNight.png"
+    "nightArt": "ChemistryNight.png",
+    "coolMin": -60
   },
   "feed": {
     "art": "kitchen.png",
