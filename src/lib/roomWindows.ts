@@ -5,9 +5,10 @@
 // space RoomWeather positions in (inside a cover box that mirrors the
 // picture's own aspect ratio).
 //
-// A room whose night art differs carries a second cut; one whose night art
-// IS the day art (the bedroom is already a night scene) carries null and
-// reuses the day cut.
+// A room whose night art is a different picture carries a second cut; one
+// already painted after dark (the bedroom) points `night` back at its day
+// cut. `night: null` means no clean cut of that room after dark exists, so
+// it simply has no weather then -- an absence beats a leak.
 
 export interface RoomWindow {
   /** For the picker in the Lab. */
@@ -40,7 +41,7 @@ export const ROOM_WINDOWS: Record<string, RoomWindow> = {
   sleep: {
     label: 'BEDROOM',
     art: { w: 768, h: 1376 },
-    box: { l: 0.352, t: 0.171, w: 0.319, h: 0.374 },
+    box: { l: 0.29297, t: 0.17224, w: 0.38412, h: 0.37282 },
     day: '/weather/sleep.png',
     night: '/weather/sleep.png',
   },
@@ -49,7 +50,7 @@ export const ROOM_WINDOWS: Record<string, RoomWindow> = {
     art: { w: 768, h: 1376 },
     box: { l: 0.755208, t: 0.164244, w: 0.179688, h: 0.175872 },
     day: '/weather/wash.png',
-    night: null,
+    night: '/weather/wash_night.png',
   },
   chemistry: {
     label: 'LAB',
