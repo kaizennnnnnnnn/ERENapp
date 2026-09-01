@@ -191,9 +191,13 @@ export function useErenChat() {
           created_at: new Date().toISOString(),
         }])
       } else {
-        // Nothing came back — drop the optimistic bubble so the composer
-        // doesn't look like it swallowed the message.
-        setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
+        // Nothing came back even after the server's no-tools retry. KEEP the
+        // bubble: the server reserved that row before spending anything, so
+        // the message really was sent and really was billed. Dropping it here
+        // used to make the composer look like it had swallowed the line, and
+        // then the line reappeared unanswered on the next load. Say he didn't
+        // answer instead — that's what actually happened.
+        setError('he didn’t answer that one')
       }
     }
   }, [sending, spent])

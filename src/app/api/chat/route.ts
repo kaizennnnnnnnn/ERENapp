@@ -404,6 +404,34 @@ ${liveContext}
           messages.push({ role: 'user', content: results })
         }
 
+        // A turn can end with tool calls and not one word: he files the fact
+        // away and stops. `full` is then empty, the client renders nothing, and
+        // it drops a message the server has ALREADY stored and billed for — so
+        // it vanishes from the thread and reappears, unanswered, on next load.
+        //
+        // One more pass with the tools closed off. `tool_choice: none` rather
+        // than dropping `tools` from the request: the tool block sits at the
+        // front of the cached prefix, so removing it would miss the cache on
+        // top of already having paid for a silent turn.
+        if (!full.trim()) {
+          const retry = anthropic.messages.stream({
+            model: MODEL,
+            max_tokens: MAX_TOKENS,
+            thinking: { type: 'adaptive' },
+            output_config: { effort: 'low' },
+            system,
+            tools: [REMEMBER_TOOL],
+            tool_choice: { type: 'none' },
+            messages,
+          })
+          retry.on('text', (delta) => {
+            if (!ttft) ttft = Date.now() - t0
+            full += delta
+            send({ t: delta })
+          })
+          await retry.finalMessage()
+        }
+
         full = full.trim()
         if (full) {
           // The user row was already reserved before the request went out, so
