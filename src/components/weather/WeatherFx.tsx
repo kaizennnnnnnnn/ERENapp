@@ -262,7 +262,7 @@ function Fireflies({ still }: FxProps) {
   return (
     <>
       <Wash background="linear-gradient(180deg, #23305C 0%, #35406A 46%, #4E4A6B 78%, #6B5670 100%)" opacity={0.9} />
-      {Array.from({ length: 14 }, (_, i) => {
+      {Array.from({ length: 16 }, (_, i) => {
         const s = i * 23
         const size = 0.9 + hash(s) * 1.5
         const dur = 6 + hash(s + 1) * 8
@@ -297,62 +297,158 @@ function Fireflies({ still }: FxProps) {
 
 // ─── Night sky, and the things that cross it ─────────────────────────────────
 
-function Stars({ n = 20, seed = 0 }: { n?: number; seed?: number }) {
+function Stars({ n = 20, seed = 0, still }: { n?: number; seed?: number; still?: boolean }) {
   return (
     <>
       {Array.from({ length: n }, (_, i) => {
         const s = i * 13 + seed
-        const size = 0.5 + hash(s) * 0.9
+        // A handful of bright ones among many faint: an even scatter of
+        // identical dots reads as noise, not a sky.
+        const bright = hash(s + 5) > 0.9
+        const size = bright ? 0.6 + hash(s) * 0.35 : 0.32 + hash(s) * 0.4
+        const dim = r2(0.25 + hash(s + 3) * 0.4)
         return (
-          <span key={i} style={{
+          <span key={i} className="wxStar" style={{
             position: 'absolute',
             left: `${r2(hash(s + 1) * 100)}%`,
             top: `${r2(hash(s + 2) * 88)}%`,
             width: `${r2(size)}cqi`, height: `${r2(size)}cqi`,
             borderRadius: '50%',
             background: '#FFFFFF',
-            opacity: r2(0.35 + hash(s + 3) * 0.55),
-          }} />
-        )
-      })}
-    </>
-  )
-}
-
-function Meteors({ still, tone }: FxProps & { tone: 'gold' | 'rose' }) {
-  const head = tone === 'gold' ? '#FFF3C4' : '#FFD6EC'
-  const tail = tone === 'gold' ? 'rgba(255,196,84,0)' : 'rgba(255,124,196,0)'
-  const mid = tone === 'gold' ? 'rgba(255,214,120,0.9)' : 'rgba(255,150,208,0.9)'
-  return (
-    <>
-      <Wash background="linear-gradient(180deg, #0B1030 0%, #16204A 58%, #26305C 100%)" opacity={0.95} />
-      <Stars n={24} seed={tone === 'gold' ? 0 : 400} />
-      {Array.from({ length: 7 }, (_, i) => {
-        const s = i * 29 + (tone === 'gold' ? 0 : 91)
-        const dur = 2.6 + hash(s) * 3.4
-        const len = 22 + hash(s + 1) * 26
-        return (
-          <span key={i} style={{
-            position: 'absolute',
-            left: `${r2(hash(s + 2) * 88 - 8)}%`,
-            top: `${r2(hash(s + 3) * 52 - 12)}%`,
-            width: `${r2(len)}cqi`, height: '0.7cqi',
-            transform: 'rotate(28deg)',
-            transformOrigin: 'left center',
-            background: `linear-gradient(90deg, ${tail}, ${mid} 72%, ${head} 100%)`,
-            borderRadius: '50%',
-            opacity: 0,
+            boxShadow: bright ? `0 0 ${r2(size * 0.8)}cqi rgba(198,220,255,0.55)` : undefined,
+            opacity: r2(dim + 0.35),
+            ['--dim' as string]: dim,
+            ['--lit' as string]: r2(Math.min(1, dim + 0.55)),
             animation: still ? undefined
-              : `wxMeteor ${r2(dur)}s ease-in ${r2(-hash(s + 4) * dur * 3)}s infinite`,
+              : `wxTwinkle ${r2(2.6 + hash(s + 4) * 4.4)}s ease-in-out ${r2(-hash(s + 6) * 7)}s infinite`,
           }} />
         )
       })}
       <style>{`
+        @keyframes wxTwinkle {
+          0%, 100% { opacity: var(--dim); }
+          50%      { opacity: var(--lit); }
+        }
+      `}</style>
+    </>
+  )
+}
+
+// A meteor shower, drawn the way one actually looks.
+//
+// Four things separate this from a diagonal bar sliding across the pane:
+//
+//   it travels along its own tail.  The first cut wrote
+//   `rotate(28deg) translate3d(-40cqi, -30cqh, 0)`, and because a translate
+//   AFTER a rotate happens in the rotated frame, the streak pointed at 28°
+//   while actually moving at 61° — sliding sideways, like a stick being
+//   dragged. Every meteor here is `rotate(var(--ang)) translateX(...)`, one
+//   axis only, so the direction of travel IS the direction it points.
+//
+//   they share a radiant.  Real showers fan out from one point in the sky,
+//   so the angles spread over a narrow arc instead of all being identical.
+//
+//   the tail grows.  scaleX from a fifth to full, anchored at the head, so
+//   the trail draws itself out behind a moving point rather than gliding
+//   across fully formed. The stretch lives on the TAIL, never on the wrapper:
+//   scaling the wrapper squashed the head with it and turned the bright point
+//   into a wedge.
+//
+//   they are brief and rare.  The streak occupies about a sixth of each
+//   element's cycle; the rest is empty sky. A meteor you can set your watch
+//   by is not a meteor.
+function Meteors({ still, tone }: FxProps & { tone: 'gold' | 'rose' }) {
+  const gold = tone === 'gold'
+  const head = gold ? '#FFFBEA' : '#FFEAF5'
+  const mid = gold ? 'rgba(255,206,107,0.95)' : 'rgba(255,150,205,0.95)'
+  const soft = gold ? 'rgba(255,196,84,0.34)' : 'rgba(255,124,196,0.34)'
+  const faint = gold ? 'rgba(255,196,84,0)' : 'rgba(255,124,196,0)'
+  const seed = gold ? 0 : 91
+  return (
+    <>
+      <Wash background={gold
+        ? 'linear-gradient(180deg, #070B24 0%, #111B40 56%, #1E2A55 100%)'
+        : 'linear-gradient(180deg, #0C0722 0%, #1C1440 56%, #33224F 100%)'} opacity={0.95} />
+      <Stars n={26} seed={gold ? 0 : 400} still={still} />
+
+      {Array.from({ length: 14 }, (_, i) => {
+        const s = i * 29 + seed
+        // The arc of a radiant off the top-left: every streak leans the same
+        // way, none of them exactly alike.
+        const ang = r2(20 + hash(s) * 22)
+        const len = r2(18 + hash(s + 1) * 34)
+        const thick = r2(0.28 + hash(s + 2) * 0.3)
+        // Short enough that most of the run happens INSIDE the pane. The
+        // first cut sent them 1.5-2.3 box-widths, so they spent two thirds of
+        // their lit window already off the edge and the sky looked empty.
+        // Burning out mid-sky is what they do anyway.
+        const run = r2(88 + hash(s + 3) * 62)
+        const cycle = r2(3.2 + hash(s + 4) * 5)
+        const delay = r2(-hash(s + 7) * cycle)
+        const glow = r2(thick * 4.5)
+        const halo = r2(glow * 2.1)
+        // Reduced motion still has to say "meteor shower". A few of them are
+        // frozen mid-flight rather than all of them sitting at the start line
+        // with the opacity the keyframes would have given them: zero.
+        const frozen = still && i % 4 === 0
+        return (
+          <span key={i} style={{
+            position: 'absolute',
+            // Biased up and to the left of the pane: the flight is down and
+            // to the right, and the bright half of it has to happen where
+            // someone can see it rather than past the far corner.
+            left: `${r2(hash(s + 5) * 92 - 46)}%`,
+            top: `${r2(hash(s + 6) * 74 - 30)}%`,
+            width: `${len}cqi`, height: `${thick}cqi`,
+            // The head is the anchor: the tail stretches out behind it.
+            transformOrigin: 'right center',
+            opacity: frozen ? 0.9 : 0,
+            transform: frozen ? `rotate(${ang}deg) translateX(${r2(run * 0.5)}cqi)` : undefined,
+            ['--ang' as string]: `${ang}deg`,
+            ['--run' as string]: `${run}cqi`,
+            animation: still ? undefined
+              : `wxMeteor ${cycle}s linear ${delay}s infinite`,
+          }}>
+            {/* the trail — long, faint at the far end, drawn out behind */}
+            <span style={{
+              position: 'absolute', inset: 0, borderRadius: '999px',
+              transformOrigin: 'right center',
+              background: `linear-gradient(90deg, ${faint} 0%, ${soft} 58%, ${mid} 88%, ${head} 100%)`,
+              animation: still ? undefined
+                : `wxMeteorTail ${cycle}s linear ${delay}s infinite`,
+            }} />
+            {/* the halo, then the burning point itself */}
+            <span style={{
+              position: 'absolute', right: `${r2(-halo / 2 + thick / 2)}cqi`, top: '50%',
+              width: `${halo}cqi`, height: `${halo}cqi`,
+              marginTop: `${r2(-halo / 2)}cqi`,
+              borderRadius: '50%',
+              background: `radial-gradient(circle, ${mid} 0%, ${faint} 62%)`,
+              opacity: 0.5,
+            }} />
+            <span style={{
+              position: 'absolute', right: `${r2(-glow / 2 + thick / 2)}cqi`, top: '50%',
+              width: `${glow}cqi`, height: `${glow}cqi`,
+              marginTop: `${r2(-glow / 2)}cqi`,
+              borderRadius: '50%',
+              background: `radial-gradient(circle, #FFFFFF 0%, ${head} 30%, ${mid} 50%, ${faint} 74%)`,
+            }} />
+          </span>
+        )
+      })}
+
+      <style>{`
         @keyframes wxMeteor {
-          0%       { transform: rotate(28deg) translate3d(-40cqi, -30cqh, 0); opacity: 0; }
-          6%       { opacity: 1; }
-          26%      { opacity: 1; }
-          40%,100% { transform: rotate(28deg) translate3d(120cqi, 74cqh, 0);  opacity: 0; }
+          0%   { transform: rotate(var(--ang)) translateX(0); opacity: 0; }
+          3%   { opacity: 0.5; }
+          11%  { opacity: 1; }
+          18%  { opacity: 0.85; }
+          22%,
+          100% { transform: rotate(var(--ang)) translateX(var(--run)); opacity: 0; }
+        }
+        @keyframes wxMeteorTail {
+          0%        { transform: scaleX(0.18); }
+          22%, 100% { transform: scaleX(1); }
         }
       `}</style>
     </>
@@ -368,7 +464,7 @@ function Aurora({ still }: FxProps) {
   return (
     <>
       <Wash background="linear-gradient(180deg, #06102A 0%, #0C1A3C 60%, #142449 100%)" opacity={0.96} />
-      <Stars n={18} seed={800} />
+      <Stars n={18} seed={800} still={still} />
       {bands.map((b, i) => (
         <span key={i} style={{
           position: 'absolute',
