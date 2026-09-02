@@ -34,12 +34,14 @@ interface FxProps {
   /** Reduced motion: paint the sky, hold everything still. */
   still?: boolean
   /**
-   * The ROOM around this window is in daylight. The three night skies paint
-   * an evening instead of a midnight when it is, because a near-black pane in
-   * a sunlit room does not read as a night sky — it reads as a hole in the
-   * wall, with the sunlit hedge on the sill still lit by a sun that is
-   * apparently no longer there. An evening sky is a scene; midnight behind
-   * daylight is a mistake.
+   * The ROOM around this window is in daylight. The night skies that paint
+   * their own sky — aurora and fireflies — paint an evening instead of a
+   * midnight when it is, because a near-black pane in a sunlit room does not
+   * read as a night sky: it reads as a hole in the wall, with the sunlit
+   * hedge on the sill still lit by a sun that is apparently no longer there.
+   * An evening sky is a scene; midnight behind daylight is a mistake.
+   *
+   * Meteors do not take it, because they no longer paint a sky at all.
    */
   lit?: boolean
 }
@@ -369,7 +371,15 @@ function Stars({ n = 20, seed = 0, still }: { n?: number; seed?: number; still?:
 //   they are brief and rare.  The streak occupies about a sixth of each
 //   element's cycle; the rest is empty sky. A meteor you can set your watch
 //   by is not a meteor.
-function Meteors({ still, lit, tone }: FxProps & { tone: 'gold' | 'rose' }) {
+//
+//   they do not bring their own sky.  This one painted a night gradient over
+//   the pane and scattered stars across it, which is a different cosmetic
+//   wearing this one's name: it threw away the view the artist painted and
+//   replaced it with a flat ramp. In the bathroom, whose lower sash is not
+//   cut, that put a midnight pane directly above a sunlit one in the same
+//   window. So the sky is whatever the room already shows, and the only thing
+//   added is the meteors.
+function Meteors({ still, tone }: FxProps & { tone: 'gold' | 'rose' }) {
   const gold = tone === 'gold'
   const head = gold ? '#FFFBEA' : '#FFEAF5'
   const mid = gold ? 'rgba(255,206,107,0.95)' : 'rgba(255,150,205,0.95)'
@@ -378,14 +388,6 @@ function Meteors({ still, lit, tone }: FxProps & { tone: 'gold' | 'rose' }) {
   const seed = gold ? 0 : 91
   return (
     <>
-      <Wash background={gold
-        ? (lit ? 'linear-gradient(180deg, #17224C 0%, #26356A 56%, #3B4A82 100%)'
-               : 'linear-gradient(180deg, #070B24 0%, #111B40 56%, #1E2A55 100%)')
-        : (lit ? 'linear-gradient(180deg, #1E1546 0%, #342478 56%, #503A80 100%)'
-               : 'linear-gradient(180deg, #0C0722 0%, #1C1440 56%, #33224F 100%)')}
-        opacity={lit ? 0.9 : 0.95} />
-      <Stars n={lit ? 16 : 26} seed={gold ? 0 : 400} still={still} />
-
       {Array.from({ length: 14 }, (_, i) => {
         const s = i * 29 + seed
         // The arc of a radiant off the top-left: every streak leans the same
@@ -523,8 +525,8 @@ export default memo(function WeatherFx({ id, still, lit }: {
     case 'sunset':       return <Sun still={still} dusk />
     case 'petals':       return <Petals still={still} />
     case 'fireflies':    return <Fireflies still={still} lit={lit} />
-    case 'meteors_gold': return <Meteors still={still} lit={lit} tone="gold" />
-    case 'meteors_rose': return <Meteors still={still} lit={lit} tone="rose" />
+    case 'meteors_gold': return <Meteors still={still} tone="gold" />
+    case 'meteors_rose': return <Meteors still={still} tone="rose" />
     case 'aurora':       return <Aurora still={still} lit={lit} />
     default:             return null
   }
