@@ -5,12 +5,20 @@ The weather has to stop at the glass. Clipping it to a rectangle puts rain on
 the sash; hand-tracing a mask per room is a day's work and goes stale the
 moment the art is repainted.
 
-So nothing is clipped. For each room this emits a small PNG -- the window's
-bounding box, cut straight out of the room art, with the SKY pixels made
-transparent and every mullion, sash, curtain, plant and sill left exactly as
-painted. At runtime the weather draws inside that box and this overlay draws on
-top, so the weather is behind the glass by construction and cannot land
-anywhere the artist did not paint sky.
+So nothing is clipped. For each room this emits a PNG the FULL SIZE of the
+room art, transparent everywhere except the window, where every mullion, sash,
+curtain, plant and sill is left exactly as painted and only the SKY is cut
+away. At runtime the weather draws inside the window's box and this overlay
+draws on top, so the weather is behind the glass by construction and cannot
+land anywhere the artist did not paint sky.
+
+Full size, not a cropped box, and that is not incidental. A cropped overlay is
+scaled by the browser as its own raster, on its own pixel grid, while the room
+behind it is scaled as a background-image on another -- so the same painted
+curtain came out a shade different inside the box than outside it, and the
+overlay's rectangle showed as a pale seam ruled across the fabric. At full
+size the overlay and the room are the same picture at the same scale, and
+every kept pixel lands exactly on the one it came from.
 
 Finding the sky is tractable here and would not be in a photo: the art is flat
 pixel art, so a window's sky is a few dozen exact colours bounded by a hard
@@ -51,15 +59,31 @@ room from the same camera, the daylight cut, where colour separation is easy,
 is the authority on where the glass IS, and the night pass only ever narrows
 it.
 
-Finally the transparent region is ERODED by `erode` pixels. The cut is a
-348-or-so pixel PNG drawn at about half that on a phone, and downscaling an
-alpha edge feathers it -- output pixels straddling the boundary come out
-part-transparent, so a hairline of sky bleeds onto the frame beside every
-hole. Along a short mullion nobody notices; along the living room's curtain,
-which meets the glass on one long diagonal, it reads as a line drawn down the
-fabric. Pulling the hole in by two pixels puts the feathering back over
-pixels that were sky anyway. Safe by construction, because no transparent
-pixel touches the crop border.
+Small ISLANDS of kept pixels that the sky completely encloses are then filled
+in, up to `fillHoles` pixels each. These are the shreds of cloud the flood
+could not step onto -- it seeds the middle of a cumulus and stops at its soft
+edge, leaving a white rag floating in the pane, which over a midnight-blue
+aurora is the single most artificial thing in the window. Enclosure is what
+makes this safe where colour was not: a cloud shred is surrounded by sky,
+while a curtain reaches the edge of the crop and a tree stands on the frame,
+so neither is ever a hole. The size cap keeps a whole treetop from counting
+as one.
+
+Finally the hole's edge is FEATHERED over `erode` pixels. The overlay is
+drawn smaller than it is painted, and downscaling an alpha edge blends across
+it -- output pixels straddling a hard boundary come out part-transparent, so a
+hairline of sky bleeds onto the frame beside every hole. Along a short mullion
+nobody notices; along the living room's curtain, which meets the glass on one
+long diagonal, it read as a line ruled down the fabric.
+
+So the hole is pulled in by `erode` pixels, and the ring that pull leaves
+behind is REPAINTED in the colour of the frame it borders, a little darker.
+Handing it back as it was painted does not work: those pixels are daylight
+sky, and the moment the sky behind them went dark they drew a pale outline
+round every pane. Taking the frame's own colour instead, the ring reads as the
+shadowed reveal where glass meets wood -- which is what a window has anyway --
+and the browser's blend at the edge now mixes wood with wood. Safe by
+construction, because no transparent pixel touches the crop border.
 
 Bias: when in doubt KEEP the pixel. A pixel wrongly kept hides a raindrop
 nobody was looking at; a pixel wrongly dropped puts weather on the wallpaper.
@@ -82,6 +106,12 @@ from PIL import Image
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PUB = os.path.join(ROOT, 'public')
 DEFAULT_JSON = os.path.join(ROOT, 'scripts', 'window_seeds.json')
+
+# Bump whenever the SHAPE of these files changes. The service worker serves
+# images stale-while-revalidate, so a replaced file at the same path keeps
+# rendering the old one for a visit or two -- and an old CROPPED overlay drawn
+# by the current full-size layout squeezes the whole room into the window.
+ASSET_V = 2
 
 
 def luma(c):
@@ -123,6 +153,7 @@ def cut(room, spec, outdir, shots, art=None, suffix='', only=None):
     cool_min = spec.get('coolMin')
     green_guard = spec.get('greenGuard', 10)
     erode = spec.get('erode', 2)
+    fill_holes = spec.get('fillHoles', 120)
     night = spec.get('night', False)
 
     # Painted-in walls the flood may not enter, in fractions of this crop.
@@ -182,13 +213,41 @@ def cut(room, spec, outdir, shots, art=None, suffix='', only=None):
                 if not only[x][y]:
                     sky[x][y] = False
 
+    # Fill the small islands the sky has closed around.
+    if fill_holes:
+        seen = [[False] * ch for _ in range(cw)]
+        for sx in range(cw):
+            for sy in range(ch):
+                if sky[sx][sy] or seen[sx][sy] or keep[sx][sy]:
+                    continue
+                comp, edge, stack = [], False, [(sx, sy)]
+                seen[sx][sy] = True
+                while stack:
+                    x, y = stack.pop()
+                    comp.append((x, y))
+                    if x == 0 or y == 0 or x == cw - 1 or y == ch - 1:
+                        edge = True
+                    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                        nx, ny = x + dx, y + dy
+                        if not (0 <= nx < cw and 0 <= ny < ch):
+                            continue
+                        if sky[nx][ny] or seen[nx][ny] or keep[nx][ny]:
+                            continue
+                        seen[nx][ny] = True
+                        stack.append((nx, ny))
+                if not edge and len(comp) <= fill_holes:
+                    for x, y in comp:
+                        sky[x][y] = True
+
     # What the flood decided, before the safety margin. The night pass is
     # intersected against THIS, not against the eroded copy, or the margin
     # would be taken twice and the night holes would close up.
     found = sky
 
-    # Pull every hole in, so the resampled alpha edge lands on former sky.
-    for _ in range(erode):
+    # Pull every hole in, remembering which ring each pixel was peeled off in
+    # so the edge can be ramped rather than cliffed.
+    ring = [[0] * ch for _ in range(cw)]
+    for step in range(1, erode + 1):
         shrunk = [[False] * ch for _ in range(cw)]
         for x in range(cw):
             for y in range(ch):
@@ -197,7 +256,30 @@ def cut(room, spec, outdir, shots, art=None, suffix='', only=None):
                 if all(0 <= x + dx < cw and 0 <= y + dy < ch and sky[x + dx][y + dy]
                        for dx in (-1, 0, 1) for dy in (-1, 0, 1)):
                     shrunk[x][y] = True
+                else:
+                    ring[x][y] = step
         sky = shrunk
+
+    # Repaint the ring from the outside in: layer 1 borders the frame, layer 2
+    # borders layer 1. Each takes the mean of the neighbours already settled.
+    for step in range(1, erode + 1):
+        for x in range(cw):
+            for y in range(ch):
+                if ring[x][y] != step:
+                    continue
+                acc, cnt = [0, 0, 0], 0
+                for dx in (-1, 0, 1):
+                    for dy in (-1, 0, 1):
+                        nx, ny = x + dx, y + dy
+                        if not (0 <= nx < cw and 0 <= ny < ch) or sky[nx][ny]:
+                            continue
+                        if ring[nx][ny] and ring[nx][ny] >= step:
+                            continue
+                        c = px[nx, ny]
+                        acc[0] += c[0]; acc[1] += c[1]; acc[2] += c[2]; cnt += 1
+                if cnt:
+                    px[x, y] = (round(acc[0] / cnt * 0.82), round(acc[1] / cnt * 0.82),
+                                round(acc[2] / cnt * 0.82), 255)
 
     n = 0
     for x in range(cw):
@@ -208,7 +290,9 @@ def cut(room, spec, outdir, shots, art=None, suffix='', only=None):
                 n += 1
 
     os.makedirs(outdir, exist_ok=True)
-    crop.save(os.path.join(outdir, f'{room}{suffix}.png'))
+    full = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+    full.paste(crop, (x0, y0))
+    full.save(os.path.join(outdir, f'{room}{suffix}.png'), optimize=True)
 
     chk = Image.new('RGBA', crop.size, (255, 0, 200, 255))
     chk.alpha_composite(crop)
@@ -220,7 +304,7 @@ def cut(room, spec, outdir, shots, art=None, suffix='', only=None):
     pct = 100.0 * n / (cw * ch)
     print(f'{room + suffix:16s} box={cw}x{ch} sky={pct:5.1f}% '
           f'tol={tol} seedTol={seed_tol} keyDrop={key_drop} coolMin={cool_min} '
-          f'green={green_guard} erode={erode} night={night} '
+          f'green={green_guard} erode={erode} fill={fill_holes} night={night} '
           f'keep={len(spec.get("keep", []))} -> {room}{suffix}.png')
     return pct, (cw, ch), im.size, found
 
@@ -239,7 +323,7 @@ def main():
     for room in rooms:
         sp = specs[room]
         _, _, art_size, day_sky = cut(room, sp, a.out, a.shots)
-        night = f'/weather/{room}.png'
+        night = f'/weather/{room}.png?v={ASSET_V}'
         if sp.get('nightOk') is False:
             # No clean cut of this room's night art exists, so it simply has
             # no weather after dark. A leak is worse than an absence.
@@ -247,7 +331,7 @@ def main():
         elif sp.get('nightArt'):
             cut(room, sp, a.out, a.shots, art=sp['nightArt'], suffix='_night',
                 only=day_sky)
-            night = f'/weather/{room}_night.png'
+            night = f'/weather/{room}_night.png?v={ASSET_V}'
         meta[room] = dict(box=sp['box'], art=art_size, night=night)
 
     if a.rooms:
@@ -301,7 +385,7 @@ def emit_ts(specs, meta):
         L.append(f"    label: '{lab}',")
         L.append(f"    art: {{ w: {m['art'][0]}, h: {m['art'][1]} }},")
         L.append(f"    box: {{ l: {b[0]}, t: {b[1]}, w: {b[2]}, h: {b[3]} }},")
-        L.append(f"    day: '/weather/{r}.png',")
+        L.append(f"    day: '/weather/{r}.png?v={ASSET_V}',")
         L.append(f"    night: {repr(night) if night else 'null'},".replace(chr(39) + '/', chr(39) + '/'))
         L.append('  },')
     L.append('}')

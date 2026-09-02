@@ -33,6 +33,15 @@ const r2 = (n: number) => Math.round(n * 100) / 100
 interface FxProps {
   /** Reduced motion: paint the sky, hold everything still. */
   still?: boolean
+  /**
+   * The ROOM around this window is in daylight. The three night skies paint
+   * an evening instead of a midnight when it is, because a near-black pane in
+   * a sunlit room does not read as a night sky — it reads as a hole in the
+   * wall, with the sunlit hedge on the sill still lit by a sun that is
+   * apparently no longer there. An evening sky is a scene; midnight behind
+   * daylight is a mistake.
+   */
+  lit?: boolean
 }
 
 const FILL: React.CSSProperties = { position: 'absolute', inset: 0 }
@@ -258,10 +267,13 @@ function Petals({ still }: FxProps) {
 
 // ─── Fireflies ───────────────────────────────────────────────────────────────
 
-function Fireflies({ still }: FxProps) {
+function Fireflies({ still, lit }: FxProps) {
   return (
     <>
-      <Wash background="linear-gradient(180deg, #23305C 0%, #35406A 46%, #4E4A6B 78%, #6B5670 100%)" opacity={0.9} />
+      <Wash background={lit
+        ? 'linear-gradient(180deg, #3B4A7B 0%, #56608B 46%, #75697F 78%, #937486 100%)'
+        : 'linear-gradient(180deg, #23305C 0%, #35406A 46%, #4E4A6B 78%, #6B5670 100%)'}
+        opacity={lit ? 0.84 : 0.9} />
       {Array.from({ length: 16 }, (_, i) => {
         const s = i * 23
         const size = 0.9 + hash(s) * 1.5
@@ -357,7 +369,7 @@ function Stars({ n = 20, seed = 0, still }: { n?: number; seed?: number; still?:
 //   they are brief and rare.  The streak occupies about a sixth of each
 //   element's cycle; the rest is empty sky. A meteor you can set your watch
 //   by is not a meteor.
-function Meteors({ still, tone }: FxProps & { tone: 'gold' | 'rose' }) {
+function Meteors({ still, lit, tone }: FxProps & { tone: 'gold' | 'rose' }) {
   const gold = tone === 'gold'
   const head = gold ? '#FFFBEA' : '#FFEAF5'
   const mid = gold ? 'rgba(255,206,107,0.95)' : 'rgba(255,150,205,0.95)'
@@ -367,9 +379,12 @@ function Meteors({ still, tone }: FxProps & { tone: 'gold' | 'rose' }) {
   return (
     <>
       <Wash background={gold
-        ? 'linear-gradient(180deg, #070B24 0%, #111B40 56%, #1E2A55 100%)'
-        : 'linear-gradient(180deg, #0C0722 0%, #1C1440 56%, #33224F 100%)'} opacity={0.95} />
-      <Stars n={26} seed={gold ? 0 : 400} still={still} />
+        ? (lit ? 'linear-gradient(180deg, #17224C 0%, #26356A 56%, #3B4A82 100%)'
+               : 'linear-gradient(180deg, #070B24 0%, #111B40 56%, #1E2A55 100%)')
+        : (lit ? 'linear-gradient(180deg, #1E1546 0%, #342478 56%, #503A80 100%)'
+               : 'linear-gradient(180deg, #0C0722 0%, #1C1440 56%, #33224F 100%)')}
+        opacity={lit ? 0.9 : 0.95} />
+      <Stars n={lit ? 16 : 26} seed={gold ? 0 : 400} still={still} />
 
       {Array.from({ length: 14 }, (_, i) => {
         const s = i * 29 + seed
@@ -455,7 +470,7 @@ function Meteors({ still, tone }: FxProps & { tone: 'gold' | 'rose' }) {
   )
 }
 
-function Aurora({ still }: FxProps) {
+function Aurora({ still, lit }: FxProps) {
   const bands = [
     { hue: 'rgba(99,240,192,0.55)', x: 8, w: 34, dur: 15 },
     { hue: 'rgba(120,180,255,0.45)', x: 30, w: 40, dur: 19 },
@@ -463,8 +478,11 @@ function Aurora({ still }: FxProps) {
   ]
   return (
     <>
-      <Wash background="linear-gradient(180deg, #06102A 0%, #0C1A3C 60%, #142449 100%)" opacity={0.96} />
-      <Stars n={18} seed={800} still={still} />
+      <Wash background={lit
+        ? 'linear-gradient(180deg, #142450 0%, #1E3167 60%, #2A3F78 100%)'
+        : 'linear-gradient(180deg, #06102A 0%, #0C1A3C 60%, #142449 100%)'}
+        opacity={lit ? 0.9 : 0.96} />
+      <Stars n={lit ? 11 : 18} seed={800} still={still} />
       {bands.map((b, i) => (
         <span key={i} style={{
           position: 'absolute',
@@ -491,9 +509,11 @@ function Aurora({ still }: FxProps) {
 
 // ─── The switch ──────────────────────────────────────────────────────────────
 
-export default memo(function WeatherFx({ id, still }: {
+export default memo(function WeatherFx({ id, still, lit }: {
   id: WeatherId
   still?: boolean
+  /** The room around this window is in daylight — see FxProps. */
+  lit?: boolean
 }) {
   switch (id) {
     case 'rain':         return <Rain still={still} />
@@ -502,10 +522,10 @@ export default memo(function WeatherFx({ id, still }: {
     case 'sunrise':      return <Sun still={still} />
     case 'sunset':       return <Sun still={still} dusk />
     case 'petals':       return <Petals still={still} />
-    case 'fireflies':    return <Fireflies still={still} />
-    case 'meteors_gold': return <Meteors still={still} tone="gold" />
-    case 'meteors_rose': return <Meteors still={still} tone="rose" />
-    case 'aurora':       return <Aurora still={still} />
+    case 'fireflies':    return <Fireflies still={still} lit={lit} />
+    case 'meteors_gold': return <Meteors still={still} lit={lit} tone="gold" />
+    case 'meteors_rose': return <Meteors still={still} lit={lit} tone="rose" />
+    case 'aurora':       return <Aurora still={still} lit={lit} />
     default:             return null
   }
 })

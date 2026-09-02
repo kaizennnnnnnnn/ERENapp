@@ -1201,6 +1201,7 @@
     ],
     "tol": 22,
     "seedTol": 150,
-    "keyDrop": 48
+    "keyDrop": 48,
+    "fillHoles": 900
   }
 }

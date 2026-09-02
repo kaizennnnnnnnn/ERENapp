@@ -14,8 +14,12 @@
 // the same trick FeedScene uses to pin steam to the kettle spout). Inside it:
 //
 //   1. the effect, filling the window's bounding box
-//   2. the window itself, cut straight out of the room art with only the SKY
-//      made transparent (scripts/build_window_frames.py), drawn back on top
+//   2. the room art itself at full size, with only the SKY inside that window
+//      made transparent (scripts/build_window_frames.py), drawn back on top —
+//      full size and inset:0 so the browser scales it on exactly the same
+//      pixel grid as the background it is standing in for. A cropped overlay
+//      resamples on its own grid, and the mismatch drew a pale rectangle
+//      across the living room's curtains.
 //
 // So the mullions, the sash, the curtains, the plant on the sill and the wall
 // around it are the original pixels, sitting in front of the weather. The
@@ -86,11 +90,11 @@ export default memo(function RoomWeather({ room, dark, z = 0 }: {
           overflow: 'hidden',
           containerType: 'size',
         }}>
-          <WeatherFx id={def.id as WeatherId} still={reduced} />
+          <WeatherFx id={def.id as WeatherId} still={reduced} lit={!dark} />
         </div>
 
         <img src={cut} alt="" draggable={false} style={{
-          position: 'absolute', ...box,
+          position: 'absolute', inset: 0, width: '100%', height: '100%',
           // Matches how the room art itself is scaled, so the cut lands pixel
           // for pixel on the painting it came from.
           imageRendering: 'auto',
