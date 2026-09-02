@@ -47,7 +47,7 @@ export default function TrophiesPage() {
   const [rows, setRows] = useState<DailyBattleRow[] | null>(null)
   const [buying, setBuying] = useState<AnyShopItem | null>(null)
   const [using, setUsing] = useState<PrivilegeItem | null>(null)
-  const [tab, setTab] = useState<ShopKind>('weather')
+  const [tab, setTab] = useState<ShopKind>('machine')
 
   // The page wears its own header; the floating StatsHeader would fight it.
   useEffect(() => {

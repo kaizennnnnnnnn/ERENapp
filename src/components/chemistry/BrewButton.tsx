@@ -1,20 +1,18 @@
 'use client'
 
-// The lab's second slab: Eren's Brew. Sits above the PERIODIC TABLE button and
-// borrows its whole construction — same height, same rivets, same press — so
-// the two read as a pair of controls on one bench rather than one button and a
-// bolted-on afterthought.
+// The lab's other half-width slab: Eren's Brew. It shares one row with
+// PERIODIC TABLE and borrows its whole construction — same height, same
+// rivets, same press, same 30x34 tile — so the two read as a pair of controls
+// on one bench rather than one button and a bolted-on afterthought.
 //
 // Where the table button is lab-lime and clinical, this one is potion-violet:
-// a filled beaker with a drifting liquid line on the left, and a wisp of vapour
-// curling off the right. The single visual difference carries "this is the fun
-// one" without needing a second shape language.
-
-import { IconSparkles } from '@/components/PixelIcons'
+// a filled beaker with a drifting liquid line, and vapour curling off it. That
+// single visual difference carries "this is the fun one" without needing a
+// second shape language.
 
 interface Props {
   onClick: () => void
-  /** Dims the badge to a done-state tick once today's order is filled. */
+  /** Fills the beaker green once today's order is filled. */
   done?: boolean
 }
 
@@ -29,18 +27,18 @@ const RIVET = '#FCD34D'
 const PIXEL_FONT = '"Press Start 2P", monospace'
 
 const RIVETS = [
-  { left: 6, top: 6 },
-  { right: 6, top: 6 },
-  { left: 6, bottom: 6 },
-  { right: 6, bottom: 6 },
+  { left: 5, top: 5 },
+  { right: 5, top: 5 },
+  { left: 5, bottom: 5 },
+  { right: 5, bottom: 5 },
 ]
 
 // Vapour curling off the beaker. Reuses the table button's bubble keyframe —
 // same drift, and one fewer near-identical animation in globals.css.
 const WISPS = [
-  { left: -5, size: 4, delay: '0.2s', dur: '2.2s' },
-  { left: 3,  size: 3, delay: '0.9s', dur: '1.9s' },
-  { left: 7,  size: 5, delay: '1.5s', dur: '2.5s' },
+  { left: -8, size: 4, delay: '0.2s', dur: '2.2s' },
+  { left: 1, size: 3, delay: '0.9s', dur: '1.9s' },
+  { left: 8, size: 5, delay: '1.5s', dur: '2.5s' },
 ]
 
 export default function BrewButton({ onClick, done }: Props) {
@@ -49,12 +47,12 @@ export default function BrewButton({ onClick, done }: Props) {
       type="button"
       onClick={onClick}
       aria-label="Open Eren's Brew"
-      className="chem-table-btn relative w-full max-w-xs"
+      className="chem-table-btn relative flex-1 min-w-0"
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 12,
-        padding: '11px 16px',
+        gap: 8,
+        padding: '9px 10px',
         background: `linear-gradient(180deg, ${VIO_HI} 0%, ${VIO_MID} 48%, ${VIO_LO} 100%)`,
         border: `3px solid ${INK}`,
         borderRadius: 9,
@@ -70,44 +68,40 @@ export default function BrewButton({ onClick, done }: Props) {
         }} />
       ))}
 
-      <BeakerTile done={done} />
-
-      <span style={{
-        flex: 1, textAlign: 'center',
-        fontFamily: PIXEL_FONT, fontSize: 9, lineHeight: 1.6, letterSpacing: 1,
-        textShadow: `0 2px 0 ${INK}`,
-      }}>
-        EREN&apos;S
-        <br />
-        BREW
-      </span>
-
-      {/* Vapour + a sparkle, the "todays order" cue */}
-      <span aria-hidden style={{
-        position: 'relative', flexShrink: 0, width: 30, height: 34,
-        display: 'inline-flex', alignItems: 'flex-end', justifyContent: 'center',
-      }}>
+      {/* ── Beaker + its vapour (left) ── */}
+      <span aria-hidden style={{ position: 'relative', flexShrink: 0, width: 30, height: 34 }}>
+        <BeakerTile done={done} />
         {WISPS.map((w, i) => (
           <span key={i} style={{
-            position: 'absolute', top: 1, left: `calc(50% + ${w.left}px)`,
+            position: 'absolute', top: -1, left: `calc(50% + ${w.left}px)`,
             width: w.size, height: w.size, borderRadius: '50%',
             background: 'rgba(245,225,255,0.95)',
             border: `1px solid ${INK}`,
             animation: `chemBubbleRise ${w.dur} ease-in ${w.delay} infinite`,
           }} />
         ))}
-        <IconSparkles size={26} />
+      </span>
+
+      {/* ── Label (fills the rest) ── */}
+      <span style={{
+        flex: 1, minWidth: 0, textAlign: 'center',
+        fontFamily: PIXEL_FONT, fontSize: 8, lineHeight: 1.6, letterSpacing: 0.5,
+        textShadow: `0 2px 0 ${INK}`,
+      }}>
+        EREN&apos;S
+        <br />
+        BREW
       </span>
     </button>
   )
 }
 
 // A squat beaker half-full of potion, tilted like a sticker and bobbing. The
-// liquid line is a flat band — no gradient — so it stays readable at 36px.
+// liquid line is a flat band — no gradient — so it stays readable at 30px.
 function BeakerTile({ done }: { done?: boolean }) {
   return (
     <span aria-hidden style={{
-      position: 'relative', flexShrink: 0, width: 36, height: 40, display: 'block',
+      position: 'absolute', inset: 0, display: 'block',
       background: 'linear-gradient(180deg, #FBF5FF 0%, #EDE0FC 100%)',
       border: `2px solid ${INK}`,
       borderRadius: 3,
@@ -119,7 +113,7 @@ function BeakerTile({ done }: { done?: boolean }) {
       <span style={{ position: 'absolute', top: 2, left: 2, right: 2, height: 3, background: 'rgba(255,255,255,0.7)' }} />
       {/* potion body */}
       <span style={{
-        position: 'absolute', left: 0, right: 0, bottom: 0, height: done ? 26 : 17,
+        position: 'absolute', left: 0, right: 0, bottom: 0, height: done ? 22 : 14,
         // Cyan, NOT the slab's own violet. A purple potion on a purple button
         // samples correctly and still reads as one flat shape — the lime button
         // only gets away with its white tile because it contrasts.
@@ -128,18 +122,18 @@ function BeakerTile({ done }: { done?: boolean }) {
       }} />
       {/* meniscus */}
       <span style={{
-        position: 'absolute', left: 0, right: 0, bottom: done ? 26 : 17, height: 3,
+        position: 'absolute', left: 0, right: 0, bottom: done ? 22 : 14, height: 3,
         background: done ? '#BBF7D0' : '#A5F3FC',
         transition: 'bottom 300ms ease, background 300ms ease',
       }} />
       {/* two bubbles inside the glass */}
       <span style={{
-        position: 'absolute', left: 9, bottom: 6, width: 4, height: 4, borderRadius: '50%',
+        position: 'absolute', left: 7, bottom: 5, width: 4, height: 4, borderRadius: '50%',
         background: 'rgba(255,255,255,0.85)',
         animation: 'chemBubbleRise 1.9s ease-in 0.3s infinite',
       }} />
       <span style={{
-        position: 'absolute', left: 20, bottom: 4, width: 3, height: 3, borderRadius: '50%',
+        position: 'absolute', left: 17, bottom: 3, width: 3, height: 3, borderRadius: '50%',
         background: 'rgba(255,255,255,0.75)',
         animation: 'chemBubbleRise 2.3s ease-in 1.1s infinite',
       }} />

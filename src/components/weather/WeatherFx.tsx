@@ -55,6 +55,49 @@ function Wash({ background, blend = 'normal', opacity = 1 }: {
   return <span style={{ ...FILL, background, mixBlendMode: blend, opacity }} />
 }
 
+// ─── Clear ───────────────────────────────────────────────────────────────────
+// The afternoon the rooms were painted in. It is NOT a layer — RoomWeather
+// returns early for `clear` and lets the original art show through — but every
+// THUMBNAIL still has to draw something, and "nothing" renders as a black hole:
+// the picker's CLEAR tile, a room chip for a window nobody has changed, and the
+// built machine's own screen, whose sky defaults to clear. So this exists for
+// the little panes only, and it paints what the artist painted: blue going pale
+// at the horizon, two slow clouds, and a hint of the treeline.
+
+function Clear({ still }: FxProps) {
+  return (
+    <>
+      <Wash background="linear-gradient(180deg, #56A9E8 0%, #8FD3FF 62%, #CDEAFF 100%)" />
+      {[
+        { top: 16, left: -30, w: 46, dur: 34, delay: 0 },
+        { top: 38, left: -70, w: 32, dur: 44, delay: -18 },
+      ].map((c, i) => (
+        <span key={i} style={{
+          position: 'absolute',
+          top: `${c.top}cqh`,
+          left: still ? `${-c.left / 3}%` : 0,
+          width: `${c.w}cqi`,
+          height: `${c.w * 0.42}cqi`,
+          background: 'radial-gradient(ellipse at 42% 62%, rgba(255,255,255,0.97) 0%, rgba(244,251,255,0.8) 38%, rgba(240,249,255,0.34) 62%, rgba(255,255,255,0) 78%)',
+          animation: still ? undefined
+            : `wxClearDrift ${c.dur}s linear ${c.delay}s infinite`,
+        }} />
+      ))}
+      {/* the treeline the windows all look out onto */}
+      <span style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0, height: '17cqh',
+        background: 'linear-gradient(180deg, rgba(96,158,86,0) 0%, rgba(88,150,80,0.85) 55%, rgba(64,120,60,0.95) 100%)',
+      }} />
+      <style>{`
+        @keyframes wxClearDrift {
+          0%   { transform: translateX(-40cqi); }
+          100% { transform: translateX(140cqi); }
+        }
+      `}</style>
+    </>
+  )
+}
+
 // ─── Rain ────────────────────────────────────────────────────────────────────
 
 function Rain({ still, heavy }: FxProps & { heavy?: boolean }) {
@@ -518,6 +561,7 @@ export default memo(function WeatherFx({ id, still, lit }: {
   lit?: boolean
 }) {
   switch (id) {
+    case 'clear':        return <Clear still={still} />
     case 'rain':         return <Rain still={still} />
     case 'storm':        return <Storm still={still} />
     case 'snow':         return <Snow still={still} />

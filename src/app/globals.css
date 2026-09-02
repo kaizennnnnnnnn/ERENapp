@@ -908,6 +908,67 @@
   50%      { transform: rotate(-4deg) translateY(-1.5px); }
 }
 
+/* ── The weather machine standing on the Lab floor ──
+   A husk you repair four times. Every animation here belongs to a piece that
+   is only on screen once its part is installed, so a half-built machine is
+   quieter than a finished one by construction. Keyframes live HERE and not in
+   a styled-jsx block inside the component: styled-jsx @keyframes never resolve
+   from a React inline `style`, which is the trap that ate the arcade's
+   animations once already. */
+
+/* The roof dish turning to sweep the sky. scaleX, not rotate: a parabola seen
+   edge-on IS a thin ellipse, so squashing it reads as a 3D turn at 30px in a
+   way an in-plane spin never does. */
+@keyframes wxDish {
+  0%, 100% { transform: scaleX(1); }
+  50%      { transform: scaleX(0.35); }
+}
+/* The brass needle never settling, which is the whole joke of a barometer. */
+@keyframes wxNeedle {
+  0%, 100% { transform: rotate(-38deg); }
+  35%      { transform: rotate(24deg);  }
+  62%      { transform: rotate(-8deg);  }
+  80%      { transform: rotate(41deg);  }
+}
+/* Something warm going up the coil. */
+@keyframes wxCoil {
+  0%, 100% { opacity: 0.45; transform: translateY(2px); }
+  50%      { opacity: 1;    transform: translateY(-2px); }
+}
+/* A carrier band crawling down a screen that has power but nothing to show. */
+@keyframes wxWarm {
+  0%   { transform: translateY(-120%); }
+  100% { transform: translateY(320%);  }
+}
+/* Status lamp — long on, one short wink, the pattern the old slab used. */
+@keyframes wxLamp {
+  0%, 62%, 100% { opacity: 1; }
+  72%           { opacity: 0.25; }
+}
+/* The "there is something to do here" tag over an unfinished machine. */
+@keyframes wxTag {
+  0%, 100% { opacity: 0.62; }
+  50%      { opacity: 1; }
+}
+/* A finished machine is never quite still. Half a pixel, on a slow count. */
+@keyframes wxThrum {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(0.5px); }
+}
+
+.wx-dish   { animation: wxDish 9s steps(10) infinite; }
+.wx-needle { animation: wxNeedle 6.5s steps(7) infinite; }
+.wx-coil   { animation: wxCoil 2.4s ease-in-out infinite; }
+.wx-warm   { animation: wxWarm 3.6s linear infinite; }
+.wx-lamp   { animation: wxLamp 3.4s ease-in-out infinite; }
+.wx-tag    { animation: wxTag 2.2s ease-in-out infinite; }
+.wx-thrum  { animation: wxThrum 2.8s steps(2) infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wx-dish, .wx-needle, .wx-coil, .wx-warm,
+  .wx-lamp, .wx-tag, .wx-thrum { animation: none; }
+}
+
 /* ── Bedroom "TUCK IN / WAKE UP" button ──
    A two-mood dreamy slab: night-indigo for bedtime, warm dawn for waking.
    Same premium press as the chemistry button, but the hard drop-shadow colour

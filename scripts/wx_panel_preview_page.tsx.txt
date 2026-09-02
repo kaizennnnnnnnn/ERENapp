@@ -1,0 +1,52 @@
+// Screenshot harness, parked as .txt so it is not part of the build.
+// Drop it back at src/app/wxpanel/page.tsx and open the route while `npm run dev`
+// is up; dispatch `eren:app-ready` in the console to clear the splash.
+// Same pattern as tro_preview_page.tsx.txt.
+
+'use client'
+
+// THROWAWAY screenshot harness for the weather machine's BUILD screen.
+// Outside (app) on purpose; the providers below are only here so the hooks
+// inside PartSlot resolve — they answer with empty state, which is fine
+// because the build state itself is stubbed. Delete when signed off.
+
+import { BuildScreen } from '@/components/weather/WeatherMachine'
+import { TrophiesProvider } from '@/hooks/useTrophies'
+import { CoupleProvider } from '@/hooks/useCouple'
+import { ErenStatsProvider } from '@/hooks/useErenStats'
+import { MACHINE_PARTS, type MachinePartId } from '@/lib/weatherMachine'
+
+function stub(n: number) {
+  const owned = new Set(MACHINE_PARTS.slice(0, n).map(p => p.id))
+  return {
+    loaded: true,
+    installed: n,
+    total: MACHINE_PARTS.length,
+    built: n >= MACHINE_PARTS.length,
+    has: (p: MachinePartId) => owned.has(p),
+    fitterOf: () => (n > 1 ? 'someone-else' : null),
+    remaining: MACHINE_PARTS.slice(n).reduce((a, p) => a + p.price, 0),
+  }
+}
+
+export default function WxPanelPreview() {
+  return (
+    <ErenStatsProvider>
+      <CoupleProvider>
+        <TrophiesProvider>
+          <div style={{ display: 'flex', gap: 10, padding: 10, background: '#111' }}>
+            {[0, 2].map(n => (
+              <div key={n} style={{
+                position: 'relative', width: 390, height: 844, flexShrink: 0,
+                display: 'flex', flexDirection: 'column',
+                background: 'radial-gradient(120% 70% at 50% 0%, #16233A 0%, #0B1120 55%, #05070E 100%)',
+              }}>
+                <BuildScreen machine={stub(n) as never} />
+              </div>
+            ))}
+          </div>
+        </TrophiesProvider>
+      </CoupleProvider>
+    </ErenStatsProvider>
+  )
+}

@@ -16,13 +16,24 @@ import { playSound } from '@/lib/sounds'
 const REFUSAL: Record<string, string> = {
   insufficient: 'Not enough trophies. Win a day.',
   already_owned: 'You already own this one.',
+  // A machine part is owned by the HOUSE, so the server answers already_owned
+  // for one your partner paid for — where "you already own this" would be a lie
+  // and, worse, would read as a bug.
+  already_owned_machine: 'That part is already fitted. Nothing more to pay.',
   unknown_item: 'The shop does not stock that. Try again after a reload.',
   offline: 'Could not reach the shop. Try again in a moment.',
 }
 
 export default function TrophyBuySheet({
-  item, onClose,
-}: { item: AnyShopItem; onClose(): void }) {
+  item, onClose, z = 140,
+}: {
+  item: AnyShopItem
+  onClose(): void
+  /** Stacking level. The Lab's weather machine opens this from inside its own
+   *  z-150 panel, and both portal to <body> — without a lift the sheet would
+   *  confirm a purchase underneath the screen that asked for it. */
+  z?: number
+}) {
   const trophies = useTrophies()
   const { profile } = useAuth()
   const [busy, setBusy] = useState(false)
@@ -46,12 +57,14 @@ export default function TrophyBuySheet({
       return
     }
     playSound('ui_tap')
-    setError(REFUSAL[r.reason] ?? REFUSAL.offline)
+    const key = r.reason === 'already_owned' && item.kind === 'machine'
+      ? 'already_owned_machine' : r.reason
+    setError(REFUSAL[key] ?? REFUSAL.offline)
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[140] flex items-center justify-center px-6"
-      style={{ background: 'rgba(0,0,0,0.74)' }}
+    <div className="fixed inset-0 flex items-center justify-center px-6"
+      style={{ background: 'rgba(0,0,0,0.74)', zIndex: z }}
       onClick={() => { if (!busy) onClose() }}>
       <div onClick={e => e.stopPropagation()}
         className="relative w-full p-4 flex flex-col items-center gap-3"

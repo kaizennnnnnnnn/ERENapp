@@ -34,12 +34,12 @@ import { useTrophyCosmetics } from '@/hooks/useTrophyCosmetics'
 import {
   itemsOfKind, prestigeDef, SHOP_RARITY_COLORS,
   type AnyShopItem, type ShopKind,
-  type PrivilegeItem, type PrestigeItem,
+  type PrivilegeItem, type PrestigeItem, type MachinePartItem,
 } from '@/lib/trophyShop'
-import { weatherFree } from '@/lib/weather'
+import { MACHINE_PARTS, machineBuilt, partsInstalled, machineRemaining, partFitted } from '@/lib/weatherMachine'
 import { OBSIDIAN_BTN, Rivets, accentA } from '@/components/obsidian'
 import {
-  IconTrophyTier, IconSun, IconLightning, IconCrown, IconLock,
+  IconTrophyTier, IconLightning, IconCrown, IconLock,
   IconCheck, IconChevronRight, IconFlask,
 } from '@/components/PixelIcons'
 import ItemPreview from './ItemPreview'
@@ -48,7 +48,7 @@ import PowerArt from './PowerArt'
 import { playSound } from '@/lib/sounds'
 
 const TABS: { kind: ShopKind; label: string; icon: React.ReactNode; sub: string }[] = [
-  { kind: 'weather',   label: 'WEATHER',  icon: <IconSun size={14} />,       sub: 'The sky outside a window. Both of you see it.' },
+  { kind: 'machine',   label: 'MACHINE',  icon: <IconFlask size={14} />,     sub: 'Four parts. Finish it and every sky is yours, for both of you.' },
   { kind: 'privilege', label: 'POWERS',   icon: <IconLightning size={14} />, sub: 'Spent on the battle, not worn.' },
   { kind: 'prestige',  label: 'PRESTIGE', icon: <IconCrown size={14} />,     sub: 'Sits beside your name, everywhere.' },
 ]
@@ -84,7 +84,13 @@ export default function TrophyShopView({ tab, onTab, onBuy, onUse }: Props) {
         {TABS.map(t => {
           const on = t.kind === tab
           const stock = itemsOfKind(t.kind)
-          const have = stock.filter(i => trophies.mine(i.id) || weatherFree(i.id)).length
+          // Parts are counted across the household — the whole point is that
+          // either of us can pay for any of them. Powers and prestige stay
+          // personal, because they are things YOU wear or spend.
+          const own = t.kind === 'machine'
+            ? (id: string) => partFitted(trophies.ours, id)
+            : trophies.mine
+          const have = stock.filter(i => own(i.id)).length
           return (
             <button
               key={t.kind}
@@ -141,10 +147,12 @@ export default function TrophyShopView({ tab, onTab, onBuy, onUse }: Props) {
           <ShopCard
             key={item.id}
             item={item}
-            owned={trophies.mine(item.id) || weatherFree(item.id)}
+            owned={item.kind === 'machine'
+              ? partFitted(trophies.ours, item.id)
+              : trophies.mine(item.id)}
             qty={trophies.qty(item.id)}
-            partnerHas={trophies.owned.some(o =>
-              o.userId !== user?.id && o.itemId === item.id && o.quantity > 0)}
+            partnerHas={!!user?.id && trophies.owned.some(o =>
+              o.userId !== user.id && o.itemId === item.id && o.quantity > 0)}
             balance={trophies.balance}
             cos={cos}
             myName={myName}
@@ -175,10 +183,13 @@ export function ShelfSummary({ kind, cos, name, trophies }: {
     borderRadius: 4,
   }
 
-  if (kind === 'weather') {
-    // Buying a sky and CHOOSING where it hangs are deliberately different
-    // places: one is a shop, the other is a machine with seven dials on it.
-    // Saying so here is the whole reason this strip exists.
+  if (kind === 'machine') {
+    // Buying a part and USING the machine are deliberately different places:
+    // one is a shop, the other is a machine standing on a floor with seven
+    // dials on it. Saying so here is the whole reason this strip exists — plus
+    // how far off the build is, which is the only number this shelf is about.
+    const installed = partsInstalled(trophies.ours)
+    const built = machineBuilt(trophies.ours)
     return (
       <Link href="/care?room=chemistry" onClick={() => playSound('ui_tap')}
         className="flex items-center gap-2 px-3 py-2.5 active:translate-y-[1px] transition-transform"
@@ -186,10 +197,12 @@ export function ShelfSummary({ kind, cos, name, trophies }: {
         <IconFlask size={15} />
         <span className="flex-1 text-left">
           <span className="font-pixel block" style={{ fontSize: 6, letterSpacing: 1, color: '#D6CBE2' }}>
-            THE WEATHER MACHINE
+            {built ? 'THE MACHINE IS BUILT' : `THE MACHINE - ${installed}/${MACHINE_PARTS.length} FITTED`}
           </span>
           <span className="text-[10px]" style={{ color: '#7E7090' }}>
-            In the Lab. Pick which sky hangs outside each room.
+            {built
+              ? 'In the Lab. Pick which sky hangs outside each window.'
+              : `In the Lab. ${machineRemaining(trophies.ours)} trophies of parts still missing.`}
           </span>
         </span>
         <IconChevronRight size={11} />
@@ -312,9 +325,9 @@ export function ShopCard({
             }}>{item.rarity.toUpperCase()}</span>
             <Where item={item} />
           </div>
-          {partnerHas && !owned && (
+          {partnerHas && (item.kind === 'machine' || !owned) && (
             <p className="font-pixel" style={{ fontSize: 5, letterSpacing: 1, color: '#C9B4FF' }}>
-              THEY ALREADY HAVE THIS
+              {item.kind === 'machine' ? 'THEY FITTED THIS ONE' : 'THEY ALREADY HAVE THIS'}
             </p>
           )}
         </div>
@@ -372,7 +385,9 @@ function Where({ item }: { item: AnyShopItem }) {
       {text}
     </span>
   )
-  if (item.kind === 'weather') return chip('ANY WINDOW')
+  if (item.kind === 'machine') {
+    return chip(`PART ${(item as MachinePartItem).order + 1} OF ${MACHINE_PARTS.length}`)
+  }
   if (item.kind === 'privilege') {
     const p = item as PrivilegeItem
     return chip(p.minutes === 0 ? 'ONE SHOT'
@@ -402,14 +417,18 @@ function EquipControl({
     )
   }
 
-  if (item.kind === 'weather') {
+  // A part is bolted on the moment it is bought. There is nothing to equip and
+  // — critically — nothing to SPEND: without this branch a machine part fell
+  // through to the privilege rail below and got a USE ONE button that
+  // decremented the row to zero, un-building a part the household paid for.
+  if (item.kind === 'machine') {
     return (
       <span className="flex items-center gap-1.5 px-2 py-1.5" style={{
-        border: '1px dashed rgba(255,255,255,0.22)', borderRadius: 3,
+        border: '1px dashed rgba(99,240,148,0.35)', borderRadius: 3,
       }}>
-        <IconFlask size={11} />
-        <span className="font-pixel" style={{ fontSize: 6, letterSpacing: 1, color: '#B4A8C4' }}>
-          SET IN THE LAB
+        <IconCheck size={11} tone="#4ADE80" />
+        <span className="font-pixel" style={{ fontSize: 6, letterSpacing: 1, color: '#A7F3C0' }}>
+          FITTED IN THE LAB
         </span>
       </span>
     )

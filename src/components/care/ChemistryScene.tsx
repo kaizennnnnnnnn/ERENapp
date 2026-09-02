@@ -6,9 +6,8 @@
 // follow-up phases.
 
 import { useEffect, useState } from 'react'
-import {
-  WeatherMachineButton, WeatherMachinePanel,
-} from '@/components/weather/WeatherMachine'
+import { WeatherMachinePanel } from '@/components/weather/WeatherMachine'
+import WeatherMachineProp from '@/components/weather/WeatherMachineProp'
 import { IconBook, IconFire, IconCheck, IconChevronDown } from '@/components/PixelIcons'
 import BlinkingEren from '@/components/BlinkingEren'
 import { useRoomEren } from '@/hooks/useRoomEren'
@@ -112,17 +111,26 @@ export default function ChemistryScene(_props: Props) {
         {reaction.phase === PURR && <PurrFx bottom="60%" />}
       </div>
 
+      {/* ══ THE WEATHER MACHINE ══
+          It used to be a third slab in the row below. A machine is not a menu
+          item, and the row could not afford it: standing it on the floorboards
+          gave the room back ~110px and put the thing you tap where the thing
+          actually is. Mounted AFTER Eren so document order can never sort it
+          in front of him; it carries its own zIndex 8 either way. */}
+      <WeatherMachineProp onOpen={() => { setWeatherOpen(true) }} />
+
       {/* ══ BOTTOM ACTION BUTTONS ══
-          Two chemistry-dressed pixel slabs stacked at the bottom of the room:
-          BREW on top, PERIODIC TABLE where it has always been, so adding the
-          second one doesn't move the one people already reach for. Honours the
-          iOS / Android safe-area inset so the stack doesn't sit under the home
-          indicator on devices that have one. */}
-      <div className="absolute inset-x-0 flex flex-col items-center gap-2.5 z-20 px-8"
+          Two chemistry-dressed pixel slabs SIDE BY SIDE at the bottom of the
+          room. They were stacked, which cost a whole row for two buttons that
+          say the same amount; both were rebuilt to survive at half width (see
+          the note at the head of each). Honours the iOS / Android safe-area
+          inset so the row doesn't sit under the home indicator. */}
+      <div className="absolute inset-x-0 flex justify-center gap-2.5 z-20 px-5"
         style={{ bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }}>
-        <WeatherMachineButton onOpen={() => { setWeatherOpen(true) }} />
-        <BrewButton onClick={openBrew} done={brewDone} />
-        <PeriodicTableButton onClick={openStudy} />
+        <div className="flex w-full gap-2.5" style={{ maxWidth: 380 }}>
+          <BrewButton onClick={openBrew} done={brewDone} />
+          <PeriodicTableButton onClick={openStudy} />
+        </div>
       </div>
 
       {weatherOpen && <WeatherMachinePanel onClose={() => setWeatherOpen(false)} />}

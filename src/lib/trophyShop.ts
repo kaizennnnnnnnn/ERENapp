@@ -3,8 +3,8 @@
 // place these things can be got. Nothing here is buyable with coins, ever;
 // that is the whole reason winning a day means something now.
 //
-// Four shelves:
-//   weather    — the sky outside a room's window, for BOTH of you
+// Three shelves:
+//   machine    — the four parts of the weather machine in the Lab, for BOTH of you
 //   privilege  — consumable powers that change the next battle
 //   prestige   — a title and a nameplate frame beside your name
 //
@@ -16,9 +16,9 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import type { BattleAction } from '@/lib/dailyTwist'
-import { WEATHER_FOR_SALE, weatherItemId, type WeatherId } from '@/lib/weather'
+import { MACHINE_PARTS, type MachinePartId } from '@/lib/weatherMachine'
 
-export type ShopKind = 'weather' | 'privilege' | 'prestige'
+export type ShopKind = 'machine' | 'privilege' | 'prestige'
 
 export type ShopRarity = 'common' | 'rare' | 'epic' | 'legendary'
 
@@ -34,9 +34,11 @@ export interface ShopItem {
   stackable?: boolean
 }
 
-export interface WeatherItem extends ShopItem {
-  kind: 'weather'
-  weather: WeatherId
+export interface MachinePartItem extends ShopItem {
+  kind: 'machine'
+  part: MachinePartId
+  /** Build order. The shelf and the rack in the Lab both sort by it. */
+  order: number
 }
 
 export type PrivilegeId =
@@ -59,21 +61,25 @@ export interface PrestigeItem extends ShopItem {
   focus?: BattleAction | null
 }
 
-export type AnyShopItem = WeatherItem | PrivilegeItem | PrestigeItem
+export type AnyShopItem = MachinePartItem | PrivilegeItem | PrestigeItem
 
-// ─── Weather ─────────────────────────────────────────────────────────────────
-// Built from lib/weather rather than restated here, so the shop, the machine
-// in the Lab and the SQL price list cannot drift apart. The `wx_` prefix is
-// derivable both ways (weatherItemId / weatherFromItemId).
+// ─── The machine ─────────────────────────────────────────────────────────────
+// One shelf that sells one thing four times. Skies used to be ten separate
+// cards here; what the household actually wants to own is the machine that
+// makes them, so the shelf sells the parts and lib/weatherMachine owns what
+// each part looks like once it is bolted on. Derived rather than restated, for
+// the same reason the skies were: the shop, the prop in the Lab and the SQL
+// price list must not be able to drift.
 
-export const WEATHERS: WeatherItem[] = WEATHER_FOR_SALE.map(w => ({
-  id: weatherItemId(w.id),
-  kind: 'weather' as const,
-  weather: w.id,
-  name: w.name,
-  blurb: w.blurb,
-  price: w.price,
-  rarity: w.rarity,
+export const PARTS: MachinePartItem[] = MACHINE_PARTS.map((p, i) => ({
+  id: p.itemId,
+  kind: 'machine' as const,
+  part: p.id,
+  order: i,
+  name: p.name,
+  blurb: p.blurb,
+  price: p.price,
+  rarity: p.rarity,
 }))
 
 // ─── Privileges ──────────────────────────────────────────────────────────────
@@ -161,7 +167,7 @@ export const PRESTIGE: PrestigeItem[] = [
 // ─── Lookup ──────────────────────────────────────────────────────────────────
 
 export const SHOP_ITEMS: AnyShopItem[] = [
-  ...WEATHERS, ...PRIVILEGES, ...PRESTIGE,
+  ...PARTS, ...PRIVILEGES, ...PRESTIGE,
 ]
 
 const BY_ID = new Map<string, AnyShopItem>(SHOP_ITEMS.map(i => [i.id, i]))
@@ -172,12 +178,6 @@ export function shopItem(id: string): AnyShopItem | undefined {
 
 export function itemsOfKind(kind: ShopKind): AnyShopItem[] {
   return SHOP_ITEMS.filter(i => i.kind === kind)
-}
-
-export function weatherItem(id: string | null | undefined): WeatherItem | null {
-  if (!id) return null
-  const it = BY_ID.get(id)
-  return it && it.kind === 'weather' ? it : null
 }
 
 export function prestigeDef(id: string | null | undefined): PrestigeItem | null {

@@ -9,59 +9,59 @@
 // its own with nothing to wear it. Both are fixed by showing the item WHERE
 // IT GOES —
 //
-//   weather    running live inside a little window pane
+//   machine    the part, drawn bolted onto a ghost of the machine it completes
 //   privilege  its own drawing (PowerArt)
 //   prestige   your own name, already wearing it
 //
 // One component so those never drift apart again.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { memo } from 'react'
 import type {
-  AnyShopItem, WeatherItem, PrivilegeItem, PrestigeItem,
+  AnyShopItem, MachinePartItem, PrivilegeItem, PrestigeItem,
 } from '@/lib/trophyShop'
-import { WEATHER_BY_ID } from '@/lib/weather'
-import WeatherFx from '@/components/weather/WeatherFx'
+import { MACHINE_PARTS } from '@/lib/weatherMachine'
+import { MachineArt, MACHINE_W, MACHINE_H } from '@/components/weather/WeatherMachineProp'
 import PowerArt from './PowerArt'
 import { TitlePlate, FramePlate } from './prestigeArt'
 
-// ─── Weather: the sky, running, in a little window ───────────────────────────
-// A still swatch cannot tell rain from a grey wash, so the card runs the real
-// effect at thumbnail size. That is also the honest preview: these are sized in
-// container units, so what a 76px pane shows is what a 76px window will show.
+// ─── Machine part: the piece, on the machine it belongs to ───────────────────
+// A gauge on black is a brass circle. The same gauge with the rest of the
+// machine ghosted in behind it is an answer to "and where does that go" —
+// which is the only question a part card has to settle. So the thumbnail is
+// the real prop art with every OTHER part hidden and the body dimmed right
+// down: what you are buying is the one thing still in colour.
 
-export const WeatherThumb = memo(function WeatherThumb({ item, width = 76 }: {
-  item: WeatherItem; width?: number
+export function MachinePartThumb({ item, width = 76 }: {
+  item: MachinePartItem; width?: number
 }) {
-  const def = WEATHER_BY_ID[item.weather]
+  const scale = width / MACHINE_W
   return (
     <div className="relative" style={{
-      width, height: Math.round(width * 0.86),
-      background: '#7A5A34',
-      border: '2px solid #3A2614',
-      borderRadius: 3,
-      padding: 3,
-      boxShadow: `0 0 10px ${def.tone}33, inset 0 1px 0 rgba(255,214,160,0.4)`,
+      width, height: Math.round(MACHINE_H * scale),
+      overflow: 'hidden',
     }}>
-      <div className="relative w-full h-full overflow-hidden" style={{
-        containerType: 'size',
-        background: '#0B0F1E',
-        boxShadow: 'inset 0 0 6px rgba(0,0,0,0.8)',
+      <div style={{
+        position: 'absolute', left: 0, top: 0,
+        width: MACHINE_W, height: MACHINE_H,
+        transform: `scale(${scale})`,
+        transformOrigin: 'top left',
       }}>
-        <WeatherFx id={item.weather} />
+        {/* the husk, right down at the back */}
+        <span style={{ position: 'absolute', inset: 0, opacity: 0.3 }}>
+          <MachineArt installed={0} total={MACHINE_PARTS.length}
+            has={() => false} sky="clear" reduced />
+        </span>
+        {/* this part, and only this part, lit */}
+        <MachineArt
+          installed={1}
+          total={MACHINE_PARTS.length}
+          has={pid => pid === item.part}
+          sky="clear"
+        />
       </div>
-      {/* A cross of glazing bars, so it reads as a window and not a swatch. */}
-      <span aria-hidden className="absolute" style={{
-        left: '50%', top: 3, bottom: 3, width: 2, marginLeft: -1,
-        background: '#5C3F22', boxShadow: '0 0 0 1px rgba(0,0,0,0.5)',
-      }} />
-      <span aria-hidden className="absolute" style={{
-        top: '50%', left: 3, right: 3, height: 2, marginTop: -1,
-        background: '#5C3F22', boxShadow: '0 0 0 1px rgba(0,0,0,0.5)',
-      }} />
     </div>
   )
-})
+}
 
 // ─── The dispatcher ──────────────────────────────────────────────────────────
 
@@ -72,7 +72,7 @@ export default function ItemPreview({ item, size = 76, name = 'YOU' }: {
   /** Whose name a frame should wrap. */
   name?: string
 }) {
-  if (item.kind === 'weather') return <WeatherThumb item={item as WeatherItem} width={size} />
+  if (item.kind === 'machine') return <MachinePartThumb item={item as MachinePartItem} width={size} />
   if (item.kind === 'privilege') {
     return <PowerArt id={(item as PrivilegeItem).privilege} width={Math.round(size * 0.6)} />
   }

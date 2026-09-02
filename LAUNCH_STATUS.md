@@ -133,11 +133,19 @@ display names moved. `SideId 'pepsi'` → `'cola'` WAS safe: in-memory only.
 
 ## Migrations — TWO QUEUED
 
-**`supabase/migration_room_weather.sql`** — paste this too. Adds
-`eren_stats.room_weather`, widens the shop's `kind` check to allow
-`'weather'`, and seeds the ten skies. Until it lands, the Lab's weather
-machine shows every sky locked and every window stays clear — nothing
-breaks, nothing is buyable.
+**`supabase/migration_weather_machine.sql`** — paste this. It SUPERSEDES
+`migration_room_weather.sql`, which no longer needs pasting on its own: the
+new file re-asserts `eren_stats.room_weather` and the shop's `kind` check
+itself, so it is safe whether or not the older one ever landed. It also seeds
+the four machine parts (`wxm_coil`/`wxm_gauge`/`wxm_dish`/`wxm_lever`,
+60 trophies the lot), teaches `purchase_trophy_item` to refuse a part the
+household already owns, and clears `room_weather` so no window is showing a
+sky a dead machine could not have made. Until it lands, the Lab's machine
+shows 0/4 and its parts cannot be bought — nothing breaks.
+
+The ten old `wx_*` sky rows are deliberately left in `trophy_shop_items`:
+`user_trophy_items` cascades on delete, so dropping them would destroy real
+ownership rows. Orphaned price rows are invisible to the client.
 
 
 Applied 2026-08-28/29: `kiosk_shifts`, `household_takeover_fix`,

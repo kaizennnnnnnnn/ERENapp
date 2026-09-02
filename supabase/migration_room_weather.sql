@@ -1,4 +1,14 @@
 -- ============================================================
+--  SUPERSEDED by migration_weather_machine.sql. DO NOT PASTE THIS FILE.
+--
+--  Skies are no longer sold one at a time; the four parts of the machine in
+--  the Lab are. The newer file re-asserts everything below that still matters
+--  (the room_weather column, the kind check) so this one has nothing left to
+--  add — and re-adding section 2 would now FAIL, because it rebuilds the kind
+--  constraint without 'machine' while machine rows exist. Kept only as the
+--  record of where room_weather came from.
+-- ============================================================
+--
 --  ROOM WEATHER  —  the sky outside each room's window
 --
 --  Replaces the room-decor shelf, which is gone from the client. Decor asked

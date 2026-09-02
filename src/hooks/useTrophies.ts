@@ -49,6 +49,16 @@ export interface TrophiesState {
   /** Quantity I own of one item. 0 = not owned. */
   qty(itemId: string): number
   mine(itemId: string): boolean
+  /**
+   * Does ANYONE in this household own it — me or my partner.
+   *
+   * Not a convenience wrapper on `mine`: the weather machine is one machine in
+   * one house, built out of four parts either of us can pay for. Asking `mine`
+   * there would mean she buys the dish and it is still missing from his lab.
+   * `owned` already carries the partner's rows (see refresh), so this costs
+   * nothing extra.
+   */
+  ours(itemId: string): boolean
   buy(itemId: string): Promise<BuyResult>
   /** Consume one of a stackable item I own. Returns false if I had none. */
   spendOne(itemId: string): Promise<boolean>
@@ -124,6 +134,9 @@ function useTrophiesImpl(): TrophiesState {
 
   const mine = useCallback((itemId: string) => qty(itemId) > 0, [qty])
 
+  const ours = useCallback((itemId: string) =>
+    owned.some(o => o.itemId === itemId && o.quantity > 0), [owned])
+
   const buy = useCallback(async (itemId: string): Promise<BuyResult> => {
     if (!user?.id) return { ok: false, reason: 'offline' }
     const { data, error } = await supabase.rpc('purchase_trophy_item', { p_item_id: itemId })
@@ -175,7 +188,7 @@ function useTrophiesImpl(): TrophiesState {
     return true
   }, [user?.id, qty, refresh]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { loaded, balance, owned, qty, mine, buy, spendOne, refresh }
+  return { loaded, balance, owned, qty, mine, ours, buy, spendOne, refresh }
 }
 
 export function TrophiesProvider({ children }: { children: ReactNode }) {

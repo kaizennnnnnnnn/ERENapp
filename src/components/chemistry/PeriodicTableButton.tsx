@@ -1,15 +1,19 @@
 'use client'
 
-// The chemistry room's bottom action button. A lime "reagent" slab dressed
-// up with chemistry props: a real periodic-table cell on the left (Er · 68,
-// Erbium — and a quiet wink at Eren), a two-line pixel label, and a bubbling
-// Erlenmeyer flask fizzing on the right. Gold rivets at the inner corners
-// give it the same "premium card" cue as the reward road / HUD surfaces.
+// The chemistry room's study button. A lime "reagent" slab dressed up with
+// chemistry props: a real periodic-table cell on the left (Er · 68, Erbium —
+// and a quiet wink at Eren), a two-line pixel label, and a fizz of bubbles
+// rising off the cell.
+//
+// HALF-WIDTH BY CONSTRUCTION. It shares one row with EREN'S BREW, so every
+// measurement here is sized for ~144px — the narrowest it can be on a 360px
+// phone. That is what retired the big bubbling flask that used to sit on the
+// right: at half width the label had nowhere to go, and a flask nobody can
+// read is just an expensive 30px. The fizz moved onto the cell instead, which
+// is where it was coming from anyway.
 //
 // Press / hover / shadow states + the bubble and tile keyframes live in
 // globals.css (`.chem-table-btn`, `chemBubbleRise`, `chemTileBob`).
-
-import { IconFlask } from '@/components/PixelIcons'
 
 interface Props {
   onClick: () => void
@@ -25,20 +29,20 @@ const RIVET = '#FCD34D' // gold corner studs
 
 const PIXEL_FONT = '"Press Start 2P", monospace'
 
-// Bubbles rising out of the flask mouth. Staggered so the fizz never pulses
-// in lockstep. left = px offset from the flask's centre.
+// Bubbles fizzing off the top of the element cell. Staggered so it never
+// pulses in lockstep. `left` = px offset from the cell's centre.
 const BUBBLES = [
-  { left: -4, size: 4, delay: '0s', dur: '1.8s' },
-  { left: 2, size: 3, delay: '0.65s', dur: '2.1s' },
-  { left: 6, size: 5, delay: '1.15s', dur: '1.55s' },
+  { left: -8, size: 4, delay: '0s', dur: '1.8s' },
+  { left: 0, size: 3, delay: '0.65s', dur: '2.1s' },
+  { left: 7, size: 5, delay: '1.15s', dur: '1.55s' },
 ]
 
 // Gold rivets tucked into the four inner corners.
 const RIVETS = [
-  { left: 6, top: 6 },
-  { right: 6, top: 6 },
-  { left: 6, bottom: 6 },
-  { right: 6, bottom: 6 },
+  { left: 5, top: 5 },
+  { right: 5, top: 5 },
+  { left: 5, bottom: 5 },
+  { right: 5, bottom: 5 },
 ]
 
 export default function PeriodicTableButton({ onClick }: Props) {
@@ -47,12 +51,12 @@ export default function PeriodicTableButton({ onClick }: Props) {
       type="button"
       onClick={onClick}
       aria-label="Open the periodic table"
-      className="chem-table-btn relative w-full max-w-xs"
+      className="chem-table-btn relative flex-1 min-w-0"
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 12,
-        padding: '11px 16px',
+        gap: 8,
+        padding: '9px 10px',
         background: `linear-gradient(180deg, ${LIME_HI} 0%, ${LIME_MID} 48%, ${LIME_LO} 100%)`,
         border: `3px solid ${INK}`,
         borderRadius: 9,
@@ -75,45 +79,18 @@ export default function PeriodicTableButton({ onClick }: Props) {
         />
       ))}
 
-      {/* ── Element tile (left) — a real periodic cell ── */}
-      <ElementTile />
-
-      {/* ── Label (center) ── */}
-      <span
-        style={{
-          flex: 1,
-          textAlign: 'center',
-          fontFamily: PIXEL_FONT,
-          fontSize: 9,
-          lineHeight: 1.6,
-          letterSpacing: 1,
-          textShadow: `0 2px 0 ${INK}`,
-        }}
-      >
-        PERIODIC
-        <br />
-        TABLE
-      </span>
-
-      {/* ── Bubbling flask (right) ── */}
+      {/* ── Element cell + its fizz (left) ── */}
       <span
         aria-hidden
-        style={{
-          position: 'relative',
-          flexShrink: 0,
-          width: 30,
-          height: 34,
-          display: 'inline-flex',
-          alignItems: 'flex-end',
-          justifyContent: 'center',
-        }}
+        style={{ position: 'relative', flexShrink: 0, width: 30, height: 34 }}
       >
+        <ElementTile />
         {BUBBLES.map((b, i) => (
           <span
             key={i}
             style={{
               position: 'absolute',
-              top: 1,
+              top: -1,
               left: `calc(50% + ${b.left}px)`,
               width: b.size,
               height: b.size,
@@ -124,7 +101,24 @@ export default function PeriodicTableButton({ onClick }: Props) {
             }}
           />
         ))}
-        <IconFlask size={30} />
+      </span>
+
+      {/* ── Label (fills the rest) ── */}
+      <span
+        style={{
+          flex: 1,
+          minWidth: 0,
+          textAlign: 'center',
+          fontFamily: PIXEL_FONT,
+          fontSize: 8,
+          lineHeight: 1.6,
+          letterSpacing: 0.5,
+          textShadow: `0 2px 0 ${INK}`,
+        }}
+      >
+        PERIODIC
+        <br />
+        TABLE
       </span>
     </button>
   )
@@ -138,10 +132,8 @@ function ElementTile() {
     <span
       aria-hidden
       style={{
-        position: 'relative',
-        flexShrink: 0,
-        width: 36,
-        height: 40,
+        position: 'absolute',
+        inset: 0,
         display: 'block',
         background: 'linear-gradient(180deg, #FBFFE8 0%, #ECFCCB 100%)',
         border: `2px solid ${INK}`,
@@ -171,7 +163,7 @@ function ElementTile() {
           justifyContent: 'center',
           paddingTop: 4,
           fontFamily: PIXEL_FONT,
-          fontSize: 15,
+          fontSize: 13,
           lineHeight: 1,
           color: INK,
         }}
@@ -182,10 +174,10 @@ function ElementTile() {
       <span
         style={{
           position: 'absolute',
-          top: 4,
-          left: 4,
+          top: 3,
+          left: 3,
           fontFamily: PIXEL_FONT,
-          fontSize: 6,
+          fontSize: 5,
           lineHeight: 1,
           color: LIME_LO,
         }}
@@ -196,8 +188,8 @@ function ElementTile() {
       <span
         style={{
           position: 'absolute',
-          bottom: 4,
-          right: 4,
+          bottom: 3,
+          right: 3,
           width: 4,
           height: 4,
           background: '#818cf8',
