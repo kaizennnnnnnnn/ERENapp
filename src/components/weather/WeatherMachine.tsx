@@ -141,6 +141,8 @@ export function BuildScreen({ machine, onBuy }: {
   onBuy(part: MachinePart): void
 }) {
   const scale = 1.55
+  // The tag's overhang above the machine's box, scaled up with it.
+  const TAG_ROOM = Math.ceil(26 * scale)
 
   return (
     <>
@@ -148,11 +150,17 @@ export function BuildScreen({ machine, onBuy }: {
 
         {/* The machine as it actually stands right now, blown up. Seeing the
             thing you are paying for is the whole pitch. */}
+        {/* TAG_ROOM is not padding-for-looks. The prop hangs its WEATHER n/4
+            tag ABOVE its own box — up to 26px, once a dish pushes it clear —
+            and this hero sits at the very top of an `overflow-y-auto` column.
+            Content that overflows the block-start edge of a scroll box is
+            clipped and cannot be scrolled back to, so without room reserved
+            here the tag is simply sliced off. */}
         <div className="relative mx-auto flex-shrink-0" style={{
-          width: MACHINE_W * scale, height: MACHINE_H * scale,
+          width: MACHINE_W * scale, height: MACHINE_H * scale + TAG_ROOM,
         }}>
           <div style={{
-            position: 'absolute', left: '50%', top: 0,
+            position: 'absolute', left: '50%', top: TAG_ROOM,
             width: MACHINE_W, height: MACHINE_H,
             transform: `translateX(-50%) scale(${scale})`,
             transformOrigin: 'top center',

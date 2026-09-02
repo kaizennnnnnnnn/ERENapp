@@ -115,8 +115,9 @@ export default function ChemistryScene(_props: Props) {
           It used to be a third slab in the row below. A machine is not a menu
           item, and the row could not afford it: standing it on the floorboards
           gave the room back ~110px and put the thing you tap where the thing
-          actually is. Mounted AFTER Eren so document order can never sort it
-          in front of him; it carries its own zIndex 8 either way. */}
+          actually is. It carries its own zIndex (11, over Eren) and the reason
+          is written on it — Eren's hit box is a square with wide transparent
+          margins, and underneath it half this machine was untappable. */}
       <WeatherMachineProp onOpen={() => { setWeatherOpen(true) }} />
 
       {/* ══ BOTTOM ACTION BUTTONS ══
@@ -306,7 +307,13 @@ function MissionChip({ Icon, title, reward, done, accent, skin }: {
   return (
     <div
       style={{
-        pointerEvents: 'auto',
+        // No pointerEvents:'auto' here on purpose. A chip has no onClick — only
+        // the header above it toggles — so switching it on bought nothing and
+        // cost real estate: on a short viewport these chips reach down over the
+        // weather machine, and an interactive div with no handler turns that
+        // overlap into a dead zone that swallows taps meant for the machine.
+        // The container is pointer-events-none, so leaving it alone lets taps
+        // fall through to whatever is actually underneath.
         display: 'flex', alignItems: 'center', gap: 7,
         padding: '6px 8px 6px 6px',
         background: done ? accent : skin.panel,

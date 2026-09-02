@@ -100,11 +100,21 @@ export default memo(function WeatherMachineProp({ onOpen }: { onOpen(): void }) 
         background: 'none',
         border: 0,
         padding: 0,
-        // Explicit, and deliberately below Eren's 10: RoomWeather sits at 0 and
-        // redraws the window's own pixels, so a prop with no z-index of its own
-        // would be sorted against it by document order and could end up behind
-        // a copy of the wall.
-        zIndex: 8,
+        // ABOVE Eren's 10, and that is not a paint decision — it is a TAP one.
+        // BlinkingEren draws into a SQUARE box with the portrait sprite
+        // object-fit:contain inside it, so at size 230 the cat is 125px wide
+        // with 52px of transparent pad on each side; PetTarget wraps that in a
+        // bare clickable div that shrink-wraps to the square, so the pad
+        // hit-tests. Under it, 53 of this prop's 100px were dead on a 360px
+        // phone — the lever, the gauge and half the tag among them.
+        //
+        // Nothing is lost by going over him: the two boxes only overlap where
+        // his sprite is transparent (the drawn cat starts 69px into its own
+        // box) until the viewport is under ~324px, and there by 2px. It must
+        // still be EXPLICIT and non-zero, because RoomWeather sits at 0 and
+        // redraws the window's own pixels — an auto z-index would be sorted
+        // against that by document order and could end up behind the wall.
+        zIndex: 11,
       }}
     >
       <MachineArt
