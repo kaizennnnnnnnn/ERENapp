@@ -26,6 +26,7 @@ import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import DonePlayingButton from '@/components/playroom/DonePlayingButton'
 import SegmentMeter, { type MeterPalette } from '@/components/care/SegmentMeter'
 import CareToast from '@/components/care/CareToast'
+import RoomWeather from '@/components/weather/RoomWeather'
 
 // ENERGY gauge palettes — the lit colour tracks energy level (violet when
 // healthy, gold mid, red when low). The recessed channel is a deep plum so the
@@ -188,6 +189,13 @@ export default function PlayScene({ onClose }: Props) {
       {/* ══ BACKGROUND IMAGE ══ */}
       <div className="absolute inset-0" style={{ backgroundImage: `url(${isDark ? '/play.png' : '/playroom.png'})`, backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
+      {/* Whatever sky the household hung outside this window. Layer 1: over
+          the room art, under every prop, character and sheet in here. It has
+          to live INSIDE the scene — the scene root is its own stacking
+          context, so a sibling of it can only be over the whole room or under
+          it, and "over" put the window on top of the fridge shop. */}
+      <RoomWeather room="play" dark={isDark} />
+
             {/* ══ EREN ══ (hidden while sleeping in the bedroom).
           The flip container faces him toward the ball; the pounce hop rides
           an inner wrapper so its forward --tx is mirrored toward the ball by
@@ -273,7 +281,7 @@ export default function PlayScene({ onClose }: Props) {
       <button onClick={e => { e.stopPropagation(); playSound('ui_tap'); setShowLeaderboard(true) }}
         className="absolute right-4 z-50 active:translate-y-[2px] transition-transform"
         style={{ top: 'calc(var(--safe-top) + 128px)' }}>
-        <div className="relative flex items-center gap-2 px-3 py-2 overflow-hidden"
+        <div className="relative flex items-center gap-1.5 px-2.5 py-1.5 overflow-hidden"
           style={{
             background: 'linear-gradient(180deg, #FBBF24 0%, #F59E0B 55%, #B45309 100%)',
             borderRadius: 4,
@@ -287,14 +295,14 @@ export default function PlayScene({ onClose }: Props) {
           <div style={{ position: 'absolute', bottom: 2, right: 2, width: 3, height: 3, background: '#FFFFFF', boxShadow: '0 0 2px #FFFFFF' }} />
           <div className="relative flex items-center justify-center"
             style={{
-              width: 22, height: 22,
+              width: 18, height: 18,
               background: 'linear-gradient(135deg, rgba(0,0,0,0.25), rgba(0,0,0,0.15))',
               border: '1px solid rgba(255,255,255,0.3)',
               borderRadius: 3,
             }}>
-            <IconCrown size={14} />
+            <IconCrown size={12} />
           </div>
-          <span className="font-pixel text-white" style={{ fontSize: 8, letterSpacing: 1, textShadow: '1px 1px 0 #78350F' }}>
+          <span className="font-pixel text-white" style={{ fontSize: 7, letterSpacing: 0.6, textShadow: '1px 1px 0 #78350F' }}>
             HIGH SCORES
           </span>
         </div>
@@ -305,7 +313,7 @@ export default function PlayScene({ onClose }: Props) {
       <button onClick={e => { e.stopPropagation(); playSound('ui_tap'); router.push('/games'); setTimeout(onClose, 400) }}
         className="absolute right-4 z-50 active:translate-y-[2px] transition-transform group"
         style={{ top: 'calc(var(--safe-top) + 168px)' }}>
-        <div className="relative flex items-center gap-2 px-3 py-2 overflow-hidden"
+        <div className="relative flex items-center gap-1.5 px-2.5 py-1.5 overflow-hidden"
           style={{
             background: 'linear-gradient(180deg, #A855F7 0%, #7C3AED 55%, #5B21B6 100%)',
             borderRadius: 4,
@@ -327,18 +335,18 @@ export default function PlayScene({ onClose }: Props) {
           {/* Icon tile */}
           <div className="relative flex items-center justify-center"
             style={{
-              width: 22, height: 22,
+              width: 18, height: 18,
               background: 'linear-gradient(135deg, rgba(0,0,0,0.25), rgba(0,0,0,0.15))',
               border: '1px solid rgba(255,255,255,0.3)',
               borderRadius: 3,
             }}>
-            <IconController size={16} />
+            <IconController size={13} />
           </div>
 
           <div className="relative flex items-center gap-1">
-            <span className="font-pixel text-white" style={{ fontSize: 8, letterSpacing: 1, textShadow: '1px 1px 0 #2E0F5C' }}>GAMES</span>
+            <span className="font-pixel text-white" style={{ fontSize: 7, letterSpacing: 0.6, textShadow: '1px 1px 0 #2E0F5C' }}>GAMES</span>
             <div style={{ animation: 'gamesStar 1.4s ease-in-out infinite' }}>
-              <IconStar size={10} />
+              <IconStar size={9} />
             </div>
           </div>
         </div>

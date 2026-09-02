@@ -28,6 +28,7 @@ import { playSound } from '@/lib/sounds'
 import RoomComposer from '@/components/talk/RoomComposer'
 import ErenSpeechBubble from '@/components/talk/ErenSpeechBubble'
 import TalkSurface from '@/components/talk/TalkSurface'
+import RoomWeather from '@/components/weather/RoomWeather'
 
 interface Props { onClose: () => void }
 
@@ -92,6 +93,13 @@ function Attic(_props: Props) {
         userSelect: 'none',
         pointerEvents: 'none',
       }} />
+
+      {/* Whatever sky the household hung outside this window. Layer 1: over
+          the room art, under every prop, character and sheet in here. It has
+          to live INSIDE the scene — the scene root is its own stacking
+          context, so a sibling of it can only be over the whole room or under
+          it, and "over" put the window on top of the fridge shop. */}
+      <RoomWeather room="talk" dark={isDark} />
 
       {/* ══ DONUT ══ on its rope, under Eren's z so a hard swing passes
           behind him rather than across his face. */}

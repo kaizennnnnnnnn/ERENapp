@@ -43,6 +43,7 @@ import FoodStatsCard, { type FoodStatItem } from '@/components/care/FoodStatsCar
 import CareToast from '@/components/care/CareToast'
 import { useLongPress } from '@/hooks/useLongPress'
 import { IconClose, IconChevronLeft, IconChevronRight } from '@/components/PixelIcons'
+import RoomWeather from '@/components/weather/RoomWeather'
 
 interface Props { onClose: () => void }
 
@@ -618,6 +619,13 @@ export default function FeedScene({ onClose }: Props) {
 
       {/* ══ BACKGROUND IMAGE ══ */}
       <div className="absolute inset-0" style={{ backgroundImage: `url(${isDark ? '/KitchenDark.png' : '/kitchen.png'})`, backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
+
+      {/* Whatever sky the household hung outside this window. Layer 1: over
+          the room art, under every prop, character and sheet in here. It has
+          to live INSIDE the scene — the scene root is its own stacking
+          context, so a sibling of it can only be over the whole room or under
+          it, and "over" put the window on top of the fridge shop. */}
+      <RoomWeather room="feed" dark={isDark} />
 
       {/* ══ KETTLE STEAM ══
         The kettle sits on the left burner of the stove. In the source kitchen.png

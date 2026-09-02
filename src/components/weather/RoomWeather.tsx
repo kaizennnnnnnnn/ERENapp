@@ -37,16 +37,18 @@ import { ROOM_WINDOWS } from '@/lib/roomWindows'
 import { weatherDef, type WeatherId } from '@/lib/weather'
 import WeatherFx from './WeatherFx'
 
-/** Just above the scene root (z-40), below the care HUD and any sheet. */
-const Z_WEATHER = 41
-
-export default memo(function RoomWeather({ room, dark, z = Z_WEATHER }: {
+export default memo(function RoomWeather({ room, dark, z = 0 }: {
   room: string
   /** The scene is showing its night art, so the cut must come from that. */
   dark?: boolean
-  /** Override the layer. The home screen stacks its own room from zero, so
-   *  the weather goes just above the wallpaper there and Eren stays in front
-   *  of the glass rather than behind it. */
+  /**
+   * Stacking level inside the room that mounts it. Zero on purpose, and it
+   * matters: a positive z-index would paint this above every prop in the room
+   * that has no z-index of its own, and since the layer redraws the window's
+   * own pixels, anything standing in front of the glass would vanish behind a
+   * copy of it. At zero it sorts by document order, so mounting it directly
+   * after the wallpaper puts it over the wall and under everything else.
+   */
   z?: number
 }) {
   const { profile } = useAuth()

@@ -600,7 +600,7 @@ export default function HomePage() {
 
         {/* Whatever the household hung outside the living-room window. Layer 1
             so it is over the wallpaper and under Eren. */}
-        <RoomWeather room="home" dark={isDark} z={1} />
+        <RoomWeather room="home" dark={isDark} />
 
         {mood === 'happy' && (
           <>

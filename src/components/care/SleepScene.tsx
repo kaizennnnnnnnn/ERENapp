@@ -24,6 +24,7 @@ import { preloadImages } from '@/lib/preloadImages'
 import SleepButton from '@/components/bedroom/SleepButton'
 import SegmentMeter, { type MeterPalette } from '@/components/care/SegmentMeter'
 import CareToast from '@/components/care/CareToast'
+import RoomWeather from '@/components/weather/RoomWeather'
 
 // SLEEP QUALITY gauge palettes — moonlit indigo when restful, lavender mid,
 // red when poor. The channel is a deep night indigo to read against the dark
@@ -127,6 +128,13 @@ export default function SleepScene({ onClose }: Props) {
 
       {/* ══ BACKGROUND IMAGE ══ */}
       <div className="absolute inset-0" style={{ backgroundImage: 'url(/bedroom.png)', backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
+
+      {/* Whatever sky the household hung outside this window. Layer 1: over
+          the room art, under every prop, character and sheet in here. It has
+          to live INSIDE the scene — the scene root is its own stacking
+          context, so a sibling of it can only be over the whole room or under
+          it, and "over" put the window on top of the fridge shop. */}
+      <RoomWeather room="sleep" dark={true} />
 
       {/* ══ STAR GLOWS ══ */}
       {[
