@@ -69,21 +69,32 @@ while a curtain reaches the edge of the crop and a tree stands on the frame,
 so neither is ever a hole. The size cap keeps a whole treetop from counting
 as one.
 
-Finally the hole's edge is FEATHERED over `erode` pixels. The overlay is
-drawn smaller than it is painted, and downscaling an alpha edge blends across
-it -- output pixels straddling a hard boundary come out part-transparent, so a
-hairline of sky bleeds onto the frame beside every hole. Along a short mullion
-nobody notices; along the living room's curtain, which meets the glass on one
-long diagonal, it read as a line ruled down the fabric.
+Finally the hole's edge is MATTED. The art is not hard-edged pixel art: where
+the painter put frame against sky the boundary pixels are a blend of the two,
+and a flood can only ever say keep or cut about them. Kept whole, they are a
+hairline of daylight sky welded to the frame, and the moment the sky behind
+them went dark they drew a pale outline round every pane. Cut whole, the frame
+loses a pixel and the weather laps onto the wood.
 
-So the hole is pulled in by `erode` pixels, and the ring that pull leaves
-behind is REPAINTED in the colour of the frame it borders, a little darker.
-Handing it back as it was painted does not work: those pixels are daylight
-sky, and the moment the sky behind them went dark they drew a pale outline
-round every pane. Taking the frame's own colour instead, the ring reads as the
-shadowed reveal where glass meets wood -- which is what a window has anyway --
-and the browser's blend at the edge now mixes wood with wood. Safe by
-construction, because no transparent pixel touches the crop border.
+Neither answer is right because the question is wrong: a blended pixel is not
+sky OR frame, it is a known FRACTION of each, and alpha is exactly the channel
+for saying so. So for every kept pixel within `feather` of the cut, take S =
+the mean of the sky beside it and F = the mean of the frame behind it, and read
+its own colour c as the mix it is:
+
+    c = aF + (1-a)S   =>   a = (c-S).(F-S) / |F-S|^2
+
+That a is the pixel's alpha, and unpremultiplying gives back the frame colour
+that was mixed into it. A pixel the painter left pure frame solves to a = 1 and
+is written back untouched, so the matte is self-limiting -- it costs nothing to
+run it two pixels deep, and where frame and sky are the same colour (|F-S| tiny,
+or a mullion so thin it has no interior) it declines to answer and keeps the
+pixel. Bias preserved.
+
+This replaces an earlier attempt that pulled the hole in two pixels and
+repainted the ring in the frame's colour, darkened. It traded the pale outline
+for a worse one: against the living room's white curtain, a ring of 82%-grey is
+a line ruled down the fabric, which is what it looked like.
 
 Bias: when in doubt KEEP the pixel. A pixel wrongly kept hides a raindrop
 nobody was looking at; a pixel wrongly dropped puts weather on the wallpaper.
@@ -111,7 +122,9 @@ DEFAULT_JSON = os.path.join(ROOT, 'scripts', 'window_seeds.json')
 # images stale-while-revalidate, so a replaced file at the same path keeps
 # rendering the old one for a visit or two -- and an old CROPPED overlay drawn
 # by the current full-size layout squeezes the whole room into the window.
-ASSET_V = 2
+#   2  full-size overlays, enclosed cloud shreds filled
+#   3  hole edges matted instead of eroded and repainted
+ASSET_V = 3
 
 
 def luma(c):
@@ -137,6 +150,84 @@ def leafy(c, margin):
             and c[1] > c[0] + margin and c[1] > c[2] + margin)
 
 
+# Below this, frame and sky are too close in colour for the mix to be read off
+# reliably -- the projection starts amplifying dither instead of measuring
+# coverage. Euclidean in RGB.
+SEPARABLE = 30
+
+
+def matte(px, cw, ch, sky, feather):
+    """Solve the alpha of every kept pixel the flood's edge runs through.
+
+    Returns {(x, y): RGBA} for the pixels that turned out to be a mix. A pixel
+    that solves to fully opaque is left out of the dict entirely, so the frame
+    the artist painted is returned byte for byte wherever it is really frame.
+    """
+    if feather <= 0:
+        return {}
+
+    # How far each kept pixel is from the cut, 8-connected, up to `feather`.
+    # Anything further is interior: the frame's own colour, uncontaminated.
+    far = feather + 1
+    d = [[0 if sky[x][y] else far for y in range(ch)] for x in range(cw)]
+    front = [(x, y) for x in range(cw) for y in range(ch) if sky[x][y]]
+    for step in range(1, feather + 1):
+        nxt = []
+        for x, y in front:
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < cw and 0 <= ny < ch and d[nx][ny] == far:
+                        d[nx][ny] = step
+                        nxt.append((nx, ny))
+        front = nxt
+
+    r = feather + 1
+    out = {}
+    for x in range(cw):
+        for y in range(ch):
+            if not 1 <= d[x][y] <= feather:
+                continue
+            s, sn, f, fn = [0, 0, 0], 0, [0, 0, 0], 0
+            for nx in range(max(0, x - r), min(cw, x + r + 1)):
+                for ny in range(max(0, y - r), min(ch, y + r + 1)):
+                    c = px[nx, ny]
+                    if d[nx][ny] == 0:
+                        s[0] += c[0]; s[1] += c[1]; s[2] += c[2]; sn += 1
+                    elif d[nx][ny] == far:
+                        f[0] += c[0]; f[1] += c[1]; f[2] += c[2]; fn += 1
+            # No sky beside it, or no frame behind it (a mullion one pixel
+            # wide). Nothing to separate, so keep the pixel as painted.
+            if not sn or not fn:
+                continue
+            S = [v / sn for v in s]
+            F = [v / fn for v in f]
+            df = [F[i] - S[i] for i in range(3)]
+            den = df[0] ** 2 + df[1] ** 2 + df[2] ** 2
+            if den < SEPARABLE ** 2:
+                continue
+            c = px[x, y]
+            a = sum((c[i] - S[i]) * df[i] for i in range(3)) / den
+            a = 0.0 if a < 0 else (1.0 if a > 1 else a)
+            if a > 0.995:
+                continue                       # pure frame -- leave it alone
+            # Unpremultiply: c = aF + (1-a)S, so the frame colour mixed in is
+            # (c - (1-a)S) / a. Near-zero alpha makes that meaningless, and the
+            # neighbourhood mean is the better estimate there.
+            if a < 0.02:
+                col = F
+            else:
+                col = [(c[i] - (1 - a) * S[i]) / a for i in range(3)]
+            # Floored at 1, which is invisible but keeps alpha==0 meaning
+            # exactly "the flood called this sky". The night pass is
+            # intersected against the day flood, so without the floor a pixel
+            # the day kept at 1% could still be punched right through after
+            # dark, and the intersection would no longer be a guarantee.
+            out[(x, y)] = tuple(
+                min(255, max(0, round(v))) for v in col) + (max(1, round(255 * a)),)
+    return out
+
+
 def cut(room, spec, outdir, shots, art=None, suffix='', only=None):
     im = Image.open(os.path.join(PUB, art or spec['art'])).convert('RGBA')
     W, H = im.size
@@ -152,7 +243,7 @@ def cut(room, spec, outdir, shots, art=None, suffix='', only=None):
     key_drop = spec.get('keyDrop', 55)
     cool_min = spec.get('coolMin')
     green_guard = spec.get('greenGuard', 10)
-    erode = spec.get('erode', 2)
+    feather = spec.get('feather', 2)
     fill_holes = spec.get('fillHoles', 120)
     night = spec.get('night', False)
 
@@ -239,47 +330,8 @@ def cut(room, spec, outdir, shots, art=None, suffix='', only=None):
                     for x, y in comp:
                         sky[x][y] = True
 
-    # What the flood decided, before the safety margin. The night pass is
-    # intersected against THIS, not against the eroded copy, or the margin
-    # would be taken twice and the night holes would close up.
     found = sky
-
-    # Pull every hole in, remembering which ring each pixel was peeled off in
-    # so the edge can be ramped rather than cliffed.
-    ring = [[0] * ch for _ in range(cw)]
-    for step in range(1, erode + 1):
-        shrunk = [[False] * ch for _ in range(cw)]
-        for x in range(cw):
-            for y in range(ch):
-                if not sky[x][y]:
-                    continue
-                if all(0 <= x + dx < cw and 0 <= y + dy < ch and sky[x + dx][y + dy]
-                       for dx in (-1, 0, 1) for dy in (-1, 0, 1)):
-                    shrunk[x][y] = True
-                else:
-                    ring[x][y] = step
-        sky = shrunk
-
-    # Repaint the ring from the outside in: layer 1 borders the frame, layer 2
-    # borders layer 1. Each takes the mean of the neighbours already settled.
-    for step in range(1, erode + 1):
-        for x in range(cw):
-            for y in range(ch):
-                if ring[x][y] != step:
-                    continue
-                acc, cnt = [0, 0, 0], 0
-                for dx in (-1, 0, 1):
-                    for dy in (-1, 0, 1):
-                        nx, ny = x + dx, y + dy
-                        if not (0 <= nx < cw and 0 <= ny < ch) or sky[nx][ny]:
-                            continue
-                        if ring[nx][ny] and ring[nx][ny] >= step:
-                            continue
-                        c = px[nx, ny]
-                        acc[0] += c[0]; acc[1] += c[1]; acc[2] += c[2]; cnt += 1
-                if cnt:
-                    px[x, y] = (round(acc[0] / cnt * 0.82), round(acc[1] / cnt * 0.82),
-                                round(acc[2] / cnt * 0.82), 255)
+    soft = matte(px, cw, ch, sky, feather)
 
     n = 0
     for x in range(cw):
@@ -288,6 +340,8 @@ def cut(room, spec, outdir, shots, art=None, suffix='', only=None):
                 r, g, b, _ = px[x, y]
                 px[x, y] = (r, g, b, 0)
                 n += 1
+    for (x, y), v in soft.items():
+        px[x, y] = v
 
     os.makedirs(outdir, exist_ok=True)
     full = Image.new('RGBA', (W, H), (0, 0, 0, 0))
@@ -304,7 +358,7 @@ def cut(room, spec, outdir, shots, art=None, suffix='', only=None):
     pct = 100.0 * n / (cw * ch)
     print(f'{room + suffix:16s} box={cw}x{ch} sky={pct:5.1f}% '
           f'tol={tol} seedTol={seed_tol} keyDrop={key_drop} coolMin={cool_min} '
-          f'green={green_guard} erode={erode} fill={fill_holes} night={night} '
+          f'green={green_guard} feather={feather} fill={fill_holes} night={night} '
           f'keep={len(spec.get("keep", []))} -> {room}{suffix}.png')
     return pct, (cw, ch), im.size, found
 
