@@ -39,8 +39,19 @@ export type BuyResult =
   | { ok: false; reason: 'insufficient' | 'already_owned' | 'unknown_item' | 'offline' }
 
 export interface TrophiesState {
-  /** False until the first successful read. Never treat 0 as "no trophies"
-   *  before this flips — an outage reads exactly like a poor player. */
+  /**
+   * False until the first successful read THAT KNEW WHO TO READ FOR. Never
+   * treat 0 as "no trophies" before this flips — an outage reads exactly like
+   * a poor player.
+   *
+   * It waits on the couple as well as the query, and that is not belt-and-
+   * braces: `refresh` reads `.in('user_id', [me, partner?.id])`, and the
+   * partner id arrives from useCouple a beat after mount. A read taken before
+   * then is a ME-ONLY read, so `ours()` would quietly answer as `mine()` — and
+   * anything the HOUSEHOLD owns but I did not buy would read as unowned. That
+   * is how a weather machine she paid for renders as a husk with live BUY
+   * buttons on parts already fitted.
+   */
   loaded: boolean
   balance: number
   /** Everything either of us owns. Ownership is per-user; visibility is
@@ -70,7 +81,7 @@ const TrophiesContext = createContext<TrophiesState | null>(null)
 function useTrophiesImpl(): TrophiesState {
   const supabase = createClient()
   const { user, profile } = useAuth()
-  const { partner } = useCouple()
+  const { partner, loading: coupleLoading } = useCouple()
 
   const [balance, setBalance] = useState(0)
   const [owned, setOwned] = useState<OwnedTrophyItem[]>([])
@@ -101,8 +112,18 @@ function useTrophiesImpl(): TrophiesState {
     setBalance(Number((bal.data as { trophies?: number } | null)?.trophies ?? 0))
     setOwned(((items.data ?? []) as { user_id: string; item_id: string; quantity: number }[])
       .map(r => ({ userId: r.user_id, itemId: r.item_id, quantity: r.quantity })))
-    setLoaded(true)
-  }, [user?.id, partner?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+    // Deliberately NOT set while the couple is still resolving — see `loaded`
+    // on TrophiesState. `coupleLoading` is in the dep list below so this
+    // re-runs the moment it settles, including for a solo household, where the
+    // partner id never changes and nothing else would wake it.
+    //
+    // The household_id check is not redundant: useCouple.fetchAll bails at the
+    // top when there is no household and never clears its own `loading`, so
+    // waiting on it unconditionally would leave somebody who has left their
+    // household with a wallet that says "—" forever. No household means no
+    // partner to wait for, which is exactly "settled".
+    if (!coupleLoading || !profile?.household_id) setLoaded(true)
+  }, [user?.id, partner?.id, coupleLoading, profile?.household_id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { refresh() }, [refresh])
 

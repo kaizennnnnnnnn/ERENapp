@@ -14,24 +14,22 @@
 //    share. `ours` is deliberately un-filtered by user id — she buys the dish,
 //    he walks into a lab with a dish in it.
 //
-// 2. `loaded` IS NOT A DETAIL, AND THE WALLET'S OWN FLAG IS NOT ENOUGH. The
-//    wallet starts empty and STAYS empty through a Supabase 503 (useTrophies
-//    keeps its last good data and never flips `loaded`), so drawing "not built"
-//    off an unanswered read would rip a finished machine out of the room every
-//    time the project blips.
+// 2. `loaded` IS NOT A DETAIL. The wallet starts empty and STAYS empty through
+//    a Supabase 503 (useTrophies keeps its last good data and never flips
+//    `loaded`), so drawing "not built" off an unanswered read would rip a
+//    finished machine out of the room every time the project blips. And
+//    `loaded` deliberately also waits for the couple to settle, because the
+//    wallet's query is `.in('user_id', [me, partner?.id])` and a read taken
+//    before the partner id lands is a me-only read that would make `ours()`
+//    answer as `mine()` — see the note on TrophiesState.loaded, which is where
+//    that invariant is enforced for every consumer, not just this one.
 //
-//    Worse, and subtler: useTrophies fetches `.in('user_id', [me, partner?.id])`
-//    and the partner id arrives from useCouple a beat LATER. The first read is
-//    therefore me-only, and it sets `loaded` — so for that beat `ours()` is
-//    really `mine()`, and a machine SHE built reads as a husk with four live BUY
-//    buttons on parts the household has already paid for. So this hook waits
-//    for the couple to settle too. Consumers must treat `!loaded` as "don't know
-//    yet" and hold what they have — and must never allow a WRITE on it.
+//    Consumers must treat `!loaded` as "don't know yet" and hold what they
+//    have — and must never allow a WRITE on it.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useMemo } from 'react'
 import { useTrophies } from './useTrophies'
-import { useCouple } from './useCouple'
 import {
   MACHINE_PARTS, machineBuilt, machineRemaining, partsInstalled, partFitted,
   type MachinePartId,
@@ -53,9 +51,7 @@ export interface WeatherMachineState {
 
 export function useWeatherMachine(): WeatherMachineState {
   const trophies = useTrophies()
-  const { loading: coupleLoading } = useCouple()
-  const { owned, ours, loaded: walletLoaded } = trophies
-  const loaded = walletLoaded && !coupleLoading
+  const { owned, ours, loaded } = trophies
 
   return useMemo(() => {
     const byPart = new Map(MACHINE_PARTS.map(p => [p.id, p.itemId]))
