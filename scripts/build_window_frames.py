@@ -51,6 +51,16 @@ room from the same camera, the daylight cut, where colour separation is easy,
 is the authority on where the glass IS, and the night pass only ever narrows
 it.
 
+Finally the transparent region is ERODED by `erode` pixels. The cut is a
+348-or-so pixel PNG drawn at about half that on a phone, and downscaling an
+alpha edge feathers it -- output pixels straddling the boundary come out
+part-transparent, so a hairline of sky bleeds onto the frame beside every
+hole. Along a short mullion nobody notices; along the living room's curtain,
+which meets the glass on one long diagonal, it reads as a line drawn down the
+fabric. Pulling the hole in by two pixels puts the feathering back over
+pixels that were sky anyway. Safe by construction, because no transparent
+pixel touches the crop border.
+
 Bias: when in doubt KEEP the pixel. A pixel wrongly kept hides a raindrop
 nobody was looking at; a pixel wrongly dropped puts weather on the wallpaper.
 
@@ -112,6 +122,7 @@ def cut(room, spec, outdir, shots, art=None, suffix='', only=None):
     key_drop = spec.get('keyDrop', 55)
     cool_min = spec.get('coolMin')
     green_guard = spec.get('greenGuard', 10)
+    erode = spec.get('erode', 2)
     night = spec.get('night', False)
 
     # Painted-in walls the flood may not enter, in fractions of this crop.
@@ -165,11 +176,32 @@ def cut(room, spec, outdir, shots, art=None, suffix='', only=None):
             seed_of[(nx, ny)] = seed
             q.append((nx, ny))
 
+    if only is not None:
+        for x in range(cw):
+            for y in range(ch):
+                if not only[x][y]:
+                    sky[x][y] = False
+
+    # What the flood decided, before the safety margin. The night pass is
+    # intersected against THIS, not against the eroded copy, or the margin
+    # would be taken twice and the night holes would close up.
+    found = sky
+
+    # Pull every hole in, so the resampled alpha edge lands on former sky.
+    for _ in range(erode):
+        shrunk = [[False] * ch for _ in range(cw)]
+        for x in range(cw):
+            for y in range(ch):
+                if not sky[x][y]:
+                    continue
+                if all(0 <= x + dx < cw and 0 <= y + dy < ch and sky[x + dx][y + dy]
+                       for dx in (-1, 0, 1) for dy in (-1, 0, 1)):
+                    shrunk[x][y] = True
+        sky = shrunk
+
     n = 0
     for x in range(cw):
         for y in range(ch):
-            if only is not None and not only[x][y]:
-                sky[x][y] = False
             if sky[x][y]:
                 r, g, b, _ = px[x, y]
                 px[x, y] = (r, g, b, 0)
@@ -188,9 +220,9 @@ def cut(room, spec, outdir, shots, art=None, suffix='', only=None):
     pct = 100.0 * n / (cw * ch)
     print(f'{room + suffix:16s} box={cw}x{ch} sky={pct:5.1f}% '
           f'tol={tol} seedTol={seed_tol} keyDrop={key_drop} coolMin={cool_min} '
-          f'green={green_guard} night={night} keep={len(spec.get("keep", []))} '
-          f'-> {room}{suffix}.png')
-    return pct, (cw, ch), im.size, sky
+          f'green={green_guard} erode={erode} night={night} '
+          f'keep={len(spec.get("keep", []))} -> {room}{suffix}.png')
+    return pct, (cw, ch), im.size, found
 
 
 def main():

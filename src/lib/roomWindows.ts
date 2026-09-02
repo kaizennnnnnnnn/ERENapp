@@ -73,13 +73,6 @@ export const ROOM_WINDOWS: Record<string, RoomWindow> = {
     day: '/weather/talk.png',
     night: '/weather/talk_night.png',
   },
-  school: {
-    label: 'SCHOOL',
-    art: { w: 768, h: 1376 },
-    box: { l: 0.6836, t: 0.1919, w: 0.306, h: 0.3023 },
-    day: '/weather/school.png',
-    night: '/weather/school.png',
-  },
 }
 
 /** Every room the weather machine can set, in swipe order. */
