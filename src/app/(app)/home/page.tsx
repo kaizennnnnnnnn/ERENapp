@@ -38,6 +38,7 @@ import RoomsMenu, { type RoomDef } from '@/components/home/RoomsMenu'
 import FortunePopup from '@/components/fortune/FortunePopup'
 import ErenMessagePopup from '@/components/couple/ErenMessagePopup'
 import ThoughtCloud from '@/components/couple/ThoughtCloud'
+import { EREN_OPPONENT_NAME } from '@/lib/erenOpponent'
 import JealousEren from '@/components/couple/JealousEren'
 import DailyBattleHUD from '@/components/couple/DailyBattleHUD'
 import DailyVerdictScreen from '@/components/couple/DailyVerdictScreen'
@@ -85,7 +86,7 @@ export default function HomePage() {
   const { xp, level } = useTasks()
   useTimeTracking(user?.id ?? null)
   const { canClaim: fortuneAvailable } = useFortune()
-  const { newMessage, dismissPopup, unreadCount, partner, sendNudge, partnerMood, lifetimeWLT, weeklyChampion, coopGoal } = useCouple()
+  const { newMessage, dismissPopup, unreadCount, partner, isSolo, sendNudge, partnerMood, lifetimeWLT, weeklyChampion, coopGoal } = useCouple()
   const { inventory, loaded: invLoaded } = useInventory()
   const newSkinCount = useNewSkins(inventory, invLoaded)
   const isDark = useIsDark()
@@ -510,6 +511,10 @@ export default function HomePage() {
   // while this is up; they get their turn on the render after it closes.
   if (verdict.show && verdict.row) {
     return (
+      // The verdict is the morning report on a battle a solo player has
+      // genuinely been fighting, so naming the other podium "Partner" makes
+      // the headline read PARTNER TOOK IT about nobody. Resolved the same way
+      // useDailyBattle.ts already resolves it for the live HUD.
       <DailyVerdictScreen
         row={verdict.row}
         awarded={verdict.awarded}
@@ -517,7 +522,7 @@ export default function HomePage() {
         yesterdayTwist={verdict.yesterdayTwist}
         todayTwist={verdict.todayTwist}
         myName={profile?.name?.split(' ')[0] ?? 'You'}
-        partnerName={partner?.name?.split(' ')[0] ?? 'Partner'}
+        partnerName={partner?.name?.split(' ')[0] ?? (isSolo ? EREN_OPPONENT_NAME : 'Partner')}
         myTitle={profile?.equipped_title}
         myFrame={profile?.equipped_frame}
         partnerTitle={partner?.equipped_title}

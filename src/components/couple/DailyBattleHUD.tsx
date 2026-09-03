@@ -33,11 +33,15 @@ export default function DailyBattleHUD() {
   const battle = useDailyBattle()
   const [open, setOpen] = useState(false)
 
-  // Keep the scoreboard visible whenever a partner exists — even a one-sided
-  // bar is information you want at a glance. The only hard gates left: still
-  // loading (would flicker 0/0), or no partner at all (solo household has
-  // nothing to race).
-  if (battle.loading || !battle.hasPartner) return null
+  // Keep the scoreboard visible whenever there is a race on — even a one-sided
+  // bar is information you want at a glance. A household of one HAS a race:
+  // Eren already holds the other seat, `partnerScore` is his, the day settles
+  // against him overnight and it is the only place trophies are minted
+  // anywhere in the app. Hiding this was the last piece of that battle a solo
+  // player could not see — they got the morning verdict without ever watching
+  // the day it came from. Still loading is the one hard gate left; it would
+  // flicker 0/0.
+  if (battle.loading || !(battle.hasPartner || battle.isSolo)) return null
 
   const { twist, myScore, partnerScore } = battle
 

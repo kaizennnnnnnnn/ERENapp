@@ -51,6 +51,11 @@ export interface DailyBattleState {
   /** Most recent action — for the pop-up to animate off. */
   lastAction: DailyActionSignal | null
   hasPartner: boolean
+  /** Household of one. Eren is already holding the other seat in `partnerScore`
+   *  (scoreDaily falls through to erenOpponentScore on an empty partner id), so
+   *  this is what lets the HUD show a race that is genuinely being played
+   *  rather than hiding it for want of a second profile row. */
+  isSolo: boolean
   /** True when the partner has had zero interactions in the last 24h — used
    *  to hide the scoreboard HUD so a one-sided 100-0 bar doesn't sit there. */
   partnerDormant: boolean
@@ -369,6 +374,7 @@ function useDailyBattleImpl(): DailyBattleState {
     leader, total, totalActions,
     lastAction,
     hasPartner: !!partner?.id,
+    isSolo,
     partnerDormant,
     twist: twistForDate(dayKey),
     dayKey,
