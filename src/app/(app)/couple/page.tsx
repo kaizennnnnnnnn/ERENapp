@@ -32,6 +32,7 @@ import { useLongPress } from '@/hooks/useLongPress'
 import type { JournalMessage } from '@/types'
 import { MOOD_SKETCH, MOOD_THEME, LOW_MOODS } from '@/lib/moods'
 import { MOOD_CONFIGS } from '@/types'
+import { EREN_OPPONENT_NAME } from '@/lib/erenOpponent'
 
 export default function CouplePage() {
   const router = useRouter()
@@ -706,10 +707,12 @@ export default function CouplePage() {
       {/* Weekly Champion popup — fires once per ISO week per user. The
           local dismissed flag hides it instantly; the server ack call
           fires fire-and-forget so it doesn't return on next page load. */}
-      {weeklyChampion && !weeklyChampion.acknowledged && !weeklyDismissed && partner && (
+      {/* No longer gated on `partner`: a household of one settles last week
+          against Eren, and the row now exists for them too. */}
+      {weeklyChampion && !weeklyChampion.acknowledged && !weeklyDismissed && (
         <WeeklyChampionPopup
           row={weeklyChampion}
-          partnerFirstName={partner.name.split(' ')[0]}
+          partnerFirstName={partner ? partner.name.split(' ')[0] : EREN_OPPONENT_NAME}
           onClaim={claimWeeklyChampion}
           onClose={() => {
             setWeeklyDismissed(true)

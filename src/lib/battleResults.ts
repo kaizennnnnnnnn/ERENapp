@@ -10,7 +10,7 @@ import {
   NO_MODS, inAnyWindow, scoreModsFor, fetchEffects,
   type ScoreMods,
 } from '@/lib/trophyEffects'
-import { erenOpponentScore } from '@/lib/erenOpponent'
+import { erenOpponentScore, erenWeeklyScore } from '@/lib/erenOpponent'
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // BATTLE RESULTS — daily + weekly scoreboard persistence
@@ -155,8 +155,16 @@ export function scoreWeekly(
   interactions: Interaction[],
   myId: string,
   partnerId: string,
+  /** ISO week key, required to give Eren a score in a household of one. */
+  isoWeek?: string,
 ): ScorePair {
-  return score(interactions, myId, partnerId, WEEKLY_ACTION_POINTS)
+  const sp = score(interactions, myId, partnerId, WEEKLY_ACTION_POINTS)
+  if (partnerId || !isoWeek) return sp
+  // Solo: Eren takes the seat here too, on the weekly scale rather than the
+  // daily one. Without this `partnerScore` is 0 and every week that saw any
+  // care at all settles as a win worth 100 coins.
+  const them = erenWeeklyScore(isoWeek)
+  return { myScore: sp.myScore, partnerScore: them, outcome: outcomeOf(sp.myScore, them) }
 }
 
 // ── Date helpers ────────────────────────────────────────────────────────────
@@ -444,8 +452,11 @@ async function doEnsureLastWeekResult(
     .gte('created_at', start.toISOString())
     .lt('created_at', end.toISOString())
 
-  const sp = scoreWeekly((interactions ?? []) as Interaction[], myId, partnerId)
-  if (sp.myScore === 0 && sp.partnerScore === 0) return null
+  const sp = scoreWeekly((interactions ?? []) as Interaction[], myId, partnerId, key)
+  // Solo, Eren's score is never 0, so the paired test would settle a week the
+  // player never opened the app. What makes a week dead solo is that THEY did
+  // nothing.
+  if (sp.myScore === 0 && (!partnerId || sp.partnerScore === 0)) return null
 
   const row: WeeklyBattleRow = {
     household_id: householdId,

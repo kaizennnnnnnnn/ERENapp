@@ -169,10 +169,11 @@ function useCoupleImpl() {
         return fetchLifetimeRows(supabase, user.id)
       })
       .catch(() => undefined)
-    const weeklyP = p
-      ? ensureLastWeekResult(supabase, profile.household_id, user.id, p.id)
-          .catch(() => undefined)
-      : null
+    // Ungated: solo, last week settles against Eren's weekly score, which is
+    // what pays the 100-coin champion prize a household of one was missing.
+    const weeklyP = ensureLastWeekResult(
+      supabase, profile.household_id, user.id, p?.id ?? '',
+    ).catch(() => undefined)
     // My co-op claim row for THIS week (null until claimed). Read concurrently.
     // Not gated on `p` — a solo household clears a single share and claims it
     // the same way, so the row has to be readable to know whether they already
@@ -245,16 +246,16 @@ function useCoupleImpl() {
 
     // Lifetime W-L-T: backfill any missing daily snapshots in the lookback
     // window, then aggregate. Backfill is idempotent (ignoreDuplicates).
-    if (p) {
-      const rows = await lifetimeP!
+    {
+      const rows = await lifetimeP
       if (rows !== undefined) setLifetimeWLT(computeLifetimeWLT(rows))
       // undefined = failed — UI hides empty W-L-T
     }
 
     // Last week's Care Battle result. Computed once and persisted; if I won
     // and haven't been paid yet, the consumer surfaces the popup.
-    if (p) {
-      const wk = await weeklyP!
+    {
+      const wk = await weeklyP
       if (wk !== undefined) setWeeklyChampion(wk)
     }
 

@@ -114,3 +114,43 @@ export function erenOpponentScore(dayKey: string, twist: TwistId): number {
 
 /** What the HUD and the verdict screen call him. */
 export const EREN_OPPONENT_NAME = 'Eren'
+
+// ─── The weekly Care Battle ──────────────────────────────────────────────────
+//
+// A SEPARATE calibration, because the weekly competition does not use the daily
+// twist scale at all — it scores on a flat point map (WEEKLY_ACTION_POINTS in
+// battleResults.ts: feed 3, play 4, sleep 2, wash 3, medicine 5) with no
+// multipliers. Eren's daily number is meaningless here and would make him a
+// walkover by two orders of magnitude.
+//
+// Unlike the daily score this needs NO SQL mirror: the weekly row is computed
+// and written client-side by ensureLastWeekResult, with no settle RPC behind it.
+//
+// Calibrated against 30 real weeks on this deployment: median 265, p75 404,
+// max 605. He sits at the median, so an ordinary week is a coin flip — the same
+// bar the daily opponent is held to.
+const EREN_WEEKLY_BASE = 265
+
+/** Week-to-week variance, ±30 around the base. Larger than the daily jitter in
+ *  absolute terms and smaller in proportion, which is what a week-long sample
+ *  should look like. Length 11, so it does not settle into a pattern. */
+const EREN_WEEKLY_JITTER = [0, 18, -22, 30, -14, 8, -30, 22, -8, 14, -18] as const
+
+/** Below this the weekly stops being a contest. */
+const EREN_WEEKLY_FLOOR = 60
+
+/**
+ * Eren's score for an ISO week. Pure: the week key is the whole input.
+ *
+ * @param isoWeek e.g. "2026-W22" — the same key weekly_battle_results uses, so
+ *   the number is stable for a given week no matter when it is recomputed.
+ */
+export function erenWeeklyScore(isoWeek: string): number {
+  // "2026-W22" -> 2026 * 53 + 22. Any injective-enough mix works; this one
+  // keeps consecutive weeks adjacent so the jitter walks rather than jumps.
+  const year = Number(isoWeek.slice(0, 4)) || 0
+  const week = Number(isoWeek.slice(6)) || 0
+  const n = year * 53 + week
+  const jitter = EREN_WEEKLY_JITTER[((n % EREN_WEEKLY_JITTER.length) + EREN_WEEKLY_JITTER.length) % EREN_WEEKLY_JITTER.length]
+  return Math.max(EREN_WEEKLY_FLOOR, EREN_WEEKLY_BASE + jitter)
+}
