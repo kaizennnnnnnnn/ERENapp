@@ -39,7 +39,7 @@ export default function CouplePage() {
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
   const {
-    partner, partnerStreak,
+    partner, partnerStreak, isSolo,
     loveMeter, anniversary, journal,
     partnerMood, partnerMoodWeek,
     lifetimeWLT, weeklyChampion, claimWeeklyChampion,
@@ -139,7 +139,9 @@ export default function CouplePage() {
           <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>US</span>
         </ObsidianChip>
       </div>
-      <p className="text-sm mb-5" style={{ color: '#9A8C70' }}>You &amp; your partner</p>
+      <p className="text-sm mb-5" style={{ color: '#9A8C70' }}>
+        {isSolo ? 'You & Eren' : 'You & your partner'}
+      </p>
 
       {/* ── Anniversary ── */}
       {anniversary && (
@@ -157,7 +159,12 @@ export default function CouplePage() {
           <div className="relative">
             <div className="flex items-center justify-center gap-2 mb-2">
               <IconHeart size={10} />
-              <p className="font-pixel" style={{ fontSize: 6, letterSpacing: 2.5, color: PINK_HI, textShadow: `0 0 3px ${accentA(0.4)}` }}>TOGETHER FOR</p>
+              {/* The date is the household's, so solo it is the day they took
+                  Eren in — true, and the one thing on this card that never
+                  needed a second person. */}
+              <p className="font-pixel" style={{ fontSize: 6, letterSpacing: 2.5, color: PINK_HI, textShadow: `0 0 3px ${accentA(0.4)}` }}>
+                {isSolo ? 'WITH EREN FOR' : 'TOGETHER FOR'}
+              </p>
               <IconHeart size={10} />
             </div>
             <p className="font-pixel" style={{ fontSize: 36, lineHeight: 1, ...pinkText, marginBottom: 4 }}>{anniversary.days}</p>
@@ -193,7 +200,11 @@ export default function CouplePage() {
           full-width bars identical to every card below them; as a 2-up row
           they read as controls rather than more content, and give the page
           a break in rhythm before the scoreboards start. */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
+      {/* Solo the nudge button is gone, and a lone card in a 2-up grid is a
+          half-width button with a hole beside it. The note board still fills
+          up alone — ThoughtCloud writes to it — so it goes full width rather
+          than away. */}
+      <div className={`grid gap-3 mb-4 ${isSolo ? 'grid-cols-1' : 'grid-cols-2'}`}>
         {partner && (
           <button
             onClick={() => { playSound('ui_modal_open'); setShowSend(true) }}
@@ -329,8 +340,12 @@ export default function CouplePage() {
         )
       })()}
 
-      {/* ── Love Meter (Care Battle) ── */}
-      {loveMeter && partner && (() => {
+      {/* ── Love Meter (Care Battle) ──
+          Not gated on `partner`. Solo, useCouple seats Eren on the other side
+          with his weekly score, so this is the live race that Monday's
+          champion popup settles. It was hidden before, which meant a player
+          alone got the verdict without ever seeing the week it came from. */}
+      {loveMeter && (() => {
         const u1Leading = loveMeter.leader === loveMeter.user1.id
         const u2Leading = loveMeter.leader === loveMeter.user2.id
         const diff = Math.abs(loveMeter.user1.score - loveMeter.user2.score)
@@ -516,11 +531,14 @@ export default function CouplePage() {
                 this one; folded in here the page reads as ONE scoreboard and
                 loses ~240 px of scroll. Gold = whoever's ahead on that row. */}
             {(() => {
-              const first = partner.name.split(' ')[0].toUpperCase()
+              const first = (partner?.name.split(' ')[0] ?? EREN_OPPONENT_NAME).toUpperCase()
               const rec = lifetimeWLT && lifetimeWLT.days > 0 ? lifetimeWLT : null
               const mine   = myStreak.current ?? 0
               const theirs = partnerStreak?.current ?? 0
-              const hasStreak = mine > 0 || theirs > 0
+              // Eren keeps no care streak of his own — he is a pace-setter, not
+              // a second carer — so solo this row is one side only rather than
+              // a comparison against a permanent zero.
+              const hasStreak = isSolo ? mine > 0 : (mine > 0 || theirs > 0)
               if (!rec && !hasStreak) return null
 
               const label: React.CSSProperties = {
@@ -561,9 +579,9 @@ export default function CouplePage() {
                       <span className="font-pixel flex items-baseline gap-2" style={{ fontSize: 7, letterSpacing: 1 }}>
                         <span style={{ color: mine > theirs ? '#FFB347' : PINK_HI }}>YOU {mine}</span>
                         <span style={best}>BEST {myStreak.best ?? 0}</span>
-                        {dot}
-                        <span style={{ color: theirs > mine ? '#FFB347' : '#C4B5FD' }}>{first} {theirs}</span>
-                        <span style={best}>BEST {partnerStreak?.best ?? 0}</span>
+                        {!isSolo && dot}
+                        {!isSolo && <span style={{ color: theirs > mine ? '#FFB347' : '#C4B5FD' }}>{first} {theirs}</span>}
+                        {!isSolo && <span style={best}>BEST {partnerStreak?.best ?? 0}</span>}
                       </span>
                     </div>
                   )}
@@ -619,7 +637,7 @@ export default function CouplePage() {
             <input
               className="w-full px-3 py-2.5 text-sm bg-transparent outline-none"
               style={{ color: '#E8E0D0' }}
-              placeholder="Write a message for your partner..."
+              placeholder={isSolo ? 'Write something in the journal...' : 'Write a message for your partner...'}
               value={msg}
               onChange={e => setMsg(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSend()}
@@ -634,15 +652,22 @@ export default function CouplePage() {
           </button>
         </div>
 
+        {/* Solo there is nobody to deliver to, but the entries are not wasted:
+            the journal is the household's, so whoever joins later reads back
+            everything already written in it. */}
         <p className="text-xs mb-3 flex items-center gap-1.5" style={{ color: '#7A6A50' }}>
-          Eren will deliver your message to your partner
+          {isSolo
+            ? 'Eren keeps the journal. Whoever joins your home reads it too'
+            : 'Eren will deliver your message to your partner'}
           <IconPaw size={12} />
         </p>
 
         {/* Messages */}
         <div className="flex flex-col gap-2">
           {journal.length === 0 && (
-            <p className="text-center text-sm py-4" style={{ color: '#7A6A50' }}>No messages yet. Send the first one!</p>
+            <p className="text-center text-sm py-4" style={{ color: '#7A6A50' }}>
+              {isSolo ? 'Nothing written yet. Eren is listening.' : 'No messages yet. Send the first one!'}
+            </p>
           )}
           {journal.map(m => {
             const isMe = m.sender_id === user?.id

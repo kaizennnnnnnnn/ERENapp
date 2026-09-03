@@ -21,6 +21,7 @@ import {
   COOP_REWARD_COINS,
   type CoopGoalRow, type CoopGoalState,
 } from '@/lib/coopGoal'
+import { EREN_OPPONENT_ID, EREN_OPPONENT_NAME, erenWeeklyPace } from '@/lib/erenOpponent'
 
 // Module-level counter so every useCouple instance picks a unique
 // realtime channel name even when several mount in the same React
@@ -220,12 +221,31 @@ function useCoupleImpl() {
     const { data: interactions, error: interactionsError } = await interactionsP
     if (interactionsError) loadFailedRef.current = true
 
-    if (interactions && p) {
-      setLoveMeter(computeLoveMeter(
-        interactions as Interaction[],
-        user.id, profile.name,
-        p.id, p.name,
-      ))
+    // Not gated on `p`. Solo, Eren takes the second seat here exactly as he
+    // does in the settlement — same week key, same point map — so the live
+    // race and Monday's verdict cannot disagree. Gating it was why a player
+    // alone saw the champion popup on Monday having never watched the week it
+    // decided. `p` is the freshly-fetched partner, not the loading-state null,
+    // so a real couple can never fall into the solo branch.
+    if (interactions) {
+      setLoveMeter(p
+        ? computeLoveMeter(
+          interactions as Interaction[],
+          user.id, profile.name,
+          p.id, p.name,
+        )
+        : computeLoveMeter(
+          interactions as Interaction[],
+          user.id, profile.name,
+          EREN_OPPONENT_ID, EREN_OPPONENT_NAME,
+          // His pace so far, not his week-end total: flat, he is a wall the
+          // player is 200 points behind every Monday. At the end of the week
+          // this equals the number that settles.
+          erenWeeklyPace(
+            thisIsoWeekKey(),
+            (Date.now() - startOfWeek().getTime()) / (7 * 24 * 60 * 60 * 1000),
+          ),
+        ))
     }
 
     // "We Cared" co-op progress — useful care actions this week (no extra read:

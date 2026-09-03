@@ -115,6 +115,17 @@ export function erenOpponentScore(dayKey: string, twist: TwistId): number {
 /** What the HUD and the verdict screen call him. */
 export const EREN_OPPONENT_NAME = 'Eren'
 
+/**
+ * The id he occupies in UI that keys a side of a scoreboard by user id.
+ *
+ * Not a uuid on purpose: it can never collide with a real profile, and it
+ * never reaches the database — `partner_score` is a column, not a foreign
+ * key, and every row he appears in stores an empty partner id. This exists
+ * only so the live Care Battle card can ask "who is leading" the same way for
+ * one player as for two, instead of growing a parallel branch.
+ */
+export const EREN_OPPONENT_ID = 'eren'
+
 // ─── The weekly Care Battle ──────────────────────────────────────────────────
 //
 // A SEPARATE calibration, because the weekly competition does not use the daily
@@ -145,6 +156,29 @@ const EREN_WEEKLY_FLOOR = 60
  * @param isoWeek e.g. "2026-W22" — the same key weekly_battle_results uses, so
  *   the number is stable for a given week no matter when it is recomputed.
  */
+/**
+ * What Eren has scored SO FAR this week — his final score, prorated.
+ *
+ * The settlement compares two week-end totals, so `erenWeeklyScore` is the
+ * right number on Monday morning and the wrong one every hour before it. Shown
+ * flat on a live scoreboard it is a wall: the player opens the app on Tuesday
+ * at 40 against a standing 265 and reads the week as already lost, when in
+ * fact they are ahead of his pace.
+ *
+ * Linear, deliberately. He is a pace-setter, and a pace-setter that sprints
+ * and rests is just noise the player cannot plan around. At `progress` 1 this
+ * returns exactly what settles, so the bar the player watched all week and the
+ * verdict they get on Monday are the same contest.
+ *
+ * @param progress how far through the week we are, 0..1. Passed in rather than
+ *   derived here so the week boundary stays defined in ONE place (`startOfWeek`
+ *   in lib/couple), and so this module keeps having no date dependency to drift.
+ */
+export function erenWeeklyPace(isoWeek: string, progress: number): number {
+  const p = progress < 0 ? 0 : progress > 1 ? 1 : progress
+  return Math.round(erenWeeklyScore(isoWeek) * p)
+}
+
 export function erenWeeklyScore(isoWeek: string): number {
   // "2026-W22" -> 2026 * 53 + 22. Any injective-enough mix works; this one
   // keeps consecutive weeks adjacent so the jitter walks rather than jumps.

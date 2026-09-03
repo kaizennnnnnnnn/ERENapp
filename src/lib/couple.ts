@@ -56,6 +56,17 @@ export function computeLoveMeter(
   interactions: Interaction[],
   user1Id: string, user1Name: string,
   user2Id: string, user2Name: string,
+  /**
+   * The second side's score, supplied rather than summed.
+   *
+   * Solo, Eren holds that seat and has no `interactions` rows to add up — his
+   * week is a pure function of the week key (`erenWeeklyScore`). It has to be
+   * the SAME number the Monday settlement uses, and it is: `ACTION_POINTS`
+   * here and `WEEKLY_ACTION_POINTS` in battleResults are the same map, so the
+   * race the player watches all week is the one that settles. Leave it
+   * undefined for a real partner.
+   */
+  user2Score?: number,
 ): LoveMeterResult {
   const weekStart = startOfWeek().toISOString()
   const recent = interactions.filter(i => i.created_at >= weekStart)
@@ -66,6 +77,7 @@ export function computeLoveMeter(
     if (i.user_id === user1Id) s1 += pts
     else if (i.user_id === user2Id) s2 += pts
   }
+  if (user2Score !== undefined) s2 = user2Score
 
   const total = s1 + s2 || 1
   return {
