@@ -131,8 +131,15 @@ export const WISHES: Wish[] = [
     category: 'mood', match: 'play:any', needsLeader: false, needsBothActive: false, cooldownDays: 0, missingInventory: false, coinReward: 5 },
   { id: 'mood-quiet',   text: "a quiet day, please. don't wake me unless it's food.",
     category: 'mood', match: 'sleep', needsLeader: false, needsBothActive: false, cooldownDays: 0, missingInventory: false, coinReward: 5 },
+  // needsBothActive because `nudge:kiss` can only be satisfied by sending a
+  // kiss through the SendEren sheet, which does not exist without a partner.
+  // Rolled for a household of one it asked for kisses all day with no button
+  // anywhere in the app to give one, never resolved, and quietly forfeited the
+  // day's wish coins. The four `couple`-category nudge wishes below already
+  // carry this flag; this one was the leak. Same mechanism, no new machinery
+  // — and the file stays append-only, which the rotation depends on.
   { id: 'mood-kisses',  text: "i want kisses. lots of them.",
-    category: 'mood', match: 'nudge:kiss', needsLeader: false, needsBothActive: false, cooldownDays: 0, missingInventory: false, coinReward: 5 },
+    category: 'mood', match: 'nudge:kiss', needsLeader: false, needsBothActive: true, cooldownDays: 0, missingInventory: false, coinReward: 5 },
   { id: 'mood-lazy',    text: "i'm feeling lazy. let me sleep.",
     category: 'mood', match: 'sleep', needsLeader: false, needsBothActive: false, cooldownDays: 0, missingInventory: false, coinReward: 5 },
   { id: 'mood-sunbeam', text: "i want to lie in the sun. open the curtain.",

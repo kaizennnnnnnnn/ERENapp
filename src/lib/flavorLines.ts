@@ -56,9 +56,13 @@ export const FLAVOR_LINES: FlavorLine[] = [
   // ── after_positive: 4–8s after a pet / care / play lands ──────────────────
   // This is the pool a tap on Eren draws from, so it's the one the user reads
   // most often — keep it the widest. Two lines cycled visibly.
+  //
+  // 'i love u both' used to live here and was removed: the pool is filtered by
+  // trigger alone, so there is nowhere to hang a condition, and the most-read
+  // line pool is the worst place to address a second person who may not exist.
+  // 'i love u' and 'i love u sm' carry the same warmth at either household size.
   { id: 'pos-loveu',     text: 'i love u',                                 trigger: 'after_positive' },
   { id: 'pos-loveu-sm',  text: 'i love u sm',                              trigger: 'after_positive' },
-  { id: 'pos-loveu-both',text: 'i love u both',                            trigger: 'after_positive' },
   { id: 'pos-purr',      text: 'prrrrr purrr',                             trigger: 'after_positive' },
   { id: 'pos-hehe',      text: 'hehe',                                     trigger: 'after_positive' },
   { id: 'pos-hiss',      text: 'hsss i mean prrrr',                        trigger: 'after_positive' },

@@ -2,12 +2,13 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { blockUser } from '@/lib/reporting'
 import ReportSheet from '@/components/safety/ReportSheet'
 import { withRetry } from '@/lib/supabaseRetry'
+import { useCouple } from '@/hooks/useCouple'
 import { useAuth } from '@/hooks/useAuth'
 import type { Profile, DailyMood } from '@/types'
 import { formatDuration } from '@/lib/utils'
@@ -73,6 +74,11 @@ export default function ProfilePage() {
   const [blockOpen, setBlockOpen]   = useState(false)
   const [blocking, setBlocking]     = useState(false)
   const [blockErr, setBlockErr]     = useState<string | null>(null)
+  // This page fetches its own partner row (below), and that copy is null while
+  // loading AND null if the read 503s. Fine for the cosmetic branches that use
+  // it, wrong for a denominator. `isSolo` comes from the shared CoupleProvider,
+  // which distinguishes the two.
+  const { isSolo } = useCouple()
   const [partner, setPartner]         = useState<Profile | null>(null)
   const [inviteCode, setInviteCode]   = useState<string | null>(null)
   const [copied, setCopied]           = useState(false)
@@ -316,6 +322,19 @@ export default function ProfilePage() {
   const totalSeconds = mySeconds + partnerSeconds
   const { theme, setTheme } = useTheme()
   const unlockedCount = Object.keys(achievements).length
+  // `first_nudge` fires on a nudge, and the sheet that sends one is mounted
+  // behind `partner &&`. For a household of one it is a card that can never
+  // turn over, sitting under a counter and a progress bar that can therefore
+  // never fill. A locked card is normal in an achievement grid; a denominator
+  // you are structurally barred from reaching is not. Anything already
+  // unlocked still counts, so a household that pairs and later unpairs keeps
+  // both the card and its place in the total.
+  const achievementDefs = useMemo(
+    () => (isSolo
+      ? ACHIEVEMENT_DEFS.filter(d => d.id !== 'first_nudge' || !!achievements['first_nudge'])
+      : ACHIEVEMENT_DEFS),
+    [isSolo, achievements],
+  )
 
   return (
     <div className="page-scroll" style={pageStyle}>
@@ -499,7 +518,7 @@ export default function ProfilePage() {
             <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>ACHIEVEMENTS</span>
           </ObsidianChip>
           <span className="font-pixel" style={{ fontSize: 7, color: '#7A6A75' }}>
-            {unlockedCount}<span style={{ opacity: 0.5 }}>/</span>{ACHIEVEMENT_DEFS.length}
+            {unlockedCount}<span style={{ opacity: 0.5 }}>/</span>{achievementDefs.length}
           </span>
         </div>
 
@@ -509,7 +528,7 @@ export default function ProfilePage() {
           boxShadow: `inset 0 1px 2px rgba(0,0,0,0.8), inset 0 0 0 1px ${accentA(0.13)}`,
         }}>
           <div style={{
-            width: `${Math.round((unlockedCount / ACHIEVEMENT_DEFS.length) * 100)}%`,
+            width: `${Math.round((unlockedCount / achievementDefs.length) * 100)}%`,
             height: '100%',
             background: 'linear-gradient(90deg, #FBBF24, #F59E0B 60%, #D97706)',
             boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4)',
@@ -581,7 +600,7 @@ export default function ProfilePage() {
         )}
 
         <div className="flex flex-col gap-2">
-          {ACHIEVEMENT_DEFS.map(def => {
+          {achievementDefs.map(def => {
             const unlocked = !!achievements[def.id]
             const rc = RARITY_COLORS[def.rarity]
             return (

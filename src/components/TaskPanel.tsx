@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useTasks } from '@/contexts/TaskContext'
+import { useCouple } from '@/hooks/useCouple'
 import { TASK_DEFS, getDailyKey, getWeeklyKey } from '@/lib/tasks'
 import type { TaskId, TaskDef } from '@/types'
 import {
@@ -52,13 +53,20 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
   const { completedIds, taskProgress } = useTasks()
   const [tab, setTab] = useState<'daily' | 'weekly'>('daily')
   const [open, setOpen] = useState(false)
+  const { isSolo } = useCouple()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => { setMounted(true) }, [])
 
   const dailyKey   = getDailyKey()
   const weeklyKey  = getWeeklyKey()
-  const dailyTasks  = TASK_DEFS.filter(t => t.period === 'daily')
+  // `daily_nudge` is "Send your partner an Eren nudge", and the sheet that
+  // sends one is mounted behind `partner &&`. Left in for a household of one it
+  // is a row that can never tick and a denominator that can never be reached:
+  // the chip, the ring and the tab all read x/10 with 10 permanently out of
+  // range. Everything below derives from this array, so dropping it here fixes
+  // all four at once.
+  const dailyTasks  = TASK_DEFS.filter(t => t.period === 'daily' && !(isSolo && t.id === 'daily_nudge'))
   const weeklyTasks = TASK_DEFS.filter(t => t.period === 'weekly')
   const dailyDone   = dailyTasks.filter(t => completedIds.has(`${t.id}:${dailyKey}`)).length
   const weeklyDone  = weeklyTasks.filter(t => completedIds.has(`${t.id}:${weeklyKey}`)).length
