@@ -176,6 +176,27 @@ export function shopItem(id: string): AnyShopItem | undefined {
   return BY_ID.get(id)
 }
 
+/**
+ * The two powers that spend themselves on a second person.
+ *
+ * `eren_says` puts a line in the OTHER member's bubble and `point_steal` takes
+ * a point off whoever is leading, and both self-filter to somebody who is not
+ * you. Bought by a household of one they take the trophies and do nothing:
+ * Eren Says shows "Eren will say this to them" with `them` a literal fallback
+ * string and no `them` to say it to, and Point Steal is only blocked when
+ * there is no leader at all, so it happily charges 18 trophies to steal from
+ * an empty seat.
+ *
+ * Hidden from the shelf rather than made to work. Pointing them at Eren would
+ * mean either letting a player steal from the pace-setter (the same printing
+ * press the whole opponent design exists to avoid) or dropping the self-filter
+ * in trophyEffects, which would let a PAIRED player target themselves.
+ *
+ * The caller keeps anything already OWNED on the shelf, so a household that
+ * bought one while paired can still see and spend it.
+ */
+export const PARTNER_ONLY_PRIVILEGES = new Set(['priv_eren_says', 'priv_point_steal'])
+
 export function itemsOfKind(kind: ShopKind): AnyShopItem[] {
   return SHOP_ITEMS.filter(i => i.kind === kind)
 }

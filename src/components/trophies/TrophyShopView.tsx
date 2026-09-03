@@ -31,7 +31,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useTrophies } from '@/hooks/useTrophies'
 import { useTrophyCosmetics } from '@/hooks/useTrophyCosmetics'
 import {
-  itemsOfKind, prestigeDef, SHOP_RARITY_COLORS,
+  itemsOfKind, prestigeDef, SHOP_RARITY_COLORS, PARTNER_ONLY_PRIVILEGES,
   type AnyShopItem, type ShopKind,
   type PrivilegeItem, type PrestigeItem, type MachinePartItem,
 } from '@/lib/trophyShop'
@@ -45,6 +45,7 @@ import ItemPreview from './ItemPreview'
 import { TitlePlate, FramePlate } from './prestigeArt'
 import PowerArt from './PowerArt'
 import { playSound } from '@/lib/sounds'
+import { useCouple } from '@/hooks/useCouple'
 
 const TABS: { kind: ShopKind; label: string; icon: React.ReactNode; sub: string }[] = [
   { kind: 'machine',   label: 'MACHINE',  icon: <IconFlask size={14} />,     sub: 'Four parts. Finish it and every sky is yours, for good.' },
@@ -66,7 +67,14 @@ export default function TrophyShopView({ tab, onTab, onBuy, onUse }: Props) {
   const { user, profile } = useAuth()
   const trophies = useTrophies()
   const cos = useTrophyCosmetics()
-  const items = useMemo(() => itemsOfKind(tab), [tab])
+  const { isSolo } = useCouple()
+  const items = useMemo(
+    () => itemsOfKind(tab).filter(i =>
+      !isSolo
+      || !PARTNER_ONLY_PRIVILEGES.has(i.id)
+      || trophies.owned.some(o => o.itemId === i.id && o.quantity > 0)),
+    [tab, isSolo, trophies.owned],
+  )
   const active = TABS.find(t => t.kind === tab)!
   const myName = profile?.name?.split(' ')[0] || 'YOU'
 
