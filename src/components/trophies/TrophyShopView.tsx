@@ -28,7 +28,6 @@
 import { useMemo } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
-import { useCouple } from '@/hooks/useCouple'
 import { useTrophies } from '@/hooks/useTrophies'
 import { useTrophyCosmetics } from '@/hooks/useTrophyCosmetics'
 import {
@@ -48,7 +47,7 @@ import PowerArt from './PowerArt'
 import { playSound } from '@/lib/sounds'
 
 const TABS: { kind: ShopKind; label: string; icon: React.ReactNode; sub: string }[] = [
-  { kind: 'machine',   label: 'MACHINE',  icon: <IconFlask size={14} />,     sub: 'Four parts. Finish it and every sky is yours, for both of you.' },
+  { kind: 'machine',   label: 'MACHINE',  icon: <IconFlask size={14} />,     sub: 'Four parts. Finish it and every sky is yours, for good.' },
   { kind: 'privilege', label: 'POWERS',   icon: <IconLightning size={14} />, sub: 'Spent on the battle, not worn.' },
   { kind: 'prestige',  label: 'PRESTIGE', icon: <IconCrown size={14} />,     sub: 'Sits beside your name, everywhere.' },
 ]
@@ -67,13 +66,7 @@ export default function TrophyShopView({ tab, onTab, onBuy, onUse }: Props) {
   const { user, profile } = useAuth()
   const trophies = useTrophies()
   const cos = useTrophyCosmetics()
-  const { partner } = useCouple()
-  const partnerPresent = !!partner?.id
-
   const items = useMemo(() => itemsOfKind(tab), [tab])
-  // A solo household has no battle, so nothing here can ever be earned — say
-  // that instead of showing a price list with no way to pay it.
-  const hasPartner = trophies.owned.some(o => o.userId !== user?.id) || partnerPresent
   const active = TABS.find(t => t.kind === tab)!
   const myName = profile?.name?.split(' ')[0] || 'YOU'
 
@@ -133,10 +126,14 @@ export default function TrophyShopView({ tab, onTab, onBuy, onUse }: Props) {
           <p className="font-pixel" style={{ fontSize: 6, letterSpacing: 1.5, color: '#F5C842', marginBottom: 4 }}>
             HOW TO GET TROPHIES
           </p>
+          {/* This used to tell a household of one that the battle "needs two
+              people" and to go and invite someone. That stopped being true
+              when Eren took the empty seat: they settle against him nightly
+              and are paid in trophies for it. This panel is the only place in
+              the app that explains where trophies come from, so it was the
+              worst possible place to be wrong. */}
           <p className="text-[10px]" style={{ color: '#B4A8C4' }}>
-            {hasPartner
-              ? 'Win a day of the Care Battle. Ahead at midnight pays bronze; lead by 3 pays silver, by 6 pays gold. Lose by two or less and you still get one.'
-              : 'The Care Battle needs two people. Invite your partner from the couple screen and the days start counting.'}
+            Win a day of the Care Battle. Ahead at midnight pays bronze; lead by 3 pays silver, by 6 pays gold. Lose by two or less and you still get one.
           </p>
         </div>
       )}

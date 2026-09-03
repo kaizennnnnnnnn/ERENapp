@@ -106,13 +106,21 @@ export default function HomePage() {
   // last week's Care Battle win (claimed via the champion popup, which stamps
   // `acknowledged` on close) or a met "We Cared" co-op goal (claimed in
   // CoopGoalBar). Both live in the shared CoupleProvider, so claiming on /couple
-  // clears this on return with no refetch. Gated on `partner` — both are 2-player.
-  const weeklyWinPending  = !!partner && weeklyChampion?.outcome === 'win' && !weeklyChampion.acknowledged
+  // clears this on return with no refetch.
+  //
+  // NOT gated on `partner` any more, and that gate was costing a solo player
+  // real money: both payouts have since been made solo — last week settles
+  // against Eren (e2f57cc) and the co-op goal takes a one-person target from
+  // `coopTargetFor` (ddb6f30). The rows exist, the coins are claimable, and the
+  // only thing missing was the dot telling anyone to go and claim them. Every
+  // remaining term already requires a real, unacknowledged, loaded row, so
+  // dropping the partner check cannot make either dot fire on nothing.
+  const weeklyWinPending  = weeklyChampion?.outcome === 'win' && !weeklyChampion.acknowledged
   // `coopGoal.loaded` gate: goalMet (from interactions) and claimed (from the
   // coop-row read) settle in separate commits — without it the dot would flash
   // for an already-claimed goal before the row lands, and would mis-fire if that
   // read 503'd. Only surface once the row's claim state is actually known.
-  const coopRewardPending = !!partner && coopGoal.goalMet && coopGoal.loaded && !coopGoal.claimed
+  const coopRewardPending = coopGoal.goalMet && coopGoal.loaded && !coopGoal.claimed
   const heartReward = weeklyWinPending || coopRewardPending
 
   const [showFortune, setShowFortune] = useState(false)
