@@ -17,12 +17,14 @@ import { useMemo, useState } from 'react'
 import { playSound } from '@/lib/sounds'
 import MemoryFrameCanvas from '@/components/memory/MemoryFrameCanvas'
 import MemoryDetailModal from '@/components/memory/MemoryDetailModal'
-import { MEMORY_FRAMES, frameById, type MemoryFrame } from '@/lib/memoryCatalogue'
+import { MEMORY_FRAMES, frameById, needsPartner, type MemoryFrame } from '@/lib/memoryCatalogue'
 import type { MemoryFrameRow, ReactionEmoji } from '@/hooks/useMemoryFrames'
 
 interface Props {
   rows: MemoryFrameRow[]
   partnerId: string | null
+  /** Household of one: the nine partner-only frames are not shown as locked. */
+  isSolo?: boolean
   onReactionChange: (frameId: string, reaction: Record<string, ReactionEmoji>) => void
 }
 
@@ -31,7 +33,7 @@ interface CellData {
   row:   MemoryFrameRow | null
 }
 
-export default function MemoryWall({ rows, partnerId, onReactionChange }: Props) {
+export default function MemoryWall({ rows, partnerId, isSolo, onReactionChange }: Props) {
   const [openFrameId, setOpenFrameId] = useState<string | null>(null)
 
   const cells: CellData[] = useMemo(() => {
@@ -42,12 +44,15 @@ export default function MemoryWall({ rows, partnerId, onReactionChange }: Props)
     const locked:   CellData[] = []
     for (const f of MEMORY_FRAMES) {
       const row = byId.get(f.id) ?? null
+      // Unlocked always shows — including a couple frame a household earned
+      // before it became a household of one. Only the LOCKED side is filtered,
+      // so nothing anyone earned can disappear off the wall.
       if (row) unlocked.push({ frame: f, row })
-      else     locked.push({ frame: f, row: null })
+      else if (!isSolo || !needsPartner(f)) locked.push({ frame: f, row: null })
     }
     unlocked.sort((a, b) => (b.row!.unlocked_at).localeCompare(a.row!.unlocked_at))
     return [...unlocked, ...locked]
-  }, [rows])
+  }, [rows, isSolo])
 
   const openFrame = openFrameId ? frameById(openFrameId) : null
   const openRow   = openFrameId ? (rows.find(r => r.frame_id === openFrameId) ?? null) : null

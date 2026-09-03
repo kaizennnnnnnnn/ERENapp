@@ -18,23 +18,32 @@ import { useAuth } from '@/hooks/useAuth'
 import { useCouple } from '@/hooks/useCouple'
 import { useMemoryFrames } from '@/hooks/useMemoryFrames'
 import { useCare } from '@/contexts/CareContext'
-import { MEMORY_FRAMES } from '@/lib/memoryCatalogue'
+import { MEMORY_FRAMES, needsPartner } from '@/lib/memoryCatalogue'
 import MemoryWall from '@/components/care/MemoryWall'
 import PageLoader from '@/components/PageLoader'
 import { playSound } from '@/lib/sounds'
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { IconDoor } from '@/components/PixelIcons'
 import { usePageReady } from '@/hooks/usePageReady'
 
 export default function HallwayPage() {
   const router = useRouter()
   const { profile, loading: authLoading } = useAuth()
-  const { partner } = useCouple()
+  const { partner, isSolo, loading: coupleLoading } = useCouple()
   const { setHideStats } = useCare()
   const { frames, loading, applyReaction } = useMemoryFrames(profile?.household_id ?? null)
 
   const unlockedCount = frames.length
-  const totalCount = MEMORY_FRAMES.length
+  // Nine frames need a second person. Counting them in the denominator for a
+  // household of one caps the wall at 51/60 forever, which reads as a
+  // collection they failed rather than one that was never theirs. Frames they
+  // already hold still count on both sides, so the total can never come out
+  // below what is on the wall.
+  const totalCount = useMemo(() => {
+    if (!isSolo) return MEMORY_FRAMES.length
+    const held = new Set(frames.map(f => f.frame_id))
+    return MEMORY_FRAMES.filter(f => !needsPartner(f) || held.has(f.id)).length
+  }, [isSolo, frames])
 
   // Hide the floating StatsHeader on the Hallway — the page has its own top
   // ornamentation and the bar would clash with it.
@@ -125,7 +134,7 @@ export default function HallwayPage() {
             fontFamily: '"Press Start 2P", monospace', fontSize: 5,
             color: '#A78BFA', letterSpacing: 1, marginTop: 4,
           }}>
-            {loading ? 'LOADING…' : `${unlockedCount} / ${totalCount} MEMORIES`}
+            {loading || coupleLoading ? 'LOADING…' : `${unlockedCount} / ${totalCount} MEMORIES`}
           </span>
         </div>
 
@@ -155,6 +164,7 @@ export default function HallwayPage() {
             <MemoryWall
               rows={frames}
               partnerId={partner?.id ?? null}
+              isSolo={isSolo}
               onReactionChange={applyReaction}
             />
           )}

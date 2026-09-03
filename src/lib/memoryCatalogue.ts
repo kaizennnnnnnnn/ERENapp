@@ -29,6 +29,30 @@
 // ═════════════════════════════════════════════════════════════════════════════
 
 export type FrameKind = 'welcome' | 'first' | 'cumulative' | 'streak' | 'calendar' | 'couple' | 'rare'
+
+/**
+ * Frames a household of ONE can never unlock, no matter how long they play.
+ *
+ * Nine of the sixty, and they are not evenly scattered: five are the `couple`
+ * kind, drawn in their own crown-and-rose art, so as permanent `???` tiles
+ * they read as a whole collection tier the player has failed to find rather
+ * than one that was never for them.
+ *
+ * The other four are the nudge family, which is less obvious. A nudge is a
+ * `couple_journal` row with `via_eren` set, and the only two things that write
+ * one — the SendEren sheet and ThoughtCloud — both refuse when there is no
+ * partner ("Invite your partner first so Eren can deliver this"). So the
+ * counter behind `nudges-10/50/100` and `first-nudge` can never leave zero.
+ *
+ * Used to hide them from the wall and from its "x of y" total while a
+ * household has one member. Frames ALREADY unlocked are never hidden — a
+ * household that paired, earned them and then unpaired keeps what it earned.
+ */
+export function needsPartner(f: MemoryFrame): boolean {
+  if (f.kind === 'couple') return true
+  const p = f.predicate
+  return (p.type === 'first' && p.of === 'nudge') || p.type === 'nudges'
+}
 export type Rarity    = 'common' | 'rare' | 'epic'
 
 /** Care action types tracked in the interactions table. */
