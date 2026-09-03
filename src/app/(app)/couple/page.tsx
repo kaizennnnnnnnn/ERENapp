@@ -200,11 +200,15 @@ export default function CouplePage() {
           full-width bars identical to every card below them; as a 2-up row
           they read as controls rather than more content, and give the page
           a break in rhythm before the scoreboards start. */}
-      {/* Solo the nudge button is gone, and a lone card in a 2-up grid is a
-          half-width button with a hole beside it. The note board still fills
-          up alone — ThoughtCloud writes to it — so it goes full width rather
-          than away. */}
-      <div className={`grid gap-3 mb-4 ${isSolo ? 'grid-cols-1' : 'grid-cols-2'}`}>
+      {/* Both of these need a second person, so solo the whole row goes.
+          SEND EREN is a nudge, which is partner-only. The NOTE BOARD looks
+          survivable and is not: the only two things that ever reach the board
+          are a ThoughtCloud note and a food gift, and ThoughtCloud replaces
+          both composers with "Invite your partner first" when you are alone.
+          A permanent "nothing yet" leading to a permanently empty board is
+          the exact thing this page is being cleared of. */}
+      {!isSolo && (
+      <div className="grid grid-cols-2 gap-3 mb-4">
         {partner && (
           <button
             onClick={() => { playSound('ui_modal_open'); setShowSend(true) }}
@@ -260,6 +264,7 @@ export default function CouplePage() {
           )}
         </button>
       </div>
+      )}
 
       {/* ── Partner mood today ── */}
       {partner && (() => {
