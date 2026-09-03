@@ -83,7 +83,14 @@ export async function GET(request: Request) {
       .select('id, name, email, heart, quiet_eren_optin, last_phase3_notify')
       .eq('household_id', householdId)
     const members = (memberRows ?? []) as Member[]
-    if (members.length === 0) continue
+    // Fewer than TWO, not fewer than one. A household of one always has a
+    // "favourite": itself. Every Monday 09:00 UTC a solo player was being
+    // pushed "Eren says YOU were his favourite this week" for winning a
+    // contest with one entrant, and the week key was stamped on their profile
+    // as if a real crowning had happened. Eren takes the empty seat in the
+    // care battle; he does not take it in a popularity contest between the
+    // people looking after him.
+    if (members.length < 2) continue
 
     const tally = members.map(m => ({ m, n: counts.get(m.id) ?? 0 }))
     const maxN = Math.max(...tally.map(t => t.n))

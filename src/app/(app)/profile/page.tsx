@@ -471,7 +471,11 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {mySeconds > partnerSeconds ? (
+        {/* `&& partner` matches the branch below it. Solo, partnerSeconds is
+            permanently 0, so the first tracked second in the household won a
+            gold crown reading YOU SPEND THE MOST TIME! and it never came off
+            again — a first-place ribbon in a one-entrant race. */}
+        {mySeconds > partnerSeconds && partner ? (
           <div className="mt-3 flex items-center gap-1.5">
             <IconCrown size={14} />
             <span className="font-pixel" style={{ fontSize: 7, color: '#F5C842', textShadow: '0 0 3px rgba(245,200,66,0.5)' }}>YOU SPEND THE MOST TIME!</span>

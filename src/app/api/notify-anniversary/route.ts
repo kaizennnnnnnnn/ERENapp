@@ -124,11 +124,18 @@ export async function GET(request: Request) {
         body: `Today is Eren's birthday! Spoil him a little.` })
     }
     // Couple anniversary — eve heads-up, then day-of. Both partners.
-    if (anchorHits(hh.couple_anniversary, tom.y, tom.mmdd)) {
+    //
+    // Household size is checked because these two are the only events here
+    // that are ABOUT the pair rather than about Eren. The per-partner
+    // birthdays below already skip themselves on an empty `others`, and Eren's
+    // birthday is rightly for everyone. A solo player who filled in the
+    // onboarding anniversary field was getting "Eren's parents have been
+    // together another year" pushed at them once a year.
+    if (members.length > 1 && anchorHits(hh.couple_anniversary, tom.y, tom.mmdd)) {
       events.push({ recipients: members, tag: 'anniv-couple-eve', title: '💛 Eren',
         body: `Your anniversary is tomorrow — plan a little surprise.` })
     }
-    if (anchorHits(hh.couple_anniversary, today.y, today.mmdd)) {
+    if (members.length > 1 && anchorHits(hh.couple_anniversary, today.y, today.mmdd)) {
       events.push({ recipients: members, tag: 'anniv-couple', title: '💛 Eren',
         body: `Happy anniversary! Eren's parents have been together another year.` })
     }
