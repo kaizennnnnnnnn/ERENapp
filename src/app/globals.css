@@ -1650,3 +1650,41 @@
   60%  { opacity: 1; transform: translate(5px, -9px) scale(1); }
   100% { opacity: 0; transform: translate(8px, -16px) scale(1.15); }
 }
+
+/* ── Jelly Jump ───────────────────────────────────────────────────────────
+   Keyframes MUST live here, not in a page's <style jsx>: a styled-jsx
+   @keyframes never resolves from a React inline `animation` string, and the
+   animation silently does nothing. */
+
+/* Punching through a ceiling into the next room. Snap, not cross-fade — the
+   point is that he BROKE it, so the two halves are flung and gone. */
+@keyframes jumpCeilBreakL {
+  0%   { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  8%   { transform: translate(-4px, 3px) rotate(-2deg); opacity: 1; }
+  100% { transform: translate(-96px, 46px) rotate(-15deg); opacity: 0; }
+}
+@keyframes jumpCeilBreakR {
+  0%   { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  8%   { transform: translate(4px, 3px) rotate(2deg); opacity: 1; }
+  100% { transform: translate(96px, 46px) rotate(15deg); opacity: 0; }
+}
+
+/* An oven rack about to stop being worth landing on. Two steps, no easing —
+   a smooth pulse reads as decoration, a hard blink reads as a warning. */
+@keyframes jumpRackWarn {
+  0%, 49%   { opacity: 1; }
+  50%, 100% { opacity: 0.15; }
+}
+
+/* Speed streaks past the walls on a launch bigger than an ordinary hop. */
+@keyframes jumpStreak {
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(340%); }
+}
+
+/* A sugar cube turning in the air. The only thing in the shaft that spins, so
+   it can never be mistaken for something to land on. */
+@keyframes jumpSugarSpin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

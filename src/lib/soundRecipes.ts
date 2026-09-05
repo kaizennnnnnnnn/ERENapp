@@ -89,6 +89,40 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
   jl_high:         { type: 'arp',   notes: [1047, 1319, 1568], step: 60, noteDur: 120, shape: 'sine', gain: 0.7 },
   jl_over:         { type: 'arp',   notes: [784, 659, 523, 392], step: 110, noteDur: 190, shape: 'triangle', gain: 0.8 },
 
+  // Jump's voice is SINE SWEEPS — soft and wobbly, like the thing he is landing
+  // on. New sounds go wider in range rather than changing waveform, so the game
+  // keeps one voice and a new event still sounds like this game.
+  //
+  // jl_crack is the deliberate exception: it is the only UNPITCHED sound in the
+  // shaft. A material failing has to sound like a material, not a note, and
+  // being the odd one out is what makes the biscuit legible by ear alone.
+  jl_cream:        { type: 'seq', parts: [
+    { at: 0,  recipe: { type: 'sweep', freq: [330, 990], duration: 220, shape: 'sine', gain: 0.85, curve: 'exponential' } },
+    { at: 20, recipe: { type: 'noise', duration: 130, gain: 0.22, highpass: 2600 } },
+  ] },
+  // The only four-note tune in the game, so a paid-off chain can never be
+  // mistaken for cream: cream is a swoop, the chain is a melody.
+  jl_chain:        { type: 'arp',   notes: [523, 659, 784, 1047], step: 52, noteDur: 130, shape: 'sine', gain: 0.9 },
+  jl_crack:        { type: 'crash', noise: { duration: 90, gain: 0.5, lowpass: 2400 }, tone: { freq: 190, duration: 110, shape: 'triangle', gain: 0.4 } },
+  jl_tip:          { type: 'sweep', freq: [520, 300], duration: 130, shape: 'triangle', gain: 0.6 },
+  jl_rack:         { type: 'seq', parts: [
+    { at: 0,  recipe: { type: 'blip', freq: 1320, duration: 70, shape: 'square', gain: 0.5 } },
+    { at: 40, recipe: { type: 'sweep', freq: [420, 1180], duration: 200, shape: 'sine', gain: 0.7, curve: 'exponential' } },
+  ] },
+  jl_sugar:        { type: 'blip',  freq: 1760, duration: 46, shape: 'sine', gain: 0.55 },
+  jl_jar:          { type: 'arp',   notes: [784, 988, 1319], step: 70, noteDur: 150, shape: 'sine', gain: 0.85 },
+  jl_jam:          { type: 'seq', parts: [
+    { at: 0,   recipe: { type: 'sweep', freq: [180, 720], duration: 300, shape: 'sine', gain: 0.9, curve: 'exponential' } },
+    { at: 140, recipe: { type: 'chord', freqs: [523, 659, 784], duration: 420, shape: 'sine', gain: 0.6 } },
+  ] },
+  // Built as the picture it runs under: a low thud as the plaster gives, then
+  // the room above opening out behind it.
+  jl_zone:         { type: 'seq', parts: [
+    { at: 0,   recipe: { type: 'crash', noise: { duration: 160, gain: 0.6, lowpass: 700 }, tone: { freq: 110, duration: 200, shape: 'triangle', gain: 0.8 } } },
+    { at: 120, recipe: { type: 'chord', freqs: [392, 523, 659, 784], duration: 520, shape: 'sine', gain: 0.55 } },
+  ] },
+  jl_rival:        { type: 'arp',   notes: [880, 1319], step: 90, noteDur: 200, shape: 'sine', gain: 0.9 },
+
   // ─── flappy-eren — gritty square sweeps ─────────────────────────────────
   fe_flap:         { type: 'sweep', freq: [440, 280], duration: 80, shape: 'square', gain: 0.55 },
   fe_pipe_pass:    { type: 'blip',  freq: 880, duration: 60, shape: 'square', gain: 0.7 },
