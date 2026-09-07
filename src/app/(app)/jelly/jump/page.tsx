@@ -71,6 +71,11 @@ import JellyPrize, { type DuelLine } from '@/components/jelly/JellyPrize'
 import { JumpWallLayer, JumpDepth, JumpCeiling, TILE } from '@/components/jelly/JumpScenery'
 import { ZONES, ZONE_M, ZONE_FADE_M } from '@/components/jelly/jumpZones'
 import { Platform, Sugar, PLAT_W, PLAT_H, SUGAR_SIZE, type PlatKind } from '@/components/jelly/JumpPlatform'
+import {
+  dealFoe, dripAt, spiderAt, type Foe,
+  EREN_HIT_R, WASP_R, BEETLE_R, DROP_R, SPIDER_R, FLIER_RX, FLIER_RY, BEETLE_SPEED, FLIER_SPEED,
+} from '@/components/jelly/jumpFoes'
+import { FoeSprite, Drop, Spout, SpiderBody, FLIER_SKIN } from '@/components/jelly/JumpFoe'
 import PixelEren, { type ErenPose } from '@/components/games/PixelEren'
 import { IconJelly, IconSparkles } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
@@ -160,6 +165,18 @@ const CRUMB_HOLD_MS = 220
  * used to break only on re-landing the identical shelf.
  */
 const CHAIN_REWARD = 8
+/**
+ * A hit is a STUNG HOP, not a death. He pops up 41px (380²/2·1750), gets
+ * shoved away from whatever stung him, and loses the chain. From mid-hop that
+ * almost always drops him back onto the shelf he left — a hit costs progress,
+ * and only costs the run if he was already somewhere he shouldn't be. The jam
+ * still catches a real fall. INVULN_MS stops one sting chaining into a second.
+ */
+const HIT_V = 380
+const HIT_SHOVE = 240
+const INVULN_MS = 900
+/** WASP sits this far above its shelf's top face; BEETLE a little lower. */
+const PERCH_Y: Record<'wasp' | 'beetle', number> = { wasp: 9, beetle: 7 }
 
 // ── Sugar and the jam jar ──────────────────────────────────────────────────
 /** Chance that a gap is strung with cubes. */
@@ -308,6 +325,14 @@ export default function JellyJumpPage() {
   /** The shelf he last left, so the dive pose is positional, not a guess. */
   const launchWy = useRef(0)
   const jar = useRef(0)
+  const foes = useRef<Foe[]>([])
+  /** Shelves dealt since the last hazard — see HAZARD_SPACING in jumpFoes.ts. */
+  const hazardCredit = useRef(0)
+  const lastPlatId = useRef(-1)
+  const invulnUntil = useRef(0)
+  /** Red flash on a hit; decays per frame, written as an opacity. */
+  const hurtA = useRef(0)
+  const hurtRef = useRef<HTMLDivElement | null>(null)
   const jamReady = useRef(false)
   const zoneRef = useRef(0)
   const ceilIdxRef = useRef(0)
@@ -428,7 +453,8 @@ export default function JellyJumpPage() {
      * frame genuinely unmakeable — each is fair alone because each caps the
      * hop that follows it, and neither can cap a hop that is already capped.
      */
-    const punished = lastKind.current === 'syrup' || lastKind.current === 'lid'
+    const prevKind = lastKind.current
+    const punished = prevKind === 'syrup' || prevKind === 'lid'
     const roll = Math.random()
     const pCream = 0.10
     const pSlider = 0.10 + heat * 0.16
@@ -466,8 +492,9 @@ export default function JellyJumpPage() {
     const minX = Math.max(half, x - span / 2)
     const maxX = Math.min(W - half, x + span / 2)
 
+    const id = ++uid
     plats.current.push({
-      id: ++uid,
+      id,
       kind,
       x, wy: nextPlatWy.current,
       jelly: JELLIES[Math.floor(Math.random() * JELLIES.length)],
@@ -482,7 +509,41 @@ export default function JellyJumpPage() {
      * at all — the whole risk is precision, not greed. A cube placed off the
      * chord would be asking him to spend the 62px of slack the map is built on.
      */
-    if (Math.random() < SUGAR_CHANCE) {
+    /**
+     * Maybe a hazard for this hop. All the fairness lives in dealFoe(): the
+     * spacing, the shelf-below-must-be-waitable rule, the geometry per kind.
+     * This site only books what it returns. A sour shelf is pushed BESIDE the
+     * real one and never touches lastPlatX, so the chain anchors past it.
+     */
+    hazardCredit.current++
+    const deal = dealFoe({
+      W, climbed, heat,
+      from: { x: fromX, wy: fromWy, kind: prevKind, id: lastPlatId.current },
+      to: { x, wy: nextPlatWy.current, kind, id },
+      credit: hazardCredit.current,
+      rnd: Math.random,
+      nextId: () => ++uid,
+    })
+    lastPlatId.current = id
+    let columnFoe = false
+    if (deal) {
+      hazardCredit.current = 0
+      if (deal.sour) {
+        plats.current.push({
+          id: ++uid, kind: 'sour', x: deal.sour.x, wy: deal.sour.wy,
+          jelly: JELLIES[0],
+          used: false, squish: 0, melt: 0, falling: false, fallV: 0, crackAt: 0,
+          vx: 0, minX: 0, maxX: 0, tip: 0, phase: 0,
+        })
+      }
+      if (deal.foe) {
+        foes.current.push(deal.foe)
+        columnFoe = deal.foe.kind === 'drip' || deal.foe.kind === 'spider'
+      }
+    }
+
+    // No sugar on a hop that owns a column: one thing to read per gap.
+    if (!columnFoe && Math.random() < SUGAR_CHANCE) {
       for (let i = 0; i < 2; i++) {
         cubes.current.push({
           id: ++uid,
@@ -536,6 +597,37 @@ export default function JellyJumpPage() {
         }
         if (p.falling) { p.fallV += GRAVITY * 0.55 * dt; p.wy += p.fallV * dt }
       }
+      // Foes that travel move here too, before any test touches them.
+      for (const f of foes.current) {
+        if (f.kind === 'beetle') {
+          f.ox += f.dir * BEETLE_SPEED * dt
+          const lim = PLAT_W / 2 - BEETLE_R - 4
+          if (f.ox <= -lim) { f.ox = -lim; f.dir = 1 }
+          if (f.ox >= lim) { f.ox = lim; f.dir = -1 }
+        } else if (f.kind === 'flier') {
+          f.x += f.dir * FLIER_SPEED * dt
+          if (f.x <= f.minX) { f.x = f.minX; f.dir = 1 }
+          if (f.x >= f.maxX) { f.x = f.maxX; f.dir = -1 }
+        }
+      }
+
+      /**
+       * The sting. One place, so every hazard hurts the same way and the
+       * invulnerability window is honoured by all of them.
+       */
+      const hurt = (fromX: number) => {
+        if (now < invulnUntil.current) return
+        invulnUntil.current = now + INVULN_MS
+        c.vy = -HIT_V
+        c.vx = (c.x < fromX ? -1 : 1) * HIT_SHOVE
+        chain.current = 0
+        lastHitWy.current = Infinity
+        setChainUi(0)
+        hurtA.current = 1
+        punch.current = reducedRef.current ? 0 : PUNCH_BIG
+        playSound('jl_hit')
+        flash('wobble', 520)
+      }
 
       // Bounce: only while falling, and only on the way DOWN through the top
       // face — otherwise he sticks to a jelly he's rising through.
@@ -546,6 +638,18 @@ export default function JellyJumpPage() {
           if (dx > PLAT_W / 2 + EREN / 4) continue
           const feet = c.wy + EREN / 2
           if (feet >= p.wy && feet <= p.wy + PLAT_H * 0.9) {
+            // A trap shelf bites instead of bouncing.
+            if (p.kind === 'sour') { hurt(p.x); p.squish = 1; break }
+            // Something perched on this shelf, under his landing? Stung, not
+            // bounced. Tested on the landing frame only: rising past a wasp
+            // from below is not touching it.
+            let stung = false
+            for (const f of foes.current) {
+              if (f.host !== p.id) continue
+              const fx = p.x + f.ox
+              if (Math.abs(c.x - fx) < EREN_HIT_R + (f.kind === 'wasp' ? WASP_R : BEETLE_R)) { hurt(fx); stung = true; break }
+            }
+            if (stung) { p.squish = 1; break }
             /**
              * The chain counts shelves you CLIMBED. Landing on one that isn't
              * above the last one — a rebound onto the same shelf, or a two-storey
@@ -634,11 +738,32 @@ export default function JellyJumpPage() {
         if (jar.current >= JAR_CAPACITY && !jamReady.current) {
           jamReady.current = true
           jar.current = 0
+    foes.current = []
+    hazardCredit.current = 0
+    lastPlatId.current = -1
+    invulnUntil.current = 0
+    hurtA.current = 0
           setJamUi(true)
           playSound('jl_jar')
           shout('JAR FULL')
         }
         setJarUi(jar.current)
+      }
+
+      // Air hazards. Any direction of travel: a drop lands on him whether he is
+      // rising into it or falling onto it.
+      for (const f of foes.current) {
+        if (f.kind === 'drip') {
+          const u = dripAt(f, now)
+          if (u === null) continue
+          const wy = f.top + u * (f.bot - f.top)
+          if (Math.abs(c.x - f.cx) < EREN_HIT_R + DROP_R && Math.abs(c.wy - wy) < EREN_HIT_R + DROP_R) hurt(f.cx)
+        } else if (f.kind === 'spider') {
+          const wy = f.top + 16 + spiderAt(f, now).u * (f.bot - f.top - 32)
+          if (Math.abs(c.x - f.cx) < EREN_HIT_R + SPIDER_R && Math.abs(c.wy - wy) < EREN_HIT_R + SPIDER_R) hurt(f.cx)
+        } else if (f.kind === 'flier') {
+          if (Math.abs(c.x - f.x) < EREN_HIT_R + FLIER_RX && Math.abs(c.wy - f.wy) < EREN_HIT_R + FLIER_RY) hurt(f.x)
+        }
       }
 
       // ── Pose ──
@@ -728,6 +853,39 @@ export default function JellyJumpPage() {
         return true
       })
 
+      foes.current = foes.current.filter(f => {
+        const host = f.host >= 0 ? plats.current.find(p => p.id === f.host) : undefined
+        if (f.host >= 0 && !host) { listChanged = true; return false }
+        const low = host ? host.wy : f.kind === 'flier' ? f.wy : f.bot
+        if (low - cam.current > H + 60) { listChanged = true; return false }
+        if (!f.el) return true
+        if (host) {
+          // Rides its shelf: a wasp faces inward, a beetle faces its travel.
+          const x = host.x + f.ox
+          const wy = host.wy - PERCH_Y[f.kind as 'wasp' | 'beetle']
+          f.el.style.transform = `translate3d(${x - 11}px, ${wy - cam.current - 8}px, 0)`
+          if (f.flip) f.flip.style.transform = `scaleX(${f.kind === 'wasp' ? (f.ox > 0 ? -1 : 1) : f.dir})`
+        } else if (f.kind === 'flier') {
+          f.el.style.transform = `translate3d(${f.x - 11}px, ${f.wy - cam.current - 8}px, 0)`
+          if (f.flip) f.flip.style.transform = `scaleX(${f.dir})`
+        } else if (f.kind === 'drip') {
+          f.el.style.transform = `translate3d(${f.cx}px, ${f.top - cam.current}px, 0)`
+          const u = dripAt(f, now)
+          if (f.inner) {
+            f.inner.style.opacity = u === null ? '0' : '1'
+            f.inner.style.transform = `translateY(${(u ?? 0) * (f.bot - f.top)}px)`
+          }
+        } else {
+          f.el.style.transform = `translate3d(${f.cx}px, ${f.top - cam.current}px, 0)`
+          const { u, shiver } = spiderAt(f, now)
+          const bodyY = 16 + u * (f.bot - f.top - 32)
+          if (f.inner) f.inner.style.transform = `translateY(${bodyY}px)`
+          if (f.thread) f.thread.style.transform = `scaleY(${bodyY / (f.bot - f.top)})`
+          f.el.style.setProperty('--shiver', shiver && !reducedRef.current ? 'running' : 'paused')
+        }
+        return true
+      })
+
       // ── Zones ──
       // The wall is two stacked layers: A is the room he is in, B is the one
       // above, faded up over the last ZONE_FADE_PX before the boundary so it
@@ -799,6 +957,10 @@ export default function JellyJumpPage() {
         const sx = 1 - s * 0.12, sy = 1 + s * 0.12
         erenRef.current.style.transform =
           `translate3d(${c.x - EREN / 2}px, ${c.wy - cam.current - EREN / 2}px, 0) scale(${sx}, ${sy})`
+        // Blink while he can't be stung again. Meaning-bearing, so it stays
+        // on under reduced motion — as a steady dim rather than a flicker.
+        const inv = now < invulnUntil.current
+        erenRef.current.style.opacity = !inv ? '1' : reducedRef.current ? '0.6' : (Math.floor(now / 70) % 2 ? '0.35' : '1')
       }
 
       // ── Punch and streaks ──
@@ -808,6 +970,10 @@ export default function JellyJumpPage() {
       // — a fractional translate on the container resamples the sprite.
       punch.current *= Math.pow(PUNCH_DECAY, dt)
       field.style.transform = `translate3d(0, ${Math.round(punch.current)}px, 0)`
+      if (hurtA.current > 0 && hurtRef.current) {
+        hurtA.current = Math.max(0, hurtA.current - dt * 4)
+        hurtRef.current.style.opacity = String(hurtA.current * 0.5)
+      }
       if (streakRef.current) {
         const speed = Math.max(0, -c.vy - STREAK_FROM) / (CREAM_V - STREAK_FROM)
         streakRef.current.style.opacity = reducedRef.current ? '0' : String(Math.min(1, speed) * 0.7)
@@ -969,6 +1135,10 @@ export default function JellyJumpPage() {
         ))}
       </div>
 
+      {/* One red wash on a sting, gone in a quarter second. */}
+      <div ref={hurtRef} aria-hidden className="absolute inset-0 pointer-events-none"
+        style={{ zIndex: 6, background: '#C9283C', opacity: 0 }} />
+
       {/* ── HUD ── */}
       <div className="absolute left-0 right-0 flex items-center gap-2 px-3" style={{
         top: 'calc(var(--safe-top) + 8px)', zIndex: 30,
@@ -1082,6 +1252,39 @@ export default function JellyJumpPage() {
           </div>
         ))}
 
+        {/* Foes draw over the shelves (a wasp SITS on one) and under him. Each
+            wrapper is positioned by the loop; anything that flips or idles is
+            on a span inside it — see the note atop JumpFoe.tsx. */}
+        {foes.current.map(f => (
+          <div key={f.id} ref={el => { f.el = el }} aria-hidden style={{
+            position: 'absolute', left: 0, top: 0, width: 22, height: 16,
+            willChange: 'transform', pointerEvents: 'none',
+          }}>
+            {f.kind === 'drip' ? (
+              <>
+                <Spout />
+                <span ref={el => { f.inner = el }} style={{ position: 'absolute', left: 0, top: 0, willChange: 'transform, opacity' }}>
+                  <Drop />
+                </span>
+              </>
+            ) : f.kind === 'spider' ? (
+              <>
+                <span ref={el => { f.thread = el }} style={{
+                  position: 'absolute', left: -1, top: 0, width: 2, height: f.bot - f.top,
+                  background: 'rgba(240,240,255,0.55)', transformOrigin: 'top center', willChange: 'transform',
+                }} />
+                <span ref={el => { f.inner = el }} style={{ position: 'absolute', left: 0, top: 0, willChange: 'transform' }}>
+                  <SpiderBody />
+                </span>
+              </>
+            ) : (
+              <span ref={el => { f.flip = el }} style={{ position: 'absolute', inset: 0, willChange: 'transform' }}>
+                <FoeSprite kind={f.kind} skin={FLIER_SKIN[Math.min(zoneIdx, FLIER_SKIN.length - 1)]} reduced={reduced} />
+              </span>
+            )}
+          </div>
+        ))}
+
         <div ref={erenRef} style={{
           position: 'absolute', left: 0, top: 0, width: EREN, height: EREN,
           willChange: 'transform', pointerEvents: 'none',
@@ -1111,6 +1314,9 @@ export default function JellyJumpPage() {
               <Rule swatch="#E0A93E" text="LIDS tip. Land on the middle notch and it launches him." />
               <Rule swatch="#4A2A1E" text="SYRUP is heavy — a short, low bounce." />
               <Rule swatch="#FFF3D6" text="SUGAR fills the jar. A full jar catches him once, when he falls." />
+              <Rule swatch="#F4C542" text="WASPS and BEETLES sting. Land beside them, not on them." />
+              <Rule swatch="#A9C84A" text="SOUR JELLY bites. It's never the only way up." />
+              <Rule swatch="#4A3A5A" text="DRIPS and SPIDERS own a column. Bounce in place and go when it's clear." />
             </div>
             <p className="text-center" style={{ fontSize: 10, color: '#9A7484' }}>
               Four rooms to climb through. Slip past the bottom and the run ends.

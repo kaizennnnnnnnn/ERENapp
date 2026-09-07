@@ -155,6 +155,7 @@ export const SOUNDS = {
   jl_jam:          '/sounds/games/jelly/jl_jam.mp3',
   jl_zone:         '/sounds/games/jelly/jl_zone.mp3',
   jl_rival:        '/sounds/games/jelly/jl_rival.mp3',
+  jl_hit:          '/sounds/games/jelly/jl_hit.mp3',
 
   tt_catch_good:   '/sounds/games/treat-tumble/tt_catch_good.mp3',
   tt_catch_golden: '/sounds/games/treat-tumble/tt_catch_golden.mp3',
@@ -397,6 +398,7 @@ const VOLUME_SCALE: Partial<Record<SoundName, number>> = {
   jl_jam:             0.85,
   jl_zone:            0.8,
   jl_rival:           0.85,
+  jl_hit:             0.75,
   tt_catch_good:      0.6,
   tt_catch_golden:    0.75,
   tt_catch_heart:     0.7,
@@ -567,6 +569,7 @@ const FALLBACK: Partial<Record<SoundName, SoundName>> = {
   jl_jam:             'level_up' as SoundName,
   jl_zone:            'gacha_reveal_rare' as SoundName,
   jl_rival:           'quest_complete' as SoundName,
+  jl_hit:             'ui_back' as SoundName,
 
   // treat-tumble
   tt_catch_good:      'care_eat' as SoundName,

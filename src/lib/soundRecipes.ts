@@ -122,6 +122,12 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
     { at: 120, recipe: { type: 'chord', freqs: [392, 523, 659, 784], duration: 520, shape: 'sine', gain: 0.55 } },
   ] },
   jl_rival:        { type: 'arp',   notes: [880, 1319], step: 90, noteDur: 200, shape: 'sine', gain: 0.9 },
+  // The sting. Noise for the impact, a falling square for the "ow" — the
+  // only descending sound in the shaft that isn't the run ending.
+  jl_hit:          { type: 'seq', parts: [
+    { at: 0,  recipe: { type: 'noise', duration: 70, gain: 0.5, lowpass: 1800 } },
+    { at: 10, recipe: { type: 'sweep', freq: [520, 160], duration: 220, shape: 'square', gain: 0.45 } },
+  ] },
 
   // ─── flappy-eren — gritty square sweeps ─────────────────────────────────
   fe_flap:         { type: 'sweep', freq: [440, 280], duration: 80, shape: 'square', gain: 0.55 },

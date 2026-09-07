@@ -1688,3 +1688,25 @@
   0%   { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+/* Jelly Jump foes. Idle life only — every one of these sits on an INNER span
+   under the element the loop positions, so the keyframe can never fight the
+   translate (a CSS animation on transform wins over an inline one). */
+@keyframes jumpHover {
+  0%, 49%   { transform: translateY(0); }
+  50%, 100% { transform: translateY(-2px); }
+}
+@keyframes jumpFlap {
+  0%, 49%   { transform: scaleY(1); }
+  50%, 100% { transform: scaleY(0.45); }
+}
+/* A spider about to drop. */
+@keyframes jumpShiver {
+  0%, 49%   { transform: translateX(-1.5px); }
+  50%, 100% { transform: translateX(1.5px); }
+}
+/* The hit: one red frame across the field, gone on the next. */
+@keyframes jumpHurt {
+  0%   { opacity: 0.55; }
+  100% { opacity: 0; }
+}

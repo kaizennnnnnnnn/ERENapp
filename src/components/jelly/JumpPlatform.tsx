@@ -30,12 +30,16 @@
 //   RACK    an oven rack on a duty cycle. Lit = a cream-strength launch,
 //           cooling = an ordinary one. It ALWAYS catches you — a platform you
 //           could fall through would be the crumb's lie told twice.
+//   SOUR    not a shelf: a trap wearing a shelf's shape. It bites. It is dealt
+//           BESIDE the real shelf, never instead of it (jumpFoes.ts), so it is
+//           never the only way up — and it wears a face and a pulsing ring so
+//           it can be told from the real one while falling.
 
 import { memo } from 'react'
 import type { JellyDef } from '@/lib/jellies'
 import { INK } from './parlourTheme'
 
-export type PlatKind = 'jelly' | 'slider' | 'cream' | 'crumb' | 'syrup' | 'lid' | 'rack'
+export type PlatKind = 'jelly' | 'slider' | 'cream' | 'crumb' | 'syrup' | 'lid' | 'rack' | 'sour'
 
 export const PLAT_W = 76
 export const PLAT_H = 26
@@ -139,6 +143,48 @@ function PlatformInner({ kind, jelly, cracked, tip }: Props) {
             bottom: 20, width: 9, height: 3, background: INK, opacity: 0.6,
           }} />
         )}
+      </span>
+    )
+  }
+
+  if (kind === 'sour') {
+    // The same dome as a jelly — that is the point of a trap — but sallow,
+    // with a mouth, and a warning ring the real ones never wear. The ring is
+    // the Jelly Slice `sourPulse`, so the two games share one word for "bad".
+    return (
+      <span style={{ position: 'absolute', inset: 0 }}>
+        <span aria-hidden style={{
+          position: 'absolute', left: -6, right: -6, top: -8, bottom: -3, borderRadius: 999,
+          border: '2.5px solid #B7E24A', opacity: 0.6,
+          animation: 'sourPulse 640ms ease-in-out infinite',
+        }} />
+        <span style={{
+          position: 'absolute', left: 1, right: 1, bottom: 1, height: 21,
+          borderRadius: '13px 13px 5px 5px',
+          background: 'linear-gradient(180deg, #A9C84A 0%, #7E9A2C 55%, rgba(0,0,0,0.32) 100%)',
+          border: `3px solid ${INK}`, overflow: 'hidden',
+        }}>
+          <span style={{
+            position: 'absolute', left: 4, right: 4, top: 2, height: 6, borderRadius: 999,
+            background: 'linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0.08))',
+          }} />
+          {/* Eyes and a row of TEETH — a face, so it is a THING, not a shelf.
+              The teeth are cream on an INK gum: INK alone vanished into the
+              slab's dark lower half, and a trap that can't be read is a tax. */}
+          {[22, 44].map(x => (
+            <span key={x} style={{ position: 'absolute', left: x, top: 6, width: 5, height: 5, borderRadius: '50%', background: INK }} />
+          ))}
+          <span style={{ position: 'absolute', left: 18, top: 12, width: 34, height: 7, borderRadius: '2px 2px 4px 4px', background: INK }}>
+            <span style={{
+              position: 'absolute', left: 2, right: 2, top: 1, height: 4, background: '#FFF8EE',
+              clipPath: 'polygon(0 0, 100% 0, 100% 35%, 90% 100%, 80% 35%, 70% 100%, 60% 35%, 50% 100%, 40% 35%, 30% 100%, 20% 35%, 10% 100%, 0 35%)',
+            }} />
+          </span>
+        </span>
+        <span style={{
+          position: 'absolute', left: '50%', top: 0, width: 11, height: 7, marginLeft: -5,
+          borderRadius: '60% 20% 60% 20%', background: '#5E6B1E', border: `2px solid ${INK}`,
+        }} />
       </span>
     )
   }
