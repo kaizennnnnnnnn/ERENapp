@@ -291,7 +291,6 @@ export async function POST(request: Request) {
     daypart:     getDaypart(now),
     localTime:   now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
     hoursSinceLastCare,
-    memories,
     recentCare,
     recentOpeners,
     recentTheirs,
@@ -302,15 +301,27 @@ export async function POST(request: Request) {
   // changes once a day (the persona rotates his voice lines and his mood) or
   // when Eren saves a new fact. The second extends it over the replayed
   // history, so a long conversation doesn't re-bill itself each turn.
-  const system: Anthropic.TextBlockParam[] = [{ type: 'text', text: buildPersona(todayKey(now), hasPartner) }]
+  // TWO breakpoints over the system half, not one, and the split is the point.
+  // Persona + tools turn over once a day; memories change the moment he saves a
+  // fact. With a single breakpoint sitting after the memories, every save
+  // invalidated the whole prefix and the next message re-wrote all ~2,900
+  // tokens at 1.25x. Split, a save re-writes only the memories segment and the
+  // persona stays cached underneath it.
+  //
+  // This block is also his ONLY copy of what he remembers — the volatile tail
+  // used to repeat all of it at ten times the price — so the label has to carry
+  // recall as well as the don't-save-it-again instruction.
+  const system: Anthropic.TextBlockParam[] = [{
+    type: 'text',
+    text: buildPersona(todayKey(now), hasPartner),
+    cache_control: { type: 'ephemeral' },
+  }]
   if (memories.length > 0) {
     system.push({
       type: 'text',
-      text: `Things you already remember about them (do not save these again):\n${memories.map((m) => `- ${m}`).join('\n')}`,
+      text: `Things you know about them. You remember all of this, and it is already saved — so never save any of it again:\n${memories.map((m) => `- ${m}`).join('\n')}`,
       cache_control: { type: 'ephemeral' },
     })
-  } else {
-    system[0].cache_control = { type: 'ephemeral' }
   }
 
   const messages: Anthropic.MessageParam[] = history.map((m, i) => ({
@@ -356,6 +367,18 @@ ${liveContext}
 
       let full = ''
       let ttft = 0
+      // Token counts, summed across every turn of the tool loop AND the
+      // no-tools retry. Without these, every cost figure for this route is
+      // an estimate -- and the three counts are mutually exclusive, so a
+      // cache miss is only visible as cacheRead going to zero. This is the
+      // measurement channel for the whole /talk bill.
+      const use = { in: 0, cacheWrite: 0, cacheRead: 0, out: 0 }
+      const tally = (u: Anthropic.Usage) => {
+        use.in += u.input_tokens
+        use.cacheWrite += u.cache_creation_input_tokens ?? 0
+        use.cacheRead += u.cache_read_input_tokens ?? 0
+        use.out += u.output_tokens
+      }
       try {
         for (let turn = 0; turn < MAX_TURNS; turn++) {
           const run = anthropic.messages.stream({
@@ -380,6 +403,7 @@ ${liveContext}
           })
 
           const msg = await run.finalMessage()
+          tally(msg.usage)
 
           const toolUses = msg.content.filter(
             (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use',
@@ -429,7 +453,7 @@ ${liveContext}
             full += delta
             send({ t: delta })
           })
-          await retry.finalMessage()
+          tally((await retry.finalMessage()).usage)
         }
 
         full = full.trim()
@@ -440,8 +464,12 @@ ${liveContext}
             { user_id: user.id, role: 'assistant', content: full },
           )
         }
+        // cacheRead dropping to 0 is how a silently-broken cache shows up —
+        // Anthropic returns no error when a prefix falls under a model's
+        // minimum, it just stops caching and bills full price. Watch that field.
         console.log(
-          `[chat] model=${MODEL} ttft=${ttft}ms total=${Date.now() - t0}ms chars=${full.length}`,
+          `[chat] model=${MODEL} ttft=${ttft}ms total=${Date.now() - t0}ms chars=${full.length}` +
+          ` in=${use.in} cacheW=${use.cacheWrite} cacheR=${use.cacheRead} out=${use.out}`,
         )
         send({ done: true })
       } catch (err) {

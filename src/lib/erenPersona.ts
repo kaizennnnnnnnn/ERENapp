@@ -427,7 +427,6 @@ export interface LiveContext {
   daypart: Daypart
   localTime: string
   hoursSinceLastCare: number | null
-  memories: string[]
   /** Care actions in the last 24h, already attributed to a person. */
   recentCare?: CareEvent[]
   /** First lines of his own last few replies, most recent first. */
@@ -524,9 +523,11 @@ export function buildLiveContext(ctx: LiveContext): string {
     )
   }
 
-  if (ctx.memories.length > 0) {
-    lines.push('', 'Things you remember about them:', ...ctx.memories.map((m) => `- ${m}`))
-  }
+  // His memories deliberately do NOT appear here. They ride in the CACHED system
+  // block instead (see route.ts), which is the same text at a tenth of the price.
+  // Listing them here as well sent every fact twice per message — once cached at
+  // $0.20/MTok and once in this volatile tail at $2.00 — and at MEMORY_CAP that
+  // duplicate alone cost more than a whole message otherwise does.
 
   return lines.join('\n')
 }
