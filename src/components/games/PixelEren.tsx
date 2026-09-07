@@ -150,17 +150,28 @@ const PixelEren = memo(function PixelEren({ pose, size = 32, blink = false, twit
            <rect x={step ? 4 : 7} y="18" width="2" height="1" fill={FUR_DK} />
            <rect x={step ? 13 : 11} y="18" width="2" height="1" fill={FUR_DK} /></>
         : leap
-        // Both forepaws reaching, hind legs tucked up under the body.
-        ? <><rect x="14" y="14" width="5" height="3" fill={INK} /><rect x="15" y="15" width="3" height="1" fill={FUR} />
-           <rect x="4" y="17" width="4" height="2" fill={INK} /><rect x="5" y="17" width="2" height="1" fill={FUR_DK} /></>
+        // Both forepaws up under the chin, hind toes tucked.
+        //
+        // Nothing may jut out sideways from the LOWER body. He is drawn
+        // front-on, so a limb reaching out at hip height never reads as a paw
+        // from the front — it reads as a second tail, which is exactly how it
+        // read in play. Airborne paws stay inside the body outline; the pose
+        // is carried by the lean, the tail and the eyes.
+        ? <><rect x="4" y="14" width="4" height="3" fill={INK} /><rect x="5" y="16" width="2" height="1" fill={FUR} />
+           <rect x="12" y="14" width="4" height="3" fill={INK} /><rect x="13" y="16" width="2" height="1" fill={FUR} />
+           <rect x="6" y="18" width="3" height="2" fill={INK} /><rect x="11" y="18" width="3" height="2" fill={INK} /></>
         : dive
         // Everything tucked tight and narrow — a falling ball of cat.
         ? <><rect x="6" y="18" width="3" height="2" fill={INK} /><rect x="11" y="18" width="3" height="2" fill={INK} /></>
         : dash
-        // Forepaws punched forward, hind legs trailing — nothing under him is
-        // touching ground, which is the read that separates this from a run.
-        ? <><rect x="15" y="15" width="5" height="3" fill={INK} /><rect x="16" y="16" width="3" height="1" fill={FUR} />
-           <rect x="2" y="17" width="5" height="2" fill={INK} /><rect x="3" y="17" width="3" height="1" fill={FUR_DK} /></>
+        // Both forepaws punched forward TOGETHER and shifted into the lean,
+        // one hind foot trailing — nothing under him is touching ground, which
+        // is the read that separates this from a run. Same rule as leap: the
+        // thrust is said with WHERE the paws sit inside the outline, never
+        // with a limb poking out of it. The lean and the flat ears do the rest.
+        ? <><rect x="9" y="14" width="3" height="3" fill={INK} /><rect x="10" y="16" width="1" height="1" fill={FUR} />
+           <rect x="13" y="14" width="3" height="3" fill={INK} /><rect x="14" y="16" width="1" height="1" fill={FUR} />
+           <rect x="5" y="18" width="4" height="2" fill={INK} /><rect x="6" y="19" width="2" height="1" fill={FUR_DK} /></>
         : glide
         // Dangling straight down and slack. Legs doing nothing is the whole
         // point of a glide.
