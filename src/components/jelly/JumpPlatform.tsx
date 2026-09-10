@@ -1,7 +1,7 @@
 'use client'
 
 // ─── JumpPlatform ───────────────────────────────────────────────────────────
-// One shelf in the storeroom shaft. Seven kinds.
+// One shelf in the storeroom shaft. Nine kinds.
 //
 // A platform is a SLAB, not the shop's pudding art shrunk down. The first build
 // dropped jelly_*.png into a 76×26 box with objectFit:contain, which letterboxes
@@ -30,6 +30,10 @@
 //   RACK    an oven rack on a duty cycle. Lit = a cream-strength launch,
 //           cooling = an ordinary one. It ALWAYS catches you — a platform you
 //           could fall through would be the crumb's lie told twice.
+//   SACK    a sack of sugar, tied at one end. Landing on it bursts it and pays
+//           six cubes straight into the jar, once. It is never dealt alone —
+//           it is one half of a FORK, opposite a cream, and you have to want
+//           one of them (see addPlat in page.tsx).
 //   SOUR    not a shelf: a trap wearing a shelf's shape. It bites. It is dealt
 //           BESIDE the real shelf, never instead of it (jumpFoes.ts), so it is
 //           never the only way up — and it wears a face and a pulsing ring so
@@ -39,7 +43,7 @@ import { memo } from 'react'
 import type { JellyDef } from '@/lib/jellies'
 import { INK } from './parlourTheme'
 
-export type PlatKind = 'jelly' | 'slider' | 'cream' | 'crumb' | 'syrup' | 'lid' | 'rack' | 'sour'
+export type PlatKind = 'jelly' | 'slider' | 'cream' | 'crumb' | 'syrup' | 'lid' | 'rack' | 'sour' | 'sack'
 
 export const PLAT_W = 76
 export const PLAT_H = 26
@@ -76,6 +80,8 @@ interface Props {
   cracked: boolean
   /** LID: which way it tipped, once, for the rest of the run. */
   tip: -1 | 0 | 1
+  /** SACK: already paid out. It stays solid — it has just gone slack. */
+  burst?: boolean
   /**
    * Draw the crown. Passed in rather than derived from `kind`, because a shelf
    * with something perched on it does NOT pay one — and a trough painted over
@@ -84,7 +90,7 @@ interface Props {
   crown?: boolean
 }
 
-function PlatformInner({ kind, jelly, cracked, tip, crown = false }: Props) {
+function PlatformInner({ kind, jelly, cracked, tip, crown = false, burst = false }: Props) {
   if (kind === 'cream') {
     return (
       <span style={{ position: 'absolute', inset: 0 }}>
@@ -134,6 +140,93 @@ function PlatformInner({ kind, jelly, cracked, tip, crown = false }: Props) {
             <span style={{ position: 'absolute', left: 33, bottom: 11, width: 14, height: 2.5, background: INK, transform: 'rotate(6deg)' }} />
           </>
         )}
+      </span>
+    )
+  }
+
+  if (kind === 'sack') {
+    /**
+     * A cloth sugar sack lying on its side, tied at one end.
+     *
+     * The silhouette leans on the TIE and the PIPS, not on the blue stripe —
+     * colour is not what the player gets while falling, and "soft trapezoid"
+     * would be the weakest shape argument in the file against the plain jelly
+     * dome. The gathered neck sticking out past the body is the outline nothing
+     * else in the shaft has.
+     *
+     * The pips sit ON the front face and never below it. Syrup's two frozen
+     * drips are the only thing in this shaft allowed to hang under its own slab,
+     * and that is the syrup's whole tell.
+     */
+    return (
+      <span style={{ position: 'absolute', inset: 0 }}>
+        {/* The body. Its top edge sits where every other slab's does, and it
+            stays there when the sack bursts — the collision band is the box,
+            not the art, so a slab that visibly sagged would be a slab he lands
+            above. Slack is said with the contents, never with the outline. */}
+        <span style={{
+          position: 'absolute', left: 11, right: 2, bottom: 1, height: 21,
+          borderRadius: '6px 10px 6px 6px',
+          background: 'linear-gradient(180deg, #F4EDE0 0%, #E4D8C2 58%, #BFB097 100%)',
+          border: `3px solid ${INK}`, overflow: 'hidden',
+        }}>
+          {/* Rolled seam along the top edge. */}
+          <span style={{
+            position: 'absolute', left: 3, right: 3, top: 1, height: 3, borderRadius: 999,
+            background: 'rgba(58,31,43,0.18)',
+          }} />
+          {/* The mill stripe — decoration, deliberately NOT the tell. */}
+          <span style={{
+            position: 'absolute', left: 0, right: 0, bottom: 2, height: 3,
+            background: '#5E86B8', opacity: burst ? 0.4 : 0.85,
+          }} />
+          {/* Creases running back from the neck. */}
+          {[4, 11].map(y => (
+            <span key={y} style={{ position: 'absolute', left: 0, top: y, width: 8, height: 2, background: 'rgba(58,31,43,0.2)' }} />
+          ))}
+          {/*
+            WHAT IT IS, stencilled on the side: one big sugar cube while it is
+            full, a scatter of loose ones once it has paid. An emblem on the
+            FACE rather than pips on the top face, because the top face is where
+            he lands and where perched hazards sit — anything drawn up there is
+            a shape the player has been trained to read as something else.
+          */}
+          {burst
+            ? [[6, 4], [17, 6], [28, 4], [39, 6], [48, 4]].map(([x, y]) => (
+              <span key={`${x}-${y}`} style={{
+                position: 'absolute', left: x, bottom: y, width: 5, height: 5, borderRadius: 1,
+                background: '#FFF8EE', border: `2px solid ${INK}`, opacity: 0.85,
+              }} />
+            ))
+            : (
+              <span style={{
+                position: 'absolute', left: 22, bottom: 5, width: 12, height: 11, borderRadius: 2,
+                background: 'linear-gradient(150deg, #FFFFFF 0%, #FFF8EE 55%, #DCCBB2 100%)',
+                border: `2.5px solid ${INK}`,
+              }}>
+                <span style={{
+                  position: 'absolute', left: 1.5, top: 1.5, width: 4, height: 2,
+                  background: 'rgba(255,255,255,0.9)', borderRadius: 1,
+                }} />
+              </span>
+            )}
+        </span>
+        {/* The gathered neck and its tie, drawn AFTER the body so the bunched
+            cloth sits over it — which is both how a cinched sack looks and the
+            only way either is visible at all. Underneath, the body covered
+            everything but a 2px sliver of the tie.
+
+            This is the silhouette. Nothing else in the shaft is pinched at one
+            end, and pinch survives at 76px where a stripe does not. */}
+        <span style={{
+          position: 'absolute', left: 0, bottom: 4, width: 16, height: 15,
+          borderRadius: '75% 20% 20% 75%',
+          background: 'linear-gradient(180deg, #EFE6D5 0%, #B8A98E 100%)', border: `3px solid ${INK}`,
+        }} />
+        <span style={{
+          position: 'absolute', left: 9, bottom: 5, width: 6, height: 13, borderRadius: 2,
+          background: 'linear-gradient(180deg, #F3CE78, #C08A2A)', border: `2.5px solid ${INK}`,
+        }} />
       </span>
     )
   }

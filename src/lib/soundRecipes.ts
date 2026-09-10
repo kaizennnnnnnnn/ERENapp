@@ -119,6 +119,9 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
   // only falling figure in the shaft that isn't the run ending. Two notes read
   // as "that went somewhere", not as "that's it".
   jl_spill:        { type: 'arp',   notes: [988, 659], step: 58, noteDur: 120, shape: 'sine', gain: 0.7 },
+  // A sack of sugar going into the jar at once — jl_sugar's fatter cousin,
+  // rising, because it is the only landing in the shaft that PAYS you.
+  jl_sack:         { type: 'arp',   notes: [1046, 1319, 1760, 2093], step: 40, noteDur: 90, shape: 'sine', gain: 0.75 },
   jl_jar:          { type: 'arp',   notes: [784, 988, 1319], step: 70, noteDur: 150, shape: 'sine', gain: 0.85 },
   jl_jam:          { type: 'seq', parts: [
     { at: 0,   recipe: { type: 'sweep', freq: [180, 720], duration: 300, shape: 'sine', gain: 0.9, curve: 'exponential' } },

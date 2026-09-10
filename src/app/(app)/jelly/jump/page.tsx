@@ -267,6 +267,46 @@ const SPILL_FAN = [-24, -8, 8, 24]
  */
 const JAM_SHELF_UP = 120
 
+// ── The fork ───────────────────────────────────────────────────────────────
+/**
+ * One storey, two shelves, and you have to want one.
+ *
+ * This game had never once asked the player what they WANT. Every storey has
+ * exactly one right answer and all of play is execution; the only two-object
+ * storey in the shaft was the sour trap, where one of the two is simply wrong.
+ * A fork offers a CREAM and a SACK of sugar at the same height, far enough
+ * apart that you cannot have both, and the correct answer depends on how the
+ * run is going: forty metres short of the jelly bar with an empty jar you take
+ * the sugar; sitting on a full jar chasing her line you take the cream.
+ */
+const FORK_UNLOCK = 180       // metres before the shaft offers one
+const FORK_EVERY = 8          // ...and storeys between offers
+const FORK_CHANCE = 0.45      // ~one fork every ten storeys
+const FORK_SPREAD = 85        // each branch this far from the midpoint
+/**
+ * How far the pair may slide to fit between the walls before the fork is
+ * ABANDONED instead of squeezed. dealFoe's discipline: a kind whose geometry
+ * is not there simply is not dealt.
+ */
+const FORK_SHIFT_MAX = 40
+/**
+ * What a fork costs the NEXT hop, and it is the reachability half of the
+ * feature. He leaves from a branch 85px off the midpoint the next shelf is
+ * anchored to, so that 85px is already spent before he steers anywhere.
+ *
+ * LEG 2, honestly: worst demand is 85 + 55 + the 49.5px he launches off-centre
+ * = 189.5px, against a from-rest budget of 281.0px at a 100px gap — 91.5px of
+ * margin, against the ordinary storey's 12.6px. Under a full-speed reversal it
+ * is a 15.2px deficit, and the base game makes no reversal guarantee either
+ * (an ordinary storey is 94px short on the same test), so the provable claim is
+ * that a fork storey is six times kinder than a normal one, not that it is
+ * absolutely safe.
+ */
+const FORK_NEXT_GAP = 100
+const FORK_NEXT_REACH = 55
+/** What bursting one pays. A third of the jar, visible on the meter. */
+const SACK_CUBES = 6
+
 // ── Feel ───────────────────────────────────────────────────────────────────
 /** Screen punch, in px, on an ordinary landing and on a big one. */
 const PUNCH_HIT = 4
@@ -372,6 +412,14 @@ interface Plat {
   tip: -1 | 0 | 1
   /** RACK: phase offset, so a screenful of racks is never synchronised. */
   phase: number
+  /**
+   * SACK: already paid out.
+   *
+   * It cannot ride on `used`, because `if (p.used || p.falling) continue` makes
+   * a used shelf non-solid — and a burst sack has to stay standable. Only a
+   * crumb is ever `used`.
+   */
+  burst?: boolean
   el?: HTMLDivElement | null
 }
 
@@ -459,6 +507,8 @@ export default function JellyJumpPage() {
   /** The shelf he last left, so the dive pose is positional, not a guess. */
   const launchWy = useRef(0)
   const jar = useRef(0)
+  /** Storeys since the last fork was offered. */
+  const sinceFork = useRef(0)
   const foes = useRef<Foe[]>([])
   /** Shelves dealt since the last hazard — see HAZARD_SPACING in jumpFoes.ts. */
   const hazardCredit = useRef(0)
@@ -599,7 +649,7 @@ export default function JellyJumpPage() {
      * hop that follows it, and neither can cap a hop that is already capped.
      */
     const prevKind = lastKind.current
-    const punished = prevKind === 'syrup' || prevKind === 'lid'
+    const punished = prevKind === 'syrup' || prevKind === 'lid' || prevKind === 'sack'
     const roll = Math.random()
     const pCream = 0.10
     const pSlider = 0.10 + heat * 0.16
@@ -619,6 +669,61 @@ export default function JellyJumpPage() {
 
     const half = PLAT_W / 2
     const lo = half, hi = Math.max(half, W - half)
+
+    /**
+     * THE FORK — two shelves at this height instead of one.
+     *
+     * Offered only on an UNCAPPED hop. A fork above a syrup or a tipped lid
+     * would put both branches outside a 45px reach, which is the one way this
+     * storey could become unmakeable. The shelf below must also still be there
+     * if he declines it, so never above a crumb — and never above a SLIDER,
+     * because fromX is a slider's SPAWN x while the shelf itself roams up to
+     * 90px from there, and the entire distance argument is anchored on fromX.
+     */
+    sinceFork.current++
+    const forkOk = climbed >= FORK_UNLOCK
+      && sinceFork.current >= FORK_EVERY
+      && cap === GAP_MAX && reach === REACH_X
+      && prevKind !== 'crumb' && prevKind !== 'slider'
+      && Math.random() < FORK_CHANCE
+    if (forkOk) {
+      // Slide the pair to fit between the walls, or abandon it. A fork squeezed
+      // in is a fork whose geometry nobody checked.
+      let cx = fromX
+      if (cx + FORK_SPREAD > hi) cx = hi - FORK_SPREAD
+      if (cx - FORK_SPREAD < lo) cx = lo + FORK_SPREAD
+      if (Math.abs(cx - fromX) <= FORK_SHIFT_MAX && cx - FORK_SPREAD >= lo && cx + FORK_SPREAD <= hi) {
+        sinceFork.current = 0
+        const side = Math.random() < 0.5 ? 1 : -1
+        const mk = (k: PlatKind, px: number) => {
+          const id = ++uid
+          plats.current.push({
+            id, kind: k, x: px, wy: nextPlatWy.current,
+            jelly: JELLIES[Math.floor(Math.random() * JELLIES.length)],
+            used: false, squish: 0, melt: 0, falling: false, fallV: 0, crackAt: 0,
+            vx: 0, minX: px, maxX: px, tip: 0, phase: 0, burst: false,
+          })
+          return id
+        }
+        const creamId = mk('cream', cx + side * FORK_SPREAD)
+        mk('sack', cx - side * FORK_SPREAD)
+        /**
+         * THE MIDPOINT ANCHOR IS THE WHOLE TRICK. The next shelf is placed
+         * relative to cx — the point BETWEEN the branches — so whichever one he
+         * takes, the storey above is the same distance from the other. Anchor
+         * to a branch instead and one choice quietly becomes the wrong one.
+         */
+        lastPlatX.current = cx
+        lastPlatId.current = creamId
+        lastKind.current = 'sack'
+        nextGapCap.current = FORK_NEXT_GAP
+        nextReach.current = FORK_NEXT_REACH
+        // No hazard and no sugar on a fork storey: one thing to read per gap,
+        // and the sack IS the sugar.
+        return
+      }
+    }
+
     // Reflect off the walls instead of clamping: a clamp makes several
     // platforms in a row pile against the same edge.
     let x = fromX + (Math.random() * 2 - 1) * reach
@@ -907,6 +1012,9 @@ export default function JellyJumpPage() {
             // him either way — a platform you could fall through would be the
             // crumb's lie told twice, with no tell you can read while falling.
             const rackHot = p.kind === 'rack' && (now + p.phase) % RACK_CYCLE < RACK_ON
+            // A sack pays once. After that it is an ordinary shelf that has
+            // gone slack — still solid, just empty.
+            const bursting = p.kind === 'sack' && !p.burst
             let big = p.kind === 'cream' || earned || rackHot
 
             if (p.kind === 'lid') {
@@ -947,8 +1055,19 @@ export default function JellyJumpPage() {
               playSound('jl_chain')
             } else if (rackHot) {
               playSound('jl_rack')
-            } else if (p.kind !== 'lid') {
+            } else if (p.kind !== 'lid' && !bursting) {
               playSound('jl_bounce')
+            }
+
+            if (bursting) {
+              p.burst = true
+              listChanged = true
+              playSound('jl_sack')
+              flash('cheer', 320)
+              // Shout first, so addSugar's JAR FULL wins if this is the six
+              // that fills it — that is the bigger news.
+              shout('SUGAR!')
+              addSugar(SACK_CUBES)
             }
 
             // The crown's payout, said twice: a ring on the shelf and a blip
@@ -1169,7 +1288,7 @@ export default function JellyJumpPage() {
         }
         // A landed biscuit holds, cracks showing, then gives way. Nothing else
         // is ever spent, so nothing else is ever removed from under the player.
-        if (p.used && !p.falling && now - p.crackAt > CRUMB_HOLD_MS) {
+        if (p.kind === 'crumb' && p.used && !p.falling && now - p.crackAt > CRUMB_HOLD_MS) {
           p.falling = true
           p.fallV = 40
         }
@@ -1439,6 +1558,7 @@ export default function JellyJumpPage() {
     nextGapCap.current = GAP_MAX
     nextReach.current = REACH_X
     lastKind.current = 'jelly'
+    sinceFork.current = 0
     cam.current = -H * CAM_ANCHOR
     // A wide starting jelly right under him so the first bounce is free.
     plats.current.push({
@@ -1661,7 +1781,7 @@ export default function JellyJumpPage() {
               willChange: 'transform, opacity', pointerEvents: 'none',
               transformOrigin: 'center bottom',
             }}>
-              <Platform kind={p.kind} jelly={p.jelly} cracked={p.used} tip={p.tip} crown={crown} />
+              <Platform kind={p.kind} jelly={p.jelly} cracked={p.used} tip={p.tip} crown={crown} burst={p.burst} />
               {/* The crown's ring. Its own element, so its keyframe owns a
                   transform channel the loop never writes — the trap this file
                   keeps re-finding. INFINITE and play-state gated, because a
