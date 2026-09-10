@@ -217,6 +217,61 @@ const N_STREAK = 5
 const POSE_DASH_V = -900
 const POSE_LEAP_V = -260
 
+// ── The landing shadow ─────────────────────────────────────────────────────
+/**
+ * The one input finally has an instrument.
+ *
+ * A hold-left is a guess whose result arrives 0.6s later, judged by eyeballing
+ * a 46px cat against a 76px slab with no reference marks on it. The shadow
+ * closes that loop: it says where he is over the shelf he is falling toward,
+ * and it tightens and darkens as he arrives. Its other half is the tell this
+ * game never had — NO shadow means nothing is under you.
+ *
+ * It is a LIVE POSITION READOUT, not a promise of a landing. Three things can
+ * still take the shelf away after it is drawn: DRAG leaves ~51px of coast if he
+ * lets go, a slider keeps moving, and a fast enough descent tunnels the
+ * collision band entirely (see the guard on the scan). The honest value is
+ * 36-93px of late correction on an ordinary hop, and ~42px on a plunge.
+ */
+const SHADOW_RANGE = 190
+/**
+ * Clipped to the slab, never wider. At 99 the ellipse overhangs onto the wall
+ * on a corner catch, and black-on-#101430 is invisible — so the readout would
+ * die in exactly the corner catch it exists for. Truncating at the slab edge
+ * says the same thing and survives a dark room.
+ */
+const SHADOW_CLIP = PLAT_W
+const SHADOW_W = 30
+const SHADOW_H = 9
+const SHADOW_A_MIN = 0.16
+/**
+ * Deliberately under the 0.52 the design called for. At full strength on a
+ * 76px slab a 38px ellipse reads as a HOLE in the shelf rather than a shadow
+ * on it, and — worse for a round that ships these two together — it blacks out
+ * the crown at exactly the moment the player is deciding whether they are in
+ * it. The shadow has to sit UNDER the mark it is helping you hit.
+ */
+const SHADOW_A_MAX = 0.38
+const SHADOW_SX_FAR = 0.62
+/** Taper to nothing over the outer few px, or it strobes at the boundary. */
+const SHADOW_EDGE = 8
+/**
+ * Where the top face actually is, per kind — not one constant.
+ *
+ * A slider sits `bottom: 5, height: 21` in a 26px box, so its crown is at 0
+ * while a plain jelly's is at 4. Four px of error on the kind this mechanic
+ * exists for, which is 10-26% of the shelves in the shaft.
+ */
+const SHADOW_TOP: Partial<Record<PlatKind, number>> = { slider: 0, cream: 10, crumb: 5, lid: 5 }
+const SHADOW_TOP_DEFAULT = 4
+/**
+ * A sour shelf keeps its shadow in its own colour — but DARK olive, not the
+ * slab's own acid green. The design called for the sour palette at 0.30; the
+ * sour palette painted on the sour slab is invisible, which is the one outcome
+ * this rule exists to prevent.
+ */
+const SHADOW_SOUR = '#3F5417'
+
 const ZONE_PX = ZONE_M * PX_PER_M
 const ZONE_FADE_PX = ZONE_FADE_M * PX_PER_M
 /** A mark within this many px of him brightens. */
@@ -298,6 +353,8 @@ export default function JellyJumpPage() {
   const depthRef = useRef<HTMLDivElement | null>(null)
   const ceilRef = useRef<HTMLDivElement | null>(null)
   const streakRef = useRef<HTMLDivElement | null>(null)
+  const shadowRef = useRef<HTMLDivElement | null>(null)
+  const shadowInnerRef = useRef<HTMLDivElement | null>(null)
   const markTheirsRef = useRef<HTMLDivElement | null>(null)
   const markBestRef = useRef<HTMLDivElement | null>(null)
   const plats = useRef<Plat[]>([])
@@ -825,6 +882,58 @@ export default function JellyJumpPage() {
       // Camera follows only upward, so a dip doesn't drag the view down.
       const wantCam = c.wy - H * CAM_ANCHOR
       if (wantCam < cam.current) cam.current = wantCam
+
+      /**
+       * The landing shadow. Written here because `cam` is final for the frame
+       * and the shelves have already moved — a slider's x this frame is the x
+       * the recycler is about to paint, so the shadow can never lag its target.
+       *
+       * The `c.vy * dt` guard is the tunnelling fix and it is not optional. The
+       * collision band is PLAT_H * 0.9 = 23.4px, so any descent faster than
+       * ~1400px/s at 60fps — or ~700px/s on a phone that has dropped to 30 —
+       * steps straight THROUGH a shelf without ever testing it. Without the
+       * guard the shadow would tighten and darken over a shelf he then falls
+       * clean through, which is the readout lying at the exact moment it is
+       * carrying the most weight.
+       */
+      let sp: Plat | null = null
+      let sd = SHADOW_RANGE
+      if (c.vy > 0 && c.vy * dt <= PLAT_H * 0.9) {
+        const feet = c.wy + EREN / 2
+        for (const p of plats.current) {
+          if (p.used || p.falling) continue
+          if (Math.abs(c.x - p.x) > PLAT_W / 2 + EREN / 4) continue
+          const d = p.wy - feet
+          if (d >= 0 && d < sd) { sd = d; sp = p }
+        }
+      }
+      const shOut = shadowRef.current
+      const shIn = shadowInnerRef.current
+      if (shOut && shIn) {
+        if (!sp) shOut.style.opacity = '0'
+        else {
+          // Nearness drives both channels: darker and wider as he arrives.
+          const t = 1 - sd / SHADOW_RANGE
+          const dx = c.x - sp.x
+          const fade = Math.max(0, Math.min(1,
+            (PLAT_W / 2 + EREN / 4 - Math.abs(dx)) / SHADOW_EDGE))
+          /**
+           * A SOUR shelf keeps its shadow, tinted rather than black. Dropping
+           * it would lie in the other direction — the collision does fire on a
+           * sour — and a soft black ellipse under the one shelf that bites
+           * would teach the eye to read the ellipse instead of the slab.
+           */
+          const sour = sp.kind === 'sour'
+          const lo = sour ? 0.34 : SHADOW_A_MIN
+          const hi = sour ? 0.52 : SHADOW_A_MAX
+          shOut.style.opacity = String((lo + t * (hi - lo)) * fade)
+          shOut.style.transform = `translate3d(${sp.x - SHADOW_CLIP / 2}px, ${
+            sp.wy - cam.current + (SHADOW_TOP[sp.kind] ?? SHADOW_TOP_DEFAULT)}px, 0)`
+          shIn.style.background = sour ? SHADOW_SOUR : '#000000'
+          shIn.style.transform = `translate3d(${SHADOW_CLIP / 2 + dx - SHADOW_W / 2}px, 0, 0) scaleX(${
+            SHADOW_SX_FAR + t * (1 - SHADOW_SX_FAR)})`
+        }
+      }
       if (c.wy < bestWy.current) {
         bestWy.current = c.wy
         const m = Math.max(0, Math.round(-bestWy.current / PX_PER_M))
@@ -1141,6 +1250,9 @@ export default function JellyJumpPage() {
     ceilIdxRef.current = 0
     ceilBrokenRef.current = false
     punch.current = 0
+    // The field renders in all three phases, so the last frame of the previous
+    // run would otherwise still be painted into the first frame of this one.
+    if (shadowRef.current) shadowRef.current.style.opacity = '0'
     poseRef.current = 'idle'
     poseHold.current = 0
     passedTheirs.current = false
@@ -1343,6 +1455,30 @@ export default function JellyJumpPage() {
             </div>
           )
         })}
+
+        {/* The landing shadow, over the shelves and under everything else.
+            Outer element is a clip window pinned to the shelf; inner is the
+            ellipse, moving inside it with him and truncating at the slab edge.
+            Two elements so the clip and the ellipse own separate transforms.
+            No INK outline: an outline reads as an object, and this has to read
+            as an absence of light. It stays on under reduced motion — it is a
+            position readout, not decoration, the same call the file already
+            makes for the invulnerability blink. */}
+        <div ref={shadowRef} aria-hidden style={{
+          position: 'absolute', left: 0, top: 0, width: SHADOW_CLIP, height: SHADOW_H,
+          // Rounded like the slab it sits on. A square clip window cuts the
+          // ellipse off with a hard vertical edge as he nears the lip, and a
+          // black bar standing on a rounded shelf reads as a rendering fault
+          // rather than as a shadow running out of shelf.
+          borderRadius: '12px 12px 5px 5px',
+          overflow: 'hidden', willChange: 'transform, opacity', pointerEvents: 'none',
+          opacity: 0,
+        }}>
+          <div ref={shadowInnerRef} style={{
+            position: 'absolute', left: 0, top: 0, width: SHADOW_W, height: SHADOW_H,
+            borderRadius: '50%', background: '#000000', willChange: 'transform',
+          }} />
+        </div>
 
         {/* Foes draw over the shelves (a wasp SITS on one) and under him. Each
             wrapper is positioned by the loop; anything that flips or idles is
