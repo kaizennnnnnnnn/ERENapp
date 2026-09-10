@@ -733,16 +733,19 @@ export default function JellyJumpPage() {
         if (Math.abs(c.x - s.x) > SUGAR_RX || Math.abs(c.wy - s.wy) > SUGAR_RY) continue
         s.wy = Infinity          // marked; the recycler sweeps it this frame
         listChanged = true
-        jar.current++
+        /**
+         * The jar CLAMPS at capacity. It does not zero itself on filling — the
+         * jar IS the jam, and the catch spends the whole thing.
+         *
+         * It used to reset here and raise a separate `ready` flag, so sugar
+         * kept banking into a catch you had already earned. By the time you
+         * spent one you were most of the way to the next, and a catch read as
+         * something you permanently had rather than eighteen cubes you paid.
+         */
+        jar.current = Math.min(JAR_CAPACITY, jar.current + 1)
         playSound('jl_sugar')
         if (jar.current >= JAR_CAPACITY && !jamReady.current) {
           jamReady.current = true
-          jar.current = 0
-    foes.current = []
-    hazardCredit.current = 0
-    lastPlatId.current = -1
-    invulnUntil.current = 0
-    hurtA.current = 0
           setJamUi(true)
           playSound('jl_jar')
           shout('JAR FULL')
@@ -987,8 +990,12 @@ export default function JellyJumpPage() {
            * screen: a relaunch expressed in H would catch a tall phone and drop
            * a short one on the identical run.
            */
+          // The catch costs the JAR, not a flag. Emptying it here is the whole
+          // price: eighteen more cubes before the shaft will catch him again.
           jamReady.current = false
+          jar.current = 0
           setJamUi(false)
+          setJarUi(0)
           const half = PLAT_W / 2
           c.vy = -BOUNCE_V
           c.vx *= 0.3
@@ -1075,6 +1082,14 @@ export default function JellyJumpPage() {
     savedRef.current = false
     jar.current = 0
     jamReady.current = false
+    // The hazard state. Foes are world-positioned, so a survivor of the last
+    // run would hang in the new shaft at whatever height it died at — and a
+    // carried-over invulnerability window would make the first sting free.
+    foes.current = []
+    hazardCredit.current = 0
+    lastPlatId.current = -1
+    invulnUntil.current = 0
+    hurtA.current = 0
     zoneRef.current = 0
     ceilIdxRef.current = 0
     ceilBrokenRef.current = false
@@ -1083,7 +1098,11 @@ export default function JellyJumpPage() {
     poseHold.current = 0
     passedTheirs.current = false
     passedBest.current = false
+    // Every pending timer from the last run, or one of them fires into this one
+    // and clears a banner the new run had just raised.
     if (ceilTimer.current) window.clearTimeout(ceilTimer.current)
+    if (poseTimer.current) window.clearTimeout(poseTimer.current)
+    if (bannerTimer.current) window.clearTimeout(bannerTimer.current)
     setHeight(0); setChainUi(0); setJarUi(0); setJamUi(false)
     setZoneIdx(0); setCeilIdx(0); setCeilBroken(false)
     setBanner(null); setWins([]); setAwardFailed(false); setResult(null)
@@ -1188,20 +1207,23 @@ export default function JellyJumpPage() {
           borderRadius: 8, border: `2.5px solid ${jamUi ? '#FFD3E0' : '#FFF8EE'}`,
         }}>
           <IconSparkles size={10} />
-          {jamUi ? (
-            <span className="font-pixel" style={{ fontSize: 6.5, color: '#FFE6F0' }}>JAM READY</span>
-          ) : (
-            <span aria-hidden style={{
-              display: 'block', width: 44, height: 6, borderRadius: 999,
-              background: 'rgba(255,255,255,0.18)', overflow: 'hidden',
-            }}>
-              <span style={{
-                display: 'block', height: '100%',
-                width: `${Math.round((jarUi / JAR_CAPACITY) * 100)}%`,
-                background: 'linear-gradient(90deg, #FFE9B0, #E9789F)',
-              }} />
-            </span>
-          )}
+          {jamUi && <span className="font-pixel" style={{ fontSize: 6.5, color: '#FFE6F0' }}>JAM</span>}
+          {/* The bar stays up when the jar is full, rather than being replaced
+              by a label. A catch DRAINS it, and that drain is the only moment
+              the player can see what the catch cost — swapping in a label hid
+              exactly the frame that had something to say. */}
+          <span aria-hidden style={{
+            display: 'block', width: 44, height: 6, borderRadius: 999,
+            background: 'rgba(255,255,255,0.18)', overflow: 'hidden',
+          }}>
+            <span style={{
+              display: 'block', height: '100%',
+              width: `${jamUi ? 100 : Math.round((jarUi / JAR_CAPACITY) * 100)}%`,
+              background: jamUi
+                ? 'linear-gradient(90deg, #FFD3E0, #FFF8EE)'
+                : 'linear-gradient(90deg, #FFE9B0, #E9789F)',
+            }} />
+          </span>
         </div>
       )}
 
