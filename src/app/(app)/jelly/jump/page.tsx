@@ -92,7 +92,8 @@ import {
 import { FoeSprite, Drop, Spout, SpiderBody, FLIER_SKIN } from '@/components/jelly/JumpFoe'
 import PixelEren, { type ErenPose } from '@/components/games/PixelEren'
 import { IconJelly, IconSparkles } from '@/components/PixelIcons'
-import { playSound } from '@/lib/sounds'
+import { playSound, playVoice } from '@/lib/sounds'
+import { bounceRung, unwindVoice } from '@/components/jelly/jumpVoice'
 import { INK } from '@/components/jelly/parlourTheme'
 
 // ─── Tuning ────────────────────────────────────────────────────────────────
@@ -996,6 +997,10 @@ export default function JellyJumpPage() {
             const before = chain.current
             if (clean) chain.current += centred ? 2 : 1
             else chain.current = 0
+            // What the break cost, for the unwind. Only audible once the chain
+            // was worth showing — it is silent for exactly as long as the HUD
+            // chip is hidden.
+            const lost = clean ? 0 : before
             lastHitWy.current = p.wy
             lastHitId.current = p.id
 
@@ -1031,6 +1036,7 @@ export default function JellyJumpPage() {
                 // score; a platform whose only outcome is a banner would be
                 // the one shelf in the shaft that does nothing.
                 big = true
+                playSound('jl_fulcrum')
                 shout('BALANCED')
               }
             }
@@ -1056,7 +1062,19 @@ export default function JellyJumpPage() {
             } else if (rackHot) {
               playSound('jl_rack')
             } else if (p.kind !== 'lid' && !bursting) {
-              playSound('jl_bounce')
+              /**
+               * The bounce climbs a semitone per link — see jumpVoice.ts. The
+               * unwind plays INSTEAD of the rung, never alongside it: the chain
+               * reset happens fifty lines above this, so without the else the
+               * descending figure and an ascending link-0 rung would start on
+               * the same frame and cross around 400Hz.
+               *
+               * After the crown a centred landing steps the chain by two and
+               * the ladder audibly SKIPS a rung. That is the payout being
+               * heard, not a bug to smooth out.
+               */
+              if (lost >= 3) playVoice(unwindVoice(lost), 0.45)
+              else playVoice(bounceRung(chain.current % CHAIN_REWARD, p.kind === 'syrup'), 0.5)
             }
 
             if (bursting) {
@@ -1084,6 +1102,11 @@ export default function JellyJumpPage() {
               flash('cheer', 320)
             } else if (chain.current > 0 && crossed(4)) {
               shout(`CHAIN x${chain.current}`)
+            } else if (lost >= 4 && !big) {
+              // Gated on !big: a break that lands on a cream, a hot rack or a
+              // balanced lid would be overwritten by WHIPPED!/SUGAR RUSH before
+              // a frame painted, because shout owns a single slot.
+              shout('CHAIN LOST')
             }
             punch.current = reducedRef.current ? 0 : (big ? PUNCH_BIG : PUNCH_HIT)
             setChainUi(chain.current)

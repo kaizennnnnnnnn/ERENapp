@@ -154,6 +154,7 @@ export const SOUNDS = {
   jl_clean:        '/sounds/games/jelly/jl_clean.mp3',
   jl_spill:        '/sounds/games/jelly/jl_spill.mp3',
   jl_sack:         '/sounds/games/jelly/jl_sack.mp3',
+  jl_fulcrum:      '/sounds/games/jelly/jl_fulcrum.mp3',
   jl_jar:          '/sounds/games/jelly/jl_jar.mp3',
   jl_jam:          '/sounds/games/jelly/jl_jam.mp3',
   jl_zone:         '/sounds/games/jelly/jl_zone.mp3',
@@ -400,6 +401,7 @@ const VOLUME_SCALE: Partial<Record<SoundName, number>> = {
   jl_clean:           0.35,
   jl_spill:           0.5,
   jl_sack:            0.8,
+  jl_fulcrum:         0.6,
   jl_jar:             0.8,
   jl_jam:             0.85,
   jl_zone:            0.8,
@@ -574,6 +576,7 @@ const FALLBACK: Partial<Record<SoundName, SoundName>> = {
   jl_clean:           'ui_tap' as SoundName,
   jl_spill:           'ui_back' as SoundName,
   jl_sack:            'gift_open' as SoundName,
+  jl_fulcrum:         'ui_select' as SoundName,
   jl_jar:             'quest_complete' as SoundName,
   jl_jam:             'level_up' as SoundName,
   jl_zone:            'gacha_reveal_rare' as SoundName,
@@ -719,6 +722,23 @@ function getBase(name: SoundName): HTMLAudioElement {
     cache.set(name, base)
   }
   return base
+}
+
+/**
+ * Play a recipe composed at RUNTIME, through the same mute and volume path a
+ * registered sound takes.
+ *
+ * The four-site registration exists for FIXED sounds, and every sound that can
+ * be named should still go through it. A voice whose PITCH is a function of
+ * game state — Jelly Jump's chain ladder, where the bounce climbs a semitone
+ * per link — cannot be a table entry, and must still be unable to make a noise
+ * while the user has the app muted. That is the whole reason it does not call
+ * playSynth directly.
+ */
+export function playVoice(recipe: SynthRecipe, scale = 1, opts: { volume?: number } = {}) {
+  if (muted) return
+  if (typeof window === 'undefined') return
+  playSynth(recipe, Math.max(0, Math.min(1, (opts.volume ?? globalVolume) * scale)))
 }
 
 export function playSound(name: SoundName, opts: { volume?: number } = {}) {
