@@ -48,6 +48,10 @@ export const dynamic = 'force-dynamic'
 //                    shoves the tide back. It is the ONLY thing that buys
 //                    ground back, which is what makes the bead-collecting loop
 //                    matter — and while it is lit, nothing can end the run.
+//                    STRAIGHT is literal: gravity is off for its whole 600ms,
+//                    so it holds the height it started at. A dash carries at
+//                    least 3.6x the widest hole the generator can deal, at
+//                    every speed, so it can never leave him over one.
 //   HOT MEANS DEAD   the burner and the syrup spill KILL; crates, pipes and
 //                    trolleys only COST you. The two lethals are the only
 //                    orange things in the room, because colour is read faster
@@ -608,7 +612,7 @@ export default function JellyRunPage() {
     y: 0, vy: 0, grounded: true, gliding: false, diving: false, slideUntil: 0, shield: false,
   })
   const world = useRef({ x: 0, speed: SPEED_0, gap: GAP_0, t: 0 })
-  const dash = useRef({ until: 0, boosting: false })
+  const dash = useRef({ until: 0 })
   const stumble = useRef(0)
   /** Hazards cleared without being touched. Drives the bead multiplier. */
   const streak = useRef(0)
@@ -1222,7 +1226,7 @@ export default function JellyRunPage() {
     }
     setShielded(false)
     hud.current = { m: -1, b: -1, p: -1 }
-    dash.current = { until: 0, boosting: false }
+    dash.current = { until: 0 }
     held.current = { at: 0, active: false }
     lastTap.current = 0
     stumble.current = 0
@@ -1334,7 +1338,6 @@ export default function JellyRunPage() {
     powerRef.current = 0
     setPower(0)
     dash.current.until = performance.now() + DASH_MS
-    dash.current.boosting = eren.current.grounded
     // The dash is the ONLY thing that buys ground back from the tide.
     world.current.gap = Math.min(GAP_MAX, world.current.gap + GAP_DASH)
     eren.current.gliding = false
@@ -1444,42 +1447,54 @@ export default function JellyRunPage() {
       const e = eren.current
       const { floorY, erenX, h } = dims.current
       const dashing = now < dash.current.until
-      /**
-       * A dash begun IN THE AIR does not speed you up until you land.
-       *
-       * DASH_MULT multiplies the world's speed, so a dash pressed mid-jump
-       * stretched the arc you were already committed to by the same factor —
-       * 230px became 367px — and dropped you past the ground you had aimed at.
-       * The first fix let a dash run across gaps as though they were floor, and
-       * that is exactly what it looked like: a cat sprinting through open air
-       * over a hole, then remembering gravity.
-       *
-       * So gravity is always gravity, and the boost simply waits for the floor.
-       * The invincibility does NOT wait — that is what the button is for in a
-       * panic — but the arc you are in finishes the way you threw it.
-       */
-      if (dashing && !dash.current.boosting && e.grounded) dash.current.boosting = true
-      const boosted = dashing && dash.current.boosting
 
       // Speed: ramps with time, boosted by a dash, cut while stumbling.
       w.t += dt
       const ramp = SPEED_0 + (SPEED_MAX - SPEED_0) * Math.min(1, w.t / SPEED_RAMP)
       if (stumble.current > 0) stumble.current -= dt
-      w.speed = ramp * (boosted ? DASH_MULT : stumble.current > 0 ? 0.55 : 1)
+      w.speed = ramp * (dashing ? DASH_MULT : stumble.current > 0 ? 0.55 : 1)
       w.x += w.speed * dt
 
       // ── Vertical ──
-      if (held.current.active && now - held.current.at < HOLD_MS && e.vy < 0) {
-        e.vy -= HOLD_ACC * dt
+      /**
+       * A DASH GOES STRAIGHT.
+       *
+       * For its whole 600ms gravity is off and his vertical speed is pinned to
+       * zero, so he leaves at the height he was at and holds it — along the
+       * floor, out across a hole, or straight out of the top of a jump. One
+       * flat line through whatever is in the way, which is the entire read of
+       * the move and the reason it is worth a full bar of beads.
+       *
+       * This replaces a rule that held the boost back until he touched the
+       * floor. That rule existed because DASH_MULT multiplies WORLD speed, so a
+       * dash pressed mid-jump used to stretch the arc he was already committed
+       * to by the same 1.6x — 230px of jump became 367px — and drop him past
+       * the ground he had aimed at. Delaying the boost fixed the landing and
+       * made the button feel dead in the air instead: you pressed it and he
+       * carried on falling exactly as before, invincible and flopping.
+       * Levelling him out deletes the arc rather than stretching it, so there
+       * is no arc left to overshoot and the boost can land immediately.
+       *
+       * The exit needs no special case. The dash ends with vy already at 0, so
+       * he tips into a fall from rest rather than snapping back to the speed
+       * gravity would have wound up while he was flying.
+       */
+      if (dashing) {
+        e.vy = 0
+        e.gliding = false
+      } else {
+        if (held.current.active && now - held.current.at < HOLD_MS && e.vy < 0) {
+          e.vy -= HOLD_ACC * dt
+        }
+        e.vy += GRAVITY * dt
+        if (e.diving) e.vy += DIVE_ACC * dt
+        // The glider: hold past the apex and the canopy catches him. Checked
+        // AFTER gravity so it clamps the speed gravity just produced, and gated
+        // on falling so it can never be used to hang at the top of a rise.
+        const wantGlide = held.current.active && !e.grounded && !e.diving && e.vy > 0
+        e.gliding = wantGlide
+        if (wantGlide && e.vy > GLIDE_V) e.vy = GLIDE_V
       }
-      e.vy += GRAVITY * dt
-      if (e.diving) e.vy += DIVE_ACC * dt
-      // The glider: hold past the apex and the canopy catches him. Checked
-      // AFTER gravity so it clamps the speed gravity just produced, and gated
-      // on falling so it can never be used to hang at the top of a rise.
-      const wantGlide = held.current.active && !e.grounded && !e.diving && !dashing && e.vy > 0
-      e.gliding = wantGlide
-      if (wantGlide && e.vy > GLIDE_V) e.vy = GLIDE_V
       const prevY = e.y
       e.y += e.vy * dt
 
@@ -2035,7 +2050,7 @@ export default function JellyRunPage() {
           </p>
           <div className="flex flex-col gap-1.5 mb-4" style={{ fontSize: 10, color: CREAM, opacity: 0.75 }}>
             <span>TAP to jump — KEEP HOLDING to open the glider</span>
-            <span>TAP TWICE to DASH on a full bar</span>
+            <span>TAP TWICE to DASH on a full bar — flat, straight over gaps</span>
             <span>SWIPE DOWN to drop fast — the only way through a CURTAIN</span>
             <span>Clear hazards without a scratch and beads pay x2, x3, x4</span>
           </div>
