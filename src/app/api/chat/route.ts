@@ -51,13 +51,30 @@ const MAX_TURNS = 3
 /** Per-user hourly cap. Generous for a person, hard stop for a runaway loop. */
 const RATE_LIMIT_PER_HOUR = 150
 const MAX_INPUT_CHARS = 2000
-/** Whole-deployment daily ceiling on billed messages.
+/** Whole-deployment daily ceiling, in DOLLARS.
  *
- *  The per-user cap alone is not a spend control: accounts are free and
- *  unlimited, so "150/hour/user" is really "150/hour/signup". This is the
- *  backstop that bounds the invoice no matter how many identities show up.
- *  Override with CHAT_DAILY_GLOBAL_CAP once real usage is known. */
-const GLOBAL_DAILY_CAP = Number(process.env.CHAT_DAILY_GLOBAL_CAP ?? 2000)
+ *  The per-user caps are not a spend control: accounts are free and unlimited,
+ *  so "150/hour/user" is really "150/hour/signup". This is the backstop that
+ *  bounds the invoice no matter how many identities show up.
+ *
+ *  It replaced a 2,000-messages/day cap, which did not bound anything — a
+ *  message costs ~0.15c to over 1c depending on how many memories the account
+ *  carries and how much the model thinks, so 2,000 of them is somewhere between
+ *  $3 and $40, and the number silently stops meaning anything the day a price
+ *  changes. Dollars are the thing actually at risk, so dollars are what's
+ *  counted. Override with CHAT_DAILY_BUDGET_USD once real usage is known. */
+const DAILY_BUDGET_USD = Number(process.env.CHAT_DAILY_BUDGET_USD ?? 5)
+
+/** MODEL's price list, and the unit is the whole trick: $/MTok is numerically
+ *  identical to micro-dollars per token ($2/MTok = 2 µ$/tok), so the running
+ *  total stays integer and never drifts. Update these together with MODEL —
+ *  a stale rate here makes the ceiling lie in whichever direction is worse. */
+const RATE_MICRO_USD_PER_TOKEN = {
+  input:      2.0,   // claude-sonnet-5
+  cacheWrite: 2.5,   // 1.25x input, 5-minute TTL
+  cacheRead:  0.2,   // 0.1x input
+  output:    10.0,
+} as const
 
 interface Body {
   message?: string
@@ -121,17 +138,40 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'tired', tired: true }, { status: 429 })
   }
 
-  // Global daily ceiling, checked with the admin client so it sees every
-  // user's rows rather than just the caller's (RLS scopes chat to its owner).
-  const globalWindowStart = new Date(Date.now() - 86_400_000).toISOString()
-  const { count: globalCount } = await createAdminClient()
-    .from('eren_chat_messages')
-    .select('id', { count: 'exact', head: true })
-    .eq('role', 'user')
-    .gte('created_at', globalWindowStart)
+  // ── Spend ceiling ─────────────────────────────────────────────────────────
+  // The whole-deployment guard, in real money. Admin client because the ledger
+  // is service-role only — RLS is on with no policies, so nothing a client
+  // holds can read the deployment's running spend or write to it.
+  //
+  // Single-row primary-key lookup, which is also why this is cheaper than the
+  // COUNT-over-every-user's-last-24h query it replaced: that one grew with the
+  // table, this one never does.
+  //
+  // Same UTC day boundary as the per-user allowance, so the two can't disagree
+  // about when "today" ended.
+  const admin = createAdminClient()
+  const spendDay = allowanceDayStart().slice(0, 10)
+  const { data: spentRow, error: spendReadErr } = await admin
+    .from('ai_spend_daily')
+    .select('micro_usd')
+    .eq('day', spendDay)
+    .maybeSingle()
 
-  if ((globalCount ?? 0) >= GLOBAL_DAILY_CAP) {
-    return NextResponse.json({ error: 'eren is napping' }, { status: 503 })
+  // Fails OPEN on purpose — a ledger that is unreachable must not take the chat
+  // down with it. But open means UNGUARDED, and this replaced the message cap
+  // that used to stand here, so it says so on every request rather than letting
+  // a missing table read as "nothing spent today". If this line is in the logs,
+  // migration_ai_spend_ceiling.sql has not been applied and there is no ceiling.
+  if (spendReadErr) {
+    console.error('[chat] SPEND CEILING INACTIVE — ledger unreadable:', spendReadErr.message)
+  }
+
+  const spentMicroUsd = Number(spentRow?.micro_usd ?? 0)
+  if (spentMicroUsd >= DAILY_BUDGET_USD * 1_000_000) {
+    // Deliberately the SAME shape as a spent personal allowance. He genuinely
+    // isn't answering again today, the client already renders that in-fiction
+    // as "HE'S ASLEEP", and a budget number is not the player's problem.
+    return NextResponse.json({ error: 'tired', tired: true }, { status: 429 })
   }
 
   // ── Gather context ────────────────────────────────────────────────────────
@@ -476,6 +516,23 @@ ${liveContext}
         console.error('[chat] stream failed', err)
         send({ error: 'eren went quiet' })
       } finally {
+        // Bill the ledger in `finally`, not on the happy path. A turn that died
+        // mid-stream was still charged for the tokens it burned, and a guard
+        // that only counts successful turns is exactly the one that fails during
+        // whatever is going wrong.
+        const microUsd = Math.round(
+          use.in * RATE_MICRO_USD_PER_TOKEN.input +
+          use.cacheWrite * RATE_MICRO_USD_PER_TOKEN.cacheWrite +
+          use.cacheRead * RATE_MICRO_USD_PER_TOKEN.cacheRead +
+          use.out * RATE_MICRO_USD_PER_TOKEN.output,
+        )
+        if (microUsd > 0) {
+          const { error: spendErr } = await admin.rpc('add_ai_spend', { p_micro_usd: microUsd })
+          // Logged, never thrown: accounting must not be able to break a reply.
+          // But it must not fail SILENTLY either — a ledger that quietly stops
+          // recording is a ceiling that quietly stops existing.
+          if (spendErr) console.error('[chat] spend not recorded', microUsd, spendErr.message)
+        }
         controller.close()
       }
     },
