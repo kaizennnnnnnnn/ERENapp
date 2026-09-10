@@ -198,6 +198,54 @@ const SUGAR_U = [0.42, 0.66]
  */
 const SUGAR_V = [0.30, 0.56]
 const JAR_CAPACITY = 18
+// ── Spilt sugar ────────────────────────────────────────────────────────────
+/**
+ * How many cubes a sting knocks out of the jar.
+ *
+ * Nothing in a run could ever be LOST before this. A hazard was a speed bump,
+ * the jar was a pure ratchet, and the eighteen cubes between you and a catch
+ * were a number that only went up. Now a hit makes a PLACE — the cubes land on
+ * a shelf below and sit there — and going back down for them is the only
+ * decision in the game whose answer might honestly be no.
+ *
+ * A FULL, ARMED JAR SPILLS NOTHING. The clamp below subtracts the armed
+ * capacity, so a banked catch can never be stolen: a flier patrols the storey
+ * midpoint and can sting a player who is already falling, and deleting the
+ * catch on that frame turns a hit into a death — in exactly the case the catch
+ * exists to cover, and against this game's own law that a hit is a stung hop.
+ */
+const STING_SPILL = 4
+/** How far below him the pile may come to rest, and the gap it keeps. */
+const SPILL_DROP_MAX = 200
+const SPILL_MIN_DROP = 60
+/**
+ * Clearance the pile keeps above the kill line, so a visible pile is always a
+ * survivable dive. The recycler already culls a cube at cam+H+30 while death
+ * fires at cam+H+92, so "if you can see it, you can go and get it" is a
+ * property the existing cull windows hand us for free; this only stops a pile
+ * being DEALT into the last screenful.
+ */
+const SPILL_HEADROOM = 150
+/** A pile sits this long, fading out over the last stretch of it. */
+const SPILL_LIFE = 9000
+const SPILL_FADE = 1500
+/** Knocked upward first, so a spill reads as scattering rather than dropping. */
+const SPILL_V0 = -120
+/**
+ * A RESTING pile gets a taller pickup window than a cube on an arc, and this
+ * is the difference between the feature working and being a no-op.
+ *
+ * A cube on the arc is met head-on in mid-flight. A resting one sits 10px above
+ * the top face while he is 23px above it, and he is only THERE for the instant
+ * of a landing. At the arc's SUGAR_RY of 17 that window is 0.5-0.8 frames at
+ * ordinary arrival speeds — so more than half of all dives would land squarely
+ * on the pile and sweep nothing, which is the worst possible outcome for a
+ * mechanic whose whole point is that going back down is a decision you can
+ * commit to. 32 gives 2.3-3.7 frames across the whole range of arrival speeds.
+ */
+const SUGAR_RY_REST = 32
+/** Where the four cubes settle either side of the shelf's centre. */
+const SPILL_FAN = [-24, -8, 8, 24]
 /**
  * Where the catch puts him. Measured from HIS position, never from the screen
  * height: a relaunch expressed in H would catch a tall phone and drop a short
@@ -317,6 +365,19 @@ interface Cube {
   id: number
   x: number
   wy: number
+  /**
+   * SPILT CUBES ONLY. A cube strung on an arc has none of these and is
+   * collectible the instant he touches it; a spilt one is collectible only
+   * once it has come to rest.
+   *
+   * `rest` is the world Y it lands at — Infinity when the hit happened
+   * somewhere with no shelf worth piling on, in which case it simply falls
+   * away and "there they go" is the outcome.
+   */
+  vy?: number
+  rest?: number
+  restX?: number
+  restAt?: number
   el?: HTMLDivElement | null
 }
 
@@ -669,12 +730,74 @@ export default function JellyJumpPage() {
       }
 
       /**
+       * Every path that puts sugar IN the jar goes through here, so the
+       * capacity clamp, the armed latch, the JAR FULL shout and the sound can
+       * never drift apart between the cube pickup and anything else that pays
+       * in sugar.
+       */
+      const addSugar = (n: number) => {
+        jar.current = Math.min(JAR_CAPACITY, jar.current + n)
+        if (jar.current >= JAR_CAPACITY && !jamReady.current) {
+          jamReady.current = true
+          setJamUi(true)
+          playSound('jl_jar')
+          shout('JAR FULL')
+        }
+        setJarUi(jar.current)
+      }
+
+      /**
        * The sting. One place, so every hazard hurts the same way and the
        * invulnerability window is honoured by all of them.
        */
       const hurt = (fromX: number) => {
         if (now < invulnUntil.current) return
         invulnUntil.current = now + INVULN_MS
+        /**
+         * Knock sugar out of the jar and drop it on a shelf below.
+         *
+         * The armed-capacity subtraction is what makes this safe rather than
+         * cruel: at a full jar it spills exactly zero.
+         */
+        const spill = Math.min(STING_SPILL, jar.current - (jamReady.current ? JAR_CAPACITY : 0))
+        if (spill > 0) {
+          jar.current -= spill
+          setJarUi(jar.current)
+          /**
+           * Where the pile lands. The highest shelf that is far enough below
+           * to be a real trip, close enough to come back from, safely above
+           * the kill line, and — the part that is easy to miss — STILL THERE
+           * and STILL IN PLACE when he gets back.
+           *
+           * A slider is excluded for that last reason: its x is frozen at
+           * spawn while the shelf roams ±90, so a pile dealt onto one can hang
+           * 114px from where the shelf has got to, outside the ±49.5 catch
+           * window. The dive would land on nothing, which is a death, in a
+           * feature whose entire promise is that what you went down for is
+           * where you left it.
+           */
+          let pile: Plat | null = null
+          const floor = cam.current + H + EREN * 2 - SPILL_HEADROOM
+          for (const p of plats.current) {
+            if (p.falling || p.used) continue
+            if (p.kind === 'crumb' || p.kind === 'sour' || p.kind === 'slider') continue
+            if (p.wy < c.wy + SPILL_MIN_DROP || p.wy > c.wy + SPILL_DROP_MAX) continue
+            if (p.wy > floor) continue
+            if (foes.current.some(f => f.host === p.id)) continue
+            if (foes.current.some(f => (f.kind === 'drip' || f.kind === 'spider')
+              && Math.abs(f.cx - p.x) < 65)) continue
+            if (!pile || p.wy < pile.wy) pile = p
+          }
+          for (let i = 0; i < spill; i++) {
+            cubes.current.push({
+              id: ++uid, x: c.x, wy: c.wy, vy: SPILL_V0,
+              rest: pile ? pile.wy - 10 : Infinity,
+              restX: pile ? pile.x + SPILL_FAN[i] : c.x,
+            })
+          }
+          listChanged = true
+          playSound('jl_spill')
+        }
         c.vy = -HIT_V
         c.vx = (c.x < fromX ? -1 : 1) * HIT_SHOVE
         chain.current = 0
@@ -828,27 +951,32 @@ export default function JellyJumpPage() {
        * landing that follows can both resolve in the same frame.
        */
       for (const s of cubes.current) {
-        if (Math.abs(c.x - s.x) > SUGAR_RX || Math.abs(c.wy - s.wy) > SUGAR_RY) continue
+        /**
+         * A SPILT cube in the air is not collectible, and this clause is the
+         * whole feature rather than a detail.
+         *
+         * The spill spawns cubes AT him, and a sour bite or a perched sting
+         * calls hurt() from inside the bounce block — which runs before this
+         * loop. All four would be swept the same frame at zero distance, and
+         * the net jar change would be zero. "You can only sweep a pile that has
+         * landed" needs no timer and is a rule the player can see.
+         */
+        if (s.rest !== undefined && s.wy < s.rest) continue
+        const ry = s.restAt !== undefined ? SUGAR_RY_REST : SUGAR_RY
+        if (Math.abs(c.x - s.x) > SUGAR_RX || Math.abs(c.wy - s.wy) > ry) continue
         s.wy = Infinity          // marked; the recycler sweeps it this frame
         listChanged = true
+        playSound('jl_sugar')
         /**
-         * The jar CLAMPS at capacity. It does not zero itself on filling — the
-         * jar IS the jam, and the catch spends the whole thing.
+         * The jar CLAMPS at capacity (see addSugar). It does not zero itself on
+         * filling — the jar IS the jam, and the catch spends the whole thing.
          *
          * It used to reset here and raise a separate `ready` flag, so sugar
          * kept banking into a catch you had already earned. By the time you
          * spent one you were most of the way to the next, and a catch read as
          * something you permanently had rather than eighteen cubes you paid.
          */
-        jar.current = Math.min(JAR_CAPACITY, jar.current + 1)
-        playSound('jl_sugar')
-        if (jar.current >= JAR_CAPACITY && !jamReady.current) {
-          jamReady.current = true
-          setJamUi(true)
-          playSound('jl_jar')
-          shout('JAR FULL')
-        }
-        setJarUi(jar.current)
+        addSugar(1)
       }
 
       // Air hazards. Any direction of travel: a drop lands on him whether he is
@@ -1006,8 +1134,34 @@ export default function JellyJumpPage() {
 
       cubes.current = cubes.current.filter(s => {
         if (s.wy === Infinity || s.wy - cam.current > H + SUGAR_SIZE * 2) { listChanged = true; return false }
+        let alpha = 1
+        if (s.rest !== undefined) {
+          if (s.wy < s.rest) {
+            // Falls under the CRUMB's gravity, so everything that comes off a
+            // shelf in this shaft drops at one rate.
+            s.vy = (s.vy ?? 0) + GRAVITY * 0.55 * dt
+            s.wy = Math.min(s.rest, s.wy + s.vy * dt)
+            /**
+             * x EASES to where the pile will sit — it is not integrated from a
+             * sideways kick. A 200px fall at 0.55g takes 0.78s, in which any
+             * scatter velocity worth seeing would carry a cube a hundred px
+             * from the shelf, and the whole sweep arithmetic assumes the four
+             * of them are within ±24 of its centre.
+             */
+            s.x += ((s.restX ?? s.x) - s.x) * Math.min(1, dt * 6)
+            if (s.wy === s.rest) s.restAt = now
+          } else if (s.restAt !== undefined) {
+            const age = now - s.restAt
+            if (age > SPILL_LIFE) { listChanged = true; return false }
+            if (age > SPILL_LIFE - SPILL_FADE) alpha = (SPILL_LIFE - age) / SPILL_FADE
+          }
+        }
         if (s.el) {
           s.el.style.transform = `translate3d(${s.x - SUGAR_SIZE / 2}px, ${s.wy - cam.current - SUGAR_SIZE / 2}px, 0)`
+          s.el.style.opacity = String(alpha)
+          // A cube at rest stops turning. The spin is what says "in flight",
+          // and a pile that kept spinning would read as still falling.
+          s.el.style.setProperty('--spin', s.restAt !== undefined ? 'paused' : 'running')
         }
         return true
       })
@@ -1417,6 +1571,8 @@ export default function JellyJumpPage() {
             <span style={{
               position: 'absolute', inset: 0,
               animation: reduced ? undefined : 'jumpSugarSpin 1.5s linear infinite',
+              // Paused by the loop once a spilt cube lands — see the recycler.
+              animationPlayState: 'var(--spin, running)',
             }}>
               <Sugar />
             </span>
@@ -1542,6 +1698,7 @@ export default function JellyJumpPage() {
               <Rule swatch="#E0A93E" text="LIDS tip. Land on the middle notch and it launches him." />
               <Rule swatch="#4A2A1E" text="SYRUP is heavy — a short, low bounce." />
               <Rule swatch="#FFF3D6" text="SUGAR fills the jar. A full jar catches him once, when he falls." />
+              <Rule swatch="#C9283C" text="A STING spills sugar onto a shelf below. Go back for it, or don't." />
               <Rule swatch="#F4C542" text="WASPS and BEETLES sting. Land beside them, not on them." />
               <Rule swatch="#A9C84A" text="SOUR JELLY bites. It's never the only way up." />
               <Rule swatch="#4A3A5A" text="DRIPS and SPIDERS own a column. Bounce in place and go when it's clear." />

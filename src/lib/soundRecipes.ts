@@ -114,6 +114,11 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
   // jl_sugar (1760), so a centred landing reads as its own confirmation
   // rather than as either of the two sounds it fires alongside.
   jl_clean:        { type: 'blip',  freq: 1245, duration: 40, shape: 'sine', gain: 0.45 },
+  // Sugar knocked out of the jar. TWO notes, not four: a descending four-note
+  // arp is jl_over's shape, and the rule in this file is that jl_hit is the
+  // only falling figure in the shaft that isn't the run ending. Two notes read
+  // as "that went somewhere", not as "that's it".
+  jl_spill:        { type: 'arp',   notes: [988, 659], step: 58, noteDur: 120, shape: 'sine', gain: 0.7 },
   jl_jar:          { type: 'arp',   notes: [784, 988, 1319], step: 70, noteDur: 150, shape: 'sine', gain: 0.85 },
   jl_jam:          { type: 'seq', parts: [
     { at: 0,   recipe: { type: 'sweep', freq: [180, 720], duration: 300, shape: 'sine', gain: 0.9, curve: 'exponential' } },
