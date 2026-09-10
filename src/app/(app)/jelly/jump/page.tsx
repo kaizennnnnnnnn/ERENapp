@@ -26,7 +26,21 @@ export const dynamic = 'force-dynamic'
 //            never a detour — missing is the failure. They fill a jar.
 //   THE JAM  a full jar buys exactly one catch. Slip past the bottom of the
 //            shaft with jam banked and a spoonful throws you back up onto a
-//            fresh shelf. Earned, never given, and never two at once.
+//            fresh shelf. Never two at once — but no longer only earned: her
+//            line on the wall gives one outright, above the jelly bar.
+//
+// ── And the three that make the game NOTICE you ────────────────────────────
+//   THE CROWN    landing inside 13px of a shelf's middle counts twice on the
+//                chain. Under a hold-only input the deepest skill is knowing
+//                when to LET GO, and until this the shaft measured that on one
+//                shelf in eleven. The landing SHADOW is the instrument for it:
+//                without a readout a bullseye is just a withheld payout.
+//   SPILT SUGAR  a sting knocks cubes out of the jar and they land on a shelf
+//                below. The only thing in the game you can lose, and the only
+//                reason to ever go DOWN.
+//   THE MARKS    her height today and your all-time best are painted on the
+//                wall, and crossing one now pays — a jar for hers, a chain one
+//                landing short of a cream launch for your own.
 //
 // ── The arithmetic, which is not a matter of taste ─────────────────────────
 // A bounce leaves at BOUNCE_V and rises BOUNCE_V²/2·GRAVITY = 174px, so
@@ -401,6 +415,8 @@ export default function JellyJumpPage() {
   const [zoneIdx, setZoneIdx] = useState(0)
   const [ceilIdx, setCeilIdx] = useState(0)
   const [ceilBroken, setCeilBroken] = useState(false)
+  const [brokeTheirs, setBrokeTheirs] = useState(false)
+  const [brokeBest, setBrokeBest] = useState(false)
   const [pose, setPose] = useState<ErenPose>('idle')
   const [banner, setBanner] = useState<string | null>(null)
   const [wins, setWins] = useState<JellyWin[]>([])
@@ -476,10 +492,21 @@ export default function JellyJumpPage() {
    * an effect that listed it would tear the rAF loop down and rebuild it on
    * every score tick. Same reasoning as endRoundRef below.
    */
-  const marksRef = useRef({ theirs: 0, best: 0 })
+  const marksRef = useRef({ theirs: 0, best: 0, name: null as string | null })
   useEffect(() => {
-    marksRef.current = { theirs: duel.theirsToday, best: duel.best }
-  }, [duel.theirsToday, duel.best])
+    marksRef.current = { theirs: duel.theirsToday, best: duel.best, name: duel.theirName }
+  }, [duel.theirsToday, duel.best, duel.theirName])
+  /**
+   * The marks as they stood WHEN THIS RUN STARTED, which is what the payouts
+   * are gated on.
+   *
+   * marksRef is rewritten whenever the duel numbers change, and useJellyDuel
+   * self-heals on foreground — so if she posts her first score of the day while
+   * you are at 400 M, `m >= theirs` goes true on the very next metre and hands
+   * you a full jar for climbing nothing. The wall can update mid-run; what it
+   * PAYS cannot.
+   */
+  const runMarks = useRef({ theirs: 0, best: 0 })
 
   const flash = useCallback((p: ErenPose, ms = 420) => {
     poseRef.current = p
@@ -1075,17 +1102,57 @@ export default function JellyJumpPage() {
           }
           // Passing a line in the shaft is something you SEE happen, at the
           // moment it happens, instead of reading about it on the results card.
-          const mk = marksRef.current
-          if (!passedTheirs.current && mk.theirs > 0 && m >= mk.theirs) {
+          /**
+           * Crossing a line PAYS now.
+           *
+           * Both latches already existed and did nothing but shout, which meant
+           * the single moment this whole two-person framing exists for was the
+           * one moment with no consequence. Her line hands you a jar; your own
+           * best hands you a chain one landing short of a cream launch. Chasing
+           * her becomes the strongest play in the game rather than something
+           * you read about on the results card afterwards.
+           *
+           * ONE banner between them. shout() owns a single timer, so two calls
+           * in the same frame — which is exactly the run this feature is for,
+           * when her line and your best sit a metre apart — would swallow the
+           * first. Beating your own record subsumes beating hers, so it wins.
+           */
+          const rm = runMarks.current
+          let mark: string | null = null
+          if (!passedTheirs.current && rm.theirs > 0 && m >= rm.theirs) {
             passedTheirs.current = true
+            setBrokeTheirs(true)
             playSound('jl_rival')
-            shout('TOOK THE LEAD')
+            /**
+             * The jar, but only above the jelly bar. Below it a free catch
+             * lands on any day she happened to score 130 — before the run is
+             * even worth extending, which is the opposite of what this is for.
+             * Under the bar, and on an already-armed jar, her line pays the
+             * chain instead so it is never worth nothing.
+             */
+            if (m >= THRESHOLD && !jamReady.current) {
+              addSugar(JAR_CAPACITY)
+            } else {
+              chain.current = Math.max(chain.current, CHAIN_REWARD - 1)
+              setChainUi(chain.current)
+            }
+            mark = `${(marksRef.current.name ?? 'HER').slice(0, 7).toUpperCase()} BEATEN`
           }
-          if (!passedBest.current && mk.best > 0 && m >= mk.best) {
+          if (!passedBest.current && rm.best > 0 && m >= rm.best) {
             passedBest.current = true
-            playSound('jl_rival')
-            shout('NEW BEST')
+            setBrokeBest(true)
+            /**
+             * One clean landing short of the reward — and it stays fumbleable,
+             * because the chain only counts a landing STRICTLY above the last
+             * one. A shove you don't finish pays nothing, which is the right
+             * shape for a reward for entering new territory.
+             */
+            chain.current = Math.max(chain.current, CHAIN_REWARD - 1)
+            setChainUi(chain.current)
+            playSound('jl_chain')
+            mark = 'NEW BEST'
           }
+          if (mark) shout(mark)
         }
       }
 
@@ -1411,6 +1478,8 @@ export default function JellyJumpPage() {
     poseHold.current = 0
     passedTheirs.current = false
     passedBest.current = false
+    // What the wall is worth for THIS run. See runMarks.
+    runMarks.current = { theirs: marksRef.current.theirs, best: marksRef.current.best }
     // Every pending timer from the last run, or one of them fires into this one
     // and clears a banner the new run had just raised.
     if (ceilTimer.current) window.clearTimeout(ceilTimer.current)
@@ -1418,6 +1487,8 @@ export default function JellyJumpPage() {
     if (bannerTimer.current) window.clearTimeout(bannerTimer.current)
     setHeight(0); setChainUi(0); setJarUi(0); setJamUi(false)
     setZoneIdx(0); setCeilIdx(0); setCeilBroken(false)
+    // Or Play Again renders both marks already shattered from frame one.
+    setBrokeTheirs(false); setBrokeBest(false)
     setBanner(null); setWins([]); setAwardFailed(false); setResult(null)
     setPose('idle')
     phaseRef.current = 'play'
@@ -1447,8 +1518,8 @@ export default function JellyJumpPage() {
           the play area got aimed at as ground, and a line the player tries to
           land on would be the most expensive lie this screen could tell. */}
       <div aria-hidden className="absolute inset-0 pointer-events-none" style={{ zIndex: 2 }}>
-        <Mark ref={markTheirsRef} colour="#E9789F" label={(duel.theirName ?? 'HER').slice(0, 7).toUpperCase()} value={duel.theirsToday} />
-        <Mark ref={markBestRef} colour="#C08A5A" label="BEST" value={duel.best} />
+        <Mark ref={markTheirsRef} colour="#E9789F" label={(duel.theirName ?? 'HER').slice(0, 7).toUpperCase()} value={duel.theirsToday} broke={brokeTheirs} />
+        <Mark ref={markBestRef} colour="#C08A5A" label="BEST" value={duel.best} broke={brokeBest} />
       </div>
 
       {/* The slab between this room and the next. Not a collider. */}
@@ -1750,14 +1821,24 @@ export default function JellyJumpPage() {
  * is a line at a height the player desperately wants to reach, and if it looked
  * landable they would aim at it.
  */
-const Mark = forwardRef<HTMLDivElement, { colour: string; label: string; value: number }>(
-  function Mark({ colour, label, value }, ref) {
+const Mark = forwardRef<HTMLDivElement, { colour: string; label: string; value: number; broke?: boolean }>(
+  function Mark({ colour, label, value, broke = false }, ref) {
     if (value <= 0) return null
+    /**
+     * The break animations sit on the PLATES and the chips, never on the
+     * wrapper: writeMark writes transform, opacity and visibility to the
+     * wrapper every frame, and a keyframe on transform would win and freeze
+     * the mark at whatever height it broke at. The plates carry no transform
+     * of their own, which is what makes this free.
+     */
     const plate = (side: 0 | 1) => (
       <span key={side} style={{
         position: 'absolute', bottom: 0, [side ? 'right' : 'left']: 0,
         padding: '2px 4px', background: '#26313A', border: `2px solid ${colour}`,
         borderRadius: 3, lineHeight: 1.15, textAlign: side ? 'right' : 'left',
+        animation: broke
+          ? `jumpMarkBreak${side ? 'R' : 'L'} 420ms cubic-bezier(0.16,1,0.3,1) forwards`
+          : undefined,
       } as React.CSSProperties}>
         <span className="font-pixel block" style={{ fontSize: 5, color: colour }}>{label}</span>
         <span className="font-pixel block" style={{ fontSize: 6.5, color: '#EAF2F5' }}>{value}</span>
@@ -1771,10 +1852,24 @@ const Mark = forwardRef<HTMLDivElement, { colour: string; label: string; value: 
         <span style={{
           position: 'absolute', left: 40, right: 40, bottom: 1, height: 1,
           background: `repeating-linear-gradient(90deg, ${colour} 0 4px, transparent 4px 11px)`,
-          opacity: 0.45,
+          // Dimmed, never removed. The line is BEHIND you now, not gone — you
+          // should be able to look back down the shaft and see where it was.
+          opacity: broke ? 0.15 : 0.45,
+          transition: 'opacity 420ms linear',
         }} />
         {plate(0)}
         {plate(1)}
+        {/* Chips off the plates. Only ever mounted on the break, so they cost
+            nothing for the whole run up to it. Still edge-anchored: JumpScenery's
+            law holds here too, and nothing may cross the play area. */}
+        {broke && [0, 1].map(side => [0, 1, 2].map(i => (
+          <span key={`${side}${i}`} aria-hidden style={{
+            position: 'absolute', bottom: 2 + i * 3, [side ? 'right' : 'left']: 30 + i * 5,
+            width: 3, height: 3, background: colour, borderRadius: 1,
+            animation: `jumpMarkBreak${side ? 'R' : 'L'} ${340 + i * 70}ms cubic-bezier(0.16,1,0.3,1) forwards`,
+            animationDelay: `${i * 40}ms`,
+          } as React.CSSProperties} />
+        )))}
       </div>
     )
   },

@@ -1725,3 +1725,18 @@
   75%  { opacity: 0.25; transform: scale(1.85); }
   100% { opacity: 0;    transform: scale(2.1); }
 }
+
+/* A height mark coming apart as he climbs through it. Same easing as
+   jumpCeilBreakL/R above, because it is the same idea one storey smaller: a
+   thing that was in the way is now behind him. `forwards` so the plates stay
+   gone — the dotted rule dims and remains, so the line reads as passed rather
+   than deleted. These go on the PLATES, never the wrapper, which the loop
+   writes a transform to every frame. */
+@keyframes jumpMarkBreakL {
+  0%   { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate(-26px, 15px) rotate(-24deg); opacity: 0; }
+}
+@keyframes jumpMarkBreakR {
+  0%   { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate(26px, 15px) rotate(24deg); opacity: 0; }
+}
