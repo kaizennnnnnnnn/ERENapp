@@ -1710,3 +1710,18 @@
   0%   { opacity: 0.55; }
   100% { opacity: 0; }
 }
+
+/* The crown's ring — a landing in the middle of a shelf, which counts twice.
+   Authored so 0% is INVISIBLE. The animation is infinite and gated by
+   animation-play-state, so the frame it parks on is the one showing on every
+   shelf that has not just been hit; a finite animation would park on its END
+   frame instead and could never be re-triggered by un-pausing. steps(4) shows
+   exactly the 0/25/50/75 states, which is one invisible frame and three of
+   ring — a hard pop, the way everything else in this shaft moves. */
+@keyframes jumpCleanRing {
+  0%   { opacity: 0;    transform: scale(0.45); }
+  25%  { opacity: 0.95; transform: scale(0.9); }
+  50%  { opacity: 0.55; transform: scale(1.4); }
+  75%  { opacity: 0.25; transform: scale(1.85); }
+  100% { opacity: 0;    transform: scale(2.1); }
+}

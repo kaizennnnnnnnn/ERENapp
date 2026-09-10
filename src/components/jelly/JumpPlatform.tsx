@@ -44,6 +44,31 @@ export type PlatKind = 'jelly' | 'slider' | 'cream' | 'crumb' | 'syrup' | 'lid' 
 export const PLAT_W = 76
 export const PLAT_H = 26
 
+/**
+ * THE CROWN — half-width of the middle of a shelf, where a landing counts
+ * double on the chain.
+ *
+ * 13px of the ±49.5px catch window, so a quarter of the places he can land pay
+ * twice. Deliberately wider than the lid's ±11 fulcrum: the lid is a jackpot
+ * you either hit or miss, the crown is a habit you build.
+ */
+export const CROWN = 13
+/**
+ * Which kinds wear one, and the two reasons the other five don't.
+ *
+ * ART: cream is four piped circles on a rounded plate and a rack is bare wire
+ * in a frame — neither has a flat top face to sink a trough into, and a mark
+ * that has nowhere to sit is a mark the player can't find. PAYOUT: both of
+ * those already launch like cream, so a crown on them would pay twice for one
+ * landing. A crumb is leaving. A lid already reads the same input, better, with
+ * its own fulcrum — and it is the one kind whose middle must NOT be relabelled.
+ *
+ * SYRUP stays in, and it is the point of the list. Syrup is the one kind that
+ * already DEMANDS a centred landing (it caps the next reach to 45px), so paying
+ * for what it was going to make you do anyway is the only mercy it ever offers.
+ */
+export const CROWNED: PlatKind[] = ['jelly', 'slider', 'syrup']
+
 interface Props {
   kind: PlatKind
   jelly: JellyDef
@@ -51,9 +76,15 @@ interface Props {
   cracked: boolean
   /** LID: which way it tipped, once, for the rest of the run. */
   tip: -1 | 0 | 1
+  /**
+   * Draw the crown. Passed in rather than derived from `kind`, because a shelf
+   * with something perched on it does NOT pay one — and a trough painted over
+   * a beetle's kill strip is the worst lie this screen could tell.
+   */
+  crown?: boolean
 }
 
-function PlatformInner({ kind, jelly, cracked, tip }: Props) {
+function PlatformInner({ kind, jelly, cracked, tip, crown = false }: Props) {
   if (kind === 'cream') {
     return (
       <span style={{ position: 'absolute', inset: 0 }}>
@@ -263,6 +294,29 @@ function PlatformInner({ kind, jelly, cracked, tip }: Props) {
             background: 'rgba(255,255,255,0.22)',
           }} />
         ))}
+        {/* THE CROWN. One inlaid trough sunk through the wet top face, drawn
+            last so the flutes run under it — a groove pressed into the mould,
+            not a sticker on top of it.
+
+            ONE band, never two marks. Two INK ticks in this y-band is the LID's
+            fulcrum (see above), and the lid is precisely the kind the crown
+            excludes: a player who learned "two notches = launch" would read
+            this exactly backwards. Darkening plus a lit lower lip reads as
+            depth in any flavour's colour, so it needs no palette of its own.
+
+            It sits BELOW the gloss rather than in it, because the leaf — the
+            flavour mark every one of these slabs wears — is already parked at
+            dead centre and swallowed the band whole when it was up there. The
+            leaf now reads as sitting IN the dish, which is the right accident:
+            the two marks agree about where the middle is. */}
+        {crown && (
+          <span style={{
+            position: 'absolute', left: '50%', marginLeft: -CROWN, width: CROWN * 2,
+            top: 8, height: 9, borderRadius: '999px 999px 6px 6px',
+            background: 'rgba(0,0,0,0.34)',
+            boxShadow: 'inset 0 -2.5px 0 rgba(255,255,255,0.34)',
+          }} />
+        )}
       </span>
       {/* Two frozen drips off the front edge — the syrup tell, and the only
           thing in the shaft that hangs BELOW its own slab. */}

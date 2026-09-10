@@ -110,6 +110,10 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
     { at: 40, recipe: { type: 'sweep', freq: [420, 1180], duration: 200, shape: 'sine', gain: 0.7, curve: 'exponential' } },
   ] },
   jl_sugar:        { type: 'blip',  freq: 1760, duration: 46, shape: 'sine', gain: 0.55 },
+  // The crown. 1245Hz sits clear of jl_bounce (300-520) and well under
+  // jl_sugar (1760), so a centred landing reads as its own confirmation
+  // rather than as either of the two sounds it fires alongside.
+  jl_clean:        { type: 'blip',  freq: 1245, duration: 40, shape: 'sine', gain: 0.45 },
   jl_jar:          { type: 'arp',   notes: [784, 988, 1319], step: 70, noteDur: 150, shape: 'sine', gain: 0.85 },
   jl_jam:          { type: 'seq', parts: [
     { at: 0,   recipe: { type: 'sweep', freq: [180, 720], duration: 300, shape: 'sine', gain: 0.9, curve: 'exponential' } },

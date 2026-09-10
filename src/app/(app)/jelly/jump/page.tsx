@@ -70,7 +70,7 @@ import { JELLIES, type JellyDef } from '@/lib/jellies'
 import JellyPrize, { type DuelLine } from '@/components/jelly/JellyPrize'
 import { JumpWallLayer, JumpDepth, JumpCeiling, TILE } from '@/components/jelly/JumpScenery'
 import { ZONES, ZONE_M, ZONE_FADE_M } from '@/components/jelly/jumpZones'
-import { Platform, Sugar, PLAT_W, PLAT_H, SUGAR_SIZE, type PlatKind } from '@/components/jelly/JumpPlatform'
+import { Platform, Sugar, PLAT_W, PLAT_H, SUGAR_SIZE, CROWN, CROWNED, type PlatKind } from '@/components/jelly/JumpPlatform'
 import {
   dealFoe, dripAt, spiderAt, type Foe,
   EREN_HIT_R, WASP_R, BEETLE_R, DROP_R, SPIDER_R, FLIER_RX, FLIER_RY, BEETLE_SPEED, FLIER_SPEED,
@@ -657,12 +657,45 @@ export default function JellyJumpPage() {
              * identical shelf, so falling down the shaft used to build a chain.
              */
             const clean = p.wy < lastHitWy.current - 1
-            if (clean) chain.current++
+            /**
+             * THE CROWN. A landing inside CROWN of the shelf's centre counts
+             * TWICE on the chain.
+             *
+             * Under a hold-only input the deepest skill available is knowing
+             * when to LET GO, and until now the shaft read that on exactly one
+             * shelf in eleven — the lid's fulcrum. Everywhere else, landing
+             * dead centre and landing 49px out on the lip were the same event,
+             * so the most practised motion in the game was unmeasured. This
+             * prices it, in the currency the chain already spends.
+             *
+             * Nothing about reachability moves: it writes no velocity, no gap
+             * and no reach, and a player who never centres gets the identical
+             * run they got before.
+             *
+             * The perched-foe clause is NOT optional. A beetle roams ±25 and
+             * stings within ±25, so whenever it is near its shelf's middle its
+             * kill strip completely contains the crown — and the crown would be
+             * a painted invitation to land on it.
+             */
+            const centred = clean
+              && CROWNED.includes(p.kind)
+              && Math.abs(c.x - p.x) <= CROWN
+              && !foes.current.some(f => f.host === p.id)
+            const before = chain.current
+            if (clean) chain.current += centred ? 2 : 1
             else chain.current = 0
             lastHitWy.current = p.wy
             lastHitId.current = p.id
 
-            const earned = chain.current > 0 && chain.current % CHAIN_REWARD === 0
+            /**
+             * CROSSED, not modulo. `chain % 8 === 0` silently stops paying the
+             * moment the counter can step by two — 7 goes to 9 and never equals
+             * 8. Asking whether the step CARRIED past a multiple is exact for
+             * both step sizes, and provably identical to the old test for a
+             * step of one: (k+1) % n === 0 is true exactly when the floor moves.
+             */
+            const crossed = (n: number) => Math.floor(chain.current / n) > Math.floor(before / n)
+            const earned = chain.current > 0 && crossed(CHAIN_REWARD)
             // A rack that is still lit launches like cream. It ALWAYS catches
             // him either way — a platform you could fall through would be the
             // crumb's lie told twice, with no tell you can read while falling.
@@ -711,11 +744,19 @@ export default function JellyJumpPage() {
               playSound('jl_bounce')
             }
 
+            // The crown's payout, said twice: a ring on the shelf and a blip
+            // pitched clear of every other landing sound. The ring runs off a
+            // custom property so this costs no React — see the keyframe note.
+            if (centred) {
+              if (p.el) p.el.style.setProperty('--clean', 'running')
+              playSound('jl_clean')
+            }
+
             if (big) {
               if (earned && p.kind !== 'cream') shout(`SUGAR RUSH x${chain.current}`)
               else if (p.kind === 'cream') shout('WHIPPED!')
               flash('cheer', 320)
-            } else if (chain.current > 0 && chain.current % 4 === 0) {
+            } else if (chain.current > 0 && crossed(4)) {
               shout(`CHAIN x${chain.current}`)
             }
             punch.current = reducedRef.current ? 0 : (big ? PUNCH_BIG : PUNCH_HIT)
@@ -815,7 +856,13 @@ export default function JellyJumpPage() {
       while (nextPlatWy.current > cam.current - H * 0.6) { addPlat(W); listChanged = true }
       plats.current = plats.current.filter(p => {
         if (p.wy - cam.current > H + PLAT_H * 3) { listChanged = true; return false }
-        if (p.squish > 0) p.squish = Math.max(0, p.squish - dt * 3.2)
+        if (p.squish > 0) {
+          p.squish = Math.max(0, p.squish - dt * 3.2)
+          // The squish IS the ring's clock: both run 312ms, so the animation
+          // completes exactly as the shelf finishes recovering, and parks on
+          // its own invisible 0% frame.
+          if (p.squish === 0 && p.el) p.el.style.setProperty('--clean', 'paused')
+        }
         // A landed biscuit holds, cracks showing, then gives way. Nothing else
         // is ever spent, so nothing else is ever removed from under the player.
         if (p.used && !p.falling && now - p.crackAt > CRUMB_HOLD_MS) {
@@ -1264,15 +1311,38 @@ export default function JellyJumpPage() {
           </div>
         ))}
 
-        {plats.current.map(p => (
-          <div key={p.id} ref={el => { p.el = el }} aria-hidden style={{
-            position: 'absolute', left: 0, top: 0, width: PLAT_W, height: PLAT_H,
-            willChange: 'transform, opacity', pointerEvents: 'none',
-            transformOrigin: 'center bottom',
-          }}>
-            <Platform kind={p.kind} jelly={p.jelly} cracked={p.used} tip={p.tip} />
-          </div>
-        ))}
+        {plats.current.map(p => {
+          // A shelf with something perched on it wears no crown and pays none.
+          // This runs on a LIST change, never per frame — a dozen shelves
+          // against a handful of foes, a few dozen comparisons a recycle.
+          const crown = CROWNED.includes(p.kind) && !foes.current.some(f => f.host === p.id)
+          return (
+            <div key={p.id} ref={el => { p.el = el }} aria-hidden style={{
+              position: 'absolute', left: 0, top: 0, width: PLAT_W, height: PLAT_H,
+              willChange: 'transform, opacity', pointerEvents: 'none',
+              transformOrigin: 'center bottom',
+            }}>
+              <Platform kind={p.kind} jelly={p.jelly} cracked={p.used} tip={p.tip} crown={crown} />
+              {/* The crown's ring. Its own element, so its keyframe owns a
+                  transform channel the loop never writes — the trap this file
+                  keeps re-finding. INFINITE and play-state gated, because a
+                  finite animation parks on its end frame and can never be
+                  re-run by un-pausing it; it would flash once per shelf and
+                  then go quiet forever. Centred with margin, never with
+                  translate(-50%), for the same channel reason. */}
+              {crown && (
+                <span aria-hidden style={{
+                  position: 'absolute', left: '50%', top: PLAT_H / 2,
+                  width: 22, height: 22, marginLeft: -11, marginTop: -11,
+                  borderRadius: '50%', border: '2.5px solid #FFF8EE',
+                  pointerEvents: 'none', opacity: 0,
+                  animation: reduced ? undefined : 'jumpCleanRing 312ms steps(3, end) infinite',
+                  animationPlayState: 'var(--clean, paused)',
+                }} />
+              )}
+            </div>
+          )
+        })}
 
         {/* Foes draw over the shelves (a wasp SITS on one) and under him. Each
             wrapper is positioned by the loop; anything that flips or idles is
@@ -1330,7 +1400,7 @@ export default function JellyJumpPage() {
               He wraps around the edges.
             </p>
             <div className="w-full flex flex-col gap-1.5 my-0.5">
-              <Rule swatch="#D73832" text="JELLIES hold. Bounce them as often as you like." />
+              <Rule swatch="#D73832" text="JELLIES hold. Land in the middle and the chain counts double." />
               <Rule swatch="#FFF3D6" text="CREAM throws him twice as high." />
               <Rule swatch="#C89B62" text="BISCUITS crack when you land, then give way. The only ones that do." />
               <Rule swatch="#E0A93E" text="LIDS tip. Land on the middle notch and it launches him." />
