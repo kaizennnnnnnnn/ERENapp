@@ -1094,6 +1094,31 @@ export default function ProfilePage() {
         </div>
       )}
 
+      {/* ── Legal ──
+          Play requires the privacy policy to be reachable from INSIDE the app,
+          not only from the store listing. Before this row it was reachable
+          from exactly two places, both of which a signed-in user has already
+          passed: the onboarding sign-up screen, and TermsGate — which returns
+          null forever once the terms are accepted. So a reviewer using the
+          demo credentials on an existing account could not reach either
+          document at all.
+
+          Plain <a>, not next/link: these routes sit outside the (app) group
+          and render without the app shell, so a soft navigation would drop
+          them into a layout they are not built for. */}
+      <div className="flex gap-2 mt-5">
+        <a href="/privacy"
+           className="flex-1 flex items-center justify-center py-3 transition-all active:translate-y-[1px]"
+           style={{ background: 'transparent', border: '1px solid rgba(120,113,108,0.35)' }}>
+          <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 1.5, color: '#8A7A85' }}>PRIVACY</span>
+        </a>
+        <a href="/terms"
+           className="flex-1 flex items-center justify-center py-3 transition-all active:translate-y-[1px]"
+           style={{ background: 'transparent', border: '1px solid rgba(120,113,108,0.35)' }}>
+          <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 1.5, color: '#8A7A85' }}>TERMS</span>
+        </a>
+      </div>
+
       {/* ── Delete account ──
           Google Play requires in-app account deletion for any app with
           account creation. The two-step confirm is not friction for its own
