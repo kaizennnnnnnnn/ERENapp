@@ -13,8 +13,8 @@ This policy explains exactly what Eren stores, who else touches it, and how to
 get it deleted.
 
 **Who is responsible for your data (the "controller"):**
-[PLACEHOLDER: legal entity name]
-[PLACEHOLDER: postal address]
+[PLACEHOLDER: legal entity name]\
+[PLACEHOLDER: postal address]\
 [PLACEHOLDER: contact email]
 
 ---
@@ -365,6 +365,6 @@ accept the updated policy.
 
 ## 13. Contact
 
-[PLACEHOLDER: legal entity name]
-[PLACEHOLDER: postal address]
+[PLACEHOLDER: legal entity name]\
+[PLACEHOLDER: postal address]\
 Email: [PLACEHOLDER: contact email]

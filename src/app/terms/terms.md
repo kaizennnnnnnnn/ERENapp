@@ -262,8 +262,8 @@ top always shows the current version.
 
 ## 16. Contact
 
-[PLACEHOLDER: legal entity name]
-[PLACEHOLDER: postal address]
+[PLACEHOLDER: legal entity name]\
+[PLACEHOLDER: postal address]\
 [PLACEHOLDER: contact email]
 
 To report content or an account: use the report action in the app, or write to

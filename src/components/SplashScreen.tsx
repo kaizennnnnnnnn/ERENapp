@@ -1,7 +1,20 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { usePathname } from 'next/navigation'
 import AnimatedEren from './AnimatedEren'
+
+// The published documents are not the app booting. They render from the root
+// layout, never mount the app shell, and so never call usePageReady — which
+// left them under the splash for the whole 8s MAX_VISIBLE_MS safety net. A
+// Play reviewer opening the policy URL from the Console got eight seconds of
+// a black screen with a cat on it, and a curl probe of the same URL could not
+// see it because the markup was there the whole time.
+//
+// Only these three. Roughly two dozen in-app routes also never dispatch
+// `eren:app-ready` and sit out the full 8s, but those are the app and the
+// splash is doing its job; they want usePageReady, not an exemption.
+const PUBLIC_DOCS = ['/privacy', '/terms', '/delete-account']
 
 // The splash holds the user's eye while the underlying page mounts, fetches,
 // and decodes its assets. It hides only when:
@@ -15,6 +28,8 @@ const MIN_VISIBLE_MS = 1200
 const MAX_VISIBLE_MS = 8000
 
 export default function SplashScreen() {
+  const pathname = usePathname()
+  const isPublicDoc = PUBLIC_DOCS.some(p => pathname?.startsWith(p))
   const [phase, setPhase] = useState<'playing' | 'fading' | 'done'>('playing')
   const mountedAtRef = useRef(Date.now())
   const fadedRef = useRef(false)
@@ -45,7 +60,8 @@ export default function SplashScreen() {
     }
   }, [phase])
 
-  if (phase === 'done') return null
+  // After every hook, so the hook order is identical on both kinds of route.
+  if (isPublicDoc || phase === 'done') return null
 
   return (
     <div

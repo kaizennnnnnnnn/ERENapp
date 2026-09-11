@@ -36,16 +36,25 @@ export default function DeleteAccountPage() {
   }
 
   return (
-    <main style={styles.page}>
+    // See LegalDoc for `legal-page`: this route renders from the root layout
+    // too, so on desktop it is clipped by the phone frame without it.
+    <main className="legal-page" style={styles.page}>
       <div style={styles.card}>
         <h1 style={styles.h1}>Delete your Eren account</h1>
 
         {state === 'sent' ? (
           <>
+            {/* No confirmation email is promised here. The project has no
+                custom SMTP, so Supabase's built-in mailer delivers only to
+                addresses on the project team — this page cannot mail a
+                stranger, and undertaking to is a commitment on the one
+                document Play's deletion-URL requirement points at. The
+                30-day window is kept: that one is real, and worked by hand.
+                Restore the sentence once SMTP is live. */}
             <p style={styles.body}>
-              Request received. Your account and personal data will be deleted
-              within 30 days, and you&apos;ll get an email at{' '}
-              <strong style={{ color: '#E8E0D0' }}>{email.trim()}</strong> when it&apos;s done.
+              Request received for{' '}
+              <strong style={{ color: '#E8E0D0' }}>{email.trim()}</strong>. Your account
+              and personal data will be deleted within 30 days.
             </p>
             <p style={styles.body}>
               If you can still sign in, the fastest route is in the app:

@@ -14,15 +14,15 @@
  * and check the output — do not assume it degrades gracefully.
  *
  * Supported: # ## ###, ---, - / * lists (including bullets wrapped over
- * several lines), | tables |, paragraphs, and inline [links](url), **bold**
- * and `code`.
+ * several lines), | tables |, paragraphs, a trailing "\" for a hard line
+ * break, and inline [links](url), **bold** and `code`.
  *
  * NOT supported: nested lists and numbered lists. An indented sub-bullet
  * flattens to a sibling, and "1." renders as literal text. Neither document
  * uses them; if one starts to, teach the parser rather than eyeballing it.
  */
 
-import type { ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
 
 function inline(text: string, keyBase: string): ReactNode[] {
   // Order matters: links first, then bold, so a bolded link survives.
@@ -118,7 +118,28 @@ function render(md: string): ReactNode[] {
       !/^(#{1,3} |[-*] |\||---+$)/.test(lines[i].trim())
     ) { para.push(lines[i].trim()); i++ }
     if (para.length) {
-      nodes.push(<p key={key++} style={S.p}>{inline(para.join(' '), `p${key}`)}</p>)
+      // CommonMark hard break: a line ending in "\" forces a <br> rather than
+      // being folded into the paragraph. The contact blocks are why — an
+      // entity name, a postal address and an email are three lines, and
+      // folding them into one run-on line is the wrong shape for the one
+      // section a reader is meant to act on. Two trailing spaces is the other
+      // standard spelling for this and was rejected deliberately: it is
+      // invisible, and editors strip it from a file a lawyer will be editing.
+      const segs: string[] = []
+      let cur = ''
+      for (const line of para) {
+        const hard = line.endsWith('\\')
+        cur += (cur ? ' ' : '') + (hard ? line.slice(0, -1).trimEnd() : line)
+        if (hard) { segs.push(cur); cur = '' }
+      }
+      if (cur) segs.push(cur)
+      nodes.push(
+        <p key={key++} style={S.p}>
+          {segs.map((s, n) => (
+            <Fragment key={n}>{n > 0 && <br />}{inline(s, `p${key}-${n}`)}</Fragment>
+          ))}
+        </p>,
+      )
     }
   }
 
@@ -133,7 +154,12 @@ interface LegalDocProps {
 
 export function LegalDoc({ md, links }: LegalDocProps) {
   return (
-    <main style={S.page}>
+    // `legal-page` lifts the desktop phone frame off this route (globals.css)
+    // — without it the document is clipped at 932px with no scroller.
+    // `selectable` opts back in to text selection, which html{} turns off
+    // app-wide: these are the two documents a reader has an actual reason to
+    // quote from, and a reviewer checking a clause should be able to copy it.
+    <main className="legal-page selectable" style={S.page}>
       <article style={S.card}>{render(md)}</article>
       {links && links.length > 0 && (
         <p style={S.footer}>
