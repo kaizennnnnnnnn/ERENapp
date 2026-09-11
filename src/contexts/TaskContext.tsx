@@ -21,7 +21,8 @@ interface TaskContextValue {
   completedIds: Set<string>          // "taskId:periodKey"
   taskProgress: Map<TaskId, number>  // weekly task id → current progress count
   completeTask: (taskId: TaskId) => Promise<{ coins: number; xp: number; levelUp: boolean } | null>
-  addCoins: (amount: number) => Promise<void>
+  /** Resolves true when the coins actually reached the DB. */
+  addCoins: (amount: number) => Promise<boolean>
   spendCoins: (amount: number) => Promise<boolean>
   coins: number
   xp: number
@@ -151,8 +152,8 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   }, [user?.id, loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Add coins to user profile ────────────────────────────────────────────
-  const addCoins = useCallback(async (amount: number): Promise<void> => {
-    if (!user?.id) return
+  const addCoins = useCallback(async (amount: number): Promise<boolean> => {
+    if (!user?.id) return false
     const next = coins + amount
     setCoins(next)
     // writeWithRetry + error check, mirroring spendCoins below: this is an
@@ -161,7 +162,12 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     // rewards, kiosk shifts, fortunes) and the coins were simply gone.
     const { error } = await writeWithRetry(signal =>
       supabase.from('profiles').update({ coins: next }).eq('id', user.id).abortSignal(signal))
-    if (error) setCoins(coins)
+    if (error) { setCoins(coins); return false }
+    // Returns whether the coins actually landed. Most callers pay out on top of
+    // something already recorded and can ignore it, but a caller that is about
+    // to mark the SOURCE consumed — the reward road stamping claimed_level —
+    // has to know, or a rolled-back payout still burns the thing that paid it.
+    return true
   }, [user?.id, coins]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Spend coins (returns false if insufficient) ──────────────────────────

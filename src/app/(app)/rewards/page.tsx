@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { withRetry } from '@/lib/supabaseRetry'
+import { withRetry, writeWithRetry } from '@/lib/supabaseRetry'
 import { onForeground } from '@/lib/onForeground'
 import { useAuth } from '@/hooks/useAuth'
 import { useTasks } from '@/contexts/TaskContext'
@@ -88,6 +88,9 @@ export default function RewardsPage() {
   const [claimedLoaded, setClaimedLoaded] = useState(false)
   const [claiming, setClaiming] = useState(false)
   const [toast, setToast] = useState<{ msg: string; reward: LevelReward } | null>(null)
+  // Separate from `toast`: that one is the gold celebration banner and needs a
+  // LevelReward to draw its icon. A failed claim has no reward to show.
+  const [claimError, setClaimError] = useState<string | null>(null)
   const scrollerRef = useRef<HTMLDivElement>(null)
   const currentNodeRef = useRef<HTMLDivElement>(null)
   const [fanfare, setFanfare] = useState(0) // bumps on claim for animation
@@ -131,10 +134,20 @@ export default function RewardsPage() {
   const claimableCount = claimedLoaded ? Math.max(0, cap - claimedLevel) : 0
   const canClaimAny    = claimableCount > 0
 
+  // Abandon a claim without stamping claimed_level, and say so. Every early
+  // return in claimUpTo goes through this: a silent `return` leaves the user
+  // tapping a node that appears to do nothing, which is how a transient outage
+  // reads as a broken button.
+  function failClaim() {
+    setClaimError('Could not claim just now. Try again.')
+    setTimeout(() => setClaimError(null), 2600)
+  }
+
   async function claimUpTo(target: number) {
     if (!user?.id || !profile?.household_id || claiming || !claimedLoaded) return
     if (target <= claimedLevel || target > level || target > MAX_LEVEL) return
 
+    setClaimError(null)
     setClaiming(true)
     try {
       // Aggregate every reward in [claimedLevel+1 .. target]
@@ -160,43 +173,76 @@ export default function RewardsPage() {
       if (totalStardust > 0 || totalTickets > 0) {
         const { data, error } = await withRetry(() => supabase
           .from('user_gacha_state').select('stardust, gacha_tickets').eq('user_id', user.id).maybeSingle())
-        if (error) return // nothing written yet — the node stays claimable
+        if (error) return failClaim() // nothing written yet — node stays claimable
         gacha = data as Record<string, number> | null
       }
       let foodInv: Record<string, number> | null = null
       if (Object.keys(foodToAdd).length > 0) {
         const { data: stats, error } = await withRetry(() => supabase
           .from('eren_stats').select('food_inventory').eq('household_id', profile.household_id).maybeSingle())
-        if (error) return
+        if (error) return failClaim()
         foodInv = (stats?.food_inventory ?? {}) as Record<string, number>
       }
 
-      if (totalCoins > 0) await addCoins(totalCoins)
+      // ── Every payout is checked, and claimed_level is stamped only if they
+      // all landed. ────────────────────────────────────────────────────────
+      // The reads above already abort on failure, but the writes below used to
+      // be unchecked and `claimed_level = target` ran unconditionally after
+      // them. One Supabase 503 — which this project treats as routine, see
+      // withRetry's own comment — consumed the node and paid nothing, with no
+      // way for the user to ever claim it again and nothing on screen saying
+      // so. The reward road is the app's long-term progression; a level's
+      // rewards are minted exactly once.
+      //
+      // On failure the node stays claimable, which is the same stance
+      // TaskContext takes when a quest's reward write fails (it deletes the
+      // completion row rather than leave it paid-nothing). The cost is that a
+      // failure BETWEEN two payouts can pay the earlier one twice on a retry.
+      // That is the deliberate trade: a rare, self-limiting over-payment in
+      // the user's favour beats a silent permanent loss they cannot see or
+      // recover from.
+      if (totalCoins > 0) {
+        const ok = await addCoins(totalCoins)
+        if (!ok) return failClaim()
+      }
 
       if (totalStardust > 0 || totalTickets > 0) {
         if (gacha) {
           const updates: Record<string, number> = {}
           if (totalStardust > 0) updates.stardust       = (gacha.stardust ?? 0) + totalStardust
           if (totalTickets  > 0) updates.gacha_tickets  = (gacha.gacha_tickets ?? 0) + totalTickets
-          await supabase.from('user_gacha_state').update(updates).eq('user_id', user.id)
+          const { error } = await writeWithRetry(signal => supabase
+            .from('user_gacha_state').update(updates).eq('user_id', user.id).abortSignal(signal))
+          if (error) return failClaim()
         } else {
           // Genuinely no row yet (maybeSingle returned 0 rows, not an error).
-          await supabase.from('user_gacha_state').insert({
-            user_id: user.id,
-            stardust: totalStardust,
-            gacha_tickets: totalTickets,
-            pulls_since_epic: 0, pulls_since_legendary: 0, total_pulls: 0,
-          })
+          const { error } = await writeWithRetry(signal => supabase
+            .from('user_gacha_state').insert({
+              user_id: user.id,
+              stardust: totalStardust,
+              gacha_tickets: totalTickets,
+              pulls_since_epic: 0, pulls_since_legendary: 0, total_pulls: 0,
+            }).abortSignal(signal))
+          if (error) return failClaim()
         }
       }
 
       if (foodInv) {
         for (const [f, n] of Object.entries(foodToAdd)) foodInv[f] = (foodInv[f] ?? 0) + n
-        await supabase.from('eren_stats').update({ food_inventory: foodInv }).eq('household_id', profile.household_id)
+        const { error } = await writeWithRetry(signal => supabase
+          .from('eren_stats').update({ food_inventory: foodInv })
+          .eq('household_id', profile.household_id).abortSignal(signal))
+        if (error) return failClaim()
       }
 
       const claimedCount = target - claimedLevel
-      await supabase.from('profiles').update({ claimed_level: target }).eq('id', user.id)
+      const { error: stampErr } = await writeWithRetry(signal => supabase
+        .from('profiles').update({ claimed_level: target }).eq('id', user.id).abortSignal(signal))
+      // Everything is paid. If only the stamp failed the node stays claimable
+      // and a retry re-pays — the same trade as above, and still the right way
+      // round: the alternative is a paid-for level the user can never see
+      // marked claimed.
+      if (stampErr) return failClaim()
       setClaimedLevel(target)
       // Tell the StatsHeader (and any other listener) the badge count changed.
       try { window.dispatchEvent(new Event('eren:rewards-claimed')) } catch { /* ignore */ }
@@ -545,6 +591,23 @@ export default function RewardsPage() {
           <RewardIcon r={toast.reward} size={22} />
           <span className="font-pixel text-amber-900" style={{ fontSize: 9, textShadow: '1px 1px 0 rgba(255,255,255,0.3)' }}>
             {toast.msg}
+          </span>
+        </div>
+      )}
+
+      {/* Failed claim. Deliberately not the gold banner: nothing was won, and
+          the node the user just tapped is still sitting there claimable. */}
+      {claimError && (
+        <div className="absolute top-28 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5"
+          style={{
+            background: 'linear-gradient(135deg, #4C1D24 0%, #2B1018 100%)',
+            border: '3px solid #B45309',
+            borderRadius: 5,
+            boxShadow: '0 4px 0 #1A0A10',
+            animation: 'toastPop 0.6s cubic-bezier(0.34,1.56,0.64,1)',
+          }}>
+          <span className="font-pixel" style={{ fontSize: 9, color: '#FFD9C0' }}>
+            {claimError}
           </span>
         </div>
       )}
