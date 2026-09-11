@@ -74,9 +74,11 @@ is still there tomorrow.
 
 ### 2.4 Photos you upload
 If you add a photo to a memory, the image file is uploaded to our storage
-provider and kept until you or your partner delete that memory or you delete
-your account. We do not scan, analyse or run face recognition on your photos,
-and they are never sent to the AI model.
+provider and kept until you or your partner delete that memory, or until the
+last person in your home deletes their account. If you delete your account
+while your partner is still there, the memory and its photo stay in your shared
+home with your name taken off them — see section 9. We do not scan, analyse or
+run face recognition on your photos, and they are never sent to the AI model.
 
 Eren does not ask Android for permission to read your photo library. When you
 add a photo, your device's own file picker opens and only the single file you
@@ -236,9 +238,10 @@ details here, or delete this paragraph.]
 | Data | Kept for |
 |---|---|
 | Account, profile, household | Until you delete your account. |
-| Messages, notes, memories, photos, moods, reminders | Until you or your partner delete the item, or until you delete your account. |
+| Messages, notes, memories, photos, reminders | Until you or your partner delete the item, or until the last person in your home deletes their account. Deleting your account while your partner stays takes your name off these, rather than removing them — see section 9. |
 | Reports of content or people | Kept after account deletion. Safety records that vanish on request are not safety records. |
-| Care actions, game scores, session times, in-game progress | Until you delete your account. |
+| People you have blocked | Kept after account deletion, including the blocked person's account identifier. A block that disappeared when the blocked person deleted their account would let them lift it by doing exactly that. |
+| Care actions, game scores, session times, moods, in-game progress | Until you delete your account. |
 | Your "Talk to Eren" transcript | Until you delete it in the app, or you delete your account. |
 | Facts Eren saved about you | Capped at 60 per person — the oldest is automatically deleted when a new one is saved. Deleted entirely with your account. |
 | Copies held by Anthropic | Deleted by Anthropic within 30 days (up to 2 years if flagged for a usage-policy violation). |
@@ -297,14 +300,19 @@ you at high risk.
 ## 9. Your rights and how to use them
 
 ### Deleting your account
-**In the app:** Profile → Delete account. This permanently removes your account
-and the data attached to it, including your messages, your uploaded memories
-and photos, your mood entries, your care history, your game scores and your
-conversations with Eren. It cannot be undone.
+**In the app:** Profile → Delete account. This permanently removes your login,
+your profile, your conversations with Eren, your mood entries, your care
+history and your game scores. It cannot be undone.
 
-Because Eren is a shared app, note that messages and memories **you** created
-disappear from your partner's view too when you delete your account. Content
-your partner created stays with them.
+Because Eren is a shared app, what happens to the things you and your partner
+both see depends on whether anyone is left in your home.
+
+- **If your partner is still there:** the notes, memories and photos you added
+  stay in your shared home, with your name taken off them. They are no longer
+  linked to you or to any account. We do it this way so that deleting your
+  account cannot delete your partner's own history of a home you shared.
+- **If you are the last person in your home:** the home is deleted along with
+  your account, and the notes, memories and uploaded photos in it go with it.
 
 **Without the app:** email [PLACEHOLDER: contact email] from the address on your
 account with the subject "Delete my account". We will confirm and complete the
