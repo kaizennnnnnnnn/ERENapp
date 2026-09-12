@@ -26,8 +26,8 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useMemo } from 'react'
-import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
+import { useCare } from '@/contexts/CareContext'
 import { useTrophies } from '@/hooks/useTrophies'
 import { useTrophyCosmetics } from '@/hooks/useTrophyCosmetics'
 import {
@@ -68,6 +68,11 @@ export default function TrophyShopView({ tab, onTab, onBuy, onUse }: Props) {
   const trophies = useTrophies()
   const cos = useTrophyCosmetics()
   const { isSolo } = useCouple()
+  // The Lab is an OVERLAY mounted in the (app) layout next to this page, not a
+  // route. It used to be linked as one — href="/care?room=chemistry" — and
+  // /care is a server component whose entire body is redirect('/home'), so the
+  // most prominent control on the machine shelf threw you out of the shop.
+  const { openScene } = useCare()
   const items = useMemo(
     () => itemsOfKind(tab).filter(i =>
       !isSolo
@@ -121,7 +126,8 @@ export default function TrophyShopView({ tab, onTab, onBuy, onUse }: Props) {
 
       <p className="text-center text-[10px]" style={{ color: '#8B7F9B' }}>{active.sub}</p>
 
-      <ShelfSummary kind={tab} cos={cos} name={myName} trophies={trophies} />
+      <ShelfSummary kind={tab} cos={cos} name={myName} trophies={trophies}
+        onOpenLab={() => openScene('chemistry')} />
 
       {/* Day one is a wall of locked cards and no obvious way in. Say where
           trophies come from, once, and only while there are none. */}
@@ -176,11 +182,14 @@ export default function TrophyShopView({ tab, onTab, onBuy, onUse }: Props) {
 // was a wall of blocks nobody read. Each shelf now answers only its own
 // question, in one line, right where you would act on it.
 
-export function ShelfSummary({ kind, cos, name, trophies }: {
+export function ShelfSummary({ kind, cos, name, trophies, onOpenLab }: {
   kind: ShopKind
   cos: ReturnType<typeof useTrophyCosmetics>
   name: string
   trophies: ReturnType<typeof useTrophies>
+  /** Opens the Lab. Optional so the screenshot harness can still render this
+   *  strip without the app's CareProvider — see scripts/tro_preview_page. */
+  onOpenLab?(): void
 }) {
   const shell: React.CSSProperties = {
     background: 'rgba(0,0,0,0.3)',
@@ -196,8 +205,10 @@ export function ShelfSummary({ kind, cos, name, trophies }: {
     const installed = partsInstalled(trophies.ours)
     const built = machineBuilt(trophies.ours)
     return (
-      <Link href="/care?room=chemistry" onClick={() => playSound('ui_tap')}
-        className="flex items-center gap-2 px-3 py-2.5 active:translate-y-[1px] transition-transform"
+      <button
+        type="button"
+        onClick={() => { playSound('ui_tap'); onOpenLab?.() }}
+        className="w-full flex items-center gap-2 px-3 py-2.5 active:translate-y-[1px] transition-transform"
         style={shell}>
         <IconFlask size={15} />
         <span className="flex-1 text-left">
@@ -211,7 +222,7 @@ export function ShelfSummary({ kind, cos, name, trophies }: {
           </span>
         </span>
         <IconChevronRight size={11} />
-      </Link>
+      </button>
     )
   }
 
@@ -411,29 +422,38 @@ function EquipControl({
   cos: ReturnType<typeof useTrophyCosmetics>
   onUse(): void
 }) {
+  // MACHINE PARTS ARE CHECKED BEFORE THE PADLOCK, and that ordering is the
+  // whole point. A part is bolted on the moment it is bought: there is nothing
+  // to equip and — critically — nothing to SPEND, because without this branch a
+  // part fell through to the privilege rail below and got a USE ONE button that
+  // decremented the row to zero, un-building a part the household paid for.
+  //
+  // It also must not sit BELOW the `!owned` return. Nothing gates buying a
+  // part, but down there every unbought part card drew a padlock and the word
+  // LOCKED in the same row as its own live gold BUY button — so the shelf you
+  // build the machine from told you, four times over, that you could not.
+  if (item.kind === 'machine') {
+    return (
+      <span className="flex items-center gap-1.5 px-2 py-1.5" style={{
+        border: `1px dashed ${owned ? 'rgba(99,240,148,0.35)' : 'rgba(255,255,255,0.14)'}`,
+        borderRadius: 3,
+      }}>
+        {owned && <IconCheck size={11} tone="#4ADE80" />}
+        <span className="font-pixel" style={{
+          fontSize: 6, letterSpacing: 1, color: owned ? '#A7F3C0' : '#7E7090',
+        }}>
+          {owned ? 'FITTED IN THE LAB' : 'NOT FITTED YET'}
+        </span>
+      </span>
+    )
+  }
+
   if (!owned) {
     return (
       <span className="flex items-center gap-1.5" style={{ opacity: 0.4 }}>
         <IconLock size={11} />
         <span className="font-pixel" style={{ fontSize: 5, letterSpacing: 1, color: '#7A7286' }}>
           LOCKED
-        </span>
-      </span>
-    )
-  }
-
-  // A part is bolted on the moment it is bought. There is nothing to equip and
-  // — critically — nothing to SPEND: without this branch a machine part fell
-  // through to the privilege rail below and got a USE ONE button that
-  // decremented the row to zero, un-building a part the household paid for.
-  if (item.kind === 'machine') {
-    return (
-      <span className="flex items-center gap-1.5 px-2 py-1.5" style={{
-        border: '1px dashed rgba(99,240,148,0.35)', borderRadius: 3,
-      }}>
-        <IconCheck size={11} tone="#4ADE80" />
-        <span className="font-pixel" style={{ fontSize: 6, letterSpacing: 1, color: '#A7F3C0' }}>
-          FITTED IN THE LAB
         </span>
       </span>
     )

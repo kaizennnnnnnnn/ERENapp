@@ -1,0 +1,44 @@
+'use client'
+// THROWAWAY screenshot harness for the MACHINE shelf. Deleted after the pass.
+import { PARTS } from '@/lib/trophyShop'
+import type { TrophyCosmetics } from '@/hooks/useTrophyCosmetics'
+import type { useTrophies } from '@/hooks/useTrophies'
+import { ShopCard, ShelfSummary } from '@/components/trophies/TrophyShopView'
+
+const noop = () => {}
+
+export default function Preview() {
+  // Exactly the reporting user's real state: 68 trophies, zero parts owned.
+  const trophies = {
+    ours: () => false,
+    qty: () => 0,
+    mine: () => false,
+    balance: 68,
+    loaded: true,
+    owned: [],
+  } as unknown as ReturnType<typeof useTrophies>
+
+  const cos = {
+    accessory: null, decor: {}, myTitle: null, myFrame: null,
+    wear: async () => {}, place: async () => {},
+    setTitle: async () => {}, setFrame: async () => {},
+  } as unknown as TrophyCosmetics
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#0B0717', padding: 12 }}>
+      <div id="shelf" style={{
+        maxWidth: 380, margin: '0 auto',
+        display: 'flex', flexDirection: 'column', gap: 10,
+        background: 'linear-gradient(180deg, #1A0E24, #06030A)', padding: 12,
+      }}>
+        <ShelfSummary kind="machine" cos={cos} name="Jovan" trophies={trophies}
+          onOpenLab={noop} />
+        {PARTS.map(item => (
+          <ShopCard key={item.id} item={item} owned={false} qty={0}
+            partnerHas={false} balance={68} cos={cos} myName="Jovan"
+            onBuy={noop} onUse={noop} />
+        ))}
+      </div>
+    </div>
+  )
+}
