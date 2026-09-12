@@ -39,10 +39,33 @@ export default function ForgotPasswordPage() {
       redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset`,
     })
 
+    // Log every failure, always. Nothing else in the app records this, and
+    // the whole feature can be dead — with no custom SMTP, Supabase's mailer
+    // refuses any address that is not on the project team — while this screen
+    // reports success to everyone. A silent, total failure that looks like it
+    // worked is the worst state for a recovery flow to be in.
+    if (error) console.error('[eren] password reset failed:', error)
+
     // Rate limiting is the one failure worth naming. Left silent, someone sits
     // there re-sending into a wall and concludes the feature is broken.
     if (error && /rate|too many|seconds|limit/i.test(error.message)) {
       setError('Too many tries. Wait a minute, then ask again.')
+      setLoading(false)
+      return
+    }
+
+    // A server-side failure is OURS, not a fact about this address, so saying
+    // so leaks nothing and stops someone waiting for mail that was never sent.
+    // This is the branch that catches an unconfigured SMTP.
+    //
+    // Deliberately narrow. Any error that is NOT clearly server-side still
+    // falls through to the success screen below, because Supabase's own
+    // enumeration protection is what the neutral copy depends on: if it ever
+    // did return a per-address error, reporting it here would turn this form
+    // into the exact oracle the next comment exists to prevent.
+    const status = (error as { status?: number } | null)?.status ?? 0
+    if (error && (status >= 500 || /not authoriz|smtp|configur|server/i.test(error.message))) {
+      setError('Something went wrong on our end. Try again in a minute.')
       setLoading(false)
       return
     }

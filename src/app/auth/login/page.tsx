@@ -35,7 +35,13 @@ export default function LoginPage() {
     }
 
     if (!data.session) {
-      setError('No session — your email may not be confirmed. Run the SQL fix in Supabase.')
+      // This used to read "No session — your email may not be confirmed. Run
+      // the SQL fix in Supabase." — a note to the developer, shipped to every
+      // user who hit it. Signing in without a session means the address is
+      // registered but unconfirmed, which is a thing the person reading this
+      // can act on, so say that instead.
+      console.error('[eren] signInWithPassword returned no session for a valid credential')
+      setError('Your email address has not been confirmed yet. Check your inbox for the confirmation link.')
       setLoading(false)
       return
     }

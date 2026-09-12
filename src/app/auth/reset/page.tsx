@@ -70,6 +70,16 @@ export default function ResetPasswordPage() {
       return
     }
 
+    // End every OTHER session for this account. A password change that leaves
+    // existing sessions signed in does not actually take access away from
+    // anyone, and in a two-person app the commonest reason to reset is that
+    // someone else has it — a shared device, an ex-partner still signed in on
+    // their phone. `scope: 'others'` keeps the session we just refreshed here.
+    //
+    // Best-effort: the password is already changed, so failing this must not
+    // strand the user on a form that looks like it did not work.
+    try { await supabase.auth.signOut({ scope: 'others' }) } catch { /* not fatal */ }
+
     // Full navigation, not router.push — the same reason the login page does
     // it: the refreshed auth cookie has to be written before the gated layout
     // reads it.
