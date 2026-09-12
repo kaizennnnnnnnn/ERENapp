@@ -42,9 +42,17 @@ export const RING_MS = 10_000
 /** One brrring-brrring per this, for as long as it rings. */
 export const RING_EVERY_MS = 1_600
 /** The first call of a shift. */
-export const FIRST_CALL_MS = 60_000
-/** And every call after that. */
-export const CALL_EVERY_MS = 300_000
+export const FIRST_CALL_MS = 45_000
+/** And every call after that. MUST stay well under SHIFT_MS (210s) or the
+ *  phone becomes a thing that rings once a night and then never again — which
+ *  is what five minutes bought us: eight written messages, one heard. At
+ *  seventy seconds a shift holds three calls, so ignoring one is a decision
+ *  you make rather than the only behaviour you ever see. */
+export const CALL_EVERY_MS = 70_000
+/** Coming back from a notification resumes the wait rather than restarting
+ *  it, but never with less than this left — a phone that rings the instant
+ *  you look at it reads as the app punishing you for looking away. */
+export const RESUME_MIN_MS = 5_000
 /** Per character of a typed-out message. */
 export const TYPE_MS = 42
 /** How long the finished message stays up to be read. */

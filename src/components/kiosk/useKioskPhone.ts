@@ -3,9 +3,15 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // THE PAYPHONE — when it rings, and what happens when it does.
 // ──────────────────────────────────────────────────────────────────────────
-// A minute into a shift the phone rings, and every five minutes after that.
-// You can pick it up while it's ringing; if you don't, the machine takes it
-// after ten seconds and plays the message anyway — you never lose one.
+// Three quarters of a minute into a shift the phone rings, and roughly every
+// minute after that. You can pick it up while it's ringing; if you don't, the
+// machine takes it after ten seconds and plays the message anyway — you never
+// lose one, you just lose the four coins the caller was worth.
+//
+// The interval used to be five minutes, which is longer than a shift, so the
+// phone rang exactly once a night and eight written messages were reachable
+// one at a time. Anything that touches CALL_EVERY_MS has to check it against
+// SHIFT_MS or quietly delete the feature again.
 //
 // This lives in KioskInterior rather than in the back wall's overlay, because
 // the phone has to ring whichever way you're facing. The wall only ever draws
@@ -22,7 +28,7 @@ import { playSound } from '@/lib/sounds'
 import { useVisibilityPause } from '@/hooks/useVisibilityPause'
 import {
   KIOSK_CALLS, RING_MS, RING_EVERY_MS, FIRST_CALL_MS, CALL_EVERY_MS,
-  TYPE_MS, HOLD_MS, type KioskCall,
+  RESUME_MIN_MS, TYPE_MS, HOLD_MS, type KioskCall,
 } from './kioskCalls'
 
 export type PhoneState = 'idle' | 'ringing' | 'playing'
@@ -71,6 +77,10 @@ export function useKioskPhone(): KioskPhone {
   /** So a fresh deck can't open with the call that just played. */
   const lastId = useRef<string | null>(null)
   const nextCall = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** When the current wait was armed and how long for, so backgrounding can
+   *  put back what was LEFT of it rather than a whole fresh interval. */
+  const armedAt = useRef(0)
+  const armedFor = useRef(FIRST_CALL_MS)
   const ringLoop = useRef<ReturnType<typeof setInterval> | null>(null)
   const ringOut = useRef<ReturnType<typeof setTimeout> | null>(null)
   const typer = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -134,8 +144,14 @@ export function useKioskPhone(): KioskPhone {
         if (typer.current !== null) clearInterval(typer.current)
         typer.current = null
         ending.current = setTimeout(() => {
-          // Delivered in full — the card is spent for real now.
+          // Delivered in full — the card is spent for real now, and THIS is
+          // the only place a miss is charged. Charging at ring-out instead
+          // billed you four coins and then handed the card back to the deck
+          // when you backgrounded mid-message, so the same caller could be
+          // paid for twice. A call costs you only once it has finished being
+          // read to you by a machine instead of picked up.
           inFlight.current = null
+          if (!byHand) setMissed(m => m + 1)
           playSound('kiosk_beep')
           hangUp()
         }, HOLD_MS)
@@ -165,10 +181,7 @@ export function useKioskPhone(): KioskPhone {
     // Nobody picked up, so the machine does. The message plays either way —
     // a call you can miss is a call you'd never hear — but a caller who
     // wanted something and got a tape instead is a caller you've lost.
-    ringOut.current = setTimeout(() => {
-      setMissed(m => m + 1)
-      play(who, false)
-    }, RING_MS)
+    ringOut.current = setTimeout(() => play(who, false), RING_MS)
   }, [play, setPhase])
 
   const answer = useCallback(() => {
@@ -179,6 +192,8 @@ export function useKioskPhone(): KioskPhone {
   // ── the schedule ────────────────────────────────────────────────────────
   const arm = useCallback((delay: number) => {
     if (nextCall.current !== null) clearTimeout(nextCall.current)
+    armedAt.current = Date.now()
+    armedFor.current = delay
     nextCall.current = setTimeout(() => {
       nextCall.current = null
       ring()
@@ -199,15 +214,20 @@ export function useKioskPhone(): KioskPhone {
   }, [arm])
 
   // Backgrounding the tab shouldn't ring a phone you can't hear, and it
-  // shouldn't bank the ring either. Drop whatever is mid-call and start the
-  // wait over when the kiosk is in front of you again — but PUT THE CARD
-  // BACK first. It was already dealt, and an app-switch is far commoner than
-  // ignoring a ring; without this, glancing at a notification silently costs
-  // you that message until the whole deck has turned over.
+  // shouldn't bank the ring either. Drop whatever is mid-call — but PUT THE
+  // CARD BACK first. It was already dealt, and an app-switch is far commoner
+  // than ignoring a ring; without this, glancing at a notification silently
+  // costs you that message until the whole deck has turned over.
+  //
+  // Coming back RESUMES the wait. It used to arm a fresh full interval, which
+  // on a shift shorter than one interval meant a single glance at a
+  // notification stopped the phone ringing for the rest of the night.
   useVisibilityPause(
     useCallback(() => {
       if (nextCall.current !== null) clearTimeout(nextCall.current)
       nextCall.current = null
+      armedFor.current = Math.max(
+        RESUME_MIN_MS, armedFor.current - (Date.now() - armedAt.current))
       if (inFlight.current) {
         deck.current.unshift(inFlight.current)
         inFlight.current = null
@@ -215,7 +235,7 @@ export function useKioskPhone(): KioskPhone {
       stopRinging()
       hangUp()
     }, [hangUp, stopRinging]),
-    useCallback(() => arm(CALL_EVERY_MS), [arm]),
+    useCallback(() => arm(armedFor.current), [arm]),
   )
 
   return { missed, state, lifted, call, spoken, answer }
