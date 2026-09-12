@@ -34,8 +34,10 @@ export interface TrophyCosmetics {
   saveWeather(next: Record<string, string>): Promise<boolean>
   myTitle: string | null
   myFrame: string | null
-  setTitle(itemId: string | null): Promise<void>
-  setFrame(itemId: string | null): Promise<void>
+  /** Equip (or clear, with null) the title slot. False means it did not land. */
+  setTitle(itemId: string | null): Promise<boolean>
+  /** Equip (or clear, with null) the frame slot. False means it did not land. */
+  setFrame(itemId: string | null): Promise<boolean>
 }
 
 export function useTrophyCosmetics(): TrophyCosmetics {
@@ -78,17 +80,36 @@ export function useTrophyCosmetics(): TrophyCosmetics {
     return true
   }, [hh]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const setTitle = useCallback(async (itemId: string | null) => {
-    if (!user?.id) return
+  // Both go through equip_prestige rather than updating the column.
+  //
+  // They used to write profiles.equipped_title / equipped_frame directly, with
+  // no error check — and those two columns are the only ones on profiles that
+  // were never granted to `authenticated` (migration_household_takeover_fix
+  // revokes table-wide UPDATE and re-grants a fixed list; trophy_battle added
+  // these two afterwards and nobody added them to it). So every equip was
+  // refused by Postgres, the optimistic setState made it look equipped, and it
+  // was gone on the next load — after 8 to 50 trophies, which are minted only
+  // by winning the daily battle.
+  //
+  // The RPC checks ownership server-side, which a column grant could not.
+  // Rolls the optimistic state back on failure, the same way saveWeather does.
+  const setTitle = useCallback(async (itemId: string | null): Promise<boolean> => {
+    if (!user?.id) return false
+    const prev = myTitle
     setMyTitle(itemId)
-    await supabase.from('profiles').update({ equipped_title: itemId }).eq('id', user.id)
-  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+    const { error } = await supabase.rpc('equip_prestige', { p_slot: 'title', p_item_id: itemId })
+    if (error) { setMyTitle(prev); return false }
+    return true
+  }, [user?.id, myTitle]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const setFrame = useCallback(async (itemId: string | null) => {
-    if (!user?.id) return
+  const setFrame = useCallback(async (itemId: string | null): Promise<boolean> => {
+    if (!user?.id) return false
+    const prev = myFrame
     setMyFrame(itemId)
-    await supabase.from('profiles').update({ equipped_frame: itemId }).eq('id', user.id)
-  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+    const { error } = await supabase.rpc('equip_prestige', { p_slot: 'frame', p_item_id: itemId })
+    if (error) { setMyFrame(prev); return false }
+    return true
+  }, [user?.id, myFrame]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return { weather, saveWeather, myTitle, myFrame, setTitle, setFrame }
 }
