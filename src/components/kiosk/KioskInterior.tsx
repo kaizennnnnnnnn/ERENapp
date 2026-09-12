@@ -115,6 +115,9 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
   /** Did the night make it into the book? Only a recorded shift can carry a
    *  note to whoever works next. */
   const [recorded, setRecorded] = useState(false)
+  /** And did the money actually reach the wallet? A receipt that prints a
+   *  total nobody received is the one lie a till must not tell. */
+  const [banked, setBanked] = useState(true)
 
   const shift = useKioskShift({
     menu: record.menu,
@@ -124,16 +127,30 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
     // knows where the night stands before you touched it.
     nightSoFar: record.tonight,
     payable,
-    onBank: useCallback((coins: number) => { addCoins(coins).catch(() => {}) }, [addCoins]),
+    // Settling up, in the one order that can't cheat either side. The pay
+    // and the record used to be fired off together and neither was checked:
+    // a failed record paid you for a night the book never heard of, and you
+    // could walk straight back in and be paid for it again.
+    //
+    // Pay first. addCoins writes an absolute value through writeWithRetry and
+    // reports whether it stuck, so this follows the rule the reward road
+    // already follows — never mark the source consumed for a payout that
+    // rolled back. If the money didn't land, the night is written down as an
+    // unpaid one: the kiosk still keeps the regulars it learned, and tonight
+    // is still yours to work. Losing the shift is the smaller wrong.
     onClose: useCallback((report, regulars) => {
-      void record.closeShift({
-        takings: report.takings,
-        grade: report.grade,
-        weather: report.weather,
-        regulars,
-        paid: report.paid,
-      }).then(setRecorded)
-    }, [record]),
+      void (async () => {
+        const ok = report.coins === 0 || await addCoins(report.coins)
+        setBanked(ok)
+        setRecorded(await record.closeShift({
+          takings: report.takings,
+          grade: report.grade,
+          weather: report.weather,
+          regulars,
+          paid: report.paid && ok,
+        }))
+      })()
+    }, [addCoins, record]),
   })
   // The phone lives up here rather than on the back wall, because it has to
   // ring whichever way you happen to be facing.
@@ -725,6 +742,7 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
         <ShiftReport
           report={shift.report}
           practiceReason={shift.report.paid ? null : practiceReason}
+          banked={banked}
           canNote={recorded}
           onSaveNote={note => { void record.saveNote(note) }}
           onDone={onExit}

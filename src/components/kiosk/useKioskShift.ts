@@ -219,14 +219,16 @@ export interface ShiftOpts {
   nightSoFar: number
   /** False when tonight's pay is already spent or Eren is too tired. */
   payable: boolean
-  /** Bank the takings. */
-  onBank: (coins: number) => void
-  /** Write the night down. */
+  /** Settle up: pay the coins on the report, then write the night down.
+   *  Deliberately ONE callback. It used to be two — bank and record, both
+   *  fired and forgotten, in parallel — which meant a failed write paid you
+   *  for a night the book never heard about, and you could walk straight back
+   *  in and be paid for it again. */
   onClose: (report: ShiftReport, regulars: Regulars) => void
 }
 
 export function useKioskShift(opts: ShiftOpts): KioskShift {
-  const { menu, regulars, lifetimeWraps, nightSoFar, payable, onBank, onClose } = opts
+  const { menu, regulars, lifetimeWraps, nightSoFar, payable, onClose } = opts
 
   const [stock, setStock] = useState<Record<ToppingId, number>>({ ...FULL_STOCK })
   const [meat, setMeat] = useState(MAX_USES)
@@ -794,10 +796,9 @@ export function useKioskShift(opts: ShiftOpts): KioskShift {
       unlock: unlockedBetween(lifetimeWraps, lifetimeWraps + takings.served),
     }
     setReport(next)
-    if (coins > 0) onBank(coins)
     onClose(next, { ...regulars, ...learned.current })
     return next
-  }, [till, payable, weather, lifetimeWraps, nightSoFar, regulars, report, onBank, onClose])
+  }, [till, payable, weather, lifetimeWraps, nightSoFar, regulars, report, onClose])
 
   const practice = !payable
 

@@ -17,7 +17,7 @@
 // Reached from the home dock via the 'smoke' cloud transition.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { IconCrown } from '@/components/PixelIcons'
 import { useCare } from '@/contexts/CareContext'
@@ -80,6 +80,10 @@ const COOK_EYES = {
 type Phase = 'front' | 'entering' | 'inside' | 'leaving'
 const ENTER_MS = 620
 const LEAVE_MS = 420
+/** Longest the door will hold for the book to be read. Past this we go in
+ *  anyway on useKioskRecord's deliberate fail-open — a shift you can't start
+ *  is worse than a shift that pays when it maybe shouldn't. */
+const KNOW_BY_MS = 1_800
 
 export default function ShawarmaPage() {
   const { setHideStats } = useCare()
@@ -94,6 +98,11 @@ export default function ShawarmaPage() {
   // reasons are said out loud on the front door rather than discovered at the
   // till — nobody should work a shift to find out it was unpaid.
   const tired = (stats?.energy ?? 100) < EXHAUSTED_ENERGY
+  // Note this is deliberately NOT gated on `record.loaded`: a fetch that
+  // ERRORS leaves `loaded` false, and useKioskRecord says out loud that an
+  // error is not the same as "no shifts" and should keep the night payable.
+  // A fetch still in flight is the different case, and `goInside` waits for
+  // that one rather than starting a shift whose pay nobody has checked.
   const payable = !record.workedTonight && !tired
   const practiceReason = record.workedTonight
     ? 'you already worked tonight — this one was for the practice'
@@ -117,6 +126,21 @@ export default function ShawarmaPage() {
     return () => clearTimeout(t)
   }, [])
 
+  // The book, as something the door can wait on. Resolvers are parked here
+  // and fired by the effect below when the fetch lands.
+  const bookWaiters = useRef<(() => void)[]>([])
+  useEffect(() => {
+    if (!record.loaded) return
+    bookWaiters.current.forEach(resolve => resolve())
+    bookWaiters.current = []
+  }, [record.loaded])
+  const bookIsIn = useCallback(() => record.loaded
+    ? Promise.resolve()
+    : new Promise<void>(resolve => {
+        bookWaiters.current.push(resolve)
+        setTimeout(resolve, KNOW_BY_MS)
+      }), [record.loaded])
+
   const goInside = useCallback(() => {
     playSound('ui_modal_open')
     setPhase('entering')
@@ -126,8 +150,12 @@ export default function ShawarmaPage() {
     const pushIn = new Promise(resolve => setTimeout(resolve, ENTER_MS))
     const firstWall = new window.Image()
     firstWall.src = KIOSK_VIEW_SRCS[0]
-    Promise.all([pushIn, firstWall.decode().catch(() => null)]).then(() => setPhase('inside'))
-  }, [])
+    // The book joins the race the door was already running. On a warm load it
+    // is home long before the push-in; on a cold first tap it stops the kiosk
+    // offering a paid shift it is about to withdraw.
+    Promise.all([pushIn, firstWall.decode().catch(() => null), bookIsIn()])
+      .then(() => setPhase('inside'))
+  }, [bookIsIn])
 
   const goOutside = useCallback(() => {
     setPhase('leaving')

@@ -22,6 +22,8 @@ interface Props {
   report: Report
   /** Why nothing was paid, when nothing was. */
   practiceReason: string | null
+  /** False when the coins on this receipt never reached the wallet. */
+  banked: boolean
   /** Notes can only be left on a shift that made it into the book. */
   canNote: boolean
   onSaveNote: (note: string) => void
@@ -60,9 +62,11 @@ function Row({ label, value, dim }: { label: string; value: string; dim?: boolea
   )
 }
 
-export default function ShiftReport({ report, practiceReason, canNote, onSaveNote, onDone }: Props) {
+export default function ShiftReport({ report, practiceReason, banked, canNote, onSaveNote, onDone }: Props) {
   const { takings: t, grade, coins, weather, early, unlock, nightTotal, goalMet } = report
   const sky = WEATHER_BY_ID[weather]
+  /** Money that actually moved: earned AND received. */
+  const paidOut = report.paid && banked
   const [note, setNote] = useState('')
   const [saved, setSaved] = useState(false)
 
@@ -129,10 +133,23 @@ export default function ShiftReport({ report, practiceReason, canNote, onSaveNot
               fontSize: 8, letterSpacing: 1, color: INK,
             }}>
               <span>TOOK HOME</span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                // Struck through rather than hidden: you earned this, it just
+                // didn't arrive, and the difference is the whole message.
+                textDecoration: banked ? undefined : 'line-through',
+                opacity: banked ? 1 : 0.55,
+              }}>
                 <IconCoin size={12} />{coins}
               </span>
             </div>
+            {!banked && (
+              <div className="font-pixel" style={{
+                fontSize: 5.5, lineHeight: 1.7, color: FADED, marginTop: 6,
+              }}>
+                the wallet never answered — the night stays unworked, come back and close it again
+              </div>
+            )}
             {practiceReason && (
               <div className="font-pixel" style={{
                 fontSize: 5.5, lineHeight: 1.7, color: FADED, marginTop: 6,
@@ -157,15 +174,22 @@ export default function ShiftReport({ report, practiceReason, canNote, onSaveNot
               <span>BETWEEN YOU TONIGHT</span>
               <span>{nightTotal} / {NIGHT_GOAL}</span>
             </div>
+            {/* The pair of you crossing the line is true on a practice night
+                too — the wraps were still served. The BONUS is not, and it
+                used to print "+40" above a receipt that took home nought. It
+                is also not true on a night the wallet refused, which is why
+                it follows the money rather than the report. */}
             {goalMet && (
               <div className="font-pixel" style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                fontSize: 6, letterSpacing: 0.5, color: INK, marginTop: 6,
+                fontSize: 6, letterSpacing: 0.5, color: paidOut ? INK : FADED, marginTop: 6,
               }}>
                 <span>THE PAIR OF YOU MADE IT</span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <IconCoin size={10} />+{GOAL_BONUS}
-                </span>
+                {paidOut && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <IconCoin size={10} />+{GOAL_BONUS}
+                  </span>
+                )}
               </div>
             )}
           </div>
