@@ -2,7 +2,7 @@
 // Bump this string whenever you change badge/icon assets so the browser is
 // guaranteed to detect a byte difference and replace any old SW running on
 // the user's installed PWA. Pairs with no-store headers on /sw.js.
-const SW_VERSION = 'v30-kiosk-sauces-radio-2026-08-30'
+const SW_VERSION = 'v31-offline-fallback-2026-09-12'
 
 // Room backgrounds + Eren sprite. We precache these on install so the user
 // can scroll between rooms with no internet without seeing the room render
@@ -11,6 +11,10 @@ const SW_VERSION = 'v30-kiosk-sauces-radio-2026-08-30'
 // 404s and you see Eren floating in space).
 const IMAGE_CACHE = `eren-images-${SW_VERSION}`
 const PRECACHE_IMAGES = [
+  // Not an image. Precached with them because it shares the cache and must
+  // already be present the first time a navigation fails — there is no
+  // second chance to fetch it once the user is offline.
+  '/offline.html',
   '/erenGood.png',   '/erenSleep.png',  '/ErenCook.png',  '/ErenBathroomHat.png',  '/ErenCakeShop.png',  '/ErenBell.png',  '/ErenVet.png',  '/ErenVet_notail.png',  '/ErenVet_tail.png',
   '/HomeDay.png',    '/HomeNight.png',
   '/kitchen.png',    '/KitchenDark.png',
@@ -84,6 +88,34 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return
   const url = new URL(event.request.url)
   if (url.origin !== self.location.origin) return
+
+  // ── Navigations: network first, offline.html as the floor ──
+  // Everything below this block matches on a file extension, so a navigation
+  // never reached it and the SW never handled one. Offline, the request went
+  // to the network, failed, and the browser rendered its own error page —
+  // which inside a display:standalone TWA has no address bar and no reload
+  // control, so the only way out is killing the app from the switcher. The
+  // ~30 MB of room art sitting in the image cache was unreachable at exactly
+  // the moment it exists for, because the document that renders it never
+  // loaded.
+  //
+  // NETWORK FIRST, and never cached. Caching the app shell here would be a
+  // different bug that this project has already paid for once — a pushed fix
+  // taking two app reopens to go live. The fallback is only ever reached when
+  // fetch() throws, which is the offline case and not a slow one.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() =>
+        caches.open(IMAGE_CACHE)
+          .then(cache => cache.match('/offline.html'))
+          // If even the fallback is missing — the SW installed before this
+          // file existed — an explicit error beats a hung navigation.
+          .then(res => res || Response.error())
+      )
+    )
+    return
+  }
+
   if (!/\.(png|jpg|jpeg|webp|gif|svg)$/i.test(url.pathname)) return
   event.respondWith(
     caches.open(IMAGE_CACHE).then(async cache => {
