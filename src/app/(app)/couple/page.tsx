@@ -67,10 +67,19 @@ export default function CouplePage() {
   const [msg, setMsg] = useState('')
   const [sending, setSending] = useState(false)
 
-  // Live countdown to next Monday 00:00 — re-renders every 60s so the
+  // Live countdown to next Monday 00:00 - re-renders every 60s so the
   // "resets in 2d 14h" label stays current without polling Supabase.
-  const [reset, setReset] = useState(() => timeUntilWeekReset())
+  //
+  // Starts null and resolves after mount. It used to compute the first value
+  // in the useState initializer, which also runs during SSR - and this page
+  // prerenders (next build reports it as Static), so the countdown was baked
+  // into the static HTML at BUILD time, in UTC, and every visitor's browser
+  // then computed a different one. That disagreement is a hydration mismatch,
+  // the same class as the one useIsDark was causing. Null renders no row at
+  // all rather than a wrong "0D 0H" for a frame.
+  const [reset, setReset] = useState<ReturnType<typeof timeUntilWeekReset> | null>(null)
   useEffect(() => {
+    setReset(timeUntilWeekReset())
     const t = setInterval(() => setReset(timeUntilWeekReset()), 60 * 1000)
     return () => clearInterval(t)
   }, [])
@@ -377,10 +386,12 @@ export default function CouplePage() {
               {/* Was "THIS WEEK · RESETS IN 3D 1H" — long enough to wrap under
                   the chip and collide with it on a 360 px screen. The card is
                   already the week, so only the reset clock is worth the row. */}
-              <span className="font-pixel text-right flex-shrink-0"
-                style={{ fontSize: 6, color: '#9A8A60', letterSpacing: 1, whiteSpace: 'nowrap' }}>
-                RESETS IN {reset.days}D {reset.hours}H
-              </span>
+              {reset && (
+                <span className="font-pixel text-right flex-shrink-0"
+                  style={{ fontSize: 6, color: '#9A8A60', letterSpacing: 1, whiteSpace: 'nowrap' }}>
+                  RESETS IN {reset.days}D {reset.hours}H
+                </span>
+              )}
             </div>
 
             {/* VS display */}
