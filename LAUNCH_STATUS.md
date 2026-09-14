@@ -1,6 +1,17 @@
 # Eren — launch status
 
-Working checklist. Last updated 2026-08-28, end of the security/compliance pass.
+> **Read the code before you trust this file.** It is a running log, and the
+> half of it written before 2026-09-11 has already misled two separate audits —
+> it described solo state as unbuilt a week after it shipped, named one queued
+> migration when four were open, and said in one place that password reset does
+> not exist while another said it was code-complete.
+>
+> For what is actually applied in the database, run
+> `supabase/probe_migration_state.sql` and read the result. For the current
+> ranked backlog, read `memory/project_launch_backlog.md`, which is re-derived
+> from the code rather than appended to.
+
+Working checklist. Security/compliance pass 2026-08-28; corrected 2026-09-14.
 
 Two tracks. **Track A** makes the app you have today correct and safe — it is
 done and deployed. **Track B** turns a two-person app into a public product;
@@ -131,7 +142,13 @@ display names moved. `SideId 'pepsi'` → `'cola'` WAS safe: in-memory only.
 
 ---
 
-## Migrations — TWO QUEUED
+## Migrations — run the probe, do not trust a list
+
+`supabase/probe_migration_state.sql` reports what is actually applied, by
+value where existence is not enough. The section below is kept for the
+reasoning it records, not as an inventory. As of 2026-09-14 two remain
+unpasted: `migration_equip_prestige.sql` and
+`migration_grant_wish_hardening.sql`.
 
 **`supabase/migration_weather_machine.sql`** — paste this. It SUPERSEDES
 `migration_room_weather.sql`, which no longer needs pasting on its own: the
@@ -244,7 +261,10 @@ page a reviewer opens for the deletion-URL requirement. Then set
 date.
 
 ### 4. Remaining code, roughly prioritised
-- **Solo state** — 100% of new installs land on a couple UI with no partner
+- ~~**Solo state**~~ — DONE, 15 commits, 2026-09-03. "Eren fills the seat":
+  he scores in the daily and weekly battles so the ladder has an opponent,
+  and every surface that asked a household of one for a second person was
+  hidden rather than repointed at him. See `memory/project_solo_state.md`.
 - ~~**Password reset**~~ — CODE DONE (`469f10c`): `/auth/forgot` + `/auth/reset`,
   reusing the existing PKCE callback, neutral response so the form can't be used
   to enumerate registered emails. **STILL BLOCKED on two dashboard steps**:
@@ -273,20 +293,29 @@ date.
 ## Track B — the rest of the public-release work
 
 ### Multi-tenancy
-- **No solo state.** 100% of new installs land on a couple UI saying "You &
-  your partner" / "TOGETHER FOR 0 DAYS" with no partner.
+- ~~**No solo state.**~~ FIXED 2026-09-03 — see the Track A note above. The
+  copy this bullet quotes ("TOGETHER FOR 0 DAYS") now reads "WITH EREN FOR n
+  DAYS" for a household of one.
 - **Cat name hardcoded "Eren"**, no `pet_name` column. Real scope: one column
   + ~40 user-facing strings (an auditor claimed 1,655; the critic corrected it).
 - Two of eight care rooms are the girlfriend's Serbian course and chemistry
   trainer; 3 of 10 daily quests require them.
 - `seed.sql` creates a household with invite code `ERENHOME`, and `SETUP.md`
   tells you to run it in production. Squattable.
-- **No password reset anywhere.** At scale this is the #1 support burden.
+- **Password reset exists but cannot deliver.** Code shipped in `469f10c`;
+  it is dead until custom SMTP, because Supabase's built-in mailer only
+  delivers to addresses on the project team. `38e7e51` made the failure
+  visible instead of silent — it used to show a success screen regardless.
+  Test with an address that is NOT on your Supabase org or you get a
+  convincing false all-clear.
 
 ### Economy — anyone can mint
 Acceptable when the only possible cheaters were the two of you. Not once
 anyone can sign up.
-- `grant_wish` credits a **client-chosen** coin amount.
+- ~~`grant_wish` credits a **client-chosen** coin amount.~~ Hardened in
+  `9f176b3`: the caller is validated against `auth.uid()`, the amount is
+  clamped, and `search_path` is pinned. The clamp is still notional while
+  `coins` sits in the profiles GRANT list — see the next bullet.
 - `user_inventory` INSERT is ownership-only — self-grant any skin, including
   the drink-unlock-only ones the purchase RPC refuses to sell.
 - `eren_stats.coins`, `user_gacha_state.stardust/tickets` directly writable.
