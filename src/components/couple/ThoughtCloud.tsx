@@ -63,7 +63,7 @@ const TAB_MOTION: TabMotion[] = [
 export default function ThoughtCloud() {
   const router = useRouter()
   const { user, profile } = useAuth()
-  const { partner, sendMessage, unreadNotes } = useCouple()
+  const { partner, isSolo, sendMessage, unreadNotes } = useCouple()
   const { stats, giftFood } = useErenStats(profile?.household_id ?? null)
 
   const [mode, setMode] = useState<Mode>('idle')
@@ -108,6 +108,23 @@ export default function ThoughtCloud() {
     setSending(false)
     setTimeout(() => setMode('idle'), 800)
   }
+
+  // ── Nothing behind it for a household of one ──────────────────────
+  // All three tabs are dead solo. NOTE and GIFT both land on "Invite your
+  // partner first so Eren can deliver this", and BOARD opens /notes, which
+  // 77d444b established can never hold anything alone — this component is the
+  // only thing that writes to it, and it refuses. The idle badge counts unread
+  // notes, which is permanently zero for the same reason.
+  //
+  // So it is a button floating over Eren on the main screen whose every path
+  // is a refusal. Hidden, not repointed: 77d444b removed the /couple entry to
+  // the same board for the same reason and left this one, the primary one,
+  // still there.
+  //
+  // `isSolo`, not `!partner` — partner is null while loading and null if the
+  // read 503s, and the cloud vanishing for a beat on every launch would be a
+  // worse bug than the one being fixed.
+  if (isSolo) return null
 
   // ── idle: single pixel cloud ──────────────────────────────────────
   if (mode === 'idle') {

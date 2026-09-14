@@ -17,7 +17,7 @@ import { createClient } from '@/lib/supabase/client'
 import { withRetry } from '@/lib/supabaseRetry'
 import { useAuth } from '@/hooks/useAuth'
 import { useGamesWeekly } from '@/hooks/useGamesWeekly'
-import { countGamesWon } from '@/lib/gameRewards'
+import { countGamesWon, SOLO_VARIETY_TARGET, SOLO_VARIETY_COINS } from '@/lib/gameRewards'
 import {
   IconStar, IconCrown,
   IconScroll, IconMeat, IconLightning,
@@ -209,6 +209,15 @@ export default function Leaderboard({ onClose }: Props) {
   const winnerSide: 'me' | 'them' | 'tie' | 'solo' = !partner ? 'solo'
     : wins.my === wins.their ? 'tie'
     : wins.my > wins.their ? 'me' : 'them'
+
+  // Solo, `wins.my` is NOT a win count. countGamesWon compares against an
+  // empty partner map, so every game holding a non-zero best already "wins" —
+  // the number IS how many different games have been played. gameWeekly says
+  // the same thing where it settles the week, and the champion popup already
+  // labels it correctly; this modal, the one a player actually opens mid-week,
+  // was still calling it GAMES WON and showing it against an empty column.
+  const solo = winnerSide === 'solo'
+  const varietyDone = solo && mode === 'week' && wins.my >= SOLO_VARIETY_TARGET
 
   function handleClose() {
     playSound('ui_back')
@@ -460,8 +469,13 @@ export default function Leaderboard({ onClose }: Props) {
                       )}
                     </span>
                     <ScoreBox score={s0} winner={meWins}   side="me" />
-                    <div style={{ width: 6 }} />
-                    <ScoreBox score={s1} winner={themWins} side="them" />
+                    {/* Solo this column was a 0 against every single game — a
+                        full-height row of zeros belonging to nobody, which
+                        reads as losing rather than as an empty seat. The P2
+                        placeholder in the header above is the honest way to
+                        say the seat is open; this was just wrong data. */}
+                    {!solo && <div style={{ width: 6 }} />}
+                    {!solo && <ScoreBox score={s1} winner={themWins} side="them" />}
                   </div>
                 )
               })}
@@ -472,22 +486,50 @@ export default function Leaderboard({ onClose }: Props) {
                 <div className="flex-shrink-0 mr-2" style={{ width: 18, display: 'flex', justifyContent: 'center' }}>
                   <IconCrown size={14} />
                 </div>
-                <span className="flex-1 font-pixel" style={{ fontSize: 8, color: '#FFD700', letterSpacing: 2 }}>GAMES WON</span>
+                <span className="flex-1 font-pixel" style={{ fontSize: 8, color: '#FFD700', letterSpacing: 2 }}>
+                  {solo ? 'DIFFERENT GAMES' : 'GAMES WON'}
+                </span>
                 <ScoreBox score={wins.my}    winner={winnerSide === 'me'}   side="me"   big />
-                <div style={{ width: 6 }} />
-                <ScoreBox score={wins.their} winner={winnerSide === 'them'} side="them" big />
+                {/* No second column solo — there is nobody in it, and a 0
+                    sitting opposite your own number reads as a loss. */}
+                {!solo && <div style={{ width: 6 }} />}
+                {!solo && <ScoreBox score={wins.their} winner={winnerSide === 'them'} side="them" big />}
               </div>
 
               {/* Banner */}
-              {winnerSide === 'solo' && (
+              {/* Solo the weekly prize is a VARIETY goal, not a victory — five
+                  different games pays SOLO_VARIETY_COINS. That target reached
+                  the settlement, the payout and the champion popup, but never
+                  this modal, which is where someone looks to see how they are
+                  doing mid-week. It used to say "INVITE A PARTNER TO COMPETE!",
+                  which is both the wrong goal and the one thing the solo pass
+                  set out to stop saying. */}
+              {solo && mode === 'week' && (
                 <div className="mt-4 py-2 px-3 flex items-center justify-center"
-                  style={{ background: 'rgba(160,120,255,0.08)', borderRadius: 4, border: '1px dashed #3A2A60' }}>
-                  <span className="font-pixel" style={{ fontSize: 6, color: '#5A408A', lineHeight: 1.8, letterSpacing: 1, textAlign: 'center' }}>
-                    INVITE A PARTNER TO COMPETE!
+                  style={{
+                    background: varietyDone ? 'rgba(255,215,0,0.10)' : 'rgba(160,120,255,0.08)',
+                    borderRadius: 4,
+                    border: varietyDone ? '1px dashed #FFD700' : '1px dashed #3A2A60',
+                  }}>
+                  <span className="font-pixel" style={{
+                    fontSize: 6, lineHeight: 1.8, letterSpacing: 1, textAlign: 'center',
+                    color: varietyDone ? '#FFD700' : '#7A5AA0',
+                  }}>
+                    {varietyDone
+                      ? `ALL ${SOLO_VARIETY_TARGET} PLAYED — ${SOLO_VARIETY_COINS} COINS ON MONDAY`
+                      : `${wins.my} OF ${SOLO_VARIETY_TARGET} DIFFERENT GAMES — ${SOLO_VARIETY_COINS} COINS AT ${SOLO_VARIETY_TARGET}`}
                   </span>
                 </div>
               )}
-              {winnerSide !== 'solo' && totalDecided === 0 && (
+              {solo && mode !== 'week' && totalDecided === 0 && (
+                <div className="mt-4 py-2 px-3 flex items-center justify-center"
+                  style={{ background: 'rgba(160,120,255,0.08)', borderRadius: 4, border: '1px dashed #3A2A60' }}>
+                  <span className="font-pixel" style={{ fontSize: 6, color: '#7A5AA0', lineHeight: 1.8, letterSpacing: 1, textAlign: 'center' }}>
+                    PLAY A FEW GAMES TO SET RECORDS!
+                  </span>
+                </div>
+              )}
+              {!solo && totalDecided === 0 && (
                 <div className="mt-4 py-2 px-3 flex items-center justify-center"
                   style={{ background: 'rgba(160,120,255,0.08)', borderRadius: 4, border: '1px dashed #3A2A60' }}>
                   <span className="font-pixel" style={{ fontSize: 6, color: '#7A5AA0', lineHeight: 1.8, letterSpacing: 1, textAlign: 'center' }}>
