@@ -84,27 +84,38 @@ function Wind({ still }: { still: boolean }) {
         return (
           <span key={i} style={{
             position: 'absolute',
-            left: 0, top: `${(hash(s) * 92 + 3).toFixed(1)}%`,
+            // Held still, the litter is scattered with `left` — a percentage
+            // of the PANE — rather than left at 0 with the keyframes' own
+            // percentage translate, which is a multiple of the scrap's own
+            // 1-2cqi width and would pile all eleven into the left edge. And
+            // it needs a real opacity: kioskWindBlow is what lifts it off
+            // zero, so with the animation dropped the whole window was empty.
+            left: still ? `${(hash(s + 6) * 88 + 4).toFixed(1)}%` : 0,
+            top: `${(hash(s) * 92 + 3).toFixed(1)}%`,
             width: `${size.toFixed(2)}cqi`, height: `${(size * (leaf ? 0.72 : 0.34)).toFixed(2)}cqi`,
             borderRadius: leaf ? '60% 20% 60% 20%' : '1px',
             background: leaf ? 'rgba(120,104,74,0.62)' : 'rgba(214,208,196,0.5)',
             ['--spin' as string]: leaf ? '540deg' : '90deg',
             ['--sag' as string]: `${(hash(s + 4) * 16 - 6).toFixed(1)}cqi`,
-            opacity: 0,
+            opacity: still ? 1 : 0,
+            transform: still ? `rotate(${(hash(s + 7) * 60 - 30).toFixed(0)}deg)` : undefined,
             animation: still ? undefined : `kioskWindBlow ${dur.toFixed(2)}s linear ${(-hash(s + 5) * dur).toFixed(2)}s infinite`,
           }} />
         )
       })}
 
       {/* And the gust itself: a pale sheet of dust dragged across the whole
-          window every few seconds. It's the only part you feel. */}
-      {!still && (
-        <span style={{
-          position: 'absolute', inset: '-10% -60%',
-          background: 'linear-gradient(96deg, transparent 0%, rgba(226,224,214,0.16) 42%, rgba(226,224,214,0.05) 58%, transparent 100%)',
-          animation: 'kioskWindGust 5.4s ease-in-out infinite',
-        }} />
-      )}
+          window every few seconds. It's the only part you feel. Held still it
+          stays as a faint diagonal wash rather than being removed — the pane
+          still has to read as moving air. Its own opacity, because the
+          keyframes hold zero for most of the cycle and an unanimated element
+          would otherwise sit at 1. */}
+      <span style={{
+        position: 'absolute', inset: '-10% -60%',
+        background: 'linear-gradient(96deg, transparent 0%, rgba(226,224,214,0.16) 42%, rgba(226,224,214,0.05) 58%, transparent 100%)',
+        opacity: still ? 0.7 : undefined,
+        animation: still ? undefined : 'kioskWindGust 5.4s ease-in-out infinite',
+      }} />
     </>,
   )
 }

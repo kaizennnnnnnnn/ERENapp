@@ -90,12 +90,20 @@ export const KIOSK_KEYFRAMES = `
           100% { transform: translateX(-14%) scale(1);      opacity: 0.55; }
         }
         /* Litter going past the window. The sag is how far it drops on the
-           way across, and the spin tells a leaf from a paper scrap. */
+           way across, and the spin tells a leaf from a paper scrap.
+
+           The travel is in cqi, not %. A percentage inside translate()
+           resolves against the ELEMENT'S OWN box, so "1400%" was fourteen
+           times a 0.9-2.4cqi scrap — 13 to 34cqi across a 67cqi pane. Every
+           piece died between a fifth and a half of the way over, which read
+           as rubbish leaking out of the left edge rather than blowing past
+           the window, and left the right half of the glass permanently clear
+           on the one weather whose only tell is the litter. */
         @keyframes kioskWindBlow {
           0%   { opacity: 0; transform: translate(-10%, 0) rotate(0deg); }
           10%  { opacity: 1; }
           88%  { opacity: 1; }
-          100% { opacity: 0; transform: translate(1400%, var(--sag)) rotate(var(--spin)); }
+          100% { opacity: 0; transform: translate(80cqi, var(--sag)) rotate(var(--spin)); }
         }
         /* And the gust behind them. */
         @keyframes kioskWindGust {

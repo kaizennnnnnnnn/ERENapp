@@ -28,9 +28,9 @@
 // never a raindrop on the wallpaper.
 //
 // The effect box is a `container-type: size` element, which is what lets every
-// effect size its particles in `cqi`/`cqh`. The kitchen window is ~66px across
-// on a phone and the lab's is nearly three times that; one raindrop written in
-// px cannot serve both.
+// effect size its particles in `cqi`/`cqh`. On a 400x850 phone the apertures
+// range from ~74px (playroom) to ~215px (living room), and the machine's own
+// tiles are smaller still; one raindrop written in px cannot serve all three.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { memo } from 'react'

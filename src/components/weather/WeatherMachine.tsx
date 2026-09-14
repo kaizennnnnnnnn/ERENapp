@@ -33,6 +33,7 @@ import { useCouple } from '@/hooks/useCouple'
 import { useTrophies } from '@/hooks/useTrophies'
 import { useTrophyCosmetics, sameMap } from '@/hooks/useTrophyCosmetics'
 import { useWeatherMachine } from '@/hooks/useWeatherMachine'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { WEATHER, type WeatherId } from '@/lib/weather'
 import { MACHINE_PARTS, type MachinePart } from '@/lib/weatherMachine'
 import { WEATHER_ROOMS } from '@/lib/roomWindows'
@@ -388,6 +389,10 @@ function BuildBar({ machine }: { machine: ReturnType<typeof useWeatherMachine> }
 
 function PickerScreen() {
   const cos = useTrophyCosmetics()
+  // Eleven live skies in the grid plus the room chip is the heaviest thing in
+  // the panel; it was also the only surface that never asked whether the user
+  // wanted motion at all.
+  const reduced = useReducedMotion()
   const [room, setRoom] = useState<string>(WEATHER_ROOMS[0].room)
 
   // null = following the household. Non-null = my unsaved edit of it.
@@ -461,7 +466,7 @@ function PickerScreen() {
                   height: 26, containerType: 'size',
                   background: '#0A0F1E', border: '1px solid #05070E',
                 }}>
-                  <WeatherFx id={sky} />
+                  <WeatherFx id={sky} still={reduced} />
                 </span>
                 <span className="font-pixel truncate max-w-[64px]" style={{
                   fontSize: 5, letterSpacing: 0.5, color: on ? '#DCEEFF' : '#7E90A8',
@@ -500,7 +505,7 @@ function PickerScreen() {
                   height: 52, containerType: 'size',
                   background: '#0A0F1E', border: '1px solid #05070E', borderRadius: 2,
                 }}>
-                  <WeatherFx id={w.id} />
+                  <WeatherFx id={w.id} still={reduced} />
                 </span>
                 <span className="font-pixel truncate" style={{
                   fontSize: 6, letterSpacing: 0.5, color: w.tone,

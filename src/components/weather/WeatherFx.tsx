@@ -5,10 +5,14 @@
 //
 // Every effect draws into a box that is exactly the window's aperture and
 // nothing else, so all of them size in CONTAINER units (`cqi` / `cqh`) rather
-// than px or vw. The kitchen window is about 66px across on a phone and the
-// lab's is nearly three times that; a raindrop written in px is a smear in one
-// and invisible in the other, while 1cqh is "one hundredth of this window"
-// everywhere.
+// than px or vw. On a 400x850 phone these apertures run from the playroom's
+// ~74px slot to the living room's ~215px bay, and the machine's picker
+// thumbnail is ~46px; a raindrop written in px is a smear in one and invisible
+// in the other, while 1cqh is "one hundredth of this window" everywhere.
+//
+// The floor matters as much as the unit. At 46px, 1cqi is under half a pixel,
+// so anything thin — a rain streak, a lightning channel — is written
+// `max(<px>, <cqi>)` or the thumbnail shows an empty wash.
 //
 // Nothing here clips or masks. RoomWeather draws the room's own window frame
 // back over the top, so an effect may paint its whole rectangle and still be
@@ -99,57 +103,197 @@ function Clear({ still }: FxProps) {
 }
 
 // ─── Rain ────────────────────────────────────────────────────────────────────
+//
+// Rain is two depths of falling water, splashes on the sill, and water sitting
+// on the glass. All of it hangs on one geometric rule: A STREAK IS A
+// FULL-HEIGHT COLUMN with a short dash inside it, never a short element moved
+// by a percentage.
+//
+// The first cut wrote an 11–24cqh drop at `top:-24%` and fell it with
+// `translate3d(-6%, 150%, 0)`. A percentage inside `translate` resolves
+// against the ELEMENT'S OWN box and never against the container, so "150%"
+// meant 150% of the drop's own 11–24cqh — 16 to 36cqh of travel, starting
+// 24cqh above the sill. Every drop therefore finished between 4cqh and 36cqh
+// down the pane and vanished: it rained on the top third of the window and the
+// other two thirds were a flat grey rectangle. The -6% of sideways wind was 6%
+// of a 0.7cqi width, i.e. nothing, so they fell dead vertical as well.
+//
+// The fix is structural rather than arithmetical. The column is `height:100%`,
+// so `translateY(-110% → 110%)` is 110% OF THE PANE by construction and cannot
+// be got wrong again. It is the shape the kiosk's RainLayer already uses.
+//
+// `rotate()` comes before `translate()` so a drop travels along the axis it
+// leans on. The other order slides it sideways relative to its own tilt, which
+// is a stick being dragged across the glass, not rain falling.
+//
+// Thicknesses are `max(<px>, <cqi>)`. The same component renders into a 215px
+// living-room window and a 46px picker thumbnail, and a streak written purely
+// in cqi is a third of a pixel in the thumbnail — the tile just looked empty.
 
-function Rain({ still, heavy }: FxProps & { heavy?: boolean }) {
-  const n = heavy ? 26 : 16
+interface RainPass {
+  count: number
+  /** Seed offset, so the passes don't line up with each other. */
+  seed: number
+  /** Degrees off vertical. The path follows it, so this IS the wind. */
+  tilt: number
+  /** Dash length, as % of the pane's height. */
+  len: [number, number]
+  /** CSS width. Floored in px so the smallest thumbnail still shows rain. */
+  thick: string
+  alpha: [number, number]
+  /** One fall, top to bottom, in seconds. */
+  dur: [number, number]
+}
+
+const RAIN_LIGHT: RainPass[] = [
+  { count: 34, seed: 0, tilt: 7, len: [5, 10], thick: 'max(0.6px, 0.32cqi)', alpha: [0.3, 0.5], dur: [1.05, 1.5] },
+  { count: 15, seed: 400, tilt: 9, len: [10, 17], thick: 'max(1px, 0.58cqi)', alpha: [0.55, 0.85], dur: [0.62, 0.86] },
+]
+const RAIN_HEAVY: RainPass[] = [
+  { count: 46, seed: 0, tilt: 11, len: [7, 14], thick: 'max(0.65px, 0.36cqi)', alpha: [0.36, 0.58], dur: [0.7, 0.98] },
+  { count: 20, seed: 400, tilt: 13, len: [13, 24], thick: 'max(1.1px, 0.68cqi)', alpha: [0.6, 0.9], dur: [0.4, 0.58] },
+]
+
+const lerp = (r: [number, number], t: number) => r[0] + (r[1] - r[0]) * t
+
+function RainPassLayer({ spec, still }: { spec: RainPass; still: boolean }) {
   return (
     <>
-      <Wash background={heavy
-        ? 'linear-gradient(180deg, rgba(38,46,72,0.62) 0%, rgba(58,68,96,0.5) 60%, rgba(74,84,110,0.42) 100%)'
-        : 'linear-gradient(180deg, rgba(72,88,120,0.62) 0%, rgba(104,120,150,0.5) 100%)'} />
+      {Array.from({ length: spec.count }, (_, i) => {
+        const s = spec.seed + i * 7
+        // Stratified, not random: one streak per lane, jittered inside it.
+        // Pure hashing leaves a bald stripe down the middle and a clump in one
+        // corner, which reads as a glitch rather than as weather. The lanes
+        // overshoot both edges because a leaning column drifts sideways as it
+        // falls, and the pane's own overflow takes care of the rest.
+        const x = r2(-14 + ((i + 0.15 + hash(s) * 0.7) / spec.count) * 128)
+        const len = r2(lerp(spec.len, hash(s + 1)))
+        const dur = r2(lerp(spec.dur, hash(s + 2)))
+        const a = lerp(spec.alpha, hash(s + 3))
+        // A negative delay starts every streak mid-fall, so it is already
+        // raining on the first frame instead of a curtain arriving from above.
+        const delay = r2(-hash(s + 4) * dur)
+        // Held still, the streaks are spread DOWN the pane rather than stacked
+        // above it. Reduced motion should look like a wet day; the first cut
+        // was an empty grey rectangle, because every drop sat at its start
+        // position and its start position was off the top of the window.
+        const held = r2(hash(s + 5) * 190 - 95)
+        return (
+          <span key={i} style={{
+            position: 'absolute', top: 0, left: `${x}%`,
+            width: spec.thick, height: '100%',
+            ['--tilt' as string]: `${spec.tilt}deg`,
+            transform: `rotate(${spec.tilt}deg) translate3d(0, ${still ? held : -110}%, 0)`,
+            animation: still ? undefined : `wxRainFall ${dur}s linear ${delay}s infinite`,
+            willChange: 'transform',
+          }}>
+            {/* Soft at BOTH ends. A streak with a hard bottom edge reads as a
+                tally mark; real rain is a smear that fades out of focus. */}
+            <span style={{
+              display: 'block', width: '100%', height: `${len}%`,
+              borderRadius: '40%',
+              background:
+                `linear-gradient(180deg, rgba(206,228,255,0) 0%,`
+                + ` rgba(206,228,255,${r2(a)}) 40%,`
+                + ` rgba(238,248,255,${r2(Math.min(1, a * 1.45))}) 86%,`
+                + ` rgba(238,248,255,0) 100%)`,
+            }} />
+          </span>
+        )
+      })}
+    </>
+  )
+}
 
+/** Drops breaking on the sill. Without them the rain reaches the bottom of the
+ *  window and simply stops existing, which is the other half of why the old
+ *  one never read as rain. */
+function RainSplashes({ n, still }: { n: number; still: boolean }) {
+  return (
+    <>
       {Array.from({ length: n }, (_, i) => {
-        const s = i * 7
-        const dur = (heavy ? 0.42 : 0.62) + hash(s) * (heavy ? 0.22 : 0.4)
+        const s = 1300 + i * 11
+        const dur = r2(0.85 + hash(s) * 1.05)
+        const w = r2(1.4 + hash(s + 1) * 1.9)
         return (
           <span key={i} style={{
             position: 'absolute',
-            left: `${r2(hash(s + 1) * 104 - 2)}%`,
-            top: '-24%',
-            width: heavy ? '0.9cqi' : '0.7cqi',
-            height: `${r2(11 + hash(s + 2) * 13)}cqh`,
-            background: 'linear-gradient(180deg, rgba(224,240,255,0), rgba(224,240,255,0.92))',
-            borderRadius: '40%',
+            left: `${r2(hash(s + 2) * 94 + 3)}%`,
+            bottom: `${r2(hash(s + 3) * 3)}%`,
+            width: `max(2px, ${w}cqi)`, height: `max(0.6px, ${r2(w * 0.24)}cqi)`,
+            borderRadius: '50%',
+            background: 'rgba(216,234,255,0.55)',
+            opacity: still ? 0.4 : 0,
             animation: still ? undefined
-              : `wxFall ${r2(dur)}s linear ${r2(-hash(s + 3) * dur)}s infinite`,
+              : `wxSplash ${dur}s ease-out ${r2(-hash(s + 4) * dur)}s infinite`,
           }} />
         )
       })}
+    </>
+  )
+}
 
-      {/* On the glass, not behind it: a few drops crawling down the pane. */}
-      {Array.from({ length: heavy ? 5 : 4 }, (_, i) => {
+/** On the glass, not behind it: a few drops crawling down the pane. */
+function GlassDrops({ n, still }: { n: number; still: boolean }) {
+  return (
+    <>
+      {Array.from({ length: n }, (_, i) => {
         const s = i * 31 + 3
-        const dur = 5 + hash(s) * 6
+        const dur = r2(5 + hash(s) * 6)
+        const w = r2(1.6 + hash(s + 2) * 1.6)
         return (
-          <span key={`d${i}`} style={{
+          <span key={i} style={{
             position: 'absolute',
             left: `${r2(8 + hash(s + 1) * 82)}%`,
-            top: '-10%',
-            width: `${r2(1.6 + hash(s + 2) * 1.6)}cqi`,
-            height: `${r2(2.6 + hash(s + 2) * 2.4)}cqi`,
+            top: still ? `${r2(10 + hash(s + 5) * 74)}%` : '-10%',
+            width: `max(2px, ${w}cqi)`,
+            // Its own hash, not the width's: one seed for both axes made every
+            // bead the same shape at a different scale, which reads as four
+            // copies of one sticker rather than water that has run and merged.
+            height: `max(3px, ${r2(w * (1.15 + hash(s + 3) * 0.85))}cqi)`,
             borderRadius: '50% 50% 60% 60%',
             background: 'radial-gradient(60% 50% at 38% 32%, rgba(255,255,255,0.7), rgba(190,214,244,0.28) 70%, rgba(190,214,244,0.08))',
             boxShadow: 'inset 0 -0.4cqi 0.4cqi rgba(255,255,255,0.35)',
+            opacity: still ? 0.85 : undefined,
             animation: still ? undefined
-              : `wxCrawl ${r2(dur)}s cubic-bezier(0.5,0,0.9,0.4) ${r2(-hash(s + 4) * dur)}s infinite`,
+              : `wxCrawl ${dur}s cubic-bezier(0.5,0,0.9,0.4) ${r2(-hash(s + 4) * dur)}s infinite`,
           }} />
         )
       })}
+    </>
+  )
+}
+
+function Rain({ still, heavy }: FxProps & { heavy?: boolean }) {
+  const passes = heavy ? RAIN_HEAVY : RAIN_LIGHT
+  return (
+    <>
+      <Wash background={heavy
+        // The storm sky is genuinely dark, because a flash needs something to
+        // be brighter THAN. The old one sat at half-light, so every strike
+        // just turned the pane grey.
+        ? 'linear-gradient(180deg, rgba(24,30,54,0.76) 0%, rgba(42,52,82,0.64) 56%, rgba(60,70,98,0.52) 100%)'
+        // Overcast, not hazy. The wash sits over the bright afternoon the
+        // artist painted, and at the old alphas the pane still read as a blue
+        // sky with a few scratches on it.
+        : 'linear-gradient(180deg, rgba(58,70,100,0.78) 0%, rgba(92,104,132,0.68) 100%)'} />
+
+      {passes.map((p, i) => <RainPassLayer key={i} spec={p} still={!!still} />)}
+      <RainSplashes n={heavy ? 10 : 6} still={!!still} />
+      <GlassDrops n={heavy ? 6 : 4} still={!!still} />
 
       <style>{`
-        @keyframes wxFall  { to { transform: translate3d(-6%, 150%, 0); } }
+        @keyframes wxRainFall {
+          from { transform: rotate(var(--tilt, 8deg)) translate3d(0, -110%, 0); }
+          to   { transform: rotate(var(--tilt, 8deg)) translate3d(0,  110%, 0); }
+        }
+        @keyframes wxSplash {
+          0%   { opacity: 0;    transform: scale(0.3, 1.2);  }
+          16%  { opacity: 0.85; transform: scale(1, 0.6);    }
+          100% { opacity: 0;    transform: scale(1.8, 0.28); }
+        }
         @keyframes wxCrawl {
-          0%   { transform: translateY(0);    opacity: 0; }
+          0%   { transform: translateY(0);      opacity: 0; }
           8%   { opacity: 0.9; }
           92%  { opacity: 0.9; }
           100% { transform: translateY(128cqh); opacity: 0; }
@@ -160,41 +304,182 @@ function Rain({ still, heavy }: FxProps & { heavy?: boolean }) {
 }
 
 // ─── Thunderstorm ────────────────────────────────────────────────────────────
+//
+// What used to be here was a hairline and a grey sheet.
+//
+//   The bolt was a 2.2cqi-wide box with a zigzag clip-path. clip-path
+//   percentages resolve against the element's OWN box, so the entire zigzag
+//   happened inside 2.2% of the window's width — about one and a half pixels
+//   in the kitchen. On screen it was a slightly brighter raindrop.
+//
+//   The flash was an opaque wash at 0.85 alpha over the whole pane. Painting
+//   an opaque sheet over rain hides the rain: the window went flat
+//   grey-lavender for a moment, which reads as fog arriving, not as a strike.
+//
+// The bolt is now a generated channel. The shape matters more than the
+// brightness: a hand-written five-segment zigzag of constant width is the
+// lightning GLYPH — the thing on a battery icon — and once you have seen it
+// you cannot unsee it in a window. Real lightning is a mostly-vertical random
+// walk with many small kinks, it TAPERS as it goes down, and it throws off
+// short forks that die in the air. So the path is walked from a seed, drawn in
+// three sections of decreasing width, and given two forks that stop short of
+// the ground.
+//
+// The glow is a blurred copy of the same channel rather than an SVG filter —
+// this codebase has already been bitten once by nested SVG filters resolving
+// in the wrong coordinate space (see SketchEren), and a CSS blur on a plain
+// element has none of that behaviour.
+//
+// The whole lit group blends with `screen`, so a flash ADDS light to the rain
+// and the sky instead of covering them: the streaks themselves light up inside
+// the flash, which is the part that sells it as a strike rather than a lamp.
+//
+// Two strikes, on two clocks whose periods do not divide each other, in
+// different places and with different silhouettes — so no two consecutive
+// strikes are the same strike and the storm never ticks like a metronome.
+
+/** A mostly-vertical random walk with a downwind lean, in the 0–100 × 0–200
+ *  viewBox. `bias` leans the whole channel; `kink` is how jagged it is. */
+function walk(seed: number, x0: number, y0: number, y1: number, steps: number,
+  bias: number, kink: number): [number, number][] {
+  const pts: [number, number][] = [[r2(x0), r2(y0)]]
+  let x = x0
+  for (let i = 1; i <= steps; i++) {
+    x += bias + (hash(seed + i * 5) - 0.5) * kink
+    pts.push([r2(x), r2(y0 + ((y1 - y0) * i) / steps)])
+  }
+  return pts
+}
+
+const d = (pts: [number, number][]) =>
+  pts.map(([x, y], i) => `${i ? 'L' : 'M'} ${x} ${y}`).join(' ')
+
+interface BoltShape {
+  /** The channel, split in three so it can taper on the way down. */
+  top: string
+  mid: string
+  low: string
+  /** Short branches that die in the air. */
+  forks: string[]
+  /** Where the sky lights up, as % across the pane. */
+  glow: number
+  /** The bolt's box on the pane. */
+  box: { left: string; top: string; width: string; height: string }
+}
+
+function makeBolt(seed: number, x0: number, bias: number,
+  box: BoltShape['box'], glow: number): BoltShape {
+  // 15 steps over the full drop: enough kinks to stop reading as a glyph,
+  // few enough that it is still one channel and not a scribble.
+  const spine = walk(seed, x0, 0, 200, 15, bias, 17)
+  const cut = (a: number, b: number) => d(spine.slice(a, b + 1))
+  // Forks leave the spine at a joint and die after a third of the drop, which
+  // is what makes the main channel read as the one that reached the ground.
+  const forks = [
+    d(walk(seed + 61, spine[4][0], spine[4][1], spine[4][1] + 62, 4, bias - 3.5, 14)),
+    d(walk(seed + 97, spine[9][0], spine[9][1], spine[9][1] + 42, 3, bias + 7, 13)),
+  ]
+  return { top: cut(0, 5), mid: cut(5, 10), low: cut(10, 15), forks, glow, box }
+}
+
+const BOLT_A = makeBolt(7, 62, -2.4,
+  { left: '10%', top: '-6%', width: '54%', height: '88%' }, 36)
+const BOLT_B = makeBolt(23, 40, 2.2,
+  { left: '46%', top: '-8%', width: '48%', height: '72%' }, 72)
+
+function Strike({ shape, anim, cycle, frozen, still }: {
+  shape: BoltShape
+  anim: string
+  cycle: number
+  /** Held mid-strike when motion is off, so reduced motion still says storm. */
+  frozen: boolean
+  still: boolean
+}) {
+  const { top, mid, low, forks, glow, box } = shape
+  // Non-scaling strokes: preserveAspectRatio is `none` so the channel always
+  // spans its box whatever the window's aspect, and without non-scaling-stroke
+  // that stretch would leave the bolt fat in one axis and a wire in the other.
+  // Widths are floored in px because the same bolt renders into a 46px
+  // thumbnail, where a pure cqi stroke is a third of a pixel.
+  const stroke = (w: string, color: string) => ({
+    fill: 'none' as const,
+    stroke: color,
+    strokeWidth: w,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    vectorEffect: 'non-scaling-stroke' as const,
+  })
+  // The channel, tapering on the way down, at a given scale. Drawn twice: once
+  // blurred underneath for the bloom, once sharp on top for the core.
+  const channel = (k: number, color: string) => (
+    <>
+      <path d={top} {...stroke(`max(${r2(0.9 * k)}px, ${r2(0.42 * k)}cqi)`, color)} />
+      <path d={mid} {...stroke(`max(${r2(0.7 * k)}px, ${r2(0.3 * k)}cqi)`, color)} />
+      <path d={low} {...stroke(`max(${r2(0.5 * k)}px, ${r2(0.2 * k)}cqi)`, color)} />
+      {forks.map((f, i) => (
+        <path key={i} d={f} {...stroke(`max(${r2(0.45 * k)}px, ${r2(0.18 * k)}cqi)`, color)} />
+      ))}
+    </>
+  )
+  const svg = { position: 'absolute' as const, ...box, overflow: 'visible' as const }
+  return (
+    <span style={{
+      position: 'absolute', inset: 0,
+      // The group blends as one, so the sky-lift and the channel both ADD
+      // light rather than covering the rain. Keeping the blend and the fade on
+      // the same element holds it to one composited layer.
+      mixBlendMode: 'screen',
+      opacity: still ? (frozen ? 0.5 : 0) : 0,
+      animation: still ? undefined : `${anim} ${cycle}s linear infinite`,
+      willChange: 'opacity',
+    }}>
+      {/* The cloud base lighting up. Anchored at the TOP of the pane and wider
+          than it, so it falls off towards the sill instead of sitting in the
+          middle of the glass as a bright oval with a visible edge. */}
+      <span style={{
+        position: 'absolute', inset: '-40% -30% auto -30%', height: '150%',
+        background:
+          `radial-gradient(62% 54% at ${glow}% 26%,`
+          + ' rgba(196,218,255,0.62) 0%, rgba(132,164,226,0.26) 34%, rgba(60,82,140,0) 70%)',
+      }} />
+      {/* bloom: the same channel, fat and blurred, under the core */}
+      <svg viewBox="0 0 100 200" preserveAspectRatio="none" aria-hidden
+        style={{ ...svg, filter: 'blur(max(2px, 1.2cqi))', opacity: 0.95 }}>
+        {channel(4.2, 'rgba(158,196,255,0.62)')}
+      </svg>
+      <svg viewBox="0 0 100 200" preserveAspectRatio="none" aria-hidden style={svg}>
+        {channel(1.7, 'rgba(206,228,255,0.8)')}
+        {channel(1, '#FFFFFF')}
+      </svg>
+    </span>
+  )
+}
 
 function Storm({ still }: FxProps) {
   return (
     <>
       <Rain still={still} heavy />
-      {!still && (
-        <>
-          {/* Two flashes on different clocks, so the timing never feels
-              metronomic. The bolt only exists during its own flash. */}
-          <span style={{
-            ...FILL,
-            background: 'linear-gradient(180deg, rgba(226,236,255,0.95), rgba(190,208,255,0.45))',
-            opacity: 0, animation: 'wxFlashA 9s linear infinite',
-          }} />
-          <span style={{
-            ...FILL,
-            background: 'radial-gradient(70% 50% at 68% 12%, rgba(255,255,255,0.9), transparent 70%)',
-            opacity: 0, animation: 'wxFlashB 13.4s linear infinite',
-          }} />
-          <span style={{
-            position: 'absolute', left: '54%', top: '2%', width: '2.2cqi', height: '46cqh',
-            background: 'linear-gradient(180deg, rgba(255,255,255,0.95), rgba(200,220,255,0))',
-            clipPath: 'polygon(46% 0, 100% 38%, 58% 42%, 92% 100%, 0 48%, 40% 44%, 8% 34%)',
-            opacity: 0, animation: 'wxBolt 9s linear infinite',
-          }} />
-        </>
-      )}
+      <Strike shape={BOLT_A} anim="wxStrikeA" cycle={7.3} frozen still={!!still} />
+      <Strike shape={BOLT_B} anim="wxStrikeB" cycle={11.9} frozen={false} still={!!still} />
       <style>{`
-        @keyframes wxFlashA {
-          0%, 5.4%, 6.2%, 7.4%, 100% { opacity: 0; }
-          5.6%  { opacity: 0.85; }
-          6.6%  { opacity: 0.5; }
+        /* A real strike: a leader, a peak, a fast decay, then a weaker return
+           stroke a few dozen ms later. The flicker is the whole tell — one
+           clean fade in and out reads as a lamp being switched on. */
+        @keyframes wxStrikeA {
+          0%, 4%      { opacity: 0; }
+          4.3%        { opacity: 1; }
+          5%          { opacity: 0.26; }
+          5.5%        { opacity: 0.88; }
+          6.9%        { opacity: 0.07; }
+          7.6%, 100%  { opacity: 0; }
         }
-        @keyframes wxFlashB { 0%, 3.2%, 4.4%, 100% { opacity: 0; } 3.6% { opacity: 0.75; } }
-        @keyframes wxBolt   { 0%, 5.4%, 6.6%, 100% { opacity: 0; } 5.7% { opacity: 1; } 6.1% { opacity: 0.35; } }
+        @keyframes wxStrikeB {
+          0%, 61%     { opacity: 0; }
+          61.3%       { opacity: 0.92; }
+          61.9%       { opacity: 0.18; }
+          62.3%       { opacity: 0.66; }
+          63.4%, 100% { opacity: 0; }
+        }
       `}</style>
     </>
   )
@@ -214,7 +499,10 @@ function Snow({ still }: FxProps) {
           <span key={i} style={{
             position: 'absolute',
             left: `${r2(hash(s + 2) * 100)}%`,
-            top: '-8%',
+            // Held still, the flakes hang in the air down the whole pane.
+            // Parked at the start line they are all above the sash and the
+            // reduced-motion snow is a pale blue rectangle with no snow in it.
+            top: still ? `${r2(hash(s + 6) * 94)}%` : '-8%',
             width: `${r2(size)}cqi`, height: `${r2(size)}cqi`,
             borderRadius: '50%',
             background: 'rgba(255,255,255,0.92)',
@@ -252,7 +540,12 @@ function Sun({ still, dusk }: FxProps & { dusk?: boolean }) {
       <span style={{
         position: 'absolute',
         left: dusk ? '58%' : '34%',
-        bottom: '4%',
+        // Anchored in the same unit the disc is sized and travels in. It used
+        // to rest at `4%` — a percentage of the pane's HEIGHT — while sinking
+        // in cqh and being 26cqi across, so in the narrow windows the sweep
+        // carried it clean under the sill and the sunset was a violet gradient
+        // with no sun in it.
+        bottom: '1cqi',
         width: '26cqi', height: '26cqi', marginLeft: '-13cqi',
         borderRadius: '50%',
         background: `radial-gradient(circle, #FFF6D8 0%, ${disc} 46%, rgba(255,160,80,0) 72%)`,
@@ -267,8 +560,8 @@ function Sun({ still, dusk }: FxProps & { dusk?: boolean }) {
           : 'linear-gradient(68deg, transparent 36%, rgba(255,236,190,0.28) 52%, transparent 68%)',
       }} />
       <style>{`
-        @keyframes wxRise { from { transform: translateY(16cqh) scale(0.92); } to { transform: translateY(-8cqh) scale(1); } }
-        @keyframes wxSink { from { transform: translateY(-8cqh) scale(1); } to { transform: translateY(18cqh) scale(0.94); } }
+        @keyframes wxRise { from { transform: translateY(15cqi) scale(0.92); } to { transform: translateY(-13cqi) scale(1); } }
+        @keyframes wxSink { from { transform: translateY(-13cqi) scale(1); } to { transform: translateY(17cqi) scale(0.94); } }
       `}</style>
     </>
   )
@@ -288,13 +581,22 @@ function Petals({ still }: FxProps) {
         return (
           <span key={i} style={{
             position: 'absolute',
-            left: `${r2(hash(s + 2) * 100 - 12)}%`,
-            top: `${r2(-14 + hash(s + 3) * 10)}%`,
+            // Held still, both axes have to be moved, not just the vertical:
+            // the animated spawn band starts off the LEFT edge too (so petals
+            // drift in), and a frozen frame has no delays to cycle them back.
+            left: still ? `${r2(4 + hash(s + 2) * 84)}%`
+              : `${r2(hash(s + 2) * 100 - 12)}%`,
+            top: still ? `${r2(4 + hash(s + 8) * 84)}%`
+              : `${r2(-14 + hash(s + 3) * 10)}%`,
             width: `${r2(size)}cqi`, height: `${r2(size * 0.66)}cqi`,
             borderRadius: '68% 32% 68% 32%',
             background: pale ? '#FFD7E6' : '#FFA9C9',
             opacity: r2(0.6 + hash(s + 4) * 0.4),
             ['--drift' as string]: `${r2(38 + hash(s + 5) * 46)}cqi`,
+            // wxPetal spins them 680deg on the way down. A frozen petal has to
+            // be tilted as well, or the 68%/32% radii read as a row of
+            // identically-oriented rounded rectangles.
+            transform: still ? `rotate(${r2(hash(s + 9) * 360)}deg)` : undefined,
             animation: still ? undefined
               : `wxPetal ${r2(dur)}s linear ${r2(-hash(s + 7) * dur)}s infinite`,
           }} />
@@ -332,10 +634,15 @@ function Fireflies({ still, lit }: FxProps) {
             borderRadius: '50%',
             background: '#FFF3B0',
             boxShadow: '0 0 1.6cqi 0.4cqi rgba(255,226,138,0.65)',
-            opacity: 0,
+            // The flies are already positioned on the pane; what hid them
+            // under reduced motion was this. wxFly is what lifts the opacity
+            // off zero, so with the animation switched off all sixteen stayed
+            // fully transparent and the sky named for them had none in it.
+            // Varied, not flat: a uniform value reads as a grid of dots.
+            opacity: still ? r2(0.55 + hash(s + 7) * 0.4) : 0,
             ['--fx' as string]: `${r2(hash(s + 4) * 22 - 11)}cqi`,
             ['--fy' as string]: `${r2(hash(s + 5) * 18 - 9)}cqi`,
-            animation: still ? 'none'
+            animation: still ? undefined
               : `wxFly ${r2(dur)}s ease-in-out ${r2(-hash(s + 6) * dur)}s infinite`,
           }} />
         )
@@ -458,7 +765,17 @@ function Meteors({ still, tone }: FxProps & { tone: 'gold' | 'rose' }) {
             // to the right, and the bright half of it has to happen where
             // someone can see it rather than past the far corner.
             left: `${r2(hash(s + 5) * 92 - 46)}%`,
-            top: `${r2(hash(s + 6) * 74 - 30)}%`,
+            // Spread down the PANE, not stacked above it. A meteor travels
+            // `--run` cqi along its own axis, so the vertical part of that
+            // flight is run·sin(ang) measured against the pane's WIDTH, while
+            // this offset is measured against its HEIGHT. In the playroom
+            // (74 wide, 260 tall) the descent is worth a tenth of what it is
+            // worth here, so a band starting at -30% never arrived: a third
+            // to a half of the shower burned out above the sash and the
+            // narrow windows looked like the meteors were broken in them.
+            // Starting inside the pane, each one simply streaks across at its
+            // own height, which is what a shower looks like anyway.
+            top: `${r2(hash(s + 6) * 96 - 14)}%`,
             width: `${len}cqi`, height: `${thick}cqi`,
             // The head is the anchor: the tail stretches out behind it.
             transformOrigin: 'right center',
