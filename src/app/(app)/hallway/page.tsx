@@ -11,8 +11,6 @@
 // pattern, gold ceiling light glow, ornate header.
 // ═════════════════════════════════════════════════════════════════════════════
 
-export const dynamic = 'force-dynamic'
-
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useCouple } from '@/hooks/useCouple'

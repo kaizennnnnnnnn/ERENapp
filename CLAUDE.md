@@ -49,6 +49,8 @@ supabase/migration_*.sql  Run once in the dashboard. Don't re-apply.
 - **Vercel crons are blocked on Hobby** — don't re-add `crons` to `vercel.json`. Decay runs via Supabase pg_cron, and the client ping on tab focus is the safety net.
 - **Realtime channels** need a unique suffix per mount (`channelSuffix`). Duplicate channel names silently fail to subscribe.
 - **Migrations are manual**: when you add a column, drop a `supabase/migration_<topic>.sql` and tell the user to paste it into the Supabase dashboard. Don't run DDL from app code.
+- **`export const dynamic = 'force-dynamic'` does nothing in a `'use client'` page.** Route segment config is only read from a Server Component, so on these pages it was inert — `next build` still printed every one of them as `○ (Static)`. Twenty of them were removed; don't re-add one expecting it to work. It IS meaningful in `app/api/*/route.ts`, which is why those kept theirs. If a client page renders anything clock- or locale-derived, the fix is to resolve it after mount, not to reach for this export — see `useIsDark`.
+- **A column added to `profiles` is not writable until it's granted.** `migration_household_takeover_fix.sql` does `REVOKE UPDATE ON profiles` then re-grants an explicit column list. Two columns (`equipped_title`, `equipped_frame`) were added years later, never granted, and silently failed every write for months because the client didn't check the error. Either add the column to that list, or — if the value needs guarding — write an RPC, which is what `accept_terms` and `equip_prestige` do.
 
 ## Workflow
 

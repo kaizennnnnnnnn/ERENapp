@@ -1,7 +1,5 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
 // Container for the collection vault: owns the inventory data and the two
 // actions (use a can, jump to the closet). All rendering lives in
 // components/collection/CollectionView, which stays pure so it can be

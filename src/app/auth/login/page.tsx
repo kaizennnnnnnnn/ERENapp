@@ -1,7 +1,5 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { usePageReady } from '@/hooks/usePageReady'
@@ -26,7 +24,6 @@ export default function LoginPage() {
     setError(null)
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-
 
     if (error) {
       setError(error.message)

@@ -1,7 +1,5 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
 import { useEffect, useState, useRef, useLayoutEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -352,7 +350,6 @@ export default function HomePage() {
     householdId: profile?.household_id ?? null,
     tz: homeTz,
   })
-
 
   // Phase 3 PR 8 — backdated catchup carousel. Fires once per profile after
   // auth + household resolve; the server endpoint backfills historical
@@ -762,7 +759,6 @@ export default function HomePage() {
 
           </>
         )}
-
 
         {/* ══ HUD OVERLAY (below shared stats header) ══ */}
         <div className="absolute left-0 right-0 z-10 px-3" style={{ top: 'calc(var(--safe-top) + 124px)' }}>

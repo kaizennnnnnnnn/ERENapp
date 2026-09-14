@@ -12,8 +12,6 @@
 // to forward on to /auth/reset once that session exists.
 // ═════════════════════════════════════════════════════════════════════════════
 
-export const dynamic = 'force-dynamic'
-
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { usePageReady } from '@/hooks/usePageReady'

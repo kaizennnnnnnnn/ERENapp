@@ -8,8 +8,6 @@
 // this file only decides what the door does.
 // ═════════════════════════════════════════════════════════════════════════════
 
-export const dynamic = 'force-dynamic'
-
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCare } from '@/contexts/CareContext'

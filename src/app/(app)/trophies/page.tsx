@@ -12,8 +12,6 @@
 // instead; see ShelfSummary in TrophyShopView.
 // ═══════════════════════════════════════════════════════════════════════════
 
-export const dynamic = 'force-dynamic'
-
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'

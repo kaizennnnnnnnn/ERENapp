@@ -1,7 +1,5 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
 // ═══════════════════════════════════════════════════════════════════════════
 // JELLY JUMP — bounce Eren up the parlour storeroom, shelf after shelf.
 //

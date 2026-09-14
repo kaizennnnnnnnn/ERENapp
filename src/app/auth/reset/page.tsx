@@ -13,8 +13,6 @@
 // freshly-recovered session away before the password is actually changed.
 // ═════════════════════════════════════════════════════════════════════════════
 
-export const dynamic = 'force-dynamic'
-
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { usePageReady } from '@/hooks/usePageReady'

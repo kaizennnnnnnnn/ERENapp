@@ -1,7 +1,5 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
 // ═══════════════════════════════════════════════════════════════════════════
 // ONBOARDING — the front door. welcome → account → move in (create/join a
 // household) → house-key reveal (creators) → meet-Eren slides → rainbow

@@ -1,7 +1,5 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
 // ═══════════════════════════════════════════════════════════════════════════
 // JELLY RUN — Eren outruns the jelly tide.
 //

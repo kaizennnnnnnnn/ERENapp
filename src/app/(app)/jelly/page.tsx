@@ -1,7 +1,5 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
 // Container for the Jelly Parlour hub. Owns today's tray, both duel boards, and
 // the Super Jelly feed; ParlourView does the rendering.
 //

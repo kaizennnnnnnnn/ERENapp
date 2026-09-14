@@ -13,8 +13,6 @@
 // push — so the exit navigates home explicitly rather than going back.
 // ═════════════════════════════════════════════════════════════════════════════
 
-export const dynamic = 'force-dynamic'
-
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
