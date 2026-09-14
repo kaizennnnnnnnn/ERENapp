@@ -24,9 +24,23 @@ import {
   type Order, type Wrap,
 } from './kioskShift'
 import { PANIC_AT } from './kioskEconomy'
+import { useResume } from './useResume'
 import type { ShiftStatus, Speech } from './useKioskShift'
 
 interface Props {
+  /** When this customer walked up, as a clock reading. The window wall
+   *  unmounts the moment you turn away from it, so without this they climb
+   *  back out of the sill every time you turn round.
+   *
+   *  TWO stamps, because arriving and being dealt with are measured from
+   *  different moments. The pop belongs to the arrival and must survive being
+   *  handed the wrong wrap: one stamp for both meant a refusal rewrote the
+   *  pop's delay, React rewrote the style, and they popped out of the sill a
+   *  second time while still shaking their head at you. */
+  arrivedAt: number
+  /** And when they were paid, refused or gave up — what the duck, the walk,
+   *  the cheer and the head-shake are all measured from. */
+  settledAt: number
   order: Order | null
   status: ShiftStatus
   speech: Speech
@@ -132,8 +146,17 @@ function WrapLine({ wrap, index, marked }: { wrap: Wrap; index: number; marked: 
 }
 
 export default function CustomerWindow({
-  order, status, speech, patience, ticketOpen, revealed, value, onRepeat,
+  order, status, arrivedAt, settledAt, speech, patience, ticketOpen, revealed, value, onRepeat,
 }: Props) {
+  // Above the early return: a hook cannot be conditional, and an empty window
+  // is still a window whose next customer has to arrive on time.
+  const sinceArrival = useResume(arrivedAt)
+  const sinceSettled = useResume(settledAt)
+  /** Every delay below is shifted back by how much of its beat we already
+   *  missed, so a remount resumes it instead of starting it again. */
+  const fromArrival = (at: number) => at - sinceArrival
+  const fromSettled = (at: number) => at - sinceSettled
+
   if (!order) return null
 
   const paid = status === 'paid'
@@ -180,11 +203,16 @@ export default function CustomerWindow({
           // `both`-filled animation applies its first frame from time zero, so
           // a second animation on this element would flatten the jump before
           // it ever left the ground.
+          //
+          // Safe to run past the end: every one of these keyframes was
+          // authored to finish at rest — the pop lands square, the duck and
+          // the walk end at opacity 0 — so a delay pushed past its duration
+          // under `both` holds the right picture.
           animation: paid
-            ? `kioskCustomerDuck ${DUCK_MS}ms ease-in ${duckAt}ms both`
+            ? `kioskCustomerDuck ${DUCK_MS}ms ease-in ${fromSettled(duckAt)}ms both`
             : left
-              ? `kioskCustomerWalk ${DUCK_MS}ms ease-in both`
-              : 'kioskCustomerPop 620ms cubic-bezier(0.16, 1, 0.3, 1) both',
+              ? `kioskCustomerWalk ${DUCK_MS}ms ease-in ${fromSettled(0)}ms both`
+              : `kioskCustomerPop 620ms cubic-bezier(0.16, 1, 0.3, 1) ${fromArrival(0)}ms both`,
         }}>
           {/* The head-shake and the hop share a layer of their own: the
               wrapper above is already spending its transform on the pop and
@@ -195,11 +223,12 @@ export default function CustomerWindow({
             // The hop, and then a slow pleased sway for as long as they
             // stand there — a customer frozen mid-thank-you reads as the game
             // having hung, which is the opposite of the beat we bought.
-            animation: status === 'refused' ? 'kioskRefuse 520ms ease-in-out'
-                     : paid
-                       ? `kioskCheer ${CHEER_MS}ms both,`
-                         + ` kioskCustomerPleased ${(LINGER_MS / 2).toFixed(0)}ms ease-in-out ${CHEER_MS}ms 2`
-                       : undefined,
+            animation: status === 'refused'
+              ? `kioskRefuse 520ms ease-in-out ${fromSettled(0)}ms`
+              : paid
+                ? `kioskCheer ${CHEER_MS}ms ${fromSettled(0)}ms both,`
+                  + ` kioskCustomerPleased ${(LINGER_MS / 2).toFixed(0)}ms ease-in-out ${fromSettled(CHEER_MS)}ms 2`
+                : undefined,
           }}>
             <BlinkingEren
               key={who.id}

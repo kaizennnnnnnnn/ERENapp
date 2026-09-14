@@ -15,6 +15,7 @@
 
 import { useEffect } from 'react'
 import { TIP_JAR, SILL_PCT } from './kioskShift'
+import { useResume } from './useResume'
 import { playSound, type SoundName } from '@/lib/sounds'
 
 /** Where they start: in front of whoever's at the window, on the ledge. */
@@ -69,26 +70,41 @@ interface Props {
   id: number
   /** What they left. Decides how many coins you see. */
   tip: number
+  /** When they left it, as a clock reading. Turning to another wall unmounts
+   *  the handful, and a throw that started over every time you looked back
+   *  paid the jar again and again with the sound to match. */
+  startedAt: number
   /** Reduced motion: the money still arrives, it just doesn't fly. */
   still?: boolean
 }
 
-export default function TipCoin({ id, tip, still = false }: Props) {
+export default function TipCoin({ id, tip, startedAt, still = false }: Props) {
   const n = coinsFor(tip)
+  const elapsed = useResume(startedAt)
+  /** Every coin is in the jar and every ring has faded. */
+  const over = elapsed > coinFlightMs(tip) + 260
 
   // The jar answers each coin as it lands, not all of them when the sale
   // closes — the sound IS the landing, and a stack of them fired together is
   // one noise instead of a handful of coins.
   useEffect(() => {
-    const timers = Array.from({ length: n }, (_, i) =>
-      setTimeout(() => playSound(TIP_SOUNDS[i % TIP_SOUNDS.length]),
-        still ? i * COIN_GAP_MS : COIN_MS * 0.86 + i * COIN_GAP_MS))
-    return () => timers.forEach(clearTimeout)
-  }, [id, n, still])
+    const timers = Array.from({ length: n }, (_, i) => {
+      // A coin that landed while you were facing the fridge does not get to
+      // land a second time when you turn round. Strictly NEGATIVE: under
+      // reduced motion the first coin's cue is zero, and it still has to be
+      // heard.
+      const at = (still ? 0 : COIN_MS * 0.86) + i * COIN_GAP_MS - elapsed
+      return at < 0 ? null
+        : setTimeout(() => playSound(TIP_SOUNDS[i % TIP_SOUNDS.length]), at)
+    })
+    return () => timers.forEach(t => { if (t !== null) clearTimeout(t) })
+  }, [id, n, still, elapsed])
 
   // Reduced motion: the money still arrives and the jar still fills, it just
-  // doesn't fly. Nothing is rendered rather than rendered invisible.
-  if (still) return null
+  // doesn't fly. Nothing is rendered rather than rendered invisible — and
+  // likewise once the throw is finished and we have only been remounted into
+  // the tail of it.
+  if (still || over) return null
 
   return (
     <>
@@ -96,7 +112,7 @@ export default function TipCoin({ id, tip, still = false }: Props) {
         const fan = FAN[i % FAN.length]
         const dx = TO.x - (FROM.x + fan.x)
         const dy = (TO.y - FROM.y) * PIC_ASPECT
-        const delay = i * COIN_GAP_MS
+        const delay = i * COIN_GAP_MS - elapsed
         return (
           <span
             key={i}
@@ -145,7 +161,7 @@ export default function TipCoin({ id, tip, still = false }: Props) {
           border: '0.34cqi solid rgba(255,214,120,0.85)',
           zIndex: 9,
           opacity: 0,
-          animation: `kioskTipLand 260ms ease-out ${(COIN_MS * 0.86 + i * COIN_GAP_MS).toFixed(0)}ms forwards`,
+          animation: `kioskTipLand 260ms ease-out ${(COIN_MS * 0.86 + i * COIN_GAP_MS - elapsed).toFixed(0)}ms forwards`,
         }} />
       ))}
     </>

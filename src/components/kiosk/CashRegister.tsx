@@ -17,8 +17,9 @@
 // hand only comes for it once it's finished printing. Fire them together and
 // it reads as one flash of decoration rather than as a transaction.
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { TILL_SCREEN, TILL_SLOT, RECEIPT, CHEER_MS, LINGER_MS } from './kioskShift'
+import { useResume } from './useResume'
 import { playSound } from '@/lib/sounds'
 
 /** The screen lights as the wrap goes over. */
@@ -48,15 +49,12 @@ interface Props {
 }
 
 export default function CashRegister({ id, amount, startedAt, still = false }: Props) {
-  // How far into the sale we already are.
-  //
-  // Turning to another wall and back remounts this component, and a till that
-  // restarts from zero every time you look at it would strike the screen again
-  // and print a second receipt for a sale that has already been paid, rung up
-  // and walked away from. Every delay below is shifted back by this, so a
-  // remount RESUMES: a negative animation-delay starts an animation partway
-  // through, which is exactly the behaviour wanted and costs nothing.
-  const [elapsed] = useState(() => Math.max(0, Date.now() - startedAt))
+  // How far into the sale we already are. Turning to another wall and back
+  // remounts this component, and a till that restarts from zero every time
+  // you look at it would strike the screen again and print a second receipt
+  // for a sale already paid, rung up and walked away from. This is the same
+  // machinery the window's other one-shots use — see useResume.
+  const elapsed = useResume(startedAt)
   const from = (at: number) => at - elapsed
 
   useEffect(() => {

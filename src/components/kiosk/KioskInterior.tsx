@@ -41,6 +41,7 @@ import KioskRadio from './KioskRadio'
 import StreetWeather from './StreetWeather'
 import GlassMist from './GlassMist'
 import TipCoin, { COIN_MS, coinFlightMs } from './TipCoin'
+import { useBeat } from './useResume'
 import CashRegister, { TILL_MS } from './CashRegister'
 import { ShiftNote, ChampionApron } from './WallProps'
 import {
@@ -152,6 +153,19 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
       })()
     }, [addCoins, record]),
   })
+  // When the person at the window walked up, and when they were dealt with.
+  // Stamped up HERE, where turning to another wall can't reset them — the
+  // window's overlays are rendered only while you are facing the window, so
+  // they are unmounted and remounted by every turn and cannot keep a clock of
+  // their own.
+  //
+  // Two stamps rather than one. Arriving and being dealt with are measured
+  // from different moments, and folding them together made a refusal restart
+  // the arrival: the pop's delay changed, so React rewrote the style and they
+  // climbed out of the sill again while still shaking their head.
+  const arrivedAt = useBeat(shift.order)
+  const settledAt = useBeat(shift.order, shift.status)
+
   // The phone lives up here rather than on the back wall, because it has to
   // ring whichever way you happen to be facing.
   const phone = useKioskPhone()
@@ -167,11 +181,15 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
   // Elapsed when the glass was last wiped. The mist is derived from it, so
   // it freezes with everything else when the app is in your pocket.
   const [wipedAt, setWipedAt] = useState(0)
-  const [wipes, setWipes] = useState(0)
+  // And the same moment on the WALL clock. The mist is meant to freeze with
+  // the shift when the app is in a pocket; the sleeve crossing the glass is a
+  // 620ms animation and is not. GlassMist needs to know whether that sweep is
+  // still happening, which only the wall clock can answer.
+  const [wipedClock, setWipedClock] = useState(0)
   const mist = Math.min(1, Math.max(0, (shift.elapsed - wipedAt) / MIST_MS[shift.weather]))
   const wipeGlass = useCallback(() => {
     setWipedAt(shift.elapsed)
-    setWipes(n => n + 1)
+    setWipedClock(Date.now())
     playSound('kiosk_wipe')
   }, [shift.elapsed])
 
@@ -189,11 +207,11 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
   // The coin itself only exists for the length of its flight. `shift.paid`
   // stays set for the rest of the night, so rendering off it directly meant a
   // coin flew every time you turned back to the window.
-  const [coin, setCoin] = useState<{ id: number; tip: number } | null>(null)
+  const [coin, setCoin] = useState<{ id: number; tip: number; at: number } | null>(null)
   useEffect(() => {
     if (!shift.paid || shift.paid.tip <= 0) return
     const tip = shift.paid.tip
-    setCoin({ id: shift.paid.id, tip })
+    setCoin({ id: shift.paid.id, tip, at: Date.now() })
     // A big tip is several coins landing a beat apart, so the handful has to
     // outlive one coin's flight.
     const t = setTimeout(() => setCoin(null), coinFlightMs(tip) + 320)
@@ -486,14 +504,15 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
 
           {/* The pane misting over, and your sleeve. */}
           {view.feature === 'window' && (
-            <GlassMist mist={mist} wipe={wipes} onWipe={guard(wipeGlass)} still={reduced} />
+            <GlassMist mist={mist} wipeAt={wipedClock} onWipe={guard(wipeGlass)} still={reduced} />
           )}
 
           {/* The night's tips, as a depth of coins on the ledge people are
               leaving them on — and the coin somebody just put there. */}
           {view.feature === 'window' && <TipJar tips={jarTips} />}
           {view.feature === 'window' && coin && (
-            <TipCoin key={coin.id} id={coin.id} tip={coin.tip} still={reduced} />
+            <TipCoin key={coin.id} id={coin.id} tip={coin.tip}
+              startedAt={coin.at} still={reduced} />
           )}
 
           {/* The till totalling the sale and printing for it. */}
@@ -506,6 +525,8 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
             <CustomerWindow
               order={shift.order}
               status={shift.status}
+              arrivedAt={arrivedAt}
+              settledAt={settledAt}
               speech={shift.speech}
               patience={shift.patience}
               ticketOpen={shift.ticketOpen}

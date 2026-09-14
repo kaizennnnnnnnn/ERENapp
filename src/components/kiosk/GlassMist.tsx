@@ -11,12 +11,16 @@
 // in the kiosk that exists only because you'd want to.
 
 import { GLASS, GLASS_MASK } from './kioskShift'
+import { useResume } from './useResume'
 
 interface Props {
   /** 0 clear, 1 completely gone. */
   mist: number
-  /** Bumped on every wipe, to restart the streak. */
-  wipe: number
+  /** Wall clock at the last wipe, 0 if the glass is still as it was found.
+   *  A CLOCK rather than the shift's own elapsed, because the streak runs on
+   *  wall time: the mist is allowed to freeze while the app is in a pocket,
+   *  a 620ms sweep of a sleeve is not. */
+  wipeAt: number
   onWipe: () => void
   /** Reduced motion: the pane still fogs, the sleeve just doesn't streak. */
   still?: boolean
@@ -27,7 +31,11 @@ interface Props {
 const MAX_VEIL = 0.46
 const MAX_BLUR = 2.4
 
-export default function GlassMist({ mist, wipe, onWipe, still = false }: Props) {
+/** One pass of a sleeve. */
+const WIPE_MS = 620
+
+export default function GlassMist({ mist, wipeAt, onWipe, still = false }: Props) {
+  const since = useResume(wipeAt)
   const m = Math.max(0, Math.min(1, mist))
   const box: React.CSSProperties = {
     position: 'absolute',
@@ -76,12 +84,16 @@ export default function GlassMist({ mist, wipe, onWipe, still = false }: Props) 
           background: 'radial-gradient(78% 62% at 50% 46%, transparent 34%, rgba(232,240,250,0.5) 100%)',
         }} />
 
-        {/* The sleeve going across. One pass, on the wipe. */}
-        {!still && wipe > 0 && (
-          <div key={wipe} style={{
+        {/* The sleeve going across. One pass, on the wipe — and only while
+            that pass is still happening. Turning to another wall unmounts
+            this whole pane, so a streak rendered on "has ever been wiped"
+            swept the glass again every single time you came back to the
+            window for the rest of the night. */}
+        {!still && wipeAt > 0 && since < WIPE_MS && (
+          <div key={wipeAt} style={{
             position: 'absolute', top: '-20%', bottom: '-20%', width: '46%',
             background: 'linear-gradient(100deg, transparent, rgba(255,255,255,0.5) 45%, transparent)',
-            animation: 'kioskWipe 620ms cubic-bezier(0.32, 0.72, 0, 1) both',
+            animation: `kioskWipe ${WIPE_MS}ms cubic-bezier(0.32, 0.72, 0, 1) ${-since}ms both`,
           }} />
         )}
       </div>
