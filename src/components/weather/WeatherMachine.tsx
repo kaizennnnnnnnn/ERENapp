@@ -34,14 +34,21 @@ import { useTrophies } from '@/hooks/useTrophies'
 import { useTrophyCosmetics, sameMap } from '@/hooks/useTrophyCosmetics'
 import { useWeatherMachine } from '@/hooks/useWeatherMachine'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
-import { WEATHER, type WeatherId } from '@/lib/weather'
+import { useIsDark } from '@/hooks/useIsDark'
+import {
+  WEATHER, WEATHER_BY_ID, weatherDef, skyBlockedIn, skyBlurbIn, roomIsNightOnly,
+  type WeatherId, type WeatherDef,
+} from '@/lib/weather'
 import { MACHINE_PARTS, type MachinePart } from '@/lib/weatherMachine'
-import { WEATHER_ROOMS } from '@/lib/roomWindows'
+import { WEATHER_ROOMS, ROOM_WINDOWS } from '@/lib/roomWindows'
 import { shopItem } from '@/lib/trophyShop'
 import WeatherFx from './WeatherFx'
 import { MachineArt, MACHINE_W, MACHINE_H } from './WeatherMachineProp'
 import TrophyBuySheet from '@/components/trophies/TrophyBuySheet'
-import { IconClose, IconChevronRight, IconCheck } from '@/components/PixelIcons'
+import {
+  IconClose, IconChevronRight, IconCheck, IconMoon,
+  IconHouse, IconMeat, IconYarn, IconBath, IconFlask, IconSpeech,
+} from '@/components/PixelIcons'
 import TrophyCup from '@/components/trophies/TrophyCup'
 import { playSound } from '@/lib/sounds'
 
@@ -74,15 +81,22 @@ export function WeatherMachinePanel({ onClose }: { onClose(): void }) {
           fontSize: 9, letterSpacing: 2.5, color: '#8FE0FF',
           textShadow: '0 0 7px rgba(120,200,255,0.5)',
         }}>WEATHER MACHINE</span>
-        <span className="flex items-center gap-1.5 px-2 py-1" style={{
-          border: '1.5px solid rgba(245,200,66,0.5)', borderRadius: 3,
-          background: 'rgba(245,200,66,0.1)',
-        }}>
-          <TrophyCup tier="gold" size={13} shine={false} />
-          <span className="font-pixel" style={{ fontSize: 9, color: '#FDE68A' }}>
-            {trophies.loaded ? trophies.balance : '—'}
+        {/* The wallet belongs to the WORKBENCH, where the four parts have
+            prices. On the picker nothing costs anything — that is what
+            finishing the machine bought — so a running balance in the corner is
+            a number with no question attached to it, in the same gold the panel
+            uses to mean "unsaved". */}
+        {!machine.built && (
+          <span className="flex items-center gap-1.5 px-2 py-1" style={{
+            border: '1.5px solid rgba(245,200,66,0.5)', borderRadius: 3,
+            background: 'rgba(245,200,66,0.1)',
+          }}>
+            <TrophyCup tier="gold" size={13} shine={false} />
+            <span className="font-pixel" style={{ fontSize: 9, color: '#FDE68A' }}>
+              {trophies.loaded ? trophies.balance : '—'}
+            </span>
           </span>
-        </span>
+        )}
         <button onClick={() => { playSound('ui_back'); onClose() }}
           aria-label="Close" className="w-8 h-8 flex items-center justify-center active:scale-90 transition-transform">
           <IconClose size={15} />
@@ -396,14 +410,119 @@ function BuildBar({ machine }: { machine: ReturnType<typeof useWeatherMachine> }
   )
 }
 
+
 // ═══ THE PICKER ══════════════════════════════════════════════════════════════
+//
+// ONE BIG TRUTH INSTEAD OF EIGHTEEN SMALL LIES.
+//
+// This screen used to mount eighteen live skies: eleven 52px tiles and seven
+// 26px room chips. Three things were wrong with that at once.
+//
+//   THE TILES WERE THE WRONG SHAPE. Every tile was a 3.1:1 letterbox and every
+//   window in the game is portrait, 0.29:1 (the playroom's slot) to 0.86:1 (the
+//   living room bay) — and the effects size themselves in CONTAINER units, so a
+//   tile was not a small version of the result, it was a differently shaped
+//   picture assembled from the same parts. It was sold as a preview and it was
+//   a different render.
+//
+//   THE ROOM CHIPS SAID NOTHING. Six of the seven normally show the same sky,
+//   so the strip spent seven animated layers drawing one picture six times, and
+//   which room was which lived in 5px type underneath it. A pixel icon answers
+//   that instantly and costs nothing.
+//
+//   AND THE NAMES CARRIED EVERYTHING AT 6px. Rain and Thunderstorm are the same
+//   picture for most of every second; Meteor Shower and Rose Meteors differ by
+//   hue alone. Meanwhile weather.ts writes a sentence for every one of them and
+//   this screen showed none of them.
+//
+// So: ONE live pane, cut to the selected room's real aperture, with that room's
+// name over it and that sky's own sentence under it — and the eleven choices
+// become STILL swatches. Still is not a compromise: every effect already has a
+// reduced-motion resting frame, so the swatch is a real picture of that sky and
+// it runs no animation at all. Eighteen live layers become one.
+//
+// IT EDITS A DRAFT AND SAVES ONCE — see the note at the top of this file.
+
+const INK = '#080A11'
+/** Chosen. ONE selection colour on the screen: it used to be cyan for rooms and
+ *  green for skies, which made the user check whether those meant different
+ *  things. Green is now the commit lever and nothing else. */
+const LIVE = '#8FE0FF'
+/** Edited, not committed. */
+const PEND = '#FFCE6B'
+
+// Which pixel icon stands for which window.
+const ROOM_ICON: Record<string, React.ComponentType<{ size?: number }>> = {
+  home: IconHouse, feed: IconMeat, play: IconYarn, sleep: IconMoon,
+  wash: IconBath, chemistry: IconFlask, talk: IconSpeech,
+}
+
+/** The real shape of that room's glass, so the preview is not a letterbox. */
+function apertureAspect(room: string): number {
+  const w = ROOM_WINDOWS[room]
+  if (!w) return 0.8
+  return (w.box.w * w.art.w) / (w.box.h * w.art.h)
+}
+
+const PANE_H = 128
+
+/** The eighth target: all seven windows at once. It used to be a full-width
+ *  blue button sitting beside the save lever, which made the most far-reaching
+ *  control on the screen look like a second primary action — and made "every
+ *  window" an ACTION you fire rather than a PLACE you are pointing at. As a
+ *  target it is self-describing (EVERY WINDOW + SNOWFALL), it cannot be fired
+ *  by accident because you still have to pick a sky afterwards, and it fills
+ *  the eighth cell of a 2x4 grid that otherwise ends on a hole. */
+const ALL = '*'
+
+/** Four little panes. Not an icon file, because this is not a room. */
+function AllWindowsGlyph({ size = 16, tone }: { size?: number; tone: string }) {
+  const c = Math.floor((size - 2) / 2)
+  return (
+    <span aria-hidden className="grid flex-shrink-0" style={{
+      width: c * 2 + 2, height: c * 2 + 2,
+      gridTemplateColumns: 'repeat(2, ' + c + 'px)', gap: 2,
+    }}>
+      {[0, 1, 2, 3].map(i => (
+        <span key={i} style={{ width: c, height: c, background: tone, border: '1px solid ' + INK }} />
+      ))}
+    </span>
+  )
+}
+
+/** What a window is actually showing, with a sky it cannot hold read as clear. */
+function effectiveSky(map: Record<string, string>, room: string): WeatherId {
+  const v = (map[room] ?? 'clear') as WeatherId
+  return skyBlockedIn(room, v) ? 'clear' : v
+}
+
+/**
+ * The one sky every window is showing, or null if they disagree.
+ *
+ * A window that CANNOT hold the candidate is allowed to differ — otherwise
+ * putting a sunrise in all seven would come back reading "mixed" forever, on
+ * account of the one window the rule says must not have it.
+ */
+function commonSky(map: Record<string, string>): WeatherId | null {
+  const seen = Array.from(new Set(WEATHER_ROOMS.map(r => effectiveSky(map, r.room))))
+  if (seen.length === 1) return seen[0]
+  for (const cand of seen) {
+    if (WEATHER_ROOMS.every(r =>
+      effectiveSky(map, r.room) === cand || skyBlockedIn(r.room, cand))) return cand
+  }
+  return null
+}
 
 function PickerScreen() {
   const cos = useTrophyCosmetics()
-  // Eleven live skies in the grid plus the room chip is the heaviest thing in
-  // the panel; it was also the only surface that never asked whether the user
-  // wanted motion at all.
   const reduced = useReducedMotion()
+  // The lever WRITES THE WHOLE MAP, and `weather` falls back to {} on a row
+  // that has not answered — which is indistinguishable from "every window is
+  // clear". A panel opened during a slow or 503-ing read would show seven clear
+  // windows, and one tap would commit that fiction over whatever the household
+  // actually had. Same rule the machine's own gate follows: no verdict, and no
+  // write, on a read that has not landed.
+  if (!cos.weatherLoaded) return <WarmingUp />
   return <PickerView weather={cos.weather} onSave={cos.saveWeather} reduced={reduced} />
 }
 
@@ -415,33 +534,74 @@ export function PickerView({ weather: live, onSave, reduced }: {
   onSave(next: Record<string, string>): Promise<boolean>
   reduced?: boolean
 }) {
+  const dark = useIsDark()
   const [room, setRoom] = useState<string>(WEATHER_ROOMS[0].room)
-
   // null = following the household. Non-null = my unsaved edit of it.
   const [draft, setDraft] = useState<Record<string, string> | null>(null)
   const [save, setSave] = useState<SaveState>('idle')
+  // Why the last tap did nothing. A dead key that says nothing reads as a bug.
+  const [refused, setRefused] = useState<string | null>(null)
 
   const map = draft ?? live
   const dirty = draft !== null && !sameMap(draft, live)
-  const current = (map[room] ?? 'clear') as WeatherId
+
+  const isAll = room === ALL
+  const nightOnly = !isAll && roomIsNightOnly(room)
+  // A map saved before the night-only rule can still name a sunset for the
+  // bedroom, and RoomWeather already refuses to draw one. Read it as clear here
+  // too, or the panel shows this window a sky it does not have.
+  const current = isAll ? commonSky(map) : effectiveSky(map, room)
+  const def = weatherDef(current ?? 'clear')!
+  const label = isAll
+    ? 'EVERY WINDOW'
+    : WEATHER_ROOMS.find(r => r.room === room)?.label ?? ''
+  // The rooms this sky is refused by, named, so "every window" can say what it
+  // is actually about to do instead of quietly skipping one.
+  const spared = current
+    ? WEATHER_ROOMS.filter(r => skyBlockedIn(r.room, current))
+    : []
 
   function edit(next: Record<string, string>) {
     setDraft(next)
     setSave('idle')
+    setRefused(null)
+  }
+
+  function goRoom(next: string) {
+    playSound('ui_tap')
+    setRoom(next)
+    setRefused(null)
   }
 
   function pick(id: WeatherId) {
+    if (isAll) {
+      playSound('ui_select')
+      const next: Record<string, string> = {}
+      for (const r of WEATHER_ROOMS) {
+        // A window that cannot hold this sky KEEPS ITS OWN rather than being
+        // emptied — "every window" must never be a way to wipe the bedroom.
+        if (skyBlockedIn(r.room, id)) {
+          const had = map[r.room]
+          if (had && !skyBlockedIn(r.room, had)) next[r.room] = had
+          continue
+        }
+        if (id !== 'clear') next[r.room] = id
+      }
+      edit(next)
+      return
+    }
+    const why = skyBlockedIn(room, id)
+    if (why) {
+      // Not a padlock — nothing here is for sale, the machine is already built.
+      // This window simply cannot hold this one, and it says so in words.
+      playSound('ui_back')
+      setRefused(why)
+      return
+    }
     playSound('ui_select')
     const next = { ...map }
     if (id === 'clear') delete next[room]
     else next[room] = id
-    edit(next)
-  }
-
-  function everywhere() {
-    playSound('ui_select')
-    const next: Record<string, string> = {}
-    if (current !== 'clear') for (const r of WEATHER_ROOMS) next[r.room] = current
     edit(next)
   }
 
@@ -459,100 +619,242 @@ export function PickerView({ weather: live, onSave, reduced }: {
     }
   }
 
+  // Pointing at all seven, the bay shows the living room's glass — it is the
+  // biggest window in the house and the one the picker opens on.
+  const paneW = Math.max(36, Math.round(PANE_H * apertureAspect(isAll ? WEATHER_ROOMS[0].room : room)))
+  const RoomIcon = ROOM_ICON[room]
+  // The compound form, matching RoomWeather's own `lit={!dark}`. A room that is
+  // always night is one reason for an unlit sky; the app being after dark is the
+  // other, and the picker used to know about neither — so aurora and fireflies
+  // previewed as midnight and then hung as an evening.
+  const lit = !(dark || nightOnly)
+
   return (
     <>
-      <div className="relative flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-3">
+      {/* ── THE WINDOW ── pinned, so the one thing that says which room you are
+          editing can never scroll away from the taps that change it. */}
+      <div className="relative flex-shrink-0 px-3 pt-3 pb-2">
+        <div style={{
+          background: 'linear-gradient(180deg, #46506B 0%, #2A3145 44%, #1B2131 100%)',
+          border: '3px solid ' + INK,
+          boxShadow: '3px 3px 0 rgba(0,0,0,0.55)',
+          padding: 8,
+        }}>
+          <div className="flex items-center gap-2" style={{ marginBottom: 7 }}>
+            {isAll
+              ? <AllWindowsGlyph size={15} tone="#8FE0FF" />
+              : RoomIcon && <RoomIcon size={15} />}
+            <span className="font-pixel flex-1 truncate" style={{
+              fontSize: 9, letterSpacing: 1.5, color: '#EAF6FF',
+            }}>{label}</span>
+            {nightOnly && (
+              <span className="flex items-center gap-1 flex-shrink-0 px-1.5 py-1" style={{
+                border: '1px solid rgba(143,224,255,0.28)',
+                background: 'rgba(143,224,255,0.08)',
+              }}>
+                <IconMoon size={9} />
+                <span className="font-pixel" style={{ fontSize: 5, letterSpacing: 1, color: '#9FC4DE' }}>
+                  ALWAYS NIGHT
+                </span>
+              </span>
+            )}
+          </div>
 
-        {/* ── Which window ── */}
-        <span className="font-pixel" style={{ fontSize: 6, letterSpacing: 1.5, color: '#6E86A8' }}>
-          WHICH WINDOW
-        </span>
-        <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+          <div className="mx-auto relative overflow-hidden" style={{
+            width: paneW, height: PANE_H,
+            containerType: 'size',
+            background: '#070B16',
+            border: '2px solid ' + INK,
+            boxShadow: 'inset 0 0 8px rgba(0,0,0,0.9), 0 0 8px rgba(120,200,255,0.25)',
+          }}>
+            <WeatherFx id={def.id} still={reduced} lit={lit} plate />
+            <span aria-hidden className="absolute inset-0 pointer-events-none" style={{
+              background: 'repeating-linear-gradient(0deg, transparent 0 3px, rgba(0,0,0,0.11) 3px 4px)',
+            }} />
+          </div>
+
+          {/* The sentence weather.ts already wrote for every sky — and the one
+              place a refusal can land in words. */}
+          <div style={{
+            marginTop: 7, padding: '5px 7px', minHeight: 44,
+            background: 'rgba(6,10,20,0.55)',
+            border: '1px solid ' + (refused ? 'rgba(255,206,107,0.4)' : 'rgba(143,224,255,0.16)'),
+          }}>
+            <span className="font-pixel block truncate" style={{
+              fontSize: 7, letterSpacing: 1,
+              color: refused ? PEND : current === null ? '#9FC4DE' : def.tone,
+            }}>{(refused ? 'not in here'
+              : current === null ? 'mixed' : def.name).toUpperCase()}</span>
+            <span className="block text-[11px] leading-snug" style={{
+              color: refused ? '#FFDFA6' : '#93A7BE', marginTop: 3,
+            }}>{refused
+              ?? (current === null
+                ? 'The seven windows are not all showing the same thing. Pick one and they will.'
+                : isAll && spared.length
+                  // Say what it is about to do to the window it cannot do it to,
+                  // rather than skipping one quietly and never mentioning it.
+                  ? skyBlurbIn(room, def.id) + ' Every window except the '
+                    + spared.map(r => r.label.toLowerCase()).join(' and the ') + '.'
+                  : skyBlurbIn(room, def.id))}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="relative flex-1 overflow-y-auto px-3 pb-3 flex flex-col gap-2">
+
+        {/* ── Which window ── a fixed grid, not a scroll strip. The strip cut
+            the per-room unsaved mark in half against its own overflow box, and
+            that mark is the only ledger of what has not been committed yet —
+            and on a 640px-tall phone the whole strip collapsed to 4px, because
+            a flex child in a column shrinks by default. */}
+        <span className="font-pixel flex-shrink-0" style={{
+          fontSize: 6, letterSpacing: 1.5, color: '#8FAECB',
+        }}>WHICH WINDOW</span>
+
+        <div className="grid flex-shrink-0" style={{
+          gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 6,
+        }}>
           {WEATHER_ROOMS.map(r => {
             const on = r.room === room
-            const sky = (map[r.room] ?? 'clear') as WeatherId
             const changed = (map[r.room] ?? '') !== (live[r.room] ?? '')
+            const Icon = ROOM_ICON[r.room]
             return (
-              <button key={r.room}
-                onClick={() => { playSound('ui_tap'); setRoom(r.room) }}
-                aria-pressed={on}
-                className="relative flex-shrink-0 flex flex-col items-center gap-1 px-1.5 py-1.5 active:translate-y-[1px] transition-transform"
+              <button key={r.room} onClick={() => goRoom(r.room)} aria-pressed={on}
+                className="relative flex flex-col items-center gap-1 py-1.5 px-1 active:translate-y-[1px] transition-transform"
                 style={{
-                  minWidth: 60,
-                  background: on ? 'rgba(120,200,255,0.14)' : 'rgba(255,255,255,0.035)',
-                  border: `1.5px solid ${on ? '#8FE0FF' : 'rgba(255,255,255,0.1)'}`,
-                  borderRadius: 4,
-                  boxShadow: on ? '0 0 10px rgba(120,200,255,0.3)' : undefined,
+                  background: on ? 'rgba(143,224,255,0.14)' : 'rgba(255,255,255,0.04)',
+                  border: '2px solid ' + (on ? LIVE : 'rgba(255,255,255,0.12)'),
+                  boxShadow: on
+                    ? '2px 2px 0 ' + INK + ', 0 0 9px rgba(143,224,255,0.3)'
+                    : '2px 2px 0 rgba(0,0,0,0.45)',
                 }}>
-                <span className="relative block w-full overflow-hidden" style={{
-                  height: 26, containerType: 'size',
-                  background: '#0A0F1E', border: '1px solid #05070E',
-                }}>
-                  <WeatherFx id={sky} still={reduced} plate />
-                </span>
-                <span className="font-pixel truncate max-w-[64px]" style={{
-                  fontSize: 5, letterSpacing: 0.5, color: on ? '#DCEEFF' : '#7E90A8',
+                {Icon && <Icon size={16} />}
+                <span className="font-pixel block w-full truncate text-center" style={{
+                  fontSize: 5, letterSpacing: 0.5, color: on ? '#EAF6FF' : '#8CA0B8',
                 }}>{r.label}</span>
-                {/* an unsaved window wears a dot, so nothing is lost quietly */}
+                {/* INSIDE the button: the old mark hung outside its own box and
+                    the strip's overflow sliced four of its seven pixels off. */}
                 {changed && (
-                  <span aria-label="unsaved" className="absolute -top-1 -right-1" style={{
-                    width: 7, height: 7, borderRadius: '50%',
-                    background: '#FFCE6B', border: '1.5px solid #0B1120',
+                  <span aria-label="unsaved" className="absolute" style={{
+                    top: 3, right: 3, width: 6, height: 6,
+                    background: PEND, border: '1px solid ' + INK,
                   }} />
                 )}
               </button>
             )
           })}
+
+          <button onClick={() => goRoom(ALL)} aria-pressed={isAll}
+            className="relative flex flex-col items-center gap-1 py-1.5 px-1 active:translate-y-[1px] transition-transform"
+            style={{
+              background: isAll ? 'rgba(143,224,255,0.14)' : 'rgba(255,255,255,0.04)',
+              border: '2px solid ' + (isAll ? LIVE : 'rgba(255,255,255,0.12)'),
+              boxShadow: isAll
+                ? '2px 2px 0 ' + INK + ', 0 0 9px rgba(143,224,255,0.3)'
+                : '2px 2px 0 rgba(0,0,0,0.45)',
+            }}>
+            <AllWindowsGlyph size={16} tone={isAll ? '#EAF6FF' : '#8CA0B8'} />
+            <span className="font-pixel block w-full truncate text-center" style={{
+              fontSize: 5, letterSpacing: 0.5, color: isAll ? '#EAF6FF' : '#8CA0B8',
+            }}>ALL 7</span>
+          </button>
         </div>
 
-        {/* ── Which sky ── every one of them, because the machine is built ── */}
-        <span className="font-pixel" style={{ fontSize: 6, letterSpacing: 1.5, color: '#6E86A8' }}>
-          WHAT IT IS DOING OUT THERE
-        </span>
-        <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
-          {WEATHER.map(w => {
-            const on = current === w.id
-            return (
-              <button key={w.id}
-                onClick={() => pick(w.id)}
-                aria-pressed={on}
-                className="relative flex flex-col gap-1 p-1.5 text-left active:translate-y-[1px] transition-transform"
-                style={{
-                  background: on ? 'rgba(99,240,148,0.1)' : 'rgba(255,255,255,0.035)',
-                  border: `1.5px solid ${on ? '#63F094' : 'rgba(255,255,255,0.1)'}`,
-                  borderRadius: 4,
-                  boxShadow: on ? '0 0 10px rgba(99,240,148,0.25)' : undefined,
-                }}>
-                <span className="relative block w-full overflow-hidden" style={{
-                  height: 52, containerType: 'size',
-                  background: '#0A0F1E', border: '1px solid #05070E', borderRadius: 2,
-                }}>
-                  <WeatherFx id={w.id} still={reduced} plate />
-                </span>
-                <span className="font-pixel truncate" style={{
-                  fontSize: 6, letterSpacing: 0.5, color: w.tone,
-                }}>{w.name.toUpperCase()}</span>
-              </button>
-            )
-          })}
-        </div>
+        <span className="font-pixel flex-shrink-0" style={{
+          fontSize: 6, letterSpacing: 1.5, color: '#8FAECB', marginTop: 4,
+        }}>WHAT IT IS DOING OUT THERE</span>
 
-        <button onClick={everywhere}
-          className="w-full flex items-center justify-center gap-2 py-2.5 active:translate-y-[1px] transition-transform"
-          style={{
-            background: 'linear-gradient(180deg, #4FA8E0 0%, #2A6BA8 100%)',
-            border: '2px solid #14324E', borderRadius: 5,
-            boxShadow: '0 2px 0 rgba(0,0,0,0.5), 0 0 12px rgba(79,168,224,0.35)',
-          }}>
-          <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 1, color: '#EAF6FF' }}>
-            THIS SKY IN EVERY WINDOW
-          </span>
-        </button>
+        {/* Clear is pulled out of the grid on purpose. It is the only choice
+            that REMOVES a layer rather than adding one — it IS the painting —
+            and taking it out also takes the eleventh tile out of a two-column
+            grid that could never end evenly. */}
+        <SkyKey w={WEATHER_BY_ID.clear} wide on={current === 'clear'}
+          blurb={skyBlurbIn(room, 'clear')}
+          blocked={null} lit={lit} onPick={() => pick('clear')} />
+
+        <div className="grid gap-2 flex-shrink-0" style={{
+          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+        }}>
+          {WEATHER.filter(w => w.id !== 'clear').map(w => (
+            <SkyKey key={w.id} w={w} on={current === w.id}
+              blocked={skyBlockedIn(room, w.id)} lit={lit}
+              onPick={() => pick(w.id)} />
+          ))}
+        </div>
       </div>
 
       {/* ── The lever ── nothing reaches a window until this is pulled. */}
       <SaveBar dirty={dirty} state={save} onSave={commit} />
     </>
+  )
+}
+
+// One choice. The swatch is a REAL picture of that sky — every effect already
+// has a reduced-motion resting frame, so `still` costs no animation and is not
+// a placeholder. `lit` matters here: aurora and fireflies paint an evening in a
+// daylit room and a midnight in the bedroom, and showing the wrong one of those
+// two was the old tile's own doing.
+function SkyKey({ w, on, blocked, lit, wide, blurb, onPick }: {
+  w: WeatherDef
+  on: boolean
+  /** Overrides the sky's own line when the window changes what it means. */
+  blurb?: string
+  /** Why this sky cannot hang in the selected window, or null. */
+  blocked: string | null
+  lit: boolean
+  wide?: boolean
+  onPick(): void
+}) {
+  const shape = wide
+    ? 'flex-row items-center gap-2 p-1.5'
+    : 'flex-col gap-1 p-1.5'
+  return (
+    <button onClick={onPick} aria-pressed={on} aria-disabled={!!blocked}
+      className={'relative flex text-left flex-shrink-0 active:translate-y-[1px] transition-transform ' + shape}
+      style={{
+        background: on ? 'rgba(143,224,255,0.12)' : 'rgba(255,255,255,0.04)',
+        border: '2px solid ' + (on ? LIVE : 'rgba(255,255,255,0.12)'),
+        // A key that is already DOWN cannot travel. Pressed in reads as refused
+        // at every size, where "a paler rectangle" only reads as refused next
+        // to one that is not.
+        boxShadow: blocked
+          ? 'inset 0 2px 0 rgba(0,0,0,0.75)'
+          : on
+            ? '2px 2px 0 ' + INK + ', 0 0 10px rgba(143,224,255,0.26)'
+            : '2px 2px 0 rgba(0,0,0,0.45)',
+        opacity: blocked ? 0.62 : 1,
+      }}>
+      <span className="relative block overflow-hidden flex-shrink-0" style={{
+        width: wide ? 62 : '100%', height: wide ? 30 : 46,
+        containerType: 'size',
+        background: '#0A0F1E', border: '1px solid ' + INK,
+        filter: blocked ? 'grayscale(1) brightness(0.55)' : undefined,
+      }}>
+        <WeatherFx id={w.id} still lit={lit} plate />
+      </span>
+
+      <span className={wide ? 'flex-1 min-w-0' : 'block w-full min-w-0'}>
+        <span className="font-pixel block truncate" style={{
+          fontSize: 6, letterSpacing: 0.5,
+          color: blocked ? '#6E7E92' : on ? '#EAF6FF' : w.tone,
+        }}>{w.name.toUpperCase()}</span>
+        {wide && (
+          <span className="block text-[10px] truncate" style={{ color: '#7E90A8', marginTop: 2 }}>
+            {blurb ?? w.blurb}
+          </span>
+        )}
+      </span>
+
+      {/* A moon, not a padlock: this window is night, not locked. */}
+      {blocked && (
+        <span className="absolute flex items-center justify-center" style={{
+          top: 3, right: 3, width: 15, height: 15,
+          background: 'rgba(8,10,17,0.85)', border: '1px solid ' + INK,
+        }}>
+          <IconMoon size={9} />
+        </span>
+      )}
+    </button>
   )
 }
 
@@ -566,41 +868,37 @@ function SaveBar({ dirty, state, onSave }: {
     : state === 'saved' ? 'SAVED' : 'NOTHING TO SAVE'
 
   const tone = state === 'failed'
-    ? { a: '#B4453F', b: '#6E211D', edge: '#3A0E0C', text: '#FFE0DC' }
+    ? { a: '#B4453F', b: '#6E211D', text: '#FFE0DC' }
     : state === 'saved' && !dirty
-      ? { a: '#3E8C5E', b: '#1F5238', edge: '#0E2A1C', text: '#DFFBE9' }
+      ? { a: '#3E8C5E', b: '#1F5238', text: '#DFFBE9' }
       : enabled
-        ? { a: '#63F094', b: '#1E9A5A', edge: '#0B3A22', text: '#04220F' }
-        : { a: '#2A3145', b: '#171C29', edge: '#0B0E16', text: '#5E6E86' }
+        ? { a: '#63F094', b: '#1E9A5A', text: '#04220F' }
+        : { a: '#2A3145', b: '#171C29', text: '#5E6E86' }
 
   return (
     <div className="relative flex-shrink-0 px-3 pt-2" style={{
       paddingBottom: 'calc(var(--safe-bottom) + 10px)',
-      borderTop: '2px solid rgba(120,200,255,0.28)',
+      borderTop: '2px solid ' + INK,
       background: 'linear-gradient(0deg, rgba(10,16,28,0.96), rgba(16,26,44,0.8))',
     }}>
+      {/* The row is reserved whether or not it is showing, so the lever does not
+          jump 11px out from under the thumb the instant the first edit lands. */}
+      <span className="font-pixel block text-center" style={{
+        fontSize: 5, letterSpacing: 1, color: PEND,
+        height: 11, opacity: dirty ? 1 : 0,
+      }}>UNSAVED - THE WINDOWS HAVE NOT CHANGED YET</span>
       <button onClick={onSave} disabled={!enabled}
         className="w-full flex items-center justify-center gap-2 py-3 active:translate-y-[1px] transition-transform"
         style={{
-          background: `linear-gradient(180deg, ${tone.a} 0%, ${tone.b} 100%)`,
-          border: `2px solid ${tone.edge}`,
-          borderRadius: 5,
-          boxShadow: enabled
-            ? `0 3px 0 ${tone.edge}, 0 0 14px rgba(99,240,148,0.35)`
-            : `0 3px 0 ${tone.edge}`,
+          background: 'linear-gradient(180deg, ' + tone.a + ' 0%, ' + tone.b + ' 100%)',
+          border: '2px solid ' + INK,
+          boxShadow: '3px 3px 0 rgba(0,0,0,0.5)',
         }}>
         {state === 'saved' && !dirty && <IconCheck size={12} />}
         <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, color: tone.text }}>
           {label}
         </span>
       </button>
-      {dirty && (
-        <span className="font-pixel block text-center" style={{
-          fontSize: 5, letterSpacing: 1, color: '#FFCE6B', marginTop: 6,
-        }}>
-          UNSAVED - THE WINDOWS HAVE NOT CHANGED YET
-        </span>
-      )}
     </div>
   )
 }

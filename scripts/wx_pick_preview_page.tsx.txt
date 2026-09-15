@@ -1,0 +1,35 @@
+'use client'
+
+// THROWAWAY screenshot harness for the weather machine's PICKER screen.
+// Outside (app) on purpose. `legal-page` escapes the 430px desktop phone frame
+// globals.css wraps every page in. Delete before committing.
+
+import { PickerView } from '@/components/weather/WeatherMachine'
+
+const SHELL: React.CSSProperties = {
+  background: 'radial-gradient(120% 70% at 50% 0%, #16233A 0%, #0B1120 55%, #05070E 100%)',
+}
+
+const CASES: { tag: string; w: number; h: number; map: Record<string, string> }[] = [
+  { tag: '390x844 fresh', w: 390, h: 844, map: { home: 'storm', sleep: 'sunset', feed: 'rain' } },
+  { tag: '360x640 short', w: 360, h: 640, map: { home: 'aurora' } },
+  { tag: '390x844 empty', w: 390, h: 844, map: {} },
+]
+
+export default function WxPickPreview() {
+  return (
+    <div className="legal-page" style={{ display: 'flex', gap: 12, padding: 12, background: '#111', width: 'max-content' }}>
+      {CASES.map(c => (
+        <div key={c.tag}>
+          <div style={{ color: '#9cf', font: '11px ui-monospace,monospace', marginBottom: 4 }}>{c.tag}</div>
+          <div style={{
+            position: 'relative', width: c.w, height: c.h, flexShrink: 0,
+            display: 'flex', flexDirection: 'column', overflow: 'hidden', ...SHELL,
+          }}>
+            <PickerView weather={c.map} onSave={async () => true} />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}

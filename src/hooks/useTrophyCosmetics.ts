@@ -22,6 +22,18 @@ export interface TrophyCosmetics {
   /** room id → the WeatherId showing in that room's window. */
   weather: Record<string, string>
   /**
+   * False until eren_stats has answered once.
+   *
+   * `weather` falls back to `{}` on an unread row, and an empty map is a
+   * PERFECTLY VALID value meaning "every window is clear" — the two are
+   * indistinguishable from the map alone. The picker draws its selection from
+   * this map and then SAVES the whole thing, so a panel opened during a slow
+   * or 503-ing read shows seven clear windows, and one tap commits that fiction
+   * over whatever the household actually had. Same rule as the wallet: never
+   * draw a verdict, and never allow a write, on a read that has not landed.
+   */
+  weatherLoaded: boolean
+  /**
    * Write the WHOLE room→sky map in one go, and say whether it landed.
    *
    * Deliberately not a per-room setter. `room_weather` is a single jsonb
@@ -59,6 +71,7 @@ export function useTrophyCosmetics(): TrophyCosmetics {
   }, [profile?.equipped_title, profile?.equipped_frame])
 
   const liveWeather = (stats?.room_weather ?? {}) as Record<string, string>
+  const weatherLoaded = stats != null
 
   // Drop the overlay once the realtime echo agrees with it.
   useEffect(() => {
@@ -111,7 +124,7 @@ export function useTrophyCosmetics(): TrophyCosmetics {
     return true
   }, [user?.id, myFrame]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { weather, saveWeather, myTitle, myFrame, setTitle, setFrame }
+  return { weather, weatherLoaded, saveWeather, myTitle, myFrame, setTitle, setFrame }
 }
 
 /** Shallow equality over a room→sky map. */

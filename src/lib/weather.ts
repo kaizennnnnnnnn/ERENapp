@@ -129,6 +129,22 @@ export function roomIsNightOnly(room: string): boolean {
  * REASON rather than a boolean so the one sentence the player reads lives next
  * to the rule that produced it and the two cannot drift apart.
  */
+/**
+ * The line to print for this sky in THIS window. Only `clear` changes, and it
+ * has to: clear is the absence of a layer, so it is whatever the artist
+ * painted — an afternoon in six rooms and a lit lamp under a crescent moon in
+ * the bedroom. Printing "the afternoon the room was painted in" under a night
+ * window is the panel describing a room that does not exist.
+ */
+export function skyBlurbIn(room: string, id: string | null | undefined): string {
+  const def = weatherDef(id)
+  if (!def) return ''
+  if (def.id === 'clear' && roomIsNightOnly(room)) {
+    return 'The night the room was painted in - moon, lamp and all.'
+  }
+  return def.blurb
+}
+
 export function skyBlockedIn(room: string, id: string | null | undefined): string | null {
   const def = weatherDef(id)
   if (!def || !def.sun || !roomIsNightOnly(room)) return null

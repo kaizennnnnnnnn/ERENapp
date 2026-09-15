@@ -95,11 +95,19 @@ function Wash({ background, blend = 'normal', opacity = 1 }: {
 // the little panes only, and it paints what the artist painted: blue going pale
 // at the horizon, two slow clouds, and a hint of the treeline.
 
-function Clear({ still }: FxProps) {
+function Clear({ still, lit }: FxProps) {
+  // `clear` in a room that is always dark is the painted NIGHT, not a blue
+  // afternoon. The picker previews the bedroom with this, and a swatch of
+  // summer sky over the word CLEAR was the panel telling that window it would
+  // get something it cannot have.
+  const night = lit === false
   return (
     <>
-      <Wash background="linear-gradient(180deg, #56A9E8 0%, #8FD3FF 62%, #CDEAFF 100%)" />
-      {[
+      <Wash background={night
+        ? 'linear-gradient(180deg, #0A1230 0%, #16224A 58%, #2A3563 100%)'
+        : 'linear-gradient(180deg, #56A9E8 0%, #8FD3FF 62%, #CDEAFF 100%)'} />
+      {night && <Stars n={16} seed={410} still={still} />}
+      {!night && [
         { top: 16, left: -30, w: 46, dur: 34, delay: 0 },
         { top: 38, left: -70, w: 32, dur: 44, delay: -18 },
       ].map((c, i) => (
@@ -117,7 +125,9 @@ function Clear({ still }: FxProps) {
       {/* the treeline the windows all look out onto */}
       <span style={{
         position: 'absolute', left: 0, right: 0, bottom: 0, height: '17cqh',
-        background: 'linear-gradient(180deg, rgba(96,158,86,0) 0%, rgba(88,150,80,0.85) 55%, rgba(64,120,60,0.95) 100%)',
+        background: night
+          ? 'linear-gradient(180deg, rgba(14,22,44,0) 0%, rgba(14,22,44,0.9) 55%, rgba(10,16,34,0.98) 100%)'
+          : 'linear-gradient(180deg, rgba(96,158,86,0) 0%, rgba(88,150,80,0.85) 55%, rgba(64,120,60,0.95) 100%)',
       }} />
       <style>{`
         @keyframes wxClearDrift {
@@ -291,14 +301,18 @@ function GlassDrops({ n, still }: { n: number; still: boolean }) {
   )
 }
 
-function Rain({ still, heavy, plate }: FxProps & { heavy?: boolean }) {
+function Rain({ still, heavy, plate, lit }: FxProps & { heavy?: boolean }) {
   const passes = heavy ? RAIN_HEAVY : RAIN_LIGHT
   return (
     <>
       {/* The overcast a swatch has to supply for itself. */}
       {plate && <Wash background={heavy
-        ? 'linear-gradient(180deg, #171E38 0%, #2A3454 56%, #3D4768 100%)'
-        : 'linear-gradient(180deg, #47536D 0%, #6C7892 100%)'} />}
+        ? (lit === false
+          ? 'linear-gradient(180deg, #0B1026 0%, #17203C 56%, #242C4C 100%)'
+          : 'linear-gradient(180deg, #171E38 0%, #2A3454 56%, #3D4768 100%)')
+        : (lit === false
+          ? 'linear-gradient(180deg, #1B2338 0%, #333C55 100%)'
+          : 'linear-gradient(180deg, #47536D 0%, #6C7892 100%)')} />}
       {/* What it does to the light in a room. A storm genuinely darkens one —
           a flash needs something to be brighter THAN — so that one is allowed
           to be strong, and at 0.74 it still leaves the treeline and the
@@ -486,10 +500,10 @@ function Strike({ shape, anim, cycle, frozen, still }: {
   )
 }
 
-function Storm({ still, plate }: FxProps) {
+function Storm({ still, plate, lit }: FxProps) {
   return (
     <>
-      <Rain still={still} plate={plate} heavy />
+      <Rain still={still} plate={plate} lit={lit} heavy />
       <Strike shape={BOLT_A} anim="wxStrikeA" cycle={7.3} frozen still={!!still} />
       <Strike shape={BOLT_B} anim="wxStrikeB" cycle={11.9} frozen={false} still={!!still} />
       <style>{`
@@ -518,7 +532,7 @@ function Storm({ still, plate }: FxProps) {
 
 // ─── Snow ────────────────────────────────────────────────────────────────────
 
-function Snow({ still, plate }: FxProps) {
+function Snow({ still, plate, lit }: FxProps) {
   return (
     <>
       {/* NOTHING over a room. Snow does not paint the world white; it falls
@@ -527,7 +541,9 @@ function Snow({ still, plate }: FxProps) {
           used to be here was pale at half alpha, so every window it landed in
           became a rectangle of milk with the painting behind it gone. A swatch
           has no painting to fall past, so it still gets a winter sky. */}
-      {plate && <Wash background="linear-gradient(180deg, #7E92B4 0%, #B6C7E1 100%)" />}
+      {plate && <Wash background={lit === false
+        ? 'linear-gradient(180deg, #232C46 0%, #414C6C 100%)'
+        : 'linear-gradient(180deg, #7E92B4 0%, #B6C7E1 100%)'} />}
       {Array.from({ length: 22 }, (_, i) => {
         const s = i * 11
         const size = 1.3 + hash(s) * 2.4
@@ -616,10 +632,12 @@ function Sun({ still, dusk, plate }: FxProps & { dusk?: boolean }) {
 
 // ─── Petals ──────────────────────────────────────────────────────────────────
 
-function Petals({ still, plate }: FxProps) {
+function Petals({ still, plate, lit }: FxProps) {
   return (
     <>
-      {plate && <Wash background="linear-gradient(180deg, #8FB8E2 0%, #D8E8F6 58%, #F6E4EC 100%)" />}
+      {plate && <Wash background={lit === false
+        ? 'linear-gradient(180deg, #202A48 0%, #3A3A5E 58%, #4E3A50 100%)'
+        : 'linear-gradient(180deg, #8FB8E2 0%, #D8E8F6 58%, #F6E4EC 100%)'} />}
       {/* A blush, not a fog. Pink over a painted afternoon at anything heavier
           than this greys the trees out on its way to looking like spring. */}
       <Wash background="linear-gradient(180deg, rgba(255,214,234,0.2) 0%, rgba(255,242,247,0.1) 100%)" />
@@ -950,13 +968,13 @@ export default memo(function WeatherFx({ id, still, lit, plate }: {
   switch (id) {
     // Clear is the painting itself, so it is a swatch sky and nothing else —
     // RoomWeather never renders it.
-    case 'clear':        return <Clear still={still} />
-    case 'rain':         return <Rain still={still} plate={plate} />
-    case 'storm':        return <Storm still={still} plate={plate} />
-    case 'snow':         return <Snow still={still} plate={plate} />
+    case 'clear':        return <Clear still={still} lit={lit} />
+    case 'rain':         return <Rain still={still} plate={plate} lit={lit} />
+    case 'storm':        return <Storm still={still} plate={plate} lit={lit} />
+    case 'snow':         return <Snow still={still} plate={plate} lit={lit} />
     case 'sunrise':      return <Sun still={still} plate={plate} />
     case 'sunset':       return <Sun still={still} plate={plate} dusk />
-    case 'petals':       return <Petals still={still} plate={plate} />
+    case 'petals':       return <Petals still={still} plate={plate} lit={lit} />
     case 'fireflies':    return <Fireflies still={still} lit={lit} plate={plate} />
     case 'meteors_gold': return <Meteors still={still} tone="gold" plate={plate} />
     case 'meteors_rose': return <Meteors still={still} tone="rose" plate={plate} />

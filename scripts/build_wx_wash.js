@@ -44,6 +44,10 @@ const ids = process.argv.slice(2).filter(a => !a.startsWith('--'))
 const kinds = ids.length ? ids : WEATHER.map(w => w.id)
 const rooms = (process.env.WX_ROOMS || 'home,sleep,feed,play').split(',')
 const ZOOM = Number(process.env.WX_ZOOM || 0.62)
+// Reduced motion has to be judged on this sheet too: every effect's resting
+// frame is a separate branch, and a plate does not save one that parks its
+// particles off the pane.
+const STILL = !!process.env.WX_STILL
 const PAD = 0.16   // margin around the aperture, as a fraction of it
 
 function cell(id, room) {
@@ -59,7 +63,7 @@ function cell(id, room) {
   // judged unlit — that is the whole reason this sheet exists.
   const lit = !roomIsNightOnly(room)
   const html = ReactDOMServer.renderToStaticMarkup(
-    React.createElement(WeatherFx, { id, lit }))
+    React.createElement(WeatherFx, { id, lit, still: STILL }))
   const file = f => 'file://' + path.join(ROOT, 'public', f).split(path.sep).join('/')
   const artFile = path.join(ROOT, 'public', ART[room] || '')
   const art = fs.existsSync(artFile) ? file(ART[room]) : ''
@@ -83,7 +87,7 @@ for (const id of kinds) {
   for (const room of rooms) body += cell(id, room)
   // the same sky at picker-tile size, which is the other place it ships
   for (const [tw, th] of [[64, 52]]) {
-    const html = ReactDOMServer.renderToStaticMarkup(React.createElement(WeatherFx, { id, plate: true }))
+    const html = ReactDOMServer.renderToStaticMarkup(React.createElement(WeatherFx, { id, plate: true, still: STILL }))
     body += `<div class="cell"><div class="lbl">tile</div>`
       + `<div class="pane tile" style="width:${tw}px;height:${th}px">${html}</div></div>`
   }
