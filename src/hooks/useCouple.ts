@@ -79,6 +79,10 @@ function useCoupleImpl() {
   // True when the last fetchAll hit a Supabase outage that outlasted
   // withRetry's backoff — the focus listener uses it to refetch.
   const loadFailedRef = useRef(false)
+  // The partner read specifically failed, as opposed to returning no rows.
+  // A ref cannot carry this: `isSolo` is computed during render and has to
+  // re-evaluate when the answer changes, so it needs state.
+  const [partnerUnknown, setPartnerUnknown] = useState(false)
 
   // ── Load partner, love meter, anniversary, journal ──
   const fetchAll = useCallback(async () => {
@@ -132,11 +136,20 @@ function useCoupleImpl() {
       .eq('household_id', profile.household_id)
       .neq('id', user.id))
     if (membersError) {
+      // Read FAILED — which is not the same answer as "no partner". Marking
+      // it keeps `isSolo` false until we actually know, because `loading`
+      // flips false here and `partner` is still null, and that combination is
+      // exactly what every solo branch in the app tests for. Before this, one
+      // 503 on this read showed a real couple the whole solo build of the app
+      // until they refocused the tab. `loading` still clears, so pages render
+      // rather than hanging behind a loader for the length of an outage.
       loadFailedRef.current = true
+      setPartnerUnknown(true)
       setLoading(false)
       return
     }
     loadFailedRef.current = false
+    setPartnerUnknown(false)
     const p = members?.[0] ?? null
     setPartner(p)
     setPartnerStreak((p?.streak as StreakData | undefined) ?? null)
@@ -634,10 +647,12 @@ function useCoupleImpl() {
 
   return {
     // A household of one, KNOWN to be so. Deliberately false while the fetch
-    // is still in flight: `partner` is null during loading too, and anything
-    // that persists or pays out (trophy settlement, the battle snapshot) must
-    // not treat a not-yet-loaded couple as solo and settle them against Eren.
-    isSolo: !loading && !partner,
+    // is still in flight AND while the partner read is failing: `partner` is
+    // null in both cases too, and anything that persists or pays out (trophy
+    // settlement, the battle snapshot) must not treat a not-yet-loaded couple
+    // as solo and settle them against Eren. `partnerUnknown` is the outage
+    // half of that — see the bail in fetchAll.
+    isSolo: !loading && !partner && !partnerUnknown,
     partner, partnerStreak,
     loveMeter, anniversary, journal, unreadCount,
     notes, unreadNotes, markNotesRead,
