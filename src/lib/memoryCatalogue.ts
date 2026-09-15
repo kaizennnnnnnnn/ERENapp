@@ -33,7 +33,7 @@ export type FrameKind = 'welcome' | 'first' | 'cumulative' | 'streak' | 'calenda
 /**
  * Frames a household of ONE can never unlock, no matter how long they play.
  *
- * Nine of the sixty, and they are not evenly scattered: five are the `couple`
+ * Nine of the fifty-eight, and they are not evenly scattered: five are the `couple`
  * kind, drawn in their own crown-and-rose art, so as permanent `???` tiles
  * they read as a whole collection tier the player has failed to find rather
  * than one that was never for them.
@@ -334,7 +334,7 @@ export const MEMORY_FRAMES: MemoryFrame[] = [
     art: { icon: 'clock', ...GOLD, badge: '3M' },
     predicate: { type: 'calendar', when: 'app_month_3' } },
   { id: 'app-month-6', kind: 'calendar', rarity: 'rare',
-    title: 'Half a Year', hint: 'six months of looking after him together.',
+    title: 'Half a Year', hint: 'six months of looking after him.',
     art: { icon: 'clock', ...GOLD, badge: '6M' },
     predicate: { type: 'calendar', when: 'app_month_6' } },
   { id: 'app-year-1',  kind: 'calendar', rarity: 'epic',

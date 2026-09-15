@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
+import { useCouple } from '@/hooks/useCouple'
 import {
   type Reminder, type ReminderFire,
   getReminders, createReminder, updateReminder, deleteReminder,
@@ -42,6 +43,7 @@ function formatAgo(iso: string): string {
 }
 
 export default function ReminderSheet({ onClose }: Props) {
+  const { isSolo } = useCouple()
   const supabase = createClient()
   const { user, profile } = useAuth()
 
@@ -357,7 +359,12 @@ export default function ReminderSheet({ onClose }: Props) {
               </div>
             )}
 
-            {/* Private toggle */}
+            {/* Private toggle. Hidden for a household of one: the whole
+                control is "who else sees this", and the off state literally
+                reads "Both partners". `isPrivate` then stays at its initial
+                false, which is what a lone household wants anyway — the row
+                is saved shared and becomes visible if someone ever joins. */}
+            {!isSolo && (
             <div className="flex items-center gap-3">
               <button onClick={() => { playSound('ui_tap'); setIsPrivate(p => !p) }}
                 className="w-10 h-5 relative active:translate-y-[1px] transition-transform flex-shrink-0"
@@ -380,6 +387,7 @@ export default function ReminderSheet({ onClose }: Props) {
                 <p className="text-[9px]" style={{ color: '#8a7a98' }}>{isPrivate ? 'Only you' : 'Both partners'}</p>
               </div>
             </div>
+            )}
 
             <button onClick={() => { playSound('ui_tap'); handleSave() }}
               className="w-full py-2.5 active:translate-y-[1px] transition-transform"

@@ -795,10 +795,13 @@ export default function ProfilePage() {
             <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>SPECIAL DAYS</span>
           </ObsidianChip>
         </div>
-        <div className="grid grid-cols-4 gap-2 mb-3">
+        {/* Solo the HER tile is a permanent – – with no input anywhere below
+            to fill it (the three date fields are yours, Eren's and the
+            anniversary), so it drops out and the row closes to three. */}
+        <div className={`grid gap-2 mb-3 ${isSolo ? 'grid-cols-3' : 'grid-cols-4'}`}>
           {([
             { label: 'YOU',  date: myBirthday,        emoji: '🤎' },
-            { label: 'HER',  date: partner?.birthday ?? '', emoji: '🩷' },
+            ...(isSolo ? [] : [{ label: 'HER',  date: partner?.birthday ?? '', emoji: '🩷' }]),
             { label: 'EREN', date: erenBirthday,      emoji: '🐾' },
             { label: 'US',   date: coupleAnniversary, emoji: '💍' },
           ] as const).map(c => {
@@ -850,8 +853,11 @@ export default function ProfilePage() {
             <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>NOTIFICATIONS</span>
           </ObsidianChip>
         </div>
+        {/* The wish row goes solo: the only person who can grant Eren's wish
+            is you, and the push targets the OTHER household member, so it is
+            a live switch for a notification that cannot arrive. */}
         {([
-          { label: "When the partner grants Eren's wish", value: wishPush,   on: toggleWishPush },
+          ...(isSolo ? [] : [{ label: "When the partner grants Eren's wish", value: wishPush,   on: toggleWishPush }]),
           { label: 'When new memories land on the wall',  value: memoryPush, on: toggleMemoryPush },
           { label: 'Quieter Eren — half the chatter, no memory pushes', value: quietEren, on: toggleQuietEren },
         ] as const).map(row => (

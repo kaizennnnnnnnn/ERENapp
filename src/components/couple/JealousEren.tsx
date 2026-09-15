@@ -36,23 +36,35 @@ const LEADER_LINES = [
   'I think {leader} loves you.',
 ]
 
+// Everything in this bank is safe for a household of one. The "both" line
+// that used to sit here is kept apart below rather than dropped — it is a
+// good line when there really are two people.
 const NEUTRAL_LINES = [
   'Do you care about me?',
-  'I love you both!',
   'I\'m so happy!',
   'I had a dream about salmon.',
   'I saw a bird today. Life is good.',
   'Pet me. This is not a request.',
 ]
 
+const PAIRED_NEUTRAL_LINES = [
+  'I love you both!',
+]
+
 export default function JealousEren() {
   const supabase = createClient()
   const { user, profile } = useAuth()
-  const { partner } = useCouple()
+  const { partner, isSolo } = useCouple()
   const [line, setLine] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!user?.id || !profile?.household_id || !partner?.id || !partner?.name) return
+    // Needs a household, not a partner. Requiring one meant a solo player
+    // never saw this bubble at all — not even the neutral lines that mention
+    // nobody — so a whole ambient feature on the main screen was dead for
+    // them. `isSolo` rather than `!partner`: null during loading would let the
+    // paired bank fire with no name to put in it.
+    if (!user?.id || !profile?.household_id) return
+    if (!isSolo && (!partner?.id || !partner?.name)) return
 
     let cancelled = false
 
@@ -65,6 +77,16 @@ export default function JealousEren() {
 
       // Rare even when eligible.
       if (Math.random() > ROLL_THRESHOLD) return
+
+      // Solo there is no scoreboard to read, so skip the query entirely and
+      // whisper something that needs no second person.
+      if (isSolo) {
+        try { localStorage.setItem(key, new Date().toISOString()) } catch { /* ignore */ }
+        setLine(NEUTRAL_LINES[Math.floor(Math.random() * NEUTRAL_LINES.length)])
+        playSound('ui_modal_open')
+        setTimeout(() => { if (!cancelled) setLine(null) }, VISIBLE_MS)
+        return
+      }
 
       // Today's care interactions, per user.
       const since = new Date()
@@ -88,7 +110,8 @@ export default function JealousEren() {
       // moment, not a personal jab. When the scoreboard is even, fall
       // back to neutral lines so whispers still happen on quiet days.
       const diff = Math.abs(mine - theirs)
-      const pool = diff >= DELTA_FLOOR ? [...NEUTRAL_LINES, ...LEADER_LINES] : NEUTRAL_LINES
+      const neutral = [...NEUTRAL_LINES, ...PAIRED_NEUTRAL_LINES]
+      const pool = diff >= DELTA_FLOOR ? [...neutral, ...LEADER_LINES] : neutral
 
       // Stamp the cooldown only when we actually show — so a roll
       // that didn't fire can be rolled again later.
@@ -107,7 +130,7 @@ export default function JealousEren() {
     // entrance animation before the bubble appears.
     const t = setTimeout(maybeShow, 1800)
     return () => { cancelled = true; clearTimeout(t) }
-  }, [user?.id, profile?.household_id, partner?.id, partner?.name]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, profile?.household_id, partner?.id, partner?.name, isSolo]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!line) return null
 

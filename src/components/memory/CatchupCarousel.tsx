@@ -19,6 +19,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { playSound } from '@/lib/sounds'
 import MemoryFrameCanvas from './MemoryFrameCanvas'
 import { frameById, type MemoryFrame } from '@/lib/memoryCatalogue'
+import { IconPhoto, IconSparkles, IconHeart } from '@/components/PixelIcons'
 
 const FRAMES_TO_SHOW = 6
 
@@ -197,7 +198,11 @@ function SlideBody({ slide }: { slide: Slide }) {
     case 'intro': {
       return (
         <div className="flex flex-col items-center" style={{ gap: 12 }}>
-          <div style={{ fontSize: 32 }}>🩷🤎</div>
+          {/* Was the two heart emoji, which is both an emoji (the app uses
+              PixelIcons everywhere) and a two-person emblem introducing a
+              wall that belongs to the household however many people are
+              in it. The wall is a wall of pictures. */}
+          <IconPhoto size={32} />
           <p style={{
             fontFamily: '"Press Start 2P", monospace', fontSize: 10, color: '#F5C842',
             letterSpacing: 2, textAlign: 'center', textShadow: '0 0 10px rgba(245,200,66,0.5)',
@@ -235,7 +240,7 @@ function SlideBody({ slide }: { slide: Slide }) {
     case 'more': {
       return (
         <div className="flex flex-col items-center" style={{ gap: 12 }}>
-          <p style={{ fontSize: 28 }}>✨</p>
+          <IconSparkles size={28} />
           <p style={{
             fontFamily: '"Press Start 2P", monospace', fontSize: 9, color: '#FFFFFF',
             letterSpacing: 1, textAlign: 'center',
@@ -250,7 +255,7 @@ function SlideBody({ slide }: { slide: Slide }) {
     case 'outro': {
       return (
         <div className="flex flex-col items-center" style={{ gap: 12 }}>
-          <p style={{ fontSize: 24 }}>🩷</p>
+          <IconHeart size={24} />
           <p style={{
             fontFamily: '"Press Start 2P", monospace', fontSize: 9, color: '#FFFFFF',
             letterSpacing: 1, textAlign: 'center',

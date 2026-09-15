@@ -178,7 +178,7 @@ export function BuildScreen({ machine, onBuy }: {
         <p className="text-center text-[11px] px-2" style={{ color: '#8FA6C0' }}>
           Somebody left it in the corner of the Lab with four pieces missing.
           Put them all back and every sky in the game is yours — for good, in
-          any window, for both of you.
+          any window.
         </p>
 
         <span className="font-pixel" style={{ fontSize: 6, letterSpacing: 1.5, color: '#6E86A8' }}>
