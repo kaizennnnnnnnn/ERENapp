@@ -40,6 +40,8 @@ export interface WeatherDef {
   blurb: string
   /** Drives the picker chip and the thumbnail's sky. */
   tone: string
+  /** There is a sun painted in this one. See skyBlockedIn. */
+  sun?: boolean
 }
 
 export const WEATHER: WeatherDef[] = [
@@ -56,11 +58,11 @@ export const WEATHER: WeatherDef[] = [
     blurb: 'Fat slow flakes, and the light going pale and blue.',
   },
   {
-    id: 'sunrise', name: 'Sunrise', tone: '#FFB56B',
+    id: 'sunrise', name: 'Sunrise', tone: '#FFB56B', sun: true,
     blurb: 'A low gold sun coming up, warming the whole pane.',
   },
   {
-    id: 'sunset', name: 'Sunset', tone: '#FF7E6B',
+    id: 'sunset', name: 'Sunset', tone: '#FF7E6B', sun: true,
     blurb: 'Orange going to rose going to violet, and then it is evening.',
   },
   {
@@ -95,4 +97,40 @@ export const WEATHER_BY_ID: Record<WeatherId, WeatherDef> =
 export function weatherDef(id: string | null | undefined): WeatherDef | null {
   if (!id) return null
   return WEATHER_BY_ID[id as WeatherId] ?? null
+}
+
+// ─── Where a sky may hang ────────────────────────────────────────────────────
+// Almost anywhere. Rain, snow and petals are semi-transparent washes laid over
+// whatever the artist painted, so they sit correctly over an afternoon and over
+// a midnight alike. The two SUN skies are not: sunrise and sunset paint a graded
+// sky at 0.92 opacity with a disc travelling through it, i.e. they replace the
+// sky rather than tint it.
+//
+// The bedroom is the one room with no day picture at all. SleepScene mounts
+// RoomWeather with `dark` hard-coded true and roomWindows points its night cut
+// back at its day cut, because the room was painted after dark — lamp lit,
+// crescent moon in the arch. A sunset in that window is a sun setting behind a
+// moon, which is why it looked wrong rather than merely bright.
+//
+// So the rule is one property of the SKY crossed with one property of the ROOM,
+// and it lives here rather than in the picker because the picker is not the only
+// thing that has to obey it: a map saved before the rule existed still has a
+// sunset on the bedroom, and RoomWeather has to refuse to draw that too.
+
+/** Rooms whose art is painted after dark and never lights up. */
+export const NIGHT_ONLY_ROOMS: readonly string[] = ['sleep']
+
+export function roomIsNightOnly(room: string): boolean {
+  return NIGHT_ONLY_ROOMS.includes(room)
+}
+
+/**
+ * Why this sky cannot hang in this window, or null if it can. Returns the
+ * REASON rather than a boolean so the one sentence the player reads lives next
+ * to the rule that produced it and the two cannot drift apart.
+ */
+export function skyBlockedIn(room: string, id: string | null | undefined): string | null {
+  const def = weatherDef(id)
+  if (!def || !def.sun || !roomIsNightOnly(room)) return null
+  return 'No sun in here - this room is always night.'
 }

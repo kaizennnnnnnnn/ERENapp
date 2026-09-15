@@ -38,7 +38,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { ROOM_WINDOWS } from '@/lib/roomWindows'
-import { weatherDef, type WeatherId } from '@/lib/weather'
+import { weatherDef, skyBlockedIn, type WeatherId } from '@/lib/weather'
 import WeatherFx from './WeatherFx'
 
 export default memo(function RoomWeather({ room, dark, z = 0 }: {
@@ -65,6 +65,11 @@ export default memo(function RoomWeather({ room, dark, z = 0 }: {
 
   // `clear` is the absence of a layer, not a layer.
   if (!win || !def || def.id === 'clear') return null
+  // A map saved before the night-only rule existed still names a sunset for the
+  // bedroom. The picker will not offer that again, but this is the line that
+  // takes it out of the window that already has one — without it the rule would
+  // only apply to households that happen to open the machine again.
+  if (skyBlockedIn(room, def.id)) return null
   const cut = dark ? win.night : win.day
   if (!cut) return null
 
