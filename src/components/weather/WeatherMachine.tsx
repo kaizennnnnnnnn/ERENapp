@@ -293,7 +293,11 @@ export function PartGlyph({ part, lit, size = 26 }: {
       {part.id === 'coil' && (
         <span style={{
           position: 'absolute', left: s(8), top: s(2), width: s(10), height: s(22),
-          background: 'linear-gradient(180deg, #FFD79A 0%, #FF9E3D 55%, #C2521A 100%)',
+          // Wound copper, matching the tube on the prop. This used to be the
+          // old cream-to-rust ramp, so the row showed a different object from
+          // the one the purchase actually bolts on.
+          background: `repeating-linear-gradient(162deg,
+            #5E2A11 0 2px, #C8761F 2px 4px, #7E3A14 4px 6px)`,
           border: `2px solid ${ink}`, borderRadius: s(4),
         }} />
       )}
@@ -313,15 +317,22 @@ export function PartGlyph({ part, lit, size = 26 }: {
       )}
       {part.id === 'dish' && (
         <>
+          {/* A flat ELLIPSE with a feed horn standing off it, which is what
+              the prop draws. The dome-on-a-stick this used to be read as a
+              mushroom, and it was a different object from the one the card
+              sells. */}
           <span style={{
-            position: 'absolute', left: s(1), top: s(4), width: s(24), height: s(13),
+            position: 'absolute', left: s(1), top: s(5), width: s(24), height: s(10),
             background: 'linear-gradient(180deg, #8FA6C4 0%, #55668A 60%, #2B3550 100%)',
-            border: `2px solid ${ink}`,
-            borderRadius: '50% 50% 12% 12% / 78% 78% 22% 22%',
+            border: `2px solid ${ink}`, borderRadius: '50%',
           }} />
           <span style={{
-            position: 'absolute', left: '50%', top: s(15), marginLeft: -2,
-            width: 4, height: s(9), background: '#2A3145', border: `1px solid ${ink}`,
+            position: 'absolute', left: '50%', top: s(13), marginLeft: -2,
+            width: 4, height: s(11), background: '#2A3145', border: `1px solid ${ink}`,
+          }} />
+          <span style={{
+            position: 'absolute', left: s(11), top: s(2), width: s(5), height: s(4),
+            background: '#E8C88A', border: `1px solid ${ink}`, borderRadius: 1,
           }} />
         </>
       )}

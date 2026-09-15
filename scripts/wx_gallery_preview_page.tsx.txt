@@ -1,0 +1,74 @@
+// Screenshot harness, parked as .txt so it is not part of the build.
+// Drop it back at src/app/wxgal/page.tsx while `npm run dev` is up, then
+// `node scripts/shoot_wxgal.js scripts/<prefix>`. It covers every build
+// state, the out-of-order build, night, and all three sizes the art ships
+// at (1x room / 1.55x build-screen hero / 0.76x shop thumbnail).
+// The .legal-page class on the root lifts globals.css's 430px desktop
+// phone frame, without which the wide rows are clipped to ~398px.
+
+'use client'
+// THROWAWAY gallery harness for the weather machine art. Outside (app).
+import { MachineArt, MACHINE_W, MACHINE_H } from '@/components/weather/WeatherMachineProp'
+import { MACHINE_PARTS, type MachinePartId } from '@/lib/weatherMachine'
+
+const ORDER: MachinePartId[] = MACHINE_PARTS.map(p => p.id)
+const PAD = 30 // room above the box for the tag's overhang
+
+function Cell({ n, z, night, sky, label, order }: {
+  n: number; z: number; night?: boolean; sky?: string; label: string; order?: MachinePartId[]
+}) {
+  const owned = new Set((order ?? ORDER).slice(0, n))
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+      <div style={{
+        position: 'relative',
+        width: MACHINE_W * z, height: (MACHINE_H + PAD) * z,
+        background: night
+          ? 'linear-gradient(180deg,#241a2e 0%,#3a2a1c 100%)'
+          : 'linear-gradient(180deg,#6b4a2a 0%,#c9974f 100%)',
+      }}>
+        <div style={{
+          position: 'absolute', left: 0, top: PAD * z,
+          width: MACHINE_W, height: MACHINE_H,
+          transform: `scale(${z})`, transformOrigin: 'top left',
+        }}>
+          <MachineArt installed={n} total={4} has={p => owned.has(p)}
+            sky={(sky ?? 'clear') as never} dark={night} />
+        </div>
+      </div>
+      <span style={{ font: '11px monospace', color: '#cbd5e1' }}>{label}</span>
+    </div>
+  )
+}
+
+export default function Gal() {
+  // .legal-page lifts globals.css's 430px desktop phone frame (the
+  // :has(.legal-page) rules) so the wide rows are not clipped.
+  return (
+    <div className="legal-page" style={{ minHeight: '100vh', background: '#141019', padding: 16 }}>
+      <div id="zoom" style={{ display: 'flex', gap: 12, alignItems: 'flex-end', width: 'max-content' }}>
+        <Cell n={0} z={3} label="0/4 husk" />
+        <Cell n={1} z={3} label="1/4 coil" />
+        <Cell n={2} z={3} label="2/4 +gauge" />
+        <Cell n={3} z={3} label="3/4 +dish" />
+        <Cell n={4} z={3} label="4/4 built" />
+      </div>
+      <div id="skies" style={{ display: 'flex', gap: 12, marginTop: 16, alignItems: 'flex-end', width: 'max-content' }}>
+        <Cell n={4} z={3} sky="rain" label="built rain" />
+        <Cell n={4} z={3} sky="snow" label="built snow" />
+        <Cell n={4} z={3} sky="aurora" night label="aurora night" />
+        <Cell n={0} z={3} night label="0/4 night" />
+        <Cell n={2} z={3} order={['dish','lever','coil','gauge']} label="2/4 dish+lever first" />
+      </div>
+      {/* The three sizes this art actually ships at: 1x in the room, 1.55x as
+          the build-screen hero, 0.76x as the shop card thumbnail. */}
+      <div id="real" style={{ display: 'flex', gap: 12, marginTop: 16, alignItems: 'flex-end', width: 'max-content' }}>
+        {[0,1,2,3,4].map(n => <Cell key={n} n={n} z={1} label={`${n}/4 @1x room`} />)}
+        <Cell n={0} z={1.55} label="0/4 @1.55x hero" />
+        <Cell n={4} z={1.55} label="4/4 @1.55x hero" />
+        <Cell n={0} z={0.76} label="0/4 @0.76x thumb" />
+        <Cell n={4} z={0.76} label="4/4 @0.76x thumb" />
+      </div>
+    </div>
+  )
+}

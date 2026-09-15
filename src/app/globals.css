@@ -947,12 +947,16 @@
    from a React inline `style`, which is the trap that ate the arcade's
    animations once already. */
 
-/* The roof dish turning to sweep the sky. scaleX, not rotate: a parabola seen
-   edge-on IS a thin ellipse, so squashing it reads as a 3D turn at 30px in a
-   way an in-plane spin never does. */
+/* The dish AIMING, not inflating. This was scaleX(1) -> scaleX(0.35), which
+   squashed the bowl across 28px of a 100px box on a 9s loop: the loudest motion
+   on the prop, and it caught every screenshot mid-squash, which is why the dish
+   photographed as a 17px lozenge rather than the 44px ellipse the code
+   specifies. It also scaled the bowl's 2px ink border down to 0.7px, so what
+   actually animated was the outline's WEIGHT. A small step-rotation about the
+   roof mount costs less and reads as a thing hunting for a signal. */
 @keyframes wxDish {
-  0%, 100% { transform: scaleX(1); }
-  50%      { transform: scaleX(0.35); }
+  0%, 100% { transform: rotate(-5deg); }
+  50%      { transform: rotate(5deg);  }
 }
 /* The brass needle never settling, which is the whole joke of a barometer. */
 @keyframes wxNeedle {
@@ -961,10 +965,14 @@
   62%      { transform: rotate(-8deg);  }
   80%      { transform: rotate(41deg);  }
 }
-/* Something warm going up the coil. */
+/* Heat travelling UP the winding. The old pair was an ease-in-out opacity ramp
+   0.45<->1, i.e. the smooth cross-fade the house style bans, and it made the
+   coil pulse in brightness rather than move. This translates by exactly one
+   turn (6px) so the pattern loops seamlessly; the bar is overdrawn by one pitch
+   at the top and clipped by the housing's overflow:hidden. */
 @keyframes wxCoil {
-  0%, 100% { opacity: 0.45; transform: translateY(2px); }
-  50%      { opacity: 1;    transform: translateY(-2px); }
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(-6px); }
 }
 /* A carrier band crawling down a screen that has power but nothing to show. */
 @keyframes wxWarm {
@@ -976,26 +984,42 @@
   0%, 62%, 100% { opacity: 1; }
   72%           { opacity: 0.25; }
 }
-/* The "there is something to do here" tag over an unfinished machine. */
+/* The "there is something to do here" tag. A hard two-frame BLINK, not the
+   2.2s ease-in-out breathe it was: that dragged the tag's gold border and its
+   hard shadow down with it, so a solid metal plate went translucent on a timer
+   and the floorboards showed through it. Opacity rather than transform, because
+   the tag's own translate(-50%,-100%) centring would be clobbered. */
 @keyframes wxTag {
-  0%, 100% { opacity: 0.62; }
-  50%      { opacity: 1; }
+  0%, 88%, 100% { opacity: 1; }
+  91%, 95%      { opacity: 0.3; }
 }
-/* A finished machine is never quite still. Half a pixel, on a slow count. */
+/* UNUSED as of this pass - the class is off the body. translateY(0.5px) sat on
+   the parent of a 3px ink border, 6px pixel type and four rivets: half a pixel
+   is not perceived as motion at 1x, it resamples the whole subtree off the
+   device-pixel grid, so the FINISHED machine's outline and the word READY went
+   soft for half of every cycle while the husk stayed crisp. Left defined at a
+   WHOLE pixel in case an idle hum is wanted back; at 1px it is a snap, which is
+   the house convention. */
 @keyframes wxThrum {
   0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(0.5px); }
+  50%      { transform: translateY(1px); }
 }
 
-.wx-dish   { animation: wxDish 9s steps(10) infinite; }
-.wx-needle { animation: wxNeedle 6.5s steps(7) infinite; }
-.wx-coil   { animation: wxCoil 2.4s ease-in-out infinite; }
-.wx-warm   { animation: wxWarm 3.6s linear infinite; }
-.wx-lamp   { animation: wxLamp 3.4s ease-in-out infinite; }
-.wx-tag    { animation: wxTag 2.2s ease-in-out infinite; }
-.wx-thrum  { animation: wxThrum 2.8s steps(2) infinite; }
+/* ONE BEAT. The periods used to be 9 / 6.5 / 2.4 / 3.6 / 3.4 / 2.2 / 2.8s -
+   near-mutually-prime, so nothing on the machine ever happened WITH anything
+   else and the prop read as a bag of independent twitches rather than as one
+   engine running. Every period below is now a whole multiple of 1.6s. */
+.wx-dish   { animation: wxDish 9.6s steps(8) infinite; }        /* 6 beats */
+.wx-needle { animation: wxNeedle 6.4s steps(7) infinite; }      /* 4 beats */
+.wx-coil   { animation: wxCoil 3.2s linear infinite; }          /* 2 beats */
+.wx-warm   { animation: wxWarm 3.2s linear infinite; }          /* 2 beats */
+.wx-lamp   { animation: wxLamp 3.2s ease-in-out infinite; }     /* 2 beats */
+.wx-tag    { animation: wxTag 4.8s steps(1, end) infinite; }    /* 3 beats */
 
 @media (prefers-reduced-motion: reduce) {
+  /* Every element's inline base style is its best RESTING frame rather than
+     keyframe zero, so switching these off leaves a still machine and not a
+     broken one: the needle parks at -8deg, the dish face-on, the tag lit. */
   .wx-dish, .wx-needle, .wx-coil, .wx-warm,
   .wx-lamp, .wx-tag, .wx-thrum { animation: none; }
 }

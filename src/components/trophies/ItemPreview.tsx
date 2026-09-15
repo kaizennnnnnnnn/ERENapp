@@ -49,14 +49,21 @@ export function MachinePartThumb({ item, width = 76 }: {
         {/* the husk, right down at the back */}
         <span style={{ position: 'absolute', inset: 0, opacity: 0.3 }}>
           <MachineArt installed={0} total={MACHINE_PARTS.length}
-            has={() => false} sky="clear" reduced />
+            has={() => false} sky="clear" reduced ghost />
         </span>
-        {/* this part, and only this part, lit */}
+        {/* This part, and only this part, lit. `ghost` on BOTH layers because a
+            part card is a statement about the PART, not about how many parts
+            the household owns: without it the two stacked copies double-struck
+            their tags into a gold smear, "0/4" ghosted under "1/4", and on the
+            DISH card the lit tag rode above y=0 and was clipped off entirely by
+            the 76px overflow:hidden box. At 0.76x that type was 4.2px anyway,
+            which is under the legibility floor for Press Start 2P. */}
         <MachineArt
           installed={1}
           total={MACHINE_PARTS.length}
           has={pid => pid === item.part}
           sky="clear"
+          ghost
         />
       </div>
     </div>
