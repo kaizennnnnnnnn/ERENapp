@@ -555,7 +555,11 @@ export function MachineArt({
             : 'inset 0 0 6px rgba(0,0,0,0.95)',
         }}>
           {built ? (
-            <WeatherFx id={sky} still={reduced} />
+            /* `lit` matters here for the same reason it does in the room:
+               this little screen is a MIRROR of the Lab's own window, and an
+               aurora that paints midnight on it while the Lab is in daylight
+               reads as a fault in the machine. */
+            <WeatherFx id={sky} still={reduced} lit={!dark} plate />
           ) : receiving ? (
             /* powered and tuned: a flat horizon and a carrier band crawling
                down it */

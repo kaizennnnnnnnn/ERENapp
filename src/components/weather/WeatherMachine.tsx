@@ -404,14 +404,25 @@ function PickerScreen() {
   // the panel; it was also the only surface that never asked whether the user
   // wanted motion at all.
   const reduced = useReducedMotion()
+  return <PickerView weather={cos.weather} onSave={cos.saveWeather} reduced={reduced} />
+}
+
+// The picker with its two dependencies handed to it rather than read from
+// Supabase, so a throwaway preview route can render it at any state without a
+// session — same reason BuildScreen is exported.
+export function PickerView({ weather: live, onSave, reduced }: {
+  weather: Record<string, string>
+  onSave(next: Record<string, string>): Promise<boolean>
+  reduced?: boolean
+}) {
   const [room, setRoom] = useState<string>(WEATHER_ROOMS[0].room)
 
   // null = following the household. Non-null = my unsaved edit of it.
   const [draft, setDraft] = useState<Record<string, string> | null>(null)
   const [save, setSave] = useState<SaveState>('idle')
 
-  const map = draft ?? cos.weather
-  const dirty = draft !== null && !sameMap(draft, cos.weather)
+  const map = draft ?? live
+  const dirty = draft !== null && !sameMap(draft, live)
   const current = (map[room] ?? 'clear') as WeatherId
 
   function edit(next: Record<string, string>) {
@@ -437,7 +448,7 @@ function PickerScreen() {
   async function commit() {
     if (!dirty || save === 'saving') return
     setSave('saving')
-    const ok = await cos.saveWeather(draft ?? {})
+    const ok = await onSave(draft ?? {})
     if (ok) {
       playSound('level_up')
       setDraft(null)
@@ -460,7 +471,7 @@ function PickerScreen() {
           {WEATHER_ROOMS.map(r => {
             const on = r.room === room
             const sky = (map[r.room] ?? 'clear') as WeatherId
-            const changed = (map[r.room] ?? '') !== (cos.weather[r.room] ?? '')
+            const changed = (map[r.room] ?? '') !== (live[r.room] ?? '')
             return (
               <button key={r.room}
                 onClick={() => { playSound('ui_tap'); setRoom(r.room) }}
@@ -477,7 +488,7 @@ function PickerScreen() {
                   height: 26, containerType: 'size',
                   background: '#0A0F1E', border: '1px solid #05070E',
                 }}>
-                  <WeatherFx id={sky} still={reduced} />
+                  <WeatherFx id={sky} still={reduced} plate />
                 </span>
                 <span className="font-pixel truncate max-w-[64px]" style={{
                   fontSize: 5, letterSpacing: 0.5, color: on ? '#DCEEFF' : '#7E90A8',
@@ -516,7 +527,7 @@ function PickerScreen() {
                   height: 52, containerType: 'size',
                   background: '#0A0F1E', border: '1px solid #05070E', borderRadius: 2,
                 }}>
-                  <WeatherFx id={w.id} still={reduced} />
+                  <WeatherFx id={w.id} still={reduced} plate />
                 </span>
                 <span className="font-pixel truncate" style={{
                   fontSize: 6, letterSpacing: 0.5, color: w.tone,

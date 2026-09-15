@@ -34,9 +34,36 @@ function hash(n: number): number {
 }
 const r2 = (n: number) => Math.round(n * 100) / 100
 
+// ─── A ROOM IS NOT A SWATCH ──────────────────────────────────────────────────
+// The same component ships into two places that want opposite things.
+//
+// In a ROOM there is a PAINTING behind this pane — a treeline, a mountain, a
+// moon, a lit lamp on the sill — and the weather's job is to happen in front of
+// it. A wash heavy enough to set its own colour is a blind pulled down over the
+// artwork: snow turned the living room into a milk-white rectangle with the
+// trees gone, and rain flattened the kitchen to one grey. So in a room every
+// effect only TINTS, lightly, and the painting keeps its shapes.
+//
+// On a SWATCH — a picker tile, the machine's own little screen — there is
+// nothing behind the pane at all, so the same effect has to paint the sky too,
+// or the tile is an empty box (which is exactly what the two meteor tiles were).
+// That is `plate`, and it is the whole difference between the two.
+//
+// Why not a blend mode, which is what this obviously wants: the effect box is
+// `container-type: size`, which contains layout and style and therefore opens
+// its own stacking context, and the room art is painted OUTSIDE it, far up the
+// tree. A `mixBlendMode: multiply` in here has a transparent backdrop to blend
+// with and composites as if it were normal. Alpha is the tool that actually
+// reaches the painting.
+
 interface FxProps {
   /** Reduced motion: paint the sky, hold everything still. */
   still?: boolean
+  /**
+   * There is NO painting behind this pane, so paint the sky as well as the
+   * weather. See the note above FxProps.
+   */
+  plate?: boolean
   /**
    * The ROOM around this window is in daylight. The night skies that paint
    * their own sky — aurora and fireflies — paint an evening instead of a
@@ -264,19 +291,23 @@ function GlassDrops({ n, still }: { n: number; still: boolean }) {
   )
 }
 
-function Rain({ still, heavy }: FxProps & { heavy?: boolean }) {
+function Rain({ still, heavy, plate }: FxProps & { heavy?: boolean }) {
   const passes = heavy ? RAIN_HEAVY : RAIN_LIGHT
   return (
     <>
+      {/* The overcast a swatch has to supply for itself. */}
+      {plate && <Wash background={heavy
+        ? 'linear-gradient(180deg, #171E38 0%, #2A3454 56%, #3D4768 100%)'
+        : 'linear-gradient(180deg, #47536D 0%, #6C7892 100%)'} />}
+      {/* What it does to the light in a room. A storm genuinely darkens one —
+          a flash needs something to be brighter THAN — so that one is allowed
+          to be strong, and at 0.74 it still leaves the treeline and the
+          mountain readable through it — a storm was never the complaint. Rain
+          was: flat at 0.78 it was not weather over a window but a blind pulled
+          down over it, and the kitchen went to a single grey. */}
       <Wash background={heavy
-        // The storm sky is genuinely dark, because a flash needs something to
-        // be brighter THAN. The old one sat at half-light, so every strike
-        // just turned the pane grey.
-        ? 'linear-gradient(180deg, rgba(24,30,54,0.76) 0%, rgba(42,52,82,0.64) 56%, rgba(60,70,98,0.52) 100%)'
-        // Overcast, not hazy. The wash sits over the bright afternoon the
-        // artist painted, and at the old alphas the pane still read as a blue
-        // sky with a few scratches on it.
-        : 'linear-gradient(180deg, rgba(58,70,100,0.78) 0%, rgba(92,104,132,0.68) 100%)'} />
+        ? 'linear-gradient(180deg, rgba(20,26,50,0.74) 0%, rgba(38,48,78,0.62) 56%, rgba(56,66,94,0.5) 100%)'
+        : 'linear-gradient(180deg, rgba(46,58,90,0.45) 0%, rgba(78,90,118,0.34) 100%)'} />
 
       {passes.map((p, i) => <RainPassLayer key={i} spec={p} still={!!still} />)}
       <RainSplashes n={heavy ? 10 : 6} still={!!still} />
@@ -455,10 +486,10 @@ function Strike({ shape, anim, cycle, frozen, still }: {
   )
 }
 
-function Storm({ still }: FxProps) {
+function Storm({ still, plate }: FxProps) {
   return (
     <>
-      <Rain still={still} heavy />
+      <Rain still={still} plate={plate} heavy />
       <Strike shape={BOLT_A} anim="wxStrikeA" cycle={7.3} frozen still={!!still} />
       <Strike shape={BOLT_B} anim="wxStrikeB" cycle={11.9} frozen={false} still={!!still} />
       <style>{`
@@ -487,10 +518,16 @@ function Storm({ still }: FxProps) {
 
 // ─── Snow ────────────────────────────────────────────────────────────────────
 
-function Snow({ still }: FxProps) {
+function Snow({ still, plate }: FxProps) {
   return (
     <>
-      <Wash background="linear-gradient(180deg, rgba(196,214,240,0.5) 0%, rgba(228,238,252,0.42) 100%)" />
+      {/* NOTHING over a room. Snow does not paint the world white; it falls
+          THROUGH it, and the treeline it falls past is the only reason a white
+          dot reads as a flake rather than as dust on the screen. The wash that
+          used to be here was pale at half alpha, so every window it landed in
+          became a rectangle of milk with the painting behind it gone. A swatch
+          has no painting to fall past, so it still gets a winter sky. */}
+      {plate && <Wash background="linear-gradient(180deg, #7E92B4 0%, #B6C7E1 100%)" />}
       {Array.from({ length: 22 }, (_, i) => {
         const s = i * 11
         const size = 1.3 + hash(s) * 2.4
@@ -529,14 +566,24 @@ function Snow({ still }: FxProps) {
 // The same machine pointed two ways: a disc that travels, a graded sky and a
 // bloom. Sunrise climbs and warms; sunset sinks and goes violet.
 
-function Sun({ still, dusk }: FxProps & { dusk?: boolean }) {
+function Sun({ still, dusk, plate }: FxProps & { dusk?: boolean }) {
   const sky = dusk
     ? 'linear-gradient(180deg, #4A2A63 0%, #A8496B 32%, #F0784E 62%, #FFB055 84%, #FFD79A 100%)'
     : 'linear-gradient(180deg, #7EA9D8 0%, #F5B77E 52%, #FFD79A 78%, #FFF0CC 100%)'
+  // The same sky in transparent form, for a window that already has a painting
+  // in it. The old one sat at 0.92 and simply replaced the view: sunrise turned
+  // the living room into a beige haze with the trees dissolved in it. Saturated
+  // and around half strength turns the painted afternoon golden instead of
+  // erasing it — and the pale top end is gone, because the near-white was what
+  // made it read as milk rather than as light.
+  const tint = dusk
+    ? 'linear-gradient(180deg, rgba(74,42,99,0.64) 0%, rgba(168,73,107,0.62) 32%, rgba(240,120,78,0.6) 62%, rgba(255,176,85,0.52) 100%)'
+    : 'linear-gradient(180deg, rgba(74,112,176,0.5) 0%, rgba(228,138,64,0.6) 50%, rgba(255,172,80,0.56) 100%)'
   const disc = dusk ? '#FF8A4C' : '#FFE39A'
   return (
     <>
-      <Wash background={sky} opacity={0.92} />
+      {plate && <Wash background={sky} />}
+      <Wash background={tint} />
       <span style={{
         position: 'absolute',
         left: dusk ? '58%' : '34%',
@@ -569,10 +616,13 @@ function Sun({ still, dusk }: FxProps & { dusk?: boolean }) {
 
 // ─── Petals ──────────────────────────────────────────────────────────────────
 
-function Petals({ still }: FxProps) {
+function Petals({ still, plate }: FxProps) {
   return (
     <>
-      <Wash background="linear-gradient(180deg, rgba(255,226,240,0.34) 0%, rgba(255,244,248,0.2) 100%)" />
+      {plate && <Wash background="linear-gradient(180deg, #8FB8E2 0%, #D8E8F6 58%, #F6E4EC 100%)" />}
+      {/* A blush, not a fog. Pink over a painted afternoon at anything heavier
+          than this greys the trees out on its way to looking like spring. */}
+      <Wash background="linear-gradient(180deg, rgba(255,214,234,0.2) 0%, rgba(255,242,247,0.1) 100%)" />
       {Array.from({ length: 18 }, (_, i) => {
         const s = i * 17
         const size = 1.6 + hash(s) * 2.2
@@ -614,13 +664,17 @@ function Petals({ still }: FxProps) {
 
 // ─── Fireflies ───────────────────────────────────────────────────────────────
 
-function Fireflies({ still, lit }: FxProps) {
+function Fireflies({ still, lit, plate }: FxProps) {
+  const dusk = lit
+    ? 'linear-gradient(180deg, #3B4A7B 0%, #56608B 46%, #75697F 78%, #937486 100%)'
+    : 'linear-gradient(180deg, #23305C 0%, #35406A 46%, #4E4A6B 78%, #6B5670 100%)'
   return (
     <>
-      <Wash background={lit
-        ? 'linear-gradient(180deg, #3B4A7B 0%, #56608B 46%, #75697F 78%, #937486 100%)'
-        : 'linear-gradient(180deg, #23305C 0%, #35406A 46%, #4E4A6B 78%, #6B5670 100%)'}
-        opacity={lit ? 0.84 : 0.9} />
+      {plate && <Wash background={dusk} />}
+      {/* This one has to carry the room from afternoon to dusk, so it is the
+          heaviest tint here — but still a tint: the treeline and the mountain
+          go blue and stay there rather than disappearing into a flat panel. */}
+      <Wash background={dusk} opacity={lit ? 0.64 : 0.72} />
       {Array.from({ length: 16 }, (_, i) => {
         const s = i * 23
         const size = 0.9 + hash(s) * 1.5
@@ -729,7 +783,7 @@ function Stars({ n = 20, seed = 0, still }: { n?: number; seed?: number; still?:
 //   cut, that put a midnight pane directly above a sunlit one in the same
 //   window. So the sky is whatever the room already shows, and the only thing
 //   added is the meteors.
-function Meteors({ still, tone }: FxProps & { tone: 'gold' | 'rose' }) {
+function Meteors({ still, tone, plate }: FxProps & { tone: 'gold' | 'rose' }) {
   const gold = tone === 'gold'
   const head = gold ? '#FFFBEA' : '#FFEAF5'
   const mid = gold ? 'rgba(255,206,107,0.95)' : 'rgba(255,150,205,0.95)'
@@ -738,6 +792,17 @@ function Meteors({ still, tone }: FxProps & { tone: 'gold' | 'rose' }) {
   const seed = gold ? 0 : 91
   return (
     <>
+      {/* In a ROOM this effect is already the model the others were just made
+          to follow: the streaks cross the sky the artist painted and nothing
+          else about the window changes. On a SWATCH that left nothing at all —
+          the two meteor tiles in the picker were empty boxes with one faint
+          scratch in them — so here is the night they need to cross. */}
+      {plate && (
+        <>
+          <Wash background="linear-gradient(180deg, #060C20 0%, #0E1634 58%, #1A2246 100%)" />
+          <Stars n={15} seed={gold ? 300 : 420} still={still} />
+        </>
+      )}
       {Array.from({ length: 14 }, (_, i) => {
         const s = i * 29 + seed
         // The arc of a radiant off the top-left: every streak leans the same
@@ -832,7 +897,10 @@ function Meteors({ still, tone }: FxProps & { tone: 'gold' | 'rose' }) {
   )
 }
 
-function Aurora({ still, lit }: FxProps) {
+function Aurora({ still, lit, plate }: FxProps) {
+  const night = lit
+    ? 'linear-gradient(180deg, #142450 0%, #1E3167 60%, #2A3F78 100%)'
+    : 'linear-gradient(180deg, #06102A 0%, #0C1A3C 60%, #142449 100%)'
   const bands = [
     { hue: 'rgba(99,240,192,0.55)', x: 8, w: 34, dur: 15 },
     { hue: 'rgba(120,180,255,0.45)', x: 30, w: 40, dur: 19 },
@@ -840,10 +908,10 @@ function Aurora({ still, lit }: FxProps) {
   ]
   return (
     <>
-      <Wash background={lit
-        ? 'linear-gradient(180deg, #142450 0%, #1E3167 60%, #2A3F78 100%)'
-        : 'linear-gradient(180deg, #06102A 0%, #0C1A3C 60%, #142449 100%)'}
-        opacity={lit ? 0.9 : 0.96} />
+      {plate && <Wash background={night} />}
+      {/* Deep, because an aurora is a night sky and the stars below have to
+          have somewhere to be — but the painting still shows through it. */}
+      <Wash background={night} opacity={lit ? 0.72 : 0.82} />
       <Stars n={lit ? 11 : 18} seed={800} still={still} />
       {bands.map((b, i) => (
         <span key={i} style={{
@@ -871,24 +939,28 @@ function Aurora({ still, lit }: FxProps) {
 
 // ─── The switch ──────────────────────────────────────────────────────────────
 
-export default memo(function WeatherFx({ id, still, lit }: {
+export default memo(function WeatherFx({ id, still, lit, plate }: {
   id: WeatherId
   still?: boolean
   /** The room around this window is in daylight — see FxProps. */
   lit?: boolean
+  /** Nothing is painted behind this pane, so paint the sky too — see FxProps. */
+  plate?: boolean
 }) {
   switch (id) {
+    // Clear is the painting itself, so it is a swatch sky and nothing else —
+    // RoomWeather never renders it.
     case 'clear':        return <Clear still={still} />
-    case 'rain':         return <Rain still={still} />
-    case 'storm':        return <Storm still={still} />
-    case 'snow':         return <Snow still={still} />
-    case 'sunrise':      return <Sun still={still} />
-    case 'sunset':       return <Sun still={still} dusk />
-    case 'petals':       return <Petals still={still} />
-    case 'fireflies':    return <Fireflies still={still} lit={lit} />
-    case 'meteors_gold': return <Meteors still={still} tone="gold" />
-    case 'meteors_rose': return <Meteors still={still} tone="rose" />
-    case 'aurora':       return <Aurora still={still} lit={lit} />
+    case 'rain':         return <Rain still={still} plate={plate} />
+    case 'storm':        return <Storm still={still} plate={plate} />
+    case 'snow':         return <Snow still={still} plate={plate} />
+    case 'sunrise':      return <Sun still={still} plate={plate} />
+    case 'sunset':       return <Sun still={still} plate={plate} dusk />
+    case 'petals':       return <Petals still={still} plate={plate} />
+    case 'fireflies':    return <Fireflies still={still} lit={lit} plate={plate} />
+    case 'meteors_gold': return <Meteors still={still} tone="gold" plate={plate} />
+    case 'meteors_rose': return <Meteors still={still} tone="rose" plate={plate} />
+    case 'aurora':       return <Aurora still={still} lit={lit} plate={plate} />
     default:             return null
   }
 })
