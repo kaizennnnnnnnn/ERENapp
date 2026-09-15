@@ -71,9 +71,24 @@ export function computeLoveMeter(
   const weekStart = startOfWeek().toISOString()
   const recent = interactions.filter(i => i.created_at >= weekStart)
 
+  // Scored by exactly the rules `score()` in battleResults settles by, because
+  // this is the live face of that same contest and the two disagreed:
+  //
+  //   `useful === false` is set by useErenStats for an action taken on a stat
+  //   that was already near full, and its own comment says it exists to keep
+  //   "the partner-competition meter from being gamed by spamming maxed
+  //   stats". This IS that meter, and it was the one place not reading the
+  //   flag — so the bar could be run up with feeds at 92 that Monday then
+  //   refused to count.
+  //
+  //   An unknown action_type scored 1 here (`?? 1`) and 0 there. Every current
+  //   ActionType is in the map, so this was latent rather than live, but it is
+  //   the same divergence and it goes the same way.
   let s1 = 0, s2 = 0
   for (const i of recent) {
-    const pts = ACTION_POINTS[i.action_type] ?? 1
+    if (i.useful === false) continue
+    const pts = ACTION_POINTS[i.action_type]
+    if (pts == null) continue
     if (i.user_id === user1Id) s1 += pts
     else if (i.user_id === user2Id) s2 += pts
   }
