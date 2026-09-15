@@ -1,6 +1,7 @@
 import type { AchievementId, AchievementMap, StreakData, ErenStats, GameType } from '@/types'
 import { CARE_TASK_IDS, getDailyKey } from '@/lib/tasks'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { PLAYABLE_MINIGAME_IDS } from '@/lib/minigames'
 
 // ─── Streak logic ─────────────────────────────────────────────────────────────
 
@@ -240,10 +241,11 @@ const checkers: Record<AchievementId, Checker> = {
   },
 
   async all_games(ctx, supabase) {
-    const ALL_GAME_TYPES: GameType[] = [
-      'catch_mouse', 'paw_tap', 'memory_match', 'treat_tumble', 'flappy_eren',
-      'tic_tac_toe', 'eren_stack', 'yarn_pop', 'eren_says', 'lane_runner', 'paw_doku',
-    ]
+    // Was a hardcoded copy of the June arcade: it demanded catch_mouse and
+    // paw_tap, both removed from the game, and never learned yarn_sort or
+    // purr_beat. Nobody could complete it. PLAYABLE_MINIGAME_IDS is the list
+    // the arcade actually ships.
+    const ALL_GAME_TYPES: GameType[] = PLAYABLE_MINIGAME_IDS
     const cached = typeof window !== 'undefined'
       ? localStorage.getItem(`ach_game_types_${ctx.userId}`)
       : null

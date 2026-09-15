@@ -24,6 +24,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { MEMORY_FRAMES, type ActionType, type Predicate } from './memoryCatalogue'
 import { tryUnlock } from './memoryUnlocks'
+import { PLAYABLE_MINIGAME_IDS } from '@/lib/minigames'
 
 // ─── Event-context inputs ────────────────────────────────────────────────────
 
@@ -440,11 +441,12 @@ export async function runMemorySweep(
         else if (p.kind === 'all_rooms_in_day') {
           eligible = ['feed','play','sleep','wash','medicine'].every(a => todayActions.has(a))
         } else if (p.kind === 'all_minigames') {
-          // Compared against the 11 published ids in src/lib/minigames.ts.
-          // Authoritative list — keep in sync with MINIGAME_IDS when new
-          // games ship. Currently: 11 minigames.
-          const known = ['catch_mouse','paw_tap','memory_match','treat_tumble','flappy_eren','tic_tac_toe','eren_stack','yarn_pop','eren_says','lane_runner','paw_doku']
-          eligible = known.every(k => distinctGames.has(k))
+          // Read from PLAYABLE_MINIGAME_IDS, never a copy. The copy that used
+          // to live here still named catch_mouse and paw_tap, pulled from the
+          // arcade in June, and had never gained yarn_sort or purr_beat — so
+          // this frame required two games nobody can open and was unwinnable
+          // for every account in the app.
+          eligible = PLAYABLE_MINIGAME_IDS.every(k => distinctGames.has(k))
         }
         // 'all_foods_in_week' isn't implementable until food keys land in the
         // interactions schema; it stays in the catalogue but never unlocks.

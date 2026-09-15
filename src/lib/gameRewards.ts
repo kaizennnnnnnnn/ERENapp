@@ -88,7 +88,12 @@ export function coinsForGame(gameType: GameType, score: number, won?: boolean): 
 
 export type Outcome = 'win' | 'loss' | 'tie'
 
-/** All 11 canonical game ids (derived from MINIGAME_IDS to avoid drift). */
+/**
+ * Every id that can appear in `game_scores`, INCLUDING retired ones — which is
+ * what this wants, since the weekly tallies rows that already exist. It said
+ * "all 11 canonical game ids"; MINIGAME_IDS holds 15, four of them unplayable.
+ * For "has the player played everything" use PLAYABLE_MINIGAME_IDS instead.
+ */
 export const ALL_GAME_TYPES: GameType[] = Object.values(MINIGAME_IDS)
 
 // ── Solo households ──
