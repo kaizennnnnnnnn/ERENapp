@@ -27,6 +27,8 @@ import SoundWord from '@/components/SoundWord'
 import { FoodBowl, Crumbs, Hearts } from '@/components/care/ReactionFx'
 import KitchenNavButton from '@/components/kitchen/KitchenNavButton'
 import ChewingEren, { EAT_NOSE_X, pickEatPose, preloadEatPoses } from '@/components/care/ChewingEren'
+import StripEren from '@/components/care/StripEren'
+import { EREN_ANIM } from '@/lib/erenAnim'
 import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import { DONUTS, getDonut, KITCHEN_DONUTS, TASTE_JOY, TASTE_LINE } from '@/lib/donuts'
 import { DONUT_EFFECTS } from '@/lib/donutEffects'
@@ -217,6 +219,25 @@ const FRIDGE_CATEGORIES = [
 // measurements the bowl/crumbs/words anchor to) lives in ChewingEren — the vet
 // shares it for the lolipop.
 
+// ─── Sprite-animation test ───────────────────────────────────────────────────
+// The kitchen is the trial room for BAKED FRAMES: Eren's tail sway, blink and
+// chew are real drawn frames (public/anim/*.webp, baked from the PNGs by
+// scripts/anim_*.py) instead of CSS transforms and gradient eyelids over a
+// flat sticker. Flip this to false to put the kitchen back on the old path —
+// nothing else changes, and the vet still eats the old way, which makes it the
+// side-by-side control.
+const BAKED_SPRITE_TEST = true
+
+// Cook eye catchlights in SPRITE-CANVAS percent (the iris boxes come from a
+// pixel scan of the 959x1536 sprite; the shine offsets inside each iris are
+// BlinkingEren's own, and are percentages of the iris box so they carry over
+// unchanged). Separate from FEED_EREN_FALLBACK.eyes because those numbers are
+// in 210px-BOX coordinates, and StripEren's layers live in canvas coordinates.
+const COOK_GLINTS = [
+  { left: 35.35, top: 37.11, w: 8.65, h: 4.56, dotLeft: 60.3, dotTop: 3, dotW: 18 },
+  { left: 57.77, top: 37.11, w: 8.65, h: 4.56, dotLeft: 20.5, dotTop: 3, dotW: 18 },
+] as const
+
 // Kitchen idle look (ErenCook) — default when no Closet skin is set. Stable
 // module ref so useRoomEren's memo holds across the 60fps-free re-renders.
 const FEED_EREN_FALLBACK = {
@@ -397,7 +418,7 @@ export default function FeedScene({ onClose }: Props) {
   }, [pendingUnlock, reaction.active])
 
   // Warm the four eating stickers so the poof reveals a decoded bitmap.
-  useEffect(() => { preloadEatPoses() }, [])
+  useEffect(() => { preloadEatPoses(BAKED_SPRITE_TEST) }, [])
 
   // Memoize the bare sprite so stat changes from feeding don't re-render it.
   // Cleanliness is in the deps so the flies update — feeding never changes
@@ -413,7 +434,16 @@ export default function FeedScene({ onClose }: Props) {
           of container width). Catchlights are MIRRORED on this
           sprite: eye A's in the upper-RIGHT of its iris, eye B's in
           the upper-LEFT — they point toward the nose. */}
-      <BlinkingEren size={210} {...feedEren} />
+      {BAKED_SPRITE_TEST && feedEren.src === FEED_EREN_FALLBACK.src ? (
+        // Baked-frame cook: tail bend + blink strips over the tail-erased body.
+        // Only for the default look — a Closet skin has no baked strips, so it
+        // falls through to the flat-PNG BlinkingEren below.
+        <StripEren size={210} src={FEED_EREN_FALLBACK.src}
+          canvas={EREN_ANIM.cookTail.canvas} glints={COOK_GLINTS}
+          tail={EREN_ANIM.cookTail} blink={EREN_ANIM.cookBlink} />
+      ) : (
+        <BlinkingEren size={210} {...feedEren} />
+      )}
       <StinkyFlies cleanliness={cleanliness} />
     </>
   ), [cleanliness, feedEren]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -437,7 +467,7 @@ export default function FeedScene({ onClose }: Props) {
       {eating ? (
         // Head-down eating pose (random pick, eyes painted in). The standing
         // <-> crouch swap is hidden by the poof at each end of the meal.
-        <ChewingEren idx={eatIdx} />
+        <ChewingEren idx={eatIdx} baked={BAKED_SPRITE_TEST} />
       ) : (
         <PetTarget reaction={reaction}>
           <ErenIdleLayer disabled={reaction.active}>

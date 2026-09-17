@@ -1,0 +1,21 @@
+{
+  "name": "eat2",
+  "src": "/anim/eat2_chew.webp",
+  "frames": 6,
+  "durationMs": 440,
+  "kind": "loop",
+  "frameW": 454,
+  "frameH": 438,
+  "canvas": [
+    907,
+    877
+  ],
+  "rect": {
+    "left": 0.0,
+    "top": 0.0,
+    "width": 100.0,
+    "height": 100.0
+  },
+  "bodySrc": null,
+  "note": "Chew: the head presses onto a pinned contact band and the snout absorbs it. Rigid from the crown to the iris bottom, so the eyes travel with the skull (1.54 CSS px at 140 wide) and never deform -- iris strain is 0.00% on every frame. Nose, mouth, chin, paws and tail hold still. Lossy VP8, so the contact band is NOT byte-identical: it decodes within 40/255 of the source and moves at most 24/255 between frames."
+}

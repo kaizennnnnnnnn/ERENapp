@@ -1,0 +1,21 @@
+{
+  "name": "cookBlink",
+  "src": "/anim/cook_blink.webp",
+  "frames": 3,
+  "durationMs": 6000,
+  "kind": "blink",
+  "frameW": 376,
+  "frameH": 152,
+  "canvas": [
+    959,
+    1536
+  ],
+  "rect": {
+    "left": 31.2826,
+    "top": 34.5052,
+    "width": 39.2075,
+    "height": 9.8958
+  },
+  "bodySrc": "/ErenCook_notail.png",
+  "note": "Eyelid-only overlay: alpha is cut to the two sockets, and frame 0 is fully transparent because the body PNG already draws the open eyes. The socket fills with its own fur and the eye closes onto its own drawn bottom edge, two blocks of the art grid thick. Composite over the body PNG at rect."
+}
