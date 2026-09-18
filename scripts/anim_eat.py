@@ -223,7 +223,7 @@ PUMP_FLOOR = 0.45
 #
 # Same spatial field as the pump, other axis: zero above the nose bridge, full
 # at the nose and chin, so the face stays put and the muzzle swings under it.
-A_GRIND = 10.0            # source px at GRIND_T = 1, about two thirds of a block
+A_GRIND = 7.5             # source px at GRIND_T = 1, about half a block
 # Sign alternates: anticipate left, SNAP right on the bite, hold, swing back
 # through left, settle. Frame 0 is 0 because frame 0 is the untouched source,
 # and f5 lands near it so the loop does not jump.
@@ -232,7 +232,7 @@ GRIND_EDGE = 12.0         # rows at the canvas bottom where the grind fades to 0
 # What the muzzle's SIDE-TO-SIDE travel has to clear at ship size, in CSS px,
 # measured on the baked frames. The lateral IS the read now, so this is the
 # assertion standing between a working mouth and another frozen one.
-MUZZLE_FLOOR = 1.60
+MUZZLE_FLOOR = 1.25
 # ... and the second ceiling, on the peak PER-ROW compression of the assembled
 # field. It is much higher than MAX_SNOUT and that is not a relaxation: 0.44 is
 # a ceiling on the snout's average rate across a face that carries whisker
