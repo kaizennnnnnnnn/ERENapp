@@ -73,16 +73,23 @@ import anim_lib as L
 
 
 # -- tuning ----------------------------------------------------------------
-# AMP is peak tip travel in SOURCE px. The old rigid rotation gave 63.2; 58 is
-# a hair calmer and still ~3.6 native blocks (16px/block) = 7.9 CSS px at the
-# kitchen's 7.3x downscale, so it stays well clear of both the ~1.1 CSS px
-# visibility floor and the rubbery zone above ~3 blocks... which is exactly
-# where the house amplitude already sits, deliberately.
-AMP = 58.0
-# 1.0 = the old rigid swing, 2.0 = constant curvature along the whole tail.
-# 1.55 glues the root, keeps the fat mid-tail clearly participating (s=0.5
-# still travels 19px = 2.6 CSS px) and puts the rest of the budget in the tip.
-POWER = 1.55
+# AMP is peak travel in SOURCE px, and it now lands at the MIDDLE of the arc,
+# not at an end -- see the profile in build(). 34px is ~2.1 native blocks =
+# 4.6 CSS px at the kitchen's 7.3x downscale: well clear of the ~1.1 CSS px
+# visibility floor, and deliberately below the old 58, because the old 58 was
+# spent dragging a butt-joint out from under the body's silhouette.
+AMP = 34.0
+# Shape of the bump between the two joints. 1.0 is a plain half-sine (broad,
+# the whole free span flexes); higher narrows the flex toward the middle. 1.0
+# keeps the outer curve of the C moving as one piece, which is what a tail
+# tucked at both ends actually does.
+POWER = 1.0
+# Rows held at EXACTLY zero at each joint before the bump is allowed to rise.
+# Both ends of this tail are flat cuts capped by the body's silhouette (the
+# shelf at rows 783..786 over the top cut, the body itself under the bottom
+# one), so a joint that moves at all starts showing its cut. 40 rows is ~2.5
+# native blocks of margin at each end.
+JOIN_MARGIN = 40.0
 # Onset lag from root to tip, as a fraction of the cycle: 0.14 * 3400ms = 476ms.
 LAG = 0.14
 # The sway is squeezed into (1 - HOLD) so every row is back at rest before the
@@ -137,10 +144,33 @@ def build():
     print('tail  canvas %dx%d  bbox %s  tip row %d  root row %d  (arc %d rows)'
           % (w, h, bbox, y_tip, y_root, y_root - y_tip))
 
-    # Arc position per row, and the curvature weight on it. row_ramp IS s**POWER
-    # with the same clipping, so the two stay consistent by construction.
+    # Arc position per row: 0 at the bottom join, 1 at the top join.
     s = np.clip((np.arange(h, dtype=np.float64) - y_root) / float(y_tip - y_root), 0.0, 1.0)
-    weight = L.row_ramp(h, y_root, y_tip, POWER)
+
+    # BOTH ENDS OF THIS TAIL ARE JOINTS, and that decides the whole profile.
+    #
+    # The first build used a monotonic ramp -- glued at the bottom, maximum at
+    # the top -- on the reading that the top is the free tip of a curled tail.
+    # Anatomically that is right; as ART it is wrong, and it shipped a visible
+    # defect. The artist drew this tail as a C whose two ends DISAPPEAR BEHIND
+    # THE BODY, so both ends are flat cuts, and each is invisible only because
+    # the body's silhouette sits directly over it. ErenCook_notail.png has a
+    # shelf at rows 783..786 spanning x701..890 that caps the tail's flat top
+    # at row 787, and the body caps the bottom cut from below the same way.
+    # Move a cut out from under its cap and you get exactly what it is: a
+    # straight edge with no outline, hanging in the background. At AMP=58 the
+    # top slid 58px left, out past the shelf's left end, and the cut showed as
+    # a horizontal bar on the left of the tail.
+    #
+    # So the free part of this tail is neither end -- it is the BULGE between
+    # them. The profile is a bump: hard zero for JOIN_MARGIN rows at each joint,
+    # rising to a peak at the middle of the arc, which is also where the C
+    # reaches furthest out (x957 at rows 997..1087) and where a flex reads best.
+    # The LAG below still travels the bump along the arc, so it flexes like a
+    # tail instead of breathing like a bellows.
+    mrg = JOIN_MARGIN / abs(float(y_root - y_tip))
+    q = np.clip((s - mrg) / (1.0 - 2.0 * mrg), 0.0, 1.0)
+    weight = np.sin(np.pi * q) ** POWER
 
     frames, fields = [], []
     for i in range(FRAMES):
@@ -249,30 +279,46 @@ def verify(tail, body, crops, fields, rect, weight, y_tip, y_root):
     print('  dx <= 0 on every frame/row (inward only)')
 
     m0 = crops[0][..., 3].sum()
-    print('  %-3s %10s %10s %10s %10s' % ('f', 'max|dx|', 'tip dx', 'root dx', 'mass drift'))
-    worst_drift, worst_root = 0.0, 0.0
+    print('  %-3s %10s %10s %10s %10s' % ('f', 'max|dx|', 'top-join', 'bot-join', 'mass drift'))
+    worst_drift, worst_joint = 0.0, 0.0
+    # Both joints, over the whole margin band -- not just the single end row.
+    # The cut that showed in the first build was at row 787; a check that only
+    # read row 787 would have passed a field that moved row 800 by 50px and
+    # torn the joint open just as visibly.
+    top_band = slice(y_tip, int(y_tip + JOIN_MARGIN))
+    bot_band = slice(int(y_root - JOIN_MARGIN), y_root + 1)
     for i, (c, f) in enumerate(zip(crops, fields)):
         drift = (c[..., 3].sum() - m0) / m0 * 100.0
         worst_drift = max(worst_drift, abs(drift))
-        worst_root = max(worst_root, abs(f[y_root]))
+        worst_joint = max(worst_joint, abs(f[top_band]).max(), abs(f[bot_band]).max())
         print('  %-3d %10.2f %10.2f %10.2f %9.3f%%'
               % (i, abs(f).max(), f[y_tip], f[y_root], drift))
-    print('  worst alpha-mass drift %.3f%%   worst root-row |dx| %.2fpx (%.2f CSS px)'
-          % (worst_drift, worst_root, worst_root / DISPLAY_SCALE))
+    print('  worst alpha-mass drift %.3f%%   worst |dx| anywhere in either %gpx joint band: '
+          '%.4fpx (%.4f CSS px)'
+          % (worst_drift, JOIN_MARGIN, worst_joint, worst_joint / DISPLAY_SCALE))
     assert worst_drift < 1.0, 'lost content off the canvas'
+    # THE assertion this animation exists to keep. Both ends of the tail are
+    # flat cuts that only read as closed because the body's silhouette caps
+    # them; move a joint and the cut shows as a bare straight edge in the
+    # background. Held at zero, not merely small.
+    assert worst_joint < 1e-9, (
+        'a joint band moved %.3f px -- the tail is butt-joined to the body at '
+        'BOTH ends and a moving joint exposes its flat cut' % worst_joint)
+    print('  both joint bands are held at EXACTLY zero on every frame')
 
     # Per-frame tip STEP, in the unit the eye judges. Printed, not asserted:
     # steps(24) spaces frames uniformly in TIME, but sway() is flat at both ends
     # of its smoothstep, so the ends genuinely cost frames that barely move.
     # That is the price of a uniform steps() timeline and it is paid knowingly --
     # see the rejected note in the writeup.
-    tips = [f[y_tip] / DISPLAY_SCALE for f in fields]
+    peak_y = int(np.argmax(weight))
+    tips = [f[peak_y] / DISPLAY_SCALE for f in fields]
     steps = [abs(tips[(i + 1) % FRAMES] - tips[i]) for i in range(FRAMES)]
-    print('  tip position per frame (CSS px): %s'
+    print('  peak-row position per frame (CSS px): %s'
           % ' '.join('%.2f' % v for v in tips))
-    print('  tip STEP f->f+1 (CSS px):        %s'
+    print('  peak-row STEP f->f+1 (CSS px):    %s'
           % ' '.join('%.2f' % v for v in steps))
-    print('  %d of %d steps move the tip less than 0.25 CSS px (sub-pixel at ship size)'
+    print('  %d of %d steps move the peak row less than 0.25 CSS px (sub-pixel at ship size)'
           % (sum(1 for v in steps if v < 0.25), FRAMES))
 
     # Border alpha is asserted on the EXPORTED frames, not here -- see
@@ -285,8 +331,10 @@ def verify(tail, body, crops, fields, rect, weight, y_tip, y_root):
     print('  max alpha on the pre-downscale crop border: %.1f (the real check is below)' % pre)
 
     # Amplitude sanity in the units the brief is written in.
-    print('  peak tip travel %.1f source px = %.2f CSS px = %.2f native blocks'
-          % (AMP, AMP / DISPLAY_SCALE, AMP / 16.0))
+    print('  peak travel %.1f source px = %.2f CSS px = %.2f native blocks, at row %d '
+          '(s=%.2f) -- the middle of the free arc, NOT an end'
+          % (AMP, AMP / DISPLAY_SCALE, AMP / 16.0, peak_y,
+             (peak_y - y_root) / float(y_tip - y_root)))
     for frac in (0.25, 0.50, 0.75, 1.00):
         y = int(round(y_root - frac * (y_root - y_tip)))
         print('    s=%.2f (y=%4d)  travel %5.1f src px  %.2f CSS px'

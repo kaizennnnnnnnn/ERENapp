@@ -4,17 +4,17 @@
   "frames": 24,
   "durationMs": 3400,
   "kind": "loop",
-  "frameW": 154,
-  "frameH": 304,
+  "frameW": 142,
+  "frameH": 280,
   "canvas": [
     959,
     1536
   ],
   "rect": {
-    "left": 67.9875,
-    "top": 46.9401,
-    "width": 32.0125,
-    "height": 39.5833
+    "left": 70.4901,
+    "top": 48.5026,
+    "width": 29.5099,
+    "height": 36.4583
   },
   "bodySrc": "/ErenCook_notail.png",
   "note": "Tail bends instead of swinging: root glued, curvature accumulates to the tip, tip lags 476ms and follows through. Baked rhythm runs +7.6% late vs @keyframes erenTailWiggle (tip peaks at 47.6% of the loop, not 40%) because the per-row time remap squeezes the sway into 84% of the cycle. Harmless alone; do not show this against a flat-PNG cat still running the CSS rotation, or the two will beat."
