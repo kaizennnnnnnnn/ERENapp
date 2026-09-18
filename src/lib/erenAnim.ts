@@ -73,7 +73,7 @@ export const EREN_ANIM = {
     canvas: [925, 765],
     rect: { left: 0.0, top: 0.0, width: 100.0, height: 100.0 },
     bodySrc: null,
-    note: 'Chew: the head presses onto a pinned contact band and the snout absorbs it. Rigid from the crown to the iris bottom, so the eyes travel with the skull (2.05 CSS px at 140 wide) and never deform -- iris strain is 0.00% on every frame. Nose, mouth, chin, paws and tail hold still. Lossy VP8, so the contact band is NOT byte-identical: it decodes within 40/255 of the source and moves at most 24/255 between frames.',
+    note: 'Chew: the head presses onto a pinned contact line and the snout absorbs it. Rigid from the crown to the iris bottom, so the eyes travel with the skull (2.05 CSS px at 140 wide) and never deform -- iris strain is 0.00% on every frame. The muzzle then pumps on the jaw clock inside its own column window between the paws: the nose travels 1.36 CSS px and the chin with it, while the paws and the tail hold still. Lossy VP8, so the contact band is NOT byte-identical: it decodes within 40/255 of the source and moves at most 24/255 between frames.',
   },
   eat2: {
     name: 'eat2',
@@ -86,7 +86,7 @@ export const EREN_ANIM = {
     canvas: [907, 877],
     rect: { left: 0.0, top: 0.0, width: 100.0, height: 100.0 },
     bodySrc: null,
-    note: 'Chew: the head presses onto a pinned contact band and the snout absorbs it. Rigid from the crown to the iris bottom, so the eyes travel with the skull (1.54 CSS px at 140 wide) and never deform -- iris strain is 0.00% on every frame. Nose, mouth, chin, paws and tail hold still. Lossy VP8, so the contact band is NOT byte-identical: it decodes within 40/255 of the source and moves at most 24/255 between frames.',
+    note: 'Chew: the head presses onto a pinned contact line and the snout absorbs it. Rigid from the crown to the iris bottom, so the eyes travel with the skull (1.54 CSS px at 140 wide) and never deform -- iris strain is 0.00% on every frame. The muzzle then pumps on the jaw clock inside its own column window between the paws: the nose travels 1.42 CSS px and the chin with it, while the paws and the tail hold still. Lossy VP8, so the contact band is NOT byte-identical: it decodes within 40/255 of the source and moves at most 24/255 between frames.',
   },
   eat3: {
     name: 'eat3',
@@ -99,7 +99,7 @@ export const EREN_ANIM = {
     canvas: [848, 796],
     rect: { left: 0.0, top: 0.0, width: 100.0, height: 100.0 },
     bodySrc: null,
-    note: 'Chew: the head presses onto a pinned contact band and the snout absorbs it. Rigid from the crown to the iris bottom, so the eyes travel with the skull (2.05 CSS px at 140 wide) and never deform -- iris strain is 0.00% on every frame. Nose, mouth, chin, paws and tail hold still. Lossy VP8, so the contact band is NOT byte-identical: it decodes within 40/255 of the source and moves at most 24/255 between frames.',
+    note: 'Chew: the head presses onto a pinned contact line and the snout absorbs it. Rigid from the crown to the iris bottom, so the eyes travel with the skull (2.05 CSS px at 140 wide) and never deform -- iris strain is 0.00% on every frame. The muzzle then pumps on the jaw clock inside its own column window between the paws: the nose travels 1.66 CSS px and the chin with it, while the paws and the tail hold still. Lossy VP8, so the contact band is NOT byte-identical: it decodes within 40/255 of the source and moves at most 24/255 between frames.',
   },
   eat4: {
     name: 'eat4',
@@ -112,7 +112,7 @@ export const EREN_ANIM = {
     canvas: [940, 908],
     rect: { left: 0.0, top: 0.0, width: 100.0, height: 100.0 },
     bodySrc: null,
-    note: 'Chew: the head presses onto a pinned contact band and the snout absorbs it. Rigid from the crown to the iris bottom, so the eyes travel with the skull (1.79 CSS px at 140 wide) and never deform -- iris strain is 0.00% on every frame. Nose, mouth, chin, paws and tail hold still. Lossy VP8, so the contact band is NOT byte-identical: it decodes within 40/255 of the source and moves at most 24/255 between frames.',
+    note: 'Chew: the head presses onto a pinned contact line and the snout absorbs it. Rigid from the crown to the iris bottom, so the eyes travel with the skull (1.19 CSS px at 140 wide) and never deform -- iris strain is 0.00% on every frame. The muzzle then pumps on the jaw clock inside its own column window between the paws: the nose travels 1.30 CSS px and the chin with it, while the paws and the tail hold still. Lossy VP8, so the contact band is NOT byte-identical: it decodes within 40/255 of the source and moves at most 24/255 between frames.',
   },
 } as const satisfies Record<string, ErenAnim>
 
