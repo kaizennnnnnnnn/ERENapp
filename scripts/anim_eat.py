@@ -190,7 +190,7 @@ A_TAIL = 0.0              # see the docstring: the tail holds still to eat
 # past about half of that gap the eyes start to sit on the nose (the top rung of
 # the snout ladder, and the same failure this art has always had). Pose 4 is
 # bound by it -- its eye-to-nose span is 44 rows against pose 1's 57.
-TARGET_NOSE = 2.00
+TARGET_NOSE = 0.65
 MAX_CLOSE = 0.46
 # The press and the pump close the SAME eye-to-nose gap, so on a short-gap pose
 # they are in direct competition -- and the press was solved first, which handed
@@ -200,11 +200,39 @@ MAX_CLOSE = 0.46
 # CSS px of pump are reserved off the top and the press takes what is left.
 # Poses 1-3 solve above it anyway and are untouched; only pose 4 pays, and it
 # pays in skull travel, which is the part nobody watches.
-PUMP_RESERVE = 1.40
+PUMP_RESERVE = 0.55
 # The travel the nose has to clear at ship size, in CSS px. Below this it reads
-# as a frozen nose, which was the complaint. solve_pose() buys it with press
-# travel on a pose that cannot afford both.
-PUMP_FLOOR = 1.20
+# as a frozen nose, which was the first complaint. solve_pose() buys it with
+# press travel on a pose that cannot afford both.
+PUMP_FLOOR = 0.45
+
+# -- the grind, and why the vertical pump above is now small --------------------
+# The first build of the pump gave the nose 1.3 to 1.7 CSS px of PURE VERTICAL
+# travel, moving the nose, the mouth and the chin up and down as one rigid
+# block. That is a piston, and a piston on a mouth is suckling, not chewing --
+# "like a baby would suck on a milk, thats what his mouth doing".
+#
+# A jaw does not pump along the face's axis, it HINGES, and a cat grinding
+# through a mouthful works side to side. So the vertical is now an accent
+# (TARGET_NOSE below) and the read is carried laterally, which this geometry
+# hands us for free: the vertical budget is fought over by the press and fenced
+# by a canvas edge three rows under the chin, but sideways the muzzle window has
+# nothing in its way. The notches that isolate it from each paw are 12 to 40 px
+# of empty background, so the whole shift lands inside them and never reaches a
+# paw.
+#
+# Same spatial field as the pump, other axis: zero above the nose bridge, full
+# at the nose and chin, so the face stays put and the muzzle swings under it.
+A_GRIND = 10.0            # source px at GRIND_T = 1, about two thirds of a block
+# Sign alternates: anticipate left, SNAP right on the bite, hold, swing back
+# through left, settle. Frame 0 is 0 because frame 0 is the untouched source,
+# and f5 lands near it so the loop does not jump.
+GRIND_T = [0.00, -0.30, 1.00, 0.55, -0.70, -0.20]
+GRIND_EDGE = 12.0         # rows at the canvas bottom where the grind fades to 0
+# What the muzzle's SIDE-TO-SIDE travel has to clear at ship size, in CSS px,
+# measured on the baked frames. The lateral IS the read now, so this is the
+# assertion standing between a working mouth and another frozen one.
+MUZZLE_FLOOR = 1.60
 # ... and the second ceiling, on the peak PER-ROW compression of the assembled
 # field. It is much higher than MAX_SNOUT and that is not a relaxation: 0.44 is
 # a ceiling on the snout's average rate across a face that carries whisker
@@ -796,6 +824,17 @@ def build_fields(img, m, face_cap=None):
     prof_pump = 1.0 - press_profile(h, pump_top, pump_flat)
     pump = prof_pump[:, None] * W['col'][None, :]
 
+    # The grind shares the pump's field but dies out over the last rows of the
+    # canvas. Two reasons, and they are the same reason: the chin of poses 1 and
+    # 2 sits ON the bottom edge, so sliding those rows sideways drags painted
+    # pixels along the border into cells the source leaves empty -- and a jaw
+    # whose contact point slides is a jaw that is not hinged to anything. Fading
+    # it out pins the chin's contact and lets the mouth swing above it, which is
+    # both what the assertion wants and what a jaw does.
+    edge = L.smoothstep((np.arange(h, dtype=np.float64) - (h - 1 - GRIND_EDGE))
+                        / -float(GRIND_EDGE))
+    grind = pump * edge[:, None]
+
     # Ears: both tips shear the SAME way, by unequal amounts. Shearing them in
     # opposite directions (out, then in) was tried first and read as the whole
     # skull narrowing and widening -- a shrinking cat, not an ear twitch --
@@ -820,7 +859,7 @@ def build_fields(img, m, face_cap=None):
              head_top=head_top, ear_bot=ear_bot, tip=(tip_y, tip_x),
              muz_hw=hw, factor=factor,
              muz_peak=float(np.abs(muz * lock_hard).max()),
-             pump=pump, col_pump=W['col'], a_pump=a_pump, win=W,
+             pump=pump, grind=grind, col_pump=W['col'], a_pump=a_pump, win=W,
              pump_top=pump_top, pump_flat=pump_flat, nose_span=nose_span,
              pump_rate=bridge_rate(a_pump), pump_bound=bound,
              close=(A['face'] + a_pump) / nose_span)
@@ -832,8 +871,8 @@ def frame_at(img, m, F, i):
     """One frame. Frame 0 is the untouched source, by construction and by
     shortcut -- the loop runs through it and other layers register against it."""
     dip_t, jaw_t, muz_t, ear_t = DIP_T[i], JAW_T[i], MUZ_T[i], EAR_T[i]
-    pump_t = PUMP_T[i]
-    if not any((dip_t, jaw_t, muz_t, ear_t, pump_t)):
+    pump_t, grind_t = PUMP_T[i], GRIND_T[i]
+    if not any((dip_t, jaw_t, muz_t, ear_t, pump_t, grind_t)):
         return img.copy(), np.zeros(img.shape[:2]), np.zeros(img.shape[:2])
 
     dy = dip_t * F['dy_dip'] + jaw_t * F['dy_jaw'] + muz_t * F['dy_muz']
@@ -847,6 +886,11 @@ def frame_at(img, m, F, i):
     # rigid piece and not a squashed one -- see build_fields. Minus, so it lifts.
     b = F['pump']
     dy = dy * (1.0 - b) - (pump_t * F['a_pump']) * b
+    # The grind rides the SAME field on the other axis: the muzzle swings under
+    # a face that stays put. It is added, not blended -- there is nothing on the
+    # x axis to blend against, the ear shear is masked to the ears and both are
+    # zero everywhere the other is not.
+    dx = dx + (grind_t * A_GRIND) * F['grind']
 
     out = L.warp(img, dx, dy)
     # Exact, not merely close -- and column-aware, because the pin the scene
@@ -965,6 +1009,19 @@ def pink_cy(f, win):
     return float((w * yy).sum() / w.sum())
 
 
+def pink_cx(f, win):
+    """The same centroid on the other axis. The grind is the muzzle's main
+    motion, so it is the one that has to be measured to prove the mouth works;
+    measuring only dy is what let a build ship with a nose that read as frozen."""
+    y0, y1, x0, x1 = win
+    c = f[y0:y1, x0:x1]
+    a = np.clip(c[..., 3] / 255.0, 0.0, 1.0)
+    w = a * np.clip((c[..., 0] - c[..., 2]) / 40.0, 0.0, 1.0) \
+          * np.clip((c[..., 0] - c[..., 1]) / 40.0, 0.0, 1.0)
+    xx = np.arange(x0, x1, dtype=np.float64)[None, :]
+    return float((w * xx).sum() / w.sum())
+
+
 def report(name, img, m, F, frames, dxs, dys):
     """Re-measure the baked frames with the same detectors that set the
     animation up, and print everything in CSS px at EAT_WIDTH."""
@@ -1038,11 +1095,16 @@ def report(name, img, m, F, frames, dxs, dys):
     cxi = int(round(m['eye_l'][0]))
     # The nose window has to be as tall as the pump, or the centroid saturates
     # as the nose slides out of it and under-reports its own travel.
+    # ... and as WIDE as the grind, for exactly the same reason. It was widened
+    # for the pump and not for the grind, and the centroid duly reported 1.47
+    # CSS px of a 2.57 CSS px swing: the nose was leaving the window sideways.
     nreach = int(np.ceil(F['a_pump'])) + 6
+    nwide = int(np.ceil(A_GRIND * max(abs(t) for t in GRIND_T))) + 6
     nwin = (max(0, int(m['nose_y0']) - nreach), min(h, int(m['nose_y1']) + 5),
-            max(0, int(m['nose_x'] - 0.12 * m['sep'])),
-            min(w, int(m['nose_x'] + 0.12 * m['sep'])))
+            max(0, int(m['nose_x'] - 0.12 * m['sep']) - nwide),
+            min(w, int(m['nose_x'] + 0.12 * m['sep']) + nwide))
     ncy = pink_cy(frames[0], nwin)
+    ncx = pink_cx(frames[0], nwin)
     nxi = int(round(m['nose_x']))
     keep = F['col_pump'] <= 0.0
     pawcols = np.concatenate([F['win']['l']['paw_cols'], F['win']['r']['paw_cols']])
@@ -1061,6 +1123,7 @@ def report(name, img, m, F, frames, dxs, dys):
                                       win[2], win[3]))
         eye = (cy - icy) * css
         nose = (pink_cy(f, nwin) - ncy) * css
+        ndx = (pink_cx(f, nwin) - ncx) * css
         # the feature the compression is quoted against: eye line to nose top,
         # two things anyone can point at on the sprite
         span = 100.0 * ((m0['nose_y0'] - cy) - span0) / span0
@@ -1091,7 +1154,7 @@ def report(name, img, m, F, frames, dxs, dys):
         cm = clip_margin(img, dx, dy)
         clipped = [k for k, v in cm.items() if v < -0.5]
         ok = ok and ident and paws and not clipped and abs(drift) < 1.5 and not gained
-        noses.append((nose, nfield))
+        noses.append((nose, nfield, ndx))
         print('     %d %8.2f %8.2f %8.2f %8.2f %7.1f %7.2f%% | %10.1f%% %10.2f%% %11.2f%% '
               '%9.2f%% | %6.2f%%  %4.1f/%4.1f/%4.1f/%4.1f%s%s%s%s'
               % (i, eye, edy, edx, nose, nfield, nstrain, span, strain, ih, ia, drift,
@@ -1115,8 +1178,9 @@ def report(name, img, m, F, frames, dxs, dys):
         if i == 0:
             assert abs(nose) < 1e-9, 'frame 0 moved the nose %.3f CSS px' % nose
         if i == PUMP_PEAK:
-            assert -nose > 0.75 * TARGET_NOSE or -nose > 0.9 * F['a_pump'] * css, \
-                'the nose only travels %.2f CSS px at the peak' % -nose
+            assert -nose > 0.55 * F['a_pump'] * css, \
+                'the pump asked for %.2f CSS px of lift and the nose moved %.2f' \
+                % (F['a_pump'] * css, -nose)
         # Rigidity, asserted twice and independently: `strain` is geometry (the
         # forward map, above), `spread` and `mass` are the baked pixels (a second
         # moment and a soft-weighted area -- see iris_stats for why a bbox and a
@@ -1146,6 +1210,18 @@ def report(name, img, m, F, frames, dxs, dys):
     print('     nose travel, centroid (field), per frame:  %s'
           % '   '.join('f%d %+.2f CSS / %+.1f src' % (i, n[0], n[1])
                        for i, n in enumerate(noses)))
+    # The number that decides whether the mouth reads at all. The grind is
+    # lateral, so that is the axis the guarantee belongs on -- checking only the
+    # lift is what let a build ship a mouth that pumped like a bottle-feed.
+    grind_p2p = max(n[2] for n in noses) - min(n[2] for n in noses)
+    lift_p2p = max(n[0] for n in noses) - min(n[0] for n in noses)
+    print('     MUZZLE travel at %gpx: %.2f CSS px SIDE TO SIDE (%.2f blocks), '
+          '%.2f CSS px of lift -- lateral floor %.2f'
+          % (EAT_WIDTH_CSS, grind_p2p, grind_p2p / (m['block'] * css),
+             lift_p2p, MUZZLE_FLOOR))
+    assert grind_p2p > MUZZLE_FLOOR, (
+        'the muzzle only grinds %.2f CSS px side to side, under the floor -- it '
+        'will read as a frozen mouth' % grind_p2p)
     print('     nose peak-to-peak: %.2f CSS px = %.2f art blocks; the paw columns it runs '
           'beside (x%d..%d and x%d..%d, %d columns) are bit-identical on every frame'
           % (max(n[0] for n in noses) - min(n[0] for n in noses),
