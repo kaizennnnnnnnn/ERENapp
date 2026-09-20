@@ -35,6 +35,7 @@ import { DockContent, dockFrame } from '@/components/home/DockButtons'
 import RoomsMenu, { type RoomDef } from '@/components/home/RoomsMenu'
 import FortunePopup from '@/components/fortune/FortunePopup'
 import ErenMessagePopup from '@/components/couple/ErenMessagePopup'
+import GiftArrival from '@/components/couple/GiftArrival'
 import ThoughtCloud from '@/components/couple/ThoughtCloud'
 import { EREN_OPPONENT_NAME } from '@/lib/erenOpponent'
 import JealousEren from '@/components/couple/JealousEren'
@@ -84,7 +85,7 @@ export default function HomePage() {
   const { xp, level } = useTasks()
   useTimeTracking(user?.id ?? null)
   const { canClaim: fortuneAvailable } = useFortune()
-  const { newMessage, dismissPopup, unreadCount, partner, isSolo, sendNudge, partnerMood, lifetimeWLT, weeklyChampion, coopGoal } = useCouple()
+  const { newMessage, dismissPopup, unreadCount, partner, isSolo, sendNudge, partnerMood, lifetimeWLT, weeklyChampion, coopGoal, giftArrivals, markGiftsSeen } = useCouple()
   const { inventory, loaded: invLoaded } = useInventory()
   const newSkinCount = useNewSkins(inventory, invLoaded)
   const isDark = useIsDark()
@@ -366,6 +367,12 @@ export default function HomePage() {
     ready:       !authLoading && !!todayMood && !!stats && roomReady,
   })
 
+  // Gifts my partner left while I was away. Ranked under the catchup carousel
+  // for the same reason the message popup is: two full-screen moments must
+  // not stack, and this one keeps until it is shown -- the marker only moves
+  // when the tray is actually dismissed.
+  const showGiftTray = giftArrivals.length > 0 && !catchupFrames
+
   // Fast localStorage check
   useEffect(() => {
     if (!user?.id) return
@@ -572,7 +579,17 @@ export default function HomePage() {
           an inbound message doesn't mount hidden under z-80 and surprise the
           user when they dismiss. The realtime subscription buffers it; it'll
           show up as unread on the couple chip. */}
-      {newMessage && !catchupFrames && <ErenMessagePopup message={newMessage} onDismiss={dismissPopup} />}
+      {newMessage && !catchupFrames && !showGiftTray && <ErenMessagePopup message={newMessage} onDismiss={dismissPopup} />}
+
+      {/* Everything they were given while they were out, handed over at once
+          rather than one popup per gift. */}
+      {showGiftTray && (
+        <GiftArrival
+          gifts={giftArrivals}
+          fromName={partner?.name?.split(' ')[0] ?? 'Your partner'}
+          onClose={markGiftsSeen}
+        />
+      )}
       {showSendEren && partner && (
         <SendErenSheet
           partnerName={partner.name}

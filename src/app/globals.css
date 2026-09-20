@@ -1826,3 +1826,45 @@
   0%   { transform: translate(0, 0) rotate(0deg); opacity: 1; }
   100% { transform: translate(26px, 15px) rotate(24deg); opacity: 0; }
 }
+
+/* ── Gift arrival tray ─────────────────────────────────────────────────────
+   The welcome-back moment for gifts that landed while you were out.
+
+   These live here, NOT in the component's <style jsx>, and that is not a
+   style preference. styled-jsx rewrites a scoped @keyframes to a hashed name
+   (`giftTrayIn-jsx-1a2b`), and a React *inline* style writes the literal
+   `giftTrayIn` — the two never meet, so the animation silently does nothing.
+   ErenMessagePopup's erenDeliver/nudgeHeart were dead for exactly this reason
+   and are moved here too. Every one of these is driven from an inline style. */
+@keyframes giftTrayIn {
+  0%   { transform: translateY(18px) scale(0.94); opacity: 0; }
+  100% { transform: translateY(0) scale(1);       opacity: 1; }
+}
+/* Each card drops onto the tray in turn, hard-landing like everything else in
+   this app rather than fading. */
+@keyframes giftCardIn {
+  0%   { transform: translateX(-14px); opacity: 0; }
+  60%  { transform: translateX(2px);   opacity: 1; }
+  100% { transform: translateX(0);     opacity: 1; }
+}
+/* Eren hops once with the delivery, then holds. */
+@keyframes giftErenIn {
+  0%   { transform: translateY(26px) scale(0.8); opacity: 0; }
+  70%  { transform: translateY(-6px) scale(1.04); opacity: 1; }
+  100% { transform: translateY(0) scale(1);       opacity: 1; }
+}
+/* The badge on his shoulder, breathing so the eye lands on it. */
+@keyframes giftBadgePulse {
+  0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(255,107,157,0.55); }
+  50%      { transform: scale(1.08); box-shadow: 0 0 0 5px rgba(255,107,157,0); }
+}
+
+/* Moved out of ErenMessagePopup's <style jsx> — see the note above. */
+@keyframes erenDeliver {
+  0%   { transform: translateY(30px) scale(0.8); opacity: 0; }
+  100% { transform: translateY(0) scale(1);      opacity: 1; }
+}
+@keyframes nudgeHeart {
+  0%, 100% { transform: translateY(0) scale(1);       opacity: 0.5; }
+  50%      { transform: translateY(-8px) scale(1.15); opacity: 1; }
+}

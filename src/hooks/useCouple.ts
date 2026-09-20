@@ -10,6 +10,7 @@ import { subDays } from 'date-fns'
 import { computeLoveMeter, getAnniversaryInfo, startOfWeek, type LoveMeterResult, type AnniversaryInfo } from '@/lib/couple'
 import { resolveNudgeMessage, isNudgeRow, type NudgeDef } from '@/lib/nudges'
 import { moodDateKey } from '@/lib/moods'
+import { FOOD_META } from '@/lib/foodMeta'
 import {
   backfillDailyResults, fetchLifetimeRows, computeLifetimeWLT,
   ensureLastWeekResult, claimWeeklyPayout, acknowledgeWeeklyResult,
@@ -52,6 +53,12 @@ function useCoupleImpl() {
   // When I last opened the board. Unread is DERIVED from this rather than
   // counted, so a note arriving while the board is open can't desync it.
   const [notesReadAt, setNotesReadAt] = useState(0)
+  // When I was last SHOWN the gifts waiting for me. Deliberately a different
+  // marker from notesReadAt: the welcome-back tray must not silence an unread
+  // written note, and opening the board must not swallow the tray. null means
+  // "not resolved yet" -- nothing may render off this until it is a number,
+  // or the tray flashes up for a frame on every mount.
+  const [giftsSeenAt, setGiftsSeenAt] = useState<number | null>(null)
   const [partnerMood, setPartnerMood] = useState<UserMood | null>(null)
   const [partnerMoodWeek, setPartnerMoodWeek] = useState<{ date: string; mood: UserMood | null }[]>([])
   const [lifetimeWLT, setLifetimeWLT] = useState<LifetimeWLT | null>(null)
@@ -381,6 +388,38 @@ function useCoupleImpl() {
     }
   }, [user?.id])
 
+  // ── Gift tray marker ──
+  // Same mirroring contract as the board marker above, with one extra rule:
+  // an ABSENT key is seeded to now rather than read as 0. Every gift already
+  // in the pile predates this tray, so a missing marker would greet a
+  // long-running household with its entire history on the next launch.
+  // Seeding costs at most one delivery — a gift sent in the minutes before
+  // that first launch — and that one is still pinned to the board.
+  useEffect(() => {
+    if (!user?.id) return
+    const key = `eren_gifts_seen_${user.id}`
+    const sync = () => {
+      const raw = localStorage.getItem(key)
+      if (raw === null) {
+        const now = new Date().toISOString()
+        localStorage.setItem(key, now)
+        setGiftsSeenAt(new Date(now).getTime())
+        return
+      }
+      setGiftsSeenAt(new Date(raw).getTime())
+    }
+    sync()
+    const onStorage = (e: StorageEvent) => { if (e.key === key) sync() }
+    const offForeground = onForeground(sync)
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('eren:gifts-seen', sync)
+    return () => {
+      offForeground()
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('eren:gifts-seen', sync)
+    }
+  }, [user?.id])
+
   // ── Realtime: listen for new journal messages ──
   useEffect(() => {
     if (!profile?.household_id || !user?.id) return
@@ -550,6 +589,22 @@ function useCoupleImpl() {
     try { window.dispatchEvent(new Event('eren:notes-read')) } catch { /* ignore */ }
   }, [user?.id])
 
+  // Stamp the gift tray as seen. The tray passes nothing — it showed
+  // everything that was pending, so "now" is honest. The realtime popup
+  // passes the one row it actually put on screen, so a second gift that
+  // arrived in the same moment and never got its own popup is still waiting
+  // in the tray next launch. Monotonic on purpose: the marker only ever
+  // moves forward, whichever caller writes it.
+  const markGiftsSeen = useCallback((through?: string) => {
+    if (!user?.id) return
+    const key = `eren_gifts_seen_${user.id}`
+    const at = through ? new Date(through).getTime() : Date.now() + 1000
+    const stamp = Math.max(at, new Date(localStorage.getItem(key) ?? 0).getTime())
+    localStorage.setItem(key, new Date(stamp).toISOString())
+    setGiftsSeenAt(stamp)
+    try { window.dispatchEvent(new Event('eren:gifts-seen')) } catch { /* ignore */ }
+  }, [user?.id])
+
   // ── Clear popup + mark as read ──
   // The popup carries any of the three kinds, so it clears whichever marker it
   // actually belongs to: dismissing a note must not silence the chat, and a
@@ -560,12 +615,16 @@ function useCoupleImpl() {
     if (!user?.id || !msg) return
     if (msg.via_eren) {
       if (!isNudgeRow(msg)) markNotesRead()
+      // A gift that popped live has already been delivered to their face.
+      // Settling it here is what stops the welcome-back tray greeting them
+      // with the same gift on the next launch.
+      if (msg.gift_item) markGiftsSeen(msg.created_at)
       return
     }
     localStorage.setItem(`eren_journal_read_${user.id}`, new Date(Date.now() + 1000).toISOString())
     setUnreadCount(0)
     try { window.dispatchEvent(new Event('eren:journal-read')) } catch { /* ignore */ }
-  }, [user?.id, newMessage, markNotesRead])
+  }, [user?.id, newMessage, markNotesRead, markGiftsSeen])
 
   // ── Claim the weekly Care Battle payout + dismiss the popup ─────────────
   // Pays the 100-coin bonus on first successful claim (atomic via CAS on
@@ -645,6 +704,19 @@ function useCoupleImpl() {
     n + (m.sender_id !== user?.id && new Date(m.created_at).getTime() > notesReadAt ? 1 : 0)
   ), 0)
 
+  // Gifts my partner left while I was away, oldest first so the tray reads in
+  // the order they were given. Everything here is ALREADY in my fridge — the
+  // qty moved at send time — so this is presentation, never a transaction.
+  // Empty until the marker resolves, or the tray flashes on every mount.
+  const giftArrivals = giftsSeenAt === null ? [] : notes
+    .filter(m => (
+      m.sender_id !== user?.id
+      && !!m.gift_item
+      && !!FOOD_META[m.gift_item.key]
+      && new Date(m.created_at).getTime() > giftsSeenAt
+    ))
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+
   return {
     // A household of one, KNOWN to be so. Deliberately false while the fetch
     // is still in flight AND while the partner read is failing: `partner` is
@@ -656,6 +728,7 @@ function useCoupleImpl() {
     partner, partnerStreak,
     loveMeter, anniversary, journal, unreadCount,
     notes, unreadNotes, markNotesRead,
+    giftArrivals, markGiftsSeen,
     newMessage, dismissPopup,
     partnerMood, partnerMoodWeek,
     lifetimeWLT, weeklyChampion, claimWeeklyChampion,

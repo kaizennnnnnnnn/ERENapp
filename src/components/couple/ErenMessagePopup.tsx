@@ -96,17 +96,6 @@ export default function ErenMessagePopup({ message, onDismiss }: Props) {
 
         <p className="font-pixel text-white/50" style={{ fontSize: 6 }}>TAP TO CLOSE</p>
       </button>
-
-      <style jsx>{`
-        @keyframes erenDeliver {
-          0% { transform: translateY(30px) scale(0.8); opacity: 0; }
-          100% { transform: translateY(0) scale(1); opacity: 1; }
-        }
-        @keyframes nudgeHeart {
-          0%, 100% { transform: translateY(0) scale(1); opacity: 0.5; }
-          50%      { transform: translateY(-8px) scale(1.15); opacity: 1; }
-        }
-      `}</style>
     </div>
   )
 }
