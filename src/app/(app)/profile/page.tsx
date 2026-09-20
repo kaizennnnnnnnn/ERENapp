@@ -312,14 +312,8 @@ export default function ProfilePage() {
 
   const { achievements, streak, streakRepairAvailable, streakRepairCost, repairStreak, coins } = useTasks()
 
-  usePageReady(!loading && !!profile)
-
-  if (loading || !profile) return <PageLoader label="LOADING PROFILE" />
-
-  const initials = profile.name.charAt(0).toUpperCase()
-  const totalSeconds = mySeconds + partnerSeconds
   const { theme, setTheme } = useTheme()
-  const unlockedCount = Object.keys(achievements).length
+
   // `first_nudge` fires on a nudge, and the sheet that sends one is mounted
   // behind `partner &&`. For a household of one it is a card that can never
   // turn over, sitting under a counter and a progress bar that can therefore
@@ -333,6 +327,20 @@ export default function ProfilePage() {
       : ACHIEVEMENT_DEFS),
     [isSolo, achievements],
   )
+
+  usePageReady(!loading && !!profile)
+
+  // EVERY hook this component owns is above this line and has to stay there.
+  // `loading` is true on the first render of every visit, so a hook placed
+  // below this return is skipped once and then appears on the next render --
+  // React throws "Rendered more hooks than during the previous render", the
+  // root boundary catches it, and tapping PROFILE lands on SOMETHING BROKE
+  // every single time. useTheme() and the achievementDefs memo were down there.
+  if (loading || !profile) return <PageLoader label="LOADING PROFILE" />
+
+  const initials = profile.name.charAt(0).toUpperCase()
+  const totalSeconds = mySeconds + partnerSeconds
+  const unlockedCount = Object.keys(achievements).length
 
   return (
     <div className="page-scroll" style={pageStyle}>
