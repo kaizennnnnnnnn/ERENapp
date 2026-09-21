@@ -124,7 +124,9 @@ DEFAULT_JSON = os.path.join(ROOT, 'scripts', 'window_seeds.json')
 # by the current full-size layout squeezes the whole room into the window.
 #   2  full-size overlays, enclosed cloud shreds filled
 #   3  hole edges matted instead of eroded and repainted
-ASSET_V = 3
+#   4  bedroom sky repainted (the dither band across the glass), so the
+#      cut had to be re-flooded or it would have redrawn the old stipple
+ASSET_V = 4
 
 
 def luma(c):
