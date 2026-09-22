@@ -188,8 +188,39 @@ MOUTH_LEVELS = {
 # ink on each side so it reads as inside the mouth rather than as the lower lip.
 MOUTH_TONGUE = {2: (28, 30, 42), 3: (28, 30, 43)}
 
+# Upper canines, hanging off the roof of the mouth. A cat's fangs are the thing
+# that makes an open mouth read as a MOUTH and not a hole, and at ship size each
+# of these is under 3px -- they work as two bright specks against the black, so
+# they are placed at the edges where the eye already is rather than centred where
+# the tongue is. Symmetric about x=416 like everything else here (c0 + c1 == 58).
+#
+# Level 1 gets none: its cavity is one block row of clearance and a tooth in it
+# would BE the cavity.
+# Same columns at both levels on purpose: a fang is bolted to the upper jaw, so
+# opening wider moves the CHIN away from it, not the tooth outward. Spacing them
+# with the cavity looked like the teeth were sliding along the gums.
+MOUTH_TEETH = {
+    2: [(27, 28, 41), (30, 31, 41)],
+    3: [(27, 28, 41), (30, 31, 41)],
+}
+# Near the coat's light end rather than pure white. It is deliberately inside the
+# coat's own classification band (V > 0.86, sat < 0.10) so that eren_colors.py
+# sees teeth as coat: they then follow the WHITE when the cat is recoloured,
+# which is what teeth do, instead of following the fur.
+ENAMEL = np.array([246.0, 248.0, 248.0])
+
 INK = np.array([0.0, 0.0, 0.0])           # the mouth line's own black
 TONGUE = np.array([213.0, 138.0, 181.0])  # the nose's own pink
+
+
+def _fill(out, op, rect, rgb):
+    """Paint one block rect, clipped to pixels that are already opaque so nothing
+    can spill past the head's silhouette or over the ruff outline below the chin."""
+    x0, y0, x1, y1 = _blk(*rect)
+    sel = np.zeros(out.shape[:2], dtype=bool)
+    sel[y0:y1, x0:x1] = True
+    sel &= op
+    out[sel, 0:3] = rgb
 
 
 def open_mouth(img, level):
@@ -203,19 +234,14 @@ def open_mouth(img, level):
         return img
     out = img.copy()
     op = out[..., 3] > 200
-    for c0, c1, r in MOUTH_LEVELS[min(level, 3)]:
-        x0, y0, x1, y1 = _blk(c0, c1, r)
-        sel = np.zeros(out.shape[:2], dtype=bool)
-        sel[y0:y1, x0:x1] = True
-        sel &= op
-        out[sel, 0:3] = INK
+    for rect in MOUTH_LEVELS[min(level, 3)]:
+        _fill(out, op, rect, INK)
     tongue = MOUTH_TONGUE.get(min(level, 3))
     if tongue:
-        x0, y0, x1, y1 = _blk(*tongue)
-        sel = np.zeros(out.shape[:2], dtype=bool)
-        sel[y0:y1, x0:x1] = True
-        sel &= op
-        out[sel, 0:3] = TONGUE
+        _fill(out, op, tongue, TONGUE)
+    # Teeth last: they sit ON the cavity, so they have to be painted over it.
+    for t in MOUTH_TEETH.get(min(level, 3), ()):
+        _fill(out, op, t, ENAMEL)
     return out
 
 
