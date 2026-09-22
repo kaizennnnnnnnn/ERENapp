@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import CloudTransition from '@/components/CloudTransition'
 import SplashScreen from '@/components/SplashScreen'
+import CrashTrap from '@/components/CrashTrap'
 import TransientErrorSilencer from '@/components/TransientErrorSilencer'
 import LongPressGuard from '@/components/LongPressGuard'
 
@@ -46,6 +47,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="bg-[#FDF6FF]">
         <TransientErrorSilencer />
+        {/* AFTER the silencer, never before: listeners fire in registration
+            order, and this one skips anything the silencer has already
+            preventDefault()ed as a benign network blip. */}
+        <CrashTrap />
         <LongPressGuard />
         <SplashScreen />
         <div className="app-container">
