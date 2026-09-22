@@ -344,36 +344,77 @@ def close_lids(img, hulls, frac):
     return out
 
 
-def glance(img, hulls, blocks):
-    """Slide everything inside each socket `blocks` block columns sideways
-    (positive = to the viewer's right): the iris shading, the black pupil and
-    the catchlight together, as one rigid piece, row by row. The strip that
-    slides out from under the ink ring is filled by extending the interior's
-    own edge column, and whatever slides under the ring on the far side is
-    simply gone -- which is what an eye turning looks like.
+def _is_iris(px):
+    """Blue-ish: the socket's own iris colour, as opposed to ink or catchlight."""
+    r, g, b = float(px[0]), float(px[1]), float(px[2])
+    mx, mn = max(r, g, b), min(r, g, b)
+    return mx > 0 and (mx - mn) / mx > 0.15 and b > r
 
-    The first cut moved only the pupil and refilled behind it with the median
-    blue, picked out by two brightness thresholds. That left three things no
-    artist would draw: a flat blue rectangle where the pupil had been, a pale
-    ghost of the catchlight's antialiased rim at its old position, and the
-    catchlight itself cut into triangles by the socket's diagonal corners. A
-    rigid slide has none of them, and needs no thresholds to go wrong.
+
+def _socket_room(hull):
+    """The socket minus its ink ring, eroded HORIZONTALLY only. The slide is
+    horizontal, so only the side rings should bound it; an isotropic erosion of
+    a hexagon has diagonal corners, and they cut the sliding catchlight into a
+    right triangle."""
+    return L.ndimage.binary_erosion(hull, structure=np.ones((1, 2 * GRID + 1), dtype=bool))
+
+
+def slide_socket(img, hull, shift):
+    """Slide everything inside one socket `shift` pixels sideways (positive =
+    to the viewer's right), row by row: the iris shading, the black pupil and
+    the catchlight together, as one rigid piece. Only columns move, so the
+    art's vertical structure -- the catchlight straddles two block rows, the
+    lid's edge sits 8px off the grid -- is carried untouched.
+
+    A destination pixel whose source has gone under the ring on the far side
+    is filled from the nearest IRIS block column of the same row (the block's
+    own pixel, so the iris keeps its shading), never by replicating the edge
+    pixel: on the rows where the socket's rounded corner narrows the room, the
+    edge pixel is the catchlight or the pupil, and replicating it smeared a
+    white or black bar across the vacated column.
+    """
+    out = img.copy()
+    room = _socket_room(hull)
+    for y in np.nonzero(room.any(axis=1))[0]:
+        cols = np.nonzero(room[y])[0]
+        x0, x1 = cols.min(), cols.max()
+        iris = [c for c in range((x0 - PHASE_X) // GRID, (x1 - PHASE_X) // GRID + 1)
+                if x0 <= PHASE_X + c * GRID + GRID // 2 <= x1
+                and _is_iris(img[y, PHASE_X + c * GRID + GRID // 2])]
+        if not iris:
+            continue
+        for x in range(x0, x1 + 1):
+            sx = x - shift
+            if sx < x0 or sx > x1:
+                c = (x - PHASE_X) // GRID
+                cb = min(iris, key=lambda k: (abs(k - c), k))
+                sx = min(max(x + (cb - c) * GRID, x0), x1)
+            out[y, x, :3] = img[y, sx, :3]
+    return out
+
+
+def glance(img, hulls, blocks):
+    """Look `blocks` block columns to the side (positive = to the viewer's
+    right) WITHOUT letting a pupil touch the ring.
+
+    The rest pose is converged: each pupil slab sits one block toward the nose
+    of its socket's centre -- two blocks of iris on the outer side, one on the
+    nose side. So a glance moves ONLY the eye whose pupil goes OUTWARD; the
+    other eye's pupil is already one block that way and holds. Both held poses
+    then have the two pupils at the same offset in their sockets (a parallel
+    gaze), both catchlights intact, and a block of iris between every pupil
+    and the ring. The shipped first cut slid both eyes by a block, which on
+    every side-look drove one pupil into the ring on its nose side: black on
+    black, one blob, the catchlight clipped under the socket's corner -- the
+    frame the user called bad. Verified at bake time by verify_pupils_clear.
     """
     if not blocks:
         return img
-    out = img.copy()
-    shift = int(blocks) * GRID
+    out = img
     for hull in hulls:
-        # Erode HORIZONTALLY only. The slide is horizontal, so only the side
-        # rings should bound it; an isotropic erosion of a hexagon has diagonal
-        # corners, and they cut the sliding catchlight into a right triangle.
-        room = L.ndimage.binary_erosion(hull, structure=np.ones((1, 2 * GRID + 1), dtype=bool))
-        for r in np.nonzero(room.any(axis=1))[0]:
-            cols = np.nonzero(room[r])[0]
-            x0, x1 = cols.min(), cols.max()
-            row = img[r, x0:x1 + 1, :3]
-            src = np.clip(np.arange(x0, x1 + 1) - shift - x0, 0, x1 - x0)
-            out[r, x0:x1 + 1, :3] = row[src]
+        nose = 1.0 if np.nonzero(hull)[1].mean() < CX else -1.0   # +x is toward the nose for the LEFT eye
+        if float(blocks) * nose < 0:                                # outward for this eye
+            out = slide_socket(out, hull, int(blocks) * GRID)
     return out
 
 
@@ -820,6 +861,48 @@ def verify_mouth_travels(name, frames, plan, body):
             '(%.1f, %.1f)px.' % (name, i, mx + edx, my + edy, gx, gy, ex, ey))
 
 
+def verify_pupils_clear(name, plan, body, hulls):
+    """In every glancing frame, every pupil keeps at least one block of iris
+    between itself and the ring on BOTH sides, and both eyes look the same way.
+
+    This is the frame the user called bad: a pupil slid into the ring, black on
+    black, and the eye became one blob. Checked on the painted rest-pose body
+    (before any warp, which is where the face is painted), on each socket's
+    widest row, by classifying the block centres: the first and last interior
+    blocks must be iris. Then the pupil's offset from the socket's centre must
+    be the same in both eyes -- otherwise it is a squint, not a glance. A
+    two-eyed slide fails the first test on one eye every time; a one-eyed
+    slide that picked the wrong eye fails the second.
+    """
+    def row_classes(img, hull):
+        room = _socket_room(hull)
+        rows = np.nonzero(room.any(axis=1))[0]
+        y = max(rows, key=lambda r: np.ptp(np.nonzero(room[r])[0]))
+        xs = np.nonzero(room[y])[0]
+        cols = [c for c in range((xs.min() - PHASE_X) // GRID, (xs.max() - PHASE_X) // GRID + 1)
+                if xs.min() <= PHASE_X + c * GRID + GRID // 2 <= xs.max()]
+        px = [img[y, PHASE_X + c * GRID + GRID // 2] for c in cols]
+        return cols, ['iris' if _is_iris(p) else 'pupil' for p in px]
+
+    for i, (_, _, mouth, face) in enumerate(plan):
+        g = (face or {}).get('glance', 0)
+        if not g:
+            continue
+        painted = paint_face(body, mouth, face, hulls)
+        offsets = []
+        for hull in hulls:
+            cols, cls = row_classes(painted, hull)
+            assert cls[0] == 'iris' and cls[-1] == 'iris', (
+                '%s frame %d: a pupil touches the ring (%s)' % (name, i, ' '.join(cls)))
+            pupil = [c for c, k in zip(cols, cls) if k == 'pupil']
+            offsets.append(np.mean(pupil) - np.mean(cols))
+        assert abs(offsets[0] - offsets[1]) < 0.01, (
+            '%s frame %d: the eyes disagree (pupil offsets %.2f / %.2f blocks)'
+            % (name, i, offsets[0], offsets[1]))
+        assert np.sign(offsets[0]) == np.sign(g), (
+            '%s frame %d: looking the wrong way (offset %.2f for glance %+d)' % (name, i, offsets[0], g))
+
+
 def verify_tail_still(name, frames, bodies, plan, body, tail, ref):
     """The tail must be untouched in every frame of a head-only expression.
     This is the bug the user caught by eye, so it gets an assertion.
@@ -868,6 +951,9 @@ def main():
         if any(m for _, _, m, _ in plan):
             verify_mouth_travels(name, full, plan, body)
             print('  mouth: verified travelling with the head')
+        if any((f or {}).get('glance') for _, _, _, f in plan):
+            verify_pupils_clear(name, plan, body, hulls)
+            print('  eyes: verified no pupil touches the ring, both look the same way')
         cropped = [L.crop(f, rect) for f in full]
 
         L.write_strip(name, cropped, name.replace('good', 'eren_').lower() + '.webp',
