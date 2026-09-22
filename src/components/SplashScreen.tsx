@@ -12,8 +12,10 @@ import AnimatedEren from './AnimatedEren'
 // see it because the markup was there the whole time.
 //
 // Only these three. Roughly two dozen in-app routes also never dispatch
-// `eren:app-ready` and sit out the full 8s, but those are the app and the
-// splash is doing its job; they want usePageReady, not an exemption.
+// `eren:app-ready` — every minigame, the arcade, the gacha, the bakery, the
+// kiosk, the jelly parlour. They are not broken pages; they simply render
+// synchronously and have nothing to wait for. They no longer pay the 8s for
+// that: see the claim protocol below.
 const PUBLIC_DOCS = ['/privacy', '/terms', '/delete-account']
 
 // The splash holds the user's eye while the underlying page mounts, fetches,
@@ -24,8 +26,24 @@ const PUBLIC_DOCS = ['/privacy', '/terms', '/delete-account']
 //      blinks out mid-animation,
 //   3. OR a maximum visible time has elapsed as a safety net so a broken
 //      page can't strand the user on the splash forever.
+//
+// A page CLAIMS the splash by calling `usePageReady(false)` while it loads;
+// usePageReady dispatches `eren:app-busy` for it. If nothing claims the boot
+// by the time the document has loaded, there is nothing to wait for and the
+// splash goes at the minimum. That inversion is what the two dozen silent
+// routes needed: the old contract failed CLOSED, so a route that said nothing
+// was indistinguishable from one still working, and a refresh on any minigame
+// cost eight seconds of a cat on a black screen.
+//
+// The grace window is free. MIN_VISIBLE_MS already holds the splash for 1.2s,
+// which is longer than the wait for `load` + a settling tick on any boot that
+// was going to be fast anyway.
 const MIN_VISIBLE_MS = 1200
 const MAX_VISIBLE_MS = 8000
+// After `load`, how long to let React's effects run before concluding that
+// nobody is going to claim. Effects fire on the commit after mount, so this is
+// generous; it exists so a slow hydration cannot lose a claim by a few ms.
+const CLAIM_GRACE_MS = 400
 
 export default function SplashScreen() {
   const pathname = usePathname()
@@ -33,6 +51,8 @@ export default function SplashScreen() {
   const [phase, setPhase] = useState<'playing' | 'fading' | 'done'>('playing')
   const mountedAtRef = useRef(Date.now())
   const fadedRef = useRef(false)
+  // A page has said it is still working, so the splash waits for its ready.
+  const claimedRef = useRef(false)
 
   useEffect(() => {
     const beginFade = () => {
@@ -44,11 +64,30 @@ export default function SplashScreen() {
     }
 
     const onReady = () => beginFade()
+    const onBusy  = () => { claimedRef.current = true }
     window.addEventListener('eren:app-ready', onReady)
+    window.addEventListener('eren:app-busy', onBusy)
+
+    // Nothing claimed the boot by the time the document finished loading, so
+    // whatever route we came up on renders synchronously and is already on
+    // screen behind this. Re-check after the grace window rather than deciding
+    // at `load`, because on a slow hydration the claim can land just after it.
+    let graceTimer = 0
+    const decide = () => {
+      graceTimer = window.setTimeout(() => {
+        if (!claimedRef.current) beginFade()
+      }, CLAIM_GRACE_MS)
+    }
+    if (document.readyState === 'complete') decide()
+    else window.addEventListener('load', decide)
+
     const safety = window.setTimeout(beginFade, MAX_VISIBLE_MS)
 
     return () => {
       window.removeEventListener('eren:app-ready', onReady)
+      window.removeEventListener('eren:app-busy', onBusy)
+      window.removeEventListener('load', decide)
+      window.clearTimeout(graceTimer)
       window.clearTimeout(safety)
     }
   }, [])

@@ -13,8 +13,16 @@ import { useEffect } from 'react'
 
 export function usePageReady(ready: boolean) {
   useEffect(() => {
-    if (!ready) return
     if (typeof window === 'undefined') return
+    // Not ready yet: CLAIM the splash. Without this the splash cannot tell a
+    // page that is still fetching from a page that was never going to signal
+    // at all, so it had to assume the former and wait out the full 8s safety
+    // net for both. Claiming makes the quiet case the cheap one — see
+    // SplashScreen, which now dismisses on load when nothing has claimed it.
+    if (!ready) {
+      window.dispatchEvent(new Event('eren:app-busy'))
+      return
+    }
     // rAF + microtask wait — guarantees the new paint has committed before we
     // tell the splash it's safe to fade. Belt-and-braces; on its own onload
     // doesn't, and React's commit can land just before the browser paints.
