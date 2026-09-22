@@ -48,10 +48,12 @@ sprite -- the mouth line's own black, and the nose's own pink for the tongue.
 No colour enters that was not already in the file.
 
 Measured mouth, from the pixels:
-    upper row  y 556..570   x 332..346 | 402..430 | 486..500
-    lower row  y 570..584   x 346..402 | 430..486
-So the "w" spans block cols 23..34 on rows 39..40, and an opening hangs off
-rows 41 and below.
+    upper row  y 556..569   x 332..345 | 403..430 | 488..500
+    lower row  y 570..583   x 347..402 | 431..486
+So the "w" spans block cols 23..34 on rows 39..40. The cavity starts ON ROW 40,
+filling the white fur at x 403..430 that the two lower curves leave between them
+-- see MOUTH_LEVELS. And it is painted BEFORE the warp, so it travels with the
+head; see render().
 
 GEOMETRY (erenGood_notail.png, 848x1264), off a row-ruler render
 ----------------------------------------------------------------
@@ -159,20 +161,32 @@ def _blk(c0, c1, r):
             PHASE_X + c1 * GRID, PHASE_Y + (r + 1) * GRID)
 
 
-# How far the jaw is open, as block rows hanging under the existing mouth line
-# (which ends at block row 40). Each level is a whole block: a pixel mouth opens
-# in steps, it does not fade open.
-# Three is the floor of the chin, not a stylistic choice: block row 44 lands on
-# y 626..640, which is where the ruff outline starts, so a four-row open merges
-# the mouth into the chest line and Eren reads as having no jaw. Baked, looked
-# at, deleted.
+# How far the jaw is open, as a cavity hanging under the mouth line. Each level
+# is a whole block: a pixel mouth opens in steps, it does not fade open.
+#
+# It has to START ON BLOCK ROW 40, not 41. The mouth line is a "w": the outer
+# tips and the centre peak sit on row 39, and the two curve BOTTOMS on row 40, at
+# x 347..402 and 431..486 -- which leaves white fur at x 403..430 between them.
+# Hanging the opening off row 41 left that white block floating INSIDE the black
+# as an island, so the whole thing read as a bar stuck under the chin rather than
+# a mouth. Filling row 40's centre welds the cavity to the "w" the art already
+# has, and the centre peak becomes the roof of the mouth.
+#
+# Every rect is symmetric about x=416, the mouth's measured centre: a block rect
+# [c0, c1) is centred there exactly when c0 + c1 == 58.
+#
+# Three block rows below the lip is the floor of the chin, not a stylistic
+# choice: block row 44 lands on y 626..639, which is where the ruff outline
+# starts, so a deeper open merges the mouth into the chest line and Eren reads as
+# having no jaw. Baked, looked at, deleted.
 MOUTH_LEVELS = {
-    1: [(26, 32, 41)],
-    2: [(25, 33, 41), (26, 32, 42)],
-    3: [(25, 33, 41), (25, 33, 42), (26, 32, 43)],
+    1: [(27, 31, 40), (28, 30, 41)],
+    2: [(26, 32, 40), (26, 32, 41), (27, 31, 42)],
+    3: [(25, 33, 40), (25, 33, 41), (26, 32, 42), (27, 31, 43)],
 }
-# The tongue sits in the bottom block row of the widest open, centred.
-MOUTH_TONGUE = {3: (28, 30, 43)}
+# The tongue sits in the bottom row of the opening, centred, a block clear of the
+# ink on each side so it reads as inside the mouth rather than as the lower lip.
+MOUTH_TONGUE = {2: (28, 30, 42), 3: (28, 30, 43)}
 
 INK = np.array([0.0, 0.0, 0.0])           # the mouth line's own black
 TONGUE = np.array([213.0, 138.0, 181.0])  # the nose's own pink
@@ -336,10 +350,15 @@ def render(body, tail, plan):
     check below has to know which pixels the body covered."""
     frames, bodies = [], []
     for body_f, tail_f, mouth in plan:
-        b = body if body_f is ZERO else L.warp(body, body_f[0], body_f[1])
+        # PAINT, THEN WARP -- in that order, always. Painting afterwards writes
+        # the cavity at fixed canvas rows, so on `cheer` (which lifts the whole
+        # body 21px and lags the head another 6) the face rose and the open mouth
+        # stayed behind on the chest. Painted first it is just more face pixels,
+        # and the same field that carries the nose carries the mouth.
+        b = open_mouth(body, mouth) if mouth else body
+        if body_f is not ZERO:
+            b = L.warp(b, body_f[0], body_f[1])
         t = tail if tail_f is ZERO else L.warp(tail, tail_f[0], tail_f[1])
-        if mouth:
-            b = open_mouth(b, mouth)
         frames.append(compose(b, t))
         bodies.append(b)
     return frames, bodies
@@ -373,6 +392,84 @@ def verify(name, frames, rect, ref):
         edge = max(al[y0:y1, x0].max(), al[y0:y1, x1 - 1].max(),
                    al[y0, x0:x1].max(), al[y1 - 1, x0:x1].max())
         assert edge < 8, '%s frame %d: content touches the crop border' % (name, i)
+
+
+# The muzzle window the mouth check measures in. Nothing else on the sprite is
+# dark inside it: the cheek outlines sit at x 262..302 and 531..571, and the ruff
+# starts at y 626 -- all outside. The window RIDES the frame's own displacement,
+# so it holds the same anatomy whether the head is up, down or leaning.
+MOUTH_BOX = (320, 545, 520, 630)   # x0, y0, x1, y1 at rest
+
+
+def mouth_centroid(img, field=None):
+    """Centre of mass of the dark pixels in the muzzle -- the "w" plus whatever
+    the cavity added. Sub-pixel, and stable under warp(): bilinear interpolation
+    softens the block edges symmetrically.
+
+    `field` deforms the WINDOW the same way the content is deformed. Translating
+    it is not enough. These fields scale about the paw line, so a fixed-height
+    window loses a row or two off the stretched muzzle, and that clipping drags
+    the centroid by ~2.4px -- the same order as the error being hunted, which
+    would make the check meaningless. Sampling the field at the window's own
+    edges is exact here because it is linear in y (and in x) over these rows.
+    """
+    x0, y0, x1, y1 = MOUTH_BOX
+    if field is not None:
+        dx, dy = field
+        cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
+        x0, x1 = x0 + dx[cy, x0], x1 + dx[cy, x1 - 1]
+        y0, y1 = y0 + dy[y0, cx], y1 + dy[y1 - 1, cx]
+    x0, y0 = int(np.floor(x0)), int(np.floor(y0))
+    x1, y1 = int(np.ceil(x1)), int(np.ceil(y1))
+    sub = img[y0:y1, x0:x1]
+    m = (sub[..., 3] > 128) & (sub[..., :3].max(axis=2) < 90)
+    assert m.any(), 'mouth window is empty'
+    ys, xs = np.nonzero(m)
+    return xs.mean() + x0, ys.mean() + y0, int(m.sum())
+
+
+def verify_mouth_travels(name, frames, plan, body):
+    """The open mouth must ride the head, not sit at fixed canvas rows.
+
+    This is the bug the user caught: on `cheer` the body lifts 21px and the head
+    lags another 6 on top of a stretch about the paw line, and the mouth -- which
+    was painted AFTER the warp -- stayed behind on the chest while the face rose.
+
+    The check is exact rather than approximate, because the fields here are
+    linear in y over the muzzle (scale_about is linear; the lift and lag weights
+    are both saturated at 1 this far up the body). For a linear field, the
+    displacement at the centroid IS the mean displacement over the mask -- so the
+    mouth's measured travel has to equal the field sampled at its rest position,
+    not merely resemble it.
+    """
+    rest = {}
+    for body_f, _, level in plan:
+        if level and level not in rest:
+            rest[level] = mouth_centroid(open_mouth(body, level))
+    if not rest:
+        return
+    for i, ((body_f, _, level), f) in enumerate(zip(plan, frames)):
+        if not level:
+            continue
+        mx, my, mn = rest[level]
+        if body_f is ZERO:
+            edx = edy = 0.0
+        else:
+            edx = float(body_f[0][int(round(my)), int(round(mx))])
+            edy = float(body_f[1][int(round(my)), int(round(mx))])
+        gx, gy, gn = mouth_centroid(f, body_f if body_f is not ZERO else None)
+        # Area first. If the mouth stayed behind while the window rode the head,
+        # the window lands on part of the muzzle and still finds SOME dark
+        # pixels -- so a centroid test alone could be satisfied by the wrong
+        # anatomy. The mask area only changes by the warp's own scale factor.
+        assert abs(gn - mn) < 0.15 * mn, (
+            '%s frame %d: the muzzle window holds %d dark px, rest pose has %d. '
+            'The mouth is not where the head went.' % (name, i, gn, mn))
+        ex, ey = abs(gx - (mx + edx)), abs(gy - (my + edy))
+        assert max(ex, ey) < 1.5, (
+            '%s frame %d: the mouth did not travel with the head. Expected the '
+            'cavity at (%.1f, %.1f), found it at (%.1f, %.1f) -- off by '
+            '(%.1f, %.1f)px.' % (name, i, mx + edx, my + edy, gx, gy, ex, ey))
 
 
 def verify_tail_still(name, frames, bodies, plan, body, tail, ref):
@@ -419,6 +516,9 @@ def main():
         if name in HEAD_ONLY:
             verify_tail_still(name, full, bodies, plan, body, tail, ref)
             print('  tail: verified still')
+        if any(m for _, _, m in plan):
+            verify_mouth_travels(name, full, plan, body)
+            print('  mouth: verified travelling with the head')
         cropped = [L.crop(f, rect) for f in full]
 
         L.write_strip(name, cropped, name.replace('good', 'eren_').lower() + '.webp',
