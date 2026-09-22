@@ -43,6 +43,7 @@ import GlassMist from './GlassMist'
 import TipCoin, { COIN_MS, coinFlightMs } from './TipCoin'
 import { useBeat } from './useResume'
 import CashRegister, { TILL_MS } from './CashRegister'
+import Shutter, { SHUTTER_MS, SHUTTER_STILL_MS } from './Shutter'
 import { ShiftNote, ChampionApron } from './WallProps'
 import {
   FRIDGE_HIT, FRIDGE_TAG, DOOR_HIT, DOOR_TAG, MAX_USES, WEATHER_BY_ID,
@@ -119,6 +120,11 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
   /** And did the money actually reach the wallet? A receipt that prints a
    *  total nobody received is the one lie a till must not tell. */
   const [banked, setBanked] = useState(true)
+  /** When you pulled the shutter down, as a clock reading. Null until you do.
+   *  The receipt waits for it: the night ends with the window being shut, not
+   *  with a modal appearing over a window still standing open. */
+  const [closingAt, setClosingAt] = useState<number | null>(null)
+  const [receiptUp, setReceiptUp] = useState(false)
 
   const shift = useKioskShift({
     menu: record.menu,
@@ -176,6 +182,15 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
   // decorative motion the reduced-motion setting is asking about. The weather
   // stays — it still reads as a wet night, it just stops moving.
   const reduced = useReducedMotion()
+
+  // The receipt comes up once the shutter has landed — declared down here
+  // because it reads `reduced`, which is declared just above.
+  useEffect(() => {
+    if (closingAt === null) return
+    const t = setTimeout(() => setReceiptUp(true),
+      reduced ? SHUTTER_STILL_MS : SHUTTER_MS)
+    return () => clearTimeout(t)
+  }, [closingAt, reduced])
 
   // ── the pane ────────────────────────────────────────────────────────────
   // Elapsed when the glass was last wiped. The mist is derived from it, so
@@ -521,6 +536,10 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
               startedAt={sale.at} still={reduced} />
           )}
 
+          {view.feature === 'window' && closingAt !== null && (
+            <Shutter startedAt={closingAt} still={reduced} />
+          )}
+
           {view.feature === 'window' && (
             <CustomerWindow
               order={shift.order}
@@ -561,7 +580,15 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
                 aria-label={worked > 0 ? 'Close up for the night' : 'Step back outside'}
                 urgent={shift.lastCall && worked > 0}
                 onClick={guard(() => {
-                  if (!shift.closeUp(phone.missed)) { playSound('ui_back'); onExit() }
+                  // One pull only. The receipt is a second and a half away and
+                  // the door is still live until it lands.
+                  if (closingAt !== null) return
+                  // Serve nobody and it really is just a door.
+                  if (!shift.closeUp(phone.missed)) { playSound('ui_back'); onExit(); return }
+                  // Otherwise you close up: turn round to the window and pull
+                  // the shutter down on the street before reading the night.
+                  turnTo('window')
+                  setClosingAt(Date.now())
                 })}
               />
             </>
@@ -759,7 +786,7 @@ export default function KioskInterior({ onExit, record, payable, practiceReason 
         onServe={shift.serve}
       />
 
-      {shift.report && (
+      {shift.report && receiptUp && (
         <ShiftReport
           report={shift.report}
           practiceReason={shift.report.paid ? null : practiceReason}

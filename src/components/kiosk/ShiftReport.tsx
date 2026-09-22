@@ -11,7 +11,7 @@
 // be a thing you did, not a thing that happened.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { IconCoin } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import { WEATHER_BY_ID } from './kioskShift'
@@ -70,7 +70,8 @@ export default function ShiftReport({ report, practiceReason, banked, canNote, o
   const [note, setNote] = useState('')
   const [saved, setSaved] = useState(false)
 
-  useEffect(() => { playSound('kiosk_shutter') }, [])
+  // No shutter sound here any more — it belongs to the shutter, which now
+  // actually comes down before this arrives. See Shutter.tsx.
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center px-5"

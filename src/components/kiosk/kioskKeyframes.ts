@@ -340,6 +340,13 @@ export const KIOSK_KEYFRAMES = `
           0%, 49%   { opacity: 1; }
           50%, 100% { opacity: 0; }
         }
+        @keyframes kioskShutterDown {
+          0%   { transform: translateY(-100%); animation-timing-function: cubic-bezier(0.5, 0, 0.85, 0.72); }
+          78%  { transform: translateY(0);     animation-timing-function: cubic-bezier(0.3, 0, 0.55, 1);    }
+          87%  { transform: translateY(-2.2%); animation-timing-function: ease-in;                          }
+          95%  { transform: translateY(-0.6%); animation-timing-function: ease-in;                          }
+          100% { transform: translateY(0); }
+        }
         @keyframes kioskRollShut {
           0%   { transform: scaleX(1)    scaleY(1);    }
           45%  { transform: scaleX(0.55) scaleY(1.06); }
