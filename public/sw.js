@@ -9,7 +9,26 @@ const SW_VERSION = 'v32-bedroom-sky-2026-09-22'
 // against a black void (the original bug: img.onerror fires offline, the
 // scene host treats it as a successful load, then the CSS background-image
 // 404s and you see Eren floating in space).
-const IMAGE_CACHE = `eren-images-${SW_VERSION}`
+// NOT keyed on SW_VERSION, and that is the whole point.
+//
+// It used to be. Every bump of the string above — a routing rule, a badge
+// tweak, anything — minted a brand new bucket, refetched all 68 entries into
+// it, and deleted the old one. 29.8 MB over the wire because a line of
+// JavaScript changed, on a phone, possibly on mobile data. The art in here
+// changes far more rarely than the worker does, so it gets its own epoch and
+// only this constant moves when the ART changes.
+//
+// Existing installs pay it once more: their bucket is still called
+// eren-images-v32-..., the activate sweep below deletes it, and this one
+// fills. After that a worker bump costs nothing.
+const IMAGE_ASSET_EPOCH = 'a1'
+const IMAGE_CACHE = `eren-images-${IMAGE_ASSET_EPOCH}`
+
+// Entries that must be re-fetched on every install rather than kept because
+// they are already present. `/offline.html` is app shell, not art: it has no
+// ?v= to bump, so "skip what we already have" would freeze the first version
+// of it into every existing install forever.
+const ALWAYS_REFRESH = ['/offline.html']
 const PRECACHE_IMAGES = [
   // Not an image. Precached with them because it shares the cache and must
   // already be present the first time a navigation fails — there is no
@@ -61,19 +80,28 @@ self.addEventListener('install', e => {
   // is slow or fails — better to ship the SW updates than block on assets.
   self.skipWaiting()
   e.waitUntil(
-    caches.open(IMAGE_CACHE).then(cache =>
-      // addAll is atomic — if any image 404s the whole call rejects. We catch
-      // and fall back to individual adds so a renamed/missing asset doesn't
-      // wipe the cache for the rest.
-      cache.addAll(PRECACHE_IMAGES).catch(() => Promise.all(
-        PRECACHE_IMAGES.map(url => cache.add(url).catch(() => null))
-      ))
-    )
+    caches.open(IMAGE_CACHE).then(async cache => {
+      // Only what is actually missing. `addAll` always goes to the network and
+      // overwrites, so with a stable bucket it would have re-downloaded
+      // everything anyway and the rename above would have bought nothing.
+      // Compared as FULL urls, query included. Half this list is cache-busted
+      // with ?v= when art is replaced at the same path (/ErenBadge.png?v=6),
+      // and matching on pathname alone would see the stale ?v=5 already in the
+      // bucket and skip the new one forever.
+      const have = new Set((await cache.keys()).map(r => r.url))
+      const wanted = PRECACHE_IMAGES.filter(
+        u => ALWAYS_REFRESH.includes(u) || !have.has(new URL(u, self.location.origin).href)
+      )
+      // Individually, never addAll: that call is atomic, so one renamed or
+      // 404ing asset rejects the whole batch and leaves the rest uncached.
+      await Promise.all(wanted.map(url => cache.add(url).catch(() => null)))
+    })
   )
 })
 
 self.addEventListener('activate', e => e.waitUntil(Promise.all([
-  // Drop old image caches so a SW_VERSION bump doesn't pile up storage.
+  // Drop image buckets from a previous epoch — including every
+  // eren-images-<SW_VERSION> bucket left by the old naming.
   caches.keys().then(keys => Promise.all(
     keys.filter(k => k.startsWith('eren-images-') && k !== IMAGE_CACHE).map(k => caches.delete(k))
   )),
