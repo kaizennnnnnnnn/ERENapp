@@ -65,6 +65,7 @@ GEOMETRY (erenGood_notail.png, 848x1264), off a row-ruler render
 import numpy as np
 
 import anim_lib as L
+import eren_parts as P
 
 SRC_BODY = 'erenGood_notail.png'
 SRC_TAIL = 'erenGood_tail.png'
@@ -222,17 +223,32 @@ INCISOR_FRAC = 0.5      # the top half of the block row
 # which is what teeth do, instead of following the fur.
 ENAMEL = np.array([246.0, 248.0, 248.0])
 
+# Lower canines: only at the widest open, only the BOTTOM THIRD of the block,
+# and a step dimmer than the enamel so they sit behind the tongue rather than
+# beside it. The brief was "add bottom teeth but don't make them super
+# visible": four placements were rendered at ship size, and the corner pair on
+# row 42 was the one that reads as a hint at the mouth's corners -- the pair
+# beside the tongue on row 43 read as a lower lip, and full enamel read as a
+# second set of fangs.
+MOUTH_LOWER = {3: [(26, 27, 42), (31, 32, 42)]}
+LOWER_FRAC = 0.34
+DENTINE = np.array([214.0, 218.0, 218.0])
+
 INK = np.array([0.0, 0.0, 0.0])           # the mouth line's own black
 TONGUE = np.array([213.0, 138.0, 181.0])  # the nose's own pink
 
 
-def _fill(out, op, rect, rgb, top_frac=1.0):
+def _fill(out, op, rect, rgb, top_frac=1.0, bottom_frac=None):
     """Paint one block rect, clipped to pixels that are already opaque so nothing
     can spill past the head's silhouette or over the ruff outline below the chin.
     `top_frac` < 1 paints only the top of the row -- the incisors are half a
-    block, the same sub-block scale the art already uses for the eye highlights."""
+    block, the same sub-block scale the art already uses for the eye highlights.
+    `bottom_frac` paints only the bottom of it instead (the lower canines)."""
     x0, y0, x1, y1 = _blk(*rect)
-    y1 = y0 + int(round((y1 - y0) * top_frac))
+    if bottom_frac is not None:
+        y0 = y1 - int(round((y1 - y0) * bottom_frac))
+    else:
+        y1 = y0 + int(round((y1 - y0) * top_frac))
     sel = np.zeros(out.shape[:2], dtype=bool)
     sel[y0:y1, x0:x1] = True
     sel &= op
@@ -261,13 +277,167 @@ def open_mouth(img, level):
         _fill(out, op, MOUTH_INCISORS[lv], ENAMEL, top_frac=INCISOR_FRAC)
     for t in MOUTH_TEETH.get(lv, ()):
         _fill(out, op, t, ENAMEL)
+    for t in MOUTH_LOWER.get(lv, ()):
+        _fill(out, op, t, DENTINE, bottom_frac=LOWER_FRAC)
     return out
+
+
+# ---------------------------------------------------------------------------
+# the eyes -- measured off the art, never hard-coded
+#
+# Each eye is an ink hexagon (7 block columns, 6-7 rows) filled with blue, with
+# a black C-shaped pupil wrapping a white catchlight. The two are mirror images
+# about CX, so everything below is computed per hull rather than written down.
+# ---------------------------------------------------------------------------
+
+def eye_hulls(body):
+    """The two eye sockets as filled masks, left first."""
+    import eren_colors as C
+    m, _ = C.classify(body)
+    band = np.zeros(body.shape[:2], dtype=bool)
+    band[400:500, 260:580] = True
+    blob = (m['ink'] | m['eye']) & band
+    lab, n = L.ndimage.label(blob)
+    sizes = L.ndimage.sum(blob, lab, range(1, n + 1))
+    big = [i + 1 for i in np.argsort(sizes)[::-1][:2]]
+    hulls = [L.ndimage.binary_fill_holes(lab == k) for k in big]
+    return sorted(hulls, key=lambda h: np.nonzero(h)[1].mean())
+
+
+def close_lids(img, hulls, frac):
+    """Draw the eyelid `frac` of the way down each socket. The lid is the fur
+    already above the socket, column by column, so a recolour sees it as fur
+    and paints it with the coat; the seam of a shut eye is the socket's own
+    bottom two block rows in ink -- the "bot2" shape anim_blink.py settled on
+    after seven candidates: the lower edge the artist already drew, a shallow
+    bowl that lifts at both corners, and it invents no shape.
+    """
+    frac = float(np.clip(frac, 0.0, 1.0))
+    if frac <= 0.0:
+        return img
+    out = img.copy()
+    for hull in hulls:
+        cols = np.nonzero(hull.any(axis=0))[0]
+        for x in cols:
+            rows = np.nonzero(hull[:, x])[0]
+            r0, r1 = rows.min(), rows.max()
+            depth = int(round((r1 - r0 + 1) * frac))
+            if depth <= 0:
+                continue
+            fur = out[r0 - 3, x, :3]
+            out[r0:r0 + depth, x, :3] = fur
+        if frac >= 1.0:
+            xs = np.nonzero(hull.any(axis=0))[0]
+            for c in range((xs.min() - PHASE_X) // GRID, (xs.max() - PHASE_X) // GRID + 1):
+                x0, x1 = PHASE_X + c * GRID, PHASE_X + (c + 1) * GRID
+                colm = hull[:, x0:x1].any(axis=1)
+                rows = np.nonzero(colm)[0]
+                if rows.size == 0:
+                    continue
+                rb = (rows.max() - PHASE_Y) // GRID          # bottom block row
+                y0 = PHASE_Y + (rb - 1) * GRID
+                y1 = PHASE_Y + (rb + 1) * GRID
+                sel = np.zeros(hull.shape, dtype=bool)
+                sel[y0:y1, x0:x1] = True
+                sel &= hull
+                out[sel, :3] = INK
+    return out
+
+
+def glance(img, hulls, blocks):
+    """Slide the pupil and catchlight `blocks` block columns sideways inside
+    each socket (positive = to the viewer's right), refilling what they left
+    with the eye's own blue. Anything that would land on the ink ring is
+    dropped -- it went behind the lid, which is what a real glance does.
+    """
+    if not blocks:
+        return img
+    out = img.copy()
+    shift = int(blocks) * GRID
+    for hull in hulls:
+        inner = L.ndimage.binary_erosion(hull, iterations=16)     # clear of the ring
+        room = L.ndimage.binary_erosion(hull, iterations=GRID)   # just inside it
+        rgb = img[..., :3]
+        dark = rgb.max(axis=2) < 60
+        bright = rgb.min(axis=2) > 235
+        src = (dark | bright) & inner
+        blue = np.median(img[hull & ~dark & ~bright][:, :3], axis=0)
+        ys, xs = np.nonzero(src)
+        dst_x = xs + shift
+        ok = (dst_x >= 0) & (dst_x < hull.shape[1])
+        ys, xs, dst_x = ys[ok], xs[ok], dst_x[ok]
+        keep = room[ys, dst_x]
+        out[src, :3] = blue
+        out[ys[keep], dst_x[keep], :3] = img[ys[keep], xs[keep], :3]
+    return out
+
+
+# The tongue tip, resting between the two lip curves and one row below them --
+# the "blep". Row 40's centre is the white notch between the curves (see the
+# mouth notes above), so the tongue reads as coming out of the mouth, not as a
+# sticker under it.
+BLEP = [(28, 30, 40), (28, 30, 41)]
+
+
+def blep(img, on):
+    if not on:
+        return img
+    out = img.copy()
+    op = out[..., 3] > 200
+    for r in BLEP:
+        _fill(out, op, r, TONGUE)
+    return out
+
+
+def ear_weight(body, side):
+    """A 2D field, 1 at the ear's tip easing to 0 at its base and blurred a
+    little past it, so a rotation moves the ear and stirs the fur at its root
+    rather than shearing it off. The ear region is eren_parts's own slanted cut,
+    so this and the colour picker agree on what an ear is."""
+    import eren_colors as C
+    m, _ = C.classify(body)
+    shape = body.shape[:2]
+    above = ~P.below_line(shape, P.EAR_INNER, P.EAR_OUTER, mirror=(side == 'right'))
+    xs = np.arange(shape[1])[None, :]
+    half = (xs < CX) if side == 'left' else (xs >= CX)
+    ear = m['fur'] & above & half
+    ys, xs2 = np.nonzero(ear)
+    y_tip, y_base = ys.min(), ys.max()
+    pivot = (xs2[ys >= y_base - GRID].mean(), float(y_base))
+    ramp = np.clip((y_base - np.arange(shape[0], dtype=np.float64)) / max(y_base - y_tip, 1.0), 0, 1) ** 1.3
+    w = np.where(ear, ramp[:, None], 0.0)
+    w = L.ndimage.gaussian_filter(w, 6.0)
+    return w, pivot
+
+
+def rot2d(shape, deg, pivot, weight):
+    """Rotate about `pivot` by `deg`, scaled per PIXEL by `weight` -- bend() with
+    a 2D weight instead of a per-row one."""
+    h, w = shape
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float64)
+    th = np.radians(deg) * weight
+    ct, st = np.cos(th), np.sin(th)
+    px, py = xx - pivot[0], yy - pivot[1]
+    return (ct - 1.0) * px - st * py, st * px + (ct - 1.0) * py
+
+
+def paint_face(body, mouth, face, hulls):
+    """Everything painted BEFORE the warp, in the order the layers stack: the
+    mouth, then the tongue over it, the pupils, and the lids over all of it."""
+    b = open_mouth(body, mouth) if mouth else body
+    if not face:
+        return b
+    b = blep(b, face.get('blep', 0))
+    b = glance(b, hulls, face.get('glance', 0))
+    b = close_lids(b, hulls, face.get('lid', 0.0))
+    return b
 
 
 # ---------------------------------------------------------------------------
 # the expressions
 #
-# Each planner returns, per frame, (body_field, tail_field, mouth_level).
+# Each planner returns, per frame, (body_field, tail_field, mouth_level, face)
+# where face is None or {'lid': 0..1, 'glance': -1/0/1, 'blep': 0/1}.
 # A field of ZERO leaves that layer untouched -- which is how the tail stays
 # out of every head move.
 # ---------------------------------------------------------------------------
@@ -285,7 +455,7 @@ def plan_nod(shape, n):
         s = keys(t, [(0.0, 0.0), (0.16, 1.0), (0.34, 0.0),
                      (0.50, 0.62), (0.66, 0.0), (1.0, 0.0)])
         dx, dy = scale_about(shape, PIVOT_Y, 1.0 - (1.0 - SQUASH) * s, weight=hw)
-        out.append(((dx, dy + (A * s * hw)[:, None]), ZERO, 0))
+        out.append(((dx, dy + (A * s * hw)[:, None]), ZERO, 0, None))
     return out
 
 
@@ -296,7 +466,7 @@ def plan_tilt(shape, n):
     for i in range(n):
         t = i / float(n)
         s = keys(t, [(0.0, 0.0), (0.22, 1.0), (0.70, 1.0), (0.94, 0.0), (1.0, 0.0)])
-        out.append((bend(shape, 7.5 * s), ZERO, 0))
+        out.append((bend(shape, 7.5 * s), ZERO, 0, None))
     return out
 
 
@@ -330,7 +500,7 @@ def plan_happy(shape, n):
     out = []
     for i in range(n):
         f = _bounce(shape, i / float(n))
-        out.append((f, f, 0))
+        out.append((f, f, 0, None))
     return out
 
 
@@ -344,7 +514,7 @@ def plan_cheer(shape, n):
         f = _bounce(shape, t)
         m = keys(t, [(0.0, 0.0), (0.14, 0.0), (0.30, 3.0), (0.56, 3.0),
                      (0.72, 1.0), (0.84, 0.0), (1.0, 0.0)])
-        out.append((f, f, round(m)))
+        out.append((f, f, round(m), None))
     return out
 
 
@@ -362,7 +532,92 @@ def plan_meow(shape, n):
                         (0.54, 0.7), (0.68, 0.7), (0.80, 0.0), (1.0, 0.0)])
         dx = np.zeros(shape)
         dy = np.broadcast_to((-11.0 * lift * hw)[:, None], shape).copy()
-        out.append(((dx, dy), ZERO, round(m)))
+        out.append(((dx, dy), ZERO, round(m), None))
+    return out
+
+
+def _still(shape):
+    return (np.zeros(shape), np.zeros(shape))
+
+
+def plan_blink(shape, n):
+    """Open for most of the cycle, then shut and back in three frames. A blink
+    is the one thing every cat does, and the onboarding hero is a still image
+    without it. Frames 0..8 are the rest pose exactly -- a blink that drifts
+    the head would read as a twitch."""
+    out = []
+    lids = [0.0] * (n - 3) + [0.55, 1.0, 0.55]
+    for i in range(n):
+        out.append((ZERO, ZERO, 0, {'lid': lids[i]} if lids[i] else None))
+    return out
+
+
+def plan_yawn(shape, n):
+    """The mouth opens wide as the eyes squeeze shut and the chin lifts, holds,
+    and lets go. Everything is driven off one curve so the jaw, the lids and
+    the head arrive together -- a yawn is one motion, not three."""
+    h, _ = shape
+    hw = head_weight(h)
+    out = []
+    for i in range(n):
+        t = i / float(n)
+        s = keys(t, [(0.0, 0.0), (0.22, 1.0), (0.62, 1.0), (0.90, 0.0), (1.0, 0.0)])
+        dx = np.zeros(shape)
+        dy = np.broadcast_to((-18.0 * s * hw)[:, None], shape).copy()
+        face = {'lid': min(1.0, s * 1.25)} if s > 0 else None
+        out.append(((dx, dy), ZERO, round(3.0 * s), face))
+    return out
+
+
+def plan_ear(shape, n, body):
+    """One ear flicks back and returns, then a smaller second flick. The
+    rotation is weighted per pixel by the ear's own mask, so the head does not
+    move -- which is the point: an ear flick is the thing a cat does while
+    otherwise ignoring you completely."""
+    w, pivot = ear_weight(body, 'left')
+    out = []
+    for i in range(n):
+        t = i / float(n)
+        s = keys(t, [(0.0, 0.0), (0.10, 1.0), (0.24, 0.0), (0.42, 0.55), (0.56, 0.0), (1.0, 0.0)])
+        f = rot2d(shape, -22.0 * s, pivot, w) if s > 1e-6 else ZERO
+        out.append((f, ZERO, 0, None))
+    return out
+
+
+def plan_shake(shape, n):
+    """No. The head swings side to side with the neck bending under it, twice,
+    the second swing smaller -- the mirror of the nod's two dips."""
+    h, _ = shape
+    hw = head_weight(h)
+    out = []
+    for i in range(n):
+        t = i / float(n)
+        s = keys(t, [(0.0, 0.0), (0.12, -1.0), (0.32, 1.0), (0.50, -0.6), (0.66, 0.45),
+                     (0.80, -0.2), (0.92, 0.0), (1.0, 0.0)])
+        dx, dy = bend(shape, 4.0 * s)
+        dx = dx + (16.0 * s * hw)[:, None]
+        out.append(((dx, dy), ZERO, 0, None))
+    return out
+
+
+def plan_glance(shape, n):
+    """The eyes slide to one side, hold, come back, then the other side. The
+    head stays put -- a cat looks with its eyes first."""
+    seq = [0, 1, 1, 1, 0, 0, -1, -1, -1, 0, 0, 0]
+    out = []
+    for i in range(n):
+        g = seq[i % len(seq)]
+        out.append((ZERO, ZERO, 0, {'glance': g} if g else None))
+    return out
+
+
+def plan_blep(shape, n):
+    """Tongue tip out, held, and back in. Nothing else moves. Frame 0 is the
+    rest pose, the tongue appears for the middle of the cycle."""
+    seq = [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0]
+    out = []
+    for i in range(n):
+        out.append((ZERO, ZERO, 0, {'blep': 1} if seq[i % len(seq)] else None))
     return out
 
 
@@ -373,10 +628,17 @@ EXPRESSIONS = [
     ('goodHappy', plan_happy,  12,     1000, 'celebrate / you are crushing it'),
     ('goodCheer', plan_cheer,  12,     1100, 'celebrate, out loud'),
     ('goodMeow',  plan_meow,   12,     1600, 'Eren is saying something'),
+    ('goodBlink', plan_blink,  12,     2400, 'idle -- he is alive'),
+    ('goodYawn',  plan_yawn,   12,     2000, 'sleepy / bedtime / nothing to do'),
+    ('goodEar',   plan_ear,    12,     1600, 'idle fidget -- ignoring you'),
+    ('goodShake', plan_shake,  12,     1200, 'no / wrong / not that one'),
+    ('goodGlance', plan_glance, 12,    2400, 'idle -- looking around'),
+    ('goodBlep',  plan_blep,   12,     2400, 'tongue out -- content'),
 ]
 
 # Expressions where the tail must not move at all. Asserted, not hoped for.
-HEAD_ONLY = {'goodNod', 'goodTilt', 'goodMeow'}
+HEAD_ONLY = {'goodNod', 'goodTilt', 'goodMeow', 'goodBlink', 'goodYawn', 'goodEar',
+             'goodShake', 'goodGlance', 'goodBlep'}
 
 
 # ---------------------------------------------------------------------------
@@ -390,17 +652,17 @@ def compose(top, bot):
     return np.dstack([rgb, oa * 255.0])
 
 
-def render(body, tail, plan):
+def render(body, tail, plan, hulls):
     """Returns the composed frames AND the warped body layer, because the tail
     check below has to know which pixels the body covered."""
     frames, bodies = [], []
-    for body_f, tail_f, mouth in plan:
+    for body_f, tail_f, mouth, face in plan:
         # PAINT, THEN WARP -- in that order, always. Painting afterwards writes
         # the cavity at fixed canvas rows, so on `cheer` (which lifts the whole
         # body 21px and lags the head another 6) the face rose and the open mouth
         # stayed behind on the chest. Painted first it is just more face pixels,
         # and the same field that carries the nose carries the mouth.
-        b = open_mouth(body, mouth) if mouth else body
+        b = paint_face(body, mouth, face, hulls)
         if body_f is not ZERO:
             b = L.warp(b, body_f[0], body_f[1])
         t = tail if tail_f is ZERO else L.warp(tail, tail_f[0], tail_f[1])
@@ -488,12 +750,12 @@ def verify_mouth_travels(name, frames, plan, body):
     not merely resemble it.
     """
     rest = {}
-    for body_f, _, level in plan:
+    for body_f, _, level, _ in plan:
         if level and level not in rest:
             rest[level] = mouth_centroid(open_mouth(body, level))
     if not rest:
         return
-    for i, ((body_f, _, level), f) in enumerate(zip(plan, frames)):
+    for i, ((body_f, _, level, _), f) in enumerate(zip(plan, frames)):
         if not level:
             continue
         mx, my, mn = rest[level]
@@ -528,7 +790,7 @@ def verify_tail_still(name, frames, bodies, plan, body, tail, ref):
     visible and the body covers it neither at rest nor in this frame, the
     output must still equal the source.
     """
-    assert all(tf is ZERO for _, tf, _ in plan),         '%s is head-only but handed the tail layer a field' % name
+    assert all(tf is ZERO for _, tf, _, _ in plan),         '%s is head-only but handed the tail layer a field' % name
 
     # Stay 3px clear of the body silhouette in both the rest pose and this
     # frame. warp() interpolates, so the body edge carries a pixel or two of
@@ -549,19 +811,20 @@ def main():
     body, tail = L.load(SRC_BODY), L.load(SRC_TAIL)
     assert body.shape[1::-1] == CANVAS, 'expected %s, got %s' % (CANVAS, body.shape[1::-1])
     ref = compose(body, tail)
+    hulls = eye_hulls(body)
     print('%s + %s  %dx%d   baking at %.3fx  (ship width %.0f CSS px)'
           % (SRC_BODY, SRC_TAIL, CANVAS[0], CANVAS[1], BAKE_SCALE, SHIP_W))
 
     for name, plan_fn, n, ms, why in EXPRESSIONS:
         print('\n%s  -- %s' % (name, why))
-        plan = plan_fn(body.shape[:2], n)
-        full, bodies = render(body, tail, plan)
+        plan = plan_fn(body.shape[:2], n, body) if plan_fn is plan_ear else plan_fn(body.shape[:2], n)
+        full, bodies = render(body, tail, plan, hulls)
         rect = union_bbox(full)
         verify(name, full, rect, ref)
         if name in HEAD_ONLY:
             verify_tail_still(name, full, bodies, plan, body, tail, ref)
             print('  tail: verified still')
-        if any(m for _, _, m in plan):
+        if any(m for _, _, m, _ in plan):
             verify_mouth_travels(name, full, plan, body)
             print('  mouth: verified travelling with the head')
         cropped = [L.crop(f, rect) for f in full]
