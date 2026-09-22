@@ -50,27 +50,28 @@ GRID, PHASE_X, PHASE_Y = 14, 10, 10
 # label stays GINGER. The last four are deliberately not real cats.
 # ---------------------------------------------------------------------------
 FUR = {
-    'black':     ('#141318', '#6F6C77'),
-    'charcoal':  ('#24222B', '#7E7A88'),
-    'smoke':     ('#2A2733', '#9B93A8'),
-    'grey':      ('#3B4046', '#CBD2D8'),
-    'bluegrey':  ('#26344F', '#A9B9D6'),
-    'silver':    ('#787D85', '#F2F4F6'),
+    # solids and dilutes -- greys are LOW-saturation with only a hint of cool or
+    # warm; a saturated blue or a purple is not a cat, it is a cartoon
+    'black':     ('#121114', '#66625F'),
+    'charcoal':  ('#232225', '#78746F'),
+    'smoke':     ('#26242A', '#8C878B'),
+    'grey':      ('#3D4248', '#C4C9CE'),   # British blue
+    'bluegrey':  ('#34404C', '#9EAAB6'),   # Russian blue
+    'silver':    ('#7B7F84', '#EFF1F2'),
     'white':     ('#DCDCDB', '#FFFFFF'),
-    'cream':     ('#514840', '#D8D8D5'),   # the sprite's own colours
-    'ginger':    ('#6E3612', '#F3C289'),
-    'marmalade': ('#8A3B08', '#FFB25C'),
-    'yellow':    ('#8A6412', '#F7DC8A'),
-    'caramel':   ('#7A4A1E', '#EFD0A2'),
-    'apricot':   ('#8B4A31', '#F8DABF'),
+    'lilac':     ('#6B5A5E', '#DCCFD0'),   # the pinkish grey dilute of chocolate
+    'fawn':      ('#7A5C44', '#E8D0B6'),
+    # the browns -- every one is a real pigment in the eumelanin series
+    'cream':     ('#514840', '#D8D8D5'),   # the sprite's own taupe
     'chocolate': ('#3A2317', '#CB9D77'),
     'cinnamon':  ('#5C2E16', '#D69A63'),
-    'fawn':      ('#7A5C44', '#E8D0B6'),
-    'lilac':     ('#5B3F50', '#E6CFDC'),
-    'rose':      ('#7B3F4C', '#F4CBD2'),     # fantasy from here down
-    'lavender':  ('#4A3A72', '#D2C6F0'),
-    'mint':      ('#255043', '#BCE8D4'),
-    'sky':       ('#26496E', '#BBDBF2'),
+    'brown':     ('#4A3220', '#C9A882'),   # brown tabby ground
+    'caramel':   ('#7A4A1E', '#EFD0A2'),
+    # the reds -- the phaeomelanin series, ginger down to buff
+    'marmalade': ('#8A3B08', '#FFB25C'),
+    'ginger':    ('#6E3612', '#F3C289'),
+    'apricot':   ('#8B4A31', '#F8DABF'),
+    'yellow':    ('#8C6420', '#F3D68E'),   # a buff / cream-ginger; "yellow" is the user's word
 }
 
 # Which parts take a fur colour at all. eyes/nose/ink are steered separately.
@@ -112,9 +113,9 @@ PRESETS = [
                                           face='cream', bib='cream', legs='cream',
                                           socks='bluegrey'), None, 'gold', 'slate'),
     ('smoketab',  'SMOKE TABBY',     dict.fromkeys(COLOURABLE, 'smoke'), 'tabby', 'copper', 'slate'),
-    ('mint',      'MINT (NOT A REAL CAT)', dict(body='mint', ears='mint', tail='mint',
-                                                face='white', bib='white', legs='white',
-                                                socks='white'), None, 'gold', 'pink'),
+    ('browntab',  'BROWN TABBY',     dict(body='brown', ears='brown', tail='brown',
+                                          face='white', bib='white', legs='brown',
+                                          socks='white'), 'tabby', 'green', 'brick'),
 ]
 
 TORTIE_SECOND = 'marmalade'      # the other pigment in a tortoiseshell

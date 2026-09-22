@@ -147,18 +147,18 @@ PALETTES = [
     ('ginger',    'GINGER',     '#6E3612',  '#F3C289',  'gold',   'brick', 'cream'),
     ('grey',      'GREY',       '#3B4046',  '#CBD2D8',  'green',  'slate', 'cool'),
     ('chocolate', 'CHOCOLATE',  '#3A2317',  '#CB9D77',  'copper', 'brick', 'cream'),
-    ('black',     'BLACK',      '#141318',  '#6F6C77',  'gold',   'slate', 'white'),
+    ('black',     'BLACK',      '#121114',  '#66625F',  'gold',   'slate', 'white'),
     # These three plus GREY came back as four shades of the same cat on the first
     # sheet. Pulled apart deliberately: lilac carries real mauve, blue point goes
     # colder AND darker, silver goes almost to white so it reads by lightness
     # rather than by hue.
-    ('lilac',     'LILAC',      '#5B3F50',  '#E6CFDC',  'blue',   'pink',  'white'),
-    ('bluepoint', 'BLUE POINT', '#26344F',  '#A9B9D6',  'blue',   'slate', 'cool'),
-    ('silver',    'SILVER',     '#787D85',  '#F2F4F6',  'green',  'slate', 'cool'),
+    ('lilac',     'LILAC',      '#6B5A5E',  '#DCCFD0',  'blue',   'pink',  'white'),
+    ('bluepoint', 'BLUE POINT', '#34404C',  '#9EAAB6',  'blue',   'slate', 'cool'),
+    ('silver',    'SILVER',     '#7B7F84',  '#EFF1F2',  'green',  'slate', 'cool'),
     ('apricot',   'APRICOT',    '#8B4A31',  '#F8DABF',  'blue',   'brick', 'cream'),
-    ('smoke',     'SMOKE',      '#2A2733',  '#9B93A8',  'copper', 'slate', 'cool'),
+    ('smoke',     'SMOKE',      '#26242A',  '#8C878B',  'copper', 'slate', 'cool'),
     ('caramel',   'CARAMEL',    '#7A4A1E',  '#EFD0A2',  'green',  'brick', 'cream'),
-    ('rose',      'ROSE',       '#7B3F4C',  '#F4CBD2',  'blue',   'pink',  'white'),
+    ('fawn',      'FAWN',       '#7A5C44',  '#E8D0B6',  'gold',   'pink',  'cream'),
 ]
 
 
