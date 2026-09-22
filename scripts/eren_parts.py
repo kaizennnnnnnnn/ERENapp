@@ -77,6 +77,10 @@ CX = 416.0                      # the sprite's centre column; everything mirrors
 EAR_INNER = (24.5, 20.0)
 EAR_OUTER = (7.0, 24.0)
 
+# The first block row of the chest. White above it is a fur highlight on the
+# head, not a patch (see build()).
+COLLAR_ROW = 44
+
 # How far to erode the white body before labelling. 6 leaves it one piece,
 # 9..15 all give the same three, 12 is the middle of that plateau.
 BODY_ERODE = 12
@@ -165,7 +169,19 @@ def build():
             best, face = sz, m
 
     fur, coat = masks['fur'], masks['coat']
-    white = coat & ~face & ~tail_vis
+    # The white strokes on the head -- the forehead and cheek fur highlights --
+    # are coat-white by colour but they are not a patch of anything: they are
+    # the artist's highlights on the BODY's fur. Left in the white pool they
+    # went to the nearest chest/leg piece (over a hundred pixels away) and took
+    # the LEGS' colour, so a cat with black legs grew black streaks on its
+    # forehead. Anything white above the collar that is not the face mask is
+    # body, and lands at the light end of the body's own ramp, which is what
+    # a highlight is.
+    by = (np.arange(shape[0]) - PHASE_Y) // GRID
+    above_collar = (by < COLLAR_ROW)[:, None]
+    highlights = coat & ~face & ~tail_vis & above_collar
+    white = coat & ~face & ~tail_vis & ~highlights
+    fur = fur | highlights
     bib, legs = split_white(white)
 
     xs = np.arange(shape[1])[None, :]
