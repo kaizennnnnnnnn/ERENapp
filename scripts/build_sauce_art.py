@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Draw the three sauce bottles and the drizzle they leave on the wrap.
+"""Draw the sauce bottles and the drizzle they leave on the wrap.
 
 What was there before was a placeholder: a flat rectangle of one colour, a
 white band across it with a small square in the middle, and a cone on top.
@@ -68,6 +68,9 @@ EMBLEMS = {
     'garlic': ["..E...", "..EE..", ".EEEE.", "EEEEEE", "EEEEEE", "EEEEEE", ".EEEE."],
     'chilli': ["....E.", "...EE.", "..EE..", ".EEE..", ".EEE..", ".EE...", "..E..."],
     'herb':   [".E..E.", "EEE.EE", ".E..E.", "..EE..", "..EE..", "..EE..", "..E..."],
+    # A mango on its stem, and a wisp coming off something smouldering.
+    'mango':  ["....E.", "..EEE.", ".EEEE.", "EEEEEE", "EEEEEE", ".EEEE.", "..EE.."],
+    'smoke':  ["...E..", "..E...", "...E..", "..E...", ".EEE..", "EEEEE.", ".EEE.."],
 }
 
 PALETTES = {
@@ -90,6 +93,24 @@ PALETTES = {
         w='#43723A', N='#26521F', n='#173717', d='#0E220F'),
 }
 PALETTES['herb'].update(L='#F4F9E7', l='#CCD9B6', E='#2F6B25')
+
+# The two that arrive later. Both are picked to be told apart AT A GLANCE from
+# the first three -- a fourth cream bottle next to the garlic would be a
+# fourth bottle nobody could find in a hurry, which is the whole job of a
+# sauce bottle on a counter at four in the morning.
+PALETTES['mango'] = dict(
+    K='#2E1C05', H='#FFD98A', W='#FFF1C6', B='#F2A72B', M='#D8871A',
+    S='#B26A12', D='#8A500D',
+    w='#C88220', N='#A5620F', n='#7C480B', d='#553006',
+    L='#FFF6E2', l='#E0CDA6', E='#C77A12')
+# Kept off the bottom of the ramp: the bottles stand up into the shadow
+# between the counter and the warmer shelf, and a genuinely dark brown
+# disappears into it.
+PALETTES['smoke'] = dict(
+    K='#1A100C', H='#AD8B72', W='#D2B79E', B='#6E4E3C', M='#5A3E2F',
+    S='#462F24', D='#331F18',
+    w='#7A5B4A', N='#553B2F', n='#3C2920', d='#281A14',
+    L='#F2E8DA', l='#CBBBA6', E='#5A3A29')
 
 
 def bottle_grid(sauce):
@@ -219,7 +240,7 @@ def render(grid, palette, scale, path):
 
 
 if __name__ == '__main__':
-    for i, sauce in enumerate(('garlic', 'chilli', 'herb')):
+    for i, sauce in enumerate(('garlic', 'chilli', 'herb', 'mango', 'smoke')):
         pal = PALETTES[sauce]
         render(bottle_grid(sauce), pal, BSCALE,
                os.path.join(OUT, 'sauce_%s.webp' % sauce))

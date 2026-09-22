@@ -66,7 +66,9 @@ const PRECACHE_IMAGES = [
   // The sauce bottles standing on the prep counter, the squeeze of each
   // one that ends up on the bread, and the chip warmer at the far end.
   '/sauce_garlic.webp', '/sauce_chilli.webp', '/sauce_herb.webp',
+  '/sauce_mango.webp', '/sauce_smoke.webp',
   '/drizzle_garlic.webp', '/drizzle_chilli.webp', '/drizzle_herb.webp',
+  '/drizzle_mango.webp', '/drizzle_smoke.webp',
   '/fr_chips.webp',
   // The tip jar on the ledge (glass and its coins are two sprites on one
   // canvas) and the radio on the prep counter.

@@ -219,7 +219,9 @@ export default function ShiftReport({ report, practiceReason, banked, canNote, o
               border: '2px dashed rgba(59,42,29,0.4)', borderRadius: 4,
               animation: 'kioskGradeIn 520ms cubic-bezier(0.16, 1, 0.3, 1) 620ms both',
             }}>
-              NEW ON THE MENU — {unlock.label}
+              {unlock.kind === 'menu'
+                ? `NEW ON THE MENU — ${unlock.label}`
+                : `THAT MAKES ${unlock.label}`}
               <div style={{ color: FADED, marginTop: 5 }}>{unlock.blurb}</div>
             </div>
           )}

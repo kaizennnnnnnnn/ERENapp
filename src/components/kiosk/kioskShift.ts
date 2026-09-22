@@ -106,7 +106,7 @@ export const COLA_SPRITE = '/fr_cola.webp'
 // KioskLeftSide: the bright band between the dark wall above and the cabinet
 // face below), so a bottle's base sits at 74.6% and it stands up into the
 // shadow between the counter and the warmer shelf.
-export type SauceId = 'garlic' | 'chilli' | 'herb'
+export type SauceId = 'garlic' | 'chilli' | 'herb' | 'mango' | 'smoke'
 
 export interface SauceDef {
   id: SauceId
@@ -125,6 +125,8 @@ export const SAUCES: SauceDef[] = [
   { id: 'garlic', label: 'Garlic', sprite: '/sauce_garlic.webp', drizzle: '/drizzle_garlic.webp', x: 13.5, unlockAt: 0  },
   { id: 'chilli', label: 'Chilli', sprite: '/sauce_chilli.webp', drizzle: '/drizzle_chilli.webp', x: 23.5, unlockAt: 0  },
   { id: 'herb',   label: 'Herb',   sprite: '/sauce_herb.webp',   drizzle: '/drizzle_herb.webp',   x: 33.5, unlockAt: 25 },
+  { id: 'mango',  label: 'Mango',  sprite: '/sauce_mango.webp',  drizzle: '/drizzle_mango.webp',  x: 43.5, unlockAt: 95 },
+  { id: 'smoke',  label: 'Smoke',  sprite: '/sauce_smoke.webp',  drizzle: '/drizzle_smoke.webp',  x: 53.5, unlockAt: 170 },
 ]
 
 export const SAUCE_BY_ID: Record<SauceId, SauceDef> =
@@ -167,14 +169,34 @@ export interface MenuState {
 
 export interface Unlock {
   at: number
+  /** A thing arriving on the menu, or just a number worth saying out loud.
+   *  The receipt words them differently. */
+  kind: 'menu' | 'milestone'
   label: string
   /** One line on the receipt, the night it lands. */
   blurb: string
 }
 
 export const UNLOCKS: Unlock[] = [
-  { at: 25, label: 'HERB SAUCE', blurb: 'a third bottle turned up on the counter' },
-  { at: 50, label: 'CHIPS',      blurb: 'the warmer works again — chips are back on' },
+  { at: 25,  kind: 'menu', label: 'HERB SAUCE',  blurb: 'a third bottle turned up on the counter' },
+  { at: 50,  kind: 'menu', label: 'CHIPS',       blurb: 'the warmer works again — chips are back on' },
+  { at: 95,  kind: 'menu', label: 'MANGO SAUCE', blurb: 'the delivery came with a crate nobody ordered' },
+  { at: 170, kind: 'menu', label: 'SMOKE SAUCE', blurb: 'the dark one, for people who order at four in the morning' },
+]
+
+/** Past the last bottle the road keeps going, on round hundreds, forever.
+ *  Two named unlocks and then nothing was the whole complaint: a counter that
+ *  stops counting in week one is a counter that stops meaning anything. */
+export const MILESTONE_EVERY = 100
+
+/** Said instead of a blurb when a hundred goes by. Indexed by which hundred
+ *  it is, so the same line doesn't come round every time. */
+const MILESTONE_LINES = [
+  'the cone has paid for itself twice over',
+  'somebody out there has eaten a lot of these',
+  'the counter has a groove worn into it now',
+  'long enough that the regulars have regulars',
+  'nobody in this city has to ask what you sell',
 ]
 
 export function menuFor(lifetimeWraps: number): MenuState {
@@ -184,9 +206,24 @@ export function menuFor(lifetimeWraps: number): MenuState {
   }
 }
 
-/** An unlock crossed on THIS shift, for the receipt to announce. */
+/** An unlock crossed on THIS shift, for the receipt to announce. A named one
+ *  wins over a milestone — a new bottle is bigger news than a round number,
+ *  and a night can cross both. */
 export function unlockedBetween(before: number, after: number): Unlock | null {
-  return UNLOCKS.find(u => before < u.at && after >= u.at) ?? null
+  const named = UNLOCKS.find(u => before < u.at && after >= u.at)
+  if (named) return named
+
+  // Milestones only start once the named road has run out, so a hundred
+  // landing next to a new bottle doesn't steal its night.
+  const last = UNLOCKS[UNLOCKS.length - 1].at
+  const crossed = Math.floor(after / MILESTONE_EVERY) * MILESTONE_EVERY
+  if (crossed <= before || crossed <= last) return null
+  return {
+    at: crossed,
+    kind: 'milestone',
+    label: `${crossed} WRAPS`,
+    blurb: MILESTONE_LINES[(crossed / MILESTONE_EVERY) % MILESTONE_LINES.length],
+  }
 }
 
 /** Deterministic 0–1 noise. The same pan at the same level must produce the
