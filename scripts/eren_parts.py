@@ -19,11 +19,32 @@ and two of the parts fall out of that for free:
   * THE FACE MASK IS ITS OWN COMPONENT. The white around the muzzle is a single
     29,644px connected blob at y 394..640 that touches nothing else white.
 
-Everything left needs a horizontal cut, because a cat's chest, belly and socks
-are one continuous white shape in this pose and no colour test separates them.
-The cut rows come off the measured anatomy in anim_expr.py's header, not off a
-guess: ears 168..355, eyes ~453, nose ~514, jaw ~590, collar 632..643,
-neck pivot ~658, body 650..1135, paw contact ~1124.
+Everything left is cut WITHOUT A STRAIGHT LINE, because the first version used
+three of them and the user's verdict was exact: "straight up half of him is
+cut ... looks not natural". No cat's markings stop on a horizontal.
+
+  * THE BIB AND THE LEGS COME OFF THE ART'S OWN INK. The chest, the two front
+    legs and the paws are one connected white shape, but the ink lines that
+    draw the legs almost close each region off -- so eroding the white mask by
+    12px snaps the last gaps shut and it falls into exactly three pieces: a
+    rounded V of chest (the bib) and two legs. Every white pixel then goes to
+    its nearest piece. The bib's bottom edge is the shoulder/leg shading the
+    artist drew, which is where a tuxedo's bib actually ends. Asserted to be
+    three pieces, so a touched-up sprite fails loudly instead of quietly
+    handing the chest to a leg.
+  * THE EARS HAVE A SLANTED BASE. There is no ink line where an ear meets the
+    skull, and the silhouette only separates the two ears above the row where
+    they merge (y=290). So the base is a diagonal from the V between the ears
+    out and DOWN to the cheek. A horizontal at 290 gave "just the top of the
+    ear", which the user called out; the outer base of a real ear sits lower
+    than the inner one.
+  * THE SOCKS HAVE A SLANTED TOP at the angle of the hind paw's own ink line
+    (the thick stroke at block rows 72..75 that runs down toward the middle),
+    two rows above it, so the cut reads as the art's own slope, not a ruler.
+
+Cuts are in BLOCK coordinates on the art's 14px grid at phase (10, 10), and a
+line is evaluated at each block's centre, so every boundary is a staircase of
+whole blocks like everything else on the sprite.
 
 WHY PARTS AND NOT JUST A PALETTE
 --------------------------------
@@ -46,15 +67,28 @@ SRC_FULL = 'erenGood.png'
 SRC_TAIL = 'erenGood_tail.png'
 SRC_NOTAIL = 'erenGood_notail.png'
 
-# Horizontal cuts, in canvas rows. Each one is a real anatomical landmark.
-# 290 is not a guess: scanning the silhouette row by row, it is the exact row
-# where the two ear runs merge into one head. Above it every opaque pixel
-# belongs to an ear; below it the ears are inside the skull's outline and no
-# horizontal cut can separate them. The 366 first tried here took the forehead
-# with it and read as a cap, not as ears.
-EAR_BOTTOM = 290.0
-BIB_BOTTOM = 838.0     # where the chest stops and the belly/forelegs begin
-SOCK_TOP = 1010.0      # above the paw contact line at 1124, below the ankles
+GRID, PHASE_X, PHASE_Y = 14, 10, 10
+CX = 416.0                      # the sprite's centre column; everything mirrors about it
+
+# The ear base, LEFT ear, in block coords (col, row): from the inner corner at
+# the bottom of the V between the ears, out and down to the cheek. Mirrored for
+# the right ear. Row 20 is where the two ears merge into one silhouette; the
+# outer end is 4 rows lower on purpose (see the header).
+EAR_INNER = (24.5, 20.0)
+EAR_OUTER = (7.0, 24.0)
+
+# How far to erode the white body before labelling. 6 leaves it one piece,
+# 9..15 all give the same three, 12 is the middle of that plateau.
+BODY_ERODE = 12
+BODY_MIN_PX = 1500
+
+# The sock line, LEFT leg, block coords. Parallel to the hind paw's ink stroke
+# (rows 72..75.5) and two rows above it: ON the stroke the socks were 8,758px,
+# under 2% of the cat and about 10px tall at ship size -- a player choosing
+# white socks on a black cat could barely see them. Two rows up they read as
+# mittens and the cut still runs at the stroke's angle.
+SOCK_OUTER = (15.0, 70.0)
+SOCK_INNER = (26.0, 73.5)
 
 # Order matters: later entries win, so the narrow parts are listed after the
 # broad ones they sit inside.
@@ -64,7 +98,7 @@ PARTS = [
     ('tail',   '#7B5CD6'),
     ('face',   '#43C6AC'),
     ('bib',    '#4A8FE7'),
-    ('belly',  '#2F6FB5'),
+    ('legs',   '#2F6FB5'),
     ('socks',  '#F2A7C3'),
     ('eyes',   '#3FB0FF'),
     ('nose',   '#FF7BB0'),
@@ -72,18 +106,45 @@ PARTS = [
 ]
 
 
-def rows(h):
-    return np.arange(h, dtype=np.float64)[:, None]
+def below_line(shape, a, b, mirror=False):
+    """True for every pixel whose BLOCK CENTRE lies below the line through block
+    points a and b (col, row). `mirror` reflects the line about CX first, so one
+    left-side definition serves both sides of a symmetric cat."""
+    h, w = shape
+    (x0, y0), (x1, y1) = a, b
+    if mirror:
+        c = (CX - PHASE_X) / GRID                     # centre column, in blocks
+        x0, x1 = 2 * c - x0, 2 * c - x1
+    bx = np.floor((np.arange(w) - PHASE_X) / GRID) + 0.5   # block-centre columns
+    by = np.floor((np.arange(h) - PHASE_Y) / GRID) + 0.5   # block-centre rows
+    line = y0 + (bx - x0) / (x1 - x0) * (y1 - y0)
+    return by[:, None] > line[None, :]
+
+
+def split_white(white):
+    """Erode the white body until the art's ink lines close it into pieces,
+    then give every white pixel to its nearest piece. Returns (bib, legs)."""
+    er = ndimage.binary_erosion(white, iterations=BODY_ERODE)
+    lab, n = ndimage.label(er)
+    sizes = ndimage.sum(er, lab, range(1, n + 1))
+    keep = [i + 1 for i, sz in enumerate(sizes) if sz >= BODY_MIN_PX]
+    assert len(keep) == 3, 'expected chest + two legs, erosion found %d pieces' % len(keep)
+    seed = np.isin(lab, keep)
+    _, idx = ndimage.distance_transform_edt(~seed, return_indices=True)
+    assign = np.where(white, lab[idx[0], idx[1]], 0)
+    # The bib is the piece whose centre of mass is highest; the other two are legs.
+    cy = {k: np.nonzero(assign == k)[0].mean() for k in keep}
+    bib_k = min(keep, key=lambda k: cy[k])
+    return assign == bib_k, np.isin(assign, [k for k in keep if k != bib_k])
 
 
 def build():
-    """Returns (parts dict of boolean masks, the composed sprite)."""
+    """Returns (parts dict of boolean masks, owner map, the composed sprite)."""
     full = L.load(SRC_FULL)
     tail = L.load(SRC_TAIL)
     notail = L.load(SRC_NOTAIL)
     masks, _ = C.classify(full)
-    h, w, _ = full.shape
-    y = rows(h)
+    shape = full.shape[:2]
 
     # The tail, exactly: opaque in the tail layer and NOT covered by the body.
     tail_vis = (tail[..., 3] > C.ALPHA_FLOOR) & (notail[..., 3] <= C.ALPHA_FLOOR)
@@ -104,32 +165,42 @@ def build():
             best, face = sz, m
 
     fur, coat = masks['fur'], masks['coat']
-    white = coat & ~face
+    white = coat & ~face & ~tail_vis
+    bib, legs = split_white(white)
+
+    xs = np.arange(shape[1])[None, :]
+    left, right = xs < CX, xs >= CX
+
+    # Ears: fur ABOVE the slanted base on each side (left definition, mirrored).
+    ear_l = ~below_line(shape, EAR_INNER, EAR_OUTER)
+    ear_r = ~below_line(shape, EAR_INNER, EAR_OUTER, mirror=True)
+    ears = fur & ~tail_vis & ((ear_l & left) | (ear_r & right))
+
+    # Socks: the part of each leg BELOW the slanted line (left definition, mirrored).
+    sock_l = below_line(shape, SOCK_OUTER, SOCK_INNER)
+    sock_r = below_line(shape, SOCK_OUTER, SOCK_INNER, mirror=True)
+    socks = legs & ((sock_l & left) | (sock_r & right))
+
     p = {
         'ink':   masks['ink'],
         'eyes':  masks['eye'],
         'nose':  masks['nose'],
         'body':  fur & ~tail_vis,
-        'ears':  fur & ~tail_vis & (y < EAR_BOTTOM),
+        'ears':  ears,
         'tail':  (fur | coat) & tail_vis,
         'face':  face,
-        'bib':   white & (y < BIB_BOTTOM),
-        'belly': white & (y >= BIB_BOTTOM) & (y < SOCK_TOP),
-        'socks': white & (y >= SOCK_TOP),
+        'bib':   bib,
+        'legs':  legs & ~socks,
+        'socks': socks,
     }
-    # Assert the cut is a partition: an unassigned pixel is a hole a colour
-    # would never reach, and an overlap means one part silently repaints another.
-    op = full[..., 3] > C.ALPHA_FLOOR
-    stack = np.zeros(full.shape[:2], dtype=np.int16)
-    for k, _ in PARTS:
-        stack += p[k].astype(np.int16)
     # `ears` deliberately overlaps `body`, and `tail` may overlap either: both
-    # are resolved by paint order, so only count each pixel's LAST owner.
-    owner = np.full(full.shape[:2], -1, dtype=np.int16)
+    # are resolved by paint order, so only each pixel's LAST owner counts. An
+    # opaque pixel with no owner is a hole no colour would ever reach.
+    op = full[..., 3] > C.ALPHA_FLOOR
+    owner = np.full(shape, -1, dtype=np.int16)
     for i, (k, _) in enumerate(PARTS):
         owner[p[k]] = i
     assert (owner[op] >= 0).all(), '%d opaque px belong to no part' % int((owner[op] < 0).sum())
-    assert (owner[~op] == -1).all() or True
     return p, owner, full
 
 

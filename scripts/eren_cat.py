@@ -74,46 +74,46 @@ FUR = {
 }
 
 # Which parts take a fur colour at all. eyes/nose/ink are steered separately.
-COLOURABLE = ['body', 'ears', 'tail', 'face', 'bib', 'belly', 'socks']
+COLOURABLE = ['body', 'ears', 'tail', 'face', 'bib', 'legs', 'socks']
 
 # Sensible starting points, so the picker opens on something that looks like a
 # cat rather than on seven dropdowns set to grey.
 PRESETS = [
     ('eren',      'EREN (TODAY)',    dict(body='cream', ears='cream', tail='cream',
-                                          face='white', bib='white', belly='white',
+                                          face='white', bib='white', legs='white',
                                           socks='white'), None, 'blue', 'pink'),
     ('black',     'ALL BLACK',       dict.fromkeys(COLOURABLE, 'black'), None, 'gold', 'slate'),
     ('tuxedo',    'TUXEDO',          dict(body='black', ears='black', tail='black',
-                                          face='white', bib='white', belly='white',
+                                          face='white', bib='white', legs='white',
                                           socks='white'), None, 'gold', 'slate'),
     ('blacktail', 'BLACK, WHITE TAIL', dict(body='black', ears='black', tail='white',
-                                            face='black', bib='black', belly='black',
+                                            face='black', bib='black', legs='black',
                                             socks='white'), None, 'gold', 'slate'),
     ('gingertab', 'GINGER TABBY',    dict.fromkeys(COLOURABLE, 'ginger'), 'tabby', 'gold', 'brick'),
     ('orangewh',  'GINGER AND WHITE', dict(body='marmalade', ears='marmalade', tail='marmalade',
-                                           face='white', bib='white', belly='white',
+                                           face='white', bib='white', legs='white',
                                            socks='white'), 'tabby', 'green', 'brick'),
     ('yellow',    'YELLOW',          dict.fromkeys(COLOURABLE, 'yellow'), None, 'green', 'brick'),
     ('greytab',   'GREY TABBY',      dict.fromkeys(COLOURABLE, 'grey'), 'tabby', 'green', 'slate'),
     ('silvertab', 'SILVER TABBY',    dict(body='silver', ears='silver', tail='silver',
-                                          face='white', bib='white', belly='white',
+                                          face='white', bib='white', legs='white',
                                           socks='white'), 'tabby', 'green', 'brick'),
     ('siamese',   'SIAMESE',         dict(body='cream', ears='chocolate', tail='chocolate',
-                                          face='chocolate', bib='cream', belly='cream',
+                                          face='chocolate', bib='cream', legs='cream',
                                           socks='chocolate'), None, 'blue', 'slate'),
     ('tortie',    'TORTOISESHELL',   dict.fromkeys(COLOURABLE, 'black'), 'tortie', 'copper', 'slate'),
     ('calico',    'CALICO',          dict(body='black', ears='black', tail='ginger',
-                                          face='white', bib='white', belly='white',
+                                          face='white', bib='white', legs='white',
                                           socks='white'), 'tortie', 'gold', 'pink'),
     ('tuxcinn',   'CINNAMON TUXEDO', dict(body='cinnamon', ears='cinnamon', tail='cinnamon',
-                                          face='white', bib='white', belly='white',
+                                          face='white', bib='white', legs='white',
                                           socks='white'), None, 'copper', 'brick'),
     ('bluecream', 'BLUE AND CREAM',  dict(body='bluegrey', ears='bluegrey', tail='bluegrey',
-                                          face='cream', bib='cream', belly='cream',
+                                          face='cream', bib='cream', legs='cream',
                                           socks='bluegrey'), None, 'gold', 'slate'),
     ('smoketab',  'SMOKE TABBY',     dict.fromkeys(COLOURABLE, 'smoke'), 'tabby', 'copper', 'slate'),
     ('mint',      'MINT (NOT A REAL CAT)', dict(body='mint', ears='mint', tail='mint',
-                                                face='white', bib='white', belly='white',
+                                                face='white', bib='white', legs='white',
                                                 socks='white'), None, 'gold', 'pink'),
 ]
 
