@@ -147,7 +147,11 @@ PALETTES = [
     ('ginger',    'GINGER',     '#6E3612',  '#F3C289',  'gold',   'brick', 'cream'),
     ('grey',      'GREY',       '#3B4046',  '#CBD2D8',  'green',  'slate', 'cool'),
     ('chocolate', 'CHOCOLATE',  '#3A2317',  '#CB9D77',  'copper', 'brick', 'cream'),
-    ('black',     'BLACK',      '#121114',  '#66625F',  'gold',   'slate', 'white'),
+    # Black and white are the same ramps as eren_cat.FUR, for the same reason
+    # given there: most of the coat lands at the LIGHT end, so the light end
+    # is what the cat looks like. A mid-grey light end made a grey cat.
+    ('black',     'BLACK',      '#0B0B0D',  '#2E2C2F',  'gold',   'slate', 'white'),
+    ('white',     'WHITE',      '#E9EAED',  '#FFFFFF',  'blue',   'pink',  'white'),
     # These three plus GREY came back as four shades of the same cat on the first
     # sheet. Pulled apart deliberately: lilac carries real mauve, blue point goes
     # colder AND darker, silver goes almost to white so it reads by lightness

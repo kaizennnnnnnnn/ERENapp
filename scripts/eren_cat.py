@@ -52,13 +52,23 @@ GRID, PHASE_X, PHASE_Y = 14, 10, 10
 FUR = {
     # solids and dilutes -- greys are LOW-saturation with only a hint of cool or
     # warm; a saturated blue or a purple is not a cat, it is a cartoon
-    'black':     ('#121114', '#66625F'),
+    #
+    # BLACK and WHITE are the two ends and both have to actually get there. The
+    # body's shading puts most of the coat at the LIGHT end of its ramp (median
+    # t 0.58, three quarters above 0.16), so a "black" whose light end is a
+    # mid grey (#66625F, the first cut) rendered a grey cat, and the user said
+    # so: "there is not a full black one". The light end now sits at #2E2C2F,
+    # which is black with just enough lift for the outline to still read on a
+    # dark room; the dark greys people also ask for are charcoal and smoke.
+    # White is the same story from the other side: #DCDCDB shadows looked like
+    # dirt on a white cat, #E9EAED reads as clean fur.
+    'black':     ('#0B0B0D', '#2E2C2F'),
     'charcoal':  ('#232225', '#78746F'),
     'smoke':     ('#26242A', '#8C878B'),
     'grey':      ('#3D4248', '#C4C9CE'),   # British blue
     'bluegrey':  ('#34404C', '#9EAAB6'),   # Russian blue
     'silver':    ('#7B7F84', '#EFF1F2'),
-    'white':     ('#DCDCDB', '#FFFFFF'),
+    'white':     ('#E9EAED', '#FFFFFF'),
     'lilac':     ('#6B5A5E', '#DCCFD0'),   # the pinkish grey dilute of chocolate
     'fawn':      ('#7A5C44', '#E8D0B6'),
     # the browns -- every one is a real pigment in the eumelanin series
@@ -84,6 +94,9 @@ PRESETS = [
                                           face='white', bib='white', legs='white',
                                           socks='white'), None, 'blue', 'pink'),
     ('black',     'ALL BLACK',       dict.fromkeys(COLOURABLE, 'black'), None, 'gold', 'slate'),
+    # Blue eyes and a pink nose: the common pairing on a white cat, and the
+    # one people picture.
+    ('white',     'ALL WHITE',       dict.fromkeys(COLOURABLE, 'white'), None, 'blue', 'pink'),
     ('tuxedo',    'TUXEDO',          dict(body='black', ears='black', tail='black',
                                           face='white', bib='white', legs='white',
                                           socks='white'), None, 'gold', 'slate'),
