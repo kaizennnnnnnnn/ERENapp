@@ -1,0 +1,73 @@
+-- ============================================================================
+-- Disk IO — the real mechanism (round 5, measured 2026-09-22)
+-- ============================================================================
+-- DO NOT PASTE THIS UNTIL THE EXTERNAL SCHEDULER IS LIVE AND VERIFIED.
+-- It unschedules fire-reminders. If nothing else is pinging the endpoint,
+-- reminders stop firing (the client focus safety-net only covers an open app).
+--
+-- WHY ROUNDS 1-4 DIDN'T WORK
+-- Every prior round reduced how many BYTES the app writes. That was never the
+-- cost. Supabase runs archive_mode=on with archive_timeout=120 and a WAL-G
+-- `wal-push` archive_command. Any write inside a 2-minute window forces the
+-- whole 16 MB WAL segment to be padded out, fsynced, then read back off disk
+-- and uploaded. The bill is set by HOW MANY 2-MINUTE WINDOWS CONTAIN A WRITE,
+-- not by how much is written.
+--
+-- Measured 2026-09-22 on this project:
+--   pg_stat_wal.wal_bytes ............  3 MB/day of actual WAL records
+--   pg_stat_archiver ................  39,635 segments / 221.5 days
+--                                      = 179/day x 16 MB = 2,863 MB/day
+--   amplification ...................  ~950x
+--   temp files 22 MB/day, relation reads ~0.1 MB/day, checkpoints ~8 MB/day
+--   -> WAL archiving is ~99% of all measurable disk IO on the instance.
+-- Corroborating signature: every checkpoint distance in postgres_logs is a
+-- clean multiple of 16 MB (16389 / 32768 / 49151 kB) = forced segment switches.
+--
+-- WHERE THE 179 SEGMENTS/DAY COME FROM
+--   ~96/day  fire-reminders (*/15). net._http_response and
+--            net.http_request_queue are UNLOGGED, so a cron run's ONLY WAL is
+--            one ~200-byte cron.job_run_details row. 96 rows (~20 KB/day)
+--            were costing ~1.5 GB/day of disk IO. Round 3 fixed this table's
+--            RETENTION, which is why it changed nothing.
+--   ~83/day  eren_stats decay writes while a tab is open. Fixed in code by
+--            raising DECAY_MIN_SAVE_HOURS 0.05 -> 0.25 (useErenStats.ts).
+--
+-- WHY fire-reminders IS THE ONE JOB WORTH MOVING OFF pg_cron
+-- 214 reminder_fires rows over 221 days vs ~21,000 runs: ~99% of runs write
+-- nothing at all. Off pg_cron they generate zero WAL and force zero switches.
+-- The other jobs stay: /api/decay genuinely updates eren_stats, so it would
+-- force a segment switch wherever it ran. Moving it would save nothing.
+--
+-- TWO CHEAPER FIXES ARE BLOCKED ON THE FREE TIER — don't re-chase them:
+--   ALTER SYSTEM SET cron.log_run = off ....... needs superuser
+--   ALTER TABLE cron.job_run_details          . needs supabase_admin (owner)
+--     SET UNLOGGED
+-- `postgres` is a member of neither, so the SQL Editor cannot do either one.
+-- archive_timeout is Supabase-managed and is not in the user-settable config
+-- allowlist.
+--
+-- REPLACEMENT SCHEDULER REQUIREMENTS
+-- Must fire punctually every 15 min. /api/fire-reminders uses WINDOW_MIN=16
+-- and DEDUP_MS=30min, and WINDOW_MIN must stay < DEDUP_MS or the same reminder
+-- re-fires. GitHub Actions' scheduled workflows drift 5-20 min on free repos,
+-- which breaks that invariant — use a punctual runner (cron-job.org, Upstash
+-- QStash) instead.
+--
+--   URL     GET https://eren-care-app.vercel.app/api/fire-reminders
+--   Header  x-cron-secret: <the value currently in cron.job.command>
+--
+-- VERIFYING THE FIX (expect ~179/day -> ~55-70/day):
+--   SELECT archived_count, stats_reset,
+--          round(archived_count / (extract(epoch from (now()-stats_reset))/86400.0)) AS per_day
+--   FROM pg_stat_archiver;
+-- That counter is cumulative since 2026-02-12, so it moves slowly. For a
+-- clean read, note archived_count now and again in 24h; the delta is the
+-- honest number.
+-- ============================================================================
+
+SELECT cron.unschedule('fire-reminders')
+  WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'fire-reminders');
+
+-- Confirm what's left. Expect: decay (hourly), notify-memory (0 */6),
+-- notify-streak (0 16,18,20), notify-* dailies, and the two prune jobs.
+SELECT jobid, jobname, schedule, active FROM cron.job ORDER BY jobid;

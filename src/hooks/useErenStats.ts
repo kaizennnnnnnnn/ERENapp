@@ -188,7 +188,26 @@ async function insertInteraction(
   } catch { /* SSR/no-window */ }
 }
 const DECAY_CAP_HOURS = 12 // cap per run — a 3-day absence shouldn't instantly zero stats
-const DECAY_MIN_SAVE_HOURS = 0.05 // ~3 min — below this, don't bother writing to DB
+// ~15 min — below this, don't bother writing to DB.
+//
+// This is a DISK IO number, not a correctness number. Supabase runs
+// archive_mode=on with archive_timeout=120, so ANY write inside a 2-minute
+// window forces the whole 16 MB WAL segment to be padded, fsynced and read
+// back by wal-push. The cost is set by how many 2-min windows contain a
+// write, NOT by how many bytes are written — measured 2026-09-22: 3 MB/day
+// of actual WAL records became 2,863 MB/day on disk, ~950x amplification.
+//
+// At 0.05 (3 min) against the 2-min tick, an open tab wrote every ~4 min and
+// so occupied every other window, all day. At 0.25 it writes every ~16 min.
+//
+// Safe to raise because decay is DERIVED from last_decay_at: skipping a write
+// defers decay, it never loses it (the next write applies the bigger step,
+// and the hourly /api/decay sweep recomputes server-side regardless). The
+// background threshold push is throttled to 2h per tag by last_notified_at,
+// so evaluating it every 16 min instead of every 4 min changes nothing.
+// Don't lower this to "make stats fresher" — the client renders its own
+// locally-computed value; only the DB copy lags.
+const DECAY_MIN_SAVE_HOURS = 0.25
 
 // Client-initiated push ping. Only fires when the app is in the background
 // (document.visibilityState !== 'visible'), so users with the app open in
