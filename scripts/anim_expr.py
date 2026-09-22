@@ -345,30 +345,35 @@ def close_lids(img, hulls, frac):
 
 
 def glance(img, hulls, blocks):
-    """Slide the pupil and catchlight `blocks` block columns sideways inside
-    each socket (positive = to the viewer's right), refilling what they left
-    with the eye's own blue. Anything that would land on the ink ring is
-    dropped -- it went behind the lid, which is what a real glance does.
+    """Slide everything inside each socket `blocks` block columns sideways
+    (positive = to the viewer's right): the iris shading, the black pupil and
+    the catchlight together, as one rigid piece, row by row. The strip that
+    slides out from under the ink ring is filled by extending the interior's
+    own edge column, and whatever slides under the ring on the far side is
+    simply gone -- which is what an eye turning looks like.
+
+    The first cut moved only the pupil and refilled behind it with the median
+    blue, picked out by two brightness thresholds. That left three things no
+    artist would draw: a flat blue rectangle where the pupil had been, a pale
+    ghost of the catchlight's antialiased rim at its old position, and the
+    catchlight itself cut into triangles by the socket's diagonal corners. A
+    rigid slide has none of them, and needs no thresholds to go wrong.
     """
     if not blocks:
         return img
     out = img.copy()
     shift = int(blocks) * GRID
     for hull in hulls:
-        inner = L.ndimage.binary_erosion(hull, iterations=16)     # clear of the ring
-        room = L.ndimage.binary_erosion(hull, iterations=GRID)   # just inside it
-        rgb = img[..., :3]
-        dark = rgb.max(axis=2) < 60
-        bright = rgb.min(axis=2) > 235
-        src = (dark | bright) & inner
-        blue = np.median(img[hull & ~dark & ~bright][:, :3], axis=0)
-        ys, xs = np.nonzero(src)
-        dst_x = xs + shift
-        ok = (dst_x >= 0) & (dst_x < hull.shape[1])
-        ys, xs, dst_x = ys[ok], xs[ok], dst_x[ok]
-        keep = room[ys, dst_x]
-        out[src, :3] = blue
-        out[ys[keep], dst_x[keep], :3] = img[ys[keep], xs[keep], :3]
+        # Erode HORIZONTALLY only. The slide is horizontal, so only the side
+        # rings should bound it; an isotropic erosion of a hexagon has diagonal
+        # corners, and they cut the sliding catchlight into a right triangle.
+        room = L.ndimage.binary_erosion(hull, structure=np.ones((1, 2 * GRID + 1), dtype=bool))
+        for r in np.nonzero(room.any(axis=1))[0]:
+            cols = np.nonzero(room[r])[0]
+            x0, x1 = cols.min(), cols.max()
+            row = img[r, x0:x1 + 1, :3]
+            src = np.clip(np.arange(x0, x1 + 1) - shift - x0, 0, x1 - x0)
+            out[r, x0:x1 + 1, :3] = row[src]
     return out
 
 
@@ -394,18 +399,35 @@ def ear_weight(body, side):
     little past it, so a rotation moves the ear and stirs the fur at its root
     rather than shearing it off. The ear region is eren_parts's own slanted cut,
     so this and the colour picker agree on what an ear is."""
-    import eren_colors as C
-    m, _ = C.classify(body)
     shape = body.shape[:2]
+    opaque = body[..., 3] > 16
     above = ~P.below_line(shape, P.EAR_INNER, P.EAR_OUTER, mirror=(side == 'right'))
     xs = np.arange(shape[1])[None, :]
     half = (xs < CX) if side == 'left' else (xs >= CX)
-    ear = m['fur'] & above & half
+    # EVERY opaque pixel above the cut -- ink and coat highlights included, not
+    # just fur. Built from the fur mask alone, the ear's black outline got no
+    # weight and stayed exactly where it was while the inside sheared past it;
+    # three independent re-measurements of the shipped strip found the outer
+    # silhouette moving by at most 1px. The ear read as a recolour, not a flick.
+    ear = opaque & above & half
+    # And room to swing INTO. warp() pulls each destination pixel from the
+    # source, so the empty space the tip sweeps through needs the field too or
+    # the tip simply cannot arrive there. Dilate by the sweep, but only into
+    # transparent space -- the head fur next to the ear must not be dragged.
     ys, xs2 = np.nonzero(ear)
     y_tip, y_base = ys.min(), ys.max()
     pivot = (xs2[ys >= y_base - GRID].mean(), float(y_base))
+    region = L.ndimage.binary_dilation(ear, iterations=4 * GRID) & (ear | ~opaque)
+    # ...and only OUTWARD of the ear's base. The V between the ears is
+    # transparent too and well within the dilation's reach; weighting it made
+    # the destination pixels in that gap sample the rotated forehead line, which
+    # printed a black bar across the top of the head in every flicked frame and
+    # every frame of the yawn. The ear swings away from the head, so the space
+    # it needs is on the outer side of its base and nowhere else.
+    outward = (xs <= pivot[0]) if side == 'left' else (xs >= pivot[0])
+    region &= (ear | outward)
     ramp = np.clip((y_base - np.arange(shape[0], dtype=np.float64)) / max(y_base - y_tip, 1.0), 0, 1) ** 1.3
-    w = np.where(ear, ramp[:, None], 0.0)
+    w = np.where(region, ramp[:, None], 0.0)
     w = L.ndimage.gaussian_filter(w, 6.0)
     return w, pivot
 
@@ -552,18 +574,29 @@ def plan_blink(shape, n):
     return out
 
 
-def plan_yawn(shape, n):
-    """The mouth opens wide as the eyes squeeze shut and the chin lifts, holds,
-    and lets go. Everything is driven off one curve so the jaw, the lids and
-    the head arrive together -- a yawn is one motion, not three."""
+def plan_yawn(shape, n, body):
+    """The mouth opens wide as the eyes squeeze shut, the chin lifts and BOTH
+    EARS fold back, hold, and let go. Everything is driven off one curve so
+    the jaw, the lids, the head and the ears arrive together -- a yawn is one
+    motion, not four. The ears are the tell: without them the panel read it as
+    a shut-eyed meow. The open takes three frames (key at 0.30, not 0.22) to
+    mirror the three-step close; a yawn stretches open and lets go, it does not
+    snap open and ease shut."""
     h, _ = shape
     hw = head_weight(h)
+    wl, pl = ear_weight(body, 'left')
+    wr, pr = ear_weight(body, 'right')
     out = []
     for i in range(n):
         t = i / float(n)
-        s = keys(t, [(0.0, 0.0), (0.22, 1.0), (0.62, 1.0), (0.90, 0.0), (1.0, 0.0)])
+        s = keys(t, [(0.0, 0.0), (0.30, 1.0), (0.62, 1.0), (0.90, 0.0), (1.0, 0.0)])
         dx = np.zeros(shape)
         dy = np.broadcast_to((-18.0 * s * hw)[:, None], shape).copy()
+        if s > 1e-6:
+            for deg, piv, w in ((-25.0 * s, pl, wl), (25.0 * s, pr, wr)):
+                ex, ey = rot2d(shape, deg, piv, w)
+                dx = dx + ex
+                dy = dy + ey
         face = {'lid': min(1.0, s * 1.25)} if s > 0 else None
         out.append(((dx, dy), ZERO, round(3.0 * s), face))
     return out
@@ -578,7 +611,9 @@ def plan_ear(shape, n, body):
     out = []
     for i in range(n):
         t = i / float(n)
-        s = keys(t, [(0.0, 0.0), (0.10, 1.0), (0.24, 0.0), (0.42, 0.55), (0.56, 0.0), (1.0, 0.0)])
+        # Both flicks SNAP -- one frame to the extreme, an ease back. The second
+        # was a three-frame bump before and vanished at phone size.
+        s = keys(t, [(0.0, 0.0), (0.10, 1.0), (0.24, 0.0), (0.33, 0.0), (0.40, 0.60), (0.52, 0.0), (1.0, 0.0)])
         f = rot2d(shape, -22.0 * s, pivot, w) if s > 1e-6 else ZERO
         out.append((f, ZERO, 0, None))
     return out
@@ -592,8 +627,11 @@ def plan_shake(shape, n):
     out = []
     for i in range(n):
         t = i / float(n)
-        s = keys(t, [(0.0, 0.0), (0.12, -1.0), (0.32, 1.0), (0.50, -0.6), (0.66, 0.45),
-                     (0.80, -0.2), (0.92, 0.0), (1.0, 0.0)])
+        # Two swings at ~3 frames per half-swing with a monotonic decay. The
+        # first cut had five half-swings in 12 frames: the -1.0 key landed
+        # between f1 and f2 (a 200ms hold at the extreme) and the next step
+        # whipped 10px straight through centre. Measured, not felt.
+        s = keys(t, [(0.0, 0.0), (0.17, -1.0), (0.42, 0.8), (0.67, -0.45), (0.88, 0.0), (1.0, 0.0)])
         dx, dy = bend(shape, 4.0 * s)
         dx = dx + (16.0 * s * hw)[:, None]
         out.append(((dx, dy), ZERO, 0, None))
@@ -637,6 +675,9 @@ EXPRESSIONS = [
 ]
 
 # Expressions where the tail must not move at all. Asserted, not hoped for.
+# Planners that warp by a part mask measured off the art take the body too.
+NEEDS_BODY = {plan_ear, plan_yawn}
+
 HEAD_ONLY = {'goodNod', 'goodTilt', 'goodMeow', 'goodBlink', 'goodYawn', 'goodEar',
              'goodShake', 'goodGlance', 'goodBlep'}
 
@@ -817,7 +858,7 @@ def main():
 
     for name, plan_fn, n, ms, why in EXPRESSIONS:
         print('\n%s  -- %s' % (name, why))
-        plan = plan_fn(body.shape[:2], n, body) if plan_fn is plan_ear else plan_fn(body.shape[:2], n)
+        plan = plan_fn(body.shape[:2], n, body) if plan_fn in NEEDS_BODY else plan_fn(body.shape[:2], n)
         full, bodies = render(body, tail, plan, hulls)
         rect = union_bbox(full)
         verify(name, full, rect, ref)
