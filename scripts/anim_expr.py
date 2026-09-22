@@ -188,21 +188,34 @@ MOUTH_LEVELS = {
 # ink on each side so it reads as inside the mouth rather than as the lower lip.
 MOUTH_TONGUE = {2: (28, 30, 42), 3: (28, 30, 43)}
 
-# Upper canines, hanging off the roof of the mouth. A cat's fangs are the thing
-# that makes an open mouth read as a MOUTH and not a hole, and at ship size each
-# of these is under 3px -- they work as two bright specks against the black, so
-# they are placed at the edges where the eye already is rather than centred where
-# the tongue is. Symmetric about x=416 like everything else here (c0 + c1 == 58).
+# The teeth. Two things, and they are DIFFERENT heights on purpose:
 #
-# Level 1 gets none: its cavity is one block row of clearance and a tooth in it
-# would BE the cavity.
-# Same columns at both levels on purpose: a fang is bolted to the upper jaw, so
-# opening wider moves the CHIN away from it, not the tooth outward. Spacing them
-# with the cavity looked like the teeth were sliding along the gums.
+#   MOUTH_TEETH     the canines -- full blocks, the brightest thing in the mouth
+#   MOUTH_INCISORS  the row between them -- the top HALF of the block only
+#
+# The first cut was canines alone, and the user's verdict was "made him look
+# like a vampire": two white blocks floating at the corners of a black hole is
+# the Dracula icon, and no cat shows canines with no incisor row joining them.
+# A four-lens panel then ranked six designs from a sheet that showed each at
+# the true 172px ship size, and the winner by a wide margin was a half-height
+# row with the canines hanging below it -- the row survives the downscale as a
+# light ridge under the lip, the full-block canines stay white, and that
+# hierarchy is what a real cat yawn looks like. A comb of separate small teeth
+# came last: at ship size it is a speckle, not teeth.
+#
+# EVERYTHING IS PINNED TO THE SAME COLUMNS AT BOTH OPEN LEVELS. The teeth are
+# bolted to the upper jaw; opening wider moves the chin away from them. The
+# refutation pass caught the winning design widening its row by a block per
+# side between levels 2 and 3 -- which the cheer steps through at frame 3->4
+# every cycle -- so the row would have slid along the gums the way the fangs
+# once did. Level 1 gets none: its cavity is one row of clearance, and a tooth
+# in it would be the whole cavity.
 MOUTH_TEETH = {
     2: [(27, 28, 41), (30, 31, 41)],
     3: [(27, 28, 41), (30, 31, 41)],
 }
+MOUTH_INCISORS = {2: (28, 30, 41), 3: (28, 30, 41)}
+INCISOR_FRAC = 0.5      # the top half of the block row
 # Near the coat's light end rather than pure white. It is deliberately inside the
 # coat's own classification band (V > 0.86, sat < 0.10) so that eren_colors.py
 # sees teeth as coat: they then follow the WHITE when the cat is recoloured,
@@ -213,10 +226,13 @@ INK = np.array([0.0, 0.0, 0.0])           # the mouth line's own black
 TONGUE = np.array([213.0, 138.0, 181.0])  # the nose's own pink
 
 
-def _fill(out, op, rect, rgb):
+def _fill(out, op, rect, rgb, top_frac=1.0):
     """Paint one block rect, clipped to pixels that are already opaque so nothing
-    can spill past the head's silhouette or over the ruff outline below the chin."""
+    can spill past the head's silhouette or over the ruff outline below the chin.
+    `top_frac` < 1 paints only the top of the row -- the incisors are half a
+    block, the same sub-block scale the art already uses for the eye highlights."""
     x0, y0, x1, y1 = _blk(*rect)
+    y1 = y0 + int(round((y1 - y0) * top_frac))
     sel = np.zeros(out.shape[:2], dtype=bool)
     sel[y0:y1, x0:x1] = True
     sel &= op
@@ -240,7 +256,10 @@ def open_mouth(img, level):
     if tongue:
         _fill(out, op, tongue, TONGUE)
     # Teeth last: they sit ON the cavity, so they have to be painted over it.
-    for t in MOUTH_TEETH.get(min(level, 3), ()):
+    lv = min(level, 3)
+    if lv in MOUTH_INCISORS:
+        _fill(out, op, MOUTH_INCISORS[lv], ENAMEL, top_frac=INCISOR_FRAC)
+    for t in MOUTH_TEETH.get(lv, ()):
         _fill(out, op, t, ENAMEL)
     return out
 
