@@ -1,5 +1,12 @@
 # Eren — launch status
 
+> **2026-09-23: the launch target is now the Apple App Store, not Google Play.**
+> The live checklist is [`IOS_LAUNCH.md`](IOS_LAUNCH.md). This file is kept for
+> the history and reasoning it records, and for the day Android comes back —
+> the Play-ready state is on branch `android-play-store` / tag
+> `android-snapshot-2026-09-23`. The Play-only items below (TWA, assetlinks,
+> 12-tester clock, feature graphic, Data Safety) gate nothing for iOS.
+
 > **Read the code before you trust this file.** It is a running log, and the
 > half of it written before 2026-09-11 has already misled two separate audits —
 > it described solo state as unbuilt a week after it shipped, named one queued
