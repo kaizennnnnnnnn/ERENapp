@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, type ReactNode } from 'react'
 
-export type CareScene = 'feed' | 'play' | 'sleep' | 'wash' | 'chemistry' | 'vet' | 'talk' | 'school' | 'hospital'
+export type CareScene = 'feed' | 'play' | 'sleep' | 'wash' | 'chemistry' | 'vet' | 'talk' | 'hospital'
 
 interface CareContextValue {
   careMode: boolean

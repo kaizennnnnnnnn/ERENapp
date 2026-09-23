@@ -167,7 +167,6 @@ const VOICE_POOL: readonly string[] = [
   'do you think they know i can talk… i mean, meow meow.',
   'hehe',
   'i learned a new word today. its "no". i dont like it',
-  'my serbian is excellent actually',
   'the food says sugar free. i can read. i choose not to believe it',
   'whats a monday',
   // possessive

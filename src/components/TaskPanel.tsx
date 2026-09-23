@@ -9,7 +9,7 @@ import type { TaskId, TaskDef } from '@/types'
 import {
   IconScroll, IconLightning, IconClock, IconCoin, IconHeart,
   IconMeat, IconYarn, IconMoonZ, IconBath, IconController,
-  IconStar, IconCrown, IconBook,
+  IconStar, IconCrown,
 } from './PixelIcons'
 import { playSound } from '@/lib/sounds'
 import { PINK, PINK_HI, PINK_LO, OBSIDIAN_BTN, Rivets, pinkText, accentA, cuteBtn, CuteIcon } from './obsidian'
@@ -31,7 +31,6 @@ function TaskIcon({ task, size = 22 }: { task: TaskDef; size?: number }) {
     case 'daily_sleep':       return <IconMoonZ size={size} />
     case 'daily_wash':        return <IconBath size={size} />
     case 'daily_game':        return <IconController size={size} />
-    case 'daily_serbian':     return <IconBook size={size} />
     case 'weekly_all_care':   return <IconStar size={size} />
     case 'weekly_all_games':  return <IconCrown size={size} />
     case 'weekly_high_score': return <IconCrown size={size} />

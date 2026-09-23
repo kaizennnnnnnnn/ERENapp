@@ -38,8 +38,8 @@ interface Props {
 }
 
 // The daily gift is greeted by a different cheerful Eren each day, drawn from
-// the same expressive set as the Serbian-lesson cards. Skip the down/cross
-// moods so the gift never opens on a sad or angry face.
+// the full SketchEren set. Skip the down/cross moods so the gift never opens
+// on a sad or angry face.
 const SKIP_GIFT_STATES = new Set<SketchErenState>([
   'sad', 'angry', 'cry', 'sick', 'tired', 'yawn', 'sleeping', 'confused', 'shrug',
   'scared', 'dizzy', 'facepalm', 'cold', 'sneeze',

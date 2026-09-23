@@ -2,7 +2,7 @@
 // Bump this string whenever you change badge/icon assets so the browser is
 // guaranteed to detect a byte difference and replace any old SW running on
 // the user's installed PWA. Pairs with no-store headers on /sw.js.
-const SW_VERSION = 'v32-bedroom-sky-2026-09-22'
+const SW_VERSION = 'v33-no-school-2026-09-23'
 
 // Room backgrounds + Eren sprite. We precache these on install so the user
 // can scroll between rooms with no internet without seeing the room render
@@ -44,7 +44,6 @@ const PRECACHE_IMAGES = [
   '/CakeShop.png',   '/CakeShopNight.png',
   '/vetBACK.png',    '/wetDark.png',
   '/AtticDay.png',  '/AtticNight.png',  '/donut.png',
-  '/schoolBACK.png',
   // The four kiosk walls you turn between once you're inside the shawarma
   // stand. Cheap to precache (~85 KB each as webp) and the interior has no
   // offline panel of its own — without these a dropped connection in there

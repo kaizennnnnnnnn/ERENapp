@@ -29,7 +29,6 @@ export type WishCategory = 'food' | 'activity' | 'mood' | 'couple' | 'rare'
  *   play:<minigameId>       specific minigame
  *   wash | sleep           the matching ACTION_CONFIGS action_type
  *   medicine               a dose given OR a vet checkup run (eren:vet-checkup)
- *   school                 a Serbian lesson finished today (eren:lesson-done)
  *   nudge:<nudgeId>         specific nudge sent (or partner sent, when needsBothActive=true)
  *   nudge:any               any nudge
  *   care:any                any of feed|play|sleep|wash|medicine
@@ -174,8 +173,12 @@ export const WISHES: Wish[] = [
     category: 'rare', match: 'care:5plus',         needsLeader: false, needsBothActive: false, cooldownDays: 7,  missingInventory: false, coinReward: 15 },
 
   // ── Activity — appended later (must stay at the END: rotation hashes on index) ──
-  { id: 'act-serbian',    text: "i'm also learning Serbian ALOO",
-    category: 'activity', match: 'school', needsLeader: false, needsBothActive: false, cooldownDays: 0, missingInventory: false, coinReward: 5 },
+  // This slot was the Serbian-class wish. Rewritten in place, not deleted:
+  // the rotation takes the hash modulo WISHES.length, so dropping even the
+  // last entry would move every household's wish. The id stays because
+  // eren_wishes rows resolve their text by id.
+  { id: 'act-serbian',    text: "i smell like the couch. bath, please.",
+    category: 'activity', match: 'wash', needsLeader: false, needsBothActive: false, cooldownDays: 0, missingInventory: false, coinReward: 5 },
 ]
 
 // Always-eligible last-resort fallback. Same shape as mood-company but with a
@@ -296,12 +299,9 @@ export interface DailyActions {
   nudges: Set<string>                       // nudge ids YOU sent today
   partnerNudges: Set<string>
   fridgeKeys: Set<string>                   // union of both fridges
-  // Serbian lessons YOU finished today. Lesson completion isn't a DB action
-  // type, so (like feeds) only the local session is tracked — partner lessons
-  // aren't broadcast. Optional so older callers/snapshots decode unchanged.
-  schools?: number
-  // Vet checkups YOU ran today. Same local-session deal as schools: the
-  // checkup isn't a DB action type, only the dose that may follow it is.
+  // Vet checkups YOU ran today. The checkup isn't a DB action type (only the
+  // dose that may follow it is), so like feeds only the local session is
+  // tracked. Optional so older callers/snapshots decode unchanged.
   checkups?: number
 }
 
@@ -317,7 +317,6 @@ export function matchWish(wish: Wish, a: DailyActions): boolean {
   if (wish.match === 'medicine') return a.cares.includes('medicine')
     || a.partnerCares.includes('medicine')
     || (a.checkups ?? 0) > 0
-  if (wish.match === 'school')   return (a.schools ?? 0) > 0
 
   const colon = wish.match.indexOf(':')
   if (colon < 0) return false

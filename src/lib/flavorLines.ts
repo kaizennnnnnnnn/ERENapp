@@ -94,7 +94,6 @@ export const FLAVOR_LINES: FlavorLine[] = [
   { id: 'idle-loveyou',   text: 'i love you.',                                                trigger: 'idle' },
   { id: 'idle-talk',      text: 'do you think they know i can talk… i mean, meow meow.',      trigger: 'idle' },
   { id: 'idle-toilet',    text: 'i might jump into the toilet today.',                        trigger: 'idle' },
-  { id: 'idle-serbian',   text: 'they said my Serbian is great.',                             trigger: 'idle' },
   { id: 'idle-happi',     text: 'you seem happi.',                                            trigger: 'idle' },
 
   // ── More leader-addressed lines (added later) ─────────────────────────────

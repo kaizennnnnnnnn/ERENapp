@@ -203,7 +203,7 @@ export default function StatsHeader() {
   const { user, profile } = useAuth()
   const { stats } = useErenStats(profile?.household_id ?? null)
   const { xp, level, coins, streak } = useTasks()
-  const { hideStats, activeScene, closeScene } = useCare()
+  const { hideStats, closeScene } = useCare()
   const wish = useWish()
 
   // Animate the raw XP + coin totals so the bar fills and the numbers roll up
@@ -402,7 +402,7 @@ export default function StatsHeader() {
 
   const unclaimedRewards = Math.max(0, Math.min(level, MAX_LEVEL) - claimedLevel)
 
-  if (hideStats || activeScene === 'school') return null
+  if (hideStats) return null
 
   return (
     <div

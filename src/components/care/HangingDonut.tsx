@@ -289,7 +289,7 @@ export default function HangingDonut() {
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
           // The host swipes rooms on touch. Without this, dragging the donut
-          // sideways scrolls you into the Serbian class.
+          // sideways swipes you out of the attic.
           onTouchStart={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
           onTouchEnd={(e) => e.stopPropagation()}

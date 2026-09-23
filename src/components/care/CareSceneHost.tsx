@@ -21,7 +21,6 @@ const SCENE_LOADERS: Record<CareScene, () => Promise<{ default: React.ComponentT
   chemistry: () => import('./ChemistryScene'),
   vet:       () => import('./VetScene'),
   talk:      () => import('./TalkScene'),
-  school:    () => import('./SchoolScene'),
   hospital:  () => import('./HospitalScene'),
 }
 // Module-level cache: populated before `ready` flips, so the render below
@@ -29,7 +28,7 @@ const SCENE_LOADERS: Record<CareScene, () => Promise<{ default: React.ComponentT
 const sceneComponents: Partial<Record<CareScene, React.ComponentType<SceneProps>>> = {}
 const loadScene = (s: CareScene) => SCENE_LOADERS[s]().then(m => { sceneComponents[s] = m.default })
 
-const LOOP_SCENES: CareScene[] = ['feed', 'play', 'sleep', 'wash', 'chemistry', 'vet', 'talk', 'school']
+const LOOP_SCENES: CareScene[] = ['feed', 'play', 'sleep', 'wash', 'chemistry', 'vet', 'talk']
 
 const SCENE_LABELS: Record<CareScene, string> = {
   feed:      'Kitchen',
@@ -39,7 +38,6 @@ const SCENE_LABELS: Record<CareScene, string> = {
   chemistry: 'Chemistry Lab',
   vet:       'Vet Office',
   talk:      'The Attic',
-  school:    'Serbian Class',
   hospital:  'Vet Clinic',
 }
 
@@ -51,7 +49,6 @@ const SCENE_COLORS: Record<CareScene, string> = {
   chemistry: '#84CC16',
   vet:       '#34D399',
   talk:      '#D8B4FE',
-  school:    '#F59E0B',
   hospital:  '#F87171',
 }
 
@@ -63,7 +60,6 @@ const SCENE_IMAGES_DAY: Partial<Record<CareScene, string>> = {
   chemistry: '/ChemistryDay.png',
   vet:       '/vetBACK.png',
   talk:      '/AtticDay.png',
-  school:    '/schoolBACK.png',
 }
 const SCENE_IMAGES_DARK: Partial<Record<CareScene, string>> = {
   feed:      '/KitchenDark.png',
@@ -73,7 +69,6 @@ const SCENE_IMAGES_DARK: Partial<Record<CareScene, string>> = {
   chemistry: '/ChemistryNight.png',
   vet:       '/wetDark.png',
   talk:      '/AtticNight.png',
-  school:    '/schoolBACK.png',
 }
 
 // The Eren sprite each scene actually paints. Themed scenes use their own
@@ -89,7 +84,6 @@ const SCENE_EREN_SPRITES: Partial<Record<CareScene, string[]>> = {
   chemistry: ['/ErenLab_notail.png',          '/ErenLab_tail.png'],
   vet:       ['/ErenVet_notail.png',          '/ErenVet_tail.png'],
   talk:      ['/erenGood_notail.png',         '/erenGood_tail.png'],
-  school:    [],
 }
 
 // Props a scene paints that aren't Eren. Unlike SCENE_EREN_SPRITES these are
@@ -175,7 +169,7 @@ export default function CareSceneHost() {
         // Entry direction follows the swipe that opened the scene from home.
         // Opening at index 0 (feed) = the user swiped left → new content
         // enters from the right (slideDir 'left' → slideInRight).
-        // Opening at the last index (school) = the user swiped right →
+        // Opening at the last index (the attic) = the user swiped right →
         // new content should enter from the left, following their finger.
         const idx = LOOP_SCENES.indexOf(activeScene as CareScene)
         setSlideDir(idx === LOOP_SCENES.length - 1 ? 'right' : 'left')
@@ -473,10 +467,8 @@ export default function CareSceneHost() {
         </div>
       )}
 
-      {/* Dot indicators — hidden on the Serbian lesson screen, which has
-          its own Duolingo-style top progress bar and doesn't need the
-          generic room-nav dots cluttering the bottom. */}
-      {ready && activeScene !== 'school' && (
+      {/* Dot indicators — shown with the room label during swipes. */}
+      {ready && (
         <div className="fixed bottom-4 left-1/2 z-50 flex items-center gap-2 px-3 py-1.5"
           style={{
             transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.35)',

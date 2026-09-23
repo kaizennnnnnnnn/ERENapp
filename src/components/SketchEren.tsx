@@ -1,9 +1,17 @@
 'use client'
 
-// Sketch-pen animated Eren — 54 reactive states for the Serbian lessons,
-// the daily mood gate, the daily gift and the couple nudges. Ported verbatim
-// from the design file (eren-sketch-plus.jsx); all states reuse the same
-// head/body geometry and only the eyes/mouth/extras/transform change.
+// Sketch-pen animated Eren — 54 reactive states for the daily mood gate,
+// the daily gift and the couple nudges. Ported verbatim from the design file
+// (eren-sketch-plus.jsx); all states reuse the same head/body geometry and
+// only the eyes/mouth/extras/transform change.
+//
+// One hand edit on top of the port: the Serbian words drawn into the SVG
+// for flex, bow and sneeze are English here (strong! / thanks / achoo!).
+// The Serbian lessons are gone, and flex and bow still appear in the mood
+// gate and the daily gift. Re-apply this after a re-port. The SkSpeech
+// bubble text is still the design file's Serbian, but no caller renders it
+// (every call site passes noSpeech), and the wave's "zdravo!" is hidden by
+// noSpeech too.
 
 import { useId } from 'react'
 
@@ -2327,7 +2335,7 @@ function SkExtras({ state, noSpeech }: { state: SketchErenState; noSpeech: boole
           fill="#7eb2d8" stroke={INK} strokeWidth="1.4" className="sk-drop" />
         <text x="14" y="40" fontSize="20" fontFamily='"Caveat", cursive' fill="#c8252c"
           className="sk-pop-text" stroke={INK} strokeWidth="0.4"
-          transform="rotate(-6 14 40)">jak!</text>
+          transform="rotate(-6 14 40)">strong!</text>
       </g>
     );
   }
@@ -2412,7 +2420,7 @@ function SkExtras({ state, noSpeech }: { state: SketchErenState; noSpeech: boole
       <g>
         <text x="14" y="30" fontSize="20" fontFamily='"Caveat", cursive' fill="#1d8a5a"
           className="sk-pop-text"
-          transform="rotate(-8 14 30)">hvala</text>
+          transform="rotate(-8 14 30)">thanks</text>
       </g>
     );
   }
@@ -2669,7 +2677,7 @@ function SkExtras({ state, noSpeech }: { state: SketchErenState; noSpeech: boole
         </g>
         <text x="100" y="22" textAnchor="middle" fontSize="20"
           fontFamily='"Caveat", cursive' fill="#3a85e0"
-          className="sk-pop-text" stroke={INK} strokeWidth="0.4">apćiha!</text>
+          className="sk-pop-text" stroke={INK} strokeWidth="0.4">achoo!</text>
       </g>
     );
   }

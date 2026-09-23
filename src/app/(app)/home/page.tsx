@@ -896,7 +896,6 @@ export default function HomePage() {
             { id: 'wash',   color: '#38BDF8' },
             { id: 'chemistry', color: '#84CC16' },
             { id: 'vet',    color: '#34D399' },
-            { id: 'school', color: '#F59E0B' },
           ] as const).map(r => (
             <button
               key={r.id}

@@ -302,11 +302,11 @@ This already works: Profile → DELETE ACCOUNT → confirm → `delete_my_accoun
   - Rename the descriptions too. "Zero sugar ultra", "Mango loco kick", "Pipeline punch" and "Ultra rosa fizz" echo Monster's product lines.
   - `src/lib/foodMeta.ts:67-80` already has different names, and they still use the "Monsta" suffix, so D18 changes both files. Make FeedScene read names from `foodMeta.ts` so they can't drift again.
   - Keep the `monsta_*` IDs, because inventories store them.
-- [ ] **P1.28 [CODE] S**: Replace the pixel Pikachu doodle (`src/components/care/SchoolScene.tsx:2748-2771`, used at 2808 and 2814).
+- [x] **P1.28 [CODE] S**: The pixel Pikachu doodle is gone. It lived only in the Serbian class, which D22 removed.
 
 #### 1H. iPhone browser-engine fixes
 - [ ] **P1.29 [CODE] S**: Sound dies after a call, Siri or the lock screen, and Purr Beat freezes.
-  - Resume audio whenever its state is anything but "running" or "closed": `src/lib/soundSynth.ts:85-90, 373, 398, 425, 463`; `SchoolScene.tsx:226`; `eren-says/page.tsx:52`.
+  - Resume audio whenever its state is anything but "running" or "closed": `src/lib/soundSynth.ts:85-90, 373, 398, 425, 463`; `eren-says/page.tsx:52`.
   - Add one global tap listener that unlocks audio.
   - Add a watchdog: if the audio clock stops advancing, suspend and resume, then recreate the audio context if that fails.
   - Purr Beat pauses when the app goes to the background ([MDN](https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/state)).
@@ -431,7 +431,7 @@ Web Push "will not work in apps with a WKWebView" ([Apple DTS](https://developer
 - [ ] **P3.11 [CODE] S**: The phone-side stat and partner toasts (`statNotifications.ts`) stay web-only. On iPhone the server sends these.
 
 #### 3C. Native feel
-- [ ] **P3.12 [CODE] S**: Status bar colour per screen (`@capacitor/status-bar`). Light text over the black StatsHeader (`src/components/StatsHeader.tsx:410-418`), otherwise the clock and battery vanish. Dark text on light screens: the school scene and `hideStats` screens have no header (`StatsHeader.tsx:405`), and the body plus `/privacy`, `/terms` and `/delete-account` are light. One global style is wrong on one set or the other. Set it on each route or scene change, or paint a dark band behind the status bar everywhere.
+- [ ] **P3.12 [CODE] S**: Status bar colour per screen (`@capacitor/status-bar`). Light text over the black StatsHeader (`src/components/StatsHeader.tsx:410-418`), otherwise the clock and battery vanish. Dark text on light screens: `hideStats` screens have no header (`StatsHeader.tsx:405`), and the body plus `/privacy`, `/terms` and `/delete-account` are light. One global style is wrong on one set or the other. Set it on each route or scene change, or paint a dark band behind the status bar everywhere.
 - [ ] **P3.13 [CODE] S**: The native splash stays up until the existing `eren:app-ready` event, with three safety nets:
   - a native fallback that hides it after 6–8 seconds no matter what. `eren:app-ready` is never sent by `/privacy`, `/terms`, `/delete-account`, the bundled offline page or a failed load, and a splash stuck on launch is a 2.1 "hangs" rejection;
   - `offline.html` hides it itself (P2.04);
@@ -555,7 +555,7 @@ Apple rejects "websites served in an iOS app" ([App Review](https://developer.ap
   - Push: both the allow and deny paths; each notification type arrives; tapping from a killed app opens the right screen; signing out stops notifications.
   - Audio: with the silent switch on, after a phone call mid-game, and after locking the screen; Purr Beat resumes.
   - The keyboard in Talk, journal, notes, Report and Reminders.
-  - The status bar is readable on every screen (dark rooms, school, legal pages), and nothing is hidden under the notch.
+  - The status bar is readable on every screen (dark rooms, stats-hidden screens, legal pages), and nothing is hidden under the notch.
   - The `sb-*` login cookie expiry (P3.21), read on day one, not by waiting 8 days.
   - Notification switches: turning off "Reminders and nudges" stops those pushes but not partner messages.
   - No bounce, zoom, text selection or link previews.

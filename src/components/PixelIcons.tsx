@@ -633,7 +633,7 @@ export const IconBeanie = memo(function IconBeanie({ size = 20 }: IconProps) {
   }, size)
 })
 
-// ── BOOK (collection / serbian class) ─────────────────────────────────────
+// ── BOOK (collection / lab / gacha) ───────────────────────────────────────
 export const IconBook = memo(function IconBook({ size = 20 }: IconProps) {
   const grid = [
     '............',
