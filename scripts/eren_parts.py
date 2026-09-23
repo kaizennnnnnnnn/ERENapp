@@ -94,6 +94,13 @@ BODY_MIN_PX = 1500
 SOCK_OUTER = (15.0, 70.0)
 SOCK_INNER = (26.0, 73.5)
 
+# Fold detection below the collar (see build()). A stroke narrower than
+# FOLD_OPEN px is a fold; FOLD_REACH is how close to the white it must be.
+# The art's fold strokes are one block (14px) wide and the shoulders are
+# several, so any opening between ~19 and ~27 gives the same split.
+FOLD_OPEN = 23
+FOLD_REACH = 10
+
 # Order matters: later entries win, so the narrow parts are listed after the
 # broad ones they sit inside.
 PARTS = [
@@ -212,17 +219,47 @@ def build():
     has_right = np.cumsum(legs_right[:, ::-1], axis=1)[:, ::-1] > 0
     belly = body & has_left & has_right & ~bib.any(axis=1)[:, None]
 
+    # The folds: the artist shaded the white chest and legs with light-grey
+    # strokes -- the V where the chest meets the legs, the shadow under the
+    # chin, the leg edges. Grey is not coat-white, so they fell into the fur
+    # pool and took the BODY's colour: on a tuxedo they came out as a black
+    # harness strapped across a white chest ("this cat looks so bad"). They are
+    # the white fur's own shading, so they belong to the white part they sit
+    # in. Two shapes of fold, both below the collar: thin strokes (anything a
+    # FOLD_OPEN-square opening erases) touching the white, and fur with white
+    # on BOTH sides of it on the same row, which catches the thick chin
+    # shadow and the patch between the legs while leaving the shoulders --
+    # white on one side only -- as body.
+    below_collar = (by >= COLLAR_ROW - 1)[:, None]
+    cand = body & below_collar & ~socks
+    thick = ndimage.binary_opening(cand, structure=np.ones((FOLD_OPEN, FOLD_OPEN), dtype=bool))
+    white_all = bib | legs
+    near_white = ndimage.binary_dilation(white_all, iterations=FOLD_REACH)
+    white_left = np.cumsum(white_all, axis=1) > 0
+    white_right = np.cumsum(white_all[:, ::-1], axis=1)[:, ::-1] > 0
+    folds = cand & ((~thick & near_white) | (white_left & white_right))
+    # Each fold goes to whichever white part is nearest, chest or leg.
+    near = np.zeros(shape, dtype=np.int8)
+    near[bib | belly] = 1
+    near[legs] = 2
+    _, idx = ndimage.distance_transform_edt(near == 0, return_indices=True)
+    nearest = near[idx[0], idx[1]]
+
     p = {
         'ink':   masks['ink'],
         'eyes':  masks['eye'],
         'nose':  masks['nose'],
-        'body':  body,
+        'body':  body & ~folds,
         'ears':  ears,
         'tail':  (fur | coat) & tail_vis,
         'face':  face,
-        'bib':   bib | belly,
-        'legs':  legs & ~socks,
+        'bib':   bib | belly | (folds & (nearest == 1)),
+        'legs':  (legs | (folds & (nearest == 2))) & ~socks,
         'socks': socks,
+        # Not a part (PARTS never lists it): which bib/leg pixels are folds,
+        # so the ramp can measure the white from the white alone. See
+        # eren_cat.ramp_t.
+        'folds': folds,
     }
     # `ears` deliberately overlaps `body`, and `tail` may overlap either: both
     # are resolved by paint order, so only each pixel's LAST owner counts. An

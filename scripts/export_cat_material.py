@@ -90,7 +90,7 @@ def build(width=None):
             t[m] = (vv - lo) / max(hi - lo, 1e-9)
             fixed[name] = measure_ramp(full[..., :3], v, m)
         elif name in K.COLOURABLE:
-            t[m] = K.ramp_t(v, m, ref_span)[m]
+            t[m] = K.ramp_t(v, m, ref_span, parts['folds'])[m]
         else:
             t[m] = K.ramp_t(v, m)[m]
 

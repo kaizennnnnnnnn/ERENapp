@@ -351,7 +351,7 @@ def shading_span(v, mask):
     return float(np.percentile(vv, 97) - np.percentile(vv, 3)) if mask.any() else 0.0
 
 
-def ramp_t(v, mask, ref_span=None):
+def ramp_t(v, mask, ref_span=None, folds=None):
     """Where each pixel sits on its own region's dark->light ramp, 0..1.
 
     With `ref_span` (the BODY's shading span) the region keeps the artist's
@@ -362,16 +362,25 @@ def ramp_t(v, mask, ref_span=None):
     #E4 to #FC, a tenth of the body's range) were amplified into grey
     blotches -- "his bottom part colors are weird" -- while the same white on
     the head, which has real shading, looked no different from them.
+
+    `folds` (eren_parts's fold strokes) are measured OUT of the range and kept
+    OUT of the compression. They are darker than any white fur, so counted in
+    they would drag the 3rd percentile down and re-stretch the chest's faint
+    shading into blotches; and compressed like the rest they would sit at
+    t ~0.7 and all but vanish. Uncompressed they land near the ramp's dark
+    end: a light-grey line on a white chest, as drawn.
     """
     t = np.zeros_like(v)
     if not mask.any():
         return t
     vv = v[mask]
-    lo, hi = np.percentile(vv, 3), np.percentile(vv, 97)
+    f = folds[mask] if folds is not None else np.zeros(vv.shape, dtype=bool)
+    st = vv[~f] if (~f).any() else vv
+    lo, hi = np.percentile(st, 3), np.percentile(st, 97)
     tt = np.clip((vv - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
     if ref_span:
         k = min(1.0, (hi - lo) / ref_span)
-        tt = 1.0 - (1.0 - tt) * k
+        tt = np.where(f, tt, 1.0 - (1.0 - tt) * k)
     t[mask] = tt
     return t
 
@@ -409,7 +418,7 @@ def render(parts, pattern=None, eyes='blue', nose='pink', base=None):
             continue
         coat = parts[name]
         dark, light = C.hx(FUR[coat][0]), C.hx(FUR[coat][1])
-        t = ramp_t(v, m, ref_span)[m]
+        t = ramp_t(v, m, ref_span, masks['folds'])[m]
         # A white patch never carries the pattern. Not a style call: a tabby's
         # stripes are denser pigment, and a white patch is the absence of
         # pigment, so there is nothing there to be denser. Striping it gave the
