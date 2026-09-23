@@ -81,6 +81,7 @@ def build(width=None):
     # full ramp regardless of how light or dark that part happens to be.
     t = np.zeros((h, w), dtype=np.float64)
     fixed = {}
+    ref_span = K.shading_span(v, owner == names.index('body'))
     for i, name in enumerate(names):
         m = owner == i
         if name in FIXED_PARTS:
@@ -88,6 +89,8 @@ def build(width=None):
             lo, hi = vv.min(), vv.max()
             t[m] = (vv - lo) / max(hi - lo, 1e-9)
             fixed[name] = measure_ramp(full[..., :3], v, m)
+        elif name in K.COLOURABLE:
+            t[m] = K.ramp_t(v, m, ref_span)[m]
         else:
             t[m] = K.ramp_t(v, m)[m]
 

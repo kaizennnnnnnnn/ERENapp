@@ -192,20 +192,35 @@ def build():
     ear_r = ~below_line(shape, EAR_INNER, EAR_OUTER, mirror=True)
     ears = fur & ~tail_vis & ((ear_l & left) | (ear_r & right))
 
-    # Socks: the part of each leg BELOW the slanted line (left definition, mirrored).
+    # Socks: everything BELOW the slanted line (left definition, mirrored) --
+    # the front paws, which are legs, AND the hind feet, which are fur tucked
+    # in beside them. On a tuxedo the hind feet came out black between white
+    # paws, which the user saw as "his bottom part colors are weird": a paw
+    # is a paw whichever leg it is on.
+    body = fur & ~tail_vis
     sock_l = below_line(shape, SOCK_OUTER, SOCK_INNER)
     sock_r = below_line(shape, SOCK_OUTER, SOCK_INNER, mirror=True)
-    socks = legs & ((sock_l & left) | (sock_r & right))
+    socks = (legs | body) & ((sock_l & left) | (sock_r & right))
+
+    # The belly: fur that shows BETWEEN the front legs, below the chest. It
+    # is the chest continuing down, so it takes the chest's colour -- on a
+    # tuxedo it was a black stripe running down between two white legs.
+    # "Between the legs" is measured, not drawn: a leg pixel to its left and
+    # to its right on the same row, on a row the chest no longer reaches.
+    legs_left, legs_right = legs & left, legs & right
+    has_left = np.cumsum(legs_left, axis=1) > 0
+    has_right = np.cumsum(legs_right[:, ::-1], axis=1)[:, ::-1] > 0
+    belly = body & has_left & has_right & ~bib.any(axis=1)[:, None]
 
     p = {
         'ink':   masks['ink'],
         'eyes':  masks['eye'],
         'nose':  masks['nose'],
-        'body':  fur & ~tail_vis,
+        'body':  body,
         'ears':  ears,
         'tail':  (fur | coat) & tail_vis,
         'face':  face,
-        'bib':   bib,
+        'bib':   bib | belly,
         'legs':  legs & ~socks,
         'socks': socks,
     }

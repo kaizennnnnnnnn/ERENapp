@@ -151,7 +151,7 @@ PALETTES = [
     # given there: most of the coat lands at the LIGHT end, so the light end
     # is what the cat looks like. A mid-grey light end made a grey cat.
     ('black',     'BLACK',      '#0B0B0D',  '#2E2C2F',  'gold',   'pink',  'white'),
-    ('white',     'WHITE',      '#D4D7DF',  '#FFFFFF',  'blue',   'pink',  'white'),
+    ('white',     'WHITE',      '#C6CBD5',  '#F5F6F8',  'blue',   'pink',  'white'),
     # These three plus GREY came back as four shades of the same cat on the first
     # sheet. Pulled apart deliberately: lilac carries real mauve, blue point goes
     # colder AND darker, silver goes almost to white so it reads by lightness

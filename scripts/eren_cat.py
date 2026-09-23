@@ -60,18 +60,20 @@ FUR = {
     # so: "there is not a full black one". The light end now sits at #2E2C2F,
     # which is black with just enough lift for the outline to still read on a
     # dark room; the dark greys people also ask for are charcoal and smoke.
-    # White is the same story from the other side, and it has two failure
-    # modes: warm grey shadows (#DCDCDB) looked like dirt, and shadows so
+    # White is the same story from the other side, and it has had three
+    # failure modes: warm grey shadows (#DCDCDB) looked like dirt; shadows so
     # faint (#E9EAED) that the user saw "no details left, just shining
-    # bright". #D4D7DF is a COOL light grey -- white fur in shade -- and keeps
-    # every fold the artist drew while still reading as a white cat.
+    # bright"; and a pure #FFFFFF top that GLOWED on a dark room. The top is
+    # now an off-white and the shadow a cool grey deep enough that the head's
+    # real shading shows -- the chest and legs, which the artist drew nearly
+    # flat, stay nearly flat because ramp_t keeps each part's own depth.
     'black':     ('#0B0B0D', '#2E2C2F'),
     'charcoal':  ('#232225', '#78746F'),
     'smoke':     ('#26242A', '#8C878B'),
     'grey':      ('#3D4248', '#C4C9CE'),   # British blue
     'bluegrey':  ('#34404C', '#9EAAB6'),   # Russian blue
     'silver':    ('#7B7F84', '#EFF1F2'),
-    'white':     ('#D4D7DF', '#FFFFFF'),
+    'white':     ('#C6CBD5', '#F5F6F8'),
     'lilac':     ('#6B5A5E', '#DCCFD0'),   # the pinkish grey dilute of chocolate
     'fawn':      ('#7A5C44', '#E8D0B6'),
     # the browns -- every one is a real pigment in the eumelanin series
@@ -291,14 +293,35 @@ PATTERNS = {'tabby': tabby, 'tortie': tortie}
 
 # ---------------------------------------------------------------------------
 
-def ramp_t(v, mask):
-    """Where each pixel sits on its own region's dark->light ramp, 0..1."""
+def shading_span(v, mask):
+    """How much shading the artist gave a region: its 3rd..97th percentile
+    value range."""
+    vv = v[mask]
+    return float(np.percentile(vv, 97) - np.percentile(vv, 3)) if mask.any() else 0.0
+
+
+def ramp_t(v, mask, ref_span=None):
+    """Where each pixel sits on its own region's dark->light ramp, 0..1.
+
+    With `ref_span` (the BODY's shading span) the region keeps the artist's
+    RELATIVE shading depth: a part whose values span a quarter of the body's
+    only ever uses the top quarter of the ramp. Without it every part is
+    stretched over the whole ramp, and that was two of the user's complaints
+    at once: the faint folds on the white chest and legs (the art's coat is
+    #E4 to #FC, a tenth of the body's range) were amplified into grey
+    blotches -- "his bottom part colors are weird" -- while the same white on
+    the head, which has real shading, looked no different from them.
+    """
     t = np.zeros_like(v)
     if not mask.any():
         return t
     vv = v[mask]
     lo, hi = np.percentile(vv, 3), np.percentile(vv, 97)
-    t[mask] = np.clip((vv - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
+    tt = np.clip((vv - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
+    if ref_span:
+        k = min(1.0, (hi - lo) / ref_span)
+        tt = 1.0 - (1.0 - tt) * k
+    t[mask] = tt
     return t
 
 
@@ -323,6 +346,8 @@ def render(parts, pattern=None, eyes='blue', nose='pink', base=None):
 
     pat = PATTERNS[pattern](full.shape[:2], owner) if pattern in PATTERNS else None
     rings = tail_rings(full.shape[:2]) if pattern == 'tabby' else None
+    names = [k for k, _ in P.PARTS]
+    ref_span = shading_span(v, owner == names.index('body'))
 
     for i, (name, _) in enumerate(P.PARTS):
         if name not in COLOURABLE:
@@ -332,7 +357,7 @@ def render(parts, pattern=None, eyes='blue', nose='pink', base=None):
             continue
         coat = parts[name]
         dark, light = C.hx(FUR[coat][0]), C.hx(FUR[coat][1])
-        t = ramp_t(v, m)[m]
+        t = ramp_t(v, m, ref_span)[m]
         # A white patch never carries the pattern. Not a style call: a tabby's
         # stripes are denser pigment, and a white patch is the absence of
         # pigment, so there is nothing there to be denser. Striping it gave the
