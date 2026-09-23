@@ -4,7 +4,7 @@ _This is a live checklist, written 2026-09-23. It draws on a research dossier co
 
 _**Android is parked, not deleted.** The exact Google Play launch state is on branch `android-play-store` and tag `android-snapshot-2026-09-23` (both at `af2bf3e`, both on GitHub). See section 5._
 
-**Status:** nothing below is started except the Android snapshot. Tick items as they land.
+**Status (2026-09-23):** done so far: the Android snapshot, D0 (a friend's iPhone via TestFlight), D22 (Serbian class removed, lab kept) and P0.11b. Tick items as they land.
 
 ---
 
@@ -18,11 +18,11 @@ _**Android is parked, not deleted.** The exact Google Play launch state is on br
 - **Biggest rejection risk:** Guideline 4.2, "repackaged website". Close behind is 4.7.2: Apple may object to web content loaded from a server using native iPhone features without its permission. The more common rejections are 2.1 (incomplete app: legal placeholders, dead password reset, a crash bar, missing demo accounts) and 5.1.2(i) (AI consent). Every one of those is fixed on this checklist before we submit. 4.2 depends on the reviewer's judgment, so most of Phase 3 goes to making Eren feel like an app and not a website.
 
 ### Start here: your first five moves
-1. Say whether there's an iPhone you can use for the whole project (D0).
-2. Enroll in the Apple Developer Program as an individual (P0.01). Apple's approval time is the one wait we can't shorten.
+1. ~~Tester iPhone (D0)~~: a friend's iPhone via TestFlight.
+2. Enroll in the Apple Developer Program as an individual (P0.01), **when Phase 1 is nearly done**, not before.
 3. Decide on a custom domain (D4) and the bundle ID (D3). Both are baked into the app.
 4. Send the legal facts in P0.11. Your support email unblocks the most items on this list.
-5. Decide on the Serbian class and chemistry lab (D22), and the drink names (D18).
+5. ~~Serbian class and lab (D22)~~: decided. Still open: the drink names (D18).
 
 ---
 
@@ -80,13 +80,19 @@ _**Android is parked, not deleted.** The exact Google Play launch state is on br
 - **If we get it wrong:** Apple documents a way to convert an individual account to an organization later ("please contact us"), so this is recoverable ([Apple](https://developer.apple.com/help/account/membership/program-enrollment/)).
 
 ### D3. Permanent bundle ID
-- **Recommendation:** use the reverse of a domain you own. For example, if you buy `example.com`, use `com.example.eren`. Don't base it on `vercel.app` or on the old Android ID `app.vercel.eren_care_app.twa`. Decide before the first TestFlight upload.
-- **Why:** it ties together the App ID, signing, and push (APNs uses it as the "topic").
+- **What it is:** the app's permanent identity inside Apple, something like a car's chassis number. Users never see it.
+  - Apple uses it to know that every update belongs to the same app.
+  - Push notifications are addressed to it.
+  - Once the App Store record exists, it can **never** change. Changing it means publishing a brand-new app, and losing everyone who installed the old one, its ratings and its name.
+- **Recommendation:** if you buy a domain, reverse it (for example, `erencat.app` becomes `app.erencat.eren`). If you don't, `com.jovanspinjo.eren` is fine: it is unique, free, and doesn't depend on buying anything. Don't base it on `vercel.app` or on the old Android ID `app.vercel.eren_care_app.twa`. Decide before the first TestFlight upload.
 - **If we get it wrong:** plan as if it can never change.
 
 ### D4. Custom domain
-- **Recommendation:** buy one and point it at Vercel **before the first TestFlight build**. Keep `eren-care-app.vercel.app` working as an alias.
-- **Why:** the site address is compiled into the app (Capacitor `server.url`). A domain also gives you a real sender for password emails and a support address. And it protects the app if the Vercel project is ever renamed.
+- **Recommendation:** buy one (about USD 10–15 a year) and point it at Vercel **before the first TestFlight build**. Keep `eren-care-app.vercel.app` working as an alias. It is strongly recommended, not required.
+- **Why:**
+  - The iPhone app is a frame around your website, and the website's address is built into it (Capacitor `server.url`). If that address ever changes (a Vercel rename, or moving off Vercel), every installed copy breaks until its user updates. Your own domain is an address you control forever.
+  - Password-reset emails: email services that send on your behalf require a domain you own (SPF/DKIM records). Without a domain, the only option is sending through a Gmail account, which works at small scale.
+  - A support address like `support@yourdomain` keeps your personal Gmail off the public pages.
 - **One exact address.** The app treats only the exact address in `server.url` as "inside the app". It compares addresses as text, and anything else opens in Safari. So:
   - no redirect from the bare domain to `www` (or back);
   - no redirect from `eren-care-app.vercel.app` to the new domain. The pg_cron jobs call the vercel.app address directly, and a redirect would break decay, reminders and every notify job;
@@ -134,7 +140,7 @@ _**Android is parked, not deleted.** The exact Google Play launch state is on br
 | D19 | Moderation promise | Commit to acting on reports within 24 hours, and actually do it | Apple's standard 1.2 rejection asks for action within 24 hours ([forum](https://developer.apple.com/forums/thread/116703)). The terms currently say "[PLACEHOLDER: e.g. 72 hours]". |
 | D20 | Storefronts | Everywhere except China mainland | China needs a game approval number and an ICP filing, plus it has generative-AI rules. That's impractical for an individual in Serbia ([forum](https://developer.apple.com/forums/thread/743661); low confidence). Brazil is fine with an 18+ rating. |
 | D21 | Loot-box and other borderline age-rating questions | Answer conservatively: loot boxes Yes; simulated gambling Infrequent (the bakery's coin-paid SPIN machine); contests Frequent | It is unclear whether gacha paid with earned currency counts as "for purchase" ([3.1.1](https://developer.apple.com/app-store/review/guidelines/#in-app-purchase)). With an 18+ rating, rating too high costs nothing, while declaring too little is a Guideline 2.3.6 rejection. |
-| D22 | The Serbian class room and the chemistry lab | **Your call, and a real one.** Either keep them as features and say so in the listing ("learn some Serbian with Eren"), or hide them in v1 | These are the clearest "made for one couple" signals left. The rooms menu has a Serbian Class (`src/components/home/RoomsMenu.tsx:40`). "Serbian Lesson" is the highest-paying daily quest at 60 coins (`src/lib/tasks.ts:13-15`), and Serbian lines appear in wishes and idle chatter (`src/lib/wishes.ts:177`, `src/lib/flavorLines.ts:97`). The chemistry lab has two 35-coin daily quests. Apple rejects apps made "just for family and friends". Kept as features, they are charming. Left unexplained, they read as private. Also: the Serbian voice relies on a Croatian speech voice that iPhones may not have, so the speaker buttons can be silent (tested in P5.01). |
+| D22 | The Serbian class room and the chemistry lab | **DECIDED 2026-09-23:** the Serbian class is **removed**. The chemistry lab **stays**, and gets reworked to be more fun (a later item). The pre-removal app, with the Serbian class and lab v1, is preserved on branch `serbian-class-and-original-lab` and tag `snapshot-serbian-class-original-lab-2026-09-23`. | These are the clearest "made for one couple" signals left. The rooms menu has a Serbian Class (`src/components/home/RoomsMenu.tsx:40`). "Serbian Lesson" is the highest-paying daily quest at 60 coins (`src/lib/tasks.ts:13-15`), and Serbian lines appear in wishes and idle chatter (`src/lib/wishes.ts:177`, `src/lib/flavorLines.ts:97`). The chemistry lab has two 35-coin daily quests. Apple rejects apps made "just for family and friends". Kept as features, they are charming. Left unexplained, they read as private. Also: the Serbian voice relies on a Croatian speech voice that iPhones may not have, so the speaker buttons can be silent (tested in P5.01). |
 
 ---
 
@@ -163,12 +169,15 @@ These are estimates, not dossier facts.
 ### Phase 0: Accounts and decisions (start today)
 
 - [ ] **P0.01 [YOU] S**: Enroll in the Apple Developer Program as an individual, on the web ([enroll](https://developer.apple.com/programs/enroll/)).
+  - **When:** not yet. Phase 1 needs no membership, and the 12-month clock starts when you pay. Enroll when Phase 1 is nearly done, about a week before the first test build, so Apple's approval (same day to a few days) isn't on the critical path. Enroll sooner only if you want to reserve the name "Eren" early; the name is held once the app record exists.
+  - **What the USD 99/year buys:** the right to publish apps on the App Store (any number of them), sign builds, send them to testers through TestFlight, use Apple push notifications, App Store Connect, and developer support ([Apple](https://developer.apple.com/programs/whats-included/)). Apple takes no cut of a free app.
+  - **If you stop paying:** "your apps will no longer be available for download and you won't be able to submit new apps or updates", but people who already installed Eren can keep using it ([Apple](https://developer.apple.com/support/renewal/)).
   - You need an Apple Account with two-factor authentication and your legal name.
   - The fee is USD 99 per year, charged in local currency. Whether VAT is added in Serbia is unknown.
   - No Apple device is needed.
   - Serbia is a listed App Store storefront ([Apple](https://developer.apple.com/help/app-store-connect/reference/financial-report-regions-and-currencies/)). Serbia-specific ID checks are unconfirmed: one 2023 report describes an ID-upload failure.
   - If no confirmation arrives within 24 hours, contact Apple.
-- [ ] **P0.02 [YOU] S**: Make decisions D0–D8 (needed before Phase 2), D22 (needed before Phase 1 finishes) and D9–D21 (needed before Phase 4).
+- [ ] **P0.02 [YOU] S**: Make decisions D1–D8 (needed before Phase 2) and D9–D21 (needed before Phase 4).
 - [ ] **P0.03 [YOU] S**: If D4 is yes, buy the domain and add it to the Vercel project as a direct serve, not a redirect. Then:
   - Keep `eren-care-app.vercel.app` serving too, with **no redirect**, because several pg_cron jobs and a fallback in `src/lib/serverPush.ts:9` call it by name.
   - Update `NEXT_PUBLIC_APP_URL` in Vercel and redeploy (it is baked in at build time).
@@ -188,16 +197,21 @@ These are estimates, not dossier facts.
   - A team-scoped key works for all your apps.
 - [ ] **P0.09 [YOU] S**: Store the keys as encrypted secrets in Codemagic (or GitHub). Never commit a `.p8`: the repo is public.
 - [ ] **P0.10 [YOU] M**: Set up custom email sending (SMTP) for Supabase Auth (D17). I did not research which provider or what it costs.
-- [ ] **P0.11 [YOU] S**: Send me the legal facts for Phase 1:
-  - one support email;
-  - your full legal name and postal address;
-  - governing law / jurisdiction;
-  - the publish date;
-  - your Supabase region;
-  - log retention and backup retention;
-  - whether to keep the EU-representative (Art. 27) paragraph;
-  - your data-protection supervisory authority;
-  - the report response time (24 hours, per D19).
+- [ ] **P0.11 [YOU] S**: Send me the legal facts only you know. These fill the 34 blanks in the privacy policy and terms:
+  - **The public contact email.** It is printed on the support page, the privacy policy, the terms and the App Store listing, and published with your trader details if D10 is "trader". Offered: `jocaspinjo@gmail.com`. Recommended instead: a separate address (a new free Gmail now, or `support@` on your domain), so your personal inbox stays private and the app's mail stays separate. Your choice.
+  - **Your full legal name**, spelled exactly as on your ID (Apple checks it).
+  - **Your postal address.** The privacy policy and terms name you as the person responsible for the data, with a contact address. If you'd rather not publish your home address, say so; whether email alone is enough is a question for a lawyer.
+  - **Your country**, which becomes governing law and courts. Presumably Serbia.
+  - **The EU representative question.** EU privacy law (GDPR Art. 27) generally expects a non-EU developer who serves EU users to name a representative inside the EU, and paid services do this for a yearly fee. It is the one legal item that may cost money. Your call: pay for one, or ask a lawyer whether Eren is exempt.
+- [x] **P0.11b [CODE]**: The facts I can find myself (checked 2026-09-23):
+  - Supabase region: **London, UK** (`eu-west-2`). The policy's example said Frankfurt; the UK is outside the EU but has an EU adequacy decision.
+  - Backups: none on the free tier.
+  - Log retention: read from the Supabase and Vercel plan pages when filling the policy.
+  - Deletion page: `/delete-account` on the final domain.
+  - Report response time: 24 hours (D19).
+  - Shutdown notice: 30 days.
+  - Supervisory authority: Serbia's Commissioner for Information of Public Importance and Personal Data Protection, if you're in Serbia.
+  - Publish date: set on release day. It must never be a future date (`TERMS_LAST_UPDATED` trap).
 - [x] **P0.12a [CODE] S**: Point `LAUNCH_STATUS.md` at this file for store work.
 - [ ] **P0.12b [YOU] S**: Run `supabase/probe_migration_state.sql` in the Supabase SQL editor (project `bjnnqqxjjihmsbljeayf`; the dashboard may open a different project) and paste the result back to me, so new migrations build on the database's real state.
 - [ ] **P0.13 [YOU] S**: In Supabase → Authentication → Providers → Email, check that **"Confirm email" is OFF**. Onboarding needs an immediate session (`src/lib/onboarding.ts`), so turning it on would strand every new signup.
@@ -217,7 +231,7 @@ Apple wants final versions with "placeholder text... scrubbed", a demo account, 
 - [ ] **P1.05 [CODE] S**: Hide "FORGOT YOUR PASSWORD?" (`src/app/auth/login/page.tsx:86`) until P3.19 ships.
 - [ ] **P1.06 [CODE] S**: Nothing may suggest the app exists for one specific couple. Apple says apps "just for family and friends" don't belong on the store ([guidelines](https://developer.apple.com/app-store/review/guidelines/)), and it rejects "small niche market" apps ([App Review](https://developer.apple.com/distribute/app-review/)).
   - Sweep the copy.
-  - Carry out D22 (Serbian class and chemistry lab): present them as features, or hide them.
+  - D22: remove the Serbian class. The lab stays; make it more fun as a later item.
   - Confirm the hardcoded `ERENHOME` household in `supabase/seed.sql:7-8` does not exist or cannot be joined in production.
   - Make solo play obvious without a partner.
 
@@ -240,6 +254,7 @@ Apple wants final versions with "placeholder text... scrubbed", a demo account, 
   - Handle Google Fonts (P1.35).
   - Fix the two sections both numbered 2.5.
   - **Name no Android, Google Play or Firebase anywhere the iPhone app shows** (Guideline 2.3.10, [guidelines](https://developer.apple.com/app-store/review/guidelines/)).
+  - The policy says "there is no automated scanning" of messages (`policy.md:259-260`). The P1.18 word filter makes that untrue, so reword it when the filter ships.
   - Guideline 5.1.1(i) items: state that every third party that receives data (Anthropic, Supabase, Vercel) gives "the same or equal protection". Explain retention and deletion. Explain how a user withdraws consent, including the AI switch in P1.14.
 - [ ] **P1.10 [CODE] S**: Terms: add an explicit "zero tolerance for objectionable content or abusive users" sentence to §4, and set the report response to 24 hours in §6 (`terms.md:134`).
 
@@ -511,7 +526,7 @@ Apple rejects "websites served in an iOS app" ([App Review](https://developer.ap
   - One 6.9-inch portrait set at 1320×2868: 1–10 images, PNG or JPEG, no transparency.
   - Capture real screens (rooms, arcade, gacha with odds, journal, Talk) from the demo household.
   - Capture them on the iOS 6.9-inch **simulator** on the CI Mac (`xcrun simctl io booted screenshot`), not in Chrome. Chrome renders with a different engine, so blur, fonts and safe areas won't match what users see.
-  - No old drink names, nothing about Android, no "Flappy", and no Serbian class unless D22 keeps it. Imagery must suit all ages even though the app is 18+.
+  - No old drink names, nothing about Android, and no "Flappy". Imagery must suit all ages even though the app is 18+.
 - [ ] **P4.09 [YOU] S**: Approve the screenshots and text.
 - [ ] **P4.10 [CODE] S**: Demo accounts:
   - Accounts A and B, already paired in one household, with nothing reported or blocked.
@@ -541,7 +556,6 @@ Apple rejects "websites served in an iOS app" ([App Review](https://developer.ap
   - Audio: with the silent switch on, after a phone call mid-game, and after locking the screen; Purr Beat resumes.
   - The keyboard in Talk, journal, notes, Report and Reminders.
   - The status bar is readable on every screen (dark rooms, school, legal pages), and nothing is hidden under the notch.
-  - The Serbian speaker buttons make sound, if D22 keeps the room.
   - The `sb-*` login cookie expiry (P3.21), read on day one, not by waiting 8 days.
   - Notification switches: turning off "Reminders and nudges" stops those pushes but not partner messages.
   - No bounce, zoom, text selection or link previews.
