@@ -217,18 +217,18 @@ TABBY_PARTS = {
     'M': ('body',), 'SHOULDER': ('body', 'legs'), 'HAUNCH': ('body', 'legs'),
 }
 
-# Under a tabby the coat's own shading is LIFTED and FLATTENED before the
-# stripes go on: t' = TABBY_LIFT + (TABBY_TOP - TABBY_LIFT) * t. The base art
-# is a colourpoint: the fur around the eyes and over the forehead is its
-# darkest, and on a solid coat that reads as shading. Under a tabby it read
-# as a bandit mask -- two judges independently: "the ginger and grey tabbies
-# read as bandit-faced colourpoints" -- and the M drawn on top of it was
-# invisible. A tabby's face is pale with dark lines on it, the opposite of a
-# mask, and its ground is flat agouti, so the whole coat sits in the upper
-# half of the ramp and only the stripes go dark. TABBY_TOP < 1 also dims the
-# art's light fur highlights, which were reading as the pale half of a
-# pinstripe next to every stripe.
-TABBY_LIFT, TABBY_TOP = 0.45, 0.85
+# Under a tabby the coat's deep shadows are LIFTED before the stripes go on:
+# t' = t ** TABBY_GAMMA. The base art is a colourpoint: the fur around the
+# eyes and over the forehead is its darkest, and on a solid coat that reads
+# as shading. Under a tabby it read as a bandit mask -- two judges
+# independently: "the ginger and grey tabbies read as bandit-faced
+# colourpoints" -- and the M drawn on top of it was invisible. A gamma below
+# one pulls the darks up hard (0.1 -> 0.28, 0.3 -> 0.52) and leaves the
+# mid-tones and highlights nearly where they were, so the face loses its
+# mask and the body KEEPS its form. The first fix was a linear squeeze into
+# 0.45..0.85, which lifted the mask but flattened everything with it; the
+# user's verdict on that was "this look so bad".
+TABBY_GAMMA = 0.55
 
 
 def tabby(shape, owner, groups=None):
@@ -245,12 +245,63 @@ def tabby(shape, owner, groups=None):
     return out.astype(np.float64)
 
 
-def tail_rings(shape):
-    """Bands across the tail. Separate from tabby() because a tail has rings
-    even on cats whose body stripes are faint, and because the tail curls -- a
-    band that follows the body's stripe axis would run ALONG it."""
-    by, _ = _blocks(shape)
-    return np.broadcast_to((((by + 1) % 4) < 2), shape).astype(np.float64)
+# The tail's rings, walking from the base toward the tip: (dark?, width in
+# blocks). Uneven on purpose -- a period is the tell of a machine -- and the
+# dark bands widen toward the tip, which is solid dark, as a tabby's is. The
+# first four blocks at the base carry no ring, so the tail joins the body in
+# plain coat.
+TAIL_BANDS = [(0, 4), (1, 2), (0, 3), (1, 2), (0, 2), (1, 3), (0, 2), (1, 3), (0, 2), (1, 3), (0, 2)]
+TAIL_TIP = 3
+
+
+def tail_rings(shape, owner):
+    """Rings across the tail, measured ALONG it.
+
+    The tail's centreline is the mean column of its blocks on each block
+    row; arc length runs along it from the base (the bottom row) to the tip.
+    Each block is projected onto the centreline's tangent at its row, so a
+    band is a set of blocks at the same arc length: it sits ACROSS the
+    tail's own axis and tilts with it where the tail leans. The first cut
+    striped the tail by canvas ROW -- a horizontal band every four rows, two
+    on, two off, the whole length -- and where the tail bends the bands cut
+    it at an angle and the tip looked sliced like a striped sock. The user:
+    "the tail lines look fake". (A geodesic distance walked through the
+    blocks was tried in between: right direction, ragged edges.)
+    """
+    names = [k for k, _ in P.PARTS]
+    h, w = shape
+    tail = owner == names.index('tail')
+    rows, cols = (h - PHASE_Y) // GRID, (w - PHASE_X) // GRID
+    by_row = {}
+    for r in range(rows):
+        for c in range(cols):
+            if tail[PHASE_Y + r * GRID + GRID // 2, PHASE_X + c * GRID + GRID // 2]:
+                by_row.setdefault(r, []).append(c)
+    if not by_row:
+        return np.zeros(shape)
+    rs = sorted(by_row)                                  # top (tip) .. bottom (base)
+    centre = {r: float(np.mean(by_row[r])) for r in rs}
+    arc, acc, prev = {}, 0.0, None
+    for r in reversed(rs):                               # base -> tip
+        if prev is not None:
+            acc += float(np.hypot(prev - r, centre[r] - centre[prev]))
+        arc[r], prev = acc, r
+    s_max = acc
+    edges, pos = [], 0.0
+    for dark, width in TAIL_BANDS:
+        edges.append((pos, pos + width, dark))
+        pos += width
+    dark_blocks = set()
+    for i, r in enumerate(rs):
+        r_up = rs[i - 1] if i > 0 else r
+        r_dn = rs[i + 1] if i + 1 < len(rs) else r
+        dcdr = (centre[r_up] - centre[r_dn]) / max(r_dn - r_up, 1)   # col change per row, going up
+        along = dcdr / float(np.hypot(1.0, dcdr))                     # the tangent's column component
+        for c in by_row[r]:
+            s = arc[r] + (c - centre[r]) * along
+            if s >= s_max - TAIL_TIP or any(lo <= s < hi and dark for lo, hi, dark in edges):
+                dark_blocks.add((r, c))
+    return _raster(shape, dark_blocks).astype(np.float64)
 
 
 def tortie(shape, owner=None):
@@ -332,9 +383,10 @@ def ramp_t(v, mask, ref_span=None):
 # chest at mid-ramp (a beige bar on a ginger cat) while the same stripe on the
 # tail, whose fur starts darker, went nearly black: the stripes changed tone
 # from part to part. Scaling toward zero sends every stripe to the dark end.
-# On the lifted tabby ground (0.45..0.85) a depth of 0.7 puts every stripe at
-# 0.14..0.26: dark, but still above the outline, so a black tabby keeps its
-# lines faintly (a "ghost tabby", which is what a black tabby actually is).
+# On the gamma-lifted ground a depth of 0.7 puts a stripe on lit fur (t 0.9)
+# at 0.28 and on mid fur (0.6) at 0.18: dark, but still above the outline,
+# so a black tabby keeps its lines faintly (a "ghost tabby", which is what a
+# black tabby actually is).
 STRIPE_DEPTH = 0.7
 
 
@@ -345,7 +397,7 @@ def render(parts, pattern=None, eyes='blue', nose='pink', base=None):
     out = full.copy()
 
     pat = PATTERNS[pattern](full.shape[:2], owner) if pattern in PATTERNS else None
-    rings = tail_rings(full.shape[:2]) if pattern == 'tabby' else None
+    rings = tail_rings(full.shape[:2], owner) if pattern == 'tabby' else None
     names = [k for k, _ in P.PARTS]
     ref_span = shading_span(v, owner == names.index('body'))
 
@@ -366,7 +418,7 @@ def render(parts, pattern=None, eyes='blue', nose='pink', base=None):
             pass
         elif pattern == 'tabby':
             p = (rings if name == 'tail' else pat)[m]
-            t = TABBY_LIFT + (TABBY_TOP - TABBY_LIFT) * t
+            t = t ** TABBY_GAMMA
             t = t * (1.0 - STRIPE_DEPTH * p)
         elif pattern == 'tortie':
             # A real tortie's patches are pigment, so they get their own ramp
