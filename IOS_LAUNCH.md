@@ -12,9 +12,9 @@ _**Android is parked, not deleted.** The exact Google Play launch state is on br
 
 - **How the app is built:** we use Capacitor 8 (the current stable 8.5.x), iOS only, with Swift Package Manager. For the first release the app loads the live Vercel site. On top of that it adds real iPhone features: Apple push notifications (APNs), haptics, a native status bar, keyboard handling and splash screen, the share sheet, and an offline screen built into the app. `/api/*` and Supabase stay where they are. If Apple rejects the live-site build, the fallback is a fully bundled build (Appendix A).
 - **No Mac to buy:** we generate and edit the iOS project on Windows. A reviewer confirmed that `npx cap add ios` works on this PC. A cloud Mac (Codemagic's free tier, or GitHub Actions, which is free while this repo is public) compiles, signs and uploads it. You test through TestFlight.
-- **You do need an iPhone you can keep for weeks.** Every build gets tested on a real phone, repeatedly, and there is no simulator on Windows. A phone borrowed for one afternoon is not enough. If there is no iPhone in the household, budget for a used one running iOS 17 or later.
+- **You do need an iPhone tester for the whole project.** Every build gets tested on a real phone, repeatedly, and there is no simulator on Windows. A friend with an iPhone on iOS 17+ is fine: they install each build through TestFlight from wherever they are (D0). A phone borrowed for one afternoon is not enough.
 - **Timeline (estimate):** about 5–7 weeks from starting Apple enrollment to going live, if decisions and legal facts come back quickly. About 7–10 weeks if Apple rejects the live-site build and we switch to the bundled one.
-- **Cash:** USD 99 per year for the Apple Developer Program, plus possibly a used iPhone. Everything else can cost USD 0. Optional extras: a custom domain (roughly USD 10–15 per year; my estimate, not researched) and an email-sending provider (cost not researched).
+- **Cash:** USD 99 per year for the Apple Developer Program. A used iPhone only if no friend can test. Everything else can cost USD 0. Optional extras: a custom domain (roughly USD 10–15 per year; my estimate, not researched) and an email-sending provider (cost not researched).
 - **Biggest rejection risk:** Guideline 4.2, "repackaged website". Close behind is 4.7.2: Apple may object to web content loaded from a server using native iPhone features without its permission. The more common rejections are 2.1 (incomplete app: legal placeholders, dead password reset, a crash bar, missing demo accounts) and 5.1.2(i) (AI consent). Every one of those is fixed on this checklist before we submit. 4.2 depends on the reviewer's judgment, so most of Phase 3 goes to making Eren feel like an app and not a website.
 
 ### Start here: your first five moves
@@ -53,9 +53,17 @@ _**Android is parked, not deleted.** The exact Google Play launch state is on br
 ## 1. Decisions only you can make
 
 ### D0. Which iPhone do we test on?
-- **Recommendation:** one iPhone on iOS 17 or later that stays with you for the whole project. It will also sometimes need a USB cable to this PC for debugging.
+- **Recommendation:** any iPhone on iOS 17 or later whose owner will install new builds for the whole project. **A friend's iPhone works.** They install the free TestFlight app, accept your invite, and update when a new build lands. Nobody hands over a phone, and no file gets sent around: iPhones can't install apps from a file the way Android can.
+- **How to invite a friend** ([Apple](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview/)):
+  - **Internal tester** (recommended while builds change daily): add them as a user in App Store Connect with a limited role. Every build reaches them as soon as Apple finishes processing it, with no review.
+  - **External tester:** invite by email or public link, with no App Store Connect access. The first build of each version waits for Beta App Review.
+- **What a remote tester changes:**
+  - Nobody can plug their phone into this PC. The in-app console and error log (P2.16) become the main way we see errors, so they move up to the first build.
+  - They report problems through TestFlight's screenshot feedback, and crash counts show in App Store Connect.
+  - I write them a short "what to test" list for each build.
+- **Their account is real.** It lives in the live database. To test partner features, pair them with a test account you control on the web, never with your own household.
 - **Why:** Phases 2–5 mean installing many TestFlight builds and testing push, memory, Low Power Mode and staying logged in, all on a real device. Windows has no iPhone simulator.
-- **If we get it wrong:** each test round waits on getting the phone back, and the whole timeline stretches.
+- **If we get it wrong:** each test round waits on the tester, and the whole timeline stretches.
 
 ### D1. Buy a Mac, or build in the cloud?
 - **Recommendation:** don't buy a Mac. Use **Codemagic**, which gives a personal account 500 free macOS minutes a month (about 25–40 builds), a web UI, and a documented Capacitor-to-TestFlight flow ([pricing](https://codemagic.io/pricing/)). Keep a **GitHub Actions** workflow on `macos-26` as a free backup, because standard runners are "free and unlimited on public repositories" and this repo is public ([GitHub](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)). Testing happens on the iPhone from D0.
