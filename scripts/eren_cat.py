@@ -5,7 +5,7 @@
 This is the thing the onboarding customiser would call. A cat is:
 
     {'parts': {'body': 'black', 'tail': 'white', 'socks': 'white', ...},
-     'pattern': 'tabby', 'eyes': 'gold', 'nose': 'slate'}
+     'pattern': 'tabby', 'eyes': 'gold', 'nose': 'pink'}
 
 so "fully black", "black with a white tail" and "black tabby with socks" are
 the same code path with different rows in a table -- which is what the request
@@ -60,15 +60,18 @@ FUR = {
     # so: "there is not a full black one". The light end now sits at #2E2C2F,
     # which is black with just enough lift for the outline to still read on a
     # dark room; the dark greys people also ask for are charcoal and smoke.
-    # White is the same story from the other side: #DCDCDB shadows looked like
-    # dirt on a white cat, #E9EAED reads as clean fur.
+    # White is the same story from the other side, and it has two failure
+    # modes: warm grey shadows (#DCDCDB) looked like dirt, and shadows so
+    # faint (#E9EAED) that the user saw "no details left, just shining
+    # bright". #D4D7DF is a COOL light grey -- white fur in shade -- and keeps
+    # every fold the artist drew while still reading as a white cat.
     'black':     ('#0B0B0D', '#2E2C2F'),
     'charcoal':  ('#232225', '#78746F'),
     'smoke':     ('#26242A', '#8C878B'),
     'grey':      ('#3D4248', '#C4C9CE'),   # British blue
     'bluegrey':  ('#34404C', '#9EAAB6'),   # Russian blue
     'silver':    ('#7B7F84', '#EFF1F2'),
-    'white':     ('#E9EAED', '#FFFFFF'),
+    'white':     ('#D4D7DF', '#FFFFFF'),
     'lilac':     ('#6B5A5E', '#DCCFD0'),   # the pinkish grey dilute of chocolate
     'fawn':      ('#7A5C44', '#E8D0B6'),
     # the browns -- every one is a real pigment in the eumelanin series
@@ -93,42 +96,43 @@ PRESETS = [
     ('eren',      'EREN (TODAY)',    dict(body='cream', ears='cream', tail='cream',
                                           face='white', bib='white', legs='white',
                                           socks='white'), None, 'blue', 'pink'),
-    ('black',     'ALL BLACK',       dict.fromkeys(COLOURABLE, 'black'), None, 'gold', 'slate'),
+    ('black',     'ALL BLACK',       dict.fromkeys(COLOURABLE, 'black'), None, 'gold', 'pink'),
     # Blue eyes and a pink nose: the common pairing on a white cat, and the
     # one people picture.
     ('white',     'ALL WHITE',       dict.fromkeys(COLOURABLE, 'white'), None, 'blue', 'pink'),
     ('tuxedo',    'TUXEDO',          dict(body='black', ears='black', tail='black',
                                           face='white', bib='white', legs='white',
-                                          socks='white'), None, 'gold', 'slate'),
+                                          socks='white'), None, 'gold', 'pink'),
     ('blacktail', 'BLACK, WHITE TAIL', dict(body='black', ears='black', tail='white',
                                             face='black', bib='black', legs='black',
-                                            socks='white'), None, 'gold', 'slate'),
-    ('gingertab', 'GINGER TABBY',    dict.fromkeys(COLOURABLE, 'ginger'), 'tabby', 'gold', 'brick'),
+                                            socks='white'), None, 'gold', 'pink'),
+    ('gingertab', 'GINGER TABBY',    dict.fromkeys(COLOURABLE, 'ginger'), 'tabby', 'gold', 'pink'),
     ('orangewh',  'GINGER AND WHITE', dict(body='marmalade', ears='marmalade', tail='marmalade',
                                            face='white', bib='white', legs='white',
-                                           socks='white'), 'tabby', 'green', 'brick'),
-    ('yellow',    'YELLOW',          dict.fromkeys(COLOURABLE, 'yellow'), None, 'green', 'brick'),
-    ('greytab',   'GREY TABBY',      dict.fromkeys(COLOURABLE, 'grey'), 'tabby', 'green', 'slate'),
-    ('silvertab', 'SILVER TABBY',    dict(body='silver', ears='silver', tail='silver',
-                                          face='white', bib='white', legs='white',
-                                          socks='white'), 'tabby', 'green', 'brick'),
+                                           socks='white'), 'tabby', 'green', 'pink'),
+    ('yellow',    'YELLOW',          dict.fromkeys(COLOURABLE, 'yellow'), None, 'green', 'pink'),
+    ('greytab',   'GREY TABBY',      dict.fromkeys(COLOURABLE, 'grey'), 'tabby', 'green', 'pink'),
+    # All silver: a white part takes no pattern, so the white-chested version
+    # of this had stripes only on the head and tail and read as a white cat
+    # with a grey tail stuck on.
+    ('silvertab', 'SILVER TABBY',    dict.fromkeys(COLOURABLE, 'silver'), 'tabby', 'green', 'pink'),
     ('siamese',   'SIAMESE',         dict(body='cream', ears='chocolate', tail='chocolate',
                                           face='chocolate', bib='cream', legs='cream',
-                                          socks='chocolate'), None, 'blue', 'slate'),
-    ('tortie',    'TORTOISESHELL',   dict.fromkeys(COLOURABLE, 'black'), 'tortie', 'copper', 'slate'),
+                                          socks='chocolate'), None, 'blue', 'pink'),
+    ('tortie',    'TORTOISESHELL',   dict.fromkeys(COLOURABLE, 'black'), 'tortie', 'copper', 'pink'),
     ('calico',    'CALICO',          dict(body='black', ears='black', tail='ginger',
                                           face='white', bib='white', legs='white',
                                           socks='white'), 'tortie', 'gold', 'pink'),
     ('tuxcinn',   'CINNAMON TUXEDO', dict(body='cinnamon', ears='cinnamon', tail='cinnamon',
                                           face='white', bib='white', legs='white',
-                                          socks='white'), None, 'copper', 'brick'),
+                                          socks='white'), None, 'copper', 'pink'),
     ('bluecream', 'BLUE AND CREAM',  dict(body='bluegrey', ears='bluegrey', tail='bluegrey',
                                           face='cream', bib='cream', legs='cream',
-                                          socks='bluegrey'), None, 'gold', 'slate'),
-    ('smoketab',  'SMOKE TABBY',     dict.fromkeys(COLOURABLE, 'smoke'), 'tabby', 'copper', 'slate'),
+                                          socks='bluegrey'), None, 'gold', 'pink'),
+    ('smoketab',  'SMOKE TABBY',     dict.fromkeys(COLOURABLE, 'smoke'), 'tabby', 'copper', 'pink'),
     ('browntab',  'BROWN TABBY',     dict(body='brown', ears='brown', tail='brown',
                                           face='white', bib='white', legs='brown',
-                                          socks='white'), 'tabby', 'green', 'brick'),
+                                          socks='white'), 'tabby', 'green', 'pink'),
 ]
 
 TORTIE_SECOND = 'marmalade'      # the other pigment in a tortoiseshell
@@ -146,24 +150,97 @@ def _blocks(shape):
     return by[:, None], bx[None, :]
 
 
-def tabby(shape):
-    """Mackerel stripes: bars across the head and down the flanks, rings on the
-    tail. Three different axes because that is what the markings actually do --
-    one global stripe direction reads as a deckchair, not as a cat.
+CENTRE_COL = int(round((P.CX - PHASE_X) / GRID))     # 29: the nose's column
 
-    Returns a 0/1 float array; the caller decides how far down the ramp it
-    pulls.
-    """
-    by, bx = _blocks(shape)
-    by, bx = np.broadcast_to(by, shape), np.broadcast_to(bx, shape)
-    head = (by < 44)                      # above the chin
-    # Head: bars across, tighter than the body's, with the pair either side of
-    # the centre line left clear so the forehead keeps its "M".
-    m_head = ((by % 4) < 2) & (np.abs(bx - 29) > 1)
-    # Flanks: bars down, offset every other row so they break up rather than
-    # running the full height of the cat.
-    m_body = (((bx + (by // 6)) % 5) < 2)
-    return np.where(head, m_head, m_body).astype(np.float64)
+
+def _mirror(blocks):
+    """A set of (row, col) blocks drawn on the LEFT half, plus their mirror
+    images. The cat is symmetric about column 29 (the nose), so the markings
+    are drawn once."""
+    return set(blocks) | {(r, 2 * CENTRE_COL - c) for r, c in blocks}
+
+
+def _raster(shape, blocks):
+    h, w = shape
+    m = np.zeros(shape, dtype=bool)
+    for r, c in blocks:
+        y0, x0 = PHASE_Y + r * GRID, PHASE_X + c * GRID
+        m[max(y0, 0):min(y0 + GRID, h), max(x0, 0):min(x0 + GRID, w)] = True
+    return m
+
+
+def _lean(col_top, r0, r1, width=2, step=3):
+    """A stripe `width` blocks wide that starts at `col_top` on row r0 and
+    steps one column OUTWARD (left, on the left half) every `step` rows: the
+    way a mackerel stripe comes off the spine and leans down the flank. Where
+    it runs off its part it is simply clipped, which tapers it."""
+    return {(r, col_top - (r - r0) // step + k) for r in range(r0, r1 + 1) for k in range(width)}
+
+
+# The markings of a MACKEREL TABBY, on the block grid, left half. Every one of
+# these is a thing a cat actually has, in the place it has it:
+#
+#   M        the forehead "M": two shallow arches meeting above the nose
+#   SHOULDER two leaning stripes on each shoulder, either side of the chest
+#   HAUNCH   two leaning stripes on each haunch, outside the front legs
+#
+# Nothing on the chest, the muzzle, the cheeks, the legs, the belly, the paws
+# or the ears. Rings on the tail come from tail_rings(), which curls with it.
+#
+# What was tried and why it is not here, in order:
+#   * a bar code (two-block bars every five columns down the whole cat, bars
+#     every four rows across the head) -- "the stripes look so bad and not
+#     natural". Nothing on a cat repeats on a period.
+#   * chains across the chest -- with the shoulder stripes and leg rings they
+#     met at right angles and read as a cage of lines on the light chest.
+#   * temple lines, cheek lines and the M's downward legs -- one block apart
+#     from each other and from the art's own eye shading, they fused into one
+#     dark mask and the M vanished inside it. The M is now the ONLY dark
+#     shape on the forehead, with clear coat around it.
+#   * one-block vertical stripes, broken -- next to the art's one-block LIGHT
+#     fur highlights they read as pinstripe seams, and the one-row breaks
+#     vanished at phone size. Now two blocks wide, leaning, unbroken.
+#   * leg rings -- a one-block bar across a leg merges with the leg's own
+#     outline and reads as a bandage; at phone size, a speck.
+TABBY = {
+    'M': {(21, 19), (21, 20), (22, 21), (22, 22), (23, 23), (23, 24), (24, 25), (24, 26),
+          (25, 27), (25, 28), (26, 29)},
+    'SHOULDER': _lean(17, 44, 58) | _lean(14, 46, 58),
+    'HAUNCH': _lean(15, 59, 70) | _lean(12, 61, 70),
+}
+
+# Which parts each group may land on, so a shoulder stripe stays on the
+# shoulder even where the block grid straddles the chest.
+TABBY_PARTS = {
+    'M': ('body',), 'SHOULDER': ('body', 'legs'), 'HAUNCH': ('body', 'legs'),
+}
+
+# Under a tabby the coat's own shading is LIFTED and FLATTENED before the
+# stripes go on: t' = TABBY_LIFT + (TABBY_TOP - TABBY_LIFT) * t. The base art
+# is a colourpoint: the fur around the eyes and over the forehead is its
+# darkest, and on a solid coat that reads as shading. Under a tabby it read
+# as a bandit mask -- two judges independently: "the ginger and grey tabbies
+# read as bandit-faced colourpoints" -- and the M drawn on top of it was
+# invisible. A tabby's face is pale with dark lines on it, the opposite of a
+# mask, and its ground is flat agouti, so the whole coat sits in the upper
+# half of the ramp and only the stripes go dark. TABBY_TOP < 1 also dims the
+# art's light fur highlights, which were reading as the pale half of a
+# pinstripe next to every stripe.
+TABBY_LIFT, TABBY_TOP = 0.45, 0.85
+
+
+def tabby(shape, owner, groups=None):
+    """The mackerel markings as a 0/1 float mask; the caller decides how far
+    down the ramp a marked pixel is pulled. `owner` is eren_parts's part map,
+    so each group is clipped to the parts it belongs on."""
+    names = [k for k, _ in P.PARTS]
+    out = np.zeros(shape, dtype=bool)
+    for key, blocks in TABBY.items():
+        if groups is not None and key not in groups:
+            continue
+        allowed = np.isin(owner, [names.index(p) for p in TABBY_PARTS[key]])
+        out |= _raster(shape, _mirror(blocks)) & allowed
+    return out.astype(np.float64)
 
 
 def tail_rings(shape):
@@ -174,17 +251,23 @@ def tail_rings(shape):
     return np.broadcast_to((((by + 1) % 4) < 2), shape).astype(np.float64)
 
 
-def tortie(shape):
+def tortie(shape, owner=None):
     """Tortoiseshell patches: the second pigment, in irregular blobs.
 
     Value noise on the block grid, not per-pixel noise -- per-pixel gives a
     speckle that reads as compression damage at this sprite's scale. The seed is
     fixed so a given cat is the same cat every time it renders, which matters
     once this is a saved character and not a preview.
+
+    The cells are FIVE blocks: at three, two judges called the result static
+    and paint splatter at phone size. Real tortie patches are a few blocks
+    across at this sprite's scale. And the face is SPLIT down the middle, one
+    pigment each side, which is the tortoiseshell tell people recognise
+    before anything else.
     """
     h, w = shape
     rng = np.random.default_rng(7)
-    cell = GRID * 3
+    cell = GRID * 5
     gh, gw = h // cell + 2, w // cell + 2
     noise = rng.random((gh, gw))
     big = np.repeat(np.repeat(noise, cell, axis=0), cell, axis=1)[:h, :w]
@@ -193,7 +276,14 @@ def tortie(shape):
     sm = L.ndimage.uniform_filter(big, size=cell)
     by, bx = _blocks((h, w))
     snapped = sm[np.clip(by * GRID + PHASE_Y, 0, h - 1), np.clip(bx * GRID + PHASE_X, 0, w - 1)]
-    return (snapped > 0.5).astype(np.float64)
+    patch = snapped > 0.5
+    head = np.broadcast_to(by < TORTIE_SPLIT_ROW, (h, w))
+    left = np.broadcast_to(bx < CENTRE_COL, (h, w))
+    return np.where(head, left, patch).astype(np.float64)
+
+
+# The tortie's face split ends at the collar; below it the patches take over.
+TORTIE_SPLIT_ROW = 44
 
 
 PATTERNS = {'tabby': tabby, 'tortie': tortie}
@@ -212,10 +302,17 @@ def ramp_t(v, mask):
     return t
 
 
-# How far a stripe pulls a pixel down its ramp. 0.42 was picked by eye at the
-# 172px ship size: below about 0.3 the stripes vanish once the sprite is small,
-# above about 0.55 a dark coat's stripes turn into holes.
-STRIPE_DEPTH = 0.42
+# How far a stripe pulls a pixel down its ramp, as a FRACTION of where it is:
+# t' = t * (1 - STRIPE_DEPTH). Multiplicative, not subtractive, and the reason
+# is what a stripe is -- the coat's dark pigment, at full density, wherever it
+# falls. The first cut subtracted a constant, which put a stripe on the light
+# chest at mid-ramp (a beige bar on a ginger cat) while the same stripe on the
+# tail, whose fur starts darker, went nearly black: the stripes changed tone
+# from part to part. Scaling toward zero sends every stripe to the dark end.
+# On the lifted tabby ground (0.45..0.85) a depth of 0.7 puts every stripe at
+# 0.14..0.26: dark, but still above the outline, so a black tabby keeps its
+# lines faintly (a "ghost tabby", which is what a black tabby actually is).
+STRIPE_DEPTH = 0.7
 
 
 def render(parts, pattern=None, eyes='blue', nose='pink', base=None):
@@ -224,7 +321,7 @@ def render(parts, pattern=None, eyes='blue', nose='pink', base=None):
     _, v = C.classify(full)
     out = full.copy()
 
-    pat = PATTERNS[pattern](full.shape[:2]) if pattern in PATTERNS else None
+    pat = PATTERNS[pattern](full.shape[:2], owner) if pattern in PATTERNS else None
     rings = tail_rings(full.shape[:2]) if pattern == 'tabby' else None
 
     for i, (name, _) in enumerate(P.PARTS):
@@ -244,7 +341,8 @@ def render(parts, pattern=None, eyes='blue', nose='pink', base=None):
             pass
         elif pattern == 'tabby':
             p = (rings if name == 'tail' else pat)[m]
-            t = np.clip(t - STRIPE_DEPTH * p, 0.0, 1.0)
+            t = TABBY_LIFT + (TABBY_TOP - TABBY_LIFT) * t
+            t = t * (1.0 - STRIPE_DEPTH * p)
         elif pattern == 'tortie':
             # A real tortie's patches are pigment, so they get their own ramp
             # and the blend is per pixel rather than a darkening.

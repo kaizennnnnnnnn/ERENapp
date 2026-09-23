@@ -15,7 +15,8 @@ WHAT IS IN THE FOUR CHANNELS
 
 which makes the whole recolour, in the browser, one pass of
 
-    t   = G/255  (minus the stripe depth where the bit is set)
+    t   = G/255  (under a tabby: lifted to tabbyLift..tabbyTop, then times
+                  1 - stripeDepth where the stripe bit is set)
     rgb = lerp(ramp[R].dark, ramp[R].light, t)
 
 with no classification, no HSV, no percentiles and no block arithmetic at
@@ -96,9 +97,9 @@ def build(width=None):
     owner_full = owner[idx[0], idx[1]]
     t_full = np.where(known, t, t[idx[0], idx[1]])
 
-    stripe = K.tabby((h, w)) > 0.5
+    stripe = K.tabby((h, w), owner) > 0.5
     rings = K.tail_rings((h, w)) > 0.5
-    patch = K.tortie((h, w)) > 0.5
+    patch = K.tortie((h, w), owner) > 0.5
     bits = stripe.astype(np.uint8) | (rings.astype(np.uint8) << 1) | (patch.astype(np.uint8) << 2)
 
     mat = np.zeros((h, w, 4), dtype=np.uint8)
@@ -153,7 +154,8 @@ def decode(mat, names, fixed, parts, pattern, eyes, nose):
         if n in K.COLOURABLE and parts[n] != 'white':
             if pattern == 'tabby':
                 bit = 2 if n == 'tail' else 1
-                tt = np.clip(tt - K.STRIPE_DEPTH * ((bits[m] & bit) > 0), 0.0, 1.0)
+                tt = K.TABBY_LIFT + (K.TABBY_TOP - K.TABBY_LIFT) * tt
+                tt = tt * (1.0 - K.STRIPE_DEPTH * ((bits[m] & bit) > 0))
             elif pattern == 'tortie':
                 d2, l2 = (C.hx(x) for x in K.FUR[K.TORTIE_SECOND])
                 p = ((bits[m] & 4) > 0)[:, None]
@@ -176,6 +178,7 @@ def main():
     Image.fromarray(mat, 'RGBA').save(p, optimize=True)
     meta = {'parts': names, 'colourable': K.COLOURABLE, 'fur': {k: list(v) for k, v in K.FUR.items()},
             'ramps': ramps(names, fixed), 'stripeDepth': K.STRIPE_DEPTH,
+            'tabbyLift': K.TABBY_LIFT, 'tabbyTop': K.TABBY_TOP,
             'tortieSecond': K.TORTIE_SECOND,
             'presets': [{'key': k, 'label': lb, 'parts': pr, 'pattern': pt,
                          'eyes': e, 'nose': nz} for k, lb, pr, pt, e, nz in K.PRESETS]}

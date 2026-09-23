@@ -144,24 +144,24 @@ COAT = {
 PALETTES = [
     # key          label         fur dark    fur light   eye       nose     coat
     ('cream',     'CREAM',      None,       None,       None,     None,    None),
-    ('ginger',    'GINGER',     '#6E3612',  '#F3C289',  'gold',   'brick', 'cream'),
-    ('grey',      'GREY',       '#3B4046',  '#CBD2D8',  'green',  'slate', 'cool'),
-    ('chocolate', 'CHOCOLATE',  '#3A2317',  '#CB9D77',  'copper', 'brick', 'cream'),
+    ('ginger',    'GINGER',     '#6E3612',  '#F3C289',  'gold',   'pink',  'cream'),
+    ('grey',      'GREY',       '#3B4046',  '#CBD2D8',  'green',  'pink',  'cool'),
+    ('chocolate', 'CHOCOLATE',  '#3A2317',  '#CB9D77',  'copper', 'pink',  'cream'),
     # Black and white are the same ramps as eren_cat.FUR, for the same reason
     # given there: most of the coat lands at the LIGHT end, so the light end
     # is what the cat looks like. A mid-grey light end made a grey cat.
-    ('black',     'BLACK',      '#0B0B0D',  '#2E2C2F',  'gold',   'slate', 'white'),
-    ('white',     'WHITE',      '#E9EAED',  '#FFFFFF',  'blue',   'pink',  'white'),
+    ('black',     'BLACK',      '#0B0B0D',  '#2E2C2F',  'gold',   'pink',  'white'),
+    ('white',     'WHITE',      '#D4D7DF',  '#FFFFFF',  'blue',   'pink',  'white'),
     # These three plus GREY came back as four shades of the same cat on the first
     # sheet. Pulled apart deliberately: lilac carries real mauve, blue point goes
     # colder AND darker, silver goes almost to white so it reads by lightness
     # rather than by hue.
     ('lilac',     'LILAC',      '#6B5A5E',  '#DCCFD0',  'blue',   'pink',  'white'),
-    ('bluepoint', 'BLUE POINT', '#34404C',  '#9EAAB6',  'blue',   'slate', 'cool'),
-    ('silver',    'SILVER',     '#7B7F84',  '#EFF1F2',  'green',  'slate', 'cool'),
-    ('apricot',   'APRICOT',    '#8B4A31',  '#F8DABF',  'blue',   'brick', 'cream'),
-    ('smoke',     'SMOKE',      '#26242A',  '#8C878B',  'copper', 'slate', 'cool'),
-    ('caramel',   'CARAMEL',    '#7A4A1E',  '#EFD0A2',  'green',  'brick', 'cream'),
+    ('bluepoint', 'BLUE POINT', '#34404C',  '#9EAAB6',  'blue',   'pink',  'cool'),
+    ('silver',    'SILVER',     '#7B7F84',  '#EFF1F2',  'green',  'pink',  'cool'),
+    ('apricot',   'APRICOT',    '#8B4A31',  '#F8DABF',  'blue',   'pink',  'cream'),
+    ('smoke',     'SMOKE',      '#26242A',  '#8C878B',  'copper', 'pink',  'cool'),
+    ('caramel',   'CARAMEL',    '#7A4A1E',  '#EFD0A2',  'green',  'pink',  'cream'),
     ('fawn',      'FAWN',       '#7A5C44',  '#E8D0B6',  'gold',   'pink',  'cream'),
 ]
 
