@@ -16,10 +16,10 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { usePageReady } from '@/hooks/usePageReady'
-import { IconEye, IconEyeOff } from '@/components/PixelIcons'
-import OnboardingShell from '@/components/onboarding/OnboardingShell'
-import ErenHero from '@/components/onboarding/ErenHero'
-import { PixelButton, PixelInput, PixelError, PixelLink } from '@/components/onboarding/pixelForm'
+import { PrimaryButton } from '@/components/meadow'
+import OnbScreen, { ErrorLine, ImplicitSubmit, Note } from '@/components/onboarding/OnbScreen'
+import OnbStage, { SideBubble } from '@/components/onboarding/OnbStage'
+import { PasswordField } from '@/components/onboarding/PasswordField'
 
 /** Matches the minimum the signup step enforces. Demanding more here than the
  *  account needed in the first place is just a second, contradictory rule. */
@@ -27,15 +27,15 @@ const MIN_PASSWORD = 6
 
 export default function ResetPasswordPage() {
   const supabase = createClient()
-  usePageReady(true)
 
   const [checking, setChecking] = useState(true)
   const [hasSession, setHasSession] = useState(false)
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ field: 'password' | 'confirm' | 'form'; message: string } | null>(null)
+
+  usePageReady(!checking)
 
   useEffect(() => {
     let cancelled = false
@@ -47,14 +47,14 @@ export default function ResetPasswordPage() {
     return () => { cancelled = true }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function handleReset(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleReset() {
+    if (loading) return
     if (password.length < MIN_PASSWORD) {
-      setError(`At least ${MIN_PASSWORD} characters.`)
+      setError({ field: 'password', message: `Use at least ${MIN_PASSWORD} characters.` })
       return
     }
     if (password !== confirm) {
-      setError('Those two do not match.')
+      setError({ field: 'confirm', message: 'Those two do not match.' })
       return
     }
 
@@ -63,7 +63,7 @@ export default function ResetPasswordPage() {
 
     const { error } = await supabase.auth.updateUser({ password })
     if (error) {
-      setError(error.message)
+      setError({ field: 'form', message: error.message })
       setLoading(false)
       return
     }
@@ -84,76 +84,61 @@ export default function ResetPasswordPage() {
     window.location.href = '/home'
   }
 
-  const tagline = checking
-    ? 'One moment.'
-    : hasSession
-      ? 'Pick a new one. He will not be told what it is.'
-      : 'That link is no longer any good.'
+  const expired = !checking && !hasSession
+  const title = checking ? 'One moment' : hasSession ? 'Pick a new password' : 'That link has expired'
 
   return (
-    <OnboardingShell stage={null}>
-      <div style={{ marginBottom: 18 }}>
-        <ErenHero
-          size={124}
-          titleSize={20}
-          tagline={
-            <p style={{ fontSize: 12, lineHeight: 1.6, color: '#C9B8E8', margin: 0 }}>
-              {tagline}
-            </p>
-          }
-        />
-      </div>
-
-      {checking ? null : !hasSession ? (
-        <div className="flex flex-col" style={{ gap: 16 }}>
-          <p style={{ fontSize: 12, lineHeight: 1.7, color: '#C9B8E8', margin: 0, textAlign: 'center' }}>
-            Reset links expire, and each one only works once. Ask for a fresh
-            one and it will land in a moment.
-          </p>
-          <PixelLink href="/auth/forgot">ASK FOR A NEW LINK</PixelLink>
-        </div>
+    <OnbScreen
+      backHref="/auth/login"
+      backLabel="Back to log in"
+      title={title}
+      footer={checking ? undefined : expired ? (
+        <PrimaryButton href="/auth/forgot">Ask for a new link</PrimaryButton>
       ) : (
-        <form onSubmit={handleReset} className="flex flex-col" style={{ gap: 16 }}>
-          <PixelInput
-            label="NEW PASSWORD"
-            type={showPw ? 'text' : 'password'}
+        <PrimaryButton onClick={() => void handleReset()} busy={loading}>
+          {loading ? 'Saving...' : 'Set password'}
+        </PrimaryButton>
+      )}
+    >
+      <OnbStage kind="partner" look={null} alt="Eren">
+        {!checking && (
+          <SideBubble left={190} top={52} maxWidth={144}>
+            {hasSession ? "Pick a new one. I won't tell." : 'That link is no longer any good.'}
+          </SideBubble>
+        )}
+      </OnbStage>
+      {expired && (
+        <Note style={{ margin: '22px 24px 0', fontSize: 15, lineHeight: 1.45 }}>
+          Reset links expire, and each one only works once. Ask for a fresh one and it will land in a moment.
+        </Note>
+      )}
+      {!checking && hasSession && (
+        <form
+          onSubmit={e => { e.preventDefault(); void handleReset() }}
+          style={{ margin: '22px 20px 0', display: 'flex', flexDirection: 'column', gap: 18 }}
+        >
+          <PasswordField
+            label="New password"
+            autoComplete="new-password"
+            enterKeyHint="next"
             value={password}
-            onChange={e => setPassword(e.target.value)}
+            onChange={e => { setPassword(e.target.value); setError(null) }}
             placeholder={`At least ${MIN_PASSWORD} characters`}
-            required
-            autoComplete="new-password"
-            suffix={
-              <button
-                type="button"
-                onClick={() => setShowPw(v => !v)}
-                aria-label="Toggle password visibility"
-                style={{ background: 'none', display: 'flex', padding: 4 }}
-              >
-                {showPw ? <IconEyeOff size={18} /> : <IconEye size={18} />}
-              </button>
-            }
+            error={error?.field === 'password' ? error.message : null}
           />
-          <PixelInput
-            label="AGAIN"
-            type={showPw ? 'text' : 'password'}
+          <PasswordField
+            label="Again"
+            autoComplete="new-password"
+            enterKeyHint="go"
             value={confirm}
-            onChange={e => setConfirm(e.target.value)}
+            onChange={e => { setConfirm(e.target.value); setError(null) }}
             placeholder="The same one"
-            required
-            autoComplete="new-password"
+            error={error?.field === 'confirm' ? error.message : null}
           />
-
-          {error && <PixelError>{error}</PixelError>}
-
-          <PixelButton variant="gold" type="submit" disabled={loading}>
-            {loading ? '...' : 'SET PASSWORD'}
-          </PixelButton>
+          {error?.field === 'form' && <ErrorLine style={{ margin: '0 4px' }}>{error.message}</ErrorLine>}
+          <ImplicitSubmit />
         </form>
       )}
-
-      <div className="flex flex-col items-center" style={{ gap: 14, marginTop: 20 }}>
-        <PixelLink href="/auth/login">← BACK TO LOG IN</PixelLink>
-      </div>
-    </OnboardingShell>
+    </OnbScreen>
   )
 }

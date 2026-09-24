@@ -1,12 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+// /auth/login — for people who already have an account. The Welcome
+// (/onboarding) is the front door; this is its "Log in" button. Meadow, like
+// the rest of onboarding: the classic cat on a short stage, two fields, one
+// green button.
+
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { usePageReady } from '@/hooks/usePageReady'
-import { IconEye, IconEyeOff, IconPaw } from '@/components/PixelIcons'
-import OnboardingShell from '@/components/onboarding/OnboardingShell'
-import ErenHero from '@/components/onboarding/ErenHero'
-import { PixelButton, PixelInput, PixelError, PixelLink } from '@/components/onboarding/pixelForm'
+import { M, PrimaryButton, TextButton, TextField } from '@/components/meadow'
+import OnbScreen, { ErrorLine, ImplicitSubmit } from '@/components/onboarding/OnbScreen'
+import OnbStage, { SideBubble } from '@/components/onboarding/OnbStage'
+import { PasswordField } from '@/components/onboarding/PasswordField'
 
 export default function LoginPage() {
   const supabase = createClient()
@@ -14,19 +19,30 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ field: 'email' | 'password' | 'form'; message: string } | null>(null)
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault()
+  // /auth/callback sends a link that failed to exchange here with ?error=callback.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('error') === 'callback') {
+      setError({ field: 'form', message: "That link didn't work. It may have expired: log in, or ask for a new one." })
+    }
+  }, [])
+
+  async function handleLogin() {
+    if (loading) return
+    const e = email.trim()
+    if (!e) { setError({ field: 'email', message: 'Enter your email.' }); return }
+    if (!password) { setError({ field: 'password', message: 'Enter your password.' }); return }
     setLoading(true)
     setError(null)
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email: e, password })
 
     if (error) {
-      setError(error.message)
+      setError({ field: 'form', message: /invalid login credentials/i.test(error.message)
+        ? "That email and password don't match. Try again?"
+        : error.message })
       setLoading(false)
       return
     }
@@ -38,7 +54,7 @@ export default function LoginPage() {
       // registered but unconfirmed, which is a thing the person reading this
       // can act on, so say that instead.
       console.error('[eren] signInWithPassword returned no session for a valid credential')
-      setError('Your email address has not been confirmed yet. Check your inbox for the confirmation link.')
+      setError({ field: 'form', message: 'Your email address has not been confirmed yet. Check your inbox for the confirmation link.' })
       setLoading(false)
       return
     }
@@ -49,49 +65,56 @@ export default function LoginPage() {
   }
 
   return (
-    <OnboardingShell stage={null}>
-      <div style={{ marginBottom: 18 }}>
-        <ErenHero
-          size={124}
-          titleSize={20}
-          tagline={
-            <p style={{ fontSize: 12, lineHeight: 1.6, color: '#C9B8E8', margin: 0 }}>
-              Welcome back. He noticed you were gone.
-            </p>
-          }
-        />
-      </div>
-
-      <form onSubmit={handleLogin} className="flex flex-col" style={{ gap: 16 }}>
-        <PixelInput label="EMAIL" type="email" value={email} onChange={e => setEmail(e.target.value)}
-          placeholder="you@example.com" required autoComplete="email" />
-        <PixelInput label="PASSWORD" type={showPw ? 'text' : 'password'} value={password}
-          onChange={e => setPassword(e.target.value)} placeholder="Your password" required
-          autoComplete="current-password"
-          suffix={
-            <button type="button" onClick={() => setShowPw(v => !v)} aria-label="Toggle password visibility"
-              style={{ background: 'none', display: 'flex', padding: 4 }}>
-              {showPw ? <IconEyeOff size={18} /> : <IconEye size={18} />}
-            </button>
-          } />
-
-        {error && <PixelError>{error}</PixelError>}
-
-        <PixelButton variant="gold" type="submit" disabled={loading}>
-          {loading ? '...' : 'LOG IN'}
-        </PixelButton>
+    <OnbScreen
+      backHref="/onboarding"
+      backLabel="Back to the welcome"
+      title="Welcome back"
+      footer={(
+        <>
+          <TextButton tone="muted" href="/onboarding" style={{ height: 44 }}>New here? Adopt your cat</TextButton>
+          <PrimaryButton onClick={() => void handleLogin()} busy={loading} style={{ marginTop: 8 }}>
+            {loading ? 'Logging in...' : 'Log in'}
+          </PrimaryButton>
+        </>
+      )}
+    >
+      <form
+        onSubmit={e => { e.preventDefault(); void handleLogin() }}
+        style={{ display: 'flex', flexDirection: 'column' }}
+      >
+        <OnbStage kind="partner" look={null} alt="Eren, waiting for you">
+          <SideBubble left={190} top={52} maxWidth={144}>There you are. I missed you.</SideBubble>
+        </OnbStage>
+        <div style={{ margin: '22px 20px 0', display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <TextField
+            label="Email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="off"
+            spellCheck={false}
+            enterKeyHint="next"
+            value={email}
+            onChange={e => { setEmail(e.target.value); setError(null) }}
+            placeholder="you@example.com"
+            error={error?.field === 'email' ? error.message : null}
+          />
+          <PasswordField
+            label="Password"
+            autoComplete="current-password"
+            enterKeyHint="go"
+            value={password}
+            onChange={e => { setPassword(e.target.value); setError(null) }}
+            placeholder="Your password"
+            error={error?.field === 'password' ? error.message : null}
+          />
+          {error?.field === 'form' && <ErrorLine style={{ margin: '0 4px' }}>{error.message}</ErrorLine>}
+        </div>
+        <TextButton href="/auth/forgot" style={{ alignSelf: 'flex-start', margin: '6px 16px 0', color: M.leaf }}>
+          Forgot your password?
+        </TextButton>
+        <ImplicitSubmit />
       </form>
-
-      <div className="flex flex-col items-center" style={{ gap: 14, marginTop: 20 }}>
-        <PixelLink href="/auth/forgot">FORGOT YOUR PASSWORD?</PixelLink>
-        <PixelLink href="/onboarding">NEW HERE? → MEET EREN</PixelLink>
-        <span className="inline-flex items-center" style={{ gap: 6 }}>
-          <IconPaw size={11} />
-          <span className="font-pixel" style={{ fontSize: 5.5, letterSpacing: 1, color: '#7A6F96' }}>
-            FOR EREN THE RAGDOLL
-          </span>
-        </span>
-      </div>
-    </OnboardingShell>
+    </OnbScreen>
   )
 }

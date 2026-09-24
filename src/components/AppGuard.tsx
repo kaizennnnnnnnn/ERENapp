@@ -18,12 +18,24 @@
  * also what a Supabase outage looks like in useAuth, and bouncing a healthy
  * signed-in user to the login screen during a 503 would be worse than waiting.
  * Only a definitively absent `user` after loading settles counts.
+ *
+ * Signed-out visitors go to the Welcome (/onboarding), not the login form.
+ * The installed app starts at /home, so a brand-new install arrives here
+ * first, and someone with no account yet needs "Adopt your cat", not a
+ * password box. The Welcome's "Log in" button is one tap for everyone else.
+ *
+ * A signed-in account with its own onboarding marker (PENDING_KEY) goes back
+ * there too: it started moving in and never reached the launch. The installed
+ * app starts here, so a PWA evicted mid-create cold-started past the resume,
+ * and the cat built in onboarding never reached the home. One localStorage
+ * read; onboarding clears the marker on every way out, so this can't loop.
  */
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { registerSW } from '@/lib/reminders'
+import { readPending } from '@/components/onboarding/flow'
 
 export default function AppGuard() {
   const router = useRouter()
@@ -32,7 +44,8 @@ export default function AppGuard() {
   useEffect(() => { registerSW() }, [])
 
   useEffect(() => {
-    if (!loading && !user) router.replace('/auth/login')
+    if (loading) return
+    if (!user || readPending(user.id)) router.replace('/onboarding')
   }, [user, loading, router])
 
   return null

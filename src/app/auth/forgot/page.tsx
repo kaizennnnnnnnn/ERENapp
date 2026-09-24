@@ -15,9 +15,9 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { usePageReady } from '@/hooks/usePageReady'
-import OnboardingShell from '@/components/onboarding/OnboardingShell'
-import ErenHero from '@/components/onboarding/ErenHero'
-import { PixelButton, PixelInput, PixelError, PixelLink } from '@/components/onboarding/pixelForm'
+import { PrimaryButton, TextButton, TextField } from '@/components/meadow'
+import OnbScreen, { ErrorLine, Note } from '@/components/onboarding/OnbScreen'
+import OnbStage, { SideBubble } from '@/components/onboarding/OnbStage'
 
 export default function ForgotPasswordPage() {
   const supabase = createClient()
@@ -26,14 +26,16 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ field: 'email' | 'form'; message: string } | null>(null)
 
-  async function handleSend(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleSend() {
+    if (loading) return
+    const e = email.trim()
+    if (!e) { setError({ field: 'email', message: 'Enter the email you signed up with.' }); return }
     setLoading(true)
     setError(null)
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    const { error } = await supabase.auth.resetPasswordForEmail(e, {
       redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset`,
     })
 
@@ -47,7 +49,7 @@ export default function ForgotPasswordPage() {
     // Rate limiting is the one failure worth naming. Left silent, someone sits
     // there re-sending into a wall and concludes the feature is broken.
     if (error && /rate|too many|seconds|limit/i.test(error.message)) {
-      setError('Too many tries. Wait a minute, then ask again.')
+      setError({ field: 'form', message: 'Too many tries. Wait a minute, then ask again.' })
       setLoading(false)
       return
     }
@@ -63,7 +65,7 @@ export default function ForgotPasswordPage() {
     // into the exact oracle the next comment exists to prevent.
     const status = (error as { status?: number } | null)?.status ?? 0
     if (error && (status >= 500 || /not authoriz|smtp|configur|server/i.test(error.message))) {
-      setError('Something went wrong on our end. Try again in a minute.')
+      setError({ field: 'form', message: 'Something went wrong on our end. Try again in a minute.' })
       setLoading(false)
       return
     }
@@ -76,54 +78,57 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <OnboardingShell stage={null}>
-      <div style={{ marginBottom: 18 }}>
-        <ErenHero
-          size={124}
-          titleSize={20}
-          tagline={
-            <p style={{ fontSize: 12, lineHeight: 1.6, color: '#C9B8E8', margin: 0 }}>
-              {sent
-                ? 'Check your email. He waited this long, he can wait a bit more.'
-                : 'Forgot it? Happens. Tell us where to send the link.'}
-            </p>
-          }
-        />
-      </div>
-
-      {sent ? (
-        <div className="flex flex-col" style={{ gap: 16 }}>
-          <p style={{ fontSize: 12, lineHeight: 1.7, color: '#C9B8E8', margin: 0, textAlign: 'center' }}>
-            If that address has an account, a reset link is on its way. The link
-            expires, so use it soon — and check spam before asking again.
-          </p>
-          <PixelButton variant="gold" type="button" onClick={() => { setSent(false); setEmail('') }}>
-            SEND ANOTHER
-          </PixelButton>
-        </div>
+    <OnbScreen
+      backHref="/auth/login"
+      backLabel="Back to log in"
+      title={sent ? 'Check your email' : 'Forgot your password?'}
+      footer={sent ? (
+        <>
+          <TextButton tone="muted" onClick={() => { setSent(false); setEmail('') }} style={{ height: 44 }}>
+            Send another
+          </TextButton>
+          <PrimaryButton href="/auth/login" style={{ marginTop: 8 }}>Back to log in</PrimaryButton>
+        </>
       ) : (
-        <form onSubmit={handleSend} className="flex flex-col" style={{ gap: 16 }}>
-          <PixelInput
-            label="EMAIL"
+        <PrimaryButton onClick={() => void handleSend()} busy={loading}>
+          {loading ? 'Sending...' : 'Send reset link'}
+        </PrimaryButton>
+      )}
+    >
+      <OnbStage kind="partner" look={null} alt="Eren">
+        <SideBubble left={190} top={52} maxWidth={144}>
+          {sent ? 'I waited this long. I can wait a bit more.' : 'Happens to everyone.'}
+        </SideBubble>
+      </OnbStage>
+      {sent ? (
+        <Note role="status" style={{ margin: '22px 24px 0', fontSize: 15, lineHeight: 1.45 }}>
+          If that address has an account, a reset link is on its way. The link expires, so use it soon, and
+          check spam before asking again.
+        </Note>
+      ) : (
+        <form
+          onSubmit={e => { e.preventDefault(); void handleSend() }}
+          style={{ margin: '22px 20px 0', display: 'flex', flexDirection: 'column', gap: 14 }}
+        >
+          <Note style={{ margin: '0 4px', fontSize: 15, lineHeight: 1.45 }}>
+            Tell us your email and we&apos;ll send a link to pick a new password.
+          </Note>
+          <TextField
+            label="Email"
             type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            required
+            inputMode="email"
             autoComplete="email"
+            autoCapitalize="off"
+            spellCheck={false}
+            enterKeyHint="send"
+            value={email}
+            onChange={e => { setEmail(e.target.value); setError(null) }}
+            placeholder="you@example.com"
+            error={error?.field === 'email' ? error.message : null}
           />
-
-          {error && <PixelError>{error}</PixelError>}
-
-          <PixelButton variant="gold" type="submit" disabled={loading || !email.trim()}>
-            {loading ? '...' : 'SEND RESET LINK'}
-          </PixelButton>
+          {error?.field === 'form' && <ErrorLine style={{ margin: '0 4px' }}>{error.message}</ErrorLine>}
         </form>
       )}
-
-      <div className="flex flex-col items-center" style={{ gap: 14, marginTop: 20 }}>
-        <PixelLink href="/auth/login">← BACK TO LOG IN</PixelLink>
-      </div>
-    </OnboardingShell>
+    </OnbScreen>
   )
 }
