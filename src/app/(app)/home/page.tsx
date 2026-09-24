@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useLayoutEffect, useCallback, useMemo } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { withRetry } from '@/lib/supabaseRetry'
@@ -9,18 +9,16 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTimeTracking } from '@/hooks/useTimeTracking'
 import MoodGate from '@/components/MoodGate'
 import type { UserMood } from '@/types'
-import { MOOD_CONFIGS } from '@/types'
 import { useCare } from '@/contexts/CareContext'
 import { useTasks } from '@/contexts/TaskContext'
 import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
-import Link from 'next/link'
 import { Sparkles } from 'lucide-react'
-import { IconGift, IconHeart, IconBell, IconPerson, IconDoor, IconPhoto, IconDress, IconTrophyTier } from '@/components/PixelIcons'
+import { IconHeart, MeadowIcon } from '@/components/PixelIcons'
+import { M, NAV_HEIGHT } from '@/components/meadow/tokens'
 import { playSound } from '@/lib/sounds'
-import { requestCloudNav } from '@/components/CloudTransition'
 import TaskPanel from '@/components/TaskPanel'
 import BlinkingEren from '@/components/BlinkingEren'
-import { useRoomEren } from '@/hooks/useRoomEren'
+import { useRoomErenState } from '@/hooks/useRoomEren'
 import StinkyFlies from '@/components/StinkyFlies'
 import PageLoader from '@/components/PageLoader'
 import ReminderSheet from '@/components/ReminderSheet'
@@ -31,8 +29,10 @@ import { useCouple } from '@/hooks/useCouple'
 import { useFortune } from '@/hooks/useFortune'
 import { useInventory } from '@/hooks/useInventory'
 import { useNewSkins } from '@/hooks/useNewSkins'
-import { DockContent, dockFrame } from '@/components/home/DockButtons'
-import RoomsMenu, { type RoomDef } from '@/components/home/RoomsMenu'
+import HomeRoomFrame, { homeRoomArt } from '@/components/home/HomeRoomFrame'
+import HomeHud from '@/components/home/HomeHud'
+import RoomDots from '@/components/home/RoomDots'
+import { useHideBottomNav } from '@/components/nav/NavVisibility'
 import FortunePopup from '@/components/fortune/FortunePopup'
 import ErenMessagePopup from '@/components/couple/ErenMessagePopup'
 import GiftArrival from '@/components/couple/GiftArrival'
@@ -50,7 +50,6 @@ import ErenIdleLayer from '@/components/ErenIdleLayer'
 import SendErenSheet from '@/components/couple/SendErenSheet'
 import { MOOD_THEME, LOW_MOODS, moodDateKey } from '@/lib/moods'
 import { useIsDark } from '@/hooks/useIsDark'
-import { cuteBtn, CuteIcon } from '@/components/obsidian'
 import LightSwitch from '@/components/LightSwitch'
 import { useWish } from '@/contexts/WishContext'
 import { useWishLinger } from '@/hooks/useWishLinger'
@@ -76,6 +75,17 @@ interface XpParticle {
 // Home's default idle look — stable ref so useRoomEren's memo holds.
 const HOME_EREN_FALLBACK = { src: '/erenGood_notail.png', tailSrc: '/erenGood_tail.png' }
 
+// Which screen home is on. The early returns in HomePage follow this, and the
+// bottom nav reads it to know when to step aside.
+type HomeGate = 'loading' | 'no-household' | 'mood' | 'verdict' | 'room'
+
+// Has the living room been on screen yet in this app session? Every tap of the
+// Home tab remounts this page, and each remount shows the loader for a network
+// round trip (useAuth re-checks the session). Hiding the nav for that would
+// blink the bar off and on at every tap, so only the session's first load, the
+// one the splash covers, keeps it hidden; later loaders sit under a steady bar.
+let roomSeenThisSession = false
+
 export default function HomePage() {
   const router   = useRouter()
   const supabase = createClient()
@@ -85,15 +95,18 @@ export default function HomePage() {
   const { xp, level } = useTasks()
   useTimeTracking(user?.id ?? null)
   const { canClaim: fortuneAvailable } = useFortune()
-  const { newMessage, dismissPopup, unreadCount, partner, isSolo, sendNudge, partnerMood, lifetimeWLT, weeklyChampion, coopGoal, giftArrivals, markGiftsSeen } = useCouple()
+  const { newMessage, dismissPopup, partner, isSolo, sendNudge, partnerMood, lifetimeWLT, giftArrivals, markGiftsSeen } = useCouple()
   const { inventory, loaded: invLoaded } = useInventory()
   const newSkinCount = useNewSkins(inventory, invLoaded)
   const isDark = useIsDark()
   const wish = useWish()
   // Today's three foods. Owns its own payout — see useFoodMenu.
   const foodMenu = useFoodMenu(profile?.household_id)
-  // Idle look for the living room — a Closet skin or the classic erenGood.
-  const homeEren = useRoomEren('home', HOME_EREN_FALLBACK)
+  // Idle look for the living room: a Closet skin, else the household's own cat
+  // (cat_look, recoloured), else the classic erenGood. `pending` is the first
+  // decode of the household's cat this session; the room holds its loader
+  // through it (see the preload below) so the cat never pops in late.
+  const { sprite: homeEren, pending: homeErenPending } = useRoomErenState('home', HOME_EREN_FALLBACK)
 
   // Pet interaction — tap on Eren and he stays in place, just trembling a
   // gentle purr with hearts + a "PURRR". The behaviour lives in PetTarget so
@@ -101,26 +114,8 @@ export default function HomePage() {
   // pet-flavoured wishes (mood-pet, mood-lap).
   const petReaction = useErenReaction()
 
-  // Heart-button notification: an unclaimed weekly REWARD waiting on /couple —
-  // last week's Care Battle win (claimed via the champion popup, which stamps
-  // `acknowledged` on close) or a met "We Cared" co-op goal (claimed in
-  // CoopGoalBar). Both live in the shared CoupleProvider, so claiming on /couple
-  // clears this on return with no refetch.
-  //
-  // NOT gated on `partner` any more, and that gate was costing a solo player
-  // real money: both payouts have since been made solo — last week settles
-  // against Eren (e2f57cc) and the co-op goal takes a one-person target from
-  // `coopTargetFor` (ddb6f30). The rows exist, the coins are claimable, and the
-  // only thing missing was the dot telling anyone to go and claim them. Every
-  // remaining term already requires a real, unacknowledged, loaded row, so
-  // dropping the partner check cannot make either dot fire on nothing.
-  const weeklyWinPending  = weeklyChampion?.outcome === 'win' && !weeklyChampion.acknowledged
-  // `coopGoal.loaded` gate: goalMet (from interactions) and claimed (from the
-  // coop-row read) settle in separate commits — without it the dot would flash
-  // for an already-claimed goal before the row lands, and would mis-fire if that
-  // read 503'd. Only surface once the row's claim state is actually known.
-  const coopRewardPending = coopGoal.goalMet && coopGoal.loaded && !coopGoal.claimed
-  const heartReward = weeklyWinPending || coopRewardPending
+  // The unread / reward dot that sat on this page's heart button now lives on
+  // the bottom nav's Us tab (nav/useUsBadge), with the same conditions.
 
   const [showFortune, setShowFortune] = useState(false)
   const [dotsVisible, setDotsVisible] = useState(false)
@@ -274,9 +269,21 @@ export default function HomePage() {
   const [moodReadFailed, setMoodReadFailed] = useState(false)
   const [toast, setToast]                 = useState<string | null>(null)
   const [showReminders, setShowReminders] = useState(false)
-  const [showRooms, setShowRooms]         = useState(false)
   const [showSendEren, setShowSendEren]   = useState(false)
-  const [roomReady, setRoomReady]         = useState(false)
+
+  // The room is ready once the exact pictures it will paint (the painting for
+  // the time of day and Eren's idle layers) have decoded; see the preload
+  // below. Derived from WHICH set decoded rather than kept as a flag, so the
+  // render where the sprite changes (stats arriving with a Closet skin, the
+  // household's own cat finishing its first decode) is already not-ready. A
+  // flag reset from an effect lets that one render show the room with a cat
+  // that isn't painted yet, then drop back to the loader: the loader twice.
+  // `homeErenPending` is the household's cat still being made; its layers
+  // don't exist yet, so there is nothing to decode and nothing to show.
+  const roomArt = homeRoomArt(isDark)
+  const roomArtKey = [roomArt, homeEren.src, homeEren.tailSrc ?? ''].join('|')
+  const [decodedArtKey, setDecodedArtKey] = useState<string | null>(null)
+  const roomReady = !homeErenPending && decodedArtKey === roomArtKey
 
   // Show stats header only when room is fully loaded & mood selected
   // (or the mood read failed and the gate is suppressed — room still shows)
@@ -386,7 +393,7 @@ export default function HomePage() {
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!authLoading && !user) router.replace('/auth/login')
+    if (!authLoading && !user) router.replace('/onboarding')
   }, [user, authLoading, router])
 
   // Signed in but never moved in — resume onboarding at its household step.
@@ -410,30 +417,31 @@ export default function HomePage() {
   // unlike onload which fires on network completion (and would let
   // roomReady flip true while the <img> and background-image CSS were
   // still mid-decode, producing a flash of empty room on first load).
-  useLayoutEffect(() => { setRoomReady(false) }, [])
   useEffect(() => {
-    const bg = isDark ? '/HomeNight.png' : '/HomeDay.png'
+    // The household's own cat is still being painted: its layers don't exist
+    // yet, so there is nothing to preload. Stay on the loader until they do;
+    // revealing the room now would show it catless and then swap him in.
+    if (homeErenPending) return
     // Preload the idle look the room will actually paint — a Closet skin (its
-    // cache-busted ?v= URLs) or the classic default — so BlinkingEren (which
-    // decode-gates itself) shows it the instant the room reveals instead of
-    // popping it in a beat after. Hardcoding erenGood here missed skins.
-    const srcs = [bg, homeEren.src, homeEren.tailSrc].filter(Boolean) as string[]
+    // cache-busted ?v= URLs), the household's recoloured cat, or the classic
+    // default — so BlinkingEren (which decode-gates itself) shows it the
+    // instant the room reveals instead of popping it in a beat after.
+    // Hardcoding erenGood here missed skins.
+    const srcs = [roomArt, homeEren.src, homeEren.tailSrc].filter(Boolean) as string[]
     let cancelled = false
-    setRoomReady(false)
     Promise.all(srcs.map(src => {
       const img = new window.Image()
       img.src = src
-      // decode() is the strict guarantee; fall back to a manual onload
-      // resolve so a failure (CORS / unsupported browser) doesn't strand
-      // roomReady at false.
-      return img.decode().catch(() => new Promise<void>(resolve => {
-        img.onload = img.onerror = () => resolve()
-      }))
+      // A picture that can't decode (a missing file, a revoked object URL)
+      // must not hold the whole room on the loader. It rejects only after the
+      // load has already failed, so waiting on onload/onerror here would wait
+      // forever; the room shows and BlinkingEren copes with its own image.
+      return img.decode().catch(() => undefined)
     })).then(() => {
-      if (!cancelled) setRoomReady(true)
+      if (!cancelled) setDecodedArtKey(roomArtKey)
     })
     return () => { cancelled = true }
-  }, [isDark, homeEren.src, homeEren.tailSrc])
+  }, [roomArtKey, homeErenPending]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load today's mood
   useEffect(() => {
@@ -468,38 +476,46 @@ export default function HomePage() {
     setTimeout(() => setToast(null), 2500)
   }
 
-  // ── Rooms door menu ──
-  function closeRooms() {
-    playSound('ui_modal_close')
-    setShowRooms(false)
-  }
-  function handleRoomSelect(room: RoomDef) {
-    playSound('ui_tap')
-    setShowRooms(false)
-    // Bakery is a top-level route (cloud transition); the rest are swipe-room
-    // care scenes opened in place.
-    if (room.href) requestCloudNav(room.href)
-    else openScene(room.id as Exclude<RoomDef['id'], 'bakery'>)
-  }
+  // ── Which screen ──
+  // In order, the same gates the returns below act on:
+  //   loading       auth, today's mood check, stats or the room art in flight
+  //                 (roomReady also covers the household's own cat while it
+  //                 is first being painted, homeErenPending)
+  //                 — and "signed in but never moved in", which the effect
+  //                 above is redirecting to /onboarding
+  //   no-household  no profile at all: the Supabase-outage state in useAuth
+  //   mood          today's mood question
+  //   verdict       yesterday's result — a hard gate rather than an overlay,
+  //                 so it cannot mount underneath the catchup carousel or an
+  //                 inbound message popup. Both of those are inside the room
+  //                 tree and simply don't exist while this is up; they get
+  //                 their turn on the render after it closes.
+  const gate: HomeGate =
+    authLoading || !moodChecked ? 'loading'
+    : !profile?.household_id ? (profile ? 'loading' : 'no-household')
+    : !todayMood && !moodReadFailed ? 'mood'
+    : loading || !stats || !roomReady ? 'loading'
+    : verdict.show && verdict.row ? 'verdict'
+    : 'room'
 
-  // ── Loading ──
+  // The bottom nav belongs to the living room. It steps aside for the mood
+  // question and the verdict (full-screen moments), and for the loader until
+  // the room has shown once this session (see roomSeenThisSession).
+  useHideBottomNav(gate !== 'room' && (gate === 'mood' || gate === 'verdict' || !roomSeenThisSession))
+  useEffect(() => { if (gate === 'room') roomSeenThisSession = true }, [gate])
+
   const LoadingScreen = <PageLoader label="LOADING EREN" />
 
-  if (authLoading || !moodChecked) return LoadingScreen
-
-  // Redirected to /onboarding by the effect above — show the loader while
-  // the navigation lands.
-  if (profile && !profile.household_id) return LoadingScreen
-  if (!profile?.household_id) {
+  if (gate === 'no-household') {
     return (
       <div className="page-scroll flex flex-col items-center justify-center min-h-[80vh] gap-4">
-        <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 100, height: 100, objectFit: 'contain', imageRendering: 'pixelated' }} />
+        <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 100, height: 100, objectFit: 'contain' }} />
         <p className="font-bold text-gray-700">No household found</p>
       </div>
     )
   }
 
-  if (!todayMood && !moodReadFailed) {
+  if (gate === 'mood') {
     return (
       <MoodGate
         userId={user!.id}
@@ -509,19 +525,13 @@ export default function HomePage() {
           const todayStr = moodDateKey()
           localStorage.setItem(`eren_mood_${user!.id}_${todayStr}`, mood)
           setTodayMood(mood)
-          showToast(`${MOOD_CONFIGS[mood].emoji} Mood saved!`)
+          showToast('Mood saved')
         }}
       />
     )
   }
 
-  if (loading || !stats || !roomReady) return LoadingScreen
-
-  // Yesterday's verdict — a sixth hard gate rather than an overlay, so it
-  // cannot mount underneath the catchup carousel or an inbound message popup.
-  // Both of those are inside the returned room tree and simply don't exist
-  // while this is up; they get their turn on the render after it closes.
-  if (verdict.show && verdict.row) {
+  if (gate === 'verdict' && verdict.row) {
     return (
       // The verdict is the morning report on a battle a solo player has
       // genuinely been fighting, so naming the other podium "Partner" makes
@@ -543,6 +553,10 @@ export default function HomePage() {
       />
     )
   }
+
+  // Every other gate is the loader. (`!stats` is already a 'loading' gate;
+  // repeating it here is what tells TypeScript the room below has stats.)
+  if (gate !== 'room' || !stats) return LoadingScreen
 
   const mood = (stats.mood ?? 'idle') as string
 
@@ -566,9 +580,16 @@ export default function HomePage() {
       ))}
 
       {/* ── Toast ── */}
+      {/* Above the nav, clear of the swipe dots: the top of the screen is the
+          stats header's, which sits over anything here. */}
       {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 text-white px-4 py-2.5 whitespace-nowrap"
-          style={{ background: '#1F1F2E', borderRadius: 3, border: '2px solid #3A3A5E', boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
+        <div role="status" className="meadow-root fixed left-1/2 -translate-x-1/2 z-50 flex items-center whitespace-nowrap pointer-events-none"
+          style={{
+            bottom: `calc(${NAV_HEIGHT} + 48px)`, gap: 8, padding: '10px 16px 10px 12px',
+            background: '#FFFFFF', borderRadius: 999, boxShadow: `0 3px 0 ${M.overArtLip}`,
+            fontSize: 15, fontWeight: 800, color: M.text,
+          }}>
+          <MeadowIcon name="check" size={20} color={M.leaf} />
           {toast}
         </div>
       )}
@@ -578,7 +599,7 @@ export default function HomePage() {
       {/* Suppress partner-message popup while the catchup carousel is up so
           an inbound message doesn't mount hidden under z-80 and surprise the
           user when they dismiss. The realtime subscription buffers it; it'll
-          show up as unread on the couple chip. */}
+          show up as unread on the nav's Us tab. */}
       {newMessage && !catchupFrames && !showGiftTray && <ErenMessagePopup message={newMessage} onDismiss={dismissPopup} />}
 
       {/* Everything they were given while they were out, handed over at once
@@ -606,35 +627,29 @@ export default function HomePage() {
         />
       )}
 
-      {/* ══ FULL SCREEN ROOM ══ */}
-      <div className="fixed inset-0" style={{ zIndex: 0 }}
+      {/* ══ THE ROOM ══ the painting fills the screen; everything standing in
+          it lives on a stage that ends at the bottom nav (see HomeRoomFrame). */}
+      <HomeRoomFrame
+        dark={isDark}
         onTouchStart={e => { swipeTouchX.current = e.touches[0].clientX }}
         onTouchMove={e => {
           const dx = Math.abs(e.touches[0].clientX - swipeTouchX.current)
           if (dx > 20 && !dotsVisible) flashDots()
-        }}>
+        }}
+        artLayers={<>
+          {/* Whatever the household hung outside the living-room window. It
+              reproduces the painting's own `cover`, so it lives with the art,
+              over the wallpaper and under Eren. */}
+          <RoomWeather room="home" dark={isDark} />
 
-        {/* Background image */}
-        <div className="absolute inset-0" style={{
-          backgroundImage: `url(${isDark ? '/HomeNight.png' : '/HomeDay.png'})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          WebkitTouchCallout: 'none',
-          WebkitUserSelect: 'none',
-          userSelect: 'none',
-          pointerEvents: 'none',
-        }} />
-
-        {/* Whatever the household hung outside the living-room window. Layer 1
-            so it is over the wallpaper and under Eren. */}
-        <RoomWeather room="home" dark={isDark} />
-
-        {mood === 'happy' && (
-          <>
-            <Sparkles size={11} className="absolute text-yellow-400 animate-sparkle" style={{ top: '30%', left: '10%', zIndex: 2 }} />
-            <Sparkles size={9}  className="absolute text-pink-400  animate-sparkle" style={{ top: '25%', right: '15%', zIndex: 2, animationDelay: '0.7s' }} />
-          </>
-        )}
+          {mood === 'happy' && (
+            <>
+              <Sparkles size={11} className="absolute text-yellow-400 animate-sparkle" style={{ top: '30%', left: '10%', zIndex: 2 }} />
+              <Sparkles size={9}  className="absolute text-pink-400  animate-sparkle" style={{ top: '25%', right: '15%', zIndex: 2, animationDelay: '0.7s' }} />
+            </>
+          )}
+        </>}
+      >
 
         {/* === EREN === (hidden while sleeping in the bedroom) */}
         {!stats.is_sleeping && (
@@ -759,232 +774,41 @@ export default function HomePage() {
                 </div>
               </button>
             )}
+            {/* Global on purpose: the pulse is named from the inline style
+                above, and a scoped styled-jsx keyframe never resolves there. */}
             <style jsx global>{`
               @keyframes sendErenPulse {
                 0%, 100% { transform: scale(1);    box-shadow: 0 0 12px rgba(255,107,157,0.4), 0 3px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1); }
                 50%      { transform: scale(1.08); box-shadow: 0 0 18px rgba(255,107,157,0.65), 0 3px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1); }
-              }
-              @keyframes erenPetWiggle {
-                0%   { transform: rotate(0deg)    scale(1); }
-                15%  { transform: rotate(-3deg)   scale(1.05); }
-                35%  { transform: rotate(2.5deg)  scale(1.03); }
-                55%  { transform: rotate(-1.8deg) scale(1.04); }
-                75%  { transform: rotate(1.2deg)  scale(1.02); }
-                100% { transform: rotate(0deg)    scale(1); }
               }
             `}</style>
 
           </>
         )}
 
-        {/* ══ HUD OVERLAY (below shared stats header) ══ */}
-        <div className="absolute left-0 right-0 z-10 px-3" style={{ top: 'calc(var(--safe-top) + 124px)' }}>
+        {/* ══ HUD (below the shared stats header) ══ quests, then the room's
+            own shortcuts; Us, Me and Rooms are tabs of the bottom nav now. */}
+        <HomeHud
+          quests={<TaskPanel compact />}
+          footer={<CoopGoalBar />}
+          fortuneAvailable={fortuneAvailable}
+          trophyBalance={trophyBalance}
+          newSkinCount={newSkinCount}
+          onOpenFortune={() => { playSound('ui_modal_open'); setShowFortune(true) }}
+          onOpenReminders={() => { playSound('ui_modal_open'); setShowReminders(true) }}
+        />
 
-          {/* Quest panel + nav buttons share a single row again. The
-              buttons are 34 px wide with a 4-px gap (instead of 40 / 8)
-              so the row holds the panel + 7 buttons (8 when fortune is
-              available) without truncating. */}
-          <div className="flex items-center gap-1">
-            {/* Quests — flexes to take remaining space */}
-            <div className="flex-1 min-w-0">
-              <TaskPanel compact />
-            </div>
+        {/* Where you are among the swipe rooms. Only while swiping or a room
+            is opening; sits just above the nav. */}
+        <RoomDots visible={dotsVisible} onOpen={id => { playSound('ui_tap'); openScene(id) }} />
 
-            {/* Nav buttons — obsidian + gold-rivet to match the new HUD */}
-            {fortuneAvailable && (
-              <button onClick={() => { playSound('ui_modal_open'); setShowFortune(true) }}
-                className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-                style={{ ...cuteBtn('217,199,247'), animation: 'homeNavIn 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s backwards, pulse 2s ease-in-out 0.6s infinite' }}>
-                <CuteIcon><IconGift size={22} /></CuteIcon>
-              </button>
-            )}
-            <Link href="/hallway" onClick={() => playSound('ui_tap')}
-              aria-label="The Hallway"
-              className="home-nav-pop w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-              style={{ ...cuteBtn('191,224,255'), animationDelay: '0.2s' }}>
-              <CuteIcon><IconPhoto size={22} /></CuteIcon>
-            </Link>
-            <Link href="/couple" onClick={() => playSound('ui_tap')} className="home-nav-pop relative w-8 h-8 flex-shrink-0 flex items-center justify-center active:scale-90 transition-transform"
-              style={{ ...cuteBtn('255,198,216'), animationDelay: '0.25s' }}>
-              <CuteIcon><IconHeart size={22} /></CuteIcon>
-              {/* Unread partner messages show the count; an unclaimed weekly
-                  reward (with no unread messages) shows a plain dot. */}
-              {unreadCount > 0 ? (
-                <div className="absolute -top-1 -right-1 flex items-center justify-center"
-                  style={{ width: 16, height: 16, background: '#FF1D5E', border: '2px solid #050507', boxShadow: '0 0 4px rgba(255,29,94,0.6)', borderRadius: 6 }}>
-                  <span className="font-pixel text-white" style={{ fontSize: 5 }}>{unreadCount}</span>
-                </div>
-              ) : heartReward ? (
-                <div className="absolute -top-1 -right-1"
-                  style={{ width: 11, height: 11, background: '#FF1D5E', border: '2px solid #050507', boxShadow: '0 0 5px rgba(255,29,94,0.7)', borderRadius: '50%' }} />
-              ) : null}
-            </Link>
-            <Link href="/trophies" onClick={() => playSound('ui_tap')}
-              aria-label="Trophy room"
-              className="home-nav-pop w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-              style={{ ...cuteBtn('251,214,120'), animationDelay: '0.28s' }}>
-              <CuteIcon><IconTrophyTier size={20} tier="gold" /></CuteIcon>
-              {/* Spendable balance. Gated on `loaded` so an outage shows no
-                  badge rather than a confident zero. */}
-              {trophyBalance > 0 && (
-                <div className="absolute -top-1 -right-1 flex items-center justify-center"
-                  style={{
-                    minWidth: 16, height: 16, padding: '0 3px',
-                    background: '#F5C842', border: '2px solid #050507',
-                    boxShadow: '0 0 5px rgba(245,200,66,0.65)', borderRadius: 6,
-                  }}>
-                  <span className="font-pixel" style={{ fontSize: 5, color: '#3A2400' }}>{trophyBalance}</span>
-                </div>
-              )}
-            </Link>
-            <button onClick={() => { playSound('ui_modal_open'); setShowReminders(true) }}
-              className="home-nav-pop w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-              style={{ ...cuteBtn('251,228,154'), animationDelay: '0.3s' }}>
-              <CuteIcon><IconBell size={18} /></CuteIcon>
-            </button>
-            <Link href="/profile" onClick={() => playSound('ui_tap')}
-              className="home-nav-pop w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-              style={{ ...cuteBtn('217,199,247'), animationDelay: '0.35s' }}>
-              <CuteIcon><IconPerson size={18} /></CuteIcon>
-            </Link>
-            <Link href="/closet" onClick={() => playSound('ui_tap')}
-              aria-label="Closet"
-              className="home-nav-pop w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-              style={{ ...cuteBtn('199,225,255'), animationDelay: '0.4s' }}>
-              <CuteIcon><IconDress size={20} /></CuteIcon>
-              {/* New, unseen skins won from gacha — clears when the Closet opens. */}
-              {newSkinCount > 0 && (
-                <div className="absolute -top-1 -right-1 flex items-center justify-center"
-                  style={{ width: 16, height: 16, background: '#FF1D5E', border: '2px solid #050507', boxShadow: '0 0 4px rgba(255,29,94,0.6)', borderRadius: 6 }}>
-                  <span className="font-pixel text-white" style={{ fontSize: 5 }}>{newSkinCount > 9 ? '9+' : newSkinCount}</span>
-                </div>
-              )}
-            </Link>
-            <div className="relative flex-shrink-0">
-              <button onClick={() => { playSound(showRooms ? 'ui_modal_close' : 'ui_modal_open'); setShowRooms(r => !r) }}
-                aria-label="Rooms" aria-expanded={showRooms}
-                className="home-nav-pop w-8 h-8 relative flex items-center justify-center active:scale-90 transition-transform"
-                style={{ ...cuteBtn('226,196,154'), animationDelay: '0.45s' }}>
-                <CuteIcon><IconDoor size={18} /></CuteIcon>
-              </button>
-              <RoomsMenu open={showRooms} onClose={closeRooms} onSelect={handleRoomSelect} />
-            </div>
-          </div>
-
-          {/* "We Cared" co-op goal — sits directly under the nav-button row */}
-          <CoopGoalBar />
-        </div>
-
-        {/* Dot indicators — only visible during swipe / scene transition */}
-        <div className="absolute bottom-4 left-1/2 z-10 flex items-center gap-0.5 px-2 py-0.5"
-          style={{
-            transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.35)',
-            borderRadius: 20, backdropFilter: 'blur(6px)',
-            opacity: dotsVisible ? 1 : 0,
-            transition: 'opacity 0.3s ease',
-            pointerEvents: dotsVisible ? 'auto' : 'none',
-          }}>
-          {/* Home dot — active */}
-          <div style={{ padding: '8px 4px', lineHeight: 0 }}>
-            <div style={{ width: 18, height: 7, borderRadius: 4, background: '#FF6B9D', boxShadow: '0 0 6px 2px #FF6B9D88', transition: 'all 0.25s ease' }} />
-          </div>
-          {/* Care room dots — clickable */}
-          {([
-            { id: 'feed',   color: '#F5C842' },
-            { id: 'play',   color: '#FF6B9D' },
-            { id: 'sleep',  color: '#818CF8' },
-            { id: 'wash',   color: '#38BDF8' },
-            { id: 'chemistry', color: '#84CC16' },
-            { id: 'vet',    color: '#34D399' },
-          ] as const).map(r => (
-            <button
-              key={r.id}
-              onClick={() => { playSound('ui_tap'); openScene(r.id) }}
-              aria-label={`Open ${r.id}`}
-              className="active:scale-90 transition-transform"
-              style={{ padding: '8px 4px', lineHeight: 0, background: 'transparent' }}>
-              <div style={{
-                width: 7, height: 7, borderRadius: 4,
-                background: 'rgba(255,255,255,0.4)',
-                boxShadow: `0 0 4px ${r.color}44`,
-                transition: 'all 0.15s ease',
-              }} />
-            </button>
-          ))}
-        </div>
-
-        {/* switchTop pushed below the home HUD/nav row so it doesn't sit
-            on top of the quest panel + nav buttons. */}
+        {/* switchTop pushed below the home HUD row so it doesn't sit on top of
+            the quest panel. */}
         <LightSwitch switchTop="30%" targetBottom="10%" targetLeft="50%" persistKey="home" />
 
-        {/* ══ BOTTOM DOCK — gacha · cake · shawarma · jelly ══
-            Four full-width neo-brutalism buttons filling the floor of the
-            room. Vibrant per-button gradient, hard 2px ink border + 4px
-            offset shadow, icon stacked over font-pixel label. Press state
-            slides the button into the shadow for a tactile click. */}
-        <div
-          className="absolute left-0 right-0 z-20 flex gap-2 px-2"
-          style={{ bottom: 'calc(var(--safe-bottom, 0px) + 10px)' }}
-        >
-          <Link
-            href="/gacha"
-            onClick={e => {
-              // Rainbow variant of the cloud flight — gacha is the lucky room.
-              e.preventDefault()
-              playSound('ui_tap')
-              requestCloudNav('/gacha', 'rainbow')
-            }}
-            className="home-dock-btn home-dock-pop"
-            style={{ ...dockFrame, animationDelay: '0.18s' }}
-          >
-            <DockContent theme="gacha" label="GACHA" />
-          </Link>
-
-          <Link
-            href="/bakery"
-            onClick={e => {
-              // Magical entry: clouds converge, the route swaps underneath,
-              // then they part on the shop. CloudTransition owns the push.
-              e.preventDefault()
-              playSound('ui_tap')
-              requestCloudNav('/bakery')
-            }}
-            className="home-dock-btn home-dock-pop"
-            style={{ ...dockFrame, animationDelay: '0.26s' }}
-          >
-            <DockContent theme="cake" label="CAKE" />
-          </Link>
-
-          <Link
-            href="/shawarma"
-            onClick={e => {
-              // Soot variant of the cloud flight — the kiosk is the dark one.
-              e.preventDefault()
-              playSound('ui_tap')
-              requestCloudNav('/shawarma', 'smoke')
-            }}
-            className="home-dock-btn home-dock-pop"
-            style={{ ...dockFrame, animationDelay: '0.34s' }}
-          >
-            <DockContent theme="shawarma" label="SHAWARMA" />
-          </Link>
-
-          <Link
-            href="/jelly"
-            onClick={e => {
-              // Mint variant of the cloud flight — the Parlour is the sweet one.
-              e.preventDefault()
-              playSound('ui_tap')
-              requestCloudNav('/jelly', 'mint')
-            }}
-            className="home-dock-btn home-dock-pop"
-            style={{ ...dockFrame, animationDelay: '0.42s' }}
-          >
-            <DockContent theme="jelly" label="JELLY" />
-          </Link>
-        </div>
-
-      </div>
+        {/* The gacha / bakery / shawarma / jelly dock that sat on the floor
+            here moved to the Play page's Places. */}
+      </HomeRoomFrame>
     </>
   )
 }
