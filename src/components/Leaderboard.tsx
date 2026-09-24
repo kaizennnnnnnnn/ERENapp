@@ -147,6 +147,11 @@ export default function Leaderboard({ onClose }: Props) {
   const supabase = createClient()
   const [players, setPlayers] = useState<PlayerScores[]>([])
   const [loading, setLoading] = useState(true)
+  // A read that failed even after withRetry. The board stays on its loading
+  // face with a retry instead of drawing: an empty player list would render
+  // as a false solo board.
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
   const [mode, setMode] = useState<Mode>('week')
   const [claimed, setClaimed] = useState(false)
 
@@ -155,6 +160,7 @@ export default function Leaderboard({ onClose }: Props) {
 
   useEffect(() => {
     if (!user?.id || !profile) return
+    let cancelled = false
     async function load() {
       // Both reads go through withRetry — a transient Supabase 503 resolves
       // as { data: null, error } without throwing, which used to read as
@@ -164,7 +170,12 @@ export default function Leaderboard({ onClose }: Props) {
         : supabase.from('profiles').select('*').eq('id', user!.id)
 
       const { data: profiles, error: profilesError } = await withRetry(profilesQuery)
-      if (profilesError) return
+      if (cancelled) return
+      if (profilesError) {
+        console.error('[leaderboard] profiles', profilesError.message)
+        setLoadFailed(true)
+        return
+      }
       const resolved: Profile[] = profiles?.length ? profiles : [profile!]
 
       const userIds = resolved.map((p: Profile) => p.id)
@@ -172,7 +183,12 @@ export default function Leaderboard({ onClose }: Props) {
         .from('game_best_scores')
         .select('user_id, game_type, score')
         .in('user_id', userIds))
-      if (scoresError) return
+      if (cancelled) return
+      if (scoresError) {
+        console.error('[leaderboard] scores', scoresError.message)
+        setLoadFailed(true)
+        return
+      }
 
       const bestMap: Record<string, Partial<Record<GameType, number>>> = {}
       scores?.forEach((s: { user_id: string; game_type: GameType; score: number }) => {
@@ -185,7 +201,8 @@ export default function Leaderboard({ onClose }: Props) {
       setLoading(false)
     }
     load()
-  }, [user?.id, profile?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { cancelled = true }
+  }, [user?.id, profile?.id, attempt]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sorted: me first, partner second.
   const sorted = [...players].sort((a, b) =>
@@ -350,7 +367,22 @@ export default function Leaderboard({ onClose }: Props) {
 
         {/* ─── BODY ────────────────────────────────────────────────────────── */}
         <div className="relative flex-1 overflow-y-auto px-4 pt-3 pb-4" style={{ scrollbarWidth: 'thin' }}>
-          {loading ? (
+          {loading && loadFailed ? (
+            <div role="alert" className="flex flex-col items-center justify-center gap-4 py-10">
+              <p className="font-pixel text-center" style={{ fontSize: 7, lineHeight: 1.8, color: '#FBBF24', letterSpacing: 1.5 }}>
+                COULDN&apos;T LOAD THE SCORES
+              </p>
+              <button type="button"
+                onClick={() => { playSound('ui_tap'); setLoadFailed(false); setAttempt(a => a + 1) }}
+                className="active:translate-y-[1px] transition-transform"
+                style={{
+                  minHeight: 44, padding: '0 18px',
+                  background: 'rgba(251,191,36,0.14)', border: '2px solid #FBBF24', borderRadius: 5,
+                }}>
+                <span className="font-pixel" style={{ fontSize: 8, color: '#FDE68A', letterSpacing: 1.5 }}>TRY AGAIN</span>
+              </button>
+            </div>
+          ) : loading ? (
             <div className="flex flex-col items-center justify-center gap-4 py-10">
               <AnimatedEren px={3} />
               <p className="font-pixel" style={{ fontSize: 7, color: '#FBBF24', letterSpacing: 2, textShadow: '0 0 4px rgba(251,191,36,0.5)' }}>
