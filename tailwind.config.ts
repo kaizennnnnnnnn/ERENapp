@@ -45,6 +45,10 @@ const config: Config = {
         sans: ['system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
         pixel: ['"Press Start 2P"', 'monospace'],
+        // The Meadow redesign's one typeface (loaded by the @import at the top
+        // of globals.css). The fallbacks keep the rounded feel if the font
+        // request is slow or blocked.
+        rounded: ['"M PLUS Rounded 1c"', '"Arial Rounded MT Bold"', 'system-ui', 'sans-serif'],
       },
       animation: {
         'breath': 'breath 3s ease-in-out infinite',

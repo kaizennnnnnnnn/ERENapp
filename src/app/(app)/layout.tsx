@@ -17,6 +17,8 @@ import StreakMilestoneBurst from '@/components/StreakMilestoneBurst'
 import MemoryWatcher from '@/components/memory/MemoryWatcher'
 import TermsGate from '@/components/legal/TermsGate'
 import AppGuard from '@/components/AppGuard'
+import BottomNav from '@/components/nav/BottomNav'
+import { NavVisibilityProvider } from '@/components/nav/NavVisibility'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -32,6 +34,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <TrophyEffectsProvider>
                   <DailyBattleProvider>
                     <WishProvider>
+                  {/* Pages ask the tab bar to step aside through this
+                      (useHideBottomNav); the bar reads it. */}
+                  <NavVisibilityProvider>
                   <PageSwiper>
                     <div className="fixed top-0 left-0 right-0 z-[60] pointer-events-none">
                       <StatsHeader />
@@ -48,6 +53,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                         should be reachable while acceptance is outstanding. */}
                     <TermsGate />
                   </PageSwiper>
+                  {/* Outside PageSwiper on purpose: a sideways drag along the
+                      tab bar must not swipe home into the Kitchen. */}
+                  <BottomNav />
+                  </NavVisibilityProvider>
                     </WishProvider>
                   </DailyBattleProvider>
                 </TrophyEffectsProvider>
