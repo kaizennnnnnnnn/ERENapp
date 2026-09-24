@@ -46,11 +46,16 @@ export async function withRetry<T>(
 // `run` receives an AbortSignal and must build a FRESH query each call
 // (supabase-js builders are single-use thenables) with `.abortSignal(signal)`
 // attached.
+//
+// `shouldRetry` lets a caller return an error it knows is permanent (a column
+// the database doesn't have yet) at once instead of after the full backoff.
+// Without it every error is retried, as before.
 const WRITE_TIMEOUT_MS = 6000
 
 export async function writeWithRetry<T>(
   run: (signal: AbortSignal) => PromiseLike<{ data: T; error: RetryableError | null }>,
   retries = 2,
+  shouldRetry: (error: RetryableError) => boolean = () => true,
 ): Promise<{ data: T; error: RetryableError | null }> {
   let last: { data: T; error: RetryableError | null } | null = null
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -65,7 +70,7 @@ export async function writeWithRetry<T>(
     } finally {
       clearTimeout(timer)
     }
-    if (!last.error) break
+    if (!last.error || !shouldRetry(last.error)) break
   }
   return last!
 }

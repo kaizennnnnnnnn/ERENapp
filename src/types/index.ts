@@ -236,6 +236,15 @@ export interface ErenStats {
    * something the other person walks in on.
    */
   donut_effect?: { id: string; until: string } | null
+  // ── The household's own cat (migration_cat_identity.sql) ─────────────────
+  // Optional because the columns only exist once the migration is pasted.
+  // Never read them raw: catIdentityFromStats() in lib/catIdentity validates
+  // and falls back to the classic cat (Eren, a boy, the original art).
+  /** 1..24 characters. */
+  cat_name?: string | null
+  cat_sex?: 'male' | 'female' | null
+  /** A CatLook object, or null for the classic art. Untrusted jsonb: parseCatLook(). */
+  cat_look?: unknown
 }
 
 export type FoodKey = 'kibble' | 'fish' | 'treat' | 'tuna' | 'steak' | 'cream' | 'biscuit' | 'shrimp' | 'salmon' | 'chicken' | 'sausage' | 'milk' | 'cheese' | 'yogurt' | 'cake' | 'sushi' | 'sardine' | 'egg' | 'cookie' | 'jelly_caka'

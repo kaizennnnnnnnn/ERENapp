@@ -480,6 +480,12 @@ function useErenStatsImpl(householdId: string | null) {
               // point is that they land on the OTHER phone without a reload.
               room_weather:       newRow.room_weather,
               equipped_accessory: newRow.equipped_accessory,
+              // The cat's name / boy-or-girl / look (saveCatIdentity) are
+              // written the same no-decay-bump way; without these a rename on
+              // one phone would never reach the other until a full refetch.
+              cat_name: newRow.cat_name,
+              cat_sex:  newRow.cat_sex,
+              cat_look: newRow.cat_look,
             }
           })
         })
