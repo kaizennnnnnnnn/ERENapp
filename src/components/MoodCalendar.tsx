@@ -1,105 +1,131 @@
 'use client'
 
-import { useMemo } from 'react'
-import { format, startOfMonth, eachDayOfInterval, endOfMonth, getDay } from 'date-fns'
-import type { DailyMood, UserMood } from '@/types'
-import { MOOD_CONFIGS } from '@/types'
-import { cn } from '@/lib/utils'
+// ─── MoodCalendar ────────────────────────────────────────────────────────────
+// The month of moods in the Meadow look: the "See month" sheet on the Me page.
+// One cell per day, Monday first. Your mood is a filled dot, your partner's a
+// ring of the same colours, so the two read apart without a second colour key.
+//
+// Purely presentational: the page fetches the month and resolves "today" after
+// mount (a clock read during render would differ between server and client).
 
-interface Props {
-  moods: DailyMood[]
-  userId: string
-  partnerName?: string
+import { MOOD_STYLE, M, TYPE } from '@/components/meadow'
+import type { UserMood } from '@/types'
+
+export interface MoodCalendarDay {
+  mine?: UserMood | null
+  partner?: UserMood | null
 }
 
-export default function MoodCalendar({ moods, userId, partnerName }: Props) {
-  const today = new Date()
-  const days = eachDayOfInterval({ start: startOfMonth(today), end: endOfMonth(today) })
-  const startPad = getDay(days[0]) // 0=Sun
+interface Props {
+  year: number
+  /** 0-based, like Date#getMonth. */
+  month: number
+  /** Day of the month that is today, or null for a month that isn't this one. */
+  today: number | null
+  /** Keyed by day of the month (1..31). */
+  days: Record<number, MoodCalendarDay>
+  /** Omit for a household of one: the rings and their key drop out. */
+  partnerName?: string | null
+}
 
-  // Build lookup: date string → mood
-  const moodMap = useMemo(() => {
-    const map: Record<string, { mine?: UserMood; partner?: UserMood }> = {}
-    moods.forEach(m => {
-      if (!map[m.date]) map[m.date] = {}
-      if (m.user_id === userId) map[m.date].mine = m.mood as UserMood
-      else map[m.date].partner = m.mood as UserMood
-    })
-    return map
-  }, [moods, userId])
+const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+const MOOD_ORDER: UserMood[] = ['good', 'mid', 'tired', 'sad', 'angry']
+
+function Dot({ mood, hollow }: { mood: UserMood | null | undefined; hollow?: boolean }) {
+  if (!mood) return <span aria-hidden style={{ width: 10, height: 10 }} />
+  const c = MOOD_STYLE[mood].dot
+  return (
+    <span aria-hidden style={{
+      width: 10, height: 10, boxSizing: 'border-box', borderRadius: 999,
+      background: hollow ? 'transparent' : c, border: hollow ? `2px solid ${c}` : 0,
+    }} />
+  )
+}
+
+export default function MoodCalendar({ year, month, today, days, partnerName }: Props) {
+  const count = new Date(year, month + 1, 0).getDate()
+  // getDay() is 0 for Sunday; shift so Monday is column one.
+  const lead = (new Date(year, month, 1).getDay() + 6) % 7
+  const logged = Object.values(days).some(d => d.mine || d.partner)
+  const used = new Set<UserMood>()
+  Object.values(days).forEach(d => {
+    if (d.mine) used.add(d.mine)
+    if (partnerName && d.partner) used.add(d.partner)
+  })
+  const legend = MOOD_ORDER.filter(m => m !== 'angry' || used.has('angry'))
 
   return (
-    <div className="p-4" style={{ background: 'white', borderRadius: 4, border: '2px solid #F0D8FF', boxShadow: '3px 3px 0 #E0C8F0' }}>
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
-        <span className="pixel-chip" style={{ background: 'linear-gradient(135deg, #FF6B9D, #C084FC)' }}>
-          📅 {format(today, 'MMM').toUpperCase()}
-        </span>
-        <span className="font-pixel text-gray-400" style={{ fontSize: 7 }}>{format(today, 'yyyy')}</span>
-      </div>
-
-      {/* Legend */}
-      <div className="flex gap-3 mb-3">
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block" style={{ width: 8, height: 8, borderRadius: 2, background: '#FF6B9D', border: '1px solid #CC3366', boxShadow: '1px 1px 0 #AA2050' }} />
-          <span className="font-pixel text-gray-500" style={{ fontSize: 6 }}>ME</span>
-        </span>
-        {partnerName && (
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block" style={{ width: 8, height: 8, borderRadius: 2, background: '#A78BFA', border: '1px solid #7C3AED', boxShadow: '1px 1px 0 #6020CC' }} />
-            <span className="font-pixel text-gray-500" style={{ fontSize: 6 }}>{partnerName.toUpperCase().slice(0, 8)}</span>
-          </span>
-        )}
-      </div>
-
-      {/* Day headers */}
-      <div className="grid grid-cols-7 mb-1.5">
-        {['Su','Mo','Tu','We','Th','Fr','Sa'].map((d, i) => (
-          <div key={i} className="text-center pb-1">
-            <span className="font-pixel text-gray-400" style={{ fontSize: 6 }}>{d}</span>
-          </div>
+    <div>
+      <div aria-hidden style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 6 }}>
+        {WEEKDAYS.map((d, i) => (
+          <span key={i} style={{ ...TYPE.label, color: M.label, textAlign: 'center' }}>{d}</span>
         ))}
       </div>
 
-      {/* Calendar grid */}
-      <div className="grid grid-cols-7 gap-y-1.5">
-        {Array.from({ length: startPad }).map((_, i) => (
-          <div key={`pad-${i}`} />
-        ))}
-
-        {days.map(day => {
-          const dateStr = format(day, 'yyyy-MM-dd')
-          const entry = moodMap[dateStr]
-          const isToday = dateStr === format(today, 'yyyy-MM-dd')
-
+      <div role="list" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
+        {Array.from({ length: lead }).map((_, i) => <span key={`pad-${i}`} aria-hidden />)}
+        {Array.from({ length: count }).map((_, i) => {
+          const day = i + 1
+          const entry = days[day]
+          const isToday = day === today
+          const parts = [
+            entry?.mine ? `you: ${MOOD_STYLE[entry.mine].label}` : null,
+            partnerName && entry?.partner ? `${partnerName}: ${MOOD_STYLE[entry.partner].label}` : null,
+          ].filter(Boolean)
           return (
             <div
-              key={dateStr}
-              className="flex flex-col items-center justify-start gap-0.5 py-1"
-              style={isToday ? {
-                background: 'linear-gradient(135deg, #FFF0F7, #F8EEFF)',
-                borderRadius: 3,
-                border: '2px solid #FF6B9D',
-                boxShadow: '1px 1px 0 #CC3366',
-              } : {}}
+              key={day}
+              role="listitem"
+              aria-label={`${day}${isToday ? ', today' : ''}${parts.length ? `, ${parts.join(', ')}` : ''}`}
+              style={{
+                height: 48, borderRadius: 12, background: isToday ? M.leafTint : M.soft,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5,
+              }}
             >
-              <span className="font-pixel text-gray-400" style={{ fontSize: 6 }}>{format(day, 'd')}</span>
-              <div className="flex flex-col items-center gap-px">
-                {entry?.mine && (
-                  <span className="leading-none" style={{ fontSize: 11 }} title="My mood">
-                    {MOOD_CONFIGS[entry.mine].emoji}
-                  </span>
-                )}
-                {entry?.partner && (
-                  <span className="leading-none opacity-80" style={{ fontSize: 9 }} title={`${partnerName}'s mood`}>
-                    {MOOD_CONFIGS[entry.partner].emoji}
-                  </span>
-                )}
-              </div>
+              <span aria-hidden style={{
+                fontSize: 13, lineHeight: 1, fontWeight: isToday ? 800 : 700,
+                color: isToday ? M.leafInk : M.text2, fontVariantNumeric: 'tabular-nums',
+              }}>
+                {day}
+              </span>
+              <span aria-hidden style={{ display: 'flex', gap: 3, height: 10 }}>
+                <Dot mood={entry?.mine} />
+                {partnerName && <Dot mood={entry?.partner} hollow />}
+              </span>
             </div>
           )
         })}
       </div>
+
+      {!logged && (
+        <p style={{ margin: '14px 4px 0', fontSize: 14, lineHeight: 1.45, fontWeight: 500, color: M.text2 }}>
+          No moods logged yet this month.
+        </p>
+      )}
+
+      <div style={{
+        marginTop: 16, paddingTop: 14, borderTop: `1px solid ${M.divider}`,
+        display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10,
+      }}>
+        {legend.map(m => (
+          <span key={m} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: M.text2 }}>
+            <span aria-hidden style={{ width: 10, height: 10, borderRadius: 999, background: MOOD_STYLE[m].dot }} />
+            {MOOD_STYLE[m].label}
+          </span>
+        ))}
+      </div>
+      {partnerName && (
+        <div style={{ marginTop: 12, display: 'flex', gap: 18, fontSize: 13, fontWeight: 700, color: M.text2 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span aria-hidden style={{ width: 10, height: 10, borderRadius: 999, background: M.text2 }} />
+            You
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span aria-hidden style={{ width: 10, height: 10, boxSizing: 'border-box', borderRadius: 999, border: `2px solid ${M.text2}` }} />
+            {partnerName}
+          </span>
+        </div>
+      )}
     </div>
   )
 }

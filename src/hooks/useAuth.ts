@@ -34,6 +34,16 @@ function fetchProfileShared(
   return _profileFetch
 }
 
+/**
+ * Dispatched on `window` after a page has SAVED a change to the signed-in
+ * user's own profile row. Every mounted useAuth copies the saved fields in.
+ */
+export const PROFILE_UPDATED_EVENT = 'eren:profile-updated'
+export interface ProfileUpdatedDetail {
+  id: string
+  patch: Partial<Profile>
+}
+
 export function useAuth() {
   const supabase = createClient()
   const [user, setUser]       = useState<User | null>(null)
@@ -78,6 +88,22 @@ export function useAuth() {
     if (!user || profile) return
     return onForeground(() => loadProfile(user.id))
   }, [user, profile]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Each mount keeps its own copy of the profile and never re-reads it, so
+  // the layout's providers (TaskProvider, CoupleProvider...) held a renamed
+  // user's old name until the app restarted, and the partner's pushes kept
+  // saying it. A page that saves a change announces the saved fields and
+  // every copy takes them. A patch, not a refetch: a fresh row would also
+  // bring new streak / achievements objects, and TaskContext re-seeds its xp
+  // and coins from those, which could undo a write of its own in flight.
+  useEffect(() => {
+    const onUpdated = (e: Event) => {
+      const { id, patch } = (e as CustomEvent<ProfileUpdatedDetail>).detail
+      setProfile(p => (p?.id === id ? { ...p, ...patch } : p))
+    }
+    window.addEventListener(PROFILE_UPDATED_EVENT, onUpdated)
+    return () => window.removeEventListener(PROFILE_UPDATED_EVENT, onUpdated)
+  }, [])
 
   async function signOut() {
     await supabase.auth.signOut()
