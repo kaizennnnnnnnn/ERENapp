@@ -1,29 +1,32 @@
 'use client'
 
 // ═════════════════════════════════════════════════════════════════════════════
-// CozyCountdown — advent-style calendar of 12 pixel doors covering the 12 days
-// that END on the couple's anniversary. One door per real local day (household
-// tz); EITHER partner opens today's door once for the household via the
+// CozyCountdown — advent-style calendar of 12 doors covering the 12 days that
+// END on the couple's anniversary. One door per real local day (household tz);
+// EITHER partner opens today's door once for the household via the
 // zero-argument open_countdown_door() RPC (server derives day + reward, so
 // races and double-taps resolve to one clean winner). Missed doors stay sealed.
 //
 // Renders null outside the window — the card "appears" when the countdown
 // begins. Coins are credited server-side inside the RPC; we only show the +N
 // (the HUD catches up on the next profile fetch, same as wish grants).
+//
+// Two halves: this default export owns the data (household row, the window's
+// doors, realtime, the RPC); CozyCountdownCard below only draws, in the Meadow
+// look of the Us page, so it can also be rendered outside the auth gate.
 // ═════════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { withRetry } from '@/lib/supabaseRetry'
 import { dateKey } from '@/lib/wishes'
 import { countdownWindow, promptText, DOOR_COUNT } from '@/lib/countdown'
 import { playSound } from '@/lib/sounds'
-import { OBSIDIAN_FACE, OBSIDIAN_BTN, Rivets, ObsidianChip, pinkText } from '@/components/obsidian'
-import { IconDoor, IconLock, IconCoin, IconHeartDuo, IconCake } from '@/components/PixelIcons'
+import {
+  Card, FONT_ROUNDED, IconTile, M, MeadowIcon, SecondaryButton, TINT, TYPE,
+} from '@/components/meadow'
 
-const GOLD = '245,200,66'
-
-interface DoorRow {
+export interface DoorRow {
   period_key: string
   door_no: number
   opened_at: string
@@ -62,7 +65,12 @@ export default function CozyCountdown({ householdId, userId, partnerFirstName }:
   const [tz, setTz] = useState<string | null>(null)
   const [hhLoaded, setHhLoaded] = useState(false)
   const [doors, setDoors] = useState<Record<string, DoorRow>>({})
+  // The window (its first day) the doors above were read for. The card waits
+  // for it: drawn from an empty or failed read, every past door would show as
+  // missed and an already-opened today as still shut.
+  const [doorsFor, setDoorsFor] = useState<string | null>(null)
   const [opening, setOpening] = useState(false)
+  const [openError, setOpenError] = useState(false)
   // The reveal/detail overlay: `fresh` = just opened by me (celebration copy).
   const [viewing, setViewing] = useState<{ row: DoorRow; fresh: boolean } | null>(null)
 
@@ -94,15 +102,22 @@ export default function CozyCountdown({ householdId, userId, partnerFirstName }:
     let cancelled = false
 
     async function load() {
-      const { data } = await withRetry(() => supabase
+      const { data, error } = await withRetry(() => supabase
         .from('countdown_doors')
         .select('period_key, door_no, opened_at, opened_by, reward_kind, coins_paid, prompt_id')
         .eq('household_id', householdId)
         .in('period_key', w!.days))
-      if (cancelled || !data) return
+      if (cancelled) return
+      if (error || !data) {
+        // error ≠ "no doors opened": stay hidden, retry on the next mount.
+        console.error('[CozyCountdown] doors read failed', error)
+        return
+      }
       const next: Record<string, DoorRow> = {}
       for (const r of data as DoorRow[]) next[r.period_key] = r
-      setDoors(next)
+      // Merge under anything realtime already delivered while the read ran.
+      setDoors(prev => ({ ...next, ...prev }))
+      setDoorsFor(w!.days[0])
     }
     load()
 
@@ -123,10 +138,16 @@ export default function CozyCountdown({ householdId, userId, partnerFirstName }:
   const handleOpen = useCallback(async () => {
     if (opening) return
     setOpening(true)
+    setOpenError(false)
     playSound('ui_tap')
     const { data, error } = await supabase.rpc('open_countdown_door')
     setOpening(false)
-    if (error || !data) return
+    if (error || !data) {
+      // A failed open is said out loud: the door stays shut and can be tried again.
+      console.error('[CozyCountdown] open_countdown_door failed', error)
+      setOpenError(true)
+      return
+    }
     const res = data as OpenDoorResult
     if ((res.ok || res.reason === 'already_opened') && res.period_key) {
       const row: DoorRow = {
@@ -153,161 +174,163 @@ export default function CozyCountdown({ householdId, userId, partnerFirstName }:
     // outside_window / no_anniversary: next render recomputes and hides/moves the card.
   }, [opening]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!win) return null
-
-  const daysLeft = DOOR_COUNT - 1 - win.todayIndex
-  const partnerLabel = partnerFirstName ? partnerFirstName.toUpperCase() : 'PARTNER'
+  if (!win || doorsFor !== win.days[0]) return null
 
   return (
-    <div className="mb-4 p-4 relative overflow-hidden" style={OBSIDIAN_FACE}>
-      <Rivets inset={4} />
+    <CozyCountdownCard
+      days={win.days}
+      todayIndex={win.todayIndex}
+      doors={doors}
+      userId={userId}
+      partnerName={partnerFirstName}
+      opening={opening}
+      openError={openError}
+      onOpen={handleOpen}
+      viewing={viewing}
+      onView={row => { playSound(row ? 'ui_tap' : 'ui_modal_close'); setViewing(row ? { row, fresh: false } : null) }}
+    />
+  )
+}
 
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-1">
-        <ObsidianChip accentRgb={GOLD}>
-          <IconCake size={12} />
-          <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>COZY COUNTDOWN</span>
-        </ObsidianChip>
+// ─── The card (presentational) ───────────────────────────────────────────────
+
+export interface CozyCountdownCardProps {
+  /** The window's 12 day keys; the last is the anniversary. */
+  days: string[]
+  todayIndex: number
+  doors: Record<string, DoorRow>
+  userId: string
+  partnerName: string | null
+  opening: boolean
+  openError?: boolean
+  onOpen: () => void
+  viewing: { row: DoorRow; fresh: boolean } | null
+  /** Show an opened door's contents, or null to close the reveal. */
+  onView: (row: DoorRow | null) => void
+}
+
+const TILE = {
+  aspectRatio: '1 / 1', borderRadius: 16, boxSizing: 'border-box', padding: 0, border: 0,
+  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
+  fontFamily: FONT_ROUNDED, color: M.text,
+} as const
+const SMALL = { fontSize: 11, lineHeight: 1.1, fontWeight: 700, color: M.text2 } as const
+
+const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
+export function CozyCountdownCard({
+  days, todayIndex, doors, userId, partnerName, opening, openError, onOpen, viewing, onView,
+}: CozyCountdownCardProps) {
+  const daysLeft = DOOR_COUNT - 1 - todayIndex
+  const partner = partnerName ?? 'your partner'
+  const who = (row: DoorRow) => (row.opened_by === userId ? 'you' : partner)
+
+  return (
+    <Card padding={18} style={{ position: 'relative', marginTop: 12, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <IconTile icon="calendar" size={48} bg={TINT.amber} />
+        <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+          <h2 style={{ margin: 0, fontSize: 17, lineHeight: 1.2, fontWeight: 800 }}>Cozy countdown</h2>
+          <span style={{ fontSize: 13, fontWeight: 700, color: M.text2 }}>
+            {daysLeft === 0
+              ? "It's your anniversary today"
+              : `${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} to your anniversary`}
+          </span>
+        </span>
       </div>
-      <p className="font-pixel mb-3" style={{ fontSize: 6, letterSpacing: 1.5, color: '#9A8A60' }}>
-        {daysLeft === 0 ? "IT'S TODAY" : `${daysLeft} DAY${daysLeft === 1 ? '' : 'S'} TO YOUR ANNIVERSARY`}
-      </p>
 
-      {/* 12 doors, 4 × 3 */}
-      <div className="grid grid-cols-4 gap-2">
-        {win.days.map((day, i) => {
+      {/* 12 doors, 4 x 3 */}
+      <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+        {days.map((day, i) => {
           const row = doors[day]
-          const isToday = i === win.todayIndex
+          const isToday = i === todayIndex
           const isFinal = i === DOOR_COUNT - 1
 
           if (row) {
-            // Opened — warm-lit tile showing what was inside + who opened it.
-            const mine = row.opened_by === userId
+            // Opened: what was inside, and who opened it. Tap to read it again.
             return (
-              <button
-                key={day}
-                onClick={() => { playSound('ui_tap'); setViewing({ row, fresh: false }) }}
-                className="relative flex flex-col items-center justify-center gap-1 active:translate-y-[1px] transition-transform"
-                style={{
-                  ...OBSIDIAN_BTN,
-                  aspectRatio: '1 / 1',
-                  border: isToday ? `1.5px solid rgba(${GOLD},0.6)` : `1px solid rgba(${GOLD},0.3)`,
-                  background: 'linear-gradient(180deg, #1d1a12 0%, #0a0805 100%)',
-                }}
-              >
-                {row.reward_kind === 'coins'
-                  ? <><IconCoin size={14} /><span className="font-pixel" style={{ fontSize: 6, color: '#F5C842' }}>+{row.coins_paid}</span></>
-                  : <IconHeartDuo size={16} />}
-                <span className="font-pixel" style={{ fontSize: 5, color: '#8A7A50', letterSpacing: 0.5 }}>
-                  BY {mine ? 'YOU' : partnerLabel}
-                </span>
+              <button key={day} type="button" onClick={() => onView(row)}
+                aria-label={`Door ${i + 1}, opened by ${who(row)}`}
+                className="m-press m-focus"
+                style={{ ...TILE, background: row.reward_kind === 'coins' ? TINT.amber : TINT.love, cursor: 'pointer' }}>
+                {row.reward_kind === 'coins' ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 13, ...TYPE.number }}>
+                    <MeadowIcon name="coin" size={18} />+{row.coins_paid}
+                  </span>
+                ) : <MeadowIcon name="hearts" size={22} />}
+                <span style={SMALL}>{capitalise(who(row))}</span>
               </button>
             )
           }
           if (isToday) {
-            // Today's door — glowing and tappable.
+            // Today's door: the one leaf button on the card.
             return (
-              <button
-                key={day}
-                onClick={handleOpen}
-                disabled={opening}
-                className="relative flex flex-col items-center justify-center gap-1 active:translate-y-[1px] transition-transform"
+              <button key={day} type="button" onClick={onOpen} disabled={opening}
+                aria-label={`Open door ${i + 1}`} aria-busy={opening || undefined}
+                className="m-lip m-focus"
                 style={{
-                  ...OBSIDIAN_BTN,
-                  aspectRatio: '1 / 1',
-                  border: `1.5px solid rgba(${GOLD},0.6)`,
-                  animation: 'cdDoorPulse 2s ease-in-out infinite',
-                  opacity: opening ? 0.6 : 1,
-                }}
-              >
-                {isFinal ? <IconCake size={18} /> : <IconDoor size={18} />}
-                <span className="font-pixel" style={{ fontSize: 5, color: '#F5C842', letterSpacing: 1 }}>
-                  {opening ? '...' : 'OPEN'}
-                </span>
+                  ...TILE, '--m-lip': M.leafLip, '--m-lip-h': '4px',
+                  background: M.leaf, color: '#FFFFFF', cursor: opening ? 'default' : 'pointer', opacity: opening ? 0.75 : 1,
+                } as CSSProperties}>
+                <MeadowIcon name={isFinal ? 'hearts' : 'door'} mono color="#FFFFFF" size={22} />
+                <span style={{ fontSize: 12, lineHeight: 1.1, fontWeight: 800 }}>{opening ? 'Opening' : 'Open'}</span>
               </button>
             )
           }
-          if (day < win.days[win.todayIndex]) {
-            // Missed — sealed forever (the RPC only ever opens today's door).
+          if (day < days[todayIndex]) {
+            // Missed: sealed for good (the RPC only ever opens today's door).
             return (
-              <div
-                key={day}
-                className="relative flex flex-col items-center justify-center gap-1"
-                style={{ ...OBSIDIAN_BTN, aspectRatio: '1 / 1', opacity: 0.4 }}
-              >
-                <IconLock size={12} />
-                <span className="font-pixel" style={{ fontSize: 5, color: '#5A5A5A', letterSpacing: 1 }}>SEALED</span>
+              <div key={day} role="img" aria-label={`Door ${i + 1}, missed`}
+                style={{ ...TILE, background: M.soft, opacity: 0.6 }}>
+                <MeadowIcon name="lock" size={18} color={M.faint} />
+                <span style={SMALL}>Missed</span>
               </div>
             )
           }
-          // Future door — numbered, waiting.
+          // Still to come: numbered, waiting. The last one is the day itself.
           return (
-            <div
-              key={day}
-              className="relative flex flex-col items-center justify-center gap-1"
-              style={{
-                ...OBSIDIAN_BTN,
-                aspectRatio: '1 / 1',
-                opacity: 0.75,
-                border: isFinal ? `1px solid rgba(${GOLD},0.45)` : (OBSIDIAN_BTN.border as string),
-              }}
-            >
+            <div key={day} role="img" aria-label={isFinal ? 'The anniversary door' : `Door ${i + 1}, not yet`}
+              style={{ ...TILE, background: '#FFFFFF', border: `2px solid ${M.hairline}` }}>
               {isFinal
-                ? <IconCake size={16} />
-                : <span className="font-pixel" style={{ fontSize: 11, ...pinkText }}>{i + 1}</span>}
-              <IconLock size={9} />
+                ? <MeadowIcon name="hearts" size={22} />
+                : <span style={{ fontSize: 17, lineHeight: 1, color: M.text2, ...TYPE.number }}>{i + 1}</span>}
             </div>
           )
         })}
       </div>
 
-      {/* Reveal / detail overlay — inside the card, obsidian scrim. */}
+      {openError && (
+        <p role="alert" style={{ margin: '12px 0 0', fontSize: 13, fontWeight: 700, color: M.danger, textAlign: 'center' }}>
+          The door is stuck. Try again in a moment.
+        </p>
+      )}
+
+      {/* The reveal sits over the card, white on white: a page turned, not a popup. */}
       {viewing && (
-        <div
-          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 px-5 text-center"
-          style={{ background: 'rgba(5,5,7,0.92)', animation: 'cdRevealIn 220ms cubic-bezier(0.34,1.56,0.64,1) both' }}
-        >
-          <Rivets inset={4} />
-          <p className="font-pixel" style={{ fontSize: 7, letterSpacing: 2, color: '#9A8A60' }}>
-            DOOR {viewing.row.door_no}
-            {viewing.fresh ? '' : ` · BY ${viewing.row.opened_by === userId ? 'YOU' : partnerLabel}`}
-          </p>
+        <div role="dialog" aria-label={`Door ${viewing.row.door_no}`} style={{
+          position: 'absolute', inset: 0, background: '#FFFFFF', padding: 24, textAlign: 'center',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10,
+        }}>
+          <span style={{ ...TYPE.label, color: M.label }}>
+            Door {viewing.row.door_no}{viewing.fresh ? '' : ` · by ${who(viewing.row)}`}
+          </span>
           {viewing.row.reward_kind === 'coins' ? (
-            <div className="flex items-center gap-2">
-              <IconCoin size={20} />
-              <span className="font-pixel" style={{ fontSize: 16, ...pinkText }}>+{viewing.row.coins_paid} COINS</span>
-            </div>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 28, lineHeight: 1.1, ...TYPE.number }}>
+              <MeadowIcon name="coin" size={28} />+{viewing.row.coins_paid} coins
+            </span>
           ) : (
             <>
-              <IconHeartDuo size={22} />
-              <p style={{ fontSize: 12, lineHeight: 1.6, color: '#E8E0D0', maxWidth: 240 }}>
-                {promptText(viewing.row.prompt_id) ?? 'a little something for you two.'}
+              <MeadowIcon name="hearts" size={36} />
+              <p style={{ margin: 0, maxWidth: 260, fontSize: 16, lineHeight: 1.4, fontWeight: 700 }}>
+                {capitalise(promptText(viewing.row.prompt_id) ?? 'a little something for you two.')}
               </p>
             </>
           )}
-          <button
-            onClick={() => { playSound('ui_modal_close'); setViewing(null) }}
-            className="mt-2 px-4 py-2 relative active:translate-y-[1px] transition-transform"
-            style={OBSIDIAN_BTN}
-          >
-            <Rivets inset={2} size={2} />
-            <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 1.5, color: '#E8E0D0' }}>
-              {viewing.fresh ? 'COZY' : 'CLOSE'}
-            </span>
-          </button>
+          <SecondaryButton size="md" onClick={() => onView(null)} style={{ marginTop: 6 }}>
+            {viewing.fresh ? 'Cozy' : 'Close'}
+          </SecondaryButton>
         </div>
       )}
-
-      <style jsx>{`
-        @keyframes cdDoorPulse {
-          0%, 100% { box-shadow: 0 0 4px rgba(${GOLD}, 0.25); }
-          50%      { box-shadow: 0 0 14px rgba(${GOLD}, 0.55); }
-        }
-        @keyframes cdRevealIn {
-          0%   { transform: scale(0.92); opacity: 0; }
-          100% { transform: scale(1);    opacity: 1; }
-        }
-      `}</style>
-    </div>
+    </Card>
   )
 }

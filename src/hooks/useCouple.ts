@@ -476,20 +476,31 @@ function useCoupleImpl() {
   // both the journal filter and the realtime handler route it to the
   // ErenMessagePopup only — and the push notification hides the body
   // and just says "Eren has a message for you".
-  const sendMessage = useCallback(async (text: string, gift?: GiftItem | null, viaEren = false) => {
-    if (!user?.id || !profile?.household_id) return
+  //
+  // Resolves true only once the row exists. A failed insert used to resolve
+  // like a success, so the journal sheet cleared the draft and a 503 or RLS
+  // refusal lost the message with nothing on screen. Not wrapped in
+  // withRetry: an insert whose response was lost may already have landed,
+  // and a retry would post it twice. The journal sheet keeps the draft and
+  // says so instead.
+  const sendMessage = useCallback(async (text: string, gift?: GiftItem | null, viaEren = false): Promise<boolean> => {
+    if (!user?.id || !profile?.household_id) return false
     const trimmed = text.trim()
-    if (!trimmed && !gift) return
+    if (!trimmed && !gift) return false
     // The id comes back because the push route now needs it: a notification
     // may only mirror a message that already exists, so there is nothing to
     // announce until the row does.
-    const { data: row } = await supabase.from('couple_journal').insert({
+    const { data: row, error } = await supabase.from('couple_journal').insert({
       household_id: profile.household_id,
       sender_id: user.id,
       message: trimmed,
       gift_item: gift ?? null,
       via_eren: viaEren,
     }).select('id').single()
+    if (error || !row) {
+      console.error('[useCouple] message insert failed', error)
+      return false
+    }
     // Memory Wall: signal first:message + any future message-frame predicates.
     // Skip the dispatch when this row is actually a nudge (via_eren) — those
     // already unlock first:nudge via the eren:nudge-sent event, no need to
@@ -501,21 +512,20 @@ function useCoupleImpl() {
     // fully closed; the in-app realtime channel only fires when their tab is
     // alive, so this is the only path that covers a backgrounded-and-killed
     // app on iOS/Android.
-    if (row?.id) {
-      fetch('/api/notify-message', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          message_id: row.id,
-          // An Eren-delivered message keeps its text back so the partner has
-          // to open the app to read it.
-          hide_text: viaEren,
-          // Deep-link a delivered note straight to the board. Tapping the push
-          // used to land on /couple, i.e. the chat, which is not where the note is.
-          to_notes: viaEren,
-        }),
-      }).catch(() => { /* best-effort */ })
-    }
+    fetch('/api/notify-message', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        message_id: row.id,
+        // An Eren-delivered message keeps its text back so the partner has
+        // to open the app to read it.
+        hide_text: viaEren,
+        // Deep-link a delivered note straight to the board. Tapping the push
+        // used to land on /couple, i.e. the chat, which is not where the note is.
+        to_notes: viaEren,
+      }),
+    }).catch(() => { /* best-effort */ })
+    return true
   }, [user?.id, profile?.household_id, profile?.name]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Send an Eren nudge (one-tap affectionate gesture) ──

@@ -1,757 +1,332 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
-import { timeUntilWeekReset } from '@/lib/couple'
-import { useRouter } from 'next/navigation'
-import { ChevronLeft, Send } from 'lucide-react'
+// ─── Us ──────────────────────────────────────────────────────────────────────
+// The Meadow "Us" tab (board A3). This file is the data half: it reads the
+// couple (useCouple), my streak (useTasks) and the cat (useErenStats), turns
+// them into the plain shapes in couple/us/usModel and hands them to UsView.
+//
+// Everything the old obsidian page did is still here, moved rather than
+// dropped: the day count and next milestone (hero), the cozy countdown, the
+// partner's mood and week, the nudges (now four one-tap tiles instead of a
+// picker sheet), the note board, the care battle with the season strip folded
+// into it, the journal (preview on the page, the whole chat in a sheet, hold a
+// message to report or delete it), the weekly champion popup, and marking the
+// journal read. The back button went: the tab bar is the way out now.
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { withRetry } from '@/lib/supabaseRetry'
+import { onForeground } from '@/lib/onForeground'
 import { useAuth } from '@/hooks/useAuth'
 import { useCouple } from '@/hooks/useCouple'
-import { useCare } from '@/contexts/CareContext'
-import { format } from 'date-fns'
-import {
-  IconHeartDuo, IconSwords, IconEnvelope, IconCrown, IconPaw, IconHeart, IconStar,
-  IconFire, IconTrophy, IconPin,
-} from '@/components/PixelIcons'
-import { useTasks } from '@/contexts/TaskContext'
-import WeeklyChampionPopup from '@/components/couple/WeeklyChampionPopup'
-import { playSound } from '@/lib/sounds'
-import {
-  PINK, PINK_HI, PINK_LO,
-  OBSIDIAN_FACE, OBSIDIAN_BTN, OBSIDIAN_ORB,
-  Rivets, ObsidianChip, pinkText, accentA,
-} from '@/components/obsidian'
-import PageLoader from '@/components/PageLoader'
+import { useErenStats } from '@/hooks/useErenStats'
 import { usePageReady } from '@/hooks/usePageReady'
-import SendErenSheet from '@/components/couple/SendErenSheet'
+import { useCare } from '@/contexts/CareContext'
+import { useTasks } from '@/contexts/TaskContext'
+import { timeUntilWeekReset } from '@/lib/couple'
+import { NUDGE_DEFS } from '@/lib/nudges'
+import { FOOD_META } from '@/lib/foodMeta'
+import { EREN_OPPONENT_ID } from '@/lib/erenOpponent'
+import { catIdentityFromStats } from '@/lib/catIdentity'
+import { playSound } from '@/lib/sounds'
+import { MeadowPage, PERSON, personColor } from '@/components/meadow'
 import CozyCountdown from '@/components/couple/CozyCountdown'
-import SketchEren from '@/components/SketchEren'
+import WeeklyChampionPopup from '@/components/couple/WeeklyChampionPopup'
 import MessageActions from '@/components/safety/MessageActions'
-import { useLongPress } from '@/hooks/useLongPress'
+import UsView from '@/components/couple/us/UsView'
+import JournalSheet from '@/components/couple/us/JournalSheet'
+import {
+  togetherInfo,
+  type BattleInfo, type BattleSide, type JournalEntry, type LoveTrayState, type NotesInfo,
+  type NudgeId, type SeasonInfo, type UsPerson,
+} from '@/components/couple/us/usModel'
 import type { JournalMessage } from '@/types'
-import { MOOD_SKETCH, MOOD_THEME, LOW_MOODS } from '@/lib/moods'
-import { MOOD_CONFIGS } from '@/types'
-import { EREN_OPPONENT_NAME } from '@/lib/erenOpponent'
+
+const firstName = (name: string | null | undefined): string => (name ?? '').trim().split(/\s+/)[0] ?? ''
+
+// A nudge from the tray and a journal message fail the same way, so they say
+// the same thing.
+const SEND_FAILED = "That didn't send. Check your connection and try again."
 
 export default function CouplePage() {
-  const router = useRouter()
+  const supabase = useMemo(() => createClient(), [])
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
   const {
-    partner, partnerStreak, isSolo,
-    loveMeter, anniversary, journal,
-    partnerMood, partnerMoodWeek,
-    lifetimeWLT, weeklyChampion, claimWeeklyChampion,
-    notes, unreadNotes,
-    sendMessage, sendNudge, deleteMessage, markAllRead, loading,
+    partner, partnerStreak, isSolo, loveMeter, anniversary, journal,
+    partnerMood, partnerMoodWeek, lifetimeWLT, weeklyChampion, claimWeeklyChampion,
+    notes, unreadNotes, sendMessage, sendNudge, deleteMessage, markAllRead, loading, refetch,
   } = useCouple()
   const { streak: myStreak } = useTasks()
-  const [showSend, setShowSend] = useState(false)
-  // The message whose long-press sheet is open, if any.
-  const [actionOn, setActionOn] = useState<JournalMessage | null>(null)
-  // Hold a bubble to report or delete it. Tap is unused on a message, so
-  // the hold is the only free gesture here.
-  const { bind: bindHold } = useLongPress<JournalMessage>(setActionOn)
-  // Local "user has closed the weekly popup this session" flag — hides
-  // the popup instantly on backdrop tap even before the server ack lands.
-  const [weeklyDismissed, setWeeklyDismissed] = useState(false)
-  // Hide the persistent StatsHeader on this subpage and put it back on
-  // unmount, so the user gets the full screen for the couple panel.
+  const { stats } = useErenStats(profile?.household_id ?? null)
+  const householdId = profile?.household_id ?? null
+
+  // The Meadow page carries its own title row; the old HUD steps aside here.
   useEffect(() => {
     setHideStats(true)
     return () => setHideStats(false)
   }, [setHideStats])
-  useEffect(() => { markAllRead() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [msg, setMsg] = useState('')
-  const [sending, setSending] = useState(false)
+  // Being on this page is reading the journal: its newest line sits on the
+  // card. Marked on arrival (the old page's rule) and again when a new line
+  // lands while the page is in front, so the Us tab doesn't dot itself while
+  // you are on it. A line that arrives while the app is in the background
+  // stays unread until you actually come back to it.
+  const newestId = journal[0]?.id
+  useEffect(() => {
+    if (document.visibilityState === 'visible') markAllRead()
+  }, [newestId]) // eslint-disable-line react-hooks/exhaustive-deps
+  // ...and coming back is the other half. That line changed newestId while
+  // the page was hidden, so the effect above has already run and skipped it,
+  // and useCouple's own foreground refetch then recounts it as unread: the Us
+  // tab would dot itself over the very card showing the message. The stamp
+  // lands before that refetch resolves, so its recount agrees.
+  useEffect(() => onForeground(markAllRead), [markAllRead])
 
-  // Live countdown to next Monday 00:00 - re-renders every 60s so the
-  // "resets in 2d 14h" label stays current without polling Supabase.
-  //
-  // Starts null and resolves after mount. It used to compute the first value
-  // in the useState initializer, which also runs during SSR - and this page
-  // prerenders (next build reports it as Static), so the countdown was baked
-  // into the static HTML at BUILD time, in UTC, and every visitor's browser
-  // then computed a different one. That disagreement is a hydration mismatch,
-  // the same class as the one useIsDark was causing. Null renders no row at
-  // all rather than a wrong "0D 0H" for a frame.
+  // Time to Monday 00:00, resolved after mount and refreshed each minute. A
+  // clock read during render would be baked into the prerendered HTML and
+  // disagree with every visitor's browser (a hydration mismatch).
   const [reset, setReset] = useState<ReturnType<typeof timeUntilWeekReset> | null>(null)
   useEffect(() => {
-    setReset(timeUntilWeekReset())
-    const t = setInterval(() => setReset(timeUntilWeekReset()), 60 * 1000)
+    const tick = () => setReset(timeUntilWeekReset())
+    tick()
+    const t = setInterval(tick, 60 * 1000)
     return () => clearInterval(t)
   }, [])
 
-  // Pulse the score numbers when they change. Keyed off the score
-  // value so an in-session care action visibly bumps the digit
-  // before the bar finishes its width transition.
-  const prevS1 = useRef<number>(0)
-  const prevS2 = useRef<number>(0)
-  const [pulse1, setPulse1] = useState(0)
-  const [pulse2, setPulse2] = useState(0)
+  // The day the household began, for the postmark on the hero. useCouple only
+  // keeps the day COUNT, and working the date back from it lands a day late
+  // whenever the household was made in the evening.
+  const [since, setSince] = useState<Date | null>(null)
   useEffect(() => {
-    if (!loveMeter) return
-    if (loveMeter.user1.score !== prevS1.current) {
-      prevS1.current = loveMeter.user1.score
-      setPulse1(p => p + 1)
-    }
-    if (loveMeter.user2.score !== prevS2.current) {
-      prevS2.current = loveMeter.user2.score
-      setPulse2(p => p + 1)
-    }
-  }, [loveMeter?.user1.score, loveMeter?.user2.score]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!householdId) return
+    let live = true
+    void withRetry(() => supabase
+      .from('households')
+      .select('created_at')
+      .eq('id', householdId)
+      .maybeSingle())
+      .then(({ data, error }) => {
+        if (!live) return
+        // A failed read only costs the postmark (the count comes from
+        // useCouple); the next visit tries again.
+        if (error) { console.error('[Us] household read failed', error); return }
+        if (data?.created_at) setSince(new Date(data.created_at as string))
+      })
+    return () => { live = false }
+  }, [supabase, householdId])
 
-  async function handleSend() {
-    if (!msg.trim() || sending) return
-    setSending(true)
-    await sendMessage(msg)
-    setMsg('')
-    setSending(false)
-  }
+  // ── The love tray ──
+  // The four NUDGE_DEFS send straight from a tap. One at a time: a second tap
+  // while one is in flight is dropped rather than queued.
+  const [tray, setTray] = useState<LoveTrayState>({ sent: {}, busy: null, error: null })
+  const trayBusy = useRef(false)
+  const sendLove = useCallback(async (id: NudgeId, from: 'cta' | 'tray') => {
+    const def = NUDGE_DEFS.find(n => n.id === id)
+    if (!def || trayBusy.current) return
+    trayBusy.current = true
+    playSound('ui_tap')
+    setTray(t => ({ ...t, busy: id, error: null }))
+    let ok = false
+    try {
+      ok = await sendNudge(def)
+    } catch (err) {
+      console.error('[Us] nudge failed', err)
+    }
+    trayBusy.current = false
+    setTray(t => ok
+      ? { sent: { ...t.sent, [id]: true }, busy: null, error: null }
+      : { ...t, busy: null, error: { from, message: SEND_FAILED } })
+  }, [sendNudge])
+  const sendLoveFromCta = useCallback(() => { void sendLove('loveyou', 'cta') }, [sendLove])
+  const sendLoveFromTray = useCallback((id: NudgeId) => { void sendLove(id, 'tray') }, [sendLove])
 
-  // Dark page surface that overlays the global cream background. We
-  // override the page-scroll's 120 px top padding (which exists to clear
-  // the StatsHeader) since this page hides the header.
-  const pageStyle: React.CSSProperties = {
-    background: 'radial-gradient(ellipse at top, #1a1320 0%, #0a0a0c 60%, #050507 100%)',
-    minHeight: '100vh',
-    color: '#E8E0D0',
-    paddingTop: 'calc(var(--safe-top) + 16px)',
-  }
+  // ── The journal sheet ──
+  const [journalOpen, setJournalOpen] = useState(false)
+  // The held message whose report/delete sheet is open, if any.
+  const [actionOn, setActionOn] = useState<JournalMessage | null>(null)
+  const [journalError, setJournalError] = useState<string | null>(null)
+  const openJournal = useCallback(() => {
+    playSound('ui_modal_open')
+    setJournalError(null)
+    setJournalOpen(true)
+    markAllRead()
+  }, [markAllRead])
+  // Escape and the backdrop close the actions sheet first, then the journal.
+  const closeJournal = useCallback(() => {
+    if (actionOn) { setActionOn(null); return }
+    playSound('ui_modal_close')
+    setJournalOpen(false)
+    setJournalError(null)
+  }, [actionOn])
+  const holdMessage = useCallback((id: string) => {
+    const m = journal.find(j => j.id === id)
+    if (m) setActionOn(m)
+  }, [journal])
+  // Resolves false when the message did not go out, so the sheet keeps what
+  // was typed; the error slot under the compose row says why.
+  const sendToJournal = useCallback(async (text: string): Promise<boolean> => {
+    playSound('ui_tap')
+    setJournalError(null)
+    let ok = false
+    try {
+      ok = await sendMessage(text)
+    } catch (err) {
+      console.error('[Us] journal send failed', err)
+    }
+    if (!ok) setJournalError(SEND_FAILED)
+    return ok
+  }, [sendMessage])
+
+  // Local "closed the weekly popup this session" flag: hides it at once on a
+  // backdrop tap, before the server ack lands.
+  const [weeklyDismissed, setWeeklyDismissed] = useState(false)
 
   usePageReady(!loading)
 
-  function exitToHome() {
-    // Partner-message pushes deep-link straight here (sw.js → openWindow/
-    // navigate), so the page often opens with no in-app history — router.back()
-    // silently no-ops and the back button looks broken. Replace instead, the
-    // same way /notes and /hallway do.
-    router.replace('/home')
+  // Every hook is above this line: `loading` is true on the first render of a
+  // cold visit, and a hook below an early return would crash the page.
+  if (loading || !user || !profile) {
+    return <MeadowPage ground="us" title="Us"><span /></MeadowPage>
   }
 
-  if (loading) return <PageLoader label="LOADING" />
+  const cat = catIdentityFromStats(stats)
+  // The household has two colours, so "not mine" is the other one: used for a
+  // partner row with no colour stamped, and a sender we can no longer name.
+  const otherColor = profile.heart === 'brown_heart' ? PERSON.pink : PERSON.brown
+  const me: UsPerson = { name: firstName(profile.name) || 'You', color: personColor(profile.heart) }
+  const them: UsPerson | null = partner
+    ? { name: firstName(partner.name) || 'Your partner', color: partner.heart ? personColor(partner.heart) : otherColor }
+    : null
+  // Solo, the cat holds the other seat (title row, battle), in Eren's gold.
+  const catSeat: UsPerson = { name: cat.name, color: PERSON.eren }
+
+  // The partner read failed (not the same answer as "no partner"): say so and
+  // offer a retry, instead of quietly showing half a page.
+  const partnerUnknown = !isSolo && !partner
+
+  const toEntry = (m: JournalMessage): JournalEntry => {
+    const mine = m.sender_id === user.id
+    const who: UsPerson = mine ? me
+      : them && m.sender_id === partner?.id ? them
+        : { name: firstName(m.profile?.name) || 'Partner', color: m.profile?.heart ? personColor(m.profile.heart) : otherColor }
+    return { id: m.id, text: m.message, mine, name: who.name, color: who.color, at: m.created_at }
+  }
+  const lastMessage = journal[0] ? toEntry(journal[0]) : null
+  // useCouple keeps the newest first; a chat reads oldest first. Built even
+  // while the sheet is shut (at most 50 rows): it stays on screen through its
+  // closing slide, and an empty list there would flash "No messages yet".
+  const messages = [...journal].reverse().map(toEntry)
+
+  // The note board, newest first. Unread notes are my partner's newest ones
+  // (useCouple counts those newer than my last visit), so the first
+  // `unreadNotes` of theirs in this order are exactly the unread ones.
+  let partnerNotesSeen = 0
+  const notesInfo: NotesInfo = {
+    count: notes.length,
+    unread: unreadNotes,
+    preview: notes.slice(0, 3).map(n => {
+      const fromPartner = n.sender_id !== user.id
+      const unread = fromPartner && partnerNotesSeen++ < unreadNotes
+      const key = n.gift_item?.key
+      return { id: n.id, gift: key && FOOD_META[key] ? key : null, unread }
+    }),
+  }
+
+  const battle: BattleInfo | null = loveMeter ? (() => {
+    const mineRaw = loveMeter.user1.id === user.id ? loveMeter.user1 : loveMeter.user2
+    const theirsRaw = mineRaw === loveMeter.user1 ? loveMeter.user2 : loveMeter.user1
+    const other: UsPerson = theirsRaw.id === EREN_OPPONENT_ID ? catSeat
+      : them && theirsRaw.id === partner?.id ? them
+        : { name: firstName(theirsRaw.name) || 'Partner', color: otherColor }
+    const side = (p: UsPerson, raw: typeof mineRaw): BattleSide => ({ ...p, score: raw.score, pct: raw.pct })
+
+    const rec = lifetimeWLT && lifetimeWLT.days > 0 ? lifetimeWLT : null
+    const mine = myStreak.current ?? 0
+    const theirs = partnerStreak?.current ?? 0
+    // The cat keeps no care streak of its own (a pace-setter, not a second
+    // carer), so solo the streak rows are one-sided rather than a comparison
+    // against a permanent zero.
+    const hasStreak = partner ? mine > 0 || theirs > 0 : mine > 0
+    const season: SeasonInfo = {
+      record: rec ? { mine: rec.myWins, ties: rec.ties, theirs: rec.partnerWins } : null,
+      streak: hasStreak ? {
+        mine,
+        myBest: myStreak.best ?? 0,
+        theirs: partner ? theirs : null,
+        theirBest: partner ? partnerStreak?.best ?? 0 : null,
+      } : null,
+    }
+    return {
+      me: side(me, mineRaw),
+      them: side(other, theirsRaw),
+      total: loveMeter.total,
+      season: season.record || season.streak ? season : null,
+    }
+  })() : null
 
   return (
-    <div className="page-scroll" style={pageStyle}>
-      {/* ── Header row ── */}
-      <div className="flex items-center gap-2 mb-2">
-        <button onClick={() => { playSound('ui_back'); exitToHome() }}
-          className="flex items-center justify-center active:translate-y-[1px] transition-transform relative"
-          style={{ width: 32, height: 32, ...OBSIDIAN_BTN }}>
-          <Rivets inset={2} />
-          <ChevronLeft size={16} style={{ color: PINK_HI }} />
-        </button>
-        <ObsidianChip accentRgb="255,107,157">
-          <IconHeartDuo size={14} />
-          <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>US</span>
-        </ObsidianChip>
-      </div>
-      <p className="text-sm mb-5" style={{ color: '#9A8C70' }}>
-        {isSolo ? 'You & Eren' : 'You & your partner'}
-      </p>
+    <>
+      <UsView
+        me={me}
+        partner={them}
+        isSolo={isSolo}
+        cat={{ name: cat.name, look: cat.look }}
+        companion={them ?? (isSolo ? catSeat : null)}
+        together={anniversary ? togetherInfo(anniversary, since) : null}
+        countdown={partner && householdId ? (
+          // Advent doors in the 12 days before the anniversary; renders
+          // nothing outside that window or without an anniversary set.
+          <CozyCountdown householdId={householdId} userId={user.id} partnerFirstName={them?.name ?? null} />
+        ) : null}
+        partnerMood={partnerMood}
+        partnerWeek={partnerMoodWeek}
+        tray={tray}
+        onSendLove={sendLoveFromCta}
+        onSendNudge={sendLoveFromTray}
+        notes={notesInfo}
+        onOpenNotes={() => playSound('ui_tap')}
+        battle={battle}
+        reset={reset}
+        lastMessage={lastMessage}
+        onOpenJournal={openJournal}
+        loadError={partnerUnknown ? { onRetry: () => { playSound('ui_tap'); void refetch() } } : null}
+      />
 
-      {/* ── Anniversary ── */}
-      {anniversary && (
-        <div className="mb-4 p-5 text-center relative overflow-hidden" style={OBSIDIAN_FACE}>
-          <Rivets inset={4} />
-          {/* Subtle hairline gold accent across the top */}
-          <div aria-hidden style={{
-            position: 'absolute', top: 0, left: '15%', right: '15%', height: 1,
-            background: `linear-gradient(90deg, transparent, ${accentA(0.4)}, transparent)`,
-          }} />
-          {/* Soft starfield */}
-          <div className="absolute inset-0 opacity-[0.06] pointer-events-none"
-            style={{ backgroundImage: `radial-gradient(circle, ${PINK} 1px, transparent 1px)`, backgroundSize: '24px 24px' }} />
-
-          <div className="relative">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <IconHeart size={10} />
-              {/* The date is the household's, so solo it is the day they took
-                  Eren in — true, and the one thing on this card that never
-                  needed a second person. */}
-              <p className="font-pixel" style={{ fontSize: 6, letterSpacing: 2.5, color: PINK_HI, textShadow: `0 0 3px ${accentA(0.4)}` }}>
-                {isSolo ? 'WITH EREN FOR' : 'TOGETHER FOR'}
-              </p>
-              <IconHeart size={10} />
-            </div>
-            <p className="font-pixel" style={{ fontSize: 36, lineHeight: 1, ...pinkText, marginBottom: 4 }}>{anniversary.days}</p>
-            <p className="font-pixel mb-3" style={{ fontSize: 8, letterSpacing: 3, color: PINK_LO }}>DAYS</p>
-            {anniversary.milestone && (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 mb-2 relative" style={OBSIDIAN_BTN}>
-                <Rivets inset={2} />
-                <IconStar size={12} />
-                <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 1.5, ...pinkText }}>{anniversary.milestone}</span>
-              </div>
-            )}
-            {anniversary.nextMilestone && (
-              <p className="text-xs" style={{ color: '#7A6A50' }}>
-                Next: {anniversary.nextMilestone.name} in {anniversary.nextMilestone.daysLeft} days
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── Cozy Countdown — advent doors in the 12 days before the anniversary.
-          Renders null outside the window / without a set anniversary. ── */}
-      {user && partner && profile?.household_id && (
-        <CozyCountdown
-          householdId={profile.household_id}
-          userId={user.id}
-          partnerFirstName={partner.name.split(' ')[0] ?? null}
-        />
-      )}
-
-      {/* ── Actions ──
-          Send-a-nudge and the note board, side by side. They used to be two
-          full-width bars identical to every card below them; as a 2-up row
-          they read as controls rather than more content, and give the page
-          a break in rhythm before the scoreboards start. */}
-      {/* Both of these need a second person, so solo the whole row goes.
-          SEND EREN is a nudge, which is partner-only. The NOTE BOARD looks
-          survivable and is not: the only two things that ever reach the board
-          are a ThoughtCloud note and a food gift, and ThoughtCloud replaces
-          both composers with "Invite your partner first" when you are alone.
-          A permanent "nothing yet" leading to a permanently empty board is
-          the exact thing this page is being cleared of. */}
-      {!isSolo && (
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        {partner && (
-          <button
-            onClick={() => { playSound('ui_modal_open'); setShowSend(true) }}
-            className="px-3 py-3 flex flex-col items-center gap-2 relative active:translate-y-[1px] transition-transform"
-            style={{
-              ...OBSIDIAN_FACE,
-              border: '1.5px solid rgba(255,107,157,0.45)',
-              boxShadow: `0 0 14px rgba(255,107,157,0.25), ${OBSIDIAN_FACE.boxShadow}`,
-            }}
-          >
-            <Rivets inset={4} />
-            <span style={{ filter: 'drop-shadow(0 0 5px rgba(255,107,157,0.5))' }}>
-              <IconHeartDuo size={24} />
-            </span>
-            <span className="font-pixel text-center" style={{ fontSize: 7, letterSpacing: 1, lineHeight: 1.6, ...pinkText }}>
-              SEND EREN
-            </span>
-            <span className="text-[10px] text-center leading-tight" style={{ color: '#9A8C70' }}>
-              a hug or a hello
-            </span>
-          </button>
-        )}
-
-        <button
-          onClick={() => { playSound('ui_tap'); router.push('/notes') }}
-          className="px-3 py-3 flex flex-col items-center gap-2 relative active:translate-y-[1px] transition-transform"
-          style={{
-            ...OBSIDIAN_FACE,
-            border: '1.5px solid rgba(232,160,92,0.45)',
-            boxShadow: `0 0 14px rgba(232,160,92,0.2), ${OBSIDIAN_FACE.boxShadow}`,
-          }}
-        >
-          <Rivets inset={4} />
-          <span style={{ filter: 'drop-shadow(0 0 5px rgba(232,160,92,0.5))' }}>
-            <IconPin size={24} tone="#E8A05C" />
-          </span>
-          <span className="font-pixel text-center" style={{ fontSize: 7, letterSpacing: 1, lineHeight: 1.6, ...pinkText }}>
-            NOTE BOARD
-          </span>
-          <span className="text-[10px] text-center leading-tight" style={{ color: '#9A8C70' }}>
-            {notes.length > 0 ? `${notes.length} kept` : 'nothing yet'}
-          </span>
-          {unreadNotes > 0 && (
-            <span className="font-pixel flex items-center justify-center absolute"
-              style={{
-                top: -7, right: -7,
-                minWidth: 18, height: 18, padding: '0 4px', fontSize: 6, color: '#FFF',
-                background: '#FF1D5E', borderRadius: 6,
-                boxShadow: '0 0 6px rgba(255,29,94,0.6)',
-              }}>
-              {unreadNotes > 9 ? '9+' : unreadNotes}
-            </span>
-          )}
-        </button>
-      </div>
-      )}
-
-      {/* ── Partner mood today ── */}
-      {partner && (() => {
-        const first = partner.name.split(' ')[0]
-        const theme = partnerMood ? MOOD_THEME[partnerMood] : null
-        const isLow = partnerMood ? LOW_MOODS.includes(partnerMood) : false
-        return (
-          <div className="mb-4 p-4 relative" style={OBSIDIAN_FACE}>
-            <Rivets inset={4} />
-            <div className="flex items-center gap-2 mb-3">
-              <ObsidianChip accentRgb="255,107,157">
-                <IconHeart size={12} />
-                <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>
-                  {first.toUpperCase()} TODAY
-                </span>
-              </ObsidianChip>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex-shrink-0" style={{
-                width: 64, height: 64,
-                filter: theme ? `drop-shadow(0 0 6px ${theme.glow})` : 'grayscale(0.5) brightness(0.7)',
-              }}>
-                <SketchEren state={partnerMood ? MOOD_SKETCH[partnerMood] : 'idle'} size={64} transparent noSpeech />
-              </div>
-              <div className="flex-1 min-w-0">
-                {partnerMood ? (
-                  <p className="font-pixel" style={{ fontSize: 9, lineHeight: 1.5, color: theme!.main, textShadow: `0 0 6px ${theme!.glow}` }}>
-                    {first} is feeling {MOOD_CONFIGS[partnerMood].label.toLowerCase()} today
-                  </p>
-                ) : (
-                  <p className="text-sm" style={{ color: '#9A8C70' }}>
-                    {first} hasn&apos;t checked in yet today
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* 7-day strip */}
-            <div className="flex justify-between mt-4">
-              {partnerMoodWeek.map(d => {
-                const dt = MOOD_THEME[d.mood ?? 'good']
-                return (
-                  <div key={d.date} className="flex flex-col items-center gap-1">
-                    <div style={{
-                      width: 14, height: 14, borderRadius: '50%',
-                      background: d.mood ? `linear-gradient(180deg, ${dt.main}, ${dt.dark})` : '#1a1a22',
-                      border: `1px solid ${d.mood ? dt.dark : 'rgba(255,255,255,0.08)'}`,
-                      boxShadow: d.mood ? `0 0 5px ${dt.glow}` : 'inset 0 1px 2px rgba(0,0,0,0.6)',
-                    }} />
-                    <span className="font-pixel" style={{ fontSize: 6, color: '#7A6A50' }}>
-                      {format(new Date(d.date + 'T12:00:00'), 'EEEEE')}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Response CTA */}
-            {partnerMood && (
-              <button
-                onClick={() => { playSound('ui_modal_open'); setShowSend(true) }}
-                className="w-full mt-4 px-4 py-2.5 flex items-center justify-center gap-2 relative active:translate-y-[1px] transition-transform"
-                style={{
-                  ...OBSIDIAN_BTN,
-                  border: isLow ? '1.5px solid rgba(255,107,157,0.5)' : `1px solid ${accentA(0.3)}`,
-                  boxShadow: isLow ? `0 0 12px rgba(255,107,157,0.25), ${OBSIDIAN_BTN.boxShadow}` : OBSIDIAN_BTN.boxShadow as string,
-                }}
-              >
-                <IconHeart size={12} />
-                <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 1, ...pinkText }}>
-                  {isLow ? `SEND ${first.toUpperCase()} SOME LOVE` : 'SEND A LITTLE LOVE'}
-                </span>
-                <span className="font-pixel" style={{ fontSize: 9, color: PINK }}>▶</span>
-              </button>
-            )}
-          </div>
-        )
-      })()}
-
-      {/* ── Love Meter (Care Battle) ──
-          Not gated on `partner`. Solo, useCouple seats Eren on the other side
-          with his weekly score, so this is the live race that Monday's
-          champion popup settles. It was hidden before, which meant a player
-          alone got the verdict without ever seeing the week it came from. */}
-      {loveMeter && (() => {
-        const u1Leading = loveMeter.leader === loveMeter.user1.id
-        const u2Leading = loveMeter.leader === loveMeter.user2.id
-        const diff = Math.abs(loveMeter.user1.score - loveMeter.user2.score)
-        const leaderName = u1Leading
-          ? (loveMeter.user1.id === user?.id ? 'YOU' : loveMeter.user1.name.split(' ')[0].toUpperCase())
-          : u2Leading
-            ? (loveMeter.user2.id === user?.id ? 'YOU' : loveMeter.user2.name.split(' ')[0].toUpperCase())
-            : null
-        return (
-        <div className="mb-4 p-4 relative overflow-hidden" style={OBSIDIAN_FACE}>
-          <Rivets inset={4} />
-          {/* Battle-y diagonal scanlines */}
-          <div className="absolute inset-0 opacity-[0.04] pointer-events-none"
-            style={{ backgroundImage: `repeating-linear-gradient(45deg, ${PINK} 0, ${PINK} 2px, transparent 2px, transparent 8px)` }} />
-
-          <div className="relative">
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <span className="flex-shrink-0">
-                <ObsidianChip accentRgb="245,200,66">
-                  <IconSwords size={14} />
-                  <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>CARE BATTLE</span>
-                </ObsidianChip>
-              </span>
-              {/* Was "THIS WEEK · RESETS IN 3D 1H" — long enough to wrap under
-                  the chip and collide with it on a 360 px screen. The card is
-                  already the week, so only the reset clock is worth the row. */}
-              {reset && (
-                <span className="font-pixel text-right flex-shrink-0"
-                  style={{ fontSize: 6, color: '#9A8A60', letterSpacing: 1, whiteSpace: 'nowrap' }}>
-                  RESETS IN {reset.days}D {reset.hours}H
-                </span>
-              )}
-            </div>
-
-            {/* VS display */}
-            <div className="flex items-center gap-3 mb-3">
-              {/* User 1 */}
-              <div className="flex-1 text-center">
-                <p className="font-pixel mb-1" style={{ fontSize: 7, letterSpacing: 1.5, color: PINK_HI, opacity: 0.85 }}>
-                  {loveMeter.user1.id === user?.id ? 'YOU' : loveMeter.user1.name.split(' ')[0].toUpperCase()}
-                </p>
-                <p
-                  key={`u1-${pulse1}`}
-                  className="font-pixel"
-                  style={{
-                    fontSize: 26, lineHeight: 1,
-                    animation: 'cbPopScore 0.4s cubic-bezier(0.34,1.56,0.64,1) both',
-                    ...(u1Leading ? pinkText : { color: '#5A5A5A' }),
-                  }}>
-                  {loveMeter.user1.score}
-                </p>
-                {u1Leading && (
-                  <div className="flex justify-center mt-1" style={{ animation: 'cbCrownBob 1.8s ease-in-out infinite' }}>
-                    <IconCrown size={18} />
-                  </div>
-                )}
-              </div>
-
-              {/* VS orb */}
-              <div className="flex items-center justify-center relative" style={{
-                width: 40, height: 40, ...OBSIDIAN_ORB,
-              }}>
-                <span className="font-pixel" style={{ fontSize: 9, ...pinkText }}>VS</span>
-              </div>
-
-              {/* User 2 */}
-              <div className="flex-1 text-center">
-                <p className="font-pixel mb-1" style={{ fontSize: 7, letterSpacing: 1.5, color: PINK_HI, opacity: 0.85 }}>
-                  {loveMeter.user2.id === user?.id ? 'YOU' : loveMeter.user2.name.split(' ')[0].toUpperCase()}
-                </p>
-                <p
-                  key={`u2-${pulse2}`}
-                  className="font-pixel"
-                  style={{
-                    fontSize: 26, lineHeight: 1,
-                    animation: 'cbPopScore 0.4s cubic-bezier(0.34,1.56,0.64,1) both',
-                    ...(u2Leading ? pinkText : { color: '#5A5A5A' }),
-                  }}>
-                  {loveMeter.user2.score}
-                </p>
-                {u2Leading && (
-                  <div className="flex justify-center mt-1" style={{ animation: 'cbCrownBob 1.8s ease-in-out infinite' }}>
-                    <IconCrown size={18} />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Competition bar — taller, animated flow on each side,
-                glowing split-line at the boundary, pulse on the
-                leader's section. */}
-            <div className="relative h-6 overflow-hidden" style={{
-              border: `2px solid ${accentA(0.6)}`,
-              background: 'linear-gradient(180deg, #000 0%, #050507 100%)',
-              boxShadow: `inset 0 2px 4px rgba(0,0,0,0.95), 0 0 12px ${accentA(0.4)}`,
-            }}>
-              {/* User 1 section */}
-              <div className="absolute left-0 top-0 h-full"
-                style={{
-                  width: `${loveMeter.user1.pct}%`,
-                  background: 'linear-gradient(180deg, #FF8DB8 0%, #FF4D87 50%, #C8265F 100%)',
-                  boxShadow: u1Leading
-                    ? 'inset 0 2px 0 rgba(255,255,255,0.45), inset 0 -2px 0 rgba(0,0,0,0.4), 0 0 12px rgba(255,109,157,0.7)'
-                    : 'inset 0 2px 0 rgba(255,255,255,0.25), inset 0 -2px 0 rgba(0,0,0,0.4)',
-                  transition: 'width 700ms cubic-bezier(0.34,1.4,0.55,1)',
-                  animation: u1Leading ? 'cbBarPulseL 1.6s ease-in-out infinite' : undefined,
-                }}>
-                {/* Flowing diagonal streaks moving toward the split */}
-                <div className="absolute inset-0" style={{
-                  backgroundImage: 'repeating-linear-gradient(-45deg, transparent 0 5px, rgba(255,255,255,0.22) 5px 7px)',
-                  backgroundSize: '11px 11px',
-                  animation: 'cbFlowR 1.1s linear infinite',
-                  mixBlendMode: 'screen',
-                }} />
-              </div>
-              {/* User 2 section */}
-              <div className="absolute top-0 h-full"
-                style={{
-                  left: `${loveMeter.user1.pct}%`,
-                  width: `${loveMeter.user2.pct}%`,
-                  background: 'linear-gradient(180deg, #C9B4FF 0%, #8A6CFF 50%, #5C2FE0 100%)',
-                  boxShadow: u2Leading
-                    ? 'inset 0 2px 0 rgba(255,255,255,0.45), inset 0 -2px 0 rgba(0,0,0,0.4), 0 0 12px rgba(167,139,250,0.7)'
-                    : 'inset 0 2px 0 rgba(255,255,255,0.25), inset 0 -2px 0 rgba(0,0,0,0.4)',
-                  transition: 'left 700ms cubic-bezier(0.34,1.4,0.55,1), width 700ms cubic-bezier(0.34,1.4,0.55,1)',
-                  animation: u2Leading ? 'cbBarPulseR 1.6s ease-in-out infinite' : undefined,
-                }}>
-                {/* Streaks flow the other way so the two halves visibly
-                    press against each other at the split. */}
-                <div className="absolute inset-0" style={{
-                  backgroundImage: 'repeating-linear-gradient(45deg, transparent 0 5px, rgba(255,255,255,0.22) 5px 7px)',
-                  backgroundSize: '11px 11px',
-                  animation: 'cbFlowL 1.1s linear infinite',
-                  mixBlendMode: 'screen',
-                }} />
-              </div>
-              {/* Glowing split-line */}
-              <div className="absolute top-0 bottom-0" style={{
-                left: `${loveMeter.user1.pct}%`,
-                width: 2,
-                background: '#fff',
-                boxShadow: '0 0 6px #fff, 0 0 14px rgba(255,255,255,0.7)',
-                transform: 'translateX(-1px)',
-                transition: 'left 700ms cubic-bezier(0.34,1.4,0.55,1)',
-              }} />
-            </div>
-
-            <div className="flex justify-between mt-1.5">
-              <span className="font-pixel" style={{
-                fontSize: 7, color: '#FF6B9D',
-                textShadow: u1Leading ? '0 0 6px rgba(255,107,157,0.7)' : 'none',
-              }}>{loveMeter.user1.pct}%</span>
-              <span className="font-pixel" style={{
-                fontSize: 7, color: '#A78BFA',
-                textShadow: u2Leading ? '0 0 6px rgba(167,139,250,0.7)' : 'none',
-              }}>{loveMeter.user2.pct}%</span>
-            </div>
-
-            {/* Verdict line */}
-            {leaderName && diff > 0 && (
-              <div className="flex items-center justify-center gap-1.5 mt-3 px-3 py-1.5 relative"
-                style={{
-                  ...OBSIDIAN_BTN,
-                  width: 'fit-content',
-                  margin: '12px auto 0',
-                }}>
-                <IconCrown size={11} />
-                <span className="font-pixel" style={{
-                  fontSize: 7, letterSpacing: 1.5, ...pinkText,
-                }}>
-                  {leaderName === 'YOU' ? 'YOU LEAD' : `${leaderName} LEADS`} BY {diff}
-                </span>
-              </div>
-            )}
-
-            {!loveMeter.leader && (
-              <p className="text-center font-pixel mt-3" style={{ fontSize: 7, color: PINK_LO, letterSpacing: 1.5 }}>
-                IT&apos;S A TIE!
-              </p>
-            )}
-
-            {/* ── Season strip ──
-                Lifetime W-T-L and the two current streaks. These used to be
-                two more full-width cards stacked below, identical in chrome to
-                this one; folded in here the page reads as ONE scoreboard and
-                loses ~240 px of scroll. Gold = whoever's ahead on that row. */}
-            {(() => {
-              const first = (partner?.name.split(' ')[0] ?? EREN_OPPONENT_NAME).toUpperCase()
-              const rec = lifetimeWLT && lifetimeWLT.days > 0 ? lifetimeWLT : null
-              const mine   = myStreak.current ?? 0
-              const theirs = partnerStreak?.current ?? 0
-              // Eren keeps no care streak of his own — he is a pace-setter, not
-              // a second carer — so solo this row is one side only rather than
-              // a comparison against a permanent zero.
-              const hasStreak = isSolo ? mine > 0 : (mine > 0 || theirs > 0)
-              if (!rec && !hasStreak) return null
-
-              const label: React.CSSProperties = {
-                fontSize: 6, color: '#7A6A75', letterSpacing: 1.5,
+      <JournalSheet
+        open={journalOpen}
+        onClose={closeJournal}
+        catName={cat.name}
+        messages={messages}
+        isSolo={isSolo}
+        partnerName={them?.name ?? null}
+        onSend={sendToJournal}
+        onHold={holdMessage}
+        error={journalError}
+        overlay={actionOn && (
+          <MessageActions
+            target="message"
+            targetId={actionOn.id}
+            what="this message"
+            preview={actionOn.message}
+            onDelete={actionOn.sender_id === user.id
+              ? async () => {
+                const ok = await deleteMessage(actionOn.id)
+                if (!ok) setJournalError("That message couldn't be deleted. Try again.")
               }
-              const best: React.CSSProperties = { fontSize: 5, color: '#5A4A55', letterSpacing: 0.5 }
-              const dot = <span className="font-pixel" style={{ fontSize: 7, color: '#4A3A45' }}>·</span>
+              : undefined}
+            onClose={() => setActionOn(null)}
+          />
+        )}
+      />
 
-              return (
-                <div className="mt-4 pt-3 flex flex-col gap-2.5"
-                  style={{ borderTop: `1px solid ${accentA(0.16)}` }}>
-                  {rec && (
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-pixel flex items-center gap-1.5 flex-shrink-0" style={label}>
-                        <IconTrophy size={11} />
-                        RECORD
-                      </span>
-                      <span className="font-pixel flex items-center gap-2" style={{ fontSize: 7, letterSpacing: 1 }}>
-                        <span style={{ color: rec.myWins > rec.partnerWins ? '#FFD650' : PINK_HI }}>
-                          YOU {rec.myWins}
-                        </span>
-                        {dot}
-                        <span style={{ color: '#7A6A75' }}>TIE {rec.ties}</span>
-                        {dot}
-                        <span style={{ color: rec.partnerWins > rec.myWins ? '#FFD650' : '#C4B5FD' }}>
-                          {first} {rec.partnerWins}
-                        </span>
-                      </span>
-                    </div>
-                  )}
-
-                  {hasStreak && (
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-pixel flex items-center gap-1.5 flex-shrink-0" style={label}>
-                        <IconFire size={11} />
-                        STREAK
-                      </span>
-                      <span className="font-pixel flex items-baseline gap-2" style={{ fontSize: 7, letterSpacing: 1 }}>
-                        <span style={{ color: mine > theirs ? '#FFB347' : PINK_HI }}>YOU {mine}</span>
-                        <span style={best}>BEST {myStreak.best ?? 0}</span>
-                        {!isSolo && dot}
-                        {!isSolo && <span style={{ color: theirs > mine ? '#FFB347' : '#C4B5FD' }}>{first} {theirs}</span>}
-                        {!isSolo && <span style={best}>BEST {partnerStreak?.best ?? 0}</span>}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
-          </div>
-
-          <style jsx>{`
-            @keyframes cbFlowR {
-              from { background-position: 0 0; }
-              to   { background-position: 11px 0; }
-            }
-            @keyframes cbFlowL {
-              from { background-position: 0 0; }
-              to   { background-position: -11px 0; }
-            }
-            @keyframes cbBarPulseL {
-              0%, 100% { filter: brightness(1); }
-              50%      { filter: brightness(1.18); }
-            }
-            @keyframes cbBarPulseR {
-              0%, 100% { filter: brightness(1); }
-              50%      { filter: brightness(1.18); }
-            }
-            @keyframes cbPopScore {
-              0%   { transform: scale(0.6); opacity: 0.4; }
-              60%  { transform: scale(1.18); opacity: 1; }
-              100% { transform: scale(1); opacity: 1; }
-            }
-            @keyframes cbCrownBob {
-              0%, 100% { transform: translateY(0)    rotate(-2deg); }
-              50%      { transform: translateY(-2px) rotate(2deg); }
-            }
-          `}</style>
-        </div>
-        )
-      })()}
-
-      {/* ── Shared Journal ── */}
-      <div className="mb-4">
-        <div className="flex items-center gap-2 mb-3">
-          <ObsidianChip accentRgb="167,139,250">
-            <IconEnvelope size={14} />
-            <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, ...pinkText }}>EREN&apos;S JOURNAL</span>
-          </ObsidianChip>
-        </div>
-
-        {/* Compose */}
-        <div className="flex gap-2 mb-3">
-          <div className="flex-1 relative" style={{ ...OBSIDIAN_BTN, padding: 0 }}>
-            <Rivets inset={3} />
-            <input
-              className="w-full px-3 py-2.5 text-sm bg-transparent outline-none"
-              style={{ color: '#E8E0D0' }}
-              placeholder={isSolo ? 'Write something in the journal...' : 'Write a message for your partner...'}
-              value={msg}
-              onChange={e => setMsg(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSend()}
-              maxLength={500}
-            />
-          </div>
-          <button onClick={() => { playSound('ui_tap'); handleSend() }} disabled={!msg.trim() || sending}
-            className="flex items-center justify-center active:translate-y-[1px] transition-all disabled:opacity-40 relative"
-            style={{ width: 42, height: 42, ...OBSIDIAN_BTN }}>
-            <Rivets inset={2} />
-            <Send size={16} style={{ color: PINK_HI, filter: `drop-shadow(0 0 3px ${accentA(0.67)})` }} />
-          </button>
-        </div>
-
-        {/* Solo there is nobody to deliver to, but the entries are not wasted:
-            the journal is the household's, so whoever joins later reads back
-            everything already written in it. */}
-        <p className="text-xs mb-3 flex items-center gap-1.5" style={{ color: '#7A6A50' }}>
-          {isSolo
-            ? 'Eren keeps the journal. Whoever joins your home reads it too'
-            : 'Eren will deliver your message to your partner'}
-          <IconPaw size={12} />
-        </p>
-
-        {/* Messages */}
-        <div className="flex flex-col gap-2">
-          {journal.length === 0 && (
-            <p className="text-center text-sm py-4" style={{ color: '#7A6A50' }}>
-              {isSolo ? 'Nothing written yet. Eren is listening.' : 'No messages yet. Send the first one!'}
-            </p>
-          )}
-          {journal.map(m => {
-            const isMe = m.sender_id === user?.id
-            return (
-              <div key={m.id} className="flex gap-2"
-                style={{ flexDirection: isMe ? 'row-reverse' : 'row' }}>
-                {!isMe && (
-                  <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center relative"
-                    style={OBSIDIAN_ORB}>
-                    <img src="/erenGood.png" alt="" style={{ width: 18, height: 18, objectFit: 'contain', imageRendering: 'pixelated' }} />
-                  </div>
-                )}
-                <div {...bindHold(m)} className="max-w-[75%] px-3 py-2 relative" style={{
-                  ...OBSIDIAN_FACE,
-                  // Subtle border tint difference so "me" vs partner reads at
-                  // a glance — purple-bright vs cool lavender — alongside the
-                  // mirrored bottom border-radius.
-                  borderColor: isMe ? `${accentA(0.47)}` : '#C4B5FD55',
-                  borderRadius: isMe ? '6px 6px 2px 6px' : '6px 6px 6px 2px',
-                  // Without these a hold raises the OS selection menu over the
-                  // sheet it just opened.
-                  userSelect: 'none',
-                  WebkitTouchCallout: 'none',
-                }}>
-                  <p className="text-sm" style={{ color: '#E8E0D0' }}>{m.message}</p>
-                  <p className="text-[9px] mt-1" style={{ color: '#7A6A50' }}>
-                    {format(new Date(m.created_at), 'MMM d, h:mm a')}
-                  </p>
-                </div>
-              </div>
-            )
-          })}
-          {journal.length > 0 && (
-            <p className="text-center text-[10px] pt-1" style={{ color: '#5A4A40' }}>
-              Hold a message to report or delete it
-            </p>
-          )}
-        </div>
-      </div>
-
-      {actionOn && (
-        <MessageActions
-          target="message"
-          targetId={actionOn.id}
-          what="this message"
-          preview={actionOn.message}
-          onDelete={actionOn.sender_id === user?.id
-            ? async () => { await deleteMessage(actionOn.id) }
-            : undefined}
-          onClose={() => setActionOn(null)}
-        />
-      )}
-
-      {showSend && partner && (
-        <SendErenSheet
-          partnerName={partner.name}
-          onSend={sendNudge}
-          onClose={() => setShowSend(false)}
-        />
-      )}
-
-      {/* Weekly Champion popup — fires once per ISO week per user. The
-          local dismissed flag hides it instantly; the server ack call
-          fires fire-and-forget so it doesn't return on next page load. */}
-      {/* No longer gated on `partner`: a household of one settles last week
-          against Eren, and the row now exists for them too. */}
+      {/* Last week's care battle, once per ISO week per user. Not gated on a
+          partner: a household of one settles the week against the cat. The
+          local flag hides it at once; the ack is fire-and-forget. */}
       {weeklyChampion && !weeklyChampion.acknowledged && !weeklyDismissed && (
         <WeeklyChampionPopup
           row={weeklyChampion}
-          partnerFirstName={partner ? partner.name.split(' ')[0] : EREN_OPPONENT_NAME}
+          partnerFirstName={them?.name ?? cat.name}
           onClaim={claimWeeklyChampion}
           onClose={() => {
             setWeeklyDismissed(true)
@@ -759,6 +334,6 @@ export default function CouplePage() {
           }}
         />
       )}
-    </div>
+    </>
   )
 }
