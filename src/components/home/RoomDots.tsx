@@ -6,7 +6,8 @@
 // one dot per swipe room, each a shortcut into it. Hidden the rest of the time.
 //
 // Meadow piece over room art: white, the over-art lip, no border, no blur. It
-// sits 12px above the stage floor, which is the bottom nav's top edge.
+// sits `bottom` px above the stage floor (the bottom nav's top edge), which
+// home sets to clear the dock standing on that floor.
 //
 // Presentational: the page decides when it shows and what a tap opens.
 
@@ -21,15 +22,17 @@ const LABEL: Record<string, string> = Object.fromEntries(ROOMS.map((r: RoomDef) 
 
 export interface RoomDotsProps {
   visible: boolean
+  /** Distance above the stage floor, in px. */
+  bottom?: number
   onOpen: (room: SwipeRoomId) => void
 }
 
-export default function RoomDots({ visible, onOpen }: RoomDotsProps) {
+export default function RoomDots({ visible, bottom = 12, onOpen }: RoomDotsProps) {
   return (
     <div className="absolute left-1/2 z-10 flex items-center"
       aria-hidden={!visible}
       style={{
-        bottom: 12, transform: 'translateX(-50%)', padding: '0 6px',
+        bottom, transform: 'translateX(-50%)', padding: '0 6px',
         background: '#FFFFFF', borderRadius: 999, boxShadow: `0 3px 0 ${M.overArtLip}`,
         opacity: visible ? 1 : 0,
         transition: 'opacity 0.3s ease',

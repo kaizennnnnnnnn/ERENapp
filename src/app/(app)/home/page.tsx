@@ -32,6 +32,7 @@ import { useNewSkins } from '@/hooks/useNewSkins'
 import HomeRoomFrame, { homeRoomArt } from '@/components/home/HomeRoomFrame'
 import HomeHud from '@/components/home/HomeHud'
 import RoomDots from '@/components/home/RoomDots'
+import HomeDock, { DOCK_CLEARANCE } from '@/components/home/DockButtons'
 import { useHideBottomNav } from '@/components/nav/NavVisibility'
 import FortunePopup from '@/components/fortune/FortunePopup'
 import ErenMessagePopup from '@/components/couple/ErenMessagePopup'
@@ -580,12 +581,12 @@ export default function HomePage() {
       ))}
 
       {/* ── Toast ── */}
-      {/* Above the nav, clear of the swipe dots: the top of the screen is the
-          stats header's, which sits over anything here. */}
+      {/* Above the nav and the dock on its floor: the top of the screen is
+          the stats header's, which sits over anything here. */}
       {toast && (
         <div role="status" className="meadow-root fixed left-1/2 -translate-x-1/2 z-50 flex items-center whitespace-nowrap pointer-events-none"
           style={{
-            bottom: `calc(${NAV_HEIGHT} + 48px)`, gap: 8, padding: '10px 16px 10px 12px',
+            bottom: `calc(${NAV_HEIGHT} + ${DOCK_CLEARANCE}px)`, gap: 8, padding: '10px 16px 10px 12px',
             background: '#FFFFFF', borderRadius: 999, boxShadow: `0 3px 0 ${M.overArtLip}`,
             fontSize: 15, fontWeight: 800, color: M.text,
           }}>
@@ -799,15 +800,16 @@ export default function HomePage() {
         />
 
         {/* Where you are among the swipe rooms. Only while swiping or a room
-            is opening; sits just above the nav. */}
-        <RoomDots visible={dotsVisible} onOpen={id => { playSound('ui_tap'); openScene(id) }} />
+            is opening; sits just above the dock. */}
+        <RoomDots visible={dotsVisible} bottom={DOCK_CLEARANCE} onOpen={id => { playSound('ui_tap'); openScene(id) }} />
 
         {/* switchTop pushed below the home HUD row so it doesn't sit on top of
             the quest panel. */}
         <LightSwitch switchTop="30%" targetBottom="10%" targetLeft="50%" persistKey="home" />
 
-        {/* The gacha / bakery / shawarma / jelly dock that sat on the floor
-            here moved to the Play page's Places. */}
+        {/* ══ BOTTOM DOCK ══ gacha · cake · shawarma · jelly, on the floor of
+            the room, just above the nav. */}
+        <HomeDock />
       </HomeRoomFrame>
     </>
   )

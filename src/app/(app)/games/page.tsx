@@ -3,8 +3,8 @@
 // ─── Play tab: the arcade ────────────────────────────────────────────────────
 // Data container for the Meadow arcade (components/arcade/ArcadeView renders
 // it). Owns: the game catalogue, the player's best scores, this week's games-won
-// standings, today's wish when it is a game, and the Places moved here from the
-// home dock (gacha, bakery, shawarma, jelly), which keep their cloud flights.
+// standings, and today's wish when it is a game. The places (gacha, bakery,
+// shawarma, jelly) are the home dock's, not the arcade's.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -18,11 +18,9 @@ import { useCare } from '@/contexts/CareContext'
 import { useTasks } from '@/contexts/TaskContext'
 import { useWish } from '@/contexts/WishContext'
 import type { UseDailyWishResult } from '@/hooks/useDailyWish'
-import { requestCloudNav, type CloudTheme } from '@/components/CloudTransition'
-import { IconCake, IconCapsule, IconJelly, IconShawarma } from '@/components/PixelIcons'
-import { PERSON, TINT, personColor } from '@/components/meadow'
+import { PERSON, personColor } from '@/components/meadow'
 import ArcadeView, {
-  type ArcadeGame, type ArcadePlace, type ArcadeScores, type ArcadeWeek, type ArcadeWish,
+  type ArcadeGame, type ArcadeScores, type ArcadeWeek, type ArcadeWish,
 } from '@/components/arcade/ArcadeView'
 import Leaderboard from '@/components/Leaderboard'
 import WeeklyGamesChampionPopup from '@/components/games/WeeklyGamesChampionPopup'
@@ -48,16 +46,6 @@ const GAMES: readonly ArcadeGame[] = [
   { id: 'paw_doku', href: '/games/paw-doku', title: 'Paw Doku' },
   { id: 'yarn_sort', href: '/games/yarn-sort', title: 'Yarn Sort' },
   { id: 'purr_beat', href: '/games/purr-beat', title: 'Purr Beat' },
-]
-
-// The four places that lived in the home dock. Each keeps the cloud flight it
-// had there: rainbow for the lucky gacha, pink for the bakery, soot for the
-// kiosk, mint for the parlour.
-const PLACES: ReadonlyArray<ArcadePlace & { theme: CloudTheme }> = [
-  { id: 'gacha', href: '/gacha', title: 'Gacha', blurb: 'Pull for skins', Icon: IconCapsule, tint: TINT.lilac, theme: 'rainbow' },
-  { id: 'bakery', href: '/bakery', title: 'Bakery', blurb: 'Cakes & donuts', Icon: IconCake, tint: TINT.love, theme: 'pink' },
-  { id: 'shawarma', href: '/shawarma', title: 'Shawarma', blurb: 'Work a shift', Icon: IconShawarma, tint: TINT.orange, theme: 'smoke' },
-  { id: 'jelly', href: '/jelly', title: 'Jelly Parlour', blurb: 'Daily jelly tray', Icon: IconJelly, tint: TINT.leaf, theme: 'mint' },
 ]
 
 const PLAYABLE = new Set<GameType>(PLAYABLE_MINIGAME_IDS)
@@ -179,12 +167,6 @@ export default function GamesPage() {
     granted: wishState?.status === 'granted',
   } : null
 
-  const openPlace = useCallback((place: ArcadePlace) => {
-    const def = PLACES.find(p => p.id === place.id)
-    playSound('ui_tap')
-    requestCloudNav(place.href, def?.theme ?? 'pink')
-  }, [])
-
   return (
     <>
       <ArcadeView
@@ -193,10 +175,8 @@ export default function GamesPage() {
         wish={wish}
         games={GAMES}
         scores={scores}
-        places={PLACES}
         onOpenWeek={() => { playSound('ui_tap'); setBoardOpen(true) }}
         onGameTap={() => playSound('ui_tap')}
-        onOpenPlace={openPlace}
       />
 
       {boardOpen && <Leaderboard onClose={() => setBoardOpen(false)} />}

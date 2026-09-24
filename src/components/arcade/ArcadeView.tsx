@@ -2,9 +2,8 @@
 
 // ─── Arcade (the Play tab), presentational ───────────────────────────────────
 // Meadow board A5 on the mint ground: title + coins, the "games won this week"
-// strip, the wish card when today's wish is a game, every game as a 2-column
-// grid of tiles with the player's best, and the Places the home dock used to
-// hold (gacha, bakery, shawarma, jelly).
+// strip, the wish card when today's wish is a game, and every game as a
+// 2-column grid of tiles with the player's best.
 //
 // Plain props only: app/(app)/games/page.tsx owns every fetch and hook and
 // hands this the results, so the same view renders from demo data in a
@@ -12,7 +11,7 @@
 // never a confident 0 or "not played".
 
 import Link from 'next/link'
-import type { ComponentType, CSSProperties, MouseEventHandler, ReactNode } from 'react'
+import type { CSSProperties, MouseEventHandler, ReactNode } from 'react'
 import {
   CoinChip, MeadowPage, PrimaryButton, SectionLabel, Tag,
   GAME_ICON, GAME_TINT, M, MeadowIcon, TINT, FONT_ROUNDED, TYPE,
@@ -47,16 +46,6 @@ export interface ArcadeWish {
   granted: boolean
 }
 
-export interface ArcadePlace {
-  id: string
-  href: string
-  title: string
-  blurb: string
-  /** The place's own pixel icon (the rooms keep their icons, like the Rooms sheet). */
-  Icon: ComponentType<{ size?: number }>
-  tint: string
-}
-
 export interface ArcadeViewProps {
   /** Wallet balance; null until the profile has loaded. */
   coins: number | null
@@ -65,16 +54,14 @@ export interface ArcadeViewProps {
   wish: ArcadeWish | null
   games: readonly ArcadeGame[]
   scores: ArcadeScores
-  places: readonly ArcadePlace[]
   onOpenWeek?: () => void
   onGameTap?: (game: ArcadeGame) => void
-  onOpenPlace: (place: ArcadePlace) => void
 }
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function ArcadeView({
-  coins, week, wish, games, scores, places, onOpenWeek, onGameTap, onOpenPlace,
+  coins, week, wish, games, scores, onOpenWeek, onGameTap,
 }: ArcadeViewProps) {
   // The wished game gets the big card, so the grid leaves it out (the board
   // lists ten tiles under a Yarn Pop wish).
@@ -97,21 +84,6 @@ export default function ArcadeView({
             title={game.title}
             detail={<BestLine id={game.id} scores={scores} />}
             ariaLabel={`${game.title}, ${bestSpeech(game.id, scores)}`}
-          />
-        ))}
-      </div>
-
-      <SectionLabel>Places</SectionLabel>
-      <div style={GRID}>
-        {places.map(place => (
-          <Tile
-            key={place.id}
-            href={place.href}
-            onClick={e => { e.preventDefault(); onOpenPlace(place) }}
-            icon={<place.Icon size={36} />}
-            tint={place.tint}
-            title={place.title}
-            detail={place.blurb}
           />
         ))}
       </div>
@@ -303,7 +275,7 @@ function WishCard({ wish, scores, onPlay }: {
 // The board's wish tag is a hair smaller than the kit's md tag: 26 tall, 11px.
 const WISH_TAG: CSSProperties = { height: 26, fontSize: 11, letterSpacing: '0.05em', padding: '0 10px 0 7px', maxWidth: '100%' }
 
-// ─── Tile (a game or a place) ────────────────────────────────────────────────
+// ─── Tile (a game) ───────────────────────────────────────────────────────────
 
 function Tile({ href, onClick, icon, tint, title, detail, ariaLabel }: {
   href: string
