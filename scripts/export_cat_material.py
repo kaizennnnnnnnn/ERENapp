@@ -171,6 +171,38 @@ def decode(mat, names, fixed, parts, pattern, eyes, nose):
     return out
 
 
+def layer_maps(mat):
+    """Material maps for the two layers the app actually draws.
+
+    Home's Eren is not erenGood.png but erenGood_notail.png with
+    erenGood_tail.png swaying underneath it (BlinkingEren), so a recoloured
+    cat needs a map per layer. Measured: wherever the body layer is opaque the
+    composed sprite IS the body layer (the tail sits behind), so the body map is
+    the composed map under the body layer's alpha. The tail map is the composed
+    map under the tail's alpha, except for the ~900 tail pixels hidden behind
+    the body, which the composed map knows nothing about: they borrow part and
+    t from the nearest visible tail pixel -- they only peek out mid-sway.
+    """
+    tail = L.load(P.SRC_TAIL)
+    notail = L.load(P.SRC_NOTAIL)
+    a_nt = np.clip(np.rint(notail[..., 3]), 0, 255).astype(np.uint8)
+    a_t = np.clip(np.rint(tail[..., 3]), 0, 255).astype(np.uint8)
+    body = mat.copy()
+    body[..., 3] = a_nt
+    tl = mat.copy()
+    tl[..., 3] = a_t
+    hidden = (a_t > C.ALPHA_FLOOR) & (a_nt > C.ALPHA_FLOOR)
+    visible = (a_t > C.ALPHA_FLOOR) & (a_nt <= C.ALPHA_FLOOR)
+    _, idx = ndimage.distance_transform_edt(~visible, return_indices=True)
+    near = mat[idx[0], idx[1]]
+    tl[hidden, 0:3] = near[hidden, 0:3]
+    # Nothing under alpha 0 is ever drawn, and zeroing it is what lets the tail
+    # map (5% of the canvas) compress to a fraction of the body map's size.
+    for m in (body, tl):
+        m[m[..., 3] == 0] = 0
+    return body, tl
+
+
 def main():
     out_dir = sys.argv[1]
     width = int(sys.argv[2]) if len(sys.argv) > 2 else None
@@ -188,6 +220,11 @@ def main():
     with open(os.path.join(out_dir, 'eren_material.json'), 'w') as fp:
         json.dump(meta, fp, separators=(',', ':'))
     print('%s  %dx%d  %.0fKB' % (p, mat.shape[1], mat.shape[0], os.path.getsize(p) / 1024.0))
+    if width is None:
+        for name, layer in zip(('eren_notail_mat.png', 'eren_tail_mat.png'), layer_maps(mat)):
+            lp = os.path.join(out_dir, name)
+            Image.fromarray(layer, 'RGBA').save(lp, optimize=True)
+            print('%s  %.0fKB' % (lp, os.path.getsize(lp) / 1024.0))
 
     # The map is only worth anything if decoding it reproduces the direct
     # render, so that is asserted rather than assumed -- including a tabby and a
