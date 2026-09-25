@@ -47,14 +47,18 @@ function coinCountFor(amount: number): number {
 }
 
 /**
- * Same grouping as the Meadow CoinChip ("1 234"), until six digits: from
- * 100 000 it reads "123k", so a big balance can't squeeze the needs pill on
- * a narrow phone. The exact amount stays in the aria-label and the shops.
+ * Same grouping as the Meadow CoinChip ("1 234") up to four digits; from
+ * 10 000 it reads "12k", so a big balance can't squeeze the needs off the
+ * middle of a phone. The exact amount stays in the aria-label and the shops.
  */
 function formatCoins(n: number): string {
-  if (n >= 100_000) return `${Math.floor(n / 1000)}k`
+  if (n >= 10_000) return `${Math.floor(n / 1000)}k`
   return n.toLocaleString('en-US').replace(/,/g, ' ')
 }
+
+/** The level circle's diameter, and the coin pill's width at three digits. */
+const LEVEL_D = 48
+const COIN_PILL_GUESS = 74
 
 /** The level ring's radius and circumference, in the 48px circle's own units. */
 const RING_R = 21
@@ -258,6 +262,20 @@ export default function StatsHeader() {
 
   const unclaimedRewards = Math.max(0, Math.min(level, MAX_LEVEL) - claimedLevel)
 
+  // The needs sit dead centre on the screen: both side slots take the wider of
+  // the level circle and the coin pill, measured, because the coin pill grows
+  // with the balance and the circle doesn't. Re-armed when the bar reappears.
+  const [sideW, setSideW] = useState(COIN_PILL_GUESS)
+  useEffect(() => {
+    const el = coinChipRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => {
+      setSideW(Math.max(LEVEL_D, Math.ceil(el.getBoundingClientRect().width)))
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [hideStats])
+
   if (hideStats) return null
 
   const badge = unclaimedRewards > 99 ? '99+' : String(unclaimedRewards)
@@ -268,8 +286,10 @@ export default function StatsHeader() {
   return (
     // The row itself lets taps through (the layout's wrapper is
     // pointer-events: none); only the three pieces catch them.
-    <div className="w-full flex items-center justify-between" style={{
-      paddingTop: 'calc(var(--safe-top) + 6px)', paddingLeft: 16, paddingRight: 16, gap: 8,
+    <div className="w-full" style={{
+      display: 'grid', gridTemplateColumns: `${sideW}px minmax(0, 1fr) ${sideW}px`,
+      alignItems: 'center', columnGap: 8,
+      paddingTop: 'calc(var(--safe-top) + 6px)', paddingLeft: 16, paddingRight: 16,
       color: M.text,
     }}>
       {/* ── Level: the ring is this level's XP. Tap: the reward road. Closes
@@ -282,8 +302,8 @@ export default function StatsHeader() {
         onClick={() => { closeScene(); playSound('ui_tap') }}
         className="m-press m-focus"
         style={{
-          ...OVER_ART, pointerEvents: 'auto', position: 'relative', flexShrink: 0,
-          width: 48, height: 48, borderRadius: 999,
+          ...OVER_ART, pointerEvents: 'auto', position: 'relative', justifySelf: 'start',
+          width: LEVEL_D, height: LEVEL_D, borderRadius: 999,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           textDecoration: 'none', color: M.text,
         }}
@@ -352,11 +372,14 @@ export default function StatsHeader() {
         ))}
       </Link>
 
-      {/* ── The cat's needs: five glasses of water in one pill. ── */}
+      {/* ── The cat's needs: five glasses of water in one pill, centred.
+          The glasses shrink (32px down to 24) before the pill outgrows the
+          middle column. ── */}
       <div role="group" aria-label="Needs" style={{
-        ...OVER_ART, pointerEvents: 'auto', flex: '0 1 216px', minWidth: 0,
-        height: 48, boxSizing: 'border-box', padding: '0 6px', borderRadius: 999,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-evenly', gap: 4,
+        ...OVER_ART, pointerEvents: 'auto', justifySelf: 'center',
+        width: 'fit-content', maxWidth: '100%', minWidth: 0,
+        height: 48, boxSizing: 'border-box', padding: '0 8px', borderRadius: 999,
+        display: 'flex', alignItems: 'center', gap: 8,
       }}>
         {GAUGES.map(def => {
           const raw = stats ? (stats as unknown as Record<string, unknown>)[def.key] : null
@@ -371,13 +394,13 @@ export default function StatsHeader() {
         role="img"
         aria-label={`${coins} coins`}
         style={{
-          ...OVER_ART, pointerEvents: 'auto', flexShrink: 0,
-          height: 40, boxSizing: 'border-box', padding: '0 16px 0 9px', borderRadius: 999,
-          display: 'inline-flex', alignItems: 'center', gap: 7,
-          fontSize: 17, ...TYPE.number,
+          ...OVER_ART, pointerEvents: 'auto', justifySelf: 'end',
+          height: 40, boxSizing: 'border-box', padding: '0 12px 0 8px', borderRadius: 999,
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          fontSize: 16, whiteSpace: 'nowrap', ...TYPE.number,
         }}
       >
-        <MeadowIcon name="coin" />
+        <MeadowIcon name="coin" size={20} />
         <span key={coinPop} style={{
           display: 'inline-block',
           animation: coinPop ? 'hudNumPop 450ms cubic-bezier(0.16,1,0.3,1)' : undefined,
