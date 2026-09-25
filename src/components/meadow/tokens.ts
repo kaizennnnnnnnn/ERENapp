@@ -161,3 +161,11 @@ export const MOOD_STYLE: Record<UserMood, {
 // NAV_PAGE_PADDING so the last card clears it with air.
 export const NAV_HEIGHT = 'calc(60px + max(24px, env(safe-area-inset-bottom, 0px)))'
 export const NAV_PAGE_PADDING = 'calc(84px + env(safe-area-inset-bottom, 0px) + 28px)'
+
+/**
+ * The top bar (StatsHeader): 6px under the safe area, a 48px row, its 3px lip
+ * and 7px of air. A screen that shows the bar starts its own content this far
+ * below the safe area: `calc(var(--safe-top) + ${HEADER_CLEARANCE}px)`.
+ * globals.css .page-scroll repeats the number (CSS can't import it).
+ */
+export const HEADER_CLEARANCE = 64

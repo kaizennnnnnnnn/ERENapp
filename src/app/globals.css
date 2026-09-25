@@ -172,9 +172,9 @@
   /* ── Page scroll area (above bottom nav) ── */
   .page-scroll {
     @apply pb-8 px-4 overflow-y-auto;
-    /* StatsHeader is 120px tall; add the iOS safe-area on top so the
-       first row of content clears the (now safe-area-padded) header. */
-    padding-top: calc(120px + var(--safe-top));
+    /* The top bar (StatsHeader) takes HEADER_CLEARANCE (meadow/tokens) below
+       the iOS safe area; the first row of content starts there. */
+    padding-top: calc(64px + var(--safe-top));
     min-height: 100dvh;
   }
 

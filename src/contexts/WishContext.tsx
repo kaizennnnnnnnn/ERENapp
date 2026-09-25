@@ -4,8 +4,8 @@
 // WishContext — Phase 3.
 //
 // One useDailyWish instance for the whole app, shared via context. WishCloud,
-// WishChip, and WishHintBanner all read from here, so we don't end up with
-// three concurrent realtime channels racing for the same row.
+// WishHintBanner and the arcade's wish card all read from here, so we don't end up with
+// concurrent realtime channels racing for the same row.
 // ═════════════════════════════════════════════════════════════════════════════
 
 import { createContext, useContext, useMemo } from 'react'

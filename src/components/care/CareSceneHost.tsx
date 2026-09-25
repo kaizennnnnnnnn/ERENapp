@@ -9,6 +9,7 @@ import AnimatedEren from '@/components/AnimatedEren'
 import { playSound } from '@/lib/sounds'
 import { useIsDark } from '@/hooks/useIsDark'
 import CurtainGlitter from '@/components/CurtainGlitter'
+import { HEADER_CLEARANCE } from '@/components/meadow/tokens'
 
 // Scenes are lazy chunks instead of static imports so the ~560 KB of room
 // code stays out of the shared (app) layout bundle every route parses.
@@ -496,7 +497,7 @@ export default function CareSceneHost() {
       {ready && (
         <div className="fixed left-1/2 z-[55] pointer-events-none"
           style={{
-            top: 'calc(var(--safe-top) + 120px)',
+            top: `calc(var(--safe-top) + ${HEADER_CLEARANCE}px)`,
             transform: 'translateX(-50%)',
             opacity: labelVisible ? 1 : 0,
             transition: 'opacity 0.3s ease',

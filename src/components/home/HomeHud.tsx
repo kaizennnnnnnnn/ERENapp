@@ -17,6 +17,7 @@ import type { ReactNode } from 'react'
 import { IconBell, IconDress, IconGift, IconPhoto, IconTrophyTier } from '@/components/PixelIcons'
 import { cuteBtn, CuteIcon } from '@/components/obsidian'
 import { playSound } from '@/lib/sounds'
+import { HEADER_CLEARANCE } from '@/components/meadow/tokens'
 
 export interface HomeHudProps {
   /** The quests bar (TaskPanel compact); flexes to fill the row. */
@@ -42,7 +43,7 @@ export default function HomeHud({
 }: HomeHudProps) {
   const tap = () => playSound('ui_tap')
   return (
-    <div className="absolute left-0 right-0 z-10 px-3" style={{ top: 'calc(var(--safe-top) + 124px)' }}>
+    <div className="absolute left-0 right-0 z-10 px-3" style={{ top: `calc(var(--safe-top) + ${HEADER_CLEARANCE}px)` }}>
       <div className="flex items-center gap-1">
         {/* Quests — flexes to take remaining space */}
         <div className="flex-1 min-w-0">{quests}</div>

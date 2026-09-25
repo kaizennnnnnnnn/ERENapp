@@ -12,7 +12,6 @@ import MoodGate from '@/components/MoodGate'
 import type { UserMood } from '@/types'
 import { useCare } from '@/contexts/CareContext'
 import { useTasks } from '@/contexts/TaskContext'
-import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
 import { Sparkles } from 'lucide-react'
 import { IconHeart, MeadowIcon } from '@/components/PixelIcons'
 import { M, NAV_HEIGHT } from '@/components/meadow/tokens'
@@ -93,7 +92,7 @@ export default function HomePage() {
   const { user, profile, loading: authLoading } = useAuth()
   const { stats, loading } = useErenStats(profile?.household_id ?? null)
   const { setIsSick, openScene, setHideStats, activeScene } = useCare()
-  const { xp, level } = useTasks()
+  const { xp } = useTasks()
   useTimeTracking(user?.id ?? null)
   const { canClaim: fortuneAvailable } = useFortune()
   const { newMessage, dismissPopup, partner, isSolo, sendNudge, partnerMood, lifetimeWLT, giftArrivals, markGiftsSeen } = useCouple()
@@ -132,10 +131,7 @@ export default function HomePage() {
 
   useEffect(() => { if (activeScene) flashDots() }, [activeScene, flashDots])
 
-  // XP bar
-  const xpIntoLevel = xp - totalXpForLevel(level)
-  const xpNeeded    = xpForNextLevel(level)
-  const xpPct       = Math.min(100, Math.round((xpIntoLevel / xpNeeded) * 100))
+  // XP sparkles fly from Eren into the top bar's level ring
   const prevXpRef   = useRef(xp)
   const particleIdRef = useRef(0)
   const [xpParticles, setXpParticles] = useState<XpParticle[]>([])
@@ -216,7 +212,8 @@ export default function HomePage() {
     const barRect  = barEl.getBoundingClientRect()
     const srcX = erenRect.left + erenRect.width / 2
     const srcY = erenRect.top  + erenRect.height * 0.2
-    const dstX = barRect.left  + barRect.width * (xpPct / 100)
+    // Into the middle of the top bar's level ring.
+    const dstX = barRect.left  + barRect.width / 2
     const dstY = barRect.top   + barRect.height / 2
 
     // Scale particle count and duration based on XP gained
