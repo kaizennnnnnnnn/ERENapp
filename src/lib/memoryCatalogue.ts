@@ -397,3 +397,13 @@ export const MEMORY_FRAMES: MemoryFrame[] = [
 export function frameById(id: string): MemoryFrame | null {
   return MEMORY_FRAMES.find(f => f.id === id) ?? null
 }
+
+/**
+ * A filled-in hint as sentences. The hints are written lower-case (they began
+ * as pixel-font captions); in the Meadow type each sentence starts with a
+ * capital. Pass the hint AFTER cat.t, so a {he} opening a sentence is already
+ * a word to capitalise.
+ */
+export function hintSentence(filled: string): string {
+  return filled.replace(/(^|[.!?]\s+)([a-z])/g, (_, lead: string, c: string) => lead + c.toUpperCase())
+}

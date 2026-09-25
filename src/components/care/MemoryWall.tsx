@@ -1,119 +1,140 @@
 'use client'
 
 // ═════════════════════════════════════════════════════════════════════════════
-// MemoryWall — Phase 3 PR 7
+// MemoryWall — the Hallway's pictures
 //
-// Grid of every catalogue frame for the household. Unlocked frames render in
-// full colour; locked frames show as dim silhouettes with a "?" placeholder.
-// Tapping any frame opens MemoryDetailModal — which decides what to show
-// based on whether a memory_frames row exists.
+// Two groups, in the Meadow cards the other pages use: "On the wall", every
+// memory the household has, newest first, each a framed picture with its name
+// under it; then "Still to find", the rest as plain locked tiles in catalogue
+// order. Any tile opens MemoryDetailSheet, which decides what to show from
+// whether a memory_frames row exists.
 //
-// Sort order: unlocked frames first (most recent unlock at the top), then
-// locked frames in catalogue order. That way new unlocks pop to the visible
-// area without scrolling.
+// A household of one isn't shown the partner-only frames as locked: they were
+// never theirs to find. Any it already holds stay on the wall.
 // ═════════════════════════════════════════════════════════════════════════════
 
 import { useMemo, useState } from 'react'
 import { playSound } from '@/lib/sounds'
 import MemoryFrameCanvas from '@/components/memory/MemoryFrameCanvas'
-import MemoryDetailModal from '@/components/memory/MemoryDetailModal'
+import MemoryDetailSheet from '@/components/memory/MemoryDetailSheet'
 import { MEMORY_FRAMES, frameById, needsPartner, type MemoryFrame } from '@/lib/memoryCatalogue'
 import type { MemoryFrameRow, ReactionEmoji } from '@/hooks/useMemoryFrames'
 import { useCat } from '@/hooks/useCat'
+import { Card, SectionLabel, M } from '@/components/meadow'
 
 interface Props {
   rows: MemoryFrameRow[]
   partnerId: string | null
+  partnerName: string | null
   /** Household of one: the nine partner-only frames are not shown as locked. */
   isSolo?: boolean
   onReactionChange: (frameId: string, reaction: Record<string, ReactionEmoji>) => void
 }
 
-interface CellData {
-  frame: MemoryFrame
-  row:   MemoryFrameRow | null
-}
+interface Held { frame: MemoryFrame; row: MemoryFrameRow }
 
-export default function MemoryWall({ rows, partnerId, isSolo, onReactionChange }: Props) {
-  const [openFrameId, setOpenFrameId] = useState<string | null>(null)
+export default function MemoryWall({ rows, partnerId, partnerName, isSolo, onReactionChange }: Props) {
+  // `openId` is what's open; `shownId` outlives it so the sheet can close
+  // with its picture still in it.
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [shownId, setShownId] = useState<string | null>(null)
   const cat = useCat()
 
-  const cells: CellData[] = useMemo(() => {
+  const { held, toFind } = useMemo(() => {
     const byId = new Map<string, MemoryFrameRow>()
     for (const r of rows) byId.set(r.frame_id, r)
 
-    const unlocked: CellData[] = []
-    const locked:   CellData[] = []
+    const held: Held[] = []
+    const toFind: MemoryFrame[] = []
     for (const f of MEMORY_FRAMES) {
-      const row = byId.get(f.id) ?? null
-      // Unlocked always shows — including a couple frame a household earned
-      // before it became a household of one. Only the LOCKED side is filtered,
-      // so nothing anyone earned can disappear off the wall.
-      if (row) unlocked.push({ frame: f, row })
-      else if (!isSolo || !needsPartner(f)) locked.push({ frame: f, row: null })
+      const row = byId.get(f.id)
+      if (row) held.push({ frame: f, row })
+      else if (!isSolo || !needsPartner(f)) toFind.push(f)
     }
-    unlocked.sort((a, b) => (b.row!.unlocked_at).localeCompare(a.row!.unlocked_at))
-    return [...unlocked, ...locked]
+    held.sort((a, b) => b.row.unlocked_at.localeCompare(a.row.unlocked_at))
+    return { held, toFind }
   }, [rows, isSolo])
 
-  const openFrame = openFrameId ? frameById(openFrameId) : null
-  const openRow   = openFrameId ? (rows.find(r => r.frame_id === openFrameId) ?? null) : null
+  function open(id: string) {
+    playSound('ui_tap')
+    setOpenId(id)
+    setShownId(id)
+  }
+
+  const shownFrame = shownId ? frameById(shownId) ?? null : null
+  const shownRow = shownId ? rows.find(r => r.frame_id === shownId) ?? null : null
 
   return (
     <>
-      <div
-        className="grid w-full"
-        style={{
-          // 3 cols by default, snug enough to scale to 4 on larger phones.
-          gridTemplateColumns: 'repeat(auto-fill, minmax(72px, 1fr))',
-          gap: 12,
-          padding: '4px 2px 80px',
-        }}
-      >
-        {cells.map(({ frame, row }) => (
-          <button
-            key={frame.id}
-            type="button"
-            aria-label={row ? cat.t(frame.title) : 'Locked memory'}
-            onClick={() => { playSound('ui_tap'); setOpenFrameId(frame.id) }}
-            className="flex flex-col items-center gap-1 active:scale-95 transition-transform"
-            style={{
-              background: 'transparent', border: 'none', padding: 0,
-              cursor: 'pointer',
-              animation: 'memoryCellIn 0.35s ease-out both',
-            }}
-          >
-            <MemoryFrameCanvas frame={frame} size={64} locked={!row} />
-            <span style={{
-              fontFamily: '"Press Start 2P", monospace',
-              fontSize: 5,
-              color: row ? '#E8DCFA' : '#5A4E70',
-              textAlign: 'center',
-              lineHeight: 1.4,
-              maxWidth: 70,
-              letterSpacing: 0.5,
-              overflowWrap: 'anywhere',
-            }}>{row ? cat.t(frame.title).toUpperCase() : '???'}</span>
-          </button>
-        ))}
-      </div>
+      <SectionLabel trailing={String(held.length)}>On the wall</SectionLabel>
+      <Card padding="18px 6px 16px">
+        {held.length === 0 ? (
+          <p style={{ margin: 0, padding: '6px 12px', fontSize: 15, lineHeight: 1.45, fontWeight: 500, color: M.text2, textAlign: 'center' }}>
+            {cat.t('Nothing here yet. Your first days with {name} will hang here as they happen.')}
+          </p>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', rowGap: 16, columnGap: 2 }}>
+            {held.map(({ frame }) => {
+              const title = cat.t(frame.title)
+              return (
+                <button
+                  key={frame.id}
+                  type="button"
+                  aria-label={title}
+                  onClick={() => open(frame.id)}
+                  className="m-press m-focus"
+                  style={{
+                    minWidth: 0, padding: '2px 0', border: 0, background: 'transparent', cursor: 'pointer',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                    fontFamily: 'inherit', color: M.text,
+                  }}
+                >
+                  <MemoryFrameCanvas frame={frame} size={64} />
+                  <span style={{
+                    maxWidth: '100%', fontSize: 12, lineHeight: 1.25, fontWeight: 800, letterSpacing: '-0.01em',
+                    // A word too long for a narrow phone's column hyphenates
+                    // rather than breaking at any letter ("Anniversar / y").
+                    textAlign: 'center', overflowWrap: 'break-word', hyphens: 'auto',
+                    display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                  }}>{title}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </Card>
 
-      {openFrame && (
-        <MemoryDetailModal
-          frame={openFrame}
-          row={openRow}
-          partnerId={partnerId}
-          onClose={() => setOpenFrameId(null)}
-          onReactionChange={onReactionChange}
-        />
+      {toFind.length > 0 && (
+        <>
+          <SectionLabel trailing={String(toFind.length)}>Still to find</SectionLabel>
+          <Card padding="16px 14px">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10, justifyItems: 'center' }}>
+              {toFind.map(frame => (
+                <button
+                  key={frame.id}
+                  type="button"
+                  aria-label="Memory still to find"
+                  onClick={() => open(frame.id)}
+                  className="m-press m-focus"
+                  style={{ padding: 0, border: 0, background: 'transparent', borderRadius: 14, cursor: 'pointer', lineHeight: 0 }}
+                >
+                  <MemoryFrameCanvas frame={frame} size={52} locked />
+                </button>
+              ))}
+            </div>
+          </Card>
+        </>
       )}
 
-      <style jsx global>{`
-        @keyframes memoryCellIn {
-          0%   { opacity: 0; transform: translateY(6px) scale(0.92); }
-          100% { opacity: 1; transform: translateY(0)   scale(1); }
-        }
-      `}</style>
+      <MemoryDetailSheet
+        open={openId !== null}
+        frame={shownFrame}
+        row={shownRow}
+        partnerId={partnerId}
+        partnerName={partnerName}
+        onClose={() => { playSound('ui_modal_close'); setOpenId(null) }}
+        onReactionChange={onReactionChange}
+      />
     </>
   )
 }

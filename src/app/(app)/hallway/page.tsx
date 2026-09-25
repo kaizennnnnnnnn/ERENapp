@@ -1,34 +1,33 @@
 'use client'
 
 // ═════════════════════════════════════════════════════════════════════════════
-// /hallway — Phase 3 PR 8.5
+// /hallway — the Memory Wall
 //
-// The Memory Wall as a real Next.js page rather than a swipe-room scene. Has
-// its own scroll surface, an exit chevron in the top-left, and breathing room
-// for many frames without competing with the home HUD.
-//
-// Layout: pixel-art gallery aesthetic — dark wall with a faint paneling
-// pattern, gold ceiling light glow, ornate header.
+// A Meadow page like Us and Me: a back button to home, the title, a card with
+// how much of the wall is filled, then the pictures (MemoryWall). Reached from
+// the photo button in home's row, the catch-up carousel, and the memory push
+// notification.
 // ═════════════════════════════════════════════════════════════════════════════
 
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useCouple } from '@/hooks/useCouple'
+import { useCat } from '@/hooks/useCat'
 import { useMemoryFrames } from '@/hooks/useMemoryFrames'
 import { useCare } from '@/contexts/CareContext'
 import { MEMORY_FRAMES, needsPartner } from '@/lib/memoryCatalogue'
 import MemoryWall from '@/components/care/MemoryWall'
-import PageLoader from '@/components/PageLoader'
 import { playSound } from '@/lib/sounds'
 import { useEffect, useMemo } from 'react'
-import { IconDoor } from '@/components/PixelIcons'
 import { usePageReady } from '@/hooks/usePageReady'
+import { Card, IconTile, MeadowPage, Meter, M, TINT } from '@/components/meadow'
 
 export default function HallwayPage() {
   const router = useRouter()
   const { profile, loading: authLoading } = useAuth()
   const { partner, isSolo, loading: coupleLoading } = useCouple()
   const { setHideStats } = useCare()
+  const cat = useCat()
   const { frames, loading, applyReaction } = useMemoryFrames(profile?.household_id ?? null)
 
   const unlockedCount = frames.length
@@ -43,158 +42,68 @@ export default function HallwayPage() {
     return MEMORY_FRAMES.filter(f => !needsPartner(f) || held.has(f.id)).length
   }, [isSolo, frames])
 
-  // Hide the floating StatsHeader on the Hallway — the page has its own top
-  // ornamentation and the bar would clash with it.
+  // The page wears its own title row; the floating StatsHeader would sit on it.
   useEffect(() => {
     setHideStats(true)
     return () => setHideStats(false)
   }, [setHideStats])
 
-  // Signal the splash that the hallway shell has rendered. The inner wall
-  // can keep streaming after this — the top bar + bg are enough to drop
-  // the splash without a visual gap.
+  // Drop the splash once the shell can render; the wall streams in after.
   usePageReady(!authLoading)
-
-  if (authLoading) return <PageLoader label="LOADING THE HALLWAY" />
 
   function exit() {
     playSound('ui_swipe_room')
     // The Hallway is a leaf view. It's normally reached from /home, but it's
     // ALSO opened cold by the memory push notification (sw.js notificationclick
     // → clients.openWindow / navigate('/hallway')), which lands here with no
-    // in-app history. In that case router.back() silently no-ops and both exit
-    // buttons look dead. Navigate home explicitly so exit always works — and
-    // replace (not push) so it doesn't bounce back into the hallway on the
-    // device back gesture.
+    // in-app history. In that case router.back() silently no-ops and the exit
+    // looks dead. Navigate home explicitly so exit always works — and replace
+    // (not push) so it doesn't bounce back into the hallway on the device back
+    // gesture.
     router.replace('/home')
   }
 
+  const back = { onClick: exit, label: 'Back to home' }
+  if (authLoading) {
+    return <MeadowPage ground="us" title="Hallway" back={back} withNav={false}><span /></MeadowPage>
+  }
+
+  const counting = loading || coupleLoading
+  const left = Math.max(0, totalCount - unlockedCount)
+
   return (
-    <div
-      className="fixed inset-0 flex flex-col overflow-hidden"
-      style={{
-        background: `
-          radial-gradient(ellipse at 50% 0%, rgba(245,200,66,0.14) 0%, transparent 50%),
-          linear-gradient(180deg, #1A0E24 0%, #100818 60%, #06030A 100%)
-        `,
-      }}
-    >
-      {/* CRT scanlines */}
-      <div className="absolute inset-0 pointer-events-none" style={{
-        background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.22) 3px, rgba(0,0,0,0.22) 4px)',
-        opacity: 0.5,
-      }} />
-
-      {/* Wall paneling — vertical strokes that read as wood planks behind the
-          frames. Subtle so the frames pop. */}
-      <div className="absolute inset-0 pointer-events-none" style={{
-        background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.022) 0 1px, transparent 1px 48px)',
-      }} />
-
-      {/* Soft diagonal texture so the bg never reads totally flat */}
-      <div className="absolute inset-0 pointer-events-none" style={{
-        background: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.014) 0 2px, transparent 2px 8px)',
-      }} />
-
-      {/* ── Top bar: exit chevron + counter ── */}
-      <div className="relative px-4 pt-3 flex items-center justify-between" style={{
-        zIndex: 5,
-        paddingTop: 'calc(var(--safe-top, 0px) + 14px)',
-      }}>
-        <button
-          type="button"
-          onClick={exit}
-          aria-label="Exit Hallway"
-          className="active:scale-90 transition-transform flex items-center justify-center"
-          style={{
-            width: 36, height: 36,
-            background: 'linear-gradient(180deg, rgba(40,28,60,0.92) 0%, rgba(20,12,32,0.92) 100%)',
-            border: '2px solid #5C3A7A',
-            boxShadow: '2px 2px 0 #050507, 0 0 8px rgba(167,139,250,0.25)',
-            borderRadius: 4,
-            cursor: 'pointer',
-          }}
-        >
-          <span style={{
-            fontFamily: '"Press Start 2P", monospace',
-            fontSize: 10, color: '#E8DCFA',
-            lineHeight: 1,
-          }}>&lt;</span>
-        </button>
-
-        <div className="flex flex-col items-center">
-          <span style={{
-            fontFamily: '"Press Start 2P", monospace', fontSize: 9,
-            color: '#F5C842', letterSpacing: 2,
-            textShadow: '0 0 10px rgba(245,200,66,0.6)',
-          }}>THE HALLWAY</span>
-          <span style={{
-            fontFamily: '"Press Start 2P", monospace', fontSize: 5,
-            color: '#A78BFA', letterSpacing: 1, marginTop: 4,
-          }}>
-            {loading || coupleLoading ? 'LOADING…' : `${unlockedCount} / ${totalCount} MEMORIES`}
-          </span>
-        </div>
-
-        {/* Right-side placeholder for layout symmetry */}
-        <div style={{ width: 36 }} />
-      </div>
-
-      {/* Hairline ribbon under header */}
-      <div className="relative" style={{
-        height: 1,
-        background: 'linear-gradient(90deg, transparent, rgba(245,200,66,0.6), transparent)',
-        margin: '12px 18px 0',
-        zIndex: 2,
-      }} />
-
-      {/* ── Scrollable wall ── */}
-      <div className="relative flex-1 overflow-y-auto" style={{ zIndex: 2 }}>
-        <div className="mx-auto" style={{ maxWidth: 460, padding: '20px 16px 60px' }}>
-          {loading ? (
-            <div className="flex items-center justify-center" style={{ minHeight: 240 }}>
-              <span style={{
-                fontFamily: '"Press Start 2P", monospace', fontSize: 7,
-                color: '#9A8EBE', letterSpacing: 1,
-              }}>LOADING THE WALL…</span>
+    <MeadowPage ground="us" title="Hallway" back={back} withNav={false}>
+      {/* ── How much of the wall is filled ── */}
+      <Card padding="16px 18px" style={{ marginTop: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <IconTile icon="photo" size={52} bg={TINT.love} iconSize={30} />
+          <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontSize: 17, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
+              {counting ? 'Counting the pictures…' : `${unlockedCount} of ${totalCount} memories`}
             </div>
-          ) : (
-            <MemoryWall
-              rows={frames}
-              partnerId={partner?.id ?? null}
-              isSolo={isSolo}
-              onReactionChange={applyReaction}
-            />
-          )}
+            <Meter value={counting || !totalCount ? 0 : unlockedCount / totalCount} color={M.love} label="Memories found" />
+          </div>
         </div>
-      </div>
+        <p style={{ margin: '12px 0 0', fontSize: 14, lineHeight: 1.45, fontWeight: 500, color: M.text2 }}>
+          {!counting && left === 0
+            ? cat.t('Every memory with {name} is on the wall.')
+            : cat.t('Moments with {name}, hung here the day they happen.')}
+        </p>
+      </Card>
 
-      {/* Bottom exit pill (mirrors top chevron for accessibility on long
-          scrolls — tap either to leave). */}
-      <button
-        type="button"
-        onClick={exit}
-        aria-label="Exit Hallway"
-        className="absolute active:scale-95 transition-transform flex items-center gap-2"
-        style={{
-          left: '50%',
-          bottom: 'calc(var(--safe-bottom, 0px) + 16px)',
-          transform: 'translateX(-50%)',
-          background: 'linear-gradient(180deg, rgba(40,28,60,0.92) 0%, rgba(20,12,32,0.92) 100%)',
-          border: '2px solid #5C3A7A',
-          boxShadow: '2px 2px 0 #050507, 0 0 10px rgba(167,139,250,0.3)',
-          padding: '8px 14px',
-          borderRadius: 4,
-          cursor: 'pointer',
-          zIndex: 5,
-        }}
-      >
-        <IconDoor size={14} />
-        <span style={{
-          fontFamily: '"Press Start 2P", monospace', fontSize: 6,
-          color: '#E8DCFA', letterSpacing: 1.5,
-        }}>EXIT</span>
-      </button>
-    </div>
+      {loading ? (
+        <Card padding="28px 18px" style={{ marginTop: 24 }}>
+          <p style={{ margin: 0, textAlign: 'center', fontSize: 15, fontWeight: 600, color: M.text2 }}>Loading the wall…</p>
+        </Card>
+      ) : (
+        <MemoryWall
+          rows={frames}
+          partnerId={partner?.id ?? null}
+          partnerName={partner?.name ?? null}
+          isSolo={isSolo}
+          onReactionChange={applyReaction}
+        />
+      )}
+    </MeadowPage>
   )
 }

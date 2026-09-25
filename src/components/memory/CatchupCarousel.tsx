@@ -19,8 +19,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { useCat } from '@/hooks/useCat'
 import { playSound } from '@/lib/sounds'
 import MemoryFrameCanvas from './MemoryFrameCanvas'
-import { frameById, type MemoryFrame } from '@/lib/memoryCatalogue'
-import { IconPhoto, IconSparkles, IconHeart } from '@/components/PixelIcons'
+import { frameById, hintSentence, type MemoryFrame } from '@/lib/memoryCatalogue'
+import { IconTile, M, PrimaryButton, TextButton, TINT } from '@/components/meadow'
 
 const FRAMES_TO_SHOW = 6
 
@@ -42,7 +42,7 @@ type Slide =
 
 function formatDate(iso: string): string {
   try {
-    return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+    return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
   } catch { return '' }
 }
 
@@ -116,76 +116,43 @@ export default function CatchupCarousel({ frames, onOpenHallway, onClose }: Prop
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center"
-      style={{
-        background: 'radial-gradient(ellipse at 50% 30%, rgba(167,139,250,0.18) 0%, rgba(0,0,0,0.92) 70%)',
-      }}
+    <div className="meadow-root fixed inset-0 z-[80] flex items-center justify-center"
+      style={{ background: 'rgba(47, 43, 40, 0.36)', padding: '0 16px' }}
       onClick={() => { /* outside click is no-op — must use buttons */ }}>
 
-      {/* Scanlines for the panel vibe */}
-      <div className="absolute inset-0 pointer-events-none" style={{
-        background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.18) 3px, rgba(0,0,0,0.18) 4px)',
-      }} />
-
-      <div className="relative flex flex-col items-center" style={{
-        width: 'min(86vw, 320px)',
-        background: 'linear-gradient(180deg, #2A1A36 0%, #160C20 100%)',
-        border: '3px solid #5C3A7A',
-        boxShadow: '4px 4px 0 #050507, 0 0 30px rgba(167,139,250,0.35)',
-        padding: '24px 20px 18px',
-        imageRendering: 'pixelated',
-        gap: 14,
-        zIndex: 1,
+      <div role="dialog" aria-modal="true" aria-label="Your memory wall" style={{
+        width: '100%', maxWidth: 340, boxSizing: 'border-box',
+        background: '#FFFFFF', borderRadius: 28, padding: '28px 20px 16px',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18,
+        color: M.text, animation: 'modalPop 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both',
       }}>
         <SlideBody slide={slide} />
 
         {/* Dot row — manual jump */}
-        <div className="flex items-center gap-1.5 mt-1">
+        <div className="flex items-center" style={{ gap: 6 }}>
           {slides.map((_, i) => (
             <button
               key={i}
               type="button"
-              aria-label={`Slide ${i + 1}`}
+              aria-label={`Slide ${i + 1} of ${slides.length}`}
+              aria-current={i === idx ? 'step' : undefined}
               onClick={() => { playSound('ui_tap'); setIdx(i) }}
               style={{
-                width: i === idx ? 12 : 6, height: 6, borderRadius: 3,
-                background: i === idx ? '#A78BFA' : 'rgba(167,139,250,0.3)',
-                boxShadow: i === idx ? '0 0 6px rgba(167,139,250,0.7)' : 'none',
+                width: i === idx ? 18 : 8, height: 8, borderRadius: 999,
+                background: i === idx ? M.leaf : M.toggleOff,
                 border: 'none', padding: 0, cursor: 'pointer',
-                transition: 'all 0.25s ease',
+                transition: 'width 0.25s ease, background 0.25s ease',
               }}
             />
           ))}
         </div>
 
-        {/* Action row — prev / next */}
-        <div className="flex items-center justify-between w-full mt-1" style={{ gap: 10 }}>
-          <button
-            type="button"
-            onClick={prev}
-            disabled={idx === 0}
-            style={{
-              fontFamily: '"Press Start 2P", monospace', fontSize: 6, letterSpacing: 1,
-              color: idx === 0 ? '#3A2E50' : '#C8B8E8',
-              background: 'transparent', border: 'none', padding: '6px 4px',
-              cursor: idx === 0 ? 'default' : 'pointer',
-            }}
-          >&lt; BACK</button>
-
-          <button
-            type="button"
-            onClick={next}
-            disabled={dismissing}
-            style={{
-              fontFamily: '"Press Start 2P", monospace', fontSize: 7, letterSpacing: 1,
-              color: '#FFFBEB',
-              background: 'linear-gradient(180deg, #8B5A00 0%, #5A3700 100%)',
-              border: '2px solid #F5C842',
-              boxShadow: '2px 2px 0 #050507, 0 0 10px rgba(245,200,66,0.4)',
-              padding: '8px 14px',
-              cursor: dismissing ? 'wait' : 'pointer',
-            }}
-          >{isLast ? 'OPEN HALLWAY' : 'NEXT >'}</button>
+        {/* Action row — back / next */}
+        <div className="flex items-center justify-between w-full" style={{ gap: 10 }}>
+          <TextButton tone="muted" onClick={prev} disabled={idx === 0}>Back</TextButton>
+          <PrimaryButton size="md" onClick={next} busy={dismissing}>
+            {isLast ? 'Open the hallway' : 'Next'}
+          </PrimaryButton>
         </div>
       </div>
     </div>
@@ -194,28 +161,23 @@ export default function CatchupCarousel({ frames, onOpenHallway, onClose }: Prop
 
 // ─── Per-slide body ──────────────────────────────────────────────────────────
 
+const HEAD: React.CSSProperties = { margin: 0, fontSize: 22, lineHeight: 1.2, fontWeight: 800, letterSpacing: '-0.01em', textAlign: 'center', overflowWrap: 'anywhere' }
+const BODY: React.CSSProperties = { margin: 0, maxWidth: 270, fontSize: 15, lineHeight: 1.45, fontWeight: 500, color: M.text2, textAlign: 'center' }
+
 function SlideBody({ slide }: { slide: Slide }) {
   const cat = useCat()
   switch (slide.kind) {
     case 'intro': {
       return (
         <div className="flex flex-col items-center" style={{ gap: 12 }}>
-          {/* Was the two heart emoji, which is both an emoji (the app uses
-              PixelIcons everywhere) and a two-person emblem introducing a
-              wall that belongs to the household however many people are
-              in it. The wall is a wall of pictures. */}
-          <IconPhoto size={32} />
-          <p style={{
-            fontFamily: '"Press Start 2P", monospace', fontSize: 10, color: '#F5C842',
-            letterSpacing: 2, textAlign: 'center', textShadow: '0 0 10px rgba(245,200,66,0.5)',
-          }}>YOUR WALL<br/>CAUGHT UP</p>
-          <p style={{
-            fontFamily: '"Press Start 2P", monospace', fontSize: 6, color: '#C8B8E8',
-            lineHeight: 1.7, textAlign: 'center', maxWidth: 240,
-          }}>
+          {/* A wall of pictures, so a picture: the household's however many
+              people are in it. */}
+          <IconTile icon="photo" size={68} bg={TINT.love} />
+          <p style={HEAD}>Your wall is caught up</p>
+          <p style={BODY}>
             {slide.count > 0
-              ? `we found ${slide.count} ${slide.count === 1 ? 'memory' : 'memories'} of you and ${cat.name}.`
-              : 'your wall is ready to fill up.'}
+              ? `We found ${slide.count} ${slide.count === 1 ? 'memory' : 'memories'} of you and ${cat.name}.`
+              : 'Your wall is ready to fill up.'}
           </p>
         </div>
       )
@@ -223,52 +185,31 @@ function SlideBody({ slide }: { slide: Slide }) {
     case 'frame': {
       return (
         <div className="flex flex-col items-center" style={{ gap: 10 }}>
-          <MemoryFrameCanvas frame={slide.frame} size={120} />
-          <p style={{
-            fontFamily: '"Press Start 2P", monospace', fontSize: 9, color: '#FFFFFF',
-            letterSpacing: 1, textAlign: 'center', overflowWrap: 'anywhere',
-          }}>{cat.t(slide.frame.title).toUpperCase()}</p>
-          <p style={{
-            fontFamily: '"Press Start 2P", monospace', fontSize: 6, color: '#C8B8E8',
-            lineHeight: 1.7, textAlign: 'center', maxWidth: 230,
-          }}>{cat.t(slide.frame.hint)}</p>
-          <span style={{
-            fontFamily: '"Press Start 2P", monospace', fontSize: 5,
-            color: '#8E7EAA', letterSpacing: 1,
-          }}>{formatDate(slide.unlockedAt).toUpperCase()}</span>
+          <MemoryFrameCanvas frame={slide.frame} size={112} />
+          <p style={{ ...HEAD, marginTop: 6, fontSize: 20 }}>{cat.t(slide.frame.title)}</p>
+          <p style={BODY}>{hintSentence(cat.t(slide.frame.hint))}</p>
+          <span style={{ fontSize: 13, fontWeight: 700, color: M.label }}>Found {formatDate(slide.unlockedAt)}</span>
         </div>
       )
     }
     case 'more': {
       return (
         <div className="flex flex-col items-center" style={{ gap: 12 }}>
-          <IconSparkles size={28} />
-          <p style={{
-            fontFamily: '"Press Start 2P", monospace', fontSize: 9, color: '#FFFFFF',
-            letterSpacing: 1, textAlign: 'center',
-          }}>+{slide.moreCount} MORE</p>
-          <p style={{
-            fontFamily: '"Press Start 2P", monospace', fontSize: 6, color: '#C8B8E8',
-            lineHeight: 1.7, textAlign: 'center', maxWidth: 230,
-          }}>waiting on the wall for you to find.</p>
+          <IconTile icon="sparkle" size={68} bg={TINT.amber} />
+          <p style={HEAD}>+{slide.moreCount} more</p>
+          <p style={BODY}>Waiting on the wall for you to find.</p>
         </div>
       )
     }
     case 'outro': {
       return (
         <div className="flex flex-col items-center" style={{ gap: 12 }}>
-          <IconHeart size={24} />
-          <p style={{
-            fontFamily: '"Press Start 2P", monospace', fontSize: 9, color: '#FFFFFF',
-            letterSpacing: 1, textAlign: 'center',
-          }}>WELCOME<br/>TO THE WALL</p>
-          <p style={{
-            fontFamily: '"Press Start 2P", monospace', fontSize: 6, color: '#C8B8E8',
-            lineHeight: 1.7, textAlign: 'center', maxWidth: 230,
-          }}>
+          <IconTile icon="heart" size={68} bg={TINT.love} />
+          <p style={HEAD}>Welcome to the wall</p>
+          <p style={BODY}>
             {slide.count > 0
-              ? `${slide.count} ${slide.count === 1 ? 'memory' : 'memories'} on the hallway. more will appear as you take care of ${cat.p.him}.`
-              : cat.t('memories will appear here as you take care of {him}.')}
+              ? `${slide.count} ${slide.count === 1 ? 'memory' : 'memories'} in the hallway. More will appear as you take care of ${cat.p.him}.`
+              : cat.t('Memories will appear here as you take care of {him}.')}
           </p>
         </div>
       )

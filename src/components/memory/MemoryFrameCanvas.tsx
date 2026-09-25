@@ -1,15 +1,19 @@
 'use client'
 
 // ═════════════════════════════════════════════════════════════════════════════
-// MemoryFrameCanvas — Phase 3 PR 8.5
+// MemoryFrameCanvas — one Memory Wall picture
 //
-// Renders a single Memory Wall frame as a pixel-art picture inside an ornate
-// border. Maps the catalogue's FrameIcon ref to PixelIcons.tsx components,
-// then stamps the optional badge (e.g. "10", "50", "1W", "3D", "ALL") in the
-// top-right corner so every milestone reads distinctly without needing a
-// custom drawing per frame.
+// A memory as a small framed picture in the Meadow look: the frame's pixel
+// icon on a soft tint of its family's colour, inside a rim a shade deeper, so
+// a wall of them reads as pictures hung in a hallway. The optional badge
+// ("10", "50", "1W", "3D", "ALL") sits on the top-right corner so every
+// milestone reads distinctly without a custom drawing per frame.
 //
-// Locked frames show the silhouette with a "?" — the badge is omitted.
+// The catalogue (lib/memoryCatalogue) still carries each family's colours as
+// the dark-panel pair it was drawn with; the ACCENT names the family, and
+// FAMILY maps it to its Meadow tint here, so the catalogue needn't change.
+//
+// Locked frames are a plain soft tile with a lock: no icon, no badge.
 // ═════════════════════════════════════════════════════════════════════════════
 
 import {
@@ -18,8 +22,10 @@ import {
   IconPaw, IconStar, IconFire, IconCrown, IconLightning,
   IconFish, IconClock, IconEnvelope, IconController, IconSparkles,
   IconHeartDuo, IconCatFace, IconHouse, IconStethoscope, IconSwords,
+  MeadowIcon,
 } from '@/components/PixelIcons'
-import type { FrameIcon, MemoryFrame, Rarity } from '@/lib/memoryCatalogue'
+import { M, TINT } from '@/components/meadow/tokens'
+import type { FrameIcon, MemoryFrame } from '@/lib/memoryCatalogue'
 
 const ICON_MAP: Record<FrameIcon, React.ComponentType<{ size?: number }>> = {
   drumstick:    IconDrumstick,
@@ -49,109 +55,74 @@ const ICON_MAP: Record<FrameIcon, React.ComponentType<{ size?: number }>> = {
   swords:       IconSwords,
 }
 
-const RARITY_BORDER: Record<Rarity, { outer: string, inner: string, glow: string, badgeBg: string, badgeText: string }> = {
-  common: { outer: '#8B6B3A', inner: '#5C4423', glow: 'rgba(245,200,66,0.25)', badgeBg: '#1A1408', badgeText: '#F5C842' },
-  rare:   { outer: '#C0C0C0', inner: '#7A7A7A', glow: 'rgba(192,192,192,0.45)', badgeBg: '#0F0F1A', badgeText: '#E8E8FF' },
-  epic:   { outer: '#F5C842', inner: '#8B5A00', glow: 'rgba(245,200,66,0.6)',  badgeBg: '#2A1408', badgeText: '#FFE7A8' },
+interface Family { tint: string; rim: string; ink: string }
+
+/** Keyed by the catalogue's accent colour (its eight palette families). */
+const FAMILY: Record<string, Family> = {
+  '#F5C842': { tint: TINT.amber,  rim: '#F1D9A4', ink: '#8A5A12' },   // gold
+  '#FF6B9D': { tint: TINT.love,   rim: '#F2C4D2', ink: '#A2405F' },   // pink
+  '#818CF8': { tint: TINT.lilac,  rim: '#DCD1EC', ink: '#5B4A8A' },   // indigo
+  '#38BDF8': { tint: TINT.sky,    rim: '#C9DCEC', ink: '#2F5F86' },   // sky
+  '#34D399': { tint: TINT.leaf,   rim: '#CBE3D0', ink: M.leafInk },   // green
+  '#FF4D6D': { tint: TINT.danger, rim: '#F1CBC5', ink: '#A2403A' },   // ruby
+  '#FFE7A8': { tint: TINT.soft,   rim: '#E3DED6', ink: M.text2 },     // cream
+  '#FF9DBE': { tint: '#F8DEDA',   rim: '#EEC3BD', ink: '#A2405F' },   // rose
+}
+const PLAIN: Family = { tint: TINT.soft, rim: M.hairline, ink: M.text2 }
+
+/** The family colours a frame is drawn in (the detail sheet reuses them). */
+export function frameFamily(frame: MemoryFrame): Family {
+  return (frame.art.accent && FAMILY[frame.art.accent.toUpperCase()]) || PLAIN
 }
 
 interface Props {
   frame: MemoryFrame
   size?: number
-  /** Render the locked silhouette instead of the icon. */
+  /** Render the locked tile instead of the picture. */
   locked?: boolean
 }
 
 export default function MemoryFrameCanvas({ frame, size = 64, locked = false }: Props) {
   const Icon = ICON_MAP[frame.art.icon] ?? IconHeart
-  const border = RARITY_BORDER[frame.rarity]
-  const iconSize = Math.round(size * 0.55)
-  const bg = locked ? '#1A1A22' : frame.art.bg
-  const accentDot = frame.art.accent
-  // Scale the badge to the frame size so big-detail and small-thumbnail
-  // renders both read cleanly.
-  const badgeFont = Math.max(4, Math.round(size * 0.11))
-  const badgePadV = Math.max(1, Math.round(size * 0.03))
-  const badgePadH = Math.max(2, Math.round(size * 0.05))
+  const fam = frameFamily(frame)
+  // Rounder when small, like the Meadow icon tiles (60 -> 18).
+  const radius = Math.round(size * 0.28)
 
-  return (
-    <div
-      style={{
-        position: 'relative',
-        width: size,
-        height: size,
-        background: border.outer,
-        padding: 3,
-        borderRadius: 2,
-        boxShadow: locked
-          ? '2px 2px 0 #050507, inset 0 0 0 1px rgba(0,0,0,0.3)'
-          : `2px 2px 0 #050507, inset 0 0 0 1px ${border.inner}, 0 0 ${size * 0.18}px ${border.glow}`,
-        imageRendering: 'pixelated',
-        opacity: locked ? 0.45 : 1,
-        transition: 'transform 0.15s ease, opacity 0.2s ease',
-      }}
-    >
-      <div
-        style={{
-          width: '100%', height: '100%',
-          background: bg,
-          border: `1px solid ${border.inner}`,
-          display: 'flex',
-          alignItems: 'center', justifyContent: 'center',
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Subtle pattern wash so the bg doesn't read flat */}
-        {!locked && (
-          <div style={{
-            position: 'absolute', inset: 0,
-            background: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 6px)',
-            pointerEvents: 'none',
-          }} />
-        )}
-
-        {locked ? (
-          <span style={{
-            fontFamily: '"Press Start 2P", monospace',
-            color: '#5A5A6E',
-            fontSize: Math.round(size * 0.35),
-            lineHeight: 1,
-          }}>?</span>
-        ) : (
-          <>
-            <Icon size={iconSize} />
-            {/* Gold corner pixels — rare + epic only */}
-            {frame.rarity !== 'common' && accentDot && (
-              <>
-                <div style={{ position: 'absolute', top: 2, left: 2,     width: 2, height: 2, background: accentDot }} />
-                <div style={{ position: 'absolute', top: 2, right: 2,    width: 2, height: 2, background: accentDot }} />
-                <div style={{ position: 'absolute', bottom: 2, left: 2,  width: 2, height: 2, background: accentDot }} />
-                <div style={{ position: 'absolute', bottom: 2, right: 2, width: 2, height: 2, background: accentDot }} />
-              </>
-            )}
-
-            {/* Badge — counts / streak days / time milestones / "ALL" etc.
-                Sits in the top-right corner so it doesn't fight the icon. */}
-            {frame.art.badge && (
-              <div style={{
-                position: 'absolute',
-                top:   Math.max(2, Math.round(size * 0.04)),
-                right: Math.max(2, Math.round(size * 0.04)),
-                background: border.badgeBg,
-                border: `1px solid ${border.outer}`,
-                color: border.badgeText,
-                fontFamily: '"Press Start 2P", monospace',
-                fontSize: badgeFont,
-                padding: `${badgePadV}px ${badgePadH}px`,
-                letterSpacing: 0.5,
-                lineHeight: 1,
-                boxShadow: '1px 1px 0 rgba(0,0,0,0.5)',
-              }}>{frame.art.badge}</div>
-            )}
-          </>
-        )}
+  if (locked) {
+    return (
+      <div aria-hidden style={{
+        width: size, height: size, flexShrink: 0, boxSizing: 'border-box', borderRadius: radius,
+        background: M.soft, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <MeadowIcon name="lock" size={Math.round(size * 0.4)} color={M.faint} />
       </div>
+    )
+  }
+
+  const badgeFont = Math.max(11, Math.round(size * 0.15))
+  return (
+    <div aria-hidden style={{
+      position: 'relative', width: size, height: size, flexShrink: 0, boxSizing: 'border-box',
+      borderRadius: radius, background: fam.tint,
+      // The rim: an inset line a shade deeper than the tint, the picture's frame.
+      boxShadow: `inset 0 0 0 ${Math.max(2, Math.round(size * 0.04))}px ${fam.rim}`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <Icon size={Math.round(size * 0.55)} />
+
+      {/* Counts, streak days, time milestones, "ALL": on the corner, like a
+          tag pinned to the frame. */}
+      {frame.art.badge && (
+        <span style={{
+          position: 'absolute', top: -Math.round(badgeFont * 0.4), right: -Math.round(badgeFont * 0.4),
+          minWidth: badgeFont * 1.9, height: badgeFont * 1.7, boxSizing: 'border-box',
+          padding: `0 ${Math.round(badgeFont * 0.45)}px`, borderRadius: 999,
+          background: '#FFFFFF', boxShadow: `0 0 0 2px ${fam.rim}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: badgeFont, fontWeight: 800, lineHeight: 1, color: fam.ink,
+          fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+        }}>{frame.art.badge}</span>
+      )}
     </div>
   )
 }
