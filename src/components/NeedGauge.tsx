@@ -1,7 +1,8 @@
 'use client'
 
 import { IconHeart, IconMeat, IconLightning, IconMoon, IconDrop } from './PixelIcons'
-import { M } from '@/components/meadow/tokens'
+import { HEADER_GROW, M } from '@/components/meadow/tokens'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
 
 // ─── Need gauges ─────────────────────────────────────────────────────────────
 // The cat's five needs as the top bar shows them (StatsHeader): a ring round
@@ -38,15 +39,17 @@ const R = 13
 const C = 2 * Math.PI * R
 
 // ── One need ────────────────────────────────────────────────────────────────
-// A 32px circle (it shrinks with the pill on a narrow phone, down to 24px,
-// where the 14px icon still clears the ring). The arc is the need's level and
-// eases when it moves. `value` null = the stats row hasn't loaded: the bare
-// track, calm, rather than five red alarms at zero.
-export default function NeedGauge({ def, value }: { def: GaugeDef; value: number | null }) {
+// A 32px circle, 46 in a care room (it shrinks with the pill on a narrow
+// phone, down to 24px, where the 14px icon still clears the ring). The ring and
+// icon scale together, and ease when the size changes. The arc is the need's
+// level and eases when it moves. `value` null = the stats row hasn't loaded:
+// the bare track, calm, rather than five red alarms at zero.
+export default function NeedGauge({ def, value, size = 32 }: { def: GaugeDef; value: number | null; size?: number }) {
   const known = value !== null
   const v = known ? Math.round(Math.max(0, Math.min(100, value))) : 0
   const isCrit = known && v < 15
   const color = v >= 60 ? def.color : v >= 30 ? AMBER : RED
+  const still = useReducedMotion()
 
   return (
     <div
@@ -56,7 +59,8 @@ export default function NeedGauge({ def, value }: { def: GaugeDef; value: number
       style={{
         // A width, not only a flex-basis: the pill sizes to its content, and a
         // gauge has no content width of its own.
-        width: 32, flexShrink: 1, minWidth: 24, aspectRatio: '1 / 1', position: 'relative',
+        width: size, flexShrink: 1, minWidth: 24, aspectRatio: '1 / 1', position: 'relative',
+        transition: still ? undefined : `width ${HEADER_GROW}`,
       }}>
       <svg width="100%" height="100%" viewBox="0 0 32 32" aria-hidden style={{ position: 'absolute', inset: 0 }}>
         <circle cx="16" cy="16" r={R} fill="none" stroke={M.track} strokeWidth="4" />
@@ -68,7 +72,11 @@ export default function NeedGauge({ def, value }: { def: GaugeDef; value: number
         )}
       </svg>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <def.Icon size={14} />
+        {/* Scaled rather than redrawn, so it grows with the ring. The pixel
+            icons are SVG, so they stay sharp. */}
+        <span style={{ display: 'flex', transform: `scale(${size / 32})`, transition: still ? undefined : `transform ${HEADER_GROW}` }}>
+          <def.Icon size={14} />
+        </span>
       </div>
     </div>
   )

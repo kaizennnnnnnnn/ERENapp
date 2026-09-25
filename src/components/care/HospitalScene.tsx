@@ -402,7 +402,7 @@ export default function HospitalScene({ onClose }: Props) {
       </div>
 
       {/* ══ TOAST ══ */}
-      {toast && <CareToast msg={toast} tone="#7DA3D9" top={56} />}
+      {toast && <CareToast msg={toast} tone="#7DA3D9" />}
 
       {/* ══ DIAGNOSIS CARD ══ */}
       {reasons.length > 0 && !medGiven && (

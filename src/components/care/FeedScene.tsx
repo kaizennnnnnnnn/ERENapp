@@ -5,6 +5,7 @@ import { ShoppingCart } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
+import { useCare } from '@/contexts/CareContext'
 import { cn } from '@/lib/utils'
 import { inkOn, deepenOn } from '@/lib/contrastInk'
 import FoodIcon from '@/components/care/FoodIcon'
@@ -421,6 +422,17 @@ export default function FeedScene({ onClose }: Props) {
   }, [pendingUnlock, reaction.active])
 
   // Warm the four eating stickers so the poof reveals a decoded bitmap.
+  // The fridge picker and a skin unlock fill the screen from inside the scene,
+  // which sits under the room-sized top bar (z-60); the bar steps aside while
+  // either is up, as it does for the Attic's transcript.
+  const { setHideStats } = useCare()
+  const barAside = tab === 'fridge' || unlock !== null
+  useEffect(() => {
+    if (!barAside) return
+    setHideStats(true)
+    return () => setHideStats(false)
+  }, [barAside, setHideStats])
+
   useEffect(() => { preloadEatPoses(BAKED_SPRITE_TEST) }, [])
 
   // Memoize the bare sprite so stat changes from feeding don't re-render it.
@@ -706,7 +718,7 @@ export default function FeedScene({ onClose }: Props) {
 
       {/* ══ UI ══ */}
 
-      {toast && <CareToast msg={toast.msg} ok={toast.ok} tone="#F5C842" top={145} />}
+      {toast && <CareToast msg={toast.msg} ok={toast.ok} tone="#F5C842" />}
 
       {/* ══ DRAG GHOST — just the food icon, no frame ══ */}
       {dragRef.current.item && dragRef.current.pos && dragRef.current.active && (

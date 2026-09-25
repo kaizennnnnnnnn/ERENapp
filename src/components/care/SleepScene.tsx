@@ -264,7 +264,7 @@ export default function SleepScene({ onClose }: Props) {
 
       {/* ══ UI ══ */}
 
-      {toast && <CareToast msg={toast} tone="#818CF8" top={56} />}
+      {toast && <CareToast msg={toast} tone="#818CF8" />}
 
       {/* ══ BOTTOM UI ══ */}
       <div className="absolute bottom-6 inset-x-0 flex flex-col items-center gap-3 px-8 z-20">

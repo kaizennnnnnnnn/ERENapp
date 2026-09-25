@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
+import { useCare } from '@/contexts/CareContext'
 import { cn } from '@/lib/utils'
 import { IconController, IconStar, IconCrown } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
@@ -27,7 +28,7 @@ import DonePlayingButton from '@/components/playroom/DonePlayingButton'
 import SegmentMeter, { type MeterPalette } from '@/components/care/SegmentMeter'
 import CareToast from '@/components/care/CareToast'
 import RoomWeather from '@/components/weather/RoomWeather'
-import { HEADER_CLEARANCE } from '@/components/meadow/tokens'
+import { ROOM_HEADER_CLEARANCE } from '@/components/meadow/tokens'
 
 // ENERGY gauge palettes — the lit colour tracks energy level (violet when
 // healthy, gold mid, red when low). The recessed channel is a deep plum so the
@@ -88,6 +89,16 @@ export default function PlayScene({ onClose }: Props) {
   const [ballMoving,   setBallMoving]   = useState(false)
   const [trailDots,    setTrailDots]    = useState<{id:number;x:number;y:number}[]>([])
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  // The leaderboard fills the screen from inside the scene, under the
+  // room-sized top bar (z-60), whose needs pill would sit on its week/all-time
+  // toggle; the bar steps aside while it's open, as it does for the Attic's
+  // transcript.
+  const { setHideStats } = useCare()
+  useEffect(() => {
+    if (!showLeaderboard) return
+    setHideStats(true)
+    return () => setHideStats(false)
+  }, [showLeaderboard, setHideStats])
   const isDark = useIsDark()
   const sceneRef = useRef<HTMLDivElement>(null)
   const animRef  = useRef<ReturnType<typeof requestAnimationFrame> | null>(null)
@@ -277,11 +288,11 @@ export default function PlayScene({ onClose }: Props) {
 
       {/* ══ UI ══ */}
       {/* Leaderboard button — opens the household high-scores modal.
-          Top is calculated from the StatsHeader bottom (120px + iOS
-          safe-top) so it isn't buried behind the persistent stats. */}
+          Top is calculated from the room-sized StatsHeader's bottom
+          (ROOM_HEADER_CLEARANCE + safe-top) so it isn't buried behind it. */}
       <button onClick={e => { e.stopPropagation(); playSound('ui_tap'); setShowLeaderboard(true) }}
         className="absolute right-4 z-50 active:translate-y-[2px] transition-transform"
-        style={{ top: `calc(var(--safe-top) + ${HEADER_CLEARANCE + 8}px)` }}>
+        style={{ top: `calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE + 8}px)` }}>
         <div className="relative flex items-center gap-1.5 px-2.5 py-1.5 overflow-hidden"
           style={{
             background: 'linear-gradient(180deg, #FBBF24 0%, #F59E0B 55%, #B45309 100%)',
@@ -313,7 +324,7 @@ export default function PlayScene({ onClose }: Props) {
           the leaderboard button so the two stack as a clear pair. */}
       <button onClick={e => { e.stopPropagation(); playSound('ui_tap'); router.push('/games'); setTimeout(onClose, 400) }}
         className="absolute right-4 z-50 active:translate-y-[2px] transition-transform group"
-        style={{ top: `calc(var(--safe-top) + ${HEADER_CLEARANCE + 48}px)` }}>
+        style={{ top: `calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE + 48}px)` }}>
         <div className="relative flex items-center gap-1.5 px-2.5 py-1.5 overflow-hidden"
           style={{
             background: 'linear-gradient(180deg, #A855F7 0%, #7C3AED 55%, #5B21B6 100%)',
@@ -364,11 +375,11 @@ export default function PlayScene({ onClose }: Props) {
         `}</style>
       </button>
 
-      {toast && <CareToast msg={toast} tone="#A78BFA" top={`calc(var(--safe-top) + ${HEADER_CLEARANCE + 112}px)`} />}
+      {toast && <CareToast msg={toast} tone="#A78BFA" top={`calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE + 112}px)`} />}
 
       {throwCount === 0 && !done && (
         <div className="absolute left-1/2 -translate-x-1/2 z-40 px-3 py-1.5 pointer-events-none animate-pulse-soft"
-          style={{ top: `calc(var(--safe-top) + ${HEADER_CLEARANCE + 160}px)`, background: 'rgba(255,255,255,0.85)', borderRadius: 3, border: '2px solid #C0A0E8', boxShadow: '2px 2px 0 rgba(150,100,220,0.2)', fontFamily: '"Press Start 2P"', fontSize: 7, color: '#7C3AED' }}>
+          style={{ top: `calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE + 160}px)`, background: 'rgba(255,255,255,0.85)', borderRadius: 3, border: '2px solid #C0A0E8', boxShadow: '2px 2px 0 rgba(150,100,220,0.2)', fontFamily: '"Press Start 2P"', fontSize: 7, color: '#7C3AED' }}>
           TAP TO THROW THE BALL!
         </div>
       )}

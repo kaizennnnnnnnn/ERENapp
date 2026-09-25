@@ -24,6 +24,8 @@
 // app's pips, popping in and then breathing.
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { ROOM_HEADER_CLEARANCE } from '@/components/meadow/tokens'
+
 interface Props {
   /** The line to show. */
   msg: string
@@ -31,11 +33,14 @@ interface Props {
   ok?: boolean
   /** The room's accent. Border, pips and glow take it. */
   tone?: string
-  /** How far down the room it sits — each room has its own clear band. */
+  /** How far down the room it sits. Default: just under the top bar, which
+   *  in a room is its bigger two-line self (ROOM_HEADER_CLEARANCE). */
   top?: number | string
 }
 
-export default function CareToast({ msg, ok = true, tone = '#F5C842', top = 56 }: Props) {
+const UNDER_BAR = `calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE}px)`
+
+export default function CareToast({ msg, ok = true, tone = '#F5C842', top = UNDER_BAR }: Props) {
   const accent = ok ? tone : '#F87171'
 
   return (

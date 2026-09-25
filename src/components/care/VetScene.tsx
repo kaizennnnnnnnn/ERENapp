@@ -329,7 +329,7 @@ export default function VetScene({ onClose }: Props) {
       )}
 
       {/* ══ TOAST ══ */}
-      {toast && <CareToast msg={toast} tone="#4ADE80" top={56} />}
+      {toast && <CareToast msg={toast} tone="#4ADE80" />}
 
       {/* ══ BOTTOM UI ══
           Cleared out entirely while he's eating the treat. The crouch pose is

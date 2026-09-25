@@ -169,3 +169,14 @@ export const NAV_PAGE_PADDING = 'calc(84px + env(safe-area-inset-bottom, 0px) + 
  * globals.css .page-scroll repeats the number (CSS can't import it).
  */
 export const HEADER_CLEARANCE = 64
+
+/**
+ * The same bar inside a care room, where it is the only thing up top and so
+ * grows: the level and coins on the first line (a 56px row), the needs on a
+ * second line of their own (8px under it, 62px tall), then the lip and air.
+ * Room UI that sits under the bar starts this far below the safe area.
+ */
+export const ROOM_HEADER_CLEARANCE = 142
+
+/** How the bar grows into a room and shrinks back out, every piece at once. */
+export const HEADER_GROW = '480ms cubic-bezier(0.34, 1.3, 0.64, 1)'

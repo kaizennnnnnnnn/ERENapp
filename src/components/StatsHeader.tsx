@@ -7,13 +7,14 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useTween } from '@/hooks/useTween'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { xpForNextLevel, totalXpForLevel, levelForXp } from '@/lib/tasks'
 import { MAX_LEVEL } from '@/lib/levelRewards'
 import { createClient } from '@/lib/supabase/client'
 import { MeadowIcon } from './PixelIcons'
 import NeedGauge, { GAUGES } from './NeedGauge'
 import { playSound, playCoinTicks } from '@/lib/sounds'
-import { M, TYPE } from '@/components/meadow/tokens'
+import { HEADER_GROW, M, TYPE } from '@/components/meadow/tokens'
 
 // ─── Top bar ─────────────────────────────────────────────────────────────────
 // The Meadow top bar (board A1): three things floating over the room, with no
@@ -27,8 +28,10 @@ import { M, TYPE } from '@/components/meadow/tokens'
 // its number pops as they land, "+N XP" rises off the ring when a quest
 // completes, and the ring bursts on a level-up.
 //
-// Screens that show the bar start their content HEADER_CLEARANCE below the
-// safe area (meadow/tokens).
+// In a care room, where it is the only thing up top, the bar grows (SIZES):
+// the needs take a line of their own, a size up. Screens that show the bar
+// start their content HEADER_CLEARANCE below the safe area, room UI
+// ROOM_HEADER_CLEARANCE (meadow/tokens).
 
 // Monotonic id for the floating "+XP" chips.
 let floatSeq = 0
@@ -57,11 +60,23 @@ function formatCoins(n: number): string {
   return n.toLocaleString('en-US').replace(/,/g, ' ')
 }
 
-/** The level circle's diameter, and the coin pill's width at three digits. */
-const LEVEL_D = 48
+/**
+ * The bar's two sizes. On home it is one row. In a care room it is the only
+ * thing up top, so it grows: the level and coins stay on the first line, a
+ * size up, and the needs drop to a line of their own under them, where there
+ * is room for rings half as big again. Every number eases between the two
+ * (HEADER_GROW), so swiping from home into a room grows the bar and swiping
+ * back shrinks it. `needsTop` + `needsH` + lip + air = ROOM_HEADER_CLEARANCE.
+ */
+const SIZES = {
+  home: { level: 48, levelFont: 17, coinH: 40, coinFont: 16, coinIcon: 20, needsTop: 0, needsH: 48, ring: 32, gap: 8, pad: 8 },
+  room: { level: 56, levelFont: 20, coinH: 46, coinFont: 19, coinIcon: 24, needsTop: 64, needsH: 62, ring: 46, gap: 12, pad: 10 },
+} as const
+
+/** The coin pill's width at three digits, before it's been measured. */
 const COIN_PILL_GUESS = 74
 
-/** The level ring's radius and circumference, in the 48px circle's own units. */
+/** The level ring's radius and circumference, in the circle's 48-unit viewBox. */
 const RING_R = 21
 const RING_C = 2 * Math.PI * RING_R
 
@@ -72,7 +87,13 @@ export default function StatsHeader() {
   const { user, profile } = useAuth()
   const { stats } = useErenStats(profile?.household_id ?? null)
   const { xp, level, coins } = useTasks()
-  const { hideStats, closeScene } = useCare()
+  const { hideStats, closeScene, activeScene } = useCare()
+  const inRoom = activeScene !== null
+  const S = inRoom ? SIZES.room : SIZES.home
+  // Everything that changes size between home and a room eases together; with
+  // reduced motion it simply changes.
+  const still = useReducedMotion()
+  const ease = (...props: string[]) => still ? undefined : props.map(p => `${p} ${HEADER_GROW}`).join(', ')
 
   // Animate the raw XP + coin totals so the bar fills and the numbers roll up
   // smoothly. Everything below is derived per-frame from the single animated XP
@@ -263,15 +284,16 @@ export default function StatsHeader() {
 
   const unclaimedRewards = Math.max(0, Math.min(level, MAX_LEVEL) - claimedLevel)
 
-  // The needs sit dead centre on the screen: both side slots take the wider of
-  // the level circle and the coin pill, measured, because the coin pill grows
-  // with the balance and the circle doesn't. Re-armed when the bar reappears.
+  // On home the needs sit dead centre on the screen, between the level and the
+  // coins: both sides reserve the wider of the two, measured, because the coin
+  // pill grows with the balance and the circle doesn't. Re-armed when the bar
+  // reappears.
   const [sideW, setSideW] = useState(COIN_PILL_GUESS)
   useEffect(() => {
     const el = coinChipRef.current
     if (!el || typeof ResizeObserver === 'undefined') return
     const ro = new ResizeObserver(() => {
-      setSideW(Math.max(LEVEL_D, Math.ceil(el.getBoundingClientRect().width)))
+      setSideW(Math.max(SIZES.home.level, Math.ceil(el.getBoundingClientRect().width)))
     })
     ro.observe(el)
     return () => ro.disconnect()
@@ -285,128 +307,140 @@ export default function StatsHeader() {
     + '. Open the reward road'
 
   return (
-    // The row itself lets taps through (the layout's wrapper is
-    // pointer-events: none); only the three pieces catch them.
+    // The bar itself lets taps through (the layout's wrapper is
+    // pointer-events: none); only the three pieces catch them. The pieces are
+    // placed rather than laid out in a grid, so they can move and resize
+    // smoothly between home's one row and a room's two.
     <div className="w-full" style={{
-      display: 'grid', gridTemplateColumns: `${sideW}px minmax(0, 1fr) ${sideW}px`,
-      alignItems: 'center', columnGap: 8,
       paddingTop: 'calc(var(--safe-top) + 6px)', paddingLeft: 16, paddingRight: 16,
       color: M.text,
     }}>
-      {/* ── Level: the ring is this level's XP. Tap: the reward road. Closes
-          any care scene first, so its overlay (fixed, z 40) doesn't sit on
-          top of the rewards page. Home's XP sparkles fly to this id. ── */}
-      <Link
-        href="/rewards"
-        id="stats-xp-bar"
-        aria-label={levelLabel}
-        onClick={() => { closeScene(); playSound('ui_tap') }}
-        className="m-press m-focus"
-        style={{
-          ...OVER_ART, pointerEvents: 'auto', position: 'relative', justifySelf: 'start',
-          width: LEVEL_D, height: LEVEL_D, borderRadius: 999,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          textDecoration: 'none', color: M.text,
-        }}
-      >
-        <svg width="48" height="48" viewBox="0 0 48 48" aria-hidden style={{ position: 'absolute', inset: 0 }}>
-          <circle cx="24" cy="24" r={RING_R} fill="none" stroke={M.track} strokeWidth="4" />
-          {/* Driven per frame by the XP tween, like the bar it replaces. A
-              zero-length round cap would still paint a dot, so none at 0. */}
-          {xpPct > 0.5 && (
-            <circle cx="24" cy="24" r={RING_R} fill="none" stroke={M.leaf} strokeWidth="4" strokeLinecap="round"
-              strokeDasharray={`${(xpPct / 100) * RING_C} ${RING_C}`} transform="rotate(-90 24 24)" />
+      <div style={{ position: 'relative', height: S.needsTop + S.needsH, transition: ease('height') }}>
+        {/* ── Level: the ring is this level's XP. Tap: the reward road. Closes
+            any care scene first, so its overlay (fixed, z 40) doesn't sit on
+            top of the rewards page. Home's XP sparkles fly to this id. ── */}
+        <Link
+          href="/rewards"
+          id="stats-xp-bar"
+          aria-label={levelLabel}
+          onClick={() => { closeScene(); playSound('ui_tap') }}
+          className="m-press m-focus"
+          style={{
+            ...OVER_ART, pointerEvents: 'auto', position: 'absolute', left: 0, top: 0,
+            width: S.level, height: S.level, borderRadius: 999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            textDecoration: 'none', color: M.text,
+            // m-press's tap sink restated: an inline transition replaces the
+            // class's.
+            transition: still ? undefined : `${ease('width', 'height')}, transform 70ms ease-out`,
+          }}
+        >
+          <svg width="100%" height="100%" viewBox="0 0 48 48" aria-hidden style={{ position: 'absolute', inset: 0 }}>
+            <circle cx="24" cy="24" r={RING_R} fill="none" stroke={M.track} strokeWidth="4" />
+            {/* Driven per frame by the XP tween, like the bar it replaces. A
+                zero-length round cap would still paint a dot, so none at 0. */}
+            {xpPct > 0.5 && (
+              <circle cx="24" cy="24" r={RING_R} fill="none" stroke={M.leaf} strokeWidth="4" strokeLinecap="round"
+                strokeDasharray={`${(xpPct / 100) * RING_C} ${RING_C}`} transform="rotate(-90 24 24)" />
+            )}
+          </svg>
+
+          {/* Keyed by orbBurst so it bounces once on each level roll-over. */}
+          <span key={orbBurst} style={{
+            position: 'relative', fontSize: S.levelFont, lineHeight: 1, ...TYPE.number,
+            transition: ease('font-size'),
+            animation: orbBurst ? 'hudOrbPop 600ms cubic-bezier(0.16,1,0.3,1)' : undefined,
+          }}>{dispLevel}</span>
+
+          {/* Level-up burst: a leaf ring expands while coin-gold sparks fly
+              outward. Remounts on each roll-over to replay. */}
+          {orbBurst > 0 && (
+            <span key={`burst-${orbBurst}`} aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+              <span style={{
+                position: 'absolute', left: '50%', top: '50%', width: '100%', height: '100%', borderRadius: 999,
+                border: `3px solid ${M.leaf}`,
+                transform: 'translate(-50%, -50%)',
+                animation: 'hudOrbRing 650ms ease-out forwards',
+              }} />
+              {Array.from({ length: 8 }).map((_, i) => {
+                const a = (i / 8) * Math.PI * 2
+                return (
+                  <span key={i} style={{
+                    position: 'absolute', left: '50%', top: '50%',
+                    width: 5, height: 5, borderRadius: 999, background: M.coin,
+                    ['--sx']: `${Math.cos(a) * 30}px`,
+                    ['--sy']: `${Math.sin(a) * 30}px`,
+                    animation: `hudOrbSpark 620ms ease-out ${i * 18}ms forwards`,
+                  } as React.CSSProperties} />
+                )
+              })}
+            </span>
           )}
-        </svg>
 
-        {/* Keyed by orbBurst so it bounces once on each level roll-over. */}
-        <span key={orbBurst} style={{
-          position: 'relative', fontSize: 17, lineHeight: 1, ...TYPE.number,
-          animation: orbBurst ? 'hudOrbPop 600ms cubic-bezier(0.16,1,0.3,1)' : undefined,
-        }}>{dispLevel}</span>
+          {/* Rewards waiting on the road: the count, in the unread-dot pink. */}
+          {unclaimedRewards > 0 && (
+            <span aria-hidden style={{
+              position: 'absolute', top: -4, right: -6,
+              minWidth: 20, height: 20, boxSizing: 'border-box', padding: '0 5px',
+              borderRadius: 999, background: M.love, border: '2px solid #FFFFFF',
+              color: '#FFFFFF', fontSize: 11, lineHeight: '16px', textAlign: 'center', ...TYPE.number,
+            }}>{badge}</span>
+          )}
 
-        {/* Level-up burst: a leaf ring expands while coin-gold sparks fly
-            outward. Remounts on each roll-over to replay. */}
-        {orbBurst > 0 && (
-          <span key={`burst-${orbBurst}`} aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-            <span style={{
-              position: 'absolute', left: '50%', top: '50%', width: 48, height: 48, borderRadius: 999,
-              border: `3px solid ${M.leaf}`,
-              transform: 'translate(-50%, -50%)',
-              animation: 'hudOrbRing 650ms ease-out forwards',
-            }} />
-            {Array.from({ length: 8 }).map((_, i) => {
-              const a = (i / 8) * Math.PI * 2
-              return (
-                <span key={i} style={{
-                  position: 'absolute', left: '50%', top: '50%',
-                  width: 5, height: 5, borderRadius: 999, background: M.coin,
-                  ['--sx']: `${Math.cos(a) * 30}px`,
-                  ['--sy']: `${Math.sin(a) * 30}px`,
-                  animation: `hudOrbSpark 620ms ease-out ${i * 18}ms forwards`,
-                } as React.CSSProperties} />
-              )
-            })}
-          </span>
-        )}
+          {/* "+N XP" chips rise off the ring on each quest completion, fanned
+              sideways (dx) so several at once stay legible. */}
+          {xpFloats.map(f => (
+            <span key={f.id} aria-hidden style={{
+              position: 'absolute', left: `calc(50% + ${f.dx}px)`, top: 'calc(100% + 2px)', zIndex: 6,
+              padding: '3px 8px', borderRadius: 999, ...OVER_ART,
+              color: M.leafInk, fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              animation: 'hudFloatRise 1.3s ease-out forwards',
+            }}>+{f.xp} XP</span>
+          ))}
+        </Link>
 
-        {/* Rewards waiting on the road: the count, in the unread-dot pink. */}
-        {unclaimedRewards > 0 && (
-          <span aria-hidden style={{
-            position: 'absolute', top: -4, right: -6,
-            minWidth: 20, height: 20, boxSizing: 'border-box', padding: '0 5px',
-            borderRadius: 999, background: M.love, border: '2px solid #FFFFFF',
-            color: '#FFFFFF', fontSize: 11, lineHeight: '16px', textAlign: 'center', ...TYPE.number,
-          }}>{badge}</span>
-        )}
+        {/* ── The cat's needs: five rings in one pill, centred on the screen.
+            On home it sits between the level and the coins, and the rings
+            shrink (32px down to 24) before it outgrows that gap; in a room it
+            has a line to itself. ── */}
+        <div role="group" aria-label="Needs" style={{
+          ...OVER_ART, pointerEvents: 'auto',
+          position: 'absolute', top: S.needsTop, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto',
+          width: 'fit-content', maxWidth: inRoom ? '100%' : `calc(100% - ${2 * (sideW + 8)}px)`,
+          height: S.needsH, boxSizing: 'border-box', padding: `0 ${S.pad}px`, borderRadius: 999,
+          display: 'flex', alignItems: 'center', gap: S.gap,
+          transition: ease('top', 'max-width', 'height', 'padding', 'gap'),
+        }}>
+          {GAUGES.map(def => {
+            const raw = stats ? (stats as unknown as Record<string, unknown>)[def.key] : null
+            return <NeedGauge key={def.key} def={def} value={typeof raw === 'number' ? raw : null} size={S.ring} />
+          })}
+        </div>
 
-        {/* "+N XP" chips rise off the ring on each quest completion, fanned
-            sideways (dx) so several at once stay legible. */}
-        {xpFloats.map(f => (
-          <span key={f.id} aria-hidden style={{
-            position: 'absolute', left: `calc(50% + ${f.dx}px)`, top: 50, zIndex: 6,
-            padding: '3px 8px', borderRadius: 999, ...OVER_ART,
-            color: M.leafInk, fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap',
-            pointerEvents: 'none',
-            animation: 'hudFloatRise 1.3s ease-out forwards',
-          }}>+{f.xp} XP</span>
-        ))}
-      </Link>
-
-      {/* ── The cat's needs: five rings in one pill, centred. The rings
-          shrink (32px down to 24) before the pill outgrows the middle
-          column. ── */}
-      <div role="group" aria-label="Needs" style={{
-        ...OVER_ART, pointerEvents: 'auto', justifySelf: 'center',
-        width: 'fit-content', maxWidth: '100%', minWidth: 0,
-        height: 48, boxSizing: 'border-box', padding: '0 8px', borderRadius: 999,
-        display: 'flex', alignItems: 'center', gap: 8,
-      }}>
-        {GAUGES.map(def => {
-          const raw = stats ? (stats as unknown as Record<string, unknown>)[def.key] : null
-          return <NeedGauge key={def.key} def={def} value={typeof raw === 'number' ? raw : null} />
-        })}
+        {/* ── Coins, level with the circle's middle. Measured by the fly layer
+            so the coins land dead-on; the number pops as they arrive. ── */}
+        <span
+          ref={coinChipRef}
+          role="img"
+          aria-label={`${coins} coins`}
+          style={{
+            ...OVER_ART, pointerEvents: 'auto',
+            position: 'absolute', right: 0, top: (S.level - S.coinH) / 2,
+            height: S.coinH, boxSizing: 'border-box', padding: '0 12px 0 8px', borderRadius: 999,
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            fontSize: S.coinFont, whiteSpace: 'nowrap', ...TYPE.number,
+            transition: ease('top', 'height', 'font-size'),
+          }}
+        >
+          <MeadowIcon name="coin" size={SIZES.home.coinIcon}
+            style={{ width: S.coinIcon, height: S.coinIcon, transition: ease('width', 'height') }} />
+          <span key={coinPop} style={{
+            display: 'inline-block',
+            animation: coinPop ? 'hudNumPop 450ms cubic-bezier(0.16,1,0.3,1)' : undefined,
+          }}>{formatCoins(dispCoins)}</span>
+        </span>
       </div>
-
-      {/* ── Coins. Measured by the fly layer so the coins land dead-on; the
-          number pops as they arrive. ── */}
-      <span
-        ref={coinChipRef}
-        role="img"
-        aria-label={`${coins} coins`}
-        style={{
-          ...OVER_ART, pointerEvents: 'auto', justifySelf: 'end',
-          height: 40, boxSizing: 'border-box', padding: '0 12px 0 8px', borderRadius: 999,
-          display: 'inline-flex', alignItems: 'center', gap: 5,
-          fontSize: 16, whiteSpace: 'nowrap', ...TYPE.number,
-        }}
-      >
-        <MeadowIcon name="coin" size={20} />
-        <span key={coinPop} style={{
-          display: 'inline-block',
-          animation: coinPop ? 'hudNumPop 450ms cubic-bezier(0.16,1,0.3,1)' : undefined,
-        }}>{formatCoins(dispCoins)}</span>
-      </span>
 
       {/* Coin-flight layer: full-frame; coins fly from a burst origin into the
           counter on every gain. Always mounted so its box can be measured on

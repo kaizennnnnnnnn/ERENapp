@@ -28,6 +28,7 @@ import SqueakyCleanBanner from '@/components/wash/SqueakyCleanBanner'
 import SegmentMeter, { type MeterPalette } from '@/components/care/SegmentMeter'
 import CareToast from '@/components/care/CareToast'
 import RoomWeather from '@/components/weather/RoomWeather'
+import { ROOM_HEADER_CLEARANCE } from '@/components/meadow/tokens'
 
 interface Props { onClose: () => void }
 
@@ -666,7 +667,7 @@ export default function WashScene({ onClose }: Props) {
       </div>
 
       {/* ══ SCENE LABEL ══════════════════════════════════════════════════ */}
-      <div className="absolute left-1/2 -translate-x-1/2 z-50" style={{ top: 110 }}>
+      <div className="absolute left-1/2 -translate-x-1/2 z-50" style={{ top: `calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE + 28}px)` }}>
         <span className="font-pixel text-sky-700 px-3 py-1.5"
           style={{ background: 'linear-gradient(135deg, #E8F8FF, #D0EEFF)', borderRadius: 3, border: '2px solid #A8D4F0', boxShadow: '2px 2px 0 #88B8D8', fontSize: 7 }}>
           BATHROOM
@@ -674,7 +675,7 @@ export default function WashScene({ onClose }: Props) {
       </div>
 
       {/* ══ TOAST ════════════════════════════════════════════════════════ */}
-      {toast && <CareToast msg={toast} tone="#5BA3D9" top={56} />}
+      {toast && <CareToast msg={toast} tone="#5BA3D9" top={`calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE + 64}px)`} />}
 
       {/* ══ PROGRESS BARS ════════════════════════════════════════════════ */}
       <div className="absolute bottom-4 inset-x-0 px-5 flex flex-col gap-2 items-center pointer-events-none">
