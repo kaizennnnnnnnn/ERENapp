@@ -791,6 +791,9 @@ export default function HomePage() {
         <HomeHud
           quests={<TaskPanel compact />}
           footer={<CoopGoalBar />}
+          wish={wish?.wish && wish.status !== 'loading'
+            ? { text: wish.text, granted: wish.status === 'granted', weekCount: wish.weekGrantedCount }
+            : null}
           fortuneAvailable={fortuneAvailable}
           trophyBalance={trophyBalance}
           newSkinCount={newSkinCount}

@@ -11,7 +11,7 @@ import { xpForNextLevel, totalXpForLevel, levelForXp } from '@/lib/tasks'
 import { MAX_LEVEL } from '@/lib/levelRewards'
 import { createClient } from '@/lib/supabase/client'
 import { MeadowIcon } from './PixelIcons'
-import WaterGauge, { GAUGES } from './WaterGauge'
+import NeedGauge, { GAUGES } from './NeedGauge'
 import { playSound, playCoinTicks } from '@/lib/sounds'
 import { M, TYPE } from '@/components/meadow/tokens'
 
@@ -19,8 +19,9 @@ import { M, TYPE } from '@/components/meadow/tokens'
 // The Meadow top bar (board A1): three things floating over the room, with no
 // bar behind them. The level sits in a white circle whose ring is this level's
 // XP (tap: the reward road, badged when rewards wait there); the cat's five
-// needs are the water gauges the old HUD had, kept as they were, in a white
-// pill; the coins are a white pill. Streak lives on Me, today's wish on home.
+// needs are rings of the same kind round their icons (NeedGauge), in a white
+// pill; the coins are a white pill. Streak lives on Me; today's wish and the
+// week's count are on home.
 //
 // Everything that moved still moves: coins fly into the counter on a gain and
 // its number pops as they land, "+N XP" rises off the ring when a quest
@@ -372,9 +373,9 @@ export default function StatsHeader() {
         ))}
       </Link>
 
-      {/* ── The cat's needs: five glasses of water in one pill, centred.
-          The glasses shrink (32px down to 24) before the pill outgrows the
-          middle column. ── */}
+      {/* ── The cat's needs: five rings in one pill, centred. The rings
+          shrink (32px down to 24) before the pill outgrows the middle
+          column. ── */}
       <div role="group" aria-label="Needs" style={{
         ...OVER_ART, pointerEvents: 'auto', justifySelf: 'center',
         width: 'fit-content', maxWidth: '100%', minWidth: 0,
@@ -383,7 +384,7 @@ export default function StatsHeader() {
       }}>
         {GAUGES.map(def => {
           const raw = stats ? (stats as unknown as Record<string, unknown>)[def.key] : null
-          return <WaterGauge key={def.key} def={def} value={typeof raw === 'number' ? raw : null} />
+          return <NeedGauge key={def.key} def={def} value={typeof raw === 'number' ? raw : null} />
         })}
       </div>
 

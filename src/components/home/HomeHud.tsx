@@ -2,8 +2,9 @@
 
 // ─── Home HUD row ────────────────────────────────────────────────────────────
 // The strip under the stats header: the quests bar, then the room's own
-// shortcuts (fortune gift when one is waiting, the Hallway, the Trophy Room,
-// reminders, the Closet), then the co-op goal bar under it all.
+// shortcuts (today's wish, the fortune gift when one is waiting, the Hallway,
+// the Trophy Room, reminders, the Closet), then the co-op goal bar under it
+// all.
 //
 // Us, Me and Rooms used to live in this row too. They are tabs of the bottom
 // nav now (the Us tab carries the unread dot this row's heart used to), so
@@ -18,12 +19,15 @@ import { IconBell, IconDress, IconGift, IconPhoto, IconTrophyTier } from '@/comp
 import { cuteBtn, CuteIcon } from '@/components/obsidian'
 import { playSound } from '@/lib/sounds'
 import { HEADER_CLEARANCE } from '@/components/meadow/tokens'
+import WishButton, { type WishButtonProps } from './WishButton'
 
 export interface HomeHudProps {
   /** The quests bar (TaskPanel compact); flexes to fill the row. */
   quests: ReactNode
   /** Under the row: the co-op goal bar. */
   footer?: ReactNode
+  /** Today's wish; null while it loads (or on a day without one). */
+  wish: WishButtonProps | null
   fortuneAvailable: boolean
   /** Spendable trophies; 0 hides the badge (pass 0 while unloaded, never a guess). */
   trophyBalance: number
@@ -39,7 +43,7 @@ const BADGE_RED = {
 } as const
 
 export default function HomeHud({
-  quests, footer, fortuneAvailable, trophyBalance, newSkinCount, onOpenFortune, onOpenReminders,
+  quests, footer, wish, fortuneAvailable, trophyBalance, newSkinCount, onOpenFortune, onOpenReminders,
 }: HomeHudProps) {
   const tap = () => playSound('ui_tap')
   return (
@@ -47,6 +51,8 @@ export default function HomeHud({
       <div className="flex items-center gap-1">
         {/* Quests — flexes to take remaining space */}
         <div className="flex-1 min-w-0">{quests}</div>
+
+        {wish && <WishButton {...wish} />}
 
         {fortuneAvailable && (
           <button type="button" onClick={onOpenFortune} aria-label="Fortune gift"
