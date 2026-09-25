@@ -18,6 +18,9 @@ import { FLAVOR_LINES, type FlavorLine, type FlavorTrigger } from '@/lib/flavorL
 import { getDaypart, type Daypart } from '@/lib/timeOfDay'
 import { quipOfTheDay } from '@/lib/erenQuips'
 import { dateKey } from '@/lib/wishes'
+import { useCat } from '@/hooks/useCat'
+import { catText } from '@/lib/catWords'
+import { isOriginalCat, type CatIdentity } from '@/lib/catIdentity'
 import type { FoodKey } from '@/types'
 
 const IDLE_CYCLE_MIN_MS = 60_000
@@ -100,6 +103,8 @@ export function useFlavorBubble(opts: UseFlavorBubbleOptions): {
   const userIdRef = useRef(opts.userId)
   const householdIdRef = useRef(opts.householdId)
   const tzRef = useRef(opts.tz)
+  const cat = useCat()
+  const catRef = useRef<CatIdentity>(cat)
   useEffect(() => { enabledRef.current = opts.enabled }, [opts.enabled])
   useEffect(() => { suppressedRef.current = opts.suppressed }, [opts.suppressed])
   useEffect(() => { leaderRef.current = opts.leaderName }, [opts.leaderName])
@@ -109,6 +114,7 @@ export function useFlavorBubble(opts: UseFlavorBubbleOptions): {
   useEffect(() => { userIdRef.current = opts.userId }, [opts.userId])
   useEffect(() => { householdIdRef.current = opts.householdId }, [opts.householdId])
   useEffect(() => { tzRef.current = opts.tz }, [opts.tz])
+  useEffect(() => { catRef.current = cat }, [cat])
 
   const cycleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -124,9 +130,11 @@ export function useFlavorBubble(opts: UseFlavorBubbleOptions): {
   }, [])
 
   // Substitute {leader} / {other} — returns null if substitution can't resolve
-  // so the caller silently drops the line and tries the next pick.
+  // so the caller silently drops the line and tries the next pick. The cat's
+  // tokens go first, while the text is still only the template.
   const renderLine = useCallback((tpl: FlavorLine): FlavorBubble | null => {
-    let text = tpl.text
+    const c = catRef.current
+    let text = catText(tpl.renamedText && !isOriginalCat(c) ? tpl.renamedText : tpl.text, c)
     if (text.includes('{viewer}')) {
       if (!viewerRef.current) return null
       text = text.replace(/\{viewer\}/g, viewerRef.current)

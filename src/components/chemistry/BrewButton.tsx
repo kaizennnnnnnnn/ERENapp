@@ -10,6 +10,8 @@
 // single visual difference carries "this is the fun one" without needing a
 // second shape language.
 
+import { useCat } from '@/hooks/useCat'
+
 interface Props {
   onClick: () => void
   /** Fills the beaker green once today's order is filled. */
@@ -42,11 +44,12 @@ const WISPS = [
 ]
 
 export default function BrewButton({ onClick, done }: Props) {
+  const cat = useCat()
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label="Open Eren's Brew"
+      aria-label={cat.t("Open {name}'s Brew")}
       className="chem-table-btn relative flex-1 min-w-0"
       style={{
         display: 'flex',
@@ -88,8 +91,11 @@ export default function BrewButton({ onClick, done }: Props) {
         fontFamily: PIXEL_FONT, fontSize: 8, lineHeight: 1.6, letterSpacing: 0.5,
         textShadow: `0 2px 0 ${INK}`,
       }}>
-        EREN&apos;S
-        <br />
+        {/* The cat's name can run to 24 letters: one line, cut short, so the
+            slab stays the same height as its PERIODIC TABLE twin. */}
+        <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {cat.t("{NAME}'S")}
+        </span>
         BREW
       </span>
     </button>

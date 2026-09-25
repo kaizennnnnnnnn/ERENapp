@@ -22,7 +22,7 @@ import {
 } from '@/components/meadow'
 import CatPortrait from '@/components/cat/CatPortrait'
 import ReportSheet from '@/components/safety/ReportSheet'
-import { CAT_NAME_MAX, SEX_LABELS, coatLabel, type CatLook, type CatSex } from '@/lib/catIdentity'
+import { CAT_NAME_MAX, SEX_LABELS, ownCoatLabel, type CatLook, type CatSex } from '@/lib/catIdentity'
 import { THEMES, type ThemeKey } from '@/contexts/ThemeContext'
 import {
   BirthdaySheet, DeleteSheet, InviteSheet, LeaveSheet, LookSheet, NameSheet, PartnerSheet, SpecialDaysSheet,
@@ -557,7 +557,7 @@ function CatCard({ cat, birthday, onRename, onSex, onBirthday, onLook }: {
     if (!r.ok) setError(r.message)
   }
 
-  const coat = coatLabel(cat.look)
+  const coat = ownCoatLabel(cat.look, cat.name)
   const day = formatDay(birthday ?? null)
   const linkButton: CSSProperties = {
     flex: '0 0 auto', height: 44, margin: '-13px -8px -13px 0', padding: '0 8px', border: 0,

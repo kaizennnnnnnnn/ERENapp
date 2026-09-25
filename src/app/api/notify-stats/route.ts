@@ -10,6 +10,7 @@
  */
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPush, getStatNotifications } from '@/lib/serverPush'
+import { fetchCatWords } from '@/lib/catWords'
 import { authorizeRequest } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 
@@ -51,11 +52,16 @@ export async function POST(request: Request) {
   const supabase = createAdminClient()
 
   // Load the current stat row (also need last_notified_at for the cooldown).
-  const { data: stat } = await supabase
-    .from('eren_stats')
-    .select('id, happiness, hunger, energy, sleep_quality, cleanliness, is_sick, last_notified_at')
-    .eq('household_id', household_id)
-    .single()
+  // The cat's name is a read of its own so this select never depends on the
+  // cat columns existing yet.
+  const [{ data: stat }, cat] = await Promise.all([
+    supabase
+      .from('eren_stats')
+      .select('id, happiness, hunger, energy, sleep_quality, cleanliness, is_sick, last_notified_at')
+      .eq('household_id', household_id)
+      .single(),
+    fetchCatWords(supabase, household_id),
+  ])
 
   if (!stat) {
     return NextResponse.json({ error: 'no stat row' }, { status: 404 })
@@ -70,7 +76,7 @@ export async function POST(request: Request) {
     is_sick:       stat.is_sick,
   }
 
-  const allNotifs = getStatNotifications(stats)
+  const allNotifs = getStatNotifications(stats, cat)
   if (allNotifs.length === 0) {
     return NextResponse.json({ ok: true, sent: 0, reason: 'no thresholds' })
   }

@@ -31,7 +31,8 @@ import type { MonstaBuff } from './monstaBuffs'
 export type JellyId = 'red' | 'green' | 'purple' | 'yellow' | 'orange'
 
 export interface JellyEffect {
-  /** Short line for the prize card — reads as flavour, not as a stat table. */
+  /** Short line for the prize card — reads as flavour, not as a stat table.
+   *  A template (lib/catWords): fill with cat.t / catText before showing. */
   label: string
   buff: MonstaBuff
 }
@@ -53,9 +54,9 @@ export const JELLIES: JellyDef[] = [
   {
     id: 'red', name: 'Strawberry Wobble', colour: '#D73832', art: art('red'),
     effects: [
-      { label: 'HE BOUNCES · JOY +30', buff: { label: 'JOY +30', happiness: 30 } },
+      { label: '{HE} BOUNCES · JOY +30', buff: { label: 'JOY +30', happiness: 30 } },
       { label: 'SUGAR RUSH · +45 COINS', buff: { label: '+45 COINS', coins: 45 } },
-      { label: 'WARM BELLY · CURES HIM', buff: { label: 'CURES SICKNESS', cure: true } },
+      { label: 'WARM BELLY · CURES {HIM}', buff: { label: 'CURES SICKNESS', cure: true } },
     ],
   },
   {

@@ -15,6 +15,9 @@ import {
 
 export interface RoomDef {
   id: 'feed' | 'play' | 'sleep' | 'wash' | 'chemistry' | 'vet' | 'talk' | 'bakery'
+  /** Shown through cat.t (lib/catWords) by the Rooms sheet and the swipe dots,
+   *  so a label may name the cat. The bakery tile doesn't: at a quarter of the
+   *  sheet's width a long name broke mid-word, and the bakery says it inside. */
   label: string
   Icon: ComponentType<{ size?: number }>
   color: string
@@ -32,5 +35,5 @@ export const ROOMS: RoomDef[] = [
   { id: 'chemistry', label: 'Chem Lab',      Icon: IconFlask,     color: '#84CC16', rgb: '132,204,22'  },
   { id: 'vet',       label: 'Vet Office',    Icon: IconPill,      color: '#34D399', rgb: '52,211,153'  },
   { id: 'talk',      label: 'The Attic',     Icon: IconSpeech,    color: '#D8B4FE', rgb: '216,180,254' },
-  { id: 'bakery',    label: 'Eren’s Bakery', Icon: IconCake,      color: '#FBBF24', rgb: '251,191,36', href: '/bakery' },
+  { id: 'bakery',    label: 'Bakery',        Icon: IconCake,      color: '#FBBF24', rgb: '251,191,36', href: '/bakery' },
 ]

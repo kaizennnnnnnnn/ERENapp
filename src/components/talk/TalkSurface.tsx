@@ -20,6 +20,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useErenChatContext } from '@/contexts/ErenChatContext'
 import { useErenMemories } from '@/hooks/useErenMemories'
+import { useCat } from '@/hooks/useCat'
 import { isBrownSender } from '@/lib/nudges'
 import { isTooSleepy } from '@/lib/chatAllowance'
 import { playSound } from '@/lib/sounds'
@@ -51,6 +52,7 @@ interface Props {
 export default function TalkSurface({ onExit, onLoaded }: Props) {
   const { user, profile } = useAuth()
   const { stats } = useErenStats()
+  const cat = useCat()
   const {
     messages, streaming, sending, loading, error, savedTick, send,
     spent,
@@ -78,7 +80,7 @@ export default function TalkSurface({ onExit, onLoaded }: Props) {
     return () => clearTimeout(t)
   }, [savedTick])
 
-  if (loading) return <PageLoader label="FINDING EREN" />
+  if (loading) return <PageLoader label={cat.t('FINDING {NAME}')} />
 
   return (
     <>

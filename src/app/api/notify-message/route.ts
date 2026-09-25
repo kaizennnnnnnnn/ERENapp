@@ -30,6 +30,7 @@
  */
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPush } from '@/lib/serverPush'
+import { fetchCatWords } from '@/lib/catWords'
 import { authorizeRequest } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 
@@ -95,14 +96,15 @@ export async function POST(request: Request) {
   }
 
   const name = (sender?.name?.trim() || 'Your partner').slice(0, 32)
-  const title = hide_text ? '💌 Eren' : `💌 ${name}`
+  const cat = await fetchCatWords(supabase, msg.household_id)
+  const title = hide_text ? `💌 ${cat.name}` : `💌 ${name}`
 
   // A gift-only message has empty text, so the body describes the gift. Read
   // from the row rather than letting the client word it.
   const gift = msg.gift_item as { key?: string } | null
-  const fallback = gift?.key ? `sent a ${String(gift.key).slice(0, 40)}!` : 'sent you a message through Eren'
+  const fallback = gift?.key ? `sent a ${String(gift.key).slice(0, 40)}!` : `sent you a message through ${cat.name}`
   const snippet = hide_text
-    ? 'Eren has a message for you — open to see it!'
+    ? `${cat.name} has a message for you — open to see it!`
     : (msg.message?.trim() || fallback).slice(0, 140)
 
   const expired: string[] = []

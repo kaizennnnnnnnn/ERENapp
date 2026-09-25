@@ -21,6 +21,7 @@ import { authorizeRequest } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPush, heartGlyph } from '@/lib/serverPush'
+import { fetchCatWords } from '@/lib/catWords'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -77,8 +78,9 @@ export async function POST(req: Request) {
 
   const heart = heartGlyph(runner.heart)
   const who = (runner.name?.trim() || 'Your partner').slice(0, 32)
-  const title = `${heart} Eren`
-  const text = `${who} started filling Eren's memory wall — come see your memories.`
+  const cat = await fetchCatWords(supabase, body.household_id)
+  const title = `${heart} ${cat.name}`
+  const text = `${who} started filling ${cat.name}'s memory wall — come see your memories.`
 
   let sent = 0
   const expired: string[] = []

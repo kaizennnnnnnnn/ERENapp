@@ -7,6 +7,8 @@ import { useCloset } from '@/hooks/useCloset'
 import { useAuth } from '@/hooks/useAuth'
 import { useGacha } from '@/hooks/useGacha'
 import { markSkinsSeen, readSeenSkins } from '@/hooks/useNewSkins'
+import { useCat } from '@/hooks/useCat'
+import { swapCatName } from '@/lib/catWords'
 import {
   SKINNABLE_ROOMS, GACHA_SKINS, CLASSIC_SKIN, resolveRoomSkin, skinPrice, skinUnlockDrink, type SkinDef,
 } from '@/lib/skins'
@@ -28,6 +30,7 @@ export default function ClosetPage() {
   const { user } = useAuth()
   const { owned, roomSkins, assign, assignAll, loading, loaded, refetch } = useCloset()
   const { stardust, purchaseSkin } = useGacha()
+  const cat = useCat()
   const [activeRoom, setActiveRoom] = useState(SKINNABLE_ROOMS[0].id)
   const [tab, setTab] = useState<ClosetTab>('mine')
   const [toast, setToast] = useState<string | null>(null)
@@ -96,13 +99,13 @@ export default function ClosetPage() {
       // actually opens them instead of a sheet that couldn't complete.
       if (card.skin.unlock === 'jelly') {
         playSound('ui_tap')
-        showToast('Feed Eren 5 Super Jellies')
+        showToast(cat.t('Feed {name} 5 Super Jellies'))
         return
       }
       const drink = skinUnlockDrink(card.skin.id)
       if (drink) {
         playSound('ui_tap')
-        showToast(`Feed Eren a ${FOOD_META[drink as FoodKey].name}`)
+        showToast(cat.t(`Feed {name} a ${FOOD_META[drink as FoodKey].name}`))
         return
       }
       playSound('ui_modal_open')
@@ -130,7 +133,7 @@ export default function ClosetPage() {
       assign(activeRoom, skin.id)   // unlock → try it on in the room you're viewing
       setTab('mine')                // the skin just left the Shop grid; show it in My Looks
       await refetch()
-      showToast(`Now wearing ${skin.name}!`)
+      showToast(`Now wearing ${swapCatName(skin.name, cat)}!`)
     } else if (res.reason === 'insufficient') {
       showToast('Not enough stardust')
     } else if (res.reason === 'already_owned') {
@@ -177,9 +180,12 @@ export default function ClosetPage() {
       )}
 
       {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 text-white px-4 py-2.5 whitespace-nowrap" style={{
+        // max-content, capped at the screen: one line when it fits, wrapped
+        // when a long cat name ("Now wearing Fox Clementine The Great!") won't.
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 text-white text-center px-4 py-2.5" style={{
           zIndex: 70, background: '#1F1F2E', borderRadius: 3, border: '2px solid #3A3A5E',
           boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', fontFamily: '"Press Start 2P"', fontSize: 7,
+          width: 'max-content', maxWidth: 'calc(100vw - 32px)', lineHeight: 1.6, overflowWrap: 'anywhere',
         }}>{toast}</div>
       )}
     </>

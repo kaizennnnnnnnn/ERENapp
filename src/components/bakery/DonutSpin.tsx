@@ -35,6 +35,7 @@ import { useEffect, useRef, useState } from 'react'
 import { foodArt } from '@/lib/foodMeta'
 import { MACHINE_DONUTS, type DonutDef } from '@/lib/donuts'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
+import { useCat } from '@/hooks/useCat'
 import { playSound } from '@/lib/sounds'
 import { IconCoin, IconStar } from '@/components/PixelIcons'
 
@@ -83,9 +84,9 @@ function lift(hex: string): string {
  * taste is a property of the thing you now own.
  */
 const TASTE_CHIP: Record<DonutDef['taste'], string | null> = {
-  loves: 'HIS FAVOURITE',
+  loves: '{HIS} FAVOURITE',
   likes: null,           // the default — a chip saying "fine" is noise
-  meh:   'NOT HIS THING',
+  meh:   'NOT {HIS} THING',
 }
 
 interface Props {
@@ -101,6 +102,7 @@ interface Props {
 
 export default function DonutSpin({ won, wasFree, onClose, onSpinAgain, spinAgainCost }: Props) {
   const reduced = useReducedMotion()
+  const cat = useCat()
   // Someone who asked the OS for less motion still gets the donut, just not the
   // 3.4s reel — the result is the point, the tumble is the flourish.
   const [landed, setLanded] = useState(reduced)
@@ -391,7 +393,7 @@ export default function DonutSpin({ won, wasFree, onClose, onSpinAgain, spinAgai
                     border: `1px solid ${won.taste === 'loves' ? 'rgba(245,167,192,0.6)' : 'rgba(255,255,255,0.2)'}`,
                     borderRadius: 3,
                   }}>
-                    {tasteChip}
+                    {cat.t(tasteChip)}
                   </span>
                 )}
               </div>

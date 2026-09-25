@@ -10,6 +10,7 @@
  */
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPush } from '@/lib/serverPush'
+import { catText, fetchCatWords } from '@/lib/catWords'
 import { authorizeRequest } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 
@@ -28,11 +29,11 @@ interface Body {
 const COOLDOWN_MS = 30 * 60 * 1000 // 30 minutes
 
 const LABELS: Record<string, { icon: string; verb: string }> = {
-  feed:     { icon: '🍗', verb: 'fed Eren' },
-  play:     { icon: '🧶', verb: 'played with Eren' },
-  sleep:    { icon: '💤', verb: 'put Eren to sleep' },
-  wash:     { icon: '🛁', verb: 'gave Eren a bath' },
-  medicine: { icon: '💊', verb: 'gave Eren medicine' },
+  feed:     { icon: '🍗', verb: 'fed {name}' },
+  play:     { icon: '🧶', verb: 'played with {name}' },
+  sleep:    { icon: '💤', verb: 'put {name} to sleep' },
+  wash:     { icon: '🛁', verb: 'gave {name} a bath' },
+  medicine: { icon: '💊', verb: 'gave {name} medicine' },
 }
 
 export async function POST(request: Request) {
@@ -99,8 +100,9 @@ export async function POST(request: Request) {
   }
 
   const name = (sender_name?.trim() || 'Your partner').slice(0, 32)
-  const title = `${label.icon} Eren`
-  const snippet = `${name} ${label.verb}!`
+  const cat = await fetchCatWords(supabase, household_id)
+  const title = `${label.icon} ${cat.name}`
+  const snippet = `${name} ${catText(label.verb, cat)}!`
 
   const expired: string[] = []
   let sent = 0

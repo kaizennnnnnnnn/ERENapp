@@ -33,11 +33,12 @@ export type DonutTaste = 'loves' | 'likes' | 'meh'
 /** Joy multiplier per taste. Applied to the donut's own happyD, not the perk. */
 export const TASTE_JOY: Record<DonutTaste, number> = { loves: 2, likes: 1, meh: 0.5 }
 
-/** What he says about it, shown on the feeding toast. */
+/** What he says about it, shown on the feeding toast. Templates (lib/catWords):
+ *  fill with cat.t / catText before showing. */
 export const TASTE_LINE: Record<DonutTaste, string> = {
-  loves: 'HE LOVES THIS ONE',
+  loves: '{HE} LOVES THIS ONE',
   likes: '',
-  meh:   'he ate it. reluctantly.',
+  meh:   '{he} ate it. reluctantly.',
 }
 
 export interface DonutDef {

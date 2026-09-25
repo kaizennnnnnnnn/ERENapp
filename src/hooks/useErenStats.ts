@@ -10,6 +10,7 @@ import { MONSTA_ENERGY, type MonstaBuff } from '@/lib/monstaBuffs'
 import { decayFrozen } from '@/lib/trophyEffects'
 import { ACTION_CONFIGS, type ActionType } from '@/types'
 import { DONUT_EFFECTS, type DonutEffectId } from '@/lib/donutEffects'
+import { catText, catWordsFromRow } from '@/lib/catWords'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Decay is applied CLIENT-SIDE on fetch + action + periodic tick, keyed off
@@ -532,7 +533,7 @@ function useErenStatsImpl(householdId: string | null) {
     // No emoji: this string lands in CareToast, which draws its own pixel pips.
     // The app's rule is pixel art, not emoji, and a 🍗 in a Press Start 2P line
     // is the single thing that made these toasts read as unfinished.
-    return { success: true, message: `${cfg.label} done!` }
+    return { success: true, message: `${catText(cfg.label, catWordsFromRow(stats))} done!` }
   }, [stats, householdId, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const wakeUp = useCallback(async (): Promise<{ success: boolean; message: string }> => {
@@ -541,7 +542,7 @@ function useErenStatsImpl(householdId: string | null) {
     const { error } = await writeWithRetry(signal =>
       supabase.from('eren_stats').update({ is_sleeping: false, updated_at: new Date().toISOString() }).eq('household_id', householdId).abortSignal(signal))
     if (error) { await fetchStats(); return { success: false, message: 'Connection hiccup — try again!' } }
-    return { success: true, message: 'Eren is awake!' }
+    return { success: true, message: catText('{name} is awake!', catWordsFromRow(stats)) }
   }, [stats, householdId, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
@@ -577,7 +578,7 @@ function useErenStatsImpl(householdId: string | null) {
     const su = await writeWithRetry(signal =>
       supabase.from('eren_stats').update({ happiness: newH, hunger: newHu, energy: newE, sleep_quality: newS, cleanliness: newCl, weight: newW, is_sick: newSick, mood: newMood, last_decay_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('household_id', householdId).abortSignal(signal))
     if (su.error) { await fetchStats(); return { success: false, message: 'Connection hiccup — try again!' } }
-    return { success: true, message: 'Eren is eating!' }
+    return { success: true, message: catText('{name} is eating!', catWordsFromRow(stats)) }
   }, [stats, householdId, fetchStats]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
@@ -823,4 +824,12 @@ export function useErenStats(_householdId?: string | null): ErenStatsApi {
   const ctx = useContext(ErenStatsContext)
   if (!ctx) throw new Error('useErenStats must be used inside <ErenStatsProvider>')
   return ctx
+}
+
+/**
+ * The same, or null outside the provider. Only for pieces that also render
+ * outside the signed-in app (useCat, which falls back to the classic cat).
+ */
+export function useOptionalErenStats(): ErenStatsApi | null {
+  return useContext(ErenStatsContext)
 }

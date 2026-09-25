@@ -28,6 +28,7 @@ import SuperJelly from './SuperJelly'
 import SegmentMeter, { type MeterPalette } from '@/components/care/SegmentMeter'
 import { IconCrown, IconDress, IconSparkles, IconLock } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
+import { useCat } from '@/hooks/useCat'
 import {
   INK, CREAM, WOOD, WOOD_DK, WOOD_LT, BRASS, BRASS_LT, BRASS_DK,
   BERRY, BERRY_DK, dropShadow,
@@ -63,6 +64,7 @@ const SuperJellyStand = memo(function SuperJellyStand({
   supers, fed, goal, ownsSkin, busy, onFeed, onOpenCloset,
 }: Props) {
   const holding = supers > 0
+  const cat = useCat()
 
   return (
     <div className="relative flex items-stretch gap-3 p-3" style={{
@@ -158,25 +160,27 @@ const SuperJellyStand = memo(function SuperJellyStand({
       <div className="flex-1 flex flex-col justify-center" style={{ minWidth: 0 }}>
         <div className="flex items-center gap-1.5 mb-1">
           <IconCrown size={12} />
-          <span className="font-pixel" style={{ fontSize: 8, color: INK, letterSpacing: 0.4 }}>
-            {ownsSkin ? 'EREN JELLY' : 'SUPER JELLY'}
+          <span className="font-pixel" style={{ fontSize: 8, color: INK, letterSpacing: 0.4, minWidth: 0, overflowWrap: 'anywhere' }}>
+            {ownsSkin ? cat.t('{NAME} JELLY') : 'SUPER JELLY'}
           </span>
         </div>
 
         <p style={{ fontSize: 9.5, lineHeight: 1.45, color: '#6E4E3F', marginBottom: 8 }}>
           {ownsSkin
-            ? 'He earned the coat. It is waiting in the closet.'
+            ? cat.t('{He} earned the coat. It is waiting in the closet.')
             : holding
-              ? 'A whole day of jelly in one mould. Feed it to him.'
+              ? cat.t('A whole day of jelly in one mould. Feed it to {him}.')
               : "Fill today's tray of five and one is yours."}
         </p>
 
         {/* The road: one segment per feed. Shown in every state — it is the
-            only place the five-day shape of the unlock is visible. */}
+            only place the five-day shape of the unlock is visible. Its label
+            says him / her, not the name: the shared meter's label row can't
+            wrap a long unbroken one. */}
         {!ownsSkin && (
           <div style={{ marginBottom: 9 }}>
             <SegmentMeter
-              label="FED TO EREN"
+              label={cat.t('FED TO {HIM}')}
               value={goal > 0 ? (fed / goal) * 100 : 0}
               valueText={`${fed}/${goal}`}
               segments={goal}
@@ -192,7 +196,7 @@ const SuperJellyStand = memo(function SuperJellyStand({
             onClick={() => { playSound('ui_select'); onOpenCloset() }} />
         ) : (
           <ActionButton
-            label={busy ? 'FEEDING…' : 'FEED EREN'}
+            label={busy ? 'FEEDING…' : cat.t('FEED {NAME}')}
             icon={busy || holding ? <IconSparkles size={12} /> : <IconLock size={11} />}
             tone={holding ? 'berry' : 'locked'}
             disabled={!holding || busy}
@@ -232,7 +236,7 @@ function ActionButton({ label, icon, tone, disabled = false, onClick }: {
       }}>
       <span style={{ opacity: locked ? 0.55 : 1, display: 'inline-flex' }}>{icon}</span>
       <span className="font-pixel" style={{
-        fontSize: 8, letterSpacing: 0.4,
+        fontSize: 8, letterSpacing: 0.4, minWidth: 0, textAlign: 'center', overflowWrap: 'anywhere',
         color: tone === 'brass' ? INK : locked ? 'rgba(58,31,43,0.52)' : CREAM,
         textShadow: tone === 'berry' ? `1px 1px 0 ${BERRY_DK}` : undefined,
       }}>{label}</span>

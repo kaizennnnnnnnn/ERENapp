@@ -10,6 +10,7 @@
 // ═════════════════════════════════════════════════════════════════════════════
 
 import type { FlavorBubble } from '@/hooks/useFlavorBubble'
+import { useCat } from '@/hooks/useCat'
 
 interface Props {
   bubble: FlavorBubble
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export default function ErenSpeechBubble({ bubble, onDismiss }: Props) {
+  const cat = useCat()
   return (
     <div
       key={bubble.id}
@@ -38,7 +40,7 @@ export default function ErenSpeechBubble({ bubble, onDismiss }: Props) {
       <button
         type="button"
         onClick={onDismiss}
-        aria-label="Dismiss Eren's thought"
+        aria-label={cat.t("Dismiss {name}'s thought")}
         style={{ background: 'transparent', border: 'none', padding: 0, cursor: onDismiss ? 'pointer' : 'default' }}
       >
         <div

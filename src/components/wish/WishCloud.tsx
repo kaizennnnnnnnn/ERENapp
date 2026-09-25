@@ -19,6 +19,7 @@ import { IconWish } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import type { Wish } from '@/lib/wishes'
 import { wishHintRoom } from '@/lib/wishes'
+import { useCat } from '@/hooks/useCat'
 
 interface Props {
   wish: Wish
@@ -39,6 +40,7 @@ const HINT_ROOM_LABEL: Record<NonNullable<ReturnType<typeof wishHintRoom>>, stri
 
 export default function WishCloud({ wish, text, status, grantedByMe, grantedByName, coinsPaid }: Props) {
   const [expanded, setExpanded] = useState(false)
+  const cat = useCat()
 
   const hintRoom = wishHintRoom(wish)
   const hintLabel = hintRoom ? HINT_ROOM_LABEL[hintRoom] : null
@@ -64,7 +66,7 @@ export default function WishCloud({ wish, text, status, grantedByMe, grantedByNa
       >
         <button
           onClick={() => { playSound('ui_tap'); setExpanded(true) }}
-          aria-label="Eren's wish today"
+          aria-label={cat.t("{name}'s wish today")}
           style={{
             background: 'transparent', border: 'none', padding: 0,
             cursor: 'pointer',
@@ -157,9 +159,9 @@ export default function WishCloud({ wish, text, status, grantedByMe, grantedByNa
               <IconWish size={14} />
               <span style={{
                 fontFamily: '"Press Start 2P", monospace', fontSize: 7,
-                color: isGranted ? '#8B5A00' : '#1A1A1A', letterSpacing: 1,
+                color: isGranted ? '#8B5A00' : '#1A1A1A', letterSpacing: 1, overflowWrap: 'anywhere',
               }}>
-                {isGranted ? "WISH GRANTED" : "EREN'S WISH"}
+                {isGranted ? "WISH GRANTED" : cat.t("{NAME}'S WISH")}
               </span>
             </div>
             <p style={{

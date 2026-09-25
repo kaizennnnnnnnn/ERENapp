@@ -19,6 +19,7 @@ import { getDonut, TASTE_JOY } from '@/lib/donuts'
 import { DONUT_EFFECTS } from '@/lib/donutEffects'
 import { monstaBuff } from '@/lib/monstaBuffs'
 import { IconCoin } from '@/components/PixelIcons'
+import { useCat } from '@/hooks/useCat'
 import type { FoodKey } from '@/types'
 
 export interface FoodStatItem {
@@ -53,6 +54,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone: stri
 }
 
 export default function FoodStatsCard({ item, owned, onClose }: Props) {
+  const cat = useCat()
   const donut = getDonut(item.id)
   const buff = monstaBuff(item.id) ?? donut?.perk
   const fx = donut?.effect ? DONUT_EFFECTS[donut.effect] : null
@@ -162,8 +164,8 @@ export default function FoodStatsCard({ item, owned, onClose }: Props) {
             color: donut.taste === 'loves' ? '#FFD9E4' : '#A79B90',
           }}>
             {donut.taste === 'loves'
-              ? `HIS FAVOURITE — DOUBLE JOY`
-              : `NOT HIS THING — HALF JOY`}
+              ? cat.t('{HIS} FAVOURITE — DOUBLE JOY')
+              : cat.t('NOT {HIS} THING — HALF JOY')}
           </p>
         )}
 

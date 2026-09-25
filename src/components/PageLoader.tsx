@@ -26,6 +26,9 @@ export default function PageLoader({ label = 'LOADING', inline = false }: Props)
 
       <p className="font-pixel" style={{
         fontSize: 9, letterSpacing: 2,
+        // Labels can carry the cat's name ("LOADING CLEMENTINE"), so a long
+        // one wraps, centred, inside the screen.
+        textAlign: 'center', padding: '0 16px', maxWidth: '100%', overflowWrap: 'anywhere',
         color: 'var(--accent-hi)',
         textShadow: `0 0 4px ${PINK}66`,
       }}>{label}</p>

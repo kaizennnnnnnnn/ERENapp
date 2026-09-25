@@ -192,10 +192,12 @@ export const SKIN_GACHA_ITEMS: GachaItemDef[] = GACHA_SKINS.map(s => ({
   // tracks it, the closet still lists it) but `unlock` keeps it out of every
   // banner pool — see bannerFilter in lib/gacha.ts.
   unlock: s.unlock,
+  // A lib/catWords template ({name}, {him}, ...): every screen that prints an
+  // item's description fills it with the household's cat.
   description: s.unlock === 'jelly'
-    ? 'Fill the Parlour tray of five in a day for a Super Jelly. Feed him five of those and the coat is his.'
+    ? 'Fill the Parlour tray of five in a day for a Super Jelly. Feed {him} five of those and {he} earns the coat.'
     : s.unlock === 'drink'
-      ? `Feed Eren a ${FOOD_META[skinUnlockDrink(s.id) as FoodKey].name} to keep this look.`
+      ? `Feed {name} a ${FOOD_META[skinUnlockDrink(s.id) as FoodKey].name} to keep this look.`
       : RARITY_BLURB[s.rarity],
 }))
 

@@ -22,6 +22,7 @@ import SuperJelly from './SuperJelly'
 import type { JellyWin } from '@/hooks/useJellies'
 import { playSound } from '@/lib/sounds'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
+import { useCat } from '@/hooks/useCat'
 
 const INK = '#2C4A38'
 const CREAM = '#FFFDF6'
@@ -55,6 +56,7 @@ export default function JellyPrize({
   score, best, isBest, unit, threshold, duel, wins, awardFailed, trayCount, traySize, onPlayAgain, onExit,
 }: Props) {
   const reduced = useReducedMotion()
+  const cat = useCat()
   const mintedSuper = wins.some(w => w.mintedSuper)
   // Reveal the jellies one at a time so a double payout reads as two events.
   const [shown, setShown] = useState(reduced ? wins.length : 0)
@@ -97,7 +99,7 @@ export default function JellyPrize({
                       }}>NEW</span>
                     )}
                   </div>
-                  <p style={{ fontSize: 9.5, lineHeight: 1.4, color: '#4A6B58' }}>{w.effect.label}</p>
+                  <p style={{ fontSize: 9.5, lineHeight: 1.4, color: '#4A6B58' }}>{cat.t(w.effect.label)}</p>
                   {i === 1 && (
                     <p className="font-pixel" style={{ fontSize: 5, color: '#2FA765', marginTop: 3 }}>
                       DUEL BONUS
@@ -146,7 +148,7 @@ export default function JellyPrize({
           }}>
             <SuperJelly size={38} />
             <p style={{ fontSize: 10, lineHeight: 1.4, color: '#5A3208' }}>
-              <strong>Tray complete!</strong> A Super Jelly is waiting on the stand — feed it to him.
+              <strong>Tray complete!</strong> A Super Jelly is waiting on the stand — feed it to {cat.p.him}.
             </p>
           </div>
         )}

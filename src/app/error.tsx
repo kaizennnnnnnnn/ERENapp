@@ -76,7 +76,7 @@ export default function RootError({
         <h1 style={S.title}>SOMETHING BROKE</h1>
 
         <p style={S.body}>
-          Eren is fine. This screen is not. Try again — and if it keeps
+          Your cat is fine. This screen is not. Try again — and if it keeps
           happening, going home usually clears it.
         </p>
 

@@ -4,6 +4,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
+import { useCat } from '@/hooks/useCat'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
@@ -93,6 +94,7 @@ export default function TreatTumbleGame() {
   const { setHideStats } = useCare()
   useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
+  const cat = useCat()
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
   const timers = useGameTimers()
@@ -840,11 +842,11 @@ export default function TreatTumbleGame() {
             <p className="font-pixel text-center mb-3" style={{
               fontSize: 6, lineHeight: 1.9, letterSpacing: 1, color: '#7C2D12',
             }}>
-              DRAG TO MOVE EREN<br/>
+              {cat.t('DRAG TO MOVE {NAME}')}<br/>
               CATCH TREATS · DODGE DANGERS<br/>
               GET HIT AND THE STREAK ENDS<br/>
               <span style={{ color: '#B45309' }}>5 IN A ROW = x2 · 10 = x3</span><br/>
-              <span style={{ color: '#15803D' }}>AT x3 EREN REACHES FURTHER</span><br/>
+              <span style={{ color: '#15803D' }}>{cat.t('AT x3 {NAME} REACHES FURTHER')}</span><br/>
               <span style={{ color: '#B91C1C', fontSize: 5 }}>IT GETS FASTER EVERY SECOND</span>
             </p>
 

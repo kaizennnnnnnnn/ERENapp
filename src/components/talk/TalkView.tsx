@@ -20,6 +20,7 @@ import { useLongPress } from '@/hooks/useLongPress'
 import ReportSheet from '@/components/safety/ReportSheet'
 import SegmentMeter, { type MeterPalette } from '@/components/care/SegmentMeter'
 import { messagesLeft, sleepiness } from '@/lib/chatAllowance'
+import { useCat } from '@/hooks/useCat'
 
 // Warm amber in a dark recessed channel — the same gauge the care rooms use,
 // themed for paper rather than hand-rolled. It fills as he tires out, so the
@@ -73,6 +74,7 @@ export default function TalkView({
   energy, sleepy, spent,
   onSend, onOpenMemories, onExit,
 }: Props) {
+  const cat = useCat()
   // Either way he's asleep; they differ only in what wakes him.
   const asleep = sleepy || spent
   const [draft, setDraft] = useState('')
@@ -152,8 +154,8 @@ export default function TalkView({
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span style={{ fontFamily: '"Press Start 2P"', fontSize: 10, color: '#5A3212', letterSpacing: 0.5 }}>
-              EREN
+            <span className="truncate min-w-0" style={{ fontFamily: '"Press Start 2P"', fontSize: 10, color: '#5A3212', letterSpacing: 0.5 }}>
+              {cat.t('{NAME}')}
             </span>
             {/* Play's generative-AI policy wants the disclosure ON SCREEN, not
                 only in how he behaves when asked. The persona already forbids
@@ -162,7 +164,8 @@ export default function TalkView({
                 Muted rather than hidden: present at a glance, not a banner
                 shouting over the conversation. */}
             <span
-              title="Eren is an AI character, not a real cat"
+              title={cat.t('{name} is an AI character, not a real cat')}
+              className="shrink-0"
               style={{
                 fontFamily: '"Press Start 2P"', fontSize: 6, letterSpacing: 0.5,
                 color: '#8A6844', background: '#EBD9B8',
@@ -180,7 +183,7 @@ export default function TalkView({
             the only tell, since he's told never to say that he did. */}
         <button
           onClick={onOpenMemories}
-          aria-label="What Eren remembers"
+          aria-label={cat.t('What {name} remembers')}
           className="active:scale-90 transition-transform duration-100 shrink-0 flex items-center justify-center"
           style={{
             width: 38, height: 38, borderRadius: 10,
@@ -247,7 +250,7 @@ export default function TalkView({
                 text={row.text}
                 self={row.self}
                 skin={row.self ? mySkin : EREN}
-                author={row.self ? myName : 'Eren'}
+                author={row.self ? myName : cat.name}
                 showAuthor={row.first}
                 time={row.last ? row.time : null}
                 hold={row.self ? undefined : bindHold(row.key)}
@@ -259,13 +262,13 @@ export default function TalkView({
             <ReportSheet
               target="ai_reply"
               targetId={flagging}
-              what="what Eren said"
+              what={cat.t('what {name} said')}
               onClose={() => setFlagging(null)}
             />
           )}
 
           {streaming && (
-            <Bubble text={streaming} self={false} skin={EREN} author="Eren" showAuthor time={null} />
+            <Bubble text={streaming} self={false} skin={EREN} author={cat.name} showAuthor time={null} />
           )}
           {sending && !streaming && <Thinking />}
 
@@ -302,7 +305,7 @@ export default function TalkView({
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="talk to eren…"
+          placeholder={`talk to ${cat.name.toLowerCase()}…`}
           maxLength={2000}
           enterKeyHint="send"
           className="flex-1 min-w-0 outline-none"
@@ -483,15 +486,16 @@ function Thinking() {
 }
 
 function EmptyState() {
+  const cat = useCat()
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-3 px-8 text-center">
       <img src="/erenGood.png" alt="" width={104} height={104}
         style={{ objectFit: 'contain', imageRendering: 'auto', animation: 'erenBreathe 3.4s ease-in-out infinite' }} />
       <div style={{ fontFamily: '"Press Start 2P"', fontSize: 8, color: '#A8814E', lineHeight: 1.8 }}>
-        HE&apos;S LOOKING AT YOU
+        {cat.t('{HE}\'S LOOKING AT YOU')}
       </div>
       <div style={{ fontSize: 12, color: '#9A7444', lineHeight: 1.65, maxWidth: 260 }}>
-        say something. he&apos;s been waiting all day, which is what he says every day.
+        {cat.t('say something. {he}\'s been waiting all day, which is what {he} says every day.')}
       </div>
 
       {/* Sentence case, deliberately. Everything else on this screen is the
@@ -503,8 +507,7 @@ function EmptyState() {
         fontSize: 10.5, color: '#A8896A', lineHeight: 1.6, maxWidth: 280,
         marginTop: 4, paddingTop: 10, borderTop: '2px solid rgba(122,74,34,0.13)',
       }}>
-        Eren is an AI character — software, not a real cat. He invents things
-        and can be wrong. Press and hold any of his replies to report one.
+        {cat.t('{name} is an AI character — software, not a real cat. {He} invents things and can be wrong. Press and hold any of {his} replies to report one.')}
       </div>
     </div>
   )
@@ -522,6 +525,7 @@ function AsleepPanel({ reason }: { reason: 'sleepy' | 'spent' }) {
   // Rolling it during render would disagree with the server-rendered markup.
   const [pose, setPose] = useState(0)
   useEffect(() => { setPose(Math.floor(Math.random() * 4)) }, [])
+  const cat = useCat()
 
   return (
     <div
@@ -557,12 +561,12 @@ function AsleepPanel({ reason }: { reason: 'sleepy' | 'spent' }) {
         <div style={{
           fontFamily: '"Press Start 2P"', fontSize: 8, color: '#7A4A22', letterSpacing: 0.5,
         }}>
-          {reason === 'sleepy' ? 'WORN OUT' : 'HE’S ASLEEP'}
+          {reason === 'sleepy' ? 'WORN OUT' : cat.t('{HE}’S ASLEEP')}
         </div>
         <div style={{ fontSize: 11.5, color: '#8A6844', lineHeight: 1.55, marginTop: 6 }}>
           {reason === 'sleepy'
-            ? 'he says he’s tired. feed him, or tuck him into bed — he’ll want to talk again once he’s rested.'
-            : 'he says he’s said everything he has today. he’ll have more tomorrow.'}
+            ? cat.t('{he} says {he}’s tired. feed {him}, or tuck {him} into bed — {he}’ll want to talk again once {he}’s rested.')
+            : cat.t('{he} says {he}’s said everything {he} has today. {he}’ll have more tomorrow.')}
         </div>
       </div>
     </div>

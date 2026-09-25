@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCouple } from '@/hooks/useCouple'
+import { useCat } from '@/hooks/useCat'
 import { TASK_DEFS, getDailyKey, getWeeklyKey } from '@/lib/tasks'
 import type { TaskId, TaskDef } from '@/types'
 import {
@@ -53,13 +54,14 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
   const [tab, setTab] = useState<'daily' | 'weekly'>('daily')
   const [open, setOpen] = useState(false)
   const { isSolo } = useCouple()
+  const cat = useCat()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => { setMounted(true) }, [])
 
   const dailyKey   = getDailyKey()
   const weeklyKey  = getWeeklyKey()
-  // `daily_nudge` is "Send your partner an Eren nudge", and the sheet that
+  // `daily_nudge` is "Send your partner a nudge", and the sheet that
   // sends one is mounted behind `partner &&`. Left in for a household of one it
   // is a row that can never tick and a denominator that can never be reached:
   // the chip, the ring and the tab all read x/10 with 10 permanently out of
@@ -192,10 +194,11 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
                     color: isDone ? DONE_GREEN : PINK_HI,
                     textDecoration: isDone ? 'line-through' : 'none',
                     textShadow: isDone ? 'none' : `0 0 3px ${accentA(0.2)}`,
+                    overflowWrap: 'anywhere',
                   }}>
-                    {task.title}
+                    {cat.t(task.title)}
                   </p>
-                  <p className="text-[10px] mt-1 leading-snug" style={{ color: '#7A6F8C' }}>{task.desc}</p>
+                  <p className="text-[10px] mt-1 leading-snug" style={{ color: '#7A6F8C' }}>{cat.t(task.desc)}</p>
                   {pct !== null && !isDone && (
                     <div className="flex items-center gap-1.5 mt-1.5">
                       <div className="flex-1 h-1.5 overflow-hidden" style={{

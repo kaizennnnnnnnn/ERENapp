@@ -15,6 +15,8 @@
 //   • rarity          common | rare | epic — drives border tint + push copy
 //   • title           short display label
 //   • hint            one-line flavor text shown in the detail modal
+//                     (title and hint are lib/catWords templates: {name},
+//                     {him}, ... — fill them with useCat().t at every render)
 //   • art             icon ref + bg palette (PR 7 renders this via canvas)
 //   • predicate       discriminated-union evaluator spec (memoryChecks.ts)
 //
@@ -138,13 +140,13 @@ export const MEMORY_FRAMES: MemoryFrame[] = [
   // ── Welcome seeds (1) ─ stamped by the catchup endpoint so a brand-new
   //                       wall always has at least one filled frame.
   { id: 'welcome-here', kind: 'welcome', rarity: 'common',
-    title: 'Welcome',   hint: 'the day Eren came home.',
+    title: 'Welcome',   hint: 'the day {name} came home.',
     art: { icon: 'house', ...CREAM },
     predicate: { type: 'seed' } },
 
   // ── Firsts (12) ─ each thematic icon + "1ST" badge
   { id: 'first-feed',     kind: 'first', rarity: 'common',
-    title: 'First Meal', hint: 'the first time you fed Eren.',
+    title: 'First Meal', hint: 'the first time you fed {name}.',
     art: { icon: 'drumstick', ...GOLD, badge: '1ST' },
     predicate: { type: 'first', of: 'feed' } },
   { id: 'first-play',     kind: 'first', rarity: 'common',
@@ -164,15 +166,15 @@ export const MEMORY_FRAMES: MemoryFrame[] = [
     art: { icon: 'stethoscope', ...GREEN, badge: '1ST' },
     predicate: { type: 'first', of: 'medicine' } },
   { id: 'first-pet',      kind: 'first', rarity: 'common',
-    title: 'First Pet', hint: 'first tap on his little head.',
+    title: 'First Pet', hint: 'first tap on {his} little head.',
     art: { icon: 'paw', ...ROSE, badge: '1ST' },
     predicate: { type: 'first', of: 'pet' } },
   { id: 'first-nudge',    kind: 'first', rarity: 'common',
-    title: 'First Eren Sent', hint: 'first time you sent Eren to your partner.',
+    title: 'First Delivery', hint: 'first time you sent {name} to your partner.',
     art: { icon: 'envelope', ...PINK, badge: '1ST' },
     predicate: { type: 'first', of: 'nudge' } },
   { id: 'first-wish',     kind: 'first', rarity: 'rare',
-    title: 'First Wish', hint: 'the day you listened to what Eren wanted.',
+    title: 'First Wish', hint: 'the day you listened to what {name} wanted.',
     art: { icon: 'wish', ...GOLD, badge: '1ST' },
     predicate: { type: 'first', of: 'wish' } },
   { id: 'first-minigame', kind: 'first', rarity: 'common',
@@ -188,7 +190,7 @@ export const MEMORY_FRAMES: MemoryFrame[] = [
     art: { icon: 'catface', ...CREAM, badge: '1ST' },
     predicate: { type: 'first', of: 'mood' } },
   { id: 'first-day',      kind: 'first', rarity: 'common',
-    title: 'Day One', hint: 'the day Eren moved in.',
+    title: 'Day One', hint: 'the day {name} moved in.',
     art: { icon: 'sparkles', ...CREAM, badge: '1ST' },
     predicate: { type: 'first', of: 'day' } },
 
@@ -198,7 +200,7 @@ export const MEMORY_FRAMES: MemoryFrame[] = [
     art: { icon: 'heart', ...GOLD, badge: '10' },
     predicate: { type: 'cares', count: 10 } },
   { id: 'cares-50',  kind: 'cumulative', rarity: 'rare',
-    title: 'Fifty Cares', hint: 'fifty quiet moments looking after him.',
+    title: 'Fifty Cares', hint: 'fifty quiet moments looking after {him}.',
     art: { icon: 'heart', ...GOLD, badge: '50' },
     predicate: { type: 'cares', count: 50 } },
   { id: 'cares-100', kind: 'cumulative', rarity: 'rare',
@@ -210,7 +212,7 @@ export const MEMORY_FRAMES: MemoryFrame[] = [
     art: { icon: 'crown', ...GOLD, badge: '250' },
     predicate: { type: 'cares', count: 250 } },
   { id: 'cares-500', kind: 'cumulative', rarity: 'epic',
-    title: 'Five Hundred Cares', hint: 'five hundred. he\'ll never forget.',
+    title: 'Five Hundred Cares', hint: 'five hundred. {he}\'ll never forget.',
     art: { icon: 'crown', ...RUBY, badge: '500' },
     predicate: { type: 'cares', count: 500 } },
 
@@ -248,7 +250,7 @@ export const MEMORY_FRAMES: MemoryFrame[] = [
     art: { icon: 'sparkles', ...SKY, badge: '50' },
     predicate: { type: 'metric', metric: 'wash', count: 50 } },
   { id: 'medicines-10', kind: 'cumulative', rarity: 'rare',
-    title: 'Ten Cures',  hint: 'ten times you nursed him back.',
+    title: 'Ten Cures',  hint: 'ten times you nursed {him} back.',
     art: { icon: 'pill', ...GREEN, badge: '10' },
     predicate: { type: 'metric', metric: 'medicine', count: 10 } },
   { id: 'medicines-25', kind: 'cumulative', rarity: 'epic',
@@ -276,15 +278,15 @@ export const MEMORY_FRAMES: MemoryFrame[] = [
 
   // ── Nudges traded (3) ─ envelope family
   { id: 'nudges-10',  kind: 'cumulative', rarity: 'common',
-    title: 'Ten Sent Erens', hint: 'ten little Erens flying between you.',
+    title: 'Ten Deliveries', hint: '{name} flew between you ten times.',
     art: { icon: 'envelope', ...PINK, badge: '10' },
     predicate: { type: 'nudges', count: 10 } },
   { id: 'nudges-50',  kind: 'cumulative', rarity: 'rare',
-    title: 'Fifty Sent Erens', hint: 'fifty quick affections.',
+    title: 'Fifty Deliveries', hint: 'fifty quick affections.',
     art: { icon: 'envelope', ...PINK, badge: '50' },
     predicate: { type: 'nudges', count: 50 } },
   { id: 'nudges-100', kind: 'cumulative', rarity: 'epic',
-    title: 'Hundred Sent Erens', hint: 'one hundred little notes via him.',
+    title: 'Hundred Deliveries', hint: 'one hundred little notes via {him}.',
     art: { icon: 'envelope', ...RUBY, badge: '100' },
     predicate: { type: 'nudges', count: 100 } },
 
@@ -322,11 +324,11 @@ export const MEMORY_FRAMES: MemoryFrame[] = [
 
   // ── Calendar (7) ─ clock / cake family + time badges
   { id: 'app-week-1',  kind: 'calendar', rarity: 'common',
-    title: 'First Week', hint: 'one week with Eren.',
+    title: 'First Week', hint: 'one week with {name}.',
     art: { icon: 'clock', ...CREAM, badge: '1W' },
     predicate: { type: 'calendar', when: 'app_week_1' } },
   { id: 'app-month-1', kind: 'calendar', rarity: 'common',
-    title: 'One Month', hint: 'a whole month with this little guy.',
+    title: 'One Month', hint: 'a whole month with this little one.',
     art: { icon: 'clock', ...CREAM, badge: '1M' },
     predicate: { type: 'calendar', when: 'app_month_1' } },
   { id: 'app-month-3', kind: 'calendar', rarity: 'rare',
@@ -334,15 +336,15 @@ export const MEMORY_FRAMES: MemoryFrame[] = [
     art: { icon: 'clock', ...GOLD, badge: '3M' },
     predicate: { type: 'calendar', when: 'app_month_3' } },
   { id: 'app-month-6', kind: 'calendar', rarity: 'rare',
-    title: 'Half a Year', hint: 'six months of looking after him.',
+    title: 'Half a Year', hint: 'six months of looking after {him}.',
     art: { icon: 'clock', ...GOLD, badge: '6M' },
     predicate: { type: 'calendar', when: 'app_month_6' } },
   { id: 'app-year-1',  kind: 'calendar', rarity: 'epic',
-    title: 'One Year', hint: 'one full year with Eren in the house.',
+    title: 'One Year', hint: 'one full year with {name} in the house.',
     art: { icon: 'crown', ...RUBY, badge: '1Y' },
     predicate: { type: 'calendar', when: 'app_year_1' } },
   { id: 'eren-birthday',      kind: 'calendar', rarity: 'rare',
-    title: 'Eren\'s Birthday', hint: 'his special day.',
+    title: '{name}\'s Birthday', hint: '{his} special day.',
     art: { icon: 'cake', ...PINK, badge: 'B' },
     predicate: { type: 'calendar', when: 'eren_birthday' } },
   { id: 'couple-anniversary', kind: 'calendar', rarity: 'epic',
@@ -356,7 +358,7 @@ export const MEMORY_FRAMES: MemoryFrame[] = [
     art: { icon: 'crown_couple', ...ROSE },
     predicate: { type: 'couple', kind: 'first_paired' } },
   { id: 'couple-both-cared',       kind: 'couple', rarity: 'common',
-    title: 'Tag Team', hint: 'first day you BOTH cared for him.',
+    title: 'Tag Team', hint: 'first day you BOTH cared for {him}.',
     art: { icon: 'crown_couple', ...PINK, badge: '2' },
     predicate: { type: 'couple', kind: 'both_cared_same_day' } },
   { id: 'couple-both-cared-7',     kind: 'couple', rarity: 'rare',
@@ -364,11 +366,11 @@ export const MEMORY_FRAMES: MemoryFrame[] = [
     art: { icon: 'crown_couple', ...PINK, badge: '7D' },
     predicate: { type: 'couple', kind: 'both_cared_7_streak' } },
   { id: 'couple-nudges-traded-10', kind: 'couple', rarity: 'common',
-    title: 'Ten Erens Each', hint: 'you\'ve each sent him at least ten times.',
+    title: 'Ten Deliveries Each', hint: 'you\'ve each sent {him} at least ten times.',
     art: { icon: 'envelope', ...ROSE, badge: '10' },
     predicate: { type: 'couple', kind: 'nudges_traded_10' } },
   { id: 'couple-nudges-traded-50', kind: 'couple', rarity: 'rare',
-    title: 'Fifty Erens Each', hint: 'fifty each. you both speak through him.',
+    title: 'Fifty Deliveries Each', hint: 'fifty each. you both speak through {him}.',
     art: { icon: 'envelope', ...ROSE, badge: '50' },
     predicate: { type: 'couple', kind: 'nudges_traded_50' } },
 

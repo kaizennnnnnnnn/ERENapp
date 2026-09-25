@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef, createContext, useContext, createElement, type ReactNode } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo, createContext, useContext, createElement, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { withRetry } from '@/lib/supabaseRetry'
 import { onForeground } from '@/lib/onForeground'
 import { useAuth } from './useAuth'
+import { useCat } from './useCat'
 import type { Profile, JournalMessage, Interaction, GiftItem, UserMood, StreakData } from '@/types'
 import { subDays } from 'date-fns'
 import { computeLoveMeter, getAnniversaryInfo, startOfWeek, type LoveMeterResult, type AnniversaryInfo } from '@/lib/couple'
@@ -22,7 +23,7 @@ import {
   COOP_REWARD_COINS,
   type CoopGoalRow, type CoopGoalState,
 } from '@/lib/coopGoal'
-import { EREN_OPPONENT_ID, EREN_OPPONENT_NAME, erenWeeklyPace } from '@/lib/erenOpponent'
+import { EREN_OPPONENT_ID, erenWeeklyPace } from '@/lib/erenOpponent'
 
 // Module-level counter so every useCouple instance picks a unique
 // realtime channel name even when several mount in the same React
@@ -37,6 +38,7 @@ let _coupleChannelCounter = 0
 function useCoupleImpl() {
   const supabase = createClient()
   const { user, profile } = useAuth()
+  const cat = useCat()
 
   const [partner, setPartner] = useState<Profile | null>(null)
   const [partnerStreak, setPartnerStreak] = useState<StreakData | null>(null)
@@ -257,7 +259,8 @@ function useCoupleImpl() {
         : computeLoveMeter(
           interactions as Interaction[],
           user.id, profile.name,
-          EREN_OPPONENT_ID, EREN_OPPONENT_NAME,
+          // Named at the return below, not here, so a rename needs no refetch.
+          EREN_OPPONENT_ID, '',
           // His pace so far, not his week-end total: flat, he is a wall the
           // player is 200 points behind every Monday. At the end of the week
           // this equals the number that settles.
@@ -727,6 +730,14 @@ function useCoupleImpl() {
     ))
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
 
+  // Solo, the second seat is the household's cat, called whatever it is called
+  // right now. Memoised so the meter keeps its identity between renders.
+  const namedLoveMeter = useMemo(() => (
+    loveMeter && loveMeter.user2.id === EREN_OPPONENT_ID
+      ? { ...loveMeter, user2: { ...loveMeter.user2, name: cat.name } }
+      : loveMeter
+  ), [loveMeter, cat.name])
+
   return {
     // A household of one, KNOWN to be so. Deliberately false while the fetch
     // is still in flight AND while the partner read is failing: `partner` is
@@ -736,7 +747,7 @@ function useCoupleImpl() {
     // half of that — see the bail in fetchAll.
     isSolo: !loading && !partner && !partnerUnknown,
     partner, partnerStreak,
-    loveMeter, anniversary, journal, unreadCount,
+    loveMeter: namedLoveMeter, anniversary, journal, unreadCount,
     notes, unreadNotes, markNotesRead,
     giftArrivals, markGiftsSeen,
     newMessage, dismissPopup,

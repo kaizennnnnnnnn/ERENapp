@@ -15,6 +15,7 @@
 // the inline `--med-ink` custom property.
 
 import { IconPill, IconHeart } from '@/components/PixelIcons'
+import { useCat } from '@/hooks/useCat'
 
 const PIXEL_FONT = '"Press Start 2P", monospace'
 
@@ -45,13 +46,14 @@ interface Props {
 }
 
 export default function GiveMedicineButton({ state, onClick, disabled }: Props) {
+  const cat = useCat()
   const giving = state === 'giving'
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-label="Give Eren medicine"
+      aria-label={cat.t('Give {name} medicine')}
       className="medicine-btn relative w-full max-w-xs"
       style={{
         '--med-ink': SHADOW,

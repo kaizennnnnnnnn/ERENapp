@@ -8,6 +8,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { useIsDark } from '@/hooks/useIsDark'
+import { useCat } from '@/hooks/useCat'
 import type { EyeLayout, LidTone } from '@/types'
 import JellyCoat from './JellyCoat'
 
@@ -153,7 +154,7 @@ export default function BlinkingEren({
   size = 200,
   className = '',
   style,
-  alt = 'Eren',
+  alt,
   breathe = true,
   src = '/erenGood.png',
   blink = true,
@@ -175,6 +176,8 @@ export default function BlinkingEren({
   ...imgProps
 }: Props) {
   const isDark = useIsDark()
+  // No alt passed: the sprite is the household's cat, so it reads by its name.
+  const cat = useCat()
   const eyes: EyeLayout = { ...DEFAULT_EYES, ...eyesOverride }
   // Hold the sprite hidden until BOTH the body and the (optional) tail layer
   // have decoded, then reveal them together. They're separate <img>s, so on a
@@ -376,7 +379,7 @@ export default function BlinkingEren({
               pointerEvents: 'none',
             }} />
         )}
-        <img src={src} alt={alt} draggable={false}
+        <img src={src} alt={alt ?? cat.name} draggable={false}
           {...imgProps}
           style={{
             position: 'absolute', inset: 0,

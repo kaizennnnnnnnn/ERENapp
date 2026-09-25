@@ -17,6 +17,7 @@ import { createClient } from '@/lib/supabase/client'
 import { withRetry } from '@/lib/supabaseRetry'
 import { useAuth } from '@/hooks/useAuth'
 import { useGamesWeekly } from '@/hooks/useGamesWeekly'
+import { useCat } from '@/hooks/useCat'
 import { countGamesWon, SOLO_VARIETY_TARGET, SOLO_VARIETY_COINS } from '@/lib/gameRewards'
 import {
   IconStar, IconCrown,
@@ -27,14 +28,15 @@ import { playSound } from '@/lib/sounds'
 import type { GameType, Profile } from '@/types'
 import AnimatedEren from '@/components/AnimatedEren'
 
+// Titles that name the cat are lib/catWords templates, filled per household.
 const GAMES: Array<{ id: GameType; title: string; Icon: React.FC<{ size?: number }> }> = [
   { id: 'memory_match', title: 'PURR-FECT MEMORY', Icon: IconScroll },
   { id: 'treat_tumble', title: 'TREAT TUMBLE',     Icon: IconMeat },
-  { id: 'flappy_eren',  title: 'FIZZY EREN',       Icon: IconLightning },
-  { id: 'tic_tac_toe',  title: 'X & O VS EREN',    Icon: IconSwords },
-  { id: 'eren_stack',   title: 'EREN STACK',       Icon: IconHouse },
+  { id: 'flappy_eren',  title: 'FIZZY {NAME}',     Icon: IconLightning },
+  { id: 'tic_tac_toe',  title: 'X & O VS {NAME}',  Icon: IconSwords },
+  { id: 'eren_stack',   title: '{NAME} STACK',     Icon: IconHouse },
   { id: 'yarn_pop',     title: 'YARN POP',         Icon: IconHeart },
-  { id: 'eren_says',    title: 'EREN SAYS',        Icon: IconCatFace },
+  { id: 'eren_says',    title: '{NAME} SAYS',      Icon: IconCatFace },
   { id: 'lane_runner',  title: 'LANE RUNNER',      Icon: IconCoin },
   { id: 'paw_doku',     title: 'PAW DOKU',         Icon: IconSparkles },
   { id: 'yarn_sort',    title: 'YARN SORT',        Icon: IconYarn },
@@ -144,6 +146,7 @@ function formatCountdown(resetAt: Date | undefined): string {
 
 export default function Leaderboard({ onClose }: Props) {
   const { user, profile } = useAuth()
+  const cat = useCat()
   const supabase = createClient()
   const [players, setPlayers] = useState<PlayerScores[]>([])
   const [loading, setLoading] = useState(true)
@@ -490,9 +493,9 @@ export default function Leaderboard({ onClose }: Props) {
                     <div className="flex-shrink-0 mr-2" style={{ width: 18, display: 'flex', justifyContent: 'center' }}>
                       <game.Icon size={14} />
                     </div>
-                    <span className="flex-1 font-pixel truncate"
-                      style={{ fontSize: 6, color: '#A080C0', letterSpacing: 0.8 }}>
-                      {game.title}
+                    <span className="flex-1 font-pixel min-w-0"
+                      style={{ fontSize: 6, color: '#A080C0', letterSpacing: 0.8, lineHeight: 1.6, overflowWrap: 'anywhere' }}>
+                      {cat.t(game.title)}
                       {tied && (
                         <span className="font-pixel ml-2 px-1 py-0.5"
                           style={{ fontSize: 5, color: '#FFD700', background: 'rgba(255,215,0,0.12)', border: '1px solid rgba(255,215,0,0.5)', borderRadius: 2, letterSpacing: 1 }}>

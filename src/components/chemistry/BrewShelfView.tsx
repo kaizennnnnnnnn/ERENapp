@@ -12,6 +12,7 @@
 import { useState } from 'react'
 import { IconLock, IconPaw } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
+import { useCat } from '@/hooks/useCat'
 import { POTIONS, POTION_BY_ID, GRADES, type Potion } from '@/lib/chemistry/potions'
 import { canPour, SHELF_MAX, type ShelfState } from '@/lib/chemistry/brewShelf'
 import BrewFlask from './BrewFlask'
@@ -28,6 +29,7 @@ interface Props {
 
 export default function BrewShelfView({ skin, shelf, dailyKey, onPour, busy }: Props) {
   const [selected, setSelected] = useState<number | null>(null)
+  const cat = useCat()
   const pourable = canPour(shelf, dailyKey)
   const pick = selected !== null ? shelf.bottles[selected] : undefined
   const pickPotion = pick ? POTION_BY_ID[pick.potionId] : undefined
@@ -86,7 +88,7 @@ export default function BrewShelfView({ skin, shelf, dailyKey, onPour, busy }: P
               {pickPotion.name.toUpperCase()}
             </div>
             <div style={{ fontFamily: BODY_FONT, fontSize: 12, lineHeight: 1.45, color: skin.fgDim, marginTop: 5 }}>
-              {pickPotion.blurb}
+              {cat.t(pickPotion.blurb)}
             </div>
             <PixelButton
               skin={skin}
@@ -96,7 +98,7 @@ export default function BrewShelfView({ skin, shelf, dailyKey, onPour, busy }: P
               style={{ width: '100%', marginTop: 10 }}
             >
               <IconPaw size={14} />
-              {pourable ? 'POUR IT FOR EREN' : 'ALREADY POURED TODAY'}
+              {pourable ? cat.t('POUR IT FOR {NAME}') : 'ALREADY POURED TODAY'}
             </PixelButton>
             {!pourable && (
               <div style={{ fontFamily: BODY_FONT, fontSize: 11, color: skin.fgDim, marginTop: 6, textAlign: 'center' }}>

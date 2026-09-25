@@ -25,6 +25,7 @@ import { createPortal } from 'react-dom'
 import { playSound } from '@/lib/sounds'
 import { useTasks } from '@/contexts/TaskContext'
 import { useErenStats } from '@/hooks/useErenStats'
+import { useCat } from '@/hooks/useCat'
 import { getDailyKey } from '@/lib/tasks'
 import { ChemistryThemeProvider, useChemistryTheme } from '@/lib/chemistry/theme'
 import { CATEGORY_COLORS } from '@/lib/chemistry/colors'
@@ -353,6 +354,7 @@ function Header({ skin, theme, bottles, view, pourable, onView, onToggle, onClos
   view: 'bench' | 'shelf'; pourable: boolean
   onView: (v: 'bench' | 'shelf') => void; onToggle: () => void; onClose: () => void
 }) {
+  const cat = useCat()
   return (
     <div style={{
       position: 'relative', zIndex: 3,
@@ -364,8 +366,8 @@ function Header({ skin, theme, bottles, view, pourable, onView, onToggle, onClos
     }}>
       <span style={{ flexShrink: 0 }}><IconFlask size={26} /></span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontFamily: PIXEL_FONT, fontSize: 10, lineHeight: 1.5, color: skin.fg }}>
-          EREN&apos;S BREW
+        <div style={{ fontFamily: PIXEL_FONT, fontSize: 10, lineHeight: 1.5, color: skin.fg, overflowWrap: 'anywhere' }}>
+          {cat.t("{NAME}'S BREW")}
         </div>
         <PixelLabel color={skin.fgDim} size={5} style={{ display: 'block', marginTop: 3 }}>
           {view === 'shelf' ? 'BOTTLES & RECIPES' : 'ONE POUR A DAY'}
@@ -673,6 +675,7 @@ function BottledCard({
 }) {
   const g = GRADES[grade]
   const used = filled.filter(Boolean) as Element[]
+  const cat = useCat()
   return (
     <PixelPanel skin={skin} rivets style={{ padding: '14px 14px 12px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
@@ -682,7 +685,7 @@ function BottledCard({
             {order.potion.name.toUpperCase()}
           </div>
           <p style={{ fontFamily: BODY_FONT, fontSize: 12, lineHeight: 1.45, color: skin.fgDim, margin: '7px 0 0' }}>
-            {order.potion.blurb}
+            {cat.t(order.potion.blurb)}
           </p>
         </div>
         <span style={{
@@ -697,7 +700,7 @@ function BottledCard({
       </div>
 
       <p style={{ fontFamily: BODY_FONT, fontSize: 12, lineHeight: 1.45, color: skin.fgDim, margin: '10px 0 0' }}>
-        {g.line} A {g.label.toLowerCase()} batch pours at {Math.round(g.mult * 100)}% strength.
+        {cat.t(g.line)} A {g.label.toLowerCase()} batch pours at {Math.round(g.mult * 100)}% strength.
       </p>
 
       {earned && (earned.coins > 0 || earned.xp > 0) && (
@@ -720,7 +723,7 @@ function BottledCard({
         style={{ width: '100%', marginTop: 12 }}
       >
         <IconPaw size={14} />
-        {pourable ? 'POUR IT FOR EREN' : 'SHELVED FOR TOMORROW'}
+        {pourable ? cat.t('POUR IT FOR {NAME}') : 'SHELVED FOR TOMORROW'}
       </PixelButton>
 
       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
@@ -790,9 +793,10 @@ function ClosedCard({ skin, bottles, pourable, onShelf, onAgain }: {
 function ServedCard({ skin, served, onDone }: {
   skin: PixelSkin; served: { potion: Potion; lines: string[] }; onDone: () => void
 }) {
+  const cat = useCat()
   return (
     <PixelPanel skin={skin} rivets style={{ padding: '14px', animation: 'brewPop 300ms steps(6) both' }}>
-      <PixelLabel color={skin.gold} size={7}>HE DRANK IT</PixelLabel>
+      <PixelLabel color={skin.gold} size={7}>{cat.t('{HE} DRANK IT')}</PixelLabel>
       <div style={{ fontFamily: PIXEL_FONT, fontSize: 12, lineHeight: 1.5, color: skin.fg, marginTop: 8 }}>
         {served.potion.name.toUpperCase()}
       </div>
@@ -812,7 +816,7 @@ function ServedCard({ skin, served, onDone }: {
 
       <p style={{ fontFamily: BODY_FONT, fontSize: 12, lineHeight: 1.45, color: skin.fgDim, margin: '11px 0 0' }}>
         That&apos;s today&apos;s pour. Keep brewing — the shelf holds twelve, and tomorrow you
-        get to pick which one he gets.
+        get to pick which one {cat.p.he} gets.
       </p>
 
       <PixelButton skin={skin} onClick={onDone} style={{ width: '100%', marginTop: 12 }}>

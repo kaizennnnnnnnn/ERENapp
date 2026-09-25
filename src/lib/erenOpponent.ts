@@ -112,8 +112,9 @@ export function erenOpponentScore(dayKey: string, twist: TwistId): number {
   return Math.max(EREN_FLOOR, EREN_BASE[twist] + jitter)
 }
 
-/** What the HUD and the verdict screen call him. */
-export const EREN_OPPONENT_NAME = 'Eren'
+// There is no name constant here on purpose. The opponent IS the household's
+// cat, so the HUD, the verdict screen and the love meter show the name the
+// household gave it (hooks/useCat), which a rename updates everywhere at once.
 
 /**
  * The id he occupies in UI that keys a side of a scoreboard by user id.

@@ -33,7 +33,7 @@ export default function NotFound() {
         <h1 style={S.title}>NOTHING HERE</h1>
 
         <p style={S.body}>
-          This room does not exist. Eren is in the house — go and find him.
+          This room does not exist. Your cat is somewhere in the house — go and look.
         </p>
 
         <a href="/home" style={S.primary}>GO HOME</a>

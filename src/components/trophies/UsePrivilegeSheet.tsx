@@ -10,6 +10,7 @@ import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useCouple } from '@/hooks/useCouple'
+import { useCat } from '@/hooks/useCat'
 import { useTrophies } from '@/hooks/useTrophies'
 import { useTrophyEffects } from '@/hooks/useTrophyEffects'
 import { useDailyBattle } from '@/hooks/useDailyBattle'
@@ -27,6 +28,7 @@ export default function UsePrivilegeSheet({
   const supabase = createClient()
   const { user, profile } = useAuth()
   const { partner } = useCouple()
+  const cat = useCat()
   const trophies = useTrophies()
   const effects = useTrophyEffects()
   const battle = useDailyBattle()
@@ -43,7 +45,7 @@ export default function UsePrivilegeSheet({
 
   // What is about to happen, said plainly.
   const consequence: Record<PrivilegeItem['privilege'], string> = {
-    eren_says: `Eren will say this to ${them} for the next day, in his own bubble.`,
+    eren_says: `${cat.name} will say this to ${them} for the next day, in ${cat.p.his} own bubble.`,
     double_hour: 'Your care actions count double for the next hour. Starting now.',
     point_steal: leaderIsPartner
       ? `Takes one point off ${them}, who is currently ahead.`
@@ -51,7 +53,7 @@ export default function UsePrivilegeSheet({
         ? 'You are already ahead — this would take a point off YOU. Wait until you are behind.'
         : 'Nobody is ahead right now, so there is nothing to take.',
     streak_shield: 'Banks a freeze token. The next missed day will not break your care streak.',
-    decay_freeze: 'Eren\'s stats hold still for three hours. Good before a long shift.',
+    decay_freeze: cat.t("{name}'s stats hold still for three hours. Good before a long shift."),
   }
 
   const blocked = item.privilege === 'point_steal' && !leaderIsPartner
@@ -139,7 +141,7 @@ export default function UsePrivilegeSheet({
 
         <PowerArt id={item.privilege} width={54} />
         <p className="font-pixel text-center" style={{ fontSize: 9, letterSpacing: 1.5, color: tone }}>
-          {item.name.toUpperCase()}
+          {cat.t(item.name).toUpperCase()}
         </p>
         <p className="text-center text-[11px]" style={{ color: blocked ? '#FFB4A1' : '#9FD8B5' }}>
           {consequence[item.privilege]}

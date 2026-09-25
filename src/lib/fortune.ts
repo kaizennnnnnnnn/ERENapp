@@ -25,12 +25,13 @@ export const FORTUNE_GIFTS: FortuneGiftDef[] = [
   { id: 'fortune_ticket_10',    name: 'Golden Ticket',        icon: 'ticket',   rarity: 'legendary', description: 'Ten free gacha pulls!',   gachaTickets: 10 },
 
   // ── Decorative keepsakes (stored in inventory) ──
-  { id: 'fortune_lucky_paw',    name: 'Lucky Paw Charm',      icon: 'paw',      rarity: 'common',    description: 'A tiny charm from Eren. Keep it safe!' },
-  { id: 'fortune_yarn_ball',    name: 'Golden Yarn Ball',     icon: 'yarn',     rarity: 'common',    description: 'A shiny yarn ball Eren found.' },
+  // name / description are lib/catWords templates ({name}), filled in FortunePopup.
+  { id: 'fortune_lucky_paw',    name: 'Lucky Paw Charm',      icon: 'paw',      rarity: 'common',    description: 'A tiny charm from {name}. Keep it safe!' },
+  { id: 'fortune_yarn_ball',    name: 'Golden Yarn Ball',     icon: 'yarn',     rarity: 'common',    description: 'A shiny yarn ball {name} found.' },
   { id: 'fortune_star_fragment', name: 'Star Fragment',       icon: 'star',     rarity: 'rare',      description: 'A glowing piece of a fallen star.' },
   { id: 'fortune_moon_stone',   name: 'Moonstone',            icon: 'moon',     rarity: 'rare',      description: 'A smooth stone that glows at night.' },
   { id: 'fortune_crystal_fish', name: 'Crystal Fish',         icon: 'fish',     rarity: 'epic',      description: 'A beautifully crafted crystal fish.' },
-  { id: 'fortune_eren_feather', name: 'Eren\'s Whisker',      icon: 'feather',  rarity: 'epic',      description: 'A rare whisker from Eren. Very lucky!' },
+  { id: 'fortune_eren_feather', name: '{name}\'s Whisker',    icon: 'feather',  rarity: 'epic',      description: 'A rare whisker from {name}. Very lucky!' },
   { id: 'fortune_golden_bell',  name: 'Golden Bell',          icon: 'bell',     rarity: 'legendary', description: 'A magical bell that rings by itself.' },
 ]
 

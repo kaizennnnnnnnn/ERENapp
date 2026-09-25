@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
+import { useCat } from '@/hooks/useCat'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import BlinkingEren from '@/components/BlinkingEren'
@@ -144,6 +145,7 @@ const WASH_EREN_FALLBACK = {
 export default function WashScene({ onClose }: Props) {
   const { user, profile } = useAuth()
   const { stats, applyAction } = useErenStats(profile?.household_id ?? null)
+  const cat = useCat()
   const { completeTask } = useTasks()
   const wish = useWish()
   const wishMatchesThisRoom = wish?.wish ? wishHintRoom(wish.wish) === 'wash' : false
@@ -656,7 +658,9 @@ export default function WashScene({ onClose }: Props) {
           style={{ width: SOAP_W, height: SOAP_H, display: 'block', pointerEvents: 'none', filter: 'drop-shadow(2px 3px 0 rgba(153,26,90,0.32))' }} />
         {!dragSoap && !showShower && (
           <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap font-pixel text-pink-500" style={{ fontSize: 6 }}>
-            DRAG ON EREN!
+            {/* A pronoun, not the name: this nowrap hint centres under the soap
+                near the left edge, and a long name would run off screen. */}
+            {cat.t('DRAG ON {HIM}!')}
           </div>
         )}
       </div>

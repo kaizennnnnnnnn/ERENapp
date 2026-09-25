@@ -17,6 +17,7 @@
 
 import { useCallback, useRef, type ReactNode } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { useCat } from '@/hooks/useCat'
 import { playSound } from '@/lib/sounds'
 import { WORD_COLOR } from '@/lib/erenReactions'
 import type { UseErenReaction } from '@/hooks/useErenReaction'
@@ -40,6 +41,7 @@ interface Props {
 
 export default function PetTarget({ reaction, children, disabled }: Props) {
   const { user } = useAuth()
+  const cat = useCat()
   const lastPetAt = useRef(0)
 
   const pet = useCallback((e: React.MouseEvent) => {
@@ -60,7 +62,7 @@ export default function PetTarget({ reaction, children, disabled }: Props) {
   return (
     <div
       role="button"
-      aria-label="Pet Eren"
+      aria-label={cat.t('Pet {name}')}
       onClick={pet}
       style={{ cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
     >

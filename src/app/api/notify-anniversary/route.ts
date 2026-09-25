@@ -21,6 +21,7 @@ import { authorizeRequest, cronOnly } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPush, heartGlyph } from '@/lib/serverPush'
+import { catText, fetchCatWords, type CatWords } from '@/lib/catWords'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -80,7 +81,9 @@ function anchorHits(anchor: string | null, y: number, mmdd: string): boolean {
   return am === mmdd
 }
 
-interface Ev { recipients: Member[]; tag: string; title: string; body: string }
+// Title and body are written against the cat, and only built once an event has
+// fired: most days nothing does, and the cat is then never read.
+interface Ev { recipients: Member[]; tag: string; title: (cat: CatWords) => string; body: (cat: CatWords) => string }
 
 export async function GET(request: Request) {
   // Whole-database digest sweep with no in-app caller, so a session is not
@@ -120,8 +123,8 @@ export async function GET(request: Request) {
 
     // Eren's birthday — both partners, day-of only.
     if (anchorHits(hh.eren_birthday, today.y, today.mmdd)) {
-      events.push({ recipients: members, tag: 'anniv-eren', title: '🎂 Eren',
-        body: `Today is Eren's birthday! Spoil him a little.` })
+      events.push({ recipients: members, tag: 'anniv-eren', title: cat => `🎂 ${cat.name}`,
+        body: cat => catText(`Today is {name}'s birthday! Spoil {him} a little.`, cat) })
     }
     // Couple anniversary — eve heads-up, then day-of. Both partners.
     //
@@ -132,12 +135,12 @@ export async function GET(request: Request) {
     // onboarding anniversary field was getting "Eren's parents have been
     // together another year" pushed at them once a year.
     if (members.length > 1 && anchorHits(hh.couple_anniversary, tom.y, tom.mmdd)) {
-      events.push({ recipients: members, tag: 'anniv-couple-eve', title: '💛 Eren',
-        body: `Your anniversary is tomorrow — plan a little surprise.` })
+      events.push({ recipients: members, tag: 'anniv-couple-eve', title: cat => `💛 ${cat.name}`,
+        body: () => `Your anniversary is tomorrow — plan a little surprise.` })
     }
     if (members.length > 1 && anchorHits(hh.couple_anniversary, today.y, today.mmdd)) {
-      events.push({ recipients: members, tag: 'anniv-couple', title: '💛 Eren',
-        body: `Happy anniversary! Eren's parents have been together another year.` })
+      events.push({ recipients: members, tag: 'anniv-couple', title: cat => `💛 ${cat.name}`,
+        body: cat => `Happy anniversary! ${cat.name}'s parents have been together another year.` })
     }
     // Each partner's own birthday — notify the OTHER partner, eve + day-of.
     for (const m of members) {
@@ -146,16 +149,19 @@ export async function GET(request: Request) {
       const heart = heartGlyph(m.heart)
       const who = m.name?.trim() || 'your partner'
       if (anchorHits(m.birthday, tom.y, tom.mmdd)) {
-        events.push({ recipients: others, tag: `bday-eve-${m.id}`, title: `${heart} Eren`,
-          body: `${who}'s birthday is tomorrow — get ready!` })
+        events.push({ recipients: others, tag: `bday-eve-${m.id}`, title: cat => `${heart} ${cat.name}`,
+          body: () => `${who}'s birthday is tomorrow — get ready!` })
       }
       if (anchorHits(m.birthday, today.y, today.mmdd)) {
-        events.push({ recipients: others, tag: `bday-${m.id}`, title: `${heart} Eren`,
-          body: `Today is ${who}'s birthday! ${heart}` })
+        events.push({ recipients: others, tag: `bday-${m.id}`, title: cat => `${heart} ${cat.name}`,
+          body: () => `Today is ${who}'s birthday! ${heart}` })
       }
     }
 
     if (events.length === 0) continue
+
+    // Every title names the household's cat, and its birthday copy says he / she.
+    const cat = await fetchCatWords(supabase, hh.id)
 
     // Working copies so a member targeted by several events writes once.
     const notifyMap = new Map<string, Record<string, string>>()
@@ -183,7 +189,7 @@ export async function GET(request: Request) {
         const expired: string[] = []
         let any = false
         for (const sub of subs) {
-          const ok = await sendPush(sub, ev.title, ev.body, ev.tag, '/home')
+          const ok = await sendPush(sub, ev.title(cat), ev.body(cat), ev.tag, '/home')
           if (ok) { pushesSent++; any = true } else expired.push(sub.id)
         }
         if (expired.length) await supabase.from('push_subscriptions').delete().in('id', expired)

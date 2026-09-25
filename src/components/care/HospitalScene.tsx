@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
+import { useCat } from '@/hooks/useCat'
 import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
 import BlinkingEren from '@/components/BlinkingEren'
@@ -16,6 +17,7 @@ interface Props { onClose: () => void }
 export default function HospitalScene({ onClose }: Props) {
   const { user, profile } = useAuth()
   const { stats, applyAction } = useErenStats(profile?.household_id ?? null)
+  const cat = useCat()
 
   // No care animation in the clinic — this runner is here so a tap on the
   // patient still purrs, same as every other room.
@@ -428,7 +430,7 @@ export default function HospitalScene({ onClose }: Props) {
         <div className="w-full max-w-xs px-4 py-3 text-center"
           style={{ background: '#F9FBFF', borderRadius: 3, border: '2px solid #CCD0E4', boxShadow: '3px 3px 0 rgba(0,0,0,0.08)', fontFamily: '"Press Start 2P"' }}>
           <p style={{ fontSize: 6, color: medGiven ? '#1A7A38' : '#C01818' }}>
-            {medGiven ? 'TREATMENT COMPLETE. FIX ROOT CAUSE.' : 'EREN IS SICK! ADMINISTER MEDICINE.'}
+            {medGiven ? 'TREATMENT COMPLETE. FIX ROOT CAUSE.' : cat.t('{NAME} IS SICK! ADMINISTER MEDICINE.')}
           </p>
           {!medGiven && (stats?.weight ?? 0) > 6.5 && (
             <p style={{ fontSize: 5, color: '#B05A10', marginTop: 5 }}>

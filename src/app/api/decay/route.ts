@@ -9,6 +9,7 @@ import { authorizeRequest } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 import { clampStat, computeErenMood, shouldBecomeSick } from '@/lib/utils'
 import { sendPush, getStatNotifications } from '@/lib/serverPush'
+import { catWordsFromRow } from '@/lib/catWords'
 import { runMemorySweep } from '@/lib/memoryChecks'
 
 // Critical: GET route handlers are statically cached by Next.js / Vercel by
@@ -192,8 +193,9 @@ export async function GET(request: Request) {
         // ── Notification block — ALWAYS runs, regardless of whether decay was
         // applied this tick. State-based: if a stat is currently in warning/
         // critical, the corresponding tag is a candidate. The cooldown filter
-        // below stops us from re-firing within 2h.
-        const allNotifs = getStatNotifications(currentStats)
+        // below stops us from re-firing within 2h. The row came from select('*'),
+        // so it already carries the cat's name and sex (or reads as Eren).
+        const allNotifs = getStatNotifications(currentStats, catWordsFromRow(stat))
         if (allNotifs.length === 0) return
 
         // Apply per-tag cooldown so we don't re-fire the same alert every cron

@@ -22,6 +22,7 @@ import { FOOD_META, foodArt } from '@/lib/foodMeta'
 import FoodIcon from '@/components/care/FoodIcon'
 import { IconBowl, IconCoin } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
+import { useCat } from '@/hooks/useCat'
 
 /** Foods with real plate art in public/food; the rest draw as pixel icons. */
 const hasPlate = (id: string) => id === 'donut' || id.startsWith('donut_')
@@ -36,6 +37,7 @@ interface Props {
 
 export default function TodaysMenu({ menu, progress, complete, reward }: Props) {
   const [open, setOpen] = useState(false)
+  const cat = useCat()
   const rootRef = useRef<HTMLDivElement>(null)
   const fedCount = progress.filter(Boolean).length
 
@@ -94,7 +96,7 @@ export default function TodaysMenu({ menu, progress, complete, reward }: Props) 
           }}>
           <p className="font-pixel text-center mb-1.5"
             style={{ fontSize: 6, color: complete ? '#BBF7D0' : '#FDE68A', letterSpacing: 1 }}>
-            {complete ? 'MENU DONE' : 'TODAY HE WANTS'}
+            {complete ? 'MENU DONE' : cat.t('TODAY {HE} WANTS')}
           </p>
 
           <div className="flex items-start justify-center gap-1.5">

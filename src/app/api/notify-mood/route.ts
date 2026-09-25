@@ -11,6 +11,7 @@
  */
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPush } from '@/lib/serverPush'
+import { fetchCatWords } from '@/lib/catWords'
 import { PUSH_MOODS } from '@/lib/moods'
 import type { UserMood } from '@/types'
 import { authorizeRequest } from '@/lib/apiAuth'
@@ -69,8 +70,9 @@ export async function POST(request: Request) {
   }
 
   const name = (sender_name?.trim() || 'Your partner').slice(0, 32)
-  const title = '💜 Eren'
-  const snippet = `${name} is having a tough day — maybe send Eren?`
+  const cat = await fetchCatWords(supabase, household_id)
+  const title = `💜 ${cat.name}`
+  const snippet = `${name} is having a tough day — maybe send ${cat.name}?`
 
   const expired: string[] = []
   let sent = 0

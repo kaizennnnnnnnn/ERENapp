@@ -1,4 +1,5 @@
 import type { ErenStats } from '@/types'
+import { catText, catWordsFromRow, type CatWords } from '@/lib/catWords'
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // STAT NOTIFICATIONS — client-side alerts when stats drop
@@ -13,11 +14,11 @@ interface StatAlert {
 }
 
 const STAT_ALERTS: StatAlert[] = [
-  { key: 'hunger',        icon: '🍗', warningMsg: 'Eren is getting hungry!',            criticalMsg: 'Eren is starving! Feed him now!' },
-  { key: 'happiness',     icon: '💕', warningMsg: 'Eren is feeling a bit down...',      criticalMsg: 'Eren is very sad! Play with him!' },
-  { key: 'energy',        icon: '⚡', warningMsg: 'Eren is getting tired.',              criticalMsg: 'Eren has no energy! Let him rest!' },
-  { key: 'sleep_quality', icon: '💤', warningMsg: 'Eren needs some rest soon.',         criticalMsg: 'Eren is exhausted! Put him to bed!' },
-  { key: 'cleanliness',   icon: '🛁', warningMsg: 'Eren is getting a bit dirty.',       criticalMsg: 'Eren is filthy! Give him a bath!' },
+  { key: 'hunger',        icon: '🍗', warningMsg: '{name} is getting hungry!',            criticalMsg: '{name} is starving! Feed {him} now!' },
+  { key: 'happiness',     icon: '💕', warningMsg: '{name} is feeling a bit down...',      criticalMsg: '{name} is very sad! Play with {him}!' },
+  { key: 'energy',        icon: '⚡', warningMsg: '{name} is getting tired.',              criticalMsg: '{name} has no energy! Let {him} rest!' },
+  { key: 'sleep_quality', icon: '💤', warningMsg: '{name} needs some rest soon.',         criticalMsg: '{name} is exhausted! Put {him} to bed!' },
+  { key: 'cleanliness',   icon: '🛁', warningMsg: '{name} is getting a bit dirty.',       criticalMsg: '{name} is filthy! Give {him} a bath!' },
 ]
 
 const STORAGE_KEY = 'eren_stat_notifs_v2'
@@ -57,6 +58,8 @@ async function sendNotification(title: string, body: string, tag: string) {
 export function checkStatNotifications(stats: ErenStats) {
   if (!stats) return
 
+  // The row carries the household's cat, so the copy names it with no extra read.
+  const cat = catWordsFromRow(stats)
   const state = getNotifState()
   const now = Date.now()
   let changed = false
@@ -73,14 +76,14 @@ export function checkStatNotifications(stats: ErenStats) {
 
     // Fire critical any time we're in critical and cooldown has passed
     if (newLevel === 'critical' && cooledDown) {
-      sendNotification(`${alert.icon} Eren`, alert.criticalMsg, `stat-${alert.key}`)
+      sendNotification(`${alert.icon} ${cat.name}`, catText(alert.criticalMsg, cat), `stat-${alert.key}`)
       state[alert.key] = { level: 'critical', notifiedAt: now }
       changed = true
     }
     // Fire warning when in warning and cooldown passed — don't refire if we
     // just fired critical (prev.level === 'critical' covers the bounce case)
     else if (newLevel === 'warning' && prev.level !== 'critical' && cooledDown) {
-      sendNotification(`${alert.icon} Eren`, alert.warningMsg, `stat-${alert.key}`)
+      sendNotification(`${alert.icon} ${cat.name}`, catText(alert.warningMsg, cat), `stat-${alert.key}`)
       state[alert.key] = { level: 'warning', notifiedAt: now }
       changed = true
     }
@@ -96,7 +99,7 @@ export function checkStatNotifications(stats: ErenStats) {
   const sickCooled = now - sickPrev.notifiedAt > COOLDOWN_MS
 
   if (stats.is_sick && sickPrev.level !== 'critical' && sickCooled) {
-    sendNotification('💊 Eren', 'Eren is sick! Take him to the vet!', 'stat-sick')
+    sendNotification(`💊 ${cat.name}`, catText('{name} is sick! Take {him} to the vet!', cat), 'stat-sick')
     state['is_sick'] = { level: 'critical', notifiedAt: now }
     changed = true
   } else if (!stats.is_sick && sickPrev.level !== 'ok') {
@@ -110,17 +113,17 @@ export function checkStatNotifications(stats: ErenStats) {
 // ── Partner action notifications ─────────────────────────────────────────────
 
 const ACTION_LABELS: Record<string, { icon: string; verb: string }> = {
-  feed:     { icon: '🍗', verb: 'fed Eren' },
-  play:     { icon: '🧶', verb: 'played with Eren' },
-  sleep:    { icon: '💤', verb: 'put Eren to sleep' },
-  wash:     { icon: '🛁', verb: 'gave Eren a bath' },
-  medicine: { icon: '💊', verb: 'gave Eren medicine' },
+  feed:     { icon: '🍗', verb: 'fed {name}' },
+  play:     { icon: '🧶', verb: 'played with {name}' },
+  sleep:    { icon: '💤', verb: 'put {name} to sleep' },
+  wash:     { icon: '🛁', verb: 'gave {name} a bath' },
+  medicine: { icon: '💊', verb: 'gave {name} medicine' },
 }
 
-export function notifyPartnerAction(partnerName: string, actionType: string) {
+export function notifyPartnerAction(partnerName: string, actionType: string, cat: CatWords) {
   const action = ACTION_LABELS[actionType]
   if (!action) return
-  sendNotification(`${action.icon} Eren`, `${partnerName} ${action.verb}!`, `partner-${actionType}`)
+  sendNotification(`${action.icon} ${cat.name}`, `${partnerName} ${catText(action.verb, cat)}!`, `partner-${actionType}`)
 }
 
 export async function requestNotificationPermission(): Promise<boolean> {

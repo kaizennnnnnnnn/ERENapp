@@ -1,4 +1,5 @@
 import webpush from 'web-push'
+import { catText, type CatWords } from '@/lib/catWords'
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SERVER-SIDE WEB PUSH — sends notifications even when app is closed
@@ -59,15 +60,6 @@ interface StatValues {
   is_sick: boolean
 }
 
-interface OldStatValues {
-  happiness: number
-  hunger: number
-  energy: number
-  sleep_quality: number
-  cleanliness: number
-  is_sick: boolean
-}
-
 interface StatAlert {
   key: keyof Omit<StatValues, 'is_sick'>
   icon: string
@@ -76,11 +68,11 @@ interface StatAlert {
 }
 
 const STAT_ALERTS: StatAlert[] = [
-  { key: 'hunger',        icon: '🍗', warningMsg: 'Eren is getting hungry!',       criticalMsg: 'Eren is starving! Feed him now!' },
-  { key: 'happiness',     icon: '💕', warningMsg: 'Eren is feeling a bit down...', criticalMsg: 'Eren is very sad! Play with him!' },
-  { key: 'energy',        icon: '⚡', warningMsg: 'Eren is getting tired.',         criticalMsg: 'Eren has no energy! Let him rest!' },
-  { key: 'sleep_quality', icon: '💤', warningMsg: 'Eren needs some rest soon.',    criticalMsg: 'Eren is exhausted! Put him to bed!' },
-  { key: 'cleanliness',   icon: '🛁', warningMsg: 'Eren is getting a bit dirty.',  criticalMsg: 'Eren is filthy! Give him a bath!' },
+  { key: 'hunger',        icon: '🍗', warningMsg: '{name} is getting hungry!',       criticalMsg: '{name} is starving! Feed {him} now!' },
+  { key: 'happiness',     icon: '💕', warningMsg: '{name} is feeling a bit down...', criticalMsg: '{name} is very sad! Play with {him}!' },
+  { key: 'energy',        icon: '⚡', warningMsg: '{name} is getting tired.',         criticalMsg: '{name} has no energy! Let {him} rest!' },
+  { key: 'sleep_quality', icon: '💤', warningMsg: '{name} needs some rest soon.',    criticalMsg: '{name} is exhausted! Put {him} to bed!' },
+  { key: 'cleanliness',   icon: '🛁', warningMsg: '{name} is getting a bit dirty.',  criticalMsg: '{name} is filthy! Give {him} a bath!' },
 ]
 
 /**
@@ -91,24 +83,24 @@ const STAT_ALERTS: StatAlert[] = [
  * decide which ones actually go out — that combo means we never miss a
  * threshold the client crossed before the server saw it, and we never
  * spam the user because cooldown blocks the same tag for 2h.
+ *
+ * `cat` is the household's (lib/catWords): the copy names it and says he / she.
+ * Tags stay cat-free, so a rename never resets a cooldown.
  */
-export function getStatNotifications(stats: StatValues, _legacy?: OldStatValues): { title: string; body: string; tag: string }[] {
-  // _legacy kept so older callers still type-check; ignored at runtime.
-  void _legacy
-
+export function getStatNotifications(stats: StatValues, cat: CatWords): { title: string; body: string; tag: string }[] {
   const notifs: { title: string; body: string; tag: string }[] = []
 
   for (const alert of STAT_ALERTS) {
     const val = stats[alert.key]
     if (val <= 10) {
-      notifs.push({ title: `${alert.icon} Eren`, body: alert.criticalMsg, tag: `stat-${alert.key}-crit` })
+      notifs.push({ title: `${alert.icon} ${cat.name}`, body: catText(alert.criticalMsg, cat), tag: `stat-${alert.key}-crit` })
     } else if (val <= 50) {
-      notifs.push({ title: `${alert.icon} Eren`, body: alert.warningMsg, tag: `stat-${alert.key}-warn` })
+      notifs.push({ title: `${alert.icon} ${cat.name}`, body: catText(alert.warningMsg, cat), tag: `stat-${alert.key}-warn` })
     }
   }
 
   if (stats.is_sick) {
-    notifs.push({ title: '💊 Eren', body: 'Eren is sick! Take him to the vet!', tag: 'stat-sick' })
+    notifs.push({ title: `💊 ${cat.name}`, body: catText('{name} is sick! Take {him} to the vet!', cat), tag: 'stat-sick' })
   }
 
   return notifs

@@ -15,6 +15,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useCare } from '@/contexts/CareContext'
 import { useJellies, type FeedResult } from '@/hooks/useJellies'
 import { useJellyDuel } from '@/hooks/useJellyDuel'
+import { useCat } from '@/hooks/useCat'
 import { GACHA_SKINS } from '@/lib/skins'
 import { JELLY_SKIN_ID } from '@/lib/jellies'
 import { wearSkinEverywhere } from '@/lib/skinGrant'
@@ -29,6 +30,7 @@ export default function JellyParlourPage() {
   const jellies = useJellies()
   const run = useJellyDuel('run')
   const jump = useJellyDuel('jump')
+  const cat = useCat()
 
   // The feed scene, holding the RPC's own numbers.
   const [feedScene, setFeedScene] = useState<FeedResult | null>(null)
@@ -52,7 +54,7 @@ export default function JellyParlourPage() {
     {
       id: 'jump',
       title: 'JELLY JUMP',
-      blurb: 'Bounce him up the shelves. Every jelly melts after one hop, so keep climbing.',
+      blurb: cat.t('Bounce {him} up the shelves. Every jelly melts after one hop, so keep climbing.'),
       best: jump.best, mineToday: jump.mineToday, theirsToday: jump.theirsToday, theirName: jump.theirName,
     },
   ]
@@ -99,7 +101,7 @@ export default function JellyParlourPage() {
         <SkinUnlockCinematic
           skin={jellySkin}
           variant="jelly"
-          earnedLine="He ate five Super Jellies and set like one."
+          earnedLine={cat.t('{He} ate five Super Jellies and set like one.')}
           onWear={async () => {
             if (profile?.household_id) await wearSkinEverywhere(profile.household_id, JELLY_SKIN_ID)
             setUnlocking(false)

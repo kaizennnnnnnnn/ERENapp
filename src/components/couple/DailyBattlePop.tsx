@@ -8,9 +8,11 @@
 
 import { useEffect, useState } from 'react'
 import { useDailyBattle, type DailyActionSignal } from '@/hooks/useDailyBattle'
+import { useCat } from '@/hooks/useCat'
 
+// lib/catWords templates, filled at render.
 const ACTION_LABELS: Record<string, string> = {
-  feed:     'FED EREN',
+  feed:     'FED {NAME}',
   play:     'PLAYED',
   sleep:    'TUCKED IN',
   wash:     'WASHED',
@@ -35,6 +37,7 @@ interface Snapshot {
 
 export default function DailyBattlePop() {
   const { lastAction, myPct, hasPartner } = useDailyBattle()
+  const cat = useCat()
   const [snap, setSnap] = useState<Snapshot | null>(null)
   const [animBar, setAnimBar] = useState(false)
 
@@ -96,9 +99,9 @@ export default function DailyBattlePop() {
       }}>
         <p className="font-pixel" style={{
           fontSize: 6, letterSpacing: 1.5, color: accent,
-          textShadow: `0 0 4px ${accent}55`,
+          textShadow: `0 0 4px ${accent}55`, overflowWrap: 'anywhere',
         }}>
-          {signal.userName.toUpperCase()} {ACTION_LABELS[signal.action] ?? signal.action.toUpperCase()}
+          {signal.userName.toUpperCase()} {ACTION_LABELS[signal.action] ? cat.t(ACTION_LABELS[signal.action]) : signal.action.toUpperCase()}
         </p>
         <p className="font-pixel mt-0.5" style={{
           fontSize: 11, color: accentSoft, lineHeight: 1,

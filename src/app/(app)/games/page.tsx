@@ -25,6 +25,7 @@ import ArcadeView, {
 import Leaderboard from '@/components/Leaderboard'
 import WeeklyGamesChampionPopup from '@/components/games/WeeklyGamesChampionPopup'
 import { catIdentityFromStats } from '@/lib/catIdentity'
+import { catText } from '@/lib/catWords'
 import { PLAYABLE_MINIGAME_IDS } from '@/lib/minigames'
 import { hashStr } from '@/lib/wishes'
 import { SOLO_VARIETY_COINS, SOLO_VARIETY_TARGET } from '@/lib/gameRewards'
@@ -33,15 +34,17 @@ import type { GameType } from '@/types'
 
 // The arcade, in the board's order. lib/minigames.ts PLAYABLE_MINIGAME_IDS is
 // the id list every "play them all" unlock measures against: keep the two in
-// step when a game is added or retired.
+// step when a game is added or retired. Titles that name the cat are
+// lib/catWords templates, filled per household in the page (ids and routes
+// keep the classic name).
 const GAMES: readonly ArcadeGame[] = [
   { id: 'memory_match', href: '/games/memory-match', title: 'Purr-fect Memory' },
   { id: 'treat_tumble', href: '/games/treat-tumble', title: 'Treat Tumble' },
-  { id: 'flappy_eren', href: '/games/flappy-eren', title: 'Fizzy Eren' },
-  { id: 'tic_tac_toe', href: '/games/tic-tac-toe', title: 'X & O vs Eren' },
-  { id: 'eren_stack', href: '/games/eren-stack', title: 'Eren Stack' },
+  { id: 'flappy_eren', href: '/games/flappy-eren', title: 'Fizzy {name}' },
+  { id: 'tic_tac_toe', href: '/games/tic-tac-toe', title: 'X & O vs {name}' },
+  { id: 'eren_stack', href: '/games/eren-stack', title: '{name} Stack' },
   { id: 'yarn_pop', href: '/games/yarn-pop', title: 'Yarn Pop' },
-  { id: 'eren_says', href: '/games/eren-says', title: 'Eren Says' },
+  { id: 'eren_says', href: '/games/eren-says', title: '{name} Says' },
   { id: 'lane_runner', href: '/games/lane-runner', title: 'Lane Runner' },
   { id: 'paw_doku', href: '/games/paw-doku', title: 'Paw Doku' },
   { id: 'yarn_sort', href: '/games/yarn-sort', title: 'Yarn Sort' },
@@ -158,8 +161,14 @@ export default function GamesPage() {
 
   // ── Today's wish, when it is a game ──
   const cat = catIdentityFromStats(stats)
+  const catName = cat.name
+  const catSex = cat.sex
+  const games = useMemo<readonly ArcadeGame[]>(
+    () => GAMES.map(g => ({ ...g, title: catText(g.title, { name: catName, sex: catSex }) })),
+    [catName, catSex],
+  )
   const wishId = wishedGame(wishState)
-  const wishGame = wishId ? GAMES.find(g => g.id === wishId) ?? null : null
+  const wishGame = wishId ? games.find(g => g.id === wishId) ?? null : null
   const wish: ArcadeWish | null = wishGame ? {
     game: wishGame,
     catName: cat.name,
@@ -173,7 +182,7 @@ export default function GamesPage() {
         coins={profile ? coins : null}
         week={week}
         wish={wish}
-        games={GAMES}
+        games={games}
         scores={scores}
         onOpenWeek={() => { playSound('ui_tap'); setBoardOpen(true) }}
         onGameTap={() => playSound('ui_tap')}

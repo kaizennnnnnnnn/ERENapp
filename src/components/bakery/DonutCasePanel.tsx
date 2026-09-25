@@ -22,6 +22,7 @@ import { foodArt } from '@/lib/foodMeta'
 import { DONUTS, MACHINE_DONUTS, SPIN_COST, TASTE_JOY, type DonutDef } from '@/lib/donuts'
 import { DONUT_EFFECTS } from '@/lib/donutEffects'
 import { playSound } from '@/lib/sounds'
+import { useCat } from '@/hooks/useCat'
 import { IconCoin, IconStar, IconDonut, IconHeart } from '@/components/PixelIcons'
 
 /** Machine stock first — that's what the spin button is offering. */
@@ -64,6 +65,7 @@ export default function DonutCasePanel({
   // Tapping a donut swaps the footer to that donut's detail rather than opening
   // a second layer — one panel, no nesting, and the spin button never moves.
   const [picked, setPicked] = useState<DonutDef | null>(null)
+  const cat = useCat()
   const canPay = coins >= SPIN_COST
   const spinnable = loaded && !busy && (freeReady || canPay)
 
@@ -234,7 +236,7 @@ export default function DonutCasePanel({
                       color: picked.taste === 'loves' ? '#C0407A' : '#6B7280',
                       border: `1px solid ${picked.taste === 'loves' ? '#F5A8C4' : '#9CA3AF'}`,
                     }}>
-                      {picked.taste === 'loves' ? `HE LOVES IT · JOY x${TASTE_JOY.loves}` : 'NOT HIS THING'}
+                      {picked.taste === 'loves' ? `${cat.t('{HE} LOVES IT')} · JOY x${TASTE_JOY.loves}` : cat.t('NOT {HIS} THING')}
                     </span>
                   )}
                   {/* The visible one. Worth its own chip in its own colour —

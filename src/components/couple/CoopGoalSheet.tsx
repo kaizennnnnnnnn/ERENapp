@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { playSound } from '@/lib/sounds'
 import { useCouple } from '@/hooks/useCouple'
+import { useCat } from '@/hooks/useCat'
 import { timeUntilWeekReset } from '@/lib/couple'
 import { OBSIDIAN_FACE, OBSIDIAN_BTN } from '@/components/obsidian'
 import { IconHeartDuo, IconCoin, IconPaw } from '@/components/PixelIcons'
@@ -20,6 +21,7 @@ const goldText = { color: GOLD_HI, textShadow: `0 0 6px ${GOLD}55` }
 
 export default function CoopGoalSheet({ onClose }: { onClose: () => void }) {
   const { coopGoal, claimCoopGoal, partner } = useCouple()
+  const cat = useCat()
   const [mounted, setMounted] = useState(false)
   const [reset, setReset] = useState(() => timeUntilWeekReset())
   const [claiming, setClaiming] = useState(false)
@@ -84,10 +86,10 @@ export default function CoopGoalSheet({ onClose }: { onClose: () => void }) {
         <p className="text-center text-[11px]" style={{ color: '#C9BBA0', lineHeight: 1.5 }}>
           {partner ? (
             <>A goal you build <span style={{ color: GOLD_HI }}>together</span> — every bit of care you
-            {' '}both give Eren this week adds up.</>
+            {' '}both give {cat.name} this week adds up.</>
           ) : (
             <>A goal you build <span style={{ color: GOLD_HI }}>all week</span> — every bit of care you
-            {' '}give Eren adds up.</>
+            {' '}give {cat.name} adds up.</>
           )}
         </p>
 
@@ -157,7 +159,7 @@ export default function CoopGoalSheet({ onClose }: { onClose: () => void }) {
         <div className="flex items-start gap-2 px-1">
           <div className="mt-0.5"><IconPaw size={11} /></div>
           <p className="text-[10px]" style={{ color: '#9A8C70', lineHeight: 1.5 }}>
-            Counts every feed, play, nap, wash &amp; medicine — but only when Eren actually
+            Counts every feed, play, nap, wash &amp; medicine — but only when {cat.name} actually
             {' '}needs it, so a maxed-out stat won&apos;t pad the bar.
           </p>
         </div>

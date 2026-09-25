@@ -25,7 +25,8 @@ export interface Potion {
   light: string
   /** Short all-caps line for the order card chip. */
   effect: string
-  /** One sentence of flavour, shown once it's bottled. */
+  /** One sentence of flavour, shown once it's bottled. A template
+   *  (lib/catWords): fill with cat.t / catText before showing. */
   blurb: string
   /** What drinking it does. Numbers scale with the grade; flags don't. */
   buff: MonstaBuff
@@ -45,7 +46,7 @@ export const POTIONS: Potion[] = [
     name: 'Frostmint Fizz',
     deep: '#14B8A6', light: '#7EE7DA',
     effect: 'CLEAN +35',
-    blurb: 'One sip and his whole coat squeaks. Nobody knows why.',
+    blurb: 'One sip and {his} whole coat squeaks. Nobody knows why.',
     buff: { label: 'CLEAN +35', cleanliness: 35 },
   },
   {
@@ -61,7 +62,7 @@ export const POTIONS: Potion[] = [
     name: 'Sardine Sparkle',
     deep: '#0EA5E9', light: '#7DD3FC',
     effect: 'FULL +35',
-    blurb: 'Do not smell it. Just give it to him.',
+    blurb: 'Do not smell it. Just give it to {him}.',
     buff: { label: 'FULL +35', hunger: 35 },
   },
   {
@@ -69,7 +70,7 @@ export const POTIONS: Potion[] = [
     name: 'Purring Draught',
     deep: '#EC4899', light: '#F9A8D4',
     effect: 'JOY +20 · SLEEP +20',
-    blurb: 'The purr starts before he finishes swallowing.',
+    blurb: 'The purr starts before {he} finishes swallowing.',
     buff: { label: 'JOY +20 · SLEEP +20', happiness: 20, sleep_quality: 20 },
   },
   {
@@ -101,7 +102,7 @@ export const POTIONS: Potion[] = [
     name: 'Whisker Tonic',
     deep: '#65A30D', light: '#BEF264',
     effect: '-0.3 KG · CLEAN +15',
-    blurb: 'Green, virtuous, and he pretends not to enjoy it.',
+    blurb: 'Green, virtuous, and {he} pretends not to enjoy it.',
     buff: { label: '-0.3 KG · CLEAN +15', weight: -0.3, cleanliness: 15 },
   },
   {
@@ -109,7 +110,7 @@ export const POTIONS: Potion[] = [
     name: 'Nebula Milk',
     deep: '#A21CAF', light: '#F0ABFC',
     effect: '+60 COINS',
-    blurb: 'He drinks it, then coughs up small change. Never question it.',
+    blurb: '{He} drinks it, then coughs up small change. Never question it.',
     buff: { label: '+60 COINS', coins: 60, happiness: 8 },
   },
   {
@@ -117,7 +118,7 @@ export const POTIONS: Potion[] = [
     name: 'Bottled Thunder',
     deep: '#0284C7', light: '#BAE6FD',
     effect: 'ENERGY TO FULL',
-    blurb: 'The fur on his tail stands up for a solid minute afterwards.',
+    blurb: 'The fur on {his} tail stands up for a solid minute afterwards.',
     buff: { label: 'ENERGY TO FULL', energy: 100 },
   },
   {
@@ -143,6 +144,7 @@ interface GradeDef {
   /** Paid on top of the daily quest for filling the order cleanly. */
   bonusCoins: number
   color: string
+  /** A template (lib/catWords): fill with cat.t / catText before showing. */
   line: string
 }
 
@@ -152,7 +154,7 @@ interface GradeDef {
  */
 export const GRADES: Record<BrewGrade, GradeDef> = {
   perfect: { label: 'PERFECT', mult: 1,    energyTarget: 100, bonusCoins: 15, color: '#4ADE80', line: 'Not one wrong pour.' },
-  good:    { label: 'GOOD',    mult: 0.7,  energyTarget: 85,  bonusCoins: 8,  color: '#FCD34D', line: 'A little cloudy. He will not notice.' },
+  good:    { label: 'GOOD',    mult: 0.7,  energyTarget: 85,  bonusCoins: 8,  color: '#FCD34D', line: 'A little cloudy. {He} will not notice.' },
   murky:   { label: 'MURKY',   mult: 0.45, energyTarget: 70,  bonusCoins: 0,  color: '#F87171', line: 'Half the bench is on the floor. It still counts.' },
 }
 

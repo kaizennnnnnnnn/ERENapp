@@ -24,6 +24,8 @@ import { resolveRoomSkin, skinRoomFit, skinPrice, type SkinDef, type RoomDef } f
 import { frameFor, lockedArt } from '@/lib/rarityFrame'
 import type { GachaRarity } from '@/types'
 import { playSound } from '@/lib/sounds'
+import { useCat } from '@/hooks/useCat'
+import { swapCatName } from '@/lib/catWords'
 
 // Default (revert) + Classic + each gacha skin become one of these. `key`
 // doubles as the room_skins value: '' = the room's built-in default look.
@@ -62,6 +64,7 @@ export default function ClosetView({
   ownedCards, lockedCards, newBadgeSkins, stardust, loading, ownedLoaded, tab, onTabChange, onPick, onWearEverywhere, onBack,
 }: Props) {
   const [shopFilter, setShopFilter] = useState<ShopFilter>('all')
+  const cat = useCat()
 
   const room = rooms.find(r => r.id === activeRoom) ?? rooms[0]
   const showWearEverywhere = !!selectedKey   // only meaningful for a real outfit
@@ -171,7 +174,7 @@ export default function ClosetView({
               boxShadow: '0 2px 0 rgba(0,0,0,0.35)',
             }}>
               <p className="font-pixel text-center whitespace-nowrap overflow-hidden text-ellipsis" style={{ fontSize: 8, color: '#fff', letterSpacing: 0.3 }}>
-                {previewSkin ? previewSkin.name.toUpperCase() : 'DEFAULT LOOK'}
+                {previewSkin ? swapCatName(previewSkin.name, cat).toUpperCase() : 'DEFAULT LOOK'}
               </p>
             </div>
           </div>
@@ -350,7 +353,9 @@ function SkinCard({ card, room, selected, isNew, onClick }: {
   const rarity: GachaRarity = card.skin ? card.skin.rarity : 'common'
   const frame = frameFor(rarity, card.locked)
   const thumb = card.isDefault ? room.defaultThumb : card.skin!.thumb
-  const name = card.isDefault ? 'DEFAULT' : card.skin!.name.toUpperCase()
+  const cat = useCat()
+  const skinName = swapCatName(card.skin?.name ?? '', cat)
+  const name = card.isDefault ? 'DEFAULT' : skinName.toUpperCase()
   // An EARNED look (poured can, completed jelly shelf) can't be bought at any
   // price — the card shows a badge, never a stardust number that would be a lie.
   const earned = card.locked && !!card.skin?.unlock
@@ -359,8 +364,8 @@ function SkinCard({ card, room, selected, isNew, onClick }: {
     : card.locked
       ? earned
         ? 'Locked look — earned by playing, not bought'
-        : `${card.skin!.name}, locked — ${skinPrice(card.skin!.rarity)} stardust to unlock`
-      : `${card.skin!.name}${selected ? ', equipped' : ''}${isNew ? ', new' : ''}`
+        : `${skinName}, locked — ${skinPrice(card.skin!.rarity)} stardust to unlock`
+      : `${skinName}${selected ? ', equipped' : ''}${isNew ? ', new' : ''}`
   // Equipped marker is rarity-neutral (green ring + check) so it reads clearly
   // even on a gold legendary card.
   const boxShadow = selected
@@ -409,7 +414,7 @@ function SkinCard({ card, room, selected, isNew, onClick }: {
           }} />
       </div>
       <span className="font-pixel text-center leading-tight" style={{
-        fontSize: 5.5, color: card.locked ? '#5B4E7A' : '#E9D5FF', minHeight: 12,
+        fontSize: 5.5, color: card.locked ? '#5B4E7A' : '#E9D5FF', minHeight: 12, overflowWrap: 'anywhere',
       }}>{card.locked ? '???' : name}</span>
 
       {/* locked → lock badge + stardust price */}

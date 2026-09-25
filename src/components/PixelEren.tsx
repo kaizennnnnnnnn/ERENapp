@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { ErenMood } from '@/types'
+import { useCat } from '@/hooks/useCat'
 
 // Eren's Ragdoll color palette
 const PAL: Record<string, string> = {
@@ -337,6 +338,7 @@ interface Props {
 }
 
 export default function PixelEren({ mood = 'idle', size = 9, animate = true }: Props) {
+  const cat = useCat()
   const [frameIdx, setFrameIdx] = useState(0)
   const [blinking, setBlinking] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -371,7 +373,7 @@ export default function PixelEren({ mood = 'idle', size = 9, animate = true }: P
     <div
       className="pixel-art inline-block select-none"
       style={{ lineHeight: 0 }}
-      aria-label={`Pixel Eren - ${mood}`}
+      aria-label={`Pixel ${cat.name} - ${mood}`}
     >
       {grid.map((row, y) => (
         <div key={y} style={{ display: 'flex' }}>

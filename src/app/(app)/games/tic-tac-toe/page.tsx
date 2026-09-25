@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
+import { useCat } from '@/hooks/useCat'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
@@ -113,6 +114,7 @@ export default function TicTacToePage() {
   const { setHideStats } = useCare()
   useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
+  const cat = useCat()
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
   const timers = useGameTimers()
@@ -344,16 +346,16 @@ export default function TicTacToePage() {
         borderBottom: '2px solid rgba(167,139,250,0.3)',
       }}>
         <button onClick={() => { playSound('ui_back'); router.back() }}
-          className="flex items-center justify-center active:scale-90 transition-transform"
+          className="flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
           style={{ width: 32, height: 32, background: 'rgba(255,255,255,0.08)', borderRadius: 6, border: '2px solid rgba(167,139,250,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
           <ChevronLeft size={16} className="text-purple-200" />
         </button>
-        <span className="font-pixel text-white px-2.5 py-1.5"
+        <span className="font-pixel text-white px-2.5 py-1.5 min-w-0 truncate"
           style={{ background: 'linear-gradient(135deg, #DB2777, #EC4899)', border: '2px solid #831843', borderRadius: 4, fontSize: 8, letterSpacing: 2, boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
-          X &amp; O VS EREN
+          {cat.t('X & O VS {NAME}')}
         </span>
         <div className="flex-1" />
-        <div className="flex items-center gap-1 px-2 py-1.5 font-pixel"
+        <div className="flex items-center gap-1 px-2 py-1.5 font-pixel flex-shrink-0"
           style={{ background: 'rgba(0,0,0,0.4)', border: '2px solid rgba(255,255,255,0.3)', borderRadius: 4, fontSize: 7 }}>
           <span
             key={`W-${flashKey?.kind === 'W' ? flashKey.id : 'idle'}`}
@@ -665,11 +667,11 @@ export default function TicTacToePage() {
               </>
             )}
             <div className="flex flex-col items-center">
-              <span className="font-pixel text-white" style={{
-                fontSize: 11, letterSpacing: 2,
+              <span className="font-pixel text-white text-center" style={{
+                fontSize: 11, letterSpacing: 2, overflowWrap: 'anywhere',
                 animation: status === 'won' && !reduced ? 'tttBannerShimmer 1.6s ease-in-out infinite' : undefined,
               }}>
-                {status === 'won' ? 'YOU WIN!' : status === 'lost' ? 'EREN WINS' : 'TIE!'}
+                {status === 'won' ? 'YOU WIN!' : status === 'lost' ? cat.t('{NAME} WINS') : 'TIE!'}
               </span>
               {reward && (
                 <div className="mt-2 flex justify-center">

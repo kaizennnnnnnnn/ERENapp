@@ -21,6 +21,7 @@ import { authorizeRequest, cronOnly } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPush } from '@/lib/serverPush'
+import { fetchCatWords, type CatWords } from '@/lib/catWords'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -141,6 +142,8 @@ export async function GET(req: Request) {
     const dayKey = `${today.y}-${today.mmdd}`
     const yest = prevLocalDay(today)
     const yestKey = `${yest.y}-${yest.mmdd}`
+    // The cat signs the push. Read once per household, and only if someone is nudged.
+    let cat: CatWords | undefined
 
     for (const member of byHousehold.get(hh.id) ?? []) {
       const s = member.streak
@@ -155,8 +158,9 @@ export async function GET(req: Request) {
       if (subs.length === 0) continue               // no device — later run may catch a fresh subscribe
 
       usersAtRisk++
+      cat ??= await fetchCatWords(supabase, hh.id)
       pushesSent += await pushAll(
-        supabase, subs, '🔥 Eren',
+        supabase, subs, `🔥 ${cat.name}`,
         `day ${s.current} slips at midnight — one little quest saves it.`,
         'streak-sos', '/home',
       )
@@ -217,8 +221,9 @@ export async function POST(req: Request) {
   if (subs.length === 0) return NextResponse.json({ ok: true, sent: 0, reason: 'no subs' })
 
   const name = String(body.sender_name ?? '').trim().slice(0, 32) || 'your partner'
+  const cat = await fetchCatWords(supabase, household_id)
   const sent = await pushAll(
-    supabase, subs, '🔥 Eren',
+    supabase, subs, `🔥 ${cat.name}`,
     `${name} just hit a ${milestone}-day streak! send them something nice.`,
     tag, '/couple',
   )

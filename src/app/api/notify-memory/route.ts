@@ -17,6 +17,7 @@ import { authorizeRequest, cronOnly } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPush } from '@/lib/serverPush'
+import { fetchCatWords } from '@/lib/catWords'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -75,7 +76,8 @@ export async function GET(request: Request) {
     const epic = rows.some(r => r.rarity === 'epic')
     const count = rows.length
     const noun = count === 1 ? 'memory' : 'memories'
-    const title = epic ? '✨ Eren' : '🩷 Eren'
+    const cat = await fetchCatWords(supabase, householdId)
+    const title = epic ? `✨ ${cat.name}` : `🩷 ${cat.name}`
     const body = epic
       ? `${count} new ${noun} on your wall — including a rare one.`
       : `${count} new ${noun} on your wall.`

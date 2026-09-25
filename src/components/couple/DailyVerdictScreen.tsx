@@ -231,6 +231,8 @@ export default function DailyVerdictScreen({
           <p className="font-pixel text-center" style={{
             fontSize: 13, letterSpacing: 2.5, color: accent.hi,
             textShadow: `0 0 8px ${accent.glow}`,
+            // A solo player's other podium is the cat, named up to 24 letters.
+            maxWidth: '100%', overflowWrap: 'anywhere',
           }}>{headline}</p>
           <p className="text-center" style={{ fontSize: 11, color: '#9A8AA8', maxWidth: 280 }}>
             {subline}
@@ -397,7 +399,7 @@ function Podium({
         )}
       </div>
 
-      <div style={{ marginBottom: 5 }}>
+      <div style={{ marginBottom: 5, maxWidth: '100%' }}>
         <Nameplate name={name} titleId={titleId} frameId={frameId} size={6} tone={side.hi} />
       </div>
 

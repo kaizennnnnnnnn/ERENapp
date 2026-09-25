@@ -24,6 +24,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useIsDark } from '@/hooks/useIsDark'
+import { useCat } from '@/hooks/useCat'
 import { playSound } from '@/lib/sounds'
 import { CAKES, type CakeDef } from '@/lib/cakes'
 import { dailyDonuts, msUntilNextBatch, rollDonut, SPIN_COST, TASTE_JOY, type DonutDef } from '@/lib/donuts'
@@ -111,6 +112,7 @@ export default function BakeryPage() {
   const { stats, addToMyFood, consumeMyFood } = useErenStats(profile?.household_id ?? null)
   const { setHideStats } = useCare()
   const isDark = useIsDark()
+  const cat = useCat()
   const pic = isDark ? SHOP_NIGHT : SHOP_DAY
   const shopSrc = pic.src
   // The empty letterbox band height tracks the active picture's aspect.
@@ -522,8 +524,8 @@ export default function BakeryPage() {
               </div>
               <div className="flex items-center justify-center gap-2 mt-4 mb-1">
                 <div className="h-[1px] w-10" style={{ background: 'linear-gradient(90deg, transparent, rgba(251,191,36,0.6), transparent)' }} />
-                <p className="font-pixel" style={{ fontSize: 6, color: '#7C2D12', letterSpacing: 2, opacity: 0.7 }}>
-                  EREN BAKES WITH LOVE
+                <p className="font-pixel" style={{ fontSize: 6, color: '#7C2D12', letterSpacing: 2, opacity: 0.7, textAlign: 'center', overflowWrap: 'anywhere' }}>
+                  {cat.t('{NAME} BAKES WITH LOVE')}
                 </p>
                 <div className="h-[1px] w-10" style={{ background: 'linear-gradient(90deg, transparent, rgba(251,191,36,0.6), transparent)' }} />
               </div>

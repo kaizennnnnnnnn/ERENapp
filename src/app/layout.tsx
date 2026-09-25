@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   // Solo-framed on purpose: ~100% of new installs are one person, and this
   // is the first sentence the store and every share preview show them.
   // 509f96c's copy sweep reached the five onboarding files and stopped there.
-  description: 'Look after Eren, your pixel Ragdoll cat — on your own, or with someone.',
+  description: 'Build a pixel cat, give it a name, and look after it — on your own, or with someone.',
   manifest: '/manifest.json',
   icons: {
     icon: '/ErenAppIcon.png',

@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { IconCoin } from '@/components/PixelIcons'
 import { useTasks } from '@/contexts/TaskContext'
+import { useCat } from '@/hooks/useCat'
 import { playSound, playCoinTicks } from '@/lib/sounds'
 
 interface Props {
@@ -32,6 +33,7 @@ interface Sprite { i: number; sdx: number; sdy: number; tx: number; ty: number; 
 
 export default function GameCoinReward({ coins, blocked = false }: Props) {
   const { coins: balance } = useTasks()
+  const cat = useCat()
 
   // Snapshot the post-award total once so the pill counts up from
   // (total − earned) → total regardless of when addCoins' state flush lands.
@@ -110,7 +112,7 @@ export default function GameCoinReward({ coins, blocked = false }: Props) {
             <span style={{ animationDelay: '0.2s' }}>z</span>
             <span style={{ animationDelay: '0.4s' }}>z</span>
           </div>
-          <span className="font-pixel gcr-tired-title">EREN&apos;S TOO TIRED</span>
+          <span className="font-pixel gcr-tired-title">{cat.t("{NAME}'S TOO TIRED")}</span>
           <span className="font-pixel gcr-tired-sub">REST TO EARN COINS</span>
         </div>
       ) : (
@@ -218,6 +220,8 @@ export default function GameCoinReward({ coins, blocked = false }: Props) {
           flex-direction: column;
           align-items: center;
           gap: 2px;
+          max-width: 100%;
+          box-sizing: border-box;
           padding: 8px 14px;
           border-radius: 5px;
           background: linear-gradient(180deg, rgba(30,27,58,0.85), rgba(15,10,30,0.9));
@@ -235,7 +239,7 @@ export default function GameCoinReward({ coins, blocked = false }: Props) {
           0%, 100% { transform: translateY(0); opacity: 0.5; }
           50%      { transform: translateY(-3px); opacity: 1; }
         }
-        .gcr-tired-title { font-size: 8px; letter-spacing: 1.5px; color: #C7D2FE; }
+        .gcr-tired-title { font-size: 8px; letter-spacing: 1.5px; line-height: 1.5; color: #C7D2FE; text-align: center; overflow-wrap: anywhere; }
         .gcr-tired-sub { font-size: 6px; letter-spacing: 1px; color: #7E8AB8; }
       `}</style>
     </>

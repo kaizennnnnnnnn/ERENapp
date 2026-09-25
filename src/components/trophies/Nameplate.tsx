@@ -34,12 +34,13 @@ export default memo(function Nameplate({
   const framed = frame?.slot === 'frame'
 
   return (
-    <span className="inline-flex flex-col items-center" style={{ gap: 3 }}>
+    <span className="inline-flex flex-col items-center" style={{ gap: 3, maxWidth: '100%' }}>
       {framed ? (
         <FramePlate tone={frame.value} name={name} scale={size} />
       ) : (
         <span className="font-pixel" style={{
           fontSize: size, letterSpacing: 1.5, color: tone, whiteSpace: 'nowrap',
+          maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>{name.toUpperCase()}</span>
       )}
 

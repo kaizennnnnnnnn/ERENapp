@@ -18,6 +18,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useCouple } from '@/hooks/useCouple'
 import { useErenStats } from '@/hooks/useErenStats'
+import { useCat } from '@/hooks/useCat'
 import { playSound } from '@/lib/sounds'
 import { FOOD_META, FOOD_ORDER } from '@/lib/foodMeta'
 import FoodIcon from '@/components/care/FoodIcon'
@@ -65,6 +66,7 @@ export default function ThoughtCloud() {
   const { user, profile } = useAuth()
   const { partner, isSolo, sendMessage, unreadNotes } = useCouple()
   const { stats, giftFood } = useErenStats(profile?.household_id ?? null)
+  const cat = useCat()
 
   const [mode, setMode] = useState<Mode>('idle')
   const [text, setText] = useState('')
@@ -134,7 +136,7 @@ export default function ThoughtCloud() {
           onClick={() => { playSound('ui_modal_open'); setMode('split') }}
           className="active:scale-95 transition-transform pointer-events-auto relative"
           style={{ background: 'transparent', border: 'none', padding: 0 }}
-          aria-label="Open Eren's thought"
+          aria-label={cat.t("Open {name}'s thought")}
         >
           <PixelCloud width={64} dots />
           {/* Unread notes waiting on the board — the home screen's only tell
@@ -244,7 +246,7 @@ export default function ThoughtCloud() {
           {noPartner ? (
             <div className="px-4 py-5 text-center">
               <p className="text-sm text-gray-600">
-                Invite your partner first so Eren can deliver this.
+                Invite your partner first so {cat.name} can deliver this.
               </p>
             </div>
           ) : isMsg ? (

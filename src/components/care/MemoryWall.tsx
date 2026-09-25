@@ -19,6 +19,7 @@ import MemoryFrameCanvas from '@/components/memory/MemoryFrameCanvas'
 import MemoryDetailModal from '@/components/memory/MemoryDetailModal'
 import { MEMORY_FRAMES, frameById, needsPartner, type MemoryFrame } from '@/lib/memoryCatalogue'
 import type { MemoryFrameRow, ReactionEmoji } from '@/hooks/useMemoryFrames'
+import { useCat } from '@/hooks/useCat'
 
 interface Props {
   rows: MemoryFrameRow[]
@@ -35,6 +36,7 @@ interface CellData {
 
 export default function MemoryWall({ rows, partnerId, isSolo, onReactionChange }: Props) {
   const [openFrameId, setOpenFrameId] = useState<string | null>(null)
+  const cat = useCat()
 
   const cells: CellData[] = useMemo(() => {
     const byId = new Map<string, MemoryFrameRow>()
@@ -72,7 +74,7 @@ export default function MemoryWall({ rows, partnerId, isSolo, onReactionChange }
           <button
             key={frame.id}
             type="button"
-            aria-label={row ? frame.title : 'Locked memory'}
+            aria-label={row ? cat.t(frame.title) : 'Locked memory'}
             onClick={() => { playSound('ui_tap'); setOpenFrameId(frame.id) }}
             className="flex flex-col items-center gap-1 active:scale-95 transition-transform"
             style={{
@@ -90,7 +92,8 @@ export default function MemoryWall({ rows, partnerId, isSolo, onReactionChange }
               lineHeight: 1.4,
               maxWidth: 70,
               letterSpacing: 0.5,
-            }}>{row ? frame.title.toUpperCase() : '???'}</span>
+              overflowWrap: 'anywhere',
+            }}>{row ? cat.t(frame.title).toUpperCase() : '???'}</span>
           </button>
         ))}
       </div>

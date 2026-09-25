@@ -20,7 +20,8 @@ export type DonutEffectId = 'glow' | 'gilded' | 'confetti' | 'zoomies'
 
 export interface DonutEffectDef {
   id: DonutEffectId
-  /** Shouted on the feeding toast. */
+  /** Shouted on the feeding toast. A template (lib/catWords): fill with
+   *  cat.t / catText before showing. */
   label: string
   /** One line, for the shop card and the bakery case. */
   blurb: string
@@ -33,7 +34,7 @@ const MIN = 60_000
 
 export const DONUT_EFFECTS: Record<DonutEffectId, DonutEffectDef> = {
   glow: {
-    id: 'glow', label: 'HE IS GLOWING', blurb: 'He glows for 10 minutes',
+    id: 'glow', label: '{HE} IS GLOWING', blurb: 'A glow for 10 minutes',
     tone: '#5BE81E', ms: 10 * MIN,
   },
   gilded: {

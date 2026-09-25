@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { withRetry } from '@/lib/supabaseRetry'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
+import { useCat } from '@/hooks/useCat'
 import { useTimeTracking } from '@/hooks/useTimeTracking'
 import MoodGate from '@/components/MoodGate'
 import type { UserMood } from '@/types'
@@ -38,7 +39,6 @@ import FortunePopup from '@/components/fortune/FortunePopup'
 import ErenMessagePopup from '@/components/couple/ErenMessagePopup'
 import GiftArrival from '@/components/couple/GiftArrival'
 import ThoughtCloud from '@/components/couple/ThoughtCloud'
-import { EREN_OPPONENT_NAME } from '@/lib/erenOpponent'
 import JealousEren from '@/components/couple/JealousEren'
 import DailyBattleHUD from '@/components/couple/DailyBattleHUD'
 import DailyVerdictScreen from '@/components/couple/DailyVerdictScreen'
@@ -101,6 +101,7 @@ export default function HomePage() {
   const newSkinCount = useNewSkins(inventory, invLoaded)
   const isDark = useIsDark()
   const wish = useWish()
+  const cat = useCat()
   // Today's three foods. Owns its own payout — see useFoodMenu.
   const foodMenu = useFoodMenu(profile?.household_id)
   // Idle look for the living room: a Closet skin, else the household's own cat
@@ -505,12 +506,13 @@ export default function HomePage() {
   useHideBottomNav(gate !== 'room' && (gate === 'mood' || gate === 'verdict' || !roomSeenThisSession))
   useEffect(() => { if (gate === 'room') roomSeenThisSession = true }, [gate])
 
-  const LoadingScreen = <PageLoader label="LOADING EREN" />
+  // No name until the row is in, so a renamed cat never flashes up as EREN.
+  const LoadingScreen = <PageLoader label={cat.known ? cat.t('LOADING {NAME}') : 'LOADING'} />
 
   if (gate === 'no-household') {
     return (
       <div className="page-scroll flex flex-col items-center justify-center min-h-[80vh] gap-4">
-        <img src="/erenGood.png" alt="Eren" draggable={false} style={{ width: 100, height: 100, objectFit: 'contain' }} />
+        <img src="/erenGood.png" alt={cat.name} draggable={false} style={{ width: 100, height: 100, objectFit: 'contain' }} />
         <p className="font-bold text-gray-700">No household found</p>
       </div>
     )
@@ -545,7 +547,7 @@ export default function HomePage() {
         yesterdayTwist={verdict.yesterdayTwist}
         todayTwist={verdict.todayTwist}
         myName={profile?.name?.split(' ')[0] ?? 'You'}
-        partnerName={partner?.name?.split(' ')[0] ?? (isSolo ? EREN_OPPONENT_NAME : 'Partner')}
+        partnerName={partner?.name?.split(' ')[0] ?? (isSolo ? cat.name : 'Partner')}
         myTitle={profile?.equipped_title}
         myFrame={profile?.equipped_frame}
         partnerTitle={partner?.equipped_title}
@@ -747,7 +749,7 @@ export default function HomePage() {
             {partner && (
               <button
                 onClick={() => { playSound('ui_modal_open'); setShowSendEren(true) }}
-                aria-label={`Send Eren to ${partner.name}`}
+                aria-label={`Send ${cat.name} to ${partner.name}`}
                 className="absolute active:scale-90 transition-transform"
                 style={{ bottom: '22%', left: '23%', zIndex: 3 }}
               >

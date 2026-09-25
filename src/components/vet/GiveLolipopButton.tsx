@@ -13,6 +13,7 @@
 // rather than minting near-identical ones.
 
 import { IconLolipop, IconHeart } from '@/components/PixelIcons'
+import { useCat } from '@/hooks/useCat'
 
 const PIXEL_FONT = '"Press Start 2P", monospace'
 
@@ -42,13 +43,14 @@ interface Props {
 }
 
 export default function GiveLolipopButton({ state, onClick, disabled }: Props) {
+  const cat = useCat()
   const giving = state === 'giving'
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-label="Give Eren a lolipop"
+      aria-label={cat.t('Give {name} a lolipop')}
       className="medicine-btn relative w-full max-w-xs"
       style={{
         '--med-ink': SHADOW,

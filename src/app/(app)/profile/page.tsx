@@ -20,7 +20,8 @@ import { useTasks } from '@/contexts/TaskContext'
 import { usePageReady } from '@/hooks/usePageReady'
 import { ACHIEVEMENT_DEFS, canRepairStreak, type AchievementDef } from '@/lib/achievements'
 import { xpForNextLevel, totalXpForLevel } from '@/lib/tasks'
-import { catIdentityFromStats, coatLabel, SEX_LABELS } from '@/lib/catIdentity'
+import { catIdentityFromStats, ownCoatLabel, SEX_LABELS } from '@/lib/catIdentity'
+import { catText, CLASSIC_CAT_WORDS, type CatWords } from '@/lib/catWords'
 import { moodDateKey } from '@/lib/moods'
 import { playSound } from '@/lib/sounds'
 import { M, MeadowPage, PERSON, personColor, type MeadowIconName } from '@/components/meadow'
@@ -52,10 +53,10 @@ const ACHIEVEMENT_ICON: Record<AchievementId, { icon: MeadowIconName; color?: st
   first_nudge: { icon: 'loveLetter' },
 }
 
-function toItem(def: AchievementDef, unlocked: boolean): AchievementItem {
+function toItem(def: AchievementDef, unlocked: boolean, words: CatWords): AchievementItem {
   const look = ACHIEVEMENT_ICON[def.id] ?? { icon: 'trophy' }
   return {
-    id: def.id, title: def.title, description: def.description, rarity: def.rarity,
+    id: def.id, title: catText(def.title, words), description: catText(def.description, words), rarity: def.rarity,
     coins: def.coins, icon: look.icon, iconColor: look.color, unlocked,
   }
 }
@@ -188,16 +189,17 @@ export default function ProfilePage() {
   // null until the stats row is in: catIdentityFromStats(null) is the
   // default cat, which would read as this household's own.
   const cat = stats ? catIdentityFromStats(stats) : null
+  const words = cat ?? CLASSIC_CAT_WORDS
   const unlocked = defs.filter(d => !!achievements[d.id])
   // The shelf shows the four most recent unlocks, topped up with the next
   // locked ones for a household that has fewer than four.
   const recent = [...unlocked]
     .sort((a, b) => String(achievements[b.id] ?? '').localeCompare(String(achievements[a.id] ?? '')))
     .slice(0, 4)
-    .map(d => toItem(d, true))
+    .map(d => toItem(d, true, words))
   const shelf = recent.length >= 4
     ? recent
-    : [...recent, ...defs.filter(d => !achievements[d.id]).slice(0, 4 - recent.length).map(d => toItem(d, false))]
+    : [...recent, ...defs.filter(d => !achievements[d.id]).slice(0, 4 - recent.length).map(d => toItem(d, false, words))]
 
   const xpIn = Math.max(0, xp - totalXpForLevel(level))
 
@@ -258,9 +260,9 @@ export default function ProfilePage() {
         unlocked: unlocked.length,
         total: defs.length,
         shelf,
-        all: defs.map(d => toItem(d, !!achievements[d.id])),
+        all: defs.map(d => toItem(d, !!achievements[d.id], words)),
       }}
-      cat={cat && { name: cat.name, sexLabel: SEX_LABELS[cat.sex], coatLabel: coatLabel(cat.look), look: cat.look }}
+      cat={cat && { name: cat.name, sexLabel: SEX_LABELS[cat.sex], coatLabel: ownCoatLabel(cat.look, cat.name), look: cat.look }}
       month={monthProps}
       streakBreak={streakBreak}
       onRepairStreak={async () => {

@@ -18,7 +18,8 @@
 // Templates support two substitutions:
 //   {leader}   — the W-L-T leader's display name (skipped if null)
 //   {other}    — the non-leader partner's display name
-// Lines whose substitution can't resolve are dropped silently.
+// Lines whose substitution can't resolve are dropped silently. The cat's own
+// tokens from lib/catWords ({name}, {he}, {his}, ...) are filled as well.
 // ═════════════════════════════════════════════════════════════════════════════
 
 import type { Daypart } from './timeOfDay'
@@ -42,6 +43,9 @@ export interface FlavorLine {
    *  [minHours, maxHours) — maxHours undefined means open-ended. */
   minHours?: number
   maxHours?: number
+  /** A line that only fits the ORIGINAL Eren (his nicknames): what a cat with
+   *  any other name says instead. */
+  renamedText?: string
 }
 
 export const FLAVOR_LINES: FlavorLine[] = [
@@ -101,7 +105,8 @@ export const FLAVOR_LINES: FlavorLine[] = [
   { id: 'lead-secretfed', text: '{leader} already fed me. but no one needs to know that.',    trigger: 'needs_leader' },
 
   // ── More rare lines (added later) ─────────────────────────────────────────
-  { id: 'intro-names',    text: 'my name is Eren, but people also call me Oi, Meow, and Tony.', trigger: 'rare_intro' },
+  { id: 'intro-names',    text: 'my name is {name}, but people also call me Oi, Meow, and Tony.', trigger: 'rare_intro',
+    renamedText: 'my name is {name}.' },
 
   // ── daypart idle lines (Living Voice) — only surface in their window ───────
   { id: 'day-dawn-zoom',   text: 'zoomies. 6am zoomies.',              trigger: 'idle', daypart: 'dawn' },

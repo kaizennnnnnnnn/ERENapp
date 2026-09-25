@@ -15,6 +15,8 @@
 // panic reason as the home dock. The hard drop-shadow colour is themed per
 // mood through the inline `--sleep-ink` custom property.
 
+import { useCat } from '@/hooks/useCat'
+
 type SleepState = 'tuck' | 'tucking' | 'wake' | 'waking'
 
 interface Props {
@@ -61,6 +63,7 @@ const LABEL: Record<SleepState, string> = {
 }
 
 export default function SleepButton({ state, onClick, disabled }: Props) {
+  const cat = useCat()
   const isNight = state === 'tuck' || state === 'tucking'
   const p = isNight ? NIGHT : DAWN
 
@@ -69,7 +72,7 @@ export default function SleepButton({ state, onClick, disabled }: Props) {
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-label={isNight ? 'Tuck Eren into bed' : 'Wake Eren up'}
+      aria-label={cat.t(isNight ? 'Tuck {name} into bed' : 'Wake {name} up')}
       className="sleep-btn relative w-full max-w-xs"
       style={{
         '--sleep-ink': p.ink,

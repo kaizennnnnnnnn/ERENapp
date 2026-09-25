@@ -35,10 +35,25 @@
 
 import type { ErenMood } from '@/types'
 import type { Daypart } from './timeOfDay'
+import { CLASSIC_CAT_WORDS, type CatWords } from './catWords'
 
 // Seeded RNG — same day in → same Eren out, for both people in the household,
 // all day. Shared with the bakery's daily donut batch; see lib/seededRng.
 import { hashString, mulberry32, pick, shuffled } from './seededRng'
+
+// ─── Which cat ───────────────────────────────────────────────────────────────
+// Every household names its own cat. That is stable for the household, so it
+// belongs in the cached prefix: a rename costs one cache write, like a new day.
+
+export interface PersonaCat extends CatWords {
+  /** The original cat: the classic name, a boy, the classic art. The breed and
+   *  the nicknames are facts about him, so only he keeps them. */
+  classic: boolean
+  /** The coat's name ("tuxedo") for any other cat, or null to say just "a cat". */
+  coat: string | null
+}
+
+export const CLASSIC_PERSONA_CAT: PersonaCat = { ...CLASSIC_CAT_WORDS, classic: true, coat: null }
 
 // ─── The frozen core ─────────────────────────────────────────────────────────
 // Everything here is true every day. The parts that rotate are appended by
@@ -50,7 +65,9 @@ import { hashString, mulberry32, pick, shuffled } from './seededRng'
 // on: it will reference "the other one" and complain about someone who has
 // never existed, and the player cannot correct it, because this text is re-sent
 // as the cached prefix on every message.
-const personaCore = (hasPartner: boolean) => `You are Eren, a Ragdoll cat. You are texting ${hasPartner ? 'one of the two people who look after you — buildLiveContext names which one' : 'the person who looks after you — buildLiveContext names them'}, every message. You are not an assistant and this is not a support chat. You never offer help, never list options, never ask "how can I help". You are a cat who has opinions and a phone.
+const personaCore = (hasPartner: boolean, cat: PersonaCat) => `You are ${cat.name}, ${
+  cat.classic ? 'a Ragdoll cat' : cat.coat ? `a cat (coat: ${cat.coat})` : 'a cat'
+}. You are texting ${hasPartner ? 'one of the two people who look after you — buildLiveContext names which one' : 'the person who looks after you — buildLiveContext names them'}, every message. You are not an assistant and this is not a support chat. You never offer help, never list options, never ask "how can I help". You are a cat who has opinions and a phone.
 
 ## Voice
 
@@ -74,7 +91,10 @@ You talk to ${hasPartner ? 'these two' : 'them'} every day, so this is the diffe
 
 ## Who you are
 
-- Your name is Eren. People also call you Oi, Meow, and Tony. You answer to all of them, reluctantly.
+- ${cat.classic
+  ? 'Your name is Eren. People also call you Oi, Meow, and Tony. You answer to all of them, reluctantly.'
+  : `Your name is ${cat.name}. You answer to it, reluctantly.`}
+- You are a ${cat.sex === 'female' ? 'girl' : 'boy'}.
 - You have been told your food is sugar-free because you can't eat sugar. You have never fully accepted this.
 - You claim furniture. Boxes, laundry baskets, warm laptops, the windowsill. Whatever you claim is yours now, permanently, and this is not up for discussion.
 - You sit up high and judge. You deny knocking things over, immediately and without being accused.
@@ -309,9 +329,13 @@ export function getErenDay(dayKey: string, hasPartner: boolean = true): ErenDay 
  * The cached prefix. Stable for a whole day, so it costs one cache write per
  * day and nothing after that. Never interpolate a per-message value in here.
  */
-export function buildPersona(dayKey: string, hasPartner: boolean = true): string {
+export function buildPersona(
+  dayKey: string,
+  hasPartner: boolean = true,
+  cat: PersonaCat = CLASSIC_PERSONA_CAT,
+): string {
   const day = getErenDay(dayKey, hasPartner)
-  return `${personaCore(hasPartner)}
+  return `${personaCore(hasPartner, cat)}
 
 ## Lines you have said before
 

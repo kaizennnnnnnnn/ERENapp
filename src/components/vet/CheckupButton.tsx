@@ -12,6 +12,7 @@
 // `sleepGlow` motion primitives.
 
 import { IconStethoscope } from '@/components/PixelIcons'
+import { useCat } from '@/hooks/useCat'
 
 type CheckupState = 'check' | 'checking'
 
@@ -47,12 +48,13 @@ const LABEL: Record<CheckupState, string> = {
 }
 
 export default function CheckupButton({ state, onClick, disabled }: Props) {
+  const cat = useCat()
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-label="Give Eren a check-up"
+      aria-label={cat.t('Give {name} a check-up')}
       className="checkup-btn relative w-full max-w-xs"
       style={{
         display: 'flex',

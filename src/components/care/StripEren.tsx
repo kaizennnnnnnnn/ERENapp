@@ -23,6 +23,7 @@
 import { useEffect, useState } from 'react'
 import { useIsDark } from '@/hooks/useIsDark'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
+import { useCat } from '@/hooks/useCat'
 import type { ErenAnim } from '@/lib/erenAnim'
 import SpriteStrip from './SpriteStrip'
 
@@ -69,10 +70,12 @@ export default function StripEren({
   breathe = true,
   breatheDur = 4,
   paused = false,
-  alt = 'Eren',
+  alt,
 }: Props) {
   const isDark = useIsDark()
   const reduced = useReducedMotion()
+  // No alt passed: the sprite is the household's cat, so it reads by its name.
+  const cat = useCat()
   const [cw, ch] = canvas
 
   // Reveal body and strips together. They are separate resources, so on a
@@ -122,7 +125,7 @@ export default function StripEren({
           animation: breathe && !hold ? `erenBreathe ${breatheDur}s ease-in-out infinite` : undefined,
         }}>
           {tail && <SpriteStrip anim={tail} paused={hold} />}
-          <img src={src} alt={alt} draggable={false}
+          <img src={src} alt={alt ?? cat.name} draggable={false}
             style={{
               position: 'absolute', inset: 0,
               width: '100%', height: '100%',

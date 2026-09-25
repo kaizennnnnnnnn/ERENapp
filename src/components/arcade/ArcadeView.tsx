@@ -249,12 +249,13 @@ function WishCard({ wish, scores, onPlay }: {
           </Tag>
         ) : (
           <Tag tone="amber" caps icon={<MeadowIcon name="star" size={14} />} style={WISH_TAG}>
-            {`${wish.catName}'s wish today`}
+            {/* A 24-letter name must not push the pill past the card. */}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{`${wish.catName}'s wish today`}</span>
           </Tag>
         )}
         {/* Clear of the cat, whose box starts 138px from the card's right
             edge: a long name wraps instead of running under the cat. */}
-        <h2 style={{ margin: '10px 0 0', maxWidth: 'calc(100% - 120px)', fontSize: 28, lineHeight: 1.15, fontWeight: 800, letterSpacing: '-0.01em' }}>
+        <h2 style={{ margin: '10px 0 0', maxWidth: 'calc(100% - 120px)', fontSize: 28, lineHeight: 1.15, fontWeight: 800, letterSpacing: '-0.01em', overflowWrap: 'anywhere' }}>
           {game.title}
         </h2>
         <span style={{ marginTop: 2, fontSize: 14, fontWeight: 700, color: M.text2 }}>
@@ -273,7 +274,8 @@ function WishCard({ wish, scores, onPlay }: {
 }
 
 // The board's wish tag is a hair smaller than the kit's md tag: 26 tall, 11px.
-const WISH_TAG: CSSProperties = { height: 26, fontSize: 11, letterSpacing: '0.05em', padding: '0 10px 0 7px', maxWidth: '100%' }
+// Capped like the heading below it, clear of the cat portrait on the right.
+const WISH_TAG: CSSProperties = { height: 26, fontSize: 11, letterSpacing: '0.05em', padding: '0 10px 0 7px', maxWidth: 'calc(100% - 120px)' }
 
 // ─── Tile (a game) ───────────────────────────────────────────────────────────
 
@@ -288,7 +290,7 @@ function Tile({ href, onClick, icon, tint, title, detail, ariaLabel }: {
 }) {
   return (
     <Link href={href} onClick={onClick} aria-label={ariaLabel} className="m-press m-focus" style={{
-      height: 128, boxSizing: 'border-box', borderRadius: 22, background: '#FFFFFF', padding: '14px 14px 14px 16px',
+      minHeight: 128, boxSizing: 'border-box', borderRadius: 22, background: '#FFFFFF', padding: '14px 14px 14px 16px',
       display: 'flex', flexDirection: 'column', textDecoration: 'none', color: M.text, minWidth: 0,
     }}>
       <span aria-hidden style={{
@@ -297,9 +299,12 @@ function Tile({ href, onClick, icon, tint, title, detail, ariaLabel }: {
       }}>
         {icon}
       </span>
+      {/* Two lines at most: titles carry the cat's name ("Clementine Stack"),
+          and one line would cut two games down to the same visible name. */}
       <span style={{
         marginTop: 'auto', fontSize: 15, lineHeight: 1.25, fontWeight: 800,
-        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+        overflow: 'hidden', overflowWrap: 'anywhere',
       }}>
         {title}
       </span>

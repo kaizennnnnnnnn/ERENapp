@@ -24,6 +24,8 @@ import { skinUnlockDrink } from '@/lib/skins'
 import { FOOD_META } from '@/lib/foodMeta'
 import type { GachaCategory, GachaItemDef, FoodKey } from '@/types'
 import { playSound } from '@/lib/sounds'
+import { useCat } from '@/hooks/useCat'
+import { swapCatName } from '@/lib/catWords'
 import {
   IconBook, IconCatFace, IconCan, IconLock, IconPaw, IconCake, IconCrown, IconSparkles,
 } from '@/components/PixelIcons'
@@ -47,14 +49,17 @@ const SKIN_SECTIONS = [
   { key: 'food',    label: 'FOODSUITS',       Icon: IconCake,  match: (i: GachaItemDef) => !i.unlock && i.skinSet === 'food' },
 ]
 
-/** Where an item actually comes from — the answer a locked tap is asking for. */
+/**
+ * Where an item actually comes from — the answer a locked tap is asking for.
+ * A lib/catWords template, like the item's description: fill it with cat.t.
+ */
 function sourceHint(item: GachaItemDef): string {
   if (item.category === 'consumable') return 'Pull it from the SNACKS & DRINKS machine.'
   if (item.unlock === 'jelly') {
-    return 'Fill the Parlour tray of five in a day for a Super Jelly. Feed him five of those and the coat is his.'
+    return 'Fill the Parlour tray of five in a day for a Super Jelly. Feed {him} five of those and {he} earns the coat.'
   }
   const drink = item.skinId ? skinUnlockDrink(item.skinId) : undefined
-  if (drink) return `Feed Eren a ${FOOD_META[drink as FoodKey].name}. The first can he finishes leaves its colours on him for good.`
+  if (drink) return `Feed {name} a ${FOOD_META[drink as FoodKey].name}. The first can {he} finishes leaves its colours on {him} for good.`
   return item.skinSet === 'food'
     ? 'Pull it from the FOODSUITS machine, or unlock it with stardust in the Closet.'
     : 'Pull it from the KITTY COSTUMES machine, or unlock it with stardust in the Closet.'
@@ -273,10 +278,12 @@ function ItemCard({ item, owned, quantity, onClick }: {
   const locked = !owned
   const frame = frameFor(item.rarity, locked)
   const byDrink = item.unlock === 'drink'
+  const cat = useCat()
+  const name = swapCatName(item.name, cat)
 
   return (
     <button onClick={onClick}
-      aria-label={locked ? `Locked ${item.rarity} ${item.category}` : item.name}
+      aria-label={locked ? `Locked ${item.rarity} ${item.category}` : name}
       className="relative flex flex-col items-center gap-1 p-1.5 active:scale-95 transition-all"
       style={{ ...frame.style, borderRadius: 10 }}>
 
@@ -317,8 +324,8 @@ function ItemCard({ item, owned, quantity, onClick }: {
       </div>
 
       <span className="font-pixel text-center leading-tight" style={{
-        fontSize: 5.5, color: locked ? '#5B4E7A' : '#E9D5FF', minHeight: 12,
-      }}>{locked ? '???' : item.name.toUpperCase()}</span>
+        fontSize: 5.5, color: locked ? '#5B4E7A' : '#E9D5FF', minHeight: 12, overflowWrap: 'anywhere',
+      }}>{locked ? '???' : name.toUpperCase()}</span>
 
       {locked && (
         <>
@@ -352,6 +359,7 @@ function ItemSheet({ item, owned, quantity, onUse, onCloset, onClose }: {
   onUse: () => void; onCloset: () => void; onClose: () => void
 }) {
   const colors = RARITY_COLORS[item.rarity]
+  const cat = useCat()
 
   return (
     <div className="fixed inset-0 flex items-center justify-center px-6"
@@ -391,10 +399,10 @@ function ItemSheet({ item, owned, quantity, onUse, onCloset, onClose }: {
         </div>
 
         <p className="font-pixel text-center" style={{ fontSize: 9, color: '#fff', lineHeight: 1.5 }}>
-          {owned ? item.name.toUpperCase() : '???'}
+          {owned ? swapCatName(item.name, cat).toUpperCase() : '???'}
         </p>
         <p className="text-center" style={{ fontSize: 10.5, lineHeight: 1.65, color: '#B9A6DE' }}>
-          {owned ? item.description : sourceHint(item)}
+          {cat.t(owned ? item.description : sourceHint(item))}
         </p>
 
         {owned && item.category === 'skin' && (

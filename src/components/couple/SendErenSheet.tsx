@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { playSound } from '@/lib/sounds'
 import { NUDGE_DEFS, type NudgeDef } from '@/lib/nudges'
+import { useCat } from '@/hooks/useCat'
 import SketchEren from '@/components/SketchEren'
 import {
   PINK, PINK_HI, OBSIDIAN_FACE, OBSIDIAN_BTN, pinkText, accentA,
@@ -20,6 +21,7 @@ export default function SendErenSheet({ partnerName, onSend, onClose }: Props) {
   const [mounted, setMounted] = useState(false)
   const [sentLabel, setSentLabel] = useState<string | null>(null)
   const [cooling, setCooling] = useState(false)
+  const cat = useCat()
 
   useEffect(() => { setMounted(true) }, [])
 
@@ -61,8 +63,8 @@ export default function SendErenSheet({ partnerName, onSend, onClose }: Props) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <IconHeartDuo size={14} />
-            <span className="font-pixel" style={{ fontSize: 9, letterSpacing: 1.5, ...pinkText }}>
-              SEND EREN TO {partnerName.split(' ')[0].toUpperCase()}
+            <span className="font-pixel" style={{ fontSize: 9, letterSpacing: 1.5, overflowWrap: 'anywhere', ...pinkText }}>
+              SEND {cat.name.toUpperCase()} TO {partnerName.split(' ')[0].toUpperCase()}
             </span>
           </div>
           <button onClick={() => { playSound('ui_modal_close'); onClose() }}
@@ -79,7 +81,7 @@ export default function SendErenSheet({ partnerName, onSend, onClose }: Props) {
               <SketchEren state="cheer" size={96} transparent noSpeech />
             </div>
             <p className="font-pixel text-center" style={{ fontSize: 8, ...pinkText, letterSpacing: 1 }}>
-              EREN IS ON HIS WAY!
+              {cat.t('{NAME} IS ON {HIS} WAY!')}
             </p>
             <p className="text-xs text-center" style={{ color: '#9a8aa8' }}>
               {partnerName.split(' ')[0]} is going to love this
@@ -88,7 +90,7 @@ export default function SendErenSheet({ partnerName, onSend, onClose }: Props) {
         ) : (
           <>
             <p className="font-pixel text-center" style={{ fontSize: 6, color: '#9a8aa8', letterSpacing: 1 }}>
-              {cooling ? 'EREN NEEDS A QUICK BREATHER...' : 'PICK SOMETHING TO SEND'}
+              {cooling ? cat.t('{NAME} NEEDS A QUICK BREATHER...') : 'PICK SOMETHING TO SEND'}
             </p>
 
             <div className="grid grid-cols-2 gap-2.5">

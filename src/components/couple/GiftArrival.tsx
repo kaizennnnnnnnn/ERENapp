@@ -8,6 +8,7 @@ import FoodIcon from '@/components/care/FoodIcon'
 import { IconGift, IconFridge, IconHeart } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
+import { useCat } from '@/hooks/useCat'
 
 // ────────────────────────────────────────────────────────────────────────────
 // The welcome-back tray.
@@ -45,6 +46,7 @@ interface Props {
 
 export default function GiftArrival({ gifts, fromName, onClose }: Props) {
   const reduced = useReducedMotion()
+  const cat = useCat()
 
   useEffect(() => { playSound('gift_open') }, [])
 
@@ -118,7 +120,7 @@ export default function GiftArrival({ gifts, fromName, onClose }: Props) {
         </p>
         <p className="text-center flex items-center justify-center gap-1.5"
           style={{ fontSize: 12, lineHeight: 1.6, color: '#C4B5FD', margin: '8px 0 16px' }}>
-          {fromName} left {many ? 'these' : 'this'} with Eren
+          {fromName} left {many ? 'these' : 'this'} with {cat.name}
           <IconHeart size={11} />
         </p>
 

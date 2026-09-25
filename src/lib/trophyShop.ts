@@ -25,6 +25,7 @@ export type ShopRarity = 'common' | 'rare' | 'epic' | 'legendary'
 export interface ShopItem {
   id: string
   kind: ShopKind
+  /** name and blurb may name the cat: lib/catWords templates, fill with cat.t. */
   name: string
   /** One line on the card. Say what it DOES, not what it is. */
   blurb: string
@@ -89,8 +90,8 @@ export const PARTS: MachinePartItem[] = MACHINE_PARTS.map((p, i) => ({
 export const PRIVILEGES: PrivilegeItem[] = [
   {
     id: 'priv_eren_says', kind: 'privilege', privilege: 'eren_says', minutes: 24 * 60,
-    name: 'Eren Says', rarity: 'epic', price: 20, stackable: true,
-    blurb: 'Write one line. Eren says it to them, all day, in his own bubble.',
+    name: '{name} Says', rarity: 'epic', price: 20, stackable: true,
+    blurb: 'Write one line. {name} says it to them, all day, in {his} own bubble.',
   },
   {
     id: 'priv_double_hour', kind: 'privilege', privilege: 'double_hour', minutes: 60,
@@ -110,7 +111,7 @@ export const PRIVILEGES: PrivilegeItem[] = [
   {
     id: 'priv_decay_freeze', kind: 'privilege', privilege: 'decay_freeze', minutes: 180,
     name: 'Decay Freeze', rarity: 'common', price: 10, stackable: true,
-    blurb: 'His stats hold still for three hours. Good before a long shift.',
+    blurb: "{name}'s stats hold still for three hours. Good before a long shift.",
   },
 ]
 

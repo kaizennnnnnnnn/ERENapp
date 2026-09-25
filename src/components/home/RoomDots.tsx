@@ -13,6 +13,7 @@
 
 import { ROOMS, type RoomDef } from './RoomsMenu'
 import { M } from '@/components/meadow/tokens'
+import { useCat } from '@/hooks/useCat'
 
 /** The rooms in swipe order (the Attic closes the loop from the other side and has no dot). */
 export const SWIPE_ROOM_IDS = ['feed', 'play', 'sleep', 'wash', 'chemistry', 'vet'] as const
@@ -28,6 +29,7 @@ export interface RoomDotsProps {
 }
 
 export default function RoomDots({ visible, bottom = 12, onOpen }: RoomDotsProps) {
+  const cat = useCat()
   return (
     <div className="absolute left-1/2 z-10 flex items-center"
       aria-hidden={!visible}
@@ -44,7 +46,7 @@ export default function RoomDots({ visible, bottom = 12, onOpen }: RoomDotsProps
       </span>
       {SWIPE_ROOM_IDS.map(id => (
         <button key={id} type="button" onClick={() => onOpen(id)} tabIndex={visible ? 0 : -1}
-          aria-label={`Open the ${LABEL[id] ?? id}`}
+          aria-label={`Open the ${cat.t(LABEL[id] ?? id)}`}
           className="relative active:scale-90 transition-transform"
           style={{ padding: '8px 4px', lineHeight: 0, background: 'transparent', border: 0 }}>
           <span style={{ display: 'block', width: 8, height: 8, borderRadius: 999, background: M.softLip }} />

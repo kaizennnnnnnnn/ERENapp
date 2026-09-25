@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
+import { useCat } from '@/hooks/useCat'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
@@ -112,6 +113,7 @@ const VET_EREN_FALLBACK = {
 export default function VetScene({ onClose }: Props) {
   const { user, profile } = useAuth()
   const { stats, applyAction } = useErenStats(profile?.household_id ?? null)
+  const cat = useCat()
   const vetEren = useRoomEren('vet', VET_EREN_FALLBACK)
   const { completeTask } = useTasks()
 
@@ -348,7 +350,7 @@ export default function VetScene({ onClose }: Props) {
             </div>
             {healthy ? (
               <p className="font-pixel text-green-400 text-center" style={{ fontSize: 6, lineHeight: 2 }}>
-                EREN IS IN GREAT SHAPE!
+                {cat.t('{NAME} IS IN GREAT SHAPE!')}
               </p>
             ) : (
               <div className="flex flex-col gap-1">

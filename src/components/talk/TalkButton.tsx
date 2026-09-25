@@ -9,6 +9,7 @@
 // inside the chat. Pressing the button is meant to look like joining them.
 
 import { IconSpeech } from '@/components/PixelIcons'
+import { useCat } from '@/hooks/useCat'
 
 // Lantern-lit walnut — reads warm against the attic art without competing
 // with the fairy lights behind it.
@@ -33,11 +34,12 @@ interface Props {
 }
 
 export default function TalkButton({ onClick }: Props) {
+  const cat = useCat()
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label="Talk to Eren"
+      aria-label={cat.t('Talk to {name}')}
       className="relative w-full active:translate-y-[2px] transition-transform duration-100"
       style={{
         display: 'flex',
@@ -73,14 +75,15 @@ export default function TalkButton({ onClick }: Props) {
         <IconSpeech size={22} />
       </span>
 
+      {/* A long name wraps rather than pushing the dots off the slab. */}
       <span style={{
-        flex: 1, textAlign: 'center',
+        flex: 1, minWidth: 0, textAlign: 'center', overflowWrap: 'anywhere',
         fontFamily: PIXEL_FONT, fontSize: 9, lineHeight: 1.6, letterSpacing: 1,
         textShadow: `0 2px 0 ${INK}`,
       }}>
         TALK TO
         <br />
-        EREN
+        {cat.t('{NAME}')}
       </span>
 
       {/* His typing dots, in a recessed slot. Loose on the amber they read as

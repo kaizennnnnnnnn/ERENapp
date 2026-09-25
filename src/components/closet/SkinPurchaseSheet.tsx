@@ -8,6 +8,8 @@ import { IconSparkles } from '@/components/PixelIcons'
 import { RARITY_COLORS } from '@/lib/gacha'
 import type { SkinDef } from '@/lib/skins'
 import { playSound } from '@/lib/sounds'
+import { useCat } from '@/hooks/useCat'
+import { swapCatName } from '@/lib/catWords'
 
 interface Props {
   skin: SkinDef
@@ -22,6 +24,8 @@ export default function SkinPurchaseSheet({ skin, price, balance, busy, onBuy, o
   const colors = RARITY_COLORS[skin.rarity]
   const canAfford = balance >= price
   const short = Math.max(0, price - balance)
+  const cat = useCat()
+  const name = swapCatName(skin.name, cat)
 
   return (
     <div
@@ -61,7 +65,7 @@ export default function SkinPurchaseSheet({ skin, price, balance, busy, onBuy, o
 
         {/* Skin preview */}
         <div className="flex items-center justify-center mb-2" style={{ height: 120 }}>
-          <img src={skin.thumb} alt={skin.name} draggable={false}
+          <img src={skin.thumb} alt={name} draggable={false}
             style={{
               maxHeight: '100%', maxWidth: '80%', objectFit: 'contain', imageRendering: 'pixelated',
               filter: `drop-shadow(0 4px 10px ${colors.glow})`,
@@ -69,7 +73,7 @@ export default function SkinPurchaseSheet({ skin, price, balance, busy, onBuy, o
         </div>
 
         <p className="font-pixel text-center" style={{ fontSize: 9, color: '#E9D5FF', marginBottom: 12 }}>
-          {skin.name.toUpperCase()}
+          {name.toUpperCase()}
         </p>
 
         {/* Price + balance */}

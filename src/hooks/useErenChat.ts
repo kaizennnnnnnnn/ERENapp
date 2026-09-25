@@ -17,12 +17,14 @@ import { createClient } from '@/lib/supabase/client'
 import { withRetry } from '@/lib/supabaseRetry'
 import { playSound } from '@/lib/sounds'
 import { DAILY_ALLOWANCE, allowanceDayStart } from '@/lib/chatAllowance'
+import { useCat } from '@/hooks/useCat'
 import type { ErenChatMessage } from '@/types'
 
 const PAGE = 60
 
 export function useErenChat() {
   const supabase = createClient()
+  const cat = useCat()
   const [messages, setMessages]   = useState<ErenChatMessage[]>([])
   const [streaming, setStreaming] = useState('')
   const [sending, setSending]     = useState(false)
@@ -131,9 +133,9 @@ export function useErenChat() {
         if (refusal === 'spent') setUsedToday(DAILY_ALLOWANCE)
         setError(
           refusal === 'spent' ? null
-            : refusal === 'sleepy' ? 'he is too tired'
-            : res.status === 429 ? 'give him a minute'
-            : 'eren is not answering',
+            : refusal === 'sleepy' ? cat.t('{he} is too tired')
+            : res.status === 429 ? cat.t('give {him} a minute')
+            : cat.t('{name} is not answering'),
         )
         setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
         return
@@ -164,7 +166,9 @@ export function useErenChat() {
           let payload: { t?: string; done?: boolean; error?: string; saved?: string }
           try { payload = JSON.parse(line.slice(5).trim()) } catch { continue }
 
-          if (payload.error) { playSound('chat_quiet'); setError(payload.error) }
+          // The server's error text is a signal, not copy: the line is ours,
+          // so it can carry the household's cat.
+          if (payload.error) { playSound('chat_quiet'); setError(cat.t('{name} went quiet')) }
           if (payload.saved) { playSound('chat_saved'); setSavedTick((n) => n + 1) }
           if (payload.t) {
             // Chirp once, on the first token — not per chunk, or the reply
@@ -176,7 +180,7 @@ export function useErenChat() {
         }
       }
     } catch (err) {
-      if ((err as Error).name !== 'AbortError') setError('eren is not answering')
+      if ((err as Error).name !== 'AbortError') setError(cat.t('{name} is not answering'))
     } finally {
       abortRef.current = null
       setSending(false)
@@ -197,10 +201,10 @@ export function useErenChat() {
         // used to make the composer look like it had swallowed the line, and
         // then the line reappeared unanswered on the next load. Say he didn't
         // answer instead — that's what actually happened.
-        setError('he didn’t answer that one')
+        setError(cat.t('{he} didn’t answer that one'))
       }
     }
-  }, [sending, spent])
+  }, [sending, spent, cat])
 
   return {
     messages, streaming, sending, loading, error, savedTick, send,

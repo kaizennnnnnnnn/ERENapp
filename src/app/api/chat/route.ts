@@ -36,7 +36,13 @@ import {
   OPENER_MEMORY,
   buildLiveContext,
   type CareEvent,
+  type PersonaCat,
 } from '@/lib/erenPersona'
+import { catWordsFromRow } from '@/lib/catWords'
+import { withRetry } from '@/lib/supabaseRetry'
+// Safe on the server: catIdentity touches no browser API until a writer is
+// called, and these three are pure.
+import { PRESETS, coatLabel, isClassicLook, isOriginalCat, parseCatLook } from '@/lib/catIdentity'
 import type { ErenMood } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -184,9 +190,10 @@ export async function POST(request: Request) {
   const householdId = profile?.household_id ?? null
 
   const [statsRes, partnerRes, historyRes, memoryRes, careRes] = await Promise.all([
+    // Retried: this row is who the cat IS in the persona, not just a number.
     householdId
-      ? supabase.from('eren_stats').select('*').eq('household_id', householdId).maybeSingle()
-      : Promise.resolve({ data: null }),
+      ? withRetry(() => supabase.from('eren_stats').select('*').eq('household_id', householdId).maybeSingle())
+      : Promise.resolve({ data: null, error: null }),
     householdId
       ? supabase.from('profiles').select('id, name').eq('household_id', householdId).neq('id', user.id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -216,6 +223,12 @@ export async function POST(request: Request) {
       : Promise.resolve({ data: null }),
   ])
 
+  // A failed read is not a cat with no name. Answering anyway would build this
+  // reply's persona from nothing (the original Eren, whoever the household's
+  // cat is) and wave the energy gate through, so it waits for the next try.
+  if (householdId && statsRes.error) {
+    return NextResponse.json({ error: 'eren went quiet' }, { status: 503 })
+  }
   const stats = statsRes.data as Record<string, unknown> | null
 
   // ── Energy gate ───────────────────────────────────────────────────────────
@@ -353,7 +366,7 @@ export async function POST(request: Request) {
   // recall as well as the don't-save-it-again instruction.
   const system: Anthropic.TextBlockParam[] = [{
     type: 'text',
-    text: buildPersona(todayKey(now), hasPartner),
+    text: buildPersona(todayKey(now), hasPartner, personaCat(stats)),
     cache_control: { type: 'ephemeral' },
   }]
   if (memories.length > 0) {
@@ -545,6 +558,26 @@ ${liveContext}
       Connection: 'keep-alive',
     },
   })
+}
+
+/**
+ * Which cat he is, off the stats row already read with select('*') — so a
+ * database the cat-identity migration hasn't reached reads as the classic cat
+ * instead of failing a query. Classic means the original's name, a boy, and
+ * the classic art; any other cat is described by its coat's name, or as just
+ * a cat when the coat has none (fine-tuned, or the classic colours under a new
+ * name, whose label "Eren Classic" would hand it somebody else's name).
+ */
+function personaCat(stats: Record<string, unknown> | null): PersonaCat {
+  const words = catWordsFromRow(stats)
+  const look = parseCatLook(stats?.cat_look)
+  const classicLook = isClassicLook(look)
+  const label = coatLabel(look)
+  return {
+    ...words,
+    classic: isOriginalCat({ ...words, look }),
+    coat: !classicLook && PRESETS.some((p) => p.label === label) ? label.toLowerCase() : null,
+  }
 }
 
 /**

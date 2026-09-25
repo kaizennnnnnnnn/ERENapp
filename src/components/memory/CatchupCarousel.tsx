@@ -16,6 +16,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
+import { useCat } from '@/hooks/useCat'
 import { playSound } from '@/lib/sounds'
 import MemoryFrameCanvas from './MemoryFrameCanvas'
 import { frameById, type MemoryFrame } from '@/lib/memoryCatalogue'
@@ -194,6 +195,7 @@ export default function CatchupCarousel({ frames, onOpenHallway, onClose }: Prop
 // ─── Per-slide body ──────────────────────────────────────────────────────────
 
 function SlideBody({ slide }: { slide: Slide }) {
+  const cat = useCat()
   switch (slide.kind) {
     case 'intro': {
       return (
@@ -212,7 +214,7 @@ function SlideBody({ slide }: { slide: Slide }) {
             lineHeight: 1.7, textAlign: 'center', maxWidth: 240,
           }}>
             {slide.count > 0
-              ? `we found ${slide.count} ${slide.count === 1 ? 'memory' : 'memories'} of you and Eren.`
+              ? `we found ${slide.count} ${slide.count === 1 ? 'memory' : 'memories'} of you and ${cat.name}.`
               : 'your wall is ready to fill up.'}
           </p>
         </div>
@@ -224,12 +226,12 @@ function SlideBody({ slide }: { slide: Slide }) {
           <MemoryFrameCanvas frame={slide.frame} size={120} />
           <p style={{
             fontFamily: '"Press Start 2P", monospace', fontSize: 9, color: '#FFFFFF',
-            letterSpacing: 1, textAlign: 'center',
-          }}>{slide.frame.title.toUpperCase()}</p>
+            letterSpacing: 1, textAlign: 'center', overflowWrap: 'anywhere',
+          }}>{cat.t(slide.frame.title).toUpperCase()}</p>
           <p style={{
             fontFamily: '"Press Start 2P", monospace', fontSize: 6, color: '#C8B8E8',
             lineHeight: 1.7, textAlign: 'center', maxWidth: 230,
-          }}>{slide.frame.hint}</p>
+          }}>{cat.t(slide.frame.hint)}</p>
           <span style={{
             fontFamily: '"Press Start 2P", monospace', fontSize: 5,
             color: '#8E7EAA', letterSpacing: 1,
@@ -265,8 +267,8 @@ function SlideBody({ slide }: { slide: Slide }) {
             lineHeight: 1.7, textAlign: 'center', maxWidth: 230,
           }}>
             {slide.count > 0
-              ? `${slide.count} ${slide.count === 1 ? 'memory' : 'memories'} on the hallway. more will appear as you take care of him.`
-              : 'memories will appear here as you take care of him.'}
+              ? `${slide.count} ${slide.count === 1 ? 'memory' : 'memories'} on the hallway. more will appear as you take care of ${cat.p.him}.`
+              : cat.t('memories will appear here as you take care of {him}.')}
           </p>
         </div>
       )

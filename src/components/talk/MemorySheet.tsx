@@ -16,6 +16,7 @@ import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { playSound } from '@/lib/sounds'
 import { IconClose } from '@/components/PixelIcons'
+import { useCat } from '@/hooks/useCat'
 import type { ErenChatMemory } from '@/types'
 
 const PAPER = '#FFFBF1'
@@ -35,6 +36,7 @@ export default function MemorySheet({ open, memories, loading, loaded, onForget,
   // Two-step delete. These are the only durable record of things you told him;
   // a single mis-tap shouldn't be able to erase one silently.
   const [armed, setArmed] = useState<string | null>(null)
+  const cat = useCat()
 
   useEffect(() => { if (!open) setArmed(null) }, [open])
 
@@ -77,10 +79,10 @@ export default function MemorySheet({ open, memories, loading, loaded, onForget,
         <header className="flex items-center gap-2 px-4 pb-3 pt-1">
           <div className="flex-1 min-w-0">
             <div style={{ fontFamily: '"Press Start 2P"', fontSize: 9, color: '#5A3212', letterSpacing: 0.4 }}>
-              WHAT HE REMEMBERS
+              {cat.t('WHAT {HE} REMEMBERS')}
             </div>
             <div style={{ fontSize: 10.5, color: '#9A7444', marginTop: 4, lineHeight: 1.5 }}>
-              he writes these himself and never mentions it. delete anything he got wrong.
+              {cat.t('{he} writes these {himself} and never mentions it. delete anything {he} got wrong.')}
             </div>
           </div>
           <button
@@ -98,15 +100,15 @@ export default function MemorySheet({ open, memories, loading, loaded, onForget,
 
         <div className="overflow-y-auto px-4 pb-5 flex flex-col gap-2">
           {!loaded && loading && (
-            <Empty text="opening his notebook…" />
+            <Empty text={cat.t('opening {his} notebook…')} />
           )}
 
           {!loaded && !loading && (
-            <Empty text="couldn't read his notebook. try again in a moment." />
+            <Empty text={cat.t('couldn\'t read {his} notebook. try again in a moment.')} />
           )}
 
           {loaded && memories.length === 0 && (
-            <Empty text="nothing yet. he keeps things once you've told him something worth keeping." />
+            <Empty text={cat.t('nothing yet. {he} keeps things once you\'ve told {him} something worth keeping.')} />
           )}
 
           {memories.map((m) => {

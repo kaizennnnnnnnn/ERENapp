@@ -5,6 +5,7 @@ import { playSound } from '@/lib/sounds'
 import { FOOD_META } from '@/lib/foodMeta'
 import SketchEren, { type SketchErenState } from '@/components/SketchEren'
 import { IconHeart, IconEnvelope, IconPin } from '@/components/PixelIcons'
+import { useCat } from '@/hooks/useCat'
 
 interface Props {
   message: JournalMessage
@@ -15,6 +16,7 @@ export default function ErenMessagePopup({ message, onDismiss }: Props) {
   // A "Send Eren" nudge carries a SketchEren pose — render Eren striking it
   // with floating hearts. Plain ThoughtCloud messages keep the static sprite.
   const isNudge = !!message.eren_state
+  const cat = useCat()
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
@@ -36,7 +38,7 @@ export default function ErenMessagePopup({ message, onDismiss }: Props) {
               <SketchEren state={message.eren_state as SketchErenState} size={130} transparent noSpeech />
             </>
           ) : (
-            <img src="/erenGood.png" alt="Eren" draggable={false}
+            <img src="/erenGood.png" alt={cat.name} draggable={false}
               style={{ width: 100, height: 100, objectFit: 'contain', imageRendering: 'pixelated' }} />
           )}
           {/* Letter / heart badge */}
@@ -55,8 +57,8 @@ export default function ErenMessagePopup({ message, onDismiss }: Props) {
           <div className="absolute -top-1 left-1/2 -translate-x-1/2"
             style={{ width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderBottom: '7px solid white' }} />
 
-          <p className="font-pixel text-pink-400 mb-2 text-center" style={{ fontSize: 6 }}>
-            {message.gift_item ? 'EREN BROUGHT A GIFT!' : isNudge ? 'EREN BROUGHT YOU A MESSAGE!' : 'EREN DELIVERED A MESSAGE!'}
+          <p className="font-pixel text-pink-400 mb-2 text-center" style={{ fontSize: 6, overflowWrap: 'anywhere' }}>
+            {cat.t(message.gift_item ? '{NAME} BROUGHT A GIFT!' : isNudge ? '{NAME} BROUGHT YOU A MESSAGE!' : '{NAME} DELIVERED A MESSAGE!')}
           </p>
           {message.message && (
             <p className="text-sm text-gray-700 text-center leading-relaxed">{message.message}</p>

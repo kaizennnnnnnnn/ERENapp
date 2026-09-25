@@ -19,6 +19,8 @@ import StinkyFlies from '@/components/StinkyFlies'
 import LightSwitch from '@/components/LightSwitch'
 import { useIsDark } from '@/hooks/useIsDark'
 import { useWish } from '@/contexts/WishContext'
+import { useCat } from '@/hooks/useCat'
+import { swapCatName } from '@/lib/catWords'
 import WishHintBanner from '@/components/wish/WishHintBanner'
 import { wishHintRoom } from '@/lib/wishes'
 import { useErenReaction } from '@/hooks/useErenReaction'
@@ -63,7 +65,7 @@ const SHOP_ITEMS = [
   { id: 'treat'   as const, name: 'Cat Treat',  price: 8,  hungerD: 8,  happyD: 20, weightD: 0.01, desc: 'Sweet & crunchy',    color: '#FF6B9D', cat: 'dry'     },
   { id: 'biscuit' as const, name: 'Biscuit',    price: 6,  hungerD: 12, happyD: 0,  weightD: 0.02, desc: 'Crunchy snack',      color: '#C8956A', cat: 'dry'     },
   // Seafood
-  { id: 'fish'    as const, name: 'Fish',        price: 12, hungerD: 25, happyD:  0, weightD: 0.05, desc: "Eren's favourite!",  color: '#5BA3D9', cat: 'seafood' },
+  { id: 'fish'    as const, name: 'Fish',        price: 12, hungerD: 25, happyD:  0, weightD: 0.05, desc: "{name}'s favourite!", color: '#5BA3D9', cat: 'seafood' },
   { id: 'tuna'    as const, name: 'Tuna Can',   price: 18, hungerD: 30, happyD:  0, weightD: 0.06, desc: 'Premium quality',    color: '#E8A020', cat: 'seafood' },
   { id: 'shrimp'  as const, name: 'Shrimp',     price: 15, hungerD: 20, happyD:  0, weightD: 0.03, desc: 'Pink & tasty',       color: '#F0836A', cat: 'seafood' },
   { id: 'salmon'  as const, name: 'Salmon',     price: 22, hungerD: 35, happyD:  0, weightD: 0.07, desc: 'Rich & flaky',       color: '#E8735A', cat: 'seafood' },
@@ -255,6 +257,7 @@ export default function FeedScene({ onClose }: Props) {
   const { completeTask, coins, spendCoins, addCoins } = useTasks()
   const isDark = useIsDark()
   const wish = useWish()
+  const cat = useCat()
   const wishMatchesThisRoom = wish?.wish ? wishHintRoom(wish.wish) === 'feed' : false
 
   const [tab, setTab] = useState<'shop' | 'fridge' | null>(null)
@@ -617,7 +620,7 @@ export default function FeedScene({ onClose }: Props) {
       : buff?.energy != null ? `ENERGY FULL · ${buff.label}`
       : donut ? [TASTE_LINE[donut.taste], buff?.label].filter(Boolean).join(' · ')
       : null
-    showToast(headline || result.message, result.success)
+    showToast(headline ? cat.t(headline) : result.message, result.success)
     setFeeding(null)
     if (result.success) completeTask('daily_feed')
 
@@ -1112,7 +1115,7 @@ export default function FeedScene({ onClose }: Props) {
                         <FoodIcon id={item.id} color={item.color} size={62} />
                       </div>
                       <p className="text-center font-bold text-gray-800 leading-tight" style={{ fontSize: 12 }}>{item.name}</p>
-                      <p className="text-center text-gray-400 leading-tight" style={{ fontSize: 10, marginTop: 1 }}>{item.desc}</p>
+                      <p className="text-center text-gray-400 leading-tight" style={{ fontSize: 10, marginTop: 1 }}>{cat.t(item.desc)}</p>
                       {/* Stat chips — colour-coded so hunger vs joy reads at a
                           glance. A Monsta swaps them for what you actually buy
                           it for: the full energy bar and its own perk. */}
@@ -1150,7 +1153,7 @@ export default function FeedScene({ onClose }: Props) {
           overlay (50) and the shop drawer (40) — you can open it from either. */}
       {statsFor && (
         <FoodStatsCard
-          item={statsFor}
+          item={{ ...statsFor, desc: cat.t(statsFor.desc) }}
           owned={inventory[statsFor.id] ?? 0}
           onClose={() => setStatsFor(null)}
         />
@@ -1348,15 +1351,15 @@ export default function FeedScene({ onClose }: Props) {
         <SkinUnlockCinematic
           skin={unlock.skin}
           variant={unlock.variant}
-          earnedLine={`He finished the ${unlock.drinkName} and kept the colours.`}
+          earnedLine={`${cat.p.He} finished the ${unlock.drinkName} and kept the colours.`}
           onWear={() => {
             if (profile?.household_id) void wearSkinEverywhere(profile.household_id, unlock.skin.id)
             setUnlock(null)
-            showToast(`Now wearing ${unlock.skin.name}!`)
+            showToast(`Now wearing ${swapCatName(unlock.skin.name, cat)}!`)
           }}
           onClose={() => {
             setUnlock(null)
-            showToast(`${unlock.skin.name} is in your closet`)
+            showToast(`${swapCatName(unlock.skin.name, cat)} is in your closet`)
           }}
         />
       )}

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FortuneGiftDef } from '@/types'
 import { RARITY_COLORS } from '@/lib/gacha'
 import { useFortune } from '@/hooks/useFortune'
+import { useCat } from '@/hooks/useCat'
 import { playSound } from '@/lib/sounds'
 import SketchEren, { SKETCH_EREN_STATES, type SketchErenState } from '@/components/SketchEren'
 import {
@@ -298,6 +299,7 @@ function PixelStarFrame({ color }: { color: string }) {
 
 export default function FortunePopup({ onClose }: Props) {
   const { canClaim, claiming, claimFortune } = useFortune()
+  const cat = useCat()
   const [gift, setGift] = useState<FortuneGiftDef | null>(null)
   const [phase, setPhase] = useState<'intro' | 'shake' | 'opening' | 'reveal'>('intro')
   const dailyEren = useMemo(giftErenForToday, [])
@@ -393,7 +395,7 @@ export default function FortunePopup({ onClose }: Props) {
               <span aria-hidden className="fp-rivet" style={{ bottom: 3, right: 3 }} />
               <p className="font-pixel fp-plaque-title mb-1.5" style={{ fontSize: 8 }}>DAILY FORTUNE</p>
               <p className="font-pixel text-white/65" style={{ fontSize: 6, letterSpacing: 0.5 }}>
-                {canClaim ? 'EREN HAS A GIFT FOR YOU' : 'EREN IS WRAPPING THE NEXT ONE'}
+                {cat.t(canClaim ? '{NAME} HAS A GIFT FOR YOU' : '{NAME} IS WRAPPING THE NEXT ONE')}
               </p>
             </div>
 
@@ -483,12 +485,12 @@ export default function FortunePopup({ onClose }: Props) {
                 padding: '8px 12px',
                 imageRendering: 'pixelated',
               }}>
-              <p className={`font-pixel mb-1 ${isStardust ? 'stardust-rainbow' : 'text-white'}`} style={{ fontSize: 9 }}>{gift.name}</p>
+              <p className={`font-pixel mb-1 ${isStardust ? 'stardust-rainbow' : 'text-white'}`} style={{ fontSize: 9 }}>{cat.t(gift.name)}</p>
               <p className="font-pixel mb-1"
                 style={{ fontSize: 6, color: colors.text === '#6B7280' ? '#9CA3AF' : colors.text }}>
                 {gift.rarity.toUpperCase()}
               </p>
-              <p className="text-xs text-white/60">{gift.description}</p>
+              <p className="text-xs text-white/60">{cat.t(gift.description)}</p>
             </div>
             <p className="font-pixel text-white/30" style={{ fontSize: 6 }}>TAP TO CLOSE</p>
           </button>

@@ -6,6 +6,8 @@ import { RARITY_COLORS } from '@/lib/gacha'
 import { playSound } from '@/lib/sounds'
 import { getSkin } from '@/lib/skins'
 import SkinPodium from './SkinPodium'
+import { useCat } from '@/hooks/useCat'
+import { swapCatName } from '@/lib/catWords'
 
 interface Props {
   results: GachaPullResult[]
@@ -68,6 +70,7 @@ export default function PullAnimation({ results, onDone, skipCapsule = false }: 
   const [phase, setPhase] = useState<'capsule' | 'reveal' | 'done'>(skipCapsule ? 'reveal' : 'capsule')
   const [currentIdx, setCurrentIdx] = useState(0)
   const [showItem, setShowItem] = useState(skipCapsule)
+  const cat = useCat()
 
   useEffect(() => {
     if (skipCapsule) return
@@ -97,6 +100,7 @@ export default function PullAnimation({ results, onDone, skipCapsule = false }: 
   const colors  = RARITY_COLORS[current.item.rarity]
   const tier    = REVEAL[current.item.rarity]
   const skinDef = current.item.skinId ? getSkin(current.item.skinId) : undefined
+  const itemName = swapCatName(current.item.name, cat)
 
   function nextItem() {
     if (currentIdx < results.length - 1) {
@@ -169,7 +173,7 @@ export default function PullAnimation({ results, onDone, skipCapsule = false }: 
 
               {/* The prize itself — no box. It carries its own shadow so it
                   reads as an object sitting in light, not a sticker. */}
-              <img src={current.item.image} alt={current.item.name} draggable={false}
+              <img src={current.item.image} alt={itemName} draggable={false}
                 className="relative"
                 style={{
                   width: ITEM_PX, height: ITEM_PX, objectFit: 'contain',
@@ -204,10 +208,10 @@ export default function PullAnimation({ results, onDone, skipCapsule = false }: 
               }}>NEW!</span>
             )}
             <p className="font-pixel text-white mb-1.5" style={{
-              fontSize: 12, lineHeight: 1.4, letterSpacing: 0.5,
+              fontSize: 12, lineHeight: 1.4, letterSpacing: 0.5, overflowWrap: 'anywhere',
               textShadow: `0 0 14px ${colors.glow}, 0 2px 0 rgba(0,0,0,0.6)`,
             }}>
-              {current.item.name}
+              {itemName}
             </p>
             {/* Rarity as a plate rather than a loose word — it's the number you
                 actually pulled for, and pastel text on black was the weakest
@@ -224,7 +228,7 @@ export default function PullAnimation({ results, onDone, skipCapsule = false }: 
               {current.item.rarity.toUpperCase()}
               <span style={{ width: 4, height: 4, background: colors.border, transform: 'rotate(45deg)' }} />
             </span>
-            <p className="text-xs text-white/55" style={{ lineHeight: 1.45 }}>{current.item.description}</p>
+            <p className="text-xs text-white/55" style={{ lineHeight: 1.45 }}>{cat.t(current.item.description)}</p>
 
             {current.stardustGained > 0 && (
               <div className="flex flex-col items-center mt-2 gap-0.5">

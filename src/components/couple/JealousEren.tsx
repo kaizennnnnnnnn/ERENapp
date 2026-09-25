@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useCouple } from '@/hooks/useCouple'
+import { useCat } from '@/hooks/useCat'
 import { playSound } from '@/lib/sounds'
 
 const COOLDOWN_MS    = 2 * 60 * 60 * 1000  // at most once per 2h
@@ -55,6 +56,7 @@ export default function JealousEren() {
   const supabase = createClient()
   const { user, profile } = useAuth()
   const { partner, isSolo } = useCouple()
+  const cat = useCat()
   const [line, setLine] = useState<string | null>(null)
 
   useEffect(() => {
@@ -164,8 +166,8 @@ export default function JealousEren() {
         }}
       >
         <p className="font-pixel" style={{
-          fontSize: 6, color: '#A78BFA', letterSpacing: 1.5, marginBottom: 4,
-        }}>EREN WHISPERS</p>
+          fontSize: 6, color: '#A78BFA', letterSpacing: 1.5, marginBottom: 4, overflowWrap: 'anywhere',
+        }}>{cat.t('{NAME} WHISPERS')}</p>
         <p className="text-[11px] leading-snug" style={{ color: '#1F1F2E' }}>{line}</p>
       </div>
       {/* Pixel tail pointing down to Eren */}

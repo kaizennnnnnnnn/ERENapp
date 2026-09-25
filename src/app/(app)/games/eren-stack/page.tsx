@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
+import { useCat } from '@/hooks/useCat'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
@@ -96,6 +97,7 @@ export default function ErenStackGame() {
   const { setHideStats } = useCare()
   useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
+  const cat = useCat()
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
   const reduced = useReducedMotion()
@@ -515,16 +517,16 @@ export default function ErenStackGame() {
         borderBottom: '2px solid rgba(255,255,255,0.18)',
       }}>
         <button onClick={() => { playSound('ui_back'); router.back() }}
-          className="flex items-center justify-center active:scale-90 transition-transform"
+          className="flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
           style={{ width: 32, height: 32, background: 'rgba(255,255,255,0.18)', borderRadius: 6, border: '2px solid rgba(255,255,255,0.45)', boxShadow: '0 2px 0 rgba(0,0,0,0.25)' }}>
           <ChevronLeft size={16} className="text-white" />
         </button>
-        <span className="font-pixel text-white px-2.5 py-1.5"
+        <span className="font-pixel text-white px-2.5 py-1.5 min-w-0 truncate"
           style={{ background: 'linear-gradient(135deg, #1D4ED8, #3B82F6)', border: '2px solid #1E3A8A', borderRadius: 4, fontSize: 8, letterSpacing: 2, boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
-          EREN STACK
+          {cat.t('{NAME} STACK')}
         </span>
         <div className="flex-1" />
-        <div className="flex items-center gap-1.5 px-2 py-1.5 font-pixel"
+        <div className="flex items-center gap-1.5 px-2 py-1.5 font-pixel flex-shrink-0"
           style={{ background: 'rgba(0,0,0,0.4)', border: '2px solid rgba(255,255,255,0.4)', borderRadius: 4, fontSize: 8, color: '#FDE68A' }}>
           BEST {bestScore}
         </div>

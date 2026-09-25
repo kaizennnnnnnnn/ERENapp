@@ -14,6 +14,7 @@
 
 import React from 'react'
 import { useIsDark } from '@/hooks/useIsDark'
+import { useCat } from '@/hooks/useCat'
 
 interface Props {
   src: string
@@ -29,6 +30,7 @@ interface Props {
 
 export default function PoseSprite({ src, width, breathe = true, breatheDur = 5, style }: Props) {
   const isDark = useIsDark()
+  const cat = useCat()
   // Breathing is the shared erenBreathe scaleY swell. These poses are hi-res
   // PNGs shrunk to a small on-screen width, so the <img> renders with SMOOTH
   // downscaling (imageRendering:auto): nearest-neighbour ("pixelated") only
@@ -43,7 +45,7 @@ export default function PoseSprite({ src, width, breathe = true, breatheDur = 5,
       animation: breathe ? `erenBreathe ${breatheDur}s ease-in-out infinite` : undefined,
       ...style,
     }}>
-      <img src={src} alt="Eren" draggable={false}
+      <img src={src} alt={cat.name} draggable={false}
         style={{
           width: '100%', height: 'auto', display: 'block',
           // Tailwind's preflight sets `img { max-width: 100% }`; opt out so the

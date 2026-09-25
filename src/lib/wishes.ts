@@ -169,7 +169,7 @@ export const WISHES: Wish[] = [
     category: 'rare', match: 'care:5plus',         needsLeader: false, needsBothActive: false, cooldownDays: 7,  missingInventory: false, coinReward: 15 },
   { id: 'rare-all-foods', text: "i want every kind of food in my bowl.",
     category: 'rare', match: 'feed:all_inventory', needsLeader: false, needsBothActive: false, cooldownDays: 14, missingInventory: false, coinReward: 25 },
-  { id: 'rare-king',      text: "today i am the king of this house.",
+  { id: 'rare-king',      text: "today i am the boss of this house.",
     category: 'rare', match: 'care:5plus',         needsLeader: false, needsBothActive: false, cooldownDays: 7,  missingInventory: false, coinReward: 15 },
 
   // ── Activity — appended later (must stay at the END: rotation hashes on index) ──

@@ -29,6 +29,8 @@ import { RARITY_COLORS } from '@/lib/gacha'
 import type { SkinDef } from '@/lib/skins'
 import { playSound } from '@/lib/sounds'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
+import { useCat } from '@/hooks/useCat'
+import { swapCatName } from '@/lib/catWords'
 
 type Act = 'charge' | 'flash' | 'reveal'
 
@@ -88,6 +90,8 @@ export default function SkinUnlockCinematic({ skin, variant, earnedLine, onWear,
   const reduced = useReducedMotion()
   const look = LOOK[variant]
   const rarity = RARITY_COLORS[skin.rarity]
+  const cat = useCat()
+  const skinName = swapCatName(skin.name, cat)
 
   const [act, setAct] = useState<Act>(reduced ? 'reveal' : 'charge')
   const [showButtons, setShowButtons] = useState(reduced)
@@ -115,7 +119,7 @@ export default function SkinUnlockCinematic({ skin, variant, earnedLine, onWear,
 
   return (
     <div className="fixed inset-0 flex items-center justify-center overflow-hidden"
-      role="dialog" aria-modal="true" aria-label={`New look unlocked: ${skin.name}`}
+      role="dialog" aria-modal="true" aria-label={`New look unlocked: ${skinName}`}
       style={{
         zIndex: 90,
       }}>
@@ -215,8 +219,8 @@ export default function SkinUnlockCinematic({ skin, variant, earnedLine, onWear,
               fontSize: 6, letterSpacing: 1.5, color: rarity.text, background: rarity.bg,
               border: `1.5px solid ${rarity.border}`, borderRadius: 4,
             }}>{skin.rarity.toUpperCase()}</span>
-            <p className="font-pixel text-center" style={{ fontSize: 11, color: '#fff', letterSpacing: 0.5 }}>
-              {skin.name.toUpperCase()}
+            <p className="font-pixel text-center" style={{ fontSize: 11, color: '#fff', letterSpacing: 0.5, overflowWrap: 'anywhere' }}>
+              {skinName.toUpperCase()}
             </p>
             <p className="text-center" style={{ fontSize: 10, lineHeight: 1.6, color: '#B9A6DE' }}>
               {earnedLine}

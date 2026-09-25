@@ -11,6 +11,7 @@ import { useState } from 'react'
 import { IconWish } from '@/components/PixelIcons'
 import { OBSIDIAN_FACE, PINK, PINK_HI, Rivets, accentA } from '@/components/obsidian'
 import { playSound } from '@/lib/sounds'
+import { useCat } from '@/hooks/useCat'
 
 interface Props {
   text: string
@@ -20,6 +21,7 @@ interface Props {
 
 export default function WishChip({ text, status, weekGrantedCount }: Props) {
   const [open, setOpen] = useState(false)
+  const cat = useCat()
   const isGranted = status === 'granted'
 
   const borderColor = isGranted ? 'rgba(245,200,66,0.55)' : PINK + '55'
@@ -84,9 +86,9 @@ export default function WishChip({ text, status, weekGrantedCount }: Props) {
               <IconWish size={12} />
               <span style={{
                 fontFamily: '"Press Start 2P", monospace', fontSize: 6,
-                color: PINK_HI, letterSpacing: 1.5,
+                color: PINK_HI, letterSpacing: 1.5, overflowWrap: 'anywhere',
               }}>
-                {isGranted ? 'WISH GRANTED' : "EREN'S WISH TODAY"}
+                {isGranted ? 'WISH GRANTED' : cat.t("{NAME}'S WISH TODAY")}
               </span>
             </div>
             <p style={{

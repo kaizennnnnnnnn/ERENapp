@@ -18,6 +18,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useErenChatContext } from '@/contexts/ErenChatContext'
+import { useCat } from '@/hooks/useCat'
 import { playSound } from '@/lib/sounds'
 import { IconPin } from '@/components/PixelIcons'
 import PixelPoof from '@/components/PixelPoof'
@@ -40,6 +41,7 @@ interface Poof { w: number; h: number }
 
 export default function ErenSpeechBubble() {
   const { sending, streaming, error } = useErenChatContext()
+  const cat = useCat()
   const [shown, setShown] = useState<Shown | null>(null)
   const [pinned, setPinned] = useState(false)
   const [poof, setPoof] = useState<Poof | null>(null)
@@ -205,7 +207,7 @@ export default function ErenSpeechBubble() {
               that row appears on every real reply, right under the generated
               text it's labelling. */}
           <span
-            title="Eren is an AI character, not a real cat"
+            title={cat.t('{name} is an AI character, not a real cat')}
             style={{
               fontFamily: '"Press Start 2P"', fontSize: 5.5, letterSpacing: 0.4,
               color: ink, opacity: 0.5, lineHeight: 1, flexShrink: 0,

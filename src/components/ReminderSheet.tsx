@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useCouple } from '@/hooks/useCouple'
+import { useCat } from '@/hooks/useCat'
 import {
   type Reminder, type ReminderFire,
   getReminders, createReminder, updateReminder, deleteReminder,
@@ -44,6 +45,7 @@ function formatAgo(iso: string): string {
 
 export default function ReminderSheet({ onClose }: Props) {
   const { isSolo } = useCouple()
+  const cat = useCat()
   const supabase = createClient()
   const { user, profile } = useAuth()
 
@@ -279,7 +281,7 @@ export default function ReminderSheet({ onClose }: Props) {
             <div>
               <p className="font-pixel mb-1.5" style={{ fontSize: 6, color: PINK_LO, letterSpacing: 1.5 }}>WHAT?</p>
               <input value={text} onChange={e => setText(e.target.value)}
-                placeholder="e.g. Feed Eren, give medicine…"
+                placeholder={cat.t('e.g. Feed {name}, give medicine…')}
                 className="w-full px-3 py-2 text-sm outline-none"
                 style={{
                   background: '#050507',

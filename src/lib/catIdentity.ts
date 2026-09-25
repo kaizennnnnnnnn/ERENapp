@@ -19,10 +19,17 @@ import { createClient } from '@/lib/supabase/client'
 import { lookKey, type RecolourSpec } from '@/lib/catRecolour'
 import { writeWithRetry } from '@/lib/supabaseRetry'
 import type { ErenStats } from '@/types'
+import { DEFAULT_CAT_NAME, DEFAULT_CAT_SEX, catWordsFromRow, validateCatName, type CatSex, type CatWords } from '@/lib/catWords'
+
+// Name, pronouns and filling copy live in lib/catWords (pure, so the server
+// can use them too). Re-exported so existing importers keep one entry point.
+export {
+  CAT_NAME_MAX, CLASSIC_CAT_WORDS, DEFAULT_CAT_NAME, DEFAULT_CAT_SEX,
+  catPronouns, catText, catWordsFromRow, swapCatName, validateCatName,
+} from '@/lib/catWords'
+export type { CatPronouns, CatSex, CatWords, NameCheck } from '@/lib/catWords'
 
 // ─── Vocabulary (mirrors public/cat/eren_material.json) ─────────────────────
-
-export type CatSex = 'male' | 'female'
 
 /** The seven colourable parts, in the material map's order. */
 export const CAT_PARTS = ['body', 'ears', 'tail', 'face', 'bib', 'legs', 'socks'] as const
@@ -195,51 +202,25 @@ export function coatLabel(look: CatLook | null): string {
   return match ? match.label : 'Custom coat'
 }
 
-// ─── Name ────────────────────────────────────────────────────────────────────
+/**
+ * coatLabel for the household's OWN cat (the Me and Settings cards). The
+ * classic coat is called "Eren Classic" after the original cat, which is right
+ * in the builder's list of coats and for a cat still named Eren, but reads as
+ * the wrong name on a renamed cat's card: there it is just "Classic".
+ */
+export function ownCoatLabel(look: CatLook | null, name: string): string {
+  const label = coatLabel(look)
+  return label === PRESETS[0].label && name !== DEFAULT_CAT_NAME ? 'Classic' : label
+}
 
-export const DEFAULT_CAT_NAME = 'Eren'
-export const DEFAULT_CAT_SEX: CatSex = 'male'
-/** Matches the check in migration_cat_identity.sql. Counted in characters. */
-export const CAT_NAME_MAX = 24
+// ─── Name ────────────────────────────────────────────────────────────────────
 
 export const NAME_SUGGESTIONS: readonly string[] = [
   'Mochi', 'Luna', 'Miso', 'Pixel', 'Biscuit', 'Tofu',
   'Pumpkin', 'Nori', 'Olive', 'Bean', 'Clementine', 'Oreo',
 ]
 
-export type NameCheck = { ok: true; name: string } | { ok: false; error: string }
-
-/**
- * Clean a typed name and say whether it can be saved. Whitespace runs collapse
- * to one space and the ends are trimmed, so " Mochi  Bun " saves as
- * "Mochi Bun". Control characters are dropped (a pasted newline would break
- * every sentence the name is spliced into).
- */
-export function validateCatName(raw: string): NameCheck {
-  // eslint-disable-next-line no-control-regex
-  const name = raw.replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim()
-  if (!name) return { ok: false, error: 'Your cat needs a name.' }
-  if (Array.from(name).length > CAT_NAME_MAX) {
-    return { ok: false, error: `Keep it to ${CAT_NAME_MAX} letters or fewer.` }
-  }
-  return { ok: true, name }
-}
-
-// ─── Pronouns ────────────────────────────────────────────────────────────────
-
-export interface CatPronouns {
-  he: string
-  him: string
-  his: string
-  He: string
-  His: string
-}
-
-export function catPronouns(sex: CatSex): CatPronouns {
-  return sex === 'female'
-    ? { he: 'she', him: 'her', his: 'her', He: 'She', His: 'Her' }
-    : { he: 'he', him: 'him', his: 'his', He: 'He', His: 'His' }
-}
+// ─── Sex ─────────────────────────────────────────────────────────────────────
 
 export const SEX_LABELS: Record<CatSex, string> = { male: 'Boy', female: 'Girl' }
 
@@ -276,9 +257,7 @@ export function parseCatLook(raw: unknown): CatLook | null {
   return { preset, parts, pattern, eyes: raw.eyes as EyeKey, nose: raw.nose as NoseKey }
 }
 
-export interface CatIdentity {
-  name: string
-  sex: CatSex
+export interface CatIdentity extends CatWords {
   /** null = the classic Eren art (no recolour). */
   look: CatLook | null
 }
@@ -288,12 +267,17 @@ export interface CatIdentity {
  * that has not loaded yet and a database the migration has not reached.
  */
 export function catIdentityFromStats(stats: Pick<ErenStats, 'cat_name' | 'cat_sex' | 'cat_look'> | null | undefined): CatIdentity {
-  const named = stats?.cat_name ? validateCatName(stats.cat_name) : null
-  return {
-    name: named?.ok ? named.name : DEFAULT_CAT_NAME,
-    sex: stats?.cat_sex === 'female' ? 'female' : DEFAULT_CAT_SEX,
-    look: parseCatLook(stats?.cat_look),
-  }
+  return { ...catWordsFromRow(stats), look: parseCatLook(stats?.cat_look) }
+}
+
+/**
+ * Whether this is the ORIGINAL cat: named Eren, a boy, in the classic coat.
+ * Facts about him (the nicknames Oi, Meow and Tony, the Ragdoll breed) belong
+ * to that cat only; a girl named Eren or a tuxedo called Eren is somebody else.
+ * The chat persona and the flavor bubbles both ask this, so they agree.
+ */
+export function isOriginalCat(cat: CatWords & { look: CatLook | null }): boolean {
+  return cat.name === DEFAULT_CAT_NAME && cat.sex === DEFAULT_CAT_SEX && isClassicLook(cat.look)
 }
 
 // ─── Writing ─────────────────────────────────────────────────────────────────

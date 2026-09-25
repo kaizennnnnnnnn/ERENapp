@@ -27,6 +27,7 @@
 
 import { useMemo } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { useCat } from '@/hooks/useCat'
 import { useCare } from '@/contexts/CareContext'
 import { useTrophies } from '@/hooks/useTrophies'
 import { useTrophyCosmetics } from '@/hooks/useTrophyCosmetics'
@@ -284,6 +285,7 @@ export function ShopCard({
   onBuy(): void
   onUse(): void
 }) {
+  const cat = useCat()
   const rc = SHOP_RARITY_COLORS[item.rarity]
   const affordable = balance >= item.price
   const buyable = !owned || item.stackable === true
@@ -328,12 +330,12 @@ export function ShopCard({
           <div className="flex items-center gap-1.5">
             <span className="font-pixel truncate" style={{
               fontSize: 7, letterSpacing: 1, color: owned ? rc.text : '#D6CBE2',
-            }}>{item.name.toUpperCase()}</span>
+            }}>{cat.t(item.name).toUpperCase()}</span>
             {qty > 1 && (
               <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: '#FFD650' }}>x{qty}</span>
             )}
           </div>
-          <p className="text-[10px] leading-snug" style={{ color: '#9A8EAA' }}>{item.blurb}</p>
+          <p className="text-[10px] leading-snug" style={{ color: '#9A8EAA' }}>{cat.t(item.blurb)}</p>
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="font-pixel px-1 py-0.5" style={{
               fontSize: 5, letterSpacing: 1, color: rc.text,

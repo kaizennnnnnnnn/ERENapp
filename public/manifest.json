@@ -1,7 +1,7 @@
 {
   "name": "Eren",
   "short_name": "Eren",
-  "description": "Look after Eren. On your own, or with someone.",
+  "description": "Build a pixel cat, give it a name, and look after it. On your own, or with someone.",
   "id": "/home",
   "start_url": "/home",
   "scope": "/",

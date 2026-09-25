@@ -23,6 +23,7 @@ import { IconCrown } from '@/components/PixelIcons'
 import { useCare } from '@/contexts/CareContext'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
+import { useCat } from '@/hooks/useCat'
 import { playSound } from '@/lib/sounds'
 import { EXHAUSTED_ENERGY } from '@/lib/gameRewards'
 import { useKioskRecord } from '@/components/kiosk/useKioskRecord'
@@ -89,6 +90,7 @@ export default function ShawarmaPage() {
   const { setHideStats } = useCare()
   const { user } = useAuth()
   const { stats } = useErenStats()
+  const cat = useCat()
   // Owned up here rather than inside the kiosk: the board on the front reads
   // it too, and two copies would mean two fetches of the same book.
   const record = useKioskRecord()
@@ -107,7 +109,7 @@ export default function ShawarmaPage() {
   const practiceReason = record.workedTonight
     ? 'you already worked tonight — this one was for the practice'
     : tired
-      ? 'eren was too tired to take the money seriously'
+      ? cat.t('{name} was too tired to take the money seriously').toLowerCase()
       : null
 
   const last = record.lastShift
@@ -395,13 +397,15 @@ export default function ShawarmaPage() {
           {record.loaded && practiceReason && (
             <div className="font-pixel absolute left-1/2 pointer-events-none" style={{
               bottom: '8.5%', transform: 'translateX(-50%)', zIndex: 12,
-              whiteSpace: 'nowrap',
+              // One line at its natural width; a long cat name wraps inside
+              // the picture instead of running off it.
+              width: 'max-content', maxWidth: '92%', textAlign: 'center', overflowWrap: 'anywhere',
               fontSize: 5.5, letterSpacing: 1, color: 'rgba(255,231,196,0.72)',
               background: 'rgba(12,9,8,0.7)',
               border: '2px solid rgba(200,190,205,0.25)',
               borderRadius: 7, padding: '5px 8px 4px',
             }}>
-              {record.workedTonight ? 'PRACTICE — TONIGHT’S PAY IS SPENT' : 'PRACTICE — EREN IS TOO TIRED'}
+              {record.workedTonight ? 'PRACTICE — TONIGHT’S PAY IS SPENT' : cat.t('PRACTICE — {NAME} IS TOO TIRED')}
             </div>
           )}
         </div>

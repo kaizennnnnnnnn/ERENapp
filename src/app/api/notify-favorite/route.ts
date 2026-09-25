@@ -17,6 +17,7 @@ import { authorizeRequest, cronOnly } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPush, heartGlyph } from '@/lib/serverPush'
+import { catText, fetchCatWords } from '@/lib/catWords'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -99,6 +100,7 @@ export async function GET(request: Request) {
     const tie = top.length > 1
     const champion = top[0].m
     households++
+    const cat = await fetchCatWords(supabase, householdId)
 
     for (const { m } of tally) {
       if (m.quiet_eren_optin === true) continue
@@ -108,15 +110,15 @@ export async function GET(request: Request) {
       let title: string
       let body: string
       if (tie) {
-        title = '💞 Eren'
-        body = `It's a tie — you're both Eren's favourites this week. 🤎🩷`
+        title = `💞 ${cat.name}`
+        body = `It's a tie — you're both ${cat.name}'s favourites this week. 🤎🩷`
       } else if (m.id === champion.id) {
-        title = `${heartGlyph(m.heart)} Eren`
-        body = `Eren says YOU were his favourite this week — ${maxN} moments together.`
+        title = `${heartGlyph(m.heart)} ${cat.name}`
+        body = catText(`{name} says YOU were {his} favourite this week — ${maxN} moments together.`, cat)
       } else {
         const champName = champion.name?.trim() || 'your partner'
-        title = `${heartGlyph(champion.heart)} Eren`
-        body = `Eren's favourite this week was ${champName}. Your turn next week?`
+        title = `${heartGlyph(champion.heart)} ${cat.name}`
+        body = `${cat.name}'s favourite this week was ${champName}. Your turn next week?`
       }
 
       const { data: subData } = await supabase

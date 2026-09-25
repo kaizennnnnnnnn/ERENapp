@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { withRetry } from '@/lib/supabaseRetry'
 import { onForeground } from '@/lib/onForeground'
 import { useAuth } from '@/hooks/useAuth'
+import { useCat } from '@/hooks/useCat'
 import type { Memory } from '@/types'
 import { formatDate, cn } from '@/lib/utils'
 import { Camera, Heart, Plus, Trash2, X, ChevronLeft, Flag } from 'lucide-react'
@@ -53,6 +54,7 @@ export default function MemoriesPage() {
   const supabase = createClient()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
+  const cat = useCat()
   useEffect(() => { setHideStats(false) }, [setHideStats])
 
   const [memories, setMemories]   = useState<Memory[]>([])
@@ -260,7 +262,7 @@ export default function MemoriesPage() {
           <span className="font-pixel" style={{ fontSize: 7 }}>ADD</span>
         </button>
       </div>
-      <p className="text-sm text-gray-500 mb-5">Your moments with Eren 🐾</p>
+      <p className="text-sm text-gray-500 mb-5">Your moments with {cat.name} 🐾</p>
 
       {/* ── Add memory modal ── */}
       {showAdd && (
@@ -399,7 +401,7 @@ export default function MemoriesPage() {
         <div className="flex flex-col items-center justify-center py-14 gap-3">
           <div className="text-5xl animate-float">📸</div>
           <p className="font-pixel text-gray-400" style={{ fontSize: 8 }}>NO MEMORIES YET</p>
-          <p className="text-xs text-gray-300">Add your first photo of Eren!</p>
+          <p className="text-xs text-gray-300">Add your first photo of {cat.name}!</p>
           <button onClick={() => setShowAdd(true)}
             className="mt-2 px-5 py-3 text-white transition-all active:translate-y-[2px]"
             style={{ background: 'linear-gradient(135deg, #FF6B9D, #C084FC)', borderRadius: 3, border: '2px solid #CC3366', boxShadow: '0 3px 0 #991A4A', fontFamily: '"Press Start 2P"', fontSize: 8 }}>

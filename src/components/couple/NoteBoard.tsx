@@ -19,6 +19,7 @@ import FoodIcon from '@/components/care/FoodIcon'
 import { IconPin, IconDoor, IconGift } from '@/components/PixelIcons'
 import type { JournalMessage } from '@/types'
 import { useLongPress } from '@/hooks/useLongPress'
+import { useCat } from '@/hooks/useCat'
 import MessageActions from '@/components/safety/MessageActions'
 import { useState } from 'react'
 
@@ -74,6 +75,7 @@ export default function NoteBoard({ notes, myId, myHeart, myName, partnerName, o
   // Hold a note to report or take it down. A note has no tap action, so the
   // hold is free here the same way it is in the chat.
   const [actionOn, setActionOn] = useState<JournalMessage | null>(null)
+  const cat = useCat()
   const { bind: bindHold } = useLongPress<JournalMessage>(setActionOn)
 
   return (
@@ -140,8 +142,7 @@ export default function NoteBoard({ notes, myId, myHeart, myName, partnerName, o
                 NOTHING PINNED YET
               </p>
               <p className="text-center" style={{ fontSize: 12, color: '#5E3C18', maxWidth: 232, lineHeight: 1.6 }}>
-                Tap Eren&apos;s thought cloud on the home screen and send a note.
-                Everything he delivers ends up here.
+                {cat.t("Tap {name}'s thought cloud on the home screen and send a note. Everything {he} delivers ends up here.")}
               </p>
             </div>
           ) : notes.map((m, i) => {

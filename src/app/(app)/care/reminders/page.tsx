@@ -12,9 +12,10 @@ import {
   Syringe, Scissors, Gamepad2, UtensilsCrossed, Stethoscope
 } from 'lucide-react'
 import { useCare } from '@/contexts/CareContext'
+import { useCat } from '@/hooks/useCat'
 
 const TYPE_CONFIG: Record<ReminderType, { label: string; emoji: string; color: string }> = {
-  feed:     { label: 'Feed Eren',      emoji: '🍗', color: 'bg-amber-100 text-amber-700'  },
+  feed:     { label: 'Feeding',        emoji: '🍗', color: 'bg-amber-100 text-amber-700'  },
   litter:   { label: 'Clean Litter',   emoji: '🪣', color: 'bg-sky-100 text-sky-700'      },
   medicine: { label: 'Medicine',       emoji: '💊', color: 'bg-green-100 text-green-700'  },
   vet:      { label: 'Vet Visit',      emoji: '🏥', color: 'bg-red-100 text-red-700'      },
@@ -34,6 +35,7 @@ export default function RemindersPage() {
   const supabase = createClient()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
+  const cat = useCat()
   useEffect(() => { setHideStats(false) }, [setHideStats])
 
   const [reminders, setReminders]     = useState<Reminder[]>([])
@@ -171,7 +173,7 @@ export default function RemindersPage() {
           <Plus size={22} className="text-white" />
         </button>
       </div>
-      <p className="text-sm text-gray-500 mb-5 pl-14">Keep Eren on schedule 📅</p>
+      <p className="text-sm text-gray-500 mb-5 pl-14 break-words">{cat.t('Keep {name} on schedule')} 📅</p>
 
       {/* ── Add modal ── */}
       {showAdd && (
@@ -212,7 +214,7 @@ export default function RemindersPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
               <input
                 className="input"
-                placeholder={`e.g. ${TYPE_CONFIG[rType].label}`}
+                placeholder={rType === 'feed' ? cat.t('e.g. Feed {name}') : `e.g. ${TYPE_CONFIG[rType].label}`}
                 value={title}
                 onChange={e => setTitle(e.target.value)}
               />

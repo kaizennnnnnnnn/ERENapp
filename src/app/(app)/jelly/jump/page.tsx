@@ -76,6 +76,7 @@ import { useCare } from '@/contexts/CareContext'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
+import { useCat } from '@/hooks/useCat'
 import { useJellies, type JellyWin } from '@/hooks/useJellies'
 import { useJellyDuel } from '@/hooks/useJellyDuel'
 import { JELLIES, type JellyDef } from '@/lib/jellies'
@@ -446,6 +447,8 @@ let uid = 0
 
 export default function JellyJumpPage() {
   const router = useRouter()
+  // `cat` is the physics body below; this is the household's cat, for the copy.
+  const theCat = useCat()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
   const { applyAction } = useErenStats(profile?.household_id ?? null)
@@ -1900,16 +1903,16 @@ export default function JellyJumpPage() {
             <IconJelly size={26} />
             <p className="font-pixel text-center" style={{ fontSize: 11, color: INK }}>JELLY JUMP</p>
             <p className="text-center" style={{ fontSize: 10.5, lineHeight: 1.5, color: '#7A4B5E' }}>
-              <strong style={{ color: INK }}>Hold</strong> the left or right side to steer him.
-              He wraps around the edges.
+              <strong style={{ color: INK }}>Hold</strong> the left or right side to steer {theCat.p.him}.
+              {' '}{theCat.p.He} wraps around the edges.
             </p>
             <div className="w-full flex flex-col gap-1.5 my-0.5">
               <Rule swatch="#D73832" text="JELLIES hold. Land in the middle and the chain counts double." />
-              <Rule swatch="#FFF3D6" text="CREAM throws him twice as high." />
+              <Rule swatch="#FFF3D6" text={theCat.t('CREAM throws {him} twice as high.')} />
               <Rule swatch="#C89B62" text="BISCUITS crack when you land, then give way. The only ones that do." />
-              <Rule swatch="#E0A93E" text="LIDS tip. Land on the middle notch and it launches him." />
+              <Rule swatch="#E0A93E" text={theCat.t('LIDS tip. Land on the middle notch and it launches {him}.')} />
               <Rule swatch="#4A2A1E" text="SYRUP is heavy — a short, low bounce." />
-              <Rule swatch="#FFF3D6" text="SUGAR fills the jar. A full jar catches him once, when he falls." />
+              <Rule swatch="#FFF3D6" text={theCat.t('SUGAR fills the jar. A full jar catches {him} once, when {he} falls.')} />
               <Rule swatch="#C9283C" text="A STING spills sugar onto a shelf below. Go back for it, or don't." />
               <Rule swatch="#F4C542" text="WASPS and BEETLES sting. Land beside them, not on them." />
               <Rule swatch="#A9C84A" text="SOUR JELLY bites. It's never the only way up." />

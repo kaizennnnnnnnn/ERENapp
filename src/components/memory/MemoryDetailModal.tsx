@@ -17,6 +17,7 @@ import MemoryFrameCanvas from './MemoryFrameCanvas'
 import { setMemoryReaction, heartOf, HEART_GLYPH } from '@/lib/memoryReactions'
 import type { MemoryFrameRow, ReactionEmoji } from '@/hooks/useMemoryFrames'
 import type { MemoryFrame } from '@/lib/memoryCatalogue'
+import { useCat } from '@/hooks/useCat'
 
 interface Props {
   frame: MemoryFrame
@@ -37,6 +38,7 @@ export default function MemoryDetailModal({ frame, row, partnerId, onClose, onRe
   const supabase = createClient()
   const { user, profile } = useAuth()
   const [busy, setBusy] = useState(false)
+  const cat = useCat()
 
   const locked = !row
   const myReaction = (user?.id && row?.reaction[user.id]) || null
@@ -83,7 +85,7 @@ export default function MemoryDetailModal({ frame, row, partnerId, onClose, onRe
           <p style={{
             fontFamily: '"Press Start 2P", monospace', fontSize: 6, lineHeight: 1.7,
             color: '#9A8EBE', textAlign: 'center',
-          }}>keep caring for him.</p>
+          }}>{cat.t('keep caring for {him}.')}</p>
         </div>
       </div>
     )
@@ -116,13 +118,13 @@ export default function MemoryDetailModal({ frame, row, partnerId, onClose, onRe
         <p style={{
           fontFamily: '"Press Start 2P", monospace', fontSize: 9, lineHeight: 1.4,
           color: frame.rarity === 'epic' ? '#F5C842' : frame.rarity === 'rare' ? '#D8D8D8' : '#FFFFFF',
-          textAlign: 'center', letterSpacing: 1, marginTop: 4,
-        }}>{frame.title.toUpperCase()}</p>
+          textAlign: 'center', letterSpacing: 1, marginTop: 4, overflowWrap: 'anywhere',
+        }}>{cat.t(frame.title).toUpperCase()}</p>
 
         <p style={{
           fontFamily: '"Press Start 2P", monospace', fontSize: 6, lineHeight: 1.7,
           color: '#C8B8E8', textAlign: 'center', maxWidth: 240,
-        }}>{frame.hint}</p>
+        }}>{cat.t(frame.hint)}</p>
 
         <div style={{
           fontFamily: '"Press Start 2P", monospace', fontSize: 5,

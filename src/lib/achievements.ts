@@ -168,7 +168,7 @@ export const ACHIEVEMENT_DEFS: AchievementDef[] = [
   // Social
   { id: 'battle_win',    title: 'Champion',             description: 'Win a daily battle',               icon: 'swords',     triggers: ['battle'],         coins: 75,  rarity: 'rare'      },
   { id: 'mood_7',        title: 'In Touch',             description: 'Log mood 7 days in a row',         icon: 'moon',       triggers: ['mood', 'mount'],  coins: 75,  rarity: 'rare'      },
-  { id: 'first_nudge',   title: 'Love Note',            description: 'Send your first Eren nudge',       icon: 'heart',      triggers: ['nudge'],          coins: 25,  rarity: 'common'    },
+  { id: 'first_nudge',   title: 'Love Note',            description: 'Send your first nudge',            icon: 'heart',      triggers: ['nudge'],          coins: 25,  rarity: 'common'    },
 ]
 
 // ─── Achievement context (passed to checkers) ─────────────────────────────────

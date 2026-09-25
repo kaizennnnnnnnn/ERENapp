@@ -25,6 +25,7 @@ import { IconSparkles, IconCrown } from '@/components/PixelIcons'
 import { SUPER_JELLY_BUFF } from '@/lib/jellies'
 import { playSound } from '@/lib/sounds'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
+import { useCat } from '@/hooks/useCat'
 
 type Act = 'serve' | 'eat' | 'done'
 
@@ -47,6 +48,7 @@ interface Props {
 
 export default function SuperJellyFeed({ fed, goal, supersLeft, onClose }: Props) {
   const reduced = useReducedMotion()
+  const cat = useCat()
   const [act, setAct] = useState<Act>(reduced ? 'done' : 'serve')
   const [bite, setBite] = useState(0)
 
@@ -185,10 +187,10 @@ export default function SuperJellyFeed({ fed, goal, supersLeft, onClose }: Props
 
           <p className="text-center mb-3" style={{ fontSize: 10.5, lineHeight: 1.5, color: '#6E4354' }}>
             {left === 0
-              ? 'He has had his fill. The jelly coat is yours.'
+              ? cat.t('{He} has had {his} fill. The jelly coat is yours.')
               : left === 1
-                ? 'One more Super Jelly and the coat is his.'
-                : `${left} more Super Jellies and the coat is his.`}
+                ? cat.t('One more Super Jelly and {he} wins the coat.')
+                : cat.t(`${left} more Super Jellies and {he} wins the coat.`)}
             {supersLeft > 0 && <> You still have <strong style={{ color: INK }}>{supersLeft}</strong> in hand.</>}
           </p>
 
@@ -198,7 +200,7 @@ export default function SuperJellyFeed({ fed, goal, supersLeft, onClose }: Props
               borderRadius: 12, background: 'linear-gradient(180deg, #FF7FA6, #E14C7C)',
               border: `3px solid ${INK}`, boxShadow: `0 4px 0 ${INK}`,
             }}>
-            <span className="font-pixel" style={{ fontSize: 9, color: CREAM }}>GOOD BOY</span>
+            <span className="font-pixel" style={{ fontSize: 9, color: CREAM }}>{cat.sex === 'female' ? 'GOOD GIRL' : 'GOOD BOY'}</span>
           </button>
         </div>
       </div>

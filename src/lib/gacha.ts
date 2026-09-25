@@ -103,7 +103,7 @@ export const GACHA_ITEMS: GachaItemDef[] = [
   // The buff is joy because that is what a donut is; feeding it in the kitchen
   // applies the real numbers from the catalogue.
   { id: 'cons_donut_tiger',  name: 'Tiger Tail',  category: 'consumable', rarity: 'rare', description: 'A donut that gave up on being a ring.', buff: { stat: 'happiness', amount: 30 }, image: foodArt('donut_tiger') },
-  { id: 'cons_donut_arcade', name: 'Arcade',      category: 'consumable', rarity: 'epic', description: 'Covered in stickers. Eren approves.',   buff: { stat: 'happiness', amount: 38 }, image: foodArt('donut_arcade') },
+  { id: 'cons_donut_arcade', name: 'Arcade',      category: 'consumable', rarity: 'epic', description: 'Covered in stickers. {name} approves.', buff: { stat: 'happiness', amount: 38 }, image: foodArt('donut_arcade') },
   { id: 'cons_donut_neon',   name: 'Neon Slime',  category: 'consumable', rarity: 'epic', description: 'It glows. Nobody knows why.',           buff: { stat: 'happiness', amount: 40 }, image: foodArt('donut_neon') },
 
   // ── SKINS — full-body Eren looks (Clothing gacha). Generated in lib/skins.ts.
@@ -111,6 +111,8 @@ export const GACHA_ITEMS: GachaItemDef[] = [
 ]
 
 // ─── Banners ─────────────────────────────────────────────────────────────────
+// Descriptions are lib/catWords templates, like the item descriptions above:
+// fill them with cat.t / catText wherever one is shown.
 
 export const GACHA_BANNERS: GachaBannerDef[] = [
   {
@@ -125,7 +127,7 @@ export const GACHA_BANNERS: GachaBannerDef[] = [
   {
     id: 'animal',
     name: 'Kitty Costumes',
-    description: 'Full-body Eren skins — wear them in any room.',
+    description: 'Full-body {name} skins — wear them in any room.',
     featuredItems: [],
     permanent: true,
     bgGradient: ['#A78BFA', '#F472B6'],
@@ -135,7 +137,7 @@ export const GACHA_BANNERS: GachaBannerDef[] = [
   {
     id: 'foodsuits',
     name: 'FoodSuits',
-    description: 'Food-costume Eren skins — wear them in any room.',
+    description: 'Food-costume {name} skins — wear them in any room.',
     featuredItems: [],
     permanent: true,
     bgGradient: ['#F5A623', '#F8D57E'],

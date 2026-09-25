@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
+import { useCat } from '@/hooks/useCat'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
@@ -71,6 +72,7 @@ export default function ErenSaysGame() {
   const { setHideStats } = useCare()
   useEffect(() => { setHideStats(true) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
+  const cat = useCat()
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
   const timers = useGameTimers()
@@ -312,16 +314,16 @@ export default function ErenSaysGame() {
         borderBottom: '2px solid rgba(167,139,250,0.3)',
       }}>
         <button onClick={() => { playSound('ui_back'); router.back() }}
-          className="flex items-center justify-center active:scale-90 transition-transform"
+          className="flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
           style={{ width: 32, height: 32, background: 'rgba(255,255,255,0.08)', borderRadius: 6, border: '2px solid rgba(167,139,250,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
           <ChevronLeft size={16} className="text-purple-200" />
         </button>
-        <span className="font-pixel text-white px-2.5 py-1.5"
+        <span className="font-pixel text-white px-2.5 py-1.5 min-w-0 truncate"
           style={{ background: 'linear-gradient(135deg, #7C3AED, #A78BFA)', border: '2px solid #4C1D95', borderRadius: 4, fontSize: 8, letterSpacing: 2, boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
-          EREN SAYS
+          {cat.t('{NAME} SAYS')}
         </span>
         <div className="flex-1" />
-        <div className="flex items-center gap-1.5 px-2 py-1.5 font-pixel"
+        <div className="flex items-center gap-1.5 px-2 py-1.5 font-pixel flex-shrink-0"
           style={{ background: 'rgba(0,0,0,0.4)', border: '2px solid rgba(255,255,255,0.4)', borderRadius: 4, fontSize: 8, color: '#FDE68A' }}>
           BEST {bestRound}
         </div>
@@ -341,12 +343,12 @@ export default function ErenSaysGame() {
             transition: 'transform 0.2s, color 0.2s',
             animation: roundPulse > 0 && phase !== 'fail' ? 'roundBump 0.4s cubic-bezier(0.34,1.56,0.64,1)' : undefined,
           }}>{round || '—'}</div>
-        <div className="font-pixel mt-1" style={{ fontSize: 7, color: '#C4B5FD', letterSpacing: 1.5 }}>
+        <div className="font-pixel mt-1 px-4 text-center" style={{ fontSize: 7, color: '#C4B5FD', letterSpacing: 1.5 }}>
           {phase === 'showing'  ? 'WATCH…' :
            phase === 'awaiting' ? `YOUR TURN — ${Math.min(userStep + 1, seqRef.current.length)}/${seqRef.current.length}` :
            phase === 'fail'     ? 'OOPS!' :
            phase === 'gameover' ? 'GAME OVER' :
-                                  'WATCH EREN, THEN REPEAT'}
+                                  cat.t('WATCH {NAME}, THEN REPEAT')}
         </div>
 
         {/* floating score popups */}
@@ -485,9 +487,9 @@ export default function ErenSaysGame() {
         <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
           <div className="pointer-events-auto px-6 py-5 flex flex-col items-center gap-3"
             style={{ background: 'rgba(15,6,32,0.85)', border: '3px solid #A78BFA', borderRadius: 6, boxShadow: '0 4px 0 #4C1D95, 0 0 24px rgba(167,139,250,0.4)' }}>
-            <p className="font-pixel" style={{ fontSize: 10, letterSpacing: 2, color: '#FDE68A' }}>EREN SAYS</p>
+            <p className="font-pixel text-center" style={{ fontSize: 10, letterSpacing: 2, color: '#FDE68A', overflowWrap: 'anywhere' }}>{cat.t('{NAME} SAYS')}</p>
             <p className="font-pixel text-center" style={{ fontSize: 7, color: '#C4B5FD', letterSpacing: 1, lineHeight: 1.6 }}>
-              WATCH HIS SEQUENCE.<br />REPEAT IT BACK.
+              {cat.t('WATCH {HIS} SEQUENCE.')}<br />REPEAT IT BACK.
             </p>
             <button onClick={() => { playSound('ui_tap'); startGame() }}
               className="mt-1 px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"

@@ -13,18 +13,20 @@ import { useTasks } from '@/contexts/TaskContext'
 import { playSound } from '@/lib/sounds'
 import { type SketchErenState } from '@/components/SketchEren'
 import { PUSH_MOODS, moodDateKey } from '@/lib/moods'
+import { useCat } from '@/hooks/useCat'
 import MoodGateView from '@/components/mood/MoodGateView'
 
 // Each user mood maps to a pool of picked animations + speech lines. One is
 // chosen at random each time so the reaction feels fresh. The mood→pill pose
 // (MOOD_SKETCH) and the per-mood palette (MOOD_THEME) come from @/lib/moods
-// so the couple-page partner card stays in sync.
+// so the couple-page partner card stays in sync. Lines are lib/catWords
+// templates ({name}), filled with the household's cat when one is picked.
 const MOOD_REACTIONS: Record<UserMood, { picked: SketchErenState; line: string }[]> = {
   good: [
     { picked: 'party',  line: 'Purrrfect!' },
     { picked: 'cheer',  line: 'Yay! Let\'s go!' },
     { picked: 'dance',  line: 'Happy dance time!' },
-    { picked: 'love',   line: 'Eren loves you!' },
+    { picked: 'love',   line: '{name} loves you!' },
     { picked: 'proud',  line: 'That\'s the spirit!' },
     { picked: 'kiss',   line: 'Mwah! Great day!' },
     { picked: 'trophy', line: 'You\'re a champion!' },
@@ -32,31 +34,31 @@ const MOOD_REACTIONS: Record<UserMood, { picked: SketchErenState; line: string }
     { picked: 'laugh',    line: 'Hahaha, love that!' },
     { picked: 'balloon',  line: 'Let\'s celebrate!' },
     { picked: 'highfive', line: 'Up top! Good day!' },
-    { picked: 'sing',     line: 'Eren wrote you a song' },
+    { picked: 'sing',     line: '{name} wrote you a song' },
   ],
   mid: [
-    { picked: 'wave',     line: 'Eren is here for you!' },
+    { picked: 'wave',     line: '{name} is here for you!' },
     { picked: 'chill',    line: 'Just vibin\' today' },
     { picked: 'shrug',    line: 'Meh, we got this' },
     { picked: 'wink',     line: 'Could be worse!' },
     { picked: 'nom',      line: 'Snack break?' },
-    { picked: 'listen',   line: 'Eren\'s listening...' },
+    { picked: 'listen',   line: '{name}\'s listening...' },
     { picked: 'meditate', line: 'Stay calm, stay cool' },
     { picked: 'sip',      line: 'Let\'s have a slow one' },
     { picked: 'search',   line: 'Looking for the good bits' },
   ],
   sad: [
-    { picked: 'cry',  line: 'Come cuddle with Eren' },
-    { picked: 'sad',  line: 'Eren feels it too...' },
+    { picked: 'cry',  line: 'Come cuddle with {name}' },
+    { picked: 'sad',  line: '{name} feels it too...' },
     { picked: 'pet',  line: 'Soft pats for you' },
-    { picked: 'love', line: 'Eren loves you always' },
+    { picked: 'love', line: '{name} loves you always' },
     { picked: 'bow',  line: 'It\'s okay to be sad' },
-    { picked: 'shy',  line: 'Eren\'s here, promise' },
+    { picked: 'shy',  line: '{name}\'s here, promise' },
     { picked: 'cold', line: 'Cold day? Come closer' },
-    { picked: 'gift', line: 'Eren saved this for you' },
+    { picked: 'gift', line: '{name} saved this for you' },
   ],
   angry: [
-    { picked: 'angry', line: 'Eren is grumpy too!' },
+    { picked: 'angry', line: '{name} is grumpy too!' },
     { picked: 'flex',  line: 'RAWR! Let it out!' },
     { picked: 'gasp',  line: 'Who made you mad?!' },
     { picked: 'wow',   line: 'Oh no... deep breaths!' },
@@ -68,11 +70,11 @@ const MOOD_REACTIONS: Record<UserMood, { picked: SketchErenState; line: string }
   tired: [
     { picked: 'yawn',     line: 'Nap time together' },
     { picked: 'sleeping', line: 'Zzz... five more mins' },
-    { picked: 'tired',    line: 'Eren is sleepy too...' },
+    { picked: 'tired',    line: '{name} is sleepy too...' },
     { picked: 'meditate', line: 'Rest your eyes...' },
     { picked: 'chill',    line: 'Take it easy today' },
     { picked: 'nom',      line: 'Coffee? Tea? Milk?' },
-    { picked: 'sip',      line: 'Eren made you a warm one' },
+    { picked: 'sip',      line: '{name} made you a warm one' },
     { picked: 'dizzy',    line: 'Whoa, running on fumes' },
   ],
 }
@@ -100,6 +102,7 @@ interface Props {
 export default function MoodGate({ userId, userName, householdId, onDone }: Props) {
   const supabase = createClient()
   const { completeTask } = useTasks()
+  const cat = useCat()
   const [selected, setSelected]   = useState<UserMood | null>(null)
   const [reaction, setReaction]   = useState<{ picked: SketchErenState; line: string } | null>(null)
   const [animating, setAnimating] = useState(false)
@@ -149,7 +152,9 @@ export default function MoodGate({ userId, userName, householdId, onDone }: Prop
       userName={userName}
       greeting={getTimeOfDay()}
       selected={selected}
-      reaction={reaction}
+      // Filled at render, not at the tap: the gate can be up before the stats
+      // row lands, and the line should turn into the cat's name when it does.
+      reaction={reaction && { ...reaction, line: cat.t(reaction.line) }}
       animating={animating}
       onSelect={handleSelect}
     />

@@ -14,6 +14,7 @@ import { authorizeRequest } from '@/lib/apiAuth'
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPush, heartGlyph } from '@/lib/serverPush'
+import { fetchCatWords } from '@/lib/catWords'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -84,8 +85,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, sent: 0, reason: 'no-subs' })
   }
 
-  const title = `${granterHeart} Eren`
-  const bodyText = `${granterName} just listened to Eren's wish today.`
+  const cat = await fetchCatWords(supabase, body.household_id)
+  const title = `${granterHeart} ${cat.name}`
+  const bodyText = `${granterName} just listened to ${cat.name}'s wish today.`
   let sent = 0
   const expired: string[] = []
   for (const sub of subs) {

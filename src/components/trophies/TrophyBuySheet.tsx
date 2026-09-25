@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTrophies } from '@/hooks/useTrophies'
 import { useAuth } from '@/hooks/useAuth'
+import { useCat } from '@/hooks/useCat'
 import { SHOP_RARITY_COLORS, type AnyShopItem } from '@/lib/trophyShop'
 import ItemPreview from './ItemPreview'
 import TrophyCup from './TrophyCup'
@@ -36,6 +37,7 @@ export default function TrophyBuySheet({
 }) {
   const trophies = useTrophies()
   const { profile } = useAuth()
+  const cat = useCat()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
@@ -93,9 +95,9 @@ export default function TrophyBuySheet({
         </div>
 
         <p className="font-pixel text-center" style={{ fontSize: 9, letterSpacing: 1.5, color: rc.text }}>
-          {item.name.toUpperCase()}
+          {cat.t(item.name).toUpperCase()}
         </p>
-        <p className="text-center text-[11px]" style={{ color: '#B4A8C4' }}>{item.blurb}</p>
+        <p className="text-center text-[11px]" style={{ color: '#B4A8C4' }}>{cat.t(item.blurb)}</p>
 
         {error && (
           <p className="text-center text-[11px]" style={{ color: '#FF8DA1' }}>{error}</p>
