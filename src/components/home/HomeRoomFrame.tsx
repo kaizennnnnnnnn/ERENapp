@@ -1,16 +1,21 @@
 'use client'
 
 // ─── Home room frame ─────────────────────────────────────────────────────────
-// How the living room sits above the bottom nav. Two planes:
+// How the living room sits above the bottom nav. Two planes, the same box:
 //
-//   ART    the painting, full screen, exactly as before: `cover` of the whole
-//          viewport. RoomWeather reproduces that same `cover` to land its
-//          window cut pixel for pixel, so the art plane must stay the viewport.
-//          The nav's opaque white bar hides the strip of floor under it.
+//   ART    the painting, `cover` of the room above the nav. It used to cover
+//          the whole screen with the nav's bar over its floor, which put Eren
+//          (placed on the stage below) 10% up a painting whose bottom was
+//          hidden: his feet landed level with the coffee table's legs and he
+//          read as standing on the table. Covering the same box as the stage
+//          puts him back where the painter's floor is, in front of the rug.
+//          RoomWeather reproduces the painting's `cover` from a fixed inset-0
+//          box; the art plane's identity transform makes it that box, so the
+//          window cut still lands pixel for pixel.
 //   STAGE  everything that stands in the room (Eren, his bubbles, the bowl, the
 //          HUD, the swipe dots, the light switch). It ends at the nav's top
 //          edge, so Eren's feet, which sit 10% up from the stage floor, land on
-//          the rug instead of behind the bar.
+//          the floor instead of behind the bar.
 //
 // Half the things that float around Eren (wish cloud, speech bubble, battle
 // plate, whisper, thought cloud, grant burst) are `position: fixed` with
@@ -42,19 +47,26 @@ export interface HomeRoomFrameProps {
 
 export default function HomeRoomFrame({ dark, artLayers, children, onTouchStart, onTouchMove }: HomeRoomFrameProps) {
   return (
-    <div className="fixed inset-0" style={{ zIndex: 0 }} onTouchStart={onTouchStart} onTouchMove={onTouchMove}>
-      {/* The painting */}
-      <div className="absolute inset-0" style={{
-        backgroundImage: `url(${homeRoomArt(dark)})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        WebkitTouchCallout: 'none',
-        WebkitUserSelect: 'none',
-        userSelect: 'none',
-        pointerEvents: 'none',
-      }} />
+    // The floor's own colour under the nav, so nothing shows through if the
+    // bar is ever out of the way while the room is up.
+    <div className="fixed inset-0" style={{ zIndex: 0, background: dark ? '#2D1F1E' : '#F0AD6D' }}
+      onTouchStart={onTouchStart} onTouchMove={onTouchMove}>
+      {/* The art plane: the painting and what's aligned to it (RoomWeather).
+          The identity transform makes it the containing block for their
+          `position: fixed` boxes, as the stage's does below. */}
+      <div className="absolute left-0 right-0 top-0" style={{ bottom: NAV_HEIGHT, transform: 'translate(0, 0)' }}>
+        <div className="absolute inset-0" style={{
+          backgroundImage: `url(${homeRoomArt(dark)})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          WebkitTouchCallout: 'none',
+          WebkitUserSelect: 'none',
+          userSelect: 'none',
+          pointerEvents: 'none',
+        }} />
 
-      {artLayers}
+        {artLayers}
+      </div>
 
       {/* The stage. z 2 keeps it over the art layers (the weather is z 0,
           the happy sparkles z 2 and earlier in the tree), matching the order
