@@ -1,72 +1,137 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { createPortal } from 'react-dom'
+// ─── Quests ──────────────────────────────────────────────────────────────────
+// The quests button in home's row, and the Quests sheet it opens.
+//
+// The sheet is a Meadow sheet, like Me's achievements: a Daily / Weekly switch
+// with each list's count, how far along it is and when it resets, then one row
+// per quest: its icon on a soft tint, what to do, and what it pays (a leaf
+// check once it's done). The ones that count up (2 of 4 care types) carry a
+// meter. Done quests sink to the bottom, so what's left is on top.
+//
+// The button keeps the candy look of its neighbours in the row (cuteBtn): the
+// daily count in amber and the weekly in violet.
+
+import { useState } from 'react'
+import { addWeeks, startOfISOWeek, startOfTomorrow } from 'date-fns'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCouple } from '@/hooks/useCouple'
 import { useCat } from '@/hooks/useCat'
 import { TASK_DEFS, getDailyKey, getWeeklyKey } from '@/lib/tasks'
 import type { TaskId, TaskDef } from '@/types'
-import {
-  IconScroll, IconLightning, IconClock, IconCoin, IconHeart,
-  IconMeat, IconYarn, IconMoonZ, IconBath, IconController,
-  IconStar, IconCrown,
-} from './PixelIcons'
+import { IconScroll } from './PixelIcons'
 import { playSound } from '@/lib/sounds'
-import { PINK, PINK_HI, PINK_LO, OBSIDIAN_BTN, Rivets, pinkText, accentA, cuteBtn, CuteIcon } from './obsidian'
+import { cuteBtn, CuteIcon } from './obsidian'
+import {
+  CheckDisc, Divider, IconTile, MeadowIcon, Meter, Segmented, Sheet,
+  M, TINT, TYPE, type MeadowIconName,
+} from '@/components/meadow'
 
-// Quest pill is a light parchment-tan candy tile — a pale version of the
-// scroll icon's own colour. The counters are colour-coded dark numbers
-// (amber = daily, violet = weekly) so they read crisply on the pale fill
-// without needing separate indicator dots.
+// The button: a light parchment-tan candy tile, a pale version of the scroll
+// icon's own colour. Its counters are colour-coded dark numbers (amber daily,
+// violet weekly) so they read crisply on the pale fill.
 const QUEST_RGB = '232,210,160'
 const COUNTER_SHADOW = '0 1px 0 rgba(255,255,255,0.45)'  // light emboss
 const DAILY_NUM  = '#B45309'   // dark amber  — daily counter
 const WEEKLY_NUM = '#6D28D9'   // dark violet — weekly counter
 
-function TaskIcon({ task, size = 22 }: { task: TaskDef; size?: number }) {
-  switch (task.id) {
-    case 'daily_mood':        return <IconHeart size={size} />
-    case 'daily_feed':        return <IconMeat size={size} />
-    case 'daily_play':        return <IconYarn size={size} />
-    case 'daily_sleep':       return <IconMoonZ size={size} />
-    case 'daily_wash':        return <IconBath size={size} />
-    case 'daily_game':        return <IconController size={size} />
-    case 'weekly_all_care':   return <IconStar size={size} />
-    case 'weekly_all_games':  return <IconCrown size={size} />
-    case 'weekly_high_score': return <IconCrown size={size} />
-    case 'weekly_mood_5':     return <IconClock size={size} />
-    case 'weekly_no_sick':    return <IconHeart size={size} />
-    default:                  return <IconScroll size={size} />
-  }
+type Period = 'daily' | 'weekly'
+
+/** Each quest's icon and the tint behind it, from what you do for it. */
+const QUEST_LOOK: Partial<Record<TaskId, { icon: MeadowIconName; tint: string }>> = {
+  daily_mood:        { icon: 'sun',          tint: TINT.amber },
+  daily_feed:        { icon: 'bowl',         tint: TINT.orange },
+  daily_play:        { icon: 'paw',          tint: TINT.love },
+  daily_sleep:       { icon: 'moon',         tint: TINT.lilac },
+  daily_wash:        { icon: 'drop',         tint: TINT.sky },
+  daily_game:        { icon: 'pad',          tint: TINT.leaf },
+  daily_nudge:       { icon: 'loveLetter',   tint: TINT.love },
+  daily_chem_lesson: { icon: 'doc',          tint: TINT.blue },
+  daily_chem_streak: { icon: 'flame',        tint: TINT.orange },
+  weekly_all_care:   { icon: 'star',         tint: TINT.amber },
+  weekly_all_games:  { icon: 'trophy',       tint: TINT.amber },
+  weekly_high_score: { icon: 'crown',        tint: TINT.amber },
+  weekly_mood_5:     { icon: 'calendarWeek', tint: TINT.sky },
+  weekly_no_sick:    { icon: 'heart',        tint: TINT.love },
+}
+const FALLBACK_LOOK = { icon: 'star' as MeadowIconName, tint: TINT.soft }
+
+/** "Resets in 5h 12m": the daily list turns over at local midnight, the
+ *  weekly one on Monday (ISO weeks), matching getDailyKey / getWeeklyKey. */
+function resetsIn(period: Period, now: Date): string {
+  const next = period === 'daily' ? startOfTomorrow() : startOfISOWeek(addWeeks(now, 1))
+  const mins = Math.max(1, Math.ceil((next.getTime() - now.getTime()) / 60_000))
+  const d = Math.floor(mins / 1440)
+  const h = Math.floor((mins % 1440) / 60)
+  const m = mins % 60
+  if (d > 0) return `Resets in ${d}d ${h}h`
+  if (h > 0) return `Resets in ${h}h ${m}m`
+  return `Resets in ${m}m`
 }
 
-// ── Tier colors used for the daily/weekly counters (semantic tags inside
-// the panel — chrome around them is always purple obsidian). ──
-const DAILY_DOT  = '#F5C842'   // amber — "today's urgent"
-const WEEKLY_DOT = '#A78BFA' // lavender — "longer arc" (kept distinct from the pink chrome)
-
-const DONE_GREEN     = '#86EFAC'
-const DONE_GREEN_DEEP= '#22C55E'
-
-export default function TaskPanel({ compact = false }: { compact?: boolean }) {
-  const { completedIds, taskProgress } = useTasks()
-  const [tab, setTab] = useState<'daily' | 'weekly'>('daily')
-  const [open, setOpen] = useState(false)
-  const { isSolo } = useCouple()
+function QuestRow({ task, done, progress }: { task: TaskDef; done: boolean; progress: number | null }) {
   const cat = useCat()
-  const [mounted, setMounted] = useState(false)
+  const look = QUEST_LOOK[task.id] ?? FALLBACK_LOOK
+  const title = cat.t(task.title)
+  // The quests that count up (2 of 4 care types) show how far along they are.
+  const meter = !done && progress !== null && task.maxProgress ? { at: progress, of: task.maxProgress } : null
+  const label = done
+    ? `${title}, done`
+    : `${title}. ${cat.t(task.desc)}.${meter ? ` ${meter.at} of ${meter.of}.` : ''} Pays ${task.coins} coins and ${task.xp} XP`
 
-  useEffect(() => { setMounted(true) }, [])
+  return (
+    <div role="listitem" aria-label={label}
+      style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0' }}>
+      <IconTile icon={look.icon} size={44} bg={look.tint} iconSize={26}
+        style={{ opacity: done ? 0.55 : 1 }} />
+
+      <span aria-hidden style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <span style={{ fontSize: 16, fontWeight: 800, color: done ? M.text2 : M.text, overflowWrap: 'anywhere' }}>
+          {title}
+        </span>
+        <span style={{ fontSize: 13, lineHeight: 1.35, fontWeight: 500, color: M.text2 }}>
+          {cat.t(task.desc)}
+        </span>
+        {meter && (
+          <span style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Meter value={meter.at / meter.of} height={6} style={{ flex: '1 1 auto' }} />
+            <span style={{ fontSize: 12, color: M.text2, ...TYPE.number }}>{meter.at}/{meter.of}</span>
+          </span>
+        )}
+      </span>
+
+      {done ? (
+        <CheckDisc />
+      ) : (
+        <span aria-hidden style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 14, color: M.text, ...TYPE.number }}>
+            <MeadowIcon name="coin" size={16} />+{task.coins}
+          </span>
+          <span style={{ fontSize: 12, color: M.leafInk, ...TYPE.number }}>+{task.xp} XP</span>
+        </span>
+      )}
+    </div>
+  )
+}
+
+export default function TaskPanel() {
+  const { completedIds, taskProgress } = useTasks()
+  const [tab, setTab] = useState<Period>('daily')
+  const [open, setOpen] = useState(false)
+  // When the sheet opened: the "Resets in" line is worked out from it, so the
+  // render stays a pure function of state (and nothing clock-derived renders
+  // before the first tap).
+  const [openedAt, setOpenedAt] = useState<Date | null>(null)
+  const { isSolo } = useCouple()
 
   const dailyKey   = getDailyKey()
   const weeklyKey  = getWeeklyKey()
   // `daily_nudge` is "Send your partner a nudge", and the sheet that
   // sends one is mounted behind `partner &&`. Left in for a household of one it
   // is a row that can never tick and a denominator that can never be reached:
-  // the chip, the ring and the tab all read x/10 with 10 permanently out of
+  // the chip, the meter and the tab all read x/10 with 10 permanently out of
   // range. Everything below derives from this array, so dropping it here fixes
-  // all four at once.
+  // all of them at once.
   const dailyTasks  = TASK_DEFS.filter(t => t.period === 'daily' && !(isSolo && t.id === 'daily_nudge'))
   const weeklyTasks = TASK_DEFS.filter(t => t.period === 'weekly')
   const dailyDone   = dailyTasks.filter(t => completedIds.has(`${t.id}:${dailyKey}`)).length
@@ -74,245 +139,94 @@ export default function TaskPanel({ compact = false }: { compact?: boolean }) {
 
   const tasks = tab === 'daily' ? dailyTasks : weeklyTasks
   const key   = tab === 'daily' ? dailyKey   : weeklyKey
+  const done  = tab === 'daily' ? dailyDone  : weeklyDone
+  const isDone = (t: TaskDef) => completedIds.has(`${t.id}:${key}`)
+  // What's left first; within each half the catalogue's own order.
+  const rows = [...tasks.filter(t => !isDone(t)), ...tasks.filter(isDone)]
 
-  const modal = mounted && open && createPortal(
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0"
-        style={{ background: 'rgba(8,4,20,0.55)', backdropFilter: 'blur(4px)' }}
-        onClick={() => { playSound('ui_modal_close'); setOpen(false) }}
-      />
-
-      {/* Sheet — obsidian panel docked to the bottom */}
-      <div
-        className="relative max-w-md w-full mx-auto flex flex-col overflow-hidden"
-        style={{
-          background: 'linear-gradient(180deg, #131317 0%, #050507 100%)',
-          borderRadius: '14px 14px 0 0',
-          border: `1px solid ${accentA(0.4)}`,
-          borderBottom: 'none',
-          boxShadow: `0 -10px 30px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)`,
-          maxHeight: '82vh',
-          animation: 'slideUp 0.28s cubic-bezier(0.34,1.56,0.64,1)',
-        }}
-      >
-        <Rivets inset={6} size={3} />
-
-        {/* Handle bar */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div style={{
-            width: 44, height: 4, borderRadius: 2,
-            background: `linear-gradient(90deg, ${PINK_LO}, ${PINK}, ${PINK_LO})`,
-            boxShadow: `0 0 6px ${accentA(0.4)}`,
-          }} />
-        </div>
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3"
-          style={{ borderBottom: `1px solid ${accentA(0.2)}` }}>
-          <div className="flex items-center gap-2">
-            <IconScroll size={20} />
-            <span className="font-pixel" style={{ fontSize: 9, letterSpacing: 1.5, ...pinkText }}>QUESTS</span>
-          </div>
-          <button
-            onClick={() => { playSound('ui_modal_close'); setOpen(false) }}
-            className="w-8 h-8 flex items-center justify-center active:scale-90 transition-transform relative"
-            style={OBSIDIAN_BTN}
-          >
-            <Rivets inset={2} size={2} />
-            <span className="font-pixel" style={{ fontSize: 9, color: PINK_HI }}>X</span>
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex" style={{ borderBottom: `1px solid ${accentA(0.2)}` }}>
-          {(['daily', 'weekly'] as const).map(t => {
-            const active = tab === t
-            const done = t === 'daily' ? dailyDone : weeklyDone
-            const total = t === 'daily' ? dailyTasks.length : weeklyTasks.length
-            const accent = t === 'daily' ? DAILY_DOT : WEEKLY_DOT
-            return (
-              <button key={t} onClick={() => setTab(t)}
-                className="flex-1 py-3 flex items-center justify-center gap-1.5 font-pixel transition-all relative"
-                style={{
-                  fontSize: 8, letterSpacing: 1,
-                  background: active
-                    ? 'linear-gradient(180deg, rgba(167,139,250,0.10), rgba(167,139,250,0))'
-                    : 'transparent',
-                  color: active ? PINK_HI : '#7A6F8C',
-                  borderBottom: active ? `2px solid ${accent}` : '2px solid transparent',
-                  boxShadow: active ? `inset 0 1px 0 rgba(255,255,255,0.06)` : 'none',
-                }}>
-                {t === 'daily' ? <IconLightning size={14} /> : <IconClock size={14} />}
-                <span>{t === 'daily' ? 'DAILY' : 'WEEKLY'}</span>
-                <span className="ml-1" style={{
-                  fontSize: 7,
-                  color: active ? accent : '#5A5267',
-                  textShadow: active ? `0 0 3px ${accent}66` : 'none',
-                }}>
-                  {done}/{total}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Task list */}
-        <div className="overflow-y-auto flex-1 p-4 flex flex-col gap-3">
-          {tasks.map(task => {
-            const isDone    = completedIds.has(`${task.id}:${key}`)
-            const progress  = task.maxProgress ? (taskProgress.get(task.id as TaskId) ?? 0) : null
-            const pct       = progress !== null && task.maxProgress ? Math.min(1, progress / task.maxProgress) : null
-
-            return (
-              <div key={task.id}
-                className="flex items-center gap-3 px-3 py-3 transition-all relative"
-                style={{
-                  borderRadius: 4,
-                  background: isDone
-                    ? 'linear-gradient(180deg, rgba(34,197,94,0.10) 0%, rgba(34,197,94,0.04) 100%)'
-                    : 'linear-gradient(180deg, #131317 0%, #050507 100%)',
-                  border: `1px solid ${isDone ? `${DONE_GREEN}55` : `${accentA(0.2)}`}`,
-                  boxShadow: isDone
-                    ? 'inset 0 1px 0 rgba(255,255,255,0.06)'
-                    : 'inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.4)',
-                }}>
-                <div className="flex-shrink-0 flex items-center justify-center"
-                  style={{
-                    width: 36, height: 36, borderRadius: 4,
-                    background: 'linear-gradient(180deg, #1a1a20 0%, #0a0a0c 100%)',
-                    border: `1px solid ${isDone ? `${DONE_GREEN}66` : `${accentA(0.33)}`}`,
-                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
-                    opacity: isDone ? 0.55 : 1,
-                  }}>
-                  <TaskIcon task={task} size={22} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-pixel" style={{
-                    fontSize: 7, letterSpacing: 0.5,
-                    color: isDone ? DONE_GREEN : PINK_HI,
-                    textDecoration: isDone ? 'line-through' : 'none',
-                    textShadow: isDone ? 'none' : `0 0 3px ${accentA(0.2)}`,
-                    overflowWrap: 'anywhere',
-                  }}>
-                    {cat.t(task.title)}
-                  </p>
-                  <p className="text-[10px] mt-1 leading-snug" style={{ color: '#7A6F8C' }}>{cat.t(task.desc)}</p>
-                  {pct !== null && !isDone && (
-                    <div className="flex items-center gap-1.5 mt-1.5">
-                      <div className="flex-1 h-1.5 overflow-hidden" style={{
-                        background: '#0a0a0c',
-                        boxShadow: `inset 0 1px 2px rgba(0,0,0,0.8), inset 0 0 0 1px ${accentA(0.13)}`,
-                      }}>
-                        <div className="h-full transition-all duration-500"
-                          style={{
-                            width: `${pct * 100}%`,
-                            background: `linear-gradient(90deg, ${PINK_HI}, ${PINK} 60%, ${PINK_LO})`,
-                            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4)',
-                          }} />
-                      </div>
-                      <span className="font-pixel flex-shrink-0" style={{ fontSize: 6, color: PINK_HI }}>
-                        {progress}/{task.maxProgress}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                {isDone ? (
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
-                    style={{
-                      background: `radial-gradient(circle at 35% 28%, ${DONE_GREEN}, ${DONE_GREEN_DEEP})`,
-                      boxShadow: `0 0 0 1.5px ${DONE_GREEN_DEEP}, 0 0 0 3px #000, 0 0 8px ${DONE_GREEN}88`,
-                    }}>
-                    <span className="font-pixel text-white" style={{ fontSize: 11, textShadow: '0 1px 0 rgba(0,0,0,0.4)' }}>✓</span>
-                  </div>
-                ) : (
-                  <div className="flex-shrink-0 flex flex-col items-end gap-1">
-                    <span className="font-pixel inline-flex items-center gap-1" style={{ fontSize: 7, color: '#F5C842', textShadow: '0 0 3px rgba(245,200,66,0.5)' }}>
-                      +{task.coins}
-                      <IconCoin size={10} />
-                    </span>
-                    <span className="font-pixel" style={{ fontSize: 7, color: PINK_HI }}>+{task.xp}XP</span>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-          <div style={{ height: 16 }} />
-        </div>
-      </div>
-    </div>,
-    document.body
+  const count = (n: number, of: number) => (
+    <span style={{ marginLeft: 6, fontWeight: 700, color: M.text2, fontVariantNumeric: 'tabular-nums' }}>{n}/{of}</span>
   )
+
+  function openSheet() {
+    playSound('ui_modal_open')
+    setOpenedAt(new Date())
+    setOpen(true)
+  }
 
   return (
     <>
-      {modal}
+      {/* Full height in both lists, so the Daily / Weekly switch stays put
+          under the finger instead of riding the sheet's top edge. */}
+      <Sheet open={open} onClose={() => { playSound('ui_modal_close'); setOpen(false) }} title="Quests"
+        height="calc(100% - 56px)">
+        <Segmented<Period>
+          ariaLabel="Which quests"
+          value={tab}
+          onChange={t => { playSound('ui_tap'); setTab(t) }}
+          options={[
+            { value: 'daily', label: <>Daily{count(dailyDone, dailyTasks.length)}</> },
+            { value: 'weekly', label: <>Weekly{count(weeklyDone, weeklyTasks.length)}</> },
+          ]}
+        />
+
+        <div style={{ margin: '16px 4px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
+            <span style={{ fontSize: 15, fontWeight: 700, color: M.text2 }}>
+              {done === tasks.length ? (
+                <span style={{ color: M.leafInk, fontWeight: 800 }}>All done</span>
+              ) : (
+                <><span style={{ fontWeight: 800, color: M.text, fontVariantNumeric: 'tabular-nums' }}>{done}</span> of {tasks.length} done</>
+              )}
+            </span>
+            {openedAt && (
+              <span style={{ fontSize: 13, fontWeight: 700, color: M.label, whiteSpace: 'nowrap' }}>
+                {resetsIn(tab, openedAt)}
+              </span>
+            )}
+          </div>
+          <Meter value={tasks.length ? done / tasks.length : 0} label={tab === 'daily' ? 'Daily quests done' : 'Weekly quests done'} />
+
+          <div role="list" style={{ marginTop: 6 }}>
+            {rows.map((task, i) => {
+              const progress = task.maxProgress ? (taskProgress.get(task.id) ?? 0) : null
+              return (
+                <div key={task.id}>
+                  {i > 0 && <Divider inset={58} />}
+                  <QuestRow task={task} done={isDone(task)} progress={progress} />
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </Sheet>
 
       {/* Quest button */}
-      {compact ? (
-        <button
-          onClick={() => { playSound('ui_modal_open'); setOpen(true) }}
-          className="w-full flex items-center gap-2 px-2.5 h-8 active:scale-[0.97] transition-transform relative overflow-hidden"
-          style={cuteBtn(QUEST_RGB)}
-        >
-          <CuteIcon><IconScroll size={20} /></CuteIcon>
+      <button
+        type="button"
+        onClick={openSheet}
+        aria-label={`Quests: ${dailyDone} of ${dailyTasks.length} daily, ${weeklyDone} of ${weeklyTasks.length} weekly`}
+        className="w-full flex items-center gap-2 px-2.5 h-8 active:scale-[0.97] transition-transform relative overflow-hidden"
+        style={cuteBtn(QUEST_RGB)}
+      >
+        <CuteIcon><IconScroll size={20} /></CuteIcon>
 
-          {/* Colour-coded counters: amber daily · violet weekly. A little
-              diamond tags each one, the done count is big and bright, the
-              total dims back — so it reads as progress at a glance. */}
-          <div className="font-pixel flex items-center min-w-0" style={{ whiteSpace: 'nowrap', textShadow: COUNTER_SHADOW, gap: 7 }}>
-            <span className="flex items-center" style={{ gap: 3 }}>
-              <span style={{ width: 4, height: 4, background: DAILY_NUM, transform: 'rotate(45deg)', boxShadow: '0 0 0 1px rgba(0,0,0,0.18)' }} />
-              <span style={{ fontSize: 8, color: DAILY_NUM }}>{dailyDone}</span>
-              <span style={{ fontSize: 6, color: DAILY_NUM, opacity: 0.5 }}>/{dailyTasks.length}</span>
-            </span>
-            <span className="flex items-center" style={{ gap: 3 }}>
-              <span style={{ width: 4, height: 4, background: WEEKLY_NUM, transform: 'rotate(45deg)', boxShadow: '0 0 0 1px rgba(0,0,0,0.18)' }} />
-              <span style={{ fontSize: 8, color: WEEKLY_NUM }}>{weeklyDone}</span>
-              <span style={{ fontSize: 6, color: WEEKLY_NUM, opacity: 0.5 }}>/{weeklyTasks.length}</span>
-            </span>
-          </div>
-        </button>
-      ) : (
-        <button
-          onClick={() => { playSound('ui_modal_open'); setOpen(true) }}
-          className="w-full mb-3 flex items-center gap-2 px-3 py-2 active:scale-[0.98] transition-transform relative"
-          style={OBSIDIAN_BTN}
-        >
-          <Rivets inset={3} size={3} />
-          <IconScroll size={20} />
-          <div className="flex-1 text-left">
-            <p className="font-pixel" style={{ fontSize: 7, letterSpacing: 1, ...pinkText }}>QUESTS</p>
-            <p className="text-[9px] mt-0.5" style={{ color: '#7A6F8C' }}>
-              {dailyDone}/{dailyTasks.length} daily · {weeklyDone}/{weeklyTasks.length} weekly
-            </p>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="relative w-7 h-7">
-              <svg width="28" height="28" viewBox="0 0 32 32" className="-rotate-90">
-                <circle cx="16" cy="16" r="12" fill="none" stroke="#1a1a20" strokeWidth="3" />
-                <circle cx="16" cy="16" r="12" fill="none" stroke={DAILY_DOT} strokeWidth="3"
-                  strokeDasharray={`${2 * Math.PI * 12}`}
-                  strokeDashoffset={`${2 * Math.PI * 12 * (1 - dailyDone / dailyTasks.length)}`}
-                  style={{ transition: 'stroke-dashoffset 0.5s', filter: `drop-shadow(0 0 2px ${DAILY_DOT}88)` }} />
-              </svg>
-              <span className="absolute inset-0 flex items-center justify-center font-pixel" style={{ fontSize: 6, color: '#FFD760' }}>{dailyDone}</span>
-            </div>
-            <div className="relative w-7 h-7">
-              <svg width="28" height="28" viewBox="0 0 32 32" className="-rotate-90">
-                <circle cx="16" cy="16" r="12" fill="none" stroke="#1a1a20" strokeWidth="3" />
-                <circle cx="16" cy="16" r="12" fill="none" stroke={WEEKLY_DOT} strokeWidth="3"
-                  strokeDasharray={`${2 * Math.PI * 12}`}
-                  strokeDashoffset={`${2 * Math.PI * 12 * (1 - weeklyDone / weeklyTasks.length)}`}
-                  style={{ transition: 'stroke-dashoffset 0.5s', filter: `drop-shadow(0 0 2px ${WEEKLY_DOT}88)` }} />
-              </svg>
-              <span className="absolute inset-0 flex items-center justify-center font-pixel" style={{ fontSize: 6, color: PINK_HI }}>{weeklyDone}</span>
-            </div>
-            <span className="font-pixel" style={{ fontSize: 9, color: PINK_HI, opacity: 0.8 }}>▶</span>
-          </div>
-        </button>
-      )}
+        {/* Colour-coded counters: amber daily · violet weekly. A little
+            diamond tags each one, the done count is big and bright, the
+            total dims back — so it reads as progress at a glance. */}
+        <div className="font-pixel flex items-center min-w-0" style={{ whiteSpace: 'nowrap', textShadow: COUNTER_SHADOW, gap: 7 }}>
+          <span className="flex items-center" style={{ gap: 3 }}>
+            <span style={{ width: 4, height: 4, background: DAILY_NUM, transform: 'rotate(45deg)', boxShadow: '0 0 0 1px rgba(0,0,0,0.18)' }} />
+            <span style={{ fontSize: 8, color: DAILY_NUM }}>{dailyDone}</span>
+            <span style={{ fontSize: 6, color: DAILY_NUM, opacity: 0.5 }}>/{dailyTasks.length}</span>
+          </span>
+          <span className="flex items-center" style={{ gap: 3 }}>
+            <span style={{ width: 4, height: 4, background: WEEKLY_NUM, transform: 'rotate(45deg)', boxShadow: '0 0 0 1px rgba(0,0,0,0.18)' }} />
+            <span style={{ fontSize: 8, color: WEEKLY_NUM }}>{weeklyDone}</span>
+            <span style={{ fontSize: 6, color: WEEKLY_NUM, opacity: 0.5 }}>/{weeklyTasks.length}</span>
+          </span>
+        </div>
+      </button>
     </>
   )
 }

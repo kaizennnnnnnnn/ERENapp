@@ -22,7 +22,7 @@ import { HEADER_CLEARANCE } from '@/components/meadow/tokens'
 import WishButton, { type WishButtonProps } from './WishButton'
 
 export interface HomeHudProps {
-  /** The quests bar (TaskPanel compact); flexes to fill the row. */
+  /** The quests bar (TaskPanel); flexes to fill the row. */
   quests: ReactNode
   /** Under the row: the co-op goal bar. */
   footer?: ReactNode

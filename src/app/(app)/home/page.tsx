@@ -789,7 +789,7 @@ export default function HomePage() {
         {/* ══ HUD (below the shared stats header) ══ quests, then the room's
             own shortcuts; Us, Me and Rooms are tabs of the bottom nav now. */}
         <HomeHud
-          quests={<TaskPanel compact />}
+          quests={<TaskPanel />}
           footer={<CoopGoalBar />}
           wish={wish?.wish && wish.status !== 'loading'
             ? { text: wish.text, granted: wish.status === 'granted', weekCount: wish.weekGrantedCount }

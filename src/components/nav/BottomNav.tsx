@@ -13,7 +13,7 @@
 // exactly as the old home door menu did it.
 //
 // Sits at z 45: over page content and home's HUD, under every overlay a page
-// opens (TaskPanel / ReminderSheet at 50, sheets at 60+), and under AppFrame's
+// opens (ReminderSheet at 50, sheets at 60+), and under AppFrame's
 // thin console frame (50), which stays the outermost edge of the screen.
 
 import Link from 'next/link'

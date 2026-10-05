@@ -63,6 +63,9 @@ export interface SheetProps {
   initialFocus?: RefObject<HTMLElement>
   /** Default: all but the top 56px of the screen. */
   maxHeight?: CSSProperties['maxHeight']
+  /** A set height (still capped by maxHeight), for a sheet whose content
+   *  changes size under a control in it, so the control doesn't jump. */
+  height?: CSSProperties['height']
   bodyStyle?: CSSProperties
   /** Default 85: above the nav (45) and the home header (60), under the cloud transition (100). */
   zIndex?: number
@@ -70,7 +73,7 @@ export interface SheetProps {
 
 export function Sheet({
   open, onClose, title, ariaLabel, children, footer, dismissible = true, showClose = true,
-  initialFocus, maxHeight = 'calc(100% - 56px)', bodyStyle, zIndex = 85,
+  initialFocus, maxHeight = 'calc(100% - 56px)', height, bodyStyle, zIndex = 85,
 }: SheetProps) {
   const [host, setHost] = useState<Element | null>(null)
   const [mounted, setMounted] = useState(open)
@@ -185,7 +188,7 @@ export function Sheet({
         onKeyDown={onKeyDown}
         className={closing ? 'm-sheet-out' : 'm-sheet-in'}
         style={{
-          position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight,
+          position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight, height,
           display: 'flex', flexDirection: 'column', background: '#FFFFFF',
           borderRadius: '28px 28px 0 0', outline: 'none',
         }}
