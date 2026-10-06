@@ -1,15 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
+// ─── Send the cat ────────────────────────────────────────────────────────────
+// A one-tap gesture for the other person: pick one of four little animated
+// cats (SketchEren poses) and the cat carries it to them. A Meadow sheet: the
+// four cats on soft tiles, each in a tint of its own; on send, the cat cheers
+// and the sheet drops away by itself.
+
+import { useEffect, useRef, useState } from 'react'
 import { playSound } from '@/lib/sounds'
 import { NUDGE_DEFS, type NudgeDef } from '@/lib/nudges'
 import { useCat } from '@/hooks/useCat'
 import SketchEren from '@/components/SketchEren'
-import {
-  PINK, PINK_HI, OBSIDIAN_FACE, OBSIDIAN_BTN, pinkText, accentA,
-} from '@/components/obsidian'
-import { IconHeartDuo } from '@/components/PixelIcons'
+import { Sheet, M, TINT, GROUND } from '@/components/meadow'
 
 interface Props {
   partnerName: string
@@ -17,125 +19,104 @@ interface Props {
   onClose: () => void
 }
 
+/** Each nudge's tile tint, by its id. */
+const NUDGE_TINT: Record<string, string> = {
+  loveyou: TINT.love,
+  kiss:    GROUND.us,
+  miss:    TINT.sky,
+  think:   TINT.lilac,
+}
+
+/** The sheet's drop-away before the parent unmounts it (Sheet's EXIT_MS). */
+const EXIT_MS = 180
+
 export default function SendErenSheet({ partnerName, onSend, onClose }: Props) {
-  const [mounted, setMounted] = useState(false)
+  const [open, setOpen] = useState(true)
   const [sentLabel, setSentLabel] = useState<string | null>(null)
   const [cooling, setCooling] = useState(false)
   const cat = useCat()
+  const firstName = partnerName.split(' ')[0]
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([])
+  useEffect(() => () => timers.current.forEach(clearTimeout), [])
+  const later = (fn: () => void, ms: number) => { timers.current.push(setTimeout(fn, ms)) }
 
-  useEffect(() => { setMounted(true) }, [])
-
-  if (!mounted) return null
+  // Close in two steps so the sheet can drop away before the parent
+  // unmounts it.
+  function close() {
+    if (!open) return
+    setOpen(false)
+    later(onClose, EXIT_MS)
+  }
 
   async function handlePick(nudge: NudgeDef) {
     if (sentLabel || cooling) return
     playSound('ui_tap')
     const ok = await onSend(nudge)
     if (!ok) {
-      // Within cooldown — show a gentle note and don't close.
+      // Within cooldown: a gentle note, and the sheet stays.
       setCooling(true)
-      setTimeout(() => setCooling(false), 1600)
+      later(() => setCooling(false), 1600)
       return
     }
     setSentLabel(nudge.label)
-    setTimeout(() => { onClose() }, 1300)
+    later(close, 1300)
   }
 
-  return createPortal(
-    <div className="fixed inset-0 z-[60] flex flex-col justify-end">
-      <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.65)' }}
-        onClick={() => { playSound('ui_modal_close'); onClose() }} />
-
-      <div className="relative max-w-md w-full mx-auto flex flex-col overflow-hidden p-4 gap-4"
-        style={{
-          ...OBSIDIAN_FACE,
-          borderRadius: '6px 6px 0 0',
-          borderBottom: 'none',
-          animation: 'sesSlide 0.28s cubic-bezier(0.34,1.56,0.64,1)',
-        }}>
-
-        {/* Handle */}
-        <div className="flex justify-center" style={{ marginTop: -4 }}>
-          <div style={{ width: 36, height: 3, background: PINK, boxShadow: `0 0 4px ${accentA(0.5)}` }} />
-        </div>
-
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <IconHeartDuo size={14} />
-            <span className="font-pixel" style={{ fontSize: 9, letterSpacing: 1.5, overflowWrap: 'anywhere', ...pinkText }}>
-              SEND {cat.name.toUpperCase()} TO {partnerName.split(' ')[0].toUpperCase()}
-            </span>
+  return (
+    <Sheet open={open} onClose={() => { playSound('ui_modal_close'); close() }}
+      title={`Send ${cat.name} to ${firstName}`}>
+      {sentLabel ? (
+        // Sent: the cat is on the way.
+        <div role="status" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '4px 0 12px', textAlign: 'center' }}>
+          <div style={{ animation: 'sesPop 0.4s cubic-bezier(0.34,1.56,0.64,1)' }}>
+            <SketchEren state="cheer" size={112} transparent noSpeech />
           </div>
-          <button onClick={() => { playSound('ui_modal_close'); onClose() }}
-            className="w-7 h-7 flex items-center justify-center active:translate-y-[1px] transition-transform"
-            style={{ ...OBSIDIAN_BTN, color: PINK_HI, fontFamily: '"Press Start 2P"', fontSize: 8 }}>
-            ✕
-          </button>
+          <p style={{ margin: 0, fontSize: 20, fontWeight: 800, color: M.text, overflowWrap: 'anywhere' }}>
+            {cat.t('{name} is on {his} way!')}
+          </p>
+          <p style={{ margin: 0, fontSize: 15, fontWeight: 500, color: M.text2 }}>
+            {firstName} is going to love this.
+          </p>
         </div>
+      ) : (
+        <>
+          <p aria-live="polite" style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 600, color: M.text2, textAlign: 'center' }}>
+            {cooling ? cat.t('{name} needs a quick breather. Try again in a moment.') : 'Pick something to send.'}
+          </p>
 
-        {sentLabel ? (
-          // Confirmation state — Eren on his way
-          <div className="flex flex-col items-center gap-2 py-6">
-            <div style={{ animation: 'sesPop 0.4s cubic-bezier(0.34,1.56,0.64,1)' }}>
-              <SketchEren state="cheer" size={96} transparent noSpeech />
-            </div>
-            <p className="font-pixel text-center" style={{ fontSize: 8, ...pinkText, letterSpacing: 1 }}>
-              {cat.t('{NAME} IS ON {HIS} WAY!')}
-            </p>
-            <p className="text-xs text-center" style={{ color: '#9a8aa8' }}>
-              {partnerName.split(' ')[0]} is going to love this
-            </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {NUDGE_DEFS.map(nudge => (
+              <button
+                key={nudge.id}
+                type="button"
+                onClick={() => handlePick(nudge)}
+                disabled={cooling}
+                aria-label={`Send ${nudge.label}`}
+                className="m-press m-focus"
+                style={{
+                  border: 0, borderRadius: 20, padding: '14px 8px 14px',
+                  background: NUDGE_TINT[nudge.id] ?? M.soft,
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                  fontFamily: 'inherit', color: M.text, cursor: cooling ? 'default' : 'pointer',
+                  opacity: cooling ? 0.5 : 1, transition: 'opacity 0.2s ease',
+                }}
+              >
+                {/* The little animated cat, as it was: only the tile changed. */}
+                <SketchEren state={nudge.state} size={76} transparent noSpeech />
+                <span style={{ fontSize: 15, fontWeight: 800 }}>{nudge.label}</span>
+              </button>
+            ))}
           </div>
-        ) : (
-          <>
-            <p className="font-pixel text-center" style={{ fontSize: 6, color: '#9a8aa8', letterSpacing: 1 }}>
-              {cooling ? cat.t('{NAME} NEEDS A QUICK BREATHER...') : 'PICK SOMETHING TO SEND'}
-            </p>
+        </>
+      )}
 
-            <div className="grid grid-cols-2 gap-2.5">
-              {NUDGE_DEFS.map(nudge => (
-                <button
-                  key={nudge.id}
-                  onClick={() => handlePick(nudge)}
-                  disabled={cooling}
-                  className="flex flex-col items-center gap-1.5 p-3 relative active:translate-y-[1px] transition-transform"
-                  style={{
-                    ...OBSIDIAN_BTN,
-                    opacity: cooling ? 0.5 : 1,
-                  }}
-                >
-                  <div style={{
-                    width: 48, height: 48,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    filter: `drop-shadow(0 0 5px ${accentA(0.3)})`,
-                  }}>
-                    <SketchEren state={nudge.state} size={48} transparent noSpeech />
-                  </div>
-                  <span className="font-pixel" style={{
-                    fontSize: 7, letterSpacing: 1, color: PINK_HI,
-                    textShadow: `0 0 4px ${accentA(0.35)}`,
-                  }}>
-                    {nudge.label.toUpperCase()}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-
+      {/* Global on purpose: an inline animation only resolves global names. */}
       <style jsx global>{`
-        @keyframes sesSlide {
-          0%   { transform: translateY(100%); opacity: 0.6; }
-          100% { transform: translateY(0); opacity: 1; }
-        }
         @keyframes sesPop {
           0%   { transform: scale(0.6); opacity: 0; }
           100% { transform: scale(1); opacity: 1; }
         }
       `}</style>
-    </div>,
-    document.body,
+    </Sheet>
   )
 }

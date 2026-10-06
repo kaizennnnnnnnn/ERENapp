@@ -545,6 +545,8 @@ export default function HomePage() {
         todayTwist={verdict.todayTwist}
         myName={profile?.name?.split(' ')[0] ?? 'You'}
         partnerName={partner?.name?.split(' ')[0] ?? (isSolo ? cat.name : 'Partner')}
+        myHeart={profile?.heart}
+        partnerHeart={partner ? partner.heart : isSolo ? 'sparkle' : null}
         myTitle={profile?.equipped_title}
         myFrame={profile?.equipped_frame}
         partnerTitle={partner?.equipped_title}
