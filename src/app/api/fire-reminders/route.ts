@@ -149,6 +149,12 @@ export async function GET(request: Request) {
   let firedCount = 0
 
   for (const r of dueNow) {
+    // A private reminder whose maker deleted their account (delete_account
+    // nulls created_by and keeps the row) has no one left to remind, and
+    // logging it with user_id null below would file it as a SHARED fire:
+    // its private text in the partner's "Missed" list.
+    if (r.is_private && !r.created_by) continue
+
     // Dedup — has this reminder already fired recently?
     const { data: recent } = await supabase
       .from('reminder_fires')
