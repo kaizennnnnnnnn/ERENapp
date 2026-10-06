@@ -1,5 +1,6 @@
 import type { DonutKey, FoodKey } from '@/types'
 import { DONUTS } from './donuts'
+import { CAN_ART_V } from './canArtData'
 
 // ─── Food display metadata ───────────────────────────────────────────────────
 // Name + swatch colour for every food key, shared by the couple surfaces that
@@ -64,20 +65,20 @@ export const FOOD_META: Record<FoodKey, { name: string; color: string }> = {
   stew:          { name: 'Stew',          color: '#8E5A2E' },
   meatballs:     { name: 'Meatballs',     color: '#C4452F' },
   roast_chicken: { name: 'Roast Chicken', color: '#D8973C' },
-  monsta_original: { name: 'Original Monsta',       color: '#A6E728' },
-  monsta_white:    { name: 'Frost Monsta',          color: '#2FBCB3' },
-  monsta_mango:    { name: 'Mango Monsta',          color: '#F9A300' },
-  monsta_loco:     { name: 'Wave Monsta',           color: '#69C7EB' },
-  monsta_pipeline: { name: 'Guava Monsta',          color: '#F96679' },
-  monsta_punch:    { name: 'Berry Monsta',          color: '#E9665C' },
-  monsta_rosa:     { name: 'Dragonfruit Monsta',    color: '#D05C8D' },
-  monsta_peachy:   { name: 'Peach Monsta',          color: '#F9AB94' },
-  // Violet, not the old green — Original Monsta now owns the can-green, and
+  monsta_original: { name: 'Original Purrbolt',       color: '#A6E728' },
+  monsta_white:    { name: 'Frost Purrbolt',          color: '#2FBCB3' },
+  monsta_mango:    { name: 'Mango Purrbolt',          color: '#F9A300' },
+  monsta_loco:     { name: 'Wave Purrbolt',           color: '#69C7EB' },
+  monsta_pipeline: { name: 'Guava Purrbolt',          color: '#F96679' },
+  monsta_punch:    { name: 'Berry Purrbolt',          color: '#E9665C' },
+  monsta_rosa:     { name: 'Dragonfruit Purrbolt',    color: '#D05C8D' },
+  monsta_peachy:   { name: 'Peach Purrbolt',          color: '#F9AB94' },
+  // Violet, not the old green — Original Purrbolt now owns the can-green, and
   // the rainbow's colour is carried by its animated gradient anyway.
-  monsta_rainbow:  { name: 'Rainbow Monsta',        color: '#B65CF0' },
+  monsta_rainbow:  { name: 'Rainbow Purrbolt',        color: '#B65CF0' },
   // Sampled off the can art's dominant body tone, so the swatch and the
   // sprite are the same gold rather than two guesses at one.
-  monsta_gold:     { name: 'Gold Monsta',           color: '#D89C24' },
+  monsta_gold:     { name: 'Gold Purrbolt',           color: '#D89C24' },
 }
 
 // Display order for food pickers — staples first (the everyday cat food), then
@@ -98,6 +99,10 @@ export const FOOD_ORDER: FoodKey[] = [
   ...DONUTS.map(d => d.id),
 ]
 
+// foodArt()'s cache-bust for plates and donuts (see below). Bump it when
+// their art changes. The cans' version is generated with their art.
+const FOOD_ART_V = 4
+
 /**
  * URL for a plate/can PNG in public/food.
  *
@@ -107,5 +112,18 @@ export const FOOD_ORDER: FoodKey[] = [
  * gacha's item art resolve through here — same string, so the two share one
  * cache entry instead of fetching identical bytes under two URLs, and the
  * version can't drift between them.
+ *
+ * The energy cans carry their own version. Their art is cut as one set by
+ * scripts/cut_monsta_sheet.py, which writes CAN_ART_V (a hash of the pixels)
+ * into canArtData.ts, so a re-cut can't ship new art under an old ?v=. A
+ * shared number would also make every phone re-download every plate and donut.
  */
-export const foodArt = (id: string): string => `/food/${id}.png?v=4`
+export const foodArt = (id: string): string =>
+  `/food/${id}.png?v=${id.startsWith('monsta_') ? CAN_ART_V : FOOD_ART_V}`
+
+/**
+ * URL for one of the moving effect layers that sit around a special-edition
+ * can (public/food/fx, see components/care/CanFx). They are cut in the same run
+ * as the cans, so they share the cans' version.
+ */
+export const canFxArt = (layer: string): string => `/food/fx/${layer}.png?v=${CAN_ART_V}`

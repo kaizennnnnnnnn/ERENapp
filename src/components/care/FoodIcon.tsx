@@ -1,6 +1,7 @@
 'use client'
 
 import { foodArt } from '@/lib/foodMeta'
+import CanFx, { hasCanFx } from './CanFx'
 
 // Every food's art, in ONE place. The kitchen shop/fridge/tray and the
 // couple gift picker both render food through here, so a dish can never look
@@ -23,8 +24,10 @@ const FOOD_IMAGE_IDS = new Set([
   // Biscuit is the fish-SHAPED one (paw-stamped cat biscuit, not a fresh fish —
   // `fish` has no art yet and keeps its SVG).
   'kibble', 'biscuit', 'tuna', 'salmon', 'shrimp', 'cake', 'jelly_caka',
-  // Monsta cans. The normaliser clamps tall art to the box height, so every
-  // can ends up the same 124px height — they line up as a set.
+  // Monsta cans. Cut from the owner's sheet by scripts/cut_monsta_sheet.py
+  // (the normaliser skips them): 256px canvases at ONE scale shared by all ten,
+  // each centred on its body and standing on the same baseline, so they line
+  // up as a set. Rainbow and Gold also get moving FX layers (see CanFx).
   'monsta_original', 'monsta_white', 'monsta_mango', 'monsta_loco',
   'monsta_pipeline', 'monsta_punch', 'monsta_rosa', 'monsta_peachy',
   'monsta_rainbow', 'monsta_gold',
@@ -42,19 +45,31 @@ export default function FoodIcon({ id, size = 32 }: { id: string; color?: string
   const r = (x: number, y: number, w: number, h: number, f: string) =>
     <rect x={x} y={y} width={w} height={h} fill={f} />
 
-  // Pixel-art plates. These are hi-res sources downscaled to 128px, so they
-  // render SMOOTH (image-rendering auto) — `pixelated` would alias the
-  // non-integer downscale into a shimmering mess. Same rule as the Eren body
-  // sprites; only the true 10×10 SVGs below are pixel-snapped.
+  // Pixel-art plates. These are hi-res sources downscaled to 128px (the cans
+  // to 256px), so they render SMOOTH (image-rendering auto) — `pixelated` would
+  // alias the non-integer downscale into a shimmering mess. Same rule as the
+  // Eren body sprites; only the true 10×10 SVGs below are pixel-snapped.
   //
   // Every PNG is a square canvas with the dish centred and scaled to one
-  // visual size (`scripts/normalize_food_art.py`), so `contain` centres the
-  // food itself and no dish outweighs another. foodArt() carries the cache-bust
-  // and is shared with the gacha's item art.
-  if (FOOD_IMAGE_IDS.has(id) || isDonut(id)) return (
-    <img src={foodArt(id)} alt="" draggable={false} width={S} height={S}
-      style={{ width: S, height: S, objectFit: 'contain', display: 'block' }} />
-  )
+  // visual size (`scripts/normalize_food_art.py`; the cans come from
+  // `scripts/cut_monsta_sheet.py`), so `contain` centres the food itself and
+  // no dish outweighs another. foodArt() carries the cache-bust and is shared
+  // with the gacha's item art.
+  if (FOOD_IMAGE_IDS.has(id) || isDonut(id)) {
+    const art = (
+      <img src={foodArt(id)} alt="" draggable={false} width={S} height={S}
+        style={{ width: S, height: S, objectFit: 'contain', display: 'block' }} />
+    )
+    if (!hasCanFx(id)) return art
+    // A special-edition can: its sparkles or rays are separate layers laid
+    // over the can's own box, so they need a positioned box of the same size.
+    return (
+      <span style={{ position: 'relative', display: 'block', width: S, height: S }}>
+        {art}
+        <CanFx id={id} />
+      </span>
+    )
+  }
 
   if (id === 'treat') return (
     <svg width={S} height={S} viewBox={V} shapeRendering="crispEdges" style={base}>

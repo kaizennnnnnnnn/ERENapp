@@ -18,7 +18,7 @@
 
 import { useMemo } from 'react'
 import { ChevronLeft } from 'lucide-react'
-import { RARITY_COLORS, getCategoryLabel, getItemsByCategory } from '@/lib/gacha'
+import { RARITY_COLORS, GACHA_FOOD_GRANT, getCategoryLabel, getItemsByCategory } from '@/lib/gacha'
 import { frameFor, lockedArt } from '@/lib/rarityFrame'
 import { skinUnlockDrink } from '@/lib/skins'
 import { FOOD_META } from '@/lib/foodMeta'
@@ -26,6 +26,7 @@ import type { GachaCategory, GachaItemDef, FoodKey } from '@/types'
 import { playSound } from '@/lib/sounds'
 import { useCat } from '@/hooks/useCat'
 import { swapCatName } from '@/lib/catWords'
+import CanFx, { hasCanFx } from '@/components/care/CanFx'
 import {
   IconBook, IconCatFace, IconCan, IconLock, IconPaw, IconCake, IconCrown, IconSparkles,
 } from '@/components/PixelIcons'
@@ -48,6 +49,37 @@ const SKIN_SECTIONS = [
   { key: 'animal',  label: 'ANIMAL COSTUMES', Icon: IconPaw,   match: (i: GachaItemDef) => !i.unlock && i.skinSet === 'animal' },
   { key: 'food',    label: 'FOODSUITS',       Icon: IconCake,  match: (i: GachaItemDef) => !i.unlock && i.skinSet === 'food' },
 ]
+
+/**
+ * An item's picture, `fill` of its square box — shared by the card and the
+ * detail sheet.
+ *
+ * Skins and cans are hi-res art downscaled several times, so they render
+ * smooth: `pixelated` would crawl a seam on a skin and alias a can's outline.
+ * A special-edition can also brings its moving sparkles or rays (CanFx), found
+ * through the fridge food the pull grants. They share a box and the locked
+ * filter with the can, so a locked card is still one silhouette.
+ */
+function ItemArt({ item, fill, locked }: { item: GachaItemDef; fill: string; locked: boolean }) {
+  const food = GACHA_FOOD_GRANT[item.id]
+  const smooth = item.category === 'skin' || (food !== undefined && food.startsWith('monsta_'))
+  const filter = locked ? lockedArt : 'none'
+
+  if (food === undefined || !hasCanFx(food)) return (
+    <img src={item.image} alt="" draggable={false} style={{
+      width: fill, height: fill, objectFit: 'contain',
+      imageRendering: smooth ? 'auto' : 'pixelated',
+      filter,
+    }} />
+  )
+  return (
+    <span style={{ position: 'relative', display: 'block', width: fill, height: fill, filter }}>
+      <img src={item.image} alt="" draggable={false}
+        style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+      <CanFx id={food} />
+    </span>
+  )
+}
 
 /**
  * Where an item actually comes from — the answer a locked tap is asking for.
@@ -314,13 +346,7 @@ function ItemCard({ item, owned, quantity, onClick }: {
       ))}
 
       <div className="flex items-center justify-center" style={{ width: '100%', aspectRatio: '1' }}>
-        <img src={item.image} alt="" draggable={false} style={{
-          width: '88%', height: '88%', objectFit: 'contain',
-          // Skins are hi-res PNGs downscaled ~6x — pixelated would crawl a seam
-          // on them. Only the can art is true pixel art.
-          imageRendering: item.category === 'skin' ? 'auto' : 'pixelated',
-          filter: locked ? lockedArt : 'none',
-        }} />
+        <ItemArt item={item} fill="88%" locked={locked} />
       </div>
 
       <span className="font-pixel text-center leading-tight" style={{
@@ -391,11 +417,7 @@ function ItemSheet({ item, owned, quantity, onUse, onCloset, onClose }: {
           background: owned ? 'rgba(255,255,255,0.05)' : 'rgba(6,4,14,0.7)',
           border: `2px solid ${owned ? colors.border : 'rgba(167,139,250,0.22)'}`,
         }}>
-          <img src={item.image} alt="" draggable={false} style={{
-            width: '86%', height: '86%', objectFit: 'contain',
-            imageRendering: item.category === 'skin' ? 'auto' : 'pixelated',
-            filter: owned ? 'none' : lockedArt,
-          }} />
+          <ItemArt item={item} fill="86%" locked={!owned} />
         </div>
 
         <p className="font-pixel text-center" style={{ fontSize: 9, color: '#fff', lineHeight: 1.5 }}>

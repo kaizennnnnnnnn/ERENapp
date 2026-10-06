@@ -8,7 +8,7 @@
 // glow. Both halves of that are on this project's do-not list — `top` is
 // layout-bound (globals rule: animate transform/opacity only) and a blurred
 // shadow on a per-frame-moving element re-rasterizes its layer every frame,
-// which is the exact jank CanAura.tsx documents. It also forced a full React
+// which is exactly the jank a per-frame blurred shadow causes. It also forced a full React
 // re-render of the whole page 60 times a second just to reposition six divs.
 //
 // Canvas fixes all three at once, and buys the thing that actually makes a

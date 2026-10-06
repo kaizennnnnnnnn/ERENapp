@@ -1941,3 +1941,47 @@ html.m-scroll-lock, html.m-scroll-lock body { overflow: hidden; }
   0%, 100% { transform: translateY(0) scale(1);       opacity: 0.5; }
   50%      { transform: translateY(-8px) scale(1.15); opacity: 1; }
 }
+
+/* ── Special-edition can FX (components/care/CanFx.tsx) ────────────────────
+   The Rainbow can's floating sparkles and the Gold can's ray dashes, cut from
+   the owner's drawing as separate layers so they can move while the can holds
+   still. They live here because CanFx is drawn by FoodIcon, the gacha reveal
+   and the collection, and a keyframe in one component's <style jsx> would not
+   reach the others. Each layer sets its own duration and (negative) delay
+   inline. The classes only give the shape of the motion.
+
+   steps(1, end): every keyframe is held until the next one, so these snap
+   between poses like the rest of the app instead of fading. Translate is in %
+   of the layer, which is 150% of the can, so the travel scales with the art:
+   -1% is about 1px on a 62px shop can and 2px on the 136px gacha reveal. */
+
+/* A sparkle rests for most of its cycle, then twinkles: two frames shrinking,
+   one frame popping 20% big and lifted, a beat held up, back down. Scale only,
+   no fade: the yellow sparkle at half opacity reads as mustard on a dark card. */
+@keyframes canFxTwinkle {
+  0%, 86%, 100% { transform: translateY(0)   scale(1); }
+  56%           { transform: translateY(0)   scale(0.7); }
+  62%           { transform: translateY(0)   scale(0.45); }
+  68%           { transform: translateY(-1%) scale(1.2); }
+  76%           { transform: translateY(-1%) scale(1); }
+}
+/* A ray set glints: it pushes outward from the can's centre (transform-origin)
+   in three frames and settles, then later blinks off for one frame. The two
+   sets run half a cycle apart, so one set is glinting while the other blinks.
+   Opacity is only ever 0 or 1: half-transparent yellow over a dark card reads
+   as brown, not as light. The blink is what still reads at 25-44px, where the
+   push itself is only about a pixel. */
+@keyframes canFxRays {
+  0%, 30%, 100% { transform: scale(1);    opacity: 1; }
+  7%            { transform: scale(1.06); opacity: 1; }
+  13%           { transform: scale(1.12); opacity: 1; }
+  21%           { transform: scale(1.06); opacity: 1; }
+  58%           { transform: scale(1);    opacity: 0; }
+  64%           { transform: scale(1);    opacity: 1; }
+}
+.canfx-sparkle { animation: canFxTwinkle 3.6s steps(1, end) infinite both; }
+.canfx-ray     { animation: canFxRays    3.4s steps(1, end) infinite both; }
+@media (prefers-reduced-motion: reduce) {
+  /* Still and fully visible, exactly as drawn. */
+  .canfx-sparkle, .canfx-ray { animation: none; }
+}

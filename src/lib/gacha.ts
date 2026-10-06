@@ -1,7 +1,7 @@
 import type { GachaItemDef, GachaBannerDef, GachaRarity, GachaCategory, FoodKey } from '@/types'
 import { SKIN_GACHA_ITEMS } from './skins'
 import { GACHA_DONUTS } from './donuts'
-import { foodArt } from './foodMeta'
+import { FOOD_META, foodArt } from './foodMeta'
 
 /**
  * The Snacks & Drinks jackpot. Named because the gacha screen fires the energy
@@ -81,19 +81,19 @@ export const GACHA_ITEMS: GachaItemDef[] = [
   // using one straight from the collection does. The flavour's own perk lands
   // when you FEED it in the kitchen (see lib/monstaBuffs.ts), which is why each
   // description names its perk rather than an energy number.
-  { id: 'cons_monsta_original',  name: 'Original Monsta',   category: 'consumable', rarity: 'rare',      description: 'Full energy. Feed it for 40 coins back.',         buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_original') },
-  { id: 'cons_monsta_white',     name: 'White Monsta',      category: 'consumable', rarity: 'common',    description: 'Full energy. Feed it to burn 0.25 kg.',           buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_white') },
-  { id: 'cons_monsta_mango',     name: 'Mango Monsta',      category: 'consumable', rarity: 'rare',      description: 'Full energy. Feed it for +35 happiness.',         buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_mango') },
-  { id: 'cons_monsta_loco',      name: 'Loco Monsta',       category: 'consumable', rarity: 'rare',      description: 'Full energy. Feed it for +35 hunger.',            buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_loco') },
-  { id: 'cons_monsta_pipeline',  name: 'Pipeline Monsta',   category: 'consumable', rarity: 'rare',      description: 'Full energy. Feed it for +35 cleanliness.',       buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_pipeline') },
-  { id: 'cons_monsta_punch',     name: 'Punch Monsta',      category: 'consumable', rarity: 'rare',      description: 'Full energy. Feed it to knock a sickness out.',   buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_punch') },
-  { id: 'cons_monsta_rosa',      name: 'Rosa Monsta',       category: 'consumable', rarity: 'epic',      description: 'Full energy. Feed it for +35 sleep quality.',     buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_rosa') },
-  { id: 'cons_monsta_peachy',    name: 'Peachy Monsta',     category: 'consumable', rarity: 'epic',      description: 'Full energy. Feed it for +20 joy and sleep.',     buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_peachy') },
+  { id: 'cons_monsta_original',  name: FOOD_META.monsta_original.name, category: 'consumable', rarity: 'rare',      description: 'Full energy. Feed it for 40 coins back.',         buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_original') },
+  { id: 'cons_monsta_white',     name: FOOD_META.monsta_white.name, category: 'consumable', rarity: 'common',    description: 'Full energy. Feed it to burn 0.25 kg.',           buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_white') },
+  { id: 'cons_monsta_mango',     name: FOOD_META.monsta_mango.name, category: 'consumable', rarity: 'rare',      description: 'Full energy. Feed it for +35 happiness.',         buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_mango') },
+  { id: 'cons_monsta_loco',      name: FOOD_META.monsta_loco.name, category: 'consumable', rarity: 'rare',      description: 'Full energy. Feed it for +35 hunger.',            buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_loco') },
+  { id: 'cons_monsta_pipeline',  name: FOOD_META.monsta_pipeline.name, category: 'consumable', rarity: 'rare',      description: 'Full energy. Feed it for +35 cleanliness.',       buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_pipeline') },
+  { id: 'cons_monsta_punch',     name: FOOD_META.monsta_punch.name, category: 'consumable', rarity: 'rare',      description: 'Full energy. Feed it to knock a sickness out.',   buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_punch') },
+  { id: 'cons_monsta_rosa',      name: FOOD_META.monsta_rosa.name, category: 'consumable', rarity: 'epic',      description: 'Full energy. Feed it for +35 sleep quality.',     buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_rosa') },
+  { id: 'cons_monsta_peachy',    name: FOOD_META.monsta_peachy.name, category: 'consumable', rarity: 'epic',      description: 'Full energy. Feed it for +20 joy and sleep.',     buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_peachy') },
   // The two SPECIAL EDITIONs share the legendary tier, which means they SPLIT
   // it: rollItem picks uniformly inside a tier, so each is now 1.5% a pull
   // rather than the rainbow's old 3%. That's the price of a second jackpot.
-  { id: MONSTA_RAINBOW_ID,       name: 'Rainbow Monsta',    category: 'consumable', rarity: 'legendary', description: 'Full energy. Feed it for EVERY buff at once.',    buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_rainbow') },
-  { id: MONSTA_GOLD_ID,          name: 'Gold Monsta',       category: 'consumable', rarity: 'legendary', description: 'Full energy. Feed it for 60 coins and +60 joy.',  buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_gold') },
+  { id: MONSTA_RAINBOW_ID,       name: FOOD_META.monsta_rainbow.name, category: 'consumable', rarity: 'legendary', description: 'Full energy. Feed it for EVERY buff at once.',    buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_rainbow') },
+  { id: MONSTA_GOLD_ID,          name: FOOD_META.monsta_gold.name, category: 'consumable', rarity: 'legendary', description: 'Full energy. Feed it for 60 coins and +60 joy.',  buff: { stat: 'energy', amount: 100 }, image: foodArt('monsta_gold') },
 
   // ── MACHINE-ONLY DONUTS ────────────────────────────────────────────────
   // Three donuts the bakery will never put out, so the machine is the only

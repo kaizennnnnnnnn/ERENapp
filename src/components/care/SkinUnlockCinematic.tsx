@@ -22,8 +22,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import BlinkingEren from '@/components/BlinkingEren'
-import CanFeedBurst from './CanFeedBurst'
-import type { CanVariant } from './CanAura'
+import CanFeedBurst, { type CanVariant } from './CanFeedBurst'
 import { IconSparkles, IconDress } from '@/components/PixelIcons'
 import { RARITY_COLORS } from '@/lib/gacha'
 import type { SkinDef } from '@/lib/skins'

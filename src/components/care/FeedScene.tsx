@@ -48,6 +48,7 @@ import CareToast from '@/components/care/CareToast'
 import { useLongPress } from '@/hooks/useLongPress'
 import { IconClose, IconChevronLeft, IconChevronRight } from '@/components/PixelIcons'
 import RoomWeather from '@/components/weather/RoomWeather'
+import { FOOD_META } from '@/lib/foodMeta'
 
 interface Props { onClose: () => void }
 
@@ -87,23 +88,25 @@ const SHOP_ITEMS = [
   { id: 'egg'     as const, name: 'Egg',        price: 4,  hungerD: 16, happyD: 0,  weightD: 0.03, desc: 'Simple & nutritious',color: '#F5E6C8', cat: 'dairy'   },
   { id: 'cookie'     as const, name: 'Cookie',      price: 7,  hungerD: 8,  happyD: 18, weightD: 0.02, desc: 'Choc-chip warm',   color: '#C89A6B', cat: 'sweets'  },
   { id: 'jelly_caka' as const, name: 'Jelly Caka',  price: 20, hungerD: 14, happyD: 30, weightD: 0.05, desc: 'Sweet wobble',     color: '#E83A4A', cat: 'sweets'  },
-  // Monsta flavours — the can family.
+  // Purrbolt flavours — the can family (ids keep the old monsta_ prefix: they
+  // are stored in fridges, inventories and gifts). Names come from FOOD_META so
+  // the shop, the fridge and the gacha can't drift apart again.
   // Barely any hunger, near-zero weight: they're drinks, not meals. What you
   // actually buy is the ENERGY (every can fills the bar) plus that flavour's
   // own perk — see MONSTA_BUFFS in lib/monstaBuffs.ts. One flat MONSTA_PRICE
   // for all ten, so you pick a can for what it does, never for what it costs.
   // That only holds while no can pays back more than it costs: every coin perk
   // in MONSTA_BUFFS stays under MONSTA_PRICE, or the shop mints money.
-  { id: 'monsta_original' as const, name: 'Original Monsta', price: MONSTA_PRICE, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'The green classic', color: '#A6E728', cat: 'energy'  },
-  { id: 'monsta_white'    as const, name: 'White Monsta',    price: MONSTA_PRICE, hungerD: 5, happyD: 16, weightD: 0.01, desc: 'Zero sugar ultra',  color: '#2FBCB3', cat: 'energy'  },
-  { id: 'monsta_mango'    as const, name: 'Mango Monsta',    price: MONSTA_PRICE, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'Mango loco kick',   color: '#F9A300', cat: 'energy'  },
-  { id: 'monsta_loco'     as const, name: 'Loco Monsta',     price: MONSTA_PRICE, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'Tropical loco',     color: '#69C7EB', cat: 'energy'  },
-  { id: 'monsta_pipeline' as const, name: 'Pipeline Monsta', price: MONSTA_PRICE, hungerD: 5, happyD: 17, weightD: 0.01, desc: 'Pipeline punch',    color: '#F96679', cat: 'energy'  },
-  { id: 'monsta_punch'    as const, name: 'Punch Monsta',    price: MONSTA_PRICE, hungerD: 5, happyD: 17, weightD: 0.01, desc: 'Punchy citrus',     color: '#E9665C', cat: 'energy'  },
-  { id: 'monsta_rosa'     as const, name: 'Rosa Monsta',     price: MONSTA_PRICE, hungerD: 5, happyD: 19, weightD: 0.01, desc: 'Ultra rosa fizz',   color: '#D05C8D', cat: 'energy'  },
-  { id: 'monsta_peachy'   as const, name: 'Peachy Monsta',   price: MONSTA_PRICE, hungerD: 5, happyD: 19, weightD: 0.01, desc: 'Peachy keen',       color: '#F9AB94', cat: 'energy'  },
-  { id: 'monsta_rainbow'  as const, name: 'Rainbow Monsta',  price: MONSTA_PRICE, hungerD: 8, happyD: 40, weightD: 0.01, desc: 'Ultimate blast',    color: '#B65CF0', cat: 'energy'  },
-  { id: 'monsta_gold'     as const, name: 'Gold Monsta',     price: MONSTA_PRICE, hungerD: 8, happyD: 40, weightD: 0.01, desc: 'Special edition',   color: '#D89C24', cat: 'energy'  },
+  { id: 'monsta_original' as const, name: FOOD_META.monsta_original.name, price: MONSTA_PRICE, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'The green classic', color: '#A6E728', cat: 'energy'  },
+  { id: 'monsta_white'    as const, name: FOOD_META.monsta_white.name, price: MONSTA_PRICE, hungerD: 5, happyD: 16, weightD: 0.01, desc: 'Frosty and crisp',  color: '#2FBCB3', cat: 'energy'  },
+  { id: 'monsta_mango'    as const, name: FOOD_META.monsta_mango.name, price: MONSTA_PRICE, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'Sunny mango',   color: '#F9A300', cat: 'energy'  },
+  { id: 'monsta_loco'     as const, name: FOOD_META.monsta_loco.name, price: MONSTA_PRICE, hungerD: 6, happyD: 18, weightD: 0.01, desc: 'Cool blue wave',     color: '#69C7EB', cat: 'energy'  },
+  { id: 'monsta_pipeline' as const, name: FOOD_META.monsta_pipeline.name, price: MONSTA_PRICE, hungerD: 5, happyD: 17, weightD: 0.01, desc: 'Pink guava fizz',    color: '#F96679', cat: 'energy'  },
+  { id: 'monsta_punch'    as const, name: FOOD_META.monsta_punch.name, price: MONSTA_PRICE, hungerD: 5, happyD: 17, weightD: 0.01, desc: 'Wild berry',     color: '#E9665C', cat: 'energy'  },
+  { id: 'monsta_rosa'     as const, name: FOOD_META.monsta_rosa.name, price: MONSTA_PRICE, hungerD: 5, happyD: 19, weightD: 0.01, desc: 'Dragonfruit fizz',   color: '#D05C8D', cat: 'energy'  },
+  { id: 'monsta_peachy'   as const, name: FOOD_META.monsta_peachy.name, price: MONSTA_PRICE, hungerD: 5, happyD: 19, weightD: 0.01, desc: 'Soft peach',       color: '#F9AB94', cat: 'energy'  },
+  { id: 'monsta_rainbow'  as const, name: FOOD_META.monsta_rainbow.name, price: MONSTA_PRICE, hungerD: 8, happyD: 40, weightD: 0.01, desc: 'Every perk at once',    color: '#B65CF0', cat: 'energy'  },
+  { id: 'monsta_gold'     as const, name: FOOD_META.monsta_gold.name, price: MONSTA_PRICE, hungerD: 8, happyD: 40, weightD: 0.01, desc: 'Special edition',   color: '#D89C24', cat: 'energy'  },
 
   // ─── World dishes ────────────────────────────────────────────────────────
   // Full plated meals (pixel-art art in /public/food), grouped by cuisine so

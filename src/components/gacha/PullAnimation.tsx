@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import type { GachaPullResult } from '@/types'
-import { RARITY_COLORS } from '@/lib/gacha'
+import { RARITY_COLORS, GACHA_FOOD_GRANT } from '@/lib/gacha'
 import { playSound } from '@/lib/sounds'
 import { getSkin } from '@/lib/skins'
 import SkinPodium from './SkinPodium'
 import { useCat } from '@/hooks/useCat'
 import { swapCatName } from '@/lib/catWords'
+import CanFx, { hasCanFx } from '@/components/care/CanFx'
 
 interface Props {
   results: GachaPullResult[]
@@ -30,12 +31,12 @@ interface Props {
 // common still reads as a common at a glance.
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Sized to the ART, not to taste. Every food/can/donut PNG is a 128px canvas
+// Sized to the ART, not to taste. Every food/donut PNG is a 128px canvas
 // whose content is clamped to 124px (normalize_food_art.py MAX_SIDE), so 172px
 // was a 1.34x upscale and the cans visibly went soft. 136 renders the content
 // at ~132px — a 1.06x upscale nobody can see — and is still 72% bigger than the
-// 79px box this replaced. Going bigger needs 2x source art, which exists for
-// only two of the ten cans.
+// 79px box this replaced. The cans are 256px sources now
+// (scripts/cut_monsta_sheet.py); the plates and donuts are what cap the size.
 const ITEM_PX = 136
 
 interface RevealTier {
@@ -101,6 +102,10 @@ export default function PullAnimation({ results, onDone, skipCapsule = false }: 
   const tier    = REVEAL[current.item.rarity]
   const skinDef = current.item.skinId ? getSkin(current.item.skinId) : undefined
   const itemName = swapCatName(current.item.name, cat)
+  // A special-edition can brings its moving sparkles/rays (see CanFx). Found
+  // through the fridge food the pull grants, never by matching the image URL.
+  const fxFood  = GACHA_FOOD_GRANT[current.item.id]
+  const canFx   = fxFood !== undefined && hasCanFx(fxFood) ? fxFood : null
 
   function nextItem() {
     if (currentIdx < results.length - 1) {
@@ -172,16 +177,35 @@ export default function PullAnimation({ results, onDone, skipCapsule = false }: 
               ))}
 
               {/* The prize itself — no box. It carries its own shadow so it
-                  reads as an object sitting in light, not a sticker. */}
-              <img src={current.item.image} alt={itemName} draggable={false}
-                className="relative"
-                style={{
-                  width: ITEM_PX, height: ITEM_PX, objectFit: 'contain',
-                  imageRendering: 'auto',
+                  reads as an object sitting in light, not a sticker. A can
+                  with FX gets a box of its own so the sparkles/rays move as
+                  one piece with it; the shadow stays on the can, which is
+                  what stands on the disc. */}
+              {canFx ? (
+                <div className="relative" style={{
+                  width: ITEM_PX, height: ITEM_PX,
                   marginBottom: 14,
-                  filter: `drop-shadow(0 6px 10px rgba(0,0,0,0.55)) drop-shadow(0 0 16px ${colors.glow})`,
                   animation: 'itemBounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both',
-                }} />
+                }}>
+                  <img src={current.item.image} alt={itemName} draggable={false}
+                    style={{
+                      width: ITEM_PX, height: ITEM_PX, objectFit: 'contain',
+                      imageRendering: 'auto',
+                      filter: `drop-shadow(0 6px 10px rgba(0,0,0,0.55)) drop-shadow(0 0 16px ${colors.glow})`,
+                    }} />
+                  <CanFx id={canFx} />
+                </div>
+              ) : (
+                <img src={current.item.image} alt={itemName} draggable={false}
+                  className="relative"
+                  style={{
+                    width: ITEM_PX, height: ITEM_PX, objectFit: 'contain',
+                    imageRendering: 'auto',
+                    marginBottom: 14,
+                    filter: `drop-shadow(0 6px 10px rgba(0,0,0,0.55)) drop-shadow(0 0 16px ${colors.glow})`,
+                    animation: 'itemBounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both',
+                  }} />
+              )}
 
               {/* Pedestal — a lit disc plus the shadow the item casts onto it.
                   Two ellipses is all it takes to put a floating cut-out on the

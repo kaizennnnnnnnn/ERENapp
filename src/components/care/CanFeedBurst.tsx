@@ -14,7 +14,8 @@
 // cinematics documented.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import type { CanVariant } from './CanAura'
+/** The two SPECIAL EDITION cans — see SPECIAL_CAN in FeedScene. */
+export type CanVariant = 'gold' | 'rainbow'
 
 const SHARDS = 16
 const RADIUS = 104

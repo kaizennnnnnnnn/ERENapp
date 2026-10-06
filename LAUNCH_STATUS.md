@@ -138,8 +138,10 @@ Eren's AI replies. Design notes that matter if you touch it:
 **Trademarks removed.** The ten `monsta_*.png` were renders of REAL Monster
 cans (claw + wordmark legible); `fr_pepsi.webp` carried the PEPSI wordmark and
 globe, and a Pepsi can was painted into `KioskBackReal.webp`. All regenerated
-as original art with a paw mark by `scripts/build_energy_cans.py` and
-`scripts/build_cola_can.py` — rerun those rather than hand-editing the PNGs.
+as original art: the cola by `scripts/build_cola_can.py`, and the cans are now
+the owner's own drawings, cut from `scripts/art_src/monsta_cans_sheet.png` by
+`scripts/cut_monsta_sheet.py` (the old paw-mark generator, build_energy_cans.py,
+is retired) — rerun those rather than hand-editing the PNGs.
 Tic-tac-toe's "lime claw-mark accents" are a paw now. Flavours renamed off
 Monster's SKU line; Biscoff → Speculoos.
 

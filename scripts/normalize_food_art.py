@@ -65,6 +65,14 @@ def normalise(path: Path) -> str:
     return f'{path.name:<20} {w}x{h} -> {tw}x{th} in {BOX}x{BOX}'
 
 
+# The Monsta cans are cut by scripts/cut_monsta_sheet.py onto a 256px canvas at
+# ONE scale shared by all ten, on one baseline, centred on the can body. Sizing
+# each can here on its own bounding box would undo all three.
+OWNED_ELSEWHERE = ('monsta_',)
+
 if __name__ == '__main__':
     for png in sorted(FOOD_DIR.glob('*.png')):
+        if png.name.startswith(OWNED_ELSEWHERE):
+            print(f'{png.name:<20} skipped (scripts/cut_monsta_sheet.py owns it)')
+            continue
         print(normalise(png))

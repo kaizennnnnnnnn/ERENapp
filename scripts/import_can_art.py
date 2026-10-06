@@ -90,6 +90,11 @@ if __name__ == '__main__':
     if len(sys.argv) != 3:
         raise SystemExit(__doc__)
     src, food_id = Path(sys.argv[1]).expanduser(), sys.argv[2]
+    if food_id.startswith('monsta_'):
+        # The cans are cut as one set, at one shared scale and baseline, by
+        # scripts/cut_monsta_sheet.py. Normalising one on its own bounding box
+        # here would shrink it out of line with the other nine.
+        raise SystemExit(f'{food_id}: the cans come from scripts/cut_monsta_sheet.py, not this script')
     dest = FOOD_DIR / f'{food_id}.png'
     cut_background(Image.open(src)).save(dest)
     print(f'cut  {src.name} -> {dest.relative_to(FOOD_DIR.parent.parent)}')
