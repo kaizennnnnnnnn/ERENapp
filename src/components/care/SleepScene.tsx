@@ -55,6 +55,12 @@ export default function SleepScene({ onClose }: Props) {
   const wishMatchesThisRoom = wish?.wish ? wishHintRoom(wish.wish) === 'sleep' : false
 
   const [tucking, setTucking] = useState(false)
+  // Separate from `tucking` on purpose. `tucking` tracks the WRITE (it gates
+  // the button so a tuck-in and a wake-up can never be in flight together).
+  // `holdPose` tracks the CHOREOGRAPHY, and only that. Splitting them is what
+  // lets the write start at tap time while the sway→settle still plays out in
+  // full — see handleTuckIn.
+  const [holdPose, setHoldPose] = useState(false)
   const [waking,  setWaking]  = useState(false)
   const [toast,   setToast]   = useState<string | null>(null)
   const [sleepIdx, setSleepIdx] = useState(0)   // which curled pose (0–3)
@@ -69,6 +75,12 @@ export default function SleepScene({ onClose }: Props) {
   const sleepPalette = sleepVal > 50 ? SLEEP_GOOD : sleepVal > 25 ? SLEEP_MID : SLEEP_LOW
   const isSleepy  = sleepVal < 50
   const busy      = tucking || waking
+  // What the ROOM shows. `tuckedIn` is the truth from the DB (and flips the
+  // moment applyAction's optimistic update lands, i.e. on tap); `showAsleep`
+  // is that truth held back until the tuck-in choreography has finished, so
+  // the sway→settle isn't cut off a frame after it starts. Everything visual
+  // reads showAsleep; only the logic reads tuckedIn.
+  const showAsleep = tuckedIn && !holdPose
 
   // Roll a curled-pose pick on mount (covers a reload / remote-partner tuck-in
   // where handleTuckIn never ran) and warm the four stickers so the poof
@@ -79,17 +91,22 @@ export default function SleepScene({ onClose }: Props) {
   }, [])
   // Poof-mask the asleep<->awake pose swap, but only on a real transition — not
   // on mount or a room-swipe (prevTucked starts equal to the first value).
-  const prevTucked = useRef(tuckedIn)
+  const prevTucked = useRef(showAsleep)
   useEffect(() => {
-    if (prevTucked.current !== tuckedIn) {
-      prevTucked.current = tuckedIn
+    if (prevTucked.current !== showAsleep) {
+      prevTucked.current = showAsleep
       setShowPoof(true)
     }
-  }, [tuckedIn])
+  }, [showAsleep])
 
   async function handleTuckIn() {
-    if (!user?.id || busy) return
+    // `stats` matters as much as user.id: applyAction bails with "No stats
+    // loaded" when it's null, which is exactly the state for the first moment
+    // after opening the app. The button used to be live then, so an early tap
+    // played the full 1150ms of choreography and then quietly did nothing.
+    if (!user?.id || !stats || busy) return
     setTucking(true)
+    setHoldPose(true)
     // Re-roll which curled pose he'll fall asleep in, so it's random each time.
     setSleepIdx(Math.floor(Math.random() * 4))
     // Sleepy sway → settle squash while the eyes drift shut. The stats flip
@@ -100,8 +117,22 @@ export default function SleepScene({ onClose }: Props) {
       { name: 'sway',   ms: 500, onEnter: () => playSound('care_sleep') },
       { name: 'settle', ms: 700 },
     ])
+    // Fire the write NOW so it runs UNDER the choreography instead of queueing
+    // behind it. This used to be `await sleep(1150)` and only then
+    // applyAction, which made the cost 1150ms PLUS a round trip — and a round
+    // trip here is not always quick: writeWithRetry allows 3 attempts at a
+    // 6s timeout with 800/1600ms backoff, so a bad connection could pin TUCK
+    // IN for over twenty seconds. WashScene never had the problem because it
+    // starts its write immediately and lets its own animation cover the
+    // latency, which is why washing felt instant and this didn't.
+    //
+    // Overlapping is safe: applyAction writes absolute values (not deltas),
+    // and holdPose keeps the room showing the awake pose until the
+    // choreography is done, so the optimistic is_sleeping can't cut it short.
+    const write = applyAction(user.id, 'sleep')
     await new Promise(r => setTimeout(r, 1150))
-    const result = await applyAction(user.id, 'sleep')
+    setHoldPose(false)
+    const result = await write
     setTucking(false)
     setToast(result.message)
     if (result.success) completeTask('daily_sleep')
@@ -182,9 +213,9 @@ export default function SleepScene({ onClose }: Props) {
           the swap is hidden by the 450ms poof, so he must already be at his
           resting spot when the cloud clears — a 700ms slide would creep up
           AFTER the poof and read as him drifting into place. */}
-      <div className={cn('absolute z-10', tuckedIn ? 'bottom-[17%]' : 'bottom-[14%]')}
+      <div className={cn('absolute z-10', showAsleep ? 'bottom-[17%]' : 'bottom-[14%]')}
         style={{ left: '50%', transform: 'translateX(-50%)' }}>
-        {tuckedIn ? (
+        {showAsleep ? (
           // Asleep: a curled-up pose sticker (eyes painted shut, no overlays).
           // The pick is re-rolled on each tuck-in; the swap is hidden by the
           // poof. Breath slowed so the sleeping body rises and falls gently.
@@ -226,7 +257,7 @@ export default function SleepScene({ onClose }: Props) {
       </div>
 
       {/* ══ ZZZs ══ */}
-      {tuckedIn && (
+      {showAsleep && (
         <div className="absolute pointer-events-none z-20" style={{ bottom: '40%', left: '58%' }}>
           {[{z:'z',s:10,d:0},{z:'z',s:14,d:0.5},{z:'Z',s:18,d:1.0}].map((zz, i) => (
             <span key={i} className="absolute font-bold select-none"
@@ -238,7 +269,7 @@ export default function SleepScene({ onClose }: Props) {
       )}
 
       {/* Dream cloud when deeply sleeping */}
-      {tuckedIn && (
+      {showAsleep && (
         <div className="absolute pointer-events-none" style={{ bottom: '44%', left: '40%', animation: 'float 5s ease-in-out infinite' }}>
           <div style={{ width: 60, height: 28, borderRadius: 20, background: 'rgba(160,150,240,0.15)', border: '1px solid rgba(180,170,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             {/* CSS fish */}
@@ -274,8 +305,8 @@ export default function SleepScene({ onClose }: Props) {
         </div>
 
         <SleepButton
-          state={waking ? 'waking' : tuckedIn ? 'wake' : tucking ? 'tucking' : 'tuck'}
-          disabled={busy}
+          state={waking ? 'waking' : showAsleep ? 'wake' : tucking ? 'tucking' : 'tuck'}
+          disabled={busy || !stats}
           onClick={() => { playSound('ui_tap'); tuckedIn ? handleWakeUp() : handleTuckIn() }}
         />
       </div>

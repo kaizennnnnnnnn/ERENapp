@@ -38,8 +38,7 @@ import { DONUT_EFFECTS } from '@/lib/donutEffects'
 import { dailyMenu } from '@/lib/foodMenu'
 import { todayKey } from '@/lib/seededRng'
 import { monstaBuff } from '@/lib/monstaBuffs'
-import CanAura, { type CanVariant } from './CanAura'
-import CanFeedBurst from './CanFeedBurst'
+import CanFeedBurst, { type CanVariant } from './CanFeedBurst'
 import SkinUnlockCinematic from './SkinUnlockCinematic'
 import { DRINK_UNLOCK_SKINS, getSkin, type SkinDef } from '@/lib/skins'
 import { grantSkin, wearSkinEverywhere } from '@/lib/skinGrant'
@@ -170,9 +169,11 @@ const SHELF_ITEMS = SHOP_ITEMS.filter(i => !ALL_DONUT_IDS.has(i.id) || KITCHEN_S
 const LAPPED_FOODS = new Set(['milk', 'cream', 'yogurt'])
 const isDrink = (id: string) => LAPPED_FOODS.has(id) || id.startsWith('monsta_')
 
-// The two SPECIAL EDITION cans dress themselves — animated border, sparkle
-// aura, and a burst when they go down. Keyed rather than branched on an id
-// literal in four places, so a third special can is one line here.
+// The two SPECIAL EDITION cans dress themselves — animated border, and a burst
+// when they go down. Their sparkles/rays are part of the can art itself (drawn
+// by FoodIcon through CanFx), so the card adds none of its own. Keyed rather
+// than branched on an id literal in four places, so a third special can is one
+// line here.
 const SPECIAL_CAN: Record<string, CanVariant> = {
   monsta_rainbow: 'rainbow',
   monsta_gold:    'gold',
@@ -421,7 +422,6 @@ export default function FeedScene({ onClose }: Props) {
     if (pendingUnlock && !reaction.active) { setUnlock(pendingUnlock); setPendingUnlock(null) }
   }, [pendingUnlock, reaction.active])
 
-  // Warm the four eating stickers so the poof reveals a decoded bitmap.
   // The fridge picker and a skin unlock fill the screen from inside the scene,
   // which sits under the room-sized top bar (z-60); the bar steps aside while
   // either is up, as it does for the Attic's transcript.
@@ -433,6 +433,7 @@ export default function FeedScene({ onClose }: Props) {
     return () => setHideStats(false)
   }, [barAside, setHideStats])
 
+  // Warm the four eating stickers so the poof reveals a decoded bitmap.
   useEffect(() => { preloadEatPoses(BAKED_SPRITE_TEST) }, [])
 
   // Memoize the bare sprite so stat changes from feeding don't re-render it.
@@ -806,7 +807,6 @@ export default function FeedScene({ onClose }: Props) {
                     boxShadow: `2px 2px 0 ${item.color}44, 0 0 10px ${item.color}22`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
-                    {SPECIAL_CAN[item.id] && <CanAura variant={SPECIAL_CAN[item.id]} box={64} />}
                     <div className="relative" style={{
                       opacity: (dragRef.current.item?.id === item.id && dragRef.current.active) ? 0.15 : 1,
                       transition: 'opacity 0.15s ease',
@@ -1123,7 +1123,6 @@ export default function FeedScene({ onClose }: Props) {
                           ratio, so the grid stays even. */}
                       <div className={cn('relative flex items-center justify-center flex-shrink-0', special && `${special}-can`)}
                         style={{ height: 68, marginTop: 4, marginBottom: 5 }}>
-                        {special && <CanAura variant={special} box={68} />}
                         <FoodIcon id={item.id} color={item.color} size={62} />
                       </div>
                       <p className="text-center font-bold text-gray-800 leading-tight" style={{ fontSize: 12 }}>{item.name}</p>
@@ -1146,7 +1145,14 @@ export default function FeedScene({ onClose }: Props) {
                       </div>
                       {/* Label colour is derived, not fixed: most food colours
                           are pale tints that white text vanishes into. */}
-                      <button onClick={() => { if (hold.consumed()) return; playSound('ui_tap'); handleBuy(item) }} disabled={!canAfford || buying === item.id}
+                      {/* `buying` (any purchase in flight), NOT `buying === item.id`.
+                          handleBuy's own guard bails on any in-flight purchase so the
+                          coin math can't read a stale balance, but this only greyed out
+                          the ONE item being bought — so every other item still looked
+                          tappable and silently did nothing until the write came back.
+                          On a slow connection writeWithRetry can hold that for 20s,
+                          which is the "the button just doesn't work" report. */}
+                      <button onClick={() => { if (hold.consumed()) return; playSound('ui_tap'); handleBuy(item) }} disabled={!canAfford || !!buying}
                         className="w-full py-2 transition-all active:translate-y-[1px] disabled:opacity-40 mt-auto"
                         style={{ background: btnBg, color: inkOn(btnBg), borderRadius: 5, border: `1px solid ${canAfford ? 'rgba(0,0,0,0.15)' : '#bbb'}`, boxShadow: canAfford ? `0 2px 0 rgba(0,0,0,0.18)` : 'none', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
                         {buying === item.id ? '...' : canAfford ? 'BUY' : 'BROKE'}
@@ -1207,11 +1213,15 @@ export default function FeedScene({ onClose }: Props) {
           background-size: auto, 118.79px 100%;
           animation: rainbowRun 2.6s linear infinite, rainbowGlow 2.8s ease-in-out infinite;
         }
+        /* Opaque dark inside, spectrum on the border only. The can's own
+           sparkles (CanFx) are yellow, pink and blue, and over a see-through
+           wash on the full spectrum they landed on their own colour bands
+           and vanished. Same reasoning as .rainbow-chip below. */
         .rainbow-tile {
           border: 2px solid transparent;
           border-radius: 12px;
           background:
-            radial-gradient(circle at 40% 35%, rgba(255,255,255,0.22), rgba(255,255,255,0.05)) padding-box,
+            radial-gradient(circle at 40% 35%, #46325F, #2E1F45 72%) padding-box,
             repeating-linear-gradient(135deg, #FF4D6D 0px, #FF9A3D 14px, #FFE23D 28px, #4BE07A 42px, #35C7F5 56px, #A65CF6 70px, #FF4D6D 84px) border-box;
           background-size: auto, 118.79px 100%;
           animation: rainbowRun 2.6s linear infinite, rainbowGlow 2.8s ease-in-out infinite;
@@ -1266,11 +1276,13 @@ export default function FeedScene({ onClose }: Props) {
           background-size: auto, 118.79px 100%;
           animation: goldRun 3.4s linear infinite, goldGlow 2.8s ease-in-out infinite;
         }
+        /* Opaque dark inside for the same reason: the can's pale yellow
+           rays disappeared against a see-through wash on bright gold metal. */
         .gold-tile {
           border: 2px solid transparent;
           border-radius: 12px;
           background:
-            radial-gradient(circle at 40% 35%, rgba(255,240,190,0.26), rgba(255,220,120,0.06)) padding-box,
+            radial-gradient(circle at 40% 35%, #574115, #3A2A08 72%) padding-box,
             repeating-linear-gradient(135deg, #8A6410 0px, #D4A818 14px, #FFF3C0 28px, #F5C842 42px, #A8760F 56px, #E8B923 70px, #8A6410 84px) border-box;
           background-size: auto, 118.79px 100%;
           animation: goldRun 3.4s linear infinite, goldGlow 2.8s ease-in-out infinite;
