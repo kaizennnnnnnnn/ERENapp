@@ -113,16 +113,20 @@ export async function createReminder(
   return data as Reminder
 }
 
+// Both say whether the write landed, so the sheet can put a switch back or
+// keep a row instead of showing a change the database never took.
 export async function updateReminder(
   supabase: SupabaseClient,
   id: string,
   changes: Partial<Pick<Reminder, 'active' | 'is_private' | 'text' | 'time' | 'week_days' | 'date'>>,
-): Promise<void> {
-  await supabase.from('household_reminders').update(changes).eq('id', id)
+): Promise<boolean> {
+  const { error } = await supabase.from('household_reminders').update(changes).eq('id', id)
+  return !error
 }
 
-export async function deleteReminder(supabase: SupabaseClient, id: string): Promise<void> {
-  await supabase.from('household_reminders').delete().eq('id', id)
+export async function deleteReminder(supabase: SupabaseClient, id: string): Promise<boolean> {
+  const { error } = await supabase.from('household_reminders').delete().eq('id', id)
+  return !error
 }
 
 // ── Scheduling (Service Worker) ───────────────────────────────────────────────
