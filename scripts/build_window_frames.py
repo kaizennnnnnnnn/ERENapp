@@ -126,7 +126,9 @@ DEFAULT_JSON = os.path.join(ROOT, 'scripts', 'window_seeds.json')
 #   3  hole edges matted instead of eroded and repainted
 #   4  bedroom sky repainted (the dither band across the glass), so the
 #      cut had to be re-flooded or it would have redrawn the old stipple
-ASSET_V = 4
+#   5  bedroom: the town and the hillside are no longer seeded as sky, and the
+#      one pocket of real sky the flood never reached is seeded explicitly
+ASSET_V = 5
 
 
 def luma(c):
