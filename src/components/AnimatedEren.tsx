@@ -221,9 +221,14 @@ function Sprite({ frame, px }: { frame: string[]; px: number }) {
   return <canvas ref={canvasRef} style={{ width: cols * px, height: rows * px, imageRendering: 'pixelated' }} />
 }
 
-interface Props { px?: number }
+interface Props {
+  px?: number
+  /** The soft violet halo the dark loaders want. Off on light pages, which
+   *  don't blur. */
+  glow?: boolean
+}
 
-export default function AnimatedEren({ px = 5 }: Props) {
+export default function AnimatedEren({ px = 5, glow = true }: Props) {
   const [fi, setFi] = useState(0)
   const ref = useRef<ReturnType<typeof setTimeout>>()
 
@@ -240,7 +245,7 @@ export default function AnimatedEren({ px = 5 }: Props) {
   }, [])
 
   return (
-    <div style={{ filter: 'drop-shadow(0 0 10px rgba(167,139,250,0.25))' }}>
+    <div style={glow ? { filter: 'drop-shadow(0 0 10px rgba(167,139,250,0.25))' } : undefined}>
       <Sprite frame={SEQUENCE[fi].f} px={px} />
     </div>
   )

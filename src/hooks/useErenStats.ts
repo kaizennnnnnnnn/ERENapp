@@ -644,8 +644,10 @@ function useErenStatsImpl(householdId: string | null) {
   // ── Per-user fridge helpers ─────────────────────────────────────────────
   // The shared `food_inventory` column stays as a legacy pool either user can
   // still draw from. `food_by_user` holds per-user piles keyed by user id.
-  const saveFoodByUser = useCallback(async (next: Record<string, FoodInventory>): Promise<void> => {
-    if (!householdId) return
+  // Resolves true once the write lands, so a caller that must not lose an
+  // item (the reward road) can tell; the shop and the fridge don't wait on it.
+  const saveFoodByUser = useCallback(async (next: Record<string, FoodInventory>): Promise<boolean> => {
+    if (!householdId) return false
     // Write through to the ref as well as state, so a second food mutation in
     // the same tick computes from this pile instead of the pre-mutation one.
     if (statsRef.current) statsRef.current = { ...statsRef.current, food_by_user: next }
@@ -653,8 +655,9 @@ function useErenStatsImpl(householdId: string | null) {
     // Same contract as saveFoodInventory: absolute value, retried + bounded.
     // FeedScene fires this without awaiting so the eat animation never waits
     // on it — the retry keeps the decrement from vanishing on a blip.
-    await writeWithRetry(signal =>
+    const { error } = await writeWithRetry(signal =>
       supabase.from('eren_stats').update({ food_by_user: next }).eq('household_id', householdId).abortSignal(signal))
+    return !error
   }, [householdId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Adds 1 of `key` to the buyer's personal pile.
@@ -670,15 +673,16 @@ function useErenStatsImpl(householdId: string | null) {
 
   // Adds several foods in ONE write. A ten-pull can drop multiple cans, and
   // looping addToMyFood would be a Supabase round trip per can.
-  const addManyToMyFood = useCallback(async (userId: string, keys: (keyof FoodInventory)[]): Promise<void> => {
-    if (keys.length === 0) return
+  // False when nothing was written: stats not loaded yet, or the write failed.
+  const addManyToMyFood = useCallback(async (userId: string, keys: (keyof FoodInventory)[]): Promise<boolean> => {
+    if (keys.length === 0) return true
     const cur = statsRef.current ?? stats
-    if (!cur) return
+    if (!cur) return false
     const byUser = { ...(cur.food_by_user ?? {}) }
     const mine = { ...(byUser[userId] ?? {}) }
     for (const key of keys) mine[key] = (mine[key] ?? 0) + 1
     byUser[userId] = mine
-    await saveFoodByUser(byUser)
+    return saveFoodByUser(byUser)
   }, [stats, saveFoodByUser])
 
   // Records that Eren has now tasted a donut. Household-wide and append-only —

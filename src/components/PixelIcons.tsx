@@ -2405,6 +2405,42 @@ const MEADOW_ICONS = {
     ],
     palette: { X: '#C0453A' },
   },
+  // A gacha ticket: notched at both ends, torn line near the stub.
+  ticket: {
+    grid: [
+      '............',
+      '............',
+      '............',
+      'XXXXXXXXXXXX',
+      'XXXXXXXXaXXX',
+      '.XXXXXXXXXX.',
+      '.XXXXXXXaXX.',
+      '.XXXXXXXXXX.',
+      'XXXXXXXXaXXX',
+      'XXXXXXXXXXXX',
+      '............',
+      '............',
+    ],
+    palette: { X: '#E57C9F', a: '#FFFFFF' },
+  },
+  // A wrapped present, for a reward you open to see what's inside.
+  gift: {
+    grid: [
+      '............',
+      '..aa....aa..',
+      '...aa..aa...',
+      '....aaaa....',
+      'XXXXXaaXXXXX',
+      'XXXXXaaXXXXX',
+      '.XXXXaaXXXX.',
+      '.XXXXaaXXXX.',
+      '.XXXXaaXXXX.',
+      '.XXXXaaXXXX.',
+      '.XXXXaaXXXX.',
+      '............',
+    ],
+    palette: { X: '#3F8452', a: '#F2B33D' },
+  },
   doc: {
     grid: [
       '..XXXXX.....',
