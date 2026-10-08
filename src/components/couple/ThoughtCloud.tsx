@@ -10,10 +10,13 @@
 //                  trailing puffs leading down to Eren's head.
 //   2. 'split'   — the cloud splits into three side-by-side mini clouds
 //                  (note / gift / board), each carrying a pixel icon.
-//   3. 'message' — full message composer modal.
-//   4. 'gift'    — full gift picker modal.
+//   3. 'message' — the note composer, a Meadow sheet.
+//   4. 'gift'    — the gift picker, the same sheet in its other mood.
+//
+// The clouds are pixel art on the room painting and stay that way; the two
+// composers are ordinary app screens, so they're Meadow sheets like Send Eren.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useCouple } from '@/hooks/useCouple'
@@ -22,7 +25,11 @@ import { useCat } from '@/hooks/useCat'
 import { playSound } from '@/lib/sounds'
 import { FOOD_META, FOOD_ORDER } from '@/lib/foodMeta'
 import FoodIcon from '@/components/care/FoodIcon'
-import { IconEnvelope, IconGift, IconClose, IconPin } from '@/components/PixelIcons'
+import { IconEnvelope, IconGift, IconPin } from '@/components/PixelIcons'
+import {
+  IconTile, MeadowIcon, PrimaryButton, Sheet, Tag, TextButton,
+  FONT_ROUNDED, M, TINT, TYPE,
+} from '@/components/meadow'
 import type { FoodInventory, FoodKey } from '@/types'
 
 type Mode = 'idle' | 'split' | 'message' | 'gift'
@@ -30,12 +37,13 @@ type Mode = 'idle' | 'split' | 'message' | 'gift'
 const CLOUD_BOTTOM = '30%'
 const Z_BACKDROP = 55
 const Z_CLOUD = 56
-const Z_MODAL = 61
 
 const MSG_TINT = '#A78BFA'
 const GIFT_TINT = '#F5C842'
 const BOARD_TINT = '#E8A05C'
 const MAX_MSG = 200
+/** How long "Delivered" stays before the sheet drops away by itself. */
+const SENT_HOLD_MS = 1100
 
 // Split-cloud width. Sized so the cloud's three full-width interior rows are
 // tall enough to seat the icon WITHIN the puff — the old emoji was scaled off
@@ -71,44 +79,74 @@ export default function ThoughtCloud() {
   const [mode, setMode] = useState<Mode>('idle')
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
+  // After a send: the line that says it landed, in place of the form.
+  const [sent, setSent] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [focused, setFocused] = useState(false)
+  // The sheet keeps showing the composer it opened with while it slides away.
+  const [shown, setShown] = useState<'message' | 'gift'>('message')
+  const noteRef = useRef<HTMLTextAreaElement>(null)
+  const noteId = useId()
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([])
+  useEffect(() => () => timers.current.forEach(clearTimeout), [])
+  useEffect(() => { if (mode === 'message' || mode === 'gift') setShown(mode) }, [mode])
 
-  useEffect(() => {
-    if (!toast) return
-    const t = setTimeout(() => setToast(null), 2400)
-    return () => clearTimeout(t)
-  }, [toast])
-
+  const partnerFirst = partner?.name?.split(' ')[0] ?? 'them'
   const myPile: FoodInventory = (user?.id && stats?.food_by_user?.[user.id]) || {}
   const giftableKeys: FoodKey[] = FOOD_ORDER.filter(k => (myPile[k] ?? 0) > 0)
   const noPartner = !partner
 
+  function openComposer(next: 'message' | 'gift') {
+    setSent(null)
+    setError(null)
+    setMode(next)
+  }
+
+  function closeComposer() {
+    playSound('ui_modal_close')
+    setMode('idle')
+  }
+
+  // Say it landed, then let the sheet go by itself.
+  function landed(line: string) {
+    setSent(line)
+    playSound('quest_complete')
+    timers.current.push(setTimeout(() => setMode('idle'), SENT_HOLD_MS))
+  }
+
   async function handleSendMessage() {
     if (!text.trim() || sending) return
+    playSound('ui_tap')
     setSending(true)
+    setError(null)
     // viaEren=true so the partner gets the dedicated popup + the
     // "Eren has a message for you" push notification, and the row is
     // kept out of the heart-button journal list.
-    await sendMessage(text.trim(), null, true)
-    setText('')
-    setToast('Delivered — and pinned to the board')
+    const ok = await sendMessage(text.trim(), null, true)
     setSending(false)
-    setTimeout(() => setMode('idle'), 700)
+    // A failed send keeps the words: it used to clear them and say
+    // "Delivered" whatever happened.
+    if (!ok) { setError("That didn't send. Check your connection and try again."); return }
+    setText('')
+    landed('Delivered, and pinned to the board')
   }
 
   async function handleSendGift(key: FoodKey) {
     if (sending || !user?.id || !partner?.id) return
+    playSound('ui_tap')
     setSending(true)
+    setError(null)
     const moved = await giftFood(user.id, partner.id, key)
     if (!moved) {
-      setToast(`No ${FOOD_META[key].name} to give`)
+      setError(`There's no ${FOOD_META[key].name} left to give.`)
       setSending(false)
       return
     }
-    await sendMessage('', { key, qty: 1 }, true)
-    setToast(`Sent ${FOOD_META[key].name}`)
+    const noted = await sendMessage('', { key, qty: 1 }, true)
     setSending(false)
-    setTimeout(() => setMode('idle'), 800)
+    landed(noted
+      ? `${FOOD_META[key].name} is on its way to ${partnerFirst}`
+      : `${FOOD_META[key].name} went to ${partnerFirst}'s fridge`)
   }
 
   // ── Nothing behind it for a household of one ──────────────────────
@@ -128,9 +166,8 @@ export default function ThoughtCloud() {
   // worse bug than the one being fixed.
   if (isSolo) return null
 
-  // ── idle: single pixel cloud ──────────────────────────────────────
-  if (mode === 'idle') {
-    return (
+  // ── idle: single pixel cloud (also what sits behind an open composer) ──
+  const idleCloud = (
       <CloudAnchor zIndex={4}>
         <button
           onClick={() => { playSound('ui_modal_open'); setMode('split') }}
@@ -152,12 +189,10 @@ export default function ThoughtCloud() {
         </button>
         <TrailingPuffs />
       </CloudAnchor>
-    )
-  }
+  )
 
   // ── split: three side-by-side mini pixel clouds ───────────────────
-  if (mode === 'split') {
-    return (
+  const splitClouds = (
       <>
         <div
           className="fixed inset-0"
@@ -175,14 +210,14 @@ export default function ThoughtCloud() {
             <CloudTab
               tint={MSG_TINT} label="NOTE" ariaLabel="Send a message"
               motion={TAB_MOTION[0]}
-              onPick={() => setMode('message')}
+              onPick={() => openComposer('message')}
             >
               <IconEnvelope size={CLOUD_TAB_ICON} />
             </CloudTab>
             <CloudTab
               tint={GIFT_TINT} label="GIFT" ariaLabel="Send a gift"
               motion={TAB_MOTION[1]}
-              onPick={() => setMode('gift')}
+              onPick={() => openComposer('gift')}
             >
               <IconGift size={CLOUD_TAB_ICON} />
             </CloudTab>
@@ -216,165 +251,139 @@ export default function ThoughtCloud() {
           }
         `}</style>
       </>
-    )
-  }
+  )
 
-  // ── composer modals (message / gift) ──────────────────────────────
-  const isMsg = mode === 'message'
-  const tint = isMsg ? MSG_TINT : GIFT_TINT
-  const partnerFirst = partner?.name?.split(' ')[0] ?? 'them'
+  // ── composer sheet (note / gift) ──────────────────────────────────
+  const isMsg = shown === 'message'
+  const open = mode === 'message' || mode === 'gift'
+  const atMax = text.length >= MAX_MSG
+
+  const footer = sent || noPartner ? undefined : isMsg ? (
+    <div>
+      {error && <p role="alert" style={ERROR}>{error}</p>}
+      <PrimaryButton busy={sending} disabled={!text.trim()} onClick={handleSendMessage}
+        icon={<MeadowIcon name="envelope" size={20} color="#FFFFFF" mono />}>
+        {sending ? 'Sending...' : 'Send note'}
+      </PrimaryButton>
+    </div>
+  ) : error ? <p role="alert" style={{ ...ERROR, margin: 0 }}>{error}</p> : undefined
 
   return (
     <>
-      <div
-        className="fixed inset-0"
-        style={{ zIndex: Z_MODAL - 1, background: 'rgba(0,0,0,0.35)' }}
-        onClick={() => { playSound('ui_modal_close'); setMode('idle') }}
-      />
+      {mode === 'split' ? splitClouds : idleCloud}
 
-      <div
-        className="fixed left-1/2 flex flex-col items-center gap-2 px-3"
-        style={{ top: '20%', transform: 'translateX(-50%)', width: 'min(92vw, 360px)', zIndex: Z_MODAL }}
-        onClick={e => e.stopPropagation()}
+      <Sheet
+        open={open}
+        onClose={closeComposer}
+        title={isMsg ? `A note for ${partnerFirst}` : `A gift for ${partnerFirst}`}
+        dismissible={!sending}
+        initialFocus={isMsg && !noPartner ? noteRef : undefined}
+        footer={footer}
       >
-        <ComposerCard
-          tint={tint}
-          icon={isMsg ? <IconEnvelope size={12} /> : <IconGift size={12} />}
-          title={isMsg ? `A NOTE FOR ${partnerFirst.toUpperCase()}` : 'PICK FROM YOUR FRIDGE'}
-          onClose={() => { playSound('ui_modal_close'); setMode('idle') }}
-        >
-          {noPartner ? (
-            <div className="px-4 py-5 text-center">
-              <p className="text-sm text-gray-600">
-                Invite your partner first so {cat.name} can deliver this.
-              </p>
-            </div>
-          ) : isMsg ? (
-            <div className="px-3 py-3 flex flex-col gap-2 w-full">
-              <textarea
-                value={text}
-                onChange={e => setText(e.target.value)}
-                placeholder="thinking of you…"
-                maxLength={MAX_MSG}
-                rows={3}
-                autoFocus
-                className="w-full p-2.5 text-sm text-gray-700 resize-none focus:outline-none"
-                style={{
-                  // Ruled notepaper — the lines make the box read as something
-                  // Eren carries, not as a form field.
-                  background: 'repeating-linear-gradient(#FFFDF7 0 21px, #EFE6FA 21px 22px)',
-                  border: `2px dashed ${tint}88`,
-                  lineHeight: '22px',
-                  fontFamily: 'inherit',
-                }}
-              />
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-pixel" style={{
-                  fontSize: 6,
-                  color: text.length >= MAX_MSG ? '#C0407A' : '#B0A0C0',
-                }}>
-                  {text.length}/{MAX_MSG}
-                </span>
-                <button
-                  onClick={() => { playSound('ui_tap'); handleSendMessage() }}
-                  disabled={!text.trim() || sending}
-                  className="flex items-center gap-1.5 px-4 py-2 text-white active:translate-y-[1px] disabled:opacity-40 transition-transform"
-                  style={{
-                    background: tint,
-                    border: '2px solid #7C3AED',
-                    boxShadow: '0 3px 0 #5B21B6',
-                    fontFamily: '"Press Start 2P"',
-                    fontSize: 7,
-                  }}
-                >
-                  {sending ? '...' : 'SEND'}
-                </button>
-              </div>
-              <button
-                onClick={() => { playSound('ui_tap'); router.push('/notes') }}
-                className="flex items-center gap-1.5 self-start active:translate-y-[1px] transition-transform"
-                style={{ background: 'transparent', border: 'none', padding: '2px 0' }}
-              >
-                <IconPin size={11} tone={BOARD_TINT} />
-                <span className="font-pixel" style={{ fontSize: 6, letterSpacing: 1, color: '#8A7A9A' }}>
-                  EVERY NOTE IS KEPT ON THE BOARD
-                </span>
-              </button>
-            </div>
-          ) : (
-            <div className="px-3 py-3 flex flex-col gap-2 w-full">
-              {giftableKeys.length === 0 ? (
-                <p className="text-center text-xs text-gray-500 py-3">
-                  Your fridge is empty. Buy something in the Kitchen first!
-                </p>
-              ) : (
-                // Capped + scrollable: a stocked fridge runs to 50 foods, which
-                // used to grow the card straight off the bottom of the screen.
-                <div className="grid grid-cols-3 gap-2 overflow-y-auto"
-                  style={{ maxHeight: '44vh', overscrollBehavior: 'contain' }}>
-                  {giftableKeys.map(key => {
-                    const meta = FOOD_META[key]
-                    const qty = myPile[key] ?? 0
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => { playSound('ui_tap'); handleSendGift(key) }}
-                        disabled={sending}
-                        className="relative flex flex-col items-center gap-1 px-1 pt-2 pb-1.5 active:translate-y-[1px] disabled:opacity-50 transition-transform"
-                        style={{
-                          background: '#FFFFFF',
-                          // Neutral frame on purpose. Tinting it per food made
-                          // the pale ones (egg, milk) look borderless next to
-                          // pizza, and the kitchen already learned that a
-                          // coloured surface competes with the art. The food is
-                          // the only coloured thing on the card.
-                          border: '2px solid #E6DCF2',
-                          boxShadow: '2px 2px 0 rgba(90,70,120,0.13)',
-                        }}
-                      >
-                        {/* The real plate, same renderer as the kitchen — a
-                            gift should look like the food you're giving. */}
-                        <div className="flex items-center justify-center" style={{ height: 40 }}>
-                          <FoodIcon id={key} size={40} />
-                        </div>
-                        <span className="font-bold text-gray-700 leading-tight text-center"
-                          style={{ fontSize: 10 }}>
-                          {meta.name}
-                        </span>
-                        {/* Stock count as a corner badge — it was competing
-                            with the name as a third stacked text line. Sits
-                            INSIDE the card: the scroll container clips anything
-                            hanging off the edge. One dark chip for every food,
-                            because white-on-#F5E6C8 (egg) was invisible. */}
-                        <span className="font-pixel absolute flex items-center justify-center"
-                          style={{
-                            top: 3, right: 3, minWidth: 14, height: 14, padding: '0 3px',
-                            fontSize: 6, color: '#FFF', background: '#5A4A6A',
-                          }}>
-                          {qty}
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-        </ComposerCard>
-
-        {toast && (
-          <div className="px-3 py-1.5 text-white font-pixel"
-            style={{
-              background: '#1F1F2E',
-              boxShadow: '2px 2px 0 rgba(0,0,0,0.4)',
-              fontSize: 7,
-            }}>
-            {toast}
+        {sent ? (
+          <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '8px 4px 12px' }}>
+            <IconTile icon="check" size={48} bg={TINT.leaf} color={M.leaf} />
+            <span style={{ fontSize: 17, fontWeight: 800, color: M.text }}>{sent}</span>
           </div>
+        ) : noPartner ? (
+          <p style={{ margin: '4px 4px 12px', ...TYPE.body, color: M.text2 }}>
+            {cat.t('Invite your partner first so {name} can deliver this.')}
+          </p>
+        ) : isMsg ? (
+          <div style={{ margin: '4px 4px 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <label htmlFor={noteId} className="sr-only">Your note</label>
+            <textarea
+              ref={noteRef}
+              id={noteId}
+              value={text}
+              onChange={e => { setText(e.target.value); if (error) setError(null) }}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              placeholder="Thinking of you"
+              maxLength={MAX_MSG}
+              rows={4}
+              className="m-input"
+              style={{
+                width: '100%', boxSizing: 'border-box', resize: 'none', padding: '14px 16px',
+                border: `2px solid ${focused ? M.leaf : M.hairline}`, borderRadius: 16,
+                boxShadow: focused ? `0 0 0 4px ${M.leafTint}` : 'none',
+                background: '#FFFFFF', color: M.text, caretColor: M.leaf, outline: 'none',
+                fontFamily: FONT_ROUNDED, fontSize: 17, lineHeight: 1.45, fontWeight: 600,
+              }}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              {/* Where every note ends up, and the way there. */}
+              <TextButton tone="muted" size={14} chevron
+                icon={<MeadowIcon name="pin" size={18} />}
+                onClick={() => { playSound('ui_tap'); router.push('/notes') }}
+                style={{ padding: '0 4px 0 0', gap: 6 }}>
+                Every note is kept on the board
+              </TextButton>
+              <span aria-live="polite" style={{
+                flexShrink: 0, fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+                color: atMax ? M.danger : M.faint,
+              }}>
+                {text.length}/{MAX_MSG}
+              </span>
+            </div>
+          </div>
+        ) : giftableKeys.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '12px 12px 16px', textAlign: 'center' }}>
+            <IconTile icon="bowl" size={60} bg={TINT.orange} />
+            <p style={{ margin: '4px 0 0', fontSize: 17, fontWeight: 800 }}>Your fridge is empty</p>
+            <p style={{ margin: 0, ...TYPE.body, color: M.text2 }}>Buy something in the Kitchen first.</p>
+          </div>
+        ) : (
+          <>
+            <p style={{ margin: '0 4px 14px', fontSize: 15, fontWeight: 600, color: M.text2 }}>
+              Pick something from your fridge. It goes to {partnerFirst}&apos;s.
+            </p>
+            <div role="list" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10, margin: '0 4px' }}>
+              {giftableKeys.map(key => {
+                const name = FOOD_META[key].name
+                const qty = myPile[key] ?? 0
+                return (
+                  <div key={key} role="listitem">
+                    <button
+                      type="button"
+                      onClick={() => handleSendGift(key)}
+                      disabled={sending}
+                      aria-label={`Give ${name}. You have ${qty}.`}
+                      className="m-press m-focus"
+                      style={{
+                        position: 'relative', width: '100%', boxSizing: 'border-box',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                        padding: '12px 6px 10px', borderRadius: 18, border: `2px solid ${M.hairline}`,
+                        background: '#FFFFFF', fontFamily: FONT_ROUNDED, color: M.text,
+                        cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.5 : 1,
+                      }}
+                    >
+                      {/* The real plate, same as the Kitchen: a gift should look
+                          like the food you're giving. */}
+                      <FoodIcon id={key} size={44} />
+                      <span style={{
+                        fontSize: 13, lineHeight: 1.25, fontWeight: 700, textAlign: 'center',
+                        overflowWrap: 'anywhere',
+                      }}>
+                        {name}
+                      </span>
+                      <Tag size="sm" style={{ position: 'absolute', top: 6, right: 6, fontVariantNumeric: 'tabular-nums' }}>
+                        {qty}
+                      </Tag>
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </>
         )}
-      </div>
+      </Sheet>
     </>
   )
+}
+
+const ERROR: React.CSSProperties = {
+  margin: '0 0 12px', fontSize: 14, lineHeight: 1.4, fontWeight: 700, color: M.danger, textAlign: 'center',
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -604,70 +613,6 @@ function CloudTab({
         {label}
       </span>
     </button>
-  )
-}
-
-// ────────────────────────────────────────────────────────────────────
-// ComposerCard — shared frame for the note and gift modals, so the two
-// read as one object in two moods rather than two separate boxes.
-// ────────────────────────────────────────────────────────────────────
-
-// Gold rivet pixels at the inner corners — the app's "premium card" tell.
-const RIVETS: React.CSSProperties[] = [
-  { top: 3, left: 3 }, { top: 3, right: 3 }, { bottom: 3, left: 3 }, { bottom: 3, right: 3 },
-]
-
-function ComposerCard({
-  tint, icon, title, onClose, children,
-}: {
-  tint: string
-  icon: React.ReactNode
-  title: string
-  onClose: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <div style={{
-      width: '100%',
-      background: '#FFFDF7',
-      border: `3px solid ${tint}`,
-      boxShadow: `4px 4px 0 ${tint}AA`,
-      position: 'relative',
-      animation: 'tcCardIn 0.24s cubic-bezier(0.34,1.56,0.64,1) both',
-    }}>
-      {RIVETS.map((pos, i) => (
-        <span key={i} style={{ position: 'absolute', width: 2, height: 2, background: '#F5C842', ...pos }} />
-      ))}
-
-      {/* Titlebar — icon + label on the left, a real close target on the
-          right. Before this the only way out was tapping the backdrop. */}
-      <div className="flex items-center justify-between px-2.5 py-2"
-        style={{ background: `${tint}22`, borderBottom: `2px solid ${tint}55` }}>
-        <span className="flex items-center gap-1.5 min-w-0">
-          {icon}
-          <span className="font-pixel truncate" style={{ fontSize: 6, letterSpacing: 1, color: '#4A3A5A' }}>
-            {title}
-          </span>
-        </span>
-        <button
-          onClick={onClose}
-          aria-label="Close"
-          className="w-6 h-6 flex items-center justify-center flex-shrink-0 active:translate-y-[1px] transition-transform"
-          style={{ background: '#FFF', border: `2px solid ${tint}77` }}
-        >
-          <IconClose size={8} />
-        </button>
-      </div>
-
-      {children}
-
-      <style jsx>{`
-        @keyframes tcCardIn {
-          0%   { transform: scale(0.94) translateY(6px); opacity: 0; }
-          100% { transform: scale(1) translateY(0); opacity: 1; }
-        }
-      `}</style>
-    </div>
   )
 }
 
