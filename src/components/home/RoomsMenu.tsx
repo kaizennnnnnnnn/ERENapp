@@ -10,11 +10,11 @@
 import type { ComponentType } from 'react'
 import {
   IconDrumstick, IconYarn, IconMoonZ, IconBath,
-  IconFlask, IconPill, IconSpeech, IconCake,
+  IconFlask, IconPill, IconFlower, IconSpeech, IconCake,
 } from '@/components/PixelIcons'
 
 export interface RoomDef {
-  id: 'feed' | 'play' | 'sleep' | 'wash' | 'chemistry' | 'vet' | 'talk' | 'bakery'
+  id: 'feed' | 'play' | 'sleep' | 'wash' | 'chemistry' | 'vet' | 'garden' | 'talk' | 'bakery'
   /** Shown through cat.t (lib/catWords) by the Rooms sheet and the swipe dots,
    *  so a label may name the cat. The bakery tile doesn't: at a quarter of the
    *  sheet's width a long name broke mid-word, and the bakery says it inside. */
@@ -34,6 +34,7 @@ export const ROOMS: RoomDef[] = [
   { id: 'wash',      label: 'Bathroom',      Icon: IconBath,      color: '#38BDF8', rgb: '56,189,248'  },
   { id: 'chemistry', label: 'Chem Lab',      Icon: IconFlask,     color: '#84CC16', rgb: '132,204,22'  },
   { id: 'vet',       label: 'Vet Office',    Icon: IconPill,      color: '#34D399', rgb: '52,211,153'  },
+  { id: 'garden',    label: 'Garden',        Icon: IconFlower,    color: '#8DBF8E', rgb: '141,191,142' },
   { id: 'talk',      label: 'The Attic',     Icon: IconSpeech,    color: '#D8B4FE', rgb: '216,180,254' },
   { id: 'bakery',    label: 'Bakery',        Icon: IconCake,      color: '#FBBF24', rgb: '251,191,36', href: '/bakery' },
 ]

@@ -1913,6 +1913,24 @@ const MEADOW_ICONS = {
     ],
     palette: { G: '#5DAA5F', g: '#3F8452', h: '#A6D98A', k: '#2F4A33', p: '#F6A9BF' },
   },
+  // The garden's basket: what you picked and haven't put in a vase yet.
+  basket: {
+    grid: [
+      '....XXXX....',
+      '...X....X...',
+      '..X.p..y.X..',
+      '..XpppgyyX..',
+      'aaaaaaaaaaaa',
+      '.bcbcbcbcbc.',
+      '.cbcbcbcbcb.',
+      '.bcbcbcbcbc.',
+      '..cbcbcbcb..',
+      '..bcbcbcbc..',
+      '...aaaaaa...',
+      '............',
+    ],
+    palette: { X: '#B98A5B', a: '#9C6A45', b: '#E9C79A', c: '#D8AE7C', p: '#E57C9F', y: '#F2B33D', g: '#3F8452' },
+  },
   star: {
     grid: [
       '.....XX.....',

@@ -16,7 +16,7 @@ import { M } from '@/components/meadow/tokens'
 import { useCat } from '@/hooks/useCat'
 
 /** The rooms in swipe order (the Attic closes the loop from the other side and has no dot). */
-export const SWIPE_ROOM_IDS = ['feed', 'play', 'sleep', 'wash', 'chemistry', 'vet'] as const
+export const SWIPE_ROOM_IDS = ['feed', 'play', 'sleep', 'wash', 'chemistry', 'vet', 'garden'] as const
 export type SwipeRoomId = typeof SWIPE_ROOM_IDS[number]
 
 const LABEL: Record<string, string> = Object.fromEntries(ROOMS.map((r: RoomDef) => [r.id, r.label]))
