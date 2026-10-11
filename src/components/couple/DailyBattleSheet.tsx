@@ -4,302 +4,237 @@
 // Slides up when the HUD bar is tapped. Shows the per-player score,
 // the leader, time until reset, and the daily prize so the player
 // has a concrete goal to push for before midnight.
+//
+// In the Meadow look, like the morning verdict it feeds: a white sheet, each
+// person in their own household colour (profiles.heart), today's rule on its
+// own icon and tint, and the trophy cups kept as the art they are.
 
-import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useRef, useState } from 'react'
 import { playSound } from '@/lib/sounds'
 import type { DailyBattleState } from '@/hooks/useDailyBattle'
 import { timeUntilMidnight } from '@/hooks/useDailyBattle'
-import { trophyTier, TROPHY_TONE, TROPHY_LABEL, TROPHY_VALUE, type TrophyTier } from '@/lib/dailyTwist'
-import {
-  PINK, PINK_HI, PINK_LO,
-  OBSIDIAN_FACE, OBSIDIAN_BTN, OBSIDIAN_ORB,
-  pinkText, accentA,
-} from '@/components/obsidian'
-import { IconCrown, IconSwords } from '@/components/PixelIcons'
+import { trophyTier, TROPHY_LABEL, TROPHY_VALUE, type TrophyTier } from '@/lib/dailyTwist'
 import TrophyCup from '@/components/trophies/TrophyCup'
+import {
+  Avatar, Card, IconTile, MeadowIcon, Sheet, Tag,
+  M, PERSON, RADIUS, TYPE, personColor,
+} from '@/components/meadow'
+import { TWIST_LOOK, sentence } from './twistLook'
+
+type Heart = 'brown_heart' | 'pink_heart' | 'sparkle'
 
 interface Props {
   battle: DailyBattleState
+  /** Each side's household colour (profiles.heart). A household of one plays
+   *  the cat, 'sparkle'. Missing on the partner: the other of the two. */
+  myHeart?: Heart | null
+  partnerHeart?: Heart | null
   onClose: () => void
 }
 
-export default function DailyBattleSheet({ battle, onClose }: Props) {
-  const [mounted, setMounted] = useState(false)
+/** The sheet's drop-away before the parent unmounts it (Sheet's EXIT_MS). */
+const EXIT_MS = 180
+
+const LADDER: { tier: TrophyTier; at: number }[] = [
+  { tier: 'bronze', at: 1 },
+  { tier: 'silver', at: 3 },
+  { tier: 'gold',   at: 6 },
+]
+
+export default function DailyBattleSheet({ battle, myHeart, partnerHeart, onClose }: Props) {
+  const [open, setOpen] = useState(true)
   const [reset, setReset] = useState(() => timeUntilMidnight())
+  const closeTimer = useRef<ReturnType<typeof setTimeout>>()
 
   useEffect(() => {
-    setMounted(true)
     const t = setInterval(() => setReset(timeUntilMidnight()), 60 * 1000)
-    return () => clearInterval(t)
+    return () => { clearInterval(t); clearTimeout(closeTimer.current) }
   }, [])
 
-  if (!mounted) return null
+  // Close in two steps so the sheet can drop away before the parent
+  // unmounts it.
+  function close() {
+    if (!open) return
+    playSound('ui_modal_close')
+    setOpen(false)
+    closeTimer.current = setTimeout(onClose, EXIT_MS)
+  }
 
-  const LADDER: { tier: TrophyTier; at: number }[] = [
-    { tier: 'bronze', at: 1 },
-    { tier: 'silver', at: 3 },
-    { tier: 'gold',   at: 6 },
-  ]
+  const myColor = personColor(myHeart)
+  const partnerColor = partnerHeart
+    ? personColor(partnerHeart)
+    : myHeart === 'brown_heart' ? PERSON.pink : PERSON.brown
 
   const meLeading      = battle.leader === 'me'
   const partnerLeading = battle.leader === 'partner'
   const diff = Math.abs(battle.myScore - battle.partnerScore)
   const leaderName = meLeading ? battle.myName : partnerLeading ? battle.partnerName : null
-  // The tier the CURRENT margin would strike, and the colour the panel wears
-  // because of it.
+  // The tier the CURRENT margin would strike.
   const liveTier = leaderName ? trophyTier(diff) : null
-  const liveTone = liveTier ? TROPHY_TONE[liveTier] : '#6E6080'
+  const rule = TWIST_LOOK[battle.twist.id]
 
-  return createPortal(
-    <div className="fixed inset-0 z-[60] flex flex-col justify-end">
-      <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.65)' }}
-        onClick={() => { playSound('ui_modal_close'); onClose() }} />
+  return (
+    <Sheet open={open} onClose={close} title="Today's battle">
+      <div className="flex flex-col" style={{ gap: 12 }}>
 
-      <div className="relative max-w-md w-full mx-auto flex flex-col overflow-hidden p-4 gap-4"
-        style={{
-          ...OBSIDIAN_FACE,
-          borderRadius: '6px 6px 0 0',
-          borderBottom: 'none',
-          animation: 'dbsSlide 0.28s cubic-bezier(0.34,1.56,0.64,1)',
-        }}>
-
-        {/* Handle */}
-        <div className="flex justify-center" style={{ marginTop: -4 }}>
-          <div style={{ width: 36, height: 3, background: PINK, boxShadow: `0 0 4px ${accentA(0.5)}` }} />
-        </div>
-
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <IconSwords size={14} />
-            <span className="font-pixel" style={{ fontSize: 9, letterSpacing: 2, ...pinkText }}>
-              TODAY&apos;S BATTLE
-            </span>
+        {/* ── Scoreboard ── */}
+        <Card outlined padding="14px 16px 16px">
+          <div className="flex items-center" style={{ gap: 8 }}>
+            <Side name={battle.myName} score={battle.myScore} color={myColor} lead={meLeading} />
+            <span aria-hidden className="flex items-center justify-center" style={{
+              width: 36, height: 36, flexShrink: 0, borderRadius: 999, background: M.soft,
+              fontSize: 13, fontWeight: 800, color: M.label,
+            }}>vs</span>
+            <Side name={battle.partnerName} score={battle.partnerScore} color={partnerColor} lead={partnerLeading} />
           </div>
-          <button onClick={() => { playSound('ui_modal_close'); onClose() }}
-            className="w-7 h-7 flex items-center justify-center active:translate-y-[1px] transition-transform"
-            style={{ ...OBSIDIAN_BTN, color: PINK_HI, fontFamily: '"Press Start 2P"', fontSize: 8 }}>
-            ✕
-          </button>
-        </div>
 
-        <p className="font-pixel text-center" style={{ fontSize: 6, color: '#9a8aa8', letterSpacing: 1.5 }}>
-          RESETS IN {reset.hours}H {reset.minutes}M
-        </p>
+          <SplitBar battle={battle} myColor={myColor} partnerColor={partnerColor} />
 
-        {/* VS row */}
-        <div className="flex items-center gap-3">
-          <div className="flex-1 text-center">
-            <p className="font-pixel mb-1" style={{ fontSize: 7, letterSpacing: 1.5, color: PINK_HI }}>
-              {battle.myName.toUpperCase()}
-            </p>
-            <p className="font-pixel" style={{
-              fontSize: 30, lineHeight: 1,
-              ...(meLeading ? pinkText : { color: '#5A5A5A' }),
-            }}>{battle.myScore}</p>
-            {meLeading && (
-              <div className="flex justify-center mt-1" style={{ animation: 'dbsCrownBob 1.8s ease-in-out infinite' }}>
-                <IconCrown size={16} />
-              </div>
+          <div className="flex justify-center" style={{ marginTop: 12 }}>
+            {leaderName && diff > 0 ? (
+              <Tag tone="amber" icon={<MeadowIcon name="crown" size={16} />}
+                style={{ maxWidth: '100%', overflow: 'hidden' }}>
+                {/* A long name gives way before the margin does. */}
+                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{leaderName}</span>
+                <span style={{ flexShrink: 0 }}>leads by {diff}</span>
+              </Tag>
+            ) : battle.total > 0 ? (
+              <Tag tone="soft">Tied at {battle.myScore}</Tag>
+            ) : (
+              <Tag tone="soft">No care yet today</Tag>
             )}
           </div>
-          <div style={{
-            width: 38, height: 38, ...OBSIDIAN_ORB,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <span className="font-pixel" style={{ fontSize: 9, ...pinkText }}>VS</span>
-          </div>
-          <div className="flex-1 text-center">
-            <p className="font-pixel mb-1" style={{ fontSize: 7, letterSpacing: 1.5, color: PINK_HI }}>
-              {battle.partnerName.toUpperCase()}
-            </p>
-            <p className="font-pixel" style={{
-              fontSize: 30, lineHeight: 1,
-              ...(partnerLeading ? pinkText : { color: '#5A5A5A' }),
-            }}>{battle.partnerScore}</p>
-            {partnerLeading && (
-              <div className="flex justify-center mt-1" style={{ animation: 'dbsCrownBob 1.8s ease-in-out infinite' }}>
-                <IconCrown size={16} />
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Full bar */}
-        <div className="relative h-5 overflow-hidden" style={{
-          border: `2px solid ${accentA(0.6)}`,
-          background: 'linear-gradient(180deg, #000 0%, #050507 100%)',
-          boxShadow: `inset 0 2px 4px rgba(0,0,0,0.95), 0 0 12px ${accentA(0.4)}`,
-        }}>
-          <div style={{
-            position: 'absolute', left: 0, top: 0, bottom: 0,
-            width: `${battle.myPct}%`,
-            background: 'linear-gradient(180deg, #FF8DB8 0%, #C8265F 100%)',
-            transition: 'width 700ms cubic-bezier(0.34,1.4,0.55,1)',
-          }}>
-            <div className="absolute inset-0" style={{
-              backgroundImage: 'repeating-linear-gradient(-45deg, transparent 0 5px, rgba(255,255,255,0.22) 5px 7px)',
-              backgroundSize: '11px 11px',
-              animation: 'dbsFlowR 1.1s linear infinite',
-              mixBlendMode: 'screen',
-            }} />
-          </div>
-          <div style={{
-            position: 'absolute', left: `${battle.myPct}%`, top: 0, bottom: 0,
-            width: `${battle.partnerPct}%`,
-            background: 'linear-gradient(180deg, #C9B4FF 0%, #5C2FE0 100%)',
-            transition: 'all 700ms cubic-bezier(0.34,1.4,0.55,1)',
-          }}>
-            <div className="absolute inset-0" style={{
-              backgroundImage: 'repeating-linear-gradient(45deg, transparent 0 5px, rgba(255,255,255,0.22) 5px 7px)',
-              backgroundSize: '11px 11px',
-              animation: 'dbsFlowL 1.1s linear infinite',
-              mixBlendMode: 'screen',
-            }} />
-          </div>
-          <div style={{
-            position: 'absolute', top: 0, bottom: 0,
-            left: `${battle.myPct}%`,
-            width: 2, background: '#fff',
-            boxShadow: '0 0 6px #fff',
-            transform: 'translateX(-1px)',
-            transition: 'left 700ms cubic-bezier(0.34,1.4,0.55,1)',
-          }} />
-        </div>
-
-        {/* Verdict */}
-        {leaderName && diff > 0 && (
-          <div className="text-center">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5" style={OBSIDIAN_BTN}>
-              <IconCrown size={11} />
-              <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 1.5, ...pinkText }}>
-                {leaderName.toUpperCase()} LEADS BY {diff}
-              </span>
-            </span>
-          </div>
-        )}
-        {!leaderName && battle.total > 0 && (
-          <p className="text-center font-pixel" style={{ fontSize: 7, color: PINK_LO, letterSpacing: 1.5 }}>TIED!</p>
-        )}
-        {battle.total === 0 && (
-          <p className="text-center font-pixel" style={{ fontSize: 7, color: '#7a6a88' }}>
-            NO ACTIONS YET TODAY
-          </p>
-        )}
+        </Card>
 
         {/* ── Today's rule ── */}
-        <div className="px-3 py-2.5 relative" style={{
-          ...OBSIDIAN_FACE,
-          border: `1px solid ${battle.twist.tone}66`,
-          boxShadow: `3px 3px 0 rgba(0,0,0,0.55), 0 0 14px ${battle.twist.tone}22`,
-        }}>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-pixel" style={{
-              fontSize: 8, letterSpacing: 2, color: battle.twist.tone,
-              textShadow: `0 0 6px ${battle.twist.tone}66`,
-            }}>{battle.twist.name}</span>
-            <div style={{ flex: 1, height: 1, background: `${battle.twist.tone}33` }} />
+        <Card outlined padding="14px 18px 16px">
+          <div style={{ ...TYPE.label, color: M.label, marginBottom: 10 }}>Today&apos;s rule</div>
+          <div className="flex items-center" style={{ gap: 14 }}>
+            <IconTile icon={rule.icon} size={48} bg={rule.tint} iconSize={28} color={rule.color} />
+            <div className="flex flex-col" style={{ gap: 2, minWidth: 0 }}>
+              <span style={{ fontSize: 18, fontWeight: 800 }}>{sentence(battle.twist.name)}</span>
+              <span style={{ fontSize: 14, lineHeight: 1.35, fontWeight: 500, color: M.text2 }}>{battle.twist.blurb}</span>
+            </div>
           </div>
-          <p className="text-[10px]" style={{ color: '#B4A8C4' }}>{battle.twist.blurb}</p>
-        </div>
+        </Card>
 
         {/* ── The trophy ladder ──
             Three rungs, not one number. Seeing that a 2-point lead is one
             action away from SILVER is what makes the last hour of a day worth
             playing; "30 coins at midnight" never did. */}
-        <div className="px-3 py-3 relative overflow-hidden" style={{
-          ...OBSIDIAN_FACE,
-          border: `1px solid ${liveTone}66`,
-          boxShadow: `3px 3px 0 rgba(0,0,0,0.55), 0 0 14px ${liveTone}2e`,
-        }}>
-          <p className="text-center font-pixel" style={{
-            fontSize: 7, letterSpacing: 2, color: '#9A8AA8', marginBottom: 10,
-          }}>TONIGHT&apos;S PRIZE</p>
-
-          <div className="flex items-stretch gap-1.5">
-            {LADDER.map(rung => {
-              const reached = diff >= rung.at && leaderName !== null
-              // Only the top reached rung is the one actually on offer; the
-              // ones below it are history. Lighting all three equally made a
-              // 10-point lead look the same as a 1-point one.
-              const current = reached && rung.tier === liveTier
-              return (
-                <div key={rung.tier} className="flex-1 flex flex-col items-center gap-1 py-2 px-1 relative" style={{
-                  border: `${current ? 2 : 1}px solid ${
-                    current ? TROPHY_TONE[rung.tier]
-                    : reached ? `${TROPHY_TONE[rung.tier]}55`
-                    : 'rgba(255,255,255,0.07)'}`,
-                  background: current
-                    ? `linear-gradient(180deg, ${TROPHY_TONE[rung.tier]}2E 0%, #050507 100%)`
-                    : reached
-                      ? `linear-gradient(180deg, ${TROPHY_TONE[rung.tier]}12 0%, #050507 100%)`
-                      : 'rgba(255,255,255,0.02)',
-                  boxShadow: current
-                    ? `0 0 14px ${TROPHY_TONE[rung.tier]}66, inset 0 1px 0 rgba(255,255,255,0.12)`
-                    : undefined,
-                  borderRadius: 3,
-                  animation: current ? 'dbsRungPulse 2s ease-in-out infinite' : undefined,
-                }}>
-                  <span style={{
-                    filter: current
-                      ? `drop-shadow(0 0 7px ${TROPHY_TONE[rung.tier]})`
-                      : reached
-                        ? `drop-shadow(0 0 4px ${TROPHY_TONE[rung.tier]}66)`
-                        : 'grayscale(1) brightness(0.42)',
-                    opacity: reached ? 1 : 0.8,
-                  }}>
-                    <TrophyCup size={current ? 26 : 20} tier={rung.tier} shine={current} />
-                  </span>
-                  <span className="font-pixel" style={{
-                    fontSize: 5, letterSpacing: 1,
-                    color: reached ? TROPHY_TONE[rung.tier] : '#5E5470',
-                  }}>{TROPHY_LABEL[rung.tier]}</span>
-                  <span className="font-pixel" style={{
-                    fontSize: 5, color: reached ? '#C8BCD4' : '#4E4658',
-                  }}>BY {rung.at}</span>
-                </div>
-              )
-            })}
+        <Card outlined padding="14px 16px 16px">
+          <div className="flex items-baseline justify-between" style={{ gap: 12, marginBottom: 12 }}>
+            <span style={{ ...TYPE.label, color: M.label }}>Tonight&apos;s prize</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: M.label, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+              Resets in {reset.hours}h {reset.minutes}m
+            </span>
           </div>
 
-          <p className="text-center text-[10px] mt-2.5" style={{ color: '#9A8C70' }}>
+          <div className="flex items-stretch" style={{ gap: 8 }}>
+            {LADDER.map(rung => (
+              <Rung key={rung.tier} tier={rung.tier} at={rung.at}
+                reached={leaderName !== null && diff >= rung.at}
+                // Only the top reached rung is the one actually on offer; the
+                // ones below it are history. Lighting all three equally made a
+                // 10-point lead look the same as a 1-point one.
+                current={rung.tier === liveTier} />
+            ))}
+          </div>
+
+          <p style={{ margin: '12px 0 0', fontSize: 14, lineHeight: 1.35, fontWeight: 500, color: M.text2, textAlign: 'center' }}>
             {liveTier
-              ? `${leaderName} is on ${TROPHY_LABEL[liveTier]} — ${TROPHY_VALUE[liveTier]} ${TROPHY_VALUE[liveTier] === 1 ? 'trophy' : 'trophies'} at midnight.`
+              ? `${leaderName} is on ${sentence(TROPHY_LABEL[liveTier])} — ${TROPHY_VALUE[liveTier]} ${TROPHY_VALUE[liveTier] === 1 ? 'trophy' : 'trophies'} at midnight.`
               : 'Lead by 1 at midnight to strike a trophy.'}
           </p>
-        </div>
+        </Card>
 
-        <p className="text-center text-[10px]" style={{ color: '#7a6a88' }}>
+        <p style={{ margin: '4px 0 0', fontSize: 13, fontWeight: 700, color: M.text2, textAlign: 'center' }}>
           {battle.totalActions} care action{battle.totalActions === 1 ? '' : 's'} logged today
         </p>
       </div>
+    </Sheet>
+  )
+}
 
-      {/* Plain <style> so keyframe names stay un-hashed and the
-          inline `animation: '...'` references actually resolve. */}
-      <style>{`
-        @keyframes dbsSlide {
-          0%   { transform: translateY(60px); opacity: 0; }
-          100% { transform: translateY(0); opacity: 1; }
-        }
-        @keyframes dbsCrownBob {
-          0%, 100% { transform: translateY(0)    rotate(-2deg); }
-          50%      { transform: translateY(-2px) rotate(2deg); }
-        }
-        @keyframes dbsFlowR {
-          from { background-position: 0 0; }
-          to   { background-position: 11px 0; }
-        }
-        @keyframes dbsFlowL {
-          from { background-position: 0 0; }
-          to   { background-position: -11px 0; }
-        }
-        @keyframes dbsRungPulse {
-          0%, 100% { filter: brightness(1); }
-          50%      { filter: brightness(1.16); }
-        }
-      `}</style>
-    </div>,
-    document.body
+// ── One side of the scoreboard ───────────────────────────────────────────────
+
+function Side({ name, score, color, lead }: { name: string; score: number; color: string; lead: boolean }) {
+  return (
+    <div className="flex flex-col items-center" style={{ flex: '1 1 0', minWidth: 0 }}>
+      {/* Crown reserves its space whether or not it is used, so the two
+          columns keep the same baseline. */}
+      <div style={{ height: 24 }}>
+        {lead && <MeadowIcon name="crown" size={22} />}
+      </div>
+      <Avatar name={name} color={color} size={40} />
+      <span style={{
+        marginTop: 6, fontSize: 15, fontWeight: 800, maxWidth: '100%',
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      }}>{name}</span>
+      <span style={{ fontSize: 40, lineHeight: 1.1, color: lead ? M.text : M.faint, ...TYPE.number }}>{score}</span>
+    </div>
+  )
+}
+
+// ── The split bar ────────────────────────────────────────────────────────────
+// Each side in its own colour, meeting where the score splits. Empty until
+// the day's first action: a 50/50 split of nothing would read as a tie.
+
+const BAR_EASE = '700ms cubic-bezier(0.34,1.4,0.55,1)'
+
+function SplitBar({ battle, myColor, partnerColor }: { battle: DailyBattleState; myColor: string; partnerColor: string }) {
+  const started = battle.total > 0
+  return (
+    <div role="img"
+      aria-label={`${battle.myName} ${battle.myScore}, ${battle.partnerName} ${battle.partnerScore}`}
+      className="relative overflow-hidden"
+      style={{ marginTop: 14, height: 12, borderRadius: 999, background: M.track }}>
+      {started && (
+        <>
+          <div style={{
+            position: 'absolute', left: 0, top: 0, bottom: 0, width: `${battle.myPct}%`,
+            background: myColor, transition: `width ${BAR_EASE}`,
+          }} />
+          <div style={{
+            position: 'absolute', left: `${battle.myPct}%`, top: 0, bottom: 0, width: `${battle.partnerPct}%`,
+            background: partnerColor, transition: `left ${BAR_EASE}, width ${BAR_EASE}`,
+          }} />
+          {/* A white seam where the two meet, so same-ish colours still split. */}
+          {battle.myPct > 0 && battle.partnerPct > 0 && (
+            <div style={{
+              position: 'absolute', top: 0, bottom: 0, left: `${battle.myPct}%`, width: 2,
+              transform: 'translateX(-1px)', background: '#FFFFFF', transition: `left ${BAR_EASE}`,
+            }} />
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+// ── One rung of the trophy ladder ────────────────────────────────────────────
+
+function Rung({ tier, at, reached, current }: { tier: TrophyTier; at: number; reached: boolean; current: boolean }) {
+  return (
+    <div className="flex flex-col items-center justify-end" style={{
+      flex: '1 1 0', minWidth: 0, boxSizing: 'border-box', gap: 4, padding: '10px 4px 10px',
+      borderRadius: RADIUS.tile,
+      background: current ? M.leafTint : M.soft,
+      border: `2px solid ${current ? M.leaf : 'transparent'}`,
+    }}>
+      <span style={{
+        // Unreached rungs are greyed, not hidden: the ladder is the goal.
+        filter: reached ? undefined : 'grayscale(1)',
+        opacity: reached ? 1 : 0.45,
+      }}>
+        <TrophyCup size={current ? 30 : 24} tier={tier} shine={current} />
+      </span>
+      <span style={{ fontSize: 14, fontWeight: 800, color: current ? M.leafInk : reached ? M.text : M.text2 }}>
+        {sentence(TROPHY_LABEL[tier])}
+      </span>
+      <span style={{ fontSize: 12, fontWeight: 700, color: current ? M.leafInk : M.text2, whiteSpace: 'nowrap' }}>
+        Lead by {at}
+      </span>
+    </div>
   )
 }

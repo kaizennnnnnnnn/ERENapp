@@ -29,7 +29,10 @@ const Z_HUD = 8
 const ME = { hi: '#FF8DB8', lo: '#C8265F', rgb: '255,107,157' }
 const THEM = { hi: '#C9B4FF', lo: '#5C2FE0', rgb: '167,139,250' }
 
-export default function DailyBattleHUD() {
+type Heart = 'brown_heart' | 'pink_heart' | 'sparkle'
+
+/** Each side's household colour, for the sheet (see DailyBattleSheet). */
+export default function DailyBattleHUD({ myHeart, partnerHeart }: { myHeart?: Heart | null; partnerHeart?: Heart | null }) {
   const battle = useDailyBattle()
   const [open, setOpen] = useState(false)
 
@@ -64,7 +67,10 @@ export default function DailyBattleHUD() {
         <BattlePlate battle={battle} />
       </button>
 
-      {open && <DailyBattleSheet battle={battle} onClose={() => setOpen(false)} />}
+      {open && (
+        <DailyBattleSheet battle={battle} myHeart={myHeart} partnerHeart={partnerHeart}
+          onClose={() => setOpen(false)} />
+      )}
     </>
   )
 }

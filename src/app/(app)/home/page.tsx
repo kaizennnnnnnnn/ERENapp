@@ -671,7 +671,10 @@ export default function HomePage() {
                 opens a detail sheet on tap with the prize info and
                 time-to-reset. Lives inside the awake block since it
                 anchors visually to Eren's head. */}
-            <DailyBattleHUD />
+            <DailyBattleHUD
+              myHeart={profile?.heart}
+              partnerHeart={partner ? partner.heart : isSolo ? 'sparkle' : null}
+            />
 
             {/* Fires on the rare moment the user pulls ahead today after
                 losing yesterday. Listens to the `eren:comeback` event;

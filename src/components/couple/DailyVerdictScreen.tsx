@@ -27,7 +27,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { format, parseISO } from 'date-fns'
 import type { DailyBattleRow } from '@/lib/battleResults'
-import { TROPHY_TONE, TROPHY_LABEL, type TwistDef, type TwistId, type TrophyTier } from '@/lib/dailyTwist'
+import { TROPHY_TONE, TROPHY_LABEL, type TwistDef, type TrophyTier } from '@/lib/dailyTwist'
 import { IconSwords } from '@/components/PixelIcons'
 import { prestigeDef } from '@/lib/trophyShop'
 import { FramePlate, TitlePlate } from '@/components/trophies/prestigeArt'
@@ -37,8 +37,9 @@ import { playSound } from '@/lib/sounds'
 import { inkOn } from '@/lib/contrastInk'
 import {
   Card, IconTile, MeadowIcon, PrimaryButton, SecondaryButton, Tag,
-  GROUND, M, PERSON, TINT, TYPE, personColor, type MeadowIconName,
+  GROUND, M, PERSON, TYPE, personColor,
 } from '@/components/meadow'
+import { TWIST_LOOK, sentence } from './twistLook'
 
 type Heart = 'brown_heart' | 'pink_heart' | 'sparkle'
 
@@ -64,25 +65,6 @@ interface Props {
 
 /** Beat timings, ms after mount. */
 const BEAT = [0, 380, 1150, 1850, 2500]
-
-/** Each twist's icon and tint, for the rule chip and the rule card. `color`
- *  recolours an icon whose own colour would say the wrong thing (the plus is
- *  drawn leaf green, "add"; on nurse day it is a red cross). */
-const TWIST_LOOK: Record<TwistId, { icon: MeadowIconName; tint: string; color?: string }> = {
-  bath_day:   { icon: 'drop',    tint: TINT.sky },
-  feast:      { icon: 'bowl',    tint: TINT.orange },
-  playday:    { icon: 'paw',     tint: TINT.love },
-  nap_day:    { icon: 'moon',    tint: TINT.lilac },
-  nurse:      { icon: 'plus',    tint: TINT.danger, color: M.danger },
-  double:     { icon: 'sparkle', tint: TINT.amber },
-  full_house: { icon: 'star',    tint: TINT.amber },
-  sprint:     { icon: 'bolt',    tint: TINT.orange },
-}
-
-/** "NURSE DAY" -> "Nurse day": the twist names are written for the pixel HUD. */
-function sentence(caps: string): string {
-  return caps.charAt(0) + caps.slice(1).toLowerCase()
-}
 
 export default function DailyVerdictScreen({
   row, awarded, streak, yesterdayTwist, todayTwist, myName, partnerName,
