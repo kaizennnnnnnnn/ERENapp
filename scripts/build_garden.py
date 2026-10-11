@@ -272,11 +272,12 @@ NIGHT = hexrgb('#2A3260')
 
 
 def nightify(col):
-    """Moonlight: darker, cooler, a little desaturated."""
+    """Moonlight: darker, cooler, a little desaturated. Not too dark: the beds
+    and flowers are drawn over this, and a night garden still has to read."""
     r, g, b = col
     lum = 0.3 * r + 0.59 * g + 0.11 * b
-    d = mix((round(lum),) * 3, col, 0.55)
-    return mix(d, NIGHT, 0.55)
+    d = mix((round(lum),) * 3, col, 0.7)
+    return mix(d, NIGHT, 0.42)
 
 
 def light(x, y, col, night):
@@ -285,7 +286,7 @@ def light(x, y, col, night):
     diagram next to them, so the garden gets the same treatment."""
     nx, ny = x / W, y / H
     edge = max(0.0, (abs(nx - 0.5) - 0.32) * 2.2) + max(0.0, (ny - 0.78) * 1.1)
-    shade = min(0.28, edge * 0.35)
+    shade = min(0.18 if night else 0.28, edge * 0.35)
     col = mix(col, (40, 30, 50) if night else (70, 60, 40), shade)
     if not night:
         warm = max(0.0, 0.10 - 0.10 * (nx * 0.6 + ny * 0.9))

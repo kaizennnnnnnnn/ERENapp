@@ -75,6 +75,12 @@ interface FxProps {
    * Meteors do not take it, because they no longer paint a sky at all.
    */
   lit?: boolean
+  /**
+   * Outdoors: this covers a whole scene (the garden), not a window. Rain then
+   * skips the overcast wash, which is sized to dim a pane, not the screen, and
+   * the drops on the glass, because there is no glass. The scene dims itself.
+   */
+  open?: boolean
 }
 
 const FILL: React.CSSProperties = { position: 'absolute', inset: 0 }
@@ -301,7 +307,7 @@ function GlassDrops({ n, still }: { n: number; still: boolean }) {
   )
 }
 
-function Rain({ still, heavy, plate, lit }: FxProps & { heavy?: boolean }) {
+function Rain({ still, heavy, plate, lit, open }: FxProps & { heavy?: boolean }) {
   const passes = heavy ? RAIN_HEAVY : RAIN_LIGHT
   return (
     <>
@@ -319,13 +325,13 @@ function Rain({ still, heavy, plate, lit }: FxProps & { heavy?: boolean }) {
           mountain readable through it — a storm was never the complaint. Rain
           was: flat at 0.78 it was not weather over a window but a blind pulled
           down over it, and the kitchen went to a single grey. */}
-      <Wash background={heavy
+      {!open && <Wash background={heavy
         ? 'linear-gradient(180deg, rgba(20,26,50,0.74) 0%, rgba(38,48,78,0.62) 56%, rgba(56,66,94,0.5) 100%)'
-        : 'linear-gradient(180deg, rgba(46,58,90,0.45) 0%, rgba(78,90,118,0.34) 100%)'} />
+        : 'linear-gradient(180deg, rgba(46,58,90,0.45) 0%, rgba(78,90,118,0.34) 100%)'} />}
 
       {passes.map((p, i) => <RainPassLayer key={i} spec={p} still={!!still} />)}
       <RainSplashes n={heavy ? 10 : 6} still={!!still} />
-      <GlassDrops n={heavy ? 6 : 4} still={!!still} />
+      {!open && <GlassDrops n={heavy ? 6 : 4} still={!!still} />}
 
       <style>{`
         @keyframes wxRainFall {
@@ -500,10 +506,10 @@ function Strike({ shape, anim, cycle, frozen, still }: {
   )
 }
 
-function Storm({ still, plate, lit }: FxProps) {
+function Storm({ still, plate, lit, open }: FxProps) {
   return (
     <>
-      <Rain still={still} plate={plate} lit={lit} heavy />
+      <Rain still={still} plate={plate} lit={lit} open={open} heavy />
       <Strike shape={BOLT_A} anim="wxStrikeA" cycle={7.3} frozen still={!!still} />
       <Strike shape={BOLT_B} anim="wxStrikeB" cycle={11.9} frozen={false} still={!!still} />
       <style>{`
@@ -957,20 +963,22 @@ function Aurora({ still, lit, plate }: FxProps) {
 
 // ─── The switch ──────────────────────────────────────────────────────────────
 
-export default memo(function WeatherFx({ id, still, lit, plate }: {
+export default memo(function WeatherFx({ id, still, lit, plate, open }: {
   id: WeatherId
   still?: boolean
   /** The room around this window is in daylight — see FxProps. */
   lit?: boolean
   /** Nothing is painted behind this pane, so paint the sky too — see FxProps. */
   plate?: boolean
+  /** A whole outdoor scene, not a window — see FxProps. */
+  open?: boolean
 }) {
   switch (id) {
     // Clear is the painting itself, so it is a swatch sky and nothing else —
     // RoomWeather never renders it.
     case 'clear':        return <Clear still={still} lit={lit} />
-    case 'rain':         return <Rain still={still} plate={plate} lit={lit} />
-    case 'storm':        return <Storm still={still} plate={plate} lit={lit} />
+    case 'rain':         return <Rain still={still} plate={plate} lit={lit} open={open} />
+    case 'storm':        return <Storm still={still} plate={plate} lit={lit} open={open} />
     case 'snow':         return <Snow still={still} plate={plate} lit={lit} />
     case 'sunrise':      return <Sun still={still} plate={plate} />
     case 'sunset':       return <Sun still={still} plate={plate} dusk />

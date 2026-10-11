@@ -327,7 +327,11 @@ function GardenWeather({ id, dark, still }: { id: WeatherId; dark: boolean; stil
   const wet = id === 'rain' || id === 'storm'
   return (
     <div aria-hidden className="absolute inset-0 pointer-events-none overflow-hidden">
-      {wet && <div className="absolute inset-0" style={{ background: 'rgba(40, 56, 90, 0.16)' }} />}
+      {/* Overcast, lightly: the beds have to stay readable in the rain, and
+          the night picture is dark enough already. */}
+      {wet && <div className="absolute inset-0" style={{
+        background: `rgba(40, 56, 90, ${id === 'storm' ? (dark ? 0.12 : 0.2) : (dark ? 0.04 : 0.1)})`,
+      }} />}
       {/* The art's own rectangle, reproduced from `cover` (see RoomWeather). */}
       <div style={{
         position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
@@ -337,7 +341,7 @@ function GardenWeather({ id, dark, still }: { id: WeatherId; dark: boolean; stil
           position: 'absolute', left: 0, top: 0, width: '100%', height: skyOnly ? '31%' : '100%',
           overflow: 'hidden', containerType: 'size',
         }}>
-          <WeatherFx id={id} still={still} lit={!dark} />
+          <WeatherFx id={id} still={still} lit={!dark} open />
         </div>
         {/* A sky-only weather happens behind the house and the tree: draw the
             garden back over it with the sky cut out. */}
