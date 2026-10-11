@@ -9,31 +9,23 @@
 // check once it's done). The ones that count up (2 of 4 care types) carry a
 // meter. Done quests sink to the bottom, so what's left is on top.
 //
-// The button keeps the candy look of its neighbours in the row (cuteBtn): the
-// daily count in amber and the weekly in violet.
+// The button is a white pill over the room art like its neighbours in the row:
+// the scroll, today's count in ink, then the week's a shade lighter. When the
+// row runs short, the week's count steps out of sight.
 
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { addWeeks, startOfISOWeek, startOfTomorrow } from 'date-fns'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCouple } from '@/hooks/useCouple'
 import { useCat } from '@/hooks/useCat'
 import { TASK_DEFS, getDailyKey, getWeeklyKey } from '@/lib/tasks'
 import type { TaskId, TaskDef } from '@/types'
-import { IconScroll } from './PixelIcons'
 import { playSound } from '@/lib/sounds'
-import { cuteBtn, CuteIcon } from './obsidian'
+import { HUD_BUTTON } from './home/HudBadge'
 import {
   CheckDisc, Divider, IconTile, MeadowIcon, Meter, Segmented, Sheet,
   M, TINT, TYPE, type MeadowIconName,
 } from '@/components/meadow'
-
-// The button: a light parchment-tan candy tile, a pale version of the scroll
-// icon's own colour. Its counters are colour-coded dark numbers (amber daily,
-// violet weekly) so they read crisply on the pale fill.
-const QUEST_RGB = '232,210,160'
-const COUNTER_SHADOW = '0 1px 0 rgba(255,255,255,0.45)'  // light emboss
-const DAILY_NUM  = '#B45309'   // dark amber  — daily counter
-const WEEKLY_NUM = '#6D28D9'   // dark violet — weekly counter
 
 type Period = 'daily' | 'weekly'
 
@@ -201,32 +193,47 @@ export default function TaskPanel() {
         </div>
       </Sheet>
 
-      {/* Quest button */}
-      <button
-        type="button"
-        onClick={openSheet}
-        aria-label={`Quests: ${dailyDone} of ${dailyTasks.length} daily, ${weeklyDone} of ${weeklyTasks.length} weekly`}
-        className="w-full flex items-center gap-2 px-2.5 h-8 active:scale-[0.97] transition-transform relative overflow-hidden"
-        style={cuteBtn(QUEST_RGB)}
-      >
-        <CuteIcon><IconScroll size={20} /></CuteIcon>
-
-        {/* Colour-coded counters: amber daily · violet weekly. A little
-            diamond tags each one, the done count is big and bright, the
-            total dims back — so it reads as progress at a glance. */}
-        <div className="font-pixel flex items-center min-w-0" style={{ whiteSpace: 'nowrap', textShadow: COUNTER_SHADOW, gap: 7 }}>
-          <span className="flex items-center" style={{ gap: 3 }}>
-            <span style={{ width: 4, height: 4, background: DAILY_NUM, transform: 'rotate(45deg)', boxShadow: '0 0 0 1px rgba(0,0,0,0.18)' }} />
-            <span style={{ fontSize: 8, color: DAILY_NUM }}>{dailyDone}</span>
-            <span style={{ fontSize: 6, color: DAILY_NUM, opacity: 0.5 }}>/{dailyTasks.length}</span>
-          </span>
-          <span className="flex items-center" style={{ gap: 3 }}>
-            <span style={{ width: 4, height: 4, background: WEEKLY_NUM, transform: 'rotate(45deg)', boxShadow: '0 0 0 1px rgba(0,0,0,0.18)' }} />
-            <span style={{ fontSize: 8, color: WEEKLY_NUM }}>{weeklyDone}</span>
-            <span style={{ fontSize: 6, color: WEEKLY_NUM, opacity: 0.5 }}>/{weeklyTasks.length}</span>
-          </span>
-        </div>
-      </button>
+      <QuestsPill dailyDone={dailyDone} dailyTotal={dailyTasks.length}
+        weeklyDone={weeklyDone} weeklyTotal={weeklyTasks.length} onOpen={openSheet} />
     </>
+  )
+}
+
+/** The quests button in home's row, from plain props. */
+export function QuestsPill({ dailyDone, dailyTotal, weeklyDone, weeklyTotal, onOpen }: {
+  dailyDone: number
+  dailyTotal: number
+  weeklyDone: number
+  weeklyTotal: number
+  onOpen: () => void
+}) {
+  // Each half is a full-height cell and the pill wraps but is one line tall:
+  // when the row runs short (a fortune gift waiting on a narrow phone), the
+  // week's half wraps onto a second line that is out of sight, instead of
+  // clipping or spilling past the pill's edge.
+  const cell: CSSProperties = { height: HUD_BUTTON, display: 'flex', alignItems: 'center', gap: 6 }
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`Quests: ${dailyDone} of ${dailyTotal} daily, ${weeklyDone} of ${weeklyTotal} weekly`}
+      className="m-lip m-focus w-full"
+      style={{
+        '--m-lip': M.overArtLip, '--m-lip-h': '3px',
+        height: HUD_BUTTON, boxSizing: 'border-box', padding: '0 12px 0 9px', overflow: 'hidden',
+        display: 'flex', flexWrap: 'wrap', alignContent: 'flex-start', columnGap: 6,
+        borderRadius: 999, background: '#FFFFFF', border: 0, color: M.text, cursor: 'pointer',
+        fontSize: 15, whiteSpace: 'nowrap', ...TYPE.number,
+      } as CSSProperties}
+    >
+      <span style={cell}>
+        <MeadowIcon name="scroll" size={20} />
+        <span>{dailyDone}<span style={{ color: M.faint }}>/{dailyTotal}</span></span>
+      </span>
+      <span style={{ ...cell, color: M.text2 }}>
+        <span aria-hidden style={{ width: 2, height: 16, borderRadius: 1, background: M.hairline }} />
+        <span>{weeklyDone}<span style={{ color: M.faint }}>/{weeklyTotal}</span></span>
+      </span>
+    </button>
   )
 }

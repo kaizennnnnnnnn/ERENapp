@@ -10,16 +10,19 @@
 // nav now (the Us tab carries the unread dot this row's heart used to), so
 // the row keeps only what belongs to the living room.
 //
+// In the Meadow look: white pieces over the room art, like the top bar's (the
+// over-art lip, no border, no glow). The quests pill takes what's left of the
+// row; each shortcut is a white circle with its icon in colour, and a count
+// rides on it as a small ringed badge.
+//
 // Presentational: the page wires the data and passes the two live pieces
 // (the quests bar and the co-op bar) in as slots.
 
-import Link from 'next/link'
 import type { ReactNode } from 'react'
-import { IconBell, IconDress, IconGift, IconPhoto, MeadowIcon } from '@/components/PixelIcons'
-import { cuteBtn, CuteIcon } from '@/components/obsidian'
 import { playSound } from '@/lib/sounds'
-import { HEADER_CLEARANCE } from '@/components/meadow/tokens'
+import { HEADER_CLEARANCE, M, MeadowIcon, RoundButton } from '@/components/meadow'
 import WishButton, { type WishButtonProps } from './WishButton'
+import HudBadge, { HUD_BUTTON } from './HudBadge'
 
 export interface HomeHudProps {
   /** The quests bar (TaskPanel); flexes to fill the row. */
@@ -37,68 +40,53 @@ export interface HomeHudProps {
   onOpenReminders: () => void
 }
 
-const BADGE_RED = {
-  width: 16, height: 16, background: '#FF1D5E', border: '2px solid #050507',
-  boxShadow: '0 0 4px rgba(255,29,94,0.6)', borderRadius: 6,
-} as const
-
 export default function HomeHud({
   quests, footer, wish, fortuneAvailable, trophyBalance, newSkinCount, onOpenFortune, onOpenReminders,
 }: HomeHudProps) {
   const tap = () => playSound('ui_tap')
+  // The pop-in, one after another along the row. position: relative holds
+  // each badge to its circle.
+  const pop = (delay: number) => ({ position: 'relative' as const, animationDelay: `${delay}s` })
   return (
-    <div className="absolute left-0 right-0 z-10 px-3" style={{ top: `calc(var(--safe-top) + ${HEADER_CLEARANCE}px)` }}>
-      <div className="flex items-center gap-1">
+    <div className="meadow-root absolute left-0 right-0 z-10"
+      style={{ top: `calc(var(--safe-top) + ${HEADER_CLEARANCE}px)`, padding: '0 16px' }}>
+      {/* relative: the wish card folds out under the whole row. */}
+      <div className="relative flex items-center" style={{ gap: 6 }}>
         {/* Quests — flexes to take remaining space */}
         <div className="flex-1 min-w-0">{quests}</div>
 
         {wish && <WishButton {...wish} />}
 
         {fortuneAvailable && (
-          <button type="button" onClick={onOpenFortune} aria-label="Fortune gift"
-            className="w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-            style={{ ...cuteBtn('217,199,247'), animation: 'homeNavIn 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s backwards, pulse 2s ease-in-out 0.6s infinite' }}>
-            <CuteIcon><IconGift size={22} /></CuteIcon>
-          </button>
+          <RoundButton surface="art" size={HUD_BUTTON} ariaLabel="Fortune gift" onClick={onOpenFortune}
+            className="home-nav-pop" style={pop(0.15)}>
+            {/* Hops while it waits to be opened. */}
+            <span style={{ display: 'block', lineHeight: 0, animation: 'hudGiftHop 1.6s 0.6s infinite' }}>
+              <MeadowIcon name="gift" size={20} />
+            </span>
+          </RoundButton>
         )}
-        <Link href="/hallway" onClick={tap} aria-label="The Hallway"
-          className="home-nav-pop w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-          style={{ ...cuteBtn('191,224,255'), animationDelay: '0.2s' }}>
-          <CuteIcon><IconPhoto size={22} /></CuteIcon>
-        </Link>
-        <Link href="/trophies" onClick={tap}
-          aria-label={trophyBalance > 0 ? `Catnip shop, ${trophyBalance} catnip to spend` : 'Catnip shop'}
-          className="home-nav-pop w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-          style={{ ...cuteBtn('166,217,138'), animationDelay: '0.25s' }}>
-          <CuteIcon><MeadowIcon name="catnip" size={20} /></CuteIcon>
-          {trophyBalance > 0 && (
-            <div className="absolute -top-1 -right-1 flex items-center justify-center"
-              style={{
-                minWidth: 16, height: 16, padding: '0 3px',
-                background: '#A6D98A', border: '2px solid #050507',
-                boxShadow: '0 0 5px rgba(166,217,138,0.65)', borderRadius: 6,
-              }}>
-              <span className="font-pixel" style={{ fontSize: 5, color: '#1F3A24' }}>{trophyBalance}</span>
-            </div>
-          )}
-        </Link>
-        <button type="button" onClick={onOpenReminders} aria-label="Reminders"
-          className="home-nav-pop w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-          style={{ ...cuteBtn('251,228,154'), animationDelay: '0.3s' }}>
-          <CuteIcon><IconBell size={18} /></CuteIcon>
-        </button>
-        <Link href="/closet" onClick={tap}
-          aria-label={newSkinCount > 0 ? `Closet, ${newSkinCount} new` : 'Closet'}
-          className="home-nav-pop w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-          style={{ ...cuteBtn('199,225,255'), animationDelay: '0.35s' }}>
-          <CuteIcon><IconDress size={20} /></CuteIcon>
+        <RoundButton surface="art" size={HUD_BUTTON} href="/hallway" onClick={tap} ariaLabel="The Hallway"
+          className="home-nav-pop" style={pop(0.2)}>
+          <MeadowIcon name="photo" size={20} color="#6FA3D2" />
+        </RoundButton>
+        <RoundButton surface="art" size={HUD_BUTTON} href="/trophies" onClick={tap}
+          ariaLabel={trophyBalance > 0 ? `Catnip shop, ${trophyBalance} catnip to spend` : 'Catnip shop'}
+          className="home-nav-pop" style={pop(0.25)}>
+          <MeadowIcon name="catnip" size={22} />
+          {trophyBalance > 0 && <HudBadge bg={M.leaf}>{trophyBalance}</HudBadge>}
+        </RoundButton>
+        <RoundButton surface="art" size={HUD_BUTTON} onClick={onOpenReminders} ariaLabel="Reminders"
+          className="home-nav-pop" style={pop(0.3)}>
+          <MeadowIcon name="bell" size={20} color={M.energy} />
+        </RoundButton>
+        <RoundButton surface="art" size={HUD_BUTTON} href="/closet" onClick={tap}
+          ariaLabel={newSkinCount > 0 ? `Closet, ${newSkinCount} new` : 'Closet'}
+          className="home-nav-pop" style={pop(0.35)}>
+          <MeadowIcon name="dress" size={20} />
           {/* New, unseen skins won from gacha — clears when the Closet opens. */}
-          {newSkinCount > 0 && (
-            <div className="absolute -top-1 -right-1 flex items-center justify-center" style={BADGE_RED}>
-              <span className="font-pixel text-white" style={{ fontSize: 5 }}>{newSkinCount > 9 ? '9+' : newSkinCount}</span>
-            </div>
-          )}
-        </Link>
+          {newSkinCount > 0 && <HudBadge>{newSkinCount > 9 ? '9+' : newSkinCount}</HudBadge>}
+        </RoundButton>
       </div>
 
       {footer}

@@ -744,16 +744,18 @@ html.m-scroll-lock, html.m-scroll-lock body { overflow: hidden; }
   25%  { opacity: 1;   }
   100% { opacity: 0;   transform: translate(calc(-50% + var(--sx)), calc(-50% + var(--sy))) scale(0.5); }
 }
-/* Wish star twinkle (pending). */
+/* Wish star twinkle while the wish waits: a snap up a size and back, no glow. */
 @keyframes hudWishTwinkle {
-  0%, 100% { transform: scale(1)    rotate(0deg); filter: brightness(1)   drop-shadow(0 0 3px rgba(var(--accent-rgb), 0.5)); }
-  45%      { transform: scale(1.16) rotate(0deg); filter: brightness(1.3) drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.85)); }
+  0%, 78%, 100% { transform: scale(1); }
+  84%, 94%      { transform: scale(1.2); }
 }
-/* Granted-wish celebration — the star itself breathes a warm gold glow.
-   Animates the icon (not a clipped overlay) so no box edge ever shows. */
-@keyframes hudWishGranted {
-  0%, 100% { transform: scale(1);    filter: brightness(1)   drop-shadow(0 0 4px rgba(245,200,66,0.6)); }
-  50%      { transform: scale(1.08); filter: brightness(1.3) drop-shadow(0 0 8px rgba(245,200,66,0.95)); }
+/* The fortune gift hops while it waits to be opened: up easing out, down
+   falling in, then a rest. */
+@keyframes hudGiftHop {
+  0%, 100%      { transform: translateY(0); }
+  60%           { transform: translateY(0); animation-timing-function: cubic-bezier(0.2, 0.6, 0.4, 1); }
+  72%           { transform: translateY(-5px); animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.4); }
+  84%           { transform: translateY(0); }
 }
 
 /* ── Heartbeat for low stats ── */

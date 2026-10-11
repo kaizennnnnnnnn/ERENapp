@@ -2445,6 +2445,43 @@ const MEADOW_ICONS = {
     ],
     palette: { X: '#3F8452', a: '#F2B33D' },
   },
+  // The quests: a parchment scroll between its two rollers, three lines
+  // written on it.
+  scroll: {
+    grid: [
+      '.aaaaaaaaaa.',
+      'aaaaaaaaaaaa',
+      '..XXXXXXXX..',
+      '..XllllllX..',
+      '..XXXXXXXX..',
+      '..XllllXXX..',
+      '..XXXXXXXX..',
+      '..XlllllXX..',
+      '..XXXXXXXX..',
+      '..XXXXXXXX..',
+      'aaaaaaaaaaaa',
+      '.aaaaaaaaaa.',
+    ],
+    palette: { X: '#E8B964', a: '#B9803F', l: '#FFF6E2' },
+  },
+  // The Closet: a little dress on two straps, a ribbon at the waist.
+  dress: {
+    grid: [
+      '...a....a...',
+      '...a....a...',
+      '...XX..XX...',
+      '...XXXXXX...',
+      '...XXXXXX...',
+      '...bbbbbb...',
+      '...XXXXXX...',
+      '..XXXXXXXX..',
+      '..XXXXXXXX..',
+      '.XXXXXXXXXX.',
+      '.XXXXXXXXXX.',
+      'XXXXXXXXXXXX',
+    ],
+    palette: { X: '#E57C9F', a: '#B84D74', b: '#B84D74' },
+  },
   doc: {
     grid: [
       '..XXXXX.....',
