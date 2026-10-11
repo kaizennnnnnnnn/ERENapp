@@ -17,7 +17,7 @@ import type { RewardItem, SkinBoxRarity } from '@/lib/levelRewards'
 import type { FoodKey } from '@/types'
 
 /** Stardust reads violet next to the gold coin. */
-const STARDUST_INK = '#9A73D6'
+export const STARDUST_INK = '#9A73D6'
 
 const ICON_LOOK: Record<'coins' | 'stardust' | 'tickets', { icon: MeadowIconName; tint: string; color?: string }> = {
   coins:    { icon: 'coin',    tint: TINT.amber },

@@ -10,13 +10,14 @@ import { markSkinsSeen, readSeenSkins } from '@/hooks/useNewSkins'
 import { useCat } from '@/hooks/useCat'
 import { swapCatName } from '@/lib/catWords'
 import {
-  SKINNABLE_ROOMS, GACHA_SKINS, CLASSIC_SKIN, resolveRoomSkin, skinPrice, skinUnlockDrink, type SkinDef,
+  SKINNABLE_ROOMS, GACHA_SKINS, CLASSIC_SKIN, resolveRoomSkin, skinUnlockDrink, type SkinDef,
 } from '@/lib/skins'
 import { FOOD_META } from '@/lib/foodMeta'
 import type { GachaRarity, FoodKey } from '@/types'
 import SkinPurchaseSheet from '@/components/closet/SkinPurchaseSheet'
 import ClosetView, { type ClosetCard, type ClosetTab } from '@/components/closet/ClosetView'
 import { playSound } from '@/lib/sounds'
+import { M } from '@/components/meadow'
 
 // Rarest first — a player's prized looks lead in MY LOOKS, and the Shop reads
 // aspirational top-down.
@@ -141,7 +142,7 @@ export default function ClosetPage() {
       await refetch()
     } else {
       setBuying(null)
-      showToast('Could not unlock — try again')
+      showToast('Could not unlock. Try again.')
     }
   }
 
@@ -168,25 +169,25 @@ export default function ClosetPage() {
         onBack={() => router.back()}
       />
 
-      {buying && (
-        <SkinPurchaseSheet
-          skin={buying}
-          price={skinPrice(buying.rarity)}
-          balance={stardust}
-          busy={busy}
-          onBuy={confirmBuy}
-          onClose={() => { if (!busy) setBuying(null) }}
-        />
-      )}
+      <SkinPurchaseSheet
+        skin={buying}
+        balance={stardust}
+        busy={busy}
+        onBuy={confirmBuy}
+        onClose={() => { if (!busy) setBuying(null) }}
+      />
 
       {toast && (
-        // max-content, capped at the screen: one line when it fits, wrapped
-        // when a long cat name ("Now wearing Fox Clementine The Great!") won't.
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 text-white text-center px-4 py-2.5" style={{
-          zIndex: 70, background: '#1F1F2E', borderRadius: 3, border: '2px solid #3A3A5E',
-          boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', fontFamily: '"Press Start 2P"', fontSize: 7,
-          width: 'max-content', maxWidth: 'calc(100vw - 32px)', lineHeight: 1.6, overflowWrap: 'anywhere',
-        }}>{toast}</div>
+        // Centred by a full-width flex row, not a transform: one line when it
+        // fits, wrapped when a long cat name ("Now wearing Fox Clementine The
+        // Great!") won't.
+        <div role="status" className="fixed inset-x-0 flex justify-center pointer-events-none"
+          style={{ top: 'calc(var(--safe-top) + 12px)', zIndex: 90, padding: '0 16px' }}>
+          <span className="meadow-root" style={{
+            padding: '10px 16px', borderRadius: 20, background: M.text, color: '#FFFFFF',
+            fontSize: 14, lineHeight: 1.35, fontWeight: 700, textAlign: 'center', overflowWrap: 'anywhere',
+          }}>{toast}</span>
+        </div>
       )}
     </>
   )
