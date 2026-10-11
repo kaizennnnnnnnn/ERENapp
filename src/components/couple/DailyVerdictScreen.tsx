@@ -5,33 +5,32 @@
 //
 // It is the ceremony the daily battle never had. Yesterday ended in silence:
 // the bar reset, thirty coins appeared somewhere, and neither of you was told
-// anything. Now the day is read out — the final score, the trophy struck for
-// it, the streak it continues — and then today's rule is handed over.
+// anything. Now the day is read out — the final score, the catnip it paid,
+// the streak it continues — and then today's rule is handed over.
 //
 // Beats, in order, each waiting on the last:
 //   0 panel      the case drops in
 //   1 scores     both numbers count up from zero
-//   2 strike     the trophy stamps in with a shockwave
-//   3 prize      the trophy count and any streak bonus
+//   2 strike     the catnip stamps in with a shockwave
+//   3 prize      the catnip paid and any streak bonus
 //   4 today      tomorrow's — now today's — twist, and the way out
 //
 // A reduced-motion viewer gets every beat at once, no counting, no stamp.
 //
 // In the Meadow look: a flat ground that says how the day went (warm for a
 // win, cool for a draw, rose when the other one took it), white cards, and
-// each person's podium in their own household colour (profiles.heart). The
-// trophy cups and any prestige plates someone bought stay the art they are.
+// each person's podium in their own household colour (profiles.heart). Any
+// prestige plates someone bought stay the art they are.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { format, parseISO } from 'date-fns'
 import type { DailyBattleRow } from '@/lib/battleResults'
-import { TROPHY_TONE, TROPHY_LABEL, type TwistDef, type TrophyTier } from '@/lib/dailyTwist'
+import { TROPHY_VALUE, type TwistDef, type TrophyTier } from '@/lib/dailyTwist'
 import { IconSwords } from '@/components/PixelIcons'
 import { prestigeDef } from '@/lib/trophyShop'
 import { FramePlate, TitlePlate } from '@/components/trophies/prestigeArt'
-import TrophyCup from '@/components/trophies/TrophyCup'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { playSound } from '@/lib/sounds'
 import { inkOn } from '@/lib/contrastInk'
@@ -40,6 +39,7 @@ import {
   GROUND, M, PERSON, TYPE, personColor,
 } from '@/components/meadow'
 import { TWIST_LOOK, sentence } from './twistLook'
+import CatnipPile from './CatnipPile'
 
 type Heart = 'brown_heart' | 'pink_heart' | 'sparkle'
 
@@ -55,7 +55,7 @@ interface Props {
    *  the cat, 'sparkle'. Missing on the partner: the other of the two. */
   myHeart?: Heart | null
   partnerHeart?: Heart | null
-  /** Prestige each side is wearing, if any (Trophy Shop). */
+  /** Prestige each side is wearing, if any (Catnip Shop). */
   myTitle?: string | null
   myFrame?: string | null
   partnerTitle?: string | null
@@ -94,9 +94,9 @@ export default function DailyVerdictScreen({
     ? personColor(partnerHeart)
     : myHeart === 'brown_heart' ? PERSON.pink : PERSON.brown
 
-  // The ground says how it went; the shockwave ring is the trophy's metal.
+  // The ground says how it went; the shockwave ring is catnip green on a win.
   const ground = won ? GROUND.me : tied ? GROUND.settings : GROUND.us
-  const ring = won ? (tier ? TROPHY_TONE[tier] : M.coin) : tied ? M.faint : M.love
+  const ring = won ? M.leaf : tied ? M.faint : M.love
 
   const dateLabel = useMemo(() => {
     try { return format(parseISO(row.date), 'EEEE d MMMM') }
@@ -104,7 +104,7 @@ export default function DailyVerdictScreen({
   }, [row.date])
 
   const headline = won
-    ? (tier ? `${sentence(TROPHY_LABEL[tier])} day` : 'You won')
+    ? (tier === 'gold' ? 'A runaway win' : tier === 'silver' ? 'A clear win' : 'You won')
     : tied ? 'Dead even' : `${partnerName} took it`
 
   const subline = won
@@ -198,11 +198,11 @@ export default function DailyVerdictScreen({
                 )}
                 <div style={{ animation: reduced ? undefined : 'dvStamp 0.5s cubic-bezier(0.34,1.7,0.5,1) both' }}>
                   {won && tier
-                    ? <TrophyCup size={86} tier={tier} sparkle={tier === 'gold'} />
+                    ? <CatnipPile n={TROPHY_VALUE[tier]} size={66} />
                     : tied
                       ? <IconSwords size={62} />
                       : awarded > 0
-                        ? <TrophyCup size={66} tier="bronze" />
+                        ? <CatnipPile n={1} size={56} />
                         : <MeadowIcon name="heart" size={60} />}
                 </div>
               </div>
@@ -228,15 +228,13 @@ export default function DailyVerdictScreen({
             {awarded > 0 ? (
               <Card padding="12px 18px" style={{ width: '100%' }}>
                 <div className="flex items-center justify-center" style={{ gap: 10 }}>
-                  <TrophyCup size={30} tier={tier ?? 'bronze'} shine={false} />
+                  <MeadowIcon name="catnip" size={30} />
                   <span style={{ fontSize: 26, color: M.text, ...TYPE.number }}>+{awarded}</span>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: M.text2 }}>
-                    {awarded === 1 ? 'trophy' : 'trophies'}
-                  </span>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: M.text2 }}>catnip</span>
                 </div>
               </Card>
             ) : (
-              <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: M.text2 }}>No trophy this time</p>
+              <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: M.text2 }}>No catnip this time</p>
             )}
 
             {streak > 1 && (
@@ -266,7 +264,7 @@ export default function DailyVerdictScreen({
 
             <div className="flex" style={{ gap: 12 }}>
               <SecondaryButton size="md" full style={{ flex: '1 1 0' }}
-                icon={<MeadowIcon name="trophy" size={20} />}
+                icon={<MeadowIcon name="catnip" size={20} />}
                 onClick={() => { playSound('ui_tap'); onClose(); router.push('/trophies') }}>
                 Shop
               </SecondaryButton>
@@ -305,7 +303,7 @@ export default function DailyVerdictScreen({
 }
 
 // ── A name on the podium ─────────────────────────────────────────────────────
-// Plain Meadow text, unless its owner bought prestige in the Trophy Shop: a
+// Plain Meadow text, unless its owner bought prestige in the Catnip Shop: a
 // frame replaces the name with its plate, a title hangs under it. Those keep
 // the shop's own art — what you buy is exactly what you saw.
 

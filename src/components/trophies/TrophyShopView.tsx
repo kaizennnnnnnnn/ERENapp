@@ -1,7 +1,8 @@
 'use client'
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TROPHY SHOP — where a won day turns into something you can see.
+// CATNIP SHOP — where a won day turns into something you can see. (It was the
+// Trophy Shop; the battle pays in catnip now. Code names kept the old word.)
 //
 // Three shelves, and they are deliberately different KINDS of thing rather
 // than three drawers of the same cosmetic:
@@ -12,11 +13,10 @@
 // WEARABLES USED TO BE A FOURTH SHELF HERE and now live in the Closet, next to
 // the costume skins — which is where anyone looking for a hat actually goes,
 // and it means the Closet's mirror shows the hat on the real cat in the real
-// costume instead of on a 15px stand-in head. They are still bought with
-// trophies; only the counter moved.
+// costume instead of on a 15px stand-in head.
 //
 // Nothing here is buyable with coins. That is the entire economic point: the
-// daily battle is the only source of trophies, so the only way to own any of
+// daily battle is the only source of catnip, so the only way to own any of
 // this is to have won days.
 //
 // A card is a picture, a claim, and ONE row of controls along the bottom. The
@@ -39,7 +39,7 @@ import {
 import { MACHINE_PARTS, machineBuilt, partsInstalled, machineRemaining, partFitted } from '@/lib/weatherMachine'
 import { OBSIDIAN_BTN, Rivets, accentA } from '@/components/obsidian'
 import {
-  IconTrophyTier, IconLightning, IconCrown, IconLock,
+  MeadowIcon, IconLightning, IconCrown, IconLock,
   IconCheck, IconChevronRight, IconFlask,
 } from '@/components/PixelIcons'
 import ItemPreview from './ItemPreview'
@@ -131,7 +131,7 @@ export default function TrophyShopView({ tab, onTab, onBuy, onUse }: Props) {
         onOpenLab={() => openScene('chemistry')} />
 
       {/* Day one is a wall of locked cards and no obvious way in. Say where
-          trophies come from, once, and only while there are none. */}
+          catnip comes from, once, and only while there is none. */}
       {trophies.loaded && trophies.balance === 0 && (
         <div className="px-3 py-2.5 text-center" style={{
           border: '1px dashed rgba(245,200,66,0.35)',
@@ -139,16 +139,16 @@ export default function TrophyShopView({ tab, onTab, onBuy, onUse }: Props) {
           borderRadius: 4,
         }}>
           <p className="font-pixel" style={{ fontSize: 6, letterSpacing: 1.5, color: '#F5C842', marginBottom: 4 }}>
-            HOW TO GET TROPHIES
+            HOW TO GET CATNIP
           </p>
           {/* This used to tell a household of one that the battle "needs two
               people" and to go and invite someone. That stopped being true
               when Eren took the empty seat: they settle against him nightly
-              and are paid in trophies for it. This panel is the only place in
-              the app that explains where trophies come from, so it was the
+              and are paid in catnip for it. This panel is the only place in
+              the app that explains where catnip comes from, so it was the
               worst possible place to be wrong. */}
           <p className="text-[10px]" style={{ color: '#B4A8C4' }}>
-            Win a day of the Care Battle. Ahead at midnight pays bronze; lead by 3 pays silver, by 6 pays gold. Lose by two or less and you still get one.
+            Win a day of the Care Battle. Ahead at midnight pays 1 catnip; lead by 3 pays 2, by 6 pays 3. Lose by two or less and you still get one.
           </p>
         </div>
       )}
@@ -219,7 +219,7 @@ export function ShelfSummary({ kind, cos, name, trophies, onOpenLab }: {
           <span className="text-[10px]" style={{ color: '#7E7090' }}>
             {built
               ? 'In the Lab. Pick which sky hangs outside each window.'
-              : `In the Lab. ${machineRemaining(trophies.ours)} trophies of parts still missing.`}
+              : `In the Lab. ${machineRemaining(trophies.ours)} catnip of parts still missing.`}
           </span>
         </span>
         <IconChevronRight size={11} />
@@ -371,7 +371,7 @@ export function ShopCard({
               opacity: affordable ? 1 : 0.55,
             }}
           >
-            <IconTrophyTier size={12} tier="gold" />
+            <MeadowIcon name="catnip" size={13} />
             <span className="font-pixel" style={{
               fontSize: 8, color: affordable ? '#3A2400' : '#7A7286',
             }}>{item.price}</span>

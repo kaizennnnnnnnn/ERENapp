@@ -8,20 +8,20 @@
 // what winning would actually pay. All three are now on it, in a plate small
 // enough to still sit over a cat's head:
 //
-//   ┌ BATH DAY ─────────────── [tier pip] ┐
+//   ┌ BATH DAY ────────────── [prize pip] ┐
 //   │  J  12  ▓▓▓▓▓▓▓░░░  4  M            │
 //   └──────────────────▼──────────────────┘
 //
-// The tier pip is the point. It shows the trophy the current margin is on
+// The prize pip is the point. It shows the catnip the current margin is on
 // course for, so a two-point lead visibly reads as "one more wash and this
-// goes silver" instead of as a slightly longer pink bar.
+// pays two" instead of as a slightly longer pink bar.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useState } from 'react'
 import { useDailyBattle, type DailyBattleState } from '@/hooks/useDailyBattle'
-import { trophyTier, TROPHY_TONE } from '@/lib/dailyTwist'
+import { trophyTier, TROPHY_VALUE } from '@/lib/dailyTwist'
 import { playSound } from '@/lib/sounds'
-import { IconTrophyTier } from '@/components/PixelIcons'
+import { MeadowIcon } from '@/components/PixelIcons'
 import DailyBattleSheet from './DailyBattleSheet'
 
 const Z_HUD = 8
@@ -85,7 +85,6 @@ export function BattlePlate({ battle }: { battle: DailyBattleState }) {
   // The tier the CURRENT margin would strike. Null on a tie — nobody is on
   // course for anything yet, and a greyed-out pip reads better than a lie.
   const tier = trophyTier(margin)
-  const tierTone = tier ? TROPHY_TONE[tier] : '#5A5268'
 
   return (
     <>
@@ -114,9 +113,14 @@ export function BattlePlate({ battle }: { battle: DailyBattleState }) {
             <span style={{
               display: 'flex', alignItems: 'center', gap: 2,
               opacity: tier ? 1 : 0.35,
-              filter: tier ? `drop-shadow(0 0 4px ${tierTone}88)` : 'grayscale(1)',
+              filter: tier ? 'drop-shadow(0 0 4px rgba(166,217,138,0.55))' : 'grayscale(1)',
             }}>
-              <IconTrophyTier size={9} tier={tier ?? 'bronze'} />
+              <MeadowIcon name="catnip" size={9} />
+              {tier && (
+                <span className="font-pixel" style={{ fontSize: 5, lineHeight: 1, color: '#A6D98A' }}>
+                  {TROPHY_VALUE[tier]}
+                </span>
+              )}
             </span>
           </div>
 

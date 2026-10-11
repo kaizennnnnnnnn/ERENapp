@@ -7,19 +7,19 @@
 //
 // In the Meadow look, like the morning verdict it feeds: a white sheet, each
 // person in their own household colour (profiles.heart), today's rule on its
-// own icon and tint, and the trophy cups kept as the art they are.
+// own icon and tint, and the prize as the catnip the lead is worth tonight.
 
 import { useEffect, useRef, useState } from 'react'
 import { playSound } from '@/lib/sounds'
 import type { DailyBattleState } from '@/hooks/useDailyBattle'
 import { timeUntilMidnight } from '@/hooks/useDailyBattle'
-import { trophyTier, TROPHY_LABEL, TROPHY_VALUE, type TrophyTier } from '@/lib/dailyTwist'
-import TrophyCup from '@/components/trophies/TrophyCup'
+import { trophyTier, TROPHY_VALUE, type TrophyTier } from '@/lib/dailyTwist'
 import {
   Avatar, Card, IconTile, MeadowIcon, Sheet, Tag,
   M, PERSON, RADIUS, TYPE, personColor,
 } from '@/components/meadow'
 import { TWIST_LOOK, sentence } from './twistLook'
+import CatnipPile from './CatnipPile'
 
 type Heart = 'brown_heart' | 'pink_heart' | 'sparkle'
 
@@ -118,10 +118,10 @@ export default function DailyBattleSheet({ battle, myHeart, partnerHeart, onClos
           </div>
         </Card>
 
-        {/* ── The trophy ladder ──
+        {/* ── The prize ladder ──
             Three rungs, not one number. Seeing that a 2-point lead is one
-            action away from SILVER is what makes the last hour of a day worth
-            playing; "30 coins at midnight" never did. */}
+            action away from a second catnip is what makes the last hour of a
+            day worth playing; "30 coins at midnight" never did. */}
         <Card outlined padding="14px 16px 16px">
           <div className="flex items-baseline justify-between" style={{ gap: 12, marginBottom: 12 }}>
             <span style={{ ...TYPE.label, color: M.label }}>Tonight&apos;s prize</span>
@@ -143,8 +143,8 @@ export default function DailyBattleSheet({ battle, myHeart, partnerHeart, onClos
 
           <p style={{ margin: '12px 0 0', fontSize: 14, lineHeight: 1.35, fontWeight: 500, color: M.text2, textAlign: 'center' }}>
             {liveTier
-              ? `${leaderName} is on ${sentence(TROPHY_LABEL[liveTier])} — ${TROPHY_VALUE[liveTier]} ${TROPHY_VALUE[liveTier] === 1 ? 'trophy' : 'trophies'} at midnight.`
-              : 'Lead by 1 at midnight to strike a trophy.'}
+              ? `${leaderName} is on course for ${TROPHY_VALUE[liveTier]} catnip at midnight.`
+              : 'Lead by 1 at midnight to win catnip.'}
           </p>
         </Card>
 
@@ -212,9 +212,10 @@ function SplitBar({ battle, myColor, partnerColor }: { battle: DailyBattleState;
   )
 }
 
-// ── One rung of the trophy ladder ────────────────────────────────────────────
+// ── One rung of the prize ladder ─────────────────────────────────────────────
 
 function Rung({ tier, at, reached, current }: { tier: TrophyTier; at: number; reached: boolean; current: boolean }) {
+  const n = TROPHY_VALUE[tier]
   return (
     <div className="flex flex-col items-center justify-end" style={{
       flex: '1 1 0', minWidth: 0, boxSizing: 'border-box', gap: 4, padding: '10px 4px 10px',
@@ -227,10 +228,10 @@ function Rung({ tier, at, reached, current }: { tier: TrophyTier; at: number; re
         filter: reached ? undefined : 'grayscale(1)',
         opacity: reached ? 1 : 0.45,
       }}>
-        <TrophyCup size={current ? 30 : 24} tier={tier} shine={current} />
+        <CatnipPile n={n} size={current ? 26 : 22} />
       </span>
-      <span style={{ fontSize: 14, fontWeight: 800, color: current ? M.leafInk : reached ? M.text : M.text2 }}>
-        {sentence(TROPHY_LABEL[tier])}
+      <span style={{ fontSize: 15, color: current ? M.leafInk : reached ? M.text : M.text2, ...TYPE.number }}>
+        +{n}
       </span>
       <span style={{ fontSize: 12, fontWeight: 700, color: current ? M.leafInk : M.text2, whiteSpace: 'nowrap' }}>
         Lead by {at}

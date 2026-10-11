@@ -89,7 +89,7 @@ export default function UsePrivilegeSheet({
 
     setBusy(false)
     if (!ok) {
-      setError('Could not fire that. Your trophy item has been spent — sorry.')
+      setError('Could not fire that. Your power has been spent — sorry.')
       return
     }
     playSound('ui_modal_open')

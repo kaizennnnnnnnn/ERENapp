@@ -165,8 +165,10 @@ export function scoreActions(twist: TwistDef, actions: string[]): number {
   return total
 }
 
-// ─── Trophies ────────────────────────────────────────────────────────────────
-// The prize the battle actually pays. Tier is a pure function of the winning
+// ─── The prize ───────────────────────────────────────────────────────────────
+// What the battle actually pays. Players see it as catnip (TROPHY_VALUE is the
+// amount: 1, 2 or 3); the tier names and the trophy_* columns are what the
+// server stores, so they keep their old words. Tier is a pure function of the winning
 // margin, so the settlement RPC derives it server-side from the stored scores
 // and the client never names its own reward. Keep this table and the `case`
 // in migration_trophy_battle.sql identical.
@@ -177,18 +179,6 @@ export const TROPHY_VALUE: Record<TrophyTier, number> = {
   bronze: 1,
   silver: 2,
   gold: 3,
-}
-
-export const TROPHY_TONE: Record<TrophyTier, string> = {
-  bronze: '#E0975A',
-  silver: '#D8DCE6',
-  gold: '#FFD650',
-}
-
-export const TROPHY_LABEL: Record<TrophyTier, string> = {
-  bronze: 'BRONZE',
-  silver: 'SILVER',
-  gold: 'GOLD',
 }
 
 /** Margin → tier. Below 1 is not a win and has no tier. */

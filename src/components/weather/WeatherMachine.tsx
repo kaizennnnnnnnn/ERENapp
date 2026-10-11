@@ -46,10 +46,9 @@ import WeatherFx from './WeatherFx'
 import { MachineArt, MACHINE_W, MACHINE_H } from './WeatherMachineProp'
 import TrophyBuySheet from '@/components/trophies/TrophyBuySheet'
 import {
-  IconClose, IconChevronRight, IconCheck, IconMoon,
+  MeadowIcon, IconClose, IconChevronRight, IconCheck, IconMoon,
   IconHouse, IconMeat, IconYarn, IconBath, IconFlask, IconSpeech,
 } from '@/components/PixelIcons'
-import TrophyCup from '@/components/trophies/TrophyCup'
 import { playSound } from '@/lib/sounds'
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'failed'
@@ -84,15 +83,14 @@ export function WeatherMachinePanel({ onClose }: { onClose(): void }) {
         {/* The wallet belongs to the WORKBENCH, where the four parts have
             prices. On the picker nothing costs anything — that is what
             finishing the machine bought — so a running balance in the corner is
-            a number with no question attached to it, in the same gold the panel
-            uses to mean "unsaved". */}
+            a number with no question attached to it. */}
         {!machine.built && (
           <span className="flex items-center gap-1.5 px-2 py-1" style={{
-            border: '1.5px solid rgba(245,200,66,0.5)', borderRadius: 3,
-            background: 'rgba(245,200,66,0.1)',
+            border: '1.5px solid rgba(166,217,138,0.5)', borderRadius: 3,
+            background: 'rgba(166,217,138,0.1)',
           }}>
-            <TrophyCup tier="gold" size={13} shine={false} />
-            <span className="font-pixel" style={{ fontSize: 9, color: '#FDE68A' }}>
+            <MeadowIcon name="catnip" size={14} />
+            <span className="font-pixel" style={{ fontSize: 9, color: '#D6F2C4' }}>
               {trophies.loaded ? trophies.balance : '—'}
             </span>
           </span>
@@ -211,10 +209,10 @@ export function BuildScreen({ machine, onBuy }: {
             background: 'rgba(255,255,255,0.035)',
             border: '1px dashed rgba(255,255,255,0.16)', borderRadius: 4,
           }}>
-          <TrophyCup tier="gold" size={14} shine={false} />
+          <MeadowIcon name="catnip" size={15} />
           <span className="flex-1">
             <span className="font-pixel block" style={{ fontSize: 6, letterSpacing: 1, color: '#D6CBE2' }}>
-              WHERE TROPHIES COME FROM
+              WHERE CATNIP COMES FROM
             </span>
             <span className="text-[10px]" style={{ color: '#7E90A8' }}>
               Win a day of the Care Battle. The parts are on the shelf there too.
@@ -278,7 +276,7 @@ function PartSlot({ part, machine, onBuy }: {
               : 'rgba(255,255,255,0.04)',
             opacity: affordable ? 1 : 0.6,
           }}>
-          <TrophyCup tier="gold" size={10} shine={false} />
+          <MeadowIcon name="catnip" size={11} />
           <span className="font-pixel" style={{
             fontSize: 7, color: affordable ? '#A7F3C0' : '#8B99AD',
           }}>{part.price}</span>
@@ -400,7 +398,7 @@ function BuildBar({ machine }: { machine: ReturnType<typeof useWeatherMachine> }
           {machine.installed} OF {machine.total} FITTED
         </span>
         <span className="flex items-center gap-1.5">
-          <TrophyCup tier="gold" size={11} shine={false} />
+          <MeadowIcon name="catnip" size={12} />
           <span className="font-pixel" style={{ fontSize: 7, color: '#FFCE6B' }}>
             {machine.remaining} TO GO
           </span>

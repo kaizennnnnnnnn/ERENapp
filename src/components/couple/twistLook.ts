@@ -17,7 +17,7 @@ export const TWIST_LOOK: Record<TwistId, { icon: MeadowIconName; tint: string; c
   sprint:     { icon: 'bolt',    tint: TINT.orange },
 }
 
-/** "NURSE DAY" -> "Nurse day": the twist and trophy names are written for the pixel HUD. */
+/** "NURSE DAY" -> "Nurse day": the twist names are written for the pixel HUD. */
 export function sentence(caps: string): string {
   return caps.charAt(0) + caps.slice(1).toLowerCase()
 }

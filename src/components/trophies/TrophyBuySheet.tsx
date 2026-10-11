@@ -11,11 +11,11 @@ import { useAuth } from '@/hooks/useAuth'
 import { useCat } from '@/hooks/useCat'
 import { SHOP_RARITY_COLORS, type AnyShopItem } from '@/lib/trophyShop'
 import ItemPreview from './ItemPreview'
-import TrophyCup from './TrophyCup'
+import { MeadowIcon } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 
 const REFUSAL: Record<string, string> = {
-  insufficient: 'Not enough trophies. Win a day.',
+  insufficient: 'Not enough catnip. Win a day.',
   already_owned: 'You already own this one.',
   // A machine part is owned by the HOUSE, so the server answers already_owned
   // for one your partner paid for — where "you already own this" would be a lie
@@ -117,7 +117,7 @@ export default function TrophyBuySheet({
             borderRadius: 6,
             opacity: busy ? 0.6 : 1,
           }}>
-          {!done && <TrophyCup tier="gold" size={15} shine={false} />}
+          {!done && <MeadowIcon name="catnip" size={16} />}
           <span className="font-pixel" style={{
             fontSize: 9, letterSpacing: 1, color: affordable || done ? '#2A1A00' : '#7A7286',
           }}>
@@ -127,8 +127,8 @@ export default function TrophyBuySheet({
 
         <p className="text-center text-[10px]" style={{ color: '#8B7F9B' }}>
           {affordable
-            ? `You have ${trophies.balance}.`
-            : `Need ${short} more (you have ${trophies.balance}).`}
+            ? `You have ${trophies.balance} catnip.`
+            : `Need ${short} more catnip (you have ${trophies.balance}).`}
         </p>
       </div>
     </div>,

@@ -3,7 +3,7 @@
 // ─── Home HUD row ────────────────────────────────────────────────────────────
 // The strip under the stats header: the quests bar, then the room's own
 // shortcuts (today's wish, the fortune gift when one is waiting, the Hallway,
-// the Trophy Room, reminders, the Closet), then the co-op goal bar under it
+// the Catnip Shop, reminders, the Closet), then the co-op goal bar under it
 // all.
 //
 // Us, Me and Rooms used to live in this row too. They are tabs of the bottom
@@ -15,7 +15,7 @@
 
 import Link from 'next/link'
 import type { ReactNode } from 'react'
-import { IconBell, IconDress, IconGift, IconPhoto, IconTrophyTier } from '@/components/PixelIcons'
+import { IconBell, IconDress, IconGift, IconPhoto, MeadowIcon } from '@/components/PixelIcons'
 import { cuteBtn, CuteIcon } from '@/components/obsidian'
 import { playSound } from '@/lib/sounds'
 import { HEADER_CLEARANCE } from '@/components/meadow/tokens'
@@ -29,7 +29,7 @@ export interface HomeHudProps {
   /** Today's wish; null while it loads (or on a day without one). */
   wish: WishButtonProps | null
   fortuneAvailable: boolean
-  /** Spendable trophies; 0 hides the badge (pass 0 while unloaded, never a guess). */
+  /** Spendable catnip (stored as profiles.trophies); 0 hides the badge (pass 0 while unloaded, never a guess). */
   trophyBalance: number
   /** New, unseen skins; 0 hides the badge. */
   newSkinCount: number
@@ -67,18 +67,18 @@ export default function HomeHud({
           <CuteIcon><IconPhoto size={22} /></CuteIcon>
         </Link>
         <Link href="/trophies" onClick={tap}
-          aria-label={trophyBalance > 0 ? `Trophy room, ${trophyBalance} to spend` : 'Trophy room'}
+          aria-label={trophyBalance > 0 ? `Catnip shop, ${trophyBalance} catnip to spend` : 'Catnip shop'}
           className="home-nav-pop w-8 h-8 flex-shrink-0 relative flex items-center justify-center active:scale-90 transition-transform"
-          style={{ ...cuteBtn('251,214,120'), animationDelay: '0.25s' }}>
-          <CuteIcon><IconTrophyTier size={20} tier="gold" /></CuteIcon>
+          style={{ ...cuteBtn('166,217,138'), animationDelay: '0.25s' }}>
+          <CuteIcon><MeadowIcon name="catnip" size={20} /></CuteIcon>
           {trophyBalance > 0 && (
             <div className="absolute -top-1 -right-1 flex items-center justify-center"
               style={{
                 minWidth: 16, height: 16, padding: '0 3px',
-                background: '#F5C842', border: '2px solid #050507',
-                boxShadow: '0 0 5px rgba(245,200,66,0.65)', borderRadius: 6,
+                background: '#A6D98A', border: '2px solid #050507',
+                boxShadow: '0 0 5px rgba(166,217,138,0.65)', borderRadius: 6,
               }}>
-              <span className="font-pixel" style={{ fontSize: 5, color: '#3A2400' }}>{trophyBalance}</span>
+              <span className="font-pixel" style={{ fontSize: 5, color: '#1F3A24' }}>{trophyBalance}</span>
             </div>
           )}
         </Link>
