@@ -1927,6 +1927,25 @@ const MEADOW_ICONS = {
     ],
     palette: { X: '#F2B33D', a: '#C98C1E', b: '#FFE3A0' },
   },
+  // The battle's prize: a catnip leaf with a cat's ears and a blissed-out face.
+  // Leaf first (green, a midrib, a stem), cat second (ears, closed happy eyes).
+  catnip: {
+    grid: [
+      '..g......g..',
+      '.gGg....gGg.',
+      '.hGGGGGGGGg.',
+      'hhGkGGGGkGGg',
+      'hGkGkGGkGkGg',
+      'GGGGGGGGGGGg',
+      'GpGGGGGGGGpg',
+      '.GGGGGhGGGg.',
+      '..GGGhGGGg..',
+      '...GhGGGg...',
+      '....hGGg....',
+      '...g........',
+    ],
+    palette: { G: '#5DAA5F', g: '#3F8452', h: '#A6D98A', k: '#2F4A33', p: '#F6A9BF' },
+  },
   star: {
     grid: [
       '.....XX.....',
