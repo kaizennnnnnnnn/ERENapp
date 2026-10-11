@@ -4,208 +4,175 @@
 // Slides up when the home strip is tapped. Shows combined progress, each
 // partner's contribution, the reward, the time until the weekly reset, what
 // counts, and the CLAIM button once the goal is met.
+//
+// In the Meadow look: a white sheet, one coin-gold meter (cooperative: one
+// bar, both of you, no split), each person's share beside their own colour
+// (profiles.heart), and Claim as the leaf button pinned to the bottom.
 
-import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useRef, useState } from 'react'
 import { playSound } from '@/lib/sounds'
+import { useAuth } from '@/hooks/useAuth'
 import { useCouple } from '@/hooks/useCouple'
 import { useCat } from '@/hooks/useCat'
 import { timeUntilWeekReset } from '@/lib/couple'
-import { OBSIDIAN_FACE, OBSIDIAN_BTN } from '@/components/obsidian'
-import { IconHeartDuo, IconCoin, IconPaw } from '@/components/PixelIcons'
+import type { CoopGoalState } from '@/lib/coopGoal'
+import {
+  Avatar, Card, IconTile, MeadowIcon, Meter, PrimaryButton, Sheet,
+  M, PERSON, TINT, TYPE, personColor,
+} from '@/components/meadow'
 
-const GOLD    = '#FBBF24'
-const GOLD_HI = '#FDE68A'
-const GOLD_LO = '#B45309'
-const goldText = { color: GOLD_HI, textShadow: `0 0 6px ${GOLD}55` }
+/** The sheet's drop-away before the parent unmounts it (Sheet's EXIT_MS). */
+const EXIT_MS = 180
 
 export default function CoopGoalSheet({ onClose }: { onClose: () => void }) {
+  const { profile } = useAuth()
   const { coopGoal, claimCoopGoal, partner } = useCouple()
   const cat = useCat()
-  const [mounted, setMounted] = useState(false)
-  const [reset, setReset] = useState(() => timeUntilWeekReset())
+  const [open, setOpen] = useState(true)
   const [claiming, setClaiming] = useState(false)
+  const closeTimer = useRef<ReturnType<typeof setTimeout>>()
+  useEffect(() => () => clearTimeout(closeTimer.current), [])
 
-  useEffect(() => {
-    setMounted(true)
-    const t = setInterval(() => setReset(timeUntilWeekReset()), 60 * 1000)
-    return () => clearInterval(t)
-  }, [])
+  // Close in two steps so the sheet can drop away before the parent unmounts it.
+  function close() {
+    if (!open) return
+    setOpen(false)
+    closeTimer.current = setTimeout(onClose, EXIT_MS)
+  }
 
-  if (!mounted) return null
-
-  const { combined, mine, partner: partnerCount, target, reward, goalMet, claimed, loaded } = coopGoal
-  const pct = Math.min(100, Math.round((combined / target) * 100))
-  const remaining = Math.max(0, target - combined)
-  const partnerName = (partner?.name ?? 'Partner').split(' ')[0]
-  const showClaim = goalMet && loaded && !claimed
-
-  async function handleClaim() {
+  async function claim() {
     if (claiming) return
     setClaiming(true)
     playSound('level_up')
     await claimCoopGoal()
     setClaiming(false)
-    onClose()
+    close()
   }
 
-  return createPortal(
-    <div className="fixed inset-0 z-[60] flex flex-col justify-end">
-      <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.65)' }}
-        onClick={() => { playSound('ui_modal_close'); onClose() }} />
+  const myColor = personColor(profile?.heart)
+  const partnerColor = partner?.heart ? personColor(partner.heart) : myColor === PERSON.brown ? PERSON.pink : PERSON.brown
 
-      <div className="relative max-w-md w-full mx-auto flex flex-col overflow-hidden p-4 gap-3.5"
-        style={{
-          ...OBSIDIAN_FACE,
-          border: `1px solid ${GOLD}55`,
-          borderRadius: '6px 6px 0 0',
-          borderBottom: 'none',
-          animation: 'cgsSlide 0.28s cubic-bezier(0.34,1.56,0.64,1)',
-        }}>
+  return (
+    <CoopGoalView
+      open={open} goal={coopGoal} catName={cat.name}
+      me={{ name: 'You', color: myColor }}
+      partner={partner ? { name: (partner.name ?? 'Partner').split(' ')[0], color: partnerColor } : null}
+      claiming={claiming}
+      onClose={() => { playSound('ui_modal_close'); close() }}
+      onClaim={claim}
+    />
+  )
+}
 
-        {/* Handle */}
-        <div className="flex justify-center" style={{ marginTop: -4 }}>
-          <div style={{ width: 36, height: 3, background: GOLD, boxShadow: `0 0 4px ${GOLD}88` }} />
-        </div>
+export interface CoopGoalViewProps {
+  open: boolean
+  goal: CoopGoalState
+  catName: string
+  me: { name: string; color: string }
+  /** null for a household of one. */
+  partner: { name: string; color: string } | null
+  claiming: boolean
+  onClose: () => void
+  onClaim: () => void
+}
 
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <IconHeartDuo size={14} />
-            <span className="font-pixel" style={{ fontSize: 9, letterSpacing: 2, ...goldText }}>
-              {partner ? 'WE CARED' : 'YOU CARED'}
-            </span>
+/** The sheet itself, from plain props (CoopGoalSheet gathers them). */
+export function CoopGoalView({ open, goal, catName, me, partner, claiming, onClose, onClaim }: CoopGoalViewProps) {
+  const [reset, setReset] = useState(() => timeUntilWeekReset())
+  useEffect(() => {
+    const t = setInterval(() => setReset(timeUntilWeekReset()), 60 * 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  const { combined, mine, partner: partnerCount, target, reward, goalMet, claimed, loaded } = goal
+  const remaining = Math.max(0, target - combined)
+  const showClaim = goalMet && loaded && !claimed
+  const resetText = reset.days > 0 ? `${reset.days}d ${reset.hours}h` : `${reset.hours}h ${reset.minutes}m`
+
+  return (
+    <Sheet open={open} onClose={onClose} title={partner ? 'We cared this week' : 'You cared this week'}
+      footer={showClaim ? (
+        <PrimaryButton full busy={claiming} onClick={onClaim} icon={<MeadowIcon name="coin" size={20} />}>
+          Claim +{reward}{partner ? ' each' : ''}
+        </PrimaryButton>
+      ) : undefined}>
+      <div className="flex flex-col" style={{ gap: 12 }}>
+        <p style={{ margin: '0 4px', fontSize: 15, lineHeight: 1.4, fontWeight: 500, color: M.text2 }}>
+          {partner
+            ? `A goal you build together: every bit of care you both give ${catName} this week adds up.`
+            : `A goal you build all week: every bit of care you give ${catName} adds up.`}
+        </p>
+
+        {/* ── Progress ── */}
+        <Card outlined padding="16px 18px">
+          <div className="flex items-baseline" style={{ gap: 4 }}>
+            <span style={{ fontSize: 40, lineHeight: 1, ...TYPE.number }}>{combined}</span>
+            <span style={{ fontSize: 20, fontWeight: 800, color: M.faint, fontVariantNumeric: 'tabular-nums' }}>/ {target}</span>
           </div>
-          <button onClick={() => { playSound('ui_modal_close'); onClose() }}
-            className="w-7 h-7 flex items-center justify-center active:translate-y-[1px] transition-transform"
-            style={{ ...OBSIDIAN_BTN, color: GOLD_HI, fontFamily: '"Press Start 2P"', fontSize: 8 }}>
-            ✕
-          </button>
-        </div>
+          <div style={{ ...TYPE.label, color: M.label, marginTop: 4 }}>
+            {partner ? 'Care actions together' : 'Care actions this week'}
+          </div>
+          <Meter value={combined / target} color={M.coin} height={12} label="Weekly care goal"
+            style={{ marginTop: 12 }} />
 
-        <p className="text-center text-[11px]" style={{ color: '#C9BBA0', lineHeight: 1.5 }}>
-          {partner ? (
-            <>A goal you build <span style={{ color: GOLD_HI }}>together</span> — every bit of care you
-            {' '}both give {cat.name} this week adds up.</>
-          ) : (
-            <>A goal you build <span style={{ color: GOLD_HI }}>all week</span> — every bit of care you
-            {' '}give {cat.name} adds up.</>
+          {/* Cooperative, not a VS: who put in what, adding up. Solo there is
+              nothing to break down: a lone "You 41" next to nobody reads as a
+              missing person. */}
+          {partner && (
+            <div className="flex items-center justify-center" style={{ gap: 10, marginTop: 14 }}>
+              <Share name={me.name} color={me.color} n={mine} />
+              <span aria-hidden style={{ fontSize: 16, fontWeight: 800, color: M.faint }}>+</span>
+              <Share name={partner.name} color={partner.color} n={partnerCount} />
+            </div>
           )}
-        </p>
+        </Card>
 
-        {/* Big combined progress */}
-        <div className="text-center">
-          <p className="font-pixel" style={{ fontSize: 34, lineHeight: 1, ...goldText }}>
-            {combined}<span style={{ fontSize: 16, color: '#8A7A50' }}> / {target}</span>
-          </p>
-          <p className="font-pixel mt-1" style={{ fontSize: 6, letterSpacing: 1.5, color: '#8A7A50' }}>
-            {partner ? 'CARE ACTIONS TOGETHER' : 'CARE ACTIONS THIS WEEK'}
-          </p>
-        </div>
-
-        {/* Full progress bar */}
-        <div className="relative h-5 overflow-hidden" style={{
-          border: `2px solid ${GOLD}66`,
-          background: 'linear-gradient(180deg, #000 0%, #0a0805 100%)',
-          boxShadow: `inset 0 2px 4px rgba(0,0,0,0.95), 0 0 12px ${GOLD}33`,
-        }}>
-          <div style={{
-            position: 'absolute', left: 0, top: 0, bottom: 0,
-            width: `${pct}%`,
-            background: `linear-gradient(180deg, ${GOLD_HI} 0%, ${GOLD} 45%, ${GOLD_LO} 100%)`,
-            transition: 'width 700ms cubic-bezier(0.34,1.4,0.55,1)',
-          }}>
-            <div className="absolute inset-0" style={{
-              backgroundImage: 'repeating-linear-gradient(-45deg, transparent 0 5px, rgba(255,255,255,0.22) 5px 7px)',
-              backgroundSize: '11px 11px',
-              animation: 'cgsFlow 1.1s linear infinite',
-              mixBlendMode: 'screen',
-            }} />
+        {/* ── Reward ── */}
+        <Card outlined padding="14px 18px">
+          <div className="flex items-center" style={{ gap: 14 }}>
+            <IconTile icon="coin" size={48} bg={TINT.amber} iconSize={28} />
+            <div className="flex flex-col" style={{ gap: 2, minWidth: 0 }}>
+              <span style={{ fontSize: 20, fontWeight: 800 }}>+{reward} coins{partner ? ' each' : ''}</span>
+              <span style={{ fontSize: 14, lineHeight: 1.35, fontWeight: 500, color: M.text2 }}>
+                {partner ? `You both get them when you reach ${target} together.` : `Yours when you reach ${target}.`}
+              </span>
+            </div>
           </div>
-        </div>
+        </Card>
 
-        {/* Per-partner breakdown — cooperative, not a VS. Solo there is nothing
-            to break down: a lone "YOU 41 + 0" reads as a missing person. */}
-        {partner && (
-          <div className="flex items-center justify-center gap-2 font-pixel" style={{ fontSize: 7, letterSpacing: 1 }}>
-            <span style={{ color: GOLD_HI }}>YOU {mine}</span>
-            <span style={{ color: '#6A5C3E' }}>+</span>
-            <span style={{ color: GOLD_HI }}>{partnerName.toUpperCase()} {partnerCount}</span>
-          </div>
-        )}
-
-        {/* Reward box */}
-        <div className="px-3 py-3 relative overflow-hidden" style={{
-          ...OBSIDIAN_FACE,
-          border: `1px solid ${GOLD}80`,
-          boxShadow: `3px 3px 0 rgba(0,0,0,0.55), 0 0 14px ${GOLD}2e`,
-        }}>
-          <div className="flex items-center justify-center gap-2 mb-1.5">
-            <IconCoin size={14} />
-            <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 2, ...goldText }}>REWARD</span>
-            <IconCoin size={14} />
-          </div>
-          <p className="text-center font-pixel" style={{ fontSize: 18, ...goldText }}>
-            +{reward} COINS{partner ? ' EACH' : ''}
-          </p>
-          <p className="text-center text-[10px] mt-2" style={{ color: '#9A8C70' }}>
-            {partner
-              ? <>You <span style={{ color: GOLD_HI }}>both</span> get the coins when you reach {target} together.</>
-              : <>The coins are yours when you reach {target}.</>}
+        {/* ── What counts ── */}
+        <div className="flex items-start" style={{ gap: 10, margin: '0 4px' }}>
+          <MeadowIcon name="paw" size={18} color={M.text2} mono style={{ marginTop: 1 }} />
+          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.45, fontWeight: 600, color: M.text2 }}>
+            Counts every feed, play, nap, wash and medicine, but only when {catName} actually needs it, so a
+            maxed-out stat won&apos;t pad the bar.
           </p>
         </div>
 
-        {/* What counts */}
-        <div className="flex items-start gap-2 px-1">
-          <div className="mt-0.5"><IconPaw size={11} /></div>
-          <p className="text-[10px]" style={{ color: '#9A8C70', lineHeight: 1.5 }}>
-            Counts every feed, play, nap, wash &amp; medicine — but only when {cat.name} actually
-            {' '}needs it, so a maxed-out stat won&apos;t pad the bar.
-          </p>
-        </div>
-
-        {/* Time + action */}
-        <p className="text-center font-pixel" style={{ fontSize: 6, color: '#8A7A50', letterSpacing: 1.5 }}>
-          RESETS IN {reset.days > 0 ? `${reset.days}D ${reset.hours}H` : `${reset.hours}H ${reset.minutes}M`}
-        </p>
-
-        {showClaim ? (
-          <button onClick={handleClaim} disabled={claiming}
-            className="w-full flex items-center justify-center gap-2 py-2.5 active:translate-y-[1px] transition-transform"
-            style={{
-              background: `linear-gradient(180deg, ${GOLD_HI} 0%, ${GOLD} 55%, ${GOLD_LO} 100%)`,
-              border: '1.5px solid #7a4a08',
-              borderRadius: 6,
-              boxShadow: `0 2px 0 #5e3906, 0 0 16px ${GOLD}88`,
-              animation: 'cgsClaimPulse 1.3s ease-in-out infinite',
-            }}>
-            <IconCoin size={14} />
-            <span className="font-pixel" style={{ fontSize: 9, letterSpacing: 1, color: '#3a2400' }}>
-              CLAIM +{reward} EACH
+        <div className="flex items-center justify-between" style={{ margin: '4px 4px 0', gap: 12 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: M.label, fontVariantNumeric: 'tabular-nums' }}>
+            Resets in {resetText}
+          </span>
+          {claimed ? (
+            <span style={{ fontSize: 13, fontWeight: 800, color: M.leafInk }}>Claimed this week</span>
+          ) : !showClaim && (
+            <span style={{ fontSize: 13, fontWeight: 800, color: M.text, fontVariantNumeric: 'tabular-nums' }}>
+              {remaining} more to go
             </span>
-          </button>
-        ) : (
-          <p className="text-center font-pixel" style={{ fontSize: 7, color: GOLD_HI, letterSpacing: 1 }}>
-            {remaining} MORE TO GO THIS WEEK
-          </p>
-        )}
+          )}
+        </div>
       </div>
+    </Sheet>
+  )
+}
 
-      <style>{`
-        @keyframes cgsSlide {
-          0%   { transform: translateY(60px); opacity: 0; }
-          100% { transform: translateY(0); opacity: 1; }
-        }
-        @keyframes cgsFlow {
-          from { background-position: 0 0; }
-          to   { background-position: 11px 0; }
-        }
-        @keyframes cgsClaimPulse {
-          0%, 100% { filter: brightness(1); }
-          50%      { filter: brightness(1.12); }
-        }
-      `}</style>
-    </div>,
-    document.body
+function Share({ name, color, n }: { name: string; color: string; n: number }) {
+  return (
+    <span className="inline-flex items-center" style={{ gap: 8, minWidth: 0 }}>
+      <Avatar name={name} color={color} size={28} />
+      <span style={{ fontSize: 15, fontWeight: 700, color: M.text2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {name} <span style={{ color: M.text, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>{n}</span>
+      </span>
+    </span>
   )
 }
