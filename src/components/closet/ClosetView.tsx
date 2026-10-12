@@ -58,6 +58,8 @@ interface Props {
   onTabChange: (tab: ClosetTab) => void
   onPick: (card: ClosetCard) => void
   onWearEverywhere: () => void
+  /** Open the room picker for a look you own. */
+  onChooseRooms: (card: ClosetCard) => void
   onBack: () => void
 }
 
@@ -76,7 +78,7 @@ const CARD_GAP = 12
 
 export default function ClosetView({
   rooms, activeRoom, onSelectRoom, roomSkins, selectedKey, isUniform,
-  ownedCards, lockedCards, newBadgeSkins, stardust, loading, ownedLoaded, tab, onTabChange, onPick, onWearEverywhere, onBack,
+  ownedCards, lockedCards, newBadgeSkins, stardust, loading, ownedLoaded, tab, onTabChange, onPick, onWearEverywhere, onChooseRooms, onBack,
 }: Props) {
   const [shopFilter, setShopFilter] = useState<ShopFilter>('all')
   const [rarity, setRarity] = useState<RarityFilter>('all')
@@ -237,7 +239,8 @@ export default function ClosetView({
                 worn={isWorn(c)} uniform={isUniform}
                 isNew={!c.isDefault && !c.skin?.builtin && !c.locked && newBadgeSkins.has(c.key)}
                 onPick={() => onPick(c)}
-                onWearEverywhere={() => { playSound('ui_select'); onWearEverywhere() }} />
+                onWearEverywhere={() => { playSound('ui_select'); onWearEverywhere() }}
+                onChooseRooms={() => { playSound('ui_modal_open'); onChooseRooms(c) }} />
             ))}
           </div>
 
@@ -272,7 +275,7 @@ export default function ClosetView({
 // One look in the carousel: the cat wearing it, what it's called, and the one
 // thing to do with it.
 
-function LookCard({ card, room, live, position, worn, uniform, isNew, onPick, onWearEverywhere }: {
+function LookCard({ card, room, live, position, worn, uniform, isNew, onPick, onWearEverywhere, onChooseRooms }: {
   card: ClosetCard
   room: RoomDef
   /** The card in the middle: its cat blinks and breathes; the rest hold still. */
@@ -284,6 +287,7 @@ function LookCard({ card, room, live, position, worn, uniform, isNew, onPick, on
   isNew: boolean
   onPick: () => void
   onWearEverywhere: () => void
+  onChooseRooms: () => void
 }) {
   const cat = useCat()
   const skin = card.isDefault ? null : card.skin
@@ -357,7 +361,16 @@ function LookCard({ card, room, live, position, worn, uniform, isNew, onPick, on
         <div style={{ fontSize: 19, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
         <div style={{ marginTop: 3, height: 20, fontSize: 14, fontWeight: 700, color: M.text2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{note}</div>
       </div>
-      <div style={{ marginTop: 12 }}>{action}</div>
+      <div className="flex" style={{ marginTop: 12, gap: 8 }}>
+        <div style={{ flex: '1 1 auto', minWidth: 0 }}>{action}</div>
+        {/* A look you own can go on any set of rooms at once. The Default look
+            has no "off" to pick rooms for, so it has no picker. */}
+        {!card.locked && !card.isDefault && (
+          <SecondaryButton size="md" ariaLabel="Choose rooms" onClick={onChooseRooms}
+            style={{ width: 46, padding: 0, flexShrink: 0 }}
+            icon={<MeadowIcon name="door" size={20} color={M.text} />}>{null}</SecondaryButton>
+        )}
+      </div>
     </div>
   )
 }

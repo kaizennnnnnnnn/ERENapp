@@ -15,6 +15,7 @@ import {
 import { FOOD_META } from '@/lib/foodMeta'
 import type { GachaRarity, FoodKey } from '@/types'
 import SkinPurchaseSheet from '@/components/closet/SkinPurchaseSheet'
+import RoomPickerSheet from '@/components/closet/RoomPickerSheet'
 import ClosetView, { type ClosetCard, type ClosetTab } from '@/components/closet/ClosetView'
 import { playSound } from '@/lib/sounds'
 import { M } from '@/components/meadow'
@@ -40,6 +41,7 @@ export default function ClosetPage() {
   const toastTimer = useRef<ReturnType<typeof setTimeout>>()
   useEffect(() => () => clearTimeout(toastTimer.current), [])
   const [buying, setBuying] = useState<SkinDef | null>(null)
+  const [choosing, setChoosing] = useState<SkinDef | null>(null)
   const [busy, setBusy] = useState(false)
 
   // Per-card NEW badge: skins owned-but-unseen when the closet opened. Captured
@@ -135,6 +137,20 @@ export default function ClosetPage() {
     })
   }
 
+  // The room picker's changes in one write, with the same way back as
+  // "Wear in every room".
+  function applyRooms(changes: Record<string, string | null>) {
+    const before = Object.fromEntries(Object.keys(changes).map(id => [id, roomSkins[id] ?? null]))
+    const on = Object.values(changes).filter(Boolean).length
+    playSound('ui_select')
+    setChoosing(null)
+    dress(changes)
+    showToast(on === 0 ? 'Taken off' : `Put on in ${on} ${on === 1 ? 'room' : 'rooms'}`, {
+      label: 'Undo',
+      run: () => { playSound('ui_back'); dress(before); setToast(null) },
+    })
+  }
+
   async function confirmBuy() {
     if (!buying || busy) return
     setBusy(true)
@@ -178,7 +194,17 @@ export default function ClosetPage() {
         onTabChange={setTab}
         onPick={pick}
         onWearEverywhere={wearEverywhere}
+        onChooseRooms={c => setChoosing(c.skin)}
         onBack={() => router.back()}
+      />
+
+      <RoomPickerSheet
+        skin={choosing}
+        rooms={SKINNABLE_ROOMS}
+        roomSkins={roomSkins}
+        activeRoom={activeRoom}
+        onApply={applyRooms}
+        onClose={() => setChoosing(null)}
       />
 
       <SkinPurchaseSheet
