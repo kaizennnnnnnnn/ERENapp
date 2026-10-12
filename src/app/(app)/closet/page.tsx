@@ -10,7 +10,7 @@ import { markSkinsSeen, readSeenSkins } from '@/hooks/useNewSkins'
 import { useCat } from '@/hooks/useCat'
 import { swapCatName } from '@/lib/catWords'
 import {
-  SKINNABLE_ROOMS, GACHA_SKINS, CLASSIC_SKIN, resolveRoomSkin, skinUnlockDrink, type SkinDef,
+  SKINNABLE_ROOMS, GACHA_SKINS, CLASSIC_SKIN, skinUnlockDrink, type SkinDef,
 } from '@/lib/skins'
 import { FOOD_META } from '@/lib/foodMeta'
 import type { GachaRarity, FoodKey } from '@/types'
@@ -64,7 +64,6 @@ export default function ClosetPage() {
     if (loaded && user?.id) markSkinsSeen(user.id, Array.from(owned))
   }, [loaded, user?.id, owned])
 
-  const previewSkin = resolveRoomSkin(roomSkins, activeRoom)
   const selectedKey = roomSkins[activeRoom] ?? ''
 
   // The active look is "uniform" when every room already wears it — drives the
@@ -153,7 +152,6 @@ export default function ClosetPage() {
         activeRoom={activeRoom}
         onSelectRoom={setActiveRoom}
         roomSkins={roomSkins}
-        previewSkin={previewSkin}
         selectedKey={selectedKey}
         isUniform={isUniform}
         ownedCards={ownedCards}

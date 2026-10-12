@@ -7,21 +7,22 @@
 //
 // Layout, top → bottom:
 //   • Title row — back, "Closet", stardust balance
-//   • Mirror — the active room's cat on the meadow stage, the look's name and
-//     rarity, and one tap to wear it in every room
 //   • Room rail — each room's portrait in its CURRENT look; tap to dress it
 //   • My looks / Shop — your looks and the locked catalogue
-//   • Grid — 3-col cards; locked cards are silhouettes with their price
+//   • Carousel — one look at a time, swiped sideways: the cat wearing it on
+//     the meadow stage, its name and rarity, and the one thing to do with it
+//     (wear it, wear it everywhere, unlock it, or how to earn it)
+//   • Strip — every look small, to jump straight to one
 //
 // In the Meadow look: the warm "me" ground, white cards, rarity as the soft
-// tint behind the art and a tag (never a glow), the leaf ring and check for
-// what the room is wearing.
+// tint behind the cat and a tag (never a glow), leaf for what the room is
+// wearing.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import BlinkingEren from '@/components/BlinkingEren'
 import {
-  Card, CheckDisc, Chip, MeadowIcon, MeadowPage, Segmented, SecondaryButton, SectionLabel, Tag,
+  Card, CheckDisc, Chip, MeadowIcon, MeadowPage, PrimaryButton, Segmented, SecondaryButton, SectionLabel, Tag,
   M, RARITY_TAG, TYPE,
 } from '@/components/meadow'
 import { STARDUST_INK } from '@/components/rewards/rewardDisplay'
@@ -44,7 +45,6 @@ interface Props {
   activeRoom: string
   onSelectRoom: (id: string) => void
   roomSkins: Record<string, string>
-  previewSkin: SkinDef | null          // the active room's current look (null = default)
   selectedKey: string                  // active room's assigned key ('' = default)
   isUniform: boolean                   // is the active look already worn in every room?
   ownedCards: ClosetCard[]             // Default + Classic + owned skins (MINE tab)
@@ -65,15 +65,20 @@ const RARITY_NAME: Record<GachaRarity, string> = { common: 'Common', rare: 'Rare
 /** A locked look: its shape only, a soft shadow on its tier's tint. */
 const SILHOUETTE = 'grayscale(1) brightness(0) opacity(0.2)'
 
+/** The carousel's cards and the space between them. */
+const CARD_W = 272
+const CARD_GAP = 12
+
 export default function ClosetView({
-  rooms, activeRoom, onSelectRoom, roomSkins, previewSkin, selectedKey, isUniform,
+  rooms, activeRoom, onSelectRoom, roomSkins, selectedKey, isUniform,
   ownedCards, lockedCards, newBadgeSkins, stardust, loading, ownedLoaded, tab, onTabChange, onPick, onWearEverywhere, onBack,
 }: Props) {
   const [shopFilter, setShopFilter] = useState<ShopFilter>('all')
-  const cat = useCat()
+  const [index, setIndex] = useState(0)
+  const railRef = useRef<HTMLDivElement>(null)
+  const stripRef = useRef<HTMLDivElement>(null)
 
   const room = rooms.find(r => r.id === activeRoom) ?? rooms[0]
-  const showWearEverywhere = !!selectedKey   // only meaningful for a real outfit
   const ownsAnySkin = ownedCards.length > 2  // beyond Default + Classic
 
   const animalLocked = lockedCards.filter(c => c.skin?.set === 'animal').length
@@ -82,40 +87,57 @@ export default function ClosetView({
     ? lockedCards
     : lockedCards.filter(c => c.skin?.set === shopFilter)
 
-  const lookName = previewSkin ? swapCatName(previewSkin.name, cat) : 'Default look'
+  // A Shop gated on a CONFIRMED owned set: a failed/incomplete fetch leaves
+  // owned empty, which would otherwise show the whole catalogue as buyable,
+  // including skins the household already owns.
+  const ready = !loading && (tab === 'mine' || ownedLoaded)
+  const cards = tab === 'mine' ? ownedCards : shopCards
+  const isWorn = (c: ClosetCard) => !c.locked && (c.isDefault ? !selectedKey : selectedKey === c.key)
+  const at = Math.min(index, Math.max(0, cards.length - 1))
+
+  // Where the carousel opens: on what the room is wearing (My looks), or at the
+  // start (Shop). Re-centred when the room, the tab or the filter changes, or
+  // the room puts on something else; never just because the list re-rendered.
+  const centreOn = tab === 'mine' ? Math.max(0, ownedCards.findIndex(isWorn)) : 0
+  const centreKey = tab === 'mine' ? `mine:${room.id}:${selectedKey}:${ready}` : `shop:${shopFilter}:${ready}`
+  useLayoutEffect(() => {
+    const rail = railRef.current
+    if (rail) rail.scrollLeft = centreOn * (CARD_W + CARD_GAP)
+    setIndex(centreOn)
+  }, [centreKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Which card is in the middle, as the rail is swiped.
+  const frame = useRef(0)
+  useEffect(() => () => cancelAnimationFrame(frame.current), [])
+  function onRailScroll() {
+    cancelAnimationFrame(frame.current)
+    frame.current = requestAnimationFrame(() => {
+      const rail = railRef.current
+      if (!rail) return
+      const i = Math.round(rail.scrollLeft / (CARD_W + CARD_GAP))
+      setIndex(Math.max(0, Math.min(cards.length - 1, i)))
+    })
+  }
+
+  // Keep the strip's chosen thumb in view, without moving the page itself.
+  useEffect(() => {
+    const strip = stripRef.current
+    const thumb = strip?.children[at] as HTMLElement | undefined
+    if (!strip || !thumb) return
+    strip.scrollTo({ left: thumb.offsetLeft - (strip.clientWidth - thumb.offsetWidth) / 2, behavior: 'smooth' })
+  }, [at])
+
+  function jump(i: number) {
+    playSound('ui_tap')
+    railRef.current?.scrollTo({ left: i * (CARD_W + CARD_GAP), behavior: 'smooth' })
+  }
+
   const filter = (f: ShopFilter) => () => { playSound('ui_tap'); setShopFilter(f) }
 
   return (
     <MeadowPage ground="me" title="Closet" withNav={false}
       back={{ onClick: () => { playSound('ui_back'); onBack() }, label: 'Back' }}
       action={<StardustChip amount={stardust} />}>
-
-      {/* ── Mirror — the active room's look ── */}
-      <Card padding={12} style={{ marginTop: 18 }}>
-        <Mirror skin={previewSkin} room={room} />
-        <div style={{ padding: '14px 6px 2px' }}>
-          <div className="flex items-center" style={{ gap: 10 }}>
-            <span style={{ flex: '1 1 auto', minWidth: 0, fontSize: 20, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {lookName}
-            </span>
-            {previewSkin && <Tag tone={previewSkin.rarity} caps size="sm">{RARITY_NAME[previewSkin.rarity]}</Tag>}
-          </div>
-          <div style={{ marginTop: 2, fontSize: 14, fontWeight: 600, color: M.text2 }}>In the {room.label}</div>
-
-          {showWearEverywhere && (isUniform ? (
-            <div className="flex items-center justify-center" style={{ marginTop: 14, height: 46, gap: 8, borderRadius: 14, background: M.leafTint }}>
-              <CheckDisc size={22} />
-              <span style={{ fontSize: 15, fontWeight: 800, color: M.leafInk }}>Worn in every room</span>
-            </div>
-          ) : (
-            <SecondaryButton size="md" full style={{ marginTop: 14 }}
-              icon={<MeadowIcon name="home" size={18} />}
-              onClick={() => { playSound('ui_select'); onWearEverywhere() }}>
-              Wear in every room
-            </SecondaryButton>
-          ))}
-        </div>
-      </Card>
 
       {/* ── Room rail ── each portrait shows that room's current outfit ── */}
       <SectionLabel>Pick a room</SectionLabel>
@@ -135,7 +157,7 @@ export default function ClosetView({
         ariaLabel="Outfit collection"
         value={tab}
         onChange={t => { playSound('ui_tap'); onTabChange(t) }}
-        style={{ marginTop: 24, background: '#FFFFFF' }}
+        style={{ marginTop: 16, background: '#FFFFFF' }}
         options={[
           { value: 'mine', label: <>My looks<Count n={ownedCards.length} /></> },
           { value: 'shop', label: <>Shop<Count n={lockedCards.length} /></> },
@@ -143,7 +165,7 @@ export default function ClosetView({
       />
 
       {/* ── Shop filters ── */}
-      {tab === 'shop' && ownedLoaded && !loading && lockedCards.length > 0 && (
+      {tab === 'shop' && ready && lockedCards.length > 0 && (
         <div className="flex overflow-x-auto" style={{ gap: 8, margin: '12px -16px 0', padding: '0 16px', scrollbarWidth: 'none' }}>
           <Chip selected={shopFilter === 'all'} onClick={filter('all')}>All</Chip>
           <Chip selected={shopFilter === 'animal'} onClick={filter('animal')}
@@ -153,60 +175,169 @@ export default function ClosetView({
         </div>
       )}
 
-      {/* ── Grid ── */}
-      <div id="closet-grid" aria-label={tab === 'mine' ? 'My looks' : 'Shop'} style={{ marginTop: 14 }}>
-        {loading || (tab === 'shop' && !ownedLoaded) ? (
-          // Gate the Shop on a CONFIRMED owned set. A failed/incomplete fetch
-          // leaves owned empty, which would otherwise render the whole catalogue
-          // as buyable — including skins the household already owns.
-          <p role="status" style={{ margin: '32px 0', textAlign: 'center', fontSize: 14, fontWeight: 600, color: M.text2 }}>
-            Loading your closet...
-          </p>
-        ) : tab === 'mine' ? (
-          <>
-            <Grid>
-              {ownedCards.map(c => (
-                <SkinCard key={c.key || 'default'} card={c} room={room}
-                  selected={c.isDefault ? !selectedKey : selectedKey === c.key}
-                  isNew={!c.isDefault && !c.skin?.builtin && !c.locked && newBadgeSkins.has(c.key)}
-                  onClick={() => onPick(c)} />
-              ))}
-            </Grid>
-            {!ownsAnySkin && (
-              <p style={{ margin: '20px auto 0', maxWidth: 290, textAlign: 'center', fontSize: 14, lineHeight: 1.45, fontWeight: 500, color: M.text2 }}>
-                Win cute outfits in the <strong style={{ color: M.text }}>Gacha</strong>, or unlock them with
-                stardust in the <strong style={{ color: M.text }}>Shop</strong>.
-              </p>
-            )}
-          </>
-        ) : shopCards.length === 0 ? (
-          <Card style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <MeadowIcon name="crown" size={28} />
-            <span style={{ fontSize: 15, fontWeight: 700 }}>You&apos;ve collected every look.</span>
-          </Card>
-        ) : (
-          <Grid>
-            {shopCards.map(c => (
-              <SkinCard key={c.key} card={c} room={room} selected={false} isNew={false} onClick={() => onPick(c)} />
+      {/* ── The looks ── */}
+      {!ready ? (
+        <p role="status" style={{ margin: '48px 0', textAlign: 'center', fontSize: 14, fontWeight: 600, color: M.text2 }}>
+          Loading your closet...
+        </p>
+      ) : cards.length === 0 ? (
+        <Card style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
+          <MeadowIcon name="crown" size={28} />
+          <span style={{ fontSize: 15, fontWeight: 700 }}>You&apos;ve collected every look.</span>
+        </Card>
+      ) : (
+        <>
+          <div ref={railRef} onScroll={onRailScroll} role="group" aria-roledescription="carousel"
+            aria-label={tab === 'mine' ? 'My looks' : 'Shop'}
+            className="flex overflow-x-auto"
+            style={{
+              gap: CARD_GAP, margin: '14px -16px 0', padding: `4px calc(50% - ${CARD_W / 2}px) 8px`,
+              scrollSnapType: 'x mandatory', scrollbarWidth: 'none',
+            }}>
+            {cards.map((c, i) => (
+              <LookCard key={c.key || 'default'} card={c} room={room} live={i === at}
+                position={`${i + 1} of ${cards.length}`}
+                worn={isWorn(c)} uniform={isUniform}
+                isNew={!c.isDefault && !c.skin?.builtin && !c.locked && newBadgeSkins.has(c.key)}
+                onPick={() => onPick(c)}
+                onWearEverywhere={() => { playSound('ui_select'); onWearEverywhere() }} />
             ))}
-          </Grid>
-        )}
-      </div>
+          </div>
+
+          {/* ── Every look small, to jump to one ── */}
+          <div className="flex items-center justify-between" style={{ margin: '10px 8px 8px' }}>
+            <span style={{ ...TYPE.label, color: M.label }}>{tab === 'mine' ? 'All your looks' : 'All in the shop'}</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: M.label, fontVariantNumeric: 'tabular-nums' }}>
+              {at + 1} of {cards.length}
+            </span>
+          </div>
+          <div ref={stripRef} className="flex overflow-x-auto"
+            style={{ gap: 8, margin: '0 -16px', padding: '4px 16px 6px', scrollbarWidth: 'none' }}>
+            {cards.map((c, i) => (
+              <Thumb key={c.key || 'default'} card={c} room={room} active={i === at} worn={isWorn(c)}
+                onClick={() => jump(i)} />
+            ))}
+          </div>
+
+          {tab === 'mine' && !ownsAnySkin && (
+            <p style={{ margin: '16px auto 0', maxWidth: 290, textAlign: 'center', fontSize: 14, lineHeight: 1.45, fontWeight: 500, color: M.text2 }}>
+              Win cute outfits in the <strong style={{ color: M.text }}>Gacha</strong>, or unlock them with
+              stardust in the <strong style={{ color: M.text }}>Shop</strong>.
+            </p>
+          )}
+        </>
+      )}
     </MeadowPage>
   )
 }
 
-// ─── Mirror ──────────────────────────────────────────────────────────────────
+// ─── Look card ───────────────────────────────────────────────────────────────
+// One look in the carousel: the cat wearing it, what it's called, and the one
+// thing to do with it.
+
+function LookCard({ card, room, live, position, worn, uniform, isNew, onPick, onWearEverywhere }: {
+  card: ClosetCard
+  room: RoomDef
+  /** The card in the middle: its cat blinks and breathes; the rest hold still. */
+  live: boolean
+  position: string
+  worn: boolean
+  /** The room's look is worn in every room. */
+  uniform: boolean
+  isNew: boolean
+  onPick: () => void
+  onWearEverywhere: () => void
+}) {
+  const cat = useCat()
+  const skin = card.isDefault ? null : card.skin
+  // An EARNED look (poured can, completed jelly shelf) can't be bought at any
+  // price: the card says how to earn it, never a stardust number that would
+  // be a lie.
+  const earned = card.locked && !!card.skin?.unlock
+  const name = card.locked ? 'Mystery look' : card.isDefault ? 'Default look' : swapCatName(card.skin!.name, cat)
+  const price = card.locked && !earned ? skinPrice(card.skin!.rarity) : 0
+
+  let note: ReactNode
+  if (worn) {
+    note = (
+      <span className="inline-flex items-center" style={{ gap: 6, color: M.leafInk }}>
+        <CheckDisc size={18} />{uniform && !card.isDefault ? 'Worn in every room' : `Worn in the ${room.label}`}
+      </span>
+    )
+  } else if (card.locked) {
+    note = earned ? 'Earned by playing, not bought' : 'Unlock it with stardust'
+  } else {
+    note = 'In your closet'
+  }
+
+  let action: ReactNode
+  if (card.locked) {
+    action = earned
+      ? <SecondaryButton size="md" full onClick={onPick}>How to earn it</SecondaryButton>
+      : (
+        <PrimaryButton size="md" full onClick={onPick}
+          icon={<MeadowIcon name="sparkle" size={18} mono color="#FFFFFF" />}>
+          Unlock for {price}
+        </PrimaryButton>
+      )
+  } else if (!worn) {
+    action = <PrimaryButton size="md" full onClick={onPick}>Wear it</PrimaryButton>
+  } else if (!card.isDefault && !uniform) {
+    action = (
+      <SecondaryButton size="md" full onClick={onWearEverywhere} icon={<MeadowIcon name="home" size={18} />}>
+        Wear in every room
+      </SecondaryButton>
+    )
+  } else {
+    // Worn, and nothing more to do with it: a quiet face in the button's place,
+    // so every card is the same height.
+    action = (
+      <span className="flex items-center justify-center" style={{ height: 46, borderRadius: 14, background: M.leafTint, fontSize: 15, fontWeight: 800, color: M.leafInk }}>
+        Wearing it
+      </span>
+    )
+  }
+
+  return (
+    <div aria-roledescription="slide" aria-label={`${name}, ${position}`}
+      className="flex-shrink-0 flex flex-col"
+      style={{
+        width: CARD_W, boxSizing: 'border-box', padding: 10, borderRadius: 24, background: '#FFFFFF',
+        scrollSnapAlign: 'center',
+        border: `2px solid ${worn ? M.leaf : '#FFFFFF'}`,
+      }}>
+      <LookStage skin={skin} room={room} locked={card.locked} live={live}
+        tint={skin ? RARITY_TAG[skin.rarity].bg : M.soft}>
+        {skin && (
+          <Tag tone={skin.rarity} caps size="sm" style={{ position: 'absolute', top: 10, right: 10, background: '#FFFFFF' }}>
+            {RARITY_NAME[skin.rarity]}
+          </Tag>
+        )}
+        {isNew && <Tag tone="love" size="sm" style={{ position: 'absolute', top: 10, left: 10 }}>New</Tag>}
+      </LookStage>
+
+      <div style={{ padding: '12px 4px 0' }}>
+        <div style={{ fontSize: 19, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+        <div style={{ marginTop: 3, height: 20, fontSize: 14, fontWeight: 700, color: M.text2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{note}</div>
+      </div>
+      <div style={{ marginTop: 12 }}>{action}</div>
+    </div>
+  )
+}
+
+// ─── Look stage ──────────────────────────────────────────────────────────────
 // The cat on the meadow stage, sized and lifted the way the room draws him
 // (lib/skins ROOM_FIT), so his feet land on the shadow in any look.
 
-const MIRROR_H = 236
+const STAGE_H = 208
 /** From the stage's bottom edge up to where the feet stand. */
-const FEET = 30
+const FEET = 28
 /** A size up on the room's own, so the look is the thing you see. */
-const ZOOM = 1.15
+const ZOOM = 1.1
 
-function Mirror({ skin, room }: { skin: SkinDef | null; room: RoomDef }) {
+function LookStage({ skin, room, locked, live, tint, children }: {
+  skin: SkinDef | null; room: RoomDef; locked: boolean; live: boolean; tint: string; children?: ReactNode
+}) {
   const fit = ROOM_FIT[room.id] ?? ROOM_FIT.home
   // How much of the art's own canvas runs below the feet.
   const below = skin ? skin.botGap ?? 0 : fit.botGap
@@ -214,31 +345,62 @@ function Mirror({ skin, room }: { skin: SkinDef | null; room: RoomDef }) {
   // off by the stage.
   const size = Math.round(Math.min(
     (skin ? skinRoomFit(skin, room.id)?.size ?? fit.size : fit.size) * ZOOM,
-    (MIRROR_H - FEET - 6) / (1 - below),
+    (STAGE_H - FEET - 6) / (1 - below),
   ))
-  const gap = size * below
   const box: CSSProperties = {
-    position: 'absolute', left: '50%', bottom: FEET - gap, width: size, height: size, transform: 'translateX(-50%)',
+    position: 'absolute', left: '50%', bottom: FEET - size * below, width: size, height: size, transform: 'translateX(-50%)',
   }
   return (
-    <div aria-hidden style={{ position: 'relative', height: MIRROR_H, borderRadius: 18, background: M.soft, overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', left: 'calc(50% - 280px)', top: MIRROR_H - 72, width: 560, height: 220, borderRadius: '50%', background: M.hill }} />
-      <div style={{ position: 'absolute', left: 'calc(50% - 70px)', top: MIRROR_H - FEET - 8, width: 140, height: 16, borderRadius: '50%', background: M.hillShadow }} />
-      <span style={{ position: 'absolute', left: 16, top: MIRROR_H - 58 }}><MeadowIcon name="daisy" size={30} /></span>
-      <span style={{ position: 'absolute', left: 46, top: MIRROR_H - 44 }}><MeadowIcon name="tuft" size={30} /></span>
-      <span style={{ position: 'absolute', right: 48, top: MIRROR_H - 44 }}><MeadowIcon name="tuft" size={30} /></span>
-      <span style={{ position: 'absolute', right: 16, top: MIRROR_H - 62 }}><MeadowIcon name="daisy" size={30} /></span>
-      {skin ? (
-        <div style={box}>
+    <div style={{ position: 'relative', height: STAGE_H, borderRadius: 18, background: tint, overflow: 'hidden' }}>
+      <div aria-hidden style={{ position: 'absolute', left: 'calc(50% - 280px)', top: STAGE_H - 70, width: 560, height: 220, borderRadius: '50%', background: M.hill }} />
+      <div aria-hidden style={{ position: 'absolute', left: 'calc(50% - 64px)', top: STAGE_H - FEET - 8, width: 128, height: 16, borderRadius: '50%', background: M.hillShadow }} />
+      <span aria-hidden style={{ position: 'absolute', left: 12, top: STAGE_H - 56 }}><MeadowIcon name="daisy" size={28} /></span>
+      <span aria-hidden style={{ position: 'absolute', left: 40, top: STAGE_H - 42 }}><MeadowIcon name="tuft" size={28} /></span>
+      <span aria-hidden style={{ position: 'absolute', right: 42, top: STAGE_H - 42 }}><MeadowIcon name="tuft" size={28} /></span>
+      <span aria-hidden style={{ position: 'absolute', right: 12, top: STAGE_H - 60 }}><MeadowIcon name="daisy" size={28} /></span>
+      {skin && live && !locked ? (
+        <div aria-hidden style={box}>
           <BlinkingEren key={skin.id + room.id} size={size}
             src={skin.src} tailSrc={skin.tailSrc} tailOrigin={skin.tailOrigin}
             eyes={skin.eyes} lidTone={skin.lidTone} coat={skin.coat} />
         </div>
       ) : (
-        <img src={room.defaultThumb} alt="" draggable={false}
-          style={{ ...box, objectFit: 'contain', objectPosition: 'bottom', imageRendering: 'auto' }} />
+        <img src={skin ? skin.thumb : room.defaultThumb} alt="" draggable={false}
+          style={{ ...box, objectFit: 'contain', objectPosition: 'bottom', imageRendering: 'auto', filter: locked ? SILHOUETTE : undefined }} />
       )}
+      {locked && (
+        <span aria-hidden className="absolute flex items-center justify-center" style={{
+          left: 'calc(50% - 22px)', top: 'calc(50% - 22px)', width: 44, height: 44, borderRadius: 999, background: '#FFFFFF',
+        }}>
+          <MeadowIcon name="lock" size={22} color={M.text2} />
+        </span>
+      )}
+      {children}
     </div>
+  )
+}
+
+// ─── Strip thumb ─────────────────────────────────────────────────────────────
+function Thumb({ card, room, active, worn, onClick }: {
+  card: ClosetCard; room: RoomDef; active: boolean; worn: boolean; onClick: () => void
+}) {
+  const cat = useCat()
+  const skin = card.isDefault ? null : card.skin
+  const label = card.locked ? 'Mystery look' : card.isDefault ? 'Default look' : swapCatName(card.skin!.name, cat)
+  return (
+    <button type="button" onClick={onClick} aria-label={`${label}${worn ? ', wearing' : ''}`} aria-current={active || undefined}
+      className="m-press m-focus relative flex-shrink-0"
+      style={{
+        width: 52, height: 52, boxSizing: 'border-box', padding: 0, borderRadius: 16, cursor: 'pointer',
+        background: skin ? RARITY_TAG[skin.rarity].bg : M.soft,
+        border: `2px solid ${active ? M.leaf : '#FFFFFF'}`,
+      }}>
+      <img src={skin ? skin.thumb : room.defaultThumb} alt="" draggable={false} style={{
+        position: 'absolute', inset: '8%', width: '84%', height: '84%', objectFit: 'contain', imageRendering: 'auto',
+        filter: card.locked ? SILHOUETTE : undefined,
+      }} />
+      {worn && <CheckDisc corner size={20} />}
+    </button>
   )
 }
 
@@ -266,90 +428,9 @@ function RoomTile({ room, thumb, active, onClick }: {
   )
 }
 
-// ─── Look card ───────────────────────────────────────────────────────────────
-function SkinCard({ card, room, selected, isNew, onClick }: {
-  card: ClosetCard; room: RoomDef; selected: boolean; isNew: boolean; onClick: () => void
-}) {
-  const rarity: GachaRarity = card.skin ? card.skin.rarity : 'common'
-  const thumb = card.isDefault ? room.defaultThumb : card.skin!.thumb
-  const cat = useCat()
-  const skinName = swapCatName(card.skin?.name ?? '', cat)
-  // An EARNED look (poured can, completed jelly shelf) can't be bought at any
-  // price — the card says so, never a stardust number that would be a lie.
-  const earned = card.locked && !!card.skin?.unlock
-  const ariaLabel = card.isDefault
-    ? `Default look${selected ? ', equipped' : ''}`
-    : card.locked
-      ? earned
-        ? 'Locked look — earned by playing, not bought'
-        : `${skinName}, locked — ${skinPrice(card.skin!.rarity)} stardust to unlock`
-      : `${skinName}${selected ? ', equipped' : ''}${isNew ? ', new' : ''}`
-
-  return (
-    <button type="button" onClick={onClick}
-      aria-label={ariaLabel}
-      aria-pressed={card.locked ? undefined : selected}
-      aria-haspopup={card.locked ? 'dialog' : undefined}
-      className="m-press m-focus relative flex flex-col"
-      style={{
-        boxSizing: 'border-box', padding: 6, gap: 6, borderRadius: 20, background: '#FFFFFF',
-        border: `2px solid ${selected ? M.leaf : '#FFFFFF'}`, cursor: 'pointer', textAlign: 'center',
-      }}>
-      <span className="relative flex items-center justify-center" style={{
-        width: '100%', aspectRatio: '1 / 1', borderRadius: 14, background: card.isDefault ? M.soft : RARITY_TAG[rarity].bg,
-      }}>
-        {/* Absolute: a percentage height doesn't resolve against an
-            aspect-ratio box, and a tall sprite would spill out of it. */}
-        <img src={thumb} alt="" draggable={false} style={{
-          position: 'absolute', inset: '6%', width: '88%', height: '88%', objectFit: 'contain', imageRendering: 'auto',
-          filter: card.locked ? SILHOUETTE : undefined,
-        }} />
-        {card.locked && (
-          <span className="absolute flex items-center justify-center" style={{
-            width: 30, height: 30, borderRadius: 999, background: '#FFFFFF',
-          }}>
-            <MeadowIcon name="lock" size={16} color={M.text2} />
-          </span>
-        )}
-      </span>
-
-      <span className="flex items-center justify-center" style={{ minHeight: 34, padding: '0 2px 2px', gap: 4 }}>
-        {card.locked ? (
-          earned ? (
-            <span style={{ fontSize: 13, fontWeight: 700, color: M.text2 }}>Earn it</span>
-          ) : (
-            <Price n={skinPrice(card.skin!.rarity)} />
-          )
-        ) : (
-          <span style={{ fontSize: 13, lineHeight: 1.2, fontWeight: 700, color: M.text, overflowWrap: 'anywhere' }}>
-            {card.isDefault ? 'Default' : skinName}
-          </span>
-        )}
-      </span>
-
-      {selected && <CheckDisc corner />}
-      {isNew && !selected && (
-        <Tag tone="love" size="sm" style={{ position: 'absolute', top: -8, left: -6 }}>New</Tag>
-      )}
-    </button>
-  )
-}
-
 // ─── Small shared bits ───────────────────────────────────────────────────────
-function Grid({ children }: { children: ReactNode }) {
-  return <div className="grid grid-cols-3" style={{ gap: 10 }}>{children}</div>
-}
-
 function Count({ n }: { n: number }) {
   return <span style={{ marginLeft: 6, fontWeight: 700, color: M.text2, fontVariantNumeric: 'tabular-nums' }}>{n}</span>
-}
-
-function Price({ n }: { n: number }) {
-  return (
-    <span className="inline-flex items-center" style={{ gap: 4, fontSize: 14, color: M.text, ...TYPE.number }}>
-      <MeadowIcon name="sparkle" size={14} color={STARDUST_INK} />{n}
-    </span>
-  )
 }
 
 function StardustChip({ amount }: { amount: number }) {
@@ -363,4 +444,3 @@ function StardustChip({ amount }: { amount: number }) {
     </span>
   )
 }
-
