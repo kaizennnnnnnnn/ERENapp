@@ -80,37 +80,28 @@ export function useCloset() {
   useEffect(() => { loadOwned() }, [loadOwned])
   useEffect(() => onForeground(() => { if (failedRef.current) loadOwned() }), [loadOwned])
 
-  // Assign a skin to a room (skinId null → revert to the room's default look).
-  // The write is built from the freshest live+pending map, so a partner's
-  // already-synced assignment to another room is preserved (no whole-column
-  // clobber). Writes only room_skins → no decay bump (see useErenStats merge).
-  const assign = useCallback(async (roomId: string, skinId: string | null) => {
+  // Dress several rooms in one write: each entry is a room and its new look
+  // (null → back to the room's default). Built from the freshest live+pending
+  // map, so rooms left out (a partner's already-synced choice included) are
+  // kept. Writes only room_skins → no decay bump (see useErenStats merge).
+  const dress = useCallback(async (changes: Record<string, string | null>) => {
     if (!hh) return
-    setPending(p => ({ ...p, [roomId]: skinId }))
+    setPending(p => ({ ...p, ...changes }))
     const next: Record<string, string> = { ...roomSkins }
-    if (!skinId) delete next[roomId]; else next[roomId] = skinId
+    for (const [roomId, skinId] of Object.entries(changes)) {
+      if (!skinId) delete next[roomId]; else next[roomId] = skinId
+    }
     await supabase.from('eren_stats').update({ room_skins: next }).eq('household_id', hh)
+    // supabase is a per-render createClient() call returning a stable singleton.
   }, [hh, roomSkins]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Dress EVERY skinnable room in one look (skinId null → revert them all to
-  // default). One write builds the whole map from scratch, so partner edits to
-  // individual rooms are intentionally overwritten — "wear everywhere" is a
-  // deliberate household-wide reset. Pending overlay covers all rooms for instant
-  // feedback until the realtime echo lands.
-  const assignAll = useCallback(async (skinId: string | null) => {
-    if (!hh) return
-    const roomIds = SKINNABLE_ROOMS.map(r => r.id)
-    setPending(p => {
-      const n = { ...p }
-      for (const r of roomIds) n[r] = skinId
-      return n
-    })
-    const next: Record<string, string> = {}
-    if (skinId) for (const r of roomIds) next[r] = skinId
-    await supabase.from('eren_stats').update({ room_skins: next }).eq('household_id', hh)
-    // supabase is a per-render createClient() call returning a stable singleton —
-    // intentionally excluded; roomSkins is intentionally NOT a dep (full reset).
-  }, [hh]) // eslint-disable-line react-hooks/exhaustive-deps
+  // One room (skinId null → revert to the room's default look).
+  const assign = useCallback((roomId: string, skinId: string | null) => dress({ [roomId]: skinId }), [dress])
 
-  return { owned, roomSkins, assign, assignAll, loading: ownedLoading || !stats, loaded: ownedLoaded, refetch: loadOwned }
+  // Every skinnable room in one look — a deliberate household-wide reset, so
+  // partner choices in other rooms are overwritten (the closet offers Undo).
+  const assignAll = useCallback((skinId: string | null) =>
+    dress(Object.fromEntries(SKINNABLE_ROOMS.map(r => [r.id, skinId]))), [dress])
+
+  return { owned, roomSkins, dress, assign, assignAll, loading: ownedLoading || !stats, loaded: ownedLoaded, refetch: loadOwned }
 }

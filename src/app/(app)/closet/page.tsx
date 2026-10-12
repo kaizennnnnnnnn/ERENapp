@@ -19,6 +19,8 @@ import ClosetView, { type ClosetCard, type ClosetTab } from '@/components/closet
 import { playSound } from '@/lib/sounds'
 import { M } from '@/components/meadow'
 
+interface Toast { msg: string; action?: { label: string; run: () => void } }
+
 // Rarest first — a player's prized looks lead in MY LOOKS, and the Shop reads
 // aspirational top-down.
 const RARITY_RANK: Record<GachaRarity, number> = { legendary: 0, epic: 1, rare: 2, common: 3 }
@@ -29,12 +31,14 @@ export default function ClosetPage() {
   const router = useRouter()
   const { setHideStats } = useCare()
   const { user } = useAuth()
-  const { owned, roomSkins, assign, assignAll, loading, loaded, refetch } = useCloset()
+  const { owned, roomSkins, dress, assign, assignAll, loading, loaded, refetch } = useCloset()
   const { stardust, purchaseSkin } = useGacha()
   const cat = useCat()
   const [activeRoom, setActiveRoom] = useState(SKINNABLE_ROOMS[0].id)
   const [tab, setTab] = useState<ClosetTab>('mine')
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<Toast | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout>>()
+  useEffect(() => () => clearTimeout(toastTimer.current), [])
   const [buying, setBuying] = useState<SkinDef | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -88,9 +92,11 @@ export default function ClosetPage() {
       .map(s => ({ key: s.id, skin: s, locked: true })),
     [owned])
 
-  function showToast(msg: string) {
-    setToast(msg)
-    setTimeout(() => setToast(null), 2200)
+  // A toast with an action (Undo) stays long enough to reach for it.
+  function showToast(msg: string, action?: Toast['action']) {
+    setToast({ msg, action })
+    clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast(null), action ? 5000 : 2200)
   }
 
   function pick(card: ClosetCard) {
@@ -116,9 +122,17 @@ export default function ClosetPage() {
     assign(activeRoom, card.isDefault ? null : card.key)
   }
 
+  // Every room in one look overwrites whatever each room had on, the
+  // partner's picks included, so it comes with a way back: Undo puts every
+  // room back exactly as it was.
   function wearEverywhere() {
     if (!selectedKey) return
+    const before = Object.fromEntries(SKINNABLE_ROOMS.map(r => [r.id, roomSkins[r.id] ?? null]))
     assignAll(selectedKey)
+    showToast('Worn in every room', {
+      label: 'Undo',
+      run: () => { playSound('ui_back'); dress(before); setToast(null) },
+    })
   }
 
   async function confirmBuy() {
@@ -178,13 +192,22 @@ export default function ClosetPage() {
       {toast && (
         // Centred by a full-width flex row, not a transform: one line when it
         // fits, wrapped when a long cat name ("Now wearing Fox Clementine The
-        // Great!") won't.
+        // Great!") won't. Only the pill catches taps, for its action.
         <div role="status" className="fixed inset-x-0 flex justify-center pointer-events-none"
           style={{ top: 'calc(var(--safe-top) + 12px)', zIndex: 90, padding: '0 16px' }}>
-          <span className="meadow-root" style={{
-            padding: '10px 16px', borderRadius: 20, background: M.text, color: '#FFFFFF',
+          <span className="meadow-root flex items-center" style={{
+            pointerEvents: 'auto', gap: 14,
+            padding: toast.action ? '6px 6px 6px 16px' : '10px 16px', borderRadius: 20, background: M.text, color: '#FFFFFF',
             fontSize: 14, lineHeight: 1.35, fontWeight: 700, textAlign: 'center', overflowWrap: 'anywhere',
-          }}>{toast}</span>
+          }}>
+            {toast.msg}
+            {toast.action && (
+              <button type="button" onClick={toast.action.run} className="m-press m-focus" style={{
+                height: 32, padding: '0 14px', border: 0, borderRadius: 14, background: 'rgba(255,255,255,0.16)',
+                color: '#FFFFFF', fontFamily: 'inherit', fontSize: 14, fontWeight: 800, cursor: 'pointer',
+              }}>{toast.action.label}</button>
+            )}
+          </span>
         </div>
       )}
     </>
