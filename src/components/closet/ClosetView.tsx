@@ -78,6 +78,9 @@ interface Props {
   dark: boolean
   /** Progress on each earned look, by skin id. */
   earn: Record<string, EarnProgress>
+  /** Hearted looks (card keys); null when favourites aren't set up yet. */
+  favorites: Set<string> | null
+  onToggleFavorite: (key: string) => void
 }
 
 const RARITY_NAME: Record<GachaRarity, string> = { common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' }
@@ -96,10 +99,12 @@ const CARD_GAP = 12
 export default function ClosetView({
   rooms, activeRoom, onSelectRoom, roomSkins, selectedKey, isUniform,
   ownedCards, lockedCards, newBadgeSkins, stardust, loading, ownedLoaded, tab, onTabChange, onPick, onWearEverywhere, onChooseRooms, onBack, dark, earn,
+  favorites, onToggleFavorite,
 }: Props) {
   const [shopFilter, setShopFilter] = useState<ShopFilter>('all')
   const [rarity, setRarity] = useState<RarityFilter>('all')
   const [affordOnly, setAffordOnly] = useState(false)
+  const [favOnly, setFavOnly] = useState(false)
   const [index, setIndex] = useState(0)
   const railRef = useRef<HTMLDivElement>(null)
   const stripRef = useRef<HTMLDivElement>(null)
@@ -107,25 +112,32 @@ export default function ClosetView({
   const room = rooms.find(r => r.id === activeRoom) ?? rooms[0]
   const ownsAnySkin = ownedCards.length > 2  // beyond Default + Classic
 
-  // The tab's looks, narrowed by rarity (both tabs) and by set (the Shop).
-  // Each chip counts what it would show alongside the other filter, so a
+  // The tab's looks, narrowed by rarity (both tabs), by set (the Shop), and
+  // by the tab's one on/off chip: Favourites on My looks, I can afford in the
+  // Shop. Each chip counts what it would show alongside the others, so a
   // count never promises cards that tapping it won't bring.
   const base = tab === 'mine' ? ownedCards : lockedCards
-  const inSet = (c: ClosetCard, f: ShopFilter) => tab === 'mine' || f === 'all' || c.skin?.set === f
-  const inRarity = (c: ClosetCard, r: RarityFilter) => r === 'all' || rarityOf(c) === r
   // A look stardust can buy right now (never an earned one: no price at all).
   const affordable = (c: ClosetCard) => c.locked && !!c.skin && !c.skin.unlock && skinPrice(c.skin.rarity) <= stardust
-  const inAfford = (c: ClosetCard, on: boolean) => !on || tab === 'mine' || affordable(c)
-  const rarityCount = (r: GachaRarity) => base.filter(c => inSet(c, shopFilter) && inRarity(c, r) && inAfford(c, affordOnly)).length
-  const setCount = (f: ShopFilter) => base.filter(c => inSet(c, f) && inRarity(c, rarity) && inAfford(c, affordOnly)).length
-  const affordCount = base.filter(c => inSet(c, shopFilter) && inRarity(c, rarity) && affordable(c)).length
-  const filtered = rarity !== 'all' || (tab === 'shop' && (shopFilter !== 'all' || affordOnly))
+  const special = tab === 'mine' ? favOnly : affordOnly
+  const isSpecial = (c: ClosetCard) => tab === 'mine' ? !!favorites?.has(c.key) : affordable(c)
+  const matches = (c: ClosetCard, f: { set?: ShopFilter; rarity?: RarityFilter; special?: boolean } = {}) => {
+    const set = f.set ?? shopFilter
+    const r = f.rarity ?? rarity
+    return (tab === 'mine' || set === 'all' || c.skin?.set === set)
+      && (r === 'all' || rarityOf(c) === r)
+      && (!(f.special ?? special) || isSpecial(c))
+  }
+  const rarityCount = (r: GachaRarity) => base.filter(c => matches(c, { rarity: r })).length
+  const setCount = (f: ShopFilter) => base.filter(c => matches(c, { set: f })).length
+  const specialCount = base.filter(c => matches(c, { special: true })).length
+  const filtered = rarity !== 'all' || special || (tab === 'shop' && shopFilter !== 'all')
 
   // A Shop gated on a CONFIRMED owned set: a failed/incomplete fetch leaves
   // owned empty, which would otherwise show the whole catalogue as buyable,
   // including skins the household already owns.
   const ready = !loading && (tab === 'mine' || ownedLoaded)
-  const cards = base.filter(c => inSet(c, shopFilter) && inRarity(c, rarity) && inAfford(c, affordOnly))
+  const cards = base.filter(c => matches(c))
   const isWorn = (c: ClosetCard) => !c.locked && (c.isDefault ? !selectedKey : selectedKey === c.key)
   const at = Math.min(index, Math.max(0, cards.length - 1))
 
@@ -134,7 +146,7 @@ export default function ClosetView({
   // the room puts on something else; never just because the list re-rendered.
   const centreOn = tab === 'mine' ? Math.max(0, cards.findIndex(isWorn)) : 0
   const centreKey = tab === 'mine'
-    ? `mine:${room.id}:${selectedKey}:${rarity}:${ready}`
+    ? `mine:${room.id}:${selectedKey}:${rarity}:${favOnly}:${ready}`
     : `shop:${shopFilter}:${rarity}:${affordOnly}:${ready}`
   useLayoutEffect(() => {
     const rail = railRef.current
@@ -171,7 +183,9 @@ export default function ClosetView({
   // Tapping the chosen chip again lets it go; All lets both go.
   const pickSet = (f: ShopFilter) => () => { playSound('ui_tap'); setShopFilter(cur => cur === f ? 'all' : f) }
   const pickRarity = (r: GachaRarity) => () => { playSound('ui_tap'); setRarity(cur => cur === r ? 'all' : r) }
-  const showAll = () => { playSound('ui_tap'); setRarity('all'); setShopFilter('all'); setAffordOnly(false) }
+  const showAll = () => {
+    playSound('ui_tap'); setRarity('all'); setShopFilter('all'); setAffordOnly(false); setFavOnly(false)
+  }
 
   return (
     <MeadowPage ground="me" title="Closet" withNav={false}
@@ -208,11 +222,18 @@ export default function ClosetView({
         <div role="group" aria-label="Filter looks" className="flex items-center overflow-x-auto"
           style={{ gap: 8, margin: '12px -16px 0', padding: '0 16px', scrollbarWidth: 'none' }}>
           <Chip selected={!filtered} onClick={showAll}>All</Chip>
+          {tab === 'mine' && favorites && (
+            <Chip selected={favOnly} onClick={() => { playSound('ui_tap'); setFavOnly(on => !on) }}
+              disabled={specialCount === 0 && !favOnly}
+              icon={<MeadowIcon name="heart" size={16} color={M.love} />}>
+              Favourites<Count n={specialCount} />
+            </Chip>
+          )}
           {tab === 'shop' && (
             <Chip selected={affordOnly} onClick={() => { playSound('ui_tap'); setAffordOnly(on => !on) }}
-              disabled={affordCount === 0 && !affordOnly}
+              disabled={specialCount === 0 && !affordOnly}
               icon={<MeadowIcon name="sparkle" size={16} color={STARDUST_INK} />}>
-              I can afford<Count n={affordCount} />
+              I can afford<Count n={specialCount} />
             </Chip>
           )}
           {RARITIES.map(r => {
@@ -265,6 +286,8 @@ export default function ClosetView({
             {cards.map((c, i) => (
               <LookCard key={c.key || 'default'} card={c} room={room} dark={dark} live={i === at}
                 earn={c.skin ? earn[c.skin.id] : undefined} stardust={stardust}
+                fav={favorites && !c.locked && !c.isDefault ? favorites.has(c.key) : undefined}
+                onToggleFav={() => onToggleFavorite(c.key)}
                 position={`${i + 1} of ${cards.length}`}
                 worn={isWorn(c)} uniform={isUniform}
                 isNew={!c.isDefault && !c.skin?.builtin && !c.locked && newBadgeSkins.has(c.key)}
@@ -305,7 +328,9 @@ export default function ClosetView({
 // One look in the carousel: the cat wearing it, what it's called, and the one
 // thing to do with it.
 
-function LookCard({ card, room, dark, live, position, worn, uniform, isNew, earn, stardust, onPick, onWearEverywhere, onChooseRooms }: {
+function LookCard({
+  card, room, dark, live, position, worn, uniform, isNew, earn, stardust, fav, onToggleFav, onPick, onWearEverywhere, onChooseRooms,
+}: {
   card: ClosetCard
   room: RoomDef
   /** Night: the room's night painting behind the look. */
@@ -320,6 +345,9 @@ function LookCard({ card, room, dark, live, position, worn, uniform, isNew, earn
   earn?: EarnProgress
   /** What you have, so a look you can't buy yet says how far off it is. */
   stardust: number
+  /** Hearted or not; undefined for a look that can't be a favourite. */
+  fav?: boolean
+  onToggleFav: () => void
   onPick: () => void
   onWearEverywhere: () => void
   onChooseRooms: () => void
@@ -401,7 +429,17 @@ function LookCard({ card, room, dark, live, position, worn, uniform, isNew, earn
       </LookStage>
 
       <div style={{ padding: '12px 4px 0' }}>
-        <div style={{ fontSize: 19, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+        <div className="flex items-center" style={{ gap: 8, height: 26 }}>
+          <span style={{ flex: '1 1 auto', minWidth: 0, fontSize: 19, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+          {fav !== undefined && (
+            <button type="button" onClick={onToggleFav} aria-pressed={fav}
+              aria-label={fav ? `Remove ${name} from favourites` : `Add ${name} to favourites`}
+              className="m-press m-focus flex items-center justify-center flex-shrink-0"
+              style={{ width: 36, height: 36, margin: '-5px -6px -5px 0', padding: 0, border: 0, borderRadius: 999, background: 'transparent', cursor: 'pointer' }}>
+              <MeadowIcon name="heart" size={22} color={fav ? M.love : M.toggleOff} mono />
+            </button>
+          )}
+        </div>
         <div style={{ marginTop: 3, height: 20, fontSize: 14, fontWeight: 700, color: M.text2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{note}</div>
       </div>
       <div className="flex" style={{ marginTop: 12, gap: 8 }}>

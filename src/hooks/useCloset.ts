@@ -33,6 +33,8 @@ export function useCloset() {
   // the seen-set.
   const [ownedLoaded, setOwnedLoaded] = useState(false)
   const [pending, setPending] = useState<Record<string, string | null>>({})
+  // This phone's hearts until the realtime echo lands (null = nothing pending).
+  const [pendingFavs, setPendingFavs] = useState<string[] | null>(null)
   const failedRef = useRef(false)
 
   const liveMap = (stats?.room_skins ?? {}) as Record<string, string>
@@ -56,6 +58,29 @@ export function useCloset() {
       return changed ? next : prev
     })
   }, [liveMap])
+
+  // Hearted looks, household-wide. null until migration_closet.sql is pasted
+  // (the column is missing from the row), so the closet can leave hearts out
+  // instead of offering a button whose every write would fail.
+  const liveFavs = stats?.closet_favorites
+  const favorites = useMemo(
+    () => Array.isArray(liveFavs) ? new Set(pendingFavs ?? liveFavs) : null,
+    [liveFavs, pendingFavs],
+  )
+  useEffect(() => {
+    if (pendingFavs && Array.isArray(liveFavs) && liveFavs.length === pendingFavs.length
+      && liveFavs.every(k => pendingFavs.includes(k))) setPendingFavs(null)
+  }, [liveFavs, pendingFavs])
+
+  /** Heart or un-heart a look. Resolves false when the write didn't land. */
+  const toggleFavorite = useCallback(async (key: string): Promise<boolean> => {
+    if (!hh || !favorites) return false
+    const next = favorites.has(key) ? Array.from(favorites).filter(k => k !== key) : [...Array.from(favorites), key]
+    setPendingFavs(next)
+    const { error } = await supabase.from('eren_stats').update({ closet_favorites: next }).eq('household_id', hh)
+    if (error) { setPendingFavs(null); return false }
+    return true
+  }, [hh, favorites]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Owned skins — union of both household members' gacha inventories.
   const loadOwned = useCallback(async () => {
@@ -103,5 +128,5 @@ export function useCloset() {
   const assignAll = useCallback((skinId: string | null) =>
     dress(Object.fromEntries(SKINNABLE_ROOMS.map(r => [r.id, skinId]))), [dress])
 
-  return { owned, roomSkins, dress, assign, assignAll, loading: ownedLoading || !stats, loaded: ownedLoaded, refetch: loadOwned }
+  return { owned, roomSkins, dress, assign, assignAll, favorites, toggleFavorite, loading: ownedLoading || !stats, loaded: ownedLoaded, refetch: loadOwned }
 }

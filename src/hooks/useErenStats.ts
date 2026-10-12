@@ -474,6 +474,7 @@ function useErenStatsImpl(householdId: string | null) {
               // — carry it through so a partner's re-dress syncs live. The
               // kiosk's two columns land the same way at the end of a shift.
               room_skins:     newRow.room_skins,
+              closet_favorites: newRow.closet_favorites,
               kiosk_regulars: newRow.kiosk_regulars,
               kiosk_wraps:    newRow.kiosk_wraps,
               // Trophy-shop cosmetics, written the same no-decay-bump way as

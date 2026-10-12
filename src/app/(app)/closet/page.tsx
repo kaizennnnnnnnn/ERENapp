@@ -35,7 +35,7 @@ export default function ClosetPage() {
   const router = useRouter()
   const { setHideStats } = useCare()
   const { user } = useAuth()
-  const { owned, roomSkins, dress, assign, assignAll, loading, loaded, refetch } = useCloset()
+  const { owned, roomSkins, dress, assign, assignAll, favorites, toggleFavorite, loading, loaded, refetch } = useCloset()
   const { stardust, purchaseSkin } = useGacha()
   const cat = useCat()
   const isDark = useIsDark()
@@ -113,13 +113,27 @@ export default function ClosetPage() {
     [roomSkins, selectedKey],
   )
 
-  // MY LOOKS = Default + Classic + owned skins (the daily driver, no scrolling).
-  const ownedCards: ClosetCard[] = useMemo(() => [
-    { key: '', skin: null, locked: false, isDefault: true },
-    { key: 'classic', skin: CLASSIC_SKIN, locked: false },
-    ...GACHA_SKINS.filter(s => owned.has(s.id)).sort(byRarity)
-      .map(s => ({ key: s.id, skin: s, locked: false })),
-  ], [owned])
+  // Favourites lead My looks, in the order they had when the closet opened:
+  // hearting a look mid-visit must not yank it out from under the finger, so
+  // the ordering only catches up on the next visit.
+  const favOrder = useRef<Set<string> | null>(null)
+  if (!favOrder.current && favorites) favOrder.current = new Set(favorites)
+  const leadFavs = favOrder.current
+
+  // MY LOOKS = Default, then the favourites, then Classic + owned skins.
+  const ownedCards: ClosetCard[] = useMemo(() => {
+    const looks: ClosetCard[] = [
+      { key: 'classic', skin: CLASSIC_SKIN, locked: false },
+      ...GACHA_SKINS.filter(s => owned.has(s.id)).sort(byRarity)
+        .map(s => ({ key: s.id, skin: s, locked: false })),
+    ]
+    const fav = leadFavs ?? new Set<string>()
+    return [
+      { key: '', skin: null, locked: false, isDefault: true },
+      ...looks.filter(c => fav.has(c.key)),
+      ...looks.filter(c => !fav.has(c.key)),
+    ]
+  }, [owned, leadFavs])
 
   // SHOP = the locked catalogue, grouped animals→foods then rarest first.
   const lockedCards: ClosetCard[] = useMemo(() =>
@@ -232,6 +246,11 @@ export default function ClosetPage() {
         onBack={() => router.back()}
         dark={isDark}
         earn={earn}
+        favorites={favorites}
+        onToggleFavorite={async key => {
+          playSound(favorites?.has(key) ? 'ui_tap' : 'ui_select')
+          if (!(await toggleFavorite(key))) showToast('Could not save that favourite. Try again.')
+        }}
       />
 
       <RoomPickerSheet

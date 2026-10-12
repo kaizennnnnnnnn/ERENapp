@@ -207,6 +207,10 @@ export interface ErenStats {
   // Shared between partners and realtime-synced. Absent / missing key = the
   // room shows its built-in default look.
   room_skins?: Record<string, string> | null
+  // The closet's hearted looks (skin ids, 'classic' for Classic), household-
+  // wide like room_skins. Absent until migration_closet.sql is pasted, which
+  // is how the closet knows whether to offer hearts at all.
+  closet_favorites?: string[] | null
   // The sky outside each room's window: room id → WeatherId (see lib/weather).
   // Household rather than per-user for the same reason room_skins is — there
   // is one house, and the storm she put over the bath should still be there

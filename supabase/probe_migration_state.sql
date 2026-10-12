@@ -139,6 +139,17 @@ with
            'Per-room skin assignment cannot persist'
 
     union all
+    select case when exists (select 1 from information_schema.columns
+                   where table_schema = 'public' and table_name = 'eren_stats'
+                     and column_name = 'closet_favorites') then 9 else 0 end,
+           'closet: eren_stats.closet_favorites',
+           case when exists (select 1 from information_schema.columns
+                   where table_schema = 'public' and table_name = 'eren_stats'
+                     and column_name = 'closet_favorites')
+                then 'ok' else '** paste migration_closet.sql **' end,
+           'The closet shows no hearts and no Favourites chip'
+
+    union all
     select case when exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                    where n.nspname = 'public' and p.proname = 'purchase_trophy_item'
                      and pg_get_functiondef(p.oid) like '%machine%') then 9 else 0 end,
