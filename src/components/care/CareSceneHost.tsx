@@ -4,6 +4,7 @@ import { useRef, useState, useEffect, useLayoutEffect, useCallback, useMemo } fr
 import { useCare, type CareScene } from '@/contexts/CareContext'
 import { useErenStats } from '@/hooks/useErenStats'
 import { resolveRoomSkin } from '@/lib/skins'
+import { ROOM_ART_DAY, ROOM_ART_DARK } from '@/lib/roomArt'
 import { foodDrag } from './foodDragFlag'
 import AnimatedEren from '@/components/AnimatedEren'
 import { playSound } from '@/lib/sounds'
@@ -54,27 +55,6 @@ const SCENE_COLORS: Record<CareScene, string> = {
   garden:    '#8DBF8E',
   talk:      '#D8B4FE',
   hospital:  '#F87171',
-}
-
-const SCENE_IMAGES_DAY: Partial<Record<CareScene, string>> = {
-  feed:      '/kitchen.png',
-  play:      '/playroom.png',
-  sleep:     '/bedroom.png',
-  wash:      '/bathroom.png',
-  chemistry: '/ChemistryDay.png',
-  vet:       '/vetBACK.png',
-  garden:    '/garden/day.png',
-  talk:      '/AtticDay.png',
-}
-const SCENE_IMAGES_DARK: Partial<Record<CareScene, string>> = {
-  feed:      '/KitchenDark.png',
-  play:      '/play.png',
-  sleep:     '/bedroom.png',
-  wash:      '/BathroomDark.png',
-  chemistry: '/ChemistryNight.png',
-  vet:       '/wetDark.png',
-  garden:    '/garden/night.png',
-  talk:      '/AtticNight.png',
 }
 
 // The Eren sprite each scene actually paints. Themed scenes use their own
@@ -153,7 +133,7 @@ export default function CareSceneHost() {
 
   useEffect(() => {
     if (!activeScene) return
-    const bgSrc = (isDark ? SCENE_IMAGES_DARK : SCENE_IMAGES_DAY)[activeScene]
+    const bgSrc = (isDark ? ROOM_ART_DARK : ROOM_ART_DAY)[activeScene]
     const sprites = roomSkin
       ? [roomSkin.src, roomSkin.tailSrc].filter(Boolean) as string[]
       : (SCENE_EREN_SPRITES[activeScene] ?? ['/erenGood.png'])

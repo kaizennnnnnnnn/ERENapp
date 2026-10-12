@@ -31,6 +31,7 @@ import type { GachaRarity } from '@/types'
 import { playSound } from '@/lib/sounds'
 import { useCat } from '@/hooks/useCat'
 import { swapCatName } from '@/lib/catWords'
+import { roomArt } from '@/lib/roomArt'
 
 // Default (revert) + Classic + each gacha skin become one of these. `key`
 // doubles as the room_skins value: '' = the room's built-in default look.
@@ -61,6 +62,8 @@ interface Props {
   /** Open the room picker for a look you own. */
   onChooseRooms: (card: ClosetCard) => void
   onBack: () => void
+  /** Night, for the rooms' night paintings. */
+  dark: boolean
 }
 
 const RARITY_NAME: Record<GachaRarity, string> = { common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' }
@@ -78,7 +81,7 @@ const CARD_GAP = 12
 
 export default function ClosetView({
   rooms, activeRoom, onSelectRoom, roomSkins, selectedKey, isUniform,
-  ownedCards, lockedCards, newBadgeSkins, stardust, loading, ownedLoaded, tab, onTabChange, onPick, onWearEverywhere, onChooseRooms, onBack,
+  ownedCards, lockedCards, newBadgeSkins, stardust, loading, ownedLoaded, tab, onTabChange, onPick, onWearEverywhere, onChooseRooms, onBack, dark,
 }: Props) {
   const [shopFilter, setShopFilter] = useState<ShopFilter>('all')
   const [rarity, setRarity] = useState<RarityFilter>('all')
@@ -234,7 +237,7 @@ export default function ClosetView({
               scrollSnapType: 'x mandatory', scrollbarWidth: 'none',
             }}>
             {cards.map((c, i) => (
-              <LookCard key={c.key || 'default'} card={c} room={room} live={i === at}
+              <LookCard key={c.key || 'default'} card={c} room={room} dark={dark} live={i === at}
                 position={`${i + 1} of ${cards.length}`}
                 worn={isWorn(c)} uniform={isUniform}
                 isNew={!c.isDefault && !c.skin?.builtin && !c.locked && newBadgeSkins.has(c.key)}
@@ -275,9 +278,11 @@ export default function ClosetView({
 // One look in the carousel: the cat wearing it, what it's called, and the one
 // thing to do with it.
 
-function LookCard({ card, room, live, position, worn, uniform, isNew, onPick, onWearEverywhere, onChooseRooms }: {
+function LookCard({ card, room, dark, live, position, worn, uniform, isNew, onPick, onWearEverywhere, onChooseRooms }: {
   card: ClosetCard
   room: RoomDef
+  /** Night: the room's night painting behind the look. */
+  dark: boolean
   /** The card in the middle: its cat blinks and breathes; the rest hold still. */
   live: boolean
   position: string
@@ -325,9 +330,7 @@ function LookCard({ card, room, live, position, worn, uniform, isNew, onPick, on
     action = <PrimaryButton size="md" full onClick={onPick}>Wear it</PrimaryButton>
   } else if (!card.isDefault && !uniform) {
     action = (
-      <SecondaryButton size="md" full onClick={onWearEverywhere} icon={<MeadowIcon name="home" size={18} />}>
-        Wear in every room
-      </SecondaryButton>
+      <SecondaryButton size="md" full onClick={onWearEverywhere}>Wear everywhere</SecondaryButton>
     )
   } else {
     // Worn, and nothing more to do with it: a quiet face in the button's place,
@@ -348,7 +351,8 @@ function LookCard({ card, room, live, position, worn, uniform, isNew, onPick, on
         border: `2px solid ${worn ? M.leaf : '#FFFFFF'}`,
       }}>
       <LookStage skin={skin} room={room} locked={card.locked} live={live}
-        tint={skin ? RARITY_TAG[skin.rarity].bg : M.soft}>
+        tint={skin ? RARITY_TAG[skin.rarity].bg : M.soft}
+        backdrop={card.locked ? undefined : roomArt(room.id, dark)}>
         {skin && (
           <Tag tone={skin.rarity} caps size="sm" style={{ position: 'absolute', top: 10, right: 10, background: '#FFFFFF' }}>
             {RARITY_NAME[skin.rarity]}
@@ -368,7 +372,7 @@ function LookCard({ card, room, live, position, worn, uniform, isNew, onPick, on
         {!card.locked && !card.isDefault && (
           <SecondaryButton size="md" ariaLabel="Choose rooms" onClick={onChooseRooms}
             style={{ width: 46, padding: 0, flexShrink: 0 }}
-            icon={<MeadowIcon name="door" size={20} color={M.text} />}>{null}</SecondaryButton>
+            icon={<MeadowIcon name="home" size={20} />}>{null}</SecondaryButton>
         )}
       </div>
     </div>
@@ -384,9 +388,18 @@ const STAGE_H = 188
 const FEET = 28
 /** A size up on the room's own, so the look is the thing you see. */
 const ZOOM = 1.1
+/** The room painting behind a look: a little wider than the stage, with its
+ *  floor (this far down the painting) under the feet. The paintings are all
+ *  phone-shaped, width / height. */
+const BACKDROP_W = 330
+const BACKDROP_FLOOR = 0.84
+const ROOM_ART_ASPECT = 0.558
 
-function LookStage({ skin, room, locked, live, tint, children }: {
-  skin: SkinDef | null; room: RoomDef; locked: boolean; live: boolean; tint: string; children?: ReactNode
+function LookStage({ skin, room, locked, live, tint, backdrop, children }: {
+  skin: SkinDef | null; room: RoomDef; locked: boolean; live: boolean; tint: string
+  /** The room's own painting, behind a look you own: see it where it'll be worn. */
+  backdrop?: string
+  children?: ReactNode
 }) {
   const fit = ROOM_FIT[room.id] ?? ROOM_FIT.home
   // How much of the art's own canvas runs below the feet.
@@ -402,12 +415,26 @@ function LookStage({ skin, room, locked, live, tint, children }: {
   }
   return (
     <div style={{ position: 'relative', height: STAGE_H, borderRadius: 18, background: tint, overflow: 'hidden' }}>
-      <div aria-hidden style={{ position: 'absolute', left: 'calc(50% - 280px)', top: STAGE_H - 70, width: 560, height: 220, borderRadius: '50%', background: M.hill }} />
-      <div aria-hidden style={{ position: 'absolute', left: 'calc(50% - 64px)', top: STAGE_H - FEET - 8, width: 128, height: 16, borderRadius: '50%', background: M.hillShadow }} />
-      <span aria-hidden style={{ position: 'absolute', left: 12, top: STAGE_H - 56 }}><MeadowIcon name="daisy" size={28} /></span>
-      <span aria-hidden style={{ position: 'absolute', left: 40, top: STAGE_H - 42 }}><MeadowIcon name="tuft" size={28} /></span>
-      <span aria-hidden style={{ position: 'absolute', right: 42, top: STAGE_H - 42 }}><MeadowIcon name="tuft" size={28} /></span>
-      <span aria-hidden style={{ position: 'absolute', right: 12, top: STAGE_H - 60 }}><MeadowIcon name="daisy" size={28} /></span>
+      {backdrop ? (
+        <>
+          {/* Cropped round the floor: every room's floor sits at about the
+              same height in its painting, so the feet land on it. */}
+          <img src={backdrop} alt="" draggable={false} aria-hidden style={{
+            position: 'absolute', left: '50%', width: BACKDROP_W, transform: 'translateX(-50%)',
+            top: STAGE_H - FEET - BACKDROP_FLOOR * (BACKDROP_W / ROOM_ART_ASPECT), maxWidth: 'none',
+          }} />
+          <div aria-hidden style={{ position: 'absolute', left: 'calc(50% - 60px)', top: STAGE_H - FEET - 8, width: 120, height: 16, borderRadius: '50%', background: M.floorShadow }} />
+        </>
+      ) : (
+        <>
+          <div aria-hidden style={{ position: 'absolute', left: 'calc(50% - 280px)', top: STAGE_H - 70, width: 560, height: 220, borderRadius: '50%', background: M.hill }} />
+          <div aria-hidden style={{ position: 'absolute', left: 'calc(50% - 64px)', top: STAGE_H - FEET - 8, width: 128, height: 16, borderRadius: '50%', background: M.hillShadow }} />
+          <span aria-hidden style={{ position: 'absolute', left: 12, top: STAGE_H - 56 }}><MeadowIcon name="daisy" size={28} /></span>
+          <span aria-hidden style={{ position: 'absolute', left: 40, top: STAGE_H - 42 }}><MeadowIcon name="tuft" size={28} /></span>
+          <span aria-hidden style={{ position: 'absolute', right: 42, top: STAGE_H - 42 }}><MeadowIcon name="tuft" size={28} /></span>
+          <span aria-hidden style={{ position: 'absolute', right: 12, top: STAGE_H - 60 }}><MeadowIcon name="daisy" size={28} /></span>
+        </>
+      )}
       {skin && live && !locked ? (
         <div aria-hidden style={box}>
           <BlinkingEren key={skin.id + room.id} size={size}

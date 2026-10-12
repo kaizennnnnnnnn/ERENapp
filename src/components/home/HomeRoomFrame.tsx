@@ -30,10 +30,10 @@
 import type { ReactNode, TouchEventHandler } from 'react'
 import { NAV_HEIGHT } from '@/components/meadow/tokens'
 
-/** The living-room painting for the time of day. Shared with the page's preload. */
-export function homeRoomArt(dark: boolean): string {
-  return dark ? '/HomeNight.png' : '/HomeDay.png'
-}
+import { homeRoomArt } from '@/lib/roomArt'
+
+/** The living-room painting (lib/roomArt), shared with the page's preload. */
+export { homeRoomArt }
 
 export interface HomeRoomFrameProps {
   dark: boolean

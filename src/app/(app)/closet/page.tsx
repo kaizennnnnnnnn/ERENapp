@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useGacha } from '@/hooks/useGacha'
 import { markSkinsSeen, readSeenSkins } from '@/hooks/useNewSkins'
 import { useCat } from '@/hooks/useCat'
+import { useIsDark } from '@/hooks/useIsDark'
 import { swapCatName } from '@/lib/catWords'
 import {
   SKINNABLE_ROOMS, GACHA_SKINS, CLASSIC_SKIN, skinUnlockDrink, type SkinDef,
@@ -35,6 +36,7 @@ export default function ClosetPage() {
   const { owned, roomSkins, dress, assign, assignAll, loading, loaded, refetch } = useCloset()
   const { stardust, purchaseSkin } = useGacha()
   const cat = useCat()
+  const isDark = useIsDark()
   const [activeRoom, setActiveRoom] = useState(SKINNABLE_ROOMS[0].id)
   const [tab, setTab] = useState<ClosetTab>('mine')
   const [toast, setToast] = useState<Toast | null>(null)
@@ -196,6 +198,7 @@ export default function ClosetPage() {
         onWearEverywhere={wearEverywhere}
         onChooseRooms={c => setChoosing(c.skin)}
         onBack={() => router.back()}
+        dark={isDark}
       />
 
       <RoomPickerSheet
