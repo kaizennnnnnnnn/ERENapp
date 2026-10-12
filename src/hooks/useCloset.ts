@@ -21,7 +21,7 @@ import { itemIdToSkinId, SKINNABLE_ROOMS } from '@/lib/skins'
 // show through.
 export function useCloset() {
   const supabase = createClient()
-  const { profile } = useAuth()
+  const { user, profile } = useAuth()
   const hh = profile?.household_id ?? null
   const { stats } = useErenStats()
 
@@ -38,6 +38,13 @@ export function useCloset() {
   const failedRef = useRef(false)
 
   const liveMap = (stats?.room_skins ?? {}) as Record<string, string>
+  // Room id → user id of whoever last changed it; null until
+  // migration_closet.sql adds the column.
+  const liveBy = stats?.room_skins_by
+  const dressedBy = useMemo(
+    () => (liveBy && typeof liveBy === 'object' ? liveBy : null) as Record<string, string> | null,
+    [liveBy],
+  )
 
   // Effective assignment = live map with this session's un-echoed edits applied.
   const roomSkins = useMemo(() => {
@@ -116,9 +123,16 @@ export function useCloset() {
     for (const [roomId, skinId] of Object.entries(changes)) {
       if (!skinId) delete next[roomId]; else next[roomId] = skinId
     }
-    await supabase.from('eren_stats').update({ room_skins: next }).eq('household_id', hh)
+    // Who changed which room rides in the same update, so the two never
+    // disagree. Only once the column exists: naming a missing column would
+    // fail the whole update, outfit included.
+    const write: Record<string, unknown> = { room_skins: next }
+    if (dressedBy && user?.id) {
+      write.room_skins_by = { ...dressedBy, ...Object.fromEntries(Object.keys(changes).map(id => [id, user.id])) }
+    }
+    await supabase.from('eren_stats').update(write).eq('household_id', hh)
     // supabase is a per-render createClient() call returning a stable singleton.
-  }, [hh, roomSkins]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hh, roomSkins, dressedBy, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // One room (skinId null → revert to the room's default look).
   const assign = useCallback((roomId: string, skinId: string | null) => dress({ [roomId]: skinId }), [dress])
@@ -128,5 +142,5 @@ export function useCloset() {
   const assignAll = useCallback((skinId: string | null) =>
     dress(Object.fromEntries(SKINNABLE_ROOMS.map(r => [r.id, skinId]))), [dress])
 
-  return { owned, roomSkins, dress, assign, assignAll, favorites, toggleFavorite, loading: ownedLoading || !stats, loaded: ownedLoaded, refetch: loadOwned }
+  return { owned, roomSkins, dressedBy, dress, assign, assignAll, favorites, toggleFavorite, loading: ownedLoading || !stats, loaded: ownedLoaded, refetch: loadOwned }
 }

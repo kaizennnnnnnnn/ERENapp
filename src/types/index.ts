@@ -211,6 +211,9 @@ export interface ErenStats {
   // wide like room_skins. Absent until migration_closet.sql is pasted, which
   // is how the closet knows whether to offer hearts at all.
   closet_favorites?: string[] | null
+  // Room id → user id of whoever last changed that room's look, written with
+  // room_skins. Absent until migration_closet.sql is pasted.
+  room_skins_by?: Record<string, string> | null
   // The sky outside each room's window: room id → WeatherId (see lib/weather).
   // Household rather than per-user for the same reason room_skins is — there
   // is one house, and the storm she put over the bath should still be there

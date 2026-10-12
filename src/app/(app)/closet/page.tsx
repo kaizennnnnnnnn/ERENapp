@@ -9,6 +9,7 @@ import { useGacha } from '@/hooks/useGacha'
 import { markSkinsSeen, readSeenSkins } from '@/hooks/useNewSkins'
 import { useCat } from '@/hooks/useCat'
 import { useIsDark } from '@/hooks/useIsDark'
+import { useCouple } from '@/hooks/useCouple'
 import { useRemembered, oneOf } from '@/hooks/useRemembered'
 import { useJellies } from '@/hooks/useJellies'
 import { useErenStats } from '@/hooks/useErenStats'
@@ -23,7 +24,7 @@ import RoomPickerSheet from '@/components/closet/RoomPickerSheet'
 import SurpriseSheet, { type SurpriseScope } from '@/components/closet/SurpriseSheet'
 import ClosetView, { type ClosetCard, type ClosetTab, type EarnProgress } from '@/components/closet/ClosetView'
 import { playSound } from '@/lib/sounds'
-import { M } from '@/components/meadow'
+import { M, personColor } from '@/components/meadow'
 
 interface Toast { msg: string; action?: { label: string; run: () => void } }
 
@@ -37,10 +38,11 @@ export default function ClosetPage() {
   const router = useRouter()
   const { setHideStats } = useCare()
   const { user } = useAuth()
-  const { owned, roomSkins, dress, assign, assignAll, favorites, toggleFavorite, loading, loaded, refetch } = useCloset()
+  const { owned, roomSkins, dressedBy, dress, assign, assignAll, favorites, toggleFavorite, loading, loaded, refetch } = useCloset()
   const { stardust, purchaseSkin } = useGacha()
   const cat = useCat()
   const isDark = useIsDark()
+  const { partner } = useCouple()
   const jellies = useJellies()
   const { stats } = useErenStats()
   // Reopens on the room and tab you left it on (this phone only).
@@ -116,6 +118,16 @@ export default function ClosetPage() {
     () => !!selectedKey && SKINNABLE_ROOMS.every(r => (roomSkins[r.id] ?? '') === selectedKey),
     [roomSkins, selectedKey],
   )
+
+  // The rooms the partner dressed last, for their initial on the room tile and
+  // "Jovan dressed the Kitchen" on what it's wearing.
+  const partnerPicks = useMemo(() => {
+    const out: Record<string, { name: string; color: string }> = {}
+    if (!partner || !dressedBy) return out
+    const who = { name: (partner.name ?? 'Partner').split(' ')[0], color: personColor(partner.heart) }
+    for (const r of SKINNABLE_ROOMS) if (dressedBy[r.id] === partner.id) out[r.id] = who
+    return out
+  }, [partner, dressedBy])
 
   // Favourites lead My looks, in the order they had when the closet opened:
   // hearting a look mid-visit must not yank it out from under the finger, so
@@ -282,6 +294,7 @@ export default function ClosetPage() {
         earn={earn}
         favorites={favorites}
         onSurprise={() => setSurprising(true)}
+        partnerPicks={partnerPicks}
         onToggleFavorite={async key => {
           playSound(favorites?.has(key) ? 'ui_tap' : 'ui_select')
           if (!(await toggleFavorite(key))) showToast('Could not save that favourite. Try again.')

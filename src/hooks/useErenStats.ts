@@ -475,6 +475,7 @@ function useErenStatsImpl(householdId: string | null) {
               // kiosk's two columns land the same way at the end of a shift.
               room_skins:     newRow.room_skins,
               closet_favorites: newRow.closet_favorites,
+              room_skins_by:    newRow.room_skins_by,
               kiosk_regulars: newRow.kiosk_regulars,
               kiosk_wraps:    newRow.kiosk_wraps,
               // Trophy-shop cosmetics, written the same no-decay-bump way as

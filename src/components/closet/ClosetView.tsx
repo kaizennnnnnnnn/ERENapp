@@ -22,7 +22,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import BlinkingEren from '@/components/BlinkingEren'
 import {
-  Card, CheckDisc, Chip, MeadowIcon, MeadowPage, Meter, PrimaryButton, Segmented, SecondaryButton, Tag, TextButton,
+  Avatar, Card, CheckDisc, Chip, MeadowIcon, MeadowPage, Meter, PrimaryButton, Segmented, SecondaryButton, Tag, TextButton,
   M, RARITY_TAG, TYPE,
 } from '@/components/meadow'
 import { STARDUST_INK } from '@/components/rewards/rewardDisplay'
@@ -84,6 +84,8 @@ interface Props {
   onToggleFavorite: (key: string) => void
   /** Open "Surprise me". */
   onSurprise: () => void
+  /** Rooms the partner dressed last: their name and colour, by room id. */
+  partnerPicks: Record<string, { name: string; color: string }>
 }
 
 const RARITY_NAME: Record<GachaRarity, string> = { common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' }
@@ -102,7 +104,7 @@ const CARD_GAP = 12
 export default function ClosetView({
   rooms, activeRoom, onSelectRoom, roomSkins, selectedKey, isUniform,
   ownedCards, lockedCards, newBadgeSkins, stardust, loading, ownedLoaded, tab, onTabChange, onPick, onWearEverywhere, onChooseRooms, onBack, dark, earn,
-  favorites, onToggleFavorite, onSurprise,
+  favorites, onToggleFavorite, onSurprise, partnerPicks,
 }: Props) {
   // The filters are remembered on this phone, like the page's room and tab.
   const [shopFilter, setShopFilter] = useRemembered<ShopFilter>('closet:set', 'all', oneOf('all', 'animal', 'food'))
@@ -217,7 +219,7 @@ export default function ClosetView({
           const sk = resolveRoomSkin(roomSkins, r.id)
           return (
             <RoomTile key={r.id} room={r} thumb={sk?.thumb ?? r.defaultThumb}
-              active={r.id === activeRoom}
+              active={r.id === activeRoom} pickedBy={partnerPicks[r.id]}
               onClick={() => { playSound('ui_tap'); onSelectRoom(r.id) }} />
           )
         })}
@@ -305,6 +307,7 @@ export default function ClosetView({
               <LookCard key={c.key || 'default'} card={c} room={room} dark={dark} live={i === at}
                 earn={c.skin ? earn[c.skin.id] : undefined} stardust={stardust}
                 fav={favorites && !c.locked && !c.isDefault ? favorites.has(c.key) : undefined}
+                pickedBy={partnerPicks[room.id]}
                 onToggleFav={() => onToggleFavorite(c.key)}
                 position={`${i + 1} of ${cards.length}`}
                 worn={isWorn(c)} uniform={isUniform}
@@ -347,7 +350,7 @@ export default function ClosetView({
 // thing to do with it.
 
 function LookCard({
-  card, room, dark, live, position, worn, uniform, isNew, earn, stardust, fav, onToggleFav, onPick, onWearEverywhere, onChooseRooms,
+  card, room, dark, live, position, worn, uniform, isNew, earn, stardust, fav, pickedBy, onToggleFav, onPick, onWearEverywhere, onChooseRooms,
 }: {
   card: ClosetCard
   room: RoomDef
@@ -365,6 +368,8 @@ function LookCard({
   stardust: number
   /** Hearted or not; undefined for a look that can't be a favourite. */
   fav?: boolean
+  /** The partner put this room's look on. */
+  pickedBy?: { name: string; color: string }
   onToggleFav: () => void
   onPick: () => void
   onWearEverywhere: () => void
@@ -384,7 +389,9 @@ function LookCard({
   if (worn) {
     note = (
       <span className="inline-flex items-center" style={{ gap: 6, color: M.leafInk }}>
-        <CheckDisc size={18} />{uniform && !card.isDefault ? 'Worn in every room' : `Worn in the ${room.label}`}
+        <CheckDisc size={18} />
+        {uniform && !card.isDefault ? 'Worn in every room'
+          : pickedBy ? `${pickedBy.name} put this on` : `Worn in the ${room.label}`}
       </span>
     )
   } else if (card.locked) {
@@ -607,20 +614,29 @@ function Thumb({ card, room, active, worn, onClick }: {
 }
 
 // ─── Room tile ───────────────────────────────────────────────────────────────
-function RoomTile({ room, thumb, active, onClick }: {
-  room: RoomDef; thumb: string; active: boolean; onClick: () => void
+function RoomTile({ room, thumb, active, pickedBy, onClick }: {
+  room: RoomDef; thumb: string; active: boolean
+  /** The partner dressed this room last. */
+  pickedBy?: { name: string; color: string }
+  onClick: () => void
 }) {
   return (
-    <button type="button" onClick={onClick} aria-pressed={active} aria-label={room.label}
+    <button type="button" onClick={onClick} aria-pressed={active}
+      aria-label={pickedBy ? `${room.label}, dressed by ${pickedBy.name}` : room.label}
       className="m-press m-focus flex-shrink-0 flex flex-col items-center"
       style={{ width: 70, gap: 6, padding: 0, border: 0, background: 'transparent', cursor: 'pointer' }}>
-      <span className="flex items-center justify-center" style={{
+      <span className="relative flex items-center justify-center" style={{
         width: 60, height: 60, boxSizing: 'border-box', borderRadius: 18,
         background: active ? M.leafTint : '#FFFFFF',
         border: `2px solid ${active ? M.leaf : '#FFFFFF'}`,
       }}>
         <img src={thumb} alt="" draggable={false}
           style={{ width: '82%', height: '82%', objectFit: 'contain', imageRendering: 'auto' }} />
+        {/* Their initial in their colour: this one was their pick. */}
+        {pickedBy && (
+          <Avatar name={pickedBy.name} color={pickedBy.color} size={22} ring="#FFFFFF" ringWidth={2}
+            style={{ position: 'absolute', top: -6, right: -6 }} />
+        )}
       </span>
       <span style={{
         fontSize: 12, fontWeight: active ? 800 : 700, color: active ? M.leafInk : M.text2,
