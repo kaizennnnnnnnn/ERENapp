@@ -32,6 +32,7 @@ import { playSound } from '@/lib/sounds'
 import { useCat } from '@/hooks/useCat'
 import { swapCatName } from '@/lib/catWords'
 import { roomArt } from '@/lib/roomArt'
+import { useRemembered, oneOf, isBool } from '@/hooks/useRemembered'
 
 // Default (revert) + Classic + each gacha skin become one of these. `key`
 // doubles as the room_skins value: '' = the room's built-in default look.
@@ -103,10 +104,11 @@ export default function ClosetView({
   ownedCards, lockedCards, newBadgeSkins, stardust, loading, ownedLoaded, tab, onTabChange, onPick, onWearEverywhere, onChooseRooms, onBack, dark, earn,
   favorites, onToggleFavorite, onSurprise,
 }: Props) {
-  const [shopFilter, setShopFilter] = useState<ShopFilter>('all')
-  const [rarity, setRarity] = useState<RarityFilter>('all')
-  const [affordOnly, setAffordOnly] = useState(false)
-  const [favOnly, setFavOnly] = useState(false)
+  // The filters are remembered on this phone, like the page's room and tab.
+  const [shopFilter, setShopFilter] = useRemembered<ShopFilter>('closet:set', 'all', oneOf('all', 'animal', 'food'))
+  const [rarity, setRarity] = useRemembered<RarityFilter>('closet:rarity', 'all', oneOf('all', ...RARITIES))
+  const [affordOnly, setAffordOnly] = useRemembered('closet:afford', false, isBool)
+  const [favOnly, setFavOnly] = useRemembered('closet:favs', false, isBool)
   const [index, setIndex] = useState(0)
   const railRef = useRef<HTMLDivElement>(null)
   const stripRef = useRef<HTMLDivElement>(null)

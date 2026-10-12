@@ -9,6 +9,7 @@ import { useGacha } from '@/hooks/useGacha'
 import { markSkinsSeen, readSeenSkins } from '@/hooks/useNewSkins'
 import { useCat } from '@/hooks/useCat'
 import { useIsDark } from '@/hooks/useIsDark'
+import { useRemembered, oneOf } from '@/hooks/useRemembered'
 import { useJellies } from '@/hooks/useJellies'
 import { useErenStats } from '@/hooks/useErenStats'
 import { swapCatName } from '@/lib/catWords'
@@ -42,8 +43,9 @@ export default function ClosetPage() {
   const isDark = useIsDark()
   const jellies = useJellies()
   const { stats } = useErenStats()
-  const [activeRoom, setActiveRoom] = useState(SKINNABLE_ROOMS[0].id)
-  const [tab, setTab] = useState<ClosetTab>('mine')
+  // Reopens on the room and tab you left it on (this phone only).
+  const [activeRoom, setActiveRoom] = useRemembered('closet:room', SKINNABLE_ROOMS[0].id, oneOf(...SKINNABLE_ROOMS.map(r => r.id)))
+  const [tab, setTab] = useRemembered<ClosetTab>('closet:tab', 'mine', oneOf('mine', 'shop'))
   const [toast, setToast] = useState<Toast | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout>>()
   useEffect(() => () => clearTimeout(toastTimer.current), [])
