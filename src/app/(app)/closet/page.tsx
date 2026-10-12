@@ -9,6 +9,8 @@ import { useGacha } from '@/hooks/useGacha'
 import { markSkinsSeen, readSeenSkins } from '@/hooks/useNewSkins'
 import { useCat } from '@/hooks/useCat'
 import { useIsDark } from '@/hooks/useIsDark'
+import { useJellies } from '@/hooks/useJellies'
+import { useErenStats } from '@/hooks/useErenStats'
 import { swapCatName } from '@/lib/catWords'
 import {
   SKINNABLE_ROOMS, GACHA_SKINS, CLASSIC_SKIN, skinUnlockDrink, type SkinDef,
@@ -17,7 +19,7 @@ import { FOOD_META } from '@/lib/foodMeta'
 import type { GachaRarity, FoodKey } from '@/types'
 import SkinPurchaseSheet from '@/components/closet/SkinPurchaseSheet'
 import RoomPickerSheet from '@/components/closet/RoomPickerSheet'
-import ClosetView, { type ClosetCard, type ClosetTab } from '@/components/closet/ClosetView'
+import ClosetView, { type ClosetCard, type ClosetTab, type EarnProgress } from '@/components/closet/ClosetView'
 import { playSound } from '@/lib/sounds'
 import { M } from '@/components/meadow'
 
@@ -37,6 +39,8 @@ export default function ClosetPage() {
   const { stardust, purchaseSkin } = useGacha()
   const cat = useCat()
   const isDark = useIsDark()
+  const jellies = useJellies()
+  const { stats } = useErenStats()
   const [activeRoom, setActiveRoom] = useState(SKINNABLE_ROOMS[0].id)
   const [tab, setTab] = useState<ClosetTab>('mine')
   const [toast, setToast] = useState<Toast | null>(null)
@@ -73,6 +77,34 @@ export default function ClosetPage() {
   }, [loaded, user?.id, owned])
 
   const selectedKey = roomSkins[activeRoom] ?? ''
+
+  // How far along the earned looks are: Super Jellies fed out of five (and one
+  // waiting in the Parlour), or the special can sitting in the fridge (yours
+  // or the shared pile, the two FeedScene draws from).
+  const earn = useMemo(() => {
+    const out: Record<string, EarnProgress> = {}
+    for (const s of GACHA_SKINS) {
+      if (s.unlock === 'jelly') {
+        out[s.id] = {
+          how: cat.t('Feed {name} 5 Super Jellies'),
+          count: jellies.loaded ? { at: Math.min(jellies.fed, jellies.feedGoal), of: jellies.feedGoal } : undefined,
+          status: jellies.supers > 0 ? `${jellies.supers} waiting in the Parlour` : undefined,
+          ready: jellies.supers > 0,
+        }
+        continue
+      }
+      const drink = skinUnlockDrink(s.id) as FoodKey | undefined
+      if (!drink) continue
+      const mine = (user?.id && stats?.food_by_user?.[user.id]?.[drink]) || 0
+      const shared = stats?.food_inventory?.[drink] ?? 0
+      out[s.id] = {
+        how: cat.t(`Feed {name} a ${FOOD_META[drink].name}`),
+        status: mine + shared > 0 ? 'One is in your fridge' : 'None in your fridge yet',
+        ready: mine + shared > 0,
+      }
+    }
+    return out
+  }, [cat, jellies.loaded, jellies.fed, jellies.feedGoal, jellies.supers, stats?.food_by_user, stats?.food_inventory, user?.id])
 
   // The active look is "uniform" when every room already wears it — drives the
   // wear-everywhere button's done state.
@@ -199,6 +231,7 @@ export default function ClosetPage() {
         onChooseRooms={c => setChoosing(c.skin)}
         onBack={() => router.back()}
         dark={isDark}
+        earn={earn}
       />
 
       <RoomPickerSheet

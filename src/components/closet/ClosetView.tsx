@@ -22,7 +22,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import BlinkingEren from '@/components/BlinkingEren'
 import {
-  Card, CheckDisc, Chip, MeadowIcon, MeadowPage, PrimaryButton, Segmented, SecondaryButton, SectionLabel, Tag, TextButton,
+  Card, CheckDisc, Chip, MeadowIcon, MeadowPage, Meter, PrimaryButton, Segmented, SecondaryButton, SectionLabel, Tag, TextButton,
   M, RARITY_TAG, TYPE,
 } from '@/components/meadow'
 import { STARDUST_INK } from '@/components/rewards/rewardDisplay'
@@ -41,6 +41,18 @@ type ShopFilter = 'all' | 'animal' | 'food'
 type RarityFilter = 'all' | GachaRarity
 
 export type ClosetTab = 'mine' | 'shop'
+
+/** How far along an earned look is (one no stardust can buy). */
+export interface EarnProgress {
+  /** What to do, filled with the cat's name: "Feed Eren 5 Super Jellies". */
+  how: string
+  /** Counted progress (Super Jellies fed). */
+  count?: { at: number; of: number }
+  /** Where you stand: "1 waiting in the Parlour", "None in your fridge yet". */
+  status?: string
+  /** The thing to do it with is in hand: a Super Jelly waiting, the can in the fridge. */
+  ready?: boolean
+}
 
 interface Props {
   rooms: RoomDef[]
@@ -64,6 +76,8 @@ interface Props {
   onBack: () => void
   /** Night, for the rooms' night paintings. */
   dark: boolean
+  /** Progress on each earned look, by skin id. */
+  earn: Record<string, EarnProgress>
 }
 
 const RARITY_NAME: Record<GachaRarity, string> = { common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' }
@@ -81,7 +95,7 @@ const CARD_GAP = 12
 
 export default function ClosetView({
   rooms, activeRoom, onSelectRoom, roomSkins, selectedKey, isUniform,
-  ownedCards, lockedCards, newBadgeSkins, stardust, loading, ownedLoaded, tab, onTabChange, onPick, onWearEverywhere, onChooseRooms, onBack, dark,
+  ownedCards, lockedCards, newBadgeSkins, stardust, loading, ownedLoaded, tab, onTabChange, onPick, onWearEverywhere, onChooseRooms, onBack, dark, earn,
 }: Props) {
   const [shopFilter, setShopFilter] = useState<ShopFilter>('all')
   const [rarity, setRarity] = useState<RarityFilter>('all')
@@ -238,6 +252,7 @@ export default function ClosetView({
             }}>
             {cards.map((c, i) => (
               <LookCard key={c.key || 'default'} card={c} room={room} dark={dark} live={i === at}
+                earn={c.skin ? earn[c.skin.id] : undefined}
                 position={`${i + 1} of ${cards.length}`}
                 worn={isWorn(c)} uniform={isUniform}
                 isNew={!c.isDefault && !c.skin?.builtin && !c.locked && newBadgeSkins.has(c.key)}
@@ -278,7 +293,7 @@ export default function ClosetView({
 // One look in the carousel: the cat wearing it, what it's called, and the one
 // thing to do with it.
 
-function LookCard({ card, room, dark, live, position, worn, uniform, isNew, onPick, onWearEverywhere, onChooseRooms }: {
+function LookCard({ card, room, dark, live, position, worn, uniform, isNew, earn, onPick, onWearEverywhere, onChooseRooms }: {
   card: ClosetCard
   room: RoomDef
   /** Night: the room's night painting behind the look. */
@@ -290,6 +305,7 @@ function LookCard({ card, room, dark, live, position, worn, uniform, isNew, onPi
   /** The room's look is worn in every room. */
   uniform: boolean
   isNew: boolean
+  earn?: EarnProgress
   onPick: () => void
   onWearEverywhere: () => void
   onChooseRooms: () => void
@@ -311,7 +327,7 @@ function LookCard({ card, room, dark, live, position, worn, uniform, isNew, onPi
       </span>
     )
   } else if (card.locked) {
-    note = earned ? 'Earned by playing, not bought' : 'Unlock it with stardust'
+    note = earned ? earn?.how ?? 'Earned by playing, not bought' : 'Unlock it with stardust'
   } else {
     note = 'In your closet'
   }
@@ -319,7 +335,7 @@ function LookCard({ card, room, dark, live, position, worn, uniform, isNew, onPi
   let action: ReactNode
   if (card.locked) {
     action = earned
-      ? <SecondaryButton size="md" full onClick={onPick}>How to earn it</SecondaryButton>
+      ? <EarnPanel earn={earn} onClick={onPick} />
       : (
         <PrimaryButton size="md" full onClick={onPick}
           icon={<MeadowIcon name="sparkle" size={18} mono color="#FFFFFF" />}>
@@ -376,6 +392,36 @@ function LookCard({ card, room, dark, live, position, worn, uniform, isNew, onPi
         )}
       </div>
     </div>
+  )
+}
+
+// ─── Earn panel ──────────────────────────────────────────────────────────────
+// In an earned look's button place: how far along it is. Tap for the full how.
+
+function EarnPanel({ earn, onClick }: { earn?: EarnProgress; onClick: () => void }) {
+  const ready = !!earn?.ready
+  const label = [earn?.count && `${earn.count.at} of ${earn.count.of} fed`, earn?.status].filter(Boolean).join('. ')
+  return (
+    <button type="button" onClick={onClick} aria-label={`${label ? `${label}. ` : ''}How to earn it`}
+      className="m-press m-focus flex items-center w-full"
+      style={{
+        height: 46, boxSizing: 'border-box', padding: '0 14px', gap: 10, border: 0, borderRadius: 14,
+        background: ready ? M.leafTint : M.soft, color: ready ? M.leafInk : M.text,
+        fontFamily: 'inherit', fontSize: 14, fontWeight: 800, cursor: 'pointer', textAlign: 'left',
+      }}>
+      {earn?.count ? (
+        <>
+          <span style={{ whiteSpace: 'nowrap', ...TYPE.number }}>{earn.count.at} / {earn.count.of}</span>
+          <Meter value={earn.count.at / earn.count.of} height={8} track="#FFFFFF" style={{ flex: '1 1 auto' }} />
+          {ready && <CheckDisc size={20} />}
+        </>
+      ) : (
+        <>
+          {ready && <CheckDisc size={20} />}
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{earn?.status ?? 'How to earn it'}</span>
+        </>
+      )}
+    </button>
   )
 }
 
