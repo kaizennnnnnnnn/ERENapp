@@ -99,6 +99,7 @@ export default function ClosetView({
 }: Props) {
   const [shopFilter, setShopFilter] = useState<ShopFilter>('all')
   const [rarity, setRarity] = useState<RarityFilter>('all')
+  const [affordOnly, setAffordOnly] = useState(false)
   const [index, setIndex] = useState(0)
   const railRef = useRef<HTMLDivElement>(null)
   const stripRef = useRef<HTMLDivElement>(null)
@@ -112,15 +113,19 @@ export default function ClosetView({
   const base = tab === 'mine' ? ownedCards : lockedCards
   const inSet = (c: ClosetCard, f: ShopFilter) => tab === 'mine' || f === 'all' || c.skin?.set === f
   const inRarity = (c: ClosetCard, r: RarityFilter) => r === 'all' || rarityOf(c) === r
-  const rarityCount = (r: GachaRarity) => base.filter(c => inSet(c, shopFilter) && inRarity(c, r)).length
-  const setCount = (f: ShopFilter) => base.filter(c => inSet(c, f) && inRarity(c, rarity)).length
-  const filtered = rarity !== 'all' || (tab === 'shop' && shopFilter !== 'all')
+  // A look stardust can buy right now (never an earned one: no price at all).
+  const affordable = (c: ClosetCard) => c.locked && !!c.skin && !c.skin.unlock && skinPrice(c.skin.rarity) <= stardust
+  const inAfford = (c: ClosetCard, on: boolean) => !on || tab === 'mine' || affordable(c)
+  const rarityCount = (r: GachaRarity) => base.filter(c => inSet(c, shopFilter) && inRarity(c, r) && inAfford(c, affordOnly)).length
+  const setCount = (f: ShopFilter) => base.filter(c => inSet(c, f) && inRarity(c, rarity) && inAfford(c, affordOnly)).length
+  const affordCount = base.filter(c => inSet(c, shopFilter) && inRarity(c, rarity) && affordable(c)).length
+  const filtered = rarity !== 'all' || (tab === 'shop' && (shopFilter !== 'all' || affordOnly))
 
   // A Shop gated on a CONFIRMED owned set: a failed/incomplete fetch leaves
   // owned empty, which would otherwise show the whole catalogue as buyable,
   // including skins the household already owns.
   const ready = !loading && (tab === 'mine' || ownedLoaded)
-  const cards = base.filter(c => inSet(c, shopFilter) && inRarity(c, rarity))
+  const cards = base.filter(c => inSet(c, shopFilter) && inRarity(c, rarity) && inAfford(c, affordOnly))
   const isWorn = (c: ClosetCard) => !c.locked && (c.isDefault ? !selectedKey : selectedKey === c.key)
   const at = Math.min(index, Math.max(0, cards.length - 1))
 
@@ -130,7 +135,7 @@ export default function ClosetView({
   const centreOn = tab === 'mine' ? Math.max(0, cards.findIndex(isWorn)) : 0
   const centreKey = tab === 'mine'
     ? `mine:${room.id}:${selectedKey}:${rarity}:${ready}`
-    : `shop:${shopFilter}:${rarity}:${ready}`
+    : `shop:${shopFilter}:${rarity}:${affordOnly}:${ready}`
   useLayoutEffect(() => {
     const rail = railRef.current
     if (rail) rail.scrollLeft = centreOn * (CARD_W + CARD_GAP)
@@ -166,7 +171,7 @@ export default function ClosetView({
   // Tapping the chosen chip again lets it go; All lets both go.
   const pickSet = (f: ShopFilter) => () => { playSound('ui_tap'); setShopFilter(cur => cur === f ? 'all' : f) }
   const pickRarity = (r: GachaRarity) => () => { playSound('ui_tap'); setRarity(cur => cur === r ? 'all' : r) }
-  const showAll = () => { playSound('ui_tap'); setRarity('all'); setShopFilter('all') }
+  const showAll = () => { playSound('ui_tap'); setRarity('all'); setShopFilter('all'); setAffordOnly(false) }
 
   return (
     <MeadowPage ground="me" title="Closet" withNav={false}
@@ -203,6 +208,13 @@ export default function ClosetView({
         <div role="group" aria-label="Filter looks" className="flex items-center overflow-x-auto"
           style={{ gap: 8, margin: '12px -16px 0', padding: '0 16px', scrollbarWidth: 'none' }}>
           <Chip selected={!filtered} onClick={showAll}>All</Chip>
+          {tab === 'shop' && (
+            <Chip selected={affordOnly} onClick={() => { playSound('ui_tap'); setAffordOnly(on => !on) }}
+              disabled={affordCount === 0 && !affordOnly}
+              icon={<MeadowIcon name="sparkle" size={16} color={STARDUST_INK} />}>
+              I can afford<Count n={affordCount} />
+            </Chip>
+          )}
           {RARITIES.map(r => {
             const n = rarityCount(r)
             return (
@@ -252,7 +264,7 @@ export default function ClosetView({
             }}>
             {cards.map((c, i) => (
               <LookCard key={c.key || 'default'} card={c} room={room} dark={dark} live={i === at}
-                earn={c.skin ? earn[c.skin.id] : undefined}
+                earn={c.skin ? earn[c.skin.id] : undefined} stardust={stardust}
                 position={`${i + 1} of ${cards.length}`}
                 worn={isWorn(c)} uniform={isUniform}
                 isNew={!c.isDefault && !c.skin?.builtin && !c.locked && newBadgeSkins.has(c.key)}
@@ -293,7 +305,7 @@ export default function ClosetView({
 // One look in the carousel: the cat wearing it, what it's called, and the one
 // thing to do with it.
 
-function LookCard({ card, room, dark, live, position, worn, uniform, isNew, earn, onPick, onWearEverywhere, onChooseRooms }: {
+function LookCard({ card, room, dark, live, position, worn, uniform, isNew, earn, stardust, onPick, onWearEverywhere, onChooseRooms }: {
   card: ClosetCard
   room: RoomDef
   /** Night: the room's night painting behind the look. */
@@ -306,6 +318,8 @@ function LookCard({ card, room, dark, live, position, worn, uniform, isNew, earn
   uniform: boolean
   isNew: boolean
   earn?: EarnProgress
+  /** What you have, so a look you can't buy yet says how far off it is. */
+  stardust: number
   onPick: () => void
   onWearEverywhere: () => void
   onChooseRooms: () => void
@@ -318,6 +332,7 @@ function LookCard({ card, room, dark, live, position, worn, uniform, isNew, earn
   const earned = card.locked && !!card.skin?.unlock
   const name = card.locked ? 'Mystery look' : card.isDefault ? 'Default look' : swapCatName(card.skin!.name, cat)
   const price = card.locked && !earned ? skinPrice(card.skin!.rarity) : 0
+  const short = Math.max(0, price - stardust)
 
   let note: ReactNode
   if (worn) {
@@ -327,7 +342,8 @@ function LookCard({ card, room, dark, live, position, worn, uniform, isNew, earn
       </span>
     )
   } else if (card.locked) {
-    note = earned ? earn?.how ?? 'Earned by playing, not bought' : 'Unlock it with stardust'
+    note = earned ? earn?.how ?? 'Earned by playing, not bought'
+      : short > 0 ? `${short} more stardust to go` : 'You can unlock it now'
   } else {
     note = 'In your closet'
   }
@@ -336,7 +352,14 @@ function LookCard({ card, room, dark, live, position, worn, uniform, isNew, earn
   if (card.locked) {
     action = earned
       ? <EarnPanel earn={earn} onClick={onPick} />
-      : (
+      : short > 0 ? (
+        // Not yet: the quieter face, still tappable for the sheet that says
+        // how much is missing.
+        <SecondaryButton size="md" full onClick={onPick}
+          icon={<MeadowIcon name="sparkle" size={18} color={STARDUST_INK} />}>
+          Unlock for {price}
+        </SecondaryButton>
+      ) : (
         <PrimaryButton size="md" full onClick={onPick}
           icon={<MeadowIcon name="sparkle" size={18} mono color="#FFFFFF" />}>
           Unlock for {price}
