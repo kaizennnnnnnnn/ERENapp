@@ -22,7 +22,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import BlinkingEren from '@/components/BlinkingEren'
 import {
-  Card, CheckDisc, Chip, MeadowIcon, MeadowPage, Meter, PrimaryButton, Segmented, SecondaryButton, SectionLabel, Tag, TextButton,
+  Card, CheckDisc, Chip, MeadowIcon, MeadowPage, Meter, PrimaryButton, Segmented, SecondaryButton, Tag, TextButton,
   M, RARITY_TAG, TYPE,
 } from '@/components/meadow'
 import { STARDUST_INK } from '@/components/rewards/rewardDisplay'
@@ -81,6 +81,8 @@ interface Props {
   /** Hearted looks (card keys); null when favourites aren't set up yet. */
   favorites: Set<string> | null
   onToggleFavorite: (key: string) => void
+  /** Open "Surprise me". */
+  onSurprise: () => void
 }
 
 const RARITY_NAME: Record<GachaRarity, string> = { common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' }
@@ -99,7 +101,7 @@ const CARD_GAP = 12
 export default function ClosetView({
   rooms, activeRoom, onSelectRoom, roomSkins, selectedKey, isUniform,
   ownedCards, lockedCards, newBadgeSkins, stardust, loading, ownedLoaded, tab, onTabChange, onPick, onWearEverywhere, onChooseRooms, onBack, dark, earn,
-  favorites, onToggleFavorite,
+  favorites, onToggleFavorite, onSurprise,
 }: Props) {
   const [shopFilter, setShopFilter] = useState<ShopFilter>('all')
   const [rarity, setRarity] = useState<RarityFilter>('all')
@@ -193,7 +195,21 @@ export default function ClosetView({
       action={<StardustChip amount={stardust} />}>
 
       {/* ── Room rail ── each portrait shows that room's current outfit ── */}
-      <SectionLabel style={{ marginTop: 16 }}>Pick a room</SectionLabel>
+      <div className="flex items-center justify-between" style={{ marginTop: 12, padding: '0 0 8px 8px', minHeight: 32 }}>
+        <h2 style={{ ...TYPE.label, color: M.label, margin: 0 }}>Pick a room</h2>
+        {/* Let the closet pick, once there's more than Classic to pick from. */}
+        {ownsAnySkin && (
+          <button type="button" onClick={() => { playSound('ui_modal_open'); onSurprise() }}
+            className="m-press m-focus inline-flex items-center"
+            style={{
+              height: 32, padding: '0 12px 0 8px', gap: 6, border: 0, borderRadius: 999, background: '#FFFFFF',
+              boxShadow: `0 2px 0 ${M.groundLip}`, fontFamily: 'inherit', fontSize: 13, fontWeight: 800,
+              color: M.text, cursor: 'pointer',
+            }}>
+            <MeadowIcon name="dice" size={18} />Surprise me
+          </button>
+        )}
+      </div>
       <div className="flex overflow-x-auto" style={{ gap: 10, margin: '0 -16px', padding: '0 16px 4px', scrollbarWidth: 'none' }}>
         {rooms.map(r => {
           const sk = resolveRoomSkin(roomSkins, r.id)

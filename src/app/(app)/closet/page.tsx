@@ -19,6 +19,7 @@ import { FOOD_META } from '@/lib/foodMeta'
 import type { GachaRarity, FoodKey } from '@/types'
 import SkinPurchaseSheet from '@/components/closet/SkinPurchaseSheet'
 import RoomPickerSheet from '@/components/closet/RoomPickerSheet'
+import SurpriseSheet, { type SurpriseScope } from '@/components/closet/SurpriseSheet'
 import ClosetView, { type ClosetCard, type ClosetTab, type EarnProgress } from '@/components/closet/ClosetView'
 import { playSound } from '@/lib/sounds'
 import { M } from '@/components/meadow'
@@ -48,6 +49,7 @@ export default function ClosetPage() {
   useEffect(() => () => clearTimeout(toastTimer.current), [])
   const [buying, setBuying] = useState<SkinDef | null>(null)
   const [choosing, setChoosing] = useState<SkinDef | null>(null)
+  const [surprising, setSurprising] = useState(false)
   const [busy, setBusy] = useState(false)
 
   // Per-card NEW badge: skins owned-but-unseen when the closet opened. Captured
@@ -199,6 +201,36 @@ export default function ClosetPage() {
     })
   }
 
+  // Let the closet pick. One room: any look you own (or any favourite) it
+  // isn't wearing now. Every room: the pool shuffled and dealt out, so the
+  // rooms differ from each other wherever there are enough looks to go round.
+  function surprise(scope: SurpriseScope, favoritesOnly: boolean) {
+    const pool = ownedCards.filter(c => !c.isDefault && (!favoritesOnly || favorites?.has(c.key))).map(c => c.key)
+    const room = SKINNABLE_ROOMS.find(r => r.id === activeRoom)!
+    const changes: Record<string, string | null> = {}
+    if (scope === 'room') {
+      const options = pool.filter(k => k !== selectedKey)
+      if (options.length === 0) return
+      changes[activeRoom] = options[Math.floor(Math.random() * options.length)]
+    } else {
+      const deck = [...pool]
+      for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]]
+      }
+      SKINNABLE_ROOMS.forEach((r, i) => { changes[r.id] = deck[i % deck.length] })
+    }
+    const before = Object.fromEntries(Object.keys(changes).map(id => [id, roomSkins[id] ?? null]))
+    const one = scope === 'room' ? ownedCards.find(c => c.key === changes[activeRoom])?.skin : null
+    playSound('level_up')
+    setSurprising(false)
+    dress(changes)
+    showToast(one ? `The ${room.label} is wearing ${swapCatName(one.name, cat)}` : 'Every room has a new look', {
+      label: 'Undo',
+      run: () => { playSound('ui_back'); dress(before); setToast(null) },
+    })
+  }
+
   async function confirmBuy() {
     if (!buying || busy) return
     setBusy(true)
@@ -247,10 +279,19 @@ export default function ClosetPage() {
         dark={isDark}
         earn={earn}
         favorites={favorites}
+        onSurprise={() => setSurprising(true)}
         onToggleFavorite={async key => {
           playSound(favorites?.has(key) ? 'ui_tap' : 'ui_select')
           if (!(await toggleFavorite(key))) showToast('Could not save that favourite. Try again.')
         }}
+      />
+
+      <SurpriseSheet
+        open={surprising}
+        roomLabel={SKINNABLE_ROOMS.find(r => r.id === activeRoom)?.label ?? 'room'}
+        canUseFavorites={(favorites?.size ?? 0) >= 2}
+        onPick={surprise}
+        onClose={() => setSurprising(false)}
       />
 
       <RoomPickerSheet
