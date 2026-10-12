@@ -22,7 +22,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import BlinkingEren from '@/components/BlinkingEren'
 import {
-  Card, CheckDisc, Chip, MeadowIcon, MeadowPage, PrimaryButton, Segmented, SecondaryButton, SectionLabel, Tag,
+  Card, CheckDisc, Chip, MeadowIcon, MeadowPage, PrimaryButton, Segmented, SecondaryButton, SectionLabel, Tag, TextButton,
   M, RARITY_TAG, TYPE,
 } from '@/components/meadow'
 import { STARDUST_INK } from '@/components/rewards/rewardDisplay'
@@ -37,6 +37,7 @@ import { swapCatName } from '@/lib/catWords'
 export type ClosetCard = { key: string; skin: SkinDef | null; locked: boolean; isDefault?: boolean }
 
 type ShopFilter = 'all' | 'animal' | 'food'
+type RarityFilter = 'all' | GachaRarity
 
 export type ClosetTab = 'mine' | 'shop'
 
@@ -61,6 +62,10 @@ interface Props {
 }
 
 const RARITY_NAME: Record<GachaRarity, string> = { common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary' }
+const RARITIES: GachaRarity[] = ['common', 'rare', 'epic', 'legendary']
+
+/** The Default look has no skin; it files under common, like Classic. */
+const rarityOf = (c: ClosetCard): GachaRarity => c.skin?.rarity ?? 'common'
 
 /** A locked look: its shape only, a soft shadow on its tier's tint. */
 const SILHOUETTE = 'grayscale(1) brightness(0) opacity(0.2)'
@@ -74,6 +79,7 @@ export default function ClosetView({
   ownedCards, lockedCards, newBadgeSkins, stardust, loading, ownedLoaded, tab, onTabChange, onPick, onWearEverywhere, onBack,
 }: Props) {
   const [shopFilter, setShopFilter] = useState<ShopFilter>('all')
+  const [rarity, setRarity] = useState<RarityFilter>('all')
   const [index, setIndex] = useState(0)
   const railRef = useRef<HTMLDivElement>(null)
   const stripRef = useRef<HTMLDivElement>(null)
@@ -81,25 +87,31 @@ export default function ClosetView({
   const room = rooms.find(r => r.id === activeRoom) ?? rooms[0]
   const ownsAnySkin = ownedCards.length > 2  // beyond Default + Classic
 
-  const animalLocked = lockedCards.filter(c => c.skin?.set === 'animal').length
-  const foodLocked = lockedCards.filter(c => c.skin?.set === 'food').length
-  const shopCards = shopFilter === 'all'
-    ? lockedCards
-    : lockedCards.filter(c => c.skin?.set === shopFilter)
+  // The tab's looks, narrowed by rarity (both tabs) and by set (the Shop).
+  // Each chip counts what it would show alongside the other filter, so a
+  // count never promises cards that tapping it won't bring.
+  const base = tab === 'mine' ? ownedCards : lockedCards
+  const inSet = (c: ClosetCard, f: ShopFilter) => tab === 'mine' || f === 'all' || c.skin?.set === f
+  const inRarity = (c: ClosetCard, r: RarityFilter) => r === 'all' || rarityOf(c) === r
+  const rarityCount = (r: GachaRarity) => base.filter(c => inSet(c, shopFilter) && inRarity(c, r)).length
+  const setCount = (f: ShopFilter) => base.filter(c => inSet(c, f) && inRarity(c, rarity)).length
+  const filtered = rarity !== 'all' || (tab === 'shop' && shopFilter !== 'all')
 
   // A Shop gated on a CONFIRMED owned set: a failed/incomplete fetch leaves
   // owned empty, which would otherwise show the whole catalogue as buyable,
   // including skins the household already owns.
   const ready = !loading && (tab === 'mine' || ownedLoaded)
-  const cards = tab === 'mine' ? ownedCards : shopCards
+  const cards = base.filter(c => inSet(c, shopFilter) && inRarity(c, rarity))
   const isWorn = (c: ClosetCard) => !c.locked && (c.isDefault ? !selectedKey : selectedKey === c.key)
   const at = Math.min(index, Math.max(0, cards.length - 1))
 
   // Where the carousel opens: on what the room is wearing (My looks), or at the
   // start (Shop). Re-centred when the room, the tab or the filter changes, or
   // the room puts on something else; never just because the list re-rendered.
-  const centreOn = tab === 'mine' ? Math.max(0, ownedCards.findIndex(isWorn)) : 0
-  const centreKey = tab === 'mine' ? `mine:${room.id}:${selectedKey}:${ready}` : `shop:${shopFilter}:${ready}`
+  const centreOn = tab === 'mine' ? Math.max(0, cards.findIndex(isWorn)) : 0
+  const centreKey = tab === 'mine'
+    ? `mine:${room.id}:${selectedKey}:${rarity}:${ready}`
+    : `shop:${shopFilter}:${rarity}:${ready}`
   useLayoutEffect(() => {
     const rail = railRef.current
     if (rail) rail.scrollLeft = centreOn * (CARD_W + CARD_GAP)
@@ -132,7 +144,10 @@ export default function ClosetView({
     railRef.current?.scrollTo({ left: i * (CARD_W + CARD_GAP), behavior: 'smooth' })
   }
 
-  const filter = (f: ShopFilter) => () => { playSound('ui_tap'); setShopFilter(f) }
+  // Tapping the chosen chip again lets it go; All lets both go.
+  const pickSet = (f: ShopFilter) => () => { playSound('ui_tap'); setShopFilter(cur => cur === f ? 'all' : f) }
+  const pickRarity = (r: GachaRarity) => () => { playSound('ui_tap'); setRarity(cur => cur === r ? 'all' : r) }
+  const showAll = () => { playSound('ui_tap'); setRarity('all'); setShopFilter('all') }
 
   return (
     <MeadowPage ground="me" title="Closet" withNav={false}
@@ -140,7 +155,7 @@ export default function ClosetView({
       action={<StardustChip amount={stardust} />}>
 
       {/* ── Room rail ── each portrait shows that room's current outfit ── */}
-      <SectionLabel>Pick a room</SectionLabel>
+      <SectionLabel style={{ marginTop: 16 }}>Pick a room</SectionLabel>
       <div className="flex overflow-x-auto" style={{ gap: 10, margin: '0 -16px', padding: '0 16px 4px', scrollbarWidth: 'none' }}>
         {rooms.map(r => {
           const sk = resolveRoomSkin(roomSkins, r.id)
@@ -164,14 +179,29 @@ export default function ClosetView({
         ]}
       />
 
-      {/* ── Shop filters ── */}
-      {tab === 'shop' && ready && lockedCards.length > 0 && (
-        <div className="flex overflow-x-auto" style={{ gap: 8, margin: '12px -16px 0', padding: '0 16px', scrollbarWidth: 'none' }}>
-          <Chip selected={shopFilter === 'all'} onClick={filter('all')}>All</Chip>
-          <Chip selected={shopFilter === 'animal'} onClick={filter('animal')}
-            icon={<MeadowIcon name="paw" size={16} />}>Animals<Count n={animalLocked} /></Chip>
-          <Chip selected={shopFilter === 'food'} onClick={filter('food')}
-            icon={<MeadowIcon name="bowl" size={16} />}>Foods<Count n={foodLocked} /></Chip>
+      {/* ── Filters: rarity on both tabs, then the Shop's animals / foods ── */}
+      {ready && base.length > 0 && (
+        <div role="group" aria-label="Filter looks" className="flex items-center overflow-x-auto"
+          style={{ gap: 8, margin: '12px -16px 0', padding: '0 16px', scrollbarWidth: 'none' }}>
+          <Chip selected={!filtered} onClick={showAll}>All</Chip>
+          {RARITIES.map(r => {
+            const n = rarityCount(r)
+            return (
+              <Chip key={r} selected={rarity === r} onClick={pickRarity(r)} disabled={n === 0 && rarity !== r}
+                icon={<RarityDot rarity={r} />}>
+                {RARITY_NAME[r]}<Count n={n} />
+              </Chip>
+            )
+          })}
+          {tab === 'shop' && (
+            <>
+              <span aria-hidden style={{ flexShrink: 0, width: 2, height: 20, borderRadius: 1, background: M.softLip }} />
+              <Chip selected={shopFilter === 'animal'} onClick={pickSet('animal')}
+                icon={<MeadowIcon name="paw" size={16} />}>Animals<Count n={setCount('animal')} /></Chip>
+              <Chip selected={shopFilter === 'food'} onClick={pickSet('food')}
+                icon={<MeadowIcon name="bowl" size={16} />}>Foods<Count n={setCount('food')} /></Chip>
+            </>
+          )}
         </div>
       )}
 
@@ -180,10 +210,17 @@ export default function ClosetView({
         <p role="status" style={{ margin: '48px 0', textAlign: 'center', fontSize: 14, fontWeight: 600, color: M.text2 }}>
           Loading your closet...
         </p>
-      ) : cards.length === 0 ? (
+      ) : base.length === 0 ? (
         <Card style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 14 }}>
           <MeadowIcon name="crown" size={28} />
           <span style={{ fontSize: 15, fontWeight: 700 }}>You&apos;ve collected every look.</span>
+        </Card>
+      ) : cards.length === 0 ? (
+        <Card style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <span style={{ fontSize: 15, fontWeight: 700 }}>
+            {tab === 'mine' ? 'None of your looks match.' : 'Nothing in the shop matches.'}
+          </span>
+          <TextButton size={15} onClick={showAll}>Show all</TextButton>
         </Card>
       ) : (
         <>
@@ -206,7 +243,7 @@ export default function ClosetView({
 
           {/* ── Every look small, to jump to one ── */}
           <div className="flex items-center justify-between" style={{ margin: '10px 8px 8px' }}>
-            <span style={{ ...TYPE.label, color: M.label }}>{tab === 'mine' ? 'All your looks' : 'All in the shop'}</span>
+            <span style={{ ...TYPE.label, color: M.label }}>{tab === 'mine' ? (filtered ? 'Matching looks' : 'All your looks') : (filtered ? 'Matching in the shop' : 'All in the shop')}</span>
             <span style={{ fontSize: 13, fontWeight: 700, color: M.label, fontVariantNumeric: 'tabular-nums' }}>
               {at + 1} of {cards.length}
             </span>
@@ -329,7 +366,7 @@ function LookCard({ card, room, live, position, worn, uniform, isNew, onPick, on
 // The cat on the meadow stage, sized and lifted the way the room draws him
 // (lib/skins ROOM_FIT), so his feet land on the shadow in any look.
 
-const STAGE_H = 208
+const STAGE_H = 188
 /** From the stage's bottom edge up to where the feet stand. */
 const FEET = 28
 /** A size up on the room's own, so the look is the thing you see. */
@@ -413,7 +450,7 @@ function RoomTile({ room, thumb, active, onClick }: {
       className="m-press m-focus flex-shrink-0 flex flex-col items-center"
       style={{ width: 70, gap: 6, padding: 0, border: 0, background: 'transparent', cursor: 'pointer' }}>
       <span className="flex items-center justify-center" style={{
-        width: 64, height: 64, boxSizing: 'border-box', borderRadius: 18,
+        width: 60, height: 60, boxSizing: 'border-box', borderRadius: 18,
         background: active ? M.leafTint : '#FFFFFF',
         border: `2px solid ${active ? M.leaf : '#FFFFFF'}`,
       }}>
@@ -429,6 +466,12 @@ function RoomTile({ room, thumb, active, onClick }: {
 }
 
 // ─── Small shared bits ───────────────────────────────────────────────────────
+/** A rarity's tint with its ink round the edge, the tag's two colours. */
+function RarityDot({ rarity }: { rarity: GachaRarity }) {
+  const t = RARITY_TAG[rarity]
+  return <span aria-hidden style={{ width: 12, height: 12, borderRadius: 999, background: t.bg, boxShadow: `inset 0 0 0 2px ${t.ink}` }} />
+}
+
 function Count({ n }: { n: number }) {
   return <span style={{ marginLeft: 6, fontWeight: 700, color: M.text2, fontVariantNumeric: 'tabular-nums' }}>{n}</span>
 }
