@@ -47,13 +47,13 @@ export default function JellyParlourPage() {
   const games: ParlourGame[] = [
     {
       id: 'run',
-      title: 'JELLY RUN',
+      title: 'Jelly Run',
       blurb: 'Outrun the jelly tide. Tap to jump, hold for height, swipe down to drop into the cellar.',
       best: run.best, mineToday: run.mineToday, theirsToday: run.theirsToday, theirName: run.theirName,
     },
     {
       id: 'jump',
-      title: 'JELLY JUMP',
+      title: 'Jelly Jump',
       blurb: cat.t('Bounce {him} up the shelves. Every jelly melts after one hop, so keep climbing.'),
       best: jump.best, mineToday: jump.mineToday, theirsToday: jump.theirsToday, theirName: jump.theirName,
     },
