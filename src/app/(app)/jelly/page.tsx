@@ -48,13 +48,13 @@ export default function JellyParlourPage() {
     {
       id: 'run',
       title: 'Jelly Run',
-      blurb: 'Outrun the jelly tide. Tap to jump, hold for height, swipe down to drop into the cellar.',
+      blurb: 'Outrun the jelly tide.',
       best: run.best, mineToday: run.mineToday, theirsToday: run.theirsToday, theirName: run.theirName,
     },
     {
       id: 'jump',
       title: 'Jelly Jump',
-      blurb: cat.t('Bounce {him} up the shelves. Every jelly melts after one hop, so keep climbing.'),
+      blurb: cat.t('Bounce {him} up the shelves.'),
       best: jump.best, mineToday: jump.mineToday, theirsToday: jump.theirsToday, theirName: jump.theirName,
     },
   ]
