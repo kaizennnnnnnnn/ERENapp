@@ -14,13 +14,17 @@
 //
 // The card opens UPWARD from the bowl because the bowl sits low next to him;
 // opening down would run it off the bottom of the room.
+//
+// In the Meadow look: a white circle over the room art (the heart on his
+// other side matches), and a white card with the three plates on soft tiles,
+// a leaf tick on each one he has eaten.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useRef, useState } from 'react'
 import type { FoodKey } from '@/types'
 import { FOOD_META, foodArt } from '@/lib/foodMeta'
 import FoodIcon from '@/components/care/FoodIcon'
-import { IconBowl, IconCoin } from '@/components/PixelIcons'
+import { CheckDisc, M, MeadowIcon, RoundButton, TINT, TYPE, FONT_ROUNDED } from '@/components/meadow'
 import { playSound } from '@/lib/sounds'
 import { useCat } from '@/hooks/useCat'
 
@@ -79,112 +83,101 @@ export default function TodaysMenu({ menu, progress, complete, reward }: Props) 
     // against each other in that one stacking context.
     // The stopPropagation still earns its place: it keeps the tap off the
     // room's own React handlers underneath. It just can't police `document`.
-    <div ref={rootRef} className="absolute" style={{ bottom: '22%', right: '23%', zIndex: open ? 50 : 3 }}
+    <div ref={rootRef} className="absolute meadow-root" style={{ bottom: '22%', right: '23%', zIndex: open ? 50 : 3 }}
       onPointerDown={e => e.stopPropagation()}>
 
       {/* ── The card ── only while asked for ── */}
       {open && (
-        <div className="absolute"
+        <div role="group" aria-label={cat.t("Today's menu")}
           style={{
-            bottom: 46, left: '50%', transform: 'translateX(-50%)',
-            width: 168, padding: '8px 8px 7px',
-            background: 'linear-gradient(180deg, #2E1409 0%, #1A0B06 100%)',
-            border: `2px solid ${complete ? '#22C55E' : '#B45309'}`,
-            borderRadius: 7,
-            boxShadow: `3px 3px 0 rgba(0,0,0,0.45), 0 0 14px ${complete ? 'rgba(34,197,94,0.35)' : 'rgba(180,83,9,0.3)'}`,
-            animation: 'tmPop 0.18s cubic-bezier(0.34,1.56,0.64,1)',
+            position: 'absolute', bottom: 52, left: '50%',
+            width: 184, boxSizing: 'border-box', padding: '10px 8px',
+            borderRadius: 20, background: '#FFFFFF', boxShadow: `0 3px 0 ${M.overArtLip}`,
+            fontFamily: FONT_ROUNDED, color: M.text,
+            animation: 'tmPop 0.18s cubic-bezier(0.34,1.56,0.64,1) both',
           }}>
-          <p className="font-pixel text-center mb-1.5"
-            style={{ fontSize: 6, color: complete ? '#BBF7D0' : '#FDE68A', letterSpacing: 1 }}>
-            {complete ? 'MENU DONE' : cat.t('TODAY {HE} WANTS')}
+          <p style={{ margin: '0 0 8px', textAlign: 'center', ...TYPE.label, fontSize: 11, color: complete ? M.leafInk : M.label }}>
+            {complete ? 'Menu done' : cat.t('Today {he} wants')}
           </p>
 
-          <div className="flex items-start justify-center gap-1.5">
+          <div className="flex items-start justify-center" style={{ gap: 4 }}>
             {menu.map((key, i) => {
               const fed = progress[i]
               const name = FOOD_META[key]?.name ?? key
               return (
-                <div key={key} className="flex flex-col items-center" style={{ width: 46 }}>
-                  <div className="relative flex items-center justify-center"
-                    style={{
-                      width: 34, height: 34, borderRadius: 5,
-                      background: fed ? 'rgba(34,197,94,0.18)' : 'rgba(255,255,255,0.07)',
-                      border: `1px solid ${fed ? '#22C55E' : 'rgba(251,191,36,0.35)'}`,
-                      opacity: fed ? 0.5 : 1,
-                    }}>
-                    {hasPlate(key)
-                      ? <img src={foodArt(key)} alt="" width={27} height={27} draggable={false}
-                          style={{ width: 27, height: 27, objectFit: 'contain', display: 'block' }} />
-                      : <FoodIcon id={key} size={25} />}
-                    {fed && (
-                      <span className="absolute font-pixel" style={{
-                        top: -5, right: -5, width: 12, height: 12, lineHeight: '12px',
-                        fontSize: 6, textAlign: 'center', color: '#052E16',
-                        background: '#22C55E', border: '1px solid #14532D', borderRadius: 2,
-                      }}>✓</span>
-                    )}
+                <div key={key} className="flex flex-col items-center" style={{ width: 52 }}>
+                  <div style={{
+                    position: 'relative', width: 46, height: 46, borderRadius: 14,
+                    background: fed ? TINT.leaf : M.soft,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <span style={{ opacity: fed ? 0.45 : 1, lineHeight: 0 }}>
+                      {hasPlate(key)
+                        ? <img src={foodArt(key)} alt="" width={32} height={32} draggable={false}
+                            style={{ width: 32, height: 32, objectFit: 'contain', display: 'block' }} />
+                        : <FoodIcon id={key} size={30} />}
+                    </span>
+                    {fed && <CheckDisc size={20} corner style={{ position: 'absolute', top: -6, right: -6 }} />}
                   </div>
-                  {/* The name matters here in a way it didn't in the strip: you
-                      opened this to find out what to go and buy. */}
-                  <span className="text-center mt-1" style={{
-                    fontSize: 8, lineHeight: 1.15,
-                    color: fed ? '#7BA98B' : '#E7C39A',
-                    textDecoration: fed ? 'line-through' : 'none',
+                  {/* The name matters: you opened this to find out what to go
+                      and buy. */}
+                  <span style={{
+                    marginTop: 4, textAlign: 'center', fontSize: 11, lineHeight: 1.2, fontWeight: 700,
+                    color: fed ? M.faint : M.text2, overflowWrap: 'anywhere',
                   }}>
                     {name}
+                    {fed && <span className="sr-only">, fed</span>}
                   </span>
                 </div>
               )
             })}
           </div>
 
-          <p className="font-pixel text-center mt-1.5 inline-flex items-center justify-center gap-1 w-full"
-            style={{ fontSize: 5.5, color: complete ? '#86EFAC' : '#C89A6B', letterSpacing: 0.8 }}>
-            {complete
-              ? <>PAID +{reward}<IconCoin size={7} /></>
-              : <>ALL THREE = +{reward}<IconCoin size={7} /></>}
+          <p className="flex items-center justify-center" style={{
+            margin: '8px 0 0', gap: 4, fontSize: 13, fontWeight: 700,
+            color: complete ? M.leafInk : M.text2,
+          }}>
+            {complete ? 'Paid' : 'All three'}
+            <MeadowIcon name="coin" size={16} />
+            <span style={{ ...TYPE.number, color: M.text }}>+{reward}</span>
           </p>
 
           {/* Tail pointing down at the bowl. */}
-          <div className="absolute" style={{
-            bottom: -7, left: '50%', marginLeft: -5,
-            width: 0, height: 0,
-            borderLeft: '5px solid transparent', borderRight: '5px solid transparent',
-            borderTop: `6px solid ${complete ? '#22C55E' : '#B45309'}`,
+          <span aria-hidden style={{
+            position: 'absolute', bottom: -5, left: 'calc(50% - 6px)', width: 12, height: 12,
+            background: '#FFFFFF', transform: 'rotate(45deg)',
           }} />
         </div>
       )}
 
-      {/* ── The bowl ── same obsidian treatment as the heart on his other side */}
-      <button
+      {/* ── The bowl ── a white circle like the heart on his other side */}
+      <RoundButton
+        surface="art"
+        size={40}
         onClick={() => { playSound(open ? 'ui_modal_close' : 'ui_modal_open'); setOpen(o => !o) }}
-        aria-label={complete ? "Today's menu — all fed" : `Today's menu — ${fedCount} of ${menu.length} fed`}
-        aria-expanded={open}
-        className="relative flex items-center justify-center active:scale-90 transition-transform"
-        style={{
-          width: 38, height: 38, borderRadius: '50%',
-          background: 'radial-gradient(circle at 35% 28%, #2a1c14 0%, #0a0a0c 60%, #000 100%)',
-          border: `1.5px solid ${complete ? 'rgba(34,197,94,0.55)' : 'rgba(245,158,11,0.5)'}`,
-          boxShadow: complete
-            ? '0 0 12px rgba(34,197,94,0.4), 0 3px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)'
-            : '0 0 12px rgba(245,158,11,0.35), 0 3px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)',
-        }}>
-        <IconBowl size={19} />
+        ariaLabel={complete ? "Today's menu, all fed" : `Today's menu, ${fedCount} of ${menu.length} fed`}
+        expanded={open}
+        style={{ position: 'relative' }}
+      >
+        <MeadowIcon name="bowl" size={22} />
         {/* Progress badge — the count IS the nag, so the bowl never has to
             animate for attention the way the send-heart does. */}
-        <span className="absolute font-pixel flex items-center justify-center"
-          style={{
-            top: -3, right: -3, minWidth: 17, height: 13, padding: '0 2px',
-            fontSize: 5, letterSpacing: 0.3,
-            color: complete ? '#052E16' : '#3A1B02',
-            background: complete ? '#22C55E' : '#FBBF24',
-            border: '2px solid #050507', borderRadius: 5,
-          }}>
-          {complete ? '✓' : `${fedCount}/${menu.length}`}
+        <span aria-hidden style={{
+          position: 'absolute', top: -7, right: -11,
+          minWidth: 20, height: 20, boxSizing: 'border-box', padding: '0 5px',
+          borderRadius: 999, border: '2px solid #FFFFFF',
+          background: complete ? M.leaf : M.coin, color: complete ? '#FFFFFF' : M.text,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 11, lineHeight: 1, whiteSpace: 'nowrap', ...TYPE.number,
+        }}>
+          {complete ? <MeadowIcon name="check" size={12} color="#FFFFFF" mono /> : `${fedCount}/${menu.length}`}
         </span>
-      </button>
+      </RoundButton>
 
-      <style jsx>{`
+      {/* A plain <style>: the pop is named from an inline style, which only
+          reaches global keyframes (it sat in a scoped styled-jsx block and
+          never ran). */}
+      <style>{`
         @keyframes tmPop {
           from { transform: translateX(-50%) scale(0.85); opacity: 0; }
           to   { transform: translateX(-50%) scale(1);    opacity: 1; }

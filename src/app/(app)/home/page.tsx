@@ -13,8 +13,9 @@ import type { UserMood } from '@/types'
 import { useCare } from '@/contexts/CareContext'
 import { useTasks } from '@/contexts/TaskContext'
 import { Sparkles } from 'lucide-react'
-import { IconHeart, MeadowIcon } from '@/components/PixelIcons'
-import { M, NAV_HEIGHT } from '@/components/meadow/tokens'
+import { MeadowIcon } from '@/components/PixelIcons'
+import { M, NAV_HEIGHT, MOOD_STYLE } from '@/components/meadow/tokens'
+import { RoundButton } from '@/components/meadow'
 import { playSound } from '@/lib/sounds'
 import TaskPanel from '@/components/TaskPanel'
 import BlinkingEren from '@/components/BlinkingEren'
@@ -48,7 +49,7 @@ import CoopGoalBar from '@/components/couple/CoopGoalBar'
 import ComebackBadge from '@/components/couple/ComebackBadge'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
 import SendErenSheet from '@/components/couple/SendErenSheet'
-import { MOOD_THEME, LOW_MOODS, moodDateKey } from '@/lib/moods'
+import { moodDateKey } from '@/lib/moods'
 import { useIsDark } from '@/hooks/useIsDark'
 import LightSwitch from '@/components/LightSwitch'
 import { useWish } from '@/contexts/WishContext'
@@ -747,44 +748,42 @@ export default function HomePage() {
             />
 
             {/* Little heart by Eren's side — quick "Send Eren" to your
-                partner. Only shown when paired. */}
+                partner. Only shown when paired. A white circle over the room
+                like the bowl on his other side; the dot on it is the
+                partner's mood whenever they've checked in today. */}
             {partner && (
-              <button
-                onClick={() => { playSound('ui_modal_open'); setShowSendEren(true) }}
-                aria-label={`Send ${cat.name} to ${partner.name}`}
-                className="absolute active:scale-90 transition-transform"
-                style={{ bottom: '22%', left: '23%', zIndex: 3 }}
-              >
-                <div className="relative flex items-center justify-center" style={{
-                  width: 38, height: 38, borderRadius: '50%',
-                  background: 'radial-gradient(circle at 35% 28%, #2a1620 0%, #0a0a0c 60%, #000 100%)',
-                  border: '1.5px solid rgba(255,107,157,0.5)',
-                  boxShadow: '0 0 12px rgba(255,107,157,0.4), 0 3px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)',
-                  animation: 'sendErenPulse 2.2s ease-in-out infinite',
-                }}>
-                  <IconHeart size={18} />
-                  {/* Mood hint — dot shows the partner's mood whenever they've
-                      checked in today; low moods glow stronger to stand out. */}
+              <span className="absolute meadow-root" style={{
+                bottom: '22%', left: '23%', zIndex: 3,
+                animation: 'sendErenPulse 2.2s ease-in-out infinite',
+              }}>
+                <RoundButton
+                  surface="art"
+                  size={40}
+                  onClick={() => { playSound('ui_modal_open'); setShowSendEren(true) }}
+                  ariaLabel={`Send ${cat.name} to ${partner.name}`
+                    + (partnerMood ? `. ${partner.name?.split(' ')[0] ?? 'Your partner'} is feeling ${MOOD_STYLE[partnerMood].label.toLowerCase()} today` : '')}
+                  style={{ position: 'relative' }}
+                >
+                  <MeadowIcon name="heart" size={20} />
                   {partnerMood && (
-                    <div className="absolute" style={{
-                      top: -2, right: -2,
-                      width: 12, height: 12, borderRadius: '50%',
-                      background: `linear-gradient(180deg, ${MOOD_THEME[partnerMood].main}, ${MOOD_THEME[partnerMood].dark})`,
-                      border: '2px solid #050507',
-                      boxShadow: LOW_MOODS.includes(partnerMood)
-                        ? `0 0 8px ${MOOD_THEME[partnerMood].glow}, 0 0 14px ${MOOD_THEME[partnerMood].glow}`
-                        : `0 0 5px ${MOOD_THEME[partnerMood].glow}`,
+                    <span aria-hidden style={{
+                      position: 'absolute', top: -3, right: -3,
+                      width: 14, height: 14, boxSizing: 'border-box', borderRadius: 999,
+                      background: MOOD_STYLE[partnerMood].dot, border: '2px solid #FFFFFF',
                     }} />
                   )}
-                </div>
-              </button>
+                </RoundButton>
+              </span>
             )}
             {/* Global on purpose: the pulse is named from the inline style
                 above, and a scoped styled-jsx keyframe never resolves there. */}
             <style jsx global>{`
               @keyframes sendErenPulse {
-                0%, 100% { transform: scale(1);    box-shadow: 0 0 12px rgba(255,107,157,0.4), 0 3px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1); }
-                50%      { transform: scale(1.08); box-shadow: 0 0 18px rgba(255,107,157,0.65), 0 3px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1); }
+                0%, 100% { transform: scale(1); }
+                50%      { transform: scale(1.06); }
+              }
+              @media (prefers-reduced-motion: reduce) {
+                @keyframes sendErenPulse { 0%, 100% { transform: none; } }
               }
             `}</style>
 
