@@ -1,8 +1,17 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+// ─── The daily fortune ───────────────────────────────────────────────────────
+// Once a calendar day the cat has a gift for you. A Meadow card over the room:
+// today's cat (a different cheerful SketchEren each day) behind the pixel gift
+// box on a warm stage, "Daily fortune", and the one leaf button to open it.
+// The box rattles while the claim runs, its lid flies off in a burst of
+// sparkles, and the gift comes up on its rarity's tint with the leaf button
+// to collect it. Already opened today, the card says when the next one comes.
+//
+// The box and its animation stay pixel art: they are the gift, not the frame.
+
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { FortuneGiftDef } from '@/types'
-import { RARITY_COLORS } from '@/lib/gacha'
 import { useFortune } from '@/hooks/useFortune'
 import { useCat } from '@/hooks/useCat'
 import { playSound } from '@/lib/sounds'
@@ -11,6 +20,10 @@ import {
   IconCoinBag, IconCapsule, IconCrown, IconSparkles, IconGem, IconTicket,
   IconPaw, IconYarn, IconStar, IconMoon, IconFish, IconFeather, IconBell, IconGift,
 } from '@/components/PixelIcons'
+import {
+  MeadowIcon, PrimaryButton, SecondaryButton, Tag, TextButton,
+  M, RARITY_TAG, TINT, TYPE,
+} from '@/components/meadow'
 
 // Each fortune gift's `icon` key resolves to a pixel-art <Icon*/> — no emojis.
 const FORTUNE_ICON_MAP: Record<string, React.ComponentType<{ size?: number }>> = {
@@ -259,51 +272,24 @@ function PixelSparkles({ size, scatter = 1, accent = '#FFD700' }: {
   )
 }
 
-// ────────────────────────────────────────────────────────────────────
-// PixelStarFrame — chunky 4-corner star markers around the revealed
-// item. Pure decoration, anchored absolutely so it scales with parent.
-// ────────────────────────────────────────────────────────────────────
-function PixelStarFrame({ color }: { color: string }) {
-  const corners = [
-    { top: -8, left: -8 },
-    { top: -8, right: -8 },
-    { bottom: -8, left: -8 },
-    { bottom: -8, right: -8 },
-  ]
-  return (
-    <>
-      {corners.map((pos, i) => (
-        <div
-          key={i}
-          style={{
-            position: 'absolute',
-            ...pos,
-            width: 16, height: 16,
-            animation: `fpStarTwinkle 1.4s steps(2) infinite`,
-            animationDelay: `${i * 0.2}s`,
-            pointerEvents: 'none',
-          }}
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" shapeRendering="crispEdges">
-            <rect x="6" y="0" width="4" height="4" fill={color} />
-            <rect x="0" y="6" width="4" height="4" fill={color} />
-            <rect x="12" y="6" width="4" height="4" fill={color} />
-            <rect x="6" y="12" width="4" height="4" fill={color} />
-            <rect x="6" y="6" width="4" height="4" fill="#FFFBEB" />
-          </svg>
-        </div>
-      ))}
-    </>
-  )
+type Phase = 'intro' | 'shake' | 'opening' | 'reveal'
+
+const RARITY_WORD: Record<FortuneGiftDef['rarity'], string> = {
+  common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary',
 }
 
 export default function FortunePopup({ onClose }: Props) {
   const { canClaim, claiming, claimFortune } = useFortune()
   const cat = useCat()
   const [gift, setGift] = useState<FortuneGiftDef | null>(null)
-  const [phase, setPhase] = useState<'intro' | 'shake' | 'opening' | 'reveal'>('intro')
+  const [phase, setPhase] = useState<Phase>('intro')
+  const [failed, setFailed] = useState(false)
   const dailyEren = useMemo(giftErenForToday, [])
   const bagRef = useRef<HTMLDivElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([])
+  useEffect(() => () => timers.current.forEach(clearTimeout), [])
 
   // Countdown to the next gift, refreshed every minute while the popup is open.
   const [untilNext, setUntilNext] = useState(timeUntilMidnight)
@@ -311,6 +297,9 @@ export default function FortunePopup({ onClose }: Props) {
     const t = setInterval(() => setUntilNext(timeUntilMidnight()), 60_000)
     return () => clearInterval(t)
   }, [])
+
+  // Focus the card so a screen reader lands on it and Escape reaches it.
+  useEffect(() => { dialogRef.current?.focus({ preventScroll: true }) }, [])
 
   // Closing a coin reward showers coins from the revealed bag into the top-right
   // counter. We measure the bag BEFORE unmounting and hand its centre + the coin
@@ -327,309 +316,174 @@ export default function FortunePopup({ onClose }: Props) {
     onClose()
   }
 
+  // The way out from wherever you are: nothing while the box is opening (the
+  // gift is already yours by then and is about to be shown).
+  function dismiss() {
+    if (phase === 'reveal') return closeReveal()
+    if (phase !== 'intro') return
+    playSound('ui_modal_close')
+    onClose()
+  }
+
   async function handleClaim() {
     if (!canClaim || claiming) return
+    playSound('ui_tap')
+    setFailed(false)
     setPhase('shake')
     const start = Date.now()
     const result = await claimFortune()
     if (!result) {
-      // Claim aborted (Supabase outage — the hook restored canClaim and wrote
-      // nothing). Drop back to the intro screen so the OPEN GIFT button
-      // reappears; staying on 'shake' would trap the user on an overlay
-      // with no controls.
+      // Claim aborted (Supabase outage: the hook restored canClaim and wrote
+      // nothing). Back to the intro with the button, and say so; staying on
+      // 'shake' would trap the user on a card with no controls.
       setPhase('intro')
+      setFailed(true)
       return
     }
     setGift(result)
     // Hold the shake for at least 600ms so the anticipation reads even when
     // the network call returns instantly. Then lid pops, then full reveal.
-    const elapsed = Date.now() - start
-    const remaining = Math.max(0, 600 - elapsed)
-    setTimeout(() => { playSound('gift_open'); setPhase('opening') }, remaining)
-    setTimeout(() => setPhase('reveal'),  remaining + 700)
+    const remaining = Math.max(0, 600 - (Date.now() - start))
+    timers.current.push(setTimeout(() => { playSound('gift_open'); setPhase('opening') }, remaining))
+    timers.current.push(setTimeout(() => setPhase('reveal'), remaining + 700))
   }
 
-  const colors = gift ? RARITY_COLORS[gift.rarity] : null
-  // Stardust gifts wear the same rainbow treatment as the gacha/closet balances:
-  // a hue-cycling icon + flowing rainbow gradient name, so "star fragments" read
-  // identically wherever they appear. (.sparkle-hue / .stardust-rainbow live in globals.css.)
-  const isStardust = !!gift?.stardustValue
+  const tint = gift ? RARITY_TAG[gift.rarity] : null
 
   return (
-    <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.85)' }}>
-      <div className="w-full max-w-xs mx-auto flex flex-col items-center gap-4 px-6">
-
-        {/* Intro — Eren + idle pixel gift box + CTA */}
-        {phase === 'intro' && (
+    <div
+      className="meadow-root"
+      onClick={dismiss}
+      onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); dismiss() } }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 70, padding: '0 20px',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(47, 43, 40, 0.36)',
+      }}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 340, boxSizing: 'border-box', borderRadius: 28, background: '#FFFFFF',
+          padding: '20px 20px 18px', textAlign: 'center', outline: 'none',
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          animation: 'fpCardIn 0.26s cubic-bezier(0.34, 1.4, 0.64, 1) both',
+        }}
+      >
+        {phase === 'reveal' && gift && tint ? (
           <>
-            {/* Warm lantern glow behind the box. The scrim used to be flat
-                black, which left the gift sitting on nothing; this pools light
-                on the centrepiece so the eye lands there first. */}
-            <div aria-hidden className="fp-lantern" />
-
-            <div style={{ animation: 'fpFloat 2s ease-in-out infinite' }}>
-              <SketchEren state={dailyEren} size={120} transparent noSpeech />
-            </div>
-
-            <div className="relative">
-              <PixelGiftBox size={88} animation="idle" />
-              {/* Four pixel sparkles orbiting the box on staggered blinks. */}
-              {([
-                { delay: '0s',   pos: { top: -6,    left: -10 } },
-                { delay: '0.7s', pos: { top: 4,     right: -12 } },
-                { delay: '1.3s', pos: { bottom: -4, left: 6 } },
-                { delay: '1.9s', pos: { bottom: 8,  right: -6 } },
-              ] as const).map(s => (
-                <span key={s.delay} aria-hidden className="fp-spark"
-                  style={{ ...s.pos, animationDelay: s.delay }} />
-              ))}
-            </div>
-
-            {/* Title plaque — now wears the app's premium-card treatment
-                (bevel + gold corner rivets) instead of a flat bordered rect. */}
-            <div className="fp-plaque relative px-4 py-2.5 text-center">
-              <span aria-hidden className="fp-rivet" style={{ top: 3, left: 3 }} />
-              <span aria-hidden className="fp-rivet" style={{ top: 3, right: 3 }} />
-              <span aria-hidden className="fp-rivet" style={{ bottom: 3, left: 3 }} />
-              <span aria-hidden className="fp-rivet" style={{ bottom: 3, right: 3 }} />
-              <p className="font-pixel fp-plaque-title mb-1.5" style={{ fontSize: 8 }}>DAILY FORTUNE</p>
-              <p className="font-pixel text-white/65" style={{ fontSize: 6, letterSpacing: 0.5 }}>
-                {cat.t(canClaim ? '{NAME} HAS A GIFT FOR YOU' : '{NAME} IS WRAPPING THE NEXT ONE')}
-              </p>
-            </div>
-
-            {canClaim ? (
-              <button onClick={() => { playSound('ui_tap'); handleClaim() }}
-                disabled={claiming}
-                className="fp-open w-full relative">
-                <span aria-hidden className="fp-open-shine" />
-                <span className="fp-open-label">
-                  <IconGift size={18} />
-                  OPEN GIFT
-                </span>
-              </button>
-            ) : (
-              /* Was a bare line of 40%-white text. Now it answers the only
-                 question you actually have here: when do I get the next one. */
-              <div className="fp-wait w-full text-center py-3">
-                <p className="font-pixel text-white/45 mb-1.5" style={{ fontSize: 7, letterSpacing: 1 }}>
-                  CLAIMED FOR TODAY
-                </p>
-                <p className="font-pixel fp-wait-clock" style={{ fontSize: 8 }}>
-                  NEXT GIFT IN {untilNext.h}H {untilNext.m}M
-                </p>
-              </div>
-            )}
-
-            <button onClick={() => { playSound('ui_modal_close'); onClose() }}
-              className="font-pixel text-white/35 active:text-white/60 transition-colors"
-              style={{ fontSize: 7, letterSpacing: 1.5, padding: '10px 24px' }}>
-              CLOSE
-            </button>
-          </>
-        )}
-
-        {/* Shake — anticipation. The box rattles in place. */}
-        {phase === 'shake' && (
-          <div className="flex flex-col items-center gap-4">
-            <PixelGiftBox size={128} animation="shake" />
-            <p className="font-pixel text-amber-300"
-              style={{ fontSize: 7, animation: 'fpFloat 0.45s ease-in-out infinite' }}>
-              SHAKE SHAKE...
-            </p>
-          </div>
-        )}
-
-        {/* Opening — lid flies off, sparkles burst, body jolts. */}
-        {phase === 'opening' && (
-          <div className="flex flex-col items-center gap-4">
-            <PixelGiftBox size={128} animation="opening" />
-            <p className="font-pixel text-amber-300" style={{ fontSize: 7 }}>POP!</p>
-          </div>
-        )}
-
-        {/* Reveal — pixel-framed item with corner sparkles. */}
-        {phase === 'reveal' && gift && colors && (
-          <button onClick={closeReveal}
-            className="flex flex-col items-center gap-4 active:scale-95 transition-transform">
-            <div className="relative flex items-center justify-center"
+            {/* The gift on its rarity's tint. */}
+            <div
+              ref={bagRef}
               style={{
-                width: 120, height: 120,
+                width: 132, height: 132, borderRadius: 32, background: tint.bg,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
                 animation: 'fpRevealIn 0.55s cubic-bezier(0.34, 1.6, 0.55, 1) both',
-              }}>
-              <PixelStarFrame color={colors.border} />
-              <div
-                ref={bagRef}
-                style={{
-                  width: 96, height: 96,
-                  background: colors.bg,
-                  border: `3px solid ${colors.border}`,
-                  boxShadow: `4px 4px 0 ${colors.border}AA`,
-                  imageRendering: 'pixelated',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  animation: 'fpRevealPulse 1.6s ease-in-out infinite',
-                }}>
-                {isStardust ? (
-                  <span className="sparkle-hue"><FortuneIcon iconKey={gift.icon} size={58} /></span>
-                ) : (
-                  <FortuneIcon iconKey={gift.icon} size={58} />
+              }}
+            >
+              {gift.stardustValue ? (
+                <span className="sparkle-hue"><FortuneIcon iconKey={gift.icon} size={68} /></span>
+              ) : (
+                <FortuneIcon iconKey={gift.icon} size={68} />
+              )}
+            </div>
+            <h2 id={titleId} style={{ margin: '18px 0 0', fontSize: 24, lineHeight: 1.2, fontWeight: 800, letterSpacing: '-0.01em', overflowWrap: 'anywhere' }}>
+              {cat.t(gift.name)}
+            </h2>
+            <Tag tone={gift.rarity} caps size="sm" style={{ marginTop: 8 }}>{RARITY_WORD[gift.rarity]}</Tag>
+            <p style={{ margin: '10px 0 0', ...TYPE.body, color: M.text2 }}>{cat.t(gift.description)}</p>
+            <PrimaryButton onClick={closeReveal} style={{ marginTop: 20 }}
+              icon={gift.coinValue ? <MeadowIcon name="coin" size={20} /> : undefined}>
+              {gift.coinValue ? `Collect ${gift.coinValue} coins` : gift.stardustValue || gift.gachaTickets ? 'Collect' : 'Keep it'}
+            </PrimaryButton>
+          </>
+        ) : (
+          <>
+            {/* The warm stage: today's cat behind the box. While the claim runs
+                the cat steps aside and the box takes the middle. */}
+            <div style={{
+              position: 'relative', width: '100%', boxSizing: 'border-box', borderRadius: 22,
+              background: TINT.amber, padding: phase === 'intro' ? '10px 0 18px' : '34px 0 30px',
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+            }}>
+              {phase === 'intro' ? (
+                <>
+                  <div className="fp-loop" style={{ animation: 'fpFloat 2s ease-in-out infinite' }}>
+                    <SketchEren state={dailyEren} size={112} transparent noSpeech />
+                  </div>
+                  <div style={{ marginTop: -4 }}>
+                    <PixelGiftBox size={76} animation="idle" />
+                  </div>
+                  <MeadowIcon name="sparkle" size={16} className="fp-loop"
+                    style={{ position: 'absolute', top: 16, left: 20, animation: 'fpTwinkle 1.6s steps(2) infinite' }} />
+                  <MeadowIcon name="sparkle" size={12} className="fp-loop"
+                    style={{ position: 'absolute', bottom: 30, right: 26, animation: 'fpTwinkle 1.6s steps(2) 0.8s infinite' }} />
+                </>
+              ) : (
+                <PixelGiftBox size={112} animation={phase === 'shake' ? 'shake' : 'opening'} />
+              )}
+            </div>
+
+            <h2 id={titleId} style={{ margin: '16px 0 0', fontSize: 24, lineHeight: 1.2, fontWeight: 800, letterSpacing: '-0.01em' }}>
+              {phase === 'shake' ? 'Shake, shake...' : phase === 'opening' ? 'Pop!' : 'Daily fortune'}
+            </h2>
+            <p style={{ margin: '6px 0 0', fontSize: 15, lineHeight: 1.45, fontWeight: 500, color: M.text2 }}>
+              {phase !== 'intro'
+                ? 'Opening your gift'
+                : cat.t(canClaim ? '{name} has a gift for you.' : '{name} is wrapping the next one.')}
+            </p>
+
+            {phase === 'intro' && (canClaim ? (
+              <>
+                {failed && (
+                  <p role="alert" style={{ margin: '12px 0 0', fontSize: 14, lineHeight: 1.4, fontWeight: 700, color: M.danger }}>
+                    The gift didn&apos;t open. Check your connection and try again.
+                  </p>
                 )}
-              </div>
-            </div>
-            <div className="text-center"
-              style={{
-                background: '#1F1F2E',
-                border: `2px solid ${colors.border}`,
-                boxShadow: '3px 3px 0 rgba(0,0,0,0.5)',
-                padding: '8px 12px',
-                imageRendering: 'pixelated',
-              }}>
-              <p className={`font-pixel mb-1 ${isStardust ? 'stardust-rainbow' : 'text-white'}`} style={{ fontSize: 9 }}>{cat.t(gift.name)}</p>
-              <p className="font-pixel mb-1"
-                style={{ fontSize: 6, color: colors.text === '#6B7280' ? '#9CA3AF' : colors.text }}>
-                {gift.rarity.toUpperCase()}
-              </p>
-              <p className="text-xs text-white/60">{cat.t(gift.description)}</p>
-            </div>
-            <p className="font-pixel text-white/30" style={{ fontSize: 6 }}>TAP TO CLOSE</p>
-          </button>
+                <PrimaryButton onClick={handleClaim} busy={claiming} style={{ marginTop: 18 }}
+                  icon={<MeadowIcon name="gift" size={20} color="#FFFFFF" mono />}>
+                  Open gift
+                </PrimaryButton>
+                <TextButton tone="muted" onClick={dismiss} style={{ marginTop: 4 }}>Not now</TextButton>
+              </>
+            ) : (
+              <>
+                {/* Answers the only question left: when is the next one. */}
+                <div style={{
+                  marginTop: 16, width: '100%', boxSizing: 'border-box', padding: '12px 16px',
+                  borderRadius: 20, background: M.soft,
+                }}>
+                  <span style={{ ...TYPE.label, color: M.label, display: 'block' }}>Claimed for today</span>
+                  <span style={{ display: 'block', marginTop: 4, fontSize: 18, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
+                    Next gift in {untilNext.h}h {untilNext.m}m
+                  </span>
+                </div>
+                <SecondaryButton size="lg" onClick={dismiss} style={{ marginTop: 16 }}>Close</SecondaryButton>
+              </>
+            ))}
+          </>
         )}
       </div>
 
+      {/* A plain <style>, not styled-jsx: these names are used from inline
+          styles, which only resolve global keyframes. */}
       <style>{`
-        /* ── Intro atmosphere ── */
-        .fp-lantern {
-          position: absolute;
-          left: 50%; top: 50%;
-          width: 420px; height: 420px;
-          transform: translate(-50%, -50%);
-          background: radial-gradient(circle,
-            rgba(245, 200, 66, 0.16) 0%,
-            rgba(217, 119, 6, 0.07) 42%,
-            transparent 70%);
-          pointer-events: none;
-          animation: fpLantern 4.5s ease-in-out infinite;
+        @keyframes fpCardIn {
+          0%   { transform: scale(0.94) translateY(8px); opacity: 0; }
+          100% { transform: scale(1) translateY(0); opacity: 1; }
         }
-        @keyframes fpLantern {
-          0%, 100% { opacity: 0.75; transform: translate(-50%, -50%) scale(1);    }
-          50%      { opacity: 1;    transform: translate(-50%, -50%) scale(1.06); }
-        }
-        .fp-spark {
-          position: absolute;
-          width: 3px; height: 3px;
-          background: #FFE9A8;
-          box-shadow: 0 0 5px rgba(255, 220, 120, 0.9);
-          opacity: 0;
-          pointer-events: none;
-          animation: fpSpark 2.6s steps(1, end) infinite;
-        }
-        /* Steps, not a fade — a pixel sparkle pops on and off, it doesn't
-           dissolve. Same rule the water-drop keyframes follow. */
-        @keyframes fpSpark {
-          0%, 74%  { opacity: 0; transform: scale(1); }
-          78%      { opacity: 1; transform: scale(1.6); }
-          86%      { opacity: 1; transform: scale(1); }
-          92%, 100%{ opacity: 0; transform: scale(1); }
-        }
-
-        /* ── Title plaque ── */
-        .fp-plaque {
-          background: linear-gradient(180deg, #2A2438 0%, #16121F 100%);
-          border: 2px solid #F5C842;
-          box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.55),
-                      inset 0 1px 0 rgba(255, 232, 160, 0.22),
-                      inset 0 -2px 0 rgba(0, 0, 0, 0.5);
-        }
-        .fp-plaque-title {
-          color: #FFD86B;
-          letter-spacing: 1.5px;
-          text-shadow: 0 0 7px rgba(245, 200, 66, 0.5);
-        }
-        .fp-rivet {
-          position: absolute;
-          width: 2px; height: 2px;
-          background: #FFE9A8;
-          box-shadow: 0 0 3px rgba(245, 200, 66, 0.8);
-          pointer-events: none;
-        }
-
-        /* ── OPEN GIFT ──
-           Was a flat #D97706 slab with a plain border. Now a struck-gold
-           pixel button: gradient face, hard bevel, hard drop (no blur), a
-           slow shine sweep to pull the eye, and a real press that drives
-           the face down onto its own shadow. */
-        .fp-open {
-          padding: 14px 16px;
-          background: linear-gradient(180deg, #FFD86B 0%, #F5A623 45%, #D97706 100%);
-          border: 3px solid #6F3D08;
-          box-shadow: 0 5px 0 #6F2E08,
-                      inset 0 2px 0 rgba(255, 245, 200, 0.75),
-                      inset 0 -3px 0 rgba(146, 64, 14, 0.55),
-                      0 0 20px rgba(245, 166, 35, 0.35);
-          image-rendering: pixelated;
-          overflow: hidden;
-          transition: transform 60ms steps(2, end), box-shadow 60ms steps(2, end);
-          animation: fpOpenBreathe 2.4s ease-in-out infinite;
-        }
-        .fp-open:active:not(:disabled) {
-          transform: translateY(4px);
-          box-shadow: 0 1px 0 #6F2E08,
-                      inset 0 2px 0 rgba(255, 245, 200, 0.5),
-                      inset 0 -2px 0 rgba(146, 64, 14, 0.6),
-                      0 0 14px rgba(245, 166, 35, 0.3);
-          animation: none;
-        }
-        .fp-open:disabled { opacity: 0.65; animation: none; }
-        .fp-open-label {
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 9px;
-          font-family: "Press Start 2P";
-          font-size: 10px;
-          letter-spacing: 1.5px;
-          color: #45210A;
-          text-shadow: 0 1px 0 rgba(255, 240, 190, 0.55);
-        }
-        .fp-open-shine {
-          position: absolute;
-          top: 0; bottom: 0; left: -40%;
-          width: 34%;
-          background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55), transparent);
-          animation: fpOpenShine 3.2s ease-in-out infinite;
-          pointer-events: none;
-        }
-        @keyframes fpOpenShine {
-          0%, 62%  { left: -40%; }
-          88%, 100%{ left: 108%; }
-        }
-        @keyframes fpOpenBreathe {
-          0%, 100% { filter: brightness(1);    }
-          50%      { filter: brightness(1.09); }
-        }
-
-        /* ── Already-claimed panel ── */
-        .fp-wait {
-          background: linear-gradient(180deg, rgba(42, 36, 56, 0.7) 0%, rgba(16, 14, 24, 0.8) 100%);
-          border: 2px solid rgba(245, 200, 66, 0.28);
-          box-shadow: inset 0 1px 0 rgba(255, 232, 160, 0.1);
-        }
-        .fp-wait-clock {
-          color: #F5C842;
-          letter-spacing: 1.5px;
-          text-shadow: 0 0 8px rgba(245, 200, 66, 0.4);
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .fp-lantern, .fp-spark, .fp-open, .fp-open-shine { animation: none; }
-          .fp-spark { opacity: 0.9; }
-        }
-
         @keyframes fpFloat {
           0%, 100% { transform: translateY(0); }
           50%      { transform: translateY(-4px); }
+        }
+        @keyframes fpTwinkle {
+          0%, 49%   { opacity: 0.25; transform: scale(0.7); }
+          50%, 100% { opacity: 1;    transform: scale(1); }
         }
         @keyframes fpBoxIdle {
           0%, 100% { transform: translateY(0)   rotate(-1.5deg); }
@@ -669,13 +523,8 @@ export default function FortunePopup({ onClose }: Props) {
           55%  { transform: translateY(-6px) scale(1.12); opacity: 1; }
           100% { transform: translateY(0) scale(1); opacity: 1; }
         }
-        @keyframes fpRevealPulse {
-          0%, 100% { transform: scale(1); }
-          50%      { transform: scale(1.03); }
-        }
-        @keyframes fpStarTwinkle {
-          0%, 49%   { opacity: 0.35; transform: scale(0.7); }
-          50%, 100% { opacity: 1;    transform: scale(1); }
+        @media (prefers-reduced-motion: reduce) {
+          .fp-loop { animation: none !important; }
         }
       `}</style>
     </div>
