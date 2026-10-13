@@ -8,26 +8,28 @@
 // what winning would actually pay. All three are now on it, in a plate small
 // enough to still sit over a cat's head:
 //
-//   ┌ BATH DAY ────────────── [prize pip] ┐
-//   │  J  12  ▓▓▓▓▓▓▓░░░  4  M            │
-//   └──────────────────▼──────────────────┘
+//   ┌ (drop) Bath day ──────── [catnip 2] ┐
+//   │  (J) 12  ▓▓▓▓▓▓▓░░░  4 (M)           │
+//   └──────────────────▼───────────────────┘
 //
 // The prize pip is the point. It shows the catnip the current margin is on
 // course for, so a two-point lead visibly reads as "one more wash and this
-// pays two" instead of as a slightly longer pink bar.
+// pays two" instead of as a slightly longer bar.
+//
+// In the Meadow look: a white plate over the room art with the over-art lip,
+// the twist's own icon (as on the battle sheet), the two avatars and the
+// split bar in each person's household colour.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useState } from 'react'
 import { useDailyBattle, type DailyBattleState } from '@/hooks/useDailyBattle'
 import { trophyTier, TROPHY_VALUE } from '@/lib/dailyTwist'
 import { playSound } from '@/lib/sounds'
-import { MeadowIcon } from '@/components/PixelIcons'
+import { Avatar, M, MeadowIcon, PERSON, TYPE, FONT_ROUNDED, personColor } from '@/components/meadow'
 import DailyBattleSheet from './DailyBattleSheet'
+import { TWIST_LOOK, sentence } from './twistLook'
 
 const Z_HUD = 8
-
-const ME = { hi: '#FF8DB8', lo: '#C8265F', rgb: '255,107,157' }
-const THEM = { hi: '#C9B4FF', lo: '#5C2FE0', rgb: '167,139,250' }
 
 type Heart = 'brown_heart' | 'pink_heart' | 'sparkle'
 
@@ -47,24 +49,33 @@ export default function DailyBattleHUD({ myHeart, partnerHeart }: { myHeart?: He
   if (battle.loading || !(battle.hasPartner || battle.isSolo)) return null
 
   const { twist, myScore, partnerScore } = battle
+  // The same colours as the battle sheet: missing on the partner, the other
+  // of the two.
+  const myColor = personColor(myHeart)
+  const partnerColor = partnerHeart
+    ? personColor(partnerHeart)
+    : myHeart === 'brown_heart' ? PERSON.pink : PERSON.brown
 
   return (
     <>
       <button
         onClick={() => { playSound('ui_modal_open'); setOpen(true) }}
-        className="fixed active:scale-95 transition-transform pointer-events-auto"
+        className="fixed m-focus pointer-events-auto"
         style={{
-          bottom: '40%',
+          // Above the wish bubble's band (bottom 38%, left), not in it: the
+          // white plate is wider than the old dark one and would cover it.
+          bottom: '46%',
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: Z_HUD,
           background: 'transparent',
           border: 'none',
+          borderRadius: 16,
           padding: 0,
         }}
         aria-label={`Today's care battle — ${twist.name}. You ${myScore}, ${battle.partnerName} ${partnerScore}.`}
       >
-        <BattlePlate battle={battle} />
+        <BattlePlate battle={battle} myColor={myColor} partnerColor={partnerColor} />
       </button>
 
       {open && (
@@ -79,141 +90,100 @@ export default function DailyBattleHUD({ myHeart, partnerHeart }: { myHeart?: He
  * The plate itself — pure, so it can be rendered and measured without the
  * DailyBattleProvider behind it.
  */
-export function BattlePlate({ battle }: { battle: DailyBattleState }) {
+export function BattlePlate({ battle, myColor, partnerColor }: {
+  battle: DailyBattleState
+  myColor: string
+  partnerColor: string
+}) {
   const { twist, myScore, partnerScore, leader } = battle
   const margin = Math.abs(myScore - partnerScore)
   // The tier the CURRENT margin would strike. Null on a tie — nobody is on
-  // course for anything yet, and a greyed-out pip reads better than a lie.
+  // course for anything yet, and a faded pip reads better than a lie.
   const tier = trophyTier(margin)
+  const look = TWIST_LOOK[twist.id]
+  const started = battle.total > 0
 
   return (
     <>
-      <div style={{
-          position: 'relative',
-          padding: '3px 6px 5px',
-          background: 'linear-gradient(180deg, rgba(19,15,25,0.95) 0%, rgba(6,4,9,0.95) 100%)',
-          border: `1.5px solid ${twist.tone}66`,
-          borderRadius: 5,
-          boxShadow:
-            '0 4px 14px rgba(0,0,0,0.6), ' +
-            `0 0 12px ${twist.tone}33, ` +
-            'inset 0 1px 0 rgba(255,255,255,0.07)',
-          backdropFilter: 'blur(3px)',
-          WebkitBackdropFilter: 'blur(3px)',
-        }}>
-          {/* ── Rule strip. Tinted to the twist so the plate itself changes
-                colour day to day — the cheapest possible way to make Tuesday
-                not look like Monday. ── */}
-          <div className="flex items-center justify-between" style={{ gap: 6, marginBottom: 3 }}>
-            <span className="font-pixel" style={{
-              fontSize: 5, letterSpacing: 1.2, color: twist.tone,
-              textShadow: `0 0 5px ${twist.tone}77`,
-              whiteSpace: 'nowrap',
-            }}>{twist.name}</span>
-            <span style={{
-              display: 'flex', alignItems: 'center', gap: 2,
-              opacity: tier ? 1 : 0.35,
-              filter: tier ? 'drop-shadow(0 0 4px rgba(166,217,138,0.55))' : 'grayscale(1)',
-            }}>
-              <MeadowIcon name="catnip" size={9} />
-              {tier && (
-                <span className="font-pixel" style={{ fontSize: 5, lineHeight: 1, color: '#A6D98A' }}>
-                  {TROPHY_VALUE[tier]}
-                </span>
-              )}
+      <div className="meadow-root" style={{
+        position: 'relative', boxSizing: 'border-box', minWidth: 176,
+        padding: '6px 10px 8px', borderRadius: 16, background: '#FFFFFF',
+        boxShadow: `0 3px 0 ${M.overArtLip}`, fontFamily: FONT_ROUNDED, color: M.text,
+      }}>
+        {/* ── Rule strip: today's twist with its icon, so Tuesday doesn't
+              look like Monday, and the catnip the current margin would pay. ── */}
+        <div className="flex items-center justify-between" style={{ gap: 8, marginBottom: 5 }}>
+          <span className="flex items-center" style={{ gap: 4, minWidth: 0 }}>
+            <MeadowIcon name={look.icon} size={14} color={look.color} />
+            <span style={{ fontSize: 12, lineHeight: 1, fontWeight: 800, whiteSpace: 'nowrap' }}>
+              {sentence(twist.name)}
             </span>
+          </span>
+          <span className="flex items-center" style={{ gap: 2, opacity: tier ? 1 : 0.4 }}>
+            <MeadowIcon name="catnip" size={14} />
+            {tier && (
+              <span style={{ fontSize: 12, lineHeight: 1, fontWeight: 800, color: M.leafInk }}>
+                {TROPHY_VALUE[tier]}
+              </span>
+            )}
+          </span>
+        </div>
+
+        {/* ── Score row ── */}
+        <div className="flex items-center" style={{ gap: 6 }}>
+          <Side name={battle.myName} score={myScore} color={myColor} lead={leader === 'me'} />
+
+          <div style={{ position: 'relative', flex: '1 1 auto', minWidth: 48, height: 8, borderRadius: 999, background: M.track, overflow: 'hidden' }}>
+            {started && (
+              <>
+                <div style={{
+                  position: 'absolute', left: 0, top: 0, bottom: 0, width: `${battle.myPct}%`,
+                  background: myColor, transition: `width ${BAR_EASE}`,
+                }} />
+                <div style={{
+                  position: 'absolute', left: `${battle.myPct}%`, top: 0, bottom: 0, width: `${battle.partnerPct}%`,
+                  background: partnerColor, transition: `left ${BAR_EASE}, width ${BAR_EASE}`,
+                }} />
+                {/* A white seam where the two meet, as on the battle sheet. */}
+                {battle.myPct > 0 && battle.partnerPct > 0 && (
+                  <div style={{
+                    position: 'absolute', top: 0, bottom: 0, left: `${battle.myPct}%`, width: 2,
+                    transform: 'translateX(-1px)', background: '#FFFFFF', transition: `left ${BAR_EASE}`,
+                  }} />
+                )}
+              </>
+            )}
           </div>
 
-          {/* ── Score row ── */}
-          <div className="flex items-center" style={{ gap: 4 }}>
-            <Side initial={battle.myName[0]} score={myScore} tone={ME} lead={leader === 'me'} />
+          <Side name={battle.partnerName} score={partnerScore} color={partnerColor} lead={leader === 'partner'} flip />
+        </div>
 
-            <div style={{
-              position: 'relative',
-              width: 62,
-              height: 9,
-              border: '1.5px solid #17141F',
-              background: 'linear-gradient(180deg, #000 0%, #050507 100%)',
-              boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.95), 1px 1px 0 rgba(0,0,0,0.45)',
-            }}>
-              <div style={{
-                position: 'absolute', left: 0, top: 0, bottom: 0,
-                width: `${battle.myPct}%`,
-                background: `linear-gradient(180deg, ${ME.hi} 0%, ${ME.lo} 100%)`,
-                transition: 'width 700ms cubic-bezier(0.34,1.4,0.55,1)',
-                ...(leader === 'me' ? { animation: 'dbHudPulse 1.5s ease-in-out infinite' } : {}),
-              }} />
-              <div style={{
-                position: 'absolute', left: `${battle.myPct}%`, top: 0, bottom: 0,
-                width: `${battle.partnerPct}%`,
-                background: `linear-gradient(180deg, ${THEM.hi} 0%, ${THEM.lo} 100%)`,
-                transition: 'left 700ms cubic-bezier(0.34,1.4,0.55,1), width 700ms cubic-bezier(0.34,1.4,0.55,1)',
-                ...(leader === 'partner' ? { animation: 'dbHudPulse 1.5s ease-in-out infinite' } : {}),
-              }} />
-              <div style={{
-                position: 'absolute', top: -1, bottom: -1,
-                left: `${battle.myPct}%`,
-                width: 1,
-                background: '#fff',
-                boxShadow: '0 0 4px #fff',
-                transform: 'translateX(-0.5px)',
-                transition: 'left 700ms cubic-bezier(0.34,1.4,0.55,1)',
-              }} />
-            </div>
-
-            <Side initial={battle.partnerName[0]} score={partnerScore} tone={THEM} lead={leader === 'partner'} flip />
-          </div>
-
-          {/* Downward tail — border layer then fill layer, points at Eren */}
-          <div style={{
-            position: 'absolute', left: '50%', bottom: -7, transform: 'translateX(-50%)',
-            width: 0, height: 0,
-            borderLeft: '6px solid transparent',
-            borderRight: '6px solid transparent',
-            borderTop: `7px solid ${twist.tone}66`,
-          }} />
-          <div style={{
-            position: 'absolute', left: '50%', bottom: -4, transform: 'translateX(-50%)',
-            width: 0, height: 0,
-            borderLeft: '5px solid transparent',
-            borderRight: '5px solid transparent',
-            borderTop: '5px solid rgba(6,4,9,0.95)',
-          }} />
+        {/* Tail pointing down at the cat. */}
+        <span aria-hidden style={{
+          position: 'absolute', left: 'calc(50% - 6px)', bottom: -5, width: 12, height: 12,
+          background: '#FFFFFF', transform: 'rotate(45deg)',
+        }} />
       </div>
-
-      <style>{`
-        @keyframes dbHudPulse {
-          0%, 100% { filter: brightness(1); }
-          50%      { filter: brightness(1.22); }
-        }
-      `}</style>
     </>
   )
 }
 
-/** Initial + live score for one player. */
-function Side({
-  initial, score, tone, lead, flip,
-}: {
-  initial: string
+const BAR_EASE = '700ms cubic-bezier(0.34,1.4,0.55,1)'
+
+/** Avatar + live score for one player; the leader's number is the dark one. */
+function Side({ name, score, color, lead, flip }: {
+  name: string
   score: number
-  tone: { hi: string; lo: string; rgb: string }
+  color: string
   lead: boolean
   flip?: boolean
 }) {
   return (
-    <span className="flex items-center" style={{
-      gap: 2.5,
-      flexDirection: flip ? 'row-reverse' : 'row',
-    }}>
-      <span className="font-pixel" style={{
-        fontSize: 5, lineHeight: 1, color: tone.hi, opacity: 0.85,
-      }}>{initial}</span>
-      <span className="font-pixel" style={{
-        fontSize: 9, lineHeight: 1, minWidth: 12,
-        textAlign: flip ? 'left' : 'right',
-        color: lead ? tone.hi : '#6E6478',
-        textShadow: lead ? `0 0 6px rgba(${tone.rgb},0.55)` : undefined,
+    <span className="flex items-center" style={{ gap: 4, flexDirection: flip ? 'row-reverse' : 'row' }}>
+      <Avatar name={name} color={color} size={20} fontSize={11} />
+      <span style={{
+        minWidth: 14, textAlign: flip ? 'left' : 'right',
+        fontSize: 15, lineHeight: 1, ...TYPE.number, color: lead ? M.text : M.text2,
       }}>{score}</span>
     </span>
   )

@@ -91,19 +91,22 @@ export interface SpeechBubbleProps {
   surface?: 'white' | 'soft'
   /** Where the tail points from: 'down' (towards a cat below), 'left', or none. */
   tail?: 'down' | 'left' | 'none'
-  /** px from the bubble's left edge (tail down) or top edge (tail left) to the tail. */
-  tailOffset?: number
+  /** From the bubble's left edge (tail down) or top edge (tail left) to the
+   *  tail: px, or a CSS length such as 'calc(100% - 34px)' to hug the right. */
+  tailOffset?: number | string
   /** 'lg' = the onboarding question (17/1.35, centred); 'md' = the home wish (15, left, with an icon). */
   size?: 'lg' | 'md'
   /** A small icon before the text (the wish star). */
   icon?: MeadowIconName
+  /** The tail's colour when `style` repaints the bubble (a tinted bubble). */
+  tailColor?: string
   /** Position/width come from the caller (the bubble is usually absolute). */
   style?: CSSProperties
   className?: string
 }
 
 export function SpeechBubble({
-  children, surface = 'white', tail = 'down', tailOffset, size = 'lg', icon, style, className,
+  children, surface = 'white', tail = 'down', tailOffset, size = 'lg', icon, tailColor, style, className,
 }: SpeechBubbleProps) {
   const bg = surface === 'white' ? '#FFFFFF' : M.soft
   const lg = size === 'lg'
@@ -121,7 +124,7 @@ export function SpeechBubble({
       {icon ? <span>{children}</span> : children}
       {tailCss && (
         <span aria-hidden style={{
-          position: 'absolute', width: 14, height: 14, background: bg, transform: 'rotate(45deg)', ...tailCss,
+          position: 'absolute', width: 14, height: 14, background: tailColor ?? bg, transform: 'rotate(45deg)', ...tailCss,
         }} />
       )}
     </div>

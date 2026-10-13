@@ -3,10 +3,10 @@
 // ═════════════════════════════════════════════════════════════════════════════
 // WishCloud — Phase 3 daily wish surface on home.
 //
-// A pixel speech bubble anchored above-left of Eren (opposite ThoughtCloud's
-// above-right position). Shows today's wish text, switches to a granted state
-// with gold sparkle + checkmark when the wish lands. Tappable to expand into
-// a detail card with the room hint.
+// A white Meadow speech bubble anchored above-left of the cat (opposite
+// ThoughtCloud's above-right position), its tail pointing at him. Shows
+// today's wish; when the wish lands it turns leaf-tinted with a tick and a
+// gold sparkle burst. Tappable to open a card with the room hint.
 //
 // Pure presentational — the caller (home page) decides when this is on
 // screen via useWishLinger, which owns the per-viewer two-minute post-grant
@@ -14,8 +14,9 @@
 // the permanent "granted today" indicator.
 // ═════════════════════════════════════════════════════════════════════════════
 
-import { useState } from 'react'
-import { IconWish } from '@/components/PixelIcons'
+import { useEffect, useId, useRef, useState } from 'react'
+import { M, MeadowIcon, PrimaryButton, TINT, TYPE } from '@/components/meadow'
+import HomeBubble from './HomeBubble'
 import { playSound } from '@/lib/sounds'
 import type { Wish } from '@/lib/wishes'
 import { wishHintRoom } from '@/lib/wishes'
@@ -44,159 +45,115 @@ export default function WishCloud({ wish, text, status, grantedByMe, grantedByNa
 
   const hintRoom = wishHintRoom(wish)
   const hintLabel = hintRoom ? HINT_ROOM_LABEL[hintRoom] : null
-
-  // Color tokens — pending = warm cream, granted = soft gold.
   const isGranted = status === 'granted'
-  const fill   = isGranted ? '#FFF5C8' : '#FFFFFF'
-  const border = isGranted ? '#8B5A00' : '#1A1A1A'
-  const shadow = isGranted ? '3px 3px 0 #8B5A00' : '3px 3px 0 #1A1A1A'
 
   return (
     <>
       <div
-        className="fixed pointer-events-auto"
+        className="meadow-root fixed pointer-events-auto"
         style={{
           bottom: '38%',
-          left: '22%',
-          transform: 'translate(-50%, 0)',
+          // Centred on 22% of the width like before, but never closer than
+          // 16px to the screen's edge.
+          left: 'max(16px, calc(22% - 75px))',
           zIndex: 4,
           // Spawn animation — drift in once on mount.
           animation: 'wishCloudIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both',
         }}
       >
         <button
+          type="button"
           onClick={() => { playSound('ui_tap'); setExpanded(true) }}
-          aria-label={cat.t("{name}'s wish today")}
-          style={{
-            background: 'transparent', border: 'none', padding: 0,
-            cursor: 'pointer',
-          }}
+          aria-label={cat.t(isGranted ? "{name}'s wish today, granted" : "{name}'s wish today")}
+          className="m-press m-focus"
+          style={{ display: 'block', background: 'transparent', border: 'none', padding: 0, borderRadius: 20, cursor: 'pointer' }}
         >
-          <div
-            style={{
-              position: 'relative',
-              background: fill,
-              border: `2px solid ${border}`,
-              borderRadius: 4,
-              boxShadow: shadow,
-              padding: '6px 10px',
-              maxWidth: 140,
-              minWidth: 90,
-              fontFamily: '"Press Start 2P", monospace',
-              fontSize: 7,
-              lineHeight: 1.5,
-              color: '#1A1A1A',
-              textAlign: 'center',
-              imageRendering: 'pixelated',
-            }}
-          >
-            {/* Tiny wish-star prefix */}
-            <div style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 4, marginTop: -2 }}>
-              <IconWish size={10} />
-            </div>
-            <span style={{
-              verticalAlign: 'middle',
-              textDecoration: isGranted ? 'line-through' : 'none',
-              opacity: isGranted ? 0.65 : 1,
-            }}>{text}</span>
-
-            {/* Granted checkmark in the corner */}
-            {isGranted && (
-              <span style={{
-                position: 'absolute', top: -8, right: -8,
-                width: 16, height: 16, borderRadius: '50%',
-                background: '#22C55E', color: '#FFFFFF',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 9, fontFamily: 'sans-serif', fontWeight: 'bold',
-                border: '2px solid #15803D',
-                boxShadow: '0 0 6px rgba(34,197,94,0.6)',
-              }}>✓</span>
-            )}
-
-            {/* Speech tail — small pixel triangle pointing down-right toward Eren */}
-            <div style={{
-              position: 'absolute',
-              bottom: -8, right: 22,
-              width: 0, height: 0,
-              borderLeft: '8px solid transparent',
-              borderRight: '4px solid transparent',
-              borderTop: `8px solid ${border}`,
-            }} />
-            <div style={{
-              position: 'absolute',
-              bottom: -5, right: 24,
-              width: 0, height: 0,
-              borderLeft: '5px solid transparent',
-              borderRight: '3px solid transparent',
-              borderTop: `5px solid ${fill}`,
-            }} />
-          </div>
+          <HomeBubble icon={isGranted ? 'check' : 'star'} tint={isGranted ? TINT.leaf : undefined}>
+            {text}
+          </HomeBubble>
         </button>
 
         {/* Sparkle burst — mounts fresh when the grant flips isGranted */}
         {isGranted && <SparkleBurst />}
       </div>
 
-      {/* Detail modal — opens on tap */}
       {expanded && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.65)' }}
-          onClick={() => { playSound('ui_modal_close'); setExpanded(false) }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              background: fill,
-              border: `3px solid ${border}`,
-              boxShadow: `4px 4px 0 ${border}`,
-              padding: '16px 18px',
-              maxWidth: 280,
-              imageRendering: 'pixelated',
-            }}
-          >
-            <div className="flex items-center justify-center gap-2 mb-3">
-              <IconWish size={14} />
-              <span style={{
-                fontFamily: '"Press Start 2P", monospace', fontSize: 7,
-                color: isGranted ? '#8B5A00' : '#1A1A1A', letterSpacing: 1, overflowWrap: 'anywhere',
-              }}>
-                {isGranted ? "WISH GRANTED" : cat.t("{NAME}'S WISH")}
-              </span>
-            </div>
-            <p style={{
-              fontFamily: '"Press Start 2P", monospace', fontSize: 8, lineHeight: 1.5,
-              color: '#1A1A1A', textAlign: 'center', marginBottom: 10,
-              textDecoration: isGranted ? 'line-through' : 'none',
-              opacity: isGranted ? 0.7 : 1,
-            }}>{text}</p>
-
-            {isGranted ? (
-              <div className="flex flex-col items-center gap-1">
-                <p style={{ fontFamily: '"Press Start 2P", monospace', fontSize: 6, color: '#22C55E' }}>
-                  {grantedByMe ? 'YOU LISTENED.' : `${(grantedByName ?? 'YOUR PARTNER').toUpperCase()} LISTENED.`}
-                </p>
-                <p style={{ fontFamily: '"Press Start 2P", monospace', fontSize: 6, color: '#8B5A00' }}>
-                  +{coinsPaid} COINS
-                </p>
-              </div>
-            ) : hintLabel ? (
-              <p style={{
-                fontFamily: '"Press Start 2P", monospace', fontSize: 5,
-                color: '#5A4A55', textAlign: 'center', letterSpacing: 1,
-              }}>{hintLabel.toUpperCase()}</p>
-            ) : null}
-          </div>
-        </div>
+        <WishCard
+          title={isGranted ? 'Wish granted' : cat.t("{name}'s wish")}
+          text={text}
+          granted={isGranted}
+          by={grantedByMe ? 'You listened.' : `${grantedByName ?? 'Your partner'} listened.`}
+          coinsPaid={coinsPaid}
+          hint={hintLabel}
+          onClose={() => { playSound('ui_modal_close'); setExpanded(false) }}
+        />
       )}
 
-      <style jsx global>{`
+      <style>{`
         @keyframes wishCloudIn {
-          0%   { transform: translate(-50%, 4px) scale(0.85); opacity: 0; }
-          100% { transform: translate(-50%, 0)   scale(1);    opacity: 1; }
+          0%   { transform: translateY(4px) scale(0.85); opacity: 0; }
+          100% { transform: translateY(0)   scale(1);    opacity: 1; }
         }
       `}</style>
     </>
+  )
+}
+
+// ─── The wish, opened ────────────────────────────────────────────────────────
+// A white card like the home's other popups: the wish, then either who granted
+// it and what it paid, or the room to try.
+function WishCard({ title, text, granted, by, coinsPaid, hint, onClose }: {
+  title: string
+  text: string
+  granted: boolean
+  by: string
+  coinsPaid: number
+  hint: string | null
+  onClose: () => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
+  useEffect(() => {
+    ref.current?.focus({ preventScroll: true })
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeRef.current() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
+  return (
+    <div className="meadow-root" onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 70, padding: '0 20px',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(47, 43, 40, 0.36)',
+    }}>
+      <div ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 320, boxSizing: 'border-box', borderRadius: 28, background: '#FFFFFF',
+          padding: '24px 22px 20px', textAlign: 'center', outline: 'none',
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+        }}>
+        <span style={{
+          width: 56, height: 56, borderRadius: 18, background: granted ? TINT.leaf : TINT.amber,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <MeadowIcon name={granted ? 'check' : 'star'} size={30} color={granted ? M.leaf : undefined} />
+        </span>
+        <span id={titleId} style={{ marginTop: 14, ...TYPE.label, color: M.label }}>{title}</span>
+        <p style={{ margin: '6px 0 0', fontSize: 20, lineHeight: 1.3, fontWeight: 800, color: M.text }}>{text}</p>
+        {granted ? (
+          <p style={{ margin: '10px 0 0', fontSize: 15, fontWeight: 600, color: M.text2 }}>
+            {by}{' '}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 800, color: M.text, verticalAlign: 'middle' }}>
+              <MeadowIcon name="coin" size={16} />+{coinsPaid}
+            </span>
+          </p>
+        ) : hint ? (
+          <p style={{ margin: '10px 0 0', fontSize: 15, fontWeight: 600, color: M.text2 }}>{hint}</p>
+        ) : null}
+        <PrimaryButton onClick={onClose} style={{ marginTop: 20 }}>{granted ? 'Nice' : 'Got it'}</PrimaryButton>
+      </div>
+    </div>
   )
 }
 

@@ -14,6 +14,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { useCouple } from '@/hooks/useCouple'
 import { useCat } from '@/hooks/useCat'
 import { playSound } from '@/lib/sounds'
+import { M, TYPE } from '@/components/meadow'
+import HomeBubble from '@/components/wish/HomeBubble'
 
 const COOLDOWN_MS    = 2 * 60 * 60 * 1000  // at most once per 2h
 const ROLL_THRESHOLD = 0.30                // ~30% of eligible opens
@@ -138,55 +140,32 @@ export default function JealousEren() {
 
   return (
     <div
-      className="fixed flex flex-col items-center pointer-events-auto"
+      className="meadow-root fixed pointer-events-auto"
       style={{
-        // Centered high above Eren's head, clear of the occupied
+        // Centered high above the cat's head, clear of the occupied
         // airspace: the wish/flavor bubbles own bottom 38% / left 22%,
-        // the battle HUD bottom 40% / left 50%, and the ThoughtCloud
+        // the battle HUD bottom 46% / left 50%, and the ThoughtCloud
         // bottom 30% / left 68%. The whisper fires often enough now
         // that it must never cover the all-day pending wish bubble
         // (which is tappable) at its old 32% anchor.
-        bottom: '50%',
+        bottom: '56%',
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: Z_INDEX,
         animation: 'jeIn 0.35s cubic-bezier(0.34,1.56,0.64,1)',
-        maxWidth: '70vw',
       }}
       onClick={() => { playSound('ui_modal_close'); setLine(null) }}
     >
-      {/* Speech bubble */}
-      <div
-        style={{
-          background: '#FFFFFF',
-          border: '3px solid #1F1F2E',
-          boxShadow: '4px 4px 0 rgba(0,0,0,0.35)',
-          padding: '8px 10px',
-          imageRendering: 'pixelated',
-        }}
-      >
-        <p className="font-pixel" style={{
-          fontSize: 6, color: '#A78BFA', letterSpacing: 1.5, marginBottom: 4, overflowWrap: 'anywhere',
-        }}>{cat.t('{NAME} WHISPERS')}</p>
-        <p className="text-[11px] leading-snug" style={{ color: '#1F1F2E' }}>{line}</p>
-      </div>
-      {/* Pixel tail pointing down to Eren */}
-      <div style={{
-        marginTop: -2,
-        width: 0, height: 0,
-        borderLeft: '8px solid transparent',
-        borderRight: '8px solid transparent',
-        borderTop: '10px solid #1F1F2E',
-      }} />
-      <div style={{
-        marginTop: -12,
-        width: 0, height: 0,
-        borderLeft: '5px solid transparent',
-        borderRight: '5px solid transparent',
-        borderTop: '6px solid #FFFFFF',
-      }} />
+      <HomeBubble tail="centre" style={{ maxWidth: 'min(260px, 70vw)', minWidth: 160 }}>
+        <span style={{ display: 'block', ...TYPE.label, fontSize: 11, color: M.label, overflowWrap: 'anywhere' }}>
+          {cat.t('{name} whispers')}
+        </span>
+        <span style={{ display: 'block', marginTop: 2, fontWeight: 700 }}>{line}</span>
+      </HomeBubble>
 
-      <style jsx>{`
+      {/* A plain <style>: inline styles only reach global keyframes (this one
+          sat in a scoped styled-jsx block and never ran). */}
+      <style>{`
         @keyframes jeIn {
           0%   { transform: translate(-50%, 16px) scale(0.6); opacity: 0; }
           60%  { transform: translate(-50%, -4px) scale(1.06); opacity: 1; }
@@ -196,3 +175,4 @@ export default function JealousEren() {
     </div>
   )
 }
+
