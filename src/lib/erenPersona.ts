@@ -363,7 +363,7 @@ Most replies should mention NONE of it. Bring one up when it's actually relevant
 export const REMEMBER_TOOL = {
   name: 'remember',
   description:
-    'Save one durable fact about the person you are talking to, so you still know it weeks from now. Use only for things that stay true: their people, their work, their routines, worries, plans, promises, inside jokes. Do not use it for small talk, for your own stats, or for anything already listed in your memories.',
+    'Save one durable fact about the person you are talking to, so you still know it weeks from now. Use only for things that stay true: their people, their work, their routines, worries, plans, promises, inside jokes. Do not use it for small talk, for your own stats, or for anything already listed in your memories. Name the people in your home only as the live context names them (or as you / he / she), never by another name.',
   input_schema: {
     type: 'object' as const,
     properties: {
@@ -488,6 +488,12 @@ export function buildLiveContext(ctx: LiveContext): string {
   if (ctx.partnerName) {
     lines.push(`The other person who looks after you is ${ctx.partnerName}. They are not in this conversation and cannot see it.`)
   }
+  // The names in the game are the only true ones. A saved memory or an old
+  // message can still carry a name someone has since changed (a partner
+  // renamed in their profile), and without this he kept using the old one.
+  lines.push(ctx.partnerName
+    ? `${ctx.speakerName} and ${ctx.partnerName} are the only people in your home, and those are their names. If a memory or an earlier message calls them anything else, that name is out of date: never use it. Don't bring up anyone else by name unless ${ctx.speakerName} mentions them first.`
+    : `${ctx.speakerName} is the only person in your home, and that is their name. If a memory or an earlier message calls them anything else, that name is out of date: never use it. Don't bring up anyone else by name unless ${ctx.speakerName} mentions them first.`)
   lines.push(`It is ${ctx.localTime} — ${DAYPART_NOTE[ctx.daypart]}`)
 
   lines.push(
