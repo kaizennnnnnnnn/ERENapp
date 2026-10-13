@@ -1,12 +1,12 @@
 'use client'
 
 // ─── ParlourMenu ────────────────────────────────────────────────────────────
-// The two games as Arcade-style tiles, side by side: the game's jelly on its
-// plate, the name and one line of what you do, your best, today's duel, and
+// The two games as Arcade-style tiles, side by side: a little scene of the
+// game (GameScene), the name and one line of what you do, your best, today's duel, and
 // a leaf Play bar at the foot so the tile says it is a button.
 
 import { memo } from 'react'
-import { JELLIES } from '@/lib/jellies'
+import GameScene from './GameScene'
 import { playSound } from '@/lib/sounds'
 import { M, MeadowIcon, SectionLabel, Tag, FONT_ROUNDED } from '@/components/meadow'
 
@@ -26,9 +26,6 @@ interface Props {
   loaded: boolean
   onPlay: (id: 'run' | 'jump') => void
 }
-
-/** The jelly served on each game's plate. Fixed per game so the board is stable. */
-const PLATE: Record<'run' | 'jump', number> = { run: 0, jump: 2 }
 
 const ParlourMenu = memo(function ParlourMenu({ games, loaded, onPlay }: Props) {
   return (
@@ -51,7 +48,6 @@ export default ParlourMenu
 
 // ─── One game ────────────────────────────────────────────────────────────────
 function GameTile({ game, onPlay }: { game: ParlourGame; onPlay: () => void }) {
-  const jelly = JELLIES[PLATE[game.id]]
   // Who leads today. Only meaningful once they have actually played: an
   // unplayed 0 is not a score you beat.
   const duel = game.theirName == null || game.theirsToday === 0
@@ -70,17 +66,8 @@ function GameTile({ game, onPlay }: { game: ParlourGame; onPlay: () => void }) {
         padding: 12, border: 0, borderRadius: 22, background: '#FFFFFF', textAlign: 'left',
         fontFamily: FONT_ROUNDED, color: M.text, cursor: 'pointer',
       }}>
-      {/* Served on its plate. */}
-      <span aria-hidden className="relative flex items-end justify-center" style={{
-        height: 78, borderRadius: 16, background: `${jelly.colour}2E`,
-      }}>
-        <span style={{ position: 'absolute', bottom: 10, width: 64, height: 12, borderRadius: '50%', background: '#FFFFFF' }} />
-        <img src={jelly.art} alt="" draggable={false} style={{
-          position: 'relative', width: 56, height: 56, marginBottom: 14,
-          objectFit: 'contain', imageRendering: 'auto',
-          animation: 'parlourJiggle 2.8s ease-in-out infinite',
-        }} />
-      </span>
+      {/* A little scene of the game itself. */}
+      <GameScene game={game.id} />
 
       <span style={{ marginTop: 10, fontSize: 16, lineHeight: 1.2, fontWeight: 800 }}>{game.title}</span>
       <span style={{ marginTop: 2, fontSize: 13, lineHeight: 1.35, fontWeight: 500, color: M.text2 }}>{game.blurb}</span>
