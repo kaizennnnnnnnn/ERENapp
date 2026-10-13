@@ -3,18 +3,17 @@
 // WeeklyGamesChampionPopup — surfaces last week's ARCADE result on load.
 // The metric is GAMES WON (who took the higher score in more games), not a
 // summed score. Everyone gets a payout: champion/tie = 100, loser = 25.
-// Tapping any action stamps acknowledged=true server-side so it never
-// reappears for that week. Mirrors couple/WeeklyChampionPopup.
+// Tapping any action (or outside the card) stamps acknowledged=true
+// server-side so it never reappears for that week.
+//
+// Drawn like couple/WeeklyChampionPopup, its care-battle twin: a white Meadow
+// card over a dimmed page, one leaf button, no glow and no blur. A centred
+// modal rather than a Sheet so the coin burst can paint above it.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { WeeklyGameRow } from '@/lib/gameWeekly'
-import {
-  PINK_HI, PINK_LO,
-  OBSIDIAN_FACE, OBSIDIAN_BTN,
-  Rivets, pinkText,
-} from '@/components/obsidian'
 import { SOLO_VARIETY_TARGET } from '@/lib/gameRewards'
-import { IconCrown, IconCoin, IconController } from '@/components/PixelIcons'
+import { IconTile, M, MeadowIcon, PrimaryButton, TINT, TYPE } from '@/components/meadow'
 import { playSound } from '@/lib/sounds'
 import CoinPayoutBurst from '@/components/CoinPayoutBurst'
 
@@ -27,17 +26,24 @@ interface Props {
   onClose: () => void
 }
 
+/** "2026-W38" -> "Week 38". */
+function weekLabel(isoWeek: string): string {
+  const m = /W(\d+)/.exec(isoWeek)
+  return m ? `Week ${Number(m[1])}` : isoWeek
+}
+
 export default function WeeklyGamesChampionPopup({ row, partnerFirstName, solo = false, onClaim, onClose }: Props) {
   const [claiming, setClaiming] = useState(false)
   const [paid, setPaid] = useState(row.payout_paid)
-  const [mounted, setMounted] = useState(false)
   // Coins credited on this tap. Non-null hands the screen to the payout burst,
   // which closes the popup when its counter lands.
   const [burst, setBurst] = useState<number | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
 
   useEffect(() => {
-    setMounted(true)
     if (row.outcome === 'win') playSound('ui_modal_open')
+    dialogRef.current?.focus({ preventScroll: true })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePrimary = async () => {
@@ -54,21 +60,24 @@ export default function WeeklyGamesChampionPopup({ row, partnerFirstName, solo =
     onClose()
   }
 
+  // Escape does what a tap outside does: the same as the button.
+  const primaryRef = useRef(handlePrimary)
+  primaryRef.current = handlePrimary
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') primaryRef.current() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
+
   const isWin = row.outcome === 'win'
   const isTie = row.outcome === 'tie'
-
-  const accent = isWin
-    ? { hi: '#FFD650', glow: 'rgba(255,215,80,0.45)' }
-    : isTie
-      ? { hi: '#D8D8E0', glow: 'rgba(180,180,200,0.35)' }
-      : { hi: '#C4B5FD', glow: 'rgba(167,139,250,0.4)' }
 
   // Solo, `games_won` is the number of DIFFERENT games played (with no
   // opponent every game with a score counts), and the week was a variety goal
   // rather than a contest — so nothing here may name or imply a second player.
   const title = solo
-    ? (isWin ? 'ARCADE EXPLORER' : 'GOOD GAMES')
-    : isWin ? 'GAMES CHAMPION' : isTie ? 'DEAD HEAT' : 'GOOD GAMES'
+    ? (isWin ? 'Arcade explorer' : 'Good games')
+    : isWin ? 'Games champion' : isTie ? 'Dead heat' : 'Good games'
   const subtitle = solo
     ? (isWin
         ? `You played ${row.games_won} different games last week!`
@@ -83,111 +92,77 @@ export default function WeeklyGamesChampionPopup({ row, partnerFirstName, solo =
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex items-center justify-center px-5"
-      style={{
-        background: 'rgba(0,0,0,0.72)',
-        backdropFilter: 'blur(2px)',
-        opacity: mounted ? 1 : 0,
-        transition: 'opacity 220ms ease-out',
-      }}
+      className="meadow-root"
       onClick={handlePrimary}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 120, padding: '0 20px',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(47, 43, 40, 0.36)',
+      }}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
         onClick={e => e.stopPropagation()}
-        className="relative w-full max-w-[340px] p-5"
         style={{
-          ...OBSIDIAN_FACE,
-          border: `2px solid ${accent.hi}`,
-          boxShadow: `0 0 24px ${accent.glow}, 0 8px 32px rgba(0,0,0,0.6)`,
-          transform: mounted ? 'scale(1)' : 'scale(0.85)',
-          transition: 'transform 280ms cubic-bezier(0.34,1.56,0.64,1)',
+          width: '100%', maxWidth: 340, boxSizing: 'border-box', borderRadius: 28, background: '#FFFFFF',
+          padding: '28px 24px 22px', textAlign: 'center', outline: 'none',
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
         }}
       >
-        <Rivets inset={4} size={3} />
+        <IconTile icon={isWin ? 'trophy' : 'pad'} size={68} bg={isWin ? TINT.amber : isTie ? TINT.soft : TINT.lilac} />
+        <h2 id={titleId} style={{ margin: '16px 0 0', fontSize: 24, lineHeight: 1.2, fontWeight: 800, letterSpacing: '-0.01em' }}>
+          {title}
+        </h2>
+        <p style={{ margin: '6px 0 0', fontSize: 15, lineHeight: 1.45, fontWeight: 500, color: M.text2 }}>{subtitle}</p>
 
-        <div className="absolute inset-0 pointer-events-none opacity-[0.05]" style={{
-          backgroundImage: `repeating-linear-gradient(45deg, ${accent.hi} 0, ${accent.hi} 2px, transparent 2px, transparent 8px)`,
-        }} />
-
-        <div className="relative text-center">
-          <div className="flex justify-center mb-3" style={{ filter: `drop-shadow(0 0 8px ${accent.glow})` }}>
-            {isWin ? <IconCrown size={48} /> : <IconController size={40} />}
-          </div>
-
-          <p className="font-pixel" style={{
-            fontSize: 12, letterSpacing: 2.5, color: accent.hi,
-            textShadow: `0 0 6px ${accent.glow}`, marginBottom: 6,
-          }}>{title}</p>
-
-          <p className="text-sm mb-4" style={{ color: PINK_LO }}>{subtitle}</p>
-
-          {/* Games-won line. Solo there is no VS — just the count against the
-              goal, or "YOU 4 VS PARTNER 0" reads as a no-show opponent. */}
+        {/* Games won. Solo there is no VS — just the count against the goal,
+            or "You 4 vs Partner 0" reads as a no-show opponent. */}
+        <div style={{
+          marginTop: 18, width: '100%', boxSizing: 'border-box', padding: '12px 18px', borderRadius: 20,
+          background: M.soft,
+        }}>
           {solo ? (
-            <div className="text-center mb-1">
-              <p className="font-pixel" style={{ fontSize: 22, lineHeight: 1, ...pinkText }}>
-                {row.games_won}<span style={{ fontSize: 12, color: '#7A6A75' }}> / {SOLO_VARIETY_TARGET}</span>
-              </p>
-            </div>
+            <span style={{ display: 'block', fontSize: 32, lineHeight: 1.1, ...TYPE.number }}>
+              {row.games_won}
+              <span style={{ fontSize: 17, color: M.text2 }}> of {SOLO_VARIETY_TARGET}</span>
+            </span>
           ) : (
-          <div className="flex items-center justify-center gap-3 mb-1">
-            <div className="text-center">
-              <p className="font-pixel" style={{ fontSize: 5, color: PINK_HI, letterSpacing: 1.5, marginBottom: 2 }}>YOU</p>
-              <p className="font-pixel" style={{ fontSize: 22, lineHeight: 1, ...pinkText }}>{row.games_won}</p>
-            </div>
-            <span className="font-pixel" style={{ fontSize: 9, color: '#7A6A75' }}>VS</span>
-            <div className="text-center">
-              <p className="font-pixel" style={{ fontSize: 5, color: '#C4B5FD', letterSpacing: 1.5, marginBottom: 2 }}>
-                {partnerFirstName.toUpperCase()}
-              </p>
-              <p className="font-pixel" style={{ fontSize: 22, lineHeight: 1, color: '#D8B4FE' }}>{row.partner_games_won}</p>
-            </div>
-          </div>
+            <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <FinalScore label="You" score={row.games_won} />
+              <FinalScore label={partnerFirstName} score={row.partner_games_won} right />
+            </span>
           )}
-          <p className="font-pixel mb-5" style={{ fontSize: 5, color: '#7A6A75', letterSpacing: 2 }}>
-            {solo ? 'DIFFERENT GAMES PLAYED' : 'GAMES WON'}
-          </p>
-
-          {canClaim ? (
-            <button
-              onClick={handlePrimary}
-              disabled={claiming}
-              className="w-full px-4 py-3 flex items-center justify-center gap-2 relative active:translate-y-[1px] transition-transform"
-              style={{
-                ...OBSIDIAN_BTN,
-                border: `1.5px solid ${accent.hi}`,
-                boxShadow: `0 0 14px ${accent.glow}, ${OBSIDIAN_BTN.boxShadow}`,
-                opacity: claiming ? 0.6 : 1,
-              }}
-            >
-              <Rivets inset={3} size={2} />
-              <IconCoin size={14} />
-              <span className="font-pixel" style={{
-                fontSize: 9, letterSpacing: 1.5, color: accent.hi,
-                textShadow: `0 0 6px ${accent.glow}`,
-              }}>
-                CLAIM +{row.payout_coins}
-              </span>
-            </button>
-          ) : (
-            <button
-              onClick={handlePrimary}
-              className="w-full px-4 py-3 relative active:translate-y-[1px] transition-transform"
-              style={{ ...OBSIDIAN_BTN, border: `1px solid ${accent.hi}` }}
-            >
-              <span className="font-pixel" style={{ fontSize: 9, letterSpacing: 1.5, ...pinkText }}>
-                {isWin ? 'CONTINUE' : isTie ? 'NICE' : 'NEXT WEEK'}
-              </span>
-            </button>
-          )}
-
-          <p className="font-pixel mt-3" style={{ fontSize: 5, color: '#7A6A75', letterSpacing: 1.5 }}>
-            {row.iso_week}
-          </p>
+          <span style={{ display: 'block', marginTop: 4, ...TYPE.label, color: M.label }}>
+            {solo ? 'Different games played' : 'Games won'}
+          </span>
         </div>
+
+        <PrimaryButton
+          onClick={handlePrimary}
+          busy={claiming}
+          icon={canClaim ? <MeadowIcon name="coin" /> : undefined}
+          style={{ marginTop: 20 }}
+        >
+          {canClaim ? `Claim ${row.payout_coins} coins` : isWin ? 'Continue' : isTie ? 'Nice' : 'Next week'}
+        </PrimaryButton>
+
+        <span style={{ marginTop: 14, ...TYPE.label, color: M.label }}>{weekLabel(row.iso_week)}</span>
       </div>
 
       {burst !== null && <CoinPayoutBurst coins={burst} onDone={onClose} />}
     </div>
+  )
+}
+
+function FinalScore({ label, score, right }: { label: string; score: number; right?: boolean }) {
+  return (
+    <span style={{ display: 'flex', flexDirection: 'column', alignItems: right ? 'flex-end' : 'flex-start', minWidth: 0 }}>
+      <span style={{ fontSize: 13, lineHeight: 1.2, fontWeight: 700, color: M.text2 }}>{label}</span>
+      <span style={{ fontSize: 32, lineHeight: 1.1, ...TYPE.number }}>{score}</span>
+    </span>
   )
 }

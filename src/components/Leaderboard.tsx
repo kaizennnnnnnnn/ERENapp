@@ -1,47 +1,51 @@
 'use client'
 
-// ─── Leaderboard modal ─────────────────────────────────────────────────────
-// Premium dark/CRT scoreboard for the household. Two modes:
-//   • THIS WEEK (default) — the competition. Per-game BEST scores for the
+// ─── Leaderboard ─────────────────────────────────────────────────────────────
+// The household's scoreboard, a Meadow sheet opened from the Arcade's week
+// strip and the playroom's Scores button. Two modes:
+//   • This week (default) — the competition. Per-game BEST scores for the
 //     current ISO week, side by side. The champion is whoever won MORE games
 //     (higher score in more individual games), NOT the sum of scores. Shows a
-//     countdown to the Monday reset and a claim banner for last week's prize.
-//   • ALL-TIME — every game's all-time best, side by side (records that are
+//     countdown to the Monday reset and a claim row for last week's prize.
+//   • All time — every game's all-time best, side by side (records that are
 //     remembered forever). Same games-won metric for the headline.
-// Winner is highlighted with a gold border + crown chip; ties show a chip;
-// missing scores show a dash.
+// The better score in each game sits on a gold pill; a tie puts both on one.
+// Missing scores show a dash.
 
 import { useEffect, useState } from 'react'
-import { X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { withRetry } from '@/lib/supabaseRetry'
 import { useAuth } from '@/hooks/useAuth'
 import { useGamesWeekly } from '@/hooks/useGamesWeekly'
 import { useCat } from '@/hooks/useCat'
 import { countGamesWon, SOLO_VARIETY_TARGET, SOLO_VARIETY_COINS } from '@/lib/gameRewards'
-import {
-  IconStar, IconCrown,
-  IconScroll, IconMeat, IconLightning,
-  IconSwords, IconHouse, IconHeart, IconCatFace, IconCoin, IconSparkles, IconYarn,
-} from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import type { GameType, Profile } from '@/types'
 import AnimatedEren from '@/components/AnimatedEren'
+import {
+  Avatar, IconTile, M, MeadowIcon, Meter, PrimaryButton, RARITY_TAG, SecondaryButton, Segmented,
+  Sheet, TINT, TYPE, GAME_ICON, GAME_TINT, PERSON, personColor, useSheetExit,
+} from '@/components/meadow'
 
 // Titles that name the cat are lib/catWords templates, filled per household.
-const GAMES: Array<{ id: GameType; title: string; Icon: React.FC<{ size?: number }> }> = [
-  { id: 'memory_match', title: 'PURR-FECT MEMORY', Icon: IconScroll },
-  { id: 'treat_tumble', title: 'TREAT TUMBLE',     Icon: IconMeat },
-  { id: 'flappy_eren',  title: 'FIZZY {NAME}',     Icon: IconLightning },
-  { id: 'tic_tac_toe',  title: 'X & O VS {NAME}',  Icon: IconSwords },
-  { id: 'eren_stack',   title: '{NAME} STACK',     Icon: IconHouse },
-  { id: 'yarn_pop',     title: 'YARN POP',         Icon: IconHeart },
-  { id: 'eren_says',    title: '{NAME} SAYS',      Icon: IconCatFace },
-  { id: 'lane_runner',  title: 'LANE RUNNER',      Icon: IconCoin },
-  { id: 'paw_doku',     title: 'PAW DOKU',         Icon: IconSparkles },
-  { id: 'yarn_sort',    title: 'YARN SORT',        Icon: IconYarn },
-  { id: 'purr_beat',    title: 'PURR BEAT',        Icon: IconCatFace },
+// The same names as the Arcade's tiles.
+const GAMES: Array<{ id: GameType; title: string }> = [
+  { id: 'memory_match', title: 'Purr-fect Memory' },
+  { id: 'treat_tumble', title: 'Treat Tumble' },
+  { id: 'flappy_eren',  title: 'Fizzy {name}' },
+  { id: 'tic_tac_toe',  title: 'X & O vs {name}' },
+  { id: 'eren_stack',   title: '{name} Stack' },
+  { id: 'yarn_pop',     title: 'Yarn Pop' },
+  { id: 'eren_says',    title: '{name} Says' },
+  { id: 'lane_runner',  title: 'Lane Runner' },
+  { id: 'paw_doku',     title: 'Paw Doku' },
+  { id: 'yarn_sort',    title: 'Yarn Sort' },
+  { id: 'purr_beat',    title: 'Purr Beat' },
 ]
+
+/** The winning score's pill: the board's gold, the same as a legendary tag. */
+const GOLD = RARITY_TAG.legendary
+const SCORE_COL = 64
 
 interface PlayerScores {
   profile: Profile
@@ -52,102 +56,81 @@ interface Props { onClose: () => void }
 
 type Mode = 'week' | 'alltime'
 
-// ── Score-box atom ─────────────────────────────────────────────────────────
-function ScoreBox({ score, winner, side, big }: {
-  score: number
-  winner: boolean
-  side: 'me' | 'them'
-  big?: boolean
-}) {
-  const empty = score === 0
-  const meColors = {
-    bg:    'linear-gradient(135deg, #3A1A30 0%, #5A1A3A 100%)',
-    border:'#FF4080',
-    text:  '#FF9EC8',
-  }
-  const themColors = {
-    bg:    'linear-gradient(135deg, #1A1A40 0%, #1A305A 100%)',
-    border:'#4A90BC',
-    text:  '#88C8F0',
-  }
-  const c = side === 'me' ? meColors : themColors
-  return (
-    <div style={{
-      width: big ? 64 : 56,
-      height: big ? 32 : 28,
-      background: empty ? 'rgba(255,255,255,0.04)' : winner ? c.bg : 'rgba(255,255,255,0.04)',
-      border: `${winner ? 2 : 1}px solid ${empty ? '#2A1A50' : winner ? '#FFD700' : c.border}`,
-      borderRadius: 4,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      flexShrink: 0,
-      boxShadow: winner ? `0 0 8px rgba(255,215,0,0.45), inset 0 1px 0 rgba(255,255,255,0.12)` : 'inset 0 1px 0 rgba(255,255,255,0.05)',
-    }}>
-      <span className="font-pixel" style={{
-        fontSize: big ? 11 : 10,
-        color: empty ? '#3A2A60' : winner ? '#FFD700' : c.text,
-        textShadow: winner ? '0 0 4px rgba(255,215,0,0.6)' : 'none',
-        letterSpacing: 0.5,
-      }}>
-        {empty ? '—' : score}
-      </span>
-    </div>
-  )
-}
-
-// ── Avatar disc ────────────────────────────────────────────────────────────
-function AvatarDisc({ letter, side, label, big }: {
-  letter: string
-  side: 'me' | 'them'
-  label: string
-  big?: boolean
-}) {
-  const sizes = big ? { w: 36, h: 36, fs: 14 } : { w: 32, h: 32, fs: 12 }
-  const meBg    = 'linear-gradient(135deg, #FF6B9D, #C084FC)'
-  const themBg  = 'linear-gradient(135deg, #6BAED6, #3A88C8)'
-  const meBorder = '#FF4080'; const meShadow = '0 2px 0 #991A4A'
-  const themBorder = '#4A90BC'; const themShadow = '0 2px 0 #205888'
-  return (
-    <div className="flex flex-col items-center gap-1" style={{ width: 64 }}>
-      <div className="flex items-center justify-center font-pixel"
-        style={{
-          width: sizes.w, height: sizes.h, borderRadius: 4,
-          background: side === 'me' ? meBg : themBg,
-          border: `2px solid ${side === 'me' ? meBorder : themBorder}`,
-          boxShadow: side === 'me' ? meShadow : themShadow,
-          fontSize: sizes.fs, color: 'white',
-          textShadow: '1px 1px 0 rgba(0,0,0,0.4)',
-        }}>
-        {letter}
-      </div>
-      <span className="font-pixel" style={{
-        fontSize: 6,
-        color: side === 'me' ? '#FF9EC8' : '#88C8F0',
-        letterSpacing: 1,
-        maxWidth: 64, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-      }}>
-        {label}
-      </span>
-    </div>
-  )
-}
+const MODES = [
+  { value: 'week', label: 'This week' },
+  { value: 'alltime', label: 'All time' },
+] as const
 
 function formatCountdown(resetAt: Date | undefined): string {
-  if (!resetAt) return ''
+  if (!resetAt) return 'This week'
   const ms = resetAt.getTime() - Date.now()
-  if (ms <= 0) return 'RESETTING…'
+  if (ms <= 0) return 'Resetting now'
   const totalH = Math.floor(ms / 3600000)
   const days = Math.floor(totalH / 24)
   const hours = totalH % 24
-  if (days > 0) return `RESETS IN ${days}d ${hours}h`
-  if (hours > 0) return `RESETS IN ${hours}h`
+  if (days > 0) return `Resets in ${days}d ${hours}h`
+  if (hours > 0) return `Resets in ${hours}h`
   const mins = Math.max(1, Math.floor(ms / 60000))
-  return `RESETS IN ${mins}m`
+  return `Resets in ${mins}m`
+}
+
+// ── One score cell ──────────────────────────────────────────────────────────
+function Score({ score, best, label }: { score: number; best: boolean; label: string }) {
+  const empty = score === 0
+  return (
+    <span style={{ width: SCORE_COL, flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
+      <span className="sr-only">{`${label}: ${empty ? 'no score' : score}${best ? ', the best' : ''}`}</span>
+      <span aria-hidden style={{
+        minWidth: 40, boxSizing: 'border-box', padding: '3px 9px', borderRadius: 999, textAlign: 'center',
+        background: best ? GOLD.bg : 'transparent',
+        color: empty ? M.faint : best ? GOLD.ink : M.text2,
+        fontSize: 15, ...TYPE.number, fontWeight: best ? 800 : 700,
+      }}>
+        {empty ? '–' : score}
+      </span>
+    </span>
+  )
+}
+
+// ── One side of the headline ────────────────────────────────────────────────
+function Side({ name, label, color, wins, leading, right }: {
+  name: string | null | undefined
+  label: string
+  color: string
+  wins: number
+  leading: boolean
+  right?: boolean
+}) {
+  return (
+    <div style={{
+      flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: right ? 'row-reverse' : 'row',
+      alignItems: 'center', gap: 10,
+    }}>
+      <span style={{ position: 'relative', flexShrink: 0 }}>
+        <Avatar name={name} color={color} size={44} />
+        {/* The crown rides on whoever has won more games. */}
+        {leading && (
+          <MeadowIcon name="crown" size={22} style={{
+            position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%) rotate(-8deg)',
+          }} />
+        )}
+      </span>
+      <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: right ? 'flex-end' : 'flex-start' }}>
+        <span style={{
+          maxWidth: '100%', fontSize: 13, lineHeight: 1.2, fontWeight: 700, color: M.text2,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>{label}</span>
+        <span style={{ fontSize: 30, lineHeight: 1.1, ...TYPE.number }}>{wins}</span>
+      </span>
+    </div>
+  )
 }
 
 export default function Leaderboard({ onClose }: Props) {
   const { user, profile } = useAuth()
   const cat = useCat()
   const supabase = createClient()
+  const [open, close] = useSheetExit(onClose)
   const [players, setPlayers] = useState<PlayerScores[]>([])
   const [loading, setLoading] = useState(true)
   // A read that failed even after withRetry. The board stays on its loading
@@ -157,6 +140,7 @@ export default function Leaderboard({ onClose }: Props) {
   const [attempt, setAttempt] = useState(0)
   const [mode, setMode] = useState<Mode>('week')
   const [claimed, setClaimed] = useState(false)
+  const [claiming, setClaiming] = useState(false)
 
   // Weekly competition: this-week per-game bests + games-won + last-week prize.
   const { standings, weeklyChampion, claim, partnerName } = useGamesWeekly()
@@ -233,448 +217,176 @@ export default function Leaderboard({ onClose }: Props) {
   // Solo, `wins.my` is NOT a win count. countGamesWon compares against an
   // empty partner map, so every game holding a non-zero best already "wins" —
   // the number IS how many different games have been played. gameWeekly says
-  // the same thing where it settles the week, and the champion popup already
-  // labels it correctly; this modal, the one a player actually opens mid-week,
-  // was still calling it GAMES WON and showing it against an empty column.
+  // the same thing where it settles the week, and the champion popup labels it
+  // the same way; so does the board, which is the one a player opens mid-week.
   const solo = winnerSide === 'solo'
   const varietyDone = solo && mode === 'week' && wins.my >= SOLO_VARIETY_TARGET
 
-  function handleClose() {
-    playSound('ui_back')
-    onClose()
-  }
-
   async function handleClaim() {
-    setClaimed(true)
+    if (claiming) return
+    playSound('ui_tap')
+    setClaiming(true)
     await claim()
+    setClaiming(false)
+    setClaimed(true)
   }
 
-  const meLetter = me?.profile.name?.[0]?.toUpperCase() ?? '?'
-  const partnerLetter = partner?.profile.name?.[0]?.toUpperCase() ?? '?'
-  const partnerLabel = partner?.profile.name?.split(' ')[0]?.toUpperCase()
-    ?? partnerName?.split(' ')[0]?.toUpperCase() ?? 'P2'
+  const myColor = personColor(me?.profile.heart ?? profile?.heart)
+  const partnerColor = partner?.profile.heart
+    ? personColor(partner.profile.heart)
+    : myColor === PERSON.brown ? PERSON.pink : PERSON.brown
+  const partnerFirst = partner?.profile.name?.split(' ')[0]
+    ?? partnerName?.split(' ')[0] ?? 'Partner'
 
-  const countdown = mode === 'week' ? formatCountdown(standings?.resetAt) : ''
-  const showClaimBanner = mode === 'week' && !claimed && !!weeklyChampion
+  const showClaim = mode === 'week' && !claimed && !!weeklyChampion
     && !weeklyChampion.payout_paid && weeklyChampion.payout_coins > 0
 
+  // One sentence under the two numbers that says where things stand.
+  const verdict = solo ? null
+    : totalDecided === 0
+      ? (mode === 'week' ? 'No games played yet this week' : 'Play a few games to set records')
+      : winnerSide === 'tie' ? `All square at ${wins.my} each`
+      : winnerSide === 'me' ? `You're ahead, ${wins.my} games to ${wins.their}`
+      : `${partnerFirst} is ahead, ${wins.their} games to ${wins.my}`
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-3"
-      style={{
-        paddingTop:    'calc(var(--safe-top) + 12px)',
-        paddingBottom: '12px',
-        animation: 'lbFade 0.2s ease-out forwards',
-      }}>
-      {/* Backdrop */}
-      <div className="absolute inset-0" onClick={handleClose}
-        style={{ background: 'rgba(8,5,18,0.85)', backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)' }} />
+    <Sheet open={open} onClose={close} title="Leaderboard" height="calc(100% - 56px)">
+      <Segmented
+        ariaLabel="Which scores"
+        options={MODES}
+        value={mode}
+        onChange={m => { playSound('ui_tap'); setMode(m) }}
+      />
+      <p style={{ margin: '10px 4px 0', fontSize: 13, fontWeight: 700, color: M.text2, textAlign: 'center' }}>
+        {mode === 'week' ? formatCountdown(standings?.resetAt) : 'The best score each of you has ever set'}
+      </p>
 
-      {/* Panel */}
-      <div className="relative flex flex-col"
-        style={{
-          width: 'min(94vw, 440px)',
-          maxHeight: '100%',
-          background: 'linear-gradient(180deg, #1A0A40 0%, #0B061C 100%)',
-          borderRadius: 8,
-          border: '3px solid #4C1D95',
-          boxShadow: '0 8px 0 #2E0F5C, 0 0 36px rgba(167,139,250,0.6), 0 0 80px rgba(251,191,36,0.18)',
-          animation: 'lbPop 0.32s cubic-bezier(0.34,1.56,0.64,1) both',
-          overflow: 'hidden',
-        }}>
-
-        {/* Drifting starfield */}
-        <div className="absolute inset-0 pointer-events-none" style={{
-          backgroundImage: 'radial-gradient(circle, #FBBF24 1px, transparent 1.5px), radial-gradient(circle, #A78BFA 1px, transparent 1.5px)',
-          backgroundSize: '38px 38px, 56px 56px',
-          backgroundPosition: '0 0, 22px 28px',
-          opacity: 0.35,
-          animation: 'lbStars 28s linear infinite',
-          zIndex: 1,
-        }} />
-
-        {/* CRT scanline overlay */}
-        <div className="absolute inset-0 pointer-events-none" style={{
-          background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.10) 3px, rgba(0,0,0,0.10) 4px)',
-          zIndex: 30,
-        }} />
-        {/* Vignette */}
-        <div className="absolute inset-0 pointer-events-none" style={{
-          background: 'radial-gradient(ellipse at center, transparent 65%, rgba(0,0,0,0.55) 100%)',
-          zIndex: 30,
-        }} />
-
-        {/* ─── HEADER ──────────────────────────────────────────────────────── */}
-        <div className="relative flex items-center px-4 py-3 flex-shrink-0"
-          style={{
-            background: 'linear-gradient(180deg, rgba(76,29,149,0.5) 0%, rgba(46,15,92,0.4) 100%)',
-            borderBottom: '2px solid rgba(251,191,36,0.55)',
-            zIndex: 20,
-          }}>
-          <div style={{ position: 'absolute', top: 4, left: 4, width: 4, height: 4, background: '#FFD700' }} />
-          <div style={{ position: 'absolute', top: 4, right: 4, width: 4, height: 4, background: '#FFD700' }} />
-
-          <div style={{ width: 32 }} />
-
-          <div className="flex-1 flex flex-col items-center gap-0.5">
-            <div className="flex items-center gap-2">
-              <IconStar size={12} />
-              <span className="font-pixel" style={{
-                fontSize: 11, color: '#FFD700', letterSpacing: 3,
-                textShadow: '0 0 8px rgba(255,215,0,0.55)',
-              }}>LEADERBOARD</span>
-              <IconStar size={12} />
+      {loading && loadFailed ? (
+        <div role="alert" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '40px 0' }}>
+          <p style={{ margin: 0, ...TYPE.body, color: M.text }}>Couldn&apos;t load the scores.</p>
+          <SecondaryButton onClick={() => { playSound('ui_tap'); setLoadFailed(false); setAttempt(a => a + 1) }}>
+            Try again
+          </SecondaryButton>
+        </div>
+      ) : loading ? (
+        <div role="status" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '40px 0' }}>
+          <AnimatedEren px={3} glow={false} />
+          <span style={{ fontSize: 14, fontWeight: 700, color: M.text2 }}>Loading scores</span>
+        </div>
+      ) : (
+        <>
+          {/* Last week's prize, still to collect. */}
+          {showClaim && (
+            <div style={{
+              marginTop: 14, padding: '12px 12px 12px 14px', borderRadius: 20, background: TINT.amber,
+              display: 'flex', alignItems: 'center', gap: 12,
+            }}>
+              <IconTile icon="trophy" size={40} bg="#FFFFFF" />
+              <span style={{ flex: '1 1 auto', minWidth: 0, fontSize: 15, lineHeight: 1.3, fontWeight: 800 }}>
+                Last week&apos;s prize
+                <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: M.text2 }}>
+                  {weeklyChampion!.payout_coins} coins are waiting
+                </span>
+              </span>
+              <PrimaryButton size="sm" busy={claiming} onClick={handleClaim}
+                icon={<MeadowIcon name="coin" size={18} />}>
+                Claim
+              </PrimaryButton>
             </div>
-            <div className="font-pixel" style={{ fontSize: 5, color: '#A080C0', letterSpacing: 1.5 }}>
-              {mode === 'week' ? (countdown || 'THIS WEEK') : 'ALL-TIME RECORDS'}
-            </div>
+          )}
+
+          {/* The headline: games won (or, alone, different games played). */}
+          <div style={{ marginTop: 14, padding: '20px 16px 16px', borderRadius: 22, background: M.soft }}>
+            {solo ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <Avatar name={me?.profile.name ?? profile?.name} color={myColor} size={44} />
+                  <span style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: M.text2 }}>Different games played</span>
+                    <span style={{ fontSize: 30, lineHeight: 1.1, ...TYPE.number }}>
+                      {wins.my}
+                      {mode === 'week' && !varietyDone && <span style={{ fontSize: 17, color: M.text2 }}> of {SOLO_VARIETY_TARGET}</span>}
+                    </span>
+                  </span>
+                </div>
+                {mode === 'week' && (
+                  <>
+                    <Meter value={wins.my / SOLO_VARIETY_TARGET} height={10} style={{ marginTop: 14 }}
+                      label={`${wins.my} of ${SOLO_VARIETY_TARGET} different games`} />
+                    {/* Alone the weekly prize is a variety goal, not a victory. */}
+                    <p style={{ margin: '10px 0 0', fontSize: 14, fontWeight: 600, color: varietyDone ? M.leafInk : M.text2 }}>
+                      {varietyDone
+                        ? `All ${SOLO_VARIETY_TARGET} played. ${SOLO_VARIETY_COINS} coins on Monday.`
+                        : `Play ${SOLO_VARIETY_TARGET} different games this week for ${SOLO_VARIETY_COINS} coins.`}
+                    </p>
+                  </>
+                )}
+                {mode !== 'week' && totalDecided === 0 && (
+                  <p style={{ margin: '10px 0 0', fontSize: 14, fontWeight: 600, color: M.text2 }}>
+                    Play a few games to set records.
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Side name={me?.profile.name ?? profile?.name} label="You" color={myColor}
+                    wins={wins.my} leading={winnerSide === 'me'} />
+                  <span aria-hidden style={{ flexShrink: 0, fontSize: 14, fontWeight: 800, color: M.faint }}>vs</span>
+                  <Side name={partner?.profile.name} label={partnerFirst} color={partnerColor}
+                    wins={wins.their} leading={winnerSide === 'them'} right />
+                </div>
+                <p style={{ margin: '14px 0 0', textAlign: 'center', fontSize: 14, fontWeight: 700, color: M.text }}>
+                  <span style={{ ...TYPE.label, color: M.label, display: 'block', marginBottom: 2 }}>Games won</span>
+                  {verdict}
+                </p>
+              </>
+            )}
           </div>
 
-          <button onClick={handleClose} aria-label="Close leaderboard"
-            className="flex items-center justify-center active:scale-90 transition-transform"
-            style={{
-              width: 32, height: 32,
-              background: 'rgba(0,0,0,0.55)',
-              border: '2px solid #FBBF24',
-              borderRadius: 5,
-              boxShadow: '0 2px 0 rgba(0,0,0,0.5), 0 0 8px rgba(251,191,36,0.4)',
-              flexShrink: 0,
-            }}>
-            <X size={16} className="text-yellow-300" strokeWidth={3} />
-          </button>
-        </div>
-
-        {/* ─── MODE TOGGLE ─────────────────────────────────────────────────── */}
-        <div className="relative flex gap-1.5 px-4 pt-3 flex-shrink-0" style={{ zIndex: 20 }}>
-          {([['week', 'THIS WEEK'], ['alltime', 'ALL-TIME']] as Array<[Mode, string]>).map(([m, label]) => {
-            const active = mode === m
-            return (
-              <button key={m} onClick={() => { playSound('ui_tap'); setMode(m) }}
-                className="flex-1 py-1.5 active:translate-y-[1px] transition-transform"
-                style={{
-                  background: active
-                    ? 'linear-gradient(180deg, rgba(251,191,36,0.28), rgba(180,83,9,0.18))'
-                    : 'rgba(255,255,255,0.03)',
-                  border: `1.5px solid ${active ? '#FBBF24' : 'rgba(167,139,250,0.25)'}`,
-                  borderRadius: 5,
-                  boxShadow: active ? 'inset 0 1px 0 rgba(251,191,36,0.3), 0 0 10px rgba(251,191,36,0.25)' : 'none',
-                }}>
-                <span className="font-pixel" style={{
-                  fontSize: 7, letterSpacing: 1.5,
-                  color: active ? '#FDE68A' : '#6A5A8A',
-                  textShadow: active ? '0 0 6px rgba(251,191,36,0.5)' : 'none',
-                }}>{label}</span>
-              </button>
-            )
-          })}
-        </div>
-
-        {/* ─── BODY ────────────────────────────────────────────────────────── */}
-        <div className="relative flex-1 overflow-y-auto px-4 pt-3 pb-4" style={{ scrollbarWidth: 'thin' }}>
-          {loading && loadFailed ? (
-            <div role="alert" className="flex flex-col items-center justify-center gap-4 py-10">
-              <p className="font-pixel text-center" style={{ fontSize: 7, lineHeight: 1.8, color: '#FBBF24', letterSpacing: 1.5 }}>
-                COULDN&apos;T LOAD THE SCORES
-              </p>
-              <button type="button"
-                onClick={() => { playSound('ui_tap'); setLoadFailed(false); setAttempt(a => a + 1) }}
-                className="active:translate-y-[1px] transition-transform"
-                style={{
-                  minHeight: 44, padding: '0 18px',
-                  background: 'rgba(251,191,36,0.14)', border: '2px solid #FBBF24', borderRadius: 5,
-                }}>
-                <span className="font-pixel" style={{ fontSize: 8, color: '#FDE68A', letterSpacing: 1.5 }}>TRY AGAIN</span>
-              </button>
-            </div>
-          ) : loading ? (
-            <div className="flex flex-col items-center justify-center gap-4 py-10">
-              <AnimatedEren px={3} />
-              <p className="font-pixel" style={{ fontSize: 7, color: '#FBBF24', letterSpacing: 2, textShadow: '0 0 4px rgba(251,191,36,0.5)' }}>
-                LOADING
-              </p>
-              <div className="flex items-center gap-1.5">
-                {[0, 1, 2].map(i => (
-                  <span key={i} style={{
-                    display: 'block', width: 4, height: 4, borderRadius: '50%',
-                    background: '#FBBF24',
-                    boxShadow: '0 0 4px #FBBF24',
-                    animation: `pageLoadDot 1s ease-in-out ${i * 0.15}s infinite`,
-                  }} />
-                ))}
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Last week's prize claim banner (week mode) */}
-              {showClaimBanner && (
-                <button onClick={handleClaim}
-                  className="w-full mb-3 py-2 px-3 flex items-center justify-center gap-2 active:translate-y-[1px] transition-transform"
-                  style={{
-                    background: 'linear-gradient(180deg, rgba(255,215,0,0.22), rgba(255,140,40,0.1))',
-                    border: '2px solid #FFD700',
-                    borderRadius: 5,
-                    boxShadow: '0 0 14px rgba(255,215,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
-                  }}>
-                  <IconCoin size={13} />
-                  <span className="font-pixel" style={{ fontSize: 7, color: '#FFD700', letterSpacing: 1.2, textShadow: '0 0 6px rgba(255,215,0,0.6)' }}>
-                    LAST WEEK&apos;S PRIZE — CLAIM +{weeklyChampion!.payout_coins}
-                  </span>
-                </button>
-              )}
-
-              {/* Avatars row — crown on the games-won leader */}
-              <div className="flex items-center justify-center gap-3 mb-1 relative" style={{ minHeight: 64 }}>
-                <div className="relative">
-                  {winnerSide === 'me' && (
-                    <div className="absolute pointer-events-none" style={{
-                      left: '50%', top: -16, transform: 'translateX(-50%)',
-                      animation: 'lbCrownBob 1.6s ease-in-out infinite',
-                      filter: 'drop-shadow(0 0 6px rgba(255,215,0,0.85))',
-                    }}>
-                      <IconCrown size={18} />
-                    </div>
-                  )}
-                  <AvatarDisc letter={meLetter} side="me" label="YOU" big={winnerSide === 'me'} />
-                </div>
-
-                {partner && (
-                  <div className="flex flex-col items-center" style={{ width: 36 }}>
-                    <span className="font-pixel" style={{
-                      fontSize: 14, letterSpacing: 2, color: '#FFD700',
-                      textShadow: '0 0 8px rgba(255,215,0,0.7), 0 1px 0 rgba(0,0,0,0.6)',
-                      animation: 'lbVsPulse 1.8s ease-in-out infinite',
-                    }}>VS</span>
-                    <div style={{ width: 30, height: 1, background: 'linear-gradient(90deg, transparent, #FFD700, transparent)', marginTop: 3 }} />
-                  </div>
-                )}
-
-                <div className="relative">
-                  {winnerSide === 'them' && (
-                    <div className="absolute pointer-events-none" style={{
-                      left: '50%', top: -16, transform: 'translateX(-50%)',
-                      animation: 'lbCrownBob 1.6s ease-in-out infinite',
-                      filter: 'drop-shadow(0 0 6px rgba(255,215,0,0.85))',
-                    }}>
-                      <IconCrown size={18} />
-                    </div>
-                  )}
-                  {partner ? (
-                    <AvatarDisc letter={partnerLetter} side="them" label={partnerLabel} big={winnerSide === 'them'} />
-                  ) : (
-                    <div className="flex flex-col items-center gap-1" style={{ width: 64 }}>
-                      <div className="flex items-center justify-center font-pixel"
-                        style={{ width: 32, height: 32, borderRadius: 4, background: 'rgba(255,255,255,0.04)', border: '2px dashed #3A2A60', fontSize: 14, color: '#3A2A60' }}>
-                        ?
-                      </div>
-                      <span className="font-pixel" style={{ fontSize: 6, color: '#3A2A60' }}>P2</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="mb-3 mt-2" style={{
-                borderTop: '1px solid transparent',
-                borderImage: 'linear-gradient(90deg, transparent, rgba(255,215,0,0.7), transparent) 1',
-              }} />
-
-              {/* Game rows — per-game best for the active mode */}
-              {GAMES.map(game => {
-                const s0 = myBest[game.id] ?? 0
-                const s1 = partnerBest[game.id] ?? 0
-                const meWins   = !!partner && s0 > s1 && s0 > 0
-                const themWins = !!partner && s1 > s0 && s1 > 0
-                const tied     = !!partner && s0 === s1 && s0 > 0
-                return (
-                  <div key={game.id} className="flex items-center mb-2 py-1.5 px-2"
-                    style={{
-                      background: 'rgba(255,255,255,0.025)',
-                      border: '1px solid rgba(167,139,250,0.12)',
-                      borderRadius: 4,
-                    }}>
-                    <div className="flex-shrink-0 mr-2" style={{ width: 18, display: 'flex', justifyContent: 'center' }}>
-                      <game.Icon size={14} />
-                    </div>
-                    <span className="flex-1 font-pixel min-w-0"
-                      style={{ fontSize: 6, color: '#A080C0', letterSpacing: 0.8, lineHeight: 1.6, overflowWrap: 'anywhere' }}>
-                      {cat.t(game.title)}
-                      {tied && (
-                        <span className="font-pixel ml-2 px-1 py-0.5"
-                          style={{ fontSize: 5, color: '#FFD700', background: 'rgba(255,215,0,0.12)', border: '1px solid rgba(255,215,0,0.5)', borderRadius: 2, letterSpacing: 1 }}>
-                          TIE
-                        </span>
-                      )}
-                    </span>
-                    <ScoreBox score={s0} winner={meWins}   side="me" />
-                    {/* Solo this column was a 0 against every single game — a
-                        full-height row of zeros belonging to nobody, which
-                        reads as losing rather than as an empty seat. The P2
-                        placeholder in the header above is the honest way to
-                        say the seat is open; this was just wrong data. */}
-                    {!solo && <div style={{ width: 6 }} />}
-                    {!solo && <ScoreBox score={s1} winner={themWins} side="them" />}
-                  </div>
-                )
-              })}
-
-              {/* Games-won row (replaces the old raw-score TOTAL) */}
-              <div className="flex items-center mt-3 pt-3 px-2"
-                style={{ borderTop: '2px solid #FFD700' }}>
-                <div className="flex-shrink-0 mr-2" style={{ width: 18, display: 'flex', justifyContent: 'center' }}>
-                  <IconCrown size={14} />
-                </div>
-                <span className="flex-1 font-pixel" style={{ fontSize: 8, color: '#FFD700', letterSpacing: 2 }}>
-                  {solo ? 'DIFFERENT GAMES' : 'GAMES WON'}
-                </span>
-                <ScoreBox score={wins.my}    winner={winnerSide === 'me'}   side="me"   big />
-                {/* No second column solo — there is nobody in it, and a 0
-                    sitting opposite your own number reads as a loss. */}
-                {!solo && <div style={{ width: 6 }} />}
-                {!solo && <ScoreBox score={wins.their} winner={winnerSide === 'them'} side="them" big />}
-              </div>
-
-              {/* Banner */}
-              {/* Solo the weekly prize is a VARIETY goal, not a victory — five
-                  different games pays SOLO_VARIETY_COINS. That target reached
-                  the settlement, the payout and the champion popup, but never
-                  this modal, which is where someone looks to see how they are
-                  doing mid-week. It used to say "INVITE A PARTNER TO COMPETE!",
-                  which is both the wrong goal and the one thing the solo pass
-                  set out to stop saying. */}
-              {solo && mode === 'week' && (
-                <div className="mt-4 py-2 px-3 flex items-center justify-center"
-                  style={{
-                    background: varietyDone ? 'rgba(255,215,0,0.10)' : 'rgba(160,120,255,0.08)',
-                    borderRadius: 4,
-                    border: varietyDone ? '1px dashed #FFD700' : '1px dashed #3A2A60',
-                  }}>
-                  <span className="font-pixel" style={{
-                    fontSize: 6, lineHeight: 1.8, letterSpacing: 1, textAlign: 'center',
-                    color: varietyDone ? '#FFD700' : '#7A5AA0',
-                  }}>
-                    {varietyDone
-                      ? `ALL ${SOLO_VARIETY_TARGET} PLAYED — ${SOLO_VARIETY_COINS} COINS ON MONDAY`
-                      : `${wins.my} OF ${SOLO_VARIETY_TARGET} DIFFERENT GAMES — ${SOLO_VARIETY_COINS} COINS AT ${SOLO_VARIETY_TARGET}`}
-                  </span>
-                </div>
-              )}
-              {solo && mode !== 'week' && totalDecided === 0 && (
-                <div className="mt-4 py-2 px-3 flex items-center justify-center"
-                  style={{ background: 'rgba(160,120,255,0.08)', borderRadius: 4, border: '1px dashed #3A2A60' }}>
-                  <span className="font-pixel" style={{ fontSize: 6, color: '#7A5AA0', lineHeight: 1.8, letterSpacing: 1, textAlign: 'center' }}>
-                    PLAY A FEW GAMES TO SET RECORDS!
-                  </span>
-                </div>
-              )}
-              {!solo && totalDecided === 0 && (
-                <div className="mt-4 py-2 px-3 flex items-center justify-center"
-                  style={{ background: 'rgba(160,120,255,0.08)', borderRadius: 4, border: '1px dashed #3A2A60' }}>
-                  <span className="font-pixel" style={{ fontSize: 6, color: '#7A5AA0', lineHeight: 1.8, letterSpacing: 1, textAlign: 'center' }}>
-                    {mode === 'week' ? 'NO GAMES PLAYED YET THIS WEEK — GO COMPETE!' : 'PLAY A FEW GAMES TO SET RECORDS!'}
-                  </span>
-                </div>
-              )}
-              {winnerSide === 'tie' && totalDecided > 0 && (
-                <div className="mt-4 py-2 px-3 flex items-center justify-center gap-2"
-                  style={{ background: 'rgba(160,120,255,0.10)', borderRadius: 4, border: '1px dashed #A080C0' }}>
-                  <span className="font-pixel" style={{ fontSize: 7, color: '#C0A0F0', letterSpacing: 2 }}>IT&apos;S A TIE!</span>
-                </div>
-              )}
-              {(winnerSide === 'me' || winnerSide === 'them') && (
-                <div className="mt-4 relative overflow-hidden"
-                  style={{
-                    borderRadius: 4,
-                    background: 'linear-gradient(180deg, rgba(255,215,0,0.22) 0%, rgba(255,140,40,0.10) 100%)',
-                    border: '2px solid #FFD700',
-                    boxShadow: '0 0 16px rgba(255,215,0,0.5), inset 0 1px 0 rgba(255,255,255,0.2), 0 0 30px rgba(251,191,36,0.25)',
-                    animation: 'lbWinnerPulse 2.2s ease-in-out infinite',
-                  }}>
-                  <div className="absolute inset-0 pointer-events-none" style={{
-                    background: 'linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.45) 50%, transparent 62%)',
-                    animation: 'lbWinnerShine 3.4s ease-in-out infinite',
-                  }} />
-                  <div style={{ position: 'absolute', top: 3, left: 3, width: 4, height: 4, background: '#FFFFFF', boxShadow: '0 0 4px #FFD700' }} />
-                  <div style={{ position: 'absolute', top: 3, right: 3, width: 4, height: 4, background: '#FFFFFF', boxShadow: '0 0 4px #FFD700' }} />
-                  <div style={{ position: 'absolute', bottom: 3, left: 3, width: 4, height: 4, background: '#FFFFFF', boxShadow: '0 0 4px #FFD700' }} />
-                  <div style={{ position: 'absolute', bottom: 3, right: 3, width: 4, height: 4, background: '#FFFFFF', boxShadow: '0 0 4px #FFD700' }} />
-
-                  <div className="relative py-3 px-3 flex items-center justify-center gap-3">
-                    <div style={{ animation: 'lbCrownTwinkle 1.4s ease-in-out infinite' }}>
-                      <IconCrown size={16} />
-                    </div>
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span className="font-pixel" style={{ fontSize: 5, color: '#FDE68A', letterSpacing: 3, opacity: 0.85 }}>
-                        ★ {mode === 'week' ? 'THIS WEEK' : 'ALL-TIME'} ★
-                      </span>
-                      <span className="font-pixel" style={{ fontSize: 9, color: '#FFD700', letterSpacing: 2.5, textShadow: '0 0 8px rgba(255,215,0,0.8), 0 1px 0 rgba(0,0,0,0.5)' }}>
-                        {winnerSide === 'me' ? 'YOU ARE WINNING!' : `${partnerLabel} IS WINNING!`}
-                      </span>
-                    </div>
-                    <div style={{ animation: 'lbCrownTwinkle 1.4s ease-in-out 0.7s infinite' }}>
-                      <IconCrown size={16} />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* ─── FOOTER ──────────────────────────────────────────────────────── */}
-        <div className="relative flex-shrink-0 px-4 py-3"
-          style={{
-            background: 'linear-gradient(0deg, rgba(76,29,149,0.5) 0%, rgba(46,15,92,0.4) 100%)',
-            borderTop: '2px solid rgba(167,139,250,0.5)',
-            zIndex: 20,
+          {/* Every game: the two bests side by side. */}
+          <div style={{ display: 'flex', alignItems: 'flex-end', margin: '20px 4px 8px', gap: 8 }}>
+            <span style={{ flex: '1 1 auto', ...TYPE.label, color: M.label }}>Best scores</span>
+            <span style={{ width: SCORE_COL, textAlign: 'right', ...TYPE.label, color: M.label }}>You</span>
+            {!solo && (
+              <span style={{
+                width: SCORE_COL, textAlign: 'right', ...TYPE.label, color: M.label,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>{partnerFirst}</span>
+            )}
+          </div>
+          <ul style={{
+            listStyle: 'none', margin: 0, padding: 0, borderRadius: 22, overflow: 'hidden',
+            boxShadow: `inset 0 0 0 2px ${M.hairline}`,
           }}>
-          <button onClick={handleClose}
-            className="w-full active:translate-y-[2px] transition-transform flex items-center justify-center gap-2 py-2.5"
-            style={{
-              background: 'linear-gradient(180deg, #A78BFA 0%, #7C3AED 60%, #4C1D95 100%)',
-              border: '2px solid #4C1D95',
-              borderRadius: 4,
-              boxShadow: '0 4px 0 #2E0F5C, inset 0 1px 0 rgba(255,255,255,0.35)',
-            }}>
-            <X size={14} className="text-white" strokeWidth={3} />
-            <span className="font-pixel text-white" style={{ fontSize: 9, letterSpacing: 2, textShadow: '1px 1px 0 #2E0F5C' }}>
-              CLOSE
-            </span>
-          </button>
-        </div>
-      </div>
-
-      <style jsx global>{`
-        @keyframes lbFade {
-          from { opacity: 0; }
-          to   { opacity: 1; }
-        }
-        @keyframes lbPop {
-          0%   { transform: scale(0.85); opacity: 0; }
-          100% { transform: scale(1);    opacity: 1; }
-        }
-        @keyframes lbStars {
-          from { background-position: 0 0, 22px 28px; }
-          to   { background-position: 200px 0, 222px 28px; }
-        }
-        @keyframes lbVsPulse {
-          0%, 100% { transform: scale(1);    text-shadow: 0 0 6px rgba(255,215,0,0.5); }
-          50%      { transform: scale(1.18); text-shadow: 0 0 14px rgba(255,215,0,0.9); }
-        }
-        @keyframes lbCrownBob {
-          0%, 100% { transform: translateX(-50%) translateY(0); }
-          50%      { transform: translateX(-50%) translateY(-3px); }
-        }
-        @keyframes lbCrownTwinkle {
-          0%, 100% { transform: scale(1)    rotate(-4deg); opacity: 1;   }
-          50%      { transform: scale(1.18) rotate(6deg);  opacity: 0.85; }
-        }
-        @keyframes lbWinnerPulse {
-          0%, 100% { box-shadow: 0 0 16px rgba(255,215,0,0.5),  inset 0 1px 0 rgba(255,255,255,0.2), 0 0 30px rgba(251,191,36,0.25); }
-          50%      { box-shadow: 0 0 24px rgba(255,215,0,0.75), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 50px rgba(251,191,36,0.4); }
-        }
-        @keyframes lbWinnerShine {
-          0%, 25%   { transform: translateX(-130%); }
-          70%, 100% { transform: translateX(130%); }
-        }
-      `}</style>
-    </div>
+            {GAMES.map((game, i) => {
+              const s0 = myBest[game.id] ?? 0
+              const s1 = partnerBest[game.id] ?? 0
+              // Solo there's nobody to beat: no gold pills, just your bests.
+              const meTop   = !solo && s0 > 0 && s0 >= s1
+              const themTop = !solo && s1 > 0 && s1 >= s0
+              const title = cat.t(game.title)
+              return (
+                <li key={game.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 8, minHeight: 56, padding: '6px 12px',
+                  borderTop: i > 0 ? `1px solid ${M.divider}` : undefined,
+                }}>
+                  <IconTile icon={GAME_ICON[game.id] ?? 'pad'} bg={GAME_TINT[game.id] ?? TINT.soft} size={36} iconSize={24} />
+                  <span style={{
+                    flex: '1 1 auto', minWidth: 0, marginLeft: 4, fontSize: 15, lineHeight: 1.25, fontWeight: 700,
+                    overflowWrap: 'anywhere',
+                  }}>{title}</span>
+                  <Score score={s0} best={meTop} label={`${title}, you`} />
+                  {/* Solo there is no second column: a 0 against every game,
+                      belonging to nobody, reads as losing rather than as an
+                      empty seat. */}
+                  {!solo && <Score score={s1} best={themTop} label={`${title}, ${partnerFirst}`} />}
+                </li>
+              )
+            })}
+          </ul>
+        </>
+      )}
+    </Sheet>
   )
 }

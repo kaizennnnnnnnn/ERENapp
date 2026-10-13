@@ -7,7 +7,6 @@ import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { cn } from '@/lib/utils'
-import { IconController, IconStar, IconCrown } from '@/components/PixelIcons'
 import { playSound } from '@/lib/sounds'
 import Leaderboard from '@/components/Leaderboard'
 import BlinkingEren from '@/components/BlinkingEren'
@@ -29,6 +28,7 @@ import SegmentMeter, { type MeterPalette } from '@/components/care/SegmentMeter'
 import CareToast from '@/components/care/CareToast'
 import RoomWeather from '@/components/weather/RoomWeather'
 import { ROOM_HEADER_CLEARANCE } from '@/components/meadow/tokens'
+import { M, MeadowIcon } from '@/components/meadow'
 
 // ENERGY gauge palettes — the lit colour tracks energy level (violet when
 // healthy, gold mid, red when low). The recessed channel is a deep plum so the
@@ -70,6 +70,13 @@ const BELL_EYES = {
 // Play room idle look (ErenBell) — default when no Closet skin is set.
 const PLAY_EREN_FALLBACK = {
   src: '/ErenBell_notail.png', tailSrc: '/ErenBell_tail.png', tailOrigin: '73.3% 76.7%', eyes: BELL_EYES,
+}
+
+/** A white control over the room art, the same as the garden's status pill. */
+const ROOM_PILL: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 6, height: 34, boxSizing: 'border-box',
+  padding: '0 14px 0 10px', borderRadius: 999, border: 'none', background: '#FFFFFF',
+  boxShadow: `0 3px 0 ${M.overArtLip}`, fontSize: 14, fontWeight: 800, color: M.text, cursor: 'pointer',
 }
 
 export default function PlayScene({ onClose }: Props) {
@@ -287,92 +294,21 @@ export default function PlayScene({ onClose }: Props) {
       )}
 
       {/* ══ UI ══ */}
-      {/* Leaderboard button — opens the household high-scores modal.
-          Top is calculated from the room-sized StatsHeader's bottom
-          (ROOM_HEADER_CLEARANCE + safe-top) so it isn't buried behind it. */}
-      <button onClick={e => { e.stopPropagation(); playSound('ui_tap'); setShowLeaderboard(true) }}
-        className="absolute right-4 z-50 active:translate-y-[2px] transition-transform"
-        style={{ top: `calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE + 8}px)` }}>
-        <div className="relative flex items-center gap-1.5 px-2.5 py-1.5 overflow-hidden"
-          style={{
-            background: 'linear-gradient(180deg, #FBBF24 0%, #F59E0B 55%, #B45309 100%)',
-            borderRadius: 4,
-            border: '2px solid #78350F',
-            boxShadow: '0 4px 0 #451A03, inset 0 1px 0 rgba(255,255,255,0.45), 0 0 12px rgba(251,191,36,0.55)',
-          }}>
-          {/* Corner rivets */}
-          <div style={{ position: 'absolute', top: 2, left: 2, width: 3, height: 3, background: '#FFFFFF', boxShadow: '0 0 2px #FFFFFF' }} />
-          <div style={{ position: 'absolute', top: 2, right: 2, width: 3, height: 3, background: '#FFFFFF', boxShadow: '0 0 2px #FFFFFF' }} />
-          <div style={{ position: 'absolute', bottom: 2, left: 2, width: 3, height: 3, background: '#FFFFFF', boxShadow: '0 0 2px #FFFFFF' }} />
-          <div style={{ position: 'absolute', bottom: 2, right: 2, width: 3, height: 3, background: '#FFFFFF', boxShadow: '0 0 2px #FFFFFF' }} />
-          <div className="relative flex items-center justify-center"
-            style={{
-              width: 18, height: 18,
-              background: 'linear-gradient(135deg, rgba(0,0,0,0.25), rgba(0,0,0,0.15))',
-              border: '1px solid rgba(255,255,255,0.3)',
-              borderRadius: 3,
-            }}>
-            <IconCrown size={12} />
-          </div>
-          <span className="font-pixel text-white" style={{ fontSize: 7, letterSpacing: 0.6, textShadow: '1px 1px 0 #78350F' }}>
-            HIGH SCORES
-          </span>
-        </div>
+      {/* Scores and Arcade — white pills over the room, like the other
+          rooms' controls. Top is calculated from the room-sized StatsHeader's
+          bottom (ROOM_HEADER_CLEARANCE + safe-top) so they aren't buried
+          behind it; the second sits 40px under the first. */}
+      <button type="button" onClick={e => { e.stopPropagation(); playSound('ui_tap'); setShowLeaderboard(true) }}
+        className="meadow-root absolute right-4 z-50 m-press m-focus"
+        style={{ ...ROOM_PILL, top: `calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE + 8}px)` }}>
+        <MeadowIcon name="trophy" size={18} />
+        Scores
       </button>
-
-      {/* Games link — premium pixel arcade button. Sits ~52 px below
-          the leaderboard button so the two stack as a clear pair. */}
-      <button onClick={e => { e.stopPropagation(); playSound('ui_tap'); router.push('/games'); setTimeout(onClose, 400) }}
-        className="absolute right-4 z-50 active:translate-y-[2px] transition-transform group"
-        style={{ top: `calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE + 48}px)` }}>
-        <div className="relative flex items-center gap-1.5 px-2.5 py-1.5 overflow-hidden"
-          style={{
-            background: 'linear-gradient(180deg, #A855F7 0%, #7C3AED 55%, #5B21B6 100%)',
-            borderRadius: 4,
-            border: '2px solid #4C1D95',
-            boxShadow: '0 4px 0 #2E0F5C, inset 0 1px 0 rgba(255,255,255,0.45), 0 0 12px rgba(167,139,250,0.55)',
-          }}>
-          {/* Corner rivets */}
-          <div style={{ position: 'absolute', top: 2, left: 2, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 2px #FFD700' }} />
-          <div style={{ position: 'absolute', top: 2, right: 2, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 2px #FFD700' }} />
-          <div style={{ position: 'absolute', bottom: 2, left: 2, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 2px #FFD700' }} />
-          <div style={{ position: 'absolute', bottom: 2, right: 2, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 2px #FFD700' }} />
-
-          {/* Sweeping shine overlay */}
-          <div className="absolute inset-0 pointer-events-none" style={{
-            background: 'linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.38) 50%, transparent 62%)',
-            animation: 'gamesShine 2.6s ease-in-out infinite',
-          }} />
-
-          {/* Icon tile */}
-          <div className="relative flex items-center justify-center"
-            style={{
-              width: 18, height: 18,
-              background: 'linear-gradient(135deg, rgba(0,0,0,0.25), rgba(0,0,0,0.15))',
-              border: '1px solid rgba(255,255,255,0.3)',
-              borderRadius: 3,
-            }}>
-            <IconController size={13} />
-          </div>
-
-          <div className="relative flex items-center gap-1">
-            <span className="font-pixel text-white" style={{ fontSize: 7, letterSpacing: 0.6, textShadow: '1px 1px 0 #2E0F5C' }}>GAMES</span>
-            <div style={{ animation: 'gamesStar 1.4s ease-in-out infinite' }}>
-              <IconStar size={9} />
-            </div>
-          </div>
-        </div>
-
-        <style jsx>{`
-          @keyframes gamesShine {
-            0%, 30% { transform: translateX(-120%); }
-            60%, 100% { transform: translateX(120%); }
-          }
-          @keyframes gamesStar {
-            0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
-            50%      { transform: scale(1.25) rotate(15deg); opacity: 0.75; }
-          }
-        `}</style>
+      <button type="button" onClick={e => { e.stopPropagation(); playSound('ui_tap'); router.push('/games'); setTimeout(onClose, 400) }}
+        className="meadow-root absolute right-4 z-50 m-press m-focus"
+        style={{ ...ROOM_PILL, top: `calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE + 48}px)` }}>
+        <MeadowIcon name="pad" size={18} />
+        Arcade
       </button>
 
       {toast && <CareToast msg={toast} tone="#A78BFA" top={`calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE + 112}px)`} />}

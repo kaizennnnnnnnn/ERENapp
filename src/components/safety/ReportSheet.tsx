@@ -14,12 +14,11 @@
  */
 
 import { useId, useState } from 'react'
-import { CheckDisc, IconTile, M, PrimaryButton, SecondaryButton, Sheet, TINT, TYPE, FONT_ROUNDED } from '@/components/meadow'
+import { CheckDisc, IconTile, M, PrimaryButton, SecondaryButton, Sheet, TINT, TYPE, FONT_ROUNDED, useSheetExit } from '@/components/meadow'
 import {
   REPORT_REASONS, URGENT_REASONS, reportContent,
   type ReportReason, type ReportTarget,
 } from '@/lib/reporting'
-import { useSheetExit } from './useSheetExit'
 
 interface Props {
   target: ReportTarget

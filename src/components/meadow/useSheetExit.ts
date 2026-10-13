@@ -1,7 +1,7 @@
 'use client'
 
-// The safety sheets are mounted by their callers only while open, and the
-// caller unmounts them in onClose. A Meadow Sheet slides out over 180ms, so
+// For a Sheet its caller mounts only while open and unmounts in onClose (the
+// safety sheets, the leaderboard). A Meadow Sheet slides out over 180ms, so
 // closing first lowers the sheet and only then tells the caller, or the sheet
 // would vanish mid-air.
 

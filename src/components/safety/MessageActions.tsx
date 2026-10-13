@@ -15,9 +15,8 @@
  */
 
 import { useState } from 'react'
-import { DangerButton, ListGroup, ListRow, M, SecondaryButton, Sheet, TYPE } from '@/components/meadow'
+import { DangerButton, ListGroup, ListRow, M, SecondaryButton, Sheet, TYPE, useSheetExit } from '@/components/meadow'
 import ReportSheet from './ReportSheet'
-import { useSheetExit } from './useSheetExit'
 import type { ReportTarget } from '@/lib/reporting'
 
 interface Props {

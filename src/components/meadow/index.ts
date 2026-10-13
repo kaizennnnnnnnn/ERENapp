@@ -20,5 +20,6 @@ export {
 } from './Display'
 export { Stage, SpeechBubble, type StageProps, type SpeechBubbleProps } from './Stage'
 export { Sheet, type SheetProps } from './Sheet'
+export { useSheetExit } from './useSheetExit'
 export { GAME_ICON, GAME_TINT } from './gameIcons'
 export { MeadowIcon, MEADOW_ICON_NAMES, type MeadowIconName, type MeadowIconProps } from '@/components/PixelIcons'
