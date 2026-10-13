@@ -1,22 +1,21 @@
 'use client'
 
-// Pixel-art thinking cloud that floats above Eren on the home screen.
-// Drawn as a low-resolution SVG cell grid with shape-rendering: crispEdges
-// so it matches the rest of the pixel UI instead of looking like a smooth
-// vector bubble.
+// The thought cloud that floats beside the cat on the home screen: the way to
+// send your partner a note or a gift through the cat.
 //
 // Four interaction states:
-//   1. 'idle'    — single small pixel cloud with three pulsing dots and two
-//                  trailing puffs leading down to Eren's head.
-//   2. 'split'   — the cloud splits into three side-by-side mini clouds
-//                  (note / gift / board), each carrying a pixel icon.
+//   1. 'idle'    — one small cloud with three blinking dots and two trailing
+//                  puffs leading down to the cat's head.
+//   2. 'split'   — the cloud splits into three clouds side by side (note /
+//                  gift / board), each with its icon on a tint and a label.
 //   3. 'message' — the note composer, a Meadow sheet.
 //   4. 'gift'    — the gift picker, the same sheet in its other mood.
 //
-// The clouds are pixel art on the room painting and stay that way; the two
-// composers are ordinary app screens, so they're Meadow sheets like Send Eren.
+// In the Meadow look: the clouds are white pieces over the room art like the
+// top bar and the home row (soft round shapes, the over-art lip, no outline,
+// no glow). Each one still bobs on its own.
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { forwardRef, useEffect, useId, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useCouple } from '@/hooks/useCouple'
@@ -25,11 +24,12 @@ import { useCat } from '@/hooks/useCat'
 import { playSound } from '@/lib/sounds'
 import { FOOD_META, FOOD_ORDER } from '@/lib/foodMeta'
 import FoodIcon from '@/components/care/FoodIcon'
-import { IconEnvelope, IconGift, IconPin } from '@/components/PixelIcons'
+import HudBadge from '@/components/home/HudBadge'
 import {
   IconTile, MeadowIcon, PrimaryButton, Sheet, Tag, TextButton,
   FONT_ROUNDED, M, TINT, TYPE,
 } from '@/components/meadow'
+import type { MeadowIconName } from '@/components/PixelIcons'
 import type { FoodInventory, FoodKey } from '@/types'
 
 type Mode = 'idle' | 'split' | 'message' | 'gift'
@@ -38,18 +38,20 @@ const CLOUD_BOTTOM = '30%'
 const Z_BACKDROP = 55
 const Z_CLOUD = 56
 
-const MSG_TINT = '#A78BFA'
-const GIFT_TINT = '#F5C842'
-const BOARD_TINT = '#E8A05C'
 const MAX_MSG = 200
 /** How long "Delivered" stays before the sheet drops away by itself. */
 const SENT_HOLD_MS = 1100
 
-// Split-cloud width. Sized so the cloud's three full-width interior rows are
-// tall enough to seat the icon WITHIN the puff — the old emoji was scaled off
-// the SVG grid and burst out through the outline.
-const CLOUD_TAB_W = 84
-const CLOUD_TAB_ICON = 20
+const IDLE_CLOUD_W = 70
+// Three 88px clouds and their gaps are 284px: room to spare at 360.
+const CLOUD_TAB_W = 88
+
+// The three clouds of the split, left to right.
+const TABS: { key: 'message' | 'gift' | 'board'; label: string; ariaLabel: string; icon: MeadowIconName; tint: string; color?: string }[] = [
+  { key: 'message', label: 'Note', ariaLabel: 'Send a note', icon: 'envelope', tint: TINT.lilac, color: '#8E7CC3' },
+  { key: 'gift', label: 'Gift', ariaLabel: 'Send a gift', icon: 'gift', tint: TINT.leaf },
+  { key: 'board', label: 'Board', ariaLabel: 'Open the note board', icon: 'pin', tint: TINT.love },
+]
 
 // Per-cloud motion. All three used to inherit ONE drift animation from the
 // shared anchor and one breathe period, so the row rose and fell as a single
@@ -86,10 +88,18 @@ export default function ThoughtCloud() {
   // The sheet keeps showing the composer it opened with while it slides away.
   const [shown, setShown] = useState<'message' | 'gift'>('message')
   const noteRef = useRef<HTMLTextAreaElement>(null)
+  const idleRef = useRef<HTMLButtonElement>(null)
+  const firstTabRef = useRef<HTMLButtonElement>(null)
   const noteId = useId()
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
   useEffect(() => { if (mode === 'message' || mode === 'gift') setShown(mode) }, [mode])
+
+  // The split is a little menu: focus lands on its first cloud (and Escape
+  // there folds it back into the one cloud, focus with it).
+  useEffect(() => {
+    if (mode === 'split') firstTabRef.current?.focus({ preventScroll: true })
+  }, [mode])
 
   const partnerFirst = partner?.name?.split(' ')[0] ?? 'them'
   const myPile: FoodInventory = (user?.id && stats?.food_by_user?.[user.id]) || {}
@@ -100,6 +110,18 @@ export default function ThoughtCloud() {
     setSent(null)
     setError(null)
     setMode(next)
+  }
+
+  function closeSplit() {
+    playSound('ui_modal_close')
+    setMode('idle')
+    timers.current.push(setTimeout(() => idleRef.current?.focus({ preventScroll: true }), 0))
+  }
+
+  function pickTab(key: 'message' | 'gift' | 'board') {
+    playSound('ui_tap')
+    if (key === 'board') router.push('/notes')
+    else openComposer(key)
   }
 
   function closeComposer() {
@@ -166,90 +188,62 @@ export default function ThoughtCloud() {
   // worse bug than the one being fixed.
   if (isSolo) return null
 
-  // ── idle: single pixel cloud (also what sits behind an open composer) ──
+  // ── idle: one cloud (also what sits behind an open composer) ──────
+  const unreadLabel = unreadNotes > 0
+    ? `, ${unreadNotes} new ${unreadNotes === 1 ? 'note' : 'notes'} on the board`
+    : ''
   const idleCloud = (
       <CloudAnchor zIndex={4}>
         <button
+          ref={idleRef}
+          type="button"
           onClick={() => { playSound('ui_modal_open'); setMode('split') }}
-          className="active:scale-95 transition-transform pointer-events-auto relative"
-          style={{ background: 'transparent', border: 'none', padding: 0 }}
-          aria-label={cat.t("Open {name}'s thought")}
+          className="m-press m-focus pointer-events-auto"
+          style={{ position: 'relative', display: 'block', background: 'transparent', border: 'none', padding: 0, borderRadius: 24 }}
+          aria-label={cat.t("Open {name}'s thought") + unreadLabel}
         >
-          <PixelCloud width={64} dots />
-          {/* Unread notes waiting on the board — the home screen's only tell
+          <SoftCloud width={IDLE_CLOUD_W} dots breathe="2.2s" />
+          {/* Unread notes waiting on the board: the home screen's only tell
               that one arrived while the app was closed. */}
-          {unreadNotes > 0 && (
-            <span className="absolute flex items-center justify-center" style={{
-              top: -4, right: -6, minWidth: 15, height: 15, padding: '0 3px',
-              fontFamily: '"Press Start 2P"', fontSize: 5, color: '#FFF',
-              background: '#FF1D5E', border: '2px solid #FFF',
-              boxShadow: '0 0 5px rgba(255,29,94,0.7)', borderRadius: 6,
-            }}>{unreadNotes > 9 ? '9+' : unreadNotes}</span>
-          )}
+          {unreadNotes > 0 && <CloudBadge count={unreadNotes} />}
         </button>
         <TrailingPuffs />
       </CloudAnchor>
   )
 
-  // ── split: three side-by-side mini pixel clouds ───────────────────
+  // ── split: three clouds side by side ──────────────────────────────
   const splitClouds = (
       <>
         <div
+          aria-hidden
           className="fixed inset-0"
-          style={{ zIndex: Z_BACKDROP, background: 'rgba(0,0,0,0.18)' }}
-          onClick={() => { playSound('ui_modal_close'); setMode('idle') }}
+          style={{ zIndex: Z_BACKDROP, background: 'rgba(47, 43, 40, 0.18)' }}
+          onClick={closeSplit}
         />
 
-        {/* Centred while open: three 84 px tabs are 272 px wide, which would
-            run off the right edge from the idle cloud's 68 % anchor. */}
+        {/* Centred while open: three clouds are too wide to hang off the idle
+            cloud's 68% anchor. */}
         <CloudAnchor zIndex={Z_CLOUD} left="50%" drift={false}>
           <div
-            className="flex items-start gap-2.5"
-            style={{ animation: 'tcSplitIn 0.32s cubic-bezier(0.34,1.56,0.64,1) both' }}
+            role="group"
+            aria-label={cat.t("Send something through {name}")}
+            onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); closeSplit() } }}
+            className="flex items-start"
+            style={{ gap: 10, animation: 'tcSplitIn 0.32s cubic-bezier(0.34,1.56,0.64,1) both' }}
           >
-            <CloudTab
-              tint={MSG_TINT} label="NOTE" ariaLabel="Send a message"
-              motion={TAB_MOTION[0]}
-              onPick={() => openComposer('message')}
-            >
-              <IconEnvelope size={CLOUD_TAB_ICON} />
-            </CloudTab>
-            <CloudTab
-              tint={GIFT_TINT} label="GIFT" ariaLabel="Send a gift"
-              motion={TAB_MOTION[1]}
-              onPick={() => openComposer('gift')}
-            >
-              <IconGift size={CLOUD_TAB_ICON} />
-            </CloudTab>
-            <CloudTab
-              tint={BOARD_TINT} label="BOARD" ariaLabel="Open the note board"
-              motion={TAB_MOTION[2]}
-              badge={unreadNotes}
-              onPick={() => router.push('/notes')}
-            >
-              <IconPin size={CLOUD_TAB_ICON} tone="#E8365D" />
-            </CloudTab>
+            {TABS.map((t, i) => (
+              <CloudTab
+                key={t.key}
+                ref={i === 0 ? firstTabRef : undefined}
+                tab={t}
+                motion={TAB_MOTION[i]}
+                badge={t.key === 'board' ? unreadNotes : 0}
+                onPick={() => pickTab(t.key)}
+              />
+            ))}
           </div>
           <TrailingPuffs />
         </CloudAnchor>
-
-        <style jsx global>{`
-          @keyframes tcSplitIn {
-            0%   { transform: scale(0.4); opacity: 0; }
-            60%  { transform: scale(1.08); opacity: 1; }
-            100% { transform: scale(1); opacity: 1; }
-          }
-          /* Per-cloud bob. Amplitude and tilt come from --tc-lift / --tc-rot so
-             one keyframe can serve three clouds with visibly different motion. */
-          @keyframes tcTabFloat {
-            0%   { transform: translateY(0)               rotate(calc(var(--tc-rot) * -1)); }
-            50%  { transform: translateY(var(--tc-lift))  rotate(var(--tc-rot)); }
-            100% { transform: translateY(0)               rotate(calc(var(--tc-rot) * -1)); }
-          }
-          @media (prefers-reduced-motion: reduce) {
-            @keyframes tcTabFloat { 0%, 100% { transform: none; } }
-          }
-        `}</style>
       </>
   )
 
@@ -271,6 +265,7 @@ export default function ThoughtCloud() {
   return (
     <>
       {mode === 'split' ? splitClouds : idleCloud}
+      <CloudKeyframes />
 
       <Sheet
         open={open}
@@ -387,244 +382,146 @@ const ERROR: React.CSSProperties = {
 }
 
 // ────────────────────────────────────────────────────────────────────
-// PixelCloud — low-res SVG cell grid rendered with crispEdges.
+// SoftCloud — a white cloud drawn from three round puffs on a rounded
+// base, with the over-art lip under it.
 //
-// The cloud is described as a 17 × 9 grid of cells. Each cell can be one
-// of:  '.' empty, '#' outline (dark stroke), 'o' fill (white), 'D' dot
-// hotspot (pulsing accent). The grid maps to SVG <rect> elements with
-// shape-rendering="crispEdges" so it always scales as crisp pixels.
-//
-// `width` sets the rendered width in CSS pixels; height is derived from the
-// grid aspect ratio. Tweaking the grid here changes every instance.
+// The lip is the same shapes 3px lower, painted as ONE layer (group
+// opacity) so the puffs' overlaps don't darken where they meet.
+// `width` sets the rendered width; height follows the 100 × 62 box.
 // ────────────────────────────────────────────────────────────────────
-// 14 cols × 7 rows. Symmetric puff silhouette — bumps on BOTH the top
-// and bottom edges so the shape reads as a real fluffy cloud, not as
-// castle battlements with a flat base. Two top puffs + two bottom puffs
-// offset against each other, plus side curls. Three dots sit on the
-// widest row through the middle.
-const CLOUD_GRID: string[] = [
-  '....##..##....',
-  '..##oo##oo##..',
-  '.#oooooooooo#.',
-  '#ooDoooDoooDo#',
-  '.#oooooooooo#.',
-  '..##oo##oo##..',
-  '....##..##....',
-]
+const CLOUD_VB_W = 100
+const CLOUD_VB_H = 62
 
-function PixelCloud({
-  width,
-  tint = '#7C3AED',
-  dots = false,
-  breathe,
-  breatheDelay,
-}: {
+function CloudShapes() {
+  return (
+    <>
+      <rect x={6} y={28} width={88} height={30} rx={15} />
+      <circle cx={30} cy={32} r={18} />
+      <circle cx={55} cy={26} r={22} />
+      <circle cx={77} cy={35} r={15} />
+    </>
+  )
+}
+
+function SoftCloud({ width, dots = false, breathe, breatheDelay }: {
   width: number
-  tint?: string
+  /** The three blinking dots of the idle cloud. */
   dots?: boolean
-  /** Override the puff-breathe period. Split tabs pass their own so the three
-   *  clouds don't squash in unison. */
-  breathe?: string
-  /** Negative delay — starts the loop already mid-cycle instead of letting all
-   *  three fall into step at t=0. */
+  /** Puff-breathe period; the split clouds pass their own so they don't
+   *  squash in unison. */
+  breathe: string
+  /** Negative delay: starts the loop already mid-cycle. */
   breatheDelay?: string
 }) {
-  const cols = CLOUD_GRID[0].length
-  const rows = CLOUD_GRID.length
-  const cell = 4 // viewBox units per cell
-  const w = cols * cell
-  const h = rows * cell
-  const height = Math.round((width * h) / w)
-
-  // Find the dot positions (cells flagged 'D' in the grid).
-  const dotCells: Array<[number, number]> = []
-  if (dots) {
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        if (CLOUD_GRID[r][c] === 'D') dotCells.push([c, r])
-      }
-    }
-  }
-
   return (
     <svg
       width={width}
-      height={height}
-      viewBox={`0 0 ${w} ${h}`}
-      shapeRendering="crispEdges"
+      height={Math.round((width * CLOUD_VB_H) / CLOUD_VB_W)}
+      viewBox={`0 0 ${CLOUD_VB_W} ${CLOUD_VB_H}`}
+      aria-hidden
+      className="tc-move"
       style={{
-        display: 'block',
-        imageRendering: 'pixelated',
-        // Squash-and-stretch the silhouette itself so the cloud puffs
-        // breathe instead of staying rigid while it drifts.
+        display: 'block', overflow: 'visible',
+        // The puffs breathe while the cloud drifts, so it never sits rigid.
         transformOrigin: '50% 60%',
-        animation: dots
-          ? 'tcCloudBreathe 2.2s ease-in-out infinite'
-          : `tcCloudBreatheSm ${breathe ?? '2.4s'} ease-in-out infinite`,
+        animation: `tcCloudBreathe ${breathe} ease-in-out infinite`,
         animationDelay: breatheDelay,
       }}
     >
-      {/* Hard pixel drop shadow — one cell offset down-right, behind fills. */}
-      {CLOUD_GRID.flatMap((row, r) =>
-        row.split('').map((ch, c) =>
-          ch === '#' || ch === 'o' || ch === 'D' ? (
-            <rect
-              key={`sh-${r}-${c}`}
-              x={c * cell + 2}
-              y={r * cell + 2}
-              width={cell}
-              height={cell}
-              fill="rgba(0,0,0,0.18)"
-            />
-          ) : null
-        )
-      )}
-
-      {/* Fills (white cloud body). */}
-      {CLOUD_GRID.flatMap((row, r) =>
-        row.split('').map((ch, c) =>
-          ch === 'o' || ch === 'D' ? (
-            <rect
-              key={`fl-${r}-${c}`}
-              x={c * cell}
-              y={r * cell}
-              width={cell}
-              height={cell}
-              fill="#FFFFFF"
-            />
-          ) : null
-        )
-      )}
-
-      {/* Outline cells. */}
-      {CLOUD_GRID.flatMap((row, r) =>
-        row.split('').map((ch, c) =>
-          ch === '#' ? (
-            <rect
-              key={`ol-${r}-${c}`}
-              x={c * cell}
-              y={r * cell}
-              width={cell}
-              height={cell}
-              fill={tint}
-            />
-          ) : null
-        )
-      )}
-
-      {/* Three pulsing dots inside the cloud. */}
-      {dots && dotCells.map(([c, r], i) => (
-        <rect
-          key={`dot-${i}`}
-          x={c * cell}
-          y={r * cell}
-          width={cell}
-          height={cell}
-          fill={tint}
-          style={{ animation: `tcDotBlink 1.2s steps(2) infinite`, animationDelay: `${i * 0.18}s` }}
+      <g transform="translate(0 3)" fill={M.text} opacity={0.16}><CloudShapes /></g>
+      <g fill="#FFFFFF"><CloudShapes /></g>
+      {dots && [35, 50, 65].map((cx, i) => (
+        <circle
+          key={cx} cx={cx} cy={40} r={4.5} fill={M.text2}
+          className="tc-move"
+          style={{ animation: 'tcDotBlink 1.2s steps(2) infinite', animationDelay: `${i * 0.18}s` }}
         />
       ))}
-
-      <style>{`
-        @keyframes tcDotBlink {
-          0%, 49%   { opacity: 0.25; }
-          50%, 100% { opacity: 1; }
-        }
-        @keyframes tcCloudBreathe {
-          0%   { transform: scale(1, 1)         skewX(0deg); }
-          25%  { transform: scale(1.06, 0.95)   skewX(-1.5deg); }
-          50%  { transform: scale(1.02, 1.04)   skewX(0deg); }
-          75%  { transform: scale(0.97, 1.03)   skewX(1.5deg); }
-          100% { transform: scale(1, 1)         skewX(0deg); }
-        }
-        @keyframes tcCloudBreatheSm {
-          0%   { transform: scale(1, 1)         skewX(0deg); }
-          50%  { transform: scale(1.05, 0.96)   skewX(-1deg); }
-          100% { transform: scale(1, 1)         skewX(0deg); }
-        }
-      `}</style>
     </svg>
   )
 }
 
 // ────────────────────────────────────────────────────────────────────
-// CloudTab — one of the two split clouds: a pixel puff with an icon
-// riding on it and a label underneath.
+// CloudTab — one of the three split clouds: a cloud with its icon on a
+// tint riding on it, and a label underneath.
 //
 // The icon is an HTML sibling layered over the SVG rather than a child of
-// it, so it stays put while the cloud breathes beneath — a pixel glyph
-// smears badly if you scale it 6% at 18px.
+// it, so it stays put while the cloud breathes beneath.
 // ────────────────────────────────────────────────────────────────────
-function CloudTab({
-  tint, label, ariaLabel, onPick, motion, badge = 0, children,
-}: {
-  tint: string
-  label: string
-  ariaLabel: string
+const CloudTab = forwardRef<HTMLButtonElement, {
+  tab: (typeof TABS)[number]
   onPick: () => void
   /** This cloud's own drift + breathe timings — see TAB_MOTION. */
   motion: TabMotion
-  /** Unread count shown as a corner pip. 0 hides it. */
+  /** Unread count on the cloud's corner. 0 hides it. */
   badge?: number
-  children: React.ReactNode
-}) {
+}>(function CloudTab({ tab, onPick, motion, badge = 0 }, ref) {
+  const cloudH = Math.round((CLOUD_TAB_W * CLOUD_VB_H) / CLOUD_VB_W)
   return (
     <button
-      onClick={(e) => { e.stopPropagation(); playSound('ui_tap'); onPick() }}
-      className="flex flex-col items-center gap-1 active:scale-95 transition-transform pointer-events-auto"
-      style={{ background: 'transparent', border: 'none', padding: 0 }}
-      aria-label={ariaLabel}
+      ref={ref}
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onPick() }}
+      className="m-press m-focus pointer-events-auto"
+      style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+        background: 'transparent', border: 'none', padding: 0, borderRadius: 20,
+        fontFamily: FONT_ROUNDED, cursor: 'pointer',
+      }}
+      aria-label={badge > 0 ? `${tab.ariaLabel}, ${badge} new` : tab.ariaLabel}
     >
-      {/* The cloud floats; the label chip below stays put, so the row of
-          labels reads as a stable base under three independent puffs. */}
-      <span style={{
+      {/* The cloud floats; the label below stays put, so the row of labels
+          reads as a steady base under three independent clouds. */}
+      <span className="tc-move" style={{
         position: 'relative', display: 'block',
         ['--tc-lift' as string]: motion.lift,
         ['--tc-rot' as string]: motion.rot,
         animation: `tcTabFloat ${motion.float} ease-in-out infinite`,
         animationDelay: motion.floatDelay,
       }}>
-        <PixelCloud width={CLOUD_TAB_W} tint={tint}
-          breathe={motion.breathe} breatheDelay={motion.breatheDelay} />
+        <SoftCloud width={CLOUD_TAB_W} breathe={motion.breathe} breatheDelay={motion.breatheDelay} />
+        {/* Seated on the cloud's broad middle (y 38 of 62), clear of the puffs' edges. */}
         <span style={{
-          position: 'absolute', inset: 0,
+          position: 'absolute', left: '50%', top: Math.round(cloudH * 38 / CLOUD_VB_H),
+          transform: 'translate(-50%, -50%)',
+          width: 36, height: 36, borderRadius: 999, background: tab.tint,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           pointerEvents: 'none',
         }}>
-          {children}
+          <MeadowIcon name={tab.icon} size={22} color={tab.color} />
         </span>
-        {badge > 0 && (
-          <span className="absolute flex items-center justify-center" style={{
-            top: -2, right: 4, minWidth: 15, height: 15, padding: '0 3px',
-            fontFamily: '"Press Start 2P"', fontSize: 5, color: '#FFF',
-            background: '#FF1D5E', border: '2px solid #FFF',
-            boxShadow: '0 0 5px rgba(255,29,94,0.7)', borderRadius: 6,
-          }}>{badge > 9 ? '9+' : badge}</span>
-        )}
+        {badge > 0 && <CloudBadge count={badge} />}
       </span>
-      {/* Label sits on its own chip rather than floating on the room art — a
-          4-way white text-halo blurred the 6px glyphs into mush. */}
-      <span className="font-pixel" style={{
-        fontSize: 6, letterSpacing: 1, color: '#4A3A5A',
-        background: '#FFF', padding: '2px 5px',
-        border: `2px solid ${tint}`,
-        boxShadow: '1px 1px 0 rgba(0,0,0,0.2)',
+      <span style={{
+        padding: '3px 11px', borderRadius: 999, background: '#FFFFFF',
+        boxShadow: `0 2px 0 ${M.overArtLip}`,
+        fontSize: 13, lineHeight: '18px', fontWeight: 800, color: M.text,
       }}>
-        {label}
+        {tab.label}
       </span>
     </button>
+  )
+})
+
+// The home row's count badge, seated on the cloud's right puff: that puff
+// is lower than the box's top corner, where the badge would hang in the air.
+function CloudBadge({ count }: { count: number }) {
+  return (
+    <span style={{ position: 'absolute', inset: '30% 0 0 0', pointerEvents: 'none' }}>
+      <HudBadge>{count > 9 ? '9+' : count}</HudBadge>
+    </span>
   )
 }
 
 // ────────────────────────────────────────────────────────────────────
 // CloudAnchor — fixed-positioned wrapper that sits the cloud just
-// above Eren on the home screen.
+// above the cat on the home screen.
 // ────────────────────────────────────────────────────────────────────
 function CloudAnchor({ children, zIndex, left = '68%', drift = true }: {
   children: React.ReactNode
   zIndex: number
-  /** Horizontal anchor. Defaults to Eren's right shoulder; the open split
-   *  passes 50% because three tabs are too wide to hang off-centre. */
+  /** Horizontal anchor. Defaults to the cat's right shoulder; the open split
+   *  passes 50% because three clouds are too wide to hang off-centre. */
   left?: string
   /** Drift the whole anchor. Right for the lone idle cloud; the split turns it
    *  OFF, because moving the wrapper moves all three clouds as one slab — each
@@ -633,12 +530,12 @@ function CloudAnchor({ children, zIndex, left = '68%', drift = true }: {
 }) {
   return (
     <div
-      className="fixed pointer-events-none"
+      className={`meadow-root fixed pointer-events-none${drift ? ' tc-move' : ''}`}
       style={{
         bottom: CLOUD_BOTTOM,
-        // Shifted right of Eren's head — the cloud now peeks out from his
-        // right side rather than floating directly above him. translateX
-        // keeps the element anchored to that offset point.
+        // Right of the cat's head: the cloud peeks out from his right side
+        // rather than floating straight above him. translateX keeps the
+        // element anchored to that point.
         left,
         transform: 'translateX(-50%)',
         zIndex,
@@ -646,50 +543,62 @@ function CloudAnchor({ children, zIndex, left = '68%', drift = true }: {
       }}
     >
       {children}
-      <style jsx>{`
-        @keyframes tcDrift {
-          0%   { transform: translate(-50%, 0)    rotate(-1.5deg); }
-          25%  { transform: translate(-48%, -5px) rotate(0.8deg); }
-          50%  { transform: translate(-50%, -7px) rotate(1.5deg); }
-          75%  { transform: translate(-52%, -4px) rotate(-0.6deg); }
-          100% { transform: translate(-50%, 0)    rotate(-1.5deg); }
-        }
-      `}</style>
     </div>
   )
 }
 
-// Two trailing pixel puffs leading down to Eren — the comic "thinking" tell.
-// Sized + spaced so they bridge the gap between the cloud body and Eren's
-// head, making the whole thing read as one connected illustration.
+// Two trailing puffs leading down to the cat: the comic "thinking" tell.
+// Sized and spaced to bridge the gap between the cloud and the cat's head.
 function TrailingPuffs() {
+  const puff = (size: number): React.CSSProperties => ({
+    position: 'absolute', width: size, height: size, borderRadius: 999,
+    background: '#FFFFFF', boxShadow: `0 2px 0 ${M.overArtLip}`,
+  })
   return (
     <>
-      <div
-        className="absolute"
-        style={{
-          left: '50%',
-          bottom: -10,
-          transform: 'translateX(-50%)',
-          width: 8, height: 8,
-          background: '#FFFFFF',
-          border: '2px solid #7C3AED',
-          boxShadow: '1px 1px 0 rgba(0,0,0,0.18)',
-          imageRendering: 'pixelated',
-        }}
-      />
-      <div
-        className="absolute"
-        style={{
-          left: 'calc(50% - 14px)',
-          bottom: -20,
-          width: 5, height: 5,
-          background: '#FFFFFF',
-          border: '2px solid #7C3AED',
-          boxShadow: '1px 1px 0 rgba(0,0,0,0.18)',
-          imageRendering: 'pixelated',
-        }}
-      />
+      <div aria-hidden style={{ ...puff(12), left: '50%', bottom: -14, transform: 'translateX(-50%)' }} />
+      <div aria-hidden style={{ ...puff(7), left: 'calc(50% - 15px)', bottom: -25 }} />
     </>
+  )
+}
+
+// Every keyframe the clouds use, once. A plain <style>: these names are used
+// from inline styles, which only resolve global keyframes (the old drift sat
+// in a scoped styled-jsx block and so never ran).
+function CloudKeyframes() {
+  return (
+    <style>{`
+      @keyframes tcDrift {
+        0%   { transform: translate(-50%, 0)    rotate(-1.5deg); }
+        25%  { transform: translate(-48%, -5px) rotate(0.8deg); }
+        50%  { transform: translate(-50%, -7px) rotate(1.5deg); }
+        75%  { transform: translate(-52%, -4px) rotate(-0.6deg); }
+        100% { transform: translate(-50%, 0)    rotate(-1.5deg); }
+      }
+      @keyframes tcSplitIn {
+        0%   { transform: scale(0.4); opacity: 0; }
+        60%  { transform: scale(1.08); opacity: 1; }
+        100% { transform: scale(1); opacity: 1; }
+      }
+      /* Per-cloud bob. Amplitude and tilt come from --tc-lift / --tc-rot so
+         one keyframe serves three clouds with visibly different motion. */
+      @keyframes tcTabFloat {
+        0%   { transform: translateY(0)              rotate(calc(var(--tc-rot) * -1)); }
+        50%  { transform: translateY(var(--tc-lift)) rotate(var(--tc-rot)); }
+        100% { transform: translateY(0)              rotate(calc(var(--tc-rot) * -1)); }
+      }
+      @keyframes tcCloudBreathe {
+        0%   { transform: scale(1, 1); }
+        50%  { transform: scale(1.04, 0.97); }
+        100% { transform: scale(1, 1); }
+      }
+      @keyframes tcDotBlink {
+        0%, 49%   { opacity: 0.3; }
+        50%, 100% { opacity: 1; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .tc-move { animation: none !important; }
+      }
+    `}</style>
   )
 }
