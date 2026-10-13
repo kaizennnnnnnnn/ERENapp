@@ -11,6 +11,7 @@ import { playSound } from '@/lib/sounds'
 import { useIsDark } from '@/hooks/useIsDark'
 import CurtainGlitter from '@/components/CurtainGlitter'
 import { ROOM_HEADER_CLEARANCE } from '@/components/meadow/tokens'
+import { M, PrimaryButton, TextButton, FONT_ROUNDED } from '@/components/meadow'
 
 // Scenes are lazy chunks instead of static imports so the ~560 KB of room
 // code stays out of the shared (app) layout bundle every route parses.
@@ -309,6 +310,13 @@ export default function CareSceneHost() {
           from { opacity: 0; transform: translateY(-6px); }
           to   { opacity: 1; transform: translateY(0);    }
         }
+        @keyframes roomLoadDot {
+          0%, 100% { opacity: 0.25; }
+          50%      { opacity: 1; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .room-load-dot { animation: none !important; opacity: 0.6; }
+        }
       `}</style>
 
       {/* Dreamy "between rooms" backdrop — what shows in the gap as a room
@@ -330,27 +338,29 @@ export default function CareSceneHost() {
         </div>
       </div>
 
-      {/* Custom loading screen — matches the app splash (dark purple bg) */}
+      {/* Loading the room: the cat walking on the Meadow's soft ground, the
+          room's name, and three leaf dots. (The dots' keyframes used to sit in
+          a scoped styled-jsx block, which an inline style can't reach, so
+          they never blinked.) */}
       {!ready && !loadError && (
         <div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5"
-          style={{ background: '#0F0A1E' }}
+          role="status"
+          className="meadow-root fixed inset-0 z-50 flex flex-col items-center justify-center"
+          style={{ background: M.soft, gap: 14 }}
         >
-          <AnimatedEren px={4} />
-          <div className="flex items-center gap-1.5">
+          <AnimatedEren px={4} glow={false} />
+          <span style={{ fontFamily: FONT_ROUNDED, fontSize: 17, fontWeight: 800, color: M.text }}>
+            {SCENE_LABELS[activeScene]}
+          </span>
+          <span aria-hidden className="flex items-center" style={{ gap: 6 }}>
             {[0, 1, 2].map(i => (
-              <div key={i} className="rounded-full" style={{
-                width: 5, height: 5, background: '#A78BFA',
-                animation: `splDot 1s ease-in-out ${i * 0.15}s infinite`,
+              <span key={i} className="room-load-dot" style={{
+                width: 7, height: 7, borderRadius: 999, background: M.leaf,
+                animation: `roomLoadDot 1s ease-in-out ${i * 0.15}s infinite`,
               }} />
             ))}
-          </div>
-          <style jsx>{`
-            @keyframes splDot {
-              0%, 100% { opacity: 0.2; }
-              50% { opacity: 1; }
-            }
-          `}</style>
+          </span>
+          <span className="sr-only">Loading</span>
         </div>
       )}
 
@@ -360,53 +370,24 @@ export default function CareSceneHost() {
           back out to the home page. */}
       {loadError && (
         <div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 px-8"
-          style={{ background: '#0F0A1E' }}
+          role="alert"
+          className="meadow-root fixed inset-0 z-50 flex flex-col items-center justify-center px-6"
+          style={{ background: M.soft }}
         >
-          <AnimatedEren px={3} />
-          <div className="text-center" style={{ maxWidth: 280 }}>
-            <p className="font-pixel" style={{ fontSize: 9, color: '#F9A8D4', letterSpacing: 2, marginBottom: 10 }}>
-              CAN&apos;T REACH THE ROOM
+          <AnimatedEren px={3} glow={false} />
+          <div className="text-center" style={{ maxWidth: 300, marginTop: 18 }}>
+            <p style={{ margin: 0, fontSize: 22, lineHeight: 1.2, fontWeight: 800, color: M.text }}>
+              Can&apos;t reach the {SCENE_LABELS[activeScene as CareScene]?.replace(/^The /, '').toLowerCase()}
             </p>
-            <p className="font-pixel" style={{ fontSize: 7, color: '#E8DCFA', lineHeight: 1.7, letterSpacing: 0.5 }}>
-              looks like you&apos;re offline. once you&apos;re back online the
-              {' '}{SCENE_LABELS[activeScene as CareScene]?.toLowerCase()}{' '}
-              will be ready and saved for next time.
+            <p style={{ margin: '8px 0 0', fontSize: 15, lineHeight: 1.45, fontWeight: 500, color: M.text2 }}>
+              It looks like you&apos;re offline. Once you&apos;re back online the room
+              will load and be saved for next time.
             </p>
           </div>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={reloadScene}
-              className="active:translate-y-[1px] transition-transform"
-              style={{
-                fontFamily: '"Press Start 2P", monospace',
-                fontSize: 8, letterSpacing: 1.5, color: '#0F0A1E',
-                background: '#F9A8D4',
-                padding: '10px 16px',
-                border: '2px solid #831843',
-                borderRadius: 4,
-                boxShadow: '3px 3px 0 #831843',
-              }}
-            >
-              RETRY
-            </button>
-            <button
-              type="button"
-              onClick={() => closeScene()}
-              className="active:translate-y-[1px] transition-transform"
-              style={{
-                fontFamily: '"Press Start 2P", monospace',
-                fontSize: 8, letterSpacing: 1.5, color: '#E8DCFA',
-                background: 'rgba(40,28,60,0.9)',
-                padding: '10px 16px',
-                border: '2px solid #5C3A7A',
-                borderRadius: 4,
-                boxShadow: '3px 3px 0 #050507',
-              }}
-            >
-              GO HOME
-            </button>
+          <div className="flex flex-col items-center" style={{ gap: 6, marginTop: 24, width: '100%', maxWidth: 300 }}>
+            <PrimaryButton onClick={reloadScene}>Try again</PrimaryButton>
+            {/* A text button: a soft one would vanish into the soft ground. */}
+            <TextButton tone="muted" onClick={() => closeScene()}>Go home</TextButton>
           </div>
         </div>
       )}
@@ -456,22 +437,22 @@ export default function CareSceneHost() {
 
       {/* Dot indicators — shown with the room label during swipes. */}
       {ready && (
-        <div className="fixed bottom-4 left-1/2 z-50 flex items-center gap-2 px-3 py-1.5"
+        <div aria-hidden className="fixed bottom-4 left-1/2 z-50 flex items-center gap-2 px-3 py-2"
           style={{
-            transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.35)',
-            borderRadius: 20, backdropFilter: 'blur(6px)', pointerEvents: 'none',
+            transform: 'translateX(-50%)', background: '#FFFFFF',
+            borderRadius: 999, boxShadow: `0 3px 0 ${M.overArtLip}`, pointerEvents: 'none',
             opacity: labelVisible ? 1 : 0,
             transition: 'opacity 0.3s ease',
           }}>
-          <div style={{ width: 7, height: 7, borderRadius: 4, background: 'rgba(255,255,255,0.4)', transition: 'all 0.3s ease' }} />
+          {/* Home, first in the loop. */}
+          <div style={{ width: 7, height: 7, borderRadius: 4, background: M.track, transition: 'all 0.3s ease' }} />
           {LOOP_SCENES.map((s, i) => (
             <div key={s} style={{
               width:  i === loopIdx ? 18 : 7,
               height: 7,
               borderRadius: 4,
-              background: i === loopIdx ? SCENE_COLORS[s] : 'rgba(255,255,255,0.4)',
+              background: i === loopIdx ? SCENE_COLORS[s] : M.track,
               transition: 'all 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
-              boxShadow: i === loopIdx ? `0 0 6px 2px ${SCENE_COLORS[s]}88` : 'none',
             }} />
           ))}
         </div>
@@ -488,8 +469,11 @@ export default function CareSceneHost() {
             opacity: labelVisible ? 1 : 0,
             transition: 'opacity 0.3s ease',
           }}>
-          <span key={activeScene} className="font-pixel text-white px-3 py-1"
-            style={{ fontSize: 7, background: 'rgba(0,0,0,0.4)', borderRadius: 10, backdropFilter: 'blur(4px)', animation: 'fadeInDown 0.3s ease both' }}>
+          <span key={activeScene} className="meadow-root" style={{
+            display: 'inline-block', padding: '5px 14px', borderRadius: 999, background: '#FFFFFF',
+            boxShadow: `0 3px 0 ${M.overArtLip}`, fontFamily: FONT_ROUNDED, fontSize: 14, fontWeight: 800,
+            color: M.text, whiteSpace: 'nowrap', animation: 'fadeInDown 0.3s ease both',
+          }}>
             {SCENE_LABELS[activeScene]}
           </span>
         </div>
