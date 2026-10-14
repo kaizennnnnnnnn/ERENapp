@@ -9,19 +9,18 @@
 // without this sheet a fact he got wrong rides in every prompt forever with
 // no way to reach it. So the list is his handwriting, and the delete is yours.
 //
+// A Meadow Sheet: each fact on a soft row with its date, and a quiet Forget
+// that turns into a red "Sure?" before it does anything.
+//
 // Presentation only — useErenMemories owns the data and the optimistic delete.
 // ═════════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { playSound } from '@/lib/sounds'
-import { IconClose } from '@/components/PixelIcons'
 import { useCat } from '@/hooks/useCat'
+import { DangerButton, M, Sheet, TextButton } from '@/components/meadow'
 import type { ErenChatMemory } from '@/types'
-
-const PAPER = '#FFFBF1'
-const INK   = '#4A3A2A'
-const EDGE  = '#D8C3A0'
 
 interface Props {
   open: boolean
@@ -40,148 +39,72 @@ export default function MemorySheet({ open, memories, loading, loaded, onForget,
 
   useEffect(() => { if (!open) setArmed(null) }, [open])
 
-  // Disarm on any outside tap, so a pending confirm never survives a scroll
-  // away and fires on a later, unrelated tap.
+  // Disarm after a moment, so a pending confirm never survives a scroll away
+  // and fires on a later, unrelated tap.
   useEffect(() => {
     if (!armed) return
     const t = setTimeout(() => setArmed(null), 4000)
     return () => clearTimeout(t)
   }, [armed])
 
-  if (!open) return null
-
   return (
-    <div
-      // `fixed`, not `absolute` — as a sibling of the chat surface there is no
-      // positioned ancestor to inset against, and the header (z-10 inside a
-      // fixed root) otherwise stays undimmed while the transcript darkens.
-      className="fixed inset-0 z-[60] flex flex-col justify-end"
-      style={{ background: 'rgba(58,38,18,0.45)' }}
-      onClick={onClose}
+    <Sheet
+      open={open}
+      onClose={() => { playSound('ui_modal_close'); onClose() }}
+      title={cat.t('What {he} remembers')}
+      maxHeight="78%"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="flex flex-col"
-        style={{
-          maxHeight: '78%',
-          background: 'linear-gradient(180deg, #FFF6E6 0%, #F6E4C6 100%)',
-          borderTop: '3px solid #C9A87A',
-          borderTopLeftRadius: 16, borderTopRightRadius: 16,
-          boxShadow: '0 -4px 0 rgba(122,74,34,0.2)',
-          animation: 'memSheetUp 220ms cubic-bezier(0.16, 1, 0.3, 1)',
-        }}
-      >
-        {/* Grab handle */}
-        <div className="flex justify-center pt-2.5 pb-1">
-          <div style={{ width: 40, height: 4, borderRadius: 3, background: '#C9A87A' }} />
-        </div>
+      <p style={{ margin: '0 0 14px', fontSize: 14, lineHeight: 1.45, fontWeight: 500, color: M.text2 }}>
+        {cat.t('{He} writes these {himself} and never mentions it. Delete anything {he} got wrong.')}
+      </p>
 
-        <header className="flex items-center gap-2 px-4 pb-3 pt-1">
-          <div className="flex-1 min-w-0">
-            <div style={{ fontFamily: '"Press Start 2P"', fontSize: 9, color: '#5A3212', letterSpacing: 0.4 }}>
-              {cat.t('WHAT {HE} REMEMBERS')}
-            </div>
-            <div style={{ fontSize: 10.5, color: '#9A7444', marginTop: 4, lineHeight: 1.5 }}>
-              {cat.t('{he} writes these {himself} and never mentions it. delete anything {he} got wrong.')}
-            </div>
-          </div>
-          <button
-            onClick={() => { playSound('ui_modal_close'); onClose() }}
-            aria-label="Close"
-            className="active:scale-90 transition-transform duration-100 shrink-0 flex items-center justify-center"
-            style={{
-              width: 32, height: 32, borderRadius: 9,
-              background: PAPER, border: `2px solid ${EDGE}`, boxShadow: '0 2px 0 #B79B6E',
-            }}
-          >
-            <IconClose size={13} />
-          </button>
-        </header>
+      <div className="flex flex-col" style={{ gap: 8 }}>
+        {!loaded && loading && <Empty text={cat.t('Opening {his} notebook…')} />}
+        {!loaded && !loading && <Empty text={cat.t('Couldn\'t read {his} notebook. Try again in a moment.')} />}
+        {loaded && memories.length === 0 && (
+          <Empty text={cat.t('Nothing yet. {He} keeps things once you\'ve told {him} something worth keeping.')} />
+        )}
 
-        <div className="overflow-y-auto px-4 pb-5 flex flex-col gap-2">
-          {!loaded && loading && (
-            <Empty text={cat.t('opening {his} notebook…')} />
-          )}
-
-          {!loaded && !loading && (
-            <Empty text={cat.t('couldn\'t read {his} notebook. try again in a moment.')} />
-          )}
-
-          {loaded && memories.length === 0 && (
-            <Empty text={cat.t('nothing yet. {he} keeps things once you\'ve told {him} something worth keeping.')} />
-          )}
-
-          {memories.map((m) => {
-            const isArmed = armed === m.id
-            return (
-              <div
-                key={m.id}
-                className="flex items-start gap-2.5"
-                style={{
-                  background: isArmed ? '#FFECEC' : PAPER,
-                  border: `2px solid ${isArmed ? '#E8A0A0' : EDGE}`,
-                  borderRadius: 10,
-                  boxShadow: `2px 2px 0 ${isArmed ? 'rgba(160,48,48,0.22)' : 'rgba(122,74,34,0.16)'}`,
-                  padding: '10px 11px',
-                  transition: 'background 140ms, border-color 140ms',
-                }}
-              >
-                <div className="flex-1 min-w-0">
-                  <div style={{ fontSize: 12.5, lineHeight: 1.5, color: INK, wordBreak: 'break-word' }}>
-                    {m.fact}
-                  </div>
-                  <div style={{ fontFamily: '"Press Start 2P"', fontSize: 6, color: '#B79B6E', marginTop: 6 }}>
-                    {format(new Date(m.created_at), 'MMM d').toUpperCase()}
-                  </div>
+        {memories.map((m) => {
+          const isArmed = armed === m.id
+          return (
+            <div key={m.id} className="flex items-center" style={{
+              gap: 10, padding: '10px 10px 10px 14px', borderRadius: 18,
+              background: isArmed ? M.dangerTint : M.soft,
+              transition: 'background 140ms',
+            }}>
+              <div className="flex-1 min-w-0">
+                <div style={{ fontSize: 15, lineHeight: 1.45, fontWeight: 500, color: M.text, overflowWrap: 'anywhere' }}>
+                  {m.fact}
                 </div>
-
-                <button
-                  onClick={() => {
-                    if (isArmed) {
-                      playSound('chat_forget')
-                      onForget(m.id)
-                      setArmed(null)
-                    } else {
-                      playSound('ui_tap')
-                      setArmed(m.id)
-                    }
-                  }}
-                  className="active:scale-90 transition-transform duration-100 shrink-0"
-                  style={{
-                    fontFamily: '"Press Start 2P"', fontSize: 6,
-                    color: isArmed ? '#FFF3F3' : '#A8814E',
-                    background: isArmed ? '#C33' : 'transparent',
-                    border: `2px solid ${isArmed ? '#8B1A1A' : EDGE}`,
-                    borderRadius: 7, padding: '7px 8px',
-                    boxShadow: isArmed ? '0 2px 0 #8B1A1A' : 'none',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {isArmed ? 'SURE?' : 'FORGET'}
-                </button>
+                <div style={{ fontSize: 12, fontWeight: 700, color: M.text2, marginTop: 3 }}>
+                  {format(new Date(m.created_at), 'MMM d')}
+                </div>
               </div>
-            )
-          })}
-        </div>
 
-        <style>{`
-          @keyframes memSheetUp {
-            from { transform: translateY(100%); }
-            to   { transform: translateY(0); }
-          }
-        `}</style>
+              {isArmed ? (
+                <DangerButton size="sm" onClick={() => { playSound('chat_forget'); onForget(m.id); setArmed(null) }}
+                  ariaLabel={`Forget: ${m.fact}`} style={{ height: 38, padding: '0 14px' }}>
+                  Sure?
+                </DangerButton>
+              ) : (
+                <TextButton tone="muted" size={14} onClick={() => { playSound('ui_tap'); setArmed(m.id) }}
+                  ariaLabel={`Forget: ${m.fact}`}>
+                  Forget
+                </TextButton>
+              )}
+            </div>
+          )
+        })}
       </div>
-    </div>
+    </Sheet>
   )
 }
 
 function Empty({ text }: { text: string }) {
   return (
-    <div
-      className="text-center px-6 py-8"
-      style={{ fontSize: 12, color: '#9A7444', lineHeight: 1.65 }}
-    >
+    <p style={{ margin: 0, padding: '24px 16px', textAlign: 'center', fontSize: 15, lineHeight: 1.45, fontWeight: 500, color: M.text2 }}>
       {text}
-    </div>
+    </p>
   )
 }
