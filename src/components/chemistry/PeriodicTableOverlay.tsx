@@ -1,11 +1,10 @@
 'use client'
 
 // PeriodicTableOverlay — full-screen study experience entered from the
-// Chemistry room. Chrome is drawn with the shared chemistry pixel kit
-// (components/chemistry/pixel): 3px edges, hard offset shadows, Press Start
-// 2P labels, so the lab reads as part of the same game as every other room
-// instead of an imported study app. Light/dark still toggles — both skins
-// are pixel skins.
+// Chemistry room. A Meadow page on the lilac ground: the lab's name and a
+// close circle on top, the modes as a scrolling row of chips under it. The
+// theme is pinned to light — Meadow has no dark, and the modes' light
+// palette is the one that sits on this ground.
 //
 // Renders through createPortal to document.body so it escapes
 // CareSceneHost's z-40 stacking context; without that, no z-index on
@@ -14,10 +13,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { playSound } from '@/lib/sounds'
-import { IconFlask, IconLightning, IconFire, IconClose, IconSun, IconMoon } from '@/components/PixelIcons'
-import { pixelSkin, hard, PIXEL_FONT, Scanlines, type PixelSkin } from './pixel'
+import { IconFlask } from '@/components/PixelIcons'
 import { ChemistryStoreProvider, useChemistryStore } from '@/lib/chemistry/store'
-import { ChemistryThemeProvider, useChemistryTheme, CHEM_FONT } from '@/lib/chemistry/theme'
+import { ChemistryThemeProvider, useChemistryTheme } from '@/lib/chemistry/theme'
+import { Chip, FONT_ROUNDED, M, MeadowIcon, RoundButton, Tag } from '@/components/meadow'
 import PeriodicTable from './PeriodicTable'
 import Flashcards from './Flashcards'
 import Quiz from './Quiz'
@@ -33,15 +32,15 @@ type Mode = 'home' | 'review' | 'learn' | 'table' | 'flashcards' | 'quiz' | 'mat
 // Header pill strip — order = frequency of use, left to right.
 interface ModeDef { id: Mode; label: string }
 const MODES: ModeDef[] = [
-  { id: 'home',       label: 'HOME' },
-  { id: 'review',     label: 'REVIEW' },
-  { id: 'learn',      label: 'LEARN' },
-  { id: 'table',      label: 'TABLE' },
-  { id: 'flashcards', label: 'CARDS' },
-  { id: 'quiz',       label: 'QUIZ' },
-  { id: 'match',      label: 'MATCH' },
-  { id: 'speed',      label: 'SPEED' },
-  { id: 'locate',     label: 'LOCATE' },
+  { id: 'home',       label: 'Home' },
+  { id: 'review',     label: 'Review' },
+  { id: 'learn',      label: 'Learn' },
+  { id: 'table',      label: 'Table' },
+  { id: 'flashcards', label: 'Cards' },
+  { id: 'quiz',       label: 'Quiz' },
+  { id: 'match',      label: 'Match' },
+  { id: 'speed',      label: 'Speed' },
+  { id: 'locate',     label: 'Locate' },
 ]
 
 interface Props { onClose: () => void }
@@ -49,7 +48,7 @@ interface Props { onClose: () => void }
 export default function PeriodicTableOverlay({ onClose }: Props) {
   return (
     <ChemistryStoreProvider>
-      <ChemistryThemeProvider>
+      <ChemistryThemeProvider forced="light">
         <OverlayInner onClose={onClose} />
       </ChemistryThemeProvider>
     </ChemistryStoreProvider>
@@ -59,8 +58,7 @@ export default function PeriodicTableOverlay({ onClose }: Props) {
 function OverlayInner({ onClose }: Props) {
   const [mode, setMode] = useState<Mode>('home')
   const { dueCount, state, hydrated } = useChemistryStore()
-  const { theme, toggle } = useChemistryTheme()
-  const skin = pixelSkin(theme)
+  const { palette } = useChemistryTheme()
 
   // Open/close transition. The overlay scales + fades in on mount; closing
   // plays the reverse, then unmounts via onClose once the animation lands
@@ -70,7 +68,7 @@ function OverlayInner({ onClose }: Props) {
   useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current) }, [])
   function handleClose() {
     if (closing) return
-    playSound('ui_tap')
+    playSound('ui_modal_close')
     setClosing(true)
     closeTimer.current = setTimeout(onClose, 220)
   }
@@ -79,7 +77,7 @@ function OverlayInner({ onClose }: Props) {
   // Auto-scroll the active pill into the middle of the strip whenever the
   // mode changes (e.g. tapping a pill near the edge keeps it visible). The
   // ref array follows MODES order; we look up the pill for the current id.
-  const pillRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const pillRefs = useRef<Record<string, HTMLSpanElement | null>>({})
   useEffect(() => {
     const el = pillRefs.current[mode]
     if (el) el.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
@@ -89,11 +87,11 @@ function OverlayInner({ onClose }: Props) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[80] flex flex-col"
+      className="meadow-root fixed inset-0 z-[80] flex flex-col"
       style={{
-        background: skin.bg,
-        color: skin.fg,
-        fontFamily: CHEM_FONT,
+        background: palette.bg,
+        color: M.text,
+        fontFamily: FONT_ROUNDED,
         touchAction: 'manipulation',
         WebkitTouchCallout: 'none',
         WebkitUserSelect: 'none',
@@ -108,7 +106,7 @@ function OverlayInner({ onClose }: Props) {
       onTouchMove={stop}
       onTouchEnd={stop}
     >
-      {/* Hide the horizontal scrollbar on the pill strip — Chrome/Safari
+      {/* Hide the horizontal scrollbar on the chip strip — Chrome/Safari
           via ::-webkit-scrollbar, Firefox via scrollbar-width. Scoped by
           class so it doesn't leak. */}
       <style>{`
@@ -122,7 +120,7 @@ function OverlayInner({ onClose }: Props) {
           0%   { opacity: 1; transform: scale(1); }
           100% { opacity: 0; transform: scale(0.96); }
         }
-        /* Each mode swap fades so switching pills (and the first open of the
+        /* Each mode swap fades so switching chips (and the first open of the
            lab body) is a soft cross-in, never an instant blink. Keyed on the
            mode below so it re-runs on every switch.
            OPACITY ONLY — deliberately no transform: a residual transform on
@@ -136,107 +134,66 @@ function OverlayInner({ onClose }: Props) {
         }
       `}</style>
 
-      <Scanlines skin={skin} />
-
-      {/* -- Single sticky top bar, as a pixel slab. Brand flask on the left,
-          the mode strip in the middle, chips + theme + close on the right.
-          Same construction as every other panel in the app: 3px edge, hard
-          offset shadow, Press Start 2P labels. -- */}
+      {/* -- Sticky top: the lab's name, due / streak tags and the close
+          circle, then the modes as a row of chips. On the page's own ground,
+          the way every Meadow page carries its title. -- */}
       <header
-        className="relative flex items-center gap-2.5"
+        className="relative flex flex-col"
         style={{
           paddingTop: 'calc(10px + env(safe-area-inset-top, 0px))',
           paddingBottom: 10,
-          paddingLeft: 12,
-          paddingRight: 12,
-          background: skin.panel,
-          borderBottom: `3px solid ${skin.edge}`,
-          boxShadow: `0 3px 0 ${skin.ink}`,
+          background: palette.bg,
           position: 'sticky',
           top: 0,
           zIndex: 3,
         }}
       >
-        <span aria-label="Chemistry" style={{ flexShrink: 0, display: 'grid', placeItems: 'center' }}>
-          <IconFlask size={26} />
-        </span>
+        <div className="flex items-center" style={{ gap: 8, padding: '0 16px' }}>
+          <span aria-hidden className="flex items-center justify-center flex-shrink-0" style={{
+            width: 40, height: 40, borderRadius: 14, background: '#FFFFFF',
+          }}>
+            <IconFlask size={24} />
+          </span>
+          <h1 className="flex-1 min-w-0" style={{ margin: '0 0 0 2px', fontSize: 24, lineHeight: 1.2, fontWeight: 800, color: M.text }}>
+            Lab
+          </h1>
+          {hydrated && dueCount > 0 && (
+            <Tag tone="amber" icon={<MeadowIcon name="bolt" size={16} />} style={{ fontVariantNumeric: 'tabular-nums' }}>
+              {dueCount} due
+            </Tag>
+          )}
+          {hydrated && state.streak.current > 0 && (
+            <Tag tone="soft" icon={<MeadowIcon name="flame" size={16} />}
+              style={{ background: '#FFFFFF', fontVariantNumeric: 'tabular-nums' }}>
+              {state.streak.current}
+            </Tag>
+          )}
+          <RoundButton surface="ground" size={40} ariaLabel="Close the lab" onClick={handleClose}>
+            <MeadowIcon name="close" size={20} color={M.text} />
+          </RoundButton>
+        </div>
 
-        {/* MIDDLE -- scrollable mode strip. Edge fade tells you it scrolls. */}
-        <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
-          <div
-            className="chem-pill-strip"
-            style={{
-              display: 'flex',
-              gap: 5,
-              overflowX: 'auto',
-              scrollSnapType: 'x proximity',
-              paddingBottom: 3,
-            }}
-          >
+        {/* The modes — a scrolling chip row. The edge fade says it scrolls. */}
+        <div style={{ position: 'relative', marginTop: 12 }}>
+          <div className="chem-pill-strip" aria-label="Lab modes" style={{
+            display: 'flex', gap: 6, overflowX: 'auto', scrollSnapType: 'x proximity', padding: '0 16px 3px',
+          }}>
             {MODES.map(m => {
               const active = mode === m.id
               return (
-                <button
-                  key={m.id}
-                  ref={el => { pillRefs.current[m.id] = el }}
-                  type="button"
-                  onClick={() => { playSound('ui_tap'); setMode(m.id) }}
-                  className="chem-pixel-btn"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    flexShrink: 0,
-                    padding: '8px 10px',
-                    fontFamily: PIXEL_FONT,
-                    fontSize: 7,
-                    letterSpacing: 1,
-                    lineHeight: 1.4,
-                    whiteSpace: 'nowrap',
-                    border: `3px solid ${active ? skin.edge : 'transparent'}`,
-                    boxShadow: active ? hard(skin.ink, 2) : 'none',
-                    background: active ? skin.gold : 'transparent',
-                    color: active ? skin.onAccent : skin.fgDim,
-                    scrollSnapAlign: 'start',
-                  }}
-                >
-                  {m.label}
-                </button>
+                <span key={m.id} ref={el => { pillRefs.current[m.id] = el }} style={{ scrollSnapAlign: 'start', flexShrink: 0 }}>
+                  <Chip selected={active} onClick={() => { if (!active) { playSound('ui_tap'); setMode(m.id) } }}
+                    style={active ? undefined : { borderColor: 'transparent' }}>
+                    {m.label}
+                  </Chip>
+                </span>
               )
             })}
           </div>
           <div aria-hidden style={{
-            position: 'absolute',
-            right: 0, top: 0, bottom: 3,
-            width: 22,
-            pointerEvents: 'none',
-            background: `linear-gradient(to right, transparent, ${skin.panel})`,
+            position: 'absolute', right: 0, top: 0, bottom: 3, width: 24, pointerEvents: 'none',
+            background: `linear-gradient(to right, transparent, ${palette.bg})`,
           }} />
-        </div>
-
-        {/* RIGHT -- due / streak chips, then theme + close. */}
-        <div className="flex items-center gap-1.5" style={{ flexShrink: 0 }}>
-          {hydrated && dueCount > 0 && (
-            <PixelChip skin={skin} accent="#FCD34D">
-              <IconLightning size={11} />
-              {dueCount}
-            </PixelChip>
-          )}
-          {hydrated && state.streak.current > 0 && (
-            <PixelChip skin={skin} accent="#C4A7F5">
-              <IconFire size={11} />
-              {state.streak.current}
-            </PixelChip>
-          )}
-          <SquareButton
-            skin={skin}
-            onClick={() => { playSound('ui_toggle'); toggle() }}
-            label={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
-          >
-            {theme === 'light' ? <IconMoon size={15} /> : <IconSun size={15} />}
-          </SquareButton>
-          <SquareButton skin={skin} onClick={handleClose} label="Close chemistry">
-            <IconClose size={15} tone={skin.fgDim} />
-          </SquareButton>
         </div>
       </header>
 
@@ -248,7 +205,7 @@ function OverlayInner({ onClose }: Props) {
       <main
         className="relative flex-1 overflow-y-auto"
         style={{
-          paddingTop: 16,
+          paddingTop: 6,
           paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
           zIndex: 2,
         }}
@@ -269,51 +226,5 @@ function OverlayInner({ onClose }: Props) {
       </main>
     </div>,
     document.body,
-  )
-}
-
-// Pixel chip for the due / streak counters in the header.
-function PixelChip({ skin, accent, children }: {
-  skin: PixelSkin; accent: string; children: React.ReactNode
-}) {
-  return (
-    <span style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: 4,
-      padding: '6px 7px',
-      background: accent,
-      color: skin.onAccent,
-      border: `2px solid ${skin.edge}`,
-      boxShadow: hard(skin.ink, 2),
-      fontFamily: PIXEL_FONT,
-      fontSize: 7,
-      lineHeight: 1.4,
-      whiteSpace: 'nowrap',
-    }}>
-      {children}
-    </span>
-  )
-}
-
-function SquareButton({ skin, onClick, label, children }: {
-  skin: PixelSkin; onClick: () => void; label: string; children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      className="chem-pixel-btn"
-      style={{
-        width: 32, height: 32, display: 'grid', placeItems: 'center',
-        background: skin.raised,
-        border: `3px solid ${skin.edge}`,
-        boxShadow: hard(skin.ink, 2),
-        flexShrink: 0,
-      }}
-    >
-      {children}
-    </button>
   )
 }

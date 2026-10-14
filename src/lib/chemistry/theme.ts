@@ -37,7 +37,9 @@ export interface Palette {
 }
 
 const LIGHT_PALETTE: Palette = {
-  bg:         '#FCEED5', // warm cream (--background)
+  // The lab's Meadow ground (the lilac tint): the study overlay is forced to
+  // this light palette and paints the same colour behind every mode.
+  bg:         '#EFE9F5',
   ink:        '#1A0F2D', // dark plum outline + shadow
   fg:         '#1A0F2D',
   fgMuted:    '#5C4E6E',
@@ -116,18 +118,25 @@ interface ThemeApi {
 
 const ChemistryThemeContext = createContext<ThemeApi | null>(null)
 
-export function ChemistryThemeProvider({ children }: { children: ReactNode }) {
+export function ChemistryThemeProvider({ children, forced }: {
+  children: ReactNode
+  /** Pin the theme, ignoring and not touching the stored choice. The study
+   *  overlay pins 'light': it is a Meadow page, and Meadow has no dark. */
+  forced?: Theme
+}) {
   // Default to dark to match the rest of the Eren PWA aesthetic on first open.
   // The stored choice is read in the lazy initializer (not an effect) so the
   // first render — and the persist effect's first broadcast below — already
   // carry the real theme. Safe: the overlay never SSRs, it mounts on a tap.
-  const [theme, setTheme] = useState<Theme>(() => readStored() ?? 'dark')
+  const [stored, setTheme] = useState<Theme>(() => readStored() ?? 'dark')
+  const theme = forced ?? stored
 
   useEffect(() => {
+    if (forced) return
     try { window.localStorage.setItem(STORAGE_KEY, theme) }
     catch { /* ignore */ }
     window.dispatchEvent(new Event(THEME_EVENT))
-  }, [theme])
+  }, [theme, forced])
 
   const palette = theme === 'light' ? LIGHT_PALETTE : DARK_PALETTE
   const value: ThemeApi = {

@@ -3,26 +3,20 @@
 // The lab's landing screen: what's due, how far along you are, and the eight
 // ways in.
 //
-// It used to wear the imported study-app skin — rounded sans, 24px radii, a
-// circular SVG progress ring, lucide line icons — which made the one room in a
-// pixel-art game that looks like a SaaS dashboard. Same information, same
-// hierarchy, redrawn in the house style: pixel-font labels, 3px borders with
-// hard offset shadows, the shared SegmentMeter for both bars, and PixelIcons on
-// every tile.
+// In the Meadow look, like the Play tab: a white hero card that says what to
+// do next with the one leaf button, a card with the level and the two bars,
+// and the eight modes as white tiles, each with its pixel icon on a tint.
 
 import { useChemistryStore } from '@/lib/chemistry/store'
-import { useChemistryTheme } from '@/lib/chemistry/theme'
 import { playSound } from '@/lib/sounds'
 import { dateStr } from '@/lib/chemistry/srs'
-import SegmentMeter, { type MeterPalette } from '@/components/care/SegmentMeter'
 import {
   IconLightning, IconBook, IconFlask, IconTicket, IconScroll,
-  IconSlots, IconClock, IconPin, IconFire, IconStar,
+  IconSlots, IconClock, IconPin,
 } from '@/components/PixelIcons'
 import {
-  PixelPanel, PixelButton, PixelLabel, Rivets,
-  pixelSkin, hard, PIXEL_FONT, BODY_FONT, type PixelSkin,
-} from './pixel'
+  Card, M, Meter, MeadowIcon, PrimaryButton, SecondaryButton, Tag, TINT, TYPE,
+} from '@/components/meadow'
 
 type Mode = 'home' | 'review' | 'learn' | 'table' | 'flashcards' | 'quiz' | 'match' | 'speed' | 'locate'
 
@@ -35,47 +29,26 @@ interface TileDef {
   label: string
   sub: string
   Icon: React.ComponentType<{ size?: number }>
-  bg: string
+  tint: string
 }
 
 /** Correct answers needed today to fill the goal bar — about one Quiz round. */
 const DAILY_GOAL = 20
 const TOTAL_ELEMENTS = 118
 
-// Vivid accents, identical in both skins. Dark ink text sits on all of them.
 const TILES: TileDef[] = [
-  { id: 'review',     label: 'REVIEW',  sub: 'Spaced repetition',   Icon: IconLightning, bg: '#7CB6F2' },
-  { id: 'learn',      label: 'LEARN',   sub: 'New element batches',  Icon: IconBook,      bg: '#C4A7F5' },
-  { id: 'table',      label: 'TABLE',   sub: 'All 118, browsable',   Icon: IconFlask,     bg: '#6EE7B7' },
-  { id: 'flashcards', label: 'CARDS',   sub: 'Flip and self-rate',   Icon: IconTicket,    bg: '#FCD34D' },
-  { id: 'quiz',       label: 'QUIZ',    sub: 'Multiple choice',      Icon: IconScroll,    bg: '#FCA5A5' },
-  { id: 'match',      label: 'MATCH',   sub: 'Symbol to name',       Icon: IconSlots,     bg: '#FDE68A' },
-  { id: 'speed',      label: 'SPEED',   sub: '60-second sprint',     Icon: IconClock,     bg: '#5EEAD4' },
-  { id: 'locate',     label: 'LOCATE',  sub: 'Find it on the grid',  Icon: IconPin,       bg: '#F9A8D4' },
+  { id: 'review',     label: 'Review', sub: 'Spaced repetition',   Icon: IconLightning, tint: TINT.blue },
+  { id: 'learn',      label: 'Learn',  sub: 'New element batches', Icon: IconBook,      tint: TINT.lilac },
+  { id: 'table',      label: 'Table',  sub: 'All 118, browsable',  Icon: IconFlask,     tint: TINT.leaf },
+  { id: 'flashcards', label: 'Cards',  sub: 'Flip and self-rate',  Icon: IconTicket,    tint: TINT.amber },
+  { id: 'quiz',       label: 'Quiz',   sub: 'Multiple choice',     Icon: IconScroll,    tint: TINT.love },
+  { id: 'match',      label: 'Match',  sub: 'Symbol to name',      Icon: IconSlots,     tint: TINT.orange },
+  { id: 'speed',      label: 'Speed',  sub: '60-second sprint',    Icon: IconClock,     tint: TINT.sky },
+  { id: 'locate',     label: 'Locate', sub: 'Find it on the grid', Icon: IconPin,       tint: TINT.danger },
 ]
-
-/** Recessed-channel palettes for the two bars, in the lab's grape and gold. */
-function meterPalettes(skin: PixelSkin): { goal: MeterPalette; xp: MeterPalette } {
-  const chrome = { groove: skin.panelLo, frame: skin.ink, rivet: skin.gold }
-  return {
-    goal: {
-      ...chrome,
-      fillHi: '#DDC9FF', fillBase: '#A855F7', fillLo: '#6D28D9', fillEdge: '#4C1D95',
-      glow: 'rgba(168,85,247,0.45)', track: skin.panel, trackEdge: skin.edge,
-    },
-    xp: {
-      ...chrome,
-      fillHi: '#FDE68A', fillBase: '#F5C842', fillLo: '#B45309', fillEdge: '#7C2D12',
-      glow: 'rgba(245,200,66,0.45)', track: skin.panel, trackEdge: skin.edge,
-    },
-  }
-}
 
 export default function HomeDashboard({ onGoto }: Props) {
   const { state, dueCount, hydrated } = useChemistryStore()
-  const { theme } = useChemistryTheme()
-  const skin = pixelSkin(theme)
-  const meters = meterPalettes(skin)
 
   const mastered = Object.values(state.cards).filter(c => c.box >= 6).length
   const streak = state.streak.current
@@ -88,126 +61,95 @@ export default function HomeDashboard({ onGoto }: Props) {
   const inLevel = xp % 100
 
   const due = hydrated && dueCount > 0
+  const left = Math.max(0, DAILY_GOAL - goalDone)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 12px' }}>
+    <div className="flex flex-col" style={{ gap: 12, padding: '0 16px' }}>
 
-      {/* ── Hero ── */}
-      <PixelPanel skin={skin} rivets style={{ padding: '15px 14px 14px' }}>
-        <PixelLabel color={skin.gold} size={7}>SPACED REPETITION</PixelLabel>
-
-        <div style={{
-          fontFamily: PIXEL_FONT, fontSize: 15, lineHeight: 1.5, color: skin.fg,
-          marginTop: 10,
-        }}>
-          {due ? `${dueCount} CARD${dueCount === 1 ? '' : 'S'} DUE` : 'ALL CAUGHT UP'}
-        </div>
-
-        <p style={{
-          fontFamily: BODY_FONT, fontSize: 12.5, lineHeight: 1.5,
-          color: skin.fgDim, margin: '9px 0 0',
-        }}>
+      {/* ── What to do next ── */}
+      <Card padding="16px 18px 16px">
+        <p style={{ margin: 0, ...TYPE.label, fontSize: 11, color: M.label }}>Spaced repetition</p>
+        <h2 style={{ margin: '6px 0 0', fontSize: 26, lineHeight: 1.2, fontWeight: 800, color: M.text }}>
+          {due ? `${dueCount} card${dueCount === 1 ? '' : 's'} due` : 'All caught up'}
+        </h2>
+        <p style={{ margin: '6px 0 0', fontSize: 15, lineHeight: 1.45, fontWeight: 500, color: M.text2 }}>
           {due
             ? 'Clear your reviews to keep everything in long-term memory. One tap to start.'
             : 'Run a Learn batch to pick up fresh elements, or go browse the table.'}
         </p>
 
-        <div style={{ display: 'flex', gap: 8, marginTop: 13, flexWrap: 'wrap' }}>
-          <PixelButton
-            skin={skin} tone={skin.gold}
+        <div className="flex" style={{ gap: 8, marginTop: 14 }}>
+          <PrimaryButton size="md" full
             onClick={() => { playSound('ui_tap'); onGoto(due ? 'review' : 'learn') }}
-            style={{ flex: '1 1 150px' }}
-          >
-            {due ? <IconLightning size={13} /> : <IconBook size={13} />}
-            {due ? `REVIEW ${dueCount}` : 'LEARN NEW'}
-          </PixelButton>
-          <PixelButton
-            skin={skin}
+            icon={due ? <IconLightning size={18} /> : <IconBook size={18} />}
+            style={{ flex: '1 1 0', padding: '0 12px' }}>
+            {due ? `Review ${dueCount}` : 'Learn new'}
+          </PrimaryButton>
+          <SecondaryButton size="md"
             onClick={() => { playSound('ui_tap'); onGoto('table') }}
-            style={{ flex: '1 1 110px' }}
-          >
-            <IconFlask size={13} />
-            TABLE
-          </PixelButton>
+            icon={<IconFlask size={18} />}
+            style={{ padding: '0 16px' }}>
+            Table
+          </SecondaryButton>
         </div>
 
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 10, marginTop: 13,
-          paddingTop: 11, borderTop: `2px solid ${skin.edge}`,
-        }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-            <IconFire size={13} />
-            <PixelLabel color={skin.fgDim} size={6}>{streak} DAY</PixelLabel>
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-            <IconStar size={13} />
-            <PixelLabel color={skin.fgDim} size={6}>{mastered} / {TOTAL_ELEMENTS}</PixelLabel>
-          </span>
+        <div className="flex flex-wrap" style={{ gap: 6, marginTop: 14 }}>
+          <Tag size="sm" tone="soft" icon={<MeadowIcon name="flame" size={14} />} style={{ fontVariantNumeric: 'tabular-nums' }}>
+            {streak} day streak
+          </Tag>
+          <Tag size="sm" tone="soft" icon={<MeadowIcon name="star" size={14} />} style={{ fontVariantNumeric: 'tabular-nums' }}>
+            {mastered} of {TOTAL_ELEMENTS} mastered
+          </Tag>
         </div>
-      </PixelPanel>
+      </Card>
 
       {/* ── Today's goal + level ── */}
-      <PixelPanel skin={skin} style={{ padding: '13px 14px 14px' }}>
-        <div style={{
-          display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 11,
-        }}>
-          <PixelLabel color={skin.gold} size={8}>LEVEL {level}</PixelLabel>
-          <PixelLabel color={skin.fgDim} size={6}>
-            {Math.max(0, DAILY_GOAL - goalDone)} MORE TODAY
-          </PixelLabel>
+      <Card padding="14px 18px 16px">
+        <div className="flex items-baseline justify-between" style={{ gap: 8 }}>
+          <span style={{ fontSize: 17, fontWeight: 800, color: M.text }}>Level {level}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: M.text2, fontVariantNumeric: 'tabular-nums' }}>
+            {left > 0 ? `${left} more today` : 'Goal reached today'}
+          </span>
         </div>
-        <SegmentMeter
-          label="TODAY'S GOAL" value={(goalDone / DAILY_GOAL) * 100}
-          valueText={`${goalDone}/${DAILY_GOAL}`} palette={meters.goal}
-          labelColor={skin.fgDim} valueColor={skin.fg}
-        />
-        <div style={{ height: 10 }} />
-        <SegmentMeter
-          label="XP" value={inLevel} valueText={`${inLevel}/100`} palette={meters.xp}
-          labelColor={skin.fgDim} valueColor={skin.fg}
-        />
-      </PixelPanel>
+        <Bar label="Today's goal" value={goalDone / DAILY_GOAL} text={`${goalDone}/${DAILY_GOAL}`} color={M.leaf} />
+        <Bar label="XP" value={inLevel / 100} text={`${inLevel}/100`} color={M.coin} />
+      </Card>
 
       {/* ── The eight ways in ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
+      <div className="grid grid-cols-2" style={{ gap: 10 }}>
         {TILES.map(t => {
           const TileIcon = t.Icon
           return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => { playSound('ui_tap'); onGoto(t.id) }}
-              className="chem-pixel-btn"
-              style={{
-                position: 'relative', textAlign: 'left',
-                padding: '12px 11px 11px',
-                background: t.bg,
-                border: `3px solid ${skin.edge}`,
-                boxShadow: hard(skin.ink),
-                color: skin.onAccent,
-                display: 'flex', flexDirection: 'column', gap: 7,
-                minHeight: 92,
-              }}
-            >
-              <Rivets color={skin.ink} ink="transparent" />
-              <span style={{
-                width: 30, height: 30, display: 'grid', placeItems: 'center',
-                background: 'rgba(255,255,255,0.78)',
-                border: `2px solid ${skin.onAccent}`,
-                boxShadow: `2px 2px 0 ${skin.onAccent}`,
+            <Card key={t.id} padding="14px 14px 14px" onClick={() => { playSound('ui_tap'); onGoto(t.id) }}
+              ariaLabel={`${t.label}: ${t.sub}`}>
+              <span aria-hidden className="flex items-center justify-center" style={{
+                width: 44, height: 44, borderRadius: 14, background: t.tint,
               }}>
-                <TileIcon size={17} />
+                <TileIcon size={24} />
               </span>
-              <span style={{ fontFamily: PIXEL_FONT, fontSize: 9, lineHeight: 1.5 }}>{t.label}</span>
-              <span style={{
-                fontFamily: BODY_FONT, fontSize: 11, fontWeight: 600, lineHeight: 1.3, opacity: 0.75,
-              }}>
+              <span style={{ display: 'block', marginTop: 10, fontSize: 16, lineHeight: 1.2, fontWeight: 800, color: M.text }}>
+                {t.label}
+              </span>
+              <span style={{ display: 'block', marginTop: 2, fontSize: 13, lineHeight: 1.35, fontWeight: 500, color: M.text2 }}>
                 {t.sub}
               </span>
-            </button>
+            </Card>
           )
         })}
       </div>
+    </div>
+  )
+}
+
+/** One labelled bar: name on the left, the count on the right, the meter under. */
+function Bar({ label, value, text, color }: { label: string; value: number; text: string; color: string }) {
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: M.text2 }}>{label}</span>
+        <span style={{ fontSize: 13, ...TYPE.number, color: M.text }}>{text}</span>
+      </div>
+      <Meter value={value} color={color} height={10} label={label} />
     </div>
   )
 }
