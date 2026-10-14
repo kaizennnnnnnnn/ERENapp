@@ -15,7 +15,7 @@ import { useTasks } from '@/contexts/TaskContext'
 import { Sparkles } from 'lucide-react'
 import { MeadowIcon } from '@/components/PixelIcons'
 import { M, NAV_HEIGHT, MOOD_STYLE } from '@/components/meadow/tokens'
-import { RoundButton } from '@/components/meadow'
+import { PrimaryButton, RoundButton } from '@/components/meadow'
 import { playSound } from '@/lib/sounds'
 import TaskPanel from '@/components/TaskPanel'
 import BlinkingEren from '@/components/BlinkingEren'
@@ -78,7 +78,13 @@ const HOME_EREN_FALLBACK = { src: '/erenGood_notail.png', tailSrc: '/erenGood_ta
 
 // Which screen home is on. The early returns in HomePage follow this, and the
 // bottom nav reads it to know when to step aside.
-type HomeGate = 'loading' | 'no-household' | 'mood' | 'verdict' | 'room'
+type HomeGate = 'loading' | 'offline' | 'mood' | 'verdict' | 'room'
+
+/** How long a signed-in user can sit without their profile before home stops
+ *  showing the loader and says it can't connect. useAuth gives up WAITING
+ *  after 6s but its fetch (withRetry) carries on and usually lands a moment
+ *  later, so anything shorter flashes an error at people on a slow line. */
+const PROFILE_STUCK_MS = 15000
 
 // Has the living room been on screen yet in this app session? Every tap of the
 // Home tab remounts this page, and each remount shows the loader for a network
@@ -292,8 +298,8 @@ export default function HomePage() {
     setHideStats(!pageReady)
   }, [pageReady, setHideStats])
   // Signal to SplashScreen that home is showing something real (room, mood
-  // gate, or the "no household" fallback). Any of those replaces the loader
-  // and is safe to reveal.
+  // gate, or the loader standing in while the profile is missing). Any of
+  // those replaces the splash and is safe to reveal.
   const splashCanHide = pageReady
     || (!authLoading && !profile?.household_id)
     || (!authLoading && moodChecked && !todayMood)
@@ -408,6 +414,18 @@ export default function HomePage() {
     if (!authLoading && !profile?.household_id) setMoodChecked(true)
   }, [authLoading, profile?.household_id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Signed in, auth settled, and still no profile: either it is on its way
+  // (useAuth stopped waiting at 6s, its fetch did not) or Supabase is down.
+  // Only the second deserves a screen, so the loader holds until the wait is
+  // long enough to mean it.
+  const profileMissing = !authLoading && !!user && !profile
+  const [profileStuck, setProfileStuck] = useState(false)
+  useEffect(() => {
+    if (!profileMissing) { setProfileStuck(false); return }
+    const t = setTimeout(() => setProfileStuck(true), PROFILE_STUCK_MS)
+    return () => clearTimeout(t)
+  }, [profileMissing])
+
   useEffect(() => {
     if (stats) setIsSick(stats.is_sick ?? false)
   }, [stats?.is_sick]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -483,7 +501,12 @@ export default function HomePage() {
   //                 is first being painted, homeErenPending)
   //                 — and "signed in but never moved in", which the effect
   //                 above is redirecting to /onboarding
-  //   no-household  no profile at all: the Supabase-outage state in useAuth
+  //   offline       no profile for PROFILE_STUCK_MS: the Supabase-outage
+  //                 state in useAuth. It used to be a "No household found"
+  //                 screen shown the moment auth settled without a profile,
+  //                 which a slow line hit on almost every cold open — and a
+  //                 signed-out user saw it too, for the beat before the
+  //                 redirect to onboarding. Both now keep the loader.
   //   mood          today's mood question
   //   verdict       yesterday's result — a hard gate rather than an overlay,
   //                 so it cannot mount underneath the catchup carousel or an
@@ -492,7 +515,7 @@ export default function HomePage() {
   //                 their turn on the render after it closes.
   const gate: HomeGate =
     authLoading || !moodChecked ? 'loading'
-    : !profile?.household_id ? (profile ? 'loading' : 'no-household')
+    : !profile?.household_id ? (profileStuck ? 'offline' : 'loading')
     : !todayMood && !moodReadFailed ? 'mood'
     : loading || !stats || !roomReady ? 'loading'
     : verdict.show && verdict.row ? 'verdict'
@@ -507,11 +530,21 @@ export default function HomePage() {
   // No name until the row is in, so a renamed cat never flashes up as EREN.
   const LoadingScreen = <PageLoader label={cat.known ? cat.t('LOADING {NAME}') : 'LOADING'} />
 
-  if (gate === 'no-household') {
+  if (gate === 'offline') {
     return (
-      <div className="page-scroll flex flex-col items-center justify-center min-h-[80vh] gap-4">
-        <img src="/erenGood.png" alt={cat.name} draggable={false} style={{ width: 100, height: 100, objectFit: 'contain' }} />
-        <p className="font-bold text-gray-700">No household found</p>
+      <div className="meadow-root fixed inset-0 flex flex-col items-center justify-center" style={{
+        padding: '0 24px', background: M.soft, zIndex: 40,
+      }}>
+        <img src="/erenGood.png" alt="" draggable={false} style={{ width: 100, height: 100, objectFit: 'contain' }} />
+        <p style={{ margin: '18px 0 0', fontSize: 22, lineHeight: 1.2, fontWeight: 800, color: M.text, textAlign: 'center' }}>
+          Can&apos;t reach home
+        </p>
+        <p style={{ margin: '8px 0 0', maxWidth: 300, fontSize: 15, lineHeight: 1.45, fontWeight: 500, color: M.text2, textAlign: 'center' }}>
+          It looks like you&apos;re offline, or the connection is very slow.
+        </p>
+        <div style={{ width: '100%', maxWidth: 300, marginTop: 24 }}>
+          <PrimaryButton onClick={() => window.location.reload()}>Try again</PrimaryButton>
+        </div>
       </div>
     )
   }
