@@ -23,11 +23,15 @@
 // inside one realtime round-trip both rebuilt from the same stale copy — the
 // second erasing the first. "This sky in every window" did that seven times
 // and left one window changed. So: pick freely, then commit the map once.
+//
+// In the Meadow look: a white page on the sky tint, white cards and tiles, the
+// leaf ring for what is chosen, an amber dot for what is not saved yet, and
+// one leaf button at the foot. The skies themselves (WeatherFx) and the
+// machine are art, and stay exactly as they are.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { useCouple } from '@/hooks/useCouple'
 import { useTrophies } from '@/hooks/useTrophies'
@@ -45,16 +49,28 @@ import { shopItem } from '@/lib/trophyShop'
 import WeatherFx from './WeatherFx'
 import { MachineArt, MACHINE_W, MACHINE_H } from './WeatherMachineProp'
 import TrophyBuySheet from '@/components/trophies/TrophyBuySheet'
+import { PriceChip } from '@/components/trophies/TrophyShopView'
 import {
-  MeadowIcon, IconClose, IconChevronRight, IconCheck, IconMoon,
-  IconHouse, IconMeat, IconYarn, IconBath, IconFlask, IconSpeech,
+  IconMoon, IconHouse, IconMeat, IconYarn, IconBath, IconFlask, IconSpeech,
 } from '@/components/PixelIcons'
+import {
+  Card, CheckDisc, DangerButton, FONT_ROUNDED, M, MeadowIcon, PrimaryButton, RoundButton,
+  SecondaryButton, Tag, TINT, TYPE,
+} from '@/components/meadow'
 import { playSound } from '@/lib/sounds'
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'failed'
 
-const SHELL: React.CSSProperties = {
-  background: 'radial-gradient(120% 70% at 50% 0%, #16233A 0%, #0B1120 55%, #05070E 100%)',
+/** The page ground: the sky tint, because this is a page about skies. */
+const GROUND = TINT.sky
+
+/** The small uppercase group label, as every Meadow page sets it. */
+function GroupLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="flex-shrink-0" style={{ ...TYPE.label, color: M.label, margin: '8px 0 0', padding: '0 4px' }}>
+      {children}
+    </h2>
+  )
 }
 
 export function WeatherMachinePanel({ onClose }: { onClose(): void }) {
@@ -66,39 +82,37 @@ export function WeatherMachinePanel({ onClose }: { onClose(): void }) {
   const [buying, setBuying] = useState<MachinePart | null>(null)
 
   return createPortal(
-    <div className="fixed inset-0 z-[150] flex flex-col" style={SHELL}>
-      <div aria-hidden className="absolute inset-0 pointer-events-none" style={{
-        background: 'repeating-linear-gradient(0deg, transparent 0 3px, rgba(0,0,0,0.22) 3px 4px)',
-      }} />
+    <div className="meadow-root fixed inset-0 z-[150] flex flex-col"
+      style={{ background: GROUND, color: M.text, fontFamily: FONT_ROUNDED }}>
 
       {/* ── Header ── */}
-      <div className="relative flex items-center gap-3 px-3 py-3 flex-shrink-0" style={{
-        borderBottom: '2px solid rgba(120,200,255,0.35)',
-        background: 'linear-gradient(180deg, rgba(20,36,58,0.8), rgba(10,16,28,0.5))',
+      <div className="relative flex items-center flex-shrink-0" style={{
+        gap: 10, padding: 'calc(env(safe-area-inset-top, 0px) + 10px) 16px 8px',
       }}>
-        <span className="font-pixel flex-1" style={{
-          fontSize: 9, letterSpacing: 2.5, color: '#8FE0FF',
-          textShadow: '0 0 7px rgba(120,200,255,0.5)',
-        }}>WEATHER MACHINE</span>
+        {/* One line, always: with the catnip pill and the close circle beside
+            it, a two-line title shoved the whole page down. */}
+        <h1 className="flex-1 min-w-0" style={{
+          margin: '0 0 0 4px', fontSize: 22, lineHeight: 1.2, fontWeight: 800,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
+          Weather machine
+        </h1>
         {/* The wallet belongs to the WORKBENCH, where the four parts have
             prices. On the picker nothing costs anything — that is what
             finishing the machine bought — so a running balance in the corner is
             a number with no question attached to it. */}
-        {!machine.built && (
-          <span className="flex items-center gap-1.5 px-2 py-1" style={{
-            border: '1.5px solid rgba(166,217,138,0.5)', borderRadius: 3,
-            background: 'rgba(166,217,138,0.1)',
+        {machine.loaded && !machine.built && (
+          <span role="img" aria-label={trophies.loaded ? `${trophies.balance} catnip` : 'Catnip loading'} style={{
+            height: 36, boxSizing: 'border-box', padding: '0 12px 0 6px', borderRadius: 999, background: '#FFFFFF',
+            display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 15, ...TYPE.number,
           }}>
-            <MeadowIcon name="catnip" size={14} />
-            <span className="font-pixel" style={{ fontSize: 9, color: '#D6F2C4' }}>
-              {trophies.loaded ? trophies.balance : '—'}
-            </span>
+            <MeadowIcon name="catnip" size={22} />
+            {trophies.loaded ? trophies.balance : '-'}
           </span>
         )}
-        <button onClick={() => { playSound('ui_back'); onClose() }}
-          aria-label="Close" className="w-8 h-8 flex items-center justify-center active:scale-90 transition-transform">
-          <IconClose size={15} />
-        </button>
+        <RoundButton surface="ground" size={40} ariaLabel="Close" onClick={() => { playSound('ui_modal_close'); onClose() }}>
+          <MeadowIcon name="close" size={20} color={M.text} />
+        </RoundButton>
       </div>
 
       {/* THREE states, not two. An unanswered wallet is not an unbuilt machine —
@@ -128,18 +142,17 @@ export function WeatherMachinePanel({ onClose }: { onClose(): void }) {
 // not a spinner and not an empty panel: the machine's own lamps, unlit.
 function WarmingUp() {
   return (
-    <div className="relative flex-1 flex flex-col items-center justify-center gap-3">
-      <div className="flex items-center gap-2">
+    <div className="relative flex-1 flex flex-col items-center justify-center" style={{ gap: 12 }}>
+      <div className="flex items-center" style={{ gap: 8 }}>
         {MACHINE_PARTS.map((p, i) => (
           <span key={p.id} className="wx-lamp" style={{
-            width: 7, height: 7, borderRadius: '50%',
-            background: '#2A3145', border: '1px solid #080A11',
+            width: 10, height: 10, borderRadius: '50%', background: M.faint,
             animationDelay: `${i * 0.26}s`,
           }} />
         ))}
       </div>
-      <span className="font-pixel" style={{ fontSize: 6, letterSpacing: 1.5, color: '#4E627E' }}>
-        READING THE DIALS
+      <span role="status" style={{ fontSize: 14, fontWeight: 700, color: M.text2 }}>
+        Reading the dials
       </span>
     </div>
   )
@@ -159,67 +172,62 @@ export function BuildScreen({ machine, onBuy }: {
 
   return (
     <>
-      <div className="relative flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-4">
+      <div className="relative flex-1 overflow-y-auto flex flex-col" style={{ gap: 10, padding: '6px 16px 16px' }}>
 
         {/* The machine as it actually stands right now, blown up. Seeing the
             thing you are paying for is the whole pitch. */}
-        {/* TAG_ROOM is not padding-for-looks. The prop hangs its WEATHER n/4
-            tag ABOVE its own box — up to 26px, once a dish pushes it clear —
-            and this hero sits at the very top of an `overflow-y-auto` column.
-            Content that overflows the block-start edge of a scroll box is
-            clipped and cannot be scrolled back to, so without room reserved
-            here the tag is simply sliced off. */}
-        <div className="relative mx-auto flex-shrink-0" style={{
-          width: MACHINE_W * scale, height: MACHINE_H * scale + TAG_ROOM,
-        }}>
-          <div style={{
-            position: 'absolute', left: '50%', top: TAG_ROOM,
-            width: MACHINE_W, height: MACHINE_H,
-            transform: `translateX(-50%) scale(${scale})`,
-            transformOrigin: 'top center',
+        <Card padding="0 16px 16px">
+          {/* TAG_ROOM is not padding-for-looks. The prop hangs its WEATHER n/4
+              tag ABOVE its own box — up to 26px, once a dish pushes it clear —
+              and without room reserved here the tag is simply sliced off. */}
+          <div className="relative mx-auto flex-shrink-0" style={{
+            width: MACHINE_W * scale, height: MACHINE_H * scale + TAG_ROOM,
           }}>
-            <MachineArt
-              installed={machine.installed}
-              total={machine.total}
-              has={machine.has}
-              sky="clear"
-            />
+            <div style={{
+              position: 'absolute', left: '50%', top: TAG_ROOM,
+              width: MACHINE_W, height: MACHINE_H,
+              transform: `translateX(-50%) scale(${scale})`,
+              transformOrigin: 'top center',
+            }}>
+              <MachineArt
+                installed={machine.installed}
+                total={machine.total}
+                has={machine.has}
+                sky="clear"
+              />
+            </div>
           </div>
-        </div>
+          <p style={{ margin: '12px 0 0', fontSize: 15, lineHeight: 1.45, fontWeight: 500, color: M.text2, textAlign: 'center' }}>
+            Somebody left it in the corner of the Lab with four pieces missing.
+            Put them all back and every sky in the game is yours, for good, in
+            any window.
+          </p>
+        </Card>
 
-        <p className="text-center text-[11px] px-2" style={{ color: '#8FA6C0' }}>
-          Somebody left it in the corner of the Lab with four pieces missing.
-          Put them all back and every sky in the game is yours — for good, in
-          any window.
-        </p>
+        <GroupLabel>The four parts</GroupLabel>
 
-        <span className="font-pixel" style={{ fontSize: 6, letterSpacing: 1.5, color: '#6E86A8' }}>
-          WHAT IT IS STILL MISSING
-        </span>
-
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col" style={{ gap: 8 }}>
           {MACHINE_PARTS.map(p => (
             <PartSlot key={p.id} part={p} machine={machine} onBuy={() => onBuy(p)} />
           ))}
         </div>
 
-        <Link href="/trophies" onClick={() => playSound('ui_tap')}
-          className="flex items-center gap-2 px-3 py-2.5"
-          style={{
-            background: 'rgba(255,255,255,0.035)',
-            border: '1px dashed rgba(255,255,255,0.16)', borderRadius: 4,
-          }}>
-          <MeadowIcon name="catnip" size={15} />
-          <span className="flex-1">
-            <span className="font-pixel block" style={{ fontSize: 6, letterSpacing: 1, color: '#D6CBE2' }}>
-              WHERE CATNIP COMES FROM
+        <Card href="/trophies" padding="12px 14px 12px 12px" onClick={() => playSound('ui_tap')}>
+          <span className="flex items-center" style={{ gap: 12 }}>
+            <span aria-hidden className="flex items-center justify-center flex-shrink-0" style={{
+              width: 44, height: 44, borderRadius: 14, background: TINT.leaf,
+            }}>
+              <MeadowIcon name="catnip" size={26} />
             </span>
-            <span className="text-[10px]" style={{ color: '#7E90A8' }}>
-              Win a day of the Care Battle. The parts are on the shelf there too.
+            <span className="flex-1 min-w-0">
+              <span style={{ display: 'block', fontSize: 15, fontWeight: 800, color: M.text }}>Where catnip comes from</span>
+              <span style={{ display: 'block', marginTop: 2, fontSize: 13, lineHeight: 1.4, fontWeight: 500, color: M.text2 }}>
+                Win a day of the Care Battle. The parts are in the Catnip shop too.
+              </span>
             </span>
+            <MeadowIcon name="chevronRight" size={22} color={M.faint} />
           </span>
-          <IconChevronRight size={11} />
-        </Link>
+        </Card>
       </div>
 
       <BuildBar machine={machine} />
@@ -242,45 +250,36 @@ function PartSlot({ part, machine, onBuy }: {
   const byMe = fitted && machine.fitterOf(part.id) === user?.id
   const who = byMe ? 'you' : (partner?.name?.split(' ')[0] || 'them')
   const affordable = trophies.balance >= part.price
+  const BuyButton = affordable ? PrimaryButton : SecondaryButton
 
   return (
-    <div className="flex items-center gap-2.5 px-2.5 py-2" style={{
-      background: fitted ? 'rgba(99,240,148,0.08)' : 'rgba(255,255,255,0.035)',
-      border: `2px solid ${fitted ? 'rgba(99,240,148,0.45)' : 'rgba(255,255,255,0.1)'}`,
-      borderRadius: 4,
-      boxShadow: fitted ? '0 0 10px rgba(99,240,148,0.15)' : undefined,
+    <div className="flex items-center" style={{
+      gap: 12, padding: '10px 12px 10px 10px', borderRadius: 20, background: '#FFFFFF',
     }}>
-      <PartGlyph part={part} lit={fitted} />
+      <span className="flex items-center justify-center flex-shrink-0" style={{
+        width: 48, height: 48, borderRadius: 16, background: fitted ? M.leafTint : M.soft,
+      }}>
+        <PartGlyph part={part} lit={fitted} size={28} />
+      </span>
 
       <span className="flex-1 min-w-0">
-        <span className="font-pixel block truncate" style={{
-          fontSize: 7, letterSpacing: 0.5, color: fitted ? '#A7F3C0' : part.tone,
-        }}>{part.name.toUpperCase()}</span>
-        <span className="block text-[10px] mt-0.5" style={{ color: '#7E90A8' }}>
-          {fitted ? `Fitted by ${who}.` : part.blurb}
+        <span style={{ display: 'block', fontSize: 16, lineHeight: 1.25, fontWeight: 800, color: M.text }}>
+          {part.name}
+        </span>
+        <span style={{ display: 'block', marginTop: 2, fontSize: 13, lineHeight: 1.4, fontWeight: fitted ? 700 : 500, color: fitted ? M.leafInk : M.text2 }}>
+          {fitted ? `Fitted by ${who}` : part.blurb}
         </span>
       </span>
 
       {fitted ? (
-        <span className="flex items-center gap-1 flex-shrink-0 px-1.5">
-          <IconCheck size={11} tone="#4ADE80" />
-        </span>
+        <CheckDisc size={28} />
       ) : (
-        <button onClick={() => { playSound('ui_select'); onBuy() }}
-          className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 active:translate-y-[1px] transition-transform"
-          style={{
-            border: `1.5px solid ${affordable ? '#63F094' : 'rgba(255,255,255,0.2)'}`,
-            borderRadius: 3,
-            background: affordable
-              ? 'linear-gradient(180deg, rgba(99,240,148,0.22) 0%, rgba(99,240,148,0.06) 100%)'
-              : 'rgba(255,255,255,0.04)',
-            opacity: affordable ? 1 : 0.6,
-          }}>
-          <MeadowIcon name="catnip" size={11} />
-          <span className="font-pixel" style={{
-            fontSize: 7, color: affordable ? '#A7F3C0' : '#8B99AD',
-          }}>{part.price}</span>
-        </button>
+        /* Never disabled: short of catnip, the buy card says how short. */
+        <BuyButton size="sm" onClick={() => { playSound('ui_select'); onBuy() }}
+          ariaLabel={`Buy the ${part.name} for ${part.price} catnip`}
+          style={{ flexShrink: 0, height: 40, gap: 6, padding: '0 6px 0 12px' }}>
+          Buy<PriceChip price={part.price} />
+        </BuyButton>
       )}
     </div>
   )
@@ -376,32 +375,23 @@ export function PartGlyph({ part, lit, size = 26 }: {
 // where the next screen wants it.
 function BuildBar({ machine }: { machine: ReturnType<typeof useWeatherMachine> }) {
   return (
-    <div className="relative flex-shrink-0 px-3 pt-2" style={{
-      paddingBottom: 'calc(var(--safe-bottom) + 10px)',
-      borderTop: '2px solid rgba(120,200,255,0.28)',
-      background: 'linear-gradient(0deg, rgba(10,16,28,0.96), rgba(16,26,44,0.8))',
+    <div className="relative flex-shrink-0" style={{
+      padding: '12px 16px calc(var(--safe-bottom) + 12px)', background: '#FFFFFF',
     }}>
-      <div className="flex items-center gap-1.5 mb-2">
+      <div className="flex items-center" style={{ gap: 4, marginBottom: 10 }}>
         {MACHINE_PARTS.map(p => (
           <span key={p.id} className="flex-1" style={{
-            height: 6,
-            background: machine.has(p.id)
-              ? 'linear-gradient(180deg, #8DF7B4 0%, #1E9A5A 100%)'
-              : 'rgba(255,255,255,0.07)',
-            border: `1px solid ${machine.has(p.id) ? '#0B3A22' : 'rgba(255,255,255,0.12)'}`,
-            boxShadow: machine.has(p.id) ? '0 0 6px rgba(99,240,148,0.4)' : undefined,
+            height: 8, borderRadius: 4, background: machine.has(p.id) ? M.leaf : M.track,
           }} />
         ))}
       </div>
       <div className="flex items-center justify-between">
-        <span className="font-pixel" style={{ fontSize: 7, letterSpacing: 1, color: '#DCEEFF' }}>
-          {machine.installed} OF {machine.total} FITTED
+        <span style={{ fontSize: 15, fontWeight: 800, color: M.text, fontVariantNumeric: 'tabular-nums' }}>
+          {machine.installed} of {machine.total} fitted
         </span>
-        <span className="flex items-center gap-1.5">
-          <MeadowIcon name="catnip" size={12} />
-          <span className="font-pixel" style={{ fontSize: 7, color: '#FFCE6B' }}>
-            {machine.remaining} TO GO
-          </span>
+        <span className="flex items-center" style={{ gap: 5, fontSize: 14, fontWeight: 700, color: M.text2, fontVariantNumeric: 'tabular-nums' }}>
+          <MeadowIcon name="catnip" size={20} />
+          {machine.remaining} to go
         </span>
       </div>
     </div>
@@ -441,13 +431,10 @@ function BuildBar({ machine }: { machine: ReturnType<typeof useWeatherMachine> }
 //
 // IT EDITS A DRAFT AND SAVES ONCE — see the note at the top of this file.
 
-const INK = '#080A11'
-/** Chosen. ONE selection colour on the screen: it used to be cyan for rooms and
- *  green for skies, which made the user check whether those meant different
- *  things. Green is now the commit lever and nothing else. */
-const LIVE = '#8FE0FF'
+/** Chosen: the kit's leaf ring, one selection colour for rooms and skies. */
+const CHOSEN: React.CSSProperties = { boxShadow: `inset 0 0 0 2px ${M.leaf}`, background: M.leafTint }
 /** Edited, not committed. */
-const PEND = '#FFCE6B'
+const PEND = M.coin
 
 // Which pixel icon stands for which window.
 const ROOM_ICON: Record<string, React.ComponentType<{ size?: number }>> = {
@@ -482,7 +469,7 @@ function AllWindowsGlyph({ size = 16, tone }: { size?: number; tone: string }) {
       gridTemplateColumns: 'repeat(2, ' + c + 'px)', gap: 2,
     }}>
       {[0, 1, 2, 3].map(i => (
-        <span key={i} style={{ width: c, height: c, background: tone, border: '1px solid ' + INK }} />
+        <span key={i} style={{ width: c, height: c, background: tone, borderRadius: 2 }} />
       ))}
     </span>
   )
@@ -551,8 +538,8 @@ export function PickerView({ weather: live, onSave, reduced }: {
   const current = isAll ? commonSky(map) : effectiveSky(map, room)
   const def = weatherDef(current ?? 'clear')!
   const label = isAll
-    ? 'EVERY WINDOW'
-    : WEATHER_ROOMS.find(r => r.room === room)?.label ?? ''
+    ? 'Every window'
+    : roomName(WEATHER_ROOMS.find(r => r.room === room)?.label ?? '')
   // The rooms this sky is refused by, named, so "every window" can say what it
   // is actually about to do instead of quietly skipping one.
   const spared = current
@@ -631,30 +618,19 @@ export function PickerView({ weather: live, onSave, reduced }: {
     <>
       {/* ── THE WINDOW ── pinned, so the one thing that says which room you are
           editing can never scroll away from the taps that change it. */}
-      <div className="relative flex-shrink-0 px-3 pt-3 pb-2">
-        <div style={{
-          background: 'linear-gradient(180deg, #46506B 0%, #2A3145 44%, #1B2131 100%)',
-          border: '3px solid ' + INK,
-          boxShadow: '3px 3px 0 rgba(0,0,0,0.55)',
-          padding: 8,
-        }}>
-          <div className="flex items-center gap-2" style={{ marginBottom: 7 }}>
-            {isAll
-              ? <AllWindowsGlyph size={15} tone="#8FE0FF" />
-              : RoomIcon && <RoomIcon size={15} />}
-            <span className="font-pixel flex-1 truncate" style={{
-              fontSize: 9, letterSpacing: 1.5, color: '#EAF6FF',
-            }}>{label}</span>
+      <div className="relative flex-shrink-0" style={{ padding: '6px 16px 10px' }}>
+        <Card padding="12px 12px 12px">
+          <div className="flex items-center" style={{ gap: 8, marginBottom: 10 }}>
+            <span aria-hidden className="flex items-center justify-center flex-shrink-0" style={{
+              width: 32, height: 32, borderRadius: 11, background: TINT.sky,
+            }}>
+              {isAll
+                ? <AllWindowsGlyph size={16} tone={M.text2} />
+                : RoomIcon && <RoomIcon size={18} />}
+            </span>
+            <span className="flex-1 truncate" style={{ fontSize: 17, fontWeight: 800, color: M.text }}>{label}</span>
             {nightOnly && (
-              <span className="flex items-center gap-1 flex-shrink-0 px-1.5 py-1" style={{
-                border: '1px solid rgba(143,224,255,0.28)',
-                background: 'rgba(143,224,255,0.08)',
-              }}>
-                <IconMoon size={9} />
-                <span className="font-pixel" style={{ fontSize: 5, letterSpacing: 1, color: '#9FC4DE' }}>
-                  ALWAYS NIGHT
-                </span>
-              </span>
+              <Tag size="sm" tone="soft" icon={<IconMoon size={12} />}>Always night</Tag>
             )}
           </div>
 
@@ -662,29 +638,22 @@ export function PickerView({ weather: live, onSave, reduced }: {
             width: paneW, height: PANE_H,
             containerType: 'size',
             background: '#070B16',
-            border: '2px solid ' + INK,
-            boxShadow: 'inset 0 0 8px rgba(0,0,0,0.9), 0 0 8px rgba(120,200,255,0.25)',
+            borderRadius: 14,
           }}>
             <WeatherFx id={def.id} still={reduced} lit={lit} plate />
-            <span aria-hidden className="absolute inset-0 pointer-events-none" style={{
-              background: 'repeating-linear-gradient(0deg, transparent 0 3px, rgba(0,0,0,0.11) 3px 4px)',
-            }} />
           </div>
 
           {/* The sentence weather.ts already wrote for every sky — and the one
               place a refusal can land in words. */}
           <div style={{
-            marginTop: 7, padding: '5px 7px', minHeight: 44,
-            background: 'rgba(6,10,20,0.55)',
-            border: '1px solid ' + (refused ? 'rgba(255,206,107,0.4)' : 'rgba(143,224,255,0.16)'),
+            marginTop: 10, padding: '8px 12px', minHeight: 48, borderRadius: 14,
+            background: refused ? M.energyTint : M.soft,
           }}>
-            <span className="font-pixel block truncate" style={{
-              fontSize: 7, letterSpacing: 1,
-              color: refused ? PEND : current === null ? '#9FC4DE' : def.tone,
-            }}>{(refused ? 'not in here'
-              : current === null ? 'mixed' : def.name).toUpperCase()}</span>
-            <span className="block text-[11px] leading-snug" style={{
-              color: refused ? '#FFDFA6' : '#93A7BE', marginTop: 3,
+            <span className="block truncate" style={{
+              fontSize: 15, fontWeight: 800, color: refused ? '#8A5A12' : M.text,
+            }}>{refused ? 'Not in here' : current === null ? 'Mixed' : def.name}</span>
+            <span className="block" style={{
+              fontSize: 13, lineHeight: 1.4, fontWeight: 500, color: refused ? '#8A5A12' : M.text2, marginTop: 2,
             }}>{refused
               ?? (current === null
                 ? 'The seven windows are not all showing the same thing. Pick one and they will.'
@@ -695,19 +664,17 @@ export function PickerView({ weather: live, onSave, reduced }: {
                     + spared.map(r => r.label.toLowerCase()).join(' and the ') + '.'
                   : skyBlurbIn(room, def.id))}</span>
           </div>
-        </div>
+        </Card>
       </div>
 
-      <div className="relative flex-1 overflow-y-auto px-3 pb-3 flex flex-col gap-2">
+      <div className="relative flex-1 overflow-y-auto flex flex-col" style={{ gap: 8, padding: '0 16px 16px' }}>
 
         {/* ── Which window ── a fixed grid, not a scroll strip. The strip cut
             the per-room unsaved mark in half against its own overflow box, and
             that mark is the only ledger of what has not been committed yet —
             and on a 640px-tall phone the whole strip collapsed to 4px, because
             a flex child in a column shrinks by default. */}
-        <span className="font-pixel flex-shrink-0" style={{
-          fontSize: 6, letterSpacing: 1.5, color: '#8FAECB',
-        }}>WHICH WINDOW</span>
+        <GroupLabel>Which window</GroupLabel>
 
         <div className="grid flex-shrink-0" style={{
           gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 6,
@@ -717,50 +684,43 @@ export function PickerView({ weather: live, onSave, reduced }: {
             const changed = (map[r.room] ?? '') !== (live[r.room] ?? '')
             const Icon = ROOM_ICON[r.room]
             return (
-              <button key={r.room} onClick={() => goRoom(r.room)} aria-pressed={on}
-                className="relative flex flex-col items-center gap-1 py-1.5 px-1 active:translate-y-[1px] transition-transform"
+              <button key={r.room} type="button" onClick={() => goRoom(r.room)} aria-pressed={on}
+                className="m-press m-focus relative flex flex-col items-center"
                 style={{
-                  background: on ? 'rgba(143,224,255,0.14)' : 'rgba(255,255,255,0.04)',
-                  border: '2px solid ' + (on ? LIVE : 'rgba(255,255,255,0.12)'),
-                  boxShadow: on
-                    ? '2px 2px 0 ' + INK + ', 0 0 9px rgba(143,224,255,0.3)'
-                    : '2px 2px 0 rgba(0,0,0,0.45)',
+                  gap: 4, padding: '9px 2px 7px', border: 0, borderRadius: 16, background: '#FFFFFF',
+                  fontFamily: 'inherit', cursor: 'pointer', ...(on ? CHOSEN : {}),
                 }}>
-                {Icon && <Icon size={16} />}
-                <span className="font-pixel block w-full truncate text-center" style={{
-                  fontSize: 5, letterSpacing: 0.5, color: on ? '#EAF6FF' : '#8CA0B8',
-                }}>{r.label}</span>
+                {Icon && <Icon size={20} />}
+                <span className="block w-full truncate text-center" style={{
+                  fontSize: 12, fontWeight: on ? 800 : 700, color: on ? M.leafInk : M.text,
+                }}>{roomName(r.label)}</span>
                 {/* INSIDE the button: the old mark hung outside its own box and
-                    the strip's overflow sliced four of its seven pixels off. */}
+                    the strip's overflow sliced it in half. */}
                 {changed && (
                   <span aria-label="unsaved" className="absolute" style={{
-                    top: 3, right: 3, width: 6, height: 6,
-                    background: PEND, border: '1px solid ' + INK,
+                    top: 6, right: 6, width: 8, height: 8, borderRadius: 999, background: PEND,
                   }} />
                 )}
               </button>
             )
           })}
 
-          <button onClick={() => goRoom(ALL)} aria-pressed={isAll}
-            className="relative flex flex-col items-center gap-1 py-1.5 px-1 active:translate-y-[1px] transition-transform"
+          <button type="button" onClick={() => goRoom(ALL)} aria-pressed={isAll}
+            className="m-press m-focus relative flex flex-col items-center"
             style={{
-              background: isAll ? 'rgba(143,224,255,0.14)' : 'rgba(255,255,255,0.04)',
-              border: '2px solid ' + (isAll ? LIVE : 'rgba(255,255,255,0.12)'),
-              boxShadow: isAll
-                ? '2px 2px 0 ' + INK + ', 0 0 9px rgba(143,224,255,0.3)'
-                : '2px 2px 0 rgba(0,0,0,0.45)',
+              gap: 4, padding: '9px 2px 7px', border: 0, borderRadius: 16, background: '#FFFFFF',
+              fontFamily: 'inherit', cursor: 'pointer', ...(isAll ? CHOSEN : {}),
             }}>
-            <AllWindowsGlyph size={16} tone={isAll ? '#EAF6FF' : '#8CA0B8'} />
-            <span className="font-pixel block w-full truncate text-center" style={{
-              fontSize: 5, letterSpacing: 0.5, color: isAll ? '#EAF6FF' : '#8CA0B8',
-            }}>ALL 7</span>
+            <span className="flex items-center justify-center" style={{ height: 20 }}>
+              <AllWindowsGlyph size={18} tone={isAll ? M.leaf : M.text2} />
+            </span>
+            <span className="block w-full truncate text-center" style={{
+              fontSize: 12, fontWeight: isAll ? 800 : 700, color: isAll ? M.leafInk : M.text,
+            }}>All 7</span>
           </button>
         </div>
 
-        <span className="font-pixel flex-shrink-0" style={{
-          fontSize: 6, letterSpacing: 1.5, color: '#8FAECB', marginTop: 4,
-        }}>WHAT IT IS DOING OUT THERE</span>
+        <GroupLabel>Pick a sky</GroupLabel>
 
         {/* Clear is pulled out of the grid on purpose. It is the only choice
             that REMOVES a layer rather than adding one — it IS the painting —
@@ -770,8 +730,8 @@ export function PickerView({ weather: live, onSave, reduced }: {
           blurb={skyBlurbIn(room, 'clear')}
           blocked={null} lit={lit} onPick={() => pick('clear')} />
 
-        <div className="grid gap-2 flex-shrink-0" style={{
-          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+        <div className="grid flex-shrink-0" style={{
+          gap: 8, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
         }}>
           {WEATHER.filter(w => w.id !== 'clear').map(w => (
             <SkyKey key={w.id} w={w} on={current === w.id}
@@ -785,6 +745,11 @@ export function PickerView({ weather: live, onSave, reduced }: {
       <SaveBar dirty={dirty} state={save} onSave={commit} />
     </>
   )
+}
+
+/** 'LIVING ROOM' -> 'Living room': the room labels are stored in caps. */
+function roomName(label: string): string {
+  return label.charAt(0) + label.slice(1).toLowerCase()
 }
 
 // One choice. The swatch is a REAL picture of that sky — every effect already
@@ -803,41 +768,30 @@ function SkyKey({ w, on, blocked, lit, wide, blurb, onPick }: {
   wide?: boolean
   onPick(): void
 }) {
-  const shape = wide
-    ? 'flex-row items-center gap-2 p-1.5'
-    : 'flex-col gap-1 p-1.5'
   return (
-    <button onClick={onPick} aria-pressed={on} aria-disabled={!!blocked}
-      className={'relative flex text-left flex-shrink-0 active:translate-y-[1px] transition-transform ' + shape}
+    <button type="button" onClick={onPick} aria-pressed={on} aria-disabled={!!blocked}
+      className={'m-press m-focus relative flex text-left flex-shrink-0 ' + (wide ? 'flex-row items-center' : 'flex-col')}
       style={{
-        background: on ? 'rgba(143,224,255,0.12)' : 'rgba(255,255,255,0.04)',
-        border: '2px solid ' + (on ? LIVE : 'rgba(255,255,255,0.12)'),
-        // A key that is already DOWN cannot travel. Pressed in reads as refused
-        // at every size, where "a paler rectangle" only reads as refused next
-        // to one that is not.
-        boxShadow: blocked
-          ? 'inset 0 2px 0 rgba(0,0,0,0.75)'
-          : on
-            ? '2px 2px 0 ' + INK + ', 0 0 10px rgba(143,224,255,0.26)'
-            : '2px 2px 0 rgba(0,0,0,0.45)',
-        opacity: blocked ? 0.62 : 1,
+        gap: wide ? 12 : 6, padding: 8, border: 0, borderRadius: 18, background: '#FFFFFF',
+        fontFamily: 'inherit', cursor: 'pointer',
+        ...(on ? CHOSEN : {}),
+        opacity: blocked ? 0.55 : 1,
       }}>
       <span className="relative block overflow-hidden flex-shrink-0" style={{
-        width: wide ? 62 : '100%', height: wide ? 30 : 46,
+        width: wide ? 72 : '100%', height: wide ? 40 : 56,
         containerType: 'size',
-        background: '#0A0F1E', border: '1px solid ' + INK,
-        filter: blocked ? 'grayscale(1) brightness(0.55)' : undefined,
+        background: '#0A0F1E', borderRadius: 12,
+        filter: blocked ? 'grayscale(1) brightness(0.7)' : undefined,
       }}>
         <WeatherFx id={w.id} still lit={lit} plate />
       </span>
 
-      <span className={wide ? 'flex-1 min-w-0' : 'block w-full min-w-0'}>
-        <span className="font-pixel block truncate" style={{
-          fontSize: 6, letterSpacing: 0.5,
-          color: blocked ? '#6E7E92' : on ? '#EAF6FF' : w.tone,
-        }}>{w.name.toUpperCase()}</span>
+      <span className={wide ? 'flex-1 min-w-0' : 'block w-full min-w-0'} style={{ padding: wide ? 0 : '0 4px 2px' }}>
+        <span className="block truncate" style={{
+          fontSize: 14, fontWeight: 800, color: on ? M.leafInk : M.text,
+        }}>{w.name}</span>
         {wide && (
-          <span className="block text-[10px] truncate" style={{ color: '#7E90A8', marginTop: 2 }}>
+          <span className="block truncate" style={{ fontSize: 13, fontWeight: 500, color: M.text2, marginTop: 1 }}>
             {blurb ?? w.blurb}
           </span>
         )}
@@ -846,10 +800,9 @@ function SkyKey({ w, on, blocked, lit, wide, blurb, onPick }: {
       {/* A moon, not a padlock: this window is night, not locked. */}
       {blocked && (
         <span className="absolute flex items-center justify-center" style={{
-          top: 3, right: 3, width: 15, height: 15,
-          background: 'rgba(8,10,17,0.85)', border: '1px solid ' + INK,
+          top: 12, right: 12, width: 22, height: 22, borderRadius: 999, background: '#FFFFFF',
         }}>
-          <IconMoon size={9} />
+          <IconMoon size={12} />
         </span>
       )}
     </button>
@@ -859,44 +812,28 @@ function SkyKey({ w, on, blocked, lit, wide, blurb, onPick }: {
 function SaveBar({ dirty, state, onSave }: {
   dirty: boolean; state: SaveState; onSave(): void
 }) {
-  const enabled = dirty && state !== 'saving'
-  const label = state === 'saving' ? 'SAVING...'
-    : state === 'failed' ? 'DID NOT SAVE - TRY AGAIN'
-    : dirty ? 'SAVE CHANGES'
-    : state === 'saved' ? 'SAVED' : 'NOTHING TO SAVE'
-
-  const tone = state === 'failed'
-    ? { a: '#B4453F', b: '#6E211D', text: '#FFE0DC' }
-    : state === 'saved' && !dirty
-      ? { a: '#3E8C5E', b: '#1F5238', text: '#DFFBE9' }
-      : enabled
-        ? { a: '#63F094', b: '#1E9A5A', text: '#04220F' }
-        : { a: '#2A3145', b: '#171C29', text: '#5E6E86' }
-
   return (
-    <div className="relative flex-shrink-0 px-3 pt-2" style={{
-      paddingBottom: 'calc(var(--safe-bottom) + 10px)',
-      borderTop: '2px solid ' + INK,
-      background: 'linear-gradient(0deg, rgba(10,16,28,0.96), rgba(16,26,44,0.8))',
+    <div className="relative flex-shrink-0" style={{
+      padding: '8px 16px calc(var(--safe-bottom) + 12px)', background: '#FFFFFF',
     }}>
-      {/* The row is reserved whether or not it is showing, so the lever does not
-          jump 11px out from under the thumb the instant the first edit lands. */}
-      <span className="font-pixel block text-center" style={{
-        fontSize: 5, letterSpacing: 1, color: PEND,
-        height: 11, opacity: dirty ? 1 : 0,
-      }}>UNSAVED - THE WINDOWS HAVE NOT CHANGED YET</span>
-      <button onClick={onSave} disabled={!enabled}
-        className="w-full flex items-center justify-center gap-2 py-3 active:translate-y-[1px] transition-transform"
-        style={{
-          background: 'linear-gradient(180deg, ' + tone.a + ' 0%, ' + tone.b + ' 100%)',
-          border: '2px solid ' + INK,
-          boxShadow: '3px 3px 0 rgba(0,0,0,0.5)',
-        }}>
-        {state === 'saved' && !dirty && <IconCheck size={12} />}
-        <span className="font-pixel" style={{ fontSize: 8, letterSpacing: 1.5, color: tone.text }}>
-          {label}
-        </span>
-      </button>
+      {/* The row is reserved whether or not it is showing, so the button does
+          not jump out from under the thumb the instant the first edit lands. */}
+      <span className="flex items-center justify-center" style={{
+        gap: 6, height: 22, marginBottom: 6, fontSize: 13, fontWeight: 700, color: '#8A5A12',
+        opacity: dirty ? 1 : 0,
+      }}>
+        <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: PEND }} />
+        Not saved yet. The windows haven&apos;t changed.
+      </span>
+      {state === 'failed' ? (
+        <DangerButton onClick={onSave}>Didn&apos;t save. Try again</DangerButton>
+      ) : state === 'saved' && !dirty ? (
+        <SecondaryButton disabled icon={<CheckDisc size={22} />} style={{ opacity: 1 }}>Saved</SecondaryButton>
+      ) : (
+        <PrimaryButton onClick={onSave} disabled={!dirty} busy={state === 'saving'}>
+          {state === 'saving' ? 'Saving' : dirty ? 'Save changes' : 'Nothing to save'}
+        </PrimaryButton>
+      )}
     </div>
   )
 }
