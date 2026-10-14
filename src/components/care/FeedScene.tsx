@@ -1,13 +1,11 @@
 'use client'
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
-import { ShoppingCart } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { cn } from '@/lib/utils'
-import { inkOn, deepenOn } from '@/lib/contrastInk'
 import FoodIcon from '@/components/care/FoodIcon'
 import { foodDrag } from './foodDragFlag'
 import type { FoodInventory } from '@/types'
@@ -46,7 +44,9 @@ import PixelPoof from '@/components/PixelPoof'
 import FoodStatsCard, { type FoodStatItem } from '@/components/care/FoodStatsCard'
 import CareToast from '@/components/care/CareToast'
 import { useLongPress } from '@/hooks/useLongPress'
-import { IconClose, IconChevronLeft, IconChevronRight } from '@/components/PixelIcons'
+import { IconFridge, IconCart } from '@/components/PixelIcons'
+import { M, MeadowIcon, CoinChip, PrimaryButton, RoundButton, Tag } from '@/components/meadow'
+import KitchenSheet, { ShelfRow, shelfName } from '@/components/kitchen/KitchenSheet'
 import RoomWeather from '@/components/weather/RoomWeather'
 import { FOOD_META } from '@/lib/foodMeta'
 
@@ -189,20 +189,6 @@ interface UnlockPayload { skin: SkinDef; variant: CanVariant; drinkName: string 
 // share it so the plate never changes size when you pick it up, and the ghost's
 // centring offset stays derived from one number.
 const DRAG_ICON = 50
-
-// Shop drawer header buttons (back / close). One style object so the pair can
-// never drift apart again, sized as a proper 30px tap target.
-const SHOP_HDR_BTN: React.CSSProperties = {
-  width: 30, height: 30,
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  background: '#F7E9B8', borderRadius: 8, border: '2px solid #E8C870',
-  boxShadow: '0 2px 0 #D9B45C',
-}
-
-// Darkest a category row's background gets: the MEAT tint (#CC3333 at 0x26)
-// over the drawer cream. Deepening every category label against this one
-// reference keeps each of them readable on its own, lighter row.
-const ROW_TINT_FLOOR = '#F7DDD4'
 
 const FRIDGE_CATEGORIES = [
   { id: 'dry',     label: 'DRY',     color: '#D4A44A' },
@@ -752,7 +738,7 @@ export default function FeedScene({ onClose }: Props) {
 
       {/* ══ BOTTOM BAR — Fridge (left), Food center, Shop (right) ══ */}
       <div className="absolute bottom-6 left-0 right-0 z-30 px-4">
-        <div className="flex items-end justify-between">
+        <div className="flex items-start justify-between">
 
           {/* LEFT: Fridge button */}
           <KitchenNavButton
@@ -776,40 +762,30 @@ export default function FeedScene({ onClose }: Props) {
             const hasLeft = idx > 0
             const hasRight = idx < catItems.length - 1
             return (
-              <div className="flex items-center gap-2">
-                {/* Left arrow */}
-                <button onClick={() => { if (hasLeft) { playSound('ui_tap'); setFoodIdx(idx - 1) } }}
-                  className="active:scale-90 transition-transform"
-                  style={{
-                    width: 24, height: 24, borderRadius: 6,
-                    background: hasLeft ? 'rgba(255,255,255,0.15)' : 'transparent',
-                    border: hasLeft ? '1.5px solid rgba(255,255,255,0.25)' : '1.5px solid transparent',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontFamily: '"Press Start 2P"', fontSize: 8,
-                    color: hasLeft ? '#fff' : 'rgba(255,255,255,0.15)',
-                  }}>◂</button>
+              <div className="flex items-center" style={{ gap: 8 }}>
+                <RoundButton surface="art" size={36} ariaLabel="Previous food"
+                  onClick={() => { if (hasLeft) { playSound('ui_tap'); setFoodIdx(idx - 1) } }}
+                  style={{ visibility: hasLeft ? 'visible' : 'hidden' }}>
+                  <MeadowIcon name="chevronLeft" size={20} color={M.text} />
+                </RoundButton>
 
                 {/* Food item — draggable. currentItemRef lets the native
                     touchstart listener (attached via useEffect) know which
                     food to drag without going through React's passive handler. */}
                 {(() => { currentItemRef.current = item; return null })()}
-                <div ref={foodElRef}
+                <div ref={foodElRef} className="meadow-root flex flex-col items-center"
                   style={{ position: 'relative', touchAction: 'none' }}>
                   {/* A special-edition can keeps its dress here too — the
                       fridge is where you pick it up, so it shouldn't go plain
                       the moment it leaves the shop. */}
                   <div className={cn('relative', SPECIAL_CAN[item.id] && `${SPECIAL_CAN[item.id]}-tile`)}
-                    style={SPECIAL_CAN[item.id] ? {
-                      width: 64, height: 64,
+                    style={{
+                      width: 68, height: 68,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    } : {
-                    width: 64, height: 64,
-                    background: `radial-gradient(circle at 40% 35%, ${item.color}30, ${item.color}10)`,
-                    borderRadius: 12,
-                    border: `2px solid ${item.color}88`,
-                    boxShadow: `2px 2px 0 ${item.color}44, 0 0 10px ${item.color}22`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
+                      ...(SPECIAL_CAN[item.id] ? {} : {
+                        background: '#FFFFFF', borderRadius: 20, boxShadow: `0 3px 0 ${M.overArtLip}`,
+                      }),
+                    }}>
                     <div className="relative" style={{
                       opacity: (dragRef.current.item?.id === item.id && dragRef.current.active) ? 0.15 : 1,
                       transition: 'opacity 0.15s ease',
@@ -817,34 +793,26 @@ export default function FeedScene({ onClose }: Props) {
                       <FoodIcon id={item.id} color={item.color} size={DRAG_ICON} />
                     </div>
                   </div>
-                  {/* Qty badge */}
-                  <span className="font-pixel absolute" style={{
-                    top: -5, right: -5,
-                    minWidth: 18, height: 18,
-                    background: item.color, color: inkOn(item.color),
-                    borderRadius: 9, fontSize: 7,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: '1.5px solid rgba(0,0,0,0.2)',
-                    boxShadow: '1px 1px 0 rgba(0,0,0,0.25)',
-                    padding: '0 4px',
+                  {/* How many are left */}
+                  <span className="absolute flex items-center justify-center" style={{
+                    top: -6, right: -6, minWidth: 24, height: 24, padding: '0 6px', boxSizing: 'border-box',
+                    borderRadius: 999, background: M.text, color: '#FFFFFF', border: '2px solid #FFFFFF',
+                    fontSize: 12, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
                   }}>{qty}</span>
                   {/* Name */}
-                  <p className="font-pixel text-center mt-1" style={{
-                    fontSize: 5, color: 'rgba(255,255,255,0.7)', letterSpacing: 0.5,
-                  }}>{item.name.toUpperCase()}</p>
+                  <span style={{
+                    marginTop: 7, maxWidth: 132, padding: '3px 10px', borderRadius: 999,
+                    background: '#FFFFFF', boxShadow: `0 2px 0 ${M.overArtLip}`,
+                    fontSize: 12, fontWeight: 800, color: M.text,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>{item.name}</span>
                 </div>
 
-                {/* Right arrow */}
-                <button onClick={() => { if (hasRight) { playSound('ui_tap'); setFoodIdx(idx + 1) } }}
-                  className="active:scale-90 transition-transform"
-                  style={{
-                    width: 24, height: 24, borderRadius: 6,
-                    background: hasRight ? 'rgba(255,255,255,0.15)' : 'transparent',
-                    border: hasRight ? '1.5px solid rgba(255,255,255,0.25)' : '1.5px solid transparent',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontFamily: '"Press Start 2P"', fontSize: 8,
-                    color: hasRight ? '#fff' : 'rgba(255,255,255,0.15)',
-                  }}>▸</button>
+                <RoundButton surface="art" size={36} ariaLabel="Next food"
+                  onClick={() => { if (hasRight) { playSound('ui_tap'); setFoodIdx(idx + 1) } }}
+                  style={{ visibility: hasRight ? 'visible' : 'hidden' }}>
+                  <MeadowIcon name="chevronRight" size={20} color={M.text} />
+                </RoundButton>
               </div>
             )
           })()}
@@ -875,129 +843,87 @@ export default function FeedScene({ onClose }: Props) {
         const navItems = navCat ? ownedIn(navCat.id) : []
         const closeFridge = () => { playSound('ui_modal_close'); setFridgeNav(null); setTab(null) }
         return (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', animation: 'scrimIn 200ms ease-out' }}>
-          <div className="w-full max-w-xs px-6" style={{ animation: 'modalPop 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both' }}>
-
-            {navCat ? (
-              <div className="flex items-center gap-2 mb-4">
-                <button onClick={() => { playSound('ui_back'); setFridgeNav(null) }}
-                  className="active:scale-90 transition-transform flex-shrink-0 flex items-center justify-center"
-                  style={{ width: 30, height: 30, background: 'rgba(255,255,255,0.12)', borderRadius: 8, border: '2px solid rgba(255,255,255,0.28)' }}
-                  aria-label="Back to categories">
-                  <IconChevronLeft size={14} tone="rgba(255,255,255,0.8)" />
-                </button>
-                <span className="font-pixel" style={{ fontSize: 10, color: navCat.color, letterSpacing: 2, textShadow: `0 0 8px ${navCat.color}66` }}>
-                  {navCat.label}
-                </span>
-              </div>
-            ) : (
-              <p className="font-pixel text-center mb-6" style={{ fontSize: 10, color: '#A8D8F8', letterSpacing: 2, textShadow: '0 0 8px rgba(168,216,248,0.5)' }}>
-                PICK A CATEGORY
-              </p>
-            )}
-
+          <KitchenSheet zIndex={50} scrim
+            title={navCat ? shelfName(navCat.label) : 'Fridge'}
+            onBack={navCat ? () => { playSound('ui_back'); setFridgeNav(null) } : undefined}
+            onClose={closeFridge} closeLabel="Close the fridge">
             {navCat ? (
               /* PHASE 2 — the foods you own here. Tap takes one to the tray;
                  hold reads its stats. */
-              <div className="grid grid-cols-3 gap-2">
-                {navItems.map(item => {
-                  const qty = inventory[item.id] ?? 0
-                  return (
-                    <button key={item.id}
-                      {...hold.bind(item)}
-                      onClick={() => {
-                        if (hold.consumed()) return
-                        playSound('ui_tap')
-                        setFridgeCat(navCat.id)
-                        setFoodIdx(navItems.findIndex(i => i.id === item.id))
-                        localStorage.setItem('eren_fridge_cat', navCat.id)
-                        setFridgeNav(null)
-                        setTab(null)
-                      }}
-                      className="relative flex flex-col items-center px-1 pt-2 pb-1.5 active:scale-95 transition-transform"
-                      style={{
-                        background: `linear-gradient(135deg, ${item.color}22, ${item.color}0A)`,
-                        borderRadius: 8,
-                        border: `2px solid ${item.color}77`,
-                        boxShadow: `2px 2px 0 rgba(0,0,0,0.3)`,
-                      }}>
-                      <FoodIcon id={item.id} color={item.color} size={44} />
-                      <span className="font-pixel text-center" style={{
-                        fontSize: 5, lineHeight: 1.3, marginTop: 4,
-                        color: 'rgba(255,255,255,0.72)', letterSpacing: 0.3,
-                      }}>
-                        {item.name.toUpperCase()}
-                      </span>
-                      <span className="font-pixel absolute flex items-center justify-center" style={{
-                        top: -5, right: -5, minWidth: 17, height: 15, padding: '0 3px',
-                        background: item.color, color: inkOn(item.color),
-                        borderRadius: 8, fontSize: 6,
-                        border: '1.5px solid rgba(0,0,0,0.25)',
-                        boxShadow: '1px 1px 0 rgba(0,0,0,0.25)',
-                      }}>{qty}</span>
-                    </button>
-                  )
-                })}
+              <>
+                <p style={{ margin: '0 4px 12px', fontSize: 14, fontWeight: 600, color: M.text2 }}>
+                  Tap one to carry it to {cat.name}. Hold one to see what it does.
+                </p>
+                <div className="grid grid-cols-3" style={{ gap: 10 }}>
+                  {navItems.map(item => {
+                    const qty = inventory[item.id] ?? 0
+                    return (
+                      <button key={item.id} type="button"
+                        {...hold.bind(item)}
+                        onClick={() => {
+                          if (hold.consumed()) return
+                          playSound('ui_tap')
+                          setFridgeCat(navCat.id)
+                          setFoodIdx(navItems.findIndex(i => i.id === item.id))
+                          localStorage.setItem('eren_fridge_cat', navCat.id)
+                          setFridgeNav(null)
+                          setTab(null)
+                        }}
+                        className="m-press m-focus relative flex flex-col items-center"
+                        style={{
+                          padding: '12px 6px 10px', border: 0, borderRadius: 18, background: M.soft,
+                          fontFamily: 'inherit', cursor: 'pointer',
+                        }}>
+                        <FoodIcon id={item.id} color={item.color} size={48} />
+                        <span style={{ marginTop: 6, fontSize: 12, lineHeight: 1.25, fontWeight: 800, color: M.text, textAlign: 'center' }}>
+                          {item.name}
+                        </span>
+                        <span className="absolute flex items-center justify-center" style={{
+                          top: 6, right: 6, minWidth: 22, height: 22, padding: '0 6px', boxSizing: 'border-box',
+                          borderRadius: 999, background: '#FFFFFF', boxShadow: `0 2px 0 ${M.softLip}`,
+                          fontSize: 12, fontWeight: 800, color: M.text, fontVariantNumeric: 'tabular-nums',
+                        }}>{qty}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            ) : fridgeItems.length === 0 ? (
+              <div className="flex flex-col items-center text-center" style={{ padding: '12px 8px 4px' }}>
+                <span aria-hidden className="flex items-center justify-center" style={{
+                  width: 72, height: 72, borderRadius: 22, background: '#E3EEF8',
+                }}>
+                  <IconFridge size={40} />
+                </span>
+                <p style={{ margin: '14px 0 0', fontSize: 18, fontWeight: 800, color: M.text }}>Your fridge is empty</p>
+                <p style={{ margin: '4px 0 18px', fontSize: 14, lineHeight: 1.45, fontWeight: 500, color: M.text2 }}>
+                  Food you buy in the shop waits in here.
+                </p>
+                <PrimaryButton onClick={() => { playSound('ui_tap'); setTab('shop') }}
+                  icon={<IconCart size={20} />}>
+                  Go shopping
+                </PrimaryButton>
               </div>
             ) : (
-            <div className="flex flex-col gap-3">
-              {fridgeItems.length === 0 ? (
-                <div className="text-center">
-                  <p className="font-pixel mb-4" style={{ fontSize: 8, color: 'rgba(255,255,255,0.6)' }}>FRIDGE IS EMPTY</p>
-                  <div className="flex justify-center">
-                    <KitchenNavButton
-                      variant="shop"
-                      label="GO SHOP"
-                      onClick={() => { playSound('ui_tap'); setTab('shop') }}
-                    />
-                  </div>
-                </div>
-              ) : (
-                FRIDGE_CATEGORIES.map(c => {
+              <div className="flex flex-col" style={{ gap: 8 }}>
+                {FRIDGE_CATEGORIES.map(c => {
                   const catItems = ownedIn(c.id)
                   const catCount = catItems.reduce((s, i) => s + (inventory[i.id] ?? 0), 0)
                   if (catCount === 0) return null
                   return (
-                    <button key={c.id}
-                      onClick={() => { playSound('ui_select'); setFridgeNav(c.id) }}
-                      className="flex items-center gap-3 px-3 py-2.5 active:scale-95 transition-transform w-full"
-                      style={{
-                        background: `linear-gradient(135deg, ${c.color}20, ${c.color}08)`,
-                        borderRadius: 10,
-                        border: `2px solid ${c.color}88`,
-                        boxShadow: `3px 3px 0 rgba(0,0,0,0.3), 0 0 12px ${c.color}22`,
-                      }}>
-                      {/* Preview what's actually IN the fridge, at a size you can
-                          read — three stocked foods from this category. */}
-                      <div className="flex items-center gap-0.5 flex-shrink-0">
-                        {catItems.slice(0, 3).map(i => (
-                          <FoodIcon key={i.id} id={i.id} color={i.color} size={40} />
-                        ))}
-                      </div>
-                      <div className="flex-1 text-left min-w-0">
-                        <span className="font-pixel block" style={{ fontSize: 9, color: c.color, letterSpacing: 1.5 }}>{c.label}</span>
-                        <span className="font-pixel block" style={{ fontSize: 6, color: 'rgba(255,255,255,0.55)', marginTop: 4 }}>{catCount} ITEM{catCount !== 1 ? 'S' : ''}</span>
-                      </div>
-                      <IconChevronRight size={11} tone={c.color} />
-                    </button>
+                    <ShelfRow key={c.id}
+                      name={shelfName(c.label)} color={c.color}
+                      /* What's actually IN the fridge, at a size you can read. */
+                      preview={catItems.slice(0, 3).map(i => (
+                        <FoodIcon key={i.id} id={i.id} color={i.color} size={38} />
+                      ))}
+                      sub={`${catCount} inside`}
+                      onClick={() => { playSound('ui_select'); setFridgeNav(c.id) }} />
                   )
-                })
-              )}
-            </div>
+                })}
+              </div>
             )}
-
-            {/* Close — icon + label so it reads as a control, with a real tap
-                target instead of a thin 7px text strip. */}
-            <button onClick={closeFridge}
-              className="mt-6 mx-auto flex items-center gap-2 px-5 py-2.5 active:scale-95 transition-transform"
-              style={{ background: 'rgba(255,255,255,0.12)', borderRadius: 10, border: '2px solid rgba(255,255,255,0.28)', boxShadow: '0 2px 0 rgba(0,0,0,0.35)' }}
-              aria-label="Close the fridge">
-              <IconClose size={13} tone="rgba(255,255,255,0.75)" />
-              <span className="font-pixel" style={{ fontSize: 7, color: 'rgba(255,255,255,0.75)', letterSpacing: 1 }}>CLOSE</span>
-            </button>
-          </div>
-        </div>
+          </KitchenSheet>
         )
       })()}
 
@@ -1010,163 +936,96 @@ export default function FeedScene({ onClose }: Props) {
         const activeCat = shopCat ? FRIDGE_CATEGORIES.find(c => c.id === shopCat) ?? null : null
         const closeShop = () => { playSound('ui_modal_close'); setShopCat(null); setTab(null) }
         return (
-        <div className="absolute bottom-0 left-0 right-0 z-40 flex flex-col"
-          style={{ height: '52%', background: 'linear-gradient(180deg, #FFFBF0 0%, #FFF8E8 100%)', borderRadius: '16px 16px 0 0', borderTop: '3px solid #F5C842', boxShadow: '0 -4px 0 #E8A020', animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}>
-
-          {/* Drawer header. Back / close are matched 30px pixel-icon buttons —
-              they used to be bare ◂ / ✕ font glyphs at mismatched paddings and
-              radii, which read as leftover text and were a ~20px tap target. */}
-          <div className="flex items-center justify-between px-3 pt-2.5 pb-2 flex-shrink-0">
-            <div className="flex items-center gap-2 min-w-0">
-              {activeCat ? (
-                <button onClick={() => { playSound('ui_back'); setShopCat(null) }}
-                  className="active:scale-90 transition-transform flex-shrink-0"
-                  style={SHOP_HDR_BTN}
-                  aria-label="Back to categories">
-                  <IconChevronLeft size={15} />
-                </button>
-              ) : (
-                <span className="flex items-center justify-center flex-shrink-0"
-                  style={{ width: 30, height: 30, background: '#F7E9B8', borderRadius: 8, border: '2px solid #E8C870' }}>
-                  <ShoppingCart size={14} color="#A07020" strokeWidth={2.5} />
-                </span>
-              )}
-              <span className="font-pixel text-amber-700 truncate" style={{ fontSize: 9, letterSpacing: 1 }}>
-                {activeCat ? activeCat.label : 'SHOP'}
-              </span>
-            </div>
-            <button onClick={closeShop}
-              className="active:scale-90 transition-transform flex-shrink-0"
-              style={SHOP_HDR_BTN}
-              aria-label="Close shop">
-              <IconClose size={15} />
-            </button>
-          </div>
-          <div style={{ height: 2, background: 'linear-gradient(90deg, transparent, #F5C842, transparent)', marginBottom: 4 }} />
-
-          <div className="overflow-y-auto px-3 py-2 flex-1">
+          <KitchenSheet zIndex={40} height="58%"
+            title={activeCat ? shelfName(activeCat.label) : 'Shop'}
+            onBack={activeCat ? () => { playSound('ui_back'); setShopCat(null) } : undefined}
+            onClose={closeShop} closeLabel="Close the shop"
+            action={<CoinChip amount={coins} surface="white" style={{ height: 36, fontSize: 15, padding: '0 12px 0 6px' }} />}>
             {!activeCat ? (
-              /* PHASE 1 — category picker. Mirrors the fridge category list:
-                 colored row per category, two preview food icons + count. */
-              <div className="flex flex-col gap-2">
+              /* PHASE 1 — category picker, the same rows as the fridge. */
+              <div className="flex flex-col" style={{ gap: 8 }}>
                 {FRIDGE_CATEGORIES.map(c => {
                   // SHELF_ITEMS, not SHOP_ITEMS: the DONUTS row must count and
                   // preview what's for sale, not the whole case.
                   const catItems = SHELF_ITEMS.filter(i => i.cat === c.id)
-                  const previewIcons = catItems.slice(0, 3)
                   const cheapest = catItems.reduce((min, i) => i.price < min ? i.price : min, Infinity)
-                  // The label prints in its own category colour, on a pale wash
-                  // of that same colour — which left tan-on-cream around 2:1.
-                  const ink = deepenOn(c.color, ROW_TINT_FLOOR)
                   return (
-                    <button key={c.id}
-                      onClick={() => { playSound('ui_select'); setShopCat(c.id) }}
-                      className="flex items-center gap-2.5 px-2.5 py-2 w-full transition-transform active:translate-y-[2px]"
-                      style={{
-                        background: `linear-gradient(135deg, ${c.color}26 0%, ${c.color}0D 100%)`,
-                        borderRadius: 6,
-                        border: `2px solid ${c.color}99`,
-                        boxShadow: `3px 3px 0 ${c.color}44`,
-                      }}>
-                      {/* Three tasters on a little inset shelf — the art is the
-                          fastest way to recognise a cuisine, and the second
-                          surface stops it floating loose on the tint. */}
-                      <div className="flex items-center gap-0.5 flex-shrink-0 px-1 py-0.5"
-                        style={{ background: 'rgba(255,255,255,0.55)', borderRadius: 4, border: `1px solid ${c.color}40` }}>
-                        {previewIcons.map(i => (
-                          <FoodIcon key={i.id} id={i.id} color={i.color} size={40} />
-                        ))}
-                      </div>
-                      <div className="flex-1 text-left min-w-0">
-                        <span className="font-pixel block" style={{ fontSize: 9, color: ink, letterSpacing: 1.5 }}>{c.label}</span>
-                        {/* Pixel font + a real coin pip, so the meta line stops
-                            reading as leftover body copy with a stray "c". */}
-                        <span className="font-pixel flex items-center gap-1" style={{ fontSize: 6, color: '#9A7C58', marginTop: 4 }}>
-                          {catItems.length} ITEM{catItems.length !== 1 ? 'S' : ''}
-                          <span style={{ opacity: 0.45 }}>·</span>
-                          FROM
-                          <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'radial-gradient(circle at 38% 35%, #FFE878, #D4A818)', border: '1px solid #B08810' }} />
-                          {cheapest}
-                        </span>
-                      </div>
-                      <IconChevronRight size={11} tone={ink} />
-                    </button>
+                    <ShelfRow key={c.id}
+                      name={shelfName(c.label)} color={c.color}
+                      preview={catItems.slice(0, 3).map(i => (
+                        <FoodIcon key={i.id} id={i.id} color={i.color} size={38} />
+                      ))}
+                      sub={<>
+                        {catItems.length} {catItems.length === 1 ? 'food' : 'foods'} · from
+                        <MeadowIcon name="coin" size={14} />
+                        {cheapest}
+                      </>}
+                      onClick={() => { playSound('ui_select'); setShopCat(c.id) }} />
                   )
                 })}
               </div>
             ) : (
-              /* PHASE 2 — items in the active category. Same card layout as
-                 before; just filtered to one category. */
-              <div className="grid grid-cols-2 gap-2">
+              /* PHASE 2 — the foods on this shelf. */
+              <div className="grid grid-cols-2" style={{ gap: 10 }}>
                 {SHELF_ITEMS.filter(i => i.cat === activeCat.id).map(item => {
                   const canAfford = coins >= item.price
-                  const btnBg = canAfford ? item.color : '#cccccc'
                   const buff = monstaBuff(item.id)
                   const special = SPECIAL_CAN[item.id]
                   return (
                     <div key={item.id} {...hold.bind(item)}
-                      className={cn('relative flex flex-col items-center px-2.5 pt-2.5 pb-2.5 transition-all', !canAfford && 'opacity-55', special && `${special}-card`)}
-                      /* One flat wash instead of a gradient, and a lighter
-                         border. The food colour used to appear five times on
-                         one card — gradient, border, shadow, plate, button —
-                         which is what made these read as busy.
-                         A special-edition can dresses itself (.rainbow-card /
+                      className={cn('relative flex flex-col items-center', special && `${special}-card`)}
+                      /* A special-edition can dresses itself (.rainbow-card /
                          .gold-card), so it gets no inline surface at all — an
                          inline background would win over the animated one. */
-                      style={special ? undefined : { background: `${item.color}14`, borderRadius: 8, border: `2px solid ${item.color}40`, boxShadow: `2px 2px 0 ${item.color}20` }}>
-                      {/* Price rides the corner so the plate keeps the centre. */}
-                      <div className="absolute flex items-center gap-0.5 px-1.5 py-0.5" style={{ top: 5, right: 5, background: '#FFF3C0', borderRadius: 999, border: '1px solid #F5C842', boxShadow: '1px 1px 0 rgba(0,0,0,0.10)' }}>
-                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'radial-gradient(circle at 38% 35%, #FFE878, #D4A818)', border: '1px solid #B08810' }} />
-                        <span className="font-pixel text-amber-600" style={{ fontSize: 7 }}>{item.price}</span>
-                      </div>
-                      {/* The food is the hero, sitting straight on the card —
-                          the tinted plate behind it was a second shape
-                          competing with the art. The fixed height still gives
-                          every card the same footprint whatever the aspect
-                          ratio, so the grid stays even. */}
+                      style={{ padding: '12px 10px 10px', ...(special ? {} : { borderRadius: 20, background: M.soft }) }}>
+                      {/* The fixed height gives every card the same footprint
+                          whatever the art's aspect, so the grid stays even. */}
                       <div className={cn('relative flex items-center justify-center flex-shrink-0', special && `${special}-can`)}
-                        style={{ height: 68, marginTop: 4, marginBottom: 5 }}>
+                        style={{ height: 68 }}>
                         <FoodIcon id={item.id} color={item.color} size={62} />
                       </div>
-                      <p className="text-center font-bold text-gray-800 leading-tight" style={{ fontSize: 12 }}>{item.name}</p>
-                      <p className="text-center text-gray-400 leading-tight" style={{ fontSize: 10, marginTop: 1 }}>{cat.t(item.desc)}</p>
-                      {/* Stat chips — colour-coded so hunger vs joy reads at a
-                          glance. A Monsta swaps them for what you actually buy
-                          it for: the full energy bar and its own perk. */}
-                      <div className="flex justify-center gap-1 flex-wrap" style={{ marginTop: 6, marginBottom: 7 }}>
+                      <p style={{ margin: '6px 0 0', fontSize: 15, lineHeight: 1.2, fontWeight: 800, color: M.text, textAlign: 'center' }}>{item.name}</p>
+                      <p style={{ margin: '2px 0 0', fontSize: 12, lineHeight: 1.35, fontWeight: 500, color: M.text2, textAlign: 'center' }}>{cat.t(item.desc)}</p>
+                      {/* What it does. A Monsta swaps them for what you actually
+                          buy it for: the full energy bar and its own perk. */}
+                      <div className="flex justify-center flex-wrap" style={{ gap: 4, margin: '8px 0 10px' }}>
                         {buff ? <>
-                          <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFF0BC', color: '#9A6A08', border: '1px solid #F0CE68' }}>ENERGY MAX</span>
-                          <span className={cn('font-pixel', special && `${special}-chip`)} style={special ? undefined : { fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#E4F5DC', color: '#3E7A33', border: '1px solid #A8D598' }}>{buff.label}</span>
+                          <Tag size="sm" tone="amber">Energy max</Tag>
+                          {special
+                            ? <span className={`${special}-chip`}>{buff.label}</span>
+                            : <Tag size="sm" tone="leaf">{buff.label}</Tag>}
                         </> : <>
-                          <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFE3C4', color: '#B4622A', border: '1px solid #F0B884' }}>HGR+{item.hungerD}</span>
-                          {/* Ordinary food is joyless by design, and a "JOY+0"
-                              chip reads as a bug rather than as a rule. */}
-                          {item.happyD > 0 && (
-                            <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFDCE8', color: '#C0407A', border: '1px solid #F5A8C4' }}>JOY+{item.happyD}</span>
-                          )}
+                          <Tag size="sm" tone="amber">Hunger +{item.hungerD}</Tag>
+                          {/* Ordinary food is joyless by design, and a "Joy +0"
+                              tag reads as a bug rather than as a rule. */}
+                          {item.happyD > 0 && <Tag size="sm" tone="epic">Joy +{item.happyD}</Tag>}
                         </>}
                       </div>
-                      {/* Label colour is derived, not fixed: most food colours
-                          are pale tints that white text vanishes into. */}
                       {/* `buying` (any purchase in flight), NOT `buying === item.id`.
                           handleBuy's own guard bails on any in-flight purchase so the
-                          coin math can't read a stale balance, but this only greyed out
-                          the ONE item being bought — so every other item still looked
-                          tappable and silently did nothing until the write came back.
-                          On a slow connection writeWithRetry can hold that for 20s,
-                          which is the "the button just doesn't work" report. */}
-                      <button onClick={() => { if (hold.consumed()) return; playSound('ui_tap'); handleBuy(item) }} disabled={!canAfford || !!buying}
-                        className="w-full py-2 transition-all active:translate-y-[1px] disabled:opacity-40 mt-auto"
-                        style={{ background: btnBg, color: inkOn(btnBg), borderRadius: 5, border: `1px solid ${canAfford ? 'rgba(0,0,0,0.15)' : '#bbb'}`, boxShadow: canAfford ? `0 2px 0 rgba(0,0,0,0.18)` : 'none', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
-                        {buying === item.id ? '...' : canAfford ? 'BUY' : 'BROKE'}
-                      </button>
+                          coin math can't read a stale balance, so every button has
+                          to look busy while one is — on a slow connection
+                          writeWithRetry can hold that for 20s. */}
+                      <PrimaryButton size="sm" full
+                        disabled={!canAfford}
+                        busy={!!buying}
+                        ariaLabel={canAfford ? `Buy ${item.name} for ${item.price} coins` : `${item.name} costs ${item.price} coins`}
+                        onClick={() => { if (hold.consumed()) return; playSound('ui_tap'); handleBuy(item) }}
+                        style={{ marginTop: 'auto', height: 40, gap: 6, padding: '0 6px 0 12px' }}>
+                        {buying === item.id ? 'Buying' : 'Buy'}
+                        <span className="flex items-center" style={{
+                          height: 28, gap: 3, padding: '0 8px 0 4px', borderRadius: 9, background: '#FFFFFF',
+                          color: M.text, fontSize: 14, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+                        }}>
+                          <MeadowIcon name="coin" size={16} />{item.price}
+                        </span>
+                      </PrimaryButton>
                     </div>
                   )
                 })}
               </div>
             )}
-          </div>
-        </div>
+          </KitchenSheet>
         )
       })()}
 
@@ -1209,7 +1068,7 @@ export default function FeedScene({ onClose }: Props) {
            Kept in this scoped block rather than the contended globals.css. */
         .rainbow-card {
           border: 2px solid transparent;
-          border-radius: 8px;
+          border-radius: 20px;
           background:
             linear-gradient(#FFFAFF, #FFF4FC) padding-box,
             repeating-linear-gradient(135deg, #FF4D6D 0px, #FF9A3D 14px, #FFE23D 28px, #4BE07A 42px, #35C7F5 56px, #A65CF6 70px, #FF4D6D 84px) border-box;
@@ -1222,7 +1081,7 @@ export default function FeedScene({ onClose }: Props) {
            and vanished. Same reasoning as .rainbow-chip below. */
         .rainbow-tile {
           border: 2px solid transparent;
-          border-radius: 12px;
+          border-radius: 20px;
           background:
             radial-gradient(circle at 40% 35%, #46325F, #2E1F45 72%) padding-box,
             repeating-linear-gradient(135deg, #FF4D6D 0px, #FF9A3D 14px, #FFE23D 28px, #4BE07A 42px, #35C7F5 56px, #A65CF6 70px, #FF4D6D 84px) border-box;
@@ -1232,9 +1091,14 @@ export default function FeedScene({ onClose }: Props) {
         /* Dark fill, not a rainbow one: 6px pixel type on a full spectrum is
            unreadable at any text colour. The spectrum goes on the border. */
         .rainbow-chip {
-          font-size: 6px;
-          padding: 3px 5px;
-          border-radius: 4px;
+          display: inline-flex;
+          align-items: center;
+          height: 22px;
+          box-sizing: border-box;
+          font-size: 11px;
+          font-weight: 800;
+          padding: 0 8px;
+          border-radius: 999px;
           color: #FFFFFF;
           letter-spacing: 0.5px;
           border: 1px solid transparent;
@@ -1272,7 +1136,7 @@ export default function FeedScene({ onClose }: Props) {
            rainbow — and a brighter, slower glow. */
         .gold-card {
           border: 2px solid transparent;
-          border-radius: 8px;
+          border-radius: 20px;
           background:
             linear-gradient(#FFFDF4, #FFF6E0) padding-box,
             repeating-linear-gradient(135deg, #8A6410 0px, #D4A818 14px, #FFF3C0 28px, #F5C842 42px, #A8760F 56px, #E8B923 70px, #8A6410 84px) border-box;
@@ -1283,7 +1147,7 @@ export default function FeedScene({ onClose }: Props) {
            rays disappeared against a see-through wash on bright gold metal. */
         .gold-tile {
           border: 2px solid transparent;
-          border-radius: 12px;
+          border-radius: 20px;
           background:
             radial-gradient(circle at 40% 35%, #574115, #3A2A08 72%) padding-box,
             repeating-linear-gradient(135deg, #8A6410 0px, #D4A818 14px, #FFF3C0 28px, #F5C842 42px, #A8760F 56px, #E8B923 70px, #8A6410 84px) border-box;
@@ -1293,9 +1157,14 @@ export default function FeedScene({ onClose }: Props) {
         /* Dark fill for the same reason as .rainbow-chip: 6px pixel type on a
            bright metal ramp is unreadable at any text colour. */
         .gold-chip {
-          font-size: 6px;
-          padding: 3px 5px;
-          border-radius: 4px;
+          display: inline-flex;
+          align-items: center;
+          height: 22px;
+          box-sizing: border-box;
+          font-size: 11px;
+          font-weight: 800;
+          padding: 0 8px;
+          border-radius: 999px;
           color: #FFF3C0;
           letter-spacing: 0.5px;
           border: 1px solid transparent;
