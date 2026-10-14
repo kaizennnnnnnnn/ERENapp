@@ -8,7 +8,8 @@
 import { useEffect, useState } from 'react'
 import { WeatherMachinePanel } from '@/components/weather/WeatherMachine'
 import WeatherMachineProp from '@/components/weather/WeatherMachineProp'
-import { IconBook, IconFire, IconCheck, IconChevronDown } from '@/components/PixelIcons'
+import { IconBook, IconFire } from '@/components/PixelIcons'
+import { CheckDisc, FONT_ROUNDED, M, MeadowIcon, TINT } from '@/components/meadow'
 import BlinkingEren from '@/components/BlinkingEren'
 import { useRoomEren } from '@/hooks/useRoomEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
@@ -22,8 +23,6 @@ import PeriodicTableButton from '@/components/chemistry/PeriodicTableButton'
 import BrewOverlay from '@/components/chemistry/BrewOverlay'
 import BrewButton from '@/components/chemistry/BrewButton'
 import { LAB_EREN } from '@/components/chemistry/labEren'
-import { useStoredChemTheme } from '@/lib/chemistry/theme'
-import { pixelSkin, hard, PIXEL_FONT, type PixelSkin } from '@/components/chemistry/pixel'
 import { useTasks } from '@/contexts/TaskContext'
 import { getDailyKey, TASK_DEFS } from '@/lib/tasks'
 import RoomWeather from '@/components/weather/RoomWeather'
@@ -89,7 +88,7 @@ export default function ChemistryScene(_props: Props) {
           Floats at the top-left just under StatsHeader so the user sees
           what's worth doing today before tapping into the lab. Moved out
           of the overlay (was taking a whole strip in there). */}
-      <RoomMissionChips night={isDark} />
+      <RoomMissionChips />
 
 
       {/* ══ EREN ══ sits on the rug. Halfway between the original (too far)
@@ -150,24 +149,16 @@ export default function ChemistryScene(_props: Props) {
 }
 
 // ── Daily mission chips, top-left in the room ──────────────────────────
-// Sits under StatsHeader (z-[60]) so the bar takes precedence. Two chips,
-// two lines each (title + reward), state-aware.
+// Sits under StatsHeader (z-[60]) so the bar takes precedence. A header pill
+// that folds them away, then two chips, two lines each (title + reward),
+// state-aware.
 //
-// Dressed from the shared chemistry pixel kit so the chips, the brew bench
-// and the study overlay are visibly one system: 3px edge, hard offset
-// shadow, Press Start 2P, pixel icons. The one deliberate departure from
-// the house rule is the soft lift under the hard shadow — these float over
-// room ART rather than over a panel, and without it they read as muddy on
-// the night wall.
-//
-// The chips go dark when night falls OR when the chemistry overlay is in
-// dark mode — bright parchment glows too hard against the night room art.
-// Note the overlay theme DEFAULTS to dark, so out of the box the chips run
-// dark even by day; flipping the overlay to light restores the warm look.
-function RoomMissionChips({ night }: { night: boolean }) {
+// White Meadow pieces on the room art like every other room's overlays: the
+// over-art lip, no glow, the quest's pixel icon on a tinted tile, and a leaf
+// check once it's done. White reads on the night wall as well as the day
+// one, so there is no longer a separate night skin.
+function RoomMissionChips() {
   const { completedIds } = useTasks()
-  const chemTheme = useStoredChemTheme()
-  const skin = pixelSkin(night || chemTheme === 'dark' ? 'dark' : 'light')
   // Default expanded so the player sees today's chem quests on entry; the
   // header pill is a button that collapses the chips back into itself.
   const [expanded, setExpanded] = useState(true)
@@ -179,75 +170,62 @@ function RoomMissionChips({ night }: { night: boolean }) {
   // stale +10/+15 while the quests already paid 35 each.
   const lessonDef = TASK_DEFS.find(t => t.id === 'daily_chem_lesson')!
   const streakDef = TASK_DEFS.find(t => t.id === 'daily_chem_streak')!
-  const rewardText = (t: typeof lessonDef) => `+${t.coins} COINS +${t.xp} XP`
   return (
     <div
-      className="absolute z-20 pointer-events-none flex flex-col gap-2"
+      className="meadow-root absolute z-20 pointer-events-none flex flex-col"
       style={{
+        gap: 8,
         // Bumped down 110 → 150 so the chips clear the chemistry wall
         // diagram (proton / neutron / electron poster) in the room art.
         top: 'calc(150px + env(safe-area-inset-top, 0px))',
-        left: 10,
-        // The chips want 159px in Press Start 2P (measured, longest line is
-        // "FINISH A LESSON" at 7px). 200 leaves headroom without eating half
-        // the room; the vw clamp means a narrow phone crops the ROOM, never
-        // the panel.
-        maxWidth: 'min(200px, calc(100vw - 20px))',
+        left: 12,
+        // The vw clamp means a narrow phone crops the ROOM, never the chip.
+        maxWidth: 'min(210px, calc(100vw - 24px))',
       }}
     >
-      {/* Section header — toggle button. Tapping collapses both chips back
-          up into this slab; tapping again pops them out. Same surface as
-          the chips so the three pieces read as one unit. */}
+      {/* Header — the toggle. Tapping folds both chips back up into it;
+          tapping again brings them out. */}
       <button
         type="button"
-        onClick={() => setExpanded(e => !e)}
+        onClick={() => { playSound('ui_tap'); setExpanded(e => !e) }}
         aria-expanded={expanded}
-        className="chem-pixel-btn"
+        className="m-lip m-focus"
         style={{
+          '--m-lip': M.overArtLip,
+          '--m-lip-h': '3px',
           pointerEvents: 'auto',
           alignSelf: 'flex-start',
           display: 'inline-flex',
           alignItems: 'center',
-          gap: 6,
-          padding: '5px 8px',
-          background: skin.panel,
-          border: `2px solid ${skin.edge}`,
-          boxShadow: `${hard(skin.ink)}, 0 4px 12px rgba(0,0,0,0.35)`,
-          fontFamily: PIXEL_FONT,
-          fontSize: 6,
-          letterSpacing: 0.8,
-          lineHeight: 1.4,
-          color: skin.fg,
-          marginBottom: 2,
-        }}
+          gap: 4,
+          height: 34,
+          padding: '0 8px 0 14px',
+          border: 0,
+          borderRadius: 999,
+          background: '#FFFFFF',
+          fontFamily: FONT_ROUNDED,
+          fontSize: 13,
+          fontWeight: 800,
+          color: M.text,
+          cursor: 'pointer',
+        } as React.CSSProperties}
       >
-        DAILY CHEM QUESTS
+        Lab quests
         <span aria-hidden style={{
           display: 'inline-flex',
-          transform: expanded ? 'rotate(180deg)' : undefined,
+          transform: expanded ? 'rotate(-90deg)' : 'rotate(90deg)',
+          transition: 'transform 160ms ease',
         }}>
-          <IconChevronDown size={10} tone={skin.gold} />
+          <MeadowIcon name="chevronRight" size={18} color={M.text2} />
         </span>
       </button>
       <Collapsible expanded={expanded} delayMs={0}>
-        <MissionChip
-          Icon={IconBook}
-          title="FINISH A LESSON"
-          reward={rewardText(lessonDef)}
-          done={lessonDone}
-          accent="#FCD34D"
-          skin={skin}
-        />
+        <MissionChip Icon={IconBook} title="Finish a lesson" coins={lessonDef.coins} xp={lessonDef.xp}
+          done={lessonDone} tint={TINT.amber} />
       </Collapsible>
       <Collapsible expanded={expanded} delayMs={50}>
-        <MissionChip
-          Icon={IconFire}
-          title="5 IN A ROW"
-          reward={rewardText(streakDef)}
-          done={streakDone}
-          accent="#C4A7F5"
-          skin={skin}
-        />
+        <MissionChip Icon={IconFire} title="5 in a row" coins={streakDef.coins} xp={streakDef.xp}
+          done={streakDone} tint={TINT.lilac} />
       </Collapsible>
     </div>
   )
@@ -294,16 +272,12 @@ function Collapsible({ expanded, delayMs, children }: {
   )
 }
 
-// A claimed chip wears its accent solid with dark text, in BOTH skins —
-// that's the app's bright-accent-plus-ink-text convention, and it retires
-// the old three-tier accent/accentDark/accentDeep dance that existed only
-// to keep cream text legible on amber.
-function MissionChip({ Icon, title, reward, done, accent, skin }: {
+// One quest: its pixel icon on a tinted tile, the name, and what it pays —
+// or a leaf check and "Done" once claimed.
+function MissionChip({ Icon, title, coins, xp, done, tint }: {
   Icon: React.ComponentType<{ size?: number }>
-  title: string; reward: string; done: boolean; accent: string; skin: PixelSkin
+  title: string; coins: number; xp: number; done: boolean; tint: string
 }) {
-  const body = done ? skin.onAccent : skin.fg
-  const sub = done ? skin.onAccent : skin.fgDim
   return (
     <div
       style={{
@@ -314,51 +288,34 @@ function MissionChip({ Icon, title, reward, done, accent, skin }: {
         // overlap into a dead zone that swallows taps meant for the machine.
         // The container is pointer-events-none, so leaving it alone lets taps
         // fall through to whatever is actually underneath.
-        display: 'flex', alignItems: 'center', gap: 7,
-        padding: '6px 8px 6px 6px',
-        background: done ? accent : skin.panel,
-        border: `2px solid ${skin.edge}`,
-        boxShadow: `${hard(skin.ink)}, 0 4px 12px rgba(0,0,0,0.35)`,
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '8px 12px 8px 8px',
+        borderRadius: 18,
+        background: '#FFFFFF',
+        boxShadow: `0 3px 0 ${M.overArtLip}`,
       }}
     >
-      <span
-        aria-hidden
-        style={{
-          flexShrink: 0,
-          width: 24, height: 24,
-          display: 'grid', placeItems: 'center',
-          background: done ? skin.panel : accent,
-          border: `2px solid ${skin.edge}`,
-          boxShadow: hard(skin.ink, 2),
-        }}
-      >
-        {done ? <IconCheck size={13} tone="#4ADE80" /> : <Icon size={13} />}
+      <span aria-hidden className="flex items-center justify-center flex-shrink-0" style={{
+        width: 36, height: 36, borderRadius: 12, background: done ? M.leafTint : tint,
+      }}>
+        {done ? <CheckDisc size={24} /> : <Icon size={20} />}
       </span>
       <div style={{ minWidth: 0 }}>
         <div style={{
-          fontFamily: PIXEL_FONT,
-          fontSize: 7,
-          letterSpacing: 0.3,
-          lineHeight: 1.5,
-          color: body,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
+          fontSize: 14, lineHeight: 1.25, fontWeight: 800, color: M.text,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {title}
         </div>
-        <div style={{
-          fontFamily: PIXEL_FONT,
-          fontSize: 5.5,
-          letterSpacing: 0.2,
-          lineHeight: 1.6,
-          color: sub,
-          marginTop: 3,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
+        <div className="flex items-center" style={{
+          gap: 3, marginTop: 2, fontSize: 12, fontWeight: 700,
+          color: done ? M.leafInk : M.text2, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums',
         }}>
-          {done ? 'CLAIMED' : reward}
+          {done ? 'Done for today' : <>
+            <MeadowIcon name="coin" size={14} />+{coins}
+            <span style={{ margin: '0 3px', color: M.faint }}>·</span>
+            +{xp} XP
+          </>}
         </div>
       </div>
     </div>
