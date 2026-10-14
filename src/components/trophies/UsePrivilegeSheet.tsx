@@ -4,6 +4,9 @@
 // will notice, so each gets a sentence saying exactly what is about to happen
 // before the button is armed — and Eren Says gets a text box, because the
 // whole item is the sentence.
+//
+// A white Meadow card like the buy confirm: the power's drawing on a soft
+// stage, what it will do, and one leaf button that spends it.
 
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -16,7 +19,8 @@ import { useTrophyEffects } from '@/hooks/useTrophyEffects'
 import { useDailyBattle } from '@/hooks/useDailyBattle'
 import { EREN_SAYS_MAX } from '@/lib/trophyEffects'
 import type { PrivilegeItem } from '@/lib/trophyShop'
-import PowerArt, { POWER_TONE } from './PowerArt'
+import PowerArt from './PowerArt'
+import { M, PrimaryButton, Tag, TextButton, TYPE } from '@/components/meadow'
 import { playSound } from '@/lib/sounds'
 import type { StreakData } from '@/types'
 
@@ -38,7 +42,6 @@ export default function UsePrivilegeSheet({
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
 
-  const tone = POWER_TONE[item.privilege]
   const them = partner?.name?.split(' ')[0] ?? 'them'
   const leaderIsPartner = battle.leader === 'partner'
   const leaderIsMe = battle.leader === 'me'
@@ -125,78 +128,92 @@ export default function UsePrivilegeSheet({
     return !error
   }
 
-  return createPortal(
-    <div className="fixed inset-0 z-[140] flex items-center justify-center px-6"
-      style={{ background: 'rgba(0,0,0,0.74)' }}
-      onClick={() => { if (!busy) onClose() }}>
-      <div onClick={e => e.stopPropagation()}
-        className="relative w-full p-4 flex flex-col items-center gap-3"
-        style={{
-          maxWidth: 300,
-          background: 'radial-gradient(120% 90% at 50% 0%, #191426 0%, #0D0A16 60%, #06050B 100%)',
-          border: `2px solid ${tone}`,
-          borderRadius: 12,
-          boxShadow: `0 0 22px ${tone}55, 0 10px 30px rgba(0,0,0,0.6)`,
-        }}>
+  const close = () => { if (!busy) { playSound('ui_modal_close'); onClose() } }
+  const have = trophies.qty(item.id)
 
-        <PowerArt id={item.privilege} width={54} />
-        <p className="font-pixel text-center" style={{ fontSize: 9, letterSpacing: 1.5, color: tone }}>
-          {cat.t(item.name).toUpperCase()}
-        </p>
-        <p className="text-center text-[11px]" style={{ color: blocked ? '#FFB4A1' : '#9FD8B5' }}>
+  return createPortal(
+    <div className="meadow-root fixed inset-0 z-[140] flex items-center justify-center"
+      style={{ padding: '0 20px', background: 'rgba(47, 43, 40, 0.36)' }}
+      onClick={close}>
+      <div onClick={e => e.stopPropagation()}
+        role="dialog" aria-modal="true" aria-label={`Use ${cat.t(item.name)}`}
+        className="trophy-card w-full flex flex-col items-center"
+        style={{
+          maxWidth: 340, boxSizing: 'border-box', padding: '20px 20px 14px',
+          borderRadius: 28, background: '#FFFFFF',
+          animation: 'trophyCardPop 0.26s cubic-bezier(0.34, 1.4, 0.64, 1) both',
+        }}>
+        <div className="w-full flex items-center justify-center" style={{
+          position: 'relative', minHeight: 104, borderRadius: 22, background: M.soft,
+        }}>
+          <Tag size="sm" tone="soft" style={{ position: 'absolute', top: 10, right: 10, fontVariantNumeric: 'tabular-nums' }}>
+            You have {have}
+          </Tag>
+          <PowerArt id={item.privilege} width={62} />
+        </div>
+
+        <h2 style={{ margin: '16px 0 0', fontSize: 22, lineHeight: 1.2, fontWeight: 800, color: M.text, textAlign: 'center' }}>
+          {cat.t(item.name)}
+        </h2>
+        <p style={{
+          margin: '8px 0 0', fontSize: 15, lineHeight: 1.45, fontWeight: 600, textAlign: 'center',
+          ...(blocked
+            ? { padding: '8px 12px', borderRadius: 14, background: M.dangerTint, color: M.danger }
+            : { color: M.text2 }),
+        }}>
           {consequence[item.privilege]}
         </p>
 
         {needsText && (
-          <div className="w-full">
+          <div className="w-full" style={{ marginTop: 14 }}>
             <textarea
               value={text}
               onChange={e => setText(e.target.value.slice(0, EREN_SAYS_MAX))}
               rows={3}
+              aria-label={`What ${cat.name} will say`}
               placeholder={`Something for ${them}…`}
-              className="w-full px-2.5 py-2 text-[12px]"
+              className="trophy-say w-full"
               style={{
-                background: 'rgba(0,0,0,0.45)',
-                border: '1.5px solid rgba(99,240,148,0.4)',
-                borderRadius: 4,
-                color: '#E4FFEE',
-                resize: 'none',
-                outline: 'none',
+                display: 'block', boxSizing: 'border-box', padding: '12px 14px',
+                background: M.soft, border: `2px solid ${M.hairline}`, borderRadius: 16,
+                color: M.text, fontFamily: 'inherit', fontSize: 16, lineHeight: 1.4, fontWeight: 600,
+                resize: 'none', outline: 'none',
               }}
             />
-            <p className="text-right font-pixel" style={{ fontSize: 5, color: '#6E8F7C', marginTop: 2 }}>
+            <p style={{ margin: '4px 4px 0', textAlign: 'right', ...TYPE.tiny, fontWeight: 700, color: M.faint, fontVariantNumeric: 'tabular-nums' }}>
               {text.length}/{EREN_SAYS_MAX}
             </p>
           </div>
         )}
 
-        {error && <p className="text-center text-[11px]" style={{ color: '#FF8DA1' }}>{error}</p>}
+        {error && (
+          <p role="alert" style={{
+            margin: '12px 0 0', padding: '8px 12px', borderRadius: 14, width: '100%', boxSizing: 'border-box',
+            background: M.dangerTint, color: M.danger, fontSize: 14, fontWeight: 700, textAlign: 'center',
+          }}>{error}</p>
+        )}
 
-        <button
+        <PrimaryButton
           onClick={use}
-          disabled={!ready || busy || done}
-          className="w-full px-4 py-3 active:translate-y-[1px] transition-transform"
-          style={{
-            background: done
-              ? 'linear-gradient(180deg, #A7F3B0 0%, #34D399 55%, #065F46 100%)'
-              : ready
-                ? 'linear-gradient(180deg, #A7F3C0 0%, #34D399 55%, #0B6B45 100%)'
-                : 'rgba(255,255,255,0.05)',
-            border: `2px solid ${ready || done ? '#0B4C33' : 'rgba(255,255,255,0.1)'}`,
-            borderRadius: 6,
-            opacity: busy ? 0.6 : 1,
-          }}>
-          <span className="font-pixel" style={{
-            fontSize: 9, letterSpacing: 1, color: ready || done ? '#04231A' : '#7A8686',
-          }}>
-            {done ? 'DONE' : busy ? '...' : blocked ? 'NOT NOW' : 'SPEND ONE'}
-          </span>
-        </button>
+          disabled={!ready && !done}
+          busy={busy || done}
+          style={{ marginTop: 16 }}>
+          {done ? 'Done' : 'Spend one'}
+        </PrimaryButton>
 
-        <p className="text-center font-pixel" style={{ fontSize: 5, letterSpacing: 1, color: '#6E8F7C' }}>
-          YOU HAVE {trophies.qty(item.id)}
-        </p>
+        <TextButton tone="muted" onClick={close} disabled={busy}>Not now</TextButton>
       </div>
+
+      {/* A plain <style>: the name comes from an inline style, which only
+          reaches global keyframes. */}
+      <style>{`
+        @keyframes trophyCardPop {
+          0%   { transform: scale(0.94) translateY(8px); opacity: 0; }
+          100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        .trophy-say:focus { border-color: ${M.leaf} !important; background: #FFFFFF !important; }
+        @media (prefers-reduced-motion: reduce) { .trophy-card { animation: none !important; } }
+      `}</style>
     </div>,
     document.body,
   )

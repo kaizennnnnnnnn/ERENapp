@@ -3,15 +3,19 @@
 // Purchase confirmation. Small on purpose — the shop card already made the
 // case; this is the "are you sure, that is three won days" beat, plus the one
 // place a server refusal gets explained instead of silently doing nothing.
+//
+// A white Meadow card over a dimmed screen, like the gift and fortune cards:
+// the item on a soft stage, its rarity as a tag, one leaf button that spends.
 
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTrophies } from '@/hooks/useTrophies'
 import { useAuth } from '@/hooks/useAuth'
 import { useCat } from '@/hooks/useCat'
-import { SHOP_RARITY_COLORS, type AnyShopItem } from '@/lib/trophyShop'
+import type { AnyShopItem } from '@/lib/trophyShop'
 import ItemPreview from './ItemPreview'
-import { MeadowIcon } from '@/components/PixelIcons'
+import { PriceChip } from './TrophyShopView'
+import { M, MeadowIcon, PrimaryButton, Tag, TextButton } from '@/components/meadow'
 import { playSound } from '@/lib/sounds'
 
 const REFUSAL: Record<string, string> = {
@@ -42,7 +46,6 @@ export default function TrophyBuySheet({
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
 
-  const rc = SHOP_RARITY_COLORS[item.rarity]
   const short = Math.max(0, item.price - trophies.balance)
   const affordable = short === 0
 
@@ -64,73 +67,71 @@ export default function TrophyBuySheet({
     setError(REFUSAL[key] ?? REFUSAL.offline)
   }
 
+  const close = () => { if (!busy) { playSound('ui_modal_close'); onClose() } }
+
   return createPortal(
-    <div className="fixed inset-0 flex items-center justify-center px-6"
-      style={{ background: 'rgba(0,0,0,0.74)', zIndex: z }}
-      onClick={() => { if (!busy) onClose() }}>
+    <div className="meadow-root fixed inset-0 flex items-center justify-center"
+      style={{ padding: '0 20px', background: 'rgba(47, 43, 40, 0.36)', zIndex: z }}
+      onClick={close}>
       <div onClick={e => e.stopPropagation()}
-        className="relative w-full p-4 flex flex-col items-center gap-3"
+        role="dialog" aria-modal="true" aria-label={`Buy ${cat.t(item.name)}`}
+        className="trophy-card w-full flex flex-col items-center"
         style={{
-          maxWidth: 290,
-          background: 'radial-gradient(120% 90% at 50% 0%, #2A1B4A 0%, #160E2E 60%, #0B0717 100%)',
-          border: `2px solid ${rc.border}`,
-          borderRadius: 12,
-          boxShadow: `0 0 22px ${rc.glow}, 0 10px 30px rgba(0,0,0,0.6)`,
+          maxWidth: 340, boxSizing: 'border-box', padding: '20px 20px 14px',
+          borderRadius: 28, background: '#FFFFFF',
+          animation: 'trophyCardPop 0.26s cubic-bezier(0.34, 1.4, 0.64, 1) both',
         }}>
-        {[['t', 'l'], ['t', 'r'], ['b', 'l'], ['b', 'r']].map(([v, h], i) => (
-          <div key={i} className="absolute" style={{
-            width: 4, height: 4, background: '#F5C842', boxShadow: '0 0 3px #F5C842',
-            top: v === 't' ? 7 : undefined, bottom: v === 'b' ? 7 : undefined,
-            left: h === 'l' ? 7 : undefined, right: h === 'r' ? 7 : undefined,
-          }} />
-        ))}
-
-        <span className="font-pixel px-2.5 py-1" style={{
-          fontSize: 6, letterSpacing: 1.5, color: rc.text,
-          background: rc.bg, border: `1.5px solid ${rc.border}`, borderRadius: 4,
-        }}>{item.rarity.toUpperCase()}</span>
-
-        <div className="flex items-center justify-center" style={{ minHeight: 86 }}>
-          <ItemPreview item={item} size={104} name={profile?.name?.split(' ')[0] || 'YOU'} />
+        <div className="w-full flex items-center justify-center" style={{
+          position: 'relative', minHeight: 120, padding: '18px 12px', boxSizing: 'border-box',
+          borderRadius: 22, background: M.soft,
+        }}>
+          <Tag size="sm" tone={item.rarity} caps style={{ position: 'absolute', top: 10, left: 10 }}>
+            {item.rarity}
+          </Tag>
+          <ItemPreview item={item} size={104} name={(profile?.name?.split(' ')[0] || 'You').toUpperCase()} />
         </div>
 
-        <p className="font-pixel text-center" style={{ fontSize: 9, letterSpacing: 1.5, color: rc.text }}>
-          {cat.t(item.name).toUpperCase()}
+        <h2 style={{ margin: '16px 0 0', fontSize: 22, lineHeight: 1.2, fontWeight: 800, color: M.text, textAlign: 'center' }}>
+          {cat.t(item.name)}
+        </h2>
+        <p style={{ margin: '6px 0 0', fontSize: 15, lineHeight: 1.45, fontWeight: 500, color: M.text2, textAlign: 'center' }}>
+          {cat.t(item.blurb)}
         </p>
-        <p className="text-center text-[11px]" style={{ color: '#B4A8C4' }}>{cat.t(item.blurb)}</p>
 
         {error && (
-          <p className="text-center text-[11px]" style={{ color: '#FF8DA1' }}>{error}</p>
+          <p role="alert" style={{
+            margin: '12px 0 0', padding: '8px 12px', borderRadius: 14, width: '100%', boxSizing: 'border-box',
+            background: M.dangerTint, color: M.danger, fontSize: 14, fontWeight: 700, textAlign: 'center',
+          }}>{error}</p>
         )}
 
-        <button
+        <PrimaryButton
           onClick={confirm}
-          disabled={!affordable || busy || done}
-          className="w-full px-4 py-3 flex items-center justify-center gap-2 active:translate-y-[1px] transition-transform"
-          style={{
-            background: affordable && !done
-              ? 'linear-gradient(180deg, #FDE68A 0%, #F5C842 55%, #B45309 100%)'
-              : done
-                ? 'linear-gradient(180deg, #A7F3B0 0%, #34D399 55%, #065F46 100%)'
-                : 'rgba(255,255,255,0.05)',
-            border: `2px solid ${affordable || done ? '#7a4a08' : 'rgba(255,255,255,0.1)'}`,
-            borderRadius: 6,
-            opacity: busy ? 0.6 : 1,
-          }}>
-          {!done && <MeadowIcon name="catnip" size={16} />}
-          <span className="font-pixel" style={{
-            fontSize: 9, letterSpacing: 1, color: affordable || done ? '#2A1A00' : '#7A7286',
-          }}>
-            {done ? 'BOUGHT' : busy ? '...' : `SPEND ${item.price}`}
-          </span>
-        </button>
+          disabled={!affordable && !done}
+          busy={busy || done}
+          icon={done ? <MeadowIcon name="check" size={20} color="#FFFFFF" mono /> : undefined}
+          style={{ marginTop: 16 }}>
+          {done ? 'Bought' : <>Spend <PriceChip price={item.price} /></>}
+        </PrimaryButton>
 
-        <p className="text-center text-[10px]" style={{ color: '#8B7F9B' }}>
+        <p style={{ margin: '10px 0 0', fontSize: 13, fontWeight: 600, color: M.text2, textAlign: 'center' }}>
           {affordable
             ? `You have ${trophies.balance} catnip.`
             : `Need ${short} more catnip (you have ${trophies.balance}).`}
         </p>
+
+        <TextButton tone="muted" onClick={close} disabled={busy}>Not now</TextButton>
       </div>
+
+      {/* A plain <style>: the name comes from an inline style, which only
+          reaches global keyframes. */}
+      <style>{`
+        @keyframes trophyCardPop {
+          0%   { transform: scale(0.94) translateY(8px); opacity: 0; }
+          100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        @media (prefers-reduced-motion: reduce) { .trophy-card { animation: none !important; } }
+      `}</style>
     </div>,
     document.body,
   )

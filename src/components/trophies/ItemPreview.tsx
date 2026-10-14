@@ -83,8 +83,11 @@ export default function ItemPreview({ item, size = 76, name = 'YOU' }: {
   if (item.kind === 'privilege') {
     return <PowerArt id={(item as PrivilegeItem).privilege} width={Math.round(size * 0.6)} />
   }
+  // A plate's pixel type grows with the box, so the shop card and the buy
+  // card show it at a size you can read, never under the 6px floor.
   const p = item as PrestigeItem
+  const scale = Math.max(6, Math.round(size / 10))
   return p.slot === 'title'
-    ? <TitlePlate value={p.value} focus={p.focus} scale={6} glory={p.rarity === 'legendary'} />
-    : <FramePlate tone={p.value} name={name} scale={6} />
+    ? <TitlePlate value={p.value} focus={p.focus} scale={scale} glory={p.rarity === 'legendary'} />
+    : <FramePlate tone={p.value} name={name} scale={scale} />
 }
