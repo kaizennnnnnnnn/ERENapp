@@ -215,10 +215,12 @@ export default function PlayScene({ onClose }: Props) {
           it, and "over" put the window on top of the fridge shop. */}
       <RoomWeather room="play" dark={isDark} />
 
-            {/* ══ EREN ══ (hidden while sleeping in the bedroom).
-          The flip container faces him toward the ball; the pounce hop rides
-          an inner wrapper so its forward --tx is mirrored toward the ball by
-          the same flip. Idle pauses while a reaction plays. */}
+      {/* ══ EREN ══ (hidden while sleeping in the bedroom).
+          He tracks the ball by LEANING toward it, and the pounce hop jumps
+          toward the side it went (--tx). He used to be mirrored to face it
+          with a 500ms scaleX, which squashed him to a sliver halfway through
+          every turn and showed him up as a flat picture. Idle pauses while a
+          reaction plays. */}
       {!isSleeping && (
         <div className={cn('absolute z-10')}
           style={{ bottom: '10%', left: '50%', transform: 'translateX(-50%)' }}>
@@ -238,35 +240,27 @@ export default function PlayScene({ onClose }: Props) {
                 ? 0 : Math.max(-5, Math.min(5, (ballPos.x - 50) * 0.12))
             }deg)`,
           }}>
-            {/* Flip faces him toward the ball. Kept on its own layer INSIDE the
-                lean so the lean stays in screen space (no sign flip needed) and
-                the 500ms transition still gives the smooth turn-around. */}
             <div style={{
-              transform: `scaleX(${lookDir === 'left' ? -1 : 1})`,
-              transition: 'transform 500ms',
-            }}>
-              <div style={{
-                animation: reaction.phase === 'pounce' ? 'erenPounce 520ms cubic-bezier(0.3,0.7,0.4,1)'
-                  : reaction.phase === 'finish' ? 'erenIdleHop 800ms ease-in-out'
-                  : undefined,
-                transformOrigin: 'bottom center',
-                ['--tx' as string]: '10px',
-              } as React.CSSProperties}>
-                {/* Tapping him pets instead of throwing the ball at him —
-                    PetTarget swallows the tap before the scene's onClick. */}
-                <PetTarget reaction={reaction}>
-                  <ErenIdleLayer disabled={reaction.active}>
-                    {erenSprite}
-                  </ErenIdleLayer>
-                </PetTarget>
-              </div>
+              animation: reaction.phase === 'pounce' ? 'erenPounce 520ms cubic-bezier(0.3,0.7,0.4,1)'
+                : reaction.phase === 'finish' ? 'erenIdleHop 800ms ease-in-out'
+                : undefined,
+              transformOrigin: 'bottom center',
+              ['--tx' as string]: lookDir === 'left' ? '-10px' : '10px',
+            } as React.CSSProperties}>
+              {/* Tapping him pets instead of throwing the ball at him —
+                  PetTarget swallows the tap before the scene's onClick. */}
+              <PetTarget reaction={reaction}>
+                <ErenIdleLayer disabled={reaction.active}>
+                  {erenSprite}
+                </ErenIdleLayer>
+              </PetTarget>
             </div>
           </div>
         </div>
       )}
 
-      {/* Reaction words/hearts — a SEPARATE, non-flipped overlay at Eren's
-          spot so the pixel text never renders mirrored by the flip. */}
+      {/* Reaction words/hearts — a SEPARATE overlay at Eren's spot, so they
+          don't lean or hop with him. */}
       {!isSleeping && (reaction.phase === 'pounce' || reaction.phase === 'finish' || reaction.phase === PURR) && (
         <div className="absolute z-20 pointer-events-none" style={{
           bottom: '10%', left: '50%', transform: 'translateX(-50%)', width: 200, height: 200,
