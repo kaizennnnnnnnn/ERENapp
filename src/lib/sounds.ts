@@ -32,11 +32,11 @@ export const SOUNDS = {
   // button tap doesn't have to share audio with opening a sheet.
   //
   //  - ui_tap        : single tiny chiptune blip for any small button
-  //  - ui_back       : descending blip pair for back / dismiss
+  //  - ui_back       : back / dismiss — synthesised, the same soft drop as ui_modal_close
   //  - ui_toggle     : soft pixel "tick" for on/off switches
   //  - ui_select     : chunkier pickup-style blip for list selections
   //  - ui_modal_open : ascending blip pair for sheets / detail panels
-  //  - ui_modal_close: descending blip pair for closing sheets
+  //  - ui_modal_close: closing / cancelling anything — synthesised (SYNTH_RECIPES)
   //  - ui_swipe_room : page-transition whoosh (user keeps this one)
   ui_tap:               '/sounds/ui/ui_tap.mp3',
   ui_back:              '/sounds/ui/ui_back.mp3',
@@ -99,11 +99,35 @@ export const SOUNDS = {
   chat_poof:            '/sounds/chat/chat_poof.mp3',
   chat_pin:             '/sounds/chat/chat_pin.mp3',
 
-  // Gacha — rarity-tiered reveal stingers.
+  // Gacha — the old shared rarity stingers. No machine plays these any more
+  // (each machine has its own set below); they stay because several game
+  // sounds name them in FALLBACK.
   gacha_reveal_common:    '/sounds/gacha/gacha_reveal_common.mp3',
   gacha_reveal_rare:      '/sounds/gacha/gacha_reveal_rare.mp3',
   gacha_reveal_epic:      '/sounds/gacha/gacha_reveal_epic.mp3',
   gacha_reveal_legendary: '/sounds/gacha/gacha_reveal_legendary.mp3',
+
+  // Gacha reveals, one set per machine, one stinger per rarity. All
+  // SYNTHESISED (SYNTH_RECIPES wins, so these files never exist). Each machine
+  // has its own voice so you can hear which one paid out:
+  //   fizz  Snacks & Drinks — bubbly sine pops and carbonation hiss
+  //   skin  Clothes          — harp-and-bell triangle chimes
+  //   suit  FoodSuits        — an electric power-up, sweeps and a bass hit
+  // and the rarity sets how big it gets.
+  gacha_fizz_common:      '/sounds/gacha/gacha_fizz_common.mp3',
+  gacha_fizz_rare:        '/sounds/gacha/gacha_fizz_rare.mp3',
+  gacha_fizz_epic:        '/sounds/gacha/gacha_fizz_epic.mp3',
+  gacha_fizz_legendary:   '/sounds/gacha/gacha_fizz_legendary.mp3',
+  gacha_skin_common:      '/sounds/gacha/gacha_skin_common.mp3',
+  gacha_skin_rare:        '/sounds/gacha/gacha_skin_rare.mp3',
+  gacha_skin_epic:        '/sounds/gacha/gacha_skin_epic.mp3',
+  gacha_skin_legendary:   '/sounds/gacha/gacha_skin_legendary.mp3',
+  gacha_suit_common:      '/sounds/gacha/gacha_suit_common.mp3',
+  gacha_suit_rare:        '/sounds/gacha/gacha_suit_rare.mp3',
+  gacha_suit_epic:        '/sounds/gacha/gacha_suit_epic.mp3',
+  gacha_suit_legendary:   '/sounds/gacha/gacha_suit_legendary.mp3',
+  // The bakery's donut machine: one sweet landing chime (donuts have no rarity).
+  gacha_donut:            '/sounds/gacha/gacha_donut.mp3',
 
   // ─── Mini-game gameplay SFX ─────────────────────────────────────────────
   // Per-game keys for the 11 mini-games. Each routes to a per-game folder

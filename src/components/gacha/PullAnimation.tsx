@@ -15,7 +15,12 @@ interface Props {
   onDone: () => void
   /** Skip the capsule-shake intro — for pulls whose opening already played (rainbow video). */
   skipCapsule?: boolean
+  /** Which machine paid out: each has its own reveal sounds. */
+  machine: 'food' | 'animal' | 'foodsuits'
 }
+
+/** Each machine's reveal voice (see gacha_* in lib/sounds.ts). */
+const REVEAL_VOICE = { food: 'fizz', animal: 'skin', foodsuits: 'suit' } as const
 
 // ═══════════════════════════════════════════════════════════════════════════
 // The non-skin reveal used to be a 79px picture inside a 90px pastel square:
@@ -67,7 +72,7 @@ const REVEAL: Record<GachaPullResult['item']['rarity'], RevealTier> = {
   },
 }
 
-export default function PullAnimation({ results, onDone, skipCapsule = false }: Props) {
+export default function PullAnimation({ results, onDone, skipCapsule = false, machine }: Props) {
   const [phase, setPhase] = useState<'capsule' | 'reveal' | 'done'>(skipCapsule ? 'reveal' : 'capsule')
   const [currentIdx, setCurrentIdx] = useState(0)
   const [showItem, setShowItem] = useState(skipCapsule)
@@ -82,18 +87,12 @@ export default function PullAnimation({ results, onDone, skipCapsule = false }: 
 
   const current = results[currentIdx]
 
-  // Rarity-tiered reveal stinger — fires every time a new item is shown,
-  // including the second-and-later items in a 10-pull. Falls back to
-  // ui_notification_ping for tiers whose files haven't been generated yet.
+  // Rarity-tiered reveal stinger in this machine's own voice — fires every
+  // time a new item is shown, including the second-and-later items in a
+  // 10-pull.
   useEffect(() => {
     if (!showItem || !current) return
-    const map = {
-      common:    'gacha_reveal_common',
-      rare:      'gacha_reveal_rare',
-      epic:      'gacha_reveal_epic',
-      legendary: 'gacha_reveal_legendary',
-    } as const
-    playSound(map[current.item.rarity])
+    playSound(`gacha_${REVEAL_VOICE[machine]}_${current.item.rarity}`)
   }, [showItem, current?.item.rarity]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!current) { onDone(); return null }

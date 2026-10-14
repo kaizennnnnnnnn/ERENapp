@@ -62,6 +62,8 @@ export default function GachaPage() {
   const [pageIdx, setPageIdx] = useState(0)
   const [showOdds, setShowOdds] = useState(false)
   const [pullResults, setPullResults] = useState<GachaPullResult[] | null>(null)
+  // The machine those results came from, so the reveal plays its own sounds.
+  const [pullMachine, setPullMachine] = useState<(typeof PAGES)[number]['id']>('food')
   // Video playing over the pull: the rainbow reward video (Rainbow Monsta only)
   // or a rarity-tiered hit video for clothes. null = no video playing.
   const [openingVideo, setOpeningVideo] = useState<string | null>(null)
@@ -330,6 +332,7 @@ export default function GachaPage() {
       }
     }
 
+    setPullMachine(bannerId)
     setPullResults(results)
   }
 
@@ -529,7 +532,7 @@ export default function GachaPage() {
       {cinematic === 'energy' && <GachaEnergyOpening rarity={cinematicRarity} onDone={endCinematic} />}
 
       {/* ── Reveal ── */}
-      {pullResults && !openingVideo && !cinematic && <PullAnimation results={pullResults} onDone={handlePullDone} skipCapsule={openedWithVideo.current} />}
+      {pullResults && !openingVideo && !cinematic && <PullAnimation results={pullResults} onDone={handlePullDone} skipCapsule={openedWithVideo.current} machine={pullMachine} />}
 
       {/* ── Drop rates. Its own backdrop swallows taps: handlePull only guards
              on pulling/video/results, so without one a miss would spend 50 coins. */}

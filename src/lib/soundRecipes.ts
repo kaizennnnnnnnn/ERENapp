@@ -512,4 +512,106 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
                     { at: 0,  recipe: { type: 'chord', freqs: [1760, 2637], duration: 85, shape: 'sine', gain: 0.42 } },
                     { at: 16, recipe: { type: 'blip', freq: 880, duration: 240, shape: 'sine', gain: 0.15 } },
                   ] },
+
+  // ══ Closing / cancelling ═══════════════════════════════════════════════════
+  // One sound for every way out: a sheet's close button, a backdrop tap,
+  // Cancel, Not now, Back. It replaced two mp3 blip pairs the user disliked.
+  // A soft, rounded drop rather than a beep: a sine gliding down a fifth with
+  // a warm triangle note landing under it, both lowpassed so nothing in it is
+  // sharp. Short enough to fire many times a session without wearing.
+  ui_modal_close: { type: 'seq', parts: [
+                    { at: 0,  recipe: { type: 'sweep', freq: [880, 587], duration: 120, shape: 'sine', gain: 0.9, curve: 'exponential', lowpass: 2600 } },
+                    { at: 60, recipe: { type: 'blip', freq: 392, duration: 150, shape: 'triangle', gain: 0.55, lowpass: 1800 } },
+                  ] },
+  ui_back:        { type: 'seq', parts: [
+                    { at: 0,  recipe: { type: 'sweep', freq: [880, 587], duration: 120, shape: 'sine', gain: 0.9, curve: 'exponential', lowpass: 2600 } },
+                    { at: 60, recipe: { type: 'blip', freq: 392, duration: 150, shape: 'triangle', gain: 0.55, lowpass: 1800 } },
+                  ] },
+
+  // ══ Gacha reveals — one voice per machine, bigger with rarity ═════════════
+  // Common is a small happy beat, Rare adds a run, Epic lands on a chord, and
+  // Legendary is a full fanfare with a long shimmer.
+
+  // ── Snacks & Drinks: carbonation. Sine bubble pops in C pentatonic over a
+  //    highpassed hiss, the sound of a can being cracked open.
+  gacha_fizz_common: { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'noise', duration: 140, gain: 0.1, highpass: 5200 } },
+                    { at: 0,   recipe: { type: 'sweep', freq: [520, 880], duration: 70, shape: 'sine', gain: 0.45 } },
+                    { at: 90,  recipe: { type: 'blip', freq: 1175, duration: 140, shape: 'sine', gain: 0.4 } },
+                  ] },
+  gacha_fizz_rare:   { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'noise', duration: 320, gain: 0.12, highpass: 4600 } },
+                    { at: 0,   recipe: { type: 'sweep', freq: [400, 1100], duration: 110, shape: 'sine', gain: 0.35 } },
+                    { at: 100, recipe: { type: 'arp', notes: [659, 880, 1047, 1319], step: 70, noteDur: 170, shape: 'sine', gain: 0.5 } },
+                    { at: 400, recipe: { type: 'blip', freq: 1760, duration: 90, shape: 'sine', gain: 0.18 } },
+                  ] },
+  gacha_fizz_epic:   { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'noise', duration: 620, gain: 0.13, highpass: 4000 } },
+                    { at: 0,   recipe: { type: 'sweep', freq: [330, 1320], duration: 160, shape: 'sine', gain: 0.35 } },
+                    { at: 120, recipe: { type: 'arp', notes: [523, 659, 784, 1047, 1319, 1568], step: 62, noteDur: 200, shape: 'sine', gain: 0.5 } },
+                    { at: 480, recipe: { type: 'chord', freqs: [1047, 1319, 1568], duration: 700, shape: 'triangle', gain: 0.5 } },
+                    { at: 560, recipe: { type: 'blip', freq: 2093, duration: 90, shape: 'sine', gain: 0.16 } },
+                    { at: 690, recipe: { type: 'blip', freq: 2637, duration: 90, shape: 'sine', gain: 0.13 } },
+                  ] },
+  gacha_fizz_legendary: { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'noise', duration: 1300, gain: 0.14, highpass: 3600 } },
+                    { at: 0,   recipe: { type: 'sweep', freq: [260, 1400], duration: 260, shape: 'sine', gain: 0.4, curve: 'exponential' } },
+                    { at: 220, recipe: { type: 'arp', notes: [523, 587, 659, 784, 880, 1047, 1175, 1319, 1568], step: 55, noteDur: 210, shape: 'sine', gain: 0.5 } },
+                    { at: 720, recipe: { type: 'chord', freqs: [523, 784, 1047, 1319, 1568], duration: 1300, shape: 'triangle', gain: 0.62 } },
+                    { at: 760, recipe: { type: 'arp', notes: [2093, 2637, 3136, 2637, 3136, 4186], step: 95, noteDur: 130, shape: 'sine', gain: 0.18 } },
+                  ] },
+
+  // ── Clothes: dress-up magic. Triangle harp and sine bells in F major, the
+  //    soft register of a music box, no noise at all.
+  gacha_skin_common: { type: 'arp', notes: [698, 880, 1047], step: 85, noteDur: 300, shape: 'triangle', gain: 0.55 },
+  gacha_skin_rare:   { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'arp', notes: [698, 880, 1047, 1397], step: 80, noteDur: 360, shape: 'triangle', gain: 0.55 } },
+                    { at: 330, recipe: { type: 'blip', freq: 2794, duration: 260, shape: 'sine', gain: 0.16 } },
+                  ] },
+  gacha_skin_epic:   { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'arp', notes: [523, 698, 880, 1047, 1319, 1397, 1760], step: 70, noteDur: 380, shape: 'triangle', gain: 0.5 } },
+                    { at: 500, recipe: { type: 'chord', freqs: [698, 1047, 1319, 1760], duration: 1000, shape: 'sine', gain: 0.5 } },
+                    { at: 540, recipe: { type: 'arp', notes: [2794, 3520, 4186], step: 80, noteDur: 220, shape: 'sine', gain: 0.14 } },
+                  ] },
+  gacha_skin_legendary: { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'arp', notes: [349, 440, 523, 698, 880, 1047, 1397, 1760, 2093], step: 45, noteDur: 420, shape: 'triangle', gain: 0.5 } },
+                    { at: 460, recipe: { type: 'chord', freqs: [349, 698, 880, 1047, 1397], duration: 1700, shape: 'triangle', gain: 0.62 } },
+                    { at: 620, recipe: { type: 'arp', notes: [1760, 2093, 2637, 2093, 2637, 3520], step: 130, noteDur: 480, shape: 'sine', gain: 0.2 } },
+                    { at: 600, recipe: { type: 'noise', duration: 900, gain: 0.04, highpass: 7000 } },
+                  ] },
+
+  // ── FoodSuits: an energy power-up. Lowpassed saw and square sweeping up, a
+  //    sine bass hit when it lands, chiptune sparks on top.
+  gacha_suit_common: { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'sweep', freq: [220, 660], duration: 130, shape: 'square', gain: 0.6, lowpass: 1800 } },
+                    { at: 120, recipe: { type: 'blip', freq: 880, duration: 120, shape: 'square', gain: 0.42, lowpass: 2600 } },
+                  ] },
+  gacha_suit_rare:   { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'sweep', freq: [180, 900], duration: 210, shape: 'sawtooth', gain: 0.32, lowpass: 2200 } },
+                    { at: 200, recipe: { type: 'blip', freq: 110, duration: 200, shape: 'sine', gain: 0.55 } },
+                    { at: 200, recipe: { type: 'arp', notes: [880, 1175, 1480], step: 65, noteDur: 110, shape: 'square', gain: 0.22 } },
+                  ] },
+  gacha_suit_epic:   { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'sweep', freq: [150, 1200], duration: 320, shape: 'sawtooth', gain: 0.34, lowpass: 2600, curve: 'exponential' } },
+                    { at: 300, recipe: { type: 'blip', freq: 82, duration: 320, shape: 'sine', gain: 0.65 } },
+                    { at: 300, recipe: { type: 'noise', duration: 300, gain: 0.2, lowpass: 1200 } },
+                    { at: 320, recipe: { type: 'arp', notes: [784, 988, 1175, 1568], step: 60, noteDur: 110, shape: 'square', gain: 0.24 } },
+                    { at: 560, recipe: { type: 'chord', freqs: [392, 587, 784], duration: 600, shape: 'sawtooth', gain: 0.32, lowpass: 2000 } },
+                  ] },
+  gacha_suit_legendary: { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'sweep', freq: [120, 600], duration: 260, shape: 'sawtooth', gain: 0.3, lowpass: 1800, curve: 'exponential' } },
+                    { at: 240, recipe: { type: 'sweep', freq: [300, 1600], duration: 300, shape: 'sawtooth', gain: 0.32, lowpass: 3000, curve: 'exponential' } },
+                    { at: 540, recipe: { type: 'blip', freq: 65, duration: 520, shape: 'sine', gain: 0.75 } },
+                    { at: 540, recipe: { type: 'noise', duration: 600, gain: 0.24, lowpass: 900 } },
+                    { at: 560, recipe: { type: 'chord', freqs: [392, 523, 784, 1047], duration: 1200, shape: 'sawtooth', gain: 0.4, lowpass: 2200 } },
+                    { at: 600, recipe: { type: 'arp', notes: [1568, 2093, 2637, 3136, 2637, 3136], step: 70, noteDur: 100, shape: 'square', gain: 0.16 } },
+                  ] },
+
+  // ── The bakery's donut machine: a sweet bakery-bell ding as the reel lands
+  //    on your donut. Donuts have no rarity, so it is the one sound.
+  gacha_donut:       { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'arp', notes: [1047, 1319, 1568, 2093], step: 75, noteDur: 320, shape: 'triangle', gain: 0.5 } },
+                    { at: 260, recipe: { type: 'chord', freqs: [1047, 1568, 2093], duration: 800, shape: 'sine', gain: 0.4 } },
+                    { at: 300, recipe: { type: 'noise', duration: 260, gain: 0.05, highpass: 6500 } },
+                  ] },
 }

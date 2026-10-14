@@ -123,7 +123,7 @@ export default function GachaFizzOpening({
     timers.push(window.setTimeout(() => {
       playSound('gift_open'); enter('surge')
       timers.push(window.setTimeout(() => {
-        popStartRef.current = performance.now(); enter('pop'); playSound(`gacha_reveal_${rarity}`)
+        popStartRef.current = performance.now(); enter('pop'); playSound(`gacha_fizz_${rarity}`)
       }, SURGE_MS))
       timers.push(window.setTimeout(() => enter('fade'), SURGE_MS + POP_MS))
       timers.push(window.setTimeout(() => doneRef.current(), SURGE_MS + POP_MS + FADE_MS))

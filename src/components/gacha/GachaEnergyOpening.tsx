@@ -114,7 +114,7 @@ export default function GachaEnergyOpening({
     timers.push(window.setTimeout(() => {
       playSound('gift_open'); enter('charge')
       timers.push(window.setTimeout(() => {
-        burstStartRef.current = performance.now(); enter('burst'); playSound(`gacha_reveal_${rarity}`)
+        burstStartRef.current = performance.now(); enter('burst'); playSound(`gacha_suit_${rarity}`)
       }, CHARGE_MS))
       timers.push(window.setTimeout(() => enter('fade'), CHARGE_MS + BURST_MS))
       timers.push(window.setTimeout(() => doneRef.current(), CHARGE_MS + BURST_MS + FADE_MS))

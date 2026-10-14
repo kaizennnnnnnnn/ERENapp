@@ -145,7 +145,7 @@ export default function DonutSpin({ won, wasFree, onClose, onSpinAgain, spinAgai
     // and naming two different donuts.
     if (reduced) {
       setOffset(target)
-      playSound('gacha_reveal_epic')
+      playSound('gacha_donut')
       return
     }
 
@@ -164,7 +164,7 @@ export default function DonutSpin({ won, wasFree, onClose, onSpinAgain, spinAgai
 
     const done = setTimeout(() => {
       setLanded(true)
-      playSound('gacha_reveal_epic')
+      playSound('gacha_donut')
     }, SPIN_MS + 60)
 
     return () => {
