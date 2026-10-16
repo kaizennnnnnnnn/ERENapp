@@ -1,53 +1,12 @@
 'use client'
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PURR BEAT — the non-canvas furniture: the dark game panel, its stat blocks,
-// and Eren at the decks.
+// PURR BEAT — Eren at the decks.
 //
 // Split out of the page so the 60fps half and the once-a-run half are not the
-// same 700-line file, and so the panels can be rendered somewhere that isn't
-// behind the app's auth gate.
+// same 700-line file. The start and results screens are the shared Meadow
+// GameChrome kit now; this file keeps only the game's own sprite.
 // ═══════════════════════════════════════════════════════════════════════════
-
-/** The project's dark game-panel: purple gradient, CRT scanlines, gold corner
- *  rivets, hard shadow. Shared by the idle and results screens so they read as
- *  the same object rather than two dialogs that happen to be purple. */
-export function Panel({ children, animate }: { children: React.ReactNode; animate?: boolean }) {
-  return (
-    <div className="relative px-6 py-5 flex flex-col items-center gap-3" style={{
-      background: 'linear-gradient(180deg, #34105C 0%, #1C0636 100%)',
-      border: '3px solid #C026D3',
-      borderRadius: 6,
-      boxShadow: '0 6px 0 #701A75, 0 0 34px rgba(192,38,211,0.5)',
-      maxWidth: 340,
-      animation: animate ? 'pbPop 0.42s cubic-bezier(0.34,1.56,0.64,1) both' : undefined,
-    }}>
-      <div aria-hidden className="absolute inset-0 pointer-events-none" style={{
-        background: 'repeating-linear-gradient(180deg, rgba(0,0,0,0.16) 0px, rgba(0,0,0,0.16) 1px, transparent 1px, transparent 3px)',
-        borderRadius: 3,
-      }} />
-      {[['top', 'left'], ['top', 'right'], ['bottom', 'left'], ['bottom', 'right']].map(([v, h]) => (
-        <div key={`${v}${h}`} aria-hidden className="absolute" style={{
-          [v]: 4, [h]: 4, width: 3, height: 3, background: '#FDE047', opacity: 0.85,
-        } as React.CSSProperties} />
-      ))}
-      <div className="relative flex flex-col items-center gap-3">{children}</div>
-    </div>
-  )
-}
-
-export function Stat({ label, value, color }: { label: string; value: number | string; color: string }) {
-  return (
-    <div className="flex flex-col items-center">
-      <span className="font-pixel" style={{ fontSize: 6, color: '#F0ABFC', letterSpacing: 1 }}>{label}</span>
-      <span className="font-pixel" style={{ fontSize: 20, color, marginTop: 4 }}>{value}</span>
-    </div>
-  )
-}
-
-export function Divider() {
-  return <div style={{ width: 1, height: 28, background: '#5B2178' }} />
-}
 
 /** A 24x24 pixel Eren in DJ headphones. He bops with the kick — the game
  *  writes that transform onto a wrapper imperatively rather than re-rendering

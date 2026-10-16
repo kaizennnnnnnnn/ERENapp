@@ -2,7 +2,6 @@
 
 import { memo, useEffect, useReducer, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useCat } from '@/hooks/useCat'
@@ -14,6 +13,8 @@ import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useErenIdle } from '@/hooks/useErenIdle'
 import ErenReact, { useErenReaction } from '@/components/games/ErenReact'
 import GameCoinReward from '@/components/games/GameCoinReward'
+import { GameTopBar, GameStatRow, GameStat, GameStartCard, GameResultCard } from '@/components/games/GameChrome'
+import { MeadowIcon } from '@/components/meadow'
 import {
   THEMES, GROUND_H, TILE, CLOUD_TILE, GROUND_TILE, FAR_H, NEAR_H,
   ParallaxRow, FarRidge, NearRidge, CloudBand, GroundBand,
@@ -135,6 +136,7 @@ export default function FlappyErenGame() {
   // crosses a multiple of THEME_EVERY.
   const themeIndex   = Math.floor(score / THEME_EVERY) % THEMES.length
   const currentTheme = THEMES[themeIndex]
+  const themeLabel   = currentTheme.name.charAt(0).toUpperCase() + currentTheme.name.slice(1)
 
   const stateRef     = useRef<'idle' | 'running' | 'gameover'>('idle')
   const yRef         = useRef(0)
@@ -166,11 +168,15 @@ export default function FlappyErenGame() {
     // after speed caps out.
     const gap = Math.max(PIPE_GAP_MIN, PIPE_GAP_MAX - scoreRef.current)
     const minMargin = 70
+    // The field runs up under the top bar + stat row (they end at field y 96,
+    // GAME_BOARD_TOP is 104), so the top margin is measured from there — a gap
+    // opening at y 70 would sit half-hidden behind the stat pills.
+    const topMargin = 104 + 20
     const dims = fieldDimsRef.current
     // Playable height excludes the ground, so a gap can never open below it.
     const playH = dims.h - GROUND_H
-    const range = Math.max(60, playH - gap - minMargin * 2)
-    const gapY = minMargin + Math.random() * range
+    const range = Math.max(60, playH - gap - topMargin - minMargin)
+    const gapY = topMargin + Math.random() * range
     pipesRef.current.push({ id: newId(), x: dims.w + 20, gapY, gap, passed: false })
   }
 
@@ -489,30 +495,20 @@ export default function FlappyErenGame() {
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col game-shell" style={{ background: '#0F0A1E' }}>
-      {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0 relative z-30" style={{
-        background: 'rgba(0,0,0,0.55)',
-        borderBottom: '2px solid rgba(255,255,255,0.18)',
-      }}>
-        <button onClick={() => { playSound('ui_back'); router.back() }}
-          className="flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
-          style={{ width: 32, height: 32, background: 'rgba(255,255,255,0.18)', borderRadius: 6, border: '2px solid rgba(255,255,255,0.45)', boxShadow: '0 2px 0 rgba(0,0,0,0.25)' }}>
-          <ChevronLeft size={16} className="text-white" />
-        </button>
-        <span className="font-pixel text-white px-2.5 py-1.5 min-w-0 truncate"
-          style={{ background: 'linear-gradient(135deg, #047857, #10B981)', border: '2px solid #064e3b', borderRadius: 4, fontSize: 8, letterSpacing: 2, boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
-          {cat.t('FIZZY {NAME}')}
-        </span>
-        <div className="flex-1" />
-        <div className="flex items-center gap-1.5 px-2 py-1.5 font-pixel flex-shrink-0"
-          style={{ background: 'rgba(0,0,0,0.4)', border: '2px solid rgba(255,255,255,0.4)', borderRadius: 4, fontSize: 8, color: '#FDE68A' }}>
-          BEST {bestScore}
-        </div>
-        <div className="ml-1 px-2 py-1.5 font-pixel flex-shrink-0"
-          style={{ background: 'rgba(0,0,0,0.4)', border: '2px solid rgba(255,255,255,0.3)', borderRadius: 4, fontSize: 6, color: '#A3F0C0', letterSpacing: 1.5, textTransform: 'uppercase' }}>
-          {currentTheme.name}
-        </div>
-      </div>
+      {/* Header + stats — the shared Meadow game chrome. The field now runs
+          the full height under it, so the sky sits behind the white pills the
+          way a room does; the score that used to float in the sky is the
+          first pill. */}
+      <GameTopBar title={cat.t('Fizzy {name}')} onBack={() => { playSound('ui_back'); router.back() }} />
+
+      <GameStatRow>
+        {state !== 'idle' && (
+          <GameStat icon={<MeadowIcon name="star" size={18} />} value={score}
+            pulse={scorePulseKey} ariaLabel={`Score ${score}`} />
+        )}
+        <GameStat tone="good" value={themeLabel} />
+        <GameStat icon={<MeadowIcon name="trophy" size={18} />} label="Best" value={bestScore} />
+      </GameStatRow>
 
       {/* Field — wrapper key cycles to retrigger the crash shake animation. */}
       <div ref={fieldRef} onPointerDown={flap}
@@ -624,37 +620,12 @@ export default function FlappyErenGame() {
 
         <Atmosphere />
 
-        {/* Score — outer div handles centering, inner div pulses on each pass. */}
-        {state !== 'idle' && (
-          <div className="absolute pointer-events-none" style={{
-            top: 24, left: 0, right: 0, display: 'flex', justifyContent: 'center',
-          }}>
-            <div
-              key={`fe-score-${scorePulseKey}`}
-              className="font-pixel"
-              style={{
-                fontSize: 36,
-                color: 'white',
-                // Eight-direction outline, not a single offset shadow — the
-                // score sits over five different skies and has to stay legible
-                // against every one of them.
-                textShadow:
-                  '2px 0 0 #08301F, -2px 0 0 #08301F, 0 2px 0 #08301F, 0 -2px 0 #08301F,' +
-                  '2px 2px 0 #08301F, -2px 2px 0 #08301F, 2px -2px 0 #08301F, -2px -2px 0 #08301F,' +
-                  '0 5px 0 rgba(0,0,0,0.32)',
-                letterSpacing: 2,
-                transformOrigin: 'center center',
-                animation: scorePulseKey > 0 ? 'feScorePulse 220ms cubic-bezier(0.34,1.56,0.64,1)' : undefined,
-              }}>
-              {score}
-            </div>
-          </div>
-        )}
-
-        {/* Theme-shift banner — slides in from the top for ~1.2s. */}
+        {/* Theme-shift banner — slides in from the top for ~1.2s. Field
+            coordinates start at the safe area, so 108 lands just under the
+            stat row (GAME_BOARD_TOP is safe-top + 104). */}
         {banner && state === 'running' && (
           <div className="absolute pointer-events-none" style={{
-            top: 76, left: 0, right: 0, display: 'flex', justifyContent: 'center',
+            top: 108, left: 0, right: 0, display: 'flex', justifyContent: 'center',
           }}>
             <div
               key={`fe-banner-${banner.id}`}
@@ -713,109 +684,44 @@ export default function FlappyErenGame() {
             }}
           />
         )}
-
-        {/* Idle overlay */}
-        {state === 'idle' && (
-          // Sits in the lower third, not dead centre — the can idles at mid-field
-          // and a centred panel lands right on top of it.
-          <div className="absolute inset-0 flex flex-col items-center justify-end pointer-events-none"
-            style={{ paddingBottom: '26%' }}>
-            <div style={{
-              padding: '14px 22px',
-              background: 'linear-gradient(180deg, #15122A 0%, #0F0A1E 100%)',
-              border: '3px solid #10B981',
-              borderRadius: 6,
-              boxShadow: '0 4px 0 #064e3b, 0 0 20px rgba(16,185,129,0.35)',
-            }}>
-              <p className="font-pixel text-white text-center" style={{ fontSize: 9, letterSpacing: 2 }}>TAP TO START</p>
-              <p className="font-pixel text-center mt-2" style={{ fontSize: 6, color: '#A3F0C0', letterSpacing: 1 }}>FIZZ TO FLY · DODGE PIPES</p>
-            </div>
-          </div>
-        )}
-
-        {/* Game over overlay */}
-        {state === 'gameover' && (
-          <div className="absolute inset-0 flex items-center justify-center"
-            style={{ background: 'rgba(8,5,18,0.7)', backdropFilter: 'blur(2px)' }}>
-            <div className="flex flex-col items-center gap-3 px-6 py-5"
-              style={{
-                background: 'linear-gradient(180deg, #15122A 0%, #0F0A1E 100%)',
-                border: '3px solid #10B981',
-                borderRadius: 6,
-                boxShadow: '0 6px 0 #064e3b, 0 0 24px rgba(16,185,129,0.4)',
-                animation: 'goPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both',
-              }}>
-              <p className="font-pixel" style={{ fontSize: 11, color: '#FCA5A5', letterSpacing: 3 }}>GAME OVER</p>
-              {isNewBest && (
-                <div className="font-pixel" style={{
-                  padding: '4px 10px',
-                  background: 'linear-gradient(90deg, #F59E0B, #FCD34D, #F59E0B)',
-                  border: '2px solid #78350F',
-                  borderRadius: 3,
-                  boxShadow: '0 3px 0 #78350F',
-                  fontSize: 8,
-                  letterSpacing: 2,
-                  color: '#451A03',
-                  animation: 'feNewBestRibbon 900ms cubic-bezier(0.34,1.56,0.64,1)',
-                }}>
-                  NEW BEST!
-                </div>
-              )}
-              <div className="flex items-center gap-4 mt-1">
-                <div className="flex flex-col items-center">
-                  <span className="font-pixel" style={{ fontSize: 6, color: '#A3F0C0', letterSpacing: 1 }}>SCORE</span>
-                  <span className="font-pixel text-white" style={{ fontSize: 22 }}>{score}</span>
-                </div>
-                <div style={{ width: 1, height: 28, background: '#3A2A60' }} />
-                <div className="flex flex-col items-center">
-                  <span className="font-pixel" style={{ fontSize: 6, color: '#FDE68A', letterSpacing: 1 }}>BEST</span>
-                  <span className="font-pixel" style={{
-                    fontSize: 22,
-                    color: '#FDE68A',
-                    textShadow: isNewBest ? '0 0 8px rgba(253,230,138,0.7)' : undefined,
-                  }}>{displayBest}</span>
-                </div>
-              </div>
-              {reward && (
-                <div className="mb-3"><GameCoinReward coins={reward.coins} blocked={reward.blocked} /></div>
-              )}
-              <div className="flex items-center gap-2 mt-3">
-                <button onClick={() => { playSound('ui_tap'); reset() }}
-                  className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-                  style={{
-                    background: 'linear-gradient(135deg, #10B981 0%, #047857 100%)',
-                    border: '2px solid #064e3b',
-                    borderRadius: 3,
-                    boxShadow: '0 4px 0 #064e3b',
-                    fontFamily: '"Press Start 2P"',
-                    fontSize: 8,
-                    letterSpacing: 1.5,
-                  }}>
-                  <RefreshCw size={11} />
-                  AGAIN
-                </button>
-                <button onClick={() => { playSound('ui_back'); router.back() }}
-                  className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-                  style={{
-                    background: 'linear-gradient(135deg, #475569 0%, #1F2937 100%)',
-                    border: '2px solid #0F172A',
-                    borderRadius: 3,
-                    boxShadow: '0 4px 0 #0F172A',
-                    fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5,
-                  }}>
-                  EXIT
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
+      {/* Start card. Outside the field on purpose: a pointerdown on the card
+          would bubble into the field's flap() and start the run before Play's
+          click lands. Tapping the sky around it still starts a run, as before.
+          It sits at the foot of the screen — the can idles at mid-field and a
+          centred card lands right on top of it. */}
+      {state === 'idle' && (
+        <GameStartCard
+          title={cat.t('Fizzy {name}')}
+          best={bestScore}
+          onStart={startGame}
+          style={{
+            alignItems: 'flex-end',
+            padding: '0 20px calc(env(safe-area-inset-bottom, 0px) + 24px)',
+          }}
+        >
+          Tap anywhere to fizz upward and slip through the gaps between the pipes.
+        </GameStartCard>
+      )}
+
+      {/* Result card */}
+      {state === 'gameover' && (
+        <GameResultCard
+          headline="Game over"
+          score={score}
+          newBest={isNewBest}
+          stats={[
+            { label: 'Best', value: displayBest },
+            { label: 'Reached', value: themeLabel },
+          ]}
+          reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
+          onAgain={() => { playSound('ui_tap'); reset() }}
+          onBack={() => { playSound('ui_back'); router.back() }}
+        />
+      )}
+
       <style jsx global>{`
-        @keyframes goPop {
-          0%   { transform: scale(0.7); opacity: 0; }
-          100% { transform: scale(1);   opacity: 1; }
-        }
         @keyframes twinkle {
           0%, 100% { opacity: 0.35; }
           50%      { opacity: 1; }
@@ -831,11 +737,6 @@ export default function FlappyErenGame() {
         @keyframes feIdleBob {
           0%, 100% { transform: translateY(0); }
           50%      { transform: translateY(-7px); }
-        }
-        @keyframes feScorePulse {
-          0%   { transform: scale(1);    color: #FFFFFF; }
-          45%  { transform: scale(1.35); color: #A3F0C0; }
-          100% { transform: scale(1);    color: #FFFFFF; }
         }
         @keyframes feShake {
           0%   { transform: translateX(0); }
@@ -863,11 +764,6 @@ export default function FlappyErenGame() {
           40%  { transform: scale(1);   opacity: 1; }
           80%  { transform: scale(1);   opacity: 1; }
           100% { transform: scale(1.1) translateY(-20px); opacity: 0; }
-        }
-        @keyframes feNewBestRibbon {
-          0%   { transform: scale(0) rotate(-10deg); opacity: 0; }
-          60%  { transform: scale(1.15) rotate(2deg); opacity: 1; }
-          100% { transform: scale(1) rotate(0deg);  opacity: 1; }
         }
       `}</style>
     </div>

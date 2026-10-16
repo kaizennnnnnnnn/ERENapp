@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useCat } from '@/hooks/useCat'
@@ -15,7 +14,11 @@ import { useErenIdle } from '@/hooks/useErenIdle'
 import ErenReact, { useErenReaction } from '@/components/games/ErenReact'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
-import { IconPaw, IconStar } from '@/components/PixelIcons'
+import { IconPaw } from '@/components/PixelIcons'
+import {
+  GameTopBar, GameStatRow, GameStat, GameStartCard, GameArtTile, GameResultCard, GAME_BOARD_TOP,
+} from '@/components/games/GameChrome'
+import { FONT_ROUNDED, MeadowIcon } from '@/components/meadow'
 import { fireMinigameDone } from '@/lib/minigames'
 
 // Each pad has its own colour AND audio frequency so the round literally plays
@@ -308,47 +311,30 @@ export default function ErenSaysGame() {
     <div className={`fixed inset-0 z-40 flex flex-col game-shell${shake ? ' shake' : ''}`} style={{
       background: 'radial-gradient(ellipse at top, #2D1659 0%, #1A0A33 55%, #0F0620 100%)',
     }}>
-      {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{
-        background: 'linear-gradient(180deg, rgba(12,6,26,0.95) 0%, rgba(12,6,26,0.6) 100%)',
-        borderBottom: '2px solid rgba(167,139,250,0.3)',
-      }}>
-        <button onClick={() => { playSound('ui_back'); router.back() }}
-          className="flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
-          style={{ width: 32, height: 32, background: 'rgba(255,255,255,0.08)', borderRadius: 6, border: '2px solid rgba(167,139,250,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
-          <ChevronLeft size={16} className="text-purple-200" />
-        </button>
-        <span className="font-pixel text-white px-2.5 py-1.5 min-w-0 truncate"
-          style={{ background: 'linear-gradient(135deg, #7C3AED, #A78BFA)', border: '2px solid #4C1D95', borderRadius: 4, fontSize: 8, letterSpacing: 2, boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
-          {cat.t('{NAME} SAYS')}
-        </span>
-        <div className="flex-1" />
-        <div className="flex items-center gap-1.5 px-2 py-1.5 font-pixel flex-shrink-0"
-          style={{ background: 'rgba(0,0,0,0.4)', border: '2px solid rgba(255,255,255,0.4)', borderRadius: 4, fontSize: 8, color: '#FDE68A' }}>
-          BEST {bestRound}
-        </div>
-      </div>
+      {/* Header + stats — the shared Meadow game chrome. */}
+      <GameTopBar title={cat.t('{name} Says')} onBack={() => { playSound('ui_back'); router.back() }} />
+
+      <GameStatRow>
+        <GameStat label="Round" value={round || '—'} tone={phase === 'fail' ? 'warn' : 'plain'}
+          pulse={roundPulse} ariaLabel={`Round ${round}`} />
+        <GameStat icon={<MeadowIcon name="trophy" size={18} />} label="Best" value={bestRound} />
+      </GameStatRow>
+
+      {/* Clears the absolutely-placed top bar + stat row above. */}
+      <div aria-hidden className="flex-shrink-0" style={{ height: GAME_BOARD_TOP }} />
 
       {/* Round status */}
-      <div className="flex flex-col items-center pt-4 pb-2 flex-shrink-0 relative">
-        <div className="font-pixel" style={{ fontSize: 6, color: '#A78BFA', letterSpacing: 2 }}>ROUND</div>
-        <div
-          key={roundPulse}
-          className="font-pixel"
-          style={{
-            fontSize: 28,
-            color: phase === 'fail' ? '#FCA5A5' : '#FFFFFF',
-            textShadow: '2px 2px 0 #2E0F5C',
-            transform: phase === 'fail' ? 'scale(0.9)' : 'scale(1)',
-            transition: 'transform 0.2s, color 0.2s',
-            animation: roundPulse > 0 && phase !== 'fail' ? 'roundBump 0.4s cubic-bezier(0.34,1.56,0.64,1)' : undefined,
-          }}>{round || '—'}</div>
-        <div className="font-pixel mt-1 px-4 text-center" style={{ fontSize: 7, color: '#C4B5FD', letterSpacing: 1.5 }}>
-          {phase === 'showing'  ? 'WATCH…' :
-           phase === 'awaiting' ? `YOUR TURN — ${Math.min(userStep + 1, seqRef.current.length)}/${seqRef.current.length}` :
-           phase === 'fail'     ? 'OOPS!' :
-           phase === 'gameover' ? 'GAME OVER' :
-                                  cat.t('WATCH {NAME}, THEN REPEAT')}
+      <div className="flex flex-col items-center pt-2 pb-2 flex-shrink-0 relative">
+        <div className="px-4 text-center" style={{
+          fontFamily: FONT_ROUNDED, fontWeight: 800, fontSize: 15, lineHeight: 1.3,
+          color: phase === 'fail' ? '#FCA5A5' : '#E9DDFF',
+          transition: 'color 0.2s',
+        }}>
+          {phase === 'showing'  ? 'Watch…' :
+           phase === 'awaiting' ? `Your turn — ${Math.min(userStep + 1, seqRef.current.length)}/${seqRef.current.length}` :
+           phase === 'fail'     ? 'Oops!' :
+           phase === 'gameover' ? 'Game over' :
+                                  cat.t('Watch {name}, then repeat')}
         </div>
 
         {/* floating score popups */}
@@ -484,93 +470,39 @@ export default function ErenSaysGame() {
 
       {/* Idle / gameover overlay */}
       {phase === 'idle' && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-          <div className="pointer-events-auto px-6 py-5 flex flex-col items-center gap-3"
-            style={{ background: 'rgba(15,6,32,0.85)', border: '3px solid #A78BFA', borderRadius: 6, boxShadow: '0 4px 0 #4C1D95, 0 0 24px rgba(167,139,250,0.4)' }}>
-            <p className="font-pixel text-center" style={{ fontSize: 10, letterSpacing: 2, color: '#FDE68A', overflowWrap: 'anywhere' }}>{cat.t('{NAME} SAYS')}</p>
-            <p className="font-pixel text-center" style={{ fontSize: 7, color: '#C4B5FD', letterSpacing: 1, lineHeight: 1.6 }}>
-              {cat.t('WATCH {HIS} SEQUENCE.')}<br />REPEAT IT BACK.
-            </p>
-            <button onClick={() => { playSound('ui_tap'); startGame() }}
-              className="mt-1 px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-              style={{
-                background: 'linear-gradient(135deg, #7C3AED 0%, #4C1D95 100%)',
-                border: '2px solid #2E0F5C',
-                borderRadius: 3,
-                boxShadow: '0 4px 0 #2E0F5C',
-                fontFamily: '"Press Start 2P"', fontSize: 9, letterSpacing: 1.5,
-              }}>
-              <IconStar size={12} /> START
-            </button>
-          </div>
-        </div>
+        <GameStartCard
+          title={cat.t('{name} Says')}
+          art={PADS.map(p => (
+            <GameArtTile key={p.name} size={38} tint={`${p.color}33`}>
+              <span style={{ width: 22, height: 22, borderRadius: 7, background: p.color, boxShadow: 'inset 0 -3px 0 rgba(0,0,0,0.18)' }} />
+            </GameArtTile>
+          ))}
+          best={bestRound}
+          onStart={() => { playSound('ui_tap'); startGame() }}
+        >
+          {cat.t('Watch {his} sequence of pads, then repeat it back. Every round adds one more and plays a little faster.')}
+        </GameStartCard>
       )}
 
       {phase === 'gameover' && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center"
-          style={{ background: 'rgba(8,5,18,0.7)', backdropFilter: 'blur(2px)' }}>
-          <div className="px-6 py-5 flex flex-col items-center gap-3"
-            style={{
-              background: 'linear-gradient(180deg, #15122A 0%, #0F0A1E 100%)',
-              border: '3px solid #FCA5A5',
-              borderRadius: 6,
-              boxShadow: '0 6px 0 #831843, 0 0 24px rgba(252,165,165,0.4)',
-              animation: 'goPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both',
-            }}>
-            <p className="font-pixel" style={{ fontSize: 11, color: '#FCA5A5', letterSpacing: 3 }}>GAME OVER</p>
-            <div className="flex items-center gap-4 mt-1">
-              <div className="flex flex-col items-center">
-                <span className="font-pixel" style={{ fontSize: 6, color: '#A3F0C0', letterSpacing: 1 }}>SCORE</span>
-                <span className="font-pixel text-white" style={{
-                  fontSize: 22,
-                  transition: 'transform 0.15s',
-                  transform: displayedScore < reachedScore ? 'scale(1.06)' : 'scale(1)',
-                }}>{displayedScore}</span>
-              </div>
-              <div style={{ width: 1, height: 28, background: '#3A2A60' }} />
-              <div className="flex flex-col items-center">
-                <span className="font-pixel" style={{ fontSize: 6, color: '#FDE68A', letterSpacing: 1 }}>BEST</span>
-                <span className="font-pixel" style={{ fontSize: 22, color: '#FDE68A' }}>{bestRound}</span>
-              </div>
-            </div>
-            {reward && (
-              <div className="mb-3">
-                <GameCoinReward coins={reward.coins} blocked={reward.blocked} />
-              </div>
-            )}
-            <div className="flex items-center gap-2 mt-3">
-              <button onClick={() => { playSound('ui_tap'); reset() }}
-                className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-                style={{
-                  background: 'linear-gradient(135deg, #A78BFA 0%, #7C3AED 100%)',
-                  border: '2px solid #4C1D95',
-                  borderRadius: 3,
-                  boxShadow: '0 4px 0 #4C1D95',
-                  fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5,
-                }}>
-                <RefreshCw size={11} /> AGAIN
-              </button>
-              <button onClick={() => { playSound('ui_back'); router.back() }}
-                className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-                style={{
-                  background: 'linear-gradient(135deg, #475569 0%, #1F2937 100%)',
-                  border: '2px solid #0F172A',
-                  borderRadius: 3,
-                  boxShadow: '0 4px 0 #0F172A',
-                  fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5,
-                }}>
-                EXIT
-              </button>
-            </div>
-          </div>
-        </div>
+        <GameResultCard
+          headline="Game over"
+          score={
+            <span style={{
+              display: 'inline-block',
+              transition: 'transform 0.15s',
+              transform: displayedScore < reachedScore ? 'scale(1.06)' : 'scale(1)',
+            }}>{displayedScore}</span>
+          }
+          scoreLabel={reachedScore === 1 ? 'round cleared' : 'rounds cleared'}
+          best={bestRound}
+          reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
+          onAgain={() => { playSound('ui_tap'); reset() }}
+          onBack={() => { playSound('ui_back'); router.back() }}
+        />
       )}
 
       <style jsx global>{`
-        @keyframes goPop {
-          0%   { transform: scale(0.7); opacity: 0; }
-          100% { transform: scale(1);   opacity: 1; }
-        }
         @keyframes failPulse {
           0%   { opacity: 0.6; }
           100% { opacity: 0; }
@@ -583,11 +515,6 @@ export default function ErenSaysGame() {
           0%   { transform: translate(-50%, -50%) scale(1); }
           50%  { transform: translate(-50%, calc(-50% - 8px)) scale(1.12); }
           100% { transform: translate(-50%, -50%) scale(1); }
-        }
-        @keyframes roundBump {
-          0%   { transform: scale(1);    color: #FFFFFF; }
-          40%  { transform: scale(1.35); color: #FDE68A; text-shadow: 2px 2px 0 #78350F; }
-          100% { transform: scale(1);    color: #FFFFFF; }
         }
         @keyframes scorePop {
           0%   { transform: translate(-50%, 0)     scale(0.6); opacity: 0; }

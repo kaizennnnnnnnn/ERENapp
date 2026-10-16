@@ -12,7 +12,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
@@ -25,7 +24,11 @@ import ErenReact, { useErenReaction } from '@/components/games/ErenReact'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import PixelEren, { type ErenPose } from '@/components/games/PixelEren'
 import { playSound } from '@/lib/sounds'
-import { IconStar, IconSparkles } from '@/components/PixelIcons'
+import { IconStar } from '@/components/PixelIcons'
+import {
+  GameTopBar, GameStatRow, GameStat, GameStartCard, GameArtTile, GameResultCard,
+} from '@/components/games/GameChrome'
+import { M, MeadowIcon } from '@/components/meadow'
 import { fireMinigameDone } from '@/lib/minigames'
 
 // ─── Tunables ───────────────────────────────────────────────────────────────
@@ -42,6 +45,13 @@ const SCORE_PER_LINE  = 100      // base for any cleared row / col / sub-block
 
 // Width/height of the grid (in CSS px)
 const GRID_PX = GRID_SIZE * CELL_PX + (GRID_SIZE - 1) * CELL_GAP
+
+// The top bar and stat row float over the shell; the board starts under them.
+// The shell already pads the safe area, so this is GAME_BOARD_TOP minus it.
+const CHROME_CLEARANCE = 104
+// Combo + streak can share the stat row with Score and Best, so they pack a
+// little tighter to keep four pills inside a 375px screen.
+const STAT_TIGHT = { padding: '0 10px 0 6px', gap: 4 } as const
 
 // ─── Block shape templates ──────────────────────────────────────────────────
 // Each template is a 2-D matrix of 0/1 indicating filled cells. The shape is
@@ -110,6 +120,14 @@ const PALETTES: Palette[] = [
   { main: '#34D399', dark: '#047857', light: '#A7F3D0' }, // mint
   { main: '#60A5FA', dark: '#1E40AF', light: '#BFDBFE' }, // blue
   { main: '#FB7185', dark: '#9F1239', light: '#FECDD3' }, // coral
+]
+
+// A few of the game's own pieces for the start card's art row.
+const ART_PIECES: Array<{ shape: number[][]; color: Palette }> = [
+  { shape: [[1,1,1],[0,1,0]],     color: PALETTES[0] },
+  { shape: [[1,1],[1,1]],         color: PALETTES[3] },
+  { shape: [[1,0],[1,0],[1,1]],   color: PALETTES[2] },
+  { shape: [[0,1,1],[1,1,0]],     color: PALETTES[4] },
 ]
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -663,95 +681,46 @@ export default function PawDokuGame() {
     <div className="fixed inset-0 z-40 flex flex-col game-shell"
       style={{ background: 'radial-gradient(ellipse at top, #2D1659 0%, #1A0A33 55%, #0F0620 100%)' }}>
 
-      {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{
-        background: 'linear-gradient(180deg, rgba(12,6,26,0.95) 0%, rgba(12,6,26,0.6) 100%)',
-        borderBottom: '2px solid rgba(167,139,250,0.3)',
-      }}>
-        <button onClick={() => { playSound('ui_back'); router.back() }}
-          className="flex items-center justify-center active:scale-90 transition-transform"
-          style={{ width: 32, height: 32, background: 'rgba(255,255,255,0.08)', borderRadius: 6, border: '2px solid rgba(167,139,250,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
-          <ChevronLeft size={16} className="text-purple-200" />
-        </button>
-        <span className="font-pixel text-white px-2.5 py-1.5"
-          style={{ background: 'linear-gradient(135deg, #DB2777, #EC4899)', border: '2px solid #831843', borderRadius: 4, fontSize: 8, letterSpacing: 2, boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
-          PAW DOKU
-        </span>
-        <div className="flex-1" />
-        <div className="flex items-center gap-1.5 px-2 py-1.5 font-pixel"
-          style={{ background: 'rgba(0,0,0,0.4)', border: '2px solid rgba(255,255,255,0.4)', borderRadius: 4, fontSize: 8, color: '#FDE68A' }}>
-          BEST {bestScore}
-        </div>
-      </div>
+      {/* Header + stats — the shared Meadow game chrome. */}
+      <GameTopBar title="Paw Doku" onBack={() => { playSound('ui_back'); router.back() }} />
 
-      {/* Score / combo */}
-      <div className="flex items-center justify-between px-4 py-3 flex-shrink-0">
-        <div>
-          <div className="font-pixel" style={{ fontSize: 6, color: '#C4B5FD', letterSpacing: 2 }}>SCORE</div>
-          <div key={`score-${scorePulse}`} className="font-pixel" style={{
-            fontSize: 22, color: '#FFFFFF',
-            textShadow: '2px 2px 0 #2E0F5C',
-            letterSpacing: 1,
-            display: 'inline-block',
-            transformOrigin: 'left center',
-            animation: scorePulse > 0 ? 'pdScorePulse 0.45s ease-out' : undefined,
-          }}>{score}</div>
-        </div>
-        {/* Combo / streak HUD pill — combo (multi-clear in one drop) takes
-            precedence; streak shows when the player has chained clears
-            across multiple drops. */}
+      {/* Score left, Best right; the combo (multi-clear in one drop) and the
+          streak (clears chained across drops) pop in between while they last. */}
+      <GameStatRow>
+        <GameStat icon={<IconStar size={16} />} value={score} pulse={scorePulse} ariaLabel={`Score ${score}`} />
         {(combo > 1 || streak > 1) && (
-          <div className="flex items-center gap-1.5">
+          <span className="flex items-center" style={{ gap: 6 }}>
             {combo > 1 && (
-              <div key={`combo-${combo}`} className="font-pixel" style={{
-                background: 'rgba(0,0,0,0.5)',
-                border: '2px solid #FBBF24',
-                borderRadius: 3,
-                padding: '4px 10px',
-                fontSize: 9, color: '#FBBF24', letterSpacing: 2,
-                boxShadow: '0 0 14px rgba(251,191,36,0.5)',
-                animation: 'pdCombo 0.6s ease-out',
-              }}>
-                COMBO x{combo}
-              </div>
+              <GameStat icon={<MeadowIcon name="bolt" size={16} />} value={`×${combo}`} tone="hot" pulse={combo}
+                ariaLabel={`Combo x${combo}`} style={STAT_TIGHT} />
             )}
             {streak > 1 && (
-              <div key={`streak-${streak}`} className="font-pixel inline-flex items-center gap-1.5" style={{
-                background: 'linear-gradient(135deg, #DB2777, #831843)',
-                border: '2px solid #FFD700',
-                borderRadius: 3,
-                padding: '4px 10px',
-                fontSize: 9, color: '#FFFFFF', letterSpacing: 2,
-                boxShadow: '0 0 14px rgba(236,72,153,0.55), 0 0 20px rgba(255,215,0,0.35)',
-                animation: 'pdStreak 0.55s ease-out',
-              }}>
-                <span>STREAK x{streak}</span>
-                {/* Grace pips — fills empty as the player burns no-clear
-                    placements. 3 pips for 3 grace slots. When all dim,
-                    next no-clear placement breaks the streak. */}
-                <span className="inline-flex items-center gap-[3px]" aria-hidden>
-                  {[0, 1, 2].map(i => {
-                    const remaining = STREAK_GRACE - streakMisses
-                    const lit = i < remaining
-                    return (
-                      <span key={i} style={{
-                        width: 4, height: 4,
-                        background: lit ? '#FDE68A' : 'rgba(253,230,138,0.18)',
-                        boxShadow: lit ? '0 0 4px rgba(253,230,138,0.9)' : 'none',
-                        borderRadius: 0,
-                      }} />
-                    )
-                  })}
-                </span>
-              </div>
+              <GameStat icon={<MeadowIcon name="flame" size={16} />} tone="hot" pulse={streak}
+                ariaLabel={`Streak x${streak}`} style={STAT_TIGHT}
+                value={
+                  <>
+                    ×{streak}
+                    {/* Grace pips — they go out as the player burns no-clear
+                        placements. When all are dim, the next no-clear
+                        placement breaks the streak. */}
+                    <span className="inline-flex items-center" style={{ gap: 3, marginLeft: 2 }} aria-hidden>
+                      {[0, 1, 2].map(i => (
+                        <span key={i} style={{
+                          width: 5, height: 5, borderRadius: 999,
+                          background: i < STREAK_GRACE - streakMisses ? M.flame : 'rgba(138, 90, 18, 0.2)',
+                        }} />
+                      ))}
+                    </span>
+                  </>
+                } />
             )}
-          </div>
+          </span>
         )}
-        <div className="text-right">
-          <div className="font-pixel" style={{ fontSize: 6, color: '#C4B5FD', letterSpacing: 2 }}>BEST</div>
-          <div className="font-pixel" style={{ fontSize: 22, color: '#FDE68A', textShadow: '2px 2px 0 #2E0F5C', letterSpacing: 1 }}>{bestScore}</div>
-        </div>
-      </div>
+        <GameStat icon={<MeadowIcon name="trophy" size={18} />} value={bestScore} ariaLabel={`Best ${bestScore}`} />
+      </GameStatRow>
+
+      {/* The board starts under the floating bar and stat row. */}
+      <div aria-hidden style={{ height: CHROME_CLEARANCE, flexShrink: 0 }} />
 
       {/* Grid */}
       <div className="flex-1 flex flex-col items-center justify-center px-3 pb-2 select-none">
@@ -992,108 +961,45 @@ export default function PawDokuGame() {
         </div>
       )}
 
-      {/* Idle modal */}
+      {/* Idle — the shared start card. */}
       {phase === 'idle' && (
-        // pointer-events-none on the full-screen root so this idle overlay
-        // (absolute inset-0, z-10) doesn't sit on top of the header's back
-        // button and swallow taps. The START button re-enables pointer events.
-        <div className="absolute inset-0 z-10 flex items-center justify-center px-4 pointer-events-none">
-          <div className="px-6 py-5 flex flex-col items-center gap-3 pointer-events-auto"
-            style={{ background: 'rgba(15,10,30,0.92)', border: '3px solid #A78BFA', borderRadius: 6, boxShadow: '0 4px 0 #4C1D95, 0 0 30px rgba(167,139,250,0.5)' }}>
-            <p className="font-pixel" style={{ fontSize: 11, letterSpacing: 2.5, color: '#FDE68A',
-              filter: 'drop-shadow(0 0 6px rgba(253,230,138,0.5))' }}>PAW DOKU</p>
-            <div className="font-pixel text-center" style={{ fontSize: 6, color: '#C4B5FD', letterSpacing: 1, lineHeight: 1.8 }}>
-              <p>DRAG BLOCKS ONTO THE GRID</p>
-              <p>FILL A ROW · COL · OR 3X3 BLOCK</p>
-              <p style={{ color: '#FBBF24' }}>MULTI-CLEARS = COMBO BONUS</p>
-            </div>
-            <button onClick={() => { playSound('ui_tap'); startGame() }}
-              className="mt-1 px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-              style={{
-                background: 'linear-gradient(135deg, #A78BFA 0%, #7C3AED 100%)',
-                border: '2px solid #4C1D95',
-                borderRadius: 3,
-                boxShadow: '0 4px 0 #4C1D95',
-                fontFamily: '"Press Start 2P"', fontSize: 9, letterSpacing: 1.5,
-              }}>
-              <IconSparkles size={12} /> START
-            </button>
-          </div>
-        </div>
+        <GameStartCard
+          title="Paw Doku"
+          art={ART_PIECES.map((p, i) => (
+            <GameArtTile key={i} size={42} tint={`${p.color.main}1F`}>
+              <BlockSprite shape={p.shape} color={p.color} cellSize={9} cellGap={2} />
+            </GameArtTile>
+          ))}
+          best={bestScore}
+          onStart={() => { playSound('ui_tap'); startGame() }}
+        >
+          Drag blocks onto the grid. Fill a row, a column or a 3×3 square to clear it.
+          Clearing several at once earns a combo bonus.
+        </GameStartCard>
       )}
 
-      {/* Game over — full-screen red vignette + panel pop. Vignette is a
-          radial-gradient overlay that fades over 600ms, timed with the
-          panel mount so "NO MOVES LEFT" reads as catastrophic. */}
+      {/* Game over — a red vignette flashes over the board (gameplay FX,
+          600ms) under the shared result card. */}
+      {phase === 'gameover' && vignette > 0 && (
+        <div key={`vig-${vignette}`} className="absolute inset-0 pointer-events-none" style={{
+          background: 'radial-gradient(ellipse at center, transparent 30%, rgba(220,38,38,0.55) 100%)',
+          animation: 'pdVignette 0.6s ease-out forwards',
+          mixBlendMode: 'multiply',
+          zIndex: 45,
+        }} />
+      )}
       {phase === 'gameover' && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center"
-          style={{ background: 'rgba(8,5,18,0.7)', backdropFilter: 'blur(2px)' }}>
-          {vignette > 0 && (
-            <div key={`vig-${vignette}`} className="absolute inset-0 pointer-events-none" style={{
-              background: 'radial-gradient(ellipse at center, transparent 30%, rgba(220,38,38,0.55) 100%)',
-              animation: 'pdVignette 0.6s ease-out forwards',
-              mixBlendMode: 'multiply',
-            }} />
-          )}
-          <div className="flex flex-col items-center gap-3 px-6 py-5"
-            style={{
-              background: 'linear-gradient(180deg, #15122A 0%, #0F0A1E 100%)',
-              border: '3px solid #4F46E5',
-              borderRadius: 6,
-              boxShadow: '0 6px 0 #1E1B4B, 0 0 30px rgba(79,70,229,0.5)',
-              animation: 'pdPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both',
-            }}>
-            <p className="font-pixel" style={{ fontSize: 11, color: '#FCA5A5', letterSpacing: 3 }}>NO MOVES LEFT</p>
-            <div className="flex items-center gap-4 mt-1">
-              <div className="flex flex-col items-center">
-                <span className="font-pixel" style={{ fontSize: 6, color: '#A3F0C0', letterSpacing: 1 }}>SCORE</span>
-                <span className="font-pixel text-white" style={{ fontSize: 22 }}>{displayScore}</span>
-              </div>
-              <div style={{ width: 1, height: 28, background: '#3A2A60' }} />
-              <div className="flex flex-col items-center">
-                <span className="font-pixel" style={{ fontSize: 6, color: '#FDE68A', letterSpacing: 1 }}>BEST</span>
-                <span className="font-pixel" style={{ fontSize: 22, color: '#FDE68A' }}>{bestScore}</span>
-              </div>
-            </div>
-            {reward && (<div className="mb-3"><GameCoinReward coins={reward.coins} blocked={reward.blocked} /></div>)}
-            <div className="flex items-center gap-2 mt-3">
-              <button onClick={() => { playSound('ui_tap'); startGame() }}
-                className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-                style={{
-                  background: 'linear-gradient(135deg, #A78BFA 0%, #7C3AED 100%)',
-                  border: '2px solid #4C1D95',
-                  borderRadius: 3,
-                  boxShadow: '0 4px 0 #4C1D95',
-                  fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5,
-                }}>
-                <RefreshCw size={11} /> AGAIN
-              </button>
-              <button onClick={() => { playSound('ui_back'); router.back() }}
-                className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-                style={{
-                  background: 'linear-gradient(135deg, #475569 0%, #1F2937 100%)',
-                  border: '2px solid #0F172A',
-                  borderRadius: 3,
-                  boxShadow: '0 4px 0 #0F172A',
-                  fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5,
-                }}>
-                EXIT
-              </button>
-            </div>
-          </div>
-        </div>
+        <GameResultCard
+          headline="No moves left"
+          score={displayScore}
+          best={bestScore}
+          reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
+          onAgain={() => { playSound('ui_tap'); startGame() }}
+          onBack={() => { playSound('ui_back'); router.back() }}
+        />
       )}
 
       <style jsx global>{`
-        @keyframes pdPop {
-          0%   { transform: scale(0.7); opacity: 0; }
-          100% { transform: scale(1);   opacity: 1; }
-        }
-        @keyframes pdCombo {
-          0%   { transform: scale(0.6); opacity: 0; }
-          50%  { transform: scale(1.2); opacity: 1; }
-          100% { transform: scale(1);   opacity: 1; }
-        }
         @keyframes pdFloater {
           0%   { opacity: 0; transform: translateY(0)   scale(0.8); }
           25%  { opacity: 1; transform: translateY(-6px) scale(1.1); }
@@ -1144,23 +1050,10 @@ export default function PawDokuGame() {
                  border: 1px solid rgba(167,139,250,0.0);
                  box-shadow: 0 0 0 rgba(167,139,250,0.0); }
         }
-        /* Streak HUD pill bounce-in */
-        @keyframes pdStreak {
-          0%   { transform: scale(0.6) rotate(-4deg); opacity: 0; }
-          45%  { transform: scale(1.25) rotate(3deg); opacity: 1; }
-          100% { transform: scale(1)    rotate(0deg);  opacity: 1; }
-        }
-        /* SCORE digits pulse on increment — quick scale + gold textShadow
-           flare so a big combo gain visually pops vs a small placement. */
-        /* Eren idling in the HUD — a slow breath so he isn't a decal */
+        /* Eren idling under the board — a slow breath so he isn't a decal */
         @keyframes pdErenBreathe {
           0%, 100% { transform: scaleY(1)     translateY(0); }
           50%      { transform: scaleY(1.04)  translateY(-1px); }
-        }
-        @keyframes pdScorePulse {
-          0%   { transform: scale(1);    text-shadow: 2px 2px 0 #2E0F5C; color: #FFFFFF; }
-          40%  { transform: scale(1.25); text-shadow: 2px 2px 0 #2E0F5C, 0 0 12px rgba(253,230,138,0.95); color: #FDE68A; }
-          100% { transform: scale(1);    text-shadow: 2px 2px 0 #2E0F5C; color: #FFFFFF; }
         }
         /* Invalid-drop grid wrapper shake — 6 stepped frames, no easing,
            keeps the retro feel. */
@@ -1201,8 +1094,6 @@ export default function PawDokuGame() {
           100% { opacity: 0; }
         }
       `}</style>
-      {/* keep imports referenced */}
-      <span style={{ display: 'none' }}><IconStar size={1} /></span>
     </div>
   )
 }

@@ -92,9 +92,8 @@
 // sprite and cost a layer.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useCare } from '@/contexts/CareContext'
 import { useErenStats } from '@/hooks/useErenStats'
@@ -108,6 +107,10 @@ import {
   Glider, Tide, Bead, Gem, ShieldPickup, TILE,
 } from '@/components/jelly/RunScenery'
 import PixelEren, { type ErenPose } from '@/components/games/PixelEren'
+import {
+  GameTopBar, GameStatRow, GameStat, GameStartCard, GameArtTile, GAME_BOARD_TOP,
+} from '@/components/games/GameChrome'
+import { FONT_ROUNDED, M, MeadowIcon, PrimaryButton, Tag } from '@/components/meadow'
 import { playSound } from '@/lib/sounds'
 import { INK, CREAM, BERRY, BRASS, BRASS_LT, LEAF, WOOD } from '@/components/jelly/parlourTheme'
 
@@ -1956,38 +1959,30 @@ export default function JellyRunPage() {
         </div>
       </div>
 
-      {/* ── HUD ── */}
-      <div className="absolute inset-x-0 top-0 px-3 pointer-events-none"
-        style={{ paddingTop: 'calc(var(--safe-top) + 8px)', zIndex: 30 }}>
-        <div className="flex items-center gap-2">
-          <button onClick={() => router.push('/jelly')}
-            className="pointer-events-auto flex items-center justify-center active:translate-y-[1px]"
-            style={{ width: 30, height: 30, background: 'rgba(58,31,43,0.8)', border: `2px solid ${INK}`, borderRadius: 6 }}>
-            <ChevronLeft size={16} color={CREAM} />
-          </button>
-          <div className="flex-1" />
-          <span className="font-pixel px-2 py-1.5" style={{
-            fontSize: 9, color: CREAM, background: 'rgba(58,31,43,0.8)',
-            border: `2px solid ${INK}`, borderRadius: 6,
-          }}>{metres} M</span>
-          <span className="font-pixel px-2 py-1.5 inline-flex items-center gap-1" style={{
-            fontSize: 9, color: BRASS_LT, background: 'rgba(58,31,43,0.8)',
-            border: `2px solid ${INK}`, borderRadius: 6,
-          }}>
-            <span style={{ width: 8, height: 8, background: BERRY, borderRadius: 2, display: 'inline-block' }} />
-            {beads}
-            {/* The streak, where the eye already is. It only shows once it is
-                actually paying, so an untouched HUD means x1. */}
-            {mult > 1 && <span style={{ color: LEAF }}>x{mult}</span>}
-          </span>
-        </div>
+      {/* ── HUD — the shared Meadow game chrome ── */}
+      <GameTopBar title="Jelly Run" onBack={() => router.push('/jelly')} />
 
+      <GameStatRow>
+        <GameStat value={`${metres} m`} ariaLabel={`${metres} metres`} />
+        {/* The streak, where the eye already is. It only shows once it is
+            actually paying, so an untouched HUD means x1. */}
+        {mult > 1 && <GameStat label="Streak" value={`×${mult}`} tone="hot" pulse={mult} />}
+        <GameStat
+          icon={<span style={{ width: 12, height: 12, background: BERRY, borderRadius: 3, display: 'inline-block' }} />}
+          value={beads} ariaLabel={`${beads} beads`}
+        />
+      </GameStatRow>
+
+      <div className="meadow-root absolute inset-x-0 flex flex-col items-center pointer-events-none"
+        style={{ top: GAME_BOARD_TOP, padding: '0 12px', gap: 8, zIndex: 20 }}>
         {/* Power bar */}
-        <div className="mt-2" style={{
-          height: 12, background: 'rgba(58,31,43,0.8)', border: `2px solid ${INK}`, borderRadius: 4, overflow: 'hidden',
-        }}>
+        <div role="progressbar" aria-label="Dash power" aria-valuemin={0} aria-valuemax={100}
+          aria-valuenow={Math.round(power)} style={{
+            width: '100%', height: 16, padding: 3, boxSizing: 'border-box',
+            background: '#FFFFFF', borderRadius: 999, boxShadow: `0 3px 0 ${M.overArtLip}`,
+          }}>
           <div style={{
-            width: `${power}%`, height: '100%',
+            width: `${power}%`, height: '100%', borderRadius: 999,
             background: full ? `linear-gradient(90deg, ${LEAF}, ${BRASS})` : `linear-gradient(90deg, ${BERRY}, ${BRASS})`,
             transition: 'width 120ms linear',
           }} />
@@ -1997,42 +1992,31 @@ export default function JellyRunPage() {
             player on the high road would otherwise have no way of knowing the
             one thing that makes being up there worth the trouble. */}
         {onRoad && (
-          <div className="flex justify-center mt-1.5">
-            <span className="font-pixel px-2 py-1" style={{
-              fontSize: 8, letterSpacing: 1, color: '#0E3B23',
-              background: `linear-gradient(180deg, #7DF3C4, ${LEAF})`,
-              border: `2px solid ${INK}`, borderRadius: 5,
-              animation: reduced ? undefined : 'jrGainPulse 620ms ease-in-out infinite',
-            }}>
-              HIGH ROAD — TIDE LOSING
-            </span>
-          </div>
+          <Tag tone="leaf" icon={<MeadowIcon name="leaf" size={16} />}
+            style={{ boxShadow: `0 3px 0 ${M.overArtLip}` }}>
+            High road · the tide is losing ground
+          </Tag>
         )}
       </div>
 
       {/* Dash button — the swipe is the real control, but a thumb on a phone
           wants a target too, and a full bar you cannot spend is a tease. */}
       {phase === 'play' && (
-        <button onClick={doDash} disabled={!full}
-          className="absolute font-pixel active:translate-y-[2px]"
-          style={{
-            right: 14, bottom: 'calc(18px + env(safe-area-inset-bottom, 0px))', zIndex: 30,
-            padding: '12px 14px', fontSize: 9, letterSpacing: 1,
-            color: full ? '#3A1B02' : 'rgba(255,248,238,0.4)',
-            background: full ? `linear-gradient(180deg, ${BRASS_LT}, ${BRASS})` : 'rgba(58,31,43,0.7)',
-            border: `2px solid ${INK}`, borderRadius: 6,
-            boxShadow: full ? `0 3px 0 ${INK}` : 'none',
-            opacity: full ? 1 : 0.75,
-          }}>
-          DASH
-        </button>
+        <div className="meadow-root absolute" style={{
+          right: 14, bottom: 'calc(18px + env(safe-area-inset-bottom, 0px))', zIndex: 30,
+        }}>
+          <PrimaryButton size="sm" onClick={doDash} disabled={!full}
+            icon={<MeadowIcon name="bolt" size={18} color="#FFFFFF" mono />}>
+            Dash
+          </PrimaryButton>
+        </div>
       )}
 
       {banner && (
         <div className="absolute inset-x-0 flex justify-center pointer-events-none" style={{ top: '22%', zIndex: 35 }}>
-          <span className="font-pixel px-3 py-2" style={{
-            fontSize: 11, color: CREAM, background: 'rgba(58,31,43,0.85)',
-            border: `2px solid ${BRASS}`, borderRadius: 6,
+          <span style={{
+            padding: '8px 16px', fontFamily: FONT_ROUNDED, fontSize: 15, fontWeight: 800, color: M.text,
+            background: '#FFFFFF', borderRadius: 999, boxShadow: `0 3px 0 ${M.overArtLip}`,
             animation: reduced ? undefined : 'jrPop 300ms cubic-bezier(0.34,1.56,0.64,1)',
           }}>{banner}</span>
         </div>
@@ -2040,42 +2024,31 @@ export default function JellyRunPage() {
 
       {/* ── Ready ── */}
       {phase === 'ready' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center px-6 overflow-y-auto"
-          style={{ background: 'rgba(43,26,34,0.82)', zIndex: 40 }}>
-          <p className="font-pixel mb-2" style={{ fontSize: 14, color: BRASS_LT, letterSpacing: 2 }}>JELLY RUN</p>
-          <p className="text-center mb-4" style={{ fontSize: 11, color: CREAM, opacity: 0.8, lineHeight: 1.5 }}>
-            The tide never stops gaining.<br />Beads charge the bar. Only a DASH pushes it back.
-          </p>
-          <div className="flex flex-col gap-1.5 mb-4" style={{ fontSize: 10, color: CREAM, opacity: 0.75 }}>
-            <span>TAP to jump — KEEP HOLDING to open the glider</span>
-            <span>TAP TWICE to DASH on a full bar — flat, straight over gaps</span>
-            <span>SWIPE DOWN to drop fast — the only way through a CURTAIN</span>
-            <span>Clear hazards without a scratch and beads pay x2, x3, x4</span>
+        <GameStartCard
+          title="Jelly Run"
+          art={<>
+            <GameArtTile><PixelEren pose="run" size={30} /></GameArtTile>
+            <GameArtTile><ArtBox w={16} h={16}><Bead size={16} color={BEAD_COLORS[0]} /></ArtBox></GameArtTile>
+            <GameArtTile><ArtBox w={22} h={22}><Gem size={22} /></ArtBox></GameArtTile>
+            <GameArtTile><ArtBox w={24} h={22}><Crate w={24} h={22} /></ArtBox></GameArtTile>
+            <GameArtTile><ArtBox w={24} h={28}><Burner w={24} h={28} /></ArtBox></GameArtTile>
+          </>}
+          best={duel.best}
+          onStart={start}
+        >
+          The jelly tide never stops gaining. Beads charge your bar, and only a dash pushes the tide back.
+          <div className="flex flex-col text-left" style={{ gap: 6, marginTop: 12, fontSize: 13, lineHeight: 1.35 }}>
+            <span>Tap to jump, and keep holding to open the glider.</span>
+            <span>Tap twice on a full bar to dash, flat and straight over gaps.</span>
+            <span>Swipe down to drop fast. It is the only way under a curtain.</span>
+            <span>Clear hazards without a scratch and beads pay ×2, then ×3.</span>
+            {/* The three classes, stated before the first one arrives. Each
+                swatch is doing the teaching; the sentence only names it. */}
+            <HazardRow swatch={WOOD}>Wood and brass only cost you, and their tops are safe to land on.</HazardRow>
+            <HazardRow swatch="#FF8A2A">Anything hot ends the run. Jump it or dash it.</HazardRow>
+            <HazardRow swatch={LEAF}>High walkways push the tide back. Grey planks give way.</HazardRow>
           </div>
-          {/* The three classes, stated before the first one arrives. Each swatch
-              is doing the teaching; the sentence only names it. */}
-          <div className="flex flex-col gap-1.5 mb-6" style={{ fontSize: 10 }}>
-            <span className="flex items-center gap-2" style={{ color: CREAM, opacity: 0.75 }}>
-              <span style={{ width: 10, height: 10, background: WOOD, border: `2px solid ${INK}`, borderRadius: 2, flexShrink: 0 }} />
-              Wood and brass only cost you — their TOPS are safe to land on.
-            </span>
-            <span className="flex items-center gap-2" style={{ color: '#FFC98A' }}>
-              <span style={{ width: 10, height: 10, background: '#FF8A2A', border: `2px solid ${INK}`, borderRadius: 2, flexShrink: 0 }} />
-              Anything HOT ends the run. Jump it or dash it.
-            </span>
-            <span className="flex items-center gap-2" style={{ color: '#D8F5E4' }}>
-              <span style={{ width: 10, height: 10, background: LEAF, border: `2px solid ${INK}`, borderRadius: 2, flexShrink: 0 }} />
-              High walkways push the TIDE BACK. Grey planks give way.
-            </span>
-          </div>
-          <button onClick={start} className="font-pixel active:translate-y-[2px]" style={{
-            padding: '14px 26px', fontSize: 11, letterSpacing: 1.5, color: '#3A1B02',
-            background: `linear-gradient(180deg, ${BRASS_LT}, ${BRASS})`,
-            border: `2px solid ${INK}`, borderRadius: 8, boxShadow: `0 4px 0 ${INK}`,
-          }}>
-            RUN
-          </button>
-        </div>
+        </GameStartCard>
       )}
 
       {/* ── Results ── */}
@@ -2111,16 +2084,33 @@ export default function JellyRunPage() {
           0%   { transform: scaleY(0.2) scaleX(0.6); opacity: 0; }
           100% { transform: scaleY(1) scaleX(1); opacity: 1; }
         }
-        @keyframes jrGainPulse {
-          0%, 100% { transform: translateY(0); filter: brightness(1); }
-          50%      { transform: translateY(-1px); filter: brightness(1.18); }
-        }
         @keyframes jrShieldRing {
           0%, 100% { transform: scale(1); opacity: 0.85; }
           50%      { transform: scale(1.09); opacity: 1; }
         }
       `}</style>
     </div>
+  )
+}
+
+/**
+ * A sized, positioned box for one piece of the run's art on the start card.
+ * The scenery pieces are absolutely positioned (the loop places them), so
+ * each needs a relative box of its own size to sit in.
+ */
+function ArtBox({ w, h, children }: { w: number; h: number; children: ReactNode }) {
+  return <span style={{ position: 'relative', display: 'block', width: w, height: h }}>{children}</span>
+}
+
+/** One hazard class on the start card: its colour, then what it means. */
+function HazardRow({ swatch, children }: { swatch: string; children: ReactNode }) {
+  return (
+    <span className="flex items-center" style={{ gap: 8 }}>
+      <span aria-hidden style={{
+        width: 12, height: 12, background: swatch, border: `2px solid ${INK}`, borderRadius: 3, flexShrink: 0,
+      }} />
+      {children}
+    </span>
   )
 }
 

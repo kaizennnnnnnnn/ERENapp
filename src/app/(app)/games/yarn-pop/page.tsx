@@ -2,7 +2,6 @@
 
 import { memo, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
@@ -14,6 +13,11 @@ import GameCoinReward from '@/components/games/GameCoinReward'
 import PixelEren, { type ErenPose } from '@/components/games/PixelEren'
 import { playSound } from '@/lib/sounds'
 import { IconStar } from '@/components/PixelIcons'
+import {
+  GameTopBar, GameStatRow, GameStat, GAME_STAT_URGENT, GAME_BOARD_TOP, GameFootnote,
+  GameStartCard, GameArtTile, GameResultCard,
+} from '@/components/games/GameChrome'
+import { M } from '@/components/meadow'
 import { fireMinigameDone } from '@/lib/minigames'
 
 const ROWS = 8
@@ -433,6 +437,8 @@ export default function YarnPopGame() {
   const [processing, setProcessing] = useState(false)
   const [floater, setFloater] = useState<{ id: number; text: string; x: number; y: number; color: string } | null>(null)
   const [reward, setReward] = useState<GameRewardResult | null>(null)
+  // Whether the round that just ended beat the stored best (for the result card).
+  const [newBest, setNewBest] = useState(false)
   const savedRef = useRef(false)
   // Score pulse — incremented per gain so React re-keys the animated span.
   const [scorePulse, setScorePulse] = useState(0)
@@ -695,6 +701,9 @@ export default function YarnPopGame() {
     const finalScore = scoreRef.current
     setPhase('gameover')
     playSound('yp_gameover')
+    // bestScore here is the best from before this round: it only changes
+    // on mount and right below, so the closure's value is still the old one.
+    setNewBest(finalScore > 0 && finalScore > bestScore)
     setBest(b => Math.max(b, finalScore))
     try {
       const prev = parseInt(localStorage.getItem('yarn_pop_best') || '0', 10) || 0
@@ -864,81 +873,32 @@ export default function YarnPopGame() {
     <div className="fixed inset-0 z-40 flex flex-col game-shell" style={{
       background: 'radial-gradient(ellipse at top, #500A38 0%, #2C0623 55%, #170210 100%)',
     }}>
-      {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{
-        background: 'linear-gradient(180deg, rgba(20,4,18,0.95) 0%, rgba(20,4,18,0.6) 100%)',
-        borderBottom: '2px solid rgba(244,114,182,0.35)',
-      }}>
-        <button onClick={() => { playSound('ui_back'); router.back() }}
-          className="flex items-center justify-center active:scale-90 transition-transform"
-          style={{ width: 32, height: 32, background: 'rgba(255,255,255,0.08)', borderRadius: 6, border: '2px solid rgba(244,114,182,0.45)', boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
-          <ChevronLeft size={16} className="text-pink-200" />
-        </button>
-        <span className="font-pixel text-white px-2.5 py-1.5"
-          style={{ background: 'linear-gradient(135deg, #DB2777, #EC4899)', border: '2px solid #831843', borderRadius: 4, fontSize: 8, letterSpacing: 2, boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
-          YARN POP
-        </span>
-        <div className="flex-1" />
-        <div className="flex items-center gap-1.5 px-2 py-1.5 font-pixel"
-          style={{ background: 'rgba(0,0,0,0.4)', border: '2px solid rgba(255,255,255,0.4)', borderRadius: 4, fontSize: 8, color: '#FDE68A' }}>
-          BEST {bestScore}
-        </div>
-      </div>
+      {/* Header + stats — the shared Meadow game chrome. */}
+      <GameTopBar title="Yarn Pop" onBack={() => { playSound('ui_back'); router.back() }} />
 
-      {/* Score / moves bar */}
-      <div className="flex items-center justify-between px-4 py-3 flex-shrink-0">
-        <div>
-          <div className="font-pixel" style={{ fontSize: 6, color: '#FBCFE8', letterSpacing: 2 }}>SCORE</div>
-          {/* Re-keyed by scorePulse so the keyframe replays on every gain. */}
-          <div key={`score-${scorePulse}`} className="font-pixel" style={{
-            fontSize: 22,
-            color: '#FFFFFF',
-            textShadow: '2px 2px 0 #831843',
-            letterSpacing: 1,
-            display: 'inline-block',
-            transformOrigin: 'left center',
-            animation: scorePulse > 0 ? 'yp-score-pulse 0.25s ease-out' : undefined,
-          }}>{score}</div>
-        </div>
+      <GameStatRow>
+        <GameStat icon={<IconStar size={16} />} value={score} pulse={scorePulse} ariaLabel={`Score ${score}`} />
         {displayCombo > 1 && (
-          <div key={`combo-${displayCombo}`} className="font-pixel" style={{
-            background: 'rgba(0,0,0,0.5)',
-            border: '2px solid #FBBF24',
-            borderRadius: 3,
-            padding: '4px 10px',
-            fontSize: 9, color: '#FBBF24', letterSpacing: 2,
-            boxShadow: '0 0 14px rgba(251,191,36,0.5)',
-            // Hold-and-fade: punchy in, then a slower fade out at the end.
-            animation: combo > 0
-              ? 'yp-combo 0.5s ease-out'
-              : 'yp-combo-fade 0.85s ease-out forwards',
-          }}>
-            COMBO x{displayCombo}
-          </div>
+          // Pops in on each new chain link, then holds its final value and
+          // fades once the cascade ends (yp-combo-fade is a global keyframe).
+          <GameStat
+            label="Combo" value={`×${displayCombo}`} tone="hot" pulse={displayCombo}
+            style={combo > 0 ? undefined : { animation: 'yp-combo-fade 0.85s ease-out forwards' }}
+          />
         )}
-        <div className="text-right">
-          <div className="font-pixel" style={{ fontSize: 6, color: '#FBCFE8', letterSpacing: 2 }}>MOVES</div>
-          <div className="font-pixel" style={{
-            fontSize: 22,
-            color: moves <= 5 ? '#FCA5A5' : '#FFFFFF',
-            textShadow: '2px 2px 0 #831843',
-            letterSpacing: 1,
-            display: 'inline-block',
-            transformOrigin: 'right center',
-            // Slow breathing at ≤5, faster urgent pulse at ≤2. The
-            // animation re-arms via the changing key so each new value
-            // restarts cleanly instead of running forever.
-            animation: moves <= 2 && moves > 0
-              ? 'yp-moves-urgent 0.6s ease-in-out infinite'
-              : moves <= 5 && moves > 0
-                ? 'yp-moves-low 1s ease-in-out infinite'
-                : undefined,
-          }}>{moves}</div>
-        </div>
-      </div>
+        {/* Slow breathing at ≤5, faster urgent pulse at ≤2. */}
+        <GameStat
+          label="Moves" value={moves} tone={moves <= 5 ? 'warn' : 'plain'}
+          style={moves <= 2 && moves > 0
+            ? GAME_STAT_URGENT
+            : moves <= 5 && moves > 0
+              ? { animation: 'gkPulse 1s ease-in-out infinite' }
+              : undefined}
+        />
+      </GameStatRow>
 
-      {/* Board */}
-      <div className="flex-1 flex items-center justify-center px-3 pb-4">
+      {/* Board — starts under the top bar and the stat row. */}
+      <div className="flex-1 flex items-center justify-center px-3 pb-4" style={{ paddingTop: GAME_BOARD_TOP }}>
         <div className="relative" style={{
           width: 'min(94vw, 380px)',
           aspectRatio: `${COLS} / ${ROWS}`,
@@ -1180,122 +1140,54 @@ export default function YarnPopGame() {
         </div>
       </div>
 
-      {/* Idle overlay — full-screen but pointer-events-none so it doesn't
-          swallow taps on the header back button underneath it. The START
-          button re-enables pointer events for itself. */}
-      {phase === 'idle' && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-          <div className="px-6 py-5 flex flex-col items-center gap-3"
-            style={{ background: 'rgba(15,3,18,0.85)', border: '3px solid #EC4899', borderRadius: 6, boxShadow: '0 4px 0 #831843, 0 0 24px rgba(236,72,153,0.4)' }}>
-            <p className="font-pixel" style={{ fontSize: 10, letterSpacing: 2, color: '#FDE68A' }}>YARN POP</p>
-            <p className="font-pixel text-center" style={{ fontSize: 7, color: '#FBCFE8', letterSpacing: 1, lineHeight: 1.7 }}>
-              TAP TWO ADJACENT TILES.<br/>MATCH 3 TO POP.
-            </p>
-            <div className="flex flex-col gap-1.5" style={{ marginTop: 2 }}>
-              <div className="flex items-center gap-2">
-                <div style={{ position: 'relative', width: 20, height: 20 }}>
-                  <div style={{ width: '100%', height: '100%', borderRadius: 4 }}><MemoTileVisual type={2} /></div>
-                  <SpecialOverlay special="line-h" />
-                </div>
-                <span className="font-pixel" style={{ fontSize: 6, color: '#FDE68A', letterSpacing: 1 }}>MATCH 4 = LINE BLAST</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div style={{ position: 'relative', width: 20, height: 20 }}>
-                  <div style={{ width: '100%', height: '100%', borderRadius: 4 }}><MemoTileVisual type={0} /></div>
-                  <SpecialOverlay special="wrap" />
-                </div>
-                <span className="font-pixel" style={{ fontSize: 6, color: '#FDE68A', letterSpacing: 1 }}>L-SHAPE = AREA BOOM</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div style={{ width: 20, height: 20 }}><BombTile /></div>
-                <span className="font-pixel" style={{ fontSize: 6, color: '#FDE68A', letterSpacing: 1 }}>MATCH 5 = COLOR BOMB</span>
-              </div>
-            </div>
-            <button onClick={() => { playSound('ui_tap'); startGame() }}
-              className="mt-1 px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2 pointer-events-auto"
-              style={{
-                background: 'linear-gradient(135deg, #EC4899 0%, #DB2777 100%)',
-                border: '2px solid #831843',
-                borderRadius: 3,
-                boxShadow: '0 4px 0 #831843',
-                fontFamily: '"Press Start 2P"', fontSize: 9, letterSpacing: 1.5,
-              }}>
-              <IconStar size={12} /> START
-            </button>
-          </div>
-        </div>
+      {/* Best so far, quietly at the foot while a round is on. */}
+      {phase === 'playing' && bestScore > 0 && (
+        <GameFootnote>Best {bestScore}</GameFootnote>
       )}
 
-      {/* Game over */}
-      {phase === 'gameover' && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center"
-          style={{ background: 'rgba(8,5,18,0.7)', backdropFilter: 'blur(2px)' }}>
-          <div className="flex flex-col items-center gap-3 px-6 py-5"
-            style={{
-              background: 'linear-gradient(180deg, #2A0820 0%, #170210 100%)',
-              border: '3px solid #EC4899',
-              borderRadius: 6,
-              boxShadow: '0 6px 0 #831843, 0 0 24px rgba(236,72,153,0.4)',
-              animation: 'yp-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both',
-            }}>
-            <p className="font-pixel" style={{ fontSize: 11, color: '#FCA5A5', letterSpacing: 3 }}>OUT OF MOVES</p>
-            <div className="flex items-center gap-4 mt-1">
-              <div className="flex flex-col items-center">
-                <span className="font-pixel" style={{ fontSize: 6, color: '#FBCFE8', letterSpacing: 1 }}>SCORE</span>
-                <span className="font-pixel text-white" style={{ fontSize: 22 }}>{score}</span>
-              </div>
-              <div style={{ width: 1, height: 28, background: '#831843' }} />
-              <div className="flex flex-col items-center">
-                <span className="font-pixel" style={{ fontSize: 6, color: '#FDE68A', letterSpacing: 1 }}>BEST</span>
-                <span className="font-pixel" style={{ fontSize: 22, color: '#FDE68A' }}>{bestScore}</span>
-              </div>
-            </div>
-            {reward && (
-              <div className="mb-3">
-                <GameCoinReward coins={reward.coins} blocked={reward.blocked} />
-              </div>
-            )}
-            <div className="flex items-center gap-2 mt-3">
-              <button onClick={() => { playSound('ui_tap'); reset() }}
-                className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-                style={{
-                  background: 'linear-gradient(135deg, #EC4899 0%, #DB2777 100%)',
-                  border: '2px solid #831843',
-                  borderRadius: 3,
-                  boxShadow: '0 4px 0 #831843',
-                  fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5,
-                }}>
-                <RefreshCw size={11} /> AGAIN
-              </button>
-              <button onClick={() => { playSound('ui_back'); router.back() }}
-                className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-                style={{
-                  background: 'linear-gradient(135deg, #475569 0%, #1F2937 100%)',
-                  border: '2px solid #0F172A',
-                  borderRadius: 3,
-                  boxShadow: '0 4px 0 #0F172A',
-                  fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5,
-                }}>
-                EXIT
-              </button>
-            </div>
+      {/* ── Idle intro ─────────────────────────────────────────────────────── */}
+      {phase === 'idle' && (
+        <GameStartCard
+          title="Yarn Pop"
+          art={[0, 1, 2, 3, 4].map(t => (
+            <GameArtTile key={t} size={40}>
+              <div style={{ width: 30, height: 30 }}><MemoTileVisual type={t} /></div>
+            </GameArtTile>
+          ))}
+          best={bestScore}
+          onStart={() => { playSound('ui_tap'); startGame() }}
+        >
+          <p style={{ margin: 0 }}>Swap two neighbouring tiles. Line up three of a kind to pop them.</p>
+          <div className="inline-flex flex-col items-start text-left" style={{ gap: 8, marginTop: 12 }}>
+            <SpecialLegendRow label="Match 4 for a line blast">
+              <div style={{ width: '100%', height: '100%' }}><MemoTileVisual type={2} /></div>
+              <SpecialOverlay special="line-h" />
+            </SpecialLegendRow>
+            <SpecialLegendRow label="An L shape for an area boom">
+              <div style={{ width: '100%', height: '100%' }}><MemoTileVisual type={0} /></div>
+              <SpecialOverlay special="wrap" />
+            </SpecialLegendRow>
+            <SpecialLegendRow label="Match 5 for a colour bomb">
+              <BombTile />
+            </SpecialLegendRow>
           </div>
-        </div>
+        </GameStartCard>
+      )}
+
+      {/* ── Game over ──────────────────────────────────────────────────────── */}
+      {phase === 'gameover' && (
+        <GameResultCard
+          headline="Out of moves"
+          score={score}
+          newBest={newBest}
+          best={bestScore}
+          reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
+          onAgain={() => { playSound('ui_tap'); reset() }}
+          onBack={() => { playSound('ui_back'); router.back() }}
+        />
       )}
 
       <style jsx global>{`
-        @keyframes yp-pop {
-          0%   { transform: scale(0.7); opacity: 0; }
-          100% { transform: scale(1);   opacity: 1; }
-        }
-        /* Combo counter — bigger, more punchy than before. Includes a
-           glow flash so big chains read as a "moment". */
-        @keyframes yp-combo {
-          0%   { transform: scale(0.5); opacity: 0; filter: drop-shadow(0 0 0 #FDE68A); }
-          35%  { transform: scale(1.35); opacity: 1; filter: drop-shadow(0 0 14px #FDE68A); }
-          70%  { transform: scale(0.95); }
-          100% { transform: scale(1);   opacity: 1; filter: drop-shadow(0 0 6px #FDE68A); }
-        }
         /* Hinted pair — a slow breath, not a flash. It has to be findable in
            peripheral vision without competing with an active cascade. */
         @keyframes yp-hint {
@@ -1373,22 +1265,6 @@ export default function YarnPopGame() {
           60%  { transform: translateX(-2px); }
           80%  { transform: translateX(2px); }
           100% { transform: translateX(0); }
-        }
-        /* Score pulse — fires every time the SCORE value increases.
-           A quick punch + warm gold flash so points feel earned. */
-        @keyframes yp-score-pulse {
-          0%   { transform: scale(1);    color: #FFFFFF; }
-          40%  { transform: scale(1.25); color: #FDE68A; }
-          100% { transform: scale(1);    color: #FFFFFF; }
-        }
-        /* Low-moves breathing — slow at ≤5, faster at ≤2. */
-        @keyframes yp-moves-low {
-          0%, 100% { transform: scale(1);    color: #FCA5A5; }
-          50%      { transform: scale(1.08); color: #FECACA; }
-        }
-        @keyframes yp-moves-urgent {
-          0%, 100% { transform: scale(1);    color: #F87171; }
-          50%      { transform: scale(1.18); color: #FECACA; }
         }
         /* Combo badge fade — hold the value, then fade to nothing once
            the cascade ends. Replays only when combo drops to 0. */
@@ -1482,6 +1358,17 @@ function SpecialOverlay({ special }: { special: Special }) {
   if (special === 'line-h') return <div className="yp-stripe-h" />
   if (special === 'line-v') return <div className="yp-stripe-v" />
   return <div className="yp-wrap-ring" />
+}
+
+// One line of the start card's specials legend: a small special tile + what
+// makes it. The tile box is `relative` so SpecialOverlay's inset sits on it.
+function SpecialLegendRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center" style={{ gap: 10 }}>
+      <div aria-hidden style={{ position: 'relative', width: 24, height: 24, flexShrink: 0 }}>{children}</div>
+      <span style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.3, color: M.text2 }}>{label}</span>
+    </div>
+  )
 }
 
 // COLOR BOMB — a dark sprinkled sphere (colour-less; fires on swap/chain).

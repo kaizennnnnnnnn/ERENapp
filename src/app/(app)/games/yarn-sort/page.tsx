@@ -29,7 +29,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, RefreshCw, Undo2 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
@@ -42,7 +41,11 @@ import ErenReact, { useErenReaction } from '@/components/games/ErenReact'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import PixelEren, { type ErenPose } from '@/components/games/PixelEren'
 import { playSound } from '@/lib/sounds'
-import { IconStar, IconYarn } from '@/components/PixelIcons'
+import { IconStar } from '@/components/PixelIcons'
+import {
+  GameTopBar, GameStatRow, GameStat, GAME_STAT_URGENT, GAME_BOARD_TOP, GameFootnote, GameStartCard, GameArtTile, GameResultCard,
+} from '@/components/games/GameChrome'
+import { FONT_ROUNDED, M, MeadowIcon } from '@/components/meadow'
 import { fireMinigameDone } from '@/lib/minigames'
 
 // ─── Tunables ───────────────────────────────────────────────────────────────
@@ -63,7 +66,6 @@ const TUBE_H    = SEG * SEG_H + 12      // jar body height
 const HOLD_LIFT = 16                    // px the held run rises above the rest
 const ROW_MAX   = 5                     // jars per shelf plank
 const JAR_GAP   = 13                    // px between jars on a plank
-const GAUGE_MAX = 30                    // move-bank gauge is full at this many
 
 // Up to 8 distinct yarn colours; palettes match the app's pink/gold/mint set.
 interface Palette { main: string; dark: string; light: string }
@@ -373,7 +375,6 @@ export default function YarnSortGame() {
   const heldRun = selected === null ? 0 : topRun(tubes[selected] ?? [])
   const rows = useMemo(() => shelfRows(tubes.length), [tubes.length])
   const movesLow = movesLeft <= LOW_MOVES
-  const gaugeFill = Math.max(0, Math.min(10, Math.round((movesLeft / GAUGE_MAX) * 10)))
   const nextRefill = refillForLevel(colorsForLevel(level))
 
   // Eren doubles as feedback: you can read the last thing that happened off his
@@ -504,7 +505,7 @@ export default function YarnSortGame() {
         playSound('ys_invalid')
         setShake(s => s + 1)
         startle()
-        flashNotice('DEAD END')
+        flashNotice('Dead end')
         setSelected(null)
         return
       }
@@ -564,111 +565,48 @@ export default function YarnSortGame() {
         }} />
       )}
 
-      {/* Header */}
-      <div className="relative flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{
-        background: 'linear-gradient(180deg, rgba(3,14,18,0.96) 0%, rgba(3,14,18,0.55) 100%)',
-        borderBottom: '2px solid rgba(45,212,191,0.32)',
-        boxShadow: '0 3px 0 rgba(0,0,0,0.35)',
-      }}>
-        <button onClick={() => { playSound('ui_back'); router.back() }}
-          aria-label="Back"
-          className="flex items-center justify-center active:translate-y-[2px] transition-transform"
-          style={{ width: 32, height: 32, background: 'rgba(255,255,255,0.08)', borderRadius: 6, border: '2px solid rgba(45,212,191,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.4)' }}>
-          <ChevronLeft size={16} className="text-teal-200" />
-        </button>
-        <span className="relative font-pixel text-white inline-flex items-center gap-1.5 px-2.5 py-1.5"
-          style={{ background: 'linear-gradient(135deg, #0D9488, #2DD4BF)', border: '2px solid #134E4A', borderRadius: 4, fontSize: 8, letterSpacing: 2, boxShadow: '0 2px 0 rgba(0,0,0,0.4)' }}>
-          <IconYarn size={10} />
-          YARN SORT
-          <span aria-hidden style={{ position: 'absolute', left: 2, top: 2, width: 2, height: 2, background: '#FDE68A' }} />
-          <span aria-hidden style={{ position: 'absolute', right: 2, bottom: 2, width: 2, height: 2, background: '#FDE68A' }} />
-        </span>
-        <div className="flex-1" />
-        <div className="flex items-center gap-1.5 px-2 py-1.5 font-pixel"
-          style={{ background: 'rgba(0,0,0,0.45)', border: '2px solid rgba(94,234,212,0.45)', borderRadius: 4, fontSize: 8, color: '#99F6E4', boxShadow: '0 2px 0 rgba(0,0,0,0.4)' }}>
-          <IconStar size={9} /> {bestScore}
-        </div>
-      </div>
+      {/* Header + stats — the shared Meadow game chrome. */}
+      <GameTopBar title="Yarn Sort" onBack={() => { playSound('ui_back'); router.back() }} />
 
-      {/* HUD: level · move bank · undo */}
-      <div className="relative flex items-stretch gap-2 px-3 py-2.5 flex-shrink-0">
-        {/* Level plate */}
-        <div className="flex flex-col items-center justify-center px-3 py-1.5" style={{
-          background: 'linear-gradient(180deg, rgba(9,42,44,0.9), rgba(4,20,24,0.9))',
-          border: '2px solid rgba(94,234,212,0.4)', borderRadius: 5,
-          boxShadow: '0 2px 0 rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)',
-        }}>
-          <span className="font-pixel" style={{ fontSize: 6, color: '#5EEAD4', letterSpacing: 2 }}>LVL</span>
-          <span className="font-pixel" style={{ fontSize: 18, color: '#FFFFFF', textShadow: '2px 2px 0 #04181A', letterSpacing: 1 }}>{level}</span>
-        </div>
-
-        {/* Move bank: number + depleting gauge + what a solve pays back */}
-        <div className="flex-1 flex flex-col justify-center px-3 py-1.5" style={{
-          background: 'linear-gradient(180deg, rgba(9,42,44,0.9), rgba(4,20,24,0.9))',
-          border: `2px solid ${movesLow ? 'rgba(248,113,113,0.75)' : 'rgba(94,234,212,0.4)'}`,
-          borderRadius: 5,
-          boxShadow: movesLow
-            ? '0 2px 0 rgba(0,0,0,0.45), 0 0 12px rgba(248,113,113,0.4)'
-            : '0 2px 0 rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)',
-        }}>
-          <div className="flex items-baseline justify-between">
-            <span className="font-pixel" style={{ fontSize: 6, color: movesLow ? '#FCA5A5' : '#5EEAD4', letterSpacing: 2 }}>MOVES</span>
-            <span key={`mv-${movesLeft}`} className="font-pixel" style={{
-              fontSize: 18,
-              color: movesLow ? '#FCA5A5' : '#FDE68A',
-              textShadow: movesLow ? '0 0 10px rgba(248,113,113,0.8)' : '2px 2px 0 #04181A',
-              animation: !reduced ? 'ysMovePulse 0.4s ease-out' : undefined,
-            }}>{movesLeft}</span>
-          </div>
-          {/* Ten-tick gauge in a recessed channel — the app's meter language */}
-          <div className="flex gap-[2px] mt-1 p-[2px]" style={{
-            background: 'rgba(0,0,0,0.55)', borderRadius: 2,
-            boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.7)',
-          }}>
-            {Array.from({ length: 10 }).map((_, i) => {
-              const lit = i < gaugeFill
-              return (
-                <div key={i} style={{
-                  flex: 1, height: 5, borderRadius: 1,
-                  background: lit
-                    ? (movesLow
-                      ? 'linear-gradient(180deg, #FCA5A5, #DC2626)'
-                      : 'linear-gradient(180deg, #A7F3D0, #14B8A6)')
-                    : 'rgba(255,255,255,0.07)',
-                  boxShadow: lit ? `0 0 4px ${movesLow ? 'rgba(248,113,113,0.8)' : 'rgba(45,212,191,0.7)'}` : undefined,
-                  transition: 'background 0.18s',
-                  transitionDelay: `${i * 15}ms`,
-                }} />
-              )
-            })}
-          </div>
-          <span className="font-pixel mt-1" style={{ fontSize: 6, color: '#7DD3C8', letterSpacing: 1 }}>
-            SOLVE PAYS +{nextRefill}
-          </span>
-        </div>
-
+      <GameStatRow>
+        <GameStat label="Level" value={level} ariaLabel={`Level ${level}`} />
+        <GameStat label="Moves" value={movesLeft} tone={movesLow ? 'warn' : 'plain'}
+          pulse={reduced ? undefined : movesLeft} ariaLabel={`${movesLeft} moves left`} />
         <button
           onClick={() => { playSound('ui_tap'); undo() }}
           disabled={!canUndo}
           aria-label="Undo last pour"
-          className="flex flex-col items-center justify-center gap-0.5 px-3 active:translate-y-[2px] transition-transform"
+          className="active:translate-y-[2px] transition-transform"
           style={{
-            background: canUndo
-              ? 'linear-gradient(180deg, rgba(13,148,136,0.5), rgba(6,60,58,0.6))'
-              : 'rgba(255,255,255,0.05)',
-            border: `2px solid ${stuck ? '#FDE68A' : 'rgba(94,234,212,0.45)'}`,
-            borderRadius: 5,
-            opacity: canUndo ? 1 : 0.35,
-            boxShadow: '0 2px 0 rgba(0,0,0,0.45)',
-            animation: stuck && !reduced ? 'ysUndoPulse 0.7s ease-in-out infinite' : undefined,
+            pointerEvents: 'auto', padding: 0, border: 0, background: 'none',
+            opacity: canUndo ? 1 : 0.5, touchAction: 'manipulation',
           }}>
-          <Undo2 size={14} className="text-teal-200" />
-          <span className="font-pixel" style={{ fontSize: 6, color: stuck ? '#FDE68A' : '#99F6E4', letterSpacing: 1 }}>{undosLeft}</span>
+          <GameStat
+            icon={<MeadowIcon name="replay" size={18} />}
+            label="Undo"
+            value={undosLeft}
+            tone={stuck ? 'hot' : 'plain'}
+            style={stuck && !reduced ? GAME_STAT_URGENT : undefined}
+          />
         </button>
-      </div>
+      </GameStatRow>
+
+      {/* Spacer: the chrome above is absolutely positioned, so the shelf starts below it.
+          .game-shell already pads the safe area, so this is GAME_BOARD_TOP minus it. */}
+      <div aria-hidden className="flex-shrink-0" style={{ height: `calc(${GAME_BOARD_TOP} - var(--safe-top))` }} />
+
+      {/* What a solve pays back, and your best — quiet under the shelf */}
+      {phase === 'playing' && (
+        <GameFootnote>
+          Solve pays +{nextRefill}
+          <span aria-hidden>·</span>
+          <IconStar size={12} /> Best {bestScore}
+        </GameFootnote>
+      )}
 
       {/* Shelf field */}
-      <div className="relative flex-1 flex items-center justify-center px-3 pb-3 select-none overflow-hidden">
+      <div className="relative flex-1 flex items-center justify-center px-3 select-none overflow-hidden"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 52px)' }}>
         {/* Drifting motes */}
         {!reduced && MOTES.map((m, i) => (
           <span key={i} aria-hidden className="absolute pointer-events-none" style={{
@@ -681,28 +619,28 @@ export default function YarnSortGame() {
 
         {/* Stuck rescue banner — only when the player has no non-dead-end move left */}
         {stuck && (
-          <div className="absolute left-1/2 -translate-x-1/2 z-30 px-3 py-2 font-pixel text-center" style={{
+          <div className="absolute left-1/2 -translate-x-1/2 z-30 px-4 py-2 text-center" style={{
             top: 2,
-            background: 'rgba(20,10,4,0.94)',
-            border: '2px solid #FDE68A',
-            borderRadius: 4,
-            fontSize: 7, letterSpacing: 1.5, lineHeight: 1.9,
-            boxShadow: '0 3px 0 rgba(0,0,0,0.5), 0 0 14px rgba(253,230,138,0.5)',
+            background: '#FFFFFF',
+            borderRadius: 18,
+            fontFamily: FONT_ROUNDED, fontWeight: 800, fontSize: 14, lineHeight: 1.3,
+            whiteSpace: 'nowrap',
+            boxShadow: `0 3px 0 ${M.overArtLip}`,
             animation: reduced ? undefined : 'ysStuckPulse 0.9s ease-in-out infinite',
           }}>
-            <span style={{ color: '#FDE68A' }}>DEAD END</span><br />
-            <span style={{ color: '#FCA5A5' }}>TAP UNDO TO BACK UP</span>
+            <span style={{ color: M.text }}>Dead end</span><br />
+            <span style={{ color: M.danger, fontSize: 13, fontWeight: 700 }}>Tap undo to back up</span>
           </div>
         )}
         {/* Transient notice — e.g. a blocked dead-end pour */}
         {notice && !stuck && (
-          <div key={notice.key} className="absolute left-1/2 -translate-x-1/2 z-30 px-3 py-1.5 font-pixel" style={{
+          <div key={notice.key} className="absolute left-1/2 -translate-x-1/2 z-30 px-4 py-1.5" style={{
             top: 2,
-            background: 'rgba(20,10,4,0.92)',
-            border: '2px solid #FB7185',
-            borderRadius: 4,
-            fontSize: 7, letterSpacing: 1.5, color: '#FECDD3',
-            boxShadow: '0 2px 0 rgba(0,0,0,0.5)',
+            background: M.dangerTint,
+            borderRadius: 999,
+            fontFamily: FONT_ROUNDED, fontWeight: 800, fontSize: 14, color: M.danger,
+            whiteSpace: 'nowrap',
+            boxShadow: `0 3px 0 ${M.overArtLip}`,
             animation: reduced ? undefined : 'ysNotice 1.1s ease-out forwards',
           }}>
             {notice.text}
@@ -711,16 +649,16 @@ export default function YarnSortGame() {
 
         {/* Level-clear banner — states the payout so the move economy is legible */}
         {celebrating && (
-          <div key={`clear-${solveFx}`} className="absolute left-1/2 -translate-x-1/2 z-30 px-4 py-2 font-pixel text-center" style={{
+          <div key={`clear-${solveFx}`} className="absolute left-1/2 -translate-x-1/2 z-30 px-4 py-2 text-center" style={{
             top: 2,
-            background: 'linear-gradient(180deg, rgba(13,80,70,0.96), rgba(4,30,32,0.96))',
-            border: '2px solid #FDE68A',
-            borderRadius: 4,
-            boxShadow: '0 3px 0 rgba(0,0,0,0.5), 0 0 20px rgba(253,230,138,0.55)',
+            background: '#FFFFFF',
+            borderRadius: 18,
+            fontFamily: FONT_ROUNDED, whiteSpace: 'nowrap',
+            boxShadow: `0 3px 0 ${M.overArtLip}`,
             animation: reduced ? undefined : 'ysBanner 0.9s ease-out both',
           }}>
-            <div style={{ fontSize: 8, letterSpacing: 2, color: '#FDE68A' }}>LEVEL {solved} CLEAR</div>
-            <div style={{ fontSize: 7, letterSpacing: 1.5, color: '#A7F3D0', marginTop: 5 }}>+{lastRefill} MOVES</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: M.text }}>Level {solved} clear</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: M.leafInk, marginTop: 2 }}>+{lastRefill} moves</div>
           </div>
         )}
 
@@ -950,80 +888,41 @@ export default function YarnSortGame() {
         </div>
       </div>
 
-      {/* Idle modal */}
+      {/* Idle — the shared Meadow start card */}
       {phase === 'idle' && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center px-4"
-          style={{ background: 'rgba(3,14,18,0.62)' }}>
-          <div className="px-6 py-5 flex flex-col items-center gap-3"
-            style={{ background: 'linear-gradient(180deg, #0B3234 0%, #051E22 100%)', border: '3px solid #2DD4BF', borderRadius: 6, boxShadow: '0 5px 0 #134E4A, 0 0 30px rgba(45,212,191,0.45)' }}>
-            <p className="font-pixel inline-flex items-center gap-2" style={{ fontSize: 11, letterSpacing: 2.5, color: '#99F6E4', filter: 'drop-shadow(0 0 6px rgba(45,212,191,0.5))' }}>
-              <IconYarn size={13} /> YARN SORT
-            </p>
-            <div className="font-pixel text-center" style={{ fontSize: 6, color: '#7DD3C8', letterSpacing: 1, lineHeight: 1.9 }}>
-              <p>TAP A JAR TO LIFT ITS TOP YARN</p>
-              <p>TAP A GLOWING JAR TO DROP IT</p>
-              <p>SORT EVERY JAR TO ONE COLOUR</p>
-              <p style={{ color: '#FDE68A' }}>EVERY POUR SPENDS A MOVE</p>
-              <p style={{ color: '#FDE68A' }}>EVERY SOLVE PAYS MOVES BACK</p>
-            </div>
-            <button onClick={() => { playSound('ui_tap'); startGame() }}
-              className="mt-1 px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-              style={{ background: 'linear-gradient(135deg, #2DD4BF 0%, #0D9488 100%)', border: '2px solid #134E4A', borderRadius: 3, boxShadow: '0 4px 0 #134E4A', fontFamily: '"Press Start 2P"', fontSize: 9, letterSpacing: 1.5 }}>
-              START
-            </button>
-          </div>
-        </div>
+        <GameStartCard
+          title="Yarn Sort"
+          art={COLORS.slice(0, 5).map((pal, i) => (
+            <GameArtTile key={i} size={40} tint={`${pal.main}26`}>
+              <span style={{
+                width: 22, height: 22, borderRadius: '50%',
+                border: `1.5px solid ${pal.dark}`,
+                background: `radial-gradient(circle at 32% 28%, ${pal.light} 0%, ${pal.main} 55%, ${pal.dark} 100%)`,
+              }} />
+            </GameArtTile>
+          ))}
+          best={bestScore}
+          onStart={() => { playSound('ui_tap'); startGame() }}
+        >
+          Tap a jar to lift its top yarn, then tap a glowing jar to drop it.
+          Sort every jar to one colour. Every pour spends a move, and every solve pays moves back.
+        </GameStartCard>
       )}
 
       {/* Game over */}
       {phase === 'gameover' && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center" style={{ background: 'rgba(3,14,18,0.72)', backdropFilter: 'blur(2px)' }}>
-          <div className="flex flex-col items-center gap-3 px-6 py-5"
-            style={{
-              background: 'linear-gradient(180deg, #0B2A2C 0%, #061E20 100%)',
-              border: '3px solid #0D9488',
-              borderRadius: 6,
-              boxShadow: '0 6px 0 #134E4A, 0 0 30px rgba(13,148,136,0.5)',
-              animation: reduced ? undefined : 'ysPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both',
-            }}>
-            <p className="font-pixel" style={{ fontSize: 11, color: '#FCA5A5', letterSpacing: 3 }}>
-              OUT OF MOVES
-            </p>
-            <div className="flex items-center gap-4 mt-1">
-              <div className="flex flex-col items-center">
-                <span className="font-pixel" style={{ fontSize: 6, color: '#A7F3D0', letterSpacing: 1 }}>SOLVED</span>
-                <span className="font-pixel text-white" style={{ fontSize: 22 }}>{solved}</span>
-              </div>
-              <div style={{ width: 1, height: 28, background: '#1F4D4A' }} />
-              <div className="flex flex-col items-center">
-                <span className="font-pixel inline-flex items-center gap-1" style={{ fontSize: 6, color: '#FDE68A', letterSpacing: 1 }}>
-                  <IconStar size={7} /> BEST
-                </span>
-                <span className="font-pixel" style={{ fontSize: 22, color: '#FDE68A' }}>{bestScore}</span>
-              </div>
-            </div>
-            {reward && (<div className="mb-3"><GameCoinReward coins={reward.coins} blocked={reward.blocked} /></div>)}
-            <div className="flex items-center gap-2 mt-3">
-              <button onClick={() => { playSound('ui_tap'); startGame() }}
-                className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-                style={{ background: 'linear-gradient(135deg, #2DD4BF 0%, #0D9488 100%)', border: '2px solid #134E4A', borderRadius: 3, boxShadow: '0 4px 0 #134E4A', fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5 }}>
-                <RefreshCw size={11} /> AGAIN
-              </button>
-              <button onClick={() => { playSound('ui_back'); router.back() }}
-                className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-                style={{ background: 'linear-gradient(135deg, #475569 0%, #1F2937 100%)', border: '2px solid #0F172A', borderRadius: 3, boxShadow: '0 4px 0 #0F172A', fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5 }}>
-                EXIT
-              </button>
-            </div>
-          </div>
-        </div>
+        <GameResultCard
+          headline="Out of moves"
+          score={solved}
+          scoreLabel={solved === 1 ? 'level solved' : 'levels solved'}
+          best={bestScore}
+          reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
+          onAgain={() => { playSound('ui_tap'); startGame() }}
+          onBack={() => { playSound('ui_back'); router.back() }}
+        />
       )}
 
       <style jsx global>{`
-        @keyframes ysPop {
-          0%   { transform: scale(0.7); opacity: 0; }
-          100% { transform: scale(1);   opacity: 1; }
-        }
         @keyframes ysDrop {
           0%   { transform: translateY(-18px) scaleY(0.65); opacity: 0.35; }
           60%  { transform: translateY(0)     scaleY(1.12); opacity: 1; }
@@ -1067,11 +966,6 @@ export default function YarnSortGame() {
           80%  { opacity: 1; transform: translate(-50%, 0)     scale(1); }
           100% { opacity: 0; transform: translate(-50%, -6px)  scale(0.96); }
         }
-        @keyframes ysMovePulse {
-          0%   { transform: scale(1); }
-          40%  { transform: scale(1.22); }
-          100% { transform: scale(1); }
-        }
         @keyframes ysShake {
           0%   { transform: translateX(0); }
           20%  { transform: translateX(-6px); }
@@ -1079,10 +973,6 @@ export default function YarnSortGame() {
           60%  { transform: translateX(-4px); }
           80%  { transform: translateX(2px); }
           100% { transform: translateX(0); }
-        }
-        @keyframes ysUndoPulse {
-          0%, 100% { box-shadow: 0 2px 0 rgba(0,0,0,0.45); }
-          50%      { box-shadow: 0 2px 0 rgba(0,0,0,0.45), 0 0 12px rgba(253,230,138,0.85); }
         }
         @keyframes ysStuckPulse {
           0%, 100% { transform: translateX(-50%) scale(1); }

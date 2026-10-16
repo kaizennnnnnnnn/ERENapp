@@ -12,6 +12,10 @@
 // The flight layer is portaled to <body> so it spans the whole viewport and is
 // never clipped by a transformed game overlay. When Eren is too exhausted to
 // award coins (energy < 30), shows a sleepy "rest first" card instead.
+//
+// Meadow look: it sits inside the white result card (GameChrome), so the
+// counter is a soft pill with the coin and the balance, "+N coins" an amber
+// tag under it, and the tired card a soft row.
 
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -107,13 +111,13 @@ export default function GameCoinReward({ coins, blocked = false }: Props) {
     <>
       {blocked ? (
         <div className="gcr-tired" role="status">
-          <div className="gcr-zzz">
+          <div className="gcr-zzz" aria-hidden>
             <span style={{ animationDelay: '0s' }}>z</span>
             <span style={{ animationDelay: '0.2s' }}>z</span>
             <span style={{ animationDelay: '0.4s' }}>z</span>
           </div>
-          <span className="font-pixel gcr-tired-title">{cat.t("{NAME}'S TOO TIRED")}</span>
-          <span className="font-pixel gcr-tired-sub">REST TO EARN COINS</span>
+          <span className="gcr-tired-title">{cat.t("{name}'s too tired")}</span>
+          <span className="gcr-tired-sub">Let {cat.p.him} rest to earn coins</span>
         </div>
       ) : (
         <div className="gcr-wrap">
@@ -121,12 +125,12 @@ export default function GameCoinReward({ coins, blocked = false }: Props) {
           <div key={popKey} ref={pillRef} className="gcr-pill"
             style={{ animation: popKey ? 'hudNumPop 450ms cubic-bezier(0.16,1,0.3,1)' : undefined }}>
             <div className="gcr-coin-face">
-              <IconCoin size={15} />
+              <IconCoin size={20} />
               <span aria-hidden className="gcr-coin-shine" />
             </div>
-            <span className="font-pixel gcr-balance">{shownBal.toLocaleString()}</span>
+            <span className="gcr-balance">{shownBal.toLocaleString()}</span>
           </div>
-          <div className="font-pixel gcr-plus">+{coins} COINS</div>
+          <div className="gcr-plus">+{coins} coins</div>
         </div>
       )}
 
@@ -155,26 +159,24 @@ export default function GameCoinReward({ coins, blocked = false }: Props) {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 5px;
-          padding-bottom: 2px;
+          gap: 6px;
         }
         .gcr-pill {
           display: inline-flex;
           align-items: center;
-          gap: 6px;
-          padding: 4px 11px;
-          background: linear-gradient(180deg, rgba(120,53,15,0.65), rgba(67,20,7,0.82));
-          border: 2px solid #FBBF24;
-          border-radius: 5px;
-          box-shadow: 0 2px 0 #78350F, inset 0 1px 0 rgba(251,191,36,0.35);
+          gap: 7px;
+          height: 40px;
+          box-sizing: border-box;
+          padding: 0 16px 0 10px;
+          background: #F4F2EE;
+          border-radius: 999px;
           transform-origin: center;
         }
         .gcr-coin-face {
           position: relative;
-          width: 15px; height: 15px;
+          width: 20px; height: 20px;
           border-radius: 50%;
           overflow: hidden;
-          filter: drop-shadow(0 0 3px rgba(251,191,36,0.4));
         }
         .gcr-coin-shine {
           position: absolute;
@@ -184,16 +186,21 @@ export default function GameCoinReward({ coins, blocked = false }: Props) {
           pointer-events: none;
         }
         .gcr-balance {
-          font-size: 12px;
-          color: #FDE68A;
-          letter-spacing: 1px;
-          text-shadow: 0 1px 0 rgba(0,0,0,0.6);
+          font-size: 18px;
+          font-weight: 800;
+          font-variant-numeric: tabular-nums;
+          color: #2F2B28;
         }
         .gcr-plus {
-          font-size: 8px;
-          letter-spacing: 1.5px;
-          color: #FDE68A;
-          text-shadow: 0 1px 0 rgba(0,0,0,0.5), 0 0 8px rgba(251,191,36,0.4);
+          height: 24px;
+          display: inline-flex;
+          align-items: center;
+          padding: 0 10px;
+          border-radius: 999px;
+          background: #FDF1DC;
+          font-size: 13px;
+          font-weight: 800;
+          color: #8A5A12;
         }
         /* ── Flight layer (portaled to <body>) ── */
         .gcr-fly-layer {
@@ -222,25 +229,23 @@ export default function GameCoinReward({ coins, blocked = false }: Props) {
           gap: 2px;
           max-width: 100%;
           box-sizing: border-box;
-          padding: 8px 14px;
-          border-radius: 5px;
-          background: linear-gradient(180deg, rgba(30,27,58,0.85), rgba(15,10,30,0.9));
-          border: 2px solid #4C5578;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+          padding: 10px 16px 12px;
+          border-radius: 18px;
+          background: #F4F2EE;
         }
-        .gcr-zzz { display: flex; gap: 3px; margin-bottom: 1px; }
+        .gcr-zzz { display: flex; gap: 3px; }
         .gcr-zzz span {
-          font-family: "Press Start 2P";
-          font-size: 9px;
-          color: #93A4D4;
+          font-size: 13px;
+          font-weight: 800;
+          color: #A7A29C;
           animation: gcrZzz 1.4s ease-in-out infinite;
         }
         @keyframes gcrZzz {
           0%, 100% { transform: translateY(0); opacity: 0.5; }
           50%      { transform: translateY(-3px); opacity: 1; }
         }
-        .gcr-tired-title { font-size: 8px; letter-spacing: 1.5px; line-height: 1.5; color: #C7D2FE; text-align: center; overflow-wrap: anywhere; }
-        .gcr-tired-sub { font-size: 6px; letter-spacing: 1px; color: #7E8AB8; }
+        .gcr-tired-title { font-size: 15px; font-weight: 800; line-height: 1.3; color: #2F2B28; text-align: center; overflow-wrap: anywhere; }
+        .gcr-tired-sub { font-size: 13px; font-weight: 600; color: #6E6A66; }
       `}</style>
     </>
   )

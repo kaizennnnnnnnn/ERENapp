@@ -2,7 +2,6 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useCat } from '@/hooks/useCat'
@@ -14,6 +13,10 @@ import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useErenIdle } from '@/hooks/useErenIdle'
 import ErenReact, { useErenReaction } from '@/components/games/ErenReact'
 import GameCoinReward from '@/components/games/GameCoinReward'
+import {
+  GameTopBar, GameStatRow, GameStat, GameResultCard,
+} from '@/components/games/GameChrome'
+import { M, MeadowIcon, RoundButton } from '@/components/meadow'
 import { playSound } from '@/lib/sounds'
 import { fireMinigameDone } from '@/lib/minigames'
 
@@ -340,48 +343,29 @@ export default function TicTacToePage() {
       animation: shake ? 'tttShake 0.22s steps(4) 1' : undefined,
     }}>
 
-      {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{
-        background: 'linear-gradient(180deg, rgba(12,6,26,0.95) 0%, rgba(12,6,26,0.6) 100%)',
-        borderBottom: '2px solid rgba(167,139,250,0.3)',
-      }}>
-        <button onClick={() => { playSound('ui_back'); router.back() }}
-          className="flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
-          style={{ width: 32, height: 32, background: 'rgba(255,255,255,0.08)', borderRadius: 6, border: '2px solid rgba(167,139,250,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
-          <ChevronLeft size={16} className="text-purple-200" />
-        </button>
-        <span className="font-pixel text-white px-2.5 py-1.5 min-w-0 truncate"
-          style={{ background: 'linear-gradient(135deg, #DB2777, #EC4899)', border: '2px solid #831843', borderRadius: 4, fontSize: 8, letterSpacing: 2, boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
-          {cat.t('X & O VS {NAME}')}
-        </span>
-        <div className="flex-1" />
-        <div className="flex items-center gap-1 px-2 py-1.5 font-pixel flex-shrink-0"
-          style={{ background: 'rgba(0,0,0,0.4)', border: '2px solid rgba(255,255,255,0.3)', borderRadius: 4, fontSize: 7 }}>
-          <span
-            key={`W-${flashKey?.kind === 'W' ? flashKey.id : 'idle'}`}
-            style={{
-              color: '#FF9EC8',
-              display: 'inline-block',
-              animation: flashKey?.kind === 'W' ? 'tttScoreFlash 0.42s ease-out 1' : undefined,
-            }}>{wins}W</span>
-          <span style={{ color: '#9CA3AF' }}>·</span>
-          <span
-            key={`L-${flashKey?.kind === 'L' ? flashKey.id : 'idle'}`}
-            style={{
-              color: '#A78BFA',
-              display: 'inline-block',
-              animation: flashKey?.kind === 'L' ? 'tttScoreFlashL 0.42s ease-out 1' : undefined,
-            }}>{losses}L</span>
-          <span style={{ color: '#9CA3AF' }}>·</span>
-          <span
-            key={`D-${flashKey?.kind === 'D' ? flashKey.id : 'idle'}`}
-            style={{
-              color: '#FDE68A',
-              display: 'inline-block',
-              animation: flashKey?.kind === 'D' ? 'tttScoreFlashD 0.42s ease-out 1' : undefined,
-            }}>{draws}D</span>
-        </div>
-      </div>
+      {/* Header + session record — the shared Meadow game chrome. The old
+          footer's NEW MATCH lives in the bar's right slot now. */}
+      <GameTopBar
+        title={cat.t('X & O vs {name}')}
+        onBack={() => { playSound('ui_back'); router.back() }}
+        right={
+          <RoundButton surface="art" size={40} ariaLabel="New match"
+            onClick={() => { playSound('ui_tap'); newMatch() }}>
+            <MeadowIcon name="replay" size={20} color={M.text} />
+          </RoundButton>
+        }
+      />
+
+      <GameStatRow>
+        <GameStat label="Wins" value={wins} pulse={flashKey?.kind === 'W' ? flashKey.id : undefined} />
+        <GameStat label="Losses" value={losses} pulse={flashKey?.kind === 'L' ? flashKey.id : undefined} />
+        <GameStat label="Draws" value={draws} pulse={flashKey?.kind === 'D' ? flashKey.id : undefined} />
+      </GameStatRow>
+
+      {/* Clears the absolute bar + stat row so the scene starts below them.
+          The game-shell already pads the safe area, so this is GAME_BOARD_TOP
+          (safe-top + 104) minus it. */}
+      <div aria-hidden className="flex-shrink-0" style={{ height: 104 }} />
 
       {/* Can + Eren + thought bubble — order matters now: the can sits to the
           LEFT of Eren so the bubble's left-pointing tail unambiguously points
@@ -620,116 +604,24 @@ export default function TicTacToePage() {
         </div>
       </div>
 
-      {/* End-of-match overlay */}
+      {/* End-of-match card — the shared Meadow result card. Score is the
+          session's win count (what reportGameResult saves on a win). */}
       {status !== 'playing' && (
-        <div className="absolute inset-0 flex items-end justify-center pb-32 pointer-events-none">
-          {/* Vignette scrim — fades in to ~35% black so the verdict banner
-              pops against the still-visible board behind it. */}
-          {!reduced && (
-            <div className="absolute inset-0 pointer-events-none" style={{
-              background: 'radial-gradient(ellipse at center, rgba(0,0,0,0) 30%, rgba(0,0,0,0.45) 100%)',
-              animation: 'tttScrim 0.3s ease-out forwards',
-            }} />
-          )}
-          <div className="pointer-events-auto px-5 py-3 flex items-center gap-3 relative"
-            style={{
-              background: status === 'won'
-                ? 'linear-gradient(135deg, #15803D, #16A34A)'
-                : status === 'lost'
-                  ? 'linear-gradient(135deg, #831843, #BE185D)'
-                  : 'linear-gradient(135deg, #4C1D95, #7C3AED)',
-              border: '3px solid rgba(255,255,255,0.5)',
-              borderRadius: 6,
-              boxShadow: '0 6px 0 rgba(0,0,0,0.45), 0 0 24px rgba(255,255,255,0.2)',
-              animation: 'tttPop 0.45s cubic-bezier(0.34,1.56,0.64,1) both',
-            }}>
-            {/* Sparkle pixels around the banner on a win. Fixed positions
-                relative to the banner so they look hand-placed. */}
-            {status === 'won' && !reduced && (
-              <>
-                {[
-                  { left: -6, top: -6 },
-                  { right: -6, top: -4 },
-                  { left: -4, bottom: -6 },
-                  { right: -8, bottom: -4 },
-                  { left: '40%', top: -10 },
-                ].map((pos, k) => (
-                  <span key={k} style={{
-                    position: 'absolute',
-                    width: 4, height: 4,
-                    background: '#FDE68A',
-                    boxShadow: '0 0 0 1px #92400E',
-                    animation: `tttBannerSparkle 1.1s ease-in-out ${k * 0.15}s infinite`,
-                    imageRendering: 'pixelated',
-                    ...pos,
-                  }} />
-                ))}
-              </>
-            )}
-            <div className="flex flex-col items-center">
-              <span className="font-pixel text-white text-center" style={{
-                fontSize: 11, letterSpacing: 2, overflowWrap: 'anywhere',
-                animation: status === 'won' && !reduced ? 'tttBannerShimmer 1.6s ease-in-out infinite' : undefined,
-              }}>
-                {status === 'won' ? 'YOU WIN!' : status === 'lost' ? cat.t('{NAME} WINS') : 'TIE!'}
-              </span>
-              {reward && (
-                <div className="mt-2 flex justify-center">
-                  <GameCoinReward coins={reward.coins} blocked={reward.blocked} />
-                </div>
-              )}
-            </div>
-            <button onClick={() => { playSound('ui_tap'); newMatch() }}
-              className="px-3 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-1.5"
-              style={{
-                background: 'rgba(0,0,0,0.4)',
-                border: '2px solid rgba(255,255,255,0.7)',
-                borderRadius: 3,
-                fontFamily: '"Press Start 2P"',
-                fontSize: 7,
-                letterSpacing: 1.5,
-              }}>
-              <RefreshCw size={10} />
-              AGAIN
-            </button>
-            <button onClick={() => { playSound('ui_back'); router.back() }}
-              className="px-3 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-1.5"
-              style={{
-                background: 'rgba(0,0,0,0.55)',
-                border: '2px solid rgba(255,255,255,0.4)',
-                borderRadius: 3,
-                fontFamily: '"Press Start 2P"',
-                fontSize: 7,
-                letterSpacing: 1.5,
-              }}>
-              EXIT
-            </button>
-          </div>
-        </div>
+        <GameResultCard
+          headline={status === 'won' ? 'You won!' : status === 'lost' ? cat.t('{name} wins') : "It's a tie"}
+          score={wins}
+          scoreLabel={wins === 1 ? 'win this session' : 'wins this session'}
+          stats={[
+            { label: 'Losses', value: losses },
+            { label: 'Draws', value: draws },
+          ]}
+          reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
+          onAgain={() => { playSound('ui_tap'); newMatch() }}
+          onBack={() => { playSound('ui_back'); router.back() }}
+        />
       )}
 
-      {/* Footer score chip */}
-      <div className="flex items-center justify-center pb-4 flex-shrink-0">
-        <button onClick={() => { playSound('ui_tap'); newMatch() }}
-          className="font-pixel text-white px-3 py-2 active:translate-y-[1px] inline-flex items-center gap-1.5"
-          style={{
-            background: 'rgba(255,255,255,0.06)',
-            border: '2px dashed rgba(167,139,250,0.45)',
-            borderRadius: 3,
-            fontSize: 6,
-            letterSpacing: 1.5,
-            color: '#C4B5FD',
-          }}>
-          <RefreshCw size={9} />
-          NEW MATCH
-        </button>
-      </div>
-
       <style jsx global>{`
-        @keyframes tttPop {
-          0%   { transform: translateY(20px) scale(0.7); opacity: 0; }
-          100% { transform: translateY(0)    scale(1);   opacity: 1; }
-        }
         @keyframes drawX1 {
           from { stroke-dashoffset: 60; }
           to   { stroke-dashoffset: 0; }
@@ -802,23 +694,6 @@ export default function TicTacToePage() {
           75%  { transform: translate(-2px, 2px); }
           100% { transform: translate(0, 0); }
         }
-        /* Score chip flash — wins flash pink, losses flash purple, draws
-           flash gold. Brief scale 1.15 + color glow then settles back. */
-        @keyframes tttScoreFlash {
-          0%   { transform: scale(1);    text-shadow: none; }
-          40%  { transform: scale(1.18); text-shadow: 0 0 6px #FF9EC8; }
-          100% { transform: scale(1);    text-shadow: none; }
-        }
-        @keyframes tttScoreFlashL {
-          0%   { transform: scale(1);    text-shadow: none; }
-          40%  { transform: scale(1.18); text-shadow: 0 0 6px #A78BFA; }
-          100% { transform: scale(1);    text-shadow: none; }
-        }
-        @keyframes tttScoreFlashD {
-          0%   { transform: scale(1);    text-shadow: none; }
-          40%  { transform: scale(1.18); text-shadow: 0 0 6px #FDE68A; }
-          100% { transform: scale(1);    text-shadow: none; }
-        }
         /* Cell placement pop — quick scale flash on the placed mark.
            Spring overshoot so it lands with a tactile bounce. */
         @keyframes tttCellPop {
@@ -841,22 +716,6 @@ export default function TicTacToePage() {
         @keyframes tttWinSparkle {
           0%, 100% { opacity: 0; transform: scale(0.6); }
           50%      { opacity: 1; transform: scale(1.2); }
-        }
-        /* Banner sparkles on a win — same idea, around the verdict bubble. */
-        @keyframes tttBannerSparkle {
-          0%, 100% { opacity: 0.2; transform: scale(0.7); }
-          50%      { opacity: 1;   transform: scale(1.2); }
-        }
-        /* Subtle text shimmer on the YOU WIN! label — color toggles
-           between white and gold tint. Steps() keeps it chunky. */
-        @keyframes tttBannerShimmer {
-          0%, 100% { color: #FFFFFF; }
-          50%      { color: #FDE68A; }
-        }
-        /* Vignette darken fade-in. */
-        @keyframes tttScrim {
-          from { opacity: 0; }
-          to   { opacity: 1; }
         }
         /* Can-tip lateral kick — leans left over ~250ms, settles. */
         @keyframes tttCanTip {

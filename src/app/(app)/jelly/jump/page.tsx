@@ -70,7 +70,6 @@
 
 import { forwardRef, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useCare } from '@/contexts/CareContext'
 import { useErenStats } from '@/hooks/useErenStats'
@@ -93,7 +92,10 @@ import PixelEren, { type ErenPose } from '@/components/games/PixelEren'
 import { IconJelly, IconSparkles } from '@/components/PixelIcons'
 import { playSound, playVoice } from '@/lib/sounds'
 import { bounceRung, unwindVoice } from '@/components/jelly/jumpVoice'
-import { INK } from '@/components/jelly/parlourTheme'
+import {
+  GameTopBar, GameStatRow, GameStat, GameStartCard, GameArtTile, GAME_BOARD_TOP,
+} from '@/components/games/GameChrome'
+import { FONT_ROUNDED, M, MeadowIcon, TINT } from '@/components/meadow'
 
 // ─── Tuning ────────────────────────────────────────────────────────────────
 const GRAVITY = 1750          // px/s²
@@ -1686,83 +1688,73 @@ export default function JellyJumpPage() {
       <div ref={hurtRef} aria-hidden className="absolute inset-0 pointer-events-none"
         style={{ zIndex: 6, background: '#C9283C', opacity: 0 }} />
 
-      {/* ── HUD ── */}
-      <div className="absolute left-0 right-0 flex items-center gap-2 px-3" style={{
-        top: 'calc(var(--safe-top) + 8px)', zIndex: 30,
-      }}>
-        <button onClick={() => { playSound('ui_back'); router.push('/jelly') }} aria-label="Back"
-          className="flex items-center justify-center active:translate-y-[1px] transition-transform"
-          style={{ width: 34, height: 34, background: '#FFF8EE', borderRadius: 8, border: `3px solid ${INK}`, boxShadow: `0 3px 0 ${INK}` }}>
-          <ChevronLeft size={15} style={{ color: INK }} />
-        </button>
-        <div className="flex items-center gap-1 px-2.5 py-1.5" style={{
-          background: '#FFF8EE', borderRadius: 8, border: `3px solid ${INK}`, boxShadow: `0 3px 0 ${INK}`,
-        }}>
-          <IconJelly size={12} />
-          <span className="font-pixel" style={{ fontSize: 10, color: INK }}>{height}</span>
-          <span className="font-pixel" style={{ fontSize: 6, color: '#A8836C' }}>M</span>
-        </div>
+      {/* ── HUD — the shared Meadow game chrome ── */}
+      <GameTopBar title="Jelly Jump" onBack={() => { playSound('ui_back'); router.push('/jelly') }} />
+
+      <GameStatRow style={{ justifyContent: 'flex-start' }}>
+        <GameStat
+          icon={<IconJelly size={16} />}
+          value={<>{height}<span style={{ fontSize: 12, fontWeight: 700, color: M.text2 }}>m</span></>}
+        />
         {/* The chain. Hidden until it means something, so the HUD stays a
             height readout on an ordinary hop. */}
         {phase === 'play' && chainUi >= 3 && (
-          <div className="flex items-center px-2 py-1.5" style={{
-            background: chainUi >= CHAIN_REWARD - 2 ? '#2FA765' : INK,
-            borderRadius: 8, border: '2.5px solid #FFF8EE',
-          }}>
-            <span className="font-pixel" style={{ fontSize: 7, color: '#FFE6F0' }}>x{chainUi}</span>
-          </div>
+          <GameStat label="Chain" value={`×${chainUi}`} tone={chainUi >= CHAIN_REWARD - 2 ? 'good' : 'hot'} />
         )}
-        <div className="flex-1" />
+        <span className="flex-1" />
         {/* Her line for today, so you can see what you're chasing mid-run. */}
         {duel.theirName && duel.theirsToday > 0 && (
-          <div className="px-2 py-1.5" style={{
-            background: height > duel.theirsToday ? '#2FA765' : INK,
-            borderRadius: 8, border: '2.5px solid #FFF8EE',
-          }}>
-            <span className="font-pixel" style={{ fontSize: 6, color: '#FFE6F0' }}>
-              {duel.theirName.slice(0, 7).toUpperCase()} {duel.theirsToday}
-            </span>
-          </div>
+          <GameStat
+            icon={<MeadowIcon name="heart" size={16} />}
+            label={duel.theirName.slice(0, 7)}
+            value={duel.theirsToday}
+            tone={height > duel.theirsToday ? 'good' : 'plain'}
+          />
         )}
-      </div>
+      </GameStatRow>
 
       {/* The jam jar. Only on screen once there's something in it — an empty
-          meter on a first run is a promise the player can't read yet. */}
+          meter on a first run is a promise the player can't read yet. Its own
+          line under the stat row, as it always was, so the row never has to
+          fit four pills on a narrow phone. */}
       {phase === 'play' && (jarUi > 0 || jamUi) && (
-        <div className="absolute flex items-center gap-1.5 px-2 py-1.5" style={{
-          top: 'calc(var(--safe-top) + 50px)', left: 12, zIndex: 30,
-          background: jamUi ? '#B0324F' : 'rgba(42,16,48,0.8)',
-          borderRadius: 8, border: `2.5px solid ${jamUi ? '#FFD3E0' : '#FFF8EE'}`,
-        }}>
-          <IconSparkles size={10} />
-          {jamUi && <span className="font-pixel" style={{ fontSize: 6.5, color: '#FFE6F0' }}>JAM</span>}
-          {/* The bar stays up when the jar is full, rather than being replaced
-              by a label. A catch DRAINS it, and that drain is the only moment
-              the player can see what the catch cost — swapping in a label hid
-              exactly the frame that had something to say. */}
-          <span aria-hidden style={{
-            display: 'block', width: 44, height: 6, borderRadius: 999,
-            background: 'rgba(255,255,255,0.18)', overflow: 'hidden',
-          }}>
-            <span style={{
-              display: 'block', height: '100%',
-              width: `${jamUi ? 100 : Math.round((jarUi / JAR_CAPACITY) * 100)}%`,
-              background: jamUi
-                ? 'linear-gradient(90deg, #FFD3E0, #FFF8EE)'
-                : 'linear-gradient(90deg, #FFE9B0, #E9789F)',
-            }} />
-          </span>
+        <div className="meadow-root absolute" style={{ top: GAME_BOARD_TOP, left: 12, zIndex: 20, pointerEvents: 'none' }}>
+          <GameStat
+            icon={<IconSparkles size={14} />}
+            label={jamUi ? 'Jam' : undefined}
+            tone={jamUi ? 'hot' : 'plain'}
+            value={
+              /* The bar stays up when the jar is full, rather than being
+                 replaced by a label. A catch DRAINS it, and that drain is the
+                 only moment the player can see what the catch cost — swapping
+                 in a label hid exactly the frame that had something to say. */
+              <span aria-hidden style={{
+                display: 'block', width: 44, height: 8, borderRadius: 999,
+                background: M.track, overflow: 'hidden',
+              }}>
+                <span style={{
+                  display: 'block', height: '100%',
+                  width: `${jamUi ? 100 : Math.round((jarUi / JAR_CAPACITY) * 100)}%`,
+                  background: jamUi
+                    ? `linear-gradient(90deg, ${M.flameCore}, ${M.flame})`
+                    : `linear-gradient(90deg, ${M.loveLight}, ${M.love})`,
+                }} />
+              </span>
+            }
+          />
         </div>
       )}
 
       {/* Milestone / cream shout. */}
       {banner && phase === 'play' && (
-        <div className="absolute left-1/2 -translate-x-1/2 px-3 py-1.5" style={{
-          top: 'calc(var(--safe-top) + 84px)', zIndex: 30,
-          background: INK, borderRadius: 999, border: '2.5px solid #FFE6F0',
+        <div className="meadow-root absolute left-1/2 -translate-x-1/2 flex items-center" style={{
+          top: 'calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 148px)', zIndex: 30,
+          height: 34, padding: '0 16px', borderRadius: 999, background: '#FFFFFF',
+          boxShadow: `0 3px 0 ${M.overArtLip}`, whiteSpace: 'nowrap', pointerEvents: 'none',
+          fontFamily: FONT_ROUNDED, fontSize: 15, fontWeight: 800, color: M.text,
           animation: reduced ? undefined : 'jellyComboPop 320ms cubic-bezier(0.16,1,0.3,1)',
         }}>
-          <span className="font-pixel" style={{ fontSize: 8, color: '#FFE6F0' }}>{banner}</span>
+          {banner}
         </div>
       )}
 
@@ -1895,50 +1887,53 @@ export default function JellyJumpPage() {
 
       {/* ── Start card ── */}
       {phase === 'ready' && (
-        <div className="absolute inset-0 flex items-center justify-center px-6" style={{ zIndex: 40, background: 'rgba(20,6,24,0.66)' }}>
-          <div className="w-full flex flex-col items-center gap-2.5" style={{
-            maxWidth: 296, padding: 18, borderRadius: 16, background: '#FFF8EE',
-            border: `3px solid ${INK}`, boxShadow: `0 6px 0 ${INK}`,
-          }}>
-            <IconJelly size={26} />
-            <p className="font-pixel text-center" style={{ fontSize: 11, color: INK }}>JELLY JUMP</p>
-            <p className="text-center" style={{ fontSize: 10.5, lineHeight: 1.5, color: '#7A4B5E' }}>
-              <strong style={{ color: INK }}>Hold</strong> the left or right side to steer {theCat.p.him}.
-              {' '}{theCat.p.He} wraps around the edges.
-            </p>
-            <div className="w-full flex flex-col gap-1.5 my-0.5">
-              <Rule swatch="#D73832" text="JELLIES hold. Land in the middle and the chain counts double." />
-              <Rule swatch="#FFF3D6" text={theCat.t('CREAM throws {him} twice as high.')} />
-              <Rule swatch="#C89B62" text="BISCUITS crack when you land, then give way. The only ones that do." />
-              <Rule swatch="#E0A93E" text={theCat.t('LIDS tip. Land on the middle notch and it launches {him}.')} />
-              <Rule swatch="#4A2A1E" text="SYRUP is heavy — a short, low bounce." />
-              <Rule swatch="#FFF3D6" text={theCat.t('SUGAR fills the jar. A full jar catches {him} once, when {he} falls.')} />
-              <Rule swatch="#C9283C" text="A STING spills sugar onto a shelf below. Go back for it, or don't." />
-              <Rule swatch="#F4C542" text="WASPS and BEETLES sting. Land beside them, not on them." />
-              <Rule swatch="#A9C84A" text="SOUR JELLY bites. It's never the only way up." />
-              <Rule swatch="#4A3A5A" text="DRIPS and SPIDERS own a column. Bounce in place and go when it's clear." />
+        <GameStartCard
+          title="Jelly Jump"
+          art={<>
+            <GameArtTile tint={TINT.love}><IconJelly size={24} /></GameArtTile>
+            <GameArtTile tint={TINT.leaf}><PixelEren pose="cheer" size={30} /></GameArtTile>
+            <GameArtTile tint={TINT.amber}><IconSparkles size={22} /></GameArtTile>
+          </>}
+          best={duel.best}
+          extra={
+            <div className="flex flex-col text-left" style={{
+              gap: 8, maxHeight: '30vh', overflowY: 'auto', padding: '12px 12px',
+              borderRadius: 16, background: M.soft,
+            }}>
+              <Rule swatch="#D73832" name="Jellies" text="hold. Land in the middle and the chain counts double." />
+              <Rule swatch="#FFF3D6" name="Cream" text={theCat.t('throws {him} twice as high.')} />
+              <Rule swatch="#C89B62" name="Biscuits" text="crack when you land, then give way. The only ones that do." />
+              <Rule swatch="#E0A93E" name="Lids" text={theCat.t('tip. Land on the middle notch and it launches {him}.')} />
+              <Rule swatch="#4A2A1E" name="Syrup" text="is heavy — a short, low bounce." />
+              <Rule swatch="#FFF3D6" name="Sugar" text={theCat.t('fills the jar. A full jar catches {him} once, when {he} falls.')} />
+              <Rule swatch="#C9283C" name="A sting" text="spills sugar onto a shelf below. Go back for it, or don't." />
+              <Rule swatch="#F4C542" name="Wasps and beetles" text="sting. Land beside them, not on them." />
+              <Rule swatch="#A9C84A" name="Sour jelly" text="bites. It's never the only way up." />
+              <Rule swatch="#4A3A5A" name="Drips and spiders" text="own a column. Bounce in place and go when it's clear." />
             </div>
-            <p className="text-center" style={{ fontSize: 10, color: '#9A7484' }}>
-              Four rooms to climb through. Slip past the bottom and the run ends.
-            </p>
-            <button onClick={() => { playSound('ui_select'); start() }}
-              className="w-full py-3 mt-1 active:translate-y-[1px] transition-transform"
-              style={{ borderRadius: 12, background: 'linear-gradient(180deg, #B57BE0, #7B3FB0)', border: `3px solid ${INK}`, boxShadow: `0 4px 0 ${INK}` }}>
-              <span className="font-pixel" style={{ fontSize: 9, color: '#FFF8EE' }}>START</span>
-            </button>
-          </div>
-        </div>
+          }
+          onStart={() => { playSound('ui_select'); start() }}
+        >
+          <strong style={{ color: M.text }}>Hold</strong> the left or right side to steer {theCat.p.him}.
+          {' '}{theCat.p.He} wraps around the edges. Four rooms to climb through. Slip past the bottom and the run ends.
+        </GameStartCard>
       )}
 
       {/* Steering hint — first run only, fades on its own. */}
       {phase === 'play' && height === 0 && !reduced && (
-        <div className="absolute left-0 right-0 flex justify-between px-8 pointer-events-none" style={{
+        <div className="meadow-root absolute left-0 right-0 flex justify-between px-8 pointer-events-none" style={{
           bottom: '22%', zIndex: 20, animation: 'jellyHintFade 2.6s ease-out forwards',
         }}>
-          {['◀ HOLD', 'HOLD ▶'].map(t => (
-            <span key={t} className="font-pixel px-2.5 py-1.5" style={{
-              fontSize: 7, color: '#FFF8EE', background: 'rgba(42,16,48,0.75)', borderRadius: 999,
-            }}>{t}</span>
+          {(['left', 'right'] as const).map(side => (
+            <span key={side} className="inline-flex items-center" style={{
+              height: 32, gap: 4, padding: side === 'left' ? '0 14px 0 8px' : '0 8px 0 14px',
+              borderRadius: 999, background: '#FFFFFF', boxShadow: `0 3px 0 ${M.overArtLip}`,
+              fontFamily: FONT_ROUNDED, fontSize: 14, fontWeight: 800, color: M.text,
+            }}>
+              {side === 'left' && <MeadowIcon name="chevronLeft" size={16} color={M.text} />}
+              Hold
+              {side === 'right' && <MeadowIcon name="chevronRight" size={16} color={M.text} />}
+            </span>
           ))}
         </div>
       )}
@@ -2019,14 +2014,17 @@ const Mark = forwardRef<HTMLDivElement, { colour: string; label: string; value: 
   },
 )
 
-function Rule({ swatch, text }: { swatch: string; text: string }) {
+/** One line of the start card's field guide: the thing's colour, its name, what it does. */
+function Rule({ swatch, name, text }: { swatch: string; name: string; text: string }) {
   return (
     <span className="flex items-start gap-2">
       <span style={{
-        width: 11, height: 11, borderRadius: '50%', background: swatch,
-        border: `2px solid ${INK}`, flexShrink: 0, marginTop: 1,
+        width: 12, height: 12, borderRadius: '50%', background: swatch,
+        boxShadow: `inset 0 0 0 2px ${M.overArtLip}`, flexShrink: 0, marginTop: 3,
       }} />
-      <span style={{ fontSize: 9.5, lineHeight: 1.35, color: '#7A4B5E' }}>{text}</span>
+      <span style={{ fontSize: 13, lineHeight: 1.4, fontWeight: 500, color: M.text2 }}>
+        <strong style={{ fontWeight: 800, color: M.text }}>{name}</strong> {text}
+      </span>
     </span>
   )
 }

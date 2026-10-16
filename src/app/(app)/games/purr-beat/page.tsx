@@ -28,7 +28,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
@@ -40,10 +39,14 @@ import ErenReact, { useErenReaction } from '@/components/games/ErenReact'
 import { useVisibilityPause } from '@/hooks/useVisibilityPause'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import PurrBeatStage, { createStage, spawnHit, LANE_HUE, type StageState, type JudgeKind } from '@/components/games/PurrBeatStage'
-import { Panel, Stat, Divider, ErenDJ } from '@/components/games/PurrBeatChrome'
+import { ErenDJ } from '@/components/games/PurrBeatChrome'
+import {
+  GameTopBar, GameStatRow, GameStat, GAME_STAT_URGENT, GameStartCard, GameArtTile, GameResultCard,
+} from '@/components/games/GameChrome'
+import { M } from '@/components/meadow'
 import { playSound, playSynthAt } from '@/lib/sounds'
 import { outputLatency } from '@/lib/soundSynth'
-import { IconStar, IconHeart, IconTrophy } from '@/components/PixelIcons'
+import { IconStar, IconHeart } from '@/components/PixelIcons'
 import { fireMinigameDone } from '@/lib/minigames'
 import {
   createConductor, intensityAt, laneTone, perfectSting, missTone, multiplierTone,
@@ -71,6 +74,14 @@ const JUDGE_STYLE: Record<JudgeKind, { text: string; color: string }> = {
   ok: { text: 'OK', color: '#BAE6FD' },
   miss: { text: 'MISS', color: '#FCA5A5' },
 }
+
+/** The results card's judgment breakdown, in tally order. */
+const BREAKDOWN: { key: keyof Tally; label: string; dot: string }[] = [
+  { key: 'perfect', label: 'Purrfect', dot: M.energy },
+  { key: 'good', label: 'Good', dot: M.leaf },
+  { key: 'ok', label: 'OK', dot: LANE_HUE[2] },
+  { key: 'miss', label: 'Miss', dot: M.danger },
+]
 
 function comboMult(combo: number): number {
   return combo >= 50 ? 4 : combo >= 25 ? 3 : combo >= 10 ? 2 : 1
@@ -429,89 +440,54 @@ export default function PurrBeatGame() {
   const hit = tally.perfect + tally.good + tally.ok
   const accuracy = hit + tally.miss > 0 ? Math.round((hit / (hit + tally.miss)) * 100) : 0
   const isNewBest = !!result && result.score > 0 && result.score >= bestScore
+  const goBack = () => { playSound('ui_back'); router.back() }
+  const playRound = () => { playSound('ui_tap'); startGame() }
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col game-shell select-none"
       style={{ background: '#160529' }}>
 
-      {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{
-        background: 'linear-gradient(180deg, rgba(20,4,40,0.97) 0%, rgba(20,4,40,0.6) 100%)',
-        borderBottom: '2px solid rgba(232,121,249,0.3)',
-      }}>
-        <button onClick={() => { playSound('ui_back'); router.back() }}
-          className="flex items-center justify-center active:scale-90 transition-transform"
-          style={{ width: 32, height: 32, background: 'rgba(255,255,255,0.08)', borderRadius: 6, border: '2px solid rgba(232,121,249,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
-          <ChevronLeft size={16} className="text-fuchsia-200" />
-        </button>
-        <span className="font-pixel text-white px-2.5 py-1.5"
-          style={{ background: 'linear-gradient(135deg, #C026D3, #E879F9)', border: '2px solid #701A75', borderRadius: 4, fontSize: 8, letterSpacing: 2, boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
-          PURR BEAT
-        </span>
-        <div className="flex-1" />
-        <div className="flex items-center gap-1.5 px-2 py-1.5 font-pixel"
-          style={{ background: 'rgba(0,0,0,0.4)', border: '2px solid rgba(255,255,255,0.4)', borderRadius: 4, fontSize: 8, color: '#F5D0FE' }}>
-          BEST {bestScore}
-        </div>
-      </div>
+      {/* Header + stats — the shared Meadow game chrome. */}
+      <GameTopBar title="Purr Beat" onBack={goBack} />
 
-      {/* HUD */}
       {phase !== 'idle' && (
-        <div className="px-4 py-2 flex-shrink-0 relative z-10">
-          <div className="flex items-end justify-between">
-            <div>
-              <div className="font-pixel" style={{ fontSize: 6, color: '#E9A8FB', letterSpacing: 2 }}>SCORE</div>
-              <div className="font-pixel" style={{ fontSize: 22, color: '#FFFFFF', textShadow: '2px 2px 0 #2E0A52' }}>{hud.score}</div>
-            </div>
-
-            {/* Combo — the number punches on every increment via a keyed remount,
-                and the multiplier badge only exists once it is worth something. */}
-            {hud.combo >= 2 && (
-              <div key={hud.combo} className="flex items-center gap-2 pb-0.5"
-                style={{ animation: reduced ? undefined : 'pbComboPunch 260ms cubic-bezier(0.34,1.56,0.64,1)' }}>
-                <div className="text-right">
-                  <div className="font-pixel" style={{ fontSize: 6, color: '#E9A8FB', letterSpacing: 2 }}>COMBO</div>
-                  <div className="font-pixel" style={{
-                    fontSize: 20,
-                    color: hud.mult > 1 ? '#FDE047' : '#F5D0FE',
-                    textShadow: hud.mult > 1 ? '0 0 10px rgba(253,224,71,0.7), 2px 2px 0 #2E0A52' : '2px 2px 0 #2E0A52',
-                  }}>{hud.combo}</div>
-                </div>
-                {hud.mult > 1 && (
-                  <div className="font-pixel flex items-center justify-center" style={{
-                    fontSize: 11, color: '#3B0764', minWidth: 30, padding: '5px 6px',
-                    background: 'linear-gradient(135deg, #FDE047, #F59E0B)',
-                    border: '2px solid #92400E', borderRadius: 4,
-                    boxShadow: '0 3px 0 #78350F, 0 0 14px rgba(253,224,71,0.55)',
-                  }}>x{hud.mult}</div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Lives */}
-          <div className="flex items-center gap-2 mt-1.5">
-            <span className="font-pixel" style={{ fontSize: 6, color: '#E9A8FB', letterSpacing: 2 }}>LIVES</span>
-            <div className="flex items-center gap-1">
-              {Array.from({ length: MAX_LIVES }).map((_, i) => {
-                const filled = i < hud.lives
-                const critical = filled && hud.lives <= 1 && !reduced
-                return (
-                  <div key={i} style={{
-                    opacity: filled ? 1 : 0.18,
-                    transform: filled ? 'scale(1)' : 'scale(0.75)',
-                    transition: reduced ? undefined : 'opacity 0.2s, transform 0.2s',
-                    filter: critical ? 'drop-shadow(0 0 6px rgba(232,121,249,0.95))' : 'none',
-                    animation: critical ? 'pbHeartBeat 0.5s ease-in-out infinite' : undefined,
-                  }}>
-                    <IconHeart size={16} />
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
+        <GameStatRow>
+          <GameStat icon={<IconStar size={16} />} value={hud.score} ariaLabel={`Score ${hud.score}`} />
+          {/* Combo — punches on every increment via the pulse key, and goes
+              amber once the streak is worth a multiplier. */}
+          <GameStat
+            label="Combo"
+            value={<>{hud.combo}{hud.mult > 1 && <span style={{ fontSize: 13 }}>×{hud.mult}</span>}</>}
+            tone={hud.mult > 1 ? 'hot' : 'plain'}
+            pulse={hud.combo >= 2 && !reduced ? hud.combo : undefined}
+          />
+          <GameStat
+            ariaLabel={`Lives ${hud.lives} of ${MAX_LIVES}`}
+            tone={hud.lives <= 1 ? 'warn' : 'plain'}
+            style={hud.lives === 1 && !reduced ? GAME_STAT_URGENT : undefined}
+            value={
+              <span className="flex items-center" style={{ gap: 2 }}>
+                {Array.from({ length: MAX_LIVES }).map((_, i) => {
+                  const filled = i < hud.lives
+                  return (
+                    <span key={i} className="flex" style={{
+                      opacity: filled ? 1 : 0.18,
+                      transform: filled ? 'scale(1)' : 'scale(0.75)',
+                      transition: reduced ? undefined : 'opacity 0.2s, transform 0.2s',
+                    }}>
+                      <IconHeart size={14} />
+                    </span>
+                  )
+                })}
+              </span>
+            }
+          />
+        </GameStatRow>
       )}
+
+      {/* The chrome floats over the screen, so the field starts below it.
+          game-shell already pads the safe area; this clears bar + stat row. */}
+      <div aria-hidden className="flex-shrink-0" style={{ height: 104 }} />
 
       {/* Field */}
       <div className="flex-1 relative overflow-hidden">
@@ -562,105 +538,64 @@ export default function PurrBeatGame() {
 
       {/* Idle */}
       {phase === 'idle' && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center px-4">
-          <Panel>
-            <div style={{ animation: reduced ? undefined : 'pbIdleBop 1.1s ease-in-out infinite' }}>
-              <ErenDJ size={62} hyped />
-            </div>
-            <p className="font-pixel" style={{ fontSize: 13, letterSpacing: 3, color: '#F5D0FE', textShadow: '0 0 14px rgba(232,121,249,0.8)' }}>PURR BEAT</p>
-
-            {/* Lane key — teaches the control in one glance instead of a
-                paragraph telling the player there are four lanes. */}
-            <div className="flex items-center gap-2 mt-0.5">
-              {LANE_HUE.map((hue, i) => (
-                <div key={i} style={{
-                  width: 30, height: 11, borderRadius: 3,
-                  background: `linear-gradient(180deg, ${hue}, ${hue}99)`,
-                  border: '2px solid rgba(0,0,0,0.45)',
-                  boxShadow: `0 2px 0 rgba(0,0,0,0.4)`,
-                  animation: reduced ? undefined : `pbKeyPulse 1.2s ease-in-out ${i * 0.14}s infinite`,
-                }} />
-              ))}
-            </div>
-
-            <div className="font-pixel text-center" style={{ fontSize: 6, color: '#E9A8FB', letterSpacing: 1, lineHeight: 2 }}>
-              <p>TAP A LANE AS ITS NOTE</p>
-              <p>REACHES THE LINE</p>
-              <p style={{ color: '#FDE047' }}>KEEP THE STREAK FOR A BIGGER x</p>
-            </div>
-
-            <button onClick={() => { playSound('ui_tap'); startGame() }}
-              className="mt-1 px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-              style={{ background: 'linear-gradient(135deg, #E879F9 0%, #C026D3 100%)', border: '2px solid #701A75', borderRadius: 3, boxShadow: '0 4px 0 #701A75', fontFamily: '"Press Start 2P"', fontSize: 9, letterSpacing: 1.5 }}>
-              <IconStar size={12} /> PLAY
-            </button>
-          </Panel>
-        </div>
+        <GameStartCard
+          title="Purr Beat"
+          art={<>
+            <GameArtTile size={44}><ErenDJ size={34} hyped /></GameArtTile>
+            {/* Lane key — teaches the control in one glance: four lanes, four colours. */}
+            {LANE_HUE.map((hue, i) => (
+              <GameArtTile key={i} size={38} tint={`${hue}26`}>
+                <span style={{ width: 22, height: 9, borderRadius: 4, background: hue }} />
+              </GameArtTile>
+            ))}
+          </>}
+          best={bestScore}
+          onStart={playRound}
+        >
+          Tap a lane as its note reaches the line. Keep the streak going for a bigger multiplier.
+        </GameStartCard>
       )}
 
       {/* Game over */}
       {phase === 'gameover' && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center px-4" style={{ background: 'rgba(14,4,28,0.78)' }}>
-          <Panel animate={!reduced}>
-            {isNewBest ? (
-              <p className="font-pixel flex items-center gap-2" style={{ fontSize: 11, color: '#FDE047', letterSpacing: 2, textShadow: '0 0 12px rgba(253,224,71,0.8)' }}>
-                <IconTrophy size={14} /> NEW BEST
-              </p>
-            ) : (
-              <p className="font-pixel" style={{ fontSize: 11, color: '#FCA5A5', letterSpacing: 2 }}>OUT OF LIVES</p>
-            )}
-
-            <div className="flex items-center gap-4 mt-1">
-              <Stat label="SCORE" value={result?.score ?? 0} color="#FFFFFF" />
-              <Divider />
-              <Stat label="MAX COMBO" value={result?.maxCombo ?? 0} color="#FDE047" />
-              <Divider />
-              <Stat label="ACCURACY" value={`${accuracy}%`} color="#A7F3D0" />
-            </div>
-
-            {/* Judgment breakdown — the number a rhythm player actually wants,
-                and the reason to run it back. */}
-            <div className="flex items-center gap-1 mt-1">
-              {([['PURRFECT', tally.perfect, '#FDE047'], ['GOOD', tally.good, '#A7F3D0'], ['OK', tally.ok, '#BAE6FD'], ['MISS', tally.miss, '#FCA5A5']] as const).map(([label, n, color]) => (
-                <div key={label} className="flex flex-col items-center px-2 py-1.5" style={{
-                  background: 'rgba(0,0,0,0.35)', border: `2px solid ${color}44`, borderRadius: 4, minWidth: 54,
-                }}>
-                  <span className="font-pixel" style={{ fontSize: 5, color, letterSpacing: 0.5 }}>{label}</span>
-                  <span className="font-pixel" style={{ fontSize: 12, color: '#FFFFFF', marginTop: 3 }}>{n}</span>
-                </div>
-              ))}
-            </div>
-
-            {reward && (<div className="mt-1"><GameCoinReward coins={reward.coins} blocked={reward.blocked} /></div>)}
-
-            <div className="flex items-center gap-2 mt-2">
-              <button onClick={() => { playSound('ui_tap'); startGame() }}
-                className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-                style={{ background: 'linear-gradient(135deg, #E879F9 0%, #C026D3 100%)', border: '2px solid #701A75', borderRadius: 3, boxShadow: '0 4px 0 #701A75', fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5 }}>
-                <RefreshCw size={11} /> AGAIN
-              </button>
-              <button onClick={() => { playSound('ui_back'); router.back() }}
-                className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-                style={{ background: 'linear-gradient(135deg, #475569 0%, #1F2937 100%)', border: '2px solid #0F172A', borderRadius: 3, boxShadow: '0 4px 0 #0F172A', fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5 }}>
-                EXIT
-              </button>
-            </div>
-          </Panel>
-        </div>
+        <GameResultCard
+          headline="Out of lives"
+          score={result?.score ?? 0}
+          newBest={isNewBest}
+          best={bestScore}
+          stats={[
+            { label: 'Max combo', value: result?.maxCombo ?? 0 },
+            { label: 'Accuracy', value: `${accuracy}%` },
+          ]}
+          reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
+          onAgain={playRound}
+          onBack={goBack}
+        >
+          {/* Judgment breakdown — the number a rhythm player actually wants,
+              and the reason to run it back. */}
+          <div className="grid w-full" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 6 }}>
+            {BREAKDOWN.map(({ key, label, dot }) => (
+              <div key={key} className="flex flex-col items-center" style={{ padding: '8px 4px', borderRadius: 14, background: M.soft }}>
+                <span className="flex items-center" style={{ gap: 4, fontSize: 12, fontWeight: 700, color: M.text2 }}>
+                  <span aria-hidden style={{ width: 7, height: 7, borderRadius: 999, background: dot }} />
+                  {label}
+                </span>
+                <span style={{ marginTop: 2, fontSize: 15, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: M.text }}>
+                  {tally[key]}
+                </span>
+              </div>
+            ))}
+          </div>
+        </GameResultCard>
       )}
 
       <style jsx global>{`
-        @keyframes pbPop { 0% { transform: scale(0.72); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         @keyframes pbJudge {
           0%   { transform: translate(-50%, 6px) scale(0.7); opacity: 0; }
           22%  { transform: translate(-50%, -6px) scale(1.12); opacity: 1; }
           70%  { transform: translate(-50%, -22px) scale(1); opacity: 1; }
           100% { transform: translate(-50%, -40px) scale(0.92); opacity: 0; }
         }
-        @keyframes pbHeartBeat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.22); } }
-        @keyframes pbComboPunch { 0% { transform: scale(1.32); } 100% { transform: scale(1); } }
-        @keyframes pbIdleBop { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-5px) rotate(2deg); } }
-        @keyframes pbKeyPulse { 0%, 100% { transform: translateY(0); filter: brightness(1); } 50% { transform: translateY(-3px); filter: brightness(1.45); } }
       `}</style>
     </div>
   )

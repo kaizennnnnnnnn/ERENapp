@@ -19,8 +19,11 @@ import {
   ITEMS, pickKind, fallDriftX, type ItemKind,
   KibbleIcon, CookieIcon, MilkIcon, CreamIcon, SpiderIcon, BombIcon, KnifeIcon, TrapIcon, SkullIcon,
 } from '@/components/games/TreatTumbleItems'
-import { ChevronLeft, RefreshCw } from 'lucide-react'
-import { IconMeat, IconFish, IconHeart, IconStar, IconCrown } from '@/components/PixelIcons'
+import { IconFish, IconHeart, IconStar } from '@/components/PixelIcons'
+import {
+  GameTopBar, GameStatRow, GameStat, GAME_STAT_URGENT, GameStartCard, GameResultCard,
+} from '@/components/games/GameChrome'
+import { FONT_ROUNDED, M, MeadowIcon } from '@/components/meadow'
 import { playSound } from '@/lib/sounds'
 import { fireMinigameDone } from '@/lib/minigames'
 
@@ -85,7 +88,6 @@ interface Puff { id: number; x: number; y: number; t0: number }
 
 const MemoIconHeart = memo(IconHeart)
 const MemoIconStar = memo(IconStar)
-const MemoIconMeat = memo(IconMeat)
 
 // ── Component ────────────────────────────────────────────────────────────────
 export default function TreatTumbleGame() {
@@ -590,7 +592,6 @@ export default function TreatTumbleGame() {
   // ── Render ─────────────────────────────────────────────────────────────────
   const timeWarning = timeLeft <= 10
   const lowLives = lives <= 1
-  const timePct = (timeLeft / GAME_DURATION) * 100
   const mult = multFor(combo)
   const tierFloor = mult === 3 ? TIER_3 : mult === 2 ? TIER_2 : 0
   const tierCeil  = mult === 3 ? TIER_3 : mult === 2 ? TIER_3 : TIER_2
@@ -628,296 +629,119 @@ export default function TreatTumbleGame() {
         }} />
       )}
 
-      {/* Header */}
-      <div className="absolute top-0 inset-x-0 pt-3 px-3 z-30 flex items-center gap-2">
-        <button onClick={() => { playSound('ui_back'); router.back() }}
-          className="flex items-center justify-center active:scale-90 transition-transform"
-          style={{ width: 34, height: 34, background: 'rgba(255,255,255,0.9)', borderRadius: 6, border: '2px solid #D97706', boxShadow: '0 2px 0 #B45309' }}>
-          <ChevronLeft size={18} className="text-amber-700" />
-        </button>
-        <div className="flex-1 flex items-center justify-center">
-          <span className="font-pixel text-amber-900 px-3 py-1.5 inline-flex items-center gap-1.5"
-            style={{ background: 'rgba(255,255,255,0.92)', border: '2px solid #D97706', borderRadius: 4, boxShadow: '0 2px 0 #B45309', fontSize: 7, letterSpacing: 1.5 }}>
-            <MemoIconMeat size={12} />
-            TREAT TUMBLE
-          </span>
-        </div>
-        <div style={{ width: 34 }} />
-      </div>
+      {/* Header + stats — the shared Meadow game chrome. */}
+      <GameTopBar title="Treat Tumble" onBack={() => { playSound('ui_back'); router.back() }} />
 
-      {/* ══ HUD ═════════════════════════════════════════════════════════════ */}
       {gameState !== 'idle' && (
-        <div className="absolute top-14 inset-x-0 px-3 z-20">
-          <div className="mb-2 relative overflow-hidden py-2.5 px-3"
+        <GameStatRow>
+          {/* Score — pops up on a gain, shrinks red and shakes on a loss. */}
+          <GameStat
+            icon={<MemoIconStar size={16} />}
+            value={Math.max(0, score)}
+            tone={scoreBump === -1 ? 'warn' : 'plain'}
+            ariaLabel={`Score ${Math.max(0, score)}`}
             style={{
-              background: 'linear-gradient(180deg, rgba(120,53,15,0.92) 0%, rgba(69,26,3,0.95) 100%)',
-              border: '3px solid #F59E0B',
-              borderRadius: 5,
-              boxShadow: '0 4px 0 #92400E, inset 0 1px 0 rgba(255,255,255,0.25), 0 0 14px rgba(245,158,11,0.4)',
-            }}>
-            {/* Corner rivets */}
-            <div style={{ position: 'absolute', top: 3, left: 3, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 3px #FFD700' }} />
-            <div style={{ position: 'absolute', top: 3, right: 3, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 3px #FFD700' }} />
-            <div style={{ position: 'absolute', bottom: 3, left: 3, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 3px #FFD700' }} />
-            <div style={{ position: 'absolute', bottom: 3, right: 3, width: 3, height: 3, background: '#FFD700', boxShadow: '0 0 3px #FFD700' }} />
+              transform: scoreBump === 1 ? 'scale(1.12)' : scoreBump === -1 ? 'scale(0.92)' : 'scale(1)',
+              transition: 'transform 0.16s cubic-bezier(0.34,1.56,0.64,1), background 0.18s ease, color 0.18s ease',
+              animation: scoreBump === -1 ? 'ttScoreShake 0.26s linear' : undefined,
+            }}
+          />
 
-            <div className="flex items-center justify-between gap-3">
-              {/* Score */}
-              <div className="flex items-center gap-1.5">
-                <MemoIconStar size={14} />
-                <span className="font-pixel" style={{ fontSize: 6, color: '#FCD34D', letterSpacing: 2 }}>SCORE</span>
-                <span className="font-pixel" style={{
-                  fontSize: 16,
-                  color: scoreBump === -1 ? '#FCA5A5' : '#FFFFFF',
-                  textShadow: scoreBump === -1
-                    ? '2px 2px 0 #7F1D1D, 0 0 6px rgba(220,38,38,0.85)'
-                    : '2px 2px 0 #92400E, 0 0 6px rgba(251,191,36,0.7)',
-                  letterSpacing: 1,
-                  transform: scoreBump === 1 ? 'scale(1.22)' : scoreBump === -1 ? 'scale(0.88)' : 'scale(1)',
-                  transition: 'transform 0.16s cubic-bezier(0.34,1.56,0.64,1), color 0.18s, text-shadow 0.18s',
-                  display: 'inline-block',
-                  animation: scoreBump === -1 ? 'ttScoreShake 0.26s linear' : 'none',
-                }}>{Math.max(0, score)}</span>
-              </div>
-
-              {/* Lives */}
-              <div className="flex items-center gap-1.5 px-2 py-1"
-                style={{
-                  background: lowLives ? 'rgba(220,38,38,0.4)' : 'rgba(0,0,0,0.45)',
-                  border: lowLives ? '2px solid #FCA5A5' : '2px solid rgba(245,158,11,0.5)',
-                  borderRadius: 4,
-                  boxShadow: lowLives ? '0 2px 0 rgba(0,0,0,0.4), 0 0 8px rgba(248,113,113,0.55)' : '0 2px 0 rgba(0,0,0,0.4)',
-                  transition: 'all 0.25s',
-                }}>
-                <span className="font-pixel" style={{
-                  fontSize: 6, letterSpacing: 2,
-                  color: lowLives ? '#FFE4E4' : '#FCD34D',
-                  textShadow: '1px 1px 0 rgba(0,0,0,0.5)',
-                }}>HP</span>
-                <div className="flex items-center gap-0.5">
-                  {Array.from({ length: MAX_LIVES }).map((_, i) => (
-                    <div key={i} style={{
-                      opacity: i < lives ? 1 : 0.18,
-                      transform: i < lives ? 'scale(1)' : 'scale(0.75)',
-                      transition: 'opacity 0.25s, transform 0.25s',
-                      filter: i < lives && lowLives && gameState === 'running' ? 'drop-shadow(0 0 5px rgba(255,107,157,1))' : 'none',
-                      animation: i < lives && lowLives && gameState === 'running' && !reduced ? 'ttHeartBeat 0.55s ease-in-out infinite' : 'none',
-                    }}>
-                      <MemoIconHeart size={18} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Combo strip — on screen from the first catch, so breaking a
-                streak is something you watch happen rather than deduce. */}
-            <div className="flex items-center gap-1.5 mt-2">
-              <span className="font-pixel" style={{ fontSize: 5, letterSpacing: 1.5, color: '#FCD34D' }}>COMBO</span>
-              <div className="flex-1 flex items-center gap-[3px]">
-                {Array.from({ length: PIPS }).map((_, i) => {
-                  const lit = i < pipsLit
-                  return (
-                    <div key={i} style={{
-                      flex: 1, height: 5,
-                      background: lit
-                        ? (mult === 3 ? 'linear-gradient(180deg,#FEF3C7,#F59E0B)' : 'linear-gradient(180deg,#FDE68A,#D97706)')
-                        : 'rgba(0,0,0,0.45)',
-                      border: '1px solid rgba(245,158,11,0.45)',
-                      borderRadius: 1,
-                      boxShadow: lit ? '0 0 5px rgba(251,191,36,0.8)' : 'inset 0 1px 2px rgba(0,0,0,0.5)',
-                      transition: 'background 0.16s, box-shadow 0.16s',
+          {/* Combo — on screen from the first catch, so breaking a streak is
+              something you watch happen rather than deduce. */}
+          <GameStat
+            value={
+              <span className="inline-flex items-center" style={{ gap: 6 }}>
+                <span aria-hidden className="inline-flex items-center" style={{ gap: 2 }}>
+                  {Array.from({ length: PIPS }).map((_, i) => (
+                    <span key={i} style={{
+                      width: 5, height: 14, borderRadius: 2,
+                      background: i < pipsLit ? (mult === 3 ? '#E08A1E' : M.energy) : M.softLip,
+                      transition: 'background 0.16s',
                     }} />
-                  )
-                })}
-              </div>
-              <span className="font-pixel px-1.5 py-0.5" style={{
-                fontSize: 7, minWidth: 30, textAlign: 'center',
-                color: mult > 1 ? '#451A03' : '#FCD34D',
-                background: mult > 1 ? 'linear-gradient(180deg, #FDE68A, #F59E0B)' : 'rgba(0,0,0,0.4)',
-                border: `2px solid ${mult > 1 ? '#7C2D12' : 'rgba(245,158,11,0.45)'}`,
-                borderRadius: 3,
-                boxShadow: mult > 1 ? '0 2px 0 #5A1A0A, 0 0 6px rgba(251,191,36,0.7)' : 'none',
-                letterSpacing: 1,
-                transform: comboFlash ? 'scale(1.3)' : 'scale(1)',
-                transition: 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1)',
-                display: 'inline-block',
-              }}>{mult > 1 ? `x${mult}` : combo}</span>
-            </div>
+                  ))}
+                </span>
+                {mult > 1 ? `×${mult}` : combo}
+              </span>
+            }
+            tone={mult > 1 ? 'hot' : 'plain'}
+            pulse={comboFlash}
+            ariaLabel={`Combo ${combo}, times ${mult}`}
+          />
 
-            {/* Time */}
-            <div className="mt-2 relative overflow-hidden" style={{
-              height: 6,
-              background: 'rgba(0,0,0,0.5)',
-              border: '1px solid rgba(245,158,11,0.4)',
-              borderRadius: 2,
-              boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.5)',
-            }}>
-              <div style={{
-                height: '100%',
-                width: `${timePct}%`,
-                background: timeWarning
-                  ? 'linear-gradient(180deg, #FCA5A5 0%, #DC2626 100%)'
-                  : 'linear-gradient(180deg, #FDE68A 0%, #F59E0B 100%)',
-                transition: 'width 0.9s linear, background 0.3s',
-                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4)',
-              }} />
-              <div className="absolute inset-0 pointer-events-none" style={{
-                backgroundImage: 'repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), rgba(0,0,0,0.35) calc(10% - 1px) 10%)',
-              }} />
-            </div>
-            <div className="flex items-center justify-between mt-1">
-              <span className="font-pixel" style={{ fontSize: 5, letterSpacing: 2, color: '#FCD34D' }}>TIME</span>
-              <span className="font-pixel" style={{
-                fontSize: 7,
-                color: timeWarning ? '#FCA5A5' : '#FDE68A',
-                animation: timeWarning && gameState === 'running' && !reduced ? 'ttTimerPulse 0.6s ease-in-out infinite' : 'none',
-              }}>{String(Math.floor(timeLeft / 60))}:{String(timeLeft % 60).padStart(2, '0')}</span>
-            </div>
-          </div>
-        </div>
+          <GameStat
+            icon={<MeadowIcon name="clock" size={18} />}
+            value={`${Math.floor(timeLeft / 60)}:${String(timeLeft % 60).padStart(2, '0')}`}
+            tone={timeWarning ? 'warn' : 'plain'}
+            style={timeWarning && gameState === 'running' && !reduced ? GAME_STAT_URGENT : undefined}
+          />
+
+          {/* Lives — right-most, where the heart shards burst from. */}
+          <GameStat
+            icon={
+              <span style={{
+                display: 'inline-flex',
+                animation: lowLives && gameState === 'running' && !reduced ? 'ttHeartBeat 0.55s ease-in-out infinite' : undefined,
+              }}>
+                <MemoIconHeart size={16} />
+              </span>
+            }
+            value={lives}
+            tone={lowLives ? 'warn' : 'plain'}
+            ariaLabel={`Lives ${lives} of ${MAX_LIVES}`}
+          />
+        </GameStatRow>
       )}
 
       {/* ── TREAT RAIN banner ───────────────────────────────────────────────── */}
       {raining && (
         <div className="absolute inset-x-0 z-30 flex justify-center pointer-events-none" style={{ top: '34%' }}>
-          <div className="font-pixel px-4 py-2.5 inline-flex items-center gap-2" style={{
+          <div className="px-4 py-2.5 inline-flex items-center gap-2" style={{
             background: 'linear-gradient(180deg, #FEF3C7 0%, #FDE68A 50%, #F59E0B 100%)',
             border: '3px solid #7C2D12',
             borderRadius: 5,
             boxShadow: '0 5px 0 #5A1A0A, 0 0 26px rgba(251,191,36,0.85)',
-            fontSize: 10, letterSpacing: 2.5, color: '#7C2D12',
+            fontFamily: FONT_ROUNDED, fontWeight: 800, fontSize: 18, letterSpacing: 0.3, color: '#7C2D12',
             textShadow: '0 1px 0 rgba(255,255,255,0.7)',
             animation: reduced ? 'none' : 'ttRainBanner 3.4s ease-out both',
           }}>
             <IconStar size={14} />
-            TREAT RAIN
+            Treat rain!
             <IconStar size={14} />
           </div>
         </div>
       )}
 
       {/* ── Idle intro ──────────────────────────────────────────────────────── */}
-      {/* pointer-events-none on the root so this full-screen z-30 overlay doesn't
-          swallow taps on the same-z header back button; START re-enables them. */}
       {gameState === 'idle' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-start z-30 px-4 pt-12 pb-6 overflow-y-auto pointer-events-none">
-          <div className="relative px-5 py-5 w-full max-w-[340px] z-10" style={{
-            background: 'linear-gradient(180deg, #FEF3C7 0%, #FDE68A 50%, #F59E0B 100%)',
-            border: '3px solid #7C2D12',
-            borderRadius: 8,
-            boxShadow: '0 8px 0 #5A1A0A, 0 0 28px rgba(251,191,36,0.55), inset 0 2px 0 rgba(255,255,255,0.55), inset 0 -3px 0 rgba(120,53,15,0.3)',
-            overflow: 'hidden',
-          }}>
-            {/* Gold rivets at all 4 corners */}
-            <div style={{ position: 'absolute', top: 6, left: 6, width: 6, height: 6, background: '#FFD700', borderRadius: 1, boxShadow: '0 0 4px rgba(255,215,0,0.9), inset 0 1px 0 rgba(255,255,255,0.6)' }} />
-            <div style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, background: '#FFD700', borderRadius: 1, boxShadow: '0 0 4px rgba(255,215,0,0.9), inset 0 1px 0 rgba(255,255,255,0.6)' }} />
-            <div style={{ position: 'absolute', bottom: 6, left: 6, width: 6, height: 6, background: '#FFD700', borderRadius: 1, boxShadow: '0 0 4px rgba(255,215,0,0.9), inset 0 1px 0 rgba(255,255,255,0.6)' }} />
-            <div style={{ position: 'absolute', bottom: 6, right: 6, width: 6, height: 6, background: '#FFD700', borderRadius: 1, boxShadow: '0 0 4px rgba(255,215,0,0.9), inset 0 1px 0 rgba(255,255,255,0.6)' }} />
-
-            <div className="absolute inset-0 pointer-events-none" style={{
-              background: 'linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.55) 50%, transparent 62%)',
-              animation: reduced ? 'none' : 'ttPlaqueShine 3.6s ease-in-out infinite',
-            }} />
-
-            <div className="flex items-center justify-center gap-2 mb-2 relative">
-              <div style={{ animation: reduced ? 'none' : 'twinkle 1.5s ease-in-out infinite', filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.7))' }}>
-                <IconStar size={16} />
-              </div>
-              <p className="font-pixel" style={{
-                fontSize: 12, letterSpacing: 3, color: '#7C2D12',
-                textShadow: '0 1px 0 rgba(255,255,255,0.7), 0 2px 0 rgba(120,53,15,0.4)',
-              }}>TREAT TUMBLE</p>
-              <div style={{ animation: reduced ? 'none' : 'twinkle 1.5s ease-in-out 0.75s infinite', filter: 'drop-shadow(0 0 4px rgba(255,215,0,0.7))' }}>
-                <IconStar size={16} />
-              </div>
+        <GameStartCard
+          title="Treat Tumble"
+          art={<TreatTumbleEren pose="ready" size={56} reduced={reduced} />}
+          extra={
+            <div className="flex flex-col" style={{ gap: 8 }}>
+              <LegendGroup title="Catch" caption="Fish and stars drift, so lead them." tint={M.leafTint} ink={M.leafInk} cols={7}>
+                <LegendTile Icon={KibbleIcon} pts="+1" ink={M.leafInk} />
+                <LegendTile Icon={CookieIcon} pts="+2" ink={M.leafInk} />
+                <LegendTile Icon={MilkIcon}   pts="+2" ink={M.leafInk} />
+                <LegendTile Icon={IconFish}   pts="+3" ink={M.leafInk} />
+                <LegendTile Icon={CreamIcon}  pts="+5" ink={M.leafInk} />
+                <LegendTile Icon={IconStar}   pts="+10" ink={M.leafInk} />
+                <LegendTile Icon={IconHeart}  pts="Life" ink={M.leafInk} />
+              </LegendGroup>
+              <LegendGroup title="Dodge" caption="Boxed in red. The knife comes fast." tint={M.dangerTint} ink={M.danger} cols={5}>
+                <LegendTile Icon={TrapIcon}   pts="-5" ink={M.danger} />
+                <LegendTile Icon={KnifeIcon}  pts="-5" ink={M.danger} />
+                <LegendTile Icon={SpiderIcon} pts="-5" ink={M.danger} />
+                <LegendTile Icon={BombIcon}   pts="-6" ink={M.danger} />
+                <LegendTile Icon={SkullIcon}  pts="-8" ink={M.danger} />
+              </LegendGroup>
             </div>
-
-            <div className="mb-3 mx-auto" style={{
-              width: '85%', height: 2,
-              background: 'linear-gradient(90deg, transparent, #B45309, #FBBF24, #B45309, transparent)',
-              boxShadow: '0 1px 0 rgba(255,255,255,0.5)',
-            }} />
-
-            <p className="font-pixel text-center mb-3" style={{
-              fontSize: 6, lineHeight: 1.9, letterSpacing: 1, color: '#7C2D12',
-            }}>
-              {cat.t('DRAG TO MOVE {NAME}')}<br/>
-              CATCH TREATS · DODGE DANGERS<br/>
-              GET HIT AND THE STREAK ENDS<br/>
-              <span style={{ color: '#B45309' }}>5 IN A ROW = x2 · 10 = x3</span><br/>
-              <span style={{ color: '#15803D' }}>{cat.t('AT x3 {NAME} REACHES FURTHER')}</span><br/>
-              <span style={{ color: '#B91C1C', fontSize: 5 }}>IT GETS FASTER EVERY SECOND</span>
-            </p>
-
-            {/* GOODS */}
-            <div className="mb-2.5 relative px-2 pt-2 pb-2.5" style={{
-              background: 'linear-gradient(180deg, rgba(187,247,208,0.6) 0%, rgba(134,239,172,0.4) 100%)',
-              border: '2px solid #15803D',
-              borderRadius: 4,
-              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.55), 0 2px 0 rgba(21,128,61,0.35)',
-            }}>
-              <div className="flex items-center justify-center gap-1.5 mb-2">
-                <IconStar size={10} />
-                <p className="font-pixel" style={{ fontSize: 7, letterSpacing: 2.5, color: '#14532D', textShadow: '0 1px 0 rgba(255,255,255,0.6)' }}>GOODS</p>
-                <IconStar size={10} />
-              </div>
-              <div className="grid grid-cols-7 gap-1">
-                <LegendTile Icon={KibbleIcon} tint="#F5C842" pts="+1" />
-                <LegendTile Icon={CookieIcon} tint="#A06030" pts="+2" />
-                <LegendTile Icon={MilkIcon}   tint="#FFFFFF" pts="+2" />
-                <LegendTile Icon={IconFish}   tint="#6BAED6" pts="+3" />
-                <LegendTile Icon={CreamIcon}  tint="#A78BFA" pts="+5" />
-                <LegendTile Icon={IconStar}   tint="#FFD700" pts="+10" />
-                <LegendTile Icon={IconHeart}  tint="#FF6B9D" pts="LIFE" />
-              </div>
-              <p className="font-pixel text-center mt-2" style={{ fontSize: 5, letterSpacing: 1, color: '#14532D' }}>
-                FISH AND STARS DRIFT — LEAD THEM
-              </p>
-            </div>
-
-            {/* DANGERS */}
-            <div className="relative px-2 pt-2 pb-2.5" style={{
-              background: 'linear-gradient(180deg, rgba(254,202,202,0.6) 0%, rgba(248,113,113,0.4) 100%)',
-              border: '2px solid #B91C1C',
-              borderRadius: 4,
-              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.55), 0 2px 0 rgba(185,28,28,0.35)',
-            }}>
-              <div className="flex items-center justify-center gap-1.5 mb-2">
-                <SkullIcon size={11} />
-                <p className="font-pixel" style={{ fontSize: 7, letterSpacing: 2.5, color: '#7F1D1D', textShadow: '0 1px 0 rgba(255,255,255,0.6)' }}>DANGERS</p>
-                <SkullIcon size={11} />
-              </div>
-              <div className="grid grid-cols-5 gap-1">
-                <LegendTile Icon={TrapIcon}   tint="#7C2D12" pts="-5" danger />
-                <LegendTile Icon={KnifeIcon}  tint="#9CA3AF" pts="-5" danger />
-                <LegendTile Icon={SpiderIcon} tint="#4B0082" pts="-5" danger />
-                <LegendTile Icon={BombIcon}   tint="#DC2626" pts="-6" danger />
-                <LegendTile Icon={SkullIcon}  tint="#E5E7EB" pts="-8" danger />
-              </div>
-              <p className="font-pixel text-center mt-2" style={{ fontSize: 5, letterSpacing: 1, color: '#7F1D1D' }}>
-                BOXED IN RED · THE KNIFE COMES FAST
-              </p>
-            </div>
-          </div>
-
-          <button onClick={() => { playSound('ui_tap'); start() }}
-            className="relative mt-5 px-8 py-3 text-white active:translate-y-[2px] transition-transform z-10 overflow-hidden pointer-events-auto"
-            style={{
-              background: 'linear-gradient(180deg, #F59E0B 0%, #D97706 50%, #B45309 100%)',
-              border: '3px solid #7C2D12',
-              borderRadius: 4,
-              boxShadow: '0 6px 0 #5A1A0A, inset 0 2px 0 rgba(255,255,255,0.4), 0 0 22px rgba(251,191,36,0.65)',
-              fontFamily: '"Press Start 2P"', fontSize: 11, letterSpacing: 2,
-              textShadow: '0 2px 0 #5A1A0A',
-            }}>
-            START
-            <div className="absolute inset-0 pointer-events-none" style={{
-              background: 'linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.5) 50%, transparent 62%)',
-              animation: reduced ? 'none' : 'ttPlaqueShine 2.4s ease-in-out infinite',
-            }} />
-          </button>
-        </div>
+          }
+          onStart={() => { playSound('ui_tap'); start() }}
+        >
+          {cat.t('Drag to move {name}. Catch the treats and dodge the dangers; getting hit ends your streak.')}{' '}
+          {cat.t('5 in a row is ×2, 10 is ×3, and at ×3 {name} reaches further. It gets faster every second.')}
+        </GameStartCard>
       )}
 
       {/* ── Landing shadows ── the one addition that helps you aim without
@@ -1097,78 +921,63 @@ export default function TreatTumbleGame() {
 
       {/* ── Finish overlay ─────────────────────────────────────────────────── */}
       {gameState === 'finished' && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 p-6"
-          style={{ background: 'rgba(60,25,0,0.65)', backdropFilter: 'blur(4px)' }}>
-          <div className="px-6 py-6 max-w-[340px] w-full text-center relative"
-            style={{ background: 'linear-gradient(180deg, #FFF8E0 0%, #FFF0C0 100%)', border: '3px solid #D97706', borderRadius: 6, boxShadow: '0 5px 0 #B45309, 0 0 24px rgba(251,191,36,0.6)' }}>
-            <div className="flex justify-center mb-3">
-              {lives > 0 ? (
-                <IconCrown size={28} />
-              ) : (
-                <div style={{ animation: reduced ? 'none' : 'ttSadBob 1.8s ease-in-out infinite' }}>
-                  <TreatTumbleEren pose="sad" size={52} reduced={reduced} />
-                </div>
-              )}
-            </div>
-            <p className="font-pixel text-amber-800 mb-1" style={{ fontSize: 9, letterSpacing: 2 }}>
-              {lives > 0 ? 'TIME UP' : 'GAME OVER'}
-            </p>
-            <p className="font-pixel text-amber-900 mb-4" style={{
-              fontSize: 28,
-              textShadow: '2px 2px 0 rgba(180,83,9,0.35)',
-              display: 'inline-block',
+        <GameResultCard
+          headline={lives > 0 ? "Time's up" : 'Game over'}
+          score={displayedScore}
+          stats={[
+            { label: 'Best streak', value: bestCombo },
+            { label: 'Top bonus', value: `×${multFor(bestCombo)}` },
+            { label: 'Lives left', value: lives },
+          ]}
+          reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
+          onAgain={() => { playSound('ui_tap'); start() }}
+          onBack={() => { playSound('ui_back'); router.back() }}
+        >
+          {lives === 0 && (
+            <div className="flex items-center justify-center" style={{
+              gap: 10, padding: '8px 12px', borderRadius: 16, background: M.soft,
             }}>
-              {displayedScore}
-            </p>
-            {bestCombo >= TIER_2 && (
-              <p className="font-pixel mb-2" style={{ fontSize: 6, color: '#7C2D12', letterSpacing: 2 }}>
-                BEST STREAK {bestCombo} — REACHED x{multFor(bestCombo)}
-              </p>
-            )}
-            {reward && (
-              <div className="mb-4">
-                <GameCoinReward coins={reward.coins} blocked={reward.blocked} />
+              <div style={{ animation: reduced ? 'none' : 'ttSadBob 1.8s ease-in-out infinite' }}>
+                <TreatTumbleEren pose="sad" size={44} reduced={reduced} />
               </div>
-            )}
-            <div className="flex gap-2 justify-center">
-              <button onClick={() => { playSound('ui_tap'); start() }}
-                className="flex items-center gap-1.5 px-4 py-2 text-white active:translate-y-[2px] transition-transform"
-                style={{ background: 'linear-gradient(135deg, #F59E0B, #D97706)', border: '2px solid #B45309', borderRadius: 3, boxShadow: '0 3px 0 #92400E', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
-                <RefreshCw size={12} />
-                AGAIN
-              </button>
-              <button onClick={() => { playSound('ui_back'); router.back() }}
-                className="px-4 py-2 text-amber-900 active:translate-y-[2px] transition-transform"
-                style={{ background: 'rgba(255,255,255,0.9)', border: '2px solid #D97706', borderRadius: 3, boxShadow: '0 3px 0 #B45309', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
-                BACK
-              </button>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: M.text2, textAlign: 'left' }}>
+                {cat.t('{name} took one hit too many.')}
+              </p>
             </div>
-          </div>
-        </div>
+          )}
+        </GameResultCard>
       )}
     </div>
   )
 }
 
-// ── Small legend tile used in intro ─────────────────────────────────────────
-function LegendTile({ Icon, tint, pts, danger }: { Icon: React.FC<{ size?: number }>, tint: string, pts: string, danger?: boolean }) {
+// ── Legend used in the start card ───────────────────────────────────────────
+function LegendGroup({ title, caption, tint, ink, cols, children }: {
+  title: string
+  caption: string
+  tint: string
+  ink: string
+  cols: number
+  children: React.ReactNode
+}) {
   return (
-    <div className="flex flex-col items-center gap-0.5 py-1.5 px-1 relative"
-      style={{
-        background: danger
-          ? 'linear-gradient(180deg, rgba(255,255,255,0.6), rgba(254,202,202,0.35))'
-          : 'linear-gradient(180deg, rgba(255,255,255,0.7), rgba(255,255,255,0.25))',
-        border: `1.5px solid ${danger ? '#B91C1C' : tint}`,
-        borderRadius: 4,
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 0 rgba(0,0,0,0.18)',
-      }}>
+    <div style={{ padding: '8px 8px 7px', borderRadius: 16, background: tint }}>
+      <p style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 800, color: ink }}>{title}</p>
+      <div className="grid" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 4 }}>
+        {children}
+      </div>
+      <p style={{ margin: '6px 0 0', fontSize: 12, fontWeight: 600, color: M.text2 }}>{caption}</p>
+    </div>
+  )
+}
+
+function LegendTile({ Icon, pts, ink }: { Icon: React.FC<{ size?: number }>, pts: string, ink: string }) {
+  return (
+    <div className="flex flex-col items-center" style={{
+      gap: 2, padding: '5px 0 4px', borderRadius: 10, background: '#FFFFFF',
+    }}>
       <Icon size={20} />
-      <span className="font-pixel" style={{
-        fontSize: pts.length > 3 ? 4 : 6,
-        color: danger ? '#7F1D1D' : '#7C2D12',
-        letterSpacing: 0.5,
-        textShadow: '0 1px 0 rgba(255,255,255,0.5)',
-      }}>{pts}</span>
+      <span style={{ fontSize: 11, fontWeight: 800, color: ink, fontVariantNumeric: 'tabular-nums' }}>{pts}</span>
     </div>
   )
 }

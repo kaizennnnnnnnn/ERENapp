@@ -2,7 +2,6 @@
 
 import { memo, useEffect, useReducer, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
@@ -23,6 +22,10 @@ import {
 import { choosePattern, patternSpan, isPatternSafe } from '@/lib/laneRunnerPatterns'
 import { playSound } from '@/lib/sounds'
 import { IconCoin, IconStar } from '@/components/PixelIcons'
+import {
+  GameTopBar, GameStatRow, GameStat, GameStartCard, GameArtTile, GameResultCard,
+} from '@/components/games/GameChrome'
+import { M } from '@/components/meadow'
 import { fireMinigameDone } from '@/lib/minigames'
 
 const LANES = 3
@@ -722,28 +725,9 @@ export default function LaneRunnerGame() {
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col game-shell" style={{ background: '#0F0A1E' }}>
-      {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0 relative z-30" style={{
-        background: 'rgba(0,0,0,0.55)',
-        borderBottom: '2px solid rgba(255,255,255,0.18)',
-      }}>
-        <button onClick={() => { playSound('ui_back'); router.back() }}
-          className="flex items-center justify-center active:scale-90 transition-transform"
-          style={{ width: 32, height: 32, background: 'rgba(255,255,255,0.18)', borderRadius: 6, border: '2px solid rgba(255,255,255,0.45)', boxShadow: '0 2px 0 rgba(0,0,0,0.25)' }}>
-          <ChevronLeft size={16} className="text-white" />
-        </button>
-        <span className="font-pixel text-white px-2.5 py-1.5"
-          style={{ background: 'linear-gradient(135deg, #166534, #16A34A)', border: '2px solid #052e16', borderRadius: 4, fontSize: 8, letterSpacing: 2, boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
-          LANE RUNNER
-        </span>
-        <div className="flex-1" />
-        <div className="flex items-center gap-1.5 px-2 py-1.5 font-pixel"
-          style={{ background: 'rgba(0,0,0,0.4)', border: '2px solid rgba(255,255,255,0.4)', borderRadius: 4, fontSize: 8, color: '#FDE68A' }}>
-          BEST {bestScore}
-        </div>
-      </div>
-
-      {/* Field — touch swipe handles lane changes */}
+      {/* Field — touch swipe handles lane changes. It runs full-bleed now: the
+          Meadow chrome floats over the top of its sky instead of pushing it
+          down, the way it sits over the rooms. */}
       <div ref={fieldRef}
         className="relative flex-1 overflow-hidden select-none"
         onTouchStart={onTouchStart}
@@ -925,35 +909,6 @@ export default function LaneRunnerGame() {
           </>
         )}
 
-        {/* HUD */}
-        {phase !== 'idle' && (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none">
-            <span key={scorePulse} className="font-pixel" style={{
-              fontSize: 28, color: 'white',
-              textShadow: '3px 3px 0 #000', letterSpacing: 2,
-              animation: 'lr-score-pulse 0.15s ease-out',
-              display: 'inline-block',
-            }}>{score}</span>
-            <span className="font-pixel mt-1" style={{ fontSize: 6, color: '#FDE68A', letterSpacing: 1.5 }}>
-              {Math.floor(distanceRef.current)}m · ◎ {coins}
-            </span>
-            {streak >= 3 && (
-              <span key={`streak-${streak}`} className="font-pixel mt-1.5 px-2 py-0.5" style={{
-                fontSize: 7,
-                color: streak >= 8 ? '#FFFFFF' : '#FDE68A',
-                letterSpacing: 1.5,
-                background: streak >= 8 ? 'linear-gradient(135deg, #DC2626, #F59E0B)' : 'rgba(0,0,0,0.55)',
-                border: `2px solid ${streak >= 8 ? '#FBBF24' : '#FCD34D'}`,
-                borderRadius: 3,
-                boxShadow: `2px 2px 0 rgba(0,0,0,0.4)`,
-                animation: 'lr-streak-pop 0.25s cubic-bezier(0.34,1.56,0.64,1)',
-              }}>
-                x{streak} STREAK
-              </span>
-            )}
-          </div>
-        )}
-
         {/* Hit flash overlay — red wash on crash */}
         {hitFlash > 0 && (
           <div key={`flash-${hitFlash}`} className="absolute inset-0 pointer-events-none" style={{
@@ -962,105 +917,73 @@ export default function LaneRunnerGame() {
             mixBlendMode: 'screen',
           }} />
         )}
-
-        {/* Idle */}
-        {phase === 'idle' && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="flex flex-col items-center gap-3 px-6 py-5"
-              style={{
-                background: 'rgba(0,0,0,0.7)',
-                border: '3px solid rgba(255,255,255,0.5)',
-                borderRadius: 6,
-                boxShadow: '0 4px 0 rgba(0,0,0,0.4)',
-              }}>
-              <p className="font-pixel text-white text-center" style={{ fontSize: 9, letterSpacing: 2 }}>SWIPE TO RUN</p>
-              <p className="font-pixel text-center" style={{ fontSize: 6, color: '#A3F0C0', letterSpacing: 1, lineHeight: 1.6 }}>
-                ← SWIPE LEFT · SWIPE RIGHT →<br />
-                AVOID DOGS · GRAB COINS
-              </p>
-              <button onClick={() => { playSound('ui_tap'); startGame() }}
-                className="mt-1 px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-                style={{
-                  background: 'linear-gradient(135deg, #16A34A 0%, #166534 100%)',
-                  border: '2px solid #052e16',
-                  borderRadius: 3,
-                  boxShadow: '0 4px 0 #052e16',
-                  fontFamily: '"Press Start 2P"', fontSize: 9, letterSpacing: 1.5,
-                }}>
-                <IconStar size={12} /> START
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Game over */}
-        {phase === 'gameover' && (
-          <div className="absolute inset-0 flex items-center justify-center"
-            style={{ background: 'rgba(8,5,18,0.7)', backdropFilter: 'blur(2px)' }}>
-            <div className="flex flex-col items-center gap-3 px-6 py-5"
-              style={{
-                background: 'linear-gradient(180deg, #15122A 0%, #0F0A1E 100%)',
-                border: `3px solid ${isNewBest ? '#FBBF24' : '#16A34A'}`,
-                borderRadius: 6,
-                boxShadow: isNewBest
-                  ? '0 6px 0 #92400E, 0 0 24px rgba(251,191,36,0.55)'
-                  : '0 6px 0 #052e16, 0 0 24px rgba(22,163,74,0.4)',
-                animation: 'lr-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both',
-              }}>
-              <p className="font-pixel" style={{
-                fontSize: 11, color: '#FCA5A5', letterSpacing: 3,
-                animation: 'lr-shake-text 0.45s steps(8, end)',
-              }}>GAME OVER</p>
-              {isNewBest && (
-                <p className="font-pixel" style={{
-                  fontSize: 8, color: '#FBBF24', letterSpacing: 2,
-                  textShadow: '2px 2px 0 #92400E',
-                  animation: 'lr-new-best-pulse 0.9s ease-in-out infinite',
-                }}>* NEW BEST *</p>
-              )}
-              <div className="flex items-center gap-4 mt-1">
-                <div className="flex flex-col items-center">
-                  <span className="font-pixel" style={{ fontSize: 6, color: '#A3F0C0', letterSpacing: 1 }}>SCORE</span>
-                  <CountUp target={gameOverScore} duration={600} style={{
-                    fontFamily: '"Press Start 2P"', fontSize: 22, color: '#FFFFFF',
-                  }} />
-                </div>
-                <div style={{ width: 1, height: 28, background: '#3A2A60' }} />
-                <div className="flex flex-col items-center">
-                  <span className="font-pixel inline-flex items-center gap-1" style={{ fontSize: 6, color: '#FDE68A', letterSpacing: 1 }}><IconCoin size={8} /> COINS</span>
-                  <span className="font-pixel" style={{ fontSize: 22, color: '#FDE68A' }}>{coins}</span>
-                </div>
-              </div>
-              <span className="font-pixel" style={{ fontSize: 6, color: '#9CA3AF', marginTop: 4 }}>BEST {bestScore}</span>
-              {reward && (<div className="mb-3"><GameCoinReward coins={reward.coins} blocked={reward.blocked} /></div>)}
-              <div className="flex items-center gap-2 mt-2">
-                <button onClick={() => { playSound('ui_tap'); reset() }}
-                  className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-                  style={{
-                    background: 'linear-gradient(135deg, #16A34A 0%, #166534 100%)',
-                    border: '2px solid #052e16',
-                    borderRadius: 3,
-                    boxShadow: '0 4px 0 #052e16',
-                    fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5,
-                  }}>
-                  <RefreshCw size={11} /> AGAIN
-                </button>
-                <button onClick={() => { playSound('ui_back'); router.back() }}
-                  className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-                  style={{
-                    background: 'linear-gradient(135deg, #475569 0%, #1F2937 100%)',
-                    border: '2px solid #0F172A',
-                    borderRadius: 3,
-                    boxShadow: '0 4px 0 #0F172A',
-                    fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5,
-                  }}>
-                  EXIT
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Header + stats — the shared Meadow game chrome. */}
+      <GameTopBar title="Lane Runner" onBack={() => { playSound('ui_back'); router.back() }} />
+
+      {phase !== 'idle' && (
+        <GameStatRow>
+          <GameStat icon={<IconStar size={16} />} value={score} pulse={scorePulse} ariaLabel={`Score ${score}`} />
+          {streak >= 3 && (
+            <GameStat label="Streak" value={`×${streak}`} tone={streak >= 8 ? 'hot' : 'plain'} pulse={streak} />
+          )}
+          <GameStat
+            value={
+              <span className="inline-flex items-center" style={{ gap: 6 }}>
+                {Math.floor(distanceRef.current)}m
+                <span aria-hidden style={{ width: 1, height: 16, background: M.hairline }} />
+                <IconCoin size={16} />
+                {coins}
+              </span>
+            }
+            ariaLabel={`${Math.floor(distanceRef.current)} metres, ${coins} coins`}
+          />
+        </GameStatRow>
+      )}
+
+      {/* ── Idle intro ─────────────────────────────────────────────────────── */}
+      {phase === 'idle' && (
+        <GameStartCard
+          title="Lane Runner"
+          art={(['dog', 'cucumber', 'coin', 'fish'] as const).map(v => (
+            <GameArtTile key={v} size={44} tint={isObstacle(v) ? M.dangerTint : M.energyTint}>
+              <span style={{ position: 'relative', display: 'block', width: 32, height: 32 }}>
+                <ItemArt variant={v} reduced={reduced} />
+              </span>
+            </GameArtTile>
+          ))}
+          best={bestScore}
+          onStart={() => { playSound('ui_tap'); startGame() }}
+        >
+          Swipe left and right to change lanes. Dodge the dogs and other hazards,
+          and grab coins, fish and mice on the way.
+        </GameStartCard>
+      )}
+
+      {/* ── Game over ──────────────────────────────────────────────────────── */}
+      {phase === 'gameover' && (
+        <GameResultCard
+          headline="Game over"
+          score={<CountUp target={gameOverScore} duration={600} />}
+          newBest={isNewBest}
+          best={bestScore}
+          stats={[
+            { label: 'Distance', value: `${Math.floor(distanceRef.current)}m` },
+            {
+              label: 'Coins',
+              value: (
+                <span className="inline-flex items-center" style={{ gap: 4 }}>
+                  <IconCoin size={14} />{coins}
+                </span>
+              ),
+            },
+          ]}
+          reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
+          onAgain={() => { playSound('ui_tap'); reset() }}
+          onBack={() => { playSound('ui_back'); router.back() }}
+        />
+      )}
 
       <style jsx global>{`
         /* Juke — he leans into a lane change and springs back upright. This
@@ -1108,15 +1031,6 @@ export default function LaneRunnerGame() {
           78%  { transform: translateY(0);     opacity: 1; }
           100% { transform: translateY(-10px); opacity: 0; }
         }
-        @keyframes lr-pop {
-          0%   { transform: scale(0.7); opacity: 0; }
-          100% { transform: scale(1);   opacity: 1; }
-        }
-        @keyframes lr-score-pulse {
-          0%   { transform: scale(1);    color: #FFFFFF; }
-          50%  { transform: scale(1.18); color: #FCD34D; }
-          100% { transform: scale(1);    color: #FFFFFF; }
-        }
         @keyframes lr-hit-flash {
           0%   { opacity: 0.7; }
           100% { opacity: 0;   }
@@ -1129,23 +1043,6 @@ export default function LaneRunnerGame() {
           60%  { transform: translate(3px, 3px); }
           75%  { transform: translate(-2px, 1px); }
           100% { transform: translate(0, 0); }
-        }
-        @keyframes lr-shake-text {
-          0%   { transform: translate(0, 0); }
-          20%  { transform: translate(-2px, 1px); }
-          40%  { transform: translate(2px, -1px); }
-          60%  { transform: translate(-1px, -2px); }
-          80%  { transform: translate(1px, 2px); }
-          100% { transform: translate(0, 0); }
-        }
-        @keyframes lr-streak-pop {
-          0%   { transform: scale(0.5); opacity: 0; }
-          70%  { transform: scale(1.15); opacity: 1; }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        @keyframes lr-new-best-pulse {
-          0%, 100% { transform: scale(1);    text-shadow: 2px 2px 0 #92400E; }
-          50%      { transform: scale(1.08); text-shadow: 2px 2px 0 #92400E, 0 0 8px #FBBF24; }
         }
       `}</style>
     </div>

@@ -2,7 +2,6 @@
 
 import { memo, useEffect, useReducer, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useCat } from '@/hooks/useCat'
@@ -16,6 +15,10 @@ import ErenReact, { useErenReaction } from '@/components/games/ErenReact'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
 import { IconCrown, IconStar } from '@/components/PixelIcons'
+import {
+  GameTopBar, GameStatRow, GameStat, GameStartCard, GameArtTile, GameResultCard, GAME_BOARD_TOP,
+} from '@/components/games/GameChrome'
+import { FONT_ROUNDED, M, Tag } from '@/components/meadow'
 import { fireMinigameDone } from '@/lib/minigames'
 import { StackRidge, StackHills, StackClouds, ErenRider, CLOUD_BAND, type RiderPose } from '@/components/games/ErenStackScenery'
 
@@ -81,7 +84,7 @@ const SKIES = [
  *  and darken as you climb, so the ground reads as falling away into haze. */
 /** What to call each sky tier. The gradient already changed every 12 pieces;
  *  naming it turns a wallpaper swap into a milestone the player can aim at. */
-const TIER_NAME = ['GROUND', 'SUNSET', 'DUSK', 'NIGHT', 'SPACE'] as const
+const TIER_NAME = ['Ground', 'Sunset', 'Dusk', 'Night', 'Space'] as const
 
 const SCENERY_TONE: Array<[string, string]> = [
   ['#8FBFE8', '#5E93C4'], // day
@@ -511,26 +514,50 @@ export default function ErenStackGame() {
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col game-shell" style={{ background: '#0F0A1E' }}>
-      {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0 relative z-30" style={{
-        background: 'rgba(0,0,0,0.55)',
-        borderBottom: '2px solid rgba(255,255,255,0.18)',
-      }}>
-        <button onClick={() => { playSound('ui_back'); router.back() }}
-          className="flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
-          style={{ width: 32, height: 32, background: 'rgba(255,255,255,0.18)', borderRadius: 6, border: '2px solid rgba(255,255,255,0.45)', boxShadow: '0 2px 0 rgba(0,0,0,0.25)' }}>
-          <ChevronLeft size={16} className="text-white" />
-        </button>
-        <span className="font-pixel text-white px-2.5 py-1.5 min-w-0 truncate"
-          style={{ background: 'linear-gradient(135deg, #1D4ED8, #3B82F6)', border: '2px solid #1E3A8A', borderRadius: 4, fontSize: 8, letterSpacing: 2, boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
-          {cat.t('{NAME} STACK')}
-        </span>
-        <div className="flex-1" />
-        <div className="flex items-center gap-1.5 px-2 py-1.5 font-pixel flex-shrink-0"
-          style={{ background: 'rgba(0,0,0,0.4)', border: '2px solid rgba(255,255,255,0.4)', borderRadius: 4, fontSize: 8, color: '#FDE68A' }}>
-          BEST {bestScore}
+      {/* Header + stats — the shared Meadow game chrome. The field below now
+          fills the whole shell, so the sky runs up behind the white pills the
+          way a room does; the swinging lane sits at ~45% of the field height,
+          well under the chrome. */}
+      <GameTopBar title={cat.t('{name} Stack')} onBack={() => { playSound('ui_back'); router.back() }} />
+
+      <GameStatRow>
+        {/* Pulses on every drop; amber after a perfect. */}
+        <GameStat icon={<IconStar size={16} />} value={score}
+          tone={scorePulse?.perfect ? 'hot' : 'plain'} pulse={scorePulse?.id}
+          ariaLabel={`Score ${score}`} />
+        {phase !== 'idle' && perfectStreak >= 2 && (
+          <GameStat label="Perfect" value={`×${perfectStreak}`} tone="hot" pulse={perfectStreak} />
+        )}
+        <GameStat icon={<IconCrown size={16} />} label="Best" value={bestScore} />
+        {/* Streak-broken ghost — a brief red pill where the streak stat was,
+            shaking then fading (the keyframe carries the -50% centring). */}
+        {phase !== 'idle' && streakBreak > 0 && (
+          <span key={`streakbreak-${streakBreak}`} aria-hidden style={{
+            position: 'absolute', left: '50%', top: 0, height: 36,
+            display: 'inline-flex', alignItems: 'center', padding: '0 14px',
+            borderRadius: 999, background: M.dangerTint, color: M.danger,
+            fontFamily: FONT_ROUNDED, fontSize: 14, fontWeight: 800, whiteSpace: 'nowrap',
+            animation: 'stk-streak-break 420ms steps(8, end) forwards',
+          }}>
+            Streak lost
+          </span>
+        )}
+      </GameStatRow>
+
+      {/* Altitude band. Keyed on the tier so crossing one re-triggers the
+          pop — the sky change and the label land together. */}
+      {phase !== 'idle' && (
+        <div className="meadow-root absolute inset-x-0 flex justify-center pointer-events-none" style={{
+          top: GAME_BOARD_TOP, zIndex: 20,
+        }}>
+          <span key={`tier-${skyIdx}`} style={{
+            display: 'inline-flex',
+            animation: reduced ? undefined : 'stk-pop 320ms cubic-bezier(0.34,1.56,0.64,1)',
+          }}>
+            <Tag size="sm" tone="soft" style={{ background: '#FFFFFF' }}>{TIER_NAME[skyIdx]}</Tag>
+          </span>
         </div>
-      </div>
+      )}
 
       {/* Field. Inner shake host re-keys on miss to retrigger CSS shake without
           remounting the field (fieldRef stays attached so measure() values
@@ -646,75 +673,6 @@ export default function ErenStackGame() {
           })()}
         </div>
 
-        {/* Score (in viewport space, above the tower). Pulses on every drop;
-            tints gold on perfect. Key re-trigger plays the keyframe. */}
-        {phase !== 'idle' && (
-          <div
-            key={`score-${scorePulse?.id ?? 0}`}
-            className="absolute font-pixel pointer-events-none"
-            style={{
-              top: 18, left: '50%', transform: 'translateX(-50%)',
-              fontSize: 36,
-              color: scorePulse?.perfect ? '#FDE68A' : 'white',
-              textShadow: scorePulse?.perfect
-                ? '3px 3px 0 #000, 0 0 12px rgba(253,224,71,0.6)'
-                : '3px 3px 0 #000, 0 0 10px rgba(255,255,255,0.4)',
-              letterSpacing: 2,
-              animation: scorePulse ? 'stk-score-pulse 180ms cubic-bezier(0.34,1.56,0.64,1)' : undefined,
-              transition: 'color 220ms',
-            }}>
-            {score}
-          </div>
-        )}
-
-        {/* Altitude band. Keyed on the tier so crossing one re-triggers the
-            pop — the sky change and the label land together. */}
-        {phase !== 'idle' && (
-          <div key={`tier-${skyIdx}`} className="absolute font-pixel pointer-events-none" style={{
-            top: 60, left: '50%', transform: 'translateX(-50%)',
-            fontSize: 6, letterSpacing: 3, color: 'rgba(255,255,255,0.85)',
-            textShadow: '1px 1px 0 rgba(0,0,0,0.8)',
-            animation: reduced ? undefined : 'stk-pop 320ms cubic-bezier(0.34,1.56,0.64,1)',
-          }}>
-            {TIER_NAME[skyIdx]}
-          </div>
-        )}
-
-        {/* Perfect streak badge — pops in on entry, shakes red on break. */}
-        {phase !== 'idle' && perfectStreak >= 2 && (
-          <div
-            key={`streak-${perfectStreak}`}
-            className="absolute font-pixel pointer-events-none" style={{
-              top: 78, left: '50%', transform: 'translateX(-50%)',
-              background: 'rgba(0,0,0,0.5)',
-              border: '2px solid #FDE68A',
-              borderRadius: 3,
-              padding: '4px 10px',
-              fontSize: 8, color: '#FDE68A', letterSpacing: 2,
-              boxShadow: '0 0 12px rgba(253,224,71,0.5)',
-              animation: 'stk-streak-in 220ms cubic-bezier(0.34,1.56,0.64,1)',
-            }}>
-            x{perfectStreak} PERFECT
-          </div>
-        )}
-        {/* Streak-broken ghost — brief red flash where the badge was. */}
-        {phase !== 'idle' && streakBreak > 0 && (
-          <div
-            key={`streakbreak-${streakBreak}`}
-            className="absolute font-pixel pointer-events-none" style={{
-              top: 78, left: '50%', transform: 'translateX(-50%)',
-              background: 'rgba(0,0,0,0.5)',
-              border: '2px solid #FCA5A5',
-              borderRadius: 3,
-              padding: '4px 10px',
-              fontSize: 8, color: '#FCA5A5', letterSpacing: 2,
-              boxShadow: '0 0 12px rgba(252,165,165,0.5)',
-              animation: 'stk-streak-break 420ms steps(8, end) forwards',
-            }}>
-            STREAK BROKEN
-          </div>
-        )}
-
         {/* Floater */}
         {floater && (
           <div className="absolute pointer-events-none font-pixel" style={{
@@ -762,77 +720,49 @@ export default function ErenStackGame() {
             animation: 'stk-miss-flash 200ms steps(4, end) forwards',
           }} />
         )}
-
-        {/* Idle */}
-        {phase === 'idle' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none">
-            <div style={{
-              padding: '14px 22px',
-              background: 'rgba(0,0,0,0.55)',
-              border: '3px solid rgba(255,255,255,0.5)',
-              borderRadius: 6,
-              boxShadow: '0 4px 0 rgba(0,0,0,0.4)',
-            }}>
-              <p className="font-pixel text-white text-center" style={{ fontSize: 9, letterSpacing: 2 }}>TAP TO START</p>
-              <p className="font-pixel text-center mt-2" style={{ fontSize: 6, color: '#A3F0C0', letterSpacing: 1 }}>TAP AGAIN TO DROP · STACK HIGH</p>
-            </div>
-          </div>
-        )}
-
-        {/* Game over */}
-        {phase === 'gameover' && (
-          <div className="absolute inset-0 flex items-center justify-center"
-            style={{ background: 'rgba(8,5,18,0.7)', backdropFilter: 'blur(2px)' }}>
-            <div className="flex flex-col items-center gap-3 px-6 py-5"
-              style={{
-                background: 'linear-gradient(180deg, #15122A 0%, #0F0A1E 100%)',
-                border: '3px solid #3B82F6',
-                borderRadius: 6,
-                boxShadow: '0 6px 0 #1E3A8A, 0 0 24px rgba(59,130,246,0.4)',
-                animation: 'stk-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both',
-              }}>
-              <p className="font-pixel" style={{ fontSize: 11, color: '#FCA5A5', letterSpacing: 3 }}>GAME OVER</p>
-              <div className="flex items-center gap-4 mt-1">
-                <div className="flex flex-col items-center">
-                  <span className="font-pixel" style={{ fontSize: 6, color: '#A3F0C0', letterSpacing: 1 }}>HEIGHT</span>
-                  <span className="font-pixel text-white" style={{ fontSize: 22 }}>{score}</span>
-                </div>
-                <div style={{ width: 1, height: 28, background: '#3A2A60' }} />
-                <div className="flex flex-col items-center">
-                  <span className="font-pixel" style={{ fontSize: 6, color: '#FDE68A', letterSpacing: 1 }}>BEST</span>
-                  <span className="font-pixel" style={{ fontSize: 22, color: '#FDE68A' }}>{bestScore}</span>
-                </div>
-              </div>
-              {reward && (<div className="mb-3"><GameCoinReward coins={reward.coins} blocked={reward.blocked} /></div>)}
-              <div className="flex items-center gap-2 mt-3">
-                <button onClick={() => { playSound('ui_tap'); reset() }}
-                  className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-                  style={{
-                    background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
-                    border: '2px solid #1E3A8A',
-                    borderRadius: 3,
-                    boxShadow: '0 4px 0 #1E3A8A',
-                    fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5,
-                  }}>
-                  <RefreshCw size={11} /> AGAIN
-                </button>
-                <button onClick={() => { playSound('ui_back'); router.back() }}
-                  className="px-5 py-2 text-white active:translate-y-[2px] transition-transform inline-flex items-center gap-2"
-                  style={{
-                    background: 'linear-gradient(135deg, #475569 0%, #1F2937 100%)',
-                    border: '2px solid #0F172A',
-                    borderRadius: 3,
-                    boxShadow: '0 4px 0 #0F172A',
-                    fontFamily: '"Press Start 2P"', fontSize: 8, letterSpacing: 1.5,
-                  }}>
-                  EXIT
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
       </div>
+
+      {/* Idle. The card's layer is pointer-events:none, so a tap anywhere on
+          the field outside the card still starts the round, as it always has. */}
+      {phase === 'idle' && (
+        <GameStartCard
+          title={cat.t('{name} Stack')}
+          art={<>
+            {[0, 2, 3].map(i => {
+              const p = PALETTES[i]
+              return (
+                <GameArtTile key={i} size={38} tint={`${p.fill}33`}>
+                  <span style={{
+                    width: 26, height: 14, boxSizing: 'border-box', borderRadius: 3,
+                    background: `linear-gradient(180deg, ${p.light} 0%, ${p.fill} 50%, ${p.edge} 100%)`,
+                    border: `2px solid ${p.edge}`,
+                  }} />
+                </GameArtTile>
+              )
+            })}
+            <GameArtTile size={38}><ErenRider pose="cheer" size={26} /></GameArtTile>
+          </>}
+          best={bestScore}
+          onStart={() => { playSound('ui_tap'); startGame() }}
+        >
+          Tap to drop the swinging block onto the tower. Land it dead on to keep
+          its full width, and chain perfect drops for bigger points.
+        </GameStartCard>
+      )}
+
+      {/* Game over */}
+      {phase === 'gameover' && (
+        <GameResultCard
+          headline="Game over"
+          score={score}
+          scoreLabel="height"
+          best={bestScore}
+          reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
+          onAgain={() => { playSound('ui_tap'); reset() }}
+          onBack={() => { playSound('ui_back'); router.back() }}
+        />
+      )}
 
       <style jsx global>{`
         @keyframes stk-pop {
@@ -857,18 +787,6 @@ export default function ErenStackGame() {
           60%  { transform: translate(3px, 1px); }
           80%  { transform: translate(-2px, -1px); }
           100% { transform: translate(0, 0); }
-        }
-        /* Score number — quick scale-up + snap-back on every placement. */
-        @keyframes stk-score-pulse {
-          0%   { transform: translateX(-50%) scale(1); }
-          45%  { transform: translateX(-50%) scale(1.18); }
-          100% { transform: translateX(-50%) scale(1); }
-        }
-        /* Streak badge entrance — overshoot pop. */
-        @keyframes stk-streak-in {
-          0%   { transform: translateX(-50%) scale(0.6); opacity: 0; }
-          60%  { transform: translateX(-50%) scale(1.15); opacity: 1; }
-          100% { transform: translateX(-50%) scale(1); opacity: 1; }
         }
         /* Streak-broken ghost — shake then fade. */
         @keyframes stk-streak-break {
@@ -992,7 +910,3 @@ function PieceTexture({ variant, edge }: { variant: number; edge: string }) {
     </>
   )
 }
-
-// Avoid unused import warning — IconCrown / IconStar aren't shown but we keep
-// them imported in case we want decorative chips later.
-void IconCrown; void IconStar

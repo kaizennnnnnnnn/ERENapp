@@ -10,11 +10,13 @@ import { useGameRewards, type GameRewardResult } from '@/hooks/useGameRewards'
 import { useGameTimers } from '@/hooks/useGameTimers'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import GameCoinReward from '@/components/games/GameCoinReward'
-import { ChevronLeft, RefreshCw } from 'lucide-react'
 import {
   IconYarn, IconFish, IconPaw, IconMouse, IconHeart, IconStar,
-  IconCrown,
 } from '@/components/PixelIcons'
+import {
+  GameTopBar, GameStatRow, GameStat, GAME_STAT_URGENT, GameFootnote, GameStartCard, GameArtTile, GameResultCard,
+} from '@/components/games/GameChrome'
+import { MeadowIcon } from '@/components/meadow'
 import { fireMinigameDone } from '@/lib/minigames'
 import { playSound } from '@/lib/sounds'
 
@@ -357,116 +359,33 @@ export default function MemoryMatchGame() {
         transition: 'opacity 0.4s ease',
       }} />
 
-      {/* Header */}
-      <div className="absolute top-0 inset-x-0 pt-3 px-3 z-30 flex items-center gap-2">
-        <button onClick={() => { playSound('ui_back'); router.back() }}
-          className="flex items-center justify-center active:scale-90 transition-transform"
-          style={{ width: 34, height: 34, background: 'rgba(255,255,255,0.1)', borderRadius: 6, border: '2px solid rgba(167,139,250,0.5)', boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
-          <ChevronLeft size={18} className="text-purple-200" />
-        </button>
-        <div className="flex-1 flex items-center justify-center">
-          <span className="font-pixel text-white px-3 py-1.5"
-            style={{ background: 'rgba(0,0,0,0.4)', border: '2px solid rgba(167,139,250,0.6)', borderRadius: 4, fontSize: 7, letterSpacing: 1.5, textShadow: '1px 1px 0 rgba(0,0,0,0.5)' }}>
-            PURR-FECT MEMORY
-          </span>
-        </div>
-        <div style={{ width: 34 }} />
-      </div>
+      {/* Header + stats — the shared Meadow game chrome. */}
+      <GameTopBar title="Purr-fect Memory" onBack={() => { playSound('ui_back'); router.back() }} />
 
-      {/* Score & timer bar */}
-      <div className="absolute top-14 inset-x-0 px-3 z-20 flex items-center justify-between gap-2">
-        <div key={`score-${scorePulseKey}`} className="flex items-center gap-1 px-2 py-1"
-          style={{ background: 'rgba(0,0,0,0.5)', border: '2px solid rgba(167,139,250,0.5)', borderRadius: 4, boxShadow: '0 2px 0 rgba(0,0,0,0.3)',
-            animation: scorePulseKey > 0 ? 'scorePulse 0.28s steps(4, end)' : 'none',
-            transformOrigin: 'center' }}>
-          <IconStar size={12} />
-          <span className="font-pixel" style={{ fontSize: 9, textShadow: '1px 1px 0 rgba(0,0,0,0.6)', letterSpacing: 1,
-            color: scorePulseKey > 0 ? '#FFD760' : '#FDE68A',
-            transition: 'color 0.25s ease' }}>{score}</span>
-        </div>
-        <div className="flex items-center gap-1 px-2 py-1"
-          style={{ background: timeLeft <= 10 ? 'rgba(127,0,0,0.5)' : 'rgba(0,0,0,0.5)',
-            border: timeLeft <= 10 ? '2px solid rgba(248,113,113,0.6)' : '2px solid rgba(167,139,250,0.5)',
-            borderRadius: 4, boxShadow: '0 2px 0 rgba(0,0,0,0.3)',
-            animation: !reduced && timeLeft <= 10 && gameState === 'running' ? 'timerPulse 0.6s ease-in-out infinite' : 'none' }}>
-          <span className="font-pixel" style={{ fontSize: 9, color: timeLeft <= 10 ? '#FFA0A0' : '#C4B5FD', letterSpacing: 1 }}>
-            {String(Math.floor(timeLeft / 60)).padStart(1, '0')}:{String(timeLeft % 60).padStart(2, '0')}
-          </span>
-        </div>
-        <div key={`combo-${comboPulseKey}`} className="flex items-center gap-1 px-2 py-1 relative"
-          style={{
-            background: combo >= 2 ? 'linear-gradient(135deg, rgba(255,100,150,0.45), rgba(255,200,40,0.45))' : 'rgba(0,0,0,0.5)',
-            border: combo >= 2 ? '2px solid #FFD700' : '2px solid rgba(167,139,250,0.5)',
-            borderRadius: 4,
-            boxShadow: combo >= 2 ? '0 2px 0 rgba(0,0,0,0.3), 0 0 8px rgba(255,215,0,0.5)' : '0 2px 0 rgba(0,0,0,0.3)',
-            transition: 'background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
-            animation: comboPulseKey > 0 ? 'comboPop 0.36s cubic-bezier(0.34,1.56,0.64,1)' : 'none',
-            transformOrigin: 'center',
-          }}>
-          {comboPulseKey > 0 && combo >= 2 && (
-            <span aria-hidden className="absolute inset-0 pointer-events-none" style={{
-              borderRadius: 4,
-              boxShadow: '0 0 0 2px #FFD700',
-              animation: 'comboRing 0.42s ease-out',
-            }} />
-          )}
-          <span className="font-pixel" style={{ fontSize: 8, color: combo >= 2 ? '#FFF8C8' : '#A0A0C8', letterSpacing: 1 }}>
-            COMBO x{combo}
-          </span>
-        </div>
-      </div>
+      <GameStatRow>
+        <GameStat icon={<IconStar size={16} />} value={score} pulse={scorePulseKey} ariaLabel={`Score ${score}`} />
+        <GameStat
+          icon={<MeadowIcon name="clock" size={18} />}
+          value={`${Math.floor(timeLeft / 60)}:${String(timeLeft % 60).padStart(2, '0')}`}
+          tone={timeLeft <= 10 ? 'warn' : 'plain'}
+          style={!reduced && timeLeft <= 10 && gameState === 'running' ? GAME_STAT_URGENT : undefined}
+        />
+        <GameStat label="Combo" value={`×${combo}`} tone={combo >= 2 ? 'hot' : 'plain'} pulse={comboPulseKey} />
+      </GameStatRow>
 
       {/* ── Idle intro screen ──────────────────────────────────────────────── */}
-      {/* pointer-events-none so this full-screen overlay doesn't sit on top of
-          the header back button (same z-30) and swallow its taps — only the
-          START button below opts back into pointer events. */}
       {gameState === 'idle' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-30 pointer-events-none">
-          <div className="px-6 py-6 max-w-[320px] text-center relative"
-            style={{ background: 'linear-gradient(135deg, rgba(60,20,110,0.92), rgba(30,10,70,0.92))', border: '3px solid #A78BFA', borderRadius: 6, boxShadow: '0 6px 0 #4C1D95, 0 0 18px rgba(167,139,250,0.4)' }}>
-            <div className="flex items-center justify-center gap-2 mb-3">
-              <IconStar size={16} />
-              <p className="font-pixel text-white" style={{ fontSize: 10, letterSpacing: 2 }}>PURR-FECT</p>
-              <IconStar size={16} />
-            </div>
-            <p className="font-pixel text-amber-200 mb-4" style={{ fontSize: 14, letterSpacing: 1 }}>MEMORY</p>
-
-            <div className="flex gap-2 justify-center mb-4 flex-wrap">
-              {KINDS.slice(0, 6).map(k => {
-                const Icon = KIND_META[k].Icon
-                return (
-                  <div key={k} style={{
-                    width: 28, height: 28,
-                    background: 'rgba(255,255,255,0.08)',
-                    border: `2px solid ${KIND_META[k].tint}aa`,
-                    borderRadius: 3,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <Icon size={18} />
-                  </div>
-                )
-              })}
-            </div>
-
-            <p className="text-purple-200 text-xs leading-relaxed mb-1">
-              Flip two cards at a time. Match all six pairs
-              before time runs out. <br />
-              <span className="text-amber-300">Consecutive matches chain into combos</span> for bonus points.
-            </p>
-          </div>
-
-          <button onClick={() => { playSound('ui_tap'); start() }}
-            className="px-8 py-3 text-white active:translate-y-[2px] transition-transform pointer-events-auto"
-            style={{
-              background: 'linear-gradient(135deg, #EC4899 0%, #C026D3 50%, #9333EA 100%)',
-              border: '3px solid #6B21A8',
-              borderRadius: 4,
-              boxShadow: '0 5px 0 #4C1D95, inset 0 1px 0 rgba(255,255,255,0.35), 0 0 14px rgba(192,38,211,0.6)',
-              fontFamily: '"Press Start 2P"', fontSize: 10, letterSpacing: 2,
-            }}>
-            ▶ START
-          </button>
-        </div>
+        <GameStartCard
+          title="Purr-fect Memory"
+          art={KINDS.slice(0, 6).map(k => {
+            const Icon = KIND_META[k].Icon
+            return <GameArtTile key={k} size={38} tint={`${KIND_META[k].tint}26`}><Icon size={22} /></GameArtTile>
+          })}
+          onStart={() => { playSound('ui_tap'); start() }}
+        >
+          Flip two cards at a time and match all six pairs before time runs out.
+          Matches in a row chain into combos for bonus points.
+        </GameStartCard>
       )}
 
       {/* ── Board ──────────────────────────────────────────────────────────── */}
@@ -636,12 +555,7 @@ export default function MemoryMatchGame() {
 
       {/* Footer — flips counter */}
       {gameState === 'running' && (
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 px-3 py-1"
-          style={{ background: 'rgba(0,0,0,0.5)', border: '2px solid rgba(167,139,250,0.4)', borderRadius: 4 }}>
-          <span className="font-pixel text-purple-200" style={{ fontSize: 7, letterSpacing: 1 }}>
-            FLIPS: {flips} · MATCHES: {matchedCount / 2}/6
-          </span>
-        </div>
+        <GameFootnote>Flips {flips} · Pairs {matchedCount / 2}/6</GameFootnote>
       )}
 
       {/* Confetti */}
@@ -658,50 +572,18 @@ export default function MemoryMatchGame() {
 
       {/* ── Finish screen ───────────────────────────────────────────────────── */}
       {gameState === 'finished' && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 p-6"
-          style={{ background: 'rgba(15,5,35,0.82)', backdropFilter: 'blur(4px)' }}>
-          <div className="px-6 py-6 max-w-[340px] w-full text-center relative"
-            style={{ background: 'linear-gradient(180deg, #2D1659 0%, #180736 100%)', border: '3px solid #A78BFA', borderRadius: 6, boxShadow: '0 6px 0 #4C1D95, 0 0 24px rgba(167,139,250,0.5)' }}>
-            <div className="flex justify-center mb-3">
-              <IconCrown size={28} />
-            </div>
-            <p className="font-pixel text-amber-300 mb-1" style={{ fontSize: 9, letterSpacing: 2 }}>
-              {matchedCount === deck.length ? 'PURR-FECT!' : 'TIME UP'}
-            </p>
-            <p className="font-pixel text-white mb-4" style={{ fontSize: 28, textShadow: '2px 2px 0 #4C1D95' }}>
-              {finalScore}
-            </p>
-            <div className="grid grid-cols-3 gap-2 text-xs mb-4">
-              <div className="px-2 py-2" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(167,139,250,0.35)', borderRadius: 3 }}>
-                <p className="font-pixel text-purple-300" style={{ fontSize: 5, letterSpacing: 1 }}>MATCHES</p>
-                <p className="font-pixel text-white mt-1" style={{ fontSize: 10 }}>{matchedCount / 2}/6</p>
-              </div>
-              <div className="px-2 py-2" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(167,139,250,0.35)', borderRadius: 3 }}>
-                <p className="font-pixel text-purple-300" style={{ fontSize: 5, letterSpacing: 1 }}>FLIPS</p>
-                <p className="font-pixel text-white mt-1" style={{ fontSize: 10 }}>{flips}</p>
-              </div>
-              <div className="px-2 py-2" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(167,139,250,0.35)', borderRadius: 3 }}>
-                <p className="font-pixel text-purple-300" style={{ fontSize: 5, letterSpacing: 1 }}>TIME</p>
-                <p className="font-pixel text-white mt-1" style={{ fontSize: 10 }}>{GAME_DURATION - timeLeft}s</p>
-              </div>
-            </div>
-            {reward && (<div className="mb-3"><GameCoinReward coins={reward.coins} blocked={reward.blocked} /></div>)}
-
-            <div className="flex gap-2 justify-center">
-              <button onClick={() => { playSound('ui_tap'); start() }}
-                className="flex items-center gap-1.5 px-4 py-2 text-white active:translate-y-[2px] transition-transform"
-                style={{ background: 'linear-gradient(135deg, #A78BFA, #7C3AED)', border: '2px solid #5B21B6', borderRadius: 3, boxShadow: '0 3px 0 #4C1D95', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
-                <RefreshCw size={12} />
-                AGAIN
-              </button>
-              <button onClick={() => { playSound('ui_back'); router.back() }}
-                className="px-4 py-2 text-white active:translate-y-[2px] transition-transform"
-                style={{ background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(167,139,250,0.5)', borderRadius: 3, boxShadow: '0 3px 0 rgba(0,0,0,0.3)', fontFamily: '"Press Start 2P"', fontSize: 7 }}>
-                BACK
-              </button>
-            </div>
-          </div>
-        </div>
+        <GameResultCard
+          headline={matchedCount === deck.length ? 'Purr-fect!' : "Time's up"}
+          score={finalScore}
+          stats={[
+            { label: 'Pairs', value: `${matchedCount / 2}/6` },
+            { label: 'Flips', value: flips },
+            { label: 'Time', value: `${GAME_DURATION - timeLeft}s` },
+          ]}
+          reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
+          onAgain={() => { playSound('ui_tap'); start() }}
+          onBack={() => { playSound('ui_back'); router.back() }}
+        />
       )}
 
       {/* Styles */}
@@ -725,27 +607,9 @@ export default function MemoryMatchGame() {
           from { opacity: 1; }
           to   { opacity: 0; }
         }
-        @keyframes timerPulse {
-          0%, 100% { transform: scale(1); }
-          50%      { transform: scale(1.05); }
-        }
         @keyframes confettiFall {
           0%   { transform: translate(-50%, -50%) rotate(0deg); opacity: 1; }
           100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + 320px)) rotate(var(--rot)); opacity: 0; }
-        }
-        @keyframes scorePulse {
-          0%   { transform: scale(1); }
-          40%  { transform: scale(1.15); }
-          100% { transform: scale(1); }
-        }
-        @keyframes comboPop {
-          0%   { transform: scale(1); }
-          40%  { transform: scale(1.25); }
-          100% { transform: scale(1); }
-        }
-        @keyframes comboRing {
-          0%   { box-shadow: 0 0 0 0 #FFD700; opacity: 1; }
-          100% { box-shadow: 0 0 0 8px rgba(255,215,0,0); opacity: 0; }
         }
         @keyframes boardJitter {
           0%, 100% { transform: translate(0, 0); }
