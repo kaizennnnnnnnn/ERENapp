@@ -5,7 +5,7 @@
 // button to a placeholder overlay; the actual table / modes / SRS land in
 // follow-up phases.
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { WeatherMachinePanel } from '@/components/weather/WeatherMachine'
 import WeatherMachineProp from '@/components/weather/WeatherMachineProp'
 import { IconBook, IconFire } from '@/components/PixelIcons'
@@ -20,8 +20,6 @@ import { useIsDark } from '@/hooks/useIsDark'
 import { playSound } from '@/lib/sounds'
 import PeriodicTableOverlay from '@/components/chemistry/PeriodicTableOverlay'
 import PeriodicTableButton from '@/components/chemistry/PeriodicTableButton'
-import BrewOverlay from '@/components/chemistry/BrewOverlay'
-import BrewButton from '@/components/chemistry/BrewButton'
 import { LAB_EREN } from '@/components/chemistry/labEren'
 import { useTasks } from '@/contexts/TaskContext'
 import { getDailyKey, TASK_DEFS } from '@/lib/tasks'
@@ -30,8 +28,7 @@ import RoomWeather from '@/components/weather/RoomWeather'
 interface Props { onClose: () => void }
 
 // Lab idle look (ErenLab, goggles) — default when no Closet skin is set. The
-// measurements live in components/chemistry/labEren so the Brew bench can put
-// the same goggled cat next to its flask.
+// measurements live in components/chemistry/labEren, beside the sprite.
 const CHEM_EREN_FALLBACK = LAB_EREN
 
 export default function ChemistryScene(_props: Props) {
@@ -42,25 +39,11 @@ export default function ChemistryScene(_props: Props) {
   // still purrs when you tap him, like every other room.
   const reaction = useErenReaction()
   const [overlayOpen, setOverlayOpen] = useState(false)
-  const [brewOpen, setBrewOpen] = useState(false)
   const [weatherOpen, setWeatherOpen] = useState(false)
-  // Whether today's brew is already filled, so the beaker on the button reads
-  // as done. Re-checked whenever the overlay closes.
-  const [brewDone, setBrewDone] = useState(false)
-  useEffect(() => {
-    if (brewOpen) return
-    try { setBrewDone(localStorage.getItem(`eren_brew_done_${getDailyKey()}`) === '1') }
-    catch { /* private mode */ }
-  }, [brewOpen])
 
   function openStudy() {
     playSound('ui_tap')
     setOverlayOpen(true)
-  }
-
-  function openBrew() {
-    playSound('ui_tap')
-    setBrewOpen(true)
   }
 
   return (
@@ -91,10 +74,9 @@ export default function ChemistryScene(_props: Props) {
       <RoomMissionChips />
 
 
-      {/* ══ EREN ══ sits on the rug. Halfway between the original (too far)
-          and the previous bump (too close) — then nudged 3% further back once
-          the bench grew a second slab. Percentage, not px, so the clearance
-          holds on a short phone instead of the buttons eating his paws. */}
+      {/* ══ EREN ══ sits on the rug, clear of the study button below him.
+          Percentage, not px, so the clearance holds on a short phone instead
+          of the button eating his paws. */}
       <div className="absolute z-10" style={{
         bottom: '21%',
         left: '50%',
@@ -119,16 +101,13 @@ export default function ChemistryScene(_props: Props) {
           margins, and underneath it half this machine was untappable. */}
       <WeatherMachineProp onOpen={() => { setWeatherOpen(true) }} />
 
-      {/* ══ BOTTOM ACTION BUTTONS ══
-          Two chemistry-dressed pixel slabs SIDE BY SIDE at the bottom of the
-          room. They were stacked, which cost a whole row for two buttons that
-          say the same amount; both were rebuilt to survive at half width (see
-          the note at the head of each). Honours the iOS / Android safe-area
-          inset so the row doesn't sit under the home indicator. */}
-      <div className="absolute inset-x-0 flex justify-center gap-2.5 z-20 px-5"
+      {/* ══ THE STUDY BUTTON ══ centred at the bottom of the room, at the
+          width it was drawn for (see the note at the head of
+          PeriodicTableButton). Honours the iOS / Android safe-area inset so it
+          doesn't sit under the home indicator. */}
+      <div className="absolute inset-x-0 flex justify-center z-20 px-5"
         style={{ bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }}>
-        <div className="flex w-full gap-2.5" style={{ maxWidth: 380 }}>
-          <BrewButton onClick={openBrew} done={brewDone} />
+        <div className="flex w-full" style={{ maxWidth: 200 }}>
           <PeriodicTableButton onClick={openStudy} />
         </div>
       </div>
@@ -139,10 +118,6 @@ export default function ChemistryScene(_props: Props) {
 
       {overlayOpen && (
         <PeriodicTableOverlay onClose={() => setOverlayOpen(false)} />
-      )}
-
-      {brewOpen && (
-        <BrewOverlay onClose={() => setBrewOpen(false)} />
       )}
     </div>
   )

@@ -324,7 +324,7 @@ This already works: Profile → DELETE ACCOUNT → confirm → `delete_my_accoun
 - [ ] **P1.34 [CODE] S**: Move `overscroll-behavior: none` from `body` to `html` (`globals.css:76-79`), and add `overscroll-behavior: contain` to inner scroll areas (chat, sheets, lists). Whole-app bounce is already off in Capacitor, so this CSS covers the rest.
 - [ ] **P1.35 [CODE] S**: Self-host the fonts in place of the Google Fonts `@import` (`globals.css:1-2`). They then work offline, and users' IP addresses stop going to Google.
 - [ ] **P1.36 [YOU] S**: Low Power Mode caps animation at 30 fps ([WebKit](https://bugs.webkit.org/show_bug.cgi?id=215745)). The games checked so far (treat-tumble, jelly jump, paw-doku) already use elapsed time, so this is one device pass inside P5.01, not a code job.
-- [ ] **P1.37 [CODE] M**: iOS can wipe web storage on a nearly full phone ([WebKit](https://webkit.org/blog/14403/updates-to-storage-policy/)). Move the potion "one pour a day" limit to Supabase. Let BEST scores and "seen" badges cope with being empty.
+- [ ] **P1.37 [CODE] M**: iOS can wipe web storage on a nearly full phone ([WebKit](https://webkit.org/blog/14403/updates-to-storage-policy/)). Let BEST scores and "seen" badges cope with being empty.
 - [ ] **P1.38 [CODE] M**: Convert room PNGs to WebP and bump the `?v=` query. Rooms load faster in the app and use less Vercel bandwidth.
   - `public/sw.js` lists those PNG paths in `PRECACHE_IMAGES` (lines 32-47). Edit that list and bump `SW_VERSION` in the same commit, or web users keep stale art or hit 404s.
   - Keep the source PNGs: `scripts/build_window_frames.py` reads them to cut the weather overlays.

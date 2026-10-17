@@ -5,10 +5,10 @@
 // and a quiet wink at Eren), a two-line pixel label, and a fizz of bubbles
 // rising off the cell.
 //
-// HALF-WIDTH BY CONSTRUCTION. It shares one row with EREN'S BREW, so every
-// measurement here is sized for ~144px — the narrowest it can be on a 360px
-// phone. That is what retired the big bubbling flask that used to sit on the
-// right: at half width the label had nowhere to go, and a flask nobody can
+// SIZED FOR ~144-200px. It used to share its row with a second slab, so every
+// measurement here is drawn narrow, and the room keeps it at that width,
+// centred. That is what retired the big bubbling flask that used to sit on the
+// right: at that width the label had nowhere to go, and a flask nobody can
 // read is just an expensive 30px. The fizz moved onto the cell instead, which
 // is where it was coming from anyway.
 //

@@ -1,4 +1,4 @@
-// Eren in his lab goggles, shared by the room and the Brew bench.
+// Eren in his lab goggles: the Lab room's own look (ChemistryScene).
 //
 // ErenLab.png wears blue lab goggles, so the eye overlays are retuned to the
 // lenses (measured off the sprite): the blink lids sit over the dark pupils in
@@ -7,8 +7,8 @@
 // reads as the eye closing behind tinted glass and the shine reads as a glassy
 // reflection rather than a stray white dot.
 //
-// Lives in its own module because two components need it and the measurements
-// belong to the sprite, not to either screen.
+// Lives in its own module because the measurements belong to the sprite, not
+// to the screen.
 
 const LAB_EYES = {
   // Blink lids — over the visible pupils.

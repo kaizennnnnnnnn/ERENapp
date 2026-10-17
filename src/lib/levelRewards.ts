@@ -13,7 +13,7 @@
 //
 // Food lands in the claimer's own fridge pile. Skins are a box of a rarity,
 // opened at claim time against what the household already owns. Never put a
-// trophy, a Trophy Room item, a potion or an earned-only look here: those are
+// trophy, a Trophy Room item or an earned-only look here: those are
 // minted somewhere else on purpose (see the Trophy Room and Jelly notes).
 //
 // Labels are built when shown (rewardLabel), not stored, so a renamed food

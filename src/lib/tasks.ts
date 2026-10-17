@@ -11,7 +11,7 @@ export const TASK_DEFS: TaskDef[] = [
   { id: 'daily_wash',  period: 'daily', title: 'Wash {name}',         desc: 'Keep {name} clean and fresh',           icon: '🛁', coins: 25, xp: 20 },
   { id: 'daily_game',  period: 'daily', title: 'Play a Game',         desc: 'Play any mini-game with {name}',        icon: '🎮', coins: 20, xp: 15 },
   { id: 'daily_nudge', period: 'daily', title: 'Send a Nudge',        desc: 'Send your partner a nudge',             icon: '💌', coins: 20, xp: 15 },
-  { id: 'daily_chem_lesson', period: 'daily', title: 'Finish a Lesson',  desc: 'Fill {name}\'s brew, or finish a deck, quiz, or match', icon: '🧪', coins: 35, xp: 15 },
+  { id: 'daily_chem_lesson', period: 'daily', title: 'Finish a Lesson',  desc: 'Complete a chemistry deck, quiz, or match', icon: '🧪', coins: 35, xp: 15 },
   { id: 'daily_chem_streak', period: 'daily', title: '5 in a Row',       desc: 'Get 5 correct in a row in chemistry',        icon: '🔥', coins: 35, xp: 20 },
   // ── Weekly ─────────────────────────────────────────────────────────────────
   { id: 'weekly_all_care',   period: 'weekly', title: 'Full Care Week',   desc: 'Do all 4 care types this week',         icon: '⭐', coins: 60, xp: 100, maxProgress: 4 },

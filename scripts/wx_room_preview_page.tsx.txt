@@ -10,7 +10,6 @@
 
 import { MachineArt, MACHINE_W, MACHINE_H } from '@/components/weather/WeatherMachineProp'
 import { MACHINE_PARTS, type MachinePartId } from '@/lib/weatherMachine'
-import BrewButton from '@/components/chemistry/BrewButton'
 import PeriodicTableButton from '@/components/chemistry/PeriodicTableButton'
 
 const ORDER: MachinePartId[] = MACHINE_PARTS.map(p => p.id)
@@ -53,7 +52,6 @@ function Phone({ w, h, n, night }: { w: number; h: number; n: number; night?: bo
         position: 'absolute', insetInline: 0, bottom: 24, zIndex: 20,
         display: 'flex', gap: 10, padding: '0 20px', justifyContent: 'center',
       }}>
-        <BrewButton onClick={() => {}} />
         <PeriodicTableButton onClick={() => {}} />
       </div>
     </div>
