@@ -2424,6 +2424,24 @@ const MEADOW_ICONS = {
     ],
     palette: { X: '#3F8452', a: '#F2B33D' },
   },
+  // A music note, for the potion that makes him hum.
+  note: {
+    grid: [
+      '.....XXXX...',
+      '.....XXXXXX.',
+      '.....X...XX.',
+      '.....X....X.',
+      '.....X......',
+      '.....X......',
+      '.....X......',
+      '..XXXX......',
+      '.XXXXX......',
+      '.XXXXX......',
+      '..XXX.......',
+      '............',
+    ],
+    palette: { X: '#6E6A66' },
+  },
   // The quests: a parchment scroll between its two rollers, three lines
   // written on it.
   scroll: {

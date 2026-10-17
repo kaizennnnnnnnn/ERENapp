@@ -20,6 +20,8 @@ import { useIsDark } from '@/hooks/useIsDark'
 import { playSound } from '@/lib/sounds'
 import PeriodicTableOverlay from '@/components/chemistry/PeriodicTableOverlay'
 import PeriodicTableButton from '@/components/chemistry/PeriodicTableButton'
+import CauldronProp from '@/components/potions/CauldronProp'
+import PotionMixer from '@/components/potions/PotionMixer'
 import { LAB_EREN } from '@/components/chemistry/labEren'
 import { useTasks } from '@/contexts/TaskContext'
 import { getDailyKey, TASK_DEFS } from '@/lib/tasks'
@@ -40,6 +42,7 @@ export default function ChemistryScene(_props: Props) {
   const reaction = useErenReaction()
   const [overlayOpen, setOverlayOpen] = useState(false)
   const [weatherOpen, setWeatherOpen] = useState(false)
+  const [mixerOpen, setMixerOpen] = useState(false)
 
   function openStudy() {
     playSound('ui_tap')
@@ -101,6 +104,10 @@ export default function ChemistryScene(_props: Props) {
           margins, and underneath it half this machine was untappable. */}
       <WeatherMachineProp onOpen={() => { setWeatherOpen(true) }} />
 
+      {/* ══ THE CAULDRON ══ the Potion Mixer, standing on the floor across
+          the rug from the machine: a pot is where potions come from. */}
+      <CauldronProp onOpen={() => setMixerOpen(true)} />
+
       {/* ══ THE STUDY BUTTON ══ centred at the bottom of the room, at the
           width it was drawn for (see the note at the head of
           PeriodicTableButton). Honours the iOS / Android safe-area inset so it
@@ -119,6 +126,8 @@ export default function ChemistryScene(_props: Props) {
       {overlayOpen && (
         <PeriodicTableOverlay onClose={() => setOverlayOpen(false)} />
       )}
+
+      {mixerOpen && <PotionMixer onClose={() => setMixerOpen(false)} />}
     </div>
   )
 }

@@ -243,6 +243,11 @@ export interface ErenStats {
    * something the other person walks in on.
    */
   donut_effect?: { id: string; until: string } | null
+  // The Lab potion he's on (lib/potions ActivePotion), household-wide like
+  // donut_effect, and every potion either of you has found. Both absent until
+  // migration_potions.sql is pasted; the mixer keeps them on the phone till then.
+  potion?: { id: string; color: string; sparkle: boolean; by: string; until: string } | null
+  potions_found?: string[] | null
   // ── The household's own cat (migration_cat_identity.sql) ─────────────────
   // Optional because the columns only exist once the migration is pasted.
   // Never read them raw: catIdentityFromStats() in lib/catIdentity validates

@@ -161,6 +161,17 @@ with
            'The closet cannot show which rooms your partner dressed'
 
     union all
+    select case when exists (select 1 from information_schema.columns
+                   where table_schema = 'public' and table_name = 'eren_stats'
+                     and column_name = 'potions_found') then 9 else 0 end,
+           'lab: eren_stats.potion + potions_found',
+           case when exists (select 1 from information_schema.columns
+                   where table_schema = 'public' and table_name = 'eren_stats'
+                     and column_name = 'potions_found')
+                then 'ok' else '** paste migration_potions.sql **' end,
+           'Potions and the potion book stay on each phone instead of shared'
+
+    union all
     select case when exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                    where n.nspname = 'public' and p.proname = 'purchase_trophy_item'
                      and pg_get_functiondef(p.oid) like '%machine%') then 9 else 0 end,

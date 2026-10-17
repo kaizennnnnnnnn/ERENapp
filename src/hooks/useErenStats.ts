@@ -476,6 +476,9 @@ function useErenStatsImpl(householdId: string | null) {
               room_skins:     newRow.room_skins,
               closet_favorites: newRow.closet_favorites,
               room_skins_by:    newRow.room_skins_by,
+              // A potion one of you gave him shows on the other phone too.
+              potion:           newRow.potion,
+              potions_found:    newRow.potions_found,
               kiosk_regulars: newRow.kiosk_regulars,
               kiosk_wraps:    newRow.kiosk_wraps,
               // Trophy-shop cosmetics, written the same no-decay-bump way as
@@ -690,6 +693,27 @@ function useErenStatsImpl(householdId: string | null) {
       supabase.from('eren_stats').update({ donut_effect: next }).eq('household_id', householdId).abortSignal(signal))
   }, [householdId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The Lab's potions (lib/potions). Same shape as the donut effect: the
+  // household row, optimistic here, absolute values so a retry can't stack.
+  // Resolve false when the write didn't land (or the column isn't there yet).
+  const savePotion = useCallback(async (next: NonNullable<ErenStats['potion']>): Promise<boolean> => {
+    if (!householdId) return false
+    if (statsRef.current) statsRef.current = { ...statsRef.current, potion: next }
+    setStats(prev => prev ? { ...prev, potion: next } : prev)
+    const { error } = await writeWithRetry(signal =>
+      supabase.from('eren_stats').update({ potion: next }).eq('household_id', householdId).abortSignal(signal))
+    return !error
+  }, [householdId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const savePotionsFound = useCallback(async (next: string[]): Promise<boolean> => {
+    if (!householdId) return false
+    if (statsRef.current) statsRef.current = { ...statsRef.current, potions_found: next }
+    setStats(prev => prev ? { ...prev, potions_found: next } : prev)
+    const { error } = await writeWithRetry(signal =>
+      supabase.from('eren_stats').update({ potions_found: next }).eq('household_id', householdId).abortSignal(signal))
+    return !error
+  }, [householdId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Today's food menu. Both writers go through here so `day` is the only thing
   // that decides whether yesterday's state is extended or thrown away — a stale
   // row from last night must never count toward this morning's menu.
@@ -773,7 +797,7 @@ function useErenStatsImpl(householdId: string | null) {
     stats, loading, error, applyAction, feedWithFood,
     spendCoins, addCoins, saveFoodInventory,
     addToMyFood, addManyToMyFood, consumeMyFood, giftFood,
-    markDonutTasted, noteMenuFed, claimMenu, startDonutEffect,
+    markDonutTasted, noteMenuFed, claimMenu, startDonutEffect, savePotion, savePotionsFound,
     wakeUp, refetch: fetchStats,
   }
 }
