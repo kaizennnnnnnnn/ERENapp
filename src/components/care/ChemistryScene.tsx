@@ -104,8 +104,8 @@ export default function ChemistryScene(_props: Props) {
           margins, and underneath it half this machine was untappable. */}
       <WeatherMachineProp onOpen={() => { setWeatherOpen(true) }} />
 
-      {/* ══ THE CAULDRON ══ the Potion Mixer, standing on the floor across
-          the rug from the machine: a pot is where potions come from. */}
+      {/* ══ THE CAULDRON ══ the Potion Mixer, standing on the rug beside
+          him, across from the machine: a pot is where potions come from. */}
       <CauldronProp onOpen={() => setMixerOpen(true)} />
 
       {/* ══ THE STUDY BUTTON ══ centred at the bottom of the room, at the
