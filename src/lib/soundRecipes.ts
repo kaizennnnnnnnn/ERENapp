@@ -614,4 +614,49 @@ export const SYNTH_RECIPES: Partial<Record<SoundName, SynthRecipe>> = {
                     { at: 260, recipe: { type: 'chord', freqs: [1047, 1568, 2093], duration: 800, shape: 'sine', gain: 0.4 } },
                     { at: 300, recipe: { type: 'noise', duration: 260, gain: 0.05, highpass: 6500 } },
                   ] },
+
+  // ══ The Potion Mixer ═════════════════════════════════════════════════════
+  // A cauldron's voice: low sine bloops and a rumble, then a magic run up the
+  // whole-tone scale (the "something enchanted happened" scale) landing on a
+  // bright G major. Nothing here is a reused gacha stinger, so making a potion
+  // sounds like the pot, not like a prize machine.
+
+  // potion_brew — the 700ms the pot poofs. Bloops that quicken and climb as
+  // it comes to the boil, under a rumble, then a whoosh up as it goes.
+  potion_brew:  { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'noise', duration: 620, gain: 0.16, lowpass: 420 } },
+                    { at: 0,   recipe: { type: 'sweep', freq: [140, 290], duration: 75, shape: 'sine', gain: 0.7 } },
+                    { at: 140, recipe: { type: 'sweep', freq: [170, 350], duration: 70, shape: 'sine', gain: 0.7 } },
+                    { at: 250, recipe: { type: 'sweep', freq: [150, 320], duration: 65, shape: 'sine', gain: 0.7 } },
+                    { at: 335, recipe: { type: 'sweep', freq: [200, 420], duration: 60, shape: 'sine', gain: 0.7 } },
+                    { at: 400, recipe: { type: 'sweep', freq: [240, 500], duration: 50, shape: 'sine', gain: 0.65 } },
+                    { at: 450, recipe: { type: 'sweep', freq: [280, 600], duration: 45, shape: 'sine', gain: 0.6 } },
+                    { at: 490, recipe: { type: 'sweep', freq: [330, 720], duration: 45, shape: 'sine', gain: 0.55 } },
+                    { at: 430, recipe: { type: 'sweep', freq: [300, 1400], duration: 270, shape: 'triangle', gain: 0.3, curve: 'exponential' } },
+                    { at: 470, recipe: { type: 'noise', duration: 230, gain: 0.12, highpass: 2600 } },
+                  ] },
+
+  // potion_made — a potion you've made before. A cork pop, a one-octave
+  // whole-tone run, the chord, two sparkles.
+  potion_made:  { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'sweep', freq: [380, 1250], duration: 55, shape: 'sine', gain: 0.7, curve: 'exponential' } },
+                    { at: 0,   recipe: { type: 'noise', duration: 40, gain: 0.16, highpass: 1800 } },
+                    { at: 70,  recipe: { type: 'arp', notes: [784, 880, 988, 1109, 1245, 1397], step: 45, noteDur: 220, shape: 'triangle', gain: 0.42 } },
+                    { at: 340, recipe: { type: 'chord', freqs: [784, 988, 1175, 1568], duration: 700, shape: 'triangle', gain: 0.5 } },
+                    { at: 380, recipe: { type: 'arp', notes: [2349, 3136], step: 110, noteDur: 140, shape: 'sine', gain: 0.14 } },
+                    { at: 340, recipe: { type: 'noise', duration: 450, gain: 0.04, highpass: 6500 } },
+                  ] },
+
+  // potion_new — one you've never made: it goes in the book, so it gets the
+  // fanfare. The run is two octaves, the chord has the low G under it, and the
+  // sparkles keep falling after it lands.
+  potion_new:   { type: 'seq', parts: [
+                    { at: 0,   recipe: { type: 'sweep', freq: [300, 1400], duration: 70, shape: 'sine', gain: 0.7, curve: 'exponential' } },
+                    { at: 0,   recipe: { type: 'noise', duration: 60, gain: 0.18, highpass: 1600 } },
+                    { at: 70,  recipe: { type: 'arp', notes: [392, 440, 494, 554, 622, 698, 784, 880, 988, 1109, 1245, 1397], step: 38, noteDur: 240, shape: 'triangle', gain: 0.4 } },
+                    { at: 540, recipe: { type: 'arp', notes: [1175, 1568], step: 120, noteDur: 300, shape: 'triangle', gain: 0.45 } },
+                    { at: 660, recipe: { type: 'chord', freqs: [392, 784, 988, 1175, 1568], duration: 1300, shape: 'triangle', gain: 0.6 } },
+                    { at: 700, recipe: { type: 'arp', notes: [3136, 2637, 3136, 3520, 4186], step: 110, noteDur: 150, shape: 'sine', gain: 0.14 } },
+                    { at: 660, recipe: { type: 'noise', duration: 900, gain: 0.05, highpass: 6500 } },
+                  ] },
 }

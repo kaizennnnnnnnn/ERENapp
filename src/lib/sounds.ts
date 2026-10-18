@@ -129,6 +129,13 @@ export const SOUNDS = {
   // The bakery's donut machine: one sweet landing chime (donuts have no rarity).
   gacha_donut:            '/sounds/gacha/gacha_donut.mp3',
 
+  // The Lab's Potion Mixer. All SYNTHESISED (SYNTH_RECIPES wins, so these
+  // files never exist): the pot bubbling up while it poofs, then the potion
+  // appearing, bigger for one you've never made before.
+  potion_brew:            '/sounds/potions/potion_brew.mp3',
+  potion_made:            '/sounds/potions/potion_made.mp3',
+  potion_new:             '/sounds/potions/potion_new.mp3',
+
   // ─── Mini-game gameplay SFX ─────────────────────────────────────────────
   // Per-game keys for the 11 mini-games. Each routes to a per-game folder
   // under /public/sounds/games/<game-id>/. Until the mp3s are generated,

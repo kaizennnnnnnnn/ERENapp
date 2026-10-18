@@ -178,12 +178,12 @@ export function PotionMixerView({ found, onBrew, onGive, onClose }: {
     brewingRef.current = true
     stirRef.current.last = null
     setBrewing(true)
-    playSound('chat_poof')
+    playSound('potion_brew')
     const made = [...pours]
     const def = potionFor(made)
     const r = await onBrew(def)
     later(() => {
-      playSound(r.isNew ? 'gacha_reveal_rare' : 'gacha_reveal_common')
+      playSound(r.isNew ? 'potion_new' : 'potion_made')
       setResult({ def, color: mixColor(made)!, sparkle: sparkles(made), pours: made, ...r })
       setBrewing(false)
     }, POOF_MS)
