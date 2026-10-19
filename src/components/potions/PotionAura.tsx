@@ -48,15 +48,10 @@ export function PotionBody({ potion, children }: { potion: Live | null; children
       transition: 'transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 300ms steps(3)',
       ...look?.style,
     }}>
-      {/* A glow round his outline in the potion's colour: across the room you
-          can tell he's had something. Faint on purpose: at full strength it
-          drew a bright line round him that was the loudest thing in the room.
-          On its own layer because the rainbow animates the outer one's filter.
-          One shadow, not a stack: this sits on a breathing, blinking cat for
-          an hour. */}
-      <div style={{ filter: potion ? `drop-shadow(0 0 4px ${potion.color}99)` : undefined }}>
-        {children}
-      </div>
+      {/* No glow traced round his outline: it made the colour thickest right
+          at his edges, a halo that followed his silhouette instead of a light
+          he stands in. The wash behind him (PotionAround) is the colour. */}
+      {children}
       {/* Cloud Nine: he naps on it, so it rides along with him. */}
       {potion?.def.effect === 'cloud' && <Cloud />}
     </div>
@@ -143,14 +138,16 @@ export function PotionAround({ potion, layer }: { potion: Live; layer: 'back' | 
   const inset: CSSProperties = { position: 'absolute', inset: '-24%', pointerEvents: 'none', zIndex: layer === 'back' ? 0 : 2 }
 
   if (layer === 'back') {
-    const strong = fx === 'glow' || fx === 'stars'
+    const a = fx === 'glow' || fx === 'stars' ? '52' : '3D'
     return (
       <div aria-hidden style={inset}>
         {/* The wash in this batch's own colour: even across the room you can
-            tell he's had something. A tint on the floor, not a spotlight. */}
+            tell he's had something. A tint on the floor, not a spotlight:
+            flat all the way out past his edges, then fading, so it is no
+            stronger round him than anywhere else in it. */}
         <div className={fx === 'rainbow' ? 'potWash potRainbow' : 'potWash'} style={{
           position: 'absolute', inset: 0,
-          background: `radial-gradient(circle at 50% 58%, ${color}${strong ? '8C' : '5C'} 0%, ${color}2E 40%, transparent 72%)`,
+          background: `radial-gradient(circle at 50% 58%, ${color}${a} 0%, ${color}${a} 38%, transparent 72%)`,
         }} />
         {fx === 'stars' && <Icons bits={TWINKLES} icon="shine" className="potWink" />}
         {fx === 'flowers' && <Icons bits={FEET} icon="daisy" className="potPop" />}
