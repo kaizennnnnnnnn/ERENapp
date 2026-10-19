@@ -190,6 +190,14 @@ interface UnlockPayload { skin: SkinDef; variant: CanVariant; drinkName: string 
 // centring offset stays derived from one number.
 const DRAG_ICON = 50
 
+// The carried food's name tag: hung under its tile, out of the bottom bar's
+// flow, in room the bar keeps for it whether or not a food is showing. In the
+// flow it made the row ~30px taller only while a food was there, and the bar is
+// pinned to the bottom of the screen, so the row grew UP and lifted Fridge and
+// Shop every time a food appeared (after every meal, for one).
+const NAME_TAG_GAP = 7
+const NAME_TAG_H = 22
+
 const FRIDGE_CATEGORIES = [
   { id: 'dry',     label: 'DRY',     color: '#D4A44A' },
   { id: 'seafood', label: 'SEAFOOD', color: '#5BA3D9' },
@@ -737,7 +745,7 @@ export default function FeedScene({ onClose }: Props) {
       }} />
 
       {/* ══ BOTTOM BAR — Fridge (left), Food center, Shop (right) ══ */}
-      <div className="absolute bottom-6 left-0 right-0 z-30 px-4">
+      <div className="absolute bottom-6 left-0 right-0 z-30 px-4" style={{ paddingBottom: NAME_TAG_GAP + NAME_TAG_H }}>
         <div className="flex items-start justify-between">
 
           {/* LEFT: Fridge button */}
@@ -801,8 +809,9 @@ export default function FeedScene({ onClose }: Props) {
                   }}>{qty}</span>
                   {/* Name */}
                   <span style={{
-                    marginTop: 7, maxWidth: 132, padding: '3px 10px', borderRadius: 999,
-                    background: '#FFFFFF', boxShadow: `0 2px 0 ${M.overArtLip}`,
+                    position: 'absolute', top: `calc(100% + ${NAME_TAG_GAP}px)`, left: '50%', transform: 'translateX(-50%)',
+                    height: NAME_TAG_H, lineHeight: `${NAME_TAG_H}px`, maxWidth: 132, padding: '0 10px', boxSizing: 'border-box',
+                    borderRadius: 999, background: '#FFFFFF', boxShadow: `0 2px 0 ${M.overArtLip}`,
                     fontSize: 12, fontWeight: 800, color: M.text,
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>{item.name}</span>
