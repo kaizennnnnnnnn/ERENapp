@@ -10,30 +10,33 @@
 // pokes over it — he reads as standing behind/under the counter. Same breathing
 // + blink + idle treatment as every room.
 //
-// Buying lives in slide-up sheets so the picture stays the hero. Two counters
-// share them: ORDER CAKES (flavour only — the cake flies up, a "SOLD!" stamp
-// pops, coins burst, nothing is kept) and DONUTS, which sells three real fridge
-// foods a day off a rotating case (see lib/donuts.ts) and stocks your pile.
-// Currency: player coins via TaskContext.spendCoins().
+// Buying lives in Meadow sheets so the picture stays the hero. Two counters
+// share them: CAKES (flavour only — the cake flies up, a "Sold!" stamp pops,
+// coins burst, nothing is kept) and DONUTS, which sells three real fridge foods
+// a day off a rotating case (see lib/donuts.ts) and stocks your pile. The
+// controls over the picture are Meadow's white over-art pieces, like the home
+// screen's. Currency: player coins via TaskContext.spendCoins().
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useTasks } from '@/contexts/TaskContext'
 import { useCare } from '@/contexts/CareContext'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useIsDark } from '@/hooks/useIsDark'
-import { useCat } from '@/hooks/useCat'
 import { playSound } from '@/lib/sounds'
-import { CAKES, type CakeDef } from '@/lib/cakes'
-import { dailyDonuts, msUntilNextBatch, rollDonut, SPIN_COST, TASTE_JOY, type DonutDef } from '@/lib/donuts'
+import type { CakeDef } from '@/lib/cakes'
+import { dailyDonuts, msUntilNextBatch, rollDonut, SPIN_COST, type DonutDef } from '@/lib/donuts'
 import { foodArt } from '@/lib/foodMeta'
 import { todayKey } from '@/lib/seededRng'
 import { useDonutMachine } from '@/hooks/useDonutMachine'
-import { IconCoin, IconStar, IconCake, IconDonut } from '@/components/PixelIcons'
+import { IconCake, IconDonut } from '@/components/PixelIcons'
+import { CoinChip, M, MeadowIcon, RoundButton, TINT } from '@/components/meadow'
 import BlinkingEren from '@/components/BlinkingEren'
+import CakeMenuSheet from '@/components/bakery/CakeMenuSheet'
+import CakeSprite from '@/components/bakery/CakeSprite'
 import DonutCasePanel from '@/components/bakery/DonutCasePanel'
+import DonutCounterSheet from '@/components/bakery/DonutCounterSheet'
 import DonutMachine from '@/components/bakery/DonutMachine'
 import DonutSpin from '@/components/bakery/DonutSpin'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
@@ -86,12 +89,16 @@ const CAKE_EYES = {
 // the same row (day: seam 58.37%, wood 58.49%; night: seam 58.31%, wood
 // 58.43%) — but keep the per-picture struct so a future repaint with
 // different geometry only needs new numbers here.
-interface ShopPic { src: string; w: number; h: number; counterPct: number }
+interface ShopPic { src: string; w: number; h: number; counterPct: number; top: string; bottom: string }
 // counterPct = first row of the counter's lit TOP surface, NOT the
 // front-edge seam lower down (that painted Eren over the whole counter
 // top so he read as standing in front of it).
-const SHOP_DAY:   ShopPic = { src: '/CakeShop.png',      w: 941, h: 1672, counterPct: 58.5 }
-const SHOP_NIGHT: ShopPic = { src: '/CakeShopNight.png', w: 941, h: 1672, counterPct: 58.5 }
+// top / bottom = the picture's own first and last rows (the wood trim, the
+// pink floor), averaged across the width. A tall phone's empty bands above
+// and below the picture are painted these flat, so the picture simply carries
+// on to the screen's edges.
+const SHOP_DAY:   ShopPic = { src: '/CakeShop.png',      w: 941, h: 1672, counterPct: 58.5, top: '#854514', bottom: '#E29C75' }
+const SHOP_NIGHT: ShopPic = { src: '/CakeShopNight.png', w: 941, h: 1672, counterPct: 58.5, top: '#30170A', bottom: '#734431' }
 // Eren's box, sized in cqi (container-query inline-size = % of the PICTURE's
 // width, see the `.pic` container) so he always tracks the picture and stays
 // glued to the counter. vw broke this: on a short/wide viewport the picture
@@ -112,7 +119,6 @@ export default function BakeryPage() {
   const { stats, addToMyFood, consumeMyFood } = useErenStats(profile?.household_id ?? null)
   const { setHideStats } = useCare()
   const isDark = useIsDark()
-  const cat = useCat()
   const pic = isDark ? SHOP_NIGHT : SHOP_DAY
   const shopSrc = pic.src
   // The empty letterbox band height tracks the active picture's aspect.
@@ -254,48 +260,10 @@ export default function BakeryPage() {
         pointerEvents: 'none',
       }} />
 
-      {/* ══ TOP WOOD BEAM ══ a wooden ceiling beam that fills the empty band
-          above the picture so the screen reads as a framed shop diorama
-          instead of "image with brown gradient bars". Height is the exact
-          letterbox band, computed from the picture aspect ratio. */}
-      <div className="absolute top-0 inset-x-0 z-[15] pointer-events-none overflow-hidden" style={{
-        height: bandH,
-        background: 'linear-gradient(180deg, #1F0F06 0%, #3A1F0E 25%, #2D1608 65%, #1A0B06 100%)',
-        borderBottom: '3px solid #0A0502',
-        boxShadow: '0 4px 8px rgba(0,0,0,0.55), inset 0 -3px 6px rgba(0,0,0,0.4)',
-      }}>
-        {/* Plank seams — vertical dark lines every ~28vw so the beam reads as
-            individual planks instead of one slab. */}
-        <div className="absolute inset-0" style={{
-          background:
-            'repeating-linear-gradient(90deg, transparent 0, transparent 28vw, rgba(0,0,0,0.55) 28vw, rgba(0,0,0,0.55) calc(28vw + 2px))',
-        }} />
-        {/* Subtle horizontal wood grain */}
-        <div className="absolute inset-0" style={{
-          background:
-            'repeating-linear-gradient(180deg, transparent 0, transparent 6px, rgba(255,180,120,0.05) 6px, rgba(255,180,120,0.05) 7px)',
-        }} />
-      </div>
-
-      {/* ══ BOTTOM TILE FLOOR ══ pink + cream checker that fills the empty
-          band below the picture. The painted floor inside the shop ends at
-          the picture's bottom edge; this strip carries it down to the
-          viewport edge so the ORDER button sits on tile, not on blur. */}
-      <div className="absolute bottom-0 inset-x-0 z-[15] pointer-events-none overflow-hidden" style={{
-        height: bandH,
-        borderTop: '3px solid #2E1404',
-        backgroundColor: '#F4D6CC',
-        backgroundImage:
-          'conic-gradient(#C97D7D 90deg, #F4D6CC 0 180deg, #C97D7D 0 270deg, #F4D6CC 0)',
-        backgroundSize: '28px 28px',
-        boxShadow: '0 -4px 8px rgba(0,0,0,0.4), inset 0 3px 6px rgba(0,0,0,0.3)',
-      }}>
-        {/* Soft top/bottom vignette so the tile edges feel grounded. */}
-        <div className="absolute inset-0" style={{
-          background:
-            'linear-gradient(180deg, rgba(0,0,0,0.3) 0%, transparent 25%, transparent 75%, rgba(0,0,0,0.18) 100%)',
-        }} />
-      </div>
+      {/* ══ BANDS ══ the empty bands above and below the picture on a tall
+          phone, in the picture's own edge colours. */}
+      <div className="absolute top-0 inset-x-0 z-[15] pointer-events-none" style={{ height: bandH, background: pic.top }} />
+      <div className="absolute bottom-0 inset-x-0 z-[15] pointer-events-none" style={{ height: bandH, background: pic.bottom }} />
 
       {/* ══ STAGE ══ the whole picture, fit to width and centered. Eren lives
           inside it so he always lines up with the painted counter. */}
@@ -335,7 +303,7 @@ export default function BakeryPage() {
               every aspect — the same reason Eren is. Its base sits a touch
               below the counter's top edge (58.5%) so it rests on the wood
               instead of hovering over the front face. */}
-          {!menuOpen && !caseOpen && !spin && (
+          {!spin && (
             <div className="absolute" style={{
               left: '17%', bottom: '40.5%', width: '19cqi', aspectRatio: '48 / 64',
               zIndex: 11, pointerEvents: 'auto',
@@ -360,19 +328,19 @@ export default function BakeryPage() {
               </div>
               <div key={`stamp-${fx.id}`} className="absolute"
                 style={{ left: '50%', top: '46%', transform: 'translate(-50%, -50%)', animation: 'bkStampPop 1.6s ease-out forwards' }}>
-                <div className="px-3 py-1.5 font-pixel" style={{
-                  background: 'rgba(220,38,38,0.18)', border: '3px solid #DC2626', borderRadius: 4,
-                  fontSize: 14, color: '#7F1D1D', letterSpacing: 4,
-                  textShadow: '0 1px 0 rgba(255,255,255,0.6)', boxShadow: '0 0 14px rgba(220,38,38,0.45)',
-                  transform: 'rotate(-8deg)',
+                <div className="meadow-root inline-flex items-center" style={{
+                  height: 44, padding: '0 18px 0 12px', gap: 8, borderRadius: 999, background: '#FFFFFF',
+                  boxShadow: `0 3px 0 ${M.overArtLip}`, fontSize: 20, fontWeight: 800, color: M.leaf,
+                  whiteSpace: 'nowrap', transform: 'rotate(-6deg)',
                 }}>
-                  SOLD!
+                  <MeadowIcon name="check" size={22} color={M.leaf} />
+                  Sold!
                 </div>
               </div>
               {[0, 1, 2, 3, 4].map(i => (
                 <div key={`coin-${fx.id}-${i}`} className="absolute"
                   style={{ left: '50%', top: '57%', transform: 'translateX(-50%)', animation: `bkCoinFly${i} 1.4s ease-out forwards` }}>
-                  <IconCoin size={14} />
+                  <MeadowIcon name="coin" size={18} />
                 </div>
               ))}
             </div>
@@ -381,312 +349,47 @@ export default function BakeryPage() {
       </div>
 
       {/* ══ HEADER ══ back + coins, floated over the picture's top trim. */}
-      <div className="absolute top-0 inset-x-0 z-30 flex items-center justify-between px-3"
-        style={{ paddingTop: 'calc(8px + env(safe-area-inset-top, 0px))' }}>
-        <button onClick={() => { playSound('ui_back'); requestCloudNav('/home') }}
-          className="flex items-center justify-center active:scale-90 transition-transform"
-          style={{ width: 32, height: 32, background: 'rgba(74,26,10,0.55)', borderRadius: 6, border: '2px solid rgba(251,191,36,0.6)', boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
-          <ChevronLeft size={16} className="text-amber-100" />
-        </button>
-        <div className="flex items-center gap-1.5 px-2.5 py-1.5 font-pixel"
-          style={{ background: 'rgba(74,26,10,0.6)', border: '2px solid #FBBF24', borderRadius: 4, fontSize: 9, color: '#FDE68A', boxShadow: '0 2px 0 rgba(0,0,0,0.3)' }}>
-          <IconCoin size={14} />
-          {coins}
-        </div>
+      <div className="meadow-root absolute top-0 inset-x-0 z-30 flex items-center justify-between"
+        style={{ padding: 'calc(10px + env(safe-area-inset-top, 0px)) 16px 0' }}>
+        <RoundButton surface="art" ariaLabel="Back" onClick={() => { playSound('ui_back'); requestCloudNav('/home') }}>
+          <MeadowIcon name="chevronLeft" color={M.text} />
+        </RoundButton>
+        <CoinChip amount={coins} surface="art" />
       </div>
 
-      {/* ══ COUNTER BUTTONS ══ the two things Eren sells. Cakes keep the wide
-          pink pill they've always had; the donut case sits beside it in its own
-          amber, so the new counter reads as a second till rather than a mode
-          switch on the first one.
+      {/* ══ COUNTER BUTTONS ══ the two things Eren sells, side by side over the
+          floor: white pills on the art, each with its own tinted disc, so the
+          two counters read as two tills rather than a mode switch.
           The row spans the screen and centres its children rather than sitting
           at left:50% — an absolutely-positioned shrink-to-fit box only gets the
           width from its left edge to the parent's right edge, which is half the
-          screen, and ORDER CAKES wrapped to two lines inside it. */}
-      {!menuOpen && !caseOpen && (
-        <div className="absolute inset-x-0 z-30 flex items-stretch justify-center gap-2 px-3"
-          style={{ bottom: 'calc(18px + env(safe-area-inset-bottom, 0px))' }}>
-          <button onClick={() => { playSound('ui_modal_open'); setMenuOpen(true) }}
-            className="font-pixel text-white inline-flex items-center gap-2 active:translate-y-[2px] transition-transform"
-            style={{
-              background: 'linear-gradient(135deg, #DB2777, #9D174D)',
-              border: '2px solid #831843', borderRadius: 5,
-              padding: '12px 14px', fontSize: 9, letterSpacing: 1.5,
-              whiteSpace: 'nowrap',
-              boxShadow: '0 3px 0 rgba(0,0,0,0.35)',
-            }}>
-            <IconCake size={14} />
-            ORDER CAKES
-          </button>
-          <button onClick={() => { playSound('ui_modal_open'); setCaseOpen(true) }}
-            className="font-pixel text-white inline-flex items-center gap-2 active:translate-y-[2px] transition-transform"
-            style={{
-              background: 'linear-gradient(135deg, #F59E0B, #B45309)',
-              border: '2px solid #78350F', borderRadius: 5,
-              padding: '12px 14px', fontSize: 9, letterSpacing: 1.5,
-              whiteSpace: 'nowrap',
-              boxShadow: '0 3px 0 rgba(0,0,0,0.35)',
-            }}>
-            <IconDonut size={14} />
-            DONUTS
-          </button>
-        </div>
-      )}
+          screen, and a label wrapped to two lines inside it. */}
+      <div className="meadow-root absolute inset-x-0 z-30 flex justify-center" style={{
+        bottom: 'calc(20px + env(safe-area-inset-bottom, 0px))', gap: 12, padding: '0 16px',
+      }}>
+        <CounterButton label="Cakes" tint={TINT.love} onClick={() => { playSound('ui_modal_open'); setMenuOpen(true) }}>
+          <IconCake size={22} />
+        </CounterButton>
+        <CounterButton label="Donuts" tint={TINT.amber} onClick={() => { playSound('ui_modal_open'); setCaseOpen(true) }}>
+          <IconDonut size={22} />
+        </CounterButton>
+      </div>
 
-      {/* ══ MENU SHEET ══ slide-up cake grid; tap-out or CLOSE to dismiss. */}
-      {menuOpen && (
-        <div className="absolute inset-0 z-40" style={{ background: 'rgba(40,20,10,0.45)' }}
-          onClick={() => { playSound('ui_modal_close'); setMenuOpen(false) }}>
-          <div className="absolute bottom-0 inset-x-0 flex flex-col"
-            style={{
-              maxHeight: '74%',
-              background: 'linear-gradient(180deg, #FFF8F0 0%, #FCE7F3 100%)',
-              borderTop: '3px solid #DB2777',
-              borderRadius: '14px 14px 0 0',
-              boxShadow: '0 -6px 20px rgba(120,53,15,0.4)',
-              animation: 'bkSheetUp 0.28s ease-out',
-            }}
-            onClick={e => e.stopPropagation()}>
-            {/* Sheet header */}
-            <div className="flex items-center justify-between px-4 pt-3 pb-2 flex-shrink-0">
-              <span className="font-pixel inline-flex items-center gap-1.5" style={{ fontSize: 9, color: '#9D174D', letterSpacing: 2 }}>
-                <IconStar size={10} />
-                TODAY&apos;S MENU
-                <IconStar size={10} />
-              </span>
-              <button onClick={() => { playSound('ui_modal_close'); setMenuOpen(false) }}
-                className="font-pixel active:scale-95" style={{ fontSize: 8, color: '#9D174D', letterSpacing: 1 }}>
-                CLOSE
-              </button>
-            </div>
-
-            <div className="overflow-y-auto px-3 pb-5" style={{ scrollbarWidth: 'thin' }}>
-              <div className="grid grid-cols-2 gap-2">
-                {CAKES.map(cake => {
-                  const canAfford = coins >= cake.price
-                  return (
-                    <button key={cake.id}
-                      onClick={() => purchase(cake.price, { kind: 'cake', cake })}
-                      disabled={!canAfford || busy}
-                      className="relative p-2.5 text-left active:translate-y-[1px] transition-transform overflow-hidden"
-                      style={{
-                        background: canAfford
-                          ? 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,251,235,0.85) 100%)'
-                          : 'linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(252,231,243,0.4) 100%)',
-                        border: `2px solid ${canAfford ? cake.dark : 'rgba(120,53,15,0.3)'}`,
-                        borderRadius: 6,
-                        boxShadow: canAfford
-                          ? `3px 3px 0 ${cake.dark}, inset 0 1px 0 rgba(255,255,255,0.65), 0 0 10px ${cake.main}40`
-                          : '2px 2px 0 rgba(120,53,15,0.25), inset 0 1px 0 rgba(255,255,255,0.3)',
-                        opacity: canAfford ? 1 : 0.6,
-                        cursor: canAfford && !busy ? 'pointer' : 'not-allowed',
-                      }}>
-                      {canAfford && (
-                        <>
-                          <div style={{ position: 'absolute', top: 3, left: 3, width: 3, height: 3, background: '#FBBF24' }} />
-                          <div style={{ position: 'absolute', top: 3, right: 3, width: 3, height: 3, background: '#FBBF24' }} />
-                          <div style={{ position: 'absolute', bottom: 3, left: 3, width: 3, height: 3, background: '#FBBF24' }} />
-                          <div style={{ position: 'absolute', bottom: 3, right: 3, width: 3, height: 3, background: '#FBBF24' }} />
-                        </>
-                      )}
-                      <div className="flex items-center gap-2.5">
-                        <div className="flex-shrink-0 flex items-center justify-center"
-                          style={{
-                            width: 50, height: 50,
-                            background: `radial-gradient(circle at 35% 30%, ${cake.light} 0%, ${cake.main} 80%)`,
-                            border: `2px solid ${cake.dark}`,
-                            borderRadius: 6,
-                            boxShadow: `inset 0 1px 0 rgba(255,255,255,0.55), 0 0 8px ${cake.main}55`,
-                          }}>
-                          <CakeSprite cake={cake} size={36} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-pixel mb-1" style={{ fontSize: 6, color: cake.dark, letterSpacing: 0.6, lineHeight: 1.3, textShadow: '0 1px 0 rgba(255,255,255,0.5)' }}>
-                            {cake.name}
-                          </p>
-                          <p className="text-[10px] mb-1.5" style={{ color: '#7C2D12', opacity: 0.75, lineHeight: 1.25 }}>
-                            {cake.blurb}
-                          </p>
-                          <div className="inline-flex items-center gap-1 px-1.5 py-0.5 font-pixel"
-                            style={{
-                              background: canAfford ? 'linear-gradient(180deg, #78350F, #451A03)' : 'rgba(120,53,15,0.3)',
-                              border: `1px solid ${canAfford ? '#FBBF24' : 'rgba(120,53,15,0.4)'}`,
-                              borderRadius: 3, fontSize: 8, color: canAfford ? '#FDE68A' : '#7C2D12',
-                            }}>
-                            <IconCoin size={10} />
-                            {cake.price}
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-              <div className="flex items-center justify-center gap-2 mt-4 mb-1">
-                <div className="h-[1px] w-10" style={{ background: 'linear-gradient(90deg, transparent, rgba(251,191,36,0.6), transparent)' }} />
-                <p className="font-pixel" style={{ fontSize: 6, color: '#7C2D12', letterSpacing: 2, opacity: 0.7, textAlign: 'center', overflowWrap: 'anywhere' }}>
-                  {cat.t('{NAME} BAKES WITH LOVE')}
-                </p>
-                <div className="h-[1px] w-10" style={{ background: 'linear-gradient(90deg, transparent, rgba(251,191,36,0.6), transparent)' }} />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <CakeMenuSheet open={menuOpen} coins={coins} busy={busy}
+        onBuy={cake => purchase(cake.price, { kind: 'cake', cake })}
+        onClose={() => setMenuOpen(false)} />
 
       {/* ══ DONUT CASE ══ three donuts, changed every night. Unlike the cakes
-          these are real food: buying one puts it in your fridge pile, so the
-          card leads with the art and states what it does to Eren. */}
-      {caseOpen && (
-        <div className="absolute inset-0 z-40" style={{ background: 'rgba(40,20,10,0.45)' }}
-          onClick={() => { playSound('ui_modal_close'); setCaseOpen(false) }}>
-          <div className="absolute bottom-0 inset-x-0 flex flex-col"
-            style={{
-              maxHeight: '74%',
-              background: 'linear-gradient(180deg, #FFF8EC 0%, #FDE8C8 100%)',
-              borderTop: '3px solid #B45309',
-              borderRadius: '14px 14px 0 0',
-              boxShadow: '0 -6px 20px rgba(120,53,15,0.4)',
-              animation: 'bkSheetUp 0.28s ease-out',
-            }}
-            onClick={e => e.stopPropagation()}>
-            {/* Sheet header — the same dark-wood-and-brass bar the machine's
-                case panel wears, so the bakery's two counters read as one
-                shop rather than two unrelated menus. */}
-            <div className="flex items-center justify-between px-4 py-2.5 flex-shrink-0"
-              style={{
-                background: 'linear-gradient(180deg, #6B3A18 0%, #48250E 100%)',
-                borderBottom: '2px solid #2E1404',
-                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.14)',
-              }}>
-              <span className="font-pixel inline-flex items-center gap-1.5" style={{ fontSize: 9, color: '#FBBF24', letterSpacing: 2, textShadow: '0 1px 0 rgba(0,0,0,0.5)' }}>
-                <IconDonut size={11} />
-                FRESH TODAY
-              </span>
-              <button onClick={() => { playSound('ui_modal_close'); setCaseOpen(false) }}
-                className="font-pixel active:scale-95" style={{ fontSize: 8, color: '#F0C892', letterSpacing: 1 }}>
-                CLOSE
-              </button>
-            </div>
-
-            {/* The whole point of the counter: it is not the same three
-                tomorrow. Says so, with the time left on it — on a brass ticket,
-                because it's the one line here that expires. */}
-            <div className="mx-3 mt-3 mb-2 px-2.5 py-2 flex items-center justify-center gap-2 flex-shrink-0"
-              style={{
-                background: 'linear-gradient(180deg, #3A1B02 0%, #241004 100%)',
-                border: '2px solid #B45309', borderRadius: 5,
-                boxShadow: 'inset 0 1px 0 rgba(251,191,36,0.35), 2px 2px 0 rgba(120,53,15,0.35)',
-              }}>
-              <IconStar size={9} />
-              <span className="font-pixel" style={{ fontSize: 6, color: '#FDE68A', letterSpacing: 1.2 }}>
-                {now ? `NEW BATCH IN ${batchCountdown(msUntilNextBatch(now))}` : 'BAKING…'}
-              </span>
-              <IconStar size={9} />
-            </div>
-
-            <div className="overflow-y-auto px-3 pb-5" style={{ scrollbarWidth: 'thin' }}>
-              <div className="flex flex-col gap-2">
-                {todaysDonuts.map(donut => {
-                  const canAfford = coins >= donut.price
-                  return (
-                    <button key={donut.id}
-                      onClick={() => purchase(donut.price, { kind: 'donut', donut }, donut.id)}
-                      disabled={!canAfford || busy}
-                      className="relative flex items-center gap-3 p-2.5 text-left active:translate-y-[1px] transition-transform overflow-hidden"
-                      style={{
-                        background: canAfford
-                          ? 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,247,229,0.85) 100%)'
-                          : 'linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(253,232,200,0.4) 100%)',
-                        border: `2px solid ${canAfford ? '#B45309' : 'rgba(120,53,15,0.3)'}`,
-                        borderRadius: 6,
-                        boxShadow: canAfford
-                          ? `3px 3px 0 #78350F, inset 0 1px 0 rgba(255,255,255,0.65), 0 0 10px ${donut.color}40`
-                          : '2px 2px 0 rgba(120,53,15,0.25), inset 0 1px 0 rgba(255,255,255,0.3)',
-                        opacity: canAfford ? 1 : 0.6,
-                        cursor: canAfford && !busy ? 'pointer' : 'not-allowed',
-                      }}>
-                      {canAfford && (
-                        <>
-                          <div style={{ position: 'absolute', top: 3, left: 3, width: 3, height: 3, background: '#FBBF24' }} />
-                          <div style={{ position: 'absolute', top: 3, right: 3, width: 3, height: 3, background: '#FBBF24' }} />
-                          <div style={{ position: 'absolute', bottom: 3, left: 3, width: 3, height: 3, background: '#FBBF24' }} />
-                          <div style={{ position: 'absolute', bottom: 3, right: 3, width: 3, height: 3, background: '#FBBF24' }} />
-                        </>
-                      )}
-                      {/* Art straight on the card — a tinted plate behind it
-                          would be a second shape competing with the donut, the
-                          same call the kitchen shop cards make. It gets a
-                          contact shadow instead, so it sits on the card. */}
-                      <img src={foodArt(donut.id)} alt="" width={64} height={64} draggable={false}
-                        className="flex-shrink-0"
-                        style={{
-                          width: 64, height: 64, objectFit: 'contain', display: 'block',
-                          filter: canAfford ? 'drop-shadow(0 3px 2px rgba(120,53,15,0.32))' : 'none',
-                        }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-pixel mb-1" style={{ fontSize: 7, color: '#78350F', letterSpacing: 0.6, lineHeight: 1.3, textShadow: '0 1px 0 rgba(255,255,255,0.5)' }}>
-                          {donut.name.toUpperCase()}
-                        </p>
-                        <p className="text-[10px] mb-1.5" style={{ color: '#7C2D12', opacity: 0.75, lineHeight: 1.25 }}>
-                          {donut.desc}
-                        </p>
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFE3C4', color: '#B4622A', border: '1px solid #F0B884' }}>HGR+{donut.hungerD}</span>
-                          {/* The joy he ACTUALLY gets: the feeding path scales it
-                              by taste, so the raw catalogue number would be wrong
-                              on every donut he loves or won't touch. */}
-                          <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#FFDCE8', color: '#C0407A', border: '1px solid #F5A8C4' }}>
-                            JOY+{Math.round(donut.happyD * TASTE_JOY[donut.taste])}
-                          </span>
-                          {/* What it DOES — the reason one donut is worth more
-                              than another was on every other donut surface but
-                              this one, which is the one you buy from. */}
-                          <span className="font-pixel" style={{ fontSize: 6, padding: '3px 5px', borderRadius: 4, background: '#E4F5DC', color: '#3E7A33', border: '1px solid #A8D598' }}>
-                            {donut.perk.label}
-                          </span>
-                        </div>
-                      </div>
-                      {/* Price as a pressable-looking plate on the right rather
-                          than a fourth chip in the pile: the whole row is the
-                          buy button, and nothing on it said so. */}
-                      <span className="flex-shrink-0 inline-flex flex-col items-center justify-center gap-0.5 font-pixel"
-                        style={{
-                          padding: '7px 8px', minWidth: 46,
-                          background: canAfford
-                            ? 'linear-gradient(180deg, #FCD34D 0%, #F59E0B 46%, #B45309 100%)'
-                            : 'rgba(120,53,15,0.22)',
-                          border: `2px solid ${canAfford ? '#7C2D12' : 'rgba(120,53,15,0.4)'}`,
-                          borderRadius: 5,
-                          boxShadow: canAfford ? '0 2px 0 #5A2408, inset 0 1px 0 rgba(255,255,255,0.5)' : 'none',
-                        }}>
-                        <span className="inline-flex items-center gap-1" style={{ fontSize: 9, color: canAfford ? '#3A1B02' : '#7C2D12' }}>
-                          <IconCoin size={10} />{donut.price}
-                        </span>
-                        <span style={{ fontSize: 5, letterSpacing: 0.8, color: canAfford ? '#5A2408' : '#7C2D12', opacity: 0.85 }}>
-                          {canAfford ? 'BUY' : 'BROKE'}
-                        </span>
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-              <div className="flex items-center justify-center gap-2 mt-4 mb-1">
-                <div className="h-[1px] w-10" style={{ background: 'linear-gradient(90deg, transparent, rgba(251,191,36,0.6), transparent)' }} />
-                <p className="font-pixel" style={{ fontSize: 6, color: '#7C2D12', letterSpacing: 2, opacity: 0.7 }}>
-                  STRAIGHT TO YOUR FRIDGE
-                </p>
-                <div className="h-[1px] w-10" style={{ background: 'linear-gradient(90deg, transparent, rgba(251,191,36,0.6), transparent)' }} />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+          these are real food: buying one puts it in your fridge pile. */}
+      <DonutCounterSheet open={caseOpen} donuts={todaysDonuts} coins={coins} busy={busy}
+        batchIn={now ? batchCountdown(msUntilNextBatch(now)) : null}
+        onBuy={donut => purchase(donut.price, { kind: 'donut', donut }, donut.id)}
+        onClose={() => setCaseOpen(false)} />
 
       {/* ══ MACHINE PANEL ══ the whole case, then the spin. See DonutCasePanel
           for why the grid comes before the button. */}
-      {machineOpen && !spin && (
-        <DonutCasePanel
+      <DonutCasePanel
+          open={machineOpen && !spin}
           tasted={tastedDonuts}
           coins={coins}
           freeReady={machine.freeReady}
@@ -696,7 +399,6 @@ export default function BakeryPage() {
           onSpin={doSpin}
           onClose={() => setMachineOpen(false)}
         />
-      )}
 
 
       {/* ══ SPIN ══ the reel, then the reveal. The donut is already banked by
@@ -715,14 +417,6 @@ export default function BakeryPage() {
       )}
 
       <style jsx global>{`
-        @keyframes bkCardPop {
-          from { transform: scale(0.88); opacity: 0; }
-          to   { transform: scale(1);    opacity: 1; }
-        }
-        @keyframes bkSheetUp {
-          from { transform: translateY(100%); }
-          to   { transform: translateY(0); }
-        }
         @keyframes bkCakeFly {
           0%   { transform: translateX(-50%) translateY(20px) scale(0.5) rotate(-8deg); opacity: 0; }
           18%  { transform: translateX(-50%) translateY(0)    scale(1.1) rotate(0deg);  opacity: 1; }
@@ -768,33 +462,27 @@ export default function BakeryPage() {
   )
 }
 
-/** "4H 12M" / "12M". Rounds UP so the strip never reads 0M with time left. */
+/** "4h 12m" / "12m". Rounds UP so it never reads 0m with time left. */
 function batchCountdown(ms: number): string {
   const mins = Math.max(0, Math.ceil(ms / 60_000))
   const h = Math.floor(mins / 60)
-  return h > 0 ? `${h}H ${mins % 60}M` : `${mins}M`
+  return h > 0 ? `${h}h ${mins % 60}m` : `${mins}m`
 }
 
-// ─── CakeSprite — SVG pixel-art cake using the cake's own palette ──────────
-function CakeSprite({ cake, size }: { cake: CakeDef; size: number }) {
+/** A counter's white pill: its icon on a tinted disc, then its name. */
+function CounterButton({ label, tint, onClick, children }: {
+  label: string; tint: string; onClick: () => void; children: React.ReactNode
+}) {
   return (
-    <svg width={size} height={size} viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
-      <rect x="6" y="0" width="1" height="1" fill="#FBBF24" />
-      <rect x="6" y="1" width="1" height="1" fill={cake.dark} />
-      <rect x="3" y="2" width="6" height="1" fill={cake.main} />
-      <rect x="2" y="3" width="8" height="1" fill={cake.main} />
-      <rect x="3" y="3" width="2" height="1" fill={cake.light} />
-      <rect x="6" y="3" width="2" height="1" fill={cake.light} />
-      <rect x="1" y="4" width="10" height="1" fill={cake.dark} />
-      <rect x="1" y="5" width="10" height="1" fill="#FDE68A" />
-      <rect x="1" y="6" width="10" height="1" fill={cake.dark} />
-      <rect x="1" y="7" width="10" height="1" fill="#FDE68A" />
-      <rect x="1" y="8" width="10" height="1" fill={cake.dark} />
-      <rect x="0" y="9" width="12" height="1" fill="#525252" />
-      <rect x="0" y="9" width="12" height="1" fill="#9CA3AF" opacity="0.6" />
-      <rect x="3" y="2" width="1" height="1" fill={cake.accent} />
-      <rect x="7" y="2" width="1" height="1" fill={cake.accent} />
-      <rect x="5" y="3" width="1" height="1" fill={cake.accent} />
-    </svg>
+    <button type="button" onClick={onClick} className="m-lip m-focus inline-flex items-center" style={{
+      '--m-lip': M.overArtLip, '--m-lip-h': '3px',
+      height: 56, padding: '0 22px 0 10px', gap: 10, border: 0, borderRadius: 999, background: '#FFFFFF',
+      fontFamily: 'inherit', fontSize: 17, fontWeight: 800, color: M.text, cursor: 'pointer', whiteSpace: 'nowrap',
+    } as React.CSSProperties}>
+      <span aria-hidden className="flex items-center justify-center" style={{ width: 38, height: 38, borderRadius: 999, background: tint }}>
+        {children}
+      </span>
+      {label}
+    </button>
   )
 }

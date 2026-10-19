@@ -20,15 +20,15 @@
 //
 // ── The landing ────────────────────────────────────────────────────────────
 // Everything after the reel stops exists to answer "what did I actually win?",
-// and it is staged so that ONE thing is lit at a time. The neighbours dim, a
-// gold frame closes on the winning cell, and the plate underneath names the
+// and it is staged so that ONE thing is lit at a time. The neighbours fade, a
+// leaf frame closes on the winning cell, and the card underneath names the
 // donut, what it does, and what he'll make of it. A reel that just stops with
 // twelve donuts equally visible has told you nothing.
 //
-// Every colour cue on this screen — the backdrop wash, the rays, the frame's
-// inner glow, the glow on the name — is the WON DONUT's own colour (see lift),
-// so a mint win and a black-forest win don't look like the same screen with the
-// words swapped.
+// Meadow: a warm flat page, the reel a white window with a lip, the card white.
+// The one colour cue is the WON DONUT's own (see lift): the flat rays that open
+// behind the reel when it lands, so a mint win and a black-forest win don't
+// look like the same screen with the words swapped.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useRef, useState } from 'react'
@@ -37,7 +37,8 @@ import { MACHINE_DONUTS, type DonutDef } from '@/lib/donuts'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useCat } from '@/hooks/useCat'
 import { playSound } from '@/lib/sounds'
-import { IconCoin, IconStar } from '@/components/PixelIcons'
+import { M, MeadowIcon, PrimaryButton, SecondaryButton, Tag, TINT, TYPE } from '@/components/meadow'
+import { titleCase } from './words'
 
 const CELL = 84          // px per donut on the strip
 const LOOPS = 4          // full passes of the case before the winner lands
@@ -84,9 +85,9 @@ function lift(hex: string): string {
  * taste is a property of the thing you now own.
  */
 const TASTE_CHIP: Record<DonutDef['taste'], string | null> = {
-  loves: '{HIS} FAVOURITE',
+  loves: '{His} favourite',
   likes: null,           // the default — a chip saying "fine" is noise
-  meh:   'NOT {HIS} THING',
+  meh:   'Not {his} thing',
 }
 
 interface Props {
@@ -178,65 +179,45 @@ export default function DonutSpin({ won, wasFree, onClose, onSpinAgain, spinAgai
   const glow = lift(won.color)
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center px-4"
-      style={{
-        // Washed in the winner's own colour, so the room you're standing in
-        // changes with the prize. Gradients don't interpolate, so this SNAPS
-        // brighter on landing — which is what you want: it lands on the same
-        // frame as the sheen, the frame pop and the chime, and reads as impact.
-        background: `radial-gradient(125% 72% at 50% 42%, ${tint(glow, landed ? 0.3 : 0.12)} 0%, rgba(28,13,5,0.93) 52%, rgba(10,4,1,0.96) 100%)`,
-      }}>
+    <div className="meadow-root absolute inset-0 z-50 flex flex-col items-center justify-center px-4"
+      style={{ background: TINT.amber }}>
 
       {/* ── Title ── */}
-      <p className="font-pixel mb-2.5 inline-flex items-center gap-1.5"
-        style={{ fontSize: 9, color: '#FDE68A', letterSpacing: 2, textShadow: '0 2px 0 rgba(0,0,0,0.6)' }}>
-        <IconStar size={10} />
-        {landed ? 'YOU GOT' : 'SPINNING'}
-        <IconStar size={10} />
+      <h2 style={{ ...TYPE.heading, margin: 0, color: M.text }}>{landed ? 'You got' : 'Spinning...'}</h2>
+      <p style={{ margin: '4px 0 18px', fontSize: 15, fontWeight: 600, color: M.text2, visibility: landed ? 'hidden' : 'visible' }}>
+        {wasFree ? 'A free spin' : 'Good luck'}
       </p>
 
       <div className="relative flex justify-center" style={{ width: '100%', maxWidth: REEL_MAX }}>
 
-        {/* ── Rays ── the fan behind the glass. Only once it has landed: during
-            the spin the motion is the spectacle, and two moving things fight.
-            Tinted, masked to a soft disc, and slow enough to read as light
-            rather than as a spinning wheel. */}
+        {/* ── Rays ── flat stripes in the won donut's colour, behind the reel.
+            Only once it has landed: during the spin the motion is the
+            spectacle, and two moving things fight. */}
         {landed && !reduced && (
           <div className="absolute pointer-events-none" aria-hidden style={{
-            left: '50%', top: '50%', width: 460, height: 460, marginLeft: -230, marginTop: -230,
-            // Fade-in and rotation are split across two elements: both want
-            // `transform`, and one animation on a property beats the other.
+            left: '50%', top: '50%', width: 440, height: 440, marginLeft: -220, marginTop: -220,
             animation: 'dsRayIn 700ms ease-out both',
           }}>
             <div className="w-full h-full" style={{
-              background: `repeating-conic-gradient(from 0deg, ${tint(glow, 0.15)} 0deg 5deg, transparent 5deg 16deg)`,
-              WebkitMaskImage: 'radial-gradient(closest-side, #000 18%, transparent 76%)',
-              maskImage: 'radial-gradient(closest-side, #000 18%, transparent 76%)',
+              borderRadius: 999,
+              background: `repeating-conic-gradient(from 0deg, ${tint(glow, 0.3)} 0deg 6deg, transparent 6deg 16deg)`,
+              WebkitMaskImage: 'radial-gradient(closest-side, #000 30%, transparent 100%)',
+              maskImage: 'radial-gradient(closest-side, #000 30%, transparent 100%)',
               animation: 'dsRays 26s linear infinite',
             }} />
           </div>
         )}
 
-        {/* ── Reel ── a window on the strip, with a marker at dead centre.
-            Bronze outer edge with a gold hairline inside it (the inset ring):
-            one border reads as a box, two read as a cabinet. */}
-        <div className="relative w-full overflow-hidden"
-          style={{
-            height: CELL + 16,
-            background: 'linear-gradient(180deg, #241004 0%, #4A2410 48%, #1F0D03 100%)',
-            border: '3px solid #7C4A21', borderRadius: 7,
-            boxShadow: `inset 0 0 0 1px rgba(251,191,36,0.7), inset 0 2px 0 rgba(255,255,255,0.1), 4px 4px 0 rgba(0,0,0,0.5), 0 0 22px ${tint(glow, landed ? 0.4 : 0.14)}`,
-            transition: 'box-shadow 500ms ease-out',
+        {/* ── Reel ── a white window on the strip, the marker at dead centre. */}
+        <div className="relative w-full overflow-hidden" style={{
+          height: CELL + 16, borderRadius: 24, background: '#FFFFFF', boxShadow: `0 4px 0 ${M.softLip}`,
+        }}>
+          {/* The strip fades out at both ends, so donuts enter and leave
+              rather than pop at the edge. */}
+          <div ref={viewportRef} className="absolute inset-0 overflow-hidden" style={{
+            WebkitMaskImage: 'linear-gradient(90deg, transparent 0, #000 44px, #000 calc(100% - 44px), transparent 100%)',
+            maskImage: 'linear-gradient(90deg, transparent 0, #000 44px, #000 calc(100% - 44px), transparent 100%)',
           }}>
-
-          {/* Spotlight under the centre cell — the donut sits IN light rather
-              than on a flat panel. */}
-          <div className="absolute inset-0 pointer-events-none" style={{
-            background: `radial-gradient(circle at 50% 50%, ${tint(glow, landed ? 0.42 : 0.12)} 0%, transparent 62%)`,
-            transition: 'background 450ms ease-out',
-          }} />
-
-          <div ref={viewportRef} className="absolute inset-0 overflow-hidden">
             <div className="absolute top-0 flex items-center"
               style={{
                 height: '100%', left: 0,
@@ -251,7 +232,6 @@ export default function DonutSpin({ won, wasFree, onClose, onSpinAgain, spinAgai
                     draggable={false}
                     style={{
                       objectFit: 'contain', display: 'block',
-                      // The prize grows into its frame as it arrives.
                       transform: landed && i === winnerIndex ? 'scale(1.12)' : 'scale(1)',
                       transition: 'transform 420ms cubic-bezier(0.34,1.56,0.64,1)',
                     }} />
@@ -260,224 +240,97 @@ export default function DonutSpin({ won, wasFree, onClose, onSpinAgain, spinAgai
             </div>
           </div>
 
-          {/* Scanlines over the glass — the same CRT treatment the app's other
-              dark panels wear, so this reads as a screen and not a hole. */}
-          <div className="absolute inset-0 pointer-events-none" style={{
-            background: 'repeating-linear-gradient(180deg, rgba(0,0,0,0.16) 0px, rgba(0,0,0,0.16) 1px, transparent 1px, transparent 3px)',
-          }} />
-
-          {/* Edge fades so donuts enter and leave rather than pop at the border. */}
-          <div className="absolute inset-y-0 left-0 pointer-events-none" style={{ width: 42, background: 'linear-gradient(90deg, #1F0D03, transparent)' }} />
-          <div className="absolute inset-y-0 right-0 pointer-events-none" style={{ width: 42, background: 'linear-gradient(270deg, #1F0D03, transparent)' }} />
-
-          {/* Losers dim. Two scrims rather than per-cell opacity: one hundred
-              transitioning cells to darken the ninety-nine you didn't win is a
-              lot of work to say "look here". */}
+          {/* The others fade back, so the one in the frame is the one you see. */}
           {landed && (
             <>
               <div className="absolute inset-y-0 left-0 pointer-events-none" style={{
-                width: `calc(50% - ${CELL / 2}px)`,
-                background: 'linear-gradient(90deg, rgba(16,6,1,0.94) 0%, rgba(16,6,1,0.74) 100%)',
-                animation: 'dsFade 380ms ease-out both',
+                width: `calc(50% - ${CELL / 2}px)`, background: 'rgba(255,255,255,0.72)', animation: 'dsFade 300ms steps(3, end) both',
               }} />
               <div className="absolute inset-y-0 right-0 pointer-events-none" style={{
-                width: `calc(50% - ${CELL / 2}px)`,
-                background: 'linear-gradient(270deg, rgba(16,6,1,0.94) 0%, rgba(16,6,1,0.74) 100%)',
-                animation: 'dsFade 380ms ease-out both',
+                width: `calc(50% - ${CELL / 2}px)`, background: 'rgba(255,255,255,0.72)', animation: 'dsFade 300ms steps(3, end) both',
+              }} />
+              <div className="absolute pointer-events-none" style={{
+                left: '50%', marginLeft: -(CELL / 2), top: 6, bottom: 6, width: CELL,
+                border: `3px solid ${M.leaf}`, borderRadius: 18,
+                animation: 'dsFrame 340ms cubic-bezier(0.34,1.56,0.64,1) both',
               }} />
             </>
           )}
 
-          {/* The frame closing on the winner — the moment the reel stops being
-              a strip of donuts and starts being one prize. */}
-          {landed && (
-            <div className="absolute pointer-events-none" style={{
-              left: '50%', marginLeft: -(CELL / 2), top: 4, bottom: 4, width: CELL,
-              border: '2px solid #FBBF24', borderRadius: 5,
-              boxShadow: `0 0 14px rgba(251,191,36,0.5), inset 0 0 16px ${tint(glow, 0.4)}`,
-              animation: 'dsFrame 340ms cubic-bezier(0.34,1.56,0.64,1) both',
-            }} />
-          )}
-
-          {/* One sweep of light across the glass as it settles. */}
-          {landed && !reduced && (
-            <div className="absolute inset-y-0 pointer-events-none" style={{
-              left: -110, width: 80,
-              background: 'linear-gradient(100deg, transparent, rgba(255,255,255,0.3), transparent)',
-              transform: 'skewX(-14deg)',
-              animation: 'dsSheen 720ms ease-out 80ms both',
-            }} />
-          )}
-
-          {/* Marker — chevrons biting in from top and bottom. They frame the
-              winning cell instead of drawing a line down the middle of it.
-              Once the gold frame closes they've done their job and would only
-              be two spikes stuck through it, so they duck out of its way. */}
-          <div className="absolute left-1/2 top-0 pointer-events-none" style={{
-            marginLeft: -7, width: 0, height: 0,
-            borderLeft: '7px solid transparent', borderRight: '7px solid transparent',
-            borderTop: '9px solid #FBBF24',
-            opacity: landed ? 0.25 : 1, transition: 'opacity 300ms ease-out',
-          }} />
-          <div className="absolute left-1/2 bottom-0 pointer-events-none" style={{
-            marginLeft: -7, width: 0, height: 0,
-            borderLeft: '7px solid transparent', borderRight: '7px solid transparent',
-            borderBottom: '9px solid #FBBF24',
-            opacity: landed ? 0.25 : 1, transition: 'opacity 300ms ease-out',
-          }} />
-
-          {/* Gold rivets — the app's tell for a premium surface. */}
-          {[0, 1, 2, 3].map(i => (
-            <span key={i} className="absolute pointer-events-none" style={{
-              width: 2, height: 2, background: '#FBBF24', opacity: 0.85,
-              top: i < 2 ? 3 : undefined, bottom: i < 2 ? undefined : 3,
-              left: i % 2 === 0 ? 3 : undefined, right: i % 2 === 0 ? undefined : 3,
+          {/* Marker: two leaf notches biting in from top and bottom. Once the
+              frame closes they've done their job, so they step back. */}
+          {(['top', 'bottom'] as const).map(edge => (
+            <div key={edge} className="absolute left-1/2 pointer-events-none" style={{
+              [edge]: 0, marginLeft: -8, width: 0, height: 0,
+              borderLeft: '8px solid transparent', borderRight: '8px solid transparent',
+              [edge === 'top' ? 'borderTop' : 'borderBottom']: `10px solid ${M.leaf}`,
+              opacity: landed ? 0 : 1, transition: 'opacity 200ms steps(2, end)',
             }} />
           ))}
         </div>
       </div>
 
       {/* ── Result ── only after the reel stops, so it can't spoil the landing.
-          The height is reserved up front: the plate appearing must not shove
+          The height is reserved up front: the card appearing must not shove
           the reel upward at the exact moment you're looking at it. */}
-      <div className="w-full flex flex-col items-center" style={{ maxWidth: REEL_MAX, minHeight: 176 }}>
+      <div className="w-full flex flex-col items-center" style={{ maxWidth: REEL_MAX, minHeight: 236 }}>
         {landed && (
-          <div className="w-full flex flex-col items-center"
-            style={{ animation: 'dsPop 420ms cubic-bezier(0.34,1.56,0.64,1) both' }}>
-
-            {/* ── Prize plate ── */}
-            <div className="relative w-full" style={{
-              marginTop: 14, padding: '10px 12px 9px',
-              background: 'linear-gradient(180deg, rgba(62,28,13,0.97) 0%, rgba(24,10,4,0.97) 100%)',
-              border: '2px solid #B45309', borderRadius: 7,
-              boxShadow: `4px 4px 0 rgba(0,0,0,0.5), 0 0 26px ${tint(glow, 0.26)}, inset 0 1px 0 rgba(255,255,255,0.1)`,
+          <div className="w-full flex flex-col" style={{ animation: 'dsPop 420ms cubic-bezier(0.34,1.56,0.64,1) both' }}>
+            <div className="flex flex-col items-center" style={{
+              marginTop: 18, padding: '16px 16px 14px', borderRadius: 22, background: '#FFFFFF', textAlign: 'center',
             }}>
-              {[0, 1, 2, 3].map(i => (
-                <span key={i} className="absolute" style={{
-                  width: 2, height: 2, background: '#FBBF24', opacity: 0.8,
-                  top: i < 2 ? 3 : undefined, bottom: i < 2 ? undefined : 3,
-                  left: i % 2 === 0 ? 3 : undefined, right: i % 2 === 0 ? undefined : 3,
-                }} />
-              ))}
-
-              <p className="font-pixel text-center"
-                style={{ fontSize: 11, lineHeight: 1.35, color: '#FFF7E6', letterSpacing: 1, textShadow: `0 0 14px ${glow}, 0 2px 0 rgba(0,0,0,0.6)` }}>
-                {won.name.toUpperCase()}
-              </p>
-
-              {/* Rule with a gold pip — the plate's spine. */}
-              <div className="flex items-center justify-center gap-2 my-1.5">
-                <span style={{ height: 1, width: 62, background: 'linear-gradient(90deg, transparent, #FBBF24)' }} />
-                <span style={{ width: 4, height: 4, background: '#FBBF24', transform: 'rotate(45deg)' }} />
-                <span style={{ height: 1, width: 62, background: 'linear-gradient(270deg, transparent, #FBBF24)' }} />
+              <p style={{ margin: 0, fontSize: 22, fontWeight: 800, lineHeight: 1.2, color: M.text }}>{won.name}</p>
+              <p style={{ margin: '4px 0 0', fontSize: 15, fontWeight: 500, color: M.text2 }}>{won.desc}</p>
+              {/* What it DOES: the reason one donut is worth more than another
+                  is on the card, not buried in the fridge. */}
+              <div className="flex flex-wrap justify-center" style={{ gap: 6, marginTop: 10 }}>
+                <Tag tone="leaf" icon={<MeadowIcon name="star" size={16} />}>{titleCase(won.perk.label)}</Tag>
+                {tasteChip && <Tag tone={won.taste === 'loves' ? 'epic' : 'soft'}>{cat.t(tasteChip)}</Tag>}
               </div>
-
-              <p className="text-center" style={{ fontSize: 10.5, lineHeight: 1.3, color: '#F0D3B0' }}>
-                {won.desc}
-              </p>
-
-              {/* What it DOES. The reason one donut is worth more than another
-                  is on the plate, not buried in the fridge. */}
-              <div className="flex flex-wrap items-center justify-center gap-1.5 mt-2">
-                <span className="font-pixel" style={{
-                  padding: '4px 6px', fontSize: 6, letterSpacing: 0.8, color: '#FDE68A',
-                  background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.55)', borderRadius: 3,
-                }}>
-                  {won.perk.label}
-                </span>
-                {tasteChip && (
-                  <span className="font-pixel" style={{
-                    padding: '4px 6px', fontSize: 6, letterSpacing: 0.8,
-                    color: won.taste === 'loves' ? '#FFD9E4' : '#B9AFA4',
-                    background: won.taste === 'loves' ? 'rgba(245,167,192,0.14)' : 'rgba(255,255,255,0.05)',
-                    border: `1px solid ${won.taste === 'loves' ? 'rgba(245,167,192,0.6)' : 'rgba(255,255,255,0.2)'}`,
-                    borderRadius: 3,
-                  }}>
-                    {cat.t(tasteChip)}
-                  </span>
-                )}
-              </div>
-
-              <p className="font-pixel text-center mt-2" style={{ fontSize: 5.5, letterSpacing: 1, color: '#C2925F' }}>
-                ADDED TO YOUR FRIDGE
+              <p className="flex items-center" style={{ margin: '10px 0 0', gap: 5, fontSize: 13, fontWeight: 700, color: M.text2 }}>
+                <MeadowIcon name="check" size={16} color={M.leaf} />
+                Added to your fridge
               </p>
             </div>
 
-            {/* ── Buttons ── they sink into their own shadow when pressed. */}
-            <div className="flex items-center gap-2 mt-3">
-              <button onClick={onClose} className="dsBtn font-pixel"
-                style={{
-                  padding: '10px 16px', fontSize: 8, letterSpacing: 1.5, color: '#E7C39A',
-                  background: 'linear-gradient(180deg, #5A2C12 0%, #35180A 100%)',
-                  border: '2px solid #8A5228', borderRadius: 5,
-                  ['--dsSh' as string]: '#160902',
-                  ['--dsHi' as string]: 'rgba(255,255,255,0.14)',
-                }}>
-                DONE
-              </button>
+            <div className="flex" style={{ gap: 10, marginTop: 14 }}>
+              <SecondaryButton onClick={onClose} full={false} style={{ flex: '1 1 0' }}>Done</SecondaryButton>
               {onSpinAgain && (
-                <button onClick={onSpinAgain} className="dsBtn font-pixel inline-flex items-center gap-1.5"
-                  style={{
-                    padding: '10px 16px', fontSize: 8, letterSpacing: 1.5, color: '#3A1B02',
-                    background: 'linear-gradient(180deg, #FCD34D 0%, #F59E0B 46%, #C2610A 100%)',
-                    border: '2px solid #7C2D12', borderRadius: 5,
-                    ['--dsSh' as string]: '#4A1D06',
-                    ['--dsHi' as string]: 'rgba(255,255,255,0.55)',
-                  }}>
-                  AGAIN
-                  {spinAgainCost === 'free'
-                    ? <span style={{ fontSize: 7 }}>FREE</span>
-                    : <><IconCoin size={10} />{spinAgainCost}</>}
-                </button>
+                <PrimaryButton onClick={onSpinAgain} full={false} style={{ flex: '1 1 0' }}>
+                  <span className="inline-flex items-center" style={{ gap: 6 }}>
+                    Again
+                    {spinAgainCost === 'free'
+                      ? <span style={{ fontSize: 14, fontWeight: 700, opacity: 0.9 }}>free</span>
+                      : <><MeadowIcon name="coin" size={20} />{spinAgainCost}</>}
+                  </span>
+                </PrimaryButton>
               )}
             </div>
           </div>
         )}
-        {!landed && (
-          <p className="font-pixel mt-4" style={{ fontSize: 7, color: '#E7C39A', letterSpacing: 1.5, opacity: 0.85 }}>
-            {wasFree ? 'FREE SPIN' : 'GOOD LUCK'}
-          </p>
-        )}
       </div>
 
       <style jsx>{`
-        .dsBtn {
-          box-shadow: 0 3px 0 var(--dsSh), inset 0 1px 0 var(--dsHi);
-          transition: transform 80ms ease-out, box-shadow 80ms ease-out;
-        }
-        .dsBtn:active {
-          transform: translateY(3px);
-          box-shadow: 0 0 0 var(--dsSh), inset 0 1px 0 var(--dsHi);
-        }
         @keyframes dsPop {
           0%   { transform: scale(0.9);  opacity: 0; }
           60%  { transform: scale(1.03); opacity: 1; }
           100% { transform: scale(1);    opacity: 1; }
         }
         @keyframes dsFrame {
-          0%   { transform: scale(1.5); opacity: 0; }
+          0%   { transform: scale(1.4); opacity: 0; }
           100% { transform: scale(1);   opacity: 1; }
         }
         @keyframes dsFade {
           from { opacity: 0; }
           to   { opacity: 1; }
         }
-        @keyframes dsSheen {
-          from { transform: translateX(0) skewX(-14deg); }
-          to   { transform: translateX(560px) skewX(-14deg); }
-        }
         @keyframes dsRayIn {
-          from { opacity: 0; transform: scale(0.7); }
+          from { opacity: 0; transform: scale(0.6); }
           to   { opacity: 1; transform: scale(1); }
         }
         @keyframes dsRays {
           from { transform: rotate(0deg); }
           to   { transform: rotate(360deg); }
-        }
-        /* The one-shot pops are spectacle too — the result is already on
-           screen without them. */
-        @media (prefers-reduced-motion: reduce) {
-          * { animation: none !important; }
         }
       `}</style>
     </div>

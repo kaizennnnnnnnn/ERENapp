@@ -9,13 +9,15 @@
 // own wood/pink palette. The glass dome shows three real donut plates so it is
 // visibly full of the thing it dispenses.
 //
-// It bobs, its bulb pulses, and when a free spin is up it wears a FREE tag.
+// It bobs, its bulb pulses, and when a free spin is up it wears a Free tag
+// (a leaf Meadow pill, the one bit of the app's chrome on it).
 // That tag is the only thing on this page that moves without being asked, which
 // is deliberate — it's what makes you walk over and tap it.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { foodArt } from '@/lib/foodMeta'
 import { MACHINE_DONUTS } from '@/lib/donuts'
+import { M } from '@/components/meadow'
 
 // Three fixed donuts behind the glass. Fixed, not random: the machine is
 // furniture, and furniture that reshuffles itself every render is a distraction.
@@ -163,17 +165,16 @@ export default function DonutMachine({ free, busy, onTap }: Props) {
       {/* ── FREE tag ── the hook. Only drawn when there's actually one waiting,
           and it swings rather than fades so it reads at thumbnail size. */}
       {free && (
-        <span className="font-pixel absolute"
+        <span className="meadow-root absolute"
           style={{
-            top: '-6%', right: '-14%',
-            padding: '3px 5px', fontSize: 6, letterSpacing: 1,
-            color: '#3A1B02', background: '#FBBF24',
-            border: '2px solid #7C2D12', borderRadius: 3,
-            boxShadow: '2px 2px 0 rgba(60,26,4,0.45)',
+            top: '-8%', right: '-22%',
+            padding: '3px 8px', fontSize: 12, fontWeight: 800, lineHeight: 1.2,
+            color: '#FFFFFF', background: M.leaf, borderRadius: 999,
+            boxShadow: `0 2px 0 ${M.leafLip}`, whiteSpace: 'nowrap',
             transformOrigin: 'top left',
             animation: 'dmTag 2.4s ease-in-out infinite',
           }}>
-          FREE
+          Free
         </span>
       )}
 
