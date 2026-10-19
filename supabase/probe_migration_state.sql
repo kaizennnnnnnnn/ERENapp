@@ -173,6 +173,17 @@ with
 
     union all
     select case when exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                   where n.nspname = 'public' and p.proname = 'create_household'
+                     and p.prosrc like '%variable_conflict use_column%') then 9 else 0 end,
+           'onboarding: create_household',
+           case when exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                   where n.nspname = 'public' and p.proname = 'create_household'
+                     and p.prosrc like '%variable_conflict use_column%')
+                then 'ok' else '** paste migration_create_household_fix.sql **' end,
+           'Nobody can make a new account: "Couldn''t build the home"'
+
+    union all
+    select case when exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                    where n.nspname = 'public' and p.proname = 'purchase_trophy_item'
                      and pg_get_functiondef(p.oid) like '%machine%') then 9 else 0 end,
            'weather machine: purchase_trophy_item knows ''machine''',
