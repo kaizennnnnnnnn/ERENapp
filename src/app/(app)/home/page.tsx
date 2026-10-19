@@ -32,6 +32,7 @@ import { useInventory } from '@/hooks/useInventory'
 import { useNewSkins } from '@/hooks/useNewSkins'
 import HomeRoomFrame, { homeRoomArt } from '@/components/home/HomeRoomFrame'
 import HomeHud from '@/components/home/HomeHud'
+import NotifyNudge from '@/components/home/NotifyNudge'
 import RoomDots from '@/components/home/RoomDots'
 import HomeDock, { DOCK_CLEARANCE } from '@/components/home/DockButtons'
 import { useHideBottomNav } from '@/components/nav/NavVisibility'
@@ -827,7 +828,13 @@ export default function HomePage() {
             own shortcuts; Us, Me and Rooms are tabs of the bottom nav now. */}
         <HomeHud
           quests={<TaskPanel />}
-          footer={<CoopGoalBar />}
+          footer={<>
+            <CoopGoalBar />
+            {/* Gets this phone signed up for push when nothing else did:
+                an iPhone in a Safari tab, or a Home Screen app never asked. */}
+            <NotifyNudge userId={user?.id ?? null} householdId={profile?.household_id ?? null}
+              partnerName={isSolo ? null : partner?.name?.split(' ')[0] ?? null} />
+          </>}
           wish={wish?.wish && wish.status !== 'loading'
             ? { text: wish.text, granted: wish.status === 'granted', weekCount: wish.weekGrantedCount }
             : null}
