@@ -49,10 +49,12 @@ export function PotionBody({ potion, children }: { potion: Live | null; children
       ...look?.style,
     }}>
       {/* A glow round his outline in the potion's colour: across the room you
-          can tell he's had something. On its own layer because the rainbow
-          animates the outer one's filter. One shadow, not a stack: this sits
-          on a breathing, blinking cat for an hour. */}
-      <div style={{ filter: potion ? `drop-shadow(0 0 7px ${potion.color})` : undefined }}>
+          can tell he's had something. Faint on purpose: at full strength it
+          drew a bright line round him that was the loudest thing in the room.
+          On its own layer because the rainbow animates the outer one's filter.
+          One shadow, not a stack: this sits on a breathing, blinking cat for
+          an hour. */}
+      <div style={{ filter: potion ? `drop-shadow(0 0 4px ${potion.color}99)` : undefined }}>
         {children}
       </div>
       {/* Cloud Nine: he naps on it, so it rides along with him. */}
@@ -145,10 +147,10 @@ export function PotionAround({ potion, layer }: { potion: Live; layer: 'back' | 
     return (
       <div aria-hidden style={inset}>
         {/* The wash in this batch's own colour: even across the room you can
-            tell he's had something. */}
+            tell he's had something. A tint on the floor, not a spotlight. */}
         <div className={fx === 'rainbow' ? 'potWash potRainbow' : 'potWash'} style={{
           position: 'absolute', inset: 0,
-          background: `radial-gradient(circle at 50% 58%, ${color}${strong ? 'BF' : '99'} 0%, ${color}59 40%, transparent 72%)`,
+          background: `radial-gradient(circle at 50% 58%, ${color}${strong ? '8C' : '5C'} 0%, ${color}2E 40%, transparent 72%)`,
         }} />
         {fx === 'stars' && <Icons bits={TWINKLES} icon="shine" className="potWink" />}
         {fx === 'flowers' && <Icons bits={FEET} icon="daisy" className="potPop" />}
