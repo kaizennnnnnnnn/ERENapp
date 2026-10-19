@@ -2496,6 +2496,27 @@ const MEADOW_ICONS = {
     ],
     palette: { X: '#6E6A66' },
   },
+  // The gacha collection: a tall lilac album with a white heart on the cover,
+  // its spine darker down the left and the page block showing down the right
+  // and along the bottom. Portrait on purpose: a square one read as a floppy
+  // disk at button size.
+  book: {
+    grid: [
+      '..dXXXXXXX..',
+      '..dXXXXXXXp.',
+      '..dXXXXXXXp.',
+      '..dXXwXwXXp.',
+      '..dXwwwwwXp.',
+      '..dXXwwwXXp.',
+      '..dXXXwXXXp.',
+      '..dXXXXXXXp.',
+      '..dXXXXXXXp.',
+      '..dXXXXXXXp.',
+      '..dXXXXXXXp.',
+      '...pppppppp.',
+    ],
+    palette: { X: '#9A73D6', d: '#7553B0', w: '#FFFFFF', p: '#D9D2C6' },
+  },
   clock: {
     grid: [
       '....XXXX....',

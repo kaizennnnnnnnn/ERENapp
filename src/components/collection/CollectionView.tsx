@@ -1,25 +1,24 @@
 'use client'
 
 // ─── CollectionView ──────────────────────────────────────────────────────────
-// The vault: every skin and every can, owned or not. Sibling screen to the
-// Closet, so it wears the same clothes — dark panel, CRT scanlines, gold rivets,
-// rarity frames from lib/rarityFrame (one table, shared with the closet grid).
+// The gacha collection: every outfit and every snack, found or not. Sibling
+// screen to the Closet, so it wears the same Meadow clothes: the Me page's
+// ground, a white card for the count, a segmented switch, white tiles in a
+// grid with each rarity's tint behind what you own.
 //
-// What you DON'T own is blacked out: silhouette only, no name, a lock and a
-// dimmed hint of its tier. A collection screen runs on the pull of its gaps, and
-// a greyed-but-legible card gives away the thing it's asking you to chase.
-// Tapping a locked card still answers the only question worth asking — where do
-// I get it — via a small source sheet, so a locked tap is never a dead tap.
+// What you HAVEN'T found shows as its shape only, a faint shadow on grey, with
+// a lock and no name. A collection runs on the pull of its gaps, and a legible
+// card would give away the thing it's asking you to chase. Tapping one still
+// answers the only question worth asking, where do I get it, in a sheet, so a
+// locked tap is never a dead tap.
 //
-// Presentational only — the container (gacha/collection/page.tsx) owns the
+// Presentational only: the container (gacha/collection/page.tsx) owns the
 // inventory data and the use/navigate actions. Kept pure so it can be
-// screenshotted with mock ownership at mobile widths.
+// screenshotted with mock ownership.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useMemo } from 'react'
-import { ChevronLeft } from 'lucide-react'
-import { RARITY_COLORS, GACHA_FOOD_GRANT, getCategoryLabel, getItemsByCategory } from '@/lib/gacha'
-import { frameFor, lockedArt } from '@/lib/rarityFrame'
+import { useMemo, useRef } from 'react'
+import { GACHA_FOOD_GRANT, getItemsByCategory } from '@/lib/gacha'
 import { skinUnlockDrink } from '@/lib/skins'
 import { FOOD_META } from '@/lib/foodMeta'
 import type { GachaCategory, GachaItemDef, FoodKey } from '@/types'
@@ -27,74 +26,59 @@ import { playSound } from '@/lib/sounds'
 import { useCat } from '@/hooks/useCat'
 import { swapCatName } from '@/lib/catWords'
 import CanFx, { hasCanFx } from '@/components/care/CanFx'
+import { IconCan } from '@/components/PixelIcons'
 import {
-  IconBook, IconCatFace, IconCan, IconLock, IconPaw, IconCake, IconCrown, IconSparkles,
-} from '@/components/PixelIcons'
+  Card, M, MeadowIcon, MeadowPage, Meter, PrimaryButton, RARITY_TAG, SectionLabel, Segmented, Sheet, Tag, TYPE,
+} from '@/components/meadow'
+import { RARITY_FILL } from '@/components/gacha/rarity'
 
-const PANEL = '#1B1233'
-const PANEL_BORDER = '#4C1D95'
+/** A locked item: its shape only, a soft shadow (the Closet's silhouette). */
+const SILHOUETTE = 'grayscale(1) brightness(0) opacity(0.2)'
 
-// Two tabs, because there are two kinds of drop left. The emoji tabs —
-// outfits, decorations, backgrounds, recipes, emotes, frames — are gone along
-// with the items that filled them.
-const CATEGORIES: GachaCategory[] = ['skin', 'consumable']
-const TAB_ICON: Record<GachaCategory, React.ComponentType<{ size?: number }>> = {
-  skin: IconCatFace, consumable: IconCan,
-}
+const TAB_LABEL: Record<GachaCategory, string> = { skin: 'Outfits', consumable: 'Snacks' }
 
-// The skins tab is long enough to need shelves. SPECIAL leads because it's the
-// only group you can't pull for — see `unlock` in lib/skins.ts.
+// The outfits tab is long enough to need shelves. Earned leads because it's
+// the only group you can't pull for (see `unlock` in lib/skins.ts).
 const SKIN_SECTIONS = [
-  { key: 'special', label: 'EARNED, NOT PULLED', Icon: IconCrown, match: (i: GachaItemDef) => !!i.unlock },
-  { key: 'animal',  label: 'ANIMAL COSTUMES', Icon: IconPaw,   match: (i: GachaItemDef) => !i.unlock && i.skinSet === 'animal' },
-  { key: 'food',    label: 'FOODSUITS',       Icon: IconCake,  match: (i: GachaItemDef) => !i.unlock && i.skinSet === 'food' },
+  { key: 'special', label: 'Earned, not pulled', match: (i: GachaItemDef) => !!i.unlock },
+  { key: 'animal', label: 'Kitty Costumes', match: (i: GachaItemDef) => !i.unlock && i.skinSet === 'animal' },
+  { key: 'food', label: 'FoodSuits', match: (i: GachaItemDef) => !i.unlock && i.skinSet === 'food' },
 ]
 
 /**
- * An item's picture, `fill` of its square box — shared by the card and the
- * detail sheet.
- *
- * Skins and cans are hi-res art downscaled several times, so they render
- * smooth: `pixelated` would crawl a seam on a skin and alias a can's outline.
- * A special-edition can also brings its moving sparkles or rays (CanFx), found
- * through the fridge food the pull grants. They share a box and the locked
- * filter with the can, so a locked card is still one silhouette.
+ * An item's picture, `fill` of its square box: shared by the tile and the
+ * sheet. A special-edition can also brings its moving sparkles or rays
+ * (CanFx), found through the fridge food the pull grants; they share the box
+ * and the silhouette filter with the can, so a locked tile is one shape.
  */
 function ItemArt({ item, fill, locked }: { item: GachaItemDef; fill: string; locked: boolean }) {
   const food = GACHA_FOOD_GRANT[item.id]
-  const smooth = item.category === 'skin' || (food !== undefined && food.startsWith('monsta_'))
-  const filter = locked ? lockedArt : 'none'
-
+  const filter = locked ? SILHOUETTE : 'none'
   if (food === undefined || !hasCanFx(food)) return (
-    <img src={item.image} alt="" draggable={false} style={{
-      width: fill, height: fill, objectFit: 'contain',
-      imageRendering: smooth ? 'auto' : 'pixelated',
-      filter,
-    }} />
+    <img src={item.image} alt="" draggable={false} style={{ width: fill, height: fill, objectFit: 'contain', filter }} />
   )
   return (
     <span style={{ position: 'relative', display: 'block', width: fill, height: fill, filter }}>
-      <img src={item.image} alt="" draggable={false}
-        style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+      <img src={item.image} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
       <CanFx id={food} />
     </span>
   )
 }
 
 /**
- * Where an item actually comes from — the answer a locked tap is asking for.
+ * Where an item actually comes from: the answer a locked tap is asking for.
  * A lib/catWords template, like the item's description: fill it with cat.t.
  */
 function sourceHint(item: GachaItemDef): string {
-  if (item.category === 'consumable') return 'Pull it from the SNACKS & DRINKS machine.'
+  if (item.category === 'consumable') return 'Pull it from the Snacks & Drinks machine.'
   if (item.unlock === 'jelly') {
     return 'Fill the Parlour tray of five in a day for a Super Jelly. Feed {him} five of those and {he} earns the coat.'
   }
   const drink = item.skinId ? skinUnlockDrink(item.skinId) : undefined
   if (drink) return `Feed {name} a ${FOOD_META[drink as FoodKey].name}. The first can {he} finishes leaves its colours on {him} for good.`
   return item.skinSet === 'food'
-    ? 'Pull it from the FOODSUITS machine, or unlock it with stardust in the Closet.'
-    : 'Pull it from the KITTY COSTUMES machine, or unlock it with stardust in the Closet.'
+    ? 'Pull it from the FoodSuits machine, or unlock it with stardust in the Closet.'
+    : 'Pull it from the Kitty Costumes machine, or unlock it with stardust in the Closet.'
 }
 
 interface Props {
@@ -120,170 +104,86 @@ export default function CollectionView({
   tab, onTabChange, ownsItem, getQuantity, collectionPct, ownedCount, totalItems,
   ready, selected, onSelect, onUse, onOpenCloset, onBack, toast,
 }: Props) {
-
   const items = useMemo(() => getItemsByCategory(tab), [tab])
-  const tabOwned = items.filter(i => ownsItem(i.id)).length
-
-  // Grids can't be drawn from an unconfirmed inventory: a 503 leaves `owns`
-  // empty, which would black out a collection the household actually has.
-  const gate = !ready
+  const owned = (list: GachaItemDef[]) => list.filter(i => ownsItem(i.id)).length
 
   return (
-    <div className="fixed inset-0 overflow-y-auto" style={{
-      background: 'radial-gradient(120% 80% at 50% 0%, #2A1B4A 0%, #160E2E 55%, #0B0717 100%)',
-    }}>
-      {/* CRT scanlines — the dark "game panel" convention */}
-      <div className="fixed inset-0 pointer-events-none" style={{
-        backgroundImage: 'repeating-linear-gradient(0deg, rgba(0,0,0,0.16) 0px, rgba(0,0,0,0.16) 1px, transparent 1px, transparent 3px)',
-        zIndex: 1,
-      }} />
+    <MeadowPage ground="me" title="Collection" withNav={false}
+      back={{ onClick: () => { playSound('ui_back'); onBack() }, label: 'Back' }}>
+
+      {/* ── How much you've found ── */}
+      <Card style={{ marginTop: 16 }}>
+        <div className="flex items-baseline justify-between" style={{ gap: 12 }}>
+          <span style={{ ...TYPE.label, color: M.label }}>Found</span>
+          <span style={{ fontSize: 15, fontWeight: 700, color: M.text2, fontVariantNumeric: 'tabular-nums' }}>
+            {ready ? `${collectionPct}%` : ''}
+          </span>
+        </div>
+        <div style={{ marginTop: 4, fontSize: 30, lineHeight: 1.15, ...TYPE.number, color: M.text }}>
+          {ready ? ownedCount : '-'}
+          <span style={{ fontSize: 18, color: M.text2 }}> of {totalItems}</span>
+        </div>
+        <Meter value={ready ? collectionPct / 100 : 0} style={{ marginTop: 12 }} label="Collection found" />
+      </Card>
+
+      <Segmented<GachaCategory>
+        ariaLabel="Collection category"
+        value={tab}
+        onChange={t => { playSound('ui_tap'); onTabChange(t); onSelect(null) }}
+        style={{ marginTop: 16, background: '#FFFFFF' }}
+        options={(['skin', 'consumable'] as const).map(c => ({
+          value: c,
+          label: <>{TAB_LABEL[c]}<Count n={getItemsByCategory(c).length} /></>,
+        }))}
+      />
+
+      {/* ── The shelves ── */}
+      {!ready ? (
+        <p role="status" style={{ margin: '48px 0', textAlign: 'center', fontSize: 14, fontWeight: 600, color: M.text2 }}>
+          Loading your collection...
+        </p>
+      ) : tab === 'skin' ? (
+        SKIN_SECTIONS.map(sec => {
+          const rows = items.filter(sec.match)
+          if (rows.length === 0) return null
+          return (
+            <section key={sec.key}>
+              <SectionLabel trailing={`${owned(rows)} of ${rows.length}`}>{sec.label}</SectionLabel>
+              <ItemGrid items={rows} ownsItem={ownsItem} getQuantity={getQuantity} onPick={onSelect} />
+            </section>
+          )
+        })
+      ) : (
+        <section>
+          <SectionLabel trailing={`${owned(items)} of ${items.length}`}>Cans and treats</SectionLabel>
+          <ItemGrid items={items} ownsItem={ownsItem} getQuantity={getQuantity} onPick={onSelect} />
+        </section>
+      )}
+
+      <ItemSheet
+        item={selected}
+        ownsItem={ownsItem}
+        getQuantity={getQuantity}
+        onUse={item => { playSound('ui_tap'); onUse(item) }}
+        onCloset={() => { playSound('ui_tap'); onOpenCloset() }}
+        onClose={() => { playSound('ui_modal_close'); onSelect(null) }}
+      />
 
       {toast && (
-        <div className="fixed left-1/2 -translate-x-1/2 text-white px-4 py-2.5 whitespace-nowrap" style={{
-          top: 'calc(var(--safe-top) + 12px)', zIndex: 70,
-          background: PANEL, borderRadius: 8, border: `2px solid ${PANEL_BORDER}`,
-          boxShadow: '3px 3px 0 rgba(0,0,0,0.45)', fontFamily: '"Press Start 2P"', fontSize: 7,
-        }}>{toast}</div>
+        <div role="status" className="fixed inset-x-0 flex justify-center pointer-events-none"
+          style={{ top: 'calc(var(--safe-top) + 12px)', zIndex: 90, padding: '0 16px' }}>
+          <span className="meadow-root" style={{
+            padding: '10px 16px', borderRadius: 20, background: M.text, color: '#FFFFFF',
+            fontSize: 14, lineHeight: 1.35, fontWeight: 700, textAlign: 'center', overflowWrap: 'anywhere',
+          }}>{toast}</span>
+        </div>
       )}
-
-      <div className="relative px-3 mx-auto" style={{
-        zIndex: 2, maxWidth: 440,
-        paddingTop: 'calc(var(--safe-top) + 10px)', paddingBottom: 'calc(var(--safe-bottom) + 24px)',
-      }}>
-        {/* ── Header ── */}
-        <div className="flex items-center gap-2 mb-3">
-          <button onClick={() => { playSound('ui_back'); onBack() }}
-            aria-label="Back"
-            className="flex items-center justify-center active:translate-y-[1px] transition-transform"
-            style={{ width: 40, height: 40, background: PANEL, borderRadius: 9, border: `2px solid ${PANEL_BORDER}`, boxShadow: '0 2px 0 #2E1065' }}>
-            <ChevronLeft size={17} className="text-purple-200" />
-          </button>
-          <span className="pixel-chip inline-flex items-center gap-1.5" style={{ background: 'linear-gradient(135deg, #7C3AED, #A78BFA)', fontSize: 8, padding: '5px 10px' }}>
-            <IconBook size={13} /> COLLECTION
-          </span>
-          <div className="flex-1" />
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5" style={{
-            background: PANEL, borderRadius: 8, border: `2px solid ${PANEL_BORDER}`, boxShadow: '0 2px 0 #2E1065',
-          }}>
-            <span className="sparkle-hue" aria-hidden><IconSparkles size={13} /></span>
-            <span className="font-pixel" style={{ fontSize: 8, color: '#E9D5FF' }}>{collectionPct}%</span>
-          </div>
-        </div>
-
-        {/* ── Completion ── */}
-        <div className="relative mb-4 px-3 py-3" style={{
-          background: 'linear-gradient(180deg, rgba(35,22,66,0.6), rgba(11,7,23,0.35))',
-          border: '2px solid rgba(167,139,250,0.28)', borderRadius: 12,
-        }}>
-          {([['t', 'l'], ['t', 'r'], ['b', 'l'], ['b', 'r']] as const).map(([v, h], i) => (
-            <span key={i} aria-hidden className="absolute" style={{
-              width: 4, height: 4, background: '#F5C842', boxShadow: '0 0 3px rgba(245,200,66,0.8)',
-              top: v === 't' ? 6 : undefined, bottom: v === 'b' ? 6 : undefined,
-              left: h === 'l' ? 6 : undefined, right: h === 'r' ? 6 : undefined,
-            }} />
-          ))}
-          <div className="flex items-center justify-between mb-2 px-1">
-            <span className="font-pixel" style={{ fontSize: 7, color: '#9D8BC4', letterSpacing: 1 }}>COLLECTED</span>
-            <span className="font-pixel" style={{ fontSize: 8, color: '#fff' }}>
-              {ownedCount}<span style={{ color: '#6B5B8C' }}>/{totalItems}</span>
-            </span>
-          </div>
-          <div className="h-3 overflow-hidden" style={{
-            borderRadius: 999, background: 'rgba(11,7,23,0.7)', border: '1.5px solid rgba(167,139,250,0.2)',
-          }}>
-            <div className="h-full transition-all duration-700" style={{
-              width: `${collectionPct}%`, borderRadius: 999,
-              background: 'linear-gradient(90deg, #7C3AED, #A78BFA 60%, #F5C842)',
-              boxShadow: '0 0 10px rgba(167,139,250,0.6)',
-            }} />
-          </div>
-        </div>
-
-        {/* ── Category tabs ── */}
-        <div role="tablist" aria-label="Collection category" className="flex p-1 mb-3" style={{
-          background: 'rgba(11,7,23,0.5)', borderRadius: 11, border: '1.5px solid rgba(167,139,250,0.2)',
-        }}>
-          {CATEGORIES.map(cat => {
-            const Icon = TAB_ICON[cat]
-            const active = tab === cat
-            const total = getItemsByCategory(cat).length
-            return (
-              <button key={cat} role="tab" aria-selected={active} aria-controls="collection-grid"
-                onClick={() => { playSound('ui_tap'); onTabChange(cat); onSelect(null) }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 active:scale-[0.98] transition-all"
-                style={{
-                  borderRadius: 8,
-                  background: active ? 'linear-gradient(135deg, #7C3AED, #A78BFA)' : 'transparent',
-                  boxShadow: active ? '0 0 12px rgba(167,139,250,0.4)' : 'none',
-                }}>
-                <span aria-hidden className="inline-flex"><Icon size={12} /></span>
-                <span className="font-pixel" style={{ fontSize: 8, color: active ? '#fff' : '#9D8BC4', letterSpacing: 0.5 }}>
-                  {getCategoryLabel(cat).toUpperCase()}
-                </span>
-                <span aria-hidden className="font-pixel flex items-center justify-center" style={{
-                  fontSize: 6, minWidth: 14, height: 14, padding: '0 3px', borderRadius: 999,
-                  background: active ? 'rgba(11,7,23,0.4)' : 'rgba(167,139,250,0.18)',
-                  color: active ? '#E9D5FF' : '#9D8BC4',
-                }}>{total}</span>
-              </button>
-            )
-          })}
-        </div>
-
-        {/* ── Grid ── */}
-        <div id="collection-grid" role="tabpanel" aria-label={getCategoryLabel(tab)}>
-          {gate ? (
-            <p className="text-center font-pixel py-10" style={{ fontSize: 8, color: '#A78BFA' }}>LOADING…</p>
-          ) : tab === 'skin' ? (
-            SKIN_SECTIONS.map(sec => {
-              const rows = items.filter(sec.match)
-              if (rows.length === 0) return null
-              return (
-                <section key={sec.key} className="mb-5">
-                  <ShelfLabel Icon={sec.Icon} label={sec.label}
-                    owned={rows.filter(i => ownsItem(i.id)).length} total={rows.length} />
-                  <ItemGrid items={rows} ownsItem={ownsItem} getQuantity={getQuantity} onPick={onSelect} />
-                </section>
-              )
-            })
-          ) : (
-            <>
-              <ShelfLabel Icon={IconCan} label="THE CAN FAMILY" owned={tabOwned} total={items.length} />
-              <ItemGrid items={items} ownsItem={ownsItem} getQuantity={getQuantity} onPick={onSelect} />
-            </>
-          )}
-        </div>
-      </div>
-
-      {selected && (
-        <ItemSheet
-          item={selected}
-          owned={ownsItem(selected.id)}
-          quantity={getQuantity(selected.id)}
-          onUse={() => { playSound('ui_tap'); onUse(selected) }}
-          onCloset={() => { playSound('ui_tap'); onOpenCloset() }}
-          onClose={() => { playSound('ui_modal_close'); onSelect(null) }}
-        />
-      )}
-    </div>
+    </MeadowPage>
   )
 }
 
-// ─── Shelf label ─────────────────────────────────────────────────────────────
-function ShelfLabel({ Icon, label, owned, total }: {
-  Icon: React.ComponentType<{ size?: number }>; label: string; owned: number; total: number
-}) {
-  const complete = owned === total
-  return (
-    <div className="flex items-center gap-1.5 mb-2 px-0.5">
-      <Icon size={11} />
-      <span className="font-pixel" style={{ fontSize: 7, color: '#9D8BC4', letterSpacing: 1 }}>{label}</span>
-      <span className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(167,139,250,0.28), transparent)' }} />
-      <span className="font-pixel" style={{ fontSize: 6, color: complete ? '#F5C842' : '#6B5B8C' }}>
-        {owned}/{total}
-      </span>
-    </div>
-  )
+function Count({ n }: { n: number }) {
+  return <span style={{ marginLeft: 6, fontWeight: 700, color: M.text2, fontVariantNumeric: 'tabular-nums' }}>{n}</span>
 }
 
 // ─── Grid ────────────────────────────────────────────────────────────────────
@@ -294,166 +194,107 @@ function ItemGrid({ items, ownsItem, getQuantity, onPick }: {
   onPick: (item: GachaItemDef) => void
 }) {
   return (
-    <div className="grid grid-cols-3 gap-2.5">
+    <div className="grid grid-cols-3" style={{ gap: 10 }}>
       {items.map(item => (
-        <ItemCard key={item.id} item={item} owned={ownsItem(item.id)}
-          quantity={getQuantity(item.id)} onClick={() => { playSound('ui_modal_open'); onPick(item) }} />
+        <ItemTile key={item.id} item={item} owned={ownsItem(item.id)} quantity={getQuantity(item.id)}
+          onClick={() => { playSound('ui_modal_open'); onPick(item) }} />
       ))}
     </div>
   )
 }
 
-// ─── Card ────────────────────────────────────────────────────────────────────
-function ItemCard({ item, owned, quantity, onClick }: {
+// ─── Tile ────────────────────────────────────────────────────────────────────
+function ItemTile({ item, owned, quantity, onClick }: {
   item: GachaItemDef; owned: boolean; quantity: number; onClick: () => void
 }) {
-  const locked = !owned
-  const frame = frameFor(item.rarity, locked)
-  const byDrink = item.unlock === 'drink'
   const cat = useCat()
   const name = swapCatName(item.name, cat)
-
+  const can = item.category === 'consumable'
   return (
-    <button onClick={onClick}
-      aria-label={locked ? `Locked ${item.rarity} ${item.category}` : name}
-      className="relative flex flex-col items-center gap-1 p-1.5 active:scale-95 transition-all"
-      style={{ ...frame.style, borderRadius: 10 }}>
-
-      {/* legendary shimmer — clipped so it can't spill onto the badges */}
-      {frame.shine && (
-        <span aria-hidden className="absolute inset-0 overflow-hidden pointer-events-none" style={{ borderRadius: 10 }}>
-          <span className="absolute" style={{
-            top: 0, bottom: 0, left: 0, width: '42%',
-            background: 'linear-gradient(100deg, transparent 0%, rgba(255,248,214,0.55) 50%, transparent 100%)',
-            animation: 'closetLegendShine 3.6s ease-in-out infinite',
-          }} />
-        </span>
-      )}
-
-      {/* legendary rivets (4) / epic gems (2 bottom) — quiet metal detail */}
-      {frame.rivets && ([['t', 'l'], ['t', 'r'], ['b', 'l'], ['b', 'r']] as const).map(([v, h], i) => (
-        <span key={`rv${i}`} aria-hidden className="absolute pointer-events-none" style={{
-          width: 3, height: 3, background: '#FFE9A8', boxShadow: '0 0 3px rgba(245,200,66,0.9)',
-          top: v === 't' ? 4 : undefined, bottom: v === 'b' ? 4 : undefined,
-          left: h === 'l' ? 4 : undefined, right: h === 'r' ? 4 : undefined,
-        }} />
-      ))}
-      {frame.gems && ([['b', 'l'], ['b', 'r']] as const).map(([, h], i) => (
-        <span key={`gm${i}`} aria-hidden className="absolute pointer-events-none" style={{
-          width: 3, height: 3, background: '#C4B5FD', boxShadow: '0 0 3px rgba(167,139,250,0.85)',
-          bottom: 4, left: h === 'l' ? 4 : undefined, right: h === 'r' ? 4 : undefined,
-        }} />
-      ))}
-
-      <div className="flex items-center justify-center" style={{ width: '100%', aspectRatio: '1' }}>
-        <ItemArt item={item} fill="88%" locked={locked} />
-      </div>
-
-      <span className="font-pixel text-center leading-tight" style={{
-        fontSize: 5.5, color: locked ? '#5B4E7A' : '#E9D5FF', minHeight: 12, overflowWrap: 'anywhere',
-      }}>{locked ? '???' : name.toUpperCase()}</span>
-
-      {locked && (
-        <>
-          <span aria-hidden className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ paddingBottom: 14 }}>
-            <IconLock size={18} />
+    <button type="button" onClick={onClick}
+      aria-label={owned ? `${name}, ${item.rarity}${can ? `, ${quantity} left` : ''}` : `Not found yet, ${item.rarity}`}
+      className="m-press m-focus relative flex flex-col" style={{
+        padding: 6, gap: 6, border: 0, borderRadius: 18, background: '#FFFFFF',
+        fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer', minWidth: 0,
+      }}>
+      <span className="relative flex items-center justify-center" style={{
+        width: '100%', aspectRatio: '1', borderRadius: 13, background: owned ? RARITY_TAG[item.rarity].bg : M.soft,
+      }}>
+        <ItemArt item={item} fill="84%" locked={!owned} />
+        {!owned && (
+          <span aria-hidden className="absolute flex items-center justify-center" style={{
+            right: 5, top: 5, width: 24, height: 24, borderRadius: 999, background: '#FFFFFF',
+          }}>
+            <MeadowIcon name="lock" size={14} />
           </span>
-          {/* A can badge marks the one route stardust can't buy. */}
-          {byDrink && (
-            <span aria-hidden className="absolute -top-1.5 -right-1.5 flex items-center justify-center px-1 py-0.5" style={{
-              background: '#3A2A05', border: '1.5px solid #F5C842', borderRadius: 6, boxShadow: '0 1px 0 #2E1065',
-            }}>
-              <IconCan size={9} />
-            </span>
-          )}
-        </>
-      )}
-
-      {owned && item.category === 'consumable' && (
-        <span className="absolute -top-1.5 -right-1.5 font-pixel flex items-center justify-center px-1" style={{
-          fontSize: 6, minHeight: 15, color: '#fff',
-          background: PANEL, border: `1.5px solid ${PANEL_BORDER}`, borderRadius: 6, boxShadow: '0 1px 0 #2E1065',
-        }}>x{quantity}</span>
-      )}
+        )}
+        {/* Earned by pouring a can: the one route stardust can't buy. */}
+        {!owned && item.unlock === 'drink' && (
+          <span aria-hidden className="absolute flex items-center justify-center" style={{
+            left: 5, top: 5, width: 24, height: 24, borderRadius: 999, background: '#FFFFFF',
+          }}>
+            <IconCan size={14} />
+          </span>
+        )}
+        {owned && can && (
+          <span className="absolute" style={{
+            right: 5, top: 5, minWidth: 24, height: 22, boxSizing: 'border-box', padding: '0 7px', borderRadius: 999,
+            background: M.text, color: '#FFFFFF', fontSize: 12, fontWeight: 800, lineHeight: '22px', textAlign: 'center',
+            fontVariantNumeric: 'tabular-nums',
+          }}>x{quantity}</span>
+        )}
+      </span>
+      {/* Two lines for the name, so "Original Purrbolt" reads whole. */}
+      <span className="flex items-start" style={{ gap: 5, padding: '0 3px 3px', minWidth: 0, minHeight: 29 }}>
+        <span aria-hidden style={{ width: 8, height: 8, marginTop: 3, flexShrink: 0, borderRadius: 999, background: RARITY_FILL[item.rarity] }} />
+        <span style={{
+          fontSize: 12, fontWeight: 700, lineHeight: 1.2, color: owned ? M.text : M.faint, minWidth: 0,
+          overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflowWrap: 'anywhere',
+        }}>{owned ? name : '???'}</span>
+      </span>
     </button>
   )
 }
 
 // ─── Detail / source sheet ───────────────────────────────────────────────────
-function ItemSheet({ item, owned, quantity, onUse, onCloset, onClose }: {
-  item: GachaItemDef; owned: boolean; quantity: number
-  onUse: () => void; onCloset: () => void; onClose: () => void
+function ItemSheet({ item: picked, ownsItem, getQuantity, onUse, onCloset, onClose }: {
+  item: GachaItemDef | null
+  ownsItem: (id: string) => boolean
+  getQuantity: (id: string) => number
+  onUse: (item: GachaItemDef) => void; onCloset: () => void; onClose: () => void
 }) {
-  const colors = RARITY_COLORS[item.rarity]
   const cat = useCat()
-
+  // The last item shown, so the sheet slides away still showing it rather
+  // than going blank for its closing frames.
+  const last = useRef(picked)
+  if (picked) last.current = picked
+  const item = picked ?? last.current
+  const owned = item ? ownsItem(item.id) : false
+  const quantity = item ? getQuantity(item.id) : 0
+  const can = item?.category === 'consumable'
+  const footer = !item ? null
+    : owned && !can ? <PrimaryButton onClick={onCloset}>Open the Closet</PrimaryButton>
+    : owned && can ? <PrimaryButton onClick={() => onUse(item)} disabled={quantity <= 0}>Use one</PrimaryButton>
+    : <PrimaryButton onClick={onClose}>Got it</PrimaryButton>
   return (
-    <div className="fixed inset-0 flex items-center justify-center px-6"
-      role="dialog" aria-modal="true"
-      style={{ zIndex: 60, background: 'rgba(5,3,12,0.8)', backdropFilter: 'blur(4px)' }}
-      onClick={onClose}>
-      <div className="relative w-full flex flex-col items-center gap-3" style={{
-        maxWidth: 290, padding: 18, borderRadius: 14,
-        background: 'radial-gradient(120% 90% at 50% 0%, #2A1B4A 0%, #160E2E 60%, #0B0717 100%)',
-        border: `2px solid ${owned ? colors.border : 'rgba(167,139,250,0.3)'}`,
-        boxShadow: `0 0 22px ${owned ? colors.glow : 'rgba(0,0,0,0.4)'}, 0 10px 30px rgba(0,0,0,0.6)`,
-      }} onClick={e => e.stopPropagation()}>
-        {([['t', 'l'], ['t', 'r'], ['b', 'l'], ['b', 'r']] as const).map(([v, h], i) => (
-          <span key={i} aria-hidden className="absolute" style={{
-            width: 4, height: 4, background: '#F5C842', boxShadow: '0 0 3px #F5C842',
-            top: v === 't' ? 7 : undefined, bottom: v === 'b' ? 7 : undefined,
-            left: h === 'l' ? 7 : undefined, right: h === 'r' ? 7 : undefined,
-          }} />
-        ))}
-
-        <span className="font-pixel px-2.5 py-1" style={{
-          fontSize: 6, letterSpacing: 1.5, color: owned ? colors.text : '#9D8BC4',
-          background: owned ? colors.bg : 'rgba(255,255,255,0.06)',
-          border: `1.5px solid ${owned ? colors.border : 'rgba(167,139,250,0.3)'}`, borderRadius: 4,
-        }}>{owned ? item.rarity.toUpperCase() : 'LOCKED'}</span>
-
-        <div className="flex items-center justify-center" style={{
-          width: 92, height: 92, borderRadius: 12,
-          background: owned ? 'rgba(255,255,255,0.05)' : 'rgba(6,4,14,0.7)',
-          border: `2px solid ${owned ? colors.border : 'rgba(167,139,250,0.22)'}`,
-        }}>
-          <ItemArt item={item} fill="86%" locked={!owned} />
+    <Sheet open={!!picked} onClose={onClose} title={item ? (owned ? swapCatName(item.name, cat) : 'Not found yet') : ''} footer={footer}>
+      {item && (
+        <div className="flex flex-col items-center" style={{ textAlign: 'center', paddingBottom: 4 }}>
+          <span className="relative flex items-center justify-center" style={{
+            width: 132, height: 132, borderRadius: 24, background: owned ? RARITY_TAG[item.rarity].bg : M.soft,
+          }}>
+            <ItemArt item={item} fill="84%" locked={!owned} />
+          </span>
+          <div className="flex items-center justify-center" style={{ gap: 6, marginTop: 14 }}>
+            <Tag tone={item.rarity} caps>{item.rarity}</Tag>
+            {!owned && <Tag icon={<MeadowIcon name="lock" size={16} />}>Locked</Tag>}
+            {owned && can && <Tag tone="soft">{quantity} left</Tag>}
+          </div>
+          <p style={{ margin: '12px 0 0', maxWidth: 320, fontSize: 15, lineHeight: 1.45, fontWeight: 500, color: M.text2 }}>
+            {cat.t(owned ? item.description : sourceHint(item))}
+          </p>
         </div>
-
-        <p className="font-pixel text-center" style={{ fontSize: 9, color: '#fff', lineHeight: 1.5 }}>
-          {owned ? swapCatName(item.name, cat).toUpperCase() : '???'}
-        </p>
-        <p className="text-center" style={{ fontSize: 10.5, lineHeight: 1.65, color: '#B9A6DE' }}>
-          {cat.t(owned ? item.description : sourceHint(item))}
-        </p>
-
-        {owned && item.category === 'skin' && (
-          <button onClick={onCloset}
-            className="w-full py-2.5 active:translate-y-[1px] transition-transform"
-            style={{
-              borderRadius: 10, background: 'linear-gradient(180deg, #8B5CF6, #6D28D9)',
-              border: '2px solid #A78BFA', boxShadow: '0 2px 0 #4C1D95',
-            }}>
-            <span className="font-pixel" style={{ fontSize: 8, color: '#fff', letterSpacing: 0.5 }}>OPEN CLOSET</span>
-          </button>
-        )}
-
-        {owned && item.category === 'consumable' && (
-          <>
-            <p className="font-pixel" style={{ fontSize: 6, color: '#6B5B8C' }}>OWNED: {quantity}</p>
-            <button onClick={onUse} disabled={quantity <= 0}
-              className="w-full py-2.5 active:translate-y-[1px] transition-transform disabled:opacity-40"
-              style={{
-                borderRadius: 10, background: 'linear-gradient(180deg, #22C55E, #16A34A)',
-                border: '2px solid #4ADE80', boxShadow: '0 2px 0 #166534',
-              }}>
-              <span className="font-pixel" style={{ fontSize: 8, color: '#fff', letterSpacing: 0.5 }}>USE ITEM</span>
-            </button>
-          </>
-        )}
-
-        <button onClick={onClose} className="font-pixel" style={{ fontSize: 6, color: '#6B5B8C', letterSpacing: 0.5 }}>CLOSE</button>
-      </div>
-    </div>
+      )}
+    </Sheet>
   )
 }

@@ -2,13 +2,12 @@
 
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft } from 'lucide-react'
 import { useGacha } from '@/hooks/useGacha'
 import { useInventory } from '@/hooks/useInventory'
 import { useCare } from '@/contexts/CareContext'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
-import { PULL_COST_SINGLE, PULL_COST_TEN, PITY_EPIC, PITY_LEGENDARY, MONSTA_RAINBOW_ID, MONSTA_GOLD_ID, GACHA_FOOD_GRANT, GACHA_BANNERS } from '@/lib/gacha'
+import { MONSTA_RAINBOW_ID, MONSTA_GOLD_ID, GACHA_FOOD_GRANT, GACHA_BANNERS } from '@/lib/gacha'
 import type { GachaPullResult, GachaRarity } from '@/types'
 import { highestRarity, pickClothesHitVideo } from '@/lib/gachaVideos'
 import { getSkin } from '@/lib/skins'
@@ -17,11 +16,10 @@ import GachaEnergyOpening from '@/components/gacha/GachaEnergyOpening'
 import GachaOddsSheet from '@/components/gacha/GachaOddsSheet'
 import GachaFizzOpening from '@/components/gacha/GachaFizzOpening'
 import StarfallLoader from '@/components/gacha/StarfallLoader'
-import GachaPullButton from '@/components/gacha/GachaPullButton'
-import { IconCoin, IconSparkles, IconTicket, IconBook, IconInfo } from '@/components/PixelIcons'
+import GachaHud from '@/components/gacha/GachaHud'
+import TapToSkip from '@/components/gacha/TapToSkip'
 import { playSound } from '@/lib/sounds'
 import { requestCloudNav } from '@/components/CloudTransition'
-import { PINK_HI, OBSIDIAN_BTN, Rivets, pinkText } from '@/components/obsidian'
 import CurtainGlitter from '@/components/CurtainGlitter'
 
 // Three machines, one swipe apart. Page order matches the banner ids in
@@ -41,6 +39,9 @@ const PAGES = [
   // FoodSuits — placeholder reward pool for now (see GACHA_BANNERS).
   { id: 'foodsuits', bg: '/gacha_foodsuits.webp?v=1' },
 ] as const
+
+// The switcher's names, in page order.
+const MACHINES = PAGES.map(p => ({ id: p.id, name: GACHA_BANNERS.find(b => b.id === p.id)?.name ?? p.id }))
 
 export default function GachaPage() {
   const router = useRouter()
@@ -293,8 +294,7 @@ export default function GachaPage() {
     }
 
     // Warm the skin sprites while the opening cinematic plays, so the reveal
-    // shows the cat already drawn on its podium instead of popping in after it
-    // (SkinPodium also gates on decode; this just pre-fills the cache).
+    // shows the cat already drawn on its stage instead of popping in after it.
     for (const r of results) {
       const sk = r.item.skinId ? getSkin(r.item.skinId) : undefined
       if (!sk) continue
@@ -380,13 +380,6 @@ export default function GachaPage() {
                   backgroundPosition: 'center',
                   transform: 'scale(1.12)',
                 }} />
-
-              {/* Bottom shade so the controls read over the machine base */}
-              <div className="absolute inset-x-0 bottom-0 pointer-events-none" style={{
-                height: 190,
-                background: 'linear-gradient(180deg, rgba(5,5,7,0) 0%, rgba(5,5,7,0.78) 70%)',
-              }} />
-
             </div>
 
             {/* Dim veil — fades the machine out as it leaves center */}
@@ -411,99 +404,26 @@ export default function GachaPage() {
         {seamCurtains}
       </div>
 
-      {/* ── Header overlay ── */}
-      <div className="absolute inset-x-0 top-0 px-3" style={{ paddingTop: 'calc(var(--safe-top) + 10px)' }}>
-        <div className="flex items-center gap-2">
-          <button onClick={() => { playSound('ui_back'); requestCloudNav('/home', 'rainbow') }}
-            className="flex items-center justify-center active:translate-y-[1px] transition-transform relative"
-            style={{ width: 32, height: 32, ...OBSIDIAN_BTN }}>
-            <Rivets inset={2} size={2} />
-            <ChevronLeft size={16} style={{ color: PINK_HI }} />
-          </button>
-          <div className="flex-1" />
-          <div className="flex items-center gap-1.5 px-2 py-1.5 relative" style={OBSIDIAN_BTN}>
-            <Rivets inset={2} size={2} />
-            <IconCoin size={14} />
-            <span className="font-pixel" style={{ fontSize: 8, color: '#F5C842', textShadow: '0 0 3px rgba(245,200,66,0.5)' }}>{coins}</span>
-          </div>
-          <div className="flex items-center gap-1.5 px-2 py-1.5 relative" style={OBSIDIAN_BTN}>
-            <Rivets inset={2} size={2} />
-            <span className="gacha-sparkle-icon"><IconSparkles size={14} /></span>
-            <span className="font-pixel gacha-stardust-val" style={{ fontSize: 8 }}>{stardust}</span>
-          </div>
-          {tickets > 0 && (
-            <div className="flex items-center gap-1.5 px-2 py-1.5 relative" style={OBSIDIAN_BTN}>
-              <Rivets inset={2} size={2} />
-              <IconTicket size={14} />
-              <span className="font-pixel" style={{ fontSize: 8, ...pinkText }}>{tickets}</span>
-            </div>
-          )}
-          <button onClick={() => { playSound('ui_tap'); router.push('/gacha/collection') }}
-            className="flex items-center justify-center active:translate-y-[1px] transition-transform relative"
-            style={{ width: 32, height: 32, ...OBSIDIAN_BTN }}>
-            <Rivets inset={2} size={2} />
-            <IconBook size={18} />
-          </button>
-          {/* Drop rates. Lives in the header, NOT in the deck — the deck's
-              inner layer is the transform:scale one that used to blank the
-              pull buttons out on mobile GPUs (see the note above the HUD). */}
-          <button onClick={() => { playSound('ui_tap'); setShowOdds(true) }}
-            aria-label="Drop rates"
-            className="flex items-center justify-center active:translate-y-[1px] transition-transform relative"
-            style={{ width: 32, height: 32, ...OBSIDIAN_BTN }}>
-            <Rivets inset={2} size={2} />
-            <IconInfo size={16} />
-          </button>
-        </div>
-
-        {/* Page dots */}
-        <div className="flex flex-col items-center gap-1 mt-2">
-          <div className="flex justify-center gap-2">
-            {PAGES.map((p, i) => (
-              <button key={p.id} onClick={() => goTo(i)} aria-label={p.id}
-                style={{
-                  width: 10, height: 10,
-                  background: i === pageIdx ? PINK_HI : 'rgba(255,255,255,0.35)',
-                  border: '1px solid rgba(5,5,7,0.8)',
-                  boxShadow: '1px 1px 0 rgba(5,5,7,0.6)',
-                }} />
-            ))}
-          </div>
-          <span className="font-pixel" style={{ fontSize: 5, letterSpacing: 1, color: 'rgba(255,255,255,0.55)', textShadow: '1px 1px 0 rgba(5,5,7,0.8)' }}>SWIPE</span>
-        </div>
-      </div>
-
-      {/* ── Pull controls (fixed HUD, keyed to the current page) ──
+      {/* ── Controls ──
           Rendered OUTSIDE the swipeable deck and its per-page transform/scale
-          layers. Inside those layers the candy buttons intermittently failed to
-          paint on mobile GPUs — only their animated halos showed, blanking the
-          PULL x1 / x10 controls. A single bottom HUD in the root layer always
-          paints (and means two buttons exist instead of six). pointer-events
-          stay off the surrounding strip so swipes still reach the deck. */}
-      <div className="absolute inset-x-0 bottom-0 px-4 z-30 pointer-events-none"
-        style={{ paddingBottom: 'calc(var(--safe-bottom) + 14px)' }}>
-        <div className="flex justify-center gap-4 mb-2">
-          <span className="font-pixel" style={{ fontSize: 6, color: '#C4B5FD', textShadow: '0 0 3px rgba(167,139,250,0.5)' }}>EPIC {pityEpic}/{PITY_EPIC}</span>
-          <span className="font-pixel" style={{ fontSize: 6, color: '#F5C842', textShadow: '0 0 3px rgba(245,200,66,0.5)' }}>LEGENDARY {pityLegendary}/{PITY_LEGENDARY}</span>
-        </div>
-        <div className="flex gap-3 pointer-events-auto">
-          <GachaPullButton
-            variant={PAGES[pageIdx].id === 'animal' ? 'clothes' : 'food'}
-            tier="single"
-            cost={PULL_COST_SINGLE}
-            disabled={pulling || (coins < PULL_COST_SINGLE && tickets <= 0)}
-            showTicket={tickets > 0}
-            onClick={() => handlePull(1)}
-          />
-          <GachaPullButton
-            variant={PAGES[pageIdx].id === 'animal' ? 'clothes' : 'food'}
-            tier="ten"
-            cost={PULL_COST_TEN}
-            disabled={pulling || coins < PULL_COST_TEN}
-            onClick={() => handlePull(10)}
-          />
-        </div>
-      </div>
+          layers. Inside those layers the pull buttons intermittently failed to
+          paint on mobile GPUs, blanking them. The root layer always paints, and
+          the HUD lets swipes through wherever there's no control. */}
+      <GachaHud
+        machines={MACHINES}
+        index={pageIdx}
+        onGo={goTo}
+        coins={coins}
+        stardust={stardust}
+        tickets={tickets}
+        pityEpic={pityEpic}
+        pityLegendary={pityLegendary}
+        pulling={pulling}
+        onBack={() => { playSound('ui_back'); requestCloudNav('/home', 'rainbow') }}
+        onCollection={() => { playSound('ui_tap'); router.push('/gacha/collection') }}
+        onOdds={() => { playSound('ui_modal_open'); setShowOdds(true) }}
+        onPull={handlePull}
+      />
 
       {/* ── Opening cinematic (rainbow for food, rarity hit for clothes) ── */}
       {openingVideo && (
@@ -521,9 +441,7 @@ export default function GachaPage() {
           <div className="absolute inset-0 transition-opacity ease-out" style={{ opacity: videoReady ? 0 : 1, transitionDuration: '450ms' }}>
             <StarfallLoader />
           </div>
-          {videoReady && (
-            <span className="absolute font-pixel" style={{ fontSize: 6, color: 'rgba(255,255,255,0.45)', bottom: 'calc(var(--safe-bottom) + 18px)' }}>TAP TO SKIP</span>
-          )}
+          {videoReady && <TapToSkip />}
         </div>
       )}
 
@@ -534,41 +452,16 @@ export default function GachaPage() {
       {/* ── Reveal ── */}
       {pullResults && !openingVideo && !cinematic && <PullAnimation results={pullResults} onDone={handlePullDone} skipCapsule={openedWithVideo.current} machine={pullMachine} />}
 
-      {/* ── Drop rates. Its own backdrop swallows taps: handlePull only guards
-             on pulling/video/results, so without one a miss would spend 50 coins. */}
-      {showOdds && (
-        <GachaOddsSheet
-          bannerId={PAGES[pageIdx].id}
-          bannerName={GACHA_BANNERS.find(b => b.id === PAGES[pageIdx].id)?.name ?? ''}
-          onClose={() => setShowOdds(false)}
-        />
-      )}
+      {/* ── Drop rates. The sheet's backdrop swallows taps: handlePull only
+             guards on pulling/video/results, so without one a miss would spend
+             50 coins. */}
+      <GachaOddsSheet
+        open={showOdds}
+        bannerId={PAGES[pageIdx].id}
+        bannerName={MACHINES[pageIdx].name}
+        onClose={() => setShowOdds(false)}
+      />
 
-      <style jsx>{`
-        .gacha-stardust-val {
-          background: linear-gradient(90deg,
-            #ff6b6b 0%, #ffb347 16%, #fff700 33%,
-            #87ff57 50%, #57c8ff 66%, #c87cff 83%, #ff6b6b 100%);
-          background-size: 200% 100%;
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          animation: gachaStardustFlow 2s linear infinite;
-        }
-        @keyframes gachaStardustFlow {
-          0%   { background-position: 0% center; }
-          100% { background-position: 200% center; }
-        }
-        .gacha-sparkle-icon {
-          display: inline-flex;
-          align-items: center;
-          animation: gachaSparkleHue 2s linear infinite;
-        }
-        @keyframes gachaSparkleHue {
-          0%   { filter: hue-rotate(0deg)   saturate(2) brightness(1.15); }
-          100% { filter: hue-rotate(360deg) saturate(2) brightness(1.15); }
-        }
-      `}</style>
     </div>
   )
 }

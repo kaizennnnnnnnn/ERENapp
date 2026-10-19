@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { GachaRarity } from '@/types'
 import { playSound } from '@/lib/sounds'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
+import TapToSkip from './TapToSkip'
 
 // ─── GachaEnergyOpening ───────────────────────────────────────────────────────
 // FoodSuits (3rd machine) opening cinematic. Rebuilt on a SINGLE <canvas> so the
@@ -279,10 +280,7 @@ export default function GachaEnergyOpening({
       {/* The entire energy cinematic — one canvas layer. */}
       <canvas ref={canvasRef} className="absolute inset-0" />
 
-      <span className="absolute font-pixel" style={{
-        left: 0, right: 0, bottom: 'calc(var(--safe-bottom) + 16px)', textAlign: 'center',
-        fontSize: 6, color: 'rgba(255,255,255,0.35)',
-      }}>TAP TO SKIP</span>
+      <TapToSkip />
     </div>
   )
 }

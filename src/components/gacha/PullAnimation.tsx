@@ -1,19 +1,22 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import type { GachaPullResult } from '@/types'
-import { RARITY_COLORS, GACHA_FOOD_GRANT } from '@/lib/gacha'
+import type { GachaPullResult, GachaRarity } from '@/types'
+import { GACHA_FOOD_GRANT } from '@/lib/gacha'
 import { playSound } from '@/lib/sounds'
 import { getSkin } from '@/lib/skins'
-import SkinPodium from './SkinPodium'
 import { useCat } from '@/hooks/useCat'
 import { swapCatName } from '@/lib/catWords'
+import BlinkingEren from '@/components/BlinkingEren'
 import CanFx, { hasCanFx } from '@/components/care/CanFx'
+import { M, MeadowIcon, PrimaryButton, RARITY_TAG, Stage, Tag, TextButton, TYPE } from '@/components/meadow'
+import { STARDUST_INK } from '@/components/rewards/rewardDisplay'
+import { RARITY_FILL } from './rarity'
 
 interface Props {
   results: GachaPullResult[]
   onDone: () => void
-  /** Skip the capsule-shake intro — for pulls whose opening already played (rainbow video). */
+  /** Skip the capsule-shake intro — for pulls whose opening already played (a cinematic or video). */
   skipCapsule?: boolean
   /** Which machine paid out: each has its own reveal sounds. */
   machine: 'food' | 'animal' | 'foodsuits'
@@ -23,57 +26,37 @@ interface Props {
 const REVEAL_VOICE = { food: 'fizz', animal: 'skin', foodsuits: 'suit' } as const
 
 // ═══════════════════════════════════════════════════════════════════════════
-// The non-skin reveal used to be a 79px picture inside a 90px pastel square:
-// you pulled a legendary and got a thumbnail in a box. Skins already had
-// SkinPodium doing the work, so cans, foods and donuts were the only drops
-// that looked like a list item.
+// THE REVEAL, in Meadow. What you pulled stands on the Meadow stage, the cat's
+// own little hill, on a page in its rarity's tint: a cat in a costume stands
+// on the hill like everywhere else he appears, a can or a donut sits on it.
+// Then its tags, its name and what it does, and one button on to the next.
 //
-// They're presented now instead: the thing floats big over a fan of light,
-// standing on a lit disc with a shadow under it. Nothing frames it — the
-// object IS the frame, which is why it can afford to be twice the size.
-//
-// The spectacle tiers with rarity the same way SkinPodium's plinths do, so a
-// common still reads as a common at a glance.
+// The spectacle still tiers with rarity, in Meadow's flat way: a common gets
+// the plain stage, a rare a few sparkles that wink on and off, an epic more,
+// and an epic or a legendary a slow fan of flat rays behind it. No glows.
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Sized to the ART, not to taste. Every food/donut PNG is a 128px canvas
-// whose content is clamped to 124px (normalize_food_art.py MAX_SIDE), so 172px
-// was a 1.34x upscale and the cans visibly went soft. 136 renders the content
-// at ~132px — a 1.06x upscale nobody can see — and is still 72% bigger than the
-// 79px box this replaced. The cans are 256px sources now
-// (scripts/cut_monsta_sheet.py); the plates and donuts are what cap the size.
-const ITEM_PX = 136
+const STAGE_W = 300
+const STAGE_H = 300
 
-interface RevealTier {
-  /** Rays behind the item. Commons don't get them. */
-  rays: boolean
-  /** Fixed sparkle positions — [left%, top%]. Never random: this re-renders. */
-  sparks: readonly (readonly [number, number])[]
-  /** How wide the light pool behind the item spreads. */
-  pool: number
+/** The page behind the stage: the rarity's tag tint, full bleed. */
+const GROUND: Record<GachaRarity, string> = {
+  common: RARITY_TAG.common.bg,
+  rare: RARITY_TAG.rare.bg,
+  epic: RARITY_TAG.epic.bg,
+  legendary: RARITY_TAG.legendary.bg,
 }
 
-const REVEAL: Record<GachaPullResult['item']['rarity'], RevealTier> = {
-  common: { rays: false, pool: 200, sparks: [] },
-  rare: {
-    rays: true, pool: 240,
-    sparks: [[14, 24], [82, 18], [8, 62], [88, 56], [50, 8], [30, 84]],
-  },
-  epic: {
-    rays: true, pool: 270,
-    sparks: [[10, 20], [86, 14], [4, 56], [92, 50], [48, 6], [18, 78],
-             [82, 74], [54, 88], [34, 34], [68, 30]],
-  },
-  legendary: {
-    rays: true, pool: 300,
-    sparks: [[8, 14], [88, 10], [2, 48], [94, 44], [50, 2], [14, 74],
-             [88, 70], [50, 92], [26, 32], [76, 28], [38, 62], [66, 58],
-             [20, 46], [84, 42], [44, 20], [58, 20]],
-  },
+/** Sparkles on the stage, [left px, top px]. Fixed, never random: this re-renders. */
+const SPARKS: Record<GachaRarity, ReadonlyArray<readonly [number, number]>> = {
+  common: [],
+  rare: [[34, 46], [238, 64], [252, 168]],
+  epic: [[30, 40], [244, 52], [22, 150], [258, 160], [138, 22]],
+  legendary: [[26, 34], [246, 40], [16, 136], [264, 140], [136, 14], [70, 96], [208, 100]],
 }
 
 export default function PullAnimation({ results, onDone, skipCapsule = false, machine }: Props) {
-  const [phase, setPhase] = useState<'capsule' | 'reveal' | 'done'>(skipCapsule ? 'reveal' : 'capsule')
+  const [phase, setPhase] = useState<'capsule' | 'reveal'>(skipCapsule ? 'reveal' : 'capsule')
   const [currentIdx, setCurrentIdx] = useState(0)
   const [showItem, setShowItem] = useState(skipCapsule)
   const cat = useCat()
@@ -97,17 +80,19 @@ export default function PullAnimation({ results, onDone, skipCapsule = false, ma
 
   if (!current) { onDone(); return null }
 
-  const colors  = RARITY_COLORS[current.item.rarity]
-  const tier    = REVEAL[current.item.rarity]
-  const skinDef = current.item.skinId ? getSkin(current.item.skinId) : undefined
+  const rarity = current.item.rarity
+  const skin = current.item.skinId ? getSkin(current.item.skinId) : undefined
   const itemName = swapCatName(current.item.name, cat)
   // A special-edition can brings its moving sparkles/rays (see CanFx). Found
   // through the fridge food the pull grants, never by matching the image URL.
-  const fxFood  = GACHA_FOOD_GRANT[current.item.id]
-  const canFx   = fxFood !== undefined && hasCanFx(fxFood) ? fxFood : null
+  const fxFood = GACHA_FOOD_GRANT[current.item.id]
+  const canFx = fxFood !== undefined && hasCanFx(fxFood) ? fxFood : null
+  const multi = results.length > 1
+  const last = currentIdx === results.length - 1
 
   function nextItem() {
-    if (currentIdx < results.length - 1) {
+    playSound('ui_tap')
+    if (!last) {
       setShowItem(false)
       setTimeout(() => {
         setCurrentIdx(i => i + 1)
@@ -118,234 +103,135 @@ export default function PullAnimation({ results, onDone, skipCapsule = false, ma
     }
   }
 
+  // ── Capsule: the pull with no cinematic of its own, shaking open ──
+  if (phase === 'capsule') {
+    return (
+      <div className="meadow-root fixed inset-0 z-[70] flex flex-col items-center justify-center" style={{ background: M.soft, gap: 20 }}>
+        <span aria-hidden className="pull-capsule" style={{
+          width: 96, height: 96, borderRadius: 999, overflow: 'hidden', display: 'flex', flexDirection: 'column',
+          boxShadow: `0 4px 0 ${M.softLip}`,
+        }}>
+          <span style={{ flex: 1, background: '#FFFFFF' }} />
+          <span style={{ height: 6, background: M.text }} />
+          <span style={{ flex: 1, background: STARDUST_INK }} />
+        </span>
+        <p role="status" style={{ margin: 0, fontSize: 17, fontWeight: 800, color: M.text }}>Opening...</p>
+        <style jsx>{`
+          .pull-capsule { animation: pullCapsuleShake 0.3s steps(2, jump-none) infinite; }
+          @keyframes pullCapsuleShake {
+            0%   { transform: rotate(-6deg); }
+            100% { transform: rotate(6deg); }
+          }
+          @media (prefers-reduced-motion: reduce) { .pull-capsule { animation: none; } }
+        `}</style>
+      </div>
+    )
+  }
+
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.85)' }}>
-
-      {/* Capsule phase */}
-      {phase === 'capsule' && (
-        <div className="flex flex-col items-center gap-4">
-          <div style={{
-            width: 80, height: 100, borderRadius: '50% 50% 50% 50% / 60% 60% 40% 40%',
-            background: `linear-gradient(135deg, ${colors.bg}, white)`,
-            border: `3px solid ${colors.border}`,
-            boxShadow: `0 0 30px ${colors.glow}, 0 0 60px ${colors.glow}`,
-            animation: 'capsuleShake 0.15s ease-in-out infinite',
-          }} />
-          <p className="font-pixel text-white/60" style={{ fontSize: 7 }}>OPENING...</p>
-        </div>
-      )}
-
-      {/* Reveal phase */}
-      {phase === 'reveal' && showItem && (
-        <button onClick={() => { playSound('ui_tap'); nextItem() }}
-          className={`flex flex-col items-center active:scale-95 transition-transform w-full ${skinDef ? 'gap-3 max-w-sm px-3' : 'gap-4 max-w-xs px-6'}`}>
-          {/* Skin podium or standard rarity sticker */}
-          {skinDef ? (
-            <div style={{ animation: 'itemBounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both' }}>
-              <SkinPodium skin={skinDef} rarity={current.item.rarity} />
-            </div>
-          ) : (
-            <div className="relative flex items-center justify-center"
-              style={{ width: ITEM_PX + 40, height: ITEM_PX + 56 }}>
-
-              {/* Fan of light. Rare and up only — a common with rays behind it
-                  is a common pretending. */}
-              {tier.rays && (
-                <div className="pullRays absolute pointer-events-none" style={{
-                  width: tier.pool, height: tier.pool,
-                  background: `repeating-conic-gradient(from 0deg, ${colors.glow} 0deg 4deg, transparent 4deg 14deg)`,
-                  WebkitMaskImage: 'radial-gradient(closest-side, #000 12%, transparent 72%)',
-                  maskImage: 'radial-gradient(closest-side, #000 12%, transparent 72%)',
-                }} />
-              )}
-
-              {/* The pool it stands in. */}
-              <div className="pullPool absolute rounded-full pointer-events-none" style={{
-                width: tier.pool * 0.78, height: tier.pool * 0.78,
-                background: `radial-gradient(circle, ${colors.glow} 0%, transparent 68%)`,
-              }} />
-
-              {tier.sparks.map(([l, t], i) => (
-                <span key={i} className="pullSpark absolute pointer-events-none" style={{
-                  left: `${l}%`, top: `${t}%`,
-                  width: 5, height: 5, background: '#FFFFFF',
-                  boxShadow: `0 0 7px ${colors.border}`,
-                  transform: 'rotate(45deg)',
-                  animationDelay: `${(i % 6) * 0.28}s`,
-                }} />
-              ))}
-
-              {/* The prize itself — no box. It carries its own shadow so it
-                  reads as an object sitting in light, not a sticker. A can
-                  with FX gets a box of its own so the sparkles/rays move as
-                  one piece with it; the shadow stays on the can, which is
-                  what stands on the disc. */}
-              {canFx ? (
-                <div className="relative" style={{
-                  width: ITEM_PX, height: ITEM_PX,
-                  marginBottom: 14,
-                  animation: 'itemBounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both',
-                }}>
-                  <img src={current.item.image} alt={itemName} draggable={false}
-                    style={{
-                      width: ITEM_PX, height: ITEM_PX, objectFit: 'contain',
-                      imageRendering: 'auto',
-                      filter: `drop-shadow(0 6px 10px rgba(0,0,0,0.55)) drop-shadow(0 0 16px ${colors.glow})`,
-                    }} />
-                  <CanFx id={canFx} />
-                </div>
-              ) : (
-                <img src={current.item.image} alt={itemName} draggable={false}
-                  className="relative"
-                  style={{
-                    width: ITEM_PX, height: ITEM_PX, objectFit: 'contain',
-                    imageRendering: 'auto',
-                    marginBottom: 14,
-                    filter: `drop-shadow(0 6px 10px rgba(0,0,0,0.55)) drop-shadow(0 0 16px ${colors.glow})`,
-                    animation: 'itemBounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both',
-                  }} />
-              )}
-
-              {/* Pedestal — a lit disc plus the shadow the item casts onto it.
-                  Two ellipses is all it takes to put a floating cut-out on the
-                  ground. */}
-              <div className="absolute pointer-events-none" style={{
-                bottom: 22, left: '50%', transform: 'translateX(-50%)',
-                width: ITEM_PX * 0.62, height: 13, borderRadius: '50%',
-                background: `radial-gradient(ellipse, rgba(0,0,0,0.55) 0%, transparent 72%)`,
-              }} />
-              <div className="pullDisc absolute pointer-events-none" style={{
-                bottom: 12, left: '50%', transform: 'translateX(-50%)',
-                width: ITEM_PX * 0.86, height: 18, borderRadius: '50%',
-                background: `radial-gradient(ellipse at 50% 30%, ${colors.border} 0%, ${colors.glow} 45%, transparent 74%)`,
-              }} />
-            </div>
-          )}
-
-          {/* Item info */}
-          <div className="text-center" style={{ animation: 'fadeUp 0.4s ease-out 0.2s both' }}>
-            {current.isNew && (
-              <span className="font-pixel px-2 py-0.5 mb-2 inline-block" style={{
-                fontSize: 7, color: '#FBBF24', background: 'rgba(251,191,36,0.15)',
-                borderRadius: 4, border: '1px solid rgba(251,191,36,0.4)',
-              }}>NEW!</span>
-            )}
-            <p className="font-pixel text-white mb-1.5" style={{
-              fontSize: 12, lineHeight: 1.4, letterSpacing: 0.5, overflowWrap: 'anywhere',
-              textShadow: `0 0 14px ${colors.glow}, 0 2px 0 rgba(0,0,0,0.6)`,
-            }}>
-              {itemName}
-            </p>
-            {/* Rarity as a plate rather than a loose word — it's the number you
-                actually pulled for, and pastel text on black was the weakest
-                thing on the screen. */}
-            <span className="font-pixel inline-flex items-center gap-1.5 mb-2" style={{
-              fontSize: 7, letterSpacing: 1.5,
-              padding: '4px 9px', borderRadius: 4,
-              color: colors.border,
-              background: `${colors.border}22`,
-              border: `1px solid ${colors.border}`,
-              boxShadow: `0 0 12px ${colors.glow}`,
-            }}>
-              <span style={{ width: 4, height: 4, background: colors.border, transform: 'rotate(45deg)' }} />
-              {current.item.rarity.toUpperCase()}
-              <span style={{ width: 4, height: 4, background: colors.border, transform: 'rotate(45deg)' }} />
+    <div className="meadow-root fixed inset-0 z-[70] overflow-y-auto" style={{ background: GROUND[rarity] }}>
+      <div className="flex flex-col mx-auto" style={{
+        minHeight: '100%', maxWidth: 420, boxSizing: 'border-box',
+        padding: 'calc(var(--safe-top) + 12px) 16px calc(var(--safe-bottom) + 20px)',
+      }}>
+        {/* ── Where you are in a ten, and the way out of it ── */}
+        <div className="flex items-center justify-between" style={{ height: 44 }}>
+          {multi ? (
+            <span style={{ fontSize: 15, fontWeight: 800, color: M.text2, fontVariantNumeric: 'tabular-nums', paddingLeft: 4 }}>
+              {currentIdx + 1} of {results.length}
             </span>
-            <p className="text-xs text-white/55" style={{ lineHeight: 1.45 }}>{cat.t(current.item.description)}</p>
+          ) : <span />}
+          {multi && !last && (
+            <TextButton tone="muted" onClick={() => { playSound('ui_modal_close'); onDone() }}>Skip all</TextButton>
+          )}
+        </div>
 
-            {current.stardustGained > 0 && (
-              <div className="flex flex-col items-center mt-2 gap-0.5">
-                <span className="font-pixel" style={{ fontSize: 5, color: 'rgba(255,255,255,0.35)', letterSpacing: 2 }}>DUPLICATE</span>
-                <span className="pull-stardust-rainbow font-pixel" style={{ fontSize: 9 }}>
-                  ✦ +{current.stardustGained} STARDUST ✦
-                </span>
+        {/* ── The prize. A tap anywhere here moves on too, as it always has. ── */}
+        <div className="flex-1 flex flex-col items-center justify-center" onClick={nextItem}
+          style={{ paddingTop: 8, cursor: 'pointer', visibility: showItem ? 'visible' : 'hidden' }}>
+          <Stage width={STAGE_W} height={STAGE_H} bg="#FFFFFF" key={currentIdx}>
+            {(rarity === 'epic' || rarity === 'legendary') && (
+              <span aria-hidden className="pull-rays" style={{
+                position: 'absolute', left: STAGE_W / 2 - 260, top: 150 - 260, width: 520, height: 520, borderRadius: 999,
+                background: `repeating-conic-gradient(from 0deg, ${RARITY_FILL[rarity]}40 0deg 9deg, transparent 9deg 22deg)`,
+              }} />
+            )}
+            {SPARKS[rarity].map(([l, t], i) => (
+              <span key={i} aria-hidden className="pull-spark" style={{ position: 'absolute', left: l, top: t, animationDelay: `${(i % 4) * 0.35}s` }}>
+                <MeadowIcon name="sparkle" size={rarity === 'legendary' ? 26 : 22} color={RARITY_FILL[rarity]} mono />
+              </span>
+            ))}
+
+            {skin ? (
+              // Gacha skins are trimmed tight, so the box's bottom is the cat's
+              // feet: set it on the darker patch of the hill.
+              <div className="pull-pop" style={{ position: 'absolute', left: (STAGE_W - 200) / 2, bottom: 24 }}>
+                <BlinkingEren size={200} src={skin.src} tailSrc={skin.tailSrc} tailOrigin={skin.tailOrigin}
+                  lidTone={skin.lidTone} coat={skin.coat} eyes={skin.eyes} alt={itemName} />
+              </div>
+            ) : (
+              <div className="pull-pop" style={{ position: 'absolute', left: (STAGE_W - 150) / 2, bottom: 26, width: 150, height: 150 }}>
+                <img src={current.item.image} alt={itemName} draggable={false}
+                  style={{ width: 150, height: 150, objectFit: 'contain' }} />
+                {canFx && <CanFx id={canFx} />}
               </div>
             )}
-            {current.isPity && (
-              <p className="font-pixel text-amber-300 mt-1" style={{ fontSize: 6 }}>PITY BONUS!</p>
+          </Stage>
+
+          <div className="pull-info flex flex-col items-center" style={{ marginTop: 18, maxWidth: 320, textAlign: 'center' }}>
+            <div className="flex items-center justify-center flex-wrap" style={{ gap: 6 }}>
+              {/* White, not its tint: the page behind it is already the tint. */}
+              <Tag tone={rarity} caps style={{ background: '#FFFFFF' }}>{rarity}</Tag>
+              {current.isNew && <Tag tone="love">New</Tag>}
+              {current.isPity && <Tag tone="amber" icon={<MeadowIcon name="star" size={16} />}>Guaranteed</Tag>}
+            </div>
+            <h2 style={{ ...TYPE.heading, margin: '12px 0 0', color: M.text, overflowWrap: 'anywhere' }}>{itemName}</h2>
+            <p style={{ margin: '6px 0 0', fontSize: 15, lineHeight: 1.45, fontWeight: 500, color: M.text2 }}>
+              {cat.t(current.item.description)}
+            </p>
+            {current.stardustGained > 0 && (
+              <span className="inline-flex items-center" style={{
+                marginTop: 12, height: 36, padding: '0 14px 0 10px', gap: 6, borderRadius: 999,
+                background: '#FFFFFF', fontSize: 14, fontWeight: 800, color: M.text,
+              }}>
+                <MeadowIcon name="sparkle" size={20} color={STARDUST_INK} />
+                Already yours: +{current.stardustGained} stardust
+              </span>
             )}
           </div>
+        </div>
 
-          {/* Counter */}
-          {results.length > 1 && (
-            <p className="font-pixel text-white/40" style={{ fontSize: 6 }}>
-              {currentIdx + 1} / {results.length} — TAP TO CONTINUE
-            </p>
-          )}
-          {results.length === 1 && (
-            <p className="font-pixel text-white/40" style={{ fontSize: 6 }}>TAP TO CLOSE</p>
-          )}
-        </button>
-      )}
-
-      {/* Skip button for multi-pull */}
-      {phase === 'reveal' && results.length > 1 && currentIdx < results.length - 1 && (
-        <button onClick={() => { playSound('ui_modal_close'); onDone() }}
-          className="absolute bottom-8 font-pixel text-white/30 active:text-white/60"
-          style={{ fontSize: 6 }}>
-          SKIP ALL
-        </button>
-      )}
+        <PrimaryButton onClick={nextItem} style={{ marginTop: 20 }}>
+          {last ? 'Done' : 'Next'}
+        </PrimaryButton>
+      </div>
 
       <style jsx>{`
-        /* Slow enough to read as light rather than a spinning wheel. */
-        .pullRays { animation: pullRaySpin 24s linear infinite; }
+        /* Slow enough to read as light, not as a spinning wheel. */
+        .pull-rays { animation: pullRaySpin 40s linear infinite; }
         @keyframes pullRaySpin {
           from { transform: rotate(0deg); }
           to   { transform: rotate(360deg); }
         }
-        .pullPool { animation: pullPoolBreathe 2s ease-in-out infinite; }
-        @keyframes pullPoolBreathe {
-          0%, 100% { opacity: 0.65; transform: scale(0.94); }
-          50%      { opacity: 1;    transform: scale(1.06); }
+        /* A spark is lit or it isn't: snap on, hold, snap off. */
+        .pull-spark { animation: pullSpark 1.6s steps(1, end) infinite; }
+        @keyframes pullSpark {
+          0%, 40%   { opacity: 0; }
+          45%, 80%  { opacity: 1; }
+          85%, 100% { opacity: 0; }
         }
-        /* Winks on and off — a spark is lit or it isn't. Lit for ~38% of the
-           cycle: at 24% a six-spark rare had barely one alight at any instant
-           and the whole tier read as unsparkled. */
-        .pullSpark { animation: pullSparkle 1.7s steps(1, end) infinite; }
-        @keyframes pullSparkle {
-          0%, 38%   { opacity: 0; transform: rotate(45deg) scale(0.3); }
-          44%, 76%  { opacity: 1; transform: rotate(45deg) scale(1); }
-          82%, 100% { opacity: 0; transform: rotate(45deg) scale(0.3); }
+        .pull-pop { animation: pullPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+        @keyframes pullPop {
+          0%   { transform: translateY(18px) scale(0.6); opacity: 0; }
+          100% { transform: translateY(0) scale(1); opacity: 1; }
         }
-        .pullDisc { animation: pullDiscBreathe 2s ease-in-out infinite; }
-        @keyframes pullDiscBreathe {
-          0%, 100% { opacity: 0.75; }
-          50%      { opacity: 1; }
+        .pull-info { animation: pullInfo 0.3s steps(3, end) 0.15s both; }
+        @keyframes pullInfo {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
         @media (prefers-reduced-motion: reduce) {
-          .pullRays, .pullPool, .pullSpark, .pullDisc { animation: none; }
-        }
-        @keyframes capsuleShake {
-          0%, 100% { transform: rotate(-3deg); }
-          50% { transform: rotate(3deg); }
-        }
-        @keyframes pulseGlow {
-          0%, 100% { transform: scale(1); opacity: 0.6; }
-          50% { transform: scale(1.2); opacity: 1; }
-        }
-        @keyframes itemBounceIn {
-          0% { transform: scale(0); opacity: 0; }
-          60% { transform: scale(1.1); opacity: 1; }
-          100% { transform: scale(1); }
-        }
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(8px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .pull-stardust-rainbow {
-          background: linear-gradient(90deg,
-            #ff6b6b 0%, #ffb347 16%, #fff700 33%,
-            #87ff57 50%, #57c8ff 66%, #c87cff 83%, #ff6b6b 100%);
-          background-size: 200% 100%;
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          animation: pullStardustFlow 1.8s linear infinite;
-        }
-        @keyframes pullStardustFlow {
-          0%   { background-position: 0% center; }
-          100% { background-position: 200% center; }
+          .pull-rays, .pull-spark, .pull-pop, .pull-info { animation: none; }
         }
       `}</style>
     </div>
