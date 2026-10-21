@@ -2970,6 +2970,60 @@ const MEADOW_ICONS = {
     ],
     palette: { X: '#8A6FB0' },
   },
+  // The bucket list: a clipboard, two plans ticked and one still open.
+  checklist: {
+    grid: [
+      '....aaaa....',
+      '.XXXaaaaXXX.',
+      '.XWWWWWWWWX.',
+      '.XWccWdddWX.',
+      '.XWccWWWWWX.',
+      '.XWWWWWWWWX.',
+      '.XWccWdddWX.',
+      '.XWccWWWWWX.',
+      '.XWWWWWWWWX.',
+      '.XWeeWddWWX.',
+      '.XWeeWWWWWX.',
+      '.XXXXXXXXXX.',
+    ],
+    palette: { X: '#C79A5B', a: '#8A9096', W: '#FFFFFF', c: '#3F8452', e: '#E3DCD3', d: '#B9B0A6' },
+  },
+  // Travel plans: a plane seen from above, nose up.
+  plane: {
+    grid: [
+      '.....XX.....',
+      '.....XX.....',
+      '.....XX.....',
+      '....XXXX....',
+      '..XXXXXXXX..',
+      'XXXXXXXXXXXX',
+      'XXX..XX..XXX',
+      '.....XX.....',
+      '.....XX.....',
+      '....XXXX....',
+      '...XXXXXX...',
+      '............',
+    ],
+    palette: { X: '#5B8FC4' },
+  },
+  // Adventure plans: two peaks, snow on top.
+  mountain: {
+    grid: [
+      '............',
+      '....aa......',
+      '...aaaa.....',
+      '...XaaX.....',
+      '..XXXXXX.a..',
+      '..XXXXXXaaa.',
+      '.XXXXXXXXXX.',
+      '.XXXXXXXXXXX',
+      'XXXXXXXXXXXX',
+      'XXXXXXXXXXXX',
+      'XXXXXXXXXXXX',
+      '............',
+    ],
+    palette: { X: '#6F8F7A', a: '#DDE6EE' },
+  },
 } satisfies Record<string, MeadowIconSpec>
 
 export type MeadowIconName = keyof typeof MEADOW_ICONS

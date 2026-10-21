@@ -53,6 +53,9 @@ const ICON_MAP: Record<FrameIcon, React.ComponentType<{ size?: number }>> = {
   house:        IconHouse,
   stethoscope:  IconStethoscope,
   swords:       IconSwords,
+  plane:        ({ size }) => <MeadowIcon name="plane" size={size} />,
+  mountain:     ({ size }) => <MeadowIcon name="mountain" size={size} />,
+  bowl:         ({ size }) => <MeadowIcon name="bowl" size={size} color="#C98C1E" />,
 }
 
 interface Family { tint: string; rim: string; ink: string }

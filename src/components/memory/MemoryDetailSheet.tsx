@@ -111,7 +111,7 @@ export default function MemoryDetailSheet({ open, frame, row, partnerId, partner
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, color: M.text2 }}>
         <MeadowIcon name="calendar" size={18} />
         <span>
-          Found {formatFoundDate(row.unlocked_at)}
+          {frame.kind === 'bucket' ? 'Ticked off' : 'Found'} {formatFoundDate(row.unlocked_at)}
           {foundBy && <> by <span style={{ color: M.text, fontWeight: 800 }}>{foundBy}</span></>}
         </span>
       </div>

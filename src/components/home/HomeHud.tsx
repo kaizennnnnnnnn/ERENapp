@@ -3,8 +3,8 @@
 // ─── Home HUD row ────────────────────────────────────────────────────────────
 // The strip under the stats header: the quests bar, then the room's own
 // shortcuts (today's wish, the fortune gift when one is waiting, the Hallway,
-// the Catnip Shop, reminders, the Closet), then the co-op goal bar under it
-// all.
+// the bucket list, the Catnip Shop, reminders, the Closet), then the co-op
+// goal bar under it all.
 //
 // Us, Me and Rooms used to live in this row too. They are tabs of the bottom
 // nav now (the Us tab carries the unread dot this row's heart used to), so
@@ -36,12 +36,14 @@ export interface HomeHudProps {
   trophyBalance: number
   /** New, unseen skins; 0 hides the badge. */
   newSkinCount: number
+  /** Plans the partner added since this phone last opened the list; 0 hides the badge. */
+  newPlanCount: number
   onOpenFortune: () => void
   onOpenReminders: () => void
 }
 
 export default function HomeHud({
-  quests, footer, wish, fortuneAvailable, trophyBalance, newSkinCount, onOpenFortune, onOpenReminders,
+  quests, footer, wish, fortuneAvailable, trophyBalance, newSkinCount, newPlanCount, onOpenFortune, onOpenReminders,
 }: HomeHudProps) {
   const tap = () => playSound('ui_tap')
   // The pop-in, one after another along the row. position: relative holds
@@ -69,6 +71,12 @@ export default function HomeHud({
         <RoundButton surface="art" size={HUD_BUTTON} href="/hallway" onClick={tap} ariaLabel="The Hallway"
           className="home-nav-pop" style={pop(0.2)}>
           <MeadowIcon name="photo" size={20} color="#6FA3D2" />
+        </RoundButton>
+        <RoundButton surface="art" size={HUD_BUTTON} href="/bucket-list" onClick={tap}
+          ariaLabel={newPlanCount > 0 ? `Bucket list, ${newPlanCount} new` : 'Bucket list'}
+          className="home-nav-pop" style={pop(0.22)}>
+          <MeadowIcon name="checklist" size={20} />
+          {newPlanCount > 0 && <HudBadge>{newPlanCount > 9 ? '9+' : newPlanCount}</HudBadge>}
         </RoundButton>
         <RoundButton surface="art" size={HUD_BUTTON} href="/trophies" onClick={tap}
           ariaLabel={trophyBalance > 0 ? `Catnip shop, ${trophyBalance} catnip to spend` : 'Catnip shop'}

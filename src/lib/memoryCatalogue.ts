@@ -31,6 +31,8 @@
 // ═════════════════════════════════════════════════════════════════════════════
 
 export type FrameKind = 'welcome' | 'first' | 'cumulative' | 'streak' | 'calendar' | 'couple' | 'rare'
+  /** A ticked-off bucket-list plan. Not in the catalogue: see bucketFrame. */
+  | 'bucket'
 
 /**
  * Frames a household of ONE can never unlock, no matter how long they play.
@@ -72,6 +74,7 @@ export type FrameIcon =
   | 'paw' | 'star' | 'fire' | 'crown' | 'lightning'
   | 'fish' | 'clock' | 'envelope' | 'controller' | 'sparkles'
   | 'crown_couple' | 'catface' | 'house' | 'stethoscope' | 'swords'
+  | 'plane' | 'mountain' | 'bowl'
 
 export interface FrameArt {
   icon: FrameIcon
@@ -406,4 +409,41 @@ export function frameById(id: string): MemoryFrame | null {
  */
 export function hintSentence(filled: string): string {
   return filled.replace(/(^|[.!?]\s+)([a-z])/g, (_, lead: string, c: string) => lead + c.toUpperCase())
+}
+
+// ─── Bucket-list frames ──────────────────────────────────────────────────────
+// A plan ticked off the bucket list hangs on the wall too. There is one per
+// plan, each with its own title, so they can't be catalogue entries: the
+// bucket_list table's trigger writes the memory_frames row (frame_id
+// 'bucket:<plan id>', the title in payload) and the wall builds the frame from
+// the row here.
+
+const BUCKET_ART: Record<string, { icon: FrameIcon; accent: string }> = {
+  travel:    { icon: 'plane',    accent: SKY.accent },
+  food:      { icon: 'bowl',     accent: GOLD.accent },
+  adventure: { icon: 'mountain', accent: GREEN.accent },
+  home:      { icon: 'house',    accent: ROSE.accent },
+  someday:   { icon: 'star',     accent: INDIGO.accent },
+}
+
+export function isBucketFrameId(id: string): boolean {
+  return id.startsWith('bucket:')
+}
+
+/** The picture for a ticked-off plan, from its memory_frames row. */
+export function bucketFrame(row: { frame_id: string; payload: Record<string, unknown> }): MemoryFrame {
+  const title = typeof row.payload.title === 'string' && row.payload.title ? row.payload.title : 'A plan we did'
+  const kind = typeof row.payload.kind === 'string' ? row.payload.kind : 'someday'
+  const art = BUCKET_ART[kind] ?? BUCKET_ART.someday
+  return {
+    id: row.frame_id,
+    kind: 'bucket',
+    rarity: 'rare',
+    // Plain text the household typed, so { } in it must not read as a
+    // template token when the wall fills the title.
+    title: title.replace(/[{}]/g, ''),
+    hint: 'one off the bucket list.',
+    art: { icon: art.icon, bg: '#102A3A', accent: art.accent },
+    predicate: { type: 'seed' },
+  }
 }

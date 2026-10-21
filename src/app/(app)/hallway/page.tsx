@@ -15,7 +15,7 @@ import { useCouple } from '@/hooks/useCouple'
 import { useCat } from '@/hooks/useCat'
 import { useMemoryFrames } from '@/hooks/useMemoryFrames'
 import { useCare } from '@/contexts/CareContext'
-import { MEMORY_FRAMES, needsPartner } from '@/lib/memoryCatalogue'
+import { MEMORY_FRAMES, isBucketFrameId, needsPartner } from '@/lib/memoryCatalogue'
 import MemoryWall from '@/components/care/MemoryWall'
 import { playSound } from '@/lib/sounds'
 import { useEffect, useMemo } from 'react'
@@ -30,7 +30,8 @@ export default function HallwayPage() {
   const cat = useCat()
   const { frames, loading, applyReaction } = useMemoryFrames(profile?.household_id ?? null)
 
-  const unlockedCount = frames.length
+  // Ticked-off bucket-list plans hang on the wall but aren't part of the set.
+  const unlockedCount = useMemo(() => frames.filter(f => !isBucketFrameId(f.frame_id)).length, [frames])
   // Nine frames need a second person. Counting them in the denominator for a
   // household of one caps the wall at 51/60 forever, which reads as a
   // collection they failed rather than one that was never theirs. Frames they

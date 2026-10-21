@@ -11,13 +11,17 @@
 //
 // A household of one isn't shown the partner-only frames as locked: they were
 // never theirs to find. Any it already holds stay on the wall.
+//
+// Plans ticked off the bucket list hang here too, among the rest by date.
+// They are built from their rows (bucketFrame), never shown locked, and never
+// counted in the Hallway's "x of y".
 // ═════════════════════════════════════════════════════════════════════════════
 
 import { useMemo, useState } from 'react'
 import { playSound } from '@/lib/sounds'
 import MemoryFrameCanvas from '@/components/memory/MemoryFrameCanvas'
 import MemoryDetailSheet from '@/components/memory/MemoryDetailSheet'
-import { MEMORY_FRAMES, frameById, needsPartner, type MemoryFrame } from '@/lib/memoryCatalogue'
+import { MEMORY_FRAMES, bucketFrame, frameById, isBucketFrameId, needsPartner, type MemoryFrame } from '@/lib/memoryCatalogue'
 import type { MemoryFrameRow, ReactionEmoji } from '@/hooks/useMemoryFrames'
 import { useCat } from '@/hooks/useCat'
 import { Card, SectionLabel, M } from '@/components/meadow'
@@ -51,6 +55,7 @@ export default function MemoryWall({ rows, partnerId, partnerName, isSolo, onRea
       if (row) held.push({ frame: f, row })
       else if (!isSolo || !needsPartner(f)) toFind.push(f)
     }
+    for (const r of rows) if (isBucketFrameId(r.frame_id)) held.push({ frame: bucketFrame(r), row: r })
     held.sort((a, b) => b.row.unlocked_at.localeCompare(a.row.unlocked_at))
     return { held, toFind }
   }, [rows, isSolo])
@@ -61,8 +66,10 @@ export default function MemoryWall({ rows, partnerId, partnerName, isSolo, onRea
     setShownId(id)
   }
 
-  const shownFrame = shownId ? frameById(shownId) ?? null : null
   const shownRow = shownId ? rows.find(r => r.frame_id === shownId) ?? null : null
+  const shownFrame = !shownId ? null
+    : isBucketFrameId(shownId) ? (shownRow ? bucketFrame(shownRow) : null)
+    : frameById(shownId)
 
   return (
     <>

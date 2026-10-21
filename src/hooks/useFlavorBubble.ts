@@ -21,6 +21,7 @@ import { dateKey } from '@/lib/wishes'
 import { useCat } from '@/hooks/useCat'
 import { catText } from '@/lib/catWords'
 import { isOriginalCat, type CatIdentity } from '@/lib/catIdentity'
+import { planSnippet } from '@/lib/bucketList'
 import type { FoodKey } from '@/types'
 
 const IDLE_CYCLE_MIN_MS = 60_000
@@ -73,6 +74,9 @@ export interface UseFlavorBubbleOptions {
    *  the time — often enough that it lands, rarely enough that Eren doesn't
    *  become a billboard for one sentence. */
   erenSays?: string | null
+  /** Titles of the household's open bucket-list plans. Now and then Eren
+   *  brings one up instead of an idle line. */
+  openPlans?: readonly string[] | null
 }
 
 export interface FlavorBubble {
@@ -84,6 +88,18 @@ export interface FlavorBubble {
 
 /** How often a paid Eren Says line displaces an idle one. */
 const EREN_SAYS_CHANCE = 0.34
+
+/** How often an open bucket-list plan displaces an idle line. */
+const PLAN_LINE_CHANCE = 0.12
+/** Eren on a plan. {plan} is the plan's title, shortened. They read the same
+ *  for a household of one ("we" is Eren and you). Append only: the index is
+ *  part of the line id the recent-history check compares. */
+const PLAN_LINES = [
+  'when r we doing “{plan}”',
+  'still dreaming about “{plan}”',
+  '“{plan}”… can i come too',
+  'dont forget “{plan}” ok',
+]
 
 export function useFlavorBubble(opts: UseFlavorBubbleOptions): {
   line: FlavorBubble | null
@@ -98,6 +114,7 @@ export function useFlavorBubble(opts: UseFlavorBubbleOptions): {
   const suppressedRef = useRef(opts.suppressed)
   const leaderRef = useRef(opts.leaderName)
   const erenSaysRef = useRef(opts.erenSays ?? null)
+  const openPlansRef = useRef(opts.openPlans ?? null)
   const viewerRef = useRef(opts.viewerName)
   const partnerRef = useRef(opts.partnerName)
   const userIdRef = useRef(opts.userId)
@@ -109,6 +126,7 @@ export function useFlavorBubble(opts: UseFlavorBubbleOptions): {
   useEffect(() => { suppressedRef.current = opts.suppressed }, [opts.suppressed])
   useEffect(() => { leaderRef.current = opts.leaderName }, [opts.leaderName])
   useEffect(() => { erenSaysRef.current = opts.erenSays ?? null }, [opts.erenSays])
+  useEffect(() => { openPlansRef.current = opts.openPlans ?? null }, [opts.openPlans])
   useEffect(() => { viewerRef.current = opts.viewerName }, [opts.viewerName])
   useEffect(() => { partnerRef.current = opts.partnerName }, [opts.partnerName])
   useEffect(() => { userIdRef.current = opts.userId }, [opts.userId])
@@ -169,6 +187,17 @@ export function useFlavorBubble(opts: UseFlavorBubbleOptions): {
     if (source === 'idle-pool' && paid && Math.random() < EREN_SAYS_CHANCE) {
       show({ id: `eren-says:${paid.slice(0, 24)}`, text: paid, trigger: 'idle' })
       return
+    }
+    // A plan off the bucket list, now and then. One plan isn't brought up
+    // twice in the recent window, whichever line it came in.
+    const plans = openPlansRef.current
+    if (source === 'idle-pool' && plans?.length && Math.random() < PLAN_LINE_CHANCE) {
+      const plan = pickRand(plans.filter(p => !recentIdsRef.current.some(id => id.endsWith(`:${p.slice(0, 24)}`))))
+      if (plan) {
+        const i = Math.floor(Math.random() * PLAN_LINES.length)
+        show({ id: `plan${i}:${plan.slice(0, 24)}`, text: PLAN_LINES[i].replace('{plan}', () => planSnippet(plan)), trigger: 'idle' })
+        return
+      }
     }
     let pool: FlavorLine[]
     if (source === 'idle-pool') {

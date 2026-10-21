@@ -67,6 +67,8 @@ import TodaysMenu from '@/components/wish/TodaysMenu'
 import { useFoodMenu } from '@/hooks/useFoodMenu'
 import { usePageReady } from '@/hooks/usePageReady'
 import RoomWeather from '@/components/weather/RoomWeather'
+import { useBucketList } from '@/hooks/useBucketList'
+import { newFromPartner, readBucketSeen } from '@/lib/bucketList'
 
 interface XpParticle {
   id: number; x: number; y: number; tx: number; ty: number
@@ -106,6 +108,14 @@ export default function HomePage() {
   const { newMessage, dismissPopup, partner, isSolo, sendNudge, partnerMood, lifetimeWLT, giftArrivals, markGiftsSeen } = useCouple()
   const { inventory, loaded: invLoaded } = useInventory()
   const newSkinCount = useNewSkins(inventory, invLoaded)
+  // The bucket list: a badge for plans the partner added since this phone
+  // last looked (the stamp is browser state, so it's read after mount), and
+  // the open ones for Eren to bring up.
+  const bucket = useBucketList(profile?.household_id ?? null, user?.id ?? null)
+  const [bucketSeenAt, setBucketSeenAt] = useState<number | null>(null)
+  useEffect(() => { if (user?.id) setBucketSeenAt(readBucketSeen(user.id)) }, [user?.id])
+  const newPlanCount = user?.id && bucketSeenAt !== null ? newFromPartner(bucket.plans, user.id, bucketSeenAt) : 0
+  const openPlans = useMemo(() => bucket.plans.filter(p => !p.done_at).map(p => p.title), [bucket.plans])
   const isDark = useIsDark()
   const wish = useWish()
   const cat = useCat()
@@ -349,6 +359,7 @@ export default function HomePage() {
 
   const { line: flavorLine, dismiss: dismissFlavor } = useFlavorBubble({
     erenSays,
+    openPlans,
     enabled: !!stats && !stats.is_sleeping && roomReady && !authLoading,
     // Only mute flavor while the GRANT celebration owns the anchor (its 2-min
     // linger). While a wish is merely pending it can sit unanswered all day —
@@ -841,6 +852,7 @@ export default function HomePage() {
           fortuneAvailable={fortuneAvailable}
           trophyBalance={trophyBalance}
           newSkinCount={newSkinCount}
+          newPlanCount={newPlanCount}
           onOpenFortune={() => { playSound('ui_modal_open'); setShowFortune(true) }}
           onOpenReminders={() => { playSound('ui_modal_open'); setShowReminders(true) }}
         />
