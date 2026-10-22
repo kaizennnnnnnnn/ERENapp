@@ -34,6 +34,11 @@ supabase/migration_*.sql  Run once in the dashboard. Don't re-apply.
 
 ## Visual conventions — enforce them
 
+**The app is being moved to the Meadow look** (light grounds, white cards, leaf-green buttons, rounded
+sans, `MeadowIcon`), built from `src/components/meadow`. "New design" always means Meadow. Read
+[docs/MEADOW.md](docs/MEADOW.md) before any UI work; it overrides the pixel/dark rules below, which
+describe the OLD screens that haven't been converted yet.
+
 - **No emojis in the UI.** Ever. Always use `<Icon*/>` from [PixelIcons.tsx](src/components/PixelIcons.tsx). If the icon you need doesn't exist there, add one to that file — don't drop in an emoji as a shortcut.
 - **Pixel icons are 12×12** cells drawn via `drawPixels(grid, palette, size)`. Keep palettes ≤ 6 colors. Silhouette matters more than detail at 14–20px display size.
 - **Font**: `font-pixel` for UI labels (sizes 5–10px), system sans for body copy (10–14px). Use fixed pixel sizes, not Tailwind's `text-*` scale.

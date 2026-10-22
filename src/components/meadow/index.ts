@@ -1,5 +1,5 @@
 // The Meadow kit. Import from '@/components/meadow'.
-// Usage guide for page builders: scratchpad redesign/KIT_REACT.md.
+// Usage guide: docs/MEADOW.md (what "new design" means and how a screen is converted).
 
 export * from './tokens'
 export { MeadowPage, type MeadowPageProps } from './MeadowPage'

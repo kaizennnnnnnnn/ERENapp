@@ -40,3 +40,6 @@ scripts/_*
 .playwright-mcp/
 *.tmp
 LAUNCH_AUDIT.html
+
+# Screenshots shown to the owner before a push (never committed)
+review-pictures/
