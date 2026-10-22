@@ -12,12 +12,11 @@ import { useErenIdle } from '@/hooks/useErenIdle'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import PixelEren, { type ErenPose } from '@/components/games/PixelEren'
 import { playSound } from '@/lib/sounds'
-import { IconStar } from '@/components/PixelIcons'
 import {
   GameTopBar, GameStatRow, GameStat, GAME_STAT_URGENT, GAME_BOARD_TOP, GameFootnote,
   GameStartCard, GameArtTile, GameResultCard,
 } from '@/components/games/GameChrome'
-import { M } from '@/components/meadow'
+import { GAME_TINT, M, MeadowIcon, RADIUS, TINT } from '@/components/meadow'
 import { fireMinigameDone } from '@/lib/minigames'
 
 const ROWS = 8
@@ -26,6 +25,7 @@ const STARTING_MOVES = 30
 // 5 tile types: paw, sardine, donut, cookie, egg. Reduced from 6 — fewer
 // types makes spontaneous matches easier and keeps the board reading clean.
 const N_TYPES = 5
+const TILE_NAMES = ['Paw', 'Sardine', 'Donut', 'Cookie', 'Egg']
 /** Pointer travel, in px, above which a press counts as a swipe rather than
  *  a tap. Comfortably under one tile so a short flick still registers. */
 const SWIPE_MIN = 18
@@ -775,7 +775,7 @@ export default function YarnPopGame() {
       setShakeKeys(keys)
       const reverted = doSwap(next, a, b)
       setGrid(reverted)
-      flashFloater('NO MATCH', '#FCA5A5')
+      flashFloater('No match', M.danger)
       setTimeout(() => setShakeKeys(new Set()), 240)
       return
     }
@@ -870,43 +870,44 @@ export default function YarnPopGame() {
   }, [phase]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col game-shell" style={{
-      background: 'radial-gradient(ellipse at top, #500A38 0%, #2C0623 55%, #170210 100%)',
+    <div className="meadow-root yarn-game fixed inset-0 z-40 flex flex-col overflow-hidden game-shell" style={{
+      background: GAME_TINT.yarn_pop,
     }}>
       {/* Header + stats — the shared Meadow game chrome. */}
-      <GameTopBar title="Yarn Pop" onBack={() => { playSound('ui_back'); router.back() }} />
+      <GameTopBar title="Yarn Pop" onBack={() => { playSound('ui_back'); router.push('/games') }} />
 
-      <GameStatRow>
-        <GameStat icon={<IconStar size={16} />} value={score} pulse={scorePulse} ariaLabel={`Score ${score}`} />
-        {displayCombo > 1 && (
-          // Pops in on each new chain link, then holds its final value and
-          // fades once the cascade ends (yp-combo-fade is a global keyframe).
+      <GameStatRow style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+        <GameStat icon={<MeadowIcon name="star" size={18} />} value={score}
+          pulse={scorePulse} ariaLabel={`Score ${score}`} style={{ justifyContent: 'center', padding: '0 8px' }} />
           <GameStat
-            label="Combo" value={`×${displayCombo}`} tone="hot" pulse={displayCombo}
-            style={combo > 0 ? undefined : { animation: 'yp-combo-fade 0.85s ease-out forwards' }}
+            label="Combo" value={`×${displayCombo}`} tone={displayCombo > 1 ? 'hot' : 'plain'} pulse={displayCombo}
+            style={{ justifyContent: 'center', padding: '0 8px' }}
           />
-        )}
         {/* Slow breathing at ≤5, faster urgent pulse at ≤2. */}
         <GameStat
           label="Moves" value={moves} tone={moves <= 5 ? 'warn' : 'plain'}
-          style={moves <= 2 && moves > 0
-            ? GAME_STAT_URGENT
-            : moves <= 5 && moves > 0
+          ariaLabel={`${moves} moves left`}
+          style={{ justifyContent: 'center', padding: '0 8px',
+            ...(moves <= 2 && moves > 0 ? GAME_STAT_URGENT : moves <= 5 && moves > 0
               ? { animation: 'gkPulse 1s ease-in-out infinite' }
-              : undefined}
+              : {}) }}
         />
       </GameStatRow>
 
       {/* Board — starts under the top bar and the stat row. */}
-      <div className="flex-1 flex items-center justify-center px-3 pb-4" style={{ paddingTop: GAME_BOARD_TOP }}>
-        <div className="relative" style={{
-          width: 'min(94vw, 380px)',
+      <div className="absolute inset-x-0 flex items-center justify-center" style={{
+        top: `calc(${GAME_BOARD_TOP} + 16px)`,
+        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)',
+        margin: '0 12px', containerType: 'size',
+        visibility: phase === 'idle' ? 'hidden' : undefined,
+      }}>
+        <div className="yarn-board relative" role="group" aria-label="Yarn Pop board" style={{
+          width: 'min(100cqw, 75cqh, 360px)',
           aspectRatio: `${COLS} / ${ROWS}`,
-          background: 'linear-gradient(135deg, rgba(0,0,0,0.5), rgba(0,0,0,0.7))',
-          border: '3px solid #DB2777',
-          borderRadius: 6,
-          boxShadow: '0 4px 0 #831843, inset 0 1px 0 rgba(255,255,255,0.1), 0 0 30px rgba(244,114,182,0.35)',
-          padding: 4,
+          background: M.ground,
+          borderRadius: RADIUS.card,
+          boxShadow: `0 4px 0 ${M.groundLip}`,
+          padding: 6,
           // End-of-game flourish: board dims so the gameover panel reads on
           // top of a clearly "closed" board, not a still-active one.
           opacity: ending ? 0.4 : 1,
@@ -928,7 +929,7 @@ export default function YarnPopGame() {
           {phase === 'playing' && (
             <div className="absolute pointer-events-none" style={{
               left: 10, bottom: -28, zIndex: 9,
-              filter: 'drop-shadow(0 2px 0 rgba(0,0,0,0.45))',
+              filter: `drop-shadow(0 2px 0 ${M.groundLip})`,
             }}>
               <PixelEren
                 key={erenFx?.key ?? 'idle'}
@@ -973,18 +974,22 @@ export default function YarnPopGame() {
                 const sparkColor = tile.goldSpark ? '#FBBF24' : '#FDE68A'
                 const burstScale = tile.bigMatch ? 1.25 : 1
                 return (
-                <button key={tile.id}
+                <button type="button" key={tile.id}
                   onClick={() => handleTileTap(r, c)}
                   onPointerDown={e => handleTilePointerDown(r, c, e)}
                   onPointerUp={handleTilePointerUp}
-                  disabled={processing}
-                  className="absolute flex items-center justify-center active:scale-95"
+                  disabled={processing || phase !== 'playing' || ending || shuffling}
+                  aria-label={`Row ${r + 1}, column ${c + 1}: ${tile.special === 'bomb' ? 'Colour bomb' : TILE_NAMES[tile.type]}${tile.special && tile.special !== 'bomb' ? `, ${tile.special}` : ''}`}
+                  aria-pressed={selected?.r === r && selected?.c === c}
+                  data-row={r} data-col={c} data-type={tile.type} data-special={tile.special}
+                  className="yarn-tile m-focus absolute flex items-center justify-center active:scale-95"
                   style={{
                     left:  `${(c / COLS) * 100}%`,
                     top:   `${(r / ROWS) * 100}%`,
                     width:  `${100 / COLS}%`,
                     height: `${100 / ROWS}%`,
                     padding: 2,
+                    background: 'transparent', border: 0, borderRadius: 12,
                     cursor: processing ? 'default' : 'pointer',
                     transition: 'left 0.18s, top 0.28s ease-out',
                     zIndex: tile.matched ? 6 : selected && selected.r === r && selected.c === c ? 5 : 1,
@@ -1027,15 +1032,13 @@ export default function YarnPopGame() {
                     width: '100%', height: '100%',
                     position: 'relative',
                     boxShadow: selected && selected.r === r && selected.c === c
-                      ? '0 0 0 3px #FDE68A, 0 0 14px rgba(253,230,138,0.8)'
+                      ? `0 0 0 3px ${M.leaf}`
                       : isHinted
-                        ? '0 0 0 3px #93C5FD, 0 0 16px rgba(147,197,253,0.75)'
+                        ? `0 0 0 3px ${M.leaf}`
                         : tile.special
-                        // Specials wear a permanent gold halo so they read as
-                        // "charged" against the normal candy field.
-                        ? '0 0 0 2px rgba(253,230,138,0.9), 0 0 12px rgba(253,230,138,0.55)'
+                        ? `0 0 0 2px ${M.coin}`
                         : 'none',
-                    borderRadius: 6,
+                    borderRadius: 10,
                     transition: 'box-shadow 0.15s',
                     // matched → pop-and-vanish; freshly-minted special → pop-in.
                     animation: tile.matched
@@ -1109,13 +1112,13 @@ export default function YarnPopGame() {
 
           {/* Floater */}
           {floater && (
-            <div className="absolute font-pixel pointer-events-none"
+            <div className="absolute pointer-events-none"
               style={{
                 left: '50%', top: floater.y,
                 transform: 'translateX(-50%)',
-                fontSize: 9, color: floater.color,
-                letterSpacing: 1.5,
-                textShadow: '2px 2px 0 rgba(0,0,0,0.6)',
+                fontSize: 15, fontWeight: 800, color: M.text,
+                background: M.ground, padding: '6px 12px', borderRadius: RADIUS.pill,
+                boxShadow: `0 3px 0 ${M.groundLip}`, whiteSpace: 'nowrap', zIndex: 20,
                 animation: 'yp-floater 0.9s ease-out forwards',
               }}>
               {floater.text}
@@ -1156,6 +1159,7 @@ export default function YarnPopGame() {
           ))}
           best={bestScore}
           onStart={() => { playSound('ui_tap'); startGame() }}
+          style={{ top: GAME_BOARD_TOP, padding: '12px 20px calc(env(safe-area-inset-bottom, 0px) + 16px)', overflowY: 'auto' }}
         >
           <p style={{ margin: 0 }}>Swap two neighbouring tiles. Line up three of a kind to pop them.</p>
           <div className="inline-flex flex-col items-start text-left" style={{ gap: 8, marginTop: 12 }}>
@@ -1179,15 +1183,16 @@ export default function YarnPopGame() {
         <GameResultCard
           headline="Out of moves"
           score={score}
+          scoreLabel="points"
           newBest={newBest}
           best={bestScore}
           reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
           onAgain={() => { playSound('ui_tap'); reset() }}
-          onBack={() => { playSound('ui_back'); router.back() }}
+          onBack={() => { playSound('ui_back'); router.push('/games') }}
         />
       )}
 
-      <style jsx global>{`
+      <style>{`
         /* Hinted pair — a slow breath, not a flash. It has to be findable in
            peripheral vision without competing with an active cascade. */
         @keyframes yp-hint {
@@ -1332,6 +1337,12 @@ export default function YarnPopGame() {
           18%  { opacity: 1; }
           100% { opacity: 0; transform: translate(-50%, -50%) scale(14); }
         }
+        @media (prefers-reduced-motion: reduce) {
+          .yarn-game *, .yarn-game *::before, .yarn-game *::after {
+            animation: none !important;
+            transition: none !important;
+          }
+        }
       `}</style>
     </div>
   )
@@ -1366,7 +1377,7 @@ function SpecialLegendRow({ label, children }: { label: string; children: React.
   return (
     <div className="flex items-center" style={{ gap: 10 }}>
       <div aria-hidden style={{ position: 'relative', width: 24, height: 24, flexShrink: 0 }}>{children}</div>
-      <span style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.3, color: M.text2 }}>{label}</span>
+      <span style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.3, color: M.text2 }}>{label}</span>
     </div>
   )
 }
@@ -1401,19 +1412,13 @@ function BombTile() {
   )
 }
 
-// Tile background — radial highlight + diagonal gradient, with inset
-// bevel shadows for a candy-button feel. Each tile colour pair (main +
-// dark accent) keeps the type instantly distinguishable across the board.
-function bg(main: string, dark: string) {
+// Keep the pixel pieces on flat tinted tiles, with the same lip as the kit.
+function bg(tint: string) {
   return {
     width: '100%', height: '100%',
-    background: `radial-gradient(circle at 30% 25%, ${main} 0%, ${dark} 110%)`,
-    border: `2px solid ${dark}`,
-    borderRadius: 6,
-    boxShadow:
-      'inset 0 2px 1px rgba(255,255,255,0.45), ' +
-      'inset 0 -2px 1px rgba(0,0,0,0.3), ' +
-      '0 2px 0 rgba(0,0,0,0.5)',
+    background: tint,
+    borderRadius: 10,
+    boxShadow: `0 2px 0 ${M.groundLip}`,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     position: 'relative',
   } as const
@@ -1423,7 +1428,7 @@ function bg(main: string, dark: string) {
 // contrast against the lavender background.
 function PawTile() {
   return (
-    <div style={bg('#C4B5FD', '#6D28D9')}>
+    <div style={bg('#9478B4')}>
       <svg width="74%" height="74%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
         {/* 3 toe pads — left, centre, right */}
         <rect x="2" y="2" width="2" height="2" fill="#FFFFFF" />
@@ -1457,7 +1462,7 @@ function PawTile() {
 // than melting into a blue-on-blue blob.
 function SardineTile() {
   return (
-    <div style={bg('#A7F3D0', '#047857')}>
+    <div style={bg(TINT.leaf)}>
       <svg width="74%" height="74%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
         {/* Slim body silhouette (5 wide × 4 tall) */}
         <rect x="3" y="3" width="5" height="1" fill="#1E40AF" />     {/* top stripe */}
@@ -1499,7 +1504,7 @@ function SardineTile() {
 // so the hole stays clearly visible instead of getting buried under pink.
 function DonutTile() {
   return (
-    <div style={bg('#F9A8D4', '#9D174D')}>
+    <div style={bg(TINT.love)}>
       <svg width="74%" height="74%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
         {/* Outer outline (dark brown ring around the donut) */}
         <rect x="3" y="2" width="6" height="1" fill="#7C2D12" />
@@ -1553,7 +1558,7 @@ function DonutTile() {
 // edge texture. Background is a darker brown so the cookie pops.
 function CookieTile() {
   return (
-    <div style={bg('#FBBF24', '#78350F')}>
+    <div style={bg(TINT.amber)}>
       <svg width="74%" height="74%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
         {/* Cookie outline (round-ish) */}
         <rect x="3" y="2" width="6" height="1" fill="#7C2D12" />
@@ -1587,7 +1592,7 @@ function CookieTile() {
 // muddle. Body has a slightly wavy edge for that fried-egg silhouette.
 function EggTile() {
   return (
-    <div style={bg('#BAE6FD', '#0369A1')}>
+    <div style={bg(TINT.blue)}>
       <svg width="78%" height="78%" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: 'pixelated' }}>
         {/* Egg-white blob — wavy bumpy outline */}
         <rect x="3" y="2" width="6" height="1" fill="#FFFFFF" />     {/* top edge */}

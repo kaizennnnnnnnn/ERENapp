@@ -14,20 +14,19 @@ import { useErenIdle } from '@/hooks/useErenIdle'
 import ErenReact, { useErenReaction } from '@/components/games/ErenReact'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import { playSound } from '@/lib/sounds'
-import { IconPaw } from '@/components/PixelIcons'
 import {
   GameTopBar, GameStatRow, GameStat, GameStartCard, GameArtTile, GameResultCard, GAME_BOARD_TOP,
 } from '@/components/games/GameChrome'
-import { FONT_ROUNDED, MeadowIcon } from '@/components/meadow'
+import { GAME_TINT, M, MeadowIcon, RADIUS, Tag, TINT } from '@/components/meadow'
 import { fireMinigameDone } from '@/lib/minigames'
 
 // Each pad has its own colour AND audio frequency so the round literally plays
 // a tune. Frequencies are a triad-ish set so wrong sequences sound dissonant.
 const PADS = [
-  { color: '#FF6B9D', glow: 'rgba(255,107,157,0.85)', tone: 392.0, name: 'pink'   }, // G4
-  { color: '#FBBF24', glow: 'rgba(251,191,36,0.85)',  tone: 523.3, name: 'yellow' }, // C5
-  { color: '#34D399', glow: 'rgba(52,211,153,0.85)',  tone: 659.3, name: 'green'  }, // E5
-  { color: '#7C3AED', glow: 'rgba(124,58,237,0.85)',  tone: 784.0, name: 'purple' }, // G5
+  { color: M.love,    tint: TINT.love,  icon: 'heart', tone: 392.0, name: 'pink'   }, // G4
+  { color: M.coinRim, tint: TINT.amber, icon: 'star',  tone: 523.3, name: 'yellow' }, // C5
+  { color: M.leaf,    tint: TINT.leaf,  icon: 'leaf',  tone: 659.3, name: 'green'  }, // E5
+  { color: '#9478B4', tint: TINT.lilac, icon: 'moon',  tone: 784.0, name: 'purple' }, // G5
 ] as const
 
 // Base timings — show speed now ramps up with sequence length so longer rounds
@@ -308,45 +307,49 @@ export default function ErenSaysGame() {
   const reachedScore = Math.max(0, seqRef.current.length - 1)
 
   return (
-    <div className={`fixed inset-0 z-40 flex flex-col game-shell${shake ? ' shake' : ''}`} style={{
-      background: 'radial-gradient(ellipse at top, #2D1659 0%, #1A0A33 55%, #0F0620 100%)',
+    <div className={`meadow-root says-game fixed inset-0 z-40 flex flex-col overflow-hidden game-shell${shake ? ' shake' : ''}`} style={{
+      background: GAME_TINT.eren_says,
     }}>
       {/* Header + stats — the shared Meadow game chrome. */}
-      <GameTopBar title={cat.t('{name} Says')} onBack={() => { playSound('ui_back'); router.back() }} />
+      <GameTopBar title={cat.t('{name} Says')} onBack={() => { playSound('ui_back'); router.push('/games') }} />
 
-      <GameStatRow>
+      <GameStatRow style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
         <GameStat label="Round" value={round || '—'} tone={phase === 'fail' ? 'warn' : 'plain'}
-          pulse={roundPulse} ariaLabel={`Round ${round}`} />
-        <GameStat icon={<MeadowIcon name="trophy" size={18} />} label="Best" value={bestRound} />
+          pulse={roundPulse} ariaLabel={`Round ${round}`} style={{ justifyContent: 'center' }} />
+        <GameStat icon={<MeadowIcon name="trophy" size={18} />} label="Best" value={bestRound}
+          style={{ justifyContent: 'center' }} />
       </GameStatRow>
 
       {/* Clears the absolutely-placed top bar + stat row above. */}
-      <div aria-hidden className="flex-shrink-0" style={{ height: GAME_BOARD_TOP }} />
+      <div aria-hidden className="flex-shrink-0" style={{ height: 104 }} />
 
       {/* Round status */}
       <div className="flex flex-col items-center pt-2 pb-2 flex-shrink-0 relative">
-        <div className="px-4 text-center" style={{
-          fontFamily: FONT_ROUNDED, fontWeight: 800, fontSize: 15, lineHeight: 1.3,
-          color: phase === 'fail' ? '#FCA5A5' : '#E9DDFF',
-          transition: 'color 0.2s',
+        <div role="status" style={{ maxWidth: '100%', padding: '0 16px' }}>
+        <Tag tone={phase === 'showing' ? 'amber' : 'leaf'} style={{
+          minHeight: 36, height: 'auto', maxWidth: '100%', padding: '8px 16px', fontSize: 15,
+          whiteSpace: 'normal', textAlign: 'center',
+          ...(phase === 'fail' ? { color: M.danger, background: M.dangerTint } : {}),
         }}>
           {phase === 'showing'  ? 'Watch…' :
-           phase === 'awaiting' ? `Your turn — ${Math.min(userStep + 1, seqRef.current.length)}/${seqRef.current.length}` :
+           phase === 'awaiting' ? `Your turn ${Math.min(userStep + 1, seqRef.current.length)}/${seqRef.current.length}` :
            phase === 'fail'     ? 'Oops!' :
            phase === 'gameover' ? 'Game over' :
                                   cat.t('Watch {name}, then repeat')}
+        </Tag>
         </div>
 
         {/* floating score popups */}
         <div className="absolute pointer-events-none" style={{ top: 6, left: '50%' }}>
           {scorePops.map(p => (
-            <div key={p.id} className="font-pixel" style={{
+            <div key={p.id} style={{
               position: 'absolute',
               left: 0,
               transform: 'translateX(-50%)',
-              fontSize: 10,
-              color: p.color,
-              textShadow: '1px 1px 0 #0F0620',
+              fontSize: 16, fontWeight: 800,
+              color: M.leafInk, background: M.ground,
+              padding: '4px 10px', borderRadius: RADIUS.pill,
+              boxShadow: `0 3px 0 ${M.groundLip}`,
               animation: 'scorePop 0.85s cubic-bezier(0.22,1,0.36,1) forwards',
               whiteSpace: 'nowrap',
             }}>{p.text}</div>
@@ -355,27 +358,23 @@ export default function ErenSaysGame() {
 
         {/* streak milestone badge */}
         {streakBadge !== null && (
-          <div className="absolute pointer-events-none font-pixel" style={{
+          <div className="absolute pointer-events-none" style={{
             top: -2,
             left: '50%',
             transform: 'translateX(-50%)',
-            padding: '6px 10px',
-            background: 'linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%)',
-            border: '2px solid #78350F',
-            borderRadius: 4,
-            boxShadow: '0 4px 0 #78350F, 0 0 18px rgba(251,191,36,0.6)',
-            color: '#1F1100',
-            fontSize: 9,
-            letterSpacing: 2,
             animation: 'streakIn 0.4s cubic-bezier(0.34,1.56,0.64,1), streakOut 0.3s ease-in 1.1s forwards',
             zIndex: 5,
-          }}>STREAK x{streakBadge}</div>
+          }}><Tag tone="amber" style={{ height: 36, fontSize: 15 }}>Streak x{streakBadge}</Tag></div>
         )}
       </div>
 
       {/* Pads + Eren */}
-      <div className="flex-1 flex items-center justify-center px-6 pb-4">
-        <div className="relative" style={{ width: 'min(90vw, 360px)', aspectRatio: '1 / 1' }}>
+      <div className="flex-1 min-h-0 flex items-center justify-center" style={{
+        margin: '12px 20px calc(env(safe-area-inset-bottom, 0px) + 24px)', containerType: 'size',
+        visibility: phase === 'idle' ? 'hidden' : undefined,
+      }}>
+        <div className="says-board relative" role="group" aria-label="Sequence pads"
+          style={{ width: 'min(100cqw, 100cqh, 348px)', aspectRatio: '1 / 1' }}>
           <div className="absolute inset-0 grid"
             style={{ gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 10 }}>
             {PADS.map((p, i) => {
@@ -384,31 +383,26 @@ export default function ErenSaysGame() {
               const isTelegraph = telegraphPad === i
               const isTrail = trailPad === i
               return (
-                <button key={i}
-                  onPointerDown={(e) => { e.preventDefault(); handlePad(i) }}
+                <button type="button" key={i}
+                  onClick={() => handlePad(i)}
                   disabled={phase !== 'awaiting'}
-                  className="relative active:scale-95 transition-transform"
+                  aria-label={`${p.name} pad`}
+                  aria-pressed={isActive}
+                  className="says-pad m-focus relative"
                   style={{
-                    touchAction: 'none',
+                    touchAction: 'manipulation',
                     userSelect: 'none',
                     WebkitUserSelect: 'none',
-                    background: `linear-gradient(135deg, ${p.color}, ${p.color}AA)`,
-                    border: '4px solid rgba(0,0,0,0.45)',
-                    borderRadius: i === 0 ? '40% 8px 8px 8px' : i === 1 ? '8px 40% 8px 8px' : i === 2 ? '8px 8px 8px 40%' : '8px 8px 40% 8px',
-                    boxShadow: isActive
-                      ? `0 0 28px 6px ${p.glow}, inset 0 1px 0 rgba(255,255,255,0.5), 0 6px 0 rgba(0,0,0,0.4)`
-                      : isTrail
-                      ? `0 0 14px 2px ${p.glow}, inset 0 1px 0 rgba(255,255,255,0.3), 0 6px 0 rgba(0,0,0,0.4)`
-                      : `inset 0 1px 0 rgba(255,255,255,0.3), 0 6px 0 rgba(0,0,0,0.4)`,
-                    transform: isActive ? 'scale(1.05) translateY(-3px)' : 'scale(1)',
-                    transition: 'transform 0.12s, box-shadow 0.18s steps(3, end)',
-                    filter: phase === 'showing' && !isActive && !isTrail && !isTelegraph ? 'brightness(0.55)' : isFail ? 'brightness(0.5) saturate(0)' : 'none',
+                    background: isFail ? M.dangerTint : isActive ? p.color : p.tint,
+                    border: `3px solid ${isFail ? M.danger : isActive || isTrail ? p.color : M.ground}`,
+                    borderRadius: RADIUS.card,
+                    boxShadow: `0 ${isActive ? 2 : 4}px 0 ${M.groundLip}`,
+                    transform: isActive && !reduced ? 'translateY(2px)' : undefined,
+                    transition: 'transform 0.12s, background 0.12s, border-color 0.12s',
                     cursor: phase === 'awaiting' ? 'pointer' : 'default',
                   }}>
-                  {/* Decorative paw print on each pad */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                    style={{ opacity: isActive ? 0.7 : 0.25 }}>
-                    <IconPaw size={Math.min(72, 80)} />
+                  <div aria-hidden="true" className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <MeadowIcon name={p.icon} size={44} mono color={isActive && !isFail ? M.ground : p.color} />
                   </div>
                   {/* anticipatory concentric ring telegraph */}
                   {isTelegraph && (
@@ -416,7 +410,6 @@ export default function ErenSaysGame() {
                       inset: 8,
                       borderRadius: 'inherit',
                       border: `3px solid ${p.color}`,
-                      boxShadow: `0 0 0 2px rgba(255,255,255,0.4)`,
                       animation: 'padTelegraph 220ms steps(4, end) forwards',
                     }} />
                   )}
@@ -429,6 +422,9 @@ export default function ErenSaysGame() {
           <div className="absolute pointer-events-none"
             style={{
               left: '50%', top: '50%',
+              width: 88, height: 88, borderRadius: RADIUS.pill,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: M.ground, boxShadow: `0 3px 0 ${M.groundLip}`,
               transform: 'translate(-50%, -50%)',
               animation: phase === 'awaiting'
                 ? (reduced ? 'none' : 'eyDance 1s ease-in-out infinite')
@@ -450,8 +446,7 @@ export default function ErenSaysGame() {
                 width: 5,
                 height: 5,
                 background: pt.color,
-                imageRendering: 'pixelated',
-                boxShadow: `0 0 0 1px rgba(0,0,0,0.5)`,
+                borderRadius: 2,
                 // custom property used by keyframe
                 ['--dx' as string]: `${pt.dx}px`,
                 ['--dy' as string]: `${pt.dy}px`,
@@ -473,12 +468,13 @@ export default function ErenSaysGame() {
         <GameStartCard
           title={cat.t('{name} Says')}
           art={PADS.map(p => (
-            <GameArtTile key={p.name} size={38} tint={`${p.color}33`}>
-              <span style={{ width: 22, height: 22, borderRadius: 7, background: p.color, boxShadow: 'inset 0 -3px 0 rgba(0,0,0,0.18)' }} />
+            <GameArtTile key={p.name} size={38} tint={p.tint}>
+              <MeadowIcon name={p.icon} size={22} mono color={p.color} />
             </GameArtTile>
           ))}
           best={bestRound}
           onStart={() => { playSound('ui_tap'); startGame() }}
+          style={{ top: GAME_BOARD_TOP, paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)', overflowY: 'auto' }}
         >
           {cat.t('Watch {his} sequence of pads, then repeat it back. Every round adds one more and plays a little faster.')}
         </GameStartCard>
@@ -498,11 +494,11 @@ export default function ErenSaysGame() {
           best={bestRound}
           reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
           onAgain={() => { playSound('ui_tap'); reset() }}
-          onBack={() => { playSound('ui_back'); router.back() }}
+          onBack={() => { playSound('ui_back'); router.push('/games') }}
         />
       )}
 
-      <style jsx global>{`
+      <style>{`
         @keyframes failPulse {
           0%   { opacity: 0.6; }
           100% { opacity: 0; }
@@ -546,7 +542,14 @@ export default function ErenSaysGame() {
           75%  { transform: translate(-2px, 2px); }
           100% { transform: translate(0, 0); }
         }
-        .game-shell.shake { animation: shellShake 0.24s steps(7, end); }
+        .says-game.shake { animation: shellShake 0.24s steps(7, end); }
+        @media (prefers-reduced-motion: reduce) {
+          .says-game *, .says-game *::before, .says-game *::after {
+            animation: none !important;
+            transition: none !important;
+          }
+          .says-game { animation: none !important; }
+        }
       `}</style>
     </div>
   )

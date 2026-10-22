@@ -16,7 +16,7 @@ import GameCoinReward from '@/components/games/GameCoinReward'
 import {
   GameTopBar, GameStatRow, GameStat, GameResultCard,
 } from '@/components/games/GameChrome'
-import { M, MeadowIcon, RoundButton } from '@/components/meadow'
+import { GAME_TINT, M, MeadowIcon, RADIUS, RoundButton, SpeechBubble, Tag } from '@/components/meadow'
 import { playSound } from '@/lib/sounds'
 import { fireMinigameDone } from '@/lib/minigames'
 
@@ -162,7 +162,7 @@ export default function TicTacToePage() {
   const everKnockedRef = useRef(false)
 
   // ─── Player move ────────────────────────────────────────────────────────────
-  function handleCellClick(i: number, e: React.PointerEvent) {
+  function handleCellClick(i: number, e: React.MouseEvent) {
     e.preventDefault()
     if (status !== 'playing' || turn !== 'X' || thinking || board[i] !== null) return
     playSound('ttt_place_x')
@@ -325,7 +325,7 @@ export default function TicTacToePage() {
     }
   }
 
-  function knockCan(e: React.PointerEvent) {
+  function knockCan(e: React.MouseEvent) {
     e.preventDefault()
     if (canKnocked || status !== 'playing') return
     everKnockedRef.current = true
@@ -338,8 +338,8 @@ export default function TicTacToePage() {
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-40 flex flex-col game-shell" style={{
-      background: 'radial-gradient(ellipse at top, #2D1659 0%, #1A0A33 55%, #0F0620 100%)',
+    <div className="meadow-root ttt-game fixed inset-0 z-40 flex flex-col overflow-hidden game-shell" style={{
+      background: GAME_TINT.tic_tac_toe,
       animation: shake ? 'tttShake 0.22s steps(4) 1' : undefined,
     }}>
 
@@ -347,7 +347,7 @@ export default function TicTacToePage() {
           footer's NEW MATCH lives in the bar's right slot now. */}
       <GameTopBar
         title={cat.t('X & O vs {name}')}
-        onBack={() => { playSound('ui_back'); router.back() }}
+        onBack={() => { playSound('ui_back'); router.push('/games') }}
         right={
           <RoundButton surface="art" size={40} ariaLabel="New match"
             onClick={() => { playSound('ui_tap'); newMatch() }}>
@@ -356,10 +356,13 @@ export default function TicTacToePage() {
         }
       />
 
-      <GameStatRow>
-        <GameStat label="Wins" value={wins} pulse={flashKey?.kind === 'W' ? flashKey.id : undefined} />
-        <GameStat label="Losses" value={losses} pulse={flashKey?.kind === 'L' ? flashKey.id : undefined} />
-        <GameStat label="Draws" value={draws} pulse={flashKey?.kind === 'D' ? flashKey.id : undefined} />
+      <GameStatRow style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+        <GameStat label="Wins" value={wins} tone={wins ? 'good' : 'plain'}
+          pulse={flashKey?.kind === 'W' ? flashKey.id : undefined} style={{ justifyContent: 'center', padding: '0 8px' }} />
+        <GameStat label="Losses" value={losses} pulse={flashKey?.kind === 'L' ? flashKey.id : undefined}
+          style={{ justifyContent: 'center', padding: '0 8px' }} />
+        <GameStat label="Draws" value={draws} pulse={flashKey?.kind === 'D' ? flashKey.id : undefined}
+          style={{ justifyContent: 'center', padding: '0 8px' }} />
       </GameStatRow>
 
       {/* Clears the absolute bar + stat row so the scene starts below them.
@@ -371,7 +374,11 @@ export default function TicTacToePage() {
           LEFT of Eren so the bubble's left-pointing tail unambiguously points
           at Eren's face, not at the can. When the can spills Eren leans left
           and starts licking the puddle. */}
-      <div className="flex items-end justify-center gap-3 pt-4 px-4 flex-shrink-0 relative">
+      <div className="relative" style={{
+        display: 'grid', gridTemplateColumns: '100px 64px minmax(0, 1fr)', gap: 8,
+        alignItems: 'end', flexShrink: 0, width: '100%', maxWidth: 380,
+        alignSelf: 'center', padding: '12px 16px 0', minHeight: 112,
+      }}>
         {/* Spill burst — short-lived liquid spray pixels arcing outward
             the frame the can tips. Mounted only during the burst window so
             unused DOM doesn't pile up. */}
@@ -400,14 +407,15 @@ export default function TicTacToePage() {
         )}
         {/* Energy can — bigger, more presence. Tap once per match to spill it.
             Subtle wobble hint while standing tells the player it's tappable. */}
-        <button onPointerDown={knockCan}
+        <button type="button" onClick={knockCan}
           disabled={canKnocked || status !== 'playing'}
           aria-label={canKnocked ? 'Spilled energy drink' : 'Knock over the energy drink'}
-          className="active:scale-90 transition-transform relative"
+          className="m-focus active:scale-95 transition-transform relative flex items-center justify-center"
           style={{
             background: 'transparent',
             border: 'none',
             padding: 0,
+            minHeight: 60,
             marginBottom: -2,
             touchAction: 'none',
             cursor: canKnocked || status !== 'playing' ? 'default' : 'pointer',
@@ -420,16 +428,12 @@ export default function TicTacToePage() {
           }}>
           <CanSprite knocked={canKnocked} reduced={reduced} />
           {showCanHint && status === 'playing' && !canKnocked && (
-            <span className="absolute font-pixel pointer-events-none" style={{
+            <span className="absolute pointer-events-none" style={{
               left: '50%', bottom: '100%', marginBottom: 6,
               transform: 'translateX(-50%)',
               whiteSpace: 'nowrap',
-              background: '#FFFFFF', color: '#831843',
-              border: '2px solid #831843', borderRadius: 3,
-              padding: '3px 6px', fontSize: 6, letterSpacing: 1,
-              boxShadow: '2px 2px 0 #831843',
               animation: reduced ? undefined : 'tttHintBob 1s ease-in-out infinite',
-            }}>TAP ME?</span>
+            }}><Tag tone="leaf">Tap me?</Tag></span>
           )}
         </button>
         {/* Eren — front-facing chibi while the can stands; the moment it
@@ -437,20 +441,17 @@ export default function TicTacToePage() {
             sprites are different shapes so we swap whole components rather
             than try to bend the front-facing chibi into a side pose. */}
         <div className="relative" style={{ display: 'inline-block' }}>
-          {/* Exclamation bubble — pops above Eren the frame the can tips,
-              vanishes after ~600ms. Pure pixel-look: hard black bubble
-              border, no soft shadows. */}
+          {/* Keep the surprise and the lapping sprite when the drink spills. */}
           {spillBurst && (
-            <div className="absolute pointer-events-none font-pixel" style={{
+            <div className="absolute pointer-events-none" style={{
               top: -14, right: -4,
-              width: 14, height: 14,
-              background: '#FFFFFF',
-              border: '2px solid #1A1A2E',
-              borderRadius: 3,
-              boxShadow: '2px 2px 0 #1A1A2E',
-              color: '#DB2777',
-              fontSize: 9,
-              lineHeight: '10px',
+              width: 24, height: 24,
+              background: M.ground,
+              borderRadius: RADIUS.pill,
+              boxShadow: `0 3px 0 ${M.groundLip}`,
+              color: M.love,
+              fontSize: 17, fontWeight: 800,
+              lineHeight: '24px',
               textAlign: 'center',
               paddingTop: 1,
               zIndex: 6,
@@ -465,56 +466,34 @@ export default function TicTacToePage() {
               </ErenReact>
           }
         </div>
-        <div className="relative" style={{ minWidth: 130 }}>
-          <div style={{
-            background: 'rgba(255,255,255,0.95)',
-            border: '2px solid #FBCFE8',
-            borderRadius: 8,
-            boxShadow: '2px 2px 0 #DB2777',
-            padding: '8px 12px',
-            opacity: turn === 'O' && status === 'playing' ? 1 : 0.55,
-            transition: 'opacity 0.3s',
+        <div role="status" className="relative" style={{ minWidth: 0, alignSelf: 'center' }}>
+          <SpeechBubble tail="left" size="md" style={{
+            padding: '10px 12px', fontSize: 14, overflowWrap: 'anywhere',
+            boxShadow: `0 3px 0 ${M.groundLip}`,
           }}>
-            <p className="font-pixel" style={{ fontSize: 7, color: '#831843' }}>
               {status === 'won'  ? 'aw, you got me!'
               : status === 'lost' ? 'gotcha! :3'
               : status === 'draw' ? 'good match!'
               : turn === 'O'      ? thinkText
-              : 'your move →'}
-            </p>
-          </div>
-          <div className="absolute" style={{
-            left: -8, top: '60%',
-            width: 0, height: 0,
-            borderTop: '6px solid transparent',
-            borderBottom: '6px solid transparent',
-            borderRight: '8px solid #FBCFE8',
-          }} />
+              : 'Your move'}
+          </SpeechBubble>
         </div>
       </div>
 
       {/* Board */}
-      <div className="flex-1 flex items-center justify-center px-4 py-4">
-        <div className="relative" style={{
-          width: 'min(85vw, 320px)',
+      <div className="flex-1 min-h-0 flex items-center justify-center" style={{
+        margin: '16px 20px calc(env(safe-area-inset-bottom, 0px) + 24px)', containerType: 'size',
+      }}>
+        <div className="ttt-board relative" role="group" aria-label="Tic-tac-toe board" style={{
+          width: 'min(100cqw, 100cqh, 320px)',
           aspectRatio: '1 / 1',
-          background: 'linear-gradient(135deg, #1F0F3A 0%, #15081E 100%)',
-          border: '4px solid #4C1D95',
-          borderRadius: 8,
-          boxShadow: '4px 6px 0 #2E0F5C, inset 0 1px 0 rgba(255,255,255,0.05), 0 0 28px rgba(167,139,250,0.3)',
-          padding: 8,
         }}>
-          {/* Corner pixel ticks */}
-          <div style={{ position: 'absolute', top: 5, left: 5, width: 5, height: 5, background: '#FBBF24' }} />
-          <div style={{ position: 'absolute', top: 5, right: 5, width: 5, height: 5, background: '#FBBF24' }} />
-          <div style={{ position: 'absolute', bottom: 5, left: 5, width: 5, height: 5, background: '#FBBF24' }} />
-          <div style={{ position: 'absolute', bottom: 5, right: 5, width: 5, height: 5, background: '#FBBF24' }} />
 
           <div className="relative w-full h-full grid" style={{
             gridTemplateColumns: '1fr 1fr 1fr',
             gridTemplateRows: '1fr 1fr 1fr',
-            gap: 4,
-            touchAction: 'none',
+            gap: 10,
+            touchAction: 'manipulation',
           }}>
             {board.map((cell, i) => {
               const inWinLine = winLine?.includes(i) ?? false
@@ -523,19 +502,16 @@ export default function TicTacToePage() {
               // can stagger the win-line cell pulse — feels like a sweep.
               const winIndex = inWinLine && winLine ? winLine.indexOf(i) : -1
               return (
-                <button key={i}
-                  onPointerDown={(e) => handleCellClick(i, e)}
+                <button type="button" key={i}
+                  onClick={(e) => handleCellClick(i, e)}
+                  aria-label={`Row ${Math.floor(i / 3) + 1}, column ${i % 3 + 1}: ${cell ?? 'empty'}`}
                   disabled={status !== 'playing' || turn !== 'X' || cell !== null || thinking}
-                  className="relative flex items-center justify-center transition-transform active:scale-95"
+                  className="ttt-cell m-focus relative flex items-center justify-center transition-transform active:scale-95"
                   style={{
-                    background: inWinLine
-                      ? 'linear-gradient(135deg, rgba(251,191,36,0.4), rgba(245,158,11,0.25))'
-                      : 'linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))',
-                    border: `2px solid ${inWinLine ? '#FDE68A' : 'rgba(167,139,250,0.35)'}`,
-                    borderRadius: 4,
-                    boxShadow: inWinLine
-                      ? 'inset 0 0 12px rgba(253,230,138,0.5), 0 0 16px rgba(251,191,36,0.6)'
-                      : 'inset 0 1px 0 rgba(255,255,255,0.05)',
+                    background: inWinLine ? M.leafTint : M.ground,
+                    border: `2px solid ${inWinLine ? M.leaf : 'transparent'}`,
+                    borderRadius: RADIUS.tile, padding: 0, minWidth: 0, minHeight: 0,
+                    boxShadow: `0 4px 0 ${inWinLine ? M.leafLip : M.groundLip}`,
                     cursor: status === 'playing' && turn === 'X' && cell === null && !thinking ? 'pointer' : 'default',
                     animation: inWinLine && winIndex >= 0
                       ? `tttWinSweep 0.55s cubic-bezier(0.34,1.5,0.64,1) ${winIndex * 0.11}s both`
@@ -617,11 +593,11 @@ export default function TicTacToePage() {
           ]}
           reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
           onAgain={() => { playSound('ui_tap'); newMatch() }}
-          onBack={() => { playSound('ui_back'); router.back() }}
+          onBack={() => { playSound('ui_back'); router.push('/games') }}
         />
       )}
 
-      <style jsx global>{`
+      <style>{`
         @keyframes drawX1 {
           from { stroke-dashoffset: 60; }
           to   { stroke-dashoffset: 0; }
@@ -741,6 +717,14 @@ export default function TicTacToePage() {
           60%  { transform: scale(1)   translateY(0);   opacity: 1; }
           100% { transform: scale(1)   translateY(-4px); opacity: 0; }
         }
+        @media (prefers-reduced-motion: reduce) {
+          .ttt-game *, .ttt-game *::before, .ttt-game *::after {
+            animation: none !important;
+            transition: none !important;
+          }
+          .ttt-game { animation: none !important; }
+          .ttt-cell line, .ttt-cell circle { stroke-dashoffset: 0 !important; }
+        }
       `}</style>
     </div>
   )
@@ -832,10 +816,9 @@ function CanBody() {
 
 // ─── Pixel X ────────────────────────────────────────────────────────────────
 function PixelX({ animate = false, winning = false }: { animate?: boolean; winning?: boolean }) {
-  const stroke = winning ? '#FBBF24' : '#FF6B9D'
-  const glow   = winning ? 'drop-shadow(0 0 6px rgba(251,191,36,0.7))' : 'drop-shadow(0 0 4px rgba(255,107,157,0.5))'
+  const stroke = winning ? M.leaf : M.love
   return (
-    <svg width="62%" height="62%" viewBox="0 0 30 30" style={{ filter: glow }}>
+    <svg width="62%" height="62%" viewBox="0 0 30 30" aria-hidden="true">
       <line x1="5" y1="5" x2="25" y2="25" stroke={stroke} strokeWidth="4.5" strokeLinecap="round"
         strokeDasharray={animate ? 60 : undefined}
         style={animate ? { animation: 'drawX1 0.22s linear forwards' } : undefined} />
@@ -848,10 +831,9 @@ function PixelX({ animate = false, winning = false }: { animate?: boolean; winni
 
 // ─── Pixel O ────────────────────────────────────────────────────────────────
 function PixelO({ animate = false, winning = false }: { animate?: boolean; winning?: boolean }) {
-  const stroke = winning ? '#FBBF24' : '#A78BFA'
-  const glow   = winning ? 'drop-shadow(0 0 6px rgba(251,191,36,0.7))' : 'drop-shadow(0 0 4px rgba(167,139,250,0.55))'
+  const stroke = winning ? M.leaf : M.leafInk
   return (
-    <svg width="62%" height="62%" viewBox="0 0 30 30" style={{ filter: glow }}>
+    <svg width="62%" height="62%" viewBox="0 0 30 30" aria-hidden="true">
       <circle cx="15" cy="15" r="9.5" stroke={stroke} strokeWidth="4.5" fill="none" strokeLinecap="round"
         strokeDasharray={animate ? 100 : undefined}
         style={animate ? { animation: 'drawO 0.36s ease-out forwards' } : undefined} />
