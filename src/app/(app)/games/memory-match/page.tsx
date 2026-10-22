@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
@@ -14,9 +14,10 @@ import {
   IconYarn, IconFish, IconPaw, IconMouse, IconHeart, IconStar,
 } from '@/components/PixelIcons'
 import {
-  GameTopBar, GameStatRow, GameStat, GAME_STAT_URGENT, GameFootnote, GameStartCard, GameArtTile, GameResultCard,
+  GameTopBar, GameStatRow, GameStat, GAME_BOARD_TOP, GAME_STAT_URGENT,
+  GameFootnote, GameStartCard, GameArtTile, GameResultCard,
 } from '@/components/games/GameChrome'
-import { MeadowIcon } from '@/components/meadow'
+import { FONT_ROUNDED, GAME_TINT, M, MeadowIcon, RADIUS, TINT } from '@/components/meadow'
 import { fireMinigameDone } from '@/lib/minigames'
 import { playSound } from '@/lib/sounds'
 
@@ -32,15 +33,16 @@ const KINDS: CardKind[] = ['yarn', 'fish', 'paw', 'mouse', 'heart', 'star']
 
 const KIND_META: Record<CardKind, {
   Icon: React.FC<{ size?: number }>
-  tint: string   // background gradient face color
-  glow: string   // match-glow color
+  label: string
+  tint: string
+  ink: string
 }> = {
-  yarn:  { Icon: IconYarn,  tint: '#FF6B9D', glow: 'rgba(255,107,157,0.55)' },
-  fish:  { Icon: IconFish,  tint: '#6BAED6', glow: 'rgba(107,174,214,0.55)' },
-  paw:   { Icon: IconPaw,   tint: '#F5C842', glow: 'rgba(245,200,66,0.55)' },
-  mouse: { Icon: IconMouse, tint: '#B0B0B0', glow: 'rgba(180,180,180,0.55)' },
-  heart: { Icon: IconHeart, tint: '#F472B6', glow: 'rgba(244,114,182,0.55)' },
-  star:  { Icon: IconStar,  tint: '#FFD700', glow: 'rgba(255,215,0,0.6)'   },
+  yarn:  { Icon: IconYarn,  label: 'Yarn',  tint: TINT.love,  ink: M.love },
+  fish:  { Icon: IconFish,  label: 'Fish',  tint: TINT.blue,  ink: M.text2 },
+  paw:   { Icon: IconPaw,   label: 'Paw',   tint: TINT.leaf,  ink: M.leaf },
+  mouse: { Icon: IconMouse, label: 'Mouse', tint: TINT.lilac, ink: M.text2 },
+  heart: { Icon: IconHeart, label: 'Heart', tint: TINT.love,  ink: M.love },
+  star:  { Icon: IconStar,  label: 'Star',  tint: TINT.amber, ink: M.coin },
 }
 
 type Card = {
@@ -93,7 +95,6 @@ export default function MemoryMatchGame() {
   const [flips, setFlips] = useState(0)
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION)
   const [gameState, setGameState] = useState<'idle' | 'running' | 'finished'>('idle')
-  const [showFlash, setShowFlash] = useState<{ id: number; type: 'match' | 'miss'; color: string } | null>(null)
   const [savedOnce, setSavedOnce] = useState(false)
   const [reward, setReward] = useState<GameRewardResult | null>(null)
   const [confetti, setConfetti] = useState<Array<{ id: number; x: number; y: number; color: string; dx: number; dy: number; rot: number }>>([])
@@ -105,10 +106,6 @@ export default function MemoryMatchGame() {
   const [scorePulseKey, setScorePulseKey] = useState(0)
   // Combo HUD pulse trigger
   const [comboPulseKey, setComboPulseKey] = useState(0)
-  // Board shake on miss
-  const [boardShakeKey, setBoardShakeKey] = useState(0)
-  // Red vignette flash on miss
-  const [vignetteKey, setVignetteKey] = useState(0)
   // One-shot timer warning trigger
   const [warnedTimer, setWarnedTimer] = useState(false)
 
@@ -158,7 +155,7 @@ export default function MemoryMatchGame() {
       // Small confetti burst — pure spectacle, skipped under reduced motion
       if (!reduced) {
         const burst: typeof confetti = []
-        const colors = ['#FF6B9D', '#A78BFA', '#F5C842', '#6BAED6', '#4ADE80', '#FFD700']
+        const colors = [M.love, M.leaf, M.coin, M.tuft, M.loveLight, M.energy]
         for (let i = 0; i < 36; i++) {
           burst.push({
             id: i,
@@ -208,7 +205,6 @@ export default function MemoryMatchGame() {
     setGameState('running')
     setSavedOnce(false)
     setReward(null)
-    setShowFlash(null)
     setConfetti([])
     setScorePops([])
     setMiniBursts([])
@@ -254,7 +250,7 @@ export default function MemoryMatchGame() {
       if (ka === kb) {
         // MATCH
         const kind = deck[a].kind
-        const tint = KIND_META[kind].tint
+        const tint = KIND_META[kind].ink
         locked.current = true
         timers.setTimeout(() => {
           setDeck(prev => prev.map((c, i) =>
@@ -303,8 +299,6 @@ export default function MemoryMatchGame() {
             comboTimer.current = timers.setTimeout(() => setCombo(0), COMBO_WINDOW_MS)
             return next
           })
-          setShowFlash({ id: Date.now(), type: 'match', color: tint })
-          timers.setTimeout(() => setShowFlash(null), 700)
           // clear wobble
           timers.setTimeout(() => {
             setDeck(prev => prev.map(c => c.wobble === 'match' ? { ...c, wobble: 'none' } : c))
@@ -315,15 +309,8 @@ export default function MemoryMatchGame() {
       } else {
         // MISS
         locked.current = true
-        setShowFlash({ id: Date.now(), type: 'miss', color: '#F87171' })
-        timers.setTimeout(() => setShowFlash(null), 500)
         setCombo(0)
         playSound('mm_miss')
-        // Board shake + red vignette flash are pure feedback spectacle — skip under reduced motion
-        if (!reduced) {
-          setBoardShakeKey(k => k + 1)
-          setVignetteKey(k => k + 1)
-        }
         timers.setTimeout(() => {
           setDeck(prev => prev.map((c, i) =>
             i === a || i === b
@@ -342,35 +329,30 @@ export default function MemoryMatchGame() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-40 overflow-hidden select-none game-shell"
+    <div className="meadow-root memory-game fixed inset-0 z-40 overflow-hidden select-none game-shell"
       style={{
-        background: 'linear-gradient(180deg, #1A0A33 0%, #2D1659 45%, #4C1D95 100%)',
-        touchAction: 'none',
+        background: GAME_TINT.memory_match,
+        fontFamily: FONT_ROUNDED,
+        color: M.text,
+        touchAction: 'manipulation',
       }}>
 
-      {/* Star-field background — speeds up + brightens at combo>=3 (you're on fire) */}
-      <div className="absolute inset-y-0 right-0 pointer-events-none" style={{
-        left: -180,
-        backgroundImage: 'radial-gradient(circle, #FFD700 1px, transparent 1px), radial-gradient(circle, #A78BFA 1px, transparent 1px)',
-        backgroundSize: '30px 30px, 45px 45px',
-        backgroundPosition: '0 0, 15px 22px',
-        animation: reduced ? 'none' : `starDrift ${combo >= 3 ? '10s' : '24s'} linear infinite`,
-        opacity: combo >= 3 ? 0.85 : 0.5,
-        transition: 'opacity 0.4s ease',
-      }} />
-
       {/* Header + stats — the shared Meadow game chrome. */}
-      <GameTopBar title="Purr-fect Memory" onBack={() => { playSound('ui_back'); router.back() }} />
+      <GameTopBar title="Purr-fect Memory" onBack={() => { playSound('ui_back'); router.push('/games') }} />
 
-      <GameStatRow>
-        <GameStat icon={<IconStar size={16} />} value={score} pulse={scorePulseKey} ariaLabel={`Score ${score}`} />
+      <GameStatRow style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+        <GameStat icon={<MeadowIcon name="star" size={18} />} value={score}
+          pulse={scorePulseKey} ariaLabel={`Score ${score}`} style={{ justifyContent: 'center', padding: '0 8px' }} />
         <GameStat
           icon={<MeadowIcon name="clock" size={18} />}
           value={`${Math.floor(timeLeft / 60)}:${String(timeLeft % 60).padStart(2, '0')}`}
           tone={timeLeft <= 10 ? 'warn' : 'plain'}
-          style={!reduced && timeLeft <= 10 && gameState === 'running' ? GAME_STAT_URGENT : undefined}
+          ariaLabel={`${timeLeft} seconds left`}
+          style={{ justifyContent: 'center', padding: '0 8px',
+            ...(!reduced && timeLeft <= 10 && gameState === 'running' ? GAME_STAT_URGENT : {}) }}
         />
-        <GameStat label="Combo" value={`×${combo}`} tone={combo >= 2 ? 'hot' : 'plain'} pulse={comboPulseKey} />
+        <GameStat label="Combo" value={`×${combo}`} tone={combo >= 2 ? 'hot' : 'plain'} pulse={comboPulseKey}
+          style={{ justifyContent: 'center', padding: '0 8px' }} />
       </GameStatRow>
 
       {/* ── Idle intro screen ──────────────────────────────────────────────── */}
@@ -379,9 +361,10 @@ export default function MemoryMatchGame() {
           title="Purr-fect Memory"
           art={KINDS.slice(0, 6).map(k => {
             const Icon = KIND_META[k].Icon
-            return <GameArtTile key={k} size={38} tint={`${KIND_META[k].tint}26`}><Icon size={22} /></GameArtTile>
+            return <GameArtTile key={k} size={38} tint={KIND_META[k].tint}><Icon size={22} /></GameArtTile>
           })}
           onStart={() => { playSound('ui_tap'); start() }}
+          style={{ top: GAME_BOARD_TOP, paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)', overflowY: 'auto' }}
         >
           Flip two cards at a time and match all six pairs before time runs out.
           Matches in a row chain into combos for bonus points.
@@ -390,111 +373,91 @@ export default function MemoryMatchGame() {
 
       {/* ── Board ──────────────────────────────────────────────────────────── */}
       {gameState !== 'idle' && (
-        <div className="absolute inset-0 flex items-center justify-center pt-24 pb-24 px-4 z-10">
+        <div className="absolute inset-x-0 flex items-center justify-center z-10" style={{
+          top: `calc(${GAME_BOARD_TOP} + 16px)`,
+          bottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)',
+          margin: '0 18px', containerType: 'size',
+        }}>
           <div
             ref={boardRef}
-            key={`board-${boardShakeKey}`}
-            className="grid gap-2.5 relative"
+            className="memory-board grid gap-2.5 relative"
+            role="group"
+            aria-label="Memory cards"
             style={{
               gridTemplateColumns: `repeat(${GRID_COLS}, minmax(0, 1fr))`,
               gridTemplateRows: `repeat(${GRID_ROWS}, minmax(0, 1fr))`,
-              width: '100%', maxWidth: 340, aspectRatio: `${GRID_COLS}/${GRID_ROWS * 1.2}`,
-              animation: boardShakeKey > 0 ? 'boardJitter 0.22s linear' : 'none',
+              width: 'min(100cqw, 75cqh, 348px)', aspectRatio: `${GRID_COLS}/${GRID_ROWS}`,
           }}>
             {deck.map((card, i) => {
               const meta = KIND_META[card.kind]
               const showFace = card.faceUp || card.matched
               return (
                 <button
+                  type="button"
                   key={card.id}
+                  className="memory-card m-focus"
                   ref={el => { cardRefs.current[i] = el }}
                   onClick={() => tapCard(i)}
                   disabled={gameState !== 'running' || card.matched}
+                  aria-label={`Card ${i + 1}, ${card.matched ? `${meta.label}, matched` : showFace ? meta.label : 'face down'}`}
+                  aria-pressed={showFace}
                   style={{
                     perspective: 1000,
                     background: 'transparent',
+                    border: 0, padding: 0, minWidth: 0, minHeight: 0,
+                    borderRadius: RADIUS.tile,
                     position: 'relative',
-                    animation: card.wobble === 'miss' ? 'cardShake 0.32s linear' :
-                               card.wobble === 'match' ? 'cardPop 0.56s cubic-bezier(0.34,1.56,0.64,1)' : 'none',
-                    opacity: card.matched ? 0.88 : 1,
-                    transform: card.matched ? 'scale(0.96)' : 'scale(1)',
-                    transition: 'opacity 0.2s, transform 0.2s',
+                    cursor: gameState === 'running' && !card.matched ? 'pointer' : 'default',
+                    animation: reduced ? 'none' : card.wobble === 'miss' ? 'mmCardShake 0.32s linear' :
+                               card.wobble === 'match' ? 'mmCardPop 0.4s cubic-bezier(0.34,1.56,0.64,1)' : 'none',
                   }}>
-                  <div style={{
+                  <div className="memory-card-turn" aria-hidden="true" style={{
                     position: 'relative',
                     width: '100%', height: '100%',
                     transformStyle: 'preserve-3d',
                     transform: showFace ? 'rotateY(180deg)' : 'rotateY(0deg)',
-                    transition: 'transform 0.45s cubic-bezier(0.5, 0, 0.3, 1.4)',
+                    transition: reduced ? 'none' : 'transform 0.32s cubic-bezier(0.2, 0.7, 0.3, 1)',
                   }}>
                     {/* Back */}
                     <div style={{
                       position: 'absolute', inset: 0,
-                      background: 'linear-gradient(135deg, #5B21B6 0%, #2E0F5C 100%)',
-                      border: '2px solid #9333EA',
-                      borderRadius: 6,
-                      boxShadow: '0 3px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.25)',
+                      background: M.ground,
+                      borderRadius: RADIUS.tile,
+                      boxShadow: `0 4px 0 ${M.groundLip}`,
                       backfaceVisibility: 'hidden',
+                      WebkitBackfaceVisibility: 'hidden',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
-                      {/* Pixel pattern */}
-                      <div style={{
-                        position: 'absolute', inset: 6,
-                        border: '1px dashed rgba(255,255,255,0.22)',
-                        borderRadius: 3,
-                      }} />
-                      <div style={{
-                        position: 'absolute', top: 3, left: 3, width: 4, height: 4, background: '#FFD700',
-                      }} />
-                      <div style={{
-                        position: 'absolute', top: 3, right: 3, width: 4, height: 4, background: '#FFD700',
-                      }} />
-                      <div style={{
-                        position: 'absolute', bottom: 3, left: 3, width: 4, height: 4, background: '#FFD700',
-                      }} />
-                      <div style={{
-                        position: 'absolute', bottom: 3, right: 3, width: 4, height: 4, background: '#FFD700',
-                      }} />
-                      <span className="font-pixel text-white" style={{ fontSize: 16, textShadow: '2px 2px 0 rgba(0,0,0,0.4)' }}>?</span>
+                      <span className="flex items-center justify-center" style={{
+                        width: '54%', aspectRatio: '1', maxWidth: 56,
+                        borderRadius: '50%', background: TINT.love,
+                      }}>
+                        <MeadowIcon name="paw" size={28} color={M.love} mono />
+                      </span>
                     </div>
                     {/* Front */}
                     <div style={{
                       position: 'absolute', inset: 0,
-                      background: `linear-gradient(135deg, ${meta.tint}22 0%, ${meta.tint}44 100%)`,
-                      border: `2px solid ${meta.tint}`,
-                      borderRadius: 6,
-                      boxShadow: card.matched
-                        ? `0 3px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.35), 0 0 14px ${meta.glow}`
-                        : '0 3px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.35)',
+                      background: meta.tint,
+                      border: `2px solid ${card.matched ? M.leaf : M.ground}`,
+                      borderRadius: RADIUS.tile,
+                      boxShadow: `0 4px 0 ${card.matched ? M.leafLip : M.groundLip}`,
                       backfaceVisibility: 'hidden',
+                      WebkitBackfaceVisibility: 'hidden',
                       transform: 'rotateY(180deg)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       overflow: 'hidden',
                     }}>
-                      {/* Diagonal gloss that sweeps once across the card on the
-                          flip reveal, then is gone. `forwards` holds the final
-                          (opacity 0, off-screen) keyframe so it can never linger
-                          as a static white streak the way the old 3px line did. */}
-                      {showFace && !card.matched && (
-                        <span aria-hidden className="card-shine" style={{
-                          position: 'absolute', inset: 0,
-                          background: 'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.55) 50%, transparent 60%)',
-                          transform: 'translateX(-100%)',
-                          animation: 'cardShine 0.5s ease-out forwards',
-                          pointerEvents: 'none',
-                        }} />
-                      )}
-                      <meta.Icon size={Math.min(46, 38)} />
+                      <span className="memory-card-icon"><meta.Icon size={38} /></span>
                       {card.matched && (
-                        <div style={{
-                          position: 'absolute', top: 3, right: 3,
-                          width: 10, height: 10,
-                          background: '#4ADE80', border: '1px solid #15803D',
+                        <span style={{
+                          position: 'absolute', top: 6, right: 6,
+                          width: 18, height: 18, borderRadius: '50%',
+                          background: M.leaf,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          borderRadius: 2,
                         }}>
-                          <span className="font-pixel text-white" style={{ fontSize: 6 }}>✓</span>
-                        </div>
+                          <MeadowIcon name="check" size={12} color={M.ground} mono />
+                        </span>
                       )}
                     </div>
                   </div>
@@ -504,14 +467,14 @@ export default function MemoryMatchGame() {
 
             {/* Floating "+N" / "+N xK!" score popups anchored to matched cards */}
             {scorePops.map(p => (
-              <div key={p.id} className="absolute pointer-events-none font-pixel" style={{
+              <div key={p.id} className="memory-score-pop absolute pointer-events-none" style={{
                 left: `${p.x}%`, top: `${p.y}%`,
                 transform: 'translate(-50%, -50%)',
-                color: p.color,
-                fontSize: 10,
-                letterSpacing: 1,
-                textShadow: '1px 1px 0 rgba(0,0,0,0.7), 0 0 6px rgba(0,0,0,0.5)',
-                animation: 'scorePopRise 0.6s ease-out forwards',
+                color: M.leafInk, background: M.ground,
+                padding: '5px 10px', borderRadius: RADIUS.pill,
+                boxShadow: `0 3px 0 ${M.groundLip}`,
+                fontSize: 16, fontWeight: 800, whiteSpace: 'nowrap',
+                animation: reduced ? 'none' : 'mmScorePopRise 0.6s ease-out forwards',
                 zIndex: 25,
               }}>
                 {p.text}
@@ -524,9 +487,8 @@ export default function MemoryMatchGame() {
                 left: `${p.x}%`, top: `${p.y}%`,
                 width: 4, height: 4,
                 background: p.color,
-                imageRendering: 'pixelated',
-                boxShadow: `0 0 0 1px rgba(0,0,0,0.4)`,
-                animation: 'miniBurst 0.7s cubic-bezier(0.2,0.7,0.4,1) forwards',
+                borderRadius: 2,
+                animation: 'mmMiniBurst 0.7s cubic-bezier(0.2,0.7,0.4,1) forwards',
                 ['--bx' as string]: `${p.dx}px`,
                 ['--by' as string]: `${p.dy}px`,
                 zIndex: 24,
@@ -536,34 +498,28 @@ export default function MemoryMatchGame() {
         </div>
       )}
 
-      {/* Red vignette flash on miss — outer-edge only */}
-      {vignetteKey > 0 && (
-        <div key={`vig-${vignetteKey}`} className="absolute inset-0 pointer-events-none z-20" style={{
-          boxShadow: 'inset 0 0 60px 12px rgba(220,38,38,0.55)',
-          animation: 'vignetteFlash 0.32s ease-out forwards',
-        }} />
-      )}
-
-      {/* Flash overlay (match / miss) */}
-      {showFlash && (
-        <div className="absolute inset-0 pointer-events-none z-20"
-          style={{
-            background: `radial-gradient(ellipse at center, ${showFlash.color}44 0%, transparent 55%)`,
-            animation: 'flashFade 0.55s ease-out forwards',
-          }} />
-      )}
-
       {/* Footer — flips counter */}
       {gameState === 'running' && (
-        <GameFootnote>Flips {flips} · Pairs {matchedCount / 2}/6</GameFootnote>
+        <GameFootnote style={{ height: 40, gap: 12 }}>
+          <span role="status" aria-label={`${matchedCount / 2} of ${KINDS.length} pairs matched`}>
+            Pairs {matchedCount / 2}/{KINDS.length}
+          </span>
+          <span aria-hidden="true" className="flex" style={{ gap: 4 }}>
+            {KINDS.map((kind, i) => (
+              <span key={kind} style={{ width: 7, height: 7, borderRadius: '50%',
+                background: i < matchedCount / 2 ? M.leaf : M.track }} />
+            ))}
+          </span>
+          <span>Flips {flips}</span>
+        </GameFootnote>
       )}
 
       {/* Confetti */}
       {confetti.map(p => (
-        <div key={p.id} className="absolute z-40 pointer-events-none" style={{
+        <div key={p.id} className="absolute pointer-events-none" style={{ zIndex: 60,
           left: `${p.x}%`, top: `${p.y}%`, width: 6, height: 6,
           background: p.color, borderRadius: 1,
-          animation: `confettiFall 2.4s ease-out forwards`,
+          animation: 'mmConfettiFall 2.4s ease-out forwards',
           ['--dx' as string]: `${p.dx}px`,
           ['--dy' as string]: `${p.dy}px`,
           ['--rot' as string]: `${p.rot}deg`,
@@ -575,6 +531,7 @@ export default function MemoryMatchGame() {
         <GameResultCard
           headline={matchedCount === deck.length ? 'Purr-fect!' : "Time's up"}
           score={finalScore}
+          scoreLabel="points"
           stats={[
             { label: 'Pairs', value: `${matchedCount / 2}/6` },
             { label: 'Flips', value: flips },
@@ -582,59 +539,44 @@ export default function MemoryMatchGame() {
           ]}
           reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
           onAgain={() => { playSound('ui_tap'); start() }}
-          onBack={() => { playSound('ui_back'); router.back() }}
+          onBack={() => { playSound('ui_back'); router.push('/games') }}
         />
       )}
 
       {/* Styles */}
-      <style jsx>{`
-        @keyframes starDrift {
-          from { transform: translateX(0); }
-          to   { transform: translateX(120px); }
-        }
-        @keyframes cardShake {
+      <style>{`
+        @keyframes mmCardShake {
           0%, 100% { transform: translateX(0); }
           25%      { transform: translateX(-4px); }
           50%      { transform: translateX(4px); }
           75%      { transform: translateX(-3px); }
         }
-        @keyframes cardPop {
+        @keyframes mmCardPop {
           0%   { transform: scale(1); }
-          40%  { transform: scale(1.12); }
+          40%  { transform: scale(1.05); }
           100% { transform: scale(1); }
         }
-        @keyframes flashFade {
-          from { opacity: 1; }
-          to   { opacity: 0; }
-        }
-        @keyframes confettiFall {
+        @keyframes mmConfettiFall {
           0%   { transform: translate(-50%, -50%) rotate(0deg); opacity: 1; }
           100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + 320px)) rotate(var(--rot)); opacity: 0; }
         }
-        @keyframes boardJitter {
-          0%, 100% { transform: translate(0, 0); }
-          20%      { transform: translate(-2px, 1px); }
-          40%      { transform: translate(2px, -1px); }
-          60%      { transform: translate(-2px, -1px); }
-          80%      { transform: translate(2px, 1px); }
-        }
-        @keyframes vignetteFlash {
-          0%   { opacity: 1; }
-          100% { opacity: 0; }
-        }
-        @keyframes cardShine {
-          0%   { transform: translateX(-100%); opacity: 0; }
-          18%  { opacity: 1; }
-          100% { transform: translateX(100%); opacity: 0; }
-        }
-        @keyframes scorePopRise {
+        @keyframes mmScorePopRise {
           0%   { transform: translate(-50%, -50%) scale(0.9); opacity: 0; }
           15%  { transform: translate(-50%, -55%) scale(1.1); opacity: 1; }
           100% { transform: translate(-50%, calc(-50% - 40px)) scale(1); opacity: 0; }
         }
-        @keyframes miniBurst {
+        @keyframes mmMiniBurst {
           0%   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
           100% { transform: translate(calc(-50% + var(--bx)), calc(-50% + var(--by))) scale(0.4); opacity: 0; }
+        }
+        @container (max-height: 300px) {
+          .memory-card-icon { transform: scale(0.75); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .memory-game *, .memory-game *::before, .memory-game *::after {
+            animation: none !important;
+            transition: none !important;
+          }
         }
       `}</style>
     </div>
