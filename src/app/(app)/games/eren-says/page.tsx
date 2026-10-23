@@ -422,9 +422,8 @@ export default function ErenSaysGame() {
           <div className="absolute pointer-events-none"
             style={{
               left: '50%', top: '50%',
-              width: 88, height: 88, borderRadius: RADIUS.pill,
+              width: 88, height: 88,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: M.ground, boxShadow: `0 3px 0 ${M.groundLip}`,
               transform: 'translate(-50%, -50%)',
               animation: phase === 'awaiting'
                 ? (reduced ? 'none' : 'eyDance 1s ease-in-out infinite')
