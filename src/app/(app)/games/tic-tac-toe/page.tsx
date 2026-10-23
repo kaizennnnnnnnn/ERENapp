@@ -621,45 +621,39 @@ export default function TicTacToePage() {
         @keyframes tttDrip {
           0%, 60%, 100% { transform: translateY(0);    opacity: 0; }
           70%           { transform: translateY(0);    opacity: 1; }
-          90%           { transform: translateY(12px); opacity: 0.4; }
+          90%           { transform: translateY(4px);  opacity: 0.4; }
         }
-        /* Whole-body bob — the cat dips a single pixel on the lick, then
-           sits still for the rest of the cycle. Most of the 2.4 s window
-           is "still" so it doesn't feel mechanical. */
+        /* The head, tongue and puddle share two licks, then a quiet pause. */
         @keyframes erenLapBob {
-          0%, 8%, 22%, 100% { transform: translateY(0); }
-          12%, 18%          { transform: translateY(1px); }
+          0%, 10%, 28%, 48%, 100% { transform: translate(0, 0) rotate(0deg); }
+          18%, 38% { transform: translate(-0.18px, 0.28px) rotate(-1deg); }
         }
-        /* Tiny tongue flick — fully hidden most of the time, pops out for
-           ~250ms once per cycle. transformOrigin is anchored at the right
-           edge of the tongue (mouth corner) so scaleX grows it leftward. */
         @keyframes erenLickFlick {
-          0%, 8%, 22%, 100% { transform: scaleX(0); }
-          12%, 18%          { transform: scaleX(1); }
+          0%, 11%, 28%, 48%, 100% { transform: scaleX(0); opacity: 0; }
+          17%, 20%, 37%, 40% { transform: scaleX(1); opacity: 1; }
+          24%, 44% { transform: scaleX(0.25); opacity: 0.8; }
         }
-        /* Tail wiggle — punchy asymmetric flick. Real cats don't sway
-           sinusoidally; they flick fast in one direction and recover.
-           1.4s cycle with five pose keys gives a lively back-and-forth
-           that feels alive instead of metronome-like. */
+        @keyframes erenLapRipple {
+          0%, 12%, 32%, 52%, 100% { transform: scale(0.45); opacity: 0; }
+          18%, 38% { transform: scale(0.8); opacity: 0.65; }
+          29%, 49% { transform: scale(1.7); opacity: 0; }
+        }
+        @keyframes erenLapBreathe {
+          0%, 100% { transform: scaleY(1); }
+          50% { transform: scaleY(1.025); }
+        }
         @keyframes erenTailWiggle {
-          0%   { transform: rotate(-10deg); }
-          20%  { transform: rotate(8deg); }
-          40%  { transform: rotate(-4deg); }
-          60%  { transform: rotate(14deg); }
-          80%  { transform: rotate(-6deg); }
-          100% { transform: rotate(-10deg); }
+          0%, 100% { transform: rotate(-5deg); }
+          50% { transform: rotate(8deg); }
         }
-        /* Ear sway — slow continuous tiny rotation about the head, no
-           translateY jump. ±0.6° is barely perceptible per frame but
-           reads as gentle "alive" motion at glance distance. */
         @keyframes erenEarFlick {
-          0%, 100% { transform: rotate(-0.6deg); }
-          50%      { transform: rotate(0.6deg); }
+          0%, 72%, 100% { transform: rotate(0deg); }
+          82% { transform: rotate(-2deg); }
+          90% { transform: rotate(1deg); }
         }
-        /* Eye blink — every 5.5s for a natural rhythm. */
         @keyframes erenLapBlink {
-          0%, 92%, 100% { transform: scaleY(1); }
-          95%, 98%      { transform: scaleY(0.2); }
+          0%, 89%, 100% { transform: scaleY(1); }
+          93%, 96% { transform: scaleY(0.2); }
         }
         /* Screen shake on a loss — choppy 4-step transform, no easing so
            it reads pixel-arcade rather than smooth. */
@@ -749,14 +743,17 @@ function CanSprite({ knocked, reduced = false }: { knocked: boolean; reduced?: b
         <ellipse cx="70" cy="57" rx="24" ry="3"   fill="#10B981" />
         <ellipse cx="72" cy="56.5" rx="16" ry="1.6" fill="#34D399" />
         <ellipse cx="76" cy="56" rx="6" ry="0.8" fill="#FFFFFF" opacity="0.55" />
+        <ellipse className="ttt-lap-ripple" cx="91" cy="57" rx="4" ry="1.1"
+          fill="none" stroke="#A3F0C0" strokeWidth="0.8" opacity="0"
+          style={{ transformOrigin: '91px 57px', animation: reduced ? undefined : 'erenLapRipple 3.2s ease-in-out infinite' }} />
 
         {/* A single slow drip from the can mouth — falls every ~2s
             instead of the prior 3-drop continuous trickle. */}
-        <circle cx="47" cy="42" r="1.4" fill="#10B981"
+        <circle cx="47" cy="53" r="1.4" fill="#10B981"
           style={{ animation: reduced ? undefined : 'tttDrip 2.2s ease-in-out infinite' }} />
 
         {/* Knocked-over can — rotated +90° so the mouth points right. */}
-        <g transform="translate(15 10) rotate(90 11 21)">
+        <g transform="translate(15 27) rotate(90 11 21)">
           <CanBody />
         </g>
       </svg>
@@ -933,23 +930,15 @@ function ErenChibi({ size = 64, hop = false, thinking = false, reduced = false, 
 }
 
 // ─── Eren in profile, peeking at the spill ─────────────────────────────────
-// Compact chibi side-profile. Body shrunk from 10 cells wide to 6 so the
-// silhouette reads less stretched-out, plus a livelier tail wiggle that
-// goes back-and-forth in an asymmetric pattern (real cats flick, not
-// metronome). Sleepy ^_^ squint kept; tiny tongue flick still on a slow
-// 2.4s cycle.
-//
-// ViewBox 18×12 at size=72 → exact 4× integer scale, so every pixel is
-// crisp. Mouth at viewBox (0, 8); marginLeft:-16 lands the 2-cell tongue
-// right at the puddle's right edge on the can sprite to the left.
+// The paws stay planted while the body breathes and the head follows the lick.
+// The left offset keeps the little tongue in reach of the puddle.
 function ErenSideLapping({ size = 72, reduced = false }: { size?: number; reduced?: boolean }) {
   const height = Math.round(size * 12 / 18)
   return (
-    <div style={{
+    <div className="ttt-lapping" aria-hidden="true" style={{
       width: size,
       height,
       marginLeft: -16,
-      animation: reduced ? undefined : 'erenLapBob 2.4s ease-in-out infinite',
     }}>
       <svg
         viewBox="0 0 18 12"
@@ -958,10 +947,10 @@ function ErenSideLapping({ size = 72, reduced = false }: { size?: number; reduce
         shapeRendering="crispEdges"
         style={{ imageRendering: 'pixelated', overflow: 'visible' }}
       >
-        {/* ─── TAIL — gray fur with brown outline, fat S-curl that
-            wiggles with a punchy asymmetric flick. transformOrigin sits
-            at the base so the tip swings further than the root. */}
-        <g style={{ transformOrigin: '15px 4px', animation: reduced ? undefined : 'erenTailWiggle 1.4s ease-in-out infinite' }}>
+        <g className="ttt-lap-body" style={{
+          transformOrigin: '11px 9px', animation: reduced ? undefined : 'erenLapBreathe 4s ease-in-out infinite',
+        }}>
+        <g className="ttt-lap-tail" style={{ transformOrigin: '15px 4px', animation: reduced ? undefined : 'erenTailWiggle 3.6s ease-in-out infinite' }}>
           {/* tip */}
           <rect x="15" y="0" width="2" height="1" fill="#4A2E1A" />
           <rect x="14" y="1" width="1" height="1" fill="#4A2E1A" />
@@ -978,9 +967,17 @@ function ErenSideLapping({ size = 72, reduced = false }: { size?: number; reduce
           <rect x="15" y="1" width="1" height="3" fill="#D1D5DB" />
         </g>
 
-        {/* ─── CREAM SILHOUETTE — head + snout + body ─────────────── */}
-        {/* Body — narrower (6 wide) so the cat reads compact */}
-        <rect x="9" y="3" width="6" height="6" fill="#F9EDD5" />
+        <rect x="8" y="4" width="7" height="5" fill="#F9EDD5" />
+        <rect x="9" y="3" width="5" height="1" fill="#F9EDD5" />
+        <rect x="9" y="2" width="5" height="1" fill="#4A2E1A" />
+        <rect x="14" y="3" width="1" height="1" fill="#4A2E1A" />
+        <rect x="15" y="4" width="1" height="4" fill="#4A2E1A" />
+        <rect x="14" y="8" width="1" height="1" fill="#4A2E1A" />
+        <rect x="8" y="9" width="6" height="1" fill="#4A2E1A" />
+
+        <g className="ttt-lap-head" style={{
+          transformOrigin: '8px 7px', animation: reduced ? undefined : 'erenLapBob 3.2s ease-in-out infinite',
+        }}>
         {/* Head — left side */}
         <rect x="2" y="3" width="8" height="6" fill="#F9EDD5" />
         {/* Snout — short stub poking out left */}
@@ -989,10 +986,7 @@ function ErenSideLapping({ size = 72, reduced = false }: { size?: number; reduce
         <rect x="3" y="2" width="2" height="1" fill="#F9EDD5" />
         <rect x="6" y="2" width="2" height="1" fill="#F9EDD5" />
 
-        {/* ─── EARS — grouped so they can do a tiny continuous sway.
-            (Earlier translateY-jump version read as a startled twitch;
-            this is a soft constant breathing motion instead.) */}
-        <g style={{ transformOrigin: '5px 2px', animation: reduced ? undefined : 'erenEarFlick 3.4s ease-in-out infinite' }}>
+        <g className="ttt-lap-ears" style={{ transformOrigin: '5px 2px', animation: reduced ? undefined : 'erenEarFlick 5.2s ease-in-out infinite' }}>
           {/* Front ear */}
           <rect x="3" y="0" width="2" height="1" fill="#4A2E1A" />
           <rect x="2" y="1" width="1" height="1" fill="#4A2E1A" />
@@ -1010,22 +1004,17 @@ function ErenSideLapping({ size = 72, reduced = false }: { size?: number; reduce
         <rect x="2" y="2" width="1" height="1" fill="#4A2E1A" />
         <rect x="5" y="2" width="1" height="1" fill="#4A2E1A" />
         <rect x="8" y="2" width="1" height="1" fill="#4A2E1A" />
-        {/* Back top — shorter now (6 wide instead of 10) */}
-        <rect x="9"  y="2" width="6" height="1" fill="#4A2E1A" />
-        {/* Body right edge */}
-        <rect x="15" y="3" width="1"  height="6" fill="#4A2E1A" />
         {/* Head left edge */}
         <rect x="1"  y="3" width="1"  height="3" fill="#4A2E1A" />
         {/* Snout — left edge + corners */}
         <rect x="1"  y="5" width="1"  height="1" fill="#4A2E1A" />
         <rect x="0"  y="6" width="1"  height="2" fill="#4A2E1A" />
         <rect x="0"  y="8" width="2"  height="1" fill="#4A2E1A" />
-        {/* Belly — shorter span now (head left to body right) */}
-        <rect x="2"  y="9" width="13" height="1" fill="#4A2E1A" />
+        <rect x="2" y="9" width="7" height="1" fill="#4A2E1A" />
 
         {/* ─── FACE FEATURES — sleepy content squint ───────────────── */}
-        <g style={{ transformOrigin: '5px 5.5px', animation: reduced ? undefined : 'erenLapBlink 5.5s ease-in-out infinite' }}>
-          <rect x="4" y="5" width="2" height="1" fill="#1A1A2E" />
+        <g style={{ transformOrigin: '5px 5.5px', animation: reduced ? undefined : 'erenLapBlink 5.8s ease-in-out infinite' }}>
+          <rect x="4" y="6" width="2" height="1" fill="#4A2E1A" />
           <rect x="3" y="5" width="1" height="1" fill="#4A2E1A" />
           <rect x="6" y="5" width="1" height="1" fill="#4A2E1A" />
         </g>
@@ -1035,6 +1024,17 @@ function ErenSideLapping({ size = 72, reduced = false }: { size?: number; reduce
         <rect x="0" y="7" width="1" height="1" fill="#4A2E1A" />
         {/* Cheek blush */}
         <rect x="2" y="7" width="2" height="1" fill="#FFB6C8" />
+        <rect x="3" y="6" width="1" height="1" fill="#FFB6C8" opacity="0.55" />
+
+        <g className="ttt-lap-tongue" style={{
+          transformOrigin: '1px 7.5px', transform: 'scaleX(0)', opacity: 0,
+          animation: reduced ? undefined : 'erenLickFlick 3.2s ease-in-out infinite',
+        }}>
+          <rect x="-1" y="7" width="2" height="1" rx="0.3" fill="#E57C9F" />
+          <rect x="-1" y="7" width="1" height="0.5" rx="0.2" fill="#FBCFE8" />
+        </g>
+        </g>
+        </g>
 
         {/* ─── LEGS — 2 stubby visible legs (back leg shifted left to
             stay inside the smaller body) ───────────────────────────── */}
@@ -1050,14 +1050,6 @@ function ErenSideLapping({ size = 72, reduced = false }: { size?: number; reduce
         <rect x="12" y="9"  width="1" height="2" fill="#F9EDD5" />
         <rect x="11" y="11" width="3" height="1" fill="#4A2E1A" />
 
-        {/* ─── TONGUE — tiny flick, dwells hidden most of the cycle ─ */}
-        <g style={{
-          transformOrigin: '1px 7.5px',
-          animation: reduced ? undefined : 'erenLickFlick 2.4s ease-in-out infinite',
-        }}>
-          <rect x="-1" y="7" width="2" height="1" fill="#EC4899" />
-          <rect x="-1" y="7" width="1" height="1" fill="#FBCFE8" />
-        </g>
       </svg>
     </div>
   )
