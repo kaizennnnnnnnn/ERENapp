@@ -34,7 +34,7 @@ import CurtainGlitter from '@/components/CurtainGlitter'
 // ?v bumps the cache key when the art changes: the SW serves images
 // stale-while-revalidate, so a same-path replace shows the old one first.
 const PAGES = [
-  { id: 'food', bg: '/gacha_food.webp?v=1' },
+  { id: 'food', bg: '/gacha_food.webp?v=2' },
   { id: 'animal', bg: '/gacha_animal.webp?v=1' },
   // FoodSuits — placeholder reward pool for now (see GACHA_BANNERS).
   { id: 'foodsuits', bg: '/gacha_foodsuits.webp?v=1' },
