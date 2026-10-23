@@ -376,20 +376,6 @@ export default function PawDokuGame() {
     return cell
   })()
 
-  // Build a quick lookup of preview cells (the cells that would be filled)
-  const previewSet: Set<string> = (() => {
-    const s = new Set<string>()
-    if (!previewCell || draggedIdx === null) return s
-    const block = tray[draggedIdx]
-    if (!block) return s
-    for (let dr = 0; dr < block.shape.length; dr++) {
-      for (let dc = 0; dc < block.shape[0].length; dc++) {
-        if (block.shape[dr][dc] === 1) s.add(`${previewCell.r + dr},${previewCell.c + dc}`)
-      }
-    }
-    return s
-  })()
-
   // ── Window-level pointer move/up while dragging ──
   // The window listeners are registered ONCE per drag (deps: [draggedIdx])
   // so they don't bind every render. But that means they close over a stale
@@ -407,13 +393,14 @@ export default function PawDokuGame() {
       setDragPos({ x: e.clientX, y: e.clientY })
     }
     function onUp() { handleDropRef.current() }
+    function onCancel() { setDraggedIdx(null) }
     window.addEventListener('pointermove',   onMove)
     window.addEventListener('pointerup',     onUp)
-    window.addEventListener('pointercancel', onUp)
+    window.addEventListener('pointercancel', onCancel)
     return () => {
       window.removeEventListener('pointermove',   onMove)
       window.removeEventListener('pointerup',     onUp)
-      window.removeEventListener('pointercancel', onUp)
+      window.removeEventListener('pointercancel', onCancel)
     }
   }, [draggedIdx])
 
@@ -471,7 +458,8 @@ export default function PawDokuGame() {
   }
 
   function handleBlockPointerDown(e: React.PointerEvent, idx: number) {
-    if (phase !== 'playing') return
+    if (phase !== 'playing' || draggedIdx !== null) return
+    if (grid.some(row => row.some(cell => cell?.clearing))) return
     if (!tray[idx]) return
     e.preventDefault()
     playSound('pd_pickup')
@@ -537,6 +525,8 @@ export default function PawDokuGame() {
     }
 
     // Place
+    setDraggedIdx(null)
+    setTray(current => current.map((piece, idx) => idx === draggedIdx ? null : piece))
     let g = placeBlock(grid, block, target.r, target.c)
     const placedCells = shapeBox(block.shape).cells
     let gained = placedCells * SCORE_PER_CELL
@@ -675,6 +665,7 @@ export default function PawDokuGame() {
   // ─── Render ───────────────────────────────────────────────────────────────
   const draggedBlock = draggedIdx !== null ? tray[draggedIdx] : null
   const draggedBox   = draggedBlock ? shapeBox(draggedBlock.shape) : null
+  const dragGridRect = draggedBlock ? gridRef.current?.getBoundingClientRect() : null
 
   return (
     <div className="meadow-root pd-game fixed inset-0 z-40 flex flex-col game-shell"
@@ -741,9 +732,8 @@ export default function PawDokuGame() {
             const r = Math.floor(i / GRID_SIZE)
             const c = i % GRID_SIZE
             const cell = grid[r][c]
-            const isPreview = previewSet.has(`${r},${c}`)
             return (
-              <div key={i} className="pd-cell absolute" data-row={r} data-col={c} data-filled={!!cell} data-preview={isPreview}
+              <div key={i} className="pd-cell absolute" data-row={r} data-col={c} data-filled={!!cell}
                 style={{
                   left: c * (CELL_PX + CELL_GAP),
                   top:  r * (CELL_PX + CELL_GAP),
@@ -751,10 +741,8 @@ export default function PawDokuGame() {
                   borderRadius: 4,
                   background: cell
                     ? cell.color.main
-                    : isPreview
-                      ? M.hillShadow
-                      : (Math.floor(r / SUB_SIZE) + Math.floor(c / SUB_SIZE)) % 2 === 0 ? M.leafTint : M.soft,
-                  border: isPreview ? `2px solid ${M.leaf}` : 'none',
+                    : (Math.floor(r / SUB_SIZE) + Math.floor(c / SUB_SIZE)) % 2 === 0 ? M.leafTint : M.soft,
+                  border: 'none',
                   boxShadow: cell
                     ? `inset 0 2px 0 ${cell.color.light}, inset 0 -3px 0 ${cell.color.dark}55`
                     : undefined,
@@ -852,6 +840,24 @@ export default function PawDokuGame() {
               }} />
             </>
           )}
+
+          {/* One block, in board coordinates so the desktop phone frame cannot offset it. */}
+          {draggedBlock && draggedBox && dragGridRect && (
+            <div className="pd-drag absolute pointer-events-none z-50"
+              data-valid={!!previewCell} data-row={previewCell?.r} data-col={previewCell?.c}
+              style={{
+                left: previewCell
+                  ? previewCell.c * (CELL_PX + CELL_GAP)
+                  : dragPos.x - dragGridRect.left - (draggedBox.cols * CELL_PX + (draggedBox.cols - 1) * CELL_GAP) / 2,
+                top: previewCell
+                  ? previewCell.r * (CELL_PX + CELL_GAP)
+                  : dragPos.y - dragGridRect.top - (draggedBox.rows * CELL_PX + (draggedBox.rows - 1) * CELL_GAP) - DRAG_LIFT,
+                filter: `drop-shadow(0 4px 0 ${previewCell ? M.groundLip : M.danger + '55'})`,
+                opacity: 0.95,
+              }}>
+              <BlockSprite shape={draggedBlock.shape} color={draggedBlock.color} cellSize={CELL_PX} cellGap={CELL_GAP} />
+            </div>
+          )}
         </div>
         </div>
 
@@ -928,9 +934,7 @@ export default function PawDokuGame() {
               <div
                 key={`tray-${idx}-${trayRefillKey}-${block.id}`}
                 style={{
-                  opacity: draggedIdx === idx ? 0.25 : 1,
-                  transition: 'opacity 0.15s, transform 0.15s',
-                  transform: draggedIdx === idx ? 'scale(0.9)' : 'scale(1)',
+                  visibility: draggedIdx === idx ? 'hidden' : undefined,
                   pointerEvents: 'none',
                   animation: reduced ? undefined : `pdTrayRefill 0.32s cubic-bezier(0.34,1.56,0.64,1) ${idx * 60}ms both`,
                 }}>
@@ -940,18 +944,6 @@ export default function PawDokuGame() {
           </div>
         ))}
       </div>
-
-      {/* Floating drag ghost — fixed-position, follows pointer */}
-      {draggedBlock && draggedBox && (
-        <div className="pd-drag fixed pointer-events-none z-50" style={{
-          left: dragPos.x - (draggedBox.cols * CELL_PX + (draggedBox.cols - 1) * CELL_GAP) / 2,
-          top:  dragPos.y - (draggedBox.rows * CELL_PX + (draggedBox.rows - 1) * CELL_GAP) - DRAG_LIFT,
-          filter: `drop-shadow(0 4px 0 ${previewCell ? M.groundLip : M.danger + '55'})`,
-          opacity: 0.95,
-        }}>
-          <BlockSprite shape={draggedBlock.shape} color={draggedBlock.color} cellSize={CELL_PX} cellGap={CELL_GAP} />
-        </div>
-      )}
 
       {/* Idle — the shared start card. */}
       {phase === 'idle' && (
