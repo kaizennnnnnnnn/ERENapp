@@ -305,7 +305,6 @@ export default function PawDokuGame() {
   // Grace period: a placement that doesn't clear costs ONE grace.
   // Streak only resets after 3 consecutive no-clear placements.
   const [streakMisses, setStreakMisses] = useState(0)
-  const [gridFlash, setGridFlash] = useState(0)            // re-keys the grid-wide flash overlay
   const [gridShake, setGridShake] = useState(0)            // re-keys the invalid-drop grid shake
   const [trayRefillKey, setTrayRefillKey] = useState(0)    // re-keys tray-refill stagger animation
   const [vignette, setVignette] = useState(0)              // re-keys the game-over red vignette
@@ -407,6 +406,7 @@ export default function PawDokuGame() {
   function startGame() {
     timers.clearAll()
     setGrid(makeEmptyGrid())
+    setParticles([])
     setTray(nextTray())
     setTrayRefillKey(k => k + 1)
     setScore(0)
@@ -468,38 +468,30 @@ export default function PawDokuGame() {
     dragPosRef.current = { x: e.clientX, y: e.clientY }
   }
 
-  // Spawn ~10-14 small pixel-square particles per cleared cell, flying
-  // outward with gravity. Particles are scheduled to despawn together
-  // after their 600ms animation completes.
+  // A small burst stays within about one cell of each disappearing block.
   function spawnClearParticles(cells: Array<{ r: number; c: number; color: string }>) {
-    if (!gridRef.current) return
-    const rect = gridRef.current.getBoundingClientRect()
     const newParticles: Array<{ id: number; x: number; y: number; color: string; dx: number; dy: number }> = []
     cells.forEach(({ r, c, color }) => {
       const cx = c * (CELL_PX + CELL_GAP) + CELL_PX / 2
       const cy = r * (CELL_PX + CELL_GAP) + CELL_PX / 2
-      const count = 4 + Math.floor(Math.random() * 3) // 4-6 per cell — keeps total counts sane on big clears
+      const count = 3
       for (let i = 0; i < count; i++) {
-        const angle = Math.random() * Math.PI * 2
-        const speed = 28 + Math.random() * 38
+        const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.5
+        const speed = 10 + Math.random() * 6
         newParticles.push({
           id: ++_bid,
           x: cx, y: cy,
           color,
           dx: Math.cos(angle) * speed,
-          dy: Math.sin(angle) * speed - 18, // small upward bias before gravity
+          dy: Math.sin(angle) * speed - 4,
         })
       }
     })
-    // Cap the particle array so back-to-back clears don't compound a thousand DOM nodes
-    setParticles(prev => [...prev, ...newParticles].slice(-180))
+    setParticles(prev => [...prev, ...newParticles].slice(-90))
     const ids = new Set(newParticles.map(p => p.id))
     timers.setTimeout(() => {
       setParticles(prev => prev.filter(p => !ids.has(p.id)))
-    }, 650)
-    // Keep `rect` referenced so linters don't flag the unused capture; we use
-    // grid-relative coords above (particles are absolute children of the grid).
-    void rect
+    }, 420)
   }
 
   function flashFloater(text: string, color: string) {
@@ -564,9 +556,7 @@ export default function PawDokuGame() {
       else if (totalClears >= 2) playSound('pd_combo')
       else playSound('pd_line_clear')
 
-      // Spawn cleared-cell particles (uses each cell's palette color).
-      // Skipped entirely when reduced-motion is on — this is the worst
-      // offender (up to 180 pixel squares fireworking per clear).
+      // Only cleared cells emit particles, using their own block colours.
       if (!reduced) {
         const particleCells: Array<{ r: number; c: number; color: string }> = []
         const seen = new Set<string>()
@@ -585,12 +575,10 @@ export default function PawDokuGame() {
         spawnClearParticles(particleCells)
       }
 
-      // Show clearing flash, then nuke the cells next frame
+      // Pop the completed cells, then remove them after the short animation.
       g = markClearing(g, rows, cols, subs)
       setGrid(g)
       setCombo(totalClears)
-      // Skip the hue-cycling grid washes + expanding shockwave when reduced.
-      if (!reduced) setGridFlash(f => f + 1)
       reactEren('cheer', 900)
       timers.setTimeout(() => setCombo(0), 850)
 
@@ -746,8 +734,7 @@ export default function PawDokuGame() {
                   boxShadow: cell
                     ? `inset 0 2px 0 ${cell.color.light}, inset 0 -3px 0 ${cell.color.dark}55`
                     : undefined,
-                  // Clearing animation: scale + fade. Reduced-motion gets a
-                  // plain fade-out instead of the rainbow hue-cycle spin.
+                  // Only completed cells pop; the rest of the board stays still.
                   animation: cell?.clearing
                     ? (reduced ? 'pdClearReduced 0.28s ease-out forwards' : 'pdClear 0.28s ease-out forwards')
                     : undefined,
@@ -781,7 +768,7 @@ export default function PawDokuGame() {
 
           {/* Invalid-drop red border pulse — re-keyed off gridShake so
               it co-fires with the wrapper shake. Sits above cells but
-              below particles/flash. */}
+              below particles. */}
           {gridShake > 0 && (
             <div key={`red-${gridShake}`} className="absolute inset-0 pointer-events-none" style={{
               border: `3px solid ${M.danger}`,
@@ -792,54 +779,20 @@ export default function PawDokuGame() {
             }} />
           )}
 
-          {/* Cleared-cell particles — small pixel squares radiating
-              outward with gravity. Coloured by their source cell's
-              palette `main` so a row of mixed colours fireworks in
-              its own hues. */}
+          {/* Tiny bursts at the cleared cells, not across the whole board. */}
           {particles.map(p => (
-            <div key={p.id} className="absolute pointer-events-none" style={{
-              left: p.x - 2, top: p.y - 2,
-              width: 4, height: 4,
+            <div key={p.id} className="pd-clear-particle absolute pointer-events-none" style={{
+              left: p.x - 1.5, top: p.y - 1.5,
+              width: 3, height: 3,
               background: p.color,
               imageRendering: 'pixelated',
               // CSS custom properties so the keyframe can read the per-particle vector
               ['--pdx' as keyof React.CSSProperties as string]: `${p.dx}px`,
               ['--pdy' as keyof React.CSSProperties as string]: `${p.dy}px`,
-              animation: 'pdParticle 0.6s cubic-bezier(0.16,0.7,0.4,1) forwards',
+              animation: 'pdParticle 0.38s ease-out forwards',
               zIndex: 8,
             } as React.CSSProperties} />
           ))}
-
-          {/* Grid-wide clear effects — re-keyed on every clear so the
-              animations re-fire for back-to-back placements. Three
-              layered effects: a hue-cycling radial wash, an expanding
-              shockwave ring, and a counter-rotating second wash for
-              extra chaos. */}
-          {gridFlash > 0 && (
-            <>
-              <div key={`flash-${gridFlash}`} className="absolute inset-0 pointer-events-none" style={{
-                background: M.leafTint,
-                opacity: 0,
-                animation: 'pdGridFlash 0.55s ease-out forwards',
-                zIndex: 5,
-                borderRadius: 6,
-              }} />
-              <div key={`flash2-${gridFlash}`} className="absolute inset-0 pointer-events-none" style={{
-                background: 'transparent',
-                opacity: 0,
-                animation: 'pdGridFlash2 0.55s ease-out forwards',
-                zIndex: 5,
-                borderRadius: 6,
-              }} />
-              <div key={`shock-${gridFlash}`} className="absolute pointer-events-none" style={{
-                left: '50%', top: '50%',
-                transform: 'translate(-50%, -50%)',
-                animation: 'pdShockwave 0.55s ease-out forwards',
-                zIndex: 6,
-                borderRadius: '50%',
-              }} />
-            </>
-          )}
 
           {/* One block, in board coordinates so the desktop phone frame cannot offset it. */}
           {draggedBlock && draggedBox && dragGridRect && (
@@ -994,50 +947,14 @@ export default function PawDokuGame() {
           25%  { opacity: 1; transform: translateY(-6px) scale(1.1); }
           100% { opacity: 0; transform: translateY(-30px) scale(0.95); }
         }
-        /* Cell destruction — over-the-top. Cells flash to ultra-bright,
-           hue-cycle through the entire spectrum, scale up to 1.55× while
-           rotating ±18°, then collapse to scale-0 with a 5-px blur and a
-           45° spin. With six possible block colours this looks like a
-           rainbow firework when a row clears. */
         @keyframes pdClear {
-          0%   { transform: scale(1)    rotate(0deg);   opacity: 1;    filter: brightness(1.0) hue-rotate(0deg)   blur(0); }
-          18%  { transform: scale(1.45) rotate(-14deg); opacity: 1;    filter: brightness(3.0) hue-rotate(60deg)  blur(0); }
-          40%  { transform: scale(1.55) rotate(18deg);  opacity: 1;    filter: brightness(2.8) hue-rotate(180deg) blur(1px); }
-          65%  { transform: scale(1.05) rotate(-10deg); opacity: 0.7;  filter: brightness(2.4) hue-rotate(280deg) blur(3px); }
-          100% { transform: scale(0)    rotate(45deg);  opacity: 0;    filter: brightness(4.0) hue-rotate(360deg) blur(5px); }
-        }
-        /* Reduced-motion clear: a plain collapse + fade, no hue-cycle,
-           no spin, no blur — keeps the meaning-bearing "cell cleared"
-           cue without the spectacle. */
-        @keyframes pdClearReduced {
           0%   { transform: scale(1); opacity: 1; }
-          100% { transform: scale(0.6); opacity: 0; }
+          25%  { transform: scale(1.06); opacity: 1; }
+          100% { transform: scale(0.25); opacity: 0; }
         }
-        /* Primary grid-wide flash — gold/pink wash that hue-cycles. */
-        @keyframes pdGridFlash {
-          0%   { opacity: 0;   transform: scale(0.86); filter: hue-rotate(0deg)   brightness(1); }
-          22%  { opacity: 1;   transform: scale(1.06); filter: hue-rotate(60deg)  brightness(1.6); }
-          55%  { opacity: 0.7; transform: scale(1.14); filter: hue-rotate(200deg) brightness(1.7); }
-          100% { opacity: 0;   transform: scale(1.28); filter: hue-rotate(360deg) brightness(2); }
-        }
-        /* Counter-rotating second flash for layered chaos */
-        @keyframes pdGridFlash2 {
-          0%   { opacity: 0;   transform: scale(1.20) rotate(0deg);    }
-          30%  { opacity: 0.8; transform: scale(1.04) rotate(-15deg);  }
-          70%  { opacity: 0.4; transform: scale(0.98) rotate(10deg);   }
-          100% { opacity: 0;   transform: scale(0.85) rotate(-5deg);   }
-        }
-        /* Expanding shockwave ring radiating from the centre of the grid */
-        @keyframes pdShockwave {
-          0%   { width: 0;     height: 0;     opacity: 1;
-                 border: 4px solid rgba(255,215,0,0.9);
-                 box-shadow: 0 0 24px rgba(255,215,0,0.7), inset 0 0 12px rgba(255,255,255,0.6); }
-          60%  { width: 280px; height: 280px; opacity: 0.65;
-                 border: 3px solid rgba(244,114,182,0.7);
-                 box-shadow: 0 0 32px rgba(244,114,182,0.5), inset 0 0 8px rgba(255,255,255,0.3); }
-          100% { width: 460px; height: 460px; opacity: 0;
-                 border: 1px solid rgba(167,139,250,0.0);
-                 box-shadow: 0 0 0 rgba(167,139,250,0.0); }
+        @keyframes pdClearReduced {
+          from { opacity: 1; }
+          to   { opacity: 0; }
         }
         /* Eren idling under the board — a slow breath so he isn't a decal */
         @keyframes pdErenBreathe {
@@ -1067,7 +984,7 @@ export default function PawDokuGame() {
         @keyframes pdParticle {
           0%   { transform: translate(0, 0) scale(1);   opacity: 1; }
           70%  { opacity: 0.85; }
-          100% { transform: translate(var(--pdx, 0), calc(var(--pdy, 0) + 40px)) scale(0.4); opacity: 0; }
+          100% { transform: translate(var(--pdx, 0), calc(var(--pdy, 0) + 12px)) scale(0.4); opacity: 0; }
         }
         /* Tray refill: each block scales from 0 with a slight overshoot,
            staggered 60ms apart via inline animation-delay. */
