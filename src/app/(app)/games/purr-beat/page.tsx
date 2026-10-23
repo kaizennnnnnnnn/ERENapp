@@ -43,10 +43,9 @@ import { ErenDJ } from '@/components/games/PurrBeatChrome'
 import {
   GameTopBar, GameStatRow, GameStat, GAME_STAT_URGENT, GameStartCard, GameArtTile, GameResultCard,
 } from '@/components/games/GameChrome'
-import { M } from '@/components/meadow'
+import { M, MeadowIcon } from '@/components/meadow'
 import { playSound, playSynthAt } from '@/lib/sounds'
 import { outputLatency } from '@/lib/soundSynth'
-import { IconStar, IconHeart } from '@/components/PixelIcons'
 import { fireMinigameDone } from '@/lib/minigames'
 import {
   createConductor, intensityAt, laneTone, perfectSting, missTone, multiplierTone,
@@ -69,10 +68,10 @@ const WEEKLY_HS = 5000
 const MIN_LANE_GAP = 0.13
 
 const JUDGE_STYLE: Record<JudgeKind, { text: string; color: string }> = {
-  perfect: { text: 'PURRFECT', color: '#FDE047' },
-  good: { text: 'GOOD', color: '#A7F3D0' },
-  ok: { text: 'OK', color: '#BAE6FD' },
-  miss: { text: 'MISS', color: '#FCA5A5' },
+  perfect: { text: 'Purrfect', color: '#8A5A12' },
+  good: { text: 'Good', color: M.leafInk },
+  ok: { text: 'OK', color: '#386B96' },
+  miss: { text: 'Miss', color: M.danger },
 }
 
 /** The results card's judgment breakdown, in tally order. */
@@ -95,7 +94,7 @@ export default function PurrBeatGame() {
   const router = useRouter()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
-  useEffect(() => { setHideStats(true) }, [setHideStats])
+  useEffect(() => { setHideStats(true); return () => setHideStats(false) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
@@ -440,19 +439,19 @@ export default function PurrBeatGame() {
   const hit = tally.perfect + tally.good + tally.ok
   const accuracy = hit + tally.miss > 0 ? Math.round((hit / (hit + tally.miss)) * 100) : 0
   const isNewBest = !!result && result.score > 0 && result.score >= bestScore
-  const goBack = () => { playSound('ui_back'); router.back() }
+  const goBack = () => { playSound('ui_back'); router.replace('/games') }
   const playRound = () => { playSound('ui_tap'); startGame() }
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col game-shell select-none"
-      style={{ background: '#160529' }}>
+    <div className="meadow-root pb-game fixed inset-0 z-40 flex flex-col game-shell select-none"
+      style={{ background: M.soft }}>
 
       {/* Header + stats — the shared Meadow game chrome. */}
       <GameTopBar title="Purr Beat" onBack={goBack} />
 
       {phase !== 'idle' && (
         <GameStatRow>
-          <GameStat icon={<IconStar size={16} />} value={hud.score} ariaLabel={`Score ${hud.score}`} />
+          <GameStat icon={<MeadowIcon name="star" size={16} />} value={hud.score} ariaLabel={`Score ${hud.score}`} />
           {/* Combo — punches on every increment via the pulse key, and goes
               amber once the streak is worth a multiplier. */}
           <GameStat
@@ -475,7 +474,7 @@ export default function PurrBeatGame() {
                       transform: filled ? 'scale(1)' : 'scale(0.75)',
                       transition: reduced ? undefined : 'opacity 0.2s, transform 0.2s',
                     }}>
-                      <IconHeart size={14} />
+                      <MeadowIcon name="heart" size={14} />
                     </span>
                   )
                 })}
@@ -490,12 +489,12 @@ export default function PurrBeatGame() {
       <div aria-hidden className="flex-shrink-0" style={{ height: 104 }} />
 
       {/* Field */}
-      <div className="flex-1 relative overflow-hidden">
+      <div className="pb-field flex-1 min-h-0 relative overflow-hidden">
         <PurrBeatStage stage={stageRef} reduced={reduced} drawRef={drawRef} />
 
         {/* Eren at the decks. Sits above the canvas but below the tap layer. */}
         {phase !== 'idle' && (
-          <div className="absolute left-1/2 pointer-events-none" style={{ top: 2, marginLeft: -26, zIndex: 2 }}>
+          <div className="absolute left-1/2 pointer-events-none" style={{ top: 'max(0px, calc(10% - 62px))', marginLeft: -26, zIndex: 2 }}>
             <div ref={erenRef} style={{ transformOrigin: 'center bottom', willChange: 'transform' }}>
               <ErenReact reaction={rx.reaction} size={52} origin="center">
                 <ErenDJ size={52} hyped={hud.mult > 1} worried={hud.lives <= 1}
@@ -510,7 +509,10 @@ export default function PurrBeatGame() {
         {phase === 'playing' && (
           <div className="absolute inset-0 flex" style={{ zIndex: 3, touchAction: 'none' }}>
             {Array.from({ length: LANES }).map((_, lane) => (
-              <div key={lane} className="flex-1" onPointerDown={() => judgeLane(lane)} />
+              <button key={lane} type="button" className="pb-lane m-focus flex-1"
+                aria-label={`Lane ${lane + 1}`} style={{ background: 'transparent', border: 0, padding: 0 }}
+                onPointerDown={event => { event.preventDefault(); judgeLane(lane) }}
+                onClick={event => { if (event.detail === 0) judgeLane(lane) }} />
             ))}
           </div>
         )}
@@ -522,13 +524,14 @@ export default function PurrBeatGame() {
             top: '58%', transform: 'translateX(-50%)', zIndex: 4,
             animation: reduced ? undefined : 'pbJudge 0.62s cubic-bezier(0.22,1,0.36,1) forwards',
           }}>
-            <span className="font-pixel" style={{
-              fontSize: judge.kind === 'perfect' ? 13 : 11,
-              color: JUDGE_STYLE[judge.kind].color, letterSpacing: 2, whiteSpace: 'nowrap',
-              textShadow: '2px 2px 0 rgba(0,0,0,0.6), 0 0 14px currentColor',
+            <span style={{
+              fontSize: judge.kind === 'perfect' ? 17 : 15, fontWeight: 800,
+              color: JUDGE_STYLE[judge.kind].color, whiteSpace: 'nowrap',
+              background: M.ground, borderRadius: 999, padding: '4px 10px',
+              boxShadow: `0 3px 0 ${M.groundLip}`,
             }}>{JUDGE_STYLE[judge.kind].text}</span>
             {judge.points > 0 && (
-              <span className="font-pixel" style={{ fontSize: 8, marginTop: 3, color: '#FFFFFF', textShadow: '1px 1px 0 rgba(0,0,0,0.7)' }}>
+              <span style={{ fontSize: 13, fontWeight: 800, marginTop: 5, color: M.text }}>
                 +{judge.points}
               </span>
             )}
@@ -589,7 +592,12 @@ export default function PurrBeatGame() {
         </GameResultCard>
       )}
 
-      <style jsx global>{`
+      <style>{`
+        @media (prefers-reduced-motion: reduce) {
+          .pb-game *, .pb-game *::before, .pb-game *::after {
+            animation: none !important; transition: none !important;
+          }
+        }
         @keyframes pbJudge {
           0%   { transform: translate(-50%, 6px) scale(0.7); opacity: 0; }
           22%  { transform: translate(-50%, -6px) scale(1.12); opacity: 1; }

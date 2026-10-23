@@ -3,8 +3,8 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // PAW DOKU — Block Doku / Block Blast clone, themed for the Eren app.
 // ────────────────────────────────────────────────────────────────────────
-// 8×8 grid. Three pre-shaped blocks live in a tray at the bottom; drag any
-// of them onto the grid. Filling a row OR a column clears it. Multi-line
+// 9×9 grid. Three pre-shaped blocks live in a tray at the bottom; drag any
+// of them onto the grid. Full rows, columns and 3×3 squares clear. Multi-line
 // clears chain into a combo for bonus points. When all three tray blocks
 // are placed, the tray refills. Game over fires the moment none of the
 // remaining blocks fits anywhere on the board.
@@ -24,7 +24,6 @@ import ErenReact, { useErenReaction } from '@/components/games/ErenReact'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import PixelEren, { type ErenPose } from '@/components/games/PixelEren'
 import { playSound } from '@/lib/sounds'
-import { IconStar } from '@/components/PixelIcons'
 import {
   GameTopBar, GameStatRow, GameStat, GameStartCard, GameArtTile, GameResultCard,
 } from '@/components/games/GameChrome'
@@ -114,12 +113,12 @@ const SHAPES: number[][][] = [
 // rest of the app's pink/purple/gold/mint palette.
 interface Palette { main: string; dark: string; light: string }
 const PALETTES: Palette[] = [
-  { main: '#EC4899', dark: '#831843', light: '#FBCFE8' }, // pink
-  { main: '#A78BFA', dark: '#4C1D95', light: '#DDD6FE' }, // purple
-  { main: '#FBBF24', dark: '#92400E', light: '#FDE68A' }, // gold
-  { main: '#34D399', dark: '#047857', light: '#A7F3D0' }, // mint
-  { main: '#60A5FA', dark: '#1E40AF', light: '#BFDBFE' }, // blue
-  { main: '#FB7185', dark: '#9F1239', light: '#FECDD3' }, // coral
+  { main: M.love, dark: '#AF5276', light: M.loveLight },
+  { main: '#AA8BC7', dark: '#785B94', light: '#D7C7E6' },
+  { main: M.coin, dark: M.coinRim, light: M.coinShine },
+  { main: '#78AE83', dark: M.leaf, light: '#BDDABD' },
+  { main: '#6FA3D2', dark: '#386B96', light: '#B9D8F0' },
+  { main: '#DF8171', dark: '#A34F42', light: '#F2BDB2' },
 ]
 
 // A few of the game's own pieces for the start card's art row.
@@ -278,7 +277,7 @@ export default function PawDokuGame() {
   const router   = useRouter()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
-  useEffect(() => { setHideStats(true) }, [setHideStats])
+  useEffect(() => { setHideStats(true); return () => setHideStats(false) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
@@ -612,11 +611,11 @@ export default function PawDokuGame() {
                          : totalClears >= 2 ? '#FBCFE8'
                                             : '#A3F0C0'
       const floaterText = totalClears >= 2 && newStreak >= 2
-                          ? `${gained}  x${totalClears} · STREAK x${newStreak}!`
+                          ? `+${gained} · Combo x${totalClears} · Streak x${newStreak}`
                           : totalClears >= 2
-                            ? `${gained}  COMBO x${totalClears}!`
+                            ? `+${gained} · Combo x${totalClears}`
                             : newStreak >= 2
-                              ? `${gained}  STREAK x${newStreak}!`
+                              ? `+${gained} · Streak x${newStreak}`
                               : `+${gained}`
       flashFloater(floaterText, floaterColor)
 
@@ -678,16 +677,16 @@ export default function PawDokuGame() {
   const draggedBox   = draggedBlock ? shapeBox(draggedBlock.shape) : null
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col game-shell"
-      style={{ background: 'radial-gradient(ellipse at top, #2D1659 0%, #1A0A33 55%, #0F0620 100%)' }}>
+    <div className="meadow-root pd-game fixed inset-0 z-40 flex flex-col game-shell"
+      style={{ background: M.soft }}>
 
       {/* Header + stats — the shared Meadow game chrome. */}
-      <GameTopBar title="Paw Doku" onBack={() => { playSound('ui_back'); router.back() }} />
+      <GameTopBar title="Paw Doku" onBack={() => { playSound('ui_back'); router.replace('/games') }} />
 
       {/* Score left, Best right; the combo (multi-clear in one drop) and the
           streak (clears chained across drops) pop in between while they last. */}
       <GameStatRow>
-        <GameStat icon={<IconStar size={16} />} value={score} pulse={scorePulse} ariaLabel={`Score ${score}`} />
+        <GameStat icon={<MeadowIcon name="star" size={16} />} value={score} pulse={reduced ? undefined : scorePulse} ariaLabel={`Score ${score}`} />
         {(combo > 1 || streak > 1) && (
           <span className="flex items-center" style={{ gap: 6 }}>
             {combo > 1 && (
@@ -723,19 +722,19 @@ export default function PawDokuGame() {
       <div aria-hidden style={{ height: CHROME_CLEARANCE, flexShrink: 0 }} />
 
       {/* Grid */}
-      <div className="flex-1 flex flex-col items-center justify-center px-3 pb-2 select-none">
+      <div className="relative flex-1 min-h-0 flex flex-col items-center justify-center px-3 pb-2 select-none">
         <div key={`shake-wrap-${gridShake}`} style={{
-          animation: gridShake > 0 ? 'pdGridShake 0.28s steps(6, end)' : undefined,
+          animation: gridShake > 0 && !reduced ? 'pdGridShake 0.28s steps(6, end)' : undefined,
         }}>
         <div ref={gridRef}
-          className="relative"
+          className="pd-board relative"
+          role="img" aria-label="Paw Doku, 9 by 9 board"
           style={{
             width: GRID_PX,
             height: GRID_PX,
-            background: 'linear-gradient(135deg, #1F0F3A 0%, #15081E 100%)',
-            border: '3px solid #4C1D95',
-            borderRadius: 6,
-            boxShadow: '0 4px 0 #2E0F5C, inset 0 1px 0 rgba(255,255,255,0.05), 0 0 28px rgba(167,139,250,0.3)',
+            background: M.ground,
+            borderRadius: 8,
+            boxShadow: `0 0 0 6px ${M.ground}, 0 4px 0 6px ${M.groundLip}`,
           }}>
           {/* Cell grid */}
           {Array.from({ length: GRID_SIZE * GRID_SIZE }).map((_, i) => {
@@ -744,21 +743,21 @@ export default function PawDokuGame() {
             const cell = grid[r][c]
             const isPreview = previewSet.has(`${r},${c}`)
             return (
-              <div key={i} className="absolute"
+              <div key={i} className="pd-cell absolute" data-row={r} data-col={c} data-filled={!!cell} data-preview={isPreview}
                 style={{
                   left: c * (CELL_PX + CELL_GAP),
                   top:  r * (CELL_PX + CELL_GAP),
                   width: CELL_PX, height: CELL_PX,
                   borderRadius: 4,
                   background: cell
-                    ? `linear-gradient(135deg, ${cell.color.light}, ${cell.color.main})`
+                    ? cell.color.main
                     : isPreview
-                      ? 'rgba(255,255,255,0.16)'
-                      : 'rgba(255,255,255,0.04)',
-                  border: cell ? `2px solid ${cell.color.dark}` : isPreview ? '1.5px solid rgba(255,255,255,0.5)' : '1px solid rgba(167,139,250,0.18)',
+                      ? M.hillShadow
+                      : (Math.floor(r / SUB_SIZE) + Math.floor(c / SUB_SIZE)) % 2 === 0 ? M.leafTint : M.soft,
+                  border: isPreview ? `2px solid ${M.leaf}` : 'none',
                   boxShadow: cell
-                    ? 'inset 0 1px 0 rgba(255,255,255,0.4), inset 0 -1px 0 rgba(0,0,0,0.25), 0 1px 0 rgba(0,0,0,0.3)'
-                    : 'inset 0 1px 0 rgba(255,255,255,0.04)',
+                    ? `inset 0 2px 0 ${cell.color.light}, inset 0 -3px 0 ${cell.color.dark}55`
+                    : undefined,
                   // Clearing animation: scale + fade. Reduced-motion gets a
                   // plain fade-out instead of the rainbow hue-cycle spin.
                   animation: cell?.clearing
@@ -778,8 +777,7 @@ export default function PawDokuGame() {
               left: 0, right: 0,
               top: i * SUB_SIZE * (CELL_PX + CELL_GAP) - CELL_GAP - 0.5,
               height: 2,
-              background: 'rgba(251,191,36,0.55)',
-              boxShadow: '0 0 6px rgba(251,191,36,0.5)',
+              background: M.softLip,
               zIndex: 2,
             }} />
           ))}
@@ -788,26 +786,19 @@ export default function PawDokuGame() {
               top: 0, bottom: 0,
               left: i * SUB_SIZE * (CELL_PX + CELL_GAP) - CELL_GAP - 0.5,
               width: 2,
-              background: 'rgba(251,191,36,0.55)',
-              boxShadow: '0 0 6px rgba(251,191,36,0.5)',
+              background: M.softLip,
               zIndex: 2,
             }} />
           ))}
-
-          {/* Tiny gold rivet corners on the grid frame */}
-          <div style={{ position: 'absolute', top: 4, left: 4, width: 4, height: 4, background: '#FBBF24' }} />
-          <div style={{ position: 'absolute', top: 4, right: 4, width: 4, height: 4, background: '#FBBF24' }} />
-          <div style={{ position: 'absolute', bottom: 4, left: 4, width: 4, height: 4, background: '#FBBF24' }} />
-          <div style={{ position: 'absolute', bottom: 4, right: 4, width: 4, height: 4, background: '#FBBF24' }} />
 
           {/* Invalid-drop red border pulse — re-keyed off gridShake so
               it co-fires with the wrapper shake. Sits above cells but
               below particles/flash. */}
           {gridShake > 0 && (
             <div key={`red-${gridShake}`} className="absolute inset-0 pointer-events-none" style={{
-              border: '3px solid #F87171',
-              borderRadius: 6,
-              boxShadow: 'inset 0 0 18px rgba(248,113,113,0.55)',
+              border: `3px solid ${M.danger}`,
+              borderRadius: 8,
+              opacity: 0,
               animation: 'pdRedPulse 0.32s ease-out forwards',
               zIndex: 7,
             }} />
@@ -822,7 +813,6 @@ export default function PawDokuGame() {
               left: p.x - 2, top: p.y - 2,
               width: 4, height: 4,
               background: p.color,
-              boxShadow: `1px 1px 0 rgba(0,0,0,0.4), 0 0 4px ${p.color}`,
               imageRendering: 'pixelated',
               // CSS custom properties so the keyframe can read the per-particle vector
               ['--pdx' as keyof React.CSSProperties as string]: `${p.dx}px`,
@@ -840,18 +830,18 @@ export default function PawDokuGame() {
           {gridFlash > 0 && (
             <>
               <div key={`flash-${gridFlash}`} className="absolute inset-0 pointer-events-none" style={{
-                background: 'radial-gradient(ellipse at center, rgba(253,230,138,0.65) 0%, rgba(244,114,182,0.32) 40%, transparent 75%)',
+                background: M.leafTint,
+                opacity: 0,
                 animation: 'pdGridFlash 0.55s ease-out forwards',
                 zIndex: 5,
                 borderRadius: 6,
-                mixBlendMode: 'screen',
               }} />
               <div key={`flash2-${gridFlash}`} className="absolute inset-0 pointer-events-none" style={{
-                background: 'radial-gradient(ellipse at center, rgba(167,139,250,0.5) 0%, rgba(96,165,250,0.2) 40%, transparent 80%)',
+                background: 'transparent',
+                opacity: 0,
                 animation: 'pdGridFlash2 0.55s ease-out forwards',
                 zIndex: 5,
                 borderRadius: 6,
-                mixBlendMode: 'screen',
               }} />
               <div key={`shock-${gridFlash}`} className="absolute pointer-events-none" style={{
                 left: '50%', top: '50%',
@@ -867,12 +857,13 @@ export default function PawDokuGame() {
 
         {/* Floater */}
         {floater && (
-          <div className="font-pixel pointer-events-none absolute" style={{
+          <div className="pointer-events-none absolute" style={{
             top: '52%',
             transform: 'translateY(-50%)',
-            fontSize: 12, color: floater.color,
-            letterSpacing: 1.5,
-            textShadow: '2px 2px 0 rgba(0,0,0,0.6), 0 0 10px rgba(255,255,255,0.4)',
+            fontSize: 15, fontWeight: 800, color: M.leafInk,
+            maxWidth: 'calc(100% - 24px)', textAlign: 'center',
+            background: M.ground, borderRadius: 999, padding: '6px 12px',
+            boxShadow: `0 3px 0 ${M.groundLip}`,
             animation: 'pdFloater 0.9s ease-out forwards',
             zIndex: 5,
           }}>
@@ -891,7 +882,7 @@ export default function PawDokuGame() {
             <span className="relative">
               <span aria-hidden className="absolute" style={{
                 left: 4, right: 4, bottom: -2, height: 4, borderRadius: '50%',
-                background: 'rgba(0,0,0,0.5)', filter: 'blur(2px)',
+                background: M.floorShadow,
               }} />
               <span className="relative block" style={{
                 animation: reduced || erenFx ? undefined : 'pdErenBreathe 3.4s ease-in-out infinite',
@@ -910,11 +901,13 @@ export default function PawDokuGame() {
       {/* Tray — pointerDown sits on the WHOLE slot div so the player can
           tap anywhere in the 1/3-screen-wide cell, not just on a filled
           pixel of the small block sprite. Big mobile-friendly grab zone. */}
-      <div className="flex-shrink-0 px-3 pb-4 pt-2 flex items-center justify-around" style={{ minHeight: 120 }}>
+      <div className="pd-tray flex-shrink-0 px-3 pb-4 pt-2 flex items-center justify-around" style={{ minHeight: 120, background: M.ground, borderRadius: '24px 24px 0 0' }}>
         {tray.map((block, idx) => (
           <div key={idx}
             onPointerDown={block ? e => handleBlockPointerDown(e, idx) : undefined}
-            className="flex items-center justify-center relative"
+            className="pd-tray-slot flex items-center justify-center relative"
+            aria-label={block ? `Block ${idx + 1}` : `Empty slot ${idx + 1}`}
+            data-shape={block ? JSON.stringify(block.shape) : undefined}
             style={{
               flex: 1, minHeight: 110,
               touchAction: 'none',
@@ -926,8 +919,8 @@ export default function PawDokuGame() {
             {!block && !tray.every(b => b === null) && (
               <div className="pointer-events-none" style={{
                 width: 56, height: 56,
-                border: '2px dashed rgba(167,139,250,0.25)',
-                borderRadius: 4,
+                border: `2px dashed ${M.softLip}`,
+                borderRadius: 8,
                 opacity: 0.7,
               }} />
             )}
@@ -938,9 +931,8 @@ export default function PawDokuGame() {
                   opacity: draggedIdx === idx ? 0.25 : 1,
                   transition: 'opacity 0.15s, transform 0.15s',
                   transform: draggedIdx === idx ? 'scale(0.9)' : 'scale(1)',
-                  filter: 'drop-shadow(0 3px 0 rgba(0,0,0,0.4))',
                   pointerEvents: 'none',
-                  animation: `pdTrayRefill 0.32s cubic-bezier(0.34,1.56,0.64,1) ${idx * 60}ms both`,
+                  animation: reduced ? undefined : `pdTrayRefill 0.32s cubic-bezier(0.34,1.56,0.64,1) ${idx * 60}ms both`,
                 }}>
                 <BlockSprite shape={block.shape} color={block.color} cellSize={TRAY_CELL_PX} cellGap={TRAY_CELL_GAP} />
               </div>
@@ -951,10 +943,10 @@ export default function PawDokuGame() {
 
       {/* Floating drag ghost — fixed-position, follows pointer */}
       {draggedBlock && draggedBox && (
-        <div className="fixed pointer-events-none z-50" style={{
+        <div className="pd-drag fixed pointer-events-none z-50" style={{
           left: dragPos.x - (draggedBox.cols * CELL_PX + (draggedBox.cols - 1) * CELL_GAP) / 2,
           top:  dragPos.y - (draggedBox.rows * CELL_PX + (draggedBox.rows - 1) * CELL_GAP) - DRAG_LIFT,
-          filter: previewCell ? 'drop-shadow(0 6px 0 rgba(0,0,0,0.4))' : 'drop-shadow(0 0 12px rgba(248,113,113,0.6))',
+          filter: `drop-shadow(0 4px 0 ${previewCell ? M.groundLip : M.danger + '55'})`,
           opacity: 0.95,
         }}>
           <BlockSprite shape={draggedBlock.shape} color={draggedBlock.color} cellSize={CELL_PX} cellGap={CELL_GAP} />
@@ -995,11 +987,16 @@ export default function PawDokuGame() {
           best={bestScore}
           reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
           onAgain={() => { playSound('ui_tap'); startGame() }}
-          onBack={() => { playSound('ui_back'); router.back() }}
+          onBack={() => { playSound('ui_back'); router.replace('/games') }}
         />
       )}
 
-      <style jsx global>{`
+      <style>{`
+        @media (prefers-reduced-motion: reduce) {
+          .pd-game *, .pd-game *::before, .pd-game *::after {
+            animation: none !important; transition: none !important;
+          }
+        }
         @keyframes pdFloater {
           0%   { opacity: 0; transform: translateY(0)   scale(0.8); }
           25%  { opacity: 1; transform: translateY(-6px) scale(1.1); }
@@ -1120,9 +1117,8 @@ function BlockSprite({ shape, color, cellSize, cellGap }: {
             top:  r * (cellSize + cellGap),
             width: cellSize, height: cellSize,
             borderRadius: Math.max(2, cellSize * 0.12),
-            background: `linear-gradient(135deg, ${color.light}, ${color.main})`,
-            border: `${cellSize >= 30 ? 2 : 1.5}px solid ${color.dark}`,
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -1px 0 rgba(0,0,0,0.25)',
+            background: color.main,
+            boxShadow: `inset 0 2px 0 ${color.light}, inset 0 -2px 0 ${color.dark}55`,
           }} />
         ) : null)
       )}

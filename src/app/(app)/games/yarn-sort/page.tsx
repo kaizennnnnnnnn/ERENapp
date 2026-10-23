@@ -21,10 +21,8 @@
 // left, unsolved) is blocked, and if you wander into an unsolvable corner anyway,
 // UNDO is always available to back out. The run only ends when the move bank empties.
 //
-// Presentation: a night-time craft shelf. Jars of wound yarn stand on walnut
-// planks; the run you're holding lifts clear of the rim so you can see exactly
-// what you're about to pour, and every jar that can legally receive it lights
-// up while the rest dim away. Nothing about the puzzle rules is hidden.
+// Open holders keep each yarn ball visible. The held run lifts above its
+// stack, and a leaf-green outline marks every legal destination.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -41,7 +39,6 @@ import ErenReact, { useErenReaction } from '@/components/games/ErenReact'
 import GameCoinReward from '@/components/games/GameCoinReward'
 import PixelEren, { type ErenPose } from '@/components/games/PixelEren'
 import { playSound } from '@/lib/sounds'
-import { IconStar } from '@/components/PixelIcons'
 import {
   GameTopBar, GameStatRow, GameStat, GAME_STAT_URGENT, GAME_BOARD_TOP, GameFootnote, GameStartCard, GameArtTile, GameResultCard,
 } from '@/components/games/GameChrome'
@@ -57,43 +54,32 @@ const UNDO_LIMIT   = 3    // undos per run (each refunds its pour)
 const LOW_MOVES    = 6    // bank warning threshold
 const WEEKLY_HS    = 8    // levels solved that completes the weekly high-score task
 
-// Visual sizing. Five jars per plank at TUBE_W + JAR_GAP must clear a 390px
-// phone with room for the plank overhang: 5·50 + 4·13 + 2·18 = 338.
-const TUBE_W    = 50                    // outer jar width (2px glass each side)
-const SEG_W     = 40                    // yarn band width
-const SEG_H     = 34                    // yarn band height
+// Five holders and their gaps fit inside a 360px phone's 16px side gutters.
+const TUBE_W    = 52                    // outer holder width
+const SEG_W     = 40                    // yarn ball width
+const SEG_H     = 36                    // yarn ball height
 const TUBE_H    = SEG * SEG_H + 12      // jar body height
 const HOLD_LIFT = 16                    // px the held run rises above the rest
-const ROW_MAX   = 5                     // jars per shelf plank
-const JAR_GAP   = 13                    // px between jars on a plank
+const ROW_MAX   = 5                     // holders per row
+const JAR_GAP   = 12                    // px between holders
 
 // Up to 8 distinct yarn colours; palettes match the app's pink/gold/mint set.
 interface Palette { main: string; dark: string; light: string }
 const COLORS: Palette[] = [
-  { main: '#EC4899', dark: '#831843', light: '#FBCFE8' }, // pink
-  { main: '#FBBF24', dark: '#92400E', light: '#FDE68A' }, // gold
-  { main: '#34D399', dark: '#047857', light: '#A7F3D0' }, // mint
-  { main: '#60A5FA', dark: '#1E40AF', light: '#BFDBFE' }, // blue
-  { main: '#A78BFA', dark: '#4C1D95', light: '#DDD6FE' }, // purple
-  { main: '#FB7185', dark: '#9F1239', light: '#FECDD3' }, // coral
-  { main: '#FB923C', dark: '#9A3412', light: '#FED7AA' }, // orange
-  { main: '#22D3EE', dark: '#155E75', light: '#A5F3FC' }, // cyan
+  { main: M.love, dark: '#AF5276', light: M.loveLight },
+  { main: M.coin, dark: M.coinRim, light: M.coinShine },
+  { main: '#78AE83', dark: M.leaf, light: '#BDDABD' },
+  { main: '#6FA3D2', dark: '#386B96', light: '#B9D8F0' },
+  { main: '#AA8BC7', dark: '#785B94', light: '#D7C7E6' },
+  { main: '#DF8171', dark: '#A34F42', light: '#F2BDB2' },
+  { main: M.flame, dark: '#AC6029', light: '#F7C79D' },
+  { main: '#65BABB', dark: '#397F86', light: '#B2E1DE' },
 ]
 
 // Solve-burst particle directions — fixed so they don't reshuffle every render.
 const SPARKS = [
   { dx: -18, dy: -22 }, { dx: -6, dy: -30 }, { dx: 8, dy: -28 },
   { dx: 20, dy: -18 },  { dx: -26, dy: -8 }, { dx: 26, dy: -6 },
-]
-
-// Drifting dust motes over the shelf — static layout, animated by CSS only.
-const MOTES = [
-  { left: '12%', top: '22%', size: 3, dur: 9.5, delay: 0 },
-  { left: '28%', top: '68%', size: 2, dur: 12,  delay: 1.8 },
-  { left: '47%', top: '14%', size: 2, dur: 11,  delay: 3.4 },
-  { left: '68%', top: '52%', size: 3, dur: 10,  delay: 0.9 },
-  { left: '83%', top: '28%', size: 2, dur: 13,  delay: 2.6 },
-  { left: '58%', top: '80%', size: 2, dur: 14,  delay: 4.2 },
 ]
 
 // ─── Pure helpers ───────────────────────────────────────────────────────────
@@ -268,33 +254,23 @@ function shelfRows(count: number): number[][] {
   return rows
 }
 
-// ─── Yarn band ──────────────────────────────────────────────────────────────
-// One segment of wound yarn. Three stacked backgrounds do the work: diagonal
-// strand winding on top, a left-lit cylinder shade in the middle, and the flat
-// colour underneath. `capped` rounds the top so the highest band in a stack
-// reads as the crown of a bundle instead of another brick.
-function YarnBand({ pal, capped, style }: { pal: Palette; capped: boolean; style?: React.CSSProperties }) {
+// ─── Yarn ball ──────────────────────────────────────────────────────────────
+function YarnBall({ pal, size, style }: { pal: Palette; size?: number; style?: React.CSSProperties }) {
   return (
-    <div style={{
-      width: SEG_W,
-      height: SEG_H - 2,
-      marginTop: 2,
-      borderRadius: capped ? '9px 9px 3px 3px' : 3,
-      border: `1.5px solid ${pal.dark}`,
-      background: [
-        `repeating-linear-gradient(108deg,
-           rgba(255,255,255,0.34) 0px, rgba(255,255,255,0.34) 1.5px,
-           rgba(255,255,255,0)    1.5px, rgba(255,255,255,0)    3.5px,
-           rgba(0,0,0,0.20)       3.5px, rgba(0,0,0,0.20)       5px,
-           rgba(0,0,0,0)          5px,   rgba(0,0,0,0)          7px)`,
-        `linear-gradient(90deg,
-           rgba(0,0,0,0.30) 0%, rgba(255,255,255,0.38) 26%,
-           rgba(255,255,255,0.04) 56%, rgba(0,0,0,0.32) 100%)`,
-        `linear-gradient(180deg, ${pal.light} 0%, ${pal.main} 48%, ${pal.dark} 100%)`,
-      ].join(', '),
-      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -1px 0 rgba(0,0,0,0.3)',
+    <span className="ys-ball block flex-shrink-0" style={{
+      width: size ?? SEG_W, height: size ?? SEG_H, flexShrink: 0,
       ...style,
-    }} />
+    }}>
+      <svg aria-hidden="true" width="100%" height="100%" viewBox="0 0 40 40" fill="none">
+        <circle cx="20" cy="21" r="18" fill={pal.dark} />
+        <circle cx="20" cy="19" r="18" fill={pal.main} />
+        <g stroke={pal.light} strokeWidth="1.8" strokeLinecap="round">
+          <path d="M7 7C18 9 28 19 31 31M4 12C15 14 24 24 27 35M3 18C12 20 18 28 21 37" />
+          <path d="M14 3C14 14 23 21 36 24M20 1C19 11 27 17 37 18M26 3C26 9 30 12 36 13" />
+        </g>
+        <path d="M4 25C10 15 19 10 31 8M7 31C15 21 25 17 37 17" stroke={pal.dark} strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+      </svg>
+    </span>
   )
 }
 
@@ -305,7 +281,7 @@ export default function YarnSortGame() {
   const router = useRouter()
   const { user, profile } = useAuth()
   const { setHideStats } = useCare()
-  useEffect(() => { setHideStats(true) }, [setHideStats])
+  useEffect(() => { setHideStats(true); return () => setHideStats(false) }, [setHideStats])
   const { applyAction } = useErenStats(profile?.household_id ?? null)
   const { completeTask } = useTasks()
   const { reportGameResult } = useGameRewards()
@@ -542,31 +518,11 @@ export default function YarnSortGame() {
 
   // ─── Render ─────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-40 flex flex-col game-shell overflow-hidden"
-      style={{ background: 'radial-gradient(ellipse 130% 75% at 50% 52%, #175954 0%, #0C3A3B 40%, #062024 74%, #041318 100%)' }}>
-
-      {/* Knitted-wall texture — two shallow diagonals crossing into a stitch weave */}
-      <div aria-hidden className="absolute inset-0 pointer-events-none" style={{
-        background: [
-          'repeating-linear-gradient(56deg, rgba(94,234,212,0.05) 0px, rgba(94,234,212,0.05) 1px, transparent 1px, transparent 9px)',
-          'repeating-linear-gradient(-56deg, rgba(94,234,212,0.05) 0px, rgba(94,234,212,0.05) 1px, transparent 1px, transparent 9px)',
-        ].join(', '),
-        maskImage: 'radial-gradient(ellipse 90% 70% at 50% 40%, #000 0%, transparent 78%)',
-        WebkitMaskImage: 'radial-gradient(ellipse 90% 70% at 50% 40%, #000 0%, transparent 78%)',
-      }} />
-      {/* Vignette — darkens the corners without swallowing the shelf */}
-      <div aria-hidden className="absolute inset-0 pointer-events-none"
-        style={{ boxShadow: 'inset 0 0 80px 4px rgba(2,10,14,0.72)' }} />
-      {/* Low-bank danger glow at the edges */}
-      {phase === 'playing' && movesLow && (
-        <div aria-hidden className="absolute inset-0 pointer-events-none z-10" style={{
-          boxShadow: 'inset 0 0 64px 2px rgba(248,113,113,0.26)',
-          animation: reduced ? undefined : 'ysDanger 2s ease-in-out infinite',
-        }} />
-      )}
+    <div className="meadow-root ys-game fixed inset-0 z-40 flex flex-col game-shell overflow-hidden"
+      style={{ background: M.soft }}>
 
       {/* Header + stats — the shared Meadow game chrome. */}
-      <GameTopBar title="Yarn Sort" onBack={() => { playSound('ui_back'); router.back() }} />
+      <GameTopBar title="Yarn Sort" onBack={() => { playSound('ui_back'); router.replace('/games') }} />
 
       <GameStatRow>
         <GameStat label="Level" value={level} ariaLabel={`Level ${level}`} />
@@ -600,22 +556,13 @@ export default function YarnSortGame() {
         <GameFootnote>
           Solve pays +{nextRefill}
           <span aria-hidden>·</span>
-          <IconStar size={12} /> Best {bestScore}
+          <MeadowIcon name="star" size={12} /> Best {bestScore}
         </GameFootnote>
       )}
 
       {/* Shelf field */}
-      <div className="relative flex-1 flex items-center justify-center px-3 select-none overflow-hidden"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 52px)' }}>
-        {/* Drifting motes */}
-        {!reduced && MOTES.map((m, i) => (
-          <span key={i} aria-hidden className="absolute pointer-events-none" style={{
-            left: m.left, top: m.top, width: m.size, height: m.size, borderRadius: '50%',
-            background: 'rgba(167,243,208,0.55)',
-            boxShadow: '0 0 4px rgba(167,243,208,0.6)',
-            animation: `ysMote ${m.dur}s ease-in-out ${m.delay}s infinite`,
-          }} />
-        ))}
+      <div className="ys-field relative flex-1 min-h-0 flex flex-col px-4 select-none overflow-y-auto"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 56px)', paddingTop: 36 }}>
 
         {/* Stuck rescue banner — only when the player has no non-dead-end move left */}
         {stuck && (
@@ -663,16 +610,10 @@ export default function YarnSortGame() {
         )}
 
         {/* Shelf rows */}
-        <div key={`shake-${shake}`} className="flex flex-col items-center"
-          style={{ gap: 22, animation: shake > 0 && !reduced ? 'ysShake 0.26s steps(5,end)' : undefined }}>
+        <div key={`shake-${shake}`} className="ys-board flex flex-col items-center"
+          style={{ margin: 'auto', flexShrink: 0, gap: 22, animation: shake > 0 && !reduced ? 'ysShake 0.26s steps(5,end)' : undefined }}>
           {rows.map((row, r) => (
             <div key={r} className="relative flex items-end justify-center" style={{ gap: JAR_GAP, paddingTop: 28 }}>
-              {/* Warm pool of light on the plank — gives the composition a focal
-                  point so the dark around it reads as room, not empty canvas. */}
-              <span aria-hidden className="absolute pointer-events-none" style={{
-                left: -46, right: -46, bottom: -34, top: 10, zIndex: 0,
-                background: 'radial-gradient(ellipse 70% 62% at 50% 82%, rgba(255,206,140,0.20) 0%, rgba(255,190,120,0.09) 42%, transparent 72%)',
-              }} />
               {row.map(idx => {
                 const stack = tubes[idx]
                 const isSel = selected === idx
@@ -686,88 +627,61 @@ export default function YarnSortGame() {
                 const holdFrom = isSel ? stack.length - heldRun : stack.length
 
                 return (
-                  <button key={idx} onClick={() => tapTube(idx)}
+                  <button type="button" key={idx} onClick={() => tapTube(idx)}
                     aria-label={`Jar ${idx + 1}, ${stack.length} of ${SEG} full`}
-                    className="relative"
+                    aria-pressed={isSel} disabled={phase !== 'playing' || celebrating}
+                    data-stack={JSON.stringify(stack)} data-target={isTarget} data-finished={finished}
+                    className="ys-jar m-focus relative"
                     style={{
                       width: TUBE_W,
                       height: TUBE_H,
                       zIndex: isSel ? 6 : 1,
                       // Dim, don't erase: you still need to read the whole board
                       // to plan while holding a run.
-                      opacity: dimmed ? 0.72 : 1,
-                      filter: dimmed ? 'saturate(0.85)' : undefined,
+                      opacity: dimmed ? 0.58 : 1,
                       transform: isSel ? 'translateY(-6px)' : isTarget ? 'translateY(-3px)' : 'none',
-                      transition: 'transform 0.14s ease-out, opacity 0.16s, filter 0.16s',
+                      transition: 'transform 0.14s ease-out, opacity 0.16s',
+                      border: 0, padding: 0, background: 'transparent',
                       touchAction: 'manipulation',
                       animation: isTarget && !reduced ? 'ysTarget 1s ease-in-out infinite' : undefined,
                     }}>
 
-                    {/* Contact shadow on the plank */}
-                    <span aria-hidden className="absolute" style={{
-                      left: -3, right: -3, bottom: -5, height: 6, borderRadius: '50%',
-                      background: 'rgba(0,0,0,0.55)', filter: 'blur(2px)',
-                      opacity: isSel ? 0.45 : 0.8,
-                      transition: 'opacity 0.14s',
-                    }} />
-
-                    {/* Glass body. Border longhands only — mixing the `border`
-                        shorthand with `borderTop` warns in React once the colour
-                        starts changing between renders. */}
+                    {/* Open holder and empty slots keep the capacity readable. */}
                     <span aria-hidden className="absolute inset-0" style={{
-                      background: 'linear-gradient(180deg, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0.04) 45%, rgba(255,255,255,0.09) 100%)',
+                      background: isTarget || finished ? M.leafTint : M.ground,
                       borderLeftWidth: 2, borderRightWidth: 2, borderBottomWidth: 2,
                       borderStyle: 'solid',
-                      borderColor: isSel ? '#FDE68A' : isTarget ? '#7DE8D6' : finished ? 'rgba(253,230,138,0.6)' : 'rgba(94,234,212,0.5)',
+                      borderColor: isSel || isTarget || finished ? M.leaf : M.softLip,
                       borderTopWidth: 0,
-                      borderRadius: '3px 3px 13px 13px',
-                      boxShadow: isSel
-                        ? '0 0 18px rgba(253,230,138,0.65), inset 0 0 10px rgba(255,255,255,0.1)'
-                        : isTarget
-                          ? '0 0 14px rgba(94,234,212,0.6), inset 0 0 10px rgba(255,255,255,0.08)'
-                          : finished
-                            ? '0 0 10px rgba(253,230,138,0.35), inset 0 0 8px rgba(0,0,0,0.3)'
-                            : 'inset 0 0 8px rgba(0,0,0,0.4)',
-                      transition: 'border-color 0.14s, box-shadow 0.14s',
+                      borderRadius: '6px 6px 18px 18px',
+                      boxShadow: `0 4px 0 ${isSel || finished ? M.hillShadow : M.groundLip}`,
+                      transition: 'border-color 0.14s, background 0.14s',
                     }} />
-                    {/* Specular streak down the left of the glass */}
-                    <span aria-hidden className="absolute pointer-events-none" style={{
-                      left: 4, top: 4, bottom: 8, width: 4, borderRadius: 3,
-                      background: 'linear-gradient(180deg, rgba(255,255,255,0.42), rgba(255,255,255,0.05))',
-                    }} />
-
-                    {/* Glass rim */}
-                    <span aria-hidden className="absolute" style={{
-                      top: -3, left: -3, right: -3, height: 4, borderRadius: 2,
-                      background: isSel
-                        ? 'linear-gradient(180deg, #FEF3C7, #FDE68A)'
-                        : isTarget
-                          ? 'linear-gradient(180deg, #CFFAF2, #5EEAD4)'
-                          : finished
-                            ? 'linear-gradient(180deg, #FDE68A, #D9A441)'
-                            : 'linear-gradient(180deg, rgba(190,250,240,0.85), rgba(94,234,212,0.5))',
-                      boxShadow: '0 1px 0 rgba(0,0,0,0.45)',
-                      transition: 'background 0.14s',
-                    }} />
+                    {Array.from({ length: SEG - stack.length }, (_, i) => (
+                      <span key={`empty-${i}`} aria-hidden className="absolute" style={{
+                        width: 8, height: 8, borderRadius: '50%',
+                        left: (TUBE_W - 8) / 2, bottom: 6 + (stack.length + i) * SEG_H + (SEG_H - 8) / 2,
+                        border: `1.5px solid ${M.hairline}`,
+                      }} />
+                    ))}
 
                     {/* Yarn stack, bottom-anchored. The key remounts on a pour so the
                         landing animation replays every time. */}
                     <span key={pourFx && pourFx.tube === idx ? `p${pourFx.key}` : 's'}
                       className="absolute inset-x-0 bottom-0 flex flex-col-reverse items-center"
                       style={{
-                        padding: 2,
+                        padding: '6px 2px',
                         animation: !reduced && pourFx?.tube === idx ? 'ysCatch 0.24s ease-out' : undefined,
                       }}>
                       {stack.map((c, i) => {
                         const isDropped = !reduced && pourFx !== null && pourFx.tube === idx && i >= stack.length - pourFx.n
                         const isHeld = i >= holdFrom
                         return (
-                          <YarnBand key={i} pal={COLORS[c]} capped={i === stack.length - 1}
+                          <YarnBall key={i} pal={COLORS[c]}
                             style={{
                               ['--lift' as string]: `-${HOLD_LIFT}px`,
                               transform: isHeld ? `translateY(-${HOLD_LIFT}px)` : undefined,
                               transition: 'transform 0.14s ease-out',
-                              filter: isHeld ? 'drop-shadow(0 2px 0 rgba(0,0,0,0.5)) brightness(1.12)' : undefined,
                               animation: isDropped
                                 ? 'ysDrop 0.3s cubic-bezier(0.34,1.45,0.64,1)'
                                 : isHeld && !reduced
@@ -778,48 +692,42 @@ export default function YarnSortGame() {
                       })}
                     </span>
 
-                    {/* How many bands this pour would move — the thing you're planning around */}
+                    {/* Number of balls in the held run. */}
                     {isSel && heldRun > 1 && (
-                      <span className="font-pixel absolute pointer-events-none" style={{
-                        right: -15, top: TUBE_H - 8 - stack.length * SEG_H - HOLD_LIFT,
-                        padding: '2px 3px',
-                        fontSize: 7, color: '#FDE68A', letterSpacing: 0.5,
-                        background: 'rgba(12,6,2,0.92)',
-                        border: '1px solid #FDE68A',
-                        borderRadius: 2,
-                        boxShadow: '1px 1px 0 rgba(0,0,0,0.6)',
+                      <span className="absolute pointer-events-none" style={{
+                        right: -5, top: -34,
+                        padding: '2px 5px',
+                        fontSize: 11, fontWeight: 800, color: M.leafInk,
+                        background: M.leafTint,
+                        borderRadius: 999,
                       }}>x{heldRun}</span>
                     )}
 
-                    {/* Caret over a legal target. The glow alone reads fine on an
-                        empty jar but gets lost on a full one — the marker doesn't. */}
+                    {/* Caret over a legal destination, including an empty holder. */}
                     {isTarget && (
                       <span aria-hidden className="absolute pointer-events-none" style={{
                         left: '50%', top: -15, marginLeft: -6,
                         width: 0, height: 0,
                         borderLeft: '6px solid transparent',
                         borderRight: '6px solid transparent',
-                        borderTop: '8px solid #5EEAD4',
-                        filter: 'drop-shadow(0 0 5px rgba(45,212,191,0.9))',
+                        borderTop: `8px solid ${M.leaf}`,
                         animation: reduced ? undefined : 'ysCaret 0.85s ease-in-out infinite',
                       }} />
                     )}
 
-                    {/* Finished jar — a gold band and a star so the eye can skip it */}
+                    {/* Finished jars get a check above the rim. */}
                     {finished && (
-                      <span aria-hidden className="absolute pointer-events-none" style={{
-                        left: -2, right: -2, top: 3, height: 3,
-                        background: 'linear-gradient(90deg, transparent, #FDE68A 25%, #FEF3C7 50%, #FDE68A 75%, transparent)',
-                      }} />
+                      <span aria-hidden className="absolute pointer-events-none flex items-center justify-center" style={{
+                        left: '50%', marginLeft: -11, top: -24, width: 22, height: 22,
+                        background: M.leafTint, borderRadius: '50%',
+                      }}><MeadowIcon name="check" size={14} /></span>
                     )}
 
-                    {/* Solve burst — thrown from the rim into the dark above the jar.
-                        Fired from inside the jar it lands on bright yarn and vanishes. */}
+                    {/* Completion confetti starts above the yarn so it stays visible. */}
                     {celebrating && finished && !reduced && SPARKS.map((s, i) => (
                       <span key={`sp-${solveFx}-${i}`} aria-hidden className="absolute pointer-events-none" style={{
                         left: '50%', top: -2, width: 4, height: 4, borderRadius: '50%', zIndex: 8,
-                        background: i % 2 ? '#FDE68A' : '#FFFFFF',
-                        boxShadow: '0 0 5px rgba(253,230,138,0.9)',
+                        background: i % 2 ? M.coin : M.leaf,
                         ['--dx' as string]: `${s.dx}px`,
                         ['--dy' as string]: `${s.dy}px`,
                         animation: `ysSpark 0.75s ease-out ${i * 30}ms both`,
@@ -829,17 +737,6 @@ export default function YarnSortGame() {
                 )
               })}
 
-              {/* Walnut plank the row stands on — lit top face, dark front edge */}
-              <span aria-hidden className="absolute pointer-events-none" style={{
-                left: -18, right: -18, bottom: -13, height: 13,
-                background: [
-                  'linear-gradient(180deg, #A96E42 0%, #8A5733 22%, #5C3620 24%, #4A2A18 62%, #2A160B 100%)',
-                  'repeating-linear-gradient(90deg, rgba(0,0,0,0.12) 0px, rgba(0,0,0,0.12) 2px, transparent 2px, transparent 17px)',
-                ].join(', '),
-                borderTop: '2px solid #C99160',
-                borderRadius: '1px 1px 2px 2px',
-                boxShadow: '0 4px 0 rgba(0,0,0,0.55), 0 6px 14px rgba(0,0,0,0.6), inset 0 -2px 0 rgba(0,0,0,0.4)',
-              }} />
             </div>
           ))}
 
@@ -853,17 +750,7 @@ export default function YarnSortGame() {
               style={{ alignSelf: 'stretch', gap: 7, paddingRight: 4, marginTop: 6 }}>
               {/* His yarn ball, wound like the jar segments and coloured by the
                   last pour. It hops when yarn lands. */}
-              <span key={`ball-${pourFx?.key ?? 0}`} aria-hidden className="relative" style={{
-                width: 15, height: 15, borderRadius: '50%',
-                border: `1.5px solid ${ballColor.dark}`,
-                background: [
-                  `repeating-linear-gradient(122deg,
-                     rgba(255,255,255,0.34) 0px, rgba(255,255,255,0.34) 1.5px,
-                     rgba(255,255,255,0)    1.5px, rgba(255,255,255,0)    3.5px,
-                     rgba(0,0,0,0.22)       3.5px, rgba(0,0,0,0.22) 5px,
-                     rgba(0,0,0,0)          5px,   rgba(0,0,0,0)     7px)`,
-                  `radial-gradient(circle at 32% 28%, ${ballColor.light} 0%, ${ballColor.main} 55%, ${ballColor.dark} 100%)`,
-                ].join(', '),
+              <YarnBall key={`ball-${pourFx?.key ?? 0}`} pal={ballColor} size={20} style={{
                 marginBottom: 1,
                 animation: reduced || !pourFx ? undefined : 'ysBallHop 0.42s cubic-bezier(0.34,1.5,0.64,1)',
               }} />
@@ -872,7 +759,7 @@ export default function YarnSortGame() {
                 {/* contact shadow so he sits on the floor rather than floating */}
                 <span aria-hidden className="absolute" style={{
                   left: 3, right: 3, bottom: -2, height: 4, borderRadius: '50%',
-                  background: 'rgba(0,0,0,0.5)', filter: 'blur(2px)',
+                  background: M.floorShadow,
                 }} />
                 <span className="relative block" style={{
                   animation: reduced || erenPose !== 'idle' ? undefined : 'ysBreathe 3.2s ease-in-out infinite',
@@ -894,17 +781,13 @@ export default function YarnSortGame() {
           title="Yarn Sort"
           art={COLORS.slice(0, 5).map((pal, i) => (
             <GameArtTile key={i} size={40} tint={`${pal.main}26`}>
-              <span style={{
-                width: 22, height: 22, borderRadius: '50%',
-                border: `1.5px solid ${pal.dark}`,
-                background: `radial-gradient(circle at 32% 28%, ${pal.light} 0%, ${pal.main} 55%, ${pal.dark} 100%)`,
-              }} />
+              <YarnBall pal={pal} size={28} />
             </GameArtTile>
           ))}
           best={bestScore}
           onStart={() => { playSound('ui_tap'); startGame() }}
         >
-          Tap a jar to lift its top yarn, then tap a glowing jar to drop it.
+          Tap a jar to lift its top yarn, then tap a highlighted jar to drop it.
           Sort every jar to one colour. Every pour spends a move, and every solve pays moves back.
         </GameStartCard>
       )}
@@ -918,11 +801,16 @@ export default function YarnSortGame() {
           best={bestScore}
           reward={reward && <GameCoinReward coins={reward.coins} blocked={reward.blocked} />}
           onAgain={() => { playSound('ui_tap'); startGame() }}
-          onBack={() => { playSound('ui_back'); router.back() }}
+          onBack={() => { playSound('ui_back'); router.replace('/games') }}
         />
       )}
 
-      <style jsx global>{`
+      <style>{`
+        @media (prefers-reduced-motion: reduce) {
+          .ys-game *, .ys-game *::before, .ys-game *::after {
+            animation: none !important; transition: none !important;
+          }
+        }
         @keyframes ysDrop {
           0%   { transform: translateY(-18px) scaleY(0.65); opacity: 0.35; }
           60%  { transform: translateY(0)     scaleY(1.12); opacity: 1; }
@@ -983,16 +871,6 @@ export default function YarnSortGame() {
           15%  { opacity: 1; transform: translate(-50%, 0); }
           80%  { opacity: 1; transform: translate(-50%, 0); }
           100% { opacity: 0; transform: translate(-50%, 0); }
-        }
-        @keyframes ysMote {
-          0%, 100% { transform: translate(0, 0);       opacity: 0.15; }
-          25%      { transform: translate(6px, -12px); opacity: 0.6; }
-          50%      { transform: translate(-4px, -22px); opacity: 0.35; }
-          75%      { transform: translate(-8px, -10px); opacity: 0.55; }
-        }
-        @keyframes ysDanger {
-          0%, 100% { opacity: 0.55; }
-          50%      { opacity: 1; }
         }
       `}</style>
     </div>

@@ -28,6 +28,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useRef } from 'react'
+import { M, TINT } from '@/components/meadow/tokens'
 
 // ─── Field geometry, as fractions of the canvas ─────────────────────────────
 const HORIZON = 0.1          // where the lanes converge
@@ -40,8 +41,9 @@ const SPAN_FAR = 0.28
 const DEPTH_K = 1.5          // perspective softness — see header
 const LANES = 4
 
-export const LANE_HUE = ['#F0509B', '#9D6BFF', '#25D3E8', '#FFBE2E']
-const LANE_LIGHT = ['#FFB3D6', '#D6C0FF', '#A6F1FA', '#FFE7A8']
+export const LANE_HUE = ['#B9547A', M.leaf, '#477DA8', M.coinRim]
+const LANE_LIGHT = [M.loveLight, M.tuft, '#B9D8F0', M.coinShine]
+const LANE_TINT = [TINT.love, TINT.leaf, TINT.blue, TINT.amber]
 
 const TAU = Math.PI * 2
 const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n)
@@ -182,40 +184,7 @@ export default function PurrBeatStage({ stage, reduced, drawRef }: {
     let W = 0
     let H = 0
     let dpr = 1
-    // Cached per-resize paint objects. Rebuilding these every frame was ~30
-    // gradient allocations and 230 scanline fillRects per frame; they only
-    // actually change when the canvas does.
-    let scanlines: CanvasPattern | null = null
-    let floorFade: CanvasGradient | null = null
-    const skyCache = new Map<number, CanvasGradient>()
     let gridCursor = 0
-
-    const buildCaches = () => {
-      skyCache.clear()
-      floorFade = null
-      const tile = document.createElement('canvas')
-      tile.width = 1
-      tile.height = 3
-      const tctx = tile.getContext('2d')
-      if (tctx) {
-        tctx.fillStyle = 'rgba(0,0,0,0.14)'
-        tctx.fillRect(0, 0, 1, 1)
-        scanlines = ctx.createPattern(tile, 'repeat')
-      }
-    }
-
-    const skyFor = (intensity: number): CanvasGradient => {
-      const key = Math.round(intensity)
-      const hit = skyCache.get(key)
-      if (hit) return hit
-      const heat = key / 3
-      const g = ctx.createLinearGradient(0, 0, 0, H)
-      g.addColorStop(0, `rgb(${26 + heat * 16}, ${5 + heat * 3}, ${50 + heat * 14})`)
-      g.addColorStop(0.6, `rgb(${15 + heat * 8}, 4, ${32 + heat * 8})`)
-      g.addColorStop(1, `rgb(${8 + heat * 4}, 2, ${18 + heat * 4})`)
-      skyCache.set(key, g)
-      return g
-    }
 
     const resize = () => {
       // Capped at 2 for the same reason the gacha cinematics cap it: a 3x
@@ -227,7 +196,6 @@ export default function PurrBeatStage({ stage, reduced, drawRef }: {
       H = Math.max(1, rect.height)
       canvas.width = Math.round(W * dpr)
       canvas.height = Math.round(H * dpr)
-      buildCaches()
     }
     resize()
     window.addEventListener('resize', resize)
@@ -300,18 +268,8 @@ export default function PurrBeatStage({ stage, reduced, drawRef }: {
       ctx.clearRect(-16, -16, W + 32, H + 32)
 
       // ── 1. Backdrop ──────────────────────────────────────────────────────
-      // Deliberately near-black. Every light on this stage is additive, so the
-      // base has to stay dark or the accumulated glow flattens into one bright
-      // magenta wash and the neon notes have nothing to be brighter than.
-      ctx.fillStyle = skyFor(s.intensity)
+      ctx.fillStyle = M.soft
       ctx.fillRect(0, 0, W, H)
-
-      // Stage lights — the ONLY additive pass over the backdrop, and kept tight
-      // so they read as light sources rather than as fog.
-      ctx.globalCompositeOperation = 'lighter'
-      glow(W / 2, hzY + H * 0.01, W * (0.3 + throb * 0.07),
-        `rgba(210,90,250,${0.09 + throb * 0.1})`, 'rgba(210,90,250,0)')
-      ctx.globalCompositeOperation = 'source-over'
 
       // ── 1b. The stage itself ─────────────────────────────────────────────
       // Speaker stacks flanking the runway and a booth for Eren to stand
@@ -322,43 +280,39 @@ export default function PurrBeatStage({ stage, reduced, drawRef }: {
       const spkY = hzY - spkH * 0.42
       for (const side of [-1, 1]) {
         const cx = W / 2 + side * W * 0.375
-        ctx.fillStyle = '#170A28'
-        roundRect(cx - spkW / 2, spkY, spkW, spkH, 3)
+        ctx.fillStyle = M.softLip
+        roundRect(cx - spkW / 2, spkY + 3, spkW, spkH, 6)
         ctx.fill()
-        ctx.strokeStyle = 'rgba(232,121,249,0.4)'
-        ctx.lineWidth = 2
-        ctx.stroke()
+        ctx.fillStyle = M.ground
+        roundRect(cx - spkW / 2, spkY, spkW, spkH, 6)
+        ctx.fill()
         // Two cones that punch out on the kick.
         for (let i = 0; i < 2; i++) {
           const cyc = spkY + spkH * (0.3 + i * 0.42)
           const r = spkW * (i === 0 ? 0.27 : 0.19) * (1 + throb * 0.3)
-          ctx.fillStyle = '#0C0417'
+          ctx.fillStyle = M.text2
           ctx.beginPath(); ctx.arc(cx, cyc, r, 0, TAU); ctx.fill()
-          ctx.fillStyle = `rgba(255,190,46,${0.25 + throb * 0.6})`
+          ctx.fillStyle = M.tuft
           ctx.beginPath(); ctx.arc(cx, cyc, r * 0.42, 0, TAU); ctx.fill()
-        }
-        if (!low) {
-          ctx.globalCompositeOperation = 'lighter'
-          glow(cx, spkY + spkH / 2, spkW * (1.5 + throb * 0.5),
-            `rgba(255,190,46,${0.05 + throb * 0.12})`, 'rgba(255,190,46,0)')
-          ctx.globalCompositeOperation = 'source-over'
         }
       }
 
       // Booth — a lit slab at the vanishing point. Eren (a DOM sprite above
       // the canvas) stands behind its top edge.
       const boothW = W * 0.3
-      const boothY = hzY - 6
-      ctx.fillStyle = '#1E0B33'
-      roundRect(W / 2 - boothW / 2, boothY, boothW, 18, 3)
+      const boothY = hzY - 22
+      ctx.fillStyle = M.leafLip
+      roundRect(W / 2 - boothW / 2, boothY + 3, boothW, 22, 6)
       ctx.fill()
-      ctx.strokeStyle = `rgba(34,211,238,${0.45 + throb * 0.4})`
-      ctx.lineWidth = 2
-      ctx.stroke()
+      ctx.fillStyle = M.leaf
+      roundRect(W / 2 - boothW / 2, boothY, boothW, 22, 6)
+      ctx.fill()
       for (let i = 0; i < 2; i++) {
         const tx = W / 2 + (i === 0 ? -1 : 1) * boothW * 0.26
-        ctx.fillStyle = `rgba(103,232,249,${0.5 + throb * 0.45})`
-        ctx.beginPath(); ctx.arc(tx, boothY + 9, 3.4, 0, TAU); ctx.fill()
+        ctx.fillStyle = M.ground
+        ctx.beginPath(); ctx.arc(tx, boothY + 11, 5 + throb, 0, TAU); ctx.fill()
+        ctx.fillStyle = M.leafInk
+        ctx.beginPath(); ctx.arc(tx, boothY + 11, 1.5, 0, TAU); ctx.fill()
       }
 
       // ── 2. Lane floor ────────────────────────────────────────────────────
@@ -380,10 +334,7 @@ export default function PurrBeatStage({ stage, reduced, drawRef }: {
         ctx.lineTo(nearX - nearW, hY)
         ctx.closePath()
 
-        const g = ctx.createLinearGradient(0, hzY, 0, hY)
-        g.addColorStop(0, 'rgba(255,255,255,0)')
-        g.addColorStop(1, 'rgba(255,255,255,0.045)')
-        ctx.fillStyle = g
+        ctx.fillStyle = LANE_TINT[lane]
         ctx.fill()
 
         // Tap beam — a short coloured flare that dies out a third of the way
@@ -393,15 +344,13 @@ export default function PurrBeatStage({ stage, reduced, drawRef }: {
           const bg = ctx.createLinearGradient(0, hY, 0, hY - (hY - hzY) * 0.34)
           bg.addColorStop(0, `${LANE_HUE[lane]}${hex(lit * 0.36)}`)
           bg.addColorStop(1, `${LANE_HUE[lane]}00`)
-          ctx.globalCompositeOperation = 'lighter'
           ctx.fillStyle = bg
           ctx.fill()
-          ctx.globalCompositeOperation = 'source-over'
         }
 
         // Lane edge rails.
-        ctx.strokeStyle = `rgba(232,180,255,${0.06 + lit * 0.2})`
-        ctx.lineWidth = 1
+        ctx.strokeStyle = M.ground
+        ctx.lineWidth = 3
         ctx.beginPath()
         ctx.moveTo(farX - farW, hzY)
         ctx.lineTo(nearX - nearW, hY)
@@ -429,7 +378,7 @@ export default function PurrBeatStage({ stage, reduced, drawRef }: {
           const y = projectY(p)
           const halfSpan = spreadAt(d) / 2
           const a = 0.1 + 0.34 * (1 - d) * (1 - d)
-          ctx.strokeStyle = `rgba(245,208,254,${a})`
+          ctx.strokeStyle = `${M.leaf}${hex(a * 0.6)}`
           ctx.lineWidth = 1 + (1 - d) * 1.6
           ctx.beginPath()
           ctx.moveTo(W / 2 - halfSpan, y)
@@ -462,42 +411,26 @@ export default function PurrBeatStage({ stage, reduced, drawRef }: {
         ctx.fill()
 
         ctx.globalAlpha = fade
-        // Halo. One radial per note, no shadowBlur — shadowBlur is the single
-        // most expensive canvas op on mobile and this is the cheap equivalent.
-        ctx.globalCompositeOperation = 'lighter'
-        glow(cx, y, hw * 1.45, `${LANE_HUE[n.lane]}4D`, `${LANE_HUE[n.lane]}00`)
-        ctx.globalCompositeOperation = 'source-over'
-
-        const body = ctx.createLinearGradient(0, y - h / 2, 0, y + h / 2)
-        body.addColorStop(0, LANE_LIGHT[n.lane])
-        body.addColorStop(0.45, LANE_HUE[n.lane])
-        body.addColorStop(1, LANE_HUE[n.lane])
-        ctx.fillStyle = body
+        ctx.fillStyle = `${M.text}30`
+        roundRect(cx - hw, y - h / 2 + 3 * scale, hw * 2, h, Math.max(1, h * 0.32))
+        ctx.fill()
+        ctx.fillStyle = LANE_HUE[n.lane]
         roundRect(cx - hw, y - h / 2, hw * 2, h, Math.max(1, h * 0.32))
         ctx.fill()
 
         // Hard top highlight — the pixel-art convention, and it makes the note
         // read as a solid object rather than a smear.
-        ctx.fillStyle = 'rgba(255,255,255,0.85)'
+        ctx.fillStyle = LANE_LIGHT[n.lane]
         roundRect(cx - hw * 0.82, y - h / 2 + h * 0.13, hw * 1.64, Math.max(1, h * 0.16), h * 0.08)
         ctx.fill()
         ctx.globalAlpha = 1
       }
 
       // ── 5. Hit line + pads ───────────────────────────────────────────────
-      // The stage front. Everything below the line is darkened so the eye is
-      // pulled to the judgment row instead of drifting off the bottom.
       const nearSpan = spreadAt(0)
-      if (!floorFade) {
-        floorFade = ctx.createLinearGradient(0, hY, 0, H)
-        floorFade.addColorStop(0, 'rgba(0,0,0,0)')
-        floorFade.addColorStop(1, 'rgba(0,0,0,0.55)')
-      }
-      ctx.fillStyle = floorFade
+      ctx.fillStyle = M.soft
       ctx.fillRect(0, hY, W, H - hY)
-
-      const linePulse = 0.55 + throb * 0.45
-      ctx.fillStyle = `rgba(255,255,255,${0.22 + throb * 0.28})`
+      ctx.fillStyle = M.softLip
       ctx.fillRect(W / 2 - nearSpan / 2, hY - 1.5, nearSpan, 3)
 
       for (let lane = 0; lane < LANES; lane++) {
@@ -505,14 +438,20 @@ export default function PurrBeatStage({ stage, reduced, drawRef }: {
         const hw = laneHalfW(0)
         const tapAge = now - s.laneTap[lane]
         const lit = clamp01(1 - tapAge / 0.18)
-        const padH = 15
+        const padH = 28
 
-        roundRect(cx - hw, hY - padH / 2, hw * 2, padH, 4)
-        ctx.fillStyle = `rgba(255,255,255,${0.05 + lit * 0.4})`
+        roundRect(cx - hw, hY - padH / 2 + 4, hw * 2, padH, 8)
+        ctx.fillStyle = M.softLip
         ctx.fill()
-        ctx.strokeStyle = `${LANE_HUE[lane]}${hex(0.55 + lit * 0.45)}`
-        ctx.lineWidth = 2
+        roundRect(cx - hw, hY - padH / 2, hw * 2, padH, 8)
+        ctx.fillStyle = lit > 0 ? LANE_TINT[lane] : M.ground
+        ctx.fill()
+        ctx.strokeStyle = LANE_HUE[lane]
+        ctx.lineWidth = lit > 0 ? 3 : 2
         ctx.stroke()
+        ctx.fillStyle = LANE_HUE[lane]
+        roundRect(cx - 10, hY - 2, 20, 4, 2)
+        ctx.fill()
 
         // Reflection on the stage front. Cheap (one squashed copy at low
         // alpha) and it turns the empty strip below the line into floor.
@@ -529,8 +468,7 @@ export default function PurrBeatStage({ stage, reduced, drawRef }: {
         ctx.restore()
       }
 
-      ctx.globalCompositeOperation = 'lighter'
-      glow(W / 2, hY, nearSpan * 0.5, `rgba(245,208,254,${0.09 * linePulse})`, 'rgba(245,208,254,0)')
+      ctx.globalCompositeOperation = 'source-over'
       for (let lane = 0; lane < LANES; lane++) {
         const lit = clamp01(1 - (now - s.laneTap[lane]) / 0.18)
         if (lit <= 0) continue
@@ -548,7 +486,7 @@ export default function PurrBeatStage({ stage, reduced, drawRef }: {
         const a = (1 - age) * (r.kind === 'perfect' ? 0.9 : 0.6)
         ctx.strokeStyle = r.kind === 'miss'
           ? `rgba(248,113,113,${a})`
-          : r.kind === 'perfect' ? `rgba(255,236,150,${a})` : `${LANE_HUE[r.lane]}${hex(a)}`
+          : r.kind === 'perfect' ? `${M.coinRim}${hex(a)}` : `${LANE_HUE[r.lane]}${hex(a)}`
         ctx.lineWidth = 3 * (1 - age) + 0.6
         // Squashed — the ring lies on the floor plane, not facing the camera.
         ctx.beginPath()
@@ -606,14 +544,6 @@ export default function PurrBeatStage({ stage, reduced, drawRef }: {
         ctx.fillRect(0, 0, W, H)
       }
 
-      // CRT scanlines — the project's dark-panel signature, drawn last so it
-      // sits over the light rather than under it. One tiled pattern fill, not
-      // H/3 separate fillRects; at ~230 rects a frame that was the single most
-      // expensive call in the loop and it never changes.
-      if (scanlines) {
-        ctx.fillStyle = scanlines
-        ctx.fillRect(0, 0, W, H)
-      }
     }
 
     drawRef.current = draw
