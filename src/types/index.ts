@@ -396,6 +396,8 @@ export interface LidTone {
   flat: string
 }
 
+export type SkinSet = 'animal' | 'food' | 'creatures'
+
 export interface GachaItemDef {
   id: string
   name: string
@@ -406,10 +408,10 @@ export interface GachaItemDef {
   image: string
   /** Keys into the skins catalogue (lib/skins.ts) for the room/closet render. */
   skinId?: string
-  // Which skin gacha a skin item belongs to. Two banners both drop `category:
-  // 'skin'` (animal costumes vs food costumes); this keeps each banner's pool
+  // Which skin gacha a skin item belongs to. Costume banners share `category:
+  // 'skin'`; this keeps each banner's pool
   // to its own set. Undefined on non-skin items.
-  skinSet?: 'animal' | 'food'
+  skinSet?: SkinSet
   // Non-gacha unlock route. 'drink' = granted the first time the matching
   // SPECIAL EDITION can is fed; 'jelly' = granted for completing the Jelly
   // Parlour set. Such an item is still catalogued (it counts toward the
@@ -429,9 +431,8 @@ export interface GachaBannerDef {
   bgGradient: [string, string]
   /** When set, pulls on this banner only drop items from these categories. */
   categories?: GachaCategory[]
-  /** For a skin banner: which skin set it draws from. Lets two `['skin']`
-   *  banners (animal costumes vs food costumes) keep separate pools. */
-  skinSet?: 'animal' | 'food'
+  /** For a skin banner: which skin set it draws from. Keeps costume pools separate. */
+  skinSet?: SkinSet
 }
 
 export interface UserInventoryItem {

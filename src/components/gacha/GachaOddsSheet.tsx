@@ -12,7 +12,7 @@
 // carries the numbers, then the rules, one short line each. This is a thing
 // you glance at before spending 50 coins, not something you read. One line
 // stays a footnote because it's a real gotcha: pity lives on the PERSON, not
-// the machine, so pulls on one machine count towards all three.
+// the machine, so pulls on one machine count towards every machine.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { playSound } from '@/lib/sounds'
@@ -76,7 +76,7 @@ export default function GachaOddsSheet({
         </div>
       ))}
       <p style={{ margin: '10px 4px 4px', fontSize: 13, fontWeight: 600, lineHeight: 1.45, color: M.text2 }}>
-        The count towards a guarantee is shared by all three machines.
+        The count towards a guarantee is shared by all machines.
       </p>
     </Sheet>
   )

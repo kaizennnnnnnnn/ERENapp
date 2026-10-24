@@ -27,7 +27,7 @@ import {
 } from '@/components/meadow'
 import { STARDUST_INK } from '@/components/rewards/rewardDisplay'
 import { ROOM_FIT, skinRoomFit, resolveRoomSkin, skinPrice, type SkinDef, type RoomDef } from '@/lib/skins'
-import type { GachaRarity } from '@/types'
+import type { GachaRarity, SkinSet } from '@/types'
 import { playSound } from '@/lib/sounds'
 import { useCat } from '@/hooks/useCat'
 import { swapCatName } from '@/lib/catWords'
@@ -38,7 +38,7 @@ import { useRemembered, oneOf, isBool } from '@/hooks/useRemembered'
 // doubles as the room_skins value: '' = the room's built-in default look.
 export type ClosetCard = { key: string; skin: SkinDef | null; locked: boolean; isDefault?: boolean }
 
-type ShopFilter = 'all' | 'animal' | 'food'
+type ShopFilter = 'all' | SkinSet
 type RarityFilter = 'all' | GachaRarity
 
 export type ClosetTab = 'mine' | 'shop'
@@ -107,7 +107,7 @@ export default function ClosetView({
   favorites, onToggleFavorite, onSurprise, partnerPicks,
 }: Props) {
   // The filters are remembered on this phone, like the page's room and tab.
-  const [shopFilter, setShopFilter] = useRemembered<ShopFilter>('closet:set', 'all', oneOf('all', 'animal', 'food'))
+  const [shopFilter, setShopFilter] = useRemembered<ShopFilter>('closet:set', 'all', oneOf('all', 'animal', 'food', 'creatures'))
   const [rarity, setRarity] = useRemembered<RarityFilter>('closet:rarity', 'all', oneOf('all', ...RARITIES))
   const [affordOnly, setAffordOnly] = useRemembered('closet:afford', false, isBool)
   const [favOnly, setFavOnly] = useRemembered('closet:favs', false, isBool)
@@ -272,6 +272,8 @@ export default function ClosetView({
                 icon={<MeadowIcon name="paw" size={16} />}>Animals<Count n={setCount('animal')} /></Chip>
               <Chip selected={shopFilter === 'food'} onClick={pickSet('food')}
                 icon={<MeadowIcon name="bowl" size={16} />}>Foods<Count n={setCount('food')} /></Chip>
+              <Chip selected={shopFilter === 'creatures'} onClick={pickSet('creatures')}
+                icon={<MeadowIcon name="paw" size={16} />}>Creatures<Count n={setCount('creatures')} /></Chip>
             </>
           )}
         </div>

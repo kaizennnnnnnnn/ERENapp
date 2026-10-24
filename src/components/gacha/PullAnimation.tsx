@@ -19,11 +19,11 @@ interface Props {
   /** Skip the capsule-shake intro — for pulls whose opening already played (a cinematic or video). */
   skipCapsule?: boolean
   /** Which machine paid out: each has its own reveal sounds. */
-  machine: 'food' | 'animal' | 'foodsuits'
+  machine: 'food' | 'animal' | 'foodsuits' | 'creatures'
 }
 
 /** Each machine's reveal voice (see gacha_* in lib/sounds.ts). */
-const REVEAL_VOICE = { food: 'fizz', animal: 'skin', foodsuits: 'suit' } as const
+const REVEAL_VOICE = { food: 'fizz', animal: 'skin', foodsuits: 'suit', creatures: 'skin' } as const
 
 // ═══════════════════════════════════════════════════════════════════════════
 // THE REVEAL, in Meadow. What you pulled stands on the Meadow stage, the cat's

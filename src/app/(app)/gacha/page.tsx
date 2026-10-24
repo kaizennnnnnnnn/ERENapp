@@ -22,10 +22,10 @@ import { playSound } from '@/lib/sounds'
 import { requestCloudNav } from '@/components/CloudTransition'
 import CurtainGlitter from '@/components/CurtainGlitter'
 
-// Three machines, one swipe apart. Page order matches the banner ids in
+// Four machines, one swipe apart. Page order matches the banner ids in
 // GACHA_BANNERS — food first (what the gacha button lands on), animal next,
-// FoodSuits third.
-// WEBP, not PNG, and deliberately so: all three backdrops are mounted at once,
+// FoodSuits third, Creature Costumes fourth.
+// WEBP, not PNG, and deliberately so: all backdrops are mounted at once,
 // each on its own transformed compositor layer, so their decoded size is
 // resident the whole time you're on this screen. As PNGs they were 11.4 MB on
 // the wire and ~29 MB of bitmap; re-encoded (scripts/backdrop_to_webp.py) they
@@ -36,8 +36,9 @@ import CurtainGlitter from '@/components/CurtainGlitter'
 const PAGES = [
   { id: 'food', bg: '/gacha_food.webp?v=2' },
   { id: 'animal', bg: '/gacha_animal.webp?v=1' },
-  // FoodSuits — placeholder reward pool for now (see GACHA_BANNERS).
+  // FoodSuits has its own food-costume reward pool.
   { id: 'foodsuits', bg: '/gacha_foodsuits.webp?v=1' },
+  { id: 'creatures', bg: '/gacha_creatures.webp?v=1' },
 ] as const
 
 // The switcher's names, in page order.
@@ -138,7 +139,7 @@ export default function GachaPage() {
     const w = pageW.current || el.clientWidth
     if (!w) return
     const x = el.scrollLeft / w
-    PAGES.forEach((_, i) => {
+    PAGES.forEach((page, i) => {
       const p = Math.max(-1, Math.min(1, x - i)) // 0 = centered, ±1 = a full page away
       const a = Math.abs(p)
       const inner = innerRefs.current[i]
@@ -148,7 +149,9 @@ export default function GachaPage() {
       // overscans (scale 1.12) so the shift never reveals an edge. (No per-frame
       // blur: re-rasterizing a full-screen blur every scroll frame was the swipe
       // jank, and the GPU-memory pressure it created was blanking the buttons.)
-      if (bg) bg.style.transform = `translateX(${(p * 6).toFixed(3)}%) scale(1.12)`
+      // The taller creature machine needs its full sign below the HUD at rest.
+      const zoom = page.id === 'creatures' ? 1 + 0.12 * a : 1.12
+      if (bg) bg.style.transform = `translateX(${(p * 6).toFixed(3)}%) scale(${zoom})`
       const dim = dimRefs.current[i]
       if (dim) dim.style.opacity = (0.6 * a).toFixed(3)
       // Edge vignette ramps in off-center so the two abutting page edges melt
@@ -323,7 +326,7 @@ export default function GachaPage() {
     if (drawnOpening) {
       // Hand the cinematic its rarity → it resolves and bursts.
       setCinematicRarity(best)
-    } else if (bannerId === 'animal') {
+    } else if (bannerId === 'animal' || bannerId === 'creatures') {
       // Clothes: open with the hit cinematic for the best drop in the batch.
       const vid = pickClothesHitVideo(best)
       if (vid) {
@@ -378,7 +381,7 @@ export default function GachaPage() {
                   backgroundImage: `url(${p.bg})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
-                  transform: 'scale(1.12)',
+                  transform: `scale(${p.id === 'creatures' ? 1 : 1.12})`,
                 }} />
             </div>
 

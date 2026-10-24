@@ -35,7 +35,7 @@ const fs = require('fs')
 const path = require('path')
 const puppeteer = require('puppeteer-core')
 
-const CHROME = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+const CHROME = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
 const SRC_DIR = 'C:\\Users\\Lenovo\\Downloads'
 const OUT_DIR = path.join(__dirname, '..', 'public', 'skins')
 const MANIFEST = path.join(__dirname, 'skins_manifest.json')
@@ -102,6 +102,16 @@ const SKINS = [
   { id: 'boba',            file: 'ErenBoba.png',            rarity: 'legendary', name: 'Boba Eren',             set: 'food' },
   { id: 'lemon2',          file: 'ErenLemon2.png',          rarity: 'rare',      name: 'Lemon Dress Eren',      set: 'food' },
   { id: 'applecandy2',     file: 'ErenAppleCandy2.png',     rarity: 'epic',      name: 'Candy Apple Suit Eren', set: 'food' },
+
+  // Approved Creature Costumes sources live in the repo, not Downloads.
+  { id: 'bee',           file: 'bee.webp',            rarity: 'rare',      name: 'Bee Eren',            set: 'creatures' },
+  { id: 'lobster',       file: 'lobster.webp',        rarity: 'epic',      name: 'Lobster Eren',        set: 'creatures' },
+  { id: 'crystaldragon', file: 'crystal-dragon.webp', rarity: 'legendary', name: 'Crystal Dragon Eren', set: 'creatures' },
+  { id: 'snail',         file: 'snail.webp',          rarity: 'rare',      name: 'Snail Eren',          set: 'creatures' },
+  { id: 'butterfly',     file: 'butterfly.webp',      rarity: 'epic',      name: 'Butterfly Eren',      set: 'creatures' },
+  { id: 'turtle',        file: 'turtle.webp',         rarity: 'rare',      name: 'Turtle Eren',         set: 'creatures' },
+  { id: 'octopus',       file: 'octopus.webp',        rarity: 'epic',      name: 'Octopus Eren',        set: 'creatures' },
+  { id: 'peacock',       file: 'peacock.webp',        rarity: 'legendary', name: 'Peacock Eren',        set: 'creatures', eyesOverride: { lx: 43.15, rx: 56.78, cy: 44.1 } },
 ]
 
 // ───────────────────────── browser-side processing ─────────────────────────
@@ -121,6 +131,12 @@ function processInBrowser(dataUrl, opts) {
       const A = (x, y) => d[(y * W0 + x) * 4 + 3]
       const setA0 = (x, y) => { d[(y * W0 + x) * 4 + 3] = 0 }
       const lum = (r, g, b) => 0.3 * r + 0.59 * g + 0.11 * b
+
+      // Native-alpha sources use 254 for solid pixels, including white paws.
+      // Normalize those before the legacy translucent-white fringe removal.
+      if (opts.nativeAlpha) {
+        for (let p = 0; p < d.length; p += 4) d[p + 3] = d[p + 3] < 128 ? 0 : 255
+      }
 
       // ── 1. Background removal (flood-fill from the border) ──────────────
       // Detect the bg colour from the corners. If already transparent, skip.
@@ -424,6 +440,58 @@ function processInBrowser(dataUrl, opts) {
         if (r <= cut) continue
         let x = r                              // rightmost run, pixels past `cut`
         while (x >= 0 && sil[y * W + x]) { if (x > cut) tailMask[y * W + x] = 1; x-- }
+      }
+
+      // Shells and wings are asymmetric; use the uncovered gray tail itself
+      // rather than mirroring the creature costume's silhouette.
+      let grayTailMask = null
+      if (opts.grayTail) {
+        const seen = new Uint8Array(W * H)
+        let largest = []
+        const neutral = (p) => {
+          const x = p % W, y = (p / W) | 0, i = p * 4
+          const r = fd[i], g = fd[i + 1], b = fd[i + 2], l = lum(r, g, b)
+          return x >= W * 0.72 && y >= H * 0.4 && sil[p]
+            && l > 60 && l < 190 && r >= g - 5 && g >= b - 5
+            && r - b < 65 && r - g < 40 && g - b < 35
+        }
+        for (let y = Math.floor(H * 0.4); y < H; y++) for (let x = Math.floor(W * 0.72); x < W; x++) {
+          const start = y * W + x
+          if (seen[start] || !neutral(start)) continue
+          const points = [], stack = [start]
+          seen[start] = 1
+          while (stack.length) {
+            const p = stack.pop(), px = p % W, py = (p / W) | 0
+            points.push(p)
+            for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+              const nx = px + dx, ny = py + dy
+              if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue
+              const q = ny * W + nx
+              if (!seen[q] && neutral(q)) { seen[q] = 1; stack.push(q) }
+            }
+          }
+          if (points.length > largest.length) largest = points
+        }
+        grayTailMask = new Uint8Array(W * H)
+        let frontier = largest
+        for (const p of largest) grayTailMask[p] = 1
+        // Recover only the nearby dark frame, not connected costume outlines.
+        for (let pass = 0; pass < Math.ceil(W * 0.02); pass++) {
+          const next = []
+          for (const p of frontier) {
+            const x = p % W, y = (p / W) | 0
+            for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+              const nx = x + dx, ny = y + dy
+              if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue
+              const q = ny * W + nx, i = q * 4
+              if (!grayTailMask[q] && sil[q] && lum(fd[i], fd[i + 1], fd[i + 2]) < 90) {
+                grayTailMask[q] = 1; next.push(q)
+              }
+            }
+          }
+          frontier = next
+        }
+        tailMask.set(grayTailMask)
       }
 
       // largest tail component on the right + below the head band
@@ -807,6 +875,16 @@ function processInBrowser(dataUrl, opts) {
         tMinX = 1e9; tMaxX = -1; tMinY = 1e9; tMaxY = -1
         for (let i = 0; i < W * H; i++) if (tailMask[i]) { const x = i % W, y = (i / W) | 0; if (x < tMinX) tMinX = x; if (x > tMaxX) tMaxX = x; if (y < tMinY) tMinY = y; if (y > tMaxY) tMaxY = y }
 
+        if (grayTailMask) {
+          tailMask.set(grayTailMask)
+          tMinX = W; tMaxX = -1; tMinY = H; tMaxY = -1
+          for (let p = 0; p < W * H; p++) if (tailMask[p]) {
+            const x = p % W, y = (p / W) | 0
+            tMinX = Math.min(tMinX, x); tMaxX = Math.max(tMaxX, x)
+            tMinY = Math.min(tMinY, y); tMaxY = Math.max(tMaxY, y)
+          }
+        }
+
         // Emit the tail layer from the (now trimmed) mask.
         const tc = document.createElement('canvas')
         tc.width = W; tc.height = H
@@ -937,7 +1015,7 @@ function processInBrowser(dataUrl, opts) {
   const prior = ONLY && fs.existsSync(MANIFEST)
     ? JSON.parse(fs.readFileSync(MANIFEST, 'utf8'))
     : []
-  const todo = ONLY ? SKINS.filter(s => s.id === ONLY) : SKINS
+  const todo = ONLY ? SKINS.filter(s => s.id === ONLY || s.set === ONLY) : SKINS
   if (ONLY && todo.length === 0) { console.log(`no skin with id "${ONLY}"`); return }
 
   fs.mkdirSync(OUT_DIR, { recursive: true })
@@ -948,11 +1026,13 @@ function processInBrowser(dataUrl, opts) {
   const manifest = []
   const sheet = []
   for (const s of todo) {
-    const srcPath = path.join(SRC_DIR, s.file)
+    const srcPath = s.set === 'creatures'
+      ? path.join(__dirname, 'skin_sources', 'creatures', s.file)
+      : path.join(SRC_DIR, s.file)
     if (!fs.existsSync(srcPath)) { console.log(`MISSING ${s.file}`); continue }
     const b64 = fs.readFileSync(srcPath).toString('base64')
-    const dataUrl = `data:image/png;base64,${b64}`
-    const r = await page.evaluate(processInBrowser, dataUrl, { bg: s.bg, reoutline: s.reoutline, tailGap: s.tailGap, tailYStart: s.tailYStart, eyesOverride: s.eyesOverride, tailOrigin: s.tailOrigin, topTip: s.topTip, topFlood: s.topFlood, tailOutline: s.tailOutline, topBright: s.topBright, glintOverride: s.glintOverride })
+    const dataUrl = `data:image/${path.extname(srcPath) === '.webp' ? 'webp' : 'png'};base64,${b64}`
+    const r = await page.evaluate(processInBrowser, dataUrl, { nativeAlpha: s.set === 'creatures', grayTail: s.set === 'creatures', bg: s.bg, reoutline: s.reoutline, tailGap: s.tailGap, tailYStart: s.tailYStart, eyesOverride: s.eyesOverride, tailOrigin: s.tailOrigin, topTip: s.topTip, topFlood: s.topFlood, tailOutline: s.tailOutline, topBright: s.topBright, glintOverride: s.glintOverride })
     if (r.error) { console.log(`ERR ${s.id}: ${r.error}`); continue }
     const write = (suffix, url) => {
       if (!url) return
@@ -989,9 +1069,9 @@ function processInBrowser(dataUrl, opts) {
   }).join('\n')
   const tsFile = path.join(__dirname, '..', 'src', 'lib', 'skinsData.ts')
   fs.writeFileSync(tsFile, `// AUTO-GENERATED by scripts/build_skins.cjs — do not edit by hand.\n` +
-    `import type { GachaRarity, EyeLayout } from '@/types'\n\n` +
+    `import type { GachaRarity, EyeLayout, SkinSet } from '@/types'\n\n` +
     `export interface SkinRenderData {\n` +
-    `  id: string\n  name: string\n  rarity: GachaRarity\n  set: 'animal' | 'food'\n  aspect: number\n` +
+    `  id: string\n  name: string\n  rarity: GachaRarity\n  set: SkinSet\n  aspect: number\n` +
     `  src: string\n  tailSrc?: string\n  tailOrigin?: string\n  thumb: string\n  eyes?: Partial<EyeLayout>\n}\n\n` +
     `export const SKIN_DATA: SkinRenderData[] = [\n${tsRows}\n]\n`)
   console.log('TS data →', tsFile)

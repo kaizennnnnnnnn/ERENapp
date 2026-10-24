@@ -18,7 +18,7 @@ import {
   SKINNABLE_ROOMS, GACHA_SKINS, CLASSIC_SKIN, skinUnlockDrink, type SkinDef,
 } from '@/lib/skins'
 import { FOOD_META } from '@/lib/foodMeta'
-import type { GachaRarity, FoodKey } from '@/types'
+import type { GachaRarity, FoodKey, SkinSet } from '@/types'
 import SkinPurchaseSheet from '@/components/closet/SkinPurchaseSheet'
 import RoomPickerSheet from '@/components/closet/RoomPickerSheet'
 import SurpriseSheet, { type SurpriseScope } from '@/components/closet/SurpriseSheet'
@@ -33,6 +33,7 @@ interface Toast { msg: string; action?: { label: string; run: () => void } }
 const RARITY_RANK: Record<GachaRarity, number> = { legendary: 0, epic: 1, rare: 2, common: 3 }
 const byRarity = (a: SkinDef, b: SkinDef) =>
   RARITY_RANK[a.rarity] - RARITY_RANK[b.rarity] || a.name.localeCompare(b.name)
+const SET_RANK: Record<SkinSet, number> = { animal: 0, food: 1, creatures: 2 }
 
 export default function ClosetPage() {
   const router = useRouter()
@@ -151,10 +152,10 @@ export default function ClosetPage() {
     ]
   }, [owned, leadFavs])
 
-  // SHOP = the locked catalogue, grouped animals→foods then rarest first.
+  // SHOP = the locked catalogue, grouped by costume set then rarest first.
   const lockedCards: ClosetCard[] = useMemo(() =>
     GACHA_SKINS.filter(s => !owned.has(s.id))
-      .sort((a, b) => (a.set === b.set ? byRarity(a, b) : a.set === 'animal' ? -1 : 1))
+      .sort((a, b) => (SET_RANK[a.set ?? 'animal'] - SET_RANK[b.set ?? 'animal']) || byRarity(a, b))
       .map(s => ({ key: s.id, skin: s, locked: true })),
     [owned])
 

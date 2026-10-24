@@ -43,6 +43,7 @@ const SKIN_SECTIONS = [
   { key: 'special', label: 'Earned, not pulled', match: (i: GachaItemDef) => !!i.unlock },
   { key: 'animal', label: 'Kitty Costumes', match: (i: GachaItemDef) => !i.unlock && i.skinSet === 'animal' },
   { key: 'food', label: 'FoodSuits', match: (i: GachaItemDef) => !i.unlock && i.skinSet === 'food' },
+  { key: 'creatures', label: 'Creature Costumes', match: (i: GachaItemDef) => !i.unlock && i.skinSet === 'creatures' },
 ]
 
 /**
@@ -76,6 +77,7 @@ function sourceHint(item: GachaItemDef): string {
   }
   const drink = item.skinId ? skinUnlockDrink(item.skinId) : undefined
   if (drink) return `Feed {name} a ${FOOD_META[drink as FoodKey].name}. The first can {he} finishes leaves its colours on {him} for good.`
+  if (item.skinSet === 'creatures') return 'Pull it from the Creature Costumes machine, or unlock it with stardust in the Closet.'
   return item.skinSet === 'food'
     ? 'Pull it from the FoodSuits machine, or unlock it with stardust in the Closet.'
     : 'Pull it from the Kitty Costumes machine, or unlock it with stardust in the Closet.'

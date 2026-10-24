@@ -148,6 +148,16 @@ export const GACHA_BANNERS: GachaBannerDef[] = [
     categories: ['skin'],
     skinSet: 'food',
   },
+  {
+    id: 'creatures',
+    name: 'Creature Costumes',
+    description: 'Eight creature costumes for {name}, from tiny wings to a crystal dragon.',
+    featuredItems: [],
+    permanent: true,
+    bgGradient: ['#76A785', '#D9E9D0'],
+    categories: ['skin'],
+    skinSet: 'creatures',
+  },
 ]
 
 // ─── Pull mechanics ──────────────────────────────────────────────────────────
@@ -198,7 +208,7 @@ export interface BannerOdds {
  *
  * RARITY_WEIGHTS on its own is a lie on any banner that's missing a tier.
  * rollItem escalates a roll upward until it finds a tier that has items, so on
- * the two skin banners — which have no commons — the entire 60% common slice
+ * the costume banners, which have no commons, the entire 60% common slice
  * lands on rare instead. A panel printing the raw table would be wrong about
  * 60% of pulls there.
  *

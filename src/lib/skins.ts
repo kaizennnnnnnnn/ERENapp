@@ -1,4 +1,4 @@
-import type { GachaItemDef, GachaRarity, EyeLayout, LidTone, FoodKey } from '@/types'
+import type { GachaItemDef, GachaRarity, EyeLayout, LidTone, FoodKey, SkinSet } from '@/types'
 import { SKIN_DATA } from './skinsData'
 import { FOOD_META } from './foodMeta'
 
@@ -13,7 +13,7 @@ export interface SkinDef {
   id: string
   name: string
   rarity: GachaRarity
-  set?: 'animal' | 'food'  // which skin gacha drops it (animal/food costumes)
+  set?: SkinSet  // which costume machine drops it
   // BlinkingEren render inputs
   src: string            // tail-erased body (or full sprite when no tail layer)
   tailSrc?: string       // isolated tail layer (omitted → body breathes as one)
