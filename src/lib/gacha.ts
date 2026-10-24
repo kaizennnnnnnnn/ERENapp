@@ -151,7 +151,7 @@ export const GACHA_BANNERS: GachaBannerDef[] = [
   {
     id: 'creatures',
     name: 'Creature Costumes',
-    description: 'Eight creature costumes for {name}, from tiny wings to a crystal dragon.',
+    description: 'Creature costumes for {name}, from tiny wings to magical horns.',
     featuredItems: [],
     permanent: true,
     bgGradient: ['#76A785', '#D9E9D0'],

@@ -26,6 +26,7 @@
  *
  * Run:  node scripts/build_skins.cjs           (everything)
  *       node scripts/build_skins.cjs jelly     (one skin)
+ *       node scripts/build_skins.cjs ladybug,capybara (selected skins)
  *
  * The one-skin form exists because a full run rewrites all 43 PNGs, which
  * forces a SKIN_V bump and re-verification of art that didn't change. It merges
@@ -112,6 +113,11 @@ const SKINS = [
   { id: 'turtle',        file: 'turtle.webp',         rarity: 'rare',      name: 'Turtle Eren',         set: 'creatures' },
   { id: 'octopus',       file: 'octopus.webp',        rarity: 'epic',      name: 'Octopus Eren',        set: 'creatures' },
   { id: 'peacock',       file: 'peacock.webp',        rarity: 'legendary', name: 'Peacock Eren',        set: 'creatures', eyesOverride: { lx: 43.15, rx: 56.78, cy: 44.1 } },
+  { id: 'ladybug',       file: 'ladybug.webp',        rarity: 'rare',      name: 'Ladybug Eren',        set: 'creatures', tailYStart: 0.71 },
+  { id: 'capybara',      file: 'capybara.webp',       rarity: 'rare',      name: 'Capybara Eren',       set: 'creatures' },
+  { id: 'redpanda',      file: 'redpanda.webp',       rarity: 'epic',      name: 'Red Panda Eren',      set: 'creatures' },
+  { id: 'jellyfish',     file: 'jellyfish.webp',      rarity: 'epic',      name: 'Jellyfish Eren',      set: 'creatures', tailYStart: 0.7 },
+  { id: 'unicorn',       file: 'unicorn.webp',        rarity: 'legendary', name: 'Unicorn Eren',        set: 'creatures' },
 ]
 
 // ───────────────────────── browser-side processing ─────────────────────────
@@ -1017,7 +1023,8 @@ function processInBrowser(dataUrl, opts) {
   const prior = ONLY && fs.existsSync(MANIFEST)
     ? JSON.parse(fs.readFileSync(MANIFEST, 'utf8'))
     : []
-  const todo = ONLY ? SKINS.filter(s => s.id === ONLY || s.set === ONLY) : SKINS
+  const targets = new Set((ONLY ?? '').split(','))
+  const todo = ONLY ? SKINS.filter(s => targets.has(s.id) || targets.has(s.set)) : SKINS
   if (ONLY && todo.length === 0) { console.log(`no skin with id "${ONLY}"`); return }
 
   fs.mkdirSync(OUT_DIR, { recursive: true })

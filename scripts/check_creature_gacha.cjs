@@ -29,18 +29,19 @@ const gacha = load(path.join(root, 'src/lib/gacha.ts'))
 const skins = load(path.join(root, 'src/lib/skins.ts'))
 const { CREATURE_CAPSULES, pickCreatureCapsule } = load(path.join(root, 'src/lib/gachaCapsules.ts'))
 const manifest = require('./skins_manifest.json')
-const ids = ['bee', 'lobster', 'crystaldragon', 'snail', 'butterfly', 'turtle', 'octopus', 'peacock']
+const ids = ['bee', 'lobster', 'crystaldragon', 'snail', 'butterfly', 'turtle', 'octopus', 'peacock',
+  'ladybug', 'capybara', 'redpanda', 'jellyfish', 'unicorn']
 const creatures = gacha.GACHA_ITEMS.filter(item => item.skinSet === 'creatures')
 assert.deepEqual(gacha.GACHA_BANNERS.map(banner => banner.id), ['food', 'animal', 'foodsuits', 'creatures'])
 assert.equal(new Set(gacha.GACHA_ITEMS.map(item => item.id)).size, gacha.GACHA_ITEMS.length)
 assert.deepEqual(creatures.map(item => item.skinId), ids)
 assert.deepEqual(gacha.bannerOdds('creatures'), [
-  { rarity: 'legendary', chance: 3, items: 2 },
-  { rarity: 'epic', chance: 12, items: 3 },
-  { rarity: 'rare', chance: 85, items: 3 },
+  { rarity: 'legendary', chance: 3, items: 3 },
+  { rarity: 'epic', chance: 12, items: 5 },
+  { rarity: 'rare', chance: 85, items: 5 },
 ])
 
-for (const [banner, count] of [['food', 13], ['animal', 21], ['foodsuits', 20], ['creatures', 8]]) {
+for (const [banner, count] of [['food', 13], ['animal', 21], ['foodsuits', 20], ['creatures', 13]]) {
   assert.equal(gacha.bannerOdds(banner).reduce((sum, tier) => sum + tier.items, 0), count)
   for (const rarity of ['common', 'rare', 'epic', 'legendary']) {
     for (let i = 0; i < 100; i++) {
@@ -97,4 +98,4 @@ for (const [rarity, pool] of Object.entries(CREATURE_CAPSULES)) {
   }
 }
 assert.ok(CREATURE_CAPSULES.rare.includes(pickCreatureCapsule('common', 0.5)))
-console.log('Creature gacha checks passed: isolated pools, eight skins, twelve capsule designs, no immediate repeats, odds, pity and assets.')
+console.log('Creature gacha checks passed: isolated pools, thirteen skins, twelve capsule designs, no immediate repeats, odds, pity and assets.')
