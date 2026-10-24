@@ -27,6 +27,7 @@ function load(file) {
 
 const gacha = load(path.join(root, 'src/lib/gacha.ts'))
 const skins = load(path.join(root, 'src/lib/skins.ts'))
+const { CREATURE_CAPSULES, pickCreatureCapsule } = load(path.join(root, 'src/lib/gachaCapsules.ts'))
 const manifest = require('./skins_manifest.json')
 const ids = ['bee', 'lobster', 'crystaldragon', 'snail', 'butterfly', 'turtle', 'octopus', 'peacock']
 const creatures = gacha.GACHA_ITEMS.filter(item => item.skinSet === 'creatures')
@@ -75,4 +76,25 @@ for (const id of ids) {
   }
 }
 assert.ok(fs.statSync(path.join(root, 'public/gacha_creatures.webp')).size > 0)
-console.log('Creature gacha checks passed: four isolated pools, eight wearable skins, odds, pity and assets.')
+const capsuleIds = Object.values(CREATURE_CAPSULES).flat().map(capsule => capsule.id)
+assert.equal(capsuleIds.length, 12)
+assert.equal(new Set(capsuleIds).size, 12)
+for (const [rarity, pool] of Object.entries(CREATURE_CAPSULES)) {
+  assert.equal(pool.length, 4)
+  assert.equal(new Set(pool.map(capsule => capsule.pattern)).size, 4)
+  for (let i = 0; i < 4; i++) {
+    assert.equal(pickCreatureCapsule(rarity, (i + 0.5) / 4).id, pool[i].id)
+  }
+  for (const previous of pool) {
+    const nextIds = new Set()
+    for (let i = 0; i < 3; i++) {
+      const next = pickCreatureCapsule(rarity, (i + 0.5) / 3, previous.id)
+      assert.notEqual(next.id, previous.id)
+      assert.ok(pool.includes(next))
+      nextIds.add(next.id)
+    }
+    assert.equal(nextIds.size, 3)
+  }
+}
+assert.ok(CREATURE_CAPSULES.rare.includes(pickCreatureCapsule('common', 0.5)))
+console.log('Creature gacha checks passed: isolated pools, eight skins, twelve capsule designs, no immediate repeats, odds, pity and assets.')

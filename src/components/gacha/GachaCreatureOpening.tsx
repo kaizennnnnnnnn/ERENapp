@@ -4,15 +4,10 @@ import { useCallback, useEffect, useRef } from 'react'
 import type { GachaRarity } from '@/types'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { playSound } from '@/lib/sounds'
+import { CREATURE_CAPSULES, pickCreatureCapsule, type CreatureCapsule } from '@/lib/gachaCapsules'
 import TapToSkip from './TapToSkip'
 
 const TAU = Math.PI * 2
-const PALETTE: Record<GachaRarity, { shell: string; light: string; ink: string }> = {
-  common: { shell: '#83B98B', light: '#C0E3B6', ink: '#517453' },
-  rare: { shell: '#83B98B', light: '#C0E3B6', ink: '#517453' },
-  epic: { shell: '#AE8BD2', light: '#E2CBF3', ink: '#765697' },
-  legendary: { shell: '#E8B343', light: '#FFE69D', ink: '#A97524' },
-}
 const clamp = (n: number) => Math.max(0, Math.min(1, n))
 const easeOut = (n: number) => 1 - Math.pow(1 - n, 3)
 
@@ -42,6 +37,87 @@ function star(ctx: CanvasRenderingContext2D, size: number) {
   ctx.closePath(); ctx.fill()
 }
 
+function lidPath(ctx: CanvasRenderingContext2D, radius: number) {
+  ctx.beginPath()
+  ctx.arc(0, 0, radius, Math.PI, TAU)
+  ctx.ellipse(0, 0, radius, radius * 0.16, 0, 0, Math.PI)
+  ctx.closePath()
+}
+
+function lidPrint(ctx: CanvasRenderingContext2D, radius: number, capsule: CreatureCapsule) {
+  ctx.save()
+  ctx.clip()
+  ctx.scale(radius, radius)
+  ctx.fillStyle = capsule.print
+  ctx.strokeStyle = capsule.print
+  ctx.lineWidth = 0.075
+  switch (capsule.pattern) {
+    case 'paw':
+      ctx.translate(0, -0.46); paw(ctx, 0.35)
+      break
+    case 'stripes':
+      ctx.lineWidth = 0.16
+      for (const x of [-0.66, -0.12, 0.42]) {
+        ctx.beginPath(); ctx.moveTo(x, 0.18); ctx.lineTo(x + 0.65, -1.1); ctx.stroke()
+      }
+      break
+    case 'spots':
+      for (const [x, y, size] of [[-0.42, -0.65, 0.12], [0.16, -0.76, 0.1], [0.56, -0.4, 0.13], [-0.04, -0.31, 0.14], [-0.61, -0.13, 0.09]]) {
+        ctx.beginPath(); ctx.arc(x, y, size, 0, TAU); ctx.fill()
+      }
+      break
+    case 'spiral':
+      ctx.beginPath()
+      for (let i = 0; i <= 80; i++) {
+        const t = i / 80, a = t * Math.PI * 4.8, r = 0.02 + t * 0.33
+        const x = Math.cos(a) * r, y = -0.47 + Math.sin(a) * r
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
+      }
+      ctx.stroke()
+      break
+    case 'moon':
+      ctx.beginPath()
+      ctx.moveTo(0.15, -0.84)
+      ctx.bezierCurveTo(-0.6, -0.89, -0.6, -0.12, 0.15, -0.17)
+      ctx.bezierCurveTo(-0.15, -0.31, -0.15, -0.7, 0.15, -0.84)
+      ctx.fill()
+      ctx.save(); ctx.translate(0.43, -0.57); star(ctx, 0.09); ctx.restore()
+      break
+    case 'stars':
+      ctx.save(); ctx.translate(0, -0.47)
+      ctx.beginPath()
+      for (let i = 0; i < 10; i++) {
+        const a = i * Math.PI / 5 - Math.PI / 2, r = i % 2 ? 0.16 : 0.35
+        const x = Math.cos(a) * r, y = Math.sin(a) * r
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
+      }
+      ctx.closePath(); ctx.fill(); ctx.restore()
+      for (const [x, y] of [[-0.52, -0.32], [0.47, -0.62]]) {
+        ctx.save(); ctx.translate(x, y); star(ctx, 0.09); ctx.restore()
+      }
+      break
+    case 'gem':
+      ctx.beginPath(); ctx.moveTo(0, -0.83); ctx.lineTo(0.3, -0.48); ctx.lineTo(0, -0.13); ctx.lineTo(-0.3, -0.48); ctx.closePath(); ctx.fill()
+      ctx.strokeStyle = capsule.ink; ctx.lineWidth = 0.025
+      ctx.beginPath(); ctx.moveTo(0, -0.77); ctx.lineTo(0, -0.19); ctx.moveTo(-0.25, -0.48); ctx.lineTo(0.25, -0.48); ctx.stroke()
+      for (const x of [-0.53, 0.53]) { ctx.save(); ctx.translate(x, -0.43); star(ctx, 0.075); ctx.restore() }
+      break
+    case 'orbit':
+      ctx.beginPath(); ctx.ellipse(0, -0.48, 0.49, 0.21, -0.45, 0, TAU); ctx.stroke()
+      ctx.save(); ctx.translate(0, -0.48); star(ctx, 0.24); ctx.restore()
+      ctx.beginPath(); ctx.arc(0.39, -0.71, 0.075, 0, TAU); ctx.fill()
+      break
+    case 'crown':
+      ctx.beginPath(); ctx.moveTo(-0.36, -0.23); ctx.lineTo(-0.44, -0.71); ctx.lineTo(-0.2, -0.53)
+      ctx.lineTo(0, -0.86); ctx.lineTo(0.2, -0.53); ctx.lineTo(0.44, -0.71); ctx.lineTo(0.36, -0.23)
+      ctx.closePath(); ctx.fill()
+      ctx.strokeStyle = capsule.ink; ctx.lineWidth = 0.035
+      ctx.beginPath(); ctx.moveTo(-0.29, -0.34); ctx.lineTo(0.29, -0.34); ctx.stroke()
+      break
+  }
+  ctx.restore()
+}
+
 interface Props {
   /** null keeps the capsule closed until the paid pull has resolved. */
   rarity: GachaRarity | null
@@ -53,13 +129,12 @@ export default function GachaCreatureOpening({ rarity, onDone }: Props) {
   const reduced = useReducedMotion()
   const rootRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const rarityRef = useRef(rarity)
+  const capsuleRef = useRef<CreatureCapsule>(CREATURE_CAPSULES.rare[0])
   const doneRef = useRef(onDone)
   const startRef = useRef(0)
   const resolvedRef = useRef<number | null>(null)
   const finishedRef = useRef(false)
   const openedRef = useRef(false)
-  rarityRef.current = rarity
   doneRef.current = onDone
 
   const finish = useCallback(() => {
@@ -75,7 +150,15 @@ export default function GachaCreatureOpening({ rarity, onDone }: Props) {
   }, [])
 
   useEffect(() => {
-    if (rarity !== null && resolvedRef.current === null) resolvedRef.current = performance.now()
+    if (rarity === null || resolvedRef.current !== null) return
+    resolvedRef.current = performance.now()
+    const key = `gacha:creature-capsule:${rarity}`
+    let previous: string | undefined
+    try { previous = sessionStorage.getItem(key) ?? undefined } catch { /* storage is optional */ }
+    // Separate randomness keeps capsule cosmetics out of the reward's RNG stream.
+    const sample = crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000
+    capsuleRef.current = pickCreatureCapsule(rarity, sample, previous)
+    try { sessionStorage.setItem(key, capsuleRef.current.id) } catch { /* storage is optional */ }
   }, [rarity])
 
   useEffect(() => {
@@ -109,7 +192,7 @@ export default function GachaCreatureOpening({ rarity, onDone }: Props) {
       const split = easeOut(pop)
       const leaving = clamp((elapsed - openAt - opening) / fade)
       const winding = clamp((elapsed - shakeAt) / shake)
-      const pal = PALETTE[rarityRef.current ?? 'rare']
+      const pal = capsuleRef.current
       const unit = Math.min(width / 390, height / 740, 1.3)
       const radius = 82 * unit, cx = width / 2, cy = height * 0.53
       let drop = 0, squash = 1, turn = 0
@@ -169,22 +252,19 @@ export default function GachaCreatureOpening({ rarity, onDone }: Props) {
       ctx.beginPath(); ctx.ellipse(0, 0, radius, radius * 0.16, 0, 0, TAU); ctx.fill(); ctx.stroke()
       ctx.restore()
 
-      // The paw-patterned lid tips back, exposing a warm, lit seam.
+      // Keep the selected print on the same lid through the wobble and split.
       ctx.save()
       ctx.translate(reduced ? 0 : -radius * 0.4 * split, -radius * (reduced ? 0.16 : 1.85) * split)
       ctx.rotate(reduced ? 0 : -0.34 * split)
       const shell = ctx.createLinearGradient(-radius, -radius, radius, 0)
       shell.addColorStop(0, pal.light); shell.addColorStop(1, pal.shell)
       ctx.fillStyle = shell
-      ctx.beginPath()
-      ctx.arc(0, 0, radius, Math.PI, TAU)
-      ctx.ellipse(0, 0, radius, radius * 0.16, 0, 0, Math.PI)
-      ctx.closePath(); ctx.fill(); ctx.stroke()
-      ctx.fillStyle = '#FFF2CF'
-      ctx.save(); ctx.translate(0, -radius * 0.46); paw(ctx, radius * 0.35); ctx.restore()
+      lidPath(ctx, radius); ctx.fill()
+      lidPrint(ctx, radius, pal)
+      lidPath(ctx, radius); ctx.stroke()
       ctx.fillStyle = 'rgba(255,255,255,0.56)'
       ctx.beginPath(); ctx.ellipse(-radius * 0.54, -radius * 0.52, radius * 0.11, radius * 0.23, 0.65, 0, TAU); ctx.fill()
-      ctx.strokeStyle = '#FFF7E1'; ctx.lineWidth = 7 * unit
+      ctx.strokeStyle = pal.rim; ctx.lineWidth = 7 * unit
       ctx.beginPath(); ctx.ellipse(0, 0, radius - 3 * unit, radius * 0.16, 0, 0, Math.PI); ctx.stroke()
       ctx.fillStyle = pal.shell; ctx.strokeStyle = pal.ink; ctx.lineWidth = 2 * unit
       ctx.beginPath(); ctx.roundRect(-10 * unit, 8 * unit, 20 * unit, 12 * unit, 3 * unit); ctx.fill(); ctx.stroke()
