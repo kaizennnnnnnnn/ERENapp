@@ -104,7 +104,7 @@ const SKINS = [
   { id: 'applecandy2',     file: 'ErenAppleCandy2.png',     rarity: 'epic',      name: 'Candy Apple Suit Eren', set: 'food' },
 
   // Approved Creature Costumes sources live in the repo, not Downloads.
-  { id: 'bee',           file: 'bee.webp',            rarity: 'rare',      name: 'Bee Eren',            set: 'creatures' },
+  { id: 'bee',           file: 'bee.webp',            rarity: 'rare',      name: 'Bee Eren',            set: 'creatures', tailYStart: 0.67 },
   { id: 'lobster',       file: 'lobster.webp',        rarity: 'epic',      name: 'Lobster Eren',        set: 'creatures' },
   { id: 'crystaldragon', file: 'crystal-dragon.webp', rarity: 'legendary', name: 'Crystal Dragon Eren', set: 'creatures' },
   { id: 'snail',         file: 'snail.webp',          rarity: 'rare',      name: 'Snail Eren',          set: 'creatures' },
@@ -446,16 +446,18 @@ function processInBrowser(dataUrl, opts) {
       // rather than mirroring the creature costume's silhouette.
       let grayTailMask = null
       if (opts.grayTail) {
+        // Bee's wing meets the tail: keep that entire join on the foreground body.
+        const grayStart = Math.floor(H * Math.max(0.4, opts.tailYStart ?? 0))
         const seen = new Uint8Array(W * H)
         let largest = []
         const neutral = (p) => {
           const x = p % W, y = (p / W) | 0, i = p * 4
           const r = fd[i], g = fd[i + 1], b = fd[i + 2], l = lum(r, g, b)
-          return x >= W * 0.72 && y >= H * 0.4 && sil[p]
+          return x >= W * 0.72 && y >= grayStart && sil[p]
             && l > 60 && l < 190 && r >= g - 5 && g >= b - 5
             && r - b < 65 && r - g < 40 && g - b < 35
         }
-        for (let y = Math.floor(H * 0.4); y < H; y++) for (let x = Math.floor(W * 0.72); x < W; x++) {
+        for (let y = grayStart; y < H; y++) for (let x = Math.floor(W * 0.72); x < W; x++) {
           const start = y * W + x
           if (seen[start] || !neutral(start)) continue
           const points = [], stack = [start]
@@ -482,7 +484,7 @@ function processInBrowser(dataUrl, opts) {
             const x = p % W, y = (p / W) | 0
             for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
               const nx = x + dx, ny = y + dy
-              if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue
+              if (nx < 0 || ny < grayStart || nx >= W || ny >= H) continue
               const q = ny * W + nx, i = q * 4
               if (!grayTailMask[q] && sil[q] && lum(fd[i], fd[i + 1], fd[i + 2]) < 90) {
                 grayTailMask[q] = 1; next.push(q)
