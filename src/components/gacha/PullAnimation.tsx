@@ -1,17 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import type { GachaPullResult, GachaRarity } from '@/types'
-import { GACHA_FOOD_GRANT } from '@/lib/gacha'
+import { useState, useEffect, useRef } from 'react'
+import type { GachaPullResult } from '@/types'
 import { playSound } from '@/lib/sounds'
-import { getSkin } from '@/lib/skins'
 import { useCat } from '@/hooks/useCat'
 import { swapCatName } from '@/lib/catWords'
-import BlinkingEren from '@/components/BlinkingEren'
-import CanFx, { hasCanFx } from '@/components/care/CanFx'
-import { M, MeadowIcon, PrimaryButton, RARITY_TAG, Stage, Tag, TextButton, TYPE } from '@/components/meadow'
+import { M, MeadowIcon, PrimaryButton, Tag, TextButton, TYPE } from '@/components/meadow'
 import { STARDUST_INK } from '@/components/rewards/rewardDisplay'
-import { RARITY_FILL } from './rarity'
+import { GACHA_SCENES } from '@/lib/gachaPresentation'
+import GachaRewardStage from './GachaRewardStage'
 
 interface Props {
   results: GachaPullResult[]
@@ -25,41 +22,14 @@ interface Props {
 /** Each machine's reveal voice (see gacha_* in lib/sounds.ts). */
 const REVEAL_VOICE = { food: 'fizz', animal: 'skin', foodsuits: 'suit', creatures: 'skin' } as const
 
-// ═══════════════════════════════════════════════════════════════════════════
-// THE REVEAL, in Meadow. What you pulled stands on the Meadow stage, the cat's
-// own little hill, on a page in its rarity's tint: a cat in a costume stands
-// on the hill like everywhere else he appears, a can or a donut sits on it.
-// Then its tags, its name and what it does, and one button on to the next.
-//
-// The spectacle still tiers with rarity, in Meadow's flat way: a common gets
-// the plain stage, a rare a few sparkles that wink on and off, an epic more,
-// and an epic or a legendary a slow fan of flat rays behind it. No glows.
-// ═══════════════════════════════════════════════════════════════════════════
-
-const STAGE_W = 300
-const STAGE_H = 300
-
-/** The page behind the stage: the rarity's tag tint, full bleed. */
-const GROUND: Record<GachaRarity, string> = {
-  common: RARITY_TAG.common.bg,
-  rare: RARITY_TAG.rare.bg,
-  epic: RARITY_TAG.epic.bg,
-  legendary: RARITY_TAG.legendary.bg,
-}
-
-/** Sparkles on the stage, [left px, top px]. Fixed, never random: this re-renders. */
-const SPARKS: Record<GachaRarity, ReadonlyArray<readonly [number, number]>> = {
-  common: [],
-  rare: [[34, 46], [238, 64], [252, 168]],
-  epic: [[30, 40], [244, 52], [22, 150], [258, 160], [138, 22]],
-  legendary: [[26, 34], [246, 40], [16, 136], [264, 140], [136, 14], [70, 96], [208, 100]],
-}
-
 export default function PullAnimation({ results, onDone, skipCapsule = false, machine }: Props) {
   const [phase, setPhase] = useState<'capsule' | 'reveal'>(skipCapsule ? 'reveal' : 'capsule')
   const [currentIdx, setCurrentIdx] = useState(0)
   const [showItem, setShowItem] = useState(skipCapsule)
   const cat = useCat()
+  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const advancing = useRef(false)
+  useEffect(() => () => { if (advanceTimer.current) clearTimeout(advanceTimer.current) }, [])
 
   useEffect(() => {
     if (skipCapsule) return
@@ -78,25 +48,24 @@ export default function PullAnimation({ results, onDone, skipCapsule = false, ma
     playSound(`gacha_${REVEAL_VOICE[machine]}_${current.item.rarity}`)
   }, [showItem, current?.item.rarity]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!current) { onDone(); return null }
+  useEffect(() => { if (!current) onDone() }, [current, onDone])
+  if (!current) return null
 
   const rarity = current.item.rarity
-  const skin = current.item.skinId ? getSkin(current.item.skinId) : undefined
   const itemName = swapCatName(current.item.name, cat)
-  // A special-edition can brings its moving sparkles/rays (see CanFx). Found
-  // through the fridge food the pull grants, never by matching the image URL.
-  const fxFood = GACHA_FOOD_GRANT[current.item.id]
-  const canFx = fxFood !== undefined && hasCanFx(fxFood) ? fxFood : null
   const multi = results.length > 1
   const last = currentIdx === results.length - 1
 
   function nextItem() {
+    if (advancing.current) return
+    advancing.current = true
     playSound('ui_tap')
     if (!last) {
       setShowItem(false)
-      setTimeout(() => {
+      advanceTimer.current = setTimeout(() => {
         setCurrentIdx(i => i + 1)
         setShowItem(true)
+        advancing.current = false
       }, 200)
     } else {
       onDone()
@@ -116,7 +85,7 @@ export default function PullAnimation({ results, onDone, skipCapsule = false, ma
           <span style={{ flex: 1, background: STARDUST_INK }} />
         </span>
         <p role="status" style={{ margin: 0, fontSize: 17, fontWeight: 800, color: M.text }}>Opening...</p>
-        <style jsx>{`
+        <style>{`
           .pull-capsule { animation: pullCapsuleShake 0.3s steps(2, jump-none) infinite; }
           @keyframes pullCapsuleShake {
             0%   { transform: rotate(-6deg); }
@@ -129,7 +98,7 @@ export default function PullAnimation({ results, onDone, skipCapsule = false, ma
   }
 
   return (
-    <div className="meadow-root fixed inset-0 z-[70] overflow-y-auto" style={{ background: GROUND[rarity] }}>
+    <div className="meadow-root fixed inset-0 z-[70] overflow-y-auto" style={{ background: GACHA_SCENES[machine].grounds[rarity] }}>
       <div className="flex flex-col mx-auto" style={{
         minHeight: '100%', maxWidth: 420, boxSizing: 'border-box',
         padding: 'calc(var(--safe-top) + 12px) 16px calc(var(--safe-bottom) + 20px)',
@@ -149,34 +118,7 @@ export default function PullAnimation({ results, onDone, skipCapsule = false, ma
         {/* ── The prize. A tap anywhere here moves on too, as it always has. ── */}
         <div className="flex-1 flex flex-col items-center justify-center" onClick={nextItem}
           style={{ paddingTop: 8, cursor: 'pointer', visibility: showItem ? 'visible' : 'hidden' }}>
-          <Stage width={STAGE_W} height={STAGE_H} bg="#FFFFFF" key={currentIdx}>
-            {(rarity === 'epic' || rarity === 'legendary') && (
-              <span aria-hidden className="pull-rays" style={{
-                position: 'absolute', left: STAGE_W / 2 - 260, top: 150 - 260, width: 520, height: 520, borderRadius: 999,
-                background: `repeating-conic-gradient(from 0deg, ${RARITY_FILL[rarity]}40 0deg 9deg, transparent 9deg 22deg)`,
-              }} />
-            )}
-            {SPARKS[rarity].map(([l, t], i) => (
-              <span key={i} aria-hidden className="pull-spark" style={{ position: 'absolute', left: l, top: t, animationDelay: `${(i % 4) * 0.35}s` }}>
-                <MeadowIcon name="sparkle" size={rarity === 'legendary' ? 26 : 22} color={RARITY_FILL[rarity]} mono />
-              </span>
-            ))}
-
-            {skin ? (
-              // Gacha skins are trimmed tight, so the box's bottom is the cat's
-              // feet: set it on the darker patch of the hill.
-              <div className="pull-pop" style={{ position: 'absolute', left: (STAGE_W - 200) / 2, bottom: 24 }}>
-                <BlinkingEren size={200} src={skin.src} tailSrc={skin.tailSrc} tailOrigin={skin.tailOrigin}
-                  lidTone={skin.lidTone} coat={skin.coat} eyes={skin.eyes} alt={itemName} />
-              </div>
-            ) : (
-              <div className="pull-pop" style={{ position: 'absolute', left: (STAGE_W - 150) / 2, bottom: 26, width: 150, height: 150 }}>
-                <img src={current.item.image} alt={itemName} draggable={false}
-                  style={{ width: 150, height: 150, objectFit: 'contain' }} />
-                {canFx && <CanFx id={canFx} />}
-              </div>
-            )}
-          </Stage>
+          <GachaRewardStage key={currentIdx} item={current.item} machine={machine} name={itemName} />
 
           <div className="pull-info flex flex-col items-center" style={{ marginTop: 18, maxWidth: 320, textAlign: 'center' }}>
             <div className="flex items-center justify-center flex-wrap" style={{ gap: 6 }}>
@@ -206,32 +148,14 @@ export default function PullAnimation({ results, onDone, skipCapsule = false, ma
         </PrimaryButton>
       </div>
 
-      <style jsx>{`
-        /* Slow enough to read as light, not as a spinning wheel. */
-        .pull-rays { animation: pullRaySpin 40s linear infinite; }
-        @keyframes pullRaySpin {
-          from { transform: rotate(0deg); }
-          to   { transform: rotate(360deg); }
-        }
-        /* A spark is lit or it isn't: snap on, hold, snap off. */
-        .pull-spark { animation: pullSpark 1.6s steps(1, end) infinite; }
-        @keyframes pullSpark {
-          0%, 40%   { opacity: 0; }
-          45%, 80%  { opacity: 1; }
-          85%, 100% { opacity: 0; }
-        }
-        .pull-pop { animation: pullPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
-        @keyframes pullPop {
-          0%   { transform: translateY(18px) scale(0.6); opacity: 0; }
-          100% { transform: translateY(0) scale(1); opacity: 1; }
-        }
-        .pull-info { animation: pullInfo 0.3s steps(3, end) 0.15s both; }
+      <style>{`
+        .pull-info { animation: pullInfo 0.25s ease-out both; }
         @keyframes pullInfo {
-          from { opacity: 0; transform: translateY(6px); }
-          to   { opacity: 1; transform: translateY(0); }
+          from { opacity: 0; }
+          to   { opacity: 1; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .pull-rays, .pull-spark, .pull-pop, .pull-info { animation: none; }
+          .pull-info { animation: none; }
         }
       `}</style>
     </div>

@@ -1,10 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { GachaRarity } from '@/types'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { treatOpeningFrame, type TreatOpeningKind } from '@/lib/gachaTreatOpening'
 import { playSound } from '@/lib/sounds'
+import { getTreatAtlas } from '@/lib/gachaPresentation'
 import { drawTreatOpening } from './treatOpeningArt'
 import TapToSkip from './TapToSkip'
 
@@ -23,6 +24,11 @@ export default function GachaTreatOpening({ kind, rarity, rewardSrc, onDone }: P
   const rootRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const imageRef = useRef<HTMLImageElement | null>(null)
+  const atlasRef = useRef<HTMLImageElement | null>(null)
+  const [loadedAtlas, setLoadedAtlas] = useState<string | null>(null)
+  const [atlasFailed, setAtlasFailed] = useState(false)
+  const atlasSrc = getTreatAtlas(kind, rarity).src
+  const shouldLoadAtlas = kind === 'chef' || rarity !== null
   const startRef = useRef<number | null>(null)
   const readyAtRef = useRef<number | null>(null)
   const rarityRef = useRef(rarity)
@@ -53,9 +59,27 @@ export default function GachaTreatOpening({ kind, rarity, rewardSrc, onDone }: P
 
   useEffect(() => {
     if (rarity === null) return
-    if (readyAtRef.current === null) readyAtRef.current = performance.now()
     if (skipRef.current) finish()
-  }, [rarity, finish])
+    if (atlasFailed) { finish(); return }
+    if (loadedAtlas === atlasSrc && readyAtRef.current === null) readyAtRef.current = performance.now()
+  }, [rarity, loadedAtlas, atlasSrc, atlasFailed, finish])
+
+  useEffect(() => {
+    let cancelled = false
+    atlasRef.current = null
+    setLoadedAtlas(null)
+    setAtlasFailed(false)
+    if (!shouldLoadAtlas) return
+    const atlas = new Image()
+    atlas.onload = () => {
+      if (cancelled) return
+      atlasRef.current = atlas
+      setLoadedAtlas(atlasSrc)
+    }
+    atlas.onerror = () => { if (!cancelled) setAtlasFailed(true) }
+    atlas.src = atlasSrc
+    return () => { cancelled = true; atlas.onload = null; atlas.onerror = null }
+  }, [atlasSrc, shouldLoadAtlas])
 
   useEffect(() => {
     imageRef.current = null
@@ -96,7 +120,7 @@ export default function GachaTreatOpening({ kind, rarity, rewardSrc, onDone }: P
       }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx.clearRect(0, 0, width, height)
-      drawTreatOpening(ctx, kind, frame, width, height, rarityRef.current, reduced, imageRef.current)
+      drawTreatOpening(ctx, kind, frame, width, height, rarityRef.current, reduced, imageRef.current, atlasRef.current)
       if (frame.arrival >= 1 && !landedRef.current) {
         landedRef.current = true
         if (!skipRef.current) playSound('ui_select')
@@ -112,7 +136,7 @@ export default function GachaTreatOpening({ kind, rarity, rewardSrc, onDone }: P
   }, [kind, finish, reduced])
 
   return (
-    <div ref={rootRef} role="button" tabIndex={0} aria-busy={rarity === null}
+    <div ref={rootRef} role="button" tabIndex={0} aria-busy={rarity === null || loadedAtlas !== atlasSrc}
       aria-label={kind === 'parcel' ? 'Skip snack parcel opening' : "Skip chef's surprise opening"}
       data-opening={kind} data-rarity={rarity ?? 'pending'}
       className="meadow-root fixed inset-0 z-[80] overflow-hidden m-focus"
@@ -126,6 +150,8 @@ export default function GachaTreatOpening({ kind, rarity, rewardSrc, onDone }: P
       }} />
       <div className="absolute inset-0" style={{ background: 'rgba(31,45,37,.68)' }} />
       <canvas ref={canvasRef} aria-hidden className="absolute inset-0 h-full w-full" />
+      {loadedAtlas !== atlasSrc && <span role="status" style={{ position: 'absolute', top: '54%', left: '50%', transform: 'translate(-50%,-50%)',
+        padding: '9px 16px', borderRadius: 999, background: '#FFFFFF', color: '#423B35', fontSize: 15, fontWeight: 700 }}>Opening...</span>}
       <TapToSkip />
     </div>
   )

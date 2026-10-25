@@ -1,0 +1,158 @@
+{
+  "cons_monsta_original": {
+    "size": [
+      384,
+      384
+    ],
+    "rect": [
+      112,
+      17,
+      161,
+      361
+    ]
+  },
+  "cons_monsta_white": {
+    "size": [
+      384,
+      384
+    ],
+    "rect": [
+      118,
+      51,
+      149,
+      327
+    ]
+  },
+  "cons_monsta_mango": {
+    "size": [
+      384,
+      384
+    ],
+    "rect": [
+      117,
+      43,
+      200,
+      335
+    ]
+  },
+  "cons_monsta_loco": {
+    "size": [
+      384,
+      384
+    ],
+    "rect": [
+      103,
+      48,
+      165,
+      330
+    ]
+  },
+  "cons_monsta_pipeline": {
+    "size": [
+      384,
+      384
+    ],
+    "rect": [
+      115,
+      18,
+      172,
+      360
+    ]
+  },
+  "cons_monsta_punch": {
+    "size": [
+      384,
+      384
+    ],
+    "rect": [
+      82,
+      62,
+      219,
+      316
+    ]
+  },
+  "cons_monsta_rosa": {
+    "size": [
+      384,
+      384
+    ],
+    "rect": [
+      114,
+      8,
+      157,
+      370
+    ]
+  },
+  "cons_monsta_peachy": {
+    "size": [
+      384,
+      384
+    ],
+    "rect": [
+      91,
+      62,
+      221,
+      316
+    ]
+  },
+  "cons_monsta_rainbow": {
+    "size": [
+      384,
+      384
+    ],
+    "rect": [
+      116,
+      8,
+      152,
+      370
+    ]
+  },
+  "cons_monsta_gold": {
+    "size": [
+      384,
+      384
+    ],
+    "rect": [
+      117,
+      6,
+      150,
+      372
+    ]
+  },
+  "cons_donut_tiger": {
+    "size": [
+      128,
+      128
+    ],
+    "rect": [
+      4,
+      22,
+      119,
+      84
+    ]
+  },
+  "cons_donut_arcade": {
+    "size": [
+      128,
+      128
+    ],
+    "rect": [
+      14,
+      14,
+      100,
+      100
+    ]
+  },
+  "cons_donut_neon": {
+    "size": [
+      128,
+      128
+    ],
+    "rect": [
+      5,
+      21,
+      118,
+      85
+    ]
+  }
+}

@@ -11,6 +11,7 @@ import { MONSTA_RAINBOW_ID, MONSTA_GOLD_ID, GACHA_FOOD_GRANT, GACHA_BANNERS } fr
 import type { GachaPullResult, GachaRarity } from '@/types'
 import { highestRarity, pickClothesHitVideo } from '@/lib/gachaVideos'
 import { getSkin } from '@/lib/skins'
+import { GACHA_SCENES } from '@/lib/gachaPresentation'
 import PullAnimation from '@/components/gacha/PullAnimation'
 import GachaTreatOpening from '@/components/gacha/GachaTreatOpening'
 import GachaOddsSheet from '@/components/gacha/GachaOddsSheet'
@@ -268,6 +269,9 @@ export default function GachaPage() {
   async function handlePull(count: 1 | 10) {
     if (pulling || openingVideo || pullResults || cinematic) return
     const bannerId = PAGES[pageIdx].id
+    const scene = new Image()
+    scene.src = GACHA_SCENES[bannerId].src
+    scene.decode?.().catch(() => {})
     // A single pull spends a free ticket whenever one is held — tickets are
     // earned pulls, so they're used before coins and stay usable at any coin
     // balance. Falls back to coins only once tickets run out. (x10 is always
@@ -344,8 +348,7 @@ export default function GachaPage() {
   }
 
   const firstReward = pullResults?.[0]?.item
-  const firstSkin = firstReward?.skinId ? getSkin(firstReward.skinId) : undefined
-  const openingRewardSrc = firstSkin?.thumb ?? firstReward?.image
+  const openingRewardSrc = cinematic === 'parcel' ? firstReward?.image : undefined
 
   return (
     <div className="fixed inset-0" style={{ background: '#050507' }}>
