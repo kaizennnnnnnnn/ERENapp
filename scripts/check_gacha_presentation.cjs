@@ -54,10 +54,14 @@ function trace() {
   })
   return {calls,context}
 }
-for (const kind of ['parcel','chef']) for (const rarity of ['common','rare','epic','legendary']) {
+for (const kind of ['parcel','chef']) for (const rarity of ['common','rare','epic','legendary'])
+for (const variant of kind === 'chef' ? timeline.chefOpeningPool(rarity) : ['original']) {
   for (const reduced of [false,true]) for (const open of [0,.02,.15,.3,.5,.7,.9,1]) {
     const {calls,context} = trace()
-    art.drawTreatOpening(context,kind,{arrival:1,wind:1,open,burstMs:open*1600,fade:0,done:false,phase:'opening'},390,844,rarity,reduced,atlasImage)
+    const releaseAt=timeline.CHEF_OPENINGS[variant].releaseAt
+    const release=timeline.clampOpening((open-releaseAt)/(1-releaseAt))
+    art.drawTreatOpening(context,kind,{arrival:1,wind:1,open,release,burstMs:open*1600,releaseMs:Math.max(0,open-releaseAt)*1600,fade:0,done:false,phase:'opening'},390,844,rarity,reduced,atlasImage,variant)
+    for (const call of calls) for (const arg of call.slice(1)) if (typeof arg === 'number') assert.ok(Number.isFinite(arg),'All variation geometry stays finite')
     const images = calls.filter(c => c[0] === 'drawImage')
     assert.ok(images.length > 0)
     for (const image of images) {

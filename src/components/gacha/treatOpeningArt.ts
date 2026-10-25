@@ -1,6 +1,6 @@
 import type { GachaRarity } from '@/types'
 import { getTreatAtlas, RARITY_PRESENTATION, type AtlasRect } from '@/lib/gachaPresentation'
-import { clampOpening as clamp, easeOpening as ease, type TreatOpeningFrame, type TreatOpeningKind } from '@/lib/gachaTreatOpening'
+import { chefLidPose, clampOpening as clamp, easeOpening as ease, type ChefOpeningVariant, type TreatOpeningFrame, type TreatOpeningKind } from '@/lib/gachaTreatOpening'
 import { drawRarityEffects } from './gachaRarityArt'
 
 const TAU = Math.PI * 2
@@ -12,6 +12,75 @@ function oval(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number, r
 
 function piece(ctx: CanvasRenderingContext2D, atlas: HTMLImageElement, rect: AtlasRect, x: number, y: number, w: number, h: number) {
   ctx.drawImage(atlas, rect[0], rect[1], rect[2], rect[3], x, y, w, h)
+}
+
+function servingAccents(ctx: CanvasRenderingContext2D, frame: TreatOpeningFrame, variant: ChefOpeningVariant, reduced: boolean) {
+  if (reduced || variant === 'original') return
+  const p = frame.open, reveal = frame.release
+  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+  if (variant === 'double-peek' && p < .4) {
+    for (const at of [0,.2]) {
+      const puff = clamp((p - at) / .18)
+      if (puff <= 0 || puff >= 1) continue
+      ctx.save(); ctx.globalAlpha *= Math.sin(puff * Math.PI) * .8
+      ctx.strokeStyle = '#FFF4E7'; ctx.lineWidth = 3
+      for (const side of [-1,1]) {
+        const x = side * (112 + puff * 14), y = 33 - puff * 32
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.bezierCurveTo(x + side * 15, y - 9, x - side * 8, y - 25, x + side * 9, y - 35); ctx.stroke()
+      }
+      ctx.restore()
+    }
+  }
+  if (variant === 'ribbon-fan' && reveal > 0) {
+    const travel = ease(reveal)
+    ctx.save(); ctx.globalAlpha *= Math.sin(clamp(reveal / 1.15) * Math.PI) * .85
+    for (let i = 0; i < 6; i++) {
+      const side = i < 3 ? -1 : 1, layer = i % 3
+      const x = side * (75 + layer * 33) * travel, y = -(135 + (2 - layer) * 25) * travel
+      ctx.strokeStyle = i % 2 ? '#E5A1AC' : '#EEDAB8'; ctx.lineWidth = layer === 1 ? 5 : 3
+      ctx.beginPath(); ctx.moveTo(side * 8, 15)
+      ctx.bezierCurveTo(side * 35 * travel, -40 * travel, x * .85, y * .4, x, y); ctx.stroke()
+      ctx.fillStyle = i % 2 ? '#D99AAA' : '#F7E8CF'
+      ctx.save(); ctx.translate(x,y); ctx.rotate(side * (.4 + reveal)); ctx.fillRect(-3,-6,6,12); ctx.restore()
+    }
+    ctx.restore()
+  }
+  if (variant === 'golden-fountain' && reveal > 0) {
+    ctx.save(); ctx.globalAlpha *= clamp(reveal * 6)
+    for (let i = -3; i <= 3; i++) {
+      const t = (frame.releaseMs / 760 + (i + 3) * .14) % 1
+      const point = (v: number) => ({
+        x: 2 * (1 - v) * v * i * 28 + v * v * i * 44,
+        y: (1 - v) ** 2 * 12 - 2 * (1 - v) * v * (250 + Math.abs(i) * 12) + v * v * 20,
+      })
+      ctx.save(); ctx.globalAlpha *= Math.sin(t * Math.PI)
+      ctx.strokeStyle = i % 2 ? '#FFF1C5' : '#EAC571'; ctx.lineWidth = i === 0 ? 5 : 4
+      const tail = point(Math.max(0,t - .32)); ctx.beginPath(); ctx.moveTo(tail.x,tail.y)
+      for (let step = 1; step <= 8; step++) { const dot = point(Math.max(0,t - .32) + Math.min(t,.32) * step / 8); ctx.lineTo(dot.x,dot.y) }
+      ctx.stroke()
+      const head = point(t); ctx.fillStyle = '#F7DB8B'
+      ctx.save(); ctx.translate(head.x,head.y); ctx.rotate(t * 2); ctx.fillRect(-4,-4,8,8); ctx.restore()
+      ctx.restore()
+    }
+    ctx.restore()
+  }
+  if (variant === 'royal-procession' && reveal > 0) {
+    const travel = ease(reveal)
+    ctx.save(); ctx.globalAlpha *= clamp(reveal * 5) * .9
+    for (const side of [-1,1]) {
+      ctx.strokeStyle = side === -1 ? '#EBC879' : '#FFF0C9'; ctx.lineWidth = 4
+      ctx.beginPath(); ctx.moveTo(side * 108, 40)
+      ctx.bezierCurveTo(side * 165 * travel, -25 * travel, side * 150 * travel, -165 * travel, side * 15, -158 * travel); ctx.stroke()
+      const drift = frame.releaseMs / 450
+      for (let i = 0; i < 3; i++) {
+        const y = -28 - i * 38 - Math.sin(drift + i) * 6
+        ctx.fillStyle = i % 2 ? '#FFF0C9' : '#DDB663'
+        ctx.save(); ctx.translate(side * (126 - i * 20) * travel, y * travel); ctx.rotate(Math.PI / 4 + drift * side * .2); ctx.fillRect(-3,-3,6,6); ctx.restore()
+      }
+    }
+    ctx.restore()
+  }
+  ctx.restore()
 }
 
 function snackCase(
@@ -82,10 +151,9 @@ function snackCase(
   }
   ctx.restore()
 }
-function servingSet(ctx: CanvasRenderingContext2D, frame: TreatOpeningFrame, rarity: GachaRarity | null, atlas: HTMLImageElement, reduced: boolean) {
+function servingSet(ctx: CanvasRenderingContext2D, frame: TreatOpeningFrame, rarity: GachaRarity | null, atlas: HTMLImageElement, reduced: boolean, variant: ChefOpeningVariant) {
   const spec = getTreatAtlas('chef', rarity)
   const tier = RARITY_PRESENTATION[rarity ?? 'rare']
-  const opening = ease(frame.open)
   const tierLevel = tier.level
   ctx.save()
   ctx.translate(reduced ? 0 : -35 * (1 - ease(frame.arrival)), 0)
@@ -98,32 +166,28 @@ function servingSet(ctx: CanvasRenderingContext2D, frame: TreatOpeningFrame, rar
     ctx.beginPath(); ctx.ellipse(0, 44, 125, 23, 0, 0, Math.PI); ctx.stroke()
     for (const x of [-110, 110]) { ctx.fillStyle = tier.trim; ctx.fillRect(x - 3, 41, 6, 3) }
   }
-  if (!reduced && frame.open > 0 && frame.open < .85) {
+  if (!reduced && frame.release > 0 && frame.release < .85) {
     const count = tierLevel === 0 ? 1 : tierLevel === 1 ? 3 : tierLevel === 2 ? 4 : 5
     for (let i = 0; i < count; i++) {
-      const p = clamp((frame.open - i * .035) / .75)
+      const p = clamp((frame.release - i * .035) / .75)
       ctx.save(); ctx.globalAlpha *= Math.sin(p * Math.PI) * .5
       ctx.lineCap = 'round'; ctx.lineWidth = tierLevel > 1 ? 4 : 3; ctx.strokeStyle = tierLevel === 3 ? '#F1D48E' : '#FFF6E8'
       const x = (i - (count - 1) / 2) * 29, y = 5 - p * 64
       ctx.beginPath(); ctx.moveTo(x, y); ctx.bezierCurveTo(x - 15, y - 20, x + 18, y - 34, x, y - 52); ctx.stroke(); ctx.restore()
     }
   }
-  if (frame.open > .15 || (!reduced && tierLevel === 3 && frame.wind > 0)) {
+  const classicBurst = variant === 'original' || variant === 'double-peek' || reduced
+  if ((classicBurst && frame.release > .15) || (!reduced && tierLevel === 3 && frame.open === 0 && frame.wind > 0)) {
     ctx.save(); ctx.translate(0, -10)
-    const elapsed = frame.open > .15 ? (frame.burstMs - 80) * 1.8 : frame.wind * 480
+    const elapsed = frame.release > .15 ? (frame.releaseMs - 80) * 1.8 : frame.wind * 480
     drawRarityEffects(ctx, 'foodsuits', rarity ?? 'common', elapsed, reduced, true); ctx.restore()
   }
+  servingAccents(ctx, frame, variant, reduced)
 
   ctx.save()
-  const rattle = reduced ? 0 : Math.sin(frame.wind * Math.PI * (4 + tierLevel * 2)) * (1 + tierLevel * .6) * (1 - opening)
   // The lid exits to the side; no cat image is ever rendered under it.
-  const sweep = tierLevel === 3 ? ease(clamp((frame.open - .38) / .62)) : opening
-  const lift = tierLevel === 3 ? ease(frame.open / .65) : opening
-  const tilt = tierLevel === 2 ? Math.sin(frame.open * Math.PI) * -.22 + opening * .16
-    : tierLevel === 3 ? .07 * sweep : .12 * opening
-  ctx.translate(reduced ? 0 : (tierLevel === 0 ? 120 : 190) * sweep, (reduced ? -8 : tierLevel === 3 ? -165 : -125) * lift + rattle)
-  ctx.rotate(reduced ? 0 : tilt)
-  if (reduced) ctx.globalAlpha *= 1 - opening
+  const pose = chefLidPose(rarity, frame.open, frame.wind, reduced, variant)
+  ctx.translate(pose.x, pose.y); ctx.rotate(pose.angle); ctx.globalAlpha *= pose.alpha
   const lidW = 250, lidH = lidW * spec.lid[3] / spec.lid[2]
   piece(ctx, atlas, spec.lid, -lidW / 2, 48 - lidH, lidW, lidH)
   if (tier.level >= 2) {
@@ -142,6 +206,7 @@ export function drawTreatOpening(
   ctx: CanvasRenderingContext2D, kind: TreatOpeningKind, frame: TreatOpeningFrame,
   width: number, height: number, rarity: GachaRarity | null, reduced: boolean,
   atlas?: HTMLImageElement | null,
+  chefVariant: ChefOpeningVariant = 'original',
 ) {
   if (!atlas?.complete || !atlas.naturalWidth) return
   const unit = Math.min(width / 390, height / 740, 1.35)
@@ -149,6 +214,6 @@ export function drawTreatOpening(
   ctx.translate(width / 2, height * .54); ctx.scale(unit, unit)
   ctx.lineJoin = 'round'; ctx.globalAlpha = 1 - frame.fade
   if (kind === 'parcel') snackCase(ctx, frame, rarity, atlas, reduced)
-  else servingSet(ctx, frame, rarity, atlas, reduced)
+  else servingSet(ctx, frame, rarity, atlas, reduced, chefVariant)
   ctx.restore()
 }

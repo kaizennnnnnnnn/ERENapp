@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { GachaRarity } from '@/types'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
-import { treatOpeningFrame, type TreatOpeningKind } from '@/lib/gachaTreatOpening'
+import { chefOpeningPool, pickChefOpening, treatOpeningFrame, type ChefOpeningVariant, type TreatOpeningKind } from '@/lib/gachaTreatOpening'
 import { playSound } from '@/lib/sounds'
 import { getTreatAtlas } from '@/lib/gachaPresentation'
 import { drawTreatOpening } from './treatOpeningArt'
@@ -12,13 +12,14 @@ import TapToSkip from './TapToSkip'
 interface Props {
   kind: TreatOpeningKind
   rarity: GachaRarity | null
+  chefVariant?: ChefOpeningVariant
   onDone: () => void
 }
 
 const BACKDROPS = { parcel: '/gacha_food.webp?v=2', chef: '/gacha_foodsuits.webp?v=1' }
 
 /** Two physical openings share one clock and one canvas, not the reward RNG. */
-export default function GachaTreatOpening({ kind, rarity, onDone }: Props) {
+export default function GachaTreatOpening({ kind, rarity, chefVariant, onDone }: Props) {
   const reduced = useReducedMotion()
   const rootRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -35,6 +36,7 @@ export default function GachaTreatOpening({ kind, rarity, onDone }: Props) {
   const skipRef = useRef(false)
   const landedRef = useRef(false)
   const openedRef = useRef(false)
+  const chefVariantRef = useRef<ChefOpeningVariant | null>(null)
   doneRef.current = onDone
   rarityRef.current = rarity
 
@@ -48,6 +50,21 @@ export default function GachaTreatOpening({ kind, rarity, onDone }: Props) {
     skipRef.current = true
     finish()
   }, [finish])
+
+  useEffect(() => {
+    if (kind !== 'chef' || rarity === null || chefVariantRef.current !== null) return
+    const key = `gacha:chef-opening:${rarity}`
+    let previous: string | undefined
+    try { previous = sessionStorage.getItem(key) ?? undefined } catch { /* storage is optional */ }
+    const forced = chefVariant && chefOpeningPool(rarity).includes(chefVariant) ? chefVariant : null
+    const sample = forced ? 0 : crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000
+    const selected = forced ?? pickChefOpening(rarity, sample, previous)
+    chefVariantRef.current = selected
+    rootRef.current?.setAttribute('data-chef-variant', selected)
+    if (!forced) {
+      try { sessionStorage.setItem(key, selected) } catch { /* storage is optional */ }
+    }
+  }, [kind, rarity, chefVariant])
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
@@ -101,7 +118,8 @@ export default function GachaTreatOpening({ kind, rarity, onDone }: Props) {
       if (finishedRef.current) return
       const start = startRef.current!
       const ready = readyAtRef.current === null ? null : Math.max(0, readyAtRef.current - start)
-      const frame = treatOpeningFrame(kind, now - start, ready, rarityRef.current, reduced)
+      const variant = chefVariantRef.current ?? 'original'
+      const frame = treatOpeningFrame(kind, now - start, ready, rarityRef.current, reduced, variant)
       if (frame.done) { finish(); return }
       if (frame.phase !== previousPhase) {
         rootRef.current?.setAttribute('data-phase', frame.phase)
@@ -109,12 +127,12 @@ export default function GachaTreatOpening({ kind, rarity, onDone }: Props) {
       }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx.clearRect(0, 0, width, height)
-      drawTreatOpening(ctx, kind, frame, width, height, rarityRef.current, reduced, atlasRef.current)
+      drawTreatOpening(ctx, kind, frame, width, height, rarityRef.current, reduced, atlasRef.current, variant)
       if (frame.arrival >= 1 && !landedRef.current) {
         landedRef.current = true
         if (!skipRef.current) playSound('ui_select')
       }
-      if (frame.open > 0 && !openedRef.current) {
+      if (frame.release > 0 && !openedRef.current) {
         openedRef.current = true
         if (!skipRef.current) playSound('gift_open')
       }
@@ -127,7 +145,7 @@ export default function GachaTreatOpening({ kind, rarity, onDone }: Props) {
   return (
     <div ref={rootRef} role="button" tabIndex={0} aria-busy={rarity === null || loadedAtlas !== atlasSrc}
       aria-label={kind === 'parcel' ? 'Skip snack parcel opening' : "Skip chef's surprise opening"}
-      data-opening={kind} data-rarity={rarity ?? 'pending'}
+      data-opening={kind} data-rarity={rarity ?? 'pending'} data-chef-variant={kind === 'chef' ? chefVariantRef.current ?? 'pending' : undefined}
       className="meadow-root fixed inset-0 z-[80] overflow-hidden m-focus"
       style={{ background: '#3F5047', cursor: 'pointer' }}
       onClick={skip} onKeyDown={event => {
