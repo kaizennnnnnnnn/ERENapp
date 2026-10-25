@@ -12,9 +12,8 @@ import type { GachaPullResult, GachaRarity } from '@/types'
 import { highestRarity, pickClothesHitVideo } from '@/lib/gachaVideos'
 import { getSkin } from '@/lib/skins'
 import PullAnimation from '@/components/gacha/PullAnimation'
-import GachaEnergyOpening from '@/components/gacha/GachaEnergyOpening'
+import GachaTreatOpening from '@/components/gacha/GachaTreatOpening'
 import GachaOddsSheet from '@/components/gacha/GachaOddsSheet'
-import GachaFizzOpening from '@/components/gacha/GachaFizzOpening'
 import GachaCreatureOpening from '@/components/gacha/GachaCreatureOpening'
 import StarfallLoader from '@/components/gacha/StarfallLoader'
 import GachaHud from '@/components/gacha/GachaHud'
@@ -72,13 +71,13 @@ export default function GachaPage() {
   const [openingVideo, setOpeningVideo] = useState<string | null>(null)
   const [videoReady, setVideoReady] = useState(false) // opening video can render its first frame
   // Which drawn cinematic is on screen. Each machine has its own so they don't
-  // feel like one box in different wallpaper: Snacks pours and fizzes, FoodSuits
-  // charges and detonates, and Creatures bounces a patterned capsule open.
+  // feel like one box in different wallpaper: Snacks unwraps a paper parcel,
+  // FoodSuits lifts a serving lid, and Creatures bounces a patterned capsule open.
   // Rarity stays null until the roll resolves — the idle
   // phase of either cinematic is what masks that wait.
-  const [cinematic, setCinematic] = useState<'fizz' | 'energy' | 'creatures' | null>(null)
+  const [cinematic, setCinematic] = useState<'parcel' | 'chef' | 'creatures' | null>(null)
   const [cinematicRarity, setCinematicRarity] = useState<GachaRarity | null>(null)
-  const openedWithVideo = useRef(false) // a video/energy opening this pull → skip the capsule
+  const openedWithVideo = useRef(false) // a video/drawn opening this pull → skip the capsule
   const touchedDeck = useRef(false) // gate swipe SFX to real gestures (see onScroll)
 
   // Scroll-driven swap effect: the off-center machine recedes (scale), dims,
@@ -234,7 +233,7 @@ export default function GachaPage() {
 
   // ── Rainbow Monsta jackpot ─────────────────────────────────────────────────
   // The rainbow video is the Rainbow Monsta's alone. Every pull opens with the
-  // energy cinematic; only a batch containing the rainbow can chases it with
+  // parcel cinematic; only a batch containing the rainbow can chases it with
   // the video, so seeing the video *is* the tell that you hit the jackpot.
   //
   // A ref, not state, because the async pull would close over a stale copy.
@@ -277,14 +276,10 @@ export default function GachaPage() {
     playSound('ui_tap')
     openedWithVideo.current = false
 
-    // Both food machines open with the rarity-tinted energy cinematic: its
-    // shine phase masks the roll, then the burst colours to the result. The
-    // rainbow video is no longer a generic opener — it belongs to the Rainbow
-    // Monsta alone and plays after the cinematic (see endCinematic). Clothes'
-    // opening is a rarity-tiered hit video, chosen after the roll (below).
-    // Creature Costumes instead opens an opaque paw-patterned capsule.
-    const drawnOpening = bannerId === 'food' ? 'fizz'
-      : bannerId === 'foodsuits' ? 'energy' : bannerId === 'creatures' ? 'creatures' : null
+    // Closed props mask the roll's latency. Jackpot videos still follow the
+    // parcel, and Kitty Costumes keeps its existing rarity-tiered hit video.
+    const drawnOpening = bannerId === 'food' ? 'parcel'
+      : bannerId === 'foodsuits' ? 'chef' : bannerId === 'creatures' ? 'creatures' : null
     if (drawnOpening) {
       openedWithVideo.current = true
       setCinematicRarity(null)
@@ -328,7 +323,7 @@ export default function GachaPage() {
     jackpotPending.current = results.some(r =>
       r.item.id === MONSTA_RAINBOW_ID || r.item.id === MONSTA_GOLD_ID)
     if (drawnOpening) {
-      // Hand the cinematic its rarity → it resolves and bursts.
+      // Hand the cinematic its rarity so it can open the waiting prop.
       setCinematicRarity(best)
     } else if (bannerId === 'animal') {
       // Clothes: open with the hit cinematic for the best drop in the batch.
@@ -347,6 +342,10 @@ export default function GachaPage() {
     setPullResults(null)
     refetchInv()
   }
+
+  const firstReward = pullResults?.[0]?.item
+  const firstSkin = firstReward?.skinId ? getSkin(firstReward.skinId) : undefined
+  const openingRewardSrc = firstSkin?.thumb ?? firstReward?.image
 
   return (
     <div className="fixed inset-0" style={{ background: '#050507' }}>
@@ -452,9 +451,10 @@ export default function GachaPage() {
         </div>
       )}
 
-      {/* ── FoodSuits energy cinematic (keyhole shine → rarity-tinted burst) ── */}
-      {cinematic === 'fizz'   && <GachaFizzOpening   rarity={cinematicRarity} onDone={endCinematic} />}
-      {cinematic === 'energy' && <GachaEnergyOpening rarity={cinematicRarity} onDone={endCinematic} />}
+      {/* Each food machine opens its own physical container. */}
+      {(cinematic === 'parcel' || cinematic === 'chef') && (
+        <GachaTreatOpening kind={cinematic} rarity={cinematicRarity} rewardSrc={openingRewardSrc} onDone={endCinematic} />
+      )}
       {cinematic === 'creatures' && <GachaCreatureOpening rarity={cinematicRarity} onDone={endCinematic} />}
 
       {/* ── Reveal ── */}

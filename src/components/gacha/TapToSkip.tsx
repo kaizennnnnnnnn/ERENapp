@@ -1,5 +1,5 @@
-// "Tap to skip" under a gacha cinematic (the fizz, the energy burst, the
-// opening videos): a quiet pill in Meadow's rounded type, low on the screen
+// "Tap to skip" under a gacha cinematic (the parcel, the serving dish, the
+// capsule and opening videos): a quiet pill in Meadow's rounded type, low on the screen
 // and see-through, so it is findable without taking anything from the show.
 // The tap itself belongs to the cinematic's own full-screen layer.
 
