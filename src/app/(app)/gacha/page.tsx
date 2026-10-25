@@ -11,7 +11,6 @@ import { MONSTA_RAINBOW_ID, MONSTA_GOLD_ID, GACHA_FOOD_GRANT, GACHA_BANNERS } fr
 import type { GachaPullResult, GachaRarity } from '@/types'
 import { highestRarity, pickClothesHitVideo } from '@/lib/gachaVideos'
 import { getSkin } from '@/lib/skins'
-import { GACHA_SCENES } from '@/lib/gachaPresentation'
 import PullAnimation from '@/components/gacha/PullAnimation'
 import GachaTreatOpening from '@/components/gacha/GachaTreatOpening'
 import GachaOddsSheet from '@/components/gacha/GachaOddsSheet'
@@ -269,9 +268,6 @@ export default function GachaPage() {
   async function handlePull(count: 1 | 10) {
     if (pulling || openingVideo || pullResults || cinematic) return
     const bannerId = PAGES[pageIdx].id
-    const scene = new Image()
-    scene.src = GACHA_SCENES[bannerId].src
-    scene.decode?.().catch(() => {})
     // A single pull spends a free ticket whenever one is held — tickets are
     // earned pulls, so they're used before coins and stay usable at any coin
     // balance. Falls back to coins only once tickets run out. (x10 is always
@@ -303,8 +299,7 @@ export default function GachaPage() {
     // shows the cat already drawn on its stage instead of popping in after it.
     for (const r of results) {
       const sk = r.item.skinId ? getSkin(r.item.skinId) : undefined
-      if (!sk) continue
-      for (const s of [sk.src, sk.tailSrc]) {
+      for (const s of sk ? [sk.src, sk.tailSrc] : [r.item.image]) {
         if (!s) continue
         const im = new Image()
         im.src = s
@@ -346,9 +341,6 @@ export default function GachaPage() {
     setPullResults(null)
     refetchInv()
   }
-
-  const firstReward = pullResults?.[0]?.item
-  const openingRewardSrc = cinematic === 'parcel' ? firstReward?.image : undefined
 
   return (
     <div className="fixed inset-0" style={{ background: '#050507' }}>
@@ -456,7 +448,7 @@ export default function GachaPage() {
 
       {/* Each food machine opens its own physical container. */}
       {(cinematic === 'parcel' || cinematic === 'chef') && (
-        <GachaTreatOpening kind={cinematic} rarity={cinematicRarity} rewardSrc={openingRewardSrc} onDone={endCinematic} />
+        <GachaTreatOpening kind={cinematic} rarity={cinematicRarity} onDone={endCinematic} />
       )}
       {cinematic === 'creatures' && <GachaCreatureOpening rarity={cinematicRarity} onDone={endCinematic} />}
 

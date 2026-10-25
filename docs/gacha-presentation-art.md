@@ -2,6 +2,12 @@
 
 Generated with the built-in image tool. Final production assets live in `public/gacha/presentation/`. The original machine paintings are unchanged. PNG sources remain in the local generated-images library; WebP export is format conversion only. Atlas rectangles are read from alpha bounds and used at render time, not painted over.
 
+## Current Presentation
+
+The four reward room images below were rejected and removed from production. Their prompts are retained as provenance only. Rewards now sit on an unframed flat ground with deterministic canvas animation in `gachaRarityArt.ts`: fizz, stitching, steam/ribbon, or leaves for the four machines. Common pops, Rare double-pulses, Epic sweeps ribbons, and Legendary gathers gold particles before its burst and animated coronation. Higher tiers retain sparse moving accents after the entrance. Reduced motion uses small static accents instead of travel or pulses.
+
+The five approved packaging atlases are still used. Snack cartons emit a rarity burst rather than showing a miniature item. The serving set retains the folded costume bundle, with rarity-specific timing, lid paths, steam, rim details and bursts; no cat is rendered inside either opening. Rewards, costs and RNG are independent of all presentation clocks.
+
 ## Shared Scene Prompt
 
 Use case: stylized-concept. Asset type: square production game background for a reward reveal in Eren, a cosy pixel-art cat-care game. A carefully drawn detailed-but-readable 16-bit pixel-art interior, stepped pixel edges, restrained pixel shading, warm domestic lighting, charming handmade materials. Not vector art, not 3D render, not painterly blur, not a UI mockup. Square image. Front-facing camera, very slight downward view of the foreground standing surface. Keep the entire central 50 percent of the image from 15 to 85 percent height free of objects, characters, text or decoration so a tall cat sprite can be composited there. The standing surface crosses the full width at 74 percent image height; its horizontal top is clearly visible throughout the lower quarter. The place where a cat's feet will stand is at 84 percent height, centred. Put scene-specific props at the far left and far right only. No cats, people, silhouettes, monsters, food items in the centre, flowers, grass, sunburst rays, glowing particles, gradients, logos, text, border or watermark. The scene must feel like a small well-loved room in the same house, not a shop or outdoor world. Full bleed, no surrounding card.

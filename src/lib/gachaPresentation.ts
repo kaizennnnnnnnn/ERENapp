@@ -13,19 +13,20 @@ export const PRESENTATION_ATLASES: Record<string, PresentationAtlas> = {
   'chef': { src: '/gacha/presentation/chef.webp?v=1', lid: [87,19,1080,698], body: [27,738,1200,510] },
 }
 
-export const GACHA_SCENES: Record<GachaMachine, {
-  src: string; name: string; accent: string; fabric: string; dark: string;
-  grounds: Record<GachaRarity, string>;
-}> = {
-  food: { src: '/gacha/presentation/scene-food.webp?v=1', name: 'Cafe counter', accent: '#B95B68', fabric: '#F0B6AE', dark: '#653F46',
-    grounds: { common: '#F4F2EE', rare: '#E9F2ED', epic: '#F8E8E9', legendary: '#FCF0D9' } },
-  animal: { src: '/gacha/presentation/scene-animal.webp?v=1', name: 'Dressing room', accent: '#886B9D', fabric: '#C9B1D3', dark: '#503B61',
-    grounds: { common: '#F3EFF5', rare: '#EEEAF6', epic: '#F2E6EE', legendary: '#F6EFD9' } },
-  foodsuits: { src: '/gacha/presentation/scene-foodsuits.webp?v=1', name: 'Bakery workbench', accent: '#B67258', fabric: '#EAB5A0', dark: '#735348',
-    grounds: { common: '#F0F3EF', rare: '#E6F1EF', epic: '#F5E8E1', legendary: '#FAEFD9' } },
-  creatures: { src: '/gacha/presentation/scene-creatures.webp?v=1', name: 'Storybook nook', accent: '#6C835B', fabric: '#B7C49F', dark: '#414F3C',
-    grounds: { common: '#EFF1E9', rare: '#EBF0E3', epic: '#EEE7E1', legendary: '#F3EDDA' } },
-}
+export const GACHA_REVEAL_THEMES = {
+  food: { ground: '#EFF5F3', ink: '#378C82', secondary: '#E78A98', motif: 'fizz' },
+  animal: { ground: '#F6F0F4', ink: '#B86991', secondary: '#879FC5', motif: 'stitch' },
+  foodsuits: { ground: '#F3F5F0', ink: '#719C82', secondary: '#DF898A', motif: 'steam' },
+  creatures: { ground: '#F0F4EE', ink: '#6B9562', secondary: '#D09A54', motif: 'leaf' },
+} as const
+
+// Rarity changes the choreography, not just the colour or particle count.
+export const RARITY_MOTION = {
+  common: { sequence: 'pop', duration: 1000, settle: 0 },
+  rare: { sequence: 'double-pulse', duration: 1600, settle: 100 },
+  epic: { sequence: 'ribbon-sweep', duration: 2300, settle: 220 },
+  legendary: { sequence: 'gather-and-coronate', duration: 3100, settle: 520 },
+} as const
 
 export const RARITY_PRESENTATION = {
   common: { trim: '#C4B4A0', seal: '#829E8B', level: 0 },

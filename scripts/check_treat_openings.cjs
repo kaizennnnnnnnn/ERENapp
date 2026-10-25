@@ -39,9 +39,9 @@ for (const kind of ['parcel', 'chef']) {
           lastOpen = f.open; lastFade = f.fade
         }
         assert.ok(finishedAt > readyAt)
-        assert.ok(finishedAt <= Math.max(readyAt, reduced ? 120 : 900) + (reduced ? 500 : 2100))
+        assert.ok(finishedAt <= Math.max(readyAt, reduced ? 120 : 760) + (reduced ? 500 : 2400))
         assert.ok(phases.has('opening') && phases.has('presenting') && phases.has('leaving'))
-        if (readyAt === 0) assert.ok(finishedAt <= (reduced ? 600 : 3000))
+        if (readyAt === 0) assert.ok(finishedAt <= (reduced ? 600 : 3200))
       }
     }
   }
@@ -49,5 +49,9 @@ for (const kind of ['parcel', 'chef']) {
   const ordinary = frame(kind, 1500, 0, 'rare', false)
   const special = frame(kind, 1500, 0, 'legendary', false)
   assert.ok(special.open < ordinary.open)
+  const lengths = ['common','rare','epic','legendary'].map(rarity => {
+    for (let ms = 0; ms < 4000; ms += 10) if (frame(kind,ms,0,rarity,false).done) return ms
+  })
+  assert.equal(new Set(lengths).size,4,'Each rarity has a distinct opening rhythm')
 }
 console.log('Treat opening checks passed: both machines, four rarities, delayed rolls, ordered phases and reduced motion.')

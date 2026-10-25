@@ -1,6 +1,7 @@
 import type { GachaRarity } from '@/types'
 import { getTreatAtlas, RARITY_PRESENTATION, type AtlasRect } from '@/lib/gachaPresentation'
 import { clampOpening as clamp, easeOpening as ease, type TreatOpeningFrame, type TreatOpeningKind } from '@/lib/gachaTreatOpening'
+import { drawRarityEffects } from './gachaRarityArt'
 
 const TAU = Math.PI * 2
 
@@ -15,7 +16,7 @@ function piece(ctx: CanvasRenderingContext2D, atlas: HTMLImageElement, rect: Atl
 
 function snackCase(
   ctx: CanvasRenderingContext2D, frame: TreatOpeningFrame, rarity: GachaRarity | null,
-  image: HTMLImageElement | null, atlas: HTMLImageElement, reduced: boolean,
+  atlas: HTMLImageElement, reduced: boolean,
 ) {
   const spec = getTreatAtlas('parcel', rarity)
   const tier = RARITY_PRESENTATION[rarity ?? 'common']
@@ -58,19 +59,19 @@ function snackCase(
   if (projection <= 2) drawLid()
   piece(ctx, atlas, spec.body, -width / 2, 0, width, bodyH)
 
-  if (image?.complete && image.naturalWidth && frame.open > .58) {
-    // The small prize sits inside the carton. It never grows out of it.
+  if (frame.open > .12) {
+    // The burst is inside the container; the front wall still occludes its origin.
     ctx.save()
-    ctx.globalAlpha *= clamp((frame.open - .58) / .25)
-    ctx.beginPath(); ctx.moveTo(-101, 12); ctx.lineTo(101, 12); ctx.lineTo(117, bodyH * .57); ctx.lineTo(-117, bodyH * .57); ctx.closePath(); ctx.clip()
-    const h = Math.min(48, 84 * image.naturalHeight / image.naturalWidth)
-    const w = h * image.naturalWidth / image.naturalHeight
-    oval(ctx, 0, bodyH * .52, 35, 4, 'rgba(81,53,40,.2)')
-    ctx.drawImage(image, -w / 2, bodyH * .55 - h, w, h)
+    ctx.translate(0, 14)
+    drawRarityEffects(ctx, 'food', rarity ?? 'common', (frame.burstMs - 80) * 1.8, reduced, true)
     ctx.restore()
     const frontY = spec.body[3] * .56
     ctx.drawImage(atlas, spec.body[0], spec.body[1] + frontY, spec.body[2], spec.body[3] - frontY,
       -width / 2, bodyH * .56, width, bodyH * .44)
+  }
+  if (!reduced && rarity === 'legendary' && frame.open === 0 && frame.wind > 0) {
+    ctx.save(); ctx.translate(0, 12)
+    drawRarityEffects(ctx, 'food', 'legendary', frame.wind * 480, false, true); ctx.restore()
   }
   if (projection > 2) drawLid()
   if (opening > .15) {
@@ -85,6 +86,7 @@ function servingSet(ctx: CanvasRenderingContext2D, frame: TreatOpeningFrame, rar
   const spec = getTreatAtlas('chef', rarity)
   const tier = RARITY_PRESENTATION[rarity ?? 'rare']
   const opening = ease(frame.open)
+  const tierLevel = tier.level
   ctx.save()
   ctx.translate(reduced ? 0 : -35 * (1 - ease(frame.arrival)), 0)
   ctx.globalAlpha *= reduced ? 1 : clamp(frame.arrival * 4)
@@ -96,21 +98,31 @@ function servingSet(ctx: CanvasRenderingContext2D, frame: TreatOpeningFrame, rar
     ctx.beginPath(); ctx.ellipse(0, 44, 125, 23, 0, 0, Math.PI); ctx.stroke()
     for (const x of [-110, 110]) { ctx.fillStyle = tier.trim; ctx.fillRect(x - 3, 41, 6, 3) }
   }
-  if (!reduced && frame.open > 0 && frame.open < .8) {
-    for (let i = 0; i < 3; i++) {
-      const p = clamp((frame.open - i * .05) / .7)
+  if (!reduced && frame.open > 0 && frame.open < .85) {
+    const count = tierLevel === 0 ? 1 : tierLevel === 1 ? 3 : tierLevel === 2 ? 4 : 5
+    for (let i = 0; i < count; i++) {
+      const p = clamp((frame.open - i * .035) / .75)
       ctx.save(); ctx.globalAlpha *= Math.sin(p * Math.PI) * .5
-      ctx.lineCap = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = '#FFF6E8'
-      const x = (i - 1) * 37, y = 5 - p * 64
+      ctx.lineCap = 'round'; ctx.lineWidth = tierLevel > 1 ? 4 : 3; ctx.strokeStyle = tierLevel === 3 ? '#F1D48E' : '#FFF6E8'
+      const x = (i - (count - 1) / 2) * 29, y = 5 - p * 64
       ctx.beginPath(); ctx.moveTo(x, y); ctx.bezierCurveTo(x - 15, y - 20, x + 18, y - 34, x, y - 52); ctx.stroke(); ctx.restore()
     }
   }
+  if (frame.open > .15 || (!reduced && tierLevel === 3 && frame.wind > 0)) {
+    ctx.save(); ctx.translate(0, -10)
+    const elapsed = frame.open > .15 ? (frame.burstMs - 80) * 1.8 : frame.wind * 480
+    drawRarityEffects(ctx, 'foodsuits', rarity ?? 'common', elapsed, reduced, true); ctx.restore()
+  }
 
   ctx.save()
-  const rattle = reduced ? 0 : Math.sin(frame.wind * Math.PI * 4) * 1.5 * (1 - opening)
+  const rattle = reduced ? 0 : Math.sin(frame.wind * Math.PI * (4 + tierLevel * 2)) * (1 + tierLevel * .6) * (1 - opening)
   // The lid exits to the side; no cat image is ever rendered under it.
-  ctx.translate(reduced ? 0 : 190 * opening, (reduced ? -8 : -125) * opening + rattle)
-  ctx.rotate(reduced ? 0 : .12 * opening)
+  const sweep = tierLevel === 3 ? ease(clamp((frame.open - .38) / .62)) : opening
+  const lift = tierLevel === 3 ? ease(frame.open / .65) : opening
+  const tilt = tierLevel === 2 ? Math.sin(frame.open * Math.PI) * -.22 + opening * .16
+    : tierLevel === 3 ? .07 * sweep : .12 * opening
+  ctx.translate(reduced ? 0 : (tierLevel === 0 ? 120 : 190) * sweep, (reduced ? -8 : tierLevel === 3 ? -165 : -125) * lift + rattle)
+  ctx.rotate(reduced ? 0 : tilt)
   if (reduced) ctx.globalAlpha *= 1 - opening
   const lidW = 250, lidH = lidW * spec.lid[3] / spec.lid[2]
   piece(ctx, atlas, spec.lid, -lidW / 2, 48 - lidH, lidW, lidH)
@@ -129,14 +141,14 @@ function servingSet(ctx: CanvasRenderingContext2D, frame: TreatOpeningFrame, rar
 export function drawTreatOpening(
   ctx: CanvasRenderingContext2D, kind: TreatOpeningKind, frame: TreatOpeningFrame,
   width: number, height: number, rarity: GachaRarity | null, reduced: boolean,
-  image: HTMLImageElement | null, atlas?: HTMLImageElement | null,
+  atlas?: HTMLImageElement | null,
 ) {
   if (!atlas?.complete || !atlas.naturalWidth) return
   const unit = Math.min(width / 390, height / 740, 1.35)
   ctx.save()
   ctx.translate(width / 2, height * .54); ctx.scale(unit, unit)
   ctx.lineJoin = 'round'; ctx.globalAlpha = 1 - frame.fade
-  if (kind === 'parcel') snackCase(ctx, frame, rarity, image, atlas, reduced)
+  if (kind === 'parcel') snackCase(ctx, frame, rarity, atlas, reduced)
   else servingSet(ctx, frame, rarity, atlas, reduced)
   ctx.restore()
 }

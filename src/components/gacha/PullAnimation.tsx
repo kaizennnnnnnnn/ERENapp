@@ -7,7 +7,7 @@ import { useCat } from '@/hooks/useCat'
 import { swapCatName } from '@/lib/catWords'
 import { M, MeadowIcon, PrimaryButton, Tag, TextButton, TYPE } from '@/components/meadow'
 import { STARDUST_INK } from '@/components/rewards/rewardDisplay'
-import { GACHA_SCENES } from '@/lib/gachaPresentation'
+import { GACHA_REVEAL_THEMES } from '@/lib/gachaPresentation'
 import GachaRewardStage from './GachaRewardStage'
 
 interface Props {
@@ -98,7 +98,7 @@ export default function PullAnimation({ results, onDone, skipCapsule = false, ma
   }
 
   return (
-    <div className="meadow-root fixed inset-0 z-[70] overflow-y-auto" style={{ background: GACHA_SCENES[machine].grounds[rarity] }}>
+    <div className="meadow-root fixed inset-0 z-[70] overflow-y-auto" style={{ background: GACHA_REVEAL_THEMES[machine].ground }}>
       <div className="flex flex-col mx-auto" style={{
         minHeight: '100%', maxWidth: 420, boxSizing: 'border-box',
         padding: 'calc(var(--safe-top) + 12px) 16px calc(var(--safe-bottom) + 20px)',

@@ -12,18 +12,16 @@ import TapToSkip from './TapToSkip'
 interface Props {
   kind: TreatOpeningKind
   rarity: GachaRarity | null
-  rewardSrc?: string
   onDone: () => void
 }
 
 const BACKDROPS = { parcel: '/gacha_food.webp?v=2', chef: '/gacha_foodsuits.webp?v=1' }
 
 /** Two physical openings share one clock and one canvas, not the reward RNG. */
-export default function GachaTreatOpening({ kind, rarity, rewardSrc, onDone }: Props) {
+export default function GachaTreatOpening({ kind, rarity, onDone }: Props) {
   const reduced = useReducedMotion()
   const rootRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const imageRef = useRef<HTMLImageElement | null>(null)
   const atlasRef = useRef<HTMLImageElement | null>(null)
   const [loadedAtlas, setLoadedAtlas] = useState<string | null>(null)
   const [atlasFailed, setAtlasFailed] = useState(false)
@@ -82,15 +80,6 @@ export default function GachaTreatOpening({ kind, rarity, rewardSrc, onDone }: P
   }, [atlasSrc, shouldLoadAtlas])
 
   useEffect(() => {
-    imageRef.current = null
-    if (!rewardSrc) return
-    const image = new Image()
-    image.onload = () => { imageRef.current = image }
-    image.src = rewardSrc
-    return () => { image.onload = null }
-  }, [rewardSrc])
-
-  useEffect(() => {
     const canvas = canvasRef.current
     const ctx = canvas?.getContext('2d')
     if (!canvas || !ctx) {
@@ -120,7 +109,7 @@ export default function GachaTreatOpening({ kind, rarity, rewardSrc, onDone }: P
       }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx.clearRect(0, 0, width, height)
-      drawTreatOpening(ctx, kind, frame, width, height, rarityRef.current, reduced, imageRef.current, atlasRef.current)
+      drawTreatOpening(ctx, kind, frame, width, height, rarityRef.current, reduced, atlasRef.current)
       if (frame.arrival >= 1 && !landedRef.current) {
         landedRef.current = true
         if (!skipRef.current) playSound('ui_select')

@@ -16,17 +16,19 @@ function load(relative, imports = {}) {
 }
 const presentation = load('src/lib/gachaPresentation.ts')
 const timeline = load('src/lib/gachaTreatOpening.ts')
-const art = load('src/components/gacha/treatOpeningArt.ts', {
+const effects = load('src/components/gacha/gachaRarityArt.ts', {
   '@/lib/gachaPresentation': presentation, '@/lib/gachaTreatOpening': timeline,
 })
+const art = load('src/components/gacha/treatOpeningArt.ts', {
+  '@/lib/gachaPresentation': presentation, '@/lib/gachaTreatOpening': timeline,
+  './gachaRarityArt': effects,
+})
 const bounds = require('../src/lib/gachaFoodBounds.json')
-const machines = Object.keys(presentation.GACHA_SCENES)
+const machines = Object.keys(presentation.GACHA_REVEAL_THEMES)
 assert.deepEqual(machines, ['food', 'animal', 'foodsuits', 'creatures'])
-assert.equal(new Set(machines.map(id => presentation.GACHA_SCENES[id].src)).size, 4)
-for (const scene of Object.values(presentation.GACHA_SCENES)) {
-  assert.ok(fs.statSync(path.join(root, 'public', scene.src.split('?')[0])).size > 0)
-  assert.equal(new Set(Object.values(scene.grounds)).size, 4)
-}
+assert.equal(new Set(machines.map(id => presentation.GACHA_REVEAL_THEMES[id].motif)).size, 4)
+assert.equal(new Set(Object.values(presentation.RARITY_MOTION).map(m => m.sequence)).size, 4)
+assert.ok(!Object.values(presentation.GACHA_REVEAL_THEMES).some(theme => 'src' in theme))
 for (const atlas of Object.values(presentation.PRESENTATION_ATLASES)) {
   assert.ok(fs.statSync(path.join(root, 'public', atlas.src.split('?')[0])).size > 0)
   for (const rect of [atlas.body, atlas.lid]) {
@@ -44,23 +46,26 @@ for (const [id, box] of Object.entries(bounds)) {
   assert.ok(x >= 0 && y >= 0 && w > 0 && h > 0 && x+w <= box.size[0] && y+h <= box.size[1])
 }
 const atlasImage = {complete:true,naturalWidth:1254,naturalHeight:1254}
-const rewardImage = {complete:true,naturalWidth:128,naturalHeight:128}
+function trace() {
+  const calls = []
+  const context = new Proxy({globalAlpha:1}, {
+    get: (target,key) => key in target ? target[key] : (...args) => {calls.push([key,...args])},
+    set: (target,key,value) => {target[key]=value;return true},
+  })
+  return {calls,context}
+}
 for (const kind of ['parcel','chef']) for (const rarity of ['common','rare','epic','legendary']) {
   for (const reduced of [false,true]) for (const open of [0,.02,.15,.3,.5,.7,.9,1]) {
-    const calls = []
-    const context = new Proxy({}, {
-      get: (_target,key) => key === 'globalAlpha' ? 1 : (...args) => {calls.push([key,...args])},
-      set: () => true,
-    })
-    art.drawTreatOpening(context,kind,{arrival:1,wind:1,open,fade:0,done:false,phase:'opening'},390,844,rarity,reduced,rewardImage,atlasImage)
+    const {calls,context} = trace()
+    art.drawTreatOpening(context,kind,{arrival:1,wind:1,open,burstMs:open*1600,fade:0,done:false,phase:'opening'},390,844,rarity,reduced,atlasImage)
     const images = calls.filter(c => c[0] === 'drawImage')
     assert.ok(images.length > 0)
     for (const image of images) {
       assert.ok(image.slice(2).every(Number.isFinite), 'Non-finite source or destination geometry')
       if (image.length === 10) assert.ok(image[4] > 0 && image[5] > 0 && image[8] > 0 && image[9] > 0)
     }
-    if (kind === 'chef') assert.ok(!images.some(c => c[1] === rewardImage), 'Never put the cat under the lid')
-    else {
+    assert.ok(images.every(c => c[1] === atlasImage), 'No miniature reward or cat can appear inside either opening')
+    if (kind === 'parcel') {
       const body = presentation.getTreatAtlas(kind,rarity).body
       const draw = images.find(c => c.slice(2,6).every((n,i) => n === body[i]))
       assert.ok(draw)
@@ -69,6 +74,28 @@ for (const kind of ['parcel','chef']) for (const rarity of ['common','rare','epi
     }
   }
 }
+for (const machine of machines) {
+  const sequences = []
+  for (const rarity of ['common','rare','epic','legendary']) {
+    const phases = []
+    for (const elapsed of [0,200,500,900,1500,2200,4000,6500]) {
+      const {calls,context} = trace()
+      effects.drawRarityEffects(context,machine,rarity,elapsed,false)
+      for (const call of calls) for (const arg of call.slice(1)) if (typeof arg === 'number') assert.ok(Number.isFinite(arg))
+      assert.ok(!calls.some(c => c[0] === 'drawImage'), 'Reward effects are animated geometry, not room pictures')
+      phases.push(JSON.stringify(calls))
+    }
+    assert.ok(new Set(phases).size > 1, 'The effect must actually change over time')
+    sequences.push(phases.join('|'))
+    const early = trace(), late = trace()
+    effects.drawRarityEffects(early.context,machine,rarity,200,true)
+    effects.drawRarityEffects(late.context,machine,rarity,4000,true)
+    assert.deepEqual(early.calls,late.calls,'Reduced motion has no traveling particles or pulses')
+  }
+  assert.equal(new Set(sequences).size,4,'Each rarity has a different choreography')
+}
 const reveal = fs.readFileSync(path.join(root,'src/components/gacha/PullAnimation.tsx'),'utf8')
 assert.ok(!reveal.includes('pull-rays') && !reveal.includes('CanFx') && !reveal.includes('<Stage '))
-console.log('Gacha presentation checks passed: four scenes, five illustrated atlases, thirteen food anchors, rigid box geometry, no cat under lid, no rays or shared flower stage.')
+const stage = fs.readFileSync(path.join(root,'src/components/gacha/GachaRewardStage.tsx'),'utf8')
+assert.ok(!stage.includes('scene-') && !stage.includes('plinth') && !stage.includes('Dressing'))
+console.log('Gacha presentation checks passed: four animated themes, four distinct rarity sequences, rigid packaging, no miniature rewards, no painted reveal backgrounds, reduced-motion fallback.')
