@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, type CSSProperties } from 'react'
 import type { GachaItemDef } from '@/types'
-import { GACHA_REVEAL_THEMES, RARITY_MOTION, getSkinRewardRoom, type GachaMachine } from '@/lib/gachaPresentation'
+import { GACHA_REVEAL_THEMES, RARITY_MOTION, getSkinRewardRoom, pickSkinRewardRoom, type GachaMachine, type SkinRewardRoom, type SkinRoomVariant } from '@/lib/gachaPresentation'
 import FOOD_BOUNDS from '@/lib/gachaFoodBounds.json'
 import { getSkin } from '@/lib/skins'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
@@ -11,7 +11,7 @@ import { MeadowIcon } from '@/components/meadow'
 import { drawRarityEffects } from './gachaRarityArt'
 import { drawPixelRoom, PIXEL_ROOM_SIZE } from './pixelRoomArt'
 
-interface Props { item: GachaItemDef; machine: GachaMachine; name: string; compact?: boolean }
+interface Props { item: GachaItemDef; machine: GachaMachine; name: string; compact?: boolean; roomVariant?: SkinRoomVariant }
 
 function FoodArtwork({ item, name }: { item: GachaItemDef; name: string }) {
   const bounds = (FOOD_BOUNDS as Record<string, { size: number[]; rect: number[] }>)[item.id]
@@ -21,18 +21,39 @@ function FoodArtwork({ item, name }: { item: GachaItemDef; name: string }) {
   </svg>
 }
 
-export default function GachaRewardStage({ item, machine, name, compact = false }: Props) {
+export default function GachaRewardStage({ item, machine, name, compact = false, roomVariant }: Props) {
   const rootRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const roomCanvasRef = useRef<HTMLCanvasElement>(null)
+  const roomChoiceRef = useRef<{ key: string; room: SkinRewardRoom } | null>(null)
   const reduced = useReducedMotion()
   const skin = item.skinId ? getSkin(item.skinId) : undefined
-  const room = skin ? getSkinRewardRoom(item.rarity) : null
+  const room = skin ? getSkinRewardRoom(machine, item.rarity, roomVariant) : null
   const hasRoom = room !== null
+  const choiceKey = `${machine}:${item.rarity}:${item.id}:${roomVariant ?? 'auto'}`
+  const selectedRoom = roomChoiceRef.current?.key === choiceKey ? roomChoiceRef.current.room : room
   const prizeSize = hasRoom ? 224 : 192
   const letterbox = skin && skin.aspect > 1 ? prizeSize * (1 - 1 / skin.aspect) / 2 : 0
   const motion = RARITY_MOTION[item.rarity]
   const theme = GACHA_REVEAL_THEMES[machine]
+
+  useEffect(() => {
+    if (!hasRoom || roomChoiceRef.current?.key === choiceKey) return
+    const key = `gacha:reward-room:${machine}:${item.rarity}`
+    let previous: string | undefined
+    try { previous = sessionStorage.getItem(key) ?? undefined } catch { /* storage is optional */ }
+    const forced = roomVariant === undefined ? null : getSkinRewardRoom(machine,item.rarity,roomVariant)
+    const sample = forced ? 0 : crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000
+    const picked = forced ?? pickSkinRewardRoom(machine,item.rarity,sample,previous)
+    if (!picked) return
+    roomChoiceRef.current = { key: choiceKey, room: picked }
+    rootRef.current?.setAttribute('data-room-id',picked.id)
+    rootRef.current?.setAttribute('data-room-variant',String(picked.variant))
+    rootRef.current?.setAttribute('aria-label',`${picked.name}, ${item.rarity} costume`)
+    if (!forced) {
+      try { sessionStorage.setItem(key,picked.id) } catch { /* storage is optional */ }
+    }
+  }, [choiceKey, hasRoom, machine, item.rarity, roomVariant])
 
   useEffect(() => {
     const canvas = canvasRef.current, ctx = canvas?.getContext('2d')
@@ -46,7 +67,7 @@ export default function GachaRewardStage({ item, machine, name, compact = false 
     const draw = (now: number) => {
       const elapsed = now - start
       if (backdrop && backdropCtx && world && worldCtx && elapsed - roomPaintedAt >= 80) {
-        drawPixelRoom(worldCtx, item.rarity, elapsed, reduced)
+        drawPixelRoom(worldCtx, machine, item.rarity, roomChoiceRef.current?.room.variant ?? 0, elapsed, reduced)
         const size = Math.max(width, height)
         backdropCtx.setTransform(dpr,0,0,dpr,0,0); backdropCtx.clearRect(0,0,width,height)
         backdropCtx.imageSmoothingEnabled = false
@@ -78,10 +99,11 @@ export default function GachaRewardStage({ item, machine, name, compact = false 
     const observer = new ResizeObserver(resize); observer.observe(canvas); resize()
     document.addEventListener('visibilitychange', resume)
     return () => { cancelAnimationFrame(raf); observer.disconnect(); document.removeEventListener('visibilitychange', resume) }
-  }, [machine, item.rarity, reduced, motion.duration, hasRoom, prizeSize])
+  }, [machine, item.rarity, item.id, roomVariant, reduced, motion.duration, hasRoom, prizeSize])
 
   return <div ref={rootRef} data-reward-scene={machine} data-rarity={item.rarity} data-sequence={motion.sequence}
-    data-skin-room={room ? item.rarity : undefined} aria-label={room ? `${room.name}, ${item.rarity} costume` : undefined}
+    data-skin-room={room ? item.rarity : undefined} data-room-id={selectedRoom?.id} data-room-variant={selectedRoom?.variant}
+    aria-label={selectedRoom ? `${selectedRoom.name}, ${item.rarity} costume` : undefined}
     style={{ position: 'relative', width: hasRoom ? '100%' : 320, maxWidth: '100%', flexShrink: 0,
       height: hasRoom ? compact ? 'clamp(300px, 44svh, 380px)' : 'clamp(330px, 52svh, 450px)' : undefined,
       aspectRatio: hasRoom ? undefined : '1', overflow: 'hidden', '--gacha-floor': '16%' } as CSSProperties}>

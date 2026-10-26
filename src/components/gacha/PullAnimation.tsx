@@ -7,7 +7,7 @@ import { useCat } from '@/hooks/useCat'
 import { swapCatName } from '@/lib/catWords'
 import { M, MeadowIcon, PrimaryButton, Tag, TextButton, TYPE } from '@/components/meadow'
 import { STARDUST_INK } from '@/components/rewards/rewardDisplay'
-import { GACHA_REVEAL_THEMES } from '@/lib/gachaPresentation'
+import { GACHA_REVEAL_THEMES, type SkinRoomVariant } from '@/lib/gachaPresentation'
 import GachaRewardStage from './GachaRewardStage'
 
 interface Props {
@@ -17,12 +17,13 @@ interface Props {
   skipCapsule?: boolean
   /** Which machine paid out: each has its own reveal sounds. */
   machine: 'food' | 'animal' | 'foodsuits' | 'creatures'
+  roomVariant?: SkinRoomVariant
 }
 
 /** Each machine's reveal voice (see gacha_* in lib/sounds.ts). */
 const REVEAL_VOICE = { food: 'fizz', animal: 'skin', foodsuits: 'suit', creatures: 'skin' } as const
 
-export default function PullAnimation({ results, onDone, skipCapsule = false, machine }: Props) {
+export default function PullAnimation({ results, onDone, skipCapsule = false, machine, roomVariant }: Props) {
   const [phase, setPhase] = useState<'capsule' | 'reveal'>(skipCapsule ? 'reveal' : 'capsule')
   const [currentIdx, setCurrentIdx] = useState(0)
   const [showItem, setShowItem] = useState(skipCapsule)
@@ -122,7 +123,7 @@ export default function PullAnimation({ results, onDone, skipCapsule = false, ma
         <div className="flex flex-col items-center" onClick={nextItem}
           style={{ flex: skinReveal ? undefined : 1, justifyContent: skinReveal ? undefined : 'center', paddingTop: skinReveal ? 0 : 8,
             cursor: 'pointer', visibility: showItem ? 'visible' : 'hidden' }}>
-          <GachaRewardStage key={currentIdx} item={current.item} machine={machine} name={itemName} compact={multi || current.stardustGained > 0} />
+          <GachaRewardStage key={currentIdx} item={current.item} machine={machine} name={itemName} compact={multi || current.stardustGained > 0} roomVariant={roomVariant} />
 
           <div className="pull-info flex flex-col items-center" style={{ marginTop: skinReveal ? 20 : 18, maxWidth: skinReveal ? 360 : 320,
             padding: skinReveal ? '0 20px' : undefined, textAlign: 'center' }}>

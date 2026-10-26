@@ -20,15 +20,43 @@ export const PRESENTATION_ATLASES: Record<string, PresentationAtlas> = {
     serving: { bodyWidth: 280, bodyY: -43, lidWidth: 230, lidBaseY: 36, shadowY: 86 } },
 }
 
+export type SkinRoomVariant = 0 | 1 | 2
+export interface SkinRewardRoom { id: string; name: string; variant: SkinRoomVariant }
+type SkinRoomMachine = Exclude<GachaMachine, 'food'>
+type SkinRoomRarity = Exclude<GachaRarity, 'common'>
+function roomSet(machine: SkinRoomMachine, rarity: SkinRoomRarity, names: readonly [string,string,string]): readonly SkinRewardRoom[] {
+  return names.map((name, variant) => ({ id: `${machine}-${rarity}-${variant}`, name, variant: variant as SkinRoomVariant }))
+}
 export const SKIN_REWARD_ROOMS = {
-  rare: { name: 'Cottage sewing room' },
-  epic: { name: 'Velvet costume atelier' },
-  legendary: { name: 'Royal costume salon' },
-} as const
+  animal: {
+    rare: roomSet('animal','rare',['Knitting cottage','Reading nook','Vanity corner']),
+    epic: roomSet('animal','epic',['Velvet atelier','Ribbon loft','Mirror studio']),
+    legendary: roomSet('animal','legendary',['Royal dressing room','Pearl gallery','Crown lounge']),
+  },
+  foodsuits: {
+    rare: roomSet('foodsuits','rare',['Kitchen nook','Baking pantry','Breakfast room']),
+    epic: roomSet('foodsuits','epic',['Patisserie atelier','Tea salon','Confectionery studio']),
+    legendary: roomSet('foodsuits','legendary',['Royal patisserie','Porcelain gallery','Celebration kitchen']),
+  },
+  creatures: {
+    rare: roomSet('creatures','rare',['Fern den','Moonlit nook','Shell aquarium']),
+    epic: roomSet('creatures','epic',['Enchanted greenhouse','Moonlit study','Coral conservatory']),
+    legendary: roomSet('creatures','legendary',['Dragon sanctuary','Moonstone hall','Pearl grotto']),
+  },
+} satisfies Record<SkinRoomMachine, Record<SkinRoomRarity, readonly SkinRewardRoom[]>>
 
-export function getSkinRewardRoom(rarity: GachaRarity) {
-  // Current costume pools have no Common rewards.
-  return SKIN_REWARD_ROOMS[rarity === 'common' ? 'rare' : rarity]
+export function getSkinRoomPool(machine: GachaMachine, rarity: GachaRarity): readonly SkinRewardRoom[] {
+  // The food machine has no rooms; current costume pools have no Common rewards.
+  return machine === 'food' ? [] : SKIN_REWARD_ROOMS[machine][rarity === 'common' ? 'rare' : rarity]
+}
+export function getSkinRewardRoom(machine: GachaMachine, rarity: GachaRarity, variant: SkinRoomVariant = 0): SkinRewardRoom | null {
+  return getSkinRoomPool(machine,rarity).find(room=>room.variant===variant) ?? null
+}
+export function pickSkinRewardRoom(machine: GachaMachine, rarity: GachaRarity, sample: number, previousId?: string): SkinRewardRoom | null {
+  const pool = getSkinRoomPool(machine,rarity)
+  if (!pool.length) return null
+  const choices = pool.filter(room=>room.id!==previousId)
+  return choices[Math.min(choices.length-1, Math.floor(Math.max(0,Math.min(1,sample))*choices.length))]
 }
 
 export const GACHA_REVEAL_THEMES = {

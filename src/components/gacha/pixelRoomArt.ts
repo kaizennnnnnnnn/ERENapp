@@ -1,4 +1,5 @@
 import type { GachaRarity } from '@/types'
+import type { GachaMachine, SkinRoomVariant } from '@/lib/gachaPresentation'
 
 export const PIXEL_ROOM_SIZE = 240
 type Ctx = CanvasRenderingContext2D
@@ -184,12 +185,185 @@ function royal(c: Ctx, time: number) {
   rug(c,true,false)
 }
 
+function tiledFloor(c: Ctx, variant: SkinRoomVariant, royal=false) {
+  const colors=royal?['#EDE6C9','#B6D1CB','#D6B67D']:variant===1?['#E5CAB9','#CAB6BB','#AE8D83']:['#F0E3CE','#A9C9BA','#C5AD8D']
+  box(c,0,150,240,90,colors[0])
+  for(let row=0;row<7;row++)for(let col=-1;col<13;col++) {
+    const x=col*22+(row%2?11:0),y=150+row*14
+    if(variant===2)poly(c,[[x,y+7],[x+11,y],[x+22,y+7],[x+11,y+14]],colors[(col+row+20)%2])
+    else box(c,x,y,21,13,colors[(col+row+20)%2])
+    if(royal)diamond(c,x+11,y+7,1,colors[2])
+  }
+}
+
+function roomMat(c: Ctx, tier: number, variant: SkinRoomVariant, color: string) {
+  const trim=tier===2?'#E9CA83':'#F3DFC2',edge=tier===2?'#A37D42':'#9C8B82'
+  if(variant===1) {
+    box(c,28,180,184,46,edge);box(c,30,182,180,42,trim);box(c,33,185,174,36,color)
+    for(let x=35;x<208;x+=7){box(c,x,177,2,4,trim);box(c,x,226,2,4,trim)}
+    for(const x of [39,201])for(let y=190;y<219;y+=8)diamond(c,x,y,tier+1,trim)
+  } else {
+    oval(c,20,179,200,49,edge);oval(c,22,180,196,46,trim);oval(c,25,182,190,42,color)
+    if(variant===2)for(let i=0;i<22;i++) {
+      const a=i*Math.PI*2/22,x=120+94*Math.cos(a),y=203+20*Math.sin(a)
+      oval(c,Math.round(x)-2,Math.round(y)-2,5,5,trim)
+    }
+    for(const x of [41,199])diamond(c,x,203,tier+2,trim)
+  }
+}
+
+function bookcase(c: Ctx, x: number, y: number, tier: number, cloth=false) {
+  box(c,x,y,46,154-y,tier===2?'#AF8B50':'#92745D');box(c,x+3,y+3,40,148-y,'#F0DDC1')
+  for(let row=0;row<4;row++) {
+    const sy=y+10+row*(137-y)/4
+    box(c,x+5,sy,36,15,'#AD9B92')
+    for(let i=0;i<5;i++)box(c,x+7+i*6,sy+2+(i%2)*2,5,cloth?7:11-(i%2)*2,['#B4C7B3','#D49CA7','#C6B4CE','#E1C28D'][(i+row)%4])
+    box(c,x+3,sy+15,40,2,tier===2?'#DABE7E':'#BA9776')
+  }
+  box(c,x+2,154,5,5,'#886B4D');box(c,x+38,154,5,5,'#886B4D')
+}
+
+function mirrorDesk(c: Ctx, x: number, time: number, tier: number) {
+  oval(c,x+9,64,28,50,tier===2?'#CEA555':'#B99C7F');oval(c,x+12,67,22,44,'#F9EBD3');oval(c,x+15,70,16,38,'#9EBEC7')
+  box(c,x+20+Math.round(Math.sin(time/2400)),75,2,28,'#DFEAE1')
+  box(c,x,119,47,6,'#C4A16D');box(c,x+3,125,40,19,'#F3DDC0');box(c,x+6,130,32,9,'#DEC1AB')
+  box(c,x+20,133,5,2,'#AA8651');box(c,x+5,144,5,13,'#B5956C');box(c,x+35,144,5,13,'#B5956C')
+}
+
+function wallFrame(c: Ctx, x: number, y: number, type: number, tier: number) {
+  box(c,x,y,29,32,tier===2?'#C6A461':'#9E8270');box(c,x+2,y+2,25,28,'#F5E7CE')
+  if(type===0){box(c,x+8,y+10,13,12,'#BD92AE');box(c,x+5,y+13,19,6,'#DEC6C7');box(c,x+13,y+6,3,21,'#9D7292')}
+  else if(type===1){box(c,x+7,y+8,15,17,'#ADC4B2');box(c,x+11,y+6,7,21,'#6F9E83');box(c,x+5,y+13,20,5,'#C5D8BC')}
+  else {oval(c,x+6,y+8,17,17,'#D4B873');oval(c,x+10,y+6,14,15,'#F5E7CE')}
+}
+
+function arch(c: Ctx, tier: number, variant: SkinRoomVariant, wall: string, trim: string) {
+  const outer=tier===2?'#B98E47':trim
+  if(variant===0) {
+    oval(c,55,12,130,108,outer);box(c,55,65,130,85,outer)
+    oval(c,59,17,122,103,wall);box(c,59,67,122,81,wall)
+  } else if(variant===1) {
+    poly(c,[[54,150],[54,57],[120,8],[186,57],[186,150]],outer)
+    poly(c,[[59,148],[59,60],[120,15],[181,60],[181,148]],wall)
+  } else {
+    box(c,53,25,134,125,outer);box(c,58,30,124,118,wall)
+    box(c,49,21,142,7,tier===2?'#EDD39A':'#E6C6B4')
+    diamond(c,120,24,7,outer);diamond(c,120,24,3,'#F9E7BD')
+  }
+}
+
+function dressingRoom(c: Ctx, tier: number, variant: SkinRoomVariant, time: number) {
+  const wall=tier===2?'#EEE4D1':tier===1?'#D9D1DE':'#E2D7D8'
+  box(c,0,0,240,151,wall);box(c,0,107,240,43,tier===2?'#A9BABD':'#B4A8B4')
+  box(c,0,105,240,3,tier===2?'#D9BB7D':'#CFBBC6')
+  if(tier>0){arch(c,tier,variant,wall,tier===1?'#B194B3':'#B78F52');for(const x of [44,184])column(c,x)}
+  else {box(c,0,0,240,6,'#A28775');for(const x of [46,186])box(c,x,0,6,150,'#C2AC9D')}
+  for(const x of [15,199])wallFrame(c,x,24,variant,tier)
+  planks(c,tier>0)
+  if(variant===1){chair(c,1,110,tier===2);bookcase(c,191,62,tier,true);plant(c,25,89,Math.round(Math.sin(time/1900)),tier===2)}
+  else {mirrorDesk(c,-2,time,tier);chair(c,196,110,tier===2);box(c,197,82,43,3,'#B1967F');for(let i=0;i<5;i++)box(c,200+i*8,62,6,20,['#D2A2B6','#AFC4C3','#E2C998'][i%3])}
+  if(tier===1&&variant===1){curtain(c,true,time);curtain(c,false,time)}
+  if(tier===2){for(const x of [29,211])lamp(c,x,55,time,true);box(c,0,0,240,10,'#7B819B');box(c,0,10,240,3,'#E7C884')}
+  roomMat(c,tier,variant,variant===1?'#B5A5BC':tier===2?'#819CAC':'#B7BCA3')
+}
+
+function steam(c: Ctx, x: number, y: number, time: number, count=2) {
+  for(let i=0;i<count;i++) {
+    const phase=(time/1800+i*.45)%1, dy=Math.round(phase*17)
+    c.save();c.globalAlpha=Math.sin(phase*Math.PI)*.65
+    box(c,x+i*7+Math.round(Math.sin(phase*5)),y-dy,2,6,'#FFF9E6');c.restore()
+  }
+}
+
+function jars(c: Ctx, x: number, y: number, tier: number) {
+  for(let i=0;i<3;i++) {
+    box(c,x+i*12,y,9,3,tier===2?'#D5B46F':'#B89673');box(c,x+i*12+1,y+3,7,12,['#DEB8A2','#B4C9BA','#D7BCC5'][i])
+    box(c,x+i*12+2,y+7,5,4,'#F6E9D2');box(c,x+i*12+2,y+4,1,8,'#FFF5DE')
+  }
+}
+
+function counter(c: Ctx, x: number, tier: number, mixer: boolean, time: number) {
+  const trim=tier===2?'#C3A061':'#A98972'
+  box(c,x,114,48,40,trim);box(c,x+3,119,42,31,tier===2?'#F5E6C7':'#E9C7B6')
+  box(c,x-2,111,52,5,'#F2EBD9');box(c,x+6,122,15,24,'#BCD1C5');box(c,x+25,122,15,24,'#BCD1C5')
+  box(c,x+17,131,2,5,trim);box(c,x+27,131,2,5,trim)
+  if(mixer){box(c,x+12,92,6,20,'#BA829B');box(c,x+15,90,21,7,'#D8A8BD');box(c,x+31,95,3,9,'#A48289');oval(c,x+21,103,20,9,'#AABABD');box(c,x+23,103,16,2,'#E8F1DD')}
+  else {box(c,x+9,98,26,12,tier===2?'#8FBEB3':'#C18F9A');box(c,x+17,94,11,6,'#E3C3AD');box(c,x+35,99,6,6,'#C7AD8C');steam(c,x+17,93,time)}
+}
+
+function oven(c: Ctx, x: number, tier: number, time: number) {
+  box(c,x,106,46,49,tier===2?'#BD9A5E':'#AB9587');box(c,x+3,110,40,40,'#F0DEC4')
+  box(c,x+7,120,32,24,'#637C82');box(c,x+10,123,26,17,'#B2B89D');box(c,x+10,128,26,2,'#F4DDA4')
+  for(const dx of [10,21,32])box(c,x+dx,113,3,3,'#B48E5E')
+  for(let i=0;i<3;i++){oval(c,x+12+i*8,130,6,5,'#D8A86E');box(c,x+14+i*8,130,2,2,'#F9E3B3')}
+  steam(c,x+12,102,time,3)
+}
+
+function kitchen(c: Ctx, tier: number, variant: SkinRoomVariant, time: number) {
+  const wall=variant===1?'#D9D6E2':variant===2?'#F0D9CA':'#D1E3DC'
+  const trim=tier===2?'#C5A063':tier===1?'#B9A1A0':'#8AA99A'
+  box(c,0,0,240,151,wall)
+  for(let y=55;y<151;y+=15)for(let x=-10+(y%2)*10;x<240;x+=24){box(c,x,y,23,14,tier===2?'#E4E3CC':variant===1?'#C5CDCB':'#B9D1C6');box(c,x+1,y+1,21,1,'#E6EDDB')}
+  box(c,0,53,240,3,trim);box(c,0,147,240,4,trim)
+  if(tier>0){arch(c,tier,variant,tier===2?'#EDE7D2':wall,trim);for(const x of [44,184]){if(tier===2)column(c,x);else box(c,x,32,4,118,trim)}}
+  else {box(c,0,0,240,6,'#9E8972');box(c,0,6,240,2,'#D9C49F')}
+  if(tier===2){box(c,0,0,240,15,'#418F86');box(c,0,15,240,3,'#E5C68A')}
+  box(c,0,150,240,2,trim);tiledFloor(c,variant,tier===2)
+  if(variant===0){counter(c,-3,tier,true,time);oven(c,196,tier,time)}
+  else if(variant===1){bookcase(c,-3,67,tier);counter(c,195,tier,false,time)}
+  else {oven(c,-2,tier,time);counter(c,195,tier,true,time)}
+  for(const x of [9,198]){box(c,x,60,35,3,trim);jars(c,x,43,tier)}
+  if(variant===2){box(c,8,29,35,3,trim);for(let i=0;i<3;i++){box(c,12+i*10,32,2,15,'#B4956F');oval(c,9+i*10,45,8,8,'#C5AA7D')}}
+  else {wallFrame(c,12,13,variant,tier);wallFrame(c,199,13,variant===0?1:2,tier)}
+  if(tier>0){oval(c,106,22,13,13,'#FFF0D1');oval(c,114,17,14,17,'#FFF0D1');oval(c,124,22,12,13,'#FFF0D1');box(c,109,31,24,10,'#E8CF9F');box(c,111,33,20,6,'#FDF0D9')}
+  for(const x of [27,214])lamp(c,x,tier===2?74:84,time,tier===2)
+  roomMat(c,tier,variant,variant===0?'#A0C1B2':variant===1?'#B4A6BF':'#D4A4A1')
+}
+
+function terrarium(c: Ctx, x: number, y: number, tier: number, aquatic: boolean, time: number) {
+  const frame=tier===2?'#C4A165':aquatic?'#7A9FAD':'#799C81'
+  box(c,x,y,45,153-y,frame);box(c,x+3,y+3,39,147-y,aquatic?'#A6D2D4':'#BCD5BC')
+  box(c,x+3,140,39,10,aquatic?'#DACFB0':'#9DAD7C')
+  for(let i=0;i<4;i++) {
+    const sway=Math.round(Math.sin(time/1900+i)),xx=x+8+i*9
+    poly(c,[[xx,142],[xx-3+sway,120-i*4],[xx+2+sway,115-i*4],[xx+3,142]],aquatic?'#679F95':'#639469')
+    if(aquatic){const p=(time/2900+i*.2)%1;oval(c,xx,Math.round(139-p*37),3,3,'#E1F0D9')}
+    else {oval(c,xx-2,138,8,4,i%2?'#DAC6A4':'#BBAA8E')}
+  }
+  box(c,x+6,y+7,2,33,'#E4EDDC');box(c,x+3,150,39,3,frame)
+}
+
+function habitat(c: Ctx, tier: number, variant: SkinRoomVariant, time: number) {
+  const wall=variant===1?'#D9DFE7':variant===2?'#D3E6DE':'#D7E3CC'
+  const trim=tier===2?'#BCA065':variant===1?'#919FB6':variant===2?'#93B5AA':'#83A07A'
+  box(c,0,0,240,151,wall)
+  if(tier===0){box(c,0,104,240,46,'#B2C6AC');for(let x=0;x<240;x+=18)box(c,x,106,1,42,trim);box(c,0,101,240,4,trim)}
+  else {arch(c,tier,variant,wall,trim);for(const x of [43,184]){if(tier===2)column(c,x);else box(c,x,53,5,97,trim)}}
+  if(variant===1){box(c,0,0,240,8,'#7E95A5');for(let i=0;i<16;i++)diamond(c,9+i*15,17+(i%3)*9,tier>0?2:1,'#EEF0D8')}
+  else {box(c,0,0,240,7,trim);for(let i=0;i<12;i++){const x=7+i*20;box(c,x,7,1,12,'#668B70');poly(c,[[x,10],[x-5,16],[x,20],[x+5,14]],i%2?'#94B287':'#719E7D')}}
+  if(tier===2){for(const x of [0,220]){box(c,x,0,20,128,variant===1?'#738B9C':variant===2?'#6CABA2':'#477F6D');box(c,x+3,0,3,128,'#AEC9B0')}box(c,0,7,240,3,'#D6B777')}
+  if(variant===0)planks(c,tier>0);else tiledFloor(c,variant,tier===2)
+  if(variant===0){terrarium(c,-3,87,tier,false,time);bookcase(c,195,73,tier);plant(c,220,66,Math.round(Math.sin(time/1700)),tier===2)}
+  else if(variant===1){bookcase(c,-3,78,tier);chair(c,197,111,tier===2);plant(c,25,66,Math.round(Math.sin(time/2100)),tier===2)}
+  else {terrarium(c,195,83,tier,true,time);box(c,-2,120,47,34,trim);box(c,2,124,39,26,'#D7C6B0');plant(c,21,104,Math.round(Math.sin(time/1800)),tier===2)}
+  for(const x of [18,214])lamp(c,x,variant===1?58:42,time,tier===2)
+  if(variant===1){oval(c,108,25,24,25,'#D9C48D');oval(c,116,21,22,23,wall)}
+  else if(variant===2){for(let i=0;i<5;i++){const dx=(i-2)*5;poly(c,[[120,44],[108+dx,27+Math.abs(i-2)*2],[114+dx,22+Math.abs(i-2)*2]],'#CEAD77')}box(c,114,43,12,3,'#E4D4A8')}
+  else {diamond(c,120,33,tier===2?10:6,'#86AA91');poly(c,[[112,33],[97,25],[104,40],[113,43]],trim);poly(c,[[128,33],[143,25],[136,40],[127,43]],trim)}
+  roomMat(c,tier,variant,variant===0?'#99B58E':variant===1?'#A1B0C6':'#83B9B2')
+}
+
 /** All backdrop pixels are drawn here; there are no room bitmap assets or image requests. */
-export function drawPixelRoom(ctx: Ctx, rarity: GachaRarity, elapsed: number, reduced: boolean) {
+export function drawPixelRoom(ctx: Ctx, machine: GachaMachine, rarity: GachaRarity, variant: SkinRoomVariant, elapsed: number, reduced: boolean) {
+  if(machine==='food')return
   ctx.save();ctx.imageSmoothingEnabled=false;ctx.clearRect(0,0,PIXEL_ROOM_SIZE,PIXEL_ROOM_SIZE)
   const time=reduced?0:Math.max(0,elapsed)
-  if(rarity==='legendary')royal(ctx,time)
-  else if(rarity==='epic')atelier(ctx,time)
+  const tier=rarity==='legendary'?2:rarity==='epic'?1:0
+  if(machine==='foodsuits')kitchen(ctx,tier,variant,time)
+  else if(machine==='creatures')habitat(ctx,tier,variant,time)
+  else if(variant!==0)dressingRoom(ctx,tier,variant,time)
+  else if(tier===2)royal(ctx,time)
+  else if(tier===1)atelier(ctx,time)
   else cottage(ctx,time)
   ctx.restore()
 }

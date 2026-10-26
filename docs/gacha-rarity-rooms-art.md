@@ -6,9 +6,29 @@ Serving-set artwork was generated with the built-in image tool on 2026-10-26. Or
 
 - `public/gacha/presentation/chef-epic-v2.webp`: hexagonal quilted rose case, separate cover and parcel-filled base.
 - `public/gacha/presentation/chef-legendary-v2.webp`: octagonal ivory/gold pavilion, separate cover and tiered base.
-- `src/components/gacha/pixelRoomArt.ts`: draws the cottage, atelier and royal room directly with Canvas 2D shapes.
+- `src/components/gacha/pixelRoomArt.ts`: draws 27 machine-specific rooms directly with Canvas 2D shapes.
 
 Rare retains the existing mint serving bell. Epic and Legendary use physically different artwork, not procedural crosses or recolours. Existing opening motion variations remain unchanged. Skin rewards alone receive full-width upper-screen rooms, drawn on a 240-pixel canvas and enlarged without smoothing. Floors, rugs, furniture, curtains, plants and lamps are code-rendered; no room image URLs are loaded. The live skin sprite stays grounded at room y=84%. Small plant, fabric and light animations share the existing render loop, capped to 12.5 room updates per second; reduced motion keeps them still. Drinks and donuts retain their plain animated grounds. The current skin pools have no Common items.
+
+## Machine Room Variations
+
+Each costume machine has three rooms per rarity. Layouts change furniture placement, floor patterns, rug shapes and wall architecture as well as materials. Rare rooms are domestic nooks; Epic adds atelier, salon or conservatory architecture; Legendary adds columns, precious trim and ceremonial details. The original three dressing rooms remain the first Kitty Costumes choices.
+
+| Machine | Rarity | Room choices |
+| --- | --- | --- |
+| Kitty Costumes | Rare | Knitting cottage, Reading nook, Vanity corner |
+| Kitty Costumes | Epic | Velvet atelier, Ribbon loft, Mirror studio |
+| Kitty Costumes | Legendary | Royal dressing room, Pearl gallery, Crown lounge |
+| FoodSuits | Rare | Kitchen nook, Baking pantry, Breakfast room |
+| FoodSuits | Epic | Patisserie atelier, Tea salon, Confectionery studio |
+| FoodSuits | Legendary | Royal patisserie, Porcelain gallery, Celebration kitchen |
+| Creature Costumes | Rare | Fern den, Moonlit nook, Shell aquarium |
+| Creature Costumes | Epic | Enchanted greenhouse, Moonlit study, Coral conservatory |
+| Creature Costumes | Legendary | Dragon sanctuary, Moonstone hall, Pearl grotto |
+
+Room selection uses Web Crypto independently of reward rolls and opening-animation selection. Optional session storage remembers the last room for each machine/rarity pair, preventing immediate repeats while storage is available. The choice remains stable during the reveal, including reduced-motion changes. An optional `roomVariant` prop allows deterministic previews without changing that history. Snacks & Drinks is explicitly excluded from both the room pool and painter. No costs, odds, pity, ownership or machine artwork changed.
+
+Run `node scripts/check_gacha_presentation.cjs` for pool isolation, all 27 distinct layouts, live animation, reduced-motion stability, no-repeat selection and consumable isolation. Phone review captures are kept locally in `review-pictures/machine-room-variations/` at 390 and 360 pixels wide.
 
 ## Epic Serving Set Prompt
 
