@@ -105,7 +105,7 @@ const SKINS = [
   { id: 'applecandy2',     file: 'ErenAppleCandy2.png',     rarity: 'epic',      name: 'Candy Apple Suit Eren', set: 'food' },
 
   // Approved Creature Costumes sources live in the repo, not Downloads.
-  { id: 'bee',           file: 'bee.webp',            rarity: 'rare',      name: 'Bee Eren',            set: 'creatures', tailYStart: 0.67 },
+  { id: 'bee',           file: 'bee.webp',            rarity: 'rare',      name: 'Bee Eren',            set: 'creatures', tailYStart: 0.62, tailFrameNeutral: true, tailConnectorYStart: 0.78 },
   { id: 'lobster',       file: 'lobster.webp',        rarity: 'epic',      name: 'Lobster Eren',        set: 'creatures' },
   { id: 'crystaldragon', file: 'crystal-dragon.webp', rarity: 'legendary', name: 'Crystal Dragon Eren', set: 'creatures' },
   { id: 'snail',         file: 'snail.webp',          rarity: 'rare',      name: 'Snail Eren',          set: 'creatures' },
@@ -113,7 +113,7 @@ const SKINS = [
   { id: 'turtle',        file: 'turtle.webp',         rarity: 'rare',      name: 'Turtle Eren',         set: 'creatures' },
   { id: 'octopus',       file: 'octopus.webp',        rarity: 'epic',      name: 'Octopus Eren',        set: 'creatures' },
   { id: 'peacock',       file: 'peacock.webp',        rarity: 'legendary', name: 'Peacock Eren',        set: 'creatures', eyesOverride: { lx: 43.15, rx: 56.78, cy: 44.1 } },
-  { id: 'ladybug',       file: 'ladybug.webp',        rarity: 'rare',      name: 'Ladybug Eren',        set: 'creatures', tailYStart: 0.71 },
+  { id: 'ladybug',       file: 'ladybug.webp',        rarity: 'rare',      name: 'Ladybug Eren',        set: 'creatures', tailYStart: 0.66, tailFrameNeutral: true, tailConnectorYStart: 0.82 },
   { id: 'capybara',      file: 'capybara.webp',       rarity: 'rare',      name: 'Capybara Eren',       set: 'creatures' },
   { id: 'redpanda',      file: 'redpanda.webp',       rarity: 'epic',      name: 'Red Panda Eren',      set: 'creatures' },
   { id: 'jellyfish',     file: 'jellyfish.webp',      rarity: 'epic',      name: 'Jellyfish Eren',      set: 'creatures', tailYStart: 0.7 },
@@ -452,7 +452,7 @@ function processInBrowser(dataUrl, opts) {
       // rather than mirroring the creature costume's silhouette.
       let grayTailMask = null
       if (opts.grayTail) {
-        // Bee's wing meets the tail: keep that entire join on the foreground body.
+        // Start above the whole tail tip; the neutral-colour gate excludes wings.
         const grayStart = Math.floor(H * Math.max(0.4, opts.tailYStart ?? 0))
         const seen = new Uint8Array(W * H)
         let largest = []
@@ -483,7 +483,7 @@ function processInBrowser(dataUrl, opts) {
         grayTailMask = new Uint8Array(W * H)
         let frontier = largest
         for (const p of largest) grayTailMask[p] = 1
-        // Recover only the nearby dark frame, not connected costume outlines.
+        // Recover the nearby dark frame; insect wings need a neutral-colour gate.
         for (let pass = 0; pass < Math.ceil(W * 0.02); pass++) {
           const next = []
           for (const p of frontier) {
@@ -492,7 +492,9 @@ function processInBrowser(dataUrl, opts) {
               const nx = x + dx, ny = y + dy
               if (nx < 0 || ny < grayStart || nx >= W || ny >= H) continue
               const q = ny * W + nx, i = q * 4
-              if (!grayTailMask[q] && sil[q] && lum(fd[i], fd[i + 1], fd[i + 2]) < 90) {
+              const neutralFrame = !opts.tailFrameNeutral ||
+                (fd[i] >= fd[i + 1] - 5 && fd[i + 1] >= fd[i + 2] - 5 && Math.max(fd[i], fd[i + 1], fd[i + 2]) - Math.min(fd[i], fd[i + 1], fd[i + 2]) <= 20)
+              if (!grayTailMask[q] && sil[q] && neutralFrame && lum(fd[i], fd[i + 1], fd[i + 2]) < 90) {
                 grayTailMask[q] = 1; next.push(q)
               }
             }
@@ -949,7 +951,9 @@ function processInBrowser(dataUrl, opts) {
           // An all-dark row (no interior, grayLeft<0) keeps NOTHING — its outline
           // travels with the tail too, so no dark stub is ever left behind.
           const lx = rowLeft - 1
-          const attached = lx >= 0 && sil[y * W + lx] === 1 && !tailMask[y * W + lx]
+          // A wing touching the free tip is not a hip attachment.
+          const atHip = opts.tailConnectorYStart == null || y >= H * opts.tailConnectorYStart
+          const attached = atHip && lx >= 0 && sil[y * W + lx] === 1 && !tailMask[y * W + lx]
           const keepEnd = (attached && grayLeft >= 0) ? grayLeft + connector : -1
           for (let x = rowLeft; x <= tMaxX; x++) {
             if (!tailMask[y * W + x]) continue
@@ -1041,7 +1045,7 @@ function processInBrowser(dataUrl, opts) {
     if (!fs.existsSync(srcPath)) { console.log(`MISSING ${s.file}`); continue }
     const b64 = fs.readFileSync(srcPath).toString('base64')
     const dataUrl = `data:image/${path.extname(srcPath) === '.webp' ? 'webp' : 'png'};base64,${b64}`
-    const r = await page.evaluate(processInBrowser, dataUrl, { nativeAlpha: s.set === 'creatures', grayTail: s.set === 'creatures', bg: s.bg, reoutline: s.reoutline, tailGap: s.tailGap, tailYStart: s.tailYStart, eyesOverride: s.eyesOverride, tailOrigin: s.tailOrigin, topTip: s.topTip, topFlood: s.topFlood, tailOutline: s.tailOutline, topBright: s.topBright, glintOverride: s.glintOverride })
+    const r = await page.evaluate(processInBrowser, dataUrl, { nativeAlpha: s.set === 'creatures', grayTail: s.set === 'creatures', bg: s.bg, reoutline: s.reoutline, tailGap: s.tailGap, tailYStart: s.tailYStart, tailFrameNeutral: s.tailFrameNeutral, tailConnectorYStart: s.tailConnectorYStart, eyesOverride: s.eyesOverride, tailOrigin: s.tailOrigin, topTip: s.topTip, topFlood: s.topFlood, tailOutline: s.tailOutline, topBright: s.topBright, glintOverride: s.glintOverride })
     if (r.error) { console.log(`ERR ${s.id}: ${r.error}`); continue }
     const write = (suffix, url) => {
       if (!url) return
