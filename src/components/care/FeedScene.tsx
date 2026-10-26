@@ -46,7 +46,7 @@ import { IconFridge, IconCart } from '@/components/PixelIcons'
 import { M, MeadowIcon, CoinChip, PrimaryButton, RoundButton, Tag } from '@/components/meadow'
 import KitchenSheet, { ShelfRow, shelfName } from '@/components/kitchen/KitchenSheet'
 import RoomWeather from '@/components/weather/RoomWeather'
-import { FOOD_META } from '@/lib/foodMeta'
+import { FOOD_META, RETIRED_SHOP_FOODS } from '@/lib/foodMeta'
 
 interface Props { onClose: () => void }
 
@@ -161,7 +161,8 @@ const SHOP_ITEMS = [
 // is free to be renamed.
 const ALL_DONUT_IDS: ReadonlySet<string> = new Set(DONUTS.map(d => d.id))
 const KITCHEN_SHELF: ReadonlySet<string> = new Set(KITCHEN_DONUTS.map(d => d.id))
-const SHELF_ITEMS = SHOP_ITEMS.filter(i => !ALL_DONUT_IDS.has(i.id) || KITCHEN_SHELF.has(i.id))
+const SHELF_ITEMS = SHOP_ITEMS.filter(i => !RETIRED_SHOP_FOODS[i.id]
+  && (!ALL_DONUT_IDS.has(i.id) || KITCHEN_SHELF.has(i.id)))
 
 // Foods Eren LAPS instead of chews. Feeding one of these swaps the chewing
 // sample for the drinking one, so a bowl of milk doesn't crunch. Every Monsta

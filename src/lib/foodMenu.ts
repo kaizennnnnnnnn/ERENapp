@@ -34,10 +34,10 @@ export const MENU_REWARD = 30
  * becomes buyable, add it here.
  */
 export const MENU_POOL: FoodKey[] = [
-  // Staples
-  'kibble', 'fish', 'treat', 'tuna', 'steak', 'cream', 'biscuit', 'shrimp',
+  // Staples; retired Fish/Sushi stock stays edible but is no longer requested.
+  'kibble', 'treat', 'tuna', 'steak', 'cream', 'biscuit', 'shrimp',
   'salmon', 'chicken', 'sausage', 'milk', 'cheese', 'yogurt', 'egg',
-  'cake', 'sushi', 'sardine', 'cookie', 'jelly_caka',
+  'cake', 'sardine', 'cookie', 'jelly_caka',
   // World dishes
   'pizza', 'carbonara', 'lasagna', 'risotto',
   'nigiri', 'temaki', 'maki',

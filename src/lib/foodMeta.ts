@@ -99,9 +99,16 @@ export const FOOD_ORDER: FoodKey[] = [
   ...DONUTS.map(d => d.id),
 ]
 
+// Retired shop duplicates keep their stored keys and feeding stats, but use
+// their replacement's picture anywhere existing stock is shown.
+export const RETIRED_SHOP_FOODS: Readonly<Partial<Record<FoodKey, FoodKey>>> = {
+  fish: 'sardine',
+  sushi: 'nigiri',
+}
+
 // foodArt()'s cache-bust for plates and donuts (see below). Bump it when
 // their art changes. The cans' version is generated with their art.
-const FOOD_ART_V = 4
+const FOOD_ART_V = 5
 
 /**
  * URL for a plate/can PNG in public/food.
@@ -118,8 +125,10 @@ const FOOD_ART_V = 4
  * into canArtData.ts, so a re-cut can't ship new art under an old ?v=. A
  * shared number would also make every phone re-download every plate and donut.
  */
-export const foodArt = (id: string): string =>
-  `/food/${id}.png?v=${id.startsWith('monsta_') ? CAN_ART_V : FOOD_ART_V}`
+export const foodArt = (id: string): string => {
+  const artId = RETIRED_SHOP_FOODS[id as FoodKey] ?? id
+  return `/food/${artId}.png?v=${artId.startsWith('monsta_') ? CAN_ART_V : FOOD_ART_V}`
+}
 
 /**
  * URL for one of the moving effect layers that sit around a special-edition
