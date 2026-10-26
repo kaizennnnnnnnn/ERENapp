@@ -16,6 +16,7 @@ function load(relative, imports = {}) {
 }
 const presentation = load('src/lib/gachaPresentation.ts')
 const timeline = load('src/lib/gachaTreatOpening.ts')
+const rooms = load('src/components/gacha/pixelRoomArt.ts')
 const effects = load('src/components/gacha/gachaRarityArt.ts', {
   '@/lib/gachaPresentation': presentation, '@/lib/gachaTreatOpening': timeline,
 })
@@ -30,8 +31,8 @@ assert.equal(new Set(machines.map(id => presentation.GACHA_REVEAL_THEMES[id].mot
 assert.equal(new Set(Object.values(presentation.RARITY_MOTION).map(m => m.sequence)).size, 4)
 assert.ok(!Object.values(presentation.GACHA_REVEAL_THEMES).some(theme => 'src' in theme))
 assert.equal(new Set(['rare','epic','legendary'].map(rarity=>presentation.getTreatAtlas('chef',rarity).src)).size,3,'Serving sets must have different artwork, not recoloured stamps')
-assert.equal(new Set(['rare','epic','legendary'].map(rarity=>presentation.getSkinRewardRoom(rarity).src)).size,3,'Skin rooms must be rarity-specific')
-for (const room of Object.values(presentation.SKIN_REWARD_ROOMS)) assert.ok(fs.statSync(path.join(root,'public',room.src)).size>0)
+assert.equal(new Set(Object.values(presentation.SKIN_REWARD_ROOMS).map(room=>room.name)).size,3,'Skin rooms must be rarity-specific')
+assert.ok(Object.values(presentation.SKIN_REWARD_ROOMS).every(room=>!('src' in room)),'Room metadata must not point at background pictures')
 for (const atlas of Object.values(presentation.PRESENTATION_ATLASES)) {
   assert.ok(fs.statSync(path.join(root, 'public', atlas.src.split('?')[0])).size > 0)
   for (const rect of [atlas.body, atlas.lid]) {
@@ -57,6 +58,23 @@ function trace() {
   })
   return {calls,context}
 }
+const roomStyles=[]
+for(const rarity of ['rare','epic','legendary']) {
+  const early=trace(),late=trace(),quiet=trace(),quietLater=trace()
+  rooms.drawPixelRoom(early.context,rarity,0,false)
+  rooms.drawPixelRoom(late.context,rarity,1800,false)
+  rooms.drawPixelRoom(quiet.context,rarity,0,true)
+  rooms.drawPixelRoom(quietLater.context,rarity,1800,true)
+  assert.notDeepEqual(early.calls,late.calls,'A live room must animate')
+  assert.deepEqual(quiet.calls,quietLater.calls,'Reduced motion keeps room geometry still')
+  assert.ok(early.calls.filter(call=>call[0]==='fillRect').length>100,'Rooms need furniture and floor detail')
+  for(const call of [...early.calls,...late.calls]) {
+    assert.notEqual(call[0],'drawImage','The room painter must draw shapes, not load a room picture')
+    for(const arg of call.slice(1))if(typeof arg==='number')assert.ok(Number.isFinite(arg))
+  }
+  roomStyles.push(JSON.stringify(early.calls))
+}
+assert.equal(new Set(roomStyles).size,3,'Each room needs a distinct layout')
 for (const kind of ['parcel','chef']) for (const rarity of ['common','rare','epic','legendary'])
 for (const variant of kind === 'chef' ? timeline.chefOpeningPool(rarity) : ['original']) {
   for (const reduced of [false,true]) for (const open of [0,.02,.15,.3,.5,.7,.9,1]) {
@@ -106,4 +124,5 @@ assert.ok(!reveal.includes('pull-rays') && !reveal.includes('CanFx') && !reveal.
 const stage = fs.readFileSync(path.join(root,'src/components/gacha/GachaRewardStage.tsx'),'utf8')
 assert.ok(!stage.includes('scene-') && !stage.includes('plinth') && !stage.includes('Dressing'))
 assert.ok(stage.includes('const room = skin ? getSkinRewardRoom(item.rarity) : null'),'Room artwork must only be used for skins, not drinks')
-console.log('Gacha presentation checks passed: three distinct serving-set artworks, three rarity rooms for skins only, animated consumable reveals, rigid packaging and reduced motion.')
+assert.ok(stage.includes('data-room-renderer="code"')&&!stage.includes('<img data-room-art'),'Room backgrounds must be rendered by code')
+console.log('Gacha presentation checks passed: opening props retained, three distinct code-drawn animated pixel rooms, no room picture URLs, reduced-motion fallback and consumable isolation.')

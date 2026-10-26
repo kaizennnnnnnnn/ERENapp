@@ -9,6 +9,7 @@ import { useReducedMotion } from '@/hooks/useReducedMotion'
 import BlinkingEren from '@/components/BlinkingEren'
 import { MeadowIcon } from '@/components/meadow'
 import { drawRarityEffects } from './gachaRarityArt'
+import { drawPixelRoom, PIXEL_ROOM_SIZE } from './pixelRoomArt'
 
 interface Props { item: GachaItemDef; machine: GachaMachine; name: string; compact?: boolean }
 
@@ -23,6 +24,7 @@ function FoodArtwork({ item, name }: { item: GachaItemDef; name: string }) {
 export default function GachaRewardStage({ item, machine, name, compact = false }: Props) {
   const rootRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const roomCanvasRef = useRef<HTMLCanvasElement>(null)
   const reduced = useReducedMotion()
   const skin = item.skinId ? getSkin(item.skinId) : undefined
   const room = skin ? getSkinRewardRoom(item.rarity) : null
@@ -35,10 +37,23 @@ export default function GachaRewardStage({ item, machine, name, compact = false 
   useEffect(() => {
     const canvas = canvasRef.current, ctx = canvas?.getContext('2d')
     if (!canvas || !ctx) return
+    const backdrop = roomCanvasRef.current, backdropCtx = backdrop?.getContext('2d')
+    const world = hasRoom ? document.createElement('canvas') : null
+    if (world) { world.width = PIXEL_ROOM_SIZE; world.height = PIXEL_ROOM_SIZE }
+    const worldCtx = world?.getContext('2d')
     const start = performance.now()
-    let raf = 0, width = 320, height = 320, dpr = 1, floor = 51.2
+    let raf = 0, width = 320, height = 320, dpr = 1, floor = 51.2, roomPaintedAt = -Infinity
     const draw = (now: number) => {
       const elapsed = now - start
+      if (backdrop && backdropCtx && world && worldCtx && elapsed - roomPaintedAt >= 80) {
+        drawPixelRoom(worldCtx, item.rarity, elapsed, reduced)
+        const size = Math.max(width, height)
+        backdropCtx.setTransform(dpr,0,0,dpr,0,0); backdropCtx.clearRect(0,0,width,height)
+        backdropCtx.imageSmoothingEnabled = false
+        backdropCtx.drawImage(world,(width-size)/2,height-size,size,size)
+        backdrop.dataset.roomMs = String(reduced ? 0 : Math.floor(elapsed / 80) * 80)
+        roomPaintedAt = elapsed
+      }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, width, height)
       ctx.save()
       ctx.translate(width / 2, hasRoom ? height - floor - prizeSize / 2 : height * .51)
@@ -46,14 +61,16 @@ export default function GachaRewardStage({ item, machine, name, compact = false 
       ctx.scale(scale, scale); ctx.globalAlpha = hasRoom ? .7 : 1
       drawRarityEffects(ctx, machine, item.rarity, elapsed, reduced); ctx.restore()
       canvas.dataset.fxMs = String(Math.round(elapsed / 100) * 100)
-      if (!reduced && !document.hidden && (item.rarity !== 'common' || elapsed < motion.duration)) raf = requestAnimationFrame(draw)
+      if (!reduced && !document.hidden && (hasRoom || item.rarity !== 'common' || elapsed < motion.duration)) raf = requestAnimationFrame(draw)
     }
     const resume = () => { cancelAnimationFrame(raf); draw(performance.now()) }
     const resize = () => {
       const box = canvas.getBoundingClientRect(); width = box.width; height = box.height
       dpr = Math.min(window.devicePixelRatio || 1, 2)
       canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr)
-      // Square artwork is cover-cropped from the bottom; its floor remains at source y=.84.
+      if (backdrop) { backdrop.width = canvas.width; backdrop.height = canvas.height }
+      roomPaintedAt = -Infinity
+      // The square code-drawn room is bottom-cropped, with paws at source y=.84.
       floor = Math.max(width, height) * .16
       rootRef.current?.style.setProperty('--gacha-floor', `${floor}px`)
       resume()
@@ -68,8 +85,8 @@ export default function GachaRewardStage({ item, machine, name, compact = false 
     style={{ position: 'relative', width: hasRoom ? '100%' : 320, maxWidth: '100%', flexShrink: 0,
       height: hasRoom ? compact ? 'clamp(300px, 44svh, 380px)' : 'clamp(330px, 52svh, 450px)' : undefined,
       aspectRatio: hasRoom ? undefined : '1', overflow: 'hidden', '--gacha-floor': '16%' } as CSSProperties}>
-    {room && <img data-room-art src={room.src} alt="" aria-hidden draggable={false}
-      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center bottom' }} />}
+    {room && <canvas ref={roomCanvasRef} data-room-art data-room-renderer="code" aria-hidden
+      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', imageRendering: 'pixelated' }} />}
     <canvas ref={canvasRef} aria-hidden style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} />
     <span aria-hidden className="gacha-contact-shadow" style={hasRoom
       ? { position: 'absolute', left: '50%', marginLeft: -54, bottom: 'calc(var(--gacha-floor) - 5px)', width: 108, height: 9, borderRadius: '50%', background: '#39352833' }

@@ -4,7 +4,7 @@ Generated with the built-in image tool. Final production assets live in `public/
 
 ## Current Presentation
 
-The four machine-themed reward room images below were rejected and removed from production. Their prompts are retained as provenance only. The later rarity-specific skin rooms and redesigned serving sets are documented in `gacha-rarity-rooms-art.md`. Consumable rewards retain unframed flat grounds with deterministic canvas animation in `gachaRarityArt.ts`; they are never placed in costume rooms. Higher tiers retain sparse moving accents after the entrance. Reduced motion uses small static accents instead of travel or pulses.
+The four machine-themed reward room images below were rejected and removed from production. Their prompts are retained as provenance only. The current rarity-specific skin rooms are drawn entirely in code by `pixelRoomArt.ts`, without background picture files. They and the approved serving sets are documented in `gacha-rarity-rooms-art.md`. Consumable rewards retain unframed flat grounds with deterministic canvas animation in `gachaRarityArt.ts`; they are never placed in costume rooms. Higher tiers retain sparse moving accents after the entrance. Reduced motion uses small static accents instead of travel or pulses.
 
 Snack-carton artwork is unchanged, and cartons emit a rarity burst rather than showing a miniature item. The mint serving set is retained for Rare, while Epic has a rose quilted gift case and Legendary a gold-framed pavilion. All retain a folded costume bundle; no cat is rendered inside an opening. Rewards, costs and RNG are independent of all presentation clocks.
 

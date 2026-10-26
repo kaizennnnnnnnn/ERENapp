@@ -1,16 +1,14 @@
 # Rarity Rooms and Serving Sets
 
-Generated with the built-in image tool on 2026-10-26. These are production assets, not mockups. Original PNGs remain in the local generated-images library. WebP exports preserve image dimensions; the serving-set exports are lossless with original alpha. No generative edits were made after export. Canvas source rectangles are measured from alpha bounds.
+Serving-set artwork was generated with the built-in image tool on 2026-10-26. Original PNGs remain in the local generated-images library; serving-set WebP exports are lossless with original alpha. Canvas source rectangles are measured from alpha bounds. The reward-room pictures were subsequently retired at the owner's request and replaced by code-drawn rooms.
 
 ## Production Files
 
 - `public/gacha/presentation/chef-epic-v2.webp`: hexagonal quilted rose case, separate cover and parcel-filled base.
 - `public/gacha/presentation/chef-legendary-v2.webp`: octagonal ivory/gold pavilion, separate cover and tiered base.
-- `public/gacha/presentation/skin-room-rare.webp`: cottage sewing room.
-- `public/gacha/presentation/skin-room-epic.webp`: velvet costume atelier.
-- `public/gacha/presentation/skin-room-legendary.webp`: royal costume salon.
+- `src/components/gacha/pixelRoomArt.ts`: draws the cottage, atelier and royal room directly with Canvas 2D shapes.
 
-Rare retains the existing mint serving bell. Epic and Legendary use physically different artwork, not procedural crosses or recolours. Existing opening motion variations remain. Skin rewards alone receive full-width upper-screen rooms, with the live skin sprite grounded at source image y=84%. Cover cropping is bottom-aligned, and sprite placement uses the same crop calculation. Drinks and donuts retain their animated plain grounds. The current skin pools have no Common items.
+Rare retains the existing mint serving bell. Epic and Legendary use physically different artwork, not procedural crosses or recolours. Existing opening motion variations remain unchanged. Skin rewards alone receive full-width upper-screen rooms, drawn on a 240-pixel canvas and enlarged without smoothing. Floors, rugs, furniture, curtains, plants and lamps are code-rendered; no room image URLs are loaded. The live skin sprite stays grounded at room y=84%. Small plant, fabric and light animations share the existing render loop, capped to 12.5 room updates per second; reduced motion keeps them still. Drinks and donuts retain their plain animated grounds. The current skin pools have no Common items.
 
 ## Epic Serving Set Prompt
 
@@ -29,6 +27,8 @@ Square transparent sprite atlas with two separate unlabelled components. TOP HAL
 True transparent alpha outside the two components. Crisp cosy game pixel art with stepped warm outlines and controlled shaded clusters, same finish as reference. Ivory, emerald-teal and rich brass gold, convincing distinct material planes. No cats, people, food, text, labels, little cross decorations, floating particles, light rays, surrounding room, floor, cast shadow, watermark, smooth vector or 3D render. This must clearly be a grand legendary pavilion and matching pedestal, not another serving dome.
 
 ## Shared Room Prompt
+
+The room-image prompts below are retained as historical provenance only. Their exported background pictures have been removed from production.
 
 Use case: stylized-concept. Asset type: square production background for the upper half of a mobile pixel-art cat costume reward screen. Full-bleed real room scene, no surrounding card or UI. Carefully illustrated cosy 16-bit pixel-game art: crisp stepped pixel edges, coherent readable pixel clusters, clean handmade material shading, not smooth vector, not blurry painterly art, not 3D rendering. Front-facing camera with a gentle downward view of the floor, not isometric. A live cat sprite will be layered at the exact centre later, so keep central 60 percent of image width between 20 and 87 percent image height clear of furniture, props, characters or foreground obstructions. Furniture and decoration belong along left and right edges and high on the rear wall. Floor fills the lower 32 percent of the image; the cat's paws will stand centred at 84 percent height. A flat rug may lie beneath this exact spot but no podium, table or pedestal. The centre must remain bright and uncluttered so many differently coloured costume sprites are legible. Match a charming domestic game world with confident pixel detail readable at 390 pixels wide. No cats, people, animals, silhouettes, text, logos, labels, user interface, border, frame, floating sparkles, baked-in particles, glow, sunburst rays or watermark. No food or kitchen counters.
 

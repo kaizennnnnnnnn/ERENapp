@@ -21,9 +21,9 @@ export const PRESENTATION_ATLASES: Record<string, PresentationAtlas> = {
 }
 
 export const SKIN_REWARD_ROOMS = {
-  rare: { src: '/gacha/presentation/skin-room-rare.webp', name: 'Cottage sewing room' },
-  epic: { src: '/gacha/presentation/skin-room-epic.webp', name: 'Velvet costume atelier' },
-  legendary: { src: '/gacha/presentation/skin-room-legendary.webp', name: 'Royal costume salon' },
+  rare: { name: 'Cottage sewing room' },
+  epic: { name: 'Velvet costume atelier' },
+  legendary: { name: 'Royal costume salon' },
 } as const
 
 export function getSkinRewardRoom(rarity: GachaRarity) {
