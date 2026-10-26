@@ -55,6 +55,7 @@ export default function PullAnimation({ results, onDone, skipCapsule = false, ma
   const itemName = swapCatName(current.item.name, cat)
   const multi = results.length > 1
   const last = currentIdx === results.length - 1
+  const skinReveal = Boolean(current.item.skinId)
 
   function nextItem() {
     if (advancing.current) return
@@ -100,27 +101,31 @@ export default function PullAnimation({ results, onDone, skipCapsule = false, ma
   return (
     <div className="meadow-root fixed inset-0 z-[70] overflow-y-auto" style={{ background: GACHA_REVEAL_THEMES[machine].ground }}>
       <div className="flex flex-col mx-auto" style={{
-        minHeight: '100%', maxWidth: 420, boxSizing: 'border-box',
-        padding: 'calc(var(--safe-top) + 12px) 16px calc(var(--safe-bottom) + 20px)',
+        minHeight: '100%', maxWidth: skinReveal ? '100%' : 420, boxSizing: 'border-box', position: 'relative',
+        padding: skinReveal ? '0 0 calc(var(--safe-bottom) + 20px)' : 'calc(var(--safe-top) + 12px) 16px calc(var(--safe-bottom) + 20px)',
       }}>
         {/* ── Where you are in a ten, and the way out of it ── */}
-        <div className="flex items-center justify-between" style={{ height: 44 }}>
+        <div className="flex items-center justify-between" style={{ height: 44, position: skinReveal ? 'absolute' : undefined,
+          top: skinReveal ? 'calc(var(--safe-top) + 10px)' : undefined, left: skinReveal ? 12 : undefined, right: skinReveal ? 12 : undefined, zIndex: 3 }}>
           {multi ? (
             <span style={{ fontSize: 15, fontWeight: 800, color: M.text2, fontVariantNumeric: 'tabular-nums', paddingLeft: 4 }}>
-              {currentIdx + 1} of {results.length}
+              <span style={skinReveal ? { padding: '8px 12px', borderRadius: 999, background: '#FFFFFF' } : undefined}>{currentIdx + 1} of {results.length}</span>
             </span>
           ) : <span />}
           {multi && !last && (
-            <TextButton tone="muted" onClick={() => { playSound('ui_modal_close'); onDone() }}>Skip all</TextButton>
+            <TextButton tone="muted" style={skinReveal ? { background: '#FFFFFF', borderRadius: 999, padding: '8px 12px' } : undefined}
+              onClick={() => { playSound('ui_modal_close'); onDone() }}>Skip all</TextButton>
           )}
         </div>
 
         {/* ── The prize. A tap anywhere here moves on too, as it always has. ── */}
-        <div className="flex-1 flex flex-col items-center justify-center" onClick={nextItem}
-          style={{ paddingTop: 8, cursor: 'pointer', visibility: showItem ? 'visible' : 'hidden' }}>
-          <GachaRewardStage key={currentIdx} item={current.item} machine={machine} name={itemName} />
+        <div className="flex flex-col items-center" onClick={nextItem}
+          style={{ flex: skinReveal ? undefined : 1, justifyContent: skinReveal ? undefined : 'center', paddingTop: skinReveal ? 0 : 8,
+            cursor: 'pointer', visibility: showItem ? 'visible' : 'hidden' }}>
+          <GachaRewardStage key={currentIdx} item={current.item} machine={machine} name={itemName} compact={multi || current.stardustGained > 0} />
 
-          <div className="pull-info flex flex-col items-center" style={{ marginTop: 18, maxWidth: 320, textAlign: 'center' }}>
+          <div className="pull-info flex flex-col items-center" style={{ marginTop: skinReveal ? 20 : 18, maxWidth: skinReveal ? 360 : 320,
+            padding: skinReveal ? '0 20px' : undefined, textAlign: 'center' }}>
             <div className="flex items-center justify-center flex-wrap" style={{ gap: 6 }}>
               {/* White, not its tint: the page behind it is already the tint. */}
               <Tag tone={rarity} caps style={{ background: '#FFFFFF' }}>{rarity}</Tag>
@@ -143,9 +148,11 @@ export default function PullAnimation({ results, onDone, skipCapsule = false, ma
           </div>
         </div>
 
-        <PrimaryButton onClick={nextItem} style={{ marginTop: 20 }}>
-          {last ? 'Done' : 'Next'}
-        </PrimaryButton>
+        <div style={{ marginTop: skinReveal ? 'auto' : 0, padding: skinReveal ? '20px 16px 0' : undefined }}>
+          <PrimaryButton onClick={nextItem} style={{ marginTop: skinReveal ? 0 : 20 }}>
+            {last ? 'Done' : 'Next'}
+          </PrimaryButton>
+        </div>
       </div>
 
       <style>{`

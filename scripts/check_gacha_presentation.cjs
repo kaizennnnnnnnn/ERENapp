@@ -29,6 +29,9 @@ assert.deepEqual(machines, ['food', 'animal', 'foodsuits', 'creatures'])
 assert.equal(new Set(machines.map(id => presentation.GACHA_REVEAL_THEMES[id].motif)).size, 4)
 assert.equal(new Set(Object.values(presentation.RARITY_MOTION).map(m => m.sequence)).size, 4)
 assert.ok(!Object.values(presentation.GACHA_REVEAL_THEMES).some(theme => 'src' in theme))
+assert.equal(new Set(['rare','epic','legendary'].map(rarity=>presentation.getTreatAtlas('chef',rarity).src)).size,3,'Serving sets must have different artwork, not recoloured stamps')
+assert.equal(new Set(['rare','epic','legendary'].map(rarity=>presentation.getSkinRewardRoom(rarity).src)).size,3,'Skin rooms must be rarity-specific')
+for (const room of Object.values(presentation.SKIN_REWARD_ROOMS)) assert.ok(fs.statSync(path.join(root,'public',room.src)).size>0)
 for (const atlas of Object.values(presentation.PRESENTATION_ATLASES)) {
   assert.ok(fs.statSync(path.join(root, 'public', atlas.src.split('?')[0])).size > 0)
   for (const rect of [atlas.body, atlas.lid]) {
@@ -102,4 +105,5 @@ const reveal = fs.readFileSync(path.join(root,'src/components/gacha/PullAnimatio
 assert.ok(!reveal.includes('pull-rays') && !reveal.includes('CanFx') && !reveal.includes('<Stage '))
 const stage = fs.readFileSync(path.join(root,'src/components/gacha/GachaRewardStage.tsx'),'utf8')
 assert.ok(!stage.includes('scene-') && !stage.includes('plinth') && !stage.includes('Dressing'))
-console.log('Gacha presentation checks passed: four animated themes, four distinct rarity sequences, rigid packaging, no miniature rewards, no painted reveal backgrounds, reduced-motion fallback.')
+assert.ok(stage.includes('const room = skin ? getSkinRewardRoom(item.rarity) : null'),'Room artwork must only be used for skins, not drinks')
+console.log('Gacha presentation checks passed: three distinct serving-set artworks, three rarity rooms for skins only, animated consumable reveals, rigid packaging and reduced motion.')

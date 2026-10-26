@@ -27,7 +27,7 @@ export default function GachaTreatOpening({ kind, rarity, chefVariant, onDone }:
   const [loadedAtlas, setLoadedAtlas] = useState<string | null>(null)
   const [atlasFailed, setAtlasFailed] = useState(false)
   const atlasSrc = getTreatAtlas(kind, rarity).src
-  const shouldLoadAtlas = kind === 'chef' || rarity !== null
+  const shouldLoadAtlas = rarity !== null
   const startRef = useRef<number | null>(null)
   const readyAtRef = useRef<number | null>(null)
   const rarityRef = useRef(rarity)

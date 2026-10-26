@@ -155,17 +155,13 @@ function servingSet(ctx: CanvasRenderingContext2D, frame: TreatOpeningFrame, rar
   const spec = getTreatAtlas('chef', rarity)
   const tier = RARITY_PRESENTATION[rarity ?? 'rare']
   const tierLevel = tier.level
+  const layout = spec.serving ?? { bodyWidth: 274, bodyY: -45, lidWidth: 250, lidBaseY: 48, shadowY: 76 }
   ctx.save()
   ctx.translate(reduced ? 0 : -35 * (1 - ease(frame.arrival)), 0)
   ctx.globalAlpha *= reduced ? 1 : clamp(frame.arrival * 4)
-  oval(ctx, 0, 76, 126, 9, 'rgba(25,34,29,.25)')
-  piece(ctx, atlas, spec.body, -137, -45, 274, 274 * spec.body[3] / spec.body[2])
+  oval(ctx, 0, layout.shadowY, spec.serving ? layout.bodyWidth * .46 : 126, 9, 'rgba(25,34,29,.25)')
+  piece(ctx, atlas, spec.body, -layout.bodyWidth / 2, layout.bodyY, layout.bodyWidth, layout.bodyWidth * spec.body[3] / spec.body[2])
 
-  if (tier.level >= 2) {
-    ctx.strokeStyle = tier.trim; ctx.lineWidth = tier.level === 3 ? 3 : 2
-    ctx.beginPath(); ctx.ellipse(0, 44, 125, 23, 0, 0, Math.PI); ctx.stroke()
-    for (const x of [-110, 110]) { ctx.fillStyle = tier.trim; ctx.fillRect(x - 3, 41, 6, 3) }
-  }
   if (!reduced && frame.release > 0 && frame.release < .85) {
     const count = tierLevel === 0 ? 1 : tierLevel === 1 ? 3 : tierLevel === 2 ? 4 : 5
     for (let i = 0; i < count; i++) {
@@ -188,16 +184,8 @@ function servingSet(ctx: CanvasRenderingContext2D, frame: TreatOpeningFrame, rar
   // The lid exits to the side; no cat image is ever rendered under it.
   const pose = chefLidPose(rarity, frame.open, frame.wind, reduced, variant)
   ctx.translate(pose.x, pose.y); ctx.rotate(pose.angle); ctx.globalAlpha *= pose.alpha
-  const lidW = 250, lidH = lidW * spec.lid[3] / spec.lid[2]
-  piece(ctx, atlas, spec.lid, -lidW / 2, 48 - lidH, lidW, lidH)
-  if (tier.level >= 2) {
-    ctx.strokeStyle = tier.trim; ctx.lineWidth = tier.level === 3 ? 4 : 2
-    ctx.beginPath(); ctx.ellipse(0, 34, 114, 18, 0, 0, Math.PI); ctx.stroke()
-    ctx.fillStyle = rarity === 'legendary' ? '#DBB55C' : '#B77B89'
-    for (const x of [-57, 0, 57]) {
-      ctx.fillRect(x - 3, -19, 6, 12); ctx.fillRect(x - 6, -16, 12, 6)
-    }
-  }
+  const lidW = layout.lidWidth, lidH = lidW * spec.lid[3] / spec.lid[2]
+  piece(ctx, atlas, spec.lid, -lidW / 2, layout.lidBaseY - lidH, lidW, lidH)
   ctx.restore()
   ctx.restore()
 }

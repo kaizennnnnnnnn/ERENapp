@@ -2,7 +2,10 @@ import type { GachaRarity } from '@/types'
 
 export type GachaMachine = 'food' | 'animal' | 'foodsuits' | 'creatures'
 export type AtlasRect = readonly [number, number, number, number]
-export interface PresentationAtlas { src: string; lid: AtlasRect; body: AtlasRect }
+export interface PresentationAtlas {
+  src: string; lid: AtlasRect; body: AtlasRect
+  serving?: { bodyWidth: number; bodyY: number; lidWidth: number; lidBaseY: number; shadowY: number }
+}
 
 // Separate alpha-bounded pieces in the original atlases; no painted prop is stretched open.
 export const PRESENTATION_ATLASES: Record<string, PresentationAtlas> = {
@@ -11,6 +14,21 @@ export const PRESENTATION_ATLASES: Record<string, PresentationAtlas> = {
   'box-epic': { src: '/gacha/presentation/box-epic.webp?v=1', lid: [52,143,1150,359], body: [54,622,1146,484] },
   'box-legendary': { src: '/gacha/presentation/box-legendary.webp?v=1', lid: [149,233,956,329], body: [134,647,986,420] },
   'chef': { src: '/gacha/presentation/chef.webp?v=1', lid: [87,19,1080,698], body: [27,738,1200,510] },
+  'chef-epic': { src: '/gacha/presentation/chef-epic-v2.webp', lid: [57,22,1140,646], body: [48,684,1158,556],
+    serving: { bodyWidth: 274, bodyY: -45, lidWidth: 270, lidBaseY: 42, shadowY: 92 } },
+  'chef-legendary': { src: '/gacha/presentation/chef-legendary-v2.webp', lid: [176,4,899,692], body: [62,726,1130,499],
+    serving: { bodyWidth: 280, bodyY: -43, lidWidth: 230, lidBaseY: 36, shadowY: 86 } },
+}
+
+export const SKIN_REWARD_ROOMS = {
+  rare: { src: '/gacha/presentation/skin-room-rare.webp', name: 'Cottage sewing room' },
+  epic: { src: '/gacha/presentation/skin-room-epic.webp', name: 'Velvet costume atelier' },
+  legendary: { src: '/gacha/presentation/skin-room-legendary.webp', name: 'Royal costume salon' },
+} as const
+
+export function getSkinRewardRoom(rarity: GachaRarity) {
+  // Current costume pools have no Common rewards.
+  return SKIN_REWARD_ROOMS[rarity === 'common' ? 'rare' : rarity]
 }
 
 export const GACHA_REVEAL_THEMES = {
@@ -36,5 +54,6 @@ export const RARITY_PRESENTATION = {
 } as const
 
 export function getTreatAtlas(kind: 'parcel' | 'chef', rarity: GachaRarity | null): PresentationAtlas {
-  return PRESENTATION_ATLASES[kind === 'chef' ? 'chef' : 'box-' + (rarity ?? 'common')]
+  const key = kind === 'chef' ? rarity === 'epic' || rarity === 'legendary' ? 'chef-' + rarity : 'chef' : 'box-' + (rarity ?? 'common')
+  return PRESENTATION_ATLASES[key]
 }

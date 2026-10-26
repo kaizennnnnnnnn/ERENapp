@@ -13,6 +13,7 @@ import { highestRarity, pickClothesHitVideo } from '@/lib/gachaVideos'
 import { getSkin } from '@/lib/skins'
 import PullAnimation from '@/components/gacha/PullAnimation'
 import GachaTreatOpening from '@/components/gacha/GachaTreatOpening'
+import { getSkinRewardRoom } from '@/lib/gachaPresentation'
 import GachaOddsSheet from '@/components/gacha/GachaOddsSheet'
 import GachaCreatureOpening from '@/components/gacha/GachaCreatureOpening'
 import StarfallLoader from '@/components/gacha/StarfallLoader'
@@ -299,7 +300,7 @@ export default function GachaPage() {
     // shows the cat already drawn on its stage instead of popping in after it.
     for (const r of results) {
       const sk = r.item.skinId ? getSkin(r.item.skinId) : undefined
-      for (const s of sk ? [sk.src, sk.tailSrc] : [r.item.image]) {
+      for (const s of sk ? [sk.src, sk.tailSrc, getSkinRewardRoom(r.item.rarity).src] : [r.item.image]) {
         if (!s) continue
         const im = new Image()
         im.src = s
