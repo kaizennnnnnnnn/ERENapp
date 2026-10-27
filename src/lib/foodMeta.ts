@@ -106,12 +106,12 @@ export const RETIRED_SHOP_FOODS: Readonly<Partial<Record<FoodKey, FoodKey>>> = {
   sushi: 'nigiri',
 }
 
-// foodArt()'s cache-bust for plates and donuts (see below). Bump it when
+// foodArt()'s cache-bust for food sprites and donuts (see below). Bump it when
 // their art changes. The cans' version is generated with their art.
-const FOOD_ART_V = 5
+const FOOD_ART_V = 6
 
 /**
- * URL for a plate/can PNG in public/food.
+ * URL for a food/can PNG in public/food.
  *
  * The ?v= is a cache-buster: the service worker serves images
  * stale-while-revalidate, so replacing a file at the same path needs the query

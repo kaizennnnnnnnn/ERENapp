@@ -81,9 +81,15 @@ for (const id of Object.keys(meta.FOOD_META)) {
   if (id==='monsta_rainbow') assert.ok(html.includes('canfx-sparkle'))
   if (id==='monsta_gold') assert.ok(html.includes('canfx-ray'))
 }
-for (const id of ['treat','sausage','cream','milk','cheese','yogurt','cookie']) {
+const refreshed = [
+  'treat','sausage','cream','milk','cheese','yogurt','cookie',
+  'steak','carbonara','risotto','gyoza','cevapi','sarma','meatballs','roast_chicken',
+  'ramen','pad_thai','paella','stew','xiaolongbao',
+]
+for (const id of refreshed) {
   const png=fs.readFileSync(path.join(root,'public/food',id+'.png'))
   assert.deepEqual([png.readUInt32BE(16),png.readUInt32BE(20)],[128,128])
+  assert.ok(meta.foodArt(id).endsWith('?v=6'),'Updated sprites must invalidate stale image caches')
 }
 assert.ok(renderToStaticMarkup(React.createElement(FoodIcon,{id:'unknown'})).includes('<svg'))
-console.log(`Kitchen food checks passed: ${SHOP_ITEMS.length} pictured inventory foods, 50 unique shop foods, seven new assets, retired-stock compatibility, daily menus and special-can effects.`)
+console.log(`Kitchen food checks passed: ${SHOP_ITEMS.length} pictured inventory foods, 50 unique shop foods, ${refreshed.length} normalized refreshed assets, retired-stock compatibility, daily menus and special-can effects.`)

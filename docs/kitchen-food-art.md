@@ -6,7 +6,7 @@ Generated on 2026-10-27 with the built-in image generation tool. Seven remaining
 
 The new files are `public/food/{treat,sausage,cream,milk,cheese,yogurt,cookie}.png`. Each has real alpha transparency and is normalized with the existing `scripts/normalize_food_art.py` pipeline: 128-pixel square canvas, geometric-mean content target 100 pixels, maximum side 124 pixels, alpha-based centering. Only these seven files were normalized. Original generated PNGs remain in the local generated-images library.
 
-All known foods now render through the shared `FoodIcon` catalogue path. Plates and donuts use art version 5; the unchanged energy cans retain their generated version and moving effects.
+All known foods now render through the shared `FoodIcon` catalogue path. Food sprites and donuts now use art version 6 after the follow-up [food silhouette refresh](food-silhouette-refresh.md); the unchanged energy cans retain their generated version and moving effects.
 
 ## Retired Duplicates
 
