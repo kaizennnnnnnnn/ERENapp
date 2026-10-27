@@ -11,8 +11,8 @@
 // + blink + idle treatment as every room.
 //
 // Buying lives in Meadow sheets so the picture stays the hero. Two counters
-// share them: CAKES (flavour only — the cake flies up, a "Sold!" stamp pops,
-// coins burst, nothing is kept) and DONUTS, which sells three real fridge foods
+// share them: CAKES (each bought pastry joins your fridge) and DONUTS, which
+// sells three real fridge foods
 // a day off a rotating case (see lib/donuts.ts) and stocks your pile. The
 // controls over the picture are Meadow's white over-art pieces, like the home
 // screen's. Currency: player coins via TaskContext.spendCoins().
@@ -26,6 +26,7 @@ import { useErenStats } from '@/hooks/useErenStats'
 import { useIsDark } from '@/hooks/useIsDark'
 import { playSound } from '@/lib/sounds'
 import type { CakeDef } from '@/lib/cakes'
+import { purchaseCakeFood } from '@/lib/cakePurchase'
 import { dailyDonuts, msUntilNextBatch, rollDonut, SPIN_COST, type DonutDef } from '@/lib/donuts'
 import { foodArt } from '@/lib/foodMeta'
 import { todayKey } from '@/lib/seededRng'
@@ -116,7 +117,7 @@ const EREN_BOTTOM = `calc(${-(1 - EREN_SHOW) * EREN_VW}cqi + 2px)`
 export default function BakeryPage() {
   const { user, profile } = useAuth()
   const { coins, spendCoins } = useTasks()
-  const { stats, addToMyFood, consumeMyFood } = useErenStats(profile?.household_id ?? null)
+  const { stats, addToMyFood, addManyToMyFood, consumeMyFood } = useErenStats(profile?.household_id ?? null)
   const { setHideStats } = useCare()
   const isDark = useIsDark()
   const pic = isDark ? SHOP_NIGHT : SHOP_DAY
@@ -131,6 +132,7 @@ export default function BakeryPage() {
   const [fx, setFx] = useState<PurchaseFx | null>(null)
   const [busy, setBusy] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [purchaseError, setPurchaseError] = useState<string | null>(null)
   const [caseOpen, setCaseOpen] = useState(false)
   const fxIdRef = useRef(0)
 
@@ -208,28 +210,35 @@ export default function BakeryPage() {
 
   /**
    * One counter, one till. `food` is what the purchase puts in the buyer's
-   * fridge pile — cakes pass none, so they stay the flavour they've always been.
+   * fridge pile. Cakes use their own saved-stock checkout below.
    */
   async function purchase(price: number, sold: SoldItem, food?: DonutDef['id']) {
-    if (busy) return
+    if (busy || (sold.kind === 'cake' && !stats)) return
     if (!user?.id) return
     if (coins < price) {
       playSound('ui_modal_open') // soft "no" ping
       return
     }
     setBusy(true)
+    setPurchaseError(null)
     playSound('ui_tap')
-    // Both writes hit different tables with no ordering between them, and each
-    // updates locally the moment it's called — same reasoning as the kitchen's
-    // handleBuy, so the fridge fills on tap instead of after two round trips.
-    const [ok] = await Promise.all([
-      spendCoins(price),
-      food ? addToMyFood(user.id, food) : Promise.resolve(),
-    ])
+    // Cakes verify the stock write before charging. Donuts retain their
+    // existing parallel writes and payment-failure rollback.
+    const ok = sold.kind === 'cake'
+      ? await purchaseCakeFood(sold.cake, {
+        addFood: key => addManyToMyFood(user.id, [key]),
+        spendCoins,
+        removeFood: key => consumeMyFood(user.id, key),
+      })
+      : (await Promise.all([
+        spendCoins(price),
+        food ? addToMyFood(user.id, food) : Promise.resolve(),
+      ]))[0]
     if (!ok) {
-      // Pre-checked above, so this is a failed write, not a poor cat owner —
-      // spendCoins already rolled the balance back and the stock has to follow.
+      // Cakes already restored their stock. Donuts still need the food
+      // rollback after spendCoins restores a failed payment.
       if (food) await consumeMyFood(user.id, food)
+      if (sold.kind === 'cake') setPurchaseError('Could not save your purchase. Please try again.')
       setBusy(false)
       return
     }
@@ -322,7 +331,7 @@ export default function BakeryPage() {
               <div key={fx.id} className="absolute"
                 style={{ left: '50%', top: '56%', transform: 'translateX(-50%)', animation: 'bkCakeFly 1.6s cubic-bezier(0.34,1.56,0.64,1) forwards' }}>
                 {fx.sold.kind === 'cake'
-                  ? <CakeSprite cake={fx.sold.cake} size={56} />
+                  ? <CakeSprite cake={fx.sold.cake} size={80} />
                   : <img src={foodArt(fx.sold.donut.id)} alt="" width={56} height={56} draggable={false}
                       style={{ display: 'block', objectFit: 'contain' }} />}
               </div>
@@ -375,7 +384,7 @@ export default function BakeryPage() {
         </CounterButton>
       </div>
 
-      <CakeMenuSheet open={menuOpen} coins={coins} busy={busy}
+      <CakeMenuSheet open={menuOpen} coins={coins} busy={busy || !stats} error={purchaseError}
         onBuy={cake => purchase(cake.price, { kind: 'cake', cake })}
         onClose={() => setMenuOpen(false)} />
 

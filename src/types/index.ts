@@ -126,7 +126,13 @@ export type DonutKey =
   | 'donut_pistachio' | 'donut_white_choc'
   | 'donut_tiger' | 'donut_arcade' | 'donut_neon'
 
-export type FoodInventory = Partial<Record<DonutKey, number>> & {
+/** Bakery-only pastries, separate from the old kitchen cake slice. */
+export type CakeKey =
+  | 'cake_strawberry' | 'cake_chocolate' | 'cake_vanilla' | 'cake_matcha'
+  | 'cake_blueberry' | 'cake_macaron' | 'cake_tiramisu' | 'cake_royal'
+  | 'cake_honey_hive' | 'cake_moonbeam' | 'cake_moss_cottage' | 'cake_lily_pond'
+
+export type FoodInventory = Partial<Record<DonutKey | CakeKey, number>> & {
   kibble?: number
   fish?: number
   treat?: number
@@ -263,6 +269,7 @@ export type FoodKey = 'kibble' | 'fish' | 'treat' | 'tuna' | 'steak' | 'cream' |
   // The whole donut case — kitchen shelf, bakery specials and gacha pulls all
   // land in the fridge the same way. See lib/donuts.ts.
   | DonutKey
+  | CakeKey
   // World dishes — same lifecycle as the staples above (buyable, giftable).
   | 'pizza' | 'carbonara' | 'lasagna' | 'risotto'
   | 'nigiri' | 'temaki' | 'maki'

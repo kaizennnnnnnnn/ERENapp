@@ -47,6 +47,7 @@ import { M, MeadowIcon, CoinChip, PrimaryButton, RoundButton, Tag } from '@/comp
 import KitchenSheet, { ShelfRow, shelfName } from '@/components/kitchen/KitchenSheet'
 import RoomWeather from '@/components/weather/RoomWeather'
 import { FOOD_META, RETIRED_SHOP_FOODS } from '@/lib/foodMeta'
+import { CAKES } from '@/lib/cakes'
 
 interface Props { onClose: () => void }
 
@@ -137,6 +138,13 @@ const SHOP_ITEMS = [
   { id: 'meatballs' as const, name: 'Meatballs',   price: 26, hungerD: 34, happyD:  0, weightD: 0.09, desc: 'Simmered in sauce',  color: '#C4452F', cat: 'world'   },
   { id: 'roast_chicken' as const, name: 'Roast Chicken', price: 32, hungerD: 42, happyD:  0, weightD: 0.12, desc: 'The whole bird',color: '#D8973C', cat: 'world'  },
 
+  // Bakery-only cakes are inventory entries, never kitchen shop stock.
+  ...CAKES.map(c => ({
+    id: c.foodId, name: c.name, price: c.price,
+    hungerD: c.hungerD, happyD: c.happyD, weightD: c.weightD,
+    desc: c.blurb, color: c.main, cat: 'cakes',
+  })),
+
   // ─── Donuts ──────────────────────────────────────────────────────────────
   // The whole case, so a donut you got anywhere shows up in the fridge and can
   // be dragged to Eren like any other food. Only the kitchen pair is on SALE
@@ -160,8 +168,10 @@ const SHOP_ITEMS = [
 // thing that actually identifies a donut; a category is a display grouping and
 // is free to be renamed.
 const ALL_DONUT_IDS: ReadonlySet<string> = new Set(DONUTS.map(d => d.id))
+const BAKERY_CAKE_IDS: ReadonlySet<string> = new Set(CAKES.map(c => c.foodId))
 const KITCHEN_SHELF: ReadonlySet<string> = new Set(KITCHEN_DONUTS.map(d => d.id))
 const SHELF_ITEMS = SHOP_ITEMS.filter(i => !RETIRED_SHOP_FOODS[i.id]
+  && !BAKERY_CAKE_IDS.has(i.id)
   && (!ALL_DONUT_IDS.has(i.id) || KITCHEN_SHELF.has(i.id)))
 
 // Foods Eren LAPS instead of chews. Feeding one of these swaps the chewing
@@ -206,6 +216,7 @@ const FRIDGE_CATEGORIES = [
   // The ten Monsta cans used to sit here too and swamped it — they're a drink,
   // not a dessert, and they now have their own shelf at the end.
   { id: 'sweets',  label: 'SWEETS',  color: '#FF85A2' },
+  { id: 'cakes',   label: 'CAKES',   color: '#E87D9C' },
   { id: 'italian', label: 'ITALIAN', color: '#E4703A' },
   { id: 'sushi',   label: 'SUSHI',   color: '#F0736F' },
   { id: 'asian',   label: 'ASIAN',   color: '#C8632E' },
@@ -214,6 +225,7 @@ const FRIDGE_CATEGORIES = [
   { id: 'energy',  label: 'ENERGY',  color: '#A6E728' },
 ]
 
+const SHOP_CATEGORIES = FRIDGE_CATEGORIES.filter(c => SHELF_ITEMS.some(i => i.cat === c.id))
 
 // The head-down eating pose (sticker set, chew bob, and the EAT_NOSE_X muzzle
 // measurements the bowl/crumbs/words anchor to) lives in ChewingEren — the vet
@@ -937,7 +949,7 @@ export default function FeedScene({ onClose }: Props) {
             {!activeCat ? (
               /* PHASE 1 — category picker, the same rows as the fridge. */
               <div className="flex flex-col" style={{ gap: 8 }}>
-                {FRIDGE_CATEGORIES.map(c => {
+                {SHOP_CATEGORIES.map(c => {
                   // SHELF_ITEMS, not SHOP_ITEMS: the DONUTS row must count and
                   // preview what's for sale, not the whole case.
                   const catItems = SHELF_ITEMS.filter(i => i.cat === c.id)

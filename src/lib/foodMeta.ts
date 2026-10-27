@@ -1,6 +1,7 @@
-import type { DonutKey, FoodKey } from '@/types'
+import type { CakeKey, DonutKey, FoodKey } from '@/types'
 import { DONUTS } from './donuts'
 import { CAN_ART_V } from './canArtData'
+import { CAKES, cakeArt, getCakeByFoodId } from './cakes'
 
 // ─── Food display metadata ───────────────────────────────────────────────────
 // Name + swatch colour for every food key, shared by the couple surfaces that
@@ -22,8 +23,13 @@ const DONUT_META = Object.fromEntries(
   DONUTS.map(d => [d.id, { name: d.name, color: d.color }]),
 ) as Record<DonutKey, { name: string; color: string }>
 
+const CAKE_META = Object.fromEntries(
+  CAKES.map(c => [c.foodId, { name: c.name, color: c.main }]),
+) as Record<CakeKey, { name: string; color: string }>
+
 export const FOOD_META: Record<FoodKey, { name: string; color: string }> = {
   ...DONUT_META,
+  ...CAKE_META,
   kibble:     { name: 'Kibble',       color: '#D4A44A' },
   fish:       { name: 'Fish',         color: '#5BA3D9' },
   treat:      { name: 'Cat Treat',    color: '#FF6B9D' },
@@ -96,6 +102,7 @@ export const FOOD_ORDER: FoodKey[] = [
   'monsta_original', 'monsta_white', 'monsta_mango', 'monsta_loco',
   'monsta_pipeline', 'monsta_punch', 'monsta_rosa', 'monsta_peachy',
   'monsta_rainbow', 'monsta_gold',
+  ...CAKES.map(c => c.foodId),
   ...DONUTS.map(d => d.id),
 ]
 
@@ -126,6 +133,8 @@ const FOOD_ART_V = 6
  * shared number would also make every phone re-download every plate and donut.
  */
 export const foodArt = (id: string): string => {
+  const cake = getCakeByFoodId(id)
+  if (cake) return cakeArt(cake.id)
   const artId = RETIRED_SHOP_FOODS[id as FoodKey] ?? id
   return `/food/${artId}.png?v=${artId.startsWith('monsta_') ? CAN_ART_V : FOOD_ART_V}`
 }

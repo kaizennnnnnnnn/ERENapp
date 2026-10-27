@@ -26,26 +26,47 @@ function load(file) {
 
 const meta = load(path.join(root,'src/lib/foodMeta.ts'))
 const donuts = load(path.join(root,'src/lib/donuts.ts'))
+const cakes = load(path.join(root,'src/lib/cakes.ts'))
 const menu = load(path.join(root,'src/lib/foodMenu.ts'))
 const { default: FoodIcon } = load(path.join(root,'src/components/care/FoodIcon.tsx'))
 const file = path.join(root,'src/components/care/FeedScene.tsx')
 const source = ts.createSourceFile(file,fs.readFileSync(file,'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX)
 // Execute the real catalogue declarations without mounting the room or mocking its hooks.
-const names = new Set(['MONSTA_PRICE','SHOP_ITEMS','ALL_DONUT_IDS','KITCHEN_SHELF','SHELF_ITEMS'])
+const names = new Set(['MONSTA_PRICE','SHOP_ITEMS','ALL_DONUT_IDS','BAKERY_CAKE_IDS','KITCHEN_SHELF','SHELF_ITEMS','FRIDGE_CATEGORIES','SHOP_CATEGORIES'])
 const declarations = source.statements.filter(node=>ts.isVariableStatement(node)
   && node.declarationList.declarations.some(decl=>ts.isIdentifier(decl.name)&&names.has(decl.name.text)))
 assert.equal(declarations.length,names.size)
 const { outputText } = ts.transpileModule(declarations.map(node=>node.getText(source)).join('\n'), {
   compilerOptions: { target: ts.ScriptTarget.ES2020 },
 })
-const catalogue = new Function('DONUTS','KITCHEN_DONUTS','FOOD_META','RETIRED_SHOP_FOODS',
-  outputText+'\nreturn {SHOP_ITEMS,SHELF_ITEMS}')(
-  donuts.DONUTS,donuts.KITCHEN_DONUTS,meta.FOOD_META,meta.RETIRED_SHOP_FOODS)
+const catalogue = new Function('DONUTS','KITCHEN_DONUTS','FOOD_META','RETIRED_SHOP_FOODS','CAKES',
+  outputText+'\nreturn {SHOP_ITEMS,SHELF_ITEMS,FRIDGE_CATEGORIES,SHOP_CATEGORIES}')(
+  donuts.DONUTS,donuts.KITCHEN_DONUTS,meta.FOOD_META,meta.RETIRED_SHOP_FOODS,cakes.CAKES)
 const { SHOP_ITEMS, SHELF_ITEMS } = catalogue
 assert.equal(new Set(SHOP_ITEMS.map(item=>item.id)).size,SHOP_ITEMS.length,'No duplicate inventory entries')
 assert.equal(new Set(SHELF_ITEMS.map(item=>item.id)).size,SHELF_ITEMS.length,'No duplicate shop entries')
 assert.deepEqual(new Set(SHOP_ITEMS.map(item=>item.id)),new Set(Object.keys(meta.FOOD_META)))
 assert.equal(SHELF_ITEMS.length,50)
+assert.equal(SHOP_ITEMS.length,89)
+assert.ok(catalogue.FRIDGE_CATEGORIES.some(category=>category.id==='cakes'))
+assert.ok(!catalogue.SHOP_CATEGORIES.some(category=>category.id==='cakes'))
+assert.equal(catalogue.SHOP_CATEGORIES.length,11)
+assert.ok(catalogue.SHOP_CATEGORIES.every(category=>SHELF_ITEMS.some(item=>item.cat===category.id)),'No empty or infinite-price shop shelves')
+assert.equal(new Set(meta.FOOD_ORDER).size,meta.FOOD_ORDER.length)
+assert.deepEqual(new Set(meta.FOOD_ORDER),new Set(Object.keys(meta.FOOD_META)))
+for (const cake of cakes.CAKES) {
+  const food = SHOP_ITEMS.find(item=>item.id===cake.foodId)
+  assert.ok(food,'Bakery cakes must be selectable and feedable from the fridge')
+  assert.equal(food.cat,'cakes')
+  assert.equal(food.price,cake.price)
+  assert.equal(food.hungerD,cake.hungerD)
+  assert.equal(food.happyD,cake.happyD)
+  assert.equal(food.weightD,cake.weightD)
+  assert.ok(food.hungerD>0&&food.happyD>0&&food.weightD>0)
+  assert.equal(meta.foodArt(cake.foodId),cakes.cakeArt(cake.id))
+  assert.ok(!SHELF_ITEMS.some(item=>item.id===cake.foodId),'Bakery-only foods cannot leak into the kitchen shop')
+  assert.ok(!menu.MENU_POOL.includes(cake.foodId),'Kitchen menus must remain kitchen-buyable')
+}
 assert.equal(SHELF_ITEMS.filter(item=>item.cat==='seafood').length,4)
 assert.equal(SHELF_ITEMS.filter(item=>item.cat==='sushi').length,3)
 assert.deepEqual(SHELF_ITEMS.filter(item=>item.id.startsWith('donut')).map(item=>item.id),donuts.KITCHEN_DONUTS.map(item=>item.id))
