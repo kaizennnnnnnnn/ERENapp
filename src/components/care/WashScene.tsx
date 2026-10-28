@@ -24,27 +24,11 @@ import PoseSprite from '@/components/care/PoseSprite'
 import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import { BubblePoof, SplashPoof, WASH_POOF_PEAK_MS } from '@/components/care/WashPoof'
 import { preloadImages } from '@/lib/preloadImages'
-import SqueakyCleanBanner from '@/components/wash/SqueakyCleanBanner'
-import SegmentMeter, { type MeterPalette } from '@/components/care/SegmentMeter'
-import CareToast from '@/components/care/CareToast'
+import WashProgress, { type WashPhase } from '@/components/wash/WashProgress'
 import RoomWeather from '@/components/weather/RoomWeather'
-import { ROOM_HEADER_CLEARANCE } from '@/components/meadow/tokens'
+import { Card, M, MeadowIcon, ROOM_HEADER_CLEARANCE } from '@/components/meadow'
 
 interface Props { onClose: () => void }
-
-// Premium gauge palettes for the SOAP (warm pink lather) and RINSE (cool sky
-// water) meters. They sit inside the dark navy bath panel, so the channel ink
-// is a deep navy and the studs are the app's signature gold rivets.
-const SOAP_METER: MeterPalette = {
-  fillHi: '#FFC7DE', fillBase: '#FF6B9D', fillLo: '#E0487E', fillEdge: '#FF4080',
-  glow: 'rgba(255,90,150,0.65)', track: '#22323F', trackEdge: '#37495A',
-  groove: '#0E1C28', frame: '#27485C', rivet: '#FFD98A',
-}
-const RINSE_METER: MeterPalette = {
-  fillHi: '#D4F0FF', fillBase: '#6BAED6', fillLo: '#3F86B4', fillEdge: '#4A90BC',
-  glow: 'rgba(105,174,214,0.7)', track: '#22323F', trackEdge: '#37495A',
-  groove: '#0E1C28', frame: '#27485C', rivet: '#FFD98A',
-}
 
 // ── Soap-coverage → pose progression ─────────────────────────────────────────
 // He swaps through lather stages as `coverage` climbs (soaping) and back down
@@ -152,8 +136,8 @@ export default function WashScene({ onClose }: Props) {
   const wishMatchesThisRoom = wish?.wish ? wishHintRoom(wish.wish) === 'wash' : false
 
   const sceneRef   = useRef<HTMLDivElement>(null)
-  const soapRef    = useRef<HTMLDivElement>(null)
-  const showerRef  = useRef<HTMLDivElement>(null)
+  const soapRef    = useRef<HTMLButtonElement>(null)
+  const showerRef  = useRef<HTMLButtonElement>(null)
   const erenRef    = useRef<HTMLDivElement>(null)
 
   // Positions stored in refs — updated directly on DOM, no re-render
@@ -167,7 +151,10 @@ export default function WashScene({ onClose }: Props) {
   const [showShower, setShowShower] = useState(false)
   const [done,       setDone]       = useState(false)
   const [saving,     setSaving]     = useState(false)
-  const [toast,      setToast]      = useState<string | null>(null)
+  const [saveError,  setSaveError]  = useState<string | null>(null)
+  const [washSaved,  setWashSaved]  = useState(false)
+  const savingRef = useRef(false)
+  const savedRef = useRef(false)
 
   const bubbleId      = useRef(0)
   const dragSoapRef   = useRef(false)
@@ -293,7 +280,7 @@ export default function WashScene({ onClose }: Props) {
 
   // ── Soap pointer handlers ─────────────────────────────────────────────────
   function onSoapDown(e: React.PointerEvent) {
-    if (doneRef.current || isSleeping) return
+    if (!e.isPrimary || e.button !== 0 || doneRef.current || isSleeping) return
     e.currentTarget.setPointerCapture(e.pointerId)
     dragSoapRef.current = true
     setDragSoap(true)
@@ -310,6 +297,15 @@ export default function WashScene({ onClose }: Props) {
     const row = Math.floor(((clientY - r.top)  / r.height) * MASK_ROWS)
     if (col < 0 || row < 0 || col >= MASK_COLS || row >= MASK_ROWS) return false
     return EREN_MASK[row][col] === '1'
+  }, [])
+
+  const updateCoverage = useCallback((next: number) => {
+    coverageRef.current = next
+    setCoverage(next)
+    if (next >= 95 && !showShowerRef.current) {
+      showShowerRef.current = true
+      setShowShower(true)
+    }
   }, [])
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
@@ -332,18 +328,7 @@ export default function WashScene({ onClose }: Props) {
           lastScrubWordRef.current = now
           setScrubWordKey(k => k + 1)
         }
-        setCoverage(c => {
-          // +0.5 per in-zone soap stroke: soaping up to the 95% shower-unlock
-          // stays quick (it dragged at 0.22) while the lather still climbs
-          // through s1→s2→s3 so the pose progression reads.
-          const next = Math.min(100, c + 0.5)
-          coverageRef.current = next
-          if (next >= 95 && !showShowerRef.current) {
-            showShowerRef.current = true
-            setShowShower(true)
-          }
-          return next
-        })
+        updateCoverage(Math.min(100, coverageRef.current + 0.5))
         setBubbles(bs => {
           // Stamp the bubble with the coverage AT creation so the rinse
           // can fade it out individually based on how far past its
@@ -369,61 +354,96 @@ export default function WashScene({ onClose }: Props) {
         // render layer based on each bubble's creation coverage vs the
         // current coverage. We don't pop them from the array, which is
         // what made them disappear instantly before.
-        setCoverage(c => {
-          const next = Math.max(0, c - 0.6)
-          coverageRef.current = next
-          return next
-        })
+        updateCoverage(Math.max(0, coverageRef.current - 0.6))
       }
     }
-  }, [])
+  }, [isOverEren, markScrub, updateCoverage])
 
   function onSoapUp() {
     dragSoapRef.current = false
     setDragSoap(false)
+    if (soapRef.current) {
+      soapPosRef.current = { x: 12, y: 62 }
+      soapRef.current.style.left = '12%'
+      soapRef.current.style.top = '62%'
+    }
   }
 
   function onShowerDown(e: React.PointerEvent) {
-    if (doneRef.current || isSleeping || coverageRef.current < 80) return
+    if (!e.isPrimary || e.button !== 0 || doneRef.current || isSleeping || !showShowerRef.current) return
     e.currentTarget.setPointerCapture(e.pointerId)
     dragShowerRef.current = true
     setDragShower(true)
   }
 
   function onShowerUp() {
-    dragShowerRef.current = false
-    setDragShower(false)
+    if (!dragShowerRef.current) return
+    cancelShower()
     if (coverageRef.current <= 10 && !doneRef.current) finishWash()
   }
 
+  function cancelShower() {
+    dragShowerRef.current = false
+    setDragShower(false)
+    if (showerRef.current) {
+      showerPosRef.current = { x: 75, y: 30 }
+      showerRef.current.style.left = '75%'
+      showerRef.current.style.top = '30%'
+    }
+  }
+
+  // Keyboard and assistive clicks take a small step; pointer clicks stay on the drag path.
+  function useSoapFromKeyboard(e: React.MouseEvent) {
+    if (e.detail !== 0 || doneRef.current || isSleeping) return
+    markScrub()
+    updateCoverage(Math.min(100, coverageRef.current + 5))
+  }
+
+  function useShowerFromKeyboard(e: React.MouseEvent) {
+    if (e.detail !== 0 || doneRef.current || isSleeping || !showShowerRef.current) return
+    playSound('care_rinse')
+    updateCoverage(Math.max(0, coverageRef.current - 10))
+    if (coverageRef.current <= 10) void finishWash()
+  }
+
   async function finishWash() {
-    if (!user?.id || doneRef.current) return
-    doneRef.current = true
-    setDone(true)
-    setScrubbing(false)
-    // Wet-dog shake → droplets fly off → clean sparkle → happy finisher.
-    reaction.play([
-      { name: 'shake',   ms: 750, onEnter: () => playSound('care_splash') },
-      { name: 'sparkle', ms: 1150 },
-      ...happyFinisherBeats(),
-    ])
+    if (!user?.id || savingRef.current || savedRef.current || !showShowerRef.current || coverageRef.current > 10) return
+    savingRef.current = true
+    setSaveError(null)
+    if (!doneRef.current) {
+      doneRef.current = true
+      setDone(true)
+      setScrubbing(false)
+      // Keep the physical finish separate from confirmation of the saved care.
+      reaction.play([
+        { name: 'shake',   ms: 750, onEnter: () => playSound('care_splash') },
+        { name: 'sparkle', ms: 1150 },
+        ...happyFinisherBeats(),
+      ])
+    }
     setSaving(true)
     try {
       const result = await applyAction(user.id, 'wash')
-      setToast(result.message)
-      if (result.success) completeTask('daily_wash')
+      if (result.success) {
+        savedRef.current = true
+        setWashSaved(true)
+        completeTask('daily_wash')
+      } else setSaveError(result.message)
     } catch {
-      setToast('Something went wrong')
+      setSaveError('Could not save this bath. Please try again.')
     } finally {
+      savingRef.current = false
       setSaving(false)
-      setTimeout(() => setToast(null), 3000)
     }
   }
+
+  const progressPhase: WashPhase = isSleeping ? 'sleeping' : saving ? 'saving' : washSaved ? 'done'
+    : done ? 'error' : showShower ? 'rinse' : 'soap'
 
   return (
     <div
       ref={sceneRef}
-      className="fixed inset-0 z-40 overflow-hidden select-none"
+      className="meadow-root fixed inset-0 z-40 overflow-hidden select-none"
       style={{ touchAction: 'none' }}
     >
       {wish?.wish && (
@@ -600,117 +620,98 @@ export default function WashScene({ onClose }: Props) {
       </div>
 
       {/* ══ SHOWER HEAD ═══════════════════════════════════════════════════ */}
-      <div
-        ref={showerRef}
-        className={cn('absolute z-30', (isSleeping || !showShower) ? 'opacity-0 pointer-events-none' : 'opacity-100', dragShower ? 'cursor-grabbing' : 'cursor-grab')}
-        style={{ left: '75%', top: '30%', transform: 'translate(-50%, -50%)', touchAction: 'none' }}
-        onPointerDown={onShowerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onShowerUp}
-        onTouchStart={stopTouchBubble}
-        onTouchMove={stopTouchBubble}
-        onTouchEnd={stopTouchBubble}
-      >
-        {/* Sprite + spray share one positioned box so the water stays pinned
-            to the perforated plate (≈DISC_X/DISC_Y of the sprite) at any size. */}
-        <div className="relative" style={{ width: SHOWER_W, height: SHOWER_H }}>
-          <img src="/shower.png?v=1" alt="" draggable={false}
-            style={{ width: '100%', height: '100%', display: 'block', pointerEvents: 'none', filter: 'drop-shadow(1px 2px 1px rgba(40,70,110,0.35))' }} />
-          {/* Water — emanates from the plate and fans down-left, the way the
-              plate's face points. Only while the head is held (dragShower). */}
-          {dragShower && (
-            <div className="absolute pointer-events-none" style={{ left: `${DISC_X}%`, top: `${DISC_Y}%`, width: 0, height: 0, zIndex: 1 }}>
-              <div className="shower-mist" />
-              {SPRAY_RAYS.map((deg, i) => (
-                <div key={i} className="spray-ray" style={{ transform: `rotate(${deg}deg)` }}>
-                  {[0, 1, 2].map(j => (
-                    <span key={j} className="spray-drop" style={{
-                      animationDelay: `${(i * 0.05 + j * 0.16).toFixed(2)}s`,
-                      ['--len' as string]: `${42 + ((i + j) % 3) * 10}px`,
-                    } as React.CSSProperties} />
-                  ))}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        {showShower && (
-          <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap font-pixel text-sky-600" style={{ fontSize: 6 }}>
-            {coverage <= 15 ? 'DONE SOON!' : 'DRAG TO RINSE!'}
+      {!done && !isSleeping && showShower && (
+        <button type="button"
+          ref={showerRef}
+          aria-label={cat.t('Rinse {name}')} title="Shower"
+          className={cn('m-focus absolute z-30', dragShower ? 'cursor-grabbing' : 'cursor-grab')}
+          style={{ left: '75%', top: '30%', transform: 'translate(-50%, -50%)', touchAction: 'none', border: 0, padding: 0, background: 'transparent', minWidth: 44, minHeight: 44, fontFamily: 'inherit' }}
+          onPointerDown={onShowerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onShowerUp}
+          onPointerCancel={cancelShower}
+          onLostPointerCapture={cancelShower}
+          onClick={useShowerFromKeyboard}
+          onTouchStart={stopTouchBubble}
+          onTouchMove={stopTouchBubble}
+          onTouchEnd={stopTouchBubble}
+        >
+          {/* Sprite + spray share one positioned box so the water stays pinned
+              to the perforated plate (≈DISC_X/DISC_Y of the sprite) at any size. */}
+          <div className="relative" style={{ width: SHOWER_W, height: SHOWER_H, margin: '0 auto' }}>
+            <img src="/shower.png?v=1" alt="" draggable={false}
+              style={{ width: '100%', height: '100%', display: 'block', pointerEvents: 'none', filter: 'drop-shadow(1px 2px 1px rgba(40,70,110,0.35))' }} />
+            {/* Water — emanates from the plate and fans down-left, the way the
+                plate's face points. Only while the head is held (dragShower). */}
+            {dragShower && (
+              <div className="absolute pointer-events-none" style={{ left: `${DISC_X}%`, top: `${DISC_Y}%`, width: 0, height: 0, zIndex: 1 }}>
+                <div className="shower-mist" />
+                {SPRAY_RAYS.map((deg, i) => (
+                  <div key={i} className="spray-ray" style={{ transform: `rotate(${deg}deg)` }}>
+                    {[0, 1, 2].map(j => (
+                      <span key={j} className="spray-drop" style={{
+                        animationDelay: `${(i * 0.05 + j * 0.16).toFixed(2)}s`,
+                        ['--len' as string]: `${42 + ((i + j) % 3) * 10}px`,
+                      } as React.CSSProperties} />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        )}
-      </div>
+          {!dragShower && (
+            <span style={{ position: 'absolute', top: 'calc(100% + 7px)', left: '50%', transform: 'translateX(-50%)', background: '#FFFFFF', color: M.text, borderRadius: 6, padding: '2px 6px', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap', boxShadow: `0 2px 0 ${M.overArtLip}` }}>
+              Shower
+            </span>
+          )}
+        </button>
+      )}
 
       {/* ══ SOAP BAR ══════════════════════════════════════════════════════ */}
       {/* The soap prop stays on screen through the rinse phase (only the SOAP
           *meter* swaps to RINSE). It hides just on finish / while sleeping. */}
-      <div
-        ref={soapRef}
-        className={cn('absolute z-30', dragSoap ? 'cursor-grabbing scale-110' : 'cursor-grab', (done || isSleeping) && 'opacity-0 pointer-events-none')}
-        style={{ left: '12%', top: '62%', transform: 'translate(-50%,-50%)', touchAction: 'none' }}
-        onPointerDown={onSoapDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onSoapUp}
-        onTouchStart={stopTouchBubble}
-        onTouchMove={stopTouchBubble}
-        onTouchEnd={stopTouchBubble}
-      >
-        <img src="/soap.png?v=1" alt="" draggable={false}
-          style={{ width: SOAP_W, height: SOAP_H, display: 'block', pointerEvents: 'none', filter: 'drop-shadow(2px 3px 0 rgba(153,26,90,0.32))' }} />
-        {!dragSoap && !showShower && (
-          <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap font-pixel text-pink-500" style={{ fontSize: 6 }}>
-            {/* A pronoun, not the name: this nowrap hint centres under the soap
-                near the left edge, and a long name would run off screen. */}
-            {cat.t('DRAG ON {HIM}!')}
-          </div>
-        )}
-      </div>
+      {!done && !isSleeping && (
+        <button type="button"
+          ref={soapRef}
+          aria-label={cat.t('Soap {name}')} title="Soap"
+          className={cn('m-focus absolute z-30', dragSoap ? 'cursor-grabbing scale-110' : 'cursor-grab')}
+          style={{ left: '12%', top: '62%', transform: 'translate(-50%,-50%)', touchAction: 'none', border: 0, padding: 0, background: 'transparent', minWidth: 44, minHeight: 44, fontFamily: 'inherit' }}
+          onPointerDown={onSoapDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onSoapUp}
+          onPointerCancel={onSoapUp}
+          onLostPointerCapture={onSoapUp}
+          onClick={useSoapFromKeyboard}
+          onTouchStart={stopTouchBubble}
+          onTouchMove={stopTouchBubble}
+          onTouchEnd={stopTouchBubble}
+        >
+          <img src="/soap.png?v=1" alt="" draggable={false}
+            style={{ width: SOAP_W, height: SOAP_H, display: 'block', pointerEvents: 'none', filter: 'drop-shadow(2px 3px 0 rgba(153,26,90,0.32))' }} />
+          {!dragSoap && !showShower && (
+            <span style={{ position: 'absolute', top: 'calc(100% + 7px)', left: '50%', transform: 'translateX(-50%)', background: '#FFFFFF', color: M.text, borderRadius: 6, padding: '2px 6px', fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap', boxShadow: `0 2px 0 ${M.overArtLip}` }}>Soap</span>
+          )}
+        </button>
+      )}
 
       {/* ══ SCENE LABEL ══════════════════════════════════════════════════ */}
-      <div className="absolute left-1/2 -translate-x-1/2 z-50" style={{ top: `calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE + 28}px)` }}>
-        <span className="font-pixel text-sky-700 px-3 py-1.5"
-          style={{ background: 'linear-gradient(135deg, #E8F8FF, #D0EEFF)', borderRadius: 3, border: '2px solid #A8D4F0', boxShadow: '2px 2px 0 #88B8D8', fontSize: 7 }}>
-          BATHROOM
-        </span>
+      <div className="absolute inset-x-0 z-40 flex flex-col items-center" style={{ top: `calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE}px)`, padding: '0 16px', gap: 12, pointerEvents: 'none' }}>
+        <Card padding="8px 14px" style={{ display: 'flex', alignItems: 'center', gap: 8, borderRadius: 999, boxShadow: `0 3px 0 ${M.overArtLip}` }}>
+          <MeadowIcon name="drop" size={20} /><span style={{ fontSize: 15, fontWeight: 800 }}>Bathroom</span>
+        </Card>
+        {saveError && <div role="alert" style={{ width: '100%', maxWidth: 340 }}>
+          <Card padding="12px 16px" style={{ display: 'flex', alignItems: 'center', gap: 10, boxShadow: `0 3px 0 ${M.overArtLip}` }}>
+            <MeadowIcon name="close" size={20} color={M.danger} />
+            <span style={{ fontSize: 14, lineHeight: 1.4, fontWeight: 700 }}>{saveError}</span>
+          </Card>
+        </div>}
       </div>
 
-      {/* ══ TOAST ════════════════════════════════════════════════════════ */}
-      {toast && <CareToast msg={toast} tone="#5BA3D9" top={`calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE + 64}px)`} />}
-
-      {/* ══ PROGRESS BARS ════════════════════════════════════════════════ */}
-      <div className="absolute bottom-4 inset-x-0 px-5 flex flex-col gap-2 items-center pointer-events-none">
-        {!done && (
-          <div className="w-full max-w-xs pointer-events-none flex flex-col gap-2.5"
-            style={{ background: '#1A2A38', borderRadius: 6, border: '2px solid #3A5A70', boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', padding: '11px 12px' }}>
-            {/* SOAP while lathering; once he's fully soaped the shower unlocks
-                (showShower latches at 95%) and the panel swaps to RINSE only —
-                the maxed-out SOAP bar disappears so just the active goal shows. */}
-            {!showShower ? (
-              <SegmentMeter
-                label="SOAP"
-                value={coverage}
-                valueText={`${Math.round(coverage)}%`}
-                palette={SOAP_METER}
-                labelColor="#9BDCF7"
-                valueColor="#CFEFFF"
-              />
-            ) : (
-              <SegmentMeter
-                label="RINSE"
-                value={Math.max(0, 100 - coverage)}
-                valueText={`${Math.round(Math.max(0, 100 - coverage))}%`}
-                palette={RINSE_METER}
-                labelColor="#9BDCF7"
-                valueColor="#CFEFFF"
-              />
-            )}
-            {showShower && !saving && coverage > 10 && (
-              <p className="font-pixel text-sky-400 text-center" style={{ fontSize: 6 }}>DRAG SHOWER TO RINSE!</p>
-            )}
-            {saving && <p className="font-pixel text-sky-400 text-center animate-pulse" style={{ fontSize: 6 }}>SAVING...</p>}
-          </div>
-        )}
-        {done && <SqueakyCleanBanner />}
+      <div className="absolute bottom-4 inset-x-0 px-4 z-40 flex justify-center pointer-events-none">
+        <div className="pointer-events-auto" style={{ width: '100%', maxWidth: 340 }}>
+          <WashProgress phase={progressPhase} value={showShower ? Math.max(0, 100 - coverage) : coverage}
+            onRetry={() => { playSound('ui_tap'); void finishWash() }} />
+        </div>
       </div>
 
       <style jsx>{`
@@ -772,7 +773,7 @@ export default function WashScene({ onClose }: Props) {
         }
       `}</style>
 
-      <LightSwitch targetBottom="12%" targetLeft="50%" persistKey="bathroom" />
+      <LightSwitch targetBottom="12%" targetLeft="50%" switchTop="42%" persistKey="bathroom" />
     </div>
   )
 }
