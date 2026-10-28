@@ -284,6 +284,7 @@ export default function FeedScene({ onClose }: Props) {
   const [foodIdx, setFoodIdx] = useState(0)
   const [buying, setBuying] = useState<string | null>(null)
   const [feeding, setFeeding] = useState<string | null>(null)
+  const feedingRef = useRef(false)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
 
   // Drag-to-feed state — all stored in refs so document-level listeners
@@ -295,81 +296,66 @@ export default function FeedScene({ onClose }: Props) {
     startPos: { x: number; y: number } | null
     active: boolean
     near: boolean
-  }>({ item: null, pos: null, startPos: null, active: false, near: false })
+    pointerId: number | null
+  }>({ item: null, pos: null, startPos: null, active: false, near: false, pointerId: null })
   const tick = () => setDragRender(n => n + 1)
   void dragRender
-  const foodElRef = useRef<HTMLDivElement>(null)
   const ghostRef = useRef<HTMLDivElement>(null)
-  const currentItemRef = useRef<typeof SHOP_ITEMS[number] | null>(null)
+  const erenTargetRef = useRef<HTMLDivElement>(null)
+  const suppressFoodClick = useRef(false)
 
   const erenZone = useCallback((x: number, y: number) => {
-    const cx = window.innerWidth / 2
-    const cy = window.innerHeight * 0.78
+    const rect = erenTargetRef.current?.getBoundingClientRect()
+    if (!rect) return false
+    const cx = rect.left + rect.width / 2
+    const cy = rect.top + rect.height * 0.6
     const dx = x - cx, dy = y - cy
     return Math.sqrt(dx * dx + dy * dy) < 90
   }, [])
 
-  // Native touchstart on the food element — passive:false so
-  // preventDefault actually stops the browser from scrolling.
-  useEffect(() => {
-    const el = foodElRef.current
-    if (!el) return
-    function handleStart(e: TouchEvent) {
-      const item = currentItemRef.current
-      if (!item) return
-      if (e.cancelable) e.preventDefault()
-      e.stopImmediatePropagation()
-      const t = e.touches[0]
-      const d = dragRef.current
-      d.item = item; d.startPos = { x: t.clientX, y: t.clientY }
-      d.pos = { x: t.clientX, y: t.clientY }; d.active = false; d.near = false
-      foodDrag.active = true
-      tick()
-
-      function onMove(ev: TouchEvent) {
-        // Only cancel when the browser still lets us — once a gesture is
-        // committed to scrolling, touchmove arrives with cancelable=false and
-        // preventDefault() is a no-op that logs an Intervention warning.
-        if (ev.cancelable) ev.preventDefault()
-        ev.stopPropagation()
-        const t2 = ev.touches[0]
-        const d2 = dragRef.current
-        const wasActive = d2.active
-        const wasNear = d2.near
-        if (d2.startPos) {
-          const dx = Math.abs(t2.clientX - d2.startPos.x)
-          const dy = Math.abs(t2.clientY - d2.startPos.y)
-          if (dx > 6 || dy > 6) d2.active = true
-        }
-        d2.pos = { x: t2.clientX, y: t2.clientY }
-        d2.near = erenZone(t2.clientX, t2.clientY)
-        // Position the drag ghost imperatively — re-rendering the whole
-        // 860-line scene per touchmove is the expensive part, so only
-        // tick() on the active/near transitions that change other visuals.
-        const g = ghostRef.current
-        if (g) {
-          // Half the ghost icon (DRAG_ICON) so it stays centred under the finger.
-          g.style.left = `${t2.clientX - DRAG_ICON / 2}px`
-          g.style.top = `${t2.clientY - DRAG_ICON / 2}px`
-        }
-        if (d2.active !== wasActive || d2.near !== wasNear) tick()
-      }
-      function onEnd() {
-        document.removeEventListener('touchmove', onMove)
-        document.removeEventListener('touchend', onEnd)
-        const d2 = dragRef.current
-        if (d2.item && d2.active && d2.near) handleFeed(d2.item)
-        d2.item = null; d2.pos = null; d2.startPos = null
-        d2.active = false; d2.near = false
-        foodDrag.active = false
-        tick()
-      }
-      document.addEventListener('touchmove', onMove, { passive: false })
-      document.addEventListener('touchend', onEnd)
+  // Pointer capture keeps touch, pen and mouse drags on the same path. A
+  // stationary press is left to the button's native click (including keyboard).
+  function startFoodDrag(e: React.PointerEvent<HTMLButtonElement>, item: typeof SHOP_ITEMS[number]) {
+    if (!e.isPrimary || e.button !== 0 || feedingRef.current || isSleeping || reaction.active) return
+    e.stopPropagation()
+    suppressFoodClick.current = false
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dragRef.current = {
+      item, startPos: { x: e.clientX, y: e.clientY }, pos: { x: e.clientX, y: e.clientY },
+      active: false, near: false, pointerId: e.pointerId,
     }
-    el.addEventListener('touchstart', handleStart, { passive: false })
-    return () => el.removeEventListener('touchstart', handleStart)
-  }) // eslint-disable-line react-hooks/exhaustive-deps
+    foodDrag.active = true
+  }
+
+  function moveFoodDrag(e: React.PointerEvent<HTMLButtonElement>) {
+    const d = dragRef.current
+    if (d.pointerId !== e.pointerId || !d.startPos) return
+    e.stopPropagation()
+    const wasActive = d.active, wasNear = d.near
+    if (Math.abs(e.clientX - d.startPos.x) > 6 || Math.abs(e.clientY - d.startPos.y) > 6) d.active = true
+    d.pos = { x: e.clientX, y: e.clientY }
+    d.near = d.active && erenZone(e.clientX, e.clientY)
+    const ghost = ghostRef.current
+    if (ghost) {
+      ghost.style.left = `${e.clientX - DRAG_ICON / 2}px`
+      ghost.style.top = `${e.clientY - DRAG_ICON / 2}px`
+    }
+    if (d.active !== wasActive || d.near !== wasNear) tick()
+  }
+
+  function endFoodDrag(e: React.PointerEvent<HTMLButtonElement>, cancelled = false) {
+    const d = dragRef.current
+    if (d.pointerId !== e.pointerId) return
+    e.stopPropagation()
+    suppressFoodClick.current = cancelled || d.active
+    const item = !cancelled && d.active && erenZone(e.clientX, e.clientY) ? d.item : null
+    dragRef.current = { item: null, pos: null, startPos: null, active: false, near: false, pointerId: null }
+    foodDrag.active = false
+    tick()
+    if (item) void handleFeed(item)
+  }
+
+  useEffect(() => () => { foodDrag.active = false }, [])
 
   // "Your fridge" = the user's personal pile + the legacy shared pool. Buys
   // add to the personal pile only; feeds drain personal first, then shared.
@@ -472,7 +458,7 @@ export default function FeedScene({ onClose }: Props) {
     if (prevEating.current !== eating) { prevEating.current = eating; setShowPoof(true) }
   }, [eating])
   const erenElement = (
-    <div className="absolute z-20 bottom-[10%]"
+    <div ref={erenTargetRef} className="absolute z-20 bottom-[10%]"
       style={{ left: '50%', transform: 'translateX(-50%)' }}>
       {eating ? (
         // Head-down eating pose (random pick, eyes painted in). The standing
@@ -539,89 +525,95 @@ export default function FeedScene({ onClose }: Props) {
   }
 
   async function handleFeed(item: typeof SHOP_ITEMS[number]) {
-    if (!user?.id || feeding || isSleeping) return
+    if (!user?.id || feedingRef.current || isSleeping || reaction.active || unlock) return
     // Stock check is purely local — `inventory` derives from stats already
     // in memory, so the no-food case answers without touching the network.
     if ((inventory[item.id] ?? 0) <= 0) {
       showToast(`No ${item.name} in your fridge`, false)
       return
     }
+    feedingRef.current = true
     setFeeding(item.id)
-    if (!(await consumeMyFood(user.id, item.id))) {
-      showToast('Could not save this meal. Please try again.', false)
-      setFeeding(null)
-      return
-    }
-    // Reserve the food before awarding care benefits. Drinks lap, solids chew.
-    const drinking = isDrink(item.id)
-    playSound(drinking ? 'care_drink' : 'care_eat')
-    setFedItem(item)
-    // Random head-down pose for this meal.
-    setEatIdx(pickEatPose())
-    reaction.play([
-      { name: 'bowl', ms: 150 },
-      { name: 'eat',  ms: 1300 },
-      // Second chew/lap sound lands mid-meal, not stacked on the first. The
-      // drink path uses its OTHER take so the two beats aren't one clip twice.
-      { name: 'eat2', ms: 1350, onEnter: () => playSound(drinking ? 'care_drink2' : 'care_eat') },
-      ...happyFinisherBeats(),
-    ])
-    // Signal the food key for the Daily Wish system — useDailyWish picks
-    // this up to match food-specific wishes like "i'm craving salmon".
     try {
-      window.dispatchEvent(new CustomEvent('eren:fed-food', { detail: {
-        food: item.id, user_id: user.id, household_id: profile?.household_id,
-      } }))
-    } catch { /* SSR/no-window */ }
-
-    // A can refills the energy bar and lands its own perk on top of the food's
-    // hunger/joy; a donut lands its perk WITHOUT the refuel (see MonstaBuff's
-    // `energy` field). Coins are the one perk eren_stats can't hold, so they're
-    // paid here — after the stat write, so a failed feed doesn't mint them.
-    //
-    // Taste scales the donut's OWN joy, never the perk: a donut he loves is
-    // twice as nice to eat, but Gold Leaf still pays exactly 35 coins whether
-    // he enjoyed it or not.
-    const donut = getDonut(item.id)
-    const buff = monstaBuff(item.id) ?? donut?.perk
-    const joy = donut ? Math.round(item.happyD * TASTE_JOY[donut.taste]) : item.happyD
-    const result = await feedWithFood(user.id, item.hungerD, joy, item.weightD, buff)
-    if (!result.success) await addToMyFood(user.id, item.id)
-    if (result.success && buff?.coins) void addCoins(buff.coins)
-    // He's tasted it now — that's what fills in the bakery's donut case.
-    if (result.success && donut) void markDonutTasted(donut.id)
-    // ...and it may have been one of the three he asked for today. Computed in
-    // the handler rather than during render so the clock is never read while
-    // hydrating; noteMenuFed ignores anything not on today's menu.
-    if (result.success) {
-      const day = todayKey(new Date())
-      noteMenuFed(day, item.id, dailyMenu(day, profile?.household_id ?? null))
-    }
-    // A special donut leaves something you can SEE, for a while, on the
-    // household row — so the aura is already up by the time the toast lands,
-    // and the partner finds a glowing cat next time they open the app.
-    const fx = result.success && donut?.effect ? DONUT_EFFECTS[donut.effect] : null
-    if (fx && donut?.effect) void startDonutEffect(donut.effect)
-    const headline = !result.success ? null
-      : fx ? fx.label
-      : buff?.energy != null ? `ENERGY FULL · ${buff.label}`
-      : donut ? [TASTE_LINE[donut.taste], buff?.label].filter(Boolean).join(' · ')
-      : null
-    showToast(headline ? cat.t(headline) : result.message, result.success)
-    setFeeding(null)
-    if (result.success) completeTask('daily_feed')
-
-    // The FIRST pour of a SPECIAL EDITION can leaves its colours on him for
-    // good. `grantSkin` answers 'new' only on the insert that actually landed,
-    // so a second Gold Monsta — or the partner pouring one at the same moment —
-    // celebrates exactly once. See lib/skinGrant.ts.
-    const unlockSkinId = result.success ? DRINK_UNLOCK_SKINS[item.id] : undefined
-    if (unlockSkinId) {
-      const skin = getSkin(unlockSkinId)
-      const granted = await grantSkin(user.id, unlockSkinId)
-      if (skin && granted === 'new') {
-        setPendingUnlock({ skin, variant: SPECIAL_CAN[item.id], drinkName: item.name })
+      if (!(await consumeMyFood(user.id, item.id))) {
+        showToast('Could not save this meal. Please try again.', false)
+        return
       }
+      // Reserve the food before awarding care benefits. Drinks lap, solids chew.
+      const drinking = isDrink(item.id)
+      playSound(drinking ? 'care_drink' : 'care_eat')
+      setFedItem(item)
+      // Random head-down pose for this meal.
+      setEatIdx(pickEatPose())
+      reaction.play([
+        { name: 'bowl', ms: 150 },
+        { name: 'eat',  ms: 1300 },
+        // Second chew/lap sound lands mid-meal, not stacked on the first. The
+        // drink path uses its OTHER take so the two beats aren't one clip twice.
+        { name: 'eat2', ms: 1350, onEnter: () => playSound(drinking ? 'care_drink2' : 'care_eat') },
+        ...happyFinisherBeats(),
+      ])
+      // Signal the food key for the Daily Wish system — useDailyWish picks
+      // this up to match food-specific wishes like "i'm craving salmon".
+      try {
+        window.dispatchEvent(new CustomEvent('eren:fed-food', { detail: {
+          food: item.id, user_id: user.id, household_id: profile?.household_id,
+        } }))
+      } catch { /* SSR/no-window */ }
+
+      // A can refills the energy bar and lands its own perk on top of the food's
+      // hunger/joy; a donut lands its perk WITHOUT the refuel (see MonstaBuff's
+      // `energy` field). Coins are the one perk eren_stats can't hold, so they're
+      // paid here — after the stat write, so a failed feed doesn't mint them.
+      //
+      // Taste scales the donut's OWN joy, never the perk: a donut he loves is
+      // twice as nice to eat, but Gold Leaf still pays exactly 35 coins whether
+      // he enjoyed it or not.
+      const donut = getDonut(item.id)
+      const buff = monstaBuff(item.id) ?? donut?.perk
+      const joy = donut ? Math.round(item.happyD * TASTE_JOY[donut.taste]) : item.happyD
+      const result = await feedWithFood(user.id, item.hungerD, joy, item.weightD, buff)
+      if (!result.success) await addToMyFood(user.id, item.id)
+      if (result.success && buff?.coins) void addCoins(buff.coins)
+      // He's tasted it now — that's what fills in the bakery's donut case.
+      if (result.success && donut) void markDonutTasted(donut.id)
+      // ...and it may have been one of the three he asked for today. Computed in
+      // the handler rather than during render so the clock is never read while
+      // hydrating; noteMenuFed ignores anything not on today's menu.
+      if (result.success) {
+        const day = todayKey(new Date())
+        noteMenuFed(day, item.id, dailyMenu(day, profile?.household_id ?? null))
+      }
+      // A special donut leaves something you can SEE, for a while, on the
+      // household row — so the aura is already up by the time the toast lands,
+      // and the partner finds a glowing cat next time they open the app.
+      const fx = result.success && donut?.effect ? DONUT_EFFECTS[donut.effect] : null
+      if (fx && donut?.effect) void startDonutEffect(donut.effect)
+      const headline = !result.success ? null
+        : fx ? fx.label
+        : buff?.energy != null ? `ENERGY FULL · ${buff.label}`
+        : donut ? [TASTE_LINE[donut.taste], buff?.label].filter(Boolean).join(' · ')
+        : null
+      showToast(headline ? cat.t(headline) : result.message, result.success)
+      if (result.success) completeTask('daily_feed')
+
+      // The FIRST pour of a SPECIAL EDITION can leaves its colours on him for
+      // good. `grantSkin` answers 'new' only on the insert that actually landed,
+      // so a second Gold Monsta — or the partner pouring one at the same moment —
+      // celebrates exactly once. See lib/skinGrant.ts.
+      const unlockSkinId = result.success ? DRINK_UNLOCK_SKINS[item.id] : undefined
+      if (unlockSkinId) {
+        const skin = getSkin(unlockSkinId)
+        const granted = await grantSkin(user.id, unlockSkinId)
+        if (skin && granted === 'new') {
+          setPendingUnlock({ skin, variant: SPECIAL_CAN[item.id], drinkName: item.name })
+        }
+      }
+    } catch {
+      showToast('Could not finish this meal. Please try again.', false)
+    } finally {
+      feedingRef.current = false
+      setFeeding(null)
     }
   }
 
@@ -754,12 +746,21 @@ export default function FeedScene({ onClose }: Props) {
                   <MeadowIcon name="chevronLeft" size={20} color={M.text} />
                 </RoundButton>
 
-                {/* Food item — draggable. currentItemRef lets the native
-                    touchstart listener (attached via useEffect) know which
-                    food to drag without going through React's passive handler. */}
-                {(() => { currentItemRef.current = item; return null })()}
-                <div ref={foodElRef} className="meadow-root flex flex-col items-center"
-                  style={{ position: 'relative', touchAction: 'none' }}>
+                <button type="button" className="meadow-root m-focus flex flex-col items-center"
+                  aria-label={`Feed ${item.name} to ${cat.name}`}
+                  disabled={isSleeping || feeding !== null}
+                  aria-busy={feeding !== null}
+                  onPointerDown={e => startFoodDrag(e, item)}
+                  onPointerMove={moveFoodDrag}
+                  onPointerUp={e => endFoodDrag(e)}
+                  onPointerCancel={e => endFoodDrag(e, true)}
+                  onLostPointerCapture={e => endFoodDrag(e, true)}
+                  onClick={e => {
+                    if (e.detail !== 0 && suppressFoodClick.current) return
+                    playSound('ui_tap')
+                    void handleFeed(item)
+                  }}
+                  style={{ position: 'relative', touchAction: 'none', border: 0, padding: 0, background: 'transparent', cursor: 'pointer' }}>
                   {/* A special-edition can keeps its dress here too — the
                       fridge is where you pick it up, so it shouldn't go plain
                       the moment it leaves the shop. */}
@@ -792,7 +793,7 @@ export default function FeedScene({ onClose }: Props) {
                     fontSize: 12, fontWeight: 800, color: M.text,
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>{item.name}</span>
-                </div>
+                </button>
 
                 <RoundButton surface="art" size={36} ariaLabel="Next food"
                   onClick={() => { if (hasRight) { playSound('ui_tap'); setFoodIdx(idx + 1) } }}
