@@ -42,8 +42,9 @@ import { playSound } from '@/lib/sounds'
 import {
   GameTopBar, GameStatRow, GameStat, GAME_STAT_URGENT, GAME_BOARD_TOP, GameFootnote, GameStartCard, GameArtTile, GameResultCard,
 } from '@/components/games/GameChrome'
-import { FONT_ROUNDED, M, MeadowIcon } from '@/components/meadow'
+import { FONT_ROUNDED, M, MeadowIcon, TextButton } from '@/components/meadow'
 import { fireMinigameDone } from '@/lib/minigames'
+import { readPuzzle, writePuzzle, clearPuzzle, type YarnSortSave } from '@/lib/puzzleSaves'
 
 // ─── Tunables ───────────────────────────────────────────────────────────────
 const SEG          = 4    // segments per colour = jar capacity
@@ -308,6 +309,32 @@ export default function YarnSortGame() {
   const [reward, setReward]       = useState<GameRewardResult | null>(null)
   const savedRef = useRef(false)
   const fxKey = useRef(0)
+  const [savedGame, setSavedGame] = useState<{ owner: string; data: YarnSortSave | null } | null>(null)
+  const resumable = savedGame?.owner === user?.id ? savedGame?.data : null
+  useEffect(() => {
+    const data = user?.id ? readPuzzle('yarn_sort', user.id) : null
+    setSavedGame(user ? { owner: user.id, data } : null)
+  }, [user?.id])
+
+  function checkpoint(data: YarnSortSave) {
+    if (!user) return
+    if (data.movesLeft <= 0) { clearPuzzle('yarn_sort', user.id); setSavedGame(null); return }
+    writePuzzle('yarn_sort', user.id, data)
+  }
+
+  function continueGame() {
+    if (!resumable) return
+    timers.clearAll()
+    setTubes(resumable.tubes)
+    setSolved(resumable.solved)
+    scoreRef.current = resumable.solved
+    setMovesLeft(resumable.movesLeft)
+    setUndosLeft(resumable.undosLeft)
+    setHistory(resumable.history)
+    setSelected(null)
+    setPhase('playing')
+    savedRef.current = false
+  }
 
   // Mirror score into a ref so endGame (fired via setTimeout) reads the true
   // final total, not a stale closure value (matches the other games).
@@ -334,7 +361,7 @@ export default function YarnSortGame() {
   )
   // Undo works for voluntary take-backs (limited) OR to escape a stuck board
   // (unlimited rescue) — so the player can never be permanently frozen.
-  const canUndo = phase === 'playing' && !celebrating && history.length > 0 && (undosLeft > 0 || stuck)
+  const canUndo = phase === 'playing' && !celebrating && movesLeft > 0 && history.length > 0 && (undosLeft > 0 || stuck)
 
   // Jars the held run can legally land on. Dead-end pours are excluded because
   // tapTube blocks them anyway — highlighting a target we'd then reject would be
@@ -381,9 +408,12 @@ export default function YarnSortGame() {
 
   function startGame() {
     timers.clearAll()
-    setTubes(genLevel(1))
+    const board = genLevel(1)
+    checkpoint({ tubes: board, solved: 0, movesLeft: START_MOVES, undosLeft: UNDO_LIMIT, history: [] })
+    setTubes(board)
     setSelected(null)
     setSolved(0)
+    scoreRef.current = 0
     setMovesLeft(START_MOVES)
     setUndosLeft(UNDO_LIMIT)
     setHistory([])
@@ -402,6 +432,8 @@ export default function YarnSortGame() {
 
   function endGame() {
     const finalScore = scoreRef.current
+    if (user) clearPuzzle('yarn_sort', user.id)
+    setSavedGame(null)
     setPhase('gameover')
     setSelected(null)
     setBest(b => Math.max(b, finalScore))
@@ -426,6 +458,9 @@ export default function YarnSortGame() {
   function handleSolved() {
     const justLevel = solved + 1
     const refill = refillForLevel(colorsForLevel(justLevel))
+    const nextBoard = genLevel(justLevel + 1)
+    // A reload during the celebration resumes the next deal, not a solved board.
+    checkpoint({ tubes: nextBoard, solved: justLevel, movesLeft: movesLeft - 1 + refill, undosLeft, history: [] })
     playSound('ys_solve')
     setSolved(s => s + 1)
     setMovesLeft(m => m + refill)
@@ -436,7 +471,7 @@ export default function YarnSortGame() {
     rx.good()
     if (!reduced) setSolveFx(k => k + 1)
     timers.setTimeout(() => {
-      setTubes(genLevel(justLevel + 1))
+      setTubes(nextBoard)
       setCelebrating(false)
       // Drop the landing FX with the old board — its tube index means nothing
       // on the next deal.
@@ -457,6 +492,7 @@ export default function YarnSortGame() {
     setMovesLeft(newMoves)
 
     if (isSolved(next)) { handleSolved(); return }
+    checkpoint({ tubes: next, solved, movesLeft: newMoves, undosLeft, history: [...history, tubes] })
     if (newMoves <= 0) { scheduleEnd(); return }
     // No 'stuck' end here: tapTube blocks any pour that would dead-end the board,
     // so `next` always has a legal move (or is solved). The run ends only when the
@@ -465,7 +501,7 @@ export default function YarnSortGame() {
   }
 
   function tapTube(i: number) {
-    if (phase !== 'playing' || celebrating) return
+    if (phase !== 'playing' || celebrating || movesLeft <= 0) return
     if (selected === null) {
       if (tubes[i].length === 0) return
       setSelected(i)
@@ -497,11 +533,15 @@ export default function YarnSortGame() {
   }
 
   function undo() {
-    if (phase !== 'playing' || celebrating) return
+    if (phase !== 'playing' || celebrating || movesLeft <= 0) return
     if (history.length === 0) return
     const voluntary = undosLeft > 0
     if (!voluntary && !stuck) return // out of undos and not a stuck-rescue
     const prev = history[history.length - 1]
+    checkpoint({
+      tubes: prev, solved, movesLeft: movesLeft + (voluntary ? 1 : 0),
+      undosLeft: undosLeft - (voluntary ? 1 : 0), history: history.slice(0, -1),
+    })
     setHistory(h => h.slice(0, -1))
     setTubes(prev)
     if (voluntary) {
@@ -785,7 +825,13 @@ export default function YarnSortGame() {
             </GameArtTile>
           ))}
           best={bestScore}
-          onStart={() => { playSound('ui_tap'); startGame() }}
+          startDisabled={!user || savedGame?.owner !== user.id}
+          startLabel={resumable ? 'Continue game' : 'Play'}
+          extra={resumable && <div className="flex items-center justify-between" style={{ gap: 12 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: M.text2 }}>Level {resumable.solved + 1}</span>
+            <TextButton onClick={() => { playSound('ui_tap'); startGame() }}>New game</TextButton>
+          </div>}
+          onStart={() => { playSound('ui_tap'); resumable ? continueGame() : startGame() }}
         >
           Tap a jar to lift its top yarn, then tap a highlighted jar to drop it.
           Sort every jar to one colour. Every pour spends a move, and every solve pays moves back.

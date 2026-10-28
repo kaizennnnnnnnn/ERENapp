@@ -27,8 +27,9 @@ import { playSound } from '@/lib/sounds'
 import {
   GameTopBar, GameStatRow, GameStat, GameStartCard, GameArtTile, GameResultCard,
 } from '@/components/games/GameChrome'
-import { M, MeadowIcon } from '@/components/meadow'
+import { M, MeadowIcon, TextButton } from '@/components/meadow'
 import { fireMinigameDone } from '@/lib/minigames'
+import { readPuzzle, writePuzzle, clearPuzzle, type PawDokuSave } from '@/lib/puzzleSaves'
 
 // ─── Tunables ───────────────────────────────────────────────────────────────
 const GRID_SIZE       = 9        // 9×9 sudoku-style grid
@@ -316,6 +317,42 @@ export default function PawDokuGame() {
   const [reward,    setReward]    = useState<GameRewardResult | null>(null)
   const savedRef = useRef(false)
   const STREAK_GRACE = 3
+  const [savedGame, setSavedGame] = useState<{ owner: string; data: PawDokuSave | null } | null>(null)
+  const resumable = savedGame?.owner === user?.id ? savedGame?.data : null
+  useEffect(() => {
+    const data = user?.id ? readPuzzle('paw_doku', user.id) : null
+    setSavedGame(user ? { owner: user.id, data } : null)
+  }, [user?.id])
+
+  function checkpoint(board: Grid, pieces: (Block | null)[], points: number, chain: number, misses: number) {
+    if (!user) return
+    const playable = pieces.some(b => b && canPlaceAnywhere(board, b.shape))
+    if (!playable) { clearPuzzle('paw_doku', user.id); setSavedGame(null); return }
+    writePuzzle('paw_doku', user.id, {
+      grid: board.map(row => row.map(cell => cell ? PALETTES.indexOf(cell.color) : null)),
+      tray: pieces.map(b => b ? { shape: b.shape, color: PALETTES.indexOf(b.color) } : null),
+      score: points, streak: chain, streakMisses: misses,
+    })
+  }
+
+  function continueGame() {
+    if (!resumable) return
+    timers.clearAll()
+    const board = resumable.grid.map(row => row.map(c => c === null ? null : { color: PALETTES[c] }))
+    const pieces = resumable.tray.map(b => b ? { id: ++_bid, shape: b.shape, color: PALETTES[b.color] } : null)
+    if (!pieces.some(b => b && canPlaceAnywhere(board, b.shape))) {
+      startGame()
+      return
+    }
+    setGrid(board)
+    setTray(pieces)
+    setScore(resumable.score)
+    scoreRef.current = resumable.score
+    setStreak(resumable.streak)
+    setStreakMisses(resumable.streakMisses)
+    setPhase('playing')
+    savedRef.current = false
+  }
 
   // Eren watches the tray and reacts to the last drop — a clear makes him
   // cheer, a rejected block startles him. Keyed so overlapping reactions
@@ -405,11 +442,14 @@ export default function PawDokuGame() {
 
   function startGame() {
     timers.clearAll()
-    setGrid(makeEmptyGrid())
+    const board = makeEmptyGrid(), pieces = nextTray()
+    checkpoint(board, pieces, 0, 0, 0)
+    setGrid(board)
     setParticles([])
-    setTray(nextTray())
+    setTray(pieces)
     setTrayRefillKey(k => k + 1)
     setScore(0)
+    scoreRef.current = 0
     setDisplayScore(0)
     setCombo(0)
     setStreak(0)
@@ -422,6 +462,8 @@ export default function PawDokuGame() {
 
   function endGame() {
     const finalScore = scoreRef.current
+    if (user) clearPuzzle('paw_doku', user.id)
+    setSavedGame(null)
     setPhase('gameover')
     setBest(b => Math.max(b, finalScore))
     try {
@@ -530,6 +572,9 @@ export default function PawDokuGame() {
     const { rows, cols } = findClearedLines(g)
     const subs = findClearedSubBlocks(g)
     const totalClears = rows.length + cols.length + subs.length
+    const stripped = tray.map((piece, idx) => idx === draggedIdx ? null : piece)
+    const isRefill = stripped.every(b => b === null)
+    const next = isRefill ? nextTray() : stripped
 
     if (totalClears > 0) {
       // Score: base + escalating bonus per simultaneous clear
@@ -550,6 +595,9 @@ export default function PawDokuGame() {
       }
       setStreak(newStreak)
       setStreakMisses(0)
+      // Persist the settled move before its visual clear timeout can be interrupted.
+      const settled = clearSubBlocks(clearLines(g, rows, cols), subs)
+      checkpoint(settled, next, score + gained, newStreak, 0)
 
       // Auditory escalation — streak takes priority over combo size.
       if (newStreak >= 2) playSound('pd_streak')
@@ -601,7 +649,7 @@ export default function PawDokuGame() {
         let cleared = clearLines(g, rows, cols)
         cleared = clearSubBlocks(cleared, subs)
         setGrid(cleared)
-        afterPlace(cleared, draggedIdx, gained)
+        afterPlace(cleared, next, isRefill, gained)
       }, 280)
     } else {
       // No clear. Use up one of the streak's grace placements before
@@ -609,6 +657,8 @@ export default function PawDokuGame() {
       // (place 1-2 setup pieces without losing the multiplier).
       playSound('pd_place')
       const newMisses = streakMisses + 1
+      checkpoint(g, next, score + gained, newMisses >= STREAK_GRACE ? 0 : streak,
+        newMisses >= STREAK_GRACE ? 0 : newMisses)
       if (newMisses >= STREAK_GRACE) {
         setStreak(0)
         setStreakMisses(0)
@@ -617,20 +667,17 @@ export default function PawDokuGame() {
       }
       setGrid(g)
       flashFloater(`+${gained}`, '#A3F0C0')
-      afterPlace(g, draggedIdx, gained)
+      afterPlace(g, next, isRefill, gained)
     }
   }
 
-  function afterPlace(latestGrid: Grid, idx: number, gained: number) {
-    setScore(s => s + gained)
+  function afterPlace(latestGrid: Grid, next: (Block | null)[], isRefill: boolean, gained: number) {
+    scoreRef.current += gained
+    setScore(scoreRef.current)
     setScorePulse(p => p + 1) // re-key the SCORE digit pulse on every increment
 
     // Strip the placed block from the tray; if every slot is now empty,
     // refill from a fresh batch of three (and re-key the refill stagger).
-    const stripped = [...tray]
-    stripped[idx] = null
-    const isRefill = stripped.every(b => b === null)
-    const next = isRefill ? nextTray() : stripped
     if (isRefill) setTrayRefillKey(k => k + 1)
     setTray(next)
     setDraggedIdx(null)
@@ -908,7 +955,13 @@ export default function PawDokuGame() {
             </GameArtTile>
           ))}
           best={bestScore}
-          onStart={() => { playSound('ui_tap'); startGame() }}
+          startDisabled={!user || savedGame?.owner !== user.id}
+          startLabel={resumable ? 'Continue game' : 'Play'}
+          extra={resumable && <div className="flex items-center justify-between" style={{ gap: 12 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: M.text2 }}>Score {resumable.score}</span>
+            <TextButton onClick={() => { playSound('ui_tap'); startGame() }}>New game</TextButton>
+          </div>}
+          onStart={() => { playSound('ui_tap'); resumable ? continueGame() : startGame() }}
         >
           Drag blocks onto the grid. Fill a row, a column or a 3×3 square to clear it.
           Clearing several at once earns a combo bonus.
