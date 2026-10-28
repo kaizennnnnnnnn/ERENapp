@@ -1654,6 +1654,75 @@ interface MeadowIconSpec {
 }
 
 const MEADOW_ICONS = {
+  // Home destinations: a prize capsule, layered cake, wrap and fruit jelly.
+  gacha: {
+    grid: [
+      '....aaaa....',
+      '..aaaaaaaa..',
+      '.aaabaaaaaa.',
+      '.aaabaaaaaa.',
+      'aaaabaaaaaaa',
+      'aaaaaaaaaaaa',
+      'bbbbbbbbbbbb',
+      'XXXXXXXXXXXX',
+      '.XXXXXXXXXX.',
+      '.XXXXXXXXXX.',
+      '..XXXXXXXX..',
+      '....XXXX....',
+    ],
+    palette: { X: '#8A6FB0', a: '#A9DAD5', b: '#FFFFFF' },
+  },
+  cake: {
+    grid: [
+      '.....XX.....',
+      '....XXXX....',
+      '.....XX.....',
+      '..bbbbbbbb..',
+      '.XXXXXXXXXX.',
+      '.XXbXXbXXbX.',
+      '.aaaaaaaaaa.',
+      '.aabbbbaaaa.',
+      '.aaaaaaaaaa.',
+      '.XXXXXXXXXX.',
+      '.aaaaaaaaaa.',
+      'bbbbbbbbbbbb',
+    ],
+    palette: { X: '#E57C9F', a: '#E3B673', b: '#FFFFFF' },
+  },
+  shawarma: {
+    grid: [
+      '....aaa.....',
+      '...aaaaabb..',
+      '..aaabbbaab.',
+      '..aabbbbbbX.',
+      '...XbbbbbXX.',
+      '...XXbbbXXX.',
+      '....XXbXXXX.',
+      '....XXXXXX..',
+      '.....XXXXX..',
+      '.....XXXX...',
+      '......XXX...',
+      '.......X....',
+    ],
+    palette: { X: '#E3B673', a: '#79A86B', b: '#B8734A' },
+  },
+  jelly: {
+    grid: [
+      '......aa....',
+      '....aaaa....',
+      '....aaa.....',
+      '...XXXXXX...',
+      '..XXXbXXXX..',
+      '..XXbbXXXX..',
+      '.XXXbXXXXXX.',
+      '.XXXbXXXXXX.',
+      '.XXXXXXXXXX.',
+      'XXXXXXXXXXXX',
+      '.XXXXXXXXXX.',
+      '..bbbbbbbb..',
+    ],
+    palette: { X: '#E76F86', a: '#79A86B', b: '#FBE1E7' },
+  },
   // Navigation and chrome
   home: {
     grid: [

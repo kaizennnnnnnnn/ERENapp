@@ -925,49 +925,6 @@ html.m-scroll-lock, html.m-scroll-lock body { overflow: hidden; }
   50%      { opacity: 0.92; transform: translate(-50%, -50%) scale(1.05); }
 }
 
-/* ── Home bottom dock (gacha · cake · shawarma) ──
-   Tactile press: slides the button into its hard offset shadow. Lives
-   here in globals.css instead of <style jsx global> in home/page.tsx
-   because Next 14.2's styled-jsx SWC visitor panics on the multi-shadow
-   :active pseudo (styled_jsx 0.73.10 visitor.rs:597 unwrap on None). */
-/* The frame holds the press transform; the visible chrome (and its offset
-   shadow) lives on the inner .dock-fill, which drops into its shadow on tap. */
-.home-dock-btn { transition: transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1); }
-.home-dock-btn .dock-fill { transition: box-shadow 110ms ease-out, transform 110ms ease-out; }
-.home-dock-btn:active { transform: translate(2px, 2px); }
-.home-dock-btn:active .dock-fill {
-  box-shadow: 1px 1px 0 var(--dock-ink, #2C1A4A), inset 0 3px 0 rgba(255,255,255,0.18), inset 0 -3px 0 rgba(0,0,0,0.22);
-}
-
-/* The gacha machine's red push-button presses itself on a loop — pure decor,
-   to make the button look alive and tappable. Mostly at rest, a quick dip. */
-.gacha-red-btn { animation: gachaSelfPress 1.9s ease-in-out infinite; }
-@keyframes gachaSelfPress {
-  0%, 64%, 100% {
-    transform: translateY(0) scale(1);
-    box-shadow: 0 2px 0 #7E0F0F, 0 0 5px rgba(255,70,70,0.75), inset 0 1px 0 rgba(255,255,255,0.55);
-  }
-  72% {
-    transform: translateY(2px) scale(0.9);
-    box-shadow: 0 0 0 #7E0F0F, 0 0 3px rgba(255,70,70,0.5), inset 0 1px 0 rgba(255,255,255,0.3);
-  }
-  80% {
-    transform: translateY(0) scale(1);
-    box-shadow: 0 2px 0 #7E0F0F, 0 0 5px rgba(255,70,70,0.75), inset 0 1px 0 rgba(255,255,255,0.55);
-  }
-}
-
-/* Home dock corner trinkets twinkle gently (sparkles · stars · cake flowers). */
-@keyframes dockTwinkle {
-  0%, 100% { transform: scale(0.82); opacity: 0.6; }
-  50%      { transform: scale(1);    opacity: 1;   }
-}
-/* Steam wisps rise and fade off the fresh shawarma. */
-@keyframes dockSteam {
-  0%   { transform: translateY(2px)   scaleY(0.7); opacity: 0;    }
-  25%  { opacity: 0.85; }
-  100% { transform: translateY(-11px) scaleY(1.1); opacity: 0;    }
-}
 
 /* ── Home control entrances ──
    When home reveals (after the splash fade) the controls assemble instead of
@@ -988,6 +945,9 @@ html.m-scroll-lock, html.m-scroll-lock body { overflow: hidden; }
 }
 .home-nav-pop  { animation: homeNavIn  0.42s cubic-bezier(0.34, 1.56, 0.64, 1) backwards; }
 .home-dock-pop { animation: homeDockIn 0.46s cubic-bezier(0.34, 1.56, 0.64, 1) backwards; }
+@media (prefers-reduced-motion: reduce) {
+  .home-dock-pop { animation: none; }
+}
 
 /* ── Rooms menu (door dropdown) ──
    Each option cascades up as the panel grows open (the panel's own scale/fade
@@ -1640,21 +1600,6 @@ html.m-scroll-lock, html.m-scroll-lock body { overflow: hidden; }
   100% { transform: translateY(-14px) scale(0.9); opacity: 0; }
 }
 
-/* ── Jelly dock button ────────────────────────────────────────────────────
-   The motif squashes and stretches like setting gelatin (transform only, so
-   it stays on the compositor), and two blobs bob inside the face a beat
-   apart so the button never looks still. */
-@keyframes dockJellyWobble {
-  0%, 100% { transform: translateX(-50%) scale(1, 1); }
-  30%      { transform: translateX(-50%) scale(1.14, 0.86); }
-  55%      { transform: translateX(-50%) scale(0.9, 1.12); }
-  78%      { transform: translateX(-50%) scale(1.05, 0.96); }
-}
-@keyframes dockJellyBlob {
-  0%, 100% { transform: translateY(0) scale(1, 1); }
-  40%      { transform: translateY(-4px) scale(0.86, 1.16); }
-  70%      { transform: translateY(0) scale(1.16, 0.84); }
-}
 
 /* ── Jelly Parlour ────────────────────────────────────────────────────────
    Everything on the shelf keeps setting: a slow squash-stretch on the jars
@@ -1737,8 +1682,7 @@ html.m-scroll-lock, html.m-scroll-lock body { overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) {
   [style*="parlourJiggle"], [style*="parlourDust"], [style*="parlourSignSway"],
-  [style*="parlourStubGleam"], [style*="superJellyWobble"], [style*="superJellyShine"],
-  [style*="dockJellyWobble"] { animation: none !important; }
+  [style*="parlourStubGleam"], [style*="superJellyWobble"], [style*="superJellyShine"] { animation: none !important; }
   .parlour-ticket { transition: none; }
 }
 @keyframes parlourSignSway {
