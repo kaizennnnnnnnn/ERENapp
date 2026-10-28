@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
-import { useCat } from '@/hooks/useCat'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
@@ -16,7 +15,7 @@ import { useIsDark } from '@/hooks/useIsDark'
 import { useWish } from '@/contexts/WishContext'
 import WishHintBanner from '@/components/wish/WishHintBanner'
 import { wishHintRoom } from '@/lib/wishes'
-import { IconStethoscope } from '@/components/PixelIcons'
+import { Card, M, MeadowIcon, ROOM_HEADER_CLEARANCE } from '@/components/meadow'
 import { useErenReaction } from '@/hooks/useErenReaction'
 import { happyFinisherBeats, WORD_COLOR } from '@/lib/erenReactions'
 import SoundWord from '@/components/SoundWord'
@@ -27,7 +26,7 @@ import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import CheckupButton from '@/components/vet/CheckupButton'
 import GiveMedicineButton, { MedicineResultBanner } from '@/components/vet/GiveMedicineButton'
 import GiveLolipopButton, { LolipopBanner } from '@/components/vet/GiveLolipopButton'
-import CareToast from '@/components/care/CareToast'
+import HealthReport from '@/components/vet/HealthReport'
 
 interface Props { onClose: () => void }
 
@@ -58,10 +57,10 @@ function markLolipopNow(): void {
   try { localStorage.setItem(LOLIPOP_AT_KEY, String(Date.now())) } catch { /* private mode */ }
 }
 
-/** "29M" / "45S" — coarse while it's far off, precise once it's nearly there. */
+/** Coarse while the wait is long, precise once it is nearly over. */
 function formatWait(ms: number): string {
   const s = Math.ceil(ms / 1000)
-  return s >= 60 ? `${Math.ceil(s / 60)}M` : `${s}S`
+  return s >= 60 ? `${Math.ceil(s / 60)}m` : `${s}s`
 }
 
 // How long "LOLIPOP GIVEN!" holds before the chip turns into the countdown.
@@ -113,7 +112,6 @@ const VET_EREN_FALLBACK = {
 export default function VetScene({ onClose }: Props) {
   const { user, profile } = useAuth()
   const { stats, applyAction } = useErenStats(profile?.household_id ?? null)
-  const cat = useCat()
   const vetEren = useRoomEren('vet', VET_EREN_FALLBACK)
   const { completeTask } = useTasks()
 
@@ -127,7 +125,7 @@ export default function VetScene({ onClose }: Props) {
   const [lolJustGiven, setLolJustGiven] = useState(false)
   const [readyAt,   setReadyAt]   = useState(lolipopReadyAt)
   const [now,       setNow]       = useState(() => Date.now())
-  const [toast,     setToast]     = useState<string | null>(null)
+  const [toast,     setToast]     = useState<{ msg: string; ok: boolean } | null>(null)
   // Lolipop eating choreography: which head-down pose this treat uses, the
   // poof that masks the standing<->crouch sticker swap, and which of the two
   // flows is finishing (a lolipop lands on "YUM!", a dose on "ALL BETTER!").
@@ -211,8 +209,8 @@ export default function VetScene({ onClose }: Props) {
     await new Promise(r => setTimeout(r, 800))
     const result = await applyAction(user.id, 'medicine')
     setGiving(false)
-    setMedGiven(true)
-    setToast(result.message)
+    setMedGiven(result.success)
+    setToast({ msg: result.message, ok: result.success })
     if (result.success) completeTask('daily_wash')
     setTimeout(() => setToast(null), 3000)
   }
@@ -241,7 +239,7 @@ export default function VetScene({ onClose }: Props) {
     await new Promise(r => setTimeout(r, 700))
     const result = await applyAction(user.id, 'lolipop')
     setLolBusy(false)
-    if (!result.success) { setToast(result.message); setTimeout(() => setToast(null), 3000); return }
+    if (!result.success) { setToast({ msg: result.message, ok: false }); setTimeout(() => setToast(null), 3000); return }
     // Only start the cooldown once the write actually landed — a 503 shouldn't
     // cost him half an hour.
     markLolipopNow()
@@ -249,12 +247,12 @@ export default function VetScene({ onClose }: Props) {
     setReadyAt(Date.now() + LOLIPOP_COOLDOWN_MS)
     setLolJustGiven(true)
     setTimeout(() => setLolJustGiven(false), CELEBRATE_MS)
-    setToast(result.message)
+    setToast({ msg: result.message, ok: true })
     setTimeout(() => setToast(null), 3000)
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col overflow-hidden">
+    <div className="meadow-root vet-room fixed inset-0 z-40 flex flex-col overflow-hidden">
 
       {wish?.wish && (
         <WishHintBanner text={wish.text} status={wish.status} matchesThisRoom={wishMatchesThisRoom} />
@@ -323,47 +321,30 @@ export default function VetScene({ onClose }: Props) {
 
       {/* ══ STETHOSCOPE ANIM when checking — pixel icon, no emoji ══ */}
       {checking && (
-        <div className="absolute z-20 pointer-events-none" style={{ left: '55%', bottom: '35%', animation: 'pulse 0.6s ease-in-out infinite' }}>
-          <IconStethoscope size={28} />
+        <div className="vet-exam-icon absolute z-20 pointer-events-none" style={{ left: '55%', bottom: '35%', animation: 'vetExamPulse 0.6s ease-in-out infinite' }}>
+          <MeadowIcon name="stethoscope" size={28} />
         </div>
       )}
 
-      {/* ══ TOAST ══ */}
-      {toast && <CareToast msg={toast} tone="#4ADE80" />}
+      {/* Reports stay above the standing sprite; the treat keeps the room clear. */}
+      <div className="absolute inset-x-0 z-20 flex flex-col items-center"
+        onTouchStart={e => e.stopPropagation()} onTouchMove={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}
+        style={{
+          top: `calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE}px)`, padding: '0 16px 4px', gap: 12,
+          maxHeight: 'calc(100% - var(--safe-top) - 410px)',
+        }}>
+        {toast && <div role={toast.ok ? 'status' : 'alert'} style={{ width: '100%', maxWidth: 340, flexShrink: 0 }}>
+          <Card padding="12px 16px" style={{ display: 'flex', alignItems: 'center', gap: 10, boxShadow: `0 3px 0 ${M.overArtLip}` }}>
+            <MeadowIcon name={toast.ok ? 'check' : 'close'} size={20} color={toast.ok ? M.leaf : M.danger} />
+            <span style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.4, color: M.text }}>{toast.msg}</span>
+          </Card>
+        </div>}
+        {checkDone && !treating && <HealthReport issues={issues} weight={weight} energy={energy} />}
+      </div>
 
-      {/* ══ BOTTOM UI ══
-          Cleared out entirely while he's eating the treat. The crouch pose is
-          low and the report card sits higher than the button, so leaving
-          either one up means watching him lick a lolipop from behind a slab. */}
-      <div className={cn('absolute bottom-6 inset-x-0 flex-col items-center gap-3 px-6 z-20',
+      {/* Clear the bottom controls while he crouches down for the treat. */}
+      <div className={cn('absolute bottom-6 inset-x-0 flex-col items-center gap-3 px-4 z-20',
         treating ? 'hidden' : 'flex')}>
-
-        {/* Health report card */}
-        {checkDone && (
-          <div className="w-full max-w-xs"
-            style={{ background: '#1A2E1A', borderRadius: 4, border: '2px solid #2E5A2E', boxShadow: '3px 3px 0 rgba(0,0,0,0.4)', padding: '10px 12px' }}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-pixel text-green-300" style={{ fontSize: 7 }}>HEALTH REPORT</span>
-              <span className="font-pixel" style={{ fontSize: 7, color: healthy ? '#4ADE80' : '#F87171' }}>
-                {healthy ? 'HEALTHY' : 'NEEDS CARE'}
-              </span>
-            </div>
-            {healthy ? (
-              <p className="font-pixel text-green-400 text-center" style={{ fontSize: 6, lineHeight: 2 }}>
-                {cat.t('{NAME} IS IN GREAT SHAPE!')}
-              </p>
-            ) : (
-              <div className="flex flex-col gap-1">
-                {issues.map((issue, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <div style={{ width: 4, height: 4, borderRadius: 2, background: '#F87171' }} />
-                    <span className="font-pixel text-red-300" style={{ fontSize: 6 }}>{issue.toUpperCase()}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Buttons. A clean bill of health used to end the visit with a chip
             and nothing to do; now it offers the lolipop instead. Curing him
@@ -395,14 +376,17 @@ export default function VetScene({ onClose }: Props) {
         )}
       </div>
 
-      <style jsx>{`
-        @keyframes pulse {
+      <style>{`
+        @keyframes vetExamPulse {
           0%, 100% { transform: scale(1) rotate(-15deg); }
           50%       { transform: scale(1.15) rotate(5deg); }
         }
+        @media (prefers-reduced-motion: reduce) {
+          .vet-exam-icon { animation: none !important; }
+        }
       `}</style>
 
-      <LightSwitch targetBottom="6%" targetLeft="50%" persistKey="vet" />
+      <LightSwitch targetBottom="6%" targetLeft="50%" switchTop="65%" persistKey="vet" />
     </div>
   )
 }

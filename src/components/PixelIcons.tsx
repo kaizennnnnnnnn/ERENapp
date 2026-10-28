@@ -1654,6 +1654,57 @@ interface MeadowIconSpec {
 }
 
 const MEADOW_ICONS = {
+  stethoscope: {
+    grid: [
+      '..XX..XX....',
+      '..XX..XX....',
+      '..X....X....',
+      '..X....X....',
+      '..XX..XX....',
+      '...XXXX.....',
+      '....XX..aaa.',
+      '....XX.a...a',
+      '....XX.a.a.a',
+      '....XX..aaa.',
+      '....XX...X..',
+      '.....XXXXX..',
+    ],
+    palette: { X: '#3F8452', a: '#65BABB' },
+  },
+  pill: {
+    grid: [
+      '............',
+      '.......XXX..',
+      '......XXXXX.',
+      '.....XXXXXX.',
+      '....XXXXXX..',
+      '...aaXXXX...',
+      '..aaaaXX....',
+      '.aaaaaa.....',
+      '.aaaaa......',
+      '.aaaa.......',
+      '..aa........',
+      '............',
+    ],
+    palette: { X: '#AA8BC7', a: '#65BABB' },
+  },
+  lollipop: {
+    grid: [
+      '...XXXX.....',
+      '..XXXXXX....',
+      '.XXaaaXXX...',
+      '.XaXXaXXX...',
+      '.XaXaaXXX...',
+      '.XaaaaXXX...',
+      '..XXXXXX....',
+      '...XXXXa....',
+      '........aa..',
+      '.........aa.',
+      '..........a.',
+      '............',
+    ],
+    palette: { X: '#E8799A', a: '#F1C85C' },
+  },
   // Home destinations: a prize capsule, layered cake, wrap and fruit jelly.
   gacha: {
     grid: [
