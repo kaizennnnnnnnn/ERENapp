@@ -11,6 +11,7 @@ import { decayFrozen } from '@/lib/trophyEffects'
 import { ACTION_CONFIGS, type ActionType } from '@/types'
 import { DONUT_EFFECTS, type DonutEffectId } from '@/lib/donutEffects'
 import { catText, catWordsFromRow } from '@/lib/catWords'
+import { savedRpc } from '@/lib/savedRpc'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Decay is applied CLIENT-SIDE on fetch + action + periodic tick, keyed off
@@ -299,15 +300,10 @@ function useErenStatsImpl(householdId: string | null) {
   const hasStatsRef = useRef(false)
   useEffect(() => { hasStatsRef.current = stats !== null }, [stats])
 
-  // Latest stats, readable synchronously. The per-user fridge helpers below
-  // compute the next pile from THIS rather than the `stats` render closure:
-  // a caller that fires two food mutations before re-rendering (buy + roll
-  // back, buy + feed) would otherwise have both read the same pre-mutation
-  // value, and the second absolute write would silently clobber the first.
-  // Synced on every stats change, and written through by saveFoodByUser so
-  // it's already current for a follow-up call in the same tick.
+  // Latest saved stats for actions invoked before React has rendered again.
   const statsRef = useRef<ErenStats | null>(null)
   useEffect(() => { statsRef.current = stats }, [stats])
+  const foodQueue = useRef<Promise<unknown>>(Promise.resolve())
 
   const fetchStats = useCallback(async () => {
     if (!householdId) return
@@ -604,59 +600,36 @@ function useErenStatsImpl(householdId: string | null) {
     await supabase.from('eren_stats').update({ coins: next }).eq('household_id', householdId)
   }, [stats, householdId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const saveFoodInventory = useCallback(async (inv: FoodInventory): Promise<void> => {
-    if (!householdId) return
-    setStats(prev => prev ? { ...prev, food_inventory: inv } : prev)
-    // writeWithRetry: absolute jsonb value (idempotent, safe to retry) —
-    // survives a 503 blip instead of silently dropping the pile update, and
-    // a stalled request gets aborted instead of pinning callers forever.
-    await writeWithRetry(signal =>
-      supabase.from('eren_stats').update({ food_inventory: inv }).eq('household_id', householdId).abortSignal(signal))
+  // Send intentions, not whole household snapshots. The server locks the
+  // current fridge row, changes only these foods, and remembers the request.
+  const mutateFood = useCallback((userId: string, action: 'add' | 'consume' | 'gift', keys: (keyof FoodInventory)[], recipient: string | null = null): Promise<boolean> => {
+    const run = async () => {
+      if (!householdId || !statsRef.current) return false
+      try {
+        const slot = JSON.stringify([householdId, action, keys, recipient])
+        const result = await savedRpc<{
+          ok: boolean; reason?: string; household_id?: string
+          food_by_user?: Record<string, FoodInventory>; food_inventory?: FoodInventory
+        }>(supabase, userId, 'mutate_fridge_atomic', slot, {
+          p_action: action, p_foods: keys, p_recipient_id: recipient,
+        })
+        if (!result.ok || !('food_by_user' in result) || !result.food_by_user || !result.food_inventory || result.household_id !== householdId) return false
+        const patch = { food_by_user: result.food_by_user, food_inventory: result.food_inventory }
+        if (statsRef.current?.household_id === householdId) statsRef.current = { ...statsRef.current, ...patch }
+        setStats(prev => prev?.household_id === householdId ? { ...prev, ...patch } : prev)
+        return true
+      } catch { return false }
+    }
+    const next = foodQueue.current.then(run, run)
+    foodQueue.current = next
+    return next
   }, [householdId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Per-user fridge helpers ─────────────────────────────────────────────
-  // The shared `food_inventory` column stays as a legacy pool either user can
-  // still draw from. `food_by_user` holds per-user piles keyed by user id.
-  // Resolves true once the write lands, so a caller that must not lose an
-  // item (the reward road) can tell; the shop and the fridge don't wait on it.
-  const saveFoodByUser = useCallback(async (next: Record<string, FoodInventory>): Promise<boolean> => {
-    if (!householdId) return false
-    // Write through to the ref as well as state, so a second food mutation in
-    // the same tick computes from this pile instead of the pre-mutation one.
-    if (statsRef.current) statsRef.current = { ...statsRef.current, food_by_user: next }
-    setStats(prev => prev ? { ...prev, food_by_user: next } : prev)
-    // Same contract as saveFoodInventory: absolute value, retried + bounded.
-    // FeedScene fires this without awaiting so the eat animation never waits
-    // on it — the retry keeps the decrement from vanishing on a blip.
-    const { error } = await writeWithRetry(signal =>
-      supabase.from('eren_stats').update({ food_by_user: next }).eq('household_id', householdId).abortSignal(signal))
-    return !error
-  }, [householdId]) // eslint-disable-line react-hooks/exhaustive-deps
+  const addToMyFood = useCallback((userId: string, key: keyof FoodInventory): Promise<boolean> =>
+    mutateFood(userId, 'add', [key]), [mutateFood])
 
-  // Adds 1 of `key` to the buyer's personal pile.
-  const addToMyFood = useCallback(async (userId: string, key: keyof FoodInventory): Promise<void> => {
-    const cur = statsRef.current ?? stats
-    if (!cur) return
-    const byUser = { ...(cur.food_by_user ?? {}) }
-    const mine = { ...(byUser[userId] ?? {}) }
-    mine[key] = (mine[key] ?? 0) + 1
-    byUser[userId] = mine
-    await saveFoodByUser(byUser)
-  }, [stats, saveFoodByUser])
-
-  // Adds several foods in ONE write. A ten-pull can drop multiple cans, and
-  // looping addToMyFood would be a Supabase round trip per can.
-  // False when nothing was written: stats not loaded yet, or the write failed.
-  const addManyToMyFood = useCallback(async (userId: string, keys: (keyof FoodInventory)[]): Promise<boolean> => {
-    if (keys.length === 0) return true
-    const cur = statsRef.current ?? stats
-    if (!cur) return false
-    const byUser = { ...(cur.food_by_user ?? {}) }
-    const mine = { ...(byUser[userId] ?? {}) }
-    for (const key of keys) mine[key] = (mine[key] ?? 0) + 1
-    byUser[userId] = mine
-    return saveFoodByUser(byUser)
-  }, [stats, saveFoodByUser])
+  const addManyToMyFood = useCallback((userId: string, keys: (keyof FoodInventory)[]): Promise<boolean> =>
+    keys.length ? mutateFood(userId, 'add', keys) : Promise.resolve(true), [mutateFood])
 
   // Records that Eren has now tasted a donut. Household-wide and append-only —
   // the bakery's case reads it to mark the collection. A no-op when he's had it
@@ -751,51 +724,16 @@ function useErenStatsImpl(householdId: string | null) {
   // Consumes 1 of `key` for feeding. Tries the user's personal pile first;
   // falls back to the shared legacy pool. Returns true if anything was
   // consumed.
-  const consumeMyFood = useCallback(async (userId: string, key: keyof FoodInventory): Promise<boolean> => {
-    const cur = statsRef.current ?? stats
-    if (!cur) return false
-    const byUser = { ...(cur.food_by_user ?? {}) }
-    const mine = { ...(byUser[userId] ?? {}) }
-    if ((mine[key] ?? 0) > 0) {
-      mine[key] = (mine[key] ?? 0) - 1
-      byUser[userId] = mine
-      await saveFoodByUser(byUser)
-      return true
-    }
-    // Legacy shared pool fallback
-    const shared = { ...(cur.food_inventory ?? {}) }
-    if ((shared[key] ?? 0) > 0) {
-      shared[key] = (shared[key] ?? 0) - 1
-      await saveFoodInventory(shared)
-      return true
-    }
-    return false
-  }, [stats, saveFoodByUser, saveFoodInventory])
+  const consumeMyFood = useCallback((userId: string, key: keyof FoodInventory): Promise<boolean> =>
+    mutateFood(userId, 'consume', [key]), [mutateFood])
 
-  // Moves 1 of `key` from sender's pile to recipient's pile. Returns true on
-  // success (sender had stock), false otherwise.
-  const giftFood = useCallback(async (
-    fromUserId: string,
-    toUserId: string,
-    key: keyof FoodInventory,
-  ): Promise<boolean> => {
-    const cur = statsRef.current ?? stats
-    if (!cur) return false
-    const byUser = { ...(cur.food_by_user ?? {}) }
-    const sender = { ...(byUser[fromUserId] ?? {}) }
-    if ((sender[key] ?? 0) <= 0) return false
-    sender[key] = (sender[key] ?? 0) - 1
-    const recipient = { ...(byUser[toUserId] ?? {}) }
-    recipient[key] = (recipient[key] ?? 0) + 1
-    byUser[fromUserId] = sender
-    byUser[toUserId] = recipient
-    await saveFoodByUser(byUser)
-    return true
-  }, [stats, saveFoodByUser])
+  // The sender and recipient change inside the same locked-row transaction.
+  const giftFood = useCallback((fromUserId: string, toUserId: string, key: keyof FoodInventory): Promise<boolean> =>
+    mutateFood(fromUserId, 'gift', [key], toUserId), [mutateFood])
 
   return {
     stats, loading, error, applyAction, feedWithFood,
-    spendCoins, addCoins, saveFoodInventory,
+    spendCoins, addCoins,
     addToMyFood, addManyToMyFood, consumeMyFood, giftFood,
     markDonutTasted, noteMenuFed, claimMenu, startDonutEffect, savePotion, savePotionsFound,
     wakeUp, refetch: fetchStats,

@@ -5,9 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useGacha } from '@/hooks/useGacha'
 import { useInventory } from '@/hooks/useInventory'
 import { useCare } from '@/contexts/CareContext'
-import { useAuth } from '@/hooks/useAuth'
-import { useErenStats } from '@/hooks/useErenStats'
-import { MONSTA_RAINBOW_ID, MONSTA_GOLD_ID, GACHA_FOOD_GRANT, GACHA_BANNERS } from '@/lib/gacha'
+import { MONSTA_RAINBOW_ID, MONSTA_GOLD_ID, GACHA_BANNERS } from '@/lib/gacha'
+import { Sheet, PrimaryButton, M } from '@/components/meadow'
 import type { GachaPullResult, GachaRarity } from '@/types'
 import { highestRarity, pickClothesHitVideo } from '@/lib/gachaVideos'
 import { getSkin } from '@/lib/skins'
@@ -47,12 +46,8 @@ const MACHINES = PAGES.map(p => ({ id: p.id, name: GACHA_BANNERS.find(b => b.id 
 export default function GachaPage() {
   const router = useRouter()
   const { setHideStats } = useCare()
-  const { coins, stardust, pityEpic, pityLegendary, pulling, pullSingle, pullTen, tickets } = useGacha()
+  const { coins, stardust, pityEpic, pityLegendary, pulling, pullSingle, pullTen, tickets, pullError, retryPull, clearPullError } = useGacha()
   const { refetch: refetchInv } = useInventory()
-  const { user, profile } = useAuth()
-  // Singleton context (provider lives in (app)/layout) — no extra realtime
-  // channel from consuming it here.
-  const { addManyToMyFood } = useErenStats(profile?.household_id ?? null)
 
   // Hide the persistent StatsHeader on this subpage; restore on unmount.
   useEffect(() => {
@@ -265,9 +260,13 @@ export default function GachaPage() {
     setOpeningVideo(null)
   }, [])
 
-  async function handlePull(count: 1 | 10) {
+  async function handlePull(count: 1 | 10, retryBanner?: string) {
     if (pulling || openingVideo || pullResults || cinematic) return
-    const bannerId = PAGES[pageIdx].id
+    const bannerId = (PAGES.find(page => page.id === retryBanner) ?? PAGES[pageIdx]).id
+    if (retryBanner) {
+      const index = PAGES.findIndex(page => page.id === retryBanner)
+      if (index >= 0) goTo(index)
+    }
     // A single pull spends a free ticket whenever one is held — tickets are
     // earned pulls, so they're used before coins and stay usable at any coin
     // balance. Falls back to coins only once tickets run out. (x10 is always
@@ -307,13 +306,6 @@ export default function GachaPage() {
       }
     }
 
-    // Drinks also stock the fridge, so a pulled can is somewhere you can feed
-    // it from (see GACHA_FOOD_GRANT). One batched write for the whole batch.
-    if (user) {
-      const foods = results.map(r => GACHA_FOOD_GRANT[r.item.id]).filter(Boolean)
-      if (foods.length > 0) addManyToMyFood(user.id, foods)
-    }
-
     const best = highestRarity(results.map(r => r.item.rarity))
     // Arm the jackpot BEFORE handing the cinematic its rarity — that hand-off
     // is what lets the cinematic finish, and endCinematic reads this flag.
@@ -344,6 +336,12 @@ export default function GachaPage() {
 
   return (
     <div className="fixed inset-0" style={{ background: '#050507' }}>
+      <Sheet open={!!pullError} onClose={clearPullError} title="Pull not confirmed"
+        footer={<PrimaryButton onClick={() => retryPull ? void handlePull(retryPull.count, retryPull.bannerId) : clearPullError()}>
+          {retryPull ? 'Try again' : 'Okay'}
+        </PrimaryButton>}>
+        <p role="alert" style={{ color: M.text2, fontSize: 15 }}>{pullError}</p>
+      </Sheet>
 
       {/* ── Swipeable machine pages ── */}
       {/* Layer hints go up on TOUCH-DOWN, not on the first scroll event: the

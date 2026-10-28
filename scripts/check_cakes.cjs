@@ -94,14 +94,14 @@ async function checkoutChecks() {
     let coins=1000, quantity=2
     const events=[]
     const ok=await purchaseCakeFood(cake,{
-      addFood:async key=>{assert.equal(key,cake.foodId);quantity++;events.push('stock');return failure!=='stock'},
+      addFood:async key=>{assert.equal(key,cake.foodId);events.push('stock');if(failure==='stock')return false;quantity++;return true},
       spendCoins:async amount=>{assert.equal(amount,cake.price);events.push('pay');if(failure==='payment')return false;coins-=amount;return true},
       removeFood:async key=>{assert.equal(key,cake.foodId);quantity--;events.push('rollback');return true},
     })
     assert.equal(ok,failure==='none')
     assert.equal(quantity,failure==='none'?3:2,'Failure must retain exactly the previous stock')
     assert.equal(coins,failure==='none'?1000-cake.price:1000,'Failure must not cost coins')
-    assert.deepEqual(events,failure==='stock'?['stock','rollback']:failure==='payment'?['stock','pay','rollback']:['stock','pay'])
+    assert.deepEqual(events,failure==='stock'?['stock']:failure==='payment'?['stock','pay','rollback']:['stock','pay'])
   }
   console.log('Cake checks passed: 12 edible pastries, eight original prices, four new designs, shared artwork, affordable/busy states and 36 success/failure stock/payment checks.')
 }

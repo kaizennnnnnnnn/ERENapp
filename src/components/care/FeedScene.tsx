@@ -1,4 +1,5 @@
 'use client'
+import { purchaseFridgeFood } from '@/lib/foodPurchase'
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useAuth } from '@/hooks/useAuth'
@@ -528,32 +529,12 @@ export default function FeedScene({ onClose }: Props) {
   async function handleBuy(item: typeof SHOP_ITEMS[number]) {
     if (!user?.id || isSleeping || buying || coins < item.price) return
     setBuying(item.id)
-    // Affordability was just checked locally, so the outcome is already
-    // decided — toast NOW instead of after two sequential Supabase round-
-    // trips (coins write, then fridge write) that used to pin the button at
-    // "..." with zero feedback for seconds on a slow connection. The writes
-    // settle behind the toast; `buying` stays held until they do so
-    // purchases serialize and the coin math never sees a stale balance.
-    showToast(`Bought ${item.name}! In your fridge`)
-    // The two writes are INDEPENDENT — different tables (profiles.coins vs
-    // eren_stats.food_by_user) with no ordering dependency — and each applies
-    // its optimistic local update the moment it's called. Awaiting the coin
-    // write first meant addToMyFood wasn't even CALLED until that round-trip
-    // came back, so the fridge count sat unchanged behind a toast that already
-    // said "In your fridge", and the button held at "..." for the SUM of two
-    // round-trips. Firing them together: the fridge fills on tap, and the
-    // button unpins after the slower single round-trip instead of both.
-    const [ok] = await Promise.all([
-      spendCoins(item.price),
-      addToMyFood(user.id, item.id),
-    ])
-    if (!ok) {
-      // Can't be insufficient funds here (pre-checked above) — false means the
-      // coin write failed for real and spendCoins already rolled the balance
-      // back. Take the food back too: a failed payment must not leave stock.
-      await consumeMyFood(user.id, item.id)
-      showToast('Connection hiccup — try again!', false)
-    }
+    const ok = await purchaseFridgeFood(item.id, item.price, {
+      addFood: key => addToMyFood(user.id, key),
+      spendCoins,
+      removeFood: key => consumeMyFood(user.id, key),
+    })
+    showToast(ok ? `Bought ${item.name}! In your fridge` : 'Could not save your purchase. Please try again.', ok)
     setBuying(null)
   }
 
@@ -566,11 +547,12 @@ export default function FeedScene({ onClose }: Props) {
       return
     }
     setFeeding(item.id)
-    // Eren starts munching the moment the food lands — sound and reaction
-    // fire BEFORE any network write. The fridge decrement used to be
-    // awaited first, which held the whole choreography hostage to a
-    // Supabase round-trip (seconds of dead air on a cold connection).
-    // Drinks lap, solids chew — same choreography, different sample.
+    if (!(await consumeMyFood(user.id, item.id))) {
+      showToast('Could not save this meal. Please try again.', false)
+      setFeeding(null)
+      return
+    }
+    // Reserve the food before awarding care benefits. Drinks lap, solids chew.
     const drinking = isDrink(item.id)
     playSound(drinking ? 'care_drink' : 'care_eat')
     setFedItem(item)
@@ -591,9 +573,7 @@ export default function FeedScene({ onClose }: Props) {
         food: item.id, user_id: user.id, household_id: profile?.household_id,
       } }))
     } catch { /* SSR/no-window */ }
-    // Fridge decrement rides behind the animation. It reads the same stats
-    // snapshot as the stock check above, so it can't disagree with it.
-    void consumeMyFood(user.id, item.id)
+
     // A can refills the energy bar and lands its own perk on top of the food's
     // hunger/joy; a donut lands its perk WITHOUT the refuel (see MonstaBuff's
     // `energy` field). Coins are the one perk eren_stats can't hold, so they're
@@ -606,6 +586,7 @@ export default function FeedScene({ onClose }: Props) {
     const buff = monstaBuff(item.id) ?? donut?.perk
     const joy = donut ? Math.round(item.happyD * TASTE_JOY[donut.taste]) : item.happyD
     const result = await feedWithFood(user.id, item.hungerD, joy, item.weightD, buff)
+    if (!result.success) await addToMyFood(user.id, item.id)
     if (result.success && buff?.coins) void addCoins(buff.coins)
     // He's tasted it now — that's what fills in the bakery's donut case.
     if (result.success && donut) void markDonutTasted(donut.id)

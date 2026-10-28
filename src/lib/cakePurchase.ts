@@ -1,5 +1,6 @@
 import type { CakeKey } from '@/types'
 import type { CakeDef } from './cakes'
+import { purchaseFridgeFood } from './foodPurchase'
 
 interface CakeCheckout {
   addFood: (key: CakeKey) => Promise<boolean>
@@ -7,14 +8,11 @@ interface CakeCheckout {
   removeFood: (key: CakeKey) => Promise<boolean>
 }
 
-/** Save stock before charging; failed writes restore the optimistic food count. */
+/** Save stock before charging. A failed stock write leaves the old pile alone. */
 export async function purchaseCakeFood(cake: CakeDef, checkout: CakeCheckout): Promise<boolean> {
-  const stocked = await checkout.addFood(cake.foodId)
-  if (!stocked) {
-    await checkout.removeFood(cake.foodId)
-    return false
-  }
-  const paid = await checkout.spendCoins(cake.price)
-  if (!paid) await checkout.removeFood(cake.foodId)
-  return paid
+  return purchaseFridgeFood(cake.foodId, cake.price, {
+    addFood: () => checkout.addFood(cake.foodId),
+    removeFood: () => checkout.removeFood(cake.foodId),
+    spendCoins: checkout.spendCoins,
+  })
 }

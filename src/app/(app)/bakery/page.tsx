@@ -1,4 +1,5 @@
 'use client'
+import { purchaseFridgeFood } from '@/lib/foodPurchase'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // EREN'S BAKERY — top-level shop page where Eren sells cakes.
@@ -32,7 +33,7 @@ import { foodArt } from '@/lib/foodMeta'
 import { todayKey } from '@/lib/seededRng'
 import { useDonutMachine } from '@/hooks/useDonutMachine'
 import { IconCake, IconDonut } from '@/components/PixelIcons'
-import { CoinChip, M, MeadowIcon, RoundButton, TINT } from '@/components/meadow'
+import { CoinChip, M, MeadowIcon, RoundButton, TINT, Sheet, PrimaryButton } from '@/components/meadow'
 import BlinkingEren from '@/components/BlinkingEren'
 import CakeMenuSheet from '@/components/bakery/CakeMenuSheet'
 import CakeSprite from '@/components/bakery/CakeSprite'
@@ -188,18 +189,21 @@ export default function BakeryPage() {
       return
     }
     setBusy(true)
+    setPurchaseError(null)
     playSound(usingFree ? 'ui_tap' : 'coin_ching')
     setMenuOpen(false)
     setCaseOpen(false)
     setMachineOpen(false)
 
     const won = rollDonut()
-    const [ok] = await Promise.all([
-      usingFree ? Promise.resolve(true) : spendCoins(SPIN_COST),
-      addToMyFood(user.id, won.id),
-    ])
+    const ok = await purchaseFridgeFood(won.id, usingFree ? 0 : SPIN_COST, {
+      addFood: key => addToMyFood(user.id, key),
+      spendCoins: amount => amount === 0 ? Promise.resolve(true) : spendCoins(amount),
+      removeFood: key => consumeMyFood(user.id, key),
+    })
     if (!ok) {
-      await consumeMyFood(user.id, won.id)
+      setPurchaseError('Could not save your purchase. Please try again.')
+      setMachineOpen(true)
       setBusy(false)
       return
     }
@@ -222,23 +226,19 @@ export default function BakeryPage() {
     setBusy(true)
     setPurchaseError(null)
     playSound('ui_tap')
-    // Cakes verify the stock write before charging. Donuts retain their
-    // existing parallel writes and payment-failure rollback.
     const ok = sold.kind === 'cake'
       ? await purchaseCakeFood(sold.cake, {
         addFood: key => addManyToMyFood(user.id, [key]),
         spendCoins,
         removeFood: key => consumeMyFood(user.id, key),
       })
-      : (await Promise.all([
-        spendCoins(price),
-        food ? addToMyFood(user.id, food) : Promise.resolve(),
-      ]))[0]
+      : food ? await purchaseFridgeFood(food, price, {
+        addFood: key => addToMyFood(user.id, key),
+        spendCoins,
+        removeFood: key => consumeMyFood(user.id, key),
+      }) : false
     if (!ok) {
-      // Cakes already restored their stock. Donuts still need the food
-      // rollback after spendCoins restores a failed payment.
-      if (food) await consumeMyFood(user.id, food)
-      if (sold.kind === 'cake') setPurchaseError('Could not save your purchase. Please try again.')
+      setPurchaseError('Could not save your purchase. Please try again.')
       setBusy(false)
       return
     }
@@ -408,6 +408,11 @@ export default function BakeryPage() {
           onSpin={doSpin}
           onClose={() => setMachineOpen(false)}
         />
+
+      <Sheet open={!!purchaseError && !menuOpen} onClose={() => setPurchaseError(null)} title="Purchase not confirmed"
+        footer={<PrimaryButton onClick={() => setPurchaseError(null)}>Okay</PrimaryButton>}>
+        <p role="alert" style={{ color: M.text2, fontSize: 15 }}>{purchaseError}</p>
+      </Sheet>
 
 
       {/* ══ SPIN ══ the reel, then the reveal. The donut is already banked by

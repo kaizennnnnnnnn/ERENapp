@@ -1,13 +1,15 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { withRetry } from '@/lib/supabaseRetry'
 import { onForeground } from '@/lib/onForeground'
-import { useAuth } from './useAuth'
+import { useAuth, PROFILE_UPDATED_EVENT } from './useAuth'
+import { useErenStats } from './useErenStats'
+import { pendingSavedRpcs, savedRpc } from '@/lib/savedRpc'
 import { useTasks } from '@/contexts/TaskContext'
-import type { UserGachaState, GachaPullResult, GachaRarity, GachaItemDef } from '@/types'
-import { rollRarity, rollItem, DUPLICATE_STARDUST, PULL_COST_SINGLE, PULL_COST_TEN, getItemById } from '@/lib/gacha'
+import type { UserGachaState, GachaPullResult, GachaRarity } from '@/types'
+import { getItemById } from '@/lib/gacha'
 import { skinItemId } from '@/lib/skins'
 
 export interface SkinPurchaseResult {
@@ -18,72 +20,34 @@ export interface SkinPurchaseResult {
   stardust?: number
 }
 
-// Resolve a pulled item into the inventory: insert the first copy, bump the
-// quantity on a duplicate. The owned-row read must distinguish "request
-// failed" from "not owned" — on a transient 503 a duplicate used to be
-// treated as new, so the stardust compensation was skipped AND the insert
-// died silently on unique(user_id, item_id): the paid pull granted nothing.
-// When the read fails (or races), the unique constraint itself is the
-// arbiter: a rejected insert means duplicate, recovered via re-read + bump.
-async function resolveDrop(
-  supabase: ReturnType<typeof createClient>,
-  userId: string,
-  itemId: string,
-): Promise<'new' | 'dup' | 'failed'> {
-  const owned = () => supabase
-    .from('user_inventory')
-    .select('id, quantity')
-    .eq('user_id', userId)
-    .eq('item_id', itemId)
-    .maybeSingle()
-
-  // Once a duplicate is confirmed, it IS a dup regardless of whether the
-  // quantity bump lands — the stardust compensation is the paid value, the
-  // quantity count is cosmetic. (The old code ignored this error too.)
-  const bump = async (row: { id: string; quantity: number }) => {
-    await supabase
-      .from('user_inventory')
-      .update({ quantity: row.quantity + 1 })
-      .eq('id', row.id)
-    return 'dup' as const
-  }
-
-  const { data: existing } = await withRetry(owned)
-  if (existing) return bump(existing)
-
-  const { error: insertError } = await supabase
-    .from('user_inventory')
-    .insert({ user_id: userId, item_id: itemId, quantity: 1, equipped: false })
-  if (!insertError) return 'new'
-
-  const { data: recheck } = await withRetry(owned)
-  return recheck ? bump(recheck) : 'failed'
-}
-
-/**
- * Does a duplicate of this item pay stardust?
- *
- * No, when it's a CONSUMABLE — the Snacks & Drinks banner. Stardust exists to
- * compensate you for a drop you can't use: a skin you already own is worth
- * nothing on its own, so it converts to dust you spend on a skin you don't.
- * A second Loco Monsta is not that. resolveDrop bumps its quantity, so the
- * "duplicate" lands in your fridge as a real, drinkable second can — paying
- * dust on top of it was being paid twice for one pull.
- *
- * Keyed on the item's CATEGORY rather than the banner id, so a consumable that
- * ever shows up on another banner obeys the same rule.
- */
-function paysStardust(item: GachaItemDef): boolean {
-  return item.category !== 'consumable'
+interface PullReceipt {
+  ok: boolean
+  reason?: string
+  coins?: number
+  state?: UserGachaState
+  results?: { itemId: string; isNew: boolean; stardustGained: number; isPity: boolean }[]
 }
 
 export function useGacha() {
   const supabase = createClient()
   const { user } = useAuth()
-  const { coins, spendCoins } = useTasks()
+  const { coins } = useTasks()
+  const { refetch: refetchFridge } = useErenStats()
 
   const [state, setState] = useState<UserGachaState | null>(null)
   const [pulling, setPulling] = useState(false)
+  const [pullError, setPullError] = useState<string | null>(null)
+  const [retryPull, setRetryPull] = useState<{ bannerId: string; count: 1 | 10 } | null>(null)
+  const pullLock = useRef(false)
+
+  useEffect(() => {
+    if (!user?.id) return
+    const previous = pendingSavedRpcs(user.id, 'pull_gacha_atomic')[0]?.args
+    if (previous && typeof previous.p_banner_id === 'string' && (previous.p_count === 1 || previous.p_count === 10)) {
+      setRetryPull({ bannerId: previous.p_banner_id, count: previous.p_count })
+      setPullError('Your last pull needs confirmation. Try again to recover it without paying twice.')
+    }
+  }, [user?.id])
 
   // ── Load or init gacha state ──
   const fetchState = useCallback(async () => {
@@ -135,113 +99,51 @@ export function useGacha() {
     return onForeground(fetchState)
   }, [state, fetchState])
 
-  // ── Single pull ──
-  const pullSingle = useCallback(async (bannerId: string, useTicket = false): Promise<GachaPullResult | null> => {
-    if (!user?.id || !state || pulling) return null
-
-    const currentTickets = (state as unknown as Record<string, number>).gacha_tickets ?? 0
-
-    // Pay — a free ticket when the caller asked for one (and one is held),
-    // otherwise coins. The ticket is only *validated* here; it's spent in the
-    // same write as the pity counters below so the DB and the on-screen ticket
-    // count never drift (and there's no extra round-trip).
-    if (useTicket) {
-      if (currentTickets <= 0) return null
-    } else if (PULL_COST_SINGLE > 0) {
-      if (coins < PULL_COST_SINGLE) return null
-      const ok = await spendCoins(PULL_COST_SINGLE)
-      if (!ok) return null
-    }
-
+  const pull = useCallback(async (bannerId: string, count: 1 | 10, useTicket = false): Promise<GachaPullResult[] | null> => {
+    if (!user?.id || pullLock.current) return null
+    pullLock.current = true
     setPulling(true)
-
-    // Roll
-    const rarity = rollRarity(state.pulls_since_epic, state.pulls_since_legendary)
-    const item = rollItem(rarity, bannerId)
-    const isPity = (rarity === 'epic' && state.pulls_since_epic >= 29) ||
-                   (rarity === 'legendary' && state.pulls_since_legendary >= 99)
-
-    const outcome = await resolveDrop(supabase, user.id, item.id)
-    const isNew = outcome === 'new'
-    // item.rarity is authoritative — rollItem may escalate a tier when the
-    // banner has no item at the rolled rarity (e.g. no common skins).
-    const stardustGained = outcome === 'dup' && paysStardust(item) ? DUPLICATE_STARDUST[item.rarity] : 0
-
-    // Log the pull
-    const newTotal = state.total_pulls + 1
-    await supabase.from('gacha_pull_log').insert({
-      user_id: user.id, banner_id: bannerId, item_id: item.id, rarity, pull_number: newTotal,
-    })
-
-    // Update pity counters (and spend the ticket in the same write when this
-    // was a ticket pull, so local state stays in lockstep with the DB).
-    const newState = {
-      total_pulls: newTotal,
-      pulls_since_epic: rarity === 'epic' || rarity === 'legendary' ? 0 : state.pulls_since_epic + 1,
-      pulls_since_legendary: rarity === 'legendary' ? 0 : state.pulls_since_legendary + 1,
-      stardust: state.stardust + stardustGained,
-      ...(useTicket ? { gacha_tickets: currentTickets - 1 } : {}),
-    }
-    await supabase.from('user_gacha_state').update(newState).eq('user_id', user.id)
-    setState(prev => prev ? { ...prev, ...newState } : prev)
-
-    setPulling(false)
-    return { item, isNew, stardustGained, isPity }
-  }, [user?.id, state, pulling, coins, spendCoins]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Ten-pull ──
-  const pullTen = useCallback(async (bannerId: string): Promise<GachaPullResult[] | null> => {
-    if (!user?.id || !state || pulling) return null
-    if (PULL_COST_TEN > 0) {
-      if (coins < PULL_COST_TEN) return null
-      const ok = await spendCoins(PULL_COST_TEN)
-      if (!ok) return null
-    }
-
-    setPulling(true)
-    const results: GachaPullResult[] = []
-
-    let pse = state.pulls_since_epic
-    let psl = state.pulls_since_legendary
-    let tp = state.total_pulls
-    let sd = state.stardust
-
-    for (let i = 0; i < 10; i++) {
-      // On pull 10, guarantee at least rare
-      let rarity = rollRarity(pse, psl)
-      if (i === 9 && rarity === 'common') rarity = 'rare'
-
-      const item = rollItem(rarity, bannerId)
-      const isPity = (rarity === 'epic' && pse >= 29) || (rarity === 'legendary' && psl >= 99)
-
-      tp++
-      if (rarity === 'epic' || rarity === 'legendary') pse = 0; else pse++
-      if (rarity === 'legendary') psl = 0; else psl++
-
-      const outcome = await resolveDrop(supabase, user.id, item.id)
-      const isNew = outcome === 'new'
-      let stardustGained = 0
-      if (outcome === 'dup' && paysStardust(item)) {
-        stardustGained = DUPLICATE_STARDUST[item.rarity]
-        sd += stardustGained
-      }
-
-      // Log
-      await supabase.from('gacha_pull_log').insert({
-        user_id: user.id, banner_id: bannerId, item_id: item.id, rarity, pull_number: tp,
+    setPullError(null)
+    try {
+      const receipt = await savedRpc<PullReceipt>(supabase, user.id, 'pull_gacha_atomic', `${bannerId}:${count}`, {
+        p_banner_id: bannerId, p_count: count, p_use_ticket: useTicket,
       })
-
-      results.push({ item, isNew, stardustGained, isPity })
+      if (!receipt.ok) {
+        setRetryPull(receipt.reason === 'connection' ? { bannerId, count } : null)
+        setPullError(receipt.reason === 'not_ready'
+          ? 'Pulls are waiting for a saving update. No coins or tickets were spent.'
+          : receipt.reason === 'insufficient' ? 'Not enough coins for this pull.'
+          : receipt.reason === 'no_ticket' ? 'No free tickets left. Please try again.'
+          : 'Could not confirm your pull. Tap the same pull again to recover it without paying twice.')
+        return null
+      }
+      const saved = receipt as PullReceipt
+      if (!saved.state || !saved.results || saved.results.length !== count || typeof saved.coins !== 'number') {
+        throw new Error('Incomplete pull receipt')
+      }
+      const results = saved.results.map(result => {
+        const item = getItemById(result.itemId)
+        if (!item) throw new Error('Unknown reward in receipt')
+        return { item, isNew: result.isNew, stardustGained: result.stardustGained, isPity: result.isPity }
+      })
+      setState(saved.state)
+      setRetryPull(null)
+      window.dispatchEvent(new CustomEvent(PROFILE_UPDATED_EVENT, { detail: { id: user.id, patch: { coins: saved.coins } } }))
+      // Consumables were stocked inside the transaction, never in the page.
+      void refetchFridge()
+      return results
+    } catch {
+      setPullError('Could not confirm your pull. Check your collection before trying again.')
+      return null
+    } finally {
+      pullLock.current = false
+      setPulling(false)
     }
+  }, [user?.id, refetchFridge]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Update state
-    const newState = { total_pulls: tp, pulls_since_epic: pse, pulls_since_legendary: psl, stardust: sd }
-    await supabase.from('user_gacha_state').update(newState).eq('user_id', user.id)
-    setState(prev => prev ? { ...prev, ...newState } : prev)
-
-    setPulling(false)
-    return results
-  }, [user?.id, state, pulling, coins, spendCoins]) // eslint-disable-line react-hooks/exhaustive-deps
+  const pullSingle = useCallback(async (bannerId: string, useTicket = false) =>
+    (await pull(bannerId, 1, useTicket))?.[0] ?? null, [pull])
+  const pullTen = useCallback((bannerId: string) => pull(bannerId, 10), [pull])
 
   // ── Buy a skin outright with stardust ──
   // Atomic on the server (deduct dust + grant the skin in one transaction; see
@@ -264,7 +166,7 @@ export function useGacha() {
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
-    state, pulling, pullSingle, pullTen, purchaseSkin, coins,
+    state, pulling, pullError, retryPull, clearPullError: () => setPullError(null), pullSingle, pullTen, purchaseSkin, coins,
     stardust: state?.stardust ?? 0,
     pityEpic: state ? state.pulls_since_epic : 0,
     pityLegendary: state ? state.pulls_since_legendary : 0,
