@@ -89,11 +89,11 @@ panels, buttons, labels, bars, popups, sheets.
 | White controls over room art | `src/components/home/HomeHud.tsx`, `src/components/kitchen/KitchenSheet.tsx` |
 | Slim banner over home | `src/components/home/NotifyNudge.tsx` |
 | Chat screen | `src/components/talk/TalkView.tsx` |
+| Lab lesson and review sessions | `src/components/chemistry/SessionRunner.tsx` |
 | Machine / workbench panel | `src/components/weather/WeatherMachine.tsx` |
 
-**Still old (fair game when he asks):** the Lab's 8 study modes (Review/Learn/Table/Cards/Quiz/Match/
-Speed/Locate: a neo-brutal theme from `lib/chemistry/theme` with `lucide-react` icons), the Lab room's
-bottom slabs, the attic composer (`talk/RoomComposer.tsx`), the playroom banner and energy bar
+**Still old (fair game when he asks):** the Lab's six remaining study modes (Table/Cards/Quiz/Match/
+Speed/Locate: a neo-brutal theme from `lib/chemistry/theme` with `lucide-react` icons), the playroom banner and energy bar
 (`care/PlayScene.tsx`). To find old chrome:
 `grep -rlE "font-pixel|Press Start 2P|lucide-react|neoShadow" src`, then judge each hit: chrome gets
 converted, art (game boards, prestige plates, room props) stays.

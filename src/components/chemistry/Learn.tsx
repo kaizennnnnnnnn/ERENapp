@@ -26,9 +26,10 @@ export default function Learn({ onExit }: Props) {
   return (
     <SessionRunner
       title="Learn"
-      subtitle="A small batch of new elements, interleaved with a few reviews."
       cards={cards}
-      typeLabel="BATCH"
+      loading={!hydrated}
+      typeLabel="New batch"
+      restartLabel="Next batch"
       emptyTitle="You've started every element!"
       emptyBody="There are no new elements left to introduce. Switch to Review to keep them fresh."
       onRestart={() => setToken(t => t + 1)}

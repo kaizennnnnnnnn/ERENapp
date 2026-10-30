@@ -32,9 +32,10 @@ export default function Review({ onExit }: Props) {
   return (
     <SessionRunner
       title="Review"
-      subtitle="Your due cards, interleaved — the spaced-repetition daily driver."
       cards={cards}
-      typeLabel="SRS"
+      loading={!hydrated}
+      typeLabel="Due cards"
+      restartLabel="Check for more"
       emptyTitle="You're all caught up"
       emptyBody="Nothing is due today. Start a Learn batch to add new elements, or come back tomorrow."
       onRestart={() => setToken(t => t + 1)}
