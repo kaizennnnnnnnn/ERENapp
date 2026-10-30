@@ -1,110 +1,79 @@
 'use client'
 
-// Quiz — multiple-choice round, 10 questions, two question types alternated
-// at random (symbol → name, name → symbol). Picks elements from the SRS
-// store's due pool first, then new cards, then random. Every answer feeds
-// the same store.rateCard the flashcards use, so a perfect quiz round
-// advances the same Leitner boxes as a deck of flashcards. Auto-advances
-// ~1 s after each tap so it stays fast on mobile.
-//
-// Visual layer: AminaChemistry neo-brutalism — cream paper bg, ink
-// borders + hard offset shadows, rounded ui-rounded/Quicksand font, brand
-// trio grape/sky/sun. The category accent shows up as a top stripe on
-// the question card.
-
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { elements, type Element } from '@/lib/chemistry/elements'
-import { symbolDistractors, nameDistractors } from '@/lib/chemistry/questions'
+import { symbolDistractors, nameDistractors, shuffle } from '@/lib/chemistry/questions'
 import { CATEGORY_COLORS } from '@/lib/chemistry/colors'
 import { useChemistryStore, elementCardId } from '@/lib/chemistry/store'
 import { dueDate, isDue, isNew, MASTERED_BOX, type CardState } from '@/lib/chemistry/srs'
-import { useChemistryTheme, neoShadow, CHEM_FONT, type Palette } from '@/lib/chemistry/theme'
 import { useChemistryMissions } from '@/lib/chemistry/missions'
 import { playSound } from '@/lib/sounds'
+import { Card, CheckDisc, M, MeadowIcon, Meter, PrimaryButton, SecondaryButton, Tag, TYPE } from '@/components/meadow'
 
 const QUEUE_SIZE = 10
 const FEEDBACK_MS = 1000
 
-type QType = 'name-from-symbol' | 'symbol-from-name'
-
 interface Question {
   el: Element
-  type: QType
-  options: string[]   // 4 options; one is the right answer
-  correctIdx: number  // index of right answer in `options`
+  type: 'name-from-symbol' | 'symbol-from-name'
+  options: string[]
+  correctIdx: number
 }
 
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr]
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
-}
-
-function pickQueue(cards: Record<string, CardState>, today: string): Element[] {
+export function pickQueue(cards: Record<string, CardState>, today: string): Element[] {
   const due: { el: Element; dueOn: string }[] = []
   const fresh: Element[] = []
   const learning: { el: Element; dueOn: string }[] = []
   for (const el of elements) {
     const card = cards[elementCardId(el.atomicNumber)]
-    if (isDue(card, today)) {
-      due.push({ el, dueOn: dueDate(card!) ?? today })
-    } else if (isNew(card)) {
-      fresh.push(el)
-    } else if (card && card.box < MASTERED_BOX) {
-      learning.push({ el, dueOn: dueDate(card) ?? today })
-    }
+    if (isDue(card, today)) due.push({ el, dueOn: dueDate(card!) ?? today })
+    else if (isNew(card)) fresh.push(el)
+    else if (card && card.box < MASTERED_BOX) learning.push({ el, dueOn: dueDate(card) ?? today })
   }
   due.sort((a, b) => a.dueOn.localeCompare(b.dueOn))
-  const queue: Element[] = []
-  for (const d of due)      { if (queue.length >= QUEUE_SIZE) break; queue.push(d.el) }
-  if (queue.length < QUEUE_SIZE) {
-    for (const f of shuffle(fresh)) { if (queue.length >= QUEUE_SIZE) break; queue.push(f) }
-  }
-  if (queue.length < QUEUE_SIZE) {
-    for (const l of learning) { if (queue.length >= QUEUE_SIZE) break; queue.push(l.el) }
-  }
-  return queue
+  learning.sort((a, b) => a.dueOn.localeCompare(b.dueOn))
+  if (due.length >= QUEUE_SIZE) return due.slice(0, QUEUE_SIZE).map(row => row.el)
+  return [...due.map(row => row.el), ...shuffle(fresh), ...learning.map(row => row.el)].slice(0, QUEUE_SIZE)
 }
 
-function makeQuestion(el: Element): Question {
-  const type: QType = Math.random() < 0.5 ? 'name-from-symbol' : 'symbol-from-name'
-  // Plausible look-alike distractors (shared with Speed/SessionRunner) so a
-  // symbol question can't be guessed by first letter — e.g. Magnesium offers
-  // Mg / Mn / Ma / M, not Mg among three unrelated elements.
+export function makeQuestion(el: Element): Question {
+  const type = Math.random() < 0.5 ? 'name-from-symbol' : 'symbol-from-name'
   const correct = type === 'name-from-symbol' ? el.name : el.symbol
-  const wrong   = type === 'name-from-symbol' ? nameDistractors(el) : symbolDistractors(el)
-  const all     = shuffle([correct, ...wrong])
-  return { el, type, options: all, correctIdx: all.indexOf(correct) }
+  const wrong = type === 'name-from-symbol' ? nameDistractors(el) : symbolDistractors(el)
+  const options = shuffle([correct, ...wrong])
+  return { el, type, options, correctIdx: options.indexOf(correct) }
 }
 
 export default function Quiz() {
   const { hydrated, state, today, rateCard, finishDeck } = useChemistryStore()
-  const { palette } = useChemistryTheme()
-  const [queue, setQueue] = useState<Element[]>([])
+  const [questions, setQuestions] = useState<Question[] | null>(null)
   const [index, setIndex] = useState(0)
-  const [questions, setQuestions] = useState<Question[]>([])
   const [picked, setPicked] = useState<number | null>(null)
   const [streak, setStreak] = useState(0)
   const [bestStreak, setBestStreak] = useState(0)
   const [correct, setCorrect] = useState(0)
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const finishedRef = useRef(false)
+  const answerLocked = useRef(false)
+  const focusNext = useRef(false)
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const done = questions !== null && questions.length > 0 && index >= questions.length
+  const current = questions?.[index]
+  useChemistryMissions({ streak, done })
+
+  // Keep this round's questions fixed while each answer updates the study store.
+  useEffect(() => {
+    if (!hydrated || questions !== null) return
+    setQuestions(pickQueue(state.cards, today).map(makeQuestion))
+  }, [hydrated, today, state.cards, questions])
 
   useEffect(() => {
-    if (!hydrated) return
-    if (queue.length > 0) return
-    const q = pickQueue(state.cards, today)
-    setQueue(q)
-    setQuestions(q.map(makeQuestion))
-    finishedRef.current = false
-  }, [hydrated, today, state.cards, queue.length])
-
-  const done = queue.length > 0 && index >= queue.length
-  const current = !done && questions[index] ? questions[index] : null
-  useChemistryMissions({ streak, done })
+    answerLocked.current = false
+    if (focusNext.current) {
+      headingRef.current?.focus({ preventScroll: true })
+      focusNext.current = false
+    }
+  }, [index, questions])
 
   useEffect(() => {
     if (!done || finishedRef.current) return
@@ -113,37 +82,36 @@ export default function Quiz() {
   }, [done, bestStreak, finishDeck])
 
   useEffect(() => () => {
-    if (advanceTimer.current) clearTimeout(advanceTimer.current)
+    if (advanceTimer.current !== null) clearTimeout(advanceTimer.current)
   }, [])
 
-  function pick(i: number) {
-    if (!current || picked !== null) return
+  function pick(option: number) {
+    if (!hydrated || !current || picked !== null || answerLocked.current || !Number.isInteger(option) || option < 0 || option >= current.options.length) return
+    answerLocked.current = true
     playSound('ui_tap')
-    setPicked(i)
-    const isRight = i === current.correctIdx
+    setPicked(option)
+    const isRight = option === current.correctIdx
     rateCard(elementCardId(current.el.atomicNumber), isRight)
-    if (isRight) {
-      setCorrect(c => c + 1)
-      setStreak(s => {
-        const next = s + 1
-        setBestStreak(b => Math.max(b, next))
-        return next
-      })
-    } else {
-      setStreak(0)
-    }
+    const nextStreak = isRight ? streak + 1 : 0
+    setStreak(nextStreak)
+    setBestStreak(best => Math.max(best, nextStreak))
+    if (isRight) setCorrect(value => value + 1)
     advanceTimer.current = setTimeout(() => {
+      advanceTimer.current = null
+      focusNext.current = true
       setPicked(null)
-      setIndex(i => i + 1)
+      setIndex(value => value + 1)
     }, FEEDBACK_MS)
   }
 
   function reset() {
-    if (advanceTimer.current) clearTimeout(advanceTimer.current)
+    if (!hydrated) return
+    if (advanceTimer.current !== null) clearTimeout(advanceTimer.current)
+    advanceTimer.current = null
+    answerLocked.current = true
+    focusNext.current = true
     playSound('ui_tap')
-    const q = pickQueue(state.cards, today)
-    setQueue(q)
-    setQuestions(q.map(makeQuestion))
+    setQuestions(pickQueue(state.cards, today).map(makeQuestion))
     setIndex(0)
     setPicked(null)
     setStreak(0)
@@ -152,380 +120,90 @@ export default function Quiz() {
     finishedRef.current = false
   }
 
-  if (!hydrated || queue.length === 0) {
-    return (
-      <div className="flex items-center justify-center px-4 py-16">
-        <p style={{
-          fontFamily: CHEM_FONT,
-          fontSize: 13, fontWeight: 600, color: palette.fgMuted, letterSpacing: 0.5,
-        }}>
-          Loading…
-        </p>
-      </div>
-    )
-  }
+  if (!hydrated || questions === null) return (
+    <p className="meadow-root" role="status" style={{ margin: '24px 16px', fontSize: 15, fontWeight: 700, color: M.text2 }}>Getting your quiz...</p>
+  )
+  if (questions.length === 0) return (
+    <section className="meadow-root" aria-label="Quiz" style={{ padding: '32px 22px', textAlign: 'center', color: M.text }}>
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}><CheckDisc size={52} /></div>
+      <h2 ref={headingRef} tabIndex={-1} style={{ margin: 0, fontSize: 22, lineHeight: 1.25, fontWeight: 800, outline: 'none' }}>All caught up</h2>
+      <p style={{ margin: '10px 0 20px', fontSize: 15, fontWeight: 500, lineHeight: 1.5, color: M.text2 }}>Your next questions will appear when cards are due.</p>
+      <SecondaryButton size="md" full onClick={reset}>Check again</SecondaryButton>
+    </section>
+  )
+  if (done) return (
+    <Summary total={questions.length} correct={correct} bestStreak={bestStreak}
+      dailyStreak={state.streak.current} onAgain={reset} headingRef={headingRef} />
+  )
 
-  if (done) {
-    return <Summary
-      palette={palette}
-      total={queue.length} correct={correct} bestStreak={bestStreak}
-      dailyStreak={state.streak.current} onAgain={reset}
-    />
-  }
-
+  const q = current!
+  const reveal = picked !== null
+  const isRight = picked === q.correctIdx
   return (
-    <div className="flex flex-col items-center gap-4 px-4">
-      <Header palette={palette} position={index} length={queue.length} streak={streak} />
-      <Prompt palette={palette} q={current!} picked={picked} />
-      <Options palette={palette} q={current!} picked={picked} onPick={pick} />
-    </div>
+    <section className="meadow-root" aria-label="Quiz session" style={{ padding: '0 16px 18px', color: M.text }}>
+      <div className="flex items-center justify-between" style={{ gap: 10, marginBottom: 14 }}>
+        <h2 style={{ margin: 0, fontSize: 22, lineHeight: 1.2, fontWeight: 800 }}>Quiz</h2>
+        <Tag tone="soft" style={{ background: '#FFFFFF', fontVariantNumeric: 'tabular-nums' }}>{index + 1} / {questions.length}</Tag>
+      </div>
+      <div className="flex items-center" style={{ gap: 10, marginBottom: 16 }}>
+        <Meter value={(index + (reveal ? 1 : 0)) / questions.length} label="Quiz progress" height={8} color={M.leaf} style={{ flex: '1 1 0' }} />
+        <Tag tone={streak >= 5 ? 'amber' : 'soft'}>{streak} in a row</Tag>
+      </div>
+      <Card padding="20px" style={{ height: 180, borderTop: `4px solid ${CATEGORY_COLORS[q.el.category]}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+        <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: M.text2 }}>#{q.el.atomicNumber}</p>
+        <h3 ref={headingRef} tabIndex={-1} aria-label={`${q.type === 'name-from-symbol' ? 'Which element' : 'Which symbol'}: ${q.type === 'name-from-symbol' ? q.el.symbol : q.el.name}`}
+          style={{ margin: '8px 0', fontSize: q.type === 'name-from-symbol' ? 64 : 26, fontWeight: 800, lineHeight: 1.1, textAlign: 'center', overflowWrap: 'anywhere', width: '100%', outline: 'none' }}>
+          {q.type === 'name-from-symbol' ? q.el.symbol : q.el.name}
+        </h3>
+        <p style={{ margin: 0, fontSize: 15, fontWeight: 500, color: M.text2 }}>{q.type === 'name-from-symbol' ? 'Which element?' : 'Which symbol?'}</p>
+      </Card>
+      <div role="group" aria-label="Answers" style={{ display: 'grid', gap: 10 }}>
+        {q.options.map((option, i) => {
+          const isAnswer = i === q.correctIdx
+          const isPicked = i === picked
+          const highlighted = reveal && (isAnswer || isPicked)
+          return (
+            <SecondaryButton key={`${index}-${i}`} size="md" full disabled={reveal} onClick={() => pick(i)}
+              ariaLabel={`${String.fromCharCode(65 + i)}. ${option}${reveal && isAnswer ? ', correct answer' : reveal && isPicked ? ', your answer, incorrect' : ''}`}
+              style={{ minHeight: 52, height: 'auto', padding: '10px 14px', gap: 12, whiteSpace: 'normal', textAlign: 'left', justifyContent: 'flex-start',
+                background: highlighted ? isAnswer ? M.leafTint : M.dangerTint : '#FFFFFF', color: M.text, opacity: reveal && !highlighted ? 0.65 : 1 }}>
+              <span aria-hidden style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: highlighted ? isAnswer ? M.leaf : M.danger : M.soft, color: highlighted ? '#FFFFFF' : M.text2, fontSize: 13, fontWeight: 800 }}>
+                {highlighted ? <MeadowIcon name={isAnswer ? 'check' : 'close'} size={18} color="#FFFFFF" /> : String.fromCharCode(65 + i)}
+              </span>
+              <span style={{ flex: '1 1 0', minWidth: 0, overflowWrap: 'anywhere' }}>{option}</span>
+            </SecondaryButton>
+          )
+        })}
+      </div>
+      <div role="status" style={{ minHeight: 44, paddingTop: 14, display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 15, lineHeight: 1.4, fontWeight: 700, color: isRight ? M.leafInk : M.danger }}>
+        {reveal && <>
+          <MeadowIcon name={isRight ? 'check' : 'close'} size={20} color={isRight ? M.leaf : M.danger} style={{ flexShrink: 0 }} />
+          <span>{isRight ? 'Correct!' : `Answer: ${q.options[q.correctIdx]}`}</span>
+        </>}
+      </div>
+    </section>
   )
 }
 
-function Header({ palette, position, length, streak }: {
-  palette: Palette; position: number; length: number; streak: number
+function Summary({ total, correct, bestStreak, dailyStreak, onAgain, headingRef }: {
+  total: number; correct: number; bestStreak: number; dailyStreak: number; onAgain: () => void; headingRef: RefObject<HTMLHeadingElement>
 }) {
-  const pct = (position / length) * 100
-  const streakActive = streak > 0
+  const pct = Math.round(correct / total * 100)
   return (
-    <div className="w-full flex items-center gap-3" style={{ maxWidth: 340 }}>
-      {/* Progress bar — ink-bordered pill, grape fill */}
-      <div
-        className="flex-1"
-        style={{
-          height: 18,
-          background: palette.cardMuted,
-          border: `2px solid ${palette.ink}`,
-          borderRadius: 999,
-          boxShadow: neoShadow(palette.ink, 'sm'),
-          overflow: 'hidden',
-          position: 'relative',
-        }}
-      >
-        <div style={{
-          height: '100%',
-          width: `${pct}%`,
-          background: palette.grape,
-          borderRight: pct > 0 && pct < 100 ? `2px solid ${palette.ink}` : 'none',
-          transition: 'width 0.3s ease',
-        }} />
-        <div style={{
-          position: 'absolute', inset: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: CHEM_FONT,
-          fontSize: 10, fontWeight: 800, letterSpacing: 0.5,
-          // fg, not ink. The numerals sit over both the grape fill and the
-          // dark cardMuted unfilled section — fg (cream in dark / ink-like
-          // in light) reads on both, ink only reads on the bright fill.
-          color: palette.fg,
-        }}>
-          {position + 1} / {length}
-        </div>
-      </div>
-
-      {/* Streak pill. Active state uses sun yellow which DOES read with ink
-          text; inactive uses card which is dark in dark mode, so ink would
-          disappear — switch to fg in that case. */}
-      <div style={{
-        background: streakActive ? palette.sun : palette.card,
-        border: `2px solid ${palette.ink}`,
-        borderRadius: 999,
-        boxShadow: neoShadow(palette.ink, 'sm'),
-        padding: '4px 10px',
-        fontFamily: CHEM_FONT,
-        fontSize: 11, fontWeight: 800, letterSpacing: 0.3,
-        color: streakActive ? palette.ink : palette.fg,
-        whiteSpace: 'nowrap',
-      }}>
-        {streak}× streak
-      </div>
-    </div>
-  )
-}
-
-function Prompt({ palette, q, picked }: { palette: Palette; q: Question; picked: number | null }) {
-  const display = q.type === 'name-from-symbol' ? q.el.symbol : q.el.name
-  const ask     = q.type === 'name-from-symbol' ? 'Which element?' : 'Which symbol?'
-  const accent  = CATEGORY_COLORS[q.el.category]
-  const isBigSymbol = q.type === 'name-from-symbol'
-
-  return (
-    <div
-      className="w-full flex flex-col items-center justify-center"
-      style={{
-        maxWidth: 340,
-        background: palette.card,
-        border: `2px solid ${palette.ink}`,
-        borderTop: `8px solid ${palette.ink}`,
-        borderRadius: 16,
-        boxShadow: neoShadow(palette.ink, 'md'),
-        padding: '20px 18px 24px',
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
-      {/* Category accent stripe sitting just under the ink top border */}
-      <div style={{
-        position: 'absolute',
-        top: 0, left: 0, right: 0,
-        height: 6,
-        background: accent,
-      }} />
-
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        marginTop: 4, marginBottom: 12,
-      }}>
-        <span style={{
-          fontFamily: CHEM_FONT,
-          fontSize: 11, fontWeight: 800, letterSpacing: 0.5,
-          // Use fg for text — ink is the border/shadow colour (near-black in
-          // dark mode) and disappears against cardMuted (dark plum).
-          color: palette.fg,
-          background: palette.cardMuted,
-          border: `2px solid ${palette.ink}`,
-          borderRadius: 999,
-          padding: '2px 10px',
-        }}>
-          #{q.el.atomicNumber}
-        </span>
-        <span style={{
-          fontFamily: CHEM_FONT,
-          fontSize: 13, fontWeight: 600, color: palette.fgMuted,
-        }}>
-          {ask}
-        </span>
-      </div>
-
-      <div style={{
-        fontFamily: CHEM_FONT,
-        fontSize: isBigSymbol ? 64 : 28,
-        lineHeight: 1.05,
-        fontWeight: 800,
-        color: picked !== null
-          ? (picked === q.correctIdx ? palette.grapeDark : palette.red)
-          : palette.fg,
-        letterSpacing: isBigSymbol ? 1 : 0.3,
-        textAlign: 'center',
-        padding: isBigSymbol ? '12px 0 6px' : '4px 0 6px',
-      }}>
-        {display}
-      </div>
-    </div>
-  )
-}
-
-function Options({ palette, q, picked, onPick }: {
-  palette: Palette; q: Question; picked: number | null; onPick: (i: number) => void
-}) {
-  return (
-    <div className="grid grid-cols-1 gap-3 w-full" style={{ maxWidth: 340 }}>
-      {q.options.map((opt, i) => {
-        const settled = picked !== null
-        const isCorrect = i === q.correctIdx
-        const isPicked  = i === picked
-
-        let bg     = palette.cardRaised
-        let color  = palette.fg
-        let prefixBg    = palette.cardMuted
-        // A/B/C/D letter — use fg, not ink. Ink is near-black in dark mode
-        // and disappears against the dark cardMuted prefix bg.
-        let prefixColor = palette.fg
-        let opacity = 1
-
-        if (settled) {
-          if (isCorrect) {
-            bg = palette.green
-            color = palette.ink
-            prefixBg = palette.ink
-            prefixColor = palette.green
-          } else if (isPicked) {
-            bg = palette.red
-            color = '#FFFFFF'
-            prefixBg = palette.ink
-            prefixColor = palette.red
-          } else {
-            opacity = 0.5
-          }
-        }
-
-        return (
-          <button
-            key={i}
-            type="button"
-            disabled={settled}
-            onClick={() => onPick(i)}
-            className="active:translate-x-[4px] active:translate-y-[4px]"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              padding: '12px 14px',
-              minHeight: 56,
-              width: '100%',
-              background: bg,
-              border: `2px solid ${palette.ink}`,
-              borderRadius: 12,
-              boxShadow: settled && !isCorrect && !isPicked
-                ? neoShadow(palette.ink, 'sm')
-                : neoShadow(palette.ink, 'md'),
-              fontFamily: CHEM_FONT,
-              fontSize: 15,
-              fontWeight: 700,
-              color,
-              textAlign: 'left',
-              cursor: settled ? 'default' : 'pointer',
-              opacity,
-              transition: 'transform 0.08s ease, box-shadow 0.08s ease, opacity 0.2s ease',
-            }}
-            onMouseDown={e => {
-              if (settled) return
-              e.currentTarget.style.boxShadow = 'none'
-            }}
-            onMouseUp={e => {
-              if (settled) return
-              e.currentTarget.style.boxShadow = neoShadow(palette.ink, 'md')
-            }}
-            onMouseLeave={e => {
-              if (settled) return
-              e.currentTarget.style.boxShadow = neoShadow(palette.ink, 'md')
-            }}
-          >
-            <span style={{
-              flexShrink: 0,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 32,
-              height: 32,
-              background: prefixBg,
-              color: prefixColor,
-              border: `2px solid ${palette.ink}`,
-              borderRadius: 8,
-              fontFamily: CHEM_FONT,
-              fontSize: 14,
-              fontWeight: 800,
-            }}>
-              {String.fromCharCode(65 + i)}
-            </span>
-            <span style={{ flex: 1, lineHeight: 1.2 }}>{opt}</span>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-function Summary({ palette, total, correct, bestStreak, dailyStreak, onAgain }: {
-  palette: Palette
-  total: number; correct: number; bestStreak: number; dailyStreak: number; onAgain: () => void
-}) {
-  const pct = Math.round((correct / total) * 100)
-  const goldRun = pct >= 90
-  return (
-    <div className="flex flex-col items-center px-4 py-8" style={{ maxWidth: 340, margin: '0 auto' }}>
-      <p style={{
-        fontFamily: CHEM_FONT,
-        fontSize: 26, fontWeight: 800, letterSpacing: 0.3, color: palette.fg,
-        marginBottom: 6,
-      }}>
-        Quiz complete
-      </p>
-      <p style={{
-        fontFamily: CHEM_FONT,
-        fontSize: 14, fontWeight: 500, color: palette.fgMuted,
-        marginBottom: 22,
-      }}>
-        Nice work — every answer fed your SRS deck.
-      </p>
-
-      <div className="grid grid-cols-3 gap-3 w-full" style={{ marginBottom: 16 }}>
-        <Stat palette={palette} label="Correct" value={`${correct}/${total}`} />
-        <Stat palette={palette} label="Score"   value={`${pct}%`} highlight={goldRun} />
-        <Stat palette={palette} label="Best"    value={`${bestStreak}×`} />
-      </div>
-
-      <div className="w-full" style={{
-        background: palette.sunLight,
-        border: `2px solid ${palette.ink}`,
-        borderRadius: 14,
-        boxShadow: neoShadow(palette.ink, 'md'),
-        padding: '12px 14px',
-        textAlign: 'center',
-        marginBottom: 24,
-      }}>
-        <div style={{
-          fontFamily: CHEM_FONT,
-          fontSize: 12, fontWeight: 700, letterSpacing: 0.4,
-          color: palette.fgMuted,
-          textTransform: 'uppercase',
-        }}>
-          Daily streak
-        </div>
-        <div style={{
-          marginTop: 4,
-          fontFamily: CHEM_FONT,
-          fontSize: 24, fontWeight: 800,
-          color: palette.ink,
-        }}>
-          {dailyStreak} {dailyStreak === 1 ? 'day' : 'days'}
-        </div>
-      </div>
-
-      <button
-        type="button"
-        onClick={onAgain}
-        className="w-full active:translate-x-[4px] active:translate-y-[4px]"
-        style={{
-          padding: '14px 18px',
-          background: palette.grape,
-          color: palette.ink,
-          border: `2px solid ${palette.ink}`,
-          borderRadius: 999,
-          boxShadow: neoShadow(palette.ink, 'md'),
-          fontFamily: CHEM_FONT,
-          fontSize: 15, fontWeight: 800, letterSpacing: 0.4,
-          cursor: 'pointer',
-          transition: 'transform 0.08s ease, box-shadow 0.08s ease',
-        }}
-        onMouseDown={e => { e.currentTarget.style.boxShadow = 'none' }}
-        onMouseUp={e => { e.currentTarget.style.boxShadow = neoShadow(palette.ink, 'md') }}
-        onMouseLeave={e => { e.currentTarget.style.boxShadow = neoShadow(palette.ink, 'md') }}
-      >
-        New quiz
-      </button>
-    </div>
-  )
-}
-
-function Stat({ palette, label, value, highlight }: {
-  palette: Palette; label: string; value: string; highlight?: boolean
-}) {
-  return (
-    <div style={{
-      background: highlight ? palette.sun : palette.card,
-      border: `2px solid ${palette.ink}`,
-      borderRadius: 12,
-      boxShadow: neoShadow(palette.ink, 'sm'),
-      padding: '10px 6px',
-      textAlign: 'center',
-    }}>
-      <div style={{
-        fontFamily: CHEM_FONT,
-        fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
-        color: highlight ? palette.ink : palette.fgMuted,
-        textTransform: 'uppercase',
-      }}>
-        {label}
-      </div>
-      <div style={{
-        marginTop: 4,
-        fontFamily: CHEM_FONT,
-        fontSize: 18, fontWeight: 800,
-        color: highlight ? palette.ink : palette.fg,
-      }}>
-        {value}
-      </div>
-    </div>
+    <section className="meadow-root" aria-label="Quiz results" style={{ padding: '0 16px 18px', color: M.text }}>
+      <Card padding="22px 20px" style={{ textAlign: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><CheckDisc size={44} /></div>
+        <h2 ref={headingRef} tabIndex={-1} style={{ margin: 0, fontSize: 22, lineHeight: 1.25, fontWeight: 800, outline: 'none' }}>Quiz complete</h2>
+        <p style={{ ...TYPE.number, fontSize: 38, margin: '8px 0 0' }}>{pct}%</p>
+        <p style={{ margin: '2px 0 0', fontSize: 15, fontWeight: 500, color: M.text2 }}>{correct} of {total} correct</p>
+        {pct >= 90 && <Tag tone="leaf" icon={<MeadowIcon name="star" size={16} />} style={{ marginTop: 12 }}>{pct === 100 ? 'Perfect!' : 'Great run'}</Tag>}
+      </Card>
+      <dl style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12, margin: '20px 0' }}>
+        <div><dt style={{ fontSize: 13, fontWeight: 700, color: M.text2 }}>Best run</dt><dd style={{ ...TYPE.number, margin: '4px 0 0', fontSize: 17 }}>{bestStreak} in a row</dd></div>
+        <div><dt style={{ fontSize: 13, fontWeight: 700, color: M.text2 }}>Daily streak</dt><dd style={{ ...TYPE.number, margin: '4px 0 0', fontSize: 17 }}>{dailyStreak} {dailyStreak === 1 ? 'day' : 'days'}</dd></div>
+      </dl>
+      <PrimaryButton size="md" full onClick={onAgain} icon={<MeadowIcon name="replay" size={20} color="#FFFFFF" />}>New quiz</PrimaryButton>
+    </section>
   )
 }
