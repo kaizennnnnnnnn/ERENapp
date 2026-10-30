@@ -6,9 +6,8 @@
 // theme is pinned to light — Meadow has no dark, and the modes' light
 // palette is the one that sits on this ground.
 //
-// Renders through createPortal to document.body so it escapes
-// CareSceneHost's z-40 stacking context; without that, no z-index on
-// the overlay can rise above StatsHeader at the page root.
+// Portal beside the room and StatsHeader, inside the app frame. Meadow
+// sheets use that same host, so element details can rise above the lab.
 
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -225,6 +224,6 @@ function OverlayInner({ onClose }: Props) {
         </div>
       </main>
     </div>,
-    document.body,
+    document.querySelector('.app-container') ?? document.body,
   )
 }

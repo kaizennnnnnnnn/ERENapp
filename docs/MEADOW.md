@@ -90,9 +90,10 @@ panels, buttons, labels, bars, popups, sheets.
 | Slim banner over home | `src/components/home/NotifyNudge.tsx` |
 | Chat screen | `src/components/talk/TalkView.tsx` |
 | Lab lesson and review sessions | `src/components/chemistry/SessionRunner.tsx` |
+| Periodic table and element sheet | `src/components/chemistry/PeriodicTable.tsx`, `ElementDetail.tsx` |
 | Machine / workbench panel | `src/components/weather/WeatherMachine.tsx` |
 
-**Still old (fair game when he asks):** the Lab's six remaining study modes (Table/Cards/Quiz/Match/
+**Still old (fair game when he asks):** the Lab's five remaining study modes (Cards/Quiz/Match/
 Speed/Locate: a neo-brutal theme from `lib/chemistry/theme` with `lucide-react` icons), the playroom banner and energy bar
 (`care/PlayScene.tsx`). To find old chrome:
 `grep -rlE "font-pixel|Press Start 2P|lucide-react|neoShadow" src`, then judge each hit: chrome gets
