@@ -12,6 +12,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { dateStr, grade, isDue, isNew, type CardState } from './srs'
+import { elements } from './elements'
 
 const STORAGE_KEY = 'eren_chem_v1'
 
@@ -151,13 +152,12 @@ export function ChemistryStoreProvider({ children }: { children: ReactNode }) {
 
   const { dueCount, newCount } = useMemo(() => {
     let due = 0
-    let nu = 0
     for (const k of Object.keys(state.cards)) {
       const c = state.cards[k]
       if (isDue(c, today)) due++
-      if (isNew(c)) nu++
     }
-    return { dueCount: due, newCount: nu }
+    const unseen = elements.filter(el => isNew(state.cards[elementCardId(el.atomicNumber)])).length
+    return { dueCount: due, newCount: unseen }
   }, [state.cards, today])
 
   const api: StoreApi = {
