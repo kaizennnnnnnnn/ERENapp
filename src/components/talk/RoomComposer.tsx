@@ -1,7 +1,7 @@
 'use client'
 
 // ─── RoomComposer ────────────────────────────────────────────────────────────
-// The attic's bottom bar. The TALK slab folds away into a one-line composer so
+// The attic's bottom bar. Talk folds away into a one-line composer so
 // you can say something without leaving the room and watch him answer over his
 // head. The scroll button beside it opens the full transcript — same
 // conversation, just all of it at once.
@@ -14,7 +14,7 @@ import { useErenChatContext } from '@/contexts/ErenChatContext'
 import { useErenStats } from '@/hooks/useErenStats'
 import { isTooSleepy } from '@/lib/chatAllowance'
 import { playSound, type SoundName } from '@/lib/sounds'
-import { IconScroll, IconClose } from '@/components/PixelIcons'
+import { Card, M, MeadowIcon, PrimaryButton, RoundButton, TextField } from '@/components/meadow'
 import TalkButton from './TalkButton'
 
 // Cycled per keystroke. One tick on repeat reads as a fault rather than typing.
@@ -22,10 +22,6 @@ const TYPE_TICKS: SoundName[] = ['chat_type1', 'chat_type2', 'chat_type3']
 /** Held backspace and fast typists both outrun the ear; one tick per 45ms is
  *  plenty to feel continuous without stacking into a buzz. */
 const TYPE_THROTTLE_MS = 45
-
-const INK   = '#3A2210'
-const PAPER = '#FFFBF1'
-const AMBER = '#D9974A'
 
 /**
  * How far the on-screen keyboard covers the bottom of the layout viewport.
@@ -65,6 +61,7 @@ export default function RoomComposer({ onOpenTranscript }: Props) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const launchRef = useRef<HTMLDivElement>(null)
   const keyboard = useKeyboardInset()
   const tickIdx = useRef(0)
   const lastTick = useRef(0)
@@ -84,6 +81,13 @@ export default function RoomComposer({ onOpenTranscript }: Props) {
     playSound(TYPE_TICKS[tickIdx.current++ % TYPE_TICKS.length])
   }, [])
 
+  const close = useCallback(() => {
+    playSound('ui_back')
+    setOpen(false)
+    setDraft('')
+    requestAnimationFrame(() => launchRef.current?.querySelector('button')?.focus())
+  }, [])
+
   const submit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
     const text = draft.trim()
@@ -96,118 +100,89 @@ export default function RoomComposer({ onOpenTranscript }: Props) {
 
   return (
     <div
-      className="absolute inset-x-0 z-20 flex justify-center px-6"
-      style={{ bottom: `calc(24px + env(safe-area-inset-bottom, 0px) + ${keyboard}px)` }}
+      className="meadow-root absolute inset-x-0 z-20 flex justify-center"
+      style={{ padding: '0 16px', bottom: `calc(24px + env(safe-area-inset-bottom, 0px) + ${keyboard}px)` }}
       // The host swipes rooms on horizontal touch. Without this, dragging to
       // place the caret walks you into the next room.
       onTouchStart={(e) => e.stopPropagation()}
       onTouchMove={(e) => e.stopPropagation()}
       onTouchEnd={(e) => e.stopPropagation()}
     >
-      <div className="flex items-stretch gap-2 w-full" style={{ maxWidth: 362 }}>
+      <div className="flex items-center gap-2 w-full" style={{ maxWidth: 362, minHeight: 46 }}>
         {open && !tired ? (
-          <form onSubmit={submit} className="flex-1 flex items-stretch gap-2 min-w-0">
-            <button
-              type="button"
-              onClick={() => { setOpen(false); setDraft('') }}
-              aria-label="Stop typing"
-              className="shrink-0 flex items-center justify-center active:scale-90 transition-transform duration-100"
-              style={{
-                width: 34, borderRadius: 8,
-                background: PAPER, border: `3px solid ${INK}`, boxShadow: `0 3px 0 ${INK}`,
-              }}
-            >
-              <IconClose size={12} />
-            </button>
+          <form onSubmit={submit} aria-label="Send a message" className="flex-1 flex items-center gap-2 min-w-0">
+            <span title="Stop typing" style={{ display: 'flex', flexShrink: 0 }}>
+              <RoundButton surface="art" ariaLabel="Stop typing" onClick={close}>
+                <MeadowIcon name="close" size={18} color={M.text} />
+              </RoundButton>
+            </span>
 
-            <input
+            <TextField
+              size="md"
               ref={inputRef}
+              aria-label="Message"
               value={draft}
               onChange={(e) => onDraftChange(e.target.value)}
-              placeholder="say something…"
+              onKeyDown={(e) => {
+                // Enter confirms an IME candidate before it sends the message.
+                if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault()
+                if (e.key === 'Escape') { e.preventDefault(); close() }
+              }}
+              placeholder="Say something..."
               maxLength={2000}
               enterKeyHint="send"
-              className="flex-1 min-w-0 outline-none"
-              style={{
-                fontSize: 13, color: '#4A3A2A', padding: '10px 12px',
-                background: PAPER, border: `3px solid ${INK}`, borderRadius: 8,
-                boxShadow: `0 3px 0 ${INK}, inset 0 2px 0 rgba(122,74,34,0.08)`,
-              }}
+              style={{ flex: '1 1 0', minWidth: 0 }}
+              inputStyle={{ fontSize: 16, fontWeight: 700 }}
             />
 
-            <button
-              type="submit"
-              disabled={!draft.trim() || sending}
-              className="shrink-0 active:scale-90 transition-transform duration-100"
-              style={{
-                fontFamily: '"Press Start 2P", monospace', fontSize: 8, letterSpacing: 0.5,
-                color: '#FFF6E2', padding: '0 11px', borderRadius: 8,
-                background: !draft.trim() || sending
-                  ? '#B9A184'
-                  : `linear-gradient(180deg, #F0C173 0%, ${AMBER} 55%, #B4712F 100%)`,
-                border: `3px solid ${INK}`,
-                boxShadow: `0 3px 0 ${INK}`,
-                textShadow: `0 2px 0 ${INK}`,
-                opacity: !draft.trim() || sending ? 0.65 : 1,
-                transition: 'opacity 150ms',
-              }}
-            >
-              SEND
-            </button>
+            <span title={sending ? 'Sending message' : 'Send message'} style={{ display: 'flex', flexShrink: 0 }}>
+              <PrimaryButton
+                type="submit"
+                size="sm"
+                ariaLabel={sending ? 'Sending message' : 'Send message'}
+                disabled={!draft.trim() || sending}
+                busy={sending}
+                style={{ width: 44, padding: 0, flexShrink: 0 }}
+              >
+                <MeadowIcon name={sending ? 'clock' : 'send'} size={22} color="#FFFFFF" />
+              </PrimaryButton>
+            </span>
           </form>
         ) : (
-          <div className="flex-1 min-w-0">
-            {tired ? <AsleepSlab /> : <TalkButton onClick={() => setOpen(true)} />}
+          <div ref={launchRef} className="flex-1 min-w-0">
+            {tired ? <AsleepSlab /> : <TalkButton onClick={() => { playSound('ui_tap'); setOpen(true) }} />}
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={onOpenTranscript}
-          aria-label="Open the whole conversation"
-          className="shrink-0 flex items-center justify-center active:scale-90 transition-transform duration-100"
-          style={{
-            width: 42, borderRadius: 9,
-            background: 'linear-gradient(160deg, #FFF6E6 0%, #F0DDB8 100%)',
-            border: `3px solid ${INK}`,
-            boxShadow: `3px 3px 0 ${INK}`,
-          }}
-        >
-          <IconScroll size={18} />
-        </button>
+        <span title="Open the whole conversation" style={{ display: 'flex', flexShrink: 0 }}>
+          <RoundButton
+            surface="art"
+            onClick={onOpenTranscript}
+            ariaLabel="Open the whole conversation"
+          >
+            <MeadowIcon name="scroll" size={22} />
+          </RoundButton>
+        </span>
       </div>
     </div>
   )
 }
 
 /**
- * The TALK slab, once he's out of words for the day. Sits in the same slot so
+ * Once he's out of words, keep the transcript reachable in the same slot so
  * the bottom bar doesn't reflow — the floor should say the same thing the
  * transcript does, not silently swallow a line into a 429.
  */
 function AsleepSlab() {
   return (
-    <div
-      className="w-full flex items-center justify-center gap-2"
-      style={{
-        padding: '11px 16px', borderRadius: 9,
-        background: 'linear-gradient(180deg, #E4D2B4 0%, #D3BE99 100%)',
-        border: `3px solid ${INK}`,
-        boxShadow: `3px 3px 0 ${INK}`,
-      }}
+    <Card
+      padding="0 16px"
+      style={{ height: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, boxShadow: `0 3px 0 ${M.overArtLip}` }}
     >
-      <span style={{
-        fontFamily: '"Press Start 2P", monospace', fontSize: 8, letterSpacing: 0.5,
-        color: '#6B4A26', textShadow: '0 1px 0 rgba(255,255,255,0.45)',
-      }}>
-        ASLEEP
+      <MeadowIcon name="moon" size={22} />
+      <span role="status" style={{ fontSize: 16, fontWeight: 800, color: M.text2 }}>
+        Fast asleep
       </span>
-      <span aria-hidden style={{
-        fontFamily: '"Press Start 2P", monospace', fontSize: 7, color: '#8A6844',
-        animation: 'erenZ 2400ms steps(4, end) infinite',
-      }}>
-        Z
-      </span>
-    </div>
+    </Card>
   )
 }

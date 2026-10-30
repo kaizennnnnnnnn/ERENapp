@@ -2562,8 +2562,42 @@ const MEADOW_ICONS = {
     ],
     palette: { X: '#6E6A66' },
   },
-  // The quests: a parchment scroll between its two rollers, three lines
-  // written on it.
+  // The attic's conversation and send controls.
+  speech: {
+    grid: [
+      '............',
+      '.XXXXXXXXXX.',
+      'XXXXXXXXXXXX',
+      'XXaaaaaaaaXX',
+      'XXXXXXXXXXXX',
+      'XXaaaaaaXXXX',
+      'XXXXXXXXXXXX',
+      '.XXXXXXXXXX.',
+      '..XXX.......',
+      '..XX........',
+      '..X.........',
+      '............',
+    ],
+    palette: { X: '#3F8452', a: '#A6D98A' },
+  },
+  send: {
+    grid: [
+      '............',
+      '.....XX.....',
+      '....XXXX....',
+      '...XXXXXX...',
+      '..XXXXXXXX..',
+      '.XXX.XX.XXX.',
+      '..X..XX..X..',
+      '.....XX.....',
+      '.....XX.....',
+      '.....XX.....',
+      '.....XX.....',
+      '............',
+    ],
+    palette: { X: '#3F8452' },
+  },
+  // The quests: a parchment scroll between its two rollers, three lines.
   scroll: {
     grid: [
       '.aaaaaaaaaa.',
