@@ -98,9 +98,10 @@ panels, buttons, labels, bars, popups, sheets.
 | Locate game | `src/components/chemistry/Locate.tsx` |
 | Playroom controls | `src/components/care/PlayScene.tsx`, `playroom/DonePlayingButton.tsx` |
 | Bedroom controls and care notifications | `src/components/care/SleepScene.tsx`, `bedroom/SleepButton.tsx`, `care/CareToast.tsx` |
+| Sick-care clinic and treatment states | `src/components/care/HospitalScene.tsx`, `vet/ClinicControls.tsx` |
 | Machine / workbench panel | `src/components/weather/WeatherMachine.tsx` |
 
-The lab study modes, playroom and bedroom controls listed above now use Meadow. To find remaining old chrome:
+The lab study modes, playroom, bedroom and clinic controls listed above now use Meadow. To find remaining old chrome:
 `grep -rlE "font-pixel|Press Start 2P|lucide-react|neoShadow" src`, then judge each hit: chrome gets
 converted, art (game boards, prestige plates, room props) stays.
 

@@ -1,23 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
-import { useCat } from '@/hooks/useCat'
-import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
 import BlinkingEren from '@/components/BlinkingEren'
 import StinkyFlies from '@/components/StinkyFlies'
 import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import { useErenReaction } from '@/hooks/useErenReaction'
 import CareToast from '@/components/care/CareToast'
+import ClinicControls, { type ClinicPhase } from '@/components/vet/ClinicControls'
 
 interface Props { onClose: () => void }
 
 export default function HospitalScene({ onClose }: Props) {
   const { user, profile } = useAuth()
   const { stats, applyAction } = useErenStats(profile?.household_id ?? null)
-  const cat = useCat()
 
   // No care animation in the clinic — this runner is here so a tap on the
   // patient still purrs, same as every other room.
@@ -26,21 +24,51 @@ export default function HospitalScene({ onClose }: Props) {
   const [medGiven, setMedGiven] = useState(false)
   const [giving,   setGiving]   = useState(false)
   const [toast,    setToast]    = useState<string | null>(null)
+  const [toastGood, setToastGood] = useState(true)
+  const saveLock = useRef(false)
+  const mounted = useRef(true)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      if (toastTimer.current !== null) clearTimeout(toastTimer.current)
+    }
+  }, [])
+
+  const phase: ClinicPhase = giving ? 'giving' : medGiven ? 'treated' : !stats ? 'loading' : stats.is_sick ? 'sick' : 'healthy'
 
   const reasons: string[] = []
-  if ((stats?.cleanliness ?? 100) < 20) reasons.push('Low cleanliness')
-  if ((stats?.sleep_quality ?? 100) < 15) reasons.push('Sleep deprived')
-  if ((stats?.weight ?? 4) > 7.5) reasons.push('Overweight')
+  if ((stats?.cleanliness ?? 100) < 20) reasons.push('Needs a bath')
+  if ((stats?.sleep_quality ?? 100) < 15) reasons.push('Needs more sleep')
+  if ((stats?.weight ?? 4) > 7.5) reasons.push('Lighter meals')
 
   async function giveMedicine() {
-    if (!user?.id || giving || medGiven) return
+    if (!user?.id || !stats?.is_sick || saveLock.current || medGiven) return
+    saveLock.current = true
     setGiving(true)
-    await new Promise(r => setTimeout(r, 800))
-    const result = await applyAction(user.id, 'medicine')
-    setGiving(false)
-    setMedGiven(true)
+    setToast(null)
+    if (toastTimer.current !== null) { clearTimeout(toastTimer.current); toastTimer.current = null }
+    try {
+      const result = await applyAction(user.id, 'medicine')
+      if (!mounted.current) return
+      setMedGiven(result.success)
+      showResult(result)
+    } catch {
+      showResult({ success: false, message: 'Could not save the treatment. Please try again.' })
+    } finally {
+      saveLock.current = false
+      if (mounted.current) setGiving(false)
+    }
+  }
+
+  function showResult(result: { success: boolean; message: string }) {
+    if (!mounted.current) return
+    setToastGood(result.success)
     setToast(result.message)
-    setTimeout(() => setToast(null), 3000)
+    if (toastTimer.current !== null) clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => { if (mounted.current) setToast(null) }, 3000)
   }
 
   return (
@@ -359,8 +387,8 @@ export default function HospitalScene({ onClose }: Props) {
       </div>
 
       {/* ══ EREN on table ══ */}
-      <div className={cn('absolute z-10 transition-all duration-500', 'bottom-[46%] left-[38%]')}
-        style={{ width: 130, height: 130 }}>
+      <div className="absolute z-10 bottom-[46%]"
+        style={{ width: 130, height: 130, left: '50%', transform: 'translateX(-50%)' }}>
         <PetTarget reaction={reaction}>
           <BlinkingEren size={130} src="/erenGood_notail.png" tailSrc="/erenGood_tail.png" />
         </PetTarget>
@@ -371,7 +399,7 @@ export default function HospitalScene({ onClose }: Props) {
       </div>
 
       {/* ══ CONE OF SHAME ══ */}
-      {!medGiven && (
+      {!medGiven && (stats?.is_sick || giving) && (
         <div className="absolute bottom-[57%] left-[44%] pointer-events-none z-20">
           <div style={{ width: 40, height: 32, borderRadius: '50% 50% 0 0', border: '3px solid #E8CC60', borderBottom: 'none', background: 'transparent', opacity: 0.78 }} />
         </div>
@@ -393,63 +421,11 @@ export default function HospitalScene({ onClose }: Props) {
       )}
 
 
-      {/* ══ SCENE LABEL ══ */}
-      <div className="absolute left-1/2 -translate-x-1/2 z-50" style={{ top: 110 }}>
-        <span className="font-pixel text-slate-600 px-3 py-1.5"
-          style={{ background: 'rgba(255,255,255,0.92)', borderRadius: 3, border: '2px solid rgba(170,180,210,0.45)', boxShadow: '2px 2px 0 rgba(130,140,175,0.18)', fontSize: 7 }}>
-          VET CLINIC
-        </span>
-      </div>
+      {toast && <CareToast msg={toast} ok={toastGood} top="65%" />}
 
-      {/* ══ TOAST ══ */}
-      {toast && <CareToast msg={toast} tone="#7DA3D9" />}
-
-      {/* ══ DIAGNOSIS CARD ══ */}
-      {reasons.length > 0 && !medGiven && (
-        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-40 px-4 py-3 w-60"
-          style={{ background: '#F9FBFF', border: '2px solid #CCD0E4', borderRadius: 3, boxShadow: '3px 3px 0 rgba(0,0,0,0.1)', fontFamily: '"Press Start 2P"' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-            {/* Mini cross */}
-            <div style={{ position: 'relative', width: 12, height: 12, flexShrink: 0 }}>
-              <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 4, transform: 'translateY(-50%)', background: '#E22828', borderRadius: 1 }} />
-              <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 4, transform: 'translateX(-50%)', background: '#E22828', borderRadius: 1 }} />
-            </div>
-            <span style={{ fontSize: 6, color: '#C01818' }}>DIAGNOSIS</span>
-          </div>
-          {reasons.map((r, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5 }}>
-              <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#E22828', flexShrink: 0 }} />
-              <span style={{ fontSize: 5, color: '#3A4060' }}>{r.toUpperCase()}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ══ BOTTOM UI ══ */}
-      <div className="absolute bottom-6 inset-x-0 flex flex-col items-center gap-3 px-8 z-30">
-        <div className="w-full max-w-xs px-4 py-3 text-center"
-          style={{ background: '#F9FBFF', borderRadius: 3, border: '2px solid #CCD0E4', boxShadow: '3px 3px 0 rgba(0,0,0,0.08)', fontFamily: '"Press Start 2P"' }}>
-          <p style={{ fontSize: 6, color: medGiven ? '#1A7A38' : '#C01818' }}>
-            {medGiven ? 'TREATMENT COMPLETE. FIX ROOT CAUSE.' : cat.t('{NAME} IS SICK! ADMINISTER MEDICINE.')}
-          </p>
-          {!medGiven && (stats?.weight ?? 0) > 6.5 && (
-            <p style={{ fontSize: 5, color: '#B05A10', marginTop: 5 }}>
-              WEIGHT: {stats?.weight?.toFixed(1)} KG — REDUCE FOOD
-            </p>
-          )}
-        </div>
-
-        <button onClick={() => { playSound('ui_tap'); giveMedicine() }} disabled={giving || medGiven}
-          className="w-full max-w-xs py-3 text-white transition-all active:translate-y-[2px] disabled:opacity-50"
-          style={medGiven
-            ? { background: 'linear-gradient(135deg, #38A850, #24884A)', borderRadius: 3, border: '2px solid #187038', boxShadow: '0 3px 0 #0E5028', fontFamily: '"Press Start 2P"', fontSize: 8 }
-            : giving
-              ? { background: 'linear-gradient(135deg, #5890E4, #3870C8)', borderRadius: 3, border: '2px solid #1E58B0', fontFamily: '"Press Start 2P"', fontSize: 8 }
-              : { background: 'linear-gradient(135deg, #3878D4, #1E58B4)', borderRadius: 3, border: '2px solid #1244A0', boxShadow: '0 3px 0 #0C3080', fontFamily: '"Press Start 2P"', fontSize: 8 }
-          }>
-          {medGiven ? 'TREATMENT COMPLETE' : giving ? 'GIVING MEDICINE...' : 'GIVE MEDICINE'}
-        </button>
-      </div>
+      <ClinicControls phase={phase} reasons={reasons} weight={stats?.weight ?? 4}
+        onGive={() => { playSound('ui_tap'); void giveMedicine() }}
+        onClose={() => { playSound('ui_back'); onClose() }} />
     </div>
   )
 }
