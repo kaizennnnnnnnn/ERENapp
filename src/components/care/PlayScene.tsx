@@ -24,19 +24,11 @@ import SoundWord from '@/components/SoundWord'
 import { Hearts } from '@/components/care/ReactionFx'
 import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import DonePlayingButton from '@/components/playroom/DonePlayingButton'
-import SegmentMeter, { type MeterPalette } from '@/components/care/SegmentMeter'
-import CareToast from '@/components/care/CareToast'
 import RoomWeather from '@/components/weather/RoomWeather'
 import { ROOM_HEADER_CLEARANCE } from '@/components/meadow/tokens'
-import { M, MeadowIcon } from '@/components/meadow'
+import { Card, M, MeadowIcon, Meter, Tag, TYPE } from '@/components/meadow'
 
-// ENERGY gauge palettes — the lit colour tracks energy level (violet when
-// healthy, gold mid, red when low). The recessed channel is a deep plum so the
-// glowing segments pop against the bright playroom; rivets are the app gold.
-const ENERGY_TRACK = { track: '#2A2440', trackEdge: '#473A6E', groove: '#19142C', frame: '#120D24', rivet: '#FCD34D' }
-const ENERGY_GOOD: MeterPalette = { fillHi: '#CFBFFF', fillBase: '#A78BFA', fillLo: '#8567E0', fillEdge: '#7C5FE0', glow: 'rgba(167,139,250,0.6)', ...ENERGY_TRACK }
-const ENERGY_MID:  MeterPalette = { fillHi: '#FFE7A0', fillBase: '#F5C842', fillLo: '#D99A18', fillEdge: '#D99A10', glow: 'rgba(245,200,66,0.6)', ...ENERGY_TRACK }
-const ENERGY_LOW:  MeterPalette = { fillHi: '#FFB3B3', fillBase: '#F87171', fillLo: '#E04A4A', fillEdge: '#DC3535', glow: 'rgba(248,113,113,0.65)', ...ENERGY_TRACK }
+const CAT_BOTTOM = 'calc(176px + env(safe-area-inset-bottom, 0px))'
 
 interface Props { onClose: () => void }
 interface BallPos { x: number; y: number }
@@ -92,6 +84,7 @@ export default function PlayScene({ onClose }: Props) {
   const [done,         setDone]         = useState(false)
   const [saving,       setSaving]       = useState(false)
   const [toast,        setToast]        = useState<string | null>(null)
+  const [toastGood,    setToastGood]    = useState(true)
   const [lookDir,      setLookDir]      = useState<'left'|'right'>('right')
   const [ballMoving,   setBallMoving]   = useState(false)
   const [trailDots,    setTrailDots]    = useState<{id:number;x:number;y:number}[]>([])
@@ -108,8 +101,23 @@ export default function PlayScene({ onClose }: Props) {
   }, [showLeaderboard, setHideStats])
   const isDark = useIsDark()
   const sceneRef = useRef<HTMLDivElement>(null)
+  const footerRef = useRef<HTMLDivElement>(null)
   const animRef  = useRef<ReturnType<typeof requestAnimationFrame> | null>(null)
   const trailId  = useRef(0)
+  const saveLock = useRef(false)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const floorY = useCallback(() => {
+    const room = sceneRef.current?.getBoundingClientRect()
+    const footer = footerRef.current?.getBoundingClientRect()
+    return room && room.height > 0 && footer ? Math.max(20, Math.min(88, (footer.top - room.top - 16) / room.height * 100)) : 88
+  }, [])
+  useEffect(() => {
+    const fit = () => { const floor = floorY(); setBallPos(current => current.y > floor ? { ...current, y: floor } : current) }
+    fit()
+    window.addEventListener('resize', fit)
+    return () => window.removeEventListener('resize', fit)
+  }, [floorY])
 
   // Reaction runner — Eren pounces when the ball settles near him. The rAF
   // step reads the runner via a ref so the []-dep animateBall callback always
@@ -121,21 +129,23 @@ export default function PlayScene({ onClose }: Props) {
   const animateBall = useCallback((sx: number, sy: number, vx: number, vy: number) => {
     if (animRef.current) cancelAnimationFrame(animRef.current)
     let x = sx, y = sy, dvx = vx, dvy = vy
+    const floor = floorY()
     const step = () => {
-      x += dvx; y += dvy; dvy += 0.45
+      x += dvx; dvy += 0.45; y += dvy
       if (x <= 3 || x >= 97) { dvx *= -0.75; x = x <= 3 ? 3 : 97 }
-      if (y >= 88)            { dvy *= -0.65; y = 88; dvx *= 0.88 }
-      if (y <= 20)            { dvy *= -0.8;  y = 20 }
+      if (y >= floor)         { dvy = Math.abs(dvy) < 1.5 ? 0 : -Math.abs(dvy) * 0.65; y = floor; dvx *= 0.88 }
+      if (y <= 20)            { dvy = Math.abs(dvy) * 0.8; y = 20 }
       setBallPos({ x, y })
       setTrailDots(ts => [...ts.slice(-8), { id: trailId.current++, x, y }])
-      if (Math.sqrt(dvx * dvx + dvy * dvy) > 0.35) {
+      if (y < floor - 0.01 || Math.sqrt(dvx * dvx + dvy * dvy) > 0.35) {
         animRef.current = requestAnimationFrame(step)
       } else {
+        animRef.current = null
         setBallMoving(false)
         setTrailDots([])
         // Ball came to rest near Eren's paws → he pounces on it.
         const now = Date.now()
-        if (Math.abs(x - 50) < 16 && y >= 82 && now - lastPounceRef.current > 1500) {
+        if (Math.abs(x - 50) < 16 && y >= floor - 6 && now - lastPounceRef.current > 1500) {
           lastPounceRef.current = now
           playSound('care_jingle')
           reactionRef.current.play([{ name: 'pounce', ms: 520 }])
@@ -143,10 +153,13 @@ export default function PlayScene({ onClose }: Props) {
       }
     }
     animRef.current = requestAnimationFrame(step)
-  }, [])
+  }, [floorY])
 
   // Stop the ball's rAF loop if the scene unmounts mid-flight (room swipe).
-  useEffect(() => () => { if (animRef.current) cancelAnimationFrame(animRef.current) }, [])
+  useEffect(() => () => {
+    if (animRef.current) cancelAnimationFrame(animRef.current)
+    if (toastTimer.current !== null) clearTimeout(toastTimer.current)
+  }, [])
 
   // Cache fallback so Eren renders synchronously with the right state.
   const isSleeping = stats?.is_sleeping ?? getCachedIsSleeping() ?? true
@@ -171,6 +184,7 @@ export default function PlayScene({ onClose }: Props) {
     const cy = ((e.clientY - rect.top)  / rect.height) * 100
     const dx = cx - ballPos.x, dy = cy - ballPos.y
     const dist = Math.sqrt(dx * dx + dy * dy)
+    if (dist < 0.001) return
     const speed = Math.min(dist * 0.28, 9)
     setBallMoving(true)
     setLookDir(cx > 50 ? 'right' : 'left')
@@ -179,22 +193,32 @@ export default function PlayScene({ onClose }: Props) {
   }
 
   async function handleDone() {
-    if (!user?.id || saving || throwCount < 1 || isSleeping) return
+    if (!user?.id || saveLock.current || done || throwCount < 1 || isSleeping) return
+    saveLock.current = true
     setSaving(true)
-    const result = await applyAction(user.id, 'play')
-    setSaving(false)
-    setDone(true)
-    setToast(result.message)
-    if (result.success) {
-      completeTask('daily_play')
-      reaction.play(happyFinisherBeats())
+    try {
+      const result = await applyAction(user.id, 'play')
+      setToastGood(result.success)
+      setToast(result.message)
+      if (result.success) {
+        setDone(true)
+        completeTask('daily_play')
+        reaction.play(happyFinisherBeats())
+      }
+    } catch {
+      setToastGood(false)
+      setToast('Could not save this play session. Please try again.')
+    } finally {
+      setSaving(false)
+      saveLock.current = false
+      if (toastTimer.current !== null) clearTimeout(toastTimer.current)
+      toastTimer.current = setTimeout(() => setToast(null), 2500)
     }
-    setTimeout(() => setToast(null), 2500)
   }
 
   const mood = done ? 'happy' : throwCount >= 3 ? 'playful' : 'idle'
   const energy = stats?.energy ?? 100
-  const energyPalette = energy > 50 ? ENERGY_GOOD : energy > 25 ? ENERGY_MID : ENERGY_LOW
+  const energyColor = energy > 50 ? M.leaf : energy > 25 ? M.energy : M.danger
 
   return (
     <div ref={sceneRef}
@@ -223,7 +247,7 @@ export default function PlayScene({ onClose }: Props) {
           reaction plays. */}
       {!isSleeping && (
         <div className={cn('absolute z-10')}
-          style={{ bottom: '10%', left: '50%', transform: 'translateX(-50%)' }}>
+          style={{ bottom: CAT_BOTTOM, left: '50%', transform: 'translateX(-50%)' }}>
           {/* Watch-the-ball lean — the whole cat tips toward the ball's side so
               he visibly tracks it as it flies. Derived from ballPos, which the
               rAF loop already re-renders every frame during flight, so it costs
@@ -263,7 +287,7 @@ export default function PlayScene({ onClose }: Props) {
           don't lean or hop with him. */}
       {!isSleeping && (reaction.phase === 'pounce' || reaction.phase === 'finish' || reaction.phase === PURR) && (
         <div className="absolute z-20 pointer-events-none" style={{
-          bottom: '10%', left: '50%', transform: 'translateX(-50%)', width: 200, height: 200,
+          bottom: CAT_BOTTOM, left: '50%', transform: 'translateX(-50%)', width: 200, height: 200,
         }}>
           {reaction.phase === 'pounce' &&
             <SoundWord word="JINGLE!" color={WORD_COLOR.curious} left={50} top={4} />}
@@ -305,26 +329,36 @@ export default function PlayScene({ onClose }: Props) {
         Arcade
       </button>
 
-      {toast && <CareToast msg={toast} tone="#A78BFA" top={`calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE + 112}px)`} />}
+      {toast && <div role="status" className="meadow-root absolute inset-x-4 z-50 pointer-events-none" style={{ top: `calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE + 112}px)` }}>
+        <Card padding="12px 14px" style={{ display: 'flex', alignItems: 'flex-start', gap: 8, boxShadow: `0 3px 0 ${M.overArtLip}`, fontSize: 15, lineHeight: 1.4, fontWeight: 700 }}>
+          <MeadowIcon name={toastGood ? 'check' : 'close'} size={20} color={toastGood ? M.leaf : M.danger} />
+          <span>{toast}</span>
+        </Card>
+      </div>}
 
       {throwCount === 0 && !done && (
-        <div className="absolute left-1/2 -translate-x-1/2 z-40 px-3 py-1.5 pointer-events-none animate-pulse-soft"
-          style={{ top: `calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE + 160}px)`, background: 'rgba(255,255,255,0.85)', borderRadius: 3, border: '2px solid #C0A0E8', boxShadow: '2px 2px 0 rgba(150,100,220,0.2)', fontFamily: '"Press Start 2P"', fontSize: 7, color: '#7C3AED' }}>
-          TAP TO THROW THE BALL!
+        <div className="meadow-root absolute left-1/2 -translate-x-1/2 z-40 pointer-events-none"
+          style={{ ...ROOM_PILL, top: `calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE + 112}px)`, cursor: 'default' }}>
+          <MeadowIcon name={isSleeping ? 'moon' : 'pad'} size={18} />
+          {isSleeping ? 'Sleeping' : 'Playtime'}
         </div>
       )}
 
       {/* ══ BOTTOM UI ══ */}
-      <div className="absolute bottom-5 inset-x-0 flex flex-col items-center gap-2 px-8 z-20" onClick={e => e.stopPropagation()}>
+      <div ref={footerRef} className="meadow-root absolute inset-x-0 flex flex-col items-center gap-2 px-6 z-20" style={{ bottom: 'calc(20px + env(safe-area-inset-bottom, 0px))' }} onClick={e => e.stopPropagation()}>
         {/* Energy gauge */}
-        <div className="w-full max-w-xs">
-          <SegmentMeter label="ENERGY" value={energy} palette={energyPalette} labelColor="#7C3AED" valueColor="#7C3AED" />
+        <div className="w-full max-w-xs" style={{ background: '#FFFFFF', borderRadius: 16, boxShadow: `0 3px 0 ${M.overArtLip}`, padding: '10px 12px' }}>
+          <div className="flex items-center justify-between" style={{ gap: 10, marginBottom: 6, fontSize: 13, fontWeight: 700, color: M.text2 }}>
+            <span className="flex items-center" style={{ gap: 6 }}><MeadowIcon name="bolt" size={16} color={energyColor} />Energy</span>
+            <span style={{ ...TYPE.number, color: M.text }}>{Math.round(energy)}%</span>
+          </div>
+          <Meter value={energy / 100} label="Playroom energy" color={energyColor} height={8} />
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="font-pixel text-purple-600" style={{ fontSize: 7 }}>THROWS: {throwCount}</span>
-          {throwCount >= 3 && !done && (
-            <span className="font-pixel text-green-600 px-2 py-0.5" style={{ fontSize: 6, background: '#D1FAE5', borderRadius: 2, border: '1px solid #6EE7B7' }}>READY! ★</span>
+          <Tag tone="soft" size="sm" style={{ background: '#FFFFFF' }}>{throwCount} {throwCount === 1 ? 'throw' : 'throws'}</Tag>
+          {throwCount >= 1 && !done && (
+            <Tag tone="leaf" size="sm" icon={<MeadowIcon name="check" size={14} />}>Ready</Tag>
           )}
         </div>
 
@@ -345,7 +379,7 @@ export default function PlayScene({ onClose }: Props) {
 
       {/* Switch on the left to clear the SCORES/leaderboard buttons stacked
           on the right side of the playroom. */}
-      <LightSwitch side="left" targetBottom="10%" targetLeft="50%" persistKey="playroom" />
+      <LightSwitch side="left" targetBottom={CAT_BOTTOM} targetLeft="50%" persistKey="playroom" />
     </div>
   )
 }
