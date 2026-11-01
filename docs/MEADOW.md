@@ -93,10 +93,11 @@ panels, buttons, labels, bars, popups, sheets.
 | Periodic table and element sheet | `src/components/chemistry/PeriodicTable.tsx`, `ElementDetail.tsx` |
 | Flashcard study session | `src/components/chemistry/Flashcards.tsx` |
 | Quick quiz | `src/components/chemistry/Quiz.tsx` |
+| Timed element matching | `src/components/chemistry/Match.tsx` |
 | Machine / workbench panel | `src/components/weather/WeatherMachine.tsx` |
 
-**Still old (fair game when he asks):** the Lab's three remaining study modes (Match/
-Speed/Locate: a neo-brutal theme from `lib/chemistry/theme` with `lucide-react` icons), the playroom banner and energy bar
+**Still old (fair game when he asks):** the Lab's two remaining study modes (Speed/Locate:
+a neo-brutal theme from `lib/chemistry/theme` with `lucide-react` icons), the playroom banner and energy bar
 (`care/PlayScene.tsx`). To find old chrome:
 `grep -rlE "font-pixel|Press Start 2P|lucide-react|neoShadow" src`, then judge each hit: chrome gets
 converted, art (game boards, prestige plates, room props) stays.
