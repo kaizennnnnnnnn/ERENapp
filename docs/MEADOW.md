@@ -105,6 +105,9 @@ The lab study modes, playroom, bedroom and clinic controls listed above now use 
 `grep -rlE "font-pixel|Press Start 2P|lucide-react|neoShadow" src`, then judge each hit: chrome gets
 converted, art (game boards, prestige plates, room props) stays.
 
+Sick care reuses the vet office's existing day/night paintings (`vetBACK.png`, `wetDark.png`).
+Do not introduce a separate code-drawn clinic backdrop.
+
 ## How we work (the owner's rule since 2026-10-13)
 
 1. He sends a screenshot of ONE old screen + "new design". Convert **that screen only**. Keep its features,

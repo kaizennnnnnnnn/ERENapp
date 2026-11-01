@@ -3,10 +3,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats } from '@/hooks/useErenStats'
+import { useIsDark } from '@/hooks/useIsDark'
 import { playSound } from '@/lib/sounds'
+import { roomArt } from '@/lib/roomArt'
 import BlinkingEren from '@/components/BlinkingEren'
 import StinkyFlies from '@/components/StinkyFlies'
 import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
+import { Sparkles } from '@/components/care/ReactionFx'
 import { useErenReaction } from '@/hooks/useErenReaction'
 import CareToast from '@/components/care/CareToast'
 import ClinicControls, { type ClinicPhase } from '@/components/vet/ClinicControls'
@@ -16,14 +19,12 @@ interface Props { onClose: () => void }
 export default function HospitalScene({ onClose }: Props) {
   const { user, profile } = useAuth()
   const { stats, applyAction } = useErenStats(profile?.household_id ?? null)
-
-  // No care animation in the clinic — this runner is here so a tap on the
-  // patient still purrs, same as every other room.
+  const isDark = useIsDark()
   const reaction = useErenReaction()
 
   const [medGiven, setMedGiven] = useState(false)
-  const [giving,   setGiving]   = useState(false)
-  const [toast,    setToast]    = useState<string | null>(null)
+  const [giving, setGiving] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
   const [toastGood, setToastGood] = useState(true)
   const saveLock = useRef(false)
   const mounted = useRef(true)
@@ -73,353 +74,17 @@ export default function HospitalScene({ onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col overflow-hidden">
+      <div className="absolute inset-0" style={{ backgroundImage: `url(${roomArt('hospital', isDark)})`, backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
-      {/* ══ WALL — clinical white/cream ══ */}
-      <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, #F6F8FC 0%, #ECEEf4 100%)' }} />
-      {/* Subtle wall grid texture */}
-      <div className="absolute inset-0 pointer-events-none" style={{
-        backgroundImage: 'linear-gradient(rgba(170,180,210,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(170,180,210,0.07) 1px, transparent 1px)',
-        backgroundSize: '28px 28px',
-      }} />
-
-      {/* ══ CEILING TRIM ══ */}
-      <div className="absolute top-0 left-0 right-0" style={{ height: 6, background: 'linear-gradient(180deg, #D4D8E4 0%, #C0C4D0 100%)', boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }} />
-
-      {/* ══ FLUORESCENT CEILING LIGHT ══ */}
-      <div className="absolute pointer-events-none" style={{ top: 6, left: '50%', transform: 'translateX(-50%)', width: 170, height: 14 }}>
-        <div style={{ width: '100%', height: '100%', background: 'linear-gradient(180deg, #DDE2F4 0%, #C4CCEC 100%)', border: '1px solid #B0B8D4', borderTop: 'none', borderRadius: '0 0 4px 4px', boxShadow: '0 6px 28px 6px rgba(190,200,250,0.20)' }}>
-          {[28, 62, 96, 130].map(x => (
-            <div key={x} className="absolute top-2 bottom-2" style={{ left: x, width: 1.5, background: 'linear-gradient(180deg, #9AA8D4, #C4CEE8)', borderRadius: 2 }} />
-          ))}
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.12)', borderRadius: '0 0 4px 4px' }} />
-        </div>
-        <div style={{ position: 'absolute', top: 14, left: -50, right: -50, height: 70, background: 'radial-gradient(ellipse at 50% 0%, rgba(200,210,255,0.16) 0%, transparent 70%)' }} />
-      </div>
-
-      {/* ══ WAINSCOTING DIVIDER ══ */}
-      <div className="absolute left-0 right-0" style={{ top: '58%', height: 8, background: 'linear-gradient(180deg, #D0D4E0 0%, #BCC0CC 100%)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} />
-
-      {/* ══ FLOOR — white/grey checkerboard tiles ══ */}
-      <div className="absolute left-0 right-0 bottom-0" style={{ top: '58%' }}>
-        {Array.from({ length: 30 }).map((_, i) => {
-          const col = i % 6, row = Math.floor(i / 6)
-          return (
-            <div key={i} className="absolute" style={{
-              left: `${col * (100 / 6)}%`, top: `${row * 20}%`,
-              width: `${100 / 6 - 0.3}%`, height: '21%',
-              background: (col + row) % 2 === 0
-                ? 'linear-gradient(135deg, #F6F8FC 0%, #EAECF4 100%)'
-                : 'linear-gradient(135deg, #ECEEF6 0%, #DDE0EC 100%)',
-              border: '1px solid rgba(170,180,210,0.35)',
-              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.8)',
-            }} />
-          )
-        })}
-        <div className="absolute top-0 left-0 right-0" style={{ height: 12, background: 'linear-gradient(180deg, rgba(0,0,0,0.07) 0%, transparent 100%)' }} />
-      </div>
-
-      {/* ══ BASEBOARD ══ */}
-      <div className="absolute left-0 right-0" style={{ top: 'calc(58% + 8px)', height: 6, background: 'linear-gradient(180deg, #D8DCE8, #C0C4D0)', boxShadow: '0 2px 4px rgba(0,0,0,0.08)' }} />
-
-      {/* ══ LEFT WINDOW — venetian blinds ══ */}
-      <div className="absolute pointer-events-none" style={{ top: '7%', left: '3%', width: 88, height: 76 }}>
-        <div className="absolute inset-0" style={{ background: '#BCC0CC', padding: 5, borderRadius: 3, boxShadow: '2px 3px 10px rgba(0,0,0,0.18), inset 0 1px 2px rgba(255,255,255,0.4)' }}>
-          <div className="w-full h-full overflow-hidden" style={{ background: 'linear-gradient(180deg, #C8E4F8 0%, #A8D4F8 55%, #72B858 55%, #56A038 100%)' }}>
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, #B8DCF4 0%, #D4ECFF 55%, transparent 55%)' }} />
-            <div className="absolute" style={{ top: 6, right: 10, width: 16, height: 16, borderRadius: '50%', background: 'radial-gradient(circle at 38%, #FFF080, #F4C028)', boxShadow: '0 0 10px 3px rgba(250,200,40,0.45)' }} />
-            <div className="absolute" style={{ top: 8, left: 5, width: 22, height: 10, borderRadius: 7, background: 'rgba(255,255,255,0.88)' }} />
-            <div className="absolute" style={{ top: 6, left: 12, width: 14, height: 12, borderRadius: 7, background: 'rgba(255,255,255,0.88)' }} />
-            <div className="absolute bottom-0 left-0 right-0" style={{ height: '45%', background: 'linear-gradient(180deg, #68B858, #48983A)' }} />
-            {/* Venetian blinds overlay */}
-            {Array.from({ length: 7 }).map((_, bi) => (
-              <div key={bi} className="absolute left-0 right-0" style={{ top: `${bi * 14.3}%`, height: '9%', background: 'rgba(235,240,252,0.62)', border: '1px solid rgba(180,192,220,0.45)', boxShadow: '0 1px 1px rgba(0,0,0,0.04)' }} />
-            ))}
-            {/* Blind cord */}
-            <div className="absolute" style={{ top: 0, right: 9, width: 1, height: '100%', background: 'rgba(180,190,215,0.55)' }} />
-          </div>
-          {/* Window cross bars */}
-          <div className="absolute inset-0 flex" style={{ padding: 5 }}><div className="flex-1 border-r-2 border-[#BCC0CC]" /></div>
-          <div className="absolute inset-0 flex flex-col" style={{ padding: 5 }}><div className="flex-1 border-b-2 border-[#BCC0CC]" /></div>
-        </div>
-        <div className="absolute bottom-0 left-0 right-0" style={{ height: 8, background: 'linear-gradient(180deg, #CCD0DC, #B0B4C4)', borderRadius: '0 0 3px 3px', boxShadow: '0 2px 4px rgba(0,0,0,0.12)' }} />
-      </div>
-
-      {/* ══ WALL CLOCK ══ */}
-      <div className="absolute pointer-events-none" style={{ top: '8%', left: '22%' }}>
-        <div className="relative" style={{ width: 30, height: 30 }}>
-          <div className="absolute inset-0 rounded-full" style={{ background: 'radial-gradient(circle at 38% 35%, #FAFCFF, #ECF0FC)', border: '3px solid #9AA8D4', boxShadow: '0 2px 6px rgba(0,0,0,0.15)' }} />
-          <div className="absolute" style={{ top: '50%', left: '50%', width: 1.5, height: 9, background: '#3A4068', transformOrigin: 'bottom', transform: 'translate(-50%, -100%) rotate(30deg)' }} />
-          <div className="absolute" style={{ top: '50%', left: '50%', width: 1, height: 7, background: '#6A7090', transformOrigin: 'bottom', transform: 'translate(-50%, -100%) rotate(135deg)' }} />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div style={{ width: 3, height: 3, borderRadius: '50%', background: '#3A4068' }} />
-          </div>
-        </div>
-      </div>
-
-      {/* ══ DIPLOMA / CERTIFICATE FRAME ══ */}
-      <div className="absolute pointer-events-none" style={{ top: '8%', left: '26%', width: 60, height: 46 }}>
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #C8B888, #A89868)', borderRadius: 3, padding: 3, boxShadow: '2px 2px 6px rgba(0,0,0,0.2)' }}>
-          <div className="w-full h-full" style={{ background: '#FFFEF8', borderRadius: 1, position: 'relative' }}>
-            {/* Certificate header bar */}
-            <div style={{ height: 7, background: 'linear-gradient(90deg, #1A3888, #3060B8)', borderRadius: '1px 1px 0 0' }}>
-              <div style={{ position: 'absolute', top: 2, left: 4, width: '40%', height: 2, background: 'rgba(255,255,255,0.4)', borderRadius: 1 }} />
-            </div>
-            {/* Seal circle */}
-            <div style={{ position: 'absolute', bottom: 5, left: 5, width: 14, height: 14, borderRadius: '50%', background: 'radial-gradient(circle at 38% 38%, #F5D840, #C8A018)', border: '1px solid #A07810', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>
-              <div style={{ position: 'absolute', inset: 2, borderRadius: '50%', border: '1px solid rgba(255,200,40,0.5)' }} />
-            </div>
-            {/* Text lines */}
-            {[12, 18, 24, 30].map(t => (
-              <div key={t} style={{ position: 'absolute', top: t, left: 8, right: 6, height: 1.5, background: 'rgba(80,90,120,0.2)', borderRadius: 1 }} />
-            ))}
-            {/* Signature line */}
-            <div style={{ position: 'absolute', bottom: 8, right: 5, width: 28, height: 1, background: 'rgba(80,90,120,0.4)' }} />
-          </div>
-        </div>
-      </div>
-
-      {/* ══ MEDICAL CROSS (framed on wall) ══ */}
-      <div className="absolute pointer-events-none" style={{ top: '7%', left: '50%', transform: 'translateX(-50%)' }}>
-        <div className="relative" style={{ width: 56, height: 56 }}>
-          <div className="absolute inset-0 rounded-full" style={{ background: 'linear-gradient(135deg, #F4EEED, #EDE4E4)', border: '2px solid #D8CCCC', boxShadow: '2px 3px 8px rgba(0,0,0,0.14)' }} />
-          <div className="absolute" style={{ top: '50%', left: '14%', right: '14%', height: 13, transform: 'translateY(-50%)', background: 'linear-gradient(180deg, #E22828, #C01414)', borderRadius: 3, boxShadow: 'inset 0 1px 2px rgba(255,120,120,0.3)' }} />
-          <div className="absolute" style={{ left: '50%', top: '14%', bottom: '14%', width: 13, transform: 'translateX(-50%)', background: 'linear-gradient(180deg, #E22828, #C01414)', borderRadius: 3, boxShadow: 'inset 1px 0 2px rgba(255,120,120,0.3)' }} />
-          <div className="absolute inset-0 rounded-full" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.18) 0%, transparent 55%)' }} />
-        </div>
-      </div>
-
-      {/* ══ ANATOMICAL CHART (left wall, below window) ══ */}
-      <div className="absolute pointer-events-none" style={{ top: '20%', left: '4%', width: 54, height: 72 }}>
-        <div className="absolute inset-0" style={{ background: '#A8B0C4', borderRadius: 2, padding: 3, boxShadow: '2px 3px 6px rgba(0,0,0,0.15)' }}>
-          <div className="w-full h-full" style={{ background: '#F9FBFF', borderRadius: 1, position: 'relative' }}>
-            {/* Title bar */}
-            <div style={{ height: 9, background: 'linear-gradient(90deg, #1A4A6C, #2468A0)', borderRadius: '1px 1px 0 0' }}>
-              <div style={{ position: 'absolute', top: 3, left: 4, width: '50%', height: 2, background: 'rgba(255,255,255,0.45)', borderRadius: 1 }} />
-            </div>
-            {/* Cat outline diagram */}
-            <div style={{ position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)', width: 30, height: 30 }}>
-              {/* Body ellipse */}
-              <div style={{ position: 'absolute', top: 10, left: 2, width: 26, height: 18, borderRadius: '50%', border: '1.5px solid #4A6080', background: 'rgba(200,215,235,0.2)' }} />
-              {/* Head */}
-              <div style={{ position: 'absolute', top: 2, left: 7, width: 14, height: 12, borderRadius: '50%', border: '1.5px solid #4A6080', background: 'rgba(200,215,235,0.2)' }} />
-              {/* Ears */}
-              <div style={{ position: 'absolute', top: 0, left: 8, width: 0, height: 0, borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderBottom: '7px solid #4A6080' }} />
-              <div style={{ position: 'absolute', top: 0, right: 8, width: 0, height: 0, borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderBottom: '7px solid #4A6080' }} />
-              {/* Spine indicator line */}
-              <div style={{ position: 'absolute', top: 12, left: 14, right: 3, height: 1, background: 'rgba(220,60,60,0.6)', borderRadius: 1 }} />
-            </div>
-            {/* Label lines */}
-            {[48, 55, 62].map(t => (
-              <div key={t} style={{ position: 'absolute', top: t, left: 4, right: 4, height: 1.5, background: 'rgba(80,90,120,0.18)', borderRadius: 1 }} />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ══ MEDICAL POSTER (right side) ══ */}
-      <div className="absolute pointer-events-none" style={{ top: '6%', right: '4%', width: 60, height: 76 }}>
-        <div className="absolute inset-0" style={{ background: '#C8CCD8', padding: 3, borderRadius: 2, boxShadow: '2px 3px 6px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.4)' }}>
-          <div className="w-full h-full" style={{ background: '#F9FBFF', borderRadius: 1 }}>
-            {/* Header bar */}
-            <div style={{ height: 10, background: 'linear-gradient(90deg, #C01414, #A00C0C)', borderRadius: '1px 1px 0 0', display: 'flex', alignItems: 'center', paddingLeft: 6 }}>
-              <div style={{ width: '55%', height: 2.5, background: 'rgba(255,200,200,0.55)', borderRadius: 2 }} />
-            </div>
-            {/* Cat silhouette */}
-            <div style={{ position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)', width: 26, height: 26 }}>
-              <div style={{ width: 26, height: 20, borderRadius: '50%', background: '#E4E8F2', border: '1.5px solid #B8BCD0' }} />
-              <div style={{ position: 'absolute', top: -4, left: 2, width: 9, height: 9, background: '#E4E8F2', border: '1.5px solid #B8BCD0', clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }} />
-              <div style={{ position: 'absolute', top: -4, right: 2, width: 9, height: 9, background: '#E4E8F2', border: '1.5px solid #B8BCD0', clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }} />
-              <div style={{ position: 'absolute', top: 6, left: 4, width: 5, height: 5, borderRadius: '50%', background: '#5C6488' }} />
-              <div style={{ position: 'absolute', top: 6, right: 4, width: 5, height: 5, borderRadius: '50%', background: '#5C6488' }} />
-              <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', width: 4, height: 3, borderRadius: '50%', background: '#D080A0' }} />
-            </div>
-            {/* Data lines */}
-            {[42, 52, 62].map(t => (
-              <div key={t} style={{ position: 'absolute', left: 6, right: 6, top: t, height: 2, background: '#C4C8D8', borderRadius: 2, opacity: 0.7 }} />
-            ))}
-            {/* Scale bar at bottom */}
-            <div style={{ position: 'absolute', bottom: 5, left: 5, right: 5, height: 7, background: '#EFF1F8', border: '1px solid #CDD0E0', borderRadius: 2 }}>
-              {[0,1,2,3].map(k => (
-                <div key={k} style={{ position: 'absolute', left: `${k * 33}%`, top: 0, bottom: 0, width: 1, background: '#B0B4C8' }} />
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ══ MEDICINE CABINET (right wall) ══ */}
-      <div className="absolute pointer-events-none" style={{ right: 10, top: '20%', width: 74, height: 118 }}>
-        {/* Red cross above cabinet */}
-        <div style={{ position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)', width: 20, height: 20 }}>
-          <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 5, transform: 'translateY(-50%)', background: '#E22828', borderRadius: 1 }} />
-          <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 5, transform: 'translateX(-50%)', background: '#E22828', borderRadius: 1 }} />
-        </div>
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, #E4E8F4 0%, #D0D4E4 100%)', border: '3px solid #ACB0C4', borderRadius: 4, boxShadow: '3px 3px 10px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.45)' }}>
-          {/* Glass door */}
-          <div className="absolute inset-2" style={{ background: 'linear-gradient(135deg, rgba(238,242,255,0.88) 0%, rgba(218,226,252,0.72) 100%)', border: '1px solid #B8C0D8', borderRadius: 2, boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.65)' }}>
-            <div style={{ position: 'absolute', top: 3, left: 3, width: '32%', height: '38%', background: 'linear-gradient(135deg, rgba(255,255,255,0.42), transparent)', borderRadius: 2 }} />
-            {/* Shelves */}
-            {[28, 57, 86].map(y => (
-              <div key={y} style={{ position: 'absolute', left: 3, right: 3, top: y, height: 2, background: '#A8B0C8', borderRadius: 1 }} />
-            ))}
-            {/* Row 1 — pill bottles */}
-            <div style={{ position: 'absolute', top: 8, left: 5, width: 11, height: 17, background: 'linear-gradient(180deg, #E02020, #BC0C0C)', borderRadius: '3px 3px 2px 2px', border: '1px solid #9A0808' }}>
-              <div style={{ position: 'absolute', top: -3, left: 1, width: 9, height: 4, background: '#D8D8D8', borderRadius: '2px 2px 0 0', border: '1px solid #B8B8B8' }} />
-              <div style={{ position: 'absolute', top: 4, left: 2, right: 2, height: 2, background: 'rgba(255,255,255,0.3)', borderRadius: 1 }} />
-            </div>
-            <div style={{ position: 'absolute', top: 6, left: 18, width: 14, height: 19, background: 'linear-gradient(180deg, #3878D4, #1A58B0)', borderRadius: 3, border: '1px solid #1040A0' }}>
-              <div style={{ position: 'absolute', top: 2, left: 2, right: 2, height: 4, background: 'rgba(255,255,255,0.28)', borderRadius: 2 }} />
-            </div>
-            <div style={{ position: 'absolute', top: 8, left: 35, width: 11, height: 17, background: 'linear-gradient(180deg, #32A032, #1A7A1A)', borderRadius: 3, border: '1px solid #0E6010' }}>
-              <div style={{ position: 'absolute', top: -3, left: 1, width: 9, height: 4, background: '#D8D8D8', borderRadius: '2px 2px 0 0', border: '1px solid #B8B8B8' }} />
-            </div>
-            {/* Row 2 */}
-            <div style={{ position: 'absolute', top: 34, left: 4, width: 18, height: 20, background: 'linear-gradient(180deg, #E8980C, #C07806)', borderRadius: 3, border: '1px solid #A05E04' }}>
-              <div style={{ position: 'absolute', top: 3, left: 2, right: 2, height: 3, background: 'rgba(255,255,255,0.32)', borderRadius: 2 }} />
-            </div>
-            <div style={{ position: 'absolute', top: 34, left: 25, width: 12, height: 17, background: 'linear-gradient(180deg, #9844D8, #7224BC)', borderRadius: 3, border: '1px solid #5C1AA8' }}>
-              <div style={{ position: 'absolute', top: -3, left: 2, width: 8, height: 4, background: '#D8D8D8', borderRadius: '2px 2px 0 0', border: '1px solid #B8B8B8' }} />
-            </div>
-            {/* Row 3 — bandage box + thermometer */}
-            <div style={{ position: 'absolute', top: 62, left: 4, width: 30, height: 14, background: 'linear-gradient(90deg, #F8E8DC, #F0D4C4)', borderRadius: 2, border: '1px solid #D8C0B0' }}>
-              {[0,1,2].map(k => (
-                <div key={k} style={{ position: 'absolute', top: '30%', left: `${k * 30 + 8}%`, width: 2, height: '40%', background: '#D89898', borderRadius: 1 }} />
-              ))}
-              <div style={{ position: 'absolute', top: 1, left: 2, right: 2, height: 2, background: '#E22828', borderRadius: 1, opacity: 0.4 }} />
-            </div>
-            <div style={{ position: 'absolute', top: 63, right: 4, width: 10, height: 18 }}>
-              <div style={{ width: 4, height: 14, background: 'linear-gradient(180deg, #D0D4E0, #B0B8C8)', borderRadius: 3, margin: '0 auto' }} />
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#E82020', border: '1px solid #C01010', margin: '0 auto', marginTop: -3 }} />
-            </div>
-          </div>
-          {/* Door handle */}
-          <div style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', width: 4, height: 22, background: 'linear-gradient(180deg, #D0D4E0, #A8B0C0)', borderRadius: 3, border: '1px solid #909AB0', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
-          {/* Lock */}
-          <div style={{ position: 'absolute', right: 4, top: '38%', width: 8, height: 10, borderRadius: 2, background: 'linear-gradient(180deg, #D4D8E8, #B0B4C4)', border: '1px solid #8890A8', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>
-            <div style={{ position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)', width: 4, height: 4, borderRadius: '50%', background: '#8890A8', border: '1px solid #6870A0' }} />
-            <div style={{ position: 'absolute', top: -4, left: '50%', transform: 'translateX(-50%)', width: 4, height: 5, borderRadius: '2px 2px 0 0', border: '1.5px solid #8890A8', borderBottom: 'none', background: 'transparent' }} />
-          </div>
-        </div>
-      </div>
-
-      {/* ══ IV STAND (left) ══ */}
-      <div className="absolute pointer-events-none" style={{ left: 10, bottom: '43%' }}>
-        {/* Pole */}
-        <div style={{ width: 5, height: 100, background: 'linear-gradient(90deg, #C8CCD8, #B0B4C4, #C8CCD8)', borderRadius: 3, border: '1px solid #A0A4B4', boxShadow: '1px 0 3px rgba(0,0,0,0.1)', margin: '0 auto' }} />
-        {/* Top crossbar */}
-        <div style={{ position: 'absolute', top: 0, left: -12, right: -12, height: 5, background: 'linear-gradient(180deg, #D4D8E4, #B8BCC8)', borderRadius: 3, border: '1px solid #A0A4B4' }} />
-        {/* Hooks */}
-        {[-9, 9].map((x, i) => (
-          <div key={i} style={{ position: 'absolute', top: -9, left: `calc(50% + ${x}px)`, transform: 'translateX(-50%)', width: 3, height: 13, background: '#B8C0D0', borderRadius: '3px 3px 0 0' }} />
-        ))}
-        {/* IV bag */}
-        <div style={{ position: 'absolute', top: 13, left: '50%', transform: 'translateX(-50%)', width: 30, height: 42 }}>
-          <div style={{ width: '100%', height: '78%', background: 'linear-gradient(180deg, #DCF0FF, #C4E4FC)', borderRadius: '6px 6px 3px 3px', border: '1.5px solid #A4C4E4', boxShadow: 'inset 0 2px 5px rgba(200,232,255,0.55)' }}>
-            <div style={{ position: 'absolute', top: 4, left: 5, right: 5, height: 1, background: 'rgba(150,198,232,0.4)', borderRadius: 2 }} />
-            <div style={{ position: 'absolute', bottom: 0, left: 2, right: 2, height: '52%', background: 'linear-gradient(180deg, rgba(96,178,242,0.28), rgba(76,158,224,0.38))', borderRadius: '0 0 2px 2px', borderTop: '1px solid rgba(76,158,224,0.38)' }} />
-          </div>
-          <div style={{ width: 2, height: 12, background: 'rgba(130,178,212,0.65)', margin: '0 auto', borderRadius: 2 }} />
-          <div style={{ width: 8, height: 4, background: '#B8D4EC', borderRadius: 2, margin: '0 auto', border: '1px solid #98B4CC' }} />
-        </div>
-        {/* Base with 3 legs */}
-        {[-16, 0, 16].map((lx, k) => (
-          <div key={k} style={{ position: 'absolute', bottom: -4, left: `calc(50% + ${lx}px)`, transform: `translateX(-50%) rotate(${(k-1)*22}deg)`, width: 10, height: 5, background: '#B0B4C4', borderRadius: '0 0 3px 3px', transformOrigin: 'top center' }} />
-        ))}
-      </div>
-
-      {/* ══ EXAMINATION TABLE ══ */}
-      <div className="absolute pointer-events-none" style={{ bottom: '43%', left: '50%', transform: 'translateX(-50%)', width: 224 }}>
-        {/* Padded top surface */}
-        <div style={{ height: 16, background: 'linear-gradient(180deg, #EEF0F8 0%, #DDDFE8 100%)', borderRadius: '8px 8px 0 0', border: '2px solid #BCC0D0', boxShadow: 'inset 0 2px 5px rgba(255,255,255,0.65), 0 2px 6px rgba(0,0,0,0.1)' }}>
-          <div style={{ position: 'absolute', top: 3, left: 10, right: 10, height: 3, background: 'rgba(255,255,255,0.55)', borderRadius: 4 }} />
-          {[32, 80, 128, 176].map(x => (
-            <div key={x} style={{ position: 'absolute', top: 4, left: x, width: 2, height: '55%', background: 'rgba(148,158,196,0.18)', borderRadius: 2 }} />
-          ))}
-        </div>
-        {/* Side panel */}
-        <div style={{ height: 20, background: 'linear-gradient(180deg, #CCCEE0, #B4B8CC)', border: '2px solid #9A9EB4', borderTop: 'none' }}>
-          <div style={{ position: 'absolute', top: 5, left: '50%', transform: 'translateX(-50%)', width: 44, height: 9, background: '#BCC0D0', borderRadius: 3, border: '1px solid #A0A4B8' }}>
-            <div style={{ position: 'absolute', top: '50%', left: 8, transform: 'translateY(-50%)', width: 6, height: 6, borderRadius: '50%', background: '#ACAFC2', border: '1px solid #8C90A8' }} />
-            <div style={{ position: 'absolute', top: '50%', right: 8, transform: 'translateY(-50%)', width: 6, height: 6, borderRadius: '50%', background: '#ACAFC2', border: '1px solid #8C90A8' }} />
-          </div>
-        </div>
-        {/* Legs */}
-        {[14, 198].map(lx => (
-          <div key={lx} style={{ position: 'absolute', bottom: -20, left: lx, width: 8, height: 22, background: 'linear-gradient(180deg, #C0C4D4, #A4A8BC)', borderRadius: '0 0 3px 3px', border: '1px solid #8C90A8' }} />
-        ))}
-      </div>
-
-      {/* ══ MEDICAL TRASH BIN ══ */}
-      <div className="absolute pointer-events-none" style={{ bottom: 'calc(42% + 0px)', left: '4%', width: 28 }}>
-        {/* Lid */}
-        <div style={{ height: 6, background: 'linear-gradient(180deg, #E85050, #C83030)', borderRadius: '4px 4px 1px 1px', border: '1px solid #A01818', boxShadow: '0 1px 3px rgba(0,0,0,0.15)', position: 'relative' }}>
-          {/* Biohazard / cross on lid */}
-          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 8, height: 4 }}>
-            <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 2, transform: 'translateY(-50%)', background: 'rgba(255,200,200,0.7)', borderRadius: 1 }} />
-            <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 2, transform: 'translateX(-50%)', background: 'rgba(255,200,200,0.7)', borderRadius: 1 }} />
-          </div>
-        </div>
-        {/* Bin body */}
-        <div style={{ height: 30, background: 'linear-gradient(180deg, #F0F0F0, #E0E0E0)', border: '1px solid #C0C0C8', borderTop: 'none', borderRadius: '0 0 4px 4px', position: 'relative', boxShadow: '1px 2px 4px rgba(0,0,0,0.1)' }}>
-          {/* Biohazard symbol on body */}
-          <div style={{ position: 'absolute', top: 4, left: '50%', transform: 'translateX(-50%)', width: 14, height: 14, borderRadius: '50%', border: '1.5px solid #E83030', opacity: 0.55 }}>
-            <div style={{ position: 'absolute', top: '50%', left: '20%', right: '20%', height: 2, transform: 'translateY(-50%)', background: '#E83030', borderRadius: 1 }} />
-          </div>
-          {/* Red bag showing at top */}
-          <div style={{ position: 'absolute', top: 0, left: 4, right: 4, height: 6, background: 'rgba(220,50,50,0.15)', borderRadius: '0 0 2px 2px' }} />
-        </div>
-      </div>
-
-      {/* ══ PATIENT SCALE ══ */}
-      <div className="absolute pointer-events-none" style={{ bottom: 'calc(42% + 0px)', right: '4%', width: 38 }}>
-        {/* Scale platform */}
-        <div style={{ height: 5, background: 'linear-gradient(180deg, #D8DCE8, #B8BCC8)', borderRadius: '3px 3px 0 0', border: '1px solid #A0A4B4', boxShadow: '0 1px 3px rgba(0,0,0,0.12)' }}>
-          {/* Foot grip lines */}
-          {[0,1,2,3,4].map(k => <div key={k} style={{ position: 'absolute', top: 1, left: `${k * 20 + 4}%`, width: 1.5, height: '60%', background: 'rgba(120,128,160,0.3)' }} />)}
-        </div>
-        {/* Scale base/body */}
-        <div style={{ height: 14, background: 'linear-gradient(180deg, #E8ECF4, #D0D4E0)', border: '1px solid #A4A8B8', borderTop: 'none', borderRadius: '0 0 3px 3px', position: 'relative' }}>
-          {/* Digital readout */}
-          <div style={{ position: 'absolute', top: 3, left: '50%', transform: 'translateX(-50%)', width: 22, height: 8, background: '#1A2030', borderRadius: 2, border: '1px solid #383C50' }}>
-            <div style={{ position: 'absolute', top: 2, left: 3, width: 12, height: 3, background: 'rgba(80,180,80,0.7)', borderRadius: 1 }} />
-          </div>
-        </div>
-      </div>
-
-      {/* ══ EREN on table ══ */}
-      <div className="absolute z-10 bottom-[46%]"
-        style={{ width: 130, height: 130, left: '50%', transform: 'translateX(-50%)' }}>
+      {/* Compensate for the sprite's transparent paw margin to sit on the painted table. */}
+      <div className="absolute z-10" style={{ left: '50%', bottom: 'calc(40% - 24px)', transform: 'translateX(-50%)', width: 200, height: 200 }}>
         <PetTarget reaction={reaction}>
-          <BlinkingEren size={130} src="/erenGood_notail.png" tailSrc="/erenGood_tail.png" />
+          <BlinkingEren size={200} src="/erenGood_notail.png" tailSrc="/erenGood_tail.png" />
         </PetTarget>
         <StinkyFlies cleanliness={stats?.cleanliness ?? 100} />
-
-        {/* Tap-to-pet purr. */}
         {reaction.phase === PURR && <PurrFx bottom="62%" />}
+        {medGiven && <Sparkles tint="#F5C820" />}
       </div>
-
-      {/* ══ CONE OF SHAME ══ */}
-      {!medGiven && (stats?.is_sick || giving) && (
-        <div className="absolute bottom-[57%] left-[44%] pointer-events-none z-20">
-          <div style={{ width: 40, height: 32, borderRadius: '50% 50% 0 0', border: '3px solid #E8CC60', borderBottom: 'none', background: 'transparent', opacity: 0.78 }} />
-        </div>
-      )}
-
-      {/* ══ CSS SPARKLES after medicine ══ */}
-      {medGiven && (
-        <div className="absolute bottom-[47%] left-[54%] pointer-events-none z-20">
-          {[0, 1, 2].map(i => (
-            <div key={i} className="absolute" style={{ left: i * 15, top: -i * 13 }}>
-              <div style={{ position: 'relative', width: 14, height: 14, animation: `float ${0.8 + i * 0.35}s ease-in-out infinite` }}>
-                <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 2.5, transform: 'translateY(-50%)', background: '#F5C820', borderRadius: 2 }} />
-                <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 2.5, transform: 'translateX(-50%)', background: '#F5C820', borderRadius: 2 }} />
-                <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 2.5, transform: 'translateY(-50%) rotate(45deg)', background: 'rgba(245,200,32,0.65)', borderRadius: 2 }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
 
       {toast && <CareToast msg={toast} ok={toastGood} top="65%" />}
 

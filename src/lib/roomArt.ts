@@ -16,6 +16,7 @@ export const ROOM_ART_DAY: Partial<Record<CareScene, string>> = {
   wash:      '/bathroom.png',
   chemistry: '/ChemistryDay.png',
   vet:       '/vetBACK.png',
+  hospital:  '/vetBACK.png',
   garden:    '/garden/day.png',
   talk:      '/AtticDay.png',
 }
@@ -27,6 +28,7 @@ export const ROOM_ART_DARK: Partial<Record<CareScene, string>> = {
   wash:      '/BathroomDark.png',
   chemistry: '/ChemistryNight.png',
   vet:       '/wetDark.png',
+  hospital:  '/wetDark.png',
   garden:    '/garden/night.png',
   talk:      '/AtticNight.png',
 }

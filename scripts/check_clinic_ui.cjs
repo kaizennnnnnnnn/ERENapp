@@ -57,6 +57,13 @@ assert.deepEqual(reasons({ cleanliness: 19, sleep_quality: 14, weight: 7.6 }), p
 assert.deepEqual(reasons({ cleanliness: 20, sleep_quality: 15, weight: 7.5 }), [], 'Keep existing sickness thresholds')
 assert.doesNotMatch(text, /font-pixel|Press Start|setMedGiven\(true\)/)
 assert.match(text, /erenGood_notail/); assert.match(text, /erenGood_tail/)
+assert.match(text, /roomArt\('hospital', isDark\)/)
+assert.doesNotMatch(text, /linear-gradient|radial-gradient|EXAMINATION TABLE|VENETIAN|CONE OF SHAME/)
+const { roomArt } = load('src/lib/roomArt.ts')
+for (const dark of [false, true]) {
+  assert.equal(roomArt('hospital', dark), roomArt('vet', dark), 'Sick care reuses the existing vet-room painting')
+  assert.ok(fs.existsSync('public' + roomArt('hospital', dark)))
+}
 
 function fixture() {
   const timers = new Map(), pending = [], writes = []
