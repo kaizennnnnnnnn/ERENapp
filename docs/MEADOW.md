@@ -97,9 +97,10 @@ panels, buttons, labels, bars, popups, sheets.
 | Speed sprint | `src/components/chemistry/Speed.tsx` |
 | Locate game | `src/components/chemistry/Locate.tsx` |
 | Playroom controls | `src/components/care/PlayScene.tsx`, `playroom/DonePlayingButton.tsx` |
+| Bedroom controls and care notifications | `src/components/care/SleepScene.tsx`, `bedroom/SleepButton.tsx`, `care/CareToast.tsx` |
 | Machine / workbench panel | `src/components/weather/WeatherMachine.tsx` |
 
-The lab study modes and playroom controls listed above now use Meadow. To find remaining old chrome:
+The lab study modes, playroom and bedroom controls listed above now use Meadow. To find remaining old chrome:
 `grep -rlE "font-pixel|Press Start 2P|lucide-react|neoShadow" src`, then judge each hit: chrome gets
 converted, art (game boards, prestige plates, room props) stays.
 

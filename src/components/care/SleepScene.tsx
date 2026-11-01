@@ -22,17 +22,9 @@ import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import PixelPoof from '@/components/PixelPoof'
 import { preloadImages } from '@/lib/preloadImages'
 import SleepButton from '@/components/bedroom/SleepButton'
-import SegmentMeter, { type MeterPalette } from '@/components/care/SegmentMeter'
 import CareToast from '@/components/care/CareToast'
 import RoomWeather from '@/components/weather/RoomWeather'
-
-// SLEEP QUALITY gauge palettes — moonlit indigo when restful, lavender mid,
-// red when poor. The channel is a deep night indigo to read against the dark
-// bedroom; rivets are a warm moon-gold.
-const SLEEP_TRACK = { track: '#1E1848', trackEdge: '#322A66', groove: '#120D2E', frame: '#0B0822', rivet: '#FCD34D' }
-const SLEEP_GOOD: MeterPalette = { fillHi: '#C3C9FF', fillBase: '#818CF8', fillLo: '#5E68DE', fillEdge: '#5A62D8', glow: 'rgba(130,140,255,0.7)', ...SLEEP_TRACK }
-const SLEEP_MID:  MeterPalette = { fillHi: '#E6CCFF', fillBase: '#C084FC', fillLo: '#9B53E6', fillEdge: '#A766E8', glow: 'rgba(192,132,252,0.65)', ...SLEEP_TRACK }
-const SLEEP_LOW:  MeterPalette = { fillHi: '#FFB3B3', fillBase: '#F87171', fillLo: '#E04A4A', fillEdge: '#DC3535', glow: 'rgba(248,113,113,0.7)', ...SLEEP_TRACK }
+import { M, MeadowIcon, Meter, TYPE } from '@/components/meadow'
 
 interface Props { onClose: () => void }
 
@@ -63,24 +55,48 @@ export default function SleepScene({ onClose }: Props) {
   const [holdPose, setHoldPose] = useState(false)
   const [waking,  setWaking]  = useState(false)
   const [toast,   setToast]   = useState<string | null>(null)
+  const [toastGood, setToastGood] = useState(true)
   const [sleepIdx, setSleepIdx] = useState(0)   // which curled pose (0–3)
   const [showPoof, setShowPoof] = useState(false)
   const reaction = useErenReaction()
+  const actionLock = useRef(false)
+  const mounted = useRef(true)
+  const poseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const releasePose = useRef<(() => void) | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      if (poseTimer.current !== null) clearTimeout(poseTimer.current)
+      releasePose.current?.()
+      releasePose.current = null
+      if (toastTimer.current !== null) clearTimeout(toastTimer.current)
+    }
+  }, [])
+
+  function showResult(result: { success: boolean; message: string }) {
+    if (!mounted.current) return
+    setToastGood(result.success)
+    setToast(result.message)
+    if (toastTimer.current !== null) clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => { if (mounted.current) setToast(null) }, 3000)
+  }
 
   // Fall back to the module-level cache so the button reads WAKE UP
   // immediately on swipe-in; otherwise it flashes TUCK IN for ~200 ms
   // while useErenStats refetches.
   const tuckedIn  = stats?.is_sleeping ?? getCachedIsSleeping() ?? false
   const sleepVal  = stats?.sleep_quality ?? 100
-  const sleepPalette = sleepVal > 50 ? SLEEP_GOOD : sleepVal > 25 ? SLEEP_MID : SLEEP_LOW
-  const isSleepy  = sleepVal < 50
+  const sleepColor = sleepVal > 50 ? M.leaf : sleepVal > 25 ? M.energy : M.danger
   const busy      = tucking || waking
   // What the ROOM shows. `tuckedIn` is the truth from the DB (and flips the
   // moment applyAction's optimistic update lands, i.e. on tap); `showAsleep`
   // is that truth held back until the tuck-in choreography has finished, so
   // the sway→settle isn't cut off a frame after it starts. Everything visual
   // reads showAsleep; only the logic reads tuckedIn.
-  const showAsleep = tuckedIn && !holdPose
+  const showAsleep = (tuckedIn || waking) && !holdPose
 
   // Roll a curled-pose pick on mount (covers a reload / remote-partner tuck-in
   // where handleTuckIn never ran) and warm the four stickers so the poof
@@ -104,7 +120,8 @@ export default function SleepScene({ onClose }: Props) {
     // loaded" when it's null, which is exactly the state for the first moment
     // after opening the app. The button used to be live then, so an early tap
     // played the full 1150ms of choreography and then quietly did nothing.
-    if (!user?.id || !stats || busy) return
+    if (!user?.id || !stats || actionLock.current || tuckedIn) return
+    actionLock.current = true
     setTucking(true)
     setHoldPose(true)
     // Re-roll which curled pose he'll fall asleep in, so it's random each time.
@@ -129,25 +146,40 @@ export default function SleepScene({ onClose }: Props) {
     // Overlapping is safe: applyAction writes absolute values (not deltas),
     // and holdPose keeps the room showing the awake pose until the
     // choreography is done, so the optimistic is_sleeping can't cut it short.
-    const write = applyAction(user.id, 'sleep')
-    await new Promise(r => setTimeout(r, 1150))
-    setHoldPose(false)
-    const result = await write
-    setTucking(false)
-    setToast(result.message)
-    if (result.success) completeTask('daily_sleep')
-    setTimeout(() => setToast(null), 3000)
+    // Observe failures immediately, even while the tuck-in pose is still playing.
+    const write = (async () => {
+      try { return await applyAction(user.id, 'sleep') }
+      catch { return { success: false, message: 'Could not tuck in. Please try again.' } }
+    })()
+    try {
+      await new Promise<void>(resolve => {
+        releasePose.current = resolve
+        poseTimer.current = setTimeout(() => { poseTimer.current = null; releasePose.current = null; resolve() }, 1150)
+      })
+      if (mounted.current) setHoldPose(false)
+      const result = await write
+      if (result.success) completeTask('daily_sleep')
+      showResult(result)
+    } finally {
+      actionLock.current = false
+      if (mounted.current) { setTucking(false); setHoldPose(false) }
+    }
   }
 
   async function handleWakeUp() {
-    if (busy) return
+    if (!user?.id || !stats || actionLock.current || !tuckedIn) return
+    actionLock.current = true
     setWaking(true)
-    const result = await wakeUp()
-    setWaking(false)
-    // Eyes open (is_sleeping is now false), then a big waking stretch.
-    reaction.play([{ name: 'wake', ms: 1800, onEnter: () => playSound('care_sleep') }])
-    setToast(result.message)
-    setTimeout(() => setToast(null), 3000)
+    try {
+      const result = await wakeUp()
+      if (mounted.current && result.success) reaction.play([{ name: 'wake', ms: 1800, onEnter: () => playSound('care_sleep') }])
+      showResult(result)
+    } catch {
+      showResult({ success: false, message: 'Could not wake up. Please try again.' })
+    } finally {
+      actionLock.current = false
+      if (mounted.current) setWaking(false)
+    }
   }
 
   return (
@@ -295,17 +327,21 @@ export default function SleepScene({ onClose }: Props) {
 
       {/* ══ UI ══ */}
 
-      {toast && <CareToast msg={toast} tone="#818CF8" />}
+      {toast && <CareToast msg={toast} ok={toastGood} />}
 
       {/* ══ BOTTOM UI ══ */}
-      <div className="absolute bottom-6 inset-x-0 flex flex-col items-center gap-3 px-8 z-20">
+      <div className="meadow-root absolute inset-x-0 flex flex-col items-center gap-3 px-6 z-20" style={{ bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }}>
         {/* Sleep quality gauge */}
-        <div className="w-full max-w-xs">
-          <SegmentMeter label="SLEEP QUALITY" value={sleepVal} palette={sleepPalette} labelColor="#A5B4FC" valueColor="#C7D2FE" />
+        <div className="w-full max-w-xs" aria-busy={!stats} style={{ background: '#FFFFFF', borderRadius: 16, boxShadow: `0 3px 0 ${M.overArtLip}`, padding: '10px 12px' }}>
+          <div className="flex items-center justify-between" style={{ gap: 10, marginBottom: 6, fontSize: 13, fontWeight: 700, color: M.text2 }}>
+            <span className="flex items-center" style={{ gap: 6 }}><MeadowIcon name="moon" size={16} color={sleepColor} />Sleep quality</span>
+            <span style={{ ...TYPE.number, color: M.text }}>{stats ? `${Math.round(sleepVal)}%` : '...'}</span>
+          </div>
+          <Meter value={stats ? sleepVal / 100 : 0} label="Sleep quality" color={sleepColor} height={8} />
         </div>
 
         <SleepButton
-          state={waking ? 'waking' : showAsleep ? 'wake' : tucking ? 'tucking' : 'tuck'}
+          state={waking ? 'waking' : tucking ? 'tucking' : showAsleep ? 'wake' : 'tuck'}
           disabled={busy || !stats}
           onClick={() => { playSound('ui_tap'); tuckedIn ? handleWakeUp() : handleTuckIn() }}
         />

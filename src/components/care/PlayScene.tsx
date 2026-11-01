@@ -24,9 +24,10 @@ import SoundWord from '@/components/SoundWord'
 import { Hearts } from '@/components/care/ReactionFx'
 import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import DonePlayingButton from '@/components/playroom/DonePlayingButton'
+import CareToast from '@/components/care/CareToast'
 import RoomWeather from '@/components/weather/RoomWeather'
 import { ROOM_HEADER_CLEARANCE } from '@/components/meadow/tokens'
-import { Card, M, MeadowIcon, Meter, Tag, TYPE } from '@/components/meadow'
+import { M, MeadowIcon, Meter, Tag, TYPE } from '@/components/meadow'
 
 const CAT_BOTTOM = 'calc(176px + env(safe-area-inset-bottom, 0px))'
 
@@ -329,12 +330,7 @@ export default function PlayScene({ onClose }: Props) {
         Arcade
       </button>
 
-      {toast && <div role="status" className="meadow-root absolute inset-x-4 z-50 pointer-events-none" style={{ top: `calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE + 112}px)` }}>
-        <Card padding="12px 14px" style={{ display: 'flex', alignItems: 'flex-start', gap: 8, boxShadow: `0 3px 0 ${M.overArtLip}`, fontSize: 15, lineHeight: 1.4, fontWeight: 700 }}>
-          <MeadowIcon name={toastGood ? 'check' : 'close'} size={20} color={toastGood ? M.leaf : M.danger} />
-          <span>{toast}</span>
-        </Card>
-      </div>}
+      {toast && <CareToast msg={toast} ok={toastGood} top={`calc(var(--safe-top) + ${ROOM_HEADER_CLEARANCE + 112}px)`} />}
 
       {throwCount === 0 && !done && (
         <div className="meadow-root absolute left-1/2 -translate-x-1/2 z-40 pointer-events-none"
