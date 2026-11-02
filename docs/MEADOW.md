@@ -105,7 +105,8 @@ The lab study modes, playroom, bedroom and clinic controls listed above now use 
 `grep -rlE "font-pixel|Press Start 2P|lucide-react|neoShadow" src`, then judge each hit: chrome gets
 converted, art (game boards, prestige plates, room props) stays.
 
-Sick care reuses the vet office's existing day/night paintings (`vetBACK.png`, `wetDark.png`).
+The owner selected the chunky-pixel cottage vet room on 2026-11-02. Both vet care views and outfit
+previews use `vet-cottage-day.png` and its matching `vet-cottage-night.png` through `roomArt`.
 Do not introduce a separate code-drawn clinic backdrop.
 
 ## How we work (the owner's rule since 2026-10-13)

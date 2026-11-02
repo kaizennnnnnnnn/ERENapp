@@ -2,7 +2,7 @@
 // Bump this string whenever you change badge/icon assets so the browser is
 // guaranteed to detect a byte difference and replace any old SW running on
 // the user's installed PWA. Pairs with no-store headers on /sw.js.
-const SW_VERSION = 'v34-garden-2026-10-11'
+const SW_VERSION = 'v35-vet-cottage-2026-11-02'
 
 // Room backgrounds + Eren sprite. We precache these on install so the user
 // can scroll between rooms with no internet without seeing the room render
@@ -42,7 +42,7 @@ const PRECACHE_IMAGES = [
   '/bathroom.png',   '/BathroomDark.png',
   '/ChemistryDay.png', '/ChemistryNight.png',
   '/CakeShop.png',   '/CakeShopNight.png',
-  '/vetBACK.png',    '/wetDark.png',
+  '/vet-cottage-day.png', '/vet-cottage-night.png',
   '/AtticDay.png',  '/AtticNight.png',  '/donut.png',
   '/garden/day.png', '/garden/night.png', '/garden/day_cut.png', '/garden/night_cut.png',
   // The four kiosk walls you turn between once you're inside the shawarma

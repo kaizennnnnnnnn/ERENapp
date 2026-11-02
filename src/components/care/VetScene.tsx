@@ -6,6 +6,7 @@ import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
 import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
+import { roomArt } from '@/lib/roomArt'
 import BlinkingEren from '@/components/BlinkingEren'
 import { useRoomEren } from '@/hooks/useRoomEren'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
@@ -259,7 +260,7 @@ export default function VetScene({ onClose }: Props) {
       )}
 
       {/* ══ BACKGROUND IMAGE ══ */}
-      <div className="absolute inset-0" style={{ backgroundImage: `url(${isDark ? '/wetDark.png' : '/vetBACK.png'})`, backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
+      <div className="absolute inset-0" style={{ backgroundImage: `url(${roomArt('vet', isDark)})`, backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
       {/* ══ EREN ══ (hidden while sleeping in the bedroom). Body wrapper:
           curious tilt during the checkup, grimace on medicine then a snap

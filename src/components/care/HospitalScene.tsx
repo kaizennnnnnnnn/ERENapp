@@ -76,8 +76,8 @@ export default function HospitalScene({ onClose }: Props) {
     <div className="fixed inset-0 z-40 flex flex-col overflow-hidden">
       <div className="absolute inset-0" style={{ backgroundImage: `url(${roomArt('hospital', isDark)})`, backgroundSize: 'cover', backgroundPosition: 'center', WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', pointerEvents: 'none' }} />
 
-      {/* Compensate for the sprite's transparent paw margin to sit on the painted table. */}
-      <div className="absolute z-10" style={{ left: '50%', bottom: 'calc(40% - 24px)', transform: 'translateX(-50%)', width: 200, height: 200 }}>
+      {/* Paws sit toward the front of the tabletop, with the ears clear of the care notes. */}
+      <div className="absolute z-10" style={{ left: '50%', bottom: 'calc(43% - 36px)', transform: 'translateX(-50%)', width: 200, height: 200 }}>
         <PetTarget reaction={reaction}>
           <BlinkingEren size={200} src="/erenGood_notail.png" tailSrc="/erenGood_tail.png" />
         </PetTarget>
