@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useErenStats, getCachedIsSleeping } from '@/hooks/useErenStats'
-import { useTasks } from '@/contexts/TaskContext'
 import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
 import { roomArt } from '@/lib/roomArt'
@@ -54,8 +53,8 @@ function lolipopReadyAt(): number {
   } catch { return 0 }
 }
 
-function markLolipopNow(): void {
-  try { localStorage.setItem(LOLIPOP_AT_KEY, String(Date.now())) } catch { /* private mode */ }
+function markLolipopNow(at = Date.now()): void {
+  try { localStorage.setItem(LOLIPOP_AT_KEY, String(at)) } catch { /* private mode */ }
 }
 
 /** Coarse while the wait is long, precise once it is nearly over. */
@@ -114,7 +113,6 @@ export default function VetScene({ onClose }: Props) {
   const { user, profile } = useAuth()
   const { stats, applyAction } = useErenStats(profile?.household_id ?? null)
   const vetEren = useRoomEren('vet', VET_EREN_FALLBACK)
-  const { completeTask } = useTasks()
 
   const [checkDone, setCheckDone] = useState(false)
   const [checking,  setChecking]  = useState(false)
@@ -133,6 +131,58 @@ export default function VetScene({ onClose }: Props) {
   const [eatIdx,    setEatIdx]    = useState(0)
   const [showPoof,  setShowPoof]  = useState(false)
   const [treatFlow, setTreatFlow] = useState(false)
+  const actionLock = useRef(false)
+  const mounted = useRef(true)
+  const careDelays = useRef(new Map<ReturnType<typeof setTimeout>, (active: boolean) => void>())
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const celebrationTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    mounted.current = true
+    function refreshCooldown() {
+      const current = Date.now()
+      const saved = lolipopReadyAt()
+      setNow(current)
+      setReadyAt(previous => Math.max(saved, previous <= current + LOLIPOP_COOLDOWN_MS ? previous : 0))
+    }
+    function onStorage(event: StorageEvent) {
+      if (event.key === LOLIPOP_AT_KEY || event.key === null) refreshCooldown()
+    }
+    function onVisible() {
+      if (document.visibilityState === 'visible') refreshCooldown()
+    }
+    refreshCooldown()
+    window.addEventListener('storage', onStorage)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      mounted.current = false
+      window.removeEventListener('storage', onStorage)
+      document.removeEventListener('visibilitychange', onVisible)
+      careDelays.current.forEach((resolve, timer) => { clearTimeout(timer); resolve(false) })
+      careDelays.current.clear()
+      if (toastTimer.current !== null) clearTimeout(toastTimer.current)
+      if (celebrationTimer.current !== null) clearTimeout(celebrationTimer.current)
+    }
+  }, [])
+
+  function waitForCare(ms: number): Promise<boolean> {
+    if (!mounted.current) return Promise.resolve(false)
+    return new Promise(resolve => {
+      const timer = setTimeout(() => { careDelays.current.delete(timer); resolve(mounted.current) }, ms)
+      careDelays.current.set(timer, resolve)
+    })
+  }
+
+  function showResult(result: { success: boolean; message: string } | null) {
+    if (!mounted.current) return
+    if (toastTimer.current !== null) clearTimeout(toastTimer.current)
+    toastTimer.current = null
+    setToast(result ? { msg: result.message, ok: result.success } : null)
+    if (result) toastTimer.current = setTimeout(() => {
+      toastTimer.current = null
+      if (mounted.current) setToast(null)
+    }, 3000)
+  }
 
   // Warm the four eating stickers so the poof reveals a decoded bitmap.
   useEffect(() => { preloadEatPoses() }, [])
@@ -186,34 +236,47 @@ export default function VetScene({ onClose }: Props) {
   const healthy = issues.length === 0
 
   async function doCheckup() {
-    if (checking || checkDone || isSleeping) return
+    if (!user?.id || !stats || actionLock.current || checkDone || isSleeping) return
+    actionLock.current = true
     setChecking(true)
-    await new Promise(r => setTimeout(r, 1200))
-    setChecking(false)
-    setCheckDone(true)
-    // The visit itself grants "take me to the vet". A dose only follows when
-    // the report says NEEDS CARE, so waiting for one left the wish stuck on
-    // pending every day Eren was healthy.
-    try { window.dispatchEvent(new Event('eren:vet-checkup')) } catch { /* SSR/no-window */ }
+    reaction.cancel()
+    try {
+      if (!await waitForCare(1200)) return
+      setCheckDone(true)
+      // A healthy visit also fulfils the checkup wish, once this visit finishes.
+      window.dispatchEvent(new Event('eren:vet-checkup'))
+    } finally {
+      actionLock.current = false
+      if (mounted.current) setChecking(false)
+    }
   }
 
   async function giveMedicine() {
-    if (!user?.id || giving || medGiven || isSleeping) return
+    if (!user?.id || !stats || actionLock.current || !checkDone || healthy || medGiven || isSleeping) return
+    actionLock.current = true
     setGiving(true)
     setTreatFlow(false)
-    // Gulp + grimace → snap upright with green recovery sparks → happy hop.
-    reaction.play([
-      { name: 'grimace', ms: 600, onEnter: () => playSound('care_gulp') },
-      { name: 'recover', ms: 600 },
-      ...happyFinisherBeats(),
-    ])
-    await new Promise(r => setTimeout(r, 800))
-    const result = await applyAction(user.id, 'medicine')
-    setGiving(false)
-    setMedGiven(result.success)
-    setToast({ msg: result.message, ok: result.success })
-    if (result.success) completeTask('daily_wash')
-    setTimeout(() => setToast(null), 3000)
+    showResult(null)
+    try {
+      reaction.cancel()
+      reaction.play([{ name: 'grimace', ms: 600, onEnter: () => playSound('care_gulp') }])
+      // Start saving under the gulp; only a confirmed dose gets recovery and the happy hop.
+      const write = applyAction(user.id, 'medicine').catch(() => ({ success: false, message: 'Could not save this treatment. Please try again.' }))
+      const active = await waitForCare(600)
+      const result = await write
+      if (!active || !mounted.current) return
+      if (!result.success) { reaction.cancel(); showResult(result); return }
+      setMedGiven(true)
+      const finish = [{ name: 'recover', ms: 600 }, ...happyFinisherBeats()]
+      reaction.play(finish)
+      showResult(result)
+      await waitForCare(finish.reduce((total, beat) => total + beat.ms, 0))
+    } catch {
+      if (mounted.current) { reaction.cancel(); showResult({ success: false, message: 'Could not save this treatment. Please try again.' }) }
+    } finally {
+      actionLock.current = false
+      if (mounted.current) setGiving(false)
+    }
   }
 
   // The reward for a clean bill of health: every bar but cleanliness goes up,
@@ -224,32 +287,46 @@ export default function VetScene({ onClose }: Props) {
   // enough that the report card lands across his face and the button covers
   // everything under it.
   async function giveLolipop() {
-    if (!user?.id || lolBusy || lolWait > 0 || isSleeping) return
+    if (!user?.id || !stats || actionLock.current || !checkDone || !healthy || isSleeping) return
+    const current = Date.now()
+    const latestReadyAt = Math.max(lolipopReadyAt(), readyAt <= current + LOLIPOP_COOLDOWN_MS ? readyAt : 0)
+    if (latestReadyAt > current) { setReadyAt(latestReadyAt); setNow(current); return }
+    actionLock.current = true
     setLolBusy(true)
     setTreatFlow(true)
     setEatIdx(pickEatPose())
-    reaction.play([
-      // Beat of nothing so the UI is already gone when the poof fires.
-      { name: 'unwrap', ms: 150 },
-      { name: 'lick',   ms: 1300, onEnter: () => playSound('care_drink') },
-      // The second lap lands mid-treat rather than stacked on the first, and
-      // uses the OTHER take so it isn't one clip played twice.
-      { name: 'lick2',  ms: 1350, onEnter: () => playSound('care_drink2') },
-      ...happyFinisherBeats(),
-    ])
-    await new Promise(r => setTimeout(r, 700))
-    const result = await applyAction(user.id, 'lolipop')
-    setLolBusy(false)
-    if (!result.success) { setToast({ msg: result.message, ok: false }); setTimeout(() => setToast(null), 3000); return }
-    // Only start the cooldown once the write actually landed — a 503 shouldn't
-    // cost him half an hour.
-    markLolipopNow()
-    setNow(Date.now())
-    setReadyAt(Date.now() + LOLIPOP_COOLDOWN_MS)
-    setLolJustGiven(true)
-    setTimeout(() => setLolJustGiven(false), CELEBRATE_MS)
-    setToast({ msg: result.message, ok: true })
-    setTimeout(() => setToast(null), 3000)
+    showResult(null)
+    try {
+      reaction.cancel()
+      reaction.play([{ name: 'unwrap', ms: 150 }])
+      const write = applyAction(user.id, 'lolipop').catch(() => ({ success: false, message: 'Could not save this treat. Please try again.' }))
+      const active = await waitForCare(150)
+      const result = await write
+      // A treat saved after leaving still used the reward; retain its cooldown.
+      if (result.success) {
+        const givenAt = Date.now()
+        markLolipopNow(givenAt)
+        if (!active || !mounted.current) return
+        setNow(givenAt)
+        setReadyAt(givenAt + LOLIPOP_COOLDOWN_MS)
+        setLolJustGiven(true)
+        if (celebrationTimer.current !== null) clearTimeout(celebrationTimer.current)
+        celebrationTimer.current = setTimeout(() => { if (mounted.current) setLolJustGiven(false) }, CELEBRATE_MS)
+        const finish = [
+          { name: 'lick', ms: 1300, onEnter: () => playSound('care_drink') },
+          { name: 'lick2', ms: 1350, onEnter: () => playSound('care_drink2') },
+          ...happyFinisherBeats(),
+        ]
+        reaction.play(finish)
+        showResult(result)
+        await waitForCare(finish.reduce((total, beat) => total + beat.ms, 0))
+      } else if (active && mounted.current) { reaction.cancel(); showResult(result) }
+    } catch {
+      if (mounted.current) { reaction.cancel(); showResult({ success: false, message: 'Could not save this treat. Please try again.' }) }
+    } finally {
+      actionLock.current = false
+      if (mounted.current) setLolBusy(false)
+    }
   }
 
   return (
@@ -275,7 +352,7 @@ export default function VetScene({ onClose }: Props) {
               <ChewingEren idx={eatIdx} />
             </div>
           ) : (
-            <PetTarget reaction={reaction} disabled={checking}>
+            <PetTarget reaction={reaction} disabled={checking || giving || lolBusy}>
               <ErenIdleLayer disabled={checking || reaction.active}>
                 <div style={{
                   animation: reaction.phase === 'grimace' ? 'erenGrimace 600ms ease-out both'
@@ -354,19 +431,19 @@ export default function VetScene({ onClose }: Props) {
         {!checkDone ? (
           <CheckupButton
             state={checking ? 'checking' : 'check'}
-            disabled={checking || isSleeping}
+            disabled={checking || isSleeping || !stats || !user?.id}
             onClick={() => { playSound('ui_tap'); doCheckup() }}
           />
-        ) : !healthy && !medGiven ? (
+        ) : giving || (!healthy && !medGiven) ? (
           <GiveMedicineButton
             state={giving ? 'giving' : 'give'}
-            disabled={giving || isSleeping}
+            disabled={giving || isSleeping || !stats || !user?.id}
             onClick={() => { playSound('ui_tap'); giveMedicine() }}
           />
         ) : healthy && lolWait <= 0 ? (
           <GiveLolipopButton
             state={lolBusy ? 'giving' : 'give'}
-            disabled={lolBusy || isSleeping}
+            disabled={lolBusy || isSleeping || !stats || !user?.id}
             onClick={() => { playSound('ui_tap'); giveLolipop() }}
           />
         ) : healthy ? (
