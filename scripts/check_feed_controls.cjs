@@ -13,22 +13,22 @@ visit(source)
 assert.equal(found.size, names.length)
 const code = ts.transpileModule([...found.values()].join('\n'), { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText
 const item = { id: 'kibble', name: 'Kibble', hungerD: 15, happyD: 0, weightD: 0.03 }
-let meals = 0, consumes = 0, restores = 0, taps = 0
+let meals = 0, saves = 0, wishes = 0, taps = 0
 let release
 const env = {
-  feedingRef: { current: false }, isSleeping: false, reaction: { active: false, play() {} }, unlock: null,
+  feedingRef: { current: false }, mounted: { current: true }, stats: {}, foodActionBusy: false, foodActionRetry: null,
+  isSleeping: false, reaction: { active: false, play() { meals++ }, cancel() {} }, unlock: null,
   suppressFoodClick: { current: false }, foodDrag: { active: false }, tick() {}, DRAG_ICON: 50,
   dragRef: { current: {} }, ghostRef: { current: { style: {} } }, erenZone: (x, y) => x === 150 && y === 400,
   user: { id: 'alice' }, profile: { household_id: 'home' }, inventory: { kibble: 3 },
   setFeeding(value) { this.feeding = value }, showToast() {},
-  consumeMyFood() { consumes++; return new Promise(resolve => { release = resolve }) },
-  feedWithFood: async () => { meals++; return { success: true, message: 'Yum!' } },
-  addToMyFood: async () => { restores++; return true },
+  runFoodAction(action) { assert.deepEqual(action, { kind: 'feed', foodKey: item.id }); saves++; return new Promise(resolve => { release = resolve }) },
+  foodActionError: () => 'Could not save',
   isDrink: () => false, playSound() {}, setFedItem() {}, setEatIdx() {}, pickEatPose: () => 0,
   happyFinisherBeats: () => [], getDonut: () => null, monstaBuff: () => null,
   todayKey: () => 'today', dailyMenu: () => [], noteMenuFed() {}, DRINK_UNLOCK_SKINS: {},
   cat: { t: text => text }, completeTask() {},
-  window: { dispatchEvent() {} }, CustomEvent: class {},
+  window: { dispatchEvent() { wishes++ } }, CustomEvent: class {},
 }
 const api = new Function('env', `with (env) { ${code}; return {${names.join(',')}} }`)(env)
 const pointer = (x, y, extra = {}) => ({
@@ -40,21 +40,23 @@ async function main() {
   // Same-tick presses share the ref lock even before React can re-render.
   const first = api.handleFeed(item)
   const second = api.handleFeed(item)
-  assert.equal(consumes, 1)
-  release(false)
+  assert.equal(saves, 1)
+  assert.equal(meals, 0, 'No eating animation before the meal is confirmed')
+  release({ ok: false })
   await Promise.all([first, second])
-  assert.equal(meals, 0, 'Failed consumption cannot grant care benefits')
+  assert.equal(meals, 0, 'A failed meal cannot celebrate')
+  assert.equal(wishes, 0, 'A failed meal cannot grant a food wish')
   assert.equal(env.feedingRef.current, false)
   assert.equal(env.feeding, null)
 
   const success = api.handleFeed(item)
-  release(true)
+  release({ ok: true })
   await success
   assert.equal(meals, 1)
-  assert.equal(restores, 0)
+  assert.equal(wishes, 1)
   assert.equal(env.feedingRef.current, false)
 
-  env.consumeMyFood = async () => { throw Error('transport') }
+  env.runFoodAction = async () => { throw Error('transport') }
   await api.handleFeed(item)
   assert.equal(env.feedingRef.current, false, 'Unexpected failures must release busy state')
 

@@ -1,5 +1,5 @@
 'use client'
-import { purchaseFridgeFood } from '@/lib/foodPurchase'
+import { foodActionError, type FoodActionResult } from '@/lib/foodActions'
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useAuth } from '@/hooks/useAuth'
@@ -30,18 +30,19 @@ import { FoodBowl, Crumbs, Hearts } from '@/components/care/ReactionFx'
 import KitchenNavButton from '@/components/kitchen/KitchenNavButton'
 import ChewingEren, { EAT_NOSE_X, pickEatPose, preloadEatPoses } from '@/components/care/ChewingEren'
 import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
-import { DONUTS, getDonut, KITCHEN_DONUTS, TASTE_JOY, TASTE_LINE } from '@/lib/donuts'
+import { DONUTS, getDonut, KITCHEN_DONUTS, TASTE_LINE } from '@/lib/donuts'
 import { DONUT_EFFECTS } from '@/lib/donutEffects'
 import { dailyMenu } from '@/lib/foodMenu'
 import { todayKey } from '@/lib/seededRng'
 import { monstaBuff } from '@/lib/monstaBuffs'
 import CanFeedBurst, { type CanVariant } from './CanFeedBurst'
 import SkinUnlockCinematic from './SkinUnlockCinematic'
-import { DRINK_UNLOCK_SKINS, getSkin, type SkinDef } from '@/lib/skins'
-import { grantSkin, wearSkinEverywhere } from '@/lib/skinGrant'
+import { getSkin, type SkinDef } from '@/lib/skins'
+import { wearSkinEverywhere } from '@/lib/skinGrant'
 import PixelPoof from '@/components/PixelPoof'
 import FoodStatsCard, { type FoodStatItem } from '@/components/care/FoodStatsCard'
 import CareToast from '@/components/care/CareToast'
+import FoodSaveRecovery from '@/components/care/FoodSaveRecovery'
 import { useLongPress } from '@/hooks/useLongPress'
 import { IconFridge, IconCart } from '@/components/PixelIcons'
 import { M, MeadowIcon, CoinChip, PrimaryButton, RoundButton, Tag } from '@/components/meadow'
@@ -258,8 +259,8 @@ const FEED_EREN_FALLBACK = {
 
 export default function FeedScene({ onClose }: Props) {
   const { user, profile } = useAuth()
-  const { stats, feedWithFood, addToMyFood, consumeMyFood, markDonutTasted, noteMenuFed, startDonutEffect } = useErenStats(profile?.household_id ?? null)
-  const { completeTask, coins, spendCoins, addCoins } = useTasks()
+  const { stats, runFoodAction, foodActionBusy, foodActionRetry, noteMenuFed } = useErenStats(profile?.household_id ?? null)
+  const { completeTask, coins } = useTasks()
   const isDark = useIsDark()
   const wish = useWish()
   const cat = useCat()
@@ -285,7 +286,15 @@ export default function FeedScene({ onClose }: Props) {
   const [buying, setBuying] = useState<string | null>(null)
   const [feeding, setFeeding] = useState<string | null>(null)
   const feedingRef = useRef(false)
+  const buyingRef = useRef(false)
+  const mounted = useRef(true)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false; if (toastTimer.current !== null) clearTimeout(toastTimer.current) }
+  }, [])
+  useEffect(() => { if (foodActionRetry) setTab(null) }, [foodActionRetry])
 
   // Drag-to-feed state — all stored in refs so document-level listeners
   // see current values without re-registering on every render.
@@ -316,7 +325,7 @@ export default function FeedScene({ onClose }: Props) {
   // Pointer capture keeps touch, pen and mouse drags on the same path. A
   // stationary press is left to the button's native click (including keyboard).
   function startFoodDrag(e: React.PointerEvent<HTMLButtonElement>, item: typeof SHOP_ITEMS[number]) {
-    if (!e.isPrimary || e.button !== 0 || feedingRef.current || isSleeping || reaction.active) return
+    if (!e.isPrimary || e.button !== 0 || feedingRef.current || foodActionBusy || foodActionRetry || isSleeping || reaction.active) return
     e.stopPropagation()
     suppressFoodClick.current = false
     e.currentTarget.setPointerCapture(e.pointerId)
@@ -465,7 +474,7 @@ export default function FeedScene({ onClose }: Props) {
         // <-> crouch swap is hidden by the poof at each end of the meal.
         <ChewingEren idx={eatIdx} baked={BAKED_SPRITE_TEST} />
       ) : (
-        <PetTarget reaction={reaction}>
+        <PetTarget reaction={reaction} disabled={feeding !== null || foodActionBusy}>
           <ErenIdleLayer disabled={reaction.active}>
             <div style={{
               animation: phase === 'finish' ? 'erenIdleHop 800ms ease-in-out' : undefined,
@@ -506,40 +515,57 @@ export default function FeedScene({ onClose }: Props) {
   )
 
   function showToast(msg: string, ok = true) {
+    if (!mounted.current) return
+    if (toastTimer.current !== null) clearTimeout(toastTimer.current)
     setToast({ msg, ok })
-    setTimeout(() => setToast(null), 2200)
+    toastTimer.current = setTimeout(() => { if (mounted.current) setToast(null) }, 2200)
   }
 
   useEffect(() => { if (isSleeping) setTab(null) }, [isSleeping])
 
   async function handleBuy(item: typeof SHOP_ITEMS[number]) {
-    if (!user?.id || isSleeping || buying || coins < item.price) return
+    if (!user?.id || !stats || isSleeping || buyingRef.current || foodActionBusy || foodActionRetry || coins < item.price) return
+    buyingRef.current = true
     setBuying(item.id)
-    const ok = await purchaseFridgeFood(item.id, item.price, {
-      addFood: key => addToMyFood(user.id, key),
-      spendCoins,
-      removeFood: key => consumeMyFood(user.id, key),
-    })
-    showToast(ok ? `Bought ${item.name}! In your fridge` : 'Could not save your purchase. Please try again.', ok)
-    setBuying(null)
+    try {
+      const result = await runFoodAction({ kind: 'buy', foodKey: item.id, source: 'kitchen' })
+      showToast(result.ok ? `Bought ${item.name}! In your fridge` : foodActionError(result.reason), result.ok)
+    } catch {
+      showToast(foodActionError(), false)
+    } finally {
+      buyingRef.current = false
+      if (mounted.current) setBuying(null)
+    }
   }
 
-  async function handleFeed(item: typeof SHOP_ITEMS[number]) {
-    if (!user?.id || feedingRef.current || isSleeping || reaction.active || unlock) return
+  async function handleFeed(item: typeof SHOP_ITEMS[number], recover = false) {
+    if (!user?.id || !stats || feedingRef.current || reaction.active || unlock || foodActionBusy) return
+    if (!recover && (isSleeping || foodActionRetry)) return
     // Stock check is purely local — `inventory` derives from stats already
     // in memory, so the no-food case answers without touching the network.
-    if ((inventory[item.id] ?? 0) <= 0) {
+    if (!recover && (inventory[item.id] ?? 0) <= 0) {
       showToast(`No ${item.name} in your fridge`, false)
       return
     }
     feedingRef.current = true
     setFeeding(item.id)
     try {
-      if (!(await consumeMyFood(user.id, item.id))) {
-        showToast('Could not save this meal. Please try again.', false)
+      reaction.cancel()
+      const result = await runFoodAction({ kind: 'feed', foodKey: item.id }, recover)
+      if (!result.ok) {
+        showToast(foodActionError(result.reason), false)
         return
       }
-      // Reserve the food before awarding care benefits. Drinks lap, solids chew.
+      // The meal, perks and earned look are already saved before he starts eating.
+      try {
+        window.dispatchEvent(new CustomEvent('eren:fed-food', { detail: {
+          food: item.id, user_id: user.id, household_id: profile?.household_id,
+        } }))
+      } catch { /* SSR/no-window */ }
+      const day = todayKey(new Date())
+      noteMenuFed(day, item.id, dailyMenu(day, profile?.household_id ?? null))
+      void completeTask('daily_feed')
+      if (!mounted.current) return
       const drinking = isDrink(item.id)
       playSound(drinking ? 'care_drink' : 'care_eat')
       setFedItem(item)
@@ -553,59 +579,23 @@ export default function FeedScene({ onClose }: Props) {
         { name: 'eat2', ms: 1350, onEnter: () => playSound(drinking ? 'care_drink2' : 'care_eat') },
         ...happyFinisherBeats(),
       ])
-      // Signal the food key for the Daily Wish system — useDailyWish picks
-      // this up to match food-specific wishes like "i'm craving salmon".
-      try {
-        window.dispatchEvent(new CustomEvent('eren:fed-food', { detail: {
-          food: item.id, user_id: user.id, household_id: profile?.household_id,
-        } }))
-      } catch { /* SSR/no-window */ }
-
-      // A can refills the energy bar and lands its own perk on top of the food's
-      // hunger/joy; a donut lands its perk WITHOUT the refuel (see MonstaBuff's
-      // `energy` field). Coins are the one perk eren_stats can't hold, so they're
-      // paid here — after the stat write, so a failed feed doesn't mint them.
-      //
-      // Taste scales the donut's OWN joy, never the perk: a donut he loves is
-      // twice as nice to eat, but Gold Leaf still pays exactly 35 coins whether
-      // he enjoyed it or not.
       const donut = getDonut(item.id)
       const buff = monstaBuff(item.id) ?? donut?.perk
-      const joy = donut ? Math.round(item.happyD * TASTE_JOY[donut.taste]) : item.happyD
-      const result = await feedWithFood(user.id, item.hungerD, joy, item.weightD, buff)
-      if (!result.success) await addToMyFood(user.id, item.id)
-      if (result.success && buff?.coins) void addCoins(buff.coins)
-      // He's tasted it now — that's what fills in the bakery's donut case.
-      if (result.success && donut) void markDonutTasted(donut.id)
-      // ...and it may have been one of the three he asked for today. Computed in
-      // the handler rather than during render so the clock is never read while
-      // hydrating; noteMenuFed ignores anything not on today's menu.
-      if (result.success) {
-        const day = todayKey(new Date())
-        noteMenuFed(day, item.id, dailyMenu(day, profile?.household_id ?? null))
-      }
-      // A special donut leaves something you can SEE, for a while, on the
-      // household row — so the aura is already up by the time the toast lands,
-      // and the partner finds a glowing cat next time they open the app.
-      const fx = result.success && donut?.effect ? DONUT_EFFECTS[donut.effect] : null
-      if (fx && donut?.effect) void startDonutEffect(donut.effect)
-      const headline = !result.success ? null
-        : fx ? fx.label
+      const fx = donut?.effect ? DONUT_EFFECTS[donut.effect] : null
+      const headline = fx ? fx.label
         : buff?.energy != null ? `ENERGY FULL · ${buff.label}`
         : donut ? [TASTE_LINE[donut.taste], buff?.label].filter(Boolean).join(' · ')
         : null
-      showToast(headline ? cat.t(headline) : result.message, result.success)
-      if (result.success) completeTask('daily_feed')
+      showToast(headline ? cat.t(headline) : cat.t('{name} is eating!'))
 
       // The FIRST pour of a SPECIAL EDITION can leaves its colours on him for
-      // good. `grantSkin` answers 'new' only on the insert that actually landed,
+      // good. The receipt names it only on the insert that actually landed,
       // so a second Gold Monsta — or the partner pouring one at the same moment —
       // celebrates exactly once. See lib/skinGrant.ts.
-      const unlockSkinId = result.success ? DRINK_UNLOCK_SKINS[item.id] : undefined
+      const unlockSkinId = result.new_skin
       if (unlockSkinId) {
         const skin = getSkin(unlockSkinId)
-        const granted = await grantSkin(user.id, unlockSkinId)
-        if (skin && granted === 'new') {
+        if (skin) {
           setPendingUnlock({ skin, variant: SPECIAL_CAN[item.id], drinkName: item.name })
         }
       }
@@ -613,8 +603,20 @@ export default function FeedScene({ onClose }: Props) {
       showToast('Could not finish this meal. Please try again.', false)
     } finally {
       feedingRef.current = false
-      setFeeding(null)
+      if (mounted.current) setFeeding(null)
     }
+  }
+
+  async function recoverFoodSave() {
+    const intent = foodActionRetry
+    if (!intent || foodActionBusy) return
+    if (intent.kind === 'feed') {
+      const item = SHOP_ITEMS.find(food => food.id === intent.foodKey)
+      if (item) await handleFeed(item, true)
+      return
+    }
+    const result: FoodActionResult = await runFoodAction(intent, true)
+    showToast(result.ok ? 'Food save confirmed. Your fridge is up to date.' : foodActionError(result.reason), result.ok)
   }
 
   return (
@@ -685,7 +687,8 @@ export default function FeedScene({ onClose }: Props) {
 
       {/* ══ UI ══ */}
 
-      {toast && <CareToast msg={toast.msg} ok={toast.ok} tone="#F5C842" />}
+      {foodActionRetry ? <FoodSaveRecovery busy={foodActionBusy} onRetry={() => { void recoverFoodSave() }} />
+        : toast && <CareToast msg={toast.msg} ok={toast.ok} tone="#F5C842" />}
 
       {/* ══ DRAG GHOST — just the food icon, no frame ══ */}
       {dragRef.current.item && dragRef.current.pos && dragRef.current.active && (
@@ -720,7 +723,7 @@ export default function FeedScene({ onClose }: Props) {
           {/* LEFT: Fridge button */}
           <KitchenNavButton
             variant="fridge"
-            disabled={isSleeping}
+            disabled={isSleeping || foodActionBusy || !!foodActionRetry}
             onClick={() => { if (!isSleeping) { playSound('ui_modal_open'); setTab('fridge') } }}
           />
 
@@ -748,7 +751,7 @@ export default function FeedScene({ onClose }: Props) {
 
                 <button type="button" className="meadow-root m-focus flex flex-col items-center"
                   aria-label={`Feed ${item.name} to ${cat.name}`}
-                  disabled={isSleeping || feeding !== null}
+                  disabled={isSleeping || feeding !== null || foodActionBusy || !!foodActionRetry}
                   aria-busy={feeding !== null}
                   onPointerDown={e => startFoodDrag(e, item)}
                   onPointerMove={moveFoodDrag}
@@ -809,7 +812,7 @@ export default function FeedScene({ onClose }: Props) {
           <KitchenNavButton
             variant="shop"
             active={tab === 'shop'}
-            disabled={isSleeping}
+            disabled={isSleeping || foodActionBusy || !!foodActionRetry}
             onClick={() => {
               const closing = tab === 'shop'
               playSound(closing ? 'ui_modal_close' : 'ui_modal_open')
@@ -994,7 +997,7 @@ export default function FeedScene({ onClose }: Props) {
                           to look busy while one is — on a slow connection
                           writeWithRetry can hold that for 20s. */}
                       <PrimaryButton size="sm" full
-                        disabled={!canAfford}
+                        disabled={!canAfford || foodActionBusy || !!foodActionRetry || !stats}
                         busy={!!buying}
                         ariaLabel={canAfford ? `Buy ${item.name} for ${item.price} coins` : `${item.name} costs ${item.price} coins`}
                         onClick={() => { if (hold.consumed()) return; playSound('ui_tap'); handleBuy(item) }}

@@ -226,8 +226,7 @@ export function rollDonut(): DonutDef {
 export function msUntilFreeSpin(lastFree: string | null | undefined, now = Date.now()): number {
   if (!lastFree) return 0
   const elapsed = now - new Date(lastFree).getTime()
-  // A stamp in the future (clock skew between the two phones) would otherwise
-  // lock the machine for days. Treat anything nonsensical as ready.
-  if (!Number.isFinite(elapsed) || elapsed < 0) return 0
+  // An invalid/future stamp is not evidence that another free prize is ready.
+  if (!Number.isFinite(elapsed) || elapsed < 0) return FREE_SPIN_MS
   return Math.max(0, FREE_SPIN_MS - elapsed)
 }

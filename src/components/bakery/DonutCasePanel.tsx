@@ -45,6 +45,8 @@ interface Props {
   /** False while the free-spin cooldown is still being read, too. */
   freeReady: boolean
   loaded: boolean
+  readError?: boolean
+  onRefresh?: () => void
   busy: boolean
   /** "6h 12m" until the free spin returns. */
   freeIn: string
@@ -53,7 +55,7 @@ interface Props {
 }
 
 export default function DonutCasePanel({
-  open, tasted, coins, freeReady, loaded, busy, freeIn, onSpin, onClose,
+  open, tasted, coins, freeReady, loaded, readError = false, onRefresh, busy, freeIn, onSpin, onClose,
 }: Props) {
   const [picked, setPicked] = useState<DonutDef | null>(null)
   const cat = useCat()
@@ -64,9 +66,9 @@ export default function DonutCasePanel({
   // while a free one might be waiting.
   const footer = (
     <div className="flex flex-col" style={{ gap: 8 }}>
-      <PrimaryButton onClick={onSpin} disabled={!spinnable}
+      <PrimaryButton onClick={readError ? onRefresh : onSpin} disabled={readError ? busy : !spinnable}
         icon={loaded && freeReady ? <MeadowIcon name="star" size={22} /> : undefined}>
-        {!loaded ? 'Warming up...'
+        {readError ? 'Retry cooldown check' : !loaded ? 'Warming up...'
           : freeReady ? 'Free spin'
           : <span className="inline-flex items-center" style={{ gap: 8 }}>Spin<MeadowIcon name="coin" size={22} />{SPIN_COST}</span>}
       </PrimaryButton>

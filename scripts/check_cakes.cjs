@@ -36,7 +36,6 @@ function load(file) {
   return module.exports
 }
 const { CAKES, getCake, getCakeByFoodId, cakeArt } = load(path.join(root, 'src/lib/cakes.ts'))
-const { purchaseCakeFood } = load(path.join(root, 'src/lib/cakePurchase.ts'))
 const { foodArt } = load(path.join(root, 'src/lib/foodMeta.ts'))
 const { default: CakeSprite } = load(path.join(root, 'src/components/bakery/CakeSprite.tsx'))
 const { default: CakeMenuSheet } = load(path.join(root, 'src/components/bakery/CakeMenuSheet.tsx'))
@@ -89,20 +88,15 @@ for (const [coins, busy] of [[0, false], [80, false], [100000, false], [100000, 
 }
 const page = fs.readFileSync(path.join(root, 'src/app/(app)/bakery/page.tsx'), 'utf8')
 assert.ok(page.includes('<CakeSprite cake={fx.sold.cake} size={80} />'), 'Purchase fly-up must use the same real artwork')
-async function checkoutChecks() {
-  for (const cake of CAKES) for (const failure of ['none','stock','payment']) {
-    let coins=1000, quantity=2
-    const events=[]
-    const ok=await purchaseCakeFood(cake,{
-      addFood:async key=>{assert.equal(key,cake.foodId);events.push('stock');if(failure==='stock')return false;quantity++;return true},
-      spendCoins:async amount=>{assert.equal(amount,cake.price);events.push('pay');if(failure==='payment')return false;coins-=amount;return true},
-      removeFood:async key=>{assert.equal(key,cake.foodId);quantity--;events.push('rollback');return true},
-    })
-    assert.equal(ok,failure==='none')
-    assert.equal(quantity,failure==='none'?3:2,'Failure must retain exactly the previous stock')
-    assert.equal(coins,failure==='none'?1000-cake.price:1000,'Failure must not cost coins')
-    assert.deepEqual(events,failure==='stock'?['stock']:failure==='payment'?['stock','pay','rollback']:['stock','pay'])
-  }
-  console.log('Cake checks passed: 12 edible pastries, eight original prices, four new designs, shared artwork, affordable/busy states and 36 success/failure stock/payment checks.')
+const actionCatalog = require('./build_food_action_catalog.cjs')()
+for (const cake of CAKES) {
+  const food = actionCatalog.find(row => row.food_key === cake.foodId)
+  assert.ok(food.bakery && !food.kitchen && !food.machine)
+  assert.equal(food.price, cake.price)
+  assert.equal(food.hunger, cake.hungerD)
+  assert.equal(food.happiness, cake.happyD)
+  assert.equal(food.weight, cake.weightD)
 }
-checkoutChecks().catch(error=>{console.error(error);process.exitCode=1})
+assert.ok(page.includes('runFoodAction'), 'Cakes must use receipt-backed atomic checkout')
+assert.ok(!page.includes('purchaseCakeFood') && !page.includes('spendCoins,'))
+console.log('Cake checks passed: 12 edible pastries, eight original prices, four new designs, shared artwork, affordable/busy states and trusted atomic checkout catalogue.')

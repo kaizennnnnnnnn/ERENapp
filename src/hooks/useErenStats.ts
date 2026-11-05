@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef, createContext, useContext, createElement, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { withRetry, writeWithRetry } from '@/lib/supabaseRetry'
-import { useAuth } from './useAuth'
+import { useAuth, PROFILE_UPDATED_EVENT } from './useAuth'
 import type { ErenStats, FoodInventory } from '@/types'
 import { computeErenMood, clampStat, shouldBecomeSick } from '@/lib/utils'
 import { MONSTA_ENERGY, type MonstaBuff } from '@/lib/monstaBuffs'
@@ -12,6 +12,7 @@ import { ACTION_CONFIGS, type ActionType } from '@/types'
 import { DONUT_EFFECTS, type DonutEffectId } from '@/lib/donutEffects'
 import { catText, catWordsFromRow } from '@/lib/catWords'
 import { savedRpc } from '@/lib/savedRpc'
+import { pendingFoodAction, saveFoodAction, type FoodAction, type FoodActionResult } from '@/lib/foodActions'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Decay is applied CLIENT-SIDE on fetch + action + periodic tick, keyed off
@@ -288,7 +289,7 @@ export function getCachedIsSleeping(): boolean | null { return _cachedIsSleeping
 // in StatsHeader, FeedScene, every game page, etc. used to open its own
 // channel (3-5 duplicate eren_stats subscribers per page, blowing through
 // the Supabase Disk IO budget). Now they all read from the provider.
-function useErenStatsImpl(householdId: string | null) {
+function useErenStatsImpl(householdId: string | null, userId: string | null) {
   const supabase = createClient()
   const channelSuffix = useRef(`${++_channelCounter}`)
   const [stats, setStats]     = useState<ErenStats | null>(null)
@@ -304,6 +305,42 @@ function useErenStatsImpl(householdId: string | null) {
   const statsRef = useRef<ErenStats | null>(null)
   useEffect(() => { statsRef.current = stats }, [stats])
   const foodQueue = useRef<Promise<unknown>>(Promise.resolve())
+  const foodActionLock = useRef(false)
+  const [foodActionBusy, setFoodActionBusy] = useState(false)
+  const [foodActionRetry, setFoodActionRetry] = useState<FoodAction | null>(null)
+  const foodScope = useRef({ householdId, userId })
+  foodScope.current = { householdId, userId }
+
+  useEffect(() => {
+    setFoodActionRetry(userId && householdId ? pendingFoodAction(userId, householdId) : null)
+  }, [userId, householdId])
+
+  const runFoodAction = useCallback(async (action: FoodAction, recover = false): Promise<FoodActionResult> => {
+    if (foodScope.current.userId !== userId || foodScope.current.householdId !== householdId) return { ok: false, reason: 'household_changed' }
+    if (!userId || !householdId || statsRef.current?.household_id !== householdId) return { ok: false, reason: 'not_ready' }
+    if (foodActionLock.current) return { ok: false, reason: 'busy' }
+    foodActionLock.current = true
+    setFoodActionBusy(true)
+    const sameScope = () => foodScope.current.userId === userId && foodScope.current.householdId === householdId
+    try {
+      const result = await saveFoodAction(supabase, userId, householdId, action, recover)
+      if (!sameScope()) return { ok: false, reason: 'household_changed' }
+      if (result.ok && result.household_id === householdId && result.stats && typeof result.coins === 'number') {
+        const patch = result.stats
+        if (statsRef.current?.household_id === householdId) statsRef.current = { ...statsRef.current, ...patch }
+        setStats(prev => prev?.household_id === householdId ? { ...prev, ...patch } : prev)
+        window.dispatchEvent(new CustomEvent(PROFILE_UPDATED_EVENT, { detail: { id: userId, patch: { coins: result.coins } } }))
+        return result
+      }
+      return result.ok ? { ok: false, reason: 'connection' } : result
+    } catch {
+      return { ok: false, reason: 'connection' }
+    } finally {
+      foodActionLock.current = false
+      if (sameScope()) setFoodActionRetry(pendingFoodAction(userId, householdId))
+      setFoodActionBusy(false)
+    }
+  }, [householdId, userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchStats = useCallback(async () => {
     if (!householdId) return
@@ -461,6 +498,9 @@ function useErenStatsImpl(householdId: string | null) {
               ...prev,
               food_by_user:   newRow.food_by_user,
               food_inventory: newRow.food_inventory,
+              donuts_tasted: newRow.donuts_tasted,
+              donut_effect: newRow.donut_effect,
+              menu_state: newRow.menu_state,
               coins:          newRow.coins,
               is_sleeping:    newRow.is_sleeping,
               is_sick:        newRow.is_sick,
@@ -733,6 +773,7 @@ function useErenStatsImpl(householdId: string | null) {
 
   return {
     stats, loading, error, applyAction, feedWithFood,
+    runFoodAction, foodActionBusy, foodActionRetry,
     spendCoins, addCoins,
     addToMyFood, addManyToMyFood, consumeMyFood, giftFood,
     markDonutTasted, noteMenuFed, claimMenu, startDonutEffect, savePotion, savePotionsFound,
@@ -747,8 +788,8 @@ const ErenStatsContext = createContext<ErenStatsApi | null>(null)
 // Singleton provider — mounted once at (app)/layout.tsx. Owns the only
 // realtime channel and the only decay tick for the eren_stats row.
 export function ErenStatsProvider({ children }: { children: ReactNode }) {
-  const { profile } = useAuth()
-  const value = useErenStatsImpl(profile?.household_id ?? null)
+  const { user, profile } = useAuth()
+  const value = useErenStatsImpl(profile?.household_id ?? null, user?.id ?? null)
   return createElement(ErenStatsContext.Provider, { value }, children)
 }
 

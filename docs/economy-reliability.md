@@ -45,14 +45,13 @@ Do not deploy the clients first and leave the database update for later.
 
 ## Scope and Remaining Work
 
-These changes fix gacha checkout atomicity and stale-snapshot fridge overwrites.
-They are not a migration of the entire app economy. Kitchen/bakery purchases
-still use stock-first checkout with a compensation on payment failure; feeding
-still saves the stat change separately from food consumption. A permanent
-failure during compensation or a lost response at those outer boundaries needs
-reconciliation. General profile coin grants, reward claims and the donut free-spin
-cooldown remain separate workflows. Do not claim exactly-once completion for
-those workflows on the basis of these two RPCs.
+These two RPCs fix gacha checkout atomicity and stale-snapshot fridge overwrites.
+Kitchen/bakery purchases, feeding and donut spins now have their own follow-up
+migration, `migration_food_actions.sql`; see [Kitchen and Bakery Saves](food-save-reliability.md)
+for its mandatory rollout order, tests and remaining boundaries. General profile
+coin grants, quest/reward claims and other absolute wallet/stat writers remain
+separate workflows. Do not claim app-wide exactly-once completion on the basis
+of these RPCs.
 
 Legacy clients can still perform their old absolute writes. Refresh both devices
 after deployment; this migration does not revoke existing app-wide table grants.

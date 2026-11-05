@@ -9,7 +9,7 @@ import {
   PROGRESS_MAP, CARE_TASK_IDS, getWeekDailyKeys,
 } from '@/lib/tasks'
 import type { TaskId, StreakData, AchievementMap, ErenStats, GameType } from '@/types'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth, PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from '@/hooks/useAuth'
 import {
   updateStreak, STREAK_MILESTONE_COINS,
   checkAchievements, type AchievementContext, type AchievementTrigger, type AchievementDef,
@@ -50,6 +50,18 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   const [xp, setXp]       = useState(0)
   const [level, setLevel] = useState(1)
   const [coins, setCoins] = useState(0)
+  const coinsRef = useRef(coins)
+  useEffect(() => { coinsRef.current = coins }, [coins])
+  useEffect(() => {
+    const onSaved = (event: Event) => {
+      const { id, patch } = (event as CustomEvent<ProfileUpdatedDetail>).detail
+      if (id !== user?.id || typeof patch.coins !== 'number') return
+      coinsRef.current = patch.coins
+      setCoins(patch.coins)
+    }
+    window.addEventListener(PROFILE_UPDATED_EVENT, onSaved)
+    return () => window.removeEventListener(PROFILE_UPDATED_EVENT, onSaved)
+  }, [user?.id])
   const [loading, setLoading] = useState(true)
   const [streak, setStreak] = useState<StreakData>({ current: 0, best: 0, lastDate: null })
   const [achievements, setAchievements] = useState<AchievementMap>({})
@@ -267,7 +279,8 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     if (error) return null
 
     // 2. Update coins + XP on profile
-    let newCoins = coins + def.coins
+    // A confirmed food perk can arrive while this callback still has its old render.
+    let newCoins = coinsRef.current + def.coins
     const newXp  = xp + def.xp
     let newLevel = level
     let levelUp  = false

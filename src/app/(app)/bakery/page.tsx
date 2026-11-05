@@ -1,5 +1,5 @@
 'use client'
-import { purchaseFridgeFood } from '@/lib/foodPurchase'
+import { foodActionError, type FoodActionResult } from '@/lib/foodActions'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // EREN'S BAKERY — top-level shop page where Eren sells cakes.
@@ -16,7 +16,7 @@ import { purchaseFridgeFood } from '@/lib/foodPurchase'
 // sells three real fridge foods
 // a day off a rotating case (see lib/donuts.ts) and stocks your pile. The
 // controls over the picture are Meadow's white over-art pieces, like the home
-// screen's. Currency: player coins via TaskContext.spendCoins().
+// screen's. Payment and fridge delivery save in one server transaction.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -26,9 +26,8 @@ import { useCare } from '@/contexts/CareContext'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useIsDark } from '@/hooks/useIsDark'
 import { playSound } from '@/lib/sounds'
-import type { CakeDef } from '@/lib/cakes'
-import { purchaseCakeFood } from '@/lib/cakePurchase'
-import { dailyDonuts, msUntilNextBatch, rollDonut, SPIN_COST, type DonutDef } from '@/lib/donuts'
+import { CAKES, type CakeDef } from '@/lib/cakes'
+import { dailyDonuts, getDonut, msUntilNextBatch, SPIN_COST, type DonutDef } from '@/lib/donuts'
 import { foodArt } from '@/lib/foodMeta'
 import { todayKey } from '@/lib/seededRng'
 import { useDonutMachine } from '@/hooks/useDonutMachine'
@@ -43,6 +42,7 @@ import DonutMachine from '@/components/bakery/DonutMachine'
 import DonutSpin from '@/components/bakery/DonutSpin'
 import ErenIdleLayer from '@/components/ErenIdleLayer'
 import { requestCloudNav } from '@/components/CloudTransition'
+import FoodSaveRecovery from '@/components/care/FoodSaveRecovery'
 
 /** What just went over the counter — decides what the fly-up animation shows. */
 type SoldItem =
@@ -117,8 +117,8 @@ const EREN_BOTTOM = `calc(${-(1 - EREN_SHOW) * EREN_VW}cqi + 2px)`
 
 export default function BakeryPage() {
   const { user, profile } = useAuth()
-  const { coins, spendCoins } = useTasks()
-  const { stats, addToMyFood, addManyToMyFood, consumeMyFood } = useErenStats(profile?.household_id ?? null)
+  const { coins } = useTasks()
+  const { stats, runFoodAction, foodActionBusy, foodActionRetry } = useErenStats(profile?.household_id ?? null)
   const { setHideStats } = useCare()
   const isDark = useIsDark()
   const pic = isDark ? SHOP_NIGHT : SHOP_DAY
@@ -128,7 +128,7 @@ export default function BakeryPage() {
   const bandH = `max(0px, calc((100dvh - 100vw * ${pic.h} / ${pic.w}) / 2))`
 
   // Full-screen scene — hide the persistent StatsHeader.
-  useEffect(() => { setHideStats(true) }, [setHideStats])
+  useEffect(() => { setHideStats(true); return () => setHideStats(false) }, [setHideStats])
 
   const [fx, setFx] = useState<PurchaseFx | null>(null)
   const [busy, setBusy] = useState(false)
@@ -136,6 +136,21 @@ export default function BakeryPage() {
   const [purchaseError, setPurchaseError] = useState<string | null>(null)
   const [caseOpen, setCaseOpen] = useState(false)
   const fxIdRef = useRef(0)
+  const actionLock = useRef(false)
+  const mounted = useRef(true)
+  const fxTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const finishFx = useRef<(() => void) | null>(null)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      if (fxTimer.current !== null) clearTimeout(fxTimer.current)
+      finishFx.current?.()
+    }
+  }, [])
+  useEffect(() => {
+    if (foodActionRetry) { setMenuOpen(false); setCaseOpen(false); setMachineOpen(false); setPurchaseError(null) }
+  }, [foodActionRetry])
 
   // The donut case is clock-derived, so it stays unresolved until the sheet is
   // actually opened — which is necessarily after mount. Computing a day key
@@ -179,15 +194,16 @@ export default function BakeryPage() {
    * paid 50 for the one that was going to be free. Grants the donut up front
    * so the reel is watching a purchase that already happened, not a promise.
    */
-  async function doSpin() {
+  async function doSpin(recover = false) {
     // `loaded` matters as much as `busy`: until the cooldown read lands,
     // freeReady is false, and spinning on that would charge for a free spin.
-    if (busy || !user?.id || !machine.loaded) return
-    const usingFree = machine.freeReady
-    if (!usingFree && !canPaySpin) {
+    if (actionLock.current || foodActionBusy || !user?.id || !stats || (!recover && (!machine.loaded || foodActionRetry))) return
+    const usingFree = recover && foodActionRetry?.kind === 'spin' ? foodActionRetry.useFree : machine.freeReady
+    if (!recover && !usingFree && !canPaySpin) {
       playSound('ui_modal_open') // soft "no" ping
       return
     }
+    actionLock.current = true
     setBusy(true)
     setPurchaseError(null)
     playSound(usingFree ? 'ui_tap' : 'coin_ching')
@@ -195,62 +211,77 @@ export default function BakeryPage() {
     setCaseOpen(false)
     setMachineOpen(false)
 
-    const won = rollDonut()
-    const ok = await purchaseFridgeFood(won.id, usingFree ? 0 : SPIN_COST, {
-      addFood: key => addToMyFood(user.id, key),
-      spendCoins: amount => amount === 0 ? Promise.resolve(true) : spendCoins(amount),
-      removeFood: key => consumeMyFood(user.id, key),
-    })
-    if (!ok) {
-      setPurchaseError('Could not save your purchase. Please try again.')
-      setMachineOpen(true)
-      setBusy(false)
-      return
+    try {
+      const result = await runFoodAction({ kind: 'spin', useFree: usingFree }, recover)
+      if (!mounted.current) return
+      const won = result.food_key ? getDonut(result.food_key) : undefined
+      if (!result.ok || !won) {
+        setPurchaseError(foodActionError(result.reason))
+        if (result.reason === 'cooldown') void machine.refresh()
+        return
+      }
+      machine.acceptSavedSpin(result.last_free_donut ?? null)
+      setSpin({ won, wasFree: !!result.was_free })
+    } catch {
+      if (mounted.current) setPurchaseError(foodActionError())
+    } finally {
+      actionLock.current = false
+      if (mounted.current) setBusy(false)
     }
-    if (usingFree) await machine.consumeFreeSpin()
-    setSpin({ won, wasFree: usingFree })
-    setBusy(false)
   }
 
   /**
    * One counter, one till. `food` is what the purchase puts in the buyer's
    * fridge pile. Cakes use their own saved-stock checkout below.
    */
-  async function purchase(price: number, sold: SoldItem, food?: DonutDef['id']) {
-    if (busy || (sold.kind === 'cake' && !stats)) return
+  async function purchase(price: number, sold: SoldItem, food?: DonutDef['id'], recover = false) {
+    if (actionLock.current || foodActionBusy || !stats || (!recover && foodActionRetry)) return
     if (!user?.id) return
-    if (coins < price) {
+    if (!recover && coins < price) {
       playSound('ui_modal_open') // soft "no" ping
       return
     }
+    actionLock.current = true
     setBusy(true)
     setPurchaseError(null)
     playSound('ui_tap')
-    const ok = sold.kind === 'cake'
-      ? await purchaseCakeFood(sold.cake, {
-        addFood: key => addManyToMyFood(user.id, [key]),
-        spendCoins,
-        removeFood: key => consumeMyFood(user.id, key),
+    try {
+      const key = sold.kind === 'cake' ? sold.cake.foodId : food
+      if (!key) return
+      const result = await runFoodAction({ kind: 'buy', foodKey: key, source: 'bakery' }, recover)
+      if (!mounted.current) return
+      if (!result.ok) { setPurchaseError(foodActionError(result.reason)); return }
+      setMenuOpen(false)
+      setCaseOpen(false)
+      const id = ++fxIdRef.current
+      setFx({ id, sold })
+      await new Promise<void>(resolve => {
+        finishFx.current = resolve
+        fxTimer.current = setTimeout(resolve, 1700)
       })
-      : food ? await purchaseFridgeFood(food, price, {
-        addFood: key => addToMyFood(user.id, key),
-        spendCoins,
-        removeFood: key => consumeMyFood(user.id, key),
-      }) : false
-    if (!ok) {
-      setPurchaseError('Could not save your purchase. Please try again.')
-      setBusy(false)
-      return
+      if (mounted.current) setFx(curr => curr?.id === id ? null : curr)
+    } catch {
+      if (mounted.current) setPurchaseError(foodActionError())
+    } finally {
+      finishFx.current = null
+      fxTimer.current = null
+      actionLock.current = false
+      if (mounted.current) setBusy(false)
     }
-    setMenuOpen(false)
-    setCaseOpen(false)
-    const id = ++fxIdRef.current
-    setFx({ id, sold })
-    // Animation runs ~1.6 s; release the buy-lock just after.
-    setTimeout(() => {
-      setFx(curr => curr && curr.id === id ? null : curr)
-      setBusy(false)
-    }, 1700)
+  }
+
+  async function recoverFoodSave() {
+    const intent = foodActionRetry
+    if (!intent || foodActionBusy || actionLock.current) return
+    if (intent.kind === 'spin') { await doSpin(true); return }
+    if (intent.kind === 'buy') {
+      const cake = CAKES.find(item => item.foodId === intent.foodKey)
+      const donut = getDonut(intent.foodKey)
+      if (cake) { await purchase(cake.price, { kind: 'cake', cake }, undefined, true); return }
+      if (donut) { await purchase(donut.price, { kind: 'donut', donut }, donut.id, true); return }
+    }
+    const result: FoodActionResult = await runFoodAction(intent, true)
+    if (mounted.current && !result.ok) setPurchaseError(foodActionError(result.reason))
   }
 
   return (
@@ -319,7 +350,7 @@ export default function BakeryPage() {
             }}>
               <DonutMachine
                 free={machine.freeReady}
-                busy={busy}
+                busy={busy || foodActionBusy || !!foodActionRetry}
                 onTap={() => { playSound('ui_modal_open'); setMachineOpen(true) }}
               />
             </div>
@@ -376,21 +407,21 @@ export default function BakeryPage() {
       <div className="meadow-root absolute inset-x-0 z-30 flex justify-center" style={{
         bottom: 'calc(20px + env(safe-area-inset-bottom, 0px))', gap: 12, padding: '0 16px',
       }}>
-        <CounterButton label="Cakes" tint={TINT.love} onClick={() => { playSound('ui_modal_open'); setMenuOpen(true) }}>
+        <CounterButton label="Cakes" tint={TINT.love} disabled={busy || foodActionBusy || !!foodActionRetry} onClick={() => { playSound('ui_modal_open'); setMenuOpen(true) }}>
           <IconCake size={22} />
         </CounterButton>
-        <CounterButton label="Donuts" tint={TINT.amber} onClick={() => { playSound('ui_modal_open'); setCaseOpen(true) }}>
+        <CounterButton label="Donuts" tint={TINT.amber} disabled={busy || foodActionBusy || !!foodActionRetry} onClick={() => { playSound('ui_modal_open'); setCaseOpen(true) }}>
           <IconDonut size={22} />
         </CounterButton>
       </div>
 
-      <CakeMenuSheet open={menuOpen} coins={coins} busy={busy || !stats} error={purchaseError}
+      <CakeMenuSheet open={menuOpen} coins={coins} busy={busy || foodActionBusy || !!foodActionRetry || !stats} error={purchaseError}
         onBuy={cake => purchase(cake.price, { kind: 'cake', cake })}
         onClose={() => setMenuOpen(false)} />
 
       {/* ══ DONUT CASE ══ three donuts, changed every night. Unlike the cakes
           these are real food: buying one puts it in your fridge pile. */}
-      <DonutCounterSheet open={caseOpen} donuts={todaysDonuts} coins={coins} busy={busy}
+      <DonutCounterSheet open={caseOpen} donuts={todaysDonuts} coins={coins} busy={busy || foodActionBusy || !!foodActionRetry || !stats}
         batchIn={now ? batchCountdown(msUntilNextBatch(now)) : null}
         onBuy={donut => purchase(donut.price, { kind: 'donut', donut }, donut.id)}
         onClose={() => setCaseOpen(false)} />
@@ -403,13 +434,17 @@ export default function BakeryPage() {
           coins={coins}
           freeReady={machine.freeReady}
           loaded={machine.loaded}
-          busy={busy}
+          busy={busy || foodActionBusy || !!foodActionRetry}
+          readError={machine.readError}
+          onRefresh={() => { void machine.refresh() }}
           freeIn={batchCountdown(machine.msUntilFree)}
-          onSpin={doSpin}
+          onSpin={() => { void doSpin() }}
           onClose={() => setMachineOpen(false)}
         />
 
-      <Sheet open={!!purchaseError && !menuOpen} onClose={() => setPurchaseError(null)} title="Purchase not confirmed"
+      {foodActionRetry && <FoodSaveRecovery busy={foodActionBusy || busy} onRetry={() => { void recoverFoodSave() }} />}
+
+      <Sheet open={!!purchaseError && !menuOpen && !foodActionRetry} onClose={() => setPurchaseError(null)} title="Purchase not confirmed"
         footer={<PrimaryButton onClick={() => setPurchaseError(null)}>Okay</PrimaryButton>}>
         <p role="alert" style={{ color: M.text2, fontSize: 15 }}>{purchaseError}</p>
       </Sheet>
@@ -484,11 +519,11 @@ function batchCountdown(ms: number): string {
 }
 
 /** A counter's white pill: its icon on a tinted disc, then its name. */
-function CounterButton({ label, tint, onClick, children }: {
-  label: string; tint: string; onClick: () => void; children: React.ReactNode
+function CounterButton({ label, tint, onClick, children, disabled }: {
+  label: string; tint: string; onClick: () => void; children: React.ReactNode; disabled?: boolean
 }) {
   return (
-    <button type="button" onClick={onClick} className="m-lip m-focus inline-flex items-center" style={{
+    <button type="button" disabled={disabled} onClick={onClick} className="m-lip m-focus inline-flex items-center" style={{
       '--m-lip': M.overArtLip, '--m-lip-h': '3px',
       height: 56, padding: '0 22px 0 10px', gap: 10, border: 0, borderRadius: 999, background: '#FFFFFF',
       fontFamily: 'inherit', fontSize: 17, fontWeight: 800, color: M.text, cursor: 'pointer', whiteSpace: 'nowrap',

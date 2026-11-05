@@ -137,17 +137,6 @@ async function main() {
   assert.match(render().pullError, /Not enough coins/)
   assert.equal(render().pulling, false)
 
-  const load = createLoader()
-  const { purchaseFridgeFood } = load('src/lib/foodPurchase.ts')
-  let paid = false
-  let removed = false
-  assert.equal(await purchaseFridgeFood('milk', 10, {
-    addFood: async () => false,
-    spendCoins: async () => { paid = true; return true },
-    removeFood: async () => { removed = true; return true },
-  }), false)
-  assert.equal(paid, false)
-  assert.equal(removed, false, 'A failed grant must not remove food already owned')
-  console.log('Economy client checks passed: missing migration, lost response/reload recovery, same-tick double taps, original payment replay, busy cleanup, profile/fridge sync and failed-stock checkout.')
+  console.log('Economy client checks passed: missing migration, lost response/reload recovery, same-tick double taps, original payment replay, busy cleanup and profile/fridge sync.')
 }
 main().catch(error => { console.error(error); process.exitCode = 1 })
