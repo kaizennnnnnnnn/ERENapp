@@ -23,7 +23,7 @@ import type { TaskId, TaskDef } from '@/types'
 import { playSound } from '@/lib/sounds'
 import { HUD_BUTTON } from './home/HudBadge'
 import {
-  CheckDisc, Divider, IconTile, MeadowIcon, Meter, Segmented, Sheet,
+  CheckDisc, Divider, IconTile, MeadowIcon, Meter, Segmented, Sheet, PrimaryButton,
   M, TINT, TYPE, type MeadowIconName,
 } from '@/components/meadow'
 
@@ -107,7 +107,7 @@ function QuestRow({ task, done, progress }: { task: TaskDef; done: boolean; prog
 }
 
 export default function TaskPanel() {
-  const { completedIds, taskProgress } = useTasks()
+  const { completedIds, taskProgress, rewardError, pendingRewards, rewardBusy, retryRewards } = useTasks()
   const [tab, setTab] = useState<Period>('daily')
   const [open, setOpen] = useState(false)
   // When the sheet opened: the "Resets in" line is worked out from it, so the
@@ -178,6 +178,18 @@ export default function TaskPanel() {
             )}
           </div>
           <Meter value={tasks.length ? done / tasks.length : 0} label={tab === 'daily' ? 'Daily quests done' : 'Weekly quests done'} />
+
+          {(rewardError || pendingRewards > 0) && (
+            <div style={{ marginTop: 14 }}>
+              <p role="status" style={{ fontSize: 14, lineHeight: 1.4, color: M.text2 }}>
+                {rewardError ?? 'A reward is waiting for confirmation.'}
+              </p>
+              <PrimaryButton size="md" full busy={rewardBusy} onClick={() => { void retryRewards() }}
+                icon={<MeadowIcon name="replay" size={18} color="#FFFFFF" />}>
+                {rewardBusy ? 'Checking...' : 'Retry rewards'}
+              </PrimaryButton>
+            </div>
+          )}
 
           <div role="list" style={{ marginTop: 6 }}>
             {rows.map((task, i) => {

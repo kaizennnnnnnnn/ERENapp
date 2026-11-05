@@ -15,25 +15,23 @@
 // a level claimed before that paid the old reward, and listing the new one
 // with a tick would show something the player never got.
 //
-// A claim pays the whole run from the first unclaimed level up to the one
-// tapped (claimed_level is one high-water mark), checks every write, and
-// lands the coins and the new claimed_level together in one write at the
-// end, so a failure leaves the levels claimable.
+// A claim saves the whole reward pack and its high-water mark in one
+// transaction. A saved request survives a lost reply and recovers that pack.
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { withRetry, writeWithRetry } from '@/lib/supabaseRetry'
+import { withRetry } from '@/lib/supabaseRetry'
 import { onForeground } from '@/lib/onForeground'
-import { PROFILE_UPDATED_EVENT, useAuth, type ProfileUpdatedDetail } from '@/hooks/useAuth'
+import { useAuth } from '@/hooks/useAuth'
+import { useTasks } from '@/contexts/TaskContext'
+import { pendingRewardSaves, rewardSaveError } from '@/lib/rewardSaves'
 import { useCat } from '@/hooks/useCat'
 import { useErenStats } from '@/hooks/useErenStats'
 import { useCare } from '@/contexts/CareContext'
 import { usePageReady } from '@/hooks/usePageReady'
-import { LEVEL_REWARDS, MAX_LEVEL, type SkinBoxRarity } from '@/lib/levelRewards'
-import { batchFor, pickSkin, readHouseholdSkins } from '@/lib/rewardClaim'
-import { grantSkin } from '@/lib/skinGrant'
-import { SKIN_STARDUST_PRICE, type SkinDef } from '@/lib/skins'
+import { LEVEL_REWARDS, MAX_LEVEL } from '@/lib/levelRewards'
+import { getSkin, type SkinDef } from '@/lib/skins'
 import { getLevelTitle, totalXpForLevel, xpForNextLevel } from '@/lib/tasks'
 import { playSound } from '@/lib/sounds'
 import AnimatedEren from '@/components/AnimatedEren'
@@ -56,7 +54,8 @@ export default function RewardsPage() {
   const supabase = createClient()
   const { user, profile } = useAuth()
   const cat = useCat()
-  const { stats, addManyToMyFood, refetch } = useErenStats(profile?.household_id ?? null)
+  const { refetch } = useErenStats(profile?.household_id ?? null)
+  const { claimLevelRewards } = useTasks()
   const { setHideStats } = useCare()
   // The page carries its own level; the top bar would only repeat it.
   useEffect(() => {
@@ -70,8 +69,7 @@ export default function RewardsPage() {
   const xp = profile?.xp ?? 0
 
   const [claimedLevel, setClaimedLevel] = useState(0)
-  // False until the claimed_level read succeeds. A 503 that read as 0 would
-  // make every level claimable again, and claiming would pay them twice.
+  // An outage must not present old levels as newly claimable.
   const [claimedLoaded, setClaimedLoaded] = useState(false)
   const [claiming, setClaiming] = useState(false)
   const [claimError, setClaimError] = useState<string | null>(null)
@@ -81,29 +79,40 @@ export default function RewardsPage() {
   // Where focus goes after a claim: the row that was tapped folds away into
   // "claimed", and the sheet hands focus back to whatever held it.
   const statusRef = useRef<HTMLDivElement>(null)
+  const claimLock = useRef(false)
+  const actorRef = useRef(user?.id)
+  const householdRef = useRef(profile?.household_id)
+  const live = useRef(true)
+  const [pendingTarget, setPendingTarget] = useState<number | null>(null)
+  actorRef.current = user?.id
+  householdRef.current = profile?.household_id
+  useEffect(() => { live.current = true; return () => { live.current = false } }, [])
 
   useEffect(() => {
+    setClaimedLoaded(false)
+    setClaimError(null)
+    setResult(null)
+    setPendingTarget(null)
     if (!user?.id) return
-    let loaded = false
-    const load = () => {
-      withRetry(() => supabase.from('profiles').select('claimed_level').eq('id', user.id).maybeSingle())
-        .then(({ data, error }) => {
-          if (error) return // outage: stay unloaded; coming back to the app retries
-          loaded = true
-          setClaimedLevel(typeof data?.claimed_level === 'number' ? data.claimed_level : 0)
-          setClaimedLoaded(true)
-        })
+    let cancelled = false, loaded = false
+    const pending = () => {
+      const request = pendingRewardSaves(user.id).find(item => item.args.p_kind === 'road'
+        && (item.args.p_input as Record<string, unknown>).householdId === profile?.household_id)
+      const target = (request?.args.p_input as Record<string, unknown> | undefined)?.target
+      setPendingTarget(typeof target === 'number' ? target : null)
     }
-    load()
-    return onForeground(() => { if (!loaded) load() })
-  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // A failure shows where you are on the page, then goes.
-  useEffect(() => {
-    if (!claimError) return
-    const t = setTimeout(() => setClaimError(null), 5000)
-    return () => clearTimeout(t)
-  }, [claimError])
+    const load = async () => {
+      const { data, error } = await withRetry(() => supabase.from('profiles').select('claimed_level').eq('id', user.id).maybeSingle())
+      if (cancelled || actorRef.current !== user.id || householdRef.current !== profile?.household_id || error || !data) return
+      loaded = true
+      setClaimedLevel(typeof data.claimed_level === 'number' ? data.claimed_level : 0)
+      setClaimedLoaded(true)
+    }
+    pending()
+    void load()
+    const stop = onForeground(() => { pending(); if (!loaded) void load() })
+    return () => { cancelled = true; stop() }
+  }, [user?.id, profile?.household_id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // A ten you open replaces the button you pressed; carry focus into it.
   useEffect(() => {
@@ -134,130 +143,46 @@ export default function RewardsPage() {
   const xpNeeded = xpForNextLevel(level)
   const allClaimed = claimedLoaded && claimedLevel >= MAX_LEVEL
 
-  // A claim that can't finish says so and leaves its levels claimable; a
-  // silent return reads as a dead button.
-  function failClaim(message = OFFLINE) {
-    setClaimError(message)
-  }
-
   async function claimUpTo(target: number) {
-    if (!user?.id || !profile?.household_id || claiming || !claimedLoaded) return
-    if (target <= claimedLevel || target > reachable) return
-    playSound('gift_open')
-    setClaimError(null)
+    if (!user?.id || !profile?.household_id || claimLock.current || !claimedLoaded) return
+    if (pendingTarget === null && (target <= claimedLevel || target > reachable)) return
+    const actor = user.id
+    const household = profile.household_id
+    const active = () => live.current && actorRef.current === actor && householdRef.current === household
+    claimLock.current = true
     setClaiming(true)
+    setClaimError(null)
+    playSound('gift_open')
     try {
-      const from = claimedLevel + 1
-      const batch = batchFor(from, target)
-
-      // The fridge write can't land before the household's stats have, so a
-      // claim with food stops here, before anything is paid, not after.
-      if (batch.foods.length > 0 && !stats) return failClaim('Your fridge is still loading. Try again in a moment.')
-
-      // ── Reads, every one checked: a 503 must never read as "nothing there".
-      // The profile is read fresh rather than taken from memory: the coins are
-      // written from it, and another device may have claimed in the meantime.
-      const { data: fresh, error: freshError } = await withRetry(() => supabase
-        .from('profiles').select('claimed_level, coins').eq('id', user.id).maybeSingle())
-      if (freshError || !fresh) return failClaim()
-      const freshClaimed = typeof fresh.claimed_level === 'number' ? fresh.claimed_level : 0
-      if (freshClaimed !== claimedLevel) {
-        // Claimed somewhere else since this page loaded: show the road as it is.
-        setClaimedLevel(freshClaimed)
+      // The journal retains the original target, including after another device
+      // advances the road or the original reply is lost.
+      const saved = await claimLevelRewards(pendingTarget ?? target, profile.household_id)
+      if (!active()) return
+      if (!saved.ok || !saved.profile) {
+        setClaimError(rewardSaveError(saved.reason))
         return
       }
-      let owned: Set<string> | null = null
-      if (batch.skinBoxes.length > 0) {
-        owned = await readHouseholdSkins(supabase, profile.household_id)
-        if (!owned) return failClaim()
+      setClaimedLevel(saved.profile.claimed_level ?? 0)
+      statusRef.current?.focus({ preventScroll: true })
+      const road = saved.outcome?.road
+      if (road) {
+        playSound('quest_complete')
+        setResult({ ...road, skins: road.skinIds.map(getSkin).filter((skin): skin is SkinDef => !!skin) })
+        void refetch()
       }
-      let gacha: { stardust?: number; gacha_tickets?: number } | null = null
-      const touchesGacha = batch.stardust > 0 || batch.tickets > 0 || batch.skinBoxes.length > 0
-      if (touchesGacha) {
-        const { data, error } = await withRetry(() => supabase
-          .from('user_gacha_state').select('stardust, gacha_tickets').eq('user_id', user.id).maybeSingle())
-        if (error) return failClaim()
-        gacha = data
-      }
-
-      // ── Writes. Every one is checked, and claimed_level moves only in the
-      // last one, so a level's rewards are minted once and a failure leaves
-      // it claimable. The cost: a failure BETWEEN two writes can pay the
-      // earlier one twice on a retry (a box opens to a second look). A rare
-      // over-payment in the player's favour beats a silent loss they can
-      // never get back.
-      //
-      // Food first, into the claimer's own pile like the shop and the gacha
-      // (the old road filled the shared legacy pool, which wishes and gifts
-      // can't see).
-      if (batch.foods.length > 0 && !(await addManyToMyFood(user.id, batch.foods))) {
-        // The fridge already shows them on this phone. Put it back to what the
-        // database holds, or a retry would stack the same food on top.
-        await refetch()
-        return failClaim()
-      }
-
-      // Looks: the insert is idempotent, and a box whose rarity the household
-      // already owns every look of pays that look's stardust price instead.
-      const skins: SkinDef[] = []
-      const converted: SkinBoxRarity[] = []
-      for (const rarity of batch.skinBoxes) {
-        const pick = owned ? pickSkin(rarity, owned) : null
-        if (!pick) { converted.push(rarity); continue }
-        if (await grantSkin(user.id, pick.id) === 'failed') return failClaim()
-        owned?.add(pick.id)
-        skins.push(pick)
-      }
-      const boxDust = converted.reduce((sum, r) => sum + SKIN_STARDUST_PRICE[r], 0)
-
-      const stardust = batch.stardust + boxDust
-      if (stardust > 0 || batch.tickets > 0) {
-        const { error } = gacha
-          ? await writeWithRetry(signal => supabase.from('user_gacha_state').update({
-              stardust: (gacha?.stardust ?? 0) + stardust,
-              gacha_tickets: (gacha?.gacha_tickets ?? 0) + batch.tickets,
-            }).eq('user_id', user.id).abortSignal(signal))
-          // Genuinely no row yet (no rows, not an error).
-          : await writeWithRetry(signal => supabase.from('user_gacha_state').insert({
-              user_id: user.id, stardust, gacha_tickets: batch.tickets,
-              pulls_since_epic: 0, pulls_since_legendary: 0, total_pulls: 0,
-            }).abortSignal(signal))
-        if (error) return failClaim()
-      }
-
-      // Coins and the new mark in one write, and only if claimed_level is
-      // still where this claim started: two phones claiming at once can't
-      // both pay, and the mark never moves backwards.
-      const coins = (typeof fresh.coins === 'number' ? fresh.coins : 0) + batch.coins
-      const { data: stamped, error: stampError } = await writeWithRetry(signal => supabase
-        .from('profiles').update({ coins, claimed_level: target })
-        .eq('id', user.id).eq('claimed_level', claimedLevel).select('id').abortSignal(signal))
-      if (stampError) return failClaim()
-      if (!stamped?.length) {
-        // Nothing matched. Either a retry of this write already landed (the
-        // first answer was lost) or another device claimed first.
-        const { data: now } = await withRetry(() => supabase
-          .from('profiles').select('claimed_level').eq('id', user.id).maybeSingle())
-        if (now?.claimed_level !== target) {
-          if (typeof now?.claimed_level === 'number') setClaimedLevel(now.claimed_level)
-          return failClaim('These were just claimed on another device.')
+    } catch {
+      if (active()) setClaimError(OFFLINE)
+    } finally {
+      claimLock.current = false
+      if (live.current) {
+        setClaiming(false)
+        if (active()) {
+          const pending = pendingRewardSaves(actor).find(item => item.args.p_kind === 'road'
+            && (item.args.p_input as Record<string, unknown>).householdId === profile?.household_id)
+          const target = (pending?.args.p_input as Record<string, unknown> | undefined)?.target
+          setPendingTarget(typeof target === 'number' ? target : null)
         }
       }
-
-      // Every copy of the profile (the top bar's coins, TaskContext) takes
-      // the new balance, and the top bar's waiting badge recounts.
-      try {
-        window.dispatchEvent(new CustomEvent<ProfileUpdatedDetail>(PROFILE_UPDATED_EVENT, {
-          detail: { id: user.id, patch: { coins, claimed_level: target } },
-        }))
-        window.dispatchEvent(new Event('eren:rewards-claimed'))
-      } catch { /* ignore */ }
-      statusRef.current?.focus({ preventScroll: true })
-      setClaimedLevel(target)
-      playSound('quest_complete')
-      setResult({ from, to: target, coins: batch.coins, stardust, tickets: batch.tickets, foods: batch.foods, skins, boxDust, converted })
-    } finally {
-      setClaiming(false)
     }
   }
 
@@ -293,6 +218,11 @@ export default function RewardsPage() {
         <div ref={statusRef} tabIndex={-1} style={{ outline: 'none' }}>
           {!claimedLoaded ? (
             <p role="status" style={{ margin: 0, fontSize: 14, fontWeight: 600, color: M.text2 }}>Loading your rewards...</p>
+          ) : pendingTarget !== null ? (
+            <PrimaryButton size="md" full busy={claiming} onClick={() => claimUpTo(pendingTarget)}
+              icon={<MeadowIcon name="gift" size={20} color="#FFFFFF" />}>
+              {claiming ? 'Recovering...' : 'Recover your rewards'}
+            </PrimaryButton>
           ) : allClaimed ? (
             <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: M.leafInk }}>Every reward on the road is yours.</p>
           ) : waiting > 0 ? (
@@ -372,7 +302,7 @@ export default function RewardsPage() {
                           travelledBelow={r.level <= level}
                           progress={state === 'next' ? { into: xpInto, needed: xpNeeded } : undefined}
                           cat={cat}
-                          busy={claiming}
+                          busy={claiming || pendingTarget !== null}
                           onClaim={state === 'claimable' ? () => claimUpTo(r.level) : undefined}
                         />
                       )

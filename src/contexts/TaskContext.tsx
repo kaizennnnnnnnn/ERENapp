@@ -2,41 +2,35 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { withRetry, writeWithRetry } from '@/lib/supabaseRetry'
+import { withRetry } from '@/lib/supabaseRetry'
 import { onForeground } from '@/lib/onForeground'
-import {
-  TASK_DEFS, getDailyKey, getWeeklyKey, xpForNextLevel, totalXpForLevel,
-  PROGRESS_MAP, CARE_TASK_IDS, getWeekDailyKeys,
-} from '@/lib/tasks'
-import type { TaskId, StreakData, AchievementMap, ErenStats, GameType } from '@/types'
+import { TASK_DEFS, getDailyKey, getWeeklyKey, CARE_TASK_IDS, getWeekDailyKeys } from '@/lib/tasks'
+import type { TaskId, StreakData, AchievementMap } from '@/types'
 import { useAuth, PROFILE_UPDATED_EVENT, type ProfileUpdatedDetail } from '@/hooks/useAuth'
 import {
-  updateStreak, STREAK_MILESTONE_COINS,
-  checkAchievements, type AchievementContext, type AchievementTrigger, type AchievementDef,
-  canRepairStreak, repairStreak as repairStreakData, STREAK_REPAIR_COST,
+  ACHIEVEMENT_DEFS, canRepairStreak, STREAK_REPAIR_COST,
+  type AchievementContext, type AchievementTrigger, type AchievementDef,
 } from '@/lib/achievements'
-import { format } from 'date-fns'
+import {
+  saveReward, recoverReward, pendingRewardSaves, rewardDay, taskRewardInput,
+  achievementRewardInput, rewardSaveError, type RewardKind, type RewardSaveResult,
+} from '@/lib/rewardSaves'
+import type { PendingSavedRequest } from '@/lib/savedRpc'
 
 interface TaskContextValue {
-  completedIds: Set<string>          // "taskId:periodKey"
-  taskProgress: Map<TaskId, number>  // weekly task id → current progress count
+  completedIds: Set<string>
+  taskProgress: Map<TaskId, number>
   completeTask: (taskId: TaskId) => Promise<{ coins: number; xp: number; levelUp: boolean } | null>
-  /** Resolves true when the coins actually reached the DB. */
   addCoins: (amount: number) => Promise<boolean>
   spendCoins: (amount: number) => Promise<boolean>
-  coins: number
-  xp: number
-  level: number
-  loading: boolean
-  streak: StreakData
-  achievements: AchievementMap
+  coins: number; xp: number; level: number; loading: boolean
+  streak: StreakData; achievements: AchievementMap
   checkAchievementsFor: (trigger: AchievementTrigger, extra?: Partial<AchievementContext>) => Promise<void>
-  /** True when the streak just broke and can be repaired for STREAK_REPAIR_COST coins. */
-  streakRepairAvailable: boolean
-  /** Cost in coins to repair the streak. */
-  streakRepairCost: number
-  /** Pay coins and restore the prior streak. Returns true on success. */
+  streakRepairAvailable: boolean; streakRepairCost: number
   repairStreak: () => Promise<boolean>
+  claimLevelRewards: (target: number, householdId: string) => Promise<RewardSaveResult>
+  rewardError: string | null; pendingRewards: number; rewardBusy: boolean
+  retryRewards: () => Promise<void>
 }
 
 const TaskContext = createContext<TaskContextValue | null>(null)
@@ -44,499 +38,237 @@ const TaskContext = createContext<TaskContextValue | null>(null)
 export function TaskProvider({ children }: { children: ReactNode }) {
   const supabase = createClient()
   const { user, profile } = useAuth()
-
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set())
   const [taskProgress, setTaskProgress] = useState<Map<TaskId, number>>(new Map())
-  const [xp, setXp]       = useState(0)
+  const [xp, setXp] = useState(0)
   const [level, setLevel] = useState(1)
   const [coins, setCoins] = useState(0)
-  const coinsRef = useRef(coins)
-  useEffect(() => { coinsRef.current = coins }, [coins])
+  const [loading, setLoading] = useState(true)
+  const [streak, setStreak] = useState<StreakData>({ current: 0, best: 0, lastDate: null })
+  const [achievements, setAchievements] = useState<AchievementMap>({})
+  const [rewardError, setRewardError] = useState<string | null>(null)
+  const [pendingRewards, setPendingRewards] = useState(0)
+  const [rewardBusy, setRewardBusy] = useState(false)
+  const completedRef = useRef(completedIds)
+  const currentUser = useRef(user?.id)
+  const mounted = useRef(true)
+  const activeRequests = useRef(0)
+  const readVersion = useRef(0)
+  const loadFailedRef = useRef(false)
+  completedRef.current = completedIds
+  currentUser.current = user?.id
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; readVersion.current++ } }, [])
+
+  const loadCompletions = useCallback(async () => {
+    if (!user?.id || currentUser.current !== user.id) return
+    const version = ++readVersion.current
+    const dailyKey = getDailyKey(), weeklyKey = getWeeklyKey(), weekDayKeys = getWeekDailyKeys()
+    const { data, error } = await withRetry(() => supabase.from('user_task_completions')
+      .select('task_id, period_key').eq('user_id', user.id).in('period_key', Array.from(new Set([dailyKey, weeklyKey, ...weekDayKeys]))))
+    if (!mounted.current || currentUser.current !== user.id || version !== readVersion.current) return
+    if (error) { loadFailedRef.current = true; setRewardError('Could not load your quests. Please retry.'); setLoading(false); return }
+    loadFailedRef.current = false
+    const rows = data ?? []
+    const complete = new Set(rows.filter(row => row.period_key === dailyKey || row.period_key === weeklyKey)
+      .map(row => `${row.task_id}:${row.period_key}`))
+    completedRef.current = complete
+    setCompletedIds(complete)
+    const weekly = rows.filter(row => weekDayKeys.includes(row.period_key))
+    setTaskProgress(new Map<TaskId, number>([
+      ['weekly_all_care', new Set(weekly.filter(row => (CARE_TASK_IDS as string[]).includes(row.task_id)).map(row => row.task_id)).size],
+      ['weekly_mood_5', new Set(weekly.filter(row => row.task_id === 'daily_mood').map(row => row.period_key)).size],
+      ['weekly_all_games', Math.min(3, weekly.filter(row => row.task_id === 'daily_game').length)],
+    ]))
+    setLoading(false)
+  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    setLoading(true)
+    completedRef.current = new Set()
+    setCompletedIds(new Set())
+    setTaskProgress(new Map())
+    setRewardError(null)
+    void loadCompletions()
+  }, [loadCompletions])
+
+  useEffect(() => {
+    if (!profile) return
+    setXp(profile.xp ?? 0); setLevel(profile.level ?? 1); setCoins(profile.coins ?? 0)
+    setStreak(profile.streak ?? { current: 0, best: 0, lastDate: null })
+    setAchievements(profile.achievements ?? {})
+  }, [profile?.xp, profile?.level, profile?.coins, profile?.streak, profile?.achievements]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Adopt saved wallet events synchronously; no callback performs balance arithmetic.
   useEffect(() => {
     const onSaved = (event: Event) => {
       const { id, patch } = (event as CustomEvent<ProfileUpdatedDetail>).detail
-      if (id !== user?.id || typeof patch.coins !== 'number') return
-      coinsRef.current = patch.coins
+      if (id !== currentUser.current || typeof patch.coins !== 'number') return
       setCoins(patch.coins)
     }
     window.addEventListener(PROFILE_UPDATED_EVENT, onSaved)
     return () => window.removeEventListener(PROFILE_UPDATED_EVENT, onSaved)
-  }, [user?.id])
-  const [loading, setLoading] = useState(true)
-  const [streak, setStreak] = useState<StreakData>({ current: 0, best: 0, lastDate: null })
-  const [achievements, setAchievements] = useState<AchievementMap>({})
-  // True when the last completions load hit a Supabase outage that
-  // outlasted withRetry's backoff — the foreground listener uses it to retry.
-  const loadFailedRef = useRef(false)
+  }, [])
 
-  // ── Load completions + compute weekly progress ──────────────────────────
-  const loadCompletions = useCallback(async () => {
-    if (!user?.id) return
-    const dailyKey  = getDailyKey()
-    const weeklyKey = getWeeklyKey()
-    const weekDayKeys = getWeekDailyKeys()
-
-    // Fetch today + this week's daily keys + weekly key. Goes through
-    // withRetry because a transient Supabase 503 resolves as { data: null,
-    // error } without throwing — read as "no rows", it blanked completedIds
-    // and showed every quest incomplete until a full reload.
-    const allKeys = Array.from(new Set([dailyKey, weeklyKey, ...weekDayKeys]))
-    const { data, error } = await withRetry(() => supabase
-      .from('user_task_completions')
-      .select('task_id, period_key')
-      .eq('user_id', user.id)
-      .in('period_key', allKeys))
-    if (error) {
-      // Outage — leave completion state untouched and let the foreground
-      // listener retry. Still drop loading so dependent UI unblocks.
-      loadFailedRef.current = true
-      setLoading(false)
-      return
-    }
-    loadFailedRef.current = false
-
-    if (data) {
-      // Completed set (for today + weekly)
-      setCompletedIds(new Set(
-        data
-          .filter(c => c.period_key === dailyKey || c.period_key === weeklyKey)
-          .map(c => `${c.task_id}:${c.period_key}`)
-      ))
-
-      // Weekly progress from all daily completions this week
-      const weeklyComps = data.filter(c => weekDayKeys.includes(c.period_key))
-
-      const progress = new Map<TaskId, number>()
-
-      // weekly_all_care: distinct care types done any day this week
-      const careDone = new Set(weeklyComps.filter(c => (CARE_TASK_IDS as string[]).includes(c.task_id)).map(c => c.task_id))
-      progress.set('weekly_all_care', careDone.size)
-
-      // weekly_mood_5: distinct days with mood logged
-      const moodDays = new Set(weeklyComps.filter(c => c.task_id === 'daily_mood').map(c => c.period_key))
-      progress.set('weekly_mood_5', moodDays.size)
-
-      // weekly_all_games: total game sessions this week (cap at 3)
-      progress.set('weekly_all_games', Math.min(3, weeklyComps.filter(c => c.task_id === 'daily_game').length))
-
-      setTaskProgress(progress)
-    }
-
-    setLoading(false)
-  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => { loadCompletions() }, [loadCompletions])
-
-  // Self-heal after a Supabase outage: the load effect only re-runs when
-  // user.id changes, and TaskProvider lives in the persistent (app) layout
-  // so client-side navigation never remounts it — without this, a failed
-  // load would persist until a full reload. Retry on return to foreground
-  // (focus alone misses iOS standalone, which only fires visibilitychange).
-  useEffect(() => onForeground(() => { if (loadFailedRef.current) loadCompletions() }), [loadCompletions])
-
-  // ── Sync XP + level + coins + streak + achievements from profile ─────────
-  useEffect(() => {
-    if (profile) {
-      setXp(profile.xp ?? 0)
-      setLevel(profile.level ?? 1)
-      setCoins(profile.coins ?? 0)
-      setStreak(profile.streak ?? { current: 0, best: 0, lastDate: null })
-      setAchievements(profile.achievements ?? {})
-    }
-  }, [profile?.xp, profile?.level, profile?.coins, profile?.streak, profile?.achievements]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Retroactive achievement check on mount ───────────────────────────────
-  // Catches achievements the user already qualifies for (e.g. level-based
-  // ones for existing high-level users who got the feature after leveling).
-  useEffect(() => {
-    if (!user?.id || loading || !profile) return
-    const currentAch = profile.achievements ?? {}
-    const currentStreak = profile.streak ?? { current: 0, best: 0, lastDate: null }
-    const ctx: AchievementContext = {
-      userId: user.id,
-      completedIds,
-      stats: null,
-      level: profile.level ?? 1,
-      streak: currentStreak,
-      achievements: { ...currentAch },
-    }
-    runAchievementCheck('mount', ctx, profile.coins ?? 0).catch(() => {})
-  }, [user?.id, loading]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Add coins to user profile ────────────────────────────────────────────
-  const addCoins = useCallback(async (amount: number): Promise<boolean> => {
-    if (!user?.id) return false
-    const next = coins + amount
-    setCoins(next)
-    // writeWithRetry + error check, mirroring spendCoins below: this is an
-    // absolute value so a retry can't double-credit. Unretried and unchecked,
-    // a transient 503 silently swallowed every payout in the app (arcade
-    // rewards, kiosk shifts, fortunes) and the coins were simply gone.
-    const { error } = await writeWithRetry(signal =>
-      supabase.from('profiles').update({ coins: next }).eq('id', user.id).abortSignal(signal))
-    if (error) { setCoins(coins); return false }
-    // Returns whether the coins actually landed. Most callers pay out on top of
-    // something already recorded and can ignore it, but a caller that is about
-    // to mark the SOURCE consumed — the reward road stamping claimed_level —
-    // has to know, or a rolled-back payout still burns the thing that paid it.
-    return true
-  }, [user?.id, coins]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Spend coins (returns false if insufficient) ──────────────────────────
-  const spendCoins = useCallback(async (amount: number): Promise<boolean> => {
-    if (!user?.id || coins < amount) return false
-    const next = coins - amount
-    setCoins(next)
-    // writeWithRetry: absolute value, so a retry can't double-charge. A
-    // transient 503 no longer fails the purchase outright, and a stalled
-    // request gets aborted instead of pinning every caller's busy state
-    // (shop BUY, gacha PULL, bakery) for as long as the socket dangles.
-    const { error } = await writeWithRetry(signal =>
-      supabase.from('profiles').update({ coins: next }).eq('id', user.id).abortSignal(signal))
-    if (error) { setCoins(coins); return false }
-    return true
-  }, [user?.id, coins]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Shared helper: run achievement checks + persist unlocks ──────────────
-  // Mutates ctx.achievements so sequential calls within the same batch see
-  // freshly-unlocked IDs and don't double-fire.
-  const runAchievementCheck = useCallback(async (
-    trigger: AchievementTrigger,
-    ctx: AchievementContext,
-    currentCoins: number,
-  ) => {
-    const unlocked = await checkAchievements(trigger, ctx, supabase)
-    if (unlocked.length === 0) return currentCoins
-
-    const now = new Date().toISOString()
-    let achCoins = 0
-    for (const a of unlocked) { ctx.achievements[a.id] = now; achCoins += a.coins }
-
-    setAchievements({ ...ctx.achievements })
-    const nextCoins = currentCoins + achCoins
-    setCoins(nextCoins)
-    await supabase.from('profiles').update({ achievements: ctx.achievements, coins: nextCoins }).eq('id', ctx.userId)
-
-    window.dispatchEvent(new CustomEvent<{ achievements: AchievementDef[] }>('eren:achievement-unlocked', {
-      detail: { achievements: unlocked },
-    }))
-    return nextCoins
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Public: trigger achievement check from outside (games, battles) ─────
-  const checkAchievementsFor = useCallback(async (
-    trigger: AchievementTrigger,
-    extra?: Partial<AchievementContext>,
-  ) => {
-    if (!user?.id) return
-    const ctx: AchievementContext = {
-      userId: user.id,
-      completedIds,
-      stats: null,
-      level,
-      streak,
-      achievements,
-      ...extra,
-    }
-    await runAchievementCheck(trigger, ctx, coins)
-  }, [user?.id, completedIds, level, streak, achievements, coins, runAchievementCheck])
-
-  // ── Complete a task ──────────────────────────────────────────────────────
-  const completeTask = useCallback(async (taskId: TaskId): Promise<{ coins: number; xp: number; levelUp: boolean } | null> => {
-    if (!user?.id) return null
-
-    const def = TASK_DEFS.find(t => t.id === taskId)
-    if (!def) return null
-
-    const periodKey = def.period === 'daily' ? getDailyKey() : getWeeklyKey()
-    const key = `${taskId}:${periodKey}`
-    if (completedIds.has(key)) return null
-
-    // The in-memory guard above misses completions that already exist in the
-    // DB but not yet in local state — a fresh load before the load effect
-    // lands, or another tab/device that did this task earlier today. Inserting
-    // anyway violates the (user_id, task_id, period_key) unique constraint, and
-    // the browser logs a 409 for every such call. Check first, sync local
-    // state, and bail before the insert so we neither spam the console nor
-    // double-award coins/XP.
-    const { data: already } = await supabase
-      .from('user_task_completions')
-      .select('task_id')
-      .eq('user_id', user.id)
-      .eq('task_id', taskId)
-      .eq('period_key', periodKey)
-      .limit(1)
-    if (already && already.length > 0) {
-      setCompletedIds(prev => { const next = new Set(prev); next.add(key); return next })
-      return null
-    }
-
-    // 1. Insert completion
-    const { error } = await supabase
-      .from('user_task_completions')
-      .insert({ user_id: user.id, task_id: taskId, period_key: periodKey, coins_earned: def.coins, xp_earned: def.xp })
-
-    if (error) return null
-
-    // 2. Update coins + XP on profile
-    // A confirmed food perk can arrive while this callback still has its old render.
-    let newCoins = coinsRef.current + def.coins
-    const newXp  = xp + def.xp
-    let newLevel = level
-    let levelUp  = false
-
-    while (true) {
-      const xpInLevel = newXp - totalXpForLevel(newLevel)
-      if (xpInLevel >= xpForNextLevel(newLevel)) { newLevel++; levelUp = true }
-      else break
-    }
-
-    // 3. Streak update on first daily task of the day
-    let newStreak = streak
-    const profilePatch: Record<string, unknown> = { coins: newCoins, xp: newXp, level: newLevel }
-    if (def.period === 'daily') {
-      const todayStr = format(new Date(), 'yyyy-MM-dd')
-      const result = updateStreak(streak, todayStr)
-      if (result.changed) {
-        newStreak = result.streak
-        setStreak(newStreak)
-        profilePatch.streak = newStreak
-
-        let bonusCoins = 0
-        for (const m of result.milestonesHit) bonusCoins += STREAK_MILESTONE_COINS[m] ?? 0
-        if (bonusCoins > 0) {
-          newCoins += bonusCoins
-          profilePatch.coins = newCoins
-          window.dispatchEvent(new CustomEvent('eren:streak-milestone', {
-            detail: { milestones: result.milestonesHit, coins: bonusCoins, streak: newStreak.current },
-          }))
-        }
-        if (result.freezeUsed) {
-          window.dispatchEvent(new CustomEvent('eren:streak-freeze-used', {
-            detail: { streak: newStreak.current, freezesLeft: newStreak.freezeTokens ?? 0 },
-          }))
-        }
-      }
-    }
-
-    // The completion row is already in. If the rewards write fails we must not
-    // leave the quest marked complete with nothing paid out — that state is
-    // unrecoverable for the user (the quest never re-offers, the coins/XP/
-    // streak are simply forfeited). Roll the completion back instead so the
-    // quest stays claimable and they can retry.
-    const { error: rewardErr } = await writeWithRetry(signal =>
-      supabase.from('profiles').update(profilePatch).eq('id', user.id).abortSignal(signal))
-    if (rewardErr) {
-      await supabase.from('user_task_completions').delete()
-        .eq('user_id', user.id).eq('task_id', taskId).eq('period_key', periodKey)
-      return null
-    }
-    setCoins(newCoins)
-    setXp(newXp)
-    setLevel(newLevel)
-    const nextCompleted = new Set(completedIds)
-    nextCompleted.add(key)
-    setCompletedIds(nextCompleted)
-
-    // Audio cues — the AchievementToast component listens for these and
-    // plays the matching SFX. Keep this in TaskContext so any caller that
-    // completes a task gets the sound for free.
-    try {
-      window.dispatchEvent(new CustomEvent('eren:quest-complete', {
-        detail: { taskId, period: def.period, coins: def.coins, xp: def.xp },
+  const adoptReward = useCallback((result: RewardSaveResult) => {
+    if (!result.profile || !result.outcome || !user?.id) return false
+    const saved = result.profile, outcome = result.outcome
+    if (![saved.coins, saved.xp, saved.level, saved.claimed_level].every(Number.isSafeInteger)
+      || !Array.isArray(outcome.tasks) || !Array.isArray(outcome.achievements)) return false
+    setCoins(saved.coins); setXp(saved.xp); setLevel(saved.level)
+    setStreak(saved.streak ?? { current: 0, best: 0, lastDate: null })
+    setAchievements(saved.achievements ?? {})
+    window.dispatchEvent(new CustomEvent<ProfileUpdatedDetail>(PROFILE_UPDATED_EVENT, { detail: { id: user.id, patch: saved } }))
+    if (outcome.tasks.length) {
+      const next = new Set(completedRef.current)
+      for (const task of outcome.tasks) next.add(`${task.id}:${task.periodKey}`)
+      completedRef.current = next
+      setCompletedIds(next)
+      for (const task of outcome.tasks) window.dispatchEvent(new CustomEvent('eren:quest-complete', {
+        detail: { taskId: task.id, period: task.period, coins: task.coins, xp: task.xp },
       }))
-      if (levelUp) {
-        window.dispatchEvent(new CustomEvent('eren:level-up', {
-          detail: { level: newLevel },
-        }))
-      }
-    } catch { /* SSR / no-window */ }
-
-    // 4. Update weekly progress if this daily task contributes to a weekly one
-    if (def.period === 'daily') {
-      const weeklyTaskId = PROGRESS_MAP[taskId]
-      if (weeklyTaskId) {
-        const weeklyDef = TASK_DEFS.find(t => t.id === weeklyTaskId)!
-        const weeklyKey = getWeeklyKey()
-
-        setTaskProgress(prev => {
-          const next = new Map(prev)
-          const weeklyComps = prev.get(weeklyTaskId) ?? 0
-
-          let newCount = weeklyComps
-          if (weeklyTaskId === 'weekly_all_care') {
-            const alreadyCounted = (prev.get('weekly_all_care') ?? 0)
-            const typeDone = completedIds.has(`${taskId}:${getDailyKey()}`)
-            if (!typeDone && alreadyCounted < (weeklyDef.maxProgress ?? 4)) {
-              newCount = alreadyCounted + 1
-            }
-          } else {
-            const max = weeklyDef.maxProgress ?? 99
-            newCount = Math.min(max, weeklyComps + 1)
-          }
-
-          next.set(weeklyTaskId, newCount)
-
-          const max = weeklyDef.maxProgress ?? 0
-          if (max > 0 && newCount >= max && !completedIds.has(`${weeklyTaskId}:${weeklyKey}`)) {
-            setTimeout(() => completeTask(weeklyTaskId), 300)
-          }
-
-          return next
-        })
-      }
     }
-
-    // 5. Achievement checks — collect all triggers, run once sequentially
-    const triggers: AchievementTrigger[] = []
-    if ((CARE_TASK_IDS as string[]).includes(taskId)) triggers.push('care')
-    else if (taskId === 'daily_game') triggers.push('game')
-    else if (taskId === 'daily_mood') triggers.push('mood')
-    if (newStreak !== streak) triggers.push('streak')
-    if (levelUp) triggers.push('level')
-
-    if (triggers.length > 0) {
-      ;(async () => {
-        let currentAch = { ...achievements }
-        let currentCoins = newCoins
-        const achCtx: AchievementContext = {
-          userId: user.id,
-          completedIds: nextCompleted,
-          stats: null,
-          level: newLevel,
-          streak: newStreak,
-          achievements: currentAch,
-        }
-        for (const t of triggers) {
-          achCtx.achievements = currentAch
-          currentCoins = await runAchievementCheck(t, achCtx, currentCoins)
-          currentAch = { ...achCtx.achievements }
-        }
-      })().catch(() => {})
-    }
-
-    return { coins: def.coins, xp: def.xp, levelUp }
-  }, [user?.id, completedIds, coins, xp, level, streak, achievements, runAchievementCheck]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Streak repair ────────────────────────────────────────────────────────
-  const todayStrNow = format(new Date(), 'yyyy-MM-dd')
-  const streakRepairAvailable = canRepairStreak(streak, todayStrNow) && coins >= STREAK_REPAIR_COST
-
-  const repairStreak = useCallback(async (): Promise<boolean> => {
-    if (!user?.id) return false
-    const todayStr = format(new Date(), 'yyyy-MM-dd')
-    if (!canRepairStreak(streak, todayStr)) return false
-    if (coins < STREAK_REPAIR_COST) return false
-    const restored = repairStreakData(streak, todayStr)
-    const nextCoins = coins - STREAK_REPAIR_COST
-    setStreak(restored)
-    setCoins(nextCoins)
-    const { error } = await supabase.from('profiles')
-      .update({ streak: restored, coins: nextCoins })
-      .eq('id', user.id)
-    if (error) {
-      setStreak(streak); setCoins(coins)
-      return false
-    }
-    window.dispatchEvent(new CustomEvent('eren:streak-repaired', {
-      detail: { streak: restored.current },
+    if (outcome.levelUp) window.dispatchEvent(new CustomEvent('eren:level-up', { detail: { level: outcome.levelReached } }))
+    if (outcome.milestones?.length) window.dispatchEvent(new CustomEvent('eren:streak-milestone', {
+      detail: { milestones: outcome.milestones, coins: outcome.milestoneCoins, streak: saved.streak?.current },
     }))
+    if (outcome.freezeUsed) window.dispatchEvent(new CustomEvent('eren:streak-freeze-used', { detail: { streak: saved.streak?.current, freezesLeft: saved.streak?.freezeTokens ?? 0 } }))
+    if (outcome.repaired) window.dispatchEvent(new CustomEvent('eren:streak-repaired', { detail: { streak: outcome.streakCount } }))
+    const unlocked = outcome.achievements.map(id => ACHIEVEMENT_DEFS.find(def => def.id === id)).filter((def): def is AchievementDef => !!def)
+    if (unlocked.length) window.dispatchEvent(new CustomEvent('eren:achievement-unlocked', { detail: { achievements: unlocked } }))
+    if (outcome.road) window.dispatchEvent(new Event('eren:rewards-claimed'))
     return true
-  }, [user?.id, streak, coins]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, loadCompletions])
 
-  // ── Listen for nudge sends: complete the daily quest + check achievement ─
+  const performReward = useCallback(async (kind: RewardKind, input: Record<string, unknown>, slot: string, recovery?: PendingSavedRequest): Promise<RewardSaveResult> => {
+    const actor = user?.id
+    const active = () => mounted.current && !!actor && currentUser.current === actor
+    if (!actor || !active()) return { ok: false, reason: 'session_changed' }
+    activeRequests.current++
+    setRewardBusy(true)
+    try {
+      const result = recovery ? await recoverReward(supabase, actor, recovery, active)
+        : await saveReward(supabase, actor, kind, input, slot, active)
+      if (!active()) return { ok: false, reason: 'session_changed' }
+      if (result.ok && adoptReward(result)) {
+        setRewardError(null)
+        if (kind === 'task') void loadCompletions()
+        return result
+      }
+      const failed = result.ok ? { ok: false, reason: 'connection' } : result
+      if (kind !== 'road' && failed.reason !== 'nothing_pending') setRewardError(rewardSaveError(failed.reason))
+      return failed
+    } catch {
+      if (active() && kind !== 'road') setRewardError(rewardSaveError('connection'))
+      return { ok: false, reason: 'connection' }
+    } finally {
+      activeRequests.current--
+      if (mounted.current) {
+        setRewardBusy(activeRequests.current > 0)
+        setPendingRewards(currentUser.current ? pendingRewardSaves(currentUser.current).filter(request => request.args.p_kind !== 'road').length : 0)
+      }
+    }
+  }, [user?.id, adoptReward, loadCompletions]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const addCoins = useCallback(async (amount: number): Promise<boolean> => {
+    if (!Number.isSafeInteger(amount) || amount < 0) return false
+    if (amount === 0) return true
+    return (await performReward('wallet', { amount }, `wallet:${crypto.randomUUID()}`)).ok
+  }, [performReward])
+  const spendCoins = useCallback(async (amount: number): Promise<boolean> => {
+    if (!Number.isSafeInteger(amount) || amount < 0) return false
+    if (amount === 0) return true
+    return (await performReward('wallet', { amount: -amount }, `wallet:${crypto.randomUUID()}`)).ok
+  }, [performReward])
+
+  const completeTask = useCallback(async (taskId: TaskId) => {
+    if (!user?.id || !TASK_DEFS.some(task => task.id === taskId)) return null
+    const { input, slot } = taskRewardInput(taskId)
+    const period = TASK_DEFS.find(task => task.id === taskId)!.period
+    const key = `${taskId}:${period === 'daily' ? getDailyKey() : getWeeklyKey()}`
+    if (completedRef.current.has(key) && !pendingRewardSaves(user.id).some(request => request.slot === slot)) return null
+    const result = await performReward('task', input, slot)
+    const completed = result.ok ? result.outcome?.tasks.find(task => task.id === taskId) : null
+    return completed ? { coins: completed.coins, xp: completed.xp, levelUp: !!result.outcome?.levelUp } : null
+  }, [user?.id, performReward])
+
+  const checkAchievementsFor = useCallback(async (trigger: AchievementTrigger, _extra?: Partial<AchievementContext>) => {
+    const { input, slot } = achievementRewardInput(trigger)
+    await performReward('achievement', input, slot)
+  }, [performReward])
+
+  const repairStreak = useCallback(async (): Promise<boolean> =>
+    (await performReward('repair', rewardDay(), 'repair')).ok, [performReward])
+
+  const claimLevelRewards = useCallback((target: number, householdId: string) =>
+    performReward('road', { target, householdId }, `road:${householdId}`), [performReward])
+
+  const retryRewards = useCallback(async () => {
+    if (!user?.id || currentUser.current !== user.id) return
+    setRewardError(null)
+    for (const request of pendingRewardSaves(user.id).filter(request => request.args.p_kind !== 'road')) {
+      await performReward(request.args.p_kind as RewardKind, request.args.p_input as Record<string, unknown>, request.slot, request)
+    }
+    if (loadFailedRef.current) await loadCompletions()
+  }, [user?.id, performReward, loadCompletions])
+
   useEffect(() => {
     if (!user?.id) return
-    const onNudge = () => {
-      const key = `daily_nudge:${getDailyKey()}`
-      if (!completedIds.has(key)) {
-        completeTask('daily_nudge').catch(() => {})
-      }
-      checkAchievementsFor('nudge').catch(() => {})
-    }
+    setPendingRewards(pendingRewardSaves(user.id).filter(request => request.args.p_kind !== 'road').length)
+    void retryRewards()
+    return onForeground(() => { void retryRewards() })
+  }, [user?.id, retryRewards])
+  useEffect(() => { if (user?.id && !loading) void checkAchievementsFor('mount') }, [user?.id, loading, checkAchievementsFor])
+
+  useEffect(() => {
+    if (!user?.id) return
+    const onNudge = () => { void completeTask('daily_nudge'); void checkAchievementsFor('nudge') }
     window.addEventListener('eren:nudge-sent', onNudge)
     return () => window.removeEventListener('eren:nudge-sent', onNudge)
-  }, [user?.id, completedIds, completeTask, checkAchievementsFor])
+  }, [user?.id, completeTask, checkAchievementsFor])
 
-  // ── Listen for my care actions: fire server push to partner ──────────────
-  // useErenStats dispatches `eren:my-action` after a successful interaction
-  // insert. The push covers the case where the partner's PWA is closed; the
-  // in-app realtime toast already handles open-app coverage.
   useEffect(() => {
     if (!user?.id || !profile?.household_id) return
-    const onMyAction = (e: Event) => {
-      const detail = (e as CustomEvent<{ household_id?: string; user_id?: string; action_type?: string }>).detail
+    const onMyAction = (event: Event) => {
+      const detail = (event as CustomEvent<{ household_id?: string; user_id?: string; action_type?: string }>).detail
       if (!detail?.action_type) return
-      fetch('/api/notify-action', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          household_id: detail.household_id ?? profile.household_id,
-          sender_id: detail.user_id ?? user.id,
-          sender_name: profile.name ?? '',
-          action_type: detail.action_type,
-        }),
-      }).catch(() => { /* best-effort */ })
+      fetch('/api/notify-action', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({
+        household_id: detail.household_id ?? profile.household_id, sender_id: detail.user_id ?? user.id,
+        sender_name: profile.name ?? '', action_type: detail.action_type,
+      }) }).catch(() => {})
     }
     window.addEventListener('eren:my-action', onMyAction)
     return () => window.removeEventListener('eren:my-action', onMyAction)
   }, [user?.id, profile?.household_id, profile?.name])
 
-  // ── Listen for streak milestones: fire server push to partner ────────────
-  // completeTask dispatches `eren:streak-milestone` when a threshold is
-  // crossed. The route dedups via last_phase3_notify, so a double event
-  // (StrictMode, retry) is harmless.
   useEffect(() => {
     if (!user?.id || !profile?.household_id) return
-    const onMilestone = (e: Event) => {
-      const detail = (e as CustomEvent<{ milestones?: number[] }>).detail
+    const onMilestone = (event: Event) => {
+      const detail = (event as CustomEvent<{ milestones?: number[] }>).detail
       if (!detail?.milestones?.length) return
-      fetch('/api/notify-streak', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          household_id: profile.household_id,
-          sender_id: user.id,
-          sender_name: profile.name ?? '',
-          milestone: Math.max(...detail.milestones),
-        }),
-      }).catch(() => { /* best-effort */ })
+      fetch('/api/notify-streak', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({
+        household_id: profile.household_id, sender_id: user.id, sender_name: profile.name ?? '', milestone: Math.max(...detail.milestones),
+      }) }).catch(() => {})
     }
     window.addEventListener('eren:streak-milestone', onMilestone)
     return () => window.removeEventListener('eren:streak-milestone', onMilestone)
   }, [user?.id, profile?.household_id, profile?.name])
 
-  // ── Listen for weekly champion / comeback coin payouts ──────────────────
-  // The Care Battle modules CAS-claim the payout server-side first, then fire
-  // these events with the credited amount. TaskContext owns the coin pool.
   useEffect(() => {
     if (!user?.id) return
-    const credit = (e: Event) => {
-      const detail = (e as CustomEvent<{ coins?: number }>).detail
-      const amt = detail?.coins ?? 0
-      if (amt > 0) addCoins(amt).catch(() => {})
+    const credit = (event: Event) => {
+      const amount = (event as CustomEvent<{ coins?: number }>).detail?.coins ?? 0
+      if (amount > 0) void addCoins(amount)
     }
-    window.addEventListener('eren:weekly-payout', credit)
-    window.addEventListener('eren:comeback-payout', credit)
-    window.addEventListener('eren:games-payout', credit)
-    window.addEventListener('eren:coop-payout', credit)
-    return () => {
-      window.removeEventListener('eren:weekly-payout', credit)
-      window.removeEventListener('eren:comeback-payout', credit)
-      window.removeEventListener('eren:games-payout', credit)
-      window.removeEventListener('eren:coop-payout', credit)
-    }
+    const events = ['eren:weekly-payout', 'eren:comeback-payout', 'eren:games-payout', 'eren:coop-payout']
+    events.forEach(name => window.addEventListener(name, credit))
+    return () => events.forEach(name => window.removeEventListener(name, credit))
   }, [user?.id, addCoins])
 
-  return (
-    <TaskContext.Provider value={{
-      completedIds, taskProgress, completeTask, addCoins, spendCoins,
-      coins, xp, level, loading, streak, achievements, checkAchievementsFor,
-      streakRepairAvailable, streakRepairCost: STREAK_REPAIR_COST, repairStreak,
-    }}>
-      {children}
-    </TaskContext.Provider>
-  )
+  return <TaskContext.Provider value={{
+    completedIds, taskProgress, completeTask, addCoins, spendCoins, coins, xp, level, loading, streak, achievements, checkAchievementsFor,
+    streakRepairAvailable: canRepairStreak(streak, rewardDay().day) && coins >= STREAK_REPAIR_COST,
+    streakRepairCost: STREAK_REPAIR_COST, repairStreak, claimLevelRewards, rewardError, pendingRewards, rewardBusy, retryRewards,
+  }}>{children}</TaskContext.Provider>
 }
 
 export function useTasks() {

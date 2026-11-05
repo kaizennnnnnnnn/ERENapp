@@ -279,7 +279,7 @@ test('lost responses survive fresh modules and replay once with last coins/food/
     const key = `eren:saved-rpc:v1:${USER}:${entry.name}:${HOME}`
     const saved = JSON.parse(storage.get(key))
     assert.deepEqual(saved, { id: original.args.p_request_id, args: { p_household_id: HOME, ...entry.args } })
-    assert.deepEqual(journal.pendingSavedRpcs(USER, entry.name), [saved])
+    assert.deepEqual(journal.pendingSavedRpcs(USER, entry.name), [{ ...saved, slot: HOME }])
     const afterCommit = clone(fixture.houses.get(HOME))
     assert.equal(afterCommit.mutations, 1)
     if (entry.action.kind === 'feed') assert.equal(afterCommit.stats.food_by_user[USER].milk, 0, 'The last food has already been consumed')
@@ -546,68 +546,49 @@ test('food action error messages explain safe failure and receipt recovery', asy
   }
 })
 
-test('actual TaskContext listener and captured completeTask preserve confirmed food coin perks', async () => {
+test('actual TaskContext listener and captured quest callback preserve confirmed food coin perks', async () => {
   const { events, listeners } = browser()
   const { food, load } = modules()
   const body = sourceBody('src/contexts/TaskContext.tsx', 'TaskProvider')
-  const selected = [
-    ...declarations(body, ['coinsRef', 'completeTask']),
-    ...effects(body, 'coinsRef.current = coins'),
-    ...effects(body, 'PROFILE_UPDATED_EVENT'),
-  ].sort((a, b) => a.pos - b.pos)
+  const selected = [...declarations(body, ['completeTask']), ...effects(body, 'PROFILE_UPDATED_EVENT')]
+    .sort((a,b)=>a.pos-b.pos)
   const react = reactFixture()
-  const state = { coins: 10, xp: 0, level: 1, completedIds: new Set(), taskProgress: new Map(), streak: { current: 1, best: 1, lastDate: '2026-11-02' }, achievements: {} }
-  const writes = []
-  const client = {
-    from(table) {
-      assert.ok(['profiles', 'user_task_completions'].includes(table))
-      const query = {
-        select() { return query }, eq() { return query },
-        limit: async () => ({ data: [], error: null }),
-        insert: async row => { assert.equal(row.task_id, 'daily_feed'); return { error: null } },
-        update(patch) { assert.equal(table, 'profiles'); writes.push(clone(patch)); return query },
-        abortSignal: async () => ({ data: null, error: null }),
-      }
-      return query
+  const state = { coins:10 }
+  const currentUser = { current:USER }
+  const calls=[]
+  const bindings = {
+    ...react, user:{id:USER}, currentUser, completedRef:{current:new Set()},
+    ...load('src/lib/tasks.ts'), ...load('src/lib/rewardSaves.ts'),
+    window, CustomEvent, PROFILE_UPDATED_EVENT,
+    setCoins: value=>{state.coins=value},
+    performReward: async (kind,input,slot)=>{
+      calls.push({kind,input,slot})
+      assert.equal(state.coins,17,'Food wallet event must already have been adopted')
+      const def=load('src/lib/tasks.ts').TASK_DEFS.find(t=>t.id===input.taskId)
+      // The server reads its current balance; no captured render computes it.
+      const saved={ok:true,profile:{coins:17+def.coins},outcome:{tasks:[def],levelUp:false}}
+      state.coins=saved.profile.coins
+      return saved
     },
   }
-  const setters = Object.fromEntries(Object.keys(state).map(name => ['set' + name[0].toUpperCase() + name.slice(1), value => {
-    state[name] = typeof value === 'function' ? value(state[name]) : value
-  }]))
-  const taskBindings = {
-    ...react, ...state, ...setters, user: { id: USER }, supabase: client,
-    ...load('src/lib/tasks.ts'), ...load('src/lib/supabaseRetry.ts'),
-    window, CustomEvent, PROFILE_UPDATED_EVENT, format: () => '2026-11-02',
-    updateStreak: current => ({ changed: false, streak: current }), STREAK_MILESTONE_COINS: {},
-    runAchievementCheck: async (_trigger, _context, coins) => coins,
+  const task=react.render(()=>evaluate(body,selected,'{ completeTask }',bindings))
+  for (const detail of [{id:'partner',patch:{coins:999}},{id:USER,patch:{coins:'999'}},{id:USER,patch:{xp:1}}]) {
+    window.dispatchEvent(new CustomEvent(PROFILE_UPDATED_EVENT,{detail}))
+    assert.equal(state.coins,10)
   }
-  // Capture completeTask before the food event and deliberately do not rerender.
-  const task = react.render(() => evaluate(body, selected, '{ coinsRef, completeTask }', taskBindings))
-  assert.equal(listeners.get(PROFILE_UPDATED_EVENT).size, 1)
-  for (const detail of [{ id: 'partner', patch: { coins: 999 } }, { id: USER, patch: { coins: '999' } }, { id: USER, patch: { xp: 1 } }]) {
-    window.dispatchEvent(new CustomEvent(PROFILE_UPDATED_EVENT, { detail }))
-    assert.equal(task.coinsRef.current, 10)
-    assert.equal(state.coins, 10)
-  }
-  const fixture = server()
-  const harness = hook(food, fixture)
-  assert.equal((await harness.render().runFoodAction(cases[2].action)).ok, true)
-  assert.equal(task.coinsRef.current, 17, 'The actual listener must update the ref synchronously')
-  assert.equal(state.coins, 17)
-  const reward = await task.completeTask('daily_feed')
-  const definition = taskBindings.TASK_DEFS.find(task => task.id === 'daily_feed')
-  assert.deepEqual(reward, { coins: definition.coins, xp: definition.xp, levelUp: false })
-  assert.equal(writes.length, 1)
-  assert.equal(writes[0].coins, 17 + definition.coins, 'The captured task callback must base its write on confirmed food coins, not the old render')
-  assert.equal(state.coins, 17 + definition.coins)
-  assert.equal(events.filter(event => event.type === 'eren:quest-complete').length, 1)
-  const rerendered = react.render(() => evaluate(body, selected, '{ coinsRef, completeTask }', { ...taskBindings, ...state }))
-  assert.equal(rerendered.coinsRef.current, state.coins, 'The actual mirror effect tracks rendered coin state too')
+  const fixture=server(),harness=hook(food,fixture)
+  assert.equal((await harness.render().runFoodAction(cases[2].action)).ok,true)
+  assert.equal(state.coins,17)
+  assert.deepEqual(await task.completeTask('daily_feed'),{coins:25,xp:20,levelUp:false})
+  assert.equal(state.coins,42)
+  assert.equal(calls.length,1);assert.equal(calls[0].kind,'task')
+  assert.equal(calls[0].input.taskId,'daily_feed')
+  assert.ok(calls[0].slot.startsWith('task:daily_feed:'))
+  assert.ok(!body.statements.some(s=>s.getText(body.source).includes(".from('profiles').update")),
+    'TaskProvider must not overwrite a balance from captured render state')
   react.unmount()
-  assert.equal(listeners.get(PROFILE_UPDATED_EVENT).size, 0, 'Clean up the actual profile listener')
-  // General cross-device wallet writes remain outside this focused regression.
+  assert.equal(listeners.get(PROFILE_UPDATED_EVENT).size,0)
 })
-
 async function main() {
   const originalTimer = global.setTimeout
   const globals = Object.fromEntries(['window', 'sessionStorage', 'CustomEvent'].map(key => [key, Object.getOwnPropertyDescriptor(global, key)]))
