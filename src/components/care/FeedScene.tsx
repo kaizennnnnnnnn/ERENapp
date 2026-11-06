@@ -32,8 +32,6 @@ import ChewingEren, { EAT_NOSE_X, pickEatPose, preloadEatPoses } from '@/compone
 import PetTarget, { PurrFx, PURR } from '@/components/care/PetTarget'
 import { DONUTS, getDonut, KITCHEN_DONUTS, TASTE_LINE } from '@/lib/donuts'
 import { DONUT_EFFECTS } from '@/lib/donutEffects'
-import { dailyMenu } from '@/lib/foodMenu'
-import { todayKey } from '@/lib/seededRng'
 import { monstaBuff } from '@/lib/monstaBuffs'
 import CanFeedBurst, { type CanVariant } from './CanFeedBurst'
 import SkinUnlockCinematic from './SkinUnlockCinematic'
@@ -259,7 +257,7 @@ const FEED_EREN_FALLBACK = {
 
 export default function FeedScene({ onClose }: Props) {
   const { user, profile } = useAuth()
-  const { stats, runFoodAction, foodActionBusy, foodActionRetry, noteMenuFed } = useErenStats(profile?.household_id ?? null)
+  const { stats, runFoodAction, foodActionBusy, foodActionRetry } = useErenStats(profile?.household_id ?? null)
   const { completeTask, coins } = useTasks()
   const isDark = useIsDark()
   const wish = useWish()
@@ -562,8 +560,6 @@ export default function FeedScene({ onClose }: Props) {
           food: item.id, user_id: user.id, household_id: profile?.household_id,
         } }))
       } catch { /* SSR/no-window */ }
-      const day = todayKey(new Date())
-      noteMenuFed(day, item.id, dailyMenu(day, profile?.household_id ?? null))
       void completeTask('daily_feed')
       if (!mounted.current) return
       const drinking = isDrink(item.id)

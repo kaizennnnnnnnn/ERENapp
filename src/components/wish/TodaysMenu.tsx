@@ -24,7 +24,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { FoodKey } from '@/types'
 import { FOOD_META, foodArt } from '@/lib/foodMeta'
 import FoodIcon from '@/components/care/FoodIcon'
-import { CheckDisc, M, MeadowIcon, RoundButton, TINT, TYPE, FONT_ROUNDED } from '@/components/meadow'
+import { CheckDisc, M, MeadowIcon, RoundButton, TextButton, TINT, TYPE, FONT_ROUNDED } from '@/components/meadow'
 import { playSound } from '@/lib/sounds'
 import { useCat } from '@/hooks/useCat'
 
@@ -36,10 +36,14 @@ interface Props {
   /** Parallel to `menu` — true where that food has been fed today. */
   progress: boolean[]
   complete: boolean
+  claimed: boolean
+  busy?: boolean
+  error?: string | null
+  onRetry?: () => void
   reward: number
 }
 
-export default function TodaysMenu({ menu, progress, complete, reward }: Props) {
+export default function TodaysMenu({ menu, progress, complete, claimed, busy, error, onRetry, reward }: Props) {
   const [open, setOpen] = useState(false)
   const cat = useCat()
   const rootRef = useRef<HTMLDivElement>(null)
@@ -137,10 +141,17 @@ export default function TodaysMenu({ menu, progress, complete, reward }: Props) 
             margin: '8px 0 0', gap: 4, fontSize: 13, fontWeight: 700,
             color: complete ? M.leafInk : M.text2,
           }}>
-            {complete ? 'Paid' : 'All three'}
+            {claimed ? 'Paid' : complete ? (busy ? 'Saving bonus' : 'Bonus waiting') : 'All three'}
             <MeadowIcon name="coin" size={16} />
             <span style={{ ...TYPE.number, color: M.text }}>+{reward}</span>
           </p>
+
+          {error && <>
+            <p role="status" style={{ margin: '8px 0 0', fontSize: 12, lineHeight: 1.35, color: M.text2, textAlign: 'center' }}>{error}</p>
+            {onRetry && <TextButton disabled={busy} onClick={onRetry} style={{ width: '100%', marginTop: 4 }}>
+              <MeadowIcon name="replay" size={14} /> Retry
+            </TextButton>}
+          </>}
 
           {/* Tail pointing down at the bowl. */}
           <span aria-hidden style={{

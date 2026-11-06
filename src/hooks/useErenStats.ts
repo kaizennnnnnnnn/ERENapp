@@ -727,39 +727,14 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
     return !error
   }, [householdId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Today's food menu. Both writers go through here so `day` is the only thing
-  // that decides whether yesterday's state is extended or thrown away — a stale
-  // row from last night must never count toward this morning's menu.
-  const writeMenuState = useCallback(async (
-    day: string,
-    update: (curr: { day: string; done: string[]; claimed_at: string | null }) => { day: string; done: string[]; claimed_at: string | null } | null,
-  ): Promise<void> => {
-    const cur = statsRef.current ?? stats
-    if (!cur || !householdId) return
-    const existing = cur.menu_state
-    const base = existing?.day === day ? existing : { day, done: [], claimed_at: null }
-    const next = update(base)
-    if (!next) return  // nothing changed — skip the write entirely
-    if (statsRef.current) statsRef.current = { ...statsRef.current, menu_state: next }
-    setStats(prev => prev ? { ...prev, menu_state: next } : prev)
-    await writeWithRetry(signal =>
-      supabase.from('eren_stats').update({ menu_state: next }).eq('household_id', householdId).abortSignal(signal))
-  }, [stats, householdId]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  /** Ticks a menu item off. No-op when it's already ticked or not on today's menu. */
-  const noteMenuFed = useCallback((day: string, foodKey: string, menu: readonly string[]): void => {
-    if (!menu.includes(foodKey)) return
-    void writeMenuState(day, curr =>
-      curr.done.includes(foodKey) ? null : { ...curr, done: [...curr.done, foodKey] })
-  }, [writeMenuState])
-
-  /** Marks today's menu paid. Returns false when it was already claimed. */
-  const claimMenu = useCallback(async (day: string): Promise<boolean> => {
-    const cur = statsRef.current ?? stats
-    if (cur?.menu_state?.day === day && cur.menu_state.claimed_at) return false
-    await writeMenuState(day, curr => ({ ...curr, claimed_at: new Date().toISOString() }))
+  /** Adopt only the menu patch returned by a confirmed household save. */
+  const acceptMenuState = useCallback((next: NonNullable<ErenStats['menu_state']>) => {
+    if (!householdId || foodScope.current.householdId !== householdId || foodScope.current.userId !== userId
+      || statsRef.current?.household_id !== householdId) return false
+    statsRef.current = { ...statsRef.current, menu_state: next }
+    setStats(prev => prev?.household_id === householdId ? { ...prev, menu_state: next } : prev)
     return true
-  }, [stats, writeMenuState])
+  }, [householdId, userId])
 
   // Consumes 1 of `key` for feeding. Tries the user's personal pile first;
   // falls back to the shared legacy pool. Returns true if anything was
@@ -776,7 +751,7 @@ function useErenStatsImpl(householdId: string | null, userId: string | null) {
     runFoodAction, foodActionBusy, foodActionRetry,
     spendCoins, addCoins,
     addToMyFood, addManyToMyFood, consumeMyFood, giftFood,
-    markDonutTasted, noteMenuFed, claimMenu, startDonutEffect, savePotion, savePotionsFound,
+    markDonutTasted, acceptMenuState, startDonutEffect, savePotion, savePotionsFound,
     wakeUp, refetch: fetchStats,
   }
 }

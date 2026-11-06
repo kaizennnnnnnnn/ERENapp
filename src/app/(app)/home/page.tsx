@@ -790,6 +790,10 @@ export default function HomePage() {
               menu={foodMenu.menu}
               progress={foodMenu.progress}
               complete={foodMenu.complete}
+              claimed={foodMenu.claimed}
+              busy={foodMenu.busy}
+              error={foodMenu.error}
+              onRetry={() => { void foodMenu.refresh() }}
               reward={foodMenu.reward}
             />
 
